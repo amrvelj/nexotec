@@ -8,9 +8,7 @@ in the CTO workspace.
 
 ## Status
 
-This PR delivers **issue #1: platform foundation only** — no business
-entities (Dealer/User/Customer/Vehicle/Transaction) yet. It provides the
-infrastructure every later entity is built on:
+**Issue #1: platform foundation** — infrastructure every entity is built on:
 
 - FastAPI app, versioned under `/v1`
 - Tenant/access-role JWT auth boundary (`app/core/auth.py`)
@@ -23,6 +21,20 @@ infrastructure every later entity is built on:
 - Canonical error taxonomy: 400/401/403/404/409/422 (`app/core/errors.py`)
 - Reusable model mixins for future entities (`app/models/base.py`)
 - Alembic migrations targeting Postgres
+
+**Issue #2: Dealer + User bootstrap** — the first business entities:
+
+- `Dealer` (`app/models/dealer.py`): the tenant root, Swiss address, canton
+  validation, `tax_id` encrypted at rest (`app/models/types.py::EncryptedString`)
+- `User` (`app/models/user.py`): tenant-scoped, first FK relationship in the
+  schema (`user.tenant_id → dealer.id`), globally-unique email
+- `POST /v1/dealers` (platform-admin only), `POST /v1/dealers/{id}/users`,
+  full CRUD + audit-log endpoints — see `app/api/v1/dealers.py`
+- License/tax_id/status (Dealer) and role/access_role/status (User) changes
+  are audit-logged; `offboarded` and `terminated` are terminal states
+- Postgres CI test lane (see "Running tests") — CTO's merge condition, since
+  this is the first PR with a real FK to verify against Postgres, not just
+  SQLite's more permissive constraint enforcement
 
 ## Local setup
 
@@ -52,16 +64,28 @@ curl http://localhost:8000/v1/healthz
 
 ## Running tests
 
-Tests run against an in-memory SQLite database, not the Postgres container —
-no Docker required for `pytest`. This works because the shell only uses
-portable column types (see `app/models/types.py::GUID`); Postgres is still
-the target production database via `DMS_DATABASE_URL`, and Alembic migrations
-are hand-verified against Postgres DDL (`alembic upgrade head --sql`).
+Two lanes, both run in CI (`.github/workflows/test.yml`):
+
+**Fast lane — in-memory SQLite, no Docker required:**
 
 ```bash
 pip install -e ".[dev]"
 pytest
 ```
+
+**Postgres lane — the real container from `docker-compose.yml`.** Required
+from issue #2 onward: User→Dealer is the schema's first FK relationship, and
+SQLite's weaker constraint/concurrency enforcement can hide bugs (missing FK
+violations, isolation differences) that only show up against Postgres.
+
+```bash
+docker compose up -d db
+DMS_TEST_DATABASE_URL=postgresql+psycopg://dms:dms@localhost:5432/dms_platform pytest
+```
+
+Both lanes run the same test suite (`tests/conftest.py` picks the backend
+from `DMS_TEST_DATABASE_URL`) — keep SQLite for the fast dev loop, add
+Postgres before merging anything with a new FK/constraint.
 
 ## Database migrations
 
@@ -88,12 +112,16 @@ alembic upgrade head --sql                     # preview SQL without a live DB
 - PATCH/status-transition endpoints take `if_match: int = Depends(require_if_match)`
   from `app.core.concurrency` and call `check_version` before mutating.
 
-## Out of scope for this PR
+## Out of scope
 
 AUTO-i-DAT, Google Maps, Finance read-API, marketplace ingestion, MOFIS, and
-MediaAsset integrations — per the shell scope agreed in `#dms-mdm`. No
-business entities (Dealer/User/Customer/Vehicle/Transaction) — those are
-issues #2 through #6, each an independent PR against this foundation. No
-real IdP integration — `app.core.auth.create_access_token` is a placeholder
-issuer for tests/local dev only, not exposed over HTTP; issue #2 (Dealer +
-User bootstrap) is expected to define how tokens are actually issued.
+MediaAsset integrations — per the shell scope agreed in `#dms-mdm`.
+Customer/Vehicle/Transaction — issues #4 through #6, each an independent PR
+against this foundation. Real IdP integration is still unselected —
+`app.core.auth.create_access_token` remains a placeholder issuer for
+tests/local dev only, not exposed over HTTP; issue #2's `POST /v1/dealers`
++ `POST /v1/dealers/{id}/users` create the tenant/user *records*, not
+credentials — see the PR notes for how the first platform_admin token is
+minted in the shell. Dealer groups (`parent_group_id`), multi-dealer users,
+and fine-grained per-endpoint permissions beyond the five `access_role`
+values are explicitly deferred past v1.

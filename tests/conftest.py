@@ -1,17 +1,42 @@
+import os
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import StaticPool
 
 import app.models  # noqa: F401  ensures all tables are registered on Base.metadata
-from app.db import Base
+from app.db import Base, get_db
 from app.main import app as fastapi_app
 from tests.demo_models import DemoWidget  # noqa: F401  registers the test-only tenant-scoped model
+
+# Two test lanes (CTO condition on issue #2's merge): fast SQLite in-memory
+# by default, or the real Postgres container from docker-compose when
+# DMS_TEST_DATABASE_URL is set — see README "Running tests" and
+# .github/workflows/test.yml. User is the first FK relationship in the
+# schema; SQLite's weaker constraint/concurrency enforcement can hide bugs
+# that only show up against Postgres, so both lanes run in CI.
+_TEST_DATABASE_URL = os.environ.get("DMS_TEST_DATABASE_URL")
+
+
+def _make_engine():
+    if _TEST_DATABASE_URL:
+        return create_engine(_TEST_DATABASE_URL, pool_pre_ping=True)
+    # StaticPool: TestClient runs the app in a separate thread (anyio
+    # portal), and plain sqlite+pysqlite:///:memory: hands out a fresh
+    # (empty) in-memory database per connection/thread otherwise — this
+    # keeps every checkout on the single shared connection regardless of
+    # thread, needed once `client` below drives real HTTP requests through
+    # entity routers that hit the DB (issue #2+).
+    return create_engine(
+        "sqlite+pysqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=StaticPool
+    )
 
 
 @pytest.fixture()
 def engine():
-    eng = create_engine("sqlite+pysqlite:///:memory:", connect_args={"check_same_thread": False})
+    eng = _make_engine()
     Base.metadata.create_all(eng)
     yield eng
     Base.metadata.drop_all(eng)
@@ -29,5 +54,18 @@ def db_session(engine) -> Session:
 
 
 @pytest.fixture()
-def client() -> TestClient:
-    return TestClient(fastapi_app)
+def client(engine) -> TestClient:
+    session_factory = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
+
+    def _override_get_db():
+        db = session_factory()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    fastapi_app.dependency_overrides[get_db] = _override_get_db
+    try:
+        yield TestClient(fastapi_app)
+    finally:
+        fastapi_app.dependency_overrides.pop(get_db, None)

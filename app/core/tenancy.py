@@ -10,6 +10,7 @@ from typing import TypeVar
 
 from sqlalchemy.orm import Session
 
+from app.core.auth import AccessRole, Principal
 from app.core.errors import NotFoundError
 
 ModelT = TypeVar("ModelT")
@@ -24,3 +25,13 @@ def get_or_404(db: Session, model: type[ModelT], entity_id: uuid.UUID, tenant_id
     if obj is None:
         raise NotFoundError(f"{model.__name__} {entity_id} was not found.")
     return obj
+
+
+def require_tenant_match(resource_tenant_id: uuid.UUID, principal: Principal) -> None:
+    """For entities that *are* the tenant (Dealer has no tenant_id column of
+    its own to filter on via get_or_404) — the caller must be platform_admin
+    or the dealer's own principal. Cross-tenant access still 404s, never 403s.
+    """
+
+    if principal.access_role != AccessRole.PLATFORM_ADMIN and principal.tenant_id != resource_tenant_id:
+        raise NotFoundError(f"Dealer {resource_tenant_id} was not found.")

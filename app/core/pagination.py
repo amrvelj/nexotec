@@ -10,13 +10,17 @@ import dataclasses
 import datetime as dt
 import json
 import uuid
+from typing import Any, TypeVar
 
 from fastapi import Query
+from sqlalchemy import Select, and_, or_
 
 from app.core.config import get_settings
 from app.core.errors import BadRequestError
 
 settings = get_settings()
+
+ModelT = TypeVar("ModelT")
 
 
 @dataclasses.dataclass(frozen=True)
@@ -54,3 +58,36 @@ def page_params(
     cursor: str | None = Query(default=None),
 ) -> PageParams:
     return PageParams(limit=limit, cursor=decode_cursor(cursor) if cursor else None)
+
+
+def paginate_query(stmt: Select, *, model: type[ModelT], params: PageParams) -> Select:
+    """Apply the shared (created_at, id) keyset-cursor ordering/filtering to
+    a list-endpoint query. Fetches one extra row (limit + 1) so the caller
+    can detect whether a next page exists — see build_page.
+    """
+
+    if params.cursor is not None:
+        stmt = stmt.where(
+            or_(
+                model.created_at > params.cursor.created_at,  # type: ignore[attr-defined]
+                and_(
+                    model.created_at == params.cursor.created_at,  # type: ignore[attr-defined]
+                    model.id > params.cursor.id,  # type: ignore[attr-defined]
+                ),
+            )
+        )
+    return stmt.order_by(model.created_at.asc(), model.id.asc()).limit(params.limit + 1)  # type: ignore[attr-defined]
+
+
+def build_page(rows: list[Any], params: PageParams) -> tuple[list[Any], str | None]:
+    """Split the over-fetched rows into the page to return plus an opaque
+    next_cursor (None when there's no further page).
+    """
+
+    has_more = len(rows) > params.limit
+    page_rows = rows[: params.limit]
+    next_cursor = None
+    if has_more and page_rows:
+        last = page_rows[-1]
+        next_cursor = encode_cursor(CursorPosition(created_at=last.created_at, id=last.id))
+    return page_rows, next_cursor

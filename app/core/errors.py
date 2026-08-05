@@ -10,6 +10,7 @@ would confirm the record exists in a tenant the caller can't see into.
 from typing import Any
 
 from fastapi import Request, status
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
@@ -65,13 +66,18 @@ async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
 
 
 async def validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    # jsonable_encoder, not raw exc.errors(): Pydantic puts the original
+    # exception object in each error's ctx["error"] for validators that
+    # raise plain ValueError (e.g. our Annotated canton/phone/postal-code
+    # validators) — that's not JSON-serializable and would 500 instead of
+    # 422 without this. The human-readable text stays available in "msg".
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
         content={
             "error": {
                 "code": "unprocessable_entity",
                 "message": "Request validation failed.",
-                "details": {"errors": exc.errors()},
+                "details": {"errors": jsonable_encoder(exc.errors())},
             }
         },
     )
