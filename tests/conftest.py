@@ -1,15 +1,24 @@
 import os
 
 import pytest
+from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-import app.models  # noqa: F401  ensures all tables are registered on Base.metadata
-from app.db import Base, get_db
-from app.main import app as fastapi_app
-from tests.demo_models import DemoWidget  # noqa: F401  registers the test-only tenant-scoped model
+# Settings.tax_id_encryption_key is required with no default (see
+# app/core/config.py — a previous default leaked a live key into git
+# history). Generate a fresh key per test run rather than checking a
+# static value into the repo; it never protects real data, only test
+# fixtures. Must be set before any app.* import below, since get_settings()
+# runs at import time in app/db.py, app/core/auth.py, app/core/pagination.py.
+os.environ.setdefault("DMS_TAX_ID_ENCRYPTION_KEY", Fernet.generate_key().decode())
+
+import app.models  # noqa: F401,E402  ensures all tables are registered on Base.metadata
+from app.db import Base, get_db  # noqa: E402
+from app.main import app as fastapi_app  # noqa: E402
+from tests.demo_models import DemoWidget  # noqa: F401,E402  registers the test-only tenant-scoped model
 
 # Two test lanes (CTO condition on issue #2's merge): fast SQLite in-memory
 # by default, or the real Postgres container from docker-compose when
