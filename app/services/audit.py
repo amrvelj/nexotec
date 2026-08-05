@@ -4,6 +4,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.pagination import PageParams, build_page, paginate_query
 from app.models.audit import AuditEvent
 
 
@@ -49,3 +50,17 @@ def list_audit_events(
         stmt = stmt.where(AuditEvent.tenant_id == tenant_id)
     stmt = stmt.order_by(AuditEvent.created_at.asc())
     return list(db.scalars(stmt).all())
+
+
+def list_tenant_audit_events(
+    db: Session, *, tenant_id: uuid.UUID, params: PageParams
+) -> tuple[list[AuditEvent], str | None]:
+    """Full audit trail for a tenant across every entity type — the shape
+    GET /v1/dealers/{id}/audit-log needs, since the spec lists one audit-log
+    endpoint per Dealer rather than a separate one per sub-entity (User).
+    """
+
+    stmt = select(AuditEvent).where(AuditEvent.tenant_id == tenant_id)
+    stmt = paginate_query(stmt, model=AuditEvent, params=params)
+    rows = list(db.scalars(stmt).all())
+    return build_page(rows, params)

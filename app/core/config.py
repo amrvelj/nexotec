@@ -25,6 +25,16 @@ class Settings(BaseSettings):
 
     idempotency_key_ttl_seconds: int = 86400
 
+    # Field-level encryption for Dealer.tax_id (Swiss addendum tax_id
+    # requirement + spec open question 8). Single static Fernet key from
+    # settings, not a KMS-backed per-tenant key — real key-management
+    # (rotation, HSM/KMS-backed storage) is still an open decision per that
+    # question. No default on purpose: an earlier draft hardcoded a live
+    # key here (now burned, since it landed in git history), which made
+    # "forgot to set the env var" silently equivalent to "not encrypted at
+    # all". Missing env var must fail app startup, not fall back quietly.
+    tax_id_encryption_key: str
+
 
 @lru_cache
 def get_settings() -> Settings:
