@@ -151,10 +151,10 @@ class VehicleParty(PrimaryKeyMixin, TimestampMixin, Base):
     )
 
     vehicle_id: Mapped[GUID] = mapped_column(GUID(), ForeignKey("vehicle.id"), nullable=False, index=True)
-    # No FK — Customer (issue #4) isn't on this branch's dependency chain
-    # (stacked on issue #3, per CTO). Forward reference, same as
-    # transaction_id above, to be tightened once both branches converge.
-    customer_id: Mapped[GUID] = mapped_column(GUID(), nullable=False, index=True)
+    # FK tightened on integration/mdm-shell (2026-08-06) now that Customer
+    # (issue #4) is actually present — was a bare UUID forward-reference on
+    # the issue-5-vehicle branch, which never had Customer in its history.
+    customer_id: Mapped[GUID] = mapped_column(GUID(), ForeignKey("customer.id"), nullable=False, index=True)
     role: Mapped[VehiclePartyRole] = mapped_column(
         SAEnum(VehiclePartyRole, native_enum=False, length=16), nullable=False
     )
