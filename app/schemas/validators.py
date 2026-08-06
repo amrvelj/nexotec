@@ -12,6 +12,12 @@ from app.core.constants import CANTON_CODES
 
 _E164_RE = re.compile(r"^\+[1-9]\d{6,14}$")
 _POSTAL_CODE_RE = re.compile(r"^\d{4}$")
+# ISO 3779: 17 chars, uppercase alphanumeric excluding I/O/Q (visually
+# confusable with 1/0). No US NHTSA check-digit (FMVSS 115 position-9
+# algorithm) — that's US-specific, not universally applicable to Swiss/EU
+# VINs ("ISO 3779 check-digit where applicable" per the Swiss addendum).
+# Malformed input is rejected outright, never silently normalized/uppercased.
+_VIN_RE = re.compile(r"^[A-HJ-NPR-Z0-9]{17}$")
 
 
 def _validate_canton(value: str) -> str:
@@ -32,6 +38,15 @@ def _validate_postal_code(value: str) -> str:
     return value
 
 
+def _validate_vin(value: str) -> str:
+    if not _VIN_RE.match(value):
+        raise ValueError(
+            "VIN must be exactly 17 uppercase alphanumeric characters (excluding I, O, Q), no whitespace."
+        )
+    return value
+
+
 CantonCode = Annotated[str, AfterValidator(_validate_canton)]
 E164Phone = Annotated[str, AfterValidator(_validate_e164_phone)]
 SwissPostalCode = Annotated[str, AfterValidator(_validate_postal_code)]
+Vin = Annotated[str, AfterValidator(_validate_vin)]
