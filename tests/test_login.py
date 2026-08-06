@@ -109,6 +109,26 @@ def test_credential_too_short_is_rejected(client):
     assert response.status_code == 422
 
 
+def test_credential_set_and_reset_are_audit_logged(client):
+    dealer_id = _create_dealer(client)
+    user = _create_user(client, dealer_id)
+    admin_token = _token(AccessRole.PLATFORM_ADMIN)
+
+    _set_credential(client, dealer_id, user["id"], "correct horse battery staple", token=admin_token)
+    _set_credential(client, dealer_id, user["id"], "a different password", token=admin_token)
+
+    log = client.get(f"/v1/dealers/{dealer_id}/audit-log", headers=_bearer(admin_token))
+    assert log.status_code == 200
+    events = [item for item in log.json()["items"] if item["entityId"] == user["id"]]
+    actions = [item["action"] for item in events]
+    assert "credential_set" in actions
+    assert "credential_reset" in actions
+    # Never logs the password or its hash.
+    for item in events:
+        assert "correct horse battery staple" not in str(item)
+        assert "a different password" not in str(item)
+
+
 def test_resetting_credential_clears_lockout(client):
     dealer_id = _create_dealer(client)
     user = _create_user(client, dealer_id)
