@@ -188,15 +188,18 @@ def update_transaction(
 
 
 def complete_transaction(db: Session, *, transaction: Transaction, actor_id: uuid.UUID) -> Transaction:
-    """The only path that mutates Vehicle custody/status. Reuses
-    vehicle_service.create_custody_event, which does its own commit — this
-    function's own transaction-entity commit happens after, in a second
-    database transaction. Not atomic across the two: a failure between
-    them would leave the Vehicle mutated but the Transaction still `draft`.
-    Accepted for shell scope (matches spec §4 open question 9, "synchronous
-    in MDM... needs an explicit decision" — flagged, not silently resolved)
-    since every other cross-entity write in this codebase already commits
-    per service call, not in a single wrapping transaction.
+    """The only path that mutates Vehicle custody/status. Transaction and
+    Vehicle live in the same database, same session, same process — no real
+    cross-service boundary forces two commits, so this issues exactly one
+    (`vehicle_service.create_custody_event(..., commit=False)`, then a
+    single `db.commit()` here covering the Transaction's own status change
+    together with the Vehicle/custody-event mutation). Originally this
+    called create_custody_event with its default commit=True, splitting the
+    write into two commits with the *dangerous* ordering (Transaction
+    committed COMPLETED first, Vehicle mutation second) — a failure in
+    between would have left a `completed` Transaction with a Vehicle that
+    was never actually mutated, and `status != DRAFT` blocks the normal API
+    from ever retrying it. Fixed per CTO review, 2026-08-06.
     """
 
     if transaction.status != TransactionStatus.DRAFT:
@@ -243,10 +246,9 @@ def complete_transaction(db: Session, *, transaction: Transaction, actor_id: uui
         before={"status": _plain(before_status)},
         after={"status": _plain(transaction.status), "amount": _plain(transaction.amount)},
     )
-    db.commit()
 
-    # Mutates vehicle.status (already set above) + current_custodian_partner_id
-    # together in create_custody_event's own commit.
+    # commit=False: this call's Vehicle/custody-event/audit mutations join
+    # the single db.commit() below instead of committing on their own.
     vehicle_service.create_custody_event(
         db,
         vehicle=vehicle,
@@ -255,8 +257,10 @@ def complete_transaction(db: Session, *, transaction: Transaction, actor_id: uui
         event_date=transaction.transaction_date,
         transaction_id=transaction.id,
         actor_id=actor_id,
+        commit=False,
     )
 
+    db.commit()
     db.refresh(transaction)
     return transaction
 

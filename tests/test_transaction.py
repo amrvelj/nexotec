@@ -241,12 +241,12 @@ def test_complete_sale_requires_amount(client):
 
 
 def test_complete_sale_marks_vehicle_sold_and_clears_custodian(client):
-    """Checked via platform_admin, not the selling dealer's own token — once
-    a sale clears current_custodian_partner_id, nobody currently holds the
-    vehicle, so the visibility rule (status visible only to the *current*
-    custodian) redacts status/custodian for the selling dealer too, the
-    instant their own sale completes. That's the literal rule working as
-    designed, not a bug — worth knowing before it surprises someone in a UI.
+    """R1 (PM/CTO ruling, 2026-08-06): the selling dealer still sees the
+    resulting `status: "sold"` on their own vehicle after their own sale,
+    via the "ever appeared in this vehicle's custody history" signal — even
+    though `currentCustodianPartnerId` correctly clears to null (nobody
+    currently holds it, and that field stays strictly current-custodian-or-
+    platform_admin-only, never leaking who held it after a transfer).
     """
 
     dealer_id, user, customer, vehicle = _setup(client)
@@ -267,7 +267,25 @@ def test_complete_sale_marks_vehicle_sold_and_clears_custodian(client):
     assert vehicle_resp.json()["currentCustodianPartnerId"] is None
 
     own_dealer_resp = client.get(f"/v1/vehicles/{vehicle['id']}", headers=_bearer(token))
-    assert own_dealer_resp.json()["status"] is None
+    assert own_dealer_resp.json()["status"] == "sold"
+    assert own_dealer_resp.json()["currentCustodianPartnerId"] is None
+
+
+def test_dealer_with_no_custody_history_still_gets_redacted_status_after_sale(client):
+    """R1's other assertion: a dealer who never touched this vehicle stays
+    fully redacted even after it's sold — the fix only extends visibility
+    to dealers with actual custody history, not to everyone.
+    """
+
+    dealer_id, user, customer, vehicle = _setup(client)
+    body = _create_transaction(client, dealer_id, user, customer, vehicle, amount="35000.00")
+    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    client.post(f"/v1/transactions/{body['id']}/complete", headers={**_bearer(token), "If-Match": "1"})
+
+    stranger_token = _token(AccessRole.DEALER_ADMIN)  # different, random tenant, no custody history
+    stranger_resp = client.get(f"/v1/vehicles/{vehicle['id']}", headers=_bearer(stranger_token))
+    assert stranger_resp.json()["status"] is None
+    assert stranger_resp.json()["currentCustodianPartnerId"] is None
 
 
 def test_complete_sale_creates_sold_custody_event(client):

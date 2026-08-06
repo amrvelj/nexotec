@@ -257,6 +257,42 @@ def test_status_and_custodian_visible_to_platform_admin(client):
     assert response.json()["currentCustodianPartnerId"] == dealer_id
 
 
+def test_status_visible_to_dealer_with_custody_history_after_losing_custody(client):
+    """R1 (PM/CTO ruling, 2026-08-06): a dealer who transferred a vehicle
+    away can still see its current `status` (they have custody history),
+    even though `currentCustodianPartnerId` correctly redacts to null for
+    them (they're no longer the current custodian, and that field's
+    visibility rule is unchanged — current custodian or platform_admin
+    only, to never leak who holds it now after a transfer).
+    """
+
+    dealer_a = _create_dealer(client)
+    dealer_b = _create_dealer(client)
+    body = _create_vehicle(client, dealer_a)
+
+    admin_token = _token(AccessRole.PLATFORM_ADMIN)
+    client.post(
+        f"/v1/vehicles/{body['id']}/custody-events",
+        json={"eventType": "transferred", "partnerId": dealer_b},
+        headers=_bearer(admin_token),
+    )
+
+    token_a = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_a))
+    response = client.get(f"/v1/vehicles/{body['id']}", headers=_bearer(token_a))
+    assert response.json()["status"] == "in_transit"
+    assert response.json()["currentCustodianPartnerId"] is None
+
+
+def test_dealer_with_no_custody_history_stays_fully_redacted(client):
+    dealer_id = _create_dealer(client)
+    body = _create_vehicle(client, dealer_id)
+
+    stranger_token = _token(AccessRole.DEALER_ADMIN)  # different, random tenant, never touched this vehicle
+    response = client.get(f"/v1/vehicles/{body['id']}", headers=_bearer(stranger_token))
+    assert response.json()["status"] is None
+    assert response.json()["currentCustodianPartnerId"] is None
+
+
 def test_get_by_vin_applies_same_redaction(client):
     dealer_id = _create_dealer(client)
     _create_vehicle(client, dealer_id)
@@ -445,6 +481,27 @@ def test_sold_clears_current_custodian(client):
 
     get_resp = client.get(f"/v1/vehicles/{body['id']}", headers=_bearer(token))
     assert get_resp.json()["currentCustodianPartnerId"] is None
+
+
+@pytest.mark.parametrize("status", ["sold", "totaled", "scrapped"])
+def test_cannot_record_custody_event_on_terminal_vehicle(client, status):
+    """Fix per CTO review, 2026-08-06: a sold/totaled/scrapped vehicle must
+    not accept new custody events — otherwise the custody chain silently
+    diverges from the terminal `status` field. Uses PATCH (custodian-gated)
+    to reach the terminal status directly, independent of Transaction.
+    """
+
+    dealer_id = _create_dealer(client)
+    body = _create_vehicle(client, dealer_id)
+    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    client.patch(
+        f"/v1/vehicles/{body['id']}", json={"status": status}, headers={**_bearer(token), "If-Match": "1"}
+    )
+
+    response = client.post(
+        f"/v1/vehicles/{body['id']}/custody-events", json={"eventType": "acquired"}, headers=_bearer(token)
+    )
+    assert response.status_code == 409
 
 
 def test_custody_events_are_row_filtered_to_requesters_own_tenant(client):
