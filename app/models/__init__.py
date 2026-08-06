@@ -3,8 +3,9 @@
 """
 
 from app.models.audit import AuditEvent  # noqa: F401
+from app.models.credential import Credential  # noqa: F401
 from app.models.dealer import Dealer  # noqa: F401
 from app.models.idempotency import IdempotencyRecord  # noqa: F401
 from app.models.user import User  # noqa: F401
 
-__all__ = ["AuditEvent", "Dealer", "IdempotencyRecord", "User"]
+__all__ = ["AuditEvent", "Credential", "Dealer", "IdempotencyRecord", "User"]
