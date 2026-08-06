@@ -20,7 +20,7 @@ all, so it's dropped rather than guessed back in. Flagged in the PR.
 import datetime as dt
 import enum
 
-from sqlalchemy import DateTime, Enum as SAEnum, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import DateTime, Enum as SAEnum, ForeignKey, Index, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
@@ -124,6 +124,9 @@ class VehicleCustodyEvent(PrimaryKeyMixin, Base):
     """
 
     __tablename__ = "vehicle_custody_event"
+    __table_args__ = (
+        Index("ix_vehicle_custody_event_vehicle_id_partner_id", "vehicle_id", "partner_id"),
+    )
 
     vehicle_id: Mapped[GUID] = mapped_column(GUID(), ForeignKey("vehicle.id"), nullable=False, index=True)
     partner_id: Mapped[GUID] = mapped_column(GUID(), ForeignKey("dealer.id"), nullable=False, index=True)
@@ -131,9 +134,9 @@ class VehicleCustodyEvent(PrimaryKeyMixin, Base):
         SAEnum(CustodyEventType, native_enum=False, length=32), nullable=False
     )
     event_date: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    # No FK yet — Transaction (issue #6) doesn't exist on this branch's
-    # dependency chain. Forward reference, to be FK-constrained once #6 lands.
-    transaction_id: Mapped[GUID | None] = mapped_column(GUID(), nullable=True)
+    # FK constrained now that Transaction (issue #6) is in this branch's
+    # own history — was a bare-UUID forward reference before #6 existed.
+    transaction_id: Mapped[GUID | None] = mapped_column(GUID(), ForeignKey("transaction.id"), nullable=True)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
     created_by: Mapped[GUID | None] = mapped_column(GUID(), nullable=True)
 
@@ -151,10 +154,10 @@ class VehicleParty(PrimaryKeyMixin, TimestampMixin, Base):
     )
 
     vehicle_id: Mapped[GUID] = mapped_column(GUID(), ForeignKey("vehicle.id"), nullable=False, index=True)
-    # No FK — Customer (issue #4) isn't on this branch's dependency chain
-    # (stacked on issue #3, per CTO). Forward reference, same as
-    # transaction_id above, to be tightened once both branches converge.
-    customer_id: Mapped[GUID] = mapped_column(GUID(), nullable=False, index=True)
+    # FK tightened on integration/mdm-shell (2026-08-06) now that Customer
+    # (issue #4) is actually present — was a bare UUID forward-reference on
+    # the issue-5-vehicle branch, which never had Customer in its history.
+    customer_id: Mapped[GUID] = mapped_column(GUID(), ForeignKey("customer.id"), nullable=False, index=True)
     role: Mapped[VehiclePartyRole] = mapped_column(
         SAEnum(VehiclePartyRole, native_enum=False, length=16), nullable=False
     )

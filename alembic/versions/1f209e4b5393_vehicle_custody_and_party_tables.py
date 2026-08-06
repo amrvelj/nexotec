@@ -15,7 +15,10 @@ from sqlalchemy.dialects import postgresql
 revision: str = '1f209e4b5393'
 down_revision: Union[str, Sequence[str], None] = 'c9654d846ac9'
 branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+# vehicle_party.customer_id FK requires the customer table to exist first —
+# explicit so alembic orders the customer branch before this one regardless
+# of incidental revision-graph traversal order (integration/mdm-shell).
+depends_on: Union[str, Sequence[str], None] = 'bdfe43d537fd'
 
 
 def upgrade() -> None:
@@ -121,9 +124,14 @@ def upgrade() -> None:
             sa.ForeignKey("vehicle.id", name="fk_vehicle_party_vehicle_id_vehicle"),
             nullable=False,
         ),
-        # No FK — Customer (issue #4) doesn't exist on this branch's
-        # dependency chain (stacked on issue #3), forward reference.
-        sa.Column("customer_id", postgresql.UUID(as_uuid=True), nullable=False),
+        # FK tightened on integration/mdm-shell now that Customer (issue #4)
+        # is actually present in this branch's history.
+        sa.Column(
+            "customer_id",
+            postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("customer.id", name="fk_vehicle_party_customer_id_customer"),
+            nullable=False,
+        ),
         sa.Column(
             "role",
             sa.Enum("owner", "keeper", "driver", name="vehicle_party_role", native_enum=False, length=16),

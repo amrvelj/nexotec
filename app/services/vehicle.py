@@ -208,6 +208,24 @@ def list_custody_events(
     return build_page(rows, params)
 
 
+def has_custody_event_for_tenant(db: Session, *, vehicle_id: uuid.UUID, tenant_id: uuid.UUID) -> bool:
+    """Backs the `status` visibility rule's R1 refinement (PM/CTO,
+    2026-08-06): a dealer who has ever appeared as `partner_id` in this
+    vehicle's custody history can see `status`, even after it's no longer
+    their custody (e.g. the selling dealer, right after their own sale
+    clears current_custodian_partner_id). Cheap indexed EXISTS — see
+    ix_vehicle_custody_event_vehicle_id_partner_id — not a full fetch, since
+    this runs on every Vehicle serialization.
+    """
+
+    stmt = (
+        select(VehicleCustodyEvent.id)
+        .where(VehicleCustodyEvent.vehicle_id == vehicle_id, VehicleCustodyEvent.partner_id == tenant_id)
+        .limit(1)
+    )
+    return db.scalar(stmt) is not None
+
+
 def create_custody_event(
     db: Session,
     *,
@@ -217,7 +235,14 @@ def create_custody_event(
     event_date: dt.datetime | None,
     transaction_id: uuid.UUID | None,
     actor_id: uuid.UUID,
+    commit: bool = True,
 ) -> VehicleCustodyEvent:
+    """commit=False lets a caller (complete_transaction) fold this
+    function's Vehicle/custody-event/audit mutations into its own single
+    db.commit(), instead of this committing on its own — see that
+    function's docstring for why (CTO review, 2026-08-06). Direct endpoint
+    callers keep the default commit=True, unchanged.
+    """
     event = VehicleCustodyEvent(
         vehicle_id=vehicle.id,
         partner_id=partner_id,
@@ -252,6 +277,9 @@ def create_custody_event(
             "eventType": _plain(event_type),
         },
     )
-    db.commit()
-    db.refresh(event)
+    if commit:
+        db.commit()
+        db.refresh(event)
+    else:
+        db.flush()
     return event
