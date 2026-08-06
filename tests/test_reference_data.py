@@ -56,15 +56,15 @@ def test_platform_admin_can_create_reference_value(client, db_session):
     assert body["version"] == 1
 
 
-def test_dealer_admin_can_create_reference_value(client, db_session):
-    _seed_list(db_session, "fuel_type")
-    token = _token(AccessRole.DEALER_ADMIN)
-    response = client.post("/v1/reference-data/fuel_type", json=_value_payload(), headers=_bearer(token))
-    assert response.status_code == 201, response.text
+@pytest.mark.parametrize(
+    "role", [AccessRole.DEALER_ADMIN, AccessRole.SALES, AccessRole.INVENTORY, AccessRole.AUDITOR]
+)
+def test_non_platform_admin_cannot_create_reference_value(client, db_session, role):
+    """Writes are platform_admin-only (CTO ruling, 2026-08-06): this table
+    has no tenant partition, so a dealer_admin write would have blast radius
+    across every other tenant's dropdowns.
+    """
 
-
-@pytest.mark.parametrize("role", [AccessRole.SALES, AccessRole.INVENTORY, AccessRole.AUDITOR])
-def test_non_admin_roles_cannot_create_reference_value(client, db_session, role):
     _seed_list(db_session, "fuel_type")
     token = _token(role)
     response = client.post("/v1/reference-data/fuel_type", json=_value_payload(), headers=_bearer(token))
@@ -217,8 +217,10 @@ def test_patch_unknown_value_code_is_404(client, db_session):
     assert response.status_code == 404
 
 
-@pytest.mark.parametrize("role", [AccessRole.SALES, AccessRole.INVENTORY, AccessRole.AUDITOR])
-def test_non_admin_roles_cannot_patch_reference_value(client, db_session, role):
+@pytest.mark.parametrize(
+    "role", [AccessRole.DEALER_ADMIN, AccessRole.SALES, AccessRole.INVENTORY, AccessRole.AUDITOR]
+)
+def test_non_platform_admin_cannot_patch_reference_value(client, db_session, role):
     _seed_list(db_session, "fuel_type")
     admin_token = _token(AccessRole.PLATFORM_ADMIN)
     client.post("/v1/reference-data/fuel_type", json=_value_payload(), headers=_bearer(admin_token))

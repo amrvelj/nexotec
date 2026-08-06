@@ -2,19 +2,21 @@
 
 GET is open to any authenticated principal — sales/inventory need these
 lists to populate dropdowns when creating Vehicle/Customer records, and the
-data itself isn't tenant-scoped or sensitive. Only POST/PATCH (mutating the
-shared taxonomy) are restricted to dealer_admin/platform_admin per the spec.
-Flagged in the PR: any dealer_admin, not just the seeding platform_admin,
-can mutate this platform-wide data — that's what Round 2 Q3 says
-("dealer_admin/platform_admin manageable"), but it's worth a second look
-since it lets one tenant's admin affect every tenant's dropdowns.
+data itself isn't tenant-scoped or sensitive.
+
+POST/PATCH are platform_admin-only, not dealer_admin — overriding the spec
+text's "dealer_admin/platform_admin manageable" (CTO ruling, 2026-08-06).
+This table has no tenant partition at all: a dealer_admin renaming,
+deactivating, or reordering a shared value would have blast radius across
+every other tenant's dropdowns, with nothing to contain it (unlike Vehicle,
+which at least has per-tenant custody events).
 """
 
 from fastapi import APIRouter, Depends, Header, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from app.core.auth import AccessRole, Principal, get_current_principal, require_access_role
+from app.core.auth import Principal, get_current_principal, require_access_role
 from app.core.concurrency import check_version, require_if_match
 from app.core.pagination import PageParams, page_params
 from app.db import get_db
@@ -57,7 +59,7 @@ def create_reference_value(
     body: ReferenceValueCreate,
     request: Request,
     idempotency_key: str | None = Depends(_idempotency_key),
-    principal: Principal = Depends(require_access_role(AccessRole.DEALER_ADMIN)),
+    principal: Principal = Depends(require_access_role()),  # platform_admin only
     db: Session = Depends(get_db),
 ):
     ref_list = reference_data_service.get_reference_list_or_404(db, list_code)
@@ -95,7 +97,7 @@ def update_reference_value(
     value_code: str,
     body: ReferenceValueUpdate,
     if_match: int = Depends(require_if_match),
-    principal: Principal = Depends(require_access_role(AccessRole.DEALER_ADMIN)),
+    principal: Principal = Depends(require_access_role()),  # platform_admin only
     db: Session = Depends(get_db),
 ):
     ref_list = reference_data_service.get_reference_list_or_404(db, list_code)
