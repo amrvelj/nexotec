@@ -1,11 +1,11 @@
 import datetime as dt
 
-from sqlalchemy import JSON, DateTime, String, Text
+from sqlalchemy import JSON, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
 from app.models.base import PrimaryKeyMixin, utcnow
-from app.models.types import GUID
+from app.models.types import GUID, UTCDateTime
 
 
 class AuditEvent(PrimaryKeyMixin, Base):
@@ -23,4 +23,4 @@ class AuditEvent(PrimaryKeyMixin, Base):
     before: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     after: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)

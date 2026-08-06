@@ -16,12 +16,12 @@ import datetime as dt
 import enum
 from decimal import Decimal
 
-from sqlalchemy import DECIMAL, DateTime, Enum as SAEnum, ForeignKey, String, Text
+from sqlalchemy import DECIMAL, Enum as SAEnum, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
 from app.models.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
-from app.models.types import GUID
+from app.models.types import GUID, UTCDateTime
 
 
 class TransactionType(str, enum.Enum):
@@ -60,6 +60,6 @@ class Transaction(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampM
     # cross-field business rules in this codebase).
     amount: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
     # Set on completion, not creation (spec §4 Fields).
-    transaction_date: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    transaction_date: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     external_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
