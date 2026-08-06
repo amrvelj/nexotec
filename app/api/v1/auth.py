@@ -15,7 +15,14 @@ import uuid
 from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 
-from app.core.auth import SESSION_COOKIE_NAME, AccessRole, Principal, create_access_token, require_access_role
+from app.core.auth import (
+    SESSION_COOKIE_NAME,
+    AccessRole,
+    Principal,
+    create_access_token,
+    get_current_principal,
+    require_access_role,
+)
 from app.core.config import get_settings
 from app.core.tenancy import require_tenant_match
 from app.db import get_db
@@ -48,6 +55,19 @@ def login(body: LoginRequest, response: Response, db: Session = Depends(get_db))
 def logout(response: Response):
     response.delete_cookie(SESSION_COOKIE_NAME, **_COOKIE_KWARGS)
     return LogoutResponse()
+
+
+@router.get("/auth/me", response_model=LoginResponse)
+def get_current_session_user(
+    principal: Principal = Depends(get_current_principal), db: Session = Depends(get_db)
+):
+    """Lets a browser client restore "logged in as X" state after a page
+    reload — the httpOnly cookie survives, but the login response body's
+    `user` object doesn't (nothing else holds it client-side).
+    """
+
+    user = user_service.get_user_or_404(db, principal.tenant_id, principal.user_id)
+    return LoginResponse(user=UserRead.model_validate(user, from_attributes=True))
 
 
 @router.post("/dealers/{dealer_id}/users/{user_id}/credential", status_code=204)

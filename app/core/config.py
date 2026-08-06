@@ -23,6 +23,12 @@ class Settings(BaseSettings):
     pagination_default_limit: int = 50
     pagination_max_limit: int = 100
 
+    # Frontend dev server origin(s) allowed to make credentialed requests
+    # (cookie-based session, issue #8) — must be an explicit origin list,
+    # not "*", since the session cookie relies on Access-Control-Allow-
+    # Credentials being paired with a specific Access-Control-Allow-Origin.
+    cors_allowed_origins: list[str] = ["http://localhost:5173"]
+
     idempotency_key_ttl_seconds: int = 86400
 
     # Field-level encryption for Dealer.tax_id (Swiss addendum tax_id

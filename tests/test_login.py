@@ -218,6 +218,33 @@ def test_session_cookie_authenticates_subsequent_requests(client):
     assert response.status_code == 200
 
 
+# --- /auth/me (session restore after page reload) ------------------------------
+
+
+def test_me_returns_current_user_via_cookie(client):
+    dealer_id = _create_dealer(client)
+    user = _create_user(client, dealer_id)
+    _set_credential(client, dealer_id, user["id"], "correct horse battery staple")
+
+    login_response = client.post(
+        "/v1/auth/login", json={"email": "anna@example.ch", "password": "correct horse battery staple"}
+    )
+    token = login_response.cookies.get("dms_session")
+
+    client.cookies.set("dms_session", token)
+    try:
+        response = client.get("/v1/auth/me")
+    finally:
+        client.cookies.delete("dms_session")
+    assert response.status_code == 200
+    assert response.json()["user"]["id"] == user["id"]
+
+
+def test_me_without_session_is_401(client):
+    response = client.get("/v1/auth/me")
+    assert response.status_code == 401
+
+
 def test_login_with_wrong_password_is_401(client):
     dealer_id = _create_dealer(client)
     user = _create_user(client, dealer_id)
