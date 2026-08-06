@@ -1,11 +1,17 @@
 """Vehicle endpoints (issue #5): global profile + custody chain.
 
-Visibility rule (Swiss addendum Round 3): static profile (VIN/specs/energy
-label) is visible to any authenticated dealer, cross-tenant — required for
-duplicate-VIN prevention and trade-in workflows. `status` and
-`current_custodian_partner_id` are redacted (null) unless the requester is
-the current custodian or platform_admin, so a dealer can't see which
-competitor currently holds a VIN just by looking it up.
+Visibility rule (Swiss addendum Round 3, refined by PM/CTO R1 ruling
+2026-08-06): static profile (VIN/specs/energy label) is visible to any
+authenticated dealer, cross-tenant — required for duplicate-VIN prevention
+and trade-in workflows. `current_custodian_partner_id` is redacted (null)
+unless the requester is the current custodian or platform_admin, so a
+dealer can't see which competitor currently holds a VIN just by looking it
+up. `status` has a broader visibility rule than custodian alone: current
+custodian, OR platform_admin, OR the requester has ever appeared in this
+vehicle's custody history (see has_custody_event_for_tenant) — this fixes
+the original rule's defect where completing a sale cleared
+current_custodian_partner_id and made the *selling* dealer blind to their
+own vehicle's resulting "sold" status, not just competitors blind to it.
 `GET .../custody-events` is row-filtered to the requester's own tenant's
 events; platform_admin sees the full chain.
 
@@ -27,7 +33,7 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import AccessRole, Principal, get_current_principal, require_access_role
 from app.core.concurrency import check_version, require_if_match
-from app.core.errors import ForbiddenError
+from app.core.errors import ConflictError, ForbiddenError
 from app.core.pagination import PageParams, page_params
 from app.db import get_db
 from app.models.vehicle import CustodyEventType, VehicleStatus
@@ -48,20 +54,37 @@ from app.services.idempotency import find_cached_response, store_response
 router = APIRouter(tags=["vehicles"])
 
 _WRITE_ROLES = (AccessRole.DEALER_ADMIN, AccessRole.INVENTORY)
+# Endpoint-level guard, not services/vehicle.py's own _TERMINAL_STATUSES
+# (which excludes SOLD — that set only blocks arbitrary status PATCH
+# changes, a narrower concept). complete_transaction sets vehicle.status =
+# SOLD *before* calling create_custody_event, so a service-level guard here
+# would incorrectly reject the very call transitioning the vehicle into
+# this state — the check belongs at the API boundary, on direct client
+# requests only (CTO review, 2026-08-06).
+_BLOCKED_CUSTODY_EVENT_STATUSES = (VehicleStatus.SOLD, VehicleStatus.TOTALED, VehicleStatus.SCRAPPED)
 
 
 def _idempotency_key(idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")) -> str | None:
     return idempotency_key
 
 
-def _serialize_vehicle(vehicle, principal: Principal) -> VehicleRead:
+def _serialize_vehicle(vehicle, principal: Principal, db: Session) -> VehicleRead:
     is_custodian_or_admin = principal.access_role == AccessRole.PLATFORM_ADMIN or (
         vehicle.current_custodian_partner_id is not None
         and principal.tenant_id == vehicle.current_custodian_partner_id
     )
+    status_visible = is_custodian_or_admin or vehicle_service.has_custody_event_for_tenant(
+        db, vehicle_id=vehicle.id, tenant_id=principal.tenant_id
+    )
+
     data = VehicleRead.model_validate(vehicle, from_attributes=True)
+    updates = {}
+    if not status_visible:
+        updates["status"] = None
     if not is_custodian_or_admin:
-        data = data.model_copy(update={"status": None, "current_custodian_partner_id": None})
+        updates["current_custodian_partner_id"] = None
+    if updates:
+        data = data.model_copy(update=updates)
     return data
 
 
@@ -84,7 +107,7 @@ def create_vehicle(
     vehicle = vehicle_service.create_vehicle(
         db, data=body, custodian_partner_id=principal.tenant_id, actor_id=principal.user_id
     )
-    result = _serialize_vehicle(vehicle, principal)
+    result = _serialize_vehicle(vehicle, principal, db)
 
     if idempotency_key:
         store_response(
@@ -105,7 +128,7 @@ def get_vehicle_by_vin(
     vin: str, principal: Principal = Depends(get_current_principal), db: Session = Depends(get_db)
 ):
     vehicle = vehicle_service.get_vehicle_by_vin_or_404(db, vin)
-    return _serialize_vehicle(vehicle, principal)
+    return _serialize_vehicle(vehicle, principal, db)
 
 
 @router.get("/vehicles/{vehicle_id}", response_model=VehicleRead)
@@ -115,7 +138,7 @@ def get_vehicle(
     db: Session = Depends(get_db),
 ):
     vehicle = vehicle_service.get_vehicle_or_404(db, vehicle_id)
-    return _serialize_vehicle(vehicle, principal)
+    return _serialize_vehicle(vehicle, principal, db)
 
 
 @router.patch("/vehicles/{vehicle_id}", response_model=VehicleRead)
@@ -140,7 +163,7 @@ def update_vehicle(
     vehicle = vehicle_service.update_vehicle(
         db, vehicle=vehicle, data=body, actor_id=principal.user_id, actor_tenant_id=principal.tenant_id
     )
-    return _serialize_vehicle(vehicle, principal)
+    return _serialize_vehicle(vehicle, principal, db)
 
 
 @router.post("/vehicles/{vehicle_id}/custody-events", response_model=CustodyEventRead, status_code=201)
@@ -153,6 +176,13 @@ def create_custody_event(
     db: Session = Depends(get_db),
 ):
     vehicle = vehicle_service.get_vehicle_or_404(db, vehicle_id)
+    if vehicle.status in _BLOCKED_CUSTODY_EVENT_STATUSES:
+        raise ConflictError(
+            f"Cannot record a custody event — vehicle status '{vehicle.status.value}' does not allow"
+            " further custody changes.",
+            details={"vehicleStatus": vehicle.status.value},
+        )
+
     partner_id = body.partner_id or principal.tenant_id
     if principal.access_role != AccessRole.PLATFORM_ADMIN and partner_id != principal.tenant_id:
         raise ForbiddenError("Cannot record a custody event on another dealer's behalf.")
@@ -241,4 +271,4 @@ def list_vehicles(
     rows, next_cursor = vehicle_service.list_vehicles(
         db, status=status, custodian_partner_id=custodian_partner_id, updated_since=updated_since, params=params
     )
-    return VehiclePage(items=[_serialize_vehicle(v, principal) for v in rows], next_cursor=next_cursor)
+    return VehiclePage(items=[_serialize_vehicle(v, principal, db) for v in rows], next_cursor=next_cursor)
