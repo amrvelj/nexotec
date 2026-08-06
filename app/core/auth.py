@@ -18,12 +18,20 @@ import enum
 import uuid
 
 import jwt
-from fastapi import Depends, Header
+from fastapi import Cookie, Depends, Header
 
 from app.core.config import get_settings
 from app.core.errors import ForbiddenError, UnauthorizedError
 
 settings = get_settings()
+
+# Name of the httpOnly session cookie the login endpoint (issue #8) sets as
+# an alternative to an Authorization header — browser clients can't read an
+# httpOnly cookie to build that header themselves, so get_bearer_token below
+# accepts either. Defined here (not in api/v1/auth.py) so the read side
+# (this file) and the write side (the login endpoint that sets the cookie)
+# can't drift on the cookie name.
+SESSION_COOKIE_NAME = "dms_session"
 
 
 class AccessRole(str, enum.Enum):
@@ -72,10 +80,15 @@ def _decode_token(token: str) -> dict:
         raise UnauthorizedError("Access token is invalid.") from exc
 
 
-def get_bearer_token(authorization: str | None = Header(default=None)) -> str:
-    if not authorization or not authorization.lower().startswith("bearer "):
-        raise UnauthorizedError("Missing or malformed Authorization header.")
-    return authorization.split(" ", 1)[1].strip()
+def get_bearer_token(
+    authorization: str | None = Header(default=None),
+    session_cookie: str | None = Cookie(default=None, alias=SESSION_COOKIE_NAME),
+) -> str:
+    if authorization and authorization.lower().startswith("bearer "):
+        return authorization.split(" ", 1)[1].strip()
+    if session_cookie:
+        return session_cookie
+    raise UnauthorizedError("Missing or malformed Authorization header.")
 
 
 def get_current_principal(token: str = Depends(get_bearer_token)) -> Principal:

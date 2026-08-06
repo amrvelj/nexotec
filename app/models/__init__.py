@@ -3,6 +3,7 @@
 """
 
 from app.models.audit import AuditEvent  # noqa: F401
+from app.models.credential import Credential  # noqa: F401
 from app.models.customer import Customer  # noqa: F401
 from app.models.dealer import Dealer  # noqa: F401
 from app.models.idempotency import IdempotencyRecord  # noqa: F401
@@ -13,6 +14,7 @@ from app.models.vehicle import Vehicle, VehicleCustodyEvent, VehicleParty  # noq
 
 __all__ = [
     "AuditEvent",
+    "Credential",
     "Customer",
     "Dealer",
     "IdempotencyRecord",

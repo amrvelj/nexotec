@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 
+from app.api.v1.auth import router as auth_router
 from app.api.v1.customers import router as customers_router
 from app.api.v1.dealers import router as dealers_router
 from app.api.v1.health import router as health_router
@@ -14,3 +15,4 @@ api_v1_router.include_router(reference_data_router)
 api_v1_router.include_router(vehicles_router)
 api_v1_router.include_router(customers_router)
 api_v1_router.include_router(transactions_router)
+api_v1_router.include_router(auth_router)
