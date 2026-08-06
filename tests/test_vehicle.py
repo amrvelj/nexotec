@@ -43,7 +43,7 @@ def _create_dealer(client) -> str:
 
 
 def _vehicle_payload(**overrides):
-    payload = {"vin": VALID_VIN, "make": "Honda", "model": "Accord", "modelYear": 2020}
+    payload = {"vin": VALID_VIN, "make": "Honda", "model": "Accord", "modelYear": 2020, "condition": "used"}
     payload.update(overrides)
     return payload
 
@@ -166,6 +166,30 @@ def test_cannot_create_vehicle_already_totaled(client):
         "/v1/vehicles", json=_vehicle_payload(status="totaled"), headers=_bearer(token)
     )
     assert response.status_code == 422
+
+
+def test_condition_is_required(client):
+    dealer_id = _create_dealer(client)
+    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    payload = _vehicle_payload()
+    del payload["condition"]
+    response = client.post("/v1/vehicles", json=payload, headers=_bearer(token))
+    assert response.status_code == 422
+
+
+def test_invalid_condition_is_rejected(client):
+    dealer_id = _create_dealer(client)
+    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    response = client.post(
+        "/v1/vehicles", json=_vehicle_payload(condition="mint"), headers=_bearer(token)
+    )
+    assert response.status_code == 422
+
+
+def test_condition_round_trips(client):
+    dealer_id = _create_dealer(client)
+    body = _create_vehicle(client, dealer_id, condition="certified_pre_owned")
+    assert body["condition"] == "certified_pre_owned"
 
 
 # --- reference-data field validation ----------------------------------------------
@@ -458,6 +482,68 @@ def test_non_write_roles_cannot_record_custody_event(client, role):
         f"/v1/vehicles/{body['id']}/custody-events", json={"eventType": "sold"}, headers=_bearer(token)
     )
     assert response.status_code == 403
+
+
+# --- audit log (row-filtered like custody-events) -----------------------------
+
+
+def test_audit_log_records_create(client):
+    dealer_id = _create_dealer(client)
+    body = _create_vehicle(client, dealer_id)
+    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+
+    log = client.get(f"/v1/vehicles/{body['id']}/audit-log", headers=_bearer(token))
+    assert log.status_code == 200
+    actions = [item["action"] for item in log.json()["items"]]
+    assert "create" in actions
+
+
+def test_audit_log_records_update(client):
+    dealer_id = _create_dealer(client)
+    body = _create_vehicle(client, dealer_id)
+    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    client.patch(
+        f"/v1/vehicles/{body['id']}", json={"odometer": 12000}, headers={**_bearer(token), "If-Match": "1"}
+    )
+
+    log = client.get(f"/v1/vehicles/{body['id']}/audit-log", headers=_bearer(token))
+    update_event = next(item for item in log.json()["items"] if item["action"] == "update")
+    assert update_event["after"]["odometer"] == 12000
+
+
+def test_audit_log_is_row_filtered_to_requesters_own_tenant(client):
+    dealer_a = _create_dealer(client)
+    dealer_b = _create_dealer(client)
+    body = _create_vehicle(client, dealer_a)
+
+    admin_token = _token(AccessRole.PLATFORM_ADMIN)
+    client.post(
+        f"/v1/vehicles/{body['id']}/custody-events",
+        json={"eventType": "transferred", "partnerId": dealer_b},
+        headers=_bearer(admin_token),
+    )
+
+    token_a = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_a))
+    log_a = client.get(f"/v1/vehicles/{body['id']}/audit-log", headers=_bearer(token_a))
+    actions_a = [item["action"] for item in log_a.json()["items"]]
+    assert "create" in actions_a
+    assert "custody_event" not in actions_a
+
+    token_b = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_b))
+    log_b = client.get(f"/v1/vehicles/{body['id']}/audit-log", headers=_bearer(token_b))
+    actions_b = [item["action"] for item in log_b.json()["items"]]
+    assert "create" not in actions_b
+    assert "custody_event" in actions_b
+
+    log_admin = client.get(f"/v1/vehicles/{body['id']}/audit-log", headers=_bearer(admin_token))
+    assert len(log_admin.json()["items"]) == 2
+
+
+def test_audit_log_requires_authentication(client):
+    dealer_id = _create_dealer(client)
+    body = _create_vehicle(client, dealer_id)
+    response = client.get(f"/v1/vehicles/{body['id']}/audit-log")
+    assert response.status_code == 401
 
 
 # --- pagination -----------------------------------------------------------------

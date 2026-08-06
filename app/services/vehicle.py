@@ -124,7 +124,11 @@ def create_vehicle(
         db,
         entity_type="vehicle",
         entity_id=vehicle.id,
-        tenant_id=None,
+        # tenant_id = the creating (and now custodian) dealer, not None —
+        # this is what GET /v1/vehicles/{id}/audit-log row-filters on,
+        # same partner_id-based scoping as .../custody-events (see that
+        # endpoint's docstring for the visibility rule this implements).
+        tenant_id=custodian_partner_id,
         action="create",
         actor_id=actor_id,
         after={
@@ -140,7 +144,9 @@ def create_vehicle(
     return vehicle
 
 
-def update_vehicle(db: Session, *, vehicle: Vehicle, data: VehicleUpdate, actor_id: uuid.UUID) -> Vehicle:
+def update_vehicle(
+    db: Session, *, vehicle: Vehicle, data: VehicleUpdate, actor_id: uuid.UUID, actor_tenant_id: uuid.UUID
+) -> Vehicle:
     if vehicle.status in _TERMINAL_STATUSES and data.status is not None and data.status != vehicle.status:
         raise ConflictError(
             f"Vehicle status '{vehicle.status.value}' is terminal and cannot be changed.",
@@ -170,7 +176,11 @@ def update_vehicle(db: Session, *, vehicle: Vehicle, data: VehicleUpdate, actor_
             db,
             entity_type="vehicle",
             entity_id=vehicle.id,
-            tenant_id=None,
+            # tenant_id = the editing dealer's own tenant, not the current
+            # custodian — PATCH on static spec fields is open to any
+            # dealer_admin/inventory user, not custodian-gated, so "who did
+            # this" is the only stable scoping concept for row-filtering.
+            tenant_id=actor_tenant_id,
             action="update",
             actor_id=actor_id,
             before=before or None,
@@ -228,7 +238,12 @@ def create_custody_event(
         db,
         entity_type="vehicle",
         entity_id=vehicle.id,
-        tenant_id=None,
+        # Same partner_id used on the custody event row itself — a dealer
+        # sees this audit entry iff they'd also see the custody event via
+        # .../custody-events (same row-filtering rule, same asymmetry: the
+        # dealer relinquishing custody in a transfer doesn't see it either,
+        # consistent with that endpoint).
+        tenant_id=partner_id,
         action="custody_event",
         actor_id=actor_id,
         before={"currentCustodianPartnerId": str(before_custodian) if before_custodian else None},

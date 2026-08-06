@@ -28,6 +28,19 @@ from app.models.base import PrimaryKeyMixin, TimestampMixin, VersionedMixin, utc
 from app.models.types import GUID
 
 
+class VehicleCondition(str, enum.Enum):
+    """Hardcoded, not reference-data — dealers won't need to add categories
+    here (CTO ruling, 2026-08-06). Was in the original spec draft
+    (`condition new|used|certified_pre_owned|unknown`) but dropped when it
+    got condensed into the issue #5 backlog text; restored here.
+    """
+
+    NEW = "new"
+    USED = "used"
+    CERTIFIED_PRE_OWNED = "certified_pre_owned"
+    DEMO = "demo"
+
+
 class RegistrationStatus(str, enum.Enum):
     UNREGISTERED = "unregistered"
     REGISTERED = "registered"
@@ -66,6 +79,9 @@ class Vehicle(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     model_year: Mapped[int] = mapped_column(Integer, nullable=False)
     trim: Mapped[str | None] = mapped_column(String(100), nullable=True)
     engine: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    condition: Mapped[VehicleCondition] = mapped_column(
+        SAEnum(VehicleCondition, native_enum=False, length=32), nullable=False
+    )
 
     # Reference-data value_codes (issue #3) — validated against the matching
     # ReferenceList at the service layer, stored here as plain strings (not

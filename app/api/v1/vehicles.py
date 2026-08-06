@@ -9,13 +9,13 @@ competitor currently holds a VIN just by looking it up.
 `GET .../custody-events` is row-filtered to the requester's own tenant's
 events; platform_admin sees the full chain.
 
-No dedicated audit-log endpoint here (unlike Dealer/Customer) — the
-original spec's Vehicle endpoint list never included one, and exposing the
-full audit trail (which includes other dealers' custody transitions) to any
-dealer_admin would leak exactly the competitive data the visibility rule
-above protects against. Audit events are still recorded unconditionally
-(record_audit_event calls in services/vehicle.py), just not read back via
-an API yet — flagged as a deliberate scoping choice, not an oversight.
+`GET .../audit-log` uses the same row-filtering rule (CTO ruling,
+2026-08-06 — issue #7's acceptance criteria requires an audit-log endpoint
+per entity, no exceptions for Vehicle): AuditEvent.tenant_id is set to
+whichever dealer's action produced that row (the custodian for create/
+custody-event actions, the editing dealer for spec-field updates — see
+services/vehicle.py) instead of None, so the same partner_id-style filter
+that already protects .../custody-events also protects the audit trail.
 """
 
 import datetime as dt
@@ -31,6 +31,7 @@ from app.core.errors import ForbiddenError
 from app.core.pagination import PageParams, page_params
 from app.db import get_db
 from app.models.vehicle import CustodyEventType, VehicleStatus
+from app.schemas.audit import AuditEventPage, AuditEventRead
 from app.schemas.vehicle import (
     CustodyEventCreate,
     CustodyEventPage,
@@ -41,6 +42,7 @@ from app.schemas.vehicle import (
     VehicleUpdate,
 )
 from app.services import vehicle as vehicle_service
+from app.services.audit import list_audit_events
 from app.services.idempotency import find_cached_response, store_response
 
 router = APIRouter(tags=["vehicles"])
@@ -135,7 +137,9 @@ def update_vehicle(
         if principal.access_role != AccessRole.PLATFORM_ADMIN and not is_custodian:
             raise ForbiddenError("Only the current custodian or platform_admin may change Vehicle status.")
 
-    vehicle = vehicle_service.update_vehicle(db, vehicle=vehicle, data=body, actor_id=principal.user_id)
+    vehicle = vehicle_service.update_vehicle(
+        db, vehicle=vehicle, data=body, actor_id=principal.user_id, actor_tenant_id=principal.tenant_id
+    )
     return _serialize_vehicle(vehicle, principal)
 
 
@@ -208,6 +212,20 @@ def list_custody_events(
     )
     return CustodyEventPage(
         items=[CustodyEventRead.model_validate(e, from_attributes=True) for e in rows], next_cursor=next_cursor
+    )
+
+
+@router.get("/vehicles/{vehicle_id}/audit-log", response_model=AuditEventPage)
+def get_vehicle_audit_log(
+    vehicle_id: uuid.UUID,
+    principal: Principal = Depends(get_current_principal),
+    db: Session = Depends(get_db),
+):
+    vehicle_service.get_vehicle_or_404(db, vehicle_id)
+    tenant_filter = None if principal.access_role == AccessRole.PLATFORM_ADMIN else principal.tenant_id
+    events = list_audit_events(db, entity_type="vehicle", entity_id=vehicle_id, tenant_id=tenant_filter)
+    return AuditEventPage(
+        items=[AuditEventRead.model_validate(e, from_attributes=True) for e in events], next_cursor=None
     )
 
 

@@ -28,6 +28,14 @@ def upgrade() -> None:
         sa.Column("model_year", sa.Integer(), nullable=False),
         sa.Column("trim", sa.String(length=100), nullable=True),
         sa.Column("engine", sa.String(length=100), nullable=True),
+        sa.Column(
+            "condition",
+            sa.Enum(
+                "new", "used", "certified_pre_owned", "demo",
+                name="vehicle_condition", native_enum=False, length=32,
+            ),
+            nullable=False,
+        ),
         sa.Column("vehicle_type", sa.String(length=64), nullable=True),
         sa.Column("fuel_type", sa.String(length=64), nullable=True),
         sa.Column("body_style", sa.String(length=64), nullable=True),

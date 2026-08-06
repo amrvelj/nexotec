@@ -3,7 +3,7 @@ import uuid
 
 from pydantic import Field, model_validator
 
-from app.models.vehicle import CustodyEventType, RegistrationStatus, VehicleStatus
+from app.models.vehicle import CustodyEventType, RegistrationStatus, VehicleCondition, VehicleStatus
 from app.schemas.base import CamelModel
 from app.schemas.validators import CantonCode, Vin
 
@@ -31,6 +31,7 @@ class VehicleCreate(CamelModel):
     model_year: int = Field(ge=_MIN_MODEL_YEAR, le=_MAX_MODEL_YEAR)
     trim: str | None = Field(default=None, max_length=100)
     engine: str | None = Field(default=None, max_length=100)
+    condition: VehicleCondition
     vehicle_type: str | None = Field(default=None, max_length=64)
     fuel_type: str | None = Field(default=None, max_length=64)
     body_style: str | None = Field(default=None, max_length=64)
@@ -65,6 +66,7 @@ class VehicleUpdate(CamelModel):
     model_year: int | None = Field(default=None, ge=_MIN_MODEL_YEAR, le=_MAX_MODEL_YEAR)
     trim: str | None = Field(default=None, max_length=100)
     engine: str | None = Field(default=None, max_length=100)
+    condition: VehicleCondition | None = None
     vehicle_type: str | None = Field(default=None, max_length=64)
     fuel_type: str | None = Field(default=None, max_length=64)
     body_style: str | None = Field(default=None, max_length=64)
@@ -96,6 +98,7 @@ class VehicleRead(CamelModel):
     model_year: int
     trim: str | None
     engine: str | None
+    condition: VehicleCondition
     vehicle_type: str | None
     fuel_type: str | None
     body_style: str | None
