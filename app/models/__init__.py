@@ -7,6 +7,7 @@ from app.models.customer import Customer  # noqa: F401
 from app.models.dealer import Dealer  # noqa: F401
 from app.models.idempotency import IdempotencyRecord  # noqa: F401
 from app.models.reference_data import ReferenceList, ReferenceValue  # noqa: F401
+from app.models.transaction import Transaction  # noqa: F401
 from app.models.user import User  # noqa: F401
 from app.models.vehicle import Vehicle, VehicleCustodyEvent, VehicleParty  # noqa: F401
 
@@ -17,6 +18,7 @@ __all__ = [
     "IdempotencyRecord",
     "ReferenceList",
     "ReferenceValue",
+    "Transaction",
     "User",
     "Vehicle",
     "VehicleCustodyEvent",
