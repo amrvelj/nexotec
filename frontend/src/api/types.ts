@@ -35,7 +35,6 @@ export interface CustomerAddress {
   houseNumber: string
   postalCode: string
   locality: string
-  canton: string
   country: string
 }
 

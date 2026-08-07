@@ -14,6 +14,7 @@ import {
 } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { api, ApiError } from '../api/client'
+import { PhoneInput } from '../components/PhoneInput'
 import type { CustomerLifecycleStatus, CustomerRead, CustomerSource } from '../api/types'
 
 const LIFECYCLE_OPTIONS: { value: CustomerLifecycleStatus; label: string }[] = [
@@ -43,7 +44,6 @@ interface FormValues {
   houseNumber: string
   postalCode: string
   locality: string
-  canton: string
 }
 
 const EMPTY_VALUES: FormValues = {
@@ -58,7 +58,6 @@ const EMPTY_VALUES: FormValues = {
   houseNumber: '',
   postalCode: '',
   locality: '',
-  canton: '',
 }
 
 export function CustomerFormPage() {
@@ -91,7 +90,6 @@ export function CustomerFormPage() {
           houseNumber: c.address?.houseNumber ?? '',
           postalCode: c.address?.postalCode ?? '',
           locality: c.address?.locality ?? '',
-          canton: c.address?.canton ?? '',
         })
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load customer.'))
@@ -114,7 +112,6 @@ export function CustomerFormPage() {
           houseNumber: values.houseNumber,
           postalCode: values.postalCode,
           locality: values.locality,
-          canton: values.canton,
           country: 'CH',
         }
       : null
@@ -155,7 +152,11 @@ export function CustomerFormPage() {
             <TextInput label="First name" required {...form.getInputProps('firstName')} />
             <TextInput label="Last name" required {...form.getInputProps('lastName')} />
             <TextInput label="Email" type="email" {...form.getInputProps('email')} />
-            <TextInput label="Phone (E.164, e.g. +41791234567)" {...form.getInputProps('phone')} />
+            <PhoneInput
+              label="Phone"
+              value={form.values.phone}
+              onChange={(next) => form.setFieldValue('phone', next)}
+            />
             <Select
               label="Lifecycle status"
               data={LIFECYCLE_OPTIONS}
@@ -177,7 +178,6 @@ export function CustomerFormPage() {
                 <Group grow>
                   <TextInput label="Postal code" {...form.getInputProps('postalCode')} />
                   <TextInput label="Locality" {...form.getInputProps('locality')} />
-                  <TextInput label="Canton (e.g. ZH)" {...form.getInputProps('canton')} />
                 </Group>
               </Stack>
             )}
