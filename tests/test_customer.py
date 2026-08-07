@@ -1,6 +1,7 @@
 import uuid
 
 import pytest
+from sqlalchemy import text
 
 from app.core.auth import AccessRole, create_access_token
 
@@ -588,6 +589,33 @@ def test_tax_id_is_redacted_in_audit_log(client):
     log = client.get(f"/v1/customers/{created['id']}/audit-log", headers=_bearer(token))
     create_event = next(item for item in log.json()["items"] if item["action"] == "create")
     assert create_event["after"]["tax_id"] == "***redacted***"
+
+
+def test_tax_id_is_encrypted_at_rest(client, db_session):
+    """Regression test, not just an audit-log/API-response check — reads the
+    raw column value directly via SQL, bypassing the ORM's decrypting
+    EncryptedString TypeDecorator entirely. Guards against a repeat of the
+    hardcoded-Fernet-key incident (issue #2): CTO's non-blocking review ask,
+    2026-08-07, on this same PR.
+    """
+
+    dealer_id = _create_dealer(client)
+    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    payload = {
+        "customerType": "business",
+        "companyName": "Encrypted AG",
+        "taxId": "CHE-999.888.777",
+        "email": "encrypted@example.ch",
+    }
+    created = client.post("/v1/customers", json=payload, headers=_bearer(token)).json()
+
+    raw_value = db_session.execute(
+        text("SELECT tax_id FROM customer WHERE id = :id"), {"id": created["id"]}
+    ).scalar_one()
+
+    assert raw_value is not None
+    assert "CHE-999.888.777" not in raw_value
+    assert raw_value.startswith("gAAAAA")  # Fernet token prefix (base64 of version byte 0x80)
 
 
 # --- Customer PRD Phase A: CustomerPhone / CustomerEmail ---------------------
