@@ -6,16 +6,19 @@
 #
 # One-time manual steps after the first deploy (Render dashboard, this
 # service's Environment tab) — both are sync: false below on purpose, see
-# each var's comment:
+# each var's comment. Note: the free instance type has no Shell tab (that's
+# a paid-tier feature), so both steps go through Environment vars, not a
+# shell session — each save triggers Render's own auto-redeploy.
 #   1. DMS_TAX_ID_ENCRYPTION_KEY — generate with:
 #        python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 #      Paste the output in. Must be a valid Fernet key, not an arbitrary
 #      string — Render's generic generateValue secret is not Fernet-format,
 #      so this can't be automated.
-#   2. Run the demo seed once, from a Render shell on this service:
-#        DMS_SEED_DEMO_PASSWORD='<choose a fresh password>' python scripts/seed_staging_demo.py
-#      Hand the printed email + the password you chose to whoever needs the
-#      staging login. Re-running is safe (no-ops if the demo dealer exists).
+#   2. DMS_SEED_DEMO_PASSWORD — pick any password, paste it in as-is. The
+#      startCommand below runs the (idempotent) demo seed on every deploy;
+#      once this var has a value, the next redeploy creates the demo login
+#      (demo@nexotec-staging.example + this password) and every deploy
+#      after that just no-ops. Hand the password to whoever needs the login.
 
 databases:
   - name: dms-staging-db
@@ -31,7 +34,10 @@ services:
     buildCommand: >-
       pip install -e . &&
       cd frontend && npm ci && VITE_API_BASE_URL=/v1 npm run build
-    startCommand: alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    startCommand: >-
+      alembic upgrade head &&
+      (python scripts/seed_staging_demo.py || true) &&
+      uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /v1/healthz
     envVars:
       - key: PYTHON_VERSION
@@ -43,4 +49,6 @@ services:
       - key: DMS_JWT_SECRET
         generateValue: true
       - key: DMS_TAX_ID_ENCRYPTION_KEY
+        sync: false
+      - key: DMS_SEED_DEMO_PASSWORD
         sync: false

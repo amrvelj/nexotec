@@ -1,19 +1,24 @@
 """One-time staging demo seed: exactly one Dealer + one dealer_admin User +
 a real Credential, so there's a login to hand a non-technical stakeholder
 directly. No self-serve signup exists (or should exist) for a demo
-environment. Idempotent — re-running after a redeploy is safe, it exits
-without changes if the demo Dealer already exists.
+environment. Idempotent — safe to run on every deploy, no-ops without
+changes if the demo Dealer already exists.
 
-Run once, in the target environment's own shell (e.g. Render's shell for
-the staging service), never against local dev:
+render.yaml's startCommand runs this automatically on every deploy (piped
+through `|| true` so a missing DMS_SEED_DEMO_PASSWORD never blocks app
+startup — Render's free tier has no Shell to run this by hand, see the
+render.yaml header comment). It exits 1 with no side effects if the
+password isn't set yet; once it is, the next deploy actually seeds.
+
+Can also be run directly, e.g. against local dev for testing:
 
     DMS_SEED_DEMO_PASSWORD='<a-password-you-choose-for-this-run>' \\
         python scripts/seed_staging_demo.py
 
 No default password — same "no hardcoded fallback for secrets" discipline
-as DMS_TAX_ID_ENCRYPTION_KEY (app/core/config.py). Whatever you set here
-becomes the login handed to the stakeholder; choose it fresh, don't reuse
-anything from local dev or CI fixtures.
+as DMS_TAX_ID_ENCRYPTION_KEY (app/core/config.py). Whatever value ends up
+in DMS_SEED_DEMO_PASSWORD becomes the login handed to the stakeholder;
+choose it fresh, don't reuse anything from local dev or CI fixtures.
 """
 
 import os
