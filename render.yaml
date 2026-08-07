@@ -1,0 +1,46 @@
+# Minimal staging environment (demo data only). Single web service serves
+# both the API and the built frontend from one origin — required so the
+# session cookie (SameSite=Strict, app/api/v1/auth.py) is same-site; a
+# separate static-site service on its own onrender.com subdomain would be
+# cross-site to the browser and the cookie would never be attached.
+#
+# One-time manual steps after the first deploy (Render dashboard, this
+# service's Environment tab) — both are sync: false below on purpose, see
+# each var's comment:
+#   1. DMS_TAX_ID_ENCRYPTION_KEY — generate with:
+#        python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+#      Paste the output in. Must be a valid Fernet key, not an arbitrary
+#      string — Render's generic generateValue secret is not Fernet-format,
+#      so this can't be automated.
+#   2. Run the demo seed once, from a Render shell on this service:
+#        DMS_SEED_DEMO_PASSWORD='<choose a fresh password>' python scripts/seed_staging_demo.py
+#      Hand the printed email + the password you chose to whoever needs the
+#      staging login. Re-running is safe (no-ops if the demo dealer exists).
+
+databases:
+  - name: dms-staging-db
+    plan: free
+    databaseName: dms_staging
+    user: dms_staging
+
+services:
+  - name: dms-staging
+    type: web
+    runtime: python
+    plan: free
+    buildCommand: >-
+      pip install -e . &&
+      cd frontend && npm ci && VITE_API_BASE_URL=/v1 npm run build
+    startCommand: alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /v1/healthz
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.0
+      - key: DMS_DATABASE_URL
+        fromDatabase:
+          name: dms-staging-db
+          property: connectionString
+      - key: DMS_JWT_SECRET
+        generateValue: true
+      - key: DMS_TAX_ID_ENCRYPTION_KEY
+        sync: false
