@@ -28,8 +28,20 @@ from app.schemas.customer import (
     CustomerCreate,
     CustomerDuplicateCandidate,
     CustomerDuplicateCandidateList,
+    CustomerEmailCreate,
+    CustomerEmailPage,
+    CustomerEmailRead,
+    CustomerEmailUpdate,
+    CustomerExternalIdCreate,
+    CustomerExternalIdPage,
+    CustomerExternalIdRead,
+    CustomerExternalIdUpdate,
     CustomerMergeRequest,
     CustomerPage,
+    CustomerPhoneCreate,
+    CustomerPhonePage,
+    CustomerPhoneRead,
+    CustomerPhoneUpdate,
     CustomerRead,
     CustomerUpdate,
 )
@@ -178,3 +190,182 @@ def get_customer_audit_log(
     return AuditEventPage(
         items=[AuditEventRead.model_validate(e, from_attributes=True) for e in events], next_cursor=None
     )
+
+
+# --- CustomerPhone / CustomerEmail: multi-valued contact details (Customer
+# PRD, 2026-08-07). Same _WRITE_ROLES as the parent Customer; no If-Match
+# on these child rows — no version column (CTO ruling: is_primary isn't a
+# high-contention field), same reasoning as VehicleCustodyEvent being
+# unversioned.
+
+
+@router.get("/customers/{customer_id}/phones", response_model=CustomerPhonePage)
+def list_customer_phones(
+    customer_id: uuid.UUID,
+    principal: Principal = Depends(get_current_principal),
+    db: Session = Depends(get_db),
+):
+    customer_service.get_customer_or_404(db, principal.tenant_id, customer_id)
+    rows = customer_service.list_customer_phones(db, customer_id=customer_id)
+    return CustomerPhonePage(items=[CustomerPhoneRead.model_validate(r, from_attributes=True) for r in rows])
+
+
+@router.post("/customers/{customer_id}/phones", response_model=CustomerPhoneRead, status_code=201)
+def create_customer_phone(
+    customer_id: uuid.UUID,
+    body: CustomerPhoneCreate,
+    principal: Principal = Depends(require_access_role(*_WRITE_ROLES)),
+    db: Session = Depends(get_db),
+):
+    customer = customer_service.get_customer_or_404(db, principal.tenant_id, customer_id)
+    phone = customer_service.create_customer_phone(db, customer=customer, data=body, actor_id=principal.user_id)
+    return CustomerPhoneRead.model_validate(phone, from_attributes=True)
+
+
+@router.patch("/customers/{customer_id}/phones/{phone_id}", response_model=CustomerPhoneRead)
+def update_customer_phone(
+    customer_id: uuid.UUID,
+    phone_id: uuid.UUID,
+    body: CustomerPhoneUpdate,
+    principal: Principal = Depends(require_access_role(*_WRITE_ROLES)),
+    db: Session = Depends(get_db),
+):
+    phone = customer_service.get_customer_phone_or_404(
+        db, tenant_id=principal.tenant_id, customer_id=customer_id, phone_id=phone_id
+    )
+    phone = customer_service.update_customer_phone(db, phone=phone, data=body, actor_id=principal.user_id)
+    return CustomerPhoneRead.model_validate(phone, from_attributes=True)
+
+
+@router.delete("/customers/{customer_id}/phones/{phone_id}", status_code=204)
+def delete_customer_phone(
+    customer_id: uuid.UUID,
+    phone_id: uuid.UUID,
+    principal: Principal = Depends(require_access_role(*_WRITE_ROLES)),
+    db: Session = Depends(get_db),
+):
+    phone = customer_service.get_customer_phone_or_404(
+        db, tenant_id=principal.tenant_id, customer_id=customer_id, phone_id=phone_id
+    )
+    customer_service.delete_customer_phone(db, phone=phone, actor_id=principal.user_id)
+
+
+@router.get("/customers/{customer_id}/emails", response_model=CustomerEmailPage)
+def list_customer_emails(
+    customer_id: uuid.UUID,
+    principal: Principal = Depends(get_current_principal),
+    db: Session = Depends(get_db),
+):
+    customer_service.get_customer_or_404(db, principal.tenant_id, customer_id)
+    rows = customer_service.list_customer_emails(db, customer_id=customer_id)
+    return CustomerEmailPage(items=[CustomerEmailRead.model_validate(r, from_attributes=True) for r in rows])
+
+
+@router.post("/customers/{customer_id}/emails", response_model=CustomerEmailRead, status_code=201)
+def create_customer_email(
+    customer_id: uuid.UUID,
+    body: CustomerEmailCreate,
+    principal: Principal = Depends(require_access_role(*_WRITE_ROLES)),
+    db: Session = Depends(get_db),
+):
+    customer = customer_service.get_customer_or_404(db, principal.tenant_id, customer_id)
+    email = customer_service.create_customer_email(db, customer=customer, data=body, actor_id=principal.user_id)
+    return CustomerEmailRead.model_validate(email, from_attributes=True)
+
+
+@router.patch("/customers/{customer_id}/emails/{email_id}", response_model=CustomerEmailRead)
+def update_customer_email(
+    customer_id: uuid.UUID,
+    email_id: uuid.UUID,
+    body: CustomerEmailUpdate,
+    principal: Principal = Depends(require_access_role(*_WRITE_ROLES)),
+    db: Session = Depends(get_db),
+):
+    email = customer_service.get_customer_email_or_404(
+        db, tenant_id=principal.tenant_id, customer_id=customer_id, email_id=email_id
+    )
+    email = customer_service.update_customer_email(db, email=email, data=body, actor_id=principal.user_id)
+    return CustomerEmailRead.model_validate(email, from_attributes=True)
+
+
+@router.delete("/customers/{customer_id}/emails/{email_id}", status_code=204)
+def delete_customer_email(
+    customer_id: uuid.UUID,
+    email_id: uuid.UUID,
+    principal: Principal = Depends(require_access_role(*_WRITE_ROLES)),
+    db: Session = Depends(get_db),
+):
+    email = customer_service.get_customer_email_or_404(
+        db, tenant_id=principal.tenant_id, customer_id=customer_id, email_id=email_id
+    )
+    customer_service.delete_customer_email(db, email=email, actor_id=principal.user_id)
+
+
+# --- CustomerExternalId: per-dealer CRM/OEM linkage. Write is
+# platform_admin-only (Anto's ruling, 2026-08-07, overriding the earlier
+# dealer_admin default) — read stays open to any authenticated tenant role,
+# same pattern as an audit-log endpoint being readable but not writable by
+# regular roles.
+
+
+@router.get("/customers/{customer_id}/external-ids", response_model=CustomerExternalIdPage)
+def list_customer_external_ids(
+    customer_id: uuid.UUID,
+    principal: Principal = Depends(get_current_principal),
+    db: Session = Depends(get_db),
+):
+    customer_service.get_customer_or_404(db, principal.tenant_id, customer_id)
+    rows = customer_service.list_customer_external_ids(db, customer_id=customer_id)
+    return CustomerExternalIdPage(
+        items=[CustomerExternalIdRead.model_validate(r, from_attributes=True) for r in rows]
+    )
+
+
+@router.post("/customers/{customer_id}/external-ids", response_model=CustomerExternalIdRead, status_code=201)
+def create_customer_external_id(
+    customer_id: uuid.UUID,
+    body: CustomerExternalIdCreate,
+    principal: Principal = Depends(require_access_role()),  # platform_admin only
+    db: Session = Depends(get_db),
+):
+    # Tenant-agnostic lookup, not get_customer_or_404(principal.tenant_id,
+    # ...): platform_admin's principal.tenant_id is a synthetic claim, not a
+    # real dealer — and unlike Dealer's, Customer's own module docstring
+    # explicitly scopes platform_admin's cross-tenant reach to "dealer
+    # onboarding only." CustomerExternalId is the one deliberate exception
+    # to that (Anto's ruling, 2026-08-07: this is a platform-managed CRM/OEM
+    # linkage, by design reachable across every dealer) — resolve the
+    # customer's real tenant_id from the row itself instead.
+    customer = customer_service.get_customer_by_id_or_404(db, customer_id)
+    row = customer_service.create_customer_external_id(db, customer=customer, data=body, actor_id=principal.user_id)
+    return CustomerExternalIdRead.model_validate(row, from_attributes=True)
+
+
+@router.patch("/customers/{customer_id}/external-ids/{external_id_row_id}", response_model=CustomerExternalIdRead)
+def update_customer_external_id(
+    customer_id: uuid.UUID,
+    external_id_row_id: uuid.UUID,
+    body: CustomerExternalIdUpdate,
+    principal: Principal = Depends(require_access_role()),  # platform_admin only
+    db: Session = Depends(get_db),
+):
+    customer = customer_service.get_customer_by_id_or_404(db, customer_id)
+    row = customer_service.get_customer_external_id_or_404(
+        db, tenant_id=customer.tenant_id, customer_id=customer_id, external_id_row_id=external_id_row_id
+    )
+    row = customer_service.update_customer_external_id(db, row=row, data=body, actor_id=principal.user_id)
+    return CustomerExternalIdRead.model_validate(row, from_attributes=True)
+
+
+@router.delete("/customers/{customer_id}/external-ids/{external_id_row_id}", status_code=204)
+def delete_customer_external_id(
+    customer_id: uuid.UUID,
+    external_id_row_id: uuid.UUID,
+    principal: Principal = Depends(require_access_role()),  # platform_admin only
+    db: Session = Depends(get_db),
+):
+    customer = customer_service.get_customer_by_id_or_404(db, customer_id)
+    row = customer_service.get_customer_external_id_or_404(
+        db, tenant_id=customer.tenant_id, customer_id=customer_id, external_id_row_id=external_id_row_id
+    )
+    customer_service.delete_customer_external_id(db, row=row, actor_id=principal.user_id)
