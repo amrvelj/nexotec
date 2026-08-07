@@ -507,3 +507,355 @@ def test_non_admin_auditor_roles_cannot_read_audit_log(client, role):
     token = _token(role, tenant_id=uuid.UUID(dealer_id))
     response = client.get(f"/v1/customers/{customer['id']}/audit-log", headers=_bearer(token))
     assert response.status_code == 403
+
+
+# --- Customer PRD Phase A: business/individual conditional fields -----------
+
+
+def test_create_business_customer(client):
+    dealer_id = _create_dealer(client)
+    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    payload = {
+        "customerType": "business",
+        "companyName": "Muster Garage AG",
+        "legalForm": "ag",
+        "taxId": "CHE-987.654.321",
+        "email": "info@muster-garage.ch",
+    }
+    response = client.post("/v1/customers", json=payload, headers=_bearer(token))
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["customerType"] == "business"
+    assert body["companyName"] == "Muster Garage AG"
+    assert body["legalForm"] == "ag"
+    assert body["firstName"] is None
+    assert body["lastName"] is None
+    assert "taxId" not in body  # write-only, same as Dealer.taxId
+
+
+def test_business_customer_rejects_individual_fields(client):
+    dealer_id = _create_dealer(client)
+    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    payload = {
+        "customerType": "business",
+        "companyName": "Muster Garage AG",
+        "firstName": "Anna",
+        "email": "info@muster-garage.ch",
+    }
+    response = client.post("/v1/customers", json=payload, headers=_bearer(token))
+    assert response.status_code == 422
+
+
+def test_business_customer_requires_company_name(client):
+    dealer_id = _create_dealer(client)
+    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    payload = {"customerType": "business", "email": "info@muster-garage.ch"}
+    response = client.post("/v1/customers", json=payload, headers=_bearer(token))
+    assert response.status_code == 422
+
+
+def test_individual_customer_rejects_business_fields(client):
+    dealer_id = _create_dealer(client)
+    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    response = client.post(
+        "/v1/customers", json=_customer_payload(companyName="Oops AG"), headers=_bearer(token)
+    )
+    assert response.status_code == 422
+
+
+def test_patch_cannot_set_business_field_on_individual_customer(client):
+    dealer_id = _create_dealer(client)
+    customer = _create_customer(client, dealer_id, email="patch-mix@example.ch")
+    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    response = client.patch(
+        f"/v1/customers/{customer['id']}",
+        json={"companyName": "Oops AG"},
+        headers={**_bearer(token), "If-Match": "1"},
+    )
+    assert response.status_code == 400
+
+
+def test_tax_id_is_redacted_in_audit_log(client):
+    dealer_id = _create_dealer(client)
+    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    payload = {
+        "customerType": "business",
+        "companyName": "Redact AG",
+        "taxId": "CHE-111.222.333",
+        "email": "redact@example.ch",
+    }
+    created = client.post("/v1/customers", json=payload, headers=_bearer(token)).json()
+    log = client.get(f"/v1/customers/{created['id']}/audit-log", headers=_bearer(token))
+    create_event = next(item for item in log.json()["items"] if item["action"] == "create")
+    assert create_event["after"]["tax_id"] == "***redacted***"
+
+
+# --- Customer PRD Phase A: CustomerPhone / CustomerEmail ---------------------
+
+
+def test_first_phone_is_auto_primary(client):
+    dealer_id = _create_dealer(client)
+    customer = _create_customer(client, dealer_id, email="phones1@example.ch")
+    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    response = client.post(
+        f"/v1/customers/{customer['id']}/phones",
+        json={"phoneType": "mobile", "phoneE164": "+41791234567", "isPrimary": False},
+        headers=_bearer(token),
+    )
+    assert response.status_code == 201, response.text
+    assert response.json()["isPrimary"] is True
+
+
+def test_second_phone_not_auto_primary_unless_requested(client):
+    dealer_id = _create_dealer(client)
+    customer = _create_customer(client, dealer_id, email="phones2@example.ch")
+    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    client.post(
+        f"/v1/customers/{customer['id']}/phones",
+        json={"phoneType": "mobile", "phoneE164": "+41791111111"},
+        headers=_bearer(token),
+    )
+    second = client.post(
+        f"/v1/customers/{customer['id']}/phones",
+        json={"phoneType": "office", "phoneE164": "+41442222222"},
+        headers=_bearer(token),
+    )
+    assert second.json()["isPrimary"] is False
+
+
+def test_marking_new_phone_primary_unsets_previous(client):
+    dealer_id = _create_dealer(client)
+    customer = _create_customer(client, dealer_id, email="phones3@example.ch")
+    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    first = client.post(
+        f"/v1/customers/{customer['id']}/phones",
+        json={"phoneType": "mobile", "phoneE164": "+41791111111"},
+        headers=_bearer(token),
+    ).json()
+    assert first["isPrimary"] is True
+
+    second = client.post(
+        f"/v1/customers/{customer['id']}/phones",
+        json={"phoneType": "office", "phoneE164": "+41442222222", "isPrimary": True},
+        headers=_bearer(token),
+    ).json()
+    assert second["isPrimary"] is True
+
+    listed = client.get(f"/v1/customers/{customer['id']}/phones", headers=_bearer(token)).json()["items"]
+    first_now = next(p for p in listed if p["id"] == first["id"])
+    assert first_now["isPrimary"] is False
+
+
+def test_duplicate_phone_on_same_customer_is_conflict(client):
+    dealer_id = _create_dealer(client)
+    customer = _create_customer(client, dealer_id, email="phones4@example.ch")
+    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    client.post(
+        f"/v1/customers/{customer['id']}/phones",
+        json={"phoneType": "mobile", "phoneE164": "+41791234567"},
+        headers=_bearer(token),
+    )
+    response = client.post(
+        f"/v1/customers/{customer['id']}/phones",
+        json={"phoneType": "office", "phoneE164": "+41791234567"},
+        headers=_bearer(token),
+    )
+    assert response.status_code == 409
+
+
+def test_delete_phone(client):
+    dealer_id = _create_dealer(client)
+    customer = _create_customer(client, dealer_id, email="phones5@example.ch")
+    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    phone = client.post(
+        f"/v1/customers/{customer['id']}/phones",
+        json={"phoneType": "mobile", "phoneE164": "+41791234567"},
+        headers=_bearer(token),
+    ).json()
+    response = client.delete(f"/v1/customers/{customer['id']}/phones/{phone['id']}", headers=_bearer(token))
+    assert response.status_code == 204
+    listed = client.get(f"/v1/customers/{customer['id']}/phones", headers=_bearer(token)).json()["items"]
+    assert listed == []
+
+
+def test_customer_email_crud_and_primary_flag(client):
+    dealer_id = _create_dealer(client)
+    customer = _create_customer(client, dealer_id, email="emails1@example.ch")
+    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    first = client.post(
+        f"/v1/customers/{customer['id']}/emails",
+        json={"emailType": "private", "emailAddress": "personal@example.ch"},
+        headers=_bearer(token),
+    ).json()
+    assert first["isPrimary"] is True
+
+    second = client.post(
+        f"/v1/customers/{customer['id']}/emails",
+        json={"emailType": "business", "emailAddress": "work@example.ch", "isPrimary": True},
+        headers=_bearer(token),
+    ).json()
+    assert second["isPrimary"] is True
+
+    dup = client.post(
+        f"/v1/customers/{customer['id']}/emails",
+        json={"emailType": "private", "emailAddress": "work@example.ch"},
+        headers=_bearer(token),
+    )
+    assert dup.status_code == 409
+
+    update = client.patch(
+        f"/v1/customers/{customer['id']}/emails/{first['id']}",
+        json={"emailAddress": "renamed@example.ch"},
+        headers=_bearer(token),
+    )
+    assert update.status_code == 200
+    assert update.json()["emailAddress"] == "renamed@example.ch"
+
+    delete = client.delete(f"/v1/customers/{customer['id']}/emails/{second['id']}", headers=_bearer(token))
+    assert delete.status_code == 204
+
+
+def test_phone_and_email_changes_appear_in_audit_log(client):
+    dealer_id = _create_dealer(client)
+    customer = _create_customer(client, dealer_id, email="audit-contacts@example.ch")
+    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    client.post(
+        f"/v1/customers/{customer['id']}/phones",
+        json={"phoneType": "mobile", "phoneE164": "+41791234567"},
+        headers=_bearer(token),
+    )
+    client.post(
+        f"/v1/customers/{customer['id']}/emails",
+        json={"emailType": "private", "emailAddress": "second@example.ch"},
+        headers=_bearer(token),
+    )
+    log = client.get(f"/v1/customers/{customer['id']}/audit-log", headers=_bearer(token)).json()["items"]
+    actions = {item["action"] for item in log}
+    assert "phone_add" in actions
+    assert "email_add" in actions
+
+
+# --- Customer PRD Phase A: CustomerExternalId (platform_admin-only write) ---
+
+
+def test_platform_admin_can_create_external_id(client):
+    dealer_id = _create_dealer(client)
+    customer = _create_customer(client, dealer_id, email="ext1@example.ch")
+    admin_token = _token(AccessRole.PLATFORM_ADMIN)  # synthetic tenant_id, unrelated to dealer_id
+    response = client.post(
+        f"/v1/customers/{customer['id']}/external-ids",
+        json={"systemName": "Salesforce", "externalId": "SF-001"},
+        headers=_bearer(admin_token),
+    )
+    assert response.status_code == 201, response.text
+    assert response.json()["systemName"] == "Salesforce"
+
+
+def test_dealer_admin_cannot_write_external_id(client):
+    dealer_id = _create_dealer(client)
+    customer = _create_customer(client, dealer_id, email="ext2@example.ch")
+    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    response = client.post(
+        f"/v1/customers/{customer['id']}/external-ids",
+        json={"systemName": "Salesforce", "externalId": "SF-002"},
+        headers=_bearer(token),
+    )
+    assert response.status_code == 403
+
+
+def test_dealer_staff_can_read_external_ids(client):
+    dealer_id = _create_dealer(client)
+    customer = _create_customer(client, dealer_id, email="ext3@example.ch")
+    admin_token = _token(AccessRole.PLATFORM_ADMIN)
+    client.post(
+        f"/v1/customers/{customer['id']}/external-ids",
+        json={"systemName": "Salesforce", "externalId": "SF-003"},
+        headers=_bearer(admin_token),
+    )
+    dealer_token = _token(AccessRole.SALES, tenant_id=uuid.UUID(dealer_id))
+    response = client.get(f"/v1/customers/{customer['id']}/external-ids", headers=_bearer(dealer_token))
+    assert response.status_code == 200
+    assert len(response.json()["items"]) == 1
+
+
+def test_external_id_unique_per_tenant_system_and_external_id(client):
+    dealer_id = _create_dealer(client)
+    customer_a = _create_customer(client, dealer_id, email="ext4a@example.ch")
+    customer_b = _create_customer(client, dealer_id, email="ext4b@example.ch")
+    admin_token = _token(AccessRole.PLATFORM_ADMIN)
+    client.post(
+        f"/v1/customers/{customer_a['id']}/external-ids",
+        json={"systemName": "Salesforce", "externalId": "SF-DUP"},
+        headers=_bearer(admin_token),
+    )
+    response = client.post(
+        f"/v1/customers/{customer_b['id']}/external-ids",
+        json={"systemName": "Salesforce", "externalId": "SF-DUP"},
+        headers=_bearer(admin_token),
+    )
+    assert response.status_code == 409
+
+
+def test_external_id_one_per_system_per_customer(client):
+    dealer_id = _create_dealer(client)
+    customer = _create_customer(client, dealer_id, email="ext5@example.ch")
+    admin_token = _token(AccessRole.PLATFORM_ADMIN)
+    client.post(
+        f"/v1/customers/{customer['id']}/external-ids",
+        json={"systemName": "Salesforce", "externalId": "SF-1"},
+        headers=_bearer(admin_token),
+    )
+    response = client.post(
+        f"/v1/customers/{customer['id']}/external-ids",
+        json={"systemName": "Salesforce", "externalId": "SF-2"},
+        headers=_bearer(admin_token),
+    )
+    assert response.status_code == 409
+
+
+def test_external_ids_across_different_tenants_can_collide(client):
+    """Different dealers' CRM/OEM ID namespaces legitimately collide — no
+    global uniqueness on external_id alone (CTO ruling, 2026-08-07)."""
+
+    dealer_a = _create_dealer(client)
+    dealer_b = _create_dealer(client)
+    customer_a = _create_customer(client, dealer_a, email="ext6a@example.ch")
+    customer_b = _create_customer(client, dealer_b, email="ext6b@example.ch")
+    admin_token = _token(AccessRole.PLATFORM_ADMIN)
+
+    response_a = client.post(
+        f"/v1/customers/{customer_a['id']}/external-ids",
+        json={"systemName": "Salesforce", "externalId": "SAME-ID"},
+        headers=_bearer(admin_token),
+    )
+    response_b = client.post(
+        f"/v1/customers/{customer_b['id']}/external-ids",
+        json={"systemName": "Salesforce", "externalId": "SAME-ID"},
+        headers=_bearer(admin_token),
+    )
+    assert response_a.status_code == 201
+    assert response_b.status_code == 201
+
+
+def test_external_id_update_and_delete(client):
+    dealer_id = _create_dealer(client)
+    customer = _create_customer(client, dealer_id, email="ext7@example.ch")
+    admin_token = _token(AccessRole.PLATFORM_ADMIN)
+    row = client.post(
+        f"/v1/customers/{customer['id']}/external-ids",
+        json={"systemName": "Salesforce", "externalId": "SF-UPD"},
+        headers=_bearer(admin_token),
+    ).json()
+
+    update = client.patch(
+        f"/v1/customers/{customer['id']}/external-ids/{row['id']}",
+        json={"externalId": "SF-UPD-2"},
+        headers=_bearer(admin_token),
+    )
+    assert update.status_code == 200
+    assert update.json()["externalId"] == "SF-UPD-2"
+
+    delete = client.delete(
+        f"/v1/customers/{customer['id']}/external-ids/{row['id']}", headers=_bearer(admin_token)
+    )
+    assert delete.status_code == 204
