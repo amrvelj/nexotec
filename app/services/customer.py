@@ -127,7 +127,9 @@ def create_customer(db: Session, *, tenant_id: uuid.UUID, data: CustomerCreate, 
         customer.address_house_number = data.address.house_number
         customer.address_postal_code = data.address.postal_code
         customer.address_locality = data.address.locality
-        customer.address_canton = data.address.canton
+        # No canton on CustomerAddress (unlike Dealer's) — column stays
+        # nullable and simply unset from this schema going forward.
+        customer.address_canton = None
         customer.address_country = data.address.country
 
     db.add(customer)
@@ -182,7 +184,7 @@ def update_customer(db: Session, *, customer: Customer, data: CustomerUpdate, ac
             "address_house_number": data.address.house_number if data.address else None,
             "address_postal_code": data.address.postal_code if data.address else None,
             "address_locality": data.address.locality if data.address else None,
-            "address_canton": data.address.canton if data.address else None,
+            "address_canton": None,
             "address_country": data.address.country if data.address else None,
         }
         for field, value in address_fields.items():

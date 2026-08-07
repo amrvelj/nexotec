@@ -5,8 +5,22 @@ from pydantic import EmailStr, Field, model_validator
 
 from app.models.customer import CustomerLifecycleStatus, CustomerSource, CustomerType, PreferredContactMethod
 from app.schemas.base import CamelModel
-from app.schemas.dealer import DealerAddress as CustomerAddress  # same Swiss address shape (validators.py intent)
-from app.schemas.validators import E164Phone
+from app.schemas.validators import E164Phone, SwissPostalCode
+
+
+class CustomerAddress(CamelModel):
+    """Deliberately not DealerAddress: no `canton` field. Dealer's canton is
+    tied to its license/regulatory record; Customer has no such requirement,
+    and requiring it here was blocking customer creation for no reason
+    (product feedback 2026-08-07) — the underlying `address_canton` DB
+    column stays nullable and simply goes unused rather than being dropped.
+    """
+
+    street: str = Field(max_length=200)
+    house_number: str = Field(max_length=20)
+    postal_code: SwissPostalCode
+    locality: str = Field(max_length=100)
+    country: str = Field(default="CH", max_length=2)
 
 
 class CustomerCreate(CamelModel):
