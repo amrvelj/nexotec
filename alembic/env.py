@@ -7,7 +7,7 @@ from alembic import context
 
 import app.models  # noqa: F401  registers every model on Base.metadata
 from app.core.config import get_settings
-from app.db import Base
+from app.db import Base, with_psycopg_driver
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -21,8 +21,12 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 # Real connection string comes from app settings (DMS_DATABASE_URL env var),
-# not the placeholder in alembic.ini — keeps one source of truth.
-config.set_main_option("sqlalchemy.url", get_settings().database_url)
+# not the placeholder in alembic.ini — keeps one source of truth. Normalized
+# through the same with_psycopg_driver() as app/db.py's engine: managed
+# Postgres providers (Render's connectionString included) hand out a bare
+# postgres://ish URL that SQLAlchemy would otherwise default to psycopg2,
+# which isn't installed here (see app/db.py for the full rationale).
+config.set_main_option("sqlalchemy.url", with_psycopg_driver(get_settings().database_url))
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
