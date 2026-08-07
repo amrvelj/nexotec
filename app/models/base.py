@@ -1,10 +1,10 @@
 import datetime as dt
 
-from sqlalchemy import DateTime, Integer
+from sqlalchemy import Integer
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.uuid7 import uuid7
-from app.models.types import GUID
+from app.models.types import GUID, UTCDateTime
 
 
 def utcnow() -> dt.datetime:
@@ -18,9 +18,9 @@ class PrimaryKeyMixin:
 
 
 class TimestampMixin:
-    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
     updated_at: Mapped[dt.datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False
+        UTCDateTime(), default=utcnow, onupdate=utcnow, nullable=False
     )
     created_by: Mapped[GUID | None] = mapped_column(GUID(), nullable=True)
     updated_by: Mapped[GUID | None] = mapped_column(GUID(), nullable=True)

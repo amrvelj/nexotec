@@ -7,12 +7,12 @@ Throwaway by design: replaced, not extended, once a real external IdP
 
 import datetime as dt
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String
+from sqlalchemy import ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
 from app.models.base import PrimaryKeyMixin, TimestampMixin
-from app.models.types import GUID
+from app.models.types import GUID, UTCDateTime
 
 
 class Credential(PrimaryKeyMixin, TimestampMixin, Base):
@@ -27,4 +27,4 @@ class Credential(PrimaryKeyMixin, TimestampMixin, Base):
     # Basic brute-force guard (issue #8) — account-level lockout, not a
     # distributed/IP-based rate limiter (out of scope for the interim login).
     failed_login_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    locked_until: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    locked_until: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)

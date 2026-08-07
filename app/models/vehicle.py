@@ -20,12 +20,12 @@ all, so it's dropped rather than guessed back in. Flagged in the PR.
 import datetime as dt
 import enum
 
-from sqlalchemy import DateTime, Enum as SAEnum, ForeignKey, Index, Integer, String, UniqueConstraint
+from sqlalchemy import Enum as SAEnum, ForeignKey, Index, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
 from app.models.base import PrimaryKeyMixin, TimestampMixin, VersionedMixin, utcnow
-from app.models.types import GUID
+from app.models.types import GUID, UTCDateTime
 
 
 class VehicleCondition(str, enum.Enum):
@@ -133,11 +133,11 @@ class VehicleCustodyEvent(PrimaryKeyMixin, Base):
     event_type: Mapped[CustodyEventType] = mapped_column(
         SAEnum(CustodyEventType, native_enum=False, length=32), nullable=False
     )
-    event_date: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    event_date: Mapped[dt.datetime] = mapped_column(UTCDateTime(), nullable=False)
     # FK constrained now that Transaction (issue #6) is in this branch's
     # own history — was a bare-UUID forward reference before #6 existed.
     transaction_id: Mapped[GUID | None] = mapped_column(GUID(), ForeignKey("transaction.id"), nullable=True)
-    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
     created_by: Mapped[GUID | None] = mapped_column(GUID(), nullable=True)
 
 
@@ -161,5 +161,5 @@ class VehicleParty(PrimaryKeyMixin, TimestampMixin, Base):
     role: Mapped[VehiclePartyRole] = mapped_column(
         SAEnum(VehiclePartyRole, native_enum=False, length=16), nullable=False
     )
-    effective_from: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utcnow)
-    effective_to: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    effective_from: Mapped[dt.datetime] = mapped_column(UTCDateTime(), nullable=False, default=utcnow)
+    effective_to: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
