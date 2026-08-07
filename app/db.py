@@ -8,7 +8,7 @@ from app.core.config import get_settings
 settings = get_settings()
 
 
-def _with_psycopg_driver(database_url: str) -> str:
+def with_psycopg_driver(database_url: str) -> str:
     # Managed Postgres providers (Render's `connectionString` included) hand
     # out a bare `postgres://`/`postgresql://` URL with no driver suffix,
     # which makes SQLAlchemy default to psycopg2 — not installed here, only
@@ -21,7 +21,7 @@ def _with_psycopg_driver(database_url: str) -> str:
     return database_url
 
 
-engine = create_engine(_with_psycopg_driver(settings.database_url), pool_pre_ping=True)
+engine = create_engine(with_psycopg_driver(settings.database_url), pool_pre_ping=True)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
 
 
