@@ -8,7 +8,7 @@ reason Dealer/User audit their status fields).
 import uuid
 from typing import Any
 
-from sqlalchemy import case, or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -20,6 +20,7 @@ from app.models.customer import (
     CustomerEmail,
     CustomerExternalId,
     CustomerLifecycleStatus,
+    CustomerNumberSequence,
     CustomerPhone,
     CustomerType,
 )
@@ -33,9 +34,11 @@ from app.schemas.customer import (
     CustomerPhoneUpdate,
     CustomerUpdate,
 )
+from app.schemas.validators import normalise_phone
 from app.services.audit import record_audit_event
 
 _PII_FIELDS = {
+    "salutation",
     "first_name",
     "last_name",
     "birth_date",
@@ -43,8 +46,6 @@ _PII_FIELDS = {
     "company_name",
     "legal_form",
     "tax_id",
-    "email",
-    "phone",
     "address_street",
     "address_house_number",
     "address_postal_code",
@@ -52,7 +53,19 @@ _PII_FIELDS = {
     "address_canton",
     "address_country",
 }
-_AUDITED_FIELDS = _PII_FIELDS | {"lifecycle_status", "preferred_channel"}
+# customer_number and language are audited too: the number because it is
+# the immutable business key printed on documents, language because sending
+# a customer a contract in the wrong language is exactly the kind of change
+# someone later disputes.
+_AUDITED_FIELDS = _PII_FIELDS | {
+    "customer_number",
+    "language",
+    "lifecycle_status",
+    "preferred_channel",
+}
+# Below this many digits a phone fragment matches most of the table, so it is
+# treated as a name search instead.
+_MIN_PHONE_SEARCH_DIGITS = 3
 _TERMINAL_LIFECYCLE_STATUSES = {CustomerLifecycleStatus.MERGED}
 _DUPLICATE_CHECK_LIMIT = 10
 # Never logged in plaintext, same as Dealer.tax_id — see services/dealer.py's
@@ -89,6 +102,34 @@ def _validate_customer_type_fields_on_update(customer: Customer, changes: dict[s
             )
 
 
+def _allocate_customer_number(db: Session, tenant_id: uuid.UUID) -> str:
+    """Allocate the next `K-000001`-style number for this tenant (D-02).
+
+    Takes a row lock on the tenant's counter so two concurrent creates
+    serialise here rather than racing to the same number; the lock is held
+    until the surrounding customer-creation transaction commits. On SQLite
+    (the fast test lane) `with_for_update` is a no-op, which is fine —
+    SQLite serialises writers anyway.
+
+    Numbers are allocated, not derived from a COUNT: a failed transaction
+    burns a number and that is deliberate. Gaps are harmless; reuse is not,
+    because a reused number would silently point at two different customers
+    in printed documents.
+    """
+
+    row = db.get(CustomerNumberSequence, tenant_id, with_for_update=True)
+    if row is None:
+        row = CustomerNumberSequence(tenant_id=tenant_id, next_value=1)
+        db.add(row)
+        db.flush()
+        row = db.get(CustomerNumberSequence, tenant_id, with_for_update=True)
+
+    value = row.next_value
+    row.next_value = value + 1
+    db.flush()
+    return f"K-{value:06d}"
+
+
 def get_customer_or_404(db: Session, tenant_id: uuid.UUID, customer_id: uuid.UUID) -> Customer:
     return get_or_404(db, Customer, customer_id, tenant_id)
 
@@ -106,6 +147,42 @@ def get_customer_by_id_or_404(db: Session, customer_id: uuid.UUID) -> Customer:
     return customer
 
 
+def _search_predicate(tenant_id: uuid.UUID, q: str):
+    """The FR-01 "one search box" predicate, shared by list and duplicate check.
+
+    Covers company_name and customer_number, which the pre-Phase-B version
+    did not: a business customer could not be found by its own name, and no
+    search reached the number staff actually quote (D-06). Phone matching
+    goes through the normalised column so '079 123 45 67' finds a number
+    stored as '+41791234567'.
+    """
+
+    pattern = f"%{q}%"
+    conditions = [
+        Customer.first_name.ilike(pattern),
+        Customer.last_name.ilike(pattern),
+        Customer.company_name.ilike(pattern),
+        Customer.customer_number.ilike(pattern),
+        Customer.id.in_(
+            select(CustomerEmail.customer_id).where(
+                CustomerEmail.tenant_id == tenant_id,
+                CustomerEmail.email_address.ilike(pattern),
+            )
+        ),
+    ]
+    phone_digits = normalise_phone(q)
+    if len(phone_digits) >= _MIN_PHONE_SEARCH_DIGITS:
+        conditions.append(
+            Customer.id.in_(
+                select(CustomerPhone.customer_id).where(
+                    CustomerPhone.tenant_id == tenant_id,
+                    CustomerPhone.phone_normalised.like(f"%{phone_digits}%"),
+                )
+            )
+        )
+    return or_(*conditions)
+
+
 def list_customers(
     db: Session,
     *,
@@ -114,20 +191,19 @@ def list_customers(
     lifecycle_status: CustomerLifecycleStatus | None,
     updated_since,
     params: PageParams,
+    include_merged: bool = False,
 ) -> tuple[list[Customer], str | None]:
     stmt = select(Customer).where(Customer.tenant_id == tenant_id)
     if q:
-        pattern = f"%{q}%"
-        stmt = stmt.where(
-            or_(
-                Customer.first_name.ilike(pattern),
-                Customer.last_name.ilike(pattern),
-                Customer.email.ilike(pattern),
-                Customer.phone.ilike(pattern),
-            )
-        )
+        stmt = stmt.where(_search_predicate(tenant_id, q))
     if lifecycle_status is not None:
         stmt = stmt.where(Customer.lifecycle_status == lifecycle_status)
+    elif not include_merged:
+        # A merged record is a tombstone pointing at its survivor. Showing it
+        # in normal search results is how staff end up re-opening the record
+        # they just merged away, so it is hidden unless explicitly asked for
+        # (or explicitly filtered to, via lifecycle_status=merged).
+        stmt = stmt.where(Customer.lifecycle_status != CustomerLifecycleStatus.MERGED)
     if updated_since is not None:
         stmt = stmt.where(Customer.updated_at >= updated_since)
     stmt = paginate_query(stmt, model=Customer, params=params)
@@ -135,43 +211,143 @@ def list_customers(
     return build_page(rows, params)
 
 
-def duplicate_check(db: Session, *, tenant_id: uuid.UUID, q: str) -> list[Customer]:
-    """Advisory typeahead (Swiss addendum Round 2 #5) — not a blocking gate
-    on create. Ranks exact email/phone matches above partial name/contact
-    matches, capped to a small result set for a per-keystroke UI call.
+def _primary_contact_maps(db: Session, customer_ids):
+    """Primary phone/email per customer, in two queries rather than 2N."""
+
+    phones, emails = {}, {}
+    if not customer_ids:
+        return phones, emails
+    for row in db.scalars(select(CustomerPhone).where(CustomerPhone.customer_id.in_(customer_ids))).all():
+        if row.is_primary or row.customer_id not in phones:
+            phones[row.customer_id] = row.phone_e164
+    for row in db.scalars(select(CustomerEmail).where(CustomerEmail.customer_id.in_(customer_ids))).all():
+        if row.is_primary or row.customer_id not in emails:
+            emails[row.customer_id] = row.email_address
+    return phones, emails
+
+
+def duplicate_check(db: Session, *, tenant_id: uuid.UUID, q: str) -> list[dict[str, Any]]:
+    """Advisory typeahead (Swiss addendum Round 2 #5) — never a blocking gate
+    on create. A dealership sometimes has a legitimate reason to create a
+    near-identical record; FR-09 merge exists for the rest.
+
+    Returns plain dicts rather than Customer rows because a candidate is not
+    a customer: it carries a match reason and the primary contact details,
+    and it must render for a *business* customer too. The old version typed
+    first_name/last_name as required, so a company among the candidates blew
+    up serialisation — duplicate detection failed exactly when it found a
+    company (D-07).
     """
 
-    pattern = f"%{q}%"
-    score = case(
-        (Customer.email == q, 3),
-        (Customer.phone == q, 3),
-        (
-            or_(Customer.first_name.ilike(f"{q}%"), Customer.last_name.ilike(f"{q}%")),
-            2,
-        ),
-        else_=1,
+    candidates = list(
+        db.scalars(
+            select(Customer)
+            .where(
+                Customer.tenant_id == tenant_id,
+                Customer.lifecycle_status != CustomerLifecycleStatus.MERGED,
+                _search_predicate(tenant_id, q),
+            )
+            .limit(_DUPLICATE_CHECK_LIMIT * 3)
+        ).all()
     )
-    stmt = (
-        select(Customer)
-        .where(
-            Customer.tenant_id == tenant_id,
-            or_(
-                Customer.first_name.ilike(pattern),
-                Customer.last_name.ilike(pattern),
-                Customer.email.ilike(pattern),
-                Customer.phone.ilike(pattern),
-            ),
+    if not candidates:
+        return []
+
+    phones, emails = _primary_contact_maps(db, [c.id for c in candidates])
+    needle = q.strip().lower()
+    needle_digits = normalise_phone(q)
+
+    exact_email_ids = {
+        row.customer_id
+        for row in db.scalars(
+            select(CustomerEmail).where(
+                CustomerEmail.tenant_id == tenant_id,
+                func.lower(CustomerEmail.email_address) == needle,
+            )
+        ).all()
+    }
+    exact_phone_ids = set()
+    if len(needle_digits) >= 7:
+        exact_phone_ids = {
+            row.customer_id
+            for row in db.scalars(
+                select(CustomerPhone).where(
+                    CustomerPhone.tenant_id == tenant_id,
+                    CustomerPhone.phone_normalised == needle_digits,
+                )
+            ).all()
+        }
+
+    results = []
+    for customer in candidates:
+        is_exact = customer.id in exact_email_ids or customer.id in exact_phone_ids
+        results.append(
+            {
+                "id": customer.id,
+                "customer_number": customer.customer_number,
+                "customer_type": customer.customer_type,
+                "first_name": customer.first_name,
+                "last_name": customer.last_name,
+                "company_name": customer.company_name,
+                "primary_phone": phones.get(customer.id),
+                "primary_email": emails.get(customer.id),
+                "lifecycle_status": customer.lifecycle_status,
+                "match": "exact" if is_exact else "similar",
+            }
         )
-        .order_by(score.desc(), Customer.last_name.asc(), Customer.first_name.asc())
-        .limit(_DUPLICATE_CHECK_LIMIT)
-    )
-    return list(db.scalars(stmt).all())
+
+    results.sort(key=lambda r: (r["match"] != "exact", (r["last_name"] or r["company_name"] or "").lower()))
+    return results[:_DUPLICATE_CHECK_LIMIT]
+
+
+def _add_contacts(db: Session, customer: Customer, data: CustomerCreate) -> None:
+    """Write the nested phones/emails from a create request.
+
+    Runs inside the caller's transaction, so a customer and its contact
+    details commit together or not at all — there is no window in which a
+    customer exists while violating its own "at least one contact point"
+    invariant (FR-03).
+
+    If the caller marked no entry as primary, the first one wins: every
+    customer must have exactly one primary per contact type, and silently
+    choosing the first is friendlier than a 422 over something the UI
+    should have defaulted.
+    """
+
+    for index, phone in enumerate(data.phones):
+        db.add(
+            CustomerPhone(
+                tenant_id=customer.tenant_id,
+                customer_id=customer.id,
+                phone_type=phone.phone_type,
+                phone_e164=phone.phone_e164,
+                phone_normalised=normalise_phone(phone.phone_e164),
+                is_primary=phone.is_primary or (index == 0 and not any(p.is_primary for p in data.phones)),
+                created_by=customer.created_by,
+                updated_by=customer.updated_by,
+            )
+        )
+    for index, email in enumerate(data.emails):
+        db.add(
+            CustomerEmail(
+                tenant_id=customer.tenant_id,
+                customer_id=customer.id,
+                email_type=email.email_type,
+                email_address=email.email_address,
+                is_primary=email.is_primary or (index == 0 and not any(e.is_primary for e in data.emails)),
+                created_by=customer.created_by,
+                updated_by=customer.updated_by,
+            )
+        )
 
 
 def create_customer(db: Session, *, tenant_id: uuid.UUID, data: CustomerCreate, actor_id: uuid.UUID) -> Customer:
     customer = Customer(
         tenant_id=tenant_id,
+        customer_number=_allocate_customer_number(db, tenant_id),
         customer_type=data.customer_type,
+        language=data.language,
+        salutation=data.salutation,
         first_name=data.first_name,
         last_name=data.last_name,
         birth_date=data.birth_date,
@@ -180,9 +356,6 @@ def create_customer(db: Session, *, tenant_id: uuid.UUID, data: CustomerCreate, 
         legal_form=data.legal_form,
         tax_id=data.tax_id,
         preferred_channel=data.preferred_channel,
-        email=data.email,
-        phone=data.phone,
-        preferred_contact_method=data.preferred_contact_method,
         lifecycle_status=data.lifecycle_status,
         source=data.source,
         source_ref=data.source_ref,
@@ -201,14 +374,18 @@ def create_customer(db: Session, *, tenant_id: uuid.UUID, data: CustomerCreate, 
         customer.address_country = data.address.country
 
     db.add(customer)
+    db.flush()
+    _add_contacts(db, customer, data)
     try:
         db.flush()
     except IntegrityError as exc:
         db.rollback()
-        raise ConflictError(
-            "A customer with this email address already exists for this dealer.",
-            details={"email": data.email},
-        ) from exc
+        # No longer an email-uniqueness failure: the tenant-wide unique
+        # constraint on email was dropped in Phase B (D-05), because family
+        # members and colleagues legitimately share an address. What can
+        # still collide here is the same number/address supplied twice for
+        # one customer, or a customer_number race.
+        raise ConflictError("Customer contact details conflict with an existing record.") from exc
 
     record_audit_event(
         db,
@@ -264,9 +441,6 @@ def update_customer(db: Session, *, customer: Customer, data: CustomerUpdate, ac
             after[field] = value
             setattr(customer, field, value)
 
-    if not customer.email and not customer.phone:
-        raise BadRequestError("At least one of email or phone is required.")
-
     customer.updated_by = actor_id
     customer.version += 1
 
@@ -286,10 +460,7 @@ def update_customer(db: Session, *, customer: Customer, data: CustomerUpdate, ac
         db.commit()
     except IntegrityError as exc:
         db.rollback()
-        raise ConflictError(
-            "A customer with this email address already exists for this dealer.",
-            details={"email": changes.get("email")},
-        ) from exc
+        raise ConflictError("This change conflicts with an existing record.") from exc
     db.refresh(customer)
     return customer
 
@@ -368,6 +539,7 @@ def create_customer_phone(
         customer_id=customer.id,
         phone_type=data.phone_type,
         phone_e164=data.phone_e164,
+        phone_normalised=normalise_phone(data.phone_e164),
         is_primary=is_primary,
         created_by=actor_id,
         updated_by=actor_id,
@@ -410,6 +582,8 @@ def update_customer_phone(
 
     for field, value in changes.items():
         setattr(phone, field, value)
+    if "phone_e164" in changes:
+        phone.phone_normalised = normalise_phone(phone.phone_e164)
     phone.updated_by = actor_id
 
     try:
@@ -435,7 +609,23 @@ def update_customer_phone(
     return phone
 
 
+def _assert_not_last_contact_point(db: Session, customer_id: uuid.UUID, *, removing: str) -> None:
+    """FR-03's "at least one contact point" is an invariant of the customer,
+    not just of the create request — so deleting the final phone/email is
+    rejected. Without this the rule would hold at creation and then quietly
+    decay, which is how you end up with customers nobody can reach.
+    """
+
+    phones = db.scalar(select(func.count()).select_from(CustomerPhone).where(CustomerPhone.customer_id == customer_id))
+    emails = db.scalar(select(func.count()).select_from(CustomerEmail).where(CustomerEmail.customer_id == customer_id))
+    if (phones or 0) + (emails or 0) <= 1:
+        raise BadRequestError(
+            f"Cannot delete the last {removing} — a customer must keep at least one phone number or email address."
+        )
+
+
 def delete_customer_phone(db: Session, *, phone: CustomerPhone, actor_id: uuid.UUID) -> None:
+    _assert_not_last_contact_point(db, phone.customer_id, removing="phone number")
     record_audit_event(
         db,
         entity_type="customer",
@@ -558,6 +748,7 @@ def update_customer_email(
 
 
 def delete_customer_email(db: Session, *, email: CustomerEmail, actor_id: uuid.UUID) -> None:
+    _assert_not_last_contact_point(db, email.customer_id, removing="email address")
     record_audit_event(
         db,
         entity_type="customer",

@@ -109,7 +109,14 @@ def _create_vehicle(client, dealer_id: str, headers: dict[str, str], **overrides
 
 
 def _create_customer(client, headers: dict[str, str], **overrides) -> dict:
-    payload = {"firstName": "Peter", "lastName": "Beispiel", "email": f"peter-{uuid.uuid4().hex[:8]}@example.ch"}
+    payload = {
+        "firstName": "Peter",
+        "lastName": "Beispiel",
+        "language": "de",
+        "emails": [
+            {"emailType": "private", "emailAddress": f"peter-{uuid.uuid4().hex[:8]}@example.ch"}
+        ],
+    }
     payload.update(overrides)
     response = client.post("/v1/customers", json=payload, headers=headers)
     assert response.status_code == 201, response.text
@@ -144,9 +151,17 @@ def test_ac2_to_4_full_shell_walkthrough_sale(client):
     session_token = _login_and_get_session_cookie(client, "walkthrough@example.ch", "correct horse battery staple")
     headers = {"Cookie": f"dms_session={session_token}"}
 
-    # AC2: Customer with at least one contact method.
-    customer = _create_customer(client, headers, email="customer@example.ch", phone=None)
-    assert customer["email"] == "customer@example.ch"
+    # AC2: Customer with at least one contact method. Post-Phase-B the
+    # contact lives in the customer_email child collection, not on the
+    # customer body, so assert it through the emails endpoint.
+    customer = _create_customer(
+        client, headers, emails=[{"emailType": "private", "emailAddress": "customer@example.ch"}]
+    )
+    contact_emails = client.get(f"/v1/customers/{customer['id']}/emails", headers=headers).json()["items"]
+    assert [e["emailAddress"] for e in contact_emails] == ["customer@example.ch"]
+    assert contact_emails[0]["isPrimary"] is True
+    # AC2 also now covers the business key being issued at creation (D-02).
+    assert customer["customerNumber"].startswith("K-")
 
     # AC3: Vehicle via VIN entry, with an implicit custody event linking it
     # to the creating Dealer (VIN-decode itself is stubbed per the Swiss
@@ -465,7 +480,12 @@ def test_idempotency_key_replay_returns_original_result_not_a_duplicate(client):
     token = _bearer(_token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id)))
     headers = {**token, "Idempotency-Key": "acceptance-test-key-1"}
 
-    payload = {"firstName": "Peter", "lastName": "Beispiel", "email": "idempotent@example.ch"}
+    payload = {
+        "firstName": "Peter",
+        "lastName": "Beispiel",
+        "language": "de",
+        "emails": [{"emailType": "private", "emailAddress": "idempotent@example.ch"}],
+    }
     first = client.post("/v1/customers", json=payload, headers=headers)
     assert first.status_code == 201, first.text
 
