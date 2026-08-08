@@ -15,6 +15,7 @@ import {
   Title,
 } from '@mantine/core'
 import { useForm } from '@mantine/form'
+import { useSetBreadcrumb } from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
 import { PhoneInput } from '../components/PhoneInput'
 import type {
@@ -92,6 +93,9 @@ export function CustomerFormPage() {
   // screen, not part of this Phase B contract fix.
   const [existingPhones, setExistingPhones] = useState<CustomerPhonePage['items']>([])
   const [existingEmails, setExistingEmails] = useState<CustomerEmailPage['items']>([])
+  const [customerLabel, setCustomerLabel] = useState<string | null>(null)
+
+  useSetBreadcrumb(['Master Data', 'Customers', isEdit ? (customerLabel ?? 'Edit customer') : 'New customer'])
 
   const form = useForm<FormValues>({ initialValues: EMPTY_VALUES })
 
@@ -106,6 +110,7 @@ export function CustomerFormPage() {
         setVersion(c.version)
         setExistingPhones(phones.items)
         setExistingEmails(emails.items)
+        setCustomerLabel(c.customerType === 'business' ? c.companyName : `${c.firstName} ${c.lastName}`)
         form.setValues({
           language: c.language,
           firstName: c.firstName ?? '',
