@@ -13,6 +13,7 @@ import {
   type DetailTab,
 } from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
+import { useAuth } from '../auth/AuthContext'
 import { OverviewTab } from '../components/customer-detail/OverviewTab'
 import { VehiclesTab } from '../components/customer-detail/VehiclesTab'
 import { TransactionsTab } from '../components/customer-detail/TransactionsTab'
@@ -24,6 +25,7 @@ import type {
   CustomerEmailPage,
   CustomerEmailRead,
   CustomerExternalIdPage,
+  CustomerExternalIdRead,
   CustomerPhonePage,
   CustomerPhoneRead,
   CustomerRead,
@@ -47,6 +49,8 @@ const DEFAULT_TAB = 'overview'
 export function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const canWriteExternalIds = user?.accessRole === 'platform_admin'
   const [searchParams, setSearchParams] = useSearchParams()
   const queryClient = useQueryClient()
   const activeTab = searchParams.get('tab') ?? DEFAULT_TAB
@@ -165,6 +169,30 @@ export function CustomerDetailPage() {
     invalidateContact('emails')
   }
 
+  // D-08: write is platform_admin-only (see app/models/customer.py's
+  // CustomerExternalId docstring) — no version column either, same
+  // no-If-Match shape as the contact-point handlers above.
+  const invalidateExternalIds = () => {
+    void queryClient.invalidateQueries({ queryKey: ['customer', id, 'external-ids'] })
+    void queryClient.invalidateQueries({ queryKey: ['customer', id, 'history'] })
+  }
+
+  const createExternalId = async (row: { systemName: string; externalId: string }) => {
+    await api.post<CustomerExternalIdRead>(`/customers/${id}/external-ids`, { systemName: row.systemName, externalId: row.externalId })
+    invalidateExternalIds()
+  }
+  const updateExternalId = async (rowId: string, patch: { systemName?: string; externalId?: string }) => {
+    await api.patch<CustomerExternalIdRead>(`/customers/${id}/external-ids/${rowId}`, {
+      systemName: patch.systemName,
+      externalId: patch.externalId,
+    })
+    invalidateExternalIds()
+  }
+  const deleteExternalId = async (rowId: string) => {
+    await api.delete(`/customers/${id}/external-ids/${rowId}`)
+    invalidateExternalIds()
+  }
+
   const tabs: DetailTab[] = useMemo(
     () => [
       { id: 'overview', label: 'Overview' },
@@ -256,6 +284,10 @@ export function CustomerDetailPage() {
           externalIds={externalIdsQuery.data?.items ?? []}
           loading={externalIdsQuery.isLoading}
           error={externalIdsQuery.isError ? 'Failed to load external IDs.' : null}
+          canWrite={canWriteExternalIds}
+          onCreate={createExternalId}
+          onUpdate={updateExternalId}
+          onDelete={deleteExternalId}
         />
       )}
 
