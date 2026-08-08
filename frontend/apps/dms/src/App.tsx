@@ -5,7 +5,7 @@ import { DmsShell } from './layout/DmsShell'
 import { LoginPage } from './pages/LoginPage'
 import { CustomersListPage } from './pages/CustomersListPage'
 import { CustomerCreatePage } from './pages/CustomerCreatePage'
-import { CustomerFormPage } from './pages/CustomerFormPage'
+import { CustomerDetailPage } from './pages/CustomerDetailPage'
 
 function ProtectedLayout() {
   return (
@@ -26,7 +26,7 @@ export default function App() {
           <Route element={<ProtectedLayout />}>
             <Route path="/customers" element={<CustomersListPage />} />
             <Route path="/customers/new" element={<CustomerCreatePage />} />
-            <Route path="/customers/:id" element={<CustomerFormPage />} />
+            <Route path="/customers/:id" element={<CustomerDetailPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/customers" replace />} />
         </Routes>

@@ -166,6 +166,98 @@ export interface CustomerUpdateInput {
   marketingConsent?: boolean
 }
 
+// Mirrors app/schemas/audit.py. before/after are raw snapshots (not a
+// diff) — the UI computes which keys changed for display.
+export interface AuditEventRead {
+  id: string
+  entityType: string
+  entityId: string
+  tenantId: string | null
+  action: string
+  actorId: string | null
+  before: Record<string, unknown> | null
+  after: Record<string, unknown> | null
+  reason: string | null
+  createdAt: string
+}
+
+export interface AuditEventPage {
+  items: AuditEventRead[]
+  nextCursor: string | null
+}
+
+// Mirrors app/models/vehicle.py VehiclePartyRole / app/schemas/customer.py
+// CustomerVehicle* — the customer-360 Vehicles tab (D-12).
+export type VehiclePartyRole = 'owner' | 'keeper' | 'driver'
+
+export interface VehiclePartySummary {
+  id: string
+  vin: string
+  make: string
+  model: string
+  modelYear: number
+  trim: string | null
+}
+
+export interface CustomerVehicleRead {
+  id: string
+  customerId: string
+  vehicleId: string
+  role: VehiclePartyRole
+  effectiveFrom: string
+  effectiveTo: string | null
+  vehicle: VehiclePartySummary
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CustomerVehiclePage {
+  items: CustomerVehicleRead[]
+}
+
+// Mirrors app/schemas/customer.py CustomerExternalId* (per-dealer CRM/OEM
+// linkage, FR-06 External IDs tab).
+export interface CustomerExternalIdRead {
+  id: string
+  customerId: string
+  systemName: string
+  externalId: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CustomerExternalIdPage {
+  items: CustomerExternalIdRead[]
+}
+
+// Mirrors app/models/transaction.py / app/schemas/transaction.py.
+export type TransactionType = 'sale' | 'trade_in'
+export type TransactionStatus = 'draft' | 'completed' | 'cancelled'
+
+export interface TransactionRead {
+  id: string
+  tenantId: string
+  transactionType: TransactionType
+  status: TransactionStatus
+  customerId: string
+  vehicleId: string
+  primaryUserId: string
+  amount: string | null
+  transactionDate: string | null
+  externalRef: string | null
+  notes: string | null
+  version: number
+  createdAt: string
+  updatedAt: string
+  createdBy: string | null
+  updatedBy: string | null
+}
+
+export interface TransactionPage {
+  items: TransactionRead[]
+  nextCursor: string | null
+}
+
 export interface ApiErrorBody {
   error: {
     code: string
