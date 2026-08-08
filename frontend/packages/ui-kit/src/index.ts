@@ -13,3 +13,5 @@ export * from "./datagrid/types";
 export * from "./datagrid/sorting";
 export * from "./datagrid/DataGrid";
 export * from "./datagrid/ActionBar";
+export * from "./wizard/types";
+export * from "./wizard/Wizard";

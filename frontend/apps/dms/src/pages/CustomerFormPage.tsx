@@ -1,60 +1,16 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import {
-  Alert,
-  Button,
-  Checkbox,
-  Container,
-  Group,
-  List,
-  Loader,
-  Select,
-  Stack,
-  Text,
-  TextInput,
-  Title,
-} from '@mantine/core'
+import { Alert, Button, Checkbox, Container, Group, List, Loader, Select, Stack, Text, TextInput, Title } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { useSetBreadcrumb } from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
-import { PhoneInput } from '../components/PhoneInput'
-import type {
-  CustomerEmailPage,
-  CustomerLifecycleStatus,
-  CustomerPhonePage,
-  CustomerRead,
-  CustomerSource,
-  Language,
-} from '../api/types'
-
-const LANGUAGE_OPTIONS: { value: Language; label: string }[] = [
-  { value: 'de', label: 'Deutsch' },
-  { value: 'fr', label: 'Français' },
-  { value: 'it', label: 'Italiano' },
-  { value: 'en', label: 'English' },
-]
-
-const LIFECYCLE_OPTIONS: { value: CustomerLifecycleStatus; label: string }[] = [
-  { value: 'prospect', label: 'Prospect' },
-  { value: 'active', label: 'Active' },
-  { value: 'inactive', label: 'Inactive' },
-  { value: 'do_not_contact', label: 'Do not contact' },
-]
-
-const SOURCE_OPTIONS: { value: CustomerSource; label: string }[] = [
-  { value: 'walk_in', label: 'Walk-in' },
-  { value: 'phone', label: 'Phone' },
-  { value: 'web_lead', label: 'Web lead' },
-  { value: 'marketplace', label: 'Marketplace' },
-  { value: 'other', label: 'Other' },
-]
+import { LANGUAGE_OPTIONS, LIFECYCLE_OPTIONS, SOURCE_OPTIONS } from '../customerOptions'
+import type { CustomerEmailPage, CustomerLifecycleStatus, CustomerPhonePage, CustomerRead, CustomerSource, Language } from '../api/types'
 
 interface FormValues {
   language: Language
   firstName: string
   lastName: string
-  email: string
-  phone: string
   lifecycleStatus: CustomerLifecycleStatus
   source: CustomerSource | ''
   hasAddress: boolean
@@ -68,8 +24,6 @@ const EMPTY_VALUES: FormValues = {
   language: 'de',
   firstName: '',
   lastName: '',
-  email: '',
-  phone: '',
   lifecycleStatus: 'prospect',
   source: '',
   hasAddress: false,
@@ -79,12 +33,14 @@ const EMPTY_VALUES: FormValues = {
   locality: '',
 }
 
+// Editing, not creating — creation is the two-step CustomerCreateFlow
+// wizard (FR-03), routed separately at /customers/new. This screen only
+// ever loads an existing customer by :id.
 export function CustomerFormPage() {
   const { id } = useParams<{ id: string }>()
-  const isEdit = Boolean(id)
   const navigate = useNavigate()
 
-  const [loading, setLoading] = useState(isEdit)
+  const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [version, setVersion] = useState<number | null>(null)
@@ -95,7 +51,7 @@ export function CustomerFormPage() {
   const [existingEmails, setExistingEmails] = useState<CustomerEmailPage['items']>([])
   const [customerLabel, setCustomerLabel] = useState<string | null>(null)
 
-  useSetBreadcrumb(['Master Data', 'Customers', isEdit ? (customerLabel ?? 'Edit customer') : 'New customer'])
+  useSetBreadcrumb(['Master Data', 'Customers', customerLabel ?? 'Edit customer'])
 
   const form = useForm<FormValues>({ initialValues: EMPTY_VALUES })
 
@@ -115,8 +71,6 @@ export function CustomerFormPage() {
           language: c.language,
           firstName: c.firstName ?? '',
           lastName: c.lastName ?? '',
-          email: '',
-          phone: '',
           lifecycleStatus: c.lifecycleStatus,
           source: c.source ?? '',
           hasAddress: c.address !== null,
@@ -132,11 +86,7 @@ export function CustomerFormPage() {
   }, [id])
 
   const handleSubmit = form.onSubmit(async (values) => {
-    if (!isEdit && !values.email && !values.phone) {
-      setError('At least one of email or phone is required.')
-      return
-    }
-
+    if (!id) return
     setError(null)
     setSubmitting(true)
 
@@ -151,35 +101,16 @@ export function CustomerFormPage() {
       : null
 
     try {
-      if (isEdit && id) {
-        // Contact points aren't part of PATCH — see FR-07 note above.
-        const payload = {
-          language: values.language,
-          firstName: values.firstName,
-          lastName: values.lastName,
-          lifecycleStatus: values.lifecycleStatus,
-          source: values.source || null,
-          address,
-        }
-        await api.patch(`/customers/${id}`, payload, { 'If-Match': String(version) })
-      } else {
-        const payload = {
-          customerType: 'individual' as const,
-          language: values.language,
-          firstName: values.firstName,
-          lastName: values.lastName,
-          lifecycleStatus: values.lifecycleStatus,
-          source: values.source || null,
-          address,
-          emails: values.email
-            ? [{ emailType: 'private' as const, emailAddress: values.email, isPrimary: true }]
-            : [],
-          phones: values.phone
-            ? [{ phoneType: 'mobile' as const, phoneE164: values.phone, isPrimary: true }]
-            : [],
-        }
-        await api.post('/customers', payload)
+      // Contact points aren't part of PATCH — see FR-07 note above.
+      const payload = {
+        language: values.language,
+        firstName: values.firstName,
+        lastName: values.lastName,
+        lifecycleStatus: values.lifecycleStatus,
+        source: values.source || null,
+        address,
       }
+      await api.patch(`/customers/${id}`, payload, { 'If-Match': String(version) })
       navigate('/customers')
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to save customer.')
@@ -193,7 +124,7 @@ export function CustomerFormPage() {
   return (
     <Container py="xl" size="sm">
       <Stack gap="md">
-        <Title order={2}>{isEdit ? 'Edit customer' : 'New customer'}</Title>
+        <Title order={2}>Edit customer</Title>
         <form onSubmit={handleSubmit}>
           <Stack gap="sm">
             {error && <Alert color="red">{error}</Alert>}
@@ -207,53 +138,31 @@ export function CustomerFormPage() {
             />
             <TextInput label="First name" required {...form.getInputProps('firstName')} />
             <TextInput label="Last name" required {...form.getInputProps('lastName')} />
-            {isEdit ? (
-              <Stack gap={4}>
-                <Text size="sm" fw={600}>
-                  Contact points
-                </Text>
-                <List size="sm" spacing={2}>
-                  {existingPhones.map((p) => (
-                    <List.Item key={p.id}>
-                      {p.phoneE164} ({p.phoneType}
-                      {p.isPrimary ? ', primary' : ''})
-                    </List.Item>
-                  ))}
-                  {existingEmails.map((e) => (
-                    <List.Item key={e.id}>
-                      {e.emailAddress} ({e.emailType}
-                      {e.isPrimary ? ', primary' : ''})
-                    </List.Item>
-                  ))}
-                  {existingPhones.length === 0 && existingEmails.length === 0 && (
-                    <List.Item>None on file.</List.Item>
-                  )}
-                </List>
-                <Text size="xs" c="dimmed">
-                  Adding, editing or removing contact points isn't available on this screen yet.
-                </Text>
-              </Stack>
-            ) : (
-              <>
-                <TextInput label="Email" type="email" {...form.getInputProps('email')} />
-                <PhoneInput
-                  label="Phone"
-                  value={form.values.phone}
-                  onChange={(next) => form.setFieldValue('phone', next)}
-                />
-              </>
-            )}
-            <Select
-              label="Lifecycle status"
-              data={LIFECYCLE_OPTIONS}
-              {...form.getInputProps('lifecycleStatus')}
-            />
-            <Select
-              label="Source"
-              data={SOURCE_OPTIONS}
-              clearable
-              {...form.getInputProps('source')}
-            />
+            <Stack gap={4}>
+              <Text size="sm" fw={600}>
+                Contact points
+              </Text>
+              <List size="sm" spacing={2}>
+                {existingPhones.map((p) => (
+                  <List.Item key={p.id}>
+                    {p.phoneE164} ({p.phoneType}
+                    {p.isPrimary ? ', primary' : ''})
+                  </List.Item>
+                ))}
+                {existingEmails.map((e) => (
+                  <List.Item key={e.id}>
+                    {e.emailAddress} ({e.emailType}
+                    {e.isPrimary ? ', primary' : ''})
+                  </List.Item>
+                ))}
+                {existingPhones.length === 0 && existingEmails.length === 0 && <List.Item>None on file.</List.Item>}
+              </List>
+              <Text size="xs" c="dimmed">
+                Adding, editing or removing contact points isn't available on this screen yet.
+              </Text>
+            </Stack>
+            <Select label="Lifecycle status" data={LIFECYCLE_OPTIONS} {...form.getInputProps('lifecycleStatus')} />
+            <Select label="Source" data={SOURCE_OPTIONS} clearable {...form.getInputProps('source')} />
             <Checkbox label="Has address" {...form.getInputProps('hasAddress', { type: 'checkbox' })} />
             {form.values.hasAddress && (
               <Stack gap="sm">
