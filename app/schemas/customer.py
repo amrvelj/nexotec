@@ -31,6 +31,7 @@ from app.models.customer import (
     PreferredChannel,
     Salutation,
 )
+from app.models.vehicle import VehiclePartyRole
 from app.schemas.base import CamelModel
 from app.schemas.validators import (
     E164Phone,
@@ -328,3 +329,55 @@ class CustomerDuplicateCandidate(CamelModel):
 
 class CustomerDuplicateCandidateList(CamelModel):
     items: list[CustomerDuplicateCandidate]
+
+
+class CustomerVehicleCreate(CamelModel):
+    """role is not offered on update (see CustomerVehicleUpdate) — an
+    ownership/keeper/driver change hands is a new row with its own
+    effective_from, per FR-10 and VehicleParty's own docstring.
+    """
+
+    vehicle_id: uuid.UUID
+    role: VehiclePartyRole
+    # Defaults to now server-side when omitted (D-12) — most creates are
+    # "this relationship starts today", and forcing every caller to compute
+    # that themselves is friction for no benefit.
+    effective_from: dt.datetime | None = None
+    effective_to: dt.datetime | None = None
+
+
+class CustomerVehicleUpdate(CamelModel):
+    effective_from: dt.datetime | None = None
+    effective_to: dt.datetime | None = None
+
+
+class VehiclePartySummary(CamelModel):
+    """Just enough for the 360 view's Vehicles tab to render a row — not a
+    full VehicleRead, which also carries the custody-visibility-redacted
+    `status`/`currentCustodianPartnerId` fields that don't apply to "which
+    customer is which party" and would require re-implementing that
+    redaction rule here for no reason.
+    """
+
+    id: uuid.UUID
+    vin: str
+    make: str
+    model: str
+    model_year: int
+    trim: str | None
+
+
+class CustomerVehicleRead(CamelModel):
+    id: uuid.UUID
+    customer_id: uuid.UUID
+    vehicle_id: uuid.UUID
+    role: VehiclePartyRole
+    effective_from: dt.datetime
+    effective_to: dt.datetime | None
+    vehicle: VehiclePartySummary
+    created_at: dt.datetime
+    updated_at: dt.datetime
+
+
+class CustomerVehiclePage(CamelModel):
+    items: list[CustomerVehicleRead]
