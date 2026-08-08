@@ -12,6 +12,9 @@ export interface ActionBarProps {
   onDensityChange: (density: Density) => void;
   onRefresh: () => void;
   refreshing?: boolean;
+  /** Zone 3 — a `<FilterButton>` instance, when the screen has structured
+   * filters to back it. Rendered between search and the right cluster. */
+  filterSlot?: ReactNode;
   /** Extra icon buttons appended to the right cluster, e.g. a future
    * Columns/Export button — kept generic so per-screen buttons don't need
    * their own layout code. */
@@ -27,11 +30,10 @@ const DENSITY_LABEL: Record<Density, string> = {
 
 /**
  * § The Action Bar. "Every overview screen in every module has exactly
- * this bar, in exactly this order." Saved views (zone 2) and Filter
- * (zone 3) aren't implemented yet — no screen has structured filters or
- * saved views to back them, so this ships zones 1 and 4 only, in their
- * documented positions, rather than adding placeholder controls for
- * capabilities that don't exist.
+ * this bar, in exactly this order." Saved views (zone 2) still aren't
+ * implemented — no screen has a backing saved-views capability — so this
+ * ships zones 1, 3, and 4; zone 3 (`filterSlot`) is only rendered when the
+ * caller passes it, for screens without structured filters yet.
  */
 export function ActionBar({
   searchValue,
@@ -41,6 +43,7 @@ export function ActionBar({
   onDensityChange,
   onRefresh,
   refreshing,
+  filterSlot,
   extraActions,
 }: ActionBarProps) {
   const searchRef = useRef<HTMLInputElement>(null);
@@ -90,6 +93,8 @@ export function ActionBar({
           }}
         />
       </div>
+
+      {filterSlot}
 
       <div style={{ display: "flex", alignItems: "center", gap: spacing.xs }}>
         <Tooltip label={`Density: ${DENSITY_LABEL[density]}`}>
