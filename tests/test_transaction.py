@@ -58,7 +58,12 @@ def _create_user(client, dealer_id: str, **overrides) -> dict:
 
 def _create_customer(client, dealer_id: str, **overrides) -> dict:
     token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
-    payload = {"firstName": "Peter", "lastName": "Beispiel", "email": "peter@example.ch"}
+    payload = {
+        "firstName": "Peter",
+        "lastName": "Beispiel",
+        "language": "de",
+        "emails": [{"emailType": "private", "emailAddress": "peter@example.ch"}],
+    }
     payload.update(overrides)
     response = client.post("/v1/customers", json=payload, headers=_bearer(token))
     assert response.status_code == 201, response.text

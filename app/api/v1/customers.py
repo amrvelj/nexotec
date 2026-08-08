@@ -107,8 +107,10 @@ def duplicate_check(
     db: Session = Depends(get_db),
 ):
     rows = customer_service.duplicate_check(db, tenant_id=principal.tenant_id, q=q)
+    # Plain dicts, not ORM rows — see services.customer.duplicate_check for
+    # why a candidate is not simply a Customer.
     return CustomerDuplicateCandidateList(
-        items=[CustomerDuplicateCandidate.model_validate(c, from_attributes=True) for c in rows]
+        items=[CustomerDuplicateCandidate.model_validate(row) for row in rows]
     )
 
 
@@ -160,6 +162,7 @@ def list_customers(
     q: str | None = None,
     lifecycle_status: CustomerLifecycleStatus | None = None,
     updated_since: dt.datetime | None = None,
+    include_merged: bool = False,
     params: PageParams = Depends(page_params),
     principal: Principal = Depends(get_current_principal),
     db: Session = Depends(get_db),
@@ -171,6 +174,7 @@ def list_customers(
         lifecycle_status=lifecycle_status,
         updated_since=updated_since,
         params=params,
+        include_merged=include_merged,
     )
     return CustomerPage(
         items=[CustomerRead.model_validate(c, from_attributes=True) for c in rows], next_cursor=next_cursor

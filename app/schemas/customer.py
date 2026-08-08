@@ -1,3 +1,20 @@
+"""Customer request/response schemas.
+
+Phase B contract change (Customer PRD v1.0). The flat `email`/`phone`
+fields and `preferredContactMethod` are removed from every schema here:
+CustomerPhone/CustomerEmail are the single source of truth for contact
+details, and `preferredChannel` is the only contact-preference field
+(decisions D-03, D-04). This is a deliberate breaking change to the API
+contract, taken in one migration rather than phased, per Anto's ruling.
+
+The knock-on effect is that CustomerCreate now accepts nested `phones` and
+`emails`. It has to: the "at least one contact point" invariant (FR-03) was
+previously satisfied by the flat columns, and with those gone there would
+otherwise be no way to create a customer that satisfies its own invariant
+in a single request. Nested contacts are written in the same transaction as
+the customer, so a create either fully succeeds or leaves nothing behind.
+"""
+
 import datetime as dt
 import uuid
 
@@ -8,28 +25,60 @@ from app.models.customer import (
     CustomerSource,
     CustomerType,
     EmailType,
+    Language,
     LegalForm,
     PhoneType,
     PreferredChannel,
-    PreferredContactMethod,
+    Salutation,
 )
 from app.schemas.base import CamelModel
-from app.schemas.validators import E164Phone, SwissPostalCode
+from app.schemas.validators import (
+    E164Phone,
+    HouseNumber,
+    SwissUid,
+    validate_postal_code_for_country,
+)
 
 
 class CustomerAddress(CamelModel):
-    """Deliberately not DealerAddress: no `canton` field. Dealer's canton is
-    tied to its license/regulatory record; Customer has no such requirement,
-    and requiring it here was blocking customer creation for no reason
-    (product feedback 2026-08-07) — the underlying `address_canton` DB
-    column stays nullable and simply goes unused rather than being dropped.
+    """Write-side address. Deliberately not DealerAddress: the client never
+    supplies `canton`. Dealer's canton is tied to its license/regulatory
+    record and is user-entered; Customer's is *derived* from the Swiss
+    postal code server-side (D-13) and is therefore read-only — see
+    CustomerAddressRead below.
     """
 
     street: str = Field(max_length=200)
-    house_number: str = Field(max_length=20)
-    postal_code: SwissPostalCode
+    house_number: HouseNumber = Field(max_length=20)
+    postal_code: str = Field(max_length=12)
     locality: str = Field(max_length=100)
     country: str = Field(default="CH", max_length=2)
+
+    @model_validator(mode="after")
+    def _validate_postal_code(self) -> "CustomerAddress":
+        validate_postal_code_for_country(self.postal_code, self.country)
+        return self
+
+
+class CustomerAddressRead(CustomerAddress):
+    """Read-side address: adds the server-derived canton. NULL for foreign
+    addresses, and NULL for Swiss ones until the postal-code dataset lands
+    (D-09, Phase D).
+    """
+
+    canton: str | None = None
+
+
+class CustomerPhoneCreate(CamelModel):
+    phone_type: PhoneType
+    phone_e164: E164Phone
+    is_primary: bool = False
+
+
+class CustomerEmailCreate(CamelModel):
+    email_type: EmailType
+    email_address: EmailStr
+    is_primary: bool = False
 
 
 class CustomerCreate(CamelModel):
@@ -38,32 +87,58 @@ class CustomerCreate(CamelModel):
     (first_name/last_name/birth_date/nationality) vs business-only
     (company_name/legal_form/tax_id) fields apply, enforced by
     _validate_customer_type_fields.
+
+    `customer_number` is absent by design: it is allocated by the server
+    (D-02) and is immutable, so a client can neither choose nor change it.
     """
 
     customer_type: CustomerType = CustomerType.INDIVIDUAL
+    # Mandatory (D-01). The frontend pre-fills it from the acting user's UI
+    # language, but the server does not infer it — an advisor serving an
+    # Italian-speaking customer in a German UI must be able to say so, and a
+    # silent default would quietly print contracts in the wrong language.
+    language: Language
+    salutation: Salutation | None = None
     first_name: str | None = Field(default=None, max_length=100, min_length=1)
     last_name: str | None = Field(default=None, max_length=100, min_length=1)
     birth_date: dt.date | None = None
     nationality: str | None = Field(default=None, max_length=2)
     company_name: str | None = Field(default=None, max_length=200, min_length=1)
     legal_form: LegalForm | None = None
-    tax_id: str | None = Field(
-        default=None, min_length=1, description="Write-only; never returned by read endpoints."
+    tax_id: SwissUid | None = Field(
+        default=None, description="Write-only; never returned by read endpoints."
     )
     preferred_channel: PreferredChannel | None = None
-    email: EmailStr | None = None
-    phone: E164Phone | None = None
+    phones: list[CustomerPhoneCreate] = Field(default_factory=list)
+    emails: list[CustomerEmailCreate] = Field(default_factory=list)
     address: CustomerAddress | None = None
-    preferred_contact_method: PreferredContactMethod | None = None
     lifecycle_status: CustomerLifecycleStatus = CustomerLifecycleStatus.PROSPECT
     source: CustomerSource | None = None
     source_ref: str | None = Field(default=None, max_length=255)
     marketing_consent: bool = False
 
     @model_validator(mode="after")
-    def _require_email_or_phone(self) -> "CustomerCreate":
-        if not self.email and not self.phone:
-            raise ValueError("At least one of email or phone is required.")
+    def _require_a_contact_point(self) -> "CustomerCreate":
+        if not self.phones and not self.emails:
+            raise ValueError("At least one phone number or email address is required.")
+        return self
+
+    @model_validator(mode="after")
+    def _reject_duplicate_contacts(self) -> "CustomerCreate":
+        numbers = [p.phone_e164 for p in self.phones]
+        if len(numbers) != len(set(numbers)):
+            raise ValueError("The same phone number was supplied more than once.")
+        addresses = [e.email_address.lower() for e in self.emails]
+        if len(addresses) != len(set(addresses)):
+            raise ValueError("The same email address was supplied more than once.")
+        return self
+
+    @model_validator(mode="after")
+    def _at_most_one_primary(self) -> "CustomerCreate":
+        if sum(1 for p in self.phones if p.is_primary) > 1:
+            raise ValueError("Only one phone number can be marked as primary.")
+        if sum(1 for e in self.emails if e.is_primary) > 1:
+            raise ValueError("Only one email address can be marked as primary.")
         return self
 
     @model_validator(mode="after")
@@ -90,27 +165,30 @@ class CustomerCreate(CamelModel):
 class CustomerUpdate(CamelModel):
     """duplicate_of_customer_id is not settable here — only through
     POST /v1/customers/{id}/merge, which sets it atomically with
-    lifecycle_status and audit-logs both source IDs. customer_type is not
-    settable either (immutable after creation) — individual/business-only
-    field mutual exclusivity is checked in the service layer against the
-    existing row's customer_type, since it isn't known at the schema level
-    for a partial PATCH body.
+    lifecycle_status and audit-logs both source IDs. customer_type and
+    customer_number are not settable either (immutable after creation) —
+    individual/business-only field mutual exclusivity is checked in the
+    service layer against the existing row's customer_type, since it isn't
+    known at the schema level for a partial PATCH body.
+
+    Contact details are not editable here either: they are managed through
+    the /customers/{id}/phones and /customers/{id}/emails endpoints, which
+    own the "exactly one primary" invariant.
     """
 
+    language: Language | None = None
+    salutation: Salutation | None = None
     first_name: str | None = Field(default=None, max_length=100, min_length=1)
     last_name: str | None = Field(default=None, max_length=100, min_length=1)
     birth_date: dt.date | None = None
     nationality: str | None = Field(default=None, max_length=2)
     company_name: str | None = Field(default=None, max_length=200, min_length=1)
     legal_form: LegalForm | None = None
-    tax_id: str | None = Field(
-        default=None, min_length=1, description="Write-only; never returned by read endpoints."
+    tax_id: SwissUid | None = Field(
+        default=None, description="Write-only; never returned by read endpoints."
     )
     preferred_channel: PreferredChannel | None = None
-    email: EmailStr | None = None
-    phone: E164Phone | None = None
     address: CustomerAddress | None = None
-    preferred_contact_method: PreferredContactMethod | None = None
     lifecycle_status: CustomerLifecycleStatus | None = None
     source: CustomerSource | None = None
     source_ref: str | None = Field(default=None, max_length=255)
@@ -126,7 +204,10 @@ class CustomerUpdate(CamelModel):
 class CustomerRead(CamelModel):
     id: uuid.UUID
     tenant_id: uuid.UUID
+    customer_number: str
     customer_type: CustomerType
+    language: Language
+    salutation: Salutation | None
     first_name: str | None
     last_name: str | None
     birth_date: dt.date | None
@@ -136,10 +217,7 @@ class CustomerRead(CamelModel):
     # tax_id deliberately absent — write-only, same convention as
     # DealerRead never returning Dealer.tax_id.
     preferred_channel: PreferredChannel | None
-    email: str | None
-    phone: str | None
-    address: CustomerAddress | None
-    preferred_contact_method: PreferredContactMethod | None
+    address: CustomerAddressRead | None
     lifecycle_status: CustomerLifecycleStatus
     source: CustomerSource | None
     source_ref: str | None
@@ -161,12 +239,6 @@ class CustomerMergeRequest(CamelModel):
     duplicate_of_customer_id: uuid.UUID
 
 
-class CustomerPhoneCreate(CamelModel):
-    phone_type: PhoneType
-    phone_e164: E164Phone
-    is_primary: bool = False
-
-
 class CustomerPhoneUpdate(CamelModel):
     phone_type: PhoneType | None = None
     phone_e164: E164Phone | None = None
@@ -185,12 +257,6 @@ class CustomerPhoneRead(CamelModel):
 
 class CustomerPhonePage(CamelModel):
     items: list[CustomerPhoneRead]
-
-
-class CustomerEmailCreate(CamelModel):
-    email_type: EmailType
-    email_address: EmailStr
-    is_primary: bool = False
 
 
 class CustomerEmailUpdate(CamelModel):
@@ -237,11 +303,27 @@ class CustomerExternalIdPage(CamelModel):
 
 
 class CustomerDuplicateCandidate(CamelModel):
+    """Reshaped in Phase B (D-07). The previous shape required first_name and
+    last_name, which meant a *business* customer among the candidates raised
+    a serialisation error — i.e. duplicate detection crashed precisely when
+    it found a company. Both name fields are now optional, company_name and
+    customer_type are included so the UI can label the row, and the primary
+    contact details come along so the advisor can recognise the person
+    without opening the record.
+    """
+
     id: uuid.UUID
-    first_name: str
-    last_name: str
-    email: str | None
-    phone: str | None
+    customer_number: str
+    customer_type: CustomerType
+    first_name: str | None = None
+    last_name: str | None = None
+    company_name: str | None = None
+    primary_phone: str | None = None
+    primary_email: str | None = None
+    lifecycle_status: CustomerLifecycleStatus
+    # "exact" when an email address or phone number matched outright,
+    # "similar" for a name match. Drives the badge in the duplicate panel.
+    match: str
 
 
 class CustomerDuplicateCandidateList(CamelModel):
