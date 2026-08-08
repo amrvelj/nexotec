@@ -2,7 +2,7 @@ import { useRef, useState, type ReactNode } from 'react'
 import { Checkbox, Group, Select, SimpleGrid, Stack, Text, TextInput, UnstyledButton } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { Building2, User } from 'lucide-react'
-import { Wizard, type WizardStep } from '@nexotec/ui-kit'
+import { Wizard, purple, slate, type WizardStep } from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
 import {
   EMAIL_TYPE_OPTIONS,
@@ -290,10 +290,10 @@ function TypeOption({
     <UnstyledButton
       onClick={onClick}
       style={{
-        border: `1.5px solid ${selected ? 'var(--mantine-color-violet-6)' : 'var(--mantine-color-gray-3)'}`,
+        border: `1.5px solid ${selected ? purple[6] : slate[3]}`,
         borderRadius: 10,
         padding: 16,
-        backgroundColor: selected ? 'var(--mantine-color-violet-0)' : undefined,
+        backgroundColor: selected ? purple[0] : undefined,
       }}
     >
       <Stack gap={4}>
