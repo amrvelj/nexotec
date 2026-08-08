@@ -44,6 +44,10 @@ from app.schemas.customer import (
     CustomerPhoneUpdate,
     CustomerRead,
     CustomerUpdate,
+    CustomerVehicleCreate,
+    CustomerVehiclePage,
+    CustomerVehicleRead,
+    CustomerVehicleUpdate,
 )
 from app.services import customer as customer_service
 from app.services import dealer as dealer_service
@@ -373,3 +377,64 @@ def delete_customer_external_id(
         db, tenant_id=customer.tenant_id, customer_id=customer_id, external_id_row_id=external_id_row_id
     )
     customer_service.delete_customer_external_id(db, row=row, actor_id=principal.user_id)
+
+
+# --- Customer<->Vehicle relationships (D-12, FR-10): owner/keeper/driver,
+# backing the 360 view's Vehicles tab. Vehicle itself is tenant-agnostic
+# (see app/models/vehicle.py), so the tenant boundary is enforced entirely
+# by resolving `customer` through get_customer_or_404 — the vehicle_id a
+# caller supplies is looked up with no tenant filter, same as GET
+# /v1/vehicles/{id}.
+
+
+@router.get("/customers/{customer_id}/vehicles", response_model=CustomerVehiclePage)
+def list_customer_vehicles(
+    customer_id: uuid.UUID,
+    principal: Principal = Depends(get_current_principal),
+    db: Session = Depends(get_db),
+):
+    customer_service.get_customer_or_404(db, principal.tenant_id, customer_id)
+    rows = customer_service.list_customer_vehicles(db, customer_id=customer_id)
+    return CustomerVehiclePage(items=[CustomerVehicleRead.model_validate(r, from_attributes=True) for r in rows])
+
+
+@router.post("/customers/{customer_id}/vehicles", response_model=CustomerVehicleRead, status_code=201)
+def create_customer_vehicle(
+    customer_id: uuid.UUID,
+    body: CustomerVehicleCreate,
+    principal: Principal = Depends(require_access_role(*_WRITE_ROLES)),
+    db: Session = Depends(get_db),
+):
+    customer = customer_service.get_customer_or_404(db, principal.tenant_id, customer_id)
+    party = customer_service.create_customer_vehicle(db, customer=customer, data=body, actor_id=principal.user_id)
+    return CustomerVehicleRead.model_validate(party, from_attributes=True)
+
+
+@router.patch("/customers/{customer_id}/vehicles/{party_id}", response_model=CustomerVehicleRead)
+def update_customer_vehicle(
+    customer_id: uuid.UUID,
+    party_id: uuid.UUID,
+    body: CustomerVehicleUpdate,
+    principal: Principal = Depends(require_access_role(*_WRITE_ROLES)),
+    db: Session = Depends(get_db),
+):
+    customer_service.get_customer_or_404(db, principal.tenant_id, customer_id)
+    party = customer_service.get_customer_vehicle_or_404(db, customer_id=customer_id, party_id=party_id)
+    party = customer_service.update_customer_vehicle(
+        db, party=party, data=body, actor_id=principal.user_id, tenant_id=principal.tenant_id
+    )
+    return CustomerVehicleRead.model_validate(party, from_attributes=True)
+
+
+@router.delete("/customers/{customer_id}/vehicles/{party_id}", status_code=204)
+def delete_customer_vehicle(
+    customer_id: uuid.UUID,
+    party_id: uuid.UUID,
+    principal: Principal = Depends(require_access_role(*_WRITE_ROLES)),
+    db: Session = Depends(get_db),
+):
+    customer_service.get_customer_or_404(db, principal.tenant_id, customer_id)
+    party = customer_service.get_customer_vehicle_or_404(db, customer_id=customer_id, party_id=party_id)
+    customer_service.delete_customer_vehicle(
+        db, party=party, actor_id=principal.user_id, tenant_id=principal.tenant_id
+    )

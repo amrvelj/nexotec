@@ -21,7 +21,7 @@ import datetime as dt
 import enum
 
 from sqlalchemy import Enum as SAEnum, ForeignKey, Index, Integer, String, UniqueConstraint
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
 from app.models.base import PrimaryKeyMixin, TimestampMixin, VersionedMixin, utcnow
@@ -142,10 +142,15 @@ class VehicleCustodyEvent(PrimaryKeyMixin, Base):
 
 
 class VehicleParty(PrimaryKeyMixin, TimestampMixin, Base):
-    """Owner/Keeper/Driver join table (Swiss addendum decision #7). Model
-    only for v1 — no API endpoints yet, none were specified and it isn't
-    needed for the Vehicle profile/custody flow this issue is scoped to.
-    Flagged in the PR rather than guessing an unspecified endpoint shape.
+    """Owner/Keeper/Driver join table (Swiss addendum decision #7).
+
+    API endpoints live under /v1/customers/{id}/vehicles (Customer PRD D-12,
+    FR-10) rather than under /vehicles — the 360 view's Vehicles tab is the
+    consumer, and the customer is always the anchor of the relationship
+    being edited. `role` is immutable once created (like Customer.
+    customer_type): a role changing hands is a new row with its own
+    effective_from, not an edit of the old one — that's what "without
+    losing history" (FR-10) means in practice.
     """
 
     __tablename__ = "vehicle_party"
@@ -163,3 +168,10 @@ class VehicleParty(PrimaryKeyMixin, TimestampMixin, Base):
     )
     effective_from: Mapped[dt.datetime] = mapped_column(UTCDateTime(), nullable=False, default=utcnow)
     effective_to: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+
+    # Read-only convenience for the customer-vehicle list response (D-12) —
+    # the 360 view needs VIN/make/model, not just the FK. No back-populates
+    # on Vehicle: nothing needs "all parties for this vehicle" yet, and
+    # adding an unused collection relationship is guessing at a shape no
+    # endpoint asks for.
+    vehicle: Mapped[Vehicle] = relationship()

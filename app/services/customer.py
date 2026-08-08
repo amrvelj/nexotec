@@ -10,11 +10,12 @@ from typing import Any
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.errors import BadRequestError, ConflictError, NotFoundError
 from app.core.pagination import PageParams, build_page, paginate_query
 from app.core.tenancy import get_or_404
+from app.models.base import utcnow
 from app.models.customer import (
     Customer,
     CustomerEmail,
@@ -35,9 +36,12 @@ from app.schemas.customer import (
     CustomerPhoneCreate,
     CustomerPhoneUpdate,
     CustomerUpdate,
+    CustomerVehicleCreate,
+    CustomerVehicleUpdate,
 )
 from app.schemas.validators import normalise_phone
 from app.services.audit import record_audit_event
+from app.services.vehicle import get_vehicle_or_404
 
 _PII_FIELDS = {
     "salutation",
@@ -1026,4 +1030,142 @@ def delete_customer_external_id(db: Session, *, row: CustomerExternalId, actor_i
         before={"systemName": row.system_name, "externalId": row.external_id},
     )
     db.delete(row)
+    db.commit()
+
+
+# --- VehicleParty: customer-to-vehicle relationships (Customer PRD D-12,
+# FR-10). Vehicle is tenant-agnostic (no tenant_id — a VIN is global, see
+# app/models/vehicle.py), so the tenant boundary here is enforced purely by
+# resolving `customer` through get_customer_or_404 before any of these run;
+# the vehicle_id itself is looked up with no tenant filter, same as every
+# other vehicle lookup in the codebase.
+
+
+def _validate_effective_range(effective_from, effective_to) -> None:
+    if effective_to is not None and effective_to <= effective_from:
+        raise BadRequestError("effective_to must be after effective_from.")
+
+
+def list_customer_vehicles(db: Session, *, customer_id: uuid.UUID) -> list[VehicleParty]:
+    stmt = (
+        select(VehicleParty)
+        .options(joinedload(VehicleParty.vehicle))
+        .where(VehicleParty.customer_id == customer_id)
+        .order_by(VehicleParty.effective_from.desc())
+    )
+    return list(db.scalars(stmt).all())
+
+
+def get_customer_vehicle_or_404(db: Session, *, customer_id: uuid.UUID, party_id: uuid.UUID) -> VehicleParty:
+    party = db.scalar(
+        select(VehicleParty)
+        .options(joinedload(VehicleParty.vehicle))
+        .where(VehicleParty.id == party_id, VehicleParty.customer_id == customer_id)
+    )
+    if party is None:
+        raise NotFoundError(f"VehicleParty {party_id} was not found.")
+    return party
+
+
+def create_customer_vehicle(
+    db: Session, *, customer: Customer, data: CustomerVehicleCreate, actor_id: uuid.UUID
+) -> VehicleParty:
+    vehicle = get_vehicle_or_404(db, data.vehicle_id)
+    effective_from = data.effective_from or utcnow()
+    _validate_effective_range(effective_from, data.effective_to)
+
+    party = VehicleParty(
+        vehicle_id=vehicle.id,
+        customer_id=customer.id,
+        role=data.role,
+        effective_from=effective_from,
+        effective_to=data.effective_to,
+    )
+    db.add(party)
+    try:
+        db.flush()
+    except IntegrityError as exc:
+        db.rollback()
+        raise ConflictError(
+            "This customer already has this role on this vehicle as of this date.",
+            details={"vehicleId": str(vehicle.id), "role": data.role.value, "effectiveFrom": effective_from.isoformat()},
+        ) from exc
+
+    record_audit_event(
+        db,
+        entity_type="customer",
+        entity_id=customer.id,
+        tenant_id=customer.tenant_id,
+        action="vehicle_party_add",
+        actor_id=actor_id,
+        after={
+            "vehicleId": str(vehicle.id),
+            "role": party.role.value,
+            "effectiveFrom": party.effective_from.isoformat(),
+            "effectiveTo": party.effective_to.isoformat() if party.effective_to else None,
+        },
+    )
+    db.commit()
+    db.refresh(party)
+    return party
+
+
+def update_customer_vehicle(
+    db: Session, *, party: VehicleParty, data: CustomerVehicleUpdate, actor_id: uuid.UUID, tenant_id: uuid.UUID
+) -> VehicleParty:
+    changes = data.model_dump(exclude_unset=True)
+    before = {
+        "effectiveFrom": party.effective_from.isoformat(),
+        "effectiveTo": party.effective_to.isoformat() if party.effective_to else None,
+    }
+
+    new_effective_from = changes.get("effective_from", party.effective_from)
+    new_effective_to = changes.get("effective_to", party.effective_to)
+    _validate_effective_range(new_effective_from, new_effective_to)
+
+    for field, value in changes.items():
+        setattr(party, field, value)
+
+    try:
+        db.flush()
+    except IntegrityError as exc:
+        db.rollback()
+        raise ConflictError(
+            "This customer already has this role on this vehicle as of this date.",
+            details={"vehicleId": str(party.vehicle_id), "role": party.role.value},
+        ) from exc
+
+    record_audit_event(
+        db,
+        entity_type="customer",
+        entity_id=party.customer_id,
+        tenant_id=tenant_id,
+        action="vehicle_party_update",
+        actor_id=actor_id,
+        before=before,
+        after={
+            "effectiveFrom": party.effective_from.isoformat(),
+            "effectiveTo": party.effective_to.isoformat() if party.effective_to else None,
+        },
+    )
+    db.commit()
+    db.refresh(party)
+    return party
+
+
+def delete_customer_vehicle(db: Session, *, party: VehicleParty, actor_id: uuid.UUID, tenant_id: uuid.UUID) -> None:
+    record_audit_event(
+        db,
+        entity_type="customer",
+        entity_id=party.customer_id,
+        tenant_id=tenant_id,
+        action="vehicle_party_remove",
+        actor_id=actor_id,
+        before={
+            "vehicleId": str(party.vehicle_id),
+            "role": party.role.value,
+            "effectiveFrom": party.effective_from.isoformat(),
+        },
+    )
+    db.delete(party)
     db.commit()
