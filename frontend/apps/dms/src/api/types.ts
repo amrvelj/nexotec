@@ -80,6 +80,8 @@ export interface CustomerRead {
 export interface CustomerPage {
   items: CustomerRead[]
   nextCursor: string | null
+  total: number
+  totalIsEstimate: boolean
 }
 
 export interface CustomerPhoneCreate {

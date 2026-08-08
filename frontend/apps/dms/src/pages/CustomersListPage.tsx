@@ -1,40 +1,102 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Alert, Button, Group, Loader, Stack, Table, TextInput, Title } from '@mantine/core'
+import { useMemo, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Button, Group, Menu, Stack, Title } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
-import { CustomerTypeBadge, LanguageBadge, LifecycleStatusBadge, useSetBreadcrumb } from '@nexotec/ui-kit'
-import { api, ApiError } from '../api/client'
+import { useInfiniteQuery } from '@tanstack/react-query'
+import { Copy, ExternalLink, Users } from 'lucide-react'
+import {
+  ActionBar,
+  CustomerTypeBadge,
+  DataGrid,
+  LanguageBadge,
+  LifecycleStatusBadge,
+  useSetBreadcrumb,
+  type GridColumnDef,
+  type SortSpec,
+} from '@nexotec/ui-kit'
+import { useUiPreferencesContext } from '../hooks/UiPreferencesContext'
+import { api } from '../api/client'
 import type { CustomerPage, CustomerRead } from '../api/types'
+
+const GRID_KEY = 'mdm.customers.list'
+const DEFAULT_SORT: SortSpec[] = [{ field: 'updatedAt', direction: 'desc' }]
+
+function customerName(c: CustomerRead): string {
+  return c.customerType === 'business' ? (c.companyName ?? '') : `${c.firstName ?? ''} ${c.lastName ?? ''}`.trim()
+}
+
+function formatDate(iso: string): string {
+  return new Intl.DateTimeFormat('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(iso))
+}
 
 export function CustomersListPage() {
   useSetBreadcrumb(['Master Data', 'Customers'])
+  const navigate = useNavigate()
+  const { density, setDensity } = useUiPreferencesContext()
 
   const [query, setQuery] = useState('')
-  const [debouncedQuery] = useDebouncedValue(query, 300)
-  const [items, setItems] = useState<CustomerRead[]>([])
-  const [nextCursor, setNextCursor] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [debouncedQuery] = useDebouncedValue(query, 250)
+  const [sort, setSort] = useState<SortSpec[]>(DEFAULT_SORT)
 
-  const load = useCallback((q: string, cursorParam: string | null) => {
-    setLoading(true)
-    setError(null)
-    const params = new URLSearchParams()
-    if (q) params.set('q', q)
-    if (cursorParam) params.set('cursor', cursorParam)
-    api
-      .get<CustomerPage>(`/customers?${params.toString()}`)
-      .then((page) => {
-        setItems(page.items)
-        setNextCursor(page.nextCursor)
-      })
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load customers.'))
-      .finally(() => setLoading(false))
-  }, [])
+  const sortParam = sort.length > 0 ? sort.map((s) => `${s.field}:${s.direction}`).join(',') : undefined
 
-  useEffect(() => {
-    load(debouncedQuery, null)
-  }, [debouncedQuery, load])
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isError, refetch, isRefetching } =
+    useInfiniteQuery({
+      queryKey: ['customers', GRID_KEY, debouncedQuery, sortParam],
+      queryFn: async ({ pageParam }: { pageParam: string | null }) => {
+        const params = new URLSearchParams()
+        if (debouncedQuery) params.set('q', debouncedQuery)
+        if (sortParam) params.set('sort', sortParam)
+        params.set('limit', '50')
+        if (pageParam) params.set('cursor', pageParam)
+        return api.get<CustomerPage>(`/customers?${params.toString()}`)
+      },
+      initialPageParam: null as string | null,
+      getNextPageParam: (lastPage) => lastPage.nextCursor,
+    })
+
+  const rows = useMemo(() => data?.pages.flatMap((page) => page.items) ?? [], [data])
+  const total = data?.pages[0]?.total ?? null
+  const totalIsEstimate = data?.pages[0]?.totalIsEstimate ?? false
+
+  const columns: GridColumnDef<CustomerRead>[] = useMemo(
+    () => [
+      {
+        id: 'customerNumber',
+        header: 'Customer #',
+        cell: ({ row }) => row.original.customerNumber,
+        meta: { sortField: 'customerNumber', pinned: 'left', mono: true },
+      },
+      {
+        id: 'name',
+        header: 'Name',
+        cell: ({ row }) => <span style={{ fontWeight: 600 }}>{customerName(row.original)}</span>,
+        meta: { sortField: 'lastName' },
+      },
+      {
+        id: 'customerType',
+        header: 'Type',
+        cell: ({ row }) => <CustomerTypeBadge type={row.original.customerType} />,
+      },
+      {
+        id: 'language',
+        header: 'Language',
+        cell: ({ row }) => <LanguageBadge language={row.original.language} />,
+      },
+      {
+        id: 'lifecycleStatus',
+        header: 'Status',
+        cell: ({ row }) => <LifecycleStatusBadge status={row.original.lifecycleStatus} />,
+      },
+      {
+        id: 'updatedAt',
+        header: 'Changed',
+        cell: ({ row }) => formatDate(row.original.updatedAt),
+        meta: { sortField: 'updatedAt', align: 'right' },
+      },
+    ],
+    []
+  )
 
   return (
     <Stack gap="md">
@@ -45,68 +107,68 @@ export function CustomersListPage() {
         </Button>
       </Group>
 
-      <TextInput
-        placeholder="Search by name, email, phone..."
-        value={query}
-        onChange={(e) => setQuery(e.currentTarget.value)}
-        w={320}
+      <ActionBar
+        searchValue={query}
+        onSearchChange={setQuery}
+        searchPlaceholder="Search by name, email, phone…"
+        density={density}
+        onDensityChange={setDensity}
+        onRefresh={() => refetch()}
+        refreshing={isRefetching}
       />
 
-      {error && <Alert color="red">{error}</Alert>}
-
-      {loading ? (
-        <Loader />
-      ) : (
-        <Table striped highlightOnHover>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>Customer #</Table.Th>
-              <Table.Th>Name</Table.Th>
-              <Table.Th>Type</Table.Th>
-              <Table.Th>Language</Table.Th>
-              <Table.Th>Status</Table.Th>
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {items.map((c) => (
-              <Table.Tr key={c.id} style={{ cursor: 'pointer' }}>
-                <Table.Td ff="monospace">{c.customerNumber}</Table.Td>
-                <Table.Td>
-                  <Link to={`/customers/${c.id}`}>
-                    {c.customerType === 'business' ? c.companyName : `${c.firstName} ${c.lastName}`}
-                  </Link>
-                </Table.Td>
-                <Table.Td>
-                  <CustomerTypeBadge type={c.customerType} />
-                </Table.Td>
-                <Table.Td>
-                  <LanguageBadge language={c.language} />
-                </Table.Td>
-                <Table.Td>
-                  <LifecycleStatusBadge status={c.lifecycleStatus} />
-                </Table.Td>
-              </Table.Tr>
-            ))}
-            {items.length === 0 && (
-              <Table.Tr>
-                <Table.Td colSpan={5}>No customers found.</Table.Td>
-              </Table.Tr>
-            )}
-          </Table.Tbody>
-        </Table>
-      )}
-
-      <Group>
-        <Button
-          variant="default"
-          disabled={!nextCursor}
-          onClick={() => {
-            if (nextCursor) load(debouncedQuery, nextCursor)
-          }}
-        >
-          Next page
-        </Button>
-      </Group>
+      <DataGrid<CustomerRead>
+        columns={columns}
+        rows={rows}
+        getRowId={(row) => row.id}
+        sort={sort}
+        onSortChange={setSort}
+        density={density}
+        rowHref={(row) => `/customers/${row.id}`}
+        linkComponent={Link}
+        loading={isLoading}
+        fetchingNextPage={isFetchingNextPage}
+        hasNextPage={Boolean(hasNextPage)}
+        onLoadMore={() => fetchNextPage()}
+        error={isError ? 'Failed to load customers.' : null}
+        onRetry={() => refetch()}
+        total={total}
+        totalIsEstimate={totalIsEstimate}
+        isFiltered={debouncedQuery.length > 0}
+        emptyState={{
+          icon: <Users size={24} />,
+          title: 'No customers yet',
+          description: 'Create your first customer to get started.',
+          action: (
+            <Button component={Link} to="/customers/new">
+              New customer
+            </Button>
+          ),
+        }}
+        emptyFilteredState={{
+          icon: <Users size={24} />,
+          title: 'No matches',
+          description: 'Try a different search term.',
+          action: (
+            <Button variant="default" onClick={() => setQuery('')}>
+              Clear search
+            </Button>
+          ),
+        }}
+        rowActions={(row) => (
+          <>
+            <Menu.Item leftSection={<ExternalLink size={16} />} onClick={() => navigate(`/customers/${row.id}`)}>
+              Open
+            </Menu.Item>
+            <Menu.Item
+              leftSection={<Copy size={16} />}
+              onClick={() => navigator.clipboard.writeText(row.customerNumber)}
+            >
+              Copy customer number
+            </Menu.Item>
+          </>
+        )}
+      />
     </Stack>
   )
 }

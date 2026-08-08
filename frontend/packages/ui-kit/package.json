@@ -11,12 +11,16 @@
   },
   "peerDependencies": {
     "@mantine/core": "^7.17.8",
+    "@tanstack/react-table": "^8.21.3",
+    "@tanstack/react-virtual": "^3.14.9",
     "lucide-react": "^1.30.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },
   "devDependencies": {
     "@mantine/core": "^7.17.8",
+    "@tanstack/react-table": "^8.21.3",
+    "@tanstack/react-virtual": "^3.14.9",
     "@types/react": "^19.2.17",
     "lucide-react": "^1.30.0",
     "oxlint": "^1.75.0",

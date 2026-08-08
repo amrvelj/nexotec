@@ -15,7 +15,7 @@ import {
 } from 'lucide-react'
 import { AppShell, purple, type NavGroupConfig } from '@nexotec/ui-kit'
 import { useAuth } from '../auth/AuthContext'
-import { useUiPreferences } from '../hooks/useUiPreferences'
+import { UiPreferencesProvider, useUiPreferencesContext } from '../hooks/UiPreferencesContext'
 
 const NAV_GROUPS: NavGroupConfig[] = [
   {
@@ -67,12 +67,28 @@ function BrandMark() {
 /** The application shell wired up for the DMS app specifically — nav
  * structure, auth, and preference persistence live here; the shell
  * components themselves (@nexotec/ui-kit) know nothing about any of it.
+ *
+ * Wraps in UiPreferencesProvider so the `ui` preference scope (sidebar
+ * state, language, density) is fetched/held once and shared with whatever
+ * page renders inside — e.g. the customer grid's density toggle reads
+ * the same instance this shell's sidebar collapse does.
  */
 export function DmsShell({ children }: { children: ReactNode }) {
+  const { user } = useAuth()
+  if (!user) return <>{children}</>
+
+  return (
+    <UiPreferencesProvider>
+      <DmsShellInner>{children}</DmsShellInner>
+    </UiPreferencesProvider>
+  )
+}
+
+function DmsShellInner({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const { sidebarCollapsed, uiLanguage, setSidebarCollapsed, setUiLanguage } = useUiPreferences()
+  const { sidebarCollapsed, uiLanguage, setSidebarCollapsed, setUiLanguage } = useUiPreferencesContext()
 
   const activeHref = '/' + (location.pathname.split('/')[1] ?? '')
 
