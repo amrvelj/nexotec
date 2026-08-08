@@ -26,6 +26,7 @@ from app.models.customer import (
     CustomerNumberSequence,
     CustomerPhone,
     CustomerType,
+    Language,
 )
 from app.models.transaction import Transaction
 from app.models.vehicle import VehicleParty
@@ -197,6 +198,9 @@ def list_customers(
     tenant_id: uuid.UUID,
     q: str | None,
     lifecycle_status: CustomerLifecycleStatus | None,
+    customer_type: CustomerType | None = None,
+    language: Language | None = None,
+    canton: str | None = None,
     updated_since,
     params: SortPageParams,
     include_merged: bool = False,
@@ -212,6 +216,12 @@ def list_customers(
         # they just merged away, so it is hidden unless explicitly asked for
         # (or explicitly filtered to, via lifecycle_status=merged).
         stmt = stmt.where(Customer.lifecycle_status != CustomerLifecycleStatus.MERGED)
+    if customer_type is not None:
+        stmt = stmt.where(Customer.customer_type == customer_type)
+    if language is not None:
+        stmt = stmt.where(Customer.language == language)
+    if canton is not None:
+        stmt = stmt.where(Customer.address_canton == canton)
     if updated_since is not None:
         stmt = stmt.where(Customer.updated_at >= updated_since)
     # Counted before pagination is applied (no ORDER BY/LIMIT/cursor yet) —

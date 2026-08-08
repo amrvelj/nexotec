@@ -13,6 +13,8 @@ export * from "./datagrid/types";
 export * from "./datagrid/sorting";
 export * from "./datagrid/DataGrid";
 export * from "./datagrid/ActionBar";
+export * from "./datagrid/FilterButton";
+export * from "./datagrid/FilterChips";
 export * from "./wizard/types";
 export * from "./wizard/Wizard";
 export * from "./detail/types";

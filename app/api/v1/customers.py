@@ -24,7 +24,7 @@ from app.core.config import get_settings
 from app.core.pagination import SortPageParams, decode_sort_cursor
 from app.core.sorting import SortField, parse_sort
 from app.db import get_db
-from app.models.customer import Customer, CustomerLifecycleStatus
+from app.models.customer import Customer, CustomerLifecycleStatus, CustomerType, Language
 from app.schemas.audit import AuditEventPage, AuditEventRead
 from app.schemas.customer import (
     CustomerCreate,
@@ -187,6 +187,9 @@ def merge_customer(
 def list_customers(
     q: str | None = None,
     lifecycle_status: CustomerLifecycleStatus | None = None,
+    customer_type: CustomerType | None = None,
+    language: Language | None = None,
+    canton: str | None = None,
     updated_since: dt.datetime | None = None,
     include_merged: bool = False,
     sort: str | None = Query(default=None, description="e.g. 'lastName:asc,updatedAt:desc'"),
@@ -204,6 +207,9 @@ def list_customers(
         tenant_id=principal.tenant_id,
         q=q,
         lifecycle_status=lifecycle_status,
+        customer_type=customer_type,
+        language=language,
+        canton=canton,
         updated_since=updated_since,
         params=params,
         include_merged=include_merged,
