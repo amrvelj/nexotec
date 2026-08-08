@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, ApiError } from '../api/client'
-import type { UiLanguage } from '@nexotec/ui-kit'
+import type { Density, UiLanguage } from '@nexotec/ui-kit'
 
 const SCOPE = 'ui'
 const STORAGE_KEY = 'dms.preferences.ui'
@@ -10,9 +10,15 @@ interface UiPreferencesPayload {
   schemaVersion: number
   sidebarCollapsed: boolean
   uiLanguage: UiLanguage
+  density: Density
 }
 
-const DEFAULTS: UiPreferencesPayload = { schemaVersion: 1, sidebarCollapsed: false, uiLanguage: 'de' }
+const DEFAULTS: UiPreferencesPayload = {
+  schemaVersion: 1,
+  sidebarCollapsed: false,
+  uiLanguage: 'de',
+  density: 'default',
+}
 
 function readLocalMirror(): UiPreferencesPayload {
   try {
@@ -26,7 +32,9 @@ function readLocalMirror(): UiPreferencesPayload {
 
 /**
  * Backs § User-Level Preference Persistence's `ui` scope
- * (sidebarCollapsed, uiLanguage) via GET/PUT /v1/me/preferences/ui.
+ * (sidebarCollapsed, uiLanguage, density — "persisted per user globally,
+ * not per grid — a user who wants dense wants dense everywhere", FR-UI-03)
+ * via GET/PUT /v1/me/preferences/ui.
  *
  * "Optimistic local mirror... so the grid paints in the correct layout on
  * the very first frame... The server is the source of truth." — reads
@@ -86,10 +94,23 @@ export function useUiPreferences() {
     [persist]
   )
 
+  const setDensity = useCallback(
+    (density: Density) => {
+      setPreferences((current) => {
+        const next = { ...current, density }
+        persist(next)
+        return next
+      })
+    },
+    [persist]
+  )
+
   return {
     sidebarCollapsed: preferences.sidebarCollapsed,
     uiLanguage: preferences.uiLanguage,
+    density: preferences.density,
     setSidebarCollapsed,
     setUiLanguage,
+    setDensity,
   }
 }
