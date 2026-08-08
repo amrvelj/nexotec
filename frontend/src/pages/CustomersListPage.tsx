@@ -79,22 +79,28 @@ export function CustomersListPage() {
           <Table striped highlightOnHover>
             <Table.Thead>
               <Table.Tr>
+                <Table.Th>Customer #</Table.Th>
                 <Table.Th>Name</Table.Th>
-                <Table.Th>Email</Table.Th>
-                <Table.Th>Phone</Table.Th>
+                <Table.Th>Type</Table.Th>
+                <Table.Th>Language</Table.Th>
                 <Table.Th>Status</Table.Th>
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
               {items.map((c) => (
                 <Table.Tr key={c.id} style={{ cursor: 'pointer' }}>
+                  <Table.Td ff="monospace">{c.customerNumber}</Table.Td>
                   <Table.Td>
                     <Link to={`/customers/${c.id}`}>
-                      {c.firstName} {c.lastName}
+                      {c.customerType === 'business' ? c.companyName : `${c.firstName} ${c.lastName}`}
                     </Link>
                   </Table.Td>
-                  <Table.Td>{c.email ?? '—'}</Table.Td>
-                  <Table.Td>{c.phone ?? '—'}</Table.Td>
+                  <Table.Td>
+                    <Badge variant="light" color={c.customerType === 'business' ? 'blue' : 'grape'}>
+                      {c.customerType}
+                    </Badge>
+                  </Table.Td>
+                  <Table.Td>{c.language.toUpperCase()}</Table.Td>
                   <Table.Td>
                     <Badge variant="light">{c.lifecycleStatus}</Badge>
                   </Table.Td>
@@ -102,7 +108,7 @@ export function CustomersListPage() {
               ))}
               {items.length === 0 && (
                 <Table.Tr>
-                  <Table.Td colSpan={4}>No customers found.</Table.Td>
+                  <Table.Td colSpan={5}>No customers found.</Table.Td>
                 </Table.Tr>
               )}
             </Table.Tbody>
