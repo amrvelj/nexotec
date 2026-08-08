@@ -234,6 +234,11 @@ class CustomerRead(CamelModel):
 class CustomerPage(CamelModel):
     items: list[CustomerRead]
     next_cursor: str | None
+    # U-07: exact below Settings.count_exact_threshold, "at least total"
+    # above it (total_is_estimate=True) — never a full scan on a filtered
+    # 100k-row table just to render a footer.
+    total: int
+    total_is_estimate: bool
 
 
 class CustomerMergeRequest(CamelModel):
