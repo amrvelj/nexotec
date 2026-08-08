@@ -24,6 +24,8 @@ from app.models.customer import (
     CustomerPhone,
     CustomerType,
 )
+from app.models.transaction import Transaction
+from app.models.vehicle import VehicleParty
 from app.schemas.customer import (
     CustomerCreate,
     CustomerEmailCreate,
@@ -465,9 +467,122 @@ def update_customer(db: Session, *, customer: Customer, data: CustomerUpdate, ac
     return customer
 
 
+def _fixup_single_primary(db: Session, model: type, *, customer_id: uuid.UUID) -> None:
+    """Collapses a contact-point collection back to exactly one primary
+    after re-pointing may have left it with zero (target had none, gained
+    some from the duplicate) or several (both sides already had one).
+    Oldest row wins when none is marked — same "first one wins" rule
+    _add_contacts uses at creation.
+    """
+
+    rows = list(
+        db.scalars(
+            select(model).where(model.customer_id == customer_id).order_by(model.created_at)  # type: ignore[attr-defined]
+        ).all()
+    )
+    primaries = [r for r in rows if r.is_primary]
+    if len(primaries) > 1:
+        for row in primaries[1:]:
+            row.is_primary = False
+    elif not primaries and rows:
+        rows[0].is_primary = True
+
+
+def _repoint_vehicle_parties(db: Session, *, duplicate_id: uuid.UUID, target_id: uuid.UUID) -> tuple[int, int]:
+    target_keys = {
+        (p.vehicle_id, p.role, p.effective_from)
+        for p in db.scalars(select(VehicleParty).where(VehicleParty.customer_id == target_id)).all()
+    }
+    repointed = dropped = 0
+    for party in db.scalars(select(VehicleParty).where(VehicleParty.customer_id == duplicate_id)).all():
+        key = (party.vehicle_id, party.role, party.effective_from)
+        if key in target_keys:
+            # Survivor already holds this exact role/period on this vehicle
+            # — re-pointing would violate uq_vehicle_party_scope, and the
+            # duplicate's copy adds nothing history the survivor doesn't
+            # already have.
+            db.delete(party)
+            dropped += 1
+        else:
+            party.customer_id = target_id
+            target_keys.add(key)
+            repointed += 1
+    return repointed, dropped
+
+
+def _repoint_transactions(db: Session, *, duplicate_id: uuid.UUID, target_id: uuid.UUID) -> int:
+    rows = list(db.scalars(select(Transaction).where(Transaction.customer_id == duplicate_id)).all())
+    for txn in rows:
+        txn.customer_id = target_id
+    return len(rows)
+
+
+def _repoint_contacts(db: Session, model: type, unique_field: str, *, duplicate_id: uuid.UUID, target_id: uuid.UUID
+                       ) -> tuple[int, int]:
+    """Shared logic for CustomerPhone/CustomerEmail: re-point onto the
+    survivor unless it already has that exact phone number / email address,
+    in which case the duplicate's row is dropped as an exact duplicate.
+    """
+
+    target_values = {
+        getattr(row, unique_field)
+        for row in db.scalars(select(model).where(model.customer_id == target_id)).all()  # type: ignore[attr-defined]
+    }
+    repointed = dropped = 0
+    for row in db.scalars(select(model).where(model.customer_id == duplicate_id)).all():  # type: ignore[attr-defined]
+        value = getattr(row, unique_field)
+        if value in target_values:
+            db.delete(row)
+            dropped += 1
+        else:
+            row.customer_id = target_id
+            target_values.add(value)
+            repointed += 1
+    if repointed:
+        db.flush()
+        _fixup_single_primary(db, model, customer_id=target_id)
+    return repointed, dropped
+
+
+def _repoint_external_ids(db: Session, *, duplicate_id: uuid.UUID, target_id: uuid.UUID) -> tuple[int, int]:
+    """system_name is unique per customer (uq_customer_external_id_customer_
+    system) — if the survivor already has a link for that system, its own
+    linkage wins and the duplicate's is dropped rather than overwritten.
+    """
+
+    target_systems = {
+        row.system_name
+        for row in db.scalars(select(CustomerExternalId).where(CustomerExternalId.customer_id == target_id)).all()
+    }
+    repointed = dropped = 0
+    for row in db.scalars(
+        select(CustomerExternalId).where(CustomerExternalId.customer_id == duplicate_id)
+    ).all():
+        if row.system_name in target_systems:
+            db.delete(row)
+            dropped += 1
+        else:
+            row.customer_id = target_id
+            target_systems.add(row.system_name)
+            repointed += 1
+    return repointed, dropped
+
+
 def merge_customer(
     db: Session, *, customer: Customer, duplicate_of_customer_id: uuid.UUID, actor_id: uuid.UUID
 ) -> Customer:
+    """Merges `customer` (the duplicate) into the survivor (FR-09).
+
+    Re-points vehicle-party rows, transactions, phones, emails and external
+    IDs at the survivor in the same transaction as the flag flip — a merge
+    that only sets the flag silently orphans the survivor's 360 view from
+    everything the duplicate used to carry, which the PRD's own Risks
+    section calls "worse than no merge... a correctness bug, not an
+    enhancement." Conflicting child rows (the same phone, email, external-id
+    system, or vehicle role+period already present on both) are dropped
+    from the duplicate rather than erroring — the survivor's copy wins.
+    """
+
     if duplicate_of_customer_id == customer.id:
         raise BadRequestError("A customer cannot be merged into itself.")
 
@@ -483,6 +598,21 @@ def merge_customer(
         )
 
     before = {"lifecycleStatus": customer.lifecycle_status.value, "duplicateOfCustomerId": None}
+
+    parties_repointed, parties_dropped = _repoint_vehicle_parties(
+        db, duplicate_id=customer.id, target_id=target.id
+    )
+    transactions_repointed = _repoint_transactions(db, duplicate_id=customer.id, target_id=target.id)
+    phones_repointed, phones_dropped = _repoint_contacts(
+        db, CustomerPhone, "phone_e164", duplicate_id=customer.id, target_id=target.id
+    )
+    emails_repointed, emails_dropped = _repoint_contacts(
+        db, CustomerEmail, "email_address", duplicate_id=customer.id, target_id=target.id
+    )
+    external_ids_repointed, external_ids_dropped = _repoint_external_ids(
+        db, duplicate_id=customer.id, target_id=target.id
+    )
+
     customer.lifecycle_status = CustomerLifecycleStatus.MERGED
     customer.duplicate_of_customer_id = duplicate_of_customer_id
     customer.updated_by = actor_id
@@ -496,9 +626,25 @@ def merge_customer(
         action="merge",
         actor_id=actor_id,
         before=before,
-        after={"lifecycleStatus": "merged", "duplicateOfCustomerId": str(duplicate_of_customer_id)},
+        after={
+            "lifecycleStatus": "merged",
+            "duplicateOfCustomerId": str(duplicate_of_customer_id),
+            "vehiclePartiesRepointed": parties_repointed,
+            "vehiclePartiesDropped": parties_dropped,
+            "transactionsRepointed": transactions_repointed,
+            "phonesRepointed": phones_repointed,
+            "phonesDropped": phones_dropped,
+            "emailsRepointed": emails_repointed,
+            "emailsDropped": emails_dropped,
+            "externalIdsRepointed": external_ids_repointed,
+            "externalIdsDropped": external_ids_dropped,
+        },
     )
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise ConflictError("Merge conflicts with an existing record on the survivor.") from exc
     db.refresh(customer)
     return customer
 
