@@ -1,8 +1,9 @@
-import { useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Checkbox, Group, Select, SimpleGrid, Stack, Text, TextInput, UnstyledButton } from '@mantine/core'
+import { useDebouncedValue } from '@mantine/hooks'
 import { useForm } from '@mantine/form'
 import { Building2, User } from 'lucide-react'
-import { Wizard, type WizardStep } from '@nexotec/ui-kit'
+import { Wizard, purple, slate, type WizardStep } from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
 import {
   EMAIL_TYPE_OPTIONS,
@@ -15,9 +16,12 @@ import {
   SOURCE_OPTIONS,
 } from '../customerOptions'
 import { ContactListInput, type ContactRow } from './ContactListInput'
+import { DuplicateWarningPanel } from './DuplicateWarningPanel'
 import { PhoneInput } from './PhoneInput'
 import type {
   CustomerCreateInput,
+  CustomerDuplicateCandidate,
+  CustomerDuplicateCandidateList,
   CustomerLifecycleStatus,
   CustomerRead,
   CustomerSource,
@@ -83,6 +87,10 @@ export interface CustomerCreateFlowProps {
   /** Pre-selects a type and skips straight to step 2 — e.g. an "Add
    * business customer" entry point elsewhere in the app. */
   initialCustomerType?: CustomerType;
+  /** FR-04: "shows matches in a side panel with an 'open this customer
+   * instead' action." Omit to hide the "Open instead" affordance (e.g.
+   * an embedding context with nowhere sensible to navigate to). */
+  onOpenExisting?: (customerId: string) => void;
 }
 
 /**
@@ -99,13 +107,14 @@ export interface CustomerCreateFlowProps {
  * future Offer-creation screen with different onSuccess/onCancel wiring,
  * with zero duplication of the two-step logic, validation, or the API call.
  */
-export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType }: CustomerCreateFlowProps) {
+export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType, onOpenExisting }: CustomerCreateFlowProps) {
   const [step, setStep] = useState(initialCustomerType ? 1 : 0)
   const [customerType, setCustomerType] = useState<CustomerType>(initialCustomerType ?? 'individual')
   const [phones, setPhones] = useState<ContactRow<PhoneType>[]>([])
   const [emails, setEmails] = useState<ContactRow<EmailType>[]>([{ key: crypto.randomUUID(), type: 'private', value: '', isPrimary: true }])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [duplicates, setDuplicates] = useState<CustomerDuplicateCandidate[]>([])
 
   // Reused across retries of the same logical submit attempt (e.g. a
   // network error and a re-click of Submit) so the backend's idempotency
@@ -114,6 +123,40 @@ export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType }:
   const idempotencyKey = useRef(crypto.randomUUID())
 
   const form = useForm<FormValues>({ initialValues: EMPTY_VALUES })
+
+  // FR-04: "While the user types name, email or phone in the create form,
+  // the system queries a duplicate-check endpoint (debounced, per
+  // keystroke)... never a blocking gate." The endpoint takes a single `q`
+  // matched broadly server-side against name/company/email/phone, so one
+  // debounced query is enough — priority order (name, then email, then
+  // phone) picks whichever field is most likely to be the one the user is
+  // currently filling in, per US-02's own example ("while I type a new
+  // customer's name").
+  const dedupeSignal =
+    (customerType === 'individual' ? form.values.lastName : form.values.companyName).trim() ||
+    emails[0]?.value.trim() ||
+    phones[0]?.value.trim() ||
+    ''
+  const [debouncedDedupeSignal] = useDebouncedValue(dedupeSignal, 350)
+
+  useEffect(() => {
+    if (debouncedDedupeSignal.length < 2) {
+      setDuplicates([])
+      return
+    }
+    let cancelled = false
+    api
+      .get<CustomerDuplicateCandidateList>(`/customers/duplicate-check?q=${encodeURIComponent(debouncedDedupeSignal)}`)
+      .then((res) => {
+        if (!cancelled) setDuplicates(res.items)
+      })
+      .catch(() => {
+        if (!cancelled) setDuplicates([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [debouncedDedupeSignal])
 
   const handleNext = () => {
     if (step === 0) {
@@ -250,6 +293,8 @@ export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType }:
             )}
           />
 
+          {onOpenExisting && <DuplicateWarningPanel candidates={duplicates} onOpenExisting={onOpenExisting} />}
+
           <Select label="Preferred contact channel" data={PREFERRED_CHANNEL_OPTIONS} clearable {...form.getInputProps('preferredChannel')} />
           <Select label="Lifecycle status" data={LIFECYCLE_OPTIONS} {...form.getInputProps('lifecycleStatus')} />
           <Select label="Source" data={SOURCE_OPTIONS} clearable {...form.getInputProps('source')} />
@@ -290,10 +335,10 @@ function TypeOption({
     <UnstyledButton
       onClick={onClick}
       style={{
-        border: `1.5px solid ${selected ? 'var(--mantine-color-violet-6)' : 'var(--mantine-color-gray-3)'}`,
+        border: `1.5px solid ${selected ? purple[6] : slate[3]}`,
         borderRadius: 10,
         padding: 16,
-        backgroundColor: selected ? 'var(--mantine-color-violet-0)' : undefined,
+        backgroundColor: selected ? purple[0] : undefined,
       }}
     >
       <Stack gap={4}>

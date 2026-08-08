@@ -18,6 +18,7 @@ export function CustomerCreatePage() {
         <CustomerCreateFlow
           onSuccess={(customer) => navigate(`/customers/${customer.id}`)}
           onCancel={() => navigate('/customers')}
+          onOpenExisting={(customerId) => navigate(`/customers/${customerId}`)}
         />
       </Stack>
     </Container>

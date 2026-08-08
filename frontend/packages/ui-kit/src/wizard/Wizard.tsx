@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Check } from "lucide-react";
 import { Button, Group } from "@mantine/core";
-import { purple, radius, slate, spacing, typography } from "../tokens";
+import { purple, radius, semantic, slate, spacing, typography } from "../tokens";
 import type { WizardStep } from "./types";
 
 export interface WizardProps {
@@ -95,9 +95,9 @@ export function Wizard({
           style={{
             padding: `${spacing.sm} ${spacing.md}`,
             borderRadius: radius.md,
-            backgroundColor: "#FEF2F2",
-            border: "1px solid #FECACA",
-            color: "#DC2626",
+            backgroundColor: semantic.destructive.surface,
+            border: `1px solid ${semantic.destructive.border}`,
+            color: semantic.destructive.text,
             fontSize: 14,
           }}
         >

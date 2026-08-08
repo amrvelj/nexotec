@@ -270,6 +270,27 @@ export interface TransactionPage {
   nextCursor: string | null
 }
 
+// Mirrors app/schemas/customer.py CustomerDuplicateCandidate (D-07: name
+// fields optional so a business candidate doesn't break the shape).
+export type DuplicateMatchKind = 'exact' | 'similar'
+
+export interface CustomerDuplicateCandidate {
+  id: string
+  customerNumber: string
+  customerType: CustomerType
+  firstName: string | null
+  lastName: string | null
+  companyName: string | null
+  primaryPhone: string | null
+  primaryEmail: string | null
+  lifecycleStatus: CustomerLifecycleStatus
+  match: DuplicateMatchKind
+}
+
+export interface CustomerDuplicateCandidateList {
+  items: CustomerDuplicateCandidate[]
+}
+
 export interface ApiErrorBody {
   error: {
     code: string
