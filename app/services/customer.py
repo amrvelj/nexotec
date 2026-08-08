@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.errors import BadRequestError, ConflictError, NotFoundError
 from app.core.pagination import PageParams, build_page, paginate_query
+from app.core.postal_codes import derive_canton
 from app.core.tenancy import get_or_404
 from app.models.base import utcnow
 from app.models.customer import (
@@ -374,9 +375,9 @@ def create_customer(db: Session, *, tenant_id: uuid.UUID, data: CustomerCreate, 
         customer.address_house_number = data.address.house_number
         customer.address_postal_code = data.address.postal_code
         customer.address_locality = data.address.locality
-        # No canton on CustomerAddress (unlike Dealer's) — column stays
-        # nullable and simply unset from this schema going forward.
-        customer.address_canton = None
+        # No canton on CustomerAddress (unlike Dealer's) — the client never
+        # supplies it, it's derived server-side from the postal code (D-13).
+        customer.address_canton = derive_canton(data.address.postal_code, data.address.country)
         customer.address_country = data.address.country
 
     db.add(customer)
@@ -436,7 +437,9 @@ def update_customer(db: Session, *, customer: Customer, data: CustomerUpdate, ac
             "address_house_number": data.address.house_number if data.address else None,
             "address_postal_code": data.address.postal_code if data.address else None,
             "address_locality": data.address.locality if data.address else None,
-            "address_canton": None,
+            "address_canton": (
+                derive_canton(data.address.postal_code, data.address.country) if data.address else None
+            ),
             "address_country": data.address.country if data.address else None,
         }
         for field, value in address_fields.items():
