@@ -2,15 +2,19 @@ import { useState } from 'react'
 import { Checkbox, Group, Select, SimpleGrid, Stack, Text, TextInput } from '@mantine/core'
 import { InlineEditField, KeyValueRow, OverviewCard, purple, radius, slate } from '@nexotec/ui-kit'
 import {
+  EMAIL_TYPE_OPTIONS,
   LANGUAGE_OPTIONS,
   LEGAL_FORM_OPTIONS,
   LIFECYCLE_OPTIONS,
+  PHONE_TYPE_OPTIONS,
   PREFERRED_CHANNEL_OPTIONS,
   SALUTATION_OPTIONS,
   SOURCE_OPTIONS,
 } from '../../customerOptions'
 import { formatDate } from '../../utils/format'
-import type { CustomerEmailRead, CustomerPhoneRead, CustomerRead, CustomerUpdateInput } from '../../api/types'
+import { ContactPointsEditor } from './ContactPointsEditor'
+import { PhoneInput } from '../PhoneInput'
+import type { CustomerEmailRead, CustomerPhoneRead, CustomerRead, CustomerUpdateInput, EmailType, PhoneType } from '../../api/types'
 
 interface OverviewTabProps {
   customer: CustomerRead
@@ -19,6 +23,12 @@ interface OverviewTabProps {
   onSaveField: (patch: Partial<CustomerUpdateInput>) => Promise<void>
   isConflict: (err: unknown) => boolean
   onReload: () => void
+  onCreatePhone: (row: { type: PhoneType; value: string }) => Promise<void>
+  onUpdatePhone: (id: string, patch: { type?: PhoneType; value?: string; isPrimary?: boolean }) => Promise<void>
+  onDeletePhone: (id: string) => Promise<void>
+  onCreateEmail: (row: { type: EmailType; value: string }) => Promise<void>
+  onUpdateEmail: (id: string, patch: { type?: EmailType; value?: string; isPrimary?: boolean }) => Promise<void>
+  onDeleteEmail: (id: string) => Promise<void>
 }
 
 interface FieldProps {
@@ -228,7 +238,20 @@ function AddressField({ customer, onSaveField, isConflict, onReload }: FieldProp
   )
 }
 
-export function OverviewTab({ customer, phones, emails, onSaveField, isConflict, onReload }: OverviewTabProps) {
+export function OverviewTab({
+  customer,
+  phones,
+  emails,
+  onSaveField,
+  isConflict,
+  onReload,
+  onCreatePhone,
+  onUpdatePhone,
+  onDeletePhone,
+  onCreateEmail,
+  onUpdateEmail,
+  onDeleteEmail,
+}: OverviewTabProps) {
   const fieldProps: FieldProps = { onSaveField, isConflict, onReload }
 
   return (
@@ -281,30 +304,32 @@ export function OverviewTab({ customer, phones, emails, onSaveField, isConflict,
       </OverviewCard>
 
       <OverviewCard title="Contact points">
-        {phones.length === 0 && emails.length === 0 && (
-          <Text size="sm" c="dimmed" py="xs">
-            None on file.
-          </Text>
-        )}
-        {phones.map((p) => (
-          <KeyValueRow key={p.id} label={p.phoneType}>
-            <span>
-              {p.phoneE164}
-              {p.isPrimary ? ' · primary' : ''}
-            </span>
-          </KeyValueRow>
-        ))}
-        {emails.map((e) => (
-          <KeyValueRow key={e.id} label={e.emailType}>
-            <span>
-              {e.emailAddress}
-              {e.isPrimary ? ' · primary' : ''}
-            </span>
-          </KeyValueRow>
-        ))}
-        <Text size="xs" c="dimmed" mt={4}>
-          Adding, editing or removing contact points isn't available here yet.
-        </Text>
+        <Stack gap="md">
+          <ContactPointsEditor<PhoneType>
+            label="Phone numbers"
+            addLabel="Add phone"
+            typeOptions={PHONE_TYPE_OPTIONS}
+            rows={phones.map((p) => ({ id: p.id, type: p.phoneType, value: p.phoneE164, isPrimary: p.isPrimary }))}
+            newRowType="mobile"
+            renderValueEditor={(value, onChange) => <PhoneInput label="Country" value={value} onChange={onChange} />}
+            onCreate={onCreatePhone}
+            onUpdate={onUpdatePhone}
+            onDelete={onDeletePhone}
+          />
+          <ContactPointsEditor<EmailType>
+            label="Email addresses"
+            addLabel="Add email"
+            typeOptions={EMAIL_TYPE_OPTIONS}
+            rows={emails.map((e) => ({ id: e.id, type: e.emailType, value: e.emailAddress, isPrimary: e.isPrimary }))}
+            newRowType="private"
+            renderValueEditor={(value, onChange, autoFocus) => (
+              <TextInput size="xs" type="email" value={value} onChange={(e) => onChange(e.currentTarget.value)} autoFocus={autoFocus} />
+            )}
+            onCreate={onCreateEmail}
+            onUpdate={onUpdateEmail}
+            onDelete={onDeleteEmail}
+          />
+        </Stack>
       </OverviewCard>
 
       <OverviewCard title="Record">

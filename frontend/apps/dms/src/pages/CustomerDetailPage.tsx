@@ -21,11 +21,15 @@ import { ExternalIdsTab } from '../components/customer-detail/ExternalIdsTab'
 import type {
   AuditEventPage,
   CustomerEmailPage,
+  CustomerEmailRead,
   CustomerExternalIdPage,
   CustomerPhonePage,
+  CustomerPhoneRead,
   CustomerRead,
   CustomerUpdateInput,
   CustomerVehiclePage,
+  EmailType,
+  PhoneType,
   TransactionPage,
 } from '../api/types'
 
@@ -115,6 +119,49 @@ export function CustomerDetailPage() {
     void customerQuery.refetch()
   }
 
+  // FR-07: phone/email rows have no version column ("is_primary isn't a
+  // high-contention field") — no If-Match here, unlike saveField above.
+  // Every mutation still writes an audit event server-side (phone_add,
+  // phone_remove, ...), so history needs the same invalidation.
+  const invalidateContact = (kind: 'phones' | 'emails') => {
+    void queryClient.invalidateQueries({ queryKey: ['customer', id, kind] })
+    void queryClient.invalidateQueries({ queryKey: ['customer', id, 'history'] })
+  }
+
+  const createPhone = async (row: { type: PhoneType; value: string }) => {
+    await api.post<CustomerPhoneRead>(`/customers/${id}/phones`, { phoneType: row.type, phoneE164: row.value })
+    invalidateContact('phones')
+  }
+  const updatePhone = async (phoneId: string, patch: { type?: PhoneType; value?: string; isPrimary?: boolean }) => {
+    await api.patch<CustomerPhoneRead>(`/customers/${id}/phones/${phoneId}`, {
+      phoneType: patch.type,
+      phoneE164: patch.value,
+      isPrimary: patch.isPrimary,
+    })
+    invalidateContact('phones')
+  }
+  const deletePhone = async (phoneId: string) => {
+    await api.delete(`/customers/${id}/phones/${phoneId}`)
+    invalidateContact('phones')
+  }
+
+  const createEmail = async (row: { type: EmailType; value: string }) => {
+    await api.post<CustomerEmailRead>(`/customers/${id}/emails`, { emailType: row.type, emailAddress: row.value })
+    invalidateContact('emails')
+  }
+  const updateEmail = async (emailId: string, patch: { type?: EmailType; value?: string; isPrimary?: boolean }) => {
+    await api.patch<CustomerEmailRead>(`/customers/${id}/emails/${emailId}`, {
+      emailType: patch.type,
+      emailAddress: patch.value,
+      isPrimary: patch.isPrimary,
+    })
+    invalidateContact('emails')
+  }
+  const deleteEmail = async (emailId: string) => {
+    await api.delete(`/customers/${id}/emails/${emailId}`)
+    invalidateContact('emails')
+  }
+
   const tabs: DetailTab[] = useMemo(
     () => [
       { id: 'overview', label: 'Overview' },
@@ -165,6 +212,12 @@ export function CustomerDetailPage() {
           onSaveField={saveField}
           isConflict={isConflict}
           onReload={reload}
+          onCreatePhone={createPhone}
+          onUpdatePhone={updatePhone}
+          onDeletePhone={deletePhone}
+          onCreateEmail={createEmail}
+          onUpdateEmail={updateEmail}
+          onDeleteEmail={deleteEmail}
         />
       )}
       {activeTab === 'vehicles' && (
