@@ -28,9 +28,11 @@ app.add_middleware(
 # same FastAPI service so the SameSite=strict session cookie (app/api/v1/
 # auth.py) stays valid — a separate static-site origin would be cross-site
 # to the browser and the cookie would silently never be sent. Only mounted
-# when a built `frontend/dist` is actually present, so local API-only dev
-# and the test suite (no frontend build step) are unaffected.
-_FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
+# when a built `frontend/apps/dms/dist` is actually present, so local
+# API-only dev and the test suite (no frontend build step) are unaffected.
+# Path moved from frontend/dist when frontend/ became an npm workspace
+# (apps/dms + packages/ui-kit) — see frontend/package.json.
+_FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "apps" / "dms" / "dist"
 if _FRONTEND_DIST.is_dir():
     app.mount("/assets", StaticFiles(directory=_FRONTEND_DIST / "assets"), name="frontend-assets")
 

@@ -1,0 +1,26 @@
+{
+  "name": "@nexotec/ui-kit",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "lint": "oxlint",
+    "typecheck": "tsc -b --noEmit"
+  },
+  "peerDependencies": {
+    "@mantine/core": "^7.17.8",
+    "lucide-react": "^1.30.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@mantine/core": "^7.17.8",
+    "@types/react": "^19.2.17",
+    "lucide-react": "^1.30.0",
+    "oxlint": "^1.75.0",
+    "react": "^19.2.8",
+    "typescript": "~6.0.2"
+  }
+}
