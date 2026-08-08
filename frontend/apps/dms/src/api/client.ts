@@ -53,4 +53,7 @@ export const api = {
     request<T>(path, { method: 'POST', body: body ? JSON.stringify(body) : undefined, headers: extraHeaders }),
   patch: <T>(path: string, body: unknown, extraHeaders?: HeadersInit) =>
     request<T>(path, { method: 'PATCH', body: JSON.stringify(body), headers: extraHeaders }),
+  put: <T>(path: string, body: unknown, extraHeaders?: HeadersInit) =>
+    request<T>(path, { method: 'PUT', body: JSON.stringify(body), headers: extraHeaders }),
+  delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
 }
