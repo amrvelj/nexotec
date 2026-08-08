@@ -4,13 +4,28 @@ import { Alert, Button, Checkbox, Container, Group, List, Loader, Select, Stack,
 import { useForm } from '@mantine/form'
 import { useSetBreadcrumb } from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
-import { LANGUAGE_OPTIONS, LIFECYCLE_OPTIONS, SOURCE_OPTIONS } from '../customerOptions'
-import type { CustomerEmailPage, CustomerLifecycleStatus, CustomerPhonePage, CustomerRead, CustomerSource, Language } from '../api/types'
+import { LANGUAGE_OPTIONS, LEGAL_FORM_OPTIONS, LIFECYCLE_OPTIONS, SALUTATION_OPTIONS, SOURCE_OPTIONS } from '../customerOptions'
+import type {
+  CustomerEmailPage,
+  CustomerLifecycleStatus,
+  CustomerPhonePage,
+  CustomerRead,
+  CustomerSource,
+  CustomerType,
+  Language,
+  LegalForm,
+  Salutation,
+} from '../api/types'
 
 interface FormValues {
   language: Language
+  salutation: Salutation | ''
   firstName: string
   lastName: string
+  birthDate: string
+  nationality: string
+  companyName: string
+  legalForm: LegalForm | ''
   lifecycleStatus: CustomerLifecycleStatus
   source: CustomerSource | ''
   hasAddress: boolean
@@ -22,8 +37,13 @@ interface FormValues {
 
 const EMPTY_VALUES: FormValues = {
   language: 'de',
+  salutation: '',
   firstName: '',
   lastName: '',
+  birthDate: '',
+  nationality: '',
+  companyName: '',
+  legalForm: '',
   lifecycleStatus: 'prospect',
   source: '',
   hasAddress: false,
@@ -35,7 +55,12 @@ const EMPTY_VALUES: FormValues = {
 
 // Editing, not creating — creation is the two-step CustomerCreateFlow
 // wizard (FR-03), routed separately at /customers/new. This screen only
-// ever loads an existing customer by :id.
+// ever loads an existing customer by :id. customer_type is immutable
+// (FR-03) so it's read from the loaded customer, never chosen here — but
+// it still has to gate which fields render/submit, same individual vs.
+// business split CustomerCreateFlow uses, or a business customer's PATCH
+// would try to send empty first_name/last_name and fail CustomerUpdate's
+// individual-only-fields validation.
 export function CustomerFormPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -44,6 +69,7 @@ export function CustomerFormPage() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [version, setVersion] = useState<number | null>(null)
+  const [customerType, setCustomerType] = useState<CustomerType>('individual')
   // Contact points are managed on separate endpoints per customer (FR-07) —
   // shown read-only here for now. Add/remove/set-primary is a follow-up
   // screen, not part of this Phase B contract fix.
@@ -64,13 +90,19 @@ export function CustomerFormPage() {
     ])
       .then(([c, phones, emails]) => {
         setVersion(c.version)
+        setCustomerType(c.customerType)
         setExistingPhones(phones.items)
         setExistingEmails(emails.items)
         setCustomerLabel(c.customerType === 'business' ? c.companyName : `${c.firstName} ${c.lastName}`)
         form.setValues({
           language: c.language,
+          salutation: c.salutation ?? '',
           firstName: c.firstName ?? '',
           lastName: c.lastName ?? '',
+          birthDate: c.birthDate ?? '',
+          nationality: c.nationality ?? '',
+          companyName: c.companyName ?? '',
+          legalForm: c.legalForm ?? '',
           lifecycleStatus: c.lifecycleStatus,
           source: c.source ?? '',
           hasAddress: c.address !== null,
@@ -104,11 +136,12 @@ export function CustomerFormPage() {
       // Contact points aren't part of PATCH — see FR-07 note above.
       const payload = {
         language: values.language,
-        firstName: values.firstName,
-        lastName: values.lastName,
         lifecycleStatus: values.lifecycleStatus,
         source: values.source || null,
         address,
+        ...(customerType === 'individual'
+          ? { salutation: values.salutation || null, firstName: values.firstName, lastName: values.lastName, birthDate: values.birthDate || null, nationality: values.nationality || null }
+          : { companyName: values.companyName, legalForm: values.legalForm || null }),
       }
       await api.patch(`/customers/${id}`, payload, { 'If-Match': String(version) })
       navigate('/customers')
@@ -136,8 +169,24 @@ export function CustomerFormPage() {
               required
               {...form.getInputProps('language')}
             />
-            <TextInput label="First name" required {...form.getInputProps('firstName')} />
-            <TextInput label="Last name" required {...form.getInputProps('lastName')} />
+            {customerType === 'individual' ? (
+              <>
+                <Select label="Salutation" data={SALUTATION_OPTIONS} clearable {...form.getInputProps('salutation')} />
+                <Group grow>
+                  <TextInput label="First name" required {...form.getInputProps('firstName')} />
+                  <TextInput label="Last name" required {...form.getInputProps('lastName')} />
+                </Group>
+                <Group grow>
+                  <TextInput label="Date of birth" type="date" {...form.getInputProps('birthDate')} />
+                  <TextInput label="Nationality" placeholder="CH" maxLength={2} {...form.getInputProps('nationality')} />
+                </Group>
+              </>
+            ) : (
+              <>
+                <TextInput label="Company name" required {...form.getInputProps('companyName')} />
+                <Select label="Legal form" data={LEGAL_FORM_OPTIONS} clearable {...form.getInputProps('legalForm')} />
+              </>
+            )}
             <Stack gap={4}>
               <Text size="sm" fw={600}>
                 Contact points
