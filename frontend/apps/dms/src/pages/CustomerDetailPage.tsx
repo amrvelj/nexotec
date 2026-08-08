@@ -1,7 +1,7 @@
-import { useMemo } from 'react'
-import { useParams, useSearchParams } from 'react-router-dom'
+import { useMemo, useState } from 'react'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Building2, Copy, Loader, User } from 'lucide-react'
+import { Building2, Copy, GitMerge, Loader, User } from 'lucide-react'
 import { Alert, Menu } from '@mantine/core'
 import {
   CustomerTypeBadge,
@@ -18,6 +18,7 @@ import { VehiclesTab } from '../components/customer-detail/VehiclesTab'
 import { TransactionsTab } from '../components/customer-detail/TransactionsTab'
 import { HistoryTab } from '../components/customer-detail/HistoryTab'
 import { ExternalIdsTab } from '../components/customer-detail/ExternalIdsTab'
+import { MergeCustomerModal } from '../components/customer-detail/MergeCustomerModal'
 import type {
   AuditEventPage,
   CustomerEmailPage,
@@ -45,9 +46,11 @@ const DEFAULT_TAB = 'overview'
  */
 export function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const queryClient = useQueryClient()
   const activeTab = searchParams.get('tab') ?? DEFAULT_TAB
+  const [mergeModalOpen, setMergeModalOpen] = useState(false)
 
   const setActiveTab = (tab: string) => {
     setSearchParams(
@@ -196,9 +199,16 @@ export function CustomerDetailPage() {
           </>
         }
         overflowItems={
-          <Menu.Item leftSection={<Copy size={16} />} onClick={() => navigator.clipboard.writeText(customer.customerNumber)}>
-            Copy customer number
-          </Menu.Item>
+          <>
+            <Menu.Item leftSection={<Copy size={16} />} onClick={() => navigator.clipboard.writeText(customer.customerNumber)}>
+              Copy customer number
+            </Menu.Item>
+            {customer.lifecycleStatus !== 'merged' && (
+              <Menu.Item leftSection={<GitMerge size={16} />} color="red" onClick={() => setMergeModalOpen(true)}>
+                Merge into another customer…
+              </Menu.Item>
+            )}
+          </>
         }
       />
 
@@ -248,6 +258,19 @@ export function CustomerDetailPage() {
           error={externalIdsQuery.isError ? 'Failed to load external IDs.' : null}
         />
       )}
+
+      <MergeCustomerModal
+        opened={mergeModalOpen}
+        onClose={() => setMergeModalOpen(false)}
+        customer={customer}
+        phones={phonesQuery.data?.items ?? []}
+        emails={emailsQuery.data?.items ?? []}
+        onMerged={(survivorId) => {
+          setMergeModalOpen(false)
+          void queryClient.invalidateQueries({ queryKey: ['customers'] })
+          navigate(`/customers/${survivorId}`)
+        }}
+      />
     </div>
   )
 }
