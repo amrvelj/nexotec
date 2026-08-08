@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Alert,
-  Badge,
   Button,
   Container,
   Group,
@@ -13,6 +12,7 @@ import {
   Title,
 } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
+import { CustomerTypeBadge, LanguageBadge, LifecycleStatusBadge } from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
 import type { CustomerPage, CustomerRead } from '../api/types'
 import { useAuth } from '../auth/AuthContext'
@@ -96,13 +96,13 @@ export function CustomersListPage() {
                     </Link>
                   </Table.Td>
                   <Table.Td>
-                    <Badge variant="light" color={c.customerType === 'business' ? 'blue' : 'grape'}>
-                      {c.customerType}
-                    </Badge>
+                    <CustomerTypeBadge type={c.customerType} />
                   </Table.Td>
-                  <Table.Td>{c.language.toUpperCase()}</Table.Td>
                   <Table.Td>
-                    <Badge variant="light">{c.lifecycleStatus}</Badge>
+                    <LanguageBadge language={c.language} />
+                  </Table.Td>
+                  <Table.Td>
+                    <LifecycleStatusBadge status={c.lifecycleStatus} />
                   </Table.Td>
                 </Table.Tr>
               ))}
