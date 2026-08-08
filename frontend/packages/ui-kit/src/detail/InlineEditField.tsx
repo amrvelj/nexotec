@@ -127,7 +127,31 @@ export function InlineEditField({
       onCommit: (v) => void commit(v),
     };
     return (
-      <div style={{ textAlign: "left" }}>
+      <div
+        style={{ textAlign: "left" }}
+        // Belt-and-suspenders on top of editorProps.onKeyDown/onBlur:
+        // custom renderEditor implementations (e.g. a compound editor with
+        // more than one input) can easily forget to wire those through to
+        // every inner control. Enter/Escape/blur bubble up to this
+        // wrapper regardless, so commit/cancel always fires. contains()
+        // guards against firing a spurious commit when focus just moves
+        // between two inputs inside the same custom editor.
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            void commit();
+          } else if (e.key === "Escape") {
+            e.preventDefault();
+            cancel();
+          }
+        }}
+        onBlur={(e) => {
+          if (committingRef.current) return;
+          const next = e.relatedTarget as Node | null;
+          if (next && e.currentTarget.contains(next)) return;
+          void commit();
+        }}
+      >
         {renderEditor ? (
           renderEditor(editorProps)
         ) : (
@@ -135,8 +159,6 @@ export function InlineEditField({
             size="xs"
             value={editorProps.value}
             onChange={(e) => editorProps.onChange(e.currentTarget.value)}
-            onKeyDown={editorProps.onKeyDown}
-            onBlur={editorProps.onBlur}
             autoFocus
             disabled={saving}
           />

@@ -5,8 +5,15 @@ import { useAuth } from '../../auth/AuthContext'
 import { formatDateTime } from '../../utils/format'
 import type { AuditEventRead } from '../../api/types'
 
+// Customer-level audit events snapshot snake_case model attributes
+// (address_street); phone/email events build their own camelCase dicts
+// (phoneE164) — both need to read as "Address street" / "Phone e164",
+// not the raw key.
 function prettifyKey(key: string): string {
-  const spaced = key.replace(/_/g, ' ')
+  const spaced = key
+    .replace(/_/g, ' ')
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .toLowerCase()
   return spaced.charAt(0).toUpperCase() + spaced.slice(1)
 }
 

@@ -124,6 +124,18 @@ export interface CustomerEmailPage {
   items: CustomerEmailRead[]
 }
 
+export interface CustomerPhoneUpdate {
+  phoneType?: PhoneType
+  phoneE164?: string
+  isPrimary?: boolean
+}
+
+export interface CustomerEmailUpdate {
+  emailType?: EmailType
+  emailAddress?: string
+  isPrimary?: boolean
+}
+
 // customerType is immutable after creation and customerNumber is
 // server-assigned — neither is settable here (matches CustomerCreate /
 // CustomerUpdate in app/schemas/customer.py).
