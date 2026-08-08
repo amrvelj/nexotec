@@ -15,3 +15,8 @@ export * from "./datagrid/DataGrid";
 export * from "./datagrid/ActionBar";
 export * from "./wizard/types";
 export * from "./wizard/Wizard";
+export * from "./detail/types";
+export * from "./detail/DetailHeader";
+export * from "./detail/DetailTabs";
+export * from "./detail/OverviewCard";
+export * from "./detail/InlineEditField";
