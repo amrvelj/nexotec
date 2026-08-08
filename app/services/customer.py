@@ -13,7 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.errors import BadRequestError, ConflictError, NotFoundError
-from app.core.pagination import PageParams, build_page, paginate_query
+from app.core.pagination import SortPageParams, build_sorted_page, paginate_query_sorted
 from app.core.postal_codes import derive_canton
 from app.core.tenancy import get_or_404
 from app.models.base import utcnow
@@ -197,7 +197,7 @@ def list_customers(
     q: str | None,
     lifecycle_status: CustomerLifecycleStatus | None,
     updated_since,
-    params: PageParams,
+    params: SortPageParams,
     include_merged: bool = False,
 ) -> tuple[list[Customer], str | None]:
     stmt = select(Customer).where(Customer.tenant_id == tenant_id)
@@ -213,9 +213,9 @@ def list_customers(
         stmt = stmt.where(Customer.lifecycle_status != CustomerLifecycleStatus.MERGED)
     if updated_since is not None:
         stmt = stmt.where(Customer.updated_at >= updated_since)
-    stmt = paginate_query(stmt, model=Customer, params=params)
+    stmt = paginate_query_sorted(stmt, model=Customer, params=params)
     rows = list(db.scalars(stmt).all())
-    return build_page(rows, params)
+    return build_sorted_page(rows, params)
 
 
 def _primary_contact_maps(db: Session, customer_ids):

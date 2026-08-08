@@ -20,9 +20,11 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import AccessRole, Principal, get_current_principal, require_access_role
 from app.core.concurrency import check_version, require_if_match
-from app.core.pagination import PageParams, page_params
+from app.core.config import get_settings
+from app.core.pagination import SortPageParams, decode_sort_cursor
+from app.core.sorting import SortField, parse_sort
 from app.db import get_db
-from app.models.customer import CustomerLifecycleStatus
+from app.models.customer import Customer, CustomerLifecycleStatus
 from app.schemas.audit import AuditEventPage, AuditEventRead
 from app.schemas.customer import (
     CustomerCreate,
@@ -55,8 +57,28 @@ from app.services.audit import list_audit_events
 from app.services.idempotency import find_cached_response, store_response
 
 router = APIRouter(tags=["customers"])
+settings = get_settings()
 
 _WRITE_ROLES = (AccessRole.DEALER_ADMIN, AccessRole.SALES)
+
+# U-02/U-03: only columns with a supporting index are offered as sortable —
+# see alembic/versions/d2f7b0e9c453_customer_sort_indexes.py for last_name/
+# updated_at/created_at; customer_number and company_name were already
+# indexed (D-06). Keys are the API-facing (camelCase) field name, exactly
+# as the UI/UX doc's own saved-view example uses them
+# (`{"field": "lastName", "direction": "asc"}`).
+CUSTOMER_SORT_FIELDS: dict[str, object] = {
+    "customerNumber": Customer.customer_number,
+    "companyName": Customer.company_name,
+    "lastName": Customer.last_name,
+    "updatedAt": Customer.updated_at,
+    "createdAt": Customer.created_at,
+}
+# "Default sort: Declared per grid... For most grids: updatedAt:desc"
+# (UI/UX Core Principles FR-UI-01) — used when the client sends no `sort`.
+_DEFAULT_CUSTOMER_SORT = [
+    SortField(api_name="updatedAt", column=Customer.updated_at, direction="desc", nullable=False)
+]
 
 
 def _idempotency_key(idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")) -> str | None:
@@ -167,10 +189,16 @@ def list_customers(
     lifecycle_status: CustomerLifecycleStatus | None = None,
     updated_since: dt.datetime | None = None,
     include_merged: bool = False,
-    params: PageParams = Depends(page_params),
+    sort: str | None = Query(default=None, description="e.g. 'lastName:asc,updatedAt:desc'"),
+    limit: int = Query(default=settings.pagination_default_limit, ge=1, le=settings.pagination_max_limit),
+    cursor: str | None = Query(default=None),
     principal: Principal = Depends(get_current_principal),
     db: Session = Depends(get_db),
 ):
+    sort_fields = parse_sort(sort, allowed=CUSTOMER_SORT_FIELDS) or _DEFAULT_CUSTOMER_SORT
+    params = SortPageParams(
+        limit=limit, cursor=decode_sort_cursor(cursor) if cursor else None, sort_fields=sort_fields
+    )
     rows, next_cursor = customer_service.list_customers(
         db,
         tenant_id=principal.tenant_id,
