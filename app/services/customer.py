@@ -13,7 +13,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.errors import BadRequestError, ConflictError, NotFoundError
-from app.core.pagination import SortPageParams, build_sorted_page, paginate_query_sorted
+from app.core.config import get_settings
+from app.core.pagination import SortPageParams, build_sorted_page, count_capped, paginate_query_sorted
 from app.core.postal_codes import derive_canton
 from app.core.tenancy import get_or_404
 from app.models.base import utcnow
@@ -199,7 +200,7 @@ def list_customers(
     updated_since,
     params: SortPageParams,
     include_merged: bool = False,
-) -> tuple[list[Customer], str | None]:
+) -> tuple[list[Customer], str | None, int, bool]:
     stmt = select(Customer).where(Customer.tenant_id == tenant_id)
     if q:
         stmt = stmt.where(_search_predicate(tenant_id, q))
@@ -213,9 +214,13 @@ def list_customers(
         stmt = stmt.where(Customer.lifecycle_status != CustomerLifecycleStatus.MERGED)
     if updated_since is not None:
         stmt = stmt.where(Customer.updated_at >= updated_since)
+    # Counted before pagination is applied (no ORDER BY/LIMIT/cursor yet) —
+    # see count_capped for why this can never turn into a full table scan.
+    total, total_is_estimate = count_capped(db, stmt, threshold=get_settings().count_exact_threshold)
     stmt = paginate_query_sorted(stmt, model=Customer, params=params)
     rows = list(db.scalars(stmt).all())
-    return build_sorted_page(rows, params)
+    items, next_cursor = build_sorted_page(rows, params)
+    return items, next_cursor, total, total_is_estimate
 
 
 def _primary_contact_maps(db: Session, customer_ids):

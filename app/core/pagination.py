@@ -13,7 +13,8 @@ import uuid
 from typing import Any, TypeVar
 
 from fastapi import Query
-from sqlalchemy import Select, and_, or_
+from sqlalchemy import Select, and_, func, or_, select
+from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.errors import BadRequestError
@@ -236,3 +237,23 @@ def build_sorted_page(rows: list[Any], params: SortPageParams) -> tuple[list[Any
         values = tuple(getattr(last, field.column.key) for field in params.sort_fields)
         next_cursor = encode_sort_cursor(SortCursorPosition(values=values, id=last.id))
     return page_rows, next_cursor
+
+
+def count_capped(db: Session, stmt: Select, *, threshold: int) -> tuple[int, bool]:
+    """Row count for a grid footer (U-07), never at the cost of a full scan
+    on a huge filtered table: counts through a LIMIT(threshold + 1)-capped
+    subquery, so the work done is bounded by `threshold` regardless of how
+    many rows actually match. `stmt` should be the filtered-but-unordered,
+    unpaginated base query (call this before paginate_query/
+    paginate_query_sorted adds ORDER BY/LIMIT/cursor).
+
+    Returns (count, is_estimate). is_estimate=True means "at least
+    threshold, exact count not computed" — the doc's "estimate above [the
+    threshold]"; below it, the count is exact.
+    """
+
+    capped = select(func.count()).select_from(stmt.limit(threshold + 1).subquery())
+    n = db.scalar(capped) or 0
+    if n > threshold:
+        return threshold, True
+    return n, False

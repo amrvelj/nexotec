@@ -199,7 +199,7 @@ def list_customers(
     params = SortPageParams(
         limit=limit, cursor=decode_sort_cursor(cursor) if cursor else None, sort_fields=sort_fields
     )
-    rows, next_cursor = customer_service.list_customers(
+    rows, next_cursor, total, total_is_estimate = customer_service.list_customers(
         db,
         tenant_id=principal.tenant_id,
         q=q,
@@ -209,7 +209,10 @@ def list_customers(
         include_merged=include_merged,
     )
     return CustomerPage(
-        items=[CustomerRead.model_validate(c, from_attributes=True) for c in rows], next_cursor=next_cursor
+        items=[CustomerRead.model_validate(c, from_attributes=True) for c in rows],
+        next_cursor=next_cursor,
+        total=total,
+        total_is_estimate=total_is_estimate,
     )
 
 

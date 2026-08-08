@@ -23,6 +23,11 @@ class Settings(BaseSettings):
     pagination_default_limit: int = 50
     pagination_max_limit: int = 100
 
+    # U-07: exact count under this many matching rows, "at least N" above
+    # it — a full COUNT(*) on a filtered 100k-row table must never delay
+    # the first page (UI/UX Core Principles § FR-UI-04).
+    count_exact_threshold: int = 10_000
+
     # Frontend dev server origin(s) allowed to make credentialed requests
     # (cookie-based session, issue #8) — must be an explicit origin list,
     # not "*", since the session cookie relies on Access-Control-Allow-
