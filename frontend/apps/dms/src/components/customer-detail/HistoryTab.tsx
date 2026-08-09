@@ -1,5 +1,6 @@
 import { Loader, Stack, Text } from '@mantine/core'
 import { History } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { slate } from '@nexotec/ui-kit'
 import { useAuth } from '../../auth/AuthContext'
 import { formatDateTime } from '../../utils/format'
@@ -38,8 +39,15 @@ function diff(before: Record<string, unknown> | null, after: Record<string, unkn
   return changes
 }
 
-function HistoryEvent({ event, isYou }: { event: AuditEventRead; isYou: boolean }) {
+function HistoryEvent({ event, isYou, locale }: { event: AuditEventRead; isYou: boolean; locale: string }) {
+  const { t } = useTranslation()
   const changes = diff(event.before, event.after)
+  // event.action and the diffed field names/values below are raw backend
+  // vocabulary (audit action verbs, arbitrary entity field names) — not
+  // translated. Enumerating every possible action/field across the audit
+  // log in 4 languages is a materially larger, open-ended effort than this
+  // tab's chrome; scoped out deliberately, same as canton/legal-form names.
+  const actor = isYou ? t('customerDetail.history.you') : event.actorId ? t('customerDetail.history.user', { id: event.actorId.slice(0, 8) }) : t('customerDetail.history.system')
   return (
     <div style={{ display: 'flex', gap: 12 }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
@@ -49,12 +57,12 @@ function HistoryEvent({ event, isYou }: { event: AuditEventRead; isYou: boolean 
       <Stack gap={4} pb="md" style={{ flex: 1 }}>
         <Text size="sm">
           <Text component="span" fw={600}>
-            {isYou ? 'You' : event.actorId ? `User ${event.actorId.slice(0, 8)}` : 'System'}
+            {actor}
           </Text>{' '}
-          {event.action} this customer
+          {event.action} {t('customerDetail.history.actionSuffix')}
         </Text>
         <Text size="xs" c="dimmed">
-          {formatDateTime(event.createdAt)}
+          {formatDateTime(event.createdAt, locale)}
         </Text>
         {changes.length > 0 && (
           <Stack gap={2} mt={4}>
@@ -73,7 +81,18 @@ function HistoryEvent({ event, isYou }: { event: AuditEventRead; isYou: boolean 
   )
 }
 
-export function HistoryTab({ events, loading, error }: { events: AuditEventRead[]; loading: boolean; error: string | null }) {
+export function HistoryTab({
+  events,
+  loading,
+  error,
+  locale,
+}: {
+  events: AuditEventRead[]
+  loading: boolean
+  error: string | null
+  locale: string
+}) {
+  const { t } = useTranslation()
   const { user } = useAuth()
 
   if (loading) return <Loader size="sm" />
@@ -89,10 +108,10 @@ export function HistoryTab({ events, loading, error }: { events: AuditEventRead[
       <Stack align="center" gap="xs" py="xl">
         <History size={24} color={slate[4]} />
         <Text size="sm" fw={600}>
-          No history yet
+          {t('customerDetail.history.emptyState.title')}
         </Text>
         <Text size="sm" c="dimmed">
-          Changes to this customer will appear here.
+          {t('customerDetail.history.emptyState.description')}
         </Text>
       </Stack>
     )
@@ -104,7 +123,7 @@ export function HistoryTab({ events, loading, error }: { events: AuditEventRead[
   return (
     <div>
       {sorted.map((event) => (
-        <HistoryEvent key={event.id} event={event} isYou={event.actorId === user?.id} />
+        <HistoryEvent key={event.id} event={event} isYou={event.actorId === user?.id} locale={locale} />
       ))}
     </div>
   )

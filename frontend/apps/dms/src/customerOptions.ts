@@ -142,3 +142,58 @@ export function translatedLifecycleLabel(t: Translate, status: CustomerLifecycle
 export function translatedCustomerTypeLabel(t: Translate, type: CustomerType): string {
   return t(`customerEnums.customerType.${type}`)
 }
+
+export function translatedSalutationOptions(t: Translate): { value: Salutation; label: string }[] {
+  return [
+    { value: 'herr', label: t('customerEnums.salutation.herr') },
+    { value: 'frau', label: t('customerEnums.salutation.frau') },
+    { value: 'firma', label: t('customerEnums.salutation.firma') },
+    { value: 'neutral', label: t('customerEnums.salutation.neutral') },
+  ]
+}
+
+export function translatedPreferredChannelOptions(t: Translate): { value: PreferredChannel; label: string }[] {
+  return [
+    { value: 'mail', label: t('customerEnums.preferredChannel.mail') },
+    { value: 'call', label: t('customerEnums.preferredChannel.call') },
+    { value: 'message', label: t('customerEnums.preferredChannel.message') },
+    { value: 'letter', label: t('customerEnums.preferredChannel.letter') },
+  ]
+}
+
+export function translatedSourceOptions(t: Translate): { value: CustomerSource; label: string }[] {
+  return [
+    { value: 'walk_in', label: t('customerEnums.source.walk_in') },
+    { value: 'phone', label: t('customerEnums.source.phone') },
+    { value: 'web_lead', label: t('customerEnums.source.web_lead') },
+    { value: 'marketplace', label: t('customerEnums.source.marketplace') },
+    { value: 'other', label: t('customerEnums.source.other') },
+  ]
+}
+
+export function translatedVehiclePartyRoleLabel(t: Translate, role: 'owner' | 'keeper' | 'driver'): string {
+  return t(`customerEnums.vehiclePartyRole.${role}`)
+}
+
+export function translatedTransactionTypeLabel(t: Translate, type: 'sale' | 'trade_in'): string {
+  return t(`customerEnums.transactionType.${type}`)
+}
+
+export function translatedTransactionStatusLabel(t: Translate, status: 'draft' | 'completed' | 'cancelled'): string {
+  return t(`customerEnums.transactionStatus.${status}`)
+}
+
+export function translatedPhoneTypeOptions(t: Translate): { value: PhoneType; label: string }[] {
+  return [
+    { value: 'mobile', label: t('customerEnums.contactType.mobile') },
+    { value: 'private', label: t('customerEnums.contactType.private') },
+    { value: 'office', label: t('customerEnums.contactType.office') },
+  ]
+}
+
+export function translatedEmailTypeOptions(t: Translate): { value: EmailType; label: string }[] {
+  return [
+    { value: 'private', label: t('customerEnums.contactType.private') },
+    { value: 'business', label: t('customerEnums.contactType.business') },
+  ]
+}

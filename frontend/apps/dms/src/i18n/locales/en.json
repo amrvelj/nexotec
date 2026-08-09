@@ -52,6 +52,45 @@
       "fr": "French",
       "it": "Italian",
       "en": "English"
+    },
+    "salutation": {
+      "herr": "Mr",
+      "frau": "Ms",
+      "firma": "Company",
+      "neutral": "Neutral"
+    },
+    "preferredChannel": {
+      "mail": "Email",
+      "call": "Call",
+      "message": "Message",
+      "letter": "Letter"
+    },
+    "source": {
+      "walk_in": "Walk-in",
+      "phone": "Phone",
+      "web_lead": "Web lead",
+      "marketplace": "Marketplace",
+      "other": "Other"
+    },
+    "vehiclePartyRole": {
+      "owner": "Owner",
+      "keeper": "Keeper",
+      "driver": "Driver"
+    },
+    "transactionType": {
+      "sale": "Sale",
+      "trade_in": "Trade-in"
+    },
+    "transactionStatus": {
+      "draft": "Draft",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    },
+    "contactType": {
+      "mobile": "Mobile",
+      "private": "Private",
+      "office": "Office",
+      "business": "Business"
     }
   },
   "customersList": {
@@ -86,6 +125,147 @@
       "canton": "Canton",
       "changedSince": "Changed since",
       "changedSinceChip": "Changed since {{date}}"
+    }
+  },
+  "customerDetail": {
+    "tabs": {
+      "overview": "Overview",
+      "vehicles": "Vehicles",
+      "transactions": "Transactions",
+      "history": "History",
+      "externalIds": "External IDs"
+    },
+    "header": {
+      "mergeInto": "Merge into another customer…",
+      "failedToLoad": "Failed to load customer",
+      "customerFallback": "Customer",
+      "copyCustomerNumber": "Copy customer number"
+    },
+    "errors": {
+      "somethingWentWrong": "Something went wrong.",
+      "conflict": "Someone else changed this in the meantime.",
+      "failedToSave": "Failed to save.",
+      "failedToLoadVehicles": "Failed to load vehicles.",
+      "failedToLoadTransactions": "Failed to load transactions.",
+      "failedToLoadHistory": "Failed to load history.",
+      "failedToLoadExternalIds": "Failed to load external IDs."
+    },
+    "overview": {
+      "cards": {
+        "identity": "Identity",
+        "status": "Status",
+        "address": "Address",
+        "contactPoints": "Contact points",
+        "record": "Record"
+      },
+      "fields": {
+        "salutation": "Salutation",
+        "firstName": "First name",
+        "lastName": "Last name",
+        "dateOfBirth": "Date of birth",
+        "nationality": "Nationality",
+        "companyName": "Company name",
+        "legalForm": "Legal form",
+        "correspondenceLanguage": "Correspondence language",
+        "preferredChannel": "Preferred channel",
+        "lifecycleStatus": "Lifecycle status",
+        "source": "Source",
+        "marketingConsent": "Marketing consent",
+        "address": "Address",
+        "canton": "Canton",
+        "customerNumber": "Customer number",
+        "created": "Created",
+        "lastChanged": "Last changed"
+      },
+      "notSet": "Not set",
+      "addressForm": {
+        "street": "Street",
+        "houseNumber": "House no.",
+        "postalCode": "Postal code",
+        "locality": "Locality",
+        "save": "Save",
+        "cancel": "Cancel",
+        "reload": "Reload"
+      }
+    },
+    "contactPoints": {
+      "phoneNumbers": "Phone numbers",
+      "emailAddresses": "Email addresses",
+      "addPhone": "Add phone",
+      "addEmail": "Add email",
+      "none": "None added yet.",
+      "primary": "Primary",
+      "new": "New",
+      "save": "Save",
+      "cancel": "Cancel",
+      "removeAriaLabel": "Remove {{label}}"
+    },
+    "phoneInput": {
+      "country": "Country",
+      "number": "Number"
+    },
+    "countries": {
+      "switzerland": "Switzerland",
+      "germany": "Germany",
+      "france": "France",
+      "italy": "Italy",
+      "austria": "Austria",
+      "liechtenstein": "Liechtenstein",
+      "unitedKingdom": "United Kingdom",
+      "unitedStates": "United States"
+    },
+    "externalIds": {
+      "columns": {
+        "system": "System",
+        "externalId": "External ID",
+        "linked": "Linked"
+      },
+      "emptyState": {
+        "title": "No external IDs",
+        "description": "No CRM/OEM system linkage on file for this customer."
+      },
+      "add": "Add external ID",
+      "remove": "Remove",
+      "save": "Save",
+      "cancel": "Cancel",
+      "systemLabel": "System",
+      "externalIdLabel": "External ID"
+    },
+    "vehicles": {
+      "columns": {
+        "vin": "VIN",
+        "vehicle": "Vehicle",
+        "role": "Role",
+        "since": "Since",
+        "until": "Until"
+      },
+      "emptyState": {
+        "title": "No vehicles",
+        "description": "This customer has no vehicle relationships on file."
+      }
+    },
+    "transactions": {
+      "columns": {
+        "type": "Type",
+        "status": "Status",
+        "amount": "Amount",
+        "date": "Date",
+        "reference": "Reference"
+      },
+      "emptyState": {
+        "title": "No transactions",
+        "description": "This customer has no transactions on file."
+      }
+    },
+    "history": {
+      "emptyState": {
+        "title": "No history yet",
+        "description": "Changes to this customer will appear here."
+      },
+      "you": "You",
+      "system": "System",
+      "user": "User {{id}}",
+      "actionSuffix": "this customer"
     }
   }
 }
