@@ -103,3 +103,42 @@ export const EMAIL_TYPE_OPTIONS: { value: EmailType; label: string }[] = [
   { value: 'private', label: 'Private' },
   { value: 'business', label: 'Business' },
 ]
+
+// FR-13: translated variants of the option lists above, for screens that
+// have adopted i18n (the Customers List page so far — see customerEnums.*
+// in the locale bundles). The plain English constants above stay as-is
+// for screens not yet migrated, so this is additive, not a replacement.
+type Translate = (key: string) => string
+
+export function translatedCustomerTypeOptions(t: Translate): { value: CustomerType; label: string }[] {
+  return [
+    { value: 'individual', label: t('customerEnums.customerType.individual') },
+    { value: 'business', label: t('customerEnums.customerType.business') },
+  ]
+}
+
+export function translatedLifecycleOptions(t: Translate): { value: CustomerLifecycleStatus; label: string }[] {
+  return [
+    { value: 'prospect', label: t('customerEnums.lifecycleStatus.prospect') },
+    { value: 'active', label: t('customerEnums.lifecycleStatus.active') },
+    { value: 'inactive', label: t('customerEnums.lifecycleStatus.inactive') },
+    { value: 'do_not_contact', label: t('customerEnums.lifecycleStatus.do_not_contact') },
+  ]
+}
+
+export function translatedLanguageOptions(t: Translate): { value: Language; label: string }[] {
+  return [
+    { value: 'de', label: t('customerEnums.language.de') },
+    { value: 'fr', label: t('customerEnums.language.fr') },
+    { value: 'it', label: t('customerEnums.language.it') },
+    { value: 'en', label: t('customerEnums.language.en') },
+  ]
+}
+
+export function translatedLifecycleLabel(t: Translate, status: CustomerLifecycleStatus): string {
+  return t(`customerEnums.lifecycleStatus.${status}`)
+}
+
+export function translatedCustomerTypeLabel(t: Translate, type: CustomerType): string {
+  return t(`customerEnums.customerType.${type}`)
+}

@@ -13,6 +13,8 @@ export interface TopbarProps {
    * supplies this from whatever the active page last set via
    * useSetBreadcrumb. */
   breadcrumb: string[];
+  /** Translated "Sign out" label — defaults to English. */
+  signOutLabel?: string;
 }
 
 /**
@@ -23,7 +25,7 @@ export interface TopbarProps {
  * Notifications bell and the ⌘K command palette slot are both explicitly
  * Phase C in the source doc — not included yet.
  */
-export function Topbar({ user, uiLanguage, onLanguageChange, onSignOut, breadcrumb }: TopbarProps) {
+export function Topbar({ user, uiLanguage, onLanguageChange, onSignOut, breadcrumb, signOutLabel = "Sign out" }: TopbarProps) {
   return (
     <header
       style={{
@@ -81,7 +83,7 @@ export function Topbar({ user, uiLanguage, onLanguageChange, onSignOut, breadcru
             <Menu.Label>{user.email}</Menu.Label>
             <Menu.Divider />
             <Menu.Item leftSection={<LogOut size={16} />} onClick={onSignOut}>
-              Sign out
+              {signOutLabel}
             </Menu.Item>
           </Menu.Dropdown>
         </Menu>

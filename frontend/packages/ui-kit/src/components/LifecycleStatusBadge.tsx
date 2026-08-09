@@ -18,11 +18,11 @@ const CONFIG: Record<LifecycleStatus, { tone: BadgeTone; label: string; striketh
   do_not_contact: { tone: "destructive", label: "Do not contact" },
 };
 
-export function LifecycleStatusBadge({ status }: { status: LifecycleStatus }) {
+export function LifecycleStatusBadge({ status, label }: { status: LifecycleStatus; label?: string }) {
   const config = CONFIG[status];
   return (
     <Badge tone={config.tone} dot strikethrough={config.strikethrough}>
-      {config.label}
+      {label ?? config.label}
     </Badge>
   );
 }

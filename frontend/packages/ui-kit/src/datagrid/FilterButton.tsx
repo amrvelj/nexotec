@@ -10,6 +10,8 @@ export interface FilterButtonProps {
   children: ReactNode;
   opened: boolean;
   onChange: (opened: boolean) => void;
+  /** Translated "Filter" label — defaults to English. */
+  label?: string;
 }
 
 /**
@@ -18,14 +20,14 @@ export interface FilterButtonProps {
  * filters. Never a separate page." This is the generic trigger + popover
  * shell; the actual filter fields are app-specific and passed as children.
  */
-export function FilterButton({ activeCount, children, opened, onChange }: FilterButtonProps) {
+export function FilterButton({ activeCount, children, opened, onChange, label = "Filter" }: FilterButtonProps) {
   return (
     <Popover opened={opened} onChange={onChange} position="bottom-start" shadow="md" withArrow>
       <Popover.Target>
         <button
           type="button"
           onClick={() => onChange(!opened)}
-          aria-label="Filter"
+          aria-label={label}
           style={{
             display: "flex",
             alignItems: "center",
@@ -42,7 +44,7 @@ export function FilterButton({ activeCount, children, opened, onChange }: Filter
           }}
         >
           <ListFilter size={16} color={slate[5]} />
-          Filter
+          {label}
           {activeCount > 0 && (
             <span
               aria-hidden="true"

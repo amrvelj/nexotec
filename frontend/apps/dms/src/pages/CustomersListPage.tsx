@@ -4,6 +4,7 @@ import { Button, Group, Menu, Stack, Title } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { Copy, ExternalLink, Users } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import {
   ActionBar,
   CustomerTypeBadge,
@@ -18,13 +19,15 @@ import {
 } from '@nexotec/ui-kit'
 import { useUiPreferencesContext } from '../hooks/UiPreferencesContext'
 import { api } from '../api/client'
-import { CANTON_OPTIONS, CUSTOMER_TYPE_OPTIONS, LANGUAGE_OPTIONS, LIFECYCLE_OPTIONS } from '../customerOptions'
+import { toSwissLocale, type SupportedLanguage } from '../i18n'
+import { CANTON_OPTIONS, translatedCustomerTypeLabel, translatedLanguageOptions, translatedLifecycleLabel } from '../customerOptions'
 import {
   CustomerFiltersPopover,
   countActiveFilters,
   EMPTY_CUSTOMER_FILTERS,
   type CustomerFilters,
 } from '../components/CustomerFiltersPopover'
+import { formatDate } from '../utils/format'
 import type { CustomerPage, CustomerRead } from '../api/types'
 
 const GRID_KEY = 'mdm.customers.list'
@@ -34,12 +37,10 @@ function customerName(c: CustomerRead): string {
   return c.customerType === 'business' ? (c.companyName ?? '') : `${c.firstName ?? ''} ${c.lastName ?? ''}`.trim()
 }
 
-function formatDate(iso: string): string {
-  return new Intl.DateTimeFormat('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(iso))
-}
-
 export function CustomersListPage() {
-  useSetBreadcrumb(['Master Data', 'Customers'])
+  const { t, i18n } = useTranslation()
+  const locale = toSwissLocale(i18n.language as SupportedLanguage)
+  useSetBreadcrumb([t('shell.nav.masterData'), t('shell.nav.customers')])
   const navigate = useNavigate()
   const { density, setDensity } = useUiPreferencesContext()
 
@@ -77,21 +78,21 @@ export function CustomersListPage() {
     if (filters.customerType) {
       chips.push({
         key: 'customerType',
-        label: CUSTOMER_TYPE_OPTIONS.find((o) => o.value === filters.customerType)?.label ?? filters.customerType,
+        label: translatedCustomerTypeLabel(t, filters.customerType),
         onRemove: () => setFilters((f) => ({ ...f, customerType: null })),
       })
     }
     if (filters.lifecycleStatus) {
       chips.push({
         key: 'lifecycleStatus',
-        label: LIFECYCLE_OPTIONS.find((o) => o.value === filters.lifecycleStatus)?.label ?? filters.lifecycleStatus,
+        label: translatedLifecycleLabel(t, filters.lifecycleStatus),
         onRemove: () => setFilters((f) => ({ ...f, lifecycleStatus: null })),
       })
     }
     if (filters.language) {
       chips.push({
         key: 'language',
-        label: LANGUAGE_OPTIONS.find((o) => o.value === filters.language)?.label ?? filters.language,
+        label: translatedLanguageOptions(t).find((o) => o.value === filters.language)?.label ?? filters.language,
         onRemove: () => setFilters((f) => ({ ...f, language: null })),
       })
     }
@@ -105,12 +106,12 @@ export function CustomersListPage() {
     if (filters.changedSince) {
       chips.push({
         key: 'changedSince',
-        label: `Changed since ${filters.changedSince}`,
+        label: t('customersList.filters.changedSinceChip', { date: filters.changedSince }),
         onRemove: () => setFilters((f) => ({ ...f, changedSince: null })),
       })
     }
     return chips
-  }, [filters])
+  }, [filters, t])
 
   const rows = useMemo(() => data?.pages.flatMap((page) => page.items) ?? [], [data])
   const total = data?.pages[0]?.total ?? null
@@ -120,66 +121,86 @@ export function CustomersListPage() {
     () => [
       {
         id: 'customerNumber',
-        header: 'Customer #',
+        header: t('customersList.columns.customerNumber'),
         cell: ({ row }) => row.original.customerNumber,
         meta: { sortField: 'customerNumber', pinned: 'left', mono: true },
       },
       {
         id: 'name',
-        header: 'Name',
+        header: t('customersList.columns.name'),
         cell: ({ row }) => <span style={{ fontWeight: 600 }}>{customerName(row.original)}</span>,
         meta: { sortField: 'lastName' },
       },
       {
         id: 'customerType',
-        header: 'Type',
-        cell: ({ row }) => <CustomerTypeBadge type={row.original.customerType} />,
+        header: t('customersList.columns.type'),
+        cell: ({ row }) => <CustomerTypeBadge type={row.original.customerType} label={translatedCustomerTypeLabel(t, row.original.customerType)} />,
       },
       {
         id: 'language',
-        header: 'Language',
+        header: t('customersList.columns.language'),
         cell: ({ row }) => <LanguageBadge language={row.original.language} />,
       },
       {
         id: 'lifecycleStatus',
-        header: 'Status',
-        cell: ({ row }) => <LifecycleStatusBadge status={row.original.lifecycleStatus} />,
+        header: t('customersList.columns.status'),
+        cell: ({ row }) => <LifecycleStatusBadge status={row.original.lifecycleStatus} label={translatedLifecycleLabel(t, row.original.lifecycleStatus)} />,
       },
       {
         id: 'updatedAt',
-        header: 'Changed',
-        cell: ({ row }) => formatDate(row.original.updatedAt),
+        header: t('customersList.columns.changed'),
+        cell: ({ row }) => formatDate(row.original.updatedAt, locale),
         meta: { sortField: 'updatedAt', align: 'right' },
       },
     ],
-    []
+    [t, locale]
   )
 
   return (
     <Stack gap="md">
       <Group justify="space-between">
-        <Title order={2}>Customers</Title>
+        <Title order={2}>{t('customersList.title')}</Title>
         <Button component={Link} to="/customers/new">
-          New customer
+          {t('customersList.newCustomer')}
         </Button>
       </Group>
 
       <ActionBar
         searchValue={query}
         onSearchChange={setQuery}
-        searchPlaceholder="Search by name, email, phone…"
+        searchPlaceholder={t('customersList.searchPlaceholder')}
         density={density}
         onDensityChange={setDensity}
         onRefresh={() => refetch()}
         refreshing={isRefetching}
         filterSlot={
-          <FilterButton activeCount={activeFilterCount} opened={filterPopoverOpened} onChange={setFilterPopoverOpened}>
+          <FilterButton
+            activeCount={activeFilterCount}
+            opened={filterPopoverOpened}
+            onChange={setFilterPopoverOpened}
+            label={t('common.filter')}
+          >
             <CustomerFiltersPopover filters={filters} onChange={setFilters} />
           </FilterButton>
         }
+        labels={{
+          density: {
+            compact: t('common.density.compact'),
+            default: t('common.density.default'),
+            comfortable: t('common.density.comfortable'),
+          },
+          densityTooltip: (label) => t('common.density.tooltip', { label }),
+          densityAriaLabel: t('common.density.ariaLabel'),
+          refresh: t('common.refresh'),
+        }}
       />
 
-      <FilterChips chips={filterChips} onClearAll={() => setFilters(EMPTY_CUSTOMER_FILTERS)} />
+      <FilterChips
+        chips={filterChips}
+        onClearAll={() => setFilters(EMPTY_CUSTOMER_FILTERS)}
+        clearLabel={t('common.clear')}
+        removeLabel={(label) => t('common.removeFilter', { label })}
+      />
 
       <DataGrid<CustomerRead>
         columns={columns}
@@ -199,20 +220,28 @@ export function CustomersListPage() {
         total={total}
         totalIsEstimate={totalIsEstimate}
         isFiltered={debouncedQuery.length > 0 || activeFilterCount > 0}
+        locale={locale}
+        labels={{
+          showing: (count) => t('common.showing', { count }),
+          showingOfTotal: (count, totalStr) => t('common.showingOfTotal', { count, total: totalStr }),
+          loadingMore: t('common.loadingMore'),
+          retry: t('common.retry'),
+          rowActionsLabel: t('common.rowActionsLabel'),
+        }}
         emptyState={{
           icon: <Users size={24} />,
-          title: 'No customers yet',
-          description: 'Create your first customer to get started.',
+          title: t('customersList.emptyState.title'),
+          description: t('customersList.emptyState.description'),
           action: (
             <Button component={Link} to="/customers/new">
-              New customer
+              {t('customersList.newCustomer')}
             </Button>
           ),
         }}
         emptyFilteredState={{
           icon: <Users size={24} />,
-          title: 'No matches',
-          description: 'Try a different search term or filter.',
+          title: t('customersList.emptyFilteredState.title'),
+          description: t('customersList.emptyFilteredState.description'),
           action: (
             <Button
               variant="default"
@@ -221,20 +250,20 @@ export function CustomersListPage() {
                 setFilters(EMPTY_CUSTOMER_FILTERS)
               }}
             >
-              Clear search and filters
+              {t('customersList.emptyFilteredState.action')}
             </Button>
           ),
         }}
         rowActions={(row) => (
           <>
             <Menu.Item leftSection={<ExternalLink size={16} />} onClick={() => navigate(`/customers/${row.id}`)}>
-              Open
+              {t('customersList.rowActions.open')}
             </Menu.Item>
             <Menu.Item
               leftSection={<Copy size={16} />}
               onClick={() => navigator.clipboard.writeText(row.customerNumber)}
             >
-              Copy customer number
+              {t('customersList.rowActions.copyCustomerNumber')}
             </Menu.Item>
           </>
         )}

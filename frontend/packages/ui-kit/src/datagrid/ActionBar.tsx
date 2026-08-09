@@ -19,13 +19,28 @@ export interface ActionBarProps {
    * Columns/Export button — kept generic so per-screen buttons don't need
    * their own layout code. */
   extraActions?: ReactNode;
+  /** Translated overrides for this bar's own strings (density cycle,
+   * refresh). Defaults to English — optional so untranslated screens are
+   * unaffected. */
+  labels?: {
+    density?: Record<Density, string>;
+    densityTooltip?: (label: string) => string;
+    densityAriaLabel?: string;
+    refresh?: string;
+  };
 }
 
 const DENSITY_ORDER: Density[] = ["compact", "default", "comfortable"];
-const DENSITY_LABEL: Record<Density, string> = {
+const DEFAULT_DENSITY_LABEL: Record<Density, string> = {
   compact: "Compact",
   default: "Default",
   comfortable: "Comfortable",
+};
+const DEFAULT_ACTION_BAR_LABELS = {
+  density: DEFAULT_DENSITY_LABEL,
+  densityTooltip: (label: string) => `Density: ${label}`,
+  densityAriaLabel: "Change row density",
+  refresh: "Refresh",
 };
 
 /**
@@ -45,7 +60,9 @@ export function ActionBar({
   refreshing,
   filterSlot,
   extraActions,
+  labels,
 }: ActionBarProps) {
+  const L = { ...DEFAULT_ACTION_BAR_LABELS, ...labels, density: { ...DEFAULT_DENSITY_LABEL, ...labels?.density } };
   const searchRef = useRef<HTMLInputElement>(null);
 
   // "Auto-focused on page load" (§ Action Bar, Zone 1).
@@ -97,14 +114,14 @@ export function ActionBar({
       {filterSlot}
 
       <div style={{ display: "flex", alignItems: "center", gap: spacing.xs }}>
-        <Tooltip label={`Density: ${DENSITY_LABEL[density]}`}>
-          <IconButton onClick={cycleDensity} aria-label="Change row density">
+        <Tooltip label={L.densityTooltip(L.density[density])}>
+          <IconButton onClick={cycleDensity} aria-label={L.densityAriaLabel}>
             <Rows3 size={18} />
           </IconButton>
         </Tooltip>
         {extraActions}
-        <Tooltip label="Refresh">
-          <IconButton onClick={onRefresh} aria-label="Refresh">
+        <Tooltip label={L.refresh}>
+          <IconButton onClick={onRefresh} aria-label={L.refresh}>
             <RefreshCw size={18} style={refreshing ? { opacity: 0.5 } : undefined} />
           </IconButton>
         </Tooltip>
