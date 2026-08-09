@@ -1,15 +1,17 @@
 import { useState } from 'react'
 import { Checkbox, Group, Select, SimpleGrid, Stack, Text, TextInput } from '@mantine/core'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { InlineEditField, KeyValueRow, OverviewCard, purple, radius, slate } from '@nexotec/ui-kit'
 import {
-  EMAIL_TYPE_OPTIONS,
-  LANGUAGE_OPTIONS,
   LEGAL_FORM_OPTIONS,
-  LIFECYCLE_OPTIONS,
-  PHONE_TYPE_OPTIONS,
-  PREFERRED_CHANNEL_OPTIONS,
-  SALUTATION_OPTIONS,
-  SOURCE_OPTIONS,
+  translatedEmailTypeOptions,
+  translatedLanguageOptions,
+  translatedLifecycleOptions,
+  translatedPhoneTypeOptions,
+  translatedPreferredChannelOptions,
+  translatedSalutationOptions,
+  translatedSourceOptions,
 } from '../../customerOptions'
 import { formatDate } from '../../utils/format'
 import { ContactPointsEditor } from './ContactPointsEditor'
@@ -29,12 +31,15 @@ interface OverviewTabProps {
   onCreateEmail: (row: { type: EmailType; value: string }) => Promise<void>
   onUpdateEmail: (id: string, patch: { type?: EmailType; value?: string; isPrimary?: boolean }) => Promise<void>
   onDeleteEmail: (id: string) => Promise<void>
+  locale: string
 }
 
 interface FieldProps {
   onSaveField: OverviewTabProps['onSaveField']
   isConflict: OverviewTabProps['isConflict']
   onReload: OverviewTabProps['onReload']
+  locale: string
+  emptyLabel: string
 }
 
 function TextField({
@@ -44,12 +49,14 @@ function TextField({
   onSaveField,
   isConflict,
   onReload,
+  emptyLabel,
 }: FieldProps & { label: string; value: string | null; patchKey: keyof CustomerUpdateInput }) {
   return (
     <KeyValueRow label={label}>
       <InlineEditField
         value={value ?? ''}
         isEmpty={!value}
+        emptyLabel={emptyLabel}
         onSave={(raw) => onSaveField({ [patchKey]: raw.trim() || null } as Partial<CustomerUpdateInput>)}
         isConflict={isConflict}
         onReload={onReload}
@@ -65,12 +72,15 @@ function DateField({
   onSaveField,
   isConflict,
   onReload,
+  locale,
+  emptyLabel,
 }: FieldProps & { label: string; value: string | null; patchKey: keyof CustomerUpdateInput }) {
   return (
     <KeyValueRow label={label}>
       <InlineEditField
-        value={value ? formatDate(value) : ''}
+        value={value ? formatDate(value, locale) : ''}
         isEmpty={!value}
+        emptyLabel={emptyLabel}
         editValue={value ?? ''}
         onSave={(raw) => onSaveField({ [patchKey]: raw || null } as Partial<CustomerUpdateInput>)}
         isConflict={isConflict}
@@ -98,6 +108,7 @@ function SelectField({
   onSaveField,
   isConflict,
   onReload,
+  emptyLabel,
 }: FieldProps & { label: string; value: string | null; options: { value: string; label: string }[]; patchKey: keyof CustomerUpdateInput; clearable?: boolean }) {
   const displayLabel = options.find((o) => o.value === value)?.label
   return (
@@ -105,6 +116,7 @@ function SelectField({
       <InlineEditField
         value={displayLabel ?? ''}
         isEmpty={!value}
+        emptyLabel={emptyLabel}
         editValue={value ?? ''}
         onSave={(raw) => onSaveField({ [patchKey]: raw || null } as Partial<CustomerUpdateInput>)}
         isConflict={isConflict}
@@ -125,7 +137,13 @@ function SelectField({
   )
 }
 
-function AddressField({ customer, onSaveField, isConflict, onReload }: FieldProps & { customer: CustomerRead }) {
+function AddressField({
+  customer,
+  onSaveField,
+  isConflict,
+  onReload,
+  t,
+}: Omit<FieldProps, 'locale' | 'emptyLabel'> & { customer: CustomerRead; t: TFunction }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState({
     street: customer.address?.street ?? '',
@@ -160,7 +178,13 @@ function AddressField({ customer, onSaveField, isConflict, onReload }: FieldProp
     } catch (err) {
       const isConflictErr = isConflict(err)
       setConflict(isConflictErr)
-      setError(isConflictErr ? 'Someone else changed this in the meantime.' : err instanceof Error ? err.message : 'Failed to save.')
+      setError(
+        isConflictErr
+          ? t('customerDetail.errors.conflict')
+          : err instanceof Error
+            ? err.message
+            : t('customerDetail.errors.failedToSave')
+      )
     } finally {
       setSaving(false)
     }
@@ -171,10 +195,15 @@ function AddressField({ customer, onSaveField, isConflict, onReload }: FieldProp
       <div style={{ padding: `8px 0` }}>
         <Stack gap="xs">
           <Group grow gap="xs">
-            <TextInput size="xs" label="Street" value={draft.street} onChange={(e) => setDraft({ ...draft, street: e.currentTarget.value })} />
             <TextInput
               size="xs"
-              label="House no."
+              label={t('customerDetail.overview.addressForm.street')}
+              value={draft.street}
+              onChange={(e) => setDraft({ ...draft, street: e.currentTarget.value })}
+            />
+            <TextInput
+              size="xs"
+              label={t('customerDetail.overview.addressForm.houseNumber')}
               value={draft.houseNumber}
               onChange={(e) => setDraft({ ...draft, houseNumber: e.currentTarget.value })}
             />
@@ -182,11 +211,16 @@ function AddressField({ customer, onSaveField, isConflict, onReload }: FieldProp
           <Group grow gap="xs">
             <TextInput
               size="xs"
-              label="Postal code"
+              label={t('customerDetail.overview.addressForm.postalCode')}
               value={draft.postalCode}
               onChange={(e) => setDraft({ ...draft, postalCode: e.currentTarget.value })}
             />
-            <TextInput size="xs" label="Locality" value={draft.locality} onChange={(e) => setDraft({ ...draft, locality: e.currentTarget.value })} />
+            <TextInput
+              size="xs"
+              label={t('customerDetail.overview.addressForm.locality')}
+              value={draft.locality}
+              onChange={(e) => setDraft({ ...draft, locality: e.currentTarget.value })}
+            />
           </Group>
           {error && (
             <Group gap={6}>
@@ -199,7 +233,7 @@ function AddressField({ customer, onSaveField, isConflict, onReload }: FieldProp
                   onClick={onReload}
                   style={{ border: 'none', background: 'none', color: purple[6], cursor: 'pointer', fontWeight: 600, fontSize: 12, padding: 0 }}
                 >
-                  Reload
+                  {t('customerDetail.overview.addressForm.reload')}
                 </button>
               )}
             </Group>
@@ -211,7 +245,7 @@ function AddressField({ customer, onSaveField, isConflict, onReload }: FieldProp
               disabled={saving}
               style={{ fontSize: 12, fontWeight: 600, color: '#fff', backgroundColor: purple[6], border: 'none', borderRadius: radius.sm, padding: '4px 10px', cursor: 'pointer' }}
             >
-              Save
+              {t('customerDetail.overview.addressForm.save')}
             </button>
             <button
               type="button"
@@ -219,7 +253,7 @@ function AddressField({ customer, onSaveField, isConflict, onReload }: FieldProp
               disabled={saving}
               style={{ fontSize: 12, fontWeight: 600, color: slate[6], background: 'none', border: 'none', cursor: 'pointer' }}
             >
-              Cancel
+              {t('customerDetail.overview.addressForm.cancel')}
             </button>
           </Group>
         </Stack>
@@ -230,9 +264,9 @@ function AddressField({ customer, onSaveField, isConflict, onReload }: FieldProp
   const addr = customer.address
   const line = addr ? `${addr.street} ${addr.houseNumber}, ${addr.postalCode} ${addr.locality}` : ''
   return (
-    <KeyValueRow label="Address">
+    <KeyValueRow label={t('customerDetail.overview.fields.address')}>
       <span onClick={startEdit} style={{ cursor: 'pointer', fontStyle: addr ? undefined : 'italic', color: addr ? undefined : slate[3] }}>
-        {addr ? line : 'Not set'}
+        {addr ? line : t('customerDetail.overview.notSet')}
       </span>
     </KeyValueRow>
   )
@@ -251,41 +285,48 @@ export function OverviewTab({
   onCreateEmail,
   onUpdateEmail,
   onDeleteEmail,
+  locale,
 }: OverviewTabProps) {
-  const fieldProps: FieldProps = { onSaveField, isConflict, onReload }
+  const { t } = useTranslation()
+  const fieldProps: FieldProps = { onSaveField, isConflict, onReload, locale, emptyLabel: t('customerDetail.overview.notSet') }
+  const f = t('customerDetail.overview.fields', { returnObjects: true }) as Record<string, string>
 
   return (
     <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
-      <OverviewCard title="Identity">
+      <OverviewCard title={t('customerDetail.overview.cards.identity')}>
         {customer.customerType === 'individual' ? (
           <>
-            <SelectField label="Salutation" value={customer.salutation} options={SALUTATION_OPTIONS} patchKey="salutation" clearable {...fieldProps} />
-            <TextField label="First name" value={customer.firstName} patchKey="firstName" {...fieldProps} />
-            <TextField label="Last name" value={customer.lastName} patchKey="lastName" {...fieldProps} />
-            <DateField label="Date of birth" value={customer.birthDate} patchKey="birthDate" {...fieldProps} />
-            <TextField label="Nationality" value={customer.nationality} patchKey="nationality" {...fieldProps} />
+            <SelectField label={f.salutation} value={customer.salutation} options={translatedSalutationOptions(t)} patchKey="salutation" clearable {...fieldProps} />
+            <TextField label={f.firstName} value={customer.firstName} patchKey="firstName" {...fieldProps} />
+            <TextField label={f.lastName} value={customer.lastName} patchKey="lastName" {...fieldProps} />
+            <DateField label={f.dateOfBirth} value={customer.birthDate} patchKey="birthDate" {...fieldProps} />
+            <TextField label={f.nationality} value={customer.nationality} patchKey="nationality" {...fieldProps} />
           </>
         ) : (
           <>
-            <TextField label="Company name" value={customer.companyName} patchKey="companyName" {...fieldProps} />
-            <SelectField label="Legal form" value={customer.legalForm} options={LEGAL_FORM_OPTIONS} patchKey="legalForm" clearable {...fieldProps} />
+            <TextField label={f.companyName} value={customer.companyName} patchKey="companyName" {...fieldProps} />
+            {/* Legal form labels (AG/GmbH/Sàrl/Sagl…) carry real legal meaning that
+                differs by Swiss language region — left as the standard Swiss
+                designation rather than a guessed FR/IT translation. Same call as
+                canton names. */}
+            <SelectField label={f.legalForm} value={customer.legalForm} options={LEGAL_FORM_OPTIONS} patchKey="legalForm" clearable {...fieldProps} />
           </>
         )}
-        <SelectField label="Correspondence language" value={customer.language} options={LANGUAGE_OPTIONS} patchKey="language" {...fieldProps} />
+        <SelectField label={f.correspondenceLanguage} value={customer.language} options={translatedLanguageOptions(t)} patchKey="language" {...fieldProps} />
         <SelectField
-          label="Preferred channel"
+          label={f.preferredChannel}
           value={customer.preferredChannel}
-          options={PREFERRED_CHANNEL_OPTIONS}
+          options={translatedPreferredChannelOptions(t)}
           patchKey="preferredChannel"
           clearable
           {...fieldProps}
         />
       </OverviewCard>
 
-      <OverviewCard title="Status">
-        <SelectField label="Lifecycle status" value={customer.lifecycleStatus} options={LIFECYCLE_OPTIONS} patchKey="lifecycleStatus" {...fieldProps} />
-        <SelectField label="Source" value={customer.source} options={SOURCE_OPTIONS} patchKey="source" clearable {...fieldProps} />
-        <KeyValueRow label="Marketing consent">
+      <OverviewCard title={t('customerDetail.overview.cards.status')}>
+        <SelectField label={f.lifecycleStatus} value={customer.lifecycleStatus} options={translatedLifecycleOptions(t)} patchKey="lifecycleStatus" {...fieldProps} />
+        <SelectField label={f.source} value={customer.source} options={translatedSourceOptions(t)} patchKey="source" clearable {...fieldProps} />
+        <KeyValueRow label={f.marketingConsent}>
           <Checkbox
             checked={customer.marketingConsent}
             onChange={(e) => void onSaveField({ marketingConsent: e.currentTarget.checked })}
@@ -294,32 +335,32 @@ export function OverviewTab({
         </KeyValueRow>
       </OverviewCard>
 
-      <OverviewCard title="Address">
-        <AddressField customer={customer} {...fieldProps} />
-        <KeyValueRow label="Canton">
+      <OverviewCard title={t('customerDetail.overview.cards.address')}>
+        <AddressField customer={customer} onSaveField={onSaveField} isConflict={isConflict} onReload={onReload} t={t} />
+        <KeyValueRow label={f.canton}>
           <span style={{ fontStyle: customer.address?.canton ? undefined : 'italic', color: customer.address?.canton ? undefined : slate[3] }}>
-            {customer.address?.canton ?? 'Not set'}
+            {customer.address?.canton ?? t('customerDetail.overview.notSet')}
           </span>
         </KeyValueRow>
       </OverviewCard>
 
-      <OverviewCard title="Contact points">
+      <OverviewCard title={t('customerDetail.overview.cards.contactPoints')}>
         <Stack gap="md">
           <ContactPointsEditor<PhoneType>
-            label="Phone numbers"
-            addLabel="Add phone"
-            typeOptions={PHONE_TYPE_OPTIONS}
+            label={t('customerDetail.contactPoints.phoneNumbers')}
+            addLabel={t('customerDetail.contactPoints.addPhone')}
+            typeOptions={translatedPhoneTypeOptions(t)}
             rows={phones.map((p) => ({ id: p.id, type: p.phoneType, value: p.phoneE164, isPrimary: p.isPrimary }))}
             newRowType="mobile"
-            renderValueEditor={(value, onChange) => <PhoneInput label="Country" value={value} onChange={onChange} />}
+            renderValueEditor={(value, onChange) => <PhoneInput label={t('customerDetail.phoneInput.country')} value={value} onChange={onChange} />}
             onCreate={onCreatePhone}
             onUpdate={onUpdatePhone}
             onDelete={onDeletePhone}
           />
           <ContactPointsEditor<EmailType>
-            label="Email addresses"
-            addLabel="Add email"
-            typeOptions={EMAIL_TYPE_OPTIONS}
+            label={t('customerDetail.contactPoints.emailAddresses')}
+            addLabel={t('customerDetail.contactPoints.addEmail')}
+            typeOptions={translatedEmailTypeOptions(t)}
             rows={emails.map((e) => ({ id: e.id, type: e.emailType, value: e.emailAddress, isPrimary: e.isPrimary }))}
             newRowType="private"
             renderValueEditor={(value, onChange, autoFocus) => (
@@ -332,12 +373,12 @@ export function OverviewTab({
         </Stack>
       </OverviewCard>
 
-      <OverviewCard title="Record">
-        <KeyValueRow label="Customer number">
+      <OverviewCard title={t('customerDetail.overview.cards.record')}>
+        <KeyValueRow label={f.customerNumber}>
           <span style={{ fontFamily: 'ui-monospace, SF Mono, Menlo, monospace' }}>{customer.customerNumber}</span>
         </KeyValueRow>
-        <KeyValueRow label="Created">{formatDate(customer.createdAt)}</KeyValueRow>
-        <KeyValueRow label="Last changed">{formatDate(customer.updatedAt)}</KeyValueRow>
+        <KeyValueRow label={f.created}>{formatDate(customer.createdAt, locale)}</KeyValueRow>
+        <KeyValueRow label={f.lastChanged}>{formatDate(customer.updatedAt, locale)}</KeyValueRow>
       </OverviewCard>
     </SimpleGrid>
   )

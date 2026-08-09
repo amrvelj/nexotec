@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { ActionIcon, Group, Radio, Select, Stack, Text } from '@mantine/core'
 import { Plus, Trash2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { InlineEditField, KeyValueRow, purple } from '@nexotec/ui-kit'
 import { ApiError } from '../../api/client'
 
@@ -23,10 +24,6 @@ interface ContactPointsEditorProps<TType extends string> {
   onDelete: (id: string) => Promise<void>
 }
 
-function errorMessage(err: unknown): string {
-  return err instanceof ApiError ? err.message : 'Something went wrong.'
-}
-
 // FR-07: add/edit/delete phone numbers and email addresses independently
 // of the main record, exactly one primary enforced. Unlike the customer
 // record itself, these child rows have no version/If-Match column — "CTO
@@ -43,6 +40,8 @@ export function ContactPointsEditor<TType extends string>({
   onUpdate,
   onDelete,
 }: ContactPointsEditorProps<TType>) {
+  const { t } = useTranslation()
+  const errorMessage = (err: unknown): string => (err instanceof ApiError ? err.message : t('customerDetail.errors.somethingWentWrong'))
   const [adding, setAdding] = useState(false)
   const [draftType, setDraftType] = useState<TType>(newRowType)
   const [draftValue, setDraftValue] = useState('')
@@ -99,7 +98,7 @@ export function ContactPointsEditor<TType extends string>({
       </Text>
       {rows.length === 0 && !adding && (
         <Text size="sm" c="dimmed">
-          None added yet.
+          {t('customerDetail.contactPoints.none')}
         </Text>
       )}
       <Radio.Group value={rows.find((r) => r.isPrimary)?.id ?? ''} onChange={setPrimary}>
@@ -107,7 +106,7 @@ export function ContactPointsEditor<TType extends string>({
           {rows.map((row) => (
             <div key={row.id}>
               <Group gap="xs" align="center" wrap="nowrap">
-                <Radio value={row.id} label="Primary" styles={{ label: { whiteSpace: 'nowrap' } }} />
+                <Radio value={row.id} label={t('customerDetail.contactPoints.primary')} styles={{ label: { whiteSpace: 'nowrap' } }} />
                 <Select
                   data={typeOptions}
                   value={row.type}
@@ -128,7 +127,7 @@ export function ContactPointsEditor<TType extends string>({
                   color="gray"
                   onClick={() => void handleDelete(row.id)}
                   loading={deletingId === row.id}
-                  aria-label={`Remove ${label.toLowerCase()}`}
+                  aria-label={t('customerDetail.contactPoints.removeAriaLabel', { label })}
                 >
                   <Trash2 size={16} />
                 </ActionIcon>
@@ -144,7 +143,7 @@ export function ContactPointsEditor<TType extends string>({
       </Radio.Group>
 
       {adding ? (
-        <KeyValueRow label="New">
+        <KeyValueRow label={t('customerDetail.contactPoints.new')}>
           <Group gap="xs" justify="flex-end" wrap="nowrap">
             <Select
               data={typeOptions}
@@ -194,7 +193,7 @@ export function ContactPointsEditor<TType extends string>({
               disabled={addSaving || !draftValue}
               style={{ fontSize: 12, fontWeight: 600, color: '#fff', backgroundColor: purple[6], border: 'none', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' }}
             >
-              Save
+              {t('customerDetail.contactPoints.save')}
             </button>
             <button
               type="button"
@@ -202,7 +201,7 @@ export function ContactPointsEditor<TType extends string>({
               disabled={addSaving}
               style={{ fontSize: 12, fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer' }}
             >
-              Cancel
+              {t('customerDetail.contactPoints.cancel')}
             </button>
           </Group>
         </Group>

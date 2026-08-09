@@ -52,6 +52,45 @@
       "fr": "Français",
       "it": "Italien",
       "en": "Anglais"
+    },
+    "salutation": {
+      "herr": "Monsieur",
+      "frau": "Madame",
+      "firma": "Société",
+      "neutral": "Neutre"
+    },
+    "preferredChannel": {
+      "mail": "E-mail",
+      "call": "Appel",
+      "message": "Message",
+      "letter": "Lettre"
+    },
+    "source": {
+      "walk_in": "Client de passage",
+      "phone": "Téléphone",
+      "web_lead": "Lead web",
+      "marketplace": "Marketplace",
+      "other": "Autre"
+    },
+    "vehiclePartyRole": {
+      "owner": "Propriétaire",
+      "keeper": "Détenteur",
+      "driver": "Conducteur"
+    },
+    "transactionType": {
+      "sale": "Vente",
+      "trade_in": "Reprise"
+    },
+    "transactionStatus": {
+      "draft": "Brouillon",
+      "completed": "Terminé",
+      "cancelled": "Annulé"
+    },
+    "contactType": {
+      "mobile": "Mobile",
+      "private": "Privé",
+      "office": "Bureau",
+      "business": "Professionnel"
     }
   },
   "customersList": {
@@ -86,6 +125,147 @@
       "canton": "Canton",
       "changedSince": "Modifié depuis",
       "changedSinceChip": "Modifié depuis {{date}}"
+    }
+  },
+  "customerDetail": {
+    "tabs": {
+      "overview": "Aperçu",
+      "vehicles": "Véhicules",
+      "transactions": "Transactions",
+      "history": "Historique",
+      "externalIds": "ID externes"
+    },
+    "header": {
+      "mergeInto": "Fusionner avec un autre client…",
+      "failedToLoad": "Échec du chargement du client",
+      "customerFallback": "Client",
+      "copyCustomerNumber": "Copier le numéro de client"
+    },
+    "errors": {
+      "somethingWentWrong": "Une erreur s'est produite.",
+      "conflict": "Quelqu'un d'autre a modifié ceci entre-temps.",
+      "failedToSave": "Échec de l'enregistrement.",
+      "failedToLoadVehicles": "Échec du chargement des véhicules.",
+      "failedToLoadTransactions": "Échec du chargement des transactions.",
+      "failedToLoadHistory": "Échec du chargement de l'historique.",
+      "failedToLoadExternalIds": "Échec du chargement des ID externes."
+    },
+    "overview": {
+      "cards": {
+        "identity": "Identité",
+        "status": "Statut",
+        "address": "Adresse",
+        "contactPoints": "Points de contact",
+        "record": "Enregistrement"
+      },
+      "fields": {
+        "salutation": "Civilité",
+        "firstName": "Prénom",
+        "lastName": "Nom",
+        "dateOfBirth": "Date de naissance",
+        "nationality": "Nationalité",
+        "companyName": "Raison sociale",
+        "legalForm": "Forme juridique",
+        "correspondenceLanguage": "Langue de correspondance",
+        "preferredChannel": "Canal préféré",
+        "lifecycleStatus": "Statut du cycle de vie",
+        "source": "Source",
+        "marketingConsent": "Consentement marketing",
+        "address": "Adresse",
+        "canton": "Canton",
+        "customerNumber": "Numéro de client",
+        "created": "Créé",
+        "lastChanged": "Dernière modification"
+      },
+      "notSet": "Non renseigné",
+      "addressForm": {
+        "street": "Rue",
+        "houseNumber": "N°",
+        "postalCode": "NPA",
+        "locality": "Localité",
+        "save": "Enregistrer",
+        "cancel": "Annuler",
+        "reload": "Recharger"
+      }
+    },
+    "contactPoints": {
+      "phoneNumbers": "Numéros de téléphone",
+      "emailAddresses": "Adresses e-mail",
+      "addPhone": "Ajouter un téléphone",
+      "addEmail": "Ajouter un e-mail",
+      "none": "Aucun ajouté pour l'instant.",
+      "primary": "Principal",
+      "new": "Nouveau",
+      "save": "Enregistrer",
+      "cancel": "Annuler",
+      "removeAriaLabel": "Supprimer {{label}}"
+    },
+    "phoneInput": {
+      "country": "Pays",
+      "number": "Numéro"
+    },
+    "countries": {
+      "switzerland": "Suisse",
+      "germany": "Allemagne",
+      "france": "France",
+      "italy": "Italie",
+      "austria": "Autriche",
+      "liechtenstein": "Liechtenstein",
+      "unitedKingdom": "Royaume-Uni",
+      "unitedStates": "États-Unis"
+    },
+    "externalIds": {
+      "columns": {
+        "system": "Système",
+        "externalId": "ID externe",
+        "linked": "Lié"
+      },
+      "emptyState": {
+        "title": "Aucun ID externe",
+        "description": "Aucune liaison système CRM/OEM enregistrée pour ce client."
+      },
+      "add": "Ajouter un ID externe",
+      "remove": "Supprimer",
+      "save": "Enregistrer",
+      "cancel": "Annuler",
+      "systemLabel": "Système",
+      "externalIdLabel": "ID externe"
+    },
+    "vehicles": {
+      "columns": {
+        "vin": "VIN",
+        "vehicle": "Véhicule",
+        "role": "Rôle",
+        "since": "Depuis",
+        "until": "Jusqu'à"
+      },
+      "emptyState": {
+        "title": "Aucun véhicule",
+        "description": "Aucune relation avec un véhicule enregistrée pour ce client."
+      }
+    },
+    "transactions": {
+      "columns": {
+        "type": "Type",
+        "status": "Statut",
+        "amount": "Montant",
+        "date": "Date",
+        "reference": "Référence"
+      },
+      "emptyState": {
+        "title": "Aucune transaction",
+        "description": "Aucune transaction enregistrée pour ce client."
+      }
+    },
+    "history": {
+      "emptyState": {
+        "title": "Aucun historique pour l'instant",
+        "description": "Les modifications apportées à ce client apparaîtront ici."
+      },
+      "you": "Vous",
+      "system": "Système",
+      "user": "Utilisateur {{id}}",
+      "actionSuffix": "ce client"
     }
   }
 }

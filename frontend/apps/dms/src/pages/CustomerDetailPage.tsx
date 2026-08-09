@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Building2, Copy, GitMerge, Loader, User } from 'lucide-react'
 import { Alert, Menu } from '@mantine/core'
+import { useTranslation } from 'react-i18next'
 import {
   CustomerTypeBadge,
   DetailHeader,
@@ -14,6 +15,8 @@ import {
 } from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { toSwissLocale, type SupportedLanguage } from '../i18n'
+import { translatedCustomerTypeLabel, translatedLifecycleLabel } from '../customerOptions'
 import { OverviewTab } from '../components/customer-detail/OverviewTab'
 import { VehiclesTab } from '../components/customer-detail/VehiclesTab'
 import { TransactionsTab } from '../components/customer-detail/TransactionsTab'
@@ -49,6 +52,8 @@ const DEFAULT_TAB = 'overview'
 export function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { t, i18n } = useTranslation()
+  const locale = toSwissLocale(i18n.language as SupportedLanguage)
   const { user } = useAuth()
   const canWriteExternalIds = user?.accessRole === 'platform_admin'
   const [searchParams, setSearchParams] = useSearchParams()
@@ -106,7 +111,7 @@ export function CustomerDetailPage() {
 
   const customer = customerQuery.data
   const label = customer ? (customer.customerType === 'business' ? customer.companyName : `${customer.firstName} ${customer.lastName}`) : null
-  useSetBreadcrumb(['Master Data', 'Customers', label ?? 'Customer'])
+  useSetBreadcrumb([t('shell.nav.masterData'), t('shell.nav.customers'), label ?? t('customerDetail.header.customerFallback')])
 
   const isConflict = (err: unknown): boolean => err instanceof ApiError && err.status === 409
 
@@ -195,20 +200,20 @@ export function CustomerDetailPage() {
 
   const tabs: DetailTab[] = useMemo(
     () => [
-      { id: 'overview', label: 'Overview' },
-      { id: 'vehicles', label: 'Vehicles', count: vehiclesQuery.data?.items.length },
-      { id: 'transactions', label: 'Transactions', count: transactionsQuery.data?.items.length },
-      { id: 'history', label: 'History', count: historyQuery.data?.items.length },
-      { id: 'external-ids', label: 'External IDs', count: externalIdsQuery.data?.items.length },
+      { id: 'overview', label: t('customerDetail.tabs.overview') },
+      { id: 'vehicles', label: t('customerDetail.tabs.vehicles'), count: vehiclesQuery.data?.items.length },
+      { id: 'transactions', label: t('customerDetail.tabs.transactions'), count: transactionsQuery.data?.items.length },
+      { id: 'history', label: t('customerDetail.tabs.history'), count: historyQuery.data?.items.length },
+      { id: 'external-ids', label: t('customerDetail.tabs.externalIds'), count: externalIdsQuery.data?.items.length },
     ],
-    [vehiclesQuery.data, transactionsQuery.data, historyQuery.data, externalIdsQuery.data]
+    [t, vehiclesQuery.data, transactionsQuery.data, historyQuery.data, externalIdsQuery.data]
   )
 
   if (customerQuery.isLoading) return <Loader />
   if (customerQuery.isError || !customer) {
     return (
-      <Alert color="red" title="Failed to load customer">
-        {customerQuery.error instanceof ApiError ? customerQuery.error.message : 'Something went wrong.'}
+      <Alert color="red" title={t('customerDetail.header.failedToLoad')}>
+        {customerQuery.error instanceof ApiError ? customerQuery.error.message : t('customerDetail.errors.somethingWentWrong')}
       </Alert>
     )
   }
@@ -221,19 +226,19 @@ export function CustomerDetailPage() {
         businessKey={customer.customerNumber}
         badges={
           <>
-            <CustomerTypeBadge type={customer.customerType} />
-            <LifecycleStatusBadge status={customer.lifecycleStatus} />
+            <CustomerTypeBadge type={customer.customerType} label={translatedCustomerTypeLabel(t, customer.customerType)} />
+            <LifecycleStatusBadge status={customer.lifecycleStatus} label={translatedLifecycleLabel(t, customer.lifecycleStatus)} />
             <LanguageBadge language={customer.language} />
           </>
         }
         overflowItems={
           <>
             <Menu.Item leftSection={<Copy size={16} />} onClick={() => navigator.clipboard.writeText(customer.customerNumber)}>
-              Copy customer number
+              {t('customerDetail.header.copyCustomerNumber')}
             </Menu.Item>
             {customer.lifecycleStatus !== 'merged' && (
               <Menu.Item leftSection={<GitMerge size={16} />} color="red" onClick={() => setMergeModalOpen(true)}>
-                Merge into another customer…
+                {t('customerDetail.header.mergeInto')}
               </Menu.Item>
             )}
           </>
@@ -256,38 +261,49 @@ export function CustomerDetailPage() {
           onCreateEmail={createEmail}
           onUpdateEmail={updateEmail}
           onDeleteEmail={deleteEmail}
+          locale={locale}
         />
       )}
       {activeTab === 'vehicles' && (
         <VehiclesTab
           vehicles={vehiclesQuery.data?.items ?? []}
           loading={vehiclesQuery.isLoading}
-          error={vehiclesQuery.isError ? 'Failed to load vehicles.' : null}
+          error={vehiclesQuery.isError ? t('customerDetail.errors.failedToLoadVehicles') : null}
+          locale={locale}
         />
       )}
       {activeTab === 'transactions' && (
         <TransactionsTab
           transactions={transactionsQuery.data?.items ?? []}
           loading={transactionsQuery.isLoading}
-          error={transactionsQuery.isError ? 'Failed to load transactions.' : null}
+          error={transactionsQuery.isError ? t('customerDetail.errors.failedToLoadTransactions') : null}
+          locale={locale}
         />
       )}
       {activeTab === 'history' && (
         <HistoryTab
           events={historyQuery.data?.items ?? []}
           loading={historyQuery.isLoading}
-          error={historyQuery.isError ? (historyQuery.error instanceof ApiError ? historyQuery.error.message : 'Failed to load history.') : null}
+          error={
+            historyQuery.isError
+              ? historyQuery.error instanceof ApiError
+                ? historyQuery.error.message
+                : t('customerDetail.errors.failedToLoadHistory')
+              : null
+          }
+          locale={locale}
         />
       )}
       {activeTab === 'external-ids' && (
         <ExternalIdsTab
           externalIds={externalIdsQuery.data?.items ?? []}
           loading={externalIdsQuery.isLoading}
-          error={externalIdsQuery.isError ? 'Failed to load external IDs.' : null}
+          error={externalIdsQuery.isError ? t('customerDetail.errors.failedToLoadExternalIds') : null}
           canWrite={canWriteExternalIds}
           onCreate={createExternalId}
           onUpdate={updateExternalId}
           onDelete={deleteExternalId}
+          locale={locale}
         />
       )}
 

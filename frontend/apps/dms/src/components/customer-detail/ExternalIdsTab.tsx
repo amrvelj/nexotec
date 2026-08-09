@@ -1,15 +1,13 @@
 import { useMemo, useState } from 'react'
 import { Link2, Plus, Trash2 } from 'lucide-react'
 import { Group, Menu, TextInput } from '@mantine/core'
+import { useTranslation } from 'react-i18next'
 import { DataGrid, InlineEditField, purple, type GridColumnDef } from '@nexotec/ui-kit'
 import { useUiPreferencesContext } from '../../hooks/UiPreferencesContext'
 import { formatDate } from '../../utils/format'
 import { ApiError } from '../../api/client'
+import { dataGridLabels } from '../../utils/dataGridI18n'
 import type { CustomerExternalIdRead } from '../../api/types'
-
-function errorMessage(err: unknown): string {
-  return err instanceof ApiError ? err.message : 'Something went wrong.'
-}
 
 interface ExternalIdsTabProps {
   externalIds: CustomerExternalIdRead[]
@@ -21,9 +19,12 @@ interface ExternalIdsTabProps {
   onCreate: (row: { systemName: string; externalId: string }) => Promise<void>
   onUpdate: (id: string, patch: { systemName?: string; externalId?: string }) => Promise<void>
   onDelete: (id: string) => Promise<void>
+  locale: string
 }
 
-export function ExternalIdsTab({ externalIds, loading, error, canWrite, onCreate, onUpdate, onDelete }: ExternalIdsTabProps) {
+export function ExternalIdsTab({ externalIds, loading, error, canWrite, onCreate, onUpdate, onDelete, locale }: ExternalIdsTabProps) {
+  const { t } = useTranslation()
+  const errorMessage = (err: unknown): string => (err instanceof ApiError ? err.message : t('customerDetail.errors.somethingWentWrong'))
   const { density } = useUiPreferencesContext()
   const [adding, setAdding] = useState(false)
   const [draftSystem, setDraftSystem] = useState('')
@@ -65,7 +66,7 @@ export function ExternalIdsTab({ externalIds, loading, error, canWrite, onCreate
     () => [
       {
         id: 'systemName',
-        header: 'System',
+        header: t('customerDetail.externalIds.columns.system'),
         cell: ({ row }) =>
           canWrite ? (
             <InlineEditField value={row.original.systemName} onSave={(raw) => onUpdate(row.original.id, { systemName: raw })} />
@@ -75,7 +76,7 @@ export function ExternalIdsTab({ externalIds, loading, error, canWrite, onCreate
       },
       {
         id: 'externalId',
-        header: 'External ID',
+        header: t('customerDetail.externalIds.columns.externalId'),
         cell: ({ row }) =>
           canWrite ? (
             <InlineEditField value={row.original.externalId} onSave={(raw) => onUpdate(row.original.id, { externalId: raw })} />
@@ -84,9 +85,14 @@ export function ExternalIdsTab({ externalIds, loading, error, canWrite, onCreate
           ),
         meta: { mono: true },
       },
-      { id: 'createdAt', header: 'Linked', cell: ({ row }) => formatDate(row.original.createdAt), meta: { align: 'right' } },
+      {
+        id: 'createdAt',
+        header: t('customerDetail.externalIds.columns.linked'),
+        cell: ({ row }) => formatDate(row.original.createdAt, locale),
+        meta: { align: 'right' },
+      },
     ],
-    [canWrite, onUpdate]
+    [canWrite, onUpdate, t, locale]
   )
 
   return (
@@ -106,7 +112,13 @@ export function ExternalIdsTab({ externalIds, loading, error, canWrite, onCreate
         total={externalIds.length}
         totalIsEstimate={false}
         isFiltered={false}
-        emptyState={{ icon: <Link2 size={24} />, title: 'No external IDs', description: 'No CRM/OEM system linkage on file for this customer.' }}
+        locale={locale}
+        labels={dataGridLabels(t)}
+        emptyState={{
+          icon: <Link2 size={24} />,
+          title: t('customerDetail.externalIds.emptyState.title'),
+          description: t('customerDetail.externalIds.emptyState.description'),
+        }}
         rowActions={
           canWrite
             ? (row) => (
@@ -116,7 +128,7 @@ export function ExternalIdsTab({ externalIds, loading, error, canWrite, onCreate
                   onClick={() => void handleDelete(row.id)}
                   disabled={deletingId === row.id}
                 >
-                  Remove
+                  {t('customerDetail.externalIds.remove')}
                 </Menu.Item>
               )
             : undefined
@@ -126,15 +138,26 @@ export function ExternalIdsTab({ externalIds, loading, error, canWrite, onCreate
       {canWrite &&
         (adding ? (
           <Group gap="xs" align="flex-end" wrap="nowrap">
-            <TextInput label="System" value={draftSystem} onChange={(e) => setDraftSystem(e.currentTarget.value)} autoFocus style={{ flex: 1 }} />
-            <TextInput label="External ID" value={draftExternalId} onChange={(e) => setDraftExternalId(e.currentTarget.value)} style={{ flex: 1 }} />
+            <TextInput
+              label={t('customerDetail.externalIds.systemLabel')}
+              value={draftSystem}
+              onChange={(e) => setDraftSystem(e.currentTarget.value)}
+              autoFocus
+              style={{ flex: 1 }}
+            />
+            <TextInput
+              label={t('customerDetail.externalIds.externalIdLabel')}
+              value={draftExternalId}
+              onChange={(e) => setDraftExternalId(e.currentTarget.value)}
+              style={{ flex: 1 }}
+            />
             <button
               type="button"
               onClick={() => void saveAdd()}
               disabled={addSaving || !draftSystem || !draftExternalId}
               style={{ fontSize: 12, fontWeight: 600, color: '#fff', backgroundColor: purple[6], border: 'none', borderRadius: 6, padding: '8px 12px', cursor: 'pointer' }}
             >
-              Save
+              {t('customerDetail.externalIds.save')}
             </button>
             <button
               type="button"
@@ -142,7 +165,7 @@ export function ExternalIdsTab({ externalIds, loading, error, canWrite, onCreate
               disabled={addSaving}
               style={{ fontSize: 12, fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: '8px 4px' }}
             >
-              Cancel
+              {t('customerDetail.externalIds.cancel')}
             </button>
           </Group>
         ) : (
@@ -164,7 +187,7 @@ export function ExternalIdsTab({ externalIds, loading, error, canWrite, onCreate
             }}
           >
             <Plus size={14} />
-            Add external ID
+            {t('customerDetail.externalIds.add')}
           </button>
         ))}
       {addError && (
