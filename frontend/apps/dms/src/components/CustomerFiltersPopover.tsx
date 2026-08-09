@@ -1,5 +1,6 @@
 import { Select, TextInput } from '@mantine/core'
-import { CANTON_OPTIONS, CUSTOMER_TYPE_OPTIONS, LANGUAGE_OPTIONS, LIFECYCLE_OPTIONS } from '../customerOptions'
+import { useTranslation } from 'react-i18next'
+import { CANTON_OPTIONS, translatedCustomerTypeOptions, translatedLanguageOptions, translatedLifecycleOptions } from '../customerOptions'
 import type { CustomerLifecycleStatus, CustomerType, Language } from '../api/types'
 
 export interface CustomerFilters {
@@ -34,34 +35,35 @@ export function CustomerFiltersPopover({
   filters: CustomerFilters
   onChange: (filters: CustomerFilters) => void
 }) {
+  const { t } = useTranslation()
   const set = <K extends keyof CustomerFilters>(key: K, value: CustomerFilters[K]) =>
     onChange({ ...filters, [key]: value })
 
   return (
     <>
       <Select
-        label="Customer type"
-        data={CUSTOMER_TYPE_OPTIONS}
+        label={t('customersList.filters.customerType')}
+        data={translatedCustomerTypeOptions(t)}
         clearable
         value={filters.customerType}
         onChange={(value) => set('customerType', value as CustomerType | null)}
       />
       <Select
-        label="Lifecycle status"
-        data={LIFECYCLE_OPTIONS}
+        label={t('customersList.filters.lifecycleStatus')}
+        data={translatedLifecycleOptions(t)}
         clearable
         value={filters.lifecycleStatus}
         onChange={(value) => set('lifecycleStatus', value as CustomerLifecycleStatus | null)}
       />
       <Select
-        label="Language"
-        data={LANGUAGE_OPTIONS}
+        label={t('customersList.filters.language')}
+        data={translatedLanguageOptions(t)}
         clearable
         value={filters.language}
         onChange={(value) => set('language', value as Language | null)}
       />
       <Select
-        label="Canton"
+        label={t('customersList.filters.canton')}
         data={CANTON_OPTIONS}
         clearable
         searchable
@@ -69,7 +71,7 @@ export function CustomerFiltersPopover({
         onChange={(value) => set('canton', value)}
       />
       <TextInput
-        label="Changed since"
+        label={t('customersList.filters.changedSince')}
         type="date"
         value={filters.changedSince ?? ''}
         onChange={(e) => set('changedSince', e.currentTarget.value || null)}

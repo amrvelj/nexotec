@@ -32,7 +32,30 @@ export interface DataGridProps<T> {
   emptyState: EmptyStateConfig;
   emptyFilteredState?: EmptyStateConfig;
   rowActions?: (row: T) => ReactNode;
+  /** Swiss locale tag (de-CH/fr-CH/it-CH/en-CH) for the footer's row-count
+   * formatting — apostrophe thousands separator per FR-13. Defaults to the
+   * browser locale for screens that haven't adopted i18n yet. */
+  locale?: string;
+  /** Translated overrides for the handful of strings this generic grid
+   * owns itself (footer count, retry, loading-more, row-actions trigger).
+   * Defaults to the current English copy — optional so untranslated
+   * screens are unaffected. */
+  labels?: {
+    showing?: (shown: number) => string;
+    showingOfTotal?: (shown: number, total: string) => string;
+    loadingMore?: string;
+    retry?: string;
+    rowActionsLabel?: string;
+  };
 }
+
+const DEFAULT_GRID_LABELS = {
+  showing: (shown: number) => `Showing ${shown}`,
+  showingOfTotal: (shown: number, total: string) => `Showing ${shown} of ${total}`,
+  loadingMore: "Loading…",
+  retry: "Retry",
+  rowActionsLabel: "Row actions",
+};
 
 /**
  * § Overviews — The Data Grid. "The single most important pattern in the
@@ -61,7 +84,10 @@ export function DataGrid<T>({
   emptyState,
   emptyFilteredState,
   rowActions,
+  locale,
+  labels,
 }: DataGridProps<T>) {
+  const L = { ...DEFAULT_GRID_LABELS, ...labels };
   const Link = linkComponent;
   const scrollRef = useRef<HTMLDivElement>(null);
   const rowHeight = ROW_HEIGHT[density];
@@ -187,7 +213,7 @@ export function DataGrid<T>({
                         return (
                           <Cell key={cell.id} pinned={isActions ? "right" : meta?.pinned} mono={meta?.mono} align={meta?.align} width={isActions ? ACTION_COLUMN_WIDTH : undefined}>
                             {isActions && rowActions ? (
-                              <RowActionsMenu>{rowActions(row.original)}</RowActionsMenu>
+                              <RowActionsMenu ariaLabel={L.rowActionsLabel}>{rowActions(row.original)}</RowActionsMenu>
                             ) : (
                               <>
                                 <div style={{ fontSize: 14, color: slate[9] }}>
@@ -243,7 +269,7 @@ export function DataGrid<T>({
                   fontSize: 13,
                 }}
               >
-                Retry
+                {L.retry}
               </button>
             )}
           </div>
@@ -269,10 +295,10 @@ export function DataGrid<T>({
       >
         <span>
           {total === null
-            ? `Showing ${rows.length}`
-            : `Showing ${rows.length} of ${total.toLocaleString()}${totalIsEstimate ? "+" : ""}`}
+            ? L.showing(rows.length)
+            : L.showingOfTotal(rows.length, `${total.toLocaleString(locale)}${totalIsEstimate ? "+" : ""}`)}
         </span>
-        {fetchingNextPage && <span>Loading…</span>}
+        {fetchingNextPage && <span>{L.loadingMore}</span>}
       </div>
     </div>
   );
@@ -487,13 +513,13 @@ function EmptyState({ config }: { config: EmptyStateConfig }) {
   );
 }
 
-function RowActionsMenu({ children }: { children: ReactNode }) {
+function RowActionsMenu({ children, ariaLabel }: { children: ReactNode; ariaLabel: string }) {
   return (
     <Menu shadow="md" width={200} position="bottom-end" withinPortal>
       <Menu.Target>
         <button
           type="button"
-          aria-label="Row actions"
+          aria-label={ariaLabel}
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();

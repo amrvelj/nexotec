@@ -1,0 +1,91 @@
+{
+  "shell": {
+    "nav": {
+      "masterData": "Master Data",
+      "customers": "Customers",
+      "vehicles": "Vehicles",
+      "partners": "Partners",
+      "modules": "Modules",
+      "sales": "Sales",
+      "aftersales": "Aftersales",
+      "inventory": "Inventory",
+      "parts": "Parts",
+      "finance": "Finance",
+      "transactions": "Transactions",
+      "reporting": "Reporting",
+      "compliance": "Compliance"
+    },
+    "signOut": "Sign out"
+  },
+  "common": {
+    "filter": "Filter",
+    "clear": "Clear",
+    "refresh": "Refresh",
+    "retry": "Retry",
+    "loadingMore": "Loading…",
+    "rowActionsLabel": "Row actions",
+    "showing": "Showing {{count}}",
+    "showingOfTotal": "Showing {{count}} of {{total}}",
+    "removeFilter": "Remove filter: {{label}}",
+    "density": {
+      "compact": "Compact",
+      "default": "Default",
+      "comfortable": "Comfortable",
+      "tooltip": "Density: {{label}}",
+      "ariaLabel": "Change row density"
+    }
+  },
+  "customerEnums": {
+    "customerType": {
+      "individual": "Individual",
+      "business": "Business"
+    },
+    "lifecycleStatus": {
+      "prospect": "Prospect",
+      "active": "Active",
+      "inactive": "Inactive",
+      "merged": "Merged",
+      "do_not_contact": "Do not contact"
+    },
+    "language": {
+      "de": "German",
+      "fr": "French",
+      "it": "Italian",
+      "en": "English"
+    }
+  },
+  "customersList": {
+    "title": "Customers",
+    "newCustomer": "New customer",
+    "searchPlaceholder": "Search by name, email, phone…",
+    "columns": {
+      "customerNumber": "Customer #",
+      "name": "Name",
+      "type": "Type",
+      "language": "Language",
+      "status": "Status",
+      "changed": "Changed"
+    },
+    "rowActions": {
+      "open": "Open",
+      "copyCustomerNumber": "Copy customer number"
+    },
+    "emptyState": {
+      "title": "No customers yet",
+      "description": "Create your first customer to get started."
+    },
+    "emptyFilteredState": {
+      "title": "No matches",
+      "description": "Try a different search term or filter.",
+      "action": "Clear search and filters"
+    },
+    "filters": {
+      "customerType": "Customer type",
+      "lifecycleStatus": "Lifecycle status",
+      "language": "Language",
+      "canton": "Canton",
+      "changedSince": "Changed since",
+      "changedSinceChip": "Changed since {{date}}"
+    }
+  }
+}

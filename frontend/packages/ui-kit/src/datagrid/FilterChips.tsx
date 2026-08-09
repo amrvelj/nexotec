@@ -10,6 +10,10 @@ export interface FilterChip {
 export interface FilterChipsProps {
   chips: FilterChip[];
   onClearAll: () => void;
+  /** Translated "Clear" label and remove-chip aria-label template —
+   * default to English. */
+  clearLabel?: string;
+  removeLabel?: (chipLabel: string) => string;
 }
 
 /**
@@ -18,7 +22,12 @@ export interface FilterChipsProps {
  * Bar, and only when filters exist — the caller decides that by not
  * rendering this component with an empty `chips` array.
  */
-export function FilterChips({ chips, onClearAll }: FilterChipsProps) {
+export function FilterChips({
+  chips,
+  onClearAll,
+  clearLabel = "Clear",
+  removeLabel = (chipLabel) => `Remove filter: ${chipLabel}`,
+}: FilterChipsProps) {
   if (chips.length === 0) return null;
 
   return (
@@ -43,7 +52,7 @@ export function FilterChips({ chips, onClearAll }: FilterChipsProps) {
           <button
             type="button"
             onClick={chip.onRemove}
-            aria-label={`Remove filter: ${chip.label}`}
+            aria-label={removeLabel(chip.label)}
             style={{
               display: "flex",
               alignItems: "center",
@@ -75,7 +84,7 @@ export function FilterChips({ chips, onClearAll }: FilterChipsProps) {
           padding: "4px 6px",
         }}
       >
-        Clear
+        {clearLabel}
       </button>
     </div>
   );

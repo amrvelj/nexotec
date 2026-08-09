@@ -1,5 +1,6 @@
-import type { ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import {
   ArrowLeftRight,
   Car,
@@ -17,29 +18,33 @@ import { AppShell, purple, type NavGroupConfig } from '@nexotec/ui-kit'
 import { useAuth } from '../auth/AuthContext'
 import { UiPreferencesProvider, useUiPreferencesContext } from '../hooks/UiPreferencesContext'
 
-const NAV_GROUPS: NavGroupConfig[] = [
-  {
-    label: 'Master Data',
-    items: [
-      { label: 'Customers', href: '/customers', icon: Users, status: 'active' },
-      { label: 'Vehicles', href: '/vehicles', icon: Car, status: 'soon' },
-      { label: 'Partners', href: '/partners', icon: Store, status: 'soon' },
-    ],
-  },
-  {
-    label: 'Modules',
-    items: [
-      { label: 'Sales', href: '/sales', icon: Handshake, status: 'soon' },
-      { label: 'Aftersales', href: '/aftersales', icon: Wrench, status: 'soon' },
-      { label: 'Inventory', href: '/inventory', icon: Warehouse, status: 'soon' },
-      { label: 'Parts', href: '/parts', icon: Cog, status: 'soon' },
-      { label: 'Finance', href: '/finance', icon: Receipt, status: 'soon' },
-      { label: 'Transactions', href: '/transactions', icon: ArrowLeftRight, status: 'soon' },
-      { label: 'Reporting', href: '/reporting', icon: ChartColumn, status: 'soon' },
-      { label: 'Compliance', href: '/compliance', icon: ShieldCheck, status: 'soon' },
-    ],
-  },
-]
+// Translated at render time (not a module-level constant) — labels must
+// re-render when the user switches UI language via the top bar.
+function buildNavGroups(t: (key: string) => string): NavGroupConfig[] {
+  return [
+    {
+      label: t('shell.nav.masterData'),
+      items: [
+        { label: t('shell.nav.customers'), href: '/customers', icon: Users, status: 'active' },
+        { label: t('shell.nav.vehicles'), href: '/vehicles', icon: Car, status: 'soon' },
+        { label: t('shell.nav.partners'), href: '/partners', icon: Store, status: 'soon' },
+      ],
+    },
+    {
+      label: t('shell.nav.modules'),
+      items: [
+        { label: t('shell.nav.sales'), href: '/sales', icon: Handshake, status: 'soon' },
+        { label: t('shell.nav.aftersales'), href: '/aftersales', icon: Wrench, status: 'soon' },
+        { label: t('shell.nav.inventory'), href: '/inventory', icon: Warehouse, status: 'soon' },
+        { label: t('shell.nav.parts'), href: '/parts', icon: Cog, status: 'soon' },
+        { label: t('shell.nav.finance'), href: '/finance', icon: Receipt, status: 'soon' },
+        { label: t('shell.nav.transactions'), href: '/transactions', icon: ArrowLeftRight, status: 'soon' },
+        { label: t('shell.nav.reporting'), href: '/reporting', icon: ChartColumn, status: 'soon' },
+        { label: t('shell.nav.compliance'), href: '/compliance', icon: ShieldCheck, status: 'soon' },
+      ],
+    },
+  ]
+}
 
 function BrandMark() {
   return (
@@ -88,9 +93,18 @@ function DmsShellInner({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+  const { t, i18n } = useTranslation()
   const { sidebarCollapsed, uiLanguage, setSidebarCollapsed, setUiLanguage } = useUiPreferencesContext()
 
   const activeHref = '/' + (location.pathname.split('/')[1] ?? '')
+
+  // FR-13: "UI language is switchable at any time from the top bar and
+  // persisted on the user profile" — the preference already persists
+  // (useUiPreferences); this is what makes the switch actually retranslate
+  // the app instead of just updating stored state.
+  useEffect(() => {
+    void i18n.changeLanguage(uiLanguage)
+  }, [uiLanguage, i18n])
 
   if (!user) return <>{children}</>
 
@@ -102,7 +116,7 @@ function DmsShellInner({ children }: { children: ReactNode }) {
         brand: <BrandMark />,
         productName: 'Nexotec',
         moduleSubtitle: 'DMS',
-        groups: NAV_GROUPS,
+        groups: buildNavGroups(t),
         activeHref,
         user: { name: `${user.firstName} ${user.lastName}`, role: user.role },
         linkComponent: Link,
@@ -114,6 +128,7 @@ function DmsShellInner({ children }: { children: ReactNode }) {
         onSignOut: () => {
           logout().then(() => navigate('/login'))
         },
+        signOutLabel: t('shell.signOut'),
       }}
     >
       {children}

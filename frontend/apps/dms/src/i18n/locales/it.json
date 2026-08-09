@@ -1,0 +1,91 @@
+{
+  "shell": {
+    "nav": {
+      "masterData": "Dati anagrafici",
+      "customers": "Clienti",
+      "vehicles": "Veicoli",
+      "partners": "Partner",
+      "modules": "Moduli",
+      "sales": "Vendite",
+      "aftersales": "Assistenza post-vendita",
+      "inventory": "Magazzino",
+      "parts": "Ricambi",
+      "finance": "Finanza",
+      "transactions": "Transazioni",
+      "reporting": "Reportistica",
+      "compliance": "Conformità"
+    },
+    "signOut": "Disconnetti"
+  },
+  "common": {
+    "filter": "Filtro",
+    "clear": "Cancella",
+    "refresh": "Aggiorna",
+    "retry": "Riprova",
+    "loadingMore": "Caricamento…",
+    "rowActionsLabel": "Azioni riga",
+    "showing": "{{count}} visualizzati",
+    "showingOfTotal": "{{count}} di {{total}} visualizzati",
+    "removeFilter": "Rimuovi filtro: {{label}}",
+    "density": {
+      "compact": "Compatta",
+      "default": "Standard",
+      "comfortable": "Confortevole",
+      "tooltip": "Densità: {{label}}",
+      "ariaLabel": "Cambia densità righe"
+    }
+  },
+  "customerEnums": {
+    "customerType": {
+      "individual": "Privato",
+      "business": "Azienda"
+    },
+    "lifecycleStatus": {
+      "prospect": "Potenziale",
+      "active": "Attivo",
+      "inactive": "Inattivo",
+      "merged": "Unito",
+      "do_not_contact": "Non contattare"
+    },
+    "language": {
+      "de": "Tedesco",
+      "fr": "Francese",
+      "it": "Italiano",
+      "en": "Inglese"
+    }
+  },
+  "customersList": {
+    "title": "Clienti",
+    "newCustomer": "Nuovo cliente",
+    "searchPlaceholder": "Cerca per nome, e-mail, telefono…",
+    "columns": {
+      "customerNumber": "N. cliente",
+      "name": "Nome",
+      "type": "Tipo",
+      "language": "Lingua",
+      "status": "Stato",
+      "changed": "Modificato"
+    },
+    "rowActions": {
+      "open": "Apri",
+      "copyCustomerNumber": "Copia numero cliente"
+    },
+    "emptyState": {
+      "title": "Nessun cliente ancora",
+      "description": "Crea il tuo primo cliente per iniziare."
+    },
+    "emptyFilteredState": {
+      "title": "Nessun risultato",
+      "description": "Prova un termine di ricerca o un filtro diverso.",
+      "action": "Cancella ricerca e filtri"
+    },
+    "filters": {
+      "customerType": "Tipo di cliente",
+      "lifecycleStatus": "Stato del ciclo di vita",
+      "language": "Lingua",
+      "canton": "Cantone",
+      "changedSince": "Modificato dal",
+      "changedSinceChip": "Modificato dal {{date}}"
+    }
+  }
+}
