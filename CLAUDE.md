@@ -50,19 +50,40 @@ Extraction triggers (any one): a context needs independent scaling · it needs a
 retention or data-residency regime · another context's deploys keep breaking it ·
 engineering headcount reaches three · a provider licence demands process isolation.
 
-## The nine bounded contexts
+## Target state vs. shipped
+
+Rules below marked **[TARGET]** are decided but NOT yet implemented. Do not
+write code assuming they exist; do not "fix" the discrepancy on your own
+initiative. They land in a named work package.
+
+- Customers are group-scoped (`group_id`) — [TARGET, WP-3]. Today `Customer`
+  is keyed by `tenant_id` -> `dealer.id` and no `group_id` column exists.
+- `vehicle_plate` child table with validity dates — [TARGET, WP-5]. No
+  plate-related code exists today.
+- `label_en` on reference data — [TARGET, WP-1 PR-6]. Only de/fr/it today.
+- import-linter gating CI — [TARGET, WP-1 PR-1]. No config exists today.
+- `VehicleParty` belongs to the customer context — [TARGET, WP-1 PR-1].
+  Today it is defined in `app/models/vehicle.py`. This is a known existing
+  cross-context entanglement and it is PR-1's job to move it.
+
+## The ten bounded contexts
 
 | Context | Owns |
 |---|---|
 | `platform` | tenants/dealers, users, auth, roles, feature flags, reference data, locations |
-| `customer` | customers, contact points, external IDs, duplicates/merges, `VehicleParty` |
+| `customer` | customers, contact points, external IDs, duplicates/merges, `VehicleParty` [TARGET] |
 | `vehicle` | physical vehicles, catalogue, plates, odometer, custody, provenance |
 | `sales` | *(not built)* leads, quotes, orders, contracts, trade-ins, commission |
 | `inventory` | *(not built)* stock items, pipeline vehicles, transfers |
 | `aftersales` | *(not built)* service orders, appointments, labour, technicians |
 | `parts` | *(not built)* part master, stock, suppliers, purchase orders |
 | `finance` | *(not built)* invoicing and payment matching. **Not a ledger** — ADR-037 |
-| `reporting` / `compliance` | *(not built)* projections from events; audit, revDSG, retention |
+| `reporting` | *(not built)* projections from events |
+| `compliance` | *(not built)* audit, revDSG, retention |
+
+`reporting` and `compliance` are two separate contexts, not one merged row —
+the import-linter contract (once it exists) must enumerate all ten package
+roots, not nine.
 
 ## Non-negotiable rules
 
@@ -70,8 +91,8 @@ engineering headcount reaches three · a provider licence demands process isolat
 2. **No cross-context foreign keys, joins or shared tables.** Another context's ID is a
    plain `GUID` column with a comment naming the owner.
 3. **No cross-context imports.** Enforced by import-linter, which gates CI and **has no
-   suppression mechanism**. If a boundary genuinely needs to move, that is an ADR, not an
-   ignore entry. This single rule is what makes the ADR-015 bet safe.
+   suppression mechanism**. [TARGET] If a boundary genuinely needs to move, that is an ADR,
+   not an ignore entry. This single rule is what makes the ADR-015 bet safe.
 4. **Every state change others care about is published via the transactional outbox** —
    business row and outbox row in *one local transaction*. Never a dual write.
 5. **Events are facts in the past tense, never commands.** `vehicle.odometer.recorded`,
@@ -117,7 +138,7 @@ projection is missing, not that a call should be added.
   are promoted on VIN arrival, idempotently by `pipeline_vehicle_id`.
 - **A licence plate is never an identifier.** Wechselschild (one plate, two vehicles),
   reassignment, cantonal changes. `vehicle_plate` is a child table with validity dates,
-  and an ambiguous lookup shows a picker — it never guesses.
+  and an ambiguous lookup shows a picker — it never guesses. [TARGET]
 - **Margin taxation (Differenzbesteuerung)** — ADR-033. VAT treatment is set at
   *acquisition* and follows the vehicle to sale. A margin-taxed invoice shows **no VAT
   amount**, and margin-taxed vehicle value must stay strictly separated from
@@ -126,12 +147,13 @@ projection is missing, not that a call should be added.
   Allocated transactionally, never eventually consistent. Issued documents cannot be
   modified; corrections are credit notes. Closed accounting periods lock against everyone.
 - **Three-level organisation** — group → dealership → location (ADR-014). The **dealership**
-  is the tenant. **Customers are group-scoped** (`group_id`, not `tenant_id`). Stock and
-  customer history are dealership-owned but readable group-wide; ledger, VAT, cost, margin,
+  is the tenant. **Customers are group-scoped** (`group_id`, not `tenant_id`). [TARGET] Stock
+  and customer history are dealership-owned but readable group-wide; ledger, VAT, cost, margin,
   commission, discount and trade-in purchase price stay private to the legal entity.
 - **Licensed provider data is tenant-partitioned, never global** (ADR-013). auto-i-dat
   contracts are per dealer, so each dealer's cache is fetched with their own credentials.
-- **i18n: DE, FR, IT, EN** — including reference data. No user-visible string is hardcoded.
+- **i18n: DE, FR, IT, EN** — including reference data [TARGET]. No user-visible string is
+  hardcoded.
 
 ## Working style
 
