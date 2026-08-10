@@ -34,8 +34,13 @@ services:
     buildCommand: >-
       pip install -e . &&
       cd frontend && npm ci && VITE_API_BASE_URL=/v1 npm run build
+    # `heads` (plural), never `head` — PR-3 (ADR-015) split the Alembic
+    # chain into one branch per bounded context, so there are multiple
+    # independent heads now. The singular form either fails outright or
+    # silently applies only one branch's migrations; either way, some
+    # contexts stop migrating on deploy with no error surfaced here.
     startCommand: >-
-      alembic upgrade head &&
+      alembic upgrade heads &&
       (python scripts/seed_staging_demo.py || true) &&
       uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /v1/healthz
