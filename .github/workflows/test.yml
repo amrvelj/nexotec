@@ -62,6 +62,74 @@ jobs:
       - name: alembic upgrade heads (again)
         run: alembic upgrade heads
 
+  migration-upgrade-from-previous:
+    name: alembic upgrade from previously-deployed revision (postgres)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: dms
+          POSTGRES_PASSWORD: dms
+          POSTGRES_DB: dms_platform_migration_upgrade
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DMS_DATABASE_URL: postgresql+psycopg://dms:dms@localhost:5432/dms_platform_migration_upgrade
+      # CI-only dummy key, not a secret — EncryptedString just needs a
+      # structurally valid Fernet key to construct itself at settings load.
+      DMS_TAX_ID_ENCRYPTION_KEY: d4Z9UU9FYX5HeORG4D0xtQy1AIAVBjGV08XGS06x4q8=
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install -e ".[dev]"
+      # An upgrade from empty (see migration-smoke-test above) proves the
+      # DDL is syntactically valid; it never proves anything about the path
+      # a real deploy actually takes, which starts from whatever's already
+      # applied. That's `main`'s current alembic heads, computed here
+      # rather than hardcoded — main gains new heads as more migrations
+      # land, and a hardcoded revision would silently stop testing the
+      # real path the day it went stale. get_heads() is pure static
+      # analysis of the revision files in that worktree; app.* is resolved
+      # from this job's own editable install regardless of which directory
+      # it's run from, so this doesn't need its own dependency install.
+      - name: determine main's current alembic heads (the previously-deployed revision(s))
+        id: previous
+        run: |
+          git worktree add /tmp/main-heads-checkout origin/main
+          cd /tmp/main-heads-checkout
+          HEADS=$(alembic heads | awk '{print $1}')
+          cd "$GITHUB_WORKSPACE"
+          git worktree remove /tmp/main-heads-checkout --force
+          echo "revisions<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$HEADS" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+      # One `alembic upgrade <rev>` call per target revision, not a single
+      # comma-separated call — alembic upgrade takes exactly one revision
+      # argument. Looping is safe: each call only advances the branch(es)
+      # that revision belongs to, so this correctly reaches every one of
+      # main's heads regardless of how many there are today.
+      - name: alembic upgrade to the previously-deployed revision(s)
+        run: |
+          while IFS= read -r rev; do
+            [ -n "$rev" ] && alembic upgrade "$rev"
+          done <<< "${{ steps.previous.outputs.revisions }}"
+      - name: seed rows across customer, vehicle, transaction
+        run: python scripts/seed_migration_smoke_test.py
+      - name: alembic upgrade heads (this PR's migrations)
+        run: alembic upgrade heads
+      - name: verify the seeded rows survived untouched
+        run: python scripts/verify_migration_smoke_test_seed.py
+
   sqlite:
     name: pytest (sqlite, fast lane)
     runs-on: ubuntu-latest
