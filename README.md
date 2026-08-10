@@ -48,7 +48,7 @@ pip install -e ".[dev]"
 cp .env.example .env   # adjust if needed
 docker compose up -d db
 
-alembic upgrade head
+alembic upgrade heads
 uvicorn app.main:app --reload
 ```
 
@@ -89,11 +89,29 @@ Postgres before merging anything with a new FK/constraint.
 
 ## Database migrations
 
+One chain per bounded context (PR-3, ADR-015), branched forward from a
+frozen shared trunk — `alembic heads` lists all of them. Always use
+`heads` (plural), never `head`: with multiple independent chains, the
+singular form either fails or silently applies only one.
+
 ```bash
-alembic upgrade head                          # apply
-alembic revision -m "add customer table"       # new migration (issue #4+)
-alembic upgrade head --sql                     # preview SQL without a live DB
+alembic upgrade heads                                              # apply every context's head
+alembic heads                                                      # list current heads, one per context
+alembic revision --head customer@head -m "add loyalty tier"        # new migration, targets one context's chain
+alembic upgrade heads --sql                                        # preview SQL without a live DB
 ```
+
+`--head <context>@head` matters for new revisions: without it, Alembic
+doesn't know which chain (i.e. which `alembic/versions/<context>/`
+directory) a new migration belongs to. A migration in one context's chain
+must never touch another context's tables — that's the whole point of the
+split; cross-context schema changes predate the split and stay in the
+frozen trunk, they don't get new ones.
+
+Downgrading needs the same care: `alembic downgrade -1` is undefined once
+there's more than one head (one step back from *which* head?). Target an
+explicit revision instead, e.g. `alembic downgrade <revision-id>`, or
+scope to one context's own chain.
 
 ## Conventions for entities built on this foundation (issues #2+)
 

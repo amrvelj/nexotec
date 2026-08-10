@@ -10,7 +10,7 @@ TanStack Query/Table/Virtual, Lucide). One deployable today.
 - Run backend tests (SQLite, fast lane): `pytest`
 - Run backend tests (Postgres lane): `docker compose up -d db && DMS_TEST_DATABASE_URL=postgresql+psycopg://dms:dms@localhost:5432/dms_platform pytest`
 - Run a single test: `pytest tests/test_customer.py::test_name`
-- Run migrations: `alembic upgrade head`
+- Run migrations: `alembic upgrade heads` (plural — one chain per context since PR-3, ADR-015; `head` either fails or silently applies only one context)
 - Start the backend: `uvicorn app.main:app --reload`
 - Start the frontend: `npm run dev --prefix frontend`
 - Lint: `npm run lint --prefix frontend` (oxlint; no backend linter is configured in this repo yet)
