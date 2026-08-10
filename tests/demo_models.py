@@ -8,7 +8,7 @@ from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
-from app.models.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
+from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
 
 
 class DemoWidget(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMixin, Base):

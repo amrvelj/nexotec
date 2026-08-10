@@ -3,7 +3,7 @@ import uuid
 import pytest
 
 from app.core.auth import AccessRole, create_access_token
-from app.models.reference_data import ReferenceList
+from app.platform.models.reference_data import ReferenceList
 
 
 def _token(role: AccessRole, tenant_id: uuid.UUID | None = None, user_id: uuid.UUID | None = None) -> str:
@@ -236,7 +236,7 @@ def test_non_platform_admin_cannot_patch_reference_value(client, db_session, rol
 
 
 def test_create_and_update_are_audit_logged(client, db_session):
-    from app.services.audit import list_audit_events
+    from app.core.audit import list_audit_events
 
     _seed_list(db_session, "fuel_type")
     token = _token(AccessRole.PLATFORM_ADMIN)

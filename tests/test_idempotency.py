@@ -3,7 +3,7 @@ import uuid
 import pytest
 
 from app.core.errors import ConflictError
-from app.services.idempotency import find_cached_response, store_response
+from app.core.idempotency import find_cached_response, store_response
 
 
 def test_find_cached_response_returns_none_when_no_record(db_session):

@@ -108,7 +108,7 @@ def test_tax_id_is_never_returned_in_read_response(client):
 def test_tax_id_is_encrypted_at_rest(db_session):
     from sqlalchemy import text
 
-    from app.models.dealer import Dealer, FranchiseType
+    from app.platform.models.dealer import Dealer, FranchiseType
 
     dealer = Dealer(
         legal_name="Garage AG",

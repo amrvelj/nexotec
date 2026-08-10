@@ -5,7 +5,7 @@ from sqlalchemy import pool
 
 from alembic import context
 
-import app.models  # noqa: F401  registers every model on Base.metadata
+import app.model_registry  # noqa: F401  registers every model on Base.metadata
 from app.core.config import get_settings
 from app.db import Base, with_psycopg_driver
 

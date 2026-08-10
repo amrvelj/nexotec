@@ -1,6 +1,6 @@
 import uuid
 
-from app.services.audit import list_audit_events, record_audit_event
+from app.core.audit import list_audit_events, record_audit_event
 
 
 def test_record_audit_event_persists_before_after(db_session):

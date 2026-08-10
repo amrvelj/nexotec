@@ -13,23 +13,23 @@ in the CTO workspace.
 - FastAPI app, versioned under `/v1`
 - Tenant/access-role JWT auth boundary (`app/core/auth.py`)
 - UUIDv7 primary keys, monotonic within a process (`app/core/uuid7.py`)
-- Append-only audit log (`app/models/audit.py`, `app/services/audit.py`)
+- Append-only audit log (`app/core/audit_model.py`, `app/core/audit.py`)
 - Optimistic concurrency via `version` + `If-Match` (`app/core/concurrency.py`)
-- POST idempotency-key handling (`app/services/idempotency.py`)
+- POST idempotency-key handling (`app/core/idempotency.py`)
 - Cursor pagination (`app/core/pagination.py`)
 - Tenant-scoped lookups that 404 (never 403) across tenants (`app/core/tenancy.py`)
 - Canonical error taxonomy: 400/401/403/404/409/422 (`app/core/errors.py`)
-- Reusable model mixins for future entities (`app/models/base.py`)
+- Reusable model mixins for future entities (`app/core/base.py`)
 - Alembic migrations targeting Postgres
 
 **Issue #2: Dealer + User bootstrap** — the first business entities:
 
-- `Dealer` (`app/models/dealer.py`): the tenant root, Swiss address, canton
-  validation, `tax_id` encrypted at rest (`app/models/types.py::EncryptedString`)
-- `User` (`app/models/user.py`): tenant-scoped, first FK relationship in the
-  schema (`user.tenant_id → dealer.id`), globally-unique email
+- `Dealer` (`app/platform/models/dealer.py`): the tenant root, Swiss address,
+  canton validation, `tax_id` encrypted at rest (`app/core/types.py::EncryptedString`)
+- `User` (`app/platform/models/user.py`): tenant-scoped, first FK relationship
+  in the schema (`user.tenant_id → dealer.id`), globally-unique email
 - `POST /v1/dealers` (platform-admin only), `POST /v1/dealers/{id}/users`,
-  full CRUD + audit-log endpoints — see `app/api/v1/dealers.py`
+  full CRUD + audit-log endpoints — see `app/platform/api/dealers.py`
 - License/tax_id/status (Dealer) and role/access_role/status (User) changes
   are audit-logged; `offboarded` and `terminated` are terminal states
 - Postgres CI test lane (see "Running tests") — CTO's merge condition, since
@@ -101,12 +101,12 @@ alembic upgrade head --sql                     # preview SQL without a live DB
   Pydantic aliasing handles the translation at the API boundary.
 - Every entity model inherits `PrimaryKeyMixin` (+ `TenantScopedMixin` unless
   it's explicitly tenant-agnostic like Vehicle, `VersionedMixin`,
-  `TimestampMixin`) from `app/models/base.py`.
+  `TimestampMixin`) from `app/core/base.py`.
 - Every tenant-scoped lookup goes through `app.core.tenancy.get_or_404` —
   cross-tenant access must return 404, never 403.
 - Every mutating endpoint gates on `app.core.auth.require_access_role(...)`.
 - Every state-changing write to PII, title/custody, license/tax, or
-  transaction-status fields calls `app.services.audit.record_audit_event`.
+  transaction-status fields calls `app.core.audit.record_audit_event`.
 - List endpoints take `params: PageParams = Depends(page_params)` from
   `app.core.pagination`.
 - PATCH/status-transition endpoints take `if_match: int = Depends(require_if_match)`

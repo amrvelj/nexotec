@@ -1,0 +1,162 @@
+"""User service layer: create/read/update within a Dealer tenant, plus the
+audit-logging and lifecycle rules the spec calls out (role/status changes,
+especially `terminated`, are audit-logged for access-deprovisioning
+accountability).
+"""
+
+import uuid
+from typing import Any
+
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+
+from app.core.errors import ConflictError
+from app.core.pagination import PageParams, build_page, paginate_query
+from app.core.tenancy import get_or_404
+from app.platform.models.user import EmploymentStatus, User, UserStatus
+from app.platform.schemas.user import UserCreate, UserUpdate
+from app.core.audit import record_audit_event
+
+# access_role is audited alongside role/status even though the spec text
+# only says "role and status" — it gates authorization, which is exactly
+# the "auth deprovisioning" concern the spec cites as the reason to audit
+# in the first place. Flagged as an added-safety interpretation in the PR.
+_AUDITED_FIELDS = {"role", "access_role", "status", "employment_status"}
+_TERMINAL_EMPLOYMENT_STATUSES = {EmploymentStatus.TERMINATED}
+_TERMINAL_USER_STATUSES = {UserStatus.DEACTIVATED}
+
+
+def _plain(value: Any) -> Any:
+    return value.value if hasattr(value, "value") else value
+
+
+def get_user_or_404(db: Session, dealer_id: uuid.UUID, user_id: uuid.UUID) -> User:
+    return get_or_404(db, User, user_id, dealer_id)
+
+
+def list_users(
+    db: Session,
+    *,
+    dealer_id: uuid.UUID,
+    role: str | None,
+    status: UserStatus | None,
+    params: PageParams,
+) -> tuple[list[User], str | None]:
+    stmt = select(User).where(User.tenant_id == dealer_id)
+    if role is not None:
+        stmt = stmt.where(User.role == role)
+    if status is not None:
+        stmt = stmt.where(User.status == status)
+    stmt = paginate_query(stmt, model=User, params=params)
+    rows = list(db.scalars(stmt).all())
+    return build_page(rows, params)
+
+
+def create_user(db: Session, *, dealer_id: uuid.UUID, data: UserCreate, actor_id: uuid.UUID) -> User:
+    user = User(
+        tenant_id=dealer_id,
+        first_name=data.first_name,
+        last_name=data.last_name,
+        email=data.email,
+        phone=data.phone,
+        role=data.role,
+        access_role=data.access_role,
+        employment_status=data.employment_status,
+        auth_identity_id=data.auth_identity_id,
+        created_by=actor_id,
+        updated_by=actor_id,
+    )
+    db.add(user)
+    try:
+        db.flush()
+    except IntegrityError as exc:
+        db.rollback()
+        raise ConflictError(
+            "A user with this email address already exists.", details={"email": data.email}
+        ) from exc
+
+    record_audit_event(
+        db,
+        entity_type="user",
+        entity_id=user.id,
+        tenant_id=dealer_id,
+        action="create",
+        actor_id=actor_id,
+        after={
+            "role": _plain(user.role),
+            "access_role": _plain(user.access_role),
+            "status": _plain(user.status),
+            "employment_status": _plain(user.employment_status),
+        },
+    )
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def update_user(db: Session, *, user: User, data: UserUpdate, actor_id: uuid.UUID) -> User:
+    changes = data.model_dump(exclude_unset=True)
+
+    if "employment_status" in changes and changes["employment_status"] is not None:
+        new_employment_status = changes["employment_status"]
+        if (
+            user.employment_status in _TERMINAL_EMPLOYMENT_STATUSES
+            and new_employment_status != user.employment_status
+        ):
+            raise ConflictError(
+                f"Employment status '{user.employment_status.value}' is terminal and cannot be changed.",
+                details={"currentEmploymentStatus": user.employment_status.value},
+            )
+
+    if "status" in changes and changes["status"] is not None:
+        new_status = changes["status"]
+        if user.status in _TERMINAL_USER_STATUSES and new_status != user.status:
+            raise ConflictError(
+                f"User status '{user.status.value}' is terminal and cannot be changed.",
+                details={"currentStatus": user.status.value},
+            )
+
+    # Terminating employment revokes access — spec: "access is revoked, not
+    # the record deleted." Assumption, flagged for PM/CTO sign-off: this
+    # auto-transition isn't spelled out explicitly in the spec text, only
+    # implied by that sentence plus the audit requirement.
+    if changes.get("employment_status") == EmploymentStatus.TERMINATED:
+        changes.setdefault("status", UserStatus.DEACTIVATED)
+
+    before: dict[str, Any] = {}
+    after: dict[str, Any] = {}
+
+    for field, value in changes.items():
+        current = getattr(user, field)
+        if current == value:
+            continue
+        if field in _AUDITED_FIELDS:
+            before[field] = _plain(current)
+            after[field] = _plain(value)
+        setattr(user, field, value)
+
+    user.updated_by = actor_id
+    user.version += 1
+
+    if before or after:
+        record_audit_event(
+            db,
+            entity_type="user",
+            entity_id=user.id,
+            tenant_id=user.tenant_id,
+            action="update",
+            actor_id=actor_id,
+            before=before or None,
+            after=after or None,
+        )
+
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise ConflictError(
+            "A user with this email address already exists.", details={"email": changes.get("email")}
+        ) from exc
+    db.refresh(user)
+    return user

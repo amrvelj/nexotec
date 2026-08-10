@@ -11,7 +11,7 @@ import pytest
 from app.core.auth import AccessRole, create_access_token
 from app.core.errors import UnprocessableEntityError
 from app.core.sorting import parse_sort
-from app.models.customer import Customer
+from app.customer.models.customer import Customer
 
 VALID_ADDRESS = {
     "street": "Bahnhofstrasse", "houseNumber": "1", "postalCode": "8001", "locality": "Zürich", "canton": "ZH",
