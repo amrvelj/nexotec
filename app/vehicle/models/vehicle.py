@@ -108,7 +108,9 @@ class Vehicle(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
         SAEnum(VehicleStatus, native_enum=False, length=32), nullable=False, default=VehicleStatus.IN_TRANSIT
     )
     current_custodian_partner_id: Mapped[GUID | None] = mapped_column(
-        GUID(), ForeignKey("dealer.id"), nullable=True
+        GUID(),
+        nullable=True,
+        comment="Owned by the platform context (Dealer). No DB-level FK (PR-2, ADR-015) — reconciled nightly.",
     )
 
 
@@ -122,14 +124,24 @@ class VehicleCustodyEvent(PrimaryKeyMixin, Base):
         Index("ix_vehicle_custody_event_vehicle_id_partner_id", "vehicle_id", "partner_id"),
     )
 
+    # vehicle_id -> vehicle.id keeps its real FK: both tables are owned by
+    # this same context (vehicle), so it was never a cross-context FK — out
+    # of PR-2's scope.
     vehicle_id: Mapped[GUID] = mapped_column(GUID(), ForeignKey("vehicle.id"), nullable=False, index=True)
-    partner_id: Mapped[GUID] = mapped_column(GUID(), ForeignKey("dealer.id"), nullable=False, index=True)
+    partner_id: Mapped[GUID] = mapped_column(
+        GUID(),
+        nullable=False,
+        index=True,
+        comment="Owned by the platform context (Dealer). No DB-level FK (PR-2, ADR-015) — reconciled nightly.",
+    )
     event_type: Mapped[CustodyEventType] = mapped_column(
         SAEnum(CustodyEventType, native_enum=False, length=32), nullable=False
     )
     event_date: Mapped[dt.datetime] = mapped_column(UTCDateTime(), nullable=False)
-    # FK constrained now that Transaction (issue #6) is in this branch's
-    # own history — was a bare-UUID forward reference before #6 existed.
-    transaction_id: Mapped[GUID | None] = mapped_column(GUID(), ForeignKey("transaction.id"), nullable=True)
+    transaction_id: Mapped[GUID | None] = mapped_column(
+        GUID(),
+        nullable=True,
+        comment="Owned by the sales context (Transaction). No DB-level FK (PR-2, ADR-015) — reconciled nightly.",
+    )
     created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
     created_by: Mapped[GUID | None] = mapped_column(GUID(), nullable=True)

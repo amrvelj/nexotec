@@ -3,6 +3,7 @@ contract allows `app.<other-context>` to import `app.sales.public`, never
 `app.sales.models` / `app.sales.services` / `app.sales.api` directly.
 """
 
+from app.sales.models.transaction import Transaction
 from app.sales.services.transaction import repoint_customer_transactions
 
-__all__ = ["repoint_customer_transactions"]
+__all__ = ["Transaction", "repoint_customer_transactions"]
