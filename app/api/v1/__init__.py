@@ -1,13 +1,19 @@
+"""Router composition root: assembles every context's API router under
+/v1. Not itself part of any bounded context, so it's the one place allowed
+to import each context's api package directly rather than through its
+public.py — it needs the APIRouter objects, not domain functions.
+"""
+
 from fastapi import APIRouter
 
-from app.api.v1.auth import router as auth_router
-from app.api.v1.customers import router as customers_router
-from app.api.v1.dealers import router as dealers_router
-from app.api.v1.health import router as health_router
-from app.api.v1.reference_data import router as reference_data_router
-from app.api.v1.transactions import router as transactions_router
-from app.api.v1.user_preferences import router as user_preferences_router
-from app.api.v1.vehicles import router as vehicles_router
+from app.customer.api.customers import router as customers_router
+from app.platform.api.auth import router as auth_router
+from app.platform.api.dealers import router as dealers_router
+from app.platform.api.health import router as health_router
+from app.platform.api.reference_data import router as reference_data_router
+from app.platform.api.user_preferences import router as user_preferences_router
+from app.sales.api.transactions import router as transactions_router
+from app.vehicle.api.vehicles import router as vehicles_router
 
 api_v1_router = APIRouter(prefix="/v1")
 api_v1_router.include_router(health_router)

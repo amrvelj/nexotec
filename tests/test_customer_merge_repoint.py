@@ -9,7 +9,7 @@ specifically.
 import uuid
 
 from app.core.auth import AccessRole, create_access_token
-from app.models.vehicle import VehicleParty, VehiclePartyRole
+from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
 
 VALID_ADDRESS = {
     "street": "Bahnhofstrasse",

@@ -3,7 +3,7 @@ import uuid
 import pytest
 
 from app.core.auth import AccessRole, create_access_token
-from app.models.reference_data import ReferenceList, ReferenceValue
+from app.platform.models.reference_data import ReferenceList, ReferenceValue
 
 VALID_ADDRESS = {
     "street": "Bahnhofstrasse",

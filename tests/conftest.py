@@ -15,7 +15,7 @@ from sqlalchemy.pool import StaticPool
 # runs at import time in app/db.py, app/core/auth.py, app/core/pagination.py.
 os.environ.setdefault("DMS_TAX_ID_ENCRYPTION_KEY", Fernet.generate_key().decode())
 
-import app.models  # noqa: F401,E402  ensures all tables are registered on Base.metadata
+import app.model_registry  # noqa: F401,E402  ensures all tables are registered on Base.metadata
 from app.db import Base, get_db  # noqa: E402
 from app.main import app as fastapi_app  # noqa: E402
 from tests.demo_models import DemoWidget  # noqa: F401,E402  registers the test-only tenant-scoped model

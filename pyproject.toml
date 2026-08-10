@@ -22,6 +22,7 @@ dev = [
     "pytest>=9.1,<10.0",
     "pytest-asyncio>=1.4,<2.0",
     "httpx>=0.28,<0.29",
+    "import-linter>=2.5,<3.0",
 ]
 
 [tool.pytest.ini_options]
@@ -34,3 +35,33 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["app*"]
+
+[tool.importlinter]
+root_package = "app"
+include_external_packages = true
+
+# The ten bounded contexts (CLAUDE.md / ADR-015) sit in one independent
+# layer (the `|` separators mean no sibling may import another sibling) on
+# top of the app.core / app.db base layer. Each context's public.py is the
+# one sanctioned seam between siblings — ignore_imports below allows
+# exactly those nine call sites and nothing else. No other suppression
+# mechanism exists in this contract.
+[[tool.importlinter.contracts]]
+name = "Ten bounded contexts are independent, except through public.py"
+type = "layers"
+layers = [
+    "platform | customer | vehicle | sales | inventory | aftersales | parts | finance | reporting | compliance",
+    "core",
+]
+containers = ["app"]
+ignore_imports = [
+    "app.customer.models.vehicle_party -> app.vehicle.public",
+    "app.customer.services.customer -> app.vehicle.public",
+    "app.customer.services.customer -> app.sales.public",
+    "app.customer.api.customers -> app.platform.public",
+    "app.vehicle.services.vehicle -> app.platform.public",
+    "app.sales.services.transaction -> app.customer.public",
+    "app.sales.services.transaction -> app.platform.public",
+    "app.sales.services.transaction -> app.vehicle.public",
+    "app.sales.api.transactions -> app.platform.public",
+]

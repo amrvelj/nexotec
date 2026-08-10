@@ -29,13 +29,13 @@ from sqlalchemy import select
 
 from app.core.auth import AccessRole
 from app.db import SessionLocal
-from app.models.dealer import Dealer
-from app.models.user import UserRole
-from app.schemas.dealer import DealerAddress, DealerCreate
-from app.schemas.user import UserCreate
-from app.services import auth as auth_service
-from app.services import dealer as dealer_service
-from app.services import user as user_service
+from app.platform.models.dealer import Dealer
+from app.platform.models.user import UserRole
+from app.platform.schemas.dealer import DealerAddress, DealerCreate
+from app.platform.schemas.user import UserCreate
+from app.platform.services import auth as auth_service
+from app.platform.services import dealer as dealer_service
+from app.platform.services import user as user_service
 
 DEMO_LEGAL_NAME = "Demo Garage AG"
 DEMO_EMAIL = "demo@nexotec-staging.example"

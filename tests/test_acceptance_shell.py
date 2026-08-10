@@ -19,7 +19,7 @@ import uuid
 
 import pytest
 
-import app.models
+import app.model_registry
 from app.core.auth import AccessRole, create_access_token
 from app.db import Base
 
@@ -521,7 +521,7 @@ def test_ac6_schema_has_no_payment_card_ssn_or_drivers_license_columns():
     these patterns.
     """
 
-    assert app.models  # ensures all model modules are imported, metadata populated
+    assert app.model_registry  # ensures all model modules are imported, metadata populated
     all_columns = [
         column.name.lower() for table in Base.metadata.tables.values() for column in table.columns
     ]

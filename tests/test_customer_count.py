@@ -6,7 +6,7 @@ import uuid
 
 from app.core.auth import AccessRole, create_access_token
 from app.core.pagination import count_capped
-from app.models.customer import Customer
+from app.customer.models.customer import Customer
 from sqlalchemy import select
 
 VALID_ADDRESS = {
