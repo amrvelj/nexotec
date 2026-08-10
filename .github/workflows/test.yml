@@ -49,7 +49,15 @@ jobs:
         run: alembic upgrade heads
       - name: seed rows across every table PR-2 touched
         run: python scripts/seed_migration_smoke_test.py
-      - name: alembic downgrade past PR-2's migrations (re-adds all 15 FKs over seeded, non-orphaned data)
+      # Targets an explicit revision (d2f7b0e9c453, the last trunk revision
+      # before PR-2's FK-drop migration), never `alembic downgrade -1`.
+      # With five heads (PR-3, ADR-015), "-1" is undefined — one step back
+      # from *which* head? An explicit target has no such ambiguity: it's
+      # well-defined regardless of how many heads exist, since Alembic
+      # walks each branch's own path down to that common ancestor. This
+      # also re-adds all 15 dropped FKs over the seeded, non-orphaned data
+      # above — the actual point of this step.
+      - name: alembic downgrade to d2f7b0e9c453 (re-adds all 15 FKs over seeded, non-orphaned data)
         run: alembic downgrade d2f7b0e9c453
       - name: alembic upgrade heads (again)
         run: alembic upgrade heads
