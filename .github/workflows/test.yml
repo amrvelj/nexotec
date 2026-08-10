@@ -17,6 +17,43 @@ jobs:
       - run: pip install -e ".[dev]"
       - run: lint-imports
 
+  migration-smoke-test:
+    name: alembic migration smoke test (postgres)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: dms
+          POSTGRES_PASSWORD: dms
+          POSTGRES_DB: dms_platform_migration_smoke
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DMS_DATABASE_URL: postgresql+psycopg://dms:dms@localhost:5432/dms_platform_migration_smoke
+      # CI-only dummy key, not a secret — EncryptedString just needs a
+      # structurally valid Fernet key to construct itself at settings load.
+      DMS_TAX_ID_ENCRYPTION_KEY: d4Z9UU9FYX5HeORG4D0xtQy1AIAVBjGV08XGS06x4q8=
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install -e ".[dev]"
+      - name: alembic upgrade heads (from empty)
+        run: alembic upgrade heads
+      - name: seed rows across every table PR-2 touched
+        run: python scripts/seed_migration_smoke_test.py
+      - name: alembic downgrade past PR-2's migrations (re-adds all 15 FKs over seeded, non-orphaned data)
+        run: alembic downgrade d2f7b0e9c453
+      - name: alembic upgrade heads (again)
+        run: alembic upgrade heads
+
   sqlite:
     name: pytest (sqlite, fast lane)
     runs-on: ubuntu-latest
