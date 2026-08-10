@@ -40,28 +40,100 @@ include = ["app*"]
 root_package = "app"
 include_external_packages = true
 
-# The ten bounded contexts (CLAUDE.md / ADR-015) sit in one independent
-# layer (the `|` separators mean no sibling may import another sibling) on
-# top of the app.core / app.db base layer. Each context's public.py is the
-# one sanctioned seam between siblings — ignore_imports below allows
-# exactly those nine call sites and nothing else. No other suppression
-# mechanism exists in this contract.
+# app.core (and app.db) is the base layer every context depends on; it must
+# never depend back on a context. Kept as its own contract since the
+# forbidden-internals contracts below only police context-to-context edges.
 [[tool.importlinter.contracts]]
-name = "Ten bounded contexts are independent, except through public.py"
-type = "layers"
-layers = [
-    "platform | customer | vehicle | sales | inventory | aftersales | parts | finance | reporting | compliance",
-    "core",
+name = "app.core does not import any bounded context"
+type = "forbidden"
+source_modules = ["app.core"]
+forbidden_modules = [
+    "app.platform",
+    "app.customer",
+    "app.vehicle",
+    "app.sales",
+    "app.inventory",
+    "app.aftersales",
+    "app.parts",
+    "app.finance",
+    "app.reporting",
+    "app.compliance",
 ]
-containers = ["app"]
-ignore_imports = [
-    "app.customer.models.vehicle_party -> app.vehicle.public",
-    "app.customer.services.customer -> app.vehicle.public",
-    "app.customer.services.customer -> app.sales.public",
-    "app.customer.api.customers -> app.platform.public",
-    "app.vehicle.services.vehicle -> app.platform.public",
-    "app.sales.services.transaction -> app.customer.public",
-    "app.sales.services.transaction -> app.platform.public",
-    "app.sales.services.transaction -> app.vehicle.public",
-    "app.sales.api.transactions -> app.platform.public",
+
+# One contract per built-out context: its models/services/api are forbidden
+# as import targets for every OTHER context, full stop — no ignore_imports,
+# no exception list. app.<ctx>.public is simply never named as forbidden, so
+# it's structurally the only way in; routing a new cross-context call through
+# it needs no config change here, and reaching past it fails CI with no line
+# anyone can add to make it pass.
+#
+# inventory/aftersales/parts/finance/reporting/compliance have no
+# models/services/api yet (not built — CLAUDE.md). Whichever work package
+# builds one out first must add its own contract below, same shape.
+[[tool.importlinter.contracts]]
+name = "Only app.platform.public is reachable from outside platform"
+type = "forbidden"
+source_modules = [
+    "app.customer",
+    "app.vehicle",
+    "app.sales",
+    "app.inventory",
+    "app.aftersales",
+    "app.parts",
+    "app.finance",
+    "app.reporting",
+    "app.compliance",
 ]
+forbidden_modules = ["app.platform.models", "app.platform.services", "app.platform.api"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "Only app.customer.public is reachable from outside customer"
+type = "forbidden"
+source_modules = [
+    "app.platform",
+    "app.vehicle",
+    "app.sales",
+    "app.inventory",
+    "app.aftersales",
+    "app.parts",
+    "app.finance",
+    "app.reporting",
+    "app.compliance",
+]
+forbidden_modules = ["app.customer.models", "app.customer.services", "app.customer.api"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "Only app.vehicle.public is reachable from outside vehicle"
+type = "forbidden"
+source_modules = [
+    "app.platform",
+    "app.customer",
+    "app.sales",
+    "app.inventory",
+    "app.aftersales",
+    "app.parts",
+    "app.finance",
+    "app.reporting",
+    "app.compliance",
+]
+forbidden_modules = ["app.vehicle.models", "app.vehicle.services", "app.vehicle.api"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "Only app.sales.public is reachable from outside sales"
+type = "forbidden"
+source_modules = [
+    "app.platform",
+    "app.customer",
+    "app.vehicle",
+    "app.inventory",
+    "app.aftersales",
+    "app.parts",
+    "app.finance",
+    "app.reporting",
+    "app.compliance",
+]
+forbidden_modules = ["app.sales.models", "app.sales.services", "app.sales.api"]
+allow_indirect_imports = true

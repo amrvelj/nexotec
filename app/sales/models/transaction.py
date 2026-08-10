@@ -16,7 +16,7 @@ import datetime as dt
 import enum
 from decimal import Decimal
 
-from sqlalchemy import DECIMAL, Enum as SAEnum, ForeignKey, String, Text
+from sqlalchemy import DECIMAL, Enum as SAEnum, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
@@ -38,9 +38,11 @@ class TransactionStatus(str, enum.Enum):
 class Transaction(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMixin, Base):
     __tablename__ = "transaction"
 
-    # Overrides TenantScopedMixin's bare column to add the FK to dealer.id,
-    # same as User/Customer.
-    tenant_id: Mapped[GUID] = mapped_column(GUID(), ForeignKey("dealer.id"), nullable=False, index=True)
+    # Overrides TenantScopedMixin's bare column — no DB-level FK to dealer.id
+    # (PR-2, ADR-015). Owned by the platform context; reconciled nightly.
+    tenant_id: Mapped[GUID] = mapped_column(
+        GUID(), nullable=False, index=True, comment="Owned by the platform context (Dealer). No DB-level FK."
+    )
 
     transaction_type: Mapped[TransactionType] = mapped_column(
         SAEnum(TransactionType, native_enum=False, length=16), nullable=False
@@ -48,12 +50,17 @@ class Transaction(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampM
     status: Mapped[TransactionStatus] = mapped_column(
         SAEnum(TransactionStatus, native_enum=False, length=16), nullable=False, default=TransactionStatus.DRAFT
     )
-    customer_id: Mapped[GUID] = mapped_column(GUID(), ForeignKey("customer.id"), nullable=False, index=True)
-    vehicle_id: Mapped[GUID] = mapped_column(GUID(), ForeignKey("vehicle.id"), nullable=False, index=True)
-    # Employee of record — FK to user.id, not further tenant-checked at the
-    # DB level (enforced at the service layer: must belong to the same
-    # tenant as the transaction).
-    primary_user_id: Mapped[GUID] = mapped_column(GUID(), ForeignKey("user.id"), nullable=False, index=True)
+    customer_id: Mapped[GUID] = mapped_column(
+        GUID(), nullable=False, index=True, comment="Owned by the customer context. No DB-level FK (PR-2, ADR-015)."
+    )
+    vehicle_id: Mapped[GUID] = mapped_column(
+        GUID(), nullable=False, index=True, comment="Owned by the vehicle context. No DB-level FK (PR-2, ADR-015)."
+    )
+    # Employee of record — no DB-level FK to user.id (PR-2, ADR-015); tenant
+    # match is enforced at the service layer, same as before.
+    primary_user_id: Mapped[GUID] = mapped_column(
+        GUID(), nullable=False, index=True, comment="Owned by the platform context (User). No DB-level FK."
+    )
 
     # Nullable in draft; required before `completed` (enforced at the
     # service layer, not a DB constraint — same convention as other

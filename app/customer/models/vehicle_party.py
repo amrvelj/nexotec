@@ -1,16 +1,21 @@
 """Owner/Keeper/Driver join table (Swiss addendum decision #7). Lives in the
 customer context — domain map: customer owns "the customer-to-vehicle party
-link" — not in vehicle, even though it also carries a `vehicle_id` FK.
+link" — not in vehicle, even though it also carries a `vehicle_id` column.
 
-`vehicle_id`'s ForeignKey("vehicle.id") is a cross-context reference (one of
-the nine flagged in CLAUDE.md for PR-2, which converts it to a plain GUID
-column). Left as a real FK here for zero behaviour change; PR-2 removes it.
+PR-2 (ADR-015, CLAUDE.md rule 2): neither vehicle_id nor customer_id has a
+DB-level ForeignKey any more. vehicle_id was a genuine cross-context FK
+(customer -> vehicle); customer_id is intra-context after the PR-1 move but
+was named explicitly in the PR-2 scope, so it's dropped too rather than
+re-litigated. Existence is checked at the application layer (see
+app.customer.services.customer, app.vehicle.public.get_vehicle_or_404);
+drift is caught by the nightly reconciliation job (app.customer.reconciliation),
+not by Postgres.
 """
 
 import datetime as dt
 import enum
 
-from sqlalchemy import Enum as SAEnum, ForeignKey, UniqueConstraint
+from sqlalchemy import Enum as SAEnum, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.base import PrimaryKeyMixin, TimestampMixin, utcnow
@@ -42,11 +47,18 @@ class VehicleParty(PrimaryKeyMixin, TimestampMixin, Base):
         UniqueConstraint("vehicle_id", "customer_id", "role", "effective_from", name="uq_vehicle_party_scope"),
     )
 
-    vehicle_id: Mapped[GUID] = mapped_column(GUID(), ForeignKey("vehicle.id"), nullable=False, index=True)
-    # FK tightened on integration/mdm-shell (2026-08-06) now that Customer
-    # (issue #4) is actually present — was a bare UUID forward-reference on
-    # the issue-5-vehicle branch, which never had Customer in its history.
-    customer_id: Mapped[GUID] = mapped_column(GUID(), ForeignKey("customer.id"), nullable=False, index=True)
+    vehicle_id: Mapped[GUID] = mapped_column(
+        GUID(),
+        nullable=False,
+        index=True,
+        comment="Owned by the vehicle context. No DB-level FK (PR-2, ADR-015) — reconciled nightly.",
+    )
+    customer_id: Mapped[GUID] = mapped_column(
+        GUID(),
+        nullable=False,
+        index=True,
+        comment="Same context (customer) as this table. No DB-level FK (PR-2, ADR-015) — named explicitly in scope.",
+    )
     role: Mapped[VehiclePartyRole] = mapped_column(
         SAEnum(VehiclePartyRole, native_enum=False, length=16), nullable=False
     )
@@ -58,4 +70,12 @@ class VehicleParty(PrimaryKeyMixin, TimestampMixin, Base):
     # on Vehicle: nothing needs "all parties for this vehicle" yet, and
     # adding an unused collection relationship is guessing at a shape no
     # endpoint asks for.
-    vehicle: Mapped[Vehicle] = relationship()
+    #
+    # Explicit primaryjoin + foreign(): vehicle_id has no DB-level FK as of
+    # PR-2, so SQLAlchemy can no longer infer the join condition on its own.
+    # Same eager-load behaviour as before (still driven by joinedload() at
+    # the call site) — this only replaces what the dropped FK used to tell it.
+    vehicle: Mapped[Vehicle] = relationship(
+        primaryjoin="foreign(VehicleParty.vehicle_id) == Vehicle.id",
+        viewonly=True,
+    )

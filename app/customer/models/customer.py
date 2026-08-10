@@ -137,7 +137,9 @@ class CustomerNumberSequence(Base):
 
     __tablename__ = "customer_number_sequence"
 
-    tenant_id: Mapped[GUID] = mapped_column(GUID(), ForeignKey("dealer.id"), primary_key=True)
+    tenant_id: Mapped[GUID] = mapped_column(
+        GUID(), primary_key=True, comment="Owned by the platform context (Dealer). No DB-level FK (PR-2, ADR-015)."
+    )
     next_value: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
 
@@ -147,10 +149,11 @@ class Customer(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMixi
         UniqueConstraint("tenant_id", "customer_number", name="uq_customer_tenant_id_customer_number"),
     )
 
-    # Overrides TenantScopedMixin's bare column to add the FK to dealer.id,
-    # same as User (app/models/user.py) — the shell's precedent for a
-    # tenant-owned entity.
-    tenant_id: Mapped[GUID] = mapped_column(GUID(), ForeignKey("dealer.id"), nullable=False, index=True)
+    # Overrides TenantScopedMixin's bare column — no DB-level FK to dealer.id
+    # (PR-2, ADR-015). Owned by the platform context; reconciled nightly.
+    tenant_id: Mapped[GUID] = mapped_column(
+        GUID(), nullable=False, index=True, comment="Owned by the platform context (Dealer). No DB-level FK."
+    )
 
     # Immutable business key, allocated at creation. Indexed because it is a
     # first-class search term (FR-01) — staff search by it constantly.
@@ -250,7 +253,9 @@ class CustomerPhone(PrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "customer_phone"
     __table_args__ = (UniqueConstraint("customer_id", "phone_e164", name="uq_customer_phone_customer_id_e164"),)
 
-    tenant_id: Mapped[GUID] = mapped_column(GUID(), ForeignKey("dealer.id"), nullable=False, index=True)
+    tenant_id: Mapped[GUID] = mapped_column(
+        GUID(), nullable=False, index=True, comment="Owned by the platform context (Dealer). No DB-level FK."
+    )
     customer_id: Mapped[GUID] = mapped_column(GUID(), ForeignKey("customer.id"), nullable=False, index=True)
     phone_type: Mapped[PhoneType] = mapped_column(SAEnum(PhoneType, native_enum=False, length=16), nullable=False)
     phone_e164: Mapped[str] = mapped_column(String(20), nullable=False)
@@ -273,7 +278,9 @@ class CustomerEmail(PrimaryKeyMixin, TimestampMixin, Base):
         UniqueConstraint("customer_id", "email_address", name="uq_customer_email_customer_id_address"),
     )
 
-    tenant_id: Mapped[GUID] = mapped_column(GUID(), ForeignKey("dealer.id"), nullable=False, index=True)
+    tenant_id: Mapped[GUID] = mapped_column(
+        GUID(), nullable=False, index=True, comment="Owned by the platform context (Dealer). No DB-level FK."
+    )
     customer_id: Mapped[GUID] = mapped_column(GUID(), ForeignKey("customer.id"), nullable=False, index=True)
     email_type: Mapped[EmailType] = mapped_column(SAEnum(EmailType, native_enum=False, length=16), nullable=False)
     email_address: Mapped[str] = mapped_column(String(254), nullable=False, index=True)
@@ -301,7 +308,9 @@ class CustomerExternalId(PrimaryKeyMixin, TimestampMixin, Base):
         UniqueConstraint("customer_id", "system_name", name="uq_customer_external_id_customer_system"),
     )
 
-    tenant_id: Mapped[GUID] = mapped_column(GUID(), ForeignKey("dealer.id"), nullable=False, index=True)
+    tenant_id: Mapped[GUID] = mapped_column(
+        GUID(), nullable=False, index=True, comment="Owned by the platform context (Dealer). No DB-level FK."
+    )
     customer_id: Mapped[GUID] = mapped_column(GUID(), ForeignKey("customer.id"), nullable=False, index=True)
     system_name: Mapped[str] = mapped_column(String(100), nullable=False)
     external_id: Mapped[str] = mapped_column(String(255), nullable=False)
