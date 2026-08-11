@@ -6,6 +6,8 @@ this composition role.
 
 from app.core.audit_model import AuditEvent  # noqa: F401
 from app.core.idempotency_model import IdempotencyRecord  # noqa: F401
+from app.core.outbox_model import OutboxMessage  # noqa: F401
+from app.core.processed_event_model import ProcessedEvent  # noqa: F401
 from app.core.reconciliation_model import ReconciliationOrphan, ReconciliationRun  # noqa: F401
 from app.customer.models.customer import Customer  # noqa: F401
 from app.customer.models.vehicle_party import VehicleParty  # noqa: F401
@@ -23,6 +25,8 @@ __all__ = [
     "Customer",
     "Dealer",
     "IdempotencyRecord",
+    "OutboxMessage",
+    "ProcessedEvent",
     "ReconciliationOrphan",
     "ReconciliationRun",
     "ReferenceList",

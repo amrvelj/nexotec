@@ -57,3 +57,35 @@ services:
         sync: false
       - key: DMS_SEED_DEMO_PASSWORD
         sync: false
+
+  # Outbox worker (PR-4, Decision 3): same codebase, same database,
+  # different entrypoint — not a second deployable in the ADR-015 sense.
+  # Two reasons this is its own service rather than a background task on
+  # the web dyno: a slow drain never competes with user request capacity,
+  # and a free web service that spins down when idle (see the dashboard
+  # banner) would stop draining the outbox entirely while asleep. Starter
+  # tier, not free, for exactly that reason — a worker that spins down
+  # defeats the point of having one.
+  #
+  # Also runs `alembic upgrade heads` on its own startup, same as the web
+  # service — redundant on a normal deploy (whichever service starts
+  # second just finds the schema already current), but it means this
+  # service has no ordering dependency on the web service ever having
+  # deployed first, including on a brand new environment.
+  - name: dms-staging-outbox-worker
+    type: worker
+    runtime: python
+    plan: starter
+    buildCommand: pip install -e .
+    startCommand: alembic upgrade heads && python -m app.worker
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.0
+      - key: DMS_DATABASE_URL
+        fromDatabase:
+          name: dms-staging-db
+          property: connectionString
+      - key: DMS_JWT_SECRET
+        generateValue: true
+      - key: DMS_TAX_ID_ENCRYPTION_KEY
+        sync: false
