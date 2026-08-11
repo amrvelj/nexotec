@@ -212,6 +212,26 @@ def complete_transaction(db: Session, *, transaction: Transaction, actor_id: uui
     if transaction.amount is None:
         raise BadRequestError("amount is required before a transaction can be completed.")
 
+    # PRE-EXISTING RACE (confirmed, not introduced by PR-4): get_vehicle_or_404
+    # is a plain db.get(), no FOR UPDATE, and the API layer's If-Match/
+    # check_version only guards Transaction.version, never Vehicle's — so
+    # two concurrent complete_transaction calls against transactions that
+    # share a vehicle_id can both read the same vehicle.status, both pass
+    # the blocked-status check below, and the second plain
+    # `vehicle.status = ...` silently overwrites the first's write on
+    # commit. No lock, no conflict error, today — a genuine lost update.
+    #
+    # PR-4 (the outbox) widens this window from milliseconds to a poll
+    # interval once the write moves off this synchronous path — it does
+    # not create the race. The fix, decided for PR-5 and recorded here so
+    # it isn't rediscovered as a surprise: the vehicle consumer that
+    # applies this event must issue a guarded state transition —
+    #   UPDATE vehicle SET status = ... WHERE id = ? AND status = <expected>
+    # — and treat zero rows affected as a genuine conflict to dead-letter
+    # (clear error, no blind retry into the same wall), not a bug. That's
+    # race-safe and idempotent in one move, and composes with the version
+    # column the architecture already mandates. This synchronous read
+    # itself is unaffected either way — it's the write that changes.
     vehicle = get_vehicle_or_404(db, transaction.vehicle_id)
 
     if transaction.transaction_type == TransactionType.SALE:

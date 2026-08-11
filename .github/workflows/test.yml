@@ -130,6 +130,56 @@ jobs:
       - name: verify the seeded rows survived untouched
         run: python scripts/verify_migration_smoke_test_seed.py
 
+  outbox-worker-smoke-test:
+    name: outbox worker entrypoint smoke test (postgres)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: dms
+          POSTGRES_PASSWORD: dms
+          POSTGRES_DB: dms_platform_outbox_smoke
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DMS_DATABASE_URL: postgresql+psycopg://dms:dms@localhost:5432/dms_platform_outbox_smoke
+      # CI-only dummy key, not a secret — EncryptedString just needs a
+      # structurally valid Fernet key to construct itself at settings load.
+      DMS_TAX_ID_ENCRYPTION_KEY: d4Z9UU9FYX5HeORG4D0xtQy1AIAVBjGV08XGS06x4q8=
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install -e ".[dev]"
+      - name: alembic upgrade heads
+        run: alembic upgrade heads
+      - name: publish a probe event
+        id: publish
+        run: echo "message_id=$(python scripts/publish_outbox_ci_probe.py)" >> "$GITHUB_OUTPUT"
+      # This is deliberately the REAL entrypoint (`python -m app.worker`),
+      # not poll_once() called directly from pytest — the same distinction
+      # PR-3 drew between calling Alembic's Python API and running the
+      # real `alembic` CLI. DMS_OUTBOX_WORKER_CI_SMOKE_TEST_PROBE=1 is the
+      # only thing that differs from a real deployment: it registers one
+      # no-op handler for the probe event type (see app/worker.py) so
+      # there's something to dispatch. MAX_ITERATIONS bounds it so CI
+      # terminates instead of running forever, which is what a real
+      # deployment's worker does.
+      - name: run the real worker entrypoint
+        env:
+          DMS_OUTBOX_WORKER_CI_SMOKE_TEST_PROBE: "1"
+          DMS_OUTBOX_WORKER_MAX_ITERATIONS: "5"
+        run: python -m app.worker
+      - name: verify the probe was claimed, dispatched and published by that process
+        run: python scripts/verify_outbox_ci_probe.py "${{ steps.publish.outputs.message_id }}"
+
   sqlite:
     name: pytest (sqlite, fast lane)
     runs-on: ubuntu-latest
