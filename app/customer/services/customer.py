@@ -20,6 +20,7 @@ from app.core.outbox import OutboxEvent
 from app.core.outbox import publish as publish_event
 from app.core.pagination import SortPageParams, build_sorted_page, count_capped, paginate_query_sorted
 from app.core.postal_codes import derive_canton
+from app.core.redact import REDACTED_PLACEHOLDER, is_secret_field
 from app.core.tenancy import get_or_404
 from app.core.validators import normalise_phone
 from app.customer.models.customer import (
@@ -78,9 +79,6 @@ _AUDITED_FIELDS = _PII_FIELDS | {
 _MIN_PHONE_SEARCH_DIGITS = 3
 _TERMINAL_LIFECYCLE_STATUSES = {CustomerLifecycleStatus.MERGED}
 _DUPLICATE_CHECK_LIMIT = 10
-# Never logged in plaintext, same as Dealer.tax_id — see services/dealer.py's
-# identical _redact pattern.
-_SECRET_FIELDS = {"tax_id"}
 # Outbox producer name for every event this service publishes (WP-1, ADR-006).
 _EVENT_PRODUCER = "customer"
 
@@ -105,8 +103,8 @@ def _customer_label_payload(customer: Customer) -> dict[str, Any]:
 
 
 def _redact(field: str, value: Any) -> Any:
-    if field in _SECRET_FIELDS and value is not None:
-        return "***redacted***"
+    if is_secret_field(field) and value is not None:
+        return REDACTED_PLACEHOLDER
     return _plain(value)
 
 

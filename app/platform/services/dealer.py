@@ -12,11 +12,11 @@ from sqlalchemy.orm import Session
 from app.core.audit import record_audit_event
 from app.core.errors import ConflictError, NotFoundError
 from app.core.pagination import PageParams, build_page, paginate_query
+from app.core.redact import REDACTED_PLACEHOLDER, is_secret_field
 from app.platform.models.dealer import Dealer, DealerStatus
 from app.platform.schemas.dealer import DealerCreate, DealerUpdate
 
 _AUDITED_FIELDS = {"dealer_license_number", "license_state", "tax_id", "status"}
-_SECRET_FIELDS = {"tax_id"}
 _TERMINAL_DEALER_STATUSES = {DealerStatus.OFFBOARDED}
 
 
@@ -25,8 +25,8 @@ def _plain(value: Any) -> Any:
 
 
 def _redact(field: str, value: Any) -> Any:
-    if field in _SECRET_FIELDS and value is not None:
-        return "***redacted***"
+    if is_secret_field(field) and value is not None:
+        return REDACTED_PLACEHOLDER
     return _plain(value)
 
 

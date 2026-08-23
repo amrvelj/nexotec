@@ -2,6 +2,8 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.core.secrets import resolve_secret_env
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="DMS_", env_file=".env", extra="ignore")
@@ -74,6 +76,15 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
+    # WP-2 PR-4 (closes G-10): populates the env var from Infisical BEFORE
+    # Settings() reads it, if it isn't already set directly — a no-op when
+    # DMS_INFISICAL_* isn't configured (every test run, most of local dev)
+    # or when the plain env var is already present. Settings() below is
+    # completely unaware this happened; it just sees an env var, same as
+    # always.
+    resolve_secret_env("DMS_TAX_ID_ENCRYPTION_KEY", infisical_secret_name="TAX_ID_ENCRYPTION_KEY")
+    resolve_secret_env("DMS_JWT_PRIVATE_KEY", infisical_secret_name="JWT_PRIVATE_KEY")
+
     # tax_id_encryption_key and jwt_private_key have no default (see their
     # own comments above) but aren't actually missing here — pydantic-
     # settings populates both from the environment at runtime. mypy has no

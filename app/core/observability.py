@@ -37,6 +37,7 @@ from starlette.types import ASGIApp
 
 from app.core.auth import SESSION_COOKIE_NAME
 from app.core.config import get_settings
+from app.core.redact import REDACTED_PLACEHOLDER, is_secret_field
 
 CORRELATION_ID_HEADER = "X-Correlation-Id"
 
@@ -98,6 +99,13 @@ class JSONLogFormatter(logging.Formatter):
     """One JSON object per line, correlationId/tenantId always present
     (null when there is no request in flight — a worker heartbeat, for
     instance) so a log pipeline never has to special-case their absence.
+
+    Redacts any `extra={}` field whose NAME is in app.core.redact's
+    SECRET_FIELDS (WP-2 PR-4 — "secrets are never logged, redact at the
+    logging boundary") — the same set app.customer.services.customer and
+    app.platform.services.dealer redact with before writing to the audit
+    log, applied here too so the same field can't leak back in through a
+    log line that happens to carry it.
     """
 
     def format(self, record: logging.LogRecord) -> str:
@@ -111,7 +119,7 @@ class JSONLogFormatter(logging.Formatter):
         }
         for key, value in record.__dict__.items():
             if key not in _STANDARD_LOG_RECORD_ATTRS:
-                payload[key] = value
+                payload[key] = REDACTED_PLACEHOLDER if is_secret_field(key) and value is not None else value
         if record.exc_info:
             payload["exception"] = self.formatException(record.exc_info)
         return json.dumps(payload, default=str)

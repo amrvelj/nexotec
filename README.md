@@ -114,28 +114,30 @@ in this repo can provision for you.
 
 ## Running tests
 
-Two lanes, both run in CI (`.github/workflows/test.yml`):
-
-**Fast lane — in-memory SQLite, no Docker required:**
-
-```bash
-pip install -e ".[dev]"
-pytest
-```
-
-**Postgres lane — the real container from `docker-compose.yml`.** Required
-from issue #2 onward: User→Dealer is the schema's first FK relationship, and
-SQLite's weaker constraint/concurrency enforcement can hide bugs (missing FK
-violations, isolation differences) that only show up against Postgres.
+**Postgres is the only lane that gates a merge** (ADR-011,
+`.github/workflows/test.yml`'s `postgres` job) — the real container from
+`docker-compose.yml`. SQLite's weaker constraint/concurrency enforcement
+can hide bugs (missing FK violations, isolation differences) that only
+show up against Postgres.
 
 ```bash
 docker compose up -d db
 DMS_TEST_DATABASE_URL=postgresql+psycopg://dms:dms@localhost:5432/dms_platform pytest
 ```
 
-Both lanes run the same test suite (`tests/conftest.py` picks the backend
-from `DMS_TEST_DATABASE_URL`) — keep SQLite for the fast dev loop, add
-Postgres before merging anything with a new FK/constraint.
+**SQLite is a fast, optional, local-only convenience** (ADR-011) — not a
+CI lane at all as of WP-2 PR-4, only a `pre-commit` hook you can opt into:
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+That's `pytest` with no `DMS_TEST_DATABASE_URL` set — same test suite
+either way (`tests/conftest.py` picks the backend from that env var), just
+faster and with no Docker required. Add the Postgres lane locally too
+before pushing anything with a new FK/constraint — pre-commit running
+green is not the same guarantee CI's `postgres` job gives you.
 
 ## Database migrations
 

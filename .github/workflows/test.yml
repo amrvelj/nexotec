@@ -6,6 +6,18 @@ on:
   pull_request:
 
 jobs:
+  secret-scan:
+    name: secret scan (WP-2 PR-4, closes G-10)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: TruffleHog OSS
+        uses: trufflesecurity/trufflehog@main
+        with:
+          extra_args: --only-verified
+
   import-linter:
     name: import-linter (context seams)
     runs-on: ubuntu-latest
@@ -338,19 +350,14 @@ jobs:
       - name: verify the probe was claimed, dispatched and published by that process
         run: python scripts/verify_outbox_ci_probe.py "${{ steps.publish.outputs.message_id }}"
 
-  sqlite:
-    name: pytest (sqlite, fast lane)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-      - run: pip install -e ".[dev]"
-      - run: pytest
-
+  # WP-2 PR-4 (ADR-011): SQLite is no longer a CI lane at all — it never
+  # gates a merge, matching the ADR's own wording exactly ("may never be
+  # the only lane gating a merge" was already true with Postgres also
+  # present; this goes further and removes it from CI entirely). It still
+  # exists as a fast, opt-in *local* convenience — see .pre-commit-
+  # config.yaml — which is genuinely optional and runs on no one's push.
   postgres:
-    name: pytest (postgres, issue #2+ FK/concurrency lane)
+    name: pytest (postgres — the only lane that gates a merge, ADR-011)
     runs-on: ubuntu-latest
     services:
       postgres:

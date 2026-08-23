@@ -231,3 +231,17 @@ def test_a_requests_correlation_id_is_findable_in_both_the_trace_and_the_log_lin
     assert len(capture.lines) == 1
     logged_payload = json.loads(capture.lines[0])
     assert logged_payload["correlationId"] == correlation_id
+
+
+# --- redaction at the logging boundary (WP-2 PR-4) --------------------------------------
+
+
+def test_json_formatter_redacts_a_secret_named_extra_field():
+    record = logging.LogRecord(
+        name="app.test", level=logging.INFO, pathname=__file__, lineno=1, msg="hello", args=(), exc_info=None
+    )
+    record.tax_id = "CHE-123.456.789"
+    record.first_name = "Anna"
+    payload = _format(record)
+    assert payload["tax_id"] == "***redacted***"
+    assert payload["first_name"] == "Anna"
