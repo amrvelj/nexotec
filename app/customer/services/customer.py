@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.errors import BadRequestError, ConflictError, NotFoundError
 from app.core.config import get_settings
+from app.core.outbox import OutboxEvent, publish as publish_event
 from app.core.pagination import SortPageParams, build_sorted_page, count_capped, paginate_query_sorted
 from app.core.postal_codes import derive_canton
 from app.core.tenancy import get_or_404
@@ -79,10 +80,27 @@ _DUPLICATE_CHECK_LIMIT = 10
 # Never logged in plaintext, same as Dealer.tax_id — see services/dealer.py's
 # identical _redact pattern.
 _SECRET_FIELDS = {"tax_id"}
+# Outbox producer name for every event this service publishes (WP-1, ADR-006).
+_EVENT_PRODUCER = "customer"
 
 
 def _plain(value: Any) -> Any:
     return value.value if hasattr(value, "value") else value
+
+
+def _customer_label_payload(customer: Customer) -> dict[str, Any]:
+    """The subset of a customer another context needs to refresh a
+    denormalised label — never tax_id, never the rest of the PII surface.
+    """
+
+    return {
+        "customerId": str(customer.id),
+        "customerNumber": customer.customer_number,
+        "customerType": customer.customer_type.value,
+        "firstName": customer.first_name,
+        "lastName": customer.last_name,
+        "companyName": customer.company_name,
+    }
 
 
 def _redact(field: str, value: Any) -> Any:
@@ -417,6 +435,17 @@ def create_customer(db: Session, *, tenant_id: uuid.UUID, data: CustomerCreate, 
         actor_id=actor_id,
         after={field: _redact(field, getattr(customer, field)) for field in _AUDITED_FIELDS},
     )
+    publish_event(
+        db,
+        OutboxEvent(
+            event_type="customer.created",
+            tenant_id=tenant_id,
+            producer=_EVENT_PRODUCER,
+            aggregate_type="customer",
+            aggregate_id=customer.id,
+            payload=_customer_label_payload(customer),
+        ),
+    )
     db.commit()
     db.refresh(customer)
     return customer
@@ -477,6 +506,17 @@ def update_customer(db: Session, *, customer: Customer, data: CustomerUpdate, ac
             actor_id=actor_id,
             before=before or None,
             after=after or None,
+        )
+        publish_event(
+            db,
+            OutboxEvent(
+                event_type="customer.updated",
+                tenant_id=customer.tenant_id,
+                producer=_EVENT_PRODUCER,
+                aggregate_type="customer",
+                aggregate_id=customer.id,
+                payload=_customer_label_payload(customer),
+            ),
         )
 
     try:
@@ -672,6 +712,25 @@ def merge_customer(
             "externalIdsRepointed": external_ids_repointed,
             "externalIdsDropped": external_ids_dropped,
         },
+    )
+    publish_event(
+        db,
+        OutboxEvent(
+            event_type="customer.merged",
+            tenant_id=customer.tenant_id,
+            producer=_EVENT_PRODUCER,
+            aggregate_type="customer",
+            aggregate_id=customer.id,
+            # Survivor's label fields, with customerId/duplicateOfCustomerId
+            # overriding the payload helper's own customerId — a consumer
+            # needs the duplicate's id (what it may still be pointing at)
+            # and the survivor's id (what to repoint to) in the same event.
+            payload={
+                **_customer_label_payload(target),
+                "customerId": str(customer.id),
+                "duplicateOfCustomerId": str(duplicate_of_customer_id),
+            },
+        ),
     )
     try:
         db.commit()
