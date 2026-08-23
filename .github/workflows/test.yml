@@ -87,6 +87,40 @@ jobs:
       # CI-only dummy key, not a secret — EncryptedString just needs a
       # structurally valid Fernet key to construct itself at settings load.
       DMS_TAX_ID_ENCRYPTION_KEY: d4Z9UU9FYX5HeORG4D0xtQy1AIAVBjGV08XGS06x4q8=
+      # CI-only dummy RS256 key pair, not a secret — every job here imports
+      # app.core.auth transitively (via app.model_registry, app.main, or
+      # both), and Settings.jwt_private_key has no default (ADR-007, WP-2
+      # PR-1), same reasoning as the Fernet key above. No token minted with
+      # this key is ever verified against a real deployment's JWKS.
+      DMS_JWT_PRIVATE_KEY: |
+        -----BEGIN PRIVATE KEY-----
+        MIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQC3sYZ37Y3g7Jj2
+        ij3zg/8TZzkza46sLqmXLzn11lWt6Xoao9WotGuHpPVO6lu96/SFxWH7xiuoZB8L
+        g4kE85yswvZqV7LMg7RJzt7ECCzgzLKX1r9riu0zAuChXoiOp7P5AyhDujMkyGVz
+        TXrU33dr27jOT4Njit4izaDjyFItv5iTRcmOriEGnjnlWoZAjZmLL8OTK/g4lm2H
+        R+dWu9DheLrbI/A5UBnVvQe8J57DaT8OONK1ApAv84M4U403KBQYQJHoGomCwVb0
+        MIMsoNXHNcsUCbZ0m9NlSRuRAZAauLKfCkf/NslJ3ApIOIAoy5oHT83GfrJ6x0kk
+        jdKM5RYxAgMBAAECggEARTxauAooHz5eGxKY7hdyxV/zLd/c2yYNUsgAmxnJmm61
+        UKQuzFMQcoRo13E62fc850yxtUGIxAPUtbTCqMSfaXhkg0mBwVbk1arsyMtiCurs
+        Z5GP/ZtT8xWjD/9/DfHEwlb/zqM4UqVbo51w7ho6O0OKQOy0U4kMV+bUPPaMjuQT
+        QYhyQsCWVxygDbSImKs5cbEwoHI5o2xy5KFBz/8CiJKeup4hBBXGAv8BLmzh++4y
+        kguZCKNRsUQkmmuqaCSDPhg/SlGWgOSxpkcwQb4v71ff1lMmHDRmuwG4Vk/4DTH3
+        EJYfc4OkkvXrfz+P2FlJOWVkbCT3tcNrao4Jft2mHwKBgQDyiPpqDmG9/ewyjTXw
+        SlBblm13r73N+W6iCA6d4XRsSloDVVCf73c13305fcqoPQHoaNuhpiRL7dBpuY9R
+        E09k9/4/hQiujAYrMZqJxu8mH5IEl8SCxmKUiXhrKaRSk1W1kltaT4eEKCzm6Gqq
+        ty4xpfML39sNq+sNv0Xi1t498wKBgQDB5EM4C1mtaZjGlUHK+bp96rMW6vtax1A7
+        H8BdBwVW3Nh9MXIAevFFKnTYbpByIVBXX8O6zNZQcKa7GKunZs1eObu2qneCi7Pl
+        KErHmvgwWKeKakTFv6kWJ+/5QV9sXwuufekS5/69Agc0W9GNqlrh0h5f7/Eb7TA9
+        GHXSQh9QSwJ/dXnj0Xsl3OEhh1rexYU5ZyN14oM9bIdlDxbX/aE2wz1AXFz2sIFN
+        PMsD3NURVGw4gFpKCAJxklWenZdD1AGGc2GrxRirG+C3HDTqpdG2BMFF+POKO83b
+        8hakPUPuVBEJculxVk0vVtQe67mn8QjJV0MKdrX3ZKfhMsdzEm0BOQKBgQCeHs8K
+        t4bsuv8Sg8piA4KpCWv/tqZBg+XUMbKoqv8ZtYT/pAE6jwiPxW4AyzoVOUHR35E5
+        l673bscqMZZbMKUuwJpq/13zIocUzOUfHyxkEQihAsUPF5yHKw6zETMGqARYyun2
+        tyexcCP7+R1OEK2JF9gZmQ3iHm6GhJohXDc5PQKBgQDf4j+EUVyQ29SMm4+gbCdQ
+        PQOiyyjy+uRDLZAmCLjEx2dgnXqpRNGhtr5GQ2LwmxQm/OSZ1RwRwHhBLVfj0v9G
+        qREA6IGDUrJHGuPMyd8hy2qAU0cNxkyIlkgzZZkJtXcQupjshyH7ud1BCyq4GOm6
+        m5mglGO7fs09fMV5n0qtEg==
+        -----END PRIVATE KEY-----
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -132,6 +166,40 @@ jobs:
       # CI-only dummy key, not a secret — EncryptedString just needs a
       # structurally valid Fernet key to construct itself at settings load.
       DMS_TAX_ID_ENCRYPTION_KEY: d4Z9UU9FYX5HeORG4D0xtQy1AIAVBjGV08XGS06x4q8=
+      # CI-only dummy RS256 key pair, not a secret — every job here imports
+      # app.core.auth transitively (via app.model_registry, app.main, or
+      # both), and Settings.jwt_private_key has no default (ADR-007, WP-2
+      # PR-1), same reasoning as the Fernet key above. No token minted with
+      # this key is ever verified against a real deployment's JWKS.
+      DMS_JWT_PRIVATE_KEY: |
+        -----BEGIN PRIVATE KEY-----
+        MIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQC3sYZ37Y3g7Jj2
+        ij3zg/8TZzkza46sLqmXLzn11lWt6Xoao9WotGuHpPVO6lu96/SFxWH7xiuoZB8L
+        g4kE85yswvZqV7LMg7RJzt7ECCzgzLKX1r9riu0zAuChXoiOp7P5AyhDujMkyGVz
+        TXrU33dr27jOT4Njit4izaDjyFItv5iTRcmOriEGnjnlWoZAjZmLL8OTK/g4lm2H
+        R+dWu9DheLrbI/A5UBnVvQe8J57DaT8OONK1ApAv84M4U403KBQYQJHoGomCwVb0
+        MIMsoNXHNcsUCbZ0m9NlSRuRAZAauLKfCkf/NslJ3ApIOIAoy5oHT83GfrJ6x0kk
+        jdKM5RYxAgMBAAECggEARTxauAooHz5eGxKY7hdyxV/zLd/c2yYNUsgAmxnJmm61
+        UKQuzFMQcoRo13E62fc850yxtUGIxAPUtbTCqMSfaXhkg0mBwVbk1arsyMtiCurs
+        Z5GP/ZtT8xWjD/9/DfHEwlb/zqM4UqVbo51w7ho6O0OKQOy0U4kMV+bUPPaMjuQT
+        QYhyQsCWVxygDbSImKs5cbEwoHI5o2xy5KFBz/8CiJKeup4hBBXGAv8BLmzh++4y
+        kguZCKNRsUQkmmuqaCSDPhg/SlGWgOSxpkcwQb4v71ff1lMmHDRmuwG4Vk/4DTH3
+        EJYfc4OkkvXrfz+P2FlJOWVkbCT3tcNrao4Jft2mHwKBgQDyiPpqDmG9/ewyjTXw
+        SlBblm13r73N+W6iCA6d4XRsSloDVVCf73c13305fcqoPQHoaNuhpiRL7dBpuY9R
+        E09k9/4/hQiujAYrMZqJxu8mH5IEl8SCxmKUiXhrKaRSk1W1kltaT4eEKCzm6Gqq
+        ty4xpfML39sNq+sNv0Xi1t498wKBgQDB5EM4C1mtaZjGlUHK+bp96rMW6vtax1A7
+        H8BdBwVW3Nh9MXIAevFFKnTYbpByIVBXX8O6zNZQcKa7GKunZs1eObu2qneCi7Pl
+        KErHmvgwWKeKakTFv6kWJ+/5QV9sXwuufekS5/69Agc0W9GNqlrh0h5f7/Eb7TA9
+        GHXSQh9QSwJ/dXnj0Xsl3OEhh1rexYU5ZyN14oM9bIdlDxbX/aE2wz1AXFz2sIFN
+        PMsD3NURVGw4gFpKCAJxklWenZdD1AGGc2GrxRirG+C3HDTqpdG2BMFF+POKO83b
+        8hakPUPuVBEJculxVk0vVtQe67mn8QjJV0MKdrX3ZKfhMsdzEm0BOQKBgQCeHs8K
+        t4bsuv8Sg8piA4KpCWv/tqZBg+XUMbKoqv8ZtYT/pAE6jwiPxW4AyzoVOUHR35E5
+        l673bscqMZZbMKUuwJpq/13zIocUzOUfHyxkEQihAsUPF5yHKw6zETMGqARYyun2
+        tyexcCP7+R1OEK2JF9gZmQ3iHm6GhJohXDc5PQKBgQDf4j+EUVyQ29SMm4+gbCdQ
+        PQOiyyjy+uRDLZAmCLjEx2dgnXqpRNGhtr5GQ2LwmxQm/OSZ1RwRwHhBLVfj0v9G
+        qREA6IGDUrJHGuPMyd8hy2qAU0cNxkyIlkgzZZkJtXcQupjshyH7ud1BCyq4GOm6
+        m5mglGO7fs09fMV5n0qtEg==
+        -----END PRIVATE KEY-----
     steps:
       - uses: actions/checkout@v4
         with:
@@ -200,6 +268,40 @@ jobs:
       # CI-only dummy key, not a secret — EncryptedString just needs a
       # structurally valid Fernet key to construct itself at settings load.
       DMS_TAX_ID_ENCRYPTION_KEY: d4Z9UU9FYX5HeORG4D0xtQy1AIAVBjGV08XGS06x4q8=
+      # CI-only dummy RS256 key pair, not a secret — every job here imports
+      # app.core.auth transitively (via app.model_registry, app.main, or
+      # both), and Settings.jwt_private_key has no default (ADR-007, WP-2
+      # PR-1), same reasoning as the Fernet key above. No token minted with
+      # this key is ever verified against a real deployment's JWKS.
+      DMS_JWT_PRIVATE_KEY: |
+        -----BEGIN PRIVATE KEY-----
+        MIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQC3sYZ37Y3g7Jj2
+        ij3zg/8TZzkza46sLqmXLzn11lWt6Xoao9WotGuHpPVO6lu96/SFxWH7xiuoZB8L
+        g4kE85yswvZqV7LMg7RJzt7ECCzgzLKX1r9riu0zAuChXoiOp7P5AyhDujMkyGVz
+        TXrU33dr27jOT4Njit4izaDjyFItv5iTRcmOriEGnjnlWoZAjZmLL8OTK/g4lm2H
+        R+dWu9DheLrbI/A5UBnVvQe8J57DaT8OONK1ApAv84M4U403KBQYQJHoGomCwVb0
+        MIMsoNXHNcsUCbZ0m9NlSRuRAZAauLKfCkf/NslJ3ApIOIAoy5oHT83GfrJ6x0kk
+        jdKM5RYxAgMBAAECggEARTxauAooHz5eGxKY7hdyxV/zLd/c2yYNUsgAmxnJmm61
+        UKQuzFMQcoRo13E62fc850yxtUGIxAPUtbTCqMSfaXhkg0mBwVbk1arsyMtiCurs
+        Z5GP/ZtT8xWjD/9/DfHEwlb/zqM4UqVbo51w7ho6O0OKQOy0U4kMV+bUPPaMjuQT
+        QYhyQsCWVxygDbSImKs5cbEwoHI5o2xy5KFBz/8CiJKeup4hBBXGAv8BLmzh++4y
+        kguZCKNRsUQkmmuqaCSDPhg/SlGWgOSxpkcwQb4v71ff1lMmHDRmuwG4Vk/4DTH3
+        EJYfc4OkkvXrfz+P2FlJOWVkbCT3tcNrao4Jft2mHwKBgQDyiPpqDmG9/ewyjTXw
+        SlBblm13r73N+W6iCA6d4XRsSloDVVCf73c13305fcqoPQHoaNuhpiRL7dBpuY9R
+        E09k9/4/hQiujAYrMZqJxu8mH5IEl8SCxmKUiXhrKaRSk1W1kltaT4eEKCzm6Gqq
+        ty4xpfML39sNq+sNv0Xi1t498wKBgQDB5EM4C1mtaZjGlUHK+bp96rMW6vtax1A7
+        H8BdBwVW3Nh9MXIAevFFKnTYbpByIVBXX8O6zNZQcKa7GKunZs1eObu2qneCi7Pl
+        KErHmvgwWKeKakTFv6kWJ+/5QV9sXwuufekS5/69Agc0W9GNqlrh0h5f7/Eb7TA9
+        GHXSQh9QSwJ/dXnj0Xsl3OEhh1rexYU5ZyN14oM9bIdlDxbX/aE2wz1AXFz2sIFN
+        PMsD3NURVGw4gFpKCAJxklWenZdD1AGGc2GrxRirG+C3HDTqpdG2BMFF+POKO83b
+        8hakPUPuVBEJculxVk0vVtQe67mn8QjJV0MKdrX3ZKfhMsdzEm0BOQKBgQCeHs8K
+        t4bsuv8Sg8piA4KpCWv/tqZBg+XUMbKoqv8ZtYT/pAE6jwiPxW4AyzoVOUHR35E5
+        l673bscqMZZbMKUuwJpq/13zIocUzOUfHyxkEQihAsUPF5yHKw6zETMGqARYyun2
+        tyexcCP7+R1OEK2JF9gZmQ3iHm6GhJohXDc5PQKBgQDf4j+EUVyQ29SMm4+gbCdQ
+        PQOiyyjy+uRDLZAmCLjEx2dgnXqpRNGhtr5GQ2LwmxQm/OSZ1RwRwHhBLVfj0v9G
+        qREA6IGDUrJHGuPMyd8hy2qAU0cNxkyIlkgzZZkJtXcQupjshyH7ud1BCyq4GOm6
+        m5mglGO7fs09fMV5n0qtEg==
+        -----END PRIVATE KEY-----
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

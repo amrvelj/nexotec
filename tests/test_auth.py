@@ -1,7 +1,10 @@
+import base64
 import uuid
 
 import jwt
 import pytest
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicNumbers
 from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
 
@@ -74,12 +77,17 @@ def test_expired_token_is_401(auth_client):
     assert response.status_code == 401
 
 
-def test_token_signed_with_wrong_secret_is_401(auth_client):
+def test_token_signed_with_a_different_key_is_401(auth_client):
+    """RS256's whole point: a token signed by anyone who isn't holding
+    *this* process's private key must fail, even with an otherwise
+    well-formed payload and the right algorithm/issuer.
+    """
+    impostor_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     bad_token = jwt.encode(
         {"sub": str(uuid.uuid4()), "tenant_id": str(uuid.uuid4()), "access_role": "sales",
          "iss": settings.jwt_issuer, "iat": 0, "exp": 9999999999},
-        "wrong-secret",
-        algorithm=settings.jwt_algorithm,
+        impostor_key,
+        algorithm="RS256",
     )
     response = auth_client.get("/whoami", headers=_bearer(bad_token))
     assert response.status_code == 401
@@ -150,3 +158,48 @@ def test_role_gate_with_multiple_allowed_roles_still_rejects_others(auth_client,
     token = create_access_token(user_id=uuid.uuid4(), tenant_id=uuid.uuid4(), access_role=role)
     response = auth_client.get("/sales-or-dealer-admin", headers=_bearer(token))
     assert response.status_code == 403
+
+
+# --- JWKS (WP-2 PR-1, ADR-007) -------------------------------------------------------
+
+
+def _b64url_uint(value: str) -> int:
+    padded = value + "=" * (-len(value) % 4)
+    return int.from_bytes(base64.urlsafe_b64decode(padded), "big")
+
+
+def test_jwks_endpoint_publishes_one_rsa_signing_key(client):
+    response = client.get("/.well-known/jwks.json")
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body["keys"]) == 1
+    key = body["keys"][0]
+    assert key["kty"] == "RSA"
+    assert key["alg"] == "RS256"
+    assert key["use"] == "sig"
+    assert key["kid"]
+    assert key["n"] and key["e"]
+
+
+def test_a_token_signed_with_the_private_key_verifies_against_the_published_jwks(client):
+    """The WP-2 PR-1 exit criterion, as a test: mint a token the normal
+    way, reconstruct the verification key purely from what
+    /.well-known/jwks.json publishes — never touching app.core.auth's own
+    key objects directly — and verify with that.
+    """
+    token = create_access_token(user_id=uuid.uuid4(), tenant_id=uuid.uuid4(), access_role=AccessRole.SALES)
+
+    jwks_key = client.get("/.well-known/jwks.json").json()["keys"][0]
+    public_key = RSAPublicNumbers(
+        n=_b64url_uint(jwks_key["n"]), e=_b64url_uint(jwks_key["e"])
+    ).public_key()
+
+    claims = jwt.decode(
+        token,
+        public_key,
+        algorithms=["RS256"],
+        issuer=settings.jwt_issuer,
+        options={"require": ["sub", "tenant_id", "access_role", "exp", "iat"]},
+    )
+    assert claims["access_role"] == "sales"
+    assert jwt.get_unverified_header(token)["kid"] == jwks_key["kid"]

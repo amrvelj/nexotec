@@ -6,6 +6,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.v1 import api_v1_router
+from app.core.auth import get_jwks
 from app.core.config import get_settings
 from app.core.errors import NotFoundError, register_error_handlers
 
@@ -13,6 +14,14 @@ app = FastAPI(title="DMS Platform", version="0.1.0")
 
 register_error_handlers(app)
 app.include_router(api_v1_router)
+
+
+# Root, unversioned — the standard discovery path (RFC 8414 / OIDC
+# Discovery convention), not /v1/.well-known/... A verifier resolving JWKS
+# generically has no reason to know this API is versioned at all.
+@app.get("/.well-known/jwks.json", include_in_schema=False)
+def jwks() -> dict:
+    return get_jwks()
 
 # Credentialed CORS for the frontend dev server (issue #8 cookie session) —
 # allow_credentials requires an explicit origin list, not "*".

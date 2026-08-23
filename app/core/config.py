@@ -11,12 +11,21 @@ class Settings(BaseSettings):
     # column types (string UUIDs, JSON) — no Postgres-only features yet.
     database_url: str = "postgresql+psycopg://dms:dms@localhost:5432/dms_platform"
 
-    # Placeholder JWT signing secret until a real external IdP is selected
+    # RS256 private key (PEM, PKCS8) until a real external IdP is selected
     # (see DMS_MDM_V1_SPEC.md cross-cutting #10: auth_identity_id is a
     # placeholder FK). This lets the auth boundary + access_role gating be
     # built and tested now without blocking on an IdP decision.
-    jwt_secret: str = "dev-only-insecure-secret-change-me"
-    jwt_algorithm: str = "HS256"
+    #
+    # Asymmetric, not the old shared HS256 secret (ADR-007, WP-2 PR-1):
+    # a shared secret is fine for one process, but the moment a second
+    # service needs to verify a token, it either gets a copy of the secret
+    # it could also use to mint tokens, or the whole scheme is unsafe. With
+    # RS256 every service verifies with the public key (published as JWKS,
+    # see app.core.auth.get_jwks) and only this process ever holds the
+    # private key. No default on purpose, same reasoning as
+    # tax_id_encryption_key below: a missing key must fail startup, not
+    # silently mint tokens nobody else can ever legitimately verify.
+    jwt_private_key: str
     jwt_issuer: str = "dms-platform"
     jwt_access_token_ttl_seconds: int = 3600
 
@@ -49,7 +58,8 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    # tax_id_encryption_key has no default (see its own comment above) but
-    # is not actually missing here — pydantic-settings populates it from
-    # the environment at runtime. mypy has no visibility into that.
+    # tax_id_encryption_key and jwt_private_key have no default (see their
+    # own comments above) but aren't actually missing here — pydantic-
+    # settings populates both from the environment at runtime. mypy has no
+    # visibility into that.
     return Settings()  # type: ignore[call-arg]

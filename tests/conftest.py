@@ -2,18 +2,31 @@ import os
 
 import pytest
 from cryptography.fernet import Fernet
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-# Settings.tax_id_encryption_key is required with no default (see
-# app/core/config.py — a previous default leaked a live key into git
-# history). Generate a fresh key per test run rather than checking a
-# static value into the repo; it never protects real data, only test
-# fixtures. Must be set before any app.* import below, since get_settings()
-# runs at import time in app/db.py, app/core/auth.py, app/core/pagination.py.
+# Settings.tax_id_encryption_key and Settings.jwt_private_key are both
+# required with no default (see app/core/config.py — an earlier draft
+# hardcoded a live tax_id key here and it leaked into git history). Generate
+# fresh values per test run rather than checking static ones into the repo;
+# neither protects anything real, only test fixtures. Must be set before any
+# app.* import below, since get_settings() runs at import time in app/db.py,
+# app/core/auth.py, app/core/pagination.py.
 os.environ.setdefault("DMS_TAX_ID_ENCRYPTION_KEY", Fernet.generate_key().decode())
+os.environ.setdefault(
+    "DMS_JWT_PRIVATE_KEY",
+    rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    .private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption(),
+    )
+    .decode("ascii"),
+)
 
 import app.model_registry  # noqa: F401  ensures all tables are registered on Base.metadata
 from app.db import Base, get_db
