@@ -55,6 +55,22 @@ class Settings(BaseSettings):
     # all". Missing env var must fail app startup, not fall back quietly.
     tax_id_encryption_key: str
 
+    # Observability (WP-2 PR-3, closes G-16). Every one of these is
+    # optional and unset by default — dev/test must work with zero
+    # observability infra configured, so absence means "off", not "fail
+    # startup" (unlike the two secrets above, where absence is the bug).
+    environment: str = "development"
+    otel_service_name: str = "dms-platform"
+    # Grafana Cloud's OTLP endpoint + `Authorization: Basic ...`-style
+    # header, comma-separated "key=value" pairs (the OTel SDK's own
+    # convention for OTEL_EXPORTER_OTLP_HEADERS). Tracing/metrics stay
+    # fully no-op — not buffered, not dropped-with-a-warning, genuinely
+    # inert — until this is set; the OTel API returns no-op
+    # tracers/meters when no SDK provider has been registered.
+    otel_exporter_otlp_endpoint: str | None = None
+    otel_exporter_otlp_headers: str | None = None
+    sentry_dsn: str | None = None
+
 
 @lru_cache
 def get_settings() -> Settings:

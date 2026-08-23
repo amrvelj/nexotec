@@ -65,6 +65,14 @@ jobs:
         working-directory: frontend/apps/dms
         run: npx vite build
 
+  docker-build:
+    name: docker image builds (WP-2 PR-3)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: docker build
+        run: docker build -t dms-platform:ci .
+
   migration-smoke-test:
     name: alembic migration smoke test (postgres)
     runs-on: ubuntu-latest

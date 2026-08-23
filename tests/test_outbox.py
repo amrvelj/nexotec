@@ -18,7 +18,14 @@ from sqlalchemy.orm import sessionmaker
 
 from app.core.base import utcnow
 from app.core.consumer import consume_once
-from app.core.outbox import OutboxEvent, dead_letter_count, oldest_pending_age_seconds, publish, replay
+from app.core.outbox import (
+    OutboxEvent,
+    consumer_lag_seconds,
+    dead_letter_count,
+    oldest_pending_age_seconds,
+    publish,
+    replay,
+)
 from app.core.outbox_model import OutboxMessage, OutboxStatus
 from app.core.outbox_transport import DeliveryError, InProcessTransport
 from app.core.outbox_worker import MAX_ATTEMPTS, PollResult, compute_backoff, poll_once
@@ -288,6 +295,38 @@ def test_oldest_pending_age_and_dead_letter_count_are_queryable(db_session):
 
     assert dead_letter_count(db_session) == 1
     assert oldest_pending_age_seconds(db_session) is None  # nothing pending any more
+
+
+def test_consumer_lag_is_queryable(db_session, engine):
+    assert consumer_lag_seconds(db_session, consumer_name="test.never_run") is None
+
+    publish(db_session, _probe_event(event_type="test.probe.consumer_lag"))
+    db_session.commit()
+
+    transport = InProcessTransport(_session_factory(engine))
+    transport.register("test.probe.consumer_lag", consumer_name="test.widget", handler=_widget_handler)
+    poll_once(db_session, transport)
+
+    lag = consumer_lag_seconds(db_session, consumer_name="test.widget")
+    assert lag is not None
+    assert lag >= 0
+    # A consumer that was never registered against this event, or any
+    # event, still reads as "never processed anything" — distinct from a
+    # small/zero lag.
+    assert consumer_lag_seconds(db_session, consumer_name="test.unregistered") is None
+
+
+def test_registered_consumer_names_reflects_every_registration(engine):
+    transport = InProcessTransport(_session_factory(engine))
+    assert transport.registered_consumer_names() == set()
+
+    transport.register("test.probe.a", consumer_name="test.one", handler=_widget_handler)
+    transport.register("test.probe.b", consumer_name="test.two", handler=_widget_handler)
+    # Same consumer registered against a second event type doesn't count
+    # twice — it's still one consumer.
+    transport.register("test.probe.c", consumer_name="test.one", handler=_widget_handler)
+
+    assert transport.registered_consumer_names() == {"test.one", "test.two"}
 
 
 # --- consume_once, directly ---------------------------------------------------------

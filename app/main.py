@@ -9,10 +9,21 @@ from app.api.v1 import api_v1_router
 from app.core.auth import get_jwks
 from app.core.config import get_settings
 from app.core.errors import NotFoundError, register_error_handlers
+from app.core.observability import (
+    ObservabilityMiddleware,
+    configure_logging,
+    configure_sentry,
+    configure_tracing,
+)
+
+configure_logging()
+configure_sentry()
 
 app = FastAPI(title="DMS Platform", version="0.1.0")
 
+configure_tracing(app)
 register_error_handlers(app)
+app.add_middleware(ObservabilityMiddleware)
 app.include_router(api_v1_router)
 
 

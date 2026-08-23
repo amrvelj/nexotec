@@ -36,7 +36,14 @@ from app.core.errors import ForbiddenError, UnauthorizedError
 settings = get_settings()
 
 _ALGORITHM = "RS256"
-_loaded_key = serialization.load_pem_private_key(settings.jwt_private_key.encode("ascii"), password=None)
+# .replace("\\n", "\n") tolerates a PEM stored as a single-line env var with
+# escaped newlines (docker-compose's .env format has no clean way to hold a
+# genuinely multi-line value substituted into a YAML ${...}, so
+# docker-compose.yml/Makefile's local dev flow stores it this way — CI's
+# workflow YAML and Render's own env-var UI both supply real newlines
+# already, where this is a no-op).
+_pem_text = settings.jwt_private_key.replace("\\n", "\n")
+_loaded_key = serialization.load_pem_private_key(_pem_text.encode("ascii"), password=None)
 assert isinstance(_loaded_key, RSAPrivateKey), (
     "DMS_JWT_PRIVATE_KEY must be an RSA private key (RS256) — got a different key type."
 )

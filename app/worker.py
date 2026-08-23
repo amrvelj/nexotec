@@ -16,7 +16,12 @@ import logging
 import os
 import time
 
-from app.core.outbox import dead_letter_count, oldest_pending_age_seconds
+from app.core.observability import (
+    record_consumer_lag_seconds,
+    record_dead_letter_count,
+    record_outbox_lag_seconds,
+)
+from app.core.outbox import consumer_lag_seconds, dead_letter_count, oldest_pending_age_seconds
 from app.core.outbox_transport import InProcessTransport
 from app.core.outbox_worker import poll_once
 from app.db import SessionLocal
@@ -59,12 +64,21 @@ def _register_ci_smoke_test_probe(transport: InProcessTransport) -> None:
     transport.register("test.probe.ci_smoke_test", consumer_name="ci.smoke_test_probe", handler=_probe_handler)
 
 
-def _heartbeat(db) -> None:
+def _heartbeat(db, transport: InProcessTransport) -> None:
     lag = oldest_pending_age_seconds(db)
     dead = dead_letter_count(db)
+    record_outbox_lag_seconds(lag)
+    record_dead_letter_count(dead)
+
+    consumer_lags: dict[str, float | None] = {}
+    for consumer_name in sorted(transport.registered_consumer_names()):
+        consumer_lag = consumer_lag_seconds(db, consumer_name=consumer_name)
+        consumer_lags[consumer_name] = consumer_lag
+        record_consumer_lag_seconds(consumer_name, consumer_lag)
+
     logger.info(
         "outbox heartbeat",
-        extra={"oldestPendingAgeSeconds": lag, "deadLetterCount": dead},
+        extra={"oldestPendingAgeSeconds": lag, "deadLetterCount": dead, "consumerLagSeconds": consumer_lags},
     )
 
 
@@ -96,7 +110,7 @@ def run(*, max_iterations: int | None = None) -> None:
         if now - last_heartbeat >= _HEARTBEAT_INTERVAL_SECONDS:
             heartbeat_db = SessionLocal()
             try:
-                _heartbeat(heartbeat_db)
+                _heartbeat(heartbeat_db, transport)
             finally:
                 heartbeat_db.close()
             last_heartbeat = now
