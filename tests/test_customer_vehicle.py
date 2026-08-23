@@ -15,9 +15,18 @@ VALID_ADDRESS = {
 }
 
 
-def _token(role: AccessRole, tenant_id: uuid.UUID | None = None, user_id: uuid.UUID | None = None) -> str:
+def _token(
+    role: AccessRole | None = None,
+    tenant_id: uuid.UUID | None = None,
+    user_id: uuid.UUID | None = None,
+    *,
+    is_dealer_manager: bool = False,
+) -> str:
     return create_access_token(
-        user_id=user_id or uuid.uuid4(), tenant_id=tenant_id or uuid.uuid4(), access_role=role
+        user_id=user_id or uuid.uuid4(),
+        tenant_id=tenant_id or uuid.uuid4(),
+        roles=frozenset({role}) if role is not None else frozenset(),
+        is_dealer_manager=is_dealer_manager,
     )
 
 
@@ -42,7 +51,7 @@ def _create_dealer(client) -> str:
 
 
 def _create_customer(client, dealer_id: str, **overrides) -> dict:
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     payload = {
         "firstName": "Anna",
         "lastName": "Muster",
@@ -63,7 +72,7 @@ def _random_vin() -> str:
 
 
 def _create_vehicle(client, dealer_id: str, **overrides) -> dict:
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     payload = {"vin": _random_vin(), "make": "Honda", "model": "Accord", "modelYear": 2020, "condition": "used"}
     payload.update(overrides)
     response = client.post("/v1/vehicles", json=payload, headers=_bearer(token))
@@ -91,7 +100,7 @@ def test_list_starts_empty(client):
 
 def test_create_assigns_role_and_embeds_vehicle_summary(client):
     dealer_id, customer, vehicle = _setup(client)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     response = client.post(
         f"/v1/customers/{customer['id']}/vehicles",
         json={"vehicleId": vehicle["id"], "role": "owner"},
@@ -114,7 +123,7 @@ def test_create_assigns_role_and_embeds_vehicle_summary(client):
 
 def test_create_rejects_effective_to_before_effective_from(client):
     dealer_id, customer, vehicle = _setup(client)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     response = client.post(
         f"/v1/customers/{customer['id']}/vehicles",
         json={
@@ -130,7 +139,7 @@ def test_create_rejects_effective_to_before_effective_from(client):
 
 def test_create_duplicate_role_same_effective_from_conflicts(client):
     dealer_id, customer, vehicle = _setup(client)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     payload = {"vehicleId": vehicle["id"], "role": "owner", "effectiveFrom": "2026-01-01T00:00:00Z"}
     first = client.post(f"/v1/customers/{customer['id']}/vehicles", json=payload, headers=_bearer(token))
     assert first.status_code == 201, first.text
@@ -140,7 +149,7 @@ def test_create_duplicate_role_same_effective_from_conflicts(client):
 
 def test_create_with_nonexistent_vehicle_404s(client):
     dealer_id, customer, _vehicle = _setup(client)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     response = client.post(
         f"/v1/customers/{customer['id']}/vehicles",
         json={"vehicleId": str(uuid.uuid4()), "role": "driver"},
@@ -155,7 +164,7 @@ def test_multiple_roles_on_same_vehicle_coexist(client):
     """
 
     dealer_id, customer, vehicle = _setup(client)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     owner = client.post(
         f"/v1/customers/{customer['id']}/vehicles",
         json={"vehicleId": vehicle["id"], "role": "owner"},
@@ -177,7 +186,7 @@ def test_multiple_roles_on_same_vehicle_coexist(client):
 
 def test_update_sets_effective_to_ending_the_relationship(client):
     dealer_id, customer, vehicle = _setup(client)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     created = client.post(
         f"/v1/customers/{customer['id']}/vehicles",
         json={"vehicleId": vehicle["id"], "role": "keeper"},
@@ -195,7 +204,7 @@ def test_update_sets_effective_to_ending_the_relationship(client):
 
 def test_update_rejects_effective_to_before_effective_from(client):
     dealer_id, customer, vehicle = _setup(client)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     created = client.post(
         f"/v1/customers/{customer['id']}/vehicles",
         json={"vehicleId": vehicle["id"], "role": "keeper", "effectiveFrom": "2026-06-01T00:00:00Z"},
@@ -212,7 +221,7 @@ def test_update_rejects_effective_to_before_effective_from(client):
 
 def test_delete_removes_relationship(client):
     dealer_id, customer, vehicle = _setup(client)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     created = client.post(
         f"/v1/customers/{customer['id']}/vehicles",
         json={"vehicleId": vehicle["id"], "role": "driver"},
@@ -245,6 +254,6 @@ def test_inventory_role_cannot_write(client):
 def test_customer_from_another_tenant_404s_not_403(client):
     _dealer_id, customer, _vehicle = _setup(client)
     other_dealer_id = _create_dealer(client)
-    other_tenant_token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(other_dealer_id))
+    other_tenant_token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(other_dealer_id))
     response = client.get(f"/v1/customers/{customer['id']}/vehicles", headers=_bearer(other_tenant_token))
     assert response.status_code == 404, response.text

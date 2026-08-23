@@ -32,9 +32,18 @@ VALID_ADDRESS = {
 }
 
 
-def _token(role: AccessRole, tenant_id: uuid.UUID | None = None, user_id: uuid.UUID | None = None) -> str:
+def _token(
+    role: AccessRole | None = None,
+    tenant_id: uuid.UUID | None = None,
+    user_id: uuid.UUID | None = None,
+    *,
+    is_dealer_manager: bool = False,
+) -> str:
     return create_access_token(
-        user_id=user_id or uuid.uuid4(), tenant_id=tenant_id or uuid.uuid4(), access_role=role
+        user_id=user_id or uuid.uuid4(),
+        tenant_id=tenant_id or uuid.uuid4(),
+        roles=frozenset({role}) if role is not None else frozenset(),
+        is_dealer_manager=is_dealer_manager,
     )
 
 
@@ -66,7 +75,8 @@ def _create_user(client, dealer_id: str, **overrides) -> dict:
         "lastName": "Muster",
         "email": f"anna-{uuid.uuid4().hex[:8]}@example.ch",  # User.email is globally unique
         "role": "admin",
-        "accessRole": "dealer_admin",
+        "accessRoles": ["sales"],
+        "isDealerManager": True,
         "authIdentityId": "stub-sub-1",
     }
     payload.update(overrides)
@@ -130,7 +140,7 @@ def test_ac1_platform_admin_bootstraps_dealer_and_admin_user(client):
     dealer_id = _create_dealer(client)
     user = _create_user(client, dealer_id)
     assert user["dealerId"] == dealer_id
-    assert user["accessRole"] == "dealer_admin"
+    assert user["isDealerManager"] is True
 
 
 # --- AC2-4: full connected walkthrough, sale ------------------------------------
@@ -212,12 +222,12 @@ def test_ac4_full_shell_walkthrough_trade_in(client):
 
     dealer_id = _create_dealer(client)
     user = _create_user(client, dealer_id)
-    headers = _bearer(_token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id), user_id=uuid.UUID(user["id"])))
+    headers = _bearer(_token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id), user_id=uuid.UUID(user["id"])))
     customer = _create_customer(client, headers)
 
     other_dealer_id = _create_dealer(client)
     trade_in_vehicle = _create_vehicle(
-        client, other_dealer_id, _bearer(_token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(other_dealer_id)))
+        client, other_dealer_id, _bearer(_token(is_dealer_manager=True, tenant_id=uuid.UUID(other_dealer_id)))
     )
 
     transaction = client.post(
@@ -249,7 +259,7 @@ def test_ac4_full_shell_walkthrough_trade_in(client):
 def test_ac8_cancel_never_mutates_vehicle(client):
     dealer_id = _create_dealer(client)
     user = _create_user(client, dealer_id)
-    headers = _bearer(_token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id), user_id=uuid.UUID(user["id"])))
+    headers = _bearer(_token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id), user_id=uuid.UUID(user["id"])))
     customer = _create_customer(client, headers)
     vehicle = _create_vehicle(client, dealer_id, headers)
 
@@ -283,7 +293,7 @@ def test_ac8_cancel_never_mutates_vehicle(client):
 @pytest.mark.parametrize("bad_vin", ["1hgcm82633a004352", "1HGCM8263 A004352", "1HGCM82633A00435"])
 def test_ac3_malformed_vin_rejected_not_normalized(client, bad_vin):
     dealer_id = _create_dealer(client)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     response = client.post(
         "/v1/vehicles",
         json={"vin": bad_vin, "make": "Honda", "model": "Accord", "modelYear": 2020, "condition": "used"},
@@ -295,10 +305,10 @@ def test_ac3_malformed_vin_rejected_not_normalized(client, bad_vin):
 def test_ac3_duplicate_vin_across_tenants_is_rejected(client):
     dealer_a = _create_dealer(client)
     dealer_b = _create_dealer(client)
-    token_a = _bearer(_token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_a)))
+    token_a = _bearer(_token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_a)))
     vehicle = _create_vehicle(client, dealer_a, token_a)
 
-    token_b = _bearer(_token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_b)))
+    token_b = _bearer(_token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_b)))
     response = client.post(
         "/v1/vehicles",
         json={
@@ -319,8 +329,8 @@ def test_ac3_duplicate_vin_across_tenants_is_rejected(client):
 def test_ac7_cross_tenant_isolation_across_all_entities(client):
     dealer_a = _create_dealer(client)
     dealer_b = _create_dealer(client)
-    token_a = _bearer(_token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_a)))
-    token_b = _bearer(_token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_b)))
+    token_a = _bearer(_token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_a)))
+    token_b = _bearer(_token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_b)))
     user_a = _create_user(client, dealer_a)
 
     customer_a = _create_customer(client, token_a)
@@ -376,7 +386,7 @@ def test_ac7_cross_tenant_isolation_across_all_entities(client):
 def test_ac5_audit_trail_covers_all_four_entities(client):
     admin_token = _bearer(_token(AccessRole.PLATFORM_ADMIN))
     dealer_id = _create_dealer(client)
-    dealer_token = _bearer(_token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id)))
+    dealer_token = _bearer(_token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id)))
     user = _create_user(client, dealer_id)
     customer = _create_customer(client, dealer_token)
     vehicle = _create_vehicle(client, dealer_id, dealer_token)
@@ -452,7 +462,7 @@ def test_ac5_audit_trail_covers_all_four_entities(client):
 def test_optimistic_concurrency_409_on_stale_if_match(client, make_request):
     dealer_id = _create_dealer(client)
     user = _create_user(client, dealer_id)
-    headers = _bearer(_token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id), user_id=uuid.UUID(user["id"])))
+    headers = _bearer(_token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id), user_id=uuid.UUID(user["id"])))
     customer = _create_customer(client, headers)
     vehicle = _create_vehicle(client, dealer_id, headers)
     transaction = client.post(
@@ -477,7 +487,7 @@ def test_optimistic_concurrency_409_on_stale_if_match(client, make_request):
 
 def test_idempotency_key_replay_returns_original_result_not_a_duplicate(client):
     dealer_id = _create_dealer(client)
-    token = _bearer(_token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id)))
+    token = _bearer(_token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id)))
     headers = {**token, "Idempotency-Key": "acceptance-test-key-1"}
 
     payload = {
@@ -542,7 +552,7 @@ def test_ac6_schema_has_no_payment_card_ssn_or_drivers_license_columns():
 def test_ac9_timestamps_are_utc_iso8601_and_amount_is_two_decimal_precision(client):
     dealer_id = _create_dealer(client)
     user = _create_user(client, dealer_id)
-    headers = _bearer(_token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id), user_id=uuid.UUID(user["id"])))
+    headers = _bearer(_token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id), user_id=uuid.UUID(user["id"])))
     customer = _create_customer(client, headers)
     vehicle = _create_vehicle(client, dealer_id, headers)
 

@@ -6,9 +6,18 @@ from app.core.auth import AccessRole, create_access_token
 from app.platform.models.reference_data import ReferenceList
 
 
-def _token(role: AccessRole, tenant_id: uuid.UUID | None = None, user_id: uuid.UUID | None = None) -> str:
+def _token(
+    role: AccessRole | None = None,
+    tenant_id: uuid.UUID | None = None,
+    user_id: uuid.UUID | None = None,
+    *,
+    is_dealer_manager: bool = False,
+) -> str:
     return create_access_token(
-        user_id=user_id or uuid.uuid4(), tenant_id=tenant_id or uuid.uuid4(), access_role=role
+        user_id=user_id or uuid.uuid4(),
+        tenant_id=tenant_id or uuid.uuid4(),
+        roles=frozenset({role}) if role is not None else frozenset(),
+        is_dealer_manager=is_dealer_manager,
     )
 
 
@@ -57,17 +66,26 @@ def test_platform_admin_can_create_reference_value(client, db_session):
     assert body["version"] == 1
 
 
-@pytest.mark.parametrize(
-    "role", [AccessRole.DEALER_ADMIN, AccessRole.SALES, AccessRole.INVENTORY, AccessRole.AUDITOR]
-)
+@pytest.mark.parametrize("role", [AccessRole.SALES, AccessRole.INVENTORY, AccessRole.AUDITOR])
 def test_non_platform_admin_cannot_create_reference_value(client, db_session, role):
     """Writes are platform_admin-only (CTO ruling, 2026-08-06): this table
-    has no tenant partition, so a dealer_admin write would have blast radius
-    across every other tenant's dropdowns.
+    has no tenant partition, so a dealer-manager write would have blast
+    radius across every other tenant's dropdowns.
     """
 
     _seed_list(db_session, "fuel_type")
     token = _token(role)
+    response = client.post("/v1/reference-data/fuel_type", json=_value_payload(), headers=_bearer(token))
+    assert response.status_code == 403
+
+
+def test_a_dealer_manager_cannot_create_a_reference_value(client, db_session):
+    """The manager flag grants write within its own dealership only — the
+    canonical taxonomy isn't tenant-owned at all, so it never crosses that
+    boundary either.
+    """
+    _seed_list(db_session, "fuel_type")
+    token = _token(is_dealer_manager=True)
     response = client.post("/v1/reference-data/fuel_type", json=_value_payload(), headers=_bearer(token))
     assert response.status_code == 403
     assert response.json()["error"]["code"] == "forbidden"
@@ -218,15 +236,25 @@ def test_patch_unknown_value_code_is_404(client, db_session):
     assert response.status_code == 404
 
 
-@pytest.mark.parametrize(
-    "role", [AccessRole.DEALER_ADMIN, AccessRole.SALES, AccessRole.INVENTORY, AccessRole.AUDITOR]
-)
+@pytest.mark.parametrize("role", [AccessRole.SALES, AccessRole.INVENTORY, AccessRole.AUDITOR])
 def test_non_platform_admin_cannot_patch_reference_value(client, db_session, role):
     _seed_list(db_session, "fuel_type")
     admin_token = _token(AccessRole.PLATFORM_ADMIN)
     client.post("/v1/reference-data/fuel_type", json=_value_payload(), headers=_bearer(admin_token))
 
     token = _token(role)
+    response = client.patch(
+        "/v1/reference-data/fuel_type/diesel", json={"active": False}, headers={**_bearer(token), "If-Match": "1"}
+    )
+    assert response.status_code == 403
+
+
+def test_a_dealer_manager_cannot_patch_a_reference_value(client, db_session):
+    _seed_list(db_session, "fuel_type")
+    admin_token = _token(AccessRole.PLATFORM_ADMIN)
+    client.post("/v1/reference-data/fuel_type", json=_value_payload(), headers=_bearer(admin_token))
+
+    token = _token(is_dealer_manager=True)
     response = client.patch(
         "/v1/reference-data/fuel_type/diesel", json={"active": False}, headers={**_bearer(token), "If-Match": "1"}
     )

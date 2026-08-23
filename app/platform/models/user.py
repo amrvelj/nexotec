@@ -9,16 +9,24 @@ tenant_id -> dealer.id has no DB-level FK (PR-2, ADR-015): both User and
 Dealer are platform-owned, so this was never actually a cross-context FK,
 but it's named explicitly in PR-2's scope ("every tenant_id FK to
 dealer.id") so it's dropped here too rather than re-litigated.
+
+access_roles / is_dealer_manager (WP-2 PR-2, Roles & Permissions RP-1/RP-3):
+replaces the old scalar access_role. A JSON array, not a child table like
+CustomerPhone/CustomerEmail — Roles & Permissions is explicit that there is
+"no per-dealership role editor in v1" and a dealership's whole user list is
+small (the "four-person-garage" case is the design target), so there is no
+need to query "every user holding role X" with an indexed join; the one
+place that filters by role (services/user.py::list_users) does it in
+Python over an already-small, already-paginated result set.
 """
 
 import enum
 import uuid
 
+from sqlalchemy import JSON, Boolean, String
 from sqlalchemy import Enum as SAEnum
-from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.auth import AccessRole
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
 from app.core.types import GUID
 from app.db import Base
@@ -65,9 +73,17 @@ class User(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMixin, B
     phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
     role: Mapped[UserRole] = mapped_column(SAEnum(UserRole, native_enum=False, length=32), nullable=False)
-    access_role: Mapped[AccessRole] = mapped_column(
-        SAEnum(AccessRole, native_enum=False, length=32), nullable=False
-    )
+    # Role *values* (AccessRole.value strings), not AccessRole members —
+    # SQLAlchemy's Enum type only maps a column to ONE enum member per row,
+    # so a genuinely multi-valued set has to be plain JSON here. See
+    # services/user.py for the AccessRole <-> str conversion at the
+    # schema/service boundary; nothing outside that layer should read this
+    # column directly.
+    access_roles: Mapped[list[str]] = mapped_column(JSON, nullable=False)
+    # Administration of THIS dealership only (Roles & Permissions RP-1,
+    # ADR-026) — orthogonal to access_roles. A dealership must always have
+    # at least one active manager; see services/user.py::_assert_not_last_manager.
+    is_dealer_manager: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     employment_status: Mapped[EmploymentStatus] = mapped_column(
         SAEnum(EmploymentStatus, native_enum=False, length=32),
         nullable=False,

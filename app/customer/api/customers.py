@@ -20,11 +20,12 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import list_audit_events
 from app.core.audit_schemas import AuditEventPage, AuditEventRead
-from app.core.auth import AccessRole, Principal, get_current_principal, require_access_role
+from app.core.auth import Principal, get_current_principal, require_access_role
 from app.core.concurrency import check_version, require_if_match
 from app.core.config import get_settings
 from app.core.idempotency import find_cached_response, store_response
 from app.core.pagination import SortPageParams, decode_sort_cursor
+from app.core.permissions import require_read, require_write
 from app.core.sorting import SortField, parse_sort
 from app.customer.models.customer import Customer, CustomerLifecycleStatus, CustomerType, Language
 from app.customer.schemas.customer import (
@@ -59,8 +60,6 @@ from app.platform.public import get_dealer_or_404
 router = APIRouter(tags=["customers"])
 settings = get_settings()
 
-_WRITE_ROLES = (AccessRole.DEALER_ADMIN, AccessRole.SALES)
-
 # U-02/U-03: only columns with a supporting index are offered as sortable —
 # see alembic/versions/d2f7b0e9c453_customer_sort_indexes.py for last_name/
 # updated_at/created_at; customer_number and company_name were already
@@ -90,7 +89,7 @@ def create_customer(
     body: CustomerCreate,
     request: Request,
     idempotency_key: str | None = Depends(_idempotency_key),
-    principal: Principal = Depends(require_access_role(*_WRITE_ROLES)),
+    principal: Principal = Depends(require_write("customers")),
     db: Session = Depends(get_db),
 ):
     # Tenant is JWT-derived here (no path param to validate — see module
@@ -155,7 +154,7 @@ def update_customer(
     customer_id: uuid.UUID,
     body: CustomerUpdate,
     if_match: int = Depends(require_if_match),
-    principal: Principal = Depends(require_access_role(*_WRITE_ROLES)),
+    principal: Principal = Depends(require_write("customers")),
     db: Session = Depends(get_db),
 ):
     customer = customer_service.get_customer_or_404(db, principal.tenant_id, customer_id)
@@ -169,7 +168,7 @@ def merge_customer(
     customer_id: uuid.UUID,
     body: CustomerMergeRequest,
     if_match: int = Depends(require_if_match),
-    principal: Principal = Depends(require_access_role(*_WRITE_ROLES)),
+    principal: Principal = Depends(require_write("customers")),
     db: Session = Depends(get_db),
 ):
     customer = customer_service.get_customer_or_404(db, principal.tenant_id, customer_id)
@@ -225,7 +224,7 @@ def list_customers(
 @router.get("/customers/{customer_id}/audit-log", response_model=AuditEventPage)
 def get_customer_audit_log(
     customer_id: uuid.UUID,
-    principal: Principal = Depends(require_access_role(AccessRole.DEALER_ADMIN, AccessRole.AUDITOR)),
+    principal: Principal = Depends(require_read("audit_logs")),
     db: Session = Depends(get_db),
 ):
     customer_service.get_customer_or_404(db, principal.tenant_id, customer_id)
@@ -238,7 +237,8 @@ def get_customer_audit_log(
 
 
 # --- CustomerPhone / CustomerEmail: multi-valued contact details (Customer
-# PRD, 2026-08-07). Same _WRITE_ROLES as the parent Customer; no If-Match
+# PRD, 2026-08-07). Same "customers" write capability as the parent
+# Customer (WP-2 PR-2); no If-Match
 # on these child rows — no version column (CTO ruling: is_primary isn't a
 # high-contention field), same reasoning as VehicleCustodyEvent being
 # unversioned.
@@ -259,7 +259,7 @@ def list_customer_phones(
 def create_customer_phone(
     customer_id: uuid.UUID,
     body: CustomerPhoneCreate,
-    principal: Principal = Depends(require_access_role(*_WRITE_ROLES)),
+    principal: Principal = Depends(require_write("customers")),
     db: Session = Depends(get_db),
 ):
     customer = customer_service.get_customer_or_404(db, principal.tenant_id, customer_id)
@@ -272,7 +272,7 @@ def update_customer_phone(
     customer_id: uuid.UUID,
     phone_id: uuid.UUID,
     body: CustomerPhoneUpdate,
-    principal: Principal = Depends(require_access_role(*_WRITE_ROLES)),
+    principal: Principal = Depends(require_write("customers")),
     db: Session = Depends(get_db),
 ):
     phone = customer_service.get_customer_phone_or_404(
@@ -286,7 +286,7 @@ def update_customer_phone(
 def delete_customer_phone(
     customer_id: uuid.UUID,
     phone_id: uuid.UUID,
-    principal: Principal = Depends(require_access_role(*_WRITE_ROLES)),
+    principal: Principal = Depends(require_write("customers")),
     db: Session = Depends(get_db),
 ):
     phone = customer_service.get_customer_phone_or_404(
@@ -310,7 +310,7 @@ def list_customer_emails(
 def create_customer_email(
     customer_id: uuid.UUID,
     body: CustomerEmailCreate,
-    principal: Principal = Depends(require_access_role(*_WRITE_ROLES)),
+    principal: Principal = Depends(require_write("customers")),
     db: Session = Depends(get_db),
 ):
     customer = customer_service.get_customer_or_404(db, principal.tenant_id, customer_id)
@@ -323,7 +323,7 @@ def update_customer_email(
     customer_id: uuid.UUID,
     email_id: uuid.UUID,
     body: CustomerEmailUpdate,
-    principal: Principal = Depends(require_access_role(*_WRITE_ROLES)),
+    principal: Principal = Depends(require_write("customers")),
     db: Session = Depends(get_db),
 ):
     email = customer_service.get_customer_email_or_404(
@@ -337,7 +337,7 @@ def update_customer_email(
 def delete_customer_email(
     customer_id: uuid.UUID,
     email_id: uuid.UUID,
-    principal: Principal = Depends(require_access_role(*_WRITE_ROLES)),
+    principal: Principal = Depends(require_write("customers")),
     db: Session = Depends(get_db),
 ):
     email = customer_service.get_customer_email_or_404(
@@ -439,7 +439,7 @@ def list_customer_vehicles(
 def create_customer_vehicle(
     customer_id: uuid.UUID,
     body: CustomerVehicleCreate,
-    principal: Principal = Depends(require_access_role(*_WRITE_ROLES)),
+    principal: Principal = Depends(require_write("customer_vehicle_links")),
     db: Session = Depends(get_db),
 ):
     customer = customer_service.get_customer_or_404(db, principal.tenant_id, customer_id)
@@ -452,7 +452,7 @@ def update_customer_vehicle(
     customer_id: uuid.UUID,
     party_id: uuid.UUID,
     body: CustomerVehicleUpdate,
-    principal: Principal = Depends(require_access_role(*_WRITE_ROLES)),
+    principal: Principal = Depends(require_write("customer_vehicle_links")),
     db: Session = Depends(get_db),
 ):
     customer_service.get_customer_or_404(db, principal.tenant_id, customer_id)
@@ -467,7 +467,7 @@ def update_customer_vehicle(
 def delete_customer_vehicle(
     customer_id: uuid.UUID,
     party_id: uuid.UUID,
-    principal: Principal = Depends(require_access_role(*_WRITE_ROLES)),
+    principal: Principal = Depends(require_write("customer_vehicle_links")),
     db: Session = Depends(get_db),
 ):
     customer_service.get_customer_or_404(db, principal.tenant_id, customer_id)

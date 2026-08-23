@@ -1,7 +1,17 @@
 // Mirrors app/schemas/{user,customer,auth}.py — camelCase JSON, as the
 // backend's CamelModel convention produces.
 
-export type AccessRole = 'platform_admin' | 'dealer_admin' | 'sales' | 'inventory' | 'auditor'
+// dealer_admin is gone (WP-2 PR-2, Roles & Permissions RP-1) — replaced by
+// isDealerManager below, orthogonal to this set.
+export type AccessRole =
+  | 'platform_admin'
+  | 'sales'
+  | 'aftersales'
+  | 'parts'
+  | 'inventory'
+  | 'finance'
+  | 'technician'
+  | 'auditor'
 export type UserStatus = 'invited' | 'active' | 'suspended' | 'deactivated'
 
 export interface UserRead {
@@ -12,7 +22,8 @@ export interface UserRead {
   email: string
   phone: string | null
   role: string
-  accessRole: AccessRole
+  accessRoles: AccessRole[]
+  isDealerManager: boolean
   employmentStatus: string
   authIdentityId: string
   status: UserStatus

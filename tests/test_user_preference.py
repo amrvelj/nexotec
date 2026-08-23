@@ -11,9 +11,18 @@ VALID_ADDRESS = {
 }
 
 
-def _token(role: AccessRole, tenant_id: uuid.UUID | None = None, user_id: uuid.UUID | None = None) -> str:
+def _token(
+    role: AccessRole | None = None,
+    tenant_id: uuid.UUID | None = None,
+    user_id: uuid.UUID | None = None,
+    *,
+    is_dealer_manager: bool = False,
+) -> str:
     return create_access_token(
-        user_id=user_id or uuid.uuid4(), tenant_id=tenant_id or uuid.uuid4(), access_role=role
+        user_id=user_id or uuid.uuid4(),
+        tenant_id=tenant_id or uuid.uuid4(),
+        roles=frozenset({role}) if role is not None else frozenset(),
+        is_dealer_manager=is_dealer_manager,
     )
 
 
@@ -44,7 +53,8 @@ def _create_user(client, dealer_id: str, **overrides) -> dict:
         "lastName": "Sales",
         "email": f"sam-{uuid.uuid4().hex[:8]}@example.ch",
         "role": "sales",
-        "accessRole": "sales",
+        "accessRoles": ["sales"],
+        "isDealerManager": False,
         "authIdentityId": "stub-sub-1",
     }
     payload.update(overrides)

@@ -20,9 +20,18 @@ VALID_ADDRESS = {
 }
 
 
-def _token(role: AccessRole, tenant_id: uuid.UUID | None = None, user_id: uuid.UUID | None = None) -> str:
+def _token(
+    role: AccessRole | None = None,
+    tenant_id: uuid.UUID | None = None,
+    user_id: uuid.UUID | None = None,
+    *,
+    is_dealer_manager: bool = False,
+) -> str:
     return create_access_token(
-        user_id=user_id or uuid.uuid4(), tenant_id=tenant_id or uuid.uuid4(), access_role=role
+        user_id=user_id or uuid.uuid4(),
+        tenant_id=tenant_id or uuid.uuid4(),
+        roles=frozenset({role}) if role is not None else frozenset(),
+        is_dealer_manager=is_dealer_manager,
     )
 
 
@@ -53,7 +62,8 @@ def _create_user(client, dealer_id: str, **overrides) -> dict:
         "lastName": "Sales",
         "email": f"sam-{uuid.uuid4().hex[:8]}@example.ch",
         "role": "sales",
-        "accessRole": "sales",
+        "accessRoles": ["sales"],
+        "isDealerManager": False,
         "authIdentityId": "stub-sub-1",
     }
     payload.update(overrides)
@@ -63,7 +73,7 @@ def _create_user(client, dealer_id: str, **overrides) -> dict:
 
 
 def _create_customer(client, dealer_id: str, **overrides) -> dict:
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     payload = {
         "firstName": "Anna",
         "lastName": "Muster",
@@ -84,7 +94,7 @@ def _random_vin() -> str:
 
 
 def _create_vehicle(client, dealer_id: str, **overrides) -> dict:
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     payload = {"vin": _random_vin(), "make": "Honda", "model": "Accord", "modelYear": 2020, "condition": "used"}
     payload.update(overrides)
     response = client.post("/v1/vehicles", json=payload, headers=_bearer(token))
@@ -93,7 +103,7 @@ def _create_vehicle(client, dealer_id: str, **overrides) -> dict:
 
 
 def _create_transaction(client, dealer_id: str, user: dict, customer: dict, vehicle: dict, **overrides) -> dict:
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     payload = {
         "transactionType": "sale",
         "customerId": customer["id"],
@@ -107,7 +117,7 @@ def _create_transaction(client, dealer_id: str, user: dict, customer: dict, vehi
 
 
 def _merge(client, dealer_id: str, duplicate_id: str, survivor_id: str):
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     response = client.post(
         f"/v1/customers/{duplicate_id}/merge",
         json={"duplicateOfCustomerId": survivor_id},
@@ -118,7 +128,7 @@ def _merge(client, dealer_id: str, duplicate_id: str, survivor_id: str):
 
 
 def _add_phone(client, dealer_id: str, customer_id: str, phone_e164: str, **overrides):
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     payload = {"phoneType": "mobile", "phoneE164": phone_e164}
     payload.update(overrides)
     response = client.post(f"/v1/customers/{customer_id}/phones", json=payload, headers=_bearer(token))
@@ -127,7 +137,7 @@ def _add_phone(client, dealer_id: str, customer_id: str, phone_e164: str, **over
 
 
 def _add_email(client, dealer_id: str, customer_id: str, email_address: str, **overrides):
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     payload = {"emailType": "private", "emailAddress": email_address}
     payload.update(overrides)
     response = client.post(f"/v1/customers/{customer_id}/emails", json=payload, headers=_bearer(token))
@@ -220,7 +230,7 @@ def test_merge_repoints_transactions(client):
 
     _merge(client, dealer_id, duplicate["id"], survivor["id"])
 
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     response = client.get(f"/v1/transactions/{txn['id']}", headers=_bearer(token))
     assert response.status_code == 200, response.text
     assert response.json()["customerId"] == survivor["id"]
@@ -238,7 +248,7 @@ def test_merge_repoints_unique_phone_and_email(client):
 
     _merge(client, dealer_id, duplicate["id"], survivor["id"])
 
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     phones = client.get(f"/v1/customers/{survivor['id']}/phones", headers=_bearer(token)).json()["items"]
     emails = client.get(f"/v1/customers/{survivor['id']}/emails", headers=_bearer(token)).json()["items"]
     assert "+41791112233" in {p["phoneE164"] for p in phones}
@@ -257,7 +267,7 @@ def test_merge_dedupes_conflicting_phone_and_email(client):
 
     _merge(client, dealer_id, duplicate["id"], survivor["id"])
 
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     phones = client.get(f"/v1/customers/{survivor['id']}/phones", headers=_bearer(token)).json()["items"]
     emails = client.get(f"/v1/customers/{survivor['id']}/emails", headers=_bearer(token)).json()["items"]
     assert [p["phoneE164"] for p in phones].count("+41799998877") == 1
@@ -277,7 +287,7 @@ def test_merge_repoints_external_id(client):
 
     _merge(client, dealer_id, duplicate["id"], survivor["id"])
 
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     rows = client.get(f"/v1/customers/{survivor['id']}/external-ids", headers=_bearer(token)).json()["items"]
     assert {(r["systemName"], r["externalId"]) for r in rows} == {("crm", "CRM-123")}
 
@@ -291,7 +301,7 @@ def test_merge_drops_external_id_when_survivor_already_has_that_system(client):
 
     _merge(client, dealer_id, duplicate["id"], survivor["id"])
 
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     rows = client.get(f"/v1/customers/{survivor['id']}/external-ids", headers=_bearer(token)).json()["items"]
     # Survivor's own linkage wins; the duplicate's is dropped, not merged in.
     assert {(r["systemName"], r["externalId"]) for r in rows} == {("crm", "SURVIVOR-1")}
@@ -311,7 +321,7 @@ def test_merge_audit_log_reports_repoint_counts(client):
 
     _merge(client, dealer_id, duplicate["id"], survivor["id"])
 
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     log = client.get(f"/v1/customers/{duplicate['id']}/audit-log", headers=_bearer(token))
     assert log.status_code == 200, log.text
     merge_event = next(item for item in log.json()["items"] if item["action"] == "merge")

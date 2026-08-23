@@ -14,9 +14,18 @@ VALID_ADDRESS = {
 }
 
 
-def _token(role: AccessRole, tenant_id: uuid.UUID | None = None, user_id: uuid.UUID | None = None) -> str:
+def _token(
+    role: AccessRole | None = None,
+    tenant_id: uuid.UUID | None = None,
+    user_id: uuid.UUID | None = None,
+    *,
+    is_dealer_manager: bool = False,
+) -> str:
     return create_access_token(
-        user_id=user_id or uuid.uuid4(), tenant_id=tenant_id or uuid.uuid4(), access_role=role
+        user_id=user_id or uuid.uuid4(),
+        tenant_id=tenant_id or uuid.uuid4(),
+        roles=frozenset({role}) if role is not None else frozenset(),
+        is_dealer_manager=is_dealer_manager,
     )
 
 
@@ -47,7 +56,8 @@ def _create_user(client, dealer_id: str, **overrides) -> dict:
         "lastName": "Sales",
         "email": f"sam-{uuid.uuid4().hex[:8]}@example.ch",  # User.email is globally unique
         "role": "sales",
-        "accessRole": "sales",
+        "accessRoles": ["sales"],
+        "isDealerManager": False,
         "authIdentityId": "stub-sub-1",
     }
     payload.update(overrides)
@@ -57,7 +67,7 @@ def _create_user(client, dealer_id: str, **overrides) -> dict:
 
 
 def _create_customer(client, dealer_id: str, **overrides) -> dict:
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     payload = {
         "firstName": "Peter",
         "lastName": "Beispiel",
@@ -76,7 +86,7 @@ def _random_vin() -> str:
 
 
 def _create_vehicle(client, dealer_id: str, **overrides) -> dict:
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     payload = {"vin": _random_vin(), "make": "Honda", "model": "Accord", "modelYear": 2020, "condition": "used"}
     payload.update(overrides)
     response = client.post("/v1/vehicles", json=payload, headers=_bearer(token))
@@ -108,7 +118,7 @@ def _transaction_payload(user: dict, customer: dict, vehicle: dict, **overrides)
 
 
 def _create_transaction(client, dealer_id: str, user: dict, customer: dict, vehicle: dict, **overrides) -> dict:
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     response = client.post(
         "/v1/transactions", json=_transaction_payload(user, customer, vehicle, **overrides), headers=_bearer(token)
     )
@@ -155,7 +165,7 @@ def test_create_transaction_requires_authentication(client):
 
 def test_create_transaction_under_nonexistent_tenant_is_404(client):
     _dealer_id, user, customer, vehicle = _setup(client)
-    token = _token(AccessRole.DEALER_ADMIN)  # random tenant_id, no real Dealer row
+    token = _token(is_dealer_manager=True)  # random tenant_id, no real Dealer row
     response = client.post(
         "/v1/transactions", json=_transaction_payload(user, customer, vehicle), headers=_bearer(token)
     )
@@ -165,7 +175,7 @@ def test_create_transaction_under_nonexistent_tenant_is_404(client):
 def test_customer_from_other_tenant_is_rejected(client):
     dealer_a, user_a, _customer_a, vehicle_a = _setup(client)
     _dealer_b, _user_b, customer_b, _vehicle_b = _setup(client)
-    token_a = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_a))
+    token_a = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_a))
     response = client.post(
         "/v1/transactions",
         json=_transaction_payload(user_a, customer_b, vehicle_a),
@@ -177,7 +187,7 @@ def test_customer_from_other_tenant_is_rejected(client):
 def test_user_from_other_tenant_is_rejected(client):
     dealer_a, _user_a, customer_a, vehicle_a = _setup(client)
     _dealer_b, user_b, _customer_b, _vehicle_b = _setup(client)
-    token_a = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_a))
+    token_a = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_a))
     response = client.post(
         "/v1/transactions",
         json=_transaction_payload(user_b, customer_a, vehicle_a),
@@ -188,7 +198,7 @@ def test_user_from_other_tenant_is_rejected(client):
 
 def test_nonexistent_vehicle_is_rejected(client):
     dealer_id, user, customer, _vehicle = _setup(client)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     payload = _transaction_payload(user, customer, {"id": str(uuid.uuid4())})
     response = client.post("/v1/transactions", json=payload, headers=_bearer(token))
     assert response.status_code == 404
@@ -200,7 +210,7 @@ def test_nonexistent_vehicle_is_rejected(client):
 def test_patch_without_if_match_is_400(client):
     dealer_id, user, customer, vehicle = _setup(client)
     body = _create_transaction(client, dealer_id, user, customer, vehicle)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     response = client.patch(f"/v1/transactions/{body['id']}", json={"notes": "test"}, headers=_bearer(token))
     assert response.status_code == 400
 
@@ -208,7 +218,7 @@ def test_patch_without_if_match_is_400(client):
 def test_patch_updates_draft_transaction(client):
     dealer_id, user, customer, vehicle = _setup(client)
     body = _create_transaction(client, dealer_id, user, customer, vehicle)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     response = client.patch(
         f"/v1/transactions/{body['id']}",
         json={"amount": "42000.00"},
@@ -222,7 +232,7 @@ def test_patch_updates_draft_transaction(client):
 def test_patch_after_completion_is_rejected(client):
     dealer_id, user, customer, vehicle = _setup(client)
     body = _create_transaction(client, dealer_id, user, customer, vehicle, amount="10000.00")
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     headers = _bearer(token)
     client.post(f"/v1/transactions/{body['id']}/complete", headers={**headers, "If-Match": "1"})
 
@@ -238,7 +248,7 @@ def test_patch_after_completion_is_rejected(client):
 def test_complete_sale_requires_amount(client):
     dealer_id, user, customer, vehicle = _setup(client)
     body = _create_transaction(client, dealer_id, user, customer, vehicle)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     response = client.post(
         f"/v1/transactions/{body['id']}/complete", headers={**_bearer(token), "If-Match": "1"}
     )
@@ -256,7 +266,7 @@ def test_complete_sale_marks_vehicle_sold_and_clears_custodian(client):
 
     dealer_id, user, customer, vehicle = _setup(client)
     body = _create_transaction(client, dealer_id, user, customer, vehicle, amount="35000.00")
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
 
     response = client.post(
         f"/v1/transactions/{body['id']}/complete", headers={**_bearer(token), "If-Match": "1"}
@@ -284,10 +294,10 @@ def test_dealer_with_no_custody_history_still_gets_redacted_status_after_sale(cl
 
     dealer_id, user, customer, vehicle = _setup(client)
     body = _create_transaction(client, dealer_id, user, customer, vehicle, amount="35000.00")
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     client.post(f"/v1/transactions/{body['id']}/complete", headers={**_bearer(token), "If-Match": "1"})
 
-    stranger_token = _token(AccessRole.DEALER_ADMIN)  # different, random tenant, no custody history
+    stranger_token = _token(is_dealer_manager=True)  # different, random tenant, no custody history
     stranger_resp = client.get(f"/v1/vehicles/{vehicle['id']}", headers=_bearer(stranger_token))
     assert stranger_resp.json()["status"] is None
     assert stranger_resp.json()["currentCustodianPartnerId"] is None
@@ -296,7 +306,7 @@ def test_dealer_with_no_custody_history_still_gets_redacted_status_after_sale(cl
 def test_complete_sale_creates_sold_custody_event(client):
     dealer_id, user, customer, vehicle = _setup(client)
     body = _create_transaction(client, dealer_id, user, customer, vehicle, amount="35000.00")
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     client.post(f"/v1/transactions/{body['id']}/complete", headers={**_bearer(token), "If-Match": "1"})
 
     events = client.get(f"/v1/vehicles/{vehicle['id']}/custody-events", headers=_bearer(token))
@@ -316,7 +326,7 @@ def test_cannot_complete_sale_if_dealer_does_not_hold_custody(client):
     )
 
     body = _create_transaction(client, dealer_a, user_a, customer_a, vehicle, amount="1000.00")
-    token_a = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_a))
+    token_a = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_a))
     response = client.post(
         f"/v1/transactions/{body['id']}/complete", headers={**_bearer(token_a), "If-Match": "1"}
     )
@@ -326,7 +336,7 @@ def test_cannot_complete_sale_if_dealer_does_not_hold_custody(client):
 def test_cannot_complete_already_completed_transaction(client):
     dealer_id, user, customer, vehicle = _setup(client)
     body = _create_transaction(client, dealer_id, user, customer, vehicle, amount="1000.00")
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     headers = _bearer(token)
     client.post(f"/v1/transactions/{body['id']}/complete", headers={**headers, "If-Match": "1"})
 
@@ -346,7 +356,7 @@ def test_complete_trade_in_marks_vehicle_in_stock_and_sets_custodian(client):
     body = _create_transaction(
         client, dealer_id, user, customer, trade_in_vehicle, transactionType="trade_in", amount="8000.00"
     )
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     response = client.post(
         f"/v1/transactions/{body['id']}/complete", headers={**_bearer(token), "If-Match": "1"}
     )
@@ -363,7 +373,7 @@ def test_complete_trade_in_marks_vehicle_in_stock_and_sets_custodian(client):
 def test_cancel_draft_transaction(client):
     dealer_id, user, customer, vehicle = _setup(client)
     body = _create_transaction(client, dealer_id, user, customer, vehicle)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     response = client.post(
         f"/v1/transactions/{body['id']}/cancel",
         json={"reason": "customer backed out"},
@@ -376,7 +386,7 @@ def test_cancel_draft_transaction(client):
 def test_cancel_does_not_mutate_vehicle(client):
     dealer_id, user, customer, vehicle = _setup(client)
     body = _create_transaction(client, dealer_id, user, customer, vehicle)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     client.post(
         f"/v1/transactions/{body['id']}/cancel", json={}, headers={**_bearer(token), "If-Match": "1"}
     )
@@ -389,7 +399,7 @@ def test_cancel_does_not_mutate_vehicle(client):
 def test_cannot_cancel_completed_transaction(client):
     dealer_id, user, customer, vehicle = _setup(client)
     body = _create_transaction(client, dealer_id, user, customer, vehicle, amount="1000.00")
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     headers = _bearer(token)
     client.post(f"/v1/transactions/{body['id']}/complete", headers={**headers, "If-Match": "1"})
 
@@ -405,7 +415,7 @@ def test_cannot_cancel_completed_transaction(client):
 def test_get_transaction_cross_tenant_is_404(client):
     dealer_id, user, customer, vehicle = _setup(client)
     body = _create_transaction(client, dealer_id, user, customer, vehicle)
-    other_token = _token(AccessRole.DEALER_ADMIN)  # different, random tenant
+    other_token = _token(is_dealer_manager=True)  # different, random tenant
     response = client.get(f"/v1/transactions/{body['id']}", headers=_bearer(other_token))
     assert response.status_code == 404
 
@@ -415,7 +425,7 @@ def test_list_transactions_is_tenant_scoped(client):
     dealer_b = _create_dealer(client)
     _create_transaction(client, dealer_a, user_a, customer_a, vehicle_a)
 
-    token_b = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_b))
+    token_b = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_b))
     response = client.get("/v1/transactions", headers=_bearer(token_b))
     assert response.json()["items"] == []
 
@@ -423,7 +433,7 @@ def test_list_transactions_is_tenant_scoped(client):
 def test_list_transactions_filters_by_status(client):
     dealer_id, user, customer, vehicle = _setup(client)
     draft = _create_transaction(client, dealer_id, user, customer, vehicle)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
 
     response = client.get("/v1/transactions?status=draft", headers=_bearer(token))
     ids = [item["id"] for item in response.json()["items"]]
@@ -436,7 +446,7 @@ def test_list_transactions_filters_by_status(client):
 def test_audit_log_records_create_and_complete(client):
     dealer_id, user, customer, vehicle = _setup(client)
     body = _create_transaction(client, dealer_id, user, customer, vehicle, amount="1000.00")
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     client.post(f"/v1/transactions/{body['id']}/complete", headers={**_bearer(token), "If-Match": "1"})
 
     log = client.get(f"/v1/transactions/{body['id']}/audit-log", headers=_bearer(token))
@@ -448,7 +458,7 @@ def test_audit_log_records_create_and_complete(client):
 def test_audit_log_records_cancel_reason(client):
     dealer_id, user, customer, vehicle = _setup(client)
     body = _create_transaction(client, dealer_id, user, customer, vehicle)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     client.post(
         f"/v1/transactions/{body['id']}/cancel",
         json={"reason": "budget fell through"},

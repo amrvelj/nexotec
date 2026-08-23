@@ -102,10 +102,22 @@ SESSION_COOKIE_NAME = "dms_session"
 
 
 class AccessRole(str, enum.Enum):
+    """Functional roles (WP-2 PR-2, Roles & Permissions RP-3). `dealer_admin`
+    is gone — "runs the dealership" and "may use this module" were the same
+    field by accident, not by decision (the RP-1 leak); administration is
+    now Principal.is_dealer_manager, orthogonal to this set. aftersales,
+    parts, finance and technician are added now even though those modules
+    don't exist yet — adding a role later means revisiting every guard that
+    was written before it existed.
+    """
+
     PLATFORM_ADMIN = "platform_admin"
-    DEALER_ADMIN = "dealer_admin"
     SALES = "sales"
+    AFTERSALES = "aftersales"
+    PARTS = "parts"
     INVENTORY = "inventory"
+    FINANCE = "finance"
+    TECHNICIAN = "technician"
     AUDITOR = "auditor"
 
 
@@ -113,18 +125,31 @@ class AccessRole(str, enum.Enum):
 class Principal:
     user_id: uuid.UUID
     tenant_id: uuid.UUID
-    access_role: AccessRole
+    roles: frozenset[AccessRole]
+    # Administration of THIS principal's own dealership — invite/deactivate
+    # users, integrations, dealership settings — and nothing outside it
+    # (Roles & Permissions, RP-1/ADR-026). Orthogonal to `roles`: a manager
+    # holds whatever functional roles their job also needs, same as anyone
+    # else. app.core.permissions is where this flag actually grants write
+    # access to a capability; this dataclass only carries the claim.
+    is_dealer_manager: bool
 
 
 def create_access_token(
-    *, user_id: uuid.UUID, tenant_id: uuid.UUID, access_role: AccessRole, ttl_seconds: int | None = None
+    *,
+    user_id: uuid.UUID,
+    tenant_id: uuid.UUID,
+    roles: frozenset[AccessRole] | set[AccessRole],
+    is_dealer_manager: bool = False,
+    ttl_seconds: int | None = None,
 ) -> str:
     now = dt.datetime.now(dt.UTC)
     ttl = ttl_seconds if ttl_seconds is not None else settings.jwt_access_token_ttl_seconds
     payload = {
         "sub": str(user_id),
         "tenant_id": str(tenant_id),
-        "access_role": access_role.value,
+        "roles": sorted(role.value for role in roles),
+        "is_dealer_manager": is_dealer_manager,
         "iss": settings.jwt_issuer,
         "iat": int(now.timestamp()),
         "exp": int((now + dt.timedelta(seconds=ttl)).timestamp()),
@@ -139,7 +164,7 @@ def _decode_token(token: str) -> dict:
             _PUBLIC_KEY,
             algorithms=[_ALGORITHM],
             issuer=settings.jwt_issuer,
-            options={"require": ["sub", "tenant_id", "access_role", "exp", "iat"]},
+            options={"require": ["sub", "tenant_id", "roles", "is_dealer_manager", "exp", "iat"]},
         )
     except jwt.ExpiredSignatureError as exc:
         raise UnauthorizedError("Access token has expired.") from exc
@@ -164,26 +189,31 @@ def get_current_principal(token: str = Depends(get_bearer_token)) -> Principal:
         return Principal(
             user_id=uuid.UUID(claims["sub"]),
             tenant_id=uuid.UUID(claims["tenant_id"]),
-            access_role=AccessRole(claims["access_role"]),
+            roles=frozenset(AccessRole(role) for role in claims["roles"]),
+            is_dealer_manager=bool(claims["is_dealer_manager"]),
         )
-    except (ValueError, KeyError) as exc:
+    except (ValueError, KeyError, TypeError) as exc:
         raise UnauthorizedError("Access token claims are malformed.") from exc
 
 
 def require_access_role(*allowed: AccessRole):
     """Dependency factory: `Depends(require_access_role(AccessRole.SALES))`.
 
-    platform_admin is always allowed through, in addition to whatever roles
-    are listed, since it's the cross-tenant operator role.
+    Passes if the principal holds ANY of the listed roles. platform_admin
+    always passes, in addition to whatever roles are listed, since it's the
+    cross-tenant operator role. This is a plain role-membership gate — it
+    does not know about is_dealer_manager or the read/write distinction;
+    those live in app.core.permissions's capability checks, which is what
+    every write endpoint that used to read `_WRITE_ROLES` now uses instead.
+    This one still covers the platform_admin-only endpoints (dealer
+    onboarding, the canonical taxonomy), which were never part of that leak.
     """
 
     allowed_set = set(allowed) | {AccessRole.PLATFORM_ADMIN}
 
     def _check(principal: Principal = Depends(get_current_principal)) -> Principal:
-        if principal.access_role not in allowed_set:
-            raise ForbiddenError(
-                f"Role '{principal.access_role.value}' is not permitted to perform this action."
-            )
+        if not (principal.roles & allowed_set):
+            raise ForbiddenError("None of this principal's roles are permitted to perform this action.")
         return principal
 
     return _check

@@ -2,8 +2,14 @@
 
 POST /v1/dealers is platform-admin only — it's how the first tenant gets
 created. POST /v1/dealers/{id}/users creates the initial admin User for that
-Dealer (also usable by an existing dealer_admin to add staff within their
+Dealer (also usable by an existing dealer manager to add staff within their
 own tenant). See PLANS/DMS_MDM_V1_SPEC.md §3 + the Swiss addendum.
+
+Dealership settings and dealership-user management (WP-2 PR-2) are manager-
+only in both directions now — Roles & Permissions' matrix marks "Users of
+the dealership" read as `manager`, not "Any role" the way most of the
+matrix is, so this tightens list_users/get_user, not just the writes that
+used to read _WRITE_ROLES.
 """
 
 import uuid
@@ -14,10 +20,11 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import list_tenant_audit_events
 from app.core.audit_schemas import AuditEventPage, AuditEventRead
-from app.core.auth import AccessRole, Principal, get_current_principal, require_access_role
+from app.core.auth import Principal, get_current_principal, require_access_role
 from app.core.concurrency import check_version, require_if_match
 from app.core.idempotency import find_cached_response, store_response
 from app.core.pagination import PageParams, page_params
+from app.core.permissions import require_read, require_write
 from app.core.tenancy import require_tenant_match
 from app.db import get_db
 from app.platform.models.dealer import DealerStatus
@@ -86,7 +93,7 @@ def update_dealer(
     dealer_id: uuid.UUID,
     body: DealerUpdate,
     if_match: int = Depends(require_if_match),
-    principal: Principal = Depends(require_access_role(AccessRole.DEALER_ADMIN)),
+    principal: Principal = Depends(require_write("dealership_settings")),
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealer_id, principal)
@@ -116,7 +123,7 @@ def list_dealers(
 def get_dealer_audit_log(
     dealer_id: uuid.UUID,
     params: PageParams = Depends(page_params),
-    principal: Principal = Depends(require_access_role(AccessRole.DEALER_ADMIN, AccessRole.AUDITOR)),
+    principal: Principal = Depends(require_read("audit_logs")),
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealer_id, principal)
@@ -135,7 +142,7 @@ def create_user(
     body: UserCreate,
     request: Request,
     idempotency_key: str | None = Depends(_idempotency_key),
-    principal: Principal = Depends(require_access_role(AccessRole.DEALER_ADMIN)),
+    principal: Principal = Depends(require_write("dealership_users")),
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealer_id, principal)
@@ -170,7 +177,7 @@ def create_user(
 def get_user(
     dealer_id: uuid.UUID,
     user_id: uuid.UUID,
-    principal: Principal = Depends(get_current_principal),
+    principal: Principal = Depends(require_read("dealership_users")),
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealer_id, principal)
@@ -184,7 +191,7 @@ def update_user(
     user_id: uuid.UUID,
     body: UserUpdate,
     if_match: int = Depends(require_if_match),
-    principal: Principal = Depends(require_access_role(AccessRole.DEALER_ADMIN)),
+    principal: Principal = Depends(require_write("dealership_users")),
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealer_id, principal)
@@ -200,7 +207,7 @@ def list_users(
     role: str | None = None,
     status: UserStatus | None = None,
     params: PageParams = Depends(page_params),
-    principal: Principal = Depends(get_current_principal),
+    principal: Principal = Depends(require_read("dealership_users")),
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealer_id, principal)

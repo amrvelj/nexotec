@@ -14,9 +14,18 @@ VALID_ADDRESS = {
 }
 
 
-def _token(role: AccessRole, tenant_id: uuid.UUID | None = None, user_id: uuid.UUID | None = None) -> str:
+def _token(
+    role: AccessRole | None = None,
+    tenant_id: uuid.UUID | None = None,
+    user_id: uuid.UUID | None = None,
+    *,
+    is_dealer_manager: bool = False,
+) -> str:
     return create_access_token(
-        user_id=user_id or uuid.uuid4(), tenant_id=tenant_id or uuid.uuid4(), access_role=role
+        user_id=user_id or uuid.uuid4(),
+        tenant_id=tenant_id or uuid.uuid4(),
+        roles=frozenset({role}) if role is not None else frozenset(),
+        is_dealer_manager=is_dealer_manager,
     )
 
 
@@ -56,7 +65,7 @@ def _customer_payload(**overrides):
 
 
 def _create_customer(client, dealer_id: str, **overrides):
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     response = client.post("/v1/customers", json=_customer_payload(**overrides), headers=_bearer(token))
     assert response.status_code == 201, response.text
     return response.json()
@@ -94,7 +103,7 @@ def test_create_customer_requires_authentication(client):
 
 
 def test_create_customer_under_nonexistent_tenant_is_404(client):
-    token = _token(AccessRole.DEALER_ADMIN)  # random tenant_id, no real Dealer row
+    token = _token(is_dealer_manager=True)  # random tenant_id, no real Dealer row
     response = client.post("/v1/customers", json=_customer_payload(), headers=_bearer(token))
     assert response.status_code == 404
 
@@ -108,7 +117,7 @@ def test_a_contact_point_is_required(client):
     """
 
     dealer_id = _create_dealer(client)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     payload = _customer_payload(emails=[])
     response = client.post("/v1/customers", json=payload, headers=_bearer(token))
     assert response.status_code == 422
@@ -118,7 +127,7 @@ def test_phone_only_customer_is_allowed(client):
     """The walk-in case (US-03): capture a phone number now, finish later."""
 
     dealer_id = _create_dealer(client)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     payload = _customer_payload(emails=[], phones=[{"phoneType": "mobile", "phoneE164": "+41791234567"}])
     response = client.post("/v1/customers", json=payload, headers=_bearer(token))
     assert response.status_code == 201, response.text
@@ -128,7 +137,7 @@ def test_language_is_required(client):
     """D-01: correspondence language is never inferred server-side."""
 
     dealer_id = _create_dealer(client)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     payload = _customer_payload()
     del payload["language"]
     response = client.post("/v1/customers", json=payload, headers=_bearer(token))
@@ -137,7 +146,7 @@ def test_language_is_required(client):
 
 def test_phone_only_is_sufficient(client):
     dealer_id = _create_dealer(client)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     payload = _customer_payload(email=None, phone="+41791234567")
     response = client.post("/v1/customers", json=payload, headers=_bearer(token))
     assert response.status_code == 201, response.text
@@ -145,7 +154,7 @@ def test_phone_only_is_sufficient(client):
 
 def test_invalid_email_is_rejected(client):
     dealer_id = _create_dealer(client)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     response = client.post(
         "/v1/customers",
         json=_customer_payload(emails=[{"emailType": "private", "emailAddress": "not-an-email"}]),
@@ -156,7 +165,7 @@ def test_invalid_email_is_rejected(client):
 
 def test_invalid_phone_is_rejected(client):
     dealer_id = _create_dealer(client)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     response = client.post(
         "/v1/customers",
         json=_customer_payload(phones=[{"phoneType": "mobile", "phoneE164": "0791234567"}]),
@@ -167,7 +176,7 @@ def test_invalid_phone_is_rejected(client):
 
 def test_cannot_create_customer_already_merged(client):
     dealer_id = _create_dealer(client)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     response = client.post(
         "/v1/customers", json=_customer_payload(lifecycleStatus="merged"), headers=_bearer(token)
     )
@@ -182,7 +191,7 @@ def test_two_customers_may_share_an_email(client):
     """
 
     dealer_id = _create_dealer(client)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     shared = [{"emailType": "private", "emailAddress": "haushalt@example.ch"}]
     _create_customer(client, dealer_id, firstName="Anna", emails=shared)
     response = client.post(
@@ -206,7 +215,7 @@ def test_duplicate_email_across_tenants_is_allowed(client):
     response = client.post(
         "/v1/customers",
         json=_customer_payload(email="shared@example.ch"),
-        headers=_bearer(_token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_b))),
+        headers=_bearer(_token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_b))),
     )
     assert response.status_code == 201
 
@@ -231,14 +240,14 @@ def test_get_customer_cross_tenant_is_404(client):
     dealer_id = _create_dealer(client)
     customer = _create_customer(client, dealer_id)
 
-    other_token = _token(AccessRole.DEALER_ADMIN)  # different, random tenant_id
+    other_token = _token(is_dealer_manager=True)  # different, random tenant_id
     response = client.get(f"/v1/customers/{customer['id']}", headers=_bearer(other_token))
     assert response.status_code == 404
 
 
 def test_get_unknown_customer_is_404(client):
     dealer_id = _create_dealer(client)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     response = client.get(f"/v1/customers/{uuid.uuid4()}", headers=_bearer(token))
     assert response.status_code == 404
 
@@ -249,7 +258,7 @@ def test_get_unknown_customer_is_404(client):
 def test_patch_without_if_match_is_400(client):
     dealer_id = _create_dealer(client)
     customer = _create_customer(client, dealer_id)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     response = client.patch(
         f"/v1/customers/{customer['id']}", json={"lastName": "Muster-Meier"}, headers=_bearer(token)
     )
@@ -259,7 +268,7 @@ def test_patch_without_if_match_is_400(client):
 def test_patch_with_stale_if_match_is_409(client):
     dealer_id = _create_dealer(client)
     customer = _create_customer(client, dealer_id)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     headers = {**_bearer(token), "If-Match": "1"}
 
     first = client.patch(f"/v1/customers/{customer['id']}", json={"lastName": "A"}, headers=headers)
@@ -272,7 +281,7 @@ def test_patch_with_stale_if_match_is_409(client):
 def test_patch_updates_customer_and_bumps_version(client):
     dealer_id = _create_dealer(client)
     customer = _create_customer(client, dealer_id)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     response = client.patch(
         f"/v1/customers/{customer['id']}",
         json={"lastName": "Neuname"},
@@ -290,7 +299,7 @@ def test_deleting_the_last_contact_point_is_rejected(client):
 
     dealer_id = _create_dealer(client)
     customer = _create_customer(client, dealer_id)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     only_email = client.get(f"/v1/customers/{customer['id']}/emails", headers=_bearer(token)).json()["items"][0]
     response = client.delete(
         f"/v1/customers/{customer['id']}/emails/{only_email['id']}", headers=_bearer(token)
@@ -303,7 +312,7 @@ def test_deleting_an_email_is_allowed_when_a_phone_remains(client):
     customer = _create_customer(
         client, dealer_id, phones=[{"phoneType": "mobile", "phoneE164": "+41791234567"}]
     )
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     only_email = client.get(f"/v1/customers/{customer['id']}/emails", headers=_bearer(token)).json()["items"][0]
     response = client.delete(
         f"/v1/customers/{customer['id']}/emails/{only_email['id']}", headers=_bearer(token)
@@ -314,7 +323,7 @@ def test_deleting_an_email_is_allowed_when_a_phone_remains(client):
 def test_patch_cannot_set_lifecycle_status_merged_directly(client):
     dealer_id = _create_dealer(client)
     customer = _create_customer(client, dealer_id)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     response = client.patch(
         f"/v1/customers/{customer['id']}",
         json={"lifecycleStatus": "merged"},
@@ -341,7 +350,7 @@ def test_merge_sets_lifecycle_status_and_duplicate_of(client):
     dealer_id = _create_dealer(client)
     survivor = _create_customer(client, dealer_id, email="survivor@example.ch")
     duplicate = _create_customer(client, dealer_id, email="dup1@example.ch")
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
 
     response = client.post(
         f"/v1/customers/{duplicate['id']}/merge",
@@ -358,7 +367,7 @@ def test_merge_sets_lifecycle_status_and_duplicate_of(client):
 def test_merge_into_self_is_rejected(client):
     dealer_id = _create_dealer(client)
     customer = _create_customer(client, dealer_id)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     response = client.post(
         f"/v1/customers/{customer['id']}/merge",
         json={"duplicateOfCustomerId": customer["id"]},
@@ -372,7 +381,7 @@ def test_merge_into_already_merged_target_is_rejected(client):
     survivor = _create_customer(client, dealer_id, email="survivor2@example.ch")
     dup_a = _create_customer(client, dealer_id, email="dupa@example.ch")
     dup_b = _create_customer(client, dealer_id, email="dupb@example.ch")
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
 
     client.post(
         f"/v1/customers/{dup_a['id']}/merge",
@@ -391,7 +400,7 @@ def test_merged_customer_cannot_be_patched_further(client):
     dealer_id = _create_dealer(client)
     survivor = _create_customer(client, dealer_id, email="survivor3@example.ch")
     duplicate = _create_customer(client, dealer_id, email="dup3@example.ch")
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
 
     client.post(
         f"/v1/customers/{duplicate['id']}/merge",
@@ -464,7 +473,7 @@ def test_duplicate_check_does_not_block_create(client):
 
 def test_list_customers_filters_by_lifecycle_status(client):
     dealer_id = _create_dealer(client)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     _create_customer(client, dealer_id, email="a@example.ch")
     prospect = _create_customer(client, dealer_id, email="b@example.ch")
 
@@ -482,7 +491,7 @@ def test_list_customers_filters_by_lifecycle_status(client):
 
 def test_list_customers_filters_by_query_text(client):
     dealer_id = _create_dealer(client)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     _create_customer(client, dealer_id, firstName="Anna", lastName="Muster", email="a@example.ch")
     _create_customer(client, dealer_id, firstName="Bruno", lastName="Keller", email="b@example.ch")
 
@@ -497,14 +506,14 @@ def test_list_customers_is_tenant_scoped(client):
     dealer_b = _create_dealer(client)
     _create_customer(client, dealer_a, email="a@example.ch")
 
-    token_b = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_b))
+    token_b = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_b))
     response = client.get("/v1/customers", headers=_bearer(token_b))
     assert response.json()["items"] == []
 
 
 def test_list_customers_paginates(client):
     dealer_id = _create_dealer(client)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     for i in range(3):
         _create_customer(client, dealer_id, email=f"c{i}@example.ch")
 
@@ -525,7 +534,7 @@ def test_list_customers_paginates(client):
 def test_pii_changes_are_audit_logged(client):
     dealer_id = _create_dealer(client)
     customer = _create_customer(client, dealer_id)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
 
     client.patch(
         f"/v1/customers/{customer['id']}",
@@ -546,7 +555,7 @@ def test_merge_logs_both_source_ids(client):
     dealer_id = _create_dealer(client)
     survivor = _create_customer(client, dealer_id, email="survivor4@example.ch")
     duplicate = _create_customer(client, dealer_id, email="dup4@example.ch")
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
 
     client.post(
         f"/v1/customers/{duplicate['id']}/merge",
@@ -574,7 +583,7 @@ def test_non_admin_auditor_roles_cannot_read_audit_log(client, role):
 
 def test_create_business_customer(client):
     dealer_id = _create_dealer(client)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     payload = {
         "customerType": "business",
         "companyName": "Muster Garage AG",
@@ -596,7 +605,7 @@ def test_create_business_customer(client):
 
 def test_business_customer_rejects_individual_fields(client):
     dealer_id = _create_dealer(client)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     payload = {
         "customerType": "business",
         "companyName": "Muster Garage AG",
@@ -609,7 +618,7 @@ def test_business_customer_rejects_individual_fields(client):
 
 def test_business_customer_requires_company_name(client):
     dealer_id = _create_dealer(client)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     payload = {"customerType": "business", "email": "info@muster-garage.ch"}
     response = client.post("/v1/customers", json=payload, headers=_bearer(token))
     assert response.status_code == 422
@@ -617,7 +626,7 @@ def test_business_customer_requires_company_name(client):
 
 def test_individual_customer_rejects_business_fields(client):
     dealer_id = _create_dealer(client)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     response = client.post(
         "/v1/customers", json=_customer_payload(companyName="Oops AG"), headers=_bearer(token)
     )
@@ -627,7 +636,7 @@ def test_individual_customer_rejects_business_fields(client):
 def test_patch_cannot_set_business_field_on_individual_customer(client):
     dealer_id = _create_dealer(client)
     customer = _create_customer(client, dealer_id, email="patch-mix@example.ch")
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     response = client.patch(
         f"/v1/customers/{customer['id']}",
         json={"companyName": "Oops AG"},
@@ -638,7 +647,7 @@ def test_patch_cannot_set_business_field_on_individual_customer(client):
 
 def test_tax_id_is_redacted_in_audit_log(client):
     dealer_id = _create_dealer(client)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     payload = {
         "customerType": "business",
         "companyName": "Redact AG",
@@ -661,7 +670,7 @@ def test_tax_id_is_encrypted_at_rest(client, db_session):
     """
 
     dealer_id = _create_dealer(client)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     payload = {
         "customerType": "business",
         "companyName": "Encrypted AG",
@@ -686,7 +695,7 @@ def test_tax_id_is_encrypted_at_rest(client, db_session):
 def test_first_phone_is_auto_primary(client):
     dealer_id = _create_dealer(client)
     customer = _create_customer(client, dealer_id, email="phones1@example.ch")
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     response = client.post(
         f"/v1/customers/{customer['id']}/phones",
         json={"phoneType": "mobile", "phoneE164": "+41791234567", "isPrimary": False},
@@ -699,7 +708,7 @@ def test_first_phone_is_auto_primary(client):
 def test_second_phone_not_auto_primary_unless_requested(client):
     dealer_id = _create_dealer(client)
     customer = _create_customer(client, dealer_id, email="phones2@example.ch")
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     client.post(
         f"/v1/customers/{customer['id']}/phones",
         json={"phoneType": "mobile", "phoneE164": "+41791111111"},
@@ -716,7 +725,7 @@ def test_second_phone_not_auto_primary_unless_requested(client):
 def test_marking_new_phone_primary_unsets_previous(client):
     dealer_id = _create_dealer(client)
     customer = _create_customer(client, dealer_id, email="phones3@example.ch")
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     first = client.post(
         f"/v1/customers/{customer['id']}/phones",
         json={"phoneType": "mobile", "phoneE164": "+41791111111"},
@@ -739,7 +748,7 @@ def test_marking_new_phone_primary_unsets_previous(client):
 def test_duplicate_phone_on_same_customer_is_conflict(client):
     dealer_id = _create_dealer(client)
     customer = _create_customer(client, dealer_id, email="phones4@example.ch")
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     client.post(
         f"/v1/customers/{customer['id']}/phones",
         json={"phoneType": "mobile", "phoneE164": "+41791234567"},
@@ -756,7 +765,7 @@ def test_duplicate_phone_on_same_customer_is_conflict(client):
 def test_delete_phone(client):
     dealer_id = _create_dealer(client)
     customer = _create_customer(client, dealer_id, email="phones5@example.ch")
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     phone = client.post(
         f"/v1/customers/{customer['id']}/phones",
         json={"phoneType": "mobile", "phoneE164": "+41791234567"},
@@ -773,7 +782,7 @@ def test_customer_email_crud_and_primary_flag(client):
     # The customer already owns a primary email from creation, so an email
     # added afterwards is not auto-primary — that only applies to the first.
     customer = _create_customer(client, dealer_id)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     first = client.post(
         f"/v1/customers/{customer['id']}/emails",
         json={"emailType": "private", "emailAddress": "personal@example.ch"},
@@ -810,7 +819,7 @@ def test_customer_email_crud_and_primary_flag(client):
 def test_phone_and_email_changes_appear_in_audit_log(client):
     dealer_id = _create_dealer(client)
     customer = _create_customer(client, dealer_id, email="audit-contacts@example.ch")
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     client.post(
         f"/v1/customers/{customer['id']}/phones",
         json={"phoneType": "mobile", "phoneE164": "+41791234567"},
@@ -846,7 +855,7 @@ def test_platform_admin_can_create_external_id(client):
 def test_dealer_admin_cannot_write_external_id(client):
     dealer_id = _create_dealer(client)
     customer = _create_customer(client, dealer_id, email="ext2@example.ch")
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     response = client.post(
         f"/v1/customers/{customer['id']}/external-ids",
         json={"systemName": "Salesforce", "externalId": "SF-002"},
@@ -975,7 +984,7 @@ def test_customer_numbers_are_sequential_per_tenant(client):
 
 def test_customer_number_is_server_allocated_and_immutable(client):
     dealer_id = _create_dealer(client)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     created = _create_customer(client, dealer_id, customerNumber="K-999999")
     assert created["customerNumber"] == "K-000001"
 
@@ -1053,7 +1062,7 @@ def test_merged_customers_are_hidden_from_search_by_default(client):
     dealer_id = _create_dealer(client)
     survivor = _create_customer(client, dealer_id, firstName="Marco", lastName="Bernasconi")
     duplicate = _create_customer(client, dealer_id, firstName="Marco", lastName="Bernasconi")
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
 
     merged = client.post(
         f"/v1/customers/{duplicate['id']}/merge",
@@ -1094,7 +1103,7 @@ def test_uid_check_digit_is_validated(client, tax_id, expected):
     """
 
     dealer_id = _create_dealer(client)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     payload = {
         "customerType": "business",
         "companyName": "Check Digit AG",
@@ -1112,7 +1121,7 @@ def test_foreign_postal_code_is_accepted_but_swiss_rule_still_applies(client):
     """
 
     dealer_id = _create_dealer(client)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
 
     german = _customer_payload(
         address={
@@ -1143,7 +1152,7 @@ def test_house_number_accepts_a_letter_suffix(client):
     """
 
     dealer_id = _create_dealer(client)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     payload = _customer_payload(
         address={
             "street": "Via Industria",
@@ -1164,7 +1173,7 @@ def test_correspondence_language_round_trips_and_is_patchable(client):
     """
 
     dealer_id = _create_dealer(client)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     created = _create_customer(client, dealer_id, language="it")
     assert created["language"] == "it"
 
@@ -1184,7 +1193,7 @@ def test_correspondence_language_round_trips_and_is_patchable(client):
 
 def test_nested_contacts_are_written_atomically_with_the_customer(client):
     dealer_id = _create_dealer(client)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     created = _create_customer(
         client, dealer_id,
         phones=[
@@ -1204,7 +1213,7 @@ def test_create_is_rolled_back_entirely_when_a_nested_contact_is_invalid(client)
     """
 
     dealer_id = _create_dealer(client)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     payload = _customer_payload(
         phones=[
             {"phoneType": "mobile", "phoneE164": "+41791234567"},

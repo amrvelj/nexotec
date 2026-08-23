@@ -12,6 +12,11 @@ from app.platform.models.user import EmploymentStatus, UserRole, UserStatus
 class UserCreate(CamelModel):
     """dealer_id is not part of the body — it comes from the
     POST /v1/dealers/{id}/users path, per the spec's endpoint shape.
+
+    access_roles/is_dealer_manager (WP-2 PR-2) replace the old scalar
+    access_role — at least one functional role is required even for a
+    manager, same as every other user (RP-3: "primary role grants a preset;
+    the dealer manager additively enables further modules").
     """
 
     first_name: str = Field(max_length=100, min_length=1)
@@ -19,7 +24,8 @@ class UserCreate(CamelModel):
     email: EmailStr
     phone: E164Phone | None = None
     role: UserRole
-    access_role: AccessRole
+    access_roles: list[AccessRole] = Field(min_length=1)
+    is_dealer_manager: bool = False
     employment_status: EmploymentStatus = EmploymentStatus.ACTIVE
     auth_identity_id: str = Field(max_length=255, min_length=1)
 
@@ -30,7 +36,8 @@ class UserUpdate(CamelModel):
     email: EmailStr | None = None
     phone: E164Phone | None = None
     role: UserRole | None = None
-    access_role: AccessRole | None = None
+    access_roles: list[AccessRole] | None = Field(default=None, min_length=1)
+    is_dealer_manager: bool | None = None
     employment_status: EmploymentStatus | None = None
     auth_identity_id: str | None = Field(default=None, max_length=255, min_length=1)
     status: UserStatus | None = None
@@ -44,7 +51,8 @@ class UserRead(CamelModel):
     email: str
     phone: str | None
     role: UserRole
-    access_role: AccessRole
+    access_roles: list[AccessRole]
+    is_dealer_manager: bool
     employment_status: EmploymentStatus
     auth_identity_id: str
     status: UserStatus
