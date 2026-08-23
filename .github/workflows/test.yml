@@ -17,6 +17,54 @@ jobs:
       - run: pip install -e ".[dev]"
       - run: lint-imports
 
+  ruff:
+    name: ruff (app/, tests/)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install -e ".[dev]"
+      - run: ruff check app tests
+
+  mypy:
+    name: mypy (app/)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install -e ".[dev]"
+      - run: mypy app
+
+  frontend:
+    name: frontend (oxlint, tsc, vitest, build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+      - name: npm ci
+        working-directory: frontend
+        run: npm ci
+      - name: oxlint
+        working-directory: frontend/apps/dms
+        run: npx oxlint
+      - name: tsc -b
+        working-directory: frontend/apps/dms
+        run: npx tsc -b
+      - name: vitest
+        working-directory: frontend/apps/dms
+        run: npx vitest run
+      - name: vite build
+        working-directory: frontend/apps/dms
+        run: npx vite build
+
   migration-smoke-test:
     name: alembic migration smoke test (postgres)
     runs-on: ubuntu-latest

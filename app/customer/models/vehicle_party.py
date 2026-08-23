@@ -14,8 +14,10 @@ not by Postgres.
 
 import datetime as dt
 import enum
+import uuid
 
-from sqlalchemy import Enum as SAEnum, UniqueConstraint
+from sqlalchemy import Enum as SAEnum
+from sqlalchemy import UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.base import PrimaryKeyMixin, TimestampMixin, utcnow
@@ -47,13 +49,13 @@ class VehicleParty(PrimaryKeyMixin, TimestampMixin, Base):
         UniqueConstraint("vehicle_id", "customer_id", "role", "effective_from", name="uq_vehicle_party_scope"),
     )
 
-    vehicle_id: Mapped[GUID] = mapped_column(
+    vehicle_id: Mapped[uuid.UUID] = mapped_column(
         GUID(),
         nullable=False,
         index=True,
         comment="Owned by the vehicle context. No DB-level FK (PR-2, ADR-015) — reconciled nightly.",
     )
-    customer_id: Mapped[GUID] = mapped_column(
+    customer_id: Mapped[uuid.UUID] = mapped_column(
         GUID(),
         nullable=False,
         index=True,

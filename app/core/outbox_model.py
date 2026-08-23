@@ -1,7 +1,9 @@
 import datetime as dt
 import enum
+import uuid
 
-from sqlalchemy import JSON, Enum as SAEnum, Index, Integer, String, Text, text
+from sqlalchemy import JSON, Index, Integer, String, Text, text
+from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, utcnow
@@ -48,14 +50,14 @@ class OutboxMessage(PrimaryKeyMixin, Base):
     event_type: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     event_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     occurred_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), nullable=False)
-    tenant_id: Mapped[GUID | None] = mapped_column(
+    tenant_id: Mapped[uuid.UUID | None] = mapped_column(
         GUID(), nullable=True, comment="Owned by the platform context (Dealer). No DB-level FK."
     )
     producer: Mapped[str] = mapped_column(String(32), nullable=False)
     aggregate_type: Mapped[str] = mapped_column(String(64), nullable=False)
-    aggregate_id: Mapped[GUID] = mapped_column(GUID(), nullable=False, index=True)
-    correlation_id: Mapped[GUID] = mapped_column(GUID(), nullable=False, index=True)
-    causation_id: Mapped[GUID | None] = mapped_column(GUID(), nullable=True)
+    aggregate_id: Mapped[uuid.UUID] = mapped_column(GUID(), nullable=False, index=True)
+    correlation_id: Mapped[uuid.UUID] = mapped_column(GUID(), nullable=False, index=True)
+    causation_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True)
     # Generic JSON, not a Postgres-specific JSONB variant — matches the
     # portable-types convention (app/core/config.py, user_preference.py).
     payload: Mapped[dict] = mapped_column(JSON, nullable=False)

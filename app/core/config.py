@@ -49,4 +49,7 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    # tax_id_encryption_key has no default (see its own comment above) but
+    # is not actually missing here — pydantic-settings populates it from
+    # the environment at runtime. mypy has no visibility into that.
+    return Settings()  # type: ignore[call-arg]

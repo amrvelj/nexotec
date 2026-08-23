@@ -65,7 +65,12 @@ def _seed_list(db_session, list_code: str) -> ReferenceList:
 
 def _seed_value(db_session, ref_list: ReferenceList, value_code: str) -> ReferenceValue:
     value = ReferenceValue(
-        list_id=ref_list.id, value_code=value_code, label_de=value_code, label_fr=value_code, label_it=value_code
+        list_id=ref_list.id,
+        value_code=value_code,
+        label_de=value_code,
+        label_fr=value_code,
+        label_it=value_code,
+        label_en=value_code,
     )
     db_session.add(value)
     db_session.commit()

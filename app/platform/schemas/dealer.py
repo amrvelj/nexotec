@@ -3,9 +3,9 @@ import uuid
 
 from pydantic import Field
 
-from app.platform.models.dealer import DealerStatus, FranchiseType
 from app.core.schemas import CamelModel
 from app.core.validators import CantonCode, E164Phone, SwissPostalCode
+from app.platform.models.dealer import DealerStatus, FranchiseType
 
 
 class DealerAddress(CamelModel):

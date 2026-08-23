@@ -12,20 +12,20 @@ from fastapi import APIRouter, Depends, Header, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
+from app.core.audit import list_tenant_audit_events
+from app.core.audit_schemas import AuditEventPage, AuditEventRead
 from app.core.auth import AccessRole, Principal, get_current_principal, require_access_role
 from app.core.concurrency import check_version, require_if_match
+from app.core.idempotency import find_cached_response, store_response
 from app.core.pagination import PageParams, page_params
 from app.core.tenancy import require_tenant_match
 from app.db import get_db
 from app.platform.models.dealer import DealerStatus
 from app.platform.models.user import UserStatus
-from app.core.audit_schemas import AuditEventPage, AuditEventRead
 from app.platform.schemas.dealer import DealerCreate, DealerPage, DealerRead, DealerUpdate
 from app.platform.schemas.user import UserCreate, UserPage, UserRead, UserUpdate
 from app.platform.services import dealer as dealer_service
 from app.platform.services import user as user_service
-from app.core.audit import list_tenant_audit_events
-from app.core.idempotency import find_cached_response, store_response
 
 router = APIRouter(tags=["dealers"])
 

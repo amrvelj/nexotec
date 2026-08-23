@@ -1,4 +1,5 @@
 import datetime as dt
+import uuid
 
 from sqlalchemy import Integer
 from sqlalchemy.orm import Mapped, mapped_column
@@ -8,13 +9,13 @@ from app.core.uuid7 import uuid7
 
 
 def utcnow() -> dt.datetime:
-    return dt.datetime.now(dt.timezone.utc)
+    return dt.datetime.now(dt.UTC)
 
 
 class PrimaryKeyMixin:
     """UUIDv7 primary key, server-side-equivalent generation (cross-cutting #2)."""
 
-    id: Mapped[GUID] = mapped_column(GUID(), primary_key=True, default=uuid7)
+    id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid7)
 
 
 class TimestampMixin:
@@ -22,8 +23,8 @@ class TimestampMixin:
     updated_at: Mapped[dt.datetime] = mapped_column(
         UTCDateTime(), default=utcnow, onupdate=utcnow, nullable=False
     )
-    created_by: Mapped[GUID | None] = mapped_column(GUID(), nullable=True)
-    updated_by: Mapped[GUID | None] = mapped_column(GUID(), nullable=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True)
+    updated_by: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True)
 
 
 class VersionedMixin:
@@ -40,4 +41,4 @@ class TenantScopedMixin:
     (cross-cutting #6: resolved from the JWT claim, never a path/body param).
     """
 
-    tenant_id: Mapped[GUID] = mapped_column(GUID(), nullable=False, index=True)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(GUID(), nullable=False, index=True)

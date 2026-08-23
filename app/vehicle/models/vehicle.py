@@ -19,13 +19,15 @@ all, so it's dropped rather than guessed back in. Flagged in the PR.
 
 import datetime as dt
 import enum
+import uuid
 
-from sqlalchemy import Enum as SAEnum, ForeignKey, Index, Integer, String
+from sqlalchemy import Enum as SAEnum
+from sqlalchemy import ForeignKey, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db import Base
 from app.core.base import PrimaryKeyMixin, TimestampMixin, VersionedMixin, utcnow
 from app.core.types import GUID, UTCDateTime
+from app.db import Base
 
 
 class VehicleCondition(str, enum.Enum):
@@ -107,7 +109,7 @@ class Vehicle(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     status: Mapped[VehicleStatus] = mapped_column(
         SAEnum(VehicleStatus, native_enum=False, length=32), nullable=False, default=VehicleStatus.IN_TRANSIT
     )
-    current_custodian_partner_id: Mapped[GUID | None] = mapped_column(
+    current_custodian_partner_id: Mapped[uuid.UUID | None] = mapped_column(
         GUID(),
         nullable=True,
         comment="Owned by the platform context (Dealer). No DB-level FK (PR-2, ADR-015) — reconciled nightly.",
@@ -127,8 +129,8 @@ class VehicleCustodyEvent(PrimaryKeyMixin, Base):
     # vehicle_id -> vehicle.id keeps its real FK: both tables are owned by
     # this same context (vehicle), so it was never a cross-context FK — out
     # of PR-2's scope.
-    vehicle_id: Mapped[GUID] = mapped_column(GUID(), ForeignKey("vehicle.id"), nullable=False, index=True)
-    partner_id: Mapped[GUID] = mapped_column(
+    vehicle_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("vehicle.id"), nullable=False, index=True)
+    partner_id: Mapped[uuid.UUID] = mapped_column(
         GUID(),
         nullable=False,
         index=True,
@@ -138,10 +140,10 @@ class VehicleCustodyEvent(PrimaryKeyMixin, Base):
         SAEnum(CustodyEventType, native_enum=False, length=32), nullable=False
     )
     event_date: Mapped[dt.datetime] = mapped_column(UTCDateTime(), nullable=False)
-    transaction_id: Mapped[GUID | None] = mapped_column(
+    transaction_id: Mapped[uuid.UUID | None] = mapped_column(
         GUID(),
         nullable=True,
         comment="Owned by the sales context (Transaction). No DB-level FK (PR-2, ADR-015) — reconciled nightly.",
     )
     created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
-    created_by: Mapped[GUID | None] = mapped_column(GUID(), nullable=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True)

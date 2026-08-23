@@ -26,18 +26,21 @@ that already protects .../custody-events also protects the audit trail.
 
 import datetime as dt
 import uuid
+from typing import Any
 
 from fastapi import APIRouter, Depends, Header, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
+from app.core.audit import list_audit_events
+from app.core.audit_schemas import AuditEventPage, AuditEventRead
 from app.core.auth import AccessRole, Principal, get_current_principal, require_access_role
 from app.core.concurrency import check_version, require_if_match
 from app.core.errors import ConflictError, ForbiddenError
+from app.core.idempotency import find_cached_response, store_response
 from app.core.pagination import PageParams, page_params
 from app.db import get_db
 from app.vehicle.models.vehicle import CustodyEventType, VehicleStatus
-from app.core.audit_schemas import AuditEventPage, AuditEventRead
 from app.vehicle.schemas.vehicle import (
     CustodyEventCreate,
     CustodyEventPage,
@@ -48,8 +51,6 @@ from app.vehicle.schemas.vehicle import (
     VehicleUpdate,
 )
 from app.vehicle.services import vehicle as vehicle_service
-from app.core.audit import list_audit_events
-from app.core.idempotency import find_cached_response, store_response
 
 router = APIRouter(tags=["vehicles"])
 
@@ -78,7 +79,7 @@ def _serialize_vehicle(vehicle, principal: Principal, db: Session) -> VehicleRea
     )
 
     data = VehicleRead.model_validate(vehicle, from_attributes=True)
-    updates = {}
+    updates: dict[str, Any] = {}
     if not status_visible:
         updates["status"] = None
     if not is_custodian_or_admin:

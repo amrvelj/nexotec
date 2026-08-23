@@ -15,6 +15,7 @@ class ReferenceValueCreate(CamelModel):
     label_de: str = Field(max_length=200, min_length=1)
     label_fr: str = Field(max_length=200, min_length=1)
     label_it: str = Field(max_length=200, min_length=1)
+    label_en: str = Field(max_length=200, min_length=1)
     sort_order: int = 0
     active: bool = True
 
@@ -28,6 +29,7 @@ class ReferenceValueUpdate(CamelModel):
     label_de: str | None = Field(default=None, max_length=200, min_length=1)
     label_fr: str | None = Field(default=None, max_length=200, min_length=1)
     label_it: str | None = Field(default=None, max_length=200, min_length=1)
+    label_en: str | None = Field(default=None, max_length=200, min_length=1)
     sort_order: int | None = None
     active: bool | None = None
 
@@ -39,6 +41,7 @@ class ReferenceValueRead(CamelModel):
     label_de: str
     label_fr: str
     label_it: str
+    label_en: str
     sort_order: int
     active: bool
     version: int

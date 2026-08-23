@@ -11,6 +11,7 @@ interrupting the user's work over.
 """
 
 import datetime as dt
+import uuid
 
 from sqlalchemy import JSON, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
@@ -26,7 +27,7 @@ class UserPreference(Base):
     # No synthetic id: the doc specifies primary key (user_id, scope)
     # directly, and there is no use case for referencing a preference row
     # from elsewhere.
-    user_id: Mapped[GUID] = mapped_column(GUID(), ForeignKey("user.id"), primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("user.id"), primary_key=True)
     scope: Mapped[str] = mapped_column(String(128), primary_key=True)
 
     # Generic JSON (not a Postgres-specific JSONB variant), matching the

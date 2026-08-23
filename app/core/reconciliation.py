@@ -12,7 +12,7 @@ issues an UPDATE or DELETE against the tables it inspects.
 
 import dataclasses
 import uuid
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import select
 from sqlalchemy.orm import DeclarativeBase, InstrumentedAttribute, Session
@@ -53,7 +53,10 @@ def find_orphans(db: Session, check: ReferenceCheck) -> list[tuple[uuid.UUID, uu
     )
     if check.nullable:
         stmt = stmt.where(check.source_fk_column.is_not(None))
-    return list(db.execute(stmt).all())
+    # ReferenceCheck's columns are InstrumentedAttribute[Any] — every real
+    # caller passes GUID columns, but that's a fact this generic framework
+    # can't express in the type of `check` itself.
+    return cast(list[tuple[uuid.UUID, uuid.UUID]], list(db.execute(stmt).all()))
 
 
 class ReconciliationAlarm(Exception):

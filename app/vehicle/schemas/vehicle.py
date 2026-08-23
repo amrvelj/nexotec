@@ -3,9 +3,9 @@ import uuid
 
 from pydantic import Field, model_validator
 
-from app.vehicle.models.vehicle import CustodyEventType, RegistrationStatus, VehicleCondition, VehicleStatus
 from app.core.schemas import CamelModel
 from app.core.validators import CantonCode, Vin
+from app.vehicle.models.vehicle import CustodyEventType, RegistrationStatus, VehicleCondition, VehicleStatus
 
 _MIN_MODEL_YEAR = 1981  # 17-char VIN standard start; pre-1981 vehicles descoped (Swiss addendum #13)
 _MAX_MODEL_YEAR = 2100

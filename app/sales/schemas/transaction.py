@@ -4,8 +4,8 @@ from decimal import Decimal
 
 from pydantic import Field
 
-from app.sales.models.transaction import TransactionStatus, TransactionType
 from app.core.schemas import CamelModel
+from app.sales.models.transaction import TransactionStatus, TransactionType
 
 
 class TransactionCreate(CamelModel):

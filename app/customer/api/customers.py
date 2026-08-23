@@ -18,14 +18,15 @@ from fastapi import APIRouter, Depends, Header, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
+from app.core.audit import list_audit_events
+from app.core.audit_schemas import AuditEventPage, AuditEventRead
 from app.core.auth import AccessRole, Principal, get_current_principal, require_access_role
 from app.core.concurrency import check_version, require_if_match
 from app.core.config import get_settings
+from app.core.idempotency import find_cached_response, store_response
 from app.core.pagination import SortPageParams, decode_sort_cursor
 from app.core.sorting import SortField, parse_sort
-from app.db import get_db
 from app.customer.models.customer import Customer, CustomerLifecycleStatus, CustomerType, Language
-from app.core.audit_schemas import AuditEventPage, AuditEventRead
 from app.customer.schemas.customer import (
     CustomerCreate,
     CustomerDuplicateCandidate,
@@ -52,9 +53,8 @@ from app.customer.schemas.customer import (
     CustomerVehicleUpdate,
 )
 from app.customer.services import customer as customer_service
+from app.db import get_db
 from app.platform.public import get_dealer_or_404
-from app.core.audit import list_audit_events
-from app.core.idempotency import find_cached_response, store_response
 
 router = APIRouter(tags=["customers"])
 settings = get_settings()

@@ -21,16 +21,16 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.audit import record_audit_event
+from app.core.base import utcnow
 from app.core.errors import BadRequestError, ConflictError
 from app.core.pagination import PageParams, build_page, paginate_query
 from app.core.tenancy import get_or_404
-from app.core.base import utcnow
-from app.sales.models.transaction import Transaction, TransactionStatus, TransactionType
-from app.sales.schemas.transaction import TransactionCreate, TransactionUpdate
 from app.customer.public import get_customer_or_404
 from app.platform.public import get_user_or_404
+from app.sales.models.transaction import Transaction, TransactionStatus, TransactionType
+from app.sales.schemas.transaction import TransactionCreate, TransactionUpdate
 from app.vehicle.public import CustodyEventType, VehicleStatus, create_custody_event, get_vehicle_or_404
-from app.core.audit import record_audit_event
 
 _AUDITED_FIELDS = {
     "transaction_type",

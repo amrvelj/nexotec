@@ -14,13 +14,14 @@ dealer.id") so it's dropped here too rather than re-litigated.
 import enum
 import uuid
 
-from sqlalchemy import Enum as SAEnum, String
+from sqlalchemy import Enum as SAEnum
+from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.auth import AccessRole
-from app.db import Base
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
 from app.core.types import GUID
+from app.db import Base
 
 
 class UserRole(str, enum.Enum):
@@ -54,7 +55,7 @@ class UserStatus(str, enum.Enum):
 class User(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMixin, Base):
     __tablename__ = "user"
 
-    tenant_id: Mapped[GUID] = mapped_column(
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
         GUID(), nullable=False, index=True, comment="Owned by the platform context (Dealer). No DB-level FK."
     )
 

@@ -6,13 +6,14 @@ Throwaway by design: replaced, not extended, once a real external IdP
 """
 
 import datetime as dt
+import uuid
 
 from sqlalchemy import ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db import Base
 from app.core.base import PrimaryKeyMixin, TimestampMixin
 from app.core.types import GUID, UTCDateTime
+from app.db import Base
 
 
 class Credential(PrimaryKeyMixin, TimestampMixin, Base):
@@ -21,7 +22,7 @@ class Credential(PrimaryKeyMixin, TimestampMixin, Base):
     # One credential set per User — enforced via a unique constraint, not
     # used as the PK, so PrimaryKeyMixin's UUIDv7 id stays consistent with
     # every other table.
-    user_id: Mapped[GUID] = mapped_column(GUID(), ForeignKey("user.id"), nullable=False, unique=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("user.id"), nullable=False, unique=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
 
     # Basic brute-force guard (issue #8) — account-level lockout, not a

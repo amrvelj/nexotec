@@ -12,13 +12,13 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
+from app.core.audit import record_audit_event
 from app.core.errors import ConflictError, NotFoundError
 from app.core.pagination import PageParams, build_page, paginate_query
 from app.platform.models.reference_data import ReferenceList, ReferenceValue
 from app.platform.schemas.reference_data import ReferenceValueCreate, ReferenceValueUpdate
-from app.core.audit import record_audit_event
 
-_AUDITED_FIELDS = {"label_de", "label_fr", "label_it", "sort_order", "active"}
+_AUDITED_FIELDS = {"label_de", "label_fr", "label_it", "label_en", "sort_order", "active"}
 
 
 def _plain(value: Any) -> Any:
@@ -63,6 +63,7 @@ def create_reference_value(
         label_de=data.label_de,
         label_fr=data.label_fr,
         label_it=data.label_it,
+        label_en=data.label_en,
         sort_order=data.sort_order,
         active=data.active,
         created_by=actor_id,
@@ -91,6 +92,7 @@ def create_reference_value(
             "label_de": value.label_de,
             "label_fr": value.label_fr,
             "label_it": value.label_it,
+            "label_en": value.label_en,
             "sort_order": value.sort_order,
             "active": value.active,
         },

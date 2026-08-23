@@ -92,7 +92,6 @@ def test_dealer_admin_can_add_staff_within_own_tenant(client):
 
 
 def test_dealer_admin_cannot_add_staff_to_other_dealer(client):
-    platform_admin_token = _token(AccessRole.PLATFORM_ADMIN)
     dealer_id = _create_dealer(client)
     other_dealer_admin_token = _token(AccessRole.DEALER_ADMIN)  # different, random tenant_id
 

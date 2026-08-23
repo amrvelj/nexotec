@@ -12,12 +12,16 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
-from app.core.errors import BadRequestError, ConflictError, NotFoundError
+from app.core.audit import record_audit_event
+from app.core.base import utcnow
 from app.core.config import get_settings
+from app.core.errors import BadRequestError, ConflictError, NotFoundError
+from app.core.outbox import OutboxEvent
+from app.core.outbox import publish as publish_event
 from app.core.pagination import SortPageParams, build_sorted_page, count_capped, paginate_query_sorted
 from app.core.postal_codes import derive_canton
 from app.core.tenancy import get_or_404
-from app.core.base import utcnow
+from app.core.validators import normalise_phone
 from app.customer.models.customer import (
     Customer,
     CustomerEmail,
@@ -41,8 +45,6 @@ from app.customer.schemas.customer import (
     CustomerVehicleCreate,
     CustomerVehicleUpdate,
 )
-from app.core.validators import normalise_phone
-from app.core.audit import record_audit_event
 from app.vehicle.public import get_vehicle_or_404
 
 _PII_FIELDS = {
@@ -79,10 +81,27 @@ _DUPLICATE_CHECK_LIMIT = 10
 # Never logged in plaintext, same as Dealer.tax_id — see services/dealer.py's
 # identical _redact pattern.
 _SECRET_FIELDS = {"tax_id"}
+# Outbox producer name for every event this service publishes (WP-1, ADR-006).
+_EVENT_PRODUCER = "customer"
 
 
 def _plain(value: Any) -> Any:
     return value.value if hasattr(value, "value") else value
+
+
+def _customer_label_payload(customer: Customer) -> dict[str, Any]:
+    """The subset of a customer another context needs to refresh a
+    denormalised label — never tax_id, never the rest of the PII surface.
+    """
+
+    return {
+        "customerId": str(customer.id),
+        "customerNumber": customer.customer_number,
+        "customerType": customer.customer_type.value,
+        "firstName": customer.first_name,
+        "lastName": customer.last_name,
+        "companyName": customer.company_name,
+    }
 
 
 def _redact(field: str, value: Any) -> Any:
@@ -131,6 +150,7 @@ def _allocate_customer_number(db: Session, tenant_id: uuid.UUID) -> str:
         db.add(row)
         db.flush()
         row = db.get(CustomerNumberSequence, tenant_id, with_for_update=True)
+        assert row is not None, "just-flushed CustomerNumberSequence row vanished before it could be re-read"
 
     value = row.next_value
     row.next_value = value + 1
@@ -235,15 +255,16 @@ def list_customers(
 def _primary_contact_maps(db: Session, customer_ids):
     """Primary phone/email per customer, in two queries rather than 2N."""
 
-    phones, emails = {}, {}
+    phones: dict[uuid.UUID, str] = {}
+    emails: dict[uuid.UUID, str] = {}
     if not customer_ids:
         return phones, emails
-    for row in db.scalars(select(CustomerPhone).where(CustomerPhone.customer_id.in_(customer_ids))).all():
-        if row.is_primary or row.customer_id not in phones:
-            phones[row.customer_id] = row.phone_e164
-    for row in db.scalars(select(CustomerEmail).where(CustomerEmail.customer_id.in_(customer_ids))).all():
-        if row.is_primary or row.customer_id not in emails:
-            emails[row.customer_id] = row.email_address
+    for phone_row in db.scalars(select(CustomerPhone).where(CustomerPhone.customer_id.in_(customer_ids))).all():
+        if phone_row.is_primary or phone_row.customer_id not in phones:
+            phones[phone_row.customer_id] = phone_row.phone_e164
+    for email_row in db.scalars(select(CustomerEmail).where(CustomerEmail.customer_id.in_(customer_ids))).all():
+        if email_row.is_primary or email_row.customer_id not in emails:
+            emails[email_row.customer_id] = email_row.email_address
     return phones, emails
 
 
@@ -417,6 +438,17 @@ def create_customer(db: Session, *, tenant_id: uuid.UUID, data: CustomerCreate, 
         actor_id=actor_id,
         after={field: _redact(field, getattr(customer, field)) for field in _AUDITED_FIELDS},
     )
+    publish_event(
+        db,
+        OutboxEvent(
+            event_type="customer.created",
+            tenant_id=tenant_id,
+            producer=_EVENT_PRODUCER,
+            aggregate_type="customer",
+            aggregate_id=customer.id,
+            payload=_customer_label_payload(customer),
+        ),
+    )
     db.commit()
     db.refresh(customer)
     return customer
@@ -478,6 +510,17 @@ def update_customer(db: Session, *, customer: Customer, data: CustomerUpdate, ac
             before=before or None,
             after=after or None,
         )
+        publish_event(
+            db,
+            OutboxEvent(
+                event_type="customer.updated",
+                tenant_id=customer.tenant_id,
+                producer=_EVENT_PRODUCER,
+                aggregate_type="customer",
+                aggregate_id=customer.id,
+                payload=_customer_label_payload(customer),
+            ),
+        )
 
     try:
         db.commit()
@@ -496,7 +539,7 @@ def _fixup_single_primary(db: Session, model: type, *, customer_id: uuid.UUID) -
     _add_contacts uses at creation.
     """
 
-    rows = list(
+    rows: list[Any] = list(
         db.scalars(
             select(model).where(model.customer_id == customer_id).order_by(model.created_at)  # type: ignore[attr-defined]
         ).all()
@@ -557,12 +600,15 @@ def _repoint_contacts(db: Session, model: type, unique_field: str, *, duplicate_
     in which case the duplicate's row is dropped as an exact duplicate.
     """
 
-    target_values = {
-        getattr(row, unique_field)
-        for row in db.scalars(select(model).where(model.customer_id == target_id)).all()  # type: ignore[attr-defined]
-    }
+    target_rows: list[Any] = list(
+        db.scalars(select(model).where(model.customer_id == target_id)).all()  # type: ignore[attr-defined]
+    )
+    target_values = {getattr(row, unique_field) for row in target_rows}
     repointed = dropped = 0
-    for row in db.scalars(select(model).where(model.customer_id == duplicate_id)).all():  # type: ignore[attr-defined]
+    duplicate_rows: list[Any] = list(
+        db.scalars(select(model).where(model.customer_id == duplicate_id)).all()  # type: ignore[attr-defined]
+    )
+    for row in duplicate_rows:
         value = getattr(row, unique_field)
         if value in target_values:
             db.delete(row)
@@ -672,6 +718,25 @@ def merge_customer(
             "externalIdsRepointed": external_ids_repointed,
             "externalIdsDropped": external_ids_dropped,
         },
+    )
+    publish_event(
+        db,
+        OutboxEvent(
+            event_type="customer.merged",
+            tenant_id=customer.tenant_id,
+            producer=_EVENT_PRODUCER,
+            aggregate_type="customer",
+            aggregate_id=customer.id,
+            # Survivor's label fields, with customerId/duplicateOfCustomerId
+            # overriding the payload helper's own customerId — a consumer
+            # needs the duplicate's id (what it may still be pointing at)
+            # and the survivor's id (what to repoint to) in the same event.
+            payload={
+                **_customer_label_payload(target),
+                "customerId": str(customer.id),
+                "duplicateOfCustomerId": str(duplicate_of_customer_id),
+            },
+        ),
     )
     try:
         db.commit()
@@ -946,9 +1011,11 @@ def delete_customer_email(db: Session, *, email: CustomerEmail, actor_id: uuid.U
 
 
 def _unset_other_primaries(db: Session, model: type, *, customer_id: uuid.UUID) -> None:
-    rows = db.scalars(
-        select(model).where(model.customer_id == customer_id, model.is_primary.is_(True))  # type: ignore[attr-defined]
-    ).all()
+    rows: list[Any] = list(
+        db.scalars(
+            select(model).where(model.customer_id == customer_id, model.is_primary.is_(True))  # type: ignore[attr-defined]
+        ).all()
+    )
     for row in rows:
         row.is_primary = False
 

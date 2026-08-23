@@ -20,6 +20,13 @@ import uuid
 
 from pydantic import EmailStr, Field, model_validator
 
+from app.core.schemas import CamelModel
+from app.core.validators import (
+    E164Phone,
+    HouseNumber,
+    SwissUid,
+    validate_postal_code_for_country,
+)
 from app.customer.models.customer import (
     CustomerLifecycleStatus,
     CustomerSource,
@@ -32,13 +39,6 @@ from app.customer.models.customer import (
     Salutation,
 )
 from app.customer.models.vehicle_party import VehiclePartyRole
-from app.core.schemas import CamelModel
-from app.core.validators import (
-    E164Phone,
-    HouseNumber,
-    SwissUid,
-    validate_postal_code_for_country,
-)
 
 
 class CustomerAddress(CamelModel):

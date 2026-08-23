@@ -1,4 +1,5 @@
 import datetime as dt
+import uuid
 
 from sqlalchemy import JSON, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
@@ -19,7 +20,7 @@ class IdempotencyRecord(Base):
     __tablename__ = "idempotency_record"
 
     idempotency_key: Mapped[str] = mapped_column(String(255), primary_key=True)
-    tenant_id: Mapped[GUID] = mapped_column(GUID(), primary_key=True)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True)
     request_path: Mapped[str] = mapped_column(String(255), nullable=False)
     request_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     response_status: Mapped[int] = mapped_column(Integer, nullable=False)

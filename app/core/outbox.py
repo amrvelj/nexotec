@@ -112,4 +112,8 @@ def dead_letter_count(db: Session) -> int:
     a real alarm later.
     """
 
-    return db.scalar(select(func.count()).select_from(OutboxMessage).where(OutboxMessage.status == OutboxStatus.DEAD))
+    # COUNT(*) never returns SQL NULL, but db.scalar()'s return type is
+    # `int | None` regardless of what the query is — the `or 0` is for
+    # mypy, not for a case that happens at runtime.
+    count = db.scalar(select(func.count()).select_from(OutboxMessage).where(OutboxMessage.status == OutboxStatus.DEAD))
+    return count or 0

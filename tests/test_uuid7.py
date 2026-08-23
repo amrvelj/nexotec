@@ -1,3 +1,4 @@
+import itertools
 import time
 import uuid
 
@@ -12,7 +13,7 @@ def test_uuid7_sets_version_and_variant_bits():
 
 def test_uuid7_is_monotonically_time_ordered():
     values = [uuid7() for _ in range(5)]
-    for a, b in zip(values, values[1:]):
+    for a, b in itertools.pairwise(values):
         assert str(a) < str(b)
 
 

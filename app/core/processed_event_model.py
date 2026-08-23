@@ -1,4 +1,5 @@
 import datetime as dt
+import uuid
 
 from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column
@@ -23,6 +24,6 @@ class ProcessedEvent(Base):
 
     __tablename__ = "processed_event"
 
-    event_id: Mapped[GUID] = mapped_column(GUID(), primary_key=True)
+    event_id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True)
     consumer_name: Mapped[str] = mapped_column(String(64), primary_key=True)
     processed_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
