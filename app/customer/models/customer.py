@@ -33,13 +33,15 @@ four ways that are worth reading before touching it:
 
 import datetime as dt
 import enum
+import uuid
 
-from sqlalchemy import Boolean, Date, Enum as SAEnum, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Boolean, Date, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db import Base
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
 from app.core.types import GUID, EncryptedString
+from app.db import Base
 
 
 class CustomerType(str, enum.Enum):
@@ -137,7 +139,7 @@ class CustomerNumberSequence(Base):
 
     __tablename__ = "customer_number_sequence"
 
-    tenant_id: Mapped[GUID] = mapped_column(
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
         GUID(), primary_key=True, comment="Owned by the platform context (Dealer). No DB-level FK (PR-2, ADR-015)."
     )
     next_value: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
@@ -151,7 +153,7 @@ class Customer(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMixi
 
     # Overrides TenantScopedMixin's bare column — no DB-level FK to dealer.id
     # (PR-2, ADR-015). Owned by the platform context; reconciled nightly.
-    tenant_id: Mapped[GUID] = mapped_column(
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
         GUID(), nullable=False, index=True, comment="Owned by the platform context (Dealer). No DB-level FK."
     )
 
@@ -217,7 +219,7 @@ class Customer(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMixi
 
     # Self-FK, set on merge — points at the surviving record this one was
     # merged into. Only ever written by POST /v1/customers/{id}/merge.
-    duplicate_of_customer_id: Mapped[GUID | None] = mapped_column(GUID(), ForeignKey("customer.id"), nullable=True)
+    duplicate_of_customer_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), ForeignKey("customer.id"), nullable=True)
 
     # No enforcement/logging beyond standard audit (Swiss addendum Round 2
     # Q4 #8: TCPA/CAN-SPAM consent capture dropped from v1 acceptance
@@ -253,10 +255,10 @@ class CustomerPhone(PrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "customer_phone"
     __table_args__ = (UniqueConstraint("customer_id", "phone_e164", name="uq_customer_phone_customer_id_e164"),)
 
-    tenant_id: Mapped[GUID] = mapped_column(
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
         GUID(), nullable=False, index=True, comment="Owned by the platform context (Dealer). No DB-level FK."
     )
-    customer_id: Mapped[GUID] = mapped_column(GUID(), ForeignKey("customer.id"), nullable=False, index=True)
+    customer_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("customer.id"), nullable=False, index=True)
     phone_type: Mapped[PhoneType] = mapped_column(SAEnum(PhoneType, native_enum=False, length=16), nullable=False)
     phone_e164: Mapped[str] = mapped_column(String(20), nullable=False)
     # Digits-only projection of phone_e164, maintained by the service layer.
@@ -278,10 +280,10 @@ class CustomerEmail(PrimaryKeyMixin, TimestampMixin, Base):
         UniqueConstraint("customer_id", "email_address", name="uq_customer_email_customer_id_address"),
     )
 
-    tenant_id: Mapped[GUID] = mapped_column(
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
         GUID(), nullable=False, index=True, comment="Owned by the platform context (Dealer). No DB-level FK."
     )
-    customer_id: Mapped[GUID] = mapped_column(GUID(), ForeignKey("customer.id"), nullable=False, index=True)
+    customer_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("customer.id"), nullable=False, index=True)
     email_type: Mapped[EmailType] = mapped_column(SAEnum(EmailType, native_enum=False, length=16), nullable=False)
     email_address: Mapped[str] = mapped_column(String(254), nullable=False, index=True)
     is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
@@ -308,9 +310,9 @@ class CustomerExternalId(PrimaryKeyMixin, TimestampMixin, Base):
         UniqueConstraint("customer_id", "system_name", name="uq_customer_external_id_customer_system"),
     )
 
-    tenant_id: Mapped[GUID] = mapped_column(
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
         GUID(), nullable=False, index=True, comment="Owned by the platform context (Dealer). No DB-level FK."
     )
-    customer_id: Mapped[GUID] = mapped_column(GUID(), ForeignKey("customer.id"), nullable=False, index=True)
+    customer_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("customer.id"), nullable=False, index=True)
     system_name: Mapped[str] = mapped_column(String(100), nullable=False)
     external_id: Mapped[str] = mapped_column(String(255), nullable=False)

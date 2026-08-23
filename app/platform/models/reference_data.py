@@ -19,12 +19,14 @@ reference values must carry an English label going forward (Gap Analysis,
 "Rules in force" #6).
 """
 
+import uuid
+
 from sqlalchemy import Boolean, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db import Base
 from app.core.base import PrimaryKeyMixin, TimestampMixin, VersionedMixin
 from app.core.types import GUID
+from app.db import Base
 
 
 class ReferenceList(PrimaryKeyMixin, TimestampMixin, Base):
@@ -37,7 +39,7 @@ class ReferenceValue(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     __tablename__ = "reference_value"
     __table_args__ = (UniqueConstraint("list_id", "value_code", name="uq_reference_value_list_id_value_code"),)
 
-    list_id: Mapped[GUID] = mapped_column(GUID(), ForeignKey("reference_list.id"), nullable=False, index=True)
+    list_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("reference_list.id"), nullable=False, index=True)
     value_code: Mapped[str] = mapped_column(String(64), nullable=False)
     label_de: Mapped[str] = mapped_column(String(200), nullable=False)
     label_fr: Mapped[str] = mapped_column(String(200), nullable=False)

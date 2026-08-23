@@ -11,6 +11,7 @@ standard CSRF handling, given this sits in front of customer PII.
 """
 
 import uuid
+from typing import Any
 
 from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
@@ -34,7 +35,10 @@ from app.platform.services import user as user_service
 router = APIRouter(tags=["auth"])
 settings = get_settings()
 
-_COOKIE_KWARGS = {"httponly": True, "secure": True, "samesite": "strict", "path": "/"}
+# Typed dict[str, Any], not inferred — mypy can't distribute a spread of an
+# untyped dict literal across set_cookie/delete_cookie's differently-typed
+# keyword parameters (bool for httponly/secure, str for samesite/path).
+_COOKIE_KWARGS: dict[str, Any] = {"httponly": True, "secure": True, "samesite": "strict", "path": "/"}
 
 
 def _set_session_cookie(response: Response, token: str) -> None:

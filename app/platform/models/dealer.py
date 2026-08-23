@@ -4,13 +4,15 @@ tenant, it doesn't belong to one.
 """
 
 import enum
+import uuid
 
-from sqlalchemy import JSON, Enum as SAEnum, String
+from sqlalchemy import JSON, String
+from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db import Base
 from app.core.base import PrimaryKeyMixin, TimestampMixin, VersionedMixin
 from app.core.types import GUID, EncryptedString
+from app.db import Base
 
 
 class FranchiseType(str, enum.Enum):
@@ -54,7 +56,7 @@ class Dealer(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
 
     # Self-FK for future dealer-group rollups (cross-cutting #1) — unused in
     # v1, no FK constraint added yet since Dealer groups aren't modeled.
-    parent_group_id: Mapped[GUID | None] = mapped_column(GUID(), nullable=True)
+    parent_group_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True)
 
     status: Mapped[DealerStatus] = mapped_column(
         SAEnum(DealerStatus, native_enum=False, length=32),

@@ -11,12 +11,12 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.audit import record_audit_event
 from app.core.errors import ConflictError
 from app.core.pagination import PageParams, build_page, paginate_query
 from app.core.tenancy import get_or_404
 from app.platform.models.user import EmploymentStatus, User, UserStatus
 from app.platform.schemas.user import UserCreate, UserUpdate
-from app.core.audit import record_audit_event
 
 # access_role is audited alongside role/status even though the spec text
 # only says "role and status" — it gates authorization, which is exactly

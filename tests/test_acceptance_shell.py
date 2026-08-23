@@ -562,4 +562,4 @@ def test_ac9_timestamps_are_utc_iso8601_and_amount_is_two_decimal_precision(clie
     # Pydantic's isoformat() serialization always includes a UTC offset for
     # timezone-aware datetimes (created_at/updated_at are DateTime(timezone=True)).
     created_at = transaction["createdAt"]
-    assert created_at.endswith("+00:00") or created_at.endswith("Z")
+    assert created_at.endswith(("+00:00", "Z"))

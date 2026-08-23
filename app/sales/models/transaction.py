@@ -14,14 +14,16 @@ transaction.
 
 import datetime as dt
 import enum
+import uuid
 from decimal import Decimal
 
-from sqlalchemy import DECIMAL, Enum as SAEnum, String, Text
+from sqlalchemy import DECIMAL, String, Text
+from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db import Base
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
 from app.core.types import GUID, UTCDateTime
+from app.db import Base
 
 
 class TransactionType(str, enum.Enum):
@@ -40,7 +42,7 @@ class Transaction(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampM
 
     # Overrides TenantScopedMixin's bare column — no DB-level FK to dealer.id
     # (PR-2, ADR-015). Owned by the platform context; reconciled nightly.
-    tenant_id: Mapped[GUID] = mapped_column(
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
         GUID(), nullable=False, index=True, comment="Owned by the platform context (Dealer). No DB-level FK."
     )
 
@@ -50,15 +52,15 @@ class Transaction(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampM
     status: Mapped[TransactionStatus] = mapped_column(
         SAEnum(TransactionStatus, native_enum=False, length=16), nullable=False, default=TransactionStatus.DRAFT
     )
-    customer_id: Mapped[GUID] = mapped_column(
+    customer_id: Mapped[uuid.UUID] = mapped_column(
         GUID(), nullable=False, index=True, comment="Owned by the customer context. No DB-level FK (PR-2, ADR-015)."
     )
-    vehicle_id: Mapped[GUID] = mapped_column(
+    vehicle_id: Mapped[uuid.UUID] = mapped_column(
         GUID(), nullable=False, index=True, comment="Owned by the vehicle context. No DB-level FK (PR-2, ADR-015)."
     )
     # Employee of record — no DB-level FK to user.id (PR-2, ADR-015); tenant
     # match is enforced at the service layer, same as before.
-    primary_user_id: Mapped[GUID] = mapped_column(
+    primary_user_id: Mapped[uuid.UUID] = mapped_column(
         GUID(), nullable=False, index=True, comment="Owned by the platform context (User). No DB-level FK."
     )
 

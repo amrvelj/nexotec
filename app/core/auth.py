@@ -52,7 +52,7 @@ class Principal:
 def create_access_token(
     *, user_id: uuid.UUID, tenant_id: uuid.UUID, access_role: AccessRole, ttl_seconds: int | None = None
 ) -> str:
-    now = dt.datetime.now(dt.timezone.utc)
+    now = dt.datetime.now(dt.UTC)
     ttl = ttl_seconds if ttl_seconds is not None else settings.jwt_access_token_ttl_seconds
     payload = {
         "sub": str(user_id),

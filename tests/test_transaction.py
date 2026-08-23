@@ -148,13 +148,13 @@ def test_non_write_roles_cannot_create_transaction(client, role):
 
 
 def test_create_transaction_requires_authentication(client):
-    dealer_id, user, customer, vehicle = _setup(client)
+    _dealer_id, user, customer, vehicle = _setup(client)
     response = client.post("/v1/transactions", json=_transaction_payload(user, customer, vehicle))
     assert response.status_code == 401
 
 
 def test_create_transaction_under_nonexistent_tenant_is_404(client):
-    dealer_id, user, customer, vehicle = _setup(client)
+    _dealer_id, user, customer, vehicle = _setup(client)
     token = _token(AccessRole.DEALER_ADMIN)  # random tenant_id, no real Dealer row
     response = client.post(
         "/v1/transactions", json=_transaction_payload(user, customer, vehicle), headers=_bearer(token)
@@ -164,7 +164,7 @@ def test_create_transaction_under_nonexistent_tenant_is_404(client):
 
 def test_customer_from_other_tenant_is_rejected(client):
     dealer_a, user_a, _customer_a, vehicle_a = _setup(client)
-    dealer_b, _user_b, customer_b, _vehicle_b = _setup(client)
+    _dealer_b, _user_b, customer_b, _vehicle_b = _setup(client)
     token_a = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_a))
     response = client.post(
         "/v1/transactions",
@@ -176,7 +176,7 @@ def test_customer_from_other_tenant_is_rejected(client):
 
 def test_user_from_other_tenant_is_rejected(client):
     dealer_a, _user_a, customer_a, vehicle_a = _setup(client)
-    dealer_b, user_b, _customer_b, _vehicle_b = _setup(client)
+    _dealer_b, user_b, _customer_b, _vehicle_b = _setup(client)
     token_a = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_a))
     response = client.post(
         "/v1/transactions",

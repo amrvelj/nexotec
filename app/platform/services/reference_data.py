@@ -12,11 +12,11 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
+from app.core.audit import record_audit_event
 from app.core.errors import ConflictError, NotFoundError
 from app.core.pagination import PageParams, build_page, paginate_query
 from app.platform.models.reference_data import ReferenceList, ReferenceValue
 from app.platform.schemas.reference_data import ReferenceValueCreate, ReferenceValueUpdate
-from app.core.audit import record_audit_event
 
 _AUDITED_FIELDS = {"label_de", "label_fr", "label_it", "label_en", "sort_order", "active"}
 

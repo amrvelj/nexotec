@@ -11,7 +11,7 @@ boundary). This function commits that session itself — the caller
 (app.core.outbox_transport.InProcessTransport) does not commit around it.
 """
 
-from typing import Callable
+from collections.abc import Callable
 
 from sqlalchemy.orm import Session
 

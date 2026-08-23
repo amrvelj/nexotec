@@ -4,10 +4,11 @@
 
 import uuid
 
+from sqlalchemy import select
+
 from app.core.auth import AccessRole, create_access_token
 from app.core.pagination import count_capped
 from app.customer.models.customer import Customer
-from sqlalchemy import select
 
 VALID_ADDRESS = {
     "street": "Bahnhofstrasse", "houseNumber": "1", "postalCode": "8001", "locality": "Zürich", "canton": "ZH",

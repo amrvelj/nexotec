@@ -1,4 +1,5 @@
 import datetime as dt
+import uuid
 
 from sqlalchemy import ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
@@ -32,11 +33,11 @@ class ReconciliationOrphan(PrimaryKeyMixin, Base):
 
     __tablename__ = "reconciliation_orphan"
 
-    run_id: Mapped[GUID] = mapped_column(GUID(), ForeignKey("reconciliation_run.id"), nullable=False, index=True)
+    run_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("reconciliation_run.id"), nullable=False, index=True)
     context: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
     check_label: Mapped[str] = mapped_column(String(128), nullable=False)
     source_table: Mapped[str] = mapped_column(String(64), nullable=False)
-    source_row_id: Mapped[GUID] = mapped_column(GUID(), nullable=False)
+    source_row_id: Mapped[uuid.UUID] = mapped_column(GUID(), nullable=False)
     target_table: Mapped[str] = mapped_column(String(64), nullable=False)
-    dangling_value: Mapped[GUID] = mapped_column(GUID(), nullable=False)
+    dangling_value: Mapped[uuid.UUID] = mapped_column(GUID(), nullable=False)
     detected_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)

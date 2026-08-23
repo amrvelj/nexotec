@@ -19,7 +19,7 @@ from app.customer.models.customer import Customer
 from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.reconciliation_runner import MultiContextReconciliationAlarm, run_all
 from app.sales import reconciliation as sales_reconciliation
-from app.sales.models.transaction import Transaction, TransactionStatus, TransactionType
+from app.sales.models.transaction import Transaction
 from app.vehicle import reconciliation as vehicle_reconciliation
 from app.vehicle.models.vehicle import CustodyEventType, VehicleCustodyEvent
 
@@ -223,7 +223,7 @@ def test_vehicle_reconciliation_detects_orphaned_custody_event_partner(client, d
             vehicle_id=uuid.UUID(vehicle["id"]),
             partner_id=uuid.uuid4(),
             event_type=CustodyEventType.ACQUIRED,
-            event_date=dt.datetime.now(dt.timezone.utc),
+            event_date=dt.datetime.now(dt.UTC),
         )
     )
     db_session.commit()

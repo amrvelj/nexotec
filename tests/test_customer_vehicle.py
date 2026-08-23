@@ -243,7 +243,7 @@ def test_inventory_role_cannot_write(client):
 
 
 def test_customer_from_another_tenant_404s_not_403(client):
-    dealer_id, customer, vehicle = _setup(client)
+    _dealer_id, customer, _vehicle = _setup(client)
     other_dealer_id = _create_dealer(client)
     other_tenant_token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(other_dealer_id))
     response = client.get(f"/v1/customers/{customer['id']}/vehicles", headers=_bearer(other_tenant_token))

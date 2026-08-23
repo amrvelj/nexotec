@@ -4,9 +4,9 @@ import uuid
 from pydantic import EmailStr, Field
 
 from app.core.auth import AccessRole
-from app.platform.models.user import EmploymentStatus, UserRole, UserStatus
 from app.core.schemas import CamelModel
 from app.core.validators import E164Phone
+from app.platform.models.user import EmploymentStatus, UserRole, UserStatus
 
 
 class UserCreate(CamelModel):

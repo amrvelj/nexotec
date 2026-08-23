@@ -11,12 +11,12 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.audit import record_audit_event
+from app.core.base import utcnow
 from app.core.errors import ForbiddenError, UnauthorizedError
 from app.core.security import hash_password, verify_password
-from app.core.base import utcnow
 from app.platform.models.credential import Credential
 from app.platform.models.user import User, UserStatus
-from app.core.audit import record_audit_event
 
 _MAX_FAILED_ATTEMPTS = 5
 _LOCKOUT_DURATION_SECONDS = 15 * 60
@@ -32,7 +32,7 @@ def _as_aware_utc(value: dt.datetime) -> dt.datetime:
     back from either backend.
     """
 
-    return value if value.tzinfo is not None else value.replace(tzinfo=dt.timezone.utc)
+    return value if value.tzinfo is not None else value.replace(tzinfo=dt.UTC)
 
 
 def set_credential(db: Session, *, user: User, password: str, actor_id: uuid.UUID) -> Credential:

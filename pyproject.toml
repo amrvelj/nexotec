@@ -23,6 +23,8 @@ dev = [
     "pytest-asyncio>=1.4,<2.0",
     "httpx>=0.28,<0.29",
     "import-linter>=2.5,<3.0",
+    "ruff>=0.16,<0.17",
+    "mypy>=1.19,<2.0",
 ]
 
 [tool.pytest.ini_options]
@@ -35,6 +37,29 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["app*"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py313"
+
+[tool.ruff.lint]
+ignore = [
+    # FastAPI's own DI idiom — every `Depends(...)` in a route signature
+    # trips this. Standard posture for a FastAPI codebase, not a
+    # suppression of a real problem; everything else B (bugbear) still
+    # applies.
+    "B008",
+    # Old-style TypeVar generics -> PEP 695 syntax. Only fires on
+    # app/core/pagination.py and app/core/tenancy.py, both on the
+    # preserve-verbatim list — a style modernization isn't worth touching
+    # them for.
+    "UP047",
+]
+
+[tool.mypy]
+python_version = "3.13"
+warn_unused_configs = true
+warn_redundant_casts = true
 
 [tool.importlinter]
 root_package = "app"

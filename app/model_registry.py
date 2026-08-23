@@ -4,20 +4,20 @@ outside all ten context packages, like app.main and app.db — nothing but
 this composition role.
 """
 
-from app.core.audit_model import AuditEvent  # noqa: F401
-from app.core.idempotency_model import IdempotencyRecord  # noqa: F401
-from app.core.outbox_model import OutboxMessage  # noqa: F401
-from app.core.processed_event_model import ProcessedEvent  # noqa: F401
-from app.core.reconciliation_model import ReconciliationOrphan, ReconciliationRun  # noqa: F401
-from app.customer.models.customer import Customer  # noqa: F401
-from app.customer.models.vehicle_party import VehicleParty  # noqa: F401
-from app.platform.models.credential import Credential  # noqa: F401
-from app.platform.models.dealer import Dealer  # noqa: F401
-from app.platform.models.reference_data import ReferenceList, ReferenceValue  # noqa: F401
-from app.platform.models.user import User  # noqa: F401
-from app.platform.models.user_preference import UserPreference  # noqa: F401
-from app.sales.models.transaction import Transaction  # noqa: F401
-from app.vehicle.models.vehicle import Vehicle, VehicleCustodyEvent  # noqa: F401
+from app.core.audit_model import AuditEvent
+from app.core.idempotency_model import IdempotencyRecord
+from app.core.outbox_model import OutboxMessage
+from app.core.processed_event_model import ProcessedEvent
+from app.core.reconciliation_model import ReconciliationOrphan, ReconciliationRun
+from app.customer.models.customer import Customer
+from app.customer.models.vehicle_party import VehicleParty
+from app.platform.models.credential import Credential
+from app.platform.models.dealer import Dealer
+from app.platform.models.reference_data import ReferenceList, ReferenceValue
+from app.platform.models.user import User
+from app.platform.models.user_preference import UserPreference
+from app.sales.models.transaction import Transaction
+from app.vehicle.models.vehicle import Vehicle, VehicleCustodyEvent
 
 __all__ = [
     "AuditEvent",

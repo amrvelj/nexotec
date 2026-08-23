@@ -18,12 +18,15 @@ from fastapi import APIRouter, Depends, Header, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
+from app.core.audit import list_audit_events
+from app.core.audit_schemas import AuditEventPage, AuditEventRead
 from app.core.auth import AccessRole, Principal, get_current_principal, require_access_role
 from app.core.concurrency import check_version, require_if_match
+from app.core.idempotency import find_cached_response, store_response
 from app.core.pagination import PageParams, page_params
 from app.db import get_db
+from app.platform.public import get_dealer_or_404
 from app.sales.models.transaction import TransactionStatus, TransactionType
-from app.core.audit_schemas import AuditEventPage, AuditEventRead
 from app.sales.schemas.transaction import (
     TransactionCancelRequest,
     TransactionCreate,
@@ -31,10 +34,7 @@ from app.sales.schemas.transaction import (
     TransactionRead,
     TransactionUpdate,
 )
-from app.platform.public import get_dealer_or_404
 from app.sales.services import transaction as transaction_service
-from app.core.audit import list_audit_events
-from app.core.idempotency import find_cached_response, store_response
 
 router = APIRouter(tags=["transactions"])
 

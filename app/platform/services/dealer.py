@@ -9,11 +9,11 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.audit import record_audit_event
 from app.core.errors import ConflictError, NotFoundError
 from app.core.pagination import PageParams, build_page, paginate_query
 from app.platform.models.dealer import Dealer, DealerStatus
 from app.platform.schemas.dealer import DealerCreate, DealerUpdate
-from app.core.audit import record_audit_event
 
 _AUDITED_FIELDS = {"dealer_license_number", "license_state", "tax_id", "status"}
 _SECRET_FIELDS = {"tax_id"}

@@ -10,7 +10,7 @@ from app.core.pagination import CursorPosition, decode_cursor, encode_cursor, pa
 
 
 def test_cursor_roundtrip():
-    position = CursorPosition(created_at=dt.datetime(2026, 1, 1, tzinfo=dt.timezone.utc), id=uuid.uuid4())
+    position = CursorPosition(created_at=dt.datetime(2026, 1, 1, tzinfo=dt.UTC), id=uuid.uuid4())
     decoded = decode_cursor(encode_cursor(position))
     assert decoded == position
 
@@ -51,7 +51,7 @@ def test_limit_under_min_is_422(page_client):
 
 
 def test_valid_cursor_param_is_decoded(page_client):
-    cursor = encode_cursor(CursorPosition(created_at=dt.datetime.now(dt.timezone.utc), id=uuid.uuid4()))
+    cursor = encode_cursor(CursorPosition(created_at=dt.datetime.now(dt.UTC), id=uuid.uuid4()))
     response = page_client.get("/items", params={"cursor": cursor})
     assert response.status_code == 200
     assert response.json()["hasCursor"] is True

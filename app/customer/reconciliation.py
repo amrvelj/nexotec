@@ -4,7 +4,7 @@ read-only — see app.core.reconciliation for the mechanism.
 
 from sqlalchemy.orm import Session
 
-from app.core.reconciliation import ReferenceCheck, ReconciliationRun, run_reconciliation
+from app.core.reconciliation import ReconciliationRun, ReferenceCheck, run_reconciliation
 from app.customer.models.customer import (
     Customer,
     CustomerEmail,

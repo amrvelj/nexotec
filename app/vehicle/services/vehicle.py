@@ -17,13 +17,13 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.audit import record_audit_event
+from app.core.base import utcnow
 from app.core.errors import ConflictError, NotFoundError
 from app.core.pagination import PageParams, build_page, paginate_query
-from app.core.base import utcnow
+from app.platform.public import get_reference_list_or_404, get_reference_value_or_404
 from app.vehicle.models.vehicle import CustodyEventType, Vehicle, VehicleCustodyEvent, VehicleStatus
 from app.vehicle.schemas.vehicle import VehicleCreate, VehicleUpdate
-from app.platform.public import get_reference_list_or_404, get_reference_value_or_404
-from app.core.audit import record_audit_event
 
 _REFERENCE_FIELDS = (
     "vehicle_type",

@@ -15,10 +15,10 @@ from sqlalchemy.pool import StaticPool
 # runs at import time in app/db.py, app/core/auth.py, app/core/pagination.py.
 os.environ.setdefault("DMS_TAX_ID_ENCRYPTION_KEY", Fernet.generate_key().decode())
 
-import app.model_registry  # noqa: F401,E402  ensures all tables are registered on Base.metadata
-from app.db import Base, get_db  # noqa: E402
-from app.main import app as fastapi_app  # noqa: E402
-from tests.demo_models import DemoWidget  # noqa: F401,E402  registers the test-only tenant-scoped model
+import app.model_registry  # noqa: F401  ensures all tables are registered on Base.metadata
+from app.db import Base, get_db
+from app.main import app as fastapi_app
+from tests.demo_models import DemoWidget  # noqa: F401  registers the test-only tenant-scoped model
 
 # Two test lanes (CTO condition on issue #2's merge): fast SQLite in-memory
 # by default, or the real Postgres container from docker-compose when

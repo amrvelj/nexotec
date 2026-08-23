@@ -11,7 +11,12 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import Principal, get_current_principal
 from app.db import get_db
-from app.platform.schemas.user_preference import SCOPE_PATTERN, UserPreferenceListRead, UserPreferenceRead, UserPreferenceWrite
+from app.platform.schemas.user_preference import (
+    SCOPE_PATTERN,
+    UserPreferenceListRead,
+    UserPreferenceRead,
+    UserPreferenceWrite,
+)
 from app.platform.services import user_preference as user_preference_service
 
 router = APIRouter(tags=["user-preferences"])
