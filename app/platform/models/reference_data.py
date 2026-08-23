@@ -9,6 +9,14 @@ addendum decision #9). ReferenceList rows are seed-only for v1 (created by
 migration, not a POST endpoint) — the API only manages ReferenceValue rows
 within an existing list_code. Lifecycle/status enums are explicitly excluded
 from this pattern (Round 2 Q3) and stay hard-coded on their own models.
+
+label_en (WP-1, Gap Analysis G-18): the original Swiss addendum ruling
+(Round 2 Q3) shipped DE/FR/IT only. Target Architecture's i18n rule is
+DE/FR/IT/EN, the frontend already ships en.json, and the provider-
+independence story depends on owning the English labels — so every
+reference value renders untranslated in English until this lands. New
+reference values must carry an English label going forward (Gap Analysis,
+"Rules in force" #6).
 """
 
 from sqlalchemy import Boolean, ForeignKey, Integer, String, UniqueConstraint
@@ -34,6 +42,7 @@ class ReferenceValue(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     label_de: Mapped[str] = mapped_column(String(200), nullable=False)
     label_fr: Mapped[str] = mapped_column(String(200), nullable=False)
     label_it: Mapped[str] = mapped_column(String(200), nullable=False)
+    label_en: Mapped[str] = mapped_column(String(200), nullable=False)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 

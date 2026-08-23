@@ -35,6 +35,7 @@ def _value_payload(**overrides):
         "labelDe": "Diesel",
         "labelFr": "Diesel",
         "labelIt": "Diesel",
+        "labelEn": "Diesel",
     }
     payload.update(overrides)
     return payload
