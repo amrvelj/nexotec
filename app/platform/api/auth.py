@@ -1,14 +1,17 @@
-"""Login/logout via Zitadel (WP-4, ADR-016/ADR-007) + credential management
-(issue #8, being retired alongside the login cutover — see
-app.platform.services.auth's own docstring).
+"""Login/logout via Zitadel (WP-4, ADR-016/ADR-007, closes Gap Analysis
+G-09 — the interim password store is gone as of this module: no
+Credential model, no bcrypt, no `POST .../credential` endpoint. See
+tests/architecture/test_no_password_credential_storage.py for the
+query-against-the-live-schema proof, not just this file's own absence.
 
 Zitadel authenticates; it never authorises — access_roles/is_dealer_manager
-live on User and are resolved here exactly as the old password login did,
-from the User row matched by auth_identity_id, never from anything Zitadel's
-ID token or userinfo response carries. The session itself is unchanged: an
-httpOnly + Secure + SameSite=strict cookie holding OUR OWN RS256 JWT
-(app.core.auth.create_access_token), never the JSON response body and never
-a Zitadel-issued token — the browser never holds a service token either way.
+live on User and are resolved here from the User row matched by
+auth_identity_id, never from anything Zitadel's ID token or userinfo
+response carries. The session itself is unchanged from before this
+package: an httpOnly + Secure + SameSite=strict cookie holding OUR OWN
+RS256 JWT (app.core.auth.create_access_token), never the JSON response
+body and never a Zitadel-issued token — the browser never holds a service
+token either way.
 """
 
 import logging
@@ -29,20 +32,16 @@ from app.core.auth import (
 )
 from app.core.config import get_settings
 from app.core.errors import ForbiddenError
-from app.core.permissions import require_write
-from app.core.tenancy import require_tenant_match
 from app.db import get_db
 from app.platform.models.dealership import Dealership
 from app.platform.models.user import User, UserStatus
 from app.platform.schemas.auth import (
-    CredentialSetRequest,
     DealershipMembershipSummary,
     LoginResponse,
     LogoutResponse,
     SwitchDealershipRequest,
 )
 from app.platform.schemas.user import UserRead
-from app.platform.services import auth as auth_service
 from app.platform.services import dealership as dealership_service
 from app.platform.services import user as user_service
 from app.platform.services.oidc import OidcClient, OidcError, get_oidc_client
@@ -203,16 +202,3 @@ def switch_dealership(
     )
     _set_session_cookie(response, token)
     return _login_response(db, user=user, active_dealership=dealership, membership_ids=membership_ids)
-
-
-@router.post("/dealerships/{dealership_id}/users/{user_id}/credential", status_code=204)
-def set_user_credential(
-    dealership_id: uuid.UUID,
-    user_id: uuid.UUID,
-    body: CredentialSetRequest,
-    principal: Principal = Depends(require_write("dealership_users")),
-    db: Session = Depends(get_db),
-):
-    require_tenant_match(dealership_id, principal)
-    user = user_service.get_user_or_404(db, dealership_id, user_id)
-    auth_service.set_credential(db, user=user, password=body.password, actor_id=principal.user_id)

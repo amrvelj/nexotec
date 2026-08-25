@@ -79,15 +79,6 @@ def _create_user(client, dealer_id: str, **overrides) -> dict:
     return response.json()
 
 
-def _set_credential(client, dealer_id: str, user_id: str, password: str, *, token: str | None = None):
-    token = token or _token(AccessRole.PLATFORM_ADMIN)
-    return client.post(
-        f"/v1/dealerships/{dealer_id}/users/{user_id}/credential",
-        json={"password": password},
-        headers=_bearer(token),
-    )
-
-
 def _login_via_oidc(client, oidc_fake, user: dict):
     """Bootstraps a session the way a real browser would: GET the callback
     endpoint after Zitadel has already authenticated the person — the fake
@@ -332,66 +323,3 @@ def test_switching_to_a_dealership_outside_your_memberships_is_forbidden(client,
 def test_switch_dealership_requires_authentication(client):
     response = client.post("/v1/auth/switch-dealership", json={"dealershipId": str(uuid.uuid4())})
     assert response.status_code == 401
-
-
-# --- credential set/reset (retires in WP-4 commit 3/4) --------------------------
-
-
-def test_dealer_admin_can_set_credential_for_own_tenant_user(client):
-    dealer_id = _create_dealer(client)
-    user = _create_user(client, dealer_id)
-    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
-
-    response = _set_credential(client, dealer_id, user["id"], "correct horse battery staple", token=token)
-    assert response.status_code == 204
-
-
-def test_platform_admin_can_set_credential_any_tenant(client):
-    dealer_id = _create_dealer(client)
-    user = _create_user(client, dealer_id)
-    response = _set_credential(client, dealer_id, user["id"], "correct horse battery staple")
-    assert response.status_code == 204
-
-
-@pytest.mark.parametrize("role", [AccessRole.SALES, AccessRole.INVENTORY, AccessRole.AUDITOR])
-def test_non_admin_roles_cannot_set_credential(client, role):
-    dealer_id = _create_dealer(client)
-    user = _create_user(client, dealer_id)
-    token = _token(role, tenant_id=uuid.UUID(dealer_id))
-    response = _set_credential(client, dealer_id, user["id"], "correct horse battery staple", token=token)
-    assert response.status_code == 403
-
-
-def test_dealer_admin_cannot_set_credential_for_other_tenant(client):
-    dealer_id = _create_dealer(client)
-    user = _create_user(client, dealer_id)
-    other_admin_token = _token(is_dealer_manager=True)  # different, random tenant_id
-    response = _set_credential(client, dealer_id, user["id"], "correct horse battery staple", token=other_admin_token)
-    assert response.status_code == 404
-
-
-def test_credential_too_short_is_rejected(client):
-    dealer_id = _create_dealer(client)
-    user = _create_user(client, dealer_id)
-    response = _set_credential(client, dealer_id, user["id"], "short")
-    assert response.status_code == 422
-
-
-def test_credential_set_and_reset_are_audit_logged(client):
-    dealer_id = _create_dealer(client)
-    user = _create_user(client, dealer_id)
-    admin_token = _token(AccessRole.PLATFORM_ADMIN)
-
-    _set_credential(client, dealer_id, user["id"], "correct horse battery staple", token=admin_token)
-    _set_credential(client, dealer_id, user["id"], "a different password", token=admin_token)
-
-    log = client.get(f"/v1/dealerships/{dealer_id}/audit-log", headers=_bearer(admin_token))
-    assert log.status_code == 200
-    events = [item for item in log.json()["items"] if item["entityId"] == user["id"]]
-    actions = [item["action"] for item in events]
-    assert "credential_set" in actions
-    assert "credential_reset" in actions
-    # Never logs the password or its hash.
-    for item in events:
-        assert "correct horse battery staple" not in str(item)
-        assert "a different password" not in str(item)
