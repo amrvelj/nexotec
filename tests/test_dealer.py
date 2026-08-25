@@ -27,9 +27,18 @@ def _dealer_payload(**overrides):
     return payload
 
 
-def _token(role: AccessRole, tenant_id: uuid.UUID | None = None, user_id: uuid.UUID | None = None) -> str:
+def _token(
+    role: AccessRole | None = None,
+    tenant_id: uuid.UUID | None = None,
+    user_id: uuid.UUID | None = None,
+    *,
+    is_dealer_manager: bool = False,
+) -> str:
     return create_access_token(
-        user_id=user_id or uuid.uuid4(), tenant_id=tenant_id or uuid.uuid4(), access_role=role
+        user_id=user_id or uuid.uuid4(),
+        tenant_id=tenant_id or uuid.uuid4(),
+        roles=frozenset({role}) if role is not None else frozenset(),
+        is_dealer_manager=is_dealer_manager,
     )
 
 
@@ -54,11 +63,19 @@ def test_platform_admin_can_create_dealer(client):
     assert "taxId" not in body
 
 
-@pytest.mark.parametrize(
-    "role", [AccessRole.DEALER_ADMIN, AccessRole.SALES, AccessRole.INVENTORY, AccessRole.AUDITOR]
-)
+@pytest.mark.parametrize("role", [AccessRole.SALES, AccessRole.INVENTORY, AccessRole.AUDITOR])
 def test_non_platform_admin_cannot_create_dealer(client, role):
     token = _token(role)
+    response = client.post("/v1/dealers", json=_dealer_payload(), headers=_bearer(token))
+    assert response.status_code == 403
+
+
+def test_a_dealer_manager_cannot_create_a_dealer(client):
+    """is_dealer_manager grants administration of ITS OWN dealership only —
+    dealer onboarding is platform_admin-only and the manager flag doesn't
+    cross that boundary, same as it doesn't cross the group boundary.
+    """
+    token = _token(is_dealer_manager=True)
     response = client.post("/v1/dealers", json=_dealer_payload(), headers=_bearer(token))
     assert response.status_code == 403
     assert response.json()["error"]["code"] == "forbidden"
@@ -137,7 +154,7 @@ def test_tax_id_is_encrypted_at_rest(db_session):
 def test_dealer_admin_can_read_own_dealer(client):
     body = _create_dealer(client)
     dealer_id = body["id"]
-    own_admin_token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    own_admin_token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     response = client.get(f"/v1/dealers/{dealer_id}", headers=_bearer(own_admin_token))
     assert response.status_code == 200
 
@@ -145,7 +162,7 @@ def test_dealer_admin_can_read_own_dealer(client):
 def test_dealer_admin_cannot_read_other_dealer(client):
     body = _create_dealer(client)
     dealer_id = body["id"]
-    other_admin_token = _token(AccessRole.DEALER_ADMIN)  # random, different tenant_id
+    other_admin_token = _token(is_dealer_manager=True)  # random, different tenant_id
     response = client.get(f"/v1/dealers/{dealer_id}", headers=_bearer(other_admin_token))
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "not_found"
@@ -159,7 +176,7 @@ def test_get_unknown_dealer_is_404(client):
 
 def test_list_dealers_is_platform_admin_only(client):
     _create_dealer(client)
-    dealer_admin_token = _token(AccessRole.DEALER_ADMIN)
+    dealer_admin_token = _token(is_dealer_manager=True)
     response = client.get("/v1/dealers", headers=_bearer(dealer_admin_token))
     assert response.status_code == 403
 

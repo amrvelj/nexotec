@@ -33,5 +33,5 @@ def require_tenant_match(resource_tenant_id: uuid.UUID, principal: Principal) ->
     or the dealer's own principal. Cross-tenant access still 404s, never 403s.
     """
 
-    if principal.access_role != AccessRole.PLATFORM_ADMIN and principal.tenant_id != resource_tenant_id:
+    if AccessRole.PLATFORM_ADMIN not in principal.roles and principal.tenant_id != resource_tenant_id:
         raise NotFoundError(f"Dealer {resource_tenant_id} was not found.")

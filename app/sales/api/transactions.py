@@ -20,10 +20,11 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import list_audit_events
 from app.core.audit_schemas import AuditEventPage, AuditEventRead
-from app.core.auth import AccessRole, Principal, get_current_principal, require_access_role
+from app.core.auth import Principal, get_current_principal
 from app.core.concurrency import check_version, require_if_match
 from app.core.idempotency import find_cached_response, store_response
 from app.core.pagination import PageParams, page_params
+from app.core.permissions import require_read, require_write
 from app.db import get_db
 from app.platform.public import get_dealer_or_404
 from app.sales.models.transaction import TransactionStatus, TransactionType
@@ -38,8 +39,6 @@ from app.sales.services import transaction as transaction_service
 
 router = APIRouter(tags=["transactions"])
 
-_WRITE_ROLES = (AccessRole.DEALER_ADMIN, AccessRole.SALES)
-
 
 def _idempotency_key(idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")) -> str | None:
     return idempotency_key
@@ -50,7 +49,7 @@ def create_transaction(
     body: TransactionCreate,
     request: Request,
     idempotency_key: str | None = Depends(_idempotency_key),
-    principal: Principal = Depends(require_access_role(*_WRITE_ROLES)),
+    principal: Principal = Depends(require_write("transactions")),
     db: Session = Depends(get_db),
 ):
     # Same defensive check as Customer create — tenant is JWT-derived here,
@@ -99,7 +98,7 @@ def update_transaction(
     transaction_id: uuid.UUID,
     body: TransactionUpdate,
     if_match: int = Depends(require_if_match),
-    principal: Principal = Depends(require_access_role(*_WRITE_ROLES)),
+    principal: Principal = Depends(require_write("transactions")),
     db: Session = Depends(get_db),
 ):
     transaction = transaction_service.get_transaction_or_404(db, principal.tenant_id, transaction_id)
@@ -114,7 +113,7 @@ def update_transaction(
 def complete_transaction(
     transaction_id: uuid.UUID,
     if_match: int = Depends(require_if_match),
-    principal: Principal = Depends(require_access_role(*_WRITE_ROLES)),
+    principal: Principal = Depends(require_write("transactions")),
     db: Session = Depends(get_db),
 ):
     transaction = transaction_service.get_transaction_or_404(db, principal.tenant_id, transaction_id)
@@ -128,7 +127,7 @@ def cancel_transaction(
     transaction_id: uuid.UUID,
     body: TransactionCancelRequest,
     if_match: int = Depends(require_if_match),
-    principal: Principal = Depends(require_access_role(*_WRITE_ROLES)),
+    principal: Principal = Depends(require_write("transactions")),
     db: Session = Depends(get_db),
 ):
     transaction = transaction_service.get_transaction_or_404(db, principal.tenant_id, transaction_id)
@@ -168,7 +167,7 @@ def list_transactions(
 @router.get("/transactions/{transaction_id}/audit-log", response_model=AuditEventPage)
 def get_transaction_audit_log(
     transaction_id: uuid.UUID,
-    principal: Principal = Depends(require_access_role(AccessRole.DEALER_ADMIN, AccessRole.AUDITOR)),
+    principal: Principal = Depends(require_read("audit_logs")),
     db: Session = Depends(get_db),
 ):
     transaction_service.get_transaction_or_404(db, principal.tenant_id, transaction_id)

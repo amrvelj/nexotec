@@ -15,6 +15,12 @@ dependencies = [
     "cryptography>=44.0,<45.0",
     "email-validator>=2.2,<3.0",
     "bcrypt>=4.0,<5.0",
+    "opentelemetry-api>=1.27,<2.0",
+    "opentelemetry-sdk>=1.27,<2.0",
+    "opentelemetry-exporter-otlp-proto-http>=1.27,<2.0",
+    "opentelemetry-instrumentation-fastapi>=0.48b0",
+    "sentry-sdk[fastapi]>=2.14,<3.0",
+    "infisicalsdk>=1.0,<2.0",
 ]
 
 [project.optional-dependencies]
@@ -60,6 +66,13 @@ ignore = [
 python_version = "3.13"
 warn_unused_configs = true
 warn_redundant_casts = true
+
+# Ships no type stubs / py.typed marker — a standard, narrow ignore for one
+# untyped third-party package, not a suppression of anything this codebase
+# controls (app/core/secrets.py is the only importer).
+[[tool.mypy.overrides]]
+module = "infisical_sdk.*"
+ignore_missing_imports = true
 
 [tool.importlinter]
 root_package = "app"

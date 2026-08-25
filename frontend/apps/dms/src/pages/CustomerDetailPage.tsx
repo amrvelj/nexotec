@@ -55,7 +55,7 @@ export function CustomerDetailPage() {
   const { t, i18n } = useTranslation()
   const locale = toSwissLocale(i18n.language as SupportedLanguage)
   const { user } = useAuth()
-  const canWriteExternalIds = user?.accessRole === 'platform_admin'
+  const canWriteExternalIds = user?.accessRoles.includes('platform_admin') ?? false
   const [searchParams, setSearchParams] = useSearchParams()
   const queryClient = useQueryClient()
   const activeTab = searchParams.get('tab') ?? DEFAULT_TAB

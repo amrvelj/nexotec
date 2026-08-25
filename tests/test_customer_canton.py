@@ -6,8 +6,13 @@ from app.core.auth import AccessRole, create_access_token
 from app.core.postal_codes import derive_canton
 
 
-def _token(role: AccessRole, tenant_id: uuid.UUID | None = None) -> str:
-    return create_access_token(user_id=uuid.uuid4(), tenant_id=tenant_id or uuid.uuid4(), access_role=role)
+def _token(role: AccessRole | None = None, tenant_id: uuid.UUID | None = None, *, is_dealer_manager: bool = False) -> str:
+    return create_access_token(
+        user_id=uuid.uuid4(),
+        tenant_id=tenant_id or uuid.uuid4(),
+        roles=frozenset({role}) if role is not None else frozenset(),
+        is_dealer_manager=is_dealer_manager,
+    )
 
 
 def _bearer(token: str) -> dict[str, str]:
@@ -34,7 +39,7 @@ def _create_dealer(client) -> str:
 
 
 def _create_customer(client, dealer_id: str, **overrides) -> dict:
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     payload = {
         "firstName": "Anna",
         "lastName": "Muster",
@@ -117,7 +122,7 @@ def test_update_customer_address_derives_canton(client):
     customer = _create_customer(client, dealer_id)
     assert customer["address"] is None
 
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     response = client.patch(
         f"/v1/customers/{customer['id']}",
         json={
@@ -138,7 +143,7 @@ def test_update_customer_clearing_address_clears_canton(client):
     )
     assert customer["address"]["canton"] == "ZH"
 
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     response = client.patch(
         f"/v1/customers/{customer['id']}",
         json={"address": None},

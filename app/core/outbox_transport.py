@@ -62,6 +62,15 @@ class InProcessTransport:
     def register(self, event_type: str, *, consumer_name: str, handler: Handler) -> None:
         self._handlers.setdefault(event_type, []).append((consumer_name, handler))
 
+    def registered_consumer_names(self) -> set[str]:
+        """Every distinct consumer_name registered against any event type —
+        WP-2 PR-3's consumer-lag alarm needs this to know which consumers
+        to check app.core.outbox.consumer_lag_seconds() for; nothing else
+        in this module needs the registry exposed.
+        """
+
+        return {consumer_name for handlers in self._handlers.values() for consumer_name, _ in handlers}
+
     def deliver(self, message: OutboxMessage) -> None:
         failures: list[tuple[str, Exception]] = []
         for consumer_name, handler in self._handlers.get(message.event_type, []):

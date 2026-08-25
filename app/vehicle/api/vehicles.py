@@ -34,11 +34,12 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import list_audit_events
 from app.core.audit_schemas import AuditEventPage, AuditEventRead
-from app.core.auth import AccessRole, Principal, get_current_principal, require_access_role
+from app.core.auth import AccessRole, Principal, get_current_principal
 from app.core.concurrency import check_version, require_if_match
 from app.core.errors import ConflictError, ForbiddenError
 from app.core.idempotency import find_cached_response, store_response
 from app.core.pagination import PageParams, page_params
+from app.core.permissions import require_read, require_write
 from app.db import get_db
 from app.vehicle.models.vehicle import CustodyEventType, VehicleStatus
 from app.vehicle.schemas.vehicle import (
@@ -54,7 +55,6 @@ from app.vehicle.services import vehicle as vehicle_service
 
 router = APIRouter(tags=["vehicles"])
 
-_WRITE_ROLES = (AccessRole.DEALER_ADMIN, AccessRole.INVENTORY)
 # Endpoint-level guard, not services/vehicle.py's own _TERMINAL_STATUSES
 # (which excludes SOLD — that set only blocks arbitrary status PATCH
 # changes, a narrower concept). complete_transaction sets vehicle.status =
@@ -70,7 +70,7 @@ def _idempotency_key(idempotency_key: str | None = Header(default=None, alias="I
 
 
 def _serialize_vehicle(vehicle, principal: Principal, db: Session) -> VehicleRead:
-    is_custodian_or_admin = principal.access_role == AccessRole.PLATFORM_ADMIN or (
+    is_custodian_or_admin = AccessRole.PLATFORM_ADMIN in principal.roles or (
         vehicle.current_custodian_partner_id is not None
         and principal.tenant_id == vehicle.current_custodian_partner_id
     )
@@ -94,7 +94,7 @@ def create_vehicle(
     body: VehicleCreate,
     request: Request,
     idempotency_key: str | None = Depends(_idempotency_key),
-    principal: Principal = Depends(require_access_role(*_WRITE_ROLES)),
+    principal: Principal = Depends(require_write("vehicle_mdm")),
     db: Session = Depends(get_db),
 ):
     request_body = body.model_dump(mode="json", by_alias=True)
@@ -147,7 +147,7 @@ def update_vehicle(
     vehicle_id: uuid.UUID,
     body: VehicleUpdate,
     if_match: int = Depends(require_if_match),
-    principal: Principal = Depends(require_access_role(*_WRITE_ROLES)),
+    principal: Principal = Depends(require_write("vehicle_mdm")),
     db: Session = Depends(get_db),
 ):
     vehicle = vehicle_service.get_vehicle_or_404(db, vehicle_id)
@@ -158,7 +158,7 @@ def update_vehicle(
             vehicle.current_custodian_partner_id is not None
             and principal.tenant_id == vehicle.current_custodian_partner_id
         )
-        if principal.access_role != AccessRole.PLATFORM_ADMIN and not is_custodian:
+        if AccessRole.PLATFORM_ADMIN not in principal.roles and not is_custodian:
             raise ForbiddenError("Only the current custodian or platform_admin may change Vehicle status.")
 
     vehicle = vehicle_service.update_vehicle(
@@ -173,7 +173,7 @@ def create_custody_event(
     body: CustodyEventCreate,
     request: Request,
     idempotency_key: str | None = Depends(_idempotency_key),
-    principal: Principal = Depends(require_access_role(*_WRITE_ROLES)),
+    principal: Principal = Depends(require_write("vehicle_mdm")),
     db: Session = Depends(get_db),
 ):
     vehicle = vehicle_service.get_vehicle_or_404(db, vehicle_id)
@@ -185,7 +185,7 @@ def create_custody_event(
         )
 
     partner_id = body.partner_id or principal.tenant_id
-    if principal.access_role != AccessRole.PLATFORM_ADMIN and partner_id != principal.tenant_id:
+    if AccessRole.PLATFORM_ADMIN not in principal.roles and partner_id != principal.tenant_id:
         raise ForbiddenError("Cannot record a custody event on another dealer's behalf.")
 
     if body.event_type == CustodyEventType.SOLD:
@@ -193,7 +193,7 @@ def create_custody_event(
             vehicle.current_custodian_partner_id is not None
             and partner_id == vehicle.current_custodian_partner_id
         )
-        if principal.access_role != AccessRole.PLATFORM_ADMIN and not is_custodian:
+        if AccessRole.PLATFORM_ADMIN not in principal.roles and not is_custodian:
             raise ForbiddenError("Only the current custodian may record a sale out of custody.")
 
     request_body = body.model_dump(mode="json", by_alias=True)
@@ -237,7 +237,7 @@ def list_custody_events(
     db: Session = Depends(get_db),
 ):
     vehicle_service.get_vehicle_or_404(db, vehicle_id)
-    tenant_filter = None if principal.access_role == AccessRole.PLATFORM_ADMIN else principal.tenant_id
+    tenant_filter = None if AccessRole.PLATFORM_ADMIN in principal.roles else principal.tenant_id
     rows, next_cursor = vehicle_service.list_custody_events(
         db, vehicle_id=vehicle_id, tenant_filter=tenant_filter, params=params
     )
@@ -249,11 +249,11 @@ def list_custody_events(
 @router.get("/vehicles/{vehicle_id}/audit-log", response_model=AuditEventPage)
 def get_vehicle_audit_log(
     vehicle_id: uuid.UUID,
-    principal: Principal = Depends(get_current_principal),
+    principal: Principal = Depends(require_read("audit_logs")),
     db: Session = Depends(get_db),
 ):
     vehicle_service.get_vehicle_or_404(db, vehicle_id)
-    tenant_filter = None if principal.access_role == AccessRole.PLATFORM_ADMIN else principal.tenant_id
+    tenant_filter = None if AccessRole.PLATFORM_ADMIN in principal.roles else principal.tenant_id
     events = list_audit_events(db, entity_type="vehicle", entity_id=vehicle_id, tenant_id=tenant_filter)
     return AuditEventPage(
         items=[AuditEventRead.model_validate(e, from_attributes=True) for e in events], next_cursor=None

@@ -13,9 +13,18 @@ VALID_ADDRESS = {
 }
 
 
-def _token(role: AccessRole, tenant_id: uuid.UUID | None = None, user_id: uuid.UUID | None = None) -> str:
+def _token(
+    role: AccessRole | None = None,
+    tenant_id: uuid.UUID | None = None,
+    user_id: uuid.UUID | None = None,
+    *,
+    is_dealer_manager: bool = False,
+) -> str:
     return create_access_token(
-        user_id=user_id or uuid.uuid4(), tenant_id=tenant_id or uuid.uuid4(), access_role=role
+        user_id=user_id or uuid.uuid4(),
+        tenant_id=tenant_id or uuid.uuid4(),
+        roles=frozenset({role}) if role is not None else frozenset(),
+        is_dealer_manager=is_dealer_manager,
     )
 
 
@@ -46,7 +55,8 @@ def _create_user(client, dealer_id: str, **overrides) -> dict:
         "lastName": "Muster",
         "email": "anna@example.ch",
         "role": "admin",
-        "accessRole": "dealer_admin",
+        "accessRoles": ["sales"],
+        "isDealerManager": True,
         "authIdentityId": "stub-sub-1",
     }
     payload.update(overrides)
@@ -72,7 +82,7 @@ def _set_credential(client, dealer_id: str, user_id: str, password: str, *, toke
 def test_dealer_admin_can_set_credential_for_own_tenant_user(client):
     dealer_id = _create_dealer(client)
     user = _create_user(client, dealer_id)
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
 
     response = _set_credential(client, dealer_id, user["id"], "correct horse battery staple", token=token)
     assert response.status_code == 204
@@ -97,7 +107,7 @@ def test_non_admin_roles_cannot_set_credential(client, role):
 def test_dealer_admin_cannot_set_credential_for_other_tenant(client):
     dealer_id = _create_dealer(client)
     user = _create_user(client, dealer_id)
-    other_admin_token = _token(AccessRole.DEALER_ADMIN)  # different, random tenant_id
+    other_admin_token = _token(is_dealer_manager=True)  # different, random tenant_id
     response = _set_credential(client, dealer_id, user["id"], "correct horse battery staple", token=other_admin_token)
     assert response.status_code == 404
 
@@ -317,7 +327,9 @@ def test_successful_login_resets_failed_attempts(client):
 @pytest.mark.parametrize("status", ["suspended", "deactivated"])
 def test_login_blocked_for_suspended_or_deactivated_user(client, status):
     dealer_id = _create_dealer(client)
-    user = _create_user(client, dealer_id)
+    # Not a manager — otherwise the WP-2 PR-2 "always at least one manager"
+    # guard would correctly reject the status change below.
+    user = _create_user(client, dealer_id, isDealerManager=False)
     _set_credential(client, dealer_id, user["id"], "correct horse battery staple")
 
     admin_token = _token(AccessRole.PLATFORM_ADMIN)

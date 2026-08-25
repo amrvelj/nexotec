@@ -13,9 +13,18 @@ VALID_ADDRESS = {
 }
 
 
-def _token(role: AccessRole, tenant_id: uuid.UUID | None = None, user_id: uuid.UUID | None = None) -> str:
+def _token(
+    role: AccessRole | None = None,
+    tenant_id: uuid.UUID | None = None,
+    user_id: uuid.UUID | None = None,
+    *,
+    is_dealer_manager: bool = False,
+) -> str:
     return create_access_token(
-        user_id=user_id or uuid.uuid4(), tenant_id=tenant_id or uuid.uuid4(), access_role=role
+        user_id=user_id or uuid.uuid4(),
+        tenant_id=tenant_id or uuid.uuid4(),
+        roles=frozenset({role}) if role is not None else frozenset(),
+        is_dealer_manager=is_dealer_manager,
     )
 
 
@@ -45,7 +54,8 @@ def _user_payload(**overrides):
         "lastName": "Muster",
         "email": "anna@example.ch",
         "role": "admin",
-        "accessRole": "dealer_admin",
+        "accessRoles": ["sales"],
+        "isDealerManager": True,
         "authIdentityId": "stub-sub-1",
     }
     payload.update(overrides)
@@ -72,7 +82,8 @@ def test_platform_admin_bootstraps_dealer_and_initial_admin_user(client):
     user = _create_user(client, dealer_id, platform_admin_token)
     assert user["dealerId"] == dealer_id
     assert user["status"] == "invited"
-    assert user["accessRole"] == "dealer_admin"
+    assert user["isDealerManager"] is True
+    assert user["accessRoles"] == ["sales"]
 
 
 def test_dealer_admin_can_add_staff_within_own_tenant(client):
@@ -81,7 +92,10 @@ def test_dealer_admin_can_add_staff_within_own_tenant(client):
     admin_user = _create_user(client, dealer_id, platform_admin_token)
 
     dealer_admin_token = create_access_token(
-        user_id=uuid.UUID(admin_user["id"]), tenant_id=uuid.UUID(dealer_id), access_role=AccessRole.DEALER_ADMIN
+        user_id=uuid.UUID(admin_user["id"]),
+        tenant_id=uuid.UUID(dealer_id),
+        roles=frozenset(),
+        is_dealer_manager=True,
     )
     response = client.post(
         f"/v1/dealers/{dealer_id}/users",
@@ -93,7 +107,7 @@ def test_dealer_admin_can_add_staff_within_own_tenant(client):
 
 def test_dealer_admin_cannot_add_staff_to_other_dealer(client):
     dealer_id = _create_dealer(client)
-    other_dealer_admin_token = _token(AccessRole.DEALER_ADMIN)  # different, random tenant_id
+    other_dealer_admin_token = _token(is_dealer_manager=True)  # different, random tenant_id
 
     response = client.post(
         f"/v1/dealers/{dealer_id}/users",
@@ -161,7 +175,7 @@ def test_get_user_cross_tenant_is_404(client):
     dealer_id = _create_dealer(client)
     user = _create_user(client, dealer_id, platform_admin_token)
 
-    other_token = _token(AccessRole.DEALER_ADMIN)  # different random tenant_id
+    other_token = _token(is_dealer_manager=True)  # different random tenant_id
     response = client.get(f"/v1/dealers/{dealer_id}/users/{user['id']}", headers=_bearer(other_token))
     assert response.status_code == 404
 
@@ -172,7 +186,11 @@ def test_get_user_cross_tenant_is_404(client):
 def test_terminating_employment_auto_deactivates_status(client):
     platform_admin_token = _token(AccessRole.PLATFORM_ADMIN)
     dealer_id = _create_dealer(client)
-    user = _create_user(client, dealer_id, platform_admin_token)
+    # Not a manager — otherwise this would be the dealership's last active
+    # manager, and the WP-2 PR-2 "always at least one manager" guard would
+    # correctly reject deactivating them, which isn't what this test is
+    # about.
+    user = _create_user(client, dealer_id, platform_admin_token, isDealerManager=False)
 
     response = client.patch(
         f"/v1/dealers/{dealer_id}/users/{user['id']}",
@@ -188,7 +206,7 @@ def test_terminating_employment_auto_deactivates_status(client):
 def test_terminated_employment_status_is_terminal(client):
     platform_admin_token = _token(AccessRole.PLATFORM_ADMIN)
     dealer_id = _create_dealer(client)
-    user = _create_user(client, dealer_id, platform_admin_token)
+    user = _create_user(client, dealer_id, platform_admin_token, isDealerManager=False)
 
     headers = _bearer(platform_admin_token)
     client.patch(
@@ -210,7 +228,7 @@ def test_terminated_employment_status_is_terminal(client):
 def test_role_and_status_changes_are_audit_logged(client):
     platform_admin_token = _token(AccessRole.PLATFORM_ADMIN)
     dealer_id = _create_dealer(client)
-    user = _create_user(client, dealer_id, platform_admin_token)
+    user = _create_user(client, dealer_id, platform_admin_token, isDealerManager=False)
 
     client.patch(
         f"/v1/dealers/{dealer_id}/users/{user['id']}",
@@ -233,9 +251,16 @@ def test_role_and_status_changes_are_audit_logged(client):
 def test_list_users_filters_by_role_and_status(client):
     platform_admin_token = _token(AccessRole.PLATFORM_ADMIN)
     dealer_id = _create_dealer(client)
-    _create_user(client, dealer_id, platform_admin_token, email="a@example.ch", role="sales", accessRole="sales")
     _create_user(
-        client, dealer_id, platform_admin_token, email="b@example.ch", role="technician", accessRole="inventory"
+        client, dealer_id, platform_admin_token, email="a@example.ch", role="sales", accessRoles=["sales"]
+    )
+    _create_user(
+        client,
+        dealer_id,
+        platform_admin_token,
+        email="b@example.ch",
+        role="technician",
+        accessRoles=["inventory"],
     )
 
     response = client.get(f"/v1/dealers/{dealer_id}/users?role=sales", headers=_bearer(platform_admin_token))
@@ -243,3 +268,49 @@ def test_list_users_filters_by_role_and_status(client):
     items = response.json()["items"]
     assert len(items) == 1
     assert items[0]["role"] == "sales"
+
+
+# --- last-manager invariant (WP-2 PR-2, Roles & Permissions rule 7 / RP-1) ----
+
+
+def test_demoting_the_dealerships_only_manager_is_rejected(client):
+    platform_admin_token = _token(AccessRole.PLATFORM_ADMIN)
+    dealer_id = _create_dealer(client)
+    user = _create_user(client, dealer_id, platform_admin_token)  # isDealerManager=True by default
+    assert user["isDealerManager"] is True
+
+    response = client.patch(
+        f"/v1/dealers/{dealer_id}/users/{user['id']}",
+        json={"isDealerManager": False},
+        headers={**_bearer(platform_admin_token), "If-Match": "1"},
+    )
+    assert response.status_code == 400
+
+
+def test_deactivating_the_dealerships_only_manager_is_rejected(client):
+    platform_admin_token = _token(AccessRole.PLATFORM_ADMIN)
+    dealer_id = _create_dealer(client)
+    user = _create_user(client, dealer_id, platform_admin_token)
+
+    response = client.patch(
+        f"/v1/dealers/{dealer_id}/users/{user['id']}",
+        json={"status": "deactivated"},
+        headers={**_bearer(platform_admin_token), "If-Match": "1"},
+    )
+    assert response.status_code == 400
+
+
+def test_demoting_a_manager_is_allowed_when_another_active_manager_remains(client):
+    platform_admin_token = _token(AccessRole.PLATFORM_ADMIN)
+    dealer_id = _create_dealer(client)
+    first = _create_user(client, dealer_id, platform_admin_token, email="a@example.ch")
+    second = _create_user(client, dealer_id, platform_admin_token, email="b@example.ch")
+    assert first["isDealerManager"] is True and second["isDealerManager"] is True
+
+    response = client.patch(
+        f"/v1/dealers/{dealer_id}/users/{first['id']}",
+        json={"isDealerManager": False},
+        headers={**_bearer(platform_admin_token), "If-Match": "1"},
+    )
+    assert response.status_code == 200
+    assert response.json()["isDealerManager"] is False

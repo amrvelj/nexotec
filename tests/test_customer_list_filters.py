@@ -13,8 +13,13 @@ ZH_ADDRESS = {"street": "Bahnhofstrasse", "houseNumber": "1", "postalCode": "800
 VD_ADDRESS = {"street": "Rue de Bourg", "houseNumber": "1", "postalCode": "1000", "locality": "Lausanne", "canton": "VD"}
 
 
-def _token(role: AccessRole, tenant_id: uuid.UUID | None = None) -> str:
-    return create_access_token(user_id=uuid.uuid4(), tenant_id=tenant_id or uuid.uuid4(), access_role=role)
+def _token(role: AccessRole | None = None, tenant_id: uuid.UUID | None = None, *, is_dealer_manager: bool = False) -> str:
+    return create_access_token(
+        user_id=uuid.uuid4(),
+        tenant_id=tenant_id or uuid.uuid4(),
+        roles=frozenset({role}) if role is not None else frozenset(),
+        is_dealer_manager=is_dealer_manager,
+    )
 
 
 def _bearer(token: str) -> dict[str, str]:
@@ -34,7 +39,7 @@ def _create_dealer(client) -> str:
 
 
 def _create_customer(client, dealer_id: str, **overrides) -> dict:
-    token = _token(AccessRole.DEALER_ADMIN, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     payload = {
         "firstName": "Anna", "lastName": "Muster", "language": "de",
         "emails": [{"emailType": "private", "emailAddress": f"anna-{uuid.uuid4().hex[:8]}@example.ch"}],

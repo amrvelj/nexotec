@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 
 from app.core.base import utcnow
 from app.core.outbox_model import OutboxMessage, OutboxStatus
+from app.core.processed_event_model import ProcessedEvent
 from app.core.uuid7 import uuid7
 
 
@@ -117,3 +118,28 @@ def dead_letter_count(db: Session) -> int:
     # mypy, not for a case that happens at runtime.
     count = db.scalar(select(func.count()).select_from(OutboxMessage).where(OutboxMessage.status == OutboxStatus.DEAD))
     return count or 0
+
+
+def consumer_lag_seconds(db: Session, *, consumer_name: str) -> float | None:
+    """Consumer lag (Decision 8, WP-2 PR-3 alarm) — time since `consumer_name`
+    last successfully processed anything, per its newest processed_event
+    row. None means it has never processed a single event (new consumer,
+    or one that's never had anything routed to it — not necessarily
+    unhealthy, but genuinely different from "processed something an hour
+    ago").
+
+    This is a staleness proxy, not a queue-depth measure — it can't know
+    which event types a consumer even cares about without asking the
+    transport's own handler registry, which is runtime state, not
+    something this module has visibility into. Good enough to alarm "this
+    consumer has gone quiet" once a real one exists; PR-4 shipped zero
+    real consumers, so today this is exercised only by tests and the
+    machinery is ready, not yet observing anything in production.
+    """
+
+    newest_processed_at = db.scalar(
+        select(func.max(ProcessedEvent.processed_at)).where(ProcessedEvent.consumer_name == consumer_name)
+    )
+    if newest_processed_at is None:
+        return None
+    return (utcnow() - newest_processed_at).total_seconds()

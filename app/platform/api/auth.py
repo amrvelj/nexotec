@@ -22,9 +22,9 @@ from app.core.auth import (
     Principal,
     create_access_token,
     get_current_principal,
-    require_access_role,
 )
 from app.core.config import get_settings
+from app.core.permissions import require_write
 from app.core.tenancy import require_tenant_match
 from app.db import get_db
 from app.platform.schemas.auth import CredentialSetRequest, LoginRequest, LoginResponse, LogoutResponse
@@ -50,7 +50,12 @@ def _set_session_cookie(response: Response, token: str) -> None:
 @router.post("/auth/login", response_model=LoginResponse)
 def login(body: LoginRequest, response: Response, db: Session = Depends(get_db)):
     user = auth_service.authenticate(db, email=body.email, password=body.password)
-    token = create_access_token(user_id=user.id, tenant_id=user.tenant_id, access_role=user.access_role)
+    token = create_access_token(
+        user_id=user.id,
+        tenant_id=user.tenant_id,
+        roles=frozenset(AccessRole(role) for role in user.access_roles),
+        is_dealer_manager=user.is_dealer_manager,
+    )
     _set_session_cookie(response, token)
     return LoginResponse(user=UserRead.model_validate(user, from_attributes=True))
 
@@ -79,7 +84,7 @@ def set_user_credential(
     dealer_id: uuid.UUID,
     user_id: uuid.UUID,
     body: CredentialSetRequest,
-    principal: Principal = Depends(require_access_role(AccessRole.DEALER_ADMIN)),
+    principal: Principal = Depends(require_write("dealership_users")),
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealer_id, principal)

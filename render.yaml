@@ -14,7 +14,20 @@
 #      Paste the output in. Must be a valid Fernet key, not an arbitrary
 #      string — Render's generic generateValue secret is not Fernet-format,
 #      so this can't be automated.
-#   2. DMS_SEED_DEMO_PASSWORD — pick any password, paste it in as-is. The
+#   2. DMS_JWT_PRIVATE_KEY (ADR-007, WP-2 PR-1) — generate with:
+#        python -c "
+#        from cryptography.hazmat.primitives import serialization
+#        from cryptography.hazmat.primitives.asymmetric import rsa
+#        key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+#        print(key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()).decode())"
+#      Paste the same PEM into BOTH this service and the outbox-worker
+#      service below — Render's generic generateValue secret is a random
+#      string, not RS256 key material, so this can't be automated either.
+#      The worker never verifies a token itself, but it still constructs
+#      Settings() on import, so it needs a syntactically valid key too; the
+#      same PEM in both places is simpler than explaining why they could
+#      legally differ.
+#   3. DMS_SEED_DEMO_PASSWORD — pick any password, paste it in as-is. The
 #      startCommand below runs the (idempotent) demo seed on every deploy;
 #      once this var has a value, the next redeploy creates the demo login
 #      (demo@nexotec-staging.example + this password) and every deploy
@@ -51,8 +64,8 @@ services:
         fromDatabase:
           name: dms-staging-db
           property: connectionString
-      - key: DMS_JWT_SECRET
-        generateValue: true
+      - key: DMS_JWT_PRIVATE_KEY
+        sync: false
       - key: DMS_TAX_ID_ENCRYPTION_KEY
         sync: false
       - key: DMS_SEED_DEMO_PASSWORD
@@ -85,7 +98,7 @@ services:
         fromDatabase:
           name: dms-staging-db
           property: connectionString
-      - key: DMS_JWT_SECRET
-        generateValue: true
+      - key: DMS_JWT_PRIVATE_KEY
+        sync: false
       - key: DMS_TAX_ID_ENCRYPTION_KEY
         sync: false

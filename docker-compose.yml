@@ -1,3 +1,13 @@
+# WP-2 PR-3 (closes G-12/G-13): the full stack, not just the database.
+# `make up` is the one-command entry point — see the Makefile for what it
+# adds on top of `docker compose up` (mainly: generating a local-only .env
+# with fresh dev secrets the first time, since DMS_TAX_ID_ENCRYPTION_KEY and
+# DMS_JWT_PRIVATE_KEY have no defaults by design and this compose file reads
+# them from that .env via ${...} substitution).
+#
+# One deployable (ADR-001/ADR-015): `app` and `worker` are the same image,
+# same codebase, different entrypoint — not two services in the ADR-015
+# sense, mirroring render.yaml's own web/worker split.
 services:
   db:
     image: postgres:16-alpine
@@ -9,6 +19,47 @@ services:
       - "5432:5432"
     volumes:
       - dms_platform_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dms -d dms_platform"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      DMS_DATABASE_URL: postgresql+psycopg://dms:dms@db:5432/dms_platform
+      DMS_TAX_ID_ENCRYPTION_KEY: ${DMS_TAX_ID_ENCRYPTION_KEY}
+      DMS_JWT_PRIVATE_KEY: ${DMS_JWT_PRIVATE_KEY}
+      DMS_SEED_DEMO_PASSWORD: ${DMS_SEED_DEMO_PASSWORD:-dev-only-password-change-me}
+    depends_on:
+      db:
+        condition: service_healthy
+    # Same idempotent seed-on-every-start pattern as render.yaml's
+    # startCommand — `|| true` because the seed script is a demo-data
+    # convenience for a cold local stack, not something a failed run
+    # should ever block the app from coming up over.
+    command: >-
+      sh -c "alembic upgrade heads &&
+             (python scripts/seed_staging_demo.py || true) &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      DMS_DATABASE_URL: postgresql+psycopg://dms:dms@db:5432/dms_platform
+      DMS_TAX_ID_ENCRYPTION_KEY: ${DMS_TAX_ID_ENCRYPTION_KEY}
+      DMS_JWT_PRIVATE_KEY: ${DMS_JWT_PRIVATE_KEY}
+    depends_on:
+      db:
+        condition: service_healthy
+    command: sh -c "alembic upgrade heads && python -m app.worker"
 
 volumes:
   dms_platform_db:
