@@ -48,12 +48,12 @@ def _label_projection_handler(db, message: OutboxMessage) -> None:
 
 
 def test_customer_created_is_delivered_once_and_not_reprocessed_on_redelivery(db_session, engine):
-    tenant_id = uuid.uuid4()
+    group_id = uuid.uuid4()
     actor_id = uuid.uuid4()
 
     customer = create_customer(
         db_session,
-        tenant_id=tenant_id,
+        group_id=group_id,
         data=CustomerCreate(
             customer_type=CustomerType.INDIVIDUAL,
             language=Language.DE,
