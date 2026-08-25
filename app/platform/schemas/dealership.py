@@ -74,3 +74,15 @@ class DealershipRead(CamelModel):
 class DealershipPage(CamelModel):
     items: list[DealershipRead]
     next_cursor: str | None
+
+
+class DealerGroupRead(CamelModel):
+    id: uuid.UUID
+    name: str
+    contact_name: str | None
+    contact_email: str | None
+    contact_phone: str | None
+    group_read_enabled: bool
+    version: int
+    created_at: dt.datetime
+    updated_at: dt.datetime

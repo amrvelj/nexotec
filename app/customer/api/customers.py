@@ -53,7 +53,9 @@ from app.customer.schemas.customer import (
     CustomerVehicleRead,
     CustomerVehicleUpdate,
 )
+from app.customer.schemas.legal_basis import LegalBasisCreate, LegalBasisRead
 from app.customer.services import customer as customer_service
+from app.customer.services import legal_basis as legal_basis_service
 from app.db import get_db
 from app.platform.public import get_dealership_or_404
 
@@ -477,3 +479,32 @@ def delete_customer_vehicle(
     customer_service.delete_customer_vehicle(
         db, party=party, actor_id=principal.user_id, group_id=principal.group_id
     )
+
+
+# --- LegalBasis: revDSG joint-controllership evidence (WP-3 PR-4, ADR-030).
+# Recording one is platform_admin-only — it attests a real signed
+# joint-controller agreement exists, same authority level as onboarding a
+# dealership. This does not itself expose any group-read capability; it
+# only supplies the evidence app.customer.services.legal_basis's
+# compliance predicate checks before that separate, still-unconsumed path
+# would ever return data (see that module's own docstring).
+
+
+@router.post("/customers/{customer_id}/legal-basis", response_model=LegalBasisRead, status_code=201)
+def create_legal_basis(
+    customer_id: uuid.UUID,
+    body: LegalBasisCreate,
+    principal: Principal = Depends(require_access_role()),  # platform_admin only
+    db: Session = Depends(get_db),
+):
+    customer_service.get_customer_or_404(db, principal.group_id, customer_id)
+    row = legal_basis_service.record_legal_basis(
+        db,
+        customer_id=customer_id,
+        group_id=principal.group_id,
+        basis=body.basis,
+        scope=body.scope,
+        source_document=body.source_document,
+        actor_id=principal.user_id,
+    )
+    return LegalBasisRead.model_validate(row, from_attributes=True)

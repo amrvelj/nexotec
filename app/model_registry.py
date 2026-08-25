@@ -10,6 +10,7 @@ from app.core.outbox_model import OutboxMessage
 from app.core.processed_event_model import ProcessedEvent
 from app.core.reconciliation_model import ReconciliationOrphan, ReconciliationRun
 from app.customer.models.customer import Customer
+from app.customer.models.legal_basis import LegalBasis
 from app.customer.models.vehicle_party import VehicleParty
 from app.platform.models.credential import Credential
 from app.platform.models.dealership import DealerGroup, Dealership, Location
@@ -28,6 +29,7 @@ __all__ = [
     "Dealership",
     "DealershipMembership",
     "IdempotencyRecord",
+    "LegalBasis",
     "Location",
     "OutboxMessage",
     "ProcessedEvent",

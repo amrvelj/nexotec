@@ -21,7 +21,7 @@ exists now rather than then.
 import enum
 import uuid
 
-from sqlalchemy import JSON, ForeignKey, String
+from sqlalchemy import JSON, Boolean, ForeignKey, String
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -53,6 +53,15 @@ class DealerGroup(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     contact_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     contact_email: Mapped[str | None] = mapped_column(String(254), nullable=True)
     contact_phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
+
+    # ADR-030 (2): the group-read path is behind this flag, platform_admin-
+    # only to flip, and only once a legal_basis row exists for the group at
+    # all (app.platform.services.dealership.enable_group_read's own
+    # precondition — a fail-fast admin UX check, NOT the actual security
+    # boundary; the read helper re-checks a LIVE basis per customer on every
+    # call regardless of this flag, since a basis can be withdrawn after the
+    # flag was flipped ON and nothing else would catch that).
+    group_read_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
 
 class Dealership(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
