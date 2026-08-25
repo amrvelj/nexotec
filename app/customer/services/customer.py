@@ -30,17 +30,24 @@ from app.core.postal_codes import derive_canton
 from app.core.redact import REDACTED_PLACEHOLDER, is_secret_field
 from app.core.validators import normalise_phone
 from app.customer.models.customer import (
+    AddressType,
     Customer,
+    CustomerAddress,
     CustomerEmail,
     CustomerExternalId,
     CustomerLifecycleStatus,
     CustomerNumberSequence,
     CustomerPhone,
     CustomerType,
+    EmailType,
     Language,
+    PhoneType,
 )
 from app.customer.models.vehicle_party import VehicleParty
 from app.customer.schemas.customer import (
+    CustomerAddressCreate,
+    CustomerAddressRead,
+    CustomerAddressUpdate,
     CustomerCreate,
     CustomerEmailCreate,
     CustomerEmailUpdate,
@@ -87,6 +94,34 @@ _TERMINAL_LIFECYCLE_STATUSES = {CustomerLifecycleStatus.MERGED}
 _DUPLICATE_CHECK_LIMIT = 10
 # Outbox producer name for every event this service publishes (WP-1, ADR-006).
 _EVENT_PRODUCER = "customer"
+# is_primary is scoped to (customer_id, type) since WP-3 PR-5 (ADR-067), not
+# to the whole customer — each contact-channel model's own type column, so
+# the shared primary-fixup/repoint logic below can stay generic over all
+# three tables instead of three near-identical copies.
+_CONTACT_TYPE_COLUMN: dict[type, str] = {
+    CustomerPhone: "phone_type",
+    CustomerEmail: "email_type",
+    CustomerAddress: "address_type",
+}
+
+
+def _default_primary_flags(items: list[Any], type_of) -> list[bool]:
+    """Per contact-type-group, not per customer (ADR-067): if the caller
+    marked no entry of a given type as primary, the first entry of that type
+    in the list wins — same "first one wins" rule as before, now applied
+    independently within each type instead of once across the whole list.
+    """
+
+    first_index_by_type: dict[Any, int] = {}
+    has_primary_by_type: dict[Any, bool] = {}
+    for index, item in enumerate(items):
+        type_value = type_of(item)
+        first_index_by_type.setdefault(type_value, index)
+        has_primary_by_type[type_value] = has_primary_by_type.get(type_value, False) or item.is_primary
+    return [
+        not has_primary_by_type[type_of(item)] and index == first_index_by_type[type_of(item)]
+        for index, item in enumerate(items)
+    ]
 
 
 def _group_scoped_or_404(db: Session, model: type, entity_id: uuid.UUID, group_id: uuid.UUID) -> Any:
@@ -266,7 +301,20 @@ def list_customers(
     if language is not None:
         stmt = stmt.where(Customer.language == language)
     if canton is not None:
-        stmt = stmt.where(Customer.address_canton == canton)
+        # ADR-067 (WP-3 PR-5): canton is a fact of the primary domicile
+        # CustomerAddress row now, not the (frozen, read-only-mirror)
+        # Customer.address_canton flat column — same "address" projection
+        # the API returns.
+        stmt = stmt.where(
+            Customer.id.in_(
+                select(CustomerAddress.customer_id).where(
+                    CustomerAddress.group_id == group_id,
+                    CustomerAddress.address_type == AddressType.DOMICILE,
+                    CustomerAddress.is_primary.is_(True),
+                    CustomerAddress.address_canton == canton,
+                )
+            )
+        )
     if updated_since is not None:
         stmt = stmt.where(Customer.updated_at >= updated_since)
     # Counted before pagination is applied (no ORDER BY/LIMIT/cursor yet) —
@@ -370,40 +418,61 @@ def duplicate_check(db: Session, *, group_id: uuid.UUID, q: str) -> list[dict[st
 
 
 def _add_contacts(db: Session, customer: Customer, data: CustomerCreate) -> None:
-    """Write the nested phones/emails from a create request.
+    """Write the nested phones/emails/addresses from a create request.
 
     Runs inside the caller's transaction, so a customer and its contact
     details commit together or not at all — there is no window in which a
     customer exists while violating its own "at least one contact point"
     invariant (FR-03).
 
-    If the caller marked no entry as primary, the first one wins: every
-    customer must have exactly one primary per contact type, and silently
-    choosing the first is friendlier than a 422 over something the UI
-    should have defaulted.
+    is_primary defaulting is per (type) within each list — see
+    _default_primary_flags — since ADR-067 scopes "exactly one primary" to
+    the type-group, not the whole customer.
     """
 
-    for index, phone in enumerate(data.phones):
+    for phone, is_default_primary in zip(data.phones, _default_primary_flags(data.phones, lambda p: p.phone_type)):
         db.add(
             CustomerPhone(
                 group_id=customer.group_id,
                 customer_id=customer.id,
                 phone_type=phone.phone_type,
+                label=phone.label,
                 phone_e164=phone.phone_e164,
                 phone_normalised=normalise_phone(phone.phone_e164),
-                is_primary=phone.is_primary or (index == 0 and not any(p.is_primary for p in data.phones)),
+                is_primary=phone.is_primary or is_default_primary,
                 created_by=customer.created_by,
                 updated_by=customer.updated_by,
             )
         )
-    for index, email in enumerate(data.emails):
+    for email, is_default_primary in zip(data.emails, _default_primary_flags(data.emails, lambda e: e.email_type)):
         db.add(
             CustomerEmail(
                 group_id=customer.group_id,
                 customer_id=customer.id,
                 email_type=email.email_type,
+                label=email.label,
                 email_address=email.email_address,
-                is_primary=email.is_primary or (index == 0 and not any(e.is_primary for e in data.emails)),
+                is_primary=email.is_primary or is_default_primary,
+                created_by=customer.created_by,
+                updated_by=customer.updated_by,
+            )
+        )
+    for address, is_default_primary in zip(
+        data.addresses, _default_primary_flags(data.addresses, lambda a: a.address_type)
+    ):
+        db.add(
+            CustomerAddress(
+                group_id=customer.group_id,
+                customer_id=customer.id,
+                address_type=address.address_type,
+                label=address.label,
+                address_street=address.address_street,
+                address_house_number=address.address_house_number,
+                address_postal_code=address.address_postal_code,
+                address_locality=address.address_locality,
+                address_canton=derive_canton(address.address_postal_code, address.address_country),
+                address_country=address.address_country,
+                is_primary=address.is_primary or is_default_primary,
                 created_by=customer.created_by,
                 updated_by=customer.updated_by,
             )
@@ -432,16 +501,6 @@ def create_customer(db: Session, *, group_id: uuid.UUID, data: CustomerCreate, a
         created_by=actor_id,
         updated_by=actor_id,
     )
-    if data.address is not None:
-        customer.address_street = data.address.street
-        customer.address_house_number = data.address.house_number
-        customer.address_postal_code = data.address.postal_code
-        customer.address_locality = data.address.locality
-        # No canton on CustomerAddress (unlike Dealership's) — the client never
-        # supplies it, it's derived server-side from the postal code (D-13).
-        customer.address_canton = derive_canton(data.address.postal_code, data.address.country)
-        customer.address_country = data.address.country
-
     db.add(customer)
     db.flush()
     _add_contacts(db, customer, data)
@@ -489,7 +548,7 @@ def update_customer(db: Session, *, customer: Customer, data: CustomerUpdate, ac
             details={"currentLifecycleStatus": customer.lifecycle_status.value},
         )
 
-    changes = data.model_dump(exclude_unset=True, exclude={"address"})
+    changes = data.model_dump(exclude_unset=True)
     _validate_customer_type_fields_on_update(customer, changes)
 
     before: dict[str, Any] = {}
@@ -503,25 +562,6 @@ def update_customer(db: Session, *, customer: Customer, data: CustomerUpdate, ac
             before[field] = _redact(field, current)
             after[field] = _redact(field, value)
         setattr(customer, field, value)
-
-    if "address" in data.model_fields_set:
-        address_fields = {
-            "address_street": data.address.street if data.address else None,
-            "address_house_number": data.address.house_number if data.address else None,
-            "address_postal_code": data.address.postal_code if data.address else None,
-            "address_locality": data.address.locality if data.address else None,
-            "address_canton": (
-                derive_canton(data.address.postal_code, data.address.country) if data.address else None
-            ),
-            "address_country": data.address.country if data.address else None,
-        }
-        for field, value in address_fields.items():
-            current = getattr(customer, field)
-            if current == value:
-                continue
-            before[field] = current
-            after[field] = value
-            setattr(customer, field, value)
 
     customer.updated_by = actor_id
     customer.version += 1
@@ -558,17 +598,27 @@ def update_customer(db: Session, *, customer: Customer, data: CustomerUpdate, ac
     return customer
 
 
-def _fixup_single_primary(db: Session, model: type, *, customer_id: uuid.UUID) -> None:
-    """Collapses a contact-point collection back to exactly one primary
-    after re-pointing may have left it with zero (target had none, gained
-    some from the duplicate) or several (both sides already had one).
-    Oldest row wins when none is marked — same "first one wins" rule
-    _add_contacts uses at creation.
+def _fixup_single_primary(db: Session, model: type, *, customer_id: uuid.UUID, type_value: Any) -> None:
+    """Collapses one (customer, type) contact-point group back to exactly
+    one primary after re-pointing may have left it with zero (target had
+    none of this type, gained some from the duplicate) or several (both
+    sides already had one). Oldest row wins when none is marked — same
+    "first one wins" rule _add_contacts uses at creation.
+
+    Scoped to type_value, not the whole customer, since ADR-067 (WP-3 PR-5)
+    — a customer may legitimately have a primary mobile AND a primary work
+    phone at once.
     """
 
+    type_column = _CONTACT_TYPE_COLUMN[model]
     rows: list[Any] = list(
         db.scalars(
-            select(model).where(model.customer_id == customer_id).order_by(model.created_at)  # type: ignore[attr-defined]
+            select(model)
+            .where(
+                model.customer_id == customer_id,  # type: ignore[attr-defined]
+                getattr(model, type_column) == type_value,
+            )
+            .order_by(model.created_at)  # type: ignore[attr-defined]
         ).all()
     )
     primaries = [r for r in rows if r.is_primary]
@@ -620,33 +670,50 @@ def _repoint_transactions(db: Session, *, duplicate_id: uuid.UUID, target_id: uu
     return repoint_customer_transactions(db, duplicate_id=duplicate_id, target_id=target_id)
 
 
-def _repoint_contacts(db: Session, model: type, unique_field: str, *, duplicate_id: uuid.UUID, target_id: uuid.UUID
-                       ) -> tuple[int, int]:
-    """Shared logic for CustomerPhone/CustomerEmail: re-point onto the
-    survivor unless it already has that exact phone number / email address,
-    in which case the duplicate's row is dropped as an exact duplicate.
+def _repoint_contacts(
+    db: Session, model: type, unique_fields: tuple[str, ...], *, duplicate_id: uuid.UUID, target_id: uuid.UUID
+) -> tuple[int, int]:
+    """Shared logic for CustomerPhone/CustomerEmail/CustomerAddress:
+    re-point onto the survivor unless it already has a row with the same
+    identifying fields, in which case the duplicate's row is dropped as an
+    exact duplicate. unique_fields is a tuple (not always length 1) because
+    CustomerAddress has no single natural key the way phone_e164/
+    email_address are — its dedup key is composite.
+
+    Afterwards, is_primary is re-collapsed per (customer, type) — not once
+    per customer — since a merge can leave more than one primary within a
+    type-group when both sides already had one of that type (ADR-067).
     """
+
+    def _key(row: Any) -> tuple:
+        return tuple(getattr(row, field) for field in unique_fields)
 
     target_rows: list[Any] = list(
         db.scalars(select(model).where(model.customer_id == target_id)).all()  # type: ignore[attr-defined]
     )
-    target_values = {getattr(row, unique_field) for row in target_rows}
+    target_keys = {_key(row) for row in target_rows}
     repointed = dropped = 0
     duplicate_rows: list[Any] = list(
         db.scalars(select(model).where(model.customer_id == duplicate_id)).all()  # type: ignore[attr-defined]
     )
     for row in duplicate_rows:
-        value = getattr(row, unique_field)
-        if value in target_values:
+        key = _key(row)
+        if key in target_keys:
             db.delete(row)
             dropped += 1
         else:
             row.customer_id = target_id
-            target_values.add(value)
+            target_keys.add(key)
             repointed += 1
     if repointed:
         db.flush()
-        _fixup_single_primary(db, model, customer_id=target_id)
+        type_column = _CONTACT_TYPE_COLUMN[model]
+        target_rows_after: list[Any] = list(
+            db.scalars(select(model).where(model.customer_id == target_id)).all()  # type: ignore[attr-defined]
+        )
+        types_present = {getattr(row, type_column) for row in target_rows_after}
+        for type_value in types_present:
+            _fixup_single_primary(db, model, customer_id=target_id, type_value=type_value)
     return repointed, dropped
 
 
@@ -710,10 +777,17 @@ def merge_customer(
     )
     transactions_repointed = _repoint_transactions(db, duplicate_id=customer.id, target_id=target.id)
     phones_repointed, phones_dropped = _repoint_contacts(
-        db, CustomerPhone, "phone_e164", duplicate_id=customer.id, target_id=target.id
+        db, CustomerPhone, ("phone_e164",), duplicate_id=customer.id, target_id=target.id
     )
     emails_repointed, emails_dropped = _repoint_contacts(
-        db, CustomerEmail, "email_address", duplicate_id=customer.id, target_id=target.id
+        db, CustomerEmail, ("email_address",), duplicate_id=customer.id, target_id=target.id
+    )
+    addresses_repointed, addresses_dropped = _repoint_contacts(
+        db,
+        CustomerAddress,
+        ("address_type", "address_street", "address_house_number", "address_postal_code", "address_country"),
+        duplicate_id=customer.id,
+        target_id=target.id,
     )
     external_ids_repointed, external_ids_dropped = _repoint_external_ids(
         db, duplicate_id=customer.id, target_id=target.id
@@ -742,6 +816,8 @@ def merge_customer(
             "phonesDropped": phones_dropped,
             "emailsRepointed": emails_repointed,
             "emailsDropped": emails_dropped,
+            "addressesRepointed": addresses_repointed,
+            "addressesDropped": addresses_dropped,
             "externalIdsRepointed": external_ids_repointed,
             "externalIdsDropped": external_ids_dropped,
         },
@@ -799,16 +875,24 @@ def get_customer_phone_or_404(
 def create_customer_phone(
     db: Session, *, customer: Customer, data: CustomerPhoneCreate, actor_id: uuid.UUID
 ) -> CustomerPhone:
-    is_first = db.scalar(select(CustomerPhone).where(CustomerPhone.customer_id == customer.id)) is None
-    is_primary = data.is_primary or is_first
+    is_first_of_type = (
+        db.scalar(
+            select(CustomerPhone).where(
+                CustomerPhone.customer_id == customer.id, CustomerPhone.phone_type == data.phone_type
+            )
+        )
+        is None
+    )
+    is_primary = data.is_primary or is_first_of_type
 
     if is_primary:
-        _unset_other_primaries(db, CustomerPhone, customer_id=customer.id)
+        _unset_other_primaries(db, CustomerPhone, customer_id=customer.id, type_value=data.phone_type)
 
     phone = CustomerPhone(
         group_id=customer.group_id,
         customer_id=customer.id,
         phone_type=data.phone_type,
+        label=data.label,
         phone_e164=data.phone_e164,
         phone_normalised=normalise_phone(data.phone_e164),
         is_primary=is_primary,
@@ -831,7 +915,12 @@ def create_customer_phone(
         tenant_id=customer.group_id,
         action="phone_add",
         actor_id=actor_id,
-        after={"phoneType": phone.phone_type.value, "phoneE164": phone.phone_e164, "isPrimary": phone.is_primary},
+        after={
+            "phoneType": phone.phone_type.value,
+            "label": phone.label,
+            "phoneE164": phone.phone_e164,
+            "isPrimary": phone.is_primary,
+        },
     )
     db.commit()
     db.refresh(phone)
@@ -842,10 +931,22 @@ def update_customer_phone(
     db: Session, *, phone: CustomerPhone, data: CustomerPhoneUpdate, actor_id: uuid.UUID
 ) -> CustomerPhone:
     changes = data.model_dump(exclude_unset=True)
-    before = {"phoneType": phone.phone_type.value, "phoneE164": phone.phone_e164, "isPrimary": phone.is_primary}
+    before = {
+        "phoneType": phone.phone_type.value,
+        "label": phone.label,
+        "phoneE164": phone.phone_e164,
+        "isPrimary": phone.is_primary,
+    }
 
+    becomes_unusable = (changes.get("valid_to") is not None and phone.valid_to is None) or (
+        changes.get("do_not_use") is True and not phone.do_not_use
+    )
+    if becomes_unusable:
+        _assert_not_last_contact_point(db, phone.customer_id, removing="phone number")
+
+    target_phone_type = changes.get("phone_type", phone.phone_type)
     if changes.get("is_primary") is True and not phone.is_primary:
-        _unset_other_primaries(db, CustomerPhone, customer_id=phone.customer_id)
+        _unset_other_primaries(db, CustomerPhone, customer_id=phone.customer_id, type_value=target_phone_type)
     elif changes.get("is_primary") is False and phone.is_primary:
         raise BadRequestError(
             "Cannot unset the primary phone directly — mark a different phone as primary instead."
@@ -873,7 +974,12 @@ def update_customer_phone(
         action="phone_update",
         actor_id=actor_id,
         before=before,
-        after={"phoneType": phone.phone_type.value, "phoneE164": phone.phone_e164, "isPrimary": phone.is_primary},
+        after={
+            "phoneType": phone.phone_type.value,
+            "label": phone.label,
+            "phoneE164": phone.phone_e164,
+            "isPrimary": phone.is_primary,
+        },
     )
     db.commit()
     db.refresh(phone)
@@ -882,16 +988,35 @@ def update_customer_phone(
 
 def _assert_not_last_contact_point(db: Session, customer_id: uuid.UUID, *, removing: str) -> None:
     """FR-03's "at least one contact point" is an invariant of the customer,
-    not just of the create request — so deleting the final phone/email is
-    rejected. Without this the rule would hold at creation and then quietly
-    decay, which is how you end up with customers nobody can reach.
+    not just of the create request — so deleting (or closing / marking
+    do-not-use) the final one is rejected. Without this the rule would hold
+    at creation and then quietly decay, which is how you end up with
+    customers nobody can reach.
+
+    Amended in WP-3 PR-5 (ADR-067): only a USABLE row counts — a closed row
+    (valid_to set) or a do-not-use row no longer satisfies FR-03 even though
+    it still exists, because staff cannot actually reach the customer
+    through it.
     """
 
-    phones = db.scalar(select(func.count()).select_from(CustomerPhone).where(CustomerPhone.customer_id == customer_id))
-    emails = db.scalar(select(func.count()).select_from(CustomerEmail).where(CustomerEmail.customer_id == customer_id))
-    if (phones or 0) + (emails or 0) <= 1:
+    def _usable_count(model: type) -> int:
+        return (
+            db.scalar(
+                select(func.count())
+                .select_from(model)
+                .where(
+                    model.customer_id == customer_id,  # type: ignore[attr-defined]
+                    model.valid_to.is_(None),  # type: ignore[attr-defined]
+                    model.do_not_use.is_(False),  # type: ignore[attr-defined]
+                )
+            )
+            or 0
+        )
+
+    if _usable_count(CustomerPhone) + _usable_count(CustomerEmail) <= 1:
         raise BadRequestError(
-            f"Cannot delete the last {removing} — a customer must keep at least one phone number or email address."
+            f"Cannot remove the last usable {removing} — a customer must keep at least one usable phone number or"
+            " email address."
         )
 
 
@@ -904,7 +1029,12 @@ def delete_customer_phone(db: Session, *, phone: CustomerPhone, actor_id: uuid.U
         tenant_id=phone.group_id,
         action="phone_remove",
         actor_id=actor_id,
-        before={"phoneType": phone.phone_type.value, "phoneE164": phone.phone_e164, "isPrimary": phone.is_primary},
+        before={
+            "phoneType": phone.phone_type.value,
+            "label": phone.label,
+            "phoneE164": phone.phone_e164,
+            "isPrimary": phone.is_primary,
+        },
     )
     db.delete(phone)
     db.commit()
@@ -927,16 +1057,24 @@ def get_customer_email_or_404(
 def create_customer_email(
     db: Session, *, customer: Customer, data: CustomerEmailCreate, actor_id: uuid.UUID
 ) -> CustomerEmail:
-    is_first = db.scalar(select(CustomerEmail).where(CustomerEmail.customer_id == customer.id)) is None
-    is_primary = data.is_primary or is_first
+    is_first_of_type = (
+        db.scalar(
+            select(CustomerEmail).where(
+                CustomerEmail.customer_id == customer.id, CustomerEmail.email_type == data.email_type
+            )
+        )
+        is None
+    )
+    is_primary = data.is_primary or is_first_of_type
 
     if is_primary:
-        _unset_other_primaries(db, CustomerEmail, customer_id=customer.id)
+        _unset_other_primaries(db, CustomerEmail, customer_id=customer.id, type_value=data.email_type)
 
     email = CustomerEmail(
         group_id=customer.group_id,
         customer_id=customer.id,
         email_type=data.email_type,
+        label=data.label,
         email_address=data.email_address,
         is_primary=is_primary,
         created_by=actor_id,
@@ -960,6 +1098,7 @@ def create_customer_email(
         actor_id=actor_id,
         after={
             "emailType": email.email_type.value,
+            "label": email.label,
             "emailAddress": email.email_address,
             "isPrimary": email.is_primary,
         },
@@ -975,12 +1114,20 @@ def update_customer_email(
     changes = data.model_dump(exclude_unset=True)
     before = {
         "emailType": email.email_type.value,
+        "label": email.label,
         "emailAddress": email.email_address,
         "isPrimary": email.is_primary,
     }
 
+    becomes_unusable = (changes.get("valid_to") is not None and email.valid_to is None) or (
+        changes.get("do_not_use") is True and not email.do_not_use
+    )
+    if becomes_unusable:
+        _assert_not_last_contact_point(db, email.customer_id, removing="email address")
+
+    target_email_type = changes.get("email_type", email.email_type)
     if changes.get("is_primary") is True and not email.is_primary:
-        _unset_other_primaries(db, CustomerEmail, customer_id=email.customer_id)
+        _unset_other_primaries(db, CustomerEmail, customer_id=email.customer_id, type_value=target_email_type)
     elif changes.get("is_primary") is False and email.is_primary:
         raise BadRequestError(
             "Cannot unset the primary email directly — mark a different email as primary instead."
@@ -1009,6 +1156,7 @@ def update_customer_email(
         before=before,
         after={
             "emailType": email.email_type.value,
+            "label": email.label,
             "emailAddress": email.email_address,
             "isPrimary": email.is_primary,
         },
@@ -1029,6 +1177,7 @@ def delete_customer_email(db: Session, *, email: CustomerEmail, actor_id: uuid.U
         actor_id=actor_id,
         before={
             "emailType": email.email_type.value,
+            "label": email.label,
             "emailAddress": email.email_address,
             "isPrimary": email.is_primary,
         },
@@ -1037,14 +1186,239 @@ def delete_customer_email(db: Session, *, email: CustomerEmail, actor_id: uuid.U
     db.commit()
 
 
-def _unset_other_primaries(db: Session, model: type, *, customer_id: uuid.UUID) -> None:
+def _unset_other_primaries(db: Session, model: type, *, customer_id: uuid.UUID, type_value: Any) -> None:
+    type_column = _CONTACT_TYPE_COLUMN[model]
     rows: list[Any] = list(
         db.scalars(
-            select(model).where(model.customer_id == customer_id, model.is_primary.is_(True))  # type: ignore[attr-defined]
+            select(model).where(
+                model.customer_id == customer_id,  # type: ignore[attr-defined]
+                getattr(model, type_column) == type_value,
+                model.is_primary.is_(True),  # type: ignore[attr-defined]
+            )
         ).all()
     )
     for row in rows:
         row.is_primary = False
+
+
+# --- CustomerAddress: multi-valued postal addresses (WP-3 PR-5, ADR-067).
+# No FR-03 "last contact point" invariant here — that rule is about
+# reachability (phone/email), not billing/delivery addresses — so unlike
+# phone/email there is no floor on how many a customer must keep.
+
+
+def _address_audit_payload(address: CustomerAddress) -> dict[str, Any]:
+    return {
+        "addressType": address.address_type.value,
+        "label": address.label,
+        "addressStreet": address.address_street,
+        "addressHouseNumber": address.address_house_number,
+        "addressPostalCode": address.address_postal_code,
+        "addressLocality": address.address_locality,
+        "addressCanton": address.address_canton,
+        "addressCountry": address.address_country,
+        "isPrimary": address.is_primary,
+    }
+
+
+def list_customer_addresses(db: Session, *, customer_id: uuid.UUID) -> list[CustomerAddress]:
+    stmt = (
+        select(CustomerAddress).where(CustomerAddress.customer_id == customer_id).order_by(CustomerAddress.created_at)
+    )
+    return list(db.scalars(stmt).all())
+
+
+def get_customer_address_or_404(
+    db: Session, *, group_id: uuid.UUID, customer_id: uuid.UUID, address_id: uuid.UUID
+) -> CustomerAddress:
+    address = _group_scoped_or_404(db, CustomerAddress, address_id, group_id)
+    if address.customer_id != customer_id:
+        raise NotFoundError(f"CustomerAddress {address_id} was not found.")
+    return address
+
+
+def create_customer_address(
+    db: Session, *, customer: Customer, data: CustomerAddressCreate, actor_id: uuid.UUID
+) -> CustomerAddress:
+    is_first_of_type = (
+        db.scalar(
+            select(CustomerAddress).where(
+                CustomerAddress.customer_id == customer.id, CustomerAddress.address_type == data.address_type
+            )
+        )
+        is None
+    )
+    is_primary = data.is_primary or is_first_of_type
+
+    if is_primary:
+        _unset_other_primaries(db, CustomerAddress, customer_id=customer.id, type_value=data.address_type)
+
+    address = CustomerAddress(
+        group_id=customer.group_id,
+        customer_id=customer.id,
+        address_type=data.address_type,
+        label=data.label,
+        address_street=data.address_street,
+        address_house_number=data.address_house_number,
+        address_postal_code=data.address_postal_code,
+        address_locality=data.address_locality,
+        address_canton=derive_canton(data.address_postal_code, data.address_country),
+        address_country=data.address_country,
+        is_primary=is_primary,
+        created_by=actor_id,
+        updated_by=actor_id,
+    )
+    db.add(address)
+    db.flush()
+
+    record_audit_event(
+        db,
+        entity_type="customer",
+        entity_id=customer.id,
+        tenant_id=customer.group_id,
+        action="address_add",
+        actor_id=actor_id,
+        after=_address_audit_payload(address),
+    )
+    db.commit()
+    db.refresh(address)
+    return address
+
+
+def update_customer_address(
+    db: Session, *, address: CustomerAddress, data: CustomerAddressUpdate, actor_id: uuid.UUID
+) -> CustomerAddress:
+    changes = data.model_dump(exclude_unset=True)
+    before = _address_audit_payload(address)
+
+    target_address_type = changes.get("address_type", address.address_type)
+    if changes.get("is_primary") is True and not address.is_primary:
+        _unset_other_primaries(db, CustomerAddress, customer_id=address.customer_id, type_value=target_address_type)
+    elif changes.get("is_primary") is False and address.is_primary:
+        raise BadRequestError(
+            "Cannot unset the primary address directly — mark a different address as primary instead."
+        )
+
+    for field, value in changes.items():
+        setattr(address, field, value)
+    if "address_postal_code" in changes or "address_country" in changes:
+        address.address_canton = derive_canton(address.address_postal_code, address.address_country)
+    address.updated_by = actor_id
+
+    db.flush()
+
+    record_audit_event(
+        db,
+        entity_type="customer",
+        entity_id=address.customer_id,
+        tenant_id=address.group_id,
+        action="address_update",
+        actor_id=actor_id,
+        before=before,
+        after=_address_audit_payload(address),
+    )
+    db.commit()
+    db.refresh(address)
+    return address
+
+
+def delete_customer_address(db: Session, *, address: CustomerAddress, actor_id: uuid.UUID) -> None:
+    record_audit_event(
+        db,
+        entity_type="customer",
+        entity_id=address.customer_id,
+        tenant_id=address.group_id,
+        action="address_remove",
+        actor_id=actor_id,
+        before=_address_audit_payload(address),
+    )
+    db.delete(address)
+    db.commit()
+
+
+_EMPTY_PROJECTIONS: dict[str, Any] = {
+    "phone_mobile": None,
+    "phone_landline": None,
+    "phone_work": None,
+    "email": None,
+    "email_secondary": None,
+    "address": None,
+}
+
+
+def compute_customer_projections(db: Session, customer_id: uuid.UUID) -> dict[str, Any]:
+    """Single-customer form of compute_customer_projections_batch — for the
+    get/create/update/merge endpoints, which only ever need one customer's
+    projections at a time.
+    """
+
+    return compute_customer_projections_batch(db, [customer_id]).get(customer_id, dict(_EMPTY_PROJECTIONS))
+
+
+def compute_customer_projections_batch(
+    db: Session, customer_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, dict[str, Any]]:
+    """The six read-model projections (ADR-067), computed here and never
+    stored: phoneMobile/phoneLandline/phoneWork, email (primary personal)/
+    emailSecondary (primary work), address (primary domicile). Only a
+    USABLE row (not closed, not do-not-use) is eligible — same definition
+    FR-03 uses.
+
+    Batched — one query per table for the whole set of customer_ids, not one
+    per customer — same N+1-avoidance reasoning as _primary_contact_maps,
+    since the grid renders these as flat columns for a whole page of rows.
+
+    The billing-with-fallback-to-domicile variant the brief describes for
+    document rendering is a document-rendering concern (WP-6b/WP-6c), not a
+    customer-record concern — this returns the plain domicile projection
+    only.
+    """
+
+    if not customer_ids:
+        return {}
+
+    def _usable(rows: list[Any]) -> list[Any]:
+        return [r for r in rows if r.valid_to is None and not r.do_not_use]
+
+    def _group_by_customer(rows: list[Any]) -> dict[uuid.UUID, list[Any]]:
+        grouped: dict[uuid.UUID, list[Any]] = {}
+        for row in rows:
+            grouped.setdefault(row.customer_id, []).append(row)
+        return grouped
+
+    phones_by_customer = _group_by_customer(
+        _usable(list(db.scalars(select(CustomerPhone).where(CustomerPhone.customer_id.in_(customer_ids))).all()))
+    )
+    emails_by_customer = _group_by_customer(
+        _usable(list(db.scalars(select(CustomerEmail).where(CustomerEmail.customer_id.in_(customer_ids))).all()))
+    )
+    addresses_by_customer = _group_by_customer(
+        _usable(list(db.scalars(select(CustomerAddress).where(CustomerAddress.customer_id.in_(customer_ids))).all()))
+    )
+
+    def _primary_of_type(rows: list[Any], type_column: str, type_value: Any) -> Any | None:
+        return next((r for r in rows if getattr(r, type_column) == type_value and r.is_primary), None)
+
+    result: dict[uuid.UUID, dict[str, Any]] = {}
+    for customer_id in customer_ids:
+        phones = phones_by_customer.get(customer_id, [])
+        emails = emails_by_customer.get(customer_id, [])
+        addresses = addresses_by_customer.get(customer_id, [])
+        phone_mobile = _primary_of_type(phones, "phone_type", PhoneType.MOBILE)
+        phone_landline = _primary_of_type(phones, "phone_type", PhoneType.LANDLINE)
+        phone_work = _primary_of_type(phones, "phone_type", PhoneType.WORK)
+        email_personal = _primary_of_type(emails, "email_type", EmailType.PERSONAL)
+        email_work = _primary_of_type(emails, "email_type", EmailType.WORK)
+        address_domicile = _primary_of_type(addresses, "address_type", AddressType.DOMICILE)
+        result[customer_id] = {
+            "phone_mobile": phone_mobile.phone_e164 if phone_mobile else None,
+            "phone_landline": phone_landline.phone_e164 if phone_landline else None,
+            "phone_work": phone_work.phone_e164 if phone_work else None,
+            "email": email_personal.email_address if email_personal else None,
+            "email_secondary": email_work.email_address if email_work else None,
+            "address": CustomerAddressRead.model_validate(address_domicile) if address_domicile else None,
+        }
+    return result
 
 
 # --- CustomerExternalId: per-dealer CRM/OEM linkage, platform_admin-write

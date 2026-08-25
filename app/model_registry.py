@@ -9,7 +9,7 @@ from app.core.idempotency_model import IdempotencyRecord
 from app.core.outbox_model import OutboxMessage
 from app.core.processed_event_model import ProcessedEvent
 from app.core.reconciliation_model import ReconciliationOrphan, ReconciliationRun
-from app.customer.models.customer import Customer
+from app.customer.models.customer import Customer, CustomerAddress
 from app.customer.models.legal_basis import LegalBasis
 from app.customer.models.vehicle_party import VehicleParty
 from app.platform.models.credential import Credential
@@ -25,6 +25,7 @@ __all__ = [
     "AuditEvent",
     "Credential",
     "Customer",
+    "CustomerAddress",
     "DealerGroup",
     "Dealership",
     "DealershipMembership",

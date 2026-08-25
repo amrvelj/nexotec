@@ -37,12 +37,12 @@ import datetime as dt
 import enum
 import uuid
 
-from sqlalchemy import Boolean, Date, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Boolean, Date, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.base import PrimaryKeyMixin, TimestampMixin, VersionedMixin
-from app.core.types import GUID, EncryptedString
+from app.core.base import PrimaryKeyMixin, TimestampMixin, VersionedMixin, utcnow
+from app.core.types import GUID, EncryptedString, UTCDateTime
 from app.db import Base
 
 
@@ -102,14 +102,33 @@ class PreferredChannel(str, enum.Enum):
 
 
 class PhoneType(str, enum.Enum):
+    """Remapped in WP-3 PR-5 (ADR-067): MOBILE unchanged, PRIVATE->LANDLINE,
+    OFFICE->WORK — see that migration's own docstring for the reasoning.
+    FAX is new, no existing data.
+    """
+
     MOBILE = "mobile"
-    PRIVATE = "private"
-    OFFICE = "office"
+    LANDLINE = "landline"
+    WORK = "work"
+    FAX = "fax"
 
 
 class EmailType(str, enum.Enum):
-    PRIVATE = "private"
-    BUSINESS = "business"
+    """Remapped in WP-3 PR-5 (ADR-067): PRIVATE->PERSONAL, BUSINESS->WORK —
+    same concept either way, "reachable at an address tied to their job/
+    company," whether the customer is an individual or a business.
+    INVOICING is new, no existing data.
+    """
+
+    PERSONAL = "personal"
+    WORK = "work"
+    INVOICING = "invoicing"
+
+
+class AddressType(str, enum.Enum):
+    DOMICILE = "domicile"
+    BILLING = "billing"
+    DELIVERY = "delivery"
 
 
 class CustomerLifecycleStatus(str, enum.Enum):
@@ -238,10 +257,18 @@ class Customer(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     marketing_consent: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     @property
-    def address(self) -> dict[str, str | None] | None:
-        """Read-side convenience: flat address_* columns as a nested dict,
-        matching app.customer.schemas.customer.CustomerRead. None when no address was
-        ever set (address is optional at creation, unlike Dealership's).
+    def legacy_address_mirror(self) -> dict[str, str | None] | None:
+        """READ-ONLY MIRROR since WP-3 PR-5 (ADR-067) — frozen at whatever
+        value existed before that migration, no longer written to by
+        create_customer/update_customer, dropped entirely in Phase C.
+        CustomerAddress child rows are the single source of truth now; the
+        API-facing `address` projection comes from there (the primary
+        `domicile` row), not from this property — see
+        app.customer.services.customer's projection function. Deliberately
+        NOT named `address`: CustomerRead.address is a CustomerAddressRead
+        (a full child row shape) now, and this property's plain dict would
+        silently mismatch it if pydantic ever picked this up by attribute
+        name during from_attributes validation.
         """
 
         if self.address_street is None:
@@ -256,7 +283,46 @@ class Customer(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
         }
 
 
-class CustomerPhone(PrimaryKeyMixin, TimestampMixin, Base):
+class ContactChannelMixin:
+    """The six facts every contact-channel row carries, regardless of kind
+    (WP-3 PR-5, ADR-067). Not a table itself — customer_phone/email/address
+    stay three separate tables (a polymorphic contact_point table "sounds
+    tidier and produces a table where half the columns are null on every
+    row" — explicitly rejected).
+
+    is_primary: exactly one per (customer_id, type) — enforced in the
+    service layer transactionally (unset the previous primary in the same
+    transaction), same "not a high-contention field" reasoning as before,
+    now scoped to the type-group rather than the whole customer.
+
+    valid_from/valid_to: a customer who moves keeps their old address —
+    last year's invoices were sent somewhere. A row with valid_to in the
+    past is "closed": it stays readable but is excluded from the six
+    projections and from document rendering.
+
+    do_not_use/do_not_use_reason: a bounced email or dead number is a fact
+    worth recording, not a row to delete — deleting it means the next
+    advisor re-enters it from the same business card. Excluded from
+    projections, same as a closed row.
+
+    consent_*: per channel, not one global flag on Customer — a customer
+    may accept invoices at an address and refuse marketing at the same one.
+    Customer.marketing_consent remains the legal basis; this records WHERE
+    it was exercised, per revDSG's evidentiary expectation.
+    """
+
+    label: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    valid_from: Mapped[dt.datetime] = mapped_column(UTCDateTime(), nullable=False, default=utcnow)
+    valid_to: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    do_not_use: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    do_not_use_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    consent_granted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    consent_source: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    consent_timestamp: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+
+
+class CustomerPhone(ContactChannelMixin, PrimaryKeyMixin, TimestampMixin, Base):
     """Multi-valued phone numbers (Customer PRD, 2026-08-07 CTO ruling).
     group_id is denormalized from Customer.group_id at insert time (moved
     from tenant_id in WP-3 PR-2, ADR-014 — a child collection of a record
@@ -273,20 +339,19 @@ class CustomerPhone(PrimaryKeyMixin, TimestampMixin, Base):
     )
     customer_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("customer.id"), nullable=False, index=True)
     phone_type: Mapped[PhoneType] = mapped_column(SAEnum(PhoneType, native_enum=False, length=16), nullable=False)
+    # E.164 with the country prefix.
     phone_e164: Mapped[str] = mapped_column(String(20), nullable=False)
     # Digits-only projection of phone_e164, maintained by the service layer.
     # Exists so a counter clerk can type '079 123 45 67' and match a number
     # stored as '+41791234567' (FR-01) with an indexed LIKE instead of a
     # per-row regex. Never returned by the API.
     phone_normalised: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
-    # Exactly one true per customer — enforced in the service layer (unset
-    # the previous primary in the same transaction), not a DB constraint;
-    # this isn't a high-contention field (CTO ruling).
-    is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
 
-class CustomerEmail(PrimaryKeyMixin, TimestampMixin, Base):
-    """Multi-valued email addresses — same shape/reasoning as CustomerPhone."""
+class CustomerEmail(ContactChannelMixin, PrimaryKeyMixin, TimestampMixin, Base):
+    """Multi-valued email addresses — same shape/reasoning as CustomerPhone.
+    RFC-validated at the schema boundary.
+    """
 
     __tablename__ = "customer_email"
     __table_args__ = (
@@ -299,7 +364,6 @@ class CustomerEmail(PrimaryKeyMixin, TimestampMixin, Base):
     customer_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("customer.id"), nullable=False, index=True)
     email_type: Mapped[EmailType] = mapped_column(SAEnum(EmailType, native_enum=False, length=16), nullable=False)
     email_address: Mapped[str] = mapped_column(String(254), nullable=False, index=True)
-    is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
 
 class CustomerExternalId(PrimaryKeyMixin, TimestampMixin, Base):
@@ -332,3 +396,30 @@ class CustomerExternalId(PrimaryKeyMixin, TimestampMixin, Base):
     customer_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("customer.id"), nullable=False, index=True)
     system_name: Mapped[str] = mapped_column(String(100), nullable=False)
     external_id: Mapped[str] = mapped_column(String(255), nullable=False)
+
+
+class CustomerAddress(ContactChannelMixin, PrimaryKeyMixin, TimestampMixin, Base):
+    """Multi-valued postal addresses (WP-3 PR-5, ADR-067) — new in this
+    package; Customer.address_* (below) becomes a read-only mirror, frozen
+    at its pre-migration value, dropped in Phase C. The six read-model
+    projections read from here, never from those columns.
+
+    The all-or-nothing address rule (every sub-field supplied or none)
+    applies PER ROW now, not per customer.
+    """
+
+    __tablename__ = "customer_address"
+
+    group_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), nullable=False, index=True, comment="Owned by the platform context (DealerGroup). No DB-level FK."
+    )
+    customer_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("customer.id"), nullable=False, index=True)
+    address_type: Mapped[AddressType] = mapped_column(
+        SAEnum(AddressType, native_enum=False, length=16), nullable=False
+    )
+    address_street: Mapped[str] = mapped_column(String(200), nullable=False)
+    address_house_number: Mapped[str] = mapped_column(String(20), nullable=False)
+    address_postal_code: Mapped[str] = mapped_column(String(12), nullable=False)
+    address_locality: Mapped[str] = mapped_column(String(100), nullable=False)
+    address_canton: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    address_country: Mapped[str] = mapped_column(String(2), nullable=False, default="CH")

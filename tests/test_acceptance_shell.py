@@ -126,7 +126,7 @@ def _create_customer(client, headers: dict[str, str], **overrides) -> dict:
         "lastName": "Beispiel",
         "language": "de",
         "emails": [
-            {"emailType": "private", "emailAddress": f"peter-{uuid.uuid4().hex[:8]}@example.ch"}
+            {"emailType": "personal", "emailAddress": f"peter-{uuid.uuid4().hex[:8]}@example.ch"}
         ],
     }
     payload.update(overrides)
@@ -167,7 +167,7 @@ def test_ac2_to_4_full_shell_walkthrough_sale(client):
     # contact lives in the customer_email child collection, not on the
     # customer body, so assert it through the emails endpoint.
     customer = _create_customer(
-        client, headers, emails=[{"emailType": "private", "emailAddress": "customer@example.ch"}]
+        client, headers, emails=[{"emailType": "personal", "emailAddress": "customer@example.ch"}]
     )
     contact_emails = client.get(f"/v1/customers/{customer['id']}/emails", headers=headers).json()["items"]
     assert [e["emailAddress"] for e in contact_emails] == ["customer@example.ch"]
@@ -496,7 +496,7 @@ def test_idempotency_key_replay_returns_original_result_not_a_duplicate(client):
         "firstName": "Peter",
         "lastName": "Beispiel",
         "language": "de",
-        "emails": [{"emailType": "private", "emailAddress": "idempotent@example.ch"}],
+        "emails": [{"emailType": "personal", "emailAddress": "idempotent@example.ch"}],
     }
     first = client.post("/v1/customers", json=payload, headers=headers)
     assert first.status_code == 201, first.text

@@ -72,7 +72,7 @@ def _create_customer(client, dealer, **overrides) -> dict:
         "firstName": "Anna",
         "lastName": "Muster",
         "language": "de",
-        "emails": [{"emailType": "private", "emailAddress": "anna@example.ch"}],
+        "emails": [{"emailType": "personal", "emailAddress": "anna@example.ch"}],
     }
     payload.update(overrides)
     response = client.post("/v1/customers", json=payload, headers=_bearer(token))

@@ -28,6 +28,7 @@ from app.core.validators import (
     validate_postal_code_for_country,
 )
 from app.customer.models.customer import (
+    AddressType,
     CustomerLifecycleStatus,
     CustomerSource,
     CustomerType,
@@ -40,46 +41,157 @@ from app.customer.models.customer import (
 )
 from app.customer.models.vehicle_party import VehiclePartyRole
 
-
-class CustomerAddress(CamelModel):
-    """Write-side address. Deliberately not DealershipAddress: the client never
-    supplies `canton`. Dealership's canton is tied to its license/regulatory
-    record and is user-entered; Customer's is *derived* from the Swiss
-    postal code server-side (D-13) and is therefore read-only — see
-    CustomerAddressRead below.
-    """
-
-    street: str = Field(max_length=200)
-    house_number: HouseNumber = Field(max_length=20)
-    postal_code: str = Field(max_length=12)
-    locality: str = Field(max_length=100)
-    country: str = Field(default="CH", max_length=2)
-
-    @model_validator(mode="after")
-    def _validate_postal_code(self) -> "CustomerAddress":
-        validate_postal_code_for_country(self.postal_code, self.country)
-        return self
-
-
-class CustomerAddressRead(CustomerAddress):
-    """Read-side address: adds the server-derived canton. NULL for foreign
-    addresses, and NULL for Swiss ones until the postal-code dataset lands
-    (D-09, Phase D).
-    """
-
-    canton: str | None = None
+# --- Contact channels (WP-3 PR-5, ADR-067): customer_phone/email/address
+# are three child-record tables, each carrying the same six facts (type,
+# label, isPrimary, validFrom/validTo, doNotUse[+reason], consent). Field
+# names on CustomerAddress* match the model's own address_* attribute names
+# (-> addressStreet etc. in JSON) rather than the old bare street/houseNumber
+# shape — this is PRD-Customers' own §Contact Data table naming for a
+# customer_address ROW, not the flat Customer-level fields the old shape
+# mirrored.
 
 
 class CustomerPhoneCreate(CamelModel):
     phone_type: PhoneType
+    label: str | None = Field(default=None, max_length=60)
     phone_e164: E164Phone
     is_primary: bool = False
 
 
+class CustomerPhoneUpdate(CamelModel):
+    phone_type: PhoneType | None = None
+    label: str | None = Field(default=None, max_length=60)
+    phone_e164: E164Phone | None = None
+    is_primary: bool | None = None
+    valid_to: dt.datetime | None = None
+    do_not_use: bool | None = None
+    do_not_use_reason: str | None = Field(default=None, max_length=500)
+    consent_granted: bool | None = None
+    consent_source: str | None = Field(default=None, max_length=100)
+
+
+class CustomerPhoneRead(CamelModel):
+    id: uuid.UUID
+    customer_id: uuid.UUID
+    phone_type: PhoneType
+    label: str | None
+    phone_e164: str
+    is_primary: bool
+    valid_from: dt.datetime
+    valid_to: dt.datetime | None
+    do_not_use: bool
+    do_not_use_reason: str | None
+    consent_granted: bool
+    consent_source: str | None
+    consent_timestamp: dt.datetime | None
+    created_at: dt.datetime
+    updated_at: dt.datetime
+
+
+class CustomerPhonePage(CamelModel):
+    items: list[CustomerPhoneRead]
+
+
 class CustomerEmailCreate(CamelModel):
     email_type: EmailType
+    label: str | None = Field(default=None, max_length=60)
     email_address: EmailStr
     is_primary: bool = False
+
+
+class CustomerEmailUpdate(CamelModel):
+    email_type: EmailType | None = None
+    label: str | None = Field(default=None, max_length=60)
+    email_address: EmailStr | None = None
+    is_primary: bool | None = None
+    valid_to: dt.datetime | None = None
+    do_not_use: bool | None = None
+    do_not_use_reason: str | None = Field(default=None, max_length=500)
+    consent_granted: bool | None = None
+    consent_source: str | None = Field(default=None, max_length=100)
+
+
+class CustomerEmailRead(CamelModel):
+    id: uuid.UUID
+    customer_id: uuid.UUID
+    email_type: EmailType
+    label: str | None
+    email_address: str
+    is_primary: bool
+    valid_from: dt.datetime
+    valid_to: dt.datetime | None
+    do_not_use: bool
+    do_not_use_reason: str | None
+    consent_granted: bool
+    consent_source: str | None
+    consent_timestamp: dt.datetime | None
+    created_at: dt.datetime
+    updated_at: dt.datetime
+
+
+class CustomerEmailPage(CamelModel):
+    items: list[CustomerEmailRead]
+
+
+class CustomerAddressCreate(CamelModel):
+    address_type: AddressType
+    label: str | None = Field(default=None, max_length=60)
+    address_street: str = Field(max_length=200)
+    address_house_number: HouseNumber = Field(max_length=20)
+    address_postal_code: str = Field(max_length=12)
+    address_locality: str = Field(max_length=100)
+    address_country: str = Field(default="CH", max_length=2)
+    is_primary: bool = False
+
+    @model_validator(mode="after")
+    def _validate_postal_code(self) -> "CustomerAddressCreate":
+        validate_postal_code_for_country(self.address_postal_code, self.address_country)
+        return self
+
+
+class CustomerAddressUpdate(CamelModel):
+    address_type: AddressType | None = None
+    label: str | None = Field(default=None, max_length=60)
+    address_street: str | None = Field(default=None, max_length=200)
+    address_house_number: HouseNumber | None = None
+    address_postal_code: str | None = Field(default=None, max_length=12)
+    address_locality: str | None = Field(default=None, max_length=100)
+    address_country: str | None = Field(default=None, max_length=2)
+    is_primary: bool | None = None
+    valid_to: dt.datetime | None = None
+    do_not_use: bool | None = None
+    do_not_use_reason: str | None = Field(default=None, max_length=500)
+    consent_granted: bool | None = None
+    consent_source: str | None = Field(default=None, max_length=100)
+
+
+class CustomerAddressRead(CamelModel):
+    id: uuid.UUID
+    customer_id: uuid.UUID
+    address_type: AddressType
+    label: str | None
+    address_street: str
+    address_house_number: str
+    address_postal_code: str
+    address_locality: str
+    # Derived from the Swiss postal code server-side, same as Customer's own
+    # legacy address_canton — NULL for foreign addresses.
+    address_canton: str | None
+    address_country: str
+    is_primary: bool
+    valid_from: dt.datetime
+    valid_to: dt.datetime | None
+    do_not_use: bool
+    do_not_use_reason: str | None
+    consent_granted: bool
+    consent_source: str | None
+    consent_timestamp: dt.datetime | None
+    created_at: dt.datetime
+    updated_at: dt.datetime
+
+
+class CustomerAddressPage(CamelModel):
+    items: list[CustomerAddressRead]
 
 
 class CustomerCreate(CamelModel):
@@ -112,7 +224,7 @@ class CustomerCreate(CamelModel):
     preferred_channel: PreferredChannel | None = None
     phones: list[CustomerPhoneCreate] = Field(default_factory=list)
     emails: list[CustomerEmailCreate] = Field(default_factory=list)
-    address: CustomerAddress | None = None
+    addresses: list[CustomerAddressCreate] = Field(default_factory=list)
     lifecycle_status: CustomerLifecycleStatus = CustomerLifecycleStatus.PROSPECT
     source: CustomerSource | None = None
     source_ref: str | None = Field(default=None, max_length=255)
@@ -140,6 +252,15 @@ class CustomerCreate(CamelModel):
             raise ValueError("Only one phone number can be marked as primary.")
         if sum(1 for e in self.emails if e.is_primary) > 1:
             raise ValueError("Only one email address can be marked as primary.")
+        # Per type-group (ADR-067) — two addresses of DIFFERENT types may
+        # each be primary at once (a primary domicile AND a primary billing
+        # address), only two of the SAME type competing is rejected.
+        by_type: dict[AddressType, int] = {}
+        for address in self.addresses:
+            if address.is_primary:
+                by_type[address.address_type] = by_type.get(address.address_type, 0) + 1
+        if any(count > 1 for count in by_type.values()):
+            raise ValueError("Only one address per type can be marked as primary.")
         return self
 
     @model_validator(mode="after")
@@ -173,8 +294,10 @@ class CustomerUpdate(CamelModel):
     known at the schema level for a partial PATCH body.
 
     Contact details are not editable here either: they are managed through
-    the /customers/{id}/phones and /customers/{id}/emails endpoints, which
-    own the "exactly one primary" invariant.
+    the /customers/{id}/phones, /customers/{id}/emails and
+    /customers/{id}/addresses endpoints, which own the "exactly one primary
+    per type" invariant (ADR-067, WP-3 PR-5 — extended from "per customer"
+    to "per type" for phones/emails at the same time addresses joined them).
     """
 
     language: Language | None = None
@@ -189,7 +312,6 @@ class CustomerUpdate(CamelModel):
         default=None, description="Write-only; never returned by read endpoints."
     )
     preferred_channel: PreferredChannel | None = None
-    address: CustomerAddress | None = None
     lifecycle_status: CustomerLifecycleStatus | None = None
     source: CustomerSource | None = None
     source_ref: str | None = Field(default=None, max_length=255)
@@ -218,7 +340,15 @@ class CustomerRead(CamelModel):
     # tax_id deliberately absent — write-only, same convention as
     # DealershipRead never returning Dealership.tax_id.
     preferred_channel: PreferredChannel | None
-    address: CustomerAddressRead | None
+    # Six read-model projections (ADR-067) — computed from customer_phone/
+    # email/address child rows, never stored columns. The grid's flat
+    # Mobile/Email/Work-phone columns read these, not a Customer field.
+    phone_mobile: str | None = None
+    phone_landline: str | None = None
+    phone_work: str | None = None
+    email: str | None = None
+    email_secondary: str | None = None
+    address: CustomerAddressRead | None = None
     lifecycle_status: CustomerLifecycleStatus
     source: CustomerSource | None
     source_ref: str | None
@@ -243,46 +373,6 @@ class CustomerPage(CamelModel):
 
 class CustomerMergeRequest(CamelModel):
     duplicate_of_customer_id: uuid.UUID
-
-
-class CustomerPhoneUpdate(CamelModel):
-    phone_type: PhoneType | None = None
-    phone_e164: E164Phone | None = None
-    is_primary: bool | None = None
-
-
-class CustomerPhoneRead(CamelModel):
-    id: uuid.UUID
-    customer_id: uuid.UUID
-    phone_type: PhoneType
-    phone_e164: str
-    is_primary: bool
-    created_at: dt.datetime
-    updated_at: dt.datetime
-
-
-class CustomerPhonePage(CamelModel):
-    items: list[CustomerPhoneRead]
-
-
-class CustomerEmailUpdate(CamelModel):
-    email_type: EmailType | None = None
-    email_address: EmailStr | None = None
-    is_primary: bool | None = None
-
-
-class CustomerEmailRead(CamelModel):
-    id: uuid.UUID
-    customer_id: uuid.UUID
-    email_type: EmailType
-    email_address: str
-    is_primary: bool
-    created_at: dt.datetime
-    updated_at: dt.datetime
-
-
-class CustomerEmailPage(CamelModel):
-    items: list[CustomerEmailRead]
 
 
 class CustomerExternalIdCreate(CamelModel):

@@ -29,6 +29,10 @@ from app.core.permissions import require_read, require_write
 from app.core.sorting import SortField, parse_sort
 from app.customer.models.customer import Customer, CustomerLifecycleStatus, CustomerType, Language
 from app.customer.schemas.customer import (
+    CustomerAddressCreate,
+    CustomerAddressPage,
+    CustomerAddressRead,
+    CustomerAddressUpdate,
     CustomerCreate,
     CustomerDuplicateCandidate,
     CustomerDuplicateCandidateList,
@@ -86,6 +90,16 @@ def _idempotency_key(idempotency_key: str | None = Header(default=None, alias="I
     return idempotency_key
 
 
+def _customer_read(db: Session, customer: Customer) -> CustomerRead:
+    """CustomerRead plus the six ADR-067 projections, computed here (never
+    stored) and layered on with model_copy — the base model_validate leaves
+    them at their schema default of None.
+    """
+
+    base = CustomerRead.model_validate(customer, from_attributes=True)
+    return base.model_copy(update=customer_service.compute_customer_projections(db, customer.id))
+
+
 @router.post("/customers", response_model=CustomerRead, status_code=201)
 def create_customer(
     body: CustomerCreate,
@@ -113,7 +127,7 @@ def create_customer(
     customer = customer_service.create_customer(
         db, group_id=principal.group_id, data=body, actor_id=principal.user_id
     )
-    result = CustomerRead.model_validate(customer, from_attributes=True)
+    result = _customer_read(db, customer)
 
     if idempotency_key:
         store_response(
@@ -150,7 +164,7 @@ def get_customer(
     db: Session = Depends(get_db),
 ):
     customer = customer_service.get_customer_or_404(db, principal.group_id, customer_id)
-    return CustomerRead.model_validate(customer, from_attributes=True)
+    return _customer_read(db, customer)
 
 
 @router.patch("/customers/{customer_id}", response_model=CustomerRead)
@@ -164,7 +178,7 @@ def update_customer(
     customer = customer_service.get_customer_or_404(db, principal.group_id, customer_id)
     check_version(customer.version, if_match, entity_name="Customer")
     customer = customer_service.update_customer(db, customer=customer, data=body, actor_id=principal.user_id)
-    return CustomerRead.model_validate(customer, from_attributes=True)
+    return _customer_read(db, customer)
 
 
 @router.post("/customers/{customer_id}/merge", response_model=CustomerRead)
@@ -183,7 +197,7 @@ def merge_customer(
         duplicate_of_customer_id=body.duplicate_of_customer_id,
         actor_id=principal.user_id,
     )
-    return CustomerRead.model_validate(customer, from_attributes=True)
+    return _customer_read(db, customer)
 
 
 @router.get("/customers", response_model=CustomerPage)
@@ -217,8 +231,13 @@ def list_customers(
         params=params,
         include_merged=include_merged,
     )
+    projections_by_id = customer_service.compute_customer_projections_batch(db, [c.id for c in rows])
+    items = [
+        CustomerRead.model_validate(c, from_attributes=True).model_copy(update=projections_by_id.get(c.id, {}))
+        for c in rows
+    ]
     return CustomerPage(
-        items=[CustomerRead.model_validate(c, from_attributes=True) for c in rows],
+        items=items,
         next_cursor=next_cursor,
         total=total,
         total_is_estimate=total_is_estimate,
@@ -348,6 +367,62 @@ def delete_customer_email(
         db, group_id=principal.group_id, customer_id=customer_id, email_id=email_id
     )
     customer_service.delete_customer_email(db, email=email, actor_id=principal.user_id)
+
+
+# --- CustomerAddress: multi-valued postal addresses (WP-3 PR-5, ADR-067).
+# Same "customers" write capability and unversioned-child-row reasoning as
+# CustomerPhone/CustomerEmail above.
+
+
+@router.get("/customers/{customer_id}/addresses", response_model=CustomerAddressPage)
+def list_customer_addresses(
+    customer_id: uuid.UUID,
+    principal: Principal = Depends(get_current_principal),
+    db: Session = Depends(get_db),
+):
+    customer_service.get_customer_or_404(db, principal.group_id, customer_id)
+    rows = customer_service.list_customer_addresses(db, customer_id=customer_id)
+    return CustomerAddressPage(items=[CustomerAddressRead.model_validate(r, from_attributes=True) for r in rows])
+
+
+@router.post("/customers/{customer_id}/addresses", response_model=CustomerAddressRead, status_code=201)
+def create_customer_address(
+    customer_id: uuid.UUID,
+    body: CustomerAddressCreate,
+    principal: Principal = Depends(require_write("customers")),
+    db: Session = Depends(get_db),
+):
+    customer = customer_service.get_customer_or_404(db, principal.group_id, customer_id)
+    address = customer_service.create_customer_address(db, customer=customer, data=body, actor_id=principal.user_id)
+    return CustomerAddressRead.model_validate(address, from_attributes=True)
+
+
+@router.patch("/customers/{customer_id}/addresses/{address_id}", response_model=CustomerAddressRead)
+def update_customer_address(
+    customer_id: uuid.UUID,
+    address_id: uuid.UUID,
+    body: CustomerAddressUpdate,
+    principal: Principal = Depends(require_write("customers")),
+    db: Session = Depends(get_db),
+):
+    address = customer_service.get_customer_address_or_404(
+        db, group_id=principal.group_id, customer_id=customer_id, address_id=address_id
+    )
+    address = customer_service.update_customer_address(db, address=address, data=body, actor_id=principal.user_id)
+    return CustomerAddressRead.model_validate(address, from_attributes=True)
+
+
+@router.delete("/customers/{customer_id}/addresses/{address_id}", status_code=204)
+def delete_customer_address(
+    customer_id: uuid.UUID,
+    address_id: uuid.UUID,
+    principal: Principal = Depends(require_write("customers")),
+    db: Session = Depends(get_db),
+):
+    address = customer_service.get_customer_address_or_404(
+        db, group_id=principal.group_id, customer_id=customer_id, address_id=address_id
+    )
+    customer_service.delete_customer_address(db, address=address, actor_id=principal.user_id)
 
 
 # --- CustomerExternalId: per-dealer CRM/OEM linkage. Write is

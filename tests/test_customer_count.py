@@ -46,7 +46,7 @@ def _create_customer(client, dealer_id: str, **overrides) -> dict:
     token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     payload = {
         "firstName": "Anna", "lastName": "Muster", "language": "de",
-        "emails": [{"emailType": "private", "emailAddress": f"anna-{uuid.uuid4().hex[:8]}@example.ch"}],
+        "emails": [{"emailType": "personal", "emailAddress": f"anna-{uuid.uuid4().hex[:8]}@example.ch"}],
     }
     payload.update(overrides)
     response = client.post("/v1/customers", json=payload, headers=_bearer(token))

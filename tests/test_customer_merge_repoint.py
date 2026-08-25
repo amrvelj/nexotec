@@ -80,7 +80,7 @@ def _create_customer(client, dealer_id: str, **overrides) -> dict:
         "firstName": "Anna",
         "lastName": "Muster",
         "language": "de",
-        "emails": [{"emailType": "private", "emailAddress": f"anna-{uuid.uuid4().hex[:8]}@example.ch"}],
+        "emails": [{"emailType": "personal", "emailAddress": f"anna-{uuid.uuid4().hex[:8]}@example.ch"}],
     }
     payload.update(overrides)
     response = client.post("/v1/customers", json=payload, headers=_bearer(token))
@@ -140,7 +140,7 @@ def _add_phone(client, dealer_id: str, customer_id: str, phone_e164: str, **over
 
 def _add_email(client, dealer_id: str, customer_id: str, email_address: str, **overrides):
     token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
-    payload = {"emailType": "private", "emailAddress": email_address}
+    payload = {"emailType": "personal", "emailAddress": email_address}
     payload.update(overrides)
     response = client.post(f"/v1/customers/{customer_id}/emails", json=payload, headers=_bearer(token))
     assert response.status_code == 201, response.text
@@ -262,8 +262,8 @@ def test_merge_repoints_unique_phone_and_email(client):
 
 def test_merge_dedupes_conflicting_phone_and_email(client):
     dealer_id = _create_dealer(client)
-    survivor = _create_customer(client, dealer_id, emails=[{"emailType": "private", "emailAddress": "shared@example.ch"}])
-    duplicate = _create_customer(client, dealer_id, emails=[{"emailType": "private", "emailAddress": "shared@example.ch"}])
+    survivor = _create_customer(client, dealer_id, emails=[{"emailType": "personal", "emailAddress": "shared@example.ch"}])
+    duplicate = _create_customer(client, dealer_id, emails=[{"emailType": "personal", "emailAddress": "shared@example.ch"}])
     _add_phone(client, dealer_id, survivor["id"], "+41799998877")
     _add_phone(client, dealer_id, duplicate["id"], "+41799998877")
 

@@ -105,7 +105,7 @@ def _create_customer(client, dealer_id: str, **overrides) -> dict:
         "firstName": "Anna",
         "lastName": "Muster",
         "language": "de",
-        "emails": [{"emailType": "private", "emailAddress": f"anna-{uuid.uuid4().hex[:8]}@example.ch"}],
+        "emails": [{"emailType": "personal", "emailAddress": f"anna-{uuid.uuid4().hex[:8]}@example.ch"}],
     }
     payload.update(overrides)
     response = client.post("/v1/customers", json=payload, headers=_bearer(token))
@@ -335,6 +335,7 @@ def test_no_hard_delete_endpoint_exists_for_fk_target_entities(client):
     assert delete_paths == {
         "/v1/customers/{customer_id}/phones/{phone_id}",
         "/v1/customers/{customer_id}/emails/{email_id}",
+        "/v1/customers/{customer_id}/addresses/{address_id}",
         "/v1/customers/{customer_id}/external-ids/{external_id_row_id}",
         "/v1/customers/{customer_id}/vehicles/{party_id}",
         "/v1/me/preferences/{scope}",
