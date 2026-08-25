@@ -42,7 +42,11 @@ services:
       DMS_ZITADEL_CLIENT_SECRET: ${DMS_ZITADEL_CLIENT_SECRET}
       DMS_ZITADEL_REDIRECT_URI: ${DMS_ZITADEL_REDIRECT_URI}
       DMS_SESSION_SECRET_KEY: ${DMS_SESSION_SECRET_KEY}
-      DMS_SEED_DEMO_PASSWORD: ${DMS_SEED_DEMO_PASSWORD:-dev-only-password-change-me}
+      # WP-4: no local password to seed anymore — this must be a real
+      # Zitadel sub from a demo account pre-provisioned by hand. Unset
+      # locally, the seed step just no-ops (piped through `|| true`,
+      # scripts/seed_staging_demo.py's own docstring).
+      DMS_SEED_DEMO_AUTH_IDENTITY_ID: ${DMS_SEED_DEMO_AUTH_IDENTITY_ID:-}
     depends_on:
       db:
         condition: service_healthy
