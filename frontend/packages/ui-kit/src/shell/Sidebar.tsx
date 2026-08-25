@@ -1,11 +1,13 @@
 import type { ComponentType, CSSProperties, ReactNode } from "react";
-import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
-import { Tooltip } from "@mantine/core";
+import { Bell, Building2, Check, LogOut, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Menu, SegmentedControl, Tooltip, UnstyledButton } from "@mantine/core";
 import { purple, radius, slate, spacing } from "../tokens";
 import type { NavGroupConfig, NavItemConfig } from "./types";
 
 export const SIDEBAR_WIDTH_EXPANDED = 240;
 export const SIDEBAR_WIDTH_COLLAPSED = 64;
+
+export type UiLanguage = "de" | "fr" | "it" | "en";
 
 type LinkLike = ComponentType<{ to: string; children?: ReactNode; style?: CSSProperties; className?: string }>;
 
@@ -15,6 +17,11 @@ const DefaultLink: LinkLike = ({ to, children, style, className }) => (
   </a>
 );
 
+export interface DealershipSummary {
+  id: string;
+  legalName: string;
+}
+
 export interface SidebarProps {
   brand: ReactNode;
   productName: string;
@@ -23,7 +30,20 @@ export interface SidebarProps {
   activeHref: string;
   collapsed: boolean;
   onToggleCollapsed: () => void;
-  user?: { name: string; role?: string };
+  user?: { name: string; email: string; role?: string };
+  uiLanguage: UiLanguage;
+  onLanguageChange: (language: UiLanguage) => void;
+  onSignOut: () => void;
+  /** Translated "Sign out" label — defaults to English. */
+  signOutLabel?: string;
+  /** The dealership the current session is acting as. */
+  activeDealership?: DealershipSummary;
+  /** Every dealership this user may switch to, including activeDealership
+   * itself (WP-3 PR-3). The switcher renders only when this holds more
+   * than one entry — the common case is a single membership, where a
+   * permanent switcher control would be clutter for no function. */
+  memberships?: DealershipSummary[];
+  onSwitchDealership?: (dealershipId: string) => void;
   /** Defaults to a plain `<a>`. Pass your router's Link (e.g. react-router's
    * `Link`, which already matches this `to`-prop shape) for SPA navigation. */
   linkComponent?: LinkLike;
@@ -33,6 +53,16 @@ export interface SidebarProps {
  * § Sidebar. "A collapsed sidebar never hides functionality" — every nav
  * item stays reachable, just icon-only with a tooltip. Width/transition/
  * colours all come from tokens, nothing hardcoded here.
+ *
+ * § Account cluster (revised 2026-08-16): sits directly above the collapse
+ * toggle and is the ONLY place account chrome appears in the product — the
+ * topbar carries the breadcrumb and nothing else. Three rows when expanded:
+ * UI language, notifications (Phase C, disabled), and the user card opening
+ * a menu (profile/preferences/dealership switcher/sign out). Collapsed:
+ * avatar only, centred — clicking it opens the same menu with language and
+ * notifications promoted into it as submenus/items, so nothing is
+ * unreachable collapsed that was reachable expanded (WP-3 PR-3 adds the
+ * dealership switcher on this same contract).
  */
 export function Sidebar({
   brand,
@@ -43,10 +73,18 @@ export function Sidebar({
   collapsed,
   onToggleCollapsed,
   user,
+  uiLanguage,
+  onLanguageChange,
+  onSignOut,
+  signOutLabel = "Sign out",
+  activeDealership,
+  memberships,
+  onSwitchDealership,
   linkComponent,
 }: SidebarProps) {
   const Link = linkComponent ?? DefaultLink;
   const width = collapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED;
+  const canSwitchDealership = Boolean(memberships && memberships.length > 1 && onSwitchDealership);
 
   return (
     <nav
@@ -118,7 +156,7 @@ export function Sidebar({
         ))}
       </div>
 
-      {/* Toggle + user card */}
+      {/* Toggle + account cluster */}
       <div style={{ borderTop: `1px solid ${slate[2]}`, padding: spacing.sm, flexShrink: 0 }}>
         <button
           type="button"
@@ -131,7 +169,6 @@ export function Sidebar({
             gap: spacing.sm,
             width: "100%",
             padding: spacing.sm,
-            marginBottom: spacing.xs,
             border: "none",
             background: "none",
             borderRadius: radius.sm,
@@ -141,45 +178,165 @@ export function Sidebar({
         >
           {collapsed ? <PanelLeftOpen size={18} strokeWidth={2} /> : <PanelLeftClose size={18} strokeWidth={2} />}
         </button>
-        {user && (
+
+        {!collapsed && (
           <div
             style={{
+              marginTop: spacing.sm,
+              paddingTop: spacing.sm,
+              borderTop: `1px solid ${slate[2]}`,
               display: "flex",
-              alignItems: "center",
-              gap: spacing.sm,
-              justifyContent: collapsed ? "center" : "flex-start",
-              padding: spacing.xs,
+              flexDirection: "column",
+              gap: spacing.xs,
             }}
           >
+            <SegmentedControl
+              size="xs"
+              fullWidth
+              value={uiLanguage}
+              onChange={(value) => onLanguageChange(value as UiLanguage)}
+              data={[
+                { label: "DE", value: "de" },
+                { label: "FR", value: "fr" },
+                { label: "IT", value: "it" },
+                { label: "EN", value: "en" },
+              ]}
+            />
+            {/* Notifications: Phase C — visible now so its place in the
+                cluster is settled, disabled until it has something to show,
+                same SOON convention as an unbuilt nav module. */}
             <div
-              aria-hidden="true"
+              aria-disabled="true"
               style={{
-                width: 28,
-                height: 28,
-                borderRadius: "50%",
-                backgroundColor: purple[1],
-                color: purple[7],
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "center",
-                fontSize: 12,
-                fontWeight: 600,
-                flexShrink: 0,
+                gap: spacing.sm,
+                width: "100%",
+                padding: `7px ${spacing.sm}`,
+                borderRadius: radius.sm,
+                color: slate[4],
+                fontSize: 13,
+                cursor: "default",
               }}
             >
-              {user.name.slice(0, 1).toUpperCase()}
+              <Bell size={16} strokeWidth={2} />
+              <span>Notifications</span>
+              <span
+                style={{
+                  marginLeft: "auto",
+                  fontSize: 9,
+                  fontWeight: 700,
+                  letterSpacing: "0.5px",
+                  border: `1px solid ${slate[2]}`,
+                  borderRadius: radius.full,
+                  padding: "1px 6px",
+                }}
+              >
+                SOON
+              </span>
             </div>
-            {!collapsed && (
-              <div style={{ overflow: "hidden" }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: slate[9], whiteSpace: "nowrap" }}>
-                  {user.name}
-                </div>
-                {user.role && (
-                  <div style={{ fontSize: 11, color: slate[5], whiteSpace: "nowrap" }}>{user.role}</div>
-                )}
-              </div>
-            )}
           </div>
+        )}
+
+        {user && (
+          <Menu shadow="md" width={240} position="right-end" offset={8}>
+            <Menu.Target>
+              <UnstyledButton
+                aria-label="Account menu"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: spacing.sm,
+                  width: "100%",
+                  justifyContent: collapsed ? "center" : "flex-start",
+                  padding: spacing.xs,
+                  marginTop: collapsed ? spacing.xs : 0,
+                  borderRadius: radius.sm,
+                }}
+              >
+                <div
+                  aria-hidden="true"
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: "50%",
+                    backgroundColor: purple[1],
+                    color: purple[7],
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    flexShrink: 0,
+                  }}
+                >
+                  {user.name.slice(0, 1).toUpperCase()}
+                </div>
+                {!collapsed && (
+                  <div style={{ overflow: "hidden" }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: slate[9], whiteSpace: "nowrap" }}>
+                      {user.name}
+                    </div>
+                    {user.role && (
+                      <div style={{ fontSize: 11, color: slate[5], whiteSpace: "nowrap" }}>{user.role}</div>
+                    )}
+                  </div>
+                )}
+              </UnstyledButton>
+            </Menu.Target>
+            <Menu.Dropdown>
+              <Menu.Label>{user.email}</Menu.Label>
+
+              {/* Collapsed sidebar promotes language + notifications into
+                  this menu — nothing reachable expanded goes unreachable. */}
+              {collapsed && (
+                <>
+                  <Menu.Divider />
+                  <Menu.Label>Language</Menu.Label>
+                  <div style={{ padding: `0 ${spacing.sm} ${spacing.xs}` }}>
+                    <SegmentedControl
+                      size="xs"
+                      fullWidth
+                      value={uiLanguage}
+                      onChange={(value) => onLanguageChange(value as UiLanguage)}
+                      data={[
+                        { label: "DE", value: "de" },
+                        { label: "FR", value: "fr" },
+                        { label: "IT", value: "it" },
+                        { label: "EN", value: "en" },
+                      ]}
+                    />
+                  </div>
+                  <Menu.Item leftSection={<Bell size={16} />} disabled>
+                    Notifications (soon)
+                  </Menu.Item>
+                </>
+              )}
+
+              {canSwitchDealership && activeDealership && (
+                <>
+                  <Menu.Divider />
+                  <Menu.Label>Switch dealership</Menu.Label>
+                  {memberships!.map((dealership) => (
+                    <Menu.Item
+                      key={dealership.id}
+                      leftSection={<Building2 size={16} />}
+                      rightSection={dealership.id === activeDealership.id ? <Check size={14} /> : null}
+                      disabled={dealership.id === activeDealership.id}
+                      onClick={() => onSwitchDealership?.(dealership.id)}
+                    >
+                      {dealership.legalName}
+                    </Menu.Item>
+                  ))}
+                </>
+              )}
+
+              <Menu.Divider />
+              <Menu.Item leftSection={<LogOut size={16} />} onClick={onSignOut}>
+                {signOutLabel}
+              </Menu.Item>
+            </Menu.Dropdown>
+          </Menu>
         )}
       </div>
     </nav>

@@ -20,9 +20,11 @@ def _token(
     *,
     is_dealer_manager: bool = False,
 ) -> str:
+    _tid = tenant_id or uuid.uuid4()
     return create_access_token(
         user_id=user_id or uuid.uuid4(),
-        tenant_id=tenant_id or uuid.uuid4(),
+        tenant_id=_tid,
+        group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(_tid)),
         roles=frozenset({role}) if role is not None else frozenset(),
         is_dealer_manager=is_dealer_manager,
     )
@@ -32,7 +34,7 @@ def _bearer(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
-def _create_dealer(client) -> str:
+def _create_dealer(client, **overrides) -> str:
     token = _token(AccessRole.PLATFORM_ADMIN)
     payload = {
         "legalName": "Garage Musterbetrieb AG",
@@ -43,7 +45,8 @@ def _create_dealer(client) -> str:
         "phone": "+41441234567",
         "taxId": "CHE-123.456.789",
     }
-    response = client.post("/v1/dealers", json=payload, headers=_bearer(token))
+    payload.update(overrides)
+    response = client.post("/v1/dealerships", json=payload, headers=_bearer(token))
     assert response.status_code == 201, response.text
     return response.json()["id"]
 
@@ -61,7 +64,7 @@ def _create_user(client, dealer_id: str, **overrides) -> dict:
     }
     payload.update(overrides)
     response = client.post(
-        f"/v1/dealers/{dealer_id}/users", json=payload, headers=_bearer(platform_admin_token)
+        f"/v1/dealerships/{dealer_id}/users", json=payload, headers=_bearer(platform_admin_token)
     )
     assert response.status_code == 201, response.text
     return response.json()
@@ -70,7 +73,7 @@ def _create_user(client, dealer_id: str, **overrides) -> dict:
 def _set_credential(client, dealer_id: str, user_id: str, password: str, *, token: str | None = None):
     token = token or _token(AccessRole.PLATFORM_ADMIN)
     return client.post(
-        f"/v1/dealers/{dealer_id}/users/{user_id}/credential",
+        f"/v1/dealerships/{dealer_id}/users/{user_id}/credential",
         json={"password": password},
         headers=_bearer(token),
     )
@@ -127,7 +130,7 @@ def test_credential_set_and_reset_are_audit_logged(client):
     _set_credential(client, dealer_id, user["id"], "correct horse battery staple", token=admin_token)
     _set_credential(client, dealer_id, user["id"], "a different password", token=admin_token)
 
-    log = client.get(f"/v1/dealers/{dealer_id}/audit-log", headers=_bearer(admin_token))
+    log = client.get(f"/v1/dealerships/{dealer_id}/audit-log", headers=_bearer(admin_token))
     assert log.status_code == 200
     events = [item for item in log.json()["items"] if item["entityId"] == user["id"]]
     actions = [item["action"] for item in events]
@@ -222,7 +225,7 @@ def test_session_cookie_authenticates_subsequent_requests(client):
     # on the jar's behavior).
     client.cookies.set("dms_session", token)
     try:
-        response = client.get(f"/v1/dealers/{dealer_id}/users/{user['id']}")
+        response = client.get(f"/v1/dealerships/{dealer_id}/users/{user['id']}")
     finally:
         client.cookies.delete("dms_session")
     assert response.status_code == 200
@@ -334,7 +337,7 @@ def test_login_blocked_for_suspended_or_deactivated_user(client, status):
 
     admin_token = _token(AccessRole.PLATFORM_ADMIN)
     client.patch(
-        f"/v1/dealers/{dealer_id}/users/{user['id']}",
+        f"/v1/dealerships/{dealer_id}/users/{user['id']}",
         json={"status": status},
         headers={**_bearer(admin_token), "If-Match": "1"},
     )
@@ -355,3 +358,91 @@ def test_logout_clears_cookie(client):
     assert "dms_session=" in set_cookie
     # Cleared cookies are expired via Max-Age=0 or a past Expires date.
     assert "Max-Age=0" in set_cookie or "expires=" in set_cookie.lower()
+
+
+# --- dealership switcher (WP-3 PR-3) ----------------------------------------------
+
+
+def test_login_response_includes_active_dealership_and_default_single_membership(client):
+    dealer_id = _create_dealer(client)
+    user = _create_user(client, dealer_id)
+    _set_credential(client, dealer_id, user["id"], "correct horse battery staple")
+
+    response = client.post(
+        "/v1/auth/login", json={"email": "anna@example.ch", "password": "correct horse battery staple"}
+    )
+    body = response.json()
+    assert body["activeDealership"]["id"] == dealer_id
+    assert [m["id"] for m in body["memberships"]] == [dealer_id]
+
+
+def test_a_user_with_two_memberships_can_switch_active_dealership(client, db_session):
+    from app.platform.models.dealership_membership import DealershipMembership
+
+    dealer_a = _create_dealer(client)
+    user = _create_user(client, dealer_a)
+    _set_credential(client, dealer_a, user["id"], "correct horse battery staple")
+    dealer_b = _create_dealer(client, dealerLicenseNumber="ZH-99999")
+
+    db_session.add(DealershipMembership(user_id=uuid.UUID(user["id"]), dealership_id=uuid.UUID(dealer_b)))
+    db_session.commit()
+
+    login_response = client.post(
+        "/v1/auth/login", json={"email": "anna@example.ch", "password": "correct horse battery staple"}
+    )
+    membership_ids = {m["id"] for m in login_response.json()["memberships"]}
+    assert membership_ids == {dealer_a, dealer_b}
+
+    token = login_response.cookies.get("dms_session")
+    client.cookies.set("dms_session", token)
+    try:
+        switch_response = client.post("/v1/auth/switch-dealership", json={"dealershipId": dealer_b})
+    finally:
+        client.cookies.delete("dms_session")
+
+    assert switch_response.status_code == 200
+    assert switch_response.json()["activeDealership"]["id"] == dealer_b
+
+    new_token = switch_response.cookies.get("dms_session")
+    assert new_token != token
+
+    client.cookies.set("dms_session", new_token)
+    try:
+        me_response = client.get("/v1/auth/me")
+        # The active dealership actually changed on the token itself, not
+        # just in this one response body: require_tenant_match's own-tenant
+        # check (GET /v1/dealerships/{id}) only passes when
+        # principal.tenant_id == dealer_b, proving tenant_id really moved,
+        # not just this endpoint's rendering of it. dealer_a is no longer
+        # reachable the same way — the switch, not a second membership.
+        dealer_b_response = client.get(f"/v1/dealerships/{dealer_b}")
+        dealer_a_response = client.get(f"/v1/dealerships/{dealer_a}")
+    finally:
+        client.cookies.delete("dms_session")
+    assert me_response.json()["activeDealership"]["id"] == dealer_b
+    assert dealer_b_response.status_code == 200
+    assert dealer_a_response.status_code == 404
+
+
+def test_switching_to_a_dealership_outside_your_memberships_is_forbidden(client):
+    dealer_a = _create_dealer(client)
+    user = _create_user(client, dealer_a)
+    _set_credential(client, dealer_a, user["id"], "correct horse battery staple")
+    other_dealer = _create_dealer(client, dealerLicenseNumber="ZH-77777")
+
+    login_response = client.post(
+        "/v1/auth/login", json={"email": "anna@example.ch", "password": "correct horse battery staple"}
+    )
+    token = login_response.cookies.get("dms_session")
+
+    client.cookies.set("dms_session", token)
+    try:
+        response = client.post("/v1/auth/switch-dealership", json={"dealershipId": other_dealer})
+    finally:
+        client.cookies.delete("dms_session")
+    assert response.status_code == 403
+
+
+def test_switch_dealership_requires_authentication(client):
+    response = client.post("/v1/auth/switch-dealership", json={"dealershipId": str(uuid.uuid4())})
+    assert response.status_code == 401

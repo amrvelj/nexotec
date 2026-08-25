@@ -39,9 +39,11 @@ def _token(
     *,
     is_dealer_manager: bool = False,
 ) -> str:
+    _tid = tenant_id or uuid.uuid4()
     return create_access_token(
         user_id=user_id or uuid.uuid4(),
-        tenant_id=tenant_id or uuid.uuid4(),
+        tenant_id=_tid,
+        group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(_tid)),
         roles=frozenset({role}) if role is not None else frozenset(),
         is_dealer_manager=is_dealer_manager,
     )
@@ -63,7 +65,7 @@ def _create_dealer(client, **overrides) -> str:
         "taxId": "CHE-123.456.789",
     }
     payload.update(overrides)
-    response = client.post("/v1/dealers", json=payload, headers=_bearer(token))
+    response = client.post("/v1/dealerships", json=payload, headers=_bearer(token))
     assert response.status_code == 201, response.text
     return response.json()["id"]
 
@@ -80,7 +82,7 @@ def _create_user(client, dealer_id: str, **overrides) -> dict:
         "authIdentityId": "stub-sub-1",
     }
     payload.update(overrides)
-    response = client.post(f"/v1/dealers/{dealer_id}/users", json=payload, headers=_bearer(admin_token))
+    response = client.post(f"/v1/dealerships/{dealer_id}/users", json=payload, headers=_bearer(admin_token))
     assert response.status_code == 201, response.text
     return response.json()
 
@@ -88,7 +90,7 @@ def _create_user(client, dealer_id: str, **overrides) -> dict:
 def _set_credential(client, dealer_id: str, user_id: str, password: str) -> None:
     admin_token = _token(AccessRole.PLATFORM_ADMIN)
     response = client.post(
-        f"/v1/dealers/{dealer_id}/users/{user_id}/credential",
+        f"/v1/dealerships/{dealer_id}/users/{user_id}/credential",
         json={"password": password},
         headers=_bearer(admin_token),
     )
@@ -124,7 +126,7 @@ def _create_customer(client, headers: dict[str, str], **overrides) -> dict:
         "lastName": "Beispiel",
         "language": "de",
         "emails": [
-            {"emailType": "private", "emailAddress": f"peter-{uuid.uuid4().hex[:8]}@example.ch"}
+            {"emailType": "personal", "emailAddress": f"peter-{uuid.uuid4().hex[:8]}@example.ch"}
         ],
     }
     payload.update(overrides)
@@ -139,7 +141,7 @@ def _create_customer(client, headers: dict[str, str], **overrides) -> dict:
 def test_ac1_platform_admin_bootstraps_dealer_and_admin_user(client):
     dealer_id = _create_dealer(client)
     user = _create_user(client, dealer_id)
-    assert user["dealerId"] == dealer_id
+    assert user["dealershipId"] == dealer_id
     assert user["isDealerManager"] is True
 
 
@@ -165,7 +167,7 @@ def test_ac2_to_4_full_shell_walkthrough_sale(client):
     # contact lives in the customer_email child collection, not on the
     # customer body, so assert it through the emails endpoint.
     customer = _create_customer(
-        client, headers, emails=[{"emailType": "private", "emailAddress": "customer@example.ch"}]
+        client, headers, emails=[{"emailType": "personal", "emailAddress": "customer@example.ch"}]
     )
     contact_emails = client.get(f"/v1/customers/{customer['id']}/emails", headers=headers).json()["items"]
     assert [e["emailAddress"] for e in contact_emails] == ["customer@example.ch"]
@@ -404,11 +406,11 @@ def test_ac5_audit_trail_covers_all_four_entities(client):
 
     # Dealer: license field change.
     client.patch(
-        f"/v1/dealers/{dealer_id}",
+        f"/v1/dealerships/{dealer_id}",
         json={"dealerLicenseNumber": "ZH-99999"},
         headers={**admin_token, "If-Match": "1"},
     )
-    dealer_log = client.get(f"/v1/dealers/{dealer_id}/audit-log", headers=admin_token).json()["items"]
+    dealer_log = client.get(f"/v1/dealerships/{dealer_id}/audit-log", headers=admin_token).json()["items"]
     assert any(
         e["action"] == "update" and e["after"].get("dealer_license_number") == "ZH-99999" for e in dealer_log
     )
@@ -494,7 +496,7 @@ def test_idempotency_key_replay_returns_original_result_not_a_duplicate(client):
         "firstName": "Peter",
         "lastName": "Beispiel",
         "language": "de",
-        "emails": [{"emailType": "private", "emailAddress": "idempotent@example.ch"}],
+        "emails": [{"emailType": "personal", "emailAddress": "idempotent@example.ch"}],
     }
     first = client.post("/v1/customers", json=payload, headers=headers)
     assert first.status_code == 201, first.text

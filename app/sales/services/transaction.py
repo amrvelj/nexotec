@@ -89,19 +89,30 @@ def list_transactions(
 
 
 def _validate_references(
-    db: Session, *, tenant_id: uuid.UUID, customer_id: uuid.UUID, vehicle_id: uuid.UUID, primary_user_id: uuid.UUID
+    db: Session,
+    *,
+    tenant_id: uuid.UUID,
+    group_id: uuid.UUID,
+    customer_id: uuid.UUID,
+    vehicle_id: uuid.UUID,
+    primary_user_id: uuid.UUID,
 ) -> None:
-    get_customer_or_404(db, tenant_id, customer_id)
+    # Customer is group-scoped (WP-3 PR-2, ADR-014); Transaction stays
+    # dealership-scoped. group_id is resolved from the token's claim by the
+    # caller, same as everywhere else in this codebase — never re-derived
+    # from a fresh Dealership lookup, and never from the request body.
+    get_customer_or_404(db, group_id, customer_id)
     get_vehicle_or_404(db, vehicle_id)
     get_user_or_404(db, tenant_id, primary_user_id)
 
 
 def create_transaction(
-    db: Session, *, tenant_id: uuid.UUID, data: TransactionCreate, actor_id: uuid.UUID
+    db: Session, *, tenant_id: uuid.UUID, group_id: uuid.UUID, data: TransactionCreate, actor_id: uuid.UUID
 ) -> Transaction:
     _validate_references(
         db,
         tenant_id=tenant_id,
+        group_id=group_id,
         customer_id=data.customer_id,
         vehicle_id=data.vehicle_id,
         primary_user_id=data.primary_user_id,
@@ -139,7 +150,7 @@ def create_transaction(
 
 
 def update_transaction(
-    db: Session, *, transaction: Transaction, data: TransactionUpdate, actor_id: uuid.UUID
+    db: Session, *, transaction: Transaction, group_id: uuid.UUID, data: TransactionUpdate, actor_id: uuid.UUID
 ) -> Transaction:
     if transaction.status != TransactionStatus.DRAFT:
         raise ConflictError(
@@ -152,6 +163,7 @@ def update_transaction(
     _validate_references(
         db,
         tenant_id=transaction.tenant_id,
+        group_id=group_id,
         customer_id=changes.get("customer_id", transaction.customer_id),
         vehicle_id=changes.get("vehicle_id", transaction.vehicle_id),
         primary_user_id=changes.get("primary_user_id", transaction.primary_user_id),

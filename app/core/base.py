@@ -37,7 +37,7 @@ class VersionedMixin:
 
 
 class TenantScopedMixin:
-    """Marks a model as tenant-owned. tenant_id is always the owning Dealer.id
+    """Marks a model as tenant-owned. tenant_id is always the owning Dealership.id
     (cross-cutting #6: resolved from the JWT claim, never a path/body param).
     """
 

@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, run_reconciliation
 from app.customer.public import Customer
-from app.platform.public import Dealer, User
+from app.platform.public import Dealership, User
 from app.sales.models.transaction import Transaction
 from app.vehicle.public import Vehicle
 
@@ -14,12 +14,12 @@ CONTEXT = "sales"
 
 CHECKS = [
     ReferenceCheck(
-        label="transaction.tenant_id -> dealer.id",
+        label="transaction.tenant_id -> dealership.id",
         source_model=Transaction,
         source_row_id_column=Transaction.id,
         source_fk_column=Transaction.tenant_id,
-        target_model=Dealer,
-        target_id_column=Dealer.id,
+        target_model=Dealership,
+        target_id_column=Dealership.id,
     ),
     ReferenceCheck(
         label="transaction.customer_id -> customer.id",

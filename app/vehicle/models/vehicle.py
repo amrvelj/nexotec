@@ -112,7 +112,7 @@ class Vehicle(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     current_custodian_partner_id: Mapped[uuid.UUID | None] = mapped_column(
         GUID(),
         nullable=True,
-        comment="Owned by the platform context (Dealer). No DB-level FK (PR-2, ADR-015) — reconciled nightly.",
+        comment="Owned by the platform context (Dealership). No DB-level FK (PR-2, ADR-015) — reconciled nightly.",
     )
 
 
@@ -134,7 +134,7 @@ class VehicleCustodyEvent(PrimaryKeyMixin, Base):
         GUID(),
         nullable=False,
         index=True,
-        comment="Owned by the platform context (Dealer). No DB-level FK (PR-2, ADR-015) — reconciled nightly.",
+        comment="Owned by the platform context (Dealership). No DB-level FK (PR-2, ADR-015) — reconciled nightly.",
     )
     event_type: Mapped[CustodyEventType] = mapped_column(
         SAEnum(CustodyEventType, native_enum=False, length=32), nullable=False

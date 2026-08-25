@@ -27,9 +27,11 @@ def _token(
     *,
     is_dealer_manager: bool = False,
 ) -> str:
+    _tid = tenant_id or uuid.uuid4()
     return create_access_token(
         user_id=user_id or uuid.uuid4(),
-        tenant_id=tenant_id or uuid.uuid4(),
+        tenant_id=_tid,
+        group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(_tid)),
         roles=frozenset({role}) if role is not None else frozenset(),
         is_dealer_manager=is_dealer_manager,
     )
@@ -50,7 +52,7 @@ def _create_dealer(client) -> str:
         "phone": "+41441234567",
         "taxId": "CHE-123.456.789",
     }
-    response = client.post("/v1/dealers", json=payload, headers=_bearer(token))
+    response = client.post("/v1/dealerships", json=payload, headers=_bearer(token))
     assert response.status_code == 201, response.text
     return response.json()["id"]
 
@@ -67,7 +69,7 @@ def _create_user(client, dealer_id: str, **overrides) -> dict:
         "authIdentityId": "stub-sub-1",
     }
     payload.update(overrides)
-    response = client.post(f"/v1/dealers/{dealer_id}/users", json=payload, headers=_bearer(admin_token))
+    response = client.post(f"/v1/dealerships/{dealer_id}/users", json=payload, headers=_bearer(admin_token))
     assert response.status_code == 201, response.text
     return response.json()
 
@@ -78,7 +80,7 @@ def _create_customer(client, dealer_id: str, **overrides) -> dict:
         "firstName": "Anna",
         "lastName": "Muster",
         "language": "de",
-        "emails": [{"emailType": "private", "emailAddress": f"anna-{uuid.uuid4().hex[:8]}@example.ch"}],
+        "emails": [{"emailType": "personal", "emailAddress": f"anna-{uuid.uuid4().hex[:8]}@example.ch"}],
     }
     payload.update(overrides)
     response = client.post("/v1/customers", json=payload, headers=_bearer(token))
@@ -138,7 +140,7 @@ def _add_phone(client, dealer_id: str, customer_id: str, phone_e164: str, **over
 
 def _add_email(client, dealer_id: str, customer_id: str, email_address: str, **overrides):
     token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
-    payload = {"emailType": "private", "emailAddress": email_address}
+    payload = {"emailType": "personal", "emailAddress": email_address}
     payload.update(overrides)
     response = client.post(f"/v1/customers/{customer_id}/emails", json=payload, headers=_bearer(token))
     assert response.status_code == 201, response.text
@@ -260,8 +262,8 @@ def test_merge_repoints_unique_phone_and_email(client):
 
 def test_merge_dedupes_conflicting_phone_and_email(client):
     dealer_id = _create_dealer(client)
-    survivor = _create_customer(client, dealer_id, emails=[{"emailType": "private", "emailAddress": "shared@example.ch"}])
-    duplicate = _create_customer(client, dealer_id, emails=[{"emailType": "private", "emailAddress": "shared@example.ch"}])
+    survivor = _create_customer(client, dealer_id, emails=[{"emailType": "personal", "emailAddress": "shared@example.ch"}])
+    duplicate = _create_customer(client, dealer_id, emails=[{"emailType": "personal", "emailAddress": "shared@example.ch"}])
     _add_phone(client, dealer_id, survivor["id"], "+41799998877")
     _add_phone(client, dealer_id, duplicate["id"], "+41799998877")
 

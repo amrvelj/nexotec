@@ -1,4 +1,4 @@
-"""User service layer: create/read/update within a Dealer tenant, plus the
+"""User service layer: create/read/update within a Dealership tenant, plus the
 audit-logging and lifecycle rules the spec calls out (role/status changes,
 especially `terminated`, are audit-logged for access-deprovisioning
 accountability).
@@ -12,9 +12,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
-from app.core.errors import BadRequestError, ConflictError
+from app.core.errors import BadRequestError, ConflictError, NotFoundError
 from app.core.pagination import PageParams, build_page, paginate_query
 from app.core.tenancy import get_or_404
+from app.platform.models.dealership_membership import DealershipMembership
 from app.platform.models.user import EmploymentStatus, User, UserStatus
 from app.platform.schemas.user import UserCreate, UserUpdate
 
@@ -69,19 +70,34 @@ def _assert_not_last_manager(db: Session, *, tenant_id: uuid.UUID, excluding_use
         )
 
 
-def get_user_or_404(db: Session, dealer_id: uuid.UUID, user_id: uuid.UUID) -> User:
-    return get_or_404(db, User, user_id, dealer_id)
+def get_user_or_404(db: Session, dealership_id: uuid.UUID, user_id: uuid.UUID) -> User:
+    return get_or_404(db, User, user_id, dealership_id)
+
+
+def get_own_user_or_404(db: Session, user_id: uuid.UUID) -> User:
+    """Dealership-agnostic — for a principal fetching THEIR OWN row by the
+    user_id a signed token's `sub` claim already vouches for (WP-3 PR-3:
+    /auth/me and switch-dealership need this because the caller's *active*
+    dealership, principal.tenant_id, may no longer equal User.tenant_id —
+    their fixed home — once they've switched away from it). Safe precisely
+    because it's always "give me myself," never an open cross-tenant lookup.
+    """
+
+    user = db.get(User, user_id)
+    if user is None:
+        raise NotFoundError(f"User {user_id} was not found.")
+    return user
 
 
 def list_users(
     db: Session,
     *,
-    dealer_id: uuid.UUID,
+    dealership_id: uuid.UUID,
     role: str | None,
     status: UserStatus | None,
     params: PageParams,
 ) -> tuple[list[User], str | None]:
-    stmt = select(User).where(User.tenant_id == dealer_id)
+    stmt = select(User).where(User.tenant_id == dealership_id)
     if role is not None:
         stmt = stmt.where(User.role == role)
     if status is not None:
@@ -91,9 +107,9 @@ def list_users(
     return build_page(rows, params)
 
 
-def create_user(db: Session, *, dealer_id: uuid.UUID, data: UserCreate, actor_id: uuid.UUID) -> User:
+def create_user(db: Session, *, dealership_id: uuid.UUID, data: UserCreate, actor_id: uuid.UUID) -> User:
     user = User(
-        tenant_id=dealer_id,
+        tenant_id=dealership_id,
         first_name=data.first_name,
         last_name=data.last_name,
         email=data.email,
@@ -119,7 +135,7 @@ def create_user(db: Session, *, dealer_id: uuid.UUID, data: UserCreate, actor_id
         db,
         entity_type="user",
         entity_id=user.id,
-        tenant_id=dealer_id,
+        tenant_id=dealership_id,
         action="create",
         actor_id=actor_id,
         after={
@@ -214,3 +230,15 @@ def update_user(db: Session, *, user: User, data: UserUpdate, actor_id: uuid.UUI
         ) from exc
     db.refresh(user)
     return user
+
+
+def list_membership_dealership_ids(db: Session, *, user_id: uuid.UUID) -> frozenset[uuid.UUID]:
+    """Every dealership_id a dealership_membership row grants this user,
+    beyond their home tenant_id (WP-3 PR-3) — the caller adds the home
+    dealership itself; see app.core.auth.create_access_token's own default.
+    """
+
+    rows = db.scalars(
+        select(DealershipMembership.dealership_id).where(DealershipMembership.user_id == user_id)
+    ).all()
+    return frozenset(rows)

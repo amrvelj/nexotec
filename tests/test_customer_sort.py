@@ -19,9 +19,11 @@ VALID_ADDRESS = {
 
 
 def _token(role: AccessRole | None = None, tenant_id: uuid.UUID | None = None, *, is_dealer_manager: bool = False) -> str:
+    _tid = tenant_id or uuid.uuid4()
     return create_access_token(
         user_id=uuid.uuid4(),
-        tenant_id=tenant_id or uuid.uuid4(),
+        tenant_id=_tid,
+        group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(_tid)),
         roles=frozenset({role}) if role is not None else frozenset(),
         is_dealer_manager=is_dealer_manager,
     )
@@ -38,7 +40,7 @@ def _create_dealer(client) -> str:
         "franchiseType": "independent", "address": VALID_ADDRESS, "phone": "+41441234567",
         "taxId": "CHE-123.456.789",
     }
-    response = client.post("/v1/dealers", json=payload, headers=_bearer(token))
+    response = client.post("/v1/dealerships", json=payload, headers=_bearer(token))
     assert response.status_code == 201, response.text
     return response.json()["id"]
 
@@ -47,7 +49,7 @@ def _create_customer(client, dealer_id: str, **overrides) -> dict:
     token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     payload = {
         "firstName": "Anna", "lastName": "Muster", "language": "de",
-        "emails": [{"emailType": "private", "emailAddress": f"anna-{uuid.uuid4().hex[:8]}@example.ch"}],
+        "emails": [{"emailType": "personal", "emailAddress": f"anna-{uuid.uuid4().hex[:8]}@example.ch"}],
     }
     payload.update(overrides)
     response = client.post("/v1/customers", json=payload, headers=_bearer(token))
@@ -170,7 +172,7 @@ def test_nulls_sort_last_ascending(client):
     _create_customer(client, dealer_id, lastName="NoCompany")
     _create_customer(
         client, dealer_id, customerType="business", firstName=None, lastName=None, companyName="Alpha AG",
-        emails=[{"emailType": "business", "emailAddress": f"alpha-{uuid.uuid4().hex[:8]}@example.ch"}],
+        emails=[{"emailType": "work", "emailAddress": f"alpha-{uuid.uuid4().hex[:8]}@example.ch"}],
     )
 
     body = _list(client, dealer_id, sort="companyName:asc")
@@ -184,7 +186,7 @@ def test_nulls_sort_last_descending(client):
     _create_customer(client, dealer_id, lastName="NoCompany")
     _create_customer(
         client, dealer_id, customerType="business", firstName=None, lastName=None, companyName="Alpha AG",
-        emails=[{"emailType": "business", "emailAddress": f"alpha-{uuid.uuid4().hex[:8]}@example.ch"}],
+        emails=[{"emailType": "work", "emailAddress": f"alpha-{uuid.uuid4().hex[:8]}@example.ch"}],
     )
 
     body = _list(client, dealer_id, sort="companyName:desc")

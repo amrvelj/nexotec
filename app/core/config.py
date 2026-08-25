@@ -47,7 +47,7 @@ class Settings(BaseSettings):
 
     idempotency_key_ttl_seconds: int = 86400
 
-    # Field-level encryption for Dealer.tax_id (Swiss addendum tax_id
+    # Field-level encryption for Dealership.tax_id (Swiss addendum tax_id
     # requirement + spec open question 8). Single static Fernet key from
     # settings, not a KMS-backed per-tenant key — real key-management
     # (rotation, HSM/KMS-backed storage) is still an open decision per that

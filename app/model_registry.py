@@ -9,10 +9,12 @@ from app.core.idempotency_model import IdempotencyRecord
 from app.core.outbox_model import OutboxMessage
 from app.core.processed_event_model import ProcessedEvent
 from app.core.reconciliation_model import ReconciliationOrphan, ReconciliationRun
-from app.customer.models.customer import Customer
+from app.customer.models.customer import Customer, CustomerAddress
+from app.customer.models.legal_basis import LegalBasis
 from app.customer.models.vehicle_party import VehicleParty
 from app.platform.models.credential import Credential
-from app.platform.models.dealer import Dealer
+from app.platform.models.dealership import DealerGroup, Dealership, Location
+from app.platform.models.dealership_membership import DealershipMembership
 from app.platform.models.reference_data import ReferenceList, ReferenceValue
 from app.platform.models.user import User
 from app.platform.models.user_preference import UserPreference
@@ -23,8 +25,13 @@ __all__ = [
     "AuditEvent",
     "Credential",
     "Customer",
-    "Dealer",
+    "CustomerAddress",
+    "DealerGroup",
+    "Dealership",
+    "DealershipMembership",
     "IdempotencyRecord",
+    "LegalBasis",
+    "Location",
     "OutboxMessage",
     "ProcessedEvent",
     "ReconciliationOrphan",

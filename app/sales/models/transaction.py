@@ -1,5 +1,5 @@
 """Transaction: the connective master record linking Customer + Vehicle +
-User + Dealer. MDM owns the header/identity only — deal structure, RO line
+User + Dealership. MDM owns the header/identity only — deal structure, RO line
 items, and financing terms live in owning modules (Sales, Aftersales,
 Finance) that reference `transaction_id`.
 
@@ -8,7 +8,7 @@ Shell scope only (Swiss addendum Round 3): `transaction_type` limited to
 spec table are descoped, not modeled. `status` limited to
 [draft, completed, cancelled] — no `pending`, no `void`.
 
-Tenant-owned (unlike Vehicle): `tenant_id` is the Dealer executing the
+Tenant-owned (unlike Vehicle): `tenant_id` is the Dealership executing the
 transaction.
 """
 
@@ -43,7 +43,7 @@ class Transaction(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampM
     # Overrides TenantScopedMixin's bare column — no DB-level FK to dealer.id
     # (PR-2, ADR-015). Owned by the platform context; reconciled nightly.
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        GUID(), nullable=False, index=True, comment="Owned by the platform context (Dealer). No DB-level FK."
+        GUID(), nullable=False, index=True, comment="Owned by the platform context (Dealership). No DB-level FK."
     )
 
     transaction_type: Mapped[TransactionType] = mapped_column(

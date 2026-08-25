@@ -32,7 +32,7 @@ class UserPreference(Base):
 
     # Generic JSON (not a Postgres-specific JSONB variant), matching the
     # portable-column convention every other model uses (see
-    # Dealer.oem_affiliations) so the SQLite test lane keeps working.
+    # Dealership.oem_affiliations) so the SQLite test lane keeps working.
     payload: Mapped[dict] = mapped_column(JSON, nullable=False)
     schema_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 

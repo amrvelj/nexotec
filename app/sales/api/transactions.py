@@ -1,5 +1,5 @@
 """Transaction endpoints (issue #6): the connective master record linking
-Customer + Vehicle + User + Dealer.
+Customer + Vehicle + User + Dealership.
 
 Flat endpoints (`/v1/transactions`, not `/v1/dealers/{id}/transactions`),
 same shape as Customer — tenant is resolved from the JWT only, Transaction
@@ -26,7 +26,7 @@ from app.core.idempotency import find_cached_response, store_response
 from app.core.pagination import PageParams, page_params
 from app.core.permissions import require_read, require_write
 from app.db import get_db
-from app.platform.public import get_dealer_or_404
+from app.platform.public import get_dealership_or_404
 from app.sales.models.transaction import TransactionStatus, TransactionType
 from app.sales.schemas.transaction import (
     TransactionCancelRequest,
@@ -54,7 +54,7 @@ def create_transaction(
 ):
     # Same defensive check as Customer create — tenant is JWT-derived here,
     # no path param to validate against (see module docstring).
-    get_dealer_or_404(db, principal.tenant_id)
+    get_dealership_or_404(db, principal.tenant_id)
 
     request_body = body.model_dump(mode="json", by_alias=True)
     if idempotency_key:
@@ -65,7 +65,7 @@ def create_transaction(
             return JSONResponse(status_code=cached.response_status, content=cached.response_body)
 
     transaction = transaction_service.create_transaction(
-        db, tenant_id=principal.tenant_id, data=body, actor_id=principal.user_id
+        db, tenant_id=principal.tenant_id, group_id=principal.group_id, data=body, actor_id=principal.user_id
     )
     result = TransactionRead.model_validate(transaction, from_attributes=True)
 
@@ -104,7 +104,7 @@ def update_transaction(
     transaction = transaction_service.get_transaction_or_404(db, principal.tenant_id, transaction_id)
     check_version(transaction.version, if_match, entity_name="Transaction")
     transaction = transaction_service.update_transaction(
-        db, transaction=transaction, data=body, actor_id=principal.user_id
+        db, transaction=transaction, group_id=principal.group_id, data=body, actor_id=principal.user_id
     )
     return TransactionRead.model_validate(transaction, from_attributes=True)
 

@@ -1,6 +1,6 @@
 """Test-only model exercising the shared mixins (PrimaryKeyMixin,
 TimestampMixin, VersionedMixin, TenantScopedMixin) the way a real entity
-from issue #2+ (Dealer, User, Customer, ...) will. Not part of the
+from issue #2+ (Dealership, User, Customer, ...) will. Not part of the
 production schema — only registered on Base.metadata within the test suite.
 """
 
