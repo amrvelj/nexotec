@@ -141,6 +141,16 @@ jobs:
         qREA6IGDUrJHGuPMyd8hy2qAU0cNxkyIlkgzZZkJtXcQupjshyH7ud1BCyq4GOm6
         m5mglGO7fs09fMV5n0qtEg==
         -----END PRIVATE KEY-----
+      # CI-only dummy Zitadel OIDC values, not secrets (WP-4) — every job
+      # here imports app.platform.services.oidc transitively (via
+      # app.model_registry, app.main), and none of these four have a
+      # default (ADR-016). No real Zitadel tenant is ever dialed in CI —
+      # tests override get_oidc_client with a fake (tests/fake_oidc.py).
+      DMS_ZITADEL_ISSUER: https://example.zitadel.cloud
+      DMS_ZITADEL_CLIENT_ID: ci-dummy-client-id
+      DMS_ZITADEL_CLIENT_SECRET: ci-dummy-client-secret
+      DMS_ZITADEL_REDIRECT_URI: http://localhost/v1/auth/oidc/callback
+      DMS_SESSION_SECRET_KEY: ci-dummy-session-secret-key-not-used-for-anything-real
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -220,6 +230,16 @@ jobs:
         qREA6IGDUrJHGuPMyd8hy2qAU0cNxkyIlkgzZZkJtXcQupjshyH7ud1BCyq4GOm6
         m5mglGO7fs09fMV5n0qtEg==
         -----END PRIVATE KEY-----
+      # CI-only dummy Zitadel OIDC values, not secrets (WP-4) — every job
+      # here imports app.platform.services.oidc transitively (via
+      # app.model_registry, app.main), and none of these four have a
+      # default (ADR-016). No real Zitadel tenant is ever dialed in CI —
+      # tests override get_oidc_client with a fake (tests/fake_oidc.py).
+      DMS_ZITADEL_ISSUER: https://example.zitadel.cloud
+      DMS_ZITADEL_CLIENT_ID: ci-dummy-client-id
+      DMS_ZITADEL_CLIENT_SECRET: ci-dummy-client-secret
+      DMS_ZITADEL_REDIRECT_URI: http://localhost/v1/auth/oidc/callback
+      DMS_SESSION_SECRET_KEY: ci-dummy-session-secret-key-not-used-for-anything-real
     steps:
       - uses: actions/checkout@v4
         with:
@@ -322,6 +342,16 @@ jobs:
         qREA6IGDUrJHGuPMyd8hy2qAU0cNxkyIlkgzZZkJtXcQupjshyH7ud1BCyq4GOm6
         m5mglGO7fs09fMV5n0qtEg==
         -----END PRIVATE KEY-----
+      # CI-only dummy Zitadel OIDC values, not secrets (WP-4) — every job
+      # here imports app.platform.services.oidc transitively (via
+      # app.model_registry, app.main), and none of these four have a
+      # default (ADR-016). No real Zitadel tenant is ever dialed in CI —
+      # tests override get_oidc_client with a fake (tests/fake_oidc.py).
+      DMS_ZITADEL_ISSUER: https://example.zitadel.cloud
+      DMS_ZITADEL_CLIENT_ID: ci-dummy-client-id
+      DMS_ZITADEL_CLIENT_SECRET: ci-dummy-client-secret
+      DMS_ZITADEL_REDIRECT_URI: http://localhost/v1/auth/oidc/callback
+      DMS_SESSION_SECRET_KEY: ci-dummy-session-secret-key-not-used-for-anything-real
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

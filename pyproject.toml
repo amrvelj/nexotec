@@ -12,9 +12,16 @@ dependencies = [
     "pydantic-settings>=2.14,<3.0",
     "pyjwt>=2.13,<3.0",
     "psycopg[binary]>=3.3,<4.0",
-    "cryptography>=44.0,<45.0",
+    # Widened from <45.0 (WP-4): authlib's joserfc dependency requires
+    # cryptography>=45.0.1. Verified the RSA/PEM primitives app/core/auth.py
+    # uses (load_pem_private_key, RSAPrivateKey/RSAPublicKey, private_bytes)
+    # are stable across this bump — no behavior change there.
+    "cryptography>=44.0,<46.0",
     "email-validator>=2.2,<3.0",
     "bcrypt>=4.0,<5.0",
+    "authlib>=1.7,<2.0",
+    "httpx>=0.28,<0.29",
+    "itsdangerous>=2.2,<3.0",
     "opentelemetry-api>=1.27,<2.0",
     "opentelemetry-sdk>=1.27,<2.0",
     "opentelemetry-exporter-otlp-proto-http>=1.27,<2.0",
@@ -27,7 +34,9 @@ dependencies = [
 dev = [
     "pytest>=9.1,<10.0",
     "pytest-asyncio>=1.4,<2.0",
-    "httpx>=0.28,<0.29",
+    # httpx is a runtime dependency now (WP-4, app.platform.services.oidc's
+    # token exchange) — kept out of this list to avoid a duplicate pin;
+    # dev installs still get it transitively via [project.dependencies].
     "import-linter>=2.5,<3.0",
     "ruff>=0.16,<0.17",
     "mypy>=1.19,<2.0",
@@ -72,6 +81,12 @@ warn_redundant_casts = true
 # controls (app/core/secrets.py is the only importer).
 [[tool.mypy.overrides]]
 module = "infisical_sdk.*"
+ignore_missing_imports = true
+
+# Same reasoning — no stubs shipped; app/platform/services/oidc.py is the
+# only importer (WP-4).
+[[tool.mypy.overrides]]
+module = "authlib.*"
 ignore_missing_imports = true
 
 [tool.importlinter]

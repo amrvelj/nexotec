@@ -27,11 +27,23 @@ os.environ.setdefault(
     )
     .decode("ascii"),
 )
+# Zitadel OIDC settings (WP-4) — also required with no default. Never
+# actually dialed: app.platform.services.oidc.get_oidc_client is overridden
+# below (see the `client` fixture) with a fake that never makes a network
+# call, so these values only need to be syntactically present for
+# Settings()/authlib's OAuth.register() to construct without error.
+os.environ.setdefault("DMS_ZITADEL_ISSUER", "https://example.zitadel.cloud")
+os.environ.setdefault("DMS_ZITADEL_CLIENT_ID", "test-client-id")
+os.environ.setdefault("DMS_ZITADEL_CLIENT_SECRET", "test-client-secret")
+os.environ.setdefault("DMS_ZITADEL_REDIRECT_URI", "http://testserver/v1/auth/oidc/callback")
+os.environ.setdefault("DMS_SESSION_SECRET_KEY", Fernet.generate_key().decode())
 
 import app.model_registry  # noqa: F401  ensures all tables are registered on Base.metadata
 from app.db import Base, get_db
 from app.main import app as fastapi_app
+from app.platform.services.oidc import get_oidc_client
 from tests.demo_models import DemoWidget  # noqa: F401  registers the test-only tenant-scoped model
+from tests.fake_oidc import FakeOidcClient
 
 # Two test lanes (CTO condition on issue #2's merge): fast SQLite in-memory
 # by default, or the real Postgres container from docker-compose when
@@ -76,7 +88,18 @@ def db_session(engine) -> Session:
 
 
 @pytest.fixture()
-def client(engine) -> TestClient:
+def oidc_fake() -> FakeOidcClient:
+    """The OIDC test double behind the `client` fixture's dependency
+    override below — a test that needs to script a login outcome depends
+    on both fixtures and calls oidc_fake.enqueue_identity(...)/
+    enqueue_error(...) before hitting GET /v1/auth/oidc/callback.
+    """
+
+    return FakeOidcClient()
+
+
+@pytest.fixture()
+def client(engine, oidc_fake) -> TestClient:
     session_factory = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
 
     def _override_get_db():
@@ -87,7 +110,9 @@ def client(engine) -> TestClient:
             db.close()
 
     fastapi_app.dependency_overrides[get_db] = _override_get_db
+    fastapi_app.dependency_overrides[get_oidc_client] = lambda: oidc_fake
     try:
         yield TestClient(fastapi_app)
     finally:
         fastapi_app.dependency_overrides.pop(get_db, None)
+        fastapi_app.dependency_overrides.pop(get_oidc_client, None)
