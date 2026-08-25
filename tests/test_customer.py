@@ -20,10 +20,18 @@ def _token(
     user_id: uuid.UUID | None = None,
     *,
     is_dealer_manager: bool = False,
+    group_id: uuid.UUID | None = None,
 ) -> str:
+    _tid = tenant_id or uuid.uuid4()
     return create_access_token(
         user_id=user_id or uuid.uuid4(),
-        tenant_id=tenant_id or uuid.uuid4(),
+        tenant_id=_tid,
+        # Derived deterministically from tenant_id when not given explicitly
+        # — every token minted for the "same dealer" (same tenant_id) within
+        # a test then shares the same group_id without a real DB round trip.
+        # Pass group_id explicitly to test true group-wide behaviour across
+        # two different tenant_ids (see test_group_wide_* below).
+        group_id=group_id or uuid.uuid5(uuid.NAMESPACE_OID, str(_tid)),
         roles=frozenset({role}) if role is not None else frozenset(),
         is_dealer_manager=is_dealer_manager,
     )
@@ -33,7 +41,7 @@ def _bearer(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
-def _create_dealer(client) -> str:
+def _create_dealer(client, **overrides) -> str:
     token = _token(AccessRole.PLATFORM_ADMIN)
     payload = {
         "legalName": "Garage Musterbetrieb AG",
@@ -44,9 +52,31 @@ def _create_dealer(client) -> str:
         "phone": "+41441234567",
         "taxId": "CHE-123.456.789",
     }
+    payload.update(overrides)
     response = client.post("/v1/dealerships", json=payload, headers=_bearer(token))
     assert response.status_code == 201, response.text
     return response.json()["id"]
+
+
+def _create_dealer_full(client, **overrides) -> dict:
+    """Like _create_dealer, but returns the full body — needed when a test
+    wants the real dealerGroupId (e.g. to add a second dealership to it).
+    """
+
+    token = _token(AccessRole.PLATFORM_ADMIN)
+    payload = {
+        "legalName": "Garage Musterbetrieb AG",
+        "dealerLicenseNumber": "ZH-12345",
+        "licenseState": "ZH",
+        "franchiseType": "independent",
+        "address": VALID_ADDRESS,
+        "phone": "+41441234567",
+        "taxId": "CHE-123.456.789",
+    }
+    payload.update(overrides)
+    response = client.post("/v1/dealerships", json=payload, headers=_bearer(token))
+    assert response.status_code == 201, response.text
+    return response.json()
 
 
 def _customer_payload(**overrides):
@@ -1223,3 +1253,84 @@ def test_create_is_rolled_back_entirely_when_a_nested_contact_is_invalid(client)
     assert client.post("/v1/customers", json=payload, headers=_bearer(token)).status_code == 422
     remaining = client.get("/v1/customers", headers=_bearer(token)).json()["items"]
     assert remaining == []
+
+
+# --- group scope (WP-3 PR-2, ADR-014): a customer is one record per GROUP,
+# visible and searchable from every dealership in that group, not just the
+# one that created it. Two dealerships in the same group, minted with the
+# real dealerGroupId (not the tenant_id-derived shadow value _token() uses
+# by default), are what these tests need to prove real cross-dealership
+# sharing rather than two tokens that merely happen to compute the same
+# derived group_id.
+
+
+def test_customer_created_by_one_dealership_is_visible_from_a_sister_dealership(client):
+    dealer_a = _create_dealer_full(client)
+    dealer_b = _create_dealer_full(
+        client, dealerGroupId=dealer_a["dealerGroupId"], dealerLicenseNumber="ZH-99999"
+    )
+    assert dealer_a["dealerGroupId"] == dealer_b["dealerGroupId"]
+
+    token_a = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_a["id"]), group_id=uuid.UUID(dealer_a["dealerGroupId"]))
+    token_b = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_b["id"]), group_id=uuid.UUID(dealer_a["dealerGroupId"]))
+
+    created = client.post("/v1/customers", json=_customer_payload(), headers=_bearer(token_a)).json()
+
+    response = client.get(f"/v1/customers/{created['id']}", headers=_bearer(token_b))
+    assert response.status_code == 200
+    assert response.json()["id"] == created["id"]
+
+    listed = client.get("/v1/customers", headers=_bearer(token_b)).json()["items"]
+    assert any(c["id"] == created["id"] for c in listed)
+
+
+def test_duplicate_check_is_group_wide(client):
+    dealer_a = _create_dealer_full(client)
+    dealer_b = _create_dealer_full(
+        client, dealerGroupId=dealer_a["dealerGroupId"], dealerLicenseNumber="ZH-99999"
+    )
+    token_a = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_a["id"]), group_id=uuid.UUID(dealer_a["dealerGroupId"]))
+    token_b = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_b["id"]), group_id=uuid.UUID(dealer_a["dealerGroupId"]))
+
+    client.post(
+        "/v1/customers",
+        json=_customer_payload(emails=[{"emailType": "private", "emailAddress": "shared@example.ch"}]),
+        headers=_bearer(token_a),
+    )
+
+    response = client.get(
+        "/v1/customers/duplicate-check", params={"q": "shared@example.ch"}, headers=_bearer(token_b)
+    )
+    assert response.status_code == 200
+    assert len(response.json()["items"]) == 1
+
+
+def test_customer_number_sequence_is_shared_group_wide(client):
+    dealer_a = _create_dealer_full(client)
+    dealer_b = _create_dealer_full(
+        client, dealerGroupId=dealer_a["dealerGroupId"], dealerLicenseNumber="ZH-99999"
+    )
+    token_a = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_a["id"]), group_id=uuid.UUID(dealer_a["dealerGroupId"]))
+    token_b = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_b["id"]), group_id=uuid.UUID(dealer_a["dealerGroupId"]))
+
+    first = client.post("/v1/customers", json=_customer_payload(), headers=_bearer(token_a)).json()
+    second = client.post("/v1/customers", json=_customer_payload(), headers=_bearer(token_b)).json()
+
+    assert first["customerNumber"] != second["customerNumber"]
+
+
+def test_customer_is_not_visible_across_different_groups(client):
+    """Two unrelated dealerships (no shared dealerGroupId) — the WP-3 PR-2
+    exit criterion: a cross-group read is impossible, 404 not 403.
+    """
+
+    dealer_a = _create_dealer(client)
+    dealer_b = _create_dealer(client, dealerLicenseNumber="ZH-88888")
+    token_a = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_a))
+    token_b = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_b))
+
+    created = client.post("/v1/customers", json=_customer_payload(), headers=_bearer(token_a)).json()
+
+    response = client.get(f"/v1/customers/{created['id']}", headers=_bearer(token_b))
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "not_found"

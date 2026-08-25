@@ -204,7 +204,7 @@ class CustomerUpdate(CamelModel):
 
 class CustomerRead(CamelModel):
     id: uuid.UUID
-    tenant_id: uuid.UUID
+    group_id: uuid.UUID
     customer_number: str
     customer_type: CustomerType
     language: Language

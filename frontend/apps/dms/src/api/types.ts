@@ -65,7 +65,7 @@ export interface CustomerAddressRead extends CustomerAddress {
 
 export interface CustomerRead {
   id: string
-  tenantId: string
+  groupId: string
   customerNumber: string
   customerType: CustomerType
   language: Language

@@ -32,6 +32,16 @@ VALID_ADDRESS = {
 }
 
 
+# This file specifically exercises cross-context FK integrity (P-10), so a
+# customer's group_id must point at a REAL dealer_group row — the
+# uuid5-derived shadow value other test files use for mere token-to-token
+# consistency would itself register as an orphan here. _create_dealer
+# populates this cache with the real dealerGroupId every dealer it creates
+# actually got; _token() consults it before falling back to the derived
+# value for tenant_ids this file never created a dealer for.
+_REAL_GROUP_IDS: dict[str, str] = {}
+
+
 def _token(
     role: AccessRole | None = None,
     tenant_id: uuid.UUID | None = None,
@@ -39,9 +49,12 @@ def _token(
     *,
     is_dealer_manager: bool = False,
 ) -> str:
+    _tid = tenant_id or uuid.uuid4()
+    real_group_id = _REAL_GROUP_IDS.get(str(_tid))
     return create_access_token(
         user_id=user_id or uuid.uuid4(),
-        tenant_id=tenant_id or uuid.uuid4(),
+        tenant_id=_tid,
+        group_id=uuid.UUID(real_group_id) if real_group_id else uuid.uuid5(uuid.NAMESPACE_OID, str(_tid)),
         roles=frozenset({role}) if role is not None else frozenset(),
         is_dealer_manager=is_dealer_manager,
     )
@@ -64,7 +77,9 @@ def _create_dealer(client) -> str:
     }
     response = client.post("/v1/dealerships", json=payload, headers=_bearer(token))
     assert response.status_code == 201, response.text
-    return response.json()["id"]
+    body = response.json()
+    _REAL_GROUP_IDS[body["id"]] = body["dealerGroupId"]
+    return body["id"]
 
 
 def _create_user(client, dealer_id: str, **overrides) -> dict:
@@ -208,13 +223,13 @@ def test_customer_reconciliation_detects_orphaned_vehicle_party(client, db_sessi
     assert persisted.orphans_found == 1
 
 
-def test_customer_reconciliation_detects_orphaned_tenant_id(client, db_session):
+def test_customer_reconciliation_detects_orphaned_group_id(client, db_session):
     dealer_id = _create_dealer(client)
     customer = _create_customer(client, dealer_id)
     db_session.expire_all()
 
     row = db_session.get(Customer, uuid.UUID(customer["id"]))
-    row.tenant_id = uuid.uuid4()
+    row.group_id = uuid.uuid4()
     db_session.commit()
     db_session.expire_all()
 
@@ -222,7 +237,7 @@ def test_customer_reconciliation_detects_orphaned_tenant_id(client, db_session):
         customer_reconciliation.run(db_session)
 
     assert exc_info.value.run.orphans_found == 1
-    assert exc_info.value.orphans[0].check_label == "customer.tenant_id -> dealership.id"
+    assert exc_info.value.orphans[0].check_label == "customer.group_id -> dealer_group.id"
 
 
 def test_vehicle_reconciliation_detects_orphaned_custody_event_partner(client, db_session):

@@ -1,7 +1,9 @@
 """Customer: a person or business who is a counterparty to a dealership
 transaction (buyer, lessee, service customer) — not an internal User/
-employee. Tenant-owned, unlike the tenant-agnostic Vehicle profile (spec §1
-IDs & tenant ownership: "Customer is not shared cross-tenant in v1").
+employee. GROUP-owned since WP-3 PR-2 (ADR-014) — exactly one customer
+record per group, deduplicated group-wide, readable by every dealership in
+the group; the pre-WP-3 "not shared cross-tenant in v1" note (spec §1) is
+superseded by that migration.
 
 customer_type gates a set of nullable columns rather than splitting into two
 tables (Customer PRD ruling, 2026-08-07, same pattern as Vehicle's
@@ -39,7 +41,7 @@ from sqlalchemy import Boolean, Date, ForeignKey, Integer, String, UniqueConstra
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
+from app.core.base import PrimaryKeyMixin, TimestampMixin, VersionedMixin
 from app.core.types import GUID, EncryptedString
 from app.db import Base
 
@@ -127,34 +129,43 @@ class CustomerSource(str, enum.Enum):
 
 
 class CustomerNumberSequence(Base):
-    """Per-tenant allocator for `Customer.customer_number` (D-02).
+    """Per-GROUP allocator for `Customer.customer_number` (D-02, moved from
+    per-dealership to per-group in WP-3 PR-2, ADR-014 — exactly one customer
+    record per group, so its number sequence is a group-wide fact too).
 
     A dedicated counter row rather than a Postgres SEQUENCE: sequences are
     global objects, and we need one independent, gap-tolerant counter per
-    tenant without issuing DDL whenever a dealer is onboarded. Allocation
-    takes a row lock (SELECT ... FOR UPDATE) inside the customer-creation
-    transaction, so two concurrent creates for the same dealer serialise on
-    this row and can never receive the same number.
+    group without issuing DDL whenever a dealer group is onboarded.
+    Allocation takes a row lock (SELECT ... FOR UPDATE) inside the
+    customer-creation transaction, so two concurrent creates for the same
+    group serialise on this row and can never receive the same number.
     """
 
     __tablename__ = "customer_number_sequence"
 
-    tenant_id: Mapped[uuid.UUID] = mapped_column(
-        GUID(), primary_key=True, comment="Owned by the platform context (Dealership). No DB-level FK (PR-2, ADR-015)."
+    group_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), primary_key=True, comment="Owned by the platform context (DealerGroup). No DB-level FK (PR-2, ADR-015)."
     )
     next_value: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
 
-class Customer(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMixin, Base):
+class Customer(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
+    """Group-scoped, not TenantScopedMixin (WP-3 PR-2, ADR-014): exactly one
+    customer record per group, deduplicated group-wide — the dealership stays
+    the tenant for every other entity, but the customer record itself is
+    genuinely shared across a group's dealerships, not owned by just one.
+    """
+
     __tablename__ = "customer"
     __table_args__ = (
-        UniqueConstraint("tenant_id", "customer_number", name="uq_customer_tenant_id_customer_number"),
+        UniqueConstraint("group_id", "customer_number", name="uq_customer_group_id_customer_number"),
     )
 
-    # Overrides TenantScopedMixin's bare column — no DB-level FK to dealer.id
-    # (PR-2, ADR-015). Owned by the platform context; reconciled nightly.
-    tenant_id: Mapped[uuid.UUID] = mapped_column(
-        GUID(), nullable=False, index=True, comment="Owned by the platform context (Dealership). No DB-level FK."
+    # No DB-level FK to dealer_group.id (PR-2, ADR-015). Owned by the
+    # platform context; reconciled nightly. Resolved from the token's
+    # groupId claim, never from the request body.
+    group_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), nullable=False, index=True, comment="Owned by the platform context (DealerGroup). No DB-level FK."
     )
 
     # Immutable business key, allocated at creation. Indexed because it is a
@@ -247,16 +258,18 @@ class Customer(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMixi
 
 class CustomerPhone(PrimaryKeyMixin, TimestampMixin, Base):
     """Multi-valued phone numbers (Customer PRD, 2026-08-07 CTO ruling).
-    tenant_id is denormalized from Customer.tenant_id at insert time, same
-    reasoning as every other tenant-scoped child table — Postgres unique
-    constraints can't be enforced across a join.
+    group_id is denormalized from Customer.group_id at insert time (moved
+    from tenant_id in WP-3 PR-2, ADR-014 — a child collection of a record
+    that is now genuinely group-owned inherits the parent's scoping key),
+    same reasoning as every other group-scoped child table — Postgres
+    unique constraints can't be enforced across a join.
     """
 
     __tablename__ = "customer_phone"
     __table_args__ = (UniqueConstraint("customer_id", "phone_e164", name="uq_customer_phone_customer_id_e164"),)
 
-    tenant_id: Mapped[uuid.UUID] = mapped_column(
-        GUID(), nullable=False, index=True, comment="Owned by the platform context (Dealership). No DB-level FK."
+    group_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), nullable=False, index=True, comment="Owned by the platform context (DealerGroup). No DB-level FK."
     )
     customer_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("customer.id"), nullable=False, index=True)
     phone_type: Mapped[PhoneType] = mapped_column(SAEnum(PhoneType, native_enum=False, length=16), nullable=False)
@@ -280,8 +293,8 @@ class CustomerEmail(PrimaryKeyMixin, TimestampMixin, Base):
         UniqueConstraint("customer_id", "email_address", name="uq_customer_email_customer_id_address"),
     )
 
-    tenant_id: Mapped[uuid.UUID] = mapped_column(
-        GUID(), nullable=False, index=True, comment="Owned by the platform context (Dealership). No DB-level FK."
+    group_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), nullable=False, index=True, comment="Owned by the platform context (DealerGroup). No DB-level FK."
     )
     customer_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("customer.id"), nullable=False, index=True)
     email_type: Mapped[EmailType] = mapped_column(SAEnum(EmailType, native_enum=False, length=16), nullable=False)
@@ -290,8 +303,11 @@ class CustomerEmail(PrimaryKeyMixin, TimestampMixin, Base):
 
 
 class CustomerExternalId(PrimaryKeyMixin, TimestampMixin, Base):
-    """Per-dealer CRM/OEM system linkage (Customer PRD "external IDs, settable
-    by system administrator"). Write access is platform_admin-only (Anto's
+    """Per-group CRM/OEM system linkage (Customer PRD "external IDs, settable
+    by system administrator"), group-scoped since WP-3 PR-2 (PRD-Customers:
+    "unique per (group, systemName, externalId)") — same rationale as
+    Customer itself: one customer per group, so its external-system links
+    are a group-wide fact. Write access is platform_admin-only (Anto's
     ruling, 2026-08-07, overriding the earlier dealer_admin default) — read
     stays open to any authenticated tenant role, same pattern as an audit-log
     endpoint being readable but not writable by regular roles.
@@ -305,13 +321,13 @@ class CustomerExternalId(PrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "customer_external_id"
     __table_args__ = (
         UniqueConstraint(
-            "tenant_id", "system_name", "external_id", name="uq_customer_external_id_tenant_system_external"
+            "group_id", "system_name", "external_id", name="uq_customer_external_id_group_system_external"
         ),
         UniqueConstraint("customer_id", "system_name", name="uq_customer_external_id_customer_system"),
     )
 
-    tenant_id: Mapped[uuid.UUID] = mapped_column(
-        GUID(), nullable=False, index=True, comment="Owned by the platform context (Dealership). No DB-level FK."
+    group_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), nullable=False, index=True, comment="Owned by the platform context (DealerGroup). No DB-level FK."
     )
     customer_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("customer.id"), nullable=False, index=True)
     system_name: Mapped[str] = mapped_column(String(100), nullable=False)

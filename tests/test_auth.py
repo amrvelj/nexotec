@@ -26,6 +26,7 @@ def _token(*roles: AccessRole, tenant_id: uuid.UUID | None = None, is_dealer_man
     return create_access_token(
         user_id=uuid.uuid4(),
         tenant_id=tenant_id or uuid.uuid4(),
+        group_id=uuid.uuid4(),
         roles=frozenset(roles),
         is_dealer_manager=is_dealer_manager,
     )
@@ -95,7 +96,11 @@ def test_malformed_authorization_header_is_401(auth_client):
 def test_valid_token_resolves_principal(auth_client):
     user_id, tenant_id = uuid.uuid4(), uuid.uuid4()
     token = create_access_token(
-        user_id=user_id, tenant_id=tenant_id, roles=frozenset({AccessRole.SALES}), is_dealer_manager=False
+        user_id=user_id,
+        tenant_id=tenant_id,
+        group_id=uuid.uuid4(),
+        roles=frozenset({AccessRole.SALES}),
+        is_dealer_manager=False,
     )
     response = auth_client.get("/whoami", headers=_bearer(token))
     assert response.status_code == 200
@@ -130,6 +135,7 @@ def test_expired_token_is_401(auth_client):
     token = create_access_token(
         user_id=uuid.uuid4(),
         tenant_id=uuid.uuid4(),
+        group_id=uuid.uuid4(),
         roles=frozenset({AccessRole.SALES}),
         ttl_seconds=-10,
     )
@@ -147,6 +153,7 @@ def test_token_signed_with_a_different_key_is_401(auth_client):
         {
             "sub": str(uuid.uuid4()),
             "tenant_id": str(uuid.uuid4()),
+            "group_id": str(uuid.uuid4()),
             "roles": ["sales"],
             "is_dealer_manager": False,
             "iss": settings.jwt_issuer,
@@ -332,7 +339,7 @@ def test_a_token_signed_with_the_private_key_verifies_against_the_published_jwks
     key objects directly — and verify with that.
     """
     token = create_access_token(
-        user_id=uuid.uuid4(), tenant_id=uuid.uuid4(), roles=frozenset({AccessRole.SALES})
+        user_id=uuid.uuid4(), tenant_id=uuid.uuid4(), group_id=uuid.uuid4(), roles=frozenset({AccessRole.SALES})
     )
 
     jwks_key = client.get("/.well-known/jwks.json").json()["keys"][0]
@@ -345,7 +352,7 @@ def test_a_token_signed_with_the_private_key_verifies_against_the_published_jwks
         public_key,
         algorithms=["RS256"],
         issuer=settings.jwt_issuer,
-        options={"require": ["sub", "tenant_id", "roles", "is_dealer_manager", "exp", "iat"]},
+        options={"require": ["sub", "tenant_id", "group_id", "roles", "is_dealer_manager", "exp", "iat"]},
     )
     assert claims["roles"] == ["sales"]
     assert jwt.get_unverified_header(token)["kid"] == jwks_key["kid"]

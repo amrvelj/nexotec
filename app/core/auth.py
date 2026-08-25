@@ -132,6 +132,12 @@ class AccessRole(str, enum.Enum):
 class Principal:
     user_id: uuid.UUID
     tenant_id: uuid.UUID
+    # The dealer_group the active dealership (tenant_id) belongs to (ADR-014,
+    # WP-3 PR-2) — resolved once at login from Dealership.dealer_group_id,
+    # not stored on User. Needed here (ahead of PR-3's fuller claim set —
+    # memberships, activeLocationId) because PR-2's group-scoped customer
+    # reads must resolve group_id from the token, never the request body.
+    group_id: uuid.UUID
     roles: frozenset[AccessRole]
     # Administration of THIS principal's own dealership — invite/deactivate
     # users, integrations, dealership settings — and nothing outside it
@@ -146,6 +152,7 @@ def create_access_token(
     *,
     user_id: uuid.UUID,
     tenant_id: uuid.UUID,
+    group_id: uuid.UUID,
     roles: frozenset[AccessRole] | set[AccessRole],
     is_dealer_manager: bool = False,
     ttl_seconds: int | None = None,
@@ -155,6 +162,7 @@ def create_access_token(
     payload = {
         "sub": str(user_id),
         "tenant_id": str(tenant_id),
+        "group_id": str(group_id),
         "roles": sorted(role.value for role in roles),
         "is_dealer_manager": is_dealer_manager,
         "iss": settings.jwt_issuer,
@@ -171,7 +179,7 @@ def _decode_token(token: str) -> dict:
             _PUBLIC_KEY,
             algorithms=[_ALGORITHM],
             issuer=settings.jwt_issuer,
-            options={"require": ["sub", "tenant_id", "roles", "is_dealer_manager", "exp", "iat"]},
+            options={"require": ["sub", "tenant_id", "group_id", "roles", "is_dealer_manager", "exp", "iat"]},
         )
     except jwt.ExpiredSignatureError as exc:
         raise UnauthorizedError("Access token has expired.") from exc
@@ -196,6 +204,7 @@ def get_current_principal(token: str = Depends(get_bearer_token)) -> Principal:
         return Principal(
             user_id=uuid.UUID(claims["sub"]),
             tenant_id=uuid.UUID(claims["tenant_id"]),
+            group_id=uuid.UUID(claims["group_id"]),
             roles=frozenset(AccessRole(role) for role in claims["roles"]),
             is_dealer_manager=bool(claims["is_dealer_manager"]),
         )

@@ -65,7 +65,7 @@ def create_transaction(
             return JSONResponse(status_code=cached.response_status, content=cached.response_body)
 
     transaction = transaction_service.create_transaction(
-        db, tenant_id=principal.tenant_id, data=body, actor_id=principal.user_id
+        db, tenant_id=principal.tenant_id, group_id=principal.group_id, data=body, actor_id=principal.user_id
     )
     result = TransactionRead.model_validate(transaction, from_attributes=True)
 
@@ -104,7 +104,7 @@ def update_transaction(
     transaction = transaction_service.get_transaction_or_404(db, principal.tenant_id, transaction_id)
     check_version(transaction.version, if_match, entity_name="Transaction")
     transaction = transaction_service.update_transaction(
-        db, transaction=transaction, data=body, actor_id=principal.user_id
+        db, transaction=transaction, group_id=principal.group_id, data=body, actor_id=principal.user_id
     )
     return TransactionRead.model_validate(transaction, from_attributes=True)
 

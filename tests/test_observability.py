@@ -63,7 +63,7 @@ def test_tenant_id_is_tagged_from_an_unverified_bearer_token(observed_client):
 
     tenant_id = uuid.uuid4()
     token = create_access_token(
-        user_id=uuid.uuid4(), tenant_id=tenant_id, roles=frozenset({AccessRole.SALES})
+        user_id=uuid.uuid4(), tenant_id=tenant_id, group_id=uuid.uuid4(), roles=frozenset({AccessRole.SALES})
     )
     response = observed_client.get("/probe", headers={"Authorization": f"Bearer {token}"})
     assert response.json()["tenantId"] == str(tenant_id)

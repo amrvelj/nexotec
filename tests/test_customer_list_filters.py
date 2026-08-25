@@ -14,9 +14,11 @@ VD_ADDRESS = {"street": "Rue de Bourg", "houseNumber": "1", "postalCode": "1000"
 
 
 def _token(role: AccessRole | None = None, tenant_id: uuid.UUID | None = None, *, is_dealer_manager: bool = False) -> str:
+    _tid = tenant_id or uuid.uuid4()
     return create_access_token(
         user_id=uuid.uuid4(),
-        tenant_id=tenant_id or uuid.uuid4(),
+        tenant_id=_tid,
+        group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(_tid)),
         roles=frozenset({role}) if role is not None else frozenset(),
         is_dealer_manager=is_dealer_manager,
     )

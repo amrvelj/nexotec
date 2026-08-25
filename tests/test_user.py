@@ -20,9 +20,11 @@ def _token(
     *,
     is_dealer_manager: bool = False,
 ) -> str:
+    _tid = tenant_id or uuid.uuid4()
     return create_access_token(
         user_id=user_id or uuid.uuid4(),
-        tenant_id=tenant_id or uuid.uuid4(),
+        tenant_id=_tid,
+        group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(_tid)),
         roles=frozenset({role}) if role is not None else frozenset(),
         is_dealer_manager=is_dealer_manager,
     )
@@ -94,6 +96,7 @@ def test_dealer_admin_can_add_staff_within_own_tenant(client):
     dealer_admin_token = create_access_token(
         user_id=uuid.UUID(admin_user["id"]),
         tenant_id=uuid.UUID(dealer_id),
+        group_id=uuid.uuid4(),
         roles=frozenset(),
         is_dealer_manager=True,
     )

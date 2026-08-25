@@ -1,8 +1,15 @@
-"""Customer service layer: tenant-scoped CRUD, duplicate-check typeahead,
-and merge. PII changes (name/email/phone/address) and lifecycle_status
+"""Customer service layer: GROUP-scoped CRUD (WP-3 PR-2, ADR-014 — moved
+from tenant-scoped), duplicate-check typeahead, and merge, all operating
+group-wide. PII changes (name/email/phone/address) and lifecycle_status
 transitions are audit-logged with before/after (spec: "Every change to PII
 ... is audit-logged"; lifecycle_status added for the same accountability
 reason Dealership/User audit their status fields).
+
+`app.core.audit.record_audit_event`/`app.core.outbox.OutboxEvent` keep their
+own generic `tenant_id` keyword — that's a cross-cutting parameter name
+shared by every context, not something this one PR renames everywhere — but
+every call site here now passes `customer.group_id` as its value, since
+that's Customer's real scoping key.
 """
 
 import uuid
@@ -21,7 +28,6 @@ from app.core.outbox import publish as publish_event
 from app.core.pagination import SortPageParams, build_sorted_page, count_capped, paginate_query_sorted
 from app.core.postal_codes import derive_canton
 from app.core.redact import REDACTED_PLACEHOLDER, is_secret_field
-from app.core.tenancy import get_or_404
 from app.core.validators import normalise_phone
 from app.customer.models.customer import (
     Customer,
@@ -83,6 +89,25 @@ _DUPLICATE_CHECK_LIMIT = 10
 _EVENT_PRODUCER = "customer"
 
 
+def _group_scoped_or_404(db: Session, model: type, entity_id: uuid.UUID, group_id: uuid.UUID) -> Any:
+    """app.core.tenancy.get_or_404's shape, but filtering on group_id — this
+    context's own scoping column since WP-3 PR-2 (ADR-014), not the
+    tenant_id every other context still uses. Kept local rather than added
+    to app.core.tenancy: that module is one explicit convention (tenant_id)
+    shared by every other context, and Customer is deliberately the one
+    exception, not a second convention to generalize the shared helper for.
+    """
+
+    obj = (
+        db.query(model)
+        .filter(model.id == entity_id, model.group_id == group_id)  # type: ignore[attr-defined]
+        .one_or_none()
+    )
+    if obj is None:
+        raise NotFoundError(f"{model.__name__} {entity_id} was not found.")
+    return obj
+
+
 def _plain(value: Any) -> Any:
     return value.value if hasattr(value, "value") else value
 
@@ -127,10 +152,11 @@ def _validate_customer_type_fields_on_update(customer: Customer, changes: dict[s
             )
 
 
-def _allocate_customer_number(db: Session, tenant_id: uuid.UUID) -> str:
-    """Allocate the next `K-000001`-style number for this tenant (D-02).
+def _allocate_customer_number(db: Session, group_id: uuid.UUID) -> str:
+    """Allocate the next `K-000001`-style number for this group (D-02, moved
+    from per-dealership to per-group in WP-3 PR-2).
 
-    Takes a row lock on the tenant's counter so two concurrent creates
+    Takes a row lock on the group's counter so two concurrent creates
     serialise here rather than racing to the same number; the lock is held
     until the surrounding customer-creation transaction commits. On SQLite
     (the fast test lane) `with_for_update` is a no-op, which is fine —
@@ -142,12 +168,12 @@ def _allocate_customer_number(db: Session, tenant_id: uuid.UUID) -> str:
     in printed documents.
     """
 
-    row = db.get(CustomerNumberSequence, tenant_id, with_for_update=True)
+    row = db.get(CustomerNumberSequence, group_id, with_for_update=True)
     if row is None:
-        row = CustomerNumberSequence(tenant_id=tenant_id, next_value=1)
+        row = CustomerNumberSequence(group_id=group_id, next_value=1)
         db.add(row)
         db.flush()
-        row = db.get(CustomerNumberSequence, tenant_id, with_for_update=True)
+        row = db.get(CustomerNumberSequence, group_id, with_for_update=True)
         assert row is not None, "just-flushed CustomerNumberSequence row vanished before it could be re-read"
 
     value = row.next_value
@@ -156,8 +182,8 @@ def _allocate_customer_number(db: Session, tenant_id: uuid.UUID) -> str:
     return f"K-{value:06d}"
 
 
-def get_customer_or_404(db: Session, tenant_id: uuid.UUID, customer_id: uuid.UUID) -> Customer:
-    return get_or_404(db, Customer, customer_id, tenant_id)
+def get_customer_or_404(db: Session, group_id: uuid.UUID, customer_id: uuid.UUID) -> Customer:
+    return _group_scoped_or_404(db, Customer, customer_id, group_id)
 
 
 def get_customer_by_id_or_404(db: Session, customer_id: uuid.UUID) -> Customer:
@@ -173,8 +199,10 @@ def get_customer_by_id_or_404(db: Session, customer_id: uuid.UUID) -> Customer:
     return customer
 
 
-def _search_predicate(tenant_id: uuid.UUID, q: str):
-    """The FR-01 "one search box" predicate, shared by list and duplicate check.
+def _search_predicate(group_id: uuid.UUID, q: str):
+    """The FR-01 "one search box" predicate, shared by list and duplicate
+    check. Group-wide since WP-3 PR-2 (ADR-014) — search operates across
+    every dealership in the group, not just one.
 
     Covers company_name and customer_number, which the pre-Phase-B version
     did not: a business customer could not be found by its own name, and no
@@ -191,7 +219,7 @@ def _search_predicate(tenant_id: uuid.UUID, q: str):
         Customer.customer_number.ilike(pattern),
         Customer.id.in_(
             select(CustomerEmail.customer_id).where(
-                CustomerEmail.tenant_id == tenant_id,
+                CustomerEmail.group_id == group_id,
                 CustomerEmail.email_address.ilike(pattern),
             )
         ),
@@ -201,7 +229,7 @@ def _search_predicate(tenant_id: uuid.UUID, q: str):
         conditions.append(
             Customer.id.in_(
                 select(CustomerPhone.customer_id).where(
-                    CustomerPhone.tenant_id == tenant_id,
+                    CustomerPhone.group_id == group_id,
                     CustomerPhone.phone_normalised.like(f"%{phone_digits}%"),
                 )
             )
@@ -212,7 +240,7 @@ def _search_predicate(tenant_id: uuid.UUID, q: str):
 def list_customers(
     db: Session,
     *,
-    tenant_id: uuid.UUID,
+    group_id: uuid.UUID,
     q: str | None,
     lifecycle_status: CustomerLifecycleStatus | None,
     customer_type: CustomerType | None = None,
@@ -222,9 +250,9 @@ def list_customers(
     params: SortPageParams,
     include_merged: bool = False,
 ) -> tuple[list[Customer], str | None, int, bool]:
-    stmt = select(Customer).where(Customer.tenant_id == tenant_id)
+    stmt = select(Customer).where(Customer.group_id == group_id)
     if q:
-        stmt = stmt.where(_search_predicate(tenant_id, q))
+        stmt = stmt.where(_search_predicate(group_id, q))
     if lifecycle_status is not None:
         stmt = stmt.where(Customer.lifecycle_status == lifecycle_status)
     elif not include_merged:
@@ -266,10 +294,11 @@ def _primary_contact_maps(db: Session, customer_ids):
     return phones, emails
 
 
-def duplicate_check(db: Session, *, tenant_id: uuid.UUID, q: str) -> list[dict[str, Any]]:
+def duplicate_check(db: Session, *, group_id: uuid.UUID, q: str) -> list[dict[str, Any]]:
     """Advisory typeahead (Swiss addendum Round 2 #5) — never a blocking gate
     on create. A dealership sometimes has a legitimate reason to create a
-    near-identical record; FR-09 merge exists for the rest.
+    near-identical record; FR-09 merge exists for the rest. Group-wide since
+    WP-3 PR-2 (ADR-014, PRD-Customers FR-04).
 
     Returns plain dicts rather than Customer rows because a candidate is not
     a customer: it carries a match reason and the primary contact details,
@@ -283,9 +312,9 @@ def duplicate_check(db: Session, *, tenant_id: uuid.UUID, q: str) -> list[dict[s
         db.scalars(
             select(Customer)
             .where(
-                Customer.tenant_id == tenant_id,
+                Customer.group_id == group_id,
                 Customer.lifecycle_status != CustomerLifecycleStatus.MERGED,
-                _search_predicate(tenant_id, q),
+                _search_predicate(group_id, q),
             )
             .limit(_DUPLICATE_CHECK_LIMIT * 3)
         ).all()
@@ -301,7 +330,7 @@ def duplicate_check(db: Session, *, tenant_id: uuid.UUID, q: str) -> list[dict[s
         row.customer_id
         for row in db.scalars(
             select(CustomerEmail).where(
-                CustomerEmail.tenant_id == tenant_id,
+                CustomerEmail.group_id == group_id,
                 func.lower(CustomerEmail.email_address) == needle,
             )
         ).all()
@@ -312,7 +341,7 @@ def duplicate_check(db: Session, *, tenant_id: uuid.UUID, q: str) -> list[dict[s
             row.customer_id
             for row in db.scalars(
                 select(CustomerPhone).where(
-                    CustomerPhone.tenant_id == tenant_id,
+                    CustomerPhone.group_id == group_id,
                     CustomerPhone.phone_normalised == needle_digits,
                 )
             ).all()
@@ -357,7 +386,7 @@ def _add_contacts(db: Session, customer: Customer, data: CustomerCreate) -> None
     for index, phone in enumerate(data.phones):
         db.add(
             CustomerPhone(
-                tenant_id=customer.tenant_id,
+                group_id=customer.group_id,
                 customer_id=customer.id,
                 phone_type=phone.phone_type,
                 phone_e164=phone.phone_e164,
@@ -370,7 +399,7 @@ def _add_contacts(db: Session, customer: Customer, data: CustomerCreate) -> None
     for index, email in enumerate(data.emails):
         db.add(
             CustomerEmail(
-                tenant_id=customer.tenant_id,
+                group_id=customer.group_id,
                 customer_id=customer.id,
                 email_type=email.email_type,
                 email_address=email.email_address,
@@ -381,10 +410,10 @@ def _add_contacts(db: Session, customer: Customer, data: CustomerCreate) -> None
         )
 
 
-def create_customer(db: Session, *, tenant_id: uuid.UUID, data: CustomerCreate, actor_id: uuid.UUID) -> Customer:
+def create_customer(db: Session, *, group_id: uuid.UUID, data: CustomerCreate, actor_id: uuid.UUID) -> Customer:
     customer = Customer(
-        tenant_id=tenant_id,
-        customer_number=_allocate_customer_number(db, tenant_id),
+        group_id=group_id,
+        customer_number=_allocate_customer_number(db, group_id),
         customer_type=data.customer_type,
         language=data.language,
         salutation=data.salutation,
@@ -431,7 +460,7 @@ def create_customer(db: Session, *, tenant_id: uuid.UUID, data: CustomerCreate, 
         db,
         entity_type="customer",
         entity_id=customer.id,
-        tenant_id=tenant_id,
+        tenant_id=group_id,
         action="create",
         actor_id=actor_id,
         after={field: _redact(field, getattr(customer, field)) for field in _AUDITED_FIELDS},
@@ -440,7 +469,7 @@ def create_customer(db: Session, *, tenant_id: uuid.UUID, data: CustomerCreate, 
         db,
         OutboxEvent(
             event_type="customer.created",
-            tenant_id=tenant_id,
+            tenant_id=group_id,
             producer=_EVENT_PRODUCER,
             aggregate_type="customer",
             aggregate_id=customer.id,
@@ -502,7 +531,7 @@ def update_customer(db: Session, *, customer: Customer, data: CustomerUpdate, ac
             db,
             entity_type="customer",
             entity_id=customer.id,
-            tenant_id=customer.tenant_id,
+            tenant_id=customer.group_id,
             action="update",
             actor_id=actor_id,
             before=before or None,
@@ -512,7 +541,7 @@ def update_customer(db: Session, *, customer: Customer, data: CustomerUpdate, ac
             db,
             OutboxEvent(
                 event_type="customer.updated",
-                tenant_id=customer.tenant_id,
+                tenant_id=customer.group_id,
                 producer=_EVENT_PRODUCER,
                 aggregate_type="customer",
                 aggregate_id=customer.id,
@@ -663,7 +692,7 @@ def merge_customer(
     if duplicate_of_customer_id == customer.id:
         raise BadRequestError("A customer cannot be merged into itself.")
 
-    target = get_or_404(db, Customer, duplicate_of_customer_id, customer.tenant_id)
+    target = _group_scoped_or_404(db, Customer, duplicate_of_customer_id, customer.group_id)
     if target.lifecycle_status == CustomerLifecycleStatus.MERGED:
         raise ConflictError(
             "Cannot merge into a customer that has itself been merged.",
@@ -699,7 +728,7 @@ def merge_customer(
         db,
         entity_type="customer",
         entity_id=customer.id,
-        tenant_id=customer.tenant_id,
+        tenant_id=customer.group_id,
         action="merge",
         actor_id=actor_id,
         before=before,
@@ -721,7 +750,7 @@ def merge_customer(
         db,
         OutboxEvent(
             event_type="customer.merged",
-            tenant_id=customer.tenant_id,
+            tenant_id=customer.group_id,
             producer=_EVENT_PRODUCER,
             aggregate_type="customer",
             aggregate_id=customer.id,
@@ -759,9 +788,9 @@ def list_customer_phones(db: Session, *, customer_id: uuid.UUID) -> list[Custome
 
 
 def get_customer_phone_or_404(
-    db: Session, *, tenant_id: uuid.UUID, customer_id: uuid.UUID, phone_id: uuid.UUID
+    db: Session, *, group_id: uuid.UUID, customer_id: uuid.UUID, phone_id: uuid.UUID
 ) -> CustomerPhone:
-    phone = get_or_404(db, CustomerPhone, phone_id, tenant_id)
+    phone = _group_scoped_or_404(db, CustomerPhone, phone_id, group_id)
     if phone.customer_id != customer_id:
         raise NotFoundError(f"CustomerPhone {phone_id} was not found.")
     return phone
@@ -777,7 +806,7 @@ def create_customer_phone(
         _unset_other_primaries(db, CustomerPhone, customer_id=customer.id)
 
     phone = CustomerPhone(
-        tenant_id=customer.tenant_id,
+        group_id=customer.group_id,
         customer_id=customer.id,
         phone_type=data.phone_type,
         phone_e164=data.phone_e164,
@@ -799,7 +828,7 @@ def create_customer_phone(
         db,
         entity_type="customer",
         entity_id=customer.id,
-        tenant_id=customer.tenant_id,
+        tenant_id=customer.group_id,
         action="phone_add",
         actor_id=actor_id,
         after={"phoneType": phone.phone_type.value, "phoneE164": phone.phone_e164, "isPrimary": phone.is_primary},
@@ -840,7 +869,7 @@ def update_customer_phone(
         db,
         entity_type="customer",
         entity_id=phone.customer_id,
-        tenant_id=phone.tenant_id,
+        tenant_id=phone.group_id,
         action="phone_update",
         actor_id=actor_id,
         before=before,
@@ -872,7 +901,7 @@ def delete_customer_phone(db: Session, *, phone: CustomerPhone, actor_id: uuid.U
         db,
         entity_type="customer",
         entity_id=phone.customer_id,
-        tenant_id=phone.tenant_id,
+        tenant_id=phone.group_id,
         action="phone_remove",
         actor_id=actor_id,
         before={"phoneType": phone.phone_type.value, "phoneE164": phone.phone_e164, "isPrimary": phone.is_primary},
@@ -887,9 +916,9 @@ def list_customer_emails(db: Session, *, customer_id: uuid.UUID) -> list[Custome
 
 
 def get_customer_email_or_404(
-    db: Session, *, tenant_id: uuid.UUID, customer_id: uuid.UUID, email_id: uuid.UUID
+    db: Session, *, group_id: uuid.UUID, customer_id: uuid.UUID, email_id: uuid.UUID
 ) -> CustomerEmail:
-    email = get_or_404(db, CustomerEmail, email_id, tenant_id)
+    email = _group_scoped_or_404(db, CustomerEmail, email_id, group_id)
     if email.customer_id != customer_id:
         raise NotFoundError(f"CustomerEmail {email_id} was not found.")
     return email
@@ -905,7 +934,7 @@ def create_customer_email(
         _unset_other_primaries(db, CustomerEmail, customer_id=customer.id)
 
     email = CustomerEmail(
-        tenant_id=customer.tenant_id,
+        group_id=customer.group_id,
         customer_id=customer.id,
         email_type=data.email_type,
         email_address=data.email_address,
@@ -926,7 +955,7 @@ def create_customer_email(
         db,
         entity_type="customer",
         entity_id=customer.id,
-        tenant_id=customer.tenant_id,
+        tenant_id=customer.group_id,
         action="email_add",
         actor_id=actor_id,
         after={
@@ -974,7 +1003,7 @@ def update_customer_email(
         db,
         entity_type="customer",
         entity_id=email.customer_id,
-        tenant_id=email.tenant_id,
+        tenant_id=email.group_id,
         action="email_update",
         actor_id=actor_id,
         before=before,
@@ -995,7 +1024,7 @@ def delete_customer_email(db: Session, *, email: CustomerEmail, actor_id: uuid.U
         db,
         entity_type="customer",
         entity_id=email.customer_id,
-        tenant_id=email.tenant_id,
+        tenant_id=email.group_id,
         action="email_remove",
         actor_id=actor_id,
         before={
@@ -1034,9 +1063,9 @@ def list_customer_external_ids(db: Session, *, customer_id: uuid.UUID) -> list[C
 
 
 def get_customer_external_id_or_404(
-    db: Session, *, tenant_id: uuid.UUID, customer_id: uuid.UUID, external_id_row_id: uuid.UUID
+    db: Session, *, group_id: uuid.UUID, customer_id: uuid.UUID, external_id_row_id: uuid.UUID
 ) -> CustomerExternalId:
-    row = get_or_404(db, CustomerExternalId, external_id_row_id, tenant_id)
+    row = _group_scoped_or_404(db, CustomerExternalId, external_id_row_id, group_id)
     if row.customer_id != customer_id:
         raise NotFoundError(f"CustomerExternalId {external_id_row_id} was not found.")
     return row
@@ -1046,7 +1075,7 @@ def create_customer_external_id(
     db: Session, *, customer: Customer, data: CustomerExternalIdCreate, actor_id: uuid.UUID
 ) -> CustomerExternalId:
     row = CustomerExternalId(
-        tenant_id=customer.tenant_id,
+        group_id=customer.group_id,
         customer_id=customer.id,
         system_name=data.system_name,
         external_id=data.external_id,
@@ -1068,7 +1097,7 @@ def create_customer_external_id(
         db,
         entity_type="customer",
         entity_id=customer.id,
-        tenant_id=customer.tenant_id,
+        tenant_id=customer.group_id,
         action="external_id_add",
         actor_id=actor_id,
         after={"systemName": row.system_name, "externalId": row.external_id},
@@ -1102,7 +1131,7 @@ def update_customer_external_id(
         db,
         entity_type="customer",
         entity_id=row.customer_id,
-        tenant_id=row.tenant_id,
+        tenant_id=row.group_id,
         action="external_id_update",
         actor_id=actor_id,
         before=before,
@@ -1118,7 +1147,7 @@ def delete_customer_external_id(db: Session, *, row: CustomerExternalId, actor_i
         db,
         entity_type="customer",
         entity_id=row.customer_id,
-        tenant_id=row.tenant_id,
+        tenant_id=row.group_id,
         action="external_id_remove",
         actor_id=actor_id,
         before={"systemName": row.system_name, "externalId": row.external_id},
@@ -1189,7 +1218,7 @@ def create_customer_vehicle(
         db,
         entity_type="customer",
         entity_id=customer.id,
-        tenant_id=customer.tenant_id,
+        tenant_id=customer.group_id,
         action="vehicle_party_add",
         actor_id=actor_id,
         after={
@@ -1205,7 +1234,7 @@ def create_customer_vehicle(
 
 
 def update_customer_vehicle(
-    db: Session, *, party: VehicleParty, data: CustomerVehicleUpdate, actor_id: uuid.UUID, tenant_id: uuid.UUID
+    db: Session, *, party: VehicleParty, data: CustomerVehicleUpdate, actor_id: uuid.UUID, group_id: uuid.UUID
 ) -> VehicleParty:
     changes = data.model_dump(exclude_unset=True)
     before = {
@@ -1233,7 +1262,7 @@ def update_customer_vehicle(
         db,
         entity_type="customer",
         entity_id=party.customer_id,
-        tenant_id=tenant_id,
+        tenant_id=group_id,
         action="vehicle_party_update",
         actor_id=actor_id,
         before=before,
@@ -1247,12 +1276,12 @@ def update_customer_vehicle(
     return party
 
 
-def delete_customer_vehicle(db: Session, *, party: VehicleParty, actor_id: uuid.UUID, tenant_id: uuid.UUID) -> None:
+def delete_customer_vehicle(db: Session, *, party: VehicleParty, actor_id: uuid.UUID, group_id: uuid.UUID) -> None:
     record_audit_event(
         db,
         entity_type="customer",
         entity_id=party.customer_id,
-        tenant_id=tenant_id,
+        tenant_id=group_id,
         action="vehicle_party_remove",
         actor_id=actor_id,
         before={

@@ -22,9 +22,11 @@ def _token(
     *,
     is_dealer_manager: bool = False,
 ) -> str:
+    _tid = tenant_id or uuid.uuid4()
     return create_access_token(
         user_id=user_id or uuid.uuid4(),
-        tenant_id=tenant_id or uuid.uuid4(),
+        tenant_id=_tid,
+        group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(_tid)),
         roles=frozenset({role}) if role is not None else frozenset(),
         is_dealer_manager=is_dealer_manager,
     )

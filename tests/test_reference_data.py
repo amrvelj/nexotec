@@ -16,6 +16,7 @@ def _token(
     return create_access_token(
         user_id=user_id or uuid.uuid4(),
         tenant_id=tenant_id or uuid.uuid4(),
+        group_id=uuid.uuid4(),
         roles=frozenset({role}) if role is not None else frozenset(),
         is_dealer_manager=is_dealer_manager,
     )

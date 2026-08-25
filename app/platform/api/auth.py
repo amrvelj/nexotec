@@ -30,6 +30,7 @@ from app.db import get_db
 from app.platform.schemas.auth import CredentialSetRequest, LoginRequest, LoginResponse, LogoutResponse
 from app.platform.schemas.user import UserRead
 from app.platform.services import auth as auth_service
+from app.platform.services import dealership as dealership_service
 from app.platform.services import user as user_service
 
 router = APIRouter(tags=["auth"])
@@ -50,9 +51,11 @@ def _set_session_cookie(response: Response, token: str) -> None:
 @router.post("/auth/login", response_model=LoginResponse)
 def login(body: LoginRequest, response: Response, db: Session = Depends(get_db)):
     user = auth_service.authenticate(db, email=body.email, password=body.password)
+    dealership = dealership_service.get_dealership_or_404(db, user.tenant_id)
     token = create_access_token(
         user_id=user.id,
         tenant_id=user.tenant_id,
+        group_id=dealership.dealer_group_id,
         roles=frozenset(AccessRole(role) for role in user.access_roles),
         is_dealer_manager=user.is_dealer_manager,
     )
