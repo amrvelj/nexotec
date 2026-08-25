@@ -153,9 +153,14 @@ def test_address_cross_tenant_is_404(client):
         headers=_bearer(token_a),
     ).json()
 
+    # No single-resource GET exists for an address (same convention as
+    # phone/email — only list/PATCH/DELETE), so the cross-tenant check goes
+    # through PATCH, which is group-scoped via get_customer_address_or_404.
     token_b = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_b))
-    response = client.get(
-        f"/v1/customers/{customer['id']}/addresses/{address['id']}", headers=_bearer(token_b)
+    response = client.patch(
+        f"/v1/customers/{customer['id']}/addresses/{address['id']}",
+        json={"label": "should not reach this row"},
+        headers=_bearer(token_b),
     )
     assert response.status_code == 404
 

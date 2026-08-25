@@ -59,7 +59,7 @@ def test_customer_created_is_delivered_once_and_not_reprocessed_on_redelivery(db
             language=Language.DE,
             first_name="Anna",
             last_name="Muster",
-            emails=[CustomerEmailCreate(email_type="private", email_address="anna@example.ch")],
+            emails=[CustomerEmailCreate(email_type="personal", email_address="anna@example.ch")],
         ),
         actor_id=actor_id,
     )

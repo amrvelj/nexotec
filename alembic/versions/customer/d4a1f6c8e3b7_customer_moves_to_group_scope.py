@@ -125,8 +125,16 @@ def upgrade() -> None:
             batch.drop_column("tenant_id")
         op.create_index(f"ix_{table_name}_group_id", table_name, ["group_id"])
 
+    # No explicit drop of uq_customer_external_id_tenant_system_external here:
+    # it's a table-local constraint on tenant_id, which the loop above already
+    # dropped via batch.drop_column("tenant_id") — Postgres cascades that drop
+    # to any constraint referencing the column without needing CASCADE, since
+    # the dependency is internal to the table. Dropping it again by name here
+    # (as an earlier version of this migration did) fails with
+    # psycopg.errors.UndefinedObject once run against real Postgres — SQLite's
+    # create_all()-based test lane never exercises alembic migrations at all,
+    # so this only surfaced once CI actually ran `alembic upgrade heads`.
     with op.batch_alter_table("customer_external_id") as batch:
-        batch.drop_constraint("uq_customer_external_id_tenant_system_external", type_="unique")
         batch.create_unique_constraint(
             "uq_customer_external_id_group_system_external", ["group_id", "system_name", "external_id"]
         )
