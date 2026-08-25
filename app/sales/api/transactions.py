@@ -1,5 +1,5 @@
 """Transaction endpoints (issue #6): the connective master record linking
-Customer + Vehicle + User + Dealer.
+Customer + Vehicle + User + Dealership.
 
 Flat endpoints (`/v1/transactions`, not `/v1/dealers/{id}/transactions`),
 same shape as Customer — tenant is resolved from the JWT only, Transaction
@@ -26,7 +26,7 @@ from app.core.idempotency import find_cached_response, store_response
 from app.core.pagination import PageParams, page_params
 from app.core.permissions import require_read, require_write
 from app.db import get_db
-from app.platform.public import get_dealer_or_404
+from app.platform.public import get_dealership_or_404
 from app.sales.models.transaction import TransactionStatus, TransactionType
 from app.sales.schemas.transaction import (
     TransactionCancelRequest,
@@ -54,7 +54,7 @@ def create_transaction(
 ):
     # Same defensive check as Customer create — tenant is JWT-derived here,
     # no path param to validate against (see module docstring).
-    get_dealer_or_404(db, principal.tenant_id)
+    get_dealership_or_404(db, principal.tenant_id)
 
     request_body = body.model_dump(mode="json", by_alias=True)
     if idempotency_key:

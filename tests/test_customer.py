@@ -44,7 +44,7 @@ def _create_dealer(client) -> str:
         "phone": "+41441234567",
         "taxId": "CHE-123.456.789",
     }
-    response = client.post("/v1/dealers", json=payload, headers=_bearer(token))
+    response = client.post("/v1/dealerships", json=payload, headers=_bearer(token))
     assert response.status_code == 201, response.text
     return response.json()["id"]
 

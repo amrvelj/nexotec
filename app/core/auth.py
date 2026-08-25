@@ -3,7 +3,7 @@
 The concrete IdP is unselected (spec cross-cutting #10) — User.auth_identity_id
 is a placeholder FK to an external subject and MDM never stores credentials.
 This module only defines the *shape* of the trust boundary so downstream
-issues (#2 Dealer/User bootstrap) can plug a real token-issuance flow in
+issues (#2 Dealership/User bootstrap) can plug a real token-issuance flow in
 without changing how every other endpoint gates access. Until then,
 create_access_token() is the only issuer, gated to tests/local dev.
 

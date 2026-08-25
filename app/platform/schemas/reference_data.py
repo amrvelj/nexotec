@@ -8,7 +8,7 @@ from app.core.schemas import CamelModel
 
 class ReferenceValueCreate(CamelModel):
     """list_code is not part of the body — it comes from the
-    POST /v1/reference-data/{list_code} path, same shape as User under Dealer.
+    POST /v1/reference-data/{list_code} path, same shape as User under Dealership.
     """
 
     value_code: str = Field(max_length=64, min_length=1)

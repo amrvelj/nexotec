@@ -1,11 +1,11 @@
 """Customer endpoints (issue #4).
 
-Unlike Dealer/User, these routes are flat (`/v1/customers`, not
+Unlike Dealership/User, these routes are flat (`/v1/customers`, not
 `/v1/dealers/{id}/customers`) — the spec's literal endpoint list has no
 dealer_id path segment, and Customer is "not shared cross-tenant in v1"
 (spec §1), so tenant is resolved purely from the JWT (principal.tenant_id),
 with no path param to validate against. This also means platform_admin has
-no special cross-tenant reach here (unlike Dealer, where require_tenant_match
+no special cross-tenant reach here (unlike Dealership, where require_tenant_match
 explicitly lets platform_admin bypass the match) — Round 3's access-control
 notes scope platform_admin's cross-tenant power to "dealer onboarding only,"
 and Customer isn't part of that.
@@ -55,7 +55,7 @@ from app.customer.schemas.customer import (
 )
 from app.customer.services import customer as customer_service
 from app.db import get_db
-from app.platform.public import get_dealer_or_404
+from app.platform.public import get_dealership_or_404
 
 router = APIRouter(tags=["customers"])
 settings = get_settings()
@@ -93,10 +93,10 @@ def create_customer(
     db: Session = Depends(get_db),
 ):
     # Tenant is JWT-derived here (no path param to validate — see module
-    # docstring), so unlike Dealer/User this 404 guards against a token
-    # whose tenant_id claim doesn't match a real Dealer, catching that as a
+    # docstring), so unlike Dealership/User this 404 guards against a token
+    # whose tenant_id claim doesn't match a real Dealership, catching that as a
     # clean 404 instead of an unhandled FK-violation 500 on insert.
-    get_dealer_or_404(db, principal.tenant_id)
+    get_dealership_or_404(db, principal.tenant_id)
 
     request_body = body.model_dump(mode="json", by_alias=True)
     if idempotency_key:
@@ -375,7 +375,7 @@ def create_customer_external_id(
 ):
     # Tenant-agnostic lookup, not get_customer_or_404(principal.tenant_id,
     # ...): platform_admin's principal.tenant_id is a synthetic claim, not a
-    # real dealer — and unlike Dealer's, Customer's own module docstring
+    # real dealer — and unlike Dealership's, Customer's own module docstring
     # explicitly scopes platform_admin's cross-tenant reach to "dealer
     # onboarding only." CustomerExternalId is the one deliberate exception
     # to that (Anto's ruling, 2026-08-07: this is a platform-managed CRM/OEM

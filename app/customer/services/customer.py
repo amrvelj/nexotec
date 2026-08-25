@@ -2,7 +2,7 @@
 and merge. PII changes (name/email/phone/address) and lifecycle_status
 transitions are audit-logged with before/after (spec: "Every change to PII
 ... is audit-logged"; lifecycle_status added for the same accountability
-reason Dealer/User audit their status fields).
+reason Dealership/User audit their status fields).
 """
 
 import uuid
@@ -408,7 +408,7 @@ def create_customer(db: Session, *, tenant_id: uuid.UUID, data: CustomerCreate, 
         customer.address_house_number = data.address.house_number
         customer.address_postal_code = data.address.postal_code
         customer.address_locality = data.address.locality
-        # No canton on CustomerAddress (unlike Dealer's) — the client never
+        # No canton on CustomerAddress (unlike Dealership's) — the client never
         # supplies it, it's derived server-side from the postal code (D-13).
         customer.address_canton = derive_canton(data.address.postal_code, data.address.country)
         customer.address_country = data.address.country

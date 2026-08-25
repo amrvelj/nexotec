@@ -83,7 +83,7 @@ def _fernet() -> Fernet:
 
 class EncryptedString(TypeDecorator):
     """Field-level encryption at rest (Fernet/AES-128-CBC+HMAC) for columns
-    like Dealer.tax_id. Interim mechanism: a single static key from settings,
+    like Dealership.tax_id. Interim mechanism: a single static key from settings,
     not a KMS-backed per-tenant key — see the key-management note on
     `Settings.tax_id_encryption_key`. Encrypted ciphertext is base64 text,
     portable across SQLite (tests) and Postgres without dialect branches.

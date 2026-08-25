@@ -16,7 +16,7 @@ export type UserStatus = 'invited' | 'active' | 'suspended' | 'deactivated'
 
 export interface UserRead {
   id: string
-  dealerId: string
+  dealershipId: string
   firstName: string
   lastName: string
   email: string

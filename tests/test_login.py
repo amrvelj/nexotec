@@ -43,7 +43,7 @@ def _create_dealer(client) -> str:
         "phone": "+41441234567",
         "taxId": "CHE-123.456.789",
     }
-    response = client.post("/v1/dealers", json=payload, headers=_bearer(token))
+    response = client.post("/v1/dealerships", json=payload, headers=_bearer(token))
     assert response.status_code == 201, response.text
     return response.json()["id"]
 
@@ -61,7 +61,7 @@ def _create_user(client, dealer_id: str, **overrides) -> dict:
     }
     payload.update(overrides)
     response = client.post(
-        f"/v1/dealers/{dealer_id}/users", json=payload, headers=_bearer(platform_admin_token)
+        f"/v1/dealerships/{dealer_id}/users", json=payload, headers=_bearer(platform_admin_token)
     )
     assert response.status_code == 201, response.text
     return response.json()
@@ -70,7 +70,7 @@ def _create_user(client, dealer_id: str, **overrides) -> dict:
 def _set_credential(client, dealer_id: str, user_id: str, password: str, *, token: str | None = None):
     token = token or _token(AccessRole.PLATFORM_ADMIN)
     return client.post(
-        f"/v1/dealers/{dealer_id}/users/{user_id}/credential",
+        f"/v1/dealerships/{dealer_id}/users/{user_id}/credential",
         json={"password": password},
         headers=_bearer(token),
     )
@@ -127,7 +127,7 @@ def test_credential_set_and_reset_are_audit_logged(client):
     _set_credential(client, dealer_id, user["id"], "correct horse battery staple", token=admin_token)
     _set_credential(client, dealer_id, user["id"], "a different password", token=admin_token)
 
-    log = client.get(f"/v1/dealers/{dealer_id}/audit-log", headers=_bearer(admin_token))
+    log = client.get(f"/v1/dealerships/{dealer_id}/audit-log", headers=_bearer(admin_token))
     assert log.status_code == 200
     events = [item for item in log.json()["items"] if item["entityId"] == user["id"]]
     actions = [item["action"] for item in events]
@@ -222,7 +222,7 @@ def test_session_cookie_authenticates_subsequent_requests(client):
     # on the jar's behavior).
     client.cookies.set("dms_session", token)
     try:
-        response = client.get(f"/v1/dealers/{dealer_id}/users/{user['id']}")
+        response = client.get(f"/v1/dealerships/{dealer_id}/users/{user['id']}")
     finally:
         client.cookies.delete("dms_session")
     assert response.status_code == 200
@@ -334,7 +334,7 @@ def test_login_blocked_for_suspended_or_deactivated_user(client, status):
 
     admin_token = _token(AccessRole.PLATFORM_ADMIN)
     client.patch(
-        f"/v1/dealers/{dealer_id}/users/{user['id']}",
+        f"/v1/dealerships/{dealer_id}/users/{user['id']}",
         json={"status": status},
         headers={**_bearer(admin_token), "If-Match": "1"},
     )

@@ -57,7 +57,7 @@ def list_tenant_audit_events(
 ) -> tuple[list[AuditEvent], str | None]:
     """Full audit trail for a tenant across every entity type — the shape
     GET /v1/dealers/{id}/audit-log needs, since the spec lists one audit-log
-    endpoint per Dealer rather than a separate one per sub-entity (User).
+    endpoint per Dealership rather than a separate one per sub-entity (User).
     """
 
     stmt = select(AuditEvent).where(AuditEvent.tenant_id == tenant_id)

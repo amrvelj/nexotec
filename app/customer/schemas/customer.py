@@ -42,8 +42,8 @@ from app.customer.models.vehicle_party import VehiclePartyRole
 
 
 class CustomerAddress(CamelModel):
-    """Write-side address. Deliberately not DealerAddress: the client never
-    supplies `canton`. Dealer's canton is tied to its license/regulatory
+    """Write-side address. Deliberately not DealershipAddress: the client never
+    supplies `canton`. Dealership's canton is tied to its license/regulatory
     record and is user-entered; Customer's is *derived* from the Swiss
     postal code server-side (D-13) and is therefore read-only — see
     CustomerAddressRead below.
@@ -216,7 +216,7 @@ class CustomerRead(CamelModel):
     company_name: str | None
     legal_form: LegalForm | None
     # tax_id deliberately absent — write-only, same convention as
-    # DealerRead never returning Dealer.tax_id.
+    # DealershipRead never returning Dealership.tax_id.
     preferred_channel: PreferredChannel | None
     address: CustomerAddressRead | None
     lifecycle_status: CustomerLifecycleStatus

@@ -28,10 +28,11 @@ def get_or_404(db: Session, model: type[ModelT], entity_id: uuid.UUID, tenant_id
 
 
 def require_tenant_match(resource_tenant_id: uuid.UUID, principal: Principal) -> None:
-    """For entities that *are* the tenant (Dealer has no tenant_id column of
-    its own to filter on via get_or_404) — the caller must be platform_admin
-    or the dealer's own principal. Cross-tenant access still 404s, never 403s.
+    """For entities that *are* the tenant (Dealership has no tenant_id column
+    of its own to filter on via get_or_404) — the caller must be
+    platform_admin or the dealership's own principal. Cross-tenant access
+    still 404s, never 403s.
     """
 
     if AccessRole.PLATFORM_ADMIN not in principal.roles and principal.tenant_id != resource_tenant_id:
-        raise NotFoundError(f"Dealer {resource_tenant_id} was not found.")
+        raise NotFoundError(f"Dealership {resource_tenant_id} was not found.")

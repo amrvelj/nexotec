@@ -43,7 +43,7 @@ def _create_dealer(client) -> str:
         "phone": "+41441234567",
         "taxId": "CHE-123.456.789",
     }
-    response = client.post("/v1/dealers", json=payload, headers=_bearer(token))
+    response = client.post("/v1/dealerships", json=payload, headers=_bearer(token))
     assert response.status_code == 201, response.text
     return response.json()["id"]
 
@@ -64,7 +64,7 @@ def _user_payload(**overrides):
 
 def _create_user(client, dealer_id: str, platform_admin_token: str, **overrides):
     response = client.post(
-        f"/v1/dealers/{dealer_id}/users",
+        f"/v1/dealerships/{dealer_id}/users",
         json=_user_payload(**overrides),
         headers=_bearer(platform_admin_token),
     )
@@ -80,7 +80,7 @@ def test_platform_admin_bootstraps_dealer_and_initial_admin_user(client):
     dealer_id = _create_dealer(client)
 
     user = _create_user(client, dealer_id, platform_admin_token)
-    assert user["dealerId"] == dealer_id
+    assert user["dealershipId"] == dealer_id
     assert user["status"] == "invited"
     assert user["isDealerManager"] is True
     assert user["accessRoles"] == ["sales"]
@@ -98,7 +98,7 @@ def test_dealer_admin_can_add_staff_within_own_tenant(client):
         is_dealer_manager=True,
     )
     response = client.post(
-        f"/v1/dealers/{dealer_id}/users",
+        f"/v1/dealerships/{dealer_id}/users",
         json=_user_payload(email="bob@example.ch", role="sales", accessRole="sales"),
         headers=_bearer(dealer_admin_token),
     )
@@ -110,7 +110,7 @@ def test_dealer_admin_cannot_add_staff_to_other_dealer(client):
     other_dealer_admin_token = _token(is_dealer_manager=True)  # different, random tenant_id
 
     response = client.post(
-        f"/v1/dealers/{dealer_id}/users",
+        f"/v1/dealerships/{dealer_id}/users",
         json=_user_payload(email="intruder@example.ch"),
         headers=_bearer(other_dealer_admin_token),
     )
@@ -122,7 +122,7 @@ def test_non_admin_roles_cannot_create_users(client, role):
     dealer_id = _create_dealer(client)
     token = _token(role, tenant_id=uuid.UUID(dealer_id))
     response = client.post(
-        f"/v1/dealers/{dealer_id}/users", json=_user_payload(email="x@example.ch"), headers=_bearer(token)
+        f"/v1/dealerships/{dealer_id}/users", json=_user_payload(email="x@example.ch"), headers=_bearer(token)
     )
     assert response.status_code == 403
 
@@ -130,7 +130,7 @@ def test_non_admin_roles_cannot_create_users(client, role):
 def test_creating_user_under_nonexistent_dealer_is_404(client):
     token = _token(AccessRole.PLATFORM_ADMIN)
     response = client.post(
-        f"/v1/dealers/{uuid.uuid4()}/users", json=_user_payload(), headers=_bearer(token)
+        f"/v1/dealerships/{uuid.uuid4()}/users", json=_user_payload(), headers=_bearer(token)
     )
     assert response.status_code == 404
 
@@ -144,7 +144,7 @@ def test_duplicate_email_is_rejected(client):
     _create_user(client, dealer_id, platform_admin_token, email="dup@example.ch")
 
     response = client.post(
-        f"/v1/dealers/{dealer_id}/users",
+        f"/v1/dealerships/{dealer_id}/users",
         json=_user_payload(email="dup@example.ch"),
         headers=_bearer(platform_admin_token),
     )
@@ -160,7 +160,7 @@ def test_duplicate_email_across_different_dealers_is_still_rejected(client):
     _create_user(client, dealer_a, platform_admin_token, email="shared@example.ch")
 
     response = client.post(
-        f"/v1/dealers/{dealer_b}/users",
+        f"/v1/dealerships/{dealer_b}/users",
         json=_user_payload(email="shared@example.ch"),
         headers=_bearer(platform_admin_token),
     )
@@ -176,7 +176,7 @@ def test_get_user_cross_tenant_is_404(client):
     user = _create_user(client, dealer_id, platform_admin_token)
 
     other_token = _token(is_dealer_manager=True)  # different random tenant_id
-    response = client.get(f"/v1/dealers/{dealer_id}/users/{user['id']}", headers=_bearer(other_token))
+    response = client.get(f"/v1/dealerships/{dealer_id}/users/{user['id']}", headers=_bearer(other_token))
     assert response.status_code == 404
 
 
@@ -193,7 +193,7 @@ def test_terminating_employment_auto_deactivates_status(client):
     user = _create_user(client, dealer_id, platform_admin_token, isDealerManager=False)
 
     response = client.patch(
-        f"/v1/dealers/{dealer_id}/users/{user['id']}",
+        f"/v1/dealerships/{dealer_id}/users/{user['id']}",
         json={"employmentStatus": "terminated"},
         headers={**_bearer(platform_admin_token), "If-Match": "1"},
     )
@@ -210,12 +210,12 @@ def test_terminated_employment_status_is_terminal(client):
 
     headers = _bearer(platform_admin_token)
     client.patch(
-        f"/v1/dealers/{dealer_id}/users/{user['id']}",
+        f"/v1/dealerships/{dealer_id}/users/{user['id']}",
         json={"employmentStatus": "terminated"},
         headers={**headers, "If-Match": "1"},
     )
     response = client.patch(
-        f"/v1/dealers/{dealer_id}/users/{user['id']}",
+        f"/v1/dealerships/{dealer_id}/users/{user['id']}",
         json={"employmentStatus": "active"},
         headers={**headers, "If-Match": "2"},
     )
@@ -231,12 +231,12 @@ def test_role_and_status_changes_are_audit_logged(client):
     user = _create_user(client, dealer_id, platform_admin_token, isDealerManager=False)
 
     client.patch(
-        f"/v1/dealers/{dealer_id}/users/{user['id']}",
+        f"/v1/dealerships/{dealer_id}/users/{user['id']}",
         json={"employmentStatus": "terminated"},
         headers={**_bearer(platform_admin_token), "If-Match": "1"},
     )
 
-    log = client.get(f"/v1/dealers/{dealer_id}/audit-log", headers=_bearer(platform_admin_token))
+    log = client.get(f"/v1/dealerships/{dealer_id}/audit-log", headers=_bearer(platform_admin_token))
     items = log.json()["items"]
     user_events = [item for item in items if item["entityId"] == user["id"]]
     assert any(e["action"] == "create" for e in user_events)
@@ -263,7 +263,7 @@ def test_list_users_filters_by_role_and_status(client):
         accessRoles=["inventory"],
     )
 
-    response = client.get(f"/v1/dealers/{dealer_id}/users?role=sales", headers=_bearer(platform_admin_token))
+    response = client.get(f"/v1/dealerships/{dealer_id}/users?role=sales", headers=_bearer(platform_admin_token))
     assert response.status_code == 200
     items = response.json()["items"]
     assert len(items) == 1
@@ -280,7 +280,7 @@ def test_demoting_the_dealerships_only_manager_is_rejected(client):
     assert user["isDealerManager"] is True
 
     response = client.patch(
-        f"/v1/dealers/{dealer_id}/users/{user['id']}",
+        f"/v1/dealerships/{dealer_id}/users/{user['id']}",
         json={"isDealerManager": False},
         headers={**_bearer(platform_admin_token), "If-Match": "1"},
     )
@@ -293,7 +293,7 @@ def test_deactivating_the_dealerships_only_manager_is_rejected(client):
     user = _create_user(client, dealer_id, platform_admin_token)
 
     response = client.patch(
-        f"/v1/dealers/{dealer_id}/users/{user['id']}",
+        f"/v1/dealerships/{dealer_id}/users/{user['id']}",
         json={"status": "deactivated"},
         headers={**_bearer(platform_admin_token), "If-Match": "1"},
     )
@@ -308,7 +308,7 @@ def test_demoting_a_manager_is_allowed_when_another_active_manager_remains(clien
     assert first["isDealerManager"] is True and second["isDealerManager"] is True
 
     response = client.patch(
-        f"/v1/dealers/{dealer_id}/users/{first['id']}",
+        f"/v1/dealerships/{dealer_id}/users/{first['id']}",
         json={"isDealerManager": False},
         headers={**_bearer(platform_admin_token), "If-Match": "1"},
     )

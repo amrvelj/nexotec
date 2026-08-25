@@ -67,7 +67,7 @@ def auth_client() -> TestClient:
     def customers_write(principal: Principal = Depends(require_write("customers"))):
         return {"ok": True}
 
-    @app.get("/dealership-users/read")
+    @app.get("/dealershipship-users/read")
     def dealership_users_read(principal: Principal = Depends(require_read("dealership_users"))):
         return {"ok": True}
 
@@ -280,13 +280,13 @@ def test_require_read_manager_only_capability_rejects_a_bare_functional_role(aut
     manager-only, not "Any role" — so holding an unrelated functional role
     must not be enough.
     """
-    response = auth_client.get("/dealership-users/read", headers=_bearer(_token(AccessRole.SALES)))
+    response = auth_client.get("/dealershipship-users/read", headers=_bearer(_token(AccessRole.SALES)))
     assert response.status_code == 403
 
 
 def test_require_read_manager_only_capability_admits_a_manager_with_no_functional_role(auth_client):
     response = auth_client.get(
-        "/dealership-users/read", headers=_bearer(_token(is_dealer_manager=True))
+        "/dealershipship-users/read", headers=_bearer(_token(is_dealer_manager=True))
     )
     assert response.status_code == 200
 

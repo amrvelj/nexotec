@@ -1,12 +1,12 @@
-"""User: a person acting on behalf of a Dealer. User.tenant_id (inherited
-from TenantScopedMixin) is the spec's `dealer_id` field — reusing the shared
-mixin's column name keeps every tenant-scoped entity uniform for
+"""User: a person acting on behalf of a Dealership. User.tenant_id (inherited
+from TenantScopedMixin) is the spec's `dealership_id` field — reusing the
+shared mixin's column name keeps every tenant-scoped entity uniform for
 app.core.tenancy.get_or_404 and friends; the API layer exposes it as
-`dealerId` (see app/platform/schemas/user.py) to match the spec's domain
+`dealershipId` (see app/platform/schemas/user.py) to match the spec's domain
 language.
 
-tenant_id -> dealer.id has no DB-level FK (PR-2, ADR-015): both User and
-Dealer are platform-owned, so this was never actually a cross-context FK,
+tenant_id -> dealership.id has no DB-level FK (PR-2, ADR-015): both User and
+Dealership are platform-owned, so this was never actually a cross-context FK,
 but it's named explicitly in PR-2's scope ("every tenant_id FK to
 dealer.id") so it's dropped here too rather than re-litigated.
 
@@ -64,7 +64,7 @@ class User(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMixin, B
     __tablename__ = "user"
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        GUID(), nullable=False, index=True, comment="Owned by the platform context (Dealer). No DB-level FK."
+        GUID(), nullable=False, index=True, comment="Owned by the platform context (Dealership). No DB-level FK."
     )
 
     first_name: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -100,7 +100,7 @@ class User(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMixin, B
     )
 
     @property
-    def dealer_id(self) -> uuid.UUID:
+    def dealership_id(self) -> uuid.UUID:
         """API-facing alias for tenant_id — see module docstring."""
 
         return self.tenant_id

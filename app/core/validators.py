@@ -1,4 +1,4 @@
-"""Reusable field validators shared across entity schemas (Dealer today;
+"""Reusable field validators shared across entity schemas (Dealership today;
 Customer/Vehicle reuse the same Swiss address/phone shape per the addendum).
 """
 

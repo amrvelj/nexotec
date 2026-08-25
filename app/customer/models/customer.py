@@ -74,7 +74,7 @@ class Salutation(str, enum.Enum):
 
 class LegalForm(str, enum.Enum):
     """Fixed Swiss legal-entity taxonomy (Customer PRD) — hardcoded, not
-    reference-data, same reasoning as Dealer.FranchiseType: this is a legal
+    reference-data, same reasoning as Dealership.FranchiseType: this is a legal
     classification, not a per-tenant configurable list.
     """
 
@@ -140,7 +140,7 @@ class CustomerNumberSequence(Base):
     __tablename__ = "customer_number_sequence"
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        GUID(), primary_key=True, comment="Owned by the platform context (Dealer). No DB-level FK (PR-2, ADR-015)."
+        GUID(), primary_key=True, comment="Owned by the platform context (Dealership). No DB-level FK (PR-2, ADR-015)."
     )
     next_value: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
@@ -154,7 +154,7 @@ class Customer(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMixi
     # Overrides TenantScopedMixin's bare column — no DB-level FK to dealer.id
     # (PR-2, ADR-015). Owned by the platform context; reconciled nightly.
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        GUID(), nullable=False, index=True, comment="Owned by the platform context (Dealer). No DB-level FK."
+        GUID(), nullable=False, index=True, comment="Owned by the platform context (Dealership). No DB-level FK."
     )
 
     # Immutable business key, allocated at creation. Indexed because it is a
@@ -184,7 +184,7 @@ class Customer(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMixi
     legal_form: Mapped[LegalForm | None] = mapped_column(
         SAEnum(LegalForm, native_enum=False, length=32), nullable=True
     )
-    # Encrypted at rest (EncryptedString), same as Dealer.tax_id — CTO
+    # Encrypted at rest (EncryptedString), same as Dealership.tax_id — CTO
     # ruling, 2026-08-07: consistency, cheap to apply. Format + mod-11 check
     # digit validated at the schema boundary since Phase B (D-16).
     tax_id: Mapped[str | None] = mapped_column(EncryptedString(), nullable=True)
@@ -230,7 +230,7 @@ class Customer(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMixi
     def address(self) -> dict[str, str | None] | None:
         """Read-side convenience: flat address_* columns as a nested dict,
         matching app.customer.schemas.customer.CustomerRead. None when no address was
-        ever set (address is optional at creation, unlike Dealer's).
+        ever set (address is optional at creation, unlike Dealership's).
         """
 
         if self.address_street is None:
@@ -256,7 +256,7 @@ class CustomerPhone(PrimaryKeyMixin, TimestampMixin, Base):
     __table_args__ = (UniqueConstraint("customer_id", "phone_e164", name="uq_customer_phone_customer_id_e164"),)
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        GUID(), nullable=False, index=True, comment="Owned by the platform context (Dealer). No DB-level FK."
+        GUID(), nullable=False, index=True, comment="Owned by the platform context (Dealership). No DB-level FK."
     )
     customer_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("customer.id"), nullable=False, index=True)
     phone_type: Mapped[PhoneType] = mapped_column(SAEnum(PhoneType, native_enum=False, length=16), nullable=False)
@@ -281,7 +281,7 @@ class CustomerEmail(PrimaryKeyMixin, TimestampMixin, Base):
     )
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        GUID(), nullable=False, index=True, comment="Owned by the platform context (Dealer). No DB-level FK."
+        GUID(), nullable=False, index=True, comment="Owned by the platform context (Dealership). No DB-level FK."
     )
     customer_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("customer.id"), nullable=False, index=True)
     email_type: Mapped[EmailType] = mapped_column(SAEnum(EmailType, native_enum=False, length=16), nullable=False)
@@ -311,7 +311,7 @@ class CustomerExternalId(PrimaryKeyMixin, TimestampMixin, Base):
     )
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
-        GUID(), nullable=False, index=True, comment="Owned by the platform context (Dealer). No DB-level FK."
+        GUID(), nullable=False, index=True, comment="Owned by the platform context (Dealership). No DB-level FK."
     )
     customer_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("customer.id"), nullable=False, index=True)
     system_name: Mapped[str] = mapped_column(String(100), nullable=False)

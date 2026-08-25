@@ -1,4 +1,4 @@
-"""User service layer: create/read/update within a Dealer tenant, plus the
+"""User service layer: create/read/update within a Dealership tenant, plus the
 audit-logging and lifecycle rules the spec calls out (role/status changes,
 especially `terminated`, are audit-logged for access-deprovisioning
 accountability).
@@ -69,19 +69,19 @@ def _assert_not_last_manager(db: Session, *, tenant_id: uuid.UUID, excluding_use
         )
 
 
-def get_user_or_404(db: Session, dealer_id: uuid.UUID, user_id: uuid.UUID) -> User:
-    return get_or_404(db, User, user_id, dealer_id)
+def get_user_or_404(db: Session, dealership_id: uuid.UUID, user_id: uuid.UUID) -> User:
+    return get_or_404(db, User, user_id, dealership_id)
 
 
 def list_users(
     db: Session,
     *,
-    dealer_id: uuid.UUID,
+    dealership_id: uuid.UUID,
     role: str | None,
     status: UserStatus | None,
     params: PageParams,
 ) -> tuple[list[User], str | None]:
-    stmt = select(User).where(User.tenant_id == dealer_id)
+    stmt = select(User).where(User.tenant_id == dealership_id)
     if role is not None:
         stmt = stmt.where(User.role == role)
     if status is not None:
@@ -91,9 +91,9 @@ def list_users(
     return build_page(rows, params)
 
 
-def create_user(db: Session, *, dealer_id: uuid.UUID, data: UserCreate, actor_id: uuid.UUID) -> User:
+def create_user(db: Session, *, dealership_id: uuid.UUID, data: UserCreate, actor_id: uuid.UUID) -> User:
     user = User(
-        tenant_id=dealer_id,
+        tenant_id=dealership_id,
         first_name=data.first_name,
         last_name=data.last_name,
         email=data.email,
@@ -119,7 +119,7 @@ def create_user(db: Session, *, dealer_id: uuid.UUID, data: UserCreate, actor_id
         db,
         entity_type="user",
         entity_id=user.id,
-        tenant_id=dealer_id,
+        tenant_id=dealership_id,
         action="create",
         actor_id=actor_id,
         after={

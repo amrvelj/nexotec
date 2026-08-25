@@ -13,7 +13,7 @@ from app.customer.models.customer import (
     CustomerPhone,
 )
 from app.customer.models.vehicle_party import VehicleParty
-from app.platform.public import Dealer
+from app.platform.public import Dealership
 from app.vehicle.public import Vehicle
 
 CONTEXT = "customer"
@@ -28,44 +28,44 @@ CHECKS = [
         target_id_column=Vehicle.id,
     ),
     ReferenceCheck(
-        label="customer.tenant_id -> dealer.id",
+        label="customer.tenant_id -> dealership.id",
         source_model=Customer,
         source_row_id_column=Customer.id,
         source_fk_column=Customer.tenant_id,
-        target_model=Dealer,
-        target_id_column=Dealer.id,
+        target_model=Dealership,
+        target_id_column=Dealership.id,
     ),
     ReferenceCheck(
-        label="customer_number_sequence.tenant_id -> dealer.id",
+        label="customer_number_sequence.tenant_id -> dealership.id",
         source_model=CustomerNumberSequence,
         source_row_id_column=CustomerNumberSequence.tenant_id,
         source_fk_column=CustomerNumberSequence.tenant_id,
-        target_model=Dealer,
-        target_id_column=Dealer.id,
+        target_model=Dealership,
+        target_id_column=Dealership.id,
     ),
     ReferenceCheck(
-        label="customer_phone.tenant_id -> dealer.id",
+        label="customer_phone.tenant_id -> dealership.id",
         source_model=CustomerPhone,
         source_row_id_column=CustomerPhone.id,
         source_fk_column=CustomerPhone.tenant_id,
-        target_model=Dealer,
-        target_id_column=Dealer.id,
+        target_model=Dealership,
+        target_id_column=Dealership.id,
     ),
     ReferenceCheck(
-        label="customer_email.tenant_id -> dealer.id",
+        label="customer_email.tenant_id -> dealership.id",
         source_model=CustomerEmail,
         source_row_id_column=CustomerEmail.id,
         source_fk_column=CustomerEmail.tenant_id,
-        target_model=Dealer,
-        target_id_column=Dealer.id,
+        target_model=Dealership,
+        target_id_column=Dealership.id,
     ),
     ReferenceCheck(
-        label="customer_external_id.tenant_id -> dealer.id",
+        label="customer_external_id.tenant_id -> dealership.id",
         source_model=CustomerExternalId,
         source_row_id_column=CustomerExternalId.id,
         source_fk_column=CustomerExternalId.tenant_id,
-        target_model=Dealer,
-        target_id_column=Dealer.id,
+        target_model=Dealership,
+        target_id_column=Dealership.id,
     ),
 ]
 

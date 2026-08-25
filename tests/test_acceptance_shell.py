@@ -63,7 +63,7 @@ def _create_dealer(client, **overrides) -> str:
         "taxId": "CHE-123.456.789",
     }
     payload.update(overrides)
-    response = client.post("/v1/dealers", json=payload, headers=_bearer(token))
+    response = client.post("/v1/dealerships", json=payload, headers=_bearer(token))
     assert response.status_code == 201, response.text
     return response.json()["id"]
 
@@ -80,7 +80,7 @@ def _create_user(client, dealer_id: str, **overrides) -> dict:
         "authIdentityId": "stub-sub-1",
     }
     payload.update(overrides)
-    response = client.post(f"/v1/dealers/{dealer_id}/users", json=payload, headers=_bearer(admin_token))
+    response = client.post(f"/v1/dealerships/{dealer_id}/users", json=payload, headers=_bearer(admin_token))
     assert response.status_code == 201, response.text
     return response.json()
 
@@ -88,7 +88,7 @@ def _create_user(client, dealer_id: str, **overrides) -> dict:
 def _set_credential(client, dealer_id: str, user_id: str, password: str) -> None:
     admin_token = _token(AccessRole.PLATFORM_ADMIN)
     response = client.post(
-        f"/v1/dealers/{dealer_id}/users/{user_id}/credential",
+        f"/v1/dealerships/{dealer_id}/users/{user_id}/credential",
         json={"password": password},
         headers=_bearer(admin_token),
     )
@@ -139,7 +139,7 @@ def _create_customer(client, headers: dict[str, str], **overrides) -> dict:
 def test_ac1_platform_admin_bootstraps_dealer_and_admin_user(client):
     dealer_id = _create_dealer(client)
     user = _create_user(client, dealer_id)
-    assert user["dealerId"] == dealer_id
+    assert user["dealershipId"] == dealer_id
     assert user["isDealerManager"] is True
 
 
@@ -404,11 +404,11 @@ def test_ac5_audit_trail_covers_all_four_entities(client):
 
     # Dealer: license field change.
     client.patch(
-        f"/v1/dealers/{dealer_id}",
+        f"/v1/dealerships/{dealer_id}",
         json={"dealerLicenseNumber": "ZH-99999"},
         headers={**admin_token, "If-Match": "1"},
     )
-    dealer_log = client.get(f"/v1/dealers/{dealer_id}/audit-log", headers=admin_token).json()["items"]
+    dealer_log = client.get(f"/v1/dealerships/{dealer_id}/audit-log", headers=admin_token).json()["items"]
     assert any(
         e["action"] == "update" and e["after"].get("dealer_license_number") == "ZH-99999" for e in dealer_log
     )

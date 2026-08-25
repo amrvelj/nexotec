@@ -62,7 +62,7 @@ def _create_dealer(client) -> str:
         "phone": "+41441234567",
         "taxId": "CHE-123.456.789",
     }
-    response = client.post("/v1/dealers", json=payload, headers=_bearer(token))
+    response = client.post("/v1/dealerships", json=payload, headers=_bearer(token))
     assert response.status_code == 201, response.text
     return response.json()["id"]
 
@@ -79,7 +79,7 @@ def _create_user(client, dealer_id: str, **overrides) -> dict:
         "authIdentityId": "stub-sub-1",
     }
     payload.update(overrides)
-    response = client.post(f"/v1/dealers/{dealer_id}/users", json=payload, headers=_bearer(admin_token))
+    response = client.post(f"/v1/dealerships/{dealer_id}/users", json=payload, headers=_bearer(admin_token))
     assert response.status_code == 201, response.text
     return response.json()
 
@@ -222,7 +222,7 @@ def test_customer_reconciliation_detects_orphaned_tenant_id(client, db_session):
         customer_reconciliation.run(db_session)
 
     assert exc_info.value.run.orphans_found == 1
-    assert exc_info.value.orphans[0].check_label == "customer.tenant_id -> dealer.id"
+    assert exc_info.value.orphans[0].check_label == "customer.tenant_id -> dealership.id"
 
 
 def test_vehicle_reconciliation_detects_orphaned_custody_event_partner(client, db_session):
@@ -243,7 +243,7 @@ def test_vehicle_reconciliation_detects_orphaned_custody_event_partner(client, d
         vehicle_reconciliation.run(db_session)
 
     assert exc_info.value.run.orphans_found == 1
-    assert exc_info.value.orphans[0].check_label == "vehicle_custody_event.partner_id -> dealer.id"
+    assert exc_info.value.orphans[0].check_label == "vehicle_custody_event.partner_id -> dealership.id"
 
 
 def test_sales_reconciliation_detects_orphaned_customer_id(client, db_session):
@@ -307,8 +307,8 @@ def test_no_hard_delete_endpoint_exists_for_fk_target_entities(client):
     delete_paths = {path for path, methods in schema["paths"].items() if "delete" in methods}
 
     for forbidden in (
-        "/v1/dealers/{dealer_id}",
-        "/v1/dealers/{dealer_id}/users/{user_id}",
+        "/v1/dealerships/{dealer_id}",
+        "/v1/dealerships/{dealer_id}/users/{user_id}",
         "/v1/customers/{customer_id}",
         "/v1/vehicles/{vehicle_id}",
         "/v1/transactions/{transaction_id}",

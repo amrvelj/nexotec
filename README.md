@@ -1,7 +1,8 @@
 # dms-platform
 
-Backend for the Automotive DMS Master Data Management (MDM) shell — Dealer,
-User, Customer, Vehicle, and Transaction, built for the Swiss market.
+Backend for the Automotive DMS Master Data Management (MDM) shell —
+Dealership, User, Customer, Vehicle, and Transaction, built for the Swiss
+market.
 
 Spec of record: `PLANS/DMS_MDM_V1_SPEC.md` + `PLANS/DMS_MDM_V1_SWISS_ADDENDUM.md`
 in the CTO workspace.
@@ -22,16 +23,20 @@ in the CTO workspace.
 - Reusable model mixins for future entities (`app/core/base.py`)
 - Alembic migrations targeting Postgres
 
-**Issue #2: Dealer + User bootstrap** — the first business entities:
+**Issue #2: Dealership + User bootstrap** — the first business entities:
 
-- `Dealer` (`app/platform/models/dealer.py`): the tenant root, Swiss address,
-  canton validation, `tax_id` encrypted at rest (`app/core/types.py::EncryptedString`)
+- `Dealership` (`app/platform/models/dealership.py`, renamed from `Dealer` in
+  WP-3): the tenant root, Swiss address, canton validation, `tax_id`
+  encrypted at rest (`app/core/types.py::EncryptedString`). WP-3 adds
+  `DealerGroup` and `Location` in the same module — the three-level
+  organisation model (group → dealership → location, ADR-014); the
+  dealership stays the tenant, `tenant_id` unchanged.
 - `User` (`app/platform/models/user.py`): tenant-scoped, first FK relationship
-  in the schema (`user.tenant_id → dealer.id`), globally-unique email
-- `POST /v1/dealers` (platform-admin only), `POST /v1/dealers/{id}/users`,
-  full CRUD + audit-log endpoints — see `app/platform/api/dealers.py`
-- License/tax_id/status (Dealer) and role/access_role/status (User) changes
-  are audit-logged; `offboarded` and `terminated` are terminal states
+  in the schema (`user.tenant_id → dealership.id`), globally-unique email
+- `POST /v1/dealerships` (platform-admin only), `POST /v1/dealerships/{id}/users`,
+  full CRUD + audit-log endpoints — see `app/platform/api/dealerships.py`
+- License/tax_id/status (Dealership) and role/access_role/status (User)
+  changes are audit-logged; `offboarded` and `terminated` are terminal states
 - Postgres CI test lane (see "Running tests") — CTO's merge condition, since
   this is the first PR with a real FK to verify against Postgres, not just
   SQLite's more permissive constraint enforcement
@@ -195,9 +200,10 @@ MediaAsset integrations — per the shell scope agreed in `#dms-mdm`.
 Customer/Vehicle/Transaction — issues #4 through #6, each an independent PR
 against this foundation. Real IdP integration is still unselected —
 `app.core.auth.create_access_token` remains a placeholder issuer for
-tests/local dev only, not exposed over HTTP; issue #2's `POST /v1/dealers`
-+ `POST /v1/dealers/{id}/users` create the tenant/user *records*, not
+tests/local dev only, not exposed over HTTP; issue #2's `POST /v1/dealerships`
++ `POST /v1/dealerships/{id}/users` create the tenant/user *records*, not
 credentials — see the PR notes for how the first platform_admin token is
-minted in the shell. Dealer groups (`parent_group_id`) and multi-dealer
-users are still explicitly deferred past v1; per-capability permissions
-(WP-2 PR-2) landed — see `app.core.permissions.CAPABILITY_MATRIX`.
+minted in the shell. Dealer groups (WP-3 PR-1, `DealerGroup`) landed; a
+multi-dealership switcher and per-user memberships are still explicitly
+deferred to WP-3 PR-3. Per-capability permissions (WP-2 PR-2) landed — see
+`app.core.permissions.CAPABILITY_MATRIX`.

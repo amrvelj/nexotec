@@ -51,7 +51,7 @@ class OutboxMessage(PrimaryKeyMixin, Base):
     event_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     occurred_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), nullable=False)
     tenant_id: Mapped[uuid.UUID | None] = mapped_column(
-        GUID(), nullable=True, comment="Owned by the platform context (Dealer). No DB-level FK."
+        GUID(), nullable=True, comment="Owned by the platform context (Dealership). No DB-level FK."
     )
     producer: Mapped[str] = mapped_column(String(32), nullable=False)
     aggregate_type: Mapped[str] = mapped_column(String(64), nullable=False)

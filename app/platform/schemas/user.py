@@ -10,8 +10,8 @@ from app.platform.models.user import EmploymentStatus, UserRole, UserStatus
 
 
 class UserCreate(CamelModel):
-    """dealer_id is not part of the body — it comes from the
-    POST /v1/dealers/{id}/users path, per the spec's endpoint shape.
+    """dealership_id is not part of the body — it comes from the
+    POST /v1/dealerships/{id}/users path, per the spec's endpoint shape.
 
     access_roles/is_dealer_manager (WP-2 PR-2) replace the old scalar
     access_role — at least one functional role is required even for a
@@ -45,7 +45,7 @@ class UserUpdate(CamelModel):
 
 class UserRead(CamelModel):
     id: uuid.UUID
-    dealer_id: uuid.UUID
+    dealership_id: uuid.UUID
     first_name: str
     last_name: str
     email: str

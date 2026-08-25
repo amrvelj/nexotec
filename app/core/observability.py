@@ -103,7 +103,7 @@ class JSONLogFormatter(logging.Formatter):
     Redacts any `extra={}` field whose NAME is in app.core.redact's
     SECRET_FIELDS (WP-2 PR-4 — "secrets are never logged, redact at the
     logging boundary") — the same set app.customer.services.customer and
-    app.platform.services.dealer redact with before writing to the audit
+    app.platform.services.dealership redact with before writing to the audit
     log, applied here too so the same field can't leak back in through a
     log line that happens to carry it.
     """

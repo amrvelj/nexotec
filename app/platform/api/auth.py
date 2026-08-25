@@ -3,7 +3,7 @@
 Interim internal login: bcrypt-hashed credentials in a dedicated table
 (app.platform.models.credential), separate from User's business record. Explicitly
 throwaway — replaced, not extended, once a real external IdP (Auth0/Entra/
-Okta) becomes an actual multi-dealer-SSO requirement. The JWT is delivered
+Okta) becomes an actual multi-dealership-SSO requirement. The JWT is delivered
 only as an httpOnly + Secure + SameSite=strict cookie, never in the JSON
 response body — an XSS-exposed token in a JS-readable place (localStorage,
 a response the client stores itself) isn't an acceptable trade against
@@ -79,14 +79,14 @@ def get_current_session_user(
     return LoginResponse(user=UserRead.model_validate(user, from_attributes=True))
 
 
-@router.post("/dealers/{dealer_id}/users/{user_id}/credential", status_code=204)
+@router.post("/dealerships/{dealership_id}/users/{user_id}/credential", status_code=204)
 def set_user_credential(
-    dealer_id: uuid.UUID,
+    dealership_id: uuid.UUID,
     user_id: uuid.UUID,
     body: CredentialSetRequest,
     principal: Principal = Depends(require_write("dealership_users")),
     db: Session = Depends(get_db),
 ):
-    require_tenant_match(dealer_id, principal)
-    user = user_service.get_user_or_404(db, dealer_id, user_id)
+    require_tenant_match(dealership_id, principal)
+    user = user_service.get_user_or_404(db, dealership_id, user_id)
     auth_service.set_credential(db, user=user, password=body.password, actor_id=principal.user_id)
