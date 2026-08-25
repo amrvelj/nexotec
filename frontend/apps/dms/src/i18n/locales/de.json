@@ -267,5 +267,10 @@
       "user": "Benutzer {{id}}",
       "actionSuffix": "diesen Kunden"
     }
+  },
+  "signInError": {
+    "title": "Anmeldung fehlgeschlagen",
+    "message": "Die Anmeldung ist fehlgeschlagen. Bitte versuchen Sie es erneut oder wenden Sie sich an Ihre Administratorin bzw. Ihren Administrator.",
+    "retry": "Erneut versuchen"
   }
 }

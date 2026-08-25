@@ -90,10 +90,13 @@ class User(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMixin, B
         default=EmploymentStatus.ACTIVE,
     )
 
-    # Placeholder FK to an external IdP subject (spec cross-cutting #10) —
-    # no credentials stored here. Real IdP integration is still unselected;
-    # see the PR notes for how this is provisioned in the shell.
-    auth_identity_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    # The Zitadel `sub` claim (WP-4, ADR-016) — no credentials stored here,
+    # ever (spec cross-cutting #10). Unique: one external identity maps to
+    # exactly one internal User, checked at login
+    # (app.platform.api.auth::oidc_callback). Provisioning stays entirely
+    # ours — an admin sets this from the person's real Zitadel subject when
+    # creating their User row; Zitadel never auto-provisions one.
+    auth_identity_id: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
 
     status: Mapped[UserStatus] = mapped_column(
         SAEnum(UserStatus, native_enum=False, length=32), nullable=False, default=UserStatus.INVITED

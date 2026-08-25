@@ -3,6 +3,7 @@ import { AuthProvider } from './auth/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { DmsShell } from './layout/DmsShell'
 import { LoginPage } from './pages/LoginPage'
+import { SignInErrorPage } from './pages/SignInErrorPage'
 import { CustomersListPage } from './pages/CustomersListPage'
 import { CustomerCreatePage } from './pages/CustomerCreatePage'
 import { CustomerDetailPage } from './pages/CustomerDetailPage'
@@ -23,6 +24,7 @@ export default function App() {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/sign-in-error" element={<SignInErrorPage />} />
           <Route element={<ProtectedLayout />}>
             <Route path="/customers" element={<CustomersListPage />} />
             <Route path="/customers/new" element={<CustomerCreatePage />} />

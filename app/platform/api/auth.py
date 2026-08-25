@@ -1,19 +1,23 @@
-"""Login/logout + credential management (issue #8).
+"""Login/logout via Zitadel (WP-4, ADR-016/ADR-007) + credential management
+(issue #8, being retired alongside the login cutover — see
+app.platform.services.auth's own docstring).
 
-Interim internal login: bcrypt-hashed credentials in a dedicated table
-(app.platform.models.credential), separate from User's business record. Explicitly
-throwaway — replaced, not extended, once a real external IdP (Auth0/Entra/
-Okta) becomes an actual multi-dealership-SSO requirement. The JWT is delivered
-only as an httpOnly + Secure + SameSite=strict cookie, never in the JSON
-response body — an XSS-exposed token in a JS-readable place (localStorage,
-a response the client stores itself) isn't an acceptable trade against
-standard CSRF handling, given this sits in front of customer PII.
+Zitadel authenticates; it never authorises — access_roles/is_dealer_manager
+live on User and are resolved here exactly as the old password login did,
+from the User row matched by auth_identity_id, never from anything Zitadel's
+ID token or userinfo response carries. The session itself is unchanged: an
+httpOnly + Secure + SameSite=strict cookie holding OUR OWN RS256 JWT
+(app.core.auth.create_access_token), never the JSON response body and never
+a Zitadel-issued token — the browser never holds a service token either way.
 """
 
+import logging
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Request, Response
+from fastapi.responses import RedirectResponse
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.auth import (
@@ -29,10 +33,10 @@ from app.core.permissions import require_write
 from app.core.tenancy import require_tenant_match
 from app.db import get_db
 from app.platform.models.dealership import Dealership
+from app.platform.models.user import User, UserStatus
 from app.platform.schemas.auth import (
     CredentialSetRequest,
     DealershipMembershipSummary,
-    LoginRequest,
     LoginResponse,
     LogoutResponse,
     SwitchDealershipRequest,
@@ -41,9 +45,11 @@ from app.platform.schemas.user import UserRead
 from app.platform.services import auth as auth_service
 from app.platform.services import dealership as dealership_service
 from app.platform.services import user as user_service
+from app.platform.services.oidc import OidcClient, OidcError, get_oidc_client
 
 router = APIRouter(tags=["auth"])
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 # Typed dict[str, Any], not inferred — mypy can't distribute a spread of an
 # untyped dict literal across set_cookie/delete_cookie's differently-typed
@@ -73,9 +79,58 @@ def _login_response(db: Session, *, user, active_dealership: Dealership, members
     )
 
 
-@router.post("/auth/login", response_model=LoginResponse)
-def login(body: LoginRequest, response: Response, db: Session = Depends(get_db)):
-    user = auth_service.authenticate(db, email=body.email, password=body.password)
+def _success_redirect_url() -> str:
+    return f"{settings.post_login_redirect_base_url}/"
+
+
+def _error_redirect_url() -> str:
+    return f"{settings.post_login_redirect_base_url}/sign-in-error"
+
+
+@router.get("/auth/oidc/login")
+async def oidc_login(request: Request, oidc: OidcClient = Depends(get_oidc_client)):
+    """A full-page browser navigation to Zitadel's hosted login, never an
+    XHR/fetch target — this package builds no Nexotec login screen at all
+    (see the WP-4 brief). GET, not POST: there is no body, and this has to
+    be something a plain <a href> / window.location.href can trigger.
+    """
+
+    return await oidc.begin_login(request)
+
+
+@router.get("/auth/oidc/callback")
+async def oidc_callback(
+    request: Request,
+    oidc: OidcClient = Depends(get_oidc_client),
+    db: Session = Depends(get_db),
+):
+    """Zitadel proves WHO; this endpoint decides WHETHER that person may
+    have a Nexotec session and, if so, WHAT they may do here — the second
+    and third parts are entirely ours, resolved the same way the retired
+    password login resolved them: from the matching User row, never from
+    anything Zitadel's token/userinfo response carries.
+
+    On any rejection (denied at Zitadel, no matching User, wrong status)
+    there is no User row to hang an audit event on in the "no match" case,
+    and no behavior change from today's password login in the "wrong
+    status" case (that never audited either) — logged via the structured
+    application logger instead, sub only, never any other claim.
+    """
+
+    try:
+        identity = await oidc.complete_login(request)
+    except OidcError as exc:
+        logger.warning("oidc_login_failed", extra={"reason": str(exc)})
+        return RedirectResponse(_error_redirect_url())
+
+    user = db.scalar(select(User).where(User.auth_identity_id == identity.sub))
+    if user is None:
+        logger.warning("oidc_login_rejected_not_provisioned", extra={"sub": identity.sub})
+        return RedirectResponse(_error_redirect_url())
+    if user.status in (UserStatus.SUSPENDED, UserStatus.DEACTIVATED):
+        logger.warning("oidc_login_rejected_inactive_user", extra={"sub": identity.sub, "user_id": str(user.id)})
+        return RedirectResponse(_error_redirect_url())
+
     dealership = dealership_service.get_dealership_or_404(db, user.tenant_id)
     membership_ids = _membership_ids(db, user_id=user.id, home_dealership_id=user.tenant_id)
     token = create_access_token(
@@ -86,8 +141,14 @@ def login(body: LoginRequest, response: Response, db: Session = Depends(get_db))
         roles=frozenset(AccessRole(role) for role in user.access_roles),
         is_dealer_manager=user.is_dealer_manager,
     )
-    _set_session_cookie(response, token)
-    return _login_response(db, user=user, active_dealership=dealership, membership_ids=membership_ids)
+    # The cookie must be set directly on the Response object this endpoint
+    # actually returns — FastAPI only merges an injected `response: Response`
+    # dependency's headers/cookies into the final response when the route
+    # returns a plain value it wraps itself, not when the route returns its
+    # own Response (RedirectResponse here) explicitly.
+    redirect = RedirectResponse(_success_redirect_url())
+    _set_session_cookie(redirect, token)
+    return redirect
 
 
 @router.post("/auth/logout", response_model=LogoutResponse)

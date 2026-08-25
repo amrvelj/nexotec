@@ -7,7 +7,6 @@ interface AuthContextValue {
   activeDealership: DealershipMembershipSummary | null
   memberships: DealershipMembershipSummary[]
   loading: boolean
-  login: (email: string, password: string) => Promise<void>
   logout: () => Promise<void>
   /** Re-issues the session against a different dealership from
    * `memberships` (WP-3 PR-3) — the sidebar switcher's only action. */
@@ -44,14 +43,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setLoading(false))
   }, [applySession, clearSession])
 
-  const login = useCallback(
-    async (email: string, password: string) => {
-      const res = await api.post<LoginResponse>('/auth/login', { email, password })
-      applySession(res)
-    },
-    [applySession]
-  )
-
   const logout = useCallback(async () => {
     try {
       await api.post('/auth/logout')
@@ -70,7 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, activeDealership, memberships, loading, login, logout, switchDealership }}
+      value={{ user, activeDealership, memberships, loading, logout, switchDealership }}
     >
       {children}
     </AuthContext.Provider>

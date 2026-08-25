@@ -58,7 +58,7 @@ def _user_payload(**overrides):
         "role": "admin",
         "accessRoles": ["sales"],
         "isDealerManager": True,
-        "authIdentityId": "stub-sub-1",
+        "authIdentityId": f"stub-sub-{uuid.uuid4()}",
     }
     payload.update(overrides)
     return payload

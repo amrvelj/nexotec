@@ -267,5 +267,10 @@
       "user": "Utilisateur {{id}}",
       "actionSuffix": "ce client"
     }
+  },
+  "signInError": {
+    "title": "Échec de la connexion",
+    "message": "La connexion a échoué. Veuillez réessayer ou contacter votre administrateur·rice.",
+    "retry": "Réessayer"
   }
 }

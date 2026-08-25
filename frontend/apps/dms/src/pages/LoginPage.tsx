@@ -1,59 +1,26 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Alert, Button, Center, Paper, PasswordInput, Stack, TextInput, Title } from '@mantine/core'
-import { useForm } from '@mantine/form'
-import { useAuth } from '../auth/AuthContext'
-import { isApiError } from '../api/isApiError'
+import { useEffect } from 'react'
+import { Center, Loader, Stack, Text } from '@mantine/core'
+import { API_BASE_URL } from '../api/client'
 
+/**
+ * This package builds no Nexotec login screen (WP-4) — Zitadel hosts the
+ * actual sign-in page. This route exists only to trigger the full browser
+ * navigation there; it's a full page load (window.location.href), never a
+ * fetch/XHR — a same-origin API client call couldn't reach Zitadel's
+ * hosted UI usefully, and the callback needs a real top-level redirect
+ * round trip either way.
+ */
 export function LoginPage() {
-  const { login } = useAuth()
-  const navigate = useNavigate()
-  const [error, setError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
-
-  const form = useForm({
-    initialValues: { email: '', password: '' },
-  })
-
-  const handleSubmit = form.onSubmit(async (values) => {
-    setError(null)
-    setSubmitting(true)
-    try {
-      await login(values.email, values.password)
-      navigate('/customers')
-    } catch (err) {
-      setError(isApiError(err) ? err.message : 'Login failed.')
-    } finally {
-      setSubmitting(false)
-    }
-  })
+  useEffect(() => {
+    window.location.href = `${API_BASE_URL}/auth/oidc/login`
+  }, [])
 
   return (
     <Center h="100vh">
-      <Paper withBorder shadow="sm" p="xl" w={360}>
-        <Stack gap="md">
-          <Title order={3}>DMS Platform login</Title>
-          <form onSubmit={handleSubmit}>
-            <Stack gap="sm">
-              {error && (
-                <Alert color="red" title="Could not log in">
-                  {error}
-                </Alert>
-              )}
-              <TextInput
-                label="Email"
-                type="email"
-                required
-                {...form.getInputProps('email')}
-              />
-              <PasswordInput label="Password" required {...form.getInputProps('password')} />
-              <Button type="submit" loading={submitting} fullWidth>
-                Log in
-              </Button>
-            </Stack>
-          </form>
-        </Stack>
-      </Paper>
+      <Stack align="center" gap="sm">
+        <Loader />
+        <Text c="dimmed">Redirecting to sign-in…</Text>
+      </Stack>
     </Center>
   )
 }

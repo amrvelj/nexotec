@@ -1,6 +1,6 @@
 import uuid
 
-from pydantic import EmailStr, Field
+from pydantic import Field
 
 from app.core.schemas import CamelModel
 from app.platform.schemas.user import UserRead
@@ -8,11 +8,6 @@ from app.platform.schemas.user import UserRead
 
 class CredentialSetRequest(CamelModel):
     password: str = Field(min_length=8, max_length=128)
-
-
-class LoginRequest(CamelModel):
-    email: EmailStr
-    password: str = Field(min_length=1, max_length=128)
 
 
 class DealershipMembershipSummary(CamelModel):
