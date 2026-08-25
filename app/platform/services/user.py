@@ -12,9 +12,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
-from app.core.errors import BadRequestError, ConflictError
+from app.core.errors import BadRequestError, ConflictError, NotFoundError
 from app.core.pagination import PageParams, build_page, paginate_query
 from app.core.tenancy import get_or_404
+from app.platform.models.dealership_membership import DealershipMembership
 from app.platform.models.user import EmploymentStatus, User, UserStatus
 from app.platform.schemas.user import UserCreate, UserUpdate
 
@@ -71,6 +72,21 @@ def _assert_not_last_manager(db: Session, *, tenant_id: uuid.UUID, excluding_use
 
 def get_user_or_404(db: Session, dealership_id: uuid.UUID, user_id: uuid.UUID) -> User:
     return get_or_404(db, User, user_id, dealership_id)
+
+
+def get_own_user_or_404(db: Session, user_id: uuid.UUID) -> User:
+    """Dealership-agnostic — for a principal fetching THEIR OWN row by the
+    user_id a signed token's `sub` claim already vouches for (WP-3 PR-3:
+    /auth/me and switch-dealership need this because the caller's *active*
+    dealership, principal.tenant_id, may no longer equal User.tenant_id —
+    their fixed home — once they've switched away from it). Safe precisely
+    because it's always "give me myself," never an open cross-tenant lookup.
+    """
+
+    user = db.get(User, user_id)
+    if user is None:
+        raise NotFoundError(f"User {user_id} was not found.")
+    return user
 
 
 def list_users(
@@ -214,3 +230,15 @@ def update_user(db: Session, *, user: User, data: UserUpdate, actor_id: uuid.UUI
         ) from exc
     db.refresh(user)
     return user
+
+
+def list_membership_dealership_ids(db: Session, *, user_id: uuid.UUID) -> frozenset[uuid.UUID]:
+    """Every dealership_id a dealership_membership row grants this user,
+    beyond their home tenant_id (WP-3 PR-3) — the caller adds the home
+    dealership itself; see app.core.auth.create_access_token's own default.
+    """
+
+    rows = db.scalars(
+        select(DealershipMembership.dealership_id).where(DealershipMembership.user_id == user_id)
+    ).all()
+    return frozenset(rows)

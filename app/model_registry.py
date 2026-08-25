@@ -13,6 +13,7 @@ from app.customer.models.customer import Customer
 from app.customer.models.vehicle_party import VehicleParty
 from app.platform.models.credential import Credential
 from app.platform.models.dealership import DealerGroup, Dealership, Location
+from app.platform.models.dealership_membership import DealershipMembership
 from app.platform.models.reference_data import ReferenceList, ReferenceValue
 from app.platform.models.user import User
 from app.platform.models.user_preference import UserPreference
@@ -25,6 +26,7 @@ __all__ = [
     "Customer",
     "DealerGroup",
     "Dealership",
+    "DealershipMembership",
     "IdempotencyRecord",
     "Location",
     "OutboxMessage",

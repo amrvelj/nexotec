@@ -37,6 +37,17 @@ def get_dealership_or_404(db: Session, dealership_id: uuid.UUID) -> Dealership:
     return dealership
 
 
+def list_dealerships_by_ids(db: Session, dealership_ids) -> list[Dealership]:
+    """Unordered lookup for building a membership summary list (WP-3 PR-3)
+    — the caller re-orders (active dealership first) if it needs a specific
+    display order.
+    """
+
+    if not dealership_ids:
+        return []
+    return list(db.scalars(select(Dealership).where(Dealership.id.in_(dealership_ids))).all())
+
+
 def list_dealerships(
     db: Session,
     *,

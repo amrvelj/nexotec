@@ -32,8 +32,18 @@ export interface UserRead {
   updatedAt: string
 }
 
+// WP-3 PR-3: what the sidebar's dealership switcher renders. The frontend
+// never decodes the session cookie itself (see api/client.ts), so this is
+// the only place it learns Principal.memberships/tenantId.
+export interface DealershipMembershipSummary {
+  id: string
+  legalName: string
+}
+
 export interface LoginResponse {
   user: UserRead
+  activeDealership: DealershipMembershipSummary
+  memberships: DealershipMembershipSummary[]
 }
 
 // Customer PRD Phase B (D-01 through D-16): customer_type gates which

@@ -90,7 +90,7 @@ export function DmsShell({ children }: { children: ReactNode }) {
 }
 
 function DmsShellInner({ children }: { children: ReactNode }) {
-  const { user, logout } = useAuth()
+  const { user, activeDealership, memberships, logout, switchDealership } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const { t, i18n } = useTranslation()
@@ -98,10 +98,11 @@ function DmsShellInner({ children }: { children: ReactNode }) {
 
   const activeHref = '/' + (location.pathname.split('/')[1] ?? '')
 
-  // FR-13: "UI language is switchable at any time from the top bar and
-  // persisted on the user profile" — the preference already persists
-  // (useUiPreferences); this is what makes the switch actually retranslate
-  // the app instead of just updating stored state.
+  // FR-13: "UI language is switchable at any time" and persisted on the
+  // user profile — the preference already persists (useUiPreferences);
+  // this is what makes the switch actually retranslate the app instead of
+  // just updating stored state. Its control lives in the sidebar's account
+  // cluster, not the top bar (revised 2026-08-16 — see Sidebar's docstring).
   useEffect(() => {
     void i18n.changeLanguage(uiLanguage)
   }, [uiLanguage, i18n])
@@ -118,18 +119,21 @@ function DmsShellInner({ children }: { children: ReactNode }) {
         moduleSubtitle: 'DMS',
         groups: buildNavGroups(t),
         activeHref,
-        user: { name: `${user.firstName} ${user.lastName}`, role: user.role },
-        linkComponent: Link,
-      }}
-      topbar={{
-        user: { name: `${user.firstName} ${user.lastName}`, email: user.email },
+        user: { name: `${user.firstName} ${user.lastName}`, email: user.email, role: user.role },
         uiLanguage,
         onLanguageChange: setUiLanguage,
         onSignOut: () => {
           logout().then(() => navigate('/login'))
         },
         signOutLabel: t('shell.signOut'),
+        activeDealership: activeDealership ?? undefined,
+        memberships,
+        onSwitchDealership: (dealershipId) => {
+          void switchDealership(dealershipId)
+        },
+        linkComponent: Link,
       }}
+      topbar={{}}
     >
       {children}
     </AppShell>

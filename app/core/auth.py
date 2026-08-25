@@ -134,10 +134,19 @@ class Principal:
     tenant_id: uuid.UUID
     # The dealer_group the active dealership (tenant_id) belongs to (ADR-014,
     # WP-3 PR-2) — resolved once at login from Dealership.dealer_group_id,
-    # not stored on User. Needed here (ahead of PR-3's fuller claim set —
-    # memberships, activeLocationId) because PR-2's group-scoped customer
-    # reads must resolve group_id from the token, never the request body.
+    # not stored on User.
     group_id: uuid.UUID
+    # Every dealership this user may switch tenant_id to (WP-3 PR-3) — the
+    # home dealership plus any dealership_membership rows. Always contains
+    # at least tenant_id itself. There is no cross-dealership WRITE, ever:
+    # to act on a sister dealership's data the user switches active
+    # dealership (POST /v1/auth/switch-dealership), which re-issues the
+    # token with a different tenant_id from this same set.
+    memberships: frozenset[uuid.UUID]
+    # The location (site within the active dealership) the user is working
+    # from, if any. Scaffolding for Aftersales (WP-5) — no location-switching
+    # UI exists yet, so this is always null in practice until that ships.
+    active_location_id: uuid.UUID | None
     roles: frozenset[AccessRole]
     # Administration of THIS principal's own dealership — invite/deactivate
     # users, integrations, dealership settings — and nothing outside it
@@ -155,14 +164,21 @@ def create_access_token(
     group_id: uuid.UUID,
     roles: frozenset[AccessRole] | set[AccessRole],
     is_dealer_manager: bool = False,
+    memberships: frozenset[uuid.UUID] | set[uuid.UUID] | None = None,
+    active_location_id: uuid.UUID | None = None,
     ttl_seconds: int | None = None,
 ) -> str:
     now = dt.datetime.now(dt.UTC)
     ttl = ttl_seconds if ttl_seconds is not None else settings.jwt_access_token_ttl_seconds
+    # Every principal can always act as their own active dealership, even
+    # with no dealership_membership rows at all — the common case.
+    resolved_memberships = memberships if memberships is not None else {tenant_id}
     payload = {
         "sub": str(user_id),
         "tenant_id": str(tenant_id),
         "group_id": str(group_id),
+        "memberships": sorted(str(m) for m in resolved_memberships),
+        "active_location_id": str(active_location_id) if active_location_id is not None else None,
         "roles": sorted(role.value for role in roles),
         "is_dealer_manager": is_dealer_manager,
         "iss": settings.jwt_issuer,
@@ -179,7 +195,18 @@ def _decode_token(token: str) -> dict:
             _PUBLIC_KEY,
             algorithms=[_ALGORITHM],
             issuer=settings.jwt_issuer,
-            options={"require": ["sub", "tenant_id", "group_id", "roles", "is_dealer_manager", "exp", "iat"]},
+            options={
+                "require": [
+                    "sub",
+                    "tenant_id",
+                    "group_id",
+                    "memberships",
+                    "roles",
+                    "is_dealer_manager",
+                    "exp",
+                    "iat",
+                ]
+            },
         )
     except jwt.ExpiredSignatureError as exc:
         raise UnauthorizedError("Access token has expired.") from exc
@@ -201,10 +228,13 @@ def get_bearer_token(
 def get_current_principal(token: str = Depends(get_bearer_token)) -> Principal:
     claims = _decode_token(token)
     try:
+        active_location_id = claims.get("active_location_id")
         return Principal(
             user_id=uuid.UUID(claims["sub"]),
             tenant_id=uuid.UUID(claims["tenant_id"]),
             group_id=uuid.UUID(claims["group_id"]),
+            memberships=frozenset(uuid.UUID(m) for m in claims["memberships"]),
+            active_location_id=uuid.UUID(active_location_id) if active_location_id else None,
             roles=frozenset(AccessRole(role) for role in claims["roles"]),
             is_dealer_manager=bool(claims["is_dealer_manager"]),
         )

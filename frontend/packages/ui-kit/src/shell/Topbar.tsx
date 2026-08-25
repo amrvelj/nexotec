@@ -1,31 +1,19 @@
-import { LogOut } from "lucide-react";
-import { Menu, SegmentedControl, UnstyledButton } from "@mantine/core";
-import { purple, slate, spacing } from "../tokens";
-
-export type UiLanguage = "de" | "fr" | "it" | "en";
+import { slate, spacing } from "../tokens";
 
 export interface TopbarProps {
-  user: { name: string; email: string };
-  uiLanguage: UiLanguage;
-  onLanguageChange: (language: UiLanguage) => void;
-  onSignOut: () => void;
   /** Current page's breadcrumb ("Group / Entity / Record") — AppShell
    * supplies this from whatever the active page last set via
    * useSetBreadcrumb. */
   breadcrumb: string[];
-  /** Translated "Sign out" label — defaults to English. */
-  signOutLabel?: string;
 }
 
 /**
- * § Topbar. Fixed 60px, breadcrumb left, UI language switcher + user menu
- * right. "The topbar carries no page actions. Page actions live in the
- * action bar" — deliberately no primary-action button here, ever.
- *
- * Notifications bell and the ⌘K command palette slot are both explicitly
- * Phase C in the source doc — not included yet.
+ * § Topbar. Fixed 60px, breadcrumb only. "The topbar carries the breadcrumb
+ * and global search and nothing else" — account chrome (language, sign out)
+ * lives in the sidebar's account cluster, the only place it appears in the
+ * product (revised 2026-08-16). Global search itself isn't built yet.
  */
-export function Topbar({ user, uiLanguage, onLanguageChange, onSignOut, breadcrumb, signOutLabel = "Sign out" }: TopbarProps) {
+export function Topbar({ breadcrumb }: TopbarProps) {
   return (
     <header
       style={{
@@ -36,7 +24,6 @@ export function Topbar({ user, uiLanguage, onLanguageChange, onSignOut, breadcru
         zIndex: 10,
         display: "flex",
         alignItems: "center",
-        justifyContent: "space-between",
         padding: `0 ${spacing.xl}`,
         backgroundColor: "rgba(255,255,255,0.85)",
         backdropFilter: "blur(10px)",
@@ -44,50 +31,6 @@ export function Topbar({ user, uiLanguage, onLanguageChange, onSignOut, breadcru
       }}
     >
       <Breadcrumb segments={breadcrumb} />
-
-      <div style={{ display: "flex", alignItems: "center", gap: spacing.md }}>
-        <SegmentedControl
-          size="xs"
-          value={uiLanguage}
-          onChange={(value) => onLanguageChange(value as UiLanguage)}
-          data={[
-            { label: "DE", value: "de" },
-            { label: "FR", value: "fr" },
-            { label: "IT", value: "it" },
-            { label: "EN", value: "en" },
-          ]}
-        />
-
-        <Menu shadow="md" width={200} position="bottom-end">
-          <Menu.Target>
-            <UnstyledButton aria-label="User menu">
-              <div
-                style={{
-                  width: 30,
-                  height: 30,
-                  borderRadius: "50%",
-                  backgroundColor: purple[1],
-                  color: purple[7],
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 12,
-                  fontWeight: 600,
-                }}
-              >
-                {user.name.slice(0, 1).toUpperCase()}
-              </div>
-            </UnstyledButton>
-          </Menu.Target>
-          <Menu.Dropdown>
-            <Menu.Label>{user.email}</Menu.Label>
-            <Menu.Divider />
-            <Menu.Item leftSection={<LogOut size={16} />} onClick={onSignOut}>
-              {signOutLabel}
-            </Menu.Item>
-          </Menu.Dropdown>
-        </Menu>
-      </div>
     </header>
   );
 }

@@ -34,7 +34,7 @@ def _bearer(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
-def _create_dealer(client) -> str:
+def _create_dealer(client, **overrides) -> str:
     token = _token(AccessRole.PLATFORM_ADMIN)
     payload = {
         "legalName": "Garage Musterbetrieb AG",
@@ -45,6 +45,7 @@ def _create_dealer(client) -> str:
         "phone": "+41441234567",
         "taxId": "CHE-123.456.789",
     }
+    payload.update(overrides)
     response = client.post("/v1/dealerships", json=payload, headers=_bearer(token))
     assert response.status_code == 201, response.text
     return response.json()["id"]
@@ -357,3 +358,91 @@ def test_logout_clears_cookie(client):
     assert "dms_session=" in set_cookie
     # Cleared cookies are expired via Max-Age=0 or a past Expires date.
     assert "Max-Age=0" in set_cookie or "expires=" in set_cookie.lower()
+
+
+# --- dealership switcher (WP-3 PR-3) ----------------------------------------------
+
+
+def test_login_response_includes_active_dealership_and_default_single_membership(client):
+    dealer_id = _create_dealer(client)
+    user = _create_user(client, dealer_id)
+    _set_credential(client, dealer_id, user["id"], "correct horse battery staple")
+
+    response = client.post(
+        "/v1/auth/login", json={"email": "anna@example.ch", "password": "correct horse battery staple"}
+    )
+    body = response.json()
+    assert body["activeDealership"]["id"] == dealer_id
+    assert [m["id"] for m in body["memberships"]] == [dealer_id]
+
+
+def test_a_user_with_two_memberships_can_switch_active_dealership(client, db_session):
+    from app.platform.models.dealership_membership import DealershipMembership
+
+    dealer_a = _create_dealer(client)
+    user = _create_user(client, dealer_a)
+    _set_credential(client, dealer_a, user["id"], "correct horse battery staple")
+    dealer_b = _create_dealer(client, dealerLicenseNumber="ZH-99999")
+
+    db_session.add(DealershipMembership(user_id=uuid.UUID(user["id"]), dealership_id=uuid.UUID(dealer_b)))
+    db_session.commit()
+
+    login_response = client.post(
+        "/v1/auth/login", json={"email": "anna@example.ch", "password": "correct horse battery staple"}
+    )
+    membership_ids = {m["id"] for m in login_response.json()["memberships"]}
+    assert membership_ids == {dealer_a, dealer_b}
+
+    token = login_response.cookies.get("dms_session")
+    client.cookies.set("dms_session", token)
+    try:
+        switch_response = client.post("/v1/auth/switch-dealership", json={"dealershipId": dealer_b})
+    finally:
+        client.cookies.delete("dms_session")
+
+    assert switch_response.status_code == 200
+    assert switch_response.json()["activeDealership"]["id"] == dealer_b
+
+    new_token = switch_response.cookies.get("dms_session")
+    assert new_token != token
+
+    client.cookies.set("dms_session", new_token)
+    try:
+        me_response = client.get("/v1/auth/me")
+        # The active dealership actually changed on the token itself, not
+        # just in this one response body: require_tenant_match's own-tenant
+        # check (GET /v1/dealerships/{id}) only passes when
+        # principal.tenant_id == dealer_b, proving tenant_id really moved,
+        # not just this endpoint's rendering of it. dealer_a is no longer
+        # reachable the same way — the switch, not a second membership.
+        dealer_b_response = client.get(f"/v1/dealerships/{dealer_b}")
+        dealer_a_response = client.get(f"/v1/dealerships/{dealer_a}")
+    finally:
+        client.cookies.delete("dms_session")
+    assert me_response.json()["activeDealership"]["id"] == dealer_b
+    assert dealer_b_response.status_code == 200
+    assert dealer_a_response.status_code == 404
+
+
+def test_switching_to_a_dealership_outside_your_memberships_is_forbidden(client):
+    dealer_a = _create_dealer(client)
+    user = _create_user(client, dealer_a)
+    _set_credential(client, dealer_a, user["id"], "correct horse battery staple")
+    other_dealer = _create_dealer(client, dealerLicenseNumber="ZH-77777")
+
+    login_response = client.post(
+        "/v1/auth/login", json={"email": "anna@example.ch", "password": "correct horse battery staple"}
+    )
+    token = login_response.cookies.get("dms_session")
+
+    client.cookies.set("dms_session", token)
+    try:
+        response = client.post("/v1/auth/switch-dealership", json={"dealershipId": other_dealer})
+    finally:
+        client.cookies.delete("dms_session")
+    assert response.status_code == 403
+
+
+def test_switch_dealership_requires_authentication(client):
+    response = client.post("/v1/auth/switch-dealership", json={"dealershipId": str(uuid.uuid4())})
+    assert response.status_code == 401
