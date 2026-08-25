@@ -14,7 +14,17 @@ It is not a reconciliation test; see tests/test_reconciliation.py for that.
 
 Inserts directly via the ORM, bypassing the service layer entirely — this
 only needs rows to exist with the right foreign keys, not the business
-validation those services also perform.
+validation those services also perform. The one exception is `user`: this
+script runs against TWO different schema states depending on which CI job
+calls it — migration-smoke-test seeds AFTER upgrading to this PR's own
+heads, migration-upgrade-from-previous seeds against `main`'s CURRENT
+schema, BEFORE this PR's migrations apply. The `User` ORM class in this
+PR's own code only knows the newest shape, so any migration that changes
+one of its columns (WP-2 PR-2's access_role -> access_roles/
+is_dealer_manager is the first case this repo has hit) breaks the ORM
+insert in whichever job hasn't reached that migration yet. `_seed_user`
+below inspects the actual columns on the table and branches — future-proof
+against the next such migration too, not just this one.
 
 Usage: DMS_DATABASE_URL=... DMS_TAX_ID_ENCRYPTION_KEY=... python scripts/seed_migration_smoke_test.py
 """
@@ -22,7 +32,13 @@ Usage: DMS_DATABASE_URL=... DMS_TAX_ID_ENCRYPTION_KEY=... python scripts/seed_mi
 import datetime as dt
 import uuid
 
-from app.core.auth import AccessRole
+import sqlalchemy as sa
+from sqlalchemy import inspect
+from sqlalchemy.orm import Session
+
+from app.core.base import utcnow
+from app.core.types import GUID
+from app.core.uuid7 import uuid7
 from app.customer.models.customer import (
     Customer,
     CustomerEmail,
@@ -35,7 +51,6 @@ from app.customer.models.customer import (
 from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.db import SessionLocal
 from app.platform.models.dealer import Dealer, DealerStatus, FranchiseType
-from app.platform.models.user import EmploymentStatus, User, UserRole, UserStatus
 from app.sales.models.transaction import Transaction, TransactionStatus, TransactionType
 from app.vehicle.models.vehicle import (
     CustodyEventType,
@@ -45,6 +60,60 @@ from app.vehicle.models.vehicle import (
     VehicleCustodyEvent,
     VehicleStatus,
 )
+
+
+def _seed_user(db: Session, *, tenant_id: uuid.UUID) -> uuid.UUID:
+    """Raw insert, not the ORM User(...) constructor — see this module's
+    own docstring for why. Returns the new row's id.
+    """
+
+    columns = {col["name"] for col in inspect(db.get_bind()).get_columns("user")}
+
+    user_id = uuid7()
+    now = utcnow()
+    values: dict = {
+        "id": user_id,
+        "tenant_id": tenant_id,
+        "first_name": "Smoke",
+        "last_name": "Test",
+        "email": "smoke-test@example.ch",
+        "role": "SALES",
+        "employment_status": "ACTIVE",
+        "status": "ACTIVE",
+        "auth_identity_id": "smoke-test-sub",
+        "version": 1,
+        "created_at": now,
+        "updated_at": now,
+    }
+    column_objs = [
+        sa.column("id", GUID()),
+        sa.column("tenant_id", GUID()),
+        sa.column("first_name"),
+        sa.column("last_name"),
+        sa.column("email"),
+        sa.column("role"),
+        sa.column("employment_status"),
+        sa.column("status"),
+        sa.column("auth_identity_id"),
+        sa.column("version"),
+        sa.column("created_at"),
+        sa.column("updated_at"),
+    ]
+    if "access_roles" in columns:
+        # WP-2 PR-2 schema (this PR's own heads already applied).
+        values["access_roles"] = ["sales"]
+        values["is_dealer_manager"] = False
+        column_objs += [sa.column("access_roles", sa.JSON), sa.column("is_dealer_manager", sa.Boolean)]
+    else:
+        # Pre-WP-2 schema (main's current state, before this PR's own
+        # migration runs) — the column this PR drops still exists here.
+        values["access_role"] = "SALES"
+        column_objs.append(sa.column("access_role"))
+
+    user_table = sa.table("user", *column_objs)
+    db.execute(user_table.insert().values(**values))
+    db.flush()
+    return user_id
 
 
 def main() -> None:
@@ -68,20 +137,7 @@ def main() -> None:
         db.add(dealer)
         db.flush()
 
-        user = User(
-            tenant_id=dealer.id,
-            first_name="Smoke",
-            last_name="Test",
-            email="smoke-test@example.ch",
-            role=UserRole.SALES,
-            access_roles=[AccessRole.SALES.value],
-            is_dealer_manager=False,
-            employment_status=EmploymentStatus.ACTIVE,
-            status=UserStatus.ACTIVE,
-            auth_identity_id="smoke-test-sub",
-        )
-        db.add(user)
-        db.flush()
+        user_id = _seed_user(db, tenant_id=dealer.id)
 
         customer = Customer(
             tenant_id=dealer.id,
@@ -139,7 +195,7 @@ def main() -> None:
             status=TransactionStatus.DRAFT,
             customer_id=customer.id,
             vehicle_id=vehicle.id,
-            primary_user_id=user.id,
+            primary_user_id=user_id,
         )
         db.add(transaction)
         db.flush()
