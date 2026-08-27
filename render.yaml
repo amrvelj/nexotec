@@ -91,7 +91,12 @@ services:
       - key: DMS_ZITADEL_CLIENT_SECRET
         sync: false
       - key: DMS_ZITADEL_REDIRECT_URI
-        value: https://dms-staging.onrender.com/v1/auth/oidc/callback
+        # dms-staging.onrender.com was a guess before the service existed —
+        # Render assigned a suffixed hostname instead (the bare name was
+        # already taken). Confirmed against the actual deployed service and
+        # the redirect URI registered in Zitadel; if this ever changes,
+        # both have to change together or login breaks at the OIDC layer.
+        value: https://dms-staging-tb9w.onrender.com/v1/auth/oidc/callback
       - key: DMS_SESSION_SECRET_KEY
         sync: false
       - key: DMS_SEED_DEMO_AUTH_IDENTITY_ID
@@ -135,6 +140,9 @@ services:
       - key: DMS_ZITADEL_CLIENT_SECRET
         sync: false
       - key: DMS_ZITADEL_REDIRECT_URI
-        value: https://dms-staging.onrender.com/v1/auth/oidc/callback
+        # Same corrected hostname as the web service above — must match
+        # exactly, since this is what Zitadel's registered redirect URI
+        # compares against.
+        value: https://dms-staging-tb9w.onrender.com/v1/auth/oidc/callback
       - key: DMS_SESSION_SECRET_KEY
         sync: false
