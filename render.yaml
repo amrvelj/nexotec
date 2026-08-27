@@ -27,11 +27,27 @@
 #      Settings() on import, so it needs a syntactically valid key too; the
 #      same PEM in both places is simpler than explaining why they could
 #      legally differ.
-#   3. DMS_SEED_DEMO_PASSWORD — pick any password, paste it in as-is. The
-#      startCommand below runs the (idempotent) demo seed on every deploy;
-#      once this var has a value, the next redeploy creates the demo login
-#      (demo@nexotec-staging.example + this password) and every deploy
-#      after that just no-ops. Hand the password to whoever needs the login.
+#   3. DMS_ZITADEL_ISSUER / DMS_ZITADEL_CLIENT_ID / DMS_ZITADEL_CLIENT_SECRET
+#      (WP-4, ADR-016) — from the Zitadel org + application registration for
+#      this environment. DMS_ZITADEL_REDIRECT_URI (below, a plain value, not
+#      a secret) must exactly match the callback URL registered there — an
+#      OIDC provider rejects a mismatch outright, and Render's own generic
+#      generateValue secret obviously can't produce real Zitadel credentials.
+#      Paste the same three values into BOTH this service and the
+#      outbox-worker service below (same reasoning as DMS_JWT_PRIVATE_KEY
+#      above — the worker constructs Settings() on import too).
+#   4. DMS_SESSION_SECRET_KEY — generate with:
+#        python -c "import secrets; print(secrets.token_urlsafe(32))"
+#      Signs the transient OIDC login state/nonce/PKCE cookie only, never
+#      the actual session. Paste into both services, same reasoning as #3.
+#   5. DMS_SEED_DEMO_AUTH_IDENTITY_ID — the demo account's real Zitadel
+#      `sub`, from a demo person pre-provisioned once, by hand, in the
+#      Zitadel console (WP-4 retired the local password this used to be —
+#      there is no password to pick anymore, login goes through Zitadel for
+#      the demo account too). The startCommand below runs the (idempotent)
+#      demo seed on every deploy; once this var has a value, the next
+#      redeploy creates the demo login (demo@nexotec-staging.example, signed
+#      in via Zitadel) and every deploy after that just no-ops.
 
 databases:
   - name: dms-staging-db
@@ -68,7 +84,17 @@ services:
         sync: false
       - key: DMS_TAX_ID_ENCRYPTION_KEY
         sync: false
-      - key: DMS_SEED_DEMO_PASSWORD
+      - key: DMS_ZITADEL_ISSUER
+        sync: false
+      - key: DMS_ZITADEL_CLIENT_ID
+        sync: false
+      - key: DMS_ZITADEL_CLIENT_SECRET
+        sync: false
+      - key: DMS_ZITADEL_REDIRECT_URI
+        value: https://dms-staging.onrender.com/v1/auth/oidc/callback
+      - key: DMS_SESSION_SECRET_KEY
+        sync: false
+      - key: DMS_SEED_DEMO_AUTH_IDENTITY_ID
         sync: false
 
   # Outbox worker (PR-4, Decision 3): same codebase, same database,
@@ -101,4 +127,14 @@ services:
       - key: DMS_JWT_PRIVATE_KEY
         sync: false
       - key: DMS_TAX_ID_ENCRYPTION_KEY
+        sync: false
+      - key: DMS_ZITADEL_ISSUER
+        sync: false
+      - key: DMS_ZITADEL_CLIENT_ID
+        sync: false
+      - key: DMS_ZITADEL_CLIENT_SECRET
+        sync: false
+      - key: DMS_ZITADEL_REDIRECT_URI
+        value: https://dms-staging.onrender.com/v1/auth/oidc/callback
+      - key: DMS_SESSION_SECRET_KEY
         sync: false

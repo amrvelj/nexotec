@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.sessions import SessionMiddleware
 
 from app.api.v1 import api_v1_router
 from app.core.auth import get_jwks
@@ -24,6 +25,22 @@ app = FastAPI(title="DMS Platform", version="0.1.0")
 configure_tracing(app)
 register_error_handlers(app)
 app.add_middleware(ObservabilityMiddleware)
+# Holds the OIDC login transaction only — state/nonce/PKCE verifier across
+# the redirect round trip to Zitadel and back (WP-4, app.platform.services.
+# oidc). A DIFFERENT cookie from the dms_session one app.core.auth.py sets
+# (name below, not SESSION_COOKIE_NAME) and deliberately SameSite=lax, not
+# strict: this cookie must survive a top-level navigation *from*
+# accounts.zitadel.cloud *back to* our own /auth/oidc/callback, which is
+# exactly the cross-site top-level request a Strict cookie is dropped on —
+# get this wrong and every login "fails" with a confusing state mismatch.
+# dms_session itself stays Strict; it's never needed cross-site.
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=get_settings().session_secret_key,
+    session_cookie="dms_oidc_txn",
+    same_site="lax",
+    max_age=600,
+)
 app.include_router(api_v1_router)
 
 

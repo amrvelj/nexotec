@@ -267,5 +267,10 @@
       "user": "Utente {{id}}",
       "actionSuffix": "questo cliente"
     }
+  },
+  "signInError": {
+    "title": "Accesso non riuscito",
+    "message": "Accesso non riuscito. Riprova oppure contatta il tuo amministratore.",
+    "retry": "Riprova"
   }
 }

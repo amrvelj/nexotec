@@ -2,8 +2,10 @@ import type { ApiErrorBody } from './types'
 
 // Session auth is an httpOnly cookie (issue #8) — this app never reads or
 // stores the JWT itself, so there's nothing here but `credentials: 'include'`
-// on every request.
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000/v1'
+// on every request. Exported: LoginPage (WP-4) needs it too, for the full
+// browser navigation to Zitadel's hosted login — that's not something this
+// module's own fetch-based `request()` can do.
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000/v1'
 
 export class ApiError extends Error {
   code: string

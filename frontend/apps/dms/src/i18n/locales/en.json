@@ -267,5 +267,10 @@
       "user": "User {{id}}",
       "actionSuffix": "this customer"
     }
+  },
+  "signInError": {
+    "title": "Sign-in failed",
+    "message": "Sign-in failed. Please try again or contact your administrator.",
+    "retry": "Try again"
   }
 }

@@ -35,7 +35,18 @@ services:
       DMS_DATABASE_URL: postgresql+psycopg://dms:dms@db:5432/dms_platform
       DMS_TAX_ID_ENCRYPTION_KEY: ${DMS_TAX_ID_ENCRYPTION_KEY}
       DMS_JWT_PRIVATE_KEY: ${DMS_JWT_PRIVATE_KEY}
-      DMS_SEED_DEMO_PASSWORD: ${DMS_SEED_DEMO_PASSWORD:-dev-only-password-change-me}
+      # WP-4 (ADR-016): required with no default, same reasoning as the two
+      # keys above — both app and worker construct Settings() on import.
+      DMS_ZITADEL_ISSUER: ${DMS_ZITADEL_ISSUER}
+      DMS_ZITADEL_CLIENT_ID: ${DMS_ZITADEL_CLIENT_ID}
+      DMS_ZITADEL_CLIENT_SECRET: ${DMS_ZITADEL_CLIENT_SECRET}
+      DMS_ZITADEL_REDIRECT_URI: ${DMS_ZITADEL_REDIRECT_URI}
+      DMS_SESSION_SECRET_KEY: ${DMS_SESSION_SECRET_KEY}
+      # WP-4: no local password to seed anymore — this must be a real
+      # Zitadel sub from a demo account pre-provisioned by hand. Unset
+      # locally, the seed step just no-ops (piped through `|| true`,
+      # scripts/seed_staging_demo.py's own docstring).
+      DMS_SEED_DEMO_AUTH_IDENTITY_ID: ${DMS_SEED_DEMO_AUTH_IDENTITY_ID:-}
     depends_on:
       db:
         condition: service_healthy
@@ -56,6 +67,13 @@ services:
       DMS_DATABASE_URL: postgresql+psycopg://dms:dms@db:5432/dms_platform
       DMS_TAX_ID_ENCRYPTION_KEY: ${DMS_TAX_ID_ENCRYPTION_KEY}
       DMS_JWT_PRIVATE_KEY: ${DMS_JWT_PRIVATE_KEY}
+      # WP-4 (ADR-016): required with no default, same reasoning as the two
+      # keys above — both app and worker construct Settings() on import.
+      DMS_ZITADEL_ISSUER: ${DMS_ZITADEL_ISSUER}
+      DMS_ZITADEL_CLIENT_ID: ${DMS_ZITADEL_CLIENT_ID}
+      DMS_ZITADEL_CLIENT_SECRET: ${DMS_ZITADEL_CLIENT_SECRET}
+      DMS_ZITADEL_REDIRECT_URI: ${DMS_ZITADEL_REDIRECT_URI}
+      DMS_SESSION_SECRET_KEY: ${DMS_SESSION_SECRET_KEY}
     depends_on:
       db:
         condition: service_healthy

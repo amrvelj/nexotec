@@ -31,6 +31,35 @@ class Settings(BaseSettings):
     jwt_issuer: str = "dms-platform"
     jwt_access_token_ttl_seconds: int = 3600
 
+    # Zitadel OIDC (WP-4, ADR-016/ADR-007): the external IdP authenticates;
+    # it never assigns roles or is_dealer_manager (app.platform.services.oidc,
+    # app.platform.models.user). No defaults on any of the three, same
+    # "missing must fail startup" posture as jwt_private_key above — a
+    # missing client_secret must never fall back to an unauthenticated or
+    # misconfigured OIDC client.
+    zitadel_issuer: str
+    zitadel_client_id: str
+    zitadel_client_secret: str
+    # The absolute callback URL registered with the Zitadel application —
+    # deliberately explicit config, not derived from the incoming request
+    # (request.url_for) at call time. This process runs behind Render's
+    # proxy with no --proxy-headers/X-Forwarded-Proto handling configured
+    # in uvicorn, so a request-derived URL would silently resolve to the
+    # wrong scheme (http instead of https) — exactly the kind of mismatch
+    # an OIDC provider rejects with a generic, hard-to-debug error.
+    zitadel_redirect_uri: str
+    # Starlette SessionMiddleware's signing key (app/main.py) — holds the
+    # transient OIDC state/nonce/PKCE verifier across the redirect round
+    # trip to Zitadel and back, nothing else. No default, same reasoning:
+    # a leaked/predictable key here is a CSRF hole in the login flow itself.
+    session_secret_key: str
+    # Where the OIDC callback sends the browser after minting a session.
+    # Empty = same-origin relative redirect ("/") — correct for
+    # staging/prod, which serve the built SPA from this same FastAPI app
+    # (app/main.py). Local dev sets an absolute URL, since the Vite dev
+    # server runs on a different origin/port.
+    post_login_redirect_base_url: str = ""
+
     pagination_default_limit: int = 50
     pagination_max_limit: int = 100
 
@@ -84,9 +113,11 @@ def get_settings() -> Settings:
     # always.
     resolve_secret_env("DMS_TAX_ID_ENCRYPTION_KEY", infisical_secret_name="TAX_ID_ENCRYPTION_KEY")
     resolve_secret_env("DMS_JWT_PRIVATE_KEY", infisical_secret_name="JWT_PRIVATE_KEY")
+    resolve_secret_env("DMS_ZITADEL_CLIENT_SECRET", infisical_secret_name="ZITADEL_CLIENT_SECRET")
+    resolve_secret_env("DMS_SESSION_SECRET_KEY", infisical_secret_name="SESSION_SECRET_KEY")
 
-    # tax_id_encryption_key and jwt_private_key have no default (see their
-    # own comments above) but aren't actually missing here — pydantic-
-    # settings populates both from the environment at runtime. mypy has no
-    # visibility into that.
+    # tax_id_encryption_key, jwt_private_key, zitadel_client_secret and
+    # session_secret_key have no default (see their own comments above) but
+    # aren't actually missing here — pydantic-settings populates all four
+    # from the environment at runtime. mypy has no visibility into that.
     return Settings()  # type: ignore[call-arg]

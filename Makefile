@@ -16,6 +16,16 @@ from cryptography.hazmat.primitives.asymmetric import rsa; \
 key = rsa.generate_private_key(public_exponent=65537, key_size=2048); \
 pem = key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()).decode(); \
 print('DMS_JWT_PRIVATE_KEY=' + pem.replace(chr(10), '\\\\n'))" >> .env; \
+		python3 -c "import secrets; print('DMS_SESSION_SECRET_KEY=' + secrets.token_urlsafe(32))" >> .env; \
+		echo "DMS_ZITADEL_ISSUER=" >> .env; \
+		echo "DMS_ZITADEL_CLIENT_ID=" >> .env; \
+		echo "DMS_ZITADEL_CLIENT_SECRET=" >> .env; \
+		echo "DMS_ZITADEL_REDIRECT_URI=http://localhost:8000/v1/auth/oidc/callback" >> .env; \
+		echo ""; \
+		echo "Zitadel OIDC values (WP-4) can't be auto-generated — they need a real"; \
+		echo "registered application. Fill in DMS_ZITADEL_ISSUER/_CLIENT_ID/_CLIENT_SECRET"; \
+		echo "in .env before the login flow will work; everything else starts fine"; \
+		echo "without them (login just 404s at Zitadel with a blank issuer)."; \
 	fi
 	docker compose up --build
 

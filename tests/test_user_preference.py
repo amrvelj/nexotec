@@ -57,7 +57,7 @@ def _create_user(client, dealer_id: str, **overrides) -> dict:
         "role": "sales",
         "accessRoles": ["sales"],
         "isDealerManager": False,
-        "authIdentityId": "stub-sub-1",
+        "authIdentityId": f"stub-sub-{uuid.uuid4()}",
     }
     payload.update(overrides)
     response = client.post(f"/v1/dealerships/{dealer_id}/users", json=payload, headers=_bearer(admin_token))
