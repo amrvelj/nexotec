@@ -19,6 +19,7 @@ from app.platform.models.user import User
 from app.platform.models.user_preference import UserPreference
 from app.sales.models.transaction import Transaction
 from app.vehicle.models.catalogue import Brand, ModelGroup, ModelVariant, TypeApproval, VariantOption
+from app.vehicle.models.provider import MappingGap, ProviderCodeMap, ProviderEntityRef
 from app.vehicle.models.vehicle import Vehicle, VehicleCustodyEvent
 
 __all__ = [
@@ -32,10 +33,13 @@ __all__ = [
     "IdempotencyRecord",
     "LegalBasis",
     "Location",
+    "MappingGap",
     "ModelGroup",
     "ModelVariant",
     "OutboxMessage",
     "ProcessedEvent",
+    "ProviderCodeMap",
+    "ProviderEntityRef",
     "ReconciliationOrphan",
     "ReconciliationRun",
     "ReferenceList",
