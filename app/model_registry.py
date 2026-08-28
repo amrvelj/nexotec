@@ -19,6 +19,7 @@ from app.platform.models.user import User
 from app.platform.models.user_preference import UserPreference
 from app.sales.models.transaction import Transaction
 from app.vehicle.models.catalogue import Brand, ModelGroup, ModelVariant, TypeApproval, VariantOption
+from app.vehicle.models.plate import DealerPlate, DealerPlateAssignment, VehiclePlate, VehiclePlateConflict
 from app.vehicle.models.provider import MappingGap, ProviderCodeMap, ProviderEntityRef
 from app.vehicle.models.vehicle import Vehicle, VehicleCustodyEvent
 from app.vehicle.models.vehicle_mdm import VehicleMdm, VehicleNumberSequence
@@ -29,6 +30,8 @@ __all__ = [
     "Customer",
     "CustomerAddress",
     "DealerGroup",
+    "DealerPlate",
+    "DealerPlateAssignment",
     "Dealership",
     "DealershipMembership",
     "IdempotencyRecord",
@@ -55,4 +58,6 @@ __all__ = [
     "VehicleMdm",
     "VehicleNumberSequence",
     "VehicleParty",
+    "VehiclePlate",
+    "VehiclePlateConflict",
 ]
