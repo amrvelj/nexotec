@@ -4,6 +4,7 @@
       "masterData": "Master Data",
       "customers": "Customers",
       "vehicles": "Vehicles",
+      "mappingGaps": "Mapping gaps",
       "partners": "Partners",
       "modules": "Modules",
       "sales": "Sales",
@@ -272,5 +273,34 @@
     "title": "Sign-in failed",
     "message": "Sign-in failed. Please try again or contact your administrator.",
     "retry": "Try again"
+  },
+  "mappingGaps": {
+    "title": "Mapping gaps",
+    "searchPlaceholder": "Search by provider or code…",
+    "resolve": "Resolve",
+    "loadError": "Failed to load mapping gaps.",
+    "columns": {
+      "provider": "Provider",
+      "vehicleKind": "Vehicle kind",
+      "codeGroup": "Code group",
+      "providerCode": "Provider code",
+      "occurrences": "Occurrences",
+      "lastSeen": "Last seen"
+    },
+    "emptyState": {
+      "title": "No mapping gaps",
+      "description": "Every provider code seen so far resolves to a canonical value."
+    },
+    "emptyFilteredState": {
+      "title": "No matching gaps",
+      "description": "No mapping gaps match your search.",
+      "action": "Clear search"
+    },
+    "resolveModal": {
+      "title": "Resolve mapping gap",
+      "listCode": "Canonical list code",
+      "valueCode": "Canonical value code",
+      "confirm": "Resolve"
+    }
   }
 }

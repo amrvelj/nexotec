@@ -4,6 +4,7 @@
       "masterData": "Données de base",
       "customers": "Clients",
       "vehicles": "Véhicules",
+      "mappingGaps": "Écarts de correspondance",
       "partners": "Partenaires",
       "modules": "Modules",
       "sales": "Ventes",
@@ -272,5 +273,34 @@
     "title": "Échec de la connexion",
     "message": "La connexion a échoué. Veuillez réessayer ou contacter votre administrateur·rice.",
     "retry": "Réessayer"
+  },
+  "mappingGaps": {
+    "title": "Écarts de correspondance",
+    "searchPlaceholder": "Rechercher par fournisseur ou code…",
+    "resolve": "Résoudre",
+    "loadError": "Impossible de charger les écarts de correspondance.",
+    "columns": {
+      "provider": "Fournisseur",
+      "vehicleKind": "Type de véhicule",
+      "codeGroup": "Groupe de codes",
+      "providerCode": "Code fournisseur",
+      "occurrences": "Occurrences",
+      "lastSeen": "Vu pour la dernière fois"
+    },
+    "emptyState": {
+      "title": "Aucun écart de correspondance",
+      "description": "Chaque code fournisseur vu jusqu'ici correspond à une valeur canonique."
+    },
+    "emptyFilteredState": {
+      "title": "Aucun résultat",
+      "description": "Aucun écart de correspondance ne correspond à votre recherche.",
+      "action": "Effacer la recherche"
+    },
+    "resolveModal": {
+      "title": "Résoudre l'écart de correspondance",
+      "listCode": "Code de liste canonique",
+      "valueCode": "Code de valeur canonique",
+      "confirm": "Résoudre"
+    }
   }
 }

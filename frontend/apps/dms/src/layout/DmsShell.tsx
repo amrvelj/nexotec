@@ -2,6 +2,7 @@ import { useEffect, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
+  AlertTriangle,
   ArrowLeftRight,
   Car,
   ChartColumn,
@@ -28,6 +29,11 @@ function buildNavGroups(t: (key: string) => string): NavGroupConfig[] {
         { label: t('shell.nav.customers'), href: '/customers', icon: Users, status: 'active' },
         { label: t('shell.nav.vehicles'), href: '/vehicles', icon: Car, status: 'soon' },
         { label: t('shell.nav.partners'), href: '/partners', icon: Store, status: 'soon' },
+        // WP-5 PR-8 (FR-V-11) — platform_admin-only in practice (the API
+        // 403s for anyone else); not client-side role-gated in the nav
+        // itself, matching this project's "server-side enforcement, UI
+        // hiding is not a control" posture (Risk R-4).
+        { label: t('shell.nav.mappingGaps'), href: '/vehicle-mdm/mapping-gaps', icon: AlertTriangle, status: 'active' },
       ],
     },
     {

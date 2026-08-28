@@ -319,3 +319,23 @@ export interface ApiErrorBody {
     details: Record<string, unknown> | null
   }
 }
+
+// WP-5 PR-8 — master-data admin (mapping-gap queue)
+export interface MappingGapRead {
+  id: string
+  provider: string
+  vehicleKind: string
+  codeGroup: string
+  providerCode: string
+  firstSeenAt: string
+  lastSeenAt: string
+  occurrences: number
+  resolved: boolean
+  resolvedAt: string | null
+  resolvedValueCode: string | null
+}
+
+export interface MappingGapPage {
+  items: MappingGapRead[]
+  nextCursor: string | null
+}

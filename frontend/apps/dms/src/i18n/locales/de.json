@@ -4,6 +4,7 @@
       "masterData": "Stammdaten",
       "customers": "Kunden",
       "vehicles": "Fahrzeuge",
+      "mappingGaps": "Zuordnungslücken",
       "partners": "Partner",
       "modules": "Module",
       "sales": "Verkauf",
@@ -272,5 +273,34 @@
     "title": "Anmeldung fehlgeschlagen",
     "message": "Die Anmeldung ist fehlgeschlagen. Bitte versuchen Sie es erneut oder wenden Sie sich an Ihre Administratorin bzw. Ihren Administrator.",
     "retry": "Erneut versuchen"
+  },
+  "mappingGaps": {
+    "title": "Zuordnungslücken",
+    "searchPlaceholder": "Nach Anbieter oder Code suchen…",
+    "resolve": "Zuordnen",
+    "loadError": "Zuordnungslücken konnten nicht geladen werden.",
+    "columns": {
+      "provider": "Anbieter",
+      "vehicleKind": "Fahrzeugart",
+      "codeGroup": "Codegruppe",
+      "providerCode": "Anbietercode",
+      "occurrences": "Vorkommen",
+      "lastSeen": "Zuletzt gesehen"
+    },
+    "emptyState": {
+      "title": "Keine Zuordnungslücken",
+      "description": "Jeder bisher gesehene Anbietercode lässt sich einem kanonischen Wert zuordnen."
+    },
+    "emptyFilteredState": {
+      "title": "Keine Treffer",
+      "description": "Keine Zuordnungslücken entsprechen Ihrer Suche.",
+      "action": "Suche zurücksetzen"
+    },
+    "resolveModal": {
+      "title": "Zuordnungslücke auflösen",
+      "listCode": "Kanonischer Listencode",
+      "valueCode": "Kanonischer Wertcode",
+      "confirm": "Zuordnen"
+    }
   }
 }

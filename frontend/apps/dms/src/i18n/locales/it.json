@@ -4,6 +4,7 @@
       "masterData": "Dati anagrafici",
       "customers": "Clienti",
       "vehicles": "Veicoli",
+      "mappingGaps": "Lacune di mappatura",
       "partners": "Partner",
       "modules": "Moduli",
       "sales": "Vendite",
@@ -272,5 +273,34 @@
     "title": "Accesso non riuscito",
     "message": "Accesso non riuscito. Riprova oppure contatta il tuo amministratore.",
     "retry": "Riprova"
+  },
+  "mappingGaps": {
+    "title": "Lacune di mappatura",
+    "searchPlaceholder": "Cerca per fornitore o codice…",
+    "resolve": "Risolvi",
+    "loadError": "Impossibile caricare le lacune di mappatura.",
+    "columns": {
+      "provider": "Fornitore",
+      "vehicleKind": "Tipo di veicolo",
+      "codeGroup": "Gruppo di codici",
+      "providerCode": "Codice fornitore",
+      "occurrences": "Occorrenze",
+      "lastSeen": "Ultima rilevazione"
+    },
+    "emptyState": {
+      "title": "Nessuna lacuna di mappatura",
+      "description": "Ogni codice fornitore finora rilevato corrisponde a un valore canonico."
+    },
+    "emptyFilteredState": {
+      "title": "Nessun risultato",
+      "description": "Nessuna lacuna di mappatura corrisponde alla ricerca.",
+      "action": "Cancella ricerca"
+    },
+    "resolveModal": {
+      "title": "Risolvi lacuna di mappatura",
+      "listCode": "Codice lista canonico",
+      "valueCode": "Codice valore canonico",
+      "confirm": "Risolvi"
+    }
   }
 }
