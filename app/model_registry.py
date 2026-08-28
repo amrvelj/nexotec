@@ -22,6 +22,8 @@ from app.vehicle.models.catalogue import Brand, ModelGroup, ModelVariant, TypeAp
 from app.vehicle.models.plate import DealerPlate, DealerPlateAssignment, VehiclePlate, VehiclePlateConflict
 from app.vehicle.models.provider import MappingGap, ProviderCodeMap, ProviderEntityRef
 from app.vehicle.models.vehicle import Vehicle, VehicleCustodyEvent
+from app.vehicle.models.vehicle_history import VehicleAccessory, VehicleOdometerReading
+from app.vehicle.models.vehicle_history import VehicleCustodyEvent as VehicleMdmCustodyEvent
 from app.vehicle.models.vehicle_mdm import VehicleMdm, VehicleNumberSequence
 
 __all__ = [
@@ -54,9 +56,12 @@ __all__ = [
     "UserPreference",
     "VariantOption",
     "Vehicle",
+    "VehicleAccessory",
     "VehicleCustodyEvent",
     "VehicleMdm",
+    "VehicleMdmCustodyEvent",
     "VehicleNumberSequence",
+    "VehicleOdometerReading",
     "VehicleParty",
     "VehiclePlate",
     "VehiclePlateConflict",
