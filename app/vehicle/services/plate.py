@@ -115,6 +115,21 @@ def resolve_plate(
     return list(db.scalars(stmt).all())
 
 
+def list_plates_for_vehicle(db: Session, *, vehicle_id: uuid.UUID) -> list[VehiclePlate]:
+    """FR-V-16's Vehicle 360 Plates tab: this vehicle's OWN plate history,
+    keyed by a known vehicle id — not the enumerable "browse every plate"
+    the rest of this module forbids. Knowing which car you're looking at
+    is exactly the identifier the enumerability rule requires; this is
+    the targeted lookup, from the other direction.
+    """
+
+    return list(
+        db.scalars(
+            select(VehiclePlate).where(VehiclePlate.vehicle_id == vehicle_id).order_by(VehiclePlate.valid_from.desc())
+        ).all()
+    )
+
+
 def current_dealer_plate_assignment(db: Session, *, dealer_plate_id: uuid.UUID) -> DealerPlateAssignment | None:
     return db.scalar(
         select(DealerPlateAssignment).where(

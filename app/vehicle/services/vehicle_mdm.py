@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import ConflictError, NotFoundError
 from app.vehicle.models.vehicle_mdm import CatalogueMatchStatus, VehicleMdm, VehicleNumberSequence
+from app.vehicle.schemas.vehicle_mdm import VehicleMdmUpdate
 
 
 def allocate_vehicle_number(db: Session) -> str:
@@ -81,6 +82,67 @@ def create_vehicle_mdm(
     except IntegrityError as exc:
         db.rollback()
         raise ConflictError(f"A vehicle with VIN '{vin}' already exists.", details={"vin": vin}) from exc
+
+    db.commit()
+    db.refresh(vehicle)
+    return vehicle
+
+
+def create_or_get_vehicle_mdm(
+    db: Session,
+    *,
+    vin: str,
+    catalogue_variant_id: uuid.UUID | None,
+    stammnummer: str | None = None,
+    type_approval_number: str | None = None,
+    first_registration_date: dt.date | None = None,
+    actor_id: uuid.UUID | None = None,
+) -> tuple[VehicleMdm, bool]:
+    """WP-5 PR-9, FR-V-15: "a VIN that already exists is not a validation
+    error — it is the same car." Returns (vehicle, created) — created=False
+    means the VIN already resolved to an existing record, returned as-is
+    (never re-created, never silently merged with the new payload's other
+    fields) so the caller can offer to open it. This is the actual
+    enforcement point create_vehicle_mdm's own docstring describes.
+    """
+
+    existing = get_vehicle_mdm_by_vin(db, vin)
+    if existing is not None:
+        return existing, False
+
+    vehicle = create_vehicle_mdm(
+        db, vin=vin, catalogue_variant_id=catalogue_variant_id, stammnummer=stammnummer,
+        type_approval_number=type_approval_number, first_registration_date=first_registration_date,
+        actor_id=actor_id,
+    )
+    return vehicle, True
+
+
+def update_vehicle_mdm(
+    db: Session, *, vehicle: VehicleMdm, data: VehicleMdmUpdate, actor_id: uuid.UUID | None
+) -> VehicleMdm:
+    """The only PATCH path for vin/stammnummer/first_registration_date —
+    nothing else in the codebase may write them (ADR-045). A mistyped VIN
+    correction on an unverified record is permitted and audit-logged here
+    like any other field; re-running the matching waterfall against the
+    corrected value is the caller's job (PR-6's match_vehicle), not this
+    function's — keeping this a plain field update keeps the two concerns
+    (persisting a correction, deciding what it implies) separable.
+    """
+
+    changes = data.model_dump(exclude_unset=True)
+    for field, value in changes.items():
+        setattr(vehicle, field, value)
+    vehicle.updated_by = actor_id
+    vehicle.version += 1
+
+    try:
+        db.flush()
+    except IntegrityError as exc:
+        db.rollback()
+        raise ConflictError(
+            f"A vehicle with VIN '{changes.get('vin')}' already exists.", details={"vin": changes.get("vin")}
+        ) from exc
 
     db.commit()
     db.refresh(vehicle)

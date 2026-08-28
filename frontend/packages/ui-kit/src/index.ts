@@ -4,6 +4,8 @@ export * from "./components/Badge";
 export * from "./components/CustomerTypeBadge";
 export * from "./components/LifecycleStatusBadge";
 export * from "./components/LanguageBadge";
+export * from "./components/Picker";
+export * from "./components/FormDialog";
 export * from "./shell/types";
 export * from "./shell/BreadcrumbContext";
 export * from "./shell/Sidebar";

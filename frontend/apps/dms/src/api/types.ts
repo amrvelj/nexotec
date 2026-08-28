@@ -339,3 +339,86 @@ export interface MappingGapPage {
   items: MappingGapRead[]
   nextCursor: string | null
 }
+
+// WP-5 PR-9 — VehicleMdm identity, one-search-box, party allocation
+// VehiclePartyRole is already defined above (line 224) — reused as-is,
+// the vehicle-mdm party endpoints share the same customer.public enum.
+export type VehicleStatus = 'active' | 'exported' | 'scrapped' | 'stolen'
+export type CatalogueMatchStatus = 'matched' | 'unverified'
+export type OdometerSource = 'service_visit' | 'sale' | 'valuation' | 'manual' | 'import'
+
+export interface VehicleMdmRead {
+  id: string
+  vin: string
+  vehicleNumber: string
+  stammnummer: string | null
+  typeApprovalNumber: string | null
+  firstRegistrationDate: string | null
+  catalogueVariantId: string | null
+  catalogueMatchStatus: CatalogueMatchStatus
+  vehicleStatus: VehicleStatus
+  mergedIntoVehicleId: string | null
+  version: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface VehicleMdmCreateResult {
+  created: boolean
+  vehicle: VehicleMdmRead
+}
+
+export interface VehicleMdmPage {
+  items: VehicleMdmRead[]
+  nextCursor: string | null
+}
+
+export interface VehiclePickerCandidate {
+  id: string
+  vehicleNumber: string
+  vin: string
+  plate: string | null
+  plateGroupId: string | null
+  isConflict: boolean
+}
+
+export interface VehicleSearchResult {
+  resolved: VehicleMdmRead | null
+  pickerCandidates: VehiclePickerCandidate[]
+  filtered: VehicleMdmPage
+}
+
+export interface VehiclePartyAllocationRead {
+  id: string
+  vehicleId: string
+  customerId: string
+  role: VehiclePartyRole
+  effectiveFrom: string
+  effectiveTo: string | null
+}
+
+export interface VehiclePlateRead {
+  id: string
+  plate: string
+  canton: string
+  validFrom: string
+  validTo: string | null
+  isInterchangeable: boolean
+  plateGroupId: string | null
+}
+
+export interface VehicleOdometerReadingRead {
+  id: string
+  value: number
+  readingDate: string
+  source: OdometerSource
+  implausible: boolean
+}
+
+export interface VehicleAccessoryRead {
+  id: string
+  accessoryType: string
+  description: string | null
+  validFrom: string
+  validTo: string | null
+}

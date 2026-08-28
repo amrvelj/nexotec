@@ -34,7 +34,9 @@
       "comfortable": "Confortable",
       "tooltip": "Densité : {{label}}",
       "ariaLabel": "Modifier la densité des lignes"
-    }
+    },
+    "cancel": "Annuler",
+    "notSet": "Non défini"
   },
   "customerEnums": {
     "customerType": {
@@ -301,6 +303,128 @@
       "listCode": "Code de liste canonique",
       "valueCode": "Code de valeur canonique",
       "confirm": "Résoudre"
+    }
+  },
+  "vehiclesList": {
+    "title": "Véhicules",
+    "newVehicle": "Nouveau véhicule",
+    "searchPlaceholder": "Rechercher n° de châssis, n° de véhicule, numéro souche ou plaque…",
+    "loadError": "Échec du chargement des véhicules.",
+    "columns": {
+      "vehicleNumber": "N° véhicule",
+      "vin": "N° de châssis",
+      "stammnummer": "Numéro souche",
+      "matchStatus": "Correspondance catalogue",
+      "status": "Statut"
+    },
+    "matchStatus": {
+      "matched": "Correspondance trouvée",
+      "unverified": "Non vérifié"
+    },
+    "status": {
+      "active": "Actif",
+      "exported": "Exporté",
+      "scrapped": "Détruit",
+      "stolen": "Volé"
+    },
+    "resolved": {
+      "title": "Correspondance trouvée",
+      "open": "Ouvrir"
+    },
+    "picker": {
+      "wechselschildTitle": "Plusieurs véhicules partagent cette plaque interchangeable — choisissez-en un",
+      "conflictTitle": "Cette plaque correspond à plusieurs véhicules sans attribution partagée — choisissez le bon",
+      "empty": "Aucun candidat trouvé"
+    },
+    "emptyState": {
+      "title": "Aucun véhicule pour l’instant",
+      "description": "Les véhicules créés ou migrés apparaîtront ici."
+    },
+    "emptyFilteredState": {
+      "title": "Aucun véhicule correspondant",
+      "description": "Aucun véhicule ne correspond à votre recherche.",
+      "action": "Effacer la recherche"
+    }
+  },
+  "vehicleCreate": {
+    "title": "Nouveau véhicule",
+    "vinLabel": "N° de châssis",
+    "submit": "Créer",
+    "existingNotice": "Ce n° de châssis existe déjà sous {{vehicleNumber}}.",
+    "openExisting": "Ouvrir l’enregistrement existant"
+  },
+  "vehicleDetail": {
+    "header": {
+      "failedToLoad": "Échec du chargement du véhicule",
+      "copyVin": "Copier le n° de châssis",
+      "merge": "Fusionner avec…"
+    },
+    "errors": {
+      "somethingWentWrong": "Une erreur est survenue."
+    },
+    "tabs": {
+      "identity": "Identité",
+      "plates": "Plaques",
+      "odometer": "Kilométrage",
+      "accessories": "Accessoires"
+    },
+    "identity": {
+      "title": "Identité",
+      "vin": "N° de châssis",
+      "vehicleNumber": "N° véhicule",
+      "stammnummer": "Numéro souche",
+      "typeApprovalNumber": "N° de réception",
+      "firstRegistrationDate": "Première mise en circulation",
+      "matchStatus": "Correspondance catalogue"
+    },
+    "parties": {
+      "title": "Parties",
+      "none": "Aucune partie attribuée",
+      "allocate": "Attribuer à un client",
+      "roleLabel": "Rôle",
+      "role": {
+        "owner": "Propriétaire",
+        "keeper": "Détenteur",
+        "driver": "Conducteur"
+      },
+      "searchCustomer": "Rechercher un client…",
+      "noCustomers": "Aucun client trouvé",
+      "showFormer": "Afficher les anciennes parties",
+      "hideFormer": "Masquer les anciennes parties"
+    },
+    "plates": {
+      "plate": "Plaque",
+      "canton": "Canton",
+      "validFrom": "Valide à partir de",
+      "validTo": "Valide jusqu’à",
+      "current": "actuelle",
+      "none": "Aucune plaque enregistrée",
+      "wechselschild": "Plaque interchangeable"
+    },
+    "odometer": {
+      "value": "Relève",
+      "date": "Date",
+      "source": "Source",
+      "record": "Enregistrer",
+      "none": "Aucun relevé enregistré",
+      "implausible": "Invraisemblable",
+      "implausibleNotice": "Un ou plusieurs relevés sont inférieurs à un relevé précédent. Ils sont conservés et signalés, jamais masqués.",
+      "sourceLabel": {
+        "service_visit": "Visite d’entretien",
+        "sale": "Vente",
+        "valuation": "Évaluation",
+        "manual": "Manuel",
+        "import": "Importation"
+      }
+    },
+    "accessories": {
+      "type": "Type",
+      "description": "Description",
+      "validFrom": "Valide à partir de",
+      "validTo": "Valide jusqu’à",
+      "add": "Ajouter",
+      "remove": "Retirer",
+      "none": "Aucun accessoire enregistré"
     }
   }
 }

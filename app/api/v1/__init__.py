@@ -16,6 +16,8 @@ from app.platform.api.user_preferences import router as user_preferences_router
 from app.sales.api.transactions import router as transactions_router
 from app.vehicle.api.catalogue_admin import router as vehicle_catalogue_admin_router
 from app.vehicle.api.lookup import router as vehicle_lookup_router
+from app.vehicle.api.vehicle_mdm import router as vehicle_mdm_router
+from app.vehicle.api.vehicle_mdm_detail import router as vehicle_mdm_detail_router
 from app.vehicle.api.vehicles import router as vehicles_router
 
 api_v1_router = APIRouter(prefix="/v1")
@@ -26,6 +28,8 @@ api_v1_router.include_router(reference_data_router)
 api_v1_router.include_router(vehicles_router)
 api_v1_router.include_router(vehicle_lookup_router)
 api_v1_router.include_router(vehicle_catalogue_admin_router)
+api_v1_router.include_router(vehicle_mdm_router)
+api_v1_router.include_router(vehicle_mdm_detail_router)
 api_v1_router.include_router(customers_router)
 api_v1_router.include_router(transactions_router)
 api_v1_router.include_router(auth_router)

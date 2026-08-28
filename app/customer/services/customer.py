@@ -12,6 +12,7 @@ every call site here now passes `customer.group_id` as its value, since
 that's Customer's real scoping key.
 """
 
+import datetime as dt
 import uuid
 from typing import Any
 
@@ -43,7 +44,7 @@ from app.customer.models.customer import (
     Language,
     PhoneType,
 )
-from app.customer.models.vehicle_party import VehicleParty
+from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.customer.schemas.customer import (
     CustomerAddressCreate,
     CustomerAddressRead,
@@ -1543,13 +1544,40 @@ def _validate_effective_range(effective_from, effective_to) -> None:
         raise BadRequestError("effective_to must be after effective_from.")
 
 
-def list_customer_vehicles(db: Session, *, customer_id: uuid.UUID) -> list[VehicleParty]:
+def list_customer_vehicles(
+    db: Session, *, customer_id: uuid.UUID, include_closed: bool = False
+) -> list[VehicleParty]:
+    """Default is CURRENT allocations only (effective_to is null or still
+    in the future) — WP-5 PR-9, ADR-064. include_closed=True is FR-V-16's
+    "former allocations" view on Vehicle 360's Identity tab; the row
+    itself is never deleted (see delete_customer_vehicle below), so
+    history is always available on request, just not mixed into the
+    default view by default.
+    """
+
     stmt = (
         select(VehicleParty)
         .options(joinedload(VehicleParty.vehicle))
         .where(VehicleParty.customer_id == customer_id)
         .order_by(VehicleParty.effective_from.desc())
     )
+    if not include_closed:
+        stmt = stmt.where(or_(VehicleParty.effective_to.is_(None), VehicleParty.effective_to > utcnow()))
+    return list(db.scalars(stmt).all())
+
+
+def list_vehicle_parties(
+    db: Session, *, vehicle_id: uuid.UUID, include_closed: bool = False
+) -> list[VehicleParty]:
+    """The vehicle-side mirror of list_customer_vehicles — FR-V-16's
+    Vehicle 360 Identity tab needs "who holds which role on THIS car",
+    keyed by vehicle rather than by customer. Same default-open-only /
+    include_closed=True shape.
+    """
+
+    stmt = select(VehicleParty).where(VehicleParty.vehicle_id == vehicle_id).order_by(VehicleParty.effective_from.desc())
+    if not include_closed:
+        stmt = stmt.where(or_(VehicleParty.effective_to.is_(None), VehicleParty.effective_to > utcnow()))
     return list(db.scalars(stmt).all())
 
 
@@ -1602,6 +1630,17 @@ def create_customer_vehicle(
             "effectiveTo": party.effective_to.isoformat() if party.effective_to else None,
         },
     )
+    publish_event(
+        db,
+        OutboxEvent(
+            event_type="customer.vehicle_party.linked",
+            tenant_id=customer.group_id,
+            producer=_EVENT_PRODUCER,
+            aggregate_type="vehicle_party",
+            aggregate_id=party.id,
+            payload=_vehicle_party_payload(party),
+        ),
+    )
     db.commit()
     db.refresh(party)
     return party
@@ -1651,6 +1690,31 @@ def update_customer_vehicle(
 
 
 def delete_customer_vehicle(db: Session, *, party: VehicleParty, actor_id: uuid.UUID, group_id: uuid.UUID) -> None:
+    """"Disconnect" (FR-V-05) — CLOSES the allocation by setting
+    effective_to; the row is never deleted, so history survives (WP-5
+    PR-9, ADR-064). This was a hard db.delete() before PR-9 — a real
+    correctness gap against ADR-064's explicit "never overwritten, never
+    deleted" rule, fixed here rather than left for whoever built PR-9's
+    party-role work to rediscover. list_customer_vehicles' default
+    (open-only) view already filters closed rows out, so callers see the
+    same "it's gone" result as before; GET .../vehicles?includeClosed=true
+    is the only way the row becomes visible again.
+
+    Idempotent against a second call on an already-closed row — the
+    closing timestamp isn't allowed to drift forward on a repeat request.
+    """
+
+    if party.effective_to is not None and party.effective_to <= utcnow():
+        return
+
+    before = {
+        "vehicleId": str(party.vehicle_id),
+        "role": party.role.value,
+        "effectiveFrom": party.effective_from.isoformat(),
+        "effectiveTo": party.effective_to.isoformat() if party.effective_to else None,
+    }
+    party.effective_to = utcnow()
+
     record_audit_event(
         db,
         entity_type="customer",
@@ -1658,14 +1722,86 @@ def delete_customer_vehicle(db: Session, *, party: VehicleParty, actor_id: uuid.
         tenant_id=group_id,
         action="vehicle_party_remove",
         actor_id=actor_id,
-        before={
-            "vehicleId": str(party.vehicle_id),
-            "role": party.role.value,
-            "effectiveFrom": party.effective_from.isoformat(),
-        },
+        before=before,
+        after={"effectiveTo": party.effective_to.isoformat()},
     )
-    db.delete(party)
+    publish_event(
+        db,
+        OutboxEvent(
+            event_type="customer.vehicle_party.unlinked",
+            tenant_id=group_id,
+            producer=_EVENT_PRODUCER,
+            aggregate_type="vehicle_party",
+            aggregate_id=party.id,
+            payload=_vehicle_party_payload(party),
+        ),
+    )
     db.commit()
+
+
+def allocate_vehicle_party(
+    db: Session, *, vehicle_id: uuid.UUID, customer_id: uuid.UUID, role: VehiclePartyRole,
+    group_id: uuid.UUID, actor_id: uuid.UUID, effective_from: dt.datetime | None = None,
+) -> VehicleParty:
+    """The actual ADR-064 allocation: setting a new holder for a role
+    CLOSES whichever OTHER open holder of that same (vehicle, role)
+    currently exists — never an update of the existing row, never a
+    silent overwrite. If the SAME customer already holds this role
+    (re-confirming, not a handover), this is a no-op returning the
+    existing open row rather than closing-then-reopening an identical
+    allocation. One dialog, reachable from either the vehicle or the
+    customer (FR-V-05) — this is the function both call.
+    """
+
+    effective_from = effective_from or utcnow()
+    current = db.scalar(
+        select(VehicleParty).where(
+            VehicleParty.vehicle_id == vehicle_id,
+            VehicleParty.role == role,
+            or_(VehicleParty.effective_to.is_(None), VehicleParty.effective_to > utcnow()),
+        )
+    )
+    if current is not None and current.customer_id == customer_id:
+        return current
+    if current is not None:
+        delete_customer_vehicle(db, party=current, actor_id=actor_id, group_id=group_id)
+
+    party = VehicleParty(
+        vehicle_id=vehicle_id, customer_id=customer_id, role=role, effective_from=effective_from, effective_to=None,
+    )
+    db.add(party)
+    db.flush()
+
+    record_audit_event(
+        db, entity_type="customer", entity_id=customer_id, tenant_id=group_id, action="vehicle_party_add",
+        actor_id=actor_id,
+        after={"vehicleId": str(vehicle_id), "role": role.value, "effectiveFrom": effective_from.isoformat()},
+    )
+    publish_event(
+        db,
+        OutboxEvent(
+            event_type="customer.vehicle_party.linked",
+            tenant_id=group_id,
+            producer=_EVENT_PRODUCER,
+            aggregate_type="vehicle_party",
+            aggregate_id=party.id,
+            payload=_vehicle_party_payload(party),
+        ),
+    )
+    db.commit()
+    db.refresh(party)
+    return party
+
+
+def _vehicle_party_payload(party: VehicleParty) -> dict[str, Any]:
+    return {
+        "vehiclePartyId": str(party.id),
+        "vehicleId": str(party.vehicle_id),
+        "customerId": str(party.customer_id),
+        "role": party.role.value,
+        "effectiveFrom": party.effective_from.isoformat(),
+        "effectiveTo": party.effective_to.isoformat() if party.effective_to else None,
+    }
 
 
 def repoint_vehicle_party(db: Session, *, duplicate_vehicle_id: uuid.UUID, survivor_vehicle_id: uuid.UUID) -> int:
