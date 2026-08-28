@@ -21,6 +21,7 @@ from app.sales.models.transaction import Transaction
 from app.vehicle.models.catalogue import Brand, ModelGroup, ModelVariant, TypeApproval, VariantOption
 from app.vehicle.models.provider import MappingGap, ProviderCodeMap, ProviderEntityRef
 from app.vehicle.models.vehicle import Vehicle, VehicleCustodyEvent
+from app.vehicle.models.vehicle_mdm import VehicleMdm, VehicleNumberSequence
 
 __all__ = [
     "AuditEvent",
@@ -51,5 +52,7 @@ __all__ = [
     "VariantOption",
     "Vehicle",
     "VehicleCustodyEvent",
+    "VehicleMdm",
+    "VehicleNumberSequence",
     "VehicleParty",
 ]
