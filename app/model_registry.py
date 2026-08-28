@@ -18,10 +18,12 @@ from app.platform.models.reference_data import ReferenceList, ReferenceValue
 from app.platform.models.user import User
 from app.platform.models.user_preference import UserPreference
 from app.sales.models.transaction import Transaction
+from app.vehicle.models.catalogue import Brand, ModelGroup, ModelVariant, TypeApproval, VariantOption
 from app.vehicle.models.vehicle import Vehicle, VehicleCustodyEvent
 
 __all__ = [
     "AuditEvent",
+    "Brand",
     "Customer",
     "CustomerAddress",
     "DealerGroup",
@@ -30,6 +32,8 @@ __all__ = [
     "IdempotencyRecord",
     "LegalBasis",
     "Location",
+    "ModelGroup",
+    "ModelVariant",
     "OutboxMessage",
     "ProcessedEvent",
     "ReconciliationOrphan",
@@ -37,8 +41,10 @@ __all__ = [
     "ReferenceList",
     "ReferenceValue",
     "Transaction",
+    "TypeApproval",
     "User",
     "UserPreference",
+    "VariantOption",
     "Vehicle",
     "VehicleCustodyEvent",
     "VehicleParty",
