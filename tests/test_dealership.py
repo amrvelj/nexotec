@@ -315,3 +315,122 @@ def test_list_dealerships_paginates(client):
     first_ids = {item["id"] for item in first_body["items"]}
     second_ids = {item["id"] for item in second_body["items"]}
     assert first_ids.isdisjoint(second_ids)
+
+
+# --- WP-6b: branding + default correspondence language -----------------------------
+
+
+def test_new_dealership_defaults_to_the_shipped_brand_colour_and_german(db_session):
+    """logo_url/brand_primary_color/default_correspondence_language (WP-6b
+    PR-1) are placeholders every real dealership admin is expected to
+    override — this only pins the Python-level defaults new rows get,
+    matching the migration's own backfill for pre-existing rows.
+    """
+    from app.core.i18n import SwissLanguage
+    from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
+
+    group = DealerGroup(name="Garage AG group")
+    db_session.add(group)
+    db_session.flush()
+
+    dealership = Dealership(
+        dealer_group_id=group.id,
+        legal_name="Garage AG",
+        dealer_license_number="ZH-2",
+        license_state="ZH",
+        franchise_type=FranchiseType.INDEPENDENT,
+        address_street="Bahnhofstrasse",
+        address_house_number="1",
+        address_postal_code="8001",
+        address_locality="Zürich",
+        address_canton="ZH",
+        phone="+41441234567",
+        tax_id="CHE-123.456.789",
+    )
+    db_session.add(dealership)
+    db_session.flush()
+    db_session.refresh(dealership)
+
+    assert dealership.logo_url is None
+    assert dealership.brand_primary_color == "#7C3AED"
+    assert dealership.default_correspondence_language == SwissLanguage.DE
+def test_migration_backfill_language_is_the_enum_member_name_not_its_value():
+    """Regression: the migration's server_default originally spelled the
+    lowercase enum VALUE ('de'), not the member NAME ('DE') SQLAlchemy's
+    Enum(native_enum=False) actually persists (same convention this
+    codebase already documents for FranchiseType/DealershipStatus in
+    scripts/seed_migration_smoke_test.py's own comments) — invisible to
+    every test in this fast SQLite lane, since none of them exercise the
+    migration itself, only caught by the "alembic upgrade from previously-
+    deployed revision" CI job reading a backfilled row back through the
+    ORM. This loads the migration module directly (same idiom
+    tests/test_vehicle_catalogue.py already uses) so a future regression
+    here fails fast, without needing Postgres.
+    """
+    import importlib.util
+    from pathlib import Path
+
+    from app.core.i18n import SwissLanguage
+
+    migration_path = (
+        Path(__file__).resolve().parent.parent
+        / "alembic"
+        / "versions"
+        / "platform"
+        / "1688c10efea9_dealership_branding_and_default_language.py"
+    )
+    spec = importlib.util.spec_from_file_location("wp6b_pr1_migration", migration_path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    assert module._DEFAULT_LANGUAGE in {member.name for member in SwissLanguage}
+
+
+def test_get_dealership_default_correspondence_language_returns_each_dealerships_own_value(db_session):
+    """WP-6b PR-4: the one half of the "customer, else dealership default"
+    rule app.platform actually owns — proven here to return each
+    dealership's own configured value, not a hardcoded one.
+    """
+    from app.core.i18n import SwissLanguage
+    from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
+    from app.platform.services.dealership import get_dealership_default_correspondence_language
+
+    group = DealerGroup(name="Garage AG group")
+    db_session.add(group)
+    db_session.flush()
+
+    de_dealership = Dealership(
+        dealer_group_id=group.id,
+        legal_name="Garage Deutsch AG",
+        dealer_license_number="ZH-3",
+        license_state="ZH",
+        franchise_type=FranchiseType.INDEPENDENT,
+        address_street="Bahnhofstrasse",
+        address_house_number="1",
+        address_postal_code="8001",
+        address_locality="Zürich",
+        address_canton="ZH",
+        phone="+41441234567",
+        tax_id="CHE-111.111.111",
+    )
+    fr_dealership = Dealership(
+        dealer_group_id=group.id,
+        legal_name="Garage Français SA",
+        dealer_license_number="GE-1",
+        license_state="GE",
+        franchise_type=FranchiseType.INDEPENDENT,
+        address_street="Rue du Rhône",
+        address_house_number="10",
+        address_postal_code="1204",
+        address_locality="Genève",
+        address_canton="GE",
+        phone="+41221234567",
+        tax_id="CHE-222.222.222",
+        default_correspondence_language=SwissLanguage.FR,
+    )
+    db_session.add_all([de_dealership, fr_dealership])
+    db_session.flush()
+
+    assert get_dealership_default_correspondence_language(db_session, de_dealership.id) == SwissLanguage.DE
+    assert get_dealership_default_correspondence_language(db_session, fr_dealership.id) == SwissLanguage.FR

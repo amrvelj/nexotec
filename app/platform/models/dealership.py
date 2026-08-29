@@ -26,6 +26,7 @@ from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
+from app.core.i18n import SwissLanguage
 from app.core.types import GUID, EncryptedString
 from app.db import Base
 
@@ -102,6 +103,22 @@ class Dealership(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
         SAEnum(DealershipStatus, native_enum=False, length=32),
         nullable=False,
         default=DealershipStatus.PENDING_ONBOARDING,
+    )
+
+    # WP-6b: document branding + the "dealership default" half of the
+    # correspondence-language rule (Customers FR-13 / ADR-051). logo_url is
+    # an external reference only — this package builds no upload/hosting
+    # mechanism, that's a WP-6c admin-screen concern; a dealership with no
+    # logo renders an initials mark in brand_primary_color instead (same
+    # fallback the frontend shell's own BrandMark already uses). Every
+    # existing row is backfilled to purple[6] (#7C3AED, the shipped default
+    # brand colour, frontend/packages/ui-kit/src/tokens.ts) and to "de" —
+    # both placeholders a real dealership admin is expected to override,
+    # not a considered per-dealership choice.
+    logo_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    brand_primary_color: Mapped[str] = mapped_column(String(7), nullable=False, default="#7C3AED")
+    default_correspondence_language: Mapped[SwissLanguage] = mapped_column(
+        SAEnum(SwissLanguage, native_enum=False, length=8), nullable=False, default=SwissLanguage.DE
     )
 
     @property

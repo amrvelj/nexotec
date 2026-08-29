@@ -11,9 +11,10 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
 from app.core.errors import BadRequestError, ConflictError, NotFoundError
+from app.core.i18n import SwissLanguage
 from app.core.pagination import PageParams, build_page, paginate_query
 from app.core.redact import REDACTED_PLACEHOLDER, is_secret_field
-from app.platform.models.dealership import DealerGroup, Dealership, DealershipStatus
+from app.platform.models.dealership import DealerGroup, Dealership, DealershipStatus, Location
 from app.platform.schemas.dealership import DealershipCreate, DealershipUpdate
 
 _AUDITED_FIELDS = {"dealer_license_number", "license_state", "tax_id", "status"}
@@ -75,6 +76,26 @@ def get_dealership_or_404(db: Session, dealership_id: uuid.UUID) -> Dealership:
     if dealership is None:
         raise NotFoundError(f"Dealership {dealership_id} was not found.")
     return dealership
+
+
+def get_location_or_404(db: Session, location_id: uuid.UUID) -> Location:
+    location = db.get(Location, location_id)
+    if location is None:
+        raise NotFoundError(f"Location {location_id} was not found.")
+    return location
+
+
+def get_dealership_default_correspondence_language(db: Session, dealership_id: uuid.UUID) -> SwissLanguage:
+    """WP-6b: the "dealership default" half of Customers FR-13's
+    correspondence-language rule (document -> customer's language where one
+    exists, else this). The "check the customer first" half is each calling
+    module's own job — app.platform can't import app.customer to do it
+    here, and this function's contract is deliberately narrow: it never
+    guesses at a customer, it only ever answers "what does THIS dealership
+    fall back to."
+    """
+
+    return get_dealership_or_404(db, dealership_id).default_correspondence_language
 
 
 def list_dealerships_by_ids(db: Session, dealership_ids) -> list[Dealership]:

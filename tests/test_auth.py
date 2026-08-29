@@ -76,6 +76,10 @@ def auth_client() -> TestClient:
     def audit_logs_write(principal: Principal = Depends(require_write("audit_logs"))):
         return {"ok": True}
 
+    @app.get("/document-templates/write")
+    def document_templates_write(principal: Principal = Depends(require_write("document_templates"))):
+        return {"ok": True}
+
     return TestClient(app)
 
 
@@ -308,6 +312,29 @@ def test_require_write_audit_logs_rejects_even_the_dealer_manager(auth_client):
 
 def test_require_write_audit_logs_admits_platform_admin_only(auth_client):
     response = auth_client.get("/audit-logs/write", headers=_bearer(_token(AccessRole.PLATFORM_ADMIN)))
+    assert response.status_code == 200
+
+
+def test_require_write_document_templates_rejects_a_bare_functional_role(auth_client):
+    """WP-6b, ADR-044 tier 2: document_templates' write_roles is an empty
+    set, same shape as dealership_settings — a functional role alone must
+    not be enough, only platform_admin or the manager flag.
+    """
+    response = auth_client.get("/document-templates/write", headers=_bearer(_token(AccessRole.SALES)))
+    assert response.status_code == 403
+
+
+def test_require_write_document_templates_admits_dealer_manager(auth_client):
+    response = auth_client.get(
+        "/document-templates/write", headers=_bearer(_token(is_dealer_manager=True))
+    )
+    assert response.status_code == 200
+
+
+def test_require_write_document_templates_admits_platform_admin(auth_client):
+    response = auth_client.get(
+        "/document-templates/write", headers=_bearer(_token(AccessRole.PLATFORM_ADMIN))
+    )
     assert response.status_code == 200
 
 
