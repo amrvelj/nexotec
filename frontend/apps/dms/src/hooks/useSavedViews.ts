@@ -1,17 +1,7 @@
 import { usePersistedPreference } from './usePersistedPreference'
-import type { ColumnLayoutState, SortSpec } from '@nexotec/ui-kit'
+import { markDefault, removeView, renameView as renameViewIn, upsertView, type SavedView, type SavedViewSnapshot } from '@nexotec/ui-kit'
 
-export interface SavedViewSnapshot {
-  columnLayout?: ColumnLayoutState
-  sort?: SortSpec[]
-}
-
-export interface SavedView {
-  id: string
-  name: string
-  isDefault?: boolean
-  snapshot: SavedViewSnapshot
-}
+export type { SavedView, SavedViewSnapshot }
 
 interface SavedViewsPayload {
   schemaVersion: number
@@ -26,6 +16,9 @@ const DEFAULTS: SavedViewsPayload = { schemaVersion: 1, views: [] }
  * always-current working layout. Stored under its own `views:<gridKey>`
  * scope rather than nested inside the grid scope, so switching a view
  * doesn't have to round-trip the entire view LIST on every column resize.
+ * The list-manipulation logic itself (`upsertView`/`removeView`/…) is
+ * ui-kit's own pure, tested `savedView.ts` — this hook only adds
+ * persistence on top of it.
  */
 export function useSavedViews(gridKey: string) {
   const { value, update } = usePersistedPreference<SavedViewsPayload>(
@@ -36,19 +29,19 @@ export function useSavedViews(gridKey: string) {
 
   const saveView = (name: string, snapshot: SavedViewSnapshot) => {
     const view: SavedView = { id: crypto.randomUUID(), name, snapshot }
-    update({ views: [...value.views, view] })
+    update({ views: upsertView(value.views, view) })
   }
 
   const renameView = (id: string, name: string) => {
-    update({ views: value.views.map((v) => (v.id === id ? { ...v, name } : v)) })
+    update({ views: renameViewIn(value.views, id, name) })
   }
 
   const deleteView = (id: string) => {
-    update({ views: value.views.filter((v) => v.id !== id) })
+    update({ views: removeView(value.views, id) })
   }
 
   const setDefaultView = (id: string | null) => {
-    update({ views: value.views.map((v) => ({ ...v, isDefault: v.id === id })) })
+    update({ views: markDefault(value.views, id) })
   }
 
   return { views: value.views, saveView, renameView, deleteView, setDefaultView }
