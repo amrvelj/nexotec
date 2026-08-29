@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link2, Plus, Trash2 } from 'lucide-react'
 import { Group, Menu, TextInput } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
-import { DataGrid, InlineEditField, purple, type GridColumnDef } from '@nexotec/ui-kit'
+import { DataGrid, InlineEditField, purple, semantic, white, type GridColumnDef } from '@nexotec/ui-kit'
 import { useUiPreferencesContext } from '../../hooks/UiPreferencesContext'
 import { formatDate } from '../../utils/format'
 import { ApiError } from '../../api/client'
@@ -155,7 +155,7 @@ export function ExternalIdsTab({ externalIds, loading, error, canWrite, onCreate
               type="button"
               onClick={() => void saveAdd()}
               disabled={addSaving || !draftSystem || !draftExternalId}
-              style={{ fontSize: 12, fontWeight: 600, color: '#fff', backgroundColor: purple[6], border: 'none', borderRadius: 6, padding: '8px 12px', cursor: 'pointer' }}
+              style={{ fontSize: 12, fontWeight: 600, color: white, backgroundColor: purple[6], border: 'none', borderRadius: 6, padding: '8px 12px', cursor: 'pointer' }}
             >
               {t('customerDetail.externalIds.save')}
             </button>
@@ -191,7 +191,7 @@ export function ExternalIdsTab({ externalIds, loading, error, canWrite, onCreate
           </button>
         ))}
       {addError && (
-        <span style={{ fontSize: 12, color: '#c92a2a' }}>{addError}</span>
+        <span style={{ fontSize: 12, color: semantic.destructive.text }}>{addError}</span>
       )}
     </div>
   )

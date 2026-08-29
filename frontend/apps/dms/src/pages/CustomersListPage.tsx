@@ -28,14 +28,11 @@ import {
   type CustomerFilters,
 } from '../components/CustomerFiltersPopover'
 import { formatDate } from '../utils/format'
+import { customerName } from '../utils/customer'
 import type { CustomerPage, CustomerRead } from '../api/types'
 
 const GRID_KEY = 'mdm.customers.list'
 const DEFAULT_SORT: SortSpec[] = [{ field: 'updatedAt', direction: 'desc' }]
-
-function customerName(c: CustomerRead): string {
-  return c.customerType === 'business' ? (c.companyName ?? '') : `${c.firstName ?? ''} ${c.lastName ?? ''}`.trim()
-}
 
 export function CustomersListPage() {
   const { t, i18n } = useTranslation()

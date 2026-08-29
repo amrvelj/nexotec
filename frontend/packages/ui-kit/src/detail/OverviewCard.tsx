@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { radius, shadow, slate, spacing, typography } from "../tokens";
+import { radius, shadow, slate, spacing, typography, white } from "../tokens";
 
 export interface OverviewCardProps {
   title: string;
@@ -19,7 +19,7 @@ export function OverviewCard({ title, children }: OverviewCardProps) {
         borderRadius: radius.lg,
         boxShadow: shadow.sm,
         border: `1px solid ${slate[2]}`,
-        backgroundColor: "#fff",
+        backgroundColor: white,
         padding: spacing.lg,
         display: "flex",
         flexDirection: "column",

@@ -1,0 +1,86 @@
+/* DataGrid's own handful of rules that inline styles genuinely can't
+   express (a pseudo-element-free stacking trick and a keyframe animation)
+   — everything else in this component stays inline, on purpose. */
+
+.dg-row {
+  position: relative;
+}
+
+.dg-row:hover {
+  background-color: var(--slate-0);
+}
+
+/* The row's own navigation target — a plain sibling of the cells, not a
+   wrapper around them (see DataGrid.tsx's Row component for why). It is
+   `position: absolute` so it paints above ordinary (static) cell content;
+   a pinned cell or an element carrying `.dg-cell-link` is ALSO positioned
+   and renders after this in the DOM, so it wins instead. */
+.dg-row-link {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  text-decoration: none;
+  color: inherit;
+}
+
+/* The opt-in escape hatch documented on DG_CELL_LINK_CLASS (types.ts) —
+   an unpinned cell's own real link/button adds this to sit above
+   .dg-row-link instead of being covered by it. */
+.dg-cell-link {
+  position: relative;
+  z-index: 1;
+}
+
+/* § Columns — the header's own resize edge-drag. Absolutely positioned
+   against the columnheader cell (given `position: relative`/`sticky` in
+   DataGrid.tsx precisely so this has something to anchor to). */
+.dg-resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -3px;
+  width: 6px;
+  cursor: col-resize;
+  z-index: 4;
+}
+
+.dg-resize-handle:hover {
+  background-color: var(--purple-3);
+}
+
+/* The "refetching" state (§ The Data Grid, six states) — a background
+   refresh of the page already on screen, distinct from the initial-load
+   skeleton and from loading-next-page. */
+.dg-refetch-bar {
+  height: 2px;
+  flex-shrink: 0;
+  overflow: hidden;
+  background-color: var(--purple-1);
+  position: relative;
+}
+
+.dg-refetch-bar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background-color: var(--purple-6);
+  animation: dg-refetch-slide 1.1s ease-in-out infinite;
+}
+
+@keyframes dg-refetch-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(350%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dg-refetch-bar::after {
+    animation: none;
+    width: 100%;
+    transform: none;
+  }
+}

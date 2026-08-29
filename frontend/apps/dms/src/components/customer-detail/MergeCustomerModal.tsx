@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Building2, Search, TriangleAlert, User } from 'lucide-react'
 import { Checkbox, Group, Loader, Modal, Stack, Text, TextInput, UnstyledButton } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
-import { CustomerTypeBadge, LifecycleStatusBadge, purple, semantic, slate } from '@nexotec/ui-kit'
+import { CustomerTypeBadge, LifecycleStatusBadge, purple, semantic, slate, white } from '@nexotec/ui-kit'
 import { api, ApiError } from '../../api/client'
 import type { CustomerEmailPage, CustomerEmailRead, CustomerPage, CustomerPhonePage, CustomerPhoneRead, CustomerRead } from '../../api/types'
 
@@ -209,7 +209,7 @@ export function MergeCustomerModal({ opened, onClose, customer, phones, emails, 
               style={{
                 fontSize: 14,
                 fontWeight: 600,
-                color: '#fff',
+                color: white,
                 backgroundColor: confirmed ? semantic.destructive.text : slate[3],
                 border: 'none',
                 borderRadius: 8,

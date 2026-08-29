@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "nexotec-prototype",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8123", "--directory", "/Users/antomrvelj/Library/CloudStorage/GoogleDrive-mrvelj.anto@gmail.com/Meine Ablage/1. Persönlich/11. Arbeit/Anto/Nexotec/dms-platform/ui-prototype"],
+      "port": 8123
+    }
+  ]
+}

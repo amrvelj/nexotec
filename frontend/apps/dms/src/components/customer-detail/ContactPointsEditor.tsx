@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { ActionIcon, Group, Radio, Select, Stack, Text } from '@mantine/core'
 import { Plus, Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { InlineEditField, KeyValueRow, purple } from '@nexotec/ui-kit'
+import { InlineEditField, KeyValueRow, purple, white } from '@nexotec/ui-kit'
 import { ApiError } from '../../api/client'
 
 export interface ContactPointRow<TType extends string> {
@@ -191,7 +191,7 @@ export function ContactPointsEditor<TType extends string>({
               type="button"
               onClick={() => void saveAdd()}
               disabled={addSaving || !draftValue}
-              style={{ fontSize: 12, fontWeight: 600, color: '#fff', backgroundColor: purple[6], border: 'none', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' }}
+              style={{ fontSize: 12, fontWeight: 600, color: white, backgroundColor: purple[6], border: 'none', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' }}
             >
               {t('customerDetail.contactPoints.save')}
             </button>

@@ -3,13 +3,21 @@ import { flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-tabl
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ChevronDown, ChevronsUpDown, ChevronUp, CircleAlert, MoreHorizontal } from "lucide-react";
 import { Menu } from "@mantine/core";
-import { purple, radius, slate, slate25, spacing } from "../tokens";
+import { purple, radius, semantic, slate, slate25, spacing, white } from "../tokens";
 import { cycleSort } from "./sorting";
-import { ROW_HEIGHT, type Density, type EmptyStateConfig, type GridColumnDef, type SortSpec } from "./types";
+import { resizeColumn, resolveColumnLayout, type ColumnLayoutState, type ColumnRegistryEntry } from "./columnLayout";
+import "./datagrid.css";
+import { ROW_HEIGHT, type Density, type EmptyStateConfig, type GridColumnDef, type GridColumnMeta, type SortSpec } from "./types";
 
 type LinkLike = ComponentType<{ to: string; children?: ReactNode; style?: CSSProperties; className?: string }>;
 
 const ACTION_COLUMN_WIDTH = 48;
+const SELECTION_COLUMN_WIDTH = 40;
+
+export interface DataGridSelectionProps {
+  selectedIds: Set<string>;
+  onSelectionChange: (selectedIds: Set<string>) => void;
+}
 
 export interface DataGridProps<T> {
   columns: GridColumnDef<T>[];
@@ -21,6 +29,12 @@ export interface DataGridProps<T> {
   rowHref?: (row: T) => string;
   linkComponent?: LinkLike;
   loading: boolean;
+  /** A background refetch of the CURRENT page (a filter/sort change, a
+   * manual refresh) — distinct from `loading` (nothing shown yet) and
+   * `fetchingNextPage` (loading a page beyond what's already shown).
+   * Renders as a 2px indeterminate line under the header, never a full
+   * skeleton replacing rows the user can already see. */
+  refetching?: boolean;
   fetchingNextPage: boolean;
   hasNextPage: boolean;
   onLoadMore: () => void;
@@ -32,6 +46,20 @@ export interface DataGridProps<T> {
   emptyState: EmptyStateConfig;
   emptyFilteredState?: EmptyStateConfig;
   rowActions?: (row: T) => ReactNode;
+  /** Omit for a grid with no bulk actions. When present, a checkbox column
+   * is pinned to the left of every other column, selection is against
+   * `getRowId`, and the header checkbox toggles every currently *loaded*
+   * row (not just the on-screen virtual window) — "select all N matching"
+   * across pages the grid hasn't fetched yet is SelectionBar's own concern
+   * (§ Action Bar — selection replaces the chip row), not this component's. */
+  selection?: DataGridSelectionProps;
+  /** § Columns (ADR-060) — the user's own show/hide/reorder/resize/pin
+   * state, from `ColumnConfigPanel`. Omit for a grid that renders its
+   * `columns` prop exactly as given, with no user layout control at all —
+   * the two are fully independent; the fixed-order columns of a grid that
+   * hasn't adopted this yet are completely unaffected. */
+  columnLayout?: ColumnLayoutState;
+  onColumnLayoutChange?: (layout: ColumnLayoutState) => void;
   /** Swiss locale tag (de-CH/fr-CH/it-CH/en-CH) for the footer's row-count
    * formatting — apostrophe thousands separator per FR-13. Defaults to the
    * browser locale for screens that haven't adopted i18n yet. */
@@ -73,6 +101,7 @@ export function DataGrid<T>({
   rowHref,
   linkComponent,
   loading,
+  refetching,
   fetchingNextPage,
   hasNextPage,
   onLoadMore,
@@ -84,6 +113,9 @@ export function DataGrid<T>({
   emptyState,
   emptyFilteredState,
   rowActions,
+  selection,
+  columnLayout,
+  onColumnLayoutChange,
   locale,
   labels,
 }: DataGridProps<T>) {
@@ -92,17 +124,45 @@ export function DataGrid<T>({
   const scrollRef = useRef<HTMLDivElement>(null);
   const rowHeight = ROW_HEIGHT[density];
 
-  const allColumns: GridColumnDef<T>[] = rowActions
-    ? [
-        ...columns,
-        {
-          id: "__actions",
-          header: "",
-          cell: () => null,
-          meta: { pinned: "right" },
-        },
-      ]
-    : columns;
+  // § Columns (ADR-060) — reorder/hide/resize/pin only ever applies on top
+  // of the caller's own `columns`; a grid with no `columnLayout` renders
+  // them exactly as given, unchanged from before this existed.
+  let orderedColumns: GridColumnDef<T>[] = columns;
+  if (columnLayout) {
+    const registry: ColumnRegistryEntry[] = columns.map((c) => {
+      const meta = c.meta as GridColumnMeta<T> | undefined;
+      const id = String(c.id ?? ("accessorKey" in c ? c.accessorKey : ""));
+      return {
+        id,
+        label: meta?.columnLabel ?? (typeof c.header === "string" ? c.header : id),
+        defaultVisible: meta?.defaultVisible ?? true,
+        locked: meta?.locked,
+      };
+    });
+    const resolved = resolveColumnLayout(registry, columnLayout);
+    const byId = new Map(columns.map((c) => [String(c.id ?? ("accessorKey" in c ? c.accessorKey : "")), c]));
+    orderedColumns = resolved.visibleOrder
+      .map((id) => byId.get(id))
+      .filter((c): c is GridColumnDef<T> => Boolean(c))
+      .map((c) => {
+        const id = String(c.id ?? ("accessorKey" in c ? c.accessorKey : ""));
+        const widthOverride = resolved.widths[id];
+        const pinnedOverride = resolved.pinnedLeftIds.has(id) ? ("left" as const) : c.meta?.pinned;
+        if (widthOverride === undefined && pinnedOverride === c.meta?.pinned) return c;
+        return { ...c, meta: { ...c.meta, width: widthOverride ?? c.meta?.width, pinned: pinnedOverride } };
+      });
+  }
+
+  let allColumns: GridColumnDef<T>[] = orderedColumns;
+  if (selection) {
+    allColumns = [
+      { id: "__select", header: "", cell: () => null, meta: { pinned: "left" } },
+      ...allColumns,
+    ];
+  }
+  if (rowActions) {
+    allColumns = [...allColumns, { id: "__actions", header: "", cell: () => null, meta: { pinned: "right" } }];
+  }
 
   const table = useReactTable({
     data: rows,
@@ -144,6 +204,44 @@ export function DataGrid<T>({
   const showEmptyFiltered = isFiltered && rows.length === 0 && !loading && !error;
   const showEmpty = !isFiltered && rows.length === 0 && !loading && !error;
 
+  // Selection is against every currently *loaded* row (`rows`), not just
+  // the virtualized on-screen window — scrolling shouldn't change what
+  // "select all" means.
+  const allLoadedIds = rows.map(getRowId);
+  const allSelected = selection ? allLoadedIds.length > 0 && allLoadedIds.every((id) => selection.selectedIds.has(id)) : false;
+  const someSelected = selection ? allLoadedIds.some((id) => selection.selectedIds.has(id)) : false;
+  const toggleAll = () => {
+    if (!selection) return;
+    selection.onSelectionChange(allSelected ? new Set() : new Set(allLoadedIds));
+  };
+  const toggleOne = (id: string) => {
+    if (!selection) return;
+    const next = new Set(selection.selectedIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    selection.onSelectionChange(next);
+  };
+
+  // § FR-UI-04 / Keyboard: Shift+wheel scrolls the grid horizontally even
+  // on platforms/browsers that don't translate it natively, and Home/End
+  // (bubbling up from any focused header cell) jump to the first/last
+  // column — both act on the same scroll container the virtualizer reads.
+  const onWheel = (event: React.WheelEvent) => {
+    if (!event.shiftKey || !scrollRef.current) return;
+    event.preventDefault();
+    scrollRef.current.scrollLeft += event.deltaY;
+  };
+  const onGridKeyDown = (event: React.KeyboardEvent) => {
+    if (!scrollRef.current) return;
+    if (event.key === "Home") {
+      event.preventDefault();
+      scrollRef.current.scrollLeft = 0;
+    } else if (event.key === "End") {
+      event.preventDefault();
+      scrollRef.current.scrollLeft = scrollRef.current.scrollWidth;
+    }
+  };
+
   return (
     <div
       style={{
@@ -151,24 +249,37 @@ export function DataGrid<T>({
         flexDirection: "column",
         border: `1px solid ${slate[2]}`,
         borderRadius: radius.lg,
-        backgroundColor: "#fff",
+        backgroundColor: white,
         overflow: "hidden",
       }}
     >
-      <div ref={scrollRef} style={{ overflow: "auto", maxHeight: "70vh" }}>
+      {refetching && <div className="dg-refetch-bar" aria-hidden="true" />}
+      <div ref={scrollRef} onWheel={onWheel} onKeyDown={onGridKeyDown} style={{ overflow: "auto", maxHeight: "70vh" }}>
         {/* Virtualized rows are absolutely positioned, which real <table>
             elements can't host correctly (the browser's table layout
             algorithm fights it, and <div>/<a> aren't valid <tbody>
             children anyway) — a div grid with ARIA table roles keeps the
             same semantics/accessibility without that conflict, the
             standard pattern for a virtualized table. */}
-        <div role="table" style={{ width: "100%" }}>
+        <div role="table" aria-rowcount={total ?? rows.length} style={{ width: "100%" }}>
           <div role="rowgroup" style={{ position: "sticky", top: 0, zIndex: 2 }}>
             {table.getHeaderGroups().map((headerGroup) => (
               <div role="row" key={headerGroup.id} style={{ display: "flex" }}>
                 {headerGroup.headers.map((header) => {
                   const meta = header.column.columnDef.meta as GridColumnDef<T>["meta"];
                   const isActions = header.column.id === "__actions";
+                  const isSelect = header.column.id === "__select";
+                  if (isSelect) {
+                    return (
+                      <SelectHeaderCell
+                        key={header.id}
+                        checked={allSelected}
+                        indeterminate={someSelected && !allSelected}
+                        onChange={toggleAll}
+                      />
+                    );
+                  }
+                  const columnId = header.column.id;
                   return (
                     <HeaderCell
                       key={header.id}
@@ -178,7 +289,12 @@ export function DataGrid<T>({
                       onSortChange={onSortChange}
                       pinned={isActions ? "right" : meta?.pinned}
                       align={meta?.align}
-                      width={isActions ? ACTION_COLUMN_WIDTH : undefined}
+                      width={isActions ? ACTION_COLUMN_WIDTH : meta?.width}
+                      onResize={
+                        columnLayout && onColumnLayoutChange
+                          ? (width) => onColumnLayoutChange(resizeColumn(columnLayout, columnId, width))
+                          : undefined
+                      }
                     />
                   );
                 })}
@@ -193,6 +309,8 @@ export function DataGrid<T>({
               : virtualItems.map((virtualRow) => {
                   const row = tableRows[virtualRow.index];
                   const href = rowHref?.(row.original);
+                  const rowId = getRowId(row.original);
+                  const isSelected = selection?.selectedIds.has(rowId) ?? false;
                   return (
                     <Row
                       key={row.id}
@@ -203,6 +321,7 @@ export function DataGrid<T>({
                         width: "100%",
                         height: virtualRow.size,
                         transform: `translateY(${virtualRow.start}px)`,
+                        backgroundColor: isSelected ? purple[0] : undefined,
                       }}
                       href={href}
                       Link={Link}
@@ -210,16 +329,58 @@ export function DataGrid<T>({
                       {row.getVisibleCells().map((cell) => {
                         const meta = cell.column.columnDef.meta as GridColumnDef<T>["meta"];
                         const isActions = cell.column.id === "__actions";
+                        const isSelect = cell.column.id === "__select";
+                        if (isSelect) {
+                          return (
+                            <Cell key={cell.id} pinned="left" width={SELECTION_COLUMN_WIDTH}>
+                              <SelectRowCheckbox
+                                checked={isSelected}
+                                label={L.rowActionsLabel}
+                                onChange={() => toggleOne(rowId)}
+                              />
+                            </Cell>
+                          );
+                        }
                         return (
-                          <Cell key={cell.id} pinned={isActions ? "right" : meta?.pinned} mono={meta?.mono} align={meta?.align} width={isActions ? ACTION_COLUMN_WIDTH : undefined}>
+                          <Cell key={cell.id} pinned={isActions ? "right" : meta?.pinned} mono={meta?.mono} align={meta?.align} width={isActions ? ACTION_COLUMN_WIDTH : meta?.width}>
                             {isActions && rowActions ? (
                               <RowActionsMenu ariaLabel={L.rowActionsLabel}>{rowActions(row.original)}</RowActionsMenu>
+                            ) : density === "default" && meta?.secondary ? (
+                              // § Composite cells: at `default` density the
+                              // second fact sits on the SAME line as the
+                              // first — only `comfortable` stacks them, and
+                              // `compact` drops the secondary line entirely.
+                              <div style={{ display: "flex", alignItems: "baseline", gap: spacing.xs, minWidth: 0 }}>
+                                <span
+                                  style={{
+                                    fontSize: 14,
+                                    color: slate[9],
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    whiteSpace: "nowrap",
+                                  }}
+                                >
+                                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                </span>
+                                <span
+                                  style={{
+                                    fontSize: 12,
+                                    color: slate[5],
+                                    flexShrink: 0,
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    whiteSpace: "nowrap",
+                                  }}
+                                >
+                                  {meta.secondary(row.original)}
+                                </span>
+                              </div>
                             ) : (
                               <>
                                 <div style={{ fontSize: 14, color: slate[9] }}>
                                   {flexRender(cell.column.columnDef.cell, cell.getContext())}
                                 </div>
-                                {density !== "compact" && meta?.secondary && (
+                                {density === "comfortable" && meta?.secondary && (
                                   <div style={{ fontSize: 12, color: slate[5] }}>{meta.secondary(row.original)}</div>
                                 )}
                               </>
@@ -249,7 +410,7 @@ export function DataGrid<T>({
               alignItems: "center",
               gap: spacing.sm,
               padding: spacing.lg,
-              color: "#DC2626",
+              color: semantic.destructive.text,
               fontSize: 14,
             }}
           >
@@ -264,7 +425,7 @@ export function DataGrid<T>({
                   border: `1px solid ${slate[2]}`,
                   borderRadius: radius.sm,
                   padding: `${spacing.xs} ${spacing.sm}`,
-                  background: "#fff",
+                  background: white,
                   cursor: "pointer",
                   fontSize: 13,
                 }}
@@ -312,6 +473,7 @@ function HeaderCell({
   pinned,
   align,
   width,
+  onResize,
 }: {
   label: ReactNode;
   sortField?: string;
@@ -320,6 +482,10 @@ function HeaderCell({
   pinned?: "left" | "right";
   align?: "left" | "right";
   width?: number;
+  /** Present only when the caller wired `columnLayout` +
+   * `onColumnLayoutChange` — renders the resize handle at all only then,
+   * since without it there's nowhere to persist the result. */
+  onResize?: (width: number) => void;
 }) {
   const sortIndex = sortField ? sort.findIndex((s) => s.field === sortField) : -1;
   const isSorted = sortIndex !== -1;
@@ -330,11 +496,18 @@ function HeaderCell({
     onSortChange(cycleSort(sort, sortField, additive));
   };
 
+  // § U-10: sortability is separate from visibility. Only a column with a
+  // `sortField` is sortable at all — everything else renders no sort
+  // affordance and no `aria-sort`, rather than an inert "none" that
+  // implies clicking might do something.
+  const ariaSort = !sortField ? undefined : isSorted ? (direction === "asc" ? "ascending" : "descending") : "none";
+
   return (
     <div
       role="columnheader"
+      aria-sort={ariaSort}
       style={{
-        position: pinned ? "sticky" : undefined,
+        position: pinned ? "sticky" : "relative",
         left: pinned === "left" ? 0 : undefined,
         right: pinned === "right" ? 0 : undefined,
         zIndex: pinned ? 3 : undefined,
@@ -386,7 +559,39 @@ function HeaderCell({
           </>
         )}
       </span>
+      {onResize && <ResizeHandle onResizeEnd={onResize} />}
     </div>
+  );
+}
+
+function ResizeHandle({ onResizeEnd }: { onResizeEnd: (width: number) => void }) {
+  const onMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation(); // never trigger the header's own sort click
+    const headerEl = event.currentTarget.parentElement;
+    const startWidth = headerEl?.getBoundingClientRect().width ?? 120;
+    const startX = event.clientX;
+    let currentWidth = startWidth;
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      currentWidth = Math.max(60, startWidth + (moveEvent.clientX - startX));
+    };
+    const onMouseUp = () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      onResizeEnd(currentWidth);
+    };
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+  };
+
+  return (
+    <div
+      className="dg-resize-handle"
+      aria-hidden="true"
+      onMouseDown={onMouseDown}
+      onClick={(e) => e.stopPropagation()} // a resize drag's own trailing click must not also toggle sort
+    />
   );
 }
 
@@ -406,15 +611,24 @@ function Row({
     display: "flex",
     alignItems: "center",
     borderBottom: `1px solid ${slate[1]}`,
-    textDecoration: "none",
-    color: "inherit",
   };
+  // "A link inside a cell wins over the row click" (§ The Data Grid) is
+  // impossible if the row itself IS the `<a>` — a real link rendered by a
+  // cell's own `cell` renderer would then be an invalid `<a>` nested inside
+  // another `<a>`, and the browser resolves that by ignoring the inner one
+  // entirely. Instead the row-level link is a plain sibling, absolutely
+  // positioned to cover the row and placed FIRST in the DOM (`.dg-row-link`
+  // in datagrid.css); cell content renders after it, unpositioned, so it
+  // stays out of that stacking level UNLESS a specific cell explicitly
+  // opts a real link/button into it with its own `position: relative` —
+  // exactly the escape hatch a future "this cell IS a link" column needs.
   if (href) {
     const Component = Link ?? "a";
     return (
-      <Component to={href} href={href} role="row" style={rowStyle} className="dg-row">
+      <div role="row" style={rowStyle} className="dg-row">
+        <Component to={href} href={href} tabIndex={-1} aria-hidden="true" className="dg-row-link" />
         {children}
-      </Component>
+      </div>
     );
   }
   return (
@@ -422,6 +636,47 @@ function Row({
       {children}
     </div>
   );
+}
+
+function SelectHeaderCell({
+  checked,
+  indeterminate,
+  onChange,
+}: {
+  checked: boolean;
+  indeterminate: boolean;
+  onChange: () => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (inputRef.current) inputRef.current.indeterminate = indeterminate;
+  }, [indeterminate]);
+  return (
+    <div
+      role="columnheader"
+      style={{
+        position: "sticky",
+        left: 0,
+        zIndex: 3,
+        width: SELECTION_COLUMN_WIDTH,
+        flex: `0 0 ${SELECTION_COLUMN_WIDTH}px`,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: slate25,
+        borderBottom: `1px solid ${slate[2]}`,
+      }}
+    >
+      <input type="checkbox" checked={checked} ref={inputRef} onChange={onChange} aria-label="Select all" />
+    </div>
+  );
+}
+
+function SelectRowCheckbox({ checked, label, onChange }: { checked: boolean; label: string; onChange: () => void }) {
+  // Sits in a pinned (`position: sticky`) Cell, which already paints above
+  // `.dg-row-link` — see Row's own comment. `stopPropagation` is a
+  // defensive backstop, not what makes this clickable.
+  return <input type="checkbox" checked={checked} onChange={onChange} aria-label={label} onClick={(e) => e.stopPropagation()} />;
 }
 
 function Cell({
@@ -444,7 +699,7 @@ function Cell({
         position: pinned ? "sticky" : undefined,
         left: pinned === "left" ? 0 : undefined,
         right: pinned === "right" ? 0 : undefined,
-        backgroundColor: pinned ? "#fff" : undefined,
+        backgroundColor: pinned ? white : undefined,
         width: width ?? "1%",
         flex: width ? `0 0 ${width}px` : "1 1 0",
         minWidth: width ?? 120,

@@ -1,6 +1,7 @@
 {
   "shell": {
     "nav": {
+      "dashboard": "Dashboard",
       "masterData": "Stammdaten",
       "customers": "Kunden",
       "vehicles": "Fahrzeuge",
@@ -16,7 +17,13 @@
       "reporting": "Reporting",
       "compliance": "Compliance"
     },
-    "signOut": "Abmelden"
+    "signOut": "Abmelden",
+    "globalSearch": {
+      "placeholder": "Suchen…",
+      "recents": "Kürzlich",
+      "noResults": "Keine Treffer",
+      "error": "Suche fehlgeschlagen — bitte erneut versuchen."
+    }
   },
   "common": {
     "filter": "Filter",
@@ -425,6 +432,12 @@
       "add": "Hinzufügen",
       "remove": "Entfernen",
       "none": "Kein Zubehör erfasst"
+    }
+  },
+  "dashboard": {
+    "placeholder": {
+      "title": "Noch nichts hier",
+      "body": "Das Dashboard ist noch in Planung. Nutzen Sie bis dahin die Navigation links, um zu einem Modul zu wechseln."
     }
   }
 }

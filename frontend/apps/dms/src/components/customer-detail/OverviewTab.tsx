@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Checkbox, Group, Select, SimpleGrid, Stack, Text, TextInput } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
-import { InlineEditField, KeyValueRow, OverviewCard, purple, radius, slate } from '@nexotec/ui-kit'
+import { InlineEditField, KeyValueRow, OverviewCard, purple, radius, slate, white } from '@nexotec/ui-kit'
 import {
   LEGAL_FORM_OPTIONS,
   translatedEmailTypeOptions,
@@ -243,7 +243,7 @@ function AddressField({
               type="button"
               onClick={() => void save()}
               disabled={saving}
-              style={{ fontSize: 12, fontWeight: 600, color: '#fff', backgroundColor: purple[6], border: 'none', borderRadius: radius.sm, padding: '4px 10px', cursor: 'pointer' }}
+              style={{ fontSize: 12, fontWeight: 600, color: white, backgroundColor: purple[6], border: 'none', borderRadius: radius.sm, padding: '4px 10px', cursor: 'pointer' }}
             >
               {t('customerDetail.overview.addressForm.save')}
             </button>

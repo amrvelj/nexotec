@@ -12,7 +12,11 @@ export interface NavItemConfig {
 
 export interface NavGroupConfig {
   /** Micro-label group heading, e.g. "MASTER DATA" — uppercased by the
-   * component, pass the plain label. */
-  label: string;
+   * component, pass the plain label. Omit for a single top-level entry
+   * that sits above the labelled groups with no heading of its own (the
+   * Dashboard nav item is the only current case) — the collapsed-sidebar
+   * divider line is skipped for it too, since there's nothing above it to
+   * divide from. */
+  label?: string;
   items: NavItemConfig[];
 }

@@ -64,6 +64,15 @@ jobs:
       - name: npm ci
         working-directory: frontend
         run: npm ci
+      - name: ui-kit oxlint
+        working-directory: frontend/packages/ui-kit
+        run: npx oxlint
+      - name: ui-kit typecheck
+        working-directory: frontend/packages/ui-kit
+        run: npx tsc -b --noEmit
+      - name: ui-kit vitest
+        working-directory: frontend/packages/ui-kit
+        run: npx vitest run
       - name: oxlint
         working-directory: frontend/apps/dms
         run: npx oxlint
