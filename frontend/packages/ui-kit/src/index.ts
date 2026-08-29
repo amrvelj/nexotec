@@ -13,6 +13,8 @@ export * from "./shell/Sidebar";
 export * from "./shell/Topbar";
 export * from "./shell/GlobalSearch";
 export * from "./shell/OverviewShellRegion";
+export * from "./shell/overlayStack";
+export * from "./shell/Overlay";
 export * from "./shell/AppShell";
 export * from "./datagrid/types";
 export * from "./datagrid/sorting";
