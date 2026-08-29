@@ -10,6 +10,7 @@ from app.customer.api.customers import router as customers_router
 from app.platform.api.auth import router as auth_router
 from app.platform.api.dealer_groups import router as dealer_groups_router
 from app.platform.api.dealerships import router as dealerships_router
+from app.platform.api.document_template import router as document_template_router
 from app.platform.api.health import router as health_router
 from app.platform.api.reference_data import router as reference_data_router
 from app.platform.api.user_preferences import router as user_preferences_router
@@ -23,6 +24,7 @@ from app.vehicle.api.vehicles import router as vehicles_router
 api_v1_router = APIRouter(prefix="/v1")
 api_v1_router.include_router(health_router)
 api_v1_router.include_router(dealerships_router)
+api_v1_router.include_router(document_template_router)
 api_v1_router.include_router(dealer_groups_router)
 api_v1_router.include_router(reference_data_router)
 api_v1_router.include_router(vehicles_router)
