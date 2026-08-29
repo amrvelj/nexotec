@@ -4,6 +4,7 @@ import { ProtectedRoute } from './components/ProtectedRoute'
 import { DmsShell } from './layout/DmsShell'
 import { LoginPage } from './pages/LoginPage'
 import { SignInErrorPage } from './pages/SignInErrorPage'
+import { DashboardPage } from './pages/DashboardPage'
 import { CustomersListPage } from './pages/CustomersListPage'
 import { CustomerCreatePage } from './pages/CustomerCreatePage'
 import { CustomerDetailPage } from './pages/CustomerDetailPage'
@@ -29,6 +30,7 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/sign-in-error" element={<SignInErrorPage />} />
           <Route element={<ProtectedLayout />}>
+            <Route path="/" element={<DashboardPage />} />
             <Route path="/customers" element={<CustomersListPage />} />
             <Route path="/customers/new" element={<CustomerCreatePage />} />
             <Route path="/customers/:id" element={<CustomerDetailPage />} />
@@ -36,7 +38,7 @@ export default function App() {
             <Route path="/vehicles" element={<VehiclesListPage />} />
             <Route path="/vehicles/:id" element={<VehicleDetailPage />} />
           </Route>
-          <Route path="*" element={<Navigate to="/customers" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>

@@ -1,6 +1,7 @@
 {
   "shell": {
     "nav": {
+      "dashboard": "Dashboard",
       "masterData": "Dati anagrafici",
       "customers": "Clienti",
       "vehicles": "Veicoli",
@@ -16,7 +17,13 @@
       "reporting": "Reportistica",
       "compliance": "Conformità"
     },
-    "signOut": "Disconnetti"
+    "signOut": "Disconnetti",
+    "globalSearch": {
+      "placeholder": "Cerca…",
+      "recents": "Recenti",
+      "noResults": "Nessun risultato",
+      "error": "Ricerca non riuscita — riprova."
+    }
   },
   "common": {
     "filter": "Filtro",
@@ -425,6 +432,12 @@
       "add": "Aggiungi",
       "remove": "Rimuovi",
       "none": "Nessun accessorio registrato"
+    }
+  },
+  "dashboard": {
+    "placeholder": {
+      "title": "Ancora nulla qui",
+      "body": "La dashboard è ancora in fase di progettazione. Nel frattempo, utilizza la navigazione a sinistra per accedere a un modulo."
     }
   }
 }

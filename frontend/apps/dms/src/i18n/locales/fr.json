@@ -1,6 +1,7 @@
 {
   "shell": {
     "nav": {
+      "dashboard": "Tableau de bord",
       "masterData": "Données de base",
       "customers": "Clients",
       "vehicles": "Véhicules",
@@ -16,7 +17,13 @@
       "reporting": "Rapports",
       "compliance": "Conformité"
     },
-    "signOut": "Se déconnecter"
+    "signOut": "Se déconnecter",
+    "globalSearch": {
+      "placeholder": "Rechercher…",
+      "recents": "Récents",
+      "noResults": "Aucun résultat",
+      "error": "La recherche a échoué — veuillez réessayer."
+    }
   },
   "common": {
     "filter": "Filtrer",
@@ -425,6 +432,12 @@
       "add": "Ajouter",
       "remove": "Retirer",
       "none": "Aucun accessoire enregistré"
+    }
+  },
+  "dashboard": {
+    "placeholder": {
+      "title": "Rien ici pour l’instant",
+      "body": "Le tableau de bord est encore en cours de conception. En attendant, utilisez la navigation à gauche pour accéder à un module."
     }
   }
 }

@@ -131,24 +131,26 @@ export function Sidebar({
 
       {/* Nav groups */}
       <div style={{ flex: 1, overflowY: "auto", padding: `${spacing.sm} 0` }}>
-        {groups.map((group) => (
-          <div key={group.label} style={{ marginBottom: spacing.sm }}>
-            {collapsed ? (
-              <div style={{ height: 1, backgroundColor: slate[2], margin: `${spacing.sm} ${spacing.md}` }} />
-            ) : (
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing: "0.7px",
-                  textTransform: "uppercase",
-                  color: slate[4],
-                  padding: `${spacing.xs} ${spacing.lg}`,
-                }}
-              >
-                {group.label}
-              </div>
-            )}
+        {groups.map((group, groupIndex) => (
+          <div key={group.label ?? `group-${groupIndex}`} style={{ marginBottom: spacing.sm }}>
+            {group.label ? (
+              collapsed ? (
+                <div style={{ height: 1, backgroundColor: slate[2], margin: `${spacing.sm} ${spacing.md}` }} />
+              ) : (
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    letterSpacing: "0.7px",
+                    textTransform: "uppercase",
+                    color: slate[4],
+                    padding: `${spacing.xs} ${spacing.lg}`,
+                  }}
+                >
+                  {group.label}
+                </div>
+              )
+            ) : null}
             {group.items.map((item) => (
               <NavItem key={item.href} item={item} collapsed={collapsed} active={item.href === activeHref} Link={Link} />
             ))}

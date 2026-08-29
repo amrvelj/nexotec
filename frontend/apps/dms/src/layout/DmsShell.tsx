@@ -8,6 +8,7 @@ import {
   ChartColumn,
   Cog,
   Handshake,
+  LayoutDashboard,
   Receipt,
   ShieldCheck,
   Store,
@@ -15,14 +16,23 @@ import {
   Warehouse,
   Wrench,
 } from 'lucide-react'
-import { AppShell, purple, white, type NavGroupConfig } from '@nexotec/ui-kit'
+import { AppShell, purple, white, type GlobalSearchGroup, type GlobalSearchProps, type NavGroupConfig } from '@nexotec/ui-kit'
 import { useAuth } from '../auth/AuthContext'
 import { UiPreferencesProvider, useUiPreferencesContext } from '../hooks/UiPreferencesContext'
+import { api } from '../api/client'
+import { customerName } from '../utils/customer'
+import type { CustomerPage, VehicleSearchResult } from '../api/types'
 
 // Translated at render time (not a module-level constant) — labels must
 // re-render when the user switches UI language via the top bar.
 function buildNavGroups(t: (key: string) => string): NavGroupConfig[] {
   return [
+    {
+      // No `label` — a single top-level entry above Master Data, not its
+      // own labelled group (§ Sidebar: "a sidebar entry above Master
+      // Data", not a section of one).
+      items: [{ label: t('shell.nav.dashboard'), href: '/', icon: LayoutDashboard, status: 'active' }],
+    },
     {
       label: t('shell.nav.masterData'),
       items: [
@@ -50,6 +60,61 @@ function buildNavGroups(t: (key: string) => string): NavGroupConfig[] {
       ],
     },
   ]
+}
+
+const GLOBAL_SEARCH_LIMIT_PER_ENTITY = 5
+
+/**
+ * § FR-UI-08 — cross-entity search over the two entities that exist today
+ * (customers, vehicles). Both `/customers?q=` and `/vehicle-mdm/search?q=`
+ * already exist as ordinary read endpoints; this composes their existing
+ * results for display and does not add any new backend behaviour — no
+ * dedicated cross-entity search endpoint exists yet, and building one is
+ * out of this package's scope (WP-6c owns presentation, not new APIs).
+ * Each future module (sales, aftersales, ...) adds its own branch here
+ * once it has something worth finding.
+ */
+function buildGlobalSearch(t: (key: string) => string, navigate: (path: string) => void): GlobalSearchProps {
+  return {
+    placeholder: t('shell.globalSearch.placeholder'),
+    recentsLabel: t('shell.globalSearch.recents'),
+    noResultsLabel: t('shell.globalSearch.noResults'),
+    errorLabel: t('shell.globalSearch.error'),
+    onSearch: async (query) => {
+      const [customers, vehicles] = await Promise.all([
+        api.get<CustomerPage>(`/customers?q=${encodeURIComponent(query)}&limit=${GLOBAL_SEARCH_LIMIT_PER_ENTITY}`),
+        api.get<VehicleSearchResult>(`/vehicle-mdm/search?q=${encodeURIComponent(query)}`),
+      ])
+      const groups: GlobalSearchGroup[] = [
+        {
+          key: 'customers',
+          label: t('shell.nav.customers'),
+          items: customers.items.map((c) => ({
+            id: c.id,
+            identifier: c.customerNumber,
+            label: customerName(c),
+            sublabel: c.address ? `${c.address.postalCode} ${c.address.locality}` : undefined,
+            href: `/customers/${c.id}`,
+          })),
+        },
+        {
+          key: 'vehicles',
+          label: t('shell.nav.vehicles'),
+          // `resolved`/`pickerCandidates` serve the dedicated identifier-
+          // resolution UX on the vehicle list itself (FR-V-06/16) — global
+          // search only ever shows the ordinary filtered page.
+          items: vehicles.filtered.items.slice(0, GLOBAL_SEARCH_LIMIT_PER_ENTITY).map((v) => ({
+            id: v.id,
+            identifier: v.vin,
+            label: v.vehicleNumber,
+            href: `/vehicles/${v.id}`,
+          })),
+        },
+      ]
+      return groups.filter((group) => group.items.length > 0)
+    },
+    onSelect: (item) => navigate(item.href),
+  }
 }
 
 function BrandMark() {
@@ -139,7 +204,7 @@ function DmsShellInner({ children }: { children: ReactNode }) {
         },
         linkComponent: Link,
       }}
-      topbar={{}}
+      topbar={{ search: buildGlobalSearch(t, navigate) }}
     >
       {children}
     </AppShell>

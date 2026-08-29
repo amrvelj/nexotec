@@ -1,6 +1,7 @@
 {
   "shell": {
     "nav": {
+      "dashboard": "Dashboard",
       "masterData": "Master Data",
       "customers": "Customers",
       "vehicles": "Vehicles",
@@ -16,7 +17,13 @@
       "reporting": "Reporting",
       "compliance": "Compliance"
     },
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "globalSearch": {
+      "placeholder": "Search…",
+      "recents": "Recent",
+      "noResults": "No matches",
+      "error": "Search failed — try again."
+    }
   },
   "common": {
     "filter": "Filter",
@@ -425,6 +432,12 @@
       "add": "Add",
       "remove": "Remove",
       "none": "No accessories recorded"
+    }
+  },
+  "dashboard": {
+    "placeholder": {
+      "title": "Nothing here yet",
+      "body": "The Dashboard is still being designed. Until then, use the navigation on the left to jump into a module."
     }
   }
 }

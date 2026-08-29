@@ -10,6 +10,8 @@ export * from "./shell/types";
 export * from "./shell/BreadcrumbContext";
 export * from "./shell/Sidebar";
 export * from "./shell/Topbar";
+export * from "./shell/GlobalSearch";
+export * from "./shell/OverviewShellRegion";
 export * from "./shell/AppShell";
 export * from "./datagrid/types";
 export * from "./datagrid/sorting";
