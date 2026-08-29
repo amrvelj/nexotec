@@ -364,7 +364,8 @@
     "header": {
       "failedToLoad": "Échec du chargement du véhicule",
       "copyVin": "Copier le n° de châssis",
-      "merge": "Fusionner avec…"
+      "merge": "Fusionner avec…",
+      "mergeDisabledReason": "Pas encore disponible"
     },
     "errors": {
       "somethingWentWrong": "Une erreur est survenue."

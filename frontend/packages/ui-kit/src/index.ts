@@ -36,3 +36,5 @@ export * from "./detail/DetailHeader";
 export * from "./detail/DetailTabs";
 export * from "./detail/OverviewCard";
 export * from "./detail/InlineEditField";
+export * from "./detail/SpecGrid";
+export * from "./detail/ProgressiveDisclosure";

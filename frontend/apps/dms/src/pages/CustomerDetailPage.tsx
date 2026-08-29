@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Building2, Copy, GitMerge, Loader, User } from 'lucide-react'
-import { Alert, Menu } from '@mantine/core'
+import { Alert } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 import {
   CustomerTypeBadge,
@@ -231,18 +231,25 @@ export function CustomerDetailPage() {
             <LanguageBadge language={customer.language} />
           </>
         }
-        overflowItems={
-          <>
-            <Menu.Item leftSection={<Copy size={16} />} onClick={() => navigator.clipboard.writeText(customer.customerNumber)}>
-              {t('customerDetail.header.copyCustomerNumber')}
-            </Menu.Item>
-            {customer.lifecycleStatus !== 'merged' && (
-              <Menu.Item leftSection={<GitMerge size={16} />} color="red" onClick={() => setMergeModalOpen(true)}>
-                {t('customerDetail.header.mergeInto')}
-              </Menu.Item>
-            )}
-          </>
-        }
+        overflowActions={{
+          exportPrint: [
+            {
+              label: t('customerDetail.header.copyCustomerNumber'),
+              icon: <Copy size={16} />,
+              onClick: () => navigator.clipboard.writeText(customer.customerNumber),
+            },
+          ],
+          destructive:
+            customer.lifecycleStatus !== 'merged'
+              ? [
+                  {
+                    label: t('customerDetail.header.mergeInto'),
+                    icon: <GitMerge size={16} />,
+                    onClick: () => setMergeModalOpen(true),
+                  },
+                ]
+              : [],
+        }}
       />
 
       <DetailTabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />

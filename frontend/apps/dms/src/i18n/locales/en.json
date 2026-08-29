@@ -364,7 +364,8 @@
     "header": {
       "failedToLoad": "Failed to load vehicle",
       "copyVin": "Copy VIN",
-      "merge": "Merge into…"
+      "merge": "Merge into…",
+      "mergeDisabledReason": "Not yet available"
     },
     "errors": {
       "somethingWentWrong": "Something went wrong."

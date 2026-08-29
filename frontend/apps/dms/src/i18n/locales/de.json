@@ -364,7 +364,8 @@
     "header": {
       "failedToLoad": "Fahrzeug konnte nicht geladen werden",
       "copyVin": "VIN kopieren",
-      "merge": "Zusammenführen mit…"
+      "merge": "Zusammenführen mit…",
+      "mergeDisabledReason": "Noch nicht verfügbar"
     },
     "errors": {
       "somethingWentWrong": "Etwas ist schiefgelaufen."

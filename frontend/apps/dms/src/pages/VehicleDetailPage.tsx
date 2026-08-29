@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Alert, Badge, Loader, Menu } from '@mantine/core'
+import { Alert, Badge, Loader } from '@mantine/core'
 import { Car, Copy, GitMerge } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { DetailHeader, DetailTabs, useSetBreadcrumb, type DetailTab } from '@nexotec/ui-kit'
@@ -165,16 +165,27 @@ export function VehicleDetailPage() {
             </Badge>
           </>
         }
-        overflowItems={
-          <>
-            <Menu.Item leftSection={<Copy size={16} />} onClick={() => navigator.clipboard.writeText(vehicle.vin)}>
-              {t('vehicleDetail.header.copyVin')}
-            </Menu.Item>
-            <Menu.Item leftSection={<GitMerge size={16} />} disabled>
-              {t('vehicleDetail.header.merge')}
-            </Menu.Item>
-          </>
-        }
+        overflowActions={{
+          exportPrint: [
+            {
+              label: t('vehicleDetail.header.copyVin'),
+              icon: <Copy size={16} />,
+              onClick: () => navigator.clipboard.writeText(vehicle.vin),
+            },
+          ],
+          destructive: [
+            {
+              label: t('vehicleDetail.header.merge'),
+              icon: <GitMerge size={16} />,
+              disabled: true,
+              // § ADR-061: "disabled items shown-and-explained, never
+              // hidden" — this had no reason at all before RowMenu grew
+              // `disabledReason` support.
+              disabledReason: t('vehicleDetail.header.mergeDisabledReason'),
+              onClick: () => {},
+            },
+          ],
+        }}
       />
 
       <DetailTabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />

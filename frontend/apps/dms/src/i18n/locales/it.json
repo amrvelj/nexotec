@@ -364,7 +364,8 @@
     "header": {
       "failedToLoad": "Impossibile caricare il veicolo",
       "copyVin": "Copia telaio",
-      "merge": "Unisci con…"
+      "merge": "Unisci con…",
+      "mergeDisabledReason": "Non ancora disponibile"
     },
     "errors": {
       "somethingWentWrong": "Qualcosa è andato storto."
