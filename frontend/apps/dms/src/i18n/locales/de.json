@@ -208,7 +208,15 @@
       "new": "Neu",
       "save": "Speichern",
       "cancel": "Abbrechen",
-      "removeAriaLabel": "{{label}} entfernen"
+      "removeAriaLabel": "{{label}} entfernen",
+      "former": "Frühere Kontaktdaten",
+      "noLongerValid": "Nicht mehr gültig",
+      "doesNotWork": "Funktioniert nicht",
+      "doesNotWorkReasonPlaceholder": "Grund (z. B. unerreichbar, zurückgewiesen)",
+      "delete": "Löschen",
+      "consent": "Einwilligung",
+      "confirm": "Bestätigen",
+      "labelPlaceholder": "Bezeichnung"
     },
     "phoneInput": {
       "country": "Land",

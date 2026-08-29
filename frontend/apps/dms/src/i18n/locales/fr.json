@@ -208,7 +208,15 @@
       "new": "Nouveau",
       "save": "Enregistrer",
       "cancel": "Annuler",
-      "removeAriaLabel": "Supprimer {{label}}"
+      "removeAriaLabel": "Supprimer {{label}}",
+      "former": "Anciennes coordonnées",
+      "noLongerValid": "N'est plus valable",
+      "doesNotWork": "Ne fonctionne pas",
+      "doesNotWorkReasonPlaceholder": "Motif (p. ex. injoignable, rejeté)",
+      "delete": "Supprimer",
+      "consent": "Consentement",
+      "confirm": "Confirmer",
+      "labelPlaceholder": "Libellé"
     },
     "phoneInput": {
       "country": "Pays",

@@ -18,6 +18,7 @@ import { useAuth } from '../auth/AuthContext'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
 import { translatedCustomerTypeLabel, translatedLifecycleLabel } from '../customerOptions'
 import { OverviewTab } from '../components/customer-detail/OverviewTab'
+import type { ContactPointUpdatePatch } from '../components/customer-detail/ContactPointsEditor'
 import { VehiclesTab } from '../components/customer-detail/VehiclesTab'
 import { TransactionsTab } from '../components/customer-detail/TransactionsTab'
 import { HistoryTab } from '../components/customer-detail/HistoryTab'
@@ -144,11 +145,17 @@ export function CustomerDetailPage() {
     await api.post<CustomerPhoneRead>(`/customers/${id}/phones`, { phoneType: row.type, phoneE164: row.value })
     invalidateContact('phones')
   }
-  const updatePhone = async (phoneId: string, patch: { type?: PhoneType; value?: string; isPrimary?: boolean }) => {
+  const updatePhone = async (phoneId: string, patch: ContactPointUpdatePatch<PhoneType>) => {
     await api.patch<CustomerPhoneRead>(`/customers/${id}/phones/${phoneId}`, {
       phoneType: patch.type,
+      label: patch.label,
       phoneE164: patch.value,
       isPrimary: patch.isPrimary,
+      validTo: patch.validTo,
+      doNotUse: patch.doNotUse,
+      doNotUseReason: patch.doNotUseReason,
+      consentGranted: patch.consentGranted,
+      consentSource: patch.consentSource,
     })
     invalidateContact('phones')
   }
@@ -161,11 +168,17 @@ export function CustomerDetailPage() {
     await api.post<CustomerEmailRead>(`/customers/${id}/emails`, { emailType: row.type, emailAddress: row.value })
     invalidateContact('emails')
   }
-  const updateEmail = async (emailId: string, patch: { type?: EmailType; value?: string; isPrimary?: boolean }) => {
+  const updateEmail = async (emailId: string, patch: ContactPointUpdatePatch<EmailType>) => {
     await api.patch<CustomerEmailRead>(`/customers/${id}/emails/${emailId}`, {
       emailType: patch.type,
+      label: patch.label,
       emailAddress: patch.value,
       isPrimary: patch.isPrimary,
+      validTo: patch.validTo,
+      doNotUse: patch.doNotUse,
+      doNotUseReason: patch.doNotUseReason,
+      consentGranted: patch.consentGranted,
+      consentSource: patch.consentSource,
     })
     invalidateContact('emails')
   }

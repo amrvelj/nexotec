@@ -208,7 +208,15 @@
       "new": "New",
       "save": "Save",
       "cancel": "Cancel",
-      "removeAriaLabel": "Remove {{label}}"
+      "removeAriaLabel": "Remove {{label}}",
+      "former": "Former contact details",
+      "noLongerValid": "No longer valid",
+      "doesNotWork": "Does not work",
+      "doesNotWorkReasonPlaceholder": "Reason (e.g. bounced, disconnected)",
+      "delete": "Delete",
+      "consent": "Consent",
+      "confirm": "Confirm",
+      "labelPlaceholder": "Label"
     },
     "phoneInput": {
       "country": "Country",

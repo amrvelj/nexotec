@@ -7,6 +7,7 @@ export * from "./components/LanguageBadge";
 export * from "./components/Picker";
 export * from "./components/FormDialog";
 export * from "./components/RowMenu";
+export * from "./components/RepeatableRowGroup";
 export * from "./shell/types";
 export * from "./shell/BreadcrumbContext";
 export * from "./shell/Sidebar";

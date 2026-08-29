@@ -105,14 +105,22 @@ export interface CustomerPage {
   totalIsEstimate: boolean
 }
 
+// ADR-067's "six facts every contact-channel row carries" (label,
+// isPrimary, validFrom/validTo, doNotUse/doNotUseReason, consent*) —
+// app/customer/schemas/customer.py's ContactChannelMixin-backed schemas
+// have carried all of these since WP-3 PR-5; this file was stale relative
+// to that until WP-6c PR-10 caught up (found while building
+// RepeatableRowGroup against what the API actually returns).
 export interface CustomerPhoneCreate {
   phoneType: PhoneType
+  label?: string | null
   phoneE164: string
   isPrimary?: boolean
 }
 
 export interface CustomerEmailCreate {
   emailType: EmailType
+  label?: string | null
   emailAddress: string
   isPrimary?: boolean
 }
@@ -121,8 +129,16 @@ export interface CustomerPhoneRead {
   id: string
   customerId: string
   phoneType: PhoneType
+  label: string | null
   phoneE164: string
   isPrimary: boolean
+  validFrom: string
+  validTo: string | null
+  doNotUse: boolean
+  doNotUseReason: string | null
+  consentGranted: boolean
+  consentSource: string | null
+  consentTimestamp: string | null
   createdAt: string
   updatedAt: string
 }
@@ -131,8 +147,16 @@ export interface CustomerEmailRead {
   id: string
   customerId: string
   emailType: EmailType
+  label: string | null
   emailAddress: string
   isPrimary: boolean
+  validFrom: string
+  validTo: string | null
+  doNotUse: boolean
+  doNotUseReason: string | null
+  consentGranted: boolean
+  consentSource: string | null
+  consentTimestamp: string | null
   createdAt: string
   updatedAt: string
 }
@@ -147,14 +171,26 @@ export interface CustomerEmailPage {
 
 export interface CustomerPhoneUpdate {
   phoneType?: PhoneType
+  label?: string | null
   phoneE164?: string
   isPrimary?: boolean
+  validTo?: string | null
+  doNotUse?: boolean
+  doNotUseReason?: string | null
+  consentGranted?: boolean
+  consentSource?: string | null
 }
 
 export interface CustomerEmailUpdate {
   emailType?: EmailType
+  label?: string | null
   emailAddress?: string
   isPrimary?: boolean
+  validTo?: string | null
+  doNotUse?: boolean
+  doNotUseReason?: string | null
+  consentGranted?: boolean
+  consentSource?: string | null
 }
 
 // customerType is immutable after creation and customerNumber is
