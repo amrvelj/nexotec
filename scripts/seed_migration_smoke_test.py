@@ -137,29 +137,90 @@ def _seed_user(db: Session, *, tenant_id: uuid.UUID) -> uuid.UUID:
     return user_id
 
 
+def _dealership_has_wp6b_columns(db: Session) -> bool:
+    """WP-6b PR-1 added logo_url/brand_primary_color/
+    default_correspondence_language to dealership. The
+    migration-upgrade-from-previous CI job seeds against main's CURRENT
+    schema before this PR's own migrations apply, same "ORM classes only
+    know the newest shape" trap _seed_dealer_old_schema already exists to
+    avoid — the dealership TABLE has existed since WP-3, so the coarser
+    "dealership" in get_table_names() check that already gates the
+    dealer/dealership rename doesn't catch this; a column-level check does.
+    """
+
+    columns = {col["name"] for col in inspect(db.get_bind()).get_columns("dealership")}
+    return "logo_url" in columns
+
+
 def _seed_dealer_and_group_new_schema(db: Session) -> tuple[uuid.UUID, uuid.UUID]:
     """This PR's own heads already applied — dealer_group/dealership exist,
-    so the current ORM classes address the real schema directly.
+    so the current ORM classes address the real schema directly. Except
+    WP-6b's three new dealership columns specifically — see
+    _dealership_has_wp6b_columns.
     """
 
     group = DealerGroup(name="Migration Smoke Test Group")
     db.add(group)
     db.flush()
 
-    dealership = Dealership(
-        dealer_group_id=group.id,
-        legal_name="Migration Smoke Test AG",
-        dealer_license_number="ZH-99999",
-        license_state="ZH",
-        franchise_type=FranchiseType.INDEPENDENT,
-        status=DealershipStatus.ACTIVE,
-        phone="+41441234567",
-        tax_id="CHE-999.999.999",
-        **_DEALER_ADDRESS,
+    if _dealership_has_wp6b_columns(db):
+        dealership = Dealership(
+            dealer_group_id=group.id,
+            legal_name="Migration Smoke Test AG",
+            dealer_license_number="ZH-99999",
+            license_state="ZH",
+            franchise_type=FranchiseType.INDEPENDENT,
+            status=DealershipStatus.ACTIVE,
+            phone="+41441234567",
+            tax_id="CHE-999.999.999",
+            **_DEALER_ADDRESS,
+        )
+        db.add(dealership)
+        db.flush()
+        return dealership.id, group.id
+
+    dealership_id = uuid7()
+    db.execute(
+        sa.table(
+            "dealership",
+            sa.column("id", GUID()),
+            sa.column("dealer_group_id", GUID()),
+            sa.column("legal_name", sa.String()),
+            sa.column("dealer_license_number", sa.String()),
+            sa.column("license_state", sa.String()),
+            sa.column("franchise_type", sa.String()),
+            sa.column("address_street", sa.String()),
+            sa.column("address_house_number", sa.String()),
+            sa.column("address_postal_code", sa.String()),
+            sa.column("address_locality", sa.String()),
+            sa.column("address_canton", sa.String()),
+            sa.column("address_country", sa.String()),
+            sa.column("phone", sa.String()),
+            sa.column("tax_id", EncryptedString()),
+            sa.column("status", sa.String()),
+            sa.column("version", sa.Integer()),
+            sa.column("created_at", sa.DateTime(timezone=True)),
+            sa.column("updated_at", sa.DateTime(timezone=True)),
+        )
+        .insert()
+        .values(
+            id=dealership_id,
+            dealer_group_id=group.id,
+            legal_name="Migration Smoke Test AG",
+            dealer_license_number="ZH-99999",
+            license_state="ZH",
+            franchise_type="INDEPENDENT",
+            **_DEALER_ADDRESS,
+            phone="+41441234567",
+            tax_id="CHE-999.999.999",
+            status="ACTIVE",
+            version=1,
+            created_at=utcnow(),
+            updated_at=utcnow(),
+        )
     )
-    db.add(dealership)
     db.flush()
-    return dealership.id, group.id
+    return dealership_id, group.id
 
 
 def _seed_dealer_old_schema(db: Session) -> uuid.UUID:

@@ -58,6 +58,11 @@ CAPABILITY_MATRIX: dict[str, Capability] = {
     # ADR-050 in favour of sales_offer/sales_contract.
     "transactions": Capability(read_roles=None, write_roles=frozenset({AccessRole.SALES})),
     "dealership_settings": Capability(read_roles=None, write_roles=frozenset()),
+    # WP-6b, ADR-044 tier 2: document templates (letterhead/branding/
+    # boilerplate) are edited by platform staff and dealer managers, same
+    # shape as dealership_settings — no functional role grants write on its
+    # own, only the manager flag does.
+    "document_templates": Capability(read_roles=None, write_roles=frozenset()),
     "dealership_users": Capability(read_roles=frozenset(), write_roles=frozenset()),
     "audit_logs": Capability(
         read_roles=frozenset({AccessRole.AUDITOR}), write_roles=frozenset(), manager_can_write=False
