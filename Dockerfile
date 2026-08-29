@@ -22,10 +22,26 @@ RUN VITE_API_BASE_URL=/v1 npm run build
 FROM python:3.13-slim AS runtime
 WORKDIR /app
 
-# System deps for psycopg[binary] and cryptography wheels — slim base
-# doesn't ship these; --no-install-recommends keeps the image from also
-# pulling in everything Debian marks as merely "suggested".
-RUN apt-get update && apt-get install -y --no-install-recommends libpq5 \
+# System deps for psycopg[binary]/cryptography wheels, plus WeasyPrint
+# (WP-6b's PDF backend): its own pip wheel is pure Python, but at IMPORT
+# time it dlopen()s these exact shared libraries (app/platform/services/
+# document_render.py is the only file that imports it — verified against
+# .venv/lib/*/site-packages/weasyprint/text/ffi.py's own _dlopen() calls,
+# not assumed from general WeasyPrint docs). libharfbuzz0b is the Debian
+# bookworm package name (this base image); a future bump to a Debian
+# release that renames it to libharfbuzz0 needs this line updated too.
+# fonts-dejavu-core supplies the actual glyphs — DE/FR/IT/EN are all
+# Latin-script-with-diacritics, which that one family covers completely.
+# --no-install-recommends keeps the image from also pulling in everything
+# Debian marks as merely "suggested".
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+    libglib2.0-0 \
+    libpango-1.0-0 \
+    libpangoft2-1.0-0 \
+    libharfbuzz0b \
+    libfontconfig1 \
+    fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml ./

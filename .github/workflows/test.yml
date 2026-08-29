@@ -408,6 +408,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
+      # WeasyPrint (WP-6b's PDF backend, app/platform/services/
+      # document_render.py) is a pure-Python wheel but dlopen()s these at
+      # import time — same package list as the Dockerfile's runtime stage,
+      # not left to whatever ubuntu-latest happens to preinstall.
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends
+          libglib2.0-0 libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz0b libfontconfig1 fonts-dejavu-core
       - run: pip install -e ".[dev]"
       - run: pytest
         env:

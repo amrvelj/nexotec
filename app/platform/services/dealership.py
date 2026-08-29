@@ -13,7 +13,7 @@ from app.core.audit import record_audit_event
 from app.core.errors import BadRequestError, ConflictError, NotFoundError
 from app.core.pagination import PageParams, build_page, paginate_query
 from app.core.redact import REDACTED_PLACEHOLDER, is_secret_field
-from app.platform.models.dealership import DealerGroup, Dealership, DealershipStatus
+from app.platform.models.dealership import DealerGroup, Dealership, DealershipStatus, Location
 from app.platform.schemas.dealership import DealershipCreate, DealershipUpdate
 
 _AUDITED_FIELDS = {"dealer_license_number", "license_state", "tax_id", "status"}
@@ -75,6 +75,13 @@ def get_dealership_or_404(db: Session, dealership_id: uuid.UUID) -> Dealership:
     if dealership is None:
         raise NotFoundError(f"Dealership {dealership_id} was not found.")
     return dealership
+
+
+def get_location_or_404(db: Session, location_id: uuid.UUID) -> Location:
+    location = db.get(Location, location_id)
+    if location is None:
+        raise NotFoundError(f"Location {location_id} was not found.")
+    return location
 
 
 def list_dealerships_by_ids(db: Session, dealership_ids) -> list[Dealership]:

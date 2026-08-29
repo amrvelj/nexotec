@@ -27,6 +27,13 @@ dependencies = [
     "opentelemetry-instrumentation-fastapi>=0.48b0",
     "sentry-sdk[fastapi]>=2.14,<3.0",
     "infisicalsdk>=1.0,<2.0",
+    # WP-6b: the shared document-render layer's PDF backend (ADR-051 —
+    # "buy, don't build"). Pure-Python at pip-install time, but still needs
+    # Pango/GLib at import time for text shaping — see the Dockerfile's
+    # runtime-stage apt-get comment. Only app.platform.services.
+    # document_render may import this (tests/architecture/
+    # test_no_layout_code_outside_document_render.py enforces it).
+    "weasyprint>=69,<70",
 ]
 
 [project.optional-dependencies]
@@ -86,6 +93,13 @@ ignore_missing_imports = true
 # only importer (WP-4).
 [[tool.mypy.overrides]]
 module = "authlib.*"
+ignore_missing_imports = true
+
+# Same reasoning — no stubs shipped; app/platform/services/document_render.py
+# is the only importer (WP-6b), enforced by tests/architecture/
+# test_no_layout_code_outside_document_render.py.
+[[tool.mypy.overrides]]
+module = "weasyprint.*"
 ignore_missing_imports = true
 
 [tool.importlinter]
