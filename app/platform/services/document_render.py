@@ -20,6 +20,7 @@ shared build step between a Python string and a TypeScript module.
 """
 
 import html
+import re
 import uuid
 
 from sqlalchemy.orm import Session
@@ -42,7 +43,8 @@ from app.platform.services.document_template import get_document_template
 
 # --- print tokens, copied from frontend/packages/ui-kit/src/tokens.ts ------
 
-_PURPLE_6 = "#7C3AED"
+_DEFAULT_BRAND_COLOR = "#7C3AED"  # purple[6] — same fallback Dealership's own column default uses
+_HEX_COLOR = re.compile(r"^#[0-9A-Fa-f]{6}$")
 _SLATE_2 = "#E2E8F0"
 _SLATE_5 = "#64748B"
 _SLATE_6 = "#475569"
@@ -64,9 +66,11 @@ body {{ font-family: {_FONT_FAMILY}; font-size: 13px; color: {_SLATE_9}; margin:
 .doc-head {{ display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; }}
 .doc-dealer {{ display: flex; gap: 10px; font-size: 12px; line-height: 1.5; color: {_SLATE_6}; }}
 .doc-logo {{
-  width: 32px; height: 32px; border-radius: {_RADIUS_MD}; background: {_PURPLE_6}; color: #fff;
+  width: 32px; height: 32px; border-radius: {_RADIUS_MD}; color: #fff;
   display: flex; align-items: center; justify-content: center; font-weight: 800; flex-shrink: 0;
+  overflow: hidden;
 }}
+.doc-logo img {{ width: 100%; height: 100%; object-fit: cover; }}
 .doc-meta {{ font-size: 12px; text-align: right; white-space: nowrap; }}
 .doc-meta-row {{ display: flex; gap: 10px; justify-content: flex-end; }}
 .doc-meta-row span {{ color: {_SLATE_5}; }}
@@ -165,9 +169,22 @@ def _render_metadata(metadata: list[KeyValueRow]) -> str:
     return f'<div class="doc-meta">{rows}</div>'
 
 
-def _dealer_initial(dealership: Dealership) -> str:
+def _render_logo(dealership: Dealership) -> str:
+    """An uploaded logo (dealership.logo_url) if there is one; otherwise an
+    initials mark in the dealership's own brand colour — the same fallback
+    the frontend shell's own BrandMark component uses, so a dealership
+    that hasn't uploaded a logo still renders an on-brand, recognizable
+    letterhead rather than a generic placeholder.
+    """
+
+    if dealership.logo_url:
+        return f'<img src="{_esc(dealership.logo_url)}" alt="">'
+    color = dealership.brand_primary_color
+    if not color or not _HEX_COLOR.match(color):
+        color = _DEFAULT_BRAND_COLOR
     name = dealership.dba_name or dealership.legal_name
-    return _esc(name[:1].upper()) if name else ""
+    initial = _esc(name[:1].upper()) if name else ""
+    return f'<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:{color}">{initial}</div>'
 
 
 def _letterhead_lines(dealership: Dealership) -> str:
@@ -228,7 +245,7 @@ def _compose_html(
   </div>
   <div class="doc-head">
     <div class="doc-dealer">
-      <div class="doc-logo">{_dealer_initial(dealership)}</div>
+      <div class="doc-logo">{_render_logo(dealership)}</div>
       <div>{_letterhead_lines(dealership)}</div>
     </div>
     {_render_metadata(content.metadata or [])}

@@ -234,6 +234,55 @@ def test_two_locations_under_the_same_dealership_show_two_different_footer_addre
     assert "Winterthur" not in html_baden
 
 
+def test_letterhead_logo_uses_the_dealerships_own_brand_colour(db_session):
+    """Regression: an earlier version hardcoded the logo mark's colour to
+    the shipped default purple regardless of what the dealership had
+    configured — caught visually while producing the PR-5 demo screenshots
+    (Geneva's teal letterhead rendered purple), not by a test that existed
+    beforehand.
+    """
+    zurich = _make_dealership(db_session, brand_primary_color="#7C3AED")
+    geneva = _make_dealership(db_session, dealer_license_number="GE-1", brand_primary_color="#0F766E")
+
+    html_zurich = _compose_html(
+        dealership=zurich, template=None, location=None,
+        correspondence_language=SwissLanguage.DE, content=_sample_content(),
+    )
+    html_geneva = _compose_html(
+        dealership=geneva, template=None, location=None,
+        correspondence_language=SwissLanguage.DE, content=_sample_content(),
+    )
+
+    assert "#7C3AED" in html_zurich
+    assert "#0F766E" not in html_zurich
+    assert "#0F766E" in html_geneva
+    assert "#7C3AED" not in html_geneva
+
+
+def test_letterhead_logo_falls_back_to_the_default_colour_for_a_malformed_value(db_session):
+    # Exactly 7 characters (the column's own String(7) limit) so this stays
+    # a test of _render_logo's own defensive fallback, not an incidental
+    # column-length violation — Postgres enforces VARCHAR(7) strictly at
+    # INSERT time where SQLite's fast lane doesn't, so a longer literal
+    # here would fail only in CI, never locally (ADR-011's whole point).
+    dealership = _make_dealership(db_session, brand_primary_color="invalid")
+    html_out = _compose_html(
+        dealership=dealership, template=None, location=None,
+        correspondence_language=SwissLanguage.DE, content=_sample_content(),
+    )
+    assert "#7C3AED" in html_out
+    assert "invalid" not in html_out
+
+
+def test_letterhead_logo_renders_an_image_when_a_logo_url_is_set(db_session):
+    dealership = _make_dealership(db_session, logo_url="https://cdn.example.com/logo.png")
+    html_out = _compose_html(
+        dealership=dealership, template=None, location=None,
+        correspondence_language=SwissLanguage.DE, content=_sample_content(),
+    )
+    assert '<img src="https://cdn.example.com/logo.png"' in html_out
+
+
 def test_content_is_html_escaped(db_session):
     dealership = _make_dealership(db_session)
     content = ContentDefinition(title="<script>alert(1)</script>")
