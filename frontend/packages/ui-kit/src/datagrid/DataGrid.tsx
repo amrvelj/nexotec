@@ -5,8 +5,9 @@ import { ChevronDown, ChevronsUpDown, ChevronUp, CircleAlert, MoreHorizontal } f
 import { Menu } from "@mantine/core";
 import { purple, radius, semantic, slate, slate25, spacing, white } from "../tokens";
 import { cycleSort } from "./sorting";
+import { resizeColumn, resolveColumnLayout, type ColumnLayoutState, type ColumnRegistryEntry } from "./columnLayout";
 import "./datagrid.css";
-import { ROW_HEIGHT, type Density, type EmptyStateConfig, type GridColumnDef, type SortSpec } from "./types";
+import { ROW_HEIGHT, type Density, type EmptyStateConfig, type GridColumnDef, type GridColumnMeta, type SortSpec } from "./types";
 
 type LinkLike = ComponentType<{ to: string; children?: ReactNode; style?: CSSProperties; className?: string }>;
 
@@ -52,6 +53,13 @@ export interface DataGridProps<T> {
    * across pages the grid hasn't fetched yet is SelectionBar's own concern
    * (§ Action Bar — selection replaces the chip row), not this component's. */
   selection?: DataGridSelectionProps;
+  /** § Columns (ADR-060) — the user's own show/hide/reorder/resize/pin
+   * state, from `ColumnConfigPanel`. Omit for a grid that renders its
+   * `columns` prop exactly as given, with no user layout control at all —
+   * the two are fully independent; the fixed-order columns of a grid that
+   * hasn't adopted this yet are completely unaffected. */
+  columnLayout?: ColumnLayoutState;
+  onColumnLayoutChange?: (layout: ColumnLayoutState) => void;
   /** Swiss locale tag (de-CH/fr-CH/it-CH/en-CH) for the footer's row-count
    * formatting — apostrophe thousands separator per FR-13. Defaults to the
    * browser locale for screens that haven't adopted i18n yet. */
@@ -106,6 +114,8 @@ export function DataGrid<T>({
   emptyFilteredState,
   rowActions,
   selection,
+  columnLayout,
+  onColumnLayoutChange,
   locale,
   labels,
 }: DataGridProps<T>) {
@@ -114,7 +124,36 @@ export function DataGrid<T>({
   const scrollRef = useRef<HTMLDivElement>(null);
   const rowHeight = ROW_HEIGHT[density];
 
-  let allColumns: GridColumnDef<T>[] = columns;
+  // § Columns (ADR-060) — reorder/hide/resize/pin only ever applies on top
+  // of the caller's own `columns`; a grid with no `columnLayout` renders
+  // them exactly as given, unchanged from before this existed.
+  let orderedColumns: GridColumnDef<T>[] = columns;
+  if (columnLayout) {
+    const registry: ColumnRegistryEntry[] = columns.map((c) => {
+      const meta = c.meta as GridColumnMeta<T> | undefined;
+      const id = String(c.id ?? ("accessorKey" in c ? c.accessorKey : ""));
+      return {
+        id,
+        label: meta?.columnLabel ?? (typeof c.header === "string" ? c.header : id),
+        defaultVisible: meta?.defaultVisible ?? true,
+        locked: meta?.locked,
+      };
+    });
+    const resolved = resolveColumnLayout(registry, columnLayout);
+    const byId = new Map(columns.map((c) => [String(c.id ?? ("accessorKey" in c ? c.accessorKey : "")), c]));
+    orderedColumns = resolved.visibleOrder
+      .map((id) => byId.get(id))
+      .filter((c): c is GridColumnDef<T> => Boolean(c))
+      .map((c) => {
+        const id = String(c.id ?? ("accessorKey" in c ? c.accessorKey : ""));
+        const widthOverride = resolved.widths[id];
+        const pinnedOverride = resolved.pinnedLeftIds.has(id) ? ("left" as const) : c.meta?.pinned;
+        if (widthOverride === undefined && pinnedOverride === c.meta?.pinned) return c;
+        return { ...c, meta: { ...c.meta, width: widthOverride ?? c.meta?.width, pinned: pinnedOverride } };
+      });
+  }
+
+  let allColumns: GridColumnDef<T>[] = orderedColumns;
   if (selection) {
     allColumns = [
       { id: "__select", header: "", cell: () => null, meta: { pinned: "left" } },
@@ -240,6 +279,7 @@ export function DataGrid<T>({
                       />
                     );
                   }
+                  const columnId = header.column.id;
                   return (
                     <HeaderCell
                       key={header.id}
@@ -249,7 +289,12 @@ export function DataGrid<T>({
                       onSortChange={onSortChange}
                       pinned={isActions ? "right" : meta?.pinned}
                       align={meta?.align}
-                      width={isActions ? ACTION_COLUMN_WIDTH : undefined}
+                      width={isActions ? ACTION_COLUMN_WIDTH : meta?.width}
+                      onResize={
+                        columnLayout && onColumnLayoutChange
+                          ? (width) => onColumnLayoutChange(resizeColumn(columnLayout, columnId, width))
+                          : undefined
+                      }
                     />
                   );
                 })}
@@ -297,7 +342,7 @@ export function DataGrid<T>({
                           );
                         }
                         return (
-                          <Cell key={cell.id} pinned={isActions ? "right" : meta?.pinned} mono={meta?.mono} align={meta?.align} width={isActions ? ACTION_COLUMN_WIDTH : undefined}>
+                          <Cell key={cell.id} pinned={isActions ? "right" : meta?.pinned} mono={meta?.mono} align={meta?.align} width={isActions ? ACTION_COLUMN_WIDTH : meta?.width}>
                             {isActions && rowActions ? (
                               <RowActionsMenu ariaLabel={L.rowActionsLabel}>{rowActions(row.original)}</RowActionsMenu>
                             ) : density === "default" && meta?.secondary ? (
@@ -428,6 +473,7 @@ function HeaderCell({
   pinned,
   align,
   width,
+  onResize,
 }: {
   label: ReactNode;
   sortField?: string;
@@ -436,6 +482,10 @@ function HeaderCell({
   pinned?: "left" | "right";
   align?: "left" | "right";
   width?: number;
+  /** Present only when the caller wired `columnLayout` +
+   * `onColumnLayoutChange` — renders the resize handle at all only then,
+   * since without it there's nowhere to persist the result. */
+  onResize?: (width: number) => void;
 }) {
   const sortIndex = sortField ? sort.findIndex((s) => s.field === sortField) : -1;
   const isSorted = sortIndex !== -1;
@@ -457,7 +507,7 @@ function HeaderCell({
       role="columnheader"
       aria-sort={ariaSort}
       style={{
-        position: pinned ? "sticky" : undefined,
+        position: pinned ? "sticky" : "relative",
         left: pinned === "left" ? 0 : undefined,
         right: pinned === "right" ? 0 : undefined,
         zIndex: pinned ? 3 : undefined,
@@ -509,7 +559,39 @@ function HeaderCell({
           </>
         )}
       </span>
+      {onResize && <ResizeHandle onResizeEnd={onResize} />}
     </div>
+  );
+}
+
+function ResizeHandle({ onResizeEnd }: { onResizeEnd: (width: number) => void }) {
+  const onMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation(); // never trigger the header's own sort click
+    const headerEl = event.currentTarget.parentElement;
+    const startWidth = headerEl?.getBoundingClientRect().width ?? 120;
+    const startX = event.clientX;
+    let currentWidth = startWidth;
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      currentWidth = Math.max(60, startWidth + (moveEvent.clientX - startX));
+    };
+    const onMouseUp = () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      onResizeEnd(currentWidth);
+    };
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+  };
+
+  return (
+    <div
+      className="dg-resize-handle"
+      aria-hidden="true"
+      onMouseDown={onMouseDown}
+      onClick={(e) => e.stopPropagation()} // a resize drag's own trailing click must not also toggle sort
+    />
   );
 }
 

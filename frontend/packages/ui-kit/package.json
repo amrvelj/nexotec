@@ -7,7 +7,8 @@
   "types": "src/index.ts",
   "scripts": {
     "lint": "oxlint",
-    "typecheck": "tsc -b --noEmit"
+    "typecheck": "tsc -b --noEmit",
+    "test": "vitest run"
   },
   "peerDependencies": {
     "@mantine/core": "^7.17.8",
@@ -25,6 +26,8 @@
     "lucide-react": "^1.30.0",
     "oxlint": "^1.75.0",
     "react": "^19.2.8",
-    "typescript": "~6.0.2"
+    "typescript": "~6.0.2",
+    "vite": "^8.2.0",
+    "vitest": "^4.1.11"
   }
 }

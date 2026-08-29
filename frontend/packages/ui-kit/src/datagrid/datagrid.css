@@ -31,6 +31,23 @@
   z-index: 1;
 }
 
+/* § Columns — the header's own resize edge-drag. Absolutely positioned
+   against the columnheader cell (given `position: relative`/`sticky` in
+   DataGrid.tsx precisely so this has something to anchor to). */
+.dg-resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -3px;
+  width: 6px;
+  cursor: col-resize;
+  z-index: 4;
+}
+
+.dg-resize-handle:hover {
+  background-color: var(--purple-3);
+}
+
 /* The "refetching" state (§ The Data Grid, six states) — a background
    refresh of the page already on screen, distinct from the initial-load
    skeleton and from loading-next-page. */

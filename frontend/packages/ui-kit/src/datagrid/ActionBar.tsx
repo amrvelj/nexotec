@@ -15,9 +15,13 @@ export interface ActionBarProps {
   /** Zone 3 — a `<FilterButton>` instance, when the screen has structured
    * filters to back it. Rendered between search and the right cluster. */
   filterSlot?: ReactNode;
-  /** Extra icon buttons appended to the right cluster, e.g. a future
-   * Columns/Export button — kept generic so per-screen buttons don't need
-   * their own layout code. */
+  /** § The Action Bar: "the right cluster is Density, Columns, Export,
+   * Refresh — identical in all nine modules." `columnsSlot` (typically a
+   * `<ColumnConfigPanel>`) and `exportSlot` are rendered in that fixed
+   * position; `extraActions` is for anything genuinely screen-specific
+   * that doesn't have a named slot yet, appended just before Refresh. */
+  columnsSlot?: ReactNode;
+  exportSlot?: ReactNode;
   extraActions?: ReactNode;
   /** Translated overrides for this bar's own strings (density cycle,
    * refresh). Defaults to English — optional so untranslated screens are
@@ -59,6 +63,8 @@ export function ActionBar({
   onRefresh,
   refreshing,
   filterSlot,
+  columnsSlot,
+  exportSlot,
   extraActions,
   labels,
 }: ActionBarProps) {
@@ -119,6 +125,8 @@ export function ActionBar({
             <Rows3 size={18} />
           </IconButton>
         </Tooltip>
+        {columnsSlot}
+        {exportSlot}
         {extraActions}
         <Tooltip label={L.refresh}>
           <IconButton onClick={onRefresh} aria-label={L.refresh}>

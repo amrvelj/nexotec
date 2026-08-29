@@ -25,9 +25,26 @@ export interface GridColumnMeta<T> {
   pinned?: "left" | "right";
   mono?: boolean;
   align?: "left" | "right";
+  /** Pixel width for an ordinary (non-pinned-synthetic) column — set by a
+   * user's own resize drag via `ColumnLayoutState.widths`, applied by
+   * `DataGrid` on top of whatever a column def declares here at design
+   * time. Omit for the default flexible (`flex: 1 1 0`) sizing. */
+  width?: number;
   /** Second line under the primary cell content at `comfortable` density,
    * inline with it at `default`, absent at `compact` (§ Composite cells). */
   secondary?: (row: T) => ReactNode;
+  /** Plain-string display name for `ColumnConfigPanel`'s row (`header` can
+   * be a render function, unusable as list text). Falls back to the
+   * column's own `id` when omitted. */
+  columnLabel?: string;
+  /** § ADR-060 — every persisted field is a column; this is the
+   * "documented visible subset" flag. Defaults to `true` so every column
+   * def written before this existed keeps behaving exactly as it did. */
+  defaultVisible?: boolean;
+  /** An identifying, primary, or action column — cannot be hidden via
+   * `ColumnConfigPanel`, and is re-asserted visible against a stale saved
+   * layout (`resolveColumnLayout`). */
+  locked?: boolean;
 }
 
 /**
