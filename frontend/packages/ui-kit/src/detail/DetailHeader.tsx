@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { MoreHorizontal } from "lucide-react";
 import { ActionIcon, Group, Menu } from "@mantine/core";
-import { purple, radius, shadow, slate, spacing, typography } from "../tokens";
+import { purple, radius, shadow, slate, spacing, typography, white } from "../tokens";
 
 export interface DetailHeaderProps {
   /** 54px square — an icon, initials circle, or similar entity mark. */
@@ -30,7 +30,7 @@ export function DetailHeader({ entityMark, title, businessKey, badges, primaryAc
       style={{
         borderRadius: radius.lg,
         boxShadow: shadow.sm,
-        backgroundColor: "#fff",
+        backgroundColor: white,
         overflow: "hidden",
         border: `1px solid ${slate[2]}`,
       }}

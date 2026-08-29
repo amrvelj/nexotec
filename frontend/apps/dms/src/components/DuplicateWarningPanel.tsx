@@ -1,6 +1,6 @@
 import { Building2, TriangleAlert, User } from 'lucide-react'
 import { Group, Stack, Text, UnstyledButton } from '@mantine/core'
-import { Badge, LifecycleStatusBadge, purple, semantic } from '@nexotec/ui-kit'
+import { Badge, LifecycleStatusBadge, purple, semantic, white } from '@nexotec/ui-kit'
 import type { CustomerDuplicateCandidate } from '../api/types'
 
 function candidateName(c: CustomerDuplicateCandidate): string {
@@ -48,7 +48,7 @@ export function DuplicateWarningPanel({
               gap: 10,
               padding: '8px 10px',
               borderRadius: 8,
-              backgroundColor: '#fff',
+              backgroundColor: white,
               border: '1px solid rgba(0,0,0,0.06)',
             }}
           >

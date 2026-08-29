@@ -1,7 +1,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { Rows3, RefreshCw, Search } from "lucide-react";
 import { Tooltip } from "@mantine/core";
-import { purple, radius, slate, spacing } from "../tokens";
+import { purple, radius, slate, spacing, white } from "../tokens";
 import type { Density } from "./types";
 
 export interface ActionBarProps {
@@ -83,7 +83,7 @@ export function ActionBar({
         alignItems: "center",
         gap: spacing.sm,
         padding: `0 ${spacing.md}`,
-        backgroundColor: "#fff",
+        backgroundColor: white,
         border: `1px solid ${slate[2]}`,
         borderRadius: radius.lg,
         marginBottom: spacing.md,

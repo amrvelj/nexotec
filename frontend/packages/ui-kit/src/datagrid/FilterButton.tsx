@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { ListFilter } from "lucide-react";
 import { Popover } from "@mantine/core";
-import { purple, radius, slate, spacing, typography } from "../tokens";
+import { purple, radius, slate, spacing, typography, white } from "../tokens";
 
 export interface FilterButtonProps {
   /** Number of currently active filters — drives the purple.6 count badge. */
@@ -36,7 +36,7 @@ export function FilterButton({ activeCount, children, opened, onChange, label = 
             padding: `0 ${spacing.sm}`,
             border: `1px solid ${slate[3]}`,
             borderRadius: radius.md,
-            background: opened ? purple[0] : "#fff",
+            background: opened ? purple[0] : white,
             color: slate[7],
             fontSize: typography.body.size,
             fontWeight: typography.bodyStrong.weight,
@@ -57,7 +57,7 @@ export function FilterButton({ activeCount, children, opened, onChange, label = 
                 padding: "0 5px",
                 borderRadius: radius.full,
                 backgroundColor: purple[6],
-                color: "#fff",
+                color: white,
                 fontSize: 11,
                 fontWeight: 700,
                 lineHeight: 1,

@@ -15,7 +15,7 @@ import {
   Warehouse,
   Wrench,
 } from 'lucide-react'
-import { AppShell, purple, type NavGroupConfig } from '@nexotec/ui-kit'
+import { AppShell, purple, white, type NavGroupConfig } from '@nexotec/ui-kit'
 import { useAuth } from '../auth/AuthContext'
 import { UiPreferencesProvider, useUiPreferencesContext } from '../hooks/UiPreferencesContext'
 
@@ -61,7 +61,7 @@ function BrandMark() {
         height: 28,
         borderRadius: 8,
         backgroundColor: purple[6],
-        color: '#fff',
+        color: white,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',

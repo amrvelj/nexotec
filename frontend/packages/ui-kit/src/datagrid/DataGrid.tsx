@@ -3,7 +3,7 @@ import { flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-tabl
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ChevronDown, ChevronsUpDown, ChevronUp, CircleAlert, MoreHorizontal } from "lucide-react";
 import { Menu } from "@mantine/core";
-import { purple, radius, slate, slate25, spacing } from "../tokens";
+import { purple, radius, semantic, slate, slate25, spacing, white } from "../tokens";
 import { cycleSort } from "./sorting";
 import { ROW_HEIGHT, type Density, type EmptyStateConfig, type GridColumnDef, type SortSpec } from "./types";
 
@@ -151,7 +151,7 @@ export function DataGrid<T>({
         flexDirection: "column",
         border: `1px solid ${slate[2]}`,
         borderRadius: radius.lg,
-        backgroundColor: "#fff",
+        backgroundColor: white,
         overflow: "hidden",
       }}
     >
@@ -249,7 +249,7 @@ export function DataGrid<T>({
               alignItems: "center",
               gap: spacing.sm,
               padding: spacing.lg,
-              color: "#DC2626",
+              color: semantic.destructive.text,
               fontSize: 14,
             }}
           >
@@ -264,7 +264,7 @@ export function DataGrid<T>({
                   border: `1px solid ${slate[2]}`,
                   borderRadius: radius.sm,
                   padding: `${spacing.xs} ${spacing.sm}`,
-                  background: "#fff",
+                  background: white,
                   cursor: "pointer",
                   fontSize: 13,
                 }}
@@ -444,7 +444,7 @@ function Cell({
         position: pinned ? "sticky" : undefined,
         left: pinned === "left" ? 0 : undefined,
         right: pinned === "right" ? 0 : undefined,
-        backgroundColor: pinned ? "#fff" : undefined,
+        backgroundColor: pinned ? white : undefined,
         width: width ?? "1%",
         flex: width ? `0 0 ${width}px` : "1 1 0",
         minWidth: width ?? 120,

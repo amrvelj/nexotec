@@ -1,7 +1,7 @@
 import type { ComponentType, CSSProperties, ReactNode } from "react";
 import { Bell, Building2, Check, LogOut, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { Menu, SegmentedControl, Tooltip, UnstyledButton } from "@mantine/core";
-import { purple, radius, slate, spacing } from "../tokens";
+import { purple, radius, slate, spacing, white } from "../tokens";
 import type { NavGroupConfig, NavItemConfig } from "./types";
 
 export const SIDEBAR_WIDTH_EXPANDED = 240;
@@ -97,7 +97,7 @@ export function Sidebar({
         top: 0,
         display: "flex",
         flexDirection: "column",
-        backgroundColor: "#fff",
+        backgroundColor: white,
         borderRight: `1px solid ${slate[2]}`,
         transition: "width 160ms ease",
         overflow: "hidden",

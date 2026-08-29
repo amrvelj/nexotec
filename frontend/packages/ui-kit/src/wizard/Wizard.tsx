@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Check } from "lucide-react";
 import { Button, Group } from "@mantine/core";
-import { purple, radius, semantic, slate, spacing, typography } from "../tokens";
+import { purple, radius, semantic, slate, spacing, typography, white } from "../tokens";
 import type { WizardStep } from "./types";
 
 export interface WizardProps {
@@ -68,7 +68,7 @@ export function Wizard({
                     flexShrink: 0,
                     fontSize: 12,
                     fontWeight: 700,
-                    color: isCompleted || isActive ? "#fff" : slate[4],
+                    color: isCompleted || isActive ? white : slate[4],
                   }}
                 >
                   {isCompleted ? <Check size={13} /> : index + 1}
