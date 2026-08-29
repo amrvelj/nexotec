@@ -4,7 +4,24 @@ contract allows `app.<other-context>` to import `app.customer.public`, never
 """
 
 from app.customer.models.customer import Customer
-from app.customer.services.customer import get_customer_or_404
+from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
+from app.customer.services.customer import (
+    allocate_vehicle_party,
+    get_customer_or_404,
+    list_customer_vehicles,
+    list_vehicle_parties,
+    repoint_vehicle_party,
+)
 from app.customer.services.legal_basis import has_any_basis_for_group
 
-__all__ = ["Customer", "get_customer_or_404", "has_any_basis_for_group"]
+__all__ = [
+    "Customer",
+    "VehicleParty",
+    "VehiclePartyRole",
+    "allocate_vehicle_party",
+    "get_customer_or_404",
+    "has_any_basis_for_group",
+    "list_customer_vehicles",
+    "list_vehicle_parties",
+    "repoint_vehicle_party",
+]

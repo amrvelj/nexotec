@@ -4,6 +4,7 @@
       "masterData": "Master Data",
       "customers": "Customers",
       "vehicles": "Vehicles",
+      "mappingGaps": "Mapping gaps",
       "partners": "Partners",
       "modules": "Modules",
       "sales": "Sales",
@@ -33,7 +34,9 @@
       "comfortable": "Comfortable",
       "tooltip": "Density: {{label}}",
       "ariaLabel": "Change row density"
-    }
+    },
+    "cancel": "Cancel",
+    "notSet": "Not set"
   },
   "customerEnums": {
     "customerType": {
@@ -272,5 +275,156 @@
     "title": "Sign-in failed",
     "message": "Sign-in failed. Please try again or contact your administrator.",
     "retry": "Try again"
+  },
+  "mappingGaps": {
+    "title": "Mapping gaps",
+    "searchPlaceholder": "Search by provider or code…",
+    "resolve": "Resolve",
+    "loadError": "Failed to load mapping gaps.",
+    "columns": {
+      "provider": "Provider",
+      "vehicleKind": "Vehicle kind",
+      "codeGroup": "Code group",
+      "providerCode": "Provider code",
+      "occurrences": "Occurrences",
+      "lastSeen": "Last seen"
+    },
+    "emptyState": {
+      "title": "No mapping gaps",
+      "description": "Every provider code seen so far resolves to a canonical value."
+    },
+    "emptyFilteredState": {
+      "title": "No matching gaps",
+      "description": "No mapping gaps match your search.",
+      "action": "Clear search"
+    },
+    "resolveModal": {
+      "title": "Resolve mapping gap",
+      "listCode": "Canonical list code",
+      "valueCode": "Canonical value code",
+      "confirm": "Resolve"
+    }
+  },
+  "vehiclesList": {
+    "title": "Vehicles",
+    "newVehicle": "New vehicle",
+    "searchPlaceholder": "Search VIN, vehicle number, Stammnummer or plate…",
+    "loadError": "Failed to load vehicles.",
+    "columns": {
+      "vehicleNumber": "Vehicle no.",
+      "vin": "VIN",
+      "stammnummer": "Stammnummer",
+      "matchStatus": "Catalogue match",
+      "status": "Status"
+    },
+    "matchStatus": {
+      "matched": "Matched",
+      "unverified": "Unverified"
+    },
+    "status": {
+      "active": "Active",
+      "exported": "Exported",
+      "scrapped": "Scrapped",
+      "stolen": "Stolen"
+    },
+    "resolved": {
+      "title": "Match found",
+      "open": "Open"
+    },
+    "picker": {
+      "wechselschildTitle": "Multiple vehicles share this plate (Wechselschild) — pick one",
+      "conflictTitle": "This plate matches more than one vehicle without a shared assignment — pick the right one",
+      "empty": "No candidates found"
+    },
+    "emptyState": {
+      "title": "No vehicles yet",
+      "description": "Vehicles you create or migrate will appear here."
+    },
+    "emptyFilteredState": {
+      "title": "No matching vehicles",
+      "description": "No vehicle matches your search.",
+      "action": "Clear search"
+    }
+  },
+  "vehicleCreate": {
+    "title": "New vehicle",
+    "vinLabel": "VIN",
+    "submit": "Create",
+    "existingNotice": "This VIN already exists as {{vehicleNumber}}.",
+    "openExisting": "Open existing record"
+  },
+  "vehicleDetail": {
+    "header": {
+      "failedToLoad": "Failed to load vehicle",
+      "copyVin": "Copy VIN",
+      "merge": "Merge into…"
+    },
+    "errors": {
+      "somethingWentWrong": "Something went wrong."
+    },
+    "tabs": {
+      "identity": "Identity",
+      "plates": "Plates",
+      "odometer": "Odometer",
+      "accessories": "Accessories"
+    },
+    "identity": {
+      "title": "Identity",
+      "vin": "VIN",
+      "vehicleNumber": "Vehicle no.",
+      "stammnummer": "Stammnummer",
+      "typeApprovalNumber": "Type approval no.",
+      "firstRegistrationDate": "First registration",
+      "matchStatus": "Catalogue match"
+    },
+    "parties": {
+      "title": "Parties",
+      "none": "No parties allocated",
+      "allocate": "Allocate to customer",
+      "roleLabel": "Role",
+      "role": {
+        "owner": "Owner",
+        "keeper": "Keeper",
+        "driver": "Driver"
+      },
+      "searchCustomer": "Search customer…",
+      "noCustomers": "No customers found",
+      "showFormer": "Show former parties",
+      "hideFormer": "Hide former parties"
+    },
+    "plates": {
+      "plate": "Plate",
+      "canton": "Canton",
+      "validFrom": "Valid from",
+      "validTo": "Valid to",
+      "current": "current",
+      "none": "No plates recorded",
+      "wechselschild": "Wechselschild"
+    },
+    "odometer": {
+      "value": "Reading",
+      "date": "Date",
+      "source": "Source",
+      "record": "Record",
+      "none": "No readings recorded",
+      "implausible": "Implausible",
+      "implausibleNotice": "One or more readings are lower than a previous reading. They are kept and flagged, never hidden.",
+      "sourceLabel": {
+        "service_visit": "Service visit",
+        "sale": "Sale",
+        "valuation": "Valuation",
+        "manual": "Manual",
+        "import": "Import"
+      }
+    },
+    "accessories": {
+      "type": "Type",
+      "description": "Description",
+      "validFrom": "Valid from",
+      "validTo": "Valid to",
+      "add": "Add",
+      "remove": "Remove",
+      "none": "No accessories recorded"
+    }
   }
 }

@@ -36,6 +36,7 @@ from app.core.audit import list_audit_events
 from app.core.audit_schemas import AuditEventPage, AuditEventRead
 from app.core.auth import AccessRole, Principal, get_current_principal
 from app.core.concurrency import check_version, require_if_match
+from app.core.config import get_settings
 from app.core.errors import ConflictError, ForbiddenError
 from app.core.idempotency import find_cached_response, store_response
 from app.core.pagination import PageParams, page_params
@@ -69,6 +70,20 @@ def _idempotency_key(idempotency_key: str | None = Header(default=None, alias="I
     return idempotency_key
 
 
+def _reject_if_legacy_frozen() -> None:
+    """WP-5 PR-7 cutover switch (ADR-021). Off by default — see
+    Settings.legacy_vehicle_write_frozen's own docstring for when and how
+    this gets flipped. Reads still work through this table always; only
+    writes are ever blocked, and never by dropping anything.
+    """
+
+    if get_settings().legacy_vehicle_write_frozen:
+        raise ConflictError(
+            "This vehicle table is frozen after migration to vehicle-mdm. "
+            "Use the /v1/vehicle-mdm endpoints instead.",
+        )
+
+
 def _serialize_vehicle(vehicle, principal: Principal, db: Session) -> VehicleRead:
     is_custodian_or_admin = AccessRole.PLATFORM_ADMIN in principal.roles or (
         vehicle.current_custodian_partner_id is not None
@@ -97,6 +112,7 @@ def create_vehicle(
     principal: Principal = Depends(require_write("vehicle_mdm")),
     db: Session = Depends(get_db),
 ):
+    _reject_if_legacy_frozen()
     request_body = body.model_dump(mode="json", by_alias=True)
     if idempotency_key:
         cached = find_cached_response(
@@ -150,6 +166,7 @@ def update_vehicle(
     principal: Principal = Depends(require_write("vehicle_mdm")),
     db: Session = Depends(get_db),
 ):
+    _reject_if_legacy_frozen()
     vehicle = vehicle_service.get_vehicle_or_404(db, vehicle_id)
     check_version(vehicle.version, if_match, entity_name="Vehicle")
 
@@ -176,6 +193,7 @@ def create_custody_event(
     principal: Principal = Depends(require_write("vehicle_mdm")),
     db: Session = Depends(get_db),
 ):
+    _reject_if_legacy_frozen()
     vehicle = vehicle_service.get_vehicle_or_404(db, vehicle_id)
     if vehicle.status in _BLOCKED_CUSTODY_EVENT_STATUSES:
         raise ConflictError(

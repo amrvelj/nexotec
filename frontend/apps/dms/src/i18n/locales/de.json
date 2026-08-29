@@ -4,6 +4,7 @@
       "masterData": "Stammdaten",
       "customers": "Kunden",
       "vehicles": "Fahrzeuge",
+      "mappingGaps": "Zuordnungslücken",
       "partners": "Partner",
       "modules": "Module",
       "sales": "Verkauf",
@@ -33,7 +34,9 @@
       "comfortable": "Komfortabel",
       "tooltip": "Dichte: {{label}}",
       "ariaLabel": "Zeilendichte ändern"
-    }
+    },
+    "cancel": "Abbrechen",
+    "notSet": "Nicht gesetzt"
   },
   "customerEnums": {
     "customerType": {
@@ -272,5 +275,156 @@
     "title": "Anmeldung fehlgeschlagen",
     "message": "Die Anmeldung ist fehlgeschlagen. Bitte versuchen Sie es erneut oder wenden Sie sich an Ihre Administratorin bzw. Ihren Administrator.",
     "retry": "Erneut versuchen"
+  },
+  "mappingGaps": {
+    "title": "Zuordnungslücken",
+    "searchPlaceholder": "Nach Anbieter oder Code suchen…",
+    "resolve": "Zuordnen",
+    "loadError": "Zuordnungslücken konnten nicht geladen werden.",
+    "columns": {
+      "provider": "Anbieter",
+      "vehicleKind": "Fahrzeugart",
+      "codeGroup": "Codegruppe",
+      "providerCode": "Anbietercode",
+      "occurrences": "Vorkommen",
+      "lastSeen": "Zuletzt gesehen"
+    },
+    "emptyState": {
+      "title": "Keine Zuordnungslücken",
+      "description": "Jeder bisher gesehene Anbietercode lässt sich einem kanonischen Wert zuordnen."
+    },
+    "emptyFilteredState": {
+      "title": "Keine Treffer",
+      "description": "Keine Zuordnungslücken entsprechen Ihrer Suche.",
+      "action": "Suche zurücksetzen"
+    },
+    "resolveModal": {
+      "title": "Zuordnungslücke auflösen",
+      "listCode": "Kanonischer Listencode",
+      "valueCode": "Kanonischer Wertcode",
+      "confirm": "Zuordnen"
+    }
+  },
+  "vehiclesList": {
+    "title": "Fahrzeuge",
+    "newVehicle": "Neues Fahrzeug",
+    "searchPlaceholder": "VIN, Fahrzeugnummer, Stammnummer oder Kennzeichen suchen…",
+    "loadError": "Fahrzeuge konnten nicht geladen werden.",
+    "columns": {
+      "vehicleNumber": "Fahrzeugnr.",
+      "vin": "VIN",
+      "stammnummer": "Stammnummer",
+      "matchStatus": "Katalogabgleich",
+      "status": "Status"
+    },
+    "matchStatus": {
+      "matched": "Zugeordnet",
+      "unverified": "Unbestätigt"
+    },
+    "status": {
+      "active": "Aktiv",
+      "exported": "Exportiert",
+      "scrapped": "Verschrottet",
+      "stolen": "Gestohlen"
+    },
+    "resolved": {
+      "title": "Treffer gefunden",
+      "open": "Öffnen"
+    },
+    "picker": {
+      "wechselschildTitle": "Mehrere Fahrzeuge teilen dieses Wechselschild — bitte wählen",
+      "conflictTitle": "Dieses Kennzeichen passt zu mehreren Fahrzeugen ohne gemeinsame Zuordnung — bitte das richtige wählen",
+      "empty": "Keine Kandidaten gefunden"
+    },
+    "emptyState": {
+      "title": "Noch keine Fahrzeuge",
+      "description": "Erstellte oder migrierte Fahrzeuge erscheinen hier."
+    },
+    "emptyFilteredState": {
+      "title": "Keine passenden Fahrzeuge",
+      "description": "Kein Fahrzeug entspricht Ihrer Suche.",
+      "action": "Suche löschen"
+    }
+  },
+  "vehicleCreate": {
+    "title": "Neues Fahrzeug",
+    "vinLabel": "VIN",
+    "submit": "Erstellen",
+    "existingNotice": "Diese VIN existiert bereits als {{vehicleNumber}}.",
+    "openExisting": "Bestehenden Datensatz öffnen"
+  },
+  "vehicleDetail": {
+    "header": {
+      "failedToLoad": "Fahrzeug konnte nicht geladen werden",
+      "copyVin": "VIN kopieren",
+      "merge": "Zusammenführen mit…"
+    },
+    "errors": {
+      "somethingWentWrong": "Etwas ist schiefgelaufen."
+    },
+    "tabs": {
+      "identity": "Identität",
+      "plates": "Kennzeichen",
+      "odometer": "Kilometerstand",
+      "accessories": "Zubehör"
+    },
+    "identity": {
+      "title": "Identität",
+      "vin": "VIN",
+      "vehicleNumber": "Fahrzeugnr.",
+      "stammnummer": "Stammnummer",
+      "typeApprovalNumber": "Typengenehmigungsnr.",
+      "firstRegistrationDate": "Erstzulassung",
+      "matchStatus": "Katalogabgleich"
+    },
+    "parties": {
+      "title": "Beteiligte",
+      "none": "Keine Beteiligten zugeordnet",
+      "allocate": "Kunde zuordnen",
+      "roleLabel": "Rolle",
+      "role": {
+        "owner": "Eigentümer",
+        "keeper": "Halter",
+        "driver": "Fahrzeugführer"
+      },
+      "searchCustomer": "Kunde suchen…",
+      "noCustomers": "Keine Kunden gefunden",
+      "showFormer": "Frühere Beteiligte anzeigen",
+      "hideFormer": "Frühere Beteiligte ausblenden"
+    },
+    "plates": {
+      "plate": "Kennzeichen",
+      "canton": "Kanton",
+      "validFrom": "Gültig ab",
+      "validTo": "Gültig bis",
+      "current": "aktuell",
+      "none": "Keine Kennzeichen erfasst",
+      "wechselschild": "Wechselschild"
+    },
+    "odometer": {
+      "value": "Kilometerstand",
+      "date": "Datum",
+      "source": "Quelle",
+      "record": "Erfassen",
+      "none": "Keine Werte erfasst",
+      "implausible": "Unplausibel",
+      "implausibleNotice": "Ein oder mehrere Werte liegen unter einem früheren Wert. Sie werden beibehalten und markiert, nie ausgeblendet.",
+      "sourceLabel": {
+        "service_visit": "Servicebesuch",
+        "sale": "Verkauf",
+        "valuation": "Bewertung",
+        "manual": "Manuell",
+        "import": "Import"
+      }
+    },
+    "accessories": {
+      "type": "Typ",
+      "description": "Beschreibung",
+      "validFrom": "Gültig ab",
+      "validTo": "Gültig bis",
+      "add": "Hinzufügen",
+      "remove": "Entfernen",
+      "none": "Kein Zubehör erfasst"
+    }
   }
 }

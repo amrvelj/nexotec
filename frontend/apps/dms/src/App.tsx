@@ -7,6 +7,9 @@ import { SignInErrorPage } from './pages/SignInErrorPage'
 import { CustomersListPage } from './pages/CustomersListPage'
 import { CustomerCreatePage } from './pages/CustomerCreatePage'
 import { CustomerDetailPage } from './pages/CustomerDetailPage'
+import { MappingGapsPage } from './pages/MappingGapsPage'
+import { VehiclesListPage } from './pages/VehiclesListPage'
+import { VehicleDetailPage } from './pages/VehicleDetailPage'
 
 function ProtectedLayout() {
   return (
@@ -29,6 +32,9 @@ export default function App() {
             <Route path="/customers" element={<CustomersListPage />} />
             <Route path="/customers/new" element={<CustomerCreatePage />} />
             <Route path="/customers/:id" element={<CustomerDetailPage />} />
+            <Route path="/vehicle-mdm/mapping-gaps" element={<MappingGapsPage />} />
+            <Route path="/vehicles" element={<VehiclesListPage />} />
+            <Route path="/vehicles/:id" element={<VehicleDetailPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/customers" replace />} />
         </Routes>

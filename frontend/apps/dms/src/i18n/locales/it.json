@@ -4,6 +4,7 @@
       "masterData": "Dati anagrafici",
       "customers": "Clienti",
       "vehicles": "Veicoli",
+      "mappingGaps": "Lacune di mappatura",
       "partners": "Partner",
       "modules": "Moduli",
       "sales": "Vendite",
@@ -33,7 +34,9 @@
       "comfortable": "Confortevole",
       "tooltip": "Densità: {{label}}",
       "ariaLabel": "Cambia densità righe"
-    }
+    },
+    "cancel": "Annulla",
+    "notSet": "Non impostato"
   },
   "customerEnums": {
     "customerType": {
@@ -272,5 +275,156 @@
     "title": "Accesso non riuscito",
     "message": "Accesso non riuscito. Riprova oppure contatta il tuo amministratore.",
     "retry": "Riprova"
+  },
+  "mappingGaps": {
+    "title": "Lacune di mappatura",
+    "searchPlaceholder": "Cerca per fornitore o codice…",
+    "resolve": "Risolvi",
+    "loadError": "Impossibile caricare le lacune di mappatura.",
+    "columns": {
+      "provider": "Fornitore",
+      "vehicleKind": "Tipo di veicolo",
+      "codeGroup": "Gruppo di codici",
+      "providerCode": "Codice fornitore",
+      "occurrences": "Occorrenze",
+      "lastSeen": "Ultima rilevazione"
+    },
+    "emptyState": {
+      "title": "Nessuna lacuna di mappatura",
+      "description": "Ogni codice fornitore finora rilevato corrisponde a un valore canonico."
+    },
+    "emptyFilteredState": {
+      "title": "Nessun risultato",
+      "description": "Nessuna lacuna di mappatura corrisponde alla ricerca.",
+      "action": "Cancella ricerca"
+    },
+    "resolveModal": {
+      "title": "Risolvi lacuna di mappatura",
+      "listCode": "Codice lista canonico",
+      "valueCode": "Codice valore canonico",
+      "confirm": "Risolvi"
+    }
+  },
+  "vehiclesList": {
+    "title": "Veicoli",
+    "newVehicle": "Nuovo veicolo",
+    "searchPlaceholder": "Cerca telaio, numero veicolo, numero base o targa…",
+    "loadError": "Impossibile caricare i veicoli.",
+    "columns": {
+      "vehicleNumber": "N. veicolo",
+      "vin": "Telaio",
+      "stammnummer": "Numero base",
+      "matchStatus": "Corrispondenza catalogo",
+      "status": "Stato"
+    },
+    "matchStatus": {
+      "matched": "Corrisposto",
+      "unverified": "Non verificato"
+    },
+    "status": {
+      "active": "Attivo",
+      "exported": "Esportato",
+      "scrapped": "Rottamato",
+      "stolen": "Rubato"
+    },
+    "resolved": {
+      "title": "Corrispondenza trovata",
+      "open": "Apri"
+    },
+    "picker": {
+      "wechselschildTitle": "Più veicoli condividono questa targa interscambiabile — selezionane uno",
+      "conflictTitle": "Questa targa corrisponde a più veicoli senza un'assegnazione condivisa — seleziona quello corretto",
+      "empty": "Nessun candidato trovato"
+    },
+    "emptyState": {
+      "title": "Ancora nessun veicolo",
+      "description": "I veicoli creati o migrati appariranno qui."
+    },
+    "emptyFilteredState": {
+      "title": "Nessun veicolo corrispondente",
+      "description": "Nessun veicolo corrisponde alla tua ricerca.",
+      "action": "Cancella ricerca"
+    }
+  },
+  "vehicleCreate": {
+    "title": "Nuovo veicolo",
+    "vinLabel": "Telaio",
+    "submit": "Crea",
+    "existingNotice": "Questo numero di telaio esiste già come {{vehicleNumber}}.",
+    "openExisting": "Apri il record esistente"
+  },
+  "vehicleDetail": {
+    "header": {
+      "failedToLoad": "Impossibile caricare il veicolo",
+      "copyVin": "Copia telaio",
+      "merge": "Unisci con…"
+    },
+    "errors": {
+      "somethingWentWrong": "Qualcosa è andato storto."
+    },
+    "tabs": {
+      "identity": "Identità",
+      "plates": "Targhe",
+      "odometer": "Chilometraggio",
+      "accessories": "Accessori"
+    },
+    "identity": {
+      "title": "Identità",
+      "vin": "Telaio",
+      "vehicleNumber": "N. veicolo",
+      "stammnummer": "Numero base",
+      "typeApprovalNumber": "N. omologazione",
+      "firstRegistrationDate": "Prima immatricolazione",
+      "matchStatus": "Corrispondenza catalogo"
+    },
+    "parties": {
+      "title": "Parti coinvolte",
+      "none": "Nessuna parte assegnata",
+      "allocate": "Assegna a cliente",
+      "roleLabel": "Ruolo",
+      "role": {
+        "owner": "Proprietario",
+        "keeper": "Detentore",
+        "driver": "Conducente"
+      },
+      "searchCustomer": "Cerca cliente…",
+      "noCustomers": "Nessun cliente trovato",
+      "showFormer": "Mostra parti precedenti",
+      "hideFormer": "Nascondi parti precedenti"
+    },
+    "plates": {
+      "plate": "Targa",
+      "canton": "Cantone",
+      "validFrom": "Valido dal",
+      "validTo": "Valido fino al",
+      "current": "attuale",
+      "none": "Nessuna targa registrata",
+      "wechselschild": "Targa interscambiabile"
+    },
+    "odometer": {
+      "value": "Lettura",
+      "date": "Data",
+      "source": "Fonte",
+      "record": "Registra",
+      "none": "Nessuna lettura registrata",
+      "implausible": "Non plausibile",
+      "implausibleNotice": "Una o più letture sono inferiori a una lettura precedente. Vengono conservate e segnalate, mai nascoste.",
+      "sourceLabel": {
+        "service_visit": "Intervento di assistenza",
+        "sale": "Vendita",
+        "valuation": "Valutazione",
+        "manual": "Manuale",
+        "import": "Importazione"
+      }
+    },
+    "accessories": {
+      "type": "Tipo",
+      "description": "Descrizione",
+      "validFrom": "Valido dal",
+      "validTo": "Valido fino al",
+      "add": "Aggiungi",
+      "remove": "Rimuovi",
+      "none": "Nessun accessorio registrato"
+    }
   }
 }

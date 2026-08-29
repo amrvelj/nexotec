@@ -102,6 +102,17 @@ class Settings(BaseSettings):
     otel_exporter_otlp_headers: str | None = None
     sentry_dsn: str | None = None
 
+    # WP-5 PR-7 (ADR-021, risk A-13): the explicit switch flipped ONCE, by
+    # hand, after scripts/migrate_legacy_vehicles.py's dry-run report has
+    # been read and approved and a --commit run has actually migrated the
+    # data. Defaults False so merging this package does not itself break
+    # the old vehicle API for anyone — freezing it is a deliberate,
+    # separate operational action, not a side effect of a deploy. Once
+    # True, the old vehicle table's write endpoints return 409 pointing at
+    # the new vehicle-mdm endpoint; reads keep working, and the table is
+    # never dropped by this flag — only cutover, not retirement.
+    legacy_vehicle_write_frozen: bool = False
+
 
 @lru_cache
 def get_settings() -> Settings:

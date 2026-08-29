@@ -339,4 +339,9 @@ def test_no_hard_delete_endpoint_exists_for_fk_target_entities(client):
         "/v1/customers/{customer_id}/external-ids/{external_id_row_id}",
         "/v1/customers/{customer_id}/vehicles/{party_id}",
         "/v1/me/preferences/{scope}",
+        # WP-5 PR-9: another genuine child row (vehicle_accessory), not a
+        # target of any dropped FK. Same shape as the vehicles/{party_id}
+        # row above it — the DELETE verb closes (sets valid_to), it never
+        # actually deletes (FR-V-13).
+        "/v1/vehicle-mdm/{vehicle_id}/accessories/{accessory_id}",
     }
