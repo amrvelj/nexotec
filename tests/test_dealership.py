@@ -385,3 +385,52 @@ def test_migration_backfill_language_is_the_enum_member_name_not_its_value():
     spec.loader.exec_module(module)
 
     assert module._DEFAULT_LANGUAGE in {member.name for member in SwissLanguage}
+
+
+def test_get_dealership_default_correspondence_language_returns_each_dealerships_own_value(db_session):
+    """WP-6b PR-4: the one half of the "customer, else dealership default"
+    rule app.platform actually owns — proven here to return each
+    dealership's own configured value, not a hardcoded one.
+    """
+    from app.core.i18n import SwissLanguage
+    from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
+    from app.platform.services.dealership import get_dealership_default_correspondence_language
+
+    group = DealerGroup(name="Garage AG group")
+    db_session.add(group)
+    db_session.flush()
+
+    de_dealership = Dealership(
+        dealer_group_id=group.id,
+        legal_name="Garage Deutsch AG",
+        dealer_license_number="ZH-3",
+        license_state="ZH",
+        franchise_type=FranchiseType.INDEPENDENT,
+        address_street="Bahnhofstrasse",
+        address_house_number="1",
+        address_postal_code="8001",
+        address_locality="Zürich",
+        address_canton="ZH",
+        phone="+41441234567",
+        tax_id="CHE-111.111.111",
+    )
+    fr_dealership = Dealership(
+        dealer_group_id=group.id,
+        legal_name="Garage Français SA",
+        dealer_license_number="GE-1",
+        license_state="GE",
+        franchise_type=FranchiseType.INDEPENDENT,
+        address_street="Rue du Rhône",
+        address_house_number="10",
+        address_postal_code="1204",
+        address_locality="Genève",
+        address_canton="GE",
+        phone="+41221234567",
+        tax_id="CHE-222.222.222",
+        default_correspondence_language=SwissLanguage.FR,
+    )
+    db_session.add_all([de_dealership, fr_dealership])
+    db_session.flush()
+
+    assert get_dealership_default_correspondence_language(db_session, de_dealership.id) == SwissLanguage.DE
+    assert get_dealership_default_correspondence_language(db_session, fr_dealership.id) == SwissLanguage.FR

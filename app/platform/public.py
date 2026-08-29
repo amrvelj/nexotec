@@ -16,7 +16,11 @@ from app.platform.schemas.document_content import (
     ParagraphBlock,
     SignatureBlock,
 )
-from app.platform.services.dealership import get_dealership_or_404, get_location_or_404
+from app.platform.services.dealership import (
+    get_dealership_default_correspondence_language,
+    get_dealership_or_404,
+    get_location_or_404,
+)
 from app.platform.services.document_render import render_document
 from app.platform.services.reference_data import get_reference_list_or_404, get_reference_value_or_404
 from app.platform.services.user import get_user_or_404
@@ -41,6 +45,7 @@ __all__ = [
     "ParagraphBlock",
     "SignatureBlock",
     "User",
+    "get_dealership_default_correspondence_language",
     "get_dealership_or_404",
     "get_location_or_404",
     "get_reference_list_or_404",

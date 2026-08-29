@@ -194,6 +194,46 @@ def test_compose_html_uses_the_location_address_in_the_footer_when_given(db_sess
     assert "Filiale Winterthur" not in html_without_location
 
 
+def test_two_locations_under_the_same_dealership_show_two_different_footer_addresses(db_session):
+    """WP-6b PR-4: the exit-criterion shape for "per-location footer" —
+    one dealership, two locations, two distinct footer addresses from the
+    same DocumentTemplate boilerplate.
+    """
+    dealership = _make_dealership(db_session)
+    winterthur = Location(
+        tenant_id=dealership.id,
+        name="Filiale Winterthur",
+        address_street="Industriestrasse",
+        address_house_number="24",
+        address_postal_code="8400",
+        address_locality="Winterthur",
+    )
+    baden = Location(
+        tenant_id=dealership.id,
+        name="Filiale Baden",
+        address_street="Bahnhofplatz",
+        address_house_number="3",
+        address_postal_code="5400",
+        address_locality="Baden",
+    )
+    db_session.add_all([winterthur, baden])
+    db_session.flush()
+
+    html_winterthur = _compose_html(
+        dealership=dealership, template=None, location=winterthur,
+        correspondence_language=SwissLanguage.DE, content=_sample_content(),
+    )
+    html_baden = _compose_html(
+        dealership=dealership, template=None, location=baden,
+        correspondence_language=SwissLanguage.DE, content=_sample_content(),
+    )
+
+    assert "Winterthur" in html_winterthur
+    assert "Baden" not in html_winterthur
+    assert "Baden" in html_baden
+    assert "Winterthur" not in html_baden
+
+
 def test_content_is_html_escaped(db_session):
     dealership = _make_dealership(db_session)
     content = ContentDefinition(title="<script>alert(1)</script>")
