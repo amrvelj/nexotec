@@ -8,6 +8,8 @@ export * from "./components/Picker";
 export * from "./components/FormDialog";
 export * from "./components/RowMenu";
 export * from "./components/RepeatableRowGroup";
+export * from "./components/DocumentPreview";
+export * from "./components/PresentMode";
 export * from "./shell/types";
 export * from "./shell/BreadcrumbContext";
 export * from "./shell/Sidebar";
