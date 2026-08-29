@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Button, Group, Menu, Stack, Title } from '@mantine/core'
+import { Button, Group, Stack, Title } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { Copy, ExternalLink, Users } from 'lucide-react'
@@ -251,19 +251,25 @@ export function CustomersListPage() {
             </Button>
           ),
         }}
-        rowActions={(row) => (
-          <>
-            <Menu.Item leftSection={<ExternalLink size={16} />} onClick={() => navigate(`/customers/${row.id}`)}>
-              {t('customersList.rowActions.open')}
-            </Menu.Item>
-            <Menu.Item
-              leftSection={<Copy size={16} />}
-              onClick={() => navigator.clipboard.writeText(row.customerNumber)}
-            >
-              {t('customersList.rowActions.copyCustomerNumber')}
-            </Menu.Item>
-          </>
-        )}
+        rowActions={(row) => ({
+          navigate: [
+            {
+              label: t('customersList.rowActions.open'),
+              icon: <ExternalLink size={16} />,
+              onClick: () => navigate(`/customers/${row.id}`),
+            },
+          ],
+          // "Copy customer number" gets something out of the record for
+          // use elsewhere — the same spirit as Export/print, not its own
+          // sixth group (§ ADR-061 names exactly five).
+          exportPrint: [
+            {
+              label: t('customersList.rowActions.copyCustomerNumber'),
+              icon: <Copy size={16} />,
+              onClick: () => navigator.clipboard.writeText(row.customerNumber),
+            },
+          ],
+        })}
       />
     </Stack>
   )

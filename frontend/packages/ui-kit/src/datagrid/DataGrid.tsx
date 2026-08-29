@@ -1,9 +1,9 @@
 import { useEffect, useRef, type ComponentType, type CSSProperties, type ReactNode } from "react";
 import { flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { ChevronDown, ChevronsUpDown, ChevronUp, CircleAlert, MoreHorizontal } from "lucide-react";
-import { Menu } from "@mantine/core";
+import { ChevronDown, ChevronsUpDown, ChevronUp, CircleAlert } from "lucide-react";
 import { purple, radius, semantic, slate, slate25, spacing, white } from "../tokens";
+import { RowMenu, type RowMenuGroups } from "../components/RowMenu";
 import { cycleSort } from "./sorting";
 import { resizeColumn, resolveColumnLayout, type ColumnLayoutState, type ColumnRegistryEntry } from "./columnLayout";
 import "./datagrid.css";
@@ -45,7 +45,11 @@ export interface DataGridProps<T> {
   isFiltered: boolean;
   emptyState: EmptyStateConfig;
   emptyFilteredState?: EmptyStateConfig;
-  rowActions?: (row: T) => ReactNode;
+  /** § ADR-061 — returns the row's actions grouped per the fixed contract
+   * (Navigate/Edit/Create-from/Export-print/Destructive), never raw JSX;
+   * `RowMenu` is what actually renders them, so the grid and a detail
+   * screen's overflow render from the identical definition. */
+  rowActions?: (row: T) => RowMenuGroups;
   /** Omit for a grid with no bulk actions. When present, a checkbox column
    * is pinned to the left of every other column, selection is against
    * `getRowId`, and the header checkbox toggles every currently *loaded*
@@ -344,7 +348,7 @@ export function DataGrid<T>({
                         return (
                           <Cell key={cell.id} pinned={isActions ? "right" : meta?.pinned} mono={meta?.mono} align={meta?.align} width={isActions ? ACTION_COLUMN_WIDTH : meta?.width}>
                             {isActions && rowActions ? (
-                              <RowActionsMenu ariaLabel={L.rowActionsLabel}>{rowActions(row.original)}</RowActionsMenu>
+                              <RowMenu groups={rowActions(row.original)} ariaLabel={L.rowActionsLabel} />
                             ) : density === "default" && meta?.secondary ? (
                               // § Composite cells: at `default` density the
                               // second fact sits on the SAME line as the
@@ -768,34 +772,3 @@ function EmptyState({ config }: { config: EmptyStateConfig }) {
   );
 }
 
-function RowActionsMenu({ children, ariaLabel }: { children: ReactNode; ariaLabel: string }) {
-  return (
-    <Menu shadow="md" width={200} position="bottom-end" withinPortal>
-      <Menu.Target>
-        <button
-          type="button"
-          aria-label={ariaLabel}
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-          }}
-          style={{
-            border: "none",
-            background: "none",
-            cursor: "pointer",
-            color: slate[4],
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            width: 28,
-            height: 28,
-            borderRadius: radius.sm,
-          }}
-        >
-          <MoreHorizontal size={18} />
-        </button>
-      </Menu.Target>
-      <Menu.Dropdown onClick={(e) => e.stopPropagation()}>{children}</Menu.Dropdown>
-    </Menu>
-  );
-}

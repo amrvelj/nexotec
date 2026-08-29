@@ -21,6 +21,11 @@ export interface FilterChipsProps {
  * ( Business 3'378 ) ( Active ) ( × Clear )". Rendered below the Action
  * Bar, and only when filters exist — the caller decides that by not
  * rendering this component with an empty `chips` array.
+ *
+ * `SelectionBar` occupies this exact same slot when rows are selected —
+ * "selection replaces the chip row in place, never stacked." A caller
+ * with both selection and filters shows whichever one currently applies,
+ * never both.
  */
 export function FilterChips({
   chips,
