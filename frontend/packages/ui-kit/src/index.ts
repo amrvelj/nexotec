@@ -25,7 +25,6 @@ export * from "./datagrid/columnLayout";
 export * from "./datagrid/DataGrid";
 export * from "./datagrid/ColumnConfigPanel";
 export * from "./datagrid/ActionBar";
-export * from "./datagrid/FilterButton";
 export * from "./datagrid/FilterChips";
 export * from "./datagrid/SelectionBar";
 export * from "./datagrid/filterPredicate";

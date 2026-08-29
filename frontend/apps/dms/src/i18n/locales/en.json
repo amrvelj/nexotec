@@ -135,6 +135,12 @@
       "canton": "Canton",
       "changedSince": "Changed since",
       "changedSinceChip": "Changed since {{date}}"
+    },
+    "allCustomersView": "All customers",
+    "selection": {
+      "count": "{{count}} selected",
+      "clear": "Clear selection",
+      "copyIds": "Copy IDs"
     }
   },
   "customerDetail": {

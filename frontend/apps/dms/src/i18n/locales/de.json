@@ -135,6 +135,12 @@
       "canton": "Kanton",
       "changedSince": "Geändert seit",
       "changedSinceChip": "Geändert seit {{date}}"
+    },
+    "allCustomersView": "Alle Kunden",
+    "selection": {
+      "count": "{{count}} ausgewählt",
+      "clear": "Auswahl aufheben",
+      "copyIds": "IDs kopieren"
     }
   },
   "customerDetail": {
