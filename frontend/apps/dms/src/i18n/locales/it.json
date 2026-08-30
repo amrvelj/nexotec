@@ -758,7 +758,21 @@
     },
     "pricing": {
       "emptyHint": "La struttura prezzo inizia dal veicolo — sceglietene prima uno.",
-      "readyHint": "La struttura prezzo segue (prossimo passo)."
+      "readyHint": "La struttura prezzo segue (prossimo passo).",
+      "manualBasePrice": "Prezzo base",
+      "basePrice": "Prezzo base",
+      "optionsTotal": "Totale opzioni",
+      "listPrice": "Prezzo di listino",
+      "accessoriesTotal": "Totale accessori",
+      "discountType": "Tipo di sconto",
+      "noDiscount": "Nessuno sconto",
+      "discountPercent": "Percentuale",
+      "discountAmount": "Importo",
+      "discountValue": "Valore dello sconto",
+      "grossPrice": "Prezzo di vendita",
+      "internalOnly": "SOLO INTERNO — NON SUL DOCUMENTO",
+      "costBasis": "Prezzo di costo",
+      "margin": "Margine"
     },
     "tradeIn": {
       "emptyHint": "Scegliete prima il cliente — i suoi veicoli verranno suggeriti qui.",

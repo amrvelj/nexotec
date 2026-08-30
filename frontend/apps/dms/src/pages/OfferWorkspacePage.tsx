@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { OverviewCard, Picker, SalesStatusBadge, StickyActionFooter, useSetBreadcrumb, type PickerRow } from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
 import { CustomerCreateFlow } from '../components/CustomerCreateFlow'
+import { PriceBuildUp } from '../components/PriceBuildUp'
 import { translatedStockConditionOptions } from '../stockOptions'
 import type {
   CustomerPage,
@@ -179,9 +180,11 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
 
       {/* Preisaufbau */}
       <OverviewCard title={t('offerWorkspace.containers.pricing')}>
-        <Text size="sm" c="dimmed">
-          {offer.vehicleLabel ? t('offerWorkspace.pricing.readyHint') : t('offerWorkspace.pricing.emptyHint')}
-        </Text>
+        <PriceBuildUp
+          offer={offer}
+          onDiscountChange={(patch) => patchOffer({ discountType: patch.discountType, discountValue: patch.discountValue })}
+          onManualBasePriceChange={(value) => patchOffer({ manualBasePrice: value })}
+        />
       </OverviewCard>
 
       {/* Eintauschfahrzeug */}

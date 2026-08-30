@@ -758,7 +758,21 @@
     },
     "pricing": {
       "emptyHint": "Pricing starts with the vehicle — choose one first.",
-      "readyHint": "Pricing follows (next step)."
+      "readyHint": "Pricing follows (next step).",
+      "manualBasePrice": "Base price",
+      "basePrice": "Base price",
+      "optionsTotal": "Options total",
+      "listPrice": "List price",
+      "accessoriesTotal": "Accessories total",
+      "discountType": "Discount type",
+      "noDiscount": "No discount",
+      "discountPercent": "Percent",
+      "discountAmount": "Amount",
+      "discountValue": "Discount value",
+      "grossPrice": "Sale price",
+      "internalOnly": "INTERNAL ONLY — NOT ON THE DOCUMENT",
+      "costBasis": "Cost basis",
+      "margin": "Margin"
     },
     "tradeIn": {
       "emptyHint": "Choose the customer first — their vehicles will be suggested here.",

@@ -37,9 +37,14 @@ class OfferUpdate(CamelModel):
     stock_item_id: uuid.UUID | None = None
     vehicle_label: str | None = None
     manual_vehicle_condition: str | None = None
+    manual_base_price: Decimal | None = None
     leasing_down_payment: Decimal | None = None
     leasing_term_months: int | None = None
     leasing_km_per_year: int | None = None
+    # WP-8 PR-3 — the seller's own input into pricing.build_up(); every
+    # other pricing field is derived and not client-settable.
+    discount_type: str | None = None  # "percent" | "amount"
+    discount_value: Decimal | None = None
 
 
 class OfferRead(CamelModel):
@@ -53,10 +58,26 @@ class OfferRead(CamelModel):
     stock_item_id: uuid.UUID | None
     vehicle_label: str | None
     manual_vehicle_condition: str | None
+    manual_base_price: Decimal | None
     leasing_down_payment: Decimal | None
     leasing_term_months: int | None
     leasing_km_per_year: int | None
+    # WP-8 PR-3 — pricing.build_up()'s materialized result (base -> options
+    # -> list -> accessories -> total -> discount -> price).
+    base_price: Decimal | None
+    options_total: Decimal | None
+    list_price: Decimal | None
+    accessories_total: Decimal | None
+    total_before_discount: Decimal | None
+    discount_type: str | None
+    discount_value: Decimal | None
+    discount_amount: Decimal | None
     gross_price: Decimal | None
+    # ADR-049/029 — entity-private; never exposed via any group-scoped
+    # endpoint (none exists for sales_offer/sales_deal at all).
+    cost_basis: Decimal | None
+    margin: Decimal | None
+    vehicle_snapshot_frozen_at: dt.datetime | None
     cancelled_reason: str | None
     containers: list[OfferContainerState] = Field(default_factory=list)
     version: int

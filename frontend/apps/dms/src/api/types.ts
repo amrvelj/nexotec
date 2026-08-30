@@ -637,10 +637,22 @@ export interface SalesOfferRead {
   stockItemId: string | null
   vehicleLabel: string | null
   manualVehicleCondition: string | null
+  manualBasePrice: string | null
   leasingDownPayment: string | null
   leasingTermMonths: number | null
   leasingKmPerYear: number | null
+  basePrice: string | null
+  optionsTotal: string | null
+  listPrice: string | null
+  accessoriesTotal: string | null
+  totalBeforeDiscount: string | null
+  discountType: 'percent' | 'amount' | null
+  discountValue: string | null
+  discountAmount: string | null
   grossPrice: string | null
+  costBasis: string | null
+  margin: string | null
+  vehicleSnapshotFrozenAt: string | null
   cancelledReason: string | null
   containers: OfferContainerState[]
   version: number
@@ -667,6 +679,7 @@ export interface SalesContractRead {
   stockItemId: string | null
   vehicleLabel: string | null
   grossPrice: string | null
+  margin: string | null
   cancelledReason: string | null
   version: number
   createdAt: string

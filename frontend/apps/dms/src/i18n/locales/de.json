@@ -758,7 +758,21 @@
     },
     "pricing": {
       "emptyHint": "Der Preisaufbau beginnt beim Fahrzeug — wählen Sie zuerst eines aus.",
-      "readyHint": "Der Preisaufbau folgt (nächster Schritt)."
+      "readyHint": "Der Preisaufbau folgt (nächster Schritt).",
+      "manualBasePrice": "Basispreis",
+      "basePrice": "Grundpreis",
+      "optionsTotal": "Optionen total",
+      "listPrice": "Listenpreis",
+      "accessoriesTotal": "Zubehör total",
+      "discountType": "Rabattart",
+      "noDiscount": "Kein Rabatt",
+      "discountPercent": "Prozent",
+      "discountAmount": "Betrag",
+      "discountValue": "Rabattwert",
+      "grossPrice": "Verkaufspreis",
+      "internalOnly": "NUR INTERN — NICHT AUF DEM DOKUMENT",
+      "costBasis": "Einstandspreis",
+      "margin": "Marge"
     },
     "tradeIn": {
       "emptyHint": "Wählen Sie zuerst den Kunden — dann werden dessen Fahrzeuge hier vorgeschlagen.",

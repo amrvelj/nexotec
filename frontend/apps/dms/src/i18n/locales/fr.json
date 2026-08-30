@@ -758,7 +758,21 @@
     },
     "pricing": {
       "emptyHint": "La structure de prix commence par le véhicule — choisissez-en un d'abord.",
-      "readyHint": "La structure de prix suit (prochaine étape)."
+      "readyHint": "La structure de prix suit (prochaine étape).",
+      "manualBasePrice": "Prix de base",
+      "basePrice": "Prix de base",
+      "optionsTotal": "Total options",
+      "listPrice": "Prix catalogue",
+      "accessoriesTotal": "Total accessoires",
+      "discountType": "Type de remise",
+      "noDiscount": "Aucune remise",
+      "discountPercent": "Pourcentage",
+      "discountAmount": "Montant",
+      "discountValue": "Valeur de la remise",
+      "grossPrice": "Prix de vente",
+      "internalOnly": "INTERNE UNIQUEMENT — PAS SUR LE DOCUMENT",
+      "costBasis": "Prix de revient",
+      "margin": "Marge"
     },
     "tradeIn": {
       "emptyHint": "Choisissez d'abord le client — ses véhicules seront suggérés ici.",

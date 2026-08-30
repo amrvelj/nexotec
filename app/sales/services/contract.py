@@ -52,6 +52,7 @@ def create_contract(
         stock_item_id=offer.stock_item_id if offer is not None else None,
         vehicle_label=offer.vehicle_label if offer is not None else None,
         gross_price=offer.gross_price if offer is not None else None,
+        margin=offer.margin if offer is not None else None,
         created_by=actor_id,
         updated_by=actor_id,
     )

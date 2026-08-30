@@ -18,6 +18,8 @@ from app.sales.models.offer import OfferStatus, SalesOffer
 from app.sales.schemas.offer import OfferContainerState, OfferUpdate
 from app.sales.services.deal_projection import upsert_deal_projection
 from app.sales.services.numbering import allocate_offer_number
+from app.sales.services.pricing import apply_build_up
+from app.sales.services.snapshot import freeze_vehicle_snapshot
 
 _EVENT_PRODUCER = "sales"
 
@@ -42,6 +44,15 @@ def compute_offer_containers(offer: SalesOffer) -> list[OfferContainerState]:
     has_vehicle = offer.vehicle_source is not None and (
         offer.stock_item_id is not None or offer.vehicle_label is not None
     )
+    # WP-8 PR-3 — "complete" means a REAL price exists to build from, not
+    # merely "gross_price is not None" (build_up() always materializes a
+    # value, including a legitimate Decimal(0) for an unpriced manual
+    # config — that is not the same thing as "priced").
+    has_base_price = (offer.vehicle_source == "manual" and offer.manual_base_price is not None) or (
+        offer.vehicle_source == "stock"
+        and offer.vehicle_snapshot is not None
+        and offer.vehicle_snapshot.get("basePrice") is not None
+    )
     return [
         OfferContainerState(
             id="customer",
@@ -54,10 +65,7 @@ def compute_offer_containers(offer: SalesOffer) -> list[OfferContainerState]:
         OfferContainerState(
             id="pricing",
             requirement="required",
-            # Pricing itself (PR-3) has nothing to fill in yet — "in
-            # progress" once a vehicle exists is the honest status until
-            # then, never "complete" for a container with no real fields.
-            status="in_progress" if has_vehicle else "not_started",
+            status="complete" if has_base_price else ("in_progress" if has_vehicle else "not_started"),
         ),
         OfferContainerState(
             id="trade_in",
@@ -146,6 +154,17 @@ def update_offer(
     offer.updated_by = actor_id
     offer.version += 1
     db.flush()
+
+    # WP-8 PR-3 — re-derive pricing on every touch, not behind a separate
+    # "build" button: FR-S-05's autosave is live, and freeze_vehicle_snapshot
+    # is itself idempotent per vehicle identity, so this is cheap and safe
+    # to call unconditionally once a vehicle exists.
+    if freeze_vehicle_snapshot(db, offer=offer):
+        db.flush()
+    if offer.vehicle_snapshot is not None:
+        apply_build_up(db, offer=offer)
+        db.flush()
+
     upsert_deal_projection(db, offer=offer)
     db.commit()
     db.refresh(offer)

@@ -67,5 +67,10 @@ class SalesContract(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, Timestam
     vehicle_label: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
     gross_price: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
+    # WP-8 PR-3 — copied from the offer at the moment of creation (like
+    # gross_price above); entity-private, same posture as
+    # SalesOffer.margin. A direct contract (no offer) has no pricing
+    # build-up of its own yet, so this stays None.
+    margin: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
 
     cancelled_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)

@@ -38,6 +38,7 @@ def upsert_deal_projection(
         deal.customer_denorm_refreshed_at = contract.customer_denorm_refreshed_at
         deal.vehicle_label = contract.vehicle_label
         deal.gross_price = contract.gross_price
+        deal.margin = contract.margin
         db.flush()
         return deal
 

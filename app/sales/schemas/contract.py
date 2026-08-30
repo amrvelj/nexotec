@@ -26,6 +26,7 @@ class ContractRead(CamelModel):
     stock_item_id: uuid.UUID | None
     vehicle_label: str | None
     gross_price: Decimal | None
+    margin: Decimal | None
     cancelled_reason: str | None
     version: int
     created_at: dt.datetime
