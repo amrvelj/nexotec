@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
-import { white } from "../tokens";
+import { X } from "lucide-react";
+import { radius, shadow, slate, white } from "../tokens";
 import { closeAllEntries, popEntry, pushEntry } from "./overlayStack";
 
 export interface OverlayEntry {
@@ -105,6 +106,33 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
             overflow: "auto",
           }}
         >
+          {/* Same fixed-corner convention as PresentMode's own exit
+              button — content never has to build its own close affordance
+              to be usable inside this. */}
+          <button
+            type="button"
+            onClick={pop}
+            aria-label="Close"
+            style={{
+              position: "fixed",
+              top: 16,
+              right: 16,
+              zIndex: 1001 + index,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 32,
+              height: 32,
+              border: `1px solid ${slate[2]}`,
+              borderRadius: radius.full,
+              background: white,
+              color: slate[6],
+              cursor: "pointer",
+              boxShadow: shadow.md,
+            }}
+          >
+            <X size={16} />
+          </button>
           {entry.content}
         </div>
       ))}

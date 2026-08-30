@@ -42,6 +42,29 @@ import type {
 
 const DEFAULT_TAB = 'overview'
 
+/** The real route — reads `id` from the URL and renders as the full page. */
+export function CustomerDetailPage() {
+  const { id } = useParams<{ id: string }>()
+  if (!id) return null
+  return <CustomerDetailContent customerId={id} />
+}
+
+export interface CustomerDetailContentProps {
+  customerId: string
+  /**
+   * § ADR-059 — true when rendered as `Overlay` content rather than the
+   * real `/customers/:id` route. Two things change: tab state moves from
+   * the URL's own `?tab=` to local component state (Overlay's content
+   * shares the HOST screen's actual address bar — a vehicle detail screen
+   * opened underneath already owns `?tab=` for its own tabs, and writing
+   * to it here would fight the screen this is layered on top of, exactly
+   * the "renders on top... without touching the URL" ADR-059 itself
+   * exists to guarantee); and the breadcrumb is left untouched entirely
+   * (`useSetBreadcrumb(null)`) rather than overwriting the host screen's.
+   */
+  embedded?: boolean
+}
+
 /**
  * FR-06 Customer 360 view. "The Customer 360 pattern generalises to every
  * entity" per the UI/UX doc's Detail Screens section — this page is the
@@ -49,20 +72,30 @@ const DEFAULT_TAB = 'overview'
  * PATCH calls) around the generic DetailHeader/DetailTabs/InlineEditField
  * shell in @nexotec/ui-kit. Replaces the old CustomerFormPage entirely:
  * editing here is inline (FR-05), not a separate Save-button form.
+ *
+ * Exported separately from the route (`CustomerDetailPage` above) so this
+ * same content can also render as `Overlay` content, prop-driven by
+ * `customerId` instead of `useParams()` — the "second, prop-driven entry
+ * point" `Overlay.tsx`'s own docstring says a screen normally reached via
+ * `useParams()` needs to be usable inside one.
  */
-export function CustomerDetailPage() {
-  const { id } = useParams<{ id: string }>()
+export function CustomerDetailContent({ customerId: id, embedded = false }: CustomerDetailContentProps) {
   const navigate = useNavigate()
   const { t, i18n } = useTranslation()
   const locale = toSwissLocale(i18n.language as SupportedLanguage)
   const { user } = useAuth()
   const canWriteExternalIds = user?.accessRoles.includes('platform_admin') ?? false
   const [searchParams, setSearchParams] = useSearchParams()
+  const [embeddedTab, setEmbeddedTab] = useState(DEFAULT_TAB)
   const queryClient = useQueryClient()
-  const activeTab = searchParams.get('tab') ?? DEFAULT_TAB
+  const activeTab = embedded ? embeddedTab : (searchParams.get('tab') ?? DEFAULT_TAB)
   const [mergeModalOpen, setMergeModalOpen] = useState(false)
 
   const setActiveTab = (tab: string) => {
+    if (embedded) {
+      setEmbeddedTab(tab)
+      return
+    }
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev)
@@ -112,7 +145,7 @@ export function CustomerDetailPage() {
 
   const customer = customerQuery.data
   const label = customer ? (customer.customerType === 'business' ? customer.companyName : `${customer.firstName} ${customer.lastName}`) : null
-  useSetBreadcrumb([t('shell.nav.masterData'), t('shell.nav.customers'), label ?? t('customerDetail.header.customerFallback')])
+  useSetBreadcrumb(embedded ? null : [t('shell.nav.masterData'), t('shell.nav.customers'), label ?? t('customerDetail.header.customerFallback')])
 
   const isConflict = (err: unknown): boolean => err instanceof ApiError && err.status === 409
 
