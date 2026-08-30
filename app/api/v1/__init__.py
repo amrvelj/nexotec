@@ -7,6 +7,7 @@ public.py — it needs the APIRouter objects, not domain functions.
 from fastapi import APIRouter
 
 from app.customer.api.customers import router as customers_router
+from app.inventory.api.reservations import router as inventory_reservations_router
 from app.inventory.api.stock_items import router as stock_items_router
 from app.platform.api.auth import router as auth_router
 from app.platform.api.dealer_groups import router as dealer_groups_router
@@ -35,6 +36,7 @@ api_v1_router.include_router(vehicle_mdm_router)
 api_v1_router.include_router(vehicle_mdm_detail_router)
 api_v1_router.include_router(customers_router)
 api_v1_router.include_router(stock_items_router)
+api_v1_router.include_router(inventory_reservations_router)
 api_v1_router.include_router(transactions_router)
 api_v1_router.include_router(auth_router)
 api_v1_router.include_router(user_preferences_router)

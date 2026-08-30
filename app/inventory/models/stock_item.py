@@ -117,6 +117,19 @@ class StockItem(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMix
     reservation_state: Mapped[ReservationState] = mapped_column(
         SAEnum(ReservationState, native_enum=False, length=16), nullable=False, default=ReservationState.NONE
     )
+    # WP-7 PR-4 (ADR-047). reserved_by_contract_id is opaque — Sales's own
+    # id, never a real FK (no app.sales.Contract exists yet either). One
+    # active reservation per item, enforced in services/reservation.py by
+    # a row lock + state check, not a DB constraint (a partial unique
+    # index on reservation_state alone can't express "at most one
+    # RESERVED row," only "at most one row with this exact value," which
+    # a native/portable index can't distinguish from the intent here
+    # without also keying on the item itself — already true by definition
+    # since these are columns on the item, not a separate table).
+    reserved_by_contract_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(), nullable=True, comment="Owned by the sales context (a future Contract.id). No DB-level FK."
+    )
+    active_reservation_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True, index=True, unique=True)
     condition: Mapped[StockItemCondition] = mapped_column(
         SAEnum(StockItemCondition, native_enum=False, length=16), nullable=False
     )
