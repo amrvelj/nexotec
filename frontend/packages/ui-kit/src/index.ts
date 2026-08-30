@@ -7,6 +7,8 @@ export * from "./components/LanguageBadge";
 export * from "./components/StockLifecycleBadge";
 export * from "./components/StockConditionBadge";
 export * from "./components/StockReservationBadge";
+export * from "./components/SalesTypeBadge";
+export * from "./components/SalesStatusBadge";
 export * from "./components/Picker";
 export * from "./components/FormDialog";
 export * from "./components/RowMenu";

@@ -668,5 +668,66 @@
     "errors": {
       "somethingWentWrong": "Qualcosa è andato storto."
     }
+  },
+  "salesList": {
+    "title": "Offerte e contratti",
+    "newOffer": "Nuova offerta",
+    "searchPlaceholder": "Targa, VIN, cliente, offerta …",
+    "allDealsView": "Tutte le offerte e i contratti",
+    "columns": {
+      "number": "Numero",
+      "type": "Tipo",
+      "customer": "Cliente",
+      "vehicle": "Veicolo",
+      "grossPrice": "Prezzo di vendita",
+      "status": "Stato",
+      "margin": "Margine",
+      "changed": "Modificato"
+    },
+    "chips": {
+      "all": "Tutti",
+      "offers": "Offerte",
+      "contracts": "Contratti"
+    },
+    "emptyState": {
+      "title": "Nessuna offerta o contratto",
+      "description": "Crea un'offerta per iniziare."
+    },
+    "emptyFilteredState": {
+      "title": "Nessun risultato",
+      "description": "Modifica la ricerca.",
+      "action": "Reimposta ricerca"
+    },
+    "rowActions": {
+      "open": "Apri"
+    }
+  },
+  "salesEnums": {
+    "entityType": {
+      "offer": "Offerta",
+      "contract": "Contratto"
+    },
+    "dealStatus": {
+      "draft": "Bozza",
+      "open": "Aperto",
+      "pending": "Aperto",
+      "confirmed": "Confermato",
+      "cancelled": "Annullato",
+      "invoiced": "Fatturato"
+    }
+  },
+  "offerDetail": {
+    "untitled": "Nuova offerta",
+    "errors": {
+      "failedToLoad": "Impossibile caricare l'offerta.",
+      "somethingWentWrong": "Qualcosa è andato storto."
+    }
+  },
+  "contractDetail": {
+    "untitled": "Nuovo contratto",
+    "errors": {
+      "failedToLoad": "Impossibile caricare il contratto.",
+      "somethingWentWrong": "Qualcosa è andato storto."
+    }
   }
 }

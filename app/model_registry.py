@@ -21,6 +21,9 @@ from app.platform.models.dealership_membership import DealershipMembership
 from app.platform.models.reference_data import ReferenceList, ReferenceValue
 from app.platform.models.user import User
 from app.platform.models.user_preference import UserPreference
+from app.sales.models.contract import SalesContract
+from app.sales.models.deal import SalesDeal, SalesNumberSequence
+from app.sales.models.offer import SalesOffer
 from app.sales.models.transaction import Transaction
 from app.vehicle.models.catalogue import Brand, ModelGroup, ModelVariant, TypeApproval, VariantOption
 from app.vehicle.models.energy_rating import ModelVariantEnergyRating
@@ -56,6 +59,10 @@ __all__ = [
     "ReconciliationRun",
     "ReferenceList",
     "ReferenceValue",
+    "SalesContract",
+    "SalesDeal",
+    "SalesNumberSequence",
+    "SalesOffer",
     "StockItem",
     "StockItemLedger",
     "StockItemMedia",

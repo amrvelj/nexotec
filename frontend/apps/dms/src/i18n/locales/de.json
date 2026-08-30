@@ -668,5 +668,66 @@
     "errors": {
       "somethingWentWrong": "Etwas ist schiefgelaufen."
     }
+  },
+  "salesList": {
+    "title": "Offerten & Verträge",
+    "newOffer": "Neue Offerte",
+    "searchPlaceholder": "Kontrollschild, VIN, Kunde, Offerte …",
+    "allDealsView": "Alle Offerten und Verträge",
+    "columns": {
+      "number": "Nummer",
+      "type": "Art",
+      "customer": "Kunde",
+      "vehicle": "Fahrzeug",
+      "grossPrice": "Verkaufspreis",
+      "status": "Status",
+      "margin": "Marge",
+      "changed": "Geändert"
+    },
+    "chips": {
+      "all": "Alle",
+      "offers": "Offerten",
+      "contracts": "Verträge"
+    },
+    "emptyState": {
+      "title": "Keine Offerten oder Verträge",
+      "description": "Erstellen Sie eine Offerte, um zu beginnen."
+    },
+    "emptyFilteredState": {
+      "title": "Keine Treffer",
+      "description": "Passen Sie die Suche an.",
+      "action": "Suche zurücksetzen"
+    },
+    "rowActions": {
+      "open": "Öffnen"
+    }
+  },
+  "salesEnums": {
+    "entityType": {
+      "offer": "Offerte",
+      "contract": "Vertrag"
+    },
+    "dealStatus": {
+      "draft": "Entwurf",
+      "open": "Offen",
+      "pending": "Offen",
+      "confirmed": "Bestätigt",
+      "cancelled": "Storniert",
+      "invoiced": "Fakturiert"
+    }
+  },
+  "offerDetail": {
+    "untitled": "Neue Offerte",
+    "errors": {
+      "failedToLoad": "Offerte konnte nicht geladen werden.",
+      "somethingWentWrong": "Etwas ist schiefgelaufen."
+    }
+  },
+  "contractDetail": {
+    "untitled": "Neuer Vertrag",
+    "errors": {
+      "failedToLoad": "Vertrag konnte nicht geladen werden.",
+      "somethingWentWrong": "Etwas ist schiefgelaufen."
+    }
   }
 }

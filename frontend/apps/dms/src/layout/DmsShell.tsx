@@ -49,7 +49,9 @@ function buildNavGroups(t: (key: string) => string): NavGroupConfig[] {
     {
       label: t('shell.nav.modules'),
       items: [
-        { label: t('shell.nav.sales'), href: '/sales', icon: Handshake, status: 'soon' },
+        // WP-8 PR-1: promotes the scaffolded "soon" slot — same shape as
+        // WP-7 PR-1's own inventory promotion above.
+        { label: t('shell.nav.sales'), href: '/sales', icon: Handshake, status: 'active' },
         { label: t('shell.nav.aftersales'), href: '/aftersales', icon: Wrench, status: 'soon' },
         // WP-7 PR-1: promotes the scaffolded "soon" slot — href moves from
         // /inventory to /stock, matching the reference prototype's own

@@ -668,5 +668,66 @@
     "errors": {
       "somethingWentWrong": "Une erreur s'est produite."
     }
+  },
+  "salesList": {
+    "title": "Offres & contrats",
+    "newOffer": "Nouvelle offre",
+    "searchPlaceholder": "Plaque, VIN, client, offre …",
+    "allDealsView": "Toutes les offres et contrats",
+    "columns": {
+      "number": "Numéro",
+      "type": "Type",
+      "customer": "Client",
+      "vehicle": "Véhicule",
+      "grossPrice": "Prix de vente",
+      "status": "Statut",
+      "margin": "Marge",
+      "changed": "Modifié"
+    },
+    "chips": {
+      "all": "Tous",
+      "offers": "Offres",
+      "contracts": "Contrats"
+    },
+    "emptyState": {
+      "title": "Aucune offre ou contrat",
+      "description": "Créez une offre pour commencer."
+    },
+    "emptyFilteredState": {
+      "title": "Aucun résultat",
+      "description": "Ajustez votre recherche.",
+      "action": "Réinitialiser la recherche"
+    },
+    "rowActions": {
+      "open": "Ouvrir"
+    }
+  },
+  "salesEnums": {
+    "entityType": {
+      "offer": "Offre",
+      "contract": "Contrat"
+    },
+    "dealStatus": {
+      "draft": "Brouillon",
+      "open": "Ouvert",
+      "pending": "Ouvert",
+      "confirmed": "Confirmé",
+      "cancelled": "Annulé",
+      "invoiced": "Facturé"
+    }
+  },
+  "offerDetail": {
+    "untitled": "Nouvelle offre",
+    "errors": {
+      "failedToLoad": "L'offre n'a pas pu être chargée.",
+      "somethingWentWrong": "Un problème est survenu."
+    }
+  },
+  "contractDetail": {
+    "untitled": "Nouveau contrat",
+    "errors": {
+      "failedToLoad": "Le contrat n'a pas pu être chargé.",
+      "somethingWentWrong": "Un problème est survenu."
+    }
   }
 }

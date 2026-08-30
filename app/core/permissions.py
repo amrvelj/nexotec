@@ -58,10 +58,15 @@ CAPABILITY_MATRIX: dict[str, Capability] = {
     "customer_vehicle_links": Capability(
         read_roles=None, write_roles=frozenset({AccessRole.SALES, AccessRole.AFTERSALES})
     ),
-    # Stands in for "Offers and contracts" / "Contract confirmation and
-    # cancellation" until the shipped `transaction` table is retired by
-    # ADR-050 in favour of sales_offer/sales_contract.
+    # Retired alongside `transaction` itself (ADR-050, WP-8 PR-7) —
+    # `sales_offers`/`sales_contracts` below are its replacement. Kept
+    # (read-only in practice once PR-7 lands) only because the endpoints
+    # still serve GETs.
     "transactions": Capability(read_roles=None, write_roles=frozenset({AccessRole.SALES})),
+    # WP-8 PR-1: real offers and contracts (sales_offer/sales_contract),
+    # ADR-050's replacement for "transactions" above.
+    "sales_offers": Capability(read_roles=None, write_roles=frozenset({AccessRole.SALES})),
+    "sales_contracts": Capability(read_roles=None, write_roles=frozenset({AccessRole.SALES})),
     "dealership_settings": Capability(read_roles=None, write_roles=frozenset()),
     # WP-6b, ADR-044 tier 2: document templates (letterhead/branding/
     # boilerplate) are edited by platform staff and dealer managers, same

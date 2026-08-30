@@ -14,6 +14,9 @@ import { VehicleDetailPage } from './pages/VehicleDetailPage'
 import { StockListPage } from './pages/StockListPage'
 import { StockCreatePage } from './pages/StockCreatePage'
 import { StockDetailPage } from './pages/StockDetailPage'
+import { SalesListPage } from './pages/SalesListPage'
+import { OfferCreateRedirectPage, OfferDetailPage } from './pages/OfferDetailPage'
+import { ContractDetailPage } from './pages/ContractDetailPage'
 
 function ProtectedLayout() {
   return (
@@ -43,6 +46,10 @@ export default function App() {
             <Route path="/stock" element={<StockListPage />} />
             <Route path="/stock/new" element={<StockCreatePage />} />
             <Route path="/stock/:id" element={<StockDetailPage />} />
+            <Route path="/sales" element={<SalesListPage />} />
+            <Route path="/sales/offers/new" element={<OfferCreateRedirectPage />} />
+            <Route path="/sales/offers/:id" element={<OfferDetailPage />} />
+            <Route path="/sales/contracts/:id" element={<ContractDetailPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

@@ -668,5 +668,66 @@
     "errors": {
       "somethingWentWrong": "Something went wrong."
     }
+  },
+  "salesList": {
+    "title": "Offers & Contracts",
+    "newOffer": "New offer",
+    "searchPlaceholder": "Plate, VIN, customer, offer …",
+    "allDealsView": "All offers and contracts",
+    "columns": {
+      "number": "Number",
+      "type": "Type",
+      "customer": "Customer",
+      "vehicle": "Vehicle",
+      "grossPrice": "Sale price",
+      "status": "Status",
+      "margin": "Margin",
+      "changed": "Changed"
+    },
+    "chips": {
+      "all": "All",
+      "offers": "Offers",
+      "contracts": "Contracts"
+    },
+    "emptyState": {
+      "title": "No offers or contracts",
+      "description": "Create an offer to get started."
+    },
+    "emptyFilteredState": {
+      "title": "No matches",
+      "description": "Adjust your search.",
+      "action": "Reset search"
+    },
+    "rowActions": {
+      "open": "Open"
+    }
+  },
+  "salesEnums": {
+    "entityType": {
+      "offer": "Offer",
+      "contract": "Contract"
+    },
+    "dealStatus": {
+      "draft": "Draft",
+      "open": "Open",
+      "pending": "Open",
+      "confirmed": "Confirmed",
+      "cancelled": "Cancelled",
+      "invoiced": "Invoiced"
+    }
+  },
+  "offerDetail": {
+    "untitled": "New offer",
+    "errors": {
+      "failedToLoad": "The offer could not be loaded.",
+      "somethingWentWrong": "Something went wrong."
+    }
+  },
+  "contractDetail": {
+    "untitled": "New contract",
+    "errors": {
+      "failedToLoad": "The contract could not be loaded.",
+      "somethingWentWrong": "Something went wrong."
+    }
   }
 }

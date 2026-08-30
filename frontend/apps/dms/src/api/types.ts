@@ -608,3 +608,89 @@ export interface MediaRead {
   position: number
   url: string
 }
+
+// WP-8 PR-1 (S-D01) — offer/contract as two linked entities. offerStatus
+// spans draft/open/cancelled, contractStatus separately spans
+// pending/confirmed/cancelled/invoiced — the grid's shared STATUS column
+// stores whichever applies as a plain string (see SalesDealRead), never a
+// merged enum.
+export type SalesOfferStatus = 'draft' | 'open' | 'cancelled'
+export type SalesContractStatus = 'pending' | 'confirmed' | 'cancelled' | 'invoiced'
+
+export interface SalesOfferRead {
+  id: string
+  offerNumber: string
+  status: SalesOfferStatus
+  customerId: string | null
+  customerLabel: string | null
+  customerLocality: string | null
+  stockItemId: string | null
+  vehicleLabel: string | null
+  grossPrice: string | null
+  cancelledReason: string | null
+  version: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SalesOfferPage {
+  items: SalesOfferRead[]
+  nextCursor: string | null
+  total: number
+  totalIsEstimate: boolean
+}
+
+export interface SalesContractRead {
+  id: string
+  contractNumber: string
+  offerId: string | null
+  offerNumber: string | null
+  status: SalesContractStatus
+  customerId: string | null
+  customerLabel: string | null
+  customerLocality: string | null
+  stockItemId: string | null
+  vehicleLabel: string | null
+  grossPrice: string | null
+  cancelledReason: string | null
+  version: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SalesContractPage {
+  items: SalesContractRead[]
+  nextCursor: string | null
+  total: number
+  totalIsEstimate: boolean
+}
+
+// The overview grid's own read shape (ADR-060) — a deliberately separate
+// schema from SalesOfferRead/SalesContractRead, mirroring
+// app.inventory's StockItemGroupRead convention for a read model.
+export interface SalesDealRead {
+  id: string
+  entityType: 'offer' | 'contract'
+  number: string
+  status: string
+  offerId: string | null
+  offerNumber: string | null
+  contractId: string | null
+  contractNumber: string | null
+  customerId: string | null
+  customerLabel: string | null
+  customerLocality: string | null
+  vehicleLabel: string | null
+  grossPrice: string | null
+  margin: string | null
+  documentsCount: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SalesDealPage {
+  items: SalesDealRead[]
+  nextCursor: string | null
+  total: number
+  totalIsEstimate: boolean
+}
