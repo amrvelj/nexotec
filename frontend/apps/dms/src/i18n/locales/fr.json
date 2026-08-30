@@ -530,7 +530,8 @@
   "stockDetail": {
     "tabs": {
       "details": "Détails",
-      "wagenbuch": "Livre de bord"
+      "wagenbuch": "Livre de bord",
+      "publishing": "Publication"
     },
     "actions": {
       "createOffer": "Créer une offre",
@@ -594,6 +595,45 @@
       },
       "auto": "Automatique",
       "manual": "Manuel"
+    },
+    "publishing": {
+      "blockingBannerTitle": "{{count}} point(s) empêchent la publication",
+      "channelsTitle": "Canaux",
+      "published": "Publié",
+      "notPublished": "Non publié",
+      "lastPublishedAt": "Dernière publication : {{date}}",
+      "neverPublished": "Jamais publié",
+      "publishTo": "Publier sur {{channel}}",
+      "unpublish": "Dépublier de {{channel}}",
+      "unpublishConfirmTitle": "Confirmer la dépublication",
+      "unpublishConfirmSubmit": "Dépublier",
+      "unpublishConfirmBody": "L'annonce sur {{channel}} sera supprimée avec ses statistiques et son URL. Cette action est irréversible.",
+      "listingTextTitle": "Textes de l'annonce",
+      "titleDisplayLimit": "{{count}} caractères s'affichent sur la liste de résultats.",
+      "haendlerbemerkungenHint": "Visible uniquement en interne — n'apparaît pas dans l'annonce.",
+      "fields": {
+        "zusatztitel": "Titre additionnel",
+        "bemerkungen": "Remarques",
+        "zustandsbeschreibung": "Description de l'état",
+        "haendlerbemerkungen": "Remarques du concessionnaire"
+      },
+      "media": {
+        "title": "Photos",
+        "addPrompt": "URL de l'image",
+        "mainImage": "Image principale",
+        "moveLeft": "Déplacer à gauche",
+        "moveRight": "Déplacer à droite",
+        "remove": "Supprimer",
+        "addPhoto": "Ajouter une photo",
+        "countOf": "{{count}} / {{max}}"
+      },
+      "equipment": {
+        "title": "Équipement",
+        "ausstattung": "Équipement (recherchable)",
+        "extras": "Extras",
+        "eigenschaften": "Caractéristiques",
+        "hint": "AutoScout24 distingue trois notions : équipement (codes recherchables), extras (caractéristiques) et particularités (états comme véhicule accidenté)."
+      }
     }
   },
   "stockCreate": {

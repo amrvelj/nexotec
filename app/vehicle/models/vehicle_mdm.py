@@ -18,7 +18,7 @@ import datetime as dt
 import enum
 import uuid
 
-from sqlalchemy import Date, ForeignKey, Integer, String
+from sqlalchemy import JSON, Date, ForeignKey, Integer, String
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -107,3 +107,15 @@ class VehicleMdm(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     )
 
     catalogue_variant: Mapped[ModelVariant | None] = relationship()
+
+    # WP-7 PR-8 (ADR-062) — added by inventory, the first and only
+    # consumer; equipment is a fact about the car, so it lives here, never
+    # on a publishing table. Three genuinely separate concepts, never
+    # merged: ausstattung_codes (searchable codes, scoped per VehicleType
+    # in practice), extras (boolean-flag features), eigenschaften
+    # (condition/status flags, e.g. Unfallwagen — a crash history is not
+    # equipment). provider_ausstattung is free text, tri-lingual.
+    ausstattung_codes: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    extras: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    eigenschaften: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    provider_ausstattung: Mapped[dict[str, str] | None] = mapped_column(JSON, nullable=True)

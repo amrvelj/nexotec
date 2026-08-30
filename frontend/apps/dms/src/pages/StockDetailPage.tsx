@@ -9,6 +9,7 @@ import { api, ApiError } from '../api/client'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
 import { translatedStockConditionLabel, translatedStockLifecycleLabel, translatedStockReservationLabel } from '../stockOptions'
 import { DetailsTab } from '../components/stock-detail/DetailsTab'
+import { PublishingTab } from '../components/stock-detail/PublishingTab'
 import { WagenbuchTab } from '../components/stock-detail/WagenbuchTab'
 import type { LedgerCategory, LedgerEntryPage, StockItemRead } from '../api/types'
 
@@ -109,6 +110,7 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
   const ledgerEntries = ledgerQuery.data?.items ?? []
   const tabs: DetailTab[] = [
     { id: 'details', label: t('stockDetail.tabs.details') },
+    { id: 'publishing', label: t('stockDetail.tabs.publishing') },
     { id: 'wagenbuch', label: t('stockDetail.tabs.wagenbuch'), count: ledgerEntries.length },
   ]
 
@@ -158,6 +160,7 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
       {activeTab === 'details' && (
         <DetailsTab item={item} locale={locale} onSaveField={saveField} onReload={reload} onRecordPurchase={recordPurchase} />
       )}
+      {activeTab === 'publishing' && <PublishingTab stockItemId={item.id} locale={locale} />}
       {activeTab === 'wagenbuch' && (
         <WagenbuchTab entries={ledgerEntries} locale={locale} onRecordCost={recordCost} />
       )}

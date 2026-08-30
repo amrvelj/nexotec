@@ -43,6 +43,23 @@ def create_or_get_vehicle_mdm(
     return _create_or_get_vehicle_mdm(db, vin=vin, catalogue_variant_id=catalogue_variant_id)
 
 
+def get_vehicle_equipment(db: Session, vehicle_id: uuid.UUID) -> dict:
+    """WP-7 PR-8 (ADR-062) — same deferred-import reasoning as the two
+    functions above."""
+
+    from app.vehicle.services.vehicle_mdm import get_vehicle_equipment as _get_vehicle_equipment
+
+    return _get_vehicle_equipment(db, vehicle_id)
+
+
+def has_current_energy_rating(db: Session, vehicle_id: uuid.UUID) -> bool:
+    """WP-7 PR-8's Energieetikette blocking-condition check."""
+
+    from app.vehicle.services.vehicle_mdm import has_current_energy_rating as _has_current_energy_rating
+
+    return _has_current_energy_rating(db, vehicle_id)
+
+
 __all__ = [
     "CustodyEventType",
     "Vehicle",
@@ -50,6 +67,8 @@ __all__ = [
     "VehicleStatus",
     "create_custody_event",
     "create_or_get_vehicle_mdm",
+    "get_vehicle_equipment",
     "get_vehicle_mdm_or_404",
     "get_vehicle_or_404",
+    "has_current_energy_rating",
 ]

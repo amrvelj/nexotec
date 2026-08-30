@@ -530,7 +530,8 @@
   "stockDetail": {
     "tabs": {
       "details": "Details",
-      "wagenbuch": "Wagenbuch"
+      "wagenbuch": "Wagenbuch",
+      "publishing": "Publishing"
     },
     "actions": {
       "createOffer": "Create offer",
@@ -594,6 +595,45 @@
       },
       "auto": "Automatic",
       "manual": "Manual"
+    },
+    "publishing": {
+      "blockingBannerTitle": "{{count}} item(s) are blocking publication",
+      "channelsTitle": "Channels",
+      "published": "Published",
+      "notPublished": "Not published",
+      "lastPublishedAt": "Last published: {{date}}",
+      "neverPublished": "Never published",
+      "publishTo": "Publish to {{channel}}",
+      "unpublish": "Unpublish from {{channel}}",
+      "unpublishConfirmTitle": "Confirm unpublish",
+      "unpublishConfirmSubmit": "Unpublish",
+      "unpublishConfirmBody": "The listing on {{channel}} will be deleted along with its statistics and URL. This cannot be undone.",
+      "listingTextTitle": "Listing text",
+      "titleDisplayLimit": "{{count}} characters shown on the results list.",
+      "haendlerbemerkungenHint": "Internal only — never appears in the listing.",
+      "fields": {
+        "zusatztitel": "Additional title",
+        "bemerkungen": "Remarks",
+        "zustandsbeschreibung": "Condition description",
+        "haendlerbemerkungen": "Dealer remarks"
+      },
+      "media": {
+        "title": "Pictures",
+        "addPrompt": "Image URL",
+        "mainImage": "Main image",
+        "moveLeft": "Move left",
+        "moveRight": "Move right",
+        "remove": "Remove",
+        "addPhoto": "Add photo",
+        "countOf": "{{count}} / {{max}}"
+      },
+      "equipment": {
+        "title": "Equipment",
+        "ausstattung": "Equipment (searchable)",
+        "extras": "Extras",
+        "eigenschaften": "Properties",
+        "hint": "AutoScout24 knows three separate concepts: equipment (searchable codes), extras (features) and properties (condition flags such as accident vehicle)."
+      }
     }
   },
   "stockCreate": {

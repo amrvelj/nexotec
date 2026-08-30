@@ -530,7 +530,8 @@
   "stockDetail": {
     "tabs": {
       "details": "Dettagli",
-      "wagenbuch": "Registro veicolo"
+      "wagenbuch": "Registro veicolo",
+      "publishing": "Pubblicazione"
     },
     "actions": {
       "createOffer": "Crea offerta",
@@ -594,6 +595,45 @@
       },
       "auto": "Automatico",
       "manual": "Manuale"
+    },
+    "publishing": {
+      "blockingBannerTitle": "{{count}} punto/i impediscono la pubblicazione",
+      "channelsTitle": "Canali",
+      "published": "Pubblicato",
+      "notPublished": "Non pubblicato",
+      "lastPublishedAt": "Ultima pubblicazione: {{date}}",
+      "neverPublished": "Mai pubblicato",
+      "publishTo": "Pubblica su {{channel}}",
+      "unpublish": "Rimuovi da {{channel}}",
+      "unpublishConfirmTitle": "Conferma rimozione",
+      "unpublishConfirmSubmit": "Rimuovi",
+      "unpublishConfirmBody": "L'annuncio su {{channel}} verrà eliminato insieme alle statistiche e all'URL. Questa azione è irreversibile.",
+      "listingTextTitle": "Testi dell'annuncio",
+      "titleDisplayLimit": "Nella lista dei risultati vengono mostrati {{count}} caratteri.",
+      "haendlerbemerkungenHint": "Visibile solo internamente — non appare nell'annuncio.",
+      "fields": {
+        "zusatztitel": "Titolo aggiuntivo",
+        "bemerkungen": "Osservazioni",
+        "zustandsbeschreibung": "Descrizione dello stato",
+        "haendlerbemerkungen": "Note del concessionario"
+      },
+      "media": {
+        "title": "Immagini",
+        "addPrompt": "URL immagine",
+        "mainImage": "Immagine principale",
+        "moveLeft": "Sposta a sinistra",
+        "moveRight": "Sposta a destra",
+        "remove": "Rimuovi",
+        "addPhoto": "Aggiungi foto",
+        "countOf": "{{count}} / {{max}}"
+      },
+      "equipment": {
+        "title": "Dotazione",
+        "ausstattung": "Dotazione (ricercabile)",
+        "extras": "Extra",
+        "eigenschaften": "Caratteristiche",
+        "hint": "AutoScout24 distingue tre concetti: dotazione (codici ricercabili), extra (caratteristiche) e particolarità (stati come veicolo incidentato)."
+      }
     }
   },
   "stockCreate": {

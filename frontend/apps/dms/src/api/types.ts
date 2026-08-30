@@ -574,3 +574,34 @@ export interface LedgerEntryRead {
 export interface LedgerEntryPage {
   items: LedgerEntryRead[]
 }
+
+// WP-7 PR-8 (ADR-062) — three named channels, never a generic list.
+export type MarketplaceChannel = 'autoscout24' | 'carmarket' | 'autolina'
+export type PublishingState = 'not_published' | 'published'
+
+export interface BlockingCondition {
+  field: string
+  message: string
+}
+
+export interface PublishingRead {
+  id: string
+  stockItemId: string
+  channel: MarketplaceChannel
+  state: PublishingState
+  zusatztitel: string | null
+  bemerkungen: string | null
+  zustandsbeschreibung: string | null
+  haendlerbemerkungen: string | null
+  youtubeUrl: string | null
+  pdfDocumentRef: string | null
+  lastPublishedAt: string | null
+  blockingConditions: BlockingCondition[]
+  version: number
+}
+
+export interface MediaRead {
+  id: string
+  position: number
+  url: string
+}

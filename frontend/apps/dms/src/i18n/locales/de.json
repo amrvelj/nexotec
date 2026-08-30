@@ -530,7 +530,8 @@
   "stockDetail": {
     "tabs": {
       "details": "Details",
-      "wagenbuch": "Wagenbuch"
+      "wagenbuch": "Wagenbuch",
+      "publishing": "Publikation"
     },
     "actions": {
       "createOffer": "Offerte erstellen",
@@ -594,6 +595,45 @@
       },
       "auto": "Automatisch",
       "manual": "Manuell"
+    },
+    "publishing": {
+      "blockingBannerTitle": "{{count}} Punkt(e) verhindern die Publikation",
+      "channelsTitle": "Kanäle",
+      "published": "Publiziert",
+      "notPublished": "Nicht publiziert",
+      "lastPublishedAt": "Zuletzt publiziert: {{date}}",
+      "neverPublished": "Noch nie publiziert",
+      "publishTo": "Auf {{channel}} publizieren",
+      "unpublish": "Von {{channel}} depublizieren",
+      "unpublishConfirmTitle": "Depublizieren bestätigen",
+      "unpublishConfirmSubmit": "Depublizieren",
+      "unpublishConfirmBody": "Das Inserat auf {{channel}} wird zusammen mit seiner Statistik und der Inserate-URL gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.",
+      "listingTextTitle": "Inseratetexte",
+      "titleDisplayLimit": "Auf der Ergebnisliste werden {{count}} Zeichen angezeigt.",
+      "haendlerbemerkungenHint": "Nur für den Betrieb sichtbar — erscheint nicht im Inserat.",
+      "fields": {
+        "zusatztitel": "Zusatztitel",
+        "bemerkungen": "Bemerkungen",
+        "zustandsbeschreibung": "Zustandsbeschreibung",
+        "haendlerbemerkungen": "Händlerbemerkungen"
+      },
+      "media": {
+        "title": "Bilder",
+        "addPrompt": "Bild-URL",
+        "mainImage": "Hauptbild",
+        "moveLeft": "Nach links verschieben",
+        "moveRight": "Nach rechts verschieben",
+        "remove": "Entfernen",
+        "addPhoto": "Foto hinzufügen",
+        "countOf": "{{count}} / {{max}}"
+      },
+      "equipment": {
+        "title": "Ausstattung",
+        "ausstattung": "Ausstattung (suchbar)",
+        "extras": "Extras",
+        "eigenschaften": "Eigenschaften",
+        "hint": "AutoScout24 kennt drei getrennte Begriffe: Ausstattung (suchbare Codes), Extras (Merkmale) und Eigenschaften (Zustände wie Unfallwagen)."
+      }
     }
   },
   "stockCreate": {

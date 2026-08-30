@@ -14,6 +14,7 @@ from app.customer.models.legal_basis import LegalBasis
 from app.customer.models.vehicle_party import VehicleParty
 from app.inventory.models.stock_item import StockItem, StockNumberSequence
 from app.inventory.models.stock_item_ledger import StockItemLedger
+from app.inventory.models.stock_item_publishing import StockItemMedia, StockItemPublishing
 from app.platform.models.dealership import DealerGroup, Dealership, Location
 from app.platform.models.dealership_membership import DealershipMembership
 from app.platform.models.reference_data import ReferenceList, ReferenceValue
@@ -56,6 +57,8 @@ __all__ = [
     "ReferenceValue",
     "StockItem",
     "StockItemLedger",
+    "StockItemMedia",
+    "StockItemPublishing",
     "StockNumberSequence",
     "Transaction",
     "TypeApproval",
