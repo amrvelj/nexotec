@@ -454,5 +454,96 @@
       "title": "Noch nichts hier",
       "body": "Das Dashboard ist noch in Planung. Nutzen Sie bis dahin die Navigation links, um zu einem Modul zu wechseln."
     }
+  },
+  "stockEnums": {
+    "lifecycleStatus": {
+      "pipeline": "Pipeline",
+      "in_stock": "An Lager",
+      "storno_pending": "Storno ausstehend"
+    },
+    "condition": {
+      "new": "Neu",
+      "used": "Occasion",
+      "demo": "Vorführwagen",
+      "tagesz": "Tageszulassung"
+    },
+    "reservationState": {
+      "none": "Frei",
+      "reserved": "Reserviert"
+    }
+  },
+  "stockList": {
+    "title": "Lagerbestand",
+    "newStockItem": "Fahrzeug aufnehmen",
+    "searchPlaceholder": "Kontrollschild, VIN, Kunde, Offerte…",
+    "allStockView": "Alle Fahrzeuge",
+    "columns": {
+      "stockNumber": "Lagernr.",
+      "vehicle": "Fahrzeug",
+      "condition": "Zustand",
+      "lifecycleStatus": "Lagerstatus",
+      "reservationState": "Reservation",
+      "odometerKm": "Kilometerstand",
+      "effectivePrice": "Effektivpreis",
+      "changed": "Geändert",
+      "vin": "VIN",
+      "listPrice": "Listenpreis"
+    },
+    "emptyState": {
+      "title": "Kein Fahrzeug im Lager",
+      "description": "Nehmen Sie ein Fahrzeug ins Lager auf, um zu beginnen."
+    },
+    "emptyFilteredState": {
+      "title": "Keine Treffer",
+      "description": "Passen Sie Suche oder Filter an.",
+      "action": "Filter zurücksetzen"
+    },
+    "rowActions": {
+      "open": "Öffnen"
+    }
+  },
+  "stockDetail": {
+    "tabs": {
+      "details": "Details"
+    },
+    "actions": {
+      "createOffer": "Offerte erstellen",
+      "createContract": "Vertrag erstellen",
+      "salesNotYetBuilt": "Verkauf ist noch nicht verfügbar."
+    },
+    "spec": {
+      "firstRegistrationDate": "Erstzulassung",
+      "odometerKm": "Kilometerstand",
+      "stockNumber": "Lagernummer",
+      "vin": "VIN"
+    },
+    "commercial": {
+      "title": "Kommerziell",
+      "odometerKm": "Kilometerstand",
+      "listPrice": "Listenpreis",
+      "effectivePrice": "Effektivpreis"
+    },
+    "identity": {
+      "title": "Fahrzeug",
+      "vehicleLabel": "Bezeichnung",
+      "vehicleId": "Fahrzeug-ID"
+    },
+    "errors": {
+      "failedToLoad": "Laden fehlgeschlagen",
+      "somethingWentWrong": "Etwas ist schiefgelaufen."
+    }
+  },
+  "stockCreate": {
+    "title": "Fahrzeug aufnehmen",
+    "fields": {
+      "vehicleLabel": "Bezeichnung",
+      "condition": "Zustand",
+      "vin": "VIN",
+      "vinDescription": "Falls bereits bekannt — sonst bleibt das Fahrzeug in der Pipeline."
+    },
+    "submit": "Aufnehmen",
+    "errors": {
+      "somethingWentWrong": "Etwas ist schiefgelaufen."
+    }
   }
 }

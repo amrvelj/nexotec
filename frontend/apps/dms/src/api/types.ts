@@ -458,3 +458,37 @@ export interface VehicleAccessoryRead {
   validFrom: string
   validTo: string | null
 }
+
+// WP-7 PR-1 (ADR-054): lifecycleStatus and reservationState are always
+// independent — every combination is legal, including pipeline+reserved
+// (a factory order already sold). "sold" is never a value here — a sold
+// (invoiced) item is simply absent from the active list (FR-I-12).
+export type StockLifecycleStatus = 'pipeline' | 'in_stock' | 'storno_pending'
+export type StockReservationState = 'none' | 'reserved'
+export type StockItemCondition = 'new' | 'used' | 'demo' | 'tagesz'
+
+export interface StockItemRead {
+  id: string
+  stockNumber: string
+  vehicleId: string | null
+  vin: string | null
+  vehicleLabel: string
+  lifecycleStatus: StockLifecycleStatus
+  reservationState: StockReservationState
+  condition: StockItemCondition
+  locationId: string | null
+  odometerKm: number | null
+  listPrice: string | null
+  effectivePrice: string | null
+  firstRegistrationDate: string | null
+  version: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface StockItemPage {
+  items: StockItemRead[]
+  nextCursor: string | null
+  total: number
+  totalIsEstimate: boolean
+}

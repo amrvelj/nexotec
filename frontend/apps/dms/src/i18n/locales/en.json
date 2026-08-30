@@ -454,5 +454,96 @@
       "title": "Nothing here yet",
       "body": "The Dashboard is still being designed. Until then, use the navigation on the left to jump into a module."
     }
+  },
+  "stockEnums": {
+    "lifecycleStatus": {
+      "pipeline": "Pipeline",
+      "in_stock": "In stock",
+      "storno_pending": "Storno pending"
+    },
+    "condition": {
+      "new": "New",
+      "used": "Used",
+      "demo": "Demo vehicle",
+      "tagesz": "Day registration"
+    },
+    "reservationState": {
+      "none": "Free",
+      "reserved": "Reserved"
+    }
+  },
+  "stockList": {
+    "title": "Stock",
+    "newStockItem": "Add vehicle",
+    "searchPlaceholder": "Plate, VIN, customer, offer…",
+    "allStockView": "All stock",
+    "columns": {
+      "stockNumber": "Stock no.",
+      "vehicle": "Vehicle",
+      "condition": "Condition",
+      "lifecycleStatus": "Stock status",
+      "reservationState": "Reservation",
+      "odometerKm": "Odometer",
+      "effectivePrice": "Effective price",
+      "changed": "Changed",
+      "vin": "VIN",
+      "listPrice": "List price"
+    },
+    "emptyState": {
+      "title": "No vehicles in stock",
+      "description": "Add a vehicle to stock to get started."
+    },
+    "emptyFilteredState": {
+      "title": "No results",
+      "description": "Adjust your search or filters.",
+      "action": "Reset filters"
+    },
+    "rowActions": {
+      "open": "Open"
+    }
+  },
+  "stockDetail": {
+    "tabs": {
+      "details": "Details"
+    },
+    "actions": {
+      "createOffer": "Create offer",
+      "createContract": "Create contract",
+      "salesNotYetBuilt": "Sales is not available yet."
+    },
+    "spec": {
+      "firstRegistrationDate": "First registration",
+      "odometerKm": "Odometer",
+      "stockNumber": "Stock number",
+      "vin": "VIN"
+    },
+    "commercial": {
+      "title": "Commercial",
+      "odometerKm": "Odometer",
+      "listPrice": "List price",
+      "effectivePrice": "Effective price"
+    },
+    "identity": {
+      "title": "Vehicle",
+      "vehicleLabel": "Label",
+      "vehicleId": "Vehicle ID"
+    },
+    "errors": {
+      "failedToLoad": "Failed to load",
+      "somethingWentWrong": "Something went wrong."
+    }
+  },
+  "stockCreate": {
+    "title": "Add vehicle",
+    "fields": {
+      "vehicleLabel": "Label",
+      "condition": "Condition",
+      "vin": "VIN",
+      "vinDescription": "If already known — otherwise the vehicle stays in the pipeline."
+    },
+    "submit": "Add",
+    "errors": {
+      "somethingWentWrong": "Something went wrong."
+    }
   }
 }

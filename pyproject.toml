@@ -203,3 +203,24 @@ source_modules = [
 ]
 forbidden_modules = ["app.sales.models", "app.sales.services", "app.sales.api"]
 allow_indirect_imports = true
+
+# WP-7 PR-1: inventory is the first of the "not built yet" contexts to
+# actually ship models/services/api — per the note on the contract above,
+# it adds its own reciprocal block here, same shape as every other
+# built-out context.
+[[tool.importlinter.contracts]]
+name = "Only app.inventory.public is reachable from outside inventory"
+type = "forbidden"
+source_modules = [
+    "app.platform",
+    "app.customer",
+    "app.vehicle",
+    "app.sales",
+    "app.aftersales",
+    "app.parts",
+    "app.finance",
+    "app.reporting",
+    "app.compliance",
+]
+forbidden_modules = ["app.inventory.models", "app.inventory.services", "app.inventory.api"]
+allow_indirect_imports = true

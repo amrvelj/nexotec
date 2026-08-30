@@ -50,6 +50,11 @@ CAPABILITY_MATRIX: dict[str, Capability] = {
         read_roles=None,
         write_roles=frozenset({AccessRole.SALES, AccessRole.AFTERSALES, AccessRole.INVENTORY}),
     ),
+    # WP-7 PR-1: only inventory writes a stock item directly. Sales never
+    # writes one — it calls the inventory.public reserve/release surface
+    # (PR-4) instead, which is inventory's own commit, not a write through
+    # this capability.
+    "stock_items": Capability(read_roles=None, write_roles=frozenset({AccessRole.INVENTORY})),
     "customer_vehicle_links": Capability(
         read_roles=None, write_roles=frozenset({AccessRole.SALES, AccessRole.AFTERSALES})
     ),

@@ -51,7 +51,12 @@ function buildNavGroups(t: (key: string) => string): NavGroupConfig[] {
       items: [
         { label: t('shell.nav.sales'), href: '/sales', icon: Handshake, status: 'soon' },
         { label: t('shell.nav.aftersales'), href: '/aftersales', icon: Wrench, status: 'soon' },
-        { label: t('shell.nav.inventory'), href: '/inventory', icon: Warehouse, status: 'soon' },
+        // WP-7 PR-1: promotes the scaffolded "soon" slot — href moves from
+        // /inventory to /stock, matching the reference prototype's own
+        // route. Label stays "shell.nav.inventory" as-is (already "Lager"
+        // in de.json, matching the prototype's own label exactly; EN/FR/IT
+        // keep their existing strings).
+        { label: t('shell.nav.inventory'), href: '/stock', icon: Warehouse, status: 'active' },
         { label: t('shell.nav.parts'), href: '/parts', icon: Cog, status: 'soon' },
         { label: t('shell.nav.finance'), href: '/finance', icon: Receipt, status: 'soon' },
         { label: t('shell.nav.transactions'), href: '/transactions', icon: ArrowLeftRight, status: 'soon' },

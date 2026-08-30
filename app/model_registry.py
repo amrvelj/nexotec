@@ -12,6 +12,7 @@ from app.core.reconciliation_model import ReconciliationOrphan, ReconciliationRu
 from app.customer.models.customer import Customer, CustomerAddress
 from app.customer.models.legal_basis import LegalBasis
 from app.customer.models.vehicle_party import VehicleParty
+from app.inventory.models.stock_item import StockItem, StockNumberSequence
 from app.platform.models.dealership import DealerGroup, Dealership, Location
 from app.platform.models.dealership_membership import DealershipMembership
 from app.platform.models.reference_data import ReferenceList, ReferenceValue
@@ -52,6 +53,8 @@ __all__ = [
     "ReconciliationRun",
     "ReferenceList",
     "ReferenceValue",
+    "StockItem",
+    "StockNumberSequence",
     "Transaction",
     "TypeApproval",
     "User",

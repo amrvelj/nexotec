@@ -454,5 +454,96 @@
       "title": "Rien ici pour l’instant",
       "body": "Le tableau de bord est encore en cours de conception. En attendant, utilisez la navigation à gauche pour accéder à un module."
     }
+  },
+  "stockEnums": {
+    "lifecycleStatus": {
+      "pipeline": "Pipeline",
+      "in_stock": "En stock",
+      "storno_pending": "Annulation en cours"
+    },
+    "condition": {
+      "new": "Neuf",
+      "used": "Occasion",
+      "demo": "Véhicule de démonstration",
+      "tagesz": "Immatriculation journalière"
+    },
+    "reservationState": {
+      "none": "Libre",
+      "reserved": "Réservé"
+    }
+  },
+  "stockList": {
+    "title": "Stock",
+    "newStockItem": "Ajouter un véhicule",
+    "searchPlaceholder": "Plaque, VIN, client, offre…",
+    "allStockView": "Tous les véhicules",
+    "columns": {
+      "stockNumber": "N° de stock",
+      "vehicle": "Véhicule",
+      "condition": "État",
+      "lifecycleStatus": "Statut de stock",
+      "reservationState": "Réservation",
+      "odometerKm": "Kilométrage",
+      "effectivePrice": "Prix effectif",
+      "changed": "Modifié",
+      "vin": "VIN",
+      "listPrice": "Prix catalogue"
+    },
+    "emptyState": {
+      "title": "Aucun véhicule en stock",
+      "description": "Ajoutez un véhicule au stock pour commencer."
+    },
+    "emptyFilteredState": {
+      "title": "Aucun résultat",
+      "description": "Ajustez la recherche ou les filtres.",
+      "action": "Réinitialiser les filtres"
+    },
+    "rowActions": {
+      "open": "Ouvrir"
+    }
+  },
+  "stockDetail": {
+    "tabs": {
+      "details": "Détails"
+    },
+    "actions": {
+      "createOffer": "Créer une offre",
+      "createContract": "Créer un contrat",
+      "salesNotYetBuilt": "Le module Vente n'est pas encore disponible."
+    },
+    "spec": {
+      "firstRegistrationDate": "1re mise en circulation",
+      "odometerKm": "Kilométrage",
+      "stockNumber": "Numéro de stock",
+      "vin": "VIN"
+    },
+    "commercial": {
+      "title": "Commercial",
+      "odometerKm": "Kilométrage",
+      "listPrice": "Prix catalogue",
+      "effectivePrice": "Prix effectif"
+    },
+    "identity": {
+      "title": "Véhicule",
+      "vehicleLabel": "Désignation",
+      "vehicleId": "ID véhicule"
+    },
+    "errors": {
+      "failedToLoad": "Échec du chargement",
+      "somethingWentWrong": "Une erreur s'est produite."
+    }
+  },
+  "stockCreate": {
+    "title": "Ajouter un véhicule",
+    "fields": {
+      "vehicleLabel": "Désignation",
+      "condition": "État",
+      "vin": "VIN",
+      "vinDescription": "Si déjà connu — sinon le véhicule reste en pipeline."
+    },
+    "submit": "Ajouter",
+    "errors": {
+      "somethingWentWrong": "Une erreur s'est produite."
+    }
   }
 }
