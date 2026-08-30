@@ -472,6 +472,24 @@
     "reservationState": {
       "none": "Free",
       "reserved": "Reserved"
+    },
+    "ledgerCategory": {
+      "einstandspreis": "Acquisition cost",
+      "landed_cost": "Landed cost",
+      "aufbereitung": "Reconditioning",
+      "reparatur": "Repair",
+      "gutachten": "Appraisal",
+      "standkosten": "Holding cost",
+      "werbung": "Advertising",
+      "garantie": "Warranty",
+      "abwertung": "Devaluation",
+      "promotion": "Promotion",
+      "sonstige_kosten": "Other costs",
+      "verkaufserloes": "Sale proceeds",
+      "kickback": "Kickback",
+      "zusatzerloes": "Additional proceeds",
+      "foerderung": "Incentive/subsidy",
+      "sonstige_ertraege": "Other revenue"
     }
   },
   "stockList": {
@@ -506,7 +524,8 @@
   },
   "stockDetail": {
     "tabs": {
-      "details": "Details"
+      "details": "Details",
+      "wagenbuch": "Wagenbuch"
     },
     "actions": {
       "createOffer": "Create offer",
@@ -550,6 +569,26 @@
       "notionalInputTaxNotApplicable": "Not applicable",
       "notionalInputTaxRateNotConfigured": "VAT rate not yet configured",
       "isInvoiceable": "Invoiceable"
+    },
+    "wagenbuch": {
+      "result": "Result",
+      "recordButton": "Record entry",
+      "empty": "No entries recorded",
+      "dialogTitle": "Record entry",
+      "submit": "Record",
+      "fields": {
+        "category": "Category",
+        "amount": "Amount",
+        "occurredAt": "Date"
+      },
+      "columns": {
+        "occurredAt": "Date",
+        "category": "Category",
+        "amount": "Amount",
+        "source": "Source"
+      },
+      "auto": "Automatic",
+      "manual": "Manual"
     }
   },
   "stockCreate": {

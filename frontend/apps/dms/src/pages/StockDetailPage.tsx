@@ -9,7 +9,8 @@ import { api, ApiError } from '../api/client'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
 import { translatedStockConditionLabel, translatedStockLifecycleLabel, translatedStockReservationLabel } from '../stockOptions'
 import { DetailsTab } from '../components/stock-detail/DetailsTab'
-import type { StockItemRead } from '../api/types'
+import { WagenbuchTab } from '../components/stock-detail/WagenbuchTab'
+import type { LedgerCategory, LedgerEntryPage, StockItemRead } from '../api/types'
 
 const DEFAULT_TAB = 'details'
 
@@ -68,6 +69,11 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
     queryFn: () => api.get<StockItemRead>(`/inventory/stock-items/${id}`),
     enabled: Boolean(id),
   })
+  const ledgerQuery = useQuery({
+    queryKey: ['stock-item', id, 'ledger-entries'],
+    queryFn: () => api.get<LedgerEntryPage>(`/inventory/stock-items/${id}/ledger-entries`),
+    enabled: Boolean(id),
+  })
 
   const saveField = async (patch: Record<string, unknown>) => {
     const item = itemQuery.data
@@ -95,7 +101,16 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
     queryClient.setQueryData(['stock-item', id], updated)
   }
 
-  const tabs: DetailTab[] = [{ id: 'details', label: t('stockDetail.tabs.details') }]
+  const recordCost = async (data: { category: LedgerCategory; amount: number; occurredAt: string; sourceRef: string }) => {
+    await api.post(`/inventory/stock-items/${id}/ledger-entries`, data)
+    void queryClient.invalidateQueries({ queryKey: ['stock-item', id, 'ledger-entries'] })
+  }
+
+  const ledgerEntries = ledgerQuery.data?.items ?? []
+  const tabs: DetailTab[] = [
+    { id: 'details', label: t('stockDetail.tabs.details') },
+    { id: 'wagenbuch', label: t('stockDetail.tabs.wagenbuch'), count: ledgerEntries.length },
+  ]
 
   if (itemQuery.isLoading) return <Loader />
   if (itemQuery.isError || !itemQuery.data) {
@@ -142,6 +157,9 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
 
       {activeTab === 'details' && (
         <DetailsTab item={item} locale={locale} onSaveField={saveField} onReload={reload} onRecordPurchase={recordPurchase} />
+      )}
+      {activeTab === 'wagenbuch' && (
+        <WagenbuchTab entries={ledgerEntries} locale={locale} onRecordCost={recordCost} />
       )}
     </div>
   )

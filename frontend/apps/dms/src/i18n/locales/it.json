@@ -472,6 +472,24 @@
     "reservationState": {
       "none": "Libero",
       "reserved": "Riservato"
+    },
+    "ledgerCategory": {
+      "einstandspreis": "Prezzo di costo",
+      "landed_cost": "Costi di trasporto",
+      "aufbereitung": "Preparazione",
+      "reparatur": "Riparazione",
+      "gutachten": "Perizia",
+      "standkosten": "Costi di giacenza",
+      "werbung": "Pubblicità",
+      "garantie": "Garanzia",
+      "abwertung": "Svalutazione",
+      "promotion": "Promozione",
+      "sonstige_kosten": "Altri costi",
+      "verkaufserloes": "Ricavo di vendita",
+      "kickback": "Retrocessione",
+      "zusatzerloes": "Ricavo accessorio",
+      "foerderung": "Incentivo",
+      "sonstige_ertraege": "Altri ricavi"
     }
   },
   "stockList": {
@@ -506,7 +524,8 @@
   },
   "stockDetail": {
     "tabs": {
-      "details": "Dettagli"
+      "details": "Dettagli",
+      "wagenbuch": "Registro veicolo"
     },
     "actions": {
       "createOffer": "Crea offerta",
@@ -550,6 +569,26 @@
       "notionalInputTaxNotApplicable": "Non applicabile",
       "notionalInputTaxRateNotConfigured": "Aliquota IVA non ancora configurata",
       "isInvoiceable": "Fatturabile"
+    },
+    "wagenbuch": {
+      "result": "Risultato",
+      "recordButton": "Registra movimento",
+      "empty": "Nessun movimento registrato",
+      "dialogTitle": "Registra movimento",
+      "submit": "Registra",
+      "fields": {
+        "category": "Categoria",
+        "amount": "Importo",
+        "occurredAt": "Data"
+      },
+      "columns": {
+        "occurredAt": "Data",
+        "category": "Categoria",
+        "amount": "Importo",
+        "source": "Origine"
+      },
+      "auto": "Automatico",
+      "manual": "Manuale"
     }
   },
   "stockCreate": {

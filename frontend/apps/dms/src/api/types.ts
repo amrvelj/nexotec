@@ -509,3 +509,40 @@ export interface StockItemPage {
   total: number
   totalIsEstimate: boolean
 }
+
+// WP-7 PR-6 — the Wagenbuch (ADR-029). Costs and revenues, in this exact
+// order to match app.inventory.models.stock_item_ledger.LedgerCategory.
+export type LedgerCategory =
+  | 'einstandspreis'
+  | 'landed_cost'
+  | 'aufbereitung'
+  | 'reparatur'
+  | 'gutachten'
+  | 'standkosten'
+  | 'werbung'
+  | 'garantie'
+  | 'abwertung'
+  | 'promotion'
+  | 'sonstige_kosten'
+  | 'verkaufserloes'
+  | 'kickback'
+  | 'zusatzerloes'
+  | 'foerderung'
+  | 'sonstige_ertraege'
+export type LedgerDirection = 'cost' | 'revenue'
+
+export interface LedgerEntryRead {
+  id: string
+  stockItemId: string
+  category: LedgerCategory
+  direction: LedgerDirection
+  amount: string
+  occurredAt: string
+  sourceRef: string
+  isAuto: boolean
+  createdAt: string
+}
+
+export interface LedgerEntryPage {
+  items: LedgerEntryRead[]
+}

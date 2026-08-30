@@ -13,6 +13,7 @@ from app.customer.models.customer import Customer, CustomerAddress
 from app.customer.models.legal_basis import LegalBasis
 from app.customer.models.vehicle_party import VehicleParty
 from app.inventory.models.stock_item import StockItem, StockNumberSequence
+from app.inventory.models.stock_item_ledger import StockItemLedger
 from app.platform.models.dealership import DealerGroup, Dealership, Location
 from app.platform.models.dealership_membership import DealershipMembership
 from app.platform.models.reference_data import ReferenceList, ReferenceValue
@@ -54,6 +55,7 @@ __all__ = [
     "ReferenceList",
     "ReferenceValue",
     "StockItem",
+    "StockItemLedger",
     "StockNumberSequence",
     "Transaction",
     "TypeApproval",

@@ -472,6 +472,24 @@
     "reservationState": {
       "none": "Libre",
       "reserved": "Réservé"
+    },
+    "ledgerCategory": {
+      "einstandspreis": "Prix de revient",
+      "landed_cost": "Coûts d'acheminement",
+      "aufbereitung": "Préparation",
+      "reparatur": "Réparation",
+      "gutachten": "Expertise",
+      "standkosten": "Frais de stockage",
+      "werbung": "Publicité",
+      "garantie": "Garantie",
+      "abwertung": "Dépréciation",
+      "promotion": "Promotion",
+      "sonstige_kosten": "Autres frais",
+      "verkaufserloes": "Produit de la vente",
+      "kickback": "Rétrocession",
+      "zusatzerloes": "Produit accessoire",
+      "foerderung": "Subvention",
+      "sonstige_ertraege": "Autres produits"
     }
   },
   "stockList": {
@@ -506,7 +524,8 @@
   },
   "stockDetail": {
     "tabs": {
-      "details": "Détails"
+      "details": "Détails",
+      "wagenbuch": "Livre de bord"
     },
     "actions": {
       "createOffer": "Créer une offre",
@@ -550,6 +569,26 @@
       "notionalInputTaxNotApplicable": "Non applicable",
       "notionalInputTaxRateNotConfigured": "Taux de TVA pas encore configuré",
       "isInvoiceable": "Facturable"
+    },
+    "wagenbuch": {
+      "result": "Résultat",
+      "recordButton": "Saisir une écriture",
+      "empty": "Aucune écriture saisie",
+      "dialogTitle": "Saisir une écriture",
+      "submit": "Saisir",
+      "fields": {
+        "category": "Catégorie",
+        "amount": "Montant",
+        "occurredAt": "Date"
+      },
+      "columns": {
+        "occurredAt": "Date",
+        "category": "Catégorie",
+        "amount": "Montant",
+        "source": "Origine"
+      },
+      "auto": "Automatique",
+      "manual": "Manuel"
     }
   },
   "stockCreate": {

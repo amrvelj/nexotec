@@ -1,4 +1,4 @@
-import type { StockItemCondition, StockLifecycleStatus, StockReservationState } from './api/types'
+import type { LedgerCategory, StockItemCondition, StockLifecycleStatus, StockReservationState } from './api/types'
 
 type Translate = (key: string) => string
 
@@ -29,4 +29,21 @@ export function translatedStockConditionOptions(t: Translate): { value: StockIte
 
 export function translatedStockReservationLabel(t: Translate, state: StockReservationState): string {
   return t(`stockEnums.reservationState.${state}`)
+}
+
+// verkaufserloes/foerderung excluded — automatic-only server-side
+// (app.inventory.models.stock_item_ledger.AUTOMATIC_ONLY_CATEGORIES), so
+// hand-booking them from RecordCostDialog is never offered.
+const HAND_BOOKABLE_LEDGER_CATEGORIES: LedgerCategory[] = [
+  'einstandspreis', 'landed_cost', 'aufbereitung', 'reparatur', 'gutachten', 'standkosten',
+  'werbung', 'garantie', 'abwertung', 'promotion', 'sonstige_kosten',
+  'kickback', 'zusatzerloes', 'sonstige_ertraege',
+]
+
+export function translatedLedgerCategoryLabel(t: Translate, category: LedgerCategory): string {
+  return t(`stockEnums.ledgerCategory.${category}`)
+}
+
+export function translatedLedgerCategoryOptions(t: Translate): { value: LedgerCategory; label: string }[] {
+  return HAND_BOOKABLE_LEDGER_CATEGORIES.map((value) => ({ value, label: translatedLedgerCategoryLabel(t, value) }))
 }
