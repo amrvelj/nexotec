@@ -617,6 +617,15 @@ export interface MediaRead {
 export type SalesOfferStatus = 'draft' | 'open' | 'cancelled'
 export type SalesContractStatus = 'pending' | 'confirmed' | 'cancelled' | 'invoiced'
 
+// WP-8 PR-2 — server-computed, never client-derived (FR-S-05); the sticky
+// footer's missing-requirements list and each container's own status
+// badge both read from this same shape.
+export interface OfferContainerState {
+  id: 'customer' | 'vehicle' | 'pricing' | 'trade_in' | 'leasing'
+  requirement: 'required' | 'optional'
+  status: 'not_started' | 'in_progress' | 'complete' | 'placeholder'
+}
+
 export interface SalesOfferRead {
   id: string
   offerNumber: string
@@ -624,10 +633,16 @@ export interface SalesOfferRead {
   customerId: string | null
   customerLabel: string | null
   customerLocality: string | null
+  vehicleSource: 'stock' | 'manual' | null
   stockItemId: string | null
   vehicleLabel: string | null
+  manualVehicleCondition: string | null
+  leasingDownPayment: string | null
+  leasingTermMonths: number | null
+  leasingKmPerYear: number | null
   grossPrice: string | null
   cancelledReason: string | null
+  containers: OfferContainerState[]
   version: number
   createdAt: string
   updatedAt: string

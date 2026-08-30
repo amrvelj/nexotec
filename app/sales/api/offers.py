@@ -1,4 +1,4 @@
-"""SalesOffer endpoints (WP-8 PR-1)."""
+"""SalesOffer endpoints (WP-8 PR-1, PATCH autosave added PR-2)."""
 
 import uuid
 
@@ -13,7 +13,7 @@ from app.core.permissions import require_write
 from app.core.sorting import SortField, parse_sort
 from app.db import get_db
 from app.sales.models.offer import SalesOffer
-from app.sales.schemas.offer import OfferCancelRequest, OfferPage, OfferRead
+from app.sales.schemas.offer import OfferCancelRequest, OfferPage, OfferRead, OfferUpdate
 from app.sales.services import offer as offer_service
 
 router = APIRouter(tags=["sales"])
@@ -27,13 +27,23 @@ OFFER_SORT_FIELDS: dict[str, object] = {
 _DEFAULT_OFFER_SORT = [SortField(api_name="updatedAt", column=SalesOffer.updated_at, direction="desc", nullable=False)]
 
 
+def _offer_read(offer: SalesOffer) -> OfferRead:
+    """containers is computed here (PR-2), never stored — every endpoint
+    that returns an OfferRead goes through this one place, matching
+    app.inventory's own ageingBucket convention.
+    """
+
+    base = OfferRead.model_validate(offer, from_attributes=True)
+    return base.model_copy(update={"containers": offer_service.compute_offer_containers(offer)})
+
+
 @router.post("/sales/offers", response_model=OfferRead, status_code=201)
 def create_offer(
     principal: Principal = Depends(require_write("sales_offers")),
     db: Session = Depends(get_db),
 ):
     offer = offer_service.create_offer(db, tenant_id=principal.tenant_id, actor_id=principal.user_id)
-    return OfferRead.model_validate(offer, from_attributes=True)
+    return _offer_read(offer)
 
 
 @router.get("/sales/offers", response_model=OfferPage)
@@ -52,7 +62,7 @@ def list_offers(
         db, tenant_id=principal.tenant_id, params=params
     )
     return OfferPage(
-        items=[OfferRead.model_validate(r, from_attributes=True) for r in rows],
+        items=[_offer_read(r) for r in rows],
         next_cursor=next_cursor,
         total=total,
         total_is_estimate=total_is_estimate,
@@ -66,7 +76,23 @@ def get_offer(
     db: Session = Depends(get_db),
 ):
     offer = offer_service.get_offer_or_404(db, principal.tenant_id, offer_id)
-    return OfferRead.model_validate(offer, from_attributes=True)
+    return _offer_read(offer)
+
+
+@router.patch("/sales/offers/{offer_id}", response_model=OfferRead)
+def update_offer(
+    offer_id: uuid.UUID,
+    body: OfferUpdate,
+    if_match: int = Depends(require_if_match),
+    principal: Principal = Depends(require_write("sales_offers")),
+    db: Session = Depends(get_db),
+):
+    offer = offer_service.get_offer_or_404(db, principal.tenant_id, offer_id)
+    check_version(offer.version, if_match, entity_name="SalesOffer")
+    offer = offer_service.update_offer(
+        db, offer=offer, group_id=principal.group_id, data=body, actor_id=principal.user_id
+    )
+    return _offer_read(offer)
 
 
 @router.post("/sales/offers/{offer_id}/cancel", response_model=OfferRead)
@@ -80,4 +106,4 @@ def cancel_offer(
     offer = offer_service.get_offer_or_404(db, principal.tenant_id, offer_id)
     check_version(offer.version, if_match, entity_name="SalesOffer")
     offer = offer_service.cancel_offer(db, offer=offer, reason=body.reason, actor_id=principal.user_id)
-    return OfferRead.model_validate(offer, from_attributes=True)
+    return _offer_read(offer)

@@ -45,7 +45,8 @@
     "cancel": "Abbrechen",
     "notSet": "Nicht gesetzt",
     "yes": "Ja",
-    "no": "Nein"
+    "no": "Nein",
+    "save": "Speichern"
   },
   "customerEnums": {
     "customerType": {
@@ -729,5 +730,47 @@
       "failedToLoad": "Vertrag konnte nicht geladen werden.",
       "somethingWentWrong": "Etwas ist schiefgelaufen."
     }
+  },
+  "offerWorkspace": {
+    "title": "Offerte erstellen",
+    "requirement": {
+      "required": "Erforderlich",
+      "optional": "Optional"
+    },
+    "containers": {
+      "customer": "Kunde",
+      "vehicle": "Fahrzeug",
+      "pricing": "Preisaufbau",
+      "tradeIn": "Eintauschfahrzeug",
+      "leasing": "Leasing"
+    },
+    "customer": {
+      "emptyHint": "Kein Kunde ist vorausgewählt — eine Offerte trägt den Namen, der unterschrieben wird.",
+      "search": "Kunde suchen",
+      "createNew": "Neu anlegen"
+    },
+    "vehicle": {
+      "emptyHint": "Aus dem eigenen Lagerbestand — Lagernummer, VIN oder Kontrollschild.",
+      "search": "Fahrzeug suchen",
+      "configure": "Konfigurieren",
+      "searchPlaceholder": "Lagernummer, VIN, Kontrollschild …",
+      "manualLabelPlaceholder": "Fahrzeugbezeichnung"
+    },
+    "pricing": {
+      "emptyHint": "Der Preisaufbau beginnt beim Fahrzeug — wählen Sie zuerst eines aus.",
+      "readyHint": "Der Preisaufbau folgt (nächster Schritt)."
+    },
+    "tradeIn": {
+      "emptyHint": "Wählen Sie zuerst den Kunden — dann werden dessen Fahrzeuge hier vorgeschlagen.",
+      "readyHint": "Eintauschfahrzeug folgt (nächster Schritt)."
+    },
+    "leasing": {
+      "hint": "Kein Leasingrechner in v1 (S-D03). Freie Eingaben, damit ein späterer Rechner ohne Umbau eingesetzt werden kann.",
+      "downPayment": "Anzahlung",
+      "termMonths": "Laufzeit (Monate)",
+      "kmPerYear": "Kilometer pro Jahr"
+    },
+    "missing": "Es fehlt noch",
+    "continue": "Weiter zur Übersicht"
   }
 }

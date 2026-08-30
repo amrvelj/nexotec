@@ -6,6 +6,7 @@ import { Handshake } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { DetailHeader, useSetBreadcrumb } from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
+import { OfferWorkspaceContent } from './OfferWorkspacePage'
 import type { SalesOfferRead } from '../api/types'
 
 /** `/sales/offers/new` — the confirmed reference prototype allocates a
@@ -68,6 +69,14 @@ export function OfferDetailContent({ offerId: id, embedded = false }: OfferDetai
   }
 
   const offer = offerQuery.data
+
+  // While a draft, the container workspace (PR-2) IS the detail screen —
+  // there is nothing else to show yet. Once it leaves draft (PR-6), this
+  // minimal header shell takes over; PR-8's two-step generation/review
+  // extends it further.
+  if (offer.status === 'draft' && !embedded) {
+    return <OfferWorkspaceContent offerId={id} />
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>

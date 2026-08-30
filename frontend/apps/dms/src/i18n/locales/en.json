@@ -45,7 +45,8 @@
     "cancel": "Cancel",
     "notSet": "Not set",
     "yes": "Yes",
-    "no": "No"
+    "no": "No",
+    "save": "Save"
   },
   "customerEnums": {
     "customerType": {
@@ -729,5 +730,47 @@
       "failedToLoad": "The contract could not be loaded.",
       "somethingWentWrong": "Something went wrong."
     }
+  },
+  "offerWorkspace": {
+    "title": "Create offer",
+    "requirement": {
+      "required": "Required",
+      "optional": "Optional"
+    },
+    "containers": {
+      "customer": "Customer",
+      "vehicle": "Vehicle",
+      "pricing": "Pricing",
+      "tradeIn": "Trade-in vehicle",
+      "leasing": "Leasing"
+    },
+    "customer": {
+      "emptyHint": "No customer preselected — an offer carries the name that gets signed.",
+      "search": "Search customer",
+      "createNew": "Create new"
+    },
+    "vehicle": {
+      "emptyHint": "From your own stock — stock number, VIN or plate.",
+      "search": "Search vehicle",
+      "configure": "Configure",
+      "searchPlaceholder": "Stock number, VIN, plate …",
+      "manualLabelPlaceholder": "Vehicle description"
+    },
+    "pricing": {
+      "emptyHint": "Pricing starts with the vehicle — choose one first.",
+      "readyHint": "Pricing follows (next step)."
+    },
+    "tradeIn": {
+      "emptyHint": "Choose the customer first — their vehicles will be suggested here.",
+      "readyHint": "Trade-in follows (next step)."
+    },
+    "leasing": {
+      "hint": "No leasing calculator in v1 (S-D03). Free-text inputs, so a later calculator can be dropped in without a schema change.",
+      "downPayment": "Down payment",
+      "termMonths": "Term (months)",
+      "kmPerYear": "Kilometres per year"
+    },
+    "missing": "Still missing",
+    "continue": "Continue to overview"
   }
 }

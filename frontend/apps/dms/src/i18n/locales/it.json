@@ -45,7 +45,8 @@
     "cancel": "Annulla",
     "notSet": "Non impostato",
     "yes": "Sì",
-    "no": "No"
+    "no": "No",
+    "save": "Salva"
   },
   "customerEnums": {
     "customerType": {
@@ -729,5 +730,47 @@
       "failedToLoad": "Impossibile caricare il contratto.",
       "somethingWentWrong": "Qualcosa è andato storto."
     }
+  },
+  "offerWorkspace": {
+    "title": "Crea offerta",
+    "requirement": {
+      "required": "Obbligatorio",
+      "optional": "Facoltativo"
+    },
+    "containers": {
+      "customer": "Cliente",
+      "vehicle": "Veicolo",
+      "pricing": "Struttura prezzo",
+      "tradeIn": "Veicolo permuta",
+      "leasing": "Leasing"
+    },
+    "customer": {
+      "emptyHint": "Nessun cliente preselezionato — un'offerta porta il nome che verrà firmato.",
+      "search": "Cerca cliente",
+      "createNew": "Crea nuovo"
+    },
+    "vehicle": {
+      "emptyHint": "Dal proprio magazzino — numero di magazzino, VIN o targa.",
+      "search": "Cerca veicolo",
+      "configure": "Configura",
+      "searchPlaceholder": "Numero di magazzino, VIN, targa …",
+      "manualLabelPlaceholder": "Descrizione del veicolo"
+    },
+    "pricing": {
+      "emptyHint": "La struttura prezzo inizia dal veicolo — sceglietene prima uno.",
+      "readyHint": "La struttura prezzo segue (prossimo passo)."
+    },
+    "tradeIn": {
+      "emptyHint": "Scegliete prima il cliente — i suoi veicoli verranno suggeriti qui.",
+      "readyHint": "La permuta segue (prossimo passo)."
+    },
+    "leasing": {
+      "hint": "Nessun calcolatore di leasing nella v1 (S-D03). Campi liberi, così un futuro calcolatore potrà essere inserito senza modifiche allo schema.",
+      "downPayment": "Acconto",
+      "termMonths": "Durata (mesi)",
+      "kmPerYear": "Chilometri all'anno"
+    },
+    "missing": "Manca ancora",
+    "continue": "Continua alla panoramica"
   }
 }

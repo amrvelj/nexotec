@@ -3,6 +3,11 @@ import { radius, shadow, slate, spacing, typography, white } from "../tokens";
 
 export interface OverviewCardProps {
   title: string;
+  /** WP-8 PR-2 — the container workspace's own status badge
+   * (Erforderlich/Optional/Platzhalter, confirmed live), rendered beside
+   * the title. Optional: most Overview-tab cards (Customer 360, Stock)
+   * have no such concept and simply omit it. */
+  badge?: ReactNode;
   children: ReactNode;
 }
 
@@ -12,7 +17,7 @@ export interface OverviewCardProps {
  * sit in is the caller's layout (a plain CSS grid), since that's page
  * composition, not something this primitive needs to own.
  */
-export function OverviewCard({ title, children }: OverviewCardProps) {
+export function OverviewCard({ title, badge, children }: OverviewCardProps) {
   return (
     <div
       style={{
@@ -26,16 +31,19 @@ export function OverviewCard({ title, children }: OverviewCardProps) {
         gap: spacing.sm,
       }}
     >
-      <div
-        style={{
-          fontSize: typography.microLabel.size,
-          fontWeight: typography.microLabel.weight,
-          letterSpacing: typography.microLabel.letterSpacing,
-          textTransform: "uppercase" as const,
-          color: typography.microLabel.color,
-        }}
-      >
-        {title}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: spacing.sm }}>
+        <div
+          style={{
+            fontSize: typography.microLabel.size,
+            fontWeight: typography.microLabel.weight,
+            letterSpacing: typography.microLabel.letterSpacing,
+            textTransform: "uppercase" as const,
+            color: typography.microLabel.color,
+          }}
+        >
+          {title}
+        </div>
+        {badge}
       </div>
       <div style={{ display: "flex", flexDirection: "column" }}>{children}</div>
     </div>

@@ -104,3 +104,28 @@ def test_deal_grid_unknown_sort_field_is_422(client):
     token = _token(role=AccessRole.SALES)
     response = client.get("/v1/sales/deals?sort=notAField:asc", headers=_bearer(token))
     assert response.status_code == 422, response.text
+
+
+def test_patch_offer_manual_vehicle_updates_containers(client):
+    token = _token(role=AccessRole.SALES)
+    offer = client.post("/v1/sales/offers", headers=_bearer(token)).json()
+    assert offer["containers"][1]["id"] == "vehicle"
+    assert offer["containers"][1]["status"] == "not_started"
+
+    response = client.patch(
+        f"/v1/sales/offers/{offer['id']}",
+        json={"vehicleSource": "manual", "vehicleLabel": "Volkswagen Käfer", "manualVehicleCondition": "used"},
+        headers={**_bearer(token), "If-Match": str(offer["version"])},
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["vehicleLabel"] == "Volkswagen Käfer"
+    vehicle_container = next(c for c in body["containers"] if c["id"] == "vehicle")
+    assert vehicle_container["status"] == "complete"
+
+
+def test_patch_offer_requires_if_match(client):
+    token = _token(role=AccessRole.SALES)
+    offer = client.post("/v1/sales/offers", headers=_bearer(token)).json()
+    response = client.patch(f"/v1/sales/offers/{offer['id']}", json={"vehicleLabel": "X"}, headers=_bearer(token))
+    assert response.status_code == 400, response.text

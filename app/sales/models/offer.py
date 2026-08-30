@@ -24,7 +24,7 @@ import enum
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import DECIMAL, String
+from sqlalchemy import DECIMAL, Integer, String
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -54,12 +54,24 @@ class SalesOffer(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMi
     customer_locality: Mapped[str | None] = mapped_column(String(100), nullable=True)
     customer_denorm_refreshed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
 
-    # "From stock" path (FR-S-08's two-path vehicle container) — null for a
-    # manual configuration, which carries only vehicle_label (PR-2/3).
+    # WP-8 PR-2 (FR-S-08's two-path vehicle container): "stock" means
+    # stock_item_id is the source of truth; "manual" means vehicle_label +
+    # manual_vehicle_condition are hand-typed (ADR-045 — this never creates
+    # a vehicle-mdm record; a pipeline stock item is only materialized on
+    # contract confirmation, PR-6).
+    vehicle_source: Mapped[str | None] = mapped_column(String(16), nullable=True)  # "stock" | "manual"
     stock_item_id: Mapped[uuid.UUID | None] = mapped_column(
         GUID(), nullable=True, comment="Owned by the inventory context (StockItem.id). No DB-level FK."
     )
     vehicle_label: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    manual_vehicle_condition: Mapped[str | None] = mapped_column(String(16), nullable=True)
+
+    # WP-8 PR-2 (S-D03) — the Leasing container is a refused calculator:
+    # free-text inputs only, captured so a later real calculator can be
+    # dropped in without a schema change, never computed here.
+    leasing_down_payment: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
+    leasing_term_months: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    leasing_km_per_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Materialized total (PR-3's pricing.build_up() is the real derivation;
     # this column is what the grid and this row itself display).

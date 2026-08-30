@@ -45,7 +45,8 @@
     "cancel": "Annuler",
     "notSet": "Non défini",
     "yes": "Oui",
-    "no": "Non"
+    "no": "Non",
+    "save": "Enregistrer"
   },
   "customerEnums": {
     "customerType": {
@@ -729,5 +730,47 @@
       "failedToLoad": "Le contrat n'a pas pu être chargé.",
       "somethingWentWrong": "Un problème est survenu."
     }
+  },
+  "offerWorkspace": {
+    "title": "Créer une offre",
+    "requirement": {
+      "required": "Obligatoire",
+      "optional": "Facultatif"
+    },
+    "containers": {
+      "customer": "Client",
+      "vehicle": "Véhicule",
+      "pricing": "Structure de prix",
+      "tradeIn": "Véhicule de reprise",
+      "leasing": "Leasing"
+    },
+    "customer": {
+      "emptyHint": "Aucun client présélectionné — une offre porte le nom qui sera signé.",
+      "search": "Rechercher un client",
+      "createNew": "Créer un nouveau"
+    },
+    "vehicle": {
+      "emptyHint": "Depuis votre propre stock — numéro de stock, VIN ou plaque.",
+      "search": "Rechercher un véhicule",
+      "configure": "Configurer",
+      "searchPlaceholder": "Numéro de stock, VIN, plaque …",
+      "manualLabelPlaceholder": "Description du véhicule"
+    },
+    "pricing": {
+      "emptyHint": "La structure de prix commence par le véhicule — choisissez-en un d'abord.",
+      "readyHint": "La structure de prix suit (prochaine étape)."
+    },
+    "tradeIn": {
+      "emptyHint": "Choisissez d'abord le client — ses véhicules seront suggérés ici.",
+      "readyHint": "La reprise suit (prochaine étape)."
+    },
+    "leasing": {
+      "hint": "Pas de calculateur de leasing en v1 (S-D03). Saisies libres, pour qu'un futur calculateur puisse être intégré sans changement de schéma.",
+      "downPayment": "Acompte",
+      "termMonths": "Durée (mois)",
+      "kmPerYear": "Kilomètres par an"
+    },
+    "missing": "Il manque encore",
+    "continue": "Continuer vers l'aperçu"
   }
 }
