@@ -15,7 +15,8 @@
       "finance": "Finanza",
       "transactions": "Transazioni",
       "reporting": "Reportistica",
-      "compliance": "Conformità"
+      "compliance": "Conformità",
+      "valuations": "Valutazioni"
     },
     "signOut": "Disconnetti",
     "globalSearch": {
@@ -846,5 +847,108 @@
     "previewError": "Impossibile caricare l’anteprima.",
     "download": "Scarica",
     "version": "Versione {{version}}"
+  },
+  "valuationsList": {
+    "title": "Valutazioni",
+    "newValuation": "Crea valutazione",
+    "searchPlaceholder": "Numero valutazione, VIN, targa, cliente …",
+    "allView": "Tutte le valutazioni",
+    "noCustomer": "Senza cliente",
+    "loadError": "Impossibile caricare le valutazioni.",
+    "chips": {
+      "all": "Tutte",
+      "valid": "Valide",
+      "expiring_soon": "In scadenza",
+      "expired": "Scadute",
+      "unattached": "Senza cliente",
+      "mine": "Le mie"
+    },
+    "columns": {
+      "number": "Numero",
+      "vehicle": "Veicolo",
+      "customer": "Cliente",
+      "mileage": "Chilometraggio",
+      "finalOffer": "Offerta di permuta",
+      "source": "Fonte",
+      "status": "Stato",
+      "validUntil": "Valida fino al"
+    },
+    "emptyState": {
+      "title": "Nessuna valutazione",
+      "description": "Crea una valutazione — con o senza cliente, offerta o veicolo registrato."
+    },
+    "emptyFilteredState": {
+      "title": "Nessun risultato",
+      "description": "Nessuna valutazione corrisponde alla ricerca attuale.",
+      "action": "Reimposta ricerca"
+    },
+    "rowActions": {
+      "open": "Apri"
+    }
+  },
+  "valuationDetail": {
+    "untitled": "Nessun veicolo indicato",
+    "errors": {
+      "failedToLoad": "Impossibile caricare la valutazione.",
+      "somethingWentWrong": "Qualcosa è andato storto."
+    },
+    "actions": {
+      "revalue": "Rivaluta",
+      "markUsed": "Segna come utilizzata",
+      "markUsedDisabledReason": "Possibile solo da bozza o valida.",
+      "openCustomer": "Apri cliente",
+      "openVehicle": "Apri veicolo"
+    },
+    "expiredBanner": {
+      "title": "Valutazione scaduta",
+      "body": "Questa valutazione non è più valida. Se necessario, creane una nuova con \"Rivaluta\"."
+    },
+    "valueCard": {
+      "title": "Valutazione",
+      "providerValue": "Valore lordo",
+      "netValue": "Valore netto",
+      "finalOffer": "Offerta di permuta",
+      "finalOfferHint": "L’offerta di permuta può differire dal valore netto — è la trattativa."
+    },
+    "vehicleCard": {
+      "title": "Veicolo",
+      "vin": "VIN",
+      "plate": "Targa",
+      "mileage": "Chilometraggio",
+      "firstRegistration": "Prima immatricolazione",
+      "customer": "Cliente"
+    },
+    "noteCard": {
+      "title": "Nota"
+    },
+    "validityHelp": "Lo stato è calcolato in lettura, mai aggiornato di notte — valida fino al {{validUntil}}."
+  },
+  "valuationCreate": {
+    "title": "Crea valutazione",
+    "revalueTitle": "Rivaluta (sostituisce {{number}})",
+    "submit": "Crea",
+    "error": "Impossibile creare la valutazione.",
+    "banner": "Senza cliente, senza offerta, senza veicolo registrato richiesto — ogni combinazione funziona.",
+    "vehicleSection": "Veicolo",
+    "vin": "VIN",
+    "mileage": "Chilometraggio",
+    "make": "Marca",
+    "model": "Modello",
+    "trim": "Allestimento",
+    "plate": "Targa",
+    "customerSection": "Cliente",
+    "searchCustomer": "Cerca cliente",
+    "createCustomer": "Crea nuovo",
+    "source": "Fonte",
+    "sourceManual": "Manuale",
+    "providerValue": "Valore lordo",
+    "validForDays": "Valida per (giorni)",
+    "deductionsSection": "Detrazioni",
+    "deductionLabel": "Denominazione",
+    "deductionAmount": "Importo",
+    "addDeduction": "Aggiungi",
+    "finalOffer": "Offerta di permuta",
+    "finalOfferHint": "Può differire dal valore netto — è la trattativa.",
+    "note": "Nota"
   }
 }

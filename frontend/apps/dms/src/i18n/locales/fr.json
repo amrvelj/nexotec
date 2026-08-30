@@ -15,7 +15,8 @@
       "finance": "Finances",
       "transactions": "Transactions",
       "reporting": "Rapports",
-      "compliance": "Conformité"
+      "compliance": "Conformité",
+      "valuations": "Évaluations"
     },
     "signOut": "Se déconnecter",
     "globalSearch": {
@@ -846,5 +847,108 @@
     "previewError": "Impossible de charger l’aperçu.",
     "download": "Télécharger",
     "version": "Version {{version}}"
+  },
+  "valuationsList": {
+    "title": "Évaluations",
+    "newValuation": "Créer une évaluation",
+    "searchPlaceholder": "Numéro d’évaluation, VIN, plaque, client …",
+    "allView": "Toutes les évaluations",
+    "noCustomer": "Sans client",
+    "loadError": "Impossible de charger les évaluations.",
+    "chips": {
+      "all": "Toutes",
+      "valid": "Valides",
+      "expiring_soon": "Expirent bientôt",
+      "expired": "Expirées",
+      "unattached": "Sans client",
+      "mine": "Les miennes"
+    },
+    "columns": {
+      "number": "Numéro",
+      "vehicle": "Véhicule",
+      "customer": "Client",
+      "mileage": "Kilométrage",
+      "finalOffer": "Offre de reprise",
+      "source": "Source",
+      "status": "Statut",
+      "validUntil": "Valide jusqu’au"
+    },
+    "emptyState": {
+      "title": "Aucune évaluation",
+      "description": "Créez une évaluation — avec ou sans client, offre, ou véhicule enregistré."
+    },
+    "emptyFilteredState": {
+      "title": "Aucun résultat",
+      "description": "Aucune évaluation ne correspond à la recherche actuelle.",
+      "action": "Réinitialiser la recherche"
+    },
+    "rowActions": {
+      "open": "Ouvrir"
+    }
+  },
+  "valuationDetail": {
+    "untitled": "Aucun véhicule indiqué",
+    "errors": {
+      "failedToLoad": "L’évaluation n’a pas pu être chargée.",
+      "somethingWentWrong": "Une erreur est survenue."
+    },
+    "actions": {
+      "revalue": "Réévaluer",
+      "markUsed": "Marquer comme utilisée",
+      "markUsedDisabledReason": "Possible seulement depuis brouillon ou valide.",
+      "openCustomer": "Ouvrir le client",
+      "openVehicle": "Ouvrir le véhicule"
+    },
+    "expiredBanner": {
+      "title": "Évaluation expirée",
+      "body": "Cette évaluation n’est plus valide. Créez-en une nouvelle via \"Réévaluer\" si nécessaire."
+    },
+    "valueCard": {
+      "title": "Évaluation",
+      "providerValue": "Valeur brute",
+      "netValue": "Valeur nette",
+      "finalOffer": "Offre de reprise",
+      "finalOfferHint": "L’offre de reprise peut différer de la valeur nette — c’est la négociation."
+    },
+    "vehicleCard": {
+      "title": "Véhicule",
+      "vin": "VIN",
+      "plate": "Plaque",
+      "mileage": "Kilométrage",
+      "firstRegistration": "Première immatriculation",
+      "customer": "Client"
+    },
+    "noteCard": {
+      "title": "Note"
+    },
+    "validityHelp": "Le statut est calculé à la lecture, jamais corrigé de nuit — valide jusqu’au {{validUntil}}."
+  },
+  "valuationCreate": {
+    "title": "Créer une évaluation",
+    "revalueTitle": "Réévaluer (remplace {{number}})",
+    "submit": "Créer",
+    "error": "L’évaluation n’a pas pu être créée.",
+    "banner": "Sans client, sans offre, sans véhicule enregistré requis — toute combinaison fonctionne.",
+    "vehicleSection": "Véhicule",
+    "vin": "VIN",
+    "mileage": "Kilométrage",
+    "make": "Marque",
+    "model": "Modèle",
+    "trim": "Finition",
+    "plate": "Plaque",
+    "customerSection": "Client",
+    "searchCustomer": "Rechercher un client",
+    "createCustomer": "Créer un nouveau",
+    "source": "Source",
+    "sourceManual": "Manuel",
+    "providerValue": "Valeur brute",
+    "validForDays": "Valide pendant (jours)",
+    "deductionsSection": "Déductions",
+    "deductionLabel": "Désignation",
+    "deductionAmount": "Montant",
+    "addDeduction": "Ajouter",
+    "finalOffer": "Offre de reprise",
+    "finalOfferHint": "Peut différer de la valeur nette — c’est la négociation.",
+    "note": "Note"
   }
 }

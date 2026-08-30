@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import {
   AlertTriangle,
   Car,
+  CarFront,
   ChartColumn,
   Cog,
   Handshake,
@@ -51,6 +52,11 @@ function buildNavGroups(t: (key: string) => string): NavGroupConfig[] {
         // WP-8 PR-1: promotes the scaffolded "soon" slot — same shape as
         // WP-7 PR-1's own inventory promotion above.
         { label: t('shell.nav.sales'), href: '/sales', icon: Handshake, status: 'active' },
+        // WP-8 PR-9 — "Bewertungen," beneath Verkauf: a judgment call (the
+        // prototype confirms only the route #/valuations, not its nav
+        // placement) since a valuation is created from within an offer's
+        // trade-in container as often as it is from this standalone list.
+        { label: t('shell.nav.valuations'), href: '/valuations', icon: CarFront, status: 'active' },
         { label: t('shell.nav.aftersales'), href: '/aftersales', icon: Wrench, status: 'soon' },
         // WP-7 PR-1: promotes the scaffolded "soon" slot — href moves from
         // /inventory to /stock, matching the reference prototype's own

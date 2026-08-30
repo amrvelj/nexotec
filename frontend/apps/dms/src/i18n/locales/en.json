@@ -15,7 +15,8 @@
       "finance": "Finance",
       "transactions": "Transactions",
       "reporting": "Reporting",
-      "compliance": "Compliance"
+      "compliance": "Compliance",
+      "valuations": "Valuations"
     },
     "signOut": "Sign out",
     "globalSearch": {
@@ -846,5 +847,108 @@
     "previewError": "Preview could not be loaded.",
     "download": "Download",
     "version": "Version {{version}}"
+  },
+  "valuationsList": {
+    "title": "Valuations",
+    "newValuation": "Create valuation",
+    "searchPlaceholder": "Valuation number, VIN, plate, customer …",
+    "allView": "All valuations",
+    "noCustomer": "No customer",
+    "loadError": "Valuations could not be loaded.",
+    "chips": {
+      "all": "All",
+      "valid": "Valid",
+      "expiring_soon": "Expiring soon",
+      "expired": "Expired",
+      "unattached": "No customer",
+      "mine": "Mine"
+    },
+    "columns": {
+      "number": "Number",
+      "vehicle": "Vehicle",
+      "customer": "Customer",
+      "mileage": "Mileage",
+      "finalOffer": "Trade-in offer",
+      "source": "Source",
+      "status": "Status",
+      "validUntil": "Valid until"
+    },
+    "emptyState": {
+      "title": "No valuations yet",
+      "description": "Create a valuation — with or without a customer, offer, or a registered vehicle."
+    },
+    "emptyFilteredState": {
+      "title": "No matches",
+      "description": "No valuation matches the current search.",
+      "action": "Reset search"
+    },
+    "rowActions": {
+      "open": "Open"
+    }
+  },
+  "valuationDetail": {
+    "untitled": "No vehicle given",
+    "errors": {
+      "failedToLoad": "The valuation could not be loaded.",
+      "somethingWentWrong": "Something went wrong."
+    },
+    "actions": {
+      "revalue": "Revalue",
+      "markUsed": "Mark as used",
+      "markUsedDisabledReason": "Only possible from draft or valid.",
+      "openCustomer": "Open customer",
+      "openVehicle": "Open vehicle"
+    },
+    "expiredBanner": {
+      "title": "Valuation expired",
+      "body": "This valuation is no longer valid. Create a new one via \"Revalue\" if needed."
+    },
+    "valueCard": {
+      "title": "Valuation",
+      "providerValue": "Raw value",
+      "netValue": "Net value",
+      "finalOffer": "Trade-in offer",
+      "finalOfferHint": "The trade-in offer may differ from the net value — that's the negotiation."
+    },
+    "vehicleCard": {
+      "title": "Vehicle",
+      "vin": "VIN",
+      "plate": "Plate",
+      "mileage": "Mileage",
+      "firstRegistration": "First registration",
+      "customer": "Customer"
+    },
+    "noteCard": {
+      "title": "Note"
+    },
+    "validityHelp": "Status is computed on read, never patched overnight — valid until {{validUntil}}."
+  },
+  "valuationCreate": {
+    "title": "Create valuation",
+    "revalueTitle": "Revalue (replaces {{number}})",
+    "submit": "Create",
+    "error": "The valuation could not be created.",
+    "banner": "No customer, no offer, no registered vehicle required — any combination works.",
+    "vehicleSection": "Vehicle",
+    "vin": "VIN",
+    "mileage": "Mileage",
+    "make": "Make",
+    "model": "Model",
+    "trim": "Trim",
+    "plate": "Plate",
+    "customerSection": "Customer",
+    "searchCustomer": "Search customer",
+    "createCustomer": "Create new",
+    "source": "Source",
+    "sourceManual": "Manual",
+    "providerValue": "Raw value",
+    "validForDays": "Valid for (days)",
+    "deductionsSection": "Deductions",
+    "deductionLabel": "Label",
+    "deductionAmount": "Amount",
+    "addDeduction": "Add",
+    "finalOffer": "Trade-in offer",
+    "finalOfferHint": "May differ from the net value — that's the negotiation.",
+    "note": "Note"
   }
 }

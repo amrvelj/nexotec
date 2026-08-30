@@ -15,7 +15,8 @@
       "finance": "Finanzen",
       "transactions": "Transaktionen",
       "reporting": "Reporting",
-      "compliance": "Compliance"
+      "compliance": "Compliance",
+      "valuations": "Bewertungen"
     },
     "signOut": "Abmelden",
     "globalSearch": {
@@ -846,5 +847,108 @@
     "previewError": "Vorschau konnte nicht geladen werden.",
     "download": "Herunterladen",
     "version": "Version {{version}}"
+  },
+  "valuationsList": {
+    "title": "Bewertungen",
+    "newValuation": "Bewertung erstellen",
+    "searchPlaceholder": "Bewertungsnummer, VIN, Kontrollschild, Kunde …",
+    "allView": "Alle Bewertungen",
+    "noCustomer": "Ohne Kunde",
+    "loadError": "Bewertungen konnten nicht geladen werden.",
+    "chips": {
+      "all": "Alle",
+      "valid": "Gültig",
+      "expiring_soon": "Läuft ab",
+      "expired": "Abgelaufen",
+      "unattached": "Ohne Kunde",
+      "mine": "Meine"
+    },
+    "columns": {
+      "number": "Nummer",
+      "vehicle": "Fahrzeug",
+      "customer": "Kunde",
+      "mileage": "Kilometerstand",
+      "finalOffer": "Eintauschangebot",
+      "source": "Quelle",
+      "status": "Status",
+      "validUntil": "Gültig bis"
+    },
+    "emptyState": {
+      "title": "Noch keine Bewertungen",
+      "description": "Erstellen Sie eine Bewertung — mit oder ohne Kunde, Offerte oder Fahrzeug im Bestand."
+    },
+    "emptyFilteredState": {
+      "title": "Keine Treffer",
+      "description": "Keine Bewertung entspricht der aktuellen Suche.",
+      "action": "Suche zurücksetzen"
+    },
+    "rowActions": {
+      "open": "Öffnen"
+    }
+  },
+  "valuationDetail": {
+    "untitled": "Ohne Fahrzeugangabe",
+    "errors": {
+      "failedToLoad": "Bewertung konnte nicht geladen werden.",
+      "somethingWentWrong": "Etwas ist schiefgelaufen."
+    },
+    "actions": {
+      "revalue": "Neu bewerten",
+      "markUsed": "Als verwendet markieren",
+      "markUsedDisabledReason": "Nur aus Entwurf oder gültig möglich.",
+      "openCustomer": "Kunde öffnen",
+      "openVehicle": "Fahrzeug öffnen"
+    },
+    "expiredBanner": {
+      "title": "Bewertung abgelaufen",
+      "body": "Diese Bewertung ist nicht mehr gültig. Erstellen Sie bei Bedarf eine neue über \"Neu bewerten\"."
+    },
+    "valueCard": {
+      "title": "Bewertung",
+      "providerValue": "Rohwert",
+      "netValue": "Nettowert",
+      "finalOffer": "Eintauschangebot",
+      "finalOfferHint": "Das Eintauschangebot darf vom Nettowert abweichen — das ist die Verhandlung."
+    },
+    "vehicleCard": {
+      "title": "Fahrzeug",
+      "vin": "VIN",
+      "plate": "Kontrollschild",
+      "mileage": "Kilometerstand",
+      "firstRegistration": "Erstzulassung",
+      "customer": "Kunde"
+    },
+    "noteCard": {
+      "title": "Notiz"
+    },
+    "validityHelp": "Der Status wird beim Lesen berechnet, nicht über Nacht nachgeführt — gültig bis {{validUntil}}."
+  },
+  "valuationCreate": {
+    "title": "Bewertung erstellen",
+    "revalueTitle": "Neu bewerten (ersetzt {{number}})",
+    "submit": "Erstellen",
+    "error": "Bewertung konnte nicht erstellt werden.",
+    "banner": "Ohne Kunde, ohne Offerte, ohne Fahrzeug im Bestand — jede Kombination ist möglich.",
+    "vehicleSection": "Fahrzeug",
+    "vin": "VIN",
+    "mileage": "Kilometerstand",
+    "make": "Marke",
+    "model": "Modell",
+    "trim": "Ausstattung",
+    "plate": "Kontrollschild",
+    "customerSection": "Kunde",
+    "searchCustomer": "Kunde suchen",
+    "createCustomer": "Neu anlegen",
+    "source": "Quelle",
+    "sourceManual": "Manuell",
+    "providerValue": "Rohwert",
+    "validForDays": "Gültig für (Tage)",
+    "deductionsSection": "Abzüge",
+    "deductionLabel": "Bezeichnung",
+    "deductionAmount": "Betrag",
+    "addDeduction": "Hinzufügen",
+    "finalOffer": "Eintauschangebot",
+    "finalOfferHint": "Darf vom Nettowert abweichen — das ist die Verhandlung.",
+    "note": "Notiz"
   }
 }

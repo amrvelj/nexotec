@@ -801,3 +801,75 @@ export interface SalesDealPage {
   total: number
   totalIsEstimate: boolean
 }
+
+// WP-8 PR-9 — app.valuation, the 11th bounded context (ADR-066/ADR-048 as
+// amended). Immutable once created: "Neu bewerten" (supersede) is the
+// only correction mechanism, for any status including draft.
+export type ValuationSourceValue = 'auto_i_dat' | 'manual'
+export type ValuationStatusValue = 'draft' | 'valid' | 'expired' | 'used'
+
+export interface ValuationDeductionInput {
+  label: string
+  amount: string
+}
+
+export interface ValuationDeductionRead {
+  label: string
+  amount: string
+}
+
+export interface ValuationCreate {
+  vin?: string | null
+  vehicleMake?: string | null
+  vehicleModel?: string | null
+  vehicleTrim?: string | null
+  vehiclePlate?: string | null
+  vehicleFirstRegistration?: string | null
+  mileage?: number | null
+  customerId?: string | null
+  source: ValuationSourceValue
+  providerValue?: string | null
+  finalOffer: string
+  deductions?: ValuationDeductionInput[]
+  note?: string | null
+  validForDays?: number
+  isDraft?: boolean
+  supersedesValuationId?: string | null
+}
+
+export interface ValuationRead {
+  id: string
+  valuationNumber: string
+  vehicleId: string | null
+  vehicleMake: string | null
+  vehicleModel: string | null
+  vehicleTrim: string | null
+  vehiclePlate: string | null
+  vehicleVin: string | null
+  vehicleFirstRegistration: string | null
+  mileage: number | null
+  customerId: string | null
+  customerLabel: string | null
+  source: ValuationSourceValue
+  providerValue: string | null
+  finalOffer: string
+  deductions: ValuationDeductionRead[]
+  note: string | null
+  validFrom: string
+  validUntil: string
+  isDraft: boolean
+  usedAt: string | null
+  supersedesValuationId: string | null
+  status: ValuationStatusValue
+  version: number
+  createdBy: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ValuationPage {
+  items: ValuationRead[]
+  nextCursor: string | null
+  total: number
+  totalIsEstimate: boolean
+}
