@@ -30,7 +30,7 @@ from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
-from app.core.types import GUID
+from app.core.types import GUID, UTCDateTime
 from app.db import Base
 
 
@@ -77,6 +77,19 @@ class StockItem(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMix
             postgresql_where=text("vin IS NOT NULL"),
             sqlite_where=text("vin IS NOT NULL"),
         ),
+        # WP-7 PR-2: the defense-in-depth half of consumer idempotency — the
+        # outbox harness's ProcessedEvent table already stops the SAME
+        # message id from being handled twice, but this stops a genuinely
+        # duplicate emission (a different message id, same business event)
+        # from double-creating a pipeline item.
+        Index(
+            "uq_stock_item_tenant_id_pipeline_ref",
+            "tenant_id",
+            "pipeline_ref",
+            unique=True,
+            postgresql_where=text("pipeline_ref IS NOT NULL"),
+            sqlite_where=text("pipeline_ref IS NOT NULL"),
+        ),
     )
 
     stock_number: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
@@ -117,3 +130,17 @@ class StockItem(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMix
     effective_price: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
 
     first_registration_date: Mapped[dt.date | None] = mapped_column(Date(), nullable=True)
+
+    # WP-7 PR-2 (ADR-045). Set only for an item that originated from a
+    # Sales auto-create path (manual configuration or trade-in) — never
+    # user-editable, the sole reason it exists is idempotency (see
+    # __table_args__ above). A manually-created item (StockCreatePage,
+    # PR-1) never has one.
+    pipeline_ref: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
+    order_date: Mapped[dt.date | None] = mapped_column(Date(), nullable=True)
+    expected_delivery: Mapped[dt.date | None] = mapped_column(Date(), nullable=True)
+    # Set once, by promote_to_vehicle_mdm, the moment lifecycle_status
+    # flips pipeline -> in_stock. Ageing (PR-7) is derived from this, never
+    # from created_at — a factory order's time in the pipeline doesn't
+    # count as ageing on the lot.
+    in_stock_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)

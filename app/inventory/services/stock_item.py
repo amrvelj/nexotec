@@ -5,6 +5,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.base import utcnow
 from app.core.config import get_settings
 from app.core.errors import NotFoundError
 from app.core.outbox import OutboxEvent, publish
@@ -46,9 +47,22 @@ def get_stock_item_or_404(db: Session, tenant_id: uuid.UUID, stock_item_id: uuid
     return item
 
 
-def create_stock_item(
-    db: Session, *, tenant_id: uuid.UUID, data: StockItemCreate, actor_id: uuid.UUID | None
+def _build_and_flush_stock_item(
+    db: Session,
+    *,
+    tenant_id: uuid.UUID,
+    data: StockItemCreate,
+    actor_id: uuid.UUID | None,
+    pipeline_ref: str | None,
 ) -> StockItem:
+    """The commit-free core, shared by create_stock_item (HTTP path, owns
+    its own commit) and app.inventory.services.pipeline's consumer path
+    (WP-7 PR-2, whose commit must be the SAME transaction as the outbox
+    consumer harness's ProcessedEvent row — app.core.consumer's own "one
+    rule": the side effect and its processed_event row are written
+    together, or not at all).
+    """
+
     item = StockItem(
         tenant_id=tenant_id,
         stock_number=allocate_stock_number(db, tenant_id),
@@ -61,10 +75,12 @@ def create_stock_item(
         list_price=data.list_price,
         effective_price=data.effective_price,
         first_registration_date=data.first_registration_date,
+        pipeline_ref=pipeline_ref,
         # A stock item created directly (not via the pipeline/promotion
         # path, PR-2) already has a VIN in hand — it goes straight to
         # in_stock rather than sitting in pipeline with nothing to promote.
         lifecycle_status=LifecycleStatus.IN_STOCK if data.vin else LifecycleStatus.PIPELINE,
+        in_stock_at=utcnow() if data.vin else None,
         created_by=actor_id,
         updated_by=actor_id,
     )
@@ -82,6 +98,13 @@ def create_stock_item(
             payload={"stockNumber": item.stock_number, "vehicleLabel": item.vehicle_label},
         ),
     )
+    return item
+
+
+def create_stock_item(
+    db: Session, *, tenant_id: uuid.UUID, data: StockItemCreate, actor_id: uuid.UUID | None
+) -> StockItem:
+    item = _build_and_flush_stock_item(db, tenant_id=tenant_id, data=data, actor_id=actor_id, pipeline_ref=None)
     db.commit()
     db.refresh(item)
     return item

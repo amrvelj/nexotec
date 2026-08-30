@@ -30,12 +30,26 @@ def get_vehicle_mdm_or_404(db: Session, vehicle_id: uuid.UUID) -> VehicleMdm:
     return _get_vehicle_mdm_or_404(db, vehicle_id)
 
 
+def create_or_get_vehicle_mdm(
+    db: Session, *, vin: str, catalogue_variant_id: uuid.UUID | None = None
+) -> tuple[VehicleMdm, bool]:
+    """WP-7 PR-2: inventory's promote_to_vehicle_mdm (ADR-045, FR-V-04)
+    calls this the moment a pipeline item's VIN arrives — same
+    deferred-import reasoning as get_vehicle_mdm_or_404 above.
+    """
+
+    from app.vehicle.services.vehicle_mdm import create_or_get_vehicle_mdm as _create_or_get_vehicle_mdm
+
+    return _create_or_get_vehicle_mdm(db, vin=vin, catalogue_variant_id=catalogue_variant_id)
+
+
 __all__ = [
     "CustodyEventType",
     "Vehicle",
     "VehicleMdm",
     "VehicleStatus",
     "create_custody_event",
+    "create_or_get_vehicle_mdm",
     "get_vehicle_mdm_or_404",
     "get_vehicle_or_404",
 ]

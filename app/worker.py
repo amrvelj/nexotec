@@ -25,6 +25,7 @@ from app.core.outbox import consumer_lag_seconds, dead_letter_count, oldest_pend
 from app.core.outbox_transport import InProcessTransport
 from app.core.outbox_worker import poll_once
 from app.db import SessionLocal
+from app.inventory.consumers import handle_sales_contract_confirmed_message
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 logger = logging.getLogger("app.worker")
@@ -34,14 +35,18 @@ _HEARTBEAT_INTERVAL_SECONDS = 30.0
 
 
 def register_handlers(transport: InProcessTransport) -> None:
-    """PR-4 ships this empty on purpose (scope: outbox machinery only, no
-    real business events or handlers — that's PR-5). Real consumers
-    register here as they land, e.g.:
-
-        transport.register(
-            "customer.merged", consumer_name="sales.repoint_transactions", handler=...
-        )
+    """WP-7 PR-2 registers the first real consumer here — sales emits no
+    such event yet (see app.inventory.services.pipeline's own docstring),
+    so this is genuinely forward-compatible infrastructure, exercised
+    today only by tests/test_inventory_pipeline_consumer.py's directly-
+    constructed synthetic events.
     """
+
+    transport.register(
+        "sales.contract.confirmed",
+        consumer_name="inventory.sales_contract_confirmed",
+        handler=handle_sales_contract_confirmed_message,
+    )
 
     if os.environ.get("DMS_OUTBOX_WORKER_CI_SMOKE_TEST_PROBE") == "1":
         _register_ci_smoke_test_probe(transport)
