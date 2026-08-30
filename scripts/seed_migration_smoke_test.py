@@ -152,18 +152,29 @@ def _dealership_has_wp6b_columns(db: Session) -> bool:
     return "logo_url" in columns
 
 
+def _dealership_has_wp7_columns(db: Session) -> bool:
+    """WP-7 PR-3/PR-7 added vat_rate/ageing_alert_thresholds to
+    dealership. Same trap as WP-6b's own check above, one PR later — the
+    dealership table has existed since WP-3 and already has WP-6b's
+    columns on main, so only a column-level check catches this one too.
+    """
+
+    columns = {col["name"] for col in inspect(db.get_bind()).get_columns("dealership")}
+    return "vat_rate" in columns
+
+
 def _seed_dealer_and_group_new_schema(db: Session) -> tuple[uuid.UUID, uuid.UUID]:
     """This PR's own heads already applied — dealer_group/dealership exist,
     so the current ORM classes address the real schema directly. Except
-    WP-6b's three new dealership columns specifically — see
-    _dealership_has_wp6b_columns.
+    WP-6b's and WP-7's own new dealership columns specifically — see
+    _dealership_has_wp6b_columns / _dealership_has_wp7_columns.
     """
 
     group = DealerGroup(name="Migration Smoke Test Group")
     db.add(group)
     db.flush()
 
-    if _dealership_has_wp6b_columns(db):
+    if _dealership_has_wp7_columns(db):
         dealership = Dealership(
             dealer_group_id=group.id,
             legal_name="Migration Smoke Test AG",
@@ -178,6 +189,61 @@ def _seed_dealer_and_group_new_schema(db: Session) -> tuple[uuid.UUID, uuid.UUID
         db.add(dealership)
         db.flush()
         return dealership.id, group.id
+
+    if _dealership_has_wp6b_columns(db):
+        # WP-6b's columns are live but WP-7's (vat_rate/
+        # ageing_alert_thresholds) aren't yet — the ORM class above already
+        # carries those two, so it can't be used here; a raw insert naming
+        # every column through WP-6b, and no further, is the only way to
+        # write a row this PR's migrations haven't reached yet.
+        dealership_id = uuid7()
+        db.execute(
+            sa.table(
+                "dealership",
+                sa.column("id", GUID()),
+                sa.column("dealer_group_id", GUID()),
+                sa.column("legal_name", sa.String()),
+                sa.column("dealer_license_number", sa.String()),
+                sa.column("license_state", sa.String()),
+                sa.column("franchise_type", sa.String()),
+                sa.column("address_street", sa.String()),
+                sa.column("address_house_number", sa.String()),
+                sa.column("address_postal_code", sa.String()),
+                sa.column("address_locality", sa.String()),
+                sa.column("address_canton", sa.String()),
+                sa.column("address_country", sa.String()),
+                sa.column("phone", sa.String()),
+                sa.column("tax_id", EncryptedString()),
+                sa.column("status", sa.String()),
+                sa.column("logo_url", sa.String()),
+                sa.column("brand_primary_color", sa.String()),
+                sa.column("default_correspondence_language", sa.String()),
+                sa.column("version", sa.Integer()),
+                sa.column("created_at", sa.DateTime(timezone=True)),
+                sa.column("updated_at", sa.DateTime(timezone=True)),
+            )
+            .insert()
+            .values(
+                id=dealership_id,
+                dealer_group_id=group.id,
+                legal_name="Migration Smoke Test AG",
+                dealer_license_number="ZH-99999",
+                license_state="ZH",
+                franchise_type="INDEPENDENT",
+                **_DEALER_ADDRESS,
+                phone="+41441234567",
+                tax_id="CHE-999.999.999",
+                status="ACTIVE",
+                logo_url=None,
+                brand_primary_color="#7C3AED",
+                default_correspondence_language="DE",
+                version=1,
+                created_at=utcnow(),
+                updated_at=utcnow(),
+            )
+        )
+        db.flush()
+        return dealership_id, group.id
 
     dealership_id = uuid7()
     db.execute(

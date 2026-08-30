@@ -8,6 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.errors import ConflictError, NotFoundError
+from app.vehicle.models.energy_rating import ModelVariantEnergyRating
 from app.vehicle.models.vehicle_mdm import CatalogueMatchStatus, VehicleMdm, VehicleNumberSequence
 from app.vehicle.schemas.vehicle_mdm import VehicleMdmUpdate
 
@@ -147,3 +148,40 @@ def update_vehicle_mdm(
     db.commit()
     db.refresh(vehicle)
     return vehicle
+
+
+def get_vehicle_equipment(db: Session, vehicle_id: uuid.UUID) -> dict:
+    """WP-7 PR-8 (ADR-062) — the three separate concepts, read-only from
+    here (inventory's publishing tab reads, never writes them; equipment
+    is a fact about the car, edited wherever the vehicle's own identity
+    fields are).
+    """
+
+    vehicle = get_vehicle_mdm_or_404(db, vehicle_id)
+    return {
+        "ausstattungCodes": vehicle.ausstattung_codes or [],
+        "extras": vehicle.extras or [],
+        "eigenschaften": vehicle.eigenschaften or [],
+        "providerAusstattung": vehicle.provider_ausstattung or {},
+    }
+
+
+def has_current_energy_rating(db: Session, vehicle_id: uuid.UUID) -> bool:
+    """WP-7 PR-8's "missing Energieetikette on a new car <2000km" blocking
+    condition. Simplified to "any BFE rating year exists for this
+    variant" — the full "current fleet year" resolution is
+    ModelVariantEnergyRating's own domain (WP-5 PR-8), not something this
+    single yes/no check needs to reimplement.
+    """
+
+    vehicle = get_vehicle_mdm_or_404(db, vehicle_id)
+    if vehicle.catalogue_variant_id is None:
+        return False
+    return (
+        db.scalar(
+            select(ModelVariantEnergyRating.id).where(
+                ModelVariantEnergyRating.model_variant_id == vehicle.catalogue_variant_id
+            )
+        )
+        is not None
+    )

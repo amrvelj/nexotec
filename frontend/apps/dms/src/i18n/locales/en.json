@@ -43,7 +43,9 @@
       "ariaLabel": "Change row density"
     },
     "cancel": "Cancel",
-    "notSet": "Not set"
+    "notSet": "Not set",
+    "yes": "Yes",
+    "no": "No"
   },
   "customerEnums": {
     "customerType": {
@@ -453,6 +455,218 @@
     "placeholder": {
       "title": "Nothing here yet",
       "body": "The Dashboard is still being designed. Until then, use the navigation on the left to jump into a module."
+    }
+  },
+  "stockEnums": {
+    "lifecycleStatus": {
+      "pipeline": "Pipeline",
+      "in_stock": "In stock",
+      "storno_pending": "Storno pending"
+    },
+    "condition": {
+      "new": "New",
+      "used": "Used",
+      "demo": "Demo vehicle",
+      "tagesz": "Day registration"
+    },
+    "reservationState": {
+      "none": "Free",
+      "reserved": "Reserved"
+    },
+    "ledgerCategory": {
+      "einstandspreis": "Acquisition cost",
+      "landed_cost": "Landed cost",
+      "aufbereitung": "Reconditioning",
+      "reparatur": "Repair",
+      "gutachten": "Appraisal",
+      "standkosten": "Holding cost",
+      "werbung": "Advertising",
+      "garantie": "Warranty",
+      "abwertung": "Devaluation",
+      "promotion": "Promotion",
+      "sonstige_kosten": "Other costs",
+      "verkaufserloes": "Sale proceeds",
+      "kickback": "Kickback",
+      "zusatzerloes": "Additional proceeds",
+      "foerderung": "Incentive/subsidy",
+      "sonstige_ertraege": "Other revenue"
+    }
+  },
+  "stockList": {
+    "title": "Stock",
+    "newStockItem": "Add vehicle",
+    "searchPlaceholder": "Plate, VIN, customer, offer…",
+    "allStockView": "All stock",
+    "columns": {
+      "stockNumber": "Stock no.",
+      "vehicle": "Vehicle",
+      "condition": "Condition",
+      "lifecycleStatus": "Stock status",
+      "reservationState": "Reservation",
+      "odometerKm": "Odometer",
+      "effectivePrice": "Effective price",
+      "changed": "Changed",
+      "vin": "VIN",
+      "listPrice": "List price",
+      "dealership": "Dealership",
+      "ageingBucket": "Ageing indicator",
+      "basePrice": "Base price",
+      "purchasePrice": "Purchase price",
+      "landedCost": "Landed cost",
+      "notionalInputTaxAmount": "Notional input tax",
+      "isInvoiceable": "Invoiceable",
+      "supplierName": "Supplier",
+      "purchaseDate": "Purchase date",
+      "orderDate": "Order date",
+      "expectedDelivery": "Expected delivery",
+      "pipelineRef": "Pipeline reference"
+    },
+    "emptyState": {
+      "title": "No vehicles in stock",
+      "description": "Add a vehicle to stock to get started."
+    },
+    "emptyFilteredState": {
+      "title": "No results",
+      "description": "Adjust your search or filters.",
+      "action": "Reset filters"
+    },
+    "rowActions": {
+      "open": "Open"
+    },
+    "scope": {
+      "own": "Own stock",
+      "group": "Group stock"
+    }
+  },
+  "stockDetail": {
+    "tabs": {
+      "details": "Details",
+      "wagenbuch": "Wagenbuch",
+      "publishing": "Publishing",
+      "evaluation": "Evaluation"
+    },
+    "actions": {
+      "createOffer": "Create offer",
+      "createContract": "Create contract",
+      "salesNotYetBuilt": "Sales is not available yet."
+    },
+    "spec": {
+      "firstRegistrationDate": "First registration",
+      "odometerKm": "Odometer",
+      "stockNumber": "Stock number",
+      "vin": "VIN"
+    },
+    "commercial": {
+      "title": "Commercial",
+      "odometerKm": "Odometer",
+      "listPrice": "List price",
+      "effectivePrice": "Effective price"
+    },
+    "identity": {
+      "title": "Vehicle",
+      "vehicleLabel": "Label",
+      "vehicleId": "Vehicle ID"
+    },
+    "errors": {
+      "failedToLoad": "Failed to load",
+      "somethingWentWrong": "Something went wrong."
+    },
+    "purchase": {
+      "title": "Purchase",
+      "recordButton": "Record purchase",
+      "dialogTitle": "Record purchase",
+      "submit": "Record",
+      "fields": {
+        "supplierName": "Supplier",
+        "supplierIsVatRegistered": "Supplier is VAT-registered",
+        "purchasePrice": "Purchase price",
+        "purchaseDate": "Purchase date",
+        "purchaseInvoiceRef": "Invoice reference"
+      },
+      "notionalInputTax": "Notional input tax deduction",
+      "notionalInputTaxNotApplicable": "Not applicable",
+      "notionalInputTaxRateNotConfigured": "VAT rate not yet configured",
+      "isInvoiceable": "Invoiceable"
+    },
+    "wagenbuch": {
+      "result": "Result",
+      "recordButton": "Record entry",
+      "empty": "No entries recorded",
+      "dialogTitle": "Record entry",
+      "submit": "Record",
+      "fields": {
+        "category": "Category",
+        "amount": "Amount",
+        "occurredAt": "Date"
+      },
+      "columns": {
+        "occurredAt": "Date",
+        "category": "Category",
+        "amount": "Amount",
+        "source": "Source"
+      },
+      "auto": "Automatic",
+      "manual": "Manual"
+    },
+    "publishing": {
+      "blockingBannerTitle": "{{count}} item(s) are blocking publication",
+      "channelsTitle": "Channels",
+      "published": "Published",
+      "notPublished": "Not published",
+      "lastPublishedAt": "Last published: {{date}}",
+      "neverPublished": "Never published",
+      "publishTo": "Publish to {{channel}}",
+      "unpublish": "Unpublish from {{channel}}",
+      "unpublishConfirmTitle": "Confirm unpublish",
+      "unpublishConfirmSubmit": "Unpublish",
+      "unpublishConfirmBody": "The listing on {{channel}} will be deleted along with its statistics and URL. This cannot be undone.",
+      "listingTextTitle": "Listing text",
+      "titleDisplayLimit": "{{count}} characters shown on the results list.",
+      "haendlerbemerkungenHint": "Internal only — never appears in the listing.",
+      "fields": {
+        "zusatztitel": "Additional title",
+        "bemerkungen": "Remarks",
+        "zustandsbeschreibung": "Condition description",
+        "haendlerbemerkungen": "Dealer remarks"
+      },
+      "media": {
+        "title": "Pictures",
+        "addPrompt": "Image URL",
+        "mainImage": "Main image",
+        "moveLeft": "Move left",
+        "moveRight": "Move right",
+        "remove": "Remove",
+        "addPhoto": "Add photo",
+        "countOf": "{{count}} / {{max}}"
+      },
+      "equipment": {
+        "title": "Equipment",
+        "ausstattung": "Equipment (searchable)",
+        "extras": "Extras",
+        "eigenschaften": "Properties",
+        "hint": "AutoScout24 knows three separate concepts: equipment (searchable codes), extras (features) and properties (condition flags such as accident vehicle)."
+      }
+    },
+    "evaluation": {
+      "title": "Evaluation",
+      "empty": "No valuation available.",
+      "amount": "Amount",
+      "valuedAt": "Valued at",
+      "source": "Source",
+      "hint": "Valuations are created and managed in the Sales module — this area only shows the current pointer."
+    }
+  },
+  "stockCreate": {
+    "title": "Add vehicle",
+    "fields": {
+      "vehicleLabel": "Label",
+      "condition": "Condition",
+      "vin": "VIN",
+      "vinDescription": "If already known — otherwise the vehicle stays in the pipeline."
+    },
+    "submit": "Add",
+    "errors": {
+      "somethingWentWrong": "Something went wrong."
     }
   }
 }

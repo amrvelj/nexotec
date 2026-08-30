@@ -43,7 +43,9 @@
       "ariaLabel": "Zeilendichte ändern"
     },
     "cancel": "Abbrechen",
-    "notSet": "Nicht gesetzt"
+    "notSet": "Nicht gesetzt",
+    "yes": "Ja",
+    "no": "Nein"
   },
   "customerEnums": {
     "customerType": {
@@ -453,6 +455,218 @@
     "placeholder": {
       "title": "Noch nichts hier",
       "body": "Das Dashboard ist noch in Planung. Nutzen Sie bis dahin die Navigation links, um zu einem Modul zu wechseln."
+    }
+  },
+  "stockEnums": {
+    "lifecycleStatus": {
+      "pipeline": "Pipeline",
+      "in_stock": "An Lager",
+      "storno_pending": "Storno ausstehend"
+    },
+    "condition": {
+      "new": "Neu",
+      "used": "Occasion",
+      "demo": "Vorführwagen",
+      "tagesz": "Tageszulassung"
+    },
+    "reservationState": {
+      "none": "Frei",
+      "reserved": "Reserviert"
+    },
+    "ledgerCategory": {
+      "einstandspreis": "Einstandspreis",
+      "landed_cost": "Landed Cost",
+      "aufbereitung": "Aufbereitung",
+      "reparatur": "Reparatur",
+      "gutachten": "Gutachten",
+      "standkosten": "Standkosten",
+      "werbung": "Werbung",
+      "garantie": "Garantie",
+      "abwertung": "Abwertung",
+      "promotion": "Promotion",
+      "sonstige_kosten": "Sonstige Kosten",
+      "verkaufserloes": "Verkaufserlös",
+      "kickback": "Kickback",
+      "zusatzerloes": "Zusatzerlös",
+      "foerderung": "Förderung",
+      "sonstige_ertraege": "Sonstige Erträge"
+    }
+  },
+  "stockList": {
+    "title": "Lagerbestand",
+    "newStockItem": "Fahrzeug aufnehmen",
+    "searchPlaceholder": "Kontrollschild, VIN, Kunde, Offerte…",
+    "allStockView": "Alle Fahrzeuge",
+    "columns": {
+      "stockNumber": "Lagernr.",
+      "vehicle": "Fahrzeug",
+      "condition": "Zustand",
+      "lifecycleStatus": "Lagerstatus",
+      "reservationState": "Reservation",
+      "odometerKm": "Kilometerstand",
+      "effectivePrice": "Effektivpreis",
+      "changed": "Geändert",
+      "vin": "VIN",
+      "listPrice": "Listenpreis",
+      "dealership": "Standort",
+      "ageingBucket": "Standtage-Ampel",
+      "basePrice": "Basispreis",
+      "purchasePrice": "Einkaufspreis",
+      "landedCost": "Landed Cost",
+      "notionalInputTaxAmount": "Fiktiver Vorsteuerabzug",
+      "isInvoiceable": "Fakturierbar",
+      "supplierName": "Lieferant",
+      "purchaseDate": "Einkaufsdatum",
+      "orderDate": "Bestelldatum",
+      "expectedDelivery": "Voraussichtliche Lieferung",
+      "pipelineRef": "Pipeline-Referenz"
+    },
+    "emptyState": {
+      "title": "Kein Fahrzeug im Lager",
+      "description": "Nehmen Sie ein Fahrzeug ins Lager auf, um zu beginnen."
+    },
+    "emptyFilteredState": {
+      "title": "Keine Treffer",
+      "description": "Passen Sie Suche oder Filter an.",
+      "action": "Filter zurücksetzen"
+    },
+    "rowActions": {
+      "open": "Öffnen"
+    },
+    "scope": {
+      "own": "Eigener Bestand",
+      "group": "Gruppenbestand"
+    }
+  },
+  "stockDetail": {
+    "tabs": {
+      "details": "Details",
+      "wagenbuch": "Wagenbuch",
+      "publishing": "Publikation",
+      "evaluation": "Bewertung"
+    },
+    "actions": {
+      "createOffer": "Offerte erstellen",
+      "createContract": "Vertrag erstellen",
+      "salesNotYetBuilt": "Verkauf ist noch nicht verfügbar."
+    },
+    "spec": {
+      "firstRegistrationDate": "Erstzulassung",
+      "odometerKm": "Kilometerstand",
+      "stockNumber": "Lagernummer",
+      "vin": "VIN"
+    },
+    "commercial": {
+      "title": "Kommerziell",
+      "odometerKm": "Kilometerstand",
+      "listPrice": "Listenpreis",
+      "effectivePrice": "Effektivpreis"
+    },
+    "identity": {
+      "title": "Fahrzeug",
+      "vehicleLabel": "Bezeichnung",
+      "vehicleId": "Fahrzeug-ID"
+    },
+    "errors": {
+      "failedToLoad": "Laden fehlgeschlagen",
+      "somethingWentWrong": "Etwas ist schiefgelaufen."
+    },
+    "purchase": {
+      "title": "Einkauf",
+      "recordButton": "Einkauf erfassen",
+      "dialogTitle": "Einkauf erfassen",
+      "submit": "Erfassen",
+      "fields": {
+        "supplierName": "Lieferant",
+        "supplierIsVatRegistered": "Lieferant ist MWST-pflichtig",
+        "purchasePrice": "Einkaufspreis",
+        "purchaseDate": "Einkaufsdatum",
+        "purchaseInvoiceRef": "Rechnungsreferenz"
+      },
+      "notionalInputTax": "Fiktiver Vorsteuerabzug",
+      "notionalInputTaxNotApplicable": "Nicht anwendbar",
+      "notionalInputTaxRateNotConfigured": "MWST-Satz noch nicht konfiguriert",
+      "isInvoiceable": "Fakturierbar"
+    },
+    "wagenbuch": {
+      "result": "Ergebnis",
+      "recordButton": "Buchung erfassen",
+      "empty": "Keine Buchungen erfasst",
+      "dialogTitle": "Buchung erfassen",
+      "submit": "Erfassen",
+      "fields": {
+        "category": "Kategorie",
+        "amount": "Betrag",
+        "occurredAt": "Datum"
+      },
+      "columns": {
+        "occurredAt": "Datum",
+        "category": "Kategorie",
+        "amount": "Betrag",
+        "source": "Herkunft"
+      },
+      "auto": "Automatisch",
+      "manual": "Manuell"
+    },
+    "publishing": {
+      "blockingBannerTitle": "{{count}} Punkt(e) verhindern die Publikation",
+      "channelsTitle": "Kanäle",
+      "published": "Publiziert",
+      "notPublished": "Nicht publiziert",
+      "lastPublishedAt": "Zuletzt publiziert: {{date}}",
+      "neverPublished": "Noch nie publiziert",
+      "publishTo": "Auf {{channel}} publizieren",
+      "unpublish": "Von {{channel}} depublizieren",
+      "unpublishConfirmTitle": "Depublizieren bestätigen",
+      "unpublishConfirmSubmit": "Depublizieren",
+      "unpublishConfirmBody": "Das Inserat auf {{channel}} wird zusammen mit seiner Statistik und der Inserate-URL gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.",
+      "listingTextTitle": "Inseratetexte",
+      "titleDisplayLimit": "Auf der Ergebnisliste werden {{count}} Zeichen angezeigt.",
+      "haendlerbemerkungenHint": "Nur für den Betrieb sichtbar — erscheint nicht im Inserat.",
+      "fields": {
+        "zusatztitel": "Zusatztitel",
+        "bemerkungen": "Bemerkungen",
+        "zustandsbeschreibung": "Zustandsbeschreibung",
+        "haendlerbemerkungen": "Händlerbemerkungen"
+      },
+      "media": {
+        "title": "Bilder",
+        "addPrompt": "Bild-URL",
+        "mainImage": "Hauptbild",
+        "moveLeft": "Nach links verschieben",
+        "moveRight": "Nach rechts verschieben",
+        "remove": "Entfernen",
+        "addPhoto": "Foto hinzufügen",
+        "countOf": "{{count}} / {{max}}"
+      },
+      "equipment": {
+        "title": "Ausstattung",
+        "ausstattung": "Ausstattung (suchbar)",
+        "extras": "Extras",
+        "eigenschaften": "Eigenschaften",
+        "hint": "AutoScout24 kennt drei getrennte Begriffe: Ausstattung (suchbare Codes), Extras (Merkmale) und Eigenschaften (Zustände wie Unfallwagen)."
+      }
+    },
+    "evaluation": {
+      "title": "Bewertung",
+      "empty": "Keine Bewertung vorhanden.",
+      "amount": "Betrag",
+      "valuedAt": "Bewertet am",
+      "source": "Quelle",
+      "hint": "Bewertungen werden im Modul Verkauf erstellt und verwaltet — dieser Bereich zeigt nur den aktuellen Stand."
+    }
+  },
+  "stockCreate": {
+    "title": "Fahrzeug aufnehmen",
+    "fields": {
+      "vehicleLabel": "Bezeichnung",
+      "condition": "Zustand",
+      "vin": "VIN",
+      "vinDescription": "Falls bereits bekannt — sonst bleibt das Fahrzeug in der Pipeline."
+    },
+    "submit": "Aufnehmen",
+    "errors": {
+      "somethingWentWrong": "Etwas ist schiefgelaufen."
     }
   }
 }

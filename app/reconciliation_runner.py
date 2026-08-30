@@ -6,19 +6,20 @@ list directly, not through a public.py (there's nothing generic about
 
 platform has no outbound cross-context references (its only FK,
 user.tenant_id, is intra-context), so there is no app.platform.reconciliation
-and none is run here. Whichever work package first builds inventory,
-aftersales, parts, finance, reporting or compliance out with cross-context
-references must add its own reconciliation module and wire it in here.
+and none is run here. WP-7 (inventory) is the first of the remaining
+contexts to add one; aftersales, parts, finance, reporting and compliance
+still need to add their own once they're built out.
 """
 
 from sqlalchemy.orm import Session
 
 from app.core.reconciliation import ReconciliationAlarm, ReconciliationRun
 from app.customer import reconciliation as customer_reconciliation
+from app.inventory import reconciliation as inventory_reconciliation
 from app.sales import reconciliation as sales_reconciliation
 from app.vehicle import reconciliation as vehicle_reconciliation
 
-_JOBS = [customer_reconciliation, sales_reconciliation, vehicle_reconciliation]
+_JOBS = [customer_reconciliation, inventory_reconciliation, sales_reconciliation, vehicle_reconciliation]
 
 
 class MultiContextReconciliationAlarm(Exception):

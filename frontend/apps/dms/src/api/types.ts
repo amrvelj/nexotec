@@ -458,3 +458,153 @@ export interface VehicleAccessoryRead {
   validFrom: string
   validTo: string | null
 }
+
+// WP-7 PR-1 (ADR-054): lifecycleStatus and reservationState are always
+// independent — every combination is legal, including pipeline+reserved
+// (a factory order already sold). "sold" is never a value here — a sold
+// (invoiced) item is simply absent from the active list (FR-I-12).
+export type StockLifecycleStatus = 'pipeline' | 'in_stock' | 'storno_pending'
+export type StockReservationState = 'none' | 'reserved'
+export type StockItemCondition = 'new' | 'used' | 'demo' | 'tagesz'
+// WP-7 PR-7 — fixed, never dealer-configurable (that's Dealership.
+// ageingAlertThresholds, a completely separate, notification-only field).
+export type AgeingBucket = 'green' | 'amber' | 'red'
+
+export interface StockItemRead {
+  id: string
+  stockNumber: string
+  vehicleId: string | null
+  vin: string | null
+  vehicleLabel: string
+  lifecycleStatus: StockLifecycleStatus
+  reservationState: StockReservationState
+  condition: StockItemCondition
+  locationId: string | null
+  odometerKm: number | null
+  listPrice: string | null
+  effectivePrice: string | null
+  firstRegistrationDate: string | null
+  pipelineRef: string | null
+  orderDate: string | null
+  expectedDelivery: string | null
+  inStockAt: string | null
+  // WP-7 PR-3 (ADR-057) — no vatTreatment field here or anywhere else.
+  supplierName: string | null
+  supplierIsVatRegistered: boolean | null
+  purchaseDate: string | null
+  purchasePrice: string | null
+  purchaseInvoiceRef: string | null
+  landedCost: string | null
+  notionalInputTaxApplicable: boolean | null
+  notionalInputTaxRate: string | null
+  notionalInputTaxAmount: string | null
+  notionalInputTaxOverridden: boolean
+  isInvoiceable: boolean
+  leftStockAt: string | null
+  ageingBucket: AgeingBucket | null
+  basePrice: string | null
+  valuationRefId: string | null
+  valuationRefAmount: string | null
+  version: number
+  createdAt: string
+  updatedAt: string
+}
+
+// WP-7 PR-7 (ADR-055) — a deliberately SEPARATE shape from StockItemRead,
+// never that interface with fields picked out. Absent by construction:
+// effectivePrice, landedCost, notionalInputTax*, purchasePrice,
+// supplierName, isInvoiceable, and anything Wagenbuch/publishing-shaped.
+export interface StockItemGroupRead {
+  id: string
+  dealershipId: string
+  dealershipLabel: string
+  stockNumber: string
+  vin: string | null
+  vehicleLabel: string
+  lifecycleStatus: StockLifecycleStatus
+  reservationState: StockReservationState
+  condition: StockItemCondition
+  odometerKm: number | null
+  listPrice: string | null
+  firstRegistrationDate: string | null
+  updatedAt: string
+}
+
+export interface StockItemGroupPage {
+  items: StockItemGroupRead[]
+}
+
+export interface StockItemPage {
+  items: StockItemRead[]
+  nextCursor: string | null
+  total: number
+  totalIsEstimate: boolean
+}
+
+// WP-7 PR-6 — the Wagenbuch (ADR-029). Costs and revenues, in this exact
+// order to match app.inventory.models.stock_item_ledger.LedgerCategory.
+export type LedgerCategory =
+  | 'einstandspreis'
+  | 'landed_cost'
+  | 'aufbereitung'
+  | 'reparatur'
+  | 'gutachten'
+  | 'standkosten'
+  | 'werbung'
+  | 'garantie'
+  | 'abwertung'
+  | 'promotion'
+  | 'sonstige_kosten'
+  | 'verkaufserloes'
+  | 'kickback'
+  | 'zusatzerloes'
+  | 'foerderung'
+  | 'sonstige_ertraege'
+export type LedgerDirection = 'cost' | 'revenue'
+
+export interface LedgerEntryRead {
+  id: string
+  stockItemId: string
+  category: LedgerCategory
+  direction: LedgerDirection
+  amount: string
+  occurredAt: string
+  sourceRef: string
+  isAuto: boolean
+  createdAt: string
+}
+
+export interface LedgerEntryPage {
+  items: LedgerEntryRead[]
+}
+
+// WP-7 PR-8 (ADR-062) — three named channels, never a generic list.
+export type MarketplaceChannel = 'autoscout24' | 'carmarket' | 'autolina'
+export type PublishingState = 'not_published' | 'published'
+
+export interface BlockingCondition {
+  field: string
+  message: string
+}
+
+export interface PublishingRead {
+  id: string
+  stockItemId: string
+  channel: MarketplaceChannel
+  state: PublishingState
+  zusatztitel: string | null
+  bemerkungen: string | null
+  zustandsbeschreibung: string | null
+  haendlerbemerkungen: string | null
+  youtubeUrl: string | null
+  pdfDocumentRef: string | null
+  lastPublishedAt: string | null
+  blockingConditions: BlockingCondition[]
+  version: number
+}
+
+export interface MediaRead {
+  id: string
+  position: number
+  url: string
+}
