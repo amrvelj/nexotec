@@ -119,6 +119,7 @@ forbidden_modules = [
     "app.vehicle",
     "app.sales",
     "app.inventory",
+    "app.valuation",
     "app.aftersales",
     "app.parts",
     "app.finance",
@@ -144,6 +145,7 @@ source_modules = [
     "app.vehicle",
     "app.sales",
     "app.inventory",
+    "app.valuation",
     "app.aftersales",
     "app.parts",
     "app.finance",
@@ -161,6 +163,7 @@ source_modules = [
     "app.vehicle",
     "app.sales",
     "app.inventory",
+    "app.valuation",
     "app.aftersales",
     "app.parts",
     "app.finance",
@@ -178,6 +181,7 @@ source_modules = [
     "app.customer",
     "app.sales",
     "app.inventory",
+    "app.valuation",
     "app.aftersales",
     "app.parts",
     "app.finance",
@@ -195,6 +199,7 @@ source_modules = [
     "app.customer",
     "app.vehicle",
     "app.inventory",
+    "app.valuation",
     "app.aftersales",
     "app.parts",
     "app.finance",
@@ -216,6 +221,7 @@ source_modules = [
     "app.customer",
     "app.vehicle",
     "app.sales",
+    "app.valuation",
     "app.aftersales",
     "app.parts",
     "app.finance",
@@ -223,4 +229,27 @@ source_modules = [
     "app.compliance",
 ]
 forbidden_modules = ["app.inventory.models", "app.inventory.services", "app.inventory.api"]
+allow_indirect_imports = true
+
+# WP-8 PR-5: valuation is the 11th bounded context, the first new
+# top-level package added since the ten were originally enumerated
+# (CLAUDE.md's own table). Same reciprocal shape as inventory's own block
+# above — sales is its first real consumer (trade-in), inventory reads it
+# only via its own valuation_ref_* pointer (never imports this directly).
+[[tool.importlinter.contracts]]
+name = "Only app.valuation.public is reachable from outside valuation"
+type = "forbidden"
+source_modules = [
+    "app.platform",
+    "app.customer",
+    "app.vehicle",
+    "app.sales",
+    "app.inventory",
+    "app.aftersales",
+    "app.parts",
+    "app.finance",
+    "app.reporting",
+    "app.compliance",
+]
+forbidden_modules = ["app.valuation.models", "app.valuation.services", "app.valuation.api"]
 allow_indirect_imports = true

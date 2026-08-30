@@ -60,6 +60,38 @@ def has_current_energy_rating(db: Session, vehicle_id: uuid.UUID) -> bool:
     return _has_current_energy_rating(db, vehicle_id)
 
 
+def match_vehicle(
+    db: Session,
+    *,
+    vin: str | None = None,
+    stammnummer: str | None = None,
+    plate: str | None = None,
+    canton: str | None = None,
+    vehicle_kind: str | None = None,
+    type_approval_number: str | None = None,
+    first_registration_date=None,
+):
+    """WP-8 PR-5 — FR-S-08's trade-in plate/VIN search, the first consumer
+    outside vehicle itself. `app.vehicle.services.matching` has no import
+    of app.customer at all, so this one doesn't strictly need the deferred
+    idiom the three above do — kept as a plain top-level import for that
+    reason, re-exporting the exact same `MatchResult`.
+    """
+
+    from app.vehicle.services.matching import match_vehicle as _match_vehicle
+
+    return _match_vehicle(
+        db,
+        vin=vin,
+        stammnummer=stammnummer,
+        plate=plate,
+        canton=canton,
+        vehicle_kind=vehicle_kind,
+        type_approval_number=type_approval_number,
+        first_registration_date=first_registration_date,
+    )
+
+
 __all__ = [
     "CustodyEventType",
     "Vehicle",
@@ -71,4 +103,5 @@ __all__ = [
     "get_vehicle_mdm_or_404",
     "get_vehicle_or_404",
     "has_current_energy_rating",
+    "match_vehicle",
 ]

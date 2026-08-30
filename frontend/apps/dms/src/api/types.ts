@@ -653,6 +653,13 @@ export interface SalesOfferRead {
   costBasis: string | null
   margin: string | null
   vehicleSnapshotFrozenAt: string | null
+  tradeInVehicleId: string | null
+  tradeInLabel: string | null
+  tradeInVin: string | null
+  tradeInValuationId: string | null
+  tradeInValue: string | null
+  tradeInPurchasePrice: string | null
+  payable: string | null
   cancelledReason: string | null
   containers: OfferContainerState[]
   version: number

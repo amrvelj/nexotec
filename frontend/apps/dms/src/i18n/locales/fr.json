@@ -776,7 +776,13 @@
     },
     "tradeIn": {
       "emptyHint": "Choisissez d'abord le client — ses véhicules seront suggérés ici.",
-      "readyHint": "La reprise suit (prochaine étape)."
+      "readyHint": "La reprise suit (prochaine étape).",
+      "value": "Offre de reprise",
+      "fromExistingValuation": "Reprise d'une évaluation existante",
+      "vinLabel": "VIN",
+      "vinPlaceholder": "p. ex. WVWZZZ1KZAW123456",
+      "labelLabel": "Description du véhicule",
+      "add": "Ajouter un véhicule de reprise"
     },
     "leasing": {
       "hint": "Pas de calculateur de leasing en v1 (S-D03). Saisies libres, pour qu'un futur calculateur puisse être intégré sans changement de schéma.",

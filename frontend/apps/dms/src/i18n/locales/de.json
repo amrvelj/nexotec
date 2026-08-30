@@ -776,7 +776,13 @@
     },
     "tradeIn": {
       "emptyHint": "Wählen Sie zuerst den Kunden — dann werden dessen Fahrzeuge hier vorgeschlagen.",
-      "readyHint": "Eintauschfahrzeug folgt (nächster Schritt)."
+      "readyHint": "Eintauschfahrzeug folgt (nächster Schritt).",
+      "value": "Eintauschangebot",
+      "fromExistingValuation": "Aus bestehender Bewertung übernommen",
+      "vinLabel": "VIN",
+      "vinPlaceholder": "z. B. WVWZZZ1KZAW123456",
+      "labelLabel": "Fahrzeugbezeichnung",
+      "add": "Eintauschfahrzeug hinzufügen"
     },
     "leasing": {
       "hint": "Kein Leasingrechner in v1 (S-D03). Freie Eingaben, damit ein späterer Rechner ohne Umbau eingesetzt werden kann.",

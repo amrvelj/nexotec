@@ -70,9 +70,7 @@ def compute_offer_containers(offer: SalesOffer) -> list[OfferContainerState]:
         OfferContainerState(
             id="trade_in",
             requirement="optional",
-            # No trade-in fields exist on the offer yet (PR-5) — always
-            # "not_started" until then.
-            status="not_started",
+            status="complete" if offer.trade_in_vehicle_id is not None else "not_started",
         ),
         OfferContainerState(
             id="leasing",

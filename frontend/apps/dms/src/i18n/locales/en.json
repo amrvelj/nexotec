@@ -776,7 +776,13 @@
     },
     "tradeIn": {
       "emptyHint": "Choose the customer first — their vehicles will be suggested here.",
-      "readyHint": "Trade-in follows (next step)."
+      "readyHint": "Trade-in follows (next step).",
+      "value": "Trade-in offer",
+      "fromExistingValuation": "Taken from an existing valuation",
+      "vinLabel": "VIN",
+      "vinPlaceholder": "e.g. WVWZZZ1KZAW123456",
+      "labelLabel": "Vehicle description",
+      "add": "Add trade-in vehicle"
     },
     "leasing": {
       "hint": "No leasing calculator in v1 (S-D03). Free-text inputs, so a later calculator can be dropped in without a schema change.",

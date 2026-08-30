@@ -776,7 +776,13 @@
     },
     "tradeIn": {
       "emptyHint": "Scegliete prima il cliente — i suoi veicoli verranno suggeriti qui.",
-      "readyHint": "La permuta segue (prossimo passo)."
+      "readyHint": "La permuta segue (prossimo passo).",
+      "value": "Offerta di permuta",
+      "fromExistingValuation": "Ripreso da una valutazione esistente",
+      "vinLabel": "VIN",
+      "vinPlaceholder": "es. WVWZZZ1KZAW123456",
+      "labelLabel": "Descrizione del veicolo",
+      "add": "Aggiungi veicolo permuta"
     },
     "leasing": {
       "hint": "Nessun calcolatore di leasing nella v1 (S-D03). Campi liberi, così un futuro calcolatore potrà essere inserito senza modifiche allo schema.",

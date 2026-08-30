@@ -26,6 +26,7 @@ from app.sales.models.deal import SalesDeal, SalesNumberSequence
 from app.sales.models.line_item import SalesLineItem
 from app.sales.models.offer import SalesOffer
 from app.sales.models.transaction import Transaction
+from app.valuation.models.valuation import Valuation, ValuationDeduction, ValuationNumberSequence
 from app.vehicle.models.catalogue import Brand, ModelGroup, ModelVariant, TypeApproval, VariantOption
 from app.vehicle.models.energy_rating import ModelVariantEnergyRating
 from app.vehicle.models.plate import DealerPlate, DealerPlateAssignment, VehiclePlate, VehiclePlateConflict
@@ -75,6 +76,9 @@ __all__ = [
     "TypeApproval",
     "User",
     "UserPreference",
+    "Valuation",
+    "ValuationDeduction",
+    "ValuationNumberSequence",
     "VariantOption",
     "Vehicle",
     "VehicleAccessory",

@@ -19,6 +19,7 @@ from app.inventory.models.stock_item import LifecycleStatus, ReservationState, S
 from app.inventory.services.pricing import get_stock_item_pricing
 from app.inventory.services.reservation import release, reserve
 from app.inventory.services.stock_item import get_stock_item_or_404
+from app.inventory.services.valuation import set_valuation_ref
 
 __all__ = [
     "LifecycleStatus",
@@ -29,4 +30,5 @@ __all__ = [
     "get_stock_item_pricing",
     "release",
     "reserve",
+    "set_valuation_ref",
 ]

@@ -93,3 +93,7 @@ def apply_build_up(db: Session, *, offer: SalesOffer) -> None:
     offer.gross_price = result["grossPrice"]
     offer.cost_basis = result["costBasis"]
     offer.margin = result["margin"]
+    # WP-8 PR-5 — "Zu bezahlen" (confirmed live), recomputed here too so a
+    # pricing change (a new discount) keeps payable in sync without the
+    # trade-in container needing to be touched again.
+    offer.payable = offer.gross_price - (offer.trade_in_value or Decimal(0))

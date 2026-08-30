@@ -9,6 +9,7 @@ import { api, ApiError } from '../api/client'
 import { CustomerCreateFlow } from '../components/CustomerCreateFlow'
 import { PriceBuildUp } from '../components/PriceBuildUp'
 import { translatedStockConditionOptions } from '../stockOptions'
+import { formatCurrencyChf } from '../utils/format'
 import type {
   CustomerPage,
   CustomerRead,
@@ -75,10 +76,29 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
   const [manualLabel, setManualLabel] = useState('')
   const [manualCondition, setManualCondition] = useState<StockItemCondition>('used')
 
+  const [tradeInMode, setTradeInMode] = useState(false)
+  const [tradeInVin, setTradeInVin] = useState('')
+  const [tradeInLabel, setTradeInLabel] = useState('')
+
   const patchOffer = async (patch: Record<string, unknown>) => {
     const offer = offerQuery.data
     if (!offer) return
     const updated = await api.patch<SalesOfferRead>(`/sales/offers/${id}`, patch, { 'If-Match': String(offer.version) })
+    queryClient.setQueryData(['sales-offer', id], updated)
+  }
+
+  const submitTradeIn = async (body: {
+    vin: string | null
+    plate: string | null
+    canton: string | null
+    vehicleLabel: string
+    customerId: string | null
+  }) => {
+    const offer = offerQuery.data
+    if (!offer) return
+    const updated = await api.post<SalesOfferRead>(`/sales/offers/${id}/trade-in`, body, {
+      'If-Match': String(offer.version),
+    })
     queryClient.setQueryData(['sales-offer', id], updated)
   }
 
@@ -189,9 +209,60 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
 
       {/* Eintauschfahrzeug */}
       <OverviewCard title={t('offerWorkspace.containers.tradeIn')} badge={requirementBadge(t, 'optional')}>
-        <Text size="sm" c="dimmed">
-          {offer.customerId ? t('offerWorkspace.tradeIn.readyHint') : t('offerWorkspace.tradeIn.emptyHint')}
-        </Text>
+        {offer.tradeInVehicleId ? (
+          <Stack gap={4}>
+            <Text fw={600}>{offer.tradeInLabel}</Text>
+            {offer.tradeInValue != null && (
+              <Text size="sm" c="dimmed">
+                {t('offerWorkspace.tradeIn.value')}: {formatCurrencyChf(Number(offer.tradeInValue))}
+              </Text>
+            )}
+            {offer.tradeInValuationId && (
+              <Text size="xs" c="dimmed">
+                {t('offerWorkspace.tradeIn.fromExistingValuation')}
+              </Text>
+            )}
+          </Stack>
+        ) : tradeInMode ? (
+          <Stack gap="xs">
+            <TextInput
+              label={t('offerWorkspace.tradeIn.vinLabel')}
+              placeholder={t('offerWorkspace.tradeIn.vinPlaceholder')}
+              value={tradeInVin}
+              onChange={(e) => setTradeInVin(e.currentTarget.value)}
+            />
+            <TextInput
+              label={t('offerWorkspace.tradeIn.labelLabel')}
+              value={tradeInLabel}
+              onChange={(e) => setTradeInLabel(e.currentTarget.value)}
+            />
+            <Group gap="xs">
+              <Button
+                size="xs"
+                disabled={!tradeInVin || !tradeInLabel}
+                onClick={() =>
+                  submitTradeIn({ vin: tradeInVin, plate: null, canton: null, vehicleLabel: tradeInLabel, customerId: null }).then(
+                    () => setTradeInMode(false)
+                  )
+                }
+              >
+                {t('common.save')}
+              </Button>
+              <Button variant="subtle" size="xs" onClick={() => setTradeInMode(false)}>
+                {t('common.cancel')}
+              </Button>
+            </Group>
+          </Stack>
+        ) : (
+          <Stack gap="xs">
+            <Text size="sm" c="dimmed">
+              {offer.customerId ? t('offerWorkspace.tradeIn.readyHint') : t('offerWorkspace.tradeIn.emptyHint')}
+            </Text>
+            <Button variant="default" size="xs" onClick={() => setTradeInMode(true)} style={{ alignSelf: 'flex-start' }}>
+              {t('offerWorkspace.tradeIn.add')}
+            </Button>
+          </Stack>
+        )}
       </OverviewCard>
 
       {/* Leasing — S-D03: a refused calculator, free-text only */}

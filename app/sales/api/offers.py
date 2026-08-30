@@ -13,8 +13,16 @@ from app.core.permissions import require_write
 from app.core.sorting import SortField, parse_sort
 from app.db import get_db
 from app.sales.models.offer import SalesOffer
-from app.sales.schemas.offer import OfferCancelRequest, OfferPage, OfferRead, OfferUpdate
+from app.sales.schemas.offer import (
+    AttachValuationRequest,
+    OfferCancelRequest,
+    OfferPage,
+    OfferRead,
+    OfferUpdate,
+    TradeInRequest,
+)
 from app.sales.services import offer as offer_service
+from app.sales.services import trade_in as trade_in_service
 
 router = APIRouter(tags=["sales"])
 settings = get_settings()
@@ -91,6 +99,46 @@ def update_offer(
     check_version(offer.version, if_match, entity_name="SalesOffer")
     offer = offer_service.update_offer(
         db, offer=offer, group_id=principal.group_id, data=body, actor_id=principal.user_id
+    )
+    return _offer_read(offer)
+
+
+@router.post("/sales/offers/{offer_id}/trade-in", response_model=OfferRead)
+def set_trade_in(
+    offer_id: uuid.UUID,
+    body: TradeInRequest,
+    if_match: int = Depends(require_if_match),
+    principal: Principal = Depends(require_write("sales_offers")),
+    db: Session = Depends(get_db),
+):
+    offer = offer_service.get_offer_or_404(db, principal.tenant_id, offer_id)
+    check_version(offer.version, if_match, entity_name="SalesOffer")
+    offer = trade_in_service.set_trade_in(
+        db,
+        offer=offer,
+        group_id=principal.group_id,
+        vin=body.vin,
+        plate=body.plate,
+        canton=body.canton,
+        vehicle_label=body.vehicle_label,
+        customer_id=body.customer_id,
+        actor_id=principal.user_id,
+    )
+    return _offer_read(offer)
+
+
+@router.post("/sales/offers/{offer_id}/trade-in/valuation", response_model=OfferRead)
+def attach_trade_in_valuation(
+    offer_id: uuid.UUID,
+    body: AttachValuationRequest,
+    if_match: int = Depends(require_if_match),
+    principal: Principal = Depends(require_write("sales_offers")),
+    db: Session = Depends(get_db),
+):
+    offer = offer_service.get_offer_or_404(db, principal.tenant_id, offer_id)
+    check_version(offer.version, if_match, entity_name="SalesOffer")
+    offer = trade_in_service.attach_trade_in_valuation(
+        db, offer=offer, valuation_id=body.valuation_id, actor_id=principal.user_id
     )
     return _offer_read(offer)
 

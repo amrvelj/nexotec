@@ -116,4 +116,35 @@ class SalesOffer(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMi
     cost_basis: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
     margin: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
 
+    # WP-8 PR-5 (S-D18/ADR-064) — the trade-in vehicle AND its customer
+    # allocation happen at OFFER time, distinct from the pipeline-stock-item
+    # moment which stays at contract confirmation (S-D11/ADR-045). Sales
+    # never owns the traded-in vehicle — trade_in_vehicle_id is a real
+    # VehicleMdm.id, created via app.vehicle.public.create_or_get_vehicle_mdm,
+    # never a Sales-owned record.
+    trade_in_vehicle_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(), nullable=True, comment="Owned by the vehicle context (VehicleMdm.id). No DB-level FK."
+    )
+    trade_in_label: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    trade_in_vin: Mapped[str | None] = mapped_column(String(17), nullable=True)
+    # S-D04: the valuation is a read-only REFERENCE — Sales never copies
+    # its inputs/deductibles, only its id and final_offer (three-column
+    # pointer, same shape as app.inventory.StockItem.valuation_ref_*).
+    trade_in_valuation_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(), nullable=True, comment="Owned by the valuation context (Valuation.id). No DB-level FK."
+    )
+    # The FINAL OFFER (ADR-060's own tradeInValue) — what the customer
+    # sees on the document, never the valuation's raw net-after-deductions
+    # figure and never the entity-private purchase price below.
+    trade_in_value: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
+    # S-D04: "deductibles + final-offer are separate" from what the
+    # dealership will actually book on acquisition — entity-private
+    # (never on the customer document), seller-adjustable independently of
+    # trade_in_value (the negotiated trade-in offer and the eventual
+    # Wagenbuch acquisition entry are not required to be the same number).
+    trade_in_purchase_price: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
+    # Materialized = gross_price - trade_in_value (confirmed live "Zu
+    # bezahlen" stat).
+    payable: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
+
     cancelled_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)

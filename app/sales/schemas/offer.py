@@ -25,6 +25,25 @@ class OfferContainerState(CamelModel):
     status: str  # "not_started" | "in_progress" | "complete" | "placeholder"
 
 
+class TradeInRequest(CamelModel):
+    """WP-8 PR-5 (S-D18/ADR-064) — the one-step trade-in action. Not a
+    plain PATCH field set: it calls into vehicle-mdm and customer, so it
+    is its own endpoint (POST /v1/sales/offers/{id}/trade-in), same
+    reasoning as reservation being its own endpoint rather than a PATCH.
+    """
+
+    vin: str | None = None
+    plate: str | None = None
+    canton: str | None = None
+    vehicle_label: str
+    # None = same customer as the offer's own Kunde container.
+    customer_id: uuid.UUID | None = None
+
+
+class AttachValuationRequest(CamelModel):
+    valuation_id: uuid.UUID
+
+
 class OfferUpdate(CamelModel):
     """The container workspace's own autosave PATCH (FR-S-05) — every
     field optional, applied incrementally as the seller fills in whichever
@@ -78,6 +97,13 @@ class OfferRead(CamelModel):
     cost_basis: Decimal | None
     margin: Decimal | None
     vehicle_snapshot_frozen_at: dt.datetime | None
+    trade_in_vehicle_id: uuid.UUID | None
+    trade_in_label: str | None
+    trade_in_vin: str | None
+    trade_in_valuation_id: uuid.UUID | None
+    trade_in_value: Decimal | None
+    trade_in_purchase_price: Decimal | None
+    payable: Decimal | None
     cancelled_reason: str | None
     containers: list[OfferContainerState] = Field(default_factory=list)
     version: int
