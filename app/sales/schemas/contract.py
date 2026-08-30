@@ -5,7 +5,7 @@ import uuid
 from decimal import Decimal
 
 from app.core.schemas import CamelModel
-from app.sales.models.contract import ContractStatus
+from app.sales.models.contract import ContractStatus, FinancingKind
 
 
 class ContractCreate(CamelModel):
@@ -23,10 +23,25 @@ class ContractRead(CamelModel):
     customer_id: uuid.UUID | None
     customer_label: str | None
     customer_locality: str | None
+    vehicle_source: str | None
     stock_item_id: uuid.UUID | None
     vehicle_label: str | None
+    manual_vehicle_condition: str | None
     gross_price: Decimal | None
     margin: Decimal | None
+    trade_in_vehicle_id: uuid.UUID | None
+    trade_in_label: str | None
+    trade_in_vin: str | None
+    trade_in_valuation_id: uuid.UUID | None
+    trade_in_value: Decimal | None
+    trade_in_purchase_price: Decimal | None
+    payable: Decimal | None
+    financing: FinancingKind | None
+    reservation_id: uuid.UUID | None
+    signed_at: dt.datetime | None
+    delivery_date: dt.date | None
+    is_invoiceable: bool
+    invoice_ref: str | None
     cancelled_reason: str | None
     version: int
     created_at: dt.datetime

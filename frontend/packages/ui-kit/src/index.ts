@@ -10,6 +10,7 @@ export * from "./components/StockReservationBadge";
 export * from "./components/SalesTypeBadge";
 export * from "./components/SalesStatusBadge";
 export * from "./components/StickyActionFooter";
+export * from "./components/StatRow";
 export * from "./components/Picker";
 export * from "./components/FormDialog";
 export * from "./components/RowMenu";

@@ -715,6 +715,11 @@
       "confirmed": "Confirmed",
       "cancelled": "Cancelled",
       "invoiced": "Invoiced"
+    },
+    "financing": {
+      "cash": "Cash",
+      "leasing": "Leasing",
+      "credit": "Credit"
     }
   },
   "offerDetail": {
@@ -729,7 +734,21 @@
     "errors": {
       "failedToLoad": "The contract could not be loaded.",
       "somethingWentWrong": "Something went wrong."
-    }
+    },
+    "actions": {
+      "confirm": "Confirm contract",
+      "confirmDisabledReason": "Only confirmable while open.",
+      "cancel": "Cancel …",
+      "cancelDisabledReason": "Already cancelled or invoiced."
+    },
+    "stats": {
+      "grossPrice": "Sale price",
+      "tradeIn": "Trade-in vehicle",
+      "payable": "Payable",
+      "margin": "Margin"
+    },
+    "financing": "Financing",
+    "cancelReasonPrompt": "Reason for cancellation:"
   },
   "offerWorkspace": {
     "title": "Create offer",

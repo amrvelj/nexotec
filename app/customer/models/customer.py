@@ -256,6 +256,16 @@ class Customer(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     # criteria) — field stays, default false, no method/timestamp tracking.
     marketing_consent: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
+    # WP-8 PR-6 (ADR-065/S-D19) — a genuinely new concept, distinct from
+    # `lifecycle_status == DO_NOT_CONTACT` above: a credit block stops the
+    # CONTRACT only (quoting a blocked customer is often how the block
+    # gets resolved), while do-not-contact stops both offer and contract.
+    # No existing hook to build on — confirmed by grep before this field
+    # was added.
+    credit_block: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    credit_block_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    credit_blocked_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+
     @property
     def legacy_address_mirror(self) -> dict[str, str | None] | None:
         """READ-ONLY MIRROR since WP-3 PR-5 (ADR-067) — frozen at whatever

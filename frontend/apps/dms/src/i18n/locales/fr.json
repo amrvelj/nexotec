@@ -715,6 +715,11 @@
       "confirmed": "Confirmé",
       "cancelled": "Annulé",
       "invoiced": "Facturé"
+    },
+    "financing": {
+      "cash": "Comptant",
+      "leasing": "Leasing",
+      "credit": "Crédit"
     }
   },
   "offerDetail": {
@@ -729,7 +734,21 @@
     "errors": {
       "failedToLoad": "Le contrat n'a pas pu être chargé.",
       "somethingWentWrong": "Un problème est survenu."
-    }
+    },
+    "actions": {
+      "confirm": "Confirmer le contrat",
+      "confirmDisabledReason": "Confirmable uniquement à l'état ouvert.",
+      "cancel": "Annuler …",
+      "cancelDisabledReason": "Déjà annulé ou facturé."
+    },
+    "stats": {
+      "grossPrice": "Prix de vente",
+      "tradeIn": "Véhicule de reprise",
+      "payable": "À payer",
+      "margin": "Marge"
+    },
+    "financing": "Financement",
+    "cancelReasonPrompt": "Motif de l'annulation :"
   },
   "offerWorkspace": {
     "title": "Créer une offre",

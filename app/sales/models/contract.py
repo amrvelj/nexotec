@@ -23,13 +23,19 @@ import enum
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import DECIMAL, String
+from sqlalchemy import DECIMAL, Boolean, Date, String
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
 from app.core.types import GUID, UTCDateTime
 from app.db import Base
+
+
+class FinancingKind(str, enum.Enum):
+    CASH = "cash"
+    LEASING = "leasing"
+    CREDIT = "credit"
 
 
 class ContractStatus(str, enum.Enum):
@@ -61,10 +67,16 @@ class SalesContract(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, Timestam
     customer_locality: Mapped[str | None] = mapped_column(String(100), nullable=True)
     customer_denorm_refreshed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
 
+    # WP-8 PR-6 — copied from the offer at creation (S-D09/ADR-045's
+    # own vocabulary): "existing" once confirmed means reserve() targets a
+    # real stock_item_id; "manual" means handle_sales_contract_confirmed
+    # (already built, WP-7) materializes a new pipeline stock item instead.
+    vehicle_source: Mapped[str | None] = mapped_column(String(16), nullable=True)  # "stock" | "manual"
     stock_item_id: Mapped[uuid.UUID | None] = mapped_column(
         GUID(), nullable=True, comment="Owned by the inventory context (StockItem.id). No DB-level FK."
     )
     vehicle_label: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    manual_vehicle_condition: Mapped[str | None] = mapped_column(String(16), nullable=True)
 
     gross_price: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
     # WP-8 PR-3 — copied from the offer at the moment of creation (like
@@ -72,5 +84,42 @@ class SalesContract(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, Timestam
     # SalesOffer.margin. A direct contract (no offer) has no pricing
     # build-up of its own yet, so this stays None.
     margin: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
+
+    # WP-8 PR-6 — trade-in, copied from the offer at creation (S-D18's
+    # "vehicle AND allocation happen at OFFER time" — the contract only
+    # carries the read-only reference forward for the confirmation-time
+    # pipeline-creation payload and the set_valuation_ref call).
+    trade_in_vehicle_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(), nullable=True, comment="Owned by the vehicle context (VehicleMdm.id). No DB-level FK."
+    )
+    trade_in_label: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    trade_in_vin: Mapped[str | None] = mapped_column(String(17), nullable=True)
+    trade_in_valuation_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(), nullable=True, comment="Owned by the valuation context (Valuation.id). No DB-level FK."
+    )
+    trade_in_value: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
+    trade_in_purchase_price: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
+    payable: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
+
+    financing: Mapped[FinancingKind | None] = mapped_column(
+        SAEnum(FinancingKind, native_enum=False, length=16), nullable=True
+    )
+
+    # WP-8 PR-6 (ADR-047, Pattern B) — set by confirm_contract's own
+    # reserve() call; opaque, matches app.inventory's own
+    # StockItem.active_reservation_id shape (no DB FK, cross-context id).
+    reservation_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True)
+    signed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    delivery_date: Mapped[dt.date | None] = mapped_column(Date(), nullable=True)
+
+    # WP-8 PR-6 (ADR-052) — a LOCAL REPLICA, set by the
+    # inventory.stock_item.purchased consumer, never read live from
+    # inventory at confirmation time (the whole point of a replicated
+    # fact, mirroring how WP-7 built the equivalent on Stock's own side).
+    is_invoiceable: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Populated later by finance (WP-9+, out of scope) on
+    # finance.invoice.issued — declared now for the same reason
+    # ContractStatus.INVOICED is declared now.
+    invoice_ref: Mapped[str | None] = mapped_column(String(120), nullable=True)
 
     cancelled_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)

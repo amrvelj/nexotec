@@ -18,13 +18,16 @@ from app.sales.schemas.offer import OfferRead
 
 def test_no_schema_carries_a_vat_field():
     """Mirrors app.inventory's own per-schema field check (WP-7 PR-3) —
-    belt-and-suspenders alongside the whole-repo architecture scan."""
+    belt-and-suspenders alongside the whole-repo architecture scan. A bare
+    "vat" substring check is too broad — it false-positives on
+    ContractRead's own legitimate `reservation_id` (reser-VAT-ion) — so
+    this checks for "vat" as its own underscore-delimited token instead.
+    """
 
     for schema in (OfferRead, ContractRead, DealRead):
         field_names = set(schema.model_fields.keys())
-        assert not any("vat" in f.lower() for f in field_names), (
-            f"{schema.__name__} carries a VAT-shaped field — ADR-057/S-D10 forbids this everywhere."
-        )
+        vat_like = {f for f in field_names if "vat" in f.lower().split("_")}
+        assert not vat_like, f"{schema.__name__} carries a VAT-shaped field — ADR-057/S-D10 forbids this everywhere."
 
 
 def test_offer_and_contract_carry_exactly_one_customer_facing_price():

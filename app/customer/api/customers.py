@@ -34,6 +34,7 @@ from app.customer.schemas.customer import (
     CustomerAddressRead,
     CustomerAddressUpdate,
     CustomerCreate,
+    CustomerCreditBlockRequest,
     CustomerDuplicateCandidate,
     CustomerDuplicateCandidateList,
     CustomerEmailCreate,
@@ -178,6 +179,24 @@ def update_customer(
     customer = customer_service.get_customer_or_404(db, principal.group_id, customer_id)
     check_version(customer.version, if_match, entity_name="Customer")
     customer = customer_service.update_customer(db, customer=customer, data=body, actor_id=principal.user_id)
+    return _customer_read(db, customer)
+
+
+@router.post("/customers/{customer_id}/credit-block", response_model=CustomerRead)
+def set_credit_block(
+    customer_id: uuid.UUID,
+    body: CustomerCreditBlockRequest,
+    if_match: int = Depends(require_if_match),
+    principal: Principal = Depends(require_write("customers")),
+    db: Session = Depends(get_db),
+):
+    """WP-8 PR-6 (ADR-065/S-D19) — stops a contract, never an offer."""
+
+    customer = customer_service.get_customer_or_404(db, principal.group_id, customer_id)
+    check_version(customer.version, if_match, entity_name="Customer")
+    customer = customer_service.set_credit_block(
+        db, customer=customer, blocked=body.blocked, reason=body.reason, actor_id=principal.user_id
+    )
     return _customer_read(db, customer)
 
 

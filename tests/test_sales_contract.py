@@ -71,15 +71,15 @@ def test_cancel_contract_while_pending(db_session):
     assert cancelled.status == ContractStatus.CANCELLED
 
 
-def test_cancel_contract_refuses_from_non_pending_status(db_session):
-    """Cancellation from CONFIRMED (which must also release the stock
-    reservation, ADR-047) is PR-6 scope — PR-1 only ships the
-    pending-only path.
+def test_cancel_contract_refuses_from_a_terminal_status(db_session):
+    """PR-6 widens cancellation to PENDING or CONFIRMED (releasing the
+    stock reservation first) — only a genuinely terminal status (already
+    cancelled or invoiced) refuses.
     """
 
     tenant_id = uuid.uuid4()
     contract = create_contract(db_session, tenant_id=tenant_id, offer=None, actor_id=uuid.uuid4())
-    contract.status = ContractStatus.CONFIRMED
+    contract.status = ContractStatus.INVOICED
     db_session.commit()
 
     with pytest.raises(ConflictError):

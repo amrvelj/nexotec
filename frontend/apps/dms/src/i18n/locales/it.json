@@ -715,6 +715,11 @@
       "confirmed": "Confermato",
       "cancelled": "Annullato",
       "invoiced": "Fatturato"
+    },
+    "financing": {
+      "cash": "Contanti",
+      "leasing": "Leasing",
+      "credit": "Credito"
     }
   },
   "offerDetail": {
@@ -729,7 +734,21 @@
     "errors": {
       "failedToLoad": "Impossibile caricare il contratto.",
       "somethingWentWrong": "Qualcosa è andato storto."
-    }
+    },
+    "actions": {
+      "confirm": "Conferma contratto",
+      "confirmDisabledReason": "Confermabile solo se aperto.",
+      "cancel": "Annulla …",
+      "cancelDisabledReason": "Già annullato o fatturato."
+    },
+    "stats": {
+      "grossPrice": "Prezzo di vendita",
+      "tradeIn": "Veicolo permuta",
+      "payable": "Da pagare",
+      "margin": "Margine"
+    },
+    "financing": "Finanziamento",
+    "cancelReasonPrompt": "Motivo dell'annullamento:"
   },
   "offerWorkspace": {
     "title": "Crea offerta",

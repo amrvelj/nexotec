@@ -674,6 +674,8 @@ export interface SalesOfferPage {
   totalIsEstimate: boolean
 }
 
+export type SalesFinancingKind = 'cash' | 'leasing' | 'credit'
+
 export interface SalesContractRead {
   id: string
   contractNumber: string
@@ -683,10 +685,25 @@ export interface SalesContractRead {
   customerId: string | null
   customerLabel: string | null
   customerLocality: string | null
+  vehicleSource: 'stock' | 'manual' | null
   stockItemId: string | null
   vehicleLabel: string | null
+  manualVehicleCondition: string | null
   grossPrice: string | null
   margin: string | null
+  tradeInVehicleId: string | null
+  tradeInLabel: string | null
+  tradeInVin: string | null
+  tradeInValuationId: string | null
+  tradeInValue: string | null
+  tradeInPurchasePrice: string | null
+  payable: string | null
+  financing: SalesFinancingKind | null
+  reservationId: string | null
+  signedAt: string | null
+  deliveryDate: string | null
+  isInvoiceable: boolean
+  invoiceRef: string | null
   cancelledReason: string | null
   version: number
   createdAt: string

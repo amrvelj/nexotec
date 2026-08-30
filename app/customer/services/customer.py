@@ -1823,3 +1823,38 @@ def repoint_vehicle_party(db: Session, *, duplicate_vehicle_id: uuid.UUID, survi
         party.vehicle_id = survivor_vehicle_id
     db.commit()
     return len(rows)
+
+
+def set_credit_block(
+    db: Session, *, customer: Customer, blocked: bool, reason: str | None, actor_id: uuid.UUID
+) -> Customer:
+    """WP-8 PR-6 (ADR-065/S-D19) — stops a CONTRACT from being confirmed,
+    never an offer (quoting a blocked customer is often how the block gets
+    resolved). A reason is required when blocking, matching the codebase's
+    "disabled-with-explanation, never bare" posture elsewhere.
+    """
+
+    if blocked and not reason:
+        raise ConflictError("A reason is required to place a credit block.")
+
+    before = {"creditBlock": customer.credit_block, "creditBlockReason": customer.credit_block_reason}
+    customer.credit_block = blocked
+    customer.credit_block_reason = reason if blocked else None
+    customer.credit_blocked_at = utcnow() if blocked else None
+    customer.updated_by = actor_id
+    customer.version += 1
+    db.flush()
+
+    record_audit_event(
+        db,
+        entity_type="customer",
+        entity_id=customer.id,
+        tenant_id=customer.group_id,
+        action="credit_block_changed",
+        actor_id=actor_id,
+        before=before,
+        after={"creditBlock": customer.credit_block, "creditBlockReason": customer.credit_block_reason},
+    )
+    db.commit()
+    db.refresh(customer)
+    return customer

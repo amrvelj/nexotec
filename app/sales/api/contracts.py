@@ -1,6 +1,4 @@
-"""SalesContract endpoints (WP-8 PR-1). Confirmation (pending->confirmed,
-the reserve() call) is PR-6 — not present here yet.
-"""
+"""SalesContract endpoints (WP-8 PR-1; confirmation/invoice-request PR-6)."""
 
 import uuid
 
@@ -77,6 +75,34 @@ def get_contract(
     db: Session = Depends(get_db),
 ):
     contract = contract_service.get_contract_or_404(db, principal.tenant_id, contract_id)
+    return ContractRead.model_validate(contract, from_attributes=True)
+
+
+@router.post("/sales/contracts/{contract_id}/confirm", response_model=ContractRead)
+def confirm_contract(
+    contract_id: uuid.UUID,
+    if_match: int = Depends(require_if_match),
+    principal: Principal = Depends(require_write("sales_contracts")),
+    db: Session = Depends(get_db),
+):
+    contract = contract_service.get_contract_or_404(db, principal.tenant_id, contract_id)
+    check_version(contract.version, if_match, entity_name="SalesContract")
+    contract = contract_service.confirm_contract(
+        db, contract=contract, group_id=principal.group_id, actor_id=principal.user_id
+    )
+    return ContractRead.model_validate(contract, from_attributes=True)
+
+
+@router.post("/sales/contracts/{contract_id}/request-invoice", response_model=ContractRead)
+def request_invoice(
+    contract_id: uuid.UUID,
+    if_match: int = Depends(require_if_match),
+    principal: Principal = Depends(require_write("sales_contracts")),
+    db: Session = Depends(get_db),
+):
+    contract = contract_service.get_contract_or_404(db, principal.tenant_id, contract_id)
+    check_version(contract.version, if_match, entity_name="SalesContract")
+    contract = contract_service.request_invoice(db, contract=contract, actor_id=principal.user_id)
     return ContractRead.model_validate(contract, from_attributes=True)
 
 

@@ -715,6 +715,11 @@
       "confirmed": "Bestätigt",
       "cancelled": "Storniert",
       "invoiced": "Fakturiert"
+    },
+    "financing": {
+      "cash": "Barkauf",
+      "leasing": "Leasing",
+      "credit": "Kredit"
     }
   },
   "offerDetail": {
@@ -729,7 +734,21 @@
     "errors": {
       "failedToLoad": "Vertrag konnte nicht geladen werden.",
       "somethingWentWrong": "Etwas ist schiefgelaufen."
-    }
+    },
+    "actions": {
+      "confirm": "Vertrag bestätigen",
+      "confirmDisabledReason": "Nur im Status Offen bestätigbar.",
+      "cancel": "Stornieren …",
+      "cancelDisabledReason": "Bereits storniert oder fakturiert."
+    },
+    "stats": {
+      "grossPrice": "Verkaufspreis",
+      "tradeIn": "Eintauschfahrzeug",
+      "payable": "Zu bezahlen",
+      "margin": "Marge"
+    },
+    "financing": "Finanzierung",
+    "cancelReasonPrompt": "Grund für die Stornierung:"
   },
   "offerWorkspace": {
     "title": "Offerte erstellen",
