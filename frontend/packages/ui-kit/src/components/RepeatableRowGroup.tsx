@@ -292,7 +292,7 @@ export function RepeatableRowGroup({
               aria-pressed={row.isPrimary}
               style={{ border: "none", background: "none", cursor: "pointer", display: "flex", padding: 0 }}
             >
-              <Star size={15} fill={row.isPrimary ? purple[6] : "none"} color={row.isPrimary ? purple[6] : slate[3]} />
+              <Star size={14} fill={row.isPrimary ? purple[6] : "none"} color={row.isPrimary ? purple[6] : slate[3]} />
             </button>
           )}
 

@@ -128,13 +128,13 @@ export function FilterBuilder({ fields, predicates, onChange, onPreviewCount, la
               {describePredicate(predicate, field)}
             </span>
             <IconButton ariaLabel="Edit filter" onClick={() => startEdit(predicate)}>
-              <Pencil size={13} />
+              <Pencil size={14} />
             </IconButton>
             <IconButton ariaLabel="Duplicate filter" onClick={() => duplicate(predicate)}>
-              <Copy size={13} />
+              <Copy size={14} />
             </IconButton>
             <IconButton ariaLabel="Delete filter" onClick={() => remove(predicate.id)}>
-              <Trash2 size={13} />
+              <Trash2 size={14} />
             </IconButton>
           </div>
         );

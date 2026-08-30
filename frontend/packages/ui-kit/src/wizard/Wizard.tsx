@@ -71,7 +71,7 @@ export function Wizard({
                     color: isCompleted || isActive ? white : slate[4],
                   }}
                 >
-                  {isCompleted ? <Check size={13} /> : index + 1}
+                  {isCompleted ? <Check size={14} /> : index + 1}
                 </div>
                 <span style={{ fontSize: typography.bodyStrong.size, fontWeight: typography.bodyStrong.weight, color: textColor, whiteSpace: "nowrap" }}>
                   {step.label}

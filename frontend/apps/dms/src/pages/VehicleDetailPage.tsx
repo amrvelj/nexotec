@@ -154,7 +154,7 @@ export function VehicleDetailPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <DetailHeader
-        entityMark={<Car size={22} />}
+        entityMark={<Car size={24} />}
         title={vehicle.vehicleNumber}
         businessKey={vehicle.vin}
         badges={

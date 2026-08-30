@@ -198,7 +198,7 @@ export function InlineEditField({
       }}
     >
       <span style={{ fontStyle: isEmpty ? "italic" : undefined, color: isEmpty ? slate[3] : undefined }}>{isEmpty ? emptyLabel : value}</span>
-      {hovering && !disabled && <Pencil size={12} color={purple[6]} aria-hidden="true" />}
+      {hovering && !disabled && <Pencil size={14} color={purple[6]} aria-hidden="true" />}
     </span>
   );
 }

@@ -28,7 +28,7 @@ export function DashboardPage() {
         color: slate[5],
       }}
     >
-      <LayoutDashboard size={32} strokeWidth={1.5} color={slate[4]} aria-hidden="true" />
+      <LayoutDashboard size={24} strokeWidth={1.5} color={slate[4]} aria-hidden="true" />
       <div style={{ fontSize: 16, fontWeight: 600, color: slate[7] }}>{t('dashboard.placeholder.title')}</div>
       <div style={{ fontSize: 14, maxWidth: 420 }}>{t('dashboard.placeholder.body')}</div>
     </div>

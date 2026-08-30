@@ -151,7 +151,7 @@ export function ViewsAndFilters({
                     onSetDefaultView(view.isDefault ? null : view.id);
                   }}
                 >
-                  <Star size={13} fill={view.isDefault ? purple[6] : "none"} color={view.isDefault ? purple[6] : slate[4]} />
+                  <Star size={14} fill={view.isDefault ? purple[6] : "none"} color={view.isDefault ? purple[6] : slate[4]} />
                 </IconButton>
                 <IconButton
                   ariaLabel="Delete view"
@@ -160,7 +160,7 @@ export function ViewsAndFilters({
                     onDeleteView(view.id);
                   }}
                 >
-                  <Trash2 size={13} />
+                  <Trash2 size={14} />
                 </IconButton>
               </div>
             ))}

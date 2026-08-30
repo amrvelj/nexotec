@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Button, Group, Stack, Title } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
 import { useInfiniteQuery } from '@tanstack/react-query'
@@ -45,6 +45,39 @@ import type { CustomerPage, CustomerRead } from '../api/types'
 
 const GRID_KEY = 'mdm.customers.list'
 const DEFAULT_SORT: SortSpec[] = [{ field: 'updatedAt', direction: 'desc' }]
+
+// § ADR-056 — "grid state (search, filter, sort, tab, scope) lives in the
+// URL, and the URL is the shareable unit. Layout and density stay out of
+// it; those are the reader's own ergonomics, and belong on the user
+// preference record." Column layout/density already come from
+// useGridPreferences/useUiPreferencesContext, not this file's own state —
+// only search/sort/filters are URL-synced below.
+
+function parseSortParam(raw: string): SortSpec[] {
+  return raw
+    .split(',')
+    .map((part): SortSpec | null => {
+      const [field, direction] = part.split(':')
+      if (!field) return null
+      return { field, direction: direction === 'asc' ? 'asc' : 'desc' }
+    })
+    .filter((s): s is SortSpec => s !== null)
+}
+
+function serializeSort(sort: SortSpec[]): string {
+  return sort.map((s) => `${s.field}:${s.direction}`).join(',')
+}
+
+function parseFiltersParam(raw: string): FilterPredicate[] {
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    return Array.isArray(parsed) ? (parsed as FilterPredicate[]) : []
+  } catch {
+    // A hand-edited or truncated URL shouldn't crash the screen — it just
+    // opens with no filters, same as if none had ever been set.
+    return []
+  }
+}
 
 /**
  * § Action Bar — Filter Builder's own field list "derived from the grid's
@@ -101,13 +134,51 @@ export function CustomersListPage() {
   const { density, setDensity } = useUiPreferencesContext()
   const gridPrefs = useGridPreferences(GRID_KEY, { sort: DEFAULT_SORT })
   const savedViews = useSavedViews(GRID_KEY)
+  const [searchParams, setSearchParams] = useSearchParams()
 
-  const [query, setQuery] = useState('')
+  // "Pasting that URL reproduces the screen" — sort and filters are read
+  // straight from the URL on every render (no local mirror to go stale
+  // against a pasted/back-navigated URL); the preference is only the
+  // fallback for "what to show when there's no URL state yet at all."
+  const sort = searchParams.get('sort') ? parseSortParam(searchParams.get('sort')!) : gridPrefs.sort
+  const predicates = searchParams.get('filters') ? parseFiltersParam(searchParams.get('filters')!) : []
+
+  const updateUrl = (patch: Record<string, string | null>) => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        for (const [key, value] of Object.entries(patch)) {
+          if (value === null) next.delete(key)
+          else next.set(key, value)
+        }
+        return next
+      },
+      { replace: true }
+    )
+  }
+
+  const setSort = (next: SortSpec[]) => {
+    gridPrefs.setSort(next) // persists as the future default too (U-01/U-09)
+    updateUrl({ sort: next.length > 0 ? serializeSort(next) : null })
+  }
+
+  const setPredicates = (next: FilterPredicate[]) => {
+    updateUrl({ filters: next.length > 0 ? JSON.stringify(next) : null })
+  }
+
+  // Search stays local while typing (immediate, no per-keystroke URL
+  // churn) and is written to the URL debounced, alongside the fetch —
+  // initialized from the URL so a pasted link still opens with the right
+  // search text in the box.
+  const [query, setQuery] = useState(() => searchParams.get('q') ?? '')
   const [debouncedQuery] = useDebouncedValue(query, 250)
-  const [predicates, setPredicates] = useState<FilterPredicate[]>([])
+  useEffect(() => {
+    updateUrl({ q: debouncedQuery || null })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedQuery])
+
   const [appliedViewId, setAppliedViewId] = useState<string | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const sort = gridPrefs.sort
 
   const sortParam = sort.length > 0 ? sort.map((s) => `${s.field}:${s.direction}`).join(',') : undefined
 
@@ -145,7 +216,12 @@ export function CustomersListPage() {
         id: 'name',
         header: t('customersList.columns.name'),
         cell: ({ row }) => <span style={{ fontWeight: 600 }}>{customerName(row.original)}</span>,
-        meta: { sortField: 'lastName', locked: true },
+        // § Composite cells — "show both facts at the shipped default
+        // density": the locality rides along inline at `default`, stacks
+        // underneath at `comfortable`, and disappears at `compact`. Every
+        // other column in this grid is single-fact, so this is the one
+        // place that behaviour is actually exercised on this screen.
+        meta: { sortField: 'lastName', locked: true, secondary: (row) => row.address?.locality ?? null },
       },
       {
         id: 'customerType',
@@ -211,7 +287,7 @@ export function CustomersListPage() {
 
   const applyView = (view: SavedView) => {
     setAppliedViewId(view.id)
-    if (view.snapshot.sort) gridPrefs.setSort(view.snapshot.sort)
+    if (view.snapshot.sort) setSort(view.snapshot.sort)
     if (view.snapshot.columnLayout) gridPrefs.setColumnLayout(view.snapshot.columnLayout)
     if (view.snapshot.filters) setPredicates(view.snapshot.filters)
   }
@@ -299,7 +375,7 @@ export function CustomersListPage() {
           rows={rows}
           getRowId={(row) => row.id}
           sort={sort}
-          onSortChange={gridPrefs.setSort}
+          onSortChange={setSort}
           density={density}
           rowHref={(row) => `/customers/${row.id}`}
           linkComponent={Link}

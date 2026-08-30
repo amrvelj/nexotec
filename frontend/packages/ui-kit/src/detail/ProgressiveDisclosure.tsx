@@ -41,7 +41,7 @@ export function ProgressiveDisclosure({ label, children }: ProgressiveDisclosure
           color: purple[7],
         }}
       >
-        <Lock size={12} aria-hidden="true" />
+        <Lock size={14} aria-hidden="true" />
         <span>{label}</span>
         {open ? <ChevronUp size={14} style={{ marginLeft: "auto" }} /> : <ChevronDown size={14} style={{ marginLeft: "auto" }} />}
       </button>

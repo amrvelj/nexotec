@@ -72,7 +72,7 @@ export function FilterChips({
               padding: 0,
             }}
           >
-            <X size={12} />
+            <X size={14} />
           </button>
         </span>
       ))}

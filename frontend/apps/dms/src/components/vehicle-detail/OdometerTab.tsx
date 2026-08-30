@@ -81,7 +81,7 @@ export function OdometerTab({ readings, loading, onAdd }: OdometerTabProps) {
                 <Table.Td>{t(`vehicleDetail.odometer.sourceLabel.${r.source}`)}</Table.Td>
                 <Table.Td>
                   {r.implausible && (
-                    <Badge color="yellow" variant="light" leftSection={<AlertTriangle size={12} />}>
+                    <Badge color="yellow" variant="light" leftSection={<AlertTriangle size={14} />}>
                       {t('vehicleDetail.odometer.implausible')}
                     </Badge>
                   )}
