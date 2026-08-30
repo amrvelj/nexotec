@@ -191,7 +191,11 @@ def list_stock_items(
     lifecycle_status: LifecycleStatus | None,
     params: SortPageParams,
 ) -> tuple[list[StockItem], str | None, int, bool]:
-    stmt = select(StockItem).where(StockItem.tenant_id == tenant_id)
+    # FR-I-12 (PR-5): a sold (invoiced) item is absent from the active
+    # list — enforced here, never a 4th lifecycle_status value. Still
+    # directly fetchable by id (get_stock_item_or_404 is unaffected) for
+    # whoever holds a historical link to it.
+    stmt = select(StockItem).where(StockItem.tenant_id == tenant_id, StockItem.left_stock_at.is_(None))
     if q:
         like = f"%{q}%"
         stmt = stmt.where(
