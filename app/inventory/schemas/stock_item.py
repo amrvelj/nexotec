@@ -52,6 +52,22 @@ class StockItemRead(CamelModel):
     list_price: Decimal | None
     effective_price: Decimal | None
     first_registration_date: dt.date | None
+    pipeline_ref: str | None
+    order_date: dt.date | None
+    expected_delivery: dt.date | None
+    in_stock_at: dt.datetime | None
+    supplier_name: str | None
+    supplier_is_vat_registered: bool | None
+    purchase_date: dt.date | None
+    purchase_price: Decimal | None
+    purchase_invoice_ref: str | None
+    landed_cost: Decimal | None
+    notional_input_tax_applicable: bool | None
+    notional_input_tax_rate: Decimal | None
+    notional_input_tax_amount: Decimal | None
+    notional_input_tax_overridden: bool
+    is_invoiceable: bool
+    left_stock_at: dt.datetime | None
     version: int
     created_at: dt.datetime
     updated_at: dt.datetime

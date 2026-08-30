@@ -20,8 +20,9 @@ exists now rather than then.
 
 import enum
 import uuid
+from decimal import Decimal
 
-from sqlalchemy import JSON, Boolean, ForeignKey, String
+from sqlalchemy import DECIMAL, JSON, Boolean, ForeignKey, String
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -120,6 +121,13 @@ class Dealership(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     default_correspondence_language: Mapped[SwissLanguage] = mapped_column(
         SAEnum(SwissLanguage, native_enum=False, length=8), nullable=False, default=SwissLanguage.DE
     )
+
+    # WP-7 PR-3 (ADR-057): the ONE VAT figure in the whole system — no
+    # vatTreatment field exists anywhere. VAT is a single line on a printed
+    # document only, computed here; never a per-vehicle attribute. Nullable
+    # because a brand-new dealership hasn't configured it yet, not because
+    # it's ever optional once trading.
+    vat_rate: Mapped[Decimal | None] = mapped_column(DECIMAL(5, 2), nullable=True)
 
     @property
     def address(self) -> dict[str, str]:

@@ -101,6 +101,39 @@ def _build_and_flush_stock_item(
     return item
 
 
+def mark_purchased_if_ready(db: Session, item: StockItem) -> bool:
+    """WP-7 PR-5 (ADR-052) / S-D10: "the surviving confirmation gate is the
+    purchase, not the tax." A stock item becomes invoiceable the moment
+    BOTH facts are true — VIN known (lifecycle_status=in_stock) and the
+    purchase is booked (purchase_price set) — whichever of the two
+    completes second. Called from both promote_to_vehicle_mdm (PR-2, VIN
+    arriving after purchase was already booked) and record_purchase (PR-3,
+    purchase booked after VIN already arrived). Idempotent: a no-op past
+    the first time. Returns True iff it just flipped is_invoiceable and
+    emitted the event — callers decide whether to commit.
+    """
+
+    if item.is_invoiceable:
+        return False
+    if item.lifecycle_status != LifecycleStatus.IN_STOCK or item.purchase_price is None:
+        return False
+
+    item.is_invoiceable = True
+    db.flush()
+    publish(
+        db,
+        OutboxEvent(
+            event_type="inventory.stock_item.purchased",
+            tenant_id=item.tenant_id,
+            producer=_EVENT_PRODUCER,
+            aggregate_type="stock_item",
+            aggregate_id=item.id,
+            payload={"stockNumber": item.stock_number},
+        ),
+    )
+    return True
+
+
 def create_stock_item(
     db: Session, *, tenant_id: uuid.UUID, data: StockItemCreate, actor_id: uuid.UUID | None
 ) -> StockItem:

@@ -25,7 +25,7 @@ import enum
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import DECIMAL, Date, Index, Integer, String, UniqueConstraint, text
+from sqlalchemy import DECIMAL, Boolean, Date, Index, Integer, String, UniqueConstraint, text
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -144,3 +144,34 @@ class StockItem(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMix
     # from created_at — a factory order's time in the pipeline doesn't
     # count as ageing on the lot.
     in_stock_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+
+    # WP-7 PR-3: purchase / landed cost / fiktiver Vorsteuerabzug
+    # (Art. 28a MWSTG). ADR-057 — there is NO vatTreatment field anywhere;
+    # notional_input_tax_* is a purchase-side fact, never shown to a
+    # customer, never a per-vehicle "VAT treatment" the way pre-2010
+    # Margenbesteuerung was.
+    supplier_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    supplier_is_vat_registered: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    purchase_date: Mapped[dt.date | None] = mapped_column(Date(), nullable=True)
+    purchase_price: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
+    purchase_invoice_ref: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    landed_cost: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
+    # Prefilled automatically from supplier_is_vat_registered (false for a
+    # VAT-registered business, true for a private individual) — an admin
+    # override is permitted but always produces its own audit entry
+    # (services/purchase.py::override_notional_input_tax), never a silent
+    # overwrite.
+    notional_input_tax_applicable: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    notional_input_tax_rate: Mapped[Decimal | None] = mapped_column(DECIMAL(5, 2), nullable=True)
+    notional_input_tax_amount: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
+    notional_input_tax_overridden: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    # WP-7 PR-5 (ADR-052) — a replicated fact, set by record_purchase once
+    # BOTH the VIN is known and the purchase is booked (S-D10: "the
+    # surviving confirmation gate is the purchase, not the tax"). Columns
+    # land here (PR-3) since record_purchase is what first needs them; the
+    # full reconciliation-against-finance.invoice.issued logic is PR-5.
+    is_invoiceable: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # FR-I-12: a sold (invoiced) item leaves the active list — enforced by
+    # filtering WHERE left_stock_at IS NULL, never a 4th lifecycle value.
+    left_stock_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)

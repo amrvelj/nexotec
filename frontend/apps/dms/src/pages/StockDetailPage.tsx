@@ -80,6 +80,21 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
 
   const reload = () => void itemQuery.refetch()
 
+  const recordPurchase = async (data: {
+    supplierName: string
+    supplierIsVatRegistered: boolean
+    purchasePrice: number
+    purchaseDate: string
+    purchaseInvoiceRef?: string
+  }) => {
+    const item = itemQuery.data
+    if (!item) return
+    const updated = await api.post<StockItemRead>(`/inventory/stock-items/${id}/purchase`, data, {
+      'If-Match': String(item.version),
+    })
+    queryClient.setQueryData(['stock-item', id], updated)
+  }
+
   const tabs: DetailTab[] = [{ id: 'details', label: t('stockDetail.tabs.details') }]
 
   if (itemQuery.isLoading) return <Loader />
@@ -125,7 +140,9 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
 
       <DetailTabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
 
-      {activeTab === 'details' && <DetailsTab item={item} locale={locale} onSaveField={saveField} onReload={reload} />}
+      {activeTab === 'details' && (
+        <DetailsTab item={item} locale={locale} onSaveField={saveField} onReload={reload} onRecordPurchase={recordPurchase} />
+      )}
     </div>
   )
 }

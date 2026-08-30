@@ -39,7 +39,7 @@ from app.core.errors import ConflictError
 from app.core.outbox import OutboxEvent, publish
 from app.inventory.models.stock_item import LifecycleStatus, StockItem, StockItemCondition
 from app.inventory.schemas.stock_item import StockItemCreate
-from app.inventory.services.stock_item import _build_and_flush_stock_item
+from app.inventory.services.stock_item import _build_and_flush_stock_item, mark_purchased_if_ready
 from app.vehicle.public import create_or_get_vehicle_mdm
 
 _EVENT_PRODUCER = "inventory"
@@ -143,6 +143,10 @@ def promote_to_vehicle_mdm(
             payload={"vin": vin, "vehicleId": str(vehicle.id)},
         ),
     )
+    # WP-7 PR-5 (ADR-052) — a trade-in's purchase is sometimes booked
+    # BEFORE its VIN arrives (FR-I-02b's "awaiting purchase booking" case
+    # is the other order; this is the promotion-completes-second order).
+    mark_purchased_if_ready(db, item)
     db.commit()
     db.refresh(item)
     return item

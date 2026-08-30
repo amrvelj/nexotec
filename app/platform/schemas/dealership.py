@@ -1,5 +1,6 @@
 import datetime as dt
 import uuid
+from decimal import Decimal
 
 from pydantic import Field
 
@@ -50,6 +51,9 @@ class DealershipUpdate(CamelModel):
     phone: E164Phone | None = None
     tax_id: str | None = Field(default=None, min_length=1)
     status: DealershipStatus | None = None
+    # WP-7 PR-3 (ADR-057) — "dealer-configurable dealer_settings.vat_rate,"
+    # the one VAT figure in the whole system.
+    vat_rate: Decimal | None = None
 
 
 class DealershipRead(CamelModel):
@@ -64,6 +68,7 @@ class DealershipRead(CamelModel):
     address: DealershipAddress
     phone: str
     status: DealershipStatus
+    vat_rate: Decimal | None
     version: int
     created_at: dt.datetime
     updated_at: dt.datetime

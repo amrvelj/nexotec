@@ -43,7 +43,9 @@
       "ariaLabel": "Zeilendichte ändern"
     },
     "cancel": "Abbrechen",
-    "notSet": "Nicht gesetzt"
+    "notSet": "Nicht gesetzt",
+    "yes": "Ja",
+    "no": "Nein"
   },
   "customerEnums": {
     "customerType": {
@@ -531,6 +533,23 @@
     "errors": {
       "failedToLoad": "Laden fehlgeschlagen",
       "somethingWentWrong": "Etwas ist schiefgelaufen."
+    },
+    "purchase": {
+      "title": "Einkauf",
+      "recordButton": "Einkauf erfassen",
+      "dialogTitle": "Einkauf erfassen",
+      "submit": "Erfassen",
+      "fields": {
+        "supplierName": "Lieferant",
+        "supplierIsVatRegistered": "Lieferant ist MWST-pflichtig",
+        "purchasePrice": "Einkaufspreis",
+        "purchaseDate": "Einkaufsdatum",
+        "purchaseInvoiceRef": "Rechnungsreferenz"
+      },
+      "notionalInputTax": "Fiktiver Vorsteuerabzug",
+      "notionalInputTaxNotApplicable": "Nicht anwendbar",
+      "notionalInputTaxRateNotConfigured": "MWST-Satz noch nicht konfiguriert",
+      "isInvoiceable": "Fakturierbar"
     }
   },
   "stockCreate": {

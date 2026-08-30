@@ -1,7 +1,10 @@
-import { InlineEditField, KeyValueRow, OverviewCard, SpecGrid, slate } from '@nexotec/ui-kit'
+import { useState } from 'react'
+import { Button } from '@mantine/core'
+import { InlineEditField, KeyValueRow, OverviewCard, ProgressiveDisclosure, SpecGrid, slate } from '@nexotec/ui-kit'
 import { useTranslation } from 'react-i18next'
 import { ApiError } from '../../api/client'
 import { formatCurrencyChf, formatDate } from '../../utils/format'
+import { RecordPurchaseDialog } from './RecordPurchaseDialog'
 import type { StockItemRead } from '../../api/types'
 
 interface DetailsTabProps {
@@ -9,6 +12,13 @@ interface DetailsTabProps {
   locale: string
   onSaveField: (patch: Record<string, unknown>) => Promise<void>
   onReload: () => void
+  onRecordPurchase: (data: {
+    supplierName: string
+    supplierIsVatRegistered: boolean
+    purchasePrice: number
+    purchaseDate: string
+    purchaseInvoiceRef?: string
+  }) => Promise<void>
 }
 
 /**
@@ -18,9 +28,10 @@ interface DetailsTabProps {
  * caption), equipment summary and marketplace summary all arrive with
  * PR-8; the evaluation/valuation reader arrives with PR-9.
  */
-export function DetailsTab({ item, locale, onSaveField, onReload }: DetailsTabProps) {
+export function DetailsTab({ item, locale, onSaveField, onReload, onRecordPurchase }: DetailsTabProps) {
   const { t } = useTranslation()
   const isConflict = (err: unknown) => err instanceof ApiError && err.status === 409
+  const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -91,6 +102,42 @@ export function DetailsTab({ item, locale, onSaveField, onReload }: DetailsTabPr
           </KeyValueRow>
         </OverviewCard>
       </div>
+
+      <ProgressiveDisclosure label={t('stockDetail.purchase.title')}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {item.purchasePrice == null ? (
+            <Button variant="default" onClick={() => setPurchaseDialogOpen(true)} style={{ alignSelf: 'flex-start' }}>
+              {t('stockDetail.purchase.recordButton')}
+            </Button>
+          ) : (
+            <OverviewCard title={t('stockDetail.purchase.title')}>
+              <KeyValueRow label={t('stockDetail.purchase.fields.supplierName')}>{item.supplierName}</KeyValueRow>
+              <KeyValueRow label={t('stockDetail.purchase.fields.purchasePrice')}>
+                {formatCurrencyChf(Number(item.purchasePrice))}
+              </KeyValueRow>
+              <KeyValueRow label={t('stockDetail.purchase.fields.purchaseDate')}>
+                {item.purchaseDate ? formatDate(item.purchaseDate, locale) : '—'}
+              </KeyValueRow>
+              <KeyValueRow label={t('stockDetail.purchase.notionalInputTax')}>
+                {item.notionalInputTaxApplicable
+                  ? item.notionalInputTaxAmount != null
+                    ? formatCurrencyChf(Number(item.notionalInputTaxAmount))
+                    : t('stockDetail.purchase.notionalInputTaxRateNotConfigured')
+                  : t('stockDetail.purchase.notionalInputTaxNotApplicable')}
+              </KeyValueRow>
+              <KeyValueRow label={t('stockDetail.purchase.isInvoiceable')}>
+                {item.isInvoiceable ? t('common.yes') : t('common.no')}
+              </KeyValueRow>
+            </OverviewCard>
+          )}
+        </div>
+      </ProgressiveDisclosure>
+
+      <RecordPurchaseDialog
+        opened={purchaseDialogOpen}
+        onClose={() => setPurchaseDialogOpen(false)}
+        onSubmit={onRecordPurchase}
+      />
     </div>
   )
 }

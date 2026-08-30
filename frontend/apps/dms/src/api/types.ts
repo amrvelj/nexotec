@@ -481,6 +481,23 @@ export interface StockItemRead {
   listPrice: string | null
   effectivePrice: string | null
   firstRegistrationDate: string | null
+  pipelineRef: string | null
+  orderDate: string | null
+  expectedDelivery: string | null
+  inStockAt: string | null
+  // WP-7 PR-3 (ADR-057) — no vatTreatment field here or anywhere else.
+  supplierName: string | null
+  supplierIsVatRegistered: boolean | null
+  purchaseDate: string | null
+  purchasePrice: string | null
+  purchaseInvoiceRef: string | null
+  landedCost: string | null
+  notionalInputTaxApplicable: boolean | null
+  notionalInputTaxRate: string | null
+  notionalInputTaxAmount: string | null
+  notionalInputTaxOverridden: boolean
+  isInvoiceable: boolean
+  leftStockAt: string | null
   version: number
   createdAt: string
   updatedAt: string

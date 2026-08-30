@@ -43,7 +43,9 @@
       "ariaLabel": "Cambia densità righe"
     },
     "cancel": "Annulla",
-    "notSet": "Non impostato"
+    "notSet": "Non impostato",
+    "yes": "Sì",
+    "no": "No"
   },
   "customerEnums": {
     "customerType": {
@@ -531,6 +533,23 @@
     "errors": {
       "failedToLoad": "Caricamento non riuscito",
       "somethingWentWrong": "Qualcosa è andato storto."
+    },
+    "purchase": {
+      "title": "Acquisto",
+      "recordButton": "Registra acquisto",
+      "dialogTitle": "Registra acquisto",
+      "submit": "Registra",
+      "fields": {
+        "supplierName": "Fornitore",
+        "supplierIsVatRegistered": "Il fornitore è soggetto a IVA",
+        "purchasePrice": "Prezzo di acquisto",
+        "purchaseDate": "Data di acquisto",
+        "purchaseInvoiceRef": "Riferimento fattura"
+      },
+      "notionalInputTax": "Deduzione fittizia dell'imposta precedente",
+      "notionalInputTaxNotApplicable": "Non applicabile",
+      "notionalInputTaxRateNotConfigured": "Aliquota IVA non ancora configurata",
+      "isInvoiceable": "Fatturabile"
     }
   },
   "stockCreate": {

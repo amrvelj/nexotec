@@ -43,7 +43,9 @@
       "ariaLabel": "Change row density"
     },
     "cancel": "Cancel",
-    "notSet": "Not set"
+    "notSet": "Not set",
+    "yes": "Yes",
+    "no": "No"
   },
   "customerEnums": {
     "customerType": {
@@ -531,6 +533,23 @@
     "errors": {
       "failedToLoad": "Failed to load",
       "somethingWentWrong": "Something went wrong."
+    },
+    "purchase": {
+      "title": "Purchase",
+      "recordButton": "Record purchase",
+      "dialogTitle": "Record purchase",
+      "submit": "Record",
+      "fields": {
+        "supplierName": "Supplier",
+        "supplierIsVatRegistered": "Supplier is VAT-registered",
+        "purchasePrice": "Purchase price",
+        "purchaseDate": "Purchase date",
+        "purchaseInvoiceRef": "Invoice reference"
+      },
+      "notionalInputTax": "Notional input tax deduction",
+      "notionalInputTaxNotApplicable": "Not applicable",
+      "notionalInputTaxRateNotConfigured": "VAT rate not yet configured",
+      "isInvoiceable": "Invoiceable"
     }
   },
   "stockCreate": {

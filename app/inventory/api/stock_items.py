@@ -13,6 +13,7 @@ from app.core.permissions import require_write
 from app.core.sorting import SortField, parse_sort
 from app.db import get_db
 from app.inventory.models.stock_item import LifecycleStatus, StockItem
+from app.inventory.schemas.purchase import NotionalInputTaxOverrideRequest, RecordPurchaseRequest
 from app.inventory.schemas.stock_item import (
     StockItemConditionChange,
     StockItemCreate,
@@ -20,6 +21,7 @@ from app.inventory.schemas.stock_item import (
     StockItemRead,
     StockItemUpdate,
 )
+from app.inventory.services import purchase as purchase_service
 from app.inventory.services import stock_item as stock_item_service
 
 router = APIRouter(tags=["inventory"])
@@ -108,4 +110,32 @@ def change_condition(
     item = stock_item_service.get_stock_item_or_404(db, principal.tenant_id, stock_item_id)
     check_version(item.version, if_match, entity_name="StockItem")
     item = stock_item_service.change_condition(db, item=item, condition=body.condition, actor_id=principal.user_id)
+    return StockItemRead.model_validate(item, from_attributes=True)
+
+
+@router.post("/inventory/stock-items/{stock_item_id}/purchase", response_model=StockItemRead)
+def record_purchase(
+    stock_item_id: uuid.UUID,
+    body: RecordPurchaseRequest,
+    if_match: int = Depends(require_if_match),
+    principal: Principal = Depends(require_write("stock_items")),
+    db: Session = Depends(get_db),
+):
+    item = stock_item_service.get_stock_item_or_404(db, principal.tenant_id, stock_item_id)
+    check_version(item.version, if_match, entity_name="StockItem")
+    item = purchase_service.record_purchase(db, item=item, data=body, actor_id=principal.user_id)
+    return StockItemRead.model_validate(item, from_attributes=True)
+
+
+@router.patch("/inventory/stock-items/{stock_item_id}/purchase/notional-input-tax", response_model=StockItemRead)
+def override_notional_input_tax(
+    stock_item_id: uuid.UUID,
+    body: NotionalInputTaxOverrideRequest,
+    if_match: int = Depends(require_if_match),
+    principal: Principal = Depends(require_write("stock_items")),
+    db: Session = Depends(get_db),
+):
+    item = stock_item_service.get_stock_item_or_404(db, principal.tenant_id, stock_item_id)
+    check_version(item.version, if_match, entity_name="StockItem")
+    item = purchase_service.override_notional_input_tax(db, item=item, data=body, actor_id=principal.user_id)
     return StockItemRead.model_validate(item, from_attributes=True)

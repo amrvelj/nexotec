@@ -43,7 +43,9 @@
       "ariaLabel": "Modifier la densité des lignes"
     },
     "cancel": "Annuler",
-    "notSet": "Non défini"
+    "notSet": "Non défini",
+    "yes": "Oui",
+    "no": "Non"
   },
   "customerEnums": {
     "customerType": {
@@ -531,6 +533,23 @@
     "errors": {
       "failedToLoad": "Échec du chargement",
       "somethingWentWrong": "Une erreur s'est produite."
+    },
+    "purchase": {
+      "title": "Achat",
+      "recordButton": "Saisir l'achat",
+      "dialogTitle": "Saisir l'achat",
+      "submit": "Saisir",
+      "fields": {
+        "supplierName": "Fournisseur",
+        "supplierIsVatRegistered": "Le fournisseur est assujetti à la TVA",
+        "purchasePrice": "Prix d'achat",
+        "purchaseDate": "Date d'achat",
+        "purchaseInvoiceRef": "Référence de facture"
+      },
+      "notionalInputTax": "Déduction fictive de l'impôt préalable",
+      "notionalInputTaxNotApplicable": "Non applicable",
+      "notionalInputTaxRateNotConfigured": "Taux de TVA pas encore configuré",
+      "isInvoiceable": "Facturable"
     }
   },
   "stockCreate": {
