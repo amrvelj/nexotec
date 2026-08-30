@@ -226,14 +226,14 @@ export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType, o
       {step === 0 ? (
         <SimpleGrid cols={2} spacing="md">
           <TypeOption
-            icon={<User size={20} />}
+            icon={<User size={18} />}
             label="Individual"
             description="A private person — name, date of birth, nationality."
             selected={customerType === 'individual'}
             onClick={() => setCustomerType('individual')}
           />
           <TypeOption
-            icon={<Building2 size={20} />}
+            icon={<Building2 size={18} />}
             label="Business"
             description="A company — legal name, legal form, UID."
             selected={customerType === 'business'}

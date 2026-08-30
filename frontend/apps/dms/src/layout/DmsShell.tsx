@@ -16,7 +16,7 @@ import {
   Warehouse,
   Wrench,
 } from 'lucide-react'
-import { AppShell, purple, white, type GlobalSearchGroup, type GlobalSearchProps, type NavGroupConfig } from '@nexotec/ui-kit'
+import { AppShell, OverlayProvider, purple, white, type GlobalSearchGroup, type GlobalSearchProps, type NavGroupConfig } from '@nexotec/ui-kit'
 import { useAuth } from '../auth/AuthContext'
 import { UiPreferencesProvider, useUiPreferencesContext } from '../hooks/UiPreferencesContext'
 import { api } from '../api/client'
@@ -206,7 +206,13 @@ function DmsShellInner({ children }: { children: ReactNode }) {
       }}
       topbar={{ search: buildGlobalSearch(t, navigate) }}
     >
-      {children}
+      {/* § ADR-059 — mounted once, here, so any screen in the app can open
+          an overlay via useOverlay() without knowing where the stack
+          itself lives. Inside AppShell (not wrapping it) so overlaid
+          content still renders within the same BreadcrumbProvider —
+          useSetBreadcrumb(null) on the embedded side is what stops that
+          from being a problem, not moving the provider around it. */}
+      <OverlayProvider>{children}</OverlayProvider>
     </AppShell>
   )
 }

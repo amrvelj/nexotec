@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link2, Plus, Trash2 } from 'lucide-react'
-import { Group, Menu, TextInput } from '@mantine/core'
+import { Group, TextInput } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 import { DataGrid, InlineEditField, purple, semantic, white, type GridColumnDef } from '@nexotec/ui-kit'
 import { useUiPreferencesContext } from '../../hooks/UiPreferencesContext'
@@ -121,16 +121,16 @@ export function ExternalIdsTab({ externalIds, loading, error, canWrite, onCreate
         }}
         rowActions={
           canWrite
-            ? (row) => (
-                <Menu.Item
-                  leftSection={<Trash2 size={16} />}
-                  color="red"
-                  onClick={() => void handleDelete(row.id)}
-                  disabled={deletingId === row.id}
-                >
-                  {t('customerDetail.externalIds.remove')}
-                </Menu.Item>
-              )
+            ? (row) => ({
+                destructive: [
+                  {
+                    label: t('customerDetail.externalIds.remove'),
+                    icon: <Trash2 size={16} />,
+                    onClick: () => void handleDelete(row.id),
+                    disabled: deletingId === row.id,
+                  },
+                ],
+              })
             : undefined
         }
       />

@@ -14,7 +14,7 @@ import {
   translatedSourceOptions,
 } from '../../customerOptions'
 import { formatDate } from '../../utils/format'
-import { ContactPointsEditor } from './ContactPointsEditor'
+import { ContactPointsEditor, type ContactPointUpdatePatch } from './ContactPointsEditor'
 import { PhoneInput } from '../PhoneInput'
 import type { CustomerEmailRead, CustomerPhoneRead, CustomerRead, CustomerUpdateInput, EmailType, PhoneType } from '../../api/types'
 
@@ -26,10 +26,10 @@ interface OverviewTabProps {
   isConflict: (err: unknown) => boolean
   onReload: () => void
   onCreatePhone: (row: { type: PhoneType; value: string }) => Promise<void>
-  onUpdatePhone: (id: string, patch: { type?: PhoneType; value?: string; isPrimary?: boolean }) => Promise<void>
+  onUpdatePhone: (id: string, patch: ContactPointUpdatePatch<PhoneType>) => Promise<void>
   onDeletePhone: (id: string) => Promise<void>
   onCreateEmail: (row: { type: EmailType; value: string }) => Promise<void>
-  onUpdateEmail: (id: string, patch: { type?: EmailType; value?: string; isPrimary?: boolean }) => Promise<void>
+  onUpdateEmail: (id: string, patch: ContactPointUpdatePatch<EmailType>) => Promise<void>
   onDeleteEmail: (id: string) => Promise<void>
   locale: string
 }
@@ -350,7 +350,19 @@ export function OverviewTab({
             label={t('customerDetail.contactPoints.phoneNumbers')}
             addLabel={t('customerDetail.contactPoints.addPhone')}
             typeOptions={translatedPhoneTypeOptions(t)}
-            rows={phones.map((p) => ({ id: p.id, type: p.phoneType, value: p.phoneE164, isPrimary: p.isPrimary }))}
+            rows={phones.map((p) => ({
+              id: p.id,
+              type: p.phoneType,
+              value: p.phoneE164,
+              label: p.label,
+              isPrimary: p.isPrimary,
+              validTo: p.validTo,
+              doNotUse: p.doNotUse,
+              doNotUseReason: p.doNotUseReason,
+              consentGranted: p.consentGranted,
+              consentSource: p.consentSource,
+              consentTimestamp: p.consentTimestamp,
+            }))}
             newRowType="mobile"
             renderValueEditor={(value, onChange) => <PhoneInput label={t('customerDetail.phoneInput.country')} value={value} onChange={onChange} />}
             onCreate={onCreatePhone}
@@ -361,7 +373,19 @@ export function OverviewTab({
             label={t('customerDetail.contactPoints.emailAddresses')}
             addLabel={t('customerDetail.contactPoints.addEmail')}
             typeOptions={translatedEmailTypeOptions(t)}
-            rows={emails.map((e) => ({ id: e.id, type: e.emailType, value: e.emailAddress, isPrimary: e.isPrimary }))}
+            rows={emails.map((e) => ({
+              id: e.id,
+              type: e.emailType,
+              value: e.emailAddress,
+              label: e.label,
+              isPrimary: e.isPrimary,
+              validTo: e.validTo,
+              doNotUse: e.doNotUse,
+              doNotUseReason: e.doNotUseReason,
+              consentGranted: e.consentGranted,
+              consentSource: e.consentSource,
+              consentTimestamp: e.consentTimestamp,
+            }))}
             newRowType="private"
             renderValueEditor={(value, onChange, autoFocus) => (
               <TextInput size="xs" type="email" value={value} onChange={(e) => onChange(e.currentTarget.value)} autoFocus={autoFocus} />

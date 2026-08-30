@@ -8,9 +8,15 @@ import en from './locales/en.json'
 export const SUPPORTED_LANGUAGES = ['de', 'fr', 'it', 'en'] as const
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number]
 
-// FR-13: "No fallback-to-German placeholders in production" — fallbackLng
-// stays 'en' (the resource bundles are complete for all four, this only
-// covers a key nobody has added a translation for yet).
+// WP-6c PR-12: "a missing key renders a loud marker and never a German
+// fallback" — fallbackLng still covers the narrower case this app has
+// always guarded against (a key present in the active language's bundle
+// simply not existing, falling through to English rather than silently
+// rendering German). parseMissingKeyHandler covers the wider one: a key
+// absent from EVERY bundle, active and fallback alike, which i18next's own
+// default behaviour renders as the bare key path — legible enough to spot
+// in a code review, but not the deliberate, impossible-to-mistake-for-
+// content marker this app wants a tester or a screen-reader user to see.
 void i18next.use(initReactI18next).init({
   resources: {
     de: { translation: de },
@@ -21,6 +27,7 @@ void i18next.use(initReactI18next).init({
   lng: 'de',
   fallbackLng: 'en',
   interpolation: { escapeValue: false },
+  parseMissingKeyHandler: (key) => `⚠ MISSING I18N KEY: ${key}`,
 })
 
 export default i18next

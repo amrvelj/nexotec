@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Building2, Copy, GitMerge, Loader, User } from 'lucide-react'
-import { Alert, Menu } from '@mantine/core'
+import { Alert } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 import {
   CustomerTypeBadge,
@@ -18,6 +18,7 @@ import { useAuth } from '../auth/AuthContext'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
 import { translatedCustomerTypeLabel, translatedLifecycleLabel } from '../customerOptions'
 import { OverviewTab } from '../components/customer-detail/OverviewTab'
+import type { ContactPointUpdatePatch } from '../components/customer-detail/ContactPointsEditor'
 import { VehiclesTab } from '../components/customer-detail/VehiclesTab'
 import { TransactionsTab } from '../components/customer-detail/TransactionsTab'
 import { HistoryTab } from '../components/customer-detail/HistoryTab'
@@ -41,6 +42,29 @@ import type {
 
 const DEFAULT_TAB = 'overview'
 
+/** The real route — reads `id` from the URL and renders as the full page. */
+export function CustomerDetailPage() {
+  const { id } = useParams<{ id: string }>()
+  if (!id) return null
+  return <CustomerDetailContent customerId={id} />
+}
+
+export interface CustomerDetailContentProps {
+  customerId: string
+  /**
+   * § ADR-059 — true when rendered as `Overlay` content rather than the
+   * real `/customers/:id` route. Two things change: tab state moves from
+   * the URL's own `?tab=` to local component state (Overlay's content
+   * shares the HOST screen's actual address bar — a vehicle detail screen
+   * opened underneath already owns `?tab=` for its own tabs, and writing
+   * to it here would fight the screen this is layered on top of, exactly
+   * the "renders on top... without touching the URL" ADR-059 itself
+   * exists to guarantee); and the breadcrumb is left untouched entirely
+   * (`useSetBreadcrumb(null)`) rather than overwriting the host screen's.
+   */
+  embedded?: boolean
+}
+
 /**
  * FR-06 Customer 360 view. "The Customer 360 pattern generalises to every
  * entity" per the UI/UX doc's Detail Screens section — this page is the
@@ -48,20 +72,30 @@ const DEFAULT_TAB = 'overview'
  * PATCH calls) around the generic DetailHeader/DetailTabs/InlineEditField
  * shell in @nexotec/ui-kit. Replaces the old CustomerFormPage entirely:
  * editing here is inline (FR-05), not a separate Save-button form.
+ *
+ * Exported separately from the route (`CustomerDetailPage` above) so this
+ * same content can also render as `Overlay` content, prop-driven by
+ * `customerId` instead of `useParams()` — the "second, prop-driven entry
+ * point" `Overlay.tsx`'s own docstring says a screen normally reached via
+ * `useParams()` needs to be usable inside one.
  */
-export function CustomerDetailPage() {
-  const { id } = useParams<{ id: string }>()
+export function CustomerDetailContent({ customerId: id, embedded = false }: CustomerDetailContentProps) {
   const navigate = useNavigate()
   const { t, i18n } = useTranslation()
   const locale = toSwissLocale(i18n.language as SupportedLanguage)
   const { user } = useAuth()
   const canWriteExternalIds = user?.accessRoles.includes('platform_admin') ?? false
   const [searchParams, setSearchParams] = useSearchParams()
+  const [embeddedTab, setEmbeddedTab] = useState(DEFAULT_TAB)
   const queryClient = useQueryClient()
-  const activeTab = searchParams.get('tab') ?? DEFAULT_TAB
+  const activeTab = embedded ? embeddedTab : (searchParams.get('tab') ?? DEFAULT_TAB)
   const [mergeModalOpen, setMergeModalOpen] = useState(false)
 
   const setActiveTab = (tab: string) => {
+    if (embedded) {
+      setEmbeddedTab(tab)
+      return
+    }
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev)
@@ -111,7 +145,7 @@ export function CustomerDetailPage() {
 
   const customer = customerQuery.data
   const label = customer ? (customer.customerType === 'business' ? customer.companyName : `${customer.firstName} ${customer.lastName}`) : null
-  useSetBreadcrumb([t('shell.nav.masterData'), t('shell.nav.customers'), label ?? t('customerDetail.header.customerFallback')])
+  useSetBreadcrumb(embedded ? null : [t('shell.nav.masterData'), t('shell.nav.customers'), label ?? t('customerDetail.header.customerFallback')])
 
   const isConflict = (err: unknown): boolean => err instanceof ApiError && err.status === 409
 
@@ -144,11 +178,17 @@ export function CustomerDetailPage() {
     await api.post<CustomerPhoneRead>(`/customers/${id}/phones`, { phoneType: row.type, phoneE164: row.value })
     invalidateContact('phones')
   }
-  const updatePhone = async (phoneId: string, patch: { type?: PhoneType; value?: string; isPrimary?: boolean }) => {
+  const updatePhone = async (phoneId: string, patch: ContactPointUpdatePatch<PhoneType>) => {
     await api.patch<CustomerPhoneRead>(`/customers/${id}/phones/${phoneId}`, {
       phoneType: patch.type,
+      label: patch.label,
       phoneE164: patch.value,
       isPrimary: patch.isPrimary,
+      validTo: patch.validTo,
+      doNotUse: patch.doNotUse,
+      doNotUseReason: patch.doNotUseReason,
+      consentGranted: patch.consentGranted,
+      consentSource: patch.consentSource,
     })
     invalidateContact('phones')
   }
@@ -161,11 +201,17 @@ export function CustomerDetailPage() {
     await api.post<CustomerEmailRead>(`/customers/${id}/emails`, { emailType: row.type, emailAddress: row.value })
     invalidateContact('emails')
   }
-  const updateEmail = async (emailId: string, patch: { type?: EmailType; value?: string; isPrimary?: boolean }) => {
+  const updateEmail = async (emailId: string, patch: ContactPointUpdatePatch<EmailType>) => {
     await api.patch<CustomerEmailRead>(`/customers/${id}/emails/${emailId}`, {
       emailType: patch.type,
+      label: patch.label,
       emailAddress: patch.value,
       isPrimary: patch.isPrimary,
+      validTo: patch.validTo,
+      doNotUse: patch.doNotUse,
+      doNotUseReason: patch.doNotUseReason,
+      consentGranted: patch.consentGranted,
+      consentSource: patch.consentSource,
     })
     invalidateContact('emails')
   }
@@ -221,7 +267,7 @@ export function CustomerDetailPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <DetailHeader
-        entityMark={customer.customerType === 'business' ? <Building2 size={22} /> : <User size={22} />}
+        entityMark={customer.customerType === 'business' ? <Building2 size={24} /> : <User size={24} />}
         title={label ?? customer.customerNumber}
         businessKey={customer.customerNumber}
         badges={
@@ -231,18 +277,25 @@ export function CustomerDetailPage() {
             <LanguageBadge language={customer.language} />
           </>
         }
-        overflowItems={
-          <>
-            <Menu.Item leftSection={<Copy size={16} />} onClick={() => navigator.clipboard.writeText(customer.customerNumber)}>
-              {t('customerDetail.header.copyCustomerNumber')}
-            </Menu.Item>
-            {customer.lifecycleStatus !== 'merged' && (
-              <Menu.Item leftSection={<GitMerge size={16} />} color="red" onClick={() => setMergeModalOpen(true)}>
-                {t('customerDetail.header.mergeInto')}
-              </Menu.Item>
-            )}
-          </>
-        }
+        overflowActions={{
+          exportPrint: [
+            {
+              label: t('customerDetail.header.copyCustomerNumber'),
+              icon: <Copy size={16} />,
+              onClick: () => navigator.clipboard.writeText(customer.customerNumber),
+            },
+          ],
+          destructive:
+            customer.lifecycleStatus !== 'merged'
+              ? [
+                  {
+                    label: t('customerDetail.header.mergeInto'),
+                    icon: <GitMerge size={16} />,
+                    onClick: () => setMergeModalOpen(true),
+                  },
+                ]
+              : [],
+        }}
       />
 
       <DetailTabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />

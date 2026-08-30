@@ -1,7 +1,19 @@
 import type { ReactNode } from "react";
+import { ActionIcon, Button, Group, Tooltip } from "@mantine/core";
 import { MoreHorizontal } from "lucide-react";
-import { ActionIcon, Group, Menu } from "@mantine/core";
 import { purple, radius, shadow, slate, spacing, typography, white } from "../tokens";
+import { RowMenu, type RowMenuGroups } from "../components/RowMenu";
+
+export interface DetailHeaderAction {
+  label: string;
+  icon?: ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+  /** Shown in a tooltip when disabled — ADR-061's own "disabled items
+   * shown-and-explained, never hidden" applies to the header's own two
+   * buttons exactly as much as it does to the overflow's menu items. */
+  disabledReason?: string;
+}
 
 export interface DetailHeaderProps {
   /** 54px square — an icon, initials circle, or similar entity mark. */
@@ -11,11 +23,20 @@ export interface DetailHeaderProps {
   businessKey: string;
   /** Status/type badge row, rendered directly below the title. */
   badges?: ReactNode;
-  primaryAction?: ReactNode;
-  secondaryActions?: ReactNode;
-  /** Menu.Item elements — "the same items as the grid row menu". Omit to
-   * hide the overflow trigger entirely. */
-  overflowItems?: ReactNode;
+  /** § ADR-061 — exactly one primary action. Most entities have at least
+   * one ("Edit", "Create offer"); omit only for the rare one that
+   * genuinely doesn't. */
+  primaryAction?: DetailHeaderAction;
+  /** § ADR-061 — exactly one alternative, rendered beside the primary.
+   * Anything beyond these two belongs in `overflowActions`, never a third
+   * button here. */
+  alternativeAction?: DetailHeaderAction;
+  /** § ADR-061 — "the overflow carries the entity's full row menu — same
+   * items, same order, same disabled-with-explanation entries." The exact
+   * same `RowMenuGroups` shape a grid's own `rowActions` returns, rendered
+   * through the same `RowMenu` component — never a second, hand-rolled
+   * menu that can drift from the grid's. */
+  overflowActions?: RowMenuGroups;
 }
 
 /**
@@ -24,7 +45,15 @@ export interface DetailHeaderProps {
  * in the DMS has this shape" — so this carries no customer-specific
  * knowledge; the caller supplies the entity mark, title, key and badges.
  */
-export function DetailHeader({ entityMark, title, businessKey, badges, primaryAction, secondaryActions, overflowItems }: DetailHeaderProps) {
+export function DetailHeader({
+  entityMark,
+  title,
+  businessKey,
+  badges,
+  primaryAction,
+  alternativeAction,
+  overflowActions,
+}: DetailHeaderProps) {
   return (
     <div
       style={{
@@ -68,20 +97,41 @@ export function DetailHeader({ entityMark, title, businessKey, badges, primaryAc
           )}
         </div>
         <Group gap="sm" wrap="nowrap">
-          {secondaryActions}
-          {primaryAction}
-          {overflowItems && (
-            <Menu shadow="md" width={200} position="bottom-end" withinPortal>
-              <Menu.Target>
+          {alternativeAction && <HeaderActionButton action={alternativeAction} variant="default" />}
+          {primaryAction && <HeaderActionButton action={primaryAction} variant="filled" />}
+          {overflowActions && (
+            <RowMenu
+              groups={overflowActions}
+              ariaLabel="More actions"
+              trigger={
                 <ActionIcon variant="subtle" color="gray" size="lg" aria-label="More actions">
                   <MoreHorizontal size={18} />
                 </ActionIcon>
-              </Menu.Target>
-              <Menu.Dropdown>{overflowItems}</Menu.Dropdown>
-            </Menu>
+              }
+            />
           )}
         </Group>
       </div>
     </div>
   );
+}
+
+function HeaderActionButton({ action, variant }: { action: DetailHeaderAction; variant: "filled" | "default" }) {
+  const button = (
+    <Button variant={variant} color="violet" leftSection={action.icon} onClick={action.onClick} disabled={action.disabled}>
+      {action.label}
+    </Button>
+  );
+  if (action.disabled && action.disabledReason) {
+    // A native `disabled` button fires no pointer events at all, so a
+    // Tooltip anchored directly to it would never see the hover that
+    // should reveal the reason — the standard fix is a plain wrapper
+    // element (which still receives pointer events) as the actual anchor.
+    return (
+      <Tooltip label={action.disabledReason}>
+        <span style={{ display: "inline-block" }}>{button}</span>
+      </Tooltip>
+    );
+  }
+  return button;
 }

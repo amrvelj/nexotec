@@ -179,7 +179,7 @@ export function ColumnConfigPanel({ registry, layout, onLayoutChange, presets, l
                   <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{entry.label}</span>
                   {entry.locked && (
                     <span title={L.lockedTooltip} aria-label={L.lockedTooltip} style={{ display: "flex", color: slate[4] }}>
-                      <Lock size={12} />
+                      <Lock size={14} />
                     </span>
                   )}
                 </label>

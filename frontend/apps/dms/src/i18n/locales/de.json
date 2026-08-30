@@ -135,6 +135,12 @@
       "canton": "Kanton",
       "changedSince": "Geändert seit",
       "changedSinceChip": "Geändert seit {{date}}"
+    },
+    "allCustomersView": "Alle Kunden",
+    "selection": {
+      "count": "{{count}} ausgewählt",
+      "clear": "Auswahl aufheben",
+      "copyIds": "IDs kopieren"
     }
   },
   "customerDetail": {
@@ -208,7 +214,15 @@
       "new": "Neu",
       "save": "Speichern",
       "cancel": "Abbrechen",
-      "removeAriaLabel": "{{label}} entfernen"
+      "removeAriaLabel": "{{label}} entfernen",
+      "former": "Frühere Kontaktdaten",
+      "noLongerValid": "Nicht mehr gültig",
+      "doesNotWork": "Funktioniert nicht",
+      "doesNotWorkReasonPlaceholder": "Grund (z. B. unerreichbar, zurückgewiesen)",
+      "delete": "Löschen",
+      "consent": "Einwilligung",
+      "confirm": "Bestätigen",
+      "labelPlaceholder": "Bezeichnung"
     },
     "phoneInput": {
       "country": "Land",
@@ -364,7 +378,8 @@
     "header": {
       "failedToLoad": "Fahrzeug konnte nicht geladen werden",
       "copyVin": "VIN kopieren",
-      "merge": "Zusammenführen mit…"
+      "merge": "Zusammenführen mit…",
+      "mergeDisabledReason": "Noch nicht verfügbar"
     },
     "errors": {
       "somethingWentWrong": "Etwas ist schiefgelaufen."

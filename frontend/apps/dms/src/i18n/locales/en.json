@@ -135,6 +135,12 @@
       "canton": "Canton",
       "changedSince": "Changed since",
       "changedSinceChip": "Changed since {{date}}"
+    },
+    "allCustomersView": "All customers",
+    "selection": {
+      "count": "{{count}} selected",
+      "clear": "Clear selection",
+      "copyIds": "Copy IDs"
     }
   },
   "customerDetail": {
@@ -208,7 +214,15 @@
       "new": "New",
       "save": "Save",
       "cancel": "Cancel",
-      "removeAriaLabel": "Remove {{label}}"
+      "removeAriaLabel": "Remove {{label}}",
+      "former": "Former contact details",
+      "noLongerValid": "No longer valid",
+      "doesNotWork": "Does not work",
+      "doesNotWorkReasonPlaceholder": "Reason (e.g. bounced, disconnected)",
+      "delete": "Delete",
+      "consent": "Consent",
+      "confirm": "Confirm",
+      "labelPlaceholder": "Label"
     },
     "phoneInput": {
       "country": "Country",
@@ -364,7 +378,8 @@
     "header": {
       "failedToLoad": "Failed to load vehicle",
       "copyVin": "Copy VIN",
-      "merge": "Merge into…"
+      "merge": "Merge into…",
+      "mergeDisabledReason": "Not yet available"
     },
     "errors": {
       "somethingWentWrong": "Something went wrong."

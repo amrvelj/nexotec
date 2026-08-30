@@ -135,6 +135,12 @@
       "canton": "Cantone",
       "changedSince": "Modificato dal",
       "changedSinceChip": "Modificato dal {{date}}"
+    },
+    "allCustomersView": "Tutti i clienti",
+    "selection": {
+      "count": "{{count}} selezionati",
+      "clear": "Deseleziona",
+      "copyIds": "Copia ID"
     }
   },
   "customerDetail": {
@@ -208,7 +214,15 @@
       "new": "Nuovo",
       "save": "Salva",
       "cancel": "Annulla",
-      "removeAriaLabel": "Rimuovi {{label}}"
+      "removeAriaLabel": "Rimuovi {{label}}",
+      "former": "Contatti precedenti",
+      "noLongerValid": "Non più valido",
+      "doesNotWork": "Non funziona",
+      "doesNotWorkReasonPlaceholder": "Motivo (es. non raggiungibile, respinto)",
+      "delete": "Elimina",
+      "consent": "Consenso",
+      "confirm": "Conferma",
+      "labelPlaceholder": "Etichetta"
     },
     "phoneInput": {
       "country": "Paese",
@@ -364,7 +378,8 @@
     "header": {
       "failedToLoad": "Impossibile caricare il veicolo",
       "copyVin": "Copia telaio",
-      "merge": "Unisci con…"
+      "merge": "Unisci con…",
+      "mergeDisabledReason": "Non ancora disponibile"
     },
     "errors": {
       "somethingWentWrong": "Qualcosa è andato storto."

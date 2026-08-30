@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { Badge, Button, Group, Select, Stack } from '@mantine/core'
 import { UserPlus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { InlineEditField, KeyValueRow, OverviewCard, Picker } from '@nexotec/ui-kit'
+import { InlineEditField, KeyValueRow, OverviewCard, Picker, purple, useOverlay } from '@nexotec/ui-kit'
 import { ApiError } from '../../api/client'
+import { CustomerDetailContent } from '../../pages/CustomerDetailPage'
 import type { VehicleMdmRead, VehiclePartyAllocationRead, VehiclePartyRole } from '../../api/types'
 
 interface IdentityTabProps {
@@ -44,6 +45,21 @@ export function IdentityTab({
   const [role, setRole] = useState<VehiclePartyRole>('owner')
   const [showFormer, setShowFormer] = useState(false)
   const isConflict = (err: unknown) => err instanceof ApiError && err.status === 409
+  const overlay = useOverlay()
+
+  // § ADR-059 — "opening a record from inside a process renders it as an
+  // overlay on top, not a navigation." Working on a vehicle's party
+  // allocation and needing to check the customer behind a raw id is
+  // exactly that process — this used to just print the id as plain text.
+  // No onClose invalidation: nothing this tab renders (role, customer id)
+  // can change from inside the overlaid Customer 360, so there is
+  // genuinely nothing here for U-11 to invalidate on close.
+  const openCustomerOverlay = (customerId: string) => {
+    overlay.push({
+      key: `customer-overlay-${customerId}`,
+      content: <CustomerDetailContent customerId={customerId} embedded />,
+    })
+  }
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
@@ -102,7 +118,13 @@ export function IdentityTab({
           {parties.map((p) => (
             <Group key={p.id} justify="space-between">
               <Badge variant="light">{t(`vehicleDetail.parties.role.${p.role}`)}</Badge>
-              <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{p.customerId}</span>
+              <button
+                type="button"
+                onClick={() => openCustomerOverlay(p.customerId)}
+                style={{ fontFamily: 'monospace', fontSize: 12, color: purple[6], background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
+              >
+                {p.customerId}
+              </button>
             </Group>
           ))}
 
@@ -145,7 +167,13 @@ export function IdentityTab({
                 formerParties.map((p) => (
                   <Group key={p.id} justify="space-between" style={{ opacity: 0.6 }}>
                     <Badge variant="outline">{t(`vehicleDetail.parties.role.${p.role}`)}</Badge>
-                    <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{p.customerId}</span>
+                    <button
+                      type="button"
+                      onClick={() => openCustomerOverlay(p.customerId)}
+                      style={{ fontFamily: 'monospace', fontSize: 12, color: purple[6], background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
+                    >
+                      {p.customerId}
+                    </button>
                   </Group>
                 ))}
             </>
