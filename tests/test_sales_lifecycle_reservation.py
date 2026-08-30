@@ -215,6 +215,27 @@ def test_do_not_contact_also_stops_the_contract(db_session, engine):
         confirm_contract(db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=_session_factory(engine))
 
 
+def test_do_not_contact_also_stops_attaching_the_customer_to_an_offer(db_session):
+    """WP-8 PR-8 closes the gap ADR-065/S-D19's "do-not-contact stops
+    BOTH" left open in PR-6: only confirm_contract checked it, so a
+    do-not-contact customer could still be attached to a brand-new offer.
+    update_offer's own customer_id branch now refuses it directly.
+    """
+
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    customer = _customer(db_session, group_id)
+    update_customer(
+        db_session, customer=customer, data=CustomerUpdate(lifecycle_status="do_not_contact"), actor_id=uuid.uuid4()
+    )
+
+    offer = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())
+    with pytest.raises(ConflictError):
+        update_offer(
+            db_session, offer=offer, group_id=group_id, data=OfferUpdate(customer_id=customer.id), actor_id=uuid.uuid4()
+        )
+
+
 def test_credit_block_does_not_stop_offer_creation_or_editing(db_session):
     """S-D19: "quoting a blocked customer is often how the block gets
     resolved" — only the CONTRACT is stopped."""

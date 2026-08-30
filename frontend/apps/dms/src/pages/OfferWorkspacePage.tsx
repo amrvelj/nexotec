@@ -1,13 +1,16 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Alert, Button, Group, Loader, Modal, NumberInput, Select, Stack, Text, TextInput, Title } from '@mantine/core'
+import { Alert, Button, Group, Loader, Modal, NumberInput, Select, Stack, Text, TextInput, Title, UnstyledButton } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
 import { useTranslation } from 'react-i18next'
-import { OverviewCard, Picker, SalesStatusBadge, StickyActionFooter, useSetBreadcrumb, type PickerRow } from '@nexotec/ui-kit'
+import { OverviewCard, Picker, SalesStatusBadge, StickyActionFooter, useOverlay, useSetBreadcrumb, type PickerRow } from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
 import { CustomerCreateFlow } from '../components/CustomerCreateFlow'
+import { OfferAccessoriesAndOptions } from '../components/OfferAccessoriesAndOptions'
+import { OfferGenerateReviewModal } from '../components/OfferGenerateReviewModal'
 import { PriceBuildUp } from '../components/PriceBuildUp'
+import { CustomerDetailContent } from './CustomerDetailPage'
 import { translatedStockConditionOptions } from '../stockOptions'
 import { formatCurrencyChf } from '../utils/format'
 import type {
@@ -54,6 +57,24 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
     queryFn: () => api.get<SalesOfferRead>(`/sales/offers/${id}`),
     enabled: Boolean(id),
   })
+
+  const overlay = useOverlay()
+  const customerId = offerQuery.data?.customerId ?? null
+  const selectedCustomerQuery = useQuery({
+    queryKey: ['customer', customerId],
+    queryFn: () => api.get<CustomerRead>(`/customers/${customerId}`),
+    enabled: customerId != null,
+  })
+  const selectedCustomer = selectedCustomerQuery.data ?? null
+  // § ADR-059 — opening the selected customer's own record from inside
+  // the offer-generation process is an overlay, never a navigation (the
+  // half-built offer must survive it intact).
+  const openCustomerOverlay = () => {
+    if (!customerId) return
+    overlay.push({ key: `customer-overlay-${customerId}`, content: <CustomerDetailContent customerId={customerId} embedded /> })
+  }
+
+  const [generateOpen, setGenerateOpen] = useState(false)
 
   const [customerPickerOpen, setCustomerPickerOpen] = useState(false)
   const [customerCreateOpen, setCustomerCreateOpen] = useState(false)
@@ -125,7 +146,21 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
       {/* Kunde */}
       <OverviewCard title={t('offerWorkspace.containers.customer')} badge={requirementBadge(t, containerById.customer?.requirement ?? 'required')}>
         {offer.customerId ? (
-          <Text fw={600}>{offer.customerLabel}</Text>
+          <Stack gap={4}>
+            <UnstyledButton onClick={openCustomerOverlay}>
+              <Text fw={600} c="purple">{offer.customerLabel}</Text>
+            </UnstyledButton>
+            {selectedCustomer?.creditBlock && (
+              <Alert color="orange" title={t('offerWorkspace.customer.creditBlockTitle')} py="xs">
+                {t('offerWorkspace.customer.creditBlockBody', { reason: selectedCustomer.creditBlockReason ?? '—' })}
+              </Alert>
+            )}
+            {selectedCustomer?.lifecycleStatus === 'do_not_contact' && (
+              <Alert color="red" title={t('offerWorkspace.customer.doNotContactTitle')} py="xs">
+                {t('offerWorkspace.customer.doNotContactBody')}
+              </Alert>
+            )}
+          </Stack>
         ) : (
           <Stack gap="xs">
             <Text size="sm" c="dimmed">{t('offerWorkspace.customer.emptyHint')}</Text>
@@ -204,6 +239,10 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
           offer={offer}
           onDiscountChange={(patch) => patchOffer({ discountType: patch.discountType, discountValue: patch.discountValue })}
           onManualBasePriceChange={(value) => patchOffer({ manualBasePrice: value })}
+        />
+        <OfferAccessoriesAndOptions
+          offer={offer}
+          onOfferUpdated={(updated) => queryClient.setQueryData(['sales-offer', id], updated)}
         />
       </OverviewCard>
 
@@ -296,10 +335,24 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
             : null
         }
         primaryAction={
-          <Button disabled={missing.length > 0} onClick={() => navigate(`/sales/offers/${id}`)}>
+          <Button
+            disabled={missing.length > 0 || selectedCustomer?.lifecycleStatus === 'do_not_contact'}
+            onClick={() => setGenerateOpen(true)}
+          >
             {t('offerWorkspace.continue')}
           </Button>
         }
+      />
+
+      <OfferGenerateReviewModal
+        opened={generateOpen}
+        onClose={() => setGenerateOpen(false)}
+        offer={offer}
+        onFinalized={(finalized) => {
+          queryClient.setQueryData(['sales-offer', id], finalized)
+          setGenerateOpen(false)
+          navigate(`/sales/offers/${id}`)
+        }}
       />
 
       <Modal opened={customerPickerOpen} onClose={() => setCustomerPickerOpen(false)} title={t('offerWorkspace.customer.search')}>

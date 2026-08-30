@@ -13,7 +13,7 @@ from app.core.config import get_settings
 from app.core.errors import ConflictError, NotFoundError
 from app.core.outbox import OutboxEvent, publish
 from app.core.pagination import SortPageParams, build_sorted_page, count_capped, paginate_query_sorted
-from app.customer.public import get_customer_or_404
+from app.customer.public import CustomerLifecycleStatus, get_customer_or_404
 from app.sales.models.offer import OfferStatus, SalesOffer
 from app.sales.schemas.offer import OfferContainerState, OfferUpdate
 from app.sales.services.deal_projection import upsert_deal_projection
@@ -28,6 +28,21 @@ def _resolve_customer_label(customer) -> str:
     if customer.company_name:
         return customer.company_name
     return " ".join(part for part in [customer.first_name, customer.last_name] if part) or customer.customer_number
+
+
+def vehicle_condition(offer: SalesOffer) -> str | None:
+    """A manual configuration's condition lives on its own column; a
+    stock vehicle's lives only inside the frozen vehicle_snapshot JSON
+    (ADR-041) — one place to read either, shared by the API's own
+    OfferRead.vehicle_condition and services/line_items.py's used-vehicle
+    discount-suppression rule.
+    """
+
+    if offer.vehicle_source == "manual":
+        return offer.manual_vehicle_condition
+    if offer.vehicle_snapshot:
+        return offer.vehicle_snapshot.get("condition")
+    return None
 
 
 def compute_offer_containers(offer: SalesOffer) -> list[OfferContainerState]:
@@ -139,6 +154,15 @@ def update_offer(
             offer.customer_denorm_refreshed_at = None
         else:
             customer = get_customer_or_404(db, group_id, customer_id)
+            # ADR-065/S-D19 — do-not-contact stops BOTH the offer and the
+            # contract (it's about contact, not credit); a credit block is
+            # the opposite case and deliberately does NOT stop here — it
+            # only stops confirm_contract (S-D19: "quoting a blocked
+            # customer is often how the block gets resolved").
+            if customer.lifecycle_status == CustomerLifecycleStatus.DO_NOT_CONTACT:
+                raise ConflictError(
+                    f"Customer {customer.customer_number} is do-not-contact — cannot be attached to an offer."
+                )
             offer.customer_id = customer.id
             offer.customer_label = _resolve_customer_label(customer)
             # CLAUDE.md's own rule: "the customer's correspondence language
@@ -168,6 +192,39 @@ def update_offer(
     if offer.vehicle_snapshot is not None:
         apply_build_up(db, offer=offer)
         db.flush()
+
+    upsert_deal_projection(db, offer=offer)
+    db.commit()
+    db.refresh(offer)
+    return offer
+
+
+def finalize_offer(db: Session, *, offer: SalesOffer, actor_id: uuid.UUID | None) -> SalesOffer:
+    """WP-8 PR-8 (ADR-063) — the second half of "build, then review": the
+    seller has already generated at least one document
+    (POST .../documents, PR-7) and reviewed it beside the margin panel;
+    this is the explicit confirmation that ends the draft-editing phase.
+    No new outbox event — sales.offer.created already fired at bare
+    creation (ADR-005: events are facts, not commands, and nothing
+    downstream needs to know an offer stopped being editable) — only
+    `status` changes here, which the deal grid already reflects via
+    upsert_deal_projection.
+    """
+
+    if offer.status != OfferStatus.DRAFT:
+        raise ConflictError(f"Offer {offer.offer_number} is not a draft (status '{offer.status.value}').")
+
+    missing = [c.id for c in compute_offer_containers(offer) if c.requirement == "required" and c.status != "complete"]
+    if missing:
+        raise ConflictError(
+            f"Offer {offer.offer_number} is missing required containers: {', '.join(missing)}.",
+            details={"missingContainers": missing},
+        )
+
+    offer.status = OfferStatus.OPEN
+    offer.updated_by = actor_id
+    offer.version += 1
+    db.flush()
 
     upsert_deal_projection(db, offer=offer)
     db.commit()

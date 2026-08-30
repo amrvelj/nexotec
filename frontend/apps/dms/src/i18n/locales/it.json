@@ -46,7 +46,8 @@
     "notSet": "Non impostato",
     "yes": "Sì",
     "no": "No",
-    "save": "Salva"
+    "save": "Salva",
+    "remove": "Rimuovi"
   },
   "customerEnums": {
     "customerType": {
@@ -766,7 +767,11 @@
     "customer": {
       "emptyHint": "Nessun cliente preselezionato — un'offerta porta il nome che verrà firmato.",
       "search": "Cerca cliente",
-      "createNew": "Crea nuovo"
+      "createNew": "Crea nuovo",
+      "creditBlockTitle": "Blocco creditizio",
+      "creditBlockBody": "Questo cliente ha un blocco creditizio ({{reason}}) — un’offerta è possibile, un contratto non può essere confermato.",
+      "doNotContactTitle": "Non contattare",
+      "doNotContactBody": "Questo cliente è contrassegnato come \"non contattare\" — né l’offerta né un contratto possono proseguire."
     },
     "vehicle": {
       "emptyHint": "Dal proprio magazzino — numero di magazzino, VIN o targa.",
@@ -810,7 +815,29 @@
       "kmPerYear": "Chilometri all'anno"
     },
     "missing": "Manca ancora",
-    "continue": "Continua alla panoramica"
+    "continue": "Genera offerta",
+    "generate": {
+      "title": "Genera offerta",
+      "buildHint": "Genera un’anteprima del documento nella lingua di corrispondenza del cliente.",
+      "build": "Genera documento",
+      "buildError": "Impossibile generare il documento.",
+      "previewTitle": "Offerta {{number}}",
+      "regenerate": "Rigenera",
+      "confirm": "Conferma",
+      "finalizeError": "Impossibile confermare l’offerta."
+    },
+    "lineItems": {
+      "factoryOptionsTitle": "Optional di fabbrica",
+      "accessoriesTitle": "Accessori",
+      "accessoryLabel": "Denominazione",
+      "accessoryPrice": "Prezzo",
+      "accessoryQuantity": "Quantità",
+      "accessoryDiscount": "Sconto (importo)",
+      "add": "Aggiungi",
+      "suppressedReason": "Motivo",
+      "suppressedReasonHint": "Su un veicolo usato uno sconto di riga è bloccato di default — un motivo annulla il blocco.",
+      "error": "Impossibile salvare la modifica."
+    }
   },
   "salesDocuments": {
     "title": "Documenti",

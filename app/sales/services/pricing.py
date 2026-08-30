@@ -15,7 +15,7 @@ from app.sales.models.offer import SalesOffer
 _CENTS = Decimal("0.01")
 
 
-def _resolve_discount(discount_type: str | None, discount_value: Decimal | None, base_amount: Decimal) -> Decimal:
+def resolve_discount(discount_type: str | None, discount_value: Decimal | None, base_amount: Decimal) -> Decimal:
     """{type, value} -> resolvedAmount (FR-S's own discount shape). No
     discount configured is exactly `amount=0`, never None, so callers
     never have to special-case "no discount" separately from "0 discount".
@@ -59,7 +59,7 @@ def build_up(db: Session, *, offer: SalesOffer) -> dict:
 
     list_price = base_price + options_total
     total_before_discount = list_price + accessories_total
-    discount_amount = _resolve_discount(offer.discount_type, offer.discount_value, total_before_discount)
+    discount_amount = resolve_discount(offer.discount_type, offer.discount_value, total_before_discount)
     gross_price = total_before_discount - discount_amount
 
     margin = (gross_price - cost_basis) if cost_basis is not None else None

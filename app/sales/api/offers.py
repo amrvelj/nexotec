@@ -13,6 +13,7 @@ from app.core.permissions import require_write
 from app.core.sorting import SortField, parse_sort
 from app.db import get_db
 from app.sales.models.offer import SalesOffer
+from app.sales.schemas.line_item import LineItemPage, LineItemRead, LineItemsReplaceRequest
 from app.sales.schemas.offer import (
     AttachValuationRequest,
     OfferCancelRequest,
@@ -21,6 +22,7 @@ from app.sales.schemas.offer import (
     OfferUpdate,
     TradeInRequest,
 )
+from app.sales.services import line_items as line_items_service
 from app.sales.services import offer as offer_service
 from app.sales.services import trade_in as trade_in_service
 
@@ -42,7 +44,12 @@ def _offer_read(offer: SalesOffer) -> OfferRead:
     """
 
     base = OfferRead.model_validate(offer, from_attributes=True)
-    return base.model_copy(update={"containers": offer_service.compute_offer_containers(offer)})
+    return base.model_copy(
+        update={
+            "containers": offer_service.compute_offer_containers(offer),
+            "vehicle_condition": offer_service.vehicle_condition(offer),
+        }
+    )
 
 
 @router.post("/sales/offers", response_model=OfferRead, status_code=201)
@@ -143,6 +150,19 @@ def attach_trade_in_valuation(
     return _offer_read(offer)
 
 
+@router.post("/sales/offers/{offer_id}/finalize", response_model=OfferRead)
+def finalize_offer(
+    offer_id: uuid.UUID,
+    if_match: int = Depends(require_if_match),
+    principal: Principal = Depends(require_write("sales_offers")),
+    db: Session = Depends(get_db),
+):
+    offer = offer_service.get_offer_or_404(db, principal.tenant_id, offer_id)
+    check_version(offer.version, if_match, entity_name="SalesOffer")
+    offer = offer_service.finalize_offer(db, offer=offer, actor_id=principal.user_id)
+    return _offer_read(offer)
+
+
 @router.post("/sales/offers/{offer_id}/cancel", response_model=OfferRead)
 def cancel_offer(
     offer_id: uuid.UUID,
@@ -154,4 +174,35 @@ def cancel_offer(
     offer = offer_service.get_offer_or_404(db, principal.tenant_id, offer_id)
     check_version(offer.version, if_match, entity_name="SalesOffer")
     offer = offer_service.cancel_offer(db, offer=offer, reason=body.reason, actor_id=principal.user_id)
+    return _offer_read(offer)
+
+
+@router.get("/sales/offers/{offer_id}/line-items", response_model=LineItemPage)
+def list_offer_line_items(
+    offer_id: uuid.UUID,
+    principal: Principal = Depends(get_current_principal),
+    db: Session = Depends(get_db),
+):
+    offer_service.get_offer_or_404(db, principal.tenant_id, offer_id)  # 404-not-403, tenant scoping
+    items = line_items_service.list_line_items(db, tenant_id=principal.tenant_id, offer_id=offer_id)
+    return LineItemPage(items=[LineItemRead.model_validate(i, from_attributes=True) for i in items])
+
+
+@router.put("/sales/offers/{offer_id}/line-items", response_model=OfferRead)
+def replace_offer_line_items(
+    offer_id: uuid.UUID,
+    body: LineItemsReplaceRequest,
+    if_match: int = Depends(require_if_match),
+    principal: Principal = Depends(require_write("sales_offers")),
+    db: Session = Depends(get_db),
+):
+    """S-D14 — accessories are a full replace; factory options are a
+    per-id patch only (see app.sales.services.line_items's own module
+    docstring). Returns the offer itself (recomputed pricing) — the
+    caller re-fetches GET .../line-items for the itemised list.
+    """
+
+    offer = offer_service.get_offer_or_404(db, principal.tenant_id, offer_id)
+    check_version(offer.version, if_match, entity_name="SalesOffer")
+    offer = line_items_service.replace_line_items(db, offer=offer, data=body, actor_id=principal.user_id)
     return _offer_read(offer)

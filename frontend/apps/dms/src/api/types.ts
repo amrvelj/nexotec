@@ -93,6 +93,10 @@ export interface CustomerRead {
   sourceRef: string | null
   duplicateOfCustomerId: string | null
   marketingConsent: boolean
+  // WP-8 PR-6 (ADR-065/S-D19) — stops the CONTRACT only, never the offer.
+  creditBlock: boolean
+  creditBlockReason: string | null
+  creditBlockedAt: string | null
   version: number
   createdAt: string
   updatedAt: string
@@ -662,6 +666,10 @@ export interface SalesOfferRead {
   payable: string | null
   cancelledReason: string | null
   containers: OfferContainerState[]
+  // WP-8 PR-8 — computed server-side (see app.sales.services.offer::
+  // vehicle_condition), reads either the frozen stock snapshot's own
+  // condition or the manual configuration's own column.
+  vehicleCondition: string | null
   version: number
   createdAt: string
   updatedAt: string
@@ -715,6 +723,31 @@ export interface SalesContractPage {
   nextCursor: string | null
   total: number
   totalIsEstimate: boolean
+}
+
+// WP-8 PR-8 (S-D14) — one table, `kind` discriminator. Factory-option
+// rows are system-managed (frozen by the vehicle snapshot, never created/
+// deleted client-side); accessory rows are a full offer-level collection
+// the seller builds up directly.
+export type SalesLineItemKind = 'factory_option' | 'accessory'
+
+export interface SalesLineItemRead {
+  id: string
+  kind: SalesLineItemKind
+  code: string
+  label: string
+  unitPrice: string
+  quantity: number
+  included: boolean
+  discountType: 'percent' | 'amount' | null
+  discountValue: string | null
+  discountResolvedAmount: string | null
+  discountSuppressedReason: string | null
+  position: number
+}
+
+export interface SalesLineItemPage {
+  items: SalesLineItemRead[]
 }
 
 // WP-8 PR-7 — append-only, one row per generated version; never carries

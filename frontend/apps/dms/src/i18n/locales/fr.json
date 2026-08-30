@@ -46,7 +46,8 @@
     "notSet": "Non défini",
     "yes": "Oui",
     "no": "Non",
-    "save": "Enregistrer"
+    "save": "Enregistrer",
+    "remove": "Supprimer"
   },
   "customerEnums": {
     "customerType": {
@@ -766,7 +767,11 @@
     "customer": {
       "emptyHint": "Aucun client présélectionné — une offre porte le nom qui sera signé.",
       "search": "Rechercher un client",
-      "createNew": "Créer un nouveau"
+      "createNew": "Créer un nouveau",
+      "creditBlockTitle": "Blocage de crédit",
+      "creditBlockBody": "Ce client a un blocage de crédit ({{reason}}) — une offre est possible, un contrat ne peut pas être confirmé.",
+      "doNotContactTitle": "Ne pas contacter",
+      "doNotContactBody": "Ce client est marqué \"ne pas contacter\" — ni l’offre ni un contrat ne peuvent avancer."
     },
     "vehicle": {
       "emptyHint": "Depuis votre propre stock — numéro de stock, VIN ou plaque.",
@@ -810,7 +815,29 @@
       "kmPerYear": "Kilomètres par an"
     },
     "missing": "Il manque encore",
-    "continue": "Continuer vers l'aperçu"
+    "continue": "Générer l’offre",
+    "generate": {
+      "title": "Générer l’offre",
+      "buildHint": "Génère un aperçu du document dans la langue de correspondance du client.",
+      "build": "Générer le document",
+      "buildError": "Le document n’a pas pu être généré.",
+      "previewTitle": "Offre {{number}}",
+      "regenerate": "Régénérer",
+      "confirm": "Confirmer",
+      "finalizeError": "L’offre n’a pas pu être confirmée."
+    },
+    "lineItems": {
+      "factoryOptionsTitle": "Options d’usine",
+      "accessoriesTitle": "Accessoires",
+      "accessoryLabel": "Désignation",
+      "accessoryPrice": "Prix",
+      "accessoryQuantity": "Quantité",
+      "accessoryDiscount": "Remise (montant)",
+      "add": "Ajouter",
+      "suppressedReason": "Motif",
+      "suppressedReasonHint": "Une remise par ligne est bloquée par défaut sur les véhicules d’occasion — un motif lève le blocage.",
+      "error": "La modification n’a pas pu être enregistrée."
+    }
   },
   "salesDocuments": {
     "title": "Documents",

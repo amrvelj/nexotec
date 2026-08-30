@@ -46,7 +46,8 @@
     "notSet": "Nicht gesetzt",
     "yes": "Ja",
     "no": "Nein",
-    "save": "Speichern"
+    "save": "Speichern",
+    "remove": "Entfernen"
   },
   "customerEnums": {
     "customerType": {
@@ -766,7 +767,11 @@
     "customer": {
       "emptyHint": "Kein Kunde ist vorausgewählt — eine Offerte trägt den Namen, der unterschrieben wird.",
       "search": "Kunde suchen",
-      "createNew": "Neu anlegen"
+      "createNew": "Neu anlegen",
+      "creditBlockTitle": "Kreditsperre",
+      "creditBlockBody": "Dieser Kunde ist kreditgesperrt ({{reason}}) — eine Offerte ist möglich, ein Vertrag kann nicht bestätigt werden.",
+      "doNotContactTitle": "Nicht kontaktieren",
+      "doNotContactBody": "Dieser Kunde ist als \"nicht kontaktieren\" markiert — weder Offerte noch Vertrag können fortgeführt werden."
     },
     "vehicle": {
       "emptyHint": "Aus dem eigenen Lagerbestand — Lagernummer, VIN oder Kontrollschild.",
@@ -810,7 +815,29 @@
       "kmPerYear": "Kilometer pro Jahr"
     },
     "missing": "Es fehlt noch",
-    "continue": "Weiter zur Übersicht"
+    "continue": "Offerte generieren",
+    "generate": {
+      "title": "Offerte generieren",
+      "buildHint": "Erzeugt eine Vorschau des Dokuments in der Korrespondenzsprache des Kunden.",
+      "build": "Dokument erzeugen",
+      "buildError": "Dokument konnte nicht erzeugt werden.",
+      "previewTitle": "Offerte {{number}}",
+      "regenerate": "Neu erzeugen",
+      "confirm": "Bestätigen",
+      "finalizeError": "Offerte konnte nicht bestätigt werden."
+    },
+    "lineItems": {
+      "factoryOptionsTitle": "Werksoptionen",
+      "accessoriesTitle": "Zubehör",
+      "accessoryLabel": "Bezeichnung",
+      "accessoryPrice": "Preis",
+      "accessoryQuantity": "Menge",
+      "accessoryDiscount": "Rabatt (Betrag)",
+      "add": "Hinzufügen",
+      "suppressedReason": "Begründung",
+      "suppressedReasonHint": "Bei Gebrauchtfahrzeugen ist ein Zeilenrabatt standardmässig gesperrt — eine Begründung hebt die Sperre auf.",
+      "error": "Änderung konnte nicht gespeichert werden."
+    }
   },
   "salesDocuments": {
     "title": "Dokumente",

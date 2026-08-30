@@ -106,6 +106,12 @@ class OfferRead(CamelModel):
     payable: Decimal | None
     cancelled_reason: str | None
     containers: list[OfferContainerState] = Field(default_factory=list)
+    # WP-8 PR-8 — computed in _offer_read, never a stored column: a stock
+    # vehicle's condition lives only inside the frozen vehicle_snapshot
+    # JSON blob, and a manual configuration's lives on its own dedicated
+    # column; the frontend (per-line discount suppression on used
+    # vehicles) needs one place to read either.
+    vehicle_condition: str | None = None
     version: int
     created_at: dt.datetime
     updated_at: dt.datetime

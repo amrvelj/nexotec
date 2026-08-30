@@ -46,7 +46,8 @@
     "notSet": "Not set",
     "yes": "Yes",
     "no": "No",
-    "save": "Save"
+    "save": "Save",
+    "remove": "Remove"
   },
   "customerEnums": {
     "customerType": {
@@ -766,7 +767,11 @@
     "customer": {
       "emptyHint": "No customer preselected — an offer carries the name that gets signed.",
       "search": "Search customer",
-      "createNew": "Create new"
+      "createNew": "Create new",
+      "creditBlockTitle": "Credit block",
+      "creditBlockBody": "This customer has a credit block ({{reason}}) — an offer is possible, a contract cannot be confirmed.",
+      "doNotContactTitle": "Do not contact",
+      "doNotContactBody": "This customer is marked do-not-contact — neither the offer nor a contract can proceed."
     },
     "vehicle": {
       "emptyHint": "From your own stock — stock number, VIN or plate.",
@@ -810,7 +815,29 @@
       "kmPerYear": "Kilometres per year"
     },
     "missing": "Still missing",
-    "continue": "Continue to overview"
+    "continue": "Generate offer",
+    "generate": {
+      "title": "Generate offer",
+      "buildHint": "Generates a preview of the document in the customer's correspondence language.",
+      "build": "Generate document",
+      "buildError": "The document could not be generated.",
+      "previewTitle": "Offer {{number}}",
+      "regenerate": "Regenerate",
+      "confirm": "Confirm",
+      "finalizeError": "The offer could not be confirmed."
+    },
+    "lineItems": {
+      "factoryOptionsTitle": "Factory options",
+      "accessoriesTitle": "Accessories",
+      "accessoryLabel": "Label",
+      "accessoryPrice": "Price",
+      "accessoryQuantity": "Quantity",
+      "accessoryDiscount": "Discount (amount)",
+      "add": "Add",
+      "suppressedReason": "Reason",
+      "suppressedReasonHint": "A per-line discount is suppressed by default on used vehicles — a reason overrides the suppression.",
+      "error": "The change could not be saved."
+    }
   },
   "salesDocuments": {
     "title": "Documents",
