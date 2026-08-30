@@ -9,7 +9,7 @@ import uuid
 from decimal import Decimal
 
 from app.core.schemas import CamelModel
-from app.inventory.models.stock_item import LifecycleStatus, ReservationState, StockItemCondition
+from app.inventory.models.stock_item import AgeingBucket, LifecycleStatus, ReservationState, StockItemCondition
 
 
 class StockItemCreate(CamelModel):
@@ -68,6 +68,12 @@ class StockItemRead(CamelModel):
     notional_input_tax_overridden: bool
     is_invoiceable: bool
     left_stock_at: dt.datetime | None
+    # Computed on read (PR-7), never stored — see
+    # services/stock_item.py::compute_ageing_bucket. None until the model
+    # is post-processed by the API layer; model_validate alone leaves it
+    # at this default, same pattern as customer's own computed
+    # projections (customer/api/customers.py::_customer_read).
+    ageing_bucket: AgeingBucket | None = None
     version: int
     created_at: dt.datetime
     updated_at: dt.datetime

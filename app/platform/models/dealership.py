@@ -129,6 +129,12 @@ class Dealership(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     # it's ever optional once trading.
     vat_rate: Mapped[Decimal | None] = mapped_column(DECIMAL(5, 2), nullable=True)
 
+    # WP-7 PR-7 (FR-I-14) — genuinely dealer-configurable, unlike the
+    # fixed 0-60/61-120/121+ ageingBucket grid colour cue: a notification-
+    # only consumer of the same "days in stock" number. None means "use
+    # the default (30/60/90)," resolved by the caller, not baked in here.
+    ageing_alert_thresholds: Mapped[list[int] | None] = mapped_column(JSON, nullable=True)
+
     @property
     def address(self) -> dict[str, str]:
         """Read-side convenience: flat address_* columns as a nested dict

@@ -507,7 +507,8 @@
       "effectivePrice": "Prezzo effettivo",
       "changed": "Modificato",
       "vin": "VIN",
-      "listPrice": "Prezzo di listino"
+      "listPrice": "Prezzo di listino",
+      "dealership": "Sede"
     },
     "emptyState": {
       "title": "Nessun veicolo a magazzino",
@@ -520,6 +521,10 @@
     },
     "rowActions": {
       "open": "Apri"
+    },
+    "scope": {
+      "own": "Magazzino proprio",
+      "group": "Magazzino del gruppo"
     }
   },
   "stockDetail": {

@@ -507,7 +507,8 @@
       "effectivePrice": "Effective price",
       "changed": "Changed",
       "vin": "VIN",
-      "listPrice": "List price"
+      "listPrice": "List price",
+      "dealership": "Dealership"
     },
     "emptyState": {
       "title": "No vehicles in stock",
@@ -520,6 +521,10 @@
     },
     "rowActions": {
       "open": "Open"
+    },
+    "scope": {
+      "own": "Own stock",
+      "group": "Group stock"
     }
   },
   "stockDetail": {

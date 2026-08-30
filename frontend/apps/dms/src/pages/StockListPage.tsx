@@ -35,6 +35,8 @@ import {
   translatedStockReservationLabel,
 } from '../stockOptions'
 import { formatDate, formatCurrencyChf } from '../utils/format'
+import { GroupStockGrid } from './stock/GroupStockGrid'
+import { ScopeSwitchMenu, type StockScope } from './stock/components/ScopeSwitchMenu'
 import type { StockItemPage, StockItemRead } from '../api/types'
 
 const GRID_KEY = 'inventory.stock.list'
@@ -95,6 +97,10 @@ export function StockListPage() {
   const gridPrefs = useGridPreferences(GRID_KEY, { sort: DEFAULT_SORT })
   const savedViews = useSavedViews(GRID_KEY)
   const [searchParams, setSearchParams] = useSearchParams()
+  // § ADR-056 — layout/scope choices like this belong on the reader's own
+  // ergonomics record, not the shareable URL (only search/sort/filters are
+  // URL-synced on this screen); local state is the right home for it.
+  const [scope, setScope] = useState<StockScope>('own')
 
   const sort = searchParams.get('sort') ? parseSortParam(searchParams.get('sort')!) : gridPrefs.sort
   const predicates = searchParams.get('filters') ? safeParseFilters(searchParams.get('filters')!) : []
@@ -253,11 +259,17 @@ export function StockListPage() {
     <Stack gap="md">
       <Group justify="space-between">
         <Title order={2}>{t('stockList.title')}</Title>
-        <Button component={Link} to="/stock/new">
-          {t('stockList.newStockItem')}
-        </Button>
+        <Group gap="sm">
+          <ScopeSwitchMenu scope={scope} onScopeChange={setScope} />
+          <Button component={Link} to="/stock/new">
+            {t('stockList.newStockItem')}
+          </Button>
+        </Group>
       </Group>
 
+      {scope === 'group' ? (
+        <GroupStockGrid />
+      ) : (
       <OverviewShellRegion
         header={<div />}
         actionBar={
@@ -385,6 +397,7 @@ export function StockListPage() {
           })}
         />
       </OverviewShellRegion>
+      )}
     </Stack>
   )
 }

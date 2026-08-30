@@ -507,7 +507,8 @@
       "effectivePrice": "Prix effectif",
       "changed": "Modifié",
       "vin": "VIN",
-      "listPrice": "Prix catalogue"
+      "listPrice": "Prix catalogue",
+      "dealership": "Concession"
     },
     "emptyState": {
       "title": "Aucun véhicule en stock",
@@ -520,6 +521,10 @@
     },
     "rowActions": {
       "open": "Ouvrir"
+    },
+    "scope": {
+      "own": "Stock propre",
+      "group": "Stock du groupe"
     }
   },
   "stockDetail": {

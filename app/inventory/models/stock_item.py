@@ -52,6 +52,23 @@ class StockItemCondition(str, enum.Enum):
     TAGESZ = "tagesz"
 
 
+class AgeingBucket(str, enum.Enum):
+    """WP-7 PR-7. Fixed, NOT dealer-configurable — "a configurable
+    threshold is a settings screen, a migration and a per-tenant answer to
+    'why is this car orange for you and green for me' for a number three
+    buckets already express." Derived on read from in_stock_at, never
+    stored. A SEPARATE, genuinely dealer-configurable alert-threshold
+    setting (Dealership.ageing_alert_thresholds, default 30/60/90) drives
+    notifications only — same underlying "days in stock" number, two
+    independent consumers, never the same field or the same config
+    screen.
+    """
+
+    GREEN = "green"  # 0-60 days
+    AMBER = "amber"  # 61-120 days
+    RED = "red"  # 121+ days
+
+
 class StockNumberSequence(Base):
     """Row-lock allocator for `S-000001`-style stock numbers, one row per
     tenant — mirrors app.customer's per-group CustomerNumberSequence, not

@@ -40,6 +40,16 @@ _DEFAULT_STOCK_ITEM_SORT = [
 ]
 
 
+def _stock_item_read(item: StockItem) -> StockItemRead:
+    """ageingBucket is computed here (PR-7), never stored — every endpoint
+    that returns a StockItemRead goes through this one place so it can't
+    be forgotten on a new call site.
+    """
+
+    base = StockItemRead.model_validate(item, from_attributes=True)
+    return base.model_copy(update={"ageing_bucket": stock_item_service.compute_ageing_bucket(item)})
+
+
 @router.post("/inventory/stock-items", response_model=StockItemRead, status_code=201)
 def create_stock_item(
     body: StockItemCreate,
@@ -47,7 +57,7 @@ def create_stock_item(
     db: Session = Depends(get_db),
 ):
     item = stock_item_service.create_stock_item(db, tenant_id=principal.tenant_id, data=body, actor_id=principal.user_id)
-    return StockItemRead.model_validate(item, from_attributes=True)
+    return _stock_item_read(item)
 
 
 @router.get("/inventory/stock-items", response_model=StockItemPage)
@@ -68,7 +78,7 @@ def list_stock_items(
         db, tenant_id=principal.tenant_id, q=q, lifecycle_status=lifecycle_status, params=params
     )
     return StockItemPage(
-        items=[StockItemRead.model_validate(r, from_attributes=True) for r in rows],
+        items=[_stock_item_read(r) for r in rows],
         next_cursor=next_cursor,
         total=total,
         total_is_estimate=total_is_estimate,
@@ -82,7 +92,7 @@ def get_stock_item(
     db: Session = Depends(get_db),
 ):
     item = stock_item_service.get_stock_item_or_404(db, principal.tenant_id, stock_item_id)
-    return StockItemRead.model_validate(item, from_attributes=True)
+    return _stock_item_read(item)
 
 
 @router.patch("/inventory/stock-items/{stock_item_id}", response_model=StockItemRead)
@@ -96,7 +106,7 @@ def update_stock_item(
     item = stock_item_service.get_stock_item_or_404(db, principal.tenant_id, stock_item_id)
     check_version(item.version, if_match, entity_name="StockItem")
     item = stock_item_service.update_stock_item(db, item=item, data=body, actor_id=principal.user_id)
-    return StockItemRead.model_validate(item, from_attributes=True)
+    return _stock_item_read(item)
 
 
 @router.post("/inventory/stock-items/{stock_item_id}/condition", response_model=StockItemRead)
@@ -110,7 +120,7 @@ def change_condition(
     item = stock_item_service.get_stock_item_or_404(db, principal.tenant_id, stock_item_id)
     check_version(item.version, if_match, entity_name="StockItem")
     item = stock_item_service.change_condition(db, item=item, condition=body.condition, actor_id=principal.user_id)
-    return StockItemRead.model_validate(item, from_attributes=True)
+    return _stock_item_read(item)
 
 
 @router.post("/inventory/stock-items/{stock_item_id}/purchase", response_model=StockItemRead)
@@ -124,7 +134,7 @@ def record_purchase(
     item = stock_item_service.get_stock_item_or_404(db, principal.tenant_id, stock_item_id)
     check_version(item.version, if_match, entity_name="StockItem")
     item = purchase_service.record_purchase(db, item=item, data=body, actor_id=principal.user_id)
-    return StockItemRead.model_validate(item, from_attributes=True)
+    return _stock_item_read(item)
 
 
 @router.patch("/inventory/stock-items/{stock_item_id}/purchase/notional-input-tax", response_model=StockItemRead)
@@ -138,4 +148,4 @@ def override_notional_input_tax(
     item = stock_item_service.get_stock_item_or_404(db, principal.tenant_id, stock_item_id)
     check_version(item.version, if_match, entity_name="StockItem")
     item = purchase_service.override_notional_input_tax(db, item=item, data=body, actor_id=principal.user_id)
-    return StockItemRead.model_validate(item, from_attributes=True)
+    return _stock_item_read(item)

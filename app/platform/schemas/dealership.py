@@ -54,6 +54,9 @@ class DealershipUpdate(CamelModel):
     # WP-7 PR-3 (ADR-057) — "dealer-configurable dealer_settings.vat_rate,"
     # the one VAT figure in the whole system.
     vat_rate: Decimal | None = None
+    # WP-7 PR-7 (FR-I-14) — a notification-only consumer, never the grid's
+    # own fixed ageingBucket colour cue.
+    ageing_alert_thresholds: list[int] | None = None
 
 
 class DealershipRead(CamelModel):
@@ -69,6 +72,7 @@ class DealershipRead(CamelModel):
     phone: str
     status: DealershipStatus
     vat_rate: Decimal | None
+    ageing_alert_thresholds: list[int] | None
     version: int
     created_at: dt.datetime
     updated_at: dt.datetime

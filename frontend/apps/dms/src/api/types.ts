@@ -466,6 +466,9 @@ export interface VehicleAccessoryRead {
 export type StockLifecycleStatus = 'pipeline' | 'in_stock' | 'storno_pending'
 export type StockReservationState = 'none' | 'reserved'
 export type StockItemCondition = 'new' | 'used' | 'demo' | 'tagesz'
+// WP-7 PR-7 — fixed, never dealer-configurable (that's Dealership.
+// ageingAlertThresholds, a completely separate, notification-only field).
+export type AgeingBucket = 'green' | 'amber' | 'red'
 
 export interface StockItemRead {
   id: string
@@ -498,9 +501,34 @@ export interface StockItemRead {
   notionalInputTaxOverridden: boolean
   isInvoiceable: boolean
   leftStockAt: string | null
+  ageingBucket: AgeingBucket | null
   version: number
   createdAt: string
   updatedAt: string
+}
+
+// WP-7 PR-7 (ADR-055) — a deliberately SEPARATE shape from StockItemRead,
+// never that interface with fields picked out. Absent by construction:
+// effectivePrice, landedCost, notionalInputTax*, purchasePrice,
+// supplierName, isInvoiceable, and anything Wagenbuch/publishing-shaped.
+export interface StockItemGroupRead {
+  id: string
+  dealershipId: string
+  dealershipLabel: string
+  stockNumber: string
+  vin: string | null
+  vehicleLabel: string
+  lifecycleStatus: StockLifecycleStatus
+  reservationState: StockReservationState
+  condition: StockItemCondition
+  odometerKm: number | null
+  listPrice: string | null
+  firstRegistrationDate: string | null
+  updatedAt: string
+}
+
+export interface StockItemGroupPage {
+  items: StockItemGroupRead[]
 }
 
 export interface StockItemPage {

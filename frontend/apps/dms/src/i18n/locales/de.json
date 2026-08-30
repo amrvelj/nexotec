@@ -507,7 +507,8 @@
       "effectivePrice": "Effektivpreis",
       "changed": "Geändert",
       "vin": "VIN",
-      "listPrice": "Listenpreis"
+      "listPrice": "Listenpreis",
+      "dealership": "Standort"
     },
     "emptyState": {
       "title": "Kein Fahrzeug im Lager",
@@ -520,6 +521,10 @@
     },
     "rowActions": {
       "open": "Öffnen"
+    },
+    "scope": {
+      "own": "Eigener Bestand",
+      "group": "Gruppenbestand"
     }
   },
   "stockDetail": {

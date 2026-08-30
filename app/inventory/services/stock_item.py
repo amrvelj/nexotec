@@ -10,10 +10,32 @@ from app.core.config import get_settings
 from app.core.errors import NotFoundError
 from app.core.outbox import OutboxEvent, publish
 from app.core.pagination import SortPageParams, build_sorted_page, count_capped, paginate_query_sorted
-from app.inventory.models.stock_item import LifecycleStatus, StockItem, StockItemCondition, StockNumberSequence
+from app.inventory.models.stock_item import (
+    AgeingBucket,
+    LifecycleStatus,
+    StockItem,
+    StockItemCondition,
+    StockNumberSequence,
+)
 from app.inventory.schemas.stock_item import StockItemCreate, StockItemUpdate
 
 _EVENT_PRODUCER = "inventory"
+
+
+def compute_ageing_bucket(item: StockItem) -> AgeingBucket | None:
+    """None while the item has never been in_stock (pipeline) — ageing is
+    "days on the lot," not "days since this row was created" (a factory
+    order's time in the pipeline doesn't count).
+    """
+
+    if item.in_stock_at is None:
+        return None
+    days = (utcnow() - item.in_stock_at).days
+    if days <= 60:
+        return AgeingBucket.GREEN
+    if days <= 120:
+        return AgeingBucket.AMBER
+    return AgeingBucket.RED
 
 
 def allocate_stock_number(db: Session, tenant_id: uuid.UUID) -> str:
