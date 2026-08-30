@@ -811,5 +811,13 @@
     },
     "missing": "Still missing",
     "continue": "Continue to overview"
+  },
+  "salesDocuments": {
+    "title": "Documents",
+    "generate": "Generate document",
+    "empty": "No document generated yet.",
+    "previewError": "Preview could not be loaded.",
+    "download": "Download",
+    "version": "Version {{version}}"
   }
 }

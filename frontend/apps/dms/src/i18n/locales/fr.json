@@ -811,5 +811,13 @@
     },
     "missing": "Il manque encore",
     "continue": "Continuer vers l'aperçu"
+  },
+  "salesDocuments": {
+    "title": "Documents",
+    "generate": "Générer un document",
+    "empty": "Aucun document généré pour le moment.",
+    "previewError": "Impossible de charger l’aperçu.",
+    "download": "Télécharger",
+    "version": "Version {{version}}"
   }
 }

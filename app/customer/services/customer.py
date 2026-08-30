@@ -848,6 +848,17 @@ def merge_customer(
         db.rollback()
         raise ConflictError("Merge conflicts with an existing record on the survivor.") from exc
     db.refresh(customer)
+
+    # WP-8 PR-7 — Pattern B (ADR-047, own commit), called AFTER the merge
+    # above has already committed, never joining that transaction (unlike
+    # _repoint_transactions above, which predates this rule being written
+    # down for Transaction — that one is left as-is since the table it
+    # touches is itself retired, ADR-050). A failure here is repaired by
+    # nightly reconciliation, not by rolling back the merge.
+    from app.sales.public import repoint_customer_sales_records
+
+    repoint_customer_sales_records(db, duplicate_id=customer.id, target_id=target.id)
+
     return customer
 
 

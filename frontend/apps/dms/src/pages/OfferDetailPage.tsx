@@ -6,6 +6,7 @@ import { Handshake } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { DetailHeader, useSetBreadcrumb } from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
+import { SalesDocumentsSection } from '../components/SalesDocumentsSection'
 import { OfferWorkspaceContent } from './OfferWorkspacePage'
 import type { SalesOfferRead } from '../api/types'
 
@@ -86,6 +87,8 @@ export function OfferDetailContent({ offerId: id, embedded = false }: OfferDetai
         businessKey={offer.offerNumber}
         badges={<></>}
       />
+
+      <SalesDocumentsSection ownerType="offer" ownerId={id} />
     </div>
   )
 }

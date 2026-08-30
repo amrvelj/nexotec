@@ -23,6 +23,7 @@ from app.platform.models.user import User
 from app.platform.models.user_preference import UserPreference
 from app.sales.models.contract import SalesContract
 from app.sales.models.deal import SalesDeal, SalesNumberSequence
+from app.sales.models.document import SalesDocument
 from app.sales.models.line_item import SalesLineItem
 from app.sales.models.offer import SalesOffer
 from app.sales.models.transaction import Transaction
@@ -63,6 +64,7 @@ __all__ = [
     "ReferenceValue",
     "SalesContract",
     "SalesDeal",
+    "SalesDocument",
     "SalesLineItem",
     "SalesNumberSequence",
     "SalesOffer",

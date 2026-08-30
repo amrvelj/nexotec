@@ -49,8 +49,30 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return body as T
 }
 
+/** WP-8 PR-7 — the one endpoint that answers with `application/pdf`
+ * rather than JSON (`GET /sales/documents/{id}/pdf`); `request()` above
+ * always calls `.json()`, so this is a small, separate path rather than a
+ * branch inside it. Returns a `blob:` URL the caller must revoke with
+ * `URL.revokeObjectURL` once done (`DocumentPreview`'s own `src` prop).
+ */
+async function getBlobUrl(path: string): Promise<string> {
+  const response = await fetch(`${API_BASE_URL}${path}`, { credentials: 'include' })
+  if (!response.ok) {
+    const errorBody = (await response.json().catch(() => null)) as ApiErrorBody | null
+    throw new ApiError(
+      response.status,
+      errorBody?.error?.code ?? 'unknown_error',
+      errorBody?.error?.message ?? 'Something went wrong.',
+      errorBody?.error?.details ?? null,
+    )
+  }
+  const blob = await response.blob()
+  return URL.createObjectURL(blob)
+}
+
 export const api = {
   get: <T>(path: string) => request<T>(path),
+  getBlobUrl,
   post: <T>(path: string, body?: unknown, extraHeaders?: HeadersInit) =>
     request<T>(path, { method: 'POST', body: body ? JSON.stringify(body) : undefined, headers: extraHeaders }),
   patch: <T>(path: string, body: unknown, extraHeaders?: HeadersInit) =>

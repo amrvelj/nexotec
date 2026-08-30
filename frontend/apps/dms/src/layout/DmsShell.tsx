@@ -3,7 +3,6 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   AlertTriangle,
-  ArrowLeftRight,
   Car,
   ChartColumn,
   Cog,
@@ -61,7 +60,6 @@ function buildNavGroups(t: (key: string) => string): NavGroupConfig[] {
         { label: t('shell.nav.inventory'), href: '/stock', icon: Warehouse, status: 'active' },
         { label: t('shell.nav.parts'), href: '/parts', icon: Cog, status: 'soon' },
         { label: t('shell.nav.finance'), href: '/finance', icon: Receipt, status: 'soon' },
-        { label: t('shell.nav.transactions'), href: '/transactions', icon: ArrowLeftRight, status: 'soon' },
         { label: t('shell.nav.reporting'), href: '/reporting', icon: ChartColumn, status: 'soon' },
         { label: t('shell.nav.compliance'), href: '/compliance', icon: ShieldCheck, status: 'soon' },
       ],

@@ -811,5 +811,13 @@
     },
     "missing": "Es fehlt noch",
     "continue": "Weiter zur Übersicht"
+  },
+  "salesDocuments": {
+    "title": "Dokumente",
+    "generate": "Dokument erzeugen",
+    "empty": "Noch kein Dokument erzeugt.",
+    "previewError": "Vorschau konnte nicht geladen werden.",
+    "download": "Herunterladen",
+    "version": "Version {{version}}"
   }
 }

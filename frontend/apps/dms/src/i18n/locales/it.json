@@ -811,5 +811,13 @@
     },
     "missing": "Manca ancora",
     "continue": "Continua alla panoramica"
+  },
+  "salesDocuments": {
+    "title": "Documenti",
+    "generate": "Genera documento",
+    "empty": "Nessun documento ancora generato.",
+    "previewError": "Impossibile caricare l’anteprima.",
+    "download": "Scarica",
+    "version": "Versione {{version}}"
   }
 }

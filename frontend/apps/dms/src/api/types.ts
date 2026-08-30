@@ -717,6 +717,28 @@ export interface SalesContractPage {
   totalIsEstimate: boolean
 }
 
+// WP-8 PR-7 — append-only, one row per generated version; never carries
+// the rendered bytes themselves (no blob storage anywhere in this
+// codebase — the PDF is re-rendered deterministically on every download
+// from `contentDefinition`, which this read model never exposes either,
+// since the frontend only ever needs the version list plus the download
+// endpoint).
+export type SalesDocumentOwnerType = 'offer' | 'contract'
+
+export interface SalesDocumentRead {
+  id: string
+  ownerType: SalesDocumentOwnerType
+  ownerId: string
+  version: number
+  correspondenceLanguage: string
+  renderedAt: string
+  renderedBy: string | null
+}
+
+export interface SalesDocumentPage {
+  items: SalesDocumentRead[]
+}
+
 // The overview grid's own read shape (ADR-060) — a deliberately separate
 // schema from SalesOfferRead/SalesContractRead, mirroring
 // app.inventory's StockItemGroupRead convention for a read model.

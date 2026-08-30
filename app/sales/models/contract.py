@@ -66,6 +66,7 @@ class SalesContract(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, Timestam
     customer_label: Mapped[str | None] = mapped_column(String(200), nullable=True)
     customer_locality: Mapped[str | None] = mapped_column(String(100), nullable=True)
     customer_denorm_refreshed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    customer_language: Mapped[str | None] = mapped_column(String(2), nullable=True)
 
     # WP-8 PR-6 — copied from the offer at creation (S-D09/ADR-045's
     # own vocabulary): "existing" once confirmed means reserve() targets a
@@ -78,6 +79,15 @@ class SalesContract(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, Timestam
     vehicle_label: Mapped[str | None] = mapped_column(String(200), nullable=True)
     manual_vehicle_condition: Mapped[str | None] = mapped_column(String(16), nullable=True)
 
+    # WP-8 PR-7 — the full build-up, copied from the offer at creation so
+    # the contract's own generated document (services/document.py) can
+    # itemize base -> options -> list -> discount -> price, exactly like
+    # the confirmed live Preisaufbau tab on an already-confirmed contract.
+    base_price: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
+    options_total: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
+    list_price: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
+    accessories_total: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
+    discount_amount: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
     gross_price: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
     # WP-8 PR-3 — copied from the offer at the moment of creation (like
     # gross_price above); entity-private, same posture as

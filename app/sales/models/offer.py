@@ -54,6 +54,12 @@ class SalesOffer(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMi
     customer_label: Mapped[str | None] = mapped_column(String(200), nullable=True)
     customer_locality: Mapped[str | None] = mapped_column(String(100), nullable=True)
     customer_denorm_refreshed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    # WP-8 PR-7 — "the customer's correspondence language is not the
+    # user's UI language" (CLAUDE.md's own rule). Denormalized alongside
+    # customer_label at the same moment, same refresh timestamp — a
+    # generated document (services/document.py) reads THIS, never the
+    # generating seller's own UI locale.
+    customer_language: Mapped[str | None] = mapped_column(String(2), nullable=True)
 
     # WP-8 PR-2 (FR-S-08's two-path vehicle container): "stock" means
     # stock_item_id is the source of truth; "manual" means vehicle_label +

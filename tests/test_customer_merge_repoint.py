@@ -8,8 +8,11 @@ specifically.
 
 import uuid
 
+from sqlalchemy.orm import sessionmaker
+
 from app.core.auth import AccessRole, create_access_token
 from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
+from app.sales.models.transaction import Transaction, TransactionStatus, TransactionType
 
 VALID_ADDRESS = {
     "street": "Bahnhofstrasse",
@@ -104,18 +107,30 @@ def _create_vehicle(client, dealer_id: str, **overrides) -> dict:
     return response.json()
 
 
-def _create_transaction(client, dealer_id: str, user: dict, customer: dict, vehicle: dict, **overrides) -> dict:
-    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
-    payload = {
-        "transactionType": "sale",
-        "customerId": customer["id"],
-        "vehicleId": vehicle["id"],
-        "primaryUserId": user["id"],
-    }
-    payload.update(overrides)
-    response = client.post("/v1/transactions", json=payload, headers=_bearer(token))
-    assert response.status_code == 201, response.text
-    return response.json()
+def _create_transaction(engine, dealer_id: str, user: dict, customer: dict, vehicle: dict) -> dict:
+    """WP-8 PR-7 (ADR-050/S-D12): `transaction` writes are retired at the
+    service layer — this seeds directly via the ORM instead, exactly like
+    seeding any other retired-but-still-real table, on a session bound to
+    the same test engine `client` itself uses.
+    """
+
+    factory = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
+    session = factory()
+    try:
+        transaction = Transaction(
+            tenant_id=uuid.UUID(dealer_id),
+            transaction_type=TransactionType.SALE,
+            status=TransactionStatus.DRAFT,
+            customer_id=uuid.UUID(customer["id"]),
+            vehicle_id=uuid.UUID(vehicle["id"]),
+            primary_user_id=uuid.UUID(user["id"]),
+        )
+        session.add(transaction)
+        session.commit()
+        session.refresh(transaction)
+        return {"id": str(transaction.id)}
+    finally:
+        session.close()
 
 
 def _merge(client, dealer_id: str, duplicate_id: str, survivor_id: str):
@@ -222,13 +237,13 @@ def test_merge_drops_vehicle_party_already_on_survivor(client, db_session):
 # --- transactions ----------------------------------------------------------------
 
 
-def test_merge_repoints_transactions(client):
+def test_merge_repoints_transactions(client, engine):
     dealer_id = _create_dealer(client)
     survivor = _create_customer(client, dealer_id)
     duplicate = _create_customer(client, dealer_id)
     user = _create_user(client, dealer_id)
     vehicle = _create_vehicle(client, dealer_id)
-    txn = _create_transaction(client, dealer_id, user, duplicate, vehicle)
+    txn = _create_transaction(engine, dealer_id, user, duplicate, vehicle)
 
     _merge(client, dealer_id, duplicate["id"], survivor["id"])
 
@@ -236,6 +251,33 @@ def test_merge_repoints_transactions(client):
     response = client.get(f"/v1/transactions/{txn['id']}", headers=_bearer(token))
     assert response.status_code == 200, response.text
     assert response.json()["customerId"] == survivor["id"]
+
+
+# --- sales_offer / sales_contract (WP-8 PR-7) -------------------------------------
+
+
+def test_merge_repoints_sales_offers(client):
+    """A merge must repoint the NEW tables too, not just the retired
+    `transaction` table repoint_customer_transactions already handled
+    (app.sales.public.repoint_customer_sales_records, wired into
+    merge_customer)."""
+
+    dealer_id = _create_dealer(client)
+    survivor = _create_customer(client, dealer_id)
+    duplicate = _create_customer(client, dealer_id)
+
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    offer = client.post("/v1/sales/offers", headers=_bearer(token)).json()
+    client.patch(
+        f"/v1/sales/offers/{offer['id']}",
+        json={"customerId": duplicate["id"]},
+        headers={**_bearer(token), "If-Match": str(offer["version"])},
+    )
+
+    _merge(client, dealer_id, duplicate["id"], survivor["id"])
+
+    refetched = client.get(f"/v1/sales/offers/{offer['id']}", headers=_bearer(token))
+    assert refetched.json()["customerId"] == survivor["id"]
 
 
 # --- phones / emails ---------------------------------------------------------------
@@ -312,13 +354,13 @@ def test_merge_drops_external_id_when_survivor_already_has_that_system(client):
 # --- audit -----------------------------------------------------------------------------
 
 
-def test_merge_audit_log_reports_repoint_counts(client):
+def test_merge_audit_log_reports_repoint_counts(client, engine):
     dealer_id = _create_dealer(client)
     survivor = _create_customer(client, dealer_id)
     duplicate = _create_customer(client, dealer_id)
     user = _create_user(client, dealer_id)
     vehicle = _create_vehicle(client, dealer_id)
-    _create_transaction(client, dealer_id, user, duplicate, vehicle)
+    _create_transaction(engine, dealer_id, user, duplicate, vehicle)
     _add_phone(client, dealer_id, duplicate["id"], "+41791234599")
 
     _merge(client, dealer_id, duplicate["id"], survivor["id"])

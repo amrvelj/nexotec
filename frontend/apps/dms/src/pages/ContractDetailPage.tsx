@@ -5,6 +5,7 @@ import { Ban, FileSignature } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { DetailHeader, SalesStatusBadge, SalesTypeBadge, StatRow, useSetBreadcrumb, type RowMenuGroups } from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
+import { SalesDocumentsSection } from '../components/SalesDocumentsSection'
 import { translatedSalesDealStatusLabel } from '../salesOptions'
 import { formatCurrencyChf } from '../utils/format'
 import type { SalesContractRead } from '../api/types'
@@ -131,6 +132,8 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
       />
 
       {contract.financing && <Text size="sm" c="dimmed">{t('contractDetail.financing')}: {t(`salesEnums.financing.${contract.financing}`)}</Text>}
+
+      <SalesDocumentsSection ownerType="contract" ownerId={id} />
     </div>
   )
 }

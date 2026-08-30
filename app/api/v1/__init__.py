@@ -22,6 +22,7 @@ from app.platform.api.reference_data import router as reference_data_router
 from app.platform.api.user_preferences import router as user_preferences_router
 from app.sales.api.contracts import router as sales_contracts_router
 from app.sales.api.deals import router as sales_deals_router
+from app.sales.api.documents import router as sales_documents_router
 from app.sales.api.offers import router as sales_offers_router
 from app.sales.api.transactions import router as transactions_router
 from app.valuation.api.valuations import router as valuations_router
@@ -53,6 +54,7 @@ api_v1_router.include_router(transactions_router)
 api_v1_router.include_router(sales_deals_router)
 api_v1_router.include_router(sales_offers_router)
 api_v1_router.include_router(sales_contracts_router)
+api_v1_router.include_router(sales_documents_router)
 api_v1_router.include_router(valuations_router)
 api_v1_router.include_router(auth_router)
 api_v1_router.include_router(user_preferences_router)

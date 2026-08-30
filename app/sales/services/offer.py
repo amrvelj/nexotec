@@ -135,11 +135,17 @@ def update_offer(
         if customer_id is None:
             offer.customer_id = None
             offer.customer_label = None
+            offer.customer_language = None
             offer.customer_denorm_refreshed_at = None
         else:
             customer = get_customer_or_404(db, group_id, customer_id)
             offer.customer_id = customer.id
             offer.customer_label = _resolve_customer_label(customer)
+            # CLAUDE.md's own rule: "the customer's correspondence language
+            # is not the user's UI language" — denormalized here so
+            # services/document.py never has to reach back into customer
+            # at generation time.
+            offer.customer_language = customer.language.value
             # customer_locality needs an address lookup app.customer.public
             # doesn't expose yet — left None here rather than guessed;
             # picked up once that surface exists (flagged, not silently

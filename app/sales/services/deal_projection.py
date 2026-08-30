@@ -10,7 +10,9 @@ from sqlalchemy.orm import Session
 
 from app.sales.models.contract import SalesContract
 from app.sales.models.deal import SalesDeal
+from app.sales.models.document import DocumentOwnerType
 from app.sales.models.offer import SalesOffer
+from app.sales.services.document import count_documents
 
 
 def upsert_deal_projection(
@@ -39,6 +41,15 @@ def upsert_deal_projection(
         deal.vehicle_label = contract.vehicle_label
         deal.gross_price = contract.gross_price
         deal.margin = contract.margin
+        offer_docs = (
+            count_documents(db, tenant_id=contract.tenant_id, owner_type=DocumentOwnerType.OFFER, owner_id=contract.offer_id)
+            if contract.offer_id is not None
+            else 0
+        )
+        contract_docs = count_documents(
+            db, tenant_id=contract.tenant_id, owner_type=DocumentOwnerType.CONTRACT, owner_id=contract.id
+        )
+        deal.documents_count = offer_docs + contract_docs
         db.flush()
         return deal
 
@@ -64,5 +75,8 @@ def upsert_deal_projection(
     deal.customer_locality = offer.customer_locality
     deal.customer_denorm_refreshed_at = offer.customer_denorm_refreshed_at
     deal.vehicle_label = offer.vehicle_label
+    deal.documents_count = count_documents(
+        db, tenant_id=offer.tenant_id, owner_type=DocumentOwnerType.OFFER, owner_id=offer.id
+    )
     db.flush()
     return deal
