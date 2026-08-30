@@ -508,7 +508,18 @@
       "changed": "Geändert",
       "vin": "VIN",
       "listPrice": "Listenpreis",
-      "dealership": "Standort"
+      "dealership": "Standort",
+      "ageingBucket": "Standtage-Ampel",
+      "basePrice": "Basispreis",
+      "purchasePrice": "Einkaufspreis",
+      "landedCost": "Landed Cost",
+      "notionalInputTaxAmount": "Fiktiver Vorsteuerabzug",
+      "isInvoiceable": "Fakturierbar",
+      "supplierName": "Lieferant",
+      "purchaseDate": "Einkaufsdatum",
+      "orderDate": "Bestelldatum",
+      "expectedDelivery": "Voraussichtliche Lieferung",
+      "pipelineRef": "Pipeline-Referenz"
     },
     "emptyState": {
       "title": "Kein Fahrzeug im Lager",
@@ -531,7 +542,8 @@
     "tabs": {
       "details": "Details",
       "wagenbuch": "Wagenbuch",
-      "publishing": "Publikation"
+      "publishing": "Publikation",
+      "evaluation": "Bewertung"
     },
     "actions": {
       "createOffer": "Offerte erstellen",
@@ -634,6 +646,14 @@
         "eigenschaften": "Eigenschaften",
         "hint": "AutoScout24 kennt drei getrennte Begriffe: Ausstattung (suchbare Codes), Extras (Merkmale) und Eigenschaften (Zustände wie Unfallwagen)."
       }
+    },
+    "evaluation": {
+      "title": "Bewertung",
+      "empty": "Keine Bewertung vorhanden.",
+      "amount": "Betrag",
+      "valuedAt": "Bewertet am",
+      "source": "Quelle",
+      "hint": "Bewertungen werden im Modul Verkauf erstellt und verwaltet — dieser Bereich zeigt nur den aktuellen Stand."
     }
   },
   "stockCreate": {

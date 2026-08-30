@@ -15,6 +15,12 @@ const FORBIDDEN_COLUMN_IDS = [
   'notionalInputTaxAmount',
   'isInvoiceable',
   'margin',
+  // WP-7 PR-9
+  'basePrice',
+  'valuationRefId',
+  'valuationRefAmount',
+  'valuationRefValuedAt',
+  'valuationRefSource',
 ]
 
 describe('stockGroupColumns', () => {

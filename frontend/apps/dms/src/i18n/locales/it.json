@@ -508,7 +508,18 @@
       "changed": "Modificato",
       "vin": "VIN",
       "listPrice": "Prezzo di listino",
-      "dealership": "Sede"
+      "dealership": "Sede",
+      "ageingBucket": "Indicatore di anzianità",
+      "basePrice": "Prezzo base",
+      "purchasePrice": "Prezzo di acquisto",
+      "landedCost": "Costi di trasporto",
+      "notionalInputTaxAmount": "Deduzione fittizia dell'imposta precedente",
+      "isInvoiceable": "Fatturabile",
+      "supplierName": "Fornitore",
+      "purchaseDate": "Data di acquisto",
+      "orderDate": "Data ordine",
+      "expectedDelivery": "Consegna prevista",
+      "pipelineRef": "Riferimento pipeline"
     },
     "emptyState": {
       "title": "Nessun veicolo a magazzino",
@@ -531,7 +542,8 @@
     "tabs": {
       "details": "Dettagli",
       "wagenbuch": "Registro veicolo",
-      "publishing": "Pubblicazione"
+      "publishing": "Pubblicazione",
+      "evaluation": "Valutazione"
     },
     "actions": {
       "createOffer": "Crea offerta",
@@ -634,6 +646,14 @@
         "eigenschaften": "Caratteristiche",
         "hint": "AutoScout24 distingue tre concetti: dotazione (codici ricercabili), extra (caratteristiche) e particolarità (stati come veicolo incidentato)."
       }
+    },
+    "evaluation": {
+      "title": "Valutazione",
+      "empty": "Nessuna valutazione disponibile.",
+      "amount": "Importo",
+      "valuedAt": "Valutato il",
+      "source": "Fonte",
+      "hint": "Le valutazioni vengono create e gestite nel modulo Vendite — quest'area mostra solo lo stato attuale."
     }
   },
   "stockCreate": {

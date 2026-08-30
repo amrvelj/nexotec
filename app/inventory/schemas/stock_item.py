@@ -68,6 +68,14 @@ class StockItemRead(CamelModel):
     notional_input_tax_overridden: bool
     is_invoiceable: bool
     left_stock_at: dt.datetime | None
+    # WP-7 PR-9 (FR-I-22) — the base price a factory-option list adds to.
+    base_price: Decimal | None
+    # WP-7 PR-9 (ADR-066/ADR-048) — a denormalized pointer only; the
+    # valuation module (WP-8) is the single writer of the real record.
+    valuation_ref_id: uuid.UUID | None
+    valuation_ref_amount: Decimal | None
+    valuation_ref_valued_at: dt.datetime | None
+    valuation_ref_source: str | None
     # Computed on read (PR-7), never stored — see
     # services/stock_item.py::compute_ageing_bucket. None until the model
     # is post-processed by the API layer; model_validate alone leaves it

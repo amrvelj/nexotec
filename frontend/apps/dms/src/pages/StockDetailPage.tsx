@@ -9,6 +9,7 @@ import { api, ApiError } from '../api/client'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
 import { translatedStockConditionLabel, translatedStockLifecycleLabel, translatedStockReservationLabel } from '../stockOptions'
 import { DetailsTab } from '../components/stock-detail/DetailsTab'
+import { EvaluationTab } from '../components/stock-detail/EvaluationTab'
 import { PublishingTab } from '../components/stock-detail/PublishingTab'
 import { WagenbuchTab } from '../components/stock-detail/WagenbuchTab'
 import type { LedgerCategory, LedgerEntryPage, StockItemRead } from '../api/types'
@@ -112,6 +113,7 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
     { id: 'details', label: t('stockDetail.tabs.details') },
     { id: 'publishing', label: t('stockDetail.tabs.publishing') },
     { id: 'wagenbuch', label: t('stockDetail.tabs.wagenbuch'), count: ledgerEntries.length },
+    { id: 'evaluation', label: t('stockDetail.tabs.evaluation') },
   ]
 
   if (itemQuery.isLoading) return <Loader />
@@ -164,6 +166,7 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
       {activeTab === 'wagenbuch' && (
         <WagenbuchTab entries={ledgerEntries} locale={locale} onRecordCost={recordCost} />
       )}
+      {activeTab === 'evaluation' && <EvaluationTab stockItemId={item.id} locale={locale} />}
     </div>
   )
 }

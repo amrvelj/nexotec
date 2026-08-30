@@ -502,6 +502,9 @@ export interface StockItemRead {
   isInvoiceable: boolean
   leftStockAt: string | null
   ageingBucket: AgeingBucket | null
+  basePrice: string | null
+  valuationRefId: string | null
+  valuationRefAmount: string | null
   version: number
   createdAt: string
   updatedAt: string

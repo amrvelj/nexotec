@@ -14,6 +14,7 @@ import {
   StockLifecycleBadge,
   StockReservationBadge,
   ViewsAndFilters,
+  semantic,
   useSetBreadcrumb,
   type ColumnRegistryEntry,
   type FilterFieldDef,
@@ -229,6 +230,95 @@ export function StockListPage() {
         header: t('stockList.columns.listPrice'),
         cell: ({ row }) => (row.original.listPrice != null ? formatCurrencyChf(Number(row.original.listPrice)) : '—'),
         meta: { defaultVisible: false, align: 'right' },
+      },
+      // § ADR-060 — every persisted field is a column; a documented
+      // subset (the ones above) is visible by default. These remaining
+      // fields round out the registry toward its full target without
+      // claiming an exact count.
+      {
+        id: 'ageingBucket',
+        header: t('stockList.columns.ageingBucket'),
+        cell: ({ row }) =>
+          row.original.ageingBucket ? (
+            <span
+              aria-label={row.original.ageingBucket}
+              style={{
+                display: 'inline-block',
+                width: 10,
+                height: 10,
+                borderRadius: '50%',
+                backgroundColor:
+                  row.original.ageingBucket === 'green'
+                    ? semantic.success.text
+                    : row.original.ageingBucket === 'amber'
+                      ? semantic.warning.text
+                      : semantic.destructive.text,
+              }}
+            />
+          ) : (
+            '—'
+          ),
+        meta: { defaultVisible: false },
+      },
+      {
+        id: 'basePrice',
+        header: t('stockList.columns.basePrice'),
+        cell: ({ row }) => (row.original.basePrice != null ? formatCurrencyChf(Number(row.original.basePrice)) : '—'),
+        meta: { defaultVisible: false, align: 'right' },
+      },
+      {
+        id: 'purchasePrice',
+        header: t('stockList.columns.purchasePrice'),
+        cell: ({ row }) => (row.original.purchasePrice != null ? formatCurrencyChf(Number(row.original.purchasePrice)) : '—'),
+        meta: { defaultVisible: false, align: 'right' },
+      },
+      {
+        id: 'landedCost',
+        header: t('stockList.columns.landedCost'),
+        cell: ({ row }) => (row.original.landedCost != null ? formatCurrencyChf(Number(row.original.landedCost)) : '—'),
+        meta: { defaultVisible: false, align: 'right' },
+      },
+      {
+        id: 'notionalInputTaxAmount',
+        header: t('stockList.columns.notionalInputTaxAmount'),
+        cell: ({ row }) => (row.original.notionalInputTaxAmount != null ? formatCurrencyChf(Number(row.original.notionalInputTaxAmount)) : '—'),
+        meta: { defaultVisible: false, align: 'right' },
+      },
+      {
+        id: 'isInvoiceable',
+        header: t('stockList.columns.isInvoiceable'),
+        cell: ({ row }) => (row.original.isInvoiceable ? t('common.yes') : t('common.no')),
+        meta: { defaultVisible: false },
+      },
+      {
+        id: 'supplierName',
+        header: t('stockList.columns.supplierName'),
+        cell: ({ row }) => row.original.supplierName ?? '—',
+        meta: { defaultVisible: false },
+      },
+      {
+        id: 'purchaseDate',
+        header: t('stockList.columns.purchaseDate'),
+        cell: ({ row }) => (row.original.purchaseDate ? formatDate(row.original.purchaseDate, locale) : '—'),
+        meta: { defaultVisible: false },
+      },
+      {
+        id: 'orderDate',
+        header: t('stockList.columns.orderDate'),
+        cell: ({ row }) => (row.original.orderDate ? formatDate(row.original.orderDate, locale) : '—'),
+        meta: { defaultVisible: false },
+      },
+      {
+        id: 'expectedDelivery',
+        header: t('stockList.columns.expectedDelivery'),
+        cell: ({ row }) => (row.original.expectedDelivery ? formatDate(row.original.expectedDelivery, locale) : '—'),
+        meta: { defaultVisible: false },
+      },
+      {
+        id: 'pipelineRef',
+        header: t('stockList.columns.pipelineRef'),
+        cell: ({ row }) => row.original.pipelineRef ?? '—',
+        meta: { defaultVisible: false, mono: true },
       },
     ],
     [t, locale]

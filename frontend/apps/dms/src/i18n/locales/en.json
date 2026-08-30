@@ -508,7 +508,18 @@
       "changed": "Changed",
       "vin": "VIN",
       "listPrice": "List price",
-      "dealership": "Dealership"
+      "dealership": "Dealership",
+      "ageingBucket": "Ageing indicator",
+      "basePrice": "Base price",
+      "purchasePrice": "Purchase price",
+      "landedCost": "Landed cost",
+      "notionalInputTaxAmount": "Notional input tax",
+      "isInvoiceable": "Invoiceable",
+      "supplierName": "Supplier",
+      "purchaseDate": "Purchase date",
+      "orderDate": "Order date",
+      "expectedDelivery": "Expected delivery",
+      "pipelineRef": "Pipeline reference"
     },
     "emptyState": {
       "title": "No vehicles in stock",
@@ -531,7 +542,8 @@
     "tabs": {
       "details": "Details",
       "wagenbuch": "Wagenbuch",
-      "publishing": "Publishing"
+      "publishing": "Publishing",
+      "evaluation": "Evaluation"
     },
     "actions": {
       "createOffer": "Create offer",
@@ -634,6 +646,14 @@
         "eigenschaften": "Properties",
         "hint": "AutoScout24 knows three separate concepts: equipment (searchable codes), extras (features) and properties (condition flags such as accident vehicle)."
       }
+    },
+    "evaluation": {
+      "title": "Evaluation",
+      "empty": "No valuation available.",
+      "amount": "Amount",
+      "valuedAt": "Valued at",
+      "source": "Source",
+      "hint": "Valuations are created and managed in the Sales module — this area only shows the current pointer."
     }
   },
   "stockCreate": {

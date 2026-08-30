@@ -42,6 +42,8 @@ def test_group_listing_excludes_commercial_fields_by_name():
         "effective_price", "landed_cost", "notional_input_tax_applicable", "notional_input_tax_rate",
         "notional_input_tax_amount", "purchase_price", "purchase_invoice_ref", "supplier_name",
         "is_invoiceable",
+        # WP-7 PR-9
+        "base_price", "valuation_ref_id", "valuation_ref_amount", "valuation_ref_valued_at", "valuation_ref_source",
     }
     assert not (field_names & forbidden), f"Group projection leaks entity-private fields: {field_names & forbidden}"
     # And it genuinely is a distinct schema, not StockItemRead reused.

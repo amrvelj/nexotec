@@ -205,3 +205,20 @@ class StockItem(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMix
     # FR-I-12: a sold (invoiced) item leaves the active list — enforced by
     # filtering WHERE left_stock_at IS NULL, never a 4th lifecycle value.
     left_stock_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+
+    # WP-7 PR-9 (FR-I-22) — the base price a factory-option list adds on
+    # top of. listPrice = basePrice + Σ options[].price when any options
+    # exist; the plain typed-value listPrice above stands alone for the
+    # ordinary used-car case (no options, condition=used).
+    base_price: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
+
+    # WP-7 PR-9 — a denormalized POINTER only (ADR-066/ADR-048). Stock
+    # never stores its own copy of a valuation's inputs/deductibles/net;
+    # the valuation module (WP-8) is the single writer of the real record.
+    # No app.valuation exists yet, so there is no FK, no create path here
+    # — this is a reader stub, updated only by a future cross-context call
+    # once that module ships.
+    valuation_ref_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True)
+    valuation_ref_amount: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
+    valuation_ref_valued_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    valuation_ref_source: Mapped[str | None] = mapped_column(String(120), nullable=True)
