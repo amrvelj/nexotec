@@ -69,6 +69,31 @@ def get_enabled_connection(
     )
 
 
+def list_enabled_connection_tenant_ids_for_provider(db: Session, *, provider_code: str) -> list[uuid.UUID]:
+    """The daily-job composition root's own enumeration (PR-4) — "which
+    tenants have an enabled connection to this provider_code" — so
+    `app/integration/daily_jobs.py` never queries `IntegrationConnection`/
+    `IntegrationProvider` directly (it lives outside this context) and
+    never needs to. Platform-scope rows (`tenant_id IS NULL`) are excluded
+    by construction: `IntegrationConnection.tenant_id.is_not(None)` isn't
+    even needed here since a NULL never appears in a `.distinct()` list
+    the caller then iterates as real tenant ids — included for clarity
+    anyway.
+    """
+
+    stmt = (
+        select(IntegrationConnection.tenant_id)
+        .join(IntegrationProvider, IntegrationProvider.id == IntegrationConnection.provider_id)
+        .where(
+            IntegrationProvider.provider_code == provider_code,
+            IntegrationConnection.enabled.is_(True),
+            IntegrationConnection.tenant_id.is_not(None),
+        )
+        .distinct()
+    )
+    return [tenant_id for tenant_id in db.scalars(stmt).all() if tenant_id is not None]
+
+
 def list_connections(
     db: Session,
     *,

@@ -5,6 +5,7 @@ this composition role.
 """
 
 from app.core.audit_model import AuditEvent
+from app.core.daily_scheduler_model import DailyJobRun
 from app.core.idempotency_model import IdempotencyRecord
 from app.core.outbox_model import OutboxMessage
 from app.core.processed_event_model import ProcessedEvent
@@ -34,6 +35,7 @@ from app.sales.models.offer import SalesOffer
 from app.sales.models.transaction import Transaction
 from app.valuation.models.valuation import Valuation, ValuationDeduction, ValuationNumberSequence
 from app.vehicle.models.catalogue import Brand, ModelGroup, ModelVariant, TypeApproval, VariantOption
+from app.vehicle.models.catalogue_mirror import ColourCache, ImageRef, ProviderSyncState, TyreSpecCache
 from app.vehicle.models.energy_rating import ModelVariantEnergyRating
 from app.vehicle.models.plate import DealerPlate, DealerPlateAssignment, VehiclePlate, VehiclePlateConflict
 from app.vehicle.models.provider import MappingGap, ProviderCodeMap, ProviderEntityRef
@@ -45,14 +47,17 @@ from app.vehicle.models.vehicle_mdm import VehicleMdm, VehicleNumberSequence
 __all__ = [
     "AuditEvent",
     "Brand",
+    "ColourCache",
     "Customer",
     "CustomerAddress",
+    "DailyJobRun",
     "DealerGroup",
     "DealerPlate",
     "DealerPlateAssignment",
     "Dealership",
     "DealershipMembership",
     "IdempotencyRecord",
+    "ImageRef",
     "IntegrationCallLog",
     "IntegrationConnection",
     "IntegrationEntitlement",
@@ -68,6 +73,7 @@ __all__ = [
     "ProcessedEvent",
     "ProviderCodeMap",
     "ProviderEntityRef",
+    "ProviderSyncState",
     "ReconciliationOrphan",
     "ReconciliationRun",
     "ReferenceList",
@@ -86,6 +92,7 @@ __all__ = [
     "StockNumberSequence",
     "Transaction",
     "TypeApproval",
+    "TyreSpecCache",
     "User",
     "UserPreference",
     "Valuation",

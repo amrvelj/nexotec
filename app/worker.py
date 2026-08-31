@@ -16,6 +16,7 @@ import logging
 import os
 import time
 
+from app.core.daily_scheduler import register_daily_job, run_due_daily_jobs
 from app.core.observability import (
     record_consumer_lag_seconds,
     record_dead_letter_count,
@@ -25,6 +26,7 @@ from app.core.outbox import consumer_lag_seconds, dead_letter_count, oldest_pend
 from app.core.outbox_transport import InProcessTransport
 from app.core.outbox_worker import poll_once
 from app.db import SessionLocal
+from app.integration.daily_jobs import run_daily_catalogue_sync_and_alarm
 from app.inventory.consumers import handle_sales_contract_confirmed_message
 from app.sales.consumers import handle_stock_item_purchased_message
 
@@ -95,9 +97,20 @@ def _heartbeat(db, transport: InProcessTransport) -> None:
     )
 
 
+def register_daily_jobs() -> None:
+    """WP-6 PR-4's first daily job: per-tenant catalogue delta sync plus
+    the A-12 sync-age alarm, for every tenant with an enabled auto-i-dat-
+    family connection. PR-6 registers its own retention/notification jobs
+    the same way, alongside this one.
+    """
+
+    register_daily_job("integration.catalogue_sync_and_alarm", run_daily_catalogue_sync_and_alarm)
+
+
 def run(*, max_iterations: int | None = None) -> None:
     transport = InProcessTransport(SessionLocal)
     register_handlers(transport)
+    register_daily_jobs()
 
     iterations = 0
     last_heartbeat = 0.0
@@ -107,6 +120,14 @@ def run(*, max_iterations: int | None = None) -> None:
             result = poll_once(db, transport)
         finally:
             db.close()
+
+        daily_db = SessionLocal()
+        try:
+            ran = run_due_daily_jobs(daily_db)
+        finally:
+            daily_db.close()
+        if ran:
+            logger.info("daily jobs ran", extra={"jobs": ran})
 
         if result.claimed:
             logger.info(

@@ -18,11 +18,12 @@ never around it.
 
 import datetime as dt
 import uuid
+from decimal import Decimal
 
-from sqlalchemy import Date, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import DECIMAL, Date, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.core.base import PrimaryKeyMixin, TimestampMixin, VersionedMixin
+from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
 from app.core.types import GUID
 from app.db import Base
 
@@ -95,16 +96,32 @@ class ModelVariant(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     type_approvals: Mapped[list["TypeApproval"]] = relationship(back_populates="model_variant")
 
 
-class VariantOption(PrimaryKeyMixin, TimestampMixin, Base):
+class VariantOption(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):
     """A factory option offered on a variant. `description` is stored
     exactly as delivered by the provider — auto-i-dat returns English only
     for options (PRD §Provider abstraction), and translating thousands of
     provider option strings is explicitly out of scope (PRD §Language and
     translations). This is why VariantOption has no label_de/fr/it — it is
     not a reference_value.
+
+    **Tenant-partitioned (WP-6 PR-4, retrofitted)**: ADR-013 — licensed
+    provider data is tenant-partitioned, never global, and this table
+    holds text delivered under one dealer's own auto-i-dat contract. The
+    same variant is cached once per dealer who holds it — deliberate
+    duplication, the only licence-safe arrangement (there is no shared
+    mirror). The table was empty in every environment before this
+    retrofit, so no backfill was needed — just this column and its
+    composite unique constraint. `Brand`/`ModelGroup`/`ModelVariant`/
+    `TypeApproval` stay global: canonical classification and Swiss
+    regulatory fact, never licensed text.
     """
 
     __tablename__ = "vehicle_variant_option"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id", "model_variant_id", "option_code", name="uq_vehicle_variant_option_tenant_variant_code"
+        ),
+    )
 
     model_variant_id: Mapped[uuid.UUID] = mapped_column(
         GUID(), ForeignKey("vehicle_model_variant.id"), nullable=False, index=True
@@ -112,6 +129,7 @@ class VariantOption(PrimaryKeyMixin, TimestampMixin, Base):
     option_code: Mapped[str] = mapped_column(String(64), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
     option_group: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    price: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
 
     model_variant: Mapped[ModelVariant] = relationship(back_populates="options")
 

@@ -16,6 +16,8 @@ from app.core.reconciliation import ReconciliationRun, ReferenceCheck, run_recon
 from app.customer.public import VehicleParty
 from app.platform.public import Dealership
 from app.sales.public import Transaction
+from app.vehicle.models.catalogue import VariantOption
+from app.vehicle.models.catalogue_mirror import ColourCache, ImageRef, ProviderSyncState, TyreSpecCache
 from app.vehicle.models.plate import DealerPlate, DealerPlateAssignment, VehiclePlate
 from app.vehicle.models.vehicle import Vehicle, VehicleCustodyEvent
 from app.vehicle.models.vehicle_history import VehicleAccessory, VehicleOdometerReading
@@ -107,6 +109,48 @@ CHECKS = [
         source_model=DealerPlateAssignment,
         source_row_id_column=DealerPlateAssignment.id,
         source_fk_column=DealerPlateAssignment.tenant_id,
+        target_model=Dealership,
+        target_id_column=Dealership.id,
+    ),
+    # --- WP-6 PR-4: the catalogue-mirror tenant-partitioning retrofit and
+    # its new tables, all tenant-scoped, none had a check before this PR.
+    ReferenceCheck(
+        label="vehicle_variant_option.tenant_id -> dealership.id",
+        source_model=VariantOption,
+        source_row_id_column=VariantOption.id,
+        source_fk_column=VariantOption.tenant_id,
+        target_model=Dealership,
+        target_id_column=Dealership.id,
+    ),
+    ReferenceCheck(
+        label="vehicle_colour_cache.tenant_id -> dealership.id",
+        source_model=ColourCache,
+        source_row_id_column=ColourCache.id,
+        source_fk_column=ColourCache.tenant_id,
+        target_model=Dealership,
+        target_id_column=Dealership.id,
+    ),
+    ReferenceCheck(
+        label="vehicle_tyre_spec_cache.tenant_id -> dealership.id",
+        source_model=TyreSpecCache,
+        source_row_id_column=TyreSpecCache.id,
+        source_fk_column=TyreSpecCache.tenant_id,
+        target_model=Dealership,
+        target_id_column=Dealership.id,
+    ),
+    ReferenceCheck(
+        label="vehicle_image_ref.tenant_id -> dealership.id",
+        source_model=ImageRef,
+        source_row_id_column=ImageRef.id,
+        source_fk_column=ImageRef.tenant_id,
+        target_model=Dealership,
+        target_id_column=Dealership.id,
+    ),
+    ReferenceCheck(
+        label="vehicle_provider_sync_state.tenant_id -> dealership.id",
+        source_model=ProviderSyncState,
+        source_row_id_column=ProviderSyncState.id,
+        source_fk_column=ProviderSyncState.tenant_id,
         target_model=Dealership,
         target_id_column=Dealership.id,
     ),

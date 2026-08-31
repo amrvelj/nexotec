@@ -32,7 +32,7 @@ from app.integration.adapters.base import (
     VariantTyreSpecData,
 )
 from app.integration.models.connection import ConnectionStatus, IntegrationConnection
-from app.integration.services.connections import get_enabled_connection
+from app.integration.services.connections import get_enabled_connection, list_enabled_connection_tenant_ids_for_provider
 from app.integration.services.gateway import (
     ConnectionDisabledError,
     ProviderGatewayError,
@@ -57,4 +57,5 @@ __all__ = [
     "VariantTyreSpecData",
     "call_capability",
     "get_enabled_connection",
+    "list_enabled_connection_tenant_ids_for_provider",
 ]
