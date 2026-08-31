@@ -23,7 +23,7 @@ from app.platform.services.dealership import (
 )
 from app.platform.services.document_render import render_document
 from app.platform.services.reference_data import get_reference_list_or_404, get_reference_value_or_404
-from app.platform.services.user import get_user_or_404
+from app.platform.services.user import get_user_or_404, list_dealer_manager_emails
 
 # WP-6b: Addressee/ContentDefinition/.../render_document are the shared
 # document-render layer's public contract — every future module that
@@ -51,5 +51,6 @@ __all__ = [
     "get_reference_list_or_404",
     "get_reference_value_or_404",
     "get_user_or_404",
+    "list_dealer_manager_emails",
     "render_document",
 ]

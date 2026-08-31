@@ -8,7 +8,14 @@ points at.
 
 "No business data" (Integrations & API Credentials v0.1's own words) —
 this module writes exactly one thing, `integration_call_log`, and reads
-nothing but `integration_connection`/`integration_provider`.
+nothing but `integration_connection`/`integration_provider`. PR-6 adds
+one narrow exception: `call_capability`'s optional `capture_raw_payload`
+callable, which — if a caller supplies one — writes a SECOND row to the
+structurally separate `integration_call_payload` table (never this
+module's own `integration_call_log`). No adapter in this codebase
+supplies one today (see `services/retention.py`'s own docstring); this
+is the seam a future adapter revision uses, not a currently-exercised
+path.
 """
 
 import time
@@ -23,9 +30,11 @@ from app.core.base import utcnow
 from app.integration.adapters.auto_i_dat_mock import MockAutoIDatAdapter
 from app.integration.adapters.base import ProviderAdapter
 from app.integration.models.call_log import CallStatus, IntegrationCallLog
+from app.integration.models.call_payload import PayloadKind
 from app.integration.models.connection import ConnectionStatus, IntegrationConnection
 from app.integration.services import providers as provider_service
 from app.integration.services import resilience
+from app.integration.services import retention as retention_service
 
 
 class ProviderGatewayError(Exception):
@@ -116,6 +125,7 @@ def call_capability(
     correlation_id: uuid.UUID | None = None,
     actor_id: uuid.UUID | None = None,
     purpose: str = "",
+    capture_raw_payload: Callable[[], str | None] | None = None,
 ) -> Iterator[ProviderAdapter]:
     """Yields the resolved adapter, timing the caller's own use of it and
     writing exactly one `integration_call_log` row regardless of outcome.
@@ -125,6 +135,14 @@ def call_capability(
     `actor_id`/`purpose` are threaded through to the adapter factory
     purely so a real adapter (PR-3) can audit-log its own credential
     resolutions; the mock adapter ignores both.
+
+    `capture_raw_payload` (PR-6) is called once, after the caller's own
+    block finishes (success or error), and — if it returns a non-None
+    string — writes ONE `integration_call_payload` row, structurally
+    separate from `integration_call_log`. No adapter in this codebase
+    supplies this today (see services/retention.py's own docstring); it
+    exists so a future adapter revision can start capturing a real wire
+    payload without any change to this function's own callers.
 
     Usage:
         with call_capability(db, connection=connection, capability="vehicle_data") as adapter:
@@ -138,18 +156,31 @@ def call_capability(
     except Exception:
         duration_ms = int((time.monotonic() - started_at) * 1000)
         resilience.record_failure(connection.id)
-        record_call(
+        log = record_call(
             db, connection=connection, capability=capability, status=CallStatus.ERROR,
             duration_ms=duration_ms, correlation_id=correlation_id,
         )
+        _maybe_capture_payload(db, log=log, kind=PayloadKind.ERROR, capture_raw_payload=capture_raw_payload)
         raise
     else:
         duration_ms = int((time.monotonic() - started_at) * 1000)
         resilience.record_success(connection.id)
-        record_call(
+        log = record_call(
             db, connection=connection, capability=capability, status=CallStatus.SUCCESS,
             duration_ms=duration_ms, correlation_id=correlation_id,
         )
+        _maybe_capture_payload(db, log=log, kind=PayloadKind.SUCCESS, capture_raw_payload=capture_raw_payload)
+
+
+def _maybe_capture_payload(
+    db: Session, *, log: IntegrationCallLog, kind: PayloadKind, capture_raw_payload: Callable[[], str | None] | None
+) -> None:
+    if capture_raw_payload is None:
+        return
+    payload = capture_raw_payload()
+    if payload is not None:
+        retention_service.capture_call_payload(db, call_log=log, kind=kind, payload=payload)
+        db.commit()
 
 
 def test_connection(db: Session, *, connection: IntegrationConnection) -> IntegrationConnection:

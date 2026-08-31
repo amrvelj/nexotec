@@ -26,7 +26,7 @@ from app.core.outbox import consumer_lag_seconds, dead_letter_count, oldest_pend
 from app.core.outbox_transport import InProcessTransport
 from app.core.outbox_worker import poll_once
 from app.db import SessionLocal
-from app.integration.daily_jobs import run_daily_catalogue_sync_and_alarm
+from app.integration.daily_jobs import run_daily_integration_jobs
 from app.inventory.consumers import handle_sales_contract_confirmed_message
 from app.sales.consumers import handle_stock_item_purchased_message
 
@@ -98,13 +98,13 @@ def _heartbeat(db, transport: InProcessTransport) -> None:
 
 
 def register_daily_jobs() -> None:
-    """WP-6 PR-4's first daily job: per-tenant catalogue delta sync plus
-    the A-12 sync-age alarm, for every tenant with an enabled auto-i-dat-
-    family connection. PR-6 registers its own retention/notification jobs
-    the same way, alongside this one.
+    """WP-6's one integration daily job: per-tenant catalogue delta sync
+    plus the A-12 sync-age alarm (PR-4), then ADR-024's retention purge
+    and ADR-025's expiry warnings/support digest (PR-6) — one composition
+    root (app/integration/daily_jobs.py), one registration.
     """
 
-    register_daily_job("integration.catalogue_sync_and_alarm", run_daily_catalogue_sync_and_alarm)
+    register_daily_job("integration.daily_jobs", run_daily_integration_jobs)
 
 
 def run(*, max_iterations: int | None = None) -> None:

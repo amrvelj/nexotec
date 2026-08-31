@@ -107,6 +107,20 @@ def list_users(
     return build_page(rows, params)
 
 
+def list_dealer_manager_emails(db: Session, *, dealership_id: uuid.UUID) -> list[str]:
+    """WP-6 PR-6 — who ADR-025's expiry warnings and break-glass-access
+    notifications actually go to. Active managers only: a suspended or
+    deactivated manager's inbox is not where a live operational warning
+    should land, even if their `is_dealer_manager` flag was never
+    cleared.
+    """
+
+    stmt = select(User.email).where(
+        User.tenant_id == dealership_id, User.is_dealer_manager.is_(True), User.status == UserStatus.ACTIVE
+    )
+    return list(db.scalars(stmt).all())
+
+
 def create_user(db: Session, *, dealership_id: uuid.UUID, data: UserCreate, actor_id: uuid.UUID) -> User:
     user = User(
         tenant_id=dealership_id,
