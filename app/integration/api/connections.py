@@ -33,6 +33,7 @@ from app.integration.schemas.connection import (
     SecretWriteRequest,
 )
 from app.integration.services import connections as connection_service
+from app.integration.services import gateway
 from app.integration.services import providers as provider_service
 
 router = APIRouter(tags=["integrations"])
@@ -153,6 +154,24 @@ def update_connection(
     connection = connection_service.get_connection_or_404(db, tenant_id=tenant_id, connection_id=connection_id)
     check_version(connection.version, if_match, entity_name="IntegrationConnection")
     connection = connection_service.update_connection(db, connection=connection, data=body, actor_id=principal.user_id)
+    return _connection_read(db, connection)
+
+
+@router.post("/integrations/connections/{connection_id}/test", response_model=ConnectionRead)
+def test_connection(
+    connection_id: uuid.UUID,
+    principal: Principal = Depends(require_write("integration_connections")),
+    db: Session = Depends(get_db),
+):
+    """The dealer-facing "Test connection" action (PR-7). Updates
+    status/last_verified_at/last_error directly — a dependency being down
+    degrades this one connection's own status, it never raises past this
+    endpoint as a 500.
+    """
+
+    tenant_id = None if _is_platform_admin(principal) else principal.tenant_id
+    connection = connection_service.get_connection_or_404(db, tenant_id=tenant_id, connection_id=connection_id)
+    connection = gateway.test_connection(db, connection=connection)
     return _connection_read(db, connection)
 
 

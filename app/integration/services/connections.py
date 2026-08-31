@@ -45,6 +45,30 @@ def get_connection_or_404(
     return connection
 
 
+def get_enabled_connection(
+    db: Session, *, tenant_id: uuid.UUID, provider_code: str
+) -> IntegrationConnection | None:
+    """The lookup `app.vehicle` (PR-4) uses, via `app.integration.public`,
+    to find the connection its own catalogue-sync job should call through
+    — never a direct query against `IntegrationConnection`/
+    `IntegrationProvider`, which the import-linter blocks from outside
+    this context anyway. Returns `None` for a tenant with no such
+    connection at all, or one that exists but is disabled — a dealer with
+    no provider contract keeps a fully usable module (PR-5); this
+    function is exactly the seam that "no connection" fact flows through.
+    """
+
+    return db.scalar(
+        select(IntegrationConnection)
+        .join(IntegrationProvider, IntegrationProvider.id == IntegrationConnection.provider_id)
+        .where(
+            IntegrationConnection.tenant_id == tenant_id,
+            IntegrationProvider.provider_code == provider_code,
+            IntegrationConnection.enabled.is_(True),
+        )
+    )
+
+
 def list_connections(
     db: Session,
     *,
