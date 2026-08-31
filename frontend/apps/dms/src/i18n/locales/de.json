@@ -16,7 +16,8 @@
       "transactions": "Transaktionen",
       "reporting": "Reporting",
       "compliance": "Compliance",
-      "valuations": "Bewertungen"
+      "valuations": "Bewertungen",
+      "integrations": "Integrationen"
     },
     "signOut": "Abmelden",
     "globalSearch": {
@@ -48,7 +49,8 @@
     "yes": "Ja",
     "no": "Nein",
     "save": "Speichern",
-    "remove": "Entfernen"
+    "remove": "Entfernen",
+    "loading": "Lädt…"
   },
   "customerEnums": {
     "customerType": {
@@ -952,5 +954,87 @@
     "finalOfferHint": "Darf vom Nettowert abweichen — das ist die Verhandlung.",
     "note": "Notiz",
     "noProviderCapability": "Die auto-i-dat-Bewertung ist für diesen Betrieb nicht verfügbar — den Eintauschwert unten manuell erfassen."
+  },
+  "integrationsList": {
+    "title": "Integrationen",
+    "searchPlaceholder": "Verbindungen suchen",
+    "loadError": "Die Verbindungen konnten nicht geladen werden.",
+    "allView": "Alle Verbindungen",
+    "notConnected": "Nicht verbunden",
+    "connectError": "Die Verbindung konnte nicht erstellt werden.",
+    "platformScoped": "Plattformweit",
+    "platformConnectionsTitle": "Verbindungen",
+    "categories": {
+      "vehicle_data": "Fahrzeugdaten"
+    },
+    "fields": {
+      "provider": "Anbieter",
+      "environment": "Umgebung",
+      "accountIdentifier": "Konto",
+      "lastVerified": "Zuletzt geprüft"
+    },
+    "actions": {
+      "test": "Verbindung testen",
+      "viewUsage": "Nutzung anzeigen",
+      "rotateSecret": "Secret erneuern",
+      "rotateSecretDisabledReason": "Diese Verbindung hat keine Secrets zum Erneuern.",
+      "enable": "Aktivieren",
+      "disable": "Deaktivieren",
+      "connect": "Verbinden"
+    },
+    "connectModal": {
+      "title": "{{provider}} verbinden"
+    },
+    "usageModal": {
+      "title": "Nutzung — {{name}}",
+      "calls": "Aufrufe (letzte 30 Tage)",
+      "cost": "Kosteneinheiten (letzte 30 Tage)",
+      "indicative": "Nur indikativ — Nexotec verrechnet nie zusätzlich zu Ihrem eigenen Anbietervertrag."
+    },
+    "rotateModal": {
+      "title": "Secrets erneuern — {{name}}",
+      "hint": "Geben Sie nur für die zu ersetzenden Felder einen neuen Wert ein — eine Erneuerung ersetzt, sie liest den aktuellen Wert nie."
+    },
+    "columns": {
+      "dealership": "Betrieb",
+      "displayName": "Verbindung",
+      "provider": "Anbieter",
+      "environment": "Umgebung",
+      "status": "Status",
+      "lastVerified": "Zuletzt geprüft"
+    },
+    "emptyState": {
+      "title": "Noch keine Verbindungen",
+      "description": "Noch kein Betrieb hat einen Anbieter verbunden."
+    },
+    "emptyFilteredState": {
+      "title": "Keine passenden Verbindungen",
+      "description": "Versuchen Sie eine andere Suche."
+    },
+    "healthBoard": {
+      "title": "Flottenzustand",
+      "lastFullSeed": "Letzte Vollsynchronisation",
+      "providerWatermark": "Anbieter-Datenstand",
+      "status": "Status",
+      "stale": "Veraltet",
+      "healthy": "Aktuell",
+      "emptyState": {
+        "title": "Noch keine Katalogsynchronisation",
+        "description": "Noch kein Mandant hat einen Katalog-Spiegel synchronisiert."
+      }
+    }
+  },
+  "integrationEnums": {
+    "environment": {
+      "sandbox": "Sandbox",
+      "production": "Produktion"
+    },
+    "secretSlot": {
+      "password": "Passwort",
+      "aes_key": "AES-Schlüssel",
+      "client_secret": "Client-Secret",
+      "refresh_token": "Refresh-Token",
+      "certificate": "Zertifikat"
+    }
   }
 }

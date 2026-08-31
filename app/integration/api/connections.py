@@ -32,6 +32,7 @@ from app.integration.schemas.connection import (
     EntitlementRead,
     SecretSlotRead,
     SecretWriteRequest,
+    UsageRead,
 )
 from app.integration.services import connections as connection_service
 from app.integration.services import gateway
@@ -125,6 +126,18 @@ def get_connection(
     tenant_id = None if _is_platform_admin(principal) else principal.tenant_id
     connection = connection_service.get_connection_or_404(db, tenant_id=tenant_id, connection_id=connection_id)
     return _connection_read(db, connection)
+
+
+@router.get("/integrations/connections/{connection_id}/usage", response_model=UsageRead)
+def get_connection_usage(
+    connection_id: uuid.UUID,
+    principal: Principal = Depends(require_read("integration_connections")),
+    db: Session = Depends(get_db),
+):
+    tenant_id = None if _is_platform_admin(principal) else principal.tenant_id
+    connection = connection_service.get_connection_or_404(db, tenant_id=tenant_id, connection_id=connection_id)
+    calls, cost_units = connection_service.get_usage(db, connection=connection)
+    return UsageRead(calls_this_period=calls, cost_units_this_period=cost_units)
 
 
 @router.post("/integrations/connections", response_model=ConnectionRead, status_code=201)

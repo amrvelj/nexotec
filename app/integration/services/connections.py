@@ -4,9 +4,11 @@ secret refs — never bypassed by a caller reaching for
 `secrets_backend` directly outside this module.
 """
 
+import datetime as dt
 import uuid
+from decimal import Decimal
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
@@ -14,6 +16,7 @@ from app.core.base import utcnow
 from app.core.config import get_settings
 from app.core.errors import ConflictError, NotFoundError
 from app.core.pagination import SortPageParams, build_sorted_page, count_capped, paginate_query_sorted
+from app.integration.models.call_log import IntegrationCallLog
 from app.integration.models.connection import ConnectionScope, ConnectionStatus, IntegrationConnection
 from app.integration.models.entitlement import IntegrationEntitlement
 from app.integration.models.provider import IntegrationProvider
@@ -391,3 +394,29 @@ def tenant_has_capability(db: Session, *, tenant_id: uuid.UUID, capability_code:
         if entitlement is not None and not entitlement.granted:
             return False
     return True
+
+
+_USAGE_PERIOD_DAYS = 30
+
+
+def get_usage(db: Session, *, connection: IntegrationConnection) -> tuple[int, Decimal | None]:
+    """PR-7's own "View usage" action — calls and cost-units over a
+    trailing 30-day window, from `integration_call_log` directly (never a
+    materialized/cached count, since a dealer checking this occasionally
+    doesn't need one). Indicative only (I-2/I-3): Nexotec never bills on
+    top of a provider's own contract, and the schema this feeds
+    (`UsageRead`) carries `indicative=True` for exactly that reason.
+    """
+
+    since = utcnow() - dt.timedelta(days=_USAGE_PERIOD_DAYS)
+    calls = db.scalar(
+        select(func.count()).select_from(IntegrationCallLog).where(
+            IntegrationCallLog.connection_id == connection.id, IntegrationCallLog.created_at >= since
+        )
+    ) or 0
+    cost_units = db.scalar(
+        select(func.sum(IntegrationCallLog.cost_units)).where(
+            IntegrationCallLog.connection_id == connection.id, IntegrationCallLog.created_at >= since
+        )
+    )
+    return calls, (Decimal(cost_units) if cost_units is not None else None)

@@ -120,6 +120,17 @@ def get_sync_state(db: Session, *, tenant_id: uuid.UUID, provider_code: str) -> 
     )
 
 
+def list_all_sync_states(db: Session) -> list[ProviderSyncState]:
+    """PR-7's fleet-wide health board — every tenant, every provider,
+    platform-wide. The endpoint calling this (app/vehicle/api/
+    catalogue_sync.py) is platform_admin-gated; this function itself does
+    no tenant filtering at all, so it must never be reachable from a
+    dealer-facing route.
+    """
+
+    return list(db.scalars(select(ProviderSyncState).order_by(ProviderSyncState.tenant_id)).all())
+
+
 def _get_or_create_sync_state(db: Session, *, tenant_id: uuid.UUID, provider_code: str) -> ProviderSyncState:
     state = get_sync_state(db, tenant_id=tenant_id, provider_code=provider_code)
     if state is None:

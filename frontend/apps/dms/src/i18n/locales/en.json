@@ -16,7 +16,8 @@
       "transactions": "Transactions",
       "reporting": "Reporting",
       "compliance": "Compliance",
-      "valuations": "Valuations"
+      "valuations": "Valuations",
+      "integrations": "Integrations"
     },
     "signOut": "Sign out",
     "globalSearch": {
@@ -48,7 +49,8 @@
     "yes": "Yes",
     "no": "No",
     "save": "Save",
-    "remove": "Remove"
+    "remove": "Remove",
+    "loading": "Loading…"
   },
   "customerEnums": {
     "customerType": {
@@ -952,5 +954,87 @@
     "finalOfferHint": "May differ from the net value — that's the negotiation.",
     "note": "Note",
     "noProviderCapability": "auto-i-dat valuation is not available for this dealership — enter the trade-in value manually below."
+  },
+  "integrationsList": {
+    "title": "Integrations",
+    "searchPlaceholder": "Search connections",
+    "loadError": "The connections could not be loaded.",
+    "allView": "All connections",
+    "notConnected": "Not connected",
+    "connectError": "The connection could not be created.",
+    "platformScoped": "Platform-wide",
+    "platformConnectionsTitle": "Connections",
+    "categories": {
+      "vehicle_data": "Vehicle data"
+    },
+    "fields": {
+      "provider": "Provider",
+      "environment": "Environment",
+      "accountIdentifier": "Account",
+      "lastVerified": "Last verified"
+    },
+    "actions": {
+      "test": "Test connection",
+      "viewUsage": "View usage",
+      "rotateSecret": "Rotate secret",
+      "rotateSecretDisabledReason": "This connection has no secrets to rotate.",
+      "enable": "Enable",
+      "disable": "Disable",
+      "connect": "Connect"
+    },
+    "connectModal": {
+      "title": "Connect {{provider}}"
+    },
+    "usageModal": {
+      "title": "Usage — {{name}}",
+      "calls": "Calls (last 30 days)",
+      "cost": "Cost units (last 30 days)",
+      "indicative": "Indicative only — Nexotec never bills on top of your own provider contract."
+    },
+    "rotateModal": {
+      "title": "Rotate secrets — {{name}}",
+      "hint": "Enter a new value only for the slot(s) you want to replace — rotation replaces, it never reads the current value."
+    },
+    "columns": {
+      "dealership": "Dealership",
+      "displayName": "Connection",
+      "provider": "Provider",
+      "environment": "Environment",
+      "status": "Status",
+      "lastVerified": "Last verified"
+    },
+    "emptyState": {
+      "title": "No connections yet",
+      "description": "No dealership has connected a provider yet."
+    },
+    "emptyFilteredState": {
+      "title": "No matching connections",
+      "description": "Try a different search."
+    },
+    "healthBoard": {
+      "title": "Fleet health",
+      "lastFullSeed": "Last full seed",
+      "providerWatermark": "Provider watermark",
+      "status": "Status",
+      "stale": "Stale",
+      "healthy": "Healthy",
+      "emptyState": {
+        "title": "No catalogue sync yet",
+        "description": "No tenant has synced a catalogue mirror yet."
+      }
+    }
+  },
+  "integrationEnums": {
+    "environment": {
+      "sandbox": "Sandbox",
+      "production": "Production"
+    },
+    "secretSlot": {
+      "password": "Password",
+      "aes_key": "AES key",
+      "client_secret": "Client secret",
+      "refresh_token": "Refresh token",
+      "certificate": "Certificate"
+    }
   }
 }
