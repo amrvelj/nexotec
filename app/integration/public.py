@@ -17,7 +17,13 @@ no provider code in any field (the reading rule: "application code never
 sees a provider code"), so exporting them is not exporting anything
 provider-specific.
 
-`get_entitlement` lands here once PR-5 exists.
+`get_entitlement` (PR-5) returns the raw `IntegrationEntitlement` row or
+`None` — "never probed or declared" is a fact this registry reports, not
+a policy it applies; `app.vehicle.services.catalogue_entitlements` is the
+one place that decides what `None` should mean for a given screen.
+`list_enabled_connection_tenant_ids_for_provider` (PR-4) is the daily-job
+composition root's own enumeration, never a direct query against
+`IntegrationConnection`/`IntegrationProvider` from outside this context.
 """
 
 from app.integration.adapters.base import (
@@ -32,7 +38,12 @@ from app.integration.adapters.base import (
     VariantTyreSpecData,
 )
 from app.integration.models.connection import ConnectionStatus, IntegrationConnection
-from app.integration.services.connections import get_enabled_connection, list_enabled_connection_tenant_ids_for_provider
+from app.integration.models.entitlement import IntegrationEntitlement
+from app.integration.services.connections import (
+    get_enabled_connection,
+    get_entitlement,
+    list_enabled_connection_tenant_ids_for_provider,
+)
 from app.integration.services.gateway import (
     ConnectionDisabledError,
     ProviderGatewayError,
@@ -45,6 +56,7 @@ __all__ = [
     "ConnectionStatus",
     "ForecastResult",
     "IntegrationConnection",
+    "IntegrationEntitlement",
     "ProviderAdapter",
     "ProviderGatewayError",
     "SystemWatermark",
@@ -57,5 +69,6 @@ __all__ = [
     "VariantTyreSpecData",
     "call_capability",
     "get_enabled_connection",
+    "get_entitlement",
     "list_enabled_connection_tenant_ids_for_provider",
 ]

@@ -344,3 +344,50 @@ def list_entitlements(db: Session, *, connection_id: uuid.UUID) -> list[Integrat
             select(IntegrationEntitlement).where(IntegrationEntitlement.connection_id == connection_id)
         ).all()
     )
+
+
+def get_entitlement(
+    db: Session, *, connection_id: uuid.UUID, capability_code: str
+) -> IntegrationEntitlement | None:
+    """The single-capability lookup PR-5's degradation logic uses via
+    `app.integration.public` — `None` means "never probed or declared",
+    a state the caller (app.vehicle.services.catalogue_entitlements)
+    interprets, never this module: whether "unknown" defaults to granted
+    or not is a policy decision for whoever is degrading, not for the
+    registry that just stores what it's been told.
+    """
+
+    return db.scalar(
+        select(IntegrationEntitlement).where(
+            IntegrationEntitlement.connection_id == connection_id,
+            IntegrationEntitlement.capability_code == capability_code,
+        )
+    )
+
+
+def tenant_has_capability(db: Session, *, tenant_id: uuid.UUID, capability_code: str) -> bool:
+    """The generic degradation check any screen can ask — "can THIS
+    tenant currently do X" — without needing to know which provider or
+    which connection backs it. Optimistic-default across every enabled
+    connection the tenant holds: granted unless a connection's own
+    entitlement row explicitly says otherwise, never granted at all with
+    no enabled connection. This duplicates `app.vehicle.services.
+    catalogue_entitlements`'s own policy deliberately (per this module's
+    `get_entitlement` docstring: the registry stays neutral, each
+    consuming context — here, PR-7's Sales/Valuation screens via this
+    dedicated capability endpoint — owns its own degradation policy over
+    the same neutral data).
+    """
+
+    connections = db.scalars(
+        select(IntegrationConnection).where(
+            IntegrationConnection.tenant_id == tenant_id, IntegrationConnection.enabled.is_(True)
+        )
+    ).all()
+    if not connections:
+        return False
+    for connection in connections:
+        entitlement = get_entitlement(db, connection_id=connection.id, capability_code=capability_code)
+        if entitlement is not None and not entitlement.granted:
+            return False
+    return True

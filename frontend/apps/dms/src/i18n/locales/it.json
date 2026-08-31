@@ -837,7 +837,8 @@
       "add": "Aggiungi",
       "suppressedReason": "Motivo",
       "suppressedReasonHint": "Su un veicolo usato uno sconto di riga è bloccato di default — un motivo annulla il blocco.",
-      "error": "Impossibile salvare la modifica."
+      "error": "Impossibile salvare la modifica.",
+      "noPackagesCapability": "Mostrate come elenco semplice — il raggruppamento in pacchetti non è disponibile per questa concessionaria."
     }
   },
   "salesDocuments": {
@@ -949,6 +950,7 @@
     "addDeduction": "Aggiungi",
     "finalOffer": "Offerta di permuta",
     "finalOfferHint": "Può differire dal valore netto — è la trattativa.",
-    "note": "Nota"
+    "note": "Nota",
+    "noProviderCapability": "La valutazione auto-i-dat non è disponibile per questa concessionaria — inserire manualmente il valore di permuta qui sotto."
   }
 }

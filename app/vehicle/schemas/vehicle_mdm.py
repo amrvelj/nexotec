@@ -6,6 +6,7 @@ included) may ever carry them as writable fields, per ADR-045.
 
 import datetime as dt
 import uuid
+from decimal import Decimal
 
 from pydantic import Field
 
@@ -139,6 +140,54 @@ class VehicleAccessoryCreate(CamelModel):
     accessory_type: str = Field(max_length=64, min_length=1)
     description: str | None = None
     valid_from: dt.date
+
+
+class CatalogueOptionRead(CamelModel):
+    option_code: str
+    description: str
+    option_group: str | None
+    price: Decimal | None
+
+
+class CatalogueColourRead(CamelModel):
+    colour_code: str
+    description: str
+    colour_type: str
+
+
+class CatalogueTyreSpecRead(CamelModel):
+    axle: str
+    size: str
+    load_index: str | None
+    speed_rating: str | None
+
+
+class CatalogueImageRead(CamelModel):
+    image_key: str
+    bild_typ: str
+    bild_art: str
+    sequence: int
+
+
+class CatalogueSpecificationRead(CamelModel):
+    """WP-6 PR-5 — the entitlement-degraded read surface over PR-4's own
+    tenant-scoped catalogue mirror. `packagesAvailable=False` means every
+    item in `options` already has `optionGroup=None` (flattened server-
+    side, never a client-side filter); `imagesAvailable=False` means
+    `images` is always empty and `dealerCanUploadImages` is the one
+    marker PR-7's UI renders in its place (no upload endpoint exists
+    behind it yet — see the WP-6 plan's own Open Items).
+    """
+
+    has_catalogue_match: bool
+    has_provider_connection: bool
+    packages_available: bool
+    images_available: bool
+    dealer_can_upload_images: bool
+    options: list[CatalogueOptionRead]
+    colours: list[CatalogueColourRead]
+    tyre_specs: list[CatalogueTyreSpecRead]
+    images: list[CatalogueImageRead]
 
 
 class VehicleSearchResult(CamelModel):

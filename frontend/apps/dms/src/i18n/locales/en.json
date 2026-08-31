@@ -837,7 +837,8 @@
       "add": "Add",
       "suppressedReason": "Reason",
       "suppressedReasonHint": "A per-line discount is suppressed by default on used vehicles — a reason overrides the suppression.",
-      "error": "The change could not be saved."
+      "error": "The change could not be saved.",
+      "noPackagesCapability": "Shown as a flat list — package grouping is not available for this dealership."
     }
   },
   "salesDocuments": {
@@ -949,6 +950,7 @@
     "addDeduction": "Add",
     "finalOffer": "Trade-in offer",
     "finalOfferHint": "May differ from the net value — that's the negotiation.",
-    "note": "Note"
+    "note": "Note",
+    "noProviderCapability": "auto-i-dat valuation is not available for this dealership — enter the trade-in value manually below."
   }
 }

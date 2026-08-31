@@ -873,3 +873,10 @@ export interface ValuationPage {
   total: number
   totalIsEstimate: boolean
 }
+
+// WP-6 PR-5 — the generic degradation check any screen may call; no
+// connection detail, no secret, needs no manager flag.
+export interface CapabilityCheckRead {
+  capabilityCode: string
+  granted: boolean
+}

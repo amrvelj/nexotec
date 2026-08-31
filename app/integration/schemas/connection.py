@@ -97,3 +97,13 @@ class UsageRead(CamelModel):
     calls_this_period: int
     cost_units_this_period: Decimal | None
     indicative: bool = True
+
+
+class CapabilityCheckRead(CamelModel):
+    """WP-6 PR-5 — the generic "can this tenant do X right now" read any
+    screen may call, gated by nothing beyond authentication (unlike
+    `integration_connections`, this reveals no connection detail, no
+    secret, nothing manager-only)."""
+
+    capability_code: str
+    granted: bool

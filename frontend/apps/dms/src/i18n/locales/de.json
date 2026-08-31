@@ -837,7 +837,8 @@
       "add": "Hinzufügen",
       "suppressedReason": "Begründung",
       "suppressedReasonHint": "Bei Gebrauchtfahrzeugen ist ein Zeilenrabatt standardmässig gesperrt — eine Begründung hebt die Sperre auf.",
-      "error": "Änderung konnte nicht gespeichert werden."
+      "error": "Änderung konnte nicht gespeichert werden.",
+      "noPackagesCapability": "Als flache Liste angezeigt — die Paketgruppierung ist für diesen Betrieb nicht verfügbar."
     }
   },
   "salesDocuments": {
@@ -949,6 +950,7 @@
     "addDeduction": "Hinzufügen",
     "finalOffer": "Eintauschangebot",
     "finalOfferHint": "Darf vom Nettowert abweichen — das ist die Verhandlung.",
-    "note": "Notiz"
+    "note": "Notiz",
+    "noProviderCapability": "Die auto-i-dat-Bewertung ist für diesen Betrieb nicht verfügbar — den Eintauschwert unten manuell erfassen."
   }
 }

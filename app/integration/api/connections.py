@@ -13,7 +13,7 @@ import uuid
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from app.core.auth import AccessRole, Principal
+from app.core.auth import AccessRole, Principal, get_current_principal
 from app.core.concurrency import check_version, require_if_match
 from app.core.config import get_settings
 from app.core.pagination import SortPageParams, decode_sort_cursor
@@ -23,6 +23,7 @@ from app.db import get_db
 from app.integration.models.connection import ConnectionScope, ConnectionStatus, IntegrationConnection
 from app.integration.models.secret_ref import SecretSlot
 from app.integration.schemas.connection import (
+    CapabilityCheckRead,
     ConnectionCreate,
     ConnectionPage,
     ConnectionRead,
@@ -245,3 +246,23 @@ def remove_secret(
     tenant_id = None if _is_platform_admin(principal) else principal.tenant_id
     connection = connection_service.get_connection_or_404(db, tenant_id=tenant_id, connection_id=connection_id)
     connection_service.remove_secret(db, connection=connection, slot=slot, actor_id=principal.user_id)
+
+
+@router.get("/integrations/capabilities/{capability_code}", response_model=CapabilityCheckRead)
+def check_capability(
+    capability_code: str,
+    principal: Principal = Depends(get_current_principal),
+    db: Session = Depends(get_db),
+):
+    """WP-6 PR-5 — any authenticated user in the tenant may ask this, not
+    just a dealer manager: a Sales or Valuation screen needs it to decide
+    whether to show a manual-entry banner, and reveals nothing about the
+    connection itself (no id, no provider, no status) — never gated by
+    the `integration_connections` capability that guards the connection
+    detail screen.
+    """
+
+    granted = connection_service.tenant_has_capability(
+        db, tenant_id=principal.tenant_id, capability_code=capability_code
+    )
+    return CapabilityCheckRead(capability_code=capability_code, granted=granted)

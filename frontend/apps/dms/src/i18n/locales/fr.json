@@ -837,7 +837,8 @@
       "add": "Ajouter",
       "suppressedReason": "Motif",
       "suppressedReasonHint": "Une remise par ligne est bloquée par défaut sur les véhicules d’occasion — un motif lève le blocage.",
-      "error": "La modification n’a pas pu être enregistrée."
+      "error": "La modification n’a pas pu être enregistrée.",
+      "noPackagesCapability": "Affichées en liste simple — le regroupement par forfaits n'est pas disponible pour ce garage."
     }
   },
   "salesDocuments": {
@@ -949,6 +950,7 @@
     "addDeduction": "Ajouter",
     "finalOffer": "Offre de reprise",
     "finalOfferHint": "Peut différer de la valeur nette — c’est la négociation.",
-    "note": "Note"
+    "note": "Note",
+    "noProviderCapability": "L'évaluation auto-i-dat n'est pas disponible pour ce garage — saisir la valeur de reprise manuellement ci-dessous."
   }
 }
