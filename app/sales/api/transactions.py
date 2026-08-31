@@ -44,7 +44,7 @@ def _idempotency_key(idempotency_key: str | None = Header(default=None, alias="I
     return idempotency_key
 
 
-@router.post("/transactions", response_model=TransactionRead, status_code=201)
+@router.post("/transactions", response_model=TransactionRead, status_code=201, deprecated=True)
 def create_transaction(
     body: TransactionCreate,
     request: Request,
@@ -83,7 +83,7 @@ def create_transaction(
     return result
 
 
-@router.get("/transactions/{transaction_id}", response_model=TransactionRead)
+@router.get("/transactions/{transaction_id}", response_model=TransactionRead, deprecated=True)
 def get_transaction(
     transaction_id: uuid.UUID,
     principal: Principal = Depends(get_current_principal),
@@ -93,7 +93,7 @@ def get_transaction(
     return TransactionRead.model_validate(transaction, from_attributes=True)
 
 
-@router.patch("/transactions/{transaction_id}", response_model=TransactionRead)
+@router.patch("/transactions/{transaction_id}", response_model=TransactionRead, deprecated=True)
 def update_transaction(
     transaction_id: uuid.UUID,
     body: TransactionUpdate,
@@ -109,7 +109,7 @@ def update_transaction(
     return TransactionRead.model_validate(transaction, from_attributes=True)
 
 
-@router.post("/transactions/{transaction_id}/complete", response_model=TransactionRead)
+@router.post("/transactions/{transaction_id}/complete", response_model=TransactionRead, deprecated=True)
 def complete_transaction(
     transaction_id: uuid.UUID,
     if_match: int = Depends(require_if_match),
@@ -122,7 +122,7 @@ def complete_transaction(
     return TransactionRead.model_validate(transaction, from_attributes=True)
 
 
-@router.post("/transactions/{transaction_id}/cancel", response_model=TransactionRead)
+@router.post("/transactions/{transaction_id}/cancel", response_model=TransactionRead, deprecated=True)
 def cancel_transaction(
     transaction_id: uuid.UUID,
     body: TransactionCancelRequest,
@@ -138,7 +138,7 @@ def cancel_transaction(
     return TransactionRead.model_validate(transaction, from_attributes=True)
 
 
-@router.get("/transactions", response_model=TransactionPage)
+@router.get("/transactions", response_model=TransactionPage, deprecated=True)
 def list_transactions(
     customer_id: uuid.UUID | None = None,
     vehicle_id: uuid.UUID | None = None,
@@ -164,7 +164,7 @@ def list_transactions(
     )
 
 
-@router.get("/transactions/{transaction_id}/audit-log", response_model=AuditEventPage)
+@router.get("/transactions/{transaction_id}/audit-log", response_model=AuditEventPage, deprecated=True)
 def get_transaction_audit_log(
     transaction_id: uuid.UUID,
     principal: Principal = Depends(require_read("audit_logs")),

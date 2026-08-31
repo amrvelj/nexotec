@@ -15,7 +15,8 @@
       "finance": "Finanza",
       "transactions": "Transazioni",
       "reporting": "Reportistica",
-      "compliance": "Conformità"
+      "compliance": "Conformità",
+      "valuations": "Valutazioni"
     },
     "signOut": "Disconnetti",
     "globalSearch": {
@@ -45,7 +46,9 @@
     "cancel": "Annulla",
     "notSet": "Non impostato",
     "yes": "Sì",
-    "no": "No"
+    "no": "No",
+    "save": "Salva",
+    "remove": "Rimuovi"
   },
   "customerEnums": {
     "customerType": {
@@ -668,5 +671,284 @@
     "errors": {
       "somethingWentWrong": "Qualcosa è andato storto."
     }
+  },
+  "salesList": {
+    "title": "Offerte e contratti",
+    "newOffer": "Nuova offerta",
+    "searchPlaceholder": "Targa, VIN, cliente, offerta …",
+    "allDealsView": "Tutte le offerte e i contratti",
+    "columns": {
+      "number": "Numero",
+      "type": "Tipo",
+      "customer": "Cliente",
+      "vehicle": "Veicolo",
+      "grossPrice": "Prezzo di vendita",
+      "status": "Stato",
+      "margin": "Margine",
+      "changed": "Modificato"
+    },
+    "chips": {
+      "all": "Tutti",
+      "offers": "Offerte",
+      "contracts": "Contratti"
+    },
+    "emptyState": {
+      "title": "Nessuna offerta o contratto",
+      "description": "Crea un'offerta per iniziare."
+    },
+    "emptyFilteredState": {
+      "title": "Nessun risultato",
+      "description": "Modifica la ricerca.",
+      "action": "Reimposta ricerca"
+    },
+    "rowActions": {
+      "open": "Apri"
+    }
+  },
+  "salesEnums": {
+    "entityType": {
+      "offer": "Offerta",
+      "contract": "Contratto"
+    },
+    "dealStatus": {
+      "draft": "Bozza",
+      "open": "Aperto",
+      "pending": "Aperto",
+      "confirmed": "Confermato",
+      "cancelled": "Annullato",
+      "invoiced": "Fatturato"
+    },
+    "financing": {
+      "cash": "Contanti",
+      "leasing": "Leasing",
+      "credit": "Credito"
+    }
+  },
+  "offerDetail": {
+    "untitled": "Nuova offerta",
+    "errors": {
+      "failedToLoad": "Impossibile caricare l'offerta.",
+      "somethingWentWrong": "Qualcosa è andato storto."
+    }
+  },
+  "contractDetail": {
+    "untitled": "Nuovo contratto",
+    "errors": {
+      "failedToLoad": "Impossibile caricare il contratto.",
+      "somethingWentWrong": "Qualcosa è andato storto."
+    },
+    "actions": {
+      "confirm": "Conferma contratto",
+      "confirmDisabledReason": "Confermabile solo se aperto.",
+      "cancel": "Annulla …",
+      "cancelDisabledReason": "Già annullato o fatturato."
+    },
+    "stats": {
+      "grossPrice": "Prezzo di vendita",
+      "tradeIn": "Veicolo permuta",
+      "payable": "Da pagare",
+      "margin": "Margine"
+    },
+    "financing": "Finanziamento",
+    "cancelReasonPrompt": "Motivo dell'annullamento:"
+  },
+  "offerWorkspace": {
+    "title": "Crea offerta",
+    "requirement": {
+      "required": "Obbligatorio",
+      "optional": "Facoltativo"
+    },
+    "containers": {
+      "customer": "Cliente",
+      "vehicle": "Veicolo",
+      "pricing": "Struttura prezzo",
+      "tradeIn": "Veicolo permuta",
+      "leasing": "Leasing"
+    },
+    "customer": {
+      "emptyHint": "Nessun cliente preselezionato — un'offerta porta il nome che verrà firmato.",
+      "search": "Cerca cliente",
+      "createNew": "Crea nuovo",
+      "creditBlockTitle": "Blocco creditizio",
+      "creditBlockBody": "Questo cliente ha un blocco creditizio ({{reason}}) — un’offerta è possibile, un contratto non può essere confermato.",
+      "doNotContactTitle": "Non contattare",
+      "doNotContactBody": "Questo cliente è contrassegnato come \"non contattare\" — né l’offerta né un contratto possono proseguire."
+    },
+    "vehicle": {
+      "emptyHint": "Dal proprio magazzino — numero di magazzino, VIN o targa.",
+      "search": "Cerca veicolo",
+      "configure": "Configura",
+      "searchPlaceholder": "Numero di magazzino, VIN, targa …",
+      "manualLabelPlaceholder": "Descrizione del veicolo"
+    },
+    "pricing": {
+      "emptyHint": "La struttura prezzo inizia dal veicolo — sceglietene prima uno.",
+      "readyHint": "La struttura prezzo segue (prossimo passo).",
+      "manualBasePrice": "Prezzo base",
+      "basePrice": "Prezzo base",
+      "optionsTotal": "Totale opzioni",
+      "listPrice": "Prezzo di listino",
+      "accessoriesTotal": "Totale accessori",
+      "discountType": "Tipo di sconto",
+      "noDiscount": "Nessuno sconto",
+      "discountPercent": "Percentuale",
+      "discountAmount": "Importo",
+      "discountValue": "Valore dello sconto",
+      "grossPrice": "Prezzo di vendita",
+      "internalOnly": "SOLO INTERNO — NON SUL DOCUMENTO",
+      "costBasis": "Prezzo di costo",
+      "margin": "Margine"
+    },
+    "tradeIn": {
+      "emptyHint": "Scegliete prima il cliente — i suoi veicoli verranno suggeriti qui.",
+      "readyHint": "La permuta segue (prossimo passo).",
+      "value": "Offerta di permuta",
+      "fromExistingValuation": "Ripreso da una valutazione esistente",
+      "vinLabel": "VIN",
+      "vinPlaceholder": "es. WVWZZZ1KZAW123456",
+      "labelLabel": "Descrizione del veicolo",
+      "add": "Aggiungi veicolo permuta"
+    },
+    "leasing": {
+      "hint": "Nessun calcolatore di leasing nella v1 (S-D03). Campi liberi, così un futuro calcolatore potrà essere inserito senza modifiche allo schema.",
+      "downPayment": "Acconto",
+      "termMonths": "Durata (mesi)",
+      "kmPerYear": "Chilometri all'anno"
+    },
+    "missing": "Manca ancora",
+    "continue": "Genera offerta",
+    "generate": {
+      "title": "Genera offerta",
+      "buildHint": "Genera un’anteprima del documento nella lingua di corrispondenza del cliente.",
+      "build": "Genera documento",
+      "buildError": "Impossibile generare il documento.",
+      "previewTitle": "Offerta {{number}}",
+      "regenerate": "Rigenera",
+      "confirm": "Conferma",
+      "finalizeError": "Impossibile confermare l’offerta."
+    },
+    "lineItems": {
+      "factoryOptionsTitle": "Optional di fabbrica",
+      "accessoriesTitle": "Accessori",
+      "accessoryLabel": "Denominazione",
+      "accessoryPrice": "Prezzo",
+      "accessoryQuantity": "Quantità",
+      "accessoryDiscount": "Sconto (importo)",
+      "add": "Aggiungi",
+      "suppressedReason": "Motivo",
+      "suppressedReasonHint": "Su un veicolo usato uno sconto di riga è bloccato di default — un motivo annulla il blocco.",
+      "error": "Impossibile salvare la modifica."
+    }
+  },
+  "salesDocuments": {
+    "title": "Documenti",
+    "generate": "Genera documento",
+    "empty": "Nessun documento ancora generato.",
+    "previewError": "Impossibile caricare l’anteprima.",
+    "download": "Scarica",
+    "version": "Versione {{version}}"
+  },
+  "valuationsList": {
+    "title": "Valutazioni",
+    "newValuation": "Crea valutazione",
+    "searchPlaceholder": "Numero valutazione, VIN, targa, cliente …",
+    "allView": "Tutte le valutazioni",
+    "noCustomer": "Senza cliente",
+    "loadError": "Impossibile caricare le valutazioni.",
+    "chips": {
+      "all": "Tutte",
+      "valid": "Valide",
+      "expiring_soon": "In scadenza",
+      "expired": "Scadute",
+      "unattached": "Senza cliente",
+      "mine": "Le mie"
+    },
+    "columns": {
+      "number": "Numero",
+      "vehicle": "Veicolo",
+      "customer": "Cliente",
+      "mileage": "Chilometraggio",
+      "finalOffer": "Offerta di permuta",
+      "source": "Fonte",
+      "status": "Stato",
+      "validUntil": "Valida fino al"
+    },
+    "emptyState": {
+      "title": "Nessuna valutazione",
+      "description": "Crea una valutazione — con o senza cliente, offerta o veicolo registrato."
+    },
+    "emptyFilteredState": {
+      "title": "Nessun risultato",
+      "description": "Nessuna valutazione corrisponde alla ricerca attuale.",
+      "action": "Reimposta ricerca"
+    },
+    "rowActions": {
+      "open": "Apri"
+    }
+  },
+  "valuationDetail": {
+    "untitled": "Nessun veicolo indicato",
+    "errors": {
+      "failedToLoad": "Impossibile caricare la valutazione.",
+      "somethingWentWrong": "Qualcosa è andato storto."
+    },
+    "actions": {
+      "revalue": "Rivaluta",
+      "markUsed": "Segna come utilizzata",
+      "markUsedDisabledReason": "Possibile solo da bozza o valida.",
+      "openCustomer": "Apri cliente",
+      "openVehicle": "Apri veicolo"
+    },
+    "expiredBanner": {
+      "title": "Valutazione scaduta",
+      "body": "Questa valutazione non è più valida. Se necessario, creane una nuova con \"Rivaluta\"."
+    },
+    "valueCard": {
+      "title": "Valutazione",
+      "providerValue": "Valore lordo",
+      "netValue": "Valore netto",
+      "finalOffer": "Offerta di permuta",
+      "finalOfferHint": "L’offerta di permuta può differire dal valore netto — è la trattativa."
+    },
+    "vehicleCard": {
+      "title": "Veicolo",
+      "vin": "VIN",
+      "plate": "Targa",
+      "mileage": "Chilometraggio",
+      "firstRegistration": "Prima immatricolazione",
+      "customer": "Cliente"
+    },
+    "noteCard": {
+      "title": "Nota"
+    },
+    "validityHelp": "Lo stato è calcolato in lettura, mai aggiornato di notte — valida fino al {{validUntil}}."
+  },
+  "valuationCreate": {
+    "title": "Crea valutazione",
+    "revalueTitle": "Rivaluta (sostituisce {{number}})",
+    "submit": "Crea",
+    "error": "Impossibile creare la valutazione.",
+    "banner": "Senza cliente, senza offerta, senza veicolo registrato richiesto — ogni combinazione funziona.",
+    "vehicleSection": "Veicolo",
+    "vin": "VIN",
+    "mileage": "Chilometraggio",
+    "make": "Marca",
+    "model": "Modello",
+    "trim": "Allestimento",
+    "plate": "Targa",
+    "customerSection": "Cliente",
+    "searchCustomer": "Cerca cliente",
+    "createCustomer": "Crea nuovo",
+    "source": "Fonte",
+    "sourceManual": "Manuale",
+    "providerValue": "Valore lordo",
+    "validForDays": "Valida per (giorni)",
+    "deductionsSection": "Detrazioni",
+    "deductionLabel": "Denominazione",
+    "deductionAmount": "Importo",
+    "addDeduction": "Aggiungi",
+    "finalOffer": "Offerta di permuta",
+    "finalOfferHint": "Può differire dal valore netto — è la trattativa.",
+    "note": "Nota"
   }
 }

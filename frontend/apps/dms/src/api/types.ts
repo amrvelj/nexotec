@@ -93,6 +93,10 @@ export interface CustomerRead {
   sourceRef: string | null
   duplicateOfCustomerId: string | null
   marketingConsent: boolean
+  // WP-8 PR-6 (ADR-065/S-D19) — stops the CONTRACT only, never the offer.
+  creditBlock: boolean
+  creditBlockReason: string | null
+  creditBlockedAt: string | null
   version: number
   createdAt: string
   updatedAt: string
@@ -607,4 +611,265 @@ export interface MediaRead {
   id: string
   position: number
   url: string
+}
+
+// WP-8 PR-1 (S-D01) — offer/contract as two linked entities. offerStatus
+// spans draft/open/cancelled, contractStatus separately spans
+// pending/confirmed/cancelled/invoiced — the grid's shared STATUS column
+// stores whichever applies as a plain string (see SalesDealRead), never a
+// merged enum.
+export type SalesOfferStatus = 'draft' | 'open' | 'cancelled'
+export type SalesContractStatus = 'pending' | 'confirmed' | 'cancelled' | 'invoiced'
+
+// WP-8 PR-2 — server-computed, never client-derived (FR-S-05); the sticky
+// footer's missing-requirements list and each container's own status
+// badge both read from this same shape.
+export interface OfferContainerState {
+  id: 'customer' | 'vehicle' | 'pricing' | 'trade_in' | 'leasing'
+  requirement: 'required' | 'optional'
+  status: 'not_started' | 'in_progress' | 'complete' | 'placeholder'
+}
+
+export interface SalesOfferRead {
+  id: string
+  offerNumber: string
+  status: SalesOfferStatus
+  customerId: string | null
+  customerLabel: string | null
+  customerLocality: string | null
+  vehicleSource: 'stock' | 'manual' | null
+  stockItemId: string | null
+  vehicleLabel: string | null
+  manualVehicleCondition: string | null
+  manualBasePrice: string | null
+  leasingDownPayment: string | null
+  leasingTermMonths: number | null
+  leasingKmPerYear: number | null
+  basePrice: string | null
+  optionsTotal: string | null
+  listPrice: string | null
+  accessoriesTotal: string | null
+  totalBeforeDiscount: string | null
+  discountType: 'percent' | 'amount' | null
+  discountValue: string | null
+  discountAmount: string | null
+  grossPrice: string | null
+  costBasis: string | null
+  margin: string | null
+  vehicleSnapshotFrozenAt: string | null
+  tradeInVehicleId: string | null
+  tradeInLabel: string | null
+  tradeInVin: string | null
+  tradeInValuationId: string | null
+  tradeInValue: string | null
+  tradeInPurchasePrice: string | null
+  payable: string | null
+  cancelledReason: string | null
+  containers: OfferContainerState[]
+  // WP-8 PR-8 — computed server-side (see app.sales.services.offer::
+  // vehicle_condition), reads either the frozen stock snapshot's own
+  // condition or the manual configuration's own column.
+  vehicleCondition: string | null
+  version: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SalesOfferPage {
+  items: SalesOfferRead[]
+  nextCursor: string | null
+  total: number
+  totalIsEstimate: boolean
+}
+
+export type SalesFinancingKind = 'cash' | 'leasing' | 'credit'
+
+export interface SalesContractRead {
+  id: string
+  contractNumber: string
+  offerId: string | null
+  offerNumber: string | null
+  status: SalesContractStatus
+  customerId: string | null
+  customerLabel: string | null
+  customerLocality: string | null
+  vehicleSource: 'stock' | 'manual' | null
+  stockItemId: string | null
+  vehicleLabel: string | null
+  manualVehicleCondition: string | null
+  grossPrice: string | null
+  margin: string | null
+  tradeInVehicleId: string | null
+  tradeInLabel: string | null
+  tradeInVin: string | null
+  tradeInValuationId: string | null
+  tradeInValue: string | null
+  tradeInPurchasePrice: string | null
+  payable: string | null
+  financing: SalesFinancingKind | null
+  reservationId: string | null
+  signedAt: string | null
+  deliveryDate: string | null
+  isInvoiceable: boolean
+  invoiceRef: string | null
+  cancelledReason: string | null
+  version: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SalesContractPage {
+  items: SalesContractRead[]
+  nextCursor: string | null
+  total: number
+  totalIsEstimate: boolean
+}
+
+// WP-8 PR-8 (S-D14) — one table, `kind` discriminator. Factory-option
+// rows are system-managed (frozen by the vehicle snapshot, never created/
+// deleted client-side); accessory rows are a full offer-level collection
+// the seller builds up directly.
+export type SalesLineItemKind = 'factory_option' | 'accessory'
+
+export interface SalesLineItemRead {
+  id: string
+  kind: SalesLineItemKind
+  code: string
+  label: string
+  unitPrice: string
+  quantity: number
+  included: boolean
+  discountType: 'percent' | 'amount' | null
+  discountValue: string | null
+  discountResolvedAmount: string | null
+  discountSuppressedReason: string | null
+  position: number
+}
+
+export interface SalesLineItemPage {
+  items: SalesLineItemRead[]
+}
+
+// WP-8 PR-7 — append-only, one row per generated version; never carries
+// the rendered bytes themselves (no blob storage anywhere in this
+// codebase — the PDF is re-rendered deterministically on every download
+// from `contentDefinition`, which this read model never exposes either,
+// since the frontend only ever needs the version list plus the download
+// endpoint).
+export type SalesDocumentOwnerType = 'offer' | 'contract'
+
+export interface SalesDocumentRead {
+  id: string
+  ownerType: SalesDocumentOwnerType
+  ownerId: string
+  version: number
+  correspondenceLanguage: string
+  renderedAt: string
+  renderedBy: string | null
+}
+
+export interface SalesDocumentPage {
+  items: SalesDocumentRead[]
+}
+
+// The overview grid's own read shape (ADR-060) — a deliberately separate
+// schema from SalesOfferRead/SalesContractRead, mirroring
+// app.inventory's StockItemGroupRead convention for a read model.
+export interface SalesDealRead {
+  id: string
+  entityType: 'offer' | 'contract'
+  number: string
+  status: string
+  offerId: string | null
+  offerNumber: string | null
+  contractId: string | null
+  contractNumber: string | null
+  customerId: string | null
+  customerLabel: string | null
+  customerLocality: string | null
+  vehicleLabel: string | null
+  grossPrice: string | null
+  margin: string | null
+  documentsCount: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SalesDealPage {
+  items: SalesDealRead[]
+  nextCursor: string | null
+  total: number
+  totalIsEstimate: boolean
+}
+
+// WP-8 PR-9 — app.valuation, the 11th bounded context (ADR-066/ADR-048 as
+// amended). Immutable once created: "Neu bewerten" (supersede) is the
+// only correction mechanism, for any status including draft.
+export type ValuationSourceValue = 'auto_i_dat' | 'manual'
+export type ValuationStatusValue = 'draft' | 'valid' | 'expired' | 'used'
+
+export interface ValuationDeductionInput {
+  label: string
+  amount: string
+}
+
+export interface ValuationDeductionRead {
+  label: string
+  amount: string
+}
+
+export interface ValuationCreate {
+  vin?: string | null
+  vehicleMake?: string | null
+  vehicleModel?: string | null
+  vehicleTrim?: string | null
+  vehiclePlate?: string | null
+  vehicleFirstRegistration?: string | null
+  mileage?: number | null
+  customerId?: string | null
+  source: ValuationSourceValue
+  providerValue?: string | null
+  finalOffer: string
+  deductions?: ValuationDeductionInput[]
+  note?: string | null
+  validForDays?: number
+  isDraft?: boolean
+  supersedesValuationId?: string | null
+}
+
+export interface ValuationRead {
+  id: string
+  valuationNumber: string
+  vehicleId: string | null
+  vehicleMake: string | null
+  vehicleModel: string | null
+  vehicleTrim: string | null
+  vehiclePlate: string | null
+  vehicleVin: string | null
+  vehicleFirstRegistration: string | null
+  mileage: number | null
+  customerId: string | null
+  customerLabel: string | null
+  source: ValuationSourceValue
+  providerValue: string | null
+  finalOffer: string
+  deductions: ValuationDeductionRead[]
+  note: string | null
+  validFrom: string
+  validUntil: string
+  isDraft: boolean
+  usedAt: string | null
+  supersedesValuationId: string | null
+  status: ValuationStatusValue
+  version: number
+  createdBy: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ValuationPage {
+  items: ValuationRead[]
+  nextCursor: string | null
+  total: number
+  totalIsEstimate: boolean
 }

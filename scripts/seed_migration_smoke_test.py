@@ -340,29 +340,84 @@ def _seed_dealer_old_schema(db: Session) -> uuid.UUID:
     return dealer_id
 
 
+def _customer_has_credit_block_column(db: Session) -> bool:
+    """WP-8 PR-6 added credit_block/credit_block_reason/credit_blocked_at
+    to customer. Same trap as _dealership_has_wp6b_columns/
+    _dealership_has_wp7_columns above — the customer table has existed
+    since WP-3, so only a column-level check catches this one.
+    """
+
+    columns = {col["name"] for col in inspect(db.get_bind()).get_columns("customer")}
+    return "credit_block" in columns
+
+
 def _seed_customer_chain_new_schema(db: Session, *, group_id: uuid.UUID) -> uuid.UUID:
     """This PR's own heads already applied — group_id exists everywhere
     tenant_id used to, so the current ORM classes address the real schema
-    directly.
+    directly. Except WP-8 PR-6's own new customer columns specifically —
+    see _customer_has_credit_block_column.
     """
 
-    customer = Customer(
-        group_id=group_id,
-        customer_number="K-000001",
-        customer_type=CustomerType.INDIVIDUAL,
-        language=Language.DE,
-        first_name="Anna",
-        last_name="Muster",
-        lifecycle_status=CustomerLifecycleStatus.PROSPECT,
-    )
-    db.add(customer)
-    db.flush()
+    if _customer_has_credit_block_column(db):
+        customer = Customer(
+            group_id=group_id,
+            customer_number="K-000001",
+            customer_type=CustomerType.INDIVIDUAL,
+            language=Language.DE,
+            first_name="Anna",
+            last_name="Muster",
+            lifecycle_status=CustomerLifecycleStatus.PROSPECT,
+        )
+        db.add(customer)
+        db.flush()
+        customer_id = customer.id
+    else:
+        # credit_block/credit_block_reason/credit_blocked_at aren't live
+        # yet — a raw insert naming every column through WP-3's own
+        # customer shape, and no further, is the only way to write a row
+        # this PR's migrations haven't reached yet (the ORM class above
+        # always sends credit_block, a NOT NULL column with a Python-side
+        # default, so it can't be used here the way it's used above).
+        customer_id = uuid7()
+        db.execute(
+            sa.table(
+                "customer",
+                sa.column("id", GUID()),
+                sa.column("group_id", GUID()),
+                sa.column("customer_number", sa.String()),
+                sa.column("customer_type", sa.String()),
+                sa.column("language", sa.String()),
+                sa.column("first_name", sa.String()),
+                sa.column("last_name", sa.String()),
+                sa.column("lifecycle_status", sa.String()),
+                sa.column("marketing_consent", sa.Boolean()),
+                sa.column("version", sa.Integer()),
+                sa.column("created_at", sa.DateTime(timezone=True)),
+                sa.column("updated_at", sa.DateTime(timezone=True)),
+            )
+            .insert()
+            .values(
+                id=customer_id,
+                group_id=group_id,
+                customer_number="K-000001",
+                customer_type="INDIVIDUAL",
+                language="DE",
+                first_name="Anna",
+                last_name="Muster",
+                lifecycle_status="PROSPECT",
+                marketing_consent=False,
+                version=1,
+                created_at=utcnow(),
+                updated_at=utcnow(),
+            )
+        )
+        db.flush()
 
     db.add(CustomerNumberSequence(group_id=group_id, next_value=2))
     db.add(
         CustomerPhone(
             group_id=group_id,
-            customer_id=customer.id,
+            customer_id=customer_id,
             phone_type=PhoneType.MOBILE,
             phone_e164="+41791234567",
             phone_normalised="41791234567",
@@ -372,17 +427,17 @@ def _seed_customer_chain_new_schema(db: Session, *, group_id: uuid.UUID) -> uuid
     db.add(
         CustomerEmail(
             group_id=group_id,
-            customer_id=customer.id,
+            customer_id=customer_id,
             email_type=EmailType.PERSONAL,
             email_address="anna@example.ch",
             is_primary=True,
         )
     )
     db.add(
-        CustomerExternalId(group_id=group_id, customer_id=customer.id, system_name="crm", external_id="CRM-1")
+        CustomerExternalId(group_id=group_id, customer_id=customer_id, system_name="crm", external_id="CRM-1")
     )
     db.flush()
-    return customer.id
+    return customer_id
 
 
 def _seed_customer_chain_old_schema(db: Session, *, dealer_id: uuid.UUID) -> uuid.UUID:

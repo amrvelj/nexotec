@@ -284,6 +284,13 @@ class CustomerCreate(CamelModel):
         return self
 
 
+class CustomerCreditBlockRequest(CamelModel):
+    """WP-8 PR-6 (ADR-065/S-D19)."""
+
+    blocked: bool
+    reason: str | None = None
+
+
 class CustomerUpdate(CamelModel):
     """duplicate_of_customer_id is not settable here — only through
     POST /v1/customers/{id}/merge, which sets it atomically with
@@ -354,6 +361,11 @@ class CustomerRead(CamelModel):
     source_ref: str | None
     duplicate_of_customer_id: uuid.UUID | None
     marketing_consent: bool
+    # WP-8 PR-6 (ADR-065/S-D19) — stops a contract, never an offer; see
+    # app.customer.services.customer.set_credit_block.
+    credit_block: bool
+    credit_block_reason: str | None
+    credit_blocked_at: dt.datetime | None
     version: int
     created_at: dt.datetime
     updated_at: dt.datetime

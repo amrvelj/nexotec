@@ -32,6 +32,17 @@ from app.sales.models.transaction import Transaction, TransactionStatus, Transac
 from app.sales.schemas.transaction import TransactionCreate, TransactionUpdate
 from app.vehicle.public import CustodyEventType, VehicleStatus, create_custody_event, get_vehicle_or_404
 
+_RETIRED_MESSAGE = (
+    "The `transaction` table is retired (WP-8 PR-7, ADR-050/S-D12) — superseded by "
+    "sales_offer/sales_contract. Use POST /v1/sales/offers or /v1/sales/contracts instead. "
+    "Reads (GET) still work; this table is never dropped."
+)
+
+
+def _refuse_retired_write() -> None:
+    raise ConflictError(_RETIRED_MESSAGE, details={"successor": "/v1/sales/offers, /v1/sales/contracts"})
+
+
 _AUDITED_FIELDS = {
     "transaction_type",
     "customer_id",
@@ -109,6 +120,7 @@ def _validate_references(
 def create_transaction(
     db: Session, *, tenant_id: uuid.UUID, group_id: uuid.UUID, data: TransactionCreate, actor_id: uuid.UUID
 ) -> Transaction:
+    _refuse_retired_write()
     _validate_references(
         db,
         tenant_id=tenant_id,
@@ -152,6 +164,7 @@ def create_transaction(
 def update_transaction(
     db: Session, *, transaction: Transaction, group_id: uuid.UUID, data: TransactionUpdate, actor_id: uuid.UUID
 ) -> Transaction:
+    _refuse_retired_write()
     if transaction.status != TransactionStatus.DRAFT:
         raise ConflictError(
             f"Transaction status '{transaction.status.value}' cannot be edited — only draft transactions"
@@ -201,7 +214,8 @@ def update_transaction(
 
 
 def complete_transaction(db: Session, *, transaction: Transaction, actor_id: uuid.UUID) -> Transaction:
-    """The only path that mutates Vehicle custody/status. Transaction and
+    """RETIRED (WP-8 PR-7) — refuses immediately, see _refuse_retired_write.
+    The only path that mutates Vehicle custody/status. Transaction and
     Vehicle live in the same database, same session, same process — no real
     cross-service boundary forces two commits, so this issues exactly one
     (`vehicle_service.create_custody_event(..., commit=False)`, then a
@@ -215,6 +229,7 @@ def complete_transaction(db: Session, *, transaction: Transaction, actor_id: uui
     from ever retrying it. Fixed per CTO review, 2026-08-06.
     """
 
+    _refuse_retired_write()
     if transaction.status != TransactionStatus.DRAFT:
         raise ConflictError(
             f"Transaction status '{transaction.status.value}' cannot be completed — only draft"
@@ -306,8 +321,9 @@ def cancel_transaction(
     db: Session, *, transaction: Transaction, reason: str | None, actor_id: uuid.UUID
 ) -> Transaction:
     """Status change only — must never mutate Vehicle custody/status
-    (spec §4)."""
+    (spec §4). RETIRED (WP-8 PR-7) — refuses immediately."""
 
+    _refuse_retired_write()
     if transaction.status != TransactionStatus.DRAFT:
         raise ConflictError(
             f"Transaction status '{transaction.status.value}' cannot be cancelled — only draft"

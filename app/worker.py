@@ -26,6 +26,7 @@ from app.core.outbox_transport import InProcessTransport
 from app.core.outbox_worker import poll_once
 from app.db import SessionLocal
 from app.inventory.consumers import handle_sales_contract_confirmed_message
+from app.sales.consumers import handle_stock_item_purchased_message
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 logger = logging.getLogger("app.worker")
@@ -46,6 +47,13 @@ def register_handlers(transport: InProcessTransport) -> None:
         "sales.contract.confirmed",
         consumer_name="inventory.sales_contract_confirmed",
         handler=handle_sales_contract_confirmed_message,
+    )
+    # WP-8 PR-6 — the second real consumer: sales.stock_item_purchased
+    # maintains its own local is_invoiceable replica (ADR-052).
+    transport.register(
+        "inventory.stock_item.purchased",
+        consumer_name="sales.stock_item_purchased",
+        handler=handle_stock_item_purchased_message,
     )
 
     if os.environ.get("DMS_OUTBOX_WORKER_CI_SMOKE_TEST_PROBE") == "1":

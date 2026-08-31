@@ -19,7 +19,7 @@ from app.customer.models.customer import Customer
 from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.reconciliation_runner import MultiContextReconciliationAlarm, run_all
 from app.sales import reconciliation as sales_reconciliation
-from app.sales.models.transaction import Transaction
+from app.sales.models.transaction import Transaction, TransactionStatus, TransactionType
 from app.vehicle import reconciliation as vehicle_reconciliation
 from app.vehicle.models.vehicle import CustodyEventType, VehicleCustodyEvent
 
@@ -129,18 +129,24 @@ def _create_vehicle(client, dealer_id: str, **overrides) -> dict:
     return response.json()
 
 
-def _create_transaction(client, dealer_id: str, user: dict, customer: dict, vehicle: dict, **overrides) -> dict:
-    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
-    payload = {
-        "transactionType": "sale",
-        "customerId": customer["id"],
-        "vehicleId": vehicle["id"],
-        "primaryUserId": user["id"],
-    }
-    payload.update(overrides)
-    response = client.post("/v1/transactions", json=payload, headers=_bearer(token))
-    assert response.status_code == 201, response.text
-    return response.json()
+def _create_transaction(db_session, dealer_id: str, user: dict, customer: dict, vehicle: dict) -> dict:
+    """WP-8 PR-7 (ADR-050/S-D12): `transaction` writes are retired at the
+    service layer — seeded directly via the ORM instead, on the SAME
+    db_session the reconciliation job itself runs against.
+    """
+
+    transaction = Transaction(
+        tenant_id=uuid.UUID(dealer_id),
+        transaction_type=TransactionType.SALE,
+        status=TransactionStatus.DRAFT,
+        customer_id=uuid.UUID(customer["id"]),
+        vehicle_id=uuid.UUID(vehicle["id"]),
+        primary_user_id=uuid.UUID(user["id"]),
+    )
+    db_session.add(transaction)
+    db_session.commit()
+    db_session.refresh(transaction)
+    return {"id": str(transaction.id)}
 
 
 # --- clean data: every job finds nothing ------------------------------------------
@@ -186,7 +192,7 @@ def test_sales_reconciliation_clean_data_finds_zero_orphans(client, db_session):
     user = _create_user(client, dealer_id)
     customer = _create_customer(client, dealer_id)
     vehicle = _create_vehicle(client, dealer_id)
-    _create_transaction(client, dealer_id, user, customer, vehicle)
+    _create_transaction(db_session, dealer_id, user, customer, vehicle)
     db_session.expire_all()
 
     run = sales_reconciliation.run(db_session)
@@ -266,7 +272,7 @@ def test_sales_reconciliation_detects_orphaned_customer_id(client, db_session):
     user = _create_user(client, dealer_id)
     customer = _create_customer(client, dealer_id)
     vehicle = _create_vehicle(client, dealer_id)
-    txn = _create_transaction(client, dealer_id, user, customer, vehicle)
+    txn = _create_transaction(db_session, dealer_id, user, customer, vehicle)
     db_session.expire_all()
 
     row = db_session.get(Transaction, uuid.UUID(txn["id"]))
@@ -289,7 +295,7 @@ def test_run_all_runs_every_context_and_aggregates_alarms(client, db_session):
     customer = _create_customer(client, dealer_id)
     user = _create_user(client, dealer_id)
     vehicle = _create_vehicle(client, dealer_id)
-    txn = _create_transaction(client, dealer_id, user, customer, vehicle)
+    txn = _create_transaction(db_session, dealer_id, user, customer, vehicle)
     db_session.expire_all()
 
     # Orphan customer (via vehicle_party) and sales (via transaction), leave

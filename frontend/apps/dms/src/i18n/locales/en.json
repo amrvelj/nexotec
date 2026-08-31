@@ -15,7 +15,8 @@
       "finance": "Finance",
       "transactions": "Transactions",
       "reporting": "Reporting",
-      "compliance": "Compliance"
+      "compliance": "Compliance",
+      "valuations": "Valuations"
     },
     "signOut": "Sign out",
     "globalSearch": {
@@ -45,7 +46,9 @@
     "cancel": "Cancel",
     "notSet": "Not set",
     "yes": "Yes",
-    "no": "No"
+    "no": "No",
+    "save": "Save",
+    "remove": "Remove"
   },
   "customerEnums": {
     "customerType": {
@@ -668,5 +671,284 @@
     "errors": {
       "somethingWentWrong": "Something went wrong."
     }
+  },
+  "salesList": {
+    "title": "Offers & Contracts",
+    "newOffer": "New offer",
+    "searchPlaceholder": "Plate, VIN, customer, offer …",
+    "allDealsView": "All offers and contracts",
+    "columns": {
+      "number": "Number",
+      "type": "Type",
+      "customer": "Customer",
+      "vehicle": "Vehicle",
+      "grossPrice": "Sale price",
+      "status": "Status",
+      "margin": "Margin",
+      "changed": "Changed"
+    },
+    "chips": {
+      "all": "All",
+      "offers": "Offers",
+      "contracts": "Contracts"
+    },
+    "emptyState": {
+      "title": "No offers or contracts",
+      "description": "Create an offer to get started."
+    },
+    "emptyFilteredState": {
+      "title": "No matches",
+      "description": "Adjust your search.",
+      "action": "Reset search"
+    },
+    "rowActions": {
+      "open": "Open"
+    }
+  },
+  "salesEnums": {
+    "entityType": {
+      "offer": "Offer",
+      "contract": "Contract"
+    },
+    "dealStatus": {
+      "draft": "Draft",
+      "open": "Open",
+      "pending": "Open",
+      "confirmed": "Confirmed",
+      "cancelled": "Cancelled",
+      "invoiced": "Invoiced"
+    },
+    "financing": {
+      "cash": "Cash",
+      "leasing": "Leasing",
+      "credit": "Credit"
+    }
+  },
+  "offerDetail": {
+    "untitled": "New offer",
+    "errors": {
+      "failedToLoad": "The offer could not be loaded.",
+      "somethingWentWrong": "Something went wrong."
+    }
+  },
+  "contractDetail": {
+    "untitled": "New contract",
+    "errors": {
+      "failedToLoad": "The contract could not be loaded.",
+      "somethingWentWrong": "Something went wrong."
+    },
+    "actions": {
+      "confirm": "Confirm contract",
+      "confirmDisabledReason": "Only confirmable while open.",
+      "cancel": "Cancel …",
+      "cancelDisabledReason": "Already cancelled or invoiced."
+    },
+    "stats": {
+      "grossPrice": "Sale price",
+      "tradeIn": "Trade-in vehicle",
+      "payable": "Payable",
+      "margin": "Margin"
+    },
+    "financing": "Financing",
+    "cancelReasonPrompt": "Reason for cancellation:"
+  },
+  "offerWorkspace": {
+    "title": "Create offer",
+    "requirement": {
+      "required": "Required",
+      "optional": "Optional"
+    },
+    "containers": {
+      "customer": "Customer",
+      "vehicle": "Vehicle",
+      "pricing": "Pricing",
+      "tradeIn": "Trade-in vehicle",
+      "leasing": "Leasing"
+    },
+    "customer": {
+      "emptyHint": "No customer preselected — an offer carries the name that gets signed.",
+      "search": "Search customer",
+      "createNew": "Create new",
+      "creditBlockTitle": "Credit block",
+      "creditBlockBody": "This customer has a credit block ({{reason}}) — an offer is possible, a contract cannot be confirmed.",
+      "doNotContactTitle": "Do not contact",
+      "doNotContactBody": "This customer is marked do-not-contact — neither the offer nor a contract can proceed."
+    },
+    "vehicle": {
+      "emptyHint": "From your own stock — stock number, VIN or plate.",
+      "search": "Search vehicle",
+      "configure": "Configure",
+      "searchPlaceholder": "Stock number, VIN, plate …",
+      "manualLabelPlaceholder": "Vehicle description"
+    },
+    "pricing": {
+      "emptyHint": "Pricing starts with the vehicle — choose one first.",
+      "readyHint": "Pricing follows (next step).",
+      "manualBasePrice": "Base price",
+      "basePrice": "Base price",
+      "optionsTotal": "Options total",
+      "listPrice": "List price",
+      "accessoriesTotal": "Accessories total",
+      "discountType": "Discount type",
+      "noDiscount": "No discount",
+      "discountPercent": "Percent",
+      "discountAmount": "Amount",
+      "discountValue": "Discount value",
+      "grossPrice": "Sale price",
+      "internalOnly": "INTERNAL ONLY — NOT ON THE DOCUMENT",
+      "costBasis": "Cost basis",
+      "margin": "Margin"
+    },
+    "tradeIn": {
+      "emptyHint": "Choose the customer first — their vehicles will be suggested here.",
+      "readyHint": "Trade-in follows (next step).",
+      "value": "Trade-in offer",
+      "fromExistingValuation": "Taken from an existing valuation",
+      "vinLabel": "VIN",
+      "vinPlaceholder": "e.g. WVWZZZ1KZAW123456",
+      "labelLabel": "Vehicle description",
+      "add": "Add trade-in vehicle"
+    },
+    "leasing": {
+      "hint": "No leasing calculator in v1 (S-D03). Free-text inputs, so a later calculator can be dropped in without a schema change.",
+      "downPayment": "Down payment",
+      "termMonths": "Term (months)",
+      "kmPerYear": "Kilometres per year"
+    },
+    "missing": "Still missing",
+    "continue": "Generate offer",
+    "generate": {
+      "title": "Generate offer",
+      "buildHint": "Generates a preview of the document in the customer's correspondence language.",
+      "build": "Generate document",
+      "buildError": "The document could not be generated.",
+      "previewTitle": "Offer {{number}}",
+      "regenerate": "Regenerate",
+      "confirm": "Confirm",
+      "finalizeError": "The offer could not be confirmed."
+    },
+    "lineItems": {
+      "factoryOptionsTitle": "Factory options",
+      "accessoriesTitle": "Accessories",
+      "accessoryLabel": "Label",
+      "accessoryPrice": "Price",
+      "accessoryQuantity": "Quantity",
+      "accessoryDiscount": "Discount (amount)",
+      "add": "Add",
+      "suppressedReason": "Reason",
+      "suppressedReasonHint": "A per-line discount is suppressed by default on used vehicles — a reason overrides the suppression.",
+      "error": "The change could not be saved."
+    }
+  },
+  "salesDocuments": {
+    "title": "Documents",
+    "generate": "Generate document",
+    "empty": "No document generated yet.",
+    "previewError": "Preview could not be loaded.",
+    "download": "Download",
+    "version": "Version {{version}}"
+  },
+  "valuationsList": {
+    "title": "Valuations",
+    "newValuation": "Create valuation",
+    "searchPlaceholder": "Valuation number, VIN, plate, customer …",
+    "allView": "All valuations",
+    "noCustomer": "No customer",
+    "loadError": "Valuations could not be loaded.",
+    "chips": {
+      "all": "All",
+      "valid": "Valid",
+      "expiring_soon": "Expiring soon",
+      "expired": "Expired",
+      "unattached": "No customer",
+      "mine": "Mine"
+    },
+    "columns": {
+      "number": "Number",
+      "vehicle": "Vehicle",
+      "customer": "Customer",
+      "mileage": "Mileage",
+      "finalOffer": "Trade-in offer",
+      "source": "Source",
+      "status": "Status",
+      "validUntil": "Valid until"
+    },
+    "emptyState": {
+      "title": "No valuations yet",
+      "description": "Create a valuation — with or without a customer, offer, or a registered vehicle."
+    },
+    "emptyFilteredState": {
+      "title": "No matches",
+      "description": "No valuation matches the current search.",
+      "action": "Reset search"
+    },
+    "rowActions": {
+      "open": "Open"
+    }
+  },
+  "valuationDetail": {
+    "untitled": "No vehicle given",
+    "errors": {
+      "failedToLoad": "The valuation could not be loaded.",
+      "somethingWentWrong": "Something went wrong."
+    },
+    "actions": {
+      "revalue": "Revalue",
+      "markUsed": "Mark as used",
+      "markUsedDisabledReason": "Only possible from draft or valid.",
+      "openCustomer": "Open customer",
+      "openVehicle": "Open vehicle"
+    },
+    "expiredBanner": {
+      "title": "Valuation expired",
+      "body": "This valuation is no longer valid. Create a new one via \"Revalue\" if needed."
+    },
+    "valueCard": {
+      "title": "Valuation",
+      "providerValue": "Raw value",
+      "netValue": "Net value",
+      "finalOffer": "Trade-in offer",
+      "finalOfferHint": "The trade-in offer may differ from the net value — that's the negotiation."
+    },
+    "vehicleCard": {
+      "title": "Vehicle",
+      "vin": "VIN",
+      "plate": "Plate",
+      "mileage": "Mileage",
+      "firstRegistration": "First registration",
+      "customer": "Customer"
+    },
+    "noteCard": {
+      "title": "Note"
+    },
+    "validityHelp": "Status is computed on read, never patched overnight — valid until {{validUntil}}."
+  },
+  "valuationCreate": {
+    "title": "Create valuation",
+    "revalueTitle": "Revalue (replaces {{number}})",
+    "submit": "Create",
+    "error": "The valuation could not be created.",
+    "banner": "No customer, no offer, no registered vehicle required — any combination works.",
+    "vehicleSection": "Vehicle",
+    "vin": "VIN",
+    "mileage": "Mileage",
+    "make": "Make",
+    "model": "Model",
+    "trim": "Trim",
+    "plate": "Plate",
+    "customerSection": "Customer",
+    "searchCustomer": "Search customer",
+    "createCustomer": "Create new",
+    "source": "Source",
+    "sourceManual": "Manual",
+    "providerValue": "Raw value",
+    "validForDays": "Valid for (days)",
+    "deductionsSection": "Deductions",
+    "deductionLabel": "Label",
+    "deductionAmount": "Amount",
+    "addDeduction": "Add",
+    "finalOffer": "Trade-in offer",
+    "finalOfferHint": "May differ from the net value — that's the negotiation.",
+    "note": "Note"
   }
 }
