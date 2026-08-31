@@ -12,6 +12,11 @@ from app.core.reconciliation_model import ReconciliationOrphan, ReconciliationRu
 from app.customer.models.customer import Customer, CustomerAddress
 from app.customer.models.legal_basis import LegalBasis
 from app.customer.models.vehicle_party import VehicleParty
+from app.integration.models.call_log import IntegrationCallLog
+from app.integration.models.connection import IntegrationConnection
+from app.integration.models.entitlement import IntegrationEntitlement
+from app.integration.models.provider import IntegrationProvider
+from app.integration.models.secret_ref import IntegrationSecretRef
 from app.inventory.models.stock_item import StockItem, StockNumberSequence
 from app.inventory.models.stock_item_ledger import StockItemLedger
 from app.inventory.models.stock_item_option import StockItemOption
@@ -48,6 +53,11 @@ __all__ = [
     "Dealership",
     "DealershipMembership",
     "IdempotencyRecord",
+    "IntegrationCallLog",
+    "IntegrationConnection",
+    "IntegrationEntitlement",
+    "IntegrationProvider",
+    "IntegrationSecretRef",
     "LegalBasis",
     "Location",
     "MappingGap",

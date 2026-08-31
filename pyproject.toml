@@ -120,6 +120,7 @@ forbidden_modules = [
     "app.sales",
     "app.inventory",
     "app.valuation",
+    "app.integration",
     "app.aftersales",
     "app.parts",
     "app.finance",
@@ -146,6 +147,7 @@ source_modules = [
     "app.sales",
     "app.inventory",
     "app.valuation",
+    "app.integration",
     "app.aftersales",
     "app.parts",
     "app.finance",
@@ -164,6 +166,7 @@ source_modules = [
     "app.sales",
     "app.inventory",
     "app.valuation",
+    "app.integration",
     "app.aftersales",
     "app.parts",
     "app.finance",
@@ -182,6 +185,7 @@ source_modules = [
     "app.sales",
     "app.inventory",
     "app.valuation",
+    "app.integration",
     "app.aftersales",
     "app.parts",
     "app.finance",
@@ -200,6 +204,7 @@ source_modules = [
     "app.vehicle",
     "app.inventory",
     "app.valuation",
+    "app.integration",
     "app.aftersales",
     "app.parts",
     "app.finance",
@@ -222,6 +227,7 @@ source_modules = [
     "app.vehicle",
     "app.sales",
     "app.valuation",
+    "app.integration",
     "app.aftersales",
     "app.parts",
     "app.finance",
@@ -245,6 +251,7 @@ source_modules = [
     "app.vehicle",
     "app.sales",
     "app.inventory",
+    "app.integration",
     "app.aftersales",
     "app.parts",
     "app.finance",
@@ -252,4 +259,33 @@ source_modules = [
     "app.compliance",
 ]
 forbidden_modules = ["app.valuation.models", "app.valuation.services", "app.valuation.api"]
+allow_indirect_imports = true
+
+# WP-6 PR-1: integration is the 12th bounded context — the generic
+# secrets/connections/entitlements/call-log registry (Integrations & API
+# Credentials v0.1's own "one registry, many gateways" split), plus the
+# auto-i-dat-specific gateway logic (mock/real adapters, PR-2/3), which
+# lives here rather than inside app.vehicle since it "never persists
+# credentials of its own" and carries "no business data" (the spec's own
+# words) — app.vehicle (PR-4) is its first real consumer, calling
+# app.integration.public.call_capability the same way app.sales already
+# calls app.inventory.public. Same reciprocal shape as every other
+# built-out context above.
+[[tool.importlinter.contracts]]
+name = "Only app.integration.public is reachable from outside integration"
+type = "forbidden"
+source_modules = [
+    "app.platform",
+    "app.customer",
+    "app.vehicle",
+    "app.sales",
+    "app.inventory",
+    "app.valuation",
+    "app.aftersales",
+    "app.parts",
+    "app.finance",
+    "app.reporting",
+    "app.compliance",
+]
+forbidden_modules = ["app.integration.models", "app.integration.services", "app.integration.api", "app.integration.adapters"]
 allow_indirect_imports = true

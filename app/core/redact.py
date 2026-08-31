@@ -12,11 +12,18 @@ log line that happens to carry it in `extra={}`.
 
 Field NAMES only — this has no idea what a value even is, so it can't
 accidentally redact something that merely looks sensitive.
+
+WP-6 PR-1 adds the `integration_secret_ref` slot names and the write-only
+request field they arrive on (`secret_value`) — the same redaction
+boundary now covers a live third-party credential accidentally landing in
+an ordinary log line, not just `tax_id`.
 """
 
 REDACTED_PLACEHOLDER = "***redacted***"
 
-SECRET_FIELDS = frozenset({"tax_id"})
+SECRET_FIELDS = frozenset(
+    {"tax_id", "password", "aes_key", "client_secret", "refresh_token", "certificate", "secret_value"}
+)
 
 
 def is_secret_field(field: str) -> bool:
