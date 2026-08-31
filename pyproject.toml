@@ -34,6 +34,12 @@ dependencies = [
     # document_render may import this (tests/architecture/
     # test_no_layout_code_outside_document_render.py enforces it).
     "weasyprint>=69,<70",
+    # WP-6 PR-3: the real auto-i-dat adapter speaks SOAP. No SOAP/XML client
+    # existed in this codebase before this. app/integration/adapters/
+    # auto_i_dat_soap.py imports it lazily (inside build_zeep_client), so no
+    # test or local dev path that never constructs a real adapter pays its
+    # import cost or needs a live WSDL.
+    "zeep>=4.2,<5",
 ]
 
 [project.optional-dependencies]
