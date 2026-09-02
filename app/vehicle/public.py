@@ -9,6 +9,13 @@ from sqlalchemy.orm import Session
 
 from app.vehicle.models.vehicle import CustodyEventType, Vehicle, VehicleStatus
 from app.vehicle.models.vehicle_mdm import VehicleMdm
+from app.vehicle.services.catalogue_sync import (
+    NoVehicleDataConnectionError,
+    SyncResult,
+    check_sync_age_alarm_for_tenant,
+    run_daily_delta_for_tenant,
+    seed_tenant_catalogue,
+)
 from app.vehicle.services.vehicle import create_custody_event, get_vehicle_or_404
 
 
@@ -94,9 +101,12 @@ def match_vehicle(
 
 __all__ = [
     "CustodyEventType",
+    "NoVehicleDataConnectionError",
+    "SyncResult",
     "Vehicle",
     "VehicleMdm",
     "VehicleStatus",
+    "check_sync_age_alarm_for_tenant",
     "create_custody_event",
     "create_or_get_vehicle_mdm",
     "get_vehicle_equipment",
@@ -104,4 +114,6 @@ __all__ = [
     "get_vehicle_or_404",
     "has_current_energy_rating",
     "match_vehicle",
+    "run_daily_delta_for_tenant",
+    "seed_tenant_catalogue",
 ]

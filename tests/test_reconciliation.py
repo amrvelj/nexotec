@@ -355,4 +355,13 @@ def test_no_hard_delete_endpoint_exists_for_fk_target_entities(client):
         # row above it — the DELETE verb closes (sets valid_to), it never
         # actually deletes (FR-V-13).
         "/v1/vehicle-mdm/{vehicle_id}/accessories/{accessory_id}",
+        # WP-6 PR-1: integration_connection and integration_secret_ref are
+        # brand-new tables, never a target of any of the nine dropped FKs
+        # this test's own docstring is about. A real hard delete here is
+        # deliberate (Integrations & API Credentials v0.1, rule 10:
+        # "deleting requires confirmation and is audit-logged") — deleting
+        # a connection genuinely removes it and every one of its secret
+        # refs from Infisical too, unlike the closed-not-deleted rows above.
+        "/v1/integrations/connections/{connection_id}",
+        "/v1/integrations/connections/{connection_id}/secrets/{slot}",
     }

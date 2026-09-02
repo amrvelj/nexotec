@@ -16,7 +16,8 @@
       "transactions": "Transazioni",
       "reporting": "Reportistica",
       "compliance": "Conformità",
-      "valuations": "Valutazioni"
+      "valuations": "Valutazioni",
+      "integrations": "Integrazioni"
     },
     "signOut": "Disconnetti",
     "globalSearch": {
@@ -48,7 +49,8 @@
     "yes": "Sì",
     "no": "No",
     "save": "Salva",
-    "remove": "Rimuovi"
+    "remove": "Rimuovi",
+    "loading": "Caricamento…"
   },
   "customerEnums": {
     "customerType": {
@@ -837,7 +839,8 @@
       "add": "Aggiungi",
       "suppressedReason": "Motivo",
       "suppressedReasonHint": "Su un veicolo usato uno sconto di riga è bloccato di default — un motivo annulla il blocco.",
-      "error": "Impossibile salvare la modifica."
+      "error": "Impossibile salvare la modifica.",
+      "noPackagesCapability": "Mostrate come elenco semplice — il raggruppamento in pacchetti non è disponibile per questa concessionaria."
     }
   },
   "salesDocuments": {
@@ -949,6 +952,89 @@
     "addDeduction": "Aggiungi",
     "finalOffer": "Offerta di permuta",
     "finalOfferHint": "Può differire dal valore netto — è la trattativa.",
-    "note": "Nota"
+    "note": "Nota",
+    "noProviderCapability": "La valutazione auto-i-dat non è disponibile per questa concessionaria — inserire manualmente il valore di permuta qui sotto."
+  },
+  "integrationsList": {
+    "title": "Integrazioni",
+    "searchPlaceholder": "Cerca connessioni",
+    "loadError": "Non è stato possibile caricare le connessioni.",
+    "allView": "Tutte le connessioni",
+    "notConnected": "Non connesso",
+    "connectError": "Non è stato possibile creare la connessione.",
+    "platformScoped": "A livello di piattaforma",
+    "platformConnectionsTitle": "Connessioni",
+    "categories": {
+      "vehicle_data": "Dati veicolo"
+    },
+    "fields": {
+      "provider": "Fornitore",
+      "environment": "Ambiente",
+      "accountIdentifier": "Account",
+      "lastVerified": "Ultima verifica"
+    },
+    "actions": {
+      "test": "Verifica connessione",
+      "viewUsage": "Visualizza utilizzo",
+      "rotateSecret": "Rinnova secret",
+      "rotateSecretDisabledReason": "Questa connessione non ha secret da rinnovare.",
+      "enable": "Attiva",
+      "disable": "Disattiva",
+      "connect": "Connetti"
+    },
+    "connectModal": {
+      "title": "Connetti {{provider}}"
+    },
+    "usageModal": {
+      "title": "Utilizzo — {{name}}",
+      "calls": "Chiamate (ultimi 30 giorni)",
+      "cost": "Unità di costo (ultimi 30 giorni)",
+      "indicative": "Solo indicativo — Nexotec non addebita mai nulla oltre al proprio contratto con il fornitore."
+    },
+    "rotateModal": {
+      "title": "Rinnova secret — {{name}}",
+      "hint": "Inserire un nuovo valore solo per i campi da sostituire — il rinnovo sostituisce, non legge mai il valore attuale."
+    },
+    "columns": {
+      "dealership": "Concessionaria",
+      "displayName": "Connessione",
+      "provider": "Fornitore",
+      "environment": "Ambiente",
+      "status": "Stato",
+      "lastVerified": "Ultima verifica"
+    },
+    "emptyState": {
+      "title": "Nessuna connessione",
+      "description": "Nessuna concessionaria ha ancora collegato un fornitore."
+    },
+    "emptyFilteredState": {
+      "title": "Nessuna connessione corrispondente",
+      "description": "Prova una ricerca diversa."
+    },
+    "healthBoard": {
+      "title": "Stato della flotta",
+      "lastFullSeed": "Ultima sincronizzazione completa",
+      "providerWatermark": "Data del fornitore",
+      "status": "Stato",
+      "stale": "Obsoleto",
+      "healthy": "Aggiornato",
+      "emptyState": {
+        "title": "Nessuna sincronizzazione del catalogo",
+        "description": "Nessun concessionario ha ancora sincronizzato un mirror del catalogo."
+      }
+    }
+  },
+  "integrationEnums": {
+    "environment": {
+      "sandbox": "Sandbox",
+      "production": "Produzione"
+    },
+    "secretSlot": {
+      "password": "Password",
+      "aes_key": "Chiave AES",
+      "client_secret": "Client secret",
+      "refresh_token": "Refresh token",
+      "certificate": "Certificato"
+    }
   }
 }

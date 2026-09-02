@@ -78,6 +78,12 @@ CAPABILITY_MATRIX: dict[str, Capability] = {
     # own, only the manager flag does.
     "document_templates": Capability(read_roles=None, write_roles=frozenset()),
     "dealership_users": Capability(read_roles=frozenset(), write_roles=frozenset()),
+    # WP-6 PR-1 — "visible only to users with the dealer manager flag"
+    # (Integrations & API Credentials v0.1's own dealer-view rule). No
+    # functional role grants access on its own, exact shape as
+    # dealership_users above; platform_admin still bypasses both checks
+    # via require_read/require_write's own first branch.
+    "integration_connections": Capability(read_roles=frozenset(), write_roles=frozenset()),
     "audit_logs": Capability(
         read_roles=frozenset({AccessRole.AUDITOR}), write_roles=frozenset(), manager_can_write=False
     ),

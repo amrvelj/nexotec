@@ -9,6 +9,7 @@ import {
   Cog,
   Handshake,
   LayoutDashboard,
+  Plug,
   Receipt,
   ShieldCheck,
   Store,
@@ -44,6 +45,11 @@ function buildNavGroups(t: (key: string) => string): NavGroupConfig[] {
         // itself, matching this project's "server-side enforcement, UI
         // hiding is not a control" posture (Risk R-4).
         { label: t('shell.nav.mappingGaps'), href: '/vehicle-mdm/mapping-gaps', icon: AlertTriangle, status: 'active' },
+        // WP-6 PR-7 — same placement/role-visibility convention as
+        // Mapping Gaps above: server-side enforcement (require_read/
+        // require_access_role) is the actual control, the nav item
+        // itself is never role-hidden (Risk R-4's own posture).
+        { label: t('shell.nav.integrations'), href: '/integrations', icon: Plug, status: 'active' },
       ],
     },
     {

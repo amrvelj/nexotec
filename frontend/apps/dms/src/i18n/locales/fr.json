@@ -16,7 +16,8 @@
       "transactions": "Transactions",
       "reporting": "Rapports",
       "compliance": "Conformité",
-      "valuations": "Évaluations"
+      "valuations": "Évaluations",
+      "integrations": "Intégrations"
     },
     "signOut": "Se déconnecter",
     "globalSearch": {
@@ -48,7 +49,8 @@
     "yes": "Oui",
     "no": "Non",
     "save": "Enregistrer",
-    "remove": "Supprimer"
+    "remove": "Supprimer",
+    "loading": "Chargement…"
   },
   "customerEnums": {
     "customerType": {
@@ -837,7 +839,8 @@
       "add": "Ajouter",
       "suppressedReason": "Motif",
       "suppressedReasonHint": "Une remise par ligne est bloquée par défaut sur les véhicules d’occasion — un motif lève le blocage.",
-      "error": "La modification n’a pas pu être enregistrée."
+      "error": "La modification n’a pas pu être enregistrée.",
+      "noPackagesCapability": "Affichées en liste simple — le regroupement par forfaits n'est pas disponible pour ce garage."
     }
   },
   "salesDocuments": {
@@ -949,6 +952,89 @@
     "addDeduction": "Ajouter",
     "finalOffer": "Offre de reprise",
     "finalOfferHint": "Peut différer de la valeur nette — c’est la négociation.",
-    "note": "Note"
+    "note": "Note",
+    "noProviderCapability": "L'évaluation auto-i-dat n'est pas disponible pour ce garage — saisir la valeur de reprise manuellement ci-dessous."
+  },
+  "integrationsList": {
+    "title": "Intégrations",
+    "searchPlaceholder": "Rechercher des connexions",
+    "loadError": "Les connexions n'ont pas pu être chargées.",
+    "allView": "Toutes les connexions",
+    "notConnected": "Non connecté",
+    "connectError": "La connexion n'a pas pu être créée.",
+    "platformScoped": "Valable pour toute la plateforme",
+    "platformConnectionsTitle": "Connexions",
+    "categories": {
+      "vehicle_data": "Données véhicule"
+    },
+    "fields": {
+      "provider": "Fournisseur",
+      "environment": "Environnement",
+      "accountIdentifier": "Compte",
+      "lastVerified": "Dernière vérification"
+    },
+    "actions": {
+      "test": "Tester la connexion",
+      "viewUsage": "Voir l'utilisation",
+      "rotateSecret": "Renouveler le secret",
+      "rotateSecretDisabledReason": "Cette connexion n'a aucun secret à renouveler.",
+      "enable": "Activer",
+      "disable": "Désactiver",
+      "connect": "Connecter"
+    },
+    "connectModal": {
+      "title": "Connecter {{provider}}"
+    },
+    "usageModal": {
+      "title": "Utilisation — {{name}}",
+      "calls": "Appels (30 derniers jours)",
+      "cost": "Unités de coût (30 derniers jours)",
+      "indicative": "Indicatif uniquement — Nexotec ne facture jamais en plus de votre propre contrat fournisseur."
+    },
+    "rotateModal": {
+      "title": "Renouveler les secrets — {{name}}",
+      "hint": "Saisissez une nouvelle valeur uniquement pour le(s) champ(s) à remplacer — le renouvellement remplace, il ne lit jamais la valeur actuelle."
+    },
+    "columns": {
+      "dealership": "Concession",
+      "displayName": "Connexion",
+      "provider": "Fournisseur",
+      "environment": "Environnement",
+      "status": "Statut",
+      "lastVerified": "Dernière vérification"
+    },
+    "emptyState": {
+      "title": "Aucune connexion pour l'instant",
+      "description": "Aucune concession n'a encore connecté de fournisseur."
+    },
+    "emptyFilteredState": {
+      "title": "Aucune connexion correspondante",
+      "description": "Essayez une autre recherche."
+    },
+    "healthBoard": {
+      "title": "État du parc",
+      "lastFullSeed": "Dernière synchronisation complète",
+      "providerWatermark": "Horodatage du fournisseur",
+      "status": "Statut",
+      "stale": "Obsolète",
+      "healthy": "À jour",
+      "emptyState": {
+        "title": "Aucune synchronisation du catalogue",
+        "description": "Aucun garage n'a encore synchronisé de miroir de catalogue."
+      }
+    }
+  },
+  "integrationEnums": {
+    "environment": {
+      "sandbox": "Bac à sable",
+      "production": "Production"
+    },
+    "secretSlot": {
+      "password": "Mot de passe",
+      "aes_key": "Clé AES",
+      "client_secret": "Secret client",
+      "refresh_token": "Jeton de rafraîchissement",
+      "certificate": "Certificat"
+    }
   }
 }

@@ -7,6 +7,9 @@ public.py — it needs the APIRouter objects, not domain functions.
 from fastapi import APIRouter
 
 from app.customer.api.customers import router as customers_router
+from app.integration.api.call_payloads import router as integration_call_payloads_router
+from app.integration.api.connections import router as integration_connections_router
+from app.integration.api.providers import router as integration_providers_router
 from app.inventory.api.group import router as inventory_group_router
 from app.inventory.api.ledger import router as inventory_ledger_router
 from app.inventory.api.pricing import router as inventory_pricing_router
@@ -27,6 +30,7 @@ from app.sales.api.offers import router as sales_offers_router
 from app.sales.api.transactions import router as transactions_router
 from app.valuation.api.valuations import router as valuations_router
 from app.vehicle.api.catalogue_admin import router as vehicle_catalogue_admin_router
+from app.vehicle.api.catalogue_sync import router as vehicle_catalogue_sync_router
 from app.vehicle.api.lookup import router as vehicle_lookup_router
 from app.vehicle.api.vehicle_mdm import router as vehicle_mdm_router
 from app.vehicle.api.vehicle_mdm_detail import router as vehicle_mdm_detail_router
@@ -41,6 +45,7 @@ api_v1_router.include_router(reference_data_router)
 api_v1_router.include_router(vehicles_router)
 api_v1_router.include_router(vehicle_lookup_router)
 api_v1_router.include_router(vehicle_catalogue_admin_router)
+api_v1_router.include_router(vehicle_catalogue_sync_router)  # before vehicle_mdm_router — see that router's own {vehicle_id} catch-all
 api_v1_router.include_router(vehicle_mdm_router)
 api_v1_router.include_router(vehicle_mdm_detail_router)
 api_v1_router.include_router(customers_router)
@@ -56,5 +61,8 @@ api_v1_router.include_router(sales_offers_router)
 api_v1_router.include_router(sales_contracts_router)
 api_v1_router.include_router(sales_documents_router)
 api_v1_router.include_router(valuations_router)
+api_v1_router.include_router(integration_providers_router)
+api_v1_router.include_router(integration_connections_router)
+api_v1_router.include_router(integration_call_payloads_router)
 api_v1_router.include_router(auth_router)
 api_v1_router.include_router(user_preferences_router)

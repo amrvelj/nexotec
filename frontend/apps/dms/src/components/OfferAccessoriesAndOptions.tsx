@@ -5,7 +5,7 @@ import { Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { api, ApiError } from '../api/client'
 import { formatCurrencyChf } from '../utils/format'
-import type { SalesLineItemPage, SalesLineItemRead, SalesOfferRead } from '../api/types'
+import type { CapabilityCheckRead, SalesLineItemPage, SalesLineItemRead, SalesOfferRead } from '../api/types'
 
 export interface OfferAccessoriesAndOptionsProps {
   offer: SalesOfferRead
@@ -40,6 +40,16 @@ export function OfferAccessoriesAndOptions({ offer, onOfferUpdated }: OfferAcces
   const [error, setError] = useState<string | null>(null)
 
   const isUsed = offer.vehicleCondition === 'used'
+
+  // WP-6 PR-5 — without the provider's `packages` capability, factory
+  // options already render as this flat, ungrouped checkbox list (no
+  // package-grouping UI exists here at all); the banner just explains why
+  // to a seller who might otherwise expect option bundles.
+  const packagesCapability = useQuery({
+    queryKey: ['capability-check', 'packages'],
+    queryFn: () => api.get<CapabilityCheckRead>('/integrations/capabilities/packages'),
+  })
+  const packagesUnavailable = packagesCapability.data?.granted === false
 
   const lineItemsQuery = useQuery({
     queryKey: ['sales-offer-line-items', offer.id],
@@ -123,6 +133,9 @@ export function OfferAccessoriesAndOptions({ offer, onOfferUpdated }: OfferAcces
       {factoryOptions.length > 0 && (
         <Stack gap={4}>
           <Text size="sm" fw={600}>{t('offerWorkspace.lineItems.factoryOptionsTitle')}</Text>
+          {packagesUnavailable && (
+            <Text size="xs" c="dimmed">{t('offerWorkspace.lineItems.noPackagesCapability')}</Text>
+          )}
           {factoryOptions.map((option) => (
             <Group key={option.id} justify="space-between">
               <Checkbox

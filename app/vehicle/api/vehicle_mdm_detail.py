@@ -13,11 +13,16 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import Principal, get_current_principal
 from app.core.errors import NotFoundError
-from app.core.permissions import require_write
+from app.core.permissions import require_read, require_write
 from app.customer.public import list_vehicle_parties
 from app.db import get_db
 from app.vehicle.models.vehicle_history import VehicleAccessory
 from app.vehicle.schemas.vehicle_mdm import (
+    CatalogueColourRead,
+    CatalogueImageRead,
+    CatalogueOptionRead,
+    CatalogueSpecificationRead,
+    CatalogueTyreSpecRead,
     VehicleAccessoryCreate,
     VehicleAccessoryRead,
     VehicleOdometerReadingCreate,
@@ -25,6 +30,7 @@ from app.vehicle.schemas.vehicle_mdm import (
     VehiclePartyAllocationRead,
     VehiclePlateRead,
 )
+from app.vehicle.services import catalogue_entitlements
 from app.vehicle.services import vehicle_history as history_service
 from app.vehicle.services import vehicle_mdm as vehicle_mdm_service
 from app.vehicle.services.plate import list_plates_for_vehicle
@@ -39,6 +45,36 @@ def list_plates(
     vehicle_mdm_service.get_vehicle_mdm_or_404(db, vehicle_id)
     rows = list_plates_for_vehicle(db, vehicle_id=vehicle_id)
     return [VehiclePlateRead.model_validate(r, from_attributes=True) for r in rows]
+
+
+@router.get("/vehicle-mdm/{vehicle_id}/catalogue-specification", response_model=CatalogueSpecificationRead)
+def get_catalogue_specification(
+    vehicle_id: uuid.UUID,
+    principal: Principal = Depends(require_read("vehicle_mdm")),
+    db: Session = Depends(get_db),
+):
+    """WP-6 PR-5 — degrades per capability against the CALLING tenant's
+    own contract (ADR-013's own per-dealer mirror means two dealers can
+    legitimately see two different degraded views of the same global
+    vehicle). Reads PR-4's already-synced mirror only, never a live
+    provider call — this is a fast, cacheable read, not a sync trigger.
+    """
+
+    vehicle_mdm = vehicle_mdm_service.get_vehicle_mdm_or_404(db, vehicle_id)
+    result = catalogue_entitlements.get_catalogue_specification(
+        db, tenant_id=principal.tenant_id, model_variant_id=vehicle_mdm.catalogue_variant_id
+    )
+    return CatalogueSpecificationRead(
+        has_catalogue_match=result.has_catalogue_match,
+        has_provider_connection=result.has_provider_connection,
+        packages_available=result.packages_available,
+        images_available=result.images_available,
+        dealer_can_upload_images=result.dealer_can_upload_images,
+        options=[CatalogueOptionRead.model_validate(o, from_attributes=True) for o in result.options],
+        colours=[CatalogueColourRead.model_validate(c, from_attributes=True) for c in result.colours],
+        tyre_specs=[CatalogueTyreSpecRead.model_validate(t, from_attributes=True) for t in result.tyre_specs],
+        images=[CatalogueImageRead.model_validate(i, from_attributes=True) for i in result.images],
+    )
 
 
 @router.get("/vehicle-mdm/{vehicle_id}/odometer-readings", response_model=list[VehicleOdometerReadingRead])

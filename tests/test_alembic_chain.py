@@ -11,7 +11,9 @@ from alembic.config import Config
 from alembic.script import ScriptDirectory
 
 _TRUNK_HEAD = "b36486886126"  # last revision before the PR-3 split
-_EXPECTED_BRANCH_LABELS = {"core", "platform", "customer", "vehicle", "sales", "inventory", "valuation"}
+_EXPECTED_BRANCH_LABELS = {
+    "core", "platform", "customer", "vehicle", "sales", "inventory", "valuation", "integration",
+}
 
 
 def _script_directory() -> ScriptDirectory:

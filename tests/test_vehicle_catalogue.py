@@ -18,6 +18,7 @@ docstring for the full story.
 """
 
 import importlib.util
+import uuid
 from pathlib import Path
 
 from app.vehicle.models.catalogue import Brand, ModelGroup, ModelVariant, TypeApproval, VariantOption
@@ -78,6 +79,7 @@ def test_variant_option_stores_raw_provider_description(db_session):
     db_session.flush()
 
     option = VariantOption(
+        tenant_id=uuid.uuid4(),  # WP-6 PR-4: tenant-partitioned (ADR-013) — see catalogue.py's own docstring
         model_variant_id=variant.id,
         option_code="MET_PAINT",
         description="Metallic paint",  # as delivered, never translated

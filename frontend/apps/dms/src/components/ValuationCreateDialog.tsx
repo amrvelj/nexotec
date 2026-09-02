@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { FormDialog, Picker, type PickerRow } from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
 import { CustomerCreateFlow } from './CustomerCreateFlow'
-import type { CustomerPage, CustomerRead, ValuationCreate, ValuationRead, ValuationSourceValue } from '../api/types'
+import type { CapabilityCheckRead, CustomerPage, CustomerRead, ValuationCreate, ValuationRead, ValuationSourceValue } from '../api/types'
 
 export interface ValuationCreateDialogProps {
   opened: boolean
@@ -66,6 +66,16 @@ export function ValuationCreateDialog({ opened, onClose, onCreated, supersedes }
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // WP-6 PR-5 — a tenant with no auto-i-dat Bewertung capability (no
+  // contract at all, or a declared restriction) still gets a fully usable
+  // dialog: `source` already defaults to "manual" regardless, this banner
+  // just explains why the provider option won't return a value.
+  const bewertungCapability = useQuery({
+    queryKey: ['capability-check', 'valuation'],
+    queryFn: () => api.get<CapabilityCheckRead>('/integrations/capabilities/valuation'),
+  })
+  const bewertungUnavailable = bewertungCapability.data?.granted === false
+
   const addDeduction = () => {
     if (!newDeductionLabel || newDeductionAmount === '') return
     setDeductions((prev) => [...prev, { label: newDeductionLabel, amount: String(newDeductionAmount) }])
@@ -119,6 +129,7 @@ export function ValuationCreateDialog({ opened, onClose, onCreated, supersedes }
         <Stack gap="md">
           {/* Confirmed live, verbatim. */}
           <Text size="sm" c="dimmed">{t('valuationCreate.banner')}</Text>
+          {bewertungUnavailable && <Alert color="yellow">{t('valuationCreate.noProviderCapability')}</Alert>}
           {error && <Alert color="red">{error}</Alert>}
 
           <Stack gap="xs">
@@ -160,10 +171,10 @@ export function ValuationCreateDialog({ opened, onClose, onCreated, supersedes }
             <Select
               label={t('valuationCreate.source')}
               data={[
-                { value: 'auto_i_dat', label: 'auto-i-dat' },
+                { value: 'auto_i_dat', label: 'auto-i-dat', disabled: bewertungUnavailable },
                 { value: 'manual', label: t('valuationCreate.sourceManual') },
               ]}
-              value={source}
+              value={bewertungUnavailable ? 'manual' : source}
               onChange={(v) => setSource((v as ValuationSourceValue) ?? 'manual')}
             />
             <NumberInput

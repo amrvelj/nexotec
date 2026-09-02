@@ -873,3 +873,105 @@ export interface ValuationPage {
   total: number
   totalIsEstimate: boolean
 }
+
+// WP-6 PR-5 — the generic degradation check any screen may call; no
+// connection detail, no secret, needs no manager flag.
+export interface CapabilityCheckRead {
+  capabilityCode: string
+  granted: boolean
+}
+
+// WP-6 — the integration registry (PR-1/2/3/7). A connection is an
+// entity like any other; its screen is not special.
+export interface IntegrationProviderRead {
+  id: string
+  providerCode: string
+  category: string
+  displayName: string
+  authType: string
+  requiredSecretSlots: string[]
+  capabilityCodes: string[]
+  docsUrl: string | null
+  supportsSandbox: boolean
+  version: number
+}
+
+export interface IntegrationProviderPage {
+  items: IntegrationProviderRead[]
+}
+
+export type ConnectionScopeValue = 'platform' | 'tenant'
+export type ConnectionEnvironmentValue = 'sandbox' | 'production'
+export type ConnectionStatusValue = 'connected' | 'not_configured' | 'error' | 'expired' | 'disabled'
+
+export interface IntegrationEntitlementRead {
+  capabilityCode: string
+  granted: boolean
+  source: string
+  checkedAt: string
+}
+
+export interface IntegrationSecretSlotRead {
+  slot: string
+  rotatedAt: string | null
+}
+
+export interface IntegrationConnectionRead {
+  id: string
+  providerId: string
+  providerCode: string
+  scope: ConnectionScopeValue
+  tenantId: string | null
+  displayName: string
+  environment: ConnectionEnvironmentValue
+  config: Record<string, unknown>
+  enabled: boolean
+  status: ConnectionStatusValue
+  lastVerifiedAt: string | null
+  lastError: string | null
+  expiresAt: string | null
+  rotatedAt: string | null
+  secretSlots: IntegrationSecretSlotRead[]
+  entitlements: IntegrationEntitlementRead[]
+  version: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface IntegrationConnectionPage {
+  items: IntegrationConnectionRead[]
+  nextCursor: string | null
+  total: number
+  totalIsEstimate: boolean
+}
+
+export interface IntegrationUsageRead {
+  callsThisPeriod: number
+  costUnitsThisPeriod: string | null
+  indicative: boolean
+}
+
+// Minimal projection — only what the Integrations platform view needs
+// for its own name lookup (join client-side, never a cross-context
+// reach-in on either backend). The full DealershipRead carries far more
+// (address, licensing, VAT rate...) that no page has needed client-side
+// yet.
+export interface DealershipRead {
+  id: string
+  legalName: string
+}
+
+export interface DealershipPage {
+  items: DealershipRead[]
+  nextCursor: string | null
+}
+
+export interface CatalogueSyncStatusRead {
+  tenantId: string
+  providerCode: string
+  lastFullSeedAt: string | null
+  lastDeltaCursor: string | null
+  lastSystemWatermarkDate: string | null
+  lastSystemCheckedAt: string | null
+  stale: boolean
+}
