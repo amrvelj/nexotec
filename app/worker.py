@@ -21,13 +21,16 @@ from app.core.observability import (
     record_consumer_lag_seconds,
     record_dead_letter_count,
     record_outbox_lag_seconds,
+    record_reconciliation_age_seconds,
 )
 from app.core.outbox import consumer_lag_seconds, dead_letter_count, oldest_pending_age_seconds
 from app.core.outbox_transport import InProcessTransport
 from app.core.outbox_worker import poll_once
+from app.core.reconciliation import seconds_since_last_reconciliation
 from app.db import SessionLocal
 from app.integration.daily_jobs import run_daily_integration_jobs
 from app.inventory.consumers import handle_sales_contract_confirmed_message
+from app.reconciliation_runner import run_all_daily
 from app.sales.consumers import handle_stock_item_purchased_message
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -91,20 +94,40 @@ def _heartbeat(db, transport: InProcessTransport) -> None:
         consumer_lags[consumer_name] = consumer_lag
         record_consumer_lag_seconds(consumer_name, consumer_lag)
 
+    reconciliation_age = seconds_since_last_reconciliation(db)
+    record_reconciliation_age_seconds(reconciliation_age)
+
     logger.info(
         "outbox heartbeat",
-        extra={"oldestPendingAgeSeconds": lag, "deadLetterCount": dead, "consumerLagSeconds": consumer_lags},
+        extra={
+            "oldestPendingAgeSeconds": lag,
+            "deadLetterCount": dead,
+            "consumerLagSeconds": consumer_lags,
+            "reconciliationAgeSeconds": reconciliation_age,
+        },
     )
 
 
 def register_daily_jobs() -> None:
-    """WP-6's one integration daily job: per-tenant catalogue delta sync
-    plus the A-12 sync-age alarm (PR-4), then ADR-024's retention purge
-    and ADR-025's expiry warnings/support digest (PR-6) — one composition
-    root (app/integration/daily_jobs.py), one registration.
+    """Two daily jobs, run in registration order once per day on this
+    process (app.core.daily_scheduler):
+
+    1. ``integration.daily_jobs`` — WP-6's per-tenant catalogue delta sync
+       plus the A-12 sync-age alarm (PR-4), then ADR-024's retention purge
+       and ADR-025's expiry warnings / support digest (PR-6). One
+       composition root (app/integration/daily_jobs.py), one registration.
+    2. ``reconciliation.run_all`` — the nightly cross-context reconciliation
+       (P-10, CLAUDE.md rule 10). There are no cross-context foreign keys
+       anywhere in this codebase, so the database cannot detect a dangling
+       reference; this job walking every context's ReferenceCheck list is
+       the entire compensating control. Registered after the sync so it
+       reconciles the state the catalogue delta just refreshed, not a
+       half-synced one; a finding is logged and swallowed (see
+       app.reconciliation_runner.run_all_daily), never re-run every cycle.
     """
 
     register_daily_job("integration.daily_jobs", run_daily_integration_jobs)
+    register_daily_job("reconciliation.run_all", run_all_daily)
 
 
 def run(*, max_iterations: int | None = None) -> None:
