@@ -10,6 +10,7 @@ import { CustomerCreateFlow } from '../components/CustomerCreateFlow'
 import { OfferAccessoriesAndOptions } from '../components/OfferAccessoriesAndOptions'
 import { OfferGenerateReviewModal } from '../components/OfferGenerateReviewModal'
 import { PriceBuildUp } from '../components/PriceBuildUp'
+import { useDebouncedNumberField } from '../hooks/useDebouncedNumberField'
 import { CustomerDetailContent } from './CustomerDetailPage'
 import { translatedStockConditionOptions } from '../stockOptions'
 import { formatCurrencyChf } from '../utils/format'
@@ -107,6 +108,27 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
     const updated = await api.patch<SalesOfferRead>(`/sales/offers/${id}`, patch, { 'If-Match': String(offer.version) })
     queryClient.setQueryData(['sales-offer', id], updated)
   }
+
+  // KAN-8 — same fix as PriceBuildUp.tsx's own fields, same root cause:
+  // a NumberInput bound straight to a per-keystroke autosave PATCH races
+  // itself and drops digits. Called unconditionally (rules of hooks),
+  // safe during the loading state below since `offerQuery.data` is
+  // simply undefined until it resolves — see the hook's own docstring.
+  const [leasingDownPayment, setLeasingDownPayment] = useDebouncedNumberField(
+    offerQuery.data?.leasingDownPayment != null ? Number(offerQuery.data.leasingDownPayment) : null,
+    offerQuery.data?.id,
+    (value) => patchOffer({ leasingDownPayment: value })
+  )
+  const [leasingTermMonths, setLeasingTermMonths] = useDebouncedNumberField(
+    offerQuery.data?.leasingTermMonths ?? null,
+    offerQuery.data?.id,
+    (value) => patchOffer({ leasingTermMonths: value })
+  )
+  const [leasingKmPerYear, setLeasingKmPerYear] = useDebouncedNumberField(
+    offerQuery.data?.leasingKmPerYear ?? null,
+    offerQuery.data?.id,
+    (value) => patchOffer({ leasingKmPerYear: value })
+  )
 
   const submitTradeIn = async (body: {
     vin: string | null
@@ -311,18 +333,18 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
           <Group grow>
             <NumberInput
               label={t('offerWorkspace.leasing.downPayment')}
-              value={offer.leasingDownPayment != null ? Number(offer.leasingDownPayment) : ''}
-              onChange={(v) => patchOffer({ leasingDownPayment: v === '' ? null : Number(v) })}
+              value={leasingDownPayment}
+              onChange={(v) => setLeasingDownPayment(v === '' ? '' : Number(v))}
             />
             <NumberInput
               label={t('offerWorkspace.leasing.termMonths')}
-              value={offer.leasingTermMonths ?? ''}
-              onChange={(v) => patchOffer({ leasingTermMonths: v === '' ? null : Number(v) })}
+              value={leasingTermMonths}
+              onChange={(v) => setLeasingTermMonths(v === '' ? '' : Number(v))}
             />
             <NumberInput
               label={t('offerWorkspace.leasing.kmPerYear')}
-              value={offer.leasingKmPerYear ?? ''}
-              onChange={(v) => patchOffer({ leasingKmPerYear: v === '' ? null : Number(v) })}
+              value={leasingKmPerYear}
+              onChange={(v) => setLeasingKmPerYear(v === '' ? '' : Number(v))}
             />
           </Group>
         </Stack>

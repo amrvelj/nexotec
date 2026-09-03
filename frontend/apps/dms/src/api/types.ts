@@ -665,6 +665,7 @@ export interface SalesOfferRead {
   tradeInPurchasePrice: string | null
   payable: string | null
   cancelledReason: string | null
+  copiedFromOfferId: string | null
   containers: OfferContainerState[]
   // WP-8 PR-8 — computed server-side (see app.sales.services.offer::
   // vehicle_condition), reads either the frozen stock snapshot's own

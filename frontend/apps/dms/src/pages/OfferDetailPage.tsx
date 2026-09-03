@@ -1,8 +1,8 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Alert, Loader } from '@mantine/core'
-import { Handshake } from 'lucide-react'
+import { Copy, Handshake } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { DetailHeader, useSetBreadcrumb } from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
@@ -51,12 +51,29 @@ export interface OfferDetailContentProps {
  */
 export function OfferDetailContent({ offerId: id, embedded = false }: OfferDetailContentProps) {
   const { t } = useTranslation()
+  const navigate = useNavigate()
+  const [copying, setCopying] = useState(false)
 
   const offerQuery = useQuery({
     queryKey: ['sales-offer', id],
     queryFn: () => api.get<SalesOfferRead>(`/sales/offers/${id}`),
     enabled: Boolean(id),
   })
+
+  // KAN-12 / PRD-Sales v2's own lifecycle table: "Pending Offer -> ...
+  // Copy Offer (new offerId, prefilled)". This detail shell had NO
+  // actions at all before this fix — Copy Offer is the one this ticket
+  // asked for; Generate Contract/Cancel Offer (the same lifecycle row)
+  // are a separate, unticketed gap, not built here.
+  const copyOffer = async () => {
+    setCopying(true)
+    try {
+      const copy = await api.post<SalesOfferRead>(`/sales/offers/${id}/copy`)
+      navigate(`/sales/offers/${copy.id}`)
+    } finally {
+      setCopying(false)
+    }
+  }
 
   useSetBreadcrumb(embedded ? null : [t('shell.nav.sales'), offerQuery.data?.offerNumber ?? id])
 
@@ -86,6 +103,12 @@ export function OfferDetailContent({ offerId: id, embedded = false }: OfferDetai
         title={offer.vehicleLabel ?? t('offerDetail.untitled')}
         businessKey={offer.offerNumber}
         badges={<></>}
+        primaryAction={{
+          label: t('offerDetail.actions.copy'),
+          icon: <Copy size={16} />,
+          onClick: () => void copyOffer(),
+          disabled: copying,
+        }}
       />
 
       <SalesDocumentsSection ownerType="offer" ownerId={id} />

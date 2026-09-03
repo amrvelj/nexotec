@@ -162,7 +162,13 @@
       "mergeInto": "Merge into another customer…",
       "failedToLoad": "Failed to load customer",
       "customerFallback": "Customer",
-      "copyCustomerNumber": "Copy customer number"
+      "copyCustomerNumber": "Copy customer number",
+      "edit": "Edit",
+      "newOffer": "New offer",
+      "newOfferDisabledReason": "This customer is marked do-not-contact.",
+      "linkVehicle": "Link vehicle…",
+      "setDoNotContact": "Set do-not-contact",
+      "removeDoNotContact": "Remove do-not-contact"
     },
     "errors": {
       "somethingWentWrong": "Something went wrong.",
@@ -297,6 +303,14 @@
       "system": "System",
       "user": "User {{id}}",
       "actionSuffix": "this customer"
+    },
+    "linkVehicle": {
+      "title": "Link vehicle",
+      "search": "Search vehicle",
+      "searchPlaceholder": "VIN, vehicle number, plate…",
+      "role": "Role",
+      "confirm": "Link",
+      "error": "The vehicle could not be linked."
     }
   },
   "signInError": {
@@ -741,6 +755,9 @@
     "errors": {
       "failedToLoad": "The offer could not be loaded.",
       "somethingWentWrong": "Something went wrong."
+    },
+    "actions": {
+      "copy": "Copy offer"
     }
   },
   "contractDetail": {

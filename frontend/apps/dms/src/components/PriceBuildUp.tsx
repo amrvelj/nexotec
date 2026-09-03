@@ -1,5 +1,6 @@
 import { Group, NumberInput, Select, Stack, Text } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
+import { useDebouncedNumberField } from '../hooks/useDebouncedNumberField'
 import { formatCurrencyChf } from '../utils/format'
 import type { SalesOfferRead } from '../api/types'
 
@@ -35,6 +36,20 @@ function row(label: string, value: string, opts?: { bold?: boolean; negative?: b
 export function PriceBuildUp({ offer, onDiscountChange, onManualBasePriceChange }: PriceBuildUpProps) {
   const { t } = useTranslation()
 
+  // KAN-8 — local, debounced state; see useDebouncedNumberField's own
+  // docstring for why a NumberInput bound straight to a per-keystroke
+  // autosave silently drops digits.
+  const [manualBasePrice, setManualBasePrice] = useDebouncedNumberField(
+    offer.manualBasePrice != null ? Number(offer.manualBasePrice) : null,
+    offer.id,
+    (value) => onManualBasePriceChange?.(value)
+  )
+  const [discountValue, setDiscountValue] = useDebouncedNumberField(
+    offer.discountValue != null ? Number(offer.discountValue) : null,
+    offer.id,
+    (value) => onDiscountChange({ discountType: offer.discountType, discountValue: value })
+  )
+
   if (offer.vehicleSnapshotFrozenAt == null && offer.vehicleSource !== 'manual') {
     return (
       <Text size="sm" c="dimmed">
@@ -48,8 +63,8 @@ export function PriceBuildUp({ offer, onDiscountChange, onManualBasePriceChange 
       {offer.vehicleSource === 'manual' ? (
         <NumberInput
           label={t('offerWorkspace.pricing.manualBasePrice')}
-          value={offer.manualBasePrice != null ? Number(offer.manualBasePrice) : ''}
-          onChange={(v) => onManualBasePriceChange?.(v === '' ? null : Number(v))}
+          value={manualBasePrice}
+          onChange={(v) => setManualBasePrice(v === '' ? '' : Number(v))}
         />
       ) : (
         row(t('offerWorkspace.pricing.basePrice'), offer.basePrice != null ? formatCurrencyChf(Number(offer.basePrice)) : '—')
@@ -69,13 +84,13 @@ export function PriceBuildUp({ offer, onDiscountChange, onManualBasePriceChange 
             { value: 'amount', label: t('offerWorkspace.pricing.discountAmount') },
           ]}
           value={offer.discountType ?? ''}
-          onChange={(v) => onDiscountChange({ discountType: v || null, discountValue: offer.discountValue != null ? Number(offer.discountValue) : null })}
+          onChange={(v) => onDiscountChange({ discountType: v || null, discountValue: discountValue === '' ? null : discountValue })}
         />
         <NumberInput
           label={t('offerWorkspace.pricing.discountValue')}
           disabled={!offer.discountType}
-          value={offer.discountValue != null ? Number(offer.discountValue) : ''}
-          onChange={(v) => onDiscountChange({ discountType: offer.discountType, discountValue: v === '' ? null : Number(v) })}
+          value={discountValue}
+          onChange={(v) => setDiscountValue(v === '' ? '' : Number(v))}
         />
       </Group>
       {offer.discountAmount != null &&

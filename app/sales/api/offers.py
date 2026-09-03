@@ -163,6 +163,23 @@ def finalize_offer(
     return _offer_read(offer)
 
 
+@router.post("/sales/offers/{offer_id}/copy", response_model=OfferRead, status_code=201)
+def copy_offer(
+    offer_id: uuid.UUID,
+    principal: Principal = Depends(require_write("sales_offers")),
+    db: Session = Depends(get_db),
+):
+    """KAN-12 / PRD-Sales v2 — "Copy Offer (new offerId, prefilled)". No
+    `If-Match` here: the source offer is only read, never mutated —
+    unlike finalize/cancel above, which change the object this endpoint
+    is called on.
+    """
+
+    source = offer_service.get_offer_or_404(db, principal.tenant_id, offer_id)
+    copy = offer_service.copy_offer(db, source=source, actor_id=principal.user_id)
+    return _offer_read(copy)
+
+
 @router.post("/sales/offers/{offer_id}/cancel", response_model=OfferRead)
 def cancel_offer(
     offer_id: uuid.UUID,
