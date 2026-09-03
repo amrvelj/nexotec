@@ -372,6 +372,11 @@
       "title": "No matching vehicles",
       "description": "No vehicle matches your search.",
       "action": "Clear search"
+    },
+    "selection": {
+      "count": "{{count}} selected",
+      "clear": "Clear selection",
+      "copyIds": "Copy IDs"
     }
   },
   "vehicleCreate": {
@@ -705,6 +710,11 @@
     },
     "rowActions": {
       "open": "Open"
+    },
+    "selection": {
+      "count": "{{count}} selected",
+      "clear": "Clear selection",
+      "copyIds": "Copy IDs"
     }
   },
   "salesEnums": {

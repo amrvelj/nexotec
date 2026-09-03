@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Button, Group, Stack, Title } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
 import { useInfiniteQuery } from '@tanstack/react-query'
-import { ExternalLink, Handshake } from 'lucide-react'
+import { Copy, ExternalLink, Handshake } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {
   ActionBar,
@@ -12,6 +12,7 @@ import {
   OverviewShellRegion,
   SalesStatusBadge,
   SalesTypeBadge,
+  SelectionBar,
   ViewsAndFilters,
   useSetBreadcrumb,
   type ColumnRegistryEntry,
@@ -91,6 +92,13 @@ export function SalesListPage() {
   }, [debouncedQuery])
 
   const [appliedViewId, setAppliedViewId] = useState<string | null>(null)
+  // KAN-6 — this grid had no selection at all, yet the reference
+  // prototype's own equivalent screen defined bulk actions on top of it
+  // (unreachable, since nothing could ever be selected). Same minimal,
+  // honest "copy IDs" action as Customers'/Vehicles' own precedent —
+  // proving the contract, not a real export feature this screen doesn't
+  // own — now genuinely reachable because rows are actually selectable.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const sortParam = sort.length > 0 ? sort.map((s) => `${s.field}:${s.direction}`).join(',') : undefined
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isError, refetch, isRefetching } =
@@ -230,59 +238,76 @@ export function SalesListPage() {
       <OverviewShellRegion
         header={<div />}
         actionBar={
-          <ActionBar
-            searchValue={query}
-            onSearchChange={setQuery}
-            searchPlaceholder={t('salesList.searchPlaceholder')}
-            density={density}
-            onDensityChange={setDensity}
-            onRefresh={() => refetch()}
-            refreshing={isRefetching}
-            filterSlot={
-              <ViewsAndFilters
-                currentViewName={currentViewName}
-                views={savedViews.views}
-                onApplyView={(view) => {
-                  setAppliedViewId(view.id)
-                  if (view.snapshot.sort) setSort(view.snapshot.sort)
-                  if (view.snapshot.columnLayout) gridPrefs.setColumnLayout(view.snapshot.columnLayout)
-                }}
-                onSaveCurrentAsView={(name) =>
-                  savedViews.saveView(name, { sort, columnLayout: gridPrefs.columnLayout ?? undefined, filters: [] })
-                }
-                onDeleteView={savedViews.deleteView}
-                onSetDefaultView={savedViews.setDefaultView}
-                fields={[]}
-                predicates={[]}
-                onPredicatesChange={() => {}}
-                onResetFilters={() => {}}
-              />
-            }
-            columnsSlot={
-              <ColumnConfigPanel
-                registry={columnRegistry}
-                layout={
-                  gridPrefs.columnLayout ?? {
-                    order: columnRegistry.map((c) => c.id),
-                    hidden: [],
-                    widths: {},
-                    pinnedLeft: [],
+          <>
+            <ActionBar
+              searchValue={query}
+              onSearchChange={setQuery}
+              searchPlaceholder={t('salesList.searchPlaceholder')}
+              density={density}
+              onDensityChange={setDensity}
+              onRefresh={() => refetch()}
+              refreshing={isRefetching}
+              filterSlot={
+                <ViewsAndFilters
+                  currentViewName={currentViewName}
+                  views={savedViews.views}
+                  onApplyView={(view) => {
+                    setAppliedViewId(view.id)
+                    if (view.snapshot.sort) setSort(view.snapshot.sort)
+                    if (view.snapshot.columnLayout) gridPrefs.setColumnLayout(view.snapshot.columnLayout)
+                  }}
+                  onSaveCurrentAsView={(name) =>
+                    savedViews.saveView(name, { sort, columnLayout: gridPrefs.columnLayout ?? undefined, filters: [] })
                   }
-                }
-                onLayoutChange={gridPrefs.setColumnLayout}
+                  onDeleteView={savedViews.deleteView}
+                  onSetDefaultView={savedViews.setDefaultView}
+                  fields={[]}
+                  predicates={[]}
+                  onPredicatesChange={() => {}}
+                  onResetFilters={() => {}}
+                />
+              }
+              columnsSlot={
+                <ColumnConfigPanel
+                  registry={columnRegistry}
+                  layout={
+                    gridPrefs.columnLayout ?? {
+                      order: columnRegistry.map((c) => c.id),
+                      hidden: [],
+                      widths: {},
+                      pinnedLeft: [],
+                    }
+                  }
+                  onLayoutChange={gridPrefs.setColumnLayout}
+                />
+              }
+              labels={{
+                density: {
+                  compact: t('common.density.compact'),
+                  default: t('common.density.default'),
+                  comfortable: t('common.density.comfortable'),
+                },
+                densityTooltip: (label) => t('common.density.tooltip', { label }),
+                densityAriaLabel: t('common.density.ariaLabel'),
+                refresh: t('common.refresh'),
+              }}
+            />
+            {selectedIds.size > 0 && (
+              <SelectionBar
+                count={selectedIds.size}
+                onClear={() => setSelectedIds(new Set())}
+                countLabel={(n) => t('salesList.selection.count', { count: n })}
+                clearLabel={t('salesList.selection.clear')}
+                actions={[
+                  {
+                    label: t('salesList.selection.copyIds'),
+                    icon: <Copy size={14} />,
+                    onClick: () => navigator.clipboard.writeText([...selectedIds].join(', ')),
+                  },
+                ]}
               />
-            }
-            labels={{
-              density: {
-                compact: t('common.density.compact'),
-                default: t('common.density.default'),
-                comfortable: t('common.density.comfortable'),
-              },
-              densityTooltip: (label) => t('common.density.tooltip', { label }),
-              densityAriaLabel: t('common.density.ariaLabel'),
-              refresh: t('common.refresh'),
-            }}
-          />
+            )}
+          </>
         }
       >
         <DataGrid<SalesDealRead>
@@ -294,6 +319,7 @@ export function SalesListPage() {
           density={density}
           rowHref={rowHref}
           linkComponent={Link}
+          selection={{ selectedIds, onSelectionChange: setSelectedIds }}
           loading={isLoading}
           refetching={isRefetching && !isLoading}
           fetchingNextPage={isFetchingNextPage}

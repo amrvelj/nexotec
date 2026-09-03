@@ -3,9 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { Alert, Badge, Button, Group, Stack, Title } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
 import { useQuery } from '@tanstack/react-query'
-import { AlertTriangle, Car, ExternalLink } from 'lucide-react'
+import { AlertTriangle, Car, Copy, ExternalLink } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { ActionBar, DataGrid, Picker, useSetBreadcrumb, type GridColumnDef, type SortSpec } from '@nexotec/ui-kit'
+import { ActionBar, DataGrid, Picker, SelectionBar, useSetBreadcrumb, type GridColumnDef, type SortSpec } from '@nexotec/ui-kit'
 import { useUiPreferencesContext } from '../hooks/UiPreferencesContext'
 import { api } from '../api/client'
 import { VehicleCreateDialog } from '../components/vehicle/VehicleCreateDialog'
@@ -32,6 +32,13 @@ export function VehiclesListPage() {
   const [debouncedQuery] = useDebouncedValue(query, 250)
   const [sort, setSort] = useState<SortSpec[]>([])
   const [createOpen, setCreateOpen] = useState(false)
+  // KAN-7 — every other list grid (Customers already shipped; Sales gets
+  // the same fix alongside this one) offers selection + a bulk action.
+  // Vehicles had neither, which reads as an omission rather than a
+  // decision. Same minimal, honest "copy IDs" action as Customers' own
+  // precedent — proving the contract, not a real export feature this
+  // screen doesn't own.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
   const searchQuery = useQuery({
     queryKey: [GRID_KEY, debouncedQuery],
@@ -100,6 +107,22 @@ export function VehiclesListPage() {
         }}
       />
 
+      {selectedIds.size > 0 && (
+        <SelectionBar
+          count={selectedIds.size}
+          onClear={() => setSelectedIds(new Set())}
+          countLabel={(n) => t('vehiclesList.selection.count', { count: n })}
+          clearLabel={t('vehiclesList.selection.clear')}
+          actions={[
+            {
+              label: t('vehiclesList.selection.copyIds'),
+              icon: <Copy size={14} />,
+              onClick: () => navigator.clipboard.writeText([...selectedIds].join(', ')),
+            },
+          ]}
+        />
+      )}
+
       {result?.resolved && (
         <Alert icon={<Car size={16} />} color="grape" title={t('vehiclesList.resolved.title')}>
           <Group justify="space-between">
@@ -144,6 +167,7 @@ export function VehiclesListPage() {
         onSortChange={setSort}
         density={density}
         rowHref={(row) => `/vehicles/${row.id}`}
+        selection={{ selectedIds, onSelectionChange: setSelectedIds }}
         loading={searchQuery.isLoading}
         fetchingNextPage={false}
         hasNextPage={false}
