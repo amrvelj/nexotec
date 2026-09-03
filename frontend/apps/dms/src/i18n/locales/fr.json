@@ -162,7 +162,13 @@
       "mergeInto": "Fusionner avec un autre client…",
       "failedToLoad": "Échec du chargement du client",
       "customerFallback": "Client",
-      "copyCustomerNumber": "Copier le numéro de client"
+      "copyCustomerNumber": "Copier le numéro de client",
+      "edit": "Modifier",
+      "newOffer": "Nouvelle offre",
+      "newOfferDisabledReason": "Ce client est marqué « ne pas contacter ».",
+      "linkVehicle": "Lier un véhicule…",
+      "setDoNotContact": "Marquer « ne pas contacter »",
+      "removeDoNotContact": "Retirer « ne pas contacter »"
     },
     "errors": {
       "somethingWentWrong": "Une erreur s'est produite.",
@@ -297,6 +303,14 @@
       "system": "Système",
       "user": "Utilisateur {{id}}",
       "actionSuffix": "ce client"
+    },
+    "linkVehicle": {
+      "title": "Lier un véhicule",
+      "search": "Rechercher un véhicule",
+      "searchPlaceholder": "VIN, numéro de véhicule, plaque…",
+      "role": "Rôle",
+      "confirm": "Lier",
+      "error": "Le véhicule n'a pas pu être lié."
     }
   },
   "signInError": {

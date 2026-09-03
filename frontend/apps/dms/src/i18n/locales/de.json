@@ -162,7 +162,13 @@
       "mergeInto": "In einen anderen Kunden zusammenführen…",
       "failedToLoad": "Kunde konnte nicht geladen werden",
       "customerFallback": "Kunde",
-      "copyCustomerNumber": "Kundennummer kopieren"
+      "copyCustomerNumber": "Kundennummer kopieren",
+      "edit": "Bearbeiten",
+      "newOffer": "Neue Offerte",
+      "newOfferDisabledReason": "Dieser Kunde ist als „nicht kontaktieren“ markiert.",
+      "linkVehicle": "Fahrzeug verknüpfen…",
+      "setDoNotContact": "Nicht kontaktieren setzen",
+      "removeDoNotContact": "Nicht kontaktieren aufheben"
     },
     "errors": {
       "somethingWentWrong": "Etwas ist schiefgelaufen.",
@@ -297,6 +303,14 @@
       "system": "System",
       "user": "Benutzer {{id}}",
       "actionSuffix": "diesen Kunden"
+    },
+    "linkVehicle": {
+      "title": "Fahrzeug verknüpfen",
+      "search": "Fahrzeug suchen",
+      "searchPlaceholder": "VIN, Fahrzeugnummer, Kennzeichen…",
+      "role": "Rolle",
+      "confirm": "Verknüpfen",
+      "error": "Das Fahrzeug konnte nicht verknüpft werden."
     }
   },
   "signInError": {

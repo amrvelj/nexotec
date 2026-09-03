@@ -162,7 +162,13 @@
       "mergeInto": "Unisci a un altro cliente…",
       "failedToLoad": "Impossibile caricare il cliente",
       "customerFallback": "Cliente",
-      "copyCustomerNumber": "Copia numero cliente"
+      "copyCustomerNumber": "Copia numero cliente",
+      "edit": "Modifica",
+      "newOffer": "Nuova offerta",
+      "newOfferDisabledReason": "Questo cliente è contrassegnato come «non contattare».",
+      "linkVehicle": "Collega veicolo…",
+      "setDoNotContact": "Imposta «non contattare»",
+      "removeDoNotContact": "Rimuovi «non contattare»"
     },
     "errors": {
       "somethingWentWrong": "Si è verificato un errore.",
@@ -297,6 +303,14 @@
       "system": "Sistema",
       "user": "Utente {{id}}",
       "actionSuffix": "questo cliente"
+    },
+    "linkVehicle": {
+      "title": "Collega veicolo",
+      "search": "Cerca veicolo",
+      "searchPlaceholder": "VIN, numero veicolo, targa…",
+      "role": "Ruolo",
+      "confirm": "Collega",
+      "error": "Non è stato possibile collegare il veicolo."
     }
   },
   "signInError": {

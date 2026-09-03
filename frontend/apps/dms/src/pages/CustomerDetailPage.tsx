@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Building2, Copy, GitMerge, Loader, User } from 'lucide-react'
+import { Building2, Car, Copy, GitMerge, Handshake, Loader, PhoneOff, Pencil, User } from 'lucide-react'
 import { Alert } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 import {
@@ -24,6 +24,7 @@ import { TransactionsTab } from '../components/customer-detail/TransactionsTab'
 import { HistoryTab } from '../components/customer-detail/HistoryTab'
 import { ExternalIdsTab } from '../components/customer-detail/ExternalIdsTab'
 import { MergeCustomerModal } from '../components/customer-detail/MergeCustomerModal'
+import { LinkVehicleModal } from '../components/customer-detail/LinkVehicleModal'
 import type {
   AuditEventPage,
   CustomerEmailPage,
@@ -37,6 +38,7 @@ import type {
   CustomerVehiclePage,
   EmailType,
   PhoneType,
+  SalesOfferRead,
   TransactionPage,
 } from '../api/types'
 
@@ -90,6 +92,8 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
   const queryClient = useQueryClient()
   const activeTab = embedded ? embeddedTab : (searchParams.get('tab') ?? DEFAULT_TAB)
   const [mergeModalOpen, setMergeModalOpen] = useState(false)
+  const [linkVehicleOpen, setLinkVehicleOpen] = useState(false)
+  const [creatingOffer, setCreatingOffer] = useState(false)
 
   const setActiveTab = (tab: string) => {
     if (embedded) {
@@ -159,6 +163,35 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
     // wrote to, so it needs its own invalidation rather than relying on
     // the customer cache update above.
     void queryClient.invalidateQueries({ queryKey: ['customer', id, 'history'] })
+  }
+
+  // KAN-14 / FR-22 — the alternative action. `POST /sales/offers` takes
+  // no body (a bare offer only becomes "for someone" via the same PATCH
+  // the workspace's own customer-picker already uses) — this is that
+  // same two-call sequence, just started from the customer's own side.
+  const createOfferForCustomer = async () => {
+    if (!id) return
+    setCreatingOffer(true)
+    try {
+      const created = await api.post<SalesOfferRead>('/sales/offers')
+      const updated = await api.patch<SalesOfferRead>(
+        `/sales/offers/${created.id}`,
+        { customerId: id },
+        { 'If-Match': String(created.version) }
+      )
+      navigate(`/sales/offers/${updated.id}`)
+    } finally {
+      setCreatingOffer(false)
+    }
+  }
+
+  // KAN-14 / FR-22 / FR-12 — toggles the existing `lifecycleStatus` field
+  // (already a plain PATCH-able field, `saveField` above) rather than a
+  // new endpoint. Reverts to `active` when unset — ADR-065's own
+  // distinction is that do-not-contact stops contact, never credit, and
+  // is always reversible, unlike merge/anonymise.
+  const toggleDoNotContact = () => {
+    void saveField({ lifecycleStatus: customer?.lifecycleStatus === 'do_not_contact' ? 'active' : 'do_not_contact' })
   }
 
   const reload = () => {
@@ -277,6 +310,27 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
             <LanguageBadge language={customer.language} />
           </>
         }
+        // KAN-14 / FR-22 (ADR-061) — primary "Edit" and alternative "New
+        // offer" were both entirely absent before this fix; only a
+        // 2-item overflow existed. "Edit" here switches to the Overview
+        // tab, where every field is already inline-editable (the PRD's
+        // own 2026-08-21 amendment: "editing one value on a record
+        // already on screen is inline") — there is no separate edit-mode
+        // concept anywhere else in this codebase to mirror instead. This
+        // is a judgment call, not a confirmed product decision; worth a
+        // second look if "Edit" is meant to do something more specific.
+        primaryAction={{
+          label: t('customerDetail.header.edit'),
+          icon: <Pencil size={16} />,
+          onClick: () => setActiveTab('overview'),
+        }}
+        alternativeAction={{
+          label: t('customerDetail.header.newOffer'),
+          icon: <Handshake size={16} />,
+          onClick: () => void createOfferForCustomer(),
+          disabled: creatingOffer || customer.lifecycleStatus === 'do_not_contact',
+          disabledReason: customer.lifecycleStatus === 'do_not_contact' ? t('customerDetail.header.newOfferDisabledReason') : undefined,
+        }}
         overflowActions={{
           exportPrint: [
             {
@@ -284,6 +338,24 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
               icon: <Copy size={16} />,
               onClick: () => navigator.clipboard.writeText(customer.customerNumber),
             },
+          ],
+          edit: [
+            {
+              label: t('customerDetail.header.linkVehicle'),
+              icon: <Car size={16} />,
+              onClick: () => setLinkVehicleOpen(true),
+            },
+            {
+              label:
+                customer.lifecycleStatus === 'do_not_contact'
+                  ? t('customerDetail.header.removeDoNotContact')
+                  : t('customerDetail.header.setDoNotContact'),
+              icon: <PhoneOff size={16} />,
+              onClick: toggleDoNotContact,
+            },
+            // FR-14 (anonymisation) is explicitly "Not implemented —
+            // required before production, not before the Phase B UI" in
+            // PRD-Customers' own text — deliberately not built here.
           ],
           destructive:
             customer.lifecycleStatus !== 'merged'
@@ -372,6 +444,15 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
           navigate(`/customers/${survivorId}`)
         }}
       />
+
+      {id && (
+        <LinkVehicleModal
+          opened={linkVehicleOpen}
+          onClose={() => setLinkVehicleOpen(false)}
+          customerId={id}
+          onLinked={() => void queryClient.invalidateQueries({ queryKey: ['customer', id, 'vehicles'] })}
+        />
+      )}
     </div>
   )
 }
