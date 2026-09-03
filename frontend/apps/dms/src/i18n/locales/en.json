@@ -755,6 +755,9 @@
     "errors": {
       "failedToLoad": "The offer could not be loaded.",
       "somethingWentWrong": "Something went wrong."
+    },
+    "actions": {
+      "copy": "Copy offer"
     }
   },
   "contractDetail": {

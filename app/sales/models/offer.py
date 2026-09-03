@@ -25,7 +25,7 @@ import uuid
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import DECIMAL, JSON, Integer, String
+from sqlalchemy import DECIMAL, JSON, ForeignKey, Integer, String
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -154,3 +154,12 @@ class SalesOffer(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMi
     payable: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
 
     cancelled_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+    # KAN-12 / PRD-Sales v2's own versioning section: "`Copy Offer` starts
+    # a new lineage at version 1 and records `copiedFromOfferId`." A real
+    # FK (unlike the cross-context GUID columns above) — this points at
+    # another row in this SAME table/context, so rule 2's "no cross-context
+    # FK" doesn't apply. Nullable: most offers are not copies.
+    copied_from_offer_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(), ForeignKey("sales_offer.id"), nullable=True
+    )

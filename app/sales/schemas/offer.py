@@ -105,6 +105,7 @@ class OfferRead(CamelModel):
     trade_in_purchase_price: Decimal | None
     payable: Decimal | None
     cancelled_reason: str | None
+    copied_from_offer_id: uuid.UUID | None
     containers: list[OfferContainerState] = Field(default_factory=list)
     # WP-8 PR-8 — computed in _offer_read, never a stored column: a stock
     # vehicle's condition lives only inside the frozen vehicle_snapshot

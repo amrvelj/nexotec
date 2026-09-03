@@ -199,6 +199,79 @@ def update_offer(
     return offer
 
 
+def copy_offer(db: Session, *, source: SalesOffer, actor_id: uuid.UUID | None) -> SalesOffer:
+    """KAN-12 / PRD-Sales v2: "Copy Offer (new offerId, prefilled)" — the
+    action available on a `pending`/`open` offer, so the seller can start
+    a fresh negotiation from an already-configured one without retyping
+    everything. Starts a genuinely new lineage: a fresh `id`, `version=1`
+    (via the model default), a fresh `offer_number`, `status=DRAFT` —
+    never the source offer's own status, since the whole point is a new
+    draft to edit. `copied_from_offer_id` records where it came from.
+
+    Copies the identifying/configuration fields only (customer, vehicle
+    reference, discount, trade-in reference, leasing) — never the
+    source's own frozen `vehicle_snapshot`/computed pricing verbatim.
+    Those are re-derived immediately below via the exact same
+    `freeze_vehicle_snapshot`/`apply_build_up` calls `update_offer` makes
+    on every touch, so a copy reflects current stock/pricing data, not a
+    stale echo of whatever the source happened to show when it was
+    generated.
+    """
+
+    offer = SalesOffer(
+        tenant_id=source.tenant_id,
+        offer_number=allocate_offer_number(db, source.tenant_id),
+        copied_from_offer_id=source.id,
+        customer_id=source.customer_id,
+        customer_label=source.customer_label,
+        customer_locality=source.customer_locality,
+        customer_language=source.customer_language,
+        customer_denorm_refreshed_at=source.customer_denorm_refreshed_at,
+        vehicle_source=source.vehicle_source,
+        stock_item_id=source.stock_item_id,
+        vehicle_label=source.vehicle_label,
+        manual_vehicle_condition=source.manual_vehicle_condition,
+        manual_base_price=source.manual_base_price,
+        discount_type=source.discount_type,
+        discount_value=source.discount_value,
+        trade_in_vehicle_id=source.trade_in_vehicle_id,
+        trade_in_label=source.trade_in_label,
+        trade_in_vin=source.trade_in_vin,
+        trade_in_valuation_id=source.trade_in_valuation_id,
+        trade_in_value=source.trade_in_value,
+        trade_in_purchase_price=source.trade_in_purchase_price,
+        leasing_down_payment=source.leasing_down_payment,
+        leasing_term_months=source.leasing_term_months,
+        leasing_km_per_year=source.leasing_km_per_year,
+        created_by=actor_id,
+        updated_by=actor_id,
+    )
+    db.add(offer)
+    db.flush()
+
+    if freeze_vehicle_snapshot(db, offer=offer):
+        db.flush()
+    if offer.vehicle_snapshot is not None:
+        apply_build_up(db, offer=offer)
+        db.flush()
+
+    publish(
+        db,
+        OutboxEvent(
+            event_type="sales.offer.created",
+            tenant_id=source.tenant_id,
+            producer=_EVENT_PRODUCER,
+            aggregate_type="sales_offer",
+            aggregate_id=offer.id,
+            payload={"offerNumber": offer.offer_number, "copiedFromOfferId": str(source.id)},
+        ),
+    )
+    upsert_deal_projection(db, offer=offer)
+    db.commit()
+    db.refresh(offer)
+    return offer
+
+
 def finalize_offer(db: Session, *, offer: SalesOffer, actor_id: uuid.UUID | None) -> SalesOffer:
     """WP-8 PR-8 (ADR-063) — the second half of "build, then review": the
     seller has already generated at least one document
