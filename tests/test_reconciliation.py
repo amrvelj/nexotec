@@ -152,13 +152,25 @@ def _create_transaction(db_session, dealer_id: str, user: dict, customer: dict, 
 # --- clean data: every job finds nothing ------------------------------------------
 
 
+def _create_vehicle_mdm(db_session) -> uuid.UUID:
+    """WP-5 PR-2: a VehicleParty now references vehicle_mdm, not the legacy
+    `vehicle` table — seeded via the service on the same db_session the
+    reconciliation job runs against, same pattern as _create_transaction."""
+
+    from app.vehicle.services.vehicle_mdm import create_or_get_vehicle_mdm
+
+    vehicle, _ = create_or_get_vehicle_mdm(db_session, vin=_random_vin(), catalogue_variant_id=None)
+    db_session.commit()
+    return vehicle.id
+
+
 def test_customer_reconciliation_clean_data_finds_zero_orphans(client, db_session):
     dealer_id = _create_dealer(client)
     customer = _create_customer(client, dealer_id)
-    vehicle = _create_vehicle(client, dealer_id)
+    vehicle_mdm_id = _create_vehicle_mdm(db_session)
     db_session.add(
         VehicleParty(
-            vehicle_id=uuid.UUID(vehicle["id"]), customer_id=uuid.UUID(customer["id"]), role=VehiclePartyRole.OWNER
+            vehicle_id=vehicle_mdm_id, customer_id=uuid.UUID(customer["id"]), role=VehiclePartyRole.OWNER
         )
     )
     db_session.commit()
@@ -219,7 +231,7 @@ def test_customer_reconciliation_detects_orphaned_vehicle_party(client, db_sessi
 
     alarm = exc_info.value
     assert alarm.run.orphans_found == 1
-    assert alarm.orphans[0].check_label == "vehicle_party.vehicle_id -> vehicle.id"
+    assert alarm.orphans[0].check_label == "vehicle_party.vehicle_id -> vehicle_mdm.id"
     assert alarm.orphans[0].dangling_value == dangling_vehicle_id
 
     # The finding survives the raise — persisted before the alarm, not lost with it.

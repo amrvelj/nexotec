@@ -16,18 +16,26 @@ from app.customer.models.customer import (
 )
 from app.customer.models.vehicle_party import VehicleParty
 from app.platform.public import DealerGroup
-from app.vehicle.public import Vehicle
+from app.vehicle.public import VehicleMdm
 
 CONTEXT = "customer"
 
 CHECKS = [
     ReferenceCheck(
-        label="vehicle_party.vehicle_id -> vehicle.id",
+        # WP-5 PR-2 (ADR-021): a VehicleParty links a customer to the
+        # physical vehicle, which in the three-layer model is VehicleMdm,
+        # not the legacy `vehicle` table this used to target. The legacy
+        # table is being retired after the one-way migration
+        # (scripts/migrate_legacy_vehicles.py); its seven-consecutive-
+        # clean-nights exit criterion is only meaningful once this check
+        # measures the surviving table. VehicleMdm comes through
+        # app.vehicle.public — the only door.
+        label="vehicle_party.vehicle_id -> vehicle_mdm.id",
         source_model=VehicleParty,
         source_row_id_column=VehicleParty.id,
         source_fk_column=VehicleParty.vehicle_id,
-        target_model=Vehicle,
-        target_id_column=Vehicle.id,
+        target_model=VehicleMdm,
+        target_id_column=VehicleMdm.id,
     ),
     ReferenceCheck(
         label="customer.group_id -> dealer_group.id",

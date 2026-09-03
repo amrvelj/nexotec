@@ -84,7 +84,7 @@ def test_an_orphan_alarms_and_the_worker_survives(db_session):
     # ever raised.
     orphans = db_session.query(ReconciliationOrphan).filter_by(context="customer").all()
     assert len(orphans) == 1
-    assert orphans[0].check_label == "vehicle_party.vehicle_id -> vehicle.id"
+    assert orphans[0].check_label == "vehicle_party.vehicle_id -> vehicle_mdm.id"
 
     # And it is not re-run the same day.
     assert run_due_daily_jobs(db_session, today=today) == []
