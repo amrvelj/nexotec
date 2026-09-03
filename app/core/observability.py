@@ -58,6 +58,11 @@ _consumer_lag_gauge = _alarm_meter.create_gauge(
     description="Time since a consumer last successfully processed an event.",
     unit="s",
 )
+_reconciliation_age_gauge = _alarm_meter.create_gauge(
+    "dms.reconciliation.age_seconds",
+    description="Time since the last completed nightly cross-context reconciliation run.",
+    unit="s",
+)
 
 
 def record_outbox_lag_seconds(seconds: float | None) -> None:
@@ -72,6 +77,15 @@ def record_dead_letter_count(count: int) -> None:
 def record_consumer_lag_seconds(consumer_name: str, seconds: float | None) -> None:
     if seconds is not None:
         _consumer_lag_gauge.set(seconds, attributes={"consumer_name": consumer_name})
+
+
+def record_reconciliation_age_seconds(seconds: float | None) -> None:
+    """None means reconciliation has never run — left unset so the alerting
+    rule fires on the gauge going stale / absent rather than on a sentinel
+    value someone has to remember the meaning of."""
+
+    if seconds is not None:
+        _reconciliation_age_gauge.set(seconds)
 
 _correlation_id: contextvars.ContextVar[str | None] = contextvars.ContextVar("correlation_id", default=None)
 _tenant_id: contextvars.ContextVar[str | None] = contextvars.ContextVar("tenant_id", default=None)

@@ -15,6 +15,8 @@ pre-existing gap noticed and fixed in passing while wiring in this
 package's own `app.integration.reconciliation`.
 """
 
+import logging
+
 from sqlalchemy.orm import Session
 
 from app.core.reconciliation import ReconciliationAlarm, ReconciliationRun
@@ -24,6 +26,8 @@ from app.inventory import reconciliation as inventory_reconciliation
 from app.sales import reconciliation as sales_reconciliation
 from app.valuation import reconciliation as valuation_reconciliation
 from app.vehicle import reconciliation as vehicle_reconciliation
+
+logger = logging.getLogger("app.reconciliation_runner")
 
 _JOBS = [
     customer_reconciliation,
@@ -70,4 +74,59 @@ def run_all(db: Session) -> list[ReconciliationRun]:
     return runs
 
 
-__all__ = ["MultiContextReconciliationAlarm", "ReconciliationAlarm", "run_all"]
+def run_all_daily(db: Session) -> None:
+    """The daily-job adapter for `run_all`, registered in
+    `app/worker.py::register_daily_jobs` and run once per day on the
+    outbox-worker process by `app.core.daily_scheduler`.
+
+    A `MultiContextReconciliationAlarm` is a **finding, not a failure**:
+    every orphan it carries is already persisted in `reconciliation_orphan`,
+    and `run_all` has already given every context its turn. Letting it
+    propagate would leave the job unmarked, so the scheduler would re-run
+    six contexts' worth of full-table anti-joins every poll cycle (1s)
+    until a human repairs a dangling id — the same trap
+    `app/integration/daily_jobs.py` avoids for a stuck tenant. So it is
+    logged at ERROR and swallowed here: the job is marked done for the
+    day, and the finding surfaces through the log line, the
+    `reconciliation_orphan` rows and `reconciliation_run.orphans_found`.
+
+    Any **other** exception propagates — a transient database error should
+    be retried on the next poll cycle, a finding should not.
+
+    A run that alarms on nothing but also ran zero checks is treated as
+    not-clean and logged at ERROR: a green signal with nothing behind it
+    is the exact failure mode the WP-6 sync-age alarm exists to make loud.
+    """
+
+    try:
+        runs = run_all(db)
+    except MultiContextReconciliationAlarm as alarm:
+        orphans_by_context = {a.run.context: len(a.orphans) for a in alarm.alarms}
+        logger.error(
+            "nightly reconciliation alarm: orphaned cross-context references found",
+            extra={
+                "orphansTotal": sum(orphans_by_context.values()),
+                "orphansByContext": orphans_by_context,
+            },
+        )
+        return
+
+    checks_run = sum(run.checks_run for run in runs)
+    if checks_run == 0:
+        logger.error(
+            "nightly reconciliation completed but executed zero checks",
+            extra={"contextsChecked": [run.context for run in runs]},
+        )
+        return
+
+    logger.info(
+        "nightly reconciliation clean",
+        extra={
+            "contextsChecked": [run.context for run in runs],
+            "checksRun": checks_run,
+            "orphansTotal": 0,
+        },
+    )
+
+
+__all__ = ["MultiContextReconciliationAlarm", "ReconciliationAlarm", "run_all", "run_all_daily"]

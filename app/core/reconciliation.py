@@ -110,3 +110,30 @@ def run_reconciliation(db: Session, *, context: str, checks: list[ReferenceCheck
     if orphans:
         raise ReconciliationAlarm(run, orphans)
     return run
+
+
+def seconds_since_last_reconciliation(db: Session) -> float | None:
+    """Age in seconds of the most recently finished ReconciliationRun, or
+    None if reconciliation has never completed a run.
+
+    The outbox worker's heartbeat records this as the
+    ``dms.reconciliation.age_seconds`` gauge (app.core.observability) so a
+    reconciliation job that has silently stopped running — or never
+    started — is continuously visible, exactly the way
+    ``dms.outbox.lag_seconds`` makes a stalled outbox visible. It works
+    because reconciliation_run persists one row per context per run even
+    when zero orphans are found (see ReconciliationRun's docstring): "ran
+    and clean" is a fresh row, "never ran" is no row at all.
+    """
+
+    newest = db.scalar(
+        select(ReconciliationRun.finished_at)
+        .where(ReconciliationRun.finished_at.is_not(None))
+        .order_by(ReconciliationRun.finished_at.desc())
+        .limit(1)
+    )
+    if newest is None:
+        return None
+    # ReconciliationRun.finished_at is UTCDateTime, so it round-trips
+    # UTC-aware on every backend — no tz normalisation needed here.
+    return (utcnow() - newest).total_seconds()
