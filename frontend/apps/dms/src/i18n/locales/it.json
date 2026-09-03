@@ -372,6 +372,11 @@
       "title": "Nessun veicolo corrispondente",
       "description": "Nessun veicolo corrisponde alla tua ricerca.",
       "action": "Cancella ricerca"
+    },
+    "selection": {
+      "count": "{{count}} selezionati",
+      "clear": "Deseleziona",
+      "copyIds": "Copia ID"
     }
   },
   "vehicleCreate": {
@@ -705,6 +710,11 @@
     },
     "rowActions": {
       "open": "Apri"
+    },
+    "selection": {
+      "count": "{{count}} selezionati",
+      "clear": "Deseleziona",
+      "copyIds": "Copia ID"
     }
   },
   "salesEnums": {

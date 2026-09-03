@@ -68,6 +68,13 @@ export function ViewsAndFilters({
   const [savingAs, setSavingAs] = useState(false);
   const [newViewName, setNewViewName] = useState("");
 
+  // KAN-1 — this must call through to a real persistence path, never just
+  // close the popover and toast. The interactive prototype's own
+  // equivalent handler (src/14-page.js) was a documented stub; every
+  // caller here wires `onSaveCurrentAsView` to `useSavedViews().saveView`,
+  // which persists via `usePersistedPreference` (a real, debounced
+  // `PUT /v1/me/preferences/views:<gridKey>`) — confirmed against the
+  // actual build, not the prototype, when this comment was added.
   const commitSave = () => {
     const name = newViewName.trim();
     if (!name) return;
@@ -125,6 +132,14 @@ export function ViewsAndFilters({
       </Popover.Target>
 
       <Popover.Dropdown style={{ padding: 0 }}>
+        {/* KAN-2 — this "Views" section (heading, list, "save as…") must
+            render unconditionally, never gated on `views.length`. The
+            prototype's own equivalent (src/14-page.js) hid the whole
+            section — including the save affordance — whenever a screen
+            shipped no preset views, which inverted ADR-058's own point:
+            saving the current state is how a view comes into existence,
+            so the user with no views yet is exactly the one who most
+            needs this control visible. Do not reintroduce that gate. */}
         <div style={{ padding: spacing.sm, borderBottom: `1px solid ${slate[2]}` }}>
           <SectionHeading>{L.viewsHeading}</SectionHeading>
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>

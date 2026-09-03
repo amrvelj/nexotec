@@ -372,6 +372,11 @@
       "title": "Keine passenden Fahrzeuge",
       "description": "Kein Fahrzeug entspricht Ihrer Suche.",
       "action": "Suche löschen"
+    },
+    "selection": {
+      "count": "{{count}} ausgewählt",
+      "clear": "Auswahl aufheben",
+      "copyIds": "IDs kopieren"
     }
   },
   "vehicleCreate": {
@@ -705,6 +710,11 @@
     },
     "rowActions": {
       "open": "Öffnen"
+    },
+    "selection": {
+      "count": "{{count}} ausgewählt",
+      "clear": "Auswahl aufheben",
+      "copyIds": "IDs kopieren"
     }
   },
   "salesEnums": {
