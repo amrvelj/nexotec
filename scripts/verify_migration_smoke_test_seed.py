@@ -15,6 +15,7 @@ Dealer; Customer.group_id, not tenant_id).
 Usage: DMS_DATABASE_URL=... DMS_TAX_ID_ENCRYPTION_KEY=... python scripts/verify_migration_smoke_test_seed.py
 """
 
+import datetime as dt
 import sys
 
 from sqlalchemy import select
@@ -25,6 +26,7 @@ from app.db import SessionLocal
 from app.platform.models.dealership import Dealership
 from app.platform.models.user import User
 from app.sales.models.transaction import Transaction
+from app.vehicle.models.catalogue import ModelVariant, TypeApproval, VariantTypeApproval
 from app.vehicle.models.vehicle import Vehicle, VehicleCustodyEvent
 
 _EXPECTED_ROW_COUNTS = {
@@ -39,7 +41,16 @@ _EXPECTED_ROW_COUNTS = {
     VehicleParty: 1,
     VehicleCustodyEvent: 1,
     Transaction: 1,
+    ModelVariant: 1,
+    TypeApproval: 1,
+    # The m2m migration's backfill (or the new-schema seed) makes exactly
+    # one link for the one seeded (variant, Typenschein) pair.
+    VariantTypeApproval: 1,
 }
+
+_CATALOGUE_TYPE_APPROVAL_NUMBER = "SMK001"
+_CATALOGUE_VARIANT_NAME = "Smoke Variant 1.4 TB"
+_CATALOGUE_FIRST_REGISTRATION_FROM = dt.date(2015, 6, 1)
 
 
 def fail(message: str) -> None:
@@ -78,6 +89,25 @@ def main() -> None:
             fail("seeded transaction not found")
         if transaction.customer_id != customer.id or transaction.vehicle_id != vehicle.id:
             fail("transaction's customer_id/vehicle_id no longer match the seeded rows")
+
+        approval = db.scalar(
+            select(TypeApproval).where(TypeApproval.type_approval_number == _CATALOGUE_TYPE_APPROVAL_NUMBER)
+        )
+        if approval is None:
+            fail("seeded type approval not found — number did not survive the m2m migration")
+        variant = db.scalar(select(ModelVariant).where(ModelVariant.name == _CATALOGUE_VARIANT_NAME))
+        if variant is None:
+            fail("seeded model variant not found")
+        links = approval.variant_links
+        if len(links) != 1:
+            fail(f"expected exactly one variant link on the seeded Typenschein, found {len(links)}")
+        if links[0].model_variant_id != variant.id:
+            fail("the backfilled link does not point at the seeded model variant")
+        if links[0].first_registration_from != _CATALOGUE_FIRST_REGISTRATION_FROM:
+            fail(
+                "first_registration_from did not migrate onto the link: "
+                f"{links[0].first_registration_from!r}"
+            )
 
         print("OK: all seeded rows survived the upgrade untouched.")
     finally:

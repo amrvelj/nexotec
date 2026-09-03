@@ -62,6 +62,7 @@ from app.customer.models.customer import (
 )
 from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.db import SessionLocal
+from app.vehicle.models.catalogue import Brand, ModelGroup, ModelVariant, TypeApproval, VariantTypeApproval
 from app.platform.models.dealership import DealerGroup, Dealership, DealershipStatus, FranchiseType
 from app.sales.models.transaction import Transaction, TransactionStatus, TransactionType
 from app.vehicle.models.vehicle import (
@@ -574,6 +575,137 @@ def _seed_customer_chain_old_schema(db: Session, *, dealer_id: uuid.UUID) -> uui
     return customer_id
 
 
+# Fixed, known values the companion verify script looks rows up by.
+_CATALOGUE_BRAND_CODE = "smoke-catalogue"
+_CATALOGUE_VARIANT_NAME = "Smoke Variant 1.4 TB"
+_CATALOGUE_TYPE_APPROVAL_NUMBER = "SMK001"
+_CATALOGUE_FIRST_REGISTRATION_FROM = dt.date(2015, 6, 1)
+
+
+def _seed_catalogue_type_approval(db: Session) -> None:
+    """A brand → model group → model variant → type approval chain, so the
+    type-approval-m2m migration (rev eb660a3213bd) exercises its backfill
+    against a populated `vehicle_type_approval` table.
+
+    Runs against two schema states, same as the dealer/customer chains
+    above: `migration-upgrade-from-previous` seeds against main's CURRENT
+    schema (one-to-one `vehicle_type_approval` with a `model_variant_id`
+    column and a UNIQUE `type_approval_number`), then this PR's migration
+    backfills the link table; `migration-smoke-test` seeds after this PR's
+    heads are already applied (the link table exists, `vehicle_type_approval`
+    has neither `model_variant_id` nor `first_registration_from`).
+    """
+
+    now = utcnow()
+    brand_id, group_id, variant_id = uuid7(), uuid7(), uuid7()
+
+    old_shape = "model_variant_id" in {
+        col["name"] for col in inspect(db.get_bind()).get_columns("vehicle_type_approval")
+    }
+
+    if old_shape:
+        db.execute(
+            sa.table(
+                "vehicle_brand",
+                sa.column("id", GUID()),
+                sa.column("code", sa.String()),
+                sa.column("display_name", sa.String()),
+                sa.column("version", sa.Integer()),
+                sa.column("created_at", sa.DateTime(timezone=True)),
+                sa.column("updated_at", sa.DateTime(timezone=True)),
+            )
+            .insert()
+            .values(
+                id=brand_id,
+                code=_CATALOGUE_BRAND_CODE,
+                display_name="Smoke Catalogue",
+                version=1,
+                created_at=now,
+                updated_at=now,
+            )
+        )
+        db.execute(
+            sa.table(
+                "vehicle_model_group",
+                sa.column("id", GUID()),
+                sa.column("brand_id", GUID()),
+                sa.column("name", sa.String()),
+                sa.column("created_at", sa.DateTime(timezone=True)),
+                sa.column("updated_at", sa.DateTime(timezone=True)),
+            )
+            .insert()
+            .values(id=group_id, brand_id=brand_id, name="Smoke Group", created_at=now, updated_at=now)
+        )
+        db.execute(
+            sa.table(
+                "vehicle_model_variant",
+                sa.column("id", GUID()),
+                sa.column("model_group_id", GUID()),
+                sa.column("name", sa.String()),
+                sa.column("model_year_from", sa.Integer()),
+                sa.column("version", sa.Integer()),
+                sa.column("created_at", sa.DateTime(timezone=True)),
+                sa.column("updated_at", sa.DateTime(timezone=True)),
+            )
+            .insert()
+            .values(
+                id=variant_id,
+                model_group_id=group_id,
+                name=_CATALOGUE_VARIANT_NAME,
+                model_year_from=2015,
+                version=1,
+                created_at=now,
+                updated_at=now,
+            )
+        )
+        db.execute(
+            sa.table(
+                "vehicle_type_approval",
+                sa.column("id", GUID()),
+                sa.column("model_variant_id", GUID()),
+                sa.column("type_approval_number", sa.String()),
+                sa.column("first_registration_from", sa.Date()),
+                sa.column("created_at", sa.DateTime(timezone=True)),
+                sa.column("updated_at", sa.DateTime(timezone=True)),
+            )
+            .insert()
+            .values(
+                id=uuid7(),
+                model_variant_id=variant_id,
+                type_approval_number=_CATALOGUE_TYPE_APPROVAL_NUMBER,
+                first_registration_from=_CATALOGUE_FIRST_REGISTRATION_FROM,
+                created_at=now,
+                updated_at=now,
+            )
+        )
+        db.flush()
+        return
+
+    brand = Brand(id=brand_id, code=_CATALOGUE_BRAND_CODE, display_name="Smoke Catalogue")
+    db.add(brand)
+    db.flush()
+    group = ModelGroup(id=group_id, brand_id=brand_id, name="Smoke Group")
+    db.add(group)
+    db.flush()
+    variant = ModelVariant(
+        id=variant_id, model_group_id=group_id, name=_CATALOGUE_VARIANT_NAME, model_year_from=2015
+    )
+    db.add(variant)
+    db.flush()
+    db.add(
+        TypeApproval(
+            type_approval_number=_CATALOGUE_TYPE_APPROVAL_NUMBER,
+            variant_links=[
+                VariantTypeApproval(
+                    model_variant_id=variant_id,
+                    first_registration_from=_CATALOGUE_FIRST_REGISTRATION_FROM,
+                )
+            ],
+        )
+    )
+    db.flush()
+
+
 def main() -> None:
     db = SessionLocal()
     try:
@@ -606,6 +738,8 @@ def main() -> None:
         db.flush()
 
         db.add(VehicleParty(vehicle_id=vehicle.id, customer_id=customer_id, role=VehiclePartyRole.OWNER))
+
+        _seed_catalogue_type_approval(db)
 
         transaction = Transaction(
             tenant_id=dealer_id,
