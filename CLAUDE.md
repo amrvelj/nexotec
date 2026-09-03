@@ -27,7 +27,7 @@ right.
 - Frontend lint: `npm run lint --prefix frontend` (oxlint) · typecheck + build: `npm run build --prefix frontend`
 - Import boundaries: `lint-imports`
 
-CI (`.github/workflows/test.yml`) runs eleven jobs: secret-scan, import-linter, ruff, mypy,
+CI (`.github/workflows/test.yml`) runs ten jobs: secret-scan, import-linter, ruff, mypy,
 frontend, docker-build, migration-smoke-test, migration-upgrade-from-previous,
 outbox-worker-smoke-test and pytest on Postgres. **Whether they block a merge is a
 branch-protection setting on `main`, not something this repo can prove.**
@@ -303,9 +303,12 @@ Three facts to carry into that work:
 
 - **auto-i-dat has no VIN decode.** VIN and Stammnummer resolve only against our own
   `vehicle-mdm`. Plate, Typenschein and Werkscode are the provider-backed inputs.
-- **`vehicle_type_approval.type_approval_number` is `unique=True` and must not be.** A
-  Typenschein is the number importers use to homologate similar vehicles — many variants share
-  one. Fix before any catalogue data is seeded.
+- **`vehicle_type_approval` is now a many-to-many with `vehicle_model_variant`** (through
+  `vehicle_model_variant_type_approval`); `type_approval_number` is indexed, not unique;
+  `first_registration_from` sits on the link. A Typenschein is the number importers use to
+  homologate similar vehicles — many variants share one, and one variant carries several.
+  *Fixed on branch `fix/type-approval-many-to-many`, migration `eb660a3213bd`; use
+  `find_model_variants_by_type_approval` for the 1..n reverse lookup.*
 - **`Antrieb` CodeGrpNr 112 is 2-Takt / 4-Takt / Kein Takt** — a stroke count, not a drive
   type. Groups 012 and 022 are Hinten/Vorne/Allrad. It needs its own `engine_cycle` list.
 

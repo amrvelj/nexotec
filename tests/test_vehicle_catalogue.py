@@ -17,11 +17,20 @@ needs (label_en) wasn't reliably present yet. See 6ba0a99ed5c4's
 docstring for the full story.
 """
 
+import datetime as dt
 import importlib.util
 import uuid
 from pathlib import Path
 
-from app.vehicle.models.catalogue import Brand, ModelGroup, ModelVariant, TypeApproval, VariantOption
+from app.vehicle.models.catalogue import (
+    Brand,
+    ModelGroup,
+    ModelVariant,
+    TypeApproval,
+    VariantOption,
+    VariantTypeApproval,
+)
+from app.vehicle.services.catalogue import find_model_variants_by_type_approval
 
 _MIGRATION_PATH = (
     Path(__file__).resolve().parent.parent
@@ -91,28 +100,110 @@ def test_variant_option_stores_raw_provider_description(db_session):
     assert option.description == "Metallic paint"
 
 
-def test_type_approval_number_is_unique_across_variants(db_session):
-    brand = Brand(code="test-brand-2", display_name="Test Brand 2")
+def _variants(db_session, *names: str) -> list[ModelVariant]:
+    brand = Brand(code=f"brand-{names[0].lower()}", display_name="Test Brand")
     db_session.add(brand)
     db_session.flush()
-    group = ModelGroup(brand_id=brand.id, name="Group 2")
+    group = ModelGroup(brand_id=brand.id, name=f"Group {names[0]}")
     db_session.add(group)
     db_session.flush()
-    variant_a = ModelVariant(model_group_id=group.id, name="Variant A", model_year_from=2018)
-    variant_b = ModelVariant(model_group_id=group.id, name="Variant B", model_year_from=2019)
-    db_session.add_all([variant_a, variant_b])
+    variants = [
+        ModelVariant(model_group_id=group.id, name=name, model_year_from=2018 + i)
+        for i, name in enumerate(names)
+    ]
+    db_session.add_all(variants)
+    db_session.flush()
+    return variants
+
+
+def test_two_variants_share_one_type_approval(db_session):
+    """One Typenschein names several variants — both insert, and a lookup
+    by that number returns both (FR-C-02 step 4: 1..n → picker)."""
+
+    variant_a, variant_b = _variants(db_session, "Share-A", "Share-B")
+
+    approval = TypeApproval(type_approval_number="1AB234")
+    approval.variant_links = [
+        VariantTypeApproval(model_variant_id=variant_a.id),
+        VariantTypeApproval(model_variant_id=variant_b.id),
+    ]
+    db_session.add(approval)
     db_session.flush()
 
-    db_session.add(TypeApproval(model_variant_id=variant_a.id, type_approval_number="1AB234"))
+    found = find_model_variants_by_type_approval(db_session, "1AB234")
+    assert {v.id for v in found} == {variant_a.id, variant_b.id}
+
+
+def test_one_variant_carries_two_type_approvals(db_session):
+    """auto-i-dat's `Typenscheine` returns a list for one FzKey — a variant
+    carries several Typenscheine, and each resolves back to it."""
+
+    (variant_c,) = _variants(db_session, "Multi-C")
+
+    db_session.add_all(
+        [
+            TypeApproval(
+                type_approval_number="4GH012",
+                variant_links=[VariantTypeApproval(model_variant_id=variant_c.id)],
+            ),
+            TypeApproval(
+                type_approval_number="5IJ345",
+                variant_links=[VariantTypeApproval(model_variant_id=variant_c.id)],
+            ),
+        ]
+    )
     db_session.flush()
+    db_session.refresh(variant_c)
 
-    db_session.add(TypeApproval(model_variant_id=variant_b.id, type_approval_number="1AB234"))
-    import pytest
-    from sqlalchemy.exc import IntegrityError
+    numbers = {link.type_approval.type_approval_number for link in variant_c.type_approval_links}
+    assert numbers == {"4GH012", "5IJ345"}
+    assert find_model_variants_by_type_approval(db_session, "4GH012") == [variant_c]
+    assert find_model_variants_by_type_approval(db_session, "5IJ345") == [variant_c]
 
-    with pytest.raises(IntegrityError):
-        db_session.flush()
-    db_session.rollback()
+
+def test_first_registration_from_lives_on_the_link(db_session):
+    """The date qualifies the (variant, Typenschein) pair, so two variants
+    sharing one Typenschein can hold different first-registration dates."""
+
+    variant_a, variant_b = _variants(db_session, "Date-A", "Date-B")
+
+    approval = TypeApproval(
+        type_approval_number="9ZZ999",
+        variant_links=[
+            VariantTypeApproval(model_variant_id=variant_a.id, first_registration_from=dt.date(2016, 3, 1)),
+            VariantTypeApproval(model_variant_id=variant_b.id, first_registration_from=dt.date(2019, 9, 1)),
+        ],
+    )
+    db_session.add(approval)
+    db_session.flush()
+    db_session.expire_all()
+
+    by_variant = {
+        link.model_variant_id: link.first_registration_from
+        for link in db_session.get(TypeApproval, approval.id).variant_links
+    }
+    assert by_variant == {variant_a.id: dt.date(2016, 3, 1), variant_b.id: dt.date(2019, 9, 1)}
+
+
+def test_type_approval_number_is_not_unique(db_session):
+    """Two separate `TypeApproval` rows may carry the same number — the
+    column is indexed but deliberately not unique (PRD-Vehicles: "Not
+    unique — many cars share one")."""
+
+    (variant,) = _variants(db_session, "NonUnique")
+    db_session.add_all(
+        [
+            TypeApproval(
+                type_approval_number="1AB234",
+                variant_links=[VariantTypeApproval(model_variant_id=variant.id)],
+            ),
+            TypeApproval(
+                type_approval_number="1AB234",
+                variant_links=[VariantTypeApproval(model_variant_id=variant.id)],
+            ),
+        ]
+    )
+    db_session.flush()  # no IntegrityError
 
 
 def test_migration_seed_data_has_four_labels_per_value():

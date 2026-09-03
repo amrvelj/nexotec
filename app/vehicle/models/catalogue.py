@@ -4,11 +4,11 @@ any physical car and independent of any provider.
 The single idea this file rests on: auto-i-dat's FzKey identifies a model
 variant such as "Alfa Romeo Giulietta 1.4 TB Progression", not a car.
 Thousands of physical vehicles (app.vehicle.models.vehicle_mdm.VehicleMdm,
-PR-3) share one ModelVariant row. None of these five tables reference a
+PR-3) share one ModelVariant row. None of these tables reference a
 physical vehicle at all — that link runs the other way, from
 VehicleMdm.catalogue_variant_id here.
 
-All five tables are global (no tenant_id) — a model variant is not owned by
+All tables here are global (no tenant_id) — a model variant is not owned by
 a dealer, same reasoning as the shipped Vehicle table's own "a VIN is
 decoded manufacturer data" note. No provider code appears in any column
 here: PR-2's provider_entity_ref/provider_code_map is the only place a raw
@@ -93,7 +93,9 @@ class ModelVariant(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
 
     model_group: Mapped[ModelGroup] = relationship(back_populates="variants")
     options: Mapped[list["VariantOption"]] = relationship(back_populates="model_variant")
-    type_approvals: Mapped[list["TypeApproval"]] = relationship(back_populates="model_variant")
+    type_approval_links: Mapped[list["VariantTypeApproval"]] = relationship(
+        back_populates="model_variant", cascade="all, delete-orphan"
+    )
 
 
 class VariantOption(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):
@@ -135,19 +137,65 @@ class VariantOption(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):
 
 
 class TypeApproval(PrimaryKeyMixin, TimestampMixin, Base):
-    """A Swiss type-approval (Typenschein) number and the variant it
-    homologates. `type_approval_number` is unique here — one approval
-    number identifies exactly one homologated type — unlike the same string
-    on the physical VehicleMdm record (PR-3), which many individual cars
-    share and which is copied there purely as a matching key (PR-6 rung 4).
+    """A Swiss type-approval (Typenschein) number.
+
+    **A Typenschein is not an identifier.** It is the number an importer
+    uses to homologate similar or identical vehicles, so one Typenschein
+    normally covers several model variants — and auto-i-dat's `Typenscheine`
+    Datenname returns a *list* of them for one FzKey, so one variant also
+    carries several Typenscheine. The link to `ModelVariant` is therefore
+    many-to-many, through `VariantTypeApproval`. PRD-Vehicles' identifier
+    table has always said "Not unique — many cars share one"; the original
+    `unique=True` here contradicted it and made FR-C-02's Typenschein
+    lookup (1..n → picker) impossible.
+
+    `type_approval_number` is indexed but **not unique**: a lookup by
+    Typenschein must always be prepared for 1..n rows. The catalogue-sync
+    upsert should reuse an existing row for a known number; the database
+    does not enforce it, which also keeps that upsert free of a
+    unique-constraint race.
+
+    The same string on the physical `VehicleMdm` record is a separate,
+    already-non-unique column copied there purely as a matching key
+    (matching waterfall rung 4).
     """
 
     __tablename__ = "vehicle_type_approval"
 
-    model_variant_id: Mapped[uuid.UUID] = mapped_column(
-        GUID(), ForeignKey("vehicle_model_variant.id"), nullable=False, index=True
+    type_approval_number: Mapped[str] = mapped_column(String(6), nullable=False, index=True)
+
+    variant_links: Mapped[list["VariantTypeApproval"]] = relationship(
+        back_populates="type_approval", cascade="all, delete-orphan"
     )
-    type_approval_number: Mapped[str] = mapped_column(String(6), nullable=False, unique=True, index=True)
+
+
+class VariantTypeApproval(TimestampMixin, Base):
+    """The many-to-many link between a `ModelVariant` and a `TypeApproval`.
+
+    `first_registration_from` lives **here, on the link**, not on
+    `TypeApproval`. The date qualifies "this variant is homologated under
+    this Typenschein from this first-registration date" — auto-i-dat
+    delivers it per (FzKey, Typenschein) pair, and it is exactly what
+    disambiguates one Typenschein across the several variants that share
+    it. On `TypeApproval` it would force every variant sharing a Typenschein
+    to one date — the information loss this m2m change exists to remove
+    (same principle as ADR-064).
+
+    Composite PK `(model_variant_id, type_approval_id)`: a variant links to
+    a given Typenschein at most once, and the leading column serves the
+    forward lookup; the explicit index on `type_approval_id` serves the
+    reverse one (FR-C-02 step 4).
+    """
+
+    __tablename__ = "vehicle_model_variant_type_approval"
+
+    model_variant_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), ForeignKey("vehicle_model_variant.id"), primary_key=True
+    )
+    type_approval_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), ForeignKey("vehicle_type_approval.id"), primary_key=True, index=True
+    )
     first_registration_from: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
 
-    model_variant: Mapped[ModelVariant] = relationship(back_populates="type_approvals")
+    model_variant: Mapped[ModelVariant] = relationship(back_populates="type_approval_links")
+    type_approval: Mapped[TypeApproval] = relationship(back_populates="variant_links")
