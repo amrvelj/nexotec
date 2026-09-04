@@ -17,7 +17,9 @@
       "reporting": "Reportistica",
       "compliance": "Conformità",
       "valuations": "Valutazioni",
-      "integrations": "Integrazioni"
+      "integrations": "Integrazioni",
+      "administration": "Amministrazione",
+      "referenceData": "Dati di riferimento"
     },
     "signOut": "Disconnetti",
     "globalSearch": {
@@ -1062,6 +1064,42 @@
       "client_secret": "Client secret",
       "refresh_token": "Refresh token",
       "certificate": "Certificato"
+    }
+  },
+  "referenceData": {
+    "breadcrumb": "Amministrazione",
+    "title": "Dati di riferimento",
+    "subtitle": "Dati di riferimento canonici e lacune di mappatura dei provider.",
+    "loadError": "Impossibile caricare i valori di riferimento.",
+    "empty": "Questo elenco non ha ancora valori.",
+    "emptyFiltered": "Nessun valore corrisponde al filtro.",
+    "required": "Campo obbligatorio",
+    "missingTip": "Questa riga non può essere salvata finché manca una lingua.",
+    "columns": {
+      "code": "Codice",
+      "status": "Stato"
+    },
+    "forbidden": {
+      "title": "Solo per platform_admin",
+      "body": "Solo un platform_admin può modificare questi dati. Contatta la tua amministrazione."
+    },
+    "list": {
+      "title": "Elenco di riferimento {{code}}",
+      "help": "Tutte e quattro le lingue sono obbligatorie. Una lingua mancante è un errore di riga — mai un ripiego silenzioso sul tedesco.",
+      "pickLabel": "Scegli un elenco",
+      "filterLabel": "Filtra per codice o etichetta",
+      "filterPlaceholder": "Filtra …"
+    },
+    "create": {
+      "trigger": "Nuovo valore",
+      "title": "Nuovo valore in {{code}}",
+      "submit": "Crea",
+      "allLanguagesHint": "Sono richieste tutte e quattro le lingue.",
+      "error": "Impossibile creare il valore."
+    },
+    "gaps": {
+      "title": "Lacune di mappatura",
+      "help": "Un codice provider sconosciuto non viene mai scartato in silenzio — arriva qui come attività."
     }
   }
 }

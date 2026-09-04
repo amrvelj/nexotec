@@ -2,12 +2,12 @@ import { useEffect, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
-  AlertTriangle,
   Car,
   CarFront,
   ChartColumn,
   Cog,
   Handshake,
+  Languages,
   LayoutDashboard,
   Plug,
   Receipt,
@@ -40,15 +40,9 @@ function buildNavGroups(t: (key: string) => string): NavGroupConfig[] {
         { label: t('shell.nav.customers'), href: '/customers', icon: Users, status: 'active' },
         { label: t('shell.nav.vehicles'), href: '/vehicles', icon: Car, status: 'active' },
         { label: t('shell.nav.partners'), href: '/partners', icon: Store, status: 'soon' },
-        // WP-5 PR-8 (FR-V-11) — platform_admin-only in practice (the API
-        // 403s for anyone else); not client-side role-gated in the nav
-        // itself, matching this project's "server-side enforcement, UI
-        // hiding is not a control" posture (Risk R-4).
-        { label: t('shell.nav.mappingGaps'), href: '/vehicle-mdm/mapping-gaps', icon: AlertTriangle, status: 'active' },
-        // WP-6 PR-7 — same placement/role-visibility convention as
-        // Mapping Gaps above: server-side enforcement (require_read/
-        // require_access_role) is the actual control, the nav item
-        // itself is never role-hidden (Risk R-4's own posture).
+        // WP-6 PR-7 — server-side enforcement (require_read /
+        // require_access_role) is the actual control; the nav item is
+        // never role-hidden (Risk R-4's own posture).
         { label: t('shell.nav.integrations'), href: '/integrations', icon: Plug, status: 'active' },
       ],
     },
@@ -74,6 +68,17 @@ function buildNavGroups(t: (key: string) => string): NavGroupConfig[] {
         { label: t('shell.nav.finance'), href: '/finance', icon: Receipt, status: 'soon' },
         { label: t('shell.nav.reporting'), href: '/reporting', icon: ChartColumn, status: 'soon' },
         { label: t('shell.nav.compliance'), href: '/compliance', icon: ShieldCheck, status: 'soon' },
+      ],
+    },
+    {
+      // The prototype's "Verwaltung / Administration" group. Reference-data
+      // admin is platform_admin-only in practice (the API 403s otherwise);
+      // the nav entry is never role-hidden — server-side enforcement is the
+      // control, not the UI (Risk R-4). The mapping-gap queue that used to
+      // have its own entry is now a section of this screen.
+      label: t('shell.nav.administration'),
+      items: [
+        { label: t('shell.nav.referenceData'), href: '/settings/reference', icon: Languages, status: 'active' },
       ],
     },
   ]
@@ -184,7 +189,18 @@ function DmsShellInner({ children }: { children: ReactNode }) {
   const { t, i18n } = useTranslation()
   const { sidebarCollapsed, uiLanguage, setSidebarCollapsed, setUiLanguage } = useUiPreferencesContext()
 
-  const activeHref = '/' + (location.pathname.split('/')[1] ?? '')
+  const navGroups = buildNavGroups(t)
+
+  // The sidebar matches `item.href` exactly. Most nav routes are a single
+  // segment (`/customers`, `/stock`), but a couple are two
+  // (`/settings/reference`) — take the longest nav href that prefixes the
+  // current path so those still light up.
+  const activeHref =
+    navGroups
+      .flatMap((group) => group.items)
+      .map((item) => item.href)
+      .filter((href) => location.pathname === href || location.pathname.startsWith(href + '/'))
+      .sort((a, b) => b.length - a.length)[0] ?? '/' + (location.pathname.split('/')[1] ?? '')
 
   // FR-13: "UI language is switchable at any time" and persisted on the
   // user profile — the preference already persists (useUiPreferences);
@@ -205,7 +221,7 @@ function DmsShellInner({ children }: { children: ReactNode }) {
         brand: <BrandMark />,
         productName: 'Nexotec',
         moduleSubtitle: 'DMS',
-        groups: buildNavGroups(t),
+        groups: navGroups,
         activeHref,
         user: { name: `${user.firstName} ${user.lastName}`, email: user.email, role: user.role },
         uiLanguage,
