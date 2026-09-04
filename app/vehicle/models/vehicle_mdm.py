@@ -108,6 +108,39 @@ class VehicleMdm(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
 
     catalogue_variant: Mapped[ModelVariant | None] = relationship()
 
+    # KAN-31: read-only display derivation for consumers outside this
+    # context (app.customer's VehiclePartySummary is the first — the
+    # customer-side Vehicles tab). ALL THREE ARE NONE WHEN
+    # catalogue_variant_id IS NULL, which is the common case today: every
+    # fixture in tests/test_customer_vehicle_party_allocation.py creates an
+    # unmatched vehicle, and nothing in this codebase resolves this join
+    # anywhere else yet (even the global-search vehicle results fall back
+    # to vehicleNumber as the label). A caller-side fallback is required,
+    # not optional. A full catalogue-aware summary is ADR-073's job, not
+    # this property's — this is deliberately the minimal, always-safe
+    # version.
+    @property
+    def make(self) -> str | None:
+        return self.catalogue_variant.model_group.brand.display_name if self.catalogue_variant else None
+
+    @property
+    def model(self) -> str | None:
+        return self.catalogue_variant.model_group.name if self.catalogue_variant else None
+
+    @property
+    def trim(self) -> str | None:
+        # ModelVariant has no dedicated trim column — .name IS the full
+        # trim-level descriptor (e.g. "1.4 TB Progression"), unlike the
+        # legacy Vehicle.trim this replaces.
+        return self.catalogue_variant.name if self.catalogue_variant else None
+
+    @property
+    def model_year(self) -> int | None:
+        # The vehicle's OWN registration year, never
+        # catalogue_variant.model_year_from/to — that pair is the RANGE of
+        # years the configuration was sold, not this specific car's year.
+        return self.first_registration_date.year if self.first_registration_date else None
+
     # WP-7 PR-8 (ADR-062) — added by inventory, the first and only
     # consumer; equipment is a fact about the car, so it lives here, never
     # on a publishing table. Three genuinely separate concepts, never

@@ -464,13 +464,28 @@ class VehiclePartySummary(CamelModel):
     `status`/`currentCustodianPartnerId` fields that don't apply to "which
     customer is which party" and would require re-implementing that
     redaction rule here for no reason.
+
+    KAN-31: make/model/modelYear are nullable, unlike the legacy Vehicle
+    table this replaced — vehicle_mdm carries them only via an OPTIONAL
+    catalogue_variant match (VehicleMdm.make/model/trim/model_year, the
+    read-only properties that do this resolution). An unmatched vehicle_mdm
+    row (catalogue_match_status=unverified) is the common case today, not
+    an edge case — every fixture in the existing allocation test suite
+    creates one. A full catalogue-aware summary (falling back through
+    provider data, say) is ADR-073's job; this is the minimal,
+    always-correct version. The frontend falls back to the vehicle number
+    when these are null.
     """
 
     id: uuid.UUID
     vin: str
-    make: str
-    model: str
-    model_year: int
+    # Always present (VehicleMdm.vehicle_number is non-nullable) — the
+    # fallback label when make/model are null, same convention the global
+    # vehicle search already uses (DmsShell.tsx).
+    vehicle_number: str
+    make: str | None
+    model: str | None
+    model_year: int | None
     trim: str | None
 
 

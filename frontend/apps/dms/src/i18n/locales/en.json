@@ -281,7 +281,8 @@
       "emptyState": {
         "title": "No vehicles",
         "description": "This customer has no vehicle relationships on file."
-      }
+      },
+      "addAction": "Link vehicle"
     },
     "transactions": {
       "columns": {

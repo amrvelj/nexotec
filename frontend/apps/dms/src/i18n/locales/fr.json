@@ -281,7 +281,8 @@
       "emptyState": {
         "title": "Aucun véhicule",
         "description": "Aucune relation avec un véhicule enregistrée pour ce client."
-      }
+      },
+      "addAction": "Lier un véhicule"
     },
     "transactions": {
       "columns": {

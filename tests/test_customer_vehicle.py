@@ -74,12 +74,22 @@ def _random_vin() -> str:
 
 
 def _create_vehicle(client, dealer_id: str, **overrides) -> dict:
+    """KAN-31: vehicle_mdm (WP-5's three-layer model), never the legacy
+    `vehicle` table this replaces — that table's writes are frozen
+    (ADR-021) in production, and the customer-vehicle-link endpoints under
+    test resolve against vehicle_mdm now. No catalogue_variant_id by
+    default (the unmatched case, and the common one — see
+    VehiclePartySummary's own docstring), so the resulting
+    VehiclePartySummary.make/model/trim are None; tests that need a
+    catalogue match ask for one explicitly.
+    """
+
     token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
-    payload = {"vin": _random_vin(), "make": "Honda", "model": "Accord", "modelYear": 2020, "condition": "used"}
+    payload = {"vin": _random_vin()}
     payload.update(overrides)
-    response = client.post("/v1/vehicles", json=payload, headers=_bearer(token))
-    assert response.status_code == 201, response.text
-    return response.json()
+    response = client.post("/v1/vehicle-mdm", json=payload, headers=_bearer(token))
+    assert response.status_code == 200, response.text
+    return response.json()["vehicle"]
 
 
 def _setup(client):
@@ -116,7 +126,13 @@ def test_create_assigns_role_and_embeds_vehicle_summary(client):
     assert body["effectiveFrom"] is not None
     assert body["effectiveTo"] is None
     assert body["vehicle"]["vin"] == vehicle["vin"]
-    assert body["vehicle"]["make"] == "Honda"
+    assert body["vehicle"]["vehicleNumber"] == vehicle["vehicleNumber"]
+    # No catalogue match (the default in this suite's fixtures) -> None,
+    # never guessed at. See test_summary_resolves_make_model_trim_from_a_
+    # matched_catalogue_variant below for the matched case.
+    assert body["vehicle"]["make"] is None
+    assert body["vehicle"]["model"] is None
+    assert body["vehicle"]["modelYear"] is None
 
     listed = client.get(f"/v1/customers/{customer['id']}/vehicles", headers=_bearer(token)).json()["items"]
     assert len(listed) == 1
@@ -139,14 +155,61 @@ def test_create_rejects_effective_to_before_effective_from(client):
     assert response.status_code == 400, response.text
 
 
-def test_create_duplicate_role_same_effective_from_conflicts(client):
+def test_create_reconfirming_the_same_holder_is_idempotent_not_a_conflict(client):
+    """KAN-31: this endpoint now delegates to allocate_vehicle_party
+    (ADR-064) for the ordinary create path, same function the vehicle-side
+    POST /vehicle-mdm/{id}/allocate calls. Its own documented semantics:
+    re-confirming the SAME customer for a role they already hold is a
+    no-op returning the existing open row — not a second row, and not a
+    conflict (the old raw-insert + UniqueConstraint mechanism this test
+    used to exercise made it a 409; that was an accident of the old
+    implementation, not a contract this endpoint ever documented).
+    """
+
     dealer_id, customer, vehicle = _setup(client)
     token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     payload = {"vehicleId": vehicle["id"], "role": "owner", "effectiveFrom": "2026-01-01T00:00:00Z"}
     first = client.post(f"/v1/customers/{customer['id']}/vehicles", json=payload, headers=_bearer(token))
     assert first.status_code == 201, first.text
     second = client.post(f"/v1/customers/{customer['id']}/vehicles", json=payload, headers=_bearer(token))
-    assert second.status_code == 409, second.text
+    assert second.status_code == 201, second.text
+    assert second.json()["id"] == first.json()["id"]
+
+    listed = client.get(f"/v1/customers/{customer['id']}/vehicles", headers=_bearer(token)).json()["items"]
+    assert len(listed) == 1  # never a second open row for the same (vehicle, role)
+
+
+def test_create_a_different_customer_claiming_the_same_role_closes_the_first(client):
+    """The ADR-064 property that actually matters: a DIFFERENT customer
+    taking over a role someone else holds closes the incumbent, it never
+    creates a second open row for the same (vehicle, role) — the seam
+    KAN-31 exists to make the customer-side create path honour, same as
+    the vehicle-side allocate endpoint already does.
+    """
+
+    dealer_id, first_customer, vehicle = _setup(client)
+    second_customer = _create_customer(client, dealer_id, email=f"second-{uuid.uuid4().hex[:8]}@example.ch")
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+
+    first = client.post(
+        f"/v1/customers/{first_customer['id']}/vehicles",
+        json={"vehicleId": vehicle["id"], "role": "owner"}, headers=_bearer(token),
+    )
+    assert first.status_code == 201, first.text
+
+    second = client.post(
+        f"/v1/customers/{second_customer['id']}/vehicles",
+        json={"vehicleId": vehicle["id"], "role": "owner"}, headers=_bearer(token),
+    )
+    assert second.status_code == 201, second.text
+
+    # Closed, not deleted (this endpoint's default view excludes closed
+    # rows; the service-level include_closed=True path is covered in
+    # test_customer_vehicle_party_allocation.py).
+    first_customer_open = client.get(
+        f"/v1/customers/{first_customer['id']}/vehicles", headers=_bearer(token)
+    ).json()["items"]
+    assert first_customer_open == []
 
 
 def test_create_with_nonexistent_vehicle_404s(client):
@@ -259,3 +322,65 @@ def test_customer_from_another_tenant_404s_not_403(client):
     other_tenant_token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(other_dealer_id))
     response = client.get(f"/v1/customers/{customer['id']}/vehicles", headers=_bearer(other_tenant_token))
     assert response.status_code == 404, response.text
+
+
+# --- crossing the seam (KAN-31) -----------------------------------------------------
+#
+# The two existing suites this ticket found used two different tables and
+# neither crossed the seam: tests/test_customer_vehicle.py (this file, pre-fix)
+# built its fixture via legacy POST /v1/vehicles; test_customer_vehicle_party_
+# allocation.py used create_vehicle_mdm directly, at the service layer, never
+# through this file's HTTP-level customer-side endpoint. This is the case that
+# 500'd before the fix: allocate from the VEHICLE side, read from the CUSTOMER
+# side, through the real HTTP endpoints both ways.
+
+
+def test_allocating_from_the_vehicle_side_is_readable_from_the_customer_side(client):
+    dealer_id, customer, vehicle = _setup(client)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+
+    allocate = client.post(
+        f"/v1/vehicle-mdm/{vehicle['id']}/allocate",
+        json={"customerId": customer["id"], "role": "keeper"},
+        headers=_bearer(token),
+    )
+    assert allocate.status_code == 201, allocate.text
+
+    response = client.get(f"/v1/customers/{customer['id']}/vehicles", headers=_bearer(token))
+    assert response.status_code == 200, response.text  # not the 500 this ticket fixes
+    items = response.json()["items"]
+    assert len(items) == 1
+    assert items[0]["role"] == "keeper"
+    assert items[0]["vehicle"]["vin"] == vehicle["vin"]
+
+
+def test_a_second_owner_allocated_from_the_vehicle_side_closes_the_first_read_from_the_customer_side(client):
+    """ADR-064's actual property, asserted across the seam: allocating a
+    second owner from the vehicle side closes the first — the customer
+    side must see the timeline, not just the current holder.
+    """
+
+    dealer_id, first_customer, vehicle = _setup(client)
+    second_customer = _create_customer(client, dealer_id, email=f"second-{uuid.uuid4().hex[:8]}@example.ch")
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+
+    client.post(
+        f"/v1/vehicle-mdm/{vehicle['id']}/allocate",
+        json={"customerId": first_customer["id"], "role": "owner"}, headers=_bearer(token),
+    )
+    second_allocate = client.post(
+        f"/v1/vehicle-mdm/{vehicle['id']}/allocate",
+        json={"customerId": second_customer["id"], "role": "owner"}, headers=_bearer(token),
+    )
+    assert second_allocate.status_code == 201, second_allocate.text
+
+    first_customer_vehicles = client.get(
+        f"/v1/customers/{first_customer['id']}/vehicles", headers=_bearer(token)
+    ).json()["items"]
+    assert first_customer_vehicles == []  # closed, not silently left as current
+
+    second_customer_vehicles = client.get(
+        f"/v1/customers/{second_customer['id']}/vehicles", headers=_bearer(token)
+    ).json()["items"]
+    assert len(second_customer_vehicles) == 1
+    assert second_customer_vehicles[0]["role"] == "owner"

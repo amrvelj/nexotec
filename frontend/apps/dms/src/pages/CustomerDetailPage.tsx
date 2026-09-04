@@ -395,6 +395,7 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
           loading={vehiclesQuery.isLoading}
           error={vehiclesQuery.isError ? t('customerDetail.errors.failedToLoadVehicles') : null}
           locale={locale}
+          onAdd={() => setLinkVehicleOpen(true)}
         />
       )}
       {activeTab === 'transactions' && (
