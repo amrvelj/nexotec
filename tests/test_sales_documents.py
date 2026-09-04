@@ -6,6 +6,8 @@ import uuid
 from decimal import Decimal
 
 from app.core.auth import AccessRole, create_access_token
+from app.core.i18n import SwissLanguage
+from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
 from app.sales.models.contract import ContractStatus, SalesContract
 from app.sales.models.document import DocumentOwnerType
 from app.sales.models.offer import OfferStatus, SalesOffer
@@ -66,12 +68,27 @@ def _dump_text(content) -> str:
     return content.model_dump_json()
 
 
+def _make_dealership(db_session, *, tenant_id: uuid.UUID | None = None, vat_rate: Decimal = Decimal("8.10")) -> Dealership:
+    group = DealerGroup(name="Garage AG group")
+    db_session.add(group)
+    db_session.flush()
+    dealership = Dealership(
+        id=tenant_id or uuid.uuid4(), dealer_group_id=group.id, legal_name="Garage AG", dealer_license_number="ZH-1",
+        license_state="ZH", franchise_type=FranchiseType.INDEPENDENT, address_street="Bahnhofstrasse",
+        address_house_number="1", address_postal_code="8001", address_locality="Zürich", address_canton="ZH",
+        phone="+41441234567", tax_id="CHE-123.456.789", vat_rate=vat_rate,
+    )
+    db_session.add(dealership)
+    db_session.commit()
+    return dealership
+
+
 # --- the structural guarantee (ADR-063) -------------------------------------
 
 
 def test_offer_document_never_carries_margin_cost_or_trade_in_purchase_price():
     offer = _bare_offer()
-    dumped = _dump_text(build_offer_content(offer))
+    dumped = _dump_text(build_offer_content(offer, language=SwissLanguage.DE, vat_rate=Decimal("8.10")))
     assert str(_MARGIN_SENTINEL) not in dumped
     assert str(_COST_BASIS_SENTINEL) not in dumped
     assert str(_TRADE_IN_PURCHASE_SENTINEL) not in dumped
@@ -81,7 +98,7 @@ def test_offer_document_never_carries_margin_cost_or_trade_in_purchase_price():
 
 def test_contract_document_never_carries_margin_or_trade_in_purchase_price():
     contract = _bare_contract()
-    dumped = _dump_text(build_contract_content(contract))
+    dumped = _dump_text(build_contract_content(contract, language=SwissLanguage.DE, vat_rate=Decimal("8.10")))
     assert str(_MARGIN_SENTINEL) not in dumped
     assert str(_TRADE_IN_PURCHASE_SENTINEL) not in dumped
     assert "margin" not in dumped.lower()
@@ -89,17 +106,140 @@ def test_contract_document_never_carries_margin_or_trade_in_purchase_price():
 
 def test_offer_document_does_carry_the_customer_facing_price_build_up():
     offer = _bare_offer()
-    dumped = _dump_text(build_offer_content(offer))
+    dumped = _dump_text(build_offer_content(offer, language=SwissLanguage.DE, vat_rate=Decimal("8.10")))
     assert str(offer.gross_price) in dumped
     assert offer.vehicle_label in dumped
     assert offer.customer_label in dumped
+
+
+# --- KAN-23: correspondence language and the single VAT line -----------------
+
+
+def _line_items_lines(content) -> list:
+    from app.platform.public import LineItemsBlock
+
+    for block in content.blocks:
+        if isinstance(block, LineItemsBlock):
+            return block.lines
+    raise AssertionError("no LineItemsBlock in this document")
+
+
+def test_offer_renders_in_all_four_languages_and_the_body_changes_not_just_the_letterhead():
+    """WP-6b's own exit criterion: a document rendered in each of the four
+    languages must differ in its BODY content, not only in whatever the
+    render layer adds around it (the letterhead is a separate concern,
+    tested in app/platform's own suite) — this asserts the
+    ContentDefinition build_offer_content itself produces, which is what
+    gets frozen.
+    """
+
+    offer = _bare_offer()
+    rendered = {
+        language: _dump_text(build_offer_content(offer, language=language, vat_rate=Decimal("8.10")))
+        for language in SwissLanguage
+    }
+    assert len(set(rendered.values())) == 4, "all four languages must produce distinct body content"
+
+    # Spot-check the actual label text, not just "the strings differ somehow".
+    assert "Grundpreis" in rendered[SwissLanguage.DE]
+    assert "Prix de base" in rendered[SwissLanguage.FR]
+    assert "Prezzo base" in rendered[SwissLanguage.IT]
+    assert "Base price" in rendered[SwissLanguage.EN]
+    # The greeting paragraph too — proves the body changed, not only the
+    # price-build-up labels.
+    assert "Wir freuen uns" in rendered[SwissLanguage.DE]
+    assert "plaisir de vous proposer" in rendered[SwissLanguage.FR]
+
+
+def test_a_french_offer_never_shows_a_german_label():
+    """Read for text-expansion too (French labels run longer than German
+    — "Total des options" vs "Optionen total", "Montant à payer" vs "Zu
+    bezahlen") — visually eyeballed against the rendered PDF layout
+    separately (WP-6b's own exit criterion); this asserts the content
+    itself carries no German leftover, which a layout review alone
+    wouldn't catch.
+    """
+
+    offer = _bare_offer()
+    content = build_offer_content(offer, language=SwissLanguage.FR, vat_rate=Decimal("8.10"))
+    dumped = _dump_text(content)
+    for german_label in ("Grundpreis", "Listenpreis", "Verkaufspreis", "Zu bezahlen", "Rabatt"):
+        assert german_label not in dumped
+
+
+def test_exactly_one_vat_line_on_the_offer():
+    """Asserted by COUNT, not by presence — a test that only checks a VAT
+    line exists would pass with three (the ticket's own warning).
+    """
+
+    offer = _bare_offer()
+    content = build_offer_content(offer, language=SwissLanguage.DE, vat_rate=Decimal("8.10"))
+    lines = _line_items_lines(content)
+    vat_lines = [line for line in lines if "MWST" in line.label or "VAT" in line.label]
+    assert len(vat_lines) == 1
+
+
+def test_exactly_one_vat_line_on_the_contract():
+    contract = _bare_contract()
+    content = build_contract_content(contract, language=SwissLanguage.DE, vat_rate=Decimal("8.10"))
+    lines = _line_items_lines(content)
+    vat_lines = [line for line in lines if "MWST" in line.label]
+    assert len(vat_lines) == 1
+
+
+def test_vat_line_is_the_reverse_inclusive_component_of_the_gross_price_not_an_addition():
+    """The gross price already INCLUDES VAT (ADR-057) — the VAT line is a
+    component OF payable, computed with the same reverse-inclusive
+    formula the fiktiver Vorsteuerabzug uses
+    (app.inventory.services.purchase::_compute_notional_input_tax), never
+    a separate charge added on top. Sign/magnitude asserted explicitly,
+    not just "a line exists."
+    """
+
+    offer = _bare_offer(payable=Decimal("36000.00"))
+    content = build_offer_content(offer, language=SwissLanguage.DE, vat_rate=Decimal("8.10"))
+    lines = _line_items_lines(content)
+    vat_line = next(line for line in lines if "MWST" in line.label)
+
+    expected = (Decimal("36000.00") * Decimal("8.10") / Decimal("108.10")).quantize(Decimal("0.01"))
+    assert vat_line.amount == expected
+    assert vat_line.amount > 0
+    assert vat_line.amount < offer.payable  # the VAT component is smaller than the price it's a component of
+    assert "8.1" in vat_line.label  # the rate itself is stated on the one line
+
+
+def test_no_vat_line_without_a_configured_rate():
+    """No guessed rate, ever — a dealership that hasn't configured
+    vat_rate gets no VAT line at all, not a wrong one.
+    """
+
+    offer = _bare_offer()
+    content = build_offer_content(offer, language=SwissLanguage.DE, vat_rate=None)
+    lines = _line_items_lines(content)
+    assert not any("MWST" in line.label for line in lines)
+
+
+def test_generated_document_freezes_the_dealerships_vat_rate_at_generation_time(db_session):
+    dealership = _make_dealership(db_session, vat_rate=Decimal("7.70"))
+    offer = _bare_offer(tenant_id=dealership.id)
+    db_session.add(offer)
+    db_session.commit()
+    db_session.refresh(offer)
+
+    document = generate_offer_document(db_session, offer=offer, actor_id=None)
+
+    lines = document.content_definition["blocks"]
+    line_items = next(b["lines"] for b in lines if b.get("kind") == "line_items")
+    vat_line = next(line for line in line_items if "MWST" in line["label"])
+    assert "7.7" in vat_line["label"]
 
 
 # --- append-only, version-on-generation-never-on-edit ------------------------
 
 
 def test_generate_offer_document_allocates_sequential_versions(db_session):
-    offer = _bare_offer()
+    dealership = _make_dealership(db_session)
+    offer = _bare_offer(tenant_id=dealership.id)
     db_session.add(offer)
     db_session.commit()
     db_session.refresh(offer)
@@ -121,7 +261,8 @@ def test_generate_offer_document_allocates_sequential_versions(db_session):
 
 
 def test_generate_contract_document_is_independent_of_the_offer_sequence(db_session):
-    offer = _bare_offer()
+    dealership = _make_dealership(db_session)
+    offer = _bare_offer(tenant_id=dealership.id)
     db_session.add(offer)
     db_session.commit()
     db_session.refresh(offer)
@@ -137,7 +278,8 @@ def test_generate_contract_document_is_independent_of_the_offer_sequence(db_sess
 
 
 def test_document_correspondence_language_defaults_when_customer_has_none(db_session):
-    offer = _bare_offer(customer_language=None)
+    dealership = _make_dealership(db_session)
+    offer = _bare_offer(tenant_id=dealership.id, customer_language=None)
     db_session.add(offer)
     db_session.commit()
     db_session.refresh(offer)
@@ -147,7 +289,8 @@ def test_document_correspondence_language_defaults_when_customer_has_none(db_ses
 
 
 def test_document_correspondence_language_follows_the_customer_never_the_actor(db_session):
-    offer = _bare_offer(customer_language="fr")
+    dealership = _make_dealership(db_session)
+    offer = _bare_offer(tenant_id=dealership.id, customer_language="fr")
     db_session.add(offer)
     db_session.commit()
     db_session.refresh(offer)
@@ -199,7 +342,8 @@ def _create_dealer(client) -> str:
 
 
 def test_generate_and_list_offer_documents_via_api(client):
-    token = _token(role=AccessRole.SALES)
+    dealer_id = _create_dealer(client)
+    token = _token(role=AccessRole.SALES, tenant_id=uuid.UUID(dealer_id))
     offer = client.post("/v1/sales/offers", headers=_bearer(token)).json()
 
     generated = client.post(f"/v1/sales/offers/{offer['id']}/documents", headers=_bearer(token))
@@ -212,8 +356,10 @@ def test_generate_and_list_offer_documents_via_api(client):
 
 
 def test_document_pdf_download_cross_tenant_is_404(client):
-    owner = _token(role=AccessRole.SALES)
-    other = _token(role=AccessRole.SALES)
+    owner_dealer_id = _create_dealer(client)
+    other_dealer_id = _create_dealer(client)
+    owner = _token(role=AccessRole.SALES, tenant_id=uuid.UUID(owner_dealer_id))
+    other = _token(role=AccessRole.SALES, tenant_id=uuid.UUID(other_dealer_id))
     offer = client.post("/v1/sales/offers", headers=_bearer(owner)).json()
     document = client.post(f"/v1/sales/offers/{offer['id']}/documents", headers=_bearer(owner)).json()
 
