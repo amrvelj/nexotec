@@ -92,7 +92,15 @@ export function status(code: number, body?: unknown) {
   return { __status: code, body }
 }
 
-export function installFakeBackend(routes: FakeRoute[]): FakeBackend {
+export interface FakeBackendOptions {
+  /** Handler for any request that matched no explicit route and no infra
+   * route — instead of a 404. Useful for a broad sweep (the i18n route
+   * walk) where the point is that every screen renders *something*
+   * translated, content / empty / error alike. */
+  fallback?: FakeHandler
+}
+
+export function installFakeBackend(routes: FakeRoute[], options: FakeBackendOptions = {}): FakeBackend {
   const all = [...routes, ...INFRA_ROUTES]
   const calls: RecordedCall[] = []
 
@@ -114,13 +122,15 @@ export function installFakeBackend(routes: FakeRoute[]): FakeBackend {
     calls.push({ method, path: pathname + url.search, pathname, params: url.searchParams, body })
 
     const route = all.find((r) => (r.method ?? 'GET').toUpperCase() === method && r.match.test(pathname))
+    const req: FakeRequest = { url, pathname, method, params: url.searchParams, body }
     if (!route) {
+      if (options.fallback) return toResponse(options.fallback(req))
       return new Response(
         JSON.stringify({ error: { code: 'not_found', message: `fakeBackend: no route for ${method} ${pathname}` } }),
         { status: 404, headers: JSON_HEADERS },
       )
     }
-    return toResponse(route.handler({ url, pathname, method, params: url.searchParams, body }))
+    return toResponse(route.handler(req))
   }
 
   vi.stubGlobal('fetch', vi.fn(fetchImpl))
