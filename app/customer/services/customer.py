@@ -145,6 +145,15 @@ def _group_scoped_or_404(db: Session, model: type, entity_id: uuid.UUID, group_i
 
 
 def _plain(value: Any) -> Any:
+    # A date/datetime has no ``.value`` and is not JSON-serialisable by the
+    # engine's default ``json.dumps`` — it would reach the audit writer raw
+    # and raise ``TypeError``. ``.isoformat()`` is already the convention for
+    # every hand-written audit payload in this file (the vehicle-party events
+    # below), so the generic path agrees with them rather than inventing a
+    # second one. ``dt.datetime`` is a ``dt.date`` subclass, so this covers
+    # both. Checked before the ``.value`` branch because neither type has it.
+    if isinstance(value, dt.date):
+        return value.isoformat()
     return value.value if hasattr(value, "value") else value
 
 
