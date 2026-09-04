@@ -37,6 +37,27 @@ def get_vehicle_mdm_or_404(db: Session, vehicle_id: uuid.UUID) -> VehicleMdm:
     return _get_vehicle_mdm_or_404(db, vehicle_id)
 
 
+def vehicle_mdm_catalogue_loader_option():
+    """A composable SQLAlchemy loader option (`Load.options()`-ready) that
+    eager-loads the chain `VehicleMdm.make/model/trim` resolve through
+    (`catalogue_variant -> model_group -> brand`), without exposing
+    `ModelVariant`/`ModelGroup`/`Brand` themselves across the boundary —
+    those stay vehicle-internal; only functions cross `app.vehicle.public`.
+
+    Caller shape: `joinedload(SomeParty.vehicle).options(vehicle_mdm_catalogue_loader_option())`
+    (KAN-31 — app.customer.services.customer::list_customer_vehicles is the
+    first caller, loading VehiclePartySummary's make/model/trim).
+    """
+
+    from sqlalchemy.orm import joinedload
+
+    from app.vehicle.models.catalogue import ModelGroup, ModelVariant
+
+    return joinedload(VehicleMdm.catalogue_variant).options(
+        joinedload(ModelVariant.model_group).options(joinedload(ModelGroup.brand))
+    )
+
+
 def create_or_get_vehicle_mdm(
     db: Session, *, vin: str, catalogue_variant_id: uuid.UUID | None = None
 ) -> tuple[VehicleMdm, bool]:
@@ -116,4 +137,5 @@ __all__ = [
     "match_vehicle",
     "run_daily_delta_for_tenant",
     "seed_tenant_catalogue",
+    "vehicle_mdm_catalogue_loader_option",
 ]

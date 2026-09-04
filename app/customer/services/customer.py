@@ -60,7 +60,7 @@ from app.customer.schemas.customer import (
     CustomerVehicleCreate,
     CustomerVehicleUpdate,
 )
-from app.vehicle.public import get_vehicle_or_404
+from app.vehicle.public import get_vehicle_mdm_or_404, vehicle_mdm_catalogue_loader_option
 
 _PII_FIELDS = {
     "salutation",
@@ -1577,7 +1577,11 @@ def list_customer_vehicles(
 
     stmt = (
         select(VehicleParty)
-        .options(joinedload(VehicleParty.vehicle))
+        # KAN-31: the chain VehiclePartySummary.make/model/trim resolve
+        # through (VehicleMdm.catalogue_variant.model_group.brand) —
+        # eager-loaded here, not per-row, since this list is always small
+        # (one customer's own vehicles) per this function's own docstring.
+        .options(joinedload(VehicleParty.vehicle).options(vehicle_mdm_catalogue_loader_option()))
         .where(VehicleParty.customer_id == customer_id)
         .order_by(VehicleParty.effective_from.desc())
     )
@@ -1604,7 +1608,7 @@ def list_vehicle_parties(
 def get_customer_vehicle_or_404(db: Session, *, customer_id: uuid.UUID, party_id: uuid.UUID) -> VehicleParty:
     party = db.scalar(
         select(VehicleParty)
-        .options(joinedload(VehicleParty.vehicle))
+        .options(joinedload(VehicleParty.vehicle).options(vehicle_mdm_catalogue_loader_option()))
         .where(VehicleParty.id == party_id, VehicleParty.customer_id == customer_id)
     )
     if party is None:
@@ -1615,10 +1619,42 @@ def get_customer_vehicle_or_404(db: Session, *, customer_id: uuid.UUID, party_id
 def create_customer_vehicle(
     db: Session, *, customer: Customer, data: CustomerVehicleCreate, actor_id: uuid.UUID
 ) -> VehicleParty:
-    vehicle = get_vehicle_or_404(db, data.vehicle_id)
+    """KAN-31: resolves against vehicle_mdm (WP-5's three-layer model),
+    never the legacy `vehicle` table — that table's writes are frozen
+    (ADR-021) and `LinkVehicleModal` has only ever POSTed a vehicle_mdm.id,
+    so resolving against the legacy table 404'd on every real attempt.
+    """
+
+    vehicle = get_vehicle_mdm_or_404(db, data.vehicle_id)
     effective_from = data.effective_from or utcnow()
     _validate_effective_range(effective_from, data.effective_to)
 
+    if data.effective_to is None:
+        # The ordinary path — every real caller (LinkVehicleModal never
+        # sends effectiveTo on create). Delegates to the SAME function the
+        # vehicle-side POST /vehicle-mdm/{id}/allocate calls, so both
+        # directions share one ADR-064 implementation: a new holder CLOSES
+        # whichever other open holder of this (vehicle, role) exists,
+        # never a second silent open row. Before this fix, this endpoint
+        # inserted a raw VehicleParty and never closed the incumbent —
+        # exactly what ADR-064 exists to prevent.
+        return allocate_vehicle_party(
+            db,
+            vehicle_id=vehicle.id,
+            customer_id=customer.id,
+            role=data.role,
+            group_id=customer.group_id,
+            actor_id=actor_id,
+            effective_from=effective_from,
+        )
+
+    # An explicit effectiveTo on CREATE is a backdated, already-closed row
+    # — allocate_vehicle_party has no such parameter (what it allocates is
+    # always open), and closing some OTHER open holder to make room for a
+    # row that is itself already closed would misrepresent the timeline.
+    # No real caller sends this today (kept for the documented API
+    # contract this schema field is part of — see
+    # test_create_rejects_effective_to_before_effective_from).
     party = VehicleParty(
         vehicle_id=vehicle.id,
         customer_id=customer.id,

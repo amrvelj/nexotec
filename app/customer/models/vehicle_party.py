@@ -7,9 +7,23 @@ DB-level ForeignKey any more. vehicle_id was a genuine cross-context FK
 (customer -> vehicle); customer_id is intra-context after the PR-1 move but
 was named explicitly in the PR-2 scope, so it's dropped too rather than
 re-litigated. Existence is checked at the application layer (see
-app.customer.services.customer, app.vehicle.public.get_vehicle_or_404);
+app.customer.services.customer, app.vehicle.public.get_vehicle_mdm_or_404);
 drift is caught by the nightly reconciliation job (app.customer.reconciliation),
 not by Postgres.
+
+KAN-31: vehicle_id resolves against `vehicle_mdm` (WP-5's three-layer
+model), never the legacy `vehicle` table this replaces — that table's
+writes are frozen (ADR-021) and its rows are provenance-only going
+forward. A row created before this fix could in principle still point at
+a legacy vehicle id; app.vehicle.reconciliation::
+count_unrepointed_legacy_vehicle_party_references (WP-5 PR-7) is the
+health check for exactly that, gating the old table's eventual
+retirement — it counts, it does not repoint. As of this fix there are
+zero VehicleParty rows in any environment (the customer-side create path
+404'd on every real attempt before now), so there is nothing to migrate;
+see scripts/repoint_legacy_vehicle_party_references.py for the
+defensive, idempotent repoint-or-report pass this ticket's own review
+asked for, kept as a safety net rather than a live migration.
 """
 
 import datetime as dt
@@ -23,7 +37,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.base import PrimaryKeyMixin, TimestampMixin, utcnow
 from app.core.types import GUID, UTCDateTime
 from app.db import Base
-from app.vehicle.public import Vehicle
+from app.vehicle.public import VehicleMdm
 
 
 class VehiclePartyRole(str, enum.Enum):
@@ -69,15 +83,17 @@ class VehicleParty(PrimaryKeyMixin, TimestampMixin, Base):
 
     # Read-only convenience for the customer-vehicle list response (D-12) —
     # the 360 view needs VIN/make/model, not just the FK. No back-populates
-    # on Vehicle: nothing needs "all parties for this vehicle" yet, and
+    # on VehicleMdm: nothing needs "all parties for this vehicle" yet, and
     # adding an unused collection relationship is guessing at a shape no
     # endpoint asks for.
     #
-    # Explicit primaryjoin + foreign(): vehicle_id has no DB-level FK as of
-    # PR-2, so SQLAlchemy can no longer infer the join condition on its own.
-    # Same eager-load behaviour as before (still driven by joinedload() at
-    # the call site) — this only replaces what the dropped FK used to tell it.
-    vehicle: Mapped[Vehicle] = relationship(
-        primaryjoin="foreign(VehicleParty.vehicle_id) == Vehicle.id",
+    # KAN-31: repointed from the legacy Vehicle table to VehicleMdm — see
+    # the module docstring. Explicit primaryjoin + foreign(): vehicle_id
+    # has no DB-level FK as of PR-2, so SQLAlchemy can no longer infer the
+    # join condition on its own. Same eager-load behaviour as before
+    # (still driven by joinedload() at the call site) — this only
+    # replaces what the dropped FK used to tell it.
+    vehicle: Mapped[VehicleMdm] = relationship(
+        primaryjoin="foreign(VehicleParty.vehicle_id) == VehicleMdm.id",
         viewonly=True,
     )
