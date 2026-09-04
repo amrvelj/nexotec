@@ -68,6 +68,27 @@ def _make_engine():
     )
 
 
+@pytest.fixture(autouse=True)
+def _legacy_vehicle_writes_open():
+    """WP-5 PR-3 flipped `legacy_vehicle_write_frozen` to True in
+    production. Most of the suite predates the three-layer model and uses
+    the legacy `POST /v1/vehicles` endpoint as a plain fixture surface —
+    keep it open by default so those tests still build their fixtures.
+    `tests/test_vehicle_legacy_freeze.py` clears the settings cache and
+    drives the flag itself, so it is unaffected by this.
+    """
+
+    from app.core.config import get_settings
+
+    settings = get_settings()
+    original = settings.legacy_vehicle_write_frozen
+    settings.legacy_vehicle_write_frozen = False
+    try:
+        yield
+    finally:
+        settings.legacy_vehicle_write_frozen = original
+
+
 @pytest.fixture()
 def engine():
     eng = _make_engine()
