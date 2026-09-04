@@ -55,6 +55,19 @@ def freeze_vehicle_snapshot(db: Session, *, offer: SalesOffer) -> bool:
             "condition": pricing["condition"],
             "basePrice": str(pricing["basePrice"]) if pricing["basePrice"] is not None else None,
             "purchasePrice": str(pricing["purchasePrice"]) if pricing["purchasePrice"] is not None else None,
+            # KAN-25: frozen alongside purchasePrice, same ADR-041 posture
+            # — a later purchase-booking correction never changes an
+            # already-generated offer. notionalInputTaxAmount stays a
+            # positive credit here too; build_up() is where it gets
+            # subtracted.
+            "landedCost": str(pricing["landedCost"]) if pricing["landedCost"] is not None else None,
+            "notionalInputTaxApplicable": pricing["notionalInputTaxApplicable"],
+            "notionalInputTaxRate": (
+                str(pricing["notionalInputTaxRate"]) if pricing["notionalInputTaxRate"] is not None else None
+            ),
+            "notionalInputTaxAmount": (
+                str(pricing["notionalInputTaxAmount"]) if pricing["notionalInputTaxAmount"] is not None else None
+            ),
         }
         for position, option in enumerate(pricing["options"]):
             db.add(
@@ -79,6 +92,10 @@ def freeze_vehicle_snapshot(db: Session, *, offer: SalesOffer) -> bool:
             "condition": offer.manual_vehicle_condition,
             "basePrice": None,
             "purchasePrice": None,
+            "landedCost": None,
+            "notionalInputTaxApplicable": None,
+            "notionalInputTaxRate": None,
+            "notionalInputTaxAmount": None,
         }
 
     offer.vehicle_snapshot = snapshot

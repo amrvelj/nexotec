@@ -85,6 +85,15 @@ def get_stock_item_pricing(db: Session, *, tenant_id: uuid.UUID, stock_item_id: 
     `purchasePrice` (Einstandspreis) is the one field here Sales must
     never surface to a customer — it feeds only the seller-only margin
     calculation (ADR-049/029), never the printed price build-up.
+
+    KAN-25: `landedCost` and the `notionalInputTax*` fields (Art. 28a
+    MWSTG) are read straight off the stock item, unchanged — no sign
+    applied here. `notionalInputTaxAmount` is stored as a positive CREDIT
+    amount; it is the caller's job (app.sales.services.pricing.build_up)
+    to subtract it from landed cost, never add it. Same visibility
+    posture as purchasePrice: entity-private (ADR-029), absent from
+    StockItemGroupRead (tests/test_inventory_group_listing.py asserts
+    this by name).
     """
 
     item = get_stock_item_or_404(db, tenant_id, stock_item_id)
@@ -94,6 +103,10 @@ def get_stock_item_pricing(db: Session, *, tenant_id: uuid.UUID, stock_item_id: 
         "listPrice": item.list_price,
         "effectivePrice": item.effective_price,
         "purchasePrice": item.purchase_price,
+        "landedCost": item.landed_cost,
+        "notionalInputTaxApplicable": item.notional_input_tax_applicable,
+        "notionalInputTaxRate": item.notional_input_tax_rate,
+        "notionalInputTaxAmount": item.notional_input_tax_amount,
         "condition": item.condition.value,
         "options": [{"code": o.code, "label": o.label, "price": o.price} for o in options],
     }
