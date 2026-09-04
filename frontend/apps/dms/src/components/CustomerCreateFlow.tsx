@@ -1,21 +1,29 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react'
 import { Checkbox, Group, Select, SimpleGrid, Stack, Text, TextInput, UnstyledButton } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
 import { useForm } from '@mantine/form'
+import { useTranslation } from 'react-i18next'
 import { Building2, User } from 'lucide-react'
-import { Wizard, purple, slate, type WizardStep } from '@nexotec/ui-kit'
+import {
+  RepeatableRowGroup,
+  Wizard,
+  purple,
+  slate,
+  type RepeatableRowPatch,
+  type RepeatableRowValue,
+  type WizardStep,
+} from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
 import {
-  EMAIL_TYPE_OPTIONS,
   LANGUAGE_OPTIONS,
   LEGAL_FORM_OPTIONS,
   LIFECYCLE_OPTIONS,
-  PHONE_TYPE_OPTIONS,
   PREFERRED_CHANNEL_OPTIONS,
   SALUTATION_OPTIONS,
   SOURCE_OPTIONS,
+  translatedEmailTypeOptions,
+  translatedPhoneTypeOptions,
 } from '../customerOptions'
-import { ContactListInput, type ContactRow } from './ContactListInput'
 import { DuplicateWarningPanel } from './DuplicateWarningPanel'
 import { PhoneInput } from './PhoneInput'
 import type {
@@ -108,10 +116,19 @@ export interface CustomerCreateFlowProps {
  * with zero duplication of the two-step logic, validation, or the API call.
  */
 export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType, onOpenExisting }: CustomerCreateFlowProps) {
+  const { t } = useTranslation()
   const [step, setStep] = useState(initialCustomerType ? 1 : 0)
   const [customerType, setCustomerType] = useState<CustomerType>(initialCustomerType ?? 'individual')
-  const [phones, setPhones] = useState<ContactRow<PhoneType>[]>([])
-  const [emails, setEmails] = useState<ContactRow<EmailType>[]>([{ key: crypto.randomUUID(), type: 'private', value: '', isPrimary: true }])
+  // § ADR-067 — the same RepeatableRowGroup the detail screen uses, in
+  // `create` mode: one primary per type-group, marking a new primary
+  // unmarks the old in the same interaction, consent on the row. Held in
+  // memory (no customer exists yet) and flushed with the create POST; the
+  // per-mutation callbacks are the local-array equivalent of the detail
+  // screen's PATCH calls.
+  const [phones, setPhones] = useState<RepeatableRowValue[]>([])
+  const [emails, setEmails] = useState<RepeatableRowValue[]>([])
+  const phoneRowGroup = useMemo(() => controlledRowGroup(setPhones), [])
+  const emailRowGroup = useMemo(() => controlledRowGroup(setEmails), [])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [duplicates, setDuplicates] = useState<CustomerDuplicateCandidate[]>([])
@@ -191,8 +208,12 @@ export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType, o
         language: values.language,
         salutation: values.salutation || null,
         preferredChannel: values.preferredChannel || null,
-        phones: phones.filter((p) => p.value).map((p) => ({ phoneType: p.type, phoneE164: p.value, isPrimary: p.isPrimary })),
-        emails: emails.filter((e) => e.value).map((e) => ({ emailType: e.type, emailAddress: e.value, isPrimary: e.isPrimary })),
+        phones: phones
+          .filter((p) => p.value.trim())
+          .map((p) => ({ phoneType: p.type as PhoneType, phoneE164: p.value, isPrimary: p.isPrimary, label: p.label ?? null })),
+        emails: emails
+          .filter((e) => e.value.trim())
+          .map((e) => ({ emailType: e.type as EmailType, emailAddress: e.value, isPrimary: e.isPrimary, label: e.label ?? null })),
         address: values.hasAddress
           ? { street: values.street, houseNumber: values.houseNumber, postalCode: values.postalCode, locality: values.locality, country: 'CH' }
           : null,
@@ -272,25 +293,29 @@ export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType, o
             </>
           )}
 
-          <ContactListInput
-            label="Phone numbers"
-            addLabel="Add phone"
-            typeOptions={PHONE_TYPE_OPTIONS}
+          <ContactRowGroup
+            label={t('customerDetail.contactPoints.phoneNumbers')}
+            addLabel={t('customerDetail.contactPoints.addPhone')}
+            typeOptions={translatedPhoneTypeOptions(t)}
+            defaultType="mobile"
             rows={phones}
-            onChange={setPhones}
-            newRowType="mobile"
-            renderValue={(value, onValueChange) => <PhoneInput label="Country" value={value} onChange={onValueChange} />}
-          />
-          <ContactListInput
-            label="Email addresses"
-            addLabel="Add email"
-            typeOptions={EMAIL_TYPE_OPTIONS}
-            rows={emails}
-            onChange={setEmails}
-            newRowType="private"
-            renderValue={(value, onValueChange) => (
-              <TextInput label="Address" type="email" value={value} onChange={(e) => onValueChange(e.currentTarget.value)} />
+            handlers={phoneRowGroup}
+            renderValueEditor={(value, onChange) => (
+              <PhoneInput label={t('customerDetail.phoneInput.country')} value={value} onChange={onChange} />
             )}
+            t={t}
+          />
+          <ContactRowGroup
+            label={t('customerDetail.contactPoints.emailAddresses')}
+            addLabel={t('customerDetail.contactPoints.addEmail')}
+            typeOptions={translatedEmailTypeOptions(t)}
+            defaultType="private"
+            rows={emails}
+            handlers={emailRowGroup}
+            renderValueEditor={(value, onChange, autoFocus) => (
+              <TextInput size="xs" type="email" value={value} autoFocus={autoFocus} onChange={(e) => onChange(e.currentTarget.value)} />
+            )}
+            t={t}
           />
 
           {onOpenExisting && <DuplicateWarningPanel candidates={duplicates} onOpenExisting={onOpenExisting} />}
@@ -315,6 +340,104 @@ export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType, o
         </Stack>
       )}
     </Wizard>
+  )
+}
+
+interface RowGroupHandlers {
+  onCreate: (draft: { type: string; value: string }) => Promise<void>
+  onUpdate: (id: string, patch: RepeatableRowPatch) => Promise<void>
+  onDelete: (id: string) => Promise<void>
+}
+
+/**
+ * The in-memory equivalent of the detail screen's PATCH-backed handlers:
+ * a freshly added row of a type with no current primary becomes the
+ * primary, and marking a new primary clears the previous one of the same
+ * type in the same update — the exact ADR-067 invariant
+ * `RepeatableRowGroup` delegates to its caller.
+ */
+function controlledRowGroup(setRows: Dispatch<SetStateAction<RepeatableRowValue[]>>): RowGroupHandlers {
+  return {
+    onCreate: async ({ type, value }) => {
+      setRows((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          type,
+          value,
+          label: null,
+          isPrimary: !prev.some((r) => r.type === type),
+          consentGranted: false,
+        },
+      ])
+    },
+    onUpdate: async (id, patch) => {
+      setRows((prev) => {
+        const merged = prev.map((r) => (r.id === id ? { ...r, ...patch } : r))
+        if (patch.isPrimary) {
+          const target = merged.find((r) => r.id === id)
+          if (target) return merged.map((r) => (r.type === target.type ? { ...r, isPrimary: r.id === id } : r))
+        }
+        return merged
+      })
+    },
+    onDelete: async (id) => {
+      setRows((prev) => prev.filter((r) => r.id !== id))
+    },
+  }
+}
+
+function ContactRowGroup({
+  label,
+  addLabel,
+  typeOptions,
+  defaultType,
+  rows,
+  handlers,
+  renderValueEditor,
+  t,
+}: {
+  label: string
+  addLabel: string
+  typeOptions: { value: string; label: string }[]
+  defaultType: string
+  rows: RepeatableRowValue[]
+  handlers: RowGroupHandlers
+  renderValueEditor: (value: string, onChange: (v: string) => void, autoFocus: boolean) => ReactNode
+  t: (key: string) => string
+}) {
+  return (
+    <Stack gap="xs">
+      <Text size="sm" fw={600}>
+        {label}
+      </Text>
+      <RepeatableRowGroup
+        mode="create"
+        label={label}
+        addLabel={addLabel}
+        formerLabel={t('customerDetail.contactPoints.former')}
+        typeOptions={typeOptions}
+        defaultType={defaultType}
+        rows={rows}
+        renderValueEditor={renderValueEditor}
+        onCreate={handlers.onCreate}
+        onUpdate={handlers.onUpdate}
+        onDelete={handlers.onDelete}
+        labels={{
+          primary: t('customerDetail.contactPoints.primary'),
+          noLongerValid: t('customerDetail.contactPoints.noLongerValid'),
+          doesNotWork: t('customerDetail.contactPoints.doesNotWork'),
+          doesNotWorkReasonPlaceholder: t('customerDetail.contactPoints.doesNotWorkReasonPlaceholder'),
+          delete: t('customerDetail.contactPoints.delete'),
+          consent: t('customerDetail.contactPoints.consent'),
+          save: t('customerDetail.contactPoints.save'),
+          cancel: t('customerDetail.contactPoints.cancel'),
+          confirm: t('customerDetail.contactPoints.confirm'),
+          none: t('customerDetail.contactPoints.none'),
+          labelFieldPlaceholder: t('customerDetail.contactPoints.labelPlaceholder'),
+        }}
+      />
+    </Stack>
   )
 }
 
