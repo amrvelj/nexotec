@@ -182,6 +182,7 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
       const body = {
         addressType: 'domicile' as const,
         addressStreet: draft.street,
+        addressLine2: draft.line2 || null,
         addressHouseNumber: draft.houseNumber,
         addressPostalCode: draft.postalCode,
         addressLocality: draft.locality,

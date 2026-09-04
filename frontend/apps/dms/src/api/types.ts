@@ -76,6 +76,9 @@ export interface CustomerAddressCreate {
   addressType: AddressType
   label?: string | null
   addressStreet: string
+  // FR-17 (2026-08-21) — c/o, department, building, PO box. Exempt from the
+  // all-or-nothing address rule; optional even when the rest is filled in.
+  addressLine2?: string | null
   addressHouseNumber: string
   addressPostalCode: string
   addressLocality: string
@@ -87,6 +90,7 @@ export interface CustomerAddressUpdate {
   addressType?: AddressType
   label?: string | null
   addressStreet?: string
+  addressLine2?: string | null
   addressHouseNumber?: string
   addressPostalCode?: string
   addressLocality?: string
@@ -105,6 +109,7 @@ export interface CustomerAddressRead {
   addressType: AddressType
   label: string | null
   addressStreet: string
+  addressLine2: string | null
   addressHouseNumber: string
   addressPostalCode: string
   addressLocality: string

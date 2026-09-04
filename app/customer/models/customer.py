@@ -421,7 +421,9 @@ class CustomerAddress(ContactChannelMixin, PrimaryKeyMixin, TimestampMixin, Base
     projections read from here, never from those columns.
 
     The all-or-nothing address rule (every sub-field supplied or none)
-    applies PER ROW now, not per customer.
+    applies PER ROW now, not per customer. address_line2 (FR-17) is exempt
+    from that rule — c/o, department, building or PO box, optional on a row
+    that otherwise has a complete address.
     """
 
     __tablename__ = "customer_address"
@@ -434,6 +436,7 @@ class CustomerAddress(ContactChannelMixin, PrimaryKeyMixin, TimestampMixin, Base
         SAEnum(AddressType, native_enum=False, length=16), nullable=False
     )
     address_street: Mapped[str] = mapped_column(String(200), nullable=False)
+    address_line2: Mapped[str | None] = mapped_column(String(200), nullable=True)
     address_house_number: Mapped[str] = mapped_column(String(20), nullable=False)
     address_postal_code: Mapped[str] = mapped_column(String(12), nullable=False)
     address_locality: Mapped[str] = mapped_column(String(100), nullable=False)

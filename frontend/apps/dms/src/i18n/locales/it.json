@@ -214,6 +214,7 @@
       "notSet": "Non impostato",
       "addressForm": {
         "street": "Via",
+        "line2": "Complemento indirizzo (c/o, casella postale, ...)",
         "houseNumber": "N.",
         "postalCode": "CAP",
         "locality": "Località",

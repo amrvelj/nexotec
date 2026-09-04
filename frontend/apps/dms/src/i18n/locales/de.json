@@ -214,6 +214,7 @@
       "notSet": "Nicht angegeben",
       "addressForm": {
         "street": "Strasse",
+        "line2": "Adresszusatz (c/o, Postfach, ...)",
         "houseNumber": "Hausnr.",
         "postalCode": "PLZ",
         "locality": "Ort",

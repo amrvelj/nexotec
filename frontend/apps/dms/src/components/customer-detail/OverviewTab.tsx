@@ -23,6 +23,7 @@ import type { CustomerEmailRead, CustomerPhoneRead, CustomerRead, CustomerUpdate
  * the API boundary (CustomerDetailPage's onSaveAddress), not here. */
 export interface AddressDraft {
   street: string
+  line2: string
   houseNumber: string
   postalCode: string
   locality: string
@@ -171,6 +172,7 @@ function AddressField({
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState({
     street: customer.address?.addressStreet ?? '',
+    line2: customer.address?.addressLine2 ?? '',
     houseNumber: customer.address?.addressHouseNumber ?? '',
     postalCode: customer.address?.addressPostalCode ?? '',
     locality: customer.address?.addressLocality ?? '',
@@ -181,6 +183,7 @@ function AddressField({
   const startEdit = () => {
     setDraft({
       street: customer.address?.addressStreet ?? '',
+      line2: customer.address?.addressLine2 ?? '',
       houseNumber: customer.address?.addressHouseNumber ?? '',
       postalCode: customer.address?.addressPostalCode ?? '',
       locality: customer.address?.addressLocality ?? '',
@@ -223,6 +226,12 @@ function AddressField({
               onChange={(e) => setDraft({ ...draft, houseNumber: e.currentTarget.value })}
             />
           </Group>
+          <TextInput
+            size="xs"
+            label={t('customerDetail.overview.addressForm.line2')}
+            value={draft.line2}
+            onChange={(e) => setDraft({ ...draft, line2: e.currentTarget.value })}
+          />
           <Group grow gap="xs">
             <TextInput
               size="xs"
@@ -266,7 +275,9 @@ function AddressField({
   }
 
   const addr = customer.address
-  const line = addr ? `${addr.addressStreet} ${addr.addressHouseNumber}, ${addr.addressPostalCode} ${addr.addressLocality}` : ''
+  const line = addr
+    ? `${addr.addressLine2 ? `${addr.addressLine2}, ` : ''}${addr.addressStreet} ${addr.addressHouseNumber}, ${addr.addressPostalCode} ${addr.addressLocality}`
+    : ''
   return (
     <KeyValueRow label={t('customerDetail.overview.fields.address')}>
       <span onClick={startEdit} style={{ cursor: 'pointer', fontStyle: addr ? undefined : 'italic', color: addr ? undefined : slate[3] }}>
