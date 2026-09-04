@@ -85,12 +85,18 @@ function DateField({
         onSave={(raw) => onSaveField({ [patchKey]: raw || null } as Partial<CustomerUpdateInput>)}
         isConflict={isConflict}
         onReload={onReload}
-        renderEditor={({ value: v, onCommit, autoFocus }) => (
+        renderEditor={({ value: v, onChange, onKeyDown, onBlur, autoFocus }) => (
           <input
             type="date"
-            defaultValue={v}
+            value={v}
             autoFocus={autoFocus}
-            onChange={(e) => onCommit(e.currentTarget.value)}
+            // Stage into the draft and let Enter / blur commit (same as the
+            // default text editor). Committing on every change event fired a
+            // mid-typing save with '' -> birthDate: null, and one save per
+            // intermediate valid date while the user was still picking.
+            onChange={(e) => onChange(e.currentTarget.value)}
+            onKeyDown={onKeyDown}
+            onBlur={onBlur}
             style={{ font: 'inherit', border: `1px solid ${slate[3]}`, borderRadius: radius.sm, padding: '2px 6px' }}
           />
         )}

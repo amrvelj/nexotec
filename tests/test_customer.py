@@ -593,6 +593,51 @@ def test_pii_changes_are_audit_logged(client):
     assert update_event["after"]["last_name"] == "Neuname"
 
 
+def test_create_customer_with_birth_date_is_audit_logged(client):
+    """KAN-29: a birth_date is the only date in _AUDITED_FIELDS. Before the
+    fix it reached json.dumps raw and the write 500'd with no JSON body.
+    """
+
+    dealer_id = _create_dealer(client)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+
+    response = client.post(
+        "/v1/customers",
+        json=_customer_payload(birthDate="1990-01-02", email="birthdate-create@example.ch"),
+        headers=_bearer(token),
+    )
+    assert response.status_code == 201, response.text
+    created = response.json()
+    assert created["birthDate"] == "1990-01-02"
+
+    log = client.get(f"/v1/customers/{created['id']}/audit-log", headers=_bearer(token))
+    create_event = next(item for item in log.json()["items"] if item["action"] == "create")
+    assert create_event["after"]["birth_date"] == "1990-01-02"
+
+
+def test_patch_birth_date_round_trips_in_audit_log(client):
+    """KAN-29: the reporter only hit the edit path. before/after must
+    round-trip the ISO string, not a raw date object.
+    """
+
+    dealer_id = _create_dealer(client)
+    customer = _create_customer(client, dealer_id, email="birthdate-patch@example.ch")
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+
+    response = client.patch(
+        f"/v1/customers/{customer['id']}",
+        json={"birthDate": "1985-06-15"},
+        headers={**_bearer(token), "If-Match": "1"},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["birthDate"] == "1985-06-15"
+
+    log = client.get(f"/v1/customers/{customer['id']}/audit-log", headers=_bearer(token))
+    update_event = next(item for item in log.json()["items"] if item["action"] == "update")
+    assert update_event["before"]["birth_date"] is None
+    assert update_event["after"]["birth_date"] == "1985-06-15"
+
+
 def test_merge_logs_both_source_ids(client):
     dealer_id = _create_dealer(client)
     survivor = _create_customer(client, dealer_id, email="survivor4@example.ch")
