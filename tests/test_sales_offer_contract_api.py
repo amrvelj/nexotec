@@ -87,17 +87,50 @@ def test_create_contract_from_offer(client):
 
 
 def test_deal_grid_shows_one_row_per_lineage(client):
+    """A draft offer converting to a contract updates ONE row in place —
+    never leaves a second, stale offer row behind. The second, still-draft
+    offer created here is deliberately excluded from the count: draft
+    offers don't show in the overview at all (see
+    test_deal_grid_excludes_draft_offers below) — this test's own job is
+    the dedup property, not a row count that happens to include one.
+    """
+
     token = _token(role=AccessRole.SALES)
     offer = client.post("/v1/sales/offers", headers=_bearer(token)).json()
     client.post("/v1/sales/contracts", json={"offerId": offer["id"]}, headers=_bearer(token))
-    client.post("/v1/sales/offers", headers=_bearer(token))
+    client.post("/v1/sales/offers", headers=_bearer(token))  # a second, still-draft offer
 
     response = client.get("/v1/sales/deals", headers=_bearer(token))
     assert response.status_code == 200, response.text
     body = response.json()
-    assert body["total"] == 2
+    assert body["total"] == 1
     entity_types = sorted(item["entityType"] for item in body["items"])
-    assert entity_types == ["contract", "offer"]
+    assert entity_types == ["contract"]
+
+
+def test_deal_grid_excludes_draft_offers(client):
+    """A contract that's aborted mid-flow (or hasn't been started from an
+    offer at all) sits in `pending` and stays visible — only a DRAFT
+    offer is excluded, an offer never yet opened for real work.
+    """
+
+    token = _token(role=AccessRole.SALES)
+    client.post("/v1/sales/offers", headers=_bearer(token))  # stays draft, never touched further
+
+    response = client.get("/v1/sales/deals", headers=_bearer(token))
+    assert response.status_code == 200, response.text
+    assert response.json()["total"] == 0
+
+
+def test_deal_grid_shows_pending_contracts(client):
+    token = _token(role=AccessRole.SALES)
+    client.post("/v1/sales/contracts", json={}, headers=_bearer(token))  # a direct contract, no offer — pending
+
+    response = client.get("/v1/sales/deals", headers=_bearer(token))
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["total"] == 1
+    assert body["items"][0]["status"] == "pending"
 
 
 def test_deal_grid_unknown_sort_field_is_422(client):

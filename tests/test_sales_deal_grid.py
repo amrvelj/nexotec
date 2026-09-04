@@ -12,6 +12,7 @@ from decimal import Decimal
 from app.core.pagination import SortPageParams
 from app.core.sorting import SortField
 from app.sales.models.deal import SalesDeal
+from app.sales.models.offer import OfferStatus
 from app.sales.services.contract import create_contract
 from app.sales.services.deal import list_deals
 from app.sales.services.deal_projection import upsert_deal_projection
@@ -70,9 +71,20 @@ def test_upsert_deal_projection_requires_an_offer_or_a_contract(db_session):
 
 
 def test_list_deals_filters_by_entity_type(db_session):
+    """The entity_type filter is this test's own concern — draft offers
+    are excluded from the grid entirely regardless of filter (see
+    test_list_deals_excludes_draft_offers), so both fixture offers here
+    are pushed past draft directly at the ORM level (bypassing the real
+    container-completeness gate open_offer() enforces — not this test's
+    job to satisfy) to isolate what IS being tested.
+    """
+
     tenant_id = uuid.uuid4()
-    create_offer(db_session, tenant_id=tenant_id, actor_id=uuid.uuid4())
-    create_offer(db_session, tenant_id=tenant_id, actor_id=uuid.uuid4())
+    for _ in range(2):
+        offer = create_offer(db_session, tenant_id=tenant_id, actor_id=uuid.uuid4())
+        offer.status = OfferStatus.OPEN
+        db_session.flush()
+        upsert_deal_projection(db_session, offer=offer)
     create_contract(db_session, tenant_id=tenant_id, offer=None, actor_id=uuid.uuid4())
 
     sort_fields = [SortField(api_name="updatedAt", column=SalesDeal.updated_at, direction="desc", nullable=False)]
@@ -86,6 +98,20 @@ def test_list_deals_filters_by_entity_type(db_session):
     assert total_all == 3
     assert total_offers == 2
     assert all(row.entity_type == "offer" for row in offers_only)
+
+
+def test_list_deals_excludes_draft_offers_but_shows_pending_contracts(db_session):
+    tenant_id = uuid.uuid4()
+    create_offer(db_session, tenant_id=tenant_id, actor_id=uuid.uuid4())  # stays draft
+    create_contract(db_session, tenant_id=tenant_id, offer=None, actor_id=uuid.uuid4())  # pending
+
+    sort_fields = [SortField(api_name="updatedAt", column=SalesDeal.updated_at, direction="desc", nullable=False)]
+    params = SortPageParams(limit=50, cursor=None, sort_fields=sort_fields)
+    rows, _cursor, total, _est = list_deals(db_session, tenant_id=tenant_id, q=None, entity_type=None, params=params)
+
+    assert total == 1
+    assert rows[0].entity_type == "contract"
+    assert rows[0].status == "pending"
 
 
 def test_margin_column_exists_but_is_never_populated_by_pr1(db_session):

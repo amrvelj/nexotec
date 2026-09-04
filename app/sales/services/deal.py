@@ -7,18 +7,32 @@ stores status as a plain string rather than either entity's own enum type.
 
 import uuid
 
-from sqlalchemy import or_, select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.pagination import SortPageParams, build_sorted_page, count_capped, paginate_query_sorted
 from app.sales.models.deal import SalesDeal
 
+# An offer that's never been opened for real work — nothing a seller has
+# started, nothing worth a row in the overview. ContractStatus has no
+# equivalent "draft" value (a contract starts at PENDING, which DOES show
+# — an aborted-mid-flow or not-yet-confirmed contract is real, in-progress
+# work, unlike a bare draft offer). Never filtered out of the underlying
+# sales_deal table itself — upsert_deal_projection still writes the row,
+# so the "one row per lineage" identity survives the draft->open (or
+# draft offer -> confirmed contract) transition; only this read excludes it.
+_EXCLUDED_STATUS = "draft"
+_EXCLUDED_ENTITY_TYPE = "offer"
+
 
 def list_deals(
     db: Session, *, tenant_id: uuid.UUID, q: str | None, entity_type: str | None, params: SortPageParams
 ) -> tuple[list[SalesDeal], str | None, int, bool]:
-    stmt = select(SalesDeal).where(SalesDeal.tenant_id == tenant_id)
+    stmt = select(SalesDeal).where(
+        SalesDeal.tenant_id == tenant_id,
+        ~and_(SalesDeal.entity_type == _EXCLUDED_ENTITY_TYPE, SalesDeal.status == _EXCLUDED_STATUS),
+    )
     if q:
         like = f"%{q}%"
         stmt = stmt.where(
