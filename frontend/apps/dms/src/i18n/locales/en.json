@@ -17,7 +17,9 @@
       "reporting": "Reporting",
       "compliance": "Compliance",
       "valuations": "Valuations",
-      "integrations": "Integrations"
+      "integrations": "Integrations",
+      "administration": "Administration",
+      "referenceData": "Reference data"
     },
     "signOut": "Sign out",
     "globalSearch": {
@@ -1062,6 +1064,42 @@
       "client_secret": "Client secret",
       "refresh_token": "Refresh token",
       "certificate": "Certificate"
+    }
+  },
+  "referenceData": {
+    "breadcrumb": "Administration",
+    "title": "Reference data",
+    "subtitle": "Canonical reference data and the providers’ mapping gaps.",
+    "loadError": "Failed to load reference values.",
+    "empty": "This list has no values yet.",
+    "emptyFiltered": "No values match your filter.",
+    "required": "Required",
+    "missingTip": "This row cannot be saved while a language is missing.",
+    "columns": {
+      "code": "Code",
+      "status": "Status"
+    },
+    "forbidden": {
+      "title": "platform_admin only",
+      "body": "Only a platform_admin may edit this data. Contact your administrator."
+    },
+    "list": {
+      "title": "Reference list {{code}}",
+      "help": "All four languages are mandatory. A missing language is a row error — never a silent fallback to German.",
+      "pickLabel": "Choose a list",
+      "filterLabel": "Filter by code or label",
+      "filterPlaceholder": "Filter…"
+    },
+    "create": {
+      "trigger": "New value",
+      "title": "New value in {{code}}",
+      "submit": "Create",
+      "allLanguagesHint": "All four languages are required.",
+      "error": "Could not create the value."
+    },
+    "gaps": {
+      "title": "Mapping gaps",
+      "help": "An unmapped provider code is never silently dropped — it lands here as a task."
     }
   }
 }

@@ -380,6 +380,45 @@ export interface MappingGapPage {
   nextCursor: string | null
 }
 
+// WP-5 — reference-data admin (/settings/reference).
+// GET/POST /v1/reference-data/{listCode}, PATCH .../{valueCode}.
+export interface ReferenceValueRead {
+  id: string
+  listCode: string
+  valueCode: string
+  labelDe: string
+  labelFr: string
+  labelIt: string
+  labelEn: string
+  sortOrder: number
+  active: boolean
+  version: number
+  createdAt: string
+  updatedAt: string
+  createdBy: string | null
+  updatedBy: string | null
+}
+
+export interface ReferenceValuePage {
+  items: ReferenceValueRead[]
+  nextCursor: string | null
+}
+
+export interface ReferenceValueCreate {
+  valueCode: string
+  labelDe: string
+  labelFr: string
+  labelIt: string
+  labelEn: string
+  sortOrder?: number
+  active?: boolean
+}
+
+// PATCH is labels / ordering / active only — valueCode is immutable.
+export type ReferenceValueUpdate = Partial<
+  Pick<ReferenceValueRead, 'labelDe' | 'labelFr' | 'labelIt' | 'labelEn' | 'sortOrder' | 'active'>
+>
+
 // WP-5 PR-9 — VehicleMdm identity, one-search-box, party allocation
 // VehiclePartyRole is already defined above (line 224) — reused as-is,
 // the vehicle-mdm party endpoints share the same customer.public enum.

@@ -17,7 +17,9 @@
       "reporting": "Rapports",
       "compliance": "Conformité",
       "valuations": "Évaluations",
-      "integrations": "Intégrations"
+      "integrations": "Intégrations",
+      "administration": "Administration",
+      "referenceData": "Données de référence"
     },
     "signOut": "Se déconnecter",
     "globalSearch": {
@@ -1062,6 +1064,42 @@
       "client_secret": "Secret client",
       "refresh_token": "Jeton de rafraîchissement",
       "certificate": "Certificat"
+    }
+  },
+  "referenceData": {
+    "breadcrumb": "Administration",
+    "title": "Données de référence",
+    "subtitle": "Données de référence canoniques et lacunes de correspondance des fournisseurs.",
+    "loadError": "Impossible de charger les valeurs de référence.",
+    "empty": "Cette liste n’a pas encore de valeurs.",
+    "emptyFiltered": "Aucune valeur ne correspond au filtre.",
+    "required": "Champ obligatoire",
+    "missingTip": "Cette ligne ne peut pas être enregistrée tant qu’une langue manque.",
+    "columns": {
+      "code": "Code",
+      "status": "État"
+    },
+    "forbidden": {
+      "title": "Réservé à platform_admin",
+      "body": "Seul un platform_admin peut modifier ces données. Contactez votre administration."
+    },
+    "list": {
+      "title": "Liste de référence {{code}}",
+      "help": "Les quatre langues sont obligatoires. Une langue manquante est une erreur de ligne — jamais un repli silencieux sur l’allemand.",
+      "pickLabel": "Choisir une liste",
+      "filterLabel": "Filtrer par code ou libellé",
+      "filterPlaceholder": "Filtrer …"
+    },
+    "create": {
+      "trigger": "Nouvelle valeur",
+      "title": "Nouvelle valeur dans {{code}}",
+      "submit": "Créer",
+      "allLanguagesHint": "Les quatre langues sont requises.",
+      "error": "Impossible de créer la valeur."
+    },
+    "gaps": {
+      "title": "Lacunes de correspondance",
+      "help": "Un code fournisseur inconnu n’est jamais ignoré en silence — il arrive ici comme tâche."
     }
   }
 }

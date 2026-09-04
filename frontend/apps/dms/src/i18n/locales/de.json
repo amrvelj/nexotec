@@ -17,7 +17,9 @@
       "reporting": "Reporting",
       "compliance": "Compliance",
       "valuations": "Bewertungen",
-      "integrations": "Integrationen"
+      "integrations": "Integrationen",
+      "administration": "Verwaltung",
+      "referenceData": "Referenzdaten"
     },
     "signOut": "Abmelden",
     "globalSearch": {
@@ -1062,6 +1064,42 @@
       "client_secret": "Client-Secret",
       "refresh_token": "Refresh-Token",
       "certificate": "Zertifikat"
+    }
+  },
+  "referenceData": {
+    "breadcrumb": "Verwaltung",
+    "title": "Referenzdaten",
+    "subtitle": "Kanonische Referenzdaten und die Zuordnungslücken der Provider.",
+    "loadError": "Referenzwerte konnten nicht geladen werden.",
+    "empty": "Diese Liste hat noch keine Werte.",
+    "emptyFiltered": "Keine Werte entsprechen dem Filter.",
+    "required": "Pflichtfeld",
+    "missingTip": "Diese Zeile kann nicht gespeichert werden, solange eine Sprache fehlt.",
+    "columns": {
+      "code": "Code",
+      "status": "Status"
+    },
+    "forbidden": {
+      "title": "Nur für platform_admin",
+      "body": "Diese Daten dürfen nur von einem platform_admin bearbeitet werden. Wenden Sie sich an Ihre Administration."
+    },
+    "list": {
+      "title": "Referenzliste {{code}}",
+      "help": "Alle vier Sprachen sind Pflicht. Eine fehlende Sprache ist ein Fehler in der Zeile — nie ein stiller Rückfall auf Deutsch.",
+      "pickLabel": "Liste wählen",
+      "filterLabel": "Nach Code oder Bezeichnung filtern",
+      "filterPlaceholder": "Filtern …"
+    },
+    "create": {
+      "trigger": "Neuer Wert",
+      "title": "Neuer Wert in {{code}}",
+      "submit": "Erstellen",
+      "allLanguagesHint": "Alle vier Sprachen sind erforderlich.",
+      "error": "Der Wert konnte nicht erstellt werden."
+    },
+    "gaps": {
+      "title": "Zuordnungslücken",
+      "help": "Ein unbekannter Providercode wird nie stillschweigend verworfen — er landet hier als Aufgabe."
     }
   }
 }
