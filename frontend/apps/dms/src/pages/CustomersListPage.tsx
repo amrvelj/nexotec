@@ -221,7 +221,7 @@ export function CustomersListPage() {
         // underneath at `comfortable`, and disappears at `compact`. Every
         // other column in this grid is single-fact, so this is the one
         // place that behaviour is actually exercised on this screen.
-        meta: { sortField: 'lastName', locked: true, secondary: (row) => row.address?.locality ?? null },
+        meta: { sortField: 'lastName', locked: true, secondary: (row) => row.address?.addressLocality ?? null },
       },
       {
         id: 'customerType',
@@ -252,7 +252,7 @@ export function CustomersListPage() {
       {
         id: 'canton',
         header: t('customersList.filters.canton'),
-        cell: ({ row }) => row.original.address?.canton ?? '—',
+        cell: ({ row }) => row.original.address?.addressCanton ?? '—',
         meta: { defaultVisible: false },
       },
       {

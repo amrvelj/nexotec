@@ -56,21 +56,76 @@ export type Language = 'de' | 'fr' | 'it' | 'en'
 export type Salutation = 'herr' | 'frau' | 'firma' | 'neutral'
 export type LegalForm = 'ag' | 'gmbh' | 'einzelfirma' | 'verein' | 'genossenschaft' | 'weitere'
 export type PreferredChannel = 'mail' | 'call' | 'message' | 'letter'
-export type PhoneType = 'mobile' | 'private' | 'office'
-export type EmailType = 'private' | 'business'
+// ADR-067's WP-3 PR-5 migration: PhoneType PRIVATE->LANDLINE, OFFICE->WORK
+// (FAX new); EmailType PRIVATE->PERSONAL, BUSINESS->WORK (INVOICING new).
+// This file kept the pre-migration values (KAN-30) — a value the backend
+// no longer accepts 422s on write, which is exactly what happened.
+export type PhoneType = 'mobile' | 'landline' | 'work' | 'fax'
+export type EmailType = 'personal' | 'work' | 'invoicing'
 export type CustomerLifecycleStatus = 'prospect' | 'active' | 'inactive' | 'merged' | 'do_not_contact'
 export type CustomerSource = 'walk_in' | 'phone' | 'web_lead' | 'marketplace' | 'other'
 
-export interface CustomerAddress {
-  street: string
-  houseNumber: string
-  postalCode: string
-  locality: string
-  country: string
+// WP-3 PR-5 (ADR-067) — addresses are a multi-valued child collection,
+// like phones/emails, not a flat field on Customer. This file kept the
+// pre-migration flat shape (street/houseNumber/postalCode/locality/
+// country) — KAN-30: the backend's CustomerAddressRead (via CamelModel)
+// has never matched it, hence "undefined undefined, undefined undefined".
+export type AddressType = 'domicile' | 'billing' | 'delivery'
+
+export interface CustomerAddressCreate {
+  addressType: AddressType
+  label?: string | null
+  addressStreet: string
+  addressHouseNumber: string
+  addressPostalCode: string
+  addressLocality: string
+  addressCountry?: string
+  isPrimary?: boolean
 }
 
-export interface CustomerAddressRead extends CustomerAddress {
-  canton: string | null
+export interface CustomerAddressUpdate {
+  addressType?: AddressType
+  label?: string | null
+  addressStreet?: string
+  addressHouseNumber?: string
+  addressPostalCode?: string
+  addressLocality?: string
+  addressCountry?: string
+  isPrimary?: boolean
+  validTo?: string | null
+  doNotUse?: boolean
+  doNotUseReason?: string | null
+  consentGranted?: boolean
+  consentSource?: string | null
+}
+
+export interface CustomerAddressRead {
+  id: string
+  customerId: string
+  addressType: AddressType
+  label: string | null
+  addressStreet: string
+  addressHouseNumber: string
+  addressPostalCode: string
+  addressLocality: string
+  // Derived server-side from the Swiss postal code (D-13) — never accepted
+  // from the client. Null for a foreign address.
+  addressCanton: string | null
+  addressCountry: string
+  isPrimary: boolean
+  validFrom: string
+  validTo: string | null
+  doNotUse: boolean
+  doNotUseReason: string | null
+  consentGranted: boolean
+  consentSource: string | null
+  consentTimestamp: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CustomerAddressPage {
+  items: CustomerAddressRead[]
 }
 
 export interface CustomerRead {
@@ -214,13 +269,18 @@ export interface CustomerCreateInput {
   preferredChannel?: PreferredChannel | null
   phones?: CustomerPhoneCreate[]
   emails?: CustomerEmailCreate[]
-  address?: CustomerAddress | null
+  addresses?: CustomerAddressCreate[]
   lifecycleStatus?: CustomerLifecycleStatus
   source?: CustomerSource | null
   sourceRef?: string | null
   marketingConsent?: boolean
 }
 
+// No `address` field, on purpose (KAN-30): the backend's CustomerUpdate
+// genuinely has none — an address is edited through
+// /customers/{id}/addresses, like phones and emails, not through this
+// PATCH. CamelModel's default extra="ignore" silently dropped it, which is
+// how the write half of this bug shipped a 200 that saved nothing.
 export interface CustomerUpdateInput {
   language?: Language
   salutation?: Salutation | null
@@ -232,7 +292,6 @@ export interface CustomerUpdateInput {
   legalForm?: LegalForm | null
   taxId?: string | null
   preferredChannel?: PreferredChannel | null
-  address?: CustomerAddress | null
   lifecycleStatus?: CustomerLifecycleStatus
   source?: CustomerSource | null
   sourceRef?: string | null
