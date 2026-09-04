@@ -281,7 +281,8 @@
       "emptyState": {
         "title": "Nessun veicolo",
         "description": "Nessuna relazione con veicoli registrata per questo cliente."
-      }
+      },
+      "addAction": "Collega veicolo"
     },
     "transactions": {
       "columns": {

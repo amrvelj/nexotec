@@ -281,7 +281,8 @@
       "emptyState": {
         "title": "Keine Fahrzeuge",
         "description": "Für diesen Kunden sind keine Fahrzeugbeziehungen erfasst."
-      }
+      },
+      "addAction": "Fahrzeug verknüpfen"
     },
     "transactions": {
       "columns": {

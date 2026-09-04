@@ -263,12 +263,19 @@ export interface AuditEventPage {
 // CustomerVehicle* — the customer-360 Vehicles tab (D-12).
 export type VehiclePartyRole = 'owner' | 'keeper' | 'driver'
 
+// KAN-31: make/model/modelYear are nullable — vehicle_mdm carries them
+// only through an OPTIONAL catalogue match, unlike the legacy vehicle
+// table this replaced. An unmatched vehicle (catalogueMatchStatus
+// 'unverified') is the common case, not an edge case. vehicleNumber is
+// always present and is the fallback label, same convention the global
+// vehicle search already uses.
 export interface VehiclePartySummary {
   id: string
   vin: string
-  make: string
-  model: string
-  modelYear: number
+  vehicleNumber: string
+  make: string | null
+  model: string | null
+  modelYear: number | null
   trim: string | null
 }
 
