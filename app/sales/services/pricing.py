@@ -28,6 +28,30 @@ def resolve_discount(discount_type: str | None, discount_value: Decimal | None, 
     return discount_value
 
 
+def _cost_basis_from_snapshot(snapshot: dict) -> Decimal | None:
+    """KAN-25: the true acquisition cost feeding margin is landed cost
+    NET of the fiktiver Vorsteuerabzug (Art. 28a MWSTG) — a credit the
+    dealer reclaims on their VAT return, so it REDUCES the effective
+    cost. notionalInputTaxAmount is frozen as a positive amount
+    (app.inventory.services.pricing.get_stock_item_pricing's own
+    contract); subtracting it here, never adding it, is the sign this
+    ticket exists to get right.
+
+    Falls back to purchasePrice alone when no landed cost was ever
+    recorded (WP-7 PR-3 predates this and plenty of stock items were
+    priced before it — the old, less-precise cost basis, not a missing
+    one).
+    """
+
+    landed_cost = snapshot.get("landedCost")
+    if landed_cost is not None:
+        notional_input_tax = snapshot.get("notionalInputTaxAmount")
+        credit = Decimal(notional_input_tax) if notional_input_tax is not None else Decimal(0)
+        return Decimal(landed_cost) - credit
+    purchase_price = snapshot.get("purchasePrice")
+    return Decimal(purchase_price) if purchase_price is not None else None
+
+
 def build_up(db: Session, *, offer: SalesOffer) -> dict:
     # A manual configuration's price is a plain mutable field the seller
     # types directly (no live catalogue source to freeze against, unlike
@@ -40,7 +64,7 @@ def build_up(db: Session, *, offer: SalesOffer) -> dict:
     else:
         snapshot = offer.vehicle_snapshot or {}
         base_price = Decimal(snapshot["basePrice"]) if snapshot.get("basePrice") is not None else Decimal(0)
-        cost_basis = Decimal(snapshot["purchasePrice"]) if snapshot.get("purchasePrice") is not None else None
+        cost_basis = _cost_basis_from_snapshot(snapshot)
 
     line_items = list(db.scalars(select(SalesLineItem).where(SalesLineItem.offer_id == offer.id)).all())
 

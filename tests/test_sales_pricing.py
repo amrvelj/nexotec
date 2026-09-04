@@ -100,6 +100,123 @@ def test_selecting_a_stock_vehicle_freezes_snapshot_and_builds_pricing(db_sessio
     assert line_items[0].code == "LED"
 
 
+def _priced_stock_item_with_landed_cost(db_session, tenant_id):
+    """KAN-25 fixture: a used car bought from a private individual (no
+    real input VAT paid), so the fiktiver Vorsteuerabzug applies and
+    landed cost genuinely differs from the raw purchase price.
+    """
+
+    item = create_stock_item(
+        db_session,
+        tenant_id=tenant_id,
+        data=StockItemCreate(vehicle_label="Audi A4 2.0 TDI Avant", condition=StockItemCondition.USED),
+        actor_id=uuid.uuid4(),
+    )
+    item = record_purchase(
+        db_session,
+        item=item,
+        data=RecordPurchaseRequest(
+            supplier_name="Privat, Hans Muster",
+            supplier_is_vat_registered=False,
+            purchase_price=Decimal("30000.00"),
+            purchase_date="2026-01-01",
+            landed_cost=Decimal("30800.00"),  # purchase price + prep/transport
+        ),
+        actor_id=uuid.uuid4(),
+    )
+    return item
+
+
+def test_stock_item_pricing_returns_landed_cost_and_notional_input_tax(db_session):
+    """KAN-25 exit criterion 1: get_stock_item_pricing returns landed cost
+    and the notional input tax fields, correctly signed — read straight
+    off the stock item, no sign applied at this layer.
+    """
+
+    from app.inventory.services.pricing import get_stock_item_pricing
+
+    dealership = _make_dealership(db_session)
+    item = _priced_stock_item_with_landed_cost(db_session, dealership.id)
+
+    pricing = get_stock_item_pricing(db_session, tenant_id=dealership.id, stock_item_id=item.id)
+
+    assert pricing["landedCost"] == item.landed_cost == Decimal("30800.00")
+    assert pricing["notionalInputTaxApplicable"] is True
+    assert pricing["notionalInputTaxRate"] == dealership.vat_rate
+    assert pricing["notionalInputTaxAmount"] == item.notional_input_tax_amount
+    assert pricing["notionalInputTaxAmount"] > 0  # a credit, stored positive — never pre-negated
+
+
+def test_landed_cost_and_notional_input_tax_survive_acquisition_to_offer(db_session):
+    """KAN-25 exit criterion 3: the value read from a Sales offer equals
+    the value persisted at acquisition — the acquisition-to-offer hop,
+    end to end, in one test rather than two units that never cross it
+    (the trap the ticket named).
+    """
+
+    dealership = _make_dealership(db_session)
+    item = _priced_stock_item_with_landed_cost(db_session, dealership.id)
+    offer = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())
+
+    updated = update_offer(
+        db_session, offer=offer, group_id=uuid.uuid4(),
+        data=OfferUpdate(vehicle_source="stock", stock_item_id=item.id, vehicle_label=item.vehicle_label),
+        actor_id=uuid.uuid4(),
+    )
+
+    snapshot = updated.vehicle_snapshot
+    assert Decimal(snapshot["landedCost"]) == item.landed_cost
+    assert snapshot["notionalInputTaxApplicable"] == item.notional_input_tax_applicable
+    assert Decimal(snapshot["notionalInputTaxRate"]) == item.notional_input_tax_rate
+    assert Decimal(snapshot["notionalInputTaxAmount"]) == item.notional_input_tax_amount
+
+
+def test_margin_uses_landed_cost_net_of_the_notional_input_tax_credit(db_session):
+    """KAN-25's sign test: the credit REDUCES cost basis. A sign error
+    (adding instead of subtracting) would silently overstate cost and
+    understate margin by twice the credit — invisible until it's on a
+    VAT return, per the ticket's own warning.
+    """
+
+    dealership = _make_dealership(db_session)
+    item = _priced_stock_item_with_landed_cost(db_session, dealership.id)
+    offer = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())
+
+    updated = update_offer(
+        db_session, offer=offer, group_id=uuid.uuid4(),
+        data=OfferUpdate(vehicle_source="stock", stock_item_id=item.id, vehicle_label=item.vehicle_label),
+        actor_id=uuid.uuid4(),
+    )
+
+    expected_cost_basis = item.landed_cost - item.notional_input_tax_amount
+    assert updated.cost_basis == expected_cost_basis
+    assert updated.cost_basis < item.landed_cost  # the credit reduced it, not inflated it
+    assert updated.margin == updated.gross_price - expected_cost_basis
+
+
+def test_cost_basis_falls_back_to_purchase_price_when_no_landed_cost_recorded(db_session):
+    """Backward compatible: WP-7 PR-3 predates this fix, and plenty of
+    stock items were priced before landed_cost was ever entered. Same
+    fixture and assertion as
+    test_selecting_a_stock_vehicle_freezes_snapshot_and_builds_pricing —
+    proving this fix did not change that behaviour.
+    """
+
+    dealership = _make_dealership(db_session)
+    item = _priced_stock_item(db_session, dealership.id)
+    assert item.landed_cost is None
+    offer = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())
+
+    updated = update_offer(
+        db_session, offer=offer, group_id=uuid.uuid4(),
+        data=OfferUpdate(vehicle_source="stock", stock_item_id=item.id, vehicle_label=item.vehicle_label),
+        actor_id=uuid.uuid4(),
+    )
+
+    assert updated.cost_basis == Decimal("42000.00")
+    assert updated.margin == Decimal("8800.00")
+
+
 def test_percent_discount_resolves_against_total_before_discount(db_session):
     dealership = _make_dealership(db_session)
     tenant_id = dealership.id
