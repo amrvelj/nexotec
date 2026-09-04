@@ -137,6 +137,10 @@ class CustomerAddressCreate(CamelModel):
     address_type: AddressType
     label: str | None = Field(default=None, max_length=60)
     address_street: str = Field(max_length=200)
+    # FR-17, 2026-08-21 — c/o, department, building, PO box. Exempt from the
+    # all-or-nothing address rule below: optional even when every other
+    # sub-field is supplied.
+    address_line2: str | None = Field(default=None, max_length=200)
     address_house_number: HouseNumber = Field(max_length=20)
     address_postal_code: str = Field(max_length=12)
     address_locality: str = Field(max_length=100)
@@ -153,6 +157,7 @@ class CustomerAddressUpdate(CamelModel):
     address_type: AddressType | None = None
     label: str | None = Field(default=None, max_length=60)
     address_street: str | None = Field(default=None, max_length=200)
+    address_line2: str | None = Field(default=None, max_length=200)
     address_house_number: HouseNumber | None = None
     address_postal_code: str | None = Field(default=None, max_length=12)
     address_locality: str | None = Field(default=None, max_length=100)
@@ -171,6 +176,7 @@ class CustomerAddressRead(CamelModel):
     address_type: AddressType
     label: str | None
     address_street: str
+    address_line2: str | None
     address_house_number: str
     address_postal_code: str
     address_locality: str

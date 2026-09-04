@@ -63,6 +63,7 @@ interface FormValues {
   marketingConsent: boolean
   hasAddress: boolean
   street: string
+  line2: string
   houseNumber: string
   postalCode: string
   locality: string
@@ -84,6 +85,7 @@ const EMPTY_VALUES: FormValues = {
   marketingConsent: false,
   hasAddress: false,
   street: '',
+  line2: '',
   houseNumber: '',
   postalCode: '',
   locality: '',
@@ -221,6 +223,7 @@ export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType, o
               {
                 addressType: 'domicile',
                 addressStreet: values.street,
+                addressLine2: values.line2 || null,
                 addressHouseNumber: values.houseNumber,
                 addressPostalCode: values.postalCode,
                 addressLocality: values.locality,
@@ -342,6 +345,7 @@ export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType, o
                 <TextInput label="Street" {...form.getInputProps('street')} />
                 <TextInput label="House number" {...form.getInputProps('houseNumber')} />
               </Group>
+              <TextInput label="Address line 2 (c/o, PO box, ...)" {...form.getInputProps('line2')} />
               <Group grow>
                 <TextInput label="Postal code" {...form.getInputProps('postalCode')} />
                 <TextInput label="Locality" {...form.getInputProps('locality')} />

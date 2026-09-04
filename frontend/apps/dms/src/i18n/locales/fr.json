@@ -214,6 +214,7 @@
       "notSet": "Non renseigné",
       "addressForm": {
         "street": "Rue",
+        "line2": "Complément d'adresse (c/o, case postale, ...)",
         "houseNumber": "N°",
         "postalCode": "NPA",
         "locality": "Localité",

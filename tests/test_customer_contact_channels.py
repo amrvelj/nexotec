@@ -139,6 +139,54 @@ def test_update_and_delete_customer_address(client):
     assert listed == []
 
 
+def test_address_line2_is_optional_and_exempt_from_all_or_nothing(client):
+    """FR-17 (2026-08-21) — c/o/department/building/PO box. Creatable
+    without it, settable and clearable afterwards, and never required
+    alongside the other address sub-fields."""
+
+    dealer_id = _create_dealer(client)
+    customer = _create_customer(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+
+    created = client.post(
+        f"/v1/customers/{customer['id']}/addresses",
+        json={
+            "addressType": "domicile", "addressStreet": "Marktgasse", "addressHouseNumber": "10",
+            "addressPostalCode": "3011", "addressLocality": "Bern",
+        },
+        headers=_bearer(token),
+    )
+    assert created.status_code == 201, created.text
+    assert created.json()["addressLine2"] is None
+
+    with_line2 = client.post(
+        f"/v1/customers/{customer['id']}/addresses",
+        json={
+            "addressType": "billing", "addressStreet": "Postfach", "addressLine2": "c/o Muster Treuhand AG",
+            "addressHouseNumber": "1", "addressPostalCode": "8001", "addressLocality": "Zürich",
+        },
+        headers=_bearer(token),
+    )
+    assert with_line2.status_code == 201, with_line2.text
+    assert with_line2.json()["addressLine2"] == "c/o Muster Treuhand AG"
+
+    update = client.patch(
+        f"/v1/customers/{customer['id']}/addresses/{created.json()['id']}",
+        json={"addressLine2": "Postfach 42"},
+        headers=_bearer(token),
+    )
+    assert update.status_code == 200, update.text
+    assert update.json()["addressLine2"] == "Postfach 42"
+
+    cleared = client.patch(
+        f"/v1/customers/{customer['id']}/addresses/{created.json()['id']}",
+        json={"addressLine2": None},
+        headers=_bearer(token),
+    )
+    assert cleared.status_code == 200, cleared.text
+    assert cleared.json()["addressLine2"] is None
+
+
 def test_address_cross_tenant_is_404(client):
     dealer_a = _create_dealer(client)
     dealer_b = _create_dealer(client)

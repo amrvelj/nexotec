@@ -97,6 +97,7 @@ export function customerAddress(overrides: Partial<CustomerAddressRead> = {}): C
     addressType: 'domicile',
     label: null,
     addressStreet: 'Bahnhofstrasse',
+    addressLine2: null,
     addressHouseNumber: '1',
     addressPostalCode: '8001',
     addressLocality: 'Zürich',

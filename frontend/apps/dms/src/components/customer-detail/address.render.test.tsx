@@ -118,6 +118,37 @@ describe('customer address — detail screen (ADR-067, KAN-30)', () => {
     expect(await screen.findByText('BE')).toBeInTheDocument()
   })
 
+  it('renders addressLine2 between the label and the street, when set', async () => {
+    installFakeBackend(infraRoutes(customerAddress({ addressLine2: 'c/o Muster Treuhand AG' })))
+    renderDetail()
+
+    expect(await screen.findByText('c/o Muster Treuhand AG, Bahnhofstrasse 1, 8001 Zürich')).toBeInTheDocument()
+  })
+
+  it('editing an address round-trips addressLine2 through the form', async () => {
+    const existing = customerAddress({ id: 'addr-9' })
+    const backend = installFakeBackend([
+      ...infraRoutes(existing),
+      {
+        method: 'PATCH',
+        match: /^\/customers\/c1\/addresses\/addr-9$/,
+        handler: (req) => ({ ...existing, ...(req.body as object) }),
+      },
+    ])
+    renderDetail()
+    const user = userEvent.setup()
+
+    await user.click(await screen.findByText('Bahnhofstrasse 1, 8001 Zürich'))
+    await user.type(screen.getByLabelText(i18n.t('customerDetail.overview.addressForm.line2')), 'Postfach 42')
+    await user.click(screen.getByRole('button', { name: i18n.t('customerDetail.overview.addressForm.save') }))
+
+    await waitFor(() => {
+      expect(backend.callsTo(/^\/customers\/c1\/addresses\/addr-9$/, 'PATCH')[0].body).toMatchObject({
+        addressLine2: 'Postfach 42',
+      })
+    })
+  })
+
   it('editing an existing address PATCHes it by id — never a second POST', async () => {
     const existing = customerAddress({ id: 'addr-9' })
     const backend = installFakeBackend([

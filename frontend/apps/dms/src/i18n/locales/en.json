@@ -214,6 +214,7 @@
       "notSet": "Not set",
       "addressForm": {
         "street": "Street",
+        "line2": "Address line 2 (c/o, PO box, ...)",
         "houseNumber": "House no.",
         "postalCode": "Postal code",
         "locality": "Locality",
