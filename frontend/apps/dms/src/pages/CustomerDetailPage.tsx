@@ -17,7 +17,7 @@ import { api, ApiError } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
 import { translatedCustomerTypeLabel, translatedLifecycleLabel } from '../customerOptions'
-import { OverviewTab } from '../components/customer-detail/OverviewTab'
+import { OverviewTab, type AddressDraft } from '../components/customer-detail/OverviewTab'
 import type { ContactPointUpdatePatch } from '../components/customer-detail/ContactPointsEditor'
 import { VehiclesTab } from '../components/customer-detail/VehiclesTab'
 import { TransactionsTab } from '../components/customer-detail/TransactionsTab'
@@ -27,6 +27,7 @@ import { MergeCustomerModal } from '../components/customer-detail/MergeCustomerM
 import { LinkVehicleModal } from '../components/customer-detail/LinkVehicleModal'
 import type {
   AuditEventPage,
+  CustomerAddressRead,
   CustomerEmailPage,
   CustomerEmailRead,
   CustomerExternalIdPage,
@@ -162,6 +163,41 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
     // tab's cached page is now stale even though it isn't what we just
     // wrote to, so it needs its own invalidation rather than relying on
     // the customer cache update above.
+    void queryClient.invalidateQueries({ queryKey: ['customer', id, 'history'] })
+  }
+
+  // KAN-30: the address lives on /customers/{id}/addresses (ADR-067), a
+  // child row like phone/email, never a PATCH-able field on the customer
+  // itself — CustomerUpdate genuinely has no `address`. Unlike phone/email
+  // there is only ever one slot on this screen (the primary domicile
+  // address, `customer.address`), so this owns the POST-if-absent /
+  // PATCH-if-present / DELETE-if-cleared decision that a repeatable row
+  // group would otherwise make per-row.
+  const saveAddress = async (draft: AddressDraft) => {
+    const existing: CustomerAddressRead | null = customerQuery.data?.address ?? null
+    const hasAny = Boolean(draft.street || draft.houseNumber || draft.postalCode || draft.locality)
+    if (!hasAny) {
+      if (existing) await api.delete(`/customers/${id}/addresses/${existing.id}`)
+    } else {
+      const body = {
+        addressType: 'domicile' as const,
+        addressStreet: draft.street,
+        addressHouseNumber: draft.houseNumber,
+        addressPostalCode: draft.postalCode,
+        addressLocality: draft.locality,
+        addressCountry: existing?.addressCountry ?? 'CH',
+        isPrimary: true,
+      }
+      if (existing) {
+        await api.patch<CustomerAddressRead>(`/customers/${id}/addresses/${existing.id}`, body)
+      } else {
+        await api.post<CustomerAddressRead>(`/customers/${id}/addresses`, body)
+      }
+    }
+    // The address is embedded on the customer resource itself
+    // (CustomerRead.address), unlike phones/emails' own list endpoint —
+    // refetching the customer is what picks up the change.
+    void queryClient.invalidateQueries({ queryKey: ['customer', id] })
     void queryClient.invalidateQueries({ queryKey: ['customer', id, 'history'] })
   }
 
@@ -380,6 +416,7 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
           onSaveField={saveField}
           isConflict={isConflict}
           onReload={reload}
+          onSaveAddress={saveAddress}
           onCreatePhone={createPhone}
           onUpdatePhone={updatePhone}
           onDeletePhone={deletePhone}

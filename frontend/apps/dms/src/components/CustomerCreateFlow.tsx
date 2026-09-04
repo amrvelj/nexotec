@@ -214,9 +214,21 @@ export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType, o
         emails: emails
           .filter((e) => e.value.trim())
           .map((e) => ({ emailType: e.type as EmailType, emailAddress: e.value, isPrimary: e.isPrimary, label: e.label ?? null })),
-        address: values.hasAddress
-          ? { street: values.street, houseNumber: values.houseNumber, postalCode: values.postalCode, locality: values.locality, country: 'CH' }
-          : null,
+        // KAN-30: CustomerCreate expects addresses: CustomerAddressCreate[]
+        // (ADR-067 child rows), never a flat `address` field.
+        addresses: values.hasAddress
+          ? [
+              {
+                addressType: 'domicile',
+                addressStreet: values.street,
+                addressHouseNumber: values.houseNumber,
+                addressPostalCode: values.postalCode,
+                addressLocality: values.locality,
+                addressCountry: 'CH',
+                isPrimary: true,
+              },
+            ]
+          : [],
         lifecycleStatus: values.lifecycleStatus,
         source: values.source || null,
         marketingConsent: values.marketingConsent,
@@ -309,7 +321,7 @@ export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType, o
             label={t('customerDetail.contactPoints.emailAddresses')}
             addLabel={t('customerDetail.contactPoints.addEmail')}
             typeOptions={translatedEmailTypeOptions(t)}
-            defaultType="private"
+            defaultType="personal"
             rows={emails}
             handlers={emailRowGroup}
             renderValueEditor={(value, onChange, autoFocus) => (
