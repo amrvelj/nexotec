@@ -112,6 +112,14 @@ def _validate_vin(value: str) -> str:
     return value
 
 
+def is_valid_vin(value: str | None) -> bool:
+    """Non-raising companion to the `Vin` type — for callers that need to
+    branch on VIN validity rather than reject a request (the legacy-vehicle
+    migration classifies a malformed VIN as `rejected`, it does not 500)."""
+
+    return value is not None and _VIN_RE.match(value) is not None
+
+
 def _validate_swiss_uid(value: str) -> str:
     normalised = value.strip().upper()
     if not _UID_RE.match(normalised):
