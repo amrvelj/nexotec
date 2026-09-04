@@ -3,6 +3,7 @@ two distinct events (ADR-046), the ADR-052 is_invoiceable local replica,
 and the ADR-065/S-D19 credit-block/do-not-contact guards.
 """
 
+import json
 import uuid
 from decimal import Decimal
 
@@ -99,8 +100,8 @@ def test_confirm_contract_reserves_the_stock_item(db_session, engine):
 
 
 def test_confirm_contract_emits_the_exact_expected_payload(db_session, engine):
-    """The exact shape app.inventory.services.pipeline::
-    handle_sales_contract_confirmed already reads (WP-7, frozen)."""
+    """The four keys inventory's handle_sales_contract_confirmed reads
+    (WP-7, frozen), plus the additive pricingSnapshot (WP-8, ADR-046)."""
 
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
@@ -112,10 +113,83 @@ def test_confirm_contract_emits_the_exact_expected_payload(db_session, engine):
     message = db_session.query(OutboxMessage).filter_by(
         aggregate_id=contract.id, event_type="sales.contract.confirmed"
     ).one()
-    assert set(message.payload.keys()) == {"contractId", "vehicleSource", "manualConfiguration", "tradeIn"}
+    assert set(message.payload.keys()) == {
+        "contractId", "vehicleSource", "manualConfiguration", "tradeIn", "pricingSnapshot"
+    }
     assert message.payload["vehicleSource"] == "existing"
     assert message.payload["manualConfiguration"] is None
     assert message.payload["tradeIn"] is None
+
+
+def test_confirm_contract_pricing_snapshot_equals_the_record(db_session, engine):
+    """WP-8 / ADR-046 exit criterion: the frozen price build-up travels on
+    the event and equals the contract's own frozen columns — not a
+    recomputation.
+    """
+
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    offer = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())
+    offer = update_offer(
+        db_session, offer=offer, group_id=group_id,
+        data=OfferUpdate(
+            vehicle_source="manual", vehicle_label="Volkswagen Käfer",
+            manual_vehicle_condition="used", manual_base_price=Decimal(18000),
+            discount_type="amount", discount_value=Decimal(1500),
+        ),
+        actor_id=uuid.uuid4(),
+    )
+    contract = create_contract(db_session, tenant_id=dealership.id, offer=offer, actor_id=uuid.uuid4())
+    confirm_contract(db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=_session_factory(engine))
+    db_session.refresh(contract)
+
+    message = db_session.query(OutboxMessage).filter_by(
+        aggregate_id=contract.id, event_type="sales.contract.confirmed"
+    ).one()
+    snapshot = message.payload["pricingSnapshot"]
+
+    assert snapshot["currency"] == "CHF"
+    for event_key, column in {
+        "basePrice": contract.base_price,
+        "optionsTotal": contract.options_total,
+        "listPrice": contract.list_price,
+        "accessoriesTotal": contract.accessories_total,
+        "discountAmount": contract.discount_amount,
+        "grossPrice": contract.gross_price,
+        "tradeInValue": contract.trade_in_value,
+        "payable": contract.payable,
+    }.items():
+        assert snapshot[event_key] == (str(column) if column is not None else None), event_key
+    # A real build-up, not an all-null snapshot.
+    assert snapshot["grossPrice"] is not None
+
+
+def test_confirm_contract_event_never_leaks_entity_private_figures(db_session, engine):
+    """ADR-029: margin, trade-in purchase price and cost basis stay private
+    to the legal entity. An event fans out to unreviewed consumers, so
+    assert their absence BY NAME — snake and camel — anywhere in the blob.
+    """
+
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    offer = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())
+    offer = update_offer(
+        db_session, offer=offer, group_id=group_id,
+        data=OfferUpdate(
+            vehicle_source="manual", vehicle_label="Volkswagen Käfer",
+            manual_vehicle_condition="used", manual_base_price=Decimal(18000),
+        ),
+        actor_id=uuid.uuid4(),
+    )
+    contract = create_contract(db_session, tenant_id=dealership.id, offer=offer, actor_id=uuid.uuid4())
+    confirm_contract(db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=_session_factory(engine))
+
+    message = db_session.query(OutboxMessage).filter_by(
+        aggregate_id=contract.id, event_type="sales.contract.confirmed"
+    ).one()
+    blob = json.dumps(message.payload).lower()
+    for forbidden in ("margin", "cost_basis", "costbasis", "purchase_price", "purchaseprice", "cost"):
+        assert forbidden not in blob, forbidden
 
 
 def test_confirm_contract_manual_configuration_payload(db_session, engine):

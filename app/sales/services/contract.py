@@ -105,11 +105,42 @@ def create_contract(
     return contract
 
 
+def _pricing_snapshot(contract: SalesContract) -> dict:
+    """The price build-up as it stood at confirmation — the contract's own
+    frozen columns (WP-8 PR-7, copied from the offer at creation and never
+    recomputed), not a recomputation at publish time. A frozen snapshot
+    that could drift would not be a snapshot.
+
+    Entity-private figures — `margin`, `trade_in_purchase_price`,
+    `cost_basis` — are DELIBERATELY absent (ADR-029). An event fans out to
+    consumers nobody reviewed, so this is the easiest place in the system
+    to leak them; `test_contract_confirmed_event.py` asserts their absence
+    by name.
+    """
+
+    def _money(value: object) -> str | None:
+        return str(value) if value is not None else None
+
+    return {
+        "currency": "CHF",
+        "basePrice": _money(contract.base_price),
+        "optionsTotal": _money(contract.options_total),
+        "listPrice": _money(contract.list_price),
+        "accessoriesTotal": _money(contract.accessories_total),
+        "discountAmount": _money(contract.discount_amount),
+        "grossPrice": _money(contract.gross_price),
+        "tradeInValue": _money(contract.trade_in_value),
+        "payable": _money(contract.payable),
+    }
+
+
 def _confirmed_event_payload(contract: SalesContract) -> dict:
-    """The EXACT shape app.inventory.services.pipeline::
-    handle_sales_contract_confirmed already reads (WP-7, frozen) —
-    "existing"/"manual" (not "stock"/"manual", SalesContract's own
-    vocabulary) is the one translation this function exists to make.
+    """The four keys inventory's handle_sales_contract_confirmed reads
+    (WP-7) — "existing"/"manual" (not "stock"/"manual", SalesContract's own
+    vocabulary) is the one translation this function exists to make —
+    PLUS the frozen `pricingSnapshot` WP-8's exit criterion requires
+    (ADR-046, additive). The inventory consumer ignores the new key; the
+    WP-9 invoice leg is its second reader.
     """
 
     manual_configuration = None
@@ -127,6 +158,7 @@ def _confirmed_event_payload(contract: SalesContract) -> dict:
         "vehicleSource": "existing" if contract.vehicle_source == "stock" else "manual",
         "manualConfiguration": manual_configuration,
         "tradeIn": trade_in,
+        "pricingSnapshot": _pricing_snapshot(contract),
     }
 
 

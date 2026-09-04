@@ -20,7 +20,12 @@ produced anywhere):
         "vehicleSource": "manual" | "existing",
         "manualConfiguration": {"vehicleLabel": str, "condition": str} | null,
         "tradeIn": {"vehicleLabel": str, "condition": str} | null,
+        "pricingSnapshot": {"currency": "CHF", "basePrice": str|null, ...},
     }
+
+`pricingSnapshot` (WP-8, ADR-046) is the frozen price build-up, added for
+the WP-9 invoice leg; this consumer ignores it. It never carries margin,
+trade-in purchase price or cost basis (ADR-029).
 
 `vehicleSource == "manual"` and a non-empty `tradeIn` are independent —
 a contract can carry either, both, or neither (a manual configuration
