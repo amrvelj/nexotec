@@ -22,7 +22,13 @@ import { FormDialog, InlineEditField, semantic, useSetBreadcrumb } from '@nexote
 import { api, ApiError } from '../api/client'
 import { MappingGapsQueue } from '../components/MappingGapsQueue'
 import type { ReferenceValuePage, ReferenceValueRead } from '../api/types'
-import { REFERENCE_LIST_CODES, type ReferenceListCode } from '../referenceLists'
+import type { SupportedLanguage } from '../i18n'
+import {
+  referenceListLabel,
+  referenceListOptions,
+  useReferenceLists,
+  type ReferenceListCode,
+} from '../referenceLists'
 import {
   LANGUAGE_FIELDS,
   deriveReferenceView,
@@ -33,7 +39,7 @@ import {
 const isConflict = (err: unknown) => err instanceof ApiError && err.status === 409
 
 export function ReferenceDataPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   useSetBreadcrumb([t('referenceData.breadcrumb'), t('referenceData.title')])
   const queryClient = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -96,7 +102,19 @@ export function ReferenceDataPage() {
 
   const [createOpen, setCreateOpen] = useState(false)
 
-  const listOptions = useMemo(() => REFERENCE_LIST_CODES.map((code) => ({ value: code, label: code })), [])
+  // The list picker's options come from GET /v1/reference-data — localised
+  // names in the server's order. Until it resolves (or if it fails), the
+  // frozen fallback set renders each code as its own label so the picker is
+  // never empty and the screen still works.
+  const { data: referenceLists } = useReferenceLists()
+  const listOptions = useMemo(
+    () => referenceListOptions(referenceLists?.items, i18n.language as SupportedLanguage),
+    [referenceLists, i18n.language],
+  )
+  const currentListLabel = useMemo(() => {
+    const found = referenceLists?.items.find((item) => item.listCode === list)
+    return found ? referenceListLabel(found, i18n.language as SupportedLanguage) : list
+  }, [referenceLists, list, i18n.language])
 
   return (
     <Stack gap="lg">
@@ -124,7 +142,7 @@ export function ReferenceDataPage() {
           <Group gap="sm" wrap="nowrap" align="flex-start">
             <Languages size={18} />
             <Stack gap={2} style={{ flex: 1 }}>
-              <Text fw={600}>{t('referenceData.list.title', { code: list })}</Text>
+              <Text fw={600}>{t('referenceData.list.title', { code: currentListLabel })}</Text>
               <Text c="dimmed" size="sm">
                 {t('referenceData.list.help')}
               </Text>

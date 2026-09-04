@@ -8,7 +8,7 @@ create/update of the ReferenceValue rows within an existing list.
 import uuid
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import case, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
@@ -23,6 +23,32 @@ _AUDITED_FIELDS = {"label_de", "label_fr", "label_it", "label_en", "sort_order",
 
 def _plain(value: Any) -> Any:
     return value.value if hasattr(value, "value") else value
+
+
+def list_reference_lists(db: Session) -> list[dict[str, Any]]:
+    """Every canonical list plus its value counts, ordered by list_code.
+
+    Not paginated: the set is fixed and seed-only (see the model docstring),
+    so this is a bounded read — one row per list, ~24 today. The counts are
+    a single grouped LEFT JOIN, cheap enough to compute inline.
+    """
+
+    active_count = func.sum(case((ReferenceValue.active.is_(True), 1), else_=0))
+    stmt = (
+        select(
+            ReferenceList,
+            func.count(ReferenceValue.id).label("value_count"),
+            func.coalesce(active_count, 0).label("active_value_count"),
+        )
+        .select_from(ReferenceList)
+        .outerjoin(ReferenceValue, ReferenceValue.list_id == ReferenceList.id)
+        .group_by(ReferenceList.id)
+        .order_by(ReferenceList.list_code.asc())
+    )
+    return [
+        {"list": row[0], "value_count": int(row[1]), "active_value_count": int(row[2])}
+        for row in db.execute(stmt).all()
+    ]
 
 
 def get_reference_list_or_404(db: Session, list_code: str) -> ReferenceList:

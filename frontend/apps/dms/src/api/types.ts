@@ -381,7 +381,26 @@ export interface MappingGapPage {
 }
 
 // WP-5 — reference-data admin (/settings/reference).
-// GET/POST /v1/reference-data/{listCode}, PATCH .../{valueCode}.
+// GET /v1/reference-data enumerates the lists; GET/POST
+// /v1/reference-data/{listCode}, PATCH .../{valueCode} manage one list's values.
+export interface ReferenceListRead {
+  listCode: string
+  labelDe: string
+  labelFr: string
+  labelIt: string
+  labelEn: string
+  valueCount: number
+  activeValueCount: number
+  createdAt: string
+  updatedAt: string
+}
+
+// A plain wrapped collection, not a page: the set of canonical lists is
+// fixed and seed-only, so the enumeration endpoint is not cursor-paginated.
+export interface ReferenceListCollection {
+  items: ReferenceListRead[]
+}
+
 export interface ReferenceValueRead {
   id: string
   listCode: string

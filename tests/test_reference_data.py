@@ -26,13 +26,15 @@ def _bearer(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
-def _seed_list(db_session, list_code: str) -> ReferenceList:
+def _seed_list(db_session, list_code: str, **label_overrides) -> ReferenceList:
     """ReferenceList rows are seed-only for v1 (no create endpoint — see
     app/models/reference_data.py), so tests seed directly via the ORM the
     way a real deploy would via the alembic migration.
     """
 
-    ref_list = ReferenceList(list_code=list_code)
+    labels = {f"label_{lang}": list_code for lang in ("de", "fr", "it", "en")}
+    labels.update(label_overrides)
+    ref_list = ReferenceList(list_code=list_code, **labels)
     db_session.add(ref_list)
     db_session.commit()
     db_session.refresh(ref_list)
@@ -49,6 +51,64 @@ def _value_payload(**overrides):
     }
     payload.update(overrides)
     return payload
+
+
+# --- enumeration: GET /v1/reference-data -----------------------------------
+
+
+def test_enumerate_reference_lists_returns_every_seeded_list(client, db_session):
+    _seed_list(
+        db_session,
+        "fuel_type",
+        label_de="Treibstoff",
+        label_fr="Carburant",
+        label_it="Carburante",
+        label_en="Fuel type",
+    )
+    _seed_list(db_session, "vehicle_type")
+    token = _token(AccessRole.PLATFORM_ADMIN)
+    headers = _bearer(token)
+    client.post("/v1/reference-data/fuel_type", json=_value_payload(valueCode="petrol"), headers=headers)
+    client.post("/v1/reference-data/fuel_type", json=_value_payload(valueCode="diesel"), headers=headers)
+    client.patch(
+        "/v1/reference-data/fuel_type/diesel", json={"active": False}, headers={**headers, "If-Match": "1"}
+    )
+
+    response = client.get("/v1/reference-data", headers=headers)
+    assert response.status_code == 200, response.text
+    items = {item["listCode"]: item for item in response.json()["items"]}
+    assert set(items) == {"fuel_type", "vehicle_type"}
+
+    fuel = items["fuel_type"]
+    assert fuel["labelDe"] == "Treibstoff"
+    assert fuel["labelEn"] == "Fuel type"
+    assert fuel["valueCount"] == 2
+    assert fuel["activeValueCount"] == 1
+
+    assert items["vehicle_type"]["valueCount"] == 0
+    assert items["vehicle_type"]["activeValueCount"] == 0
+
+
+def test_enumerate_reference_lists_is_ordered_by_list_code(client, db_session):
+    for code in ("transmission", "body_style", "fuel_type"):
+        _seed_list(db_session, code)
+    response = client.get("/v1/reference-data", headers=_bearer(_token(AccessRole.SALES)))
+    codes = [item["listCode"] for item in response.json()["items"]]
+    assert codes == sorted(codes)
+
+
+@pytest.mark.parametrize("role", [AccessRole.SALES, AccessRole.INVENTORY, AccessRole.AUDITOR])
+def test_any_authenticated_role_can_enumerate_reference_lists(client, db_session, role):
+    _seed_list(db_session, "fuel_type")
+    response = client.get("/v1/reference-data", headers=_bearer(_token(role)))
+    assert response.status_code == 200
+    assert [item["listCode"] for item in response.json()["items"]] == ["fuel_type"]
+
+
+def test_enumerate_reference_lists_requires_authentication(client, db_session):
+    _seed_list(db_session, "fuel_type")
+    response = client.get("/v1/reference-data")
+    assert response.status_code == 401
 
 
 # --- creation / access control ---------------------------------------------
