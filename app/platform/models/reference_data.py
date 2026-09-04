@@ -34,6 +34,19 @@ class ReferenceList(PrimaryKeyMixin, TimestampMixin, Base):
 
     list_code: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
 
+    # The list's own display name, one per language (ADR-044 — the admin
+    # screen is the one place every user-facing label in this module is
+    # maintained, the list picker included). Seed-only for v1, exactly like
+    # the rows: a list is created by an alembic migration, never a POST, so
+    # there is no create/rename endpoint for these either. Without them the
+    # `/settings/reference` picker would fall back to rendering the raw
+    # snake_case `list_code`, which the i18n rule (DE/FR/IT/EN, no hardcoded
+    # user-visible string) forbids.
+    label_de: Mapped[str] = mapped_column(String(200), nullable=False)
+    label_fr: Mapped[str] = mapped_column(String(200), nullable=False)
+    label_it: Mapped[str] = mapped_column(String(200), nullable=False)
+    label_en: Mapped[str] = mapped_column(String(200), nullable=False)
+
 
 class ReferenceValue(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     __tablename__ = "reference_value"

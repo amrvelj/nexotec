@@ -67,7 +67,9 @@ def _create_vehicle(client, dealer_id: str, **overrides):
 
 
 def _seed_list(db_session, list_code: str) -> ReferenceList:
-    ref_list = ReferenceList(list_code=list_code)
+    ref_list = ReferenceList(
+        list_code=list_code, label_de=list_code, label_fr=list_code, label_it=list_code, label_en=list_code
+    )
     db_session.add(ref_list)
     db_session.commit()
     db_session.refresh(ref_list)

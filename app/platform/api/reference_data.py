@@ -22,6 +22,8 @@ from app.core.idempotency import find_cached_response, store_response
 from app.core.pagination import PageParams, page_params
 from app.db import get_db
 from app.platform.schemas.reference_data import (
+    ReferenceListCollection,
+    ReferenceListRead,
     ReferenceValueCreate,
     ReferenceValuePage,
     ReferenceValueRead,
@@ -34,6 +36,38 @@ router = APIRouter(tags=["reference-data"])
 
 def _idempotency_key(idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")) -> str | None:
     return idempotency_key
+
+
+@router.get("/reference-data", response_model=ReferenceListCollection)
+def list_reference_lists(
+    principal: Principal = Depends(get_current_principal),  # any authenticated user may read
+    db: Session = Depends(get_db),
+):
+    """Enumerate the canonical reference lists.
+
+    Open to any authenticated principal, exactly like GET
+    /reference-data/{list_code}: sales/inventory need the set to build the
+    `/settings/reference` list picker and their own dropdowns. A plain
+    wrapped collection, not a page — the set is fixed and seed-only.
+    """
+
+    rows = reference_data_service.list_reference_lists(db)
+    return ReferenceListCollection(
+        items=[
+            ReferenceListRead(
+                list_code=row["list"].list_code,
+                label_de=row["list"].label_de,
+                label_fr=row["list"].label_fr,
+                label_it=row["list"].label_it,
+                label_en=row["list"].label_en,
+                value_count=row["value_count"],
+                active_value_count=row["active_value_count"],
+                created_at=row["list"].created_at,
+                updated_at=row["list"].updated_at,
+            )
+            for row in rows
+        ]
+    )
 
 
 @router.get("/reference-data/{list_code}", response_model=ReferenceValuePage)

@@ -4,8 +4,14 @@ import {
   referenceRowLanguageErrors,
   referenceRowMatchesQuery,
 } from './referenceData'
-import { DEFAULT_REFERENCE_LIST, REFERENCE_LIST_CODES, isReferenceListCode } from '../referenceLists'
-import type { ReferenceValueRead } from '../api/types'
+import {
+  DEFAULT_REFERENCE_LIST,
+  REFERENCE_LIST_CODES,
+  isReferenceListCode,
+  referenceListLabel,
+  referenceListOptions,
+} from '../referenceLists'
+import type { ReferenceListRead, ReferenceValueRead } from '../api/types'
 
 function row(overrides: Partial<ReferenceValueRead> = {}): ReferenceValueRead {
   return {
@@ -74,6 +80,56 @@ describe('deriveReferenceView — a pasted URL reproduces the view (ADR-056)', (
 
   it('a bare screen has an empty query', () => {
     expect(deriveReferenceView(new URLSearchParams()).query).toBe('')
+  })
+})
+
+function list(overrides: Partial<ReferenceListRead> = {}): ReferenceListRead {
+  return {
+    listCode: 'fuel_type',
+    labelDe: 'Treibstoff',
+    labelFr: 'Carburant',
+    labelIt: 'Carburante',
+    labelEn: 'Fuel type',
+    valueCount: 6,
+    activeValueCount: 6,
+    createdAt: '',
+    updatedAt: '',
+    ...overrides,
+  }
+}
+
+describe('referenceListLabel', () => {
+  it('picks the label for the active UI language', () => {
+    expect(referenceListLabel(list(), 'de')).toBe('Treibstoff')
+    expect(referenceListLabel(list(), 'fr')).toBe('Carburant')
+    expect(referenceListLabel(list(), 'it')).toBe('Carburante')
+    expect(referenceListLabel(list(), 'en')).toBe('Fuel type')
+  })
+
+  it('falls back English → code so a picker entry is never blank', () => {
+    expect(referenceListLabel(list({ labelDe: '' }), 'de')).toBe('Fuel type')
+    expect(referenceListLabel(list({ labelDe: '', labelEn: '' }), 'de')).toBe('fuel_type')
+  })
+})
+
+describe('referenceListOptions', () => {
+  it('maps the fetched lists to value/label pairs in the server order', () => {
+    const opts = referenceListOptions([list({ listCode: 'z_last' }), list({ listCode: 'a_first' })], 'de')
+    expect(opts).toEqual([
+      { value: 'z_last', label: 'Treibstoff' },
+      { value: 'a_first', label: 'Treibstoff' },
+    ])
+  })
+
+  it('falls back to the frozen set — code as its own label — until the fetch resolves', () => {
+    const opts = referenceListOptions(undefined, 'de')
+    expect(opts).toHaveLength(REFERENCE_LIST_CODES.length)
+    expect(opts.every((o) => o.value === o.label)).toBe(true)
+    expect(opts.map((o) => o.value)).toContain('fuel_type')
+  })
+
+  it('falls back when the server returns an empty set too', () => {
+    expect(referenceListOptions([], 'fr')).toHaveLength(REFERENCE_LIST_CODES.length)
   })
 })
 
