@@ -107,9 +107,11 @@
     },
     "contactType": {
       "mobile": "Mobile",
-      "private": "Privé",
-      "office": "Bureau",
-      "business": "Professionnel"
+      "landline": "Fixe",
+      "work": "Professionnel",
+      "fax": "Fax",
+      "personal": "Privé",
+      "invoicing": "Facturation"
     }
   },
   "customersList": {
@@ -204,6 +206,7 @@
         "marketingConsent": "Consentement marketing",
         "address": "Adresse",
         "canton": "Canton",
+        "cantonDerived": "Canton (dérivé)",
         "customerNumber": "Numéro de client",
         "created": "Créé",
         "lastChanged": "Dernière modification"

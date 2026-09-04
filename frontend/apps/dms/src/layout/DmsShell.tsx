@@ -115,7 +115,7 @@ function buildGlobalSearch(t: (key: string) => string, navigate: (path: string) 
             id: c.id,
             identifier: c.customerNumber,
             label: customerName(c),
-            sublabel: c.address ? `${c.address.postalCode} ${c.address.locality}` : undefined,
+            sublabel: c.address ? `${c.address.addressPostalCode} ${c.address.addressLocality}` : undefined,
             href: `/customers/${c.id}`,
           })),
         },

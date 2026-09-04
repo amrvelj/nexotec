@@ -230,10 +230,16 @@ class Customer(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     # (D-11), and the column was silently truncating them.
     address_postal_code: Mapped[str | None] = mapped_column(String(12), nullable=True)
     address_locality: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    # Derived from the Swiss postal code, never accepted from the client, and
-    # left NULL for foreign addresses. Needed for marketing segmentation and
-    # reporting (D-13). The postal-code -> canton dataset itself is Phase D
-    # (D-09); until it lands this stays NULL and nothing depends on it.
+    # STALE COMMENT CORRECTED (KAN-30, 2026-09-04): the D-13 postal-code ->
+    # canton dataset landed (app.core.postal_codes.derive_canton) and the
+    # customer-list `?canton=` filter depends on it — "nothing depends on
+    # it" is no longer true anywhere in this codebase. What IS still true
+    # of THIS column specifically: it is the WP-3 PR-5 (ADR-067) frozen
+    # legacy mirror (see legacy_address_mirror below), never written to
+    # since that migration, so it stays NULL forever regardless. The live,
+    # derived value is CustomerAddress.address_canton on the primary
+    # domicile row, never accepted from the client, left NULL for foreign
+    # addresses.
     address_canton: Mapped[str | None] = mapped_column(String(2), nullable=True)
     address_country: Mapped[str | None] = mapped_column(String(2), nullable=True)
 

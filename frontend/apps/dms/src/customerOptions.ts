@@ -95,13 +95,15 @@ export const PREFERRED_CHANNEL_OPTIONS: { value: PreferredChannel; label: string
 
 export const PHONE_TYPE_OPTIONS: { value: PhoneType; label: string }[] = [
   { value: 'mobile', label: 'Mobile' },
-  { value: 'private', label: 'Private' },
-  { value: 'office', label: 'Office' },
+  { value: 'landline', label: 'Landline' },
+  { value: 'work', label: 'Work' },
+  { value: 'fax', label: 'Fax' },
 ]
 
 export const EMAIL_TYPE_OPTIONS: { value: EmailType; label: string }[] = [
-  { value: 'private', label: 'Private' },
-  { value: 'business', label: 'Business' },
+  { value: 'personal', label: 'Personal' },
+  { value: 'work', label: 'Work' },
+  { value: 'invoicing', label: 'Invoicing' },
 ]
 
 // FR-13: translated variants of the option lists above, for screens that
@@ -186,14 +188,16 @@ export function translatedTransactionStatusLabel(t: Translate, status: 'draft' |
 export function translatedPhoneTypeOptions(t: Translate): { value: PhoneType; label: string }[] {
   return [
     { value: 'mobile', label: t('customerEnums.contactType.mobile') },
-    { value: 'private', label: t('customerEnums.contactType.private') },
-    { value: 'office', label: t('customerEnums.contactType.office') },
+    { value: 'landline', label: t('customerEnums.contactType.landline') },
+    { value: 'work', label: t('customerEnums.contactType.work') },
+    { value: 'fax', label: t('customerEnums.contactType.fax') },
   ]
 }
 
 export function translatedEmailTypeOptions(t: Translate): { value: EmailType; label: string }[] {
   return [
-    { value: 'private', label: t('customerEnums.contactType.private') },
-    { value: 'business', label: t('customerEnums.contactType.business') },
+    { value: 'personal', label: t('customerEnums.contactType.personal') },
+    { value: 'work', label: t('customerEnums.contactType.work') },
+    { value: 'invoicing', label: t('customerEnums.contactType.invoicing') },
   ]
 }

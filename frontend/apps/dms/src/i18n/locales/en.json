@@ -107,9 +107,11 @@
     },
     "contactType": {
       "mobile": "Mobile",
-      "private": "Private",
-      "office": "Office",
-      "business": "Business"
+      "landline": "Landline",
+      "work": "Work",
+      "fax": "Fax",
+      "personal": "Personal",
+      "invoicing": "Invoicing"
     }
   },
   "customersList": {
@@ -204,6 +206,7 @@
         "marketingConsent": "Marketing consent",
         "address": "Address",
         "canton": "Canton",
+        "cantonDerived": "Canton (derived)",
         "customerNumber": "Customer number",
         "created": "Created",
         "lastChanged": "Last changed"

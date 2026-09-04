@@ -25,13 +25,13 @@ describe('contact channels — detail screen (ADR-067)', () => {
     const phones: CustomerPhoneRead[] = [
       phone({ id: 'p-mob-1', type: 'mobile', value: '+41791110000', isPrimary: true }),
       phone({ id: 'p-mob-2', type: 'mobile', value: '+41792220000', isPrimary: false }),
-      phone({ id: 'p-off-1', type: 'office', value: '+41443330000', isPrimary: true }),
+      phone({ id: 'p-off-1', type: 'work', value: '+41443330000', isPrimary: true }),
     ]
     const emails: CustomerEmailRead[] = [
-      email({ id: 'e-1', type: 'private', value: 'hans.muster@example.ch', isPrimary: true }),
+      email({ id: 'e-1', type: 'personal', value: 'hans.muster@example.ch', isPrimary: true }),
       email({
         id: 'e-2',
-        type: 'business',
+        type: 'work',
         value: 'old.address@oldjob.ch',
         isPrimary: false,
         doNotUse: true,
@@ -88,7 +88,7 @@ describe('contact channels — detail screen (ADR-067)', () => {
     expect(screen.getByDisplayValue('0792220000')).toBeInTheDocument()
     expect(screen.getByDisplayValue('0443330000')).toBeInTheDocument()
 
-    // Two mobiles => a star on each; the lone landline gets none.
+    // Two mobiles => a star on each; the lone work number gets none.
     let stars = screen.getAllByRole('button', { name: primaryPrefix() })
     expect(stars).toHaveLength(2)
     expect(stars[0]).toHaveAttribute('aria-pressed', 'true')
@@ -146,7 +146,7 @@ describe('contact channels — create dialog (same RepeatableRowGroup, ADR-067)'
 
     await addPhone(user, 'mobile', '791110000')
     await addPhone(user, 'mobile', '792220000')
-    await addPhone(user, 'office', '443330000')
+    await addPhone(user, 'work', '443330000')
 
     expect(screen.getByDisplayValue('0791110000')).toBeInTheDocument()
     expect(screen.getByDisplayValue('0792220000')).toBeInTheDocument()

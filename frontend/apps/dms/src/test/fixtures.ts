@@ -1,4 +1,5 @@
 import type {
+  CustomerAddressRead,
   CustomerEmailRead,
   CustomerPhoneRead,
   CustomerRead,
@@ -72,7 +73,7 @@ export function email(overrides: Partial<CustomerEmailRead> & { type?: EmailType
   return {
     id: `email-${emailSeq}`,
     customerId: 'cust-1',
-    emailType: type ?? 'private',
+    emailType: type ?? 'personal',
     label: null,
     emailAddress: value ?? 'hans.muster@example.ch',
     isPrimary: false,
@@ -86,6 +87,32 @@ export function email(overrides: Partial<CustomerEmailRead> & { type?: EmailType
     createdAt: '2026-01-01T00:00:00Z',
     updatedAt: '2026-01-01T00:00:00Z',
     ...rest,
+  }
+}
+
+export function customerAddress(overrides: Partial<CustomerAddressRead> = {}): CustomerAddressRead {
+  return {
+    id: 'address-1',
+    customerId: 'cust-1',
+    addressType: 'domicile',
+    label: null,
+    addressStreet: 'Bahnhofstrasse',
+    addressHouseNumber: '1',
+    addressPostalCode: '8001',
+    addressLocality: 'Zürich',
+    addressCanton: 'ZH',
+    addressCountry: 'CH',
+    isPrimary: true,
+    validFrom: '2026-01-01T00:00:00Z',
+    validTo: null,
+    doNotUse: false,
+    doNotUseReason: null,
+    consentGranted: false,
+    consentSource: null,
+    consentTimestamp: null,
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-01-01T00:00:00Z',
+    ...overrides,
   }
 }
 

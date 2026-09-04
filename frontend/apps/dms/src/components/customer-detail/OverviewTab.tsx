@@ -18,6 +18,16 @@ import { ContactPointsEditor, type ContactPointUpdatePatch } from './ContactPoin
 import { PhoneInput } from '../PhoneInput'
 import type { CustomerEmailRead, CustomerPhoneRead, CustomerRead, CustomerUpdateInput, EmailType, PhoneType } from '../../api/types'
 
+/** The domicile address form's own field names — mapped onto
+ * CustomerAddressCreate/Update's addressStreet/addressHouseNumber/... at
+ * the API boundary (CustomerDetailPage's onSaveAddress), not here. */
+export interface AddressDraft {
+  street: string
+  houseNumber: string
+  postalCode: string
+  locality: string
+}
+
 interface OverviewTabProps {
   customer: CustomerRead
   phones: CustomerPhoneRead[]
@@ -25,6 +35,12 @@ interface OverviewTabProps {
   onSaveField: (patch: Partial<CustomerUpdateInput>) => Promise<void>
   isConflict: (err: unknown) => boolean
   onReload: () => void
+  // KAN-30: an address is a /customers/{id}/addresses child row (ADR-067),
+  // not a PATCH-able field on the customer — CustomerUpdate genuinely has
+  // no `address` field. The caller (CustomerDetailPage) owns the
+  // POST-if-absent / PATCH-if-present / DELETE-if-cleared decision, same
+  // as it owns the phone/email endpoints below.
+  onSaveAddress: (draft: AddressDraft) => Promise<void>
   onCreatePhone: (row: { type: PhoneType; value: string }) => Promise<void>
   onUpdatePhone: (id: string, patch: ContactPointUpdatePatch<PhoneType>) => Promise<void>
   onDeletePhone: (id: string) => Promise<void>
@@ -145,52 +161,45 @@ function SelectField({
 
 function AddressField({
   customer,
-  onSaveField,
-  isConflict,
-  onReload,
+  onSaveAddress,
   t,
-}: Omit<FieldProps, 'locale' | 'emptyLabel'> & { customer: CustomerRead; t: TFunction }) {
+}: {
+  customer: CustomerRead
+  onSaveAddress: OverviewTabProps['onSaveAddress']
+  t: TFunction
+}) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState({
-    street: customer.address?.street ?? '',
-    houseNumber: customer.address?.houseNumber ?? '',
-    postalCode: customer.address?.postalCode ?? '',
-    locality: customer.address?.locality ?? '',
+    street: customer.address?.addressStreet ?? '',
+    houseNumber: customer.address?.addressHouseNumber ?? '',
+    postalCode: customer.address?.addressPostalCode ?? '',
+    locality: customer.address?.addressLocality ?? '',
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const startEdit = () => {
     setDraft({
-      street: customer.address?.street ?? '',
-      houseNumber: customer.address?.houseNumber ?? '',
-      postalCode: customer.address?.postalCode ?? '',
-      locality: customer.address?.locality ?? '',
+      street: customer.address?.addressStreet ?? '',
+      houseNumber: customer.address?.addressHouseNumber ?? '',
+      postalCode: customer.address?.addressPostalCode ?? '',
+      locality: customer.address?.addressLocality ?? '',
     })
     setError(null)
     setEditing(true)
   }
 
-  const [conflict, setConflict] = useState(false)
-
+  // No version column on CustomerAddress (same as phone/email, ADR-067) —
+  // no 409/If-Match here, so no conflict-specific UI, unlike the
+  // versioned scalar fields TextField/SelectField/DateField save above.
   const save = async () => {
     setSaving(true)
     setError(null)
-    setConflict(false)
     try {
-      const hasAny = draft.street || draft.houseNumber || draft.postalCode || draft.locality
-      await onSaveField({ address: hasAny ? { ...draft, country: customer.address?.country ?? 'CH' } : null })
+      await onSaveAddress(draft)
       setEditing(false)
     } catch (err) {
-      const isConflictErr = isConflict(err)
-      setConflict(isConflictErr)
-      setError(
-        isConflictErr
-          ? t('customerDetail.errors.conflict')
-          : err instanceof Error
-            ? err.message
-            : t('customerDetail.errors.failedToSave')
-      )
+      setError(err instanceof Error ? err.message : t('customerDetail.errors.failedToSave'))
     } finally {
       setSaving(false)
     }
@@ -229,20 +238,9 @@ function AddressField({
             />
           </Group>
           {error && (
-            <Group gap={6}>
-              <Text size="xs" c="red">
-                {error}
-              </Text>
-              {conflict && (
-                <button
-                  type="button"
-                  onClick={onReload}
-                  style={{ border: 'none', background: 'none', color: purple[6], cursor: 'pointer', fontWeight: 600, fontSize: 12, padding: 0 }}
-                >
-                  {t('customerDetail.overview.addressForm.reload')}
-                </button>
-              )}
-            </Group>
+            <Text size="xs" c="red">
+              {error}
+            </Text>
           )}
           <Group gap="xs">
             <button
@@ -268,7 +266,7 @@ function AddressField({
   }
 
   const addr = customer.address
-  const line = addr ? `${addr.street} ${addr.houseNumber}, ${addr.postalCode} ${addr.locality}` : ''
+  const line = addr ? `${addr.addressStreet} ${addr.addressHouseNumber}, ${addr.addressPostalCode} ${addr.addressLocality}` : ''
   return (
     <KeyValueRow label={t('customerDetail.overview.fields.address')}>
       <span onClick={startEdit} style={{ cursor: 'pointer', fontStyle: addr ? undefined : 'italic', color: addr ? undefined : slate[3] }}>
@@ -285,6 +283,7 @@ export function OverviewTab({
   onSaveField,
   isConflict,
   onReload,
+  onSaveAddress,
   onCreatePhone,
   onUpdatePhone,
   onDeletePhone,
@@ -342,10 +341,13 @@ export function OverviewTab({
       </OverviewCard>
 
       <OverviewCard title={t('customerDetail.overview.cards.address')}>
-        <AddressField customer={customer} onSaveField={onSaveField} isConflict={isConflict} onReload={onReload} t={t} />
-        <KeyValueRow label={f.canton}>
-          <span style={{ fontStyle: customer.address?.canton ? undefined : 'italic', color: customer.address?.canton ? undefined : slate[3] }}>
-            {customer.address?.canton ?? t('customerDetail.overview.notSet')}
+        <AddressField customer={customer} onSaveAddress={onSaveAddress} t={t} />
+        {/* Derived server-side from the postal code (D-13), never an
+            input — labelled as such so it doesn't read as an empty box
+            waiting to be filled in (KAN-30). */}
+        <KeyValueRow label={f.cantonDerived}>
+          <span style={{ fontStyle: customer.address?.addressCanton ? undefined : 'italic', color: customer.address?.addressCanton ? undefined : slate[3] }}>
+            {customer.address?.addressCanton ?? t('customerDetail.overview.notSet')}
           </span>
         </KeyValueRow>
       </OverviewCard>
@@ -392,7 +394,7 @@ export function OverviewTab({
               consentSource: e.consentSource,
               consentTimestamp: e.consentTimestamp,
             }))}
-            newRowType="private"
+            newRowType="personal"
             renderValueEditor={(value, onChange, autoFocus) => (
               <TextInput size="xs" type="email" value={value} onChange={(e) => onChange(e.currentTarget.value)} autoFocus={autoFocus} />
             )}
