@@ -1069,6 +1069,12 @@
       "client_secret": "Client-Secret",
       "refresh_token": "Refresh-Token",
       "certificate": "Zertifikat"
+    },
+    "configKey": {
+      "username": "Benutzername",
+      "benutzerNr": "Kontonummer (BenutzerNr)",
+      "benutzerInfo": "Kontobezeichnung (BenutzerInfo)",
+      "accountNumber": "DAT-Kontonummer"
     }
   },
   "referenceData": {

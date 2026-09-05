@@ -24,6 +24,14 @@ class IntegrationProvider(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base)
     # not code, so a future provider needing three slots is a catalogue
     # row, never a schema change.
     required_secret_slots: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    # The non-secret counterpart to required_secret_slots (KAN-36) — e.g.
+    # ["username", "benutzerNr", "benutzerInfo"] for auto-i-dat. Without
+    # this, a provider-specific required config field (an account number,
+    # a project label) has no way to be validated at connection-creation
+    # time or rendered as a form field in the dealer's own "Connect"
+    # dialog — the same "a catalogue row, never a schema change" posture
+    # as required_secret_slots, just for `IntegrationConnection.config`.
+    required_config_keys: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     capability_codes: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     docs_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     supports_sandbox: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)

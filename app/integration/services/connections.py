@@ -14,11 +14,11 @@ from sqlalchemy.orm import Session
 from app.core.audit import record_audit_event
 from app.core.base import utcnow
 from app.core.config import get_settings
-from app.core.errors import ConflictError, NotFoundError
+from app.core.errors import ConflictError, NotFoundError, UnprocessableEntityError
 from app.core.pagination import SortPageParams, build_sorted_page, count_capped, paginate_query_sorted
 from app.integration.models.call_log import IntegrationCallLog
 from app.integration.models.connection import ConnectionScope, ConnectionStatus, IntegrationConnection
-from app.integration.models.entitlement import IntegrationEntitlement
+from app.integration.models.entitlement import EntitlementSource, IntegrationEntitlement
 from app.integration.models.provider import IntegrationProvider
 from app.integration.models.secret_ref import IntegrationSecretRef, SecretSlot
 from app.integration.schemas.connection import ConnectionCreate, ConnectionUpdate
@@ -27,6 +27,26 @@ from app.integration.services import secrets_backend
 from app.integration.services.secrets_backend import SecretsBackendNotConfigured
 
 _ENTITY_TYPE = "integration_connection"
+
+# KAN-36 — vin_decode is never hand-declared: it's derived from the health
+# of the tenant's own `dat` connection (the DAT sub-account auto-i-dat
+# issues alongside the main account, which is what actually entitles VIN
+# decode). Handled as a special case in tenant_has_capability below rather
+# than the plain per-connection entitlement scan, because "no row for this
+# capability" must mean "not granted" here — the opposite of that
+# function's own optimistic default for every other, declared capability.
+_VIN_DECODE_CAPABILITY = "vin_decode"
+_DAT_PROVIDER_CODE = "dat"
+_AUTO_I_DAT_PROVIDER_CODE = "auto_i_dat"
+
+
+def _validate_required_config(provider: IntegrationProvider, config: dict) -> None:
+    missing = [key for key in provider.required_config_keys if not config.get(key)]
+    if missing:
+        raise UnprocessableEntityError(
+            f"Connection config for '{provider.provider_code}' is missing required field(s): {', '.join(missing)}.",
+            details={"missingConfigKeys": missing},
+        )
 
 
 def get_connection_or_404(
@@ -136,6 +156,7 @@ def create_connection(
     """
 
     provider = provider_service.get_provider_or_404(db, data.provider_id)
+    _validate_required_config(provider, data.config)
 
     if data.scope == ConnectionScope.PLATFORM:
         resolved_tenant_id = None
@@ -187,6 +208,9 @@ def create_connection(
 def update_connection(
     db: Session, *, connection: IntegrationConnection, data: ConnectionUpdate, actor_id: uuid.UUID | None
 ) -> IntegrationConnection:
+    if data.config is not None:
+        provider = provider_service.get_provider_or_404(db, connection.provider_id)
+        _validate_required_config(provider, data.config)
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(connection, field, value)
     connection.updated_by = actor_id
@@ -368,6 +392,54 @@ def get_entitlement(
     )
 
 
+def _upsert_entitlement(
+    db: Session, *, connection_id: uuid.UUID, capability_code: str, granted: bool
+) -> IntegrationEntitlement:
+    existing = get_entitlement(db, connection_id=connection_id, capability_code=capability_code)
+    now = utcnow()
+    if existing is not None:
+        existing.granted = granted
+        existing.source = EntitlementSource.PROBED
+        existing.checked_at = now
+        row = existing
+    else:
+        row = IntegrationEntitlement(
+            connection_id=connection_id, capability_code=capability_code, granted=granted,
+            source=EntitlementSource.PROBED, checked_at=now,
+        )
+        db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+def compute_vin_decode_entitlement(db: Session, *, tenant_id: uuid.UUID) -> bool:
+    """KAN-36 — derived, never hand-declared: granted exactly when this
+    tenant holds a healthy (`enabled` + `CONNECTED`) `dat` connection, the
+    DAT sub-account that actually entitles VIN decode (reached through the
+    tenant's own auto-i-dat account, per the account sheet's own VIN/
+    VINIdentDB counters). Recomputed on every call rather than cached
+    behind write-side triggers — the same "derived on read, never stored,
+    never repaired by a nightly job" posture this codebase already applies
+    to valuation status (ADR-066). When the tenant also holds an enabled
+    `auto_i_dat` connection, the freshly computed value is upserted onto
+    it as a `source=probed` `integration_entitlement` row purely so it's
+    visible on that connection's own entitlements list — that row is a
+    cache of the last time this was asked, never a second source of truth;
+    the return value here always is.
+    """
+
+    dat_connection = get_enabled_connection(db, tenant_id=tenant_id, provider_code=_DAT_PROVIDER_CODE)
+    granted = dat_connection is not None and dat_connection.status == ConnectionStatus.CONNECTED
+
+    auto_i_dat_connection = get_enabled_connection(db, tenant_id=tenant_id, provider_code=_AUTO_I_DAT_PROVIDER_CODE)
+    if auto_i_dat_connection is not None:
+        _upsert_entitlement(
+            db, connection_id=auto_i_dat_connection.id, capability_code=_VIN_DECODE_CAPABILITY, granted=granted
+        )
+    return granted
+
+
 def tenant_has_capability(db: Session, *, tenant_id: uuid.UUID, capability_code: str) -> bool:
     """The generic degradation check any screen can ask — "can THIS
     tenant currently do X" — without needing to know which provider or
@@ -380,7 +452,16 @@ def tenant_has_capability(db: Session, *, tenant_id: uuid.UUID, capability_code:
     consuming context — here, PR-7's Sales/Valuation screens via this
     dedicated capability endpoint — owns its own degradation policy over
     the same neutral data).
+
+    `vin_decode` (KAN-36) is a deliberate exception, handled before the
+    generic scan: it isn't declared on any one connection, it's derived
+    across two, and "no row anywhere" must mean "not granted" — the
+    opposite of this function's own optimistic bias for every other
+    capability.
     """
+
+    if capability_code == _VIN_DECODE_CAPABILITY:
+        return compute_vin_decode_entitlement(db, tenant_id=tenant_id)
 
     connections = db.scalars(
         select(IntegrationConnection).where(

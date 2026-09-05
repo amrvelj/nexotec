@@ -295,3 +295,17 @@ def test_gateway_call_capability_refuses_when_circuit_is_open(db_session):
             pass
     finally:
         resilience.reset_circuit(connection.id)
+
+
+def test_decode_vin_is_unimplemented(db_session):
+    """KAN-36 — no auto-i-dat VIN webservice specification exists yet;
+    the adapter method must fail loudly rather than guess a wire shape.
+    """
+
+    provider = _make_provider(db_session)
+    connection = _make_connection(db_session, provider)
+    adapter = AutoIDatSoapAdapter(
+        db=db_session, connection=connection, soap_client=FakeSoapClient(), actor_id=uuid.uuid4(), purpose="vin_decode"
+    )
+    with pytest.raises(NotImplementedError):
+        adapter.decode_vin(vin="WVWZZZ1JZXW000001")
