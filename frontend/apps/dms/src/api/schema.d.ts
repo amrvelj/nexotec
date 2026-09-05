@@ -2651,6 +2651,8 @@ export interface components {
             addressCountry?: string;
             /** Addresshousenumber */
             addressHouseNumber: string;
+            /** Addressline2 */
+            addressLine2?: string | null;
             /** Addresslocality */
             addressLocality: string;
             /** Addresspostalcode */
@@ -2679,6 +2681,8 @@ export interface components {
             addressCountry: string;
             /** Addresshousenumber */
             addressHouseNumber: string;
+            /** Addressline2 */
+            addressLine2: string | null;
             /** Addresslocality */
             addressLocality: string;
             /** Addresspostalcode */
@@ -2734,6 +2738,8 @@ export interface components {
             addressCountry?: string | null;
             /** Addresshousenumber */
             addressHouseNumber?: string | null;
+            /** Addressline2 */
+            addressLine2?: string | null;
             /** Addresslocality */
             addressLocality?: string | null;
             /** Addresspostalcode */
@@ -4234,6 +4240,8 @@ export interface components {
             docsUrl?: string | null;
             /** Providercode */
             providerCode: string;
+            /** Requiredconfigkeys */
+            requiredConfigKeys?: string[];
             /** Requiredsecretslots */
             requiredSecretSlots?: string[];
             /**
@@ -4266,6 +4274,8 @@ export interface components {
             id: string;
             /** Providercode */
             providerCode: string;
+            /** Requiredconfigkeys */
+            requiredConfigKeys: string[];
             /** Requiredsecretslots */
             requiredSecretSlots: string[];
             /** Supportssandbox */
@@ -4281,6 +4291,8 @@ export interface components {
             displayName?: string | null;
             /** Docsurl */
             docsUrl?: string | null;
+            /** Requiredconfigkeys */
+            requiredConfigKeys?: string[] | null;
             /** Supportssandbox */
             supportsSandbox?: boolean | null;
         };
