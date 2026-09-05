@@ -301,7 +301,7 @@ function RotateSecretModal({
   const submit = async () => {
     setSubmitting(true)
     try {
-      for (const slot of connection.secretSlots) {
+      for (const slot of connection.secretSlots ?? []) {
         const value = values[slot.slot]
         if (value) await api.put(`/integrations/connections/${connection.id}/secrets/${slot.slot}`, { secretValue: value })
       }
@@ -316,7 +316,7 @@ function RotateSecretModal({
     <Modal opened onClose={onClose} title={t('integrationsList.rotateModal.title', { name: connection.displayName })}>
       <Stack gap="sm">
         <Text size="xs" c="dimmed">{t('integrationsList.rotateModal.hint')}</Text>
-        {connection.secretSlots.map((slot) => (
+        {(connection.secretSlots ?? []).map((slot) => (
           <TextInput
             key={slot.slot}
             label={t(`integrationEnums.secretSlot.${slot.slot}`, slot.slot)}

@@ -427,3 +427,75 @@ jobs:
       - run: pytest
         env:
           DMS_TEST_DATABASE_URL: postgresql+psycopg://dms:dms@localhost:5432/dms_platform_test
+
+  # KAN-35 — frontend/apps/dms/src/api/schema.d.ts is generated from
+  # app.openapi() and checked in; this job regenerates it and fails on any
+  # diff, so a backend field can't drift out from under src/api/types.ts
+  # unnoticed. No Postgres service and no DMS_DATABASE_URL: app.openapi()
+  # only needs the app object built (import, not a live server) — same
+  # WeasyPrint apt packages as the postgres job above because app.main
+  # still imports that whole module graph, and the same CI-dummy Settings
+  # env every other job here uses, for the same reason (see the comments
+  # on migration-smoke-test).
+  frontend-openapi-drift:
+    name: frontend API types match the backend schema (KAN-35)
+    runs-on: ubuntu-latest
+    env:
+      DMS_TAX_ID_ENCRYPTION_KEY: d4Z9UU9FYX5HeORG4D0xtQy1AIAVBjGV08XGS06x4q8=
+      DMS_JWT_PRIVATE_KEY: |
+        -----BEGIN PRIVATE KEY-----
+        MIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQC3sYZ37Y3g7Jj2
+        ij3zg/8TZzkza46sLqmXLzn11lWt6Xoao9WotGuHpPVO6lu96/SFxWH7xiuoZB8L
+        g4kE85yswvZqV7LMg7RJzt7ECCzgzLKX1r9riu0zAuChXoiOp7P5AyhDujMkyGVz
+        TXrU33dr27jOT4Njit4izaDjyFItv5iTRcmOriEGnjnlWoZAjZmLL8OTK/g4lm2H
+        R+dWu9DheLrbI/A5UBnVvQe8J57DaT8OONK1ApAv84M4U403KBQYQJHoGomCwVb0
+        MIMsoNXHNcsUCbZ0m9NlSRuRAZAauLKfCkf/NslJ3ApIOIAoy5oHT83GfrJ6x0kk
+        jdKM5RYxAgMBAAECggEARTxauAooHz5eGxKY7hdyxV/zLd/c2yYNUsgAmxnJmm61
+        UKQuzFMQcoRo13E62fc850yxtUGIxAPUtbTCqMSfaXhkg0mBwVbk1arsyMtiCurs
+        Z5GP/ZtT8xWjD/9/DfHEwlb/zqM4UqVbo51w7ho6O0OKQOy0U4kMV+bUPPaMjuQT
+        QYhyQsCWVxygDbSImKs5cbEwoHI5o2xy5KFBz/8CiJKeup4hBBXGAv8BLmzh++4y
+        kguZCKNRsUQkmmuqaCSDPhg/SlGWgOSxpkcwQb4v71ff1lMmHDRmuwG4Vk/4DTH3
+        EJYfc4OkkvXrfz+P2FlJOWVkbCT3tcNrao4Jft2mHwKBgQDyiPpqDmG9/ewyjTXw
+        SlBblm13r73N+W6iCA6d4XRsSloDVVCf73c13305fcqoPQHoaNuhpiRL7dBpuY9R
+        E09k9/4/hQiujAYrMZqJxu8mH5IEl8SCxmKUiXhrKaRSk1W1kltaT4eEKCzm6Gqq
+        ty4xpfML39sNq+sNv0Xi1t498wKBgQDB5EM4C1mtaZjGlUHK+bp96rMW6vtax1A7
+        H8BdBwVW3Nh9MXIAevFFKnTYbpByIVBXX8O6zNZQcKa7GKunZs1eObu2qneCi7Pl
+        KErHmvgwWKeKakTFv6kWJ+/5QV9sXwuufekS5/69Agc0W9GNqlrh0h5f7/Eb7TA9
+        GHXSQh9QSwJ/dXnj0Xsl3OEhh1rexYU5ZyN14oM9bIdlDxbX/aE2wz1AXFz2sIFN
+        PMsD3NURVGw4gFpKCAJxklWenZdD1AGGc2GrxRirG+C3HDTqpdG2BMFF+POKO83b
+        8hakPUPuVBEJculxVk0vVtQe67mn8QjJV0MKdrX3ZKfhMsdzEm0BOQKBgQCeHs8K
+        t4bsuv8Sg8piA4KpCWv/tqZBg+XUMbKoqv8ZtYT/pAE6jwiPxW4AyzoVOUHR35E5
+        l673bscqMZZbMKUuwJpq/13zIocUzOUfHyxkEQihAsUPF5yHKw6zETMGqARYyun2
+        tyexcCP7+R1OEK2JF9gZmQ3iHm6GhJohXDc5PQKBgQDf4j+EUVyQ29SMm4+gbCdQ
+        PQOiyyjy+uRDLZAmCLjEx2dgnXqpRNGhtr5GQ2LwmxQm/OSZ1RwRwHhBLVfj0v9G
+        qREA6IGDUrJHGuPMyd8hy2qAU0cNxkyIlkgzZZkJtXcQupjshyH7ud1BCyq4GOm6
+        m5mglGO7fs09fMV5n0qtEg==
+        -----END PRIVATE KEY-----
+      DMS_ZITADEL_ISSUER: https://example.zitadel.cloud
+      DMS_ZITADEL_CLIENT_ID: ci-dummy-client-id
+      DMS_ZITADEL_CLIENT_SECRET: ci-dummy-client-secret
+      DMS_ZITADEL_REDIRECT_URI: http://localhost/v1/auth/oidc/callback
+      DMS_SESSION_SECRET_KEY: ci-dummy-session-secret-key-not-used-for-anything-real
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends
+          libglib2.0-0 libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz0b libfontconfig1 fonts-dejavu-core
+      - run: pip install -e ".[dev]"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+      - name: npm ci
+        working-directory: frontend
+        run: npm ci
+      - name: regenerate openapi.json and schema.d.ts
+        run: |
+          PYTHONPATH=. python3 scripts/generate_openapi_schema.py
+          cd frontend/apps/dms
+          npx openapi-typescript ./openapi.json -o ./src/api/schema.d.ts --default-non-nullable false
+      - name: fail if schema.d.ts is not what's checked in
+        run: git diff --exit-code -- frontend/apps/dms/src/api/schema.d.ts

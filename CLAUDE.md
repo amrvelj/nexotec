@@ -26,11 +26,12 @@ right.
 - Backend lint: `ruff check .` · backend typecheck: `python3 -m mypy app` — run mypy **as a module**; the bare `mypy` binary resolves a different interpreter and reports phantom import errors
 - Frontend lint: `npm run lint --prefix frontend` (oxlint) · typecheck + build: `npm run build --prefix frontend`
 - Import boundaries: `lint-imports`
+- Regenerate the frontend's API types from the backend's own OpenAPI schema: `make generate-frontend-types` (or `npm run generate:api-types --prefix frontend/apps/dms`) — both run the same two commands, so they can't drift from each other
 
-CI (`.github/workflows/test.yml`) runs ten jobs: secret-scan, import-linter, ruff, mypy,
+CI (`.github/workflows/test.yml`) runs eleven jobs: secret-scan, import-linter, ruff, mypy,
 frontend, docker-build, migration-smoke-test, migration-upgrade-from-previous,
-outbox-worker-smoke-test and pytest on Postgres. **Whether they block a merge is a
-branch-protection setting on `main`, not something this repo can prove.**
+outbox-worker-smoke-test, pytest on Postgres, and frontend-openapi-drift. **Whether they
+block a merge is a branch-protection setting on `main`, not something this repo can prove.**
 
 ## Authority
 
@@ -450,3 +451,12 @@ sync · `If-Match` on every mutation of a versioned entity · `Idempotency-Key` 
   alongside the PR, in the same session, or they will not happen.
 - **Do not claim an exit criterion in a commit message that the code does not meet.** The
   status table above exists because that happened, across three work packages.
+- **`frontend/apps/dms/src/api/types.ts` is generated, not hand-maintained (KAN-35).**
+  Every type describing a response or request body is derived from
+  `frontend/apps/dms/src/api/schema.d.ts`, which is regenerated from the backend's own
+  `app.openapi()` and diffed by the `frontend-openapi-drift` CI job. Hand-editing a
+  response/request shape back into `types.ts` is now a mistake the pipeline catches, not a
+  quick fix — run `make generate-frontend-types` instead. A shape the backend genuinely
+  under-types (a computed field typed `str` where the real value set is a literal union) is
+  a `NARROWED` override inside `types.ts`, commented as such, not a reason to hand-write the
+  whole interface.

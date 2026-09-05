@@ -155,8 +155,8 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
   }
 
   const offer = offerQuery.data
-  const containerById = Object.fromEntries(offer.containers.map((c) => [c.id, c]))
-  const missing = offer.containers.filter((c) => c.requirement === 'required' && c.status === 'not_started')
+  const containerById = Object.fromEntries((offer.containers ?? []).map((c) => [c.id, c]))
+  const missing = (offer.containers ?? []).filter((c) => c.requirement === 'required' && c.status === 'not_started')
 
   return (
     <Stack gap="lg">

@@ -14,6 +14,10 @@ dist-ssr
 .env
 *.tsbuildinfo
 
+# Build intermediate for KAN-35's generated types (src/api/schema.d.ts is
+# the checked-in, CI-diffed artifact; this dump of app.openapi() is not).
+apps/dms/openapi.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

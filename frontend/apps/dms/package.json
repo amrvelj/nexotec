@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "test": "vitest run",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "generate:api-types": "(cd ../../.. && PYTHONPATH=. python3 scripts/generate_openapi_schema.py) && npx openapi-typescript ./openapi.json -o ./src/api/schema.d.ts --default-non-nullable false"
   },
   "dependencies": {
     "@mantine/core": "^7.17.8",
@@ -35,6 +36,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.4",
     "jsdom": "^30.0.1",
+    "openapi-typescript": "7.13.0",
     "oxlint": "^1.75.0",
     "typescript": "~6.0.2",
     "vite": "^8.2.0",

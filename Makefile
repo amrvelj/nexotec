@@ -1,4 +1,4 @@
-.PHONY: up down logs
+.PHONY: up down logs generate-frontend-types
 
 # WP-2 PR-3 (closes G-13): brings the whole stack up from cold on a clean
 # machine, seeded, in one command. `.env` is generated once, on first run
@@ -34,3 +34,13 @@ down:
 
 logs:
 	docker compose logs -f
+
+# KAN-35 — regenerates frontend/apps/dms/src/api/schema.d.ts from the
+# backend's own app.openapi() (import only, no server, no DB). Same two
+# commands `npm run generate:api-types` (apps/dms/package.json) runs, so
+# the two entry points can't drift from each other. Needs the same
+# DMS_-prefixed Settings env `make up` writes to .env (Settings has no
+# defaults for these, ADR-007) — sourced here if .env exists.
+generate-frontend-types:
+	@if [ -f .env ]; then set -a && . ./.env && set +a; fi; PYTHONPATH=. python3 scripts/generate_openapi_schema.py
+	cd frontend/apps/dms && npx openapi-typescript ./openapi.json -o ./src/api/schema.d.ts --default-non-nullable false

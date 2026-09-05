@@ -84,7 +84,7 @@ export function ValuationDetailContent({ valuationId: id, embedded = false }: Va
     onOpenVehicle: valuation.vehicleId ? () => navigate(`/vehicles/${valuation.vehicleId}`) : undefined,
   })
 
-  const deductionsTotal = valuation.deductions.reduce((sum, d) => sum + Number(d.amount), 0)
+  const deductionsTotal = (valuation.deductions ?? []).reduce((sum, d) => sum + Number(d.amount), 0)
 
   return (
     <Stack gap="lg">
@@ -115,13 +115,13 @@ export function ValuationDetailContent({ valuationId: id, embedded = false }: Va
             <Text size="sm" c="dimmed">{t('valuationDetail.valueCard.providerValue')}</Text>
             <Text size="sm">{valuation.providerValue != null ? formatCurrencyChf(Number(valuation.providerValue)) : '—'}</Text>
           </Group>
-          {valuation.deductions.map((d, i) => (
+          {(valuation.deductions ?? []).map((d, i) => (
             <Group key={i} justify="space-between">
               <Text size="sm" c="dimmed">{d.label}</Text>
               <Text size="sm" c="red">− {formatCurrencyChf(Number(d.amount))}</Text>
             </Group>
           ))}
-          {valuation.deductions.length > 0 && (
+          {(valuation.deductions ?? []).length > 0 && (
             <Group justify="space-between">
               <Text size="sm" fw={600}>{t('valuationDetail.valueCard.netValue')}</Text>
               <Text size="sm" fw={600}>
