@@ -222,6 +222,22 @@ class AutoIDatSoapAdapter:
             status_code=str(getattr(response, "BewertungsStatus", "ok")),
         )
 
+    def decode_vin(self, *, vin: str) -> Any:
+        """KAN-36 — VIN decode is DAT-backed, reached through this auto-
+        i-dat account: the DAT sub-account (its own `dat` connection,
+        never folded into this one — the two rotate independently) is
+        what entitles it, derived as the `vin_decode` capability in
+        `services/connections.py::compute_vin_decode_entitlement`, never
+        hand-declared. Left unimplemented: no auto-i-dat VIN webservice
+        specification exists in Drive today (the four PDFs on file are
+        Fahrzeuge, Bewertung, Valuation and Etikette — none documents a
+        VIN call), and guessing the wire shape of a real, billed provider
+        operation is worse than leaving it absent. Implement this once
+        that specification is obtained (KAN-36's own exit criterion).
+        """
+
+        raise NotImplementedError("auto-i-dat VIN decode webservice specification is not yet available (KAN-36).")
+
     def fetch_forecast(self, *, fz_key: str, model_year: int) -> ForecastResult:
         response = self._call("Fahrzeuge", FzKey=fz_key, Forecast=True)
         return ForecastResult(

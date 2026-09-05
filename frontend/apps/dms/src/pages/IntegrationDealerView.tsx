@@ -30,6 +30,20 @@ import type {
  * (I-2/I-3) — never a billing artifact; the API's own `UsageRead.
  * indicative` flag is always true today, rendered as a caption.
  */
+/**
+ * The account-identifier shown on a connected provider's card. auto-i-dat
+ * (KAN-36) carries `benutzerNr`/`benutzerInfo` — a dealer can hold several
+ * auto-i-dat accounts, distinguished only by these two fields, so they take
+ * priority over the plain `username` every other provider falls back to.
+ */
+function accountIdentifier(connection: IntegrationConnectionRead): string {
+  const { benutzerNr, benutzerInfo, username } = connection.config
+  if (benutzerNr != null && typeof benutzerInfo === 'string') {
+    return `${benutzerNr} · ${benutzerInfo}`
+  }
+  return typeof username === 'string' ? username : '—'
+}
+
 export function IntegrationDealerView() {
   const { t, i18n } = useTranslation()
   const queryClient = useQueryClient()
@@ -101,7 +115,7 @@ export function IntegrationDealerView() {
                     {t(`integrationEnums.environment.${connection.environment}`, connection.environment)}
                   </KeyValueRow>
                   <KeyValueRow label={t('integrationsList.fields.accountIdentifier')}>
-                    {typeof connection.config.username === 'string' ? connection.config.username : '—'}
+                    {accountIdentifier(connection)}
                   </KeyValueRow>
                   <KeyValueRow label={t('integrationsList.fields.lastVerified')}>
                     {connection.lastVerifiedAt ? formatDate(connection.lastVerifiedAt, locale) : '—'}
@@ -171,6 +185,7 @@ function ConnectDialog({
   const { t } = useTranslation()
   const [environment, setEnvironment] = useState<'sandbox' | 'production'>('sandbox')
   const [secrets, setSecrets] = useState<Record<string, string>>({})
+  const [configValues, setConfigValues] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -184,6 +199,7 @@ function ConnectDialog({
         providerId: provider.id,
         displayName: provider.displayName,
         environment,
+        config: configValues,
       })
       for (const slot of provider.requiredSecretSlots) {
         const value = secrets[slot]
@@ -210,6 +226,14 @@ function ConnectDialog({
           value={environment}
           onChange={(v) => setEnvironment((v as 'sandbox' | 'production') ?? 'sandbox')}
         />
+        {provider.requiredConfigKeys.map((key) => (
+          <TextInput
+            key={key}
+            label={t(`integrationEnums.configKey.${key}`, key)}
+            value={configValues[key] ?? ''}
+            onChange={(e) => setConfigValues((prev) => ({ ...prev, [key]: e.currentTarget.value }))}
+          />
+        ))}
         {provider.requiredSecretSlots.map((slot) => (
           <TextInput
             key={slot}

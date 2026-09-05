@@ -301,8 +301,23 @@ Read the ADR before building against any of these.
 
 Three facts to carry into that work:
 
-- **auto-i-dat has no VIN decode.** VIN and Stammnummer resolve only against our own
-  `vehicle-mdm`. Plate, Typenschein and Werkscode are the provider-backed inputs.
+- **auto-i-dat *does* offer VIN decode — corrected by KAN-36, 2026-09-05.** This file,
+  PRD-Configurator v1.1 and KAN-9 all previously said the opposite, inferred from the
+  *Webservice Fahrzeuge* PDF (which indeed has no VIN-taking Datenname) rather than from the
+  provider's actual capability. VIN decode is **DAT-backed**: an auto-i-dat account carries a
+  second, independent DAT sub-account (`DAT VIN Account` / `DAT Benutzer` / `DAT Passwort`),
+  and only an account with that sub-account populated shows any VIN/VINIdentDB traffic on its
+  own billing sheet. Modelled as its own `dat` provider/connection (never folded into the
+  `auto_i_dat` connection's config — the two rotate independently); `vin_decode` is a derived
+  `integration_entitlement` on the tenant's `auto_i_dat` connection, granted exactly when a
+  healthy `dat` connection exists, never hand-declared
+  (`app/integration/services/connections.py::compute_vin_decode_entitlement`). **The VIN
+  webservice call itself is still not implemented** — no specification for it exists anywhere
+  in Drive (the four auto-i-dat PDFs on file are Fahrzeuge, Bewertung, Valuation and Etikette;
+  none documents a VIN call), so `AutoIDatSoapAdapter.decode_vin` raises `NotImplementedError`
+  until that spec is obtained from auto-i-dat — a procurement step, not an engineering one.
+  Stammnummer still resolves only against our own `vehicle-mdm`; plate, Typenschein and
+  Werkscode remain the other provider-backed inputs.
 - **`vehicle_type_approval` is now a many-to-many with `vehicle_model_variant`** (through
   `vehicle_model_variant_type_approval`); `type_approval_number` is indexed, not unique;
   `first_registration_from` sits on the link. A Typenschein is the number importers use to

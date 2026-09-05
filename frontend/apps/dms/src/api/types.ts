@@ -1001,6 +1001,7 @@ export interface IntegrationProviderRead {
   displayName: string
   authType: string
   requiredSecretSlots: string[]
+  requiredConfigKeys: string[]
   capabilityCodes: string[]
   docsUrl: string | null
   supportsSandbox: boolean
