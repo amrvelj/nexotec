@@ -25,7 +25,7 @@ export function buildConnectionRowMenu(
   connection: Pick<IntegrationConnectionRead, 'enabled' | 'secretSlots'>,
   actions: ConnectionRowMenuActions
 ): RowMenuGroups {
-  const hasSecrets = connection.secretSlots.length > 0
+  const hasSecrets = (connection.secretSlots ?? []).length > 0
 
   return {
     edit: [

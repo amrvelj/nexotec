@@ -11,5 +11,10 @@
     "build": "npm run build --workspace=@nexotec/dms-web",
     "lint": "npm run lint --workspaces --if-present",
     "preview": "npm run preview --workspace=@nexotec/dms-web"
+  },
+  "overrides": {
+    "openapi-typescript": {
+      "typescript": "*"
+    }
   }
 }
