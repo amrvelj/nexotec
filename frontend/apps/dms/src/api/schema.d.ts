@@ -4234,8 +4234,6 @@ export interface components {
             docsUrl?: string | null;
             /** Providercode */
             providerCode: string;
-            /** Requiredconfigkeys */
-            requiredConfigKeys?: string[];
             /** Requiredsecretslots */
             requiredSecretSlots?: string[];
             /**
@@ -4268,8 +4266,6 @@ export interface components {
             id: string;
             /** Providercode */
             providerCode: string;
-            /** Requiredconfigkeys */
-            requiredConfigKeys: string[];
             /** Requiredsecretslots */
             requiredSecretSlots: string[];
             /** Supportssandbox */
@@ -4285,8 +4281,6 @@ export interface components {
             displayName?: string | null;
             /** Docsurl */
             docsUrl?: string | null;
-            /** Requiredconfigkeys */
-            requiredConfigKeys?: string[] | null;
             /** Supportssandbox */
             supportsSandbox?: boolean | null;
         };
