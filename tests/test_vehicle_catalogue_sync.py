@@ -82,6 +82,23 @@ def test_seed_is_idempotent_reruns_do_not_duplicate_variants_or_tenant_content(d
     assert db_session.query(ColourCache).filter_by(tenant_id=tenant_id).count() == 3 * 2
 
 
+def test_seed_persists_the_variant_base_price_the_adapter_already_returns(db_session):
+    """C-A: `VariantMasterData.base_price` (LetzterNP) was being dropped —
+    the adapter returns it, nothing persisted it. `base_price_year` /
+    `price_is_net` stay NULL until C-0 wires FahrzeugePreise / NettoPreis."""
+
+    provider = _make_mock_provider(db_session)
+    tenant_id = uuid.uuid4()
+    _make_connection(db_session, provider, tenant_id=tenant_id)
+
+    catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_id)
+
+    priced = [v for v in db_session.query(ModelVariant).all() if v.base_price is not None]
+    assert len(priced) == 3
+    assert {str(v.base_price) for v in priced} == {"28900.00", "42500.00", "54900.00"}
+    assert all(v.base_price_year is None and v.price_is_net is None for v in priced)
+
+
 def test_seed_writes_a_mapping_gap_on_an_unresolved_provider_code(db_session):
     """No ProviderCodeMap rows exist for `auto_i_dat_mock` in this test —
     every *_code field on every demo variant misses, and the existing

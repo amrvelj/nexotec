@@ -42,6 +42,8 @@ from app.vehicle.models.catalogue import (
     ModelVariant,
     TypeApproval,
     VariantOption,
+    VariantOptionEquipmentFeature,
+    VariantPrice,
     VariantTypeApproval,
 )
 from app.vehicle.models.catalogue_mirror import ColourCache, ImageRef, ProviderSyncState, TyreSpecCache
@@ -110,6 +112,8 @@ __all__ = [
     "ValuationDeduction",
     "ValuationNumberSequence",
     "VariantOption",
+    "VariantOptionEquipmentFeature",
+    "VariantPrice",
     "VariantTypeApproval",
     "Vehicle",
     "VehicleAccessory",

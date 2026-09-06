@@ -10,7 +10,9 @@
  * that create it:
  *   - WP-1 shell seed        (alembic c9654d846ac9)  — 8 lists
  *   - vehicle catalogue seed (alembic platform/6ba0a99ed5c4) — 16 lists
- * PRD-Vehicles §"Canonical lists to administer (v1)" names them too.
+ *   - configurator C-A       (alembic platform/a3d9c1e58f27) — 3 lists (KAN-39)
+ * PRD-Vehicles §"Canonical lists to administer (v1)" and
+ * PRD-Configurator §"The canonical code map" name them too.
  *
  * A follow-up ticket adds the read endpoint so this stops being a
  * client-side constant; until then, a list added server-side does not
@@ -43,6 +45,10 @@ export const REFERENCE_LIST_CODES = [
   'vehicle_status',
   'custody_event_type',
   'party_role',
+  // configurator C-A seed (platform/a3d9c1e58f27) — KAN-39
+  'engine_cycle',
+  'valuation_classification',
+  'option_relation_type',
 ] as const
 
 export type ReferenceListCode = (typeof REFERENCE_LIST_CODES)[number]

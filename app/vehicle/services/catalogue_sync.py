@@ -239,6 +239,11 @@ def upsert_model_variant(db: Session, *, provider_code: str, master: VariantMast
         name=master.variant_name,
         model_year_from=master.model_year_from,
         model_year_to=master.model_year_to,
+        # C-A: the adapter already returns `base_price` (LetzterNP) and it
+        # was being dropped on the floor. `base_price_year` / `price_is_net`
+        # stay NULL until C-0 wires FahrzeugePreise / NettoPreis; the
+        # per-model-year price history (`vehicle_variant_price`) is C-0/C-D.
+        base_price=master.base_price,
         vehicle_kind=_resolve_code(
             db, provider_code=provider_code, vehicle_kind_qualifier=master.vehicle_kind_code,
             code_group="vehicle_kind", provider_value=master.vehicle_kind_code,
