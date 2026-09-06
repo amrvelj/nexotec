@@ -47,6 +47,11 @@ from app.vehicle.models.catalogue import (
     VariantTypeApproval,
 )
 from app.vehicle.models.catalogue_mirror import ColourCache, ImageRef, ProviderSyncState, TyreSpecCache
+from app.vehicle.models.configuration import (
+    VehicleConfiguration,
+    VehicleConfigurationOption,
+    VehicleConfigurationOptionFeature,
+)
 from app.vehicle.models.energy_rating import ModelVariantEnergyRating
 from app.vehicle.models.plate import DealerPlate, DealerPlateAssignment, VehiclePlate, VehiclePlateConflict
 from app.vehicle.models.provider import MappingGap, ProviderCodeMap, ProviderEntityRef
@@ -117,6 +122,9 @@ __all__ = [
     "VariantTypeApproval",
     "Vehicle",
     "VehicleAccessory",
+    "VehicleConfiguration",
+    "VehicleConfigurationOption",
+    "VehicleConfigurationOptionFeature",
     "VehicleCustodyEvent",
     "VehicleMdm",
     "VehicleMdmCustodyEvent",

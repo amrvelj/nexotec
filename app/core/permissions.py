@@ -71,6 +71,11 @@ CAPABILITY_MATRIX: dict[str, Capability] = {
     # und Laufkundschaft", confirmed live): both Sales (trade-in) and
     # Inventory (buying a car outright) create valuations.
     "valuations": Capability(read_roles=None, write_roles=frozenset({AccessRole.SALES, AccessRole.INVENTORY})),
+    # C-C / KAN-41 — the configurator's entity. Reached from a host in every
+    # commercial process, so both Sales (offers, trade-ins) and Inventory
+    # (add-to-pipeline, goods-in) write; reads are open like the other
+    # catalogue / vehicle reads.
+    "configurations": Capability(read_roles=None, write_roles=frozenset({AccessRole.SALES, AccessRole.INVENTORY})),
     "dealership_settings": Capability(read_roles=None, write_roles=frozenset()),
     # WP-6b, ADR-044 tier 2: document templates (letterhead/branding/
     # boilerplate) are edited by platform staff and dealer managers, same
