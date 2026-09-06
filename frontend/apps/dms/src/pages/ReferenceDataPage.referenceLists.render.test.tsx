@@ -18,16 +18,11 @@ const emptyValuesRoute: FakeRoute = {
   match: /\/reference-data\//,
   handler: () => ({ items: [], nextCursor: null }),
 }
-const emptyGapsRoute: FakeRoute = {
-  method: 'GET',
-  match: /\/vehicle-mdm\/mapping-gaps/,
-  handler: () => ({ items: [], nextCursor: null }),
-}
 
 describe('ReferenceDataPage — the configurator C-A canonical lists', () => {
   it('offers engine_cycle, valuation_classification and option_relation_type in the list picker', async () => {
     const user = userEvent.setup()
-    installFakeBackend([emptyValuesRoute, emptyGapsRoute])
+    installFakeBackend([emptyValuesRoute])
 
     const { container } = renderWithProviders(<ReferenceDataPage />, { route: '/settings/reference' })
 

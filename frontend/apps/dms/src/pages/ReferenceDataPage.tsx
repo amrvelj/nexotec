@@ -16,11 +16,10 @@ import {
 } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Blocks, CircleAlert, Check, Languages, Plus, ShieldCheck } from 'lucide-react'
+import { CircleAlert, Check, Languages, Plus, ShieldCheck } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { FormDialog, InlineEditField, semantic, useSetBreadcrumb } from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
-import { MappingGapsQueue } from '../components/MappingGapsQueue'
 import type { ReferenceValuePage, ReferenceValueRead } from '../api/types'
 import { REFERENCE_LIST_CODES, type ReferenceListCode } from '../referenceLists'
 import {
@@ -240,21 +239,9 @@ export function ReferenceDataPage() {
         </Stack>
       </Card>
 
-      {/* ── Card 2: the mapping-gap queue, a work list ──────────────── */}
-      <Card withBorder padding="lg" radius="md">
-        <Stack gap="md">
-          <Group gap="sm" wrap="nowrap" align="flex-start">
-            <Blocks size={18} />
-            <Stack gap={2} style={{ flex: 1 }}>
-              <Text fw={600}>{t('referenceData.gaps.title')}</Text>
-              <Text c="dimmed" size="sm">
-                {t('referenceData.gaps.help')}
-              </Text>
-            </Stack>
-          </Group>
-          <MappingGapsQueue paramPrefix="gaps" />
-        </Stack>
-      </Card>
+      {/* The mapping-gap queue moved to /catalogue?tab=mapping-gaps in C-B
+          (KAN-40) — catalogue owns provider-code mapping, this screen owns
+          canonical-vocabulary editing. */}
 
       <CreateValueDialog
         opened={createOpen}

@@ -40,6 +40,7 @@ from app.vehicle.models.spec_block import (
     spec_block_as_dict,
     spec_block_field_names,
 )
+from app.vehicle.schemas.spec_block import VehicleSpecBlockRead
 
 # Carriers that hold the block as ORM columns (the mixin). C-C appends
 # ``VehicleConfiguration``.
@@ -63,6 +64,15 @@ def test_spec_block_fields_tuple_matches_the_mixin_exactly():
     drift from the mixin's own columns."""
 
     assert _mixin_mapped_attributes(VehicleSpecBlock) == SPEC_BLOCK_FIELDS
+
+
+def test_spec_block_read_schema_matches_the_spec_fields():
+    """`VehicleSpecBlockRead` (C-B) is the wire form of the block, shared by
+    the catalogue-variant and configuration reads — its field set (by
+    snake_case name) must be exactly `SPEC_BLOCK_FIELDS`."""
+
+    schema_fields = tuple(VehicleSpecBlockRead.model_fields)  # declared order, snake_case
+    assert schema_fields == SPEC_BLOCK_FIELDS
 
 
 def test_every_column_carrier_carries_every_specification_field():
