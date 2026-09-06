@@ -20,12 +20,13 @@ import datetime as dt
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import DECIMAL, Date, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import DECIMAL, Boolean, Date, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
 from app.core.types import GUID
 from app.db import Base
+from app.vehicle.models.spec_block import VehicleSpecBlock
 
 
 class Brand(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
@@ -62,16 +63,26 @@ class ModelGroup(PrimaryKeyMixin, TimestampMixin, Base):
     variants: Mapped[list["ModelVariant"]] = relationship(back_populates="model_group")
 
 
-class ModelVariant(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
+class ModelVariant(VehicleSpecBlock, PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     """What auto-i-dat's FzKey identifies — e.g. "Giulietta 1.4 TB
     Progression". Descriptive fields here are canonical-taxonomy value_codes
     (reference_value.value_code strings, validated at the service layer via
     app.platform.public.get_reference_value_or_404 — same pattern the
     shipped Vehicle model already uses for its own reference fields), never
-    a raw provider code. The richer, provider-mirrored specification (full
-    option list, images, list price) is WP-6's job (the provider-gateway
-    mirror) — this table only needs to be a stable link target for
-    VehicleMdm.catalogue_variant_id and for matching (PR-6).
+    a raw provider code.
+
+    **The full specification block (ADR-071) is mixed in from
+    `VehicleSpecBlock`** — the same ~40-field description carried by the
+    configuration (C-C) and the host snapshot (C-F). The five coded fields
+    below (`vehicle_kind` … `transmission`) predate that block and stay
+    declared here: they are already wired through `resolve_provider_code`
+    in `catalogue_sync` and moving them would churn a working path for no
+    gain. The drift test treats them as part of this carrier's spec surface
+    regardless.
+
+    Provider-mirrored, tenant-scoped content (option list, images, colours)
+    lives in `catalogue_mirror.py`; the per-model-year price history lives
+    in `VariantPrice` below.
     """
 
     __tablename__ = "vehicle_model_variant"
@@ -93,9 +104,33 @@ class ModelVariant(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
 
     model_group: Mapped[ModelGroup] = relationship(back_populates="variants")
     options: Mapped[list["VariantOption"]] = relationship(back_populates="model_variant")
+    prices: Mapped[list["VariantPrice"]] = relationship(
+        back_populates="model_variant", cascade="all, delete-orphan"
+    )
     type_approval_links: Mapped[list["VariantTypeApproval"]] = relationship(
         back_populates="model_variant", cascade="all, delete-orphan"
     )
+
+    # ADR-071 identity tier — the labelling fields every spec-block carrier
+    # must produce. On this (type) carrier they are read-only views over the
+    # `model_group → brand` structure; on the configuration / snapshot they
+    # are denormalised columns/keys captured at capture time. Callers that
+    # read these in bulk should eager-load via
+    # `app.vehicle.public.vehicle_mdm_catalogue_loader_option`.
+    @property
+    def variant_name(self) -> str:
+        return self.name
+
+    @property
+    def model_group_name(self) -> str | None:
+        return self.model_group.name if self.model_group is not None else None
+
+    @property
+    def brand_display_name(self) -> str | None:
+        group = self.model_group
+        if group is None or group.brand is None:
+            return None
+        return group.brand.display_name
 
 
 class VariantOption(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):
@@ -130,10 +165,96 @@ class VariantOption(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):
     )
     option_code: Mapped[str] = mapped_column(String(64), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
+    # `Gruppe` (CodeGrpNr 046) — a canonical `option_group` value_code
+    # string resolved through `provider_code_map`, not a raw provider code
+    # and not a FK (reference data is platform-owned). Drives the
+    # option-section grouping (FR-C-06). Was a free string before C-A.
     option_group: Mapped[str | None] = mapped_column(String(64), nullable=True)
     price: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
+    # C-A — what C-E (KAN-43) needs. All nullable/defaulted so the existing
+    # `catalogue_sync` option upsert keeps working unchanged; C-E teaches
+    # that upsert (and the adapter DTO) to populate them.
+    is_included: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    """`Inklusiv` — an included option has no price line."""
+    is_package: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    """`PackCode` — this option *is* a package; its contents come from
+    `OptionenPack` (C-E, via `catalogue_option_relation`)."""
+    model_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    """Option availability and relations are scoped **per variant per model
+    year** by the provider — the same option pair may be compatible in 2024
+    and not in 2025. Nullable until C-0 populates it."""
 
     model_variant: Mapped[ModelVariant] = relationship(back_populates="options")
+    equipment_feature_links: Mapped[list["VariantOptionEquipmentFeature"]] = relationship(
+        back_populates="variant_option", cascade="all, delete-orphan"
+    )
+
+
+class VariantOptionEquipmentFeature(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):
+    """`SuchCode` (CodeGrpNr 045) — the **70 curated equipment features**
+    (Navigation, Klima, Leder, Anhängerkupplung, CarPlay …). Comma-separated
+    at the provider, so one option carries several — modelled as child rows
+    rather than an array column so the set stays queryable (this is the list
+    marketplace publishing reads, ADR-062) and portable across the SQLite
+    fast lane. `feature_value_code` is a canonical `equipment_feature`
+    value_code resolved through `provider_code_map`, never a raw code.
+
+    Tenant-partitioned like its parent `VariantOption` — it is derived from
+    the same licensed provider payload (ADR-013).
+    """
+
+    __tablename__ = "vehicle_variant_option_equipment_feature"
+    __table_args__ = (
+        UniqueConstraint(
+            "variant_option_id",
+            "feature_value_code",
+            name="uq_vehicle_variant_option_equipment_feature_option_feature",
+        ),
+    )
+
+    variant_option_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), ForeignKey("vehicle_variant_option.id"), nullable=False, index=True
+    )
+    feature_value_code: Mapped[str] = mapped_column(String(64), nullable=False)
+
+    variant_option: Mapped[VariantOption] = relationship(back_populates="equipment_feature_links")
+
+
+class VariantPrice(PrimaryKeyMixin, TimestampMixin, Base):
+    """The new-car list price of a variant **per model year** — `FahrzeugePreise`.
+
+    `Fahrzeuge` returns only `LetzterNP` (the last new price); `FahrzeugeMatch`
+    (C-D) will not run without a Neupreis and it must be the price **for that
+    car's model year** — a match against the wrong year's price returns a
+    plausible wrong car rather than an error.
+
+    **Global**, matching `ModelVariant`: a manufacturer list price per model
+    year is factual catalogue data, not the licensed option text that makes
+    `VariantOption` tenant-partitioned.
+
+    Whether every year of every variant is seeded up front or filled lazily
+    on first identification (PRD Q-C-1) is a C-0 / C-D decision — this shape
+    supports both.
+    """
+
+    __tablename__ = "vehicle_variant_price"
+    __table_args__ = (
+        UniqueConstraint("model_variant_id", "model_year", name="uq_vehicle_variant_price_variant_year"),
+    )
+
+    model_variant_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), ForeignKey("vehicle_model_variant.id"), nullable=False, index=True
+    )
+    model_year: Mapped[int] = mapped_column(Integer, nullable=False)
+    new_price: Mapped[Decimal] = mapped_column(DECIMAL(12, 2), nullable=False)
+    price_is_net: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    """`NettoPreis` — stored as delivered (Q-C-6), converted only for display."""
+    source: Mapped[str] = mapped_column(String(16), nullable=False, default="provider")
+    """`provider` (`FahrzeugePreise`) · `document` (Fahrzeugausweis / importer
+    doc the advisor typed) · `manual`. `FahrzeugeMatch` shows which source a
+    typed Neupreis came from (FR-C-02 step 5)."""
+
+    model_variant: Mapped[ModelVariant] = relationship(back_populates="prices")
 
 
 class TypeApproval(PrimaryKeyMixin, TimestampMixin, Base):

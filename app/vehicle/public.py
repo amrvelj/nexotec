@@ -7,6 +7,11 @@ import uuid
 
 from sqlalchemy.orm import Session
 
+from app.vehicle.models.spec_block import (
+    SPEC_BLOCK_ALL_FIELDS,
+    spec_block_as_dict,
+    spec_block_field_names,
+)
 from app.vehicle.models.vehicle import CustodyEventType, Vehicle, VehicleStatus
 from app.vehicle.models.vehicle_mdm import VehicleMdm
 from app.vehicle.services.catalogue_sync import (
@@ -121,6 +126,7 @@ def match_vehicle(
 
 
 __all__ = [
+    "SPEC_BLOCK_ALL_FIELDS",
     "CustodyEventType",
     "NoVehicleDataConnectionError",
     "SyncResult",
@@ -137,5 +143,7 @@ __all__ = [
     "match_vehicle",
     "run_daily_delta_for_tenant",
     "seed_tenant_catalogue",
+    "spec_block_as_dict",
+    "spec_block_field_names",
     "vehicle_mdm_catalogue_loader_option",
 ]

@@ -587,13 +587,17 @@ def _seed_catalogue_type_approval(db: Session) -> None:
     type-approval-m2m migration (rev eb660a3213bd) exercises its backfill
     against a populated `vehicle_type_approval` table.
 
-    Runs against two schema states, same as the dealer/customer chains
-    above: `migration-upgrade-from-previous` seeds against main's CURRENT
-    schema (one-to-one `vehicle_type_approval` with a `model_variant_id`
-    column and a UNIQUE `type_approval_number`), then this PR's migration
-    backfills the link table; `migration-smoke-test` seeds after this PR's
-    heads are already applied (the link table exists, `vehicle_type_approval`
-    has neither `model_variant_id` nor `first_registration_from`).
+    Runs against three schema states, same reasoning as the dealer/customer
+    chains above (this PR's ORM classes only know the newest shape):
+      1. pre-m2m (`vehicle_type_approval.model_variant_id` present, UNIQUE
+         `type_approval_number`) — raw inserts, one-to-one type approval;
+      2. post-m2m, **pre-C-A** — the link table exists but
+         `vehicle_model_variant` does not yet have KAN-39's spec block, so
+         the `ModelVariant` ORM class (which now carries ~38 extra columns)
+         cannot insert here; raw-insert just the pre-C-A variant columns;
+      3. post-C-A (this PR's own heads) — schema and code agree, full ORM.
+    `migration-upgrade-from-previous` hits state 2; `migration-smoke-test`
+    hits state 3.
     """
 
     now = utcnow()
@@ -681,6 +685,61 @@ def _seed_catalogue_type_approval(db: Session) -> None:
         db.flush()
         return
 
+    # State 2 vs 3: the m2m link table exists either way, but KAN-39's spec
+    # block on `vehicle_model_variant` may not — `migration-upgrade-from-
+    # previous` seeds against main's schema before this PR's columns land.
+    variant_has_spec_block = "model_type_name" in {
+        col["name"] for col in inspect(db.get_bind()).get_columns("vehicle_model_variant")
+    }
+
+    if not variant_has_spec_block:
+        # State 2 — Brand/ModelGroup/TypeApproval ORM classes are unchanged
+        # and fine; only ModelVariant grew columns this schema lacks, so
+        # raw-insert its pre-C-A shape.
+        brand = Brand(id=brand_id, code=_CATALOGUE_BRAND_CODE, display_name="Smoke Catalogue")
+        db.add(brand)
+        db.flush()
+        group = ModelGroup(id=group_id, brand_id=brand_id, name="Smoke Group")
+        db.add(group)
+        db.flush()
+        db.execute(
+            sa.table(
+                "vehicle_model_variant",
+                sa.column("id", GUID()),
+                sa.column("model_group_id", GUID()),
+                sa.column("name", sa.String()),
+                sa.column("model_year_from", sa.Integer()),
+                sa.column("version", sa.Integer()),
+                sa.column("created_at", sa.DateTime(timezone=True)),
+                sa.column("updated_at", sa.DateTime(timezone=True)),
+            )
+            .insert()
+            .values(
+                id=variant_id,
+                model_group_id=group_id,
+                name=_CATALOGUE_VARIANT_NAME,
+                model_year_from=2015,
+                version=1,
+                created_at=now,
+                updated_at=now,
+            )
+        )
+        db.flush()
+        db.add(
+            TypeApproval(
+                type_approval_number=_CATALOGUE_TYPE_APPROVAL_NUMBER,
+                variant_links=[
+                    VariantTypeApproval(
+                        model_variant_id=variant_id,
+                        first_registration_from=_CATALOGUE_FIRST_REGISTRATION_FROM,
+                    )
+                ],
+            )
+        )
+        db.flush()
+        return
+
+    # State 3 — schema and this PR's code agree.
     brand = Brand(id=brand_id, code=_CATALOGUE_BRAND_CODE, display_name="Smoke Catalogue")
     db.add(brand)
     db.flush()
