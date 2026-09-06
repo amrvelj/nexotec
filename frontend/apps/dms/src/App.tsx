@@ -8,7 +8,7 @@ import { DashboardPage } from './pages/DashboardPage'
 import { CustomersListPage } from './pages/CustomersListPage'
 import { CustomerCreatePage } from './pages/CustomerCreatePage'
 import { CustomerDetailPage } from './pages/CustomerDetailPage'
-import { MappingGapsPage } from './pages/MappingGapsPage'
+import { CatalogueBrowsePage } from './pages/CatalogueBrowsePage'
 import { ReferenceDataPage } from './pages/ReferenceDataPage'
 import { IntegrationsPage } from './pages/IntegrationsPage'
 import { VehiclesListPage } from './pages/VehiclesListPage'
@@ -45,7 +45,13 @@ export default function App() {
             <Route path="/customers" element={<CustomersListPage />} />
             <Route path="/customers/new" element={<CustomerCreatePage />} />
             <Route path="/customers/:id" element={<CustomerDetailPage />} />
-            <Route path="/vehicle-mdm/mapping-gaps" element={<MappingGapsPage />} />
+            <Route path="/catalogue" element={<CatalogueBrowsePage />} />
+            {/* C-B (KAN-40): the mapping-gap queue moved into /catalogue as a tab.
+                Kept as a redirect so existing deep links don't 404. */}
+            <Route
+              path="/vehicle-mdm/mapping-gaps"
+              element={<Navigate to="/catalogue?tab=mapping-gaps" replace />}
+            />
             <Route path="/settings/reference" element={<ReferenceDataPage />} />
             <Route path="/integrations" element={<IntegrationsPage />} />
             <Route path="/vehicles" element={<VehiclesListPage />} />

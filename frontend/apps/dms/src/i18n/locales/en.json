@@ -19,7 +19,8 @@
       "valuations": "Valuations",
       "integrations": "Integrations",
       "administration": "Administration",
-      "referenceData": "Reference data"
+      "referenceData": "Reference data",
+      "catalogue": "Catalogue"
     },
     "signOut": "Sign out",
     "globalSearch": {
@@ -1107,10 +1108,94 @@
       "submit": "Create",
       "allLanguagesHint": "All four languages are required.",
       "error": "Could not create the value."
+    }
+  },
+  "catalogueBrowse": {
+    "title": "Catalogue",
+    "subtitle": "Browse vehicle variants — brand, model, trim. From the mirror, never the provider.",
+    "tabs": {
+      "browse": "Browse",
+      "mappingGaps": "Mapping gaps"
     },
-    "gaps": {
-      "title": "Mapping gaps",
-      "help": "An unmapped provider code is never silently dropped — it lands here as a task."
+    "mode": {
+      "label": "Mode",
+      "build": "New vehicle",
+      "record": "Used vehicle",
+      "tooltip": "New shows only in-production ranges; used shows everything."
+    },
+    "drilldown": {
+      "brand": "Brand",
+      "brandPlaceholder": "All brands",
+      "modelGroup": "Model group",
+      "modelGroupPlaceholder": "All model groups",
+      "modelGroupNeedsBrand": "Pick a brand first"
+    },
+    "searchPlaceholder": "Search by variant, model or brand…",
+    "unavailable": {
+      "title": "Catalogue unavailable",
+      "body": "No auto-i-dat connection is active for this dealership. Connect auto-i-dat to browse the catalogue."
+    },
+    "columns": {
+      "brand": "Brand",
+      "modelGroup": "Model group",
+      "variant": "Variant",
+      "trim": "Trim",
+      "fuelType": "Fuel",
+      "bodyStyle": "Body",
+      "drivetrain": "Drive",
+      "transmission": "Transmission",
+      "ps": "PS",
+      "kw": "kW",
+      "displacementCcm": "Displacement (cc)",
+      "cylinders": "Cylinders",
+      "gears": "Gears",
+      "doors": "Doors",
+      "seats": "Seats",
+      "co2Gkm": "CO₂ (g/km)",
+      "emissionStandard": "Emission standard",
+      "vehicleClass": "Vehicle class",
+      "engineCycle": "Stroke",
+      "basePrice": "List price",
+      "productionFrom": "Production from",
+      "productionTo": "Production to",
+      "modelYear": "Model year",
+      "inProduction": "In production",
+      "typeApprovals": "Type approvals",
+      "updatedAt": "Changed"
+    },
+    "filters": {
+      "fuelType": "Fuel",
+      "bodyStyle": "Body",
+      "drivetrain": "Drive",
+      "transmission": "Transmission",
+      "vehicleKind": "Vehicle kind",
+      "vehicleClass": "Vehicle class",
+      "emissionStandard": "Emission standard",
+      "engineCycle": "Stroke",
+      "ps": "PS",
+      "kw": "kW",
+      "displacementCcm": "Displacement (cc)",
+      "doors": "Doors",
+      "seats": "Seats",
+      "co2Gkm": "CO₂ (g/km)",
+      "modelYearFrom": "Production year from",
+      "basePrice": "List price"
+    },
+    "allVariantsView": "All variants",
+    "loadError": "The catalogue could not be loaded.",
+    "emptyState": {
+      "title": "No variants",
+      "description": "No catalogue data has been synced for this dealership yet."
+    },
+    "emptyFilteredState": {
+      "title": "No results",
+      "description": "No variant matches these filters.",
+      "action": "Reset filters"
+    },
+    "selection": {
+      "count": "{{count}} selected",
+      "clear": "Clear selection",
+      "copyIds": "Copy IDs"
     }
   }
 }

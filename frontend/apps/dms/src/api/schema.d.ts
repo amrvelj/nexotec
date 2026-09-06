@@ -122,6 +122,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/catalogue/facets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Catalogue Facets */
+        get: operations["catalogue_facets_v1_catalogue_facets_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/catalogue/model-groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Model Groups */
+        get: operations["list_model_groups_v1_catalogue_model_groups_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/catalogue/variants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Browse Variants */
+        get: operations["browse_variants_v1_catalogue_variants_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/customers": {
         parameters: {
             query?: never;
@@ -2281,6 +2332,14 @@ export interface components {
             /** Granted */
             granted: boolean;
         };
+        /**
+         * CatalogueBrowseMode
+         * @description `build` — configuring a new car / factory order: the production-year
+         *     default is *currently in production* (PRD `NurNeue` on). `record` —
+         *     identifying a used car: everything, in production or not (`NurNeue` off).
+         * @enum {string}
+         */
+        CatalogueBrowseMode: "build" | "record";
         /** CatalogueColourRead */
         CatalogueColourRead: {
             /** Colourcode */
@@ -2289,6 +2348,31 @@ export interface components {
             colourType: string;
             /** Description */
             description: string;
+        };
+        /** CatalogueFacetValue */
+        CatalogueFacetValue: {
+            /** Count */
+            count: number;
+            /** Valuecode */
+            valueCode: string;
+        };
+        /**
+         * CatalogueFacetsRead
+         * @description Every value that actually exists in the current drill-down scope,
+         *     with its row count — computed from the mirror, never the provider
+         *     (`FzgWerteGruppiert` is a later pre-aggregation accelerator, C-0).
+         */
+        CatalogueFacetsRead: {
+            /** Browseavailable */
+            browseAvailable: boolean;
+            /** Coded */
+            coded: {
+                [key: string]: components["schemas"]["CatalogueFacetValue"][];
+            };
+            /** Numeric */
+            numeric: {
+                [key: string]: components["schemas"]["CatalogueNumericFacet"];
+            };
         };
         /** CatalogueImageRead */
         CatalogueImageRead: {
@@ -2306,6 +2390,33 @@ export interface components {
          * @enum {string}
          */
         CatalogueMatchStatus: "matched" | "unverified";
+        /** CatalogueModelGroupPage */
+        CatalogueModelGroupPage: {
+            /** Items */
+            items: components["schemas"]["CatalogueModelGroupRead"][];
+        };
+        /** CatalogueModelGroupRead */
+        CatalogueModelGroupRead: {
+            /**
+             * Brandid
+             * Format: uuid
+             */
+            brandId: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+        };
+        /** CatalogueNumericFacet */
+        CatalogueNumericFacet: {
+            /** Max */
+            max: string | null;
+            /** Min */
+            min: string | null;
+        };
         /** CatalogueOptionRead */
         CatalogueOptionRead: {
             /** Description */
@@ -2377,6 +2488,77 @@ export interface components {
             size: string;
             /** Speedrating */
             speedRating: string | null;
+        };
+        /** CatalogueVariantPage */
+        CatalogueVariantPage: {
+            /** Browseavailable */
+            browseAvailable: boolean;
+            /** Items */
+            items: components["schemas"]["CatalogueVariantRead"][];
+            /** Nextcursor */
+            nextCursor: string | null;
+            /** Total */
+            total: number;
+            /** Totalisestimate */
+            totalIsEstimate: boolean;
+        };
+        /** CatalogueVariantPrice */
+        CatalogueVariantPrice: {
+            /** Amount */
+            amount: string;
+            /** Isnet */
+            isNet: boolean;
+            /** Year */
+            year: number | null;
+        };
+        /** CatalogueVariantRead */
+        CatalogueVariantRead: {
+            /** Bodystyle */
+            bodyStyle: string | null;
+            /** Branddisplayname */
+            brandDisplayName: string;
+            /**
+             * Brandid
+             * Format: uuid
+             */
+            brandId: string;
+            currentPrice: components["schemas"]["CatalogueVariantPrice"] | null;
+            /** Drivetrain */
+            drivetrain: string | null;
+            /** Fueltype */
+            fuelType: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Inproduction */
+            inProduction: boolean;
+            /**
+             * Modelgroupid
+             * Format: uuid
+             */
+            modelGroupId: string;
+            /** Modelgroupname */
+            modelGroupName: string;
+            /** Modelyearfrom */
+            modelYearFrom: number;
+            /** Modelyearto */
+            modelYearTo: number | null;
+            spec: components["schemas"]["VehicleSpecBlockRead"];
+            /** Transmission */
+            transmission: string | null;
+            /** Typeapprovalnumbers */
+            typeApprovalNumbers: string[];
+            /**
+             * Updatedat
+             * Format: date-time
+             */
+            updatedAt: string;
+            /** Variantname */
+            variantName: string;
+            /** Vehiclekind */
+            vehicleKind: string | null;
         };
         /** ConnectionCreate */
         ConnectionCreate: {
@@ -5639,6 +5821,85 @@ export interface components {
             pickerCandidates: components["schemas"]["VehiclePickerCandidate"][];
             resolved: components["schemas"]["VehicleMdmRead"] | null;
         };
+        /** VehicleSpecBlockRead */
+        VehicleSpecBlockRead: {
+            /** Baseprice */
+            basePrice?: string | null;
+            /** Basepriceyear */
+            basePriceYear?: number | null;
+            /** Batterycapacitykwh */
+            batteryCapacityKwh?: string | null;
+            /** Co2Gkm */
+            co2Gkm?: number | null;
+            /** Consumptionextraurban */
+            consumptionExtraUrban?: string | null;
+            /** Consumptionmixed */
+            consumptionMixed?: string | null;
+            /** Consumptionnorm */
+            consumptionNorm?: string | null;
+            /** Consumptionurban */
+            consumptionUrban?: string | null;
+            /** Cylinders */
+            cylinders?: number | null;
+            /** Displacementccm */
+            displacementCcm?: number | null;
+            /** Doors */
+            doors?: number | null;
+            /** Emissionstandard */
+            emissionStandard?: string | null;
+            /** Energyconsumptionkwh */
+            energyConsumptionKwh?: string | null;
+            /** Enginecycle */
+            engineCycle?: string | null;
+            /** Gears */
+            gears?: number | null;
+            /** Importcode */
+            importcode?: string | null;
+            /** Kw */
+            kw?: number | null;
+            /** Modeltypename */
+            modelTypeName?: string | null;
+            /** Modelyear */
+            modelYear?: number | null;
+            /** Payloadkg */
+            payloadKg?: number | null;
+            /** Priceisnet */
+            priceIsNet?: boolean | null;
+            /** Productionfrom */
+            productionFrom?: number | null;
+            /** Productionto */
+            productionTo?: number | null;
+            /** Ps */
+            ps?: number | null;
+            /** Rangekm */
+            rangeKm?: number | null;
+            /** Seats */
+            seats?: number | null;
+            /** Systemkw */
+            systemKw?: number | null;
+            /** Tankcapacityl */
+            tankCapacityL?: number | null;
+            /** Totalkw */
+            totalKw?: number | null;
+            /** Totalps */
+            totalPs?: number | null;
+            /** Towingcapacitykg */
+            towingCapacityKg?: number | null;
+            /** Trimname */
+            trimName?: string | null;
+            /** Valuationclassification */
+            valuationClassification?: string | null;
+            /** Vehicleclass */
+            vehicleClass?: string | null;
+            /** Weightemptykg */
+            weightEmptyKg?: number | null;
+            /** Weighttotalkg */
+            weightTotalKg?: number | null;
+            /** Werkscode */
+            werkscode?: string | null;
+            /** Wheelbasemm */
+            wheelbaseMm?: number | null;
+        };
         /**
          * VehicleUpdate
          * @description `status` changes are custodian-gated at the service layer (only the
@@ -5824,6 +6085,145 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LoginResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    catalogue_facets_v1_catalogue_facets_get: {
+        parameters: {
+            query?: {
+                brandId?: string | null;
+                modelGroup?: string | null;
+                mode?: components["schemas"]["CatalogueBrowseMode"];
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueFacetsRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_model_groups_v1_catalogue_model_groups_get: {
+        parameters: {
+            query: {
+                brandId: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueModelGroupPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    browse_variants_v1_catalogue_variants_get: {
+        parameters: {
+            query?: {
+                brandId?: string | null;
+                modelGroup?: string | null;
+                mode?: components["schemas"]["CatalogueBrowseMode"];
+                /** @description e.g. 'ps:desc,variantName:asc' */
+                sort?: string | null;
+                limit?: number;
+                cursor?: string | null;
+                fuelType?: string | null;
+                bodyStyle?: string | null;
+                drivetrain?: string | null;
+                transmission?: string | null;
+                vehicleKind?: string | null;
+                vehicleClass?: string | null;
+                emissionStandard?: string | null;
+                engineCycle?: string | null;
+                psMin?: number | string | null;
+                psMax?: number | string | null;
+                kwMin?: number | string | null;
+                kwMax?: number | string | null;
+                displacementCcmMin?: number | string | null;
+                displacementCcmMax?: number | string | null;
+                doorsMin?: number | string | null;
+                doorsMax?: number | string | null;
+                seatsMin?: number | string | null;
+                seatsMax?: number | string | null;
+                co2GkmMin?: number | string | null;
+                co2GkmMax?: number | string | null;
+                modelYearFromMin?: number | string | null;
+                modelYearFromMax?: number | string | null;
+                basePriceMin?: number | string | null;
+                basePriceMax?: number | string | null;
+                inProduction?: boolean | null;
+                q?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueVariantPage"];
                 };
             };
             /** @description Validation Error */

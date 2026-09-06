@@ -66,6 +66,19 @@ export type ReferenceValueRead = Schemas['ReferenceValueRead']
 export type ReferenceValuePage = Schemas['ReferenceValuePage']
 export type ReferenceValueCreate = Schemas['ReferenceValueCreate']
 export type ReferenceValueUpdate = Schemas['ReferenceValueUpdate']
+export type BrandRead = Schemas['BrandRead']
+export type BrandPage = Schemas['BrandPage']
+
+// Configurator C-B (KAN-40) — catalogue browse & facet search (FR-C-01)
+export type CatalogueBrowseMode = Schemas['CatalogueBrowseMode']
+export type VehicleSpecBlockRead = Schemas['VehicleSpecBlockRead']
+export type CatalogueVariantRead = Schemas['CatalogueVariantRead']
+export type CatalogueVariantPage = Schemas['CatalogueVariantPage']
+export type CatalogueVariantPrice = Schemas['CatalogueVariantPrice']
+export type CatalogueModelGroupRead = Schemas['CatalogueModelGroupRead']
+export type CatalogueModelGroupPage = Schemas['CatalogueModelGroupPage']
+export type CatalogueFacetsRead = Schemas['CatalogueFacetsRead']
+export type CatalogueFacetValue = Schemas['CatalogueFacetValue']
 
 // VehicleMdm identity, plates, odometer, custody, provenance
 export type CatalogueMatchStatus = Schemas['CatalogueMatchStatus']

@@ -19,7 +19,8 @@
       "valuations": "Valutazioni",
       "integrations": "Integrazioni",
       "administration": "Amministrazione",
-      "referenceData": "Dati di riferimento"
+      "referenceData": "Dati di riferimento",
+      "catalogue": "Catalogo"
     },
     "signOut": "Disconnetti",
     "globalSearch": {
@@ -1107,10 +1108,94 @@
       "submit": "Crea",
       "allLanguagesHint": "Sono richieste tutte e quattro le lingue.",
       "error": "Impossibile creare il valore."
+    }
+  },
+  "catalogueBrowse": {
+    "title": "Catalogo",
+    "subtitle": "Sfoglia le varianti dei veicoli — marca, modello, allestimento. Dal mirror, mai dal fornitore.",
+    "tabs": {
+      "browse": "Sfoglia",
+      "mappingGaps": "Lacune di mappatura"
     },
-    "gaps": {
-      "title": "Lacune di mappatura",
-      "help": "Un codice provider sconosciuto non viene mai scartato in silenzio — arriva qui come attività."
+    "mode": {
+      "label": "Modalità",
+      "build": "Veicolo nuovo",
+      "record": "Veicolo usato",
+      "tooltip": "Nuovo mostra solo le serie in produzione; usato mostra tutto."
+    },
+    "drilldown": {
+      "brand": "Marca",
+      "brandPlaceholder": "Tutte le marche",
+      "modelGroup": "Gruppo di modelli",
+      "modelGroupPlaceholder": "Tutti i gruppi di modelli",
+      "modelGroupNeedsBrand": "Scegliere prima una marca"
+    },
+    "searchPlaceholder": "Cerca per variante, modello o marca…",
+    "unavailable": {
+      "title": "Catalogo non disponibile",
+      "body": "Nessuna connessione auto-i-dat attiva per questa sede. Collega auto-i-dat per sfogliare il catalogo."
+    },
+    "columns": {
+      "brand": "Marca",
+      "modelGroup": "Gruppo di modelli",
+      "variant": "Variante",
+      "trim": "Allestimento",
+      "fuelType": "Carburante",
+      "bodyStyle": "Carrozzeria",
+      "drivetrain": "Trazione",
+      "transmission": "Cambio",
+      "ps": "CV",
+      "kw": "kW",
+      "displacementCcm": "Cilindrata (cm³)",
+      "cylinders": "Cilindri",
+      "gears": "Marce",
+      "doors": "Porte",
+      "seats": "Posti",
+      "co2Gkm": "CO₂ (g/km)",
+      "emissionStandard": "Norma antinquinamento",
+      "vehicleClass": "Classe del veicolo",
+      "engineCycle": "Tempi",
+      "basePrice": "Prezzo di listino",
+      "productionFrom": "Anno di produzione da",
+      "productionTo": "Anno di produzione a",
+      "modelYear": "Anno modello",
+      "inProduction": "In produzione",
+      "typeApprovals": "Approvazioni del tipo",
+      "updatedAt": "Modificato"
+    },
+    "filters": {
+      "fuelType": "Carburante",
+      "bodyStyle": "Carrozzeria",
+      "drivetrain": "Trazione",
+      "transmission": "Cambio",
+      "vehicleKind": "Genere di veicolo",
+      "vehicleClass": "Classe del veicolo",
+      "emissionStandard": "Norma antinquinamento",
+      "engineCycle": "Tempi",
+      "ps": "CV",
+      "kw": "kW",
+      "displacementCcm": "Cilindrata (cm³)",
+      "doors": "Porte",
+      "seats": "Posti",
+      "co2Gkm": "CO₂ (g/km)",
+      "modelYearFrom": "Anno di produzione da",
+      "basePrice": "Prezzo di listino"
+    },
+    "allVariantsView": "Tutte le varianti",
+    "loadError": "Impossibile caricare il catalogo.",
+    "emptyState": {
+      "title": "Nessuna variante",
+      "description": "Nessun dato di catalogo ancora sincronizzato per questa sede."
+    },
+    "emptyFilteredState": {
+      "title": "Nessun risultato",
+      "description": "Nessuna variante corrisponde a questi filtri.",
+      "action": "Reimposta i filtri"
+    },
+    "selection": {
+      "count": "{{count}} selezionati",
+      "clear": "Annulla selezione",
+      "copyIds": "Copia ID"
     }
   }
 }

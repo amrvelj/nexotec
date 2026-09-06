@@ -6,6 +6,7 @@ import {
   CarFront,
   ChartColumn,
   Cog,
+  Database,
   Handshake,
   Languages,
   LayoutDashboard,
@@ -39,6 +40,9 @@ function buildNavGroups(t: (key: string) => string): NavGroupConfig[] {
       items: [
         { label: t('shell.nav.customers'), href: '/customers', icon: Users, status: 'active' },
         { label: t('shell.nav.vehicles'), href: '/vehicles', icon: Car, status: 'active' },
+        // C-B (KAN-40 / FR-C-01) — catalogue browse + the mapping-gap queue,
+        // matching the prototype's own `#/catalogue` Master-data entry.
+        { label: t('shell.nav.catalogue'), href: '/catalogue', icon: Database, status: 'active' },
         { label: t('shell.nav.partners'), href: '/partners', icon: Store, status: 'soon' },
         // WP-6 PR-7 — server-side enforcement (require_read /
         // require_access_role) is the actual control; the nav item is
