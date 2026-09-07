@@ -244,6 +244,9 @@ def upsert_model_variant(db: Session, *, provider_code: str, master: VariantMast
         # stay NULL until C-0 wires FahrzeugePreise / NettoPreis; the
         # per-model-year price history (`vehicle_variant_price`) is C-0/C-D.
         base_price=master.base_price,
+        # C-0 PR 1: `Fahrzeuge.Werkscode` (p10) — persisted here because
+        # `OptionenFarben` searches on it, not on `FzKey`.
+        werkscode=master.werkscode,
         vehicle_kind=_resolve_code(
             db, provider_code=provider_code, vehicle_kind_qualifier=master.vehicle_kind_code,
             code_group="vehicle_kind", provider_value=master.vehicle_kind_code,
@@ -278,7 +281,7 @@ def upsert_model_variant(db: Session, *, provider_code: str, master: VariantMast
 
 
 def _sync_tenant_variant_content(
-    db: Session, *, tenant_id: uuid.UUID, model_variant: ModelVariant, fz_key: str, adapter,
+    db: Session, *, tenant_id: uuid.UUID, model_variant: ModelVariant, fz_key: str, master: VariantMasterData, adapter,
 ) -> None:
     """Options/colours/tyre-specs/images — all tenant-scoped, all upserted
     by their own natural key so a re-sync never duplicates a row. Each
@@ -286,9 +289,15 @@ def _sync_tenant_variant_content(
     means a dealer without the images permission simply gets an empty
     `fetch_images` result here (or PR-5 skips calling it at all), never a
     failure of the whole sync.
+
+    C-0 PR 1: the real Datennamen need more than an `FzKey` —
+    `Optionen` needs the model year, `OptionenFarben` the `Werkscode`,
+    `PneuDimTS` a `TypSchNr`. All three come off `master`; a variant with
+    no `werkscode` / no type-approval number simply skips that call (same
+    three-way skip posture as an entitlement-degraded call).
     """
 
-    for option in adapter.fetch_options(fz_key):
+    for option in adapter.fetch_options(fz_key, model_year=model_variant.model_year_from):
         option_row = db.scalar(
             select(VariantOption).where(
                 VariantOption.tenant_id == tenant_id, VariantOption.model_variant_id == model_variant.id,
@@ -304,7 +313,7 @@ def _sync_tenant_variant_content(
         option_row.option_group = option.option_group
         option_row.price = option.price
 
-    for colour in adapter.fetch_colours(fz_key):
+    for colour in (adapter.fetch_colours(werkscode=master.werkscode) if master.werkscode else []):
         colour_row = db.scalar(
             select(ColourCache).where(
                 ColourCache.tenant_id == tenant_id, ColourCache.model_variant_id == model_variant.id,
@@ -319,7 +328,8 @@ def _sync_tenant_variant_content(
         colour_row.description = colour.description
         colour_row.colour_type = colour.colour_type
 
-    for tyre in adapter.fetch_tyre_specs(fz_key):
+    _type_approval = master.type_approval_numbers[0] if master.type_approval_numbers else None
+    for tyre in (adapter.fetch_tyre_specs(type_approval_number=_type_approval) if _type_approval else []):
         tyre_row = db.scalar(
             select(TyreSpecCache).where(
                 TyreSpecCache.tenant_id == tenant_id, TyreSpecCache.model_variant_id == model_variant.id,
@@ -356,7 +366,9 @@ def _sync_keys(
     for fz_key in fz_keys:
         master = adapter.fetch_vehicle_master_data(fz_key)
         variant = upsert_model_variant(db, provider_code=provider_code, master=master)
-        _sync_tenant_variant_content(db, tenant_id=tenant_id, model_variant=variant, fz_key=fz_key, adapter=adapter)
+        _sync_tenant_variant_content(
+            db, tenant_id=tenant_id, model_variant=variant, fz_key=fz_key, master=master, adapter=adapter
+        )
     return len(fz_keys)
 
 

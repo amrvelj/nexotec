@@ -44,6 +44,7 @@ _MASTER_DATA: dict[str, VariantMasterData] = {
         drivetrain_code="1",
         transmission_code="M",
         base_price=Decimal("28900.00"),
+        werkscode="ALF14TB",
         type_approval_numbers=["1AB234"],
     ),
     "FZ100002": VariantMasterData(
@@ -60,6 +61,7 @@ _MASTER_DATA: dict[str, VariantMasterData] = {
         drivetrain_code="1",
         transmission_code="A",
         base_price=Decimal("42500.00"),
+        werkscode="VW20TSI",
         type_approval_numbers=["2CD456"],
     ),
     "FZ100003": VariantMasterData(
@@ -76,6 +78,7 @@ _MASTER_DATA: dict[str, VariantMasterData] = {
         drivetrain_code="2",
         transmission_code="A",
         base_price=Decimal("54900.00"),
+        werkscode="BMW320D",
         type_approval_numbers=["3EF789"],
     ),
 }
@@ -91,20 +94,25 @@ _OPTIONS: dict[str, list[VariantOptionData]] = {
     ],
 }
 
+# Keyed by Werkscode now, not FzKey — OptionenFarben's real search value
+# (KAN-38 PR 1). Every demo variant carries a werkscode in _MASTER_DATA.
 _COLOURS: dict[str, list[VariantColourData]] = {
-    fz_key: [
+    master.werkscode: [
         VariantColourData(colour_code="BLK", description="Black metallic", colour_type="exterior"),
         VariantColourData(colour_code="GRY", description="Grey cloth", colour_type="interior"),
     ]
-    for fz_key in _DEMO_FZ_KEYS
+    for master in _MASTER_DATA.values()
+    if master.werkscode
 }
 
+# Keyed by TypSchNr now — PneuDimTS's real search value (KAN-38 PR 1).
 _TYRE_SPECS: dict[str, list[VariantTyreSpecData]] = {
-    fz_key: [
+    master.type_approval_numbers[0]: [
         VariantTyreSpecData(axle="front", size="225/45 R18", load_index="95", speed_rating="Y"),
         VariantTyreSpecData(axle="rear", size="225/45 R18", load_index="95", speed_rating="Y"),
     ]
-    for fz_key in _DEMO_FZ_KEYS
+    for master in _MASTER_DATA.values()
+    if master.type_approval_numbers
 }
 
 _IMAGES: dict[str, list[VariantImageData]] = {
@@ -133,14 +141,14 @@ class MockAutoIDatAdapter:
     def get_system_watermark(self) -> SystemWatermark:
         return SystemWatermark(current_model_year=utcnow().year, update_date=self._system_watermark_date)
 
-    def fetch_options(self, fz_key: str) -> list[VariantOptionData]:
+    def fetch_options(self, fz_key: str, *, model_year: int) -> list[VariantOptionData]:
         return list(_OPTIONS.get(fz_key, []))
 
-    def fetch_colours(self, fz_key: str) -> list[VariantColourData]:
-        return list(_COLOURS.get(fz_key, []))
+    def fetch_colours(self, *, werkscode: str) -> list[VariantColourData]:
+        return list(_COLOURS.get(werkscode, []))
 
-    def fetch_tyre_specs(self, fz_key: str) -> list[VariantTyreSpecData]:
-        return list(_TYRE_SPECS.get(fz_key, []))
+    def fetch_tyre_specs(self, *, type_approval_number: str) -> list[VariantTyreSpecData]:
+        return list(_TYRE_SPECS.get(type_approval_number, []))
 
     def fetch_images(self, fz_key: str) -> list[VariantImageData]:
         return list(_IMAGES.get(fz_key, []))

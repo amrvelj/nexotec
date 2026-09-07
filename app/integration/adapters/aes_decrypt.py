@@ -1,13 +1,18 @@
 """AES decryption for auto-i-dat's encrypted SOAP responses (WP-6 PR-3).
 
 **Provisional**: auto-i-dat's exact AES mode/padding/IV convention is not
-confirmed against real vendor documentation or a real sample payload in
-this session. AES-CBC with PKCS7 padding and a 16-byte IV prepended to
-the ciphertext is assumed here as the widely-used, standard shape — flag
-this against the real `SS 03 ... Schnittstellenbeschrieb` spec (in Drive)
-before this adapter is ever pointed at a live account. The one test
-exercising this function is built against a self-constructed vector
+confirmed against real vendor documentation or a real sample payload.
+AES-CBC with PKCS7 padding and a 16-byte IV prepended to the ciphertext
+is assumed here as the widely-used, standard shape. This *cannot* be
+settled from any document we hold — *Webservice Fahrzeuge* p4 says
+"Weitere Angaben dazu erhalten Sie mit dem zum Entschlüsseln notwendigen
+Key von auto-i-dat", i.e. the encryption details arrive **with the key**.
+It is open question #1 on the KAN-38 PR-1 list (mode, padding, IV
+placement, and whether the string is base64 before decryption). The one
+test exercising this function is built against a self-constructed vector
 (`encrypt_aes_cbc` below, encrypt then decrypt), not a real vendor sample.
+(The earlier cross-reference to "SS 03 ... Schnittstellenbeschrieb" was
+wrong — that is the AutoScout24 interface spec, not auto-i-dat's.)
 
 Isolated from the SOAP transport on purpose — `decrypt_aes_cbc` has no
 dependency on `zeep` or any network call, so it is unit-testable on its
