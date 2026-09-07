@@ -35,6 +35,11 @@ class VariantMasterData:
     drivetrain_code: str | None
     transmission_code: str | None
     base_price: Decimal | None
+    # `Fahrzeuge.Werkscode` (Herstellercode, p10). Carried here because
+    # `OptionenFarben` keys on it, not on `FzKey` (KAN-38 PR 1) — the
+    # catalogue sync persists it to `ModelVariant.werkscode` (a C-A
+    # spec-block column) so the colour fetch has it.
+    werkscode: str | None = None
     type_approval_numbers: list[str] = field(default_factory=list)
 
 
@@ -104,9 +109,15 @@ class ProviderAdapter(Protocol):
         ...
 
     def get_system_watermark(self) -> SystemWatermark: ...
-    def fetch_options(self, fz_key: str) -> list[VariantOptionData]: ...
-    def fetch_colours(self, fz_key: str) -> list[VariantColourData]: ...
-    def fetch_tyre_specs(self, fz_key: str) -> list[VariantTyreSpecData]: ...
+
+    # `fetch_options` / `fetch_colours` / `fetch_tyre_specs` take more than
+    # an `FzKey` (KAN-38 PR 1): the real Datennamen require `Jahr`
+    # (Optionen, p15), `Werkscode`/`Importcode` (OptionenFarben, p20) and
+    # `TypSchNr` (PneuDimTS, p21) respectively. The caller
+    # (`catalogue_sync`) holds all three on the variant it is syncing.
+    def fetch_options(self, fz_key: str, *, model_year: int) -> list[VariantOptionData]: ...
+    def fetch_colours(self, *, werkscode: str) -> list[VariantColourData]: ...
+    def fetch_tyre_specs(self, *, type_approval_number: str) -> list[VariantTyreSpecData]: ...
     def fetch_images(self, fz_key: str) -> list[VariantImageData]: ...
 
     def fetch_valuation(

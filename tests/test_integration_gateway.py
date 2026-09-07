@@ -52,9 +52,13 @@ def test_mock_adapter_returns_realistic_shapes():
     assert master.brand_display_name == "Alfa Romeo"
     assert master.base_price is not None
 
-    options = adapter.fetch_options("FZ100001")
+    # KAN-38 PR 1: fetch_options needs the model year (Optionen.Jahr is
+    # obligatorisch); fetch_colours keys on Werkscode, not FzKey.
+    options = adapter.fetch_options("FZ100001", model_year=master.model_year_from)
     assert len(options) >= 1
     assert options[0].description  # never empty, "as delivered" text
+    assert master.werkscode is not None
+    assert isinstance(adapter.fetch_colours(werkscode=master.werkscode), list)
 
     watermark = adapter.get_system_watermark()
     assert watermark.update_date is not None
@@ -150,9 +154,9 @@ def test_gateway_writes_no_business_data_only_call_log(db_session):
     connection = _make_connection(db_session, provider)
 
     with gateway.call_capability(db_session, connection=connection, capability="vehicle_data") as adapter:
-        adapter.fetch_vehicle_master_data("FZ100001")
-        adapter.fetch_options("FZ100001")
-        adapter.fetch_colours("FZ100001")
+        master = adapter.fetch_vehicle_master_data("FZ100001")
+        adapter.fetch_options("FZ100001", model_year=master.model_year_from)
+        adapter.fetch_colours(werkscode=master.werkscode)
 
     # Nothing in app.vehicle's own tables was touched — no ModelVariant/
     # VariantOption row exists anywhere, since resolving provider codes
