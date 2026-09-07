@@ -1197,5 +1197,89 @@
       "clear": "Effacer la sélection",
       "copyIds": "Copier les ID"
     }
+  },
+  "configurator": {
+    "mode": {
+      "label": "Mode",
+      "build": "Véhicule neuf",
+      "record": "Véhicule d'occasion"
+    },
+    "find": {
+      "title": "Trouver le véhicule",
+      "idLabel": "VIN (facultatif)",
+      "idHint": "Numéro de châssis, si connu — la recherche d'identification complète arrive avec C-D.",
+      "manual": "Configurer manuellement",
+      "browse": "Parcourir le catalogue",
+      "unverifiedNote": "Configuration manuelle — marquée « non vérifiée » jusqu'à ce qu'elle soit associée à une entrée du catalogue. Ni évaluation, ni publication d'ici là."
+    },
+    "configure": {
+      "title": "Configurer",
+      "back": "Retour à la sélection"
+    },
+    "sections": {
+      "specification": "Spécification",
+      "options": "Options",
+      "colour": "Couleur & roues",
+      "summary": "Récapitulatif"
+    },
+    "spec": {
+      "overridden": "modifié",
+      "groups": {
+        "identity": "Désignation",
+        "powertrain": "Motorisation",
+        "classification": "Classement",
+        "dimensions": "Dimensions & poids",
+        "consumption": "Consommation & énergie",
+        "codes": "Codes",
+        "price": "Prix"
+      },
+      "fields": {
+        "modelTypeName": "Type de modèle",
+        "totalPs": "ch total",
+        "totalKw": "kW total",
+        "systemKw": "kW système",
+        "valuationClassification": "Classement d'évaluation",
+        "weightEmptyKg": "Poids à vide (kg)",
+        "weightTotalKg": "Poids total (kg)",
+        "payloadKg": "Charge utile (kg)",
+        "towingCapacityKg": "Charge remorquable (kg)",
+        "wheelbaseMm": "Empattement (mm)",
+        "consumptionMixed": "Consommation mixte",
+        "consumptionUrban": "Consommation urbaine",
+        "consumptionExtraUrban": "Consommation extra-urbaine",
+        "consumptionNorm": "Norme de consommation",
+        "energyConsumptionKwh": "Consommation d'énergie (kWh)",
+        "batteryCapacityKwh": "Capacité de la batterie (kWh)",
+        "rangeKm": "Autonomie (km)",
+        "tankCapacityL": "Capacité du réservoir (l)",
+        "werkscode": "Code usine",
+        "importcode": "Code d'importation",
+        "basePriceYear": "Année du prix"
+      }
+    },
+    "options": {
+      "placeholder": "Les options catalogue tarifées, les packs et les couleurs arrivent avec C-E."
+    },
+    "colour": {
+      "exterior": "Couleur extérieure",
+      "interior": "Couleur de sellerie"
+    },
+    "summary": {
+      "firstRegistration": "Première mise en circulation",
+      "mileage": "Kilométrage",
+      "colour": "Couleur",
+      "untitled": "Sans désignation",
+      "open": "Ouvrir le configurateur",
+      "options": "Options",
+      "notesLabel": "Notes"
+    },
+    "badges": {
+      "unverified": "Non vérifié",
+      "bestMatchConfirmed": "Meilleure correspondance confirmée",
+      "manual": "Manuel"
+    },
+    "save": "Enregistrer",
+    "saveNew": "Enregistrer la configuration",
+    "saveError": "La configuration n'a pas pu être enregistrée."
   }
 }

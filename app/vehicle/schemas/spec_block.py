@@ -59,3 +59,13 @@ class VehicleSpecBlockRead(CamelModel):
     base_price: Decimal | None = None
     base_price_year: int | None = None
     price_is_net: bool | None = None
+
+
+class VehicleSpecBlockInput(VehicleSpecBlockRead):
+    """Same fields — a distinct class so FastAPI does not split
+    `VehicleSpecBlockRead` into `-Input`/`-Output` schemas (it would, the
+    moment the read model is also used as a request body). C-C's
+    configuration create/update use this; every read keeps
+    `VehicleSpecBlockRead`. Inherits `model_fields`, so the drift test
+    covers it for free."""
+

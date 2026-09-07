@@ -80,6 +80,16 @@ export type CatalogueModelGroupPage = Schemas['CatalogueModelGroupPage']
 export type CatalogueFacetsRead = Schemas['CatalogueFacetsRead']
 export type CatalogueFacetValue = Schemas['CatalogueFacetValue']
 
+// Configurator C-C (KAN-41) — the configuration entity
+export type ConfigurationSource = Schemas['ConfigurationSource']
+export type ConfigurationMode = Schemas['ConfigurationMode']
+export type ConfigurationMatchStatus = Schemas['ConfigurationMatchStatus']
+export type ConfigurationMatchMethod = Schemas['ConfigurationMatchMethod']
+export type ConfigurationRead = Schemas['ConfigurationRead']
+export type ConfigurationOptionRead = Schemas['ConfigurationOptionRead']
+export type ConfigurationCreate = Schemas['ConfigurationCreate']
+export type ConfigurationUpdate = Schemas['ConfigurationUpdate']
+
 // VehicleMdm identity, plates, odometer, custody, provenance
 export type CatalogueMatchStatus = Schemas['CatalogueMatchStatus']
 export type OdometerSource = Schemas['OdometerSource']

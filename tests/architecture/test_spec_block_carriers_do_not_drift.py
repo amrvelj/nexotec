@@ -32,6 +32,7 @@ from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.vehicle.models.catalogue import Brand, ModelGroup, ModelVariant
+from app.vehicle.models.configuration import VehicleConfiguration
 from app.vehicle.models.spec_block import (
     SPEC_BLOCK_ALL_FIELDS,
     SPEC_BLOCK_FIELDS,
@@ -42,9 +43,16 @@ from app.vehicle.models.spec_block import (
 )
 from app.vehicle.schemas.spec_block import VehicleSpecBlockRead
 
-# Carriers that hold the block as ORM columns (the mixin). C-C appends
-# ``VehicleConfiguration``.
-_COLUMN_CARRIERS = [ModelVariant]
+# Carriers that hold the block as ORM columns (the mixin). C-C added
+# ``VehicleConfiguration`` (carrier #2); C-F's host snapshot round-trips
+# ``spec_block_as_dict`` rather than sharing a Python base.
+_COLUMN_CARRIERS = [ModelVariant, VehicleConfiguration]
+
+# The five coded spec fields are declared directly on each carrier (not in
+# the mixin — C-A kept them off it to avoid churning ModelVariant). They
+# are still part of every carrier's spec surface, so they get their own
+# cross-carrier check.
+_CODED_SPEC_FIELDS = ("vehicle_kind", "fuel_type", "body_style", "drivetrain", "transmission")
 
 
 def _mixin_mapped_attributes(cls: type) -> tuple[str, ...]:
@@ -78,8 +86,8 @@ def test_spec_block_read_schema_matches_the_spec_fields():
 def test_every_column_carrier_carries_every_specification_field():
     for carrier in _COLUMN_CARRIERS:
         columns = {c.name for c in carrier.__table__.columns}
-        missing = set(SPEC_BLOCK_FIELDS) - columns
-        assert not missing, f"{carrier.__name__} is missing spec-block columns: {sorted(missing)}"
+        missing = (set(SPEC_BLOCK_FIELDS) | set(_CODED_SPEC_FIELDS)) - columns
+        assert not missing, f"{carrier.__name__} is missing spec columns: {sorted(missing)}"
 
 
 def test_every_column_carrier_maps_the_block_columns_nullable():
@@ -109,6 +117,10 @@ def test_every_carrier_can_produce_the_full_block_as_a_camelcase_dict():
     assert set(produced) == {to_camel(name) for name in SPEC_BLOCK_ALL_FIELDS}
     assert produced["brandDisplayName"] == "Demo"
     assert produced["variantName"] == "Demo 1.0"
+
+    # The configuration carrier exposes the identity tier as plain columns.
+    config = VehicleConfiguration(brand_display_name="Demo", variant_name="Demo 1.0")
+    assert set(spec_block_as_dict(config)) == {to_camel(name) for name in SPEC_BLOCK_ALL_FIELDS}
 
 
 def test_the_drift_check_actually_catches_a_field_added_to_only_one_carrier():

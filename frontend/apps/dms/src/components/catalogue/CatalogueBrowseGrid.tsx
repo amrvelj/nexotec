@@ -95,17 +95,19 @@ function useReferenceLabels(): (listCode: string, valueCode: string) => string {
 
 export interface CatalogueBrowseGridProps {
   mode: CatalogueBrowseMode
+  /** When set, a row activates (click / Enter) instead of just selecting —
+   * the configurator overlay's "Find the car" phase (C-C) passes this to
+   * pick a variant. Unset on the standalone `/catalogue` page: selection
+   * only, no row navigation (a variant detail screen is C-E). */
+  onSelectVariant?: (variant: CatalogueVariantRead) => void
 }
 
 /**
  * The catalogue results grid — drill-down scope, mirror-derived facets,
- * saved views, column config, selection. Standalone on `/catalogue`
- * today; C-C embeds this in the configurator overlay's "Find the car"
- * phase and will need a row-select affordance (a `rowActions` entry, or a
- * small ui-kit `onRowActivate` addition — a ui-kit change, never a fork).
- * There is no row navigation here: a variant detail screen is C-E.
+ * saved views, column config, selection. Standalone on `/catalogue`, and
+ * embedded in the configurator overlay's "Find the car" phase (C-C).
  */
-export function CatalogueBrowseGrid({ mode }: CatalogueBrowseGridProps) {
+export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGridProps) {
   const { t, i18n } = useTranslation()
   const locale = toSwissLocale(i18n.language as SupportedLanguage)
   const { density, setDensity } = useUiPreferencesContext()
@@ -459,6 +461,7 @@ export function CatalogueBrowseGrid({ mode }: CatalogueBrowseGridProps) {
           sort={sort}
           onSortChange={setSort}
           density={density}
+          onRowActivate={onSelectVariant}
           loading={variantsQuery.isLoading}
           refetching={variantsQuery.isRefetching && !variantsQuery.isLoading}
           fetchingNextPage={variantsQuery.isFetchingNextPage}

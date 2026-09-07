@@ -50,6 +50,11 @@ export interface DataGridProps<T> {
    * `RowMenu` is what actually renders them, so the grid and a detail
    * screen's overflow render from the identical definition. */
   rowActions?: (row: T) => RowMenuGroups;
+  /** Activate a row by click, Enter or Space — distinct from `rowHref`
+   * (navigates) and `selection` (bulk). For a grid whose rows are *picked*
+   * rather than opened: the configurator's "Find the car" browse (C-C).
+   * A cell's own interactive control still wins — cells `stopPropagation`. */
+  onRowActivate?: (row: T) => void;
   /** Omit for a grid with no bulk actions. When present, a checkbox column
    * is pinned to the left of every other column, selection is against
    * `getRowId`, and the header checkbox toggles every currently *loaded*
@@ -117,6 +122,7 @@ export function DataGrid<T>({
   emptyState,
   emptyFilteredState,
   rowActions,
+  onRowActivate,
   selection,
   columnLayout,
   onColumnLayoutChange,
@@ -329,6 +335,7 @@ export function DataGrid<T>({
                       }}
                       href={href}
                       Link={Link}
+                      onActivate={onRowActivate ? () => onRowActivate(row.original) : undefined}
                     >
                       {row.getVisibleCells().map((cell) => {
                         const meta = cell.column.columnDef.meta as GridColumnDef<T>["meta"];
@@ -604,17 +611,20 @@ function Row({
   style,
   href,
   Link,
+  onActivate,
 }: {
   children: ReactNode;
   style: CSSProperties;
   href?: string;
   Link?: LinkLike;
+  onActivate?: () => void;
 }) {
   const rowStyle: CSSProperties = {
     ...style,
     display: "flex",
     alignItems: "center",
     borderBottom: `1px solid ${slate[1]}`,
+    ...(onActivate && !href ? { cursor: "pointer" } : {}),
   };
   // "A link inside a cell wins over the row click" (§ The Data Grid) is
   // impossible if the row itself IS the `<a>` — a real link rendered by a
@@ -631,6 +641,25 @@ function Row({
     return (
       <div role="row" style={rowStyle} className="dg-row">
         <Component to={href} href={href} tabIndex={-1} aria-hidden="true" className="dg-row-link" />
+        {children}
+      </div>
+    );
+  }
+  if (onActivate) {
+    return (
+      <div
+        role="row"
+        style={rowStyle}
+        className="dg-row"
+        tabIndex={0}
+        onClick={onActivate}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onActivate();
+          }
+        }}
+      >
         {children}
       </div>
     );

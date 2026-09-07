@@ -173,6 +173,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/configurations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Configuration */
+        post: operations["create_configuration_v1_configurations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/configurations/{configuration_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Configuration */
+        get: operations["get_configuration_v1_configurations__configuration_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Configuration */
+        patch: operations["update_configuration_v1_configurations__configuration_id__patch"];
+        trace?: never;
+    };
+    "/v1/configurations/{configuration_id}/copy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Copy Configuration */
+        post: operations["copy_configuration_v1_configurations__configuration_id__copy_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/configurations/{configuration_id}/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Replace Options */
+        patch: operations["replace_options_v1_configurations__configuration_id__options_patch"];
+        trace?: never;
+    };
     "/v1/customers": {
         parameters: {
             query?: never;
@@ -2559,6 +2628,281 @@ export interface components {
             variantName: string;
             /** Vehiclekind */
             vehicleKind: string | null;
+        };
+        /** ConfigurationCreate */
+        ConfigurationCreate: {
+            /** Bodystyle */
+            bodyStyle?: string | null;
+            /** Branddisplayname */
+            brandDisplayName?: string | null;
+            /** Cataloguevariantid */
+            catalogueVariantId?: string | null;
+            /** Drivetrain */
+            drivetrain?: string | null;
+            /** Exteriorcolour */
+            exteriorColour?: string | null;
+            /** Exteriorcoloursurcharge */
+            exteriorColourSurcharge?: number | string | null;
+            /** Firstregistrationdate */
+            firstRegistrationDate?: string | null;
+            /** Fueltype */
+            fuelType?: string | null;
+            /** Interiorcolour */
+            interiorColour?: string | null;
+            /** Interiorcoloursurcharge */
+            interiorColourSurcharge?: number | string | null;
+            /** Licenceplate */
+            licencePlate?: string | null;
+            matchMethod: components["schemas"]["ConfigurationMatchMethod"];
+            /** Mileagekm */
+            mileageKm?: number | null;
+            mode: components["schemas"]["ConfigurationMode"];
+            /** Modelgroupname */
+            modelGroupName?: string | null;
+            /** Notes */
+            notes?: string | null;
+            source: components["schemas"]["ConfigurationSource"];
+            spec?: components["schemas"]["VehicleSpecBlockInput"] | null;
+            /** Stammnummer */
+            stammnummer?: string | null;
+            /** Transmission */
+            transmission?: string | null;
+            /** Typeapprovalnumber */
+            typeApprovalNumber?: string | null;
+            /** Variantname */
+            variantName?: string | null;
+            /** Vehiclekind */
+            vehicleKind?: string | null;
+            /** Vin */
+            vin?: string | null;
+        };
+        /**
+         * ConfigurationMatchMethod
+         * @description How the car was identified — **kept permanently**, because a later
+         *     dispute turns on it. The full waterfall is C-D; C-C produces
+         *     `catalogue_browse` and `manual`, and `vin` when a VIN resolved to an
+         *     existing MDM record.
+         * @enum {string}
+         */
+        ConfigurationMatchMethod: "vin" | "kontrollschild" | "typenschein" | "stammnummer" | "werkscode" | "catalogue_browse" | "manual";
+        /**
+         * ConfigurationMatchStatus
+         * @description `unverified` is excluded from valuation and publishing (FR-V-03).
+         *     `best_match_confirmed` records a `FahrzeugeMatch` `MatchCode 2` that a
+         *     human accepted (C-D). Its own enum — `vehicle_mdm.CatalogueMatchStatus`
+         *     has only two values and must not grow a third for this.
+         * @enum {string}
+         */
+        ConfigurationMatchStatus: "matched" | "unverified" | "best_match_confirmed";
+        /**
+         * ConfigurationMode
+         * @description `build` — a new car / factory order: options are priced, packages
+         *     apply. `record` — a used car: options are what the car *has*, recorded
+         *     and unpriced (FR-S-07).
+         *
+         *     Same two values as `schemas.catalogue.CatalogueBrowseMode`, deliberately
+         *     a *separate* enum: this one is a persisted column type and lives with
+         *     the model, so a change to the browse API's enum can never silently
+         *     become a migration here.
+         * @enum {string}
+         */
+        ConfigurationMode: "build" | "record";
+        /** ConfigurationOptionInput */
+        ConfigurationOptionInput: {
+            /** Description */
+            description: string;
+            /** Equipmentfeatures */
+            equipmentFeatures?: string[];
+            /**
+             * Isincluded
+             * @default false
+             */
+            isIncluded?: boolean;
+            /**
+             * Ispackage
+             * @default false
+             */
+            isPackage?: boolean;
+            /** Optioncode */
+            optionCode?: string | null;
+            /** Optiongroup */
+            optionGroup?: string | null;
+            /** Price */
+            price?: number | string | null;
+            /**
+             * Selected
+             * @default true
+             */
+            selected?: boolean;
+            /** Variantoptionid */
+            variantOptionId?: string | null;
+        };
+        /** ConfigurationOptionRead */
+        ConfigurationOptionRead: {
+            /** Description */
+            description: string;
+            /** Equipmentfeatures */
+            equipmentFeatures: string[];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Isincluded */
+            isIncluded: boolean;
+            /** Ispackage */
+            isPackage: boolean;
+            /** Optioncode */
+            optionCode: string | null;
+            /** Optiongroup */
+            optionGroup: string | null;
+            /** Price */
+            price: string | null;
+            /** Selected */
+            selected: boolean;
+            /** Sequence */
+            sequence: number;
+            /** Variantoptionid */
+            variantOptionId: string | null;
+        };
+        /** ConfigurationOptionsReplace */
+        ConfigurationOptionsReplace: {
+            /** Options */
+            options: components["schemas"]["ConfigurationOptionInput"][];
+        };
+        /** ConfigurationRead */
+        ConfigurationRead: {
+            /** Bodystyle */
+            bodyStyle: string | null;
+            /** Branddisplayname */
+            brandDisplayName: string | null;
+            catalogueMatchStatus: components["schemas"]["ConfigurationMatchStatus"];
+            /** Cataloguevariantid */
+            catalogueVariantId: string | null;
+            /** Cataloguevariantlabel */
+            catalogueVariantLabel: string | null;
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            /** Drivetrain */
+            drivetrain: string | null;
+            /** Exteriorcolour */
+            exteriorColour: string | null;
+            /** Exteriorcoloursurcharge */
+            exteriorColourSurcharge: string | null;
+            /** Firstregistrationdate */
+            firstRegistrationDate: string | null;
+            /** Fueltype */
+            fuelType: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Interiorcolour */
+            interiorColour: string | null;
+            /** Interiorcoloursurcharge */
+            interiorColourSurcharge: string | null;
+            /** Licenceplate */
+            licencePlate: string | null;
+            matchMethod: components["schemas"]["ConfigurationMatchMethod"];
+            /** Mileagekm */
+            mileageKm: number | null;
+            mode: components["schemas"]["ConfigurationMode"];
+            /** Modelgroupname */
+            modelGroupName: string | null;
+            /** Notes */
+            notes: string | null;
+            /** Options */
+            options: components["schemas"]["ConfigurationOptionRead"][];
+            /** Overriddenfields */
+            overriddenFields: string[];
+            source: components["schemas"]["ConfigurationSource"];
+            spec: components["schemas"]["VehicleSpecBlockRead"];
+            /** Stammnummer */
+            stammnummer: string | null;
+            /**
+             * Tenantid
+             * Format: uuid
+             */
+            tenantId: string;
+            /** Transmission */
+            transmission: string | null;
+            /** Typeapprovalnumber */
+            typeApprovalNumber: string | null;
+            /**
+             * Updatedat
+             * Format: date-time
+             */
+            updatedAt: string;
+            /** Variantname */
+            variantName: string | null;
+            /** Vehicleid */
+            vehicleId: string | null;
+            /** Vehiclekind */
+            vehicleKind: string | null;
+            /** Vehiclelabel */
+            vehicleLabel: string | null;
+            /** Version */
+            version: number;
+            /** Vin */
+            vin: string | null;
+        };
+        /**
+         * ConfigurationSource
+         * @description Which path produced the configuration. Not a quality judgement — a
+         *     hand-built oldtimer configuration is correct data.
+         * @enum {string}
+         */
+        ConfigurationSource: "provider" | "manual";
+        /** ConfigurationUpdate */
+        ConfigurationUpdate: {
+            /** Bodystyle */
+            bodyStyle?: string | null;
+            /** Branddisplayname */
+            brandDisplayName?: string | null;
+            catalogueMatchStatus?: components["schemas"]["ConfigurationMatchStatus"] | null;
+            /** Cataloguevariantid */
+            catalogueVariantId?: string | null;
+            /** Drivetrain */
+            drivetrain?: string | null;
+            /** Exteriorcolour */
+            exteriorColour?: string | null;
+            /** Exteriorcoloursurcharge */
+            exteriorColourSurcharge?: number | string | null;
+            /** Firstregistrationdate */
+            firstRegistrationDate?: string | null;
+            /** Fueltype */
+            fuelType?: string | null;
+            /** Interiorcolour */
+            interiorColour?: string | null;
+            /** Interiorcoloursurcharge */
+            interiorColourSurcharge?: number | string | null;
+            /** Licenceplate */
+            licencePlate?: string | null;
+            matchMethod?: components["schemas"]["ConfigurationMatchMethod"] | null;
+            /** Mileagekm */
+            mileageKm?: number | null;
+            mode?: components["schemas"]["ConfigurationMode"] | null;
+            /** Modelgroupname */
+            modelGroupName?: string | null;
+            /** Notes */
+            notes?: string | null;
+            spec?: components["schemas"]["VehicleSpecBlockInput"] | null;
+            /** Stammnummer */
+            stammnummer?: string | null;
+            /** Transmission */
+            transmission?: string | null;
+            /** Typeapprovalnumber */
+            typeApprovalNumber?: string | null;
+            /** Variantname */
+            variantName?: string | null;
+            /** Vehiclekind */
+            vehicleKind?: string | null;
+            /** Vin */
+            vin?: string | null;
         };
         /** ConnectionCreate */
         ConnectionCreate: {
@@ -5821,6 +6165,93 @@ export interface components {
             pickerCandidates: components["schemas"]["VehiclePickerCandidate"][];
             resolved: components["schemas"]["VehicleMdmRead"] | null;
         };
+        /**
+         * VehicleSpecBlockInput
+         * @description Same fields — a distinct class so FastAPI does not split
+         *     `VehicleSpecBlockRead` into `-Input`/`-Output` schemas (it would, the
+         *     moment the read model is also used as a request body). C-C's
+         *     configuration create/update use this; every read keeps
+         *     `VehicleSpecBlockRead`. Inherits `model_fields`, so the drift test
+         *     covers it for free.
+         */
+        VehicleSpecBlockInput: {
+            /** Baseprice */
+            basePrice?: number | string | null;
+            /** Basepriceyear */
+            basePriceYear?: number | null;
+            /** Batterycapacitykwh */
+            batteryCapacityKwh?: number | string | null;
+            /** Co2Gkm */
+            co2Gkm?: number | null;
+            /** Consumptionextraurban */
+            consumptionExtraUrban?: number | string | null;
+            /** Consumptionmixed */
+            consumptionMixed?: number | string | null;
+            /** Consumptionnorm */
+            consumptionNorm?: string | null;
+            /** Consumptionurban */
+            consumptionUrban?: number | string | null;
+            /** Cylinders */
+            cylinders?: number | null;
+            /** Displacementccm */
+            displacementCcm?: number | null;
+            /** Doors */
+            doors?: number | null;
+            /** Emissionstandard */
+            emissionStandard?: string | null;
+            /** Energyconsumptionkwh */
+            energyConsumptionKwh?: number | string | null;
+            /** Enginecycle */
+            engineCycle?: string | null;
+            /** Gears */
+            gears?: number | null;
+            /** Importcode */
+            importcode?: string | null;
+            /** Kw */
+            kw?: number | null;
+            /** Modeltypename */
+            modelTypeName?: string | null;
+            /** Modelyear */
+            modelYear?: number | null;
+            /** Payloadkg */
+            payloadKg?: number | null;
+            /** Priceisnet */
+            priceIsNet?: boolean | null;
+            /** Productionfrom */
+            productionFrom?: number | null;
+            /** Productionto */
+            productionTo?: number | null;
+            /** Ps */
+            ps?: number | null;
+            /** Rangekm */
+            rangeKm?: number | null;
+            /** Seats */
+            seats?: number | null;
+            /** Systemkw */
+            systemKw?: number | null;
+            /** Tankcapacityl */
+            tankCapacityL?: number | null;
+            /** Totalkw */
+            totalKw?: number | null;
+            /** Totalps */
+            totalPs?: number | null;
+            /** Towingcapacitykg */
+            towingCapacityKg?: number | null;
+            /** Trimname */
+            trimName?: string | null;
+            /** Valuationclassification */
+            valuationClassification?: string | null;
+            /** Vehicleclass */
+            vehicleClass?: string | null;
+            /** Weightemptykg */
+            weightEmptyKg?: number | null;
+            /** Weighttotalkg */
+            weightTotalKg?: number | null;
+            /** Werkscode */
+            werkscode?: string | null;
+            /** Wheelbasemm */
+            wheelbaseMm?: number | null;
+        };
         /** VehicleSpecBlockRead */
         VehicleSpecBlockRead: {
             /** Baseprice */
@@ -6224,6 +6655,194 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CatalogueVariantPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_configuration_v1_configurations_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfigurationCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfigurationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_configuration_v1_configurations__configuration_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                configuration_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfigurationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_configuration_v1_configurations__configuration_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                configuration_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfigurationUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfigurationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    copy_configuration_v1_configurations__configuration_id__copy_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                configuration_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfigurationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    replace_options_v1_configurations__configuration_id__options_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                configuration_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfigurationOptionsReplace"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfigurationRead"];
                 };
             };
             /** @description Validation Error */

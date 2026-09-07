@@ -1197,5 +1197,89 @@
       "clear": "Clear selection",
       "copyIds": "Copy IDs"
     }
+  },
+  "configurator": {
+    "mode": {
+      "label": "Mode",
+      "build": "New vehicle",
+      "record": "Used vehicle"
+    },
+    "find": {
+      "title": "Find the car",
+      "idLabel": "VIN (optional)",
+      "idHint": "Chassis number, if known — the full identification waterfall arrives with C-D.",
+      "manual": "Configure manually",
+      "browse": "Browse the catalogue",
+      "unverifiedNote": "Manual configuration — marked “unverified” until it is matched to a catalogue entry. No valuation, no publishing until then."
+    },
+    "configure": {
+      "title": "Configure",
+      "back": "Back to selection"
+    },
+    "sections": {
+      "specification": "Specification",
+      "options": "Options",
+      "colour": "Colour & wheels",
+      "summary": "Summary"
+    },
+    "spec": {
+      "overridden": "overridden",
+      "groups": {
+        "identity": "Labelling",
+        "powertrain": "Powertrain",
+        "classification": "Classification",
+        "dimensions": "Dimensions & weights",
+        "consumption": "Consumption & energy",
+        "codes": "Codes",
+        "price": "Price"
+      },
+      "fields": {
+        "modelTypeName": "Model type",
+        "totalPs": "Total PS",
+        "totalKw": "Total kW",
+        "systemKw": "System kW",
+        "valuationClassification": "Valuation classification",
+        "weightEmptyKg": "Kerb weight (kg)",
+        "weightTotalKg": "Gross weight (kg)",
+        "payloadKg": "Payload (kg)",
+        "towingCapacityKg": "Towing capacity (kg)",
+        "wheelbaseMm": "Wheelbase (mm)",
+        "consumptionMixed": "Consumption combined",
+        "consumptionUrban": "Consumption urban",
+        "consumptionExtraUrban": "Consumption extra-urban",
+        "consumptionNorm": "Consumption norm",
+        "energyConsumptionKwh": "Energy consumption (kWh)",
+        "batteryCapacityKwh": "Battery capacity (kWh)",
+        "rangeKm": "Range (km)",
+        "tankCapacityL": "Tank capacity (l)",
+        "werkscode": "Factory code",
+        "importcode": "Import code",
+        "basePriceYear": "Price year"
+      }
+    },
+    "options": {
+      "placeholder": "Priced catalogue options, packages and colours arrive with C-E."
+    },
+    "colour": {
+      "exterior": "Exterior colour",
+      "interior": "Interior colour"
+    },
+    "summary": {
+      "firstRegistration": "First registration",
+      "mileage": "Mileage",
+      "colour": "Colour",
+      "untitled": "Untitled",
+      "open": "Open configurator",
+      "options": "Options",
+      "notesLabel": "Notes"
+    },
+    "badges": {
+      "unverified": "Unverified",
+      "bestMatchConfirmed": "Best match confirmed",
+      "manual": "Manual"
+    },
+    "save": "Save",
+    "saveNew": "Save configuration",
+    "saveError": "The configuration could not be saved."
   }
 }
