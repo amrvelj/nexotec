@@ -18,6 +18,7 @@ import { useAuth } from '../auth/AuthContext'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
 import { translatedCustomerTypeLabel, translatedLifecycleLabel } from '../customerOptions'
 import { OverviewTab, type AddressDraft } from '../components/customer-detail/OverviewTab'
+import { useCountryOptions } from '../hooks/useCountryOptions'
 import type { ContactPointUpdatePatch } from '../components/customer-detail/ContactPointsEditor'
 import { VehiclesTab } from '../components/customer-detail/VehiclesTab'
 import { TransactionsTab } from '../components/customer-detail/TransactionsTab'
@@ -86,6 +87,7 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
   const navigate = useNavigate()
   const { t, i18n } = useTranslation()
   const locale = toSwissLocale(i18n.language as SupportedLanguage)
+  const { options: countryOptions } = useCountryOptions()
   const { user } = useAuth()
   const canWriteExternalIds = user?.accessRoles.includes('platform_admin') ?? false
   const [searchParams, setSearchParams] = useSearchParams()
@@ -186,7 +188,7 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
         addressHouseNumber: draft.houseNumber,
         addressPostalCode: draft.postalCode,
         addressLocality: draft.locality,
-        addressCountry: existing?.addressCountry ?? 'CH',
+        addressCountry: draft.country || existing?.addressCountry || 'CH',
         isPrimary: true,
       }
       if (existing) {
@@ -424,6 +426,7 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
           onCreateEmail={createEmail}
           onUpdateEmail={updateEmail}
           onDeleteEmail={deleteEmail}
+          countryOptions={countryOptions}
           locale={locale}
         />
       )}

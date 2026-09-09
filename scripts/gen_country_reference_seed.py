@@ -94,7 +94,7 @@ def load_google_codes(source: str | None) -> dict[str, str]:
     if source:
         raw = Path(source).read_text(encoding="utf-8")
     else:
-        with urllib.request.urlopen(GOOGLE_COUNTRIES_CSV_URL) as resp:  # noqa: S310 - pinned https host
+        with urllib.request.urlopen(GOOGLE_COUNTRIES_CSV_URL) as resp:
             raw = resp.read().decode("utf-8")
     codes: dict[str, str] = {}
     for row in csv.DictReader(io.StringIO(raw)):

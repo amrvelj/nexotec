@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 from sqlalchemy import text
 
-from app.core.auth import AccessRole, create_access_token
+from app.core.auth import AccessRole
 from app.platform.reference_data_seed import load_country_seed
 
 # --- shared fixtures reused from the customer suite --------------------------

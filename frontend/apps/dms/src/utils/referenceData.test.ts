@@ -83,6 +83,11 @@ describe('REFERENCE_LIST_CODES', () => {
     expect(new Set(REFERENCE_LIST_CODES).size).toBe(REFERENCE_LIST_CODES.length)
   })
 
+  it('includes the country list (KAN-32) so it shows in the FR-V-11 admin screen', () => {
+    expect(REFERENCE_LIST_CODES).toContain('country')
+    expect(isReferenceListCode('country')).toBe(true)
+  })
+
   it('includes the default and the guard agrees', () => {
     expect(REFERENCE_LIST_CODES).toContain(DEFAULT_REFERENCE_LIST)
     expect(isReferenceListCode(DEFAULT_REFERENCE_LIST)).toBe(true)

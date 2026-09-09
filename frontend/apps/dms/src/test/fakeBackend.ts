@@ -62,6 +62,32 @@ const DEFAULT_USER = {
 
 const DEFAULT_DEALERSHIP = { id: 'dealership-1', legalName: 'Test Motors AG' }
 
+// The `country` reference list (KAN-32) — a small stand-in for the ~250-row
+// seed. Backs `useCountryOptions`, which every customer screen now hits.
+// A test that cares about a specific country can shadow this route.
+const DEFAULT_COUNTRY_VALUES = [
+  ['CH', 'Schweiz', 'Suisse', 'Svizzera', 'Switzerland'],
+  ['DE', 'Deutschland', 'Allemagne', 'Germania', 'Germany'],
+  ['FR', 'Frankreich', 'France', 'Francia', 'France'],
+  ['IT', 'Italien', 'Italie', 'Italia', 'Italy'],
+  ['HR', 'Kroatien', 'Croatie', 'Croazia', 'Croatia'],
+].map(([valueCode, labelDe, labelFr, labelIt, labelEn], i) => ({
+  id: `country-${valueCode}`,
+  listCode: 'country',
+  valueCode,
+  labelDe,
+  labelFr,
+  labelIt,
+  labelEn,
+  sortOrder: i,
+  active: true,
+  version: 1,
+  createdAt: '2026-01-01T00:00:00Z',
+  updatedAt: '2026-01-01T00:00:00Z',
+  createdBy: null,
+  updatedBy: null,
+}))
+
 // Infra endpoints every screen hits through its providers (AuthProvider,
 // UiPreferencesProvider). Appended after the test's own routes so a test
 // can still override any of them.
@@ -73,6 +99,17 @@ const INFRA_ROUTES: FakeRoute[] = [
   },
   { method: 'GET', match: /\/me\/preferences\//, handler: () => ({ payload: {} }) },
   { method: 'PUT', match: /\/me\/preferences\//, handler: () => ({ ok: true }) },
+  {
+    method: 'GET',
+    match: /\/reference-data\/country$/,
+    handler: (req) => {
+      const activeOnly = req.params.get('active') === 'true'
+      return {
+        items: DEFAULT_COUNTRY_VALUES.filter((v) => !activeOnly || v.active),
+        nextCursor: null,
+      }
+    },
+  },
 ]
 
 const JSON_HEADERS = { 'content-type': 'application/json' }

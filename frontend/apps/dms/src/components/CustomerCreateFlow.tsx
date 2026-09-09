@@ -26,6 +26,7 @@ import {
 } from '../customerOptions'
 import { DuplicateWarningPanel } from './DuplicateWarningPanel'
 import { PhoneInput } from './PhoneInput'
+import { useCountryOptions } from '../hooks/useCountryOptions'
 import type {
   CustomerCreateInput,
   CustomerDuplicateCandidate,
@@ -67,6 +68,9 @@ interface FormValues {
   houseNumber: string
   postalCode: string
   locality: string
+  // ISO 3166-1 alpha-2, defaults to CH — validated against the `country`
+  // reference list server-side (KAN-32).
+  country: string
 }
 
 const EMPTY_VALUES: FormValues = {
@@ -89,6 +93,7 @@ const EMPTY_VALUES: FormValues = {
   houseNumber: '',
   postalCode: '',
   locality: '',
+  country: 'CH',
 }
 
 export interface CustomerCreateFlowProps {
@@ -142,6 +147,7 @@ export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType, o
   const idempotencyKey = useRef(crypto.randomUUID())
 
   const form = useForm<FormValues>({ initialValues: EMPTY_VALUES })
+  const { options: countryOptions } = useCountryOptions()
 
   // FR-04: "While the user types name, email or phone in the create form,
   // the system queries a duplicate-check endpoint (debounced, per
@@ -227,7 +233,7 @@ export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType, o
                 addressHouseNumber: values.houseNumber,
                 addressPostalCode: values.postalCode,
                 addressLocality: values.locality,
-                addressCountry: 'CH',
+                addressCountry: values.country || 'CH',
                 isPrimary: true,
               },
             ]
@@ -295,7 +301,16 @@ export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType, o
               </Group>
               <Group grow>
                 <TextInput label="Date of birth" type="date" {...form.getInputProps('birthDate')} />
-                <TextInput label="Nationality" placeholder="CH" maxLength={2} {...form.getInputProps('nationality')} />
+                {/* KAN-32 — chosen from the `country` reference list, not typed;
+                    label via t() ahead of KAN-48's customerCreate namespace. */}
+                <Select
+                  label={t('customerCreate.fields.nationality')}
+                  data={countryOptions}
+                  searchable
+                  clearable
+                  comboboxProps={{ withinPortal: true }}
+                  {...form.getInputProps('nationality')}
+                />
               </Group>
             </>
           ) : (
@@ -350,6 +365,14 @@ export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType, o
                 <TextInput label="Postal code" {...form.getInputProps('postalCode')} />
                 <TextInput label="Locality" {...form.getInputProps('locality')} />
               </Group>
+              <Select
+                label={t('customerCreate.fields.country')}
+                data={countryOptions}
+                searchable
+                allowDeselect={false}
+                comboboxProps={{ withinPortal: true }}
+                {...form.getInputProps('country')}
+              />
             </Stack>
           )}
           <Checkbox label="Marketing consent" {...form.getInputProps('marketingConsent', { type: 'checkbox' })} />

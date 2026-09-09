@@ -54,6 +54,12 @@
     "remove": "Rimuovi",
     "loading": "Caricamento…"
   },
+  "customerCreate": {
+    "fields": {
+      "nationality": "Nazionalità",
+      "country": "Paese"
+    }
+  },
   "customerEnums": {
     "customerType": {
       "individual": "Privato",
@@ -220,7 +226,8 @@
         "locality": "Località",
         "save": "Salva",
         "cancel": "Annulla",
-        "reload": "Ricarica"
+        "reload": "Ricarica",
+        "country": "Paese"
       }
     },
     "contactPoints": {
