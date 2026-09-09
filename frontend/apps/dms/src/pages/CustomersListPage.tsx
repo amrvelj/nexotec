@@ -2,11 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Button, Group, Stack, Title } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
-import { useInfiniteQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
 import { Copy, ExternalLink, Users } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {
   ActionBar,
+  Badge,
   ColumnConfigPanel,
   CustomerTypeBadge,
   DataGrid,
@@ -29,6 +30,8 @@ import { useUiPreferencesContext } from '../hooks/UiPreferencesContext'
 import { useGridPreferences } from '../hooks/useGridPreferences'
 import { useSavedViews } from '../hooks/useSavedViews'
 import { api } from '../api/client'
+import { buildCustomerRowMenu } from '../components/customerRowMenu'
+import { CreditBlockDialog } from '../components/customer-detail/CreditBlockDialog'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
 import {
   CANTON_OPTIONS,
@@ -41,7 +44,7 @@ import {
 } from '../customerOptions'
 import { formatDate } from '../utils/format'
 import { customerName } from '../utils/customer'
-import type { CustomerPage, CustomerRead } from '../api/types'
+import type { CustomerPage, CustomerRead, SalesOfferRead } from '../api/types'
 
 const GRID_KEY = 'mdm.customers.list'
 const DEFAULT_SORT: SortSpec[] = [{ field: 'updatedAt', direction: 'desc' }]
@@ -179,6 +182,10 @@ export function CustomersListPage() {
 
   const [appliedViewId, setAppliedViewId] = useState<string | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  // KAN-44 — the credit-block set/clear form is reachable from the shared
+  // row menu on this surface too (ADR-061), not only the detail screen.
+  const [blockDialogCustomer, setBlockDialogCustomer] = useState<CustomerRead | null>(null)
+  const queryClient = useQueryClient()
 
   const sortParam = sort.length > 0 ? sort.map((s) => `${s.field}:${s.direction}`).join(',') : undefined
 
@@ -203,6 +210,29 @@ export function CustomersListPage() {
   const totalIsEstimate = data?.pages[0]?.totalIsEstimate ?? false
 
   const filterFields = useMemo(() => buildFilterFields(t), [t])
+
+  // Row-menu handlers this surface can do without a modal (link-vehicle
+  // and merge stay on the detail screen — same posture ValuationsListPage
+  // takes). "New offer" is the same POST-then-PATCH sequence
+  // CustomerDetailPage runs, started from the row.
+  const createOfferForCustomer = async (customerId: string) => {
+    const created = await api.post<SalesOfferRead>('/sales/offers')
+    const updated = await api.patch<SalesOfferRead>(
+      `/sales/offers/${created.id}`,
+      { customerId },
+      { 'If-Match': String(created.version) },
+    )
+    navigate(`/sales/offers/${updated.id}`)
+  }
+
+  const toggleDoNotContact = async (row: CustomerRead) => {
+    await api.patch<CustomerRead>(
+      `/customers/${row.id}`,
+      { lifecycleStatus: row.lifecycleStatus === 'do_not_contact' ? 'active' : 'do_not_contact' },
+      { 'If-Match': String(row.version) },
+    )
+    void queryClient.invalidateQueries({ queryKey: ['customers'] })
+  }
 
   const columns: GridColumnDef<CustomerRead>[] = useMemo(
     () => [
@@ -266,6 +296,21 @@ export function CustomersListPage() {
         header: t('customerDetail.overview.fields.marketingConsent'),
         cell: ({ row }) => (row.original.marketingConsent ? '✓' : '—'),
         meta: { defaultVisible: false, align: 'right' },
+      },
+      // KAN-44 / FR-18 — the credit block as a grid column, hidden by
+      // default, badge-rendered with the reason as its title.
+      {
+        id: 'creditBlock',
+        header: t('customersList.columns.creditBlock'),
+        cell: ({ row }) =>
+          row.original.creditBlock ? (
+            <span title={row.original.creditBlockReason ?? undefined}>
+              <Badge tone="destructive">{t('customersList.columns.creditBlock')}</Badge>
+            </span>
+          ) : (
+            '—'
+          ),
+        meta: { defaultVisible: false },
       },
     ],
     [t, locale]
@@ -427,27 +472,43 @@ export function CustomersListPage() {
               </Button>
             ),
           }}
-          rowActions={(row) => ({
-            navigate: [
-              {
-                label: t('customersList.rowActions.open'),
-                icon: <ExternalLink size={16} />,
-                onClick: () => navigate(`/customers/${row.id}`),
-              },
-            ],
-            // "Copy customer number" gets something out of the record for
-            // use elsewhere — the same spirit as Export/print, not its own
-            // sixth group (§ ADR-061 names exactly five).
-            exportPrint: [
-              {
-                label: t('customersList.rowActions.copyCustomerNumber'),
-                icon: <Copy size={16} />,
-                onClick: () => navigator.clipboard.writeText(row.customerNumber),
-              },
-            ],
-          })}
+          rowActions={(row) => {
+            // KAN-44 / ADR-061 — the SAME builder the detail screen's
+            // header/overflow uses, so "New offer" / "New contract" can't
+            // drift between the two surfaces. Link-vehicle and merge are
+            // modal-heavy and stay on the detail screen.
+            const menu = buildCustomerRowMenu(t, row, {
+              onEdit: () => navigate(`/customers/${row.id}`),
+              onNewOffer: () => void createOfferForCustomer(row.id),
+              onCopyCustomerNumber: () => void navigator.clipboard.writeText(row.customerNumber),
+              onToggleDoNotContact: () => void toggleDoNotContact(row),
+              onManageCreditBlock: () => setBlockDialogCustomer(row),
+            })
+            return {
+              navigate: [
+                {
+                  label: t('customersList.rowActions.open'),
+                  icon: <ExternalLink size={16} />,
+                  onClick: () => navigate(`/customers/${row.id}`),
+                },
+              ],
+              ...menu.overflow,
+            }
+          }}
         />
       </OverviewShellRegion>
+
+      {blockDialogCustomer && (
+        <CreditBlockDialog
+          opened
+          onClose={() => setBlockDialogCustomer(null)}
+          customer={blockDialogCustomer}
+          onSaved={() => {
+            setBlockDialogCustomer(null)
+            void queryClient.invalidateQueries({ queryKey: ['customers'] })
+          }}
+        />
+      )}
     </Stack>
   )
 }

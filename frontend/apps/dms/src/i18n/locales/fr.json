@@ -131,7 +131,8 @@
       "type": "Type",
       "language": "Langue",
       "status": "Statut",
-      "changed": "Modifié"
+      "changed": "Modifié",
+      "creditBlock": "Blocage de crédit"
     },
     "rowActions": {
       "open": "Ouvrir",
@@ -170,16 +171,8 @@
       "externalIds": "ID externes"
     },
     "header": {
-      "mergeInto": "Fusionner avec un autre client…",
       "failedToLoad": "Échec du chargement du client",
-      "customerFallback": "Client",
-      "copyCustomerNumber": "Copier le numéro de client",
-      "edit": "Modifier",
-      "newOffer": "Nouvelle offre",
-      "newOfferDisabledReason": "Ce client est marqué « ne pas contacter ».",
-      "linkVehicle": "Lier un véhicule…",
-      "setDoNotContact": "Marquer « ne pas contacter »",
-      "removeDoNotContact": "Retirer « ne pas contacter »"
+      "customerFallback": "Client"
     },
     "errors": {
       "somethingWentWrong": "Une erreur s'est produite.",
@@ -229,6 +222,11 @@
         "cancel": "Annuler",
         "reload": "Recharger",
         "country": "Pays"
+      },
+      "blockingStrip": {
+        "creditBlockTitle": "Blocage de crédit",
+        "doNotContactTitle": "Ne pas contacter",
+        "doNotContactNote": "Aucun contact commercial. Le service et la correspondance légalement requise restent autorisés ; pas une offre ni un contrat."
       }
     },
     "contactPoints": {
@@ -1288,5 +1286,35 @@
     "save": "Enregistrer",
     "saveNew": "Enregistrer la configuration",
     "saveError": "La configuration n'a pas pu être enregistrée."
+  },
+  "customerRowMenu": {
+    "edit": "Modifier",
+    "newOffer": "Nouvelle offre",
+    "newOfferDisabledDoNotContact": "Ce client est marqué « ne pas contacter ».",
+    "newContract": "Nouveau contrat",
+    "newContractDisabledDoNotContact": "Ce client est marqué « ne pas contacter ».",
+    "newContractDisabledBlocked": "Blocage de crédit ({{reason}}) — une offre reste possible ; un contrat requiert la libération du compte par la comptabilité.",
+    "newContractNotYetAvailable": "La création d’un contrat directement depuis un client n’est pas encore disponible.",
+    "linkVehicle": "Lier un véhicule…",
+    "setDoNotContact": "Marquer « ne pas contacter »",
+    "removeDoNotContact": "Retirer « ne pas contacter »",
+    "setCreditBlock": "Définir un blocage de crédit…",
+    "removeCreditBlock": "Retirer le blocage de crédit",
+    "mergeInto": "Fusionner avec un autre client…",
+    "mergeDisabledMerged": "Cet enregistrement a déjà été fusionné avec un autre.",
+    "copyCustomerNumber": "Copier le numéro de client"
+  },
+  "creditBlockDialog": {
+    "setTitle": "Définir un blocage de crédit",
+    "clearTitle": "Retirer le blocage de crédit",
+    "setBody": "Bloquer un client empêche la confirmation de tout contrat. Une offre reste possible — c’est souvent ainsi que le blocage se résout.",
+    "clearBody": "Lever le blocage de crédit sur {{number}} ? Les contrats peuvent à nouveau être confirmés immédiatement.",
+    "reasonLabel": "Motif",
+    "reasonRequired": "Un motif est requis pour poser un blocage de crédit.",
+    "setSubmit": "Bloquer le client",
+    "clearSubmit": "Lever le blocage",
+    "cancel": "Annuler",
+    "conflict": "Ce client a changé depuis l’ouverture. Rechargez et réessayez.",
+    "failed": "Impossible de mettre à jour le blocage de crédit."
   }
 }
