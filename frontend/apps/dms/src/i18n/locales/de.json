@@ -131,7 +131,8 @@
       "type": "Typ",
       "language": "Sprache",
       "status": "Status",
-      "changed": "Geändert"
+      "changed": "Geändert",
+      "creditBlock": "Kreditsperre"
     },
     "rowActions": {
       "open": "Öffnen",
@@ -170,16 +171,8 @@
       "externalIds": "Externe IDs"
     },
     "header": {
-      "mergeInto": "In einen anderen Kunden zusammenführen…",
       "failedToLoad": "Kunde konnte nicht geladen werden",
-      "customerFallback": "Kunde",
-      "copyCustomerNumber": "Kundennummer kopieren",
-      "edit": "Bearbeiten",
-      "newOffer": "Neue Offerte",
-      "newOfferDisabledReason": "Dieser Kunde ist als „nicht kontaktieren“ markiert.",
-      "linkVehicle": "Fahrzeug verknüpfen…",
-      "setDoNotContact": "Nicht kontaktieren setzen",
-      "removeDoNotContact": "Nicht kontaktieren aufheben"
+      "customerFallback": "Kunde"
     },
     "errors": {
       "somethingWentWrong": "Etwas ist schiefgelaufen.",
@@ -229,6 +222,11 @@
         "cancel": "Abbrechen",
         "reload": "Neu laden",
         "country": "Land"
+      },
+      "blockingStrip": {
+        "creditBlockTitle": "Kreditgesperrt",
+        "doNotContactTitle": "Nicht kontaktieren",
+        "doNotContactNote": "Kein kommerzieller Kontakt. Service und gesetzlich vorgeschriebene Korrespondenz sind weiterhin erlaubt; eine Offerte oder ein Vertrag nicht."
       }
     },
     "contactPoints": {
@@ -1288,5 +1286,35 @@
     "save": "Speichern",
     "saveNew": "Konfiguration speichern",
     "saveError": "Die Konfiguration konnte nicht gespeichert werden."
+  },
+  "customerRowMenu": {
+    "edit": "Bearbeiten",
+    "newOffer": "Neue Offerte",
+    "newOfferDisabledDoNotContact": "Dieser Kunde ist als „nicht kontaktieren“ markiert.",
+    "newContract": "Neuer Vertrag",
+    "newContractDisabledDoNotContact": "Dieser Kunde ist als „nicht kontaktieren“ markiert.",
+    "newContractDisabledBlocked": "Kreditgesperrt ({{reason}}) — eine Offerte ist weiterhin möglich; ein Vertrag erfordert die Kontofreigabe durch die Buchhaltung.",
+    "newContractNotYetAvailable": "Das direkte Erstellen eines Vertrags aus einem Kunden ist noch nicht verfügbar.",
+    "linkVehicle": "Fahrzeug verknüpfen…",
+    "setDoNotContact": "Nicht kontaktieren setzen",
+    "removeDoNotContact": "Nicht kontaktieren aufheben",
+    "setCreditBlock": "Kreditsperre setzen…",
+    "removeCreditBlock": "Kreditsperre aufheben",
+    "mergeInto": "In einen anderen Kunden zusammenführen…",
+    "mergeDisabledMerged": "Dieser Datensatz wurde bereits mit einem anderen zusammengeführt.",
+    "copyCustomerNumber": "Kundennummer kopieren"
+  },
+  "creditBlockDialog": {
+    "setTitle": "Kreditsperre setzen",
+    "clearTitle": "Kreditsperre aufheben",
+    "setBody": "Eine Kundensperre verhindert, dass ein Vertrag bestätigt wird. Eine Offerte ist weiterhin möglich — oft wird die Sperre gerade so geklärt.",
+    "clearBody": "Kreditsperre für {{number}} aufheben? Verträge können sofort wieder bestätigt werden.",
+    "reasonLabel": "Grund",
+    "reasonRequired": "Für eine Kreditsperre ist ein Grund erforderlich.",
+    "setSubmit": "Kunde sperren",
+    "clearSubmit": "Sperre aufheben",
+    "cancel": "Abbrechen",
+    "conflict": "Dieser Kunde wurde seit dem Öffnen geändert. Bitte neu laden und erneut versuchen.",
+    "failed": "Die Kreditsperre konnte nicht aktualisiert werden."
   }
 }

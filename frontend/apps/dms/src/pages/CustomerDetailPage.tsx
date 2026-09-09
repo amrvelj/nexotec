@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Building2, Car, Copy, GitMerge, Handshake, Loader, PhoneOff, Pencil, User } from 'lucide-react'
+import { Building2, Loader, User } from 'lucide-react'
 import { Alert } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 import {
@@ -17,6 +17,7 @@ import { api, ApiError } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
 import { translatedCustomerTypeLabel, translatedLifecycleLabel } from '../customerOptions'
+import { buildCustomerRowMenu } from '../components/customerRowMenu'
 import { OverviewTab, type AddressDraft } from '../components/customer-detail/OverviewTab'
 import { useCountryOptions } from '../hooks/useCountryOptions'
 import type { ContactPointUpdatePatch } from '../components/customer-detail/ContactPointsEditor'
@@ -25,6 +26,7 @@ import { TransactionsTab } from '../components/customer-detail/TransactionsTab'
 import { HistoryTab } from '../components/customer-detail/HistoryTab'
 import { ExternalIdsTab } from '../components/customer-detail/ExternalIdsTab'
 import { MergeCustomerModal } from '../components/customer-detail/MergeCustomerModal'
+import { CreditBlockDialog } from '../components/customer-detail/CreditBlockDialog'
 import { LinkVehicleModal } from '../components/customer-detail/LinkVehicleModal'
 import type {
   AuditEventPage,
@@ -96,6 +98,7 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
   const activeTab = embedded ? embeddedTab : (searchParams.get('tab') ?? DEFAULT_TAB)
   const [mergeModalOpen, setMergeModalOpen] = useState(false)
   const [linkVehicleOpen, setLinkVehicleOpen] = useState(false)
+  const [creditBlockOpen, setCreditBlockOpen] = useState(false)
   const [creatingOffer, setCreatingOffer] = useState(false)
 
   const setActiveTab = (tab: string) => {
@@ -336,6 +339,22 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
     )
   }
 
+  // KAN-44 / FR-22 (ADR-061) — the header's primary/alternative/overflow
+  // and the customer list's row menu both render from this one builder, so
+  // "New offer" / "New contract" can never carry a different enabled state
+  // or reason on the two surfaces. FR-14 anonymisation stays out (not
+  // built); "New contract" is present-but-disabled (no customer→contract
+  // flow yet — see buildCustomerRowMenu).
+  const rowMenu = buildCustomerRowMenu(t, customer, {
+    onEdit: () => setActiveTab('overview'),
+    onNewOffer: () => void createOfferForCustomer(),
+    onCopyCustomerNumber: () => void navigator.clipboard.writeText(customer.customerNumber),
+    onToggleDoNotContact: toggleDoNotContact,
+    onManageCreditBlock: () => setCreditBlockOpen(true),
+    onMergeInto: () => setMergeModalOpen(true),
+    onLinkVehicle: () => setLinkVehicleOpen(true),
+  })
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <DetailHeader
@@ -349,64 +368,12 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
             <LanguageBadge language={customer.language} />
           </>
         }
-        // KAN-14 / FR-22 (ADR-061) — primary "Edit" and alternative "New
-        // offer" were both entirely absent before this fix; only a
-        // 2-item overflow existed. "Edit" here switches to the Overview
-        // tab, where every field is already inline-editable (the PRD's
-        // own 2026-08-21 amendment: "editing one value on a record
-        // already on screen is inline") — there is no separate edit-mode
-        // concept anywhere else in this codebase to mirror instead. This
-        // is a judgment call, not a confirmed product decision; worth a
-        // second look if "Edit" is meant to do something more specific.
-        primaryAction={{
-          label: t('customerDetail.header.edit'),
-          icon: <Pencil size={16} />,
-          onClick: () => setActiveTab('overview'),
-        }}
+        primaryAction={rowMenu.primary}
         alternativeAction={{
-          label: t('customerDetail.header.newOffer'),
-          icon: <Handshake size={16} />,
-          onClick: () => void createOfferForCustomer(),
-          disabled: creatingOffer || customer.lifecycleStatus === 'do_not_contact',
-          disabledReason: customer.lifecycleStatus === 'do_not_contact' ? t('customerDetail.header.newOfferDisabledReason') : undefined,
+          ...rowMenu.alternative,
+          disabled: rowMenu.alternative.disabled || creatingOffer,
         }}
-        overflowActions={{
-          exportPrint: [
-            {
-              label: t('customerDetail.header.copyCustomerNumber'),
-              icon: <Copy size={16} />,
-              onClick: () => navigator.clipboard.writeText(customer.customerNumber),
-            },
-          ],
-          edit: [
-            {
-              label: t('customerDetail.header.linkVehicle'),
-              icon: <Car size={16} />,
-              onClick: () => setLinkVehicleOpen(true),
-            },
-            {
-              label:
-                customer.lifecycleStatus === 'do_not_contact'
-                  ? t('customerDetail.header.removeDoNotContact')
-                  : t('customerDetail.header.setDoNotContact'),
-              icon: <PhoneOff size={16} />,
-              onClick: toggleDoNotContact,
-            },
-            // FR-14 (anonymisation) is explicitly "Not implemented —
-            // required before production, not before the Phase B UI" in
-            // PRD-Customers' own text — deliberately not built here.
-          ],
-          destructive:
-            customer.lifecycleStatus !== 'merged'
-              ? [
-                  {
-                    label: t('customerDetail.header.mergeInto'),
-                    icon: <GitMerge size={16} />,
-                    onClick: () => setMergeModalOpen(true),
-                  },
-                ]
-              : [],
-        }}
+        overflowActions={rowMenu.overflow}
       />
 
       <DetailTabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
@@ -495,6 +462,16 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
           onLinked={() => void queryClient.invalidateQueries({ queryKey: ['customer', id, 'vehicles'] })}
         />
       )}
+
+      <CreditBlockDialog
+        opened={creditBlockOpen}
+        onClose={() => setCreditBlockOpen(false)}
+        customer={customer}
+        onSaved={(updated) => {
+          queryClient.setQueryData(['customer', id], updated)
+          void queryClient.invalidateQueries({ queryKey: ['customer', id, 'history'] })
+        }}
+      />
     </div>
   )
 }

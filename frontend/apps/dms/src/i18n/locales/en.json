@@ -131,7 +131,8 @@
       "type": "Type",
       "language": "Language",
       "status": "Status",
-      "changed": "Changed"
+      "changed": "Changed",
+      "creditBlock": "Credit block"
     },
     "rowActions": {
       "open": "Open",
@@ -170,16 +171,8 @@
       "externalIds": "External IDs"
     },
     "header": {
-      "mergeInto": "Merge into another customer…",
       "failedToLoad": "Failed to load customer",
-      "customerFallback": "Customer",
-      "copyCustomerNumber": "Copy customer number",
-      "edit": "Edit",
-      "newOffer": "New offer",
-      "newOfferDisabledReason": "This customer is marked do-not-contact.",
-      "linkVehicle": "Link vehicle…",
-      "setDoNotContact": "Set do-not-contact",
-      "removeDoNotContact": "Remove do-not-contact"
+      "customerFallback": "Customer"
     },
     "errors": {
       "somethingWentWrong": "Something went wrong.",
@@ -229,6 +222,11 @@
         "cancel": "Cancel",
         "reload": "Reload",
         "country": "Country"
+      },
+      "blockingStrip": {
+        "creditBlockTitle": "Credit-blocked",
+        "doNotContactTitle": "Do not contact",
+        "doNotContactNote": "No commercial contact. Service and legally required correspondence are still allowed; an offer or contract is not."
       }
     },
     "contactPoints": {
@@ -1288,5 +1286,35 @@
     "save": "Save",
     "saveNew": "Save configuration",
     "saveError": "The configuration could not be saved."
+  },
+  "customerRowMenu": {
+    "edit": "Edit",
+    "newOffer": "New offer",
+    "newOfferDisabledDoNotContact": "This customer is marked do-not-contact.",
+    "newContract": "New contract",
+    "newContractDisabledDoNotContact": "This customer is marked do-not-contact.",
+    "newContractDisabledBlocked": "Credit-blocked ({{reason}}) — an offer is still possible; a contract needs finance to release the account.",
+    "newContractNotYetAvailable": "Creating a contract directly from a customer isn't available yet.",
+    "linkVehicle": "Link vehicle…",
+    "setDoNotContact": "Set do-not-contact",
+    "removeDoNotContact": "Remove do-not-contact",
+    "setCreditBlock": "Set credit block…",
+    "removeCreditBlock": "Remove credit block",
+    "mergeInto": "Merge into another customer…",
+    "mergeDisabledMerged": "This record has already been merged into another.",
+    "copyCustomerNumber": "Copy customer number"
+  },
+  "creditBlockDialog": {
+    "setTitle": "Set credit block",
+    "clearTitle": "Remove credit block",
+    "setBody": "Blocking a customer stops any contract from being confirmed. An offer can still be made — that is often how the block gets resolved.",
+    "clearBody": "Lift the credit block on {{number}}? Contracts can be confirmed again immediately.",
+    "reasonLabel": "Reason",
+    "reasonRequired": "A reason is required to place a credit block.",
+    "setSubmit": "Block customer",
+    "clearSubmit": "Lift block",
+    "cancel": "Cancel",
+    "conflict": "This customer changed since you opened this. Reload and try again.",
+    "failed": "Could not update the credit block."
   }
 }

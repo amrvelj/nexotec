@@ -131,7 +131,8 @@
       "type": "Tipo",
       "language": "Lingua",
       "status": "Stato",
-      "changed": "Modificato"
+      "changed": "Modificato",
+      "creditBlock": "Blocco creditizio"
     },
     "rowActions": {
       "open": "Apri",
@@ -170,16 +171,8 @@
       "externalIds": "ID esterni"
     },
     "header": {
-      "mergeInto": "Unisci a un altro cliente…",
       "failedToLoad": "Impossibile caricare il cliente",
-      "customerFallback": "Cliente",
-      "copyCustomerNumber": "Copia numero cliente",
-      "edit": "Modifica",
-      "newOffer": "Nuova offerta",
-      "newOfferDisabledReason": "Questo cliente è contrassegnato come «non contattare».",
-      "linkVehicle": "Collega veicolo…",
-      "setDoNotContact": "Imposta «non contattare»",
-      "removeDoNotContact": "Rimuovi «non contattare»"
+      "customerFallback": "Cliente"
     },
     "errors": {
       "somethingWentWrong": "Si è verificato un errore.",
@@ -229,6 +222,11 @@
         "cancel": "Annulla",
         "reload": "Ricarica",
         "country": "Paese"
+      },
+      "blockingStrip": {
+        "creditBlockTitle": "Blocco creditizio",
+        "doNotContactTitle": "Non contattare",
+        "doNotContactNote": "Nessun contatto commerciale. L’assistenza e la corrispondenza obbligatoria per legge restano consentite; un’offerta o un contratto no."
       }
     },
     "contactPoints": {
@@ -1288,5 +1286,35 @@
     "save": "Salva",
     "saveNew": "Salva la configurazione",
     "saveError": "Impossibile salvare la configurazione."
+  },
+  "customerRowMenu": {
+    "edit": "Modifica",
+    "newOffer": "Nuova offerta",
+    "newOfferDisabledDoNotContact": "Questo cliente è contrassegnato come «non contattare».",
+    "newContract": "Nuovo contratto",
+    "newContractDisabledDoNotContact": "Questo cliente è contrassegnato come «non contattare».",
+    "newContractDisabledBlocked": "Blocco creditizio ({{reason}}) — un’offerta è comunque possibile; un contratto richiede lo sblocco del conto da parte della contabilità.",
+    "newContractNotYetAvailable": "La creazione di un contratto direttamente da un cliente non è ancora disponibile.",
+    "linkVehicle": "Collega veicolo…",
+    "setDoNotContact": "Imposta «non contattare»",
+    "removeDoNotContact": "Rimuovi «non contattare»",
+    "setCreditBlock": "Imposta blocco creditizio…",
+    "removeCreditBlock": "Rimuovi blocco creditizio",
+    "mergeInto": "Unisci a un altro cliente…",
+    "mergeDisabledMerged": "Questo record è già stato unito a un altro.",
+    "copyCustomerNumber": "Copia numero cliente"
+  },
+  "creditBlockDialog": {
+    "setTitle": "Imposta blocco creditizio",
+    "clearTitle": "Rimuovi blocco creditizio",
+    "setBody": "Bloccare un cliente impedisce la conferma di qualsiasi contratto. Un’offerta resta possibile — spesso è così che il blocco viene risolto.",
+    "clearBody": "Rimuovere il blocco creditizio su {{number}}? I contratti possono essere confermati di nuovo immediatamente.",
+    "reasonLabel": "Motivo",
+    "reasonRequired": "È richiesto un motivo per applicare un blocco creditizio.",
+    "setSubmit": "Blocca cliente",
+    "clearSubmit": "Rimuovi blocco",
+    "cancel": "Annulla",
+    "conflict": "Questo cliente è cambiato dopo l’apertura. Ricarica e riprova.",
+    "failed": "Impossibile aggiornare il blocco creditizio."
   }
 }

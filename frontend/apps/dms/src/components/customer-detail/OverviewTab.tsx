@@ -3,6 +3,7 @@ import { Checkbox, Group, Select, SimpleGrid, Stack, Text, TextInput } from '@ma
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { InlineEditField, KeyValueRow, OverviewCard, purple, radius, slate, white } from '@nexotec/ui-kit'
+import { BlockingFactsStrip } from './BlockingFactsStrip'
 import {
   LEGAL_FORM_OPTIONS,
   translatedEmailTypeOptions,
@@ -322,8 +323,13 @@ export function OverviewTab({
   const f = t('customerDetail.overview.fields', { returnObjects: true }) as Record<string, string>
 
   return (
-    <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
-      <OverviewCard title={t('customerDetail.overview.cards.identity')}>
+    <Stack gap="md">
+      {/* FR-18 region 1 (KAN-44) — blocking facts sit ABOVE the cards, not
+          inside one; absent entirely when neither applies. */}
+      <BlockingFactsStrip customer={customer} />
+
+      <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
+        <OverviewCard title={t('customerDetail.overview.cards.identity')}>
         {customer.customerType === 'individual' ? (
           <>
             <SelectField label={f.salutation} value={customer.salutation} options={translatedSalutationOptions(t)} patchKey="salutation" clearable {...fieldProps} />
@@ -445,6 +451,7 @@ export function OverviewTab({
         <KeyValueRow label={f.created}>{formatDate(customer.createdAt, locale)}</KeyValueRow>
         <KeyValueRow label={f.lastChanged}>{formatDate(customer.updatedAt, locale)}</KeyValueRow>
       </OverviewCard>
-    </SimpleGrid>
+      </SimpleGrid>
+    </Stack>
   )
 }
