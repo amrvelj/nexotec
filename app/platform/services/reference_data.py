@@ -32,6 +32,29 @@ def get_reference_list_or_404(db: Session, list_code: str) -> ReferenceList:
     return ref_list
 
 
+def get_active_reference_value_codes(db: Session, list_code: str) -> set[str] | None:
+    """Every *active* ``value_code`` in ``list_code``, resolved in one query,
+    or ``None`` when the list itself does not exist.
+
+    The ``None`` case matters to callers in other contexts: a missing list is
+    a deployment fault (the seed migration has not run on this branch head),
+    not a client error, and must not be turned into a 404/422 on the caller's
+    own endpoint. A value that is present but ``active = false`` is simply
+    absent from the returned set — deactivated codes are rejected on new
+    writes while rows that already reference them stay readable.
+    """
+
+    ref_list = db.scalar(select(ReferenceList).where(ReferenceList.list_code == list_code))
+    if ref_list is None:
+        return None
+    rows = db.scalars(
+        select(ReferenceValue.value_code).where(
+            ReferenceValue.list_id == ref_list.id, ReferenceValue.active.is_(True)
+        )
+    )
+    return set(rows)
+
+
 def get_reference_value_or_404(db: Session, *, list_id: uuid.UUID, value_code: str) -> ReferenceValue:
     value = db.scalar(
         select(ReferenceValue)

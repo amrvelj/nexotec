@@ -144,7 +144,10 @@ class CustomerAddressCreate(CamelModel):
     address_house_number: HouseNumber = Field(max_length=20)
     address_postal_code: str = Field(max_length=12)
     address_locality: str = Field(max_length=100)
-    address_country: str = Field(default="CH", max_length=2)
+    # ISO 3166-1 alpha-2. Membership against the `country` reference list is
+    # enforced in the service layer (KAN-32) — a schema cannot reach the DB,
+    # and `max_length=2` is a width check, not validation.
+    address_country: str = Field(default="CH")
     is_primary: bool = False
 
     @model_validator(mode="after")
@@ -161,7 +164,8 @@ class CustomerAddressUpdate(CamelModel):
     address_house_number: HouseNumber | None = None
     address_postal_code: str | None = Field(default=None, max_length=12)
     address_locality: str | None = Field(default=None, max_length=100)
-    address_country: str | None = Field(default=None, max_length=2)
+    # ISO 3166-1 alpha-2 — see CustomerAddressCreate.address_country (KAN-32).
+    address_country: str | None = Field(default=None)
     is_primary: bool | None = None
     valid_to: dt.datetime | None = None
     do_not_use: bool | None = None
@@ -221,7 +225,10 @@ class CustomerCreate(CamelModel):
     first_name: str | None = Field(default=None, max_length=100, min_length=1)
     last_name: str | None = Field(default=None, max_length=100, min_length=1)
     birth_date: dt.date | None = None
-    nationality: str | None = Field(default=None, max_length=2)
+    # ISO 3166-1 alpha-2, individual-only. Chosen from the `country`
+    # reference list; membership is enforced in the service layer (KAN-32),
+    # since a schema cannot reach the DB.
+    nationality: str | None = Field(default=None)
     company_name: str | None = Field(default=None, max_length=200, min_length=1)
     legal_form: LegalForm | None = None
     tax_id: SwissUid | None = Field(
@@ -318,7 +325,8 @@ class CustomerUpdate(CamelModel):
     first_name: str | None = Field(default=None, max_length=100, min_length=1)
     last_name: str | None = Field(default=None, max_length=100, min_length=1)
     birth_date: dt.date | None = None
-    nationality: str | None = Field(default=None, max_length=2)
+    # ISO 3166-1 alpha-2 — see CustomerCreate.nationality (KAN-32).
+    nationality: str | None = Field(default=None)
     company_name: str | None = Field(default=None, max_length=200, min_length=1)
     legal_form: LegalForm | None = None
     tax_id: SwissUid | None = Field(

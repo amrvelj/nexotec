@@ -11,8 +11,10 @@
  *   - WP-1 shell seed        (alembic c9654d846ac9)  — 8 lists
  *   - vehicle catalogue seed (alembic platform/6ba0a99ed5c4) — 16 lists
  *   - configurator C-A       (alembic platform/a3d9c1e58f27) — 3 lists (KAN-39)
+ *   - country list           (alembic platform/d7b1f4e02a96) — 1 list (KAN-32)
  * PRD-Vehicles §"Canonical lists to administer (v1)" and
- * PRD-Configurator §"The canonical code map" name them too.
+ * PRD-Configurator §"The canonical code map" name them too; PRD-Customers
+ * §"Reference lists" now names `country` (nationality + address country).
  *
  * A follow-up ticket adds the read endpoint so this stops being a
  * client-side constant; until then, a list added server-side does not
@@ -49,6 +51,8 @@ export const REFERENCE_LIST_CODES = [
   'engine_cycle',
   'valuation_classification',
   'option_relation_type',
+  // country seed (platform/d7b1f4e02a96) — KAN-32
+  'country',
 ] as const
 
 export type ReferenceListCode = (typeof REFERENCE_LIST_CODES)[number]

@@ -14,6 +14,7 @@ import {
   translatedSourceOptions,
 } from '../../customerOptions'
 import { formatDate } from '../../utils/format'
+import type { CountryOption } from '../../hooks/useCountryOptions'
 import { ContactPointsEditor, type ContactPointUpdatePatch } from './ContactPointsEditor'
 import { PhoneInput } from '../PhoneInput'
 import type { CustomerEmailRead, CustomerPhoneRead, CustomerRead, CustomerUpdateInput, EmailType, PhoneType } from '../../api/types'
@@ -27,6 +28,7 @@ export interface AddressDraft {
   houseNumber: string
   postalCode: string
   locality: string
+  country: string
 }
 
 interface OverviewTabProps {
@@ -48,6 +50,9 @@ interface OverviewTabProps {
   onCreateEmail: (row: { type: EmailType; value: string }) => Promise<void>
   onUpdateEmail: (id: string, patch: ContactPointUpdatePatch<EmailType>) => Promise<void>
   onDeleteEmail: (id: string) => Promise<void>
+  // KAN-32 — the `country` reference list, resolved once by the page and
+  // passed down for both the nationality field and the address country.
+  countryOptions: CountryOption[]
   locale: string
 }
 
@@ -163,31 +168,29 @@ function SelectField({
 function AddressField({
   customer,
   onSaveAddress,
+  countryOptions,
   t,
 }: {
   customer: CustomerRead
   onSaveAddress: OverviewTabProps['onSaveAddress']
+  countryOptions: CountryOption[]
   t: TFunction
 }) {
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState({
+  const draftFromCustomer = (): AddressDraft => ({
     street: customer.address?.addressStreet ?? '',
     line2: customer.address?.addressLine2 ?? '',
     houseNumber: customer.address?.addressHouseNumber ?? '',
     postalCode: customer.address?.addressPostalCode ?? '',
     locality: customer.address?.addressLocality ?? '',
+    country: customer.address?.addressCountry ?? 'CH',
   })
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState<AddressDraft>(draftFromCustomer)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const startEdit = () => {
-    setDraft({
-      street: customer.address?.addressStreet ?? '',
-      line2: customer.address?.addressLine2 ?? '',
-      houseNumber: customer.address?.addressHouseNumber ?? '',
-      postalCode: customer.address?.addressPostalCode ?? '',
-      locality: customer.address?.addressLocality ?? '',
-    })
+    setDraft(draftFromCustomer())
     setError(null)
     setEditing(true)
   }
@@ -246,6 +249,16 @@ function AddressField({
               onChange={(e) => setDraft({ ...draft, locality: e.currentTarget.value })}
             />
           </Group>
+          <Select
+            size="xs"
+            label={t('customerDetail.overview.addressForm.country')}
+            data={countryOptions}
+            value={draft.country || null}
+            onChange={(next) => setDraft({ ...draft, country: next ?? 'CH' })}
+            searchable
+            allowDeselect={false}
+            comboboxProps={{ withinPortal: true }}
+          />
           {error && (
             <Text size="xs" c="red">
               {error}
@@ -301,6 +314,7 @@ export function OverviewTab({
   onCreateEmail,
   onUpdateEmail,
   onDeleteEmail,
+  countryOptions,
   locale,
 }: OverviewTabProps) {
   const { t } = useTranslation()
@@ -316,7 +330,15 @@ export function OverviewTab({
             <TextField label={f.firstName} value={customer.firstName} patchKey="firstName" {...fieldProps} />
             <TextField label={f.lastName} value={customer.lastName} patchKey="lastName" {...fieldProps} />
             <DateField label={f.dateOfBirth} value={customer.birthDate} patchKey="birthDate" {...fieldProps} />
-            <TextField label={f.nationality} value={customer.nationality} patchKey="nationality" {...fieldProps} />
+            {/* KAN-32 — chosen from the `country` reference list, not typed. */}
+            <SelectField
+              label={f.nationality}
+              value={customer.nationality}
+              options={countryOptions}
+              patchKey="nationality"
+              clearable
+              {...fieldProps}
+            />
           </>
         ) : (
           <>
@@ -352,7 +374,7 @@ export function OverviewTab({
       </OverviewCard>
 
       <OverviewCard title={t('customerDetail.overview.cards.address')}>
-        <AddressField customer={customer} onSaveAddress={onSaveAddress} t={t} />
+        <AddressField customer={customer} onSaveAddress={onSaveAddress} countryOptions={countryOptions} t={t} />
         {/* Derived server-side from the postal code (D-13), never an
             input — labelled as such so it doesn't read as an empty box
             waiting to be filled in (KAN-30). */}

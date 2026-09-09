@@ -55,6 +55,12 @@
     "remove": "Remove",
     "loading": "Loading…"
   },
+  "customerCreate": {
+    "fields": {
+      "nationality": "Nationality",
+      "country": "Country"
+    }
+  },
   "customerEnums": {
     "customerType": {
       "individual": "Individual",
@@ -221,7 +227,8 @@
         "locality": "Locality",
         "save": "Save",
         "cancel": "Cancel",
-        "reload": "Reload"
+        "reload": "Reload",
+        "country": "Country"
       }
     },
     "contactPoints": {

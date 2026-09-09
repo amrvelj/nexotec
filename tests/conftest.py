@@ -98,6 +98,65 @@ def engine():
     eng.dispose()
 
 
+@pytest.fixture(autouse=True)
+def _seed_country_reference_list(engine):
+    """Stand up the ``country`` ReferenceList in every test DB (KAN-32).
+
+    Autouse, which is a departure from the house pattern of per-test
+    ``_seed_list`` / ``_seed_value`` helpers. It is justified here:
+    ``CustomerAddressCreate.address_country`` defaults to ``"CH"``, so *every*
+    test that creates a customer-with-address or writes an address now runs
+    ``_validate_country_codes`` — and with the list absent that raises a
+    500-class deployment fault (``get_active_reference_value_codes`` -> None),
+    not a skippable 404. Seeding it once here keeps the whole suite honest
+    without threading a fixture through hundreds of call sites.
+
+    ``tests/test_country_reference_list.py`` keeps one test that runs with
+    the list dropped, pinning the deployment-fault behaviour.
+
+    The rows are the real seed data (``load_country_seed()``), the same
+    source the Alembic migration uses.
+    """
+
+    from sqlalchemy import insert
+
+    from app.core.base import utcnow
+    from app.core.uuid7 import uuid7
+    from app.platform.models.reference_data import ReferenceList, ReferenceValue
+    from app.platform.reference_data_seed import load_country_seed
+
+    now = utcnow()
+    rows = load_country_seed()
+    with engine.begin() as conn:
+        list_id = uuid7()
+        conn.execute(
+            insert(ReferenceList.__table__).values(
+                id=list_id, list_code="country", created_at=now, updated_at=now
+            )
+        )
+        conn.execute(
+            insert(ReferenceValue.__table__),
+            [
+                {
+                    "id": uuid7(),
+                    "list_id": list_id,
+                    "value_code": code,
+                    "label_de": de,
+                    "label_fr": fr,
+                    "label_it": it,
+                    "label_en": en,
+                    "sort_order": order,
+                    "active": True,
+                    "version": 1,
+                    "created_at": now,
+                    "updated_at": now,
+                }
+                for order, (code, de, fr, it, en) in enumerate(rows)
+            ],
+        )
+    yield
+
+
 @pytest.fixture()
 def db_session(engine) -> Session:
     session_factory = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)

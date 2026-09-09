@@ -55,6 +55,12 @@
     "remove": "Entfernen",
     "loading": "Lädt…"
   },
+  "customerCreate": {
+    "fields": {
+      "nationality": "Nationalität",
+      "country": "Land"
+    }
+  },
   "customerEnums": {
     "customerType": {
       "individual": "Privatperson",
@@ -221,7 +227,8 @@
         "locality": "Ort",
         "save": "Speichern",
         "cancel": "Abbrechen",
-        "reload": "Neu laden"
+        "reload": "Neu laden",
+        "country": "Land"
       }
     },
     "contactPoints": {
