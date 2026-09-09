@@ -66,6 +66,7 @@ def list_offers(
     sort: str | None = Query(default=None),
     limit: int = Query(default=settings.pagination_default_limit, ge=1, le=settings.pagination_max_limit),
     cursor: str | None = Query(default=None),
+    customer_id: uuid.UUID | None = Query(default=None),
     principal: Principal = Depends(get_current_principal),
     db: Session = Depends(get_db),
 ):
@@ -74,7 +75,7 @@ def list_offers(
         limit=limit, cursor=decode_sort_cursor(cursor) if cursor else None, sort_fields=sort_fields
     )
     rows, next_cursor, total, total_is_estimate = offer_service.list_offers(
-        db, tenant_id=principal.tenant_id, params=params
+        db, tenant_id=principal.tenant_id, customer_id=customer_id, params=params
     )
     return OfferPage(
         items=[_offer_read(r) for r in rows],

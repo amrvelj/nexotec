@@ -177,14 +177,6 @@ export function translatedVehiclePartyRoleLabel(t: Translate, role: 'owner' | 'k
   return t(`customerEnums.vehiclePartyRole.${role}`)
 }
 
-export function translatedTransactionTypeLabel(t: Translate, type: 'sale' | 'trade_in'): string {
-  return t(`customerEnums.transactionType.${type}`)
-}
-
-export function translatedTransactionStatusLabel(t: Translate, status: 'draft' | 'completed' | 'cancelled'): string {
-  return t(`customerEnums.transactionStatus.${status}`)
-}
-
 export function translatedPhoneTypeOptions(t: Translate): { value: PhoneType; label: string }[] {
   return [
     { value: 'mobile', label: t('customerEnums.contactType.mobile') },

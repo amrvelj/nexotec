@@ -333,9 +333,11 @@ def cancel_offer(db: Session, *, offer: SalesOffer, reason: str, actor_id: uuid.
 
 
 def list_offers(
-    db: Session, *, tenant_id: uuid.UUID, params: SortPageParams
+    db: Session, *, tenant_id: uuid.UUID, customer_id: uuid.UUID | None = None, params: SortPageParams
 ) -> tuple[list[SalesOffer], str | None, int, bool]:
     stmt = select(SalesOffer).where(SalesOffer.tenant_id == tenant_id)
+    if customer_id is not None:
+        stmt = stmt.where(SalesOffer.customer_id == customer_id)
     total, total_is_estimate = count_capped(db, stmt, threshold=get_settings().count_exact_threshold)
     stmt = paginate_query_sorted(stmt, model=SalesOffer, params=params)
     rows = list(db.scalars(stmt).all())

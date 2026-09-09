@@ -103,15 +103,6 @@
       "keeper": "Détenteur",
       "driver": "Conducteur"
     },
-    "transactionType": {
-      "sale": "Vente",
-      "trade_in": "Reprise"
-    },
-    "transactionStatus": {
-      "draft": "Brouillon",
-      "completed": "Terminé",
-      "cancelled": "Annulé"
-    },
     "contactType": {
       "mobile": "Mobile",
       "landline": "Fixe",
@@ -166,7 +157,7 @@
     "tabs": {
       "overview": "Aperçu",
       "vehicles": "Véhicules",
-      "transactions": "Transactions",
+      "offersContracts": "Offres et contrats",
       "history": "Historique",
       "externalIds": "ID externes"
     },
@@ -179,7 +170,7 @@
       "conflict": "Quelqu'un d'autre a modifié ceci entre-temps.",
       "failedToSave": "Échec de l'enregistrement.",
       "failedToLoadVehicles": "Échec du chargement des véhicules.",
-      "failedToLoadTransactions": "Échec du chargement des transactions.",
+      "failedToLoadOffersContracts": "Échec du chargement des offres et contrats.",
       "failedToLoadHistory": "Échec du chargement de l'historique.",
       "failedToLoadExternalIds": "Échec du chargement des ID externes."
     },
@@ -294,17 +285,10 @@
       },
       "addAction": "Lier un véhicule"
     },
-    "transactions": {
-      "columns": {
-        "type": "Type",
-        "status": "Statut",
-        "amount": "Montant",
-        "date": "Date",
-        "reference": "Référence"
-      },
+    "offersContracts": {
       "emptyState": {
-        "title": "Aucune transaction",
-        "description": "Aucune transaction enregistrée pour ce client."
+        "title": "Aucune offre ni contrat",
+        "description": "Ce client n'a encore aucune offre ni contrat dans cette concession."
       }
     },
     "history": {

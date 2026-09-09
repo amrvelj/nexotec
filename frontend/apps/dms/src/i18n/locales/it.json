@@ -103,15 +103,6 @@
       "keeper": "Detentore",
       "driver": "Conducente"
     },
-    "transactionType": {
-      "sale": "Vendita",
-      "trade_in": "Permuta"
-    },
-    "transactionStatus": {
-      "draft": "Bozza",
-      "completed": "Completato",
-      "cancelled": "Annullato"
-    },
     "contactType": {
       "mobile": "Cellulare",
       "landline": "Fisso",
@@ -166,7 +157,7 @@
     "tabs": {
       "overview": "Panoramica",
       "vehicles": "Veicoli",
-      "transactions": "Transazioni",
+      "offersContracts": "Offerte e contratti",
       "history": "Cronologia",
       "externalIds": "ID esterni"
     },
@@ -179,7 +170,7 @@
       "conflict": "Qualcun altro ha modificato questo nel frattempo.",
       "failedToSave": "Salvataggio non riuscito.",
       "failedToLoadVehicles": "Impossibile caricare i veicoli.",
-      "failedToLoadTransactions": "Impossibile caricare le transazioni.",
+      "failedToLoadOffersContracts": "Impossibile caricare offerte e contratti.",
       "failedToLoadHistory": "Impossibile caricare la cronologia.",
       "failedToLoadExternalIds": "Impossibile caricare gli ID esterni."
     },
@@ -294,17 +285,10 @@
       },
       "addAction": "Collega veicolo"
     },
-    "transactions": {
-      "columns": {
-        "type": "Tipo",
-        "status": "Stato",
-        "amount": "Importo",
-        "date": "Data",
-        "reference": "Riferimento"
-      },
+    "offersContracts": {
       "emptyState": {
-        "title": "Nessuna transazione",
-        "description": "Nessuna transazione registrata per questo cliente."
+        "title": "Nessuna offerta o contratto",
+        "description": "Questo cliente non ha ancora offerte o contratti presso questa concessionaria."
       }
     },
     "history": {

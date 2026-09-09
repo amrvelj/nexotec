@@ -23,7 +23,6 @@ function infraRoutes(address: CustomerAddressRead | null) {
     { match: /^\/customers\/c1\/vehicles$/, handler: () => ({ items: [], nextCursor: null }) },
     { match: /^\/customers\/c1\/external-ids$/, handler: () => ({ items: [], nextCursor: null }) },
     { match: /^\/customers\/c1\/audit-log$/, handler: () => ({ items: [], nextCursor: null }) },
-    { match: /^\/transactions$/, handler: () => ({ items: [], nextCursor: null }) },
     { match: /^\/customers\/c1$/, handler: () => customer({ id: 'c1', address }) },
   ]
 }

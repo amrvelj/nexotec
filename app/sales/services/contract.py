@@ -350,9 +350,11 @@ def cancel_contract(
 
 
 def list_contracts(
-    db: Session, *, tenant_id: uuid.UUID, params: SortPageParams
+    db: Session, *, tenant_id: uuid.UUID, customer_id: uuid.UUID | None = None, params: SortPageParams
 ) -> tuple[list[SalesContract], str | None, int, bool]:
     stmt = select(SalesContract).where(SalesContract.tenant_id == tenant_id)
+    if customer_id is not None:
+        stmt = stmt.where(SalesContract.customer_id == customer_id)
     total, total_is_estimate = count_capped(db, stmt, threshold=get_settings().count_exact_threshold)
     stmt = paginate_query_sorted(stmt, model=SalesContract, params=params)
     rows = list(db.scalars(stmt).all())

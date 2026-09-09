@@ -81,7 +81,6 @@ function installOfferBackend() {
     { match: /^\/customers\/cust-1\/(phones|emails)$/, handler: () => ({ items: [] }) },
     { match: /^\/customers\/cust-1\/(vehicles|external-ids)$/, handler: () => ({ items: [], nextCursor: null }) },
     { match: /^\/customers\/cust-1\/audit-log$/, handler: () => ({ items: [], nextCursor: null }) },
-    { match: /^\/transactions$/, handler: () => ({ items: [], nextCursor: null }) },
   ])
 }
 
