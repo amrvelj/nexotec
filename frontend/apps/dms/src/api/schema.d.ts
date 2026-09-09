@@ -10229,6 +10229,7 @@ export interface operations {
                 sort?: string | null;
                 limit?: number;
                 cursor?: string | null;
+                customer_id?: string | null;
             };
             header?: {
                 authorization?: string | null;
@@ -10595,6 +10596,7 @@ export interface operations {
                 sort?: string | null;
                 limit?: number;
                 cursor?: string | null;
+                customer_id?: string | null;
             };
             header?: {
                 authorization?: string | null;

@@ -22,7 +22,6 @@ const detailRoutes = (nationality: string | null) => [
   { match: /^\/customers\/c1\/vehicles$/, handler: () => ({ items: [], nextCursor: null }) },
   { match: /^\/customers\/c1\/external-ids$/, handler: () => ({ items: [], nextCursor: null }) },
   { match: /^\/customers\/c1\/audit-log$/, handler: () => ({ items: [], nextCursor: null }) },
-  { match: /^\/transactions$/, handler: () => ({ items: [], nextCursor: null }) },
 ]
 
 function renderDetail() {

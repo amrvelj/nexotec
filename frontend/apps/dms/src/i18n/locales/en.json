@@ -103,15 +103,6 @@
       "keeper": "Keeper",
       "driver": "Driver"
     },
-    "transactionType": {
-      "sale": "Sale",
-      "trade_in": "Trade-in"
-    },
-    "transactionStatus": {
-      "draft": "Draft",
-      "completed": "Completed",
-      "cancelled": "Cancelled"
-    },
     "contactType": {
       "mobile": "Mobile",
       "landline": "Landline",
@@ -165,7 +156,7 @@
     "tabs": {
       "overview": "Overview",
       "vehicles": "Vehicles",
-      "transactions": "Transactions",
+      "offersContracts": "Offers & contracts",
       "history": "History",
       "externalIds": "External IDs"
     },
@@ -186,7 +177,7 @@
       "conflict": "Someone else changed this in the meantime.",
       "failedToSave": "Failed to save.",
       "failedToLoadVehicles": "Failed to load vehicles.",
-      "failedToLoadTransactions": "Failed to load transactions.",
+      "failedToLoadOffersContracts": "Failed to load offers and contracts.",
       "failedToLoadHistory": "Failed to load history.",
       "failedToLoadExternalIds": "Failed to load external IDs."
     },
@@ -296,17 +287,10 @@
       },
       "addAction": "Link vehicle"
     },
-    "transactions": {
-      "columns": {
-        "type": "Type",
-        "status": "Status",
-        "amount": "Amount",
-        "date": "Date",
-        "reference": "Reference"
-      },
+    "offersContracts": {
       "emptyState": {
-        "title": "No transactions",
-        "description": "This customer has no transactions on file."
+        "title": "No offers or contracts yet",
+        "description": "This customer has no offers or contracts at this dealership yet."
       }
     },
     "history": {

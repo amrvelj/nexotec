@@ -98,7 +98,6 @@ describe('CustomersListPage — grid state is the URL (ADR-056)', () => {
       { match: /^\/customers\/c1\/(phones|emails)$/, handler: () => ({ items: [] }) },
       { match: /^\/customers\/c1\/(vehicles|external-ids)$/, handler: () => ({ items: [], nextCursor: null }) },
       { match: /^\/customers\/c1\/audit-log$/, handler: () => ({ items: [], nextCursor: null }) },
-      { match: /^\/transactions$/, handler: () => ({ items: [], nextCursor: null }) },
     ])
 
     renderWithProviders(

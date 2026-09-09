@@ -21,7 +21,7 @@ import { OverviewTab, type AddressDraft } from '../components/customer-detail/Ov
 import { useCountryOptions } from '../hooks/useCountryOptions'
 import type { ContactPointUpdatePatch } from '../components/customer-detail/ContactPointsEditor'
 import { VehiclesTab } from '../components/customer-detail/VehiclesTab'
-import { TransactionsTab } from '../components/customer-detail/TransactionsTab'
+import { OffersContractsTab, toCustomerDealRows } from '../components/customer-detail/OffersContractsTab'
 import { HistoryTab } from '../components/customer-detail/HistoryTab'
 import { ExternalIdsTab } from '../components/customer-detail/ExternalIdsTab'
 import { MergeCustomerModal } from '../components/customer-detail/MergeCustomerModal'
@@ -40,8 +40,9 @@ import type {
   CustomerVehiclePage,
   EmailType,
   PhoneType,
+  SalesContractPage,
+  SalesOfferPage,
   SalesOfferRead,
-  TransactionPage,
 } from '../api/types'
 
 const DEFAULT_TAB = 'overview'
@@ -134,9 +135,17 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
     queryFn: () => api.get<CustomerVehiclePage>(`/customers/${id}/vehicles`),
     enabled: Boolean(id),
   })
-  const transactionsQuery = useQuery({
-    queryKey: ['customer', id, 'transactions'],
-    queryFn: () => api.get<TransactionPage>(`/transactions?customer_id=${id}`),
+  // FR-06 tab 3 / ADR-050 — the retired `transaction` table is gone; a
+  // customer's deals are their offers and contracts, filtered by customerId
+  // (KAN-45). Dealership-scoped, not group-scoped — see OffersContractsTab.
+  const offersQuery = useQuery({
+    queryKey: ['customer', id, 'offers'],
+    queryFn: () => api.get<SalesOfferPage>(`/sales/offers?customer_id=${id}&limit=100`),
+    enabled: Boolean(id),
+  })
+  const contractsQuery = useQuery({
+    queryKey: ['customer', id, 'contracts'],
+    queryFn: () => api.get<SalesContractPage>(`/sales/contracts?customer_id=${id}&limit=100`),
     enabled: Boolean(id),
   })
   const externalIdsQuery = useQuery({
@@ -316,15 +325,24 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
     invalidateExternalIds()
   }
 
+  const dealRows = useMemo(
+    () => toCustomerDealRows(offersQuery.data?.items ?? [], contractsQuery.data?.items ?? []),
+    [offersQuery.data, contractsQuery.data]
+  )
+
   const tabs: DetailTab[] = useMemo(
     () => [
       { id: 'overview', label: t('customerDetail.tabs.overview') },
       { id: 'vehicles', label: t('customerDetail.tabs.vehicles'), count: vehiclesQuery.data?.items.length },
-      { id: 'transactions', label: t('customerDetail.tabs.transactions'), count: transactionsQuery.data?.items.length },
+      {
+        id: 'offersContracts',
+        label: t('customerDetail.tabs.offersContracts'),
+        count: offersQuery.data && contractsQuery.data ? dealRows.length : undefined,
+      },
       { id: 'history', label: t('customerDetail.tabs.history'), count: historyQuery.data?.items.length },
       { id: 'external-ids', label: t('customerDetail.tabs.externalIds'), count: externalIdsQuery.data?.items.length },
     ],
-    [t, vehiclesQuery.data, transactionsQuery.data, historyQuery.data, externalIdsQuery.data]
+    [t, vehiclesQuery.data, offersQuery.data, contractsQuery.data, dealRows.length, historyQuery.data, externalIdsQuery.data]
   )
 
   if (customerQuery.isLoading) return <Loader />
@@ -439,12 +457,24 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
           onAdd={() => setLinkVehicleOpen(true)}
         />
       )}
-      {activeTab === 'transactions' && (
-        <TransactionsTab
-          transactions={transactionsQuery.data?.items ?? []}
-          loading={transactionsQuery.isLoading}
-          error={transactionsQuery.isError ? t('customerDetail.errors.failedToLoadTransactions') : null}
+      {activeTab === 'offersContracts' && (
+        <OffersContractsTab
+          offers={offersQuery.data?.items ?? []}
+          contracts={contractsQuery.data?.items ?? []}
+          loading={offersQuery.isLoading || contractsQuery.isLoading}
+          error={
+            offersQuery.isError || contractsQuery.isError
+              ? t('customerDetail.errors.failedToLoadOffersContracts')
+              : null
+          }
           locale={locale}
+          onNewOffer={() => void createOfferForCustomer()}
+          newOfferDisabled={creatingOffer || customer.lifecycleStatus === 'do_not_contact'}
+          newOfferDisabledReason={
+            customer.lifecycleStatus === 'do_not_contact'
+              ? t('customerDetail.header.newOfferDisabledReason')
+              : undefined
+          }
         />
       )}
       {activeTab === 'history' && (

@@ -103,15 +103,6 @@
       "keeper": "Halter",
       "driver": "Fahrzeugführer"
     },
-    "transactionType": {
-      "sale": "Verkauf",
-      "trade_in": "Inzahlungnahme"
-    },
-    "transactionStatus": {
-      "draft": "Entwurf",
-      "completed": "Abgeschlossen",
-      "cancelled": "Storniert"
-    },
     "contactType": {
       "mobile": "Mobil",
       "landline": "Festnetz",
@@ -165,7 +156,7 @@
     "tabs": {
       "overview": "Übersicht",
       "vehicles": "Fahrzeuge",
-      "transactions": "Transaktionen",
+      "offersContracts": "Offerten & Verträge",
       "history": "Verlauf",
       "externalIds": "Externe IDs"
     },
@@ -186,7 +177,7 @@
       "conflict": "Jemand anderes hat dies in der Zwischenzeit geändert.",
       "failedToSave": "Speichern fehlgeschlagen.",
       "failedToLoadVehicles": "Fahrzeuge konnten nicht geladen werden.",
-      "failedToLoadTransactions": "Transaktionen konnten nicht geladen werden.",
+      "failedToLoadOffersContracts": "Offerten und Verträge konnten nicht geladen werden.",
       "failedToLoadHistory": "Verlauf konnte nicht geladen werden.",
       "failedToLoadExternalIds": "Externe IDs konnten nicht geladen werden."
     },
@@ -296,17 +287,10 @@
       },
       "addAction": "Fahrzeug verknüpfen"
     },
-    "transactions": {
-      "columns": {
-        "type": "Typ",
-        "status": "Status",
-        "amount": "Betrag",
-        "date": "Datum",
-        "reference": "Referenz"
-      },
+    "offersContracts": {
       "emptyState": {
-        "title": "Keine Transaktionen",
-        "description": "Für diesen Kunden sind keine Transaktionen erfasst."
+        "title": "Noch keine Offerten oder Verträge",
+        "description": "Für diesen Kunden gibt es bei dieser Filiale noch keine Offerten oder Verträge."
       }
     },
     "history": {

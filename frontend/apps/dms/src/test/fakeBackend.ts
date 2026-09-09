@@ -110,6 +110,18 @@ const INFRA_ROUTES: FakeRoute[] = [
       }
     },
   },
+  // KAN-45 — the Customer 360's "Offers & contracts" tab fetches both,
+  // filtered by customerId. A test that cares shadows these with its own.
+  {
+    method: 'GET',
+    match: /\/sales\/offers$/,
+    handler: () => ({ items: [], nextCursor: null, total: 0, totalIsEstimate: false }),
+  },
+  {
+    method: 'GET',
+    match: /\/sales\/contracts$/,
+    handler: () => ({ items: [], nextCursor: null, total: 0, totalIsEstimate: false }),
+  },
 ]
 
 const JSON_HEADERS = { 'content-type': 'application/json' }
