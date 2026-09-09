@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.core.audit import record_audit_event
 from app.core.base import utcnow
 from app.core.config import get_settings
-from app.core.errors import BadRequestError, ConflictError, NotFoundError
+from app.core.errors import BadRequestError, ConflictError, NotFoundError, UnprocessableEntityError
 from app.core.outbox import OutboxEvent
 from app.core.outbox import publish as publish_event
 from app.core.pagination import SortPageParams, build_sorted_page, count_capped, paginate_query_sorted
@@ -60,6 +60,7 @@ from app.customer.schemas.customer import (
     CustomerVehicleCreate,
     CustomerVehicleUpdate,
 )
+from app.platform.public import get_active_reference_value_codes
 from app.vehicle.public import get_vehicle_mdm_or_404, vehicle_mdm_catalogue_loader_option
 
 _PII_FIELDS = {
@@ -180,6 +181,46 @@ def _redact(field: str, value: Any) -> Any:
 
 _INDIVIDUAL_ONLY_FIELDS = {"first_name", "last_name", "birth_date", "nationality"}
 _BUSINESS_ONLY_FIELDS = {"company_name", "legal_form", "tax_id"}
+
+# KAN-32: `nationality` and every `address_country` are ISO 3166-1 alpha-2
+# codes drawn from the platform `country` reference list. A pydantic schema
+# cannot reach the DB, so membership is enforced here — the same place
+# `app.vehicle.services.vehicle` validates its reference fields.
+_COUNTRY_LIST_CODE = "country"
+
+
+def _validate_country_codes(db: Session, values: dict[str, str | None]) -> None:
+    """Reject any non-null value in ``values`` that is not an active code in
+    the ``country`` reference list. ``values`` maps a human field label
+    (used verbatim in the error) to the submitted code.
+
+    One query for the whole call, regardless of how many addresses a nested
+    create carries. A missing list is a deployment fault (the platform-branch
+    seed migration has not run), surfaced as a 500 rather than a 422/404 on
+    ``POST /customers`` — see ``get_active_reference_value_codes``.
+    """
+
+    submitted = {label: code for label, code in values.items() if code is not None}
+    if not submitted:
+        return
+
+    valid = get_active_reference_value_codes(db, _COUNTRY_LIST_CODE)
+    if valid is None:
+        raise RuntimeError(
+            "The 'country' reference list is not seeded. Run `alembic upgrade heads` "
+            "(migration d7b1f4e02a96) on this deployment — customer nationality and "
+            "address country cannot be validated without it."
+        )
+
+    invalid = {label: code for label, code in submitted.items() if code not in valid}
+    if invalid:
+        rendered = ", ".join(f"{label}={code!r}" for label, code in sorted(invalid.items()))
+        raise UnprocessableEntityError(
+            f"Not a valid country code: {rendered}. Expected an ISO 3166-1 alpha-2 code "
+            "that is present and active in the 'country' reference list (for example 'CH', "
+            "'DE', 'FR').",
+            details={"invalid": invalid},
+        )
 
 
 def _validate_customer_type_fields_on_update(customer: Customer, changes: dict[str, Any]) -> None:
@@ -491,6 +532,16 @@ def _add_contacts(db: Session, customer: Customer, data: CustomerCreate) -> None
 
 
 def create_customer(db: Session, *, group_id: uuid.UUID, data: CustomerCreate, actor_id: uuid.UUID) -> Customer:
+    _validate_country_codes(
+        db,
+        {
+            "nationality": data.nationality,
+            **{
+                f"addresses[{i}].addressCountry": address.address_country
+                for i, address in enumerate(data.addresses)
+            },
+        },
+    )
     customer = Customer(
         group_id=group_id,
         customer_number=_allocate_customer_number(db, group_id),
@@ -561,6 +612,8 @@ def update_customer(db: Session, *, customer: Customer, data: CustomerUpdate, ac
 
     changes = data.model_dump(exclude_unset=True)
     _validate_customer_type_fields_on_update(customer, changes)
+    if "nationality" in changes:
+        _validate_country_codes(db, {"nationality": changes["nationality"]})
 
     before: dict[str, Any] = {}
     after: dict[str, Any] = {}
@@ -1263,6 +1316,7 @@ def get_customer_address_or_404(
 def create_customer_address(
     db: Session, *, customer: Customer, data: CustomerAddressCreate, actor_id: uuid.UUID
 ) -> CustomerAddress:
+    _validate_country_codes(db, {"addressCountry": data.address_country})
     is_first_of_type = (
         db.scalar(
             select(CustomerAddress).where(
@@ -1313,6 +1367,8 @@ def update_customer_address(
     db: Session, *, address: CustomerAddress, data: CustomerAddressUpdate, actor_id: uuid.UUID
 ) -> CustomerAddress:
     changes = data.model_dump(exclude_unset=True)
+    if "address_country" in changes:
+        _validate_country_codes(db, {"addressCountry": changes["address_country"]})
     before = _address_audit_payload(address)
 
     target_address_type = changes.get("address_type", address.address_type)
