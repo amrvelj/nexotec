@@ -273,9 +273,11 @@ def test_projections_appear_in_list_view_too(client):
     assert listed["phoneMobile"] == "+41791111111"
 
 
-def test_closed_row_is_excluded_from_projections(client):
-    """valid_to marks a row closed — it stays readable but drops out of the
-    six projections (ADR-067).
+def test_closed_row_with_no_survivor_of_type_empties_its_projection(client):
+    """valid_to marks a row closed — it drops out of the six projections
+    (ADR-067). When it was the only row of its type, the projection is
+    simply null: KAN-46 re-election elects nothing rather than forcing a
+    dead row to stay primary.
     """
 
     dealer_id = _create_dealer(client)
@@ -286,13 +288,7 @@ def test_closed_row_is_excluded_from_projections(client):
         json={"phoneType": "mobile", "phoneE164": "+41791111111"},
         headers=_bearer(token),
     ).json()
-    another = client.post(
-        f"/v1/customers/{customer['id']}/phones",
-        json={"phoneType": "mobile", "phoneE164": "+41792222222"},
-        headers=_bearer(token),
-    ).json()
-    assert another["isPrimary"] is False
-
+    # A usable email keeps FR-03 satisfied, so closing the only mobile is allowed.
     client.patch(
         f"/v1/customers/{customer['id']}/phones/{phone['id']}",
         json={"validTo": "2020-01-01T00:00:00Z"},
@@ -300,9 +296,6 @@ def test_closed_row_is_excluded_from_projections(client):
     )
 
     body = client.get(f"/v1/customers/{customer['id']}", headers=_bearer(token)).json()
-    # The closed row was the primary — closing it does not promote the
-    # other row automatically (no re-fixup on close), so the projection is
-    # simply empty until someone marks a survivor primary.
     assert body["phoneMobile"] is None
 
 
@@ -417,3 +410,192 @@ def test_merge_repoints_addresses(client):
     log = client.get(f"/v1/customers/{duplicate['id']}/audit-log", headers=_bearer(token)).json()["items"]
     merge_event = next(item for item in log if item["action"] == "merge")
     assert merge_event["after"]["addressesRepointed"] == 1
+
+
+# --- KAN-46: re-elect the primary when the primary goes dead -----------------
+#
+# Layer 1 (re-elect on the write path) and Layer 2 (oldest-usable fallback in
+# the projection, PRD-Customers FR-23 §2/§3).
+
+
+def _add_phone(client, token, customer_id, e164, phone_type="mobile"):
+    return client.post(
+        f"/v1/customers/{customer_id}/phones",
+        json={"phoneType": phone_type, "phoneE164": e164},
+        headers=_bearer(token),
+    ).json()
+
+
+def _add_address(client, token, customer_id, street, postal="3000", locality="Bern", address_type="domicile"):
+    return client.post(
+        f"/v1/customers/{customer_id}/addresses",
+        json={
+            "addressType": address_type, "addressStreet": street, "addressHouseNumber": "1",
+            "addressPostalCode": postal, "addressLocality": locality,
+        },
+        headers=_bearer(token),
+    ).json()
+
+
+def _projections(client, token, customer_id):
+    return client.get(f"/v1/customers/{customer_id}", headers=_bearer(token)).json()
+
+
+def test_closing_primary_mobile_reelects_the_second_usable_one(client):
+    dealer_id = _create_dealer(client)
+    customer = _create_customer(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    primary = _add_phone(client, token, customer["id"], "+41791111111")
+    second = _add_phone(client, token, customer["id"], "+41792222222")
+    assert primary["isPrimary"] is True and second["isPrimary"] is False
+
+    client.patch(
+        f"/v1/customers/{customer['id']}/phones/{primary['id']}",
+        json={"validTo": "2020-01-01T00:00:00Z"},
+        headers=_bearer(token),
+    )
+
+    assert _projections(client, token, customer["id"])["phoneMobile"] == "+41792222222"
+    phones = client.get(f"/v1/customers/{customer['id']}/phones", headers=_bearer(token)).json()["items"]
+    assert {p["phoneE164"]: p["isPrimary"] for p in phones} == {
+        "+41791111111": False,
+        "+41792222222": True,
+    }
+
+
+def test_flagging_primary_mobile_do_not_use_reelects(client):
+    dealer_id = _create_dealer(client)
+    customer = _create_customer(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    primary = _add_phone(client, token, customer["id"], "+41791111111")
+    _add_phone(client, token, customer["id"], "+41792222222")
+
+    client.patch(
+        f"/v1/customers/{customer['id']}/phones/{primary['id']}",
+        json={"doNotUse": True, "doNotUseReason": "number no longer in service"},
+        headers=_bearer(token),
+    )
+
+    assert _projections(client, token, customer["id"])["phoneMobile"] == "+41792222222"
+
+
+def test_deleting_primary_mobile_reelects(client):
+    dealer_id = _create_dealer(client)
+    customer = _create_customer(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    primary = _add_phone(client, token, customer["id"], "+41791111111")
+    _add_phone(client, token, customer["id"], "+41792222222")
+
+    response = client.delete(
+        f"/v1/customers/{customer['id']}/phones/{primary['id']}", headers=_bearer(token)
+    )
+    assert response.status_code in (200, 204), response.text
+
+    assert _projections(client, token, customer["id"])["phoneMobile"] == "+41792222222"
+
+
+def test_closing_the_only_mobile_leaves_projection_null_and_fr03_still_guards(client):
+    dealer_id = _create_dealer(client)
+    # personal email from the default payload keeps FR-03 satisfied.
+    customer = _create_customer(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    only_mobile = _add_phone(client, token, customer["id"], "+41791111111")
+
+    ok = client.patch(
+        f"/v1/customers/{customer['id']}/phones/{only_mobile['id']}",
+        json={"validTo": "2020-01-01T00:00:00Z"},
+        headers=_bearer(token),
+    )
+    assert ok.status_code == 200, ok.text
+    assert _projections(client, token, customer["id"])["phoneMobile"] is None
+
+    # FR-03 guard intact: the personal email is now the last usable point.
+    only_email = client.get(
+        f"/v1/customers/{customer['id']}/emails", headers=_bearer(token)
+    ).json()["items"][0]
+    rejected = client.patch(
+        f"/v1/customers/{customer['id']}/emails/{only_email['id']}",
+        json={"doNotUse": True, "doNotUseReason": "bounced"},
+        headers=_bearer(token),
+    )
+    assert rejected.status_code == 400
+
+
+def test_projection_falls_back_to_oldest_usable_when_none_flagged(client, db_session):
+    """A type-group history left with NO flagged primary (e.g. rows that
+    predate the KAN-46 write-path fix and were never repaired) still
+    projects the oldest usable row — FR-23 §2 layer 2, independent of
+    layer 1."""
+
+    import datetime as dt
+
+    from app.customer.models.customer import Customer, CustomerPhone, PhoneType
+
+    dealer_id = _create_dealer(client)
+    customer = _create_customer(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+
+    row = db_session.get(Customer, uuid.UUID(customer["id"]))
+    base = dt.datetime(2024, 1, 1, tzinfo=dt.UTC)
+    for i, e164 in enumerate(("+41792222222", "+41791111111")):
+        db_session.add(
+            CustomerPhone(
+                group_id=row.group_id,
+                customer_id=row.id,
+                phone_type=PhoneType.MOBILE,
+                phone_e164=e164,
+                phone_normalised=e164.lstrip("+"),
+                is_primary=False,
+                created_at=base + dt.timedelta(days=i),
+                updated_at=base + dt.timedelta(days=i),
+                created_by=uuid.uuid4(),
+                updated_by=uuid.uuid4(),
+            )
+        )
+    db_session.commit()
+
+    body = _projections(client, token, customer["id"])
+    assert body["phoneMobile"] == "+41792222222"  # the older created_at
+
+
+def test_business_customer_email_falls_back_to_work_row(client):
+    dealer_id = _create_dealer(client)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    created = client.post(
+        "/v1/customers",
+        json={
+            "customerType": "business",
+            "companyName": "Muster Logistik AG",
+            "language": "de",
+            "emails": [{"emailType": "work", "emailAddress": "office@muster-logistik.ch"}],
+        },
+        headers=_bearer(token),
+    )
+    assert created.status_code == 201, created.text
+    body = _projections(client, token, created.json()["id"])
+    assert body["email"] == "office@muster-logistik.ch"
+    assert body["emailSecondary"] is None
+
+
+def test_closing_primary_domicile_reelects_the_second_usable_address(client):
+    dealer_id = _create_dealer(client)
+    customer = _create_customer(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    primary = _add_address(client, token, customer["id"], "Marktgasse", postal="3011", locality="Bern")
+    _add_address(client, token, customer["id"], "Spitalgasse", postal="3011", locality="Bern")
+
+    client.patch(
+        f"/v1/customers/{customer['id']}/addresses/{primary['id']}",
+        json={"validTo": "2020-01-01T00:00:00Z"},
+        headers=_bearer(token),
+    )
+
+    body = _projections(client, token, customer["id"])
+    assert body["address"]["addressStreet"] == "Spitalgasse"
+    addresses = client.get(
+        f"/v1/customers/{customer['id']}/addresses", headers=_bearer(token)
+    ).json()["items"]
+    assert {a["addressStreet"]: a["isPrimary"] for a in addresses} == {
+        "Marktgasse": False,
+        "Spitalgasse": True,
+    }

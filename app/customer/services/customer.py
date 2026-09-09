@@ -609,12 +609,37 @@ def update_customer(db: Session, *, customer: Customer, data: CustomerUpdate, ac
     return customer
 
 
+def _is_usable_row(row: Any) -> bool:
+    """A contact-channel row is usable when it is neither closed (valid_to
+    set) nor flagged do_not_use — the same definition FR-03 and the six
+    projections use.
+    """
+
+    return row.valid_to is None and not row.do_not_use
+
+
 def _fixup_single_primary(db: Session, model: type, *, customer_id: uuid.UUID, type_value: Any) -> None:
     """Collapses one (customer, type) contact-point group back to exactly
-    one primary after re-pointing may have left it with zero (target had
-    none of this type, gained some from the duplicate) or several (both
-    sides already had one). Oldest row wins when none is marked — same
-    "first one wins" rule _add_contacts uses at creation.
+    one USABLE primary.
+
+    Called from two places: the merge path (a re-point may leave a
+    type-group with zero primaries — target had none of this type and
+    gained some from the duplicate — or several — both sides already had
+    one) and the write path (closing / flagging / deleting the primary,
+    KAN-46). Both want the same end state, so both go through here rather
+    than through a second near-identical helper.
+
+    The rule (PRD-Customers FR-23 §2, the prototype's `NX.chPrimary`):
+
+    - a closed or do_not_use row is never a valid primary — demote any that
+      is still flagged (a merge can repoint a dead row that was primary in
+      its own group; closing a primary leaves it flagged until we get here);
+    - among the USABLE rows of the type, keep exactly one primary: the
+      oldest by created_at when none or several are flagged;
+    - a type-group with no usable row left elects nothing, and the
+      projection is null. That is correct — forcing a dead row to be
+      primary would put it back on documents, the exact failure do_not_use
+      exists to prevent.
 
     Scoped to type_value, not the whole customer, since ADR-067 (WP-3 PR-5)
     — a customer may legitimately have a primary mobile AND a primary work
@@ -632,12 +657,17 @@ def _fixup_single_primary(db: Session, model: type, *, customer_id: uuid.UUID, t
             .order_by(model.created_at)  # type: ignore[attr-defined]
         ).all()
     )
-    primaries = [r for r in rows if r.is_primary]
+    for row in rows:
+        if row.is_primary and not _is_usable_row(row):
+            row.is_primary = False
+
+    usable = [r for r in rows if _is_usable_row(r)]
+    primaries = [r for r in usable if r.is_primary]
     if len(primaries) > 1:
         for row in primaries[1:]:
             row.is_primary = False
-    elif not primaries and rows:
-        rows[0].is_primary = True
+    elif not primaries and usable:
+        usable[0].is_primary = True
 
 
 def _repoint_vehicle_parties(db: Session, *, duplicate_id: uuid.UUID, target_id: uuid.UUID) -> tuple[int, int]:
@@ -965,6 +995,7 @@ def update_customer_phone(
     )
     if becomes_unusable:
         _assert_not_last_contact_point(db, phone.customer_id, removing="phone number")
+    reelect_primary = becomes_unusable and phone.is_primary
 
     target_phone_type = changes.get("phone_type", phone.phone_type)
     if changes.get("is_primary") is True and not phone.is_primary:
@@ -987,6 +1018,14 @@ def update_customer_phone(
         raise ConflictError(
             "This phone number is already on this customer.", details={"phoneE164": changes.get("phone_e164")}
         ) from exc
+
+    if reelect_primary:
+        # KAN-46: the row that was primary just became closed / do_not_use.
+        # Re-elect a usable survivor of the same type in this transaction so
+        # the Mobile/Landline/Work projection follows the working number
+        # instead of going null while one sits on the record.
+        _fixup_single_primary(db, CustomerPhone, customer_id=phone.customer_id, type_value=target_phone_type)
+        db.flush()
 
     record_audit_event(
         db,
@@ -1058,7 +1097,13 @@ def delete_customer_phone(db: Session, *, phone: CustomerPhone, actor_id: uuid.U
             "isPrimary": phone.is_primary,
         },
     )
+    customer_id, phone_type = phone.customer_id, phone.phone_type
     db.delete(phone)
+    db.flush()
+    # KAN-46: deleting the primary would otherwise leave the type-group with
+    # no primary and the projection null. Re-elect the oldest usable
+    # survivor of that type in the same transaction.
+    _fixup_single_primary(db, CustomerPhone, customer_id=customer_id, type_value=phone_type)
     db.commit()
 
 
@@ -1146,6 +1191,7 @@ def update_customer_email(
     )
     if becomes_unusable:
         _assert_not_last_contact_point(db, email.customer_id, removing="email address")
+    reelect_primary = becomes_unusable and email.is_primary
 
     target_email_type = changes.get("email_type", email.email_type)
     if changes.get("is_primary") is True and not email.is_primary:
@@ -1167,6 +1213,11 @@ def update_customer_email(
             "This email address is already on this customer.",
             details={"emailAddress": changes.get("email_address")},
         ) from exc
+
+    if reelect_primary:
+        # KAN-46 — see update_customer_phone.
+        _fixup_single_primary(db, CustomerEmail, customer_id=email.customer_id, type_value=target_email_type)
+        db.flush()
 
     record_audit_event(
         db,
@@ -1204,7 +1255,11 @@ def delete_customer_email(db: Session, *, email: CustomerEmail, actor_id: uuid.U
             "isPrimary": email.is_primary,
         },
     )
+    customer_id, email_type = email.customer_id, email.email_type
     db.delete(email)
+    db.flush()
+    # KAN-46 — see delete_customer_phone.
+    _fixup_single_primary(db, CustomerEmail, customer_id=customer_id, type_value=email_type)
     db.commit()
 
 
@@ -1315,6 +1370,14 @@ def update_customer_address(
     changes = data.model_dump(exclude_unset=True)
     before = _address_audit_payload(address)
 
+    # KAN-46: addresses carry no FR-03 "last contact point" floor, but the
+    # `address` projection (primary domicile) still needs re-electing when
+    # the primary is closed or flagged do_not_use.
+    becomes_unusable = (changes.get("valid_to") is not None and address.valid_to is None) or (
+        changes.get("do_not_use") is True and not address.do_not_use
+    )
+    reelect_primary = becomes_unusable and address.is_primary
+
     target_address_type = changes.get("address_type", address.address_type)
     if changes.get("is_primary") is True and not address.is_primary:
         _unset_other_primaries(db, CustomerAddress, customer_id=address.customer_id, type_value=target_address_type)
@@ -1330,6 +1393,10 @@ def update_customer_address(
     address.updated_by = actor_id
 
     db.flush()
+
+    if reelect_primary:
+        _fixup_single_primary(db, CustomerAddress, customer_id=address.customer_id, type_value=target_address_type)
+        db.flush()
 
     record_audit_event(
         db,
@@ -1356,7 +1423,11 @@ def delete_customer_address(db: Session, *, address: CustomerAddress, actor_id: 
         actor_id=actor_id,
         before=_address_audit_payload(address),
     )
+    customer_id, address_type = address.customer_id, address.address_type
     db.delete(address)
+    db.flush()
+    # KAN-46 — see delete_customer_phone.
+    _fixup_single_primary(db, CustomerAddress, customer_id=customer_id, type_value=address_type)
     db.commit()
 
 
@@ -1383,10 +1454,23 @@ def compute_customer_projections_batch(
     db: Session, customer_ids: list[uuid.UUID]
 ) -> dict[uuid.UUID, dict[str, Any]]:
     """The six read-model projections (ADR-067), computed here and never
-    stored: phoneMobile/phoneLandline/phoneWork, email (primary personal)/
-    emailSecondary (primary work), address (primary domicile). Only a
-    USABLE row (not closed, not do-not-use) is eligible — same definition
-    FR-03 uses.
+    stored: phoneMobile/phoneLandline/phoneWork, email, emailSecondary,
+    address (primary domicile). Only a USABLE row (not closed, not
+    do-not-use) is eligible — same definition FR-03 uses.
+
+    Per-type resolution (PRD-Customers FR-23 §2, the prototype's
+    `NX.chPrimary`): among the usable rows of a type, the one flagged
+    primary; failing that, the OLDEST one by created_at; failing that,
+    null. The write path re-elects a primary when one is closed / flagged
+    / deleted (KAN-46), so the oldest-row fallback only carries a
+    type-group whose rows history left unflagged — but it must, because a
+    working number must never render as an empty column.
+
+    `email` / `emailSecondary` (FR-23 §3): `email` is the resolved
+    `personal` row, or the resolved `work` row when there is no usable
+    personal one — a business customer typically has no personal address,
+    and Finance needs the work one. `emailSecondary` is the resolved
+    `work` row, suppressed when it is the same row `email` resolved to.
 
     Batched — one query per table for the whole set of customer_ids, not one
     per customer — same N+1-avoidance reasoning as _primary_contact_maps,
@@ -1402,7 +1486,7 @@ def compute_customer_projections_batch(
         return {}
 
     def _usable(rows: list[Any]) -> list[Any]:
-        return [r for r in rows if r.valid_to is None and not r.do_not_use]
+        return [r for r in rows if _is_usable_row(r)]
 
     def _group_by_customer(rows: list[Any]) -> dict[uuid.UUID, list[Any]]:
         grouped: dict[uuid.UUID, list[Any]] = {}
@@ -1410,18 +1494,45 @@ def compute_customer_projections_batch(
             grouped.setdefault(row.customer_id, []).append(row)
         return grouped
 
+    # Ordered by created_at so the "oldest usable row" fallback below is
+    # deterministic and matches _fixup_single_primary's own tie-break.
     phones_by_customer = _group_by_customer(
-        _usable(list(db.scalars(select(CustomerPhone).where(CustomerPhone.customer_id.in_(customer_ids))).all()))
+        _usable(
+            list(
+                db.scalars(
+                    select(CustomerPhone)
+                    .where(CustomerPhone.customer_id.in_(customer_ids))
+                    .order_by(CustomerPhone.created_at)
+                ).all()
+            )
+        )
     )
     emails_by_customer = _group_by_customer(
-        _usable(list(db.scalars(select(CustomerEmail).where(CustomerEmail.customer_id.in_(customer_ids))).all()))
+        _usable(
+            list(
+                db.scalars(
+                    select(CustomerEmail)
+                    .where(CustomerEmail.customer_id.in_(customer_ids))
+                    .order_by(CustomerEmail.created_at)
+                ).all()
+            )
+        )
     )
     addresses_by_customer = _group_by_customer(
-        _usable(list(db.scalars(select(CustomerAddress).where(CustomerAddress.customer_id.in_(customer_ids))).all()))
+        _usable(
+            list(
+                db.scalars(
+                    select(CustomerAddress)
+                    .where(CustomerAddress.customer_id.in_(customer_ids))
+                    .order_by(CustomerAddress.created_at)
+                ).all()
+            )
+        )
     )
 
     def _primary_of_type(rows: list[Any], type_column: str, type_value: Any) -> Any | None:
-        return next((r for r in rows if getattr(r, type_column) == type_value and r.is_primary), None)
+        of_type = [r for r in rows if getattr(r, type_column) == type_value]
+        return next((r for r in of_type if r.is_primary), of_type[0] if of_type else None)
 
     result: dict[uuid.UUID, dict[str, Any]] = {}
     for customer_id in customer_ids:
@@ -1433,13 +1544,15 @@ def compute_customer_projections_batch(
         phone_work = _primary_of_type(phones, "phone_type", PhoneType.WORK)
         email_personal = _primary_of_type(emails, "email_type", EmailType.PERSONAL)
         email_work = _primary_of_type(emails, "email_type", EmailType.WORK)
+        email_row = email_personal or email_work
+        email_secondary_row = email_work if email_work is not email_row else None
         address_domicile = _primary_of_type(addresses, "address_type", AddressType.DOMICILE)
         result[customer_id] = {
             "phone_mobile": phone_mobile.phone_e164 if phone_mobile else None,
             "phone_landline": phone_landline.phone_e164 if phone_landline else None,
             "phone_work": phone_work.phone_e164 if phone_work else None,
-            "email": email_personal.email_address if email_personal else None,
-            "email_secondary": email_work.email_address if email_work else None,
+            "email": email_row.email_address if email_row else None,
+            "email_secondary": email_secondary_row.email_address if email_secondary_row else None,
             "address": CustomerAddressRead.model_validate(address_domicile) if address_domicile else None,
         }
     return result
