@@ -443,8 +443,12 @@ def list_customers(
     if canton is not None:
         # ADR-067 (WP-3 PR-5): canton is a fact of the primary domicile
         # CustomerAddress row now, not the (frozen, read-only-mirror)
-        # Customer.address_canton flat column — same "address" projection
-        # the API returns.
+        # Customer.address_canton flat column. NOTE: this predicate is a
+        # raw is_primary match — it deliberately does NOT apply the
+        # `_is_usable_row` filter or the oldest-usable fallback that the
+        # `address` projection (and `has_usable_domicile_address`) use, so
+        # it can diverge for legacy / bulk-imported rows. Aligning it needs
+        # the fallback replicated SQL-side — tracked as its own ticket.
         stmt = stmt.where(
             Customer.id.in_(
                 select(CustomerAddress.customer_id).where(
@@ -835,6 +839,37 @@ def _is_usable_row(row: Any) -> bool:
     """
 
     return row.valid_to is None and not row.do_not_use
+
+
+def has_usable_domicile_address(db: Session, *, customer_id: uuid.UUID) -> bool:
+    """Whether the customer has at least one usable `domicile` address row
+    — `valid_to` unset (a future-dated close counts as closed) and not
+    `do_not_use`, via the shared `_is_usable_row`.
+
+    This is exactly `CustomerRead.address is not None`: the `address`
+    projection resolves the primary-flagged usable domicile row, and
+    `_primary_of_type` falls back to the oldest usable domicile row when
+    none is flagged — so both this predicate and the projection reduce to
+    "≥ 1 usable domicile row exists". Keep in step with
+    `compute_customer_projections_batch`, not with `_fixup_single_primary`
+    (which the equivalence does not depend on).
+
+    A `billing` (or any non-domicile) address does not satisfy this — D-20,
+    ruled 2026-09-07: the Kaufvertrag identifies the buyer by domicile, and
+    the billing-address question belongs to WP-9 invoicing.
+
+    Exposed through `customer.public` for Sales' contract-confirmation gate
+    (D-20 / KAN-55): a contract cannot be confirmed for a customer whose
+    address the dealership does not have. An offer is never blocked.
+    """
+
+    rows = db.scalars(
+        select(CustomerAddress).where(
+            CustomerAddress.customer_id == customer_id,
+            CustomerAddress.address_type == AddressType.DOMICILE,
+        )
+    ).all()
+    return any(_is_usable_row(row) for row in rows)
 
 
 def _fixup_single_primary(db: Session, model: type, *, customer_id: uuid.UUID, type_value: Any) -> None:

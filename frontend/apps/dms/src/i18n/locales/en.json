@@ -329,6 +329,7 @@
         "notes": "Notes"
       },
       "notSet": "Not set",
+      "addressRequiredForContract": "No address on file — needed before a contract can be confirmed.",
       "addressForm": {
         "street": "Street",
         "line2": "Address line 2 (c/o, PO box, ...)",
@@ -892,7 +893,16 @@
     "untitled": "New contract",
     "errors": {
       "failedToLoad": "The contract could not be loaded.",
-      "somethingWentWrong": "Something went wrong."
+      "somethingWentWrong": "Something went wrong.",
+      "confirmRefused": {
+        "title": "Contract not confirmed",
+        "missingAddress": "This customer has no address on file. Add a current domicile address to the customer record before the contract can be confirmed.",
+        "creditBlock": "This customer has a credit block ({{reason}}). An offer is still possible; the contract needs the block cleared by accounting.",
+        "doNotContact": "This customer is marked do-not-contact. The contract cannot be confirmed.",
+        "staleVersion": "This contract changed since the page was loaded. It has been reloaded — review it and try again.",
+        "badStatus": "This contract can no longer be confirmed from its current status.",
+        "generic": "The contract could not be confirmed."
+      }
     },
     "actions": {
       "confirm": "Confirm contract",

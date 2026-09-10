@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, Loader, Text } from '@mantine/core'
@@ -34,6 +35,7 @@ export interface ContractDetailContentProps {
 export function ContractDetailContent({ contractId: id, embedded = false }: ContractDetailContentProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const [confirmError, setConfirmError] = useState<string | null>(null)
 
   const contractQuery = useQuery({
     queryKey: ['sales-contract', id],
@@ -43,13 +45,52 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
 
   useSetBreadcrumb(embedded ? null : [t('shell.nav.sales'), contractQuery.data?.contractNumber ?? id])
 
+  // Confirmation is refused (409) for a customer the dealership may not
+  // contact, may not extend credit to (FR-S-24), or whose address it does
+  // not have (D-20 / KAN-55); or the page is stale (If-Match version
+  // conflict). The backend names a machine-readable `details.reason` for
+  // the customer guards; the English message it also sends is never shown
+  // — the localised sentence is built here, and an unknown 409 falls back
+  // to the localised generic, never the backend string.
+  const confirmRefusalMessage = (err: unknown): string => {
+    if (!(err instanceof ApiError) || err.status !== 409) {
+      return t('contractDetail.errors.confirmRefused.generic')
+    }
+    const details = (err.details ?? {}) as Record<string, unknown>
+    if (details.currentVersion != null) {
+      // check_version fires before the customer guards — a contract
+      // confirmed / cancelled in another tab, not yet refetched here.
+      void contractQuery.refetch()
+      return t('contractDetail.errors.confirmRefused.staleVersion')
+    }
+    switch (details.reason) {
+      case 'missing_address':
+        return t('contractDetail.errors.confirmRefused.missingAddress')
+      case 'do_not_contact':
+        return t('contractDetail.errors.confirmRefused.doNotContact')
+      case 'credit_block':
+        return t('contractDetail.errors.confirmRefused.creditBlock', {
+          reason: String(details.creditBlockReason ?? '—'),
+        })
+      case 'bad_status':
+        return t('contractDetail.errors.confirmRefused.badStatus')
+      default:
+        return t('contractDetail.errors.confirmRefused.generic')
+    }
+  }
+
   const confirm = async () => {
     const contract = contractQuery.data
     if (!contract) return
-    const updated = await api.post<SalesContractRead>(`/sales/contracts/${id}/confirm`, undefined, {
-      'If-Match': String(contract.version),
-    })
-    queryClient.setQueryData(['sales-contract', id], updated)
+    setConfirmError(null)
+    try {
+      const updated = await api.post<SalesContractRead>(`/sales/contracts/${id}/confirm`, undefined, {
+        'If-Match': String(contract.version),
+      })
+      queryClient.setQueryData(['sales-contract', id], updated)
+    } catch (err) {
+      setConfirmError(confirmRefusalMessage(err))
+    }
   }
 
   const cancel = async () => {
@@ -96,6 +137,12 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {confirmError && (
+        <Alert color="red" title={t('contractDetail.errors.confirmRefused.title')} withCloseButton onClose={() => setConfirmError(null)}>
+          {confirmError}
+        </Alert>
+      )}
+
       <DetailHeader
         entityMark={<FileSignature size={24} />}
         title={contract.vehicleLabel ?? t('contractDetail.untitled')}

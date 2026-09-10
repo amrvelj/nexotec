@@ -621,3 +621,73 @@ def test_closing_primary_domicile_reelects_the_second_usable_address(client):
         "Marktgasse": False,
         "Spitalgasse": True,
     }
+
+
+def test_has_usable_domicile_address_tracks_the_address_projection(client, db_session):
+    """The customer.public predicate Sales' D-20 contract gate reads
+    (KAN-55). It must agree with `CustomerRead.address` in every state —
+    both resolve through `_is_usable_row`."""
+
+    import datetime as dt
+
+    from app.core.base import utcnow
+    from app.customer.public import has_usable_domicile_address
+
+    dealer_id = _create_dealer(client)
+    customer = _create_customer(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    cid = uuid.UUID(customer["id"])
+
+    # no address at all
+    assert has_usable_domicile_address(db_session, customer_id=cid) is False
+    assert _projections(client, token, customer["id"])["address"] is None
+
+    # a billing address does not count
+    _add_address(client, token, customer["id"], "Rechnungsweg", postal="3011", locality="Bern", address_type="billing")
+    assert has_usable_domicile_address(db_session, customer_id=cid) is False
+
+    # a usable domicile does — and the projection resolves too
+    domicile = _add_address(client, token, customer["id"], "Marktgasse", postal="3011", locality="Bern")
+    db_session.expire_all()
+    assert has_usable_domicile_address(db_session, customer_id=cid) is True
+    assert _projections(client, token, customer["id"])["address"] is not None
+
+    # closing it removes the only usable domicile
+    client.patch(
+        f"/v1/customers/{customer['id']}/addresses/{domicile['id']}",
+        json={"validTo": "2020-01-01T00:00:00Z"},
+        headers=_bearer(token),
+    )
+    db_session.expire_all()
+    assert has_usable_domicile_address(db_session, customer_id=cid) is False
+    assert _projections(client, token, customer["id"])["address"] is None
+
+    # the one state where an is_primary-filtered check would diverge from
+    # the projection's oldest-usable fallback: usable domicile rows with
+    # NONE flagged primary (pre-KAN-46 / bulk-import shape). Written
+    # straight to the table so no re-election runs.
+    from app.customer.models.customer import AddressType, Customer, CustomerAddress
+
+    row = db_session.get(Customer, cid)
+    for street in ("Kramgasse", "Junkerngasse"):
+        db_session.add(
+            CustomerAddress(
+                group_id=row.group_id, customer_id=cid, address_type=AddressType.DOMICILE,
+                address_street=street, address_house_number="1", address_postal_code="3011",
+                address_locality="Bern", address_country="CH", is_primary=False,
+                created_by=uuid.uuid4(), updated_by=uuid.uuid4(),
+            )
+        )
+    db_session.commit()
+    db_session.expire_all()
+    assert has_usable_domicile_address(db_session, customer_id=cid) is True
+    assert _projections(client, token, customer["id"])["address"] is not None
+
+    # closing every usable domicile row empties both sides
+    for addr in db_session.query(CustomerAddress).filter_by(customer_id=cid, address_type=AddressType.DOMICILE):
+        if addr.valid_to is None:
+            addr.valid_to = utcnow() - dt.timedelta(days=1)
+    db_session.commit()
+    db_session.expire_all()
+    assert has_usable_domicile_address(db_session, customer_id=cid) is False
+    assert _projections(client, token, customer["id"])["address"] is None

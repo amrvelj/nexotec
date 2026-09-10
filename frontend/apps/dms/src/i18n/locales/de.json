@@ -329,6 +329,7 @@
         "notes": "Notizen"
       },
       "notSet": "Nicht angegeben",
+      "addressRequiredForContract": "Keine Adresse hinterlegt — vor einem Vertragsabschluss erforderlich.",
       "addressForm": {
         "street": "Strasse",
         "line2": "Adresszusatz (c/o, Postfach, ...)",
@@ -892,7 +893,16 @@
     "untitled": "Neuer Vertrag",
     "errors": {
       "failedToLoad": "Vertrag konnte nicht geladen werden.",
-      "somethingWentWrong": "Etwas ist schiefgelaufen."
+      "somethingWentWrong": "Etwas ist schiefgelaufen.",
+      "confirmRefused": {
+        "title": "Vertrag nicht bestätigt",
+        "missingAddress": "Für diesen Kunden ist keine Adresse hinterlegt. Erfassen Sie eine aktuelle Wohnadresse im Kundendatensatz, bevor der Vertrag bestätigt werden kann.",
+        "creditBlock": "Dieser Kunde ist kreditgesperrt ({{reason}}). Eine Offerte ist weiterhin möglich; der Vertrag erfordert die Kontofreigabe durch die Buchhaltung.",
+        "doNotContact": "Dieser Kunde ist als «nicht kontaktieren» markiert. Der Vertrag kann nicht bestätigt werden.",
+        "staleVersion": "Dieser Vertrag hat sich seit dem Laden der Seite geändert. Er wurde neu geladen — bitte prüfen und erneut versuchen.",
+        "badStatus": "Dieser Vertrag kann aus seinem aktuellen Status nicht mehr bestätigt werden.",
+        "generic": "Der Vertrag konnte nicht bestätigt werden."
+      }
     },
     "actions": {
       "confirm": "Vertrag bestätigen",

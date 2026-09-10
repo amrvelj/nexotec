@@ -71,6 +71,26 @@ describe('customer address — detail screen (ADR-067, KAN-30)', () => {
     expect(within(addressCard()).getByText(i18n.t('customerDetail.overview.fields.cantonDerived'))).toBeInTheDocument()
   })
 
+  it('a customer with no address gets a LIGHT contract-gate note on the card — not a region-1 strip (D-20 / KAN-55)', async () => {
+    installFakeBackend(infraRoutes(null))
+    renderDetail()
+
+    const note = await screen.findByText(i18n.t('customerDetail.overview.addressRequiredForContract'))
+    // in the Address card, and reading as a missing field rather than a
+    // prohibition — a plain dimmed line, never a BlockingFactsStrip-style
+    // Mantine Alert.
+    expect(within(addressCard()).getByText(i18n.t('customerDetail.overview.addressRequiredForContract'))).toBe(note)
+    expect(note.closest('[class*="mantine-Alert"]')).toBeNull()
+  })
+
+  it('the contract-gate note disappears once an address is on file', async () => {
+    installFakeBackend(infraRoutes(customerAddress()))
+    renderDetail()
+
+    await screen.findByText('Bahnhofstrasse 1, 8001 Zürich')
+    expect(screen.queryByText(i18n.t('customerDetail.overview.addressRequiredForContract'))).not.toBeInTheDocument()
+  })
+
   it('editing a missing address POSTs a new primary domicile row, and the server-derived canton comes back', async () => {
     let address: CustomerAddressRead | null = null
     const backend = installFakeBackend([

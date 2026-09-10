@@ -15,7 +15,7 @@ from app.core.config import get_settings
 from app.core.errors import ConflictError, NotFoundError
 from app.core.outbox import OutboxEvent, publish
 from app.core.pagination import SortPageParams, build_sorted_page, count_capped, paginate_query_sorted
-from app.customer.public import CustomerLifecycleStatus, get_customer_or_404
+from app.customer.public import CustomerLifecycleStatus, get_customer_or_404, has_usable_domicile_address
 from app.db import SessionLocal
 from app.inventory.public import release, reserve
 from app.sales.models.contract import ContractStatus, FinancingKind, SalesContract
@@ -189,20 +189,37 @@ def confirm_contract(
     if contract.status != ContractStatus.PENDING:
         raise ConflictError(
             f"Contract {contract.contract_number} cannot be confirmed from status '{contract.status.value}'.",
-            details={"status": contract.status.value},
+            details={"reason": "bad_status", "status": contract.status.value},
         )
 
+    # One refusal path, ordered prohibitions-then-missing-field: a customer
+    # the dealership may not contact, then one it may not extend credit to,
+    # then one whose address it does not have (D-20 / KAN-55). Each carries a
+    # machine-readable `details.reason` so the UI can localise the refusal —
+    # the messages themselves are English (there is no backend i18n layer).
     if contract.customer_id is not None:
         customer = get_customer_or_404(db, group_id, contract.customer_id)
         if customer.lifecycle_status == CustomerLifecycleStatus.DO_NOT_CONTACT:
             raise ConflictError(
-                f"Customer is do-not-contact — contract {contract.contract_number} cannot be confirmed."
+                f"Customer is do-not-contact — contract {contract.contract_number} cannot be confirmed.",
+                details={"reason": "do_not_contact"},
             )
         if customer.credit_block:
             raise ConflictError(
                 f"Customer has a credit block ({customer.credit_block_reason}) — contract "
                 f"{contract.contract_number} cannot be confirmed.",
-                details={"creditBlockReason": customer.credit_block_reason},
+                details={"reason": "credit_block", "creditBlockReason": customer.credit_block_reason},
+            )
+        if not has_usable_domicile_address(db, customer_id=customer.id):
+            # D-20 (ruled 2026-09-07): the address stays optional at
+            # creation and is gated here instead — the one moment it is
+            # genuinely needed. Same shape as the credit-block refusal
+            # (Sales FR-S-24). An offer is never blocked. "Usable" is the
+            # FR-03 definition, single-sourced in customer.public.
+            raise ConflictError(
+                f"Customer has no usable address — contract {contract.contract_number} cannot be "
+                f"confirmed. Add a current domicile address to the customer record first.",
+                details={"reason": "missing_address"},
             )
 
     reservation_id: uuid.UUID | None = None

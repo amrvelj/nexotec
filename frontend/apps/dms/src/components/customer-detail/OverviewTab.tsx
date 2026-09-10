@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Checkbox, Group, Select, SimpleGrid, Stack, TagsInput, Text, Textarea, TextInput } from '@mantine/core'
+import { Info } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { InlineEditField, KeyValueRow, OverviewCard, purple, radius, slate, white } from '@nexotec/ui-kit'
@@ -583,6 +584,19 @@ export function OverviewTab({
 
       <OverviewCard title={t('customerDetail.overview.cards.address')}>
         <AddressField customer={customer} onSaveAddress={onSaveAddress} countryOptions={countryOptions} t={t} />
+        {/* D-20 / KAN-55 — the address is optional at creation but a
+            contract cannot be confirmed without one. A LIGHT note here
+            (not a region-1 strip — this is a missing field, not a
+            prohibition) so the advisor completes the record before they
+            are sitting in front of the customer with a contract. */}
+        {!customer.address && customer.lifecycleStatus !== 'merged' && (
+          <Group gap={6} wrap="nowrap" mt={4} align="flex-start">
+            <Info size={14} color={slate[5]} style={{ flexShrink: 0, marginTop: 2 }} />
+            <Text size="xs" c="dimmed">
+              {t('customerDetail.overview.addressRequiredForContract')}
+            </Text>
+          </Group>
+        )}
         {/* Derived server-side from the postal code (D-13), never an
             input — labelled as such so it doesn't read as an empty box
             waiting to be filled in (KAN-30). */}

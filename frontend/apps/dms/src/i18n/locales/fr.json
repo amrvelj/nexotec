@@ -329,6 +329,7 @@
         "notes": "Notes"
       },
       "notSet": "Non renseigné",
+      "addressRequiredForContract": "Aucune adresse enregistrée — requise avant de pouvoir confirmer un contrat.",
       "addressForm": {
         "street": "Rue",
         "line2": "Complément d'adresse (c/o, case postale, ...)",
@@ -892,7 +893,16 @@
     "untitled": "Nouveau contrat",
     "errors": {
       "failedToLoad": "Le contrat n'a pas pu être chargé.",
-      "somethingWentWrong": "Un problème est survenu."
+      "somethingWentWrong": "Un problème est survenu.",
+      "confirmRefused": {
+        "title": "Contrat non confirmé",
+        "missingAddress": "Aucune adresse n'est enregistrée pour ce client. Ajoutez une adresse de domicile actuelle à la fiche client avant de pouvoir confirmer le contrat.",
+        "creditBlock": "Ce client fait l'objet d'un blocage de crédit ({{reason}}). Une offre reste possible ; le contrat requiert la libération du compte par la comptabilité.",
+        "doNotContact": "Ce client est marqué « ne pas contacter ». Le contrat ne peut pas être confirmé.",
+        "staleVersion": "Ce contrat a changé depuis le chargement de la page. Il a été rechargé — vérifiez-le et réessayez.",
+        "badStatus": "Ce contrat ne peut plus être confirmé depuis son statut actuel.",
+        "generic": "Le contrat n'a pas pu être confirmé."
+      }
     },
     "actions": {
       "confirm": "Confirmer le contrat",
