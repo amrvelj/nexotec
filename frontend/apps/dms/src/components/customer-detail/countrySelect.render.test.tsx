@@ -83,7 +83,7 @@ describe('country select — create wizard (KAN-32)', () => {
       { method: 'POST', match: /^\/customers$/, handler: (req) => ({ id: 'new-1', ...(req.body as object) }) },
     ])
     const { container } = renderWithProviders(<CustomerCreateFlow onSuccess={() => {}} onCancel={() => {}} />)
-    await user.click(screen.getByRole('button', { name: 'Next' }))
+    await user.click(screen.getByRole('button', { name: i18n.t('customerCreate.actions.next') }))
     await screen.findByText(i18n.t('customerDetail.contactPoints.phoneNumbers'))
     return { backend, container }
   }

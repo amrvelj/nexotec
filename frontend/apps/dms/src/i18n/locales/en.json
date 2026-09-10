@@ -56,9 +56,68 @@
     "loading": "Loading…"
   },
   "customerCreate": {
+    "title": "New customer",
+    "steps": {
+      "type": "Type",
+      "details": "Details"
+    },
+    "actions": {
+      "next": "Next",
+      "back": "Back",
+      "cancel": "Cancel",
+      "submit": "Create customer"
+    },
+    "type": {
+      "individual": {
+        "label": "Individual",
+        "description": "A private person — name, date of birth, nationality."
+      },
+      "business": {
+        "label": "Business",
+        "description": "A company — legal name, legal form, UID."
+      }
+    },
     "fields": {
+      "correspondenceLanguage": "Correspondence language",
+      "salutation": "Salutation",
+      "firstName": "First name",
+      "lastName": "Last name",
+      "birthDate": "Date of birth",
       "nationality": "Nationality",
-      "country": "Country"
+      "companyName": "Company name",
+      "legalForm": "Legal form",
+      "uid": "UID",
+      "preferredChannel": "Preferred contact channel",
+      "lifecycleStatus": "Lifecycle status",
+      "source": "Source",
+      "hasAddress": "Add an address",
+      "street": "Street",
+      "houseNumber": "House number",
+      "line2": "Address line 2 (c/o, PO box, …)",
+      "postalCode": "Postal code",
+      "locality": "Locality",
+      "country": "Country",
+      "marketingConsent": "Marketing consent"
+    },
+    "descriptions": {
+      "correspondenceLanguage": "The language this customer's documents and letters are written in."
+    },
+    "placeholders": {
+      "uid": "CHE-123.456.789"
+    },
+    "duplicates": {
+      "heading_one": "Possible existing customer",
+      "heading_other": "{{count}} possible existing customers",
+      "exactMatch": "Exact match",
+      "openInstead": "Open instead"
+    },
+    "validation": {
+      "individualNameRequired": "Enter a first name and a last name for an individual customer.",
+      "companyNameRequired": "Enter a company name for a business customer.",
+      "contactPointRequired": "Add at least one phone number or email address."
+    },
+    "errors": {
+      "createFailed": "The customer could not be created. Check the form and try again."
     }
   },
   "customerEnums": {

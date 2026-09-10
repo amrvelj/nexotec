@@ -6,7 +6,7 @@ import { Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { FormDialog, Picker, type PickerRow } from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
-import { CustomerCreateFlow } from './CustomerCreateFlow'
+import { CustomerCreateDialog } from './CustomerCreateDialog'
 import type { CapabilityCheckRead, CustomerPage, CustomerRead, ValuationCreate, ValuationRead, ValuationSourceValue } from '../api/types'
 
 export interface ValuationCreateDialogProps {
@@ -249,16 +249,15 @@ export function ValuationCreateDialog({ opened, onClose, onCreated, supersedes }
         />
       </Modal>
 
-      <Modal opened={customerCreateOpen} onClose={() => setCustomerCreateOpen(false)} title={t('valuationCreate.createCustomer')} size="lg">
-        <CustomerCreateFlow
-          onSuccess={(customer) => {
-            setCustomerId(customer.id)
-            setCustomerLabel(customer.companyName ?? [customer.firstName, customer.lastName].filter(Boolean).join(' '))
-            setCustomerCreateOpen(false)
-          }}
-          onCancel={() => setCustomerCreateOpen(false)}
-        />
-      </Modal>
+      <CustomerCreateDialog
+        opened={customerCreateOpen}
+        onClose={() => setCustomerCreateOpen(false)}
+        onCreated={(customer) => {
+          setCustomerId(customer.id)
+          setCustomerLabel(customer.companyName ?? [customer.firstName, customer.lastName].filter(Boolean).join(' '))
+          setCustomerCreateOpen(false)
+        }}
+      />
     </>
   )
 }
