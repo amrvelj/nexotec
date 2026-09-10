@@ -952,6 +952,150 @@ def test_customer_email_crud_and_primary_flag(client):
     assert delete.status_code == 204
 
 
+def test_create_with_a_primary_phone_of_each_type_keeps_all_three(client):
+    """KAN-47 / ADR-067 / FR-07: 'exactly one primary' is scoped to the
+    type-group, so a business customer with a switchboard, a workshop line
+    and an owner's mobile — each the primary of its own kind — must be
+    creatable in one request, and all six projections must resolve.
+    """
+
+    dealer_id = _create_dealer(client)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    payload = _customer_payload(
+        phones=[
+            {"phoneType": "mobile", "phoneE164": "+41791111111", "isPrimary": True},
+            {"phoneType": "landline", "phoneE164": "+41442222222", "isPrimary": True},
+            {"phoneType": "work", "phoneE164": "+41443333333", "isPrimary": True},
+        ],
+    )
+    response = client.post("/v1/customers", json=payload, headers=_bearer(token))
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["phoneMobile"] == "+41791111111"
+    assert body["phoneLandline"] == "+41442222222"
+    assert body["phoneWork"] == "+41443333333"
+
+    phones = client.get(f"/v1/customers/{body['id']}/phones", headers=_bearer(token)).json()["items"]
+    assert {p["phoneE164"] for p in phones if p["isPrimary"]} == {
+        "+41791111111",
+        "+41442222222",
+        "+41443333333",
+    }
+
+
+def test_create_with_two_primary_phones_of_the_same_type_is_rejected(client):
+    dealer_id = _create_dealer(client)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    payload = _customer_payload(
+        phones=[
+            {"phoneType": "mobile", "phoneE164": "+41791111111", "isPrimary": True},
+            {"phoneType": "mobile", "phoneE164": "+41792222222", "isPrimary": True},
+        ],
+    )
+    response = client.post("/v1/customers", json=payload, headers=_bearer(token))
+    assert response.status_code == 422, response.text
+
+
+def test_create_with_a_primary_personal_and_a_primary_work_email_keeps_both(client):
+    dealer_id = _create_dealer(client)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    payload = _customer_payload(
+        emails=[
+            {"emailType": "personal", "emailAddress": "anna@example.ch", "isPrimary": True},
+            {"emailType": "work", "emailAddress": "anna@garage.example.ch", "isPrimary": True},
+        ],
+    )
+    response = client.post("/v1/customers", json=payload, headers=_bearer(token))
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["email"] == "anna@example.ch"
+    assert body["emailSecondary"] == "anna@garage.example.ch"
+
+    emails = client.get(f"/v1/customers/{body['id']}/emails", headers=_bearer(token)).json()["items"]
+    assert {e["emailAddress"] for e in emails if e["isPrimary"]} == {
+        "anna@example.ch",
+        "anna@garage.example.ch",
+    }
+
+
+def test_create_with_two_primary_emails_of_the_same_type_is_rejected(client):
+    dealer_id = _create_dealer(client)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    payload = _customer_payload(
+        emails=[
+            {"emailType": "work", "emailAddress": "one@garage.example.ch", "isPrimary": True},
+            {"emailType": "work", "emailAddress": "two@garage.example.ch", "isPrimary": True},
+        ],
+    )
+    response = client.post("/v1/customers", json=payload, headers=_bearer(token))
+    assert response.status_code == 422, response.text
+
+
+def test_create_with_a_primary_domicile_and_a_primary_billing_address_keeps_both(client):
+    """The address branch of the same validator was already per-type; this
+    locks it so the KAN-47 phone/email change stays consistent with it.
+    """
+
+    dealer_id = _create_dealer(client)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    payload = _customer_payload(
+        addresses=[
+            {
+                "addressType": "domicile",
+                "addressStreet": "Marktgasse",
+                "addressHouseNumber": "10",
+                "addressPostalCode": "3011",
+                "addressLocality": "Bern",
+                "addressCountry": "CH",
+                "isPrimary": True,
+            },
+            {
+                "addressType": "billing",
+                "addressStreet": "Postfach",
+                "addressHouseNumber": "1",
+                "addressPostalCode": "8001",
+                "addressLocality": "Zürich",
+                "addressCountry": "CH",
+                "isPrimary": True,
+            },
+        ],
+    )
+    response = client.post("/v1/customers", json=payload, headers=_bearer(token))
+    assert response.status_code == 201, response.text
+    body = response.json()
+    addresses = client.get(f"/v1/customers/{body['id']}/addresses", headers=_bearer(token)).json()["items"]
+    assert {a["addressType"] for a in addresses if a["isPrimary"]} == {"domicile", "billing"}
+
+
+def test_create_with_two_primary_addresses_of_the_same_type_is_rejected(client):
+    dealer_id = _create_dealer(client)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    payload = _customer_payload(
+        addresses=[
+            {
+                "addressType": "domicile",
+                "addressStreet": "Marktgasse",
+                "addressHouseNumber": "10",
+                "addressPostalCode": "3011",
+                "addressLocality": "Bern",
+                "addressCountry": "CH",
+                "isPrimary": True,
+            },
+            {
+                "addressType": "domicile",
+                "addressStreet": "Spitalgasse",
+                "addressHouseNumber": "2",
+                "addressPostalCode": "3011",
+                "addressLocality": "Bern",
+                "addressCountry": "CH",
+                "isPrimary": True,
+            },
+        ],
+    )
+    response = client.post("/v1/customers", json=payload, headers=_bearer(token))
+    assert response.status_code == 422, response.text
+
+
 def test_phone_and_email_changes_appear_in_audit_log(client):
     dealer_id = _create_dealer(client)
     customer = _create_customer(client, dealer_id, email="audit-contacts@example.ch")

@@ -136,7 +136,33 @@
       "language": "Language",
       "status": "Status",
       "changed": "Changed",
-      "creditBlock": "Credit block"
+      "creditBlock": "Credit block",
+      "contact": "Contact",
+      "salutation": "Salutation",
+      "firstName": "First name",
+      "lastName": "Last name",
+      "companyName": "Company",
+      "legalForm": "Legal form",
+      "birthDate": "Date of birth",
+      "nationality": "Nationality",
+      "phoneMobile": "Mobile",
+      "phoneLandline": "Landline",
+      "phoneWork": "Work phone",
+      "email": "Email",
+      "emailSecondary": "Secondary email",
+      "addressStreet": "Street",
+      "addressHouseNumber": "House no.",
+      "addressLine2": "Address line 2",
+      "addressPostalCode": "Postal code",
+      "addressLocality": "Locality",
+      "canton": "Canton",
+      "country": "Country",
+      "preferredChannel": "Preferred channel",
+      "source": "Source",
+      "sourceRef": "Source reference",
+      "marketingConsent": "Marketing consent",
+      "created": "Created",
+      "duplicateOf": "Duplicate of"
     },
     "rowActions": {
       "open": "Open",
@@ -163,7 +189,8 @@
     "selection": {
       "count": "{{count}} selected",
       "clear": "Clear selection",
-      "copyIds": "Copy IDs"
+      "export": "Export",
+      "print": "Print"
     }
   },
   "customerDetail": {

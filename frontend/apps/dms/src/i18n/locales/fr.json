@@ -136,7 +136,33 @@
       "language": "Langue",
       "status": "Statut",
       "changed": "Modifié",
-      "creditBlock": "Blocage de crédit"
+      "creditBlock": "Blocage de crédit",
+      "contact": "Contact",
+      "salutation": "Civilité",
+      "firstName": "Prénom",
+      "lastName": "Nom",
+      "companyName": "Entreprise",
+      "legalForm": "Forme juridique",
+      "birthDate": "Date de naissance",
+      "nationality": "Nationalité",
+      "phoneMobile": "Mobile",
+      "phoneLandline": "Fixe",
+      "phoneWork": "Téléphone prof.",
+      "email": "E-mail",
+      "emailSecondary": "E-mail secondaire",
+      "addressStreet": "Rue",
+      "addressHouseNumber": "N°",
+      "addressLine2": "Complément d'adresse",
+      "addressPostalCode": "NPA",
+      "addressLocality": "Localité",
+      "canton": "Canton",
+      "country": "Pays",
+      "preferredChannel": "Canal préféré",
+      "source": "Source",
+      "sourceRef": "Référence de source",
+      "marketingConsent": "Consentement marketing",
+      "created": "Créé",
+      "duplicateOf": "Doublon de"
     },
     "rowActions": {
       "open": "Ouvrir",
@@ -163,7 +189,8 @@
     "selection": {
       "count": "{{count}} sélectionné(s)",
       "clear": "Effacer la sélection",
-      "copyIds": "Copier les ID"
+      "export": "Exporter",
+      "print": "Imprimer"
     }
   },
   "customerDetail": {

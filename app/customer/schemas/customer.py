@@ -328,18 +328,29 @@ class CustomerCreate(CamelModel):
 
     @model_validator(mode="after")
     def _at_most_one_primary(self) -> "CustomerCreate":
-        if sum(1 for p in self.phones if p.is_primary) > 1:
-            raise ValueError("Only one phone number can be marked as primary.")
-        if sum(1 for e in self.emails if e.is_primary) > 1:
-            raise ValueError("Only one email address can be marked as primary.")
-        # Per type-group (ADR-067) — two addresses of DIFFERENT types may
-        # each be primary at once (a primary domicile AND a primary billing
-        # address), only two of the SAME type competing is rejected.
-        by_type: dict[AddressType, int] = {}
+        # Per type-group (ADR-067, FR-07) — two contacts of DIFFERENT types
+        # may each be primary at once (a primary mobile AND a primary work
+        # phone, a primary domicile AND a primary billing address), only two
+        # of the SAME type competing is rejected. This is the shape the whole
+        # service layer already implements (_default_primary_flags,
+        # _fixup_single_primary, create_customer_phone).
+        phones_by_type: dict[PhoneType, int] = {}
+        for phone in self.phones:
+            if phone.is_primary:
+                phones_by_type[phone.phone_type] = phones_by_type.get(phone.phone_type, 0) + 1
+        if any(count > 1 for count in phones_by_type.values()):
+            raise ValueError("Only one phone number per type can be marked as primary.")
+        emails_by_type: dict[EmailType, int] = {}
+        for email in self.emails:
+            if email.is_primary:
+                emails_by_type[email.email_type] = emails_by_type.get(email.email_type, 0) + 1
+        if any(count > 1 for count in emails_by_type.values()):
+            raise ValueError("Only one email address per type can be marked as primary.")
+        addresses_by_type: dict[AddressType, int] = {}
         for address in self.addresses:
             if address.is_primary:
-                by_type[address.address_type] = by_type.get(address.address_type, 0) + 1
-        if any(count > 1 for count in by_type.values()):
+                addresses_by_type[address.address_type] = addresses_by_type.get(address.address_type, 0) + 1
+        if any(count > 1 for count in addresses_by_type.values()):
             raise ValueError("Only one address per type can be marked as primary.")
         return self
 
