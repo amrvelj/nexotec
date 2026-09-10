@@ -62,6 +62,7 @@ def _customer(db_session, group_id):
             emails=[CustomerEmailCreate(email_type="personal", email_address="didier@example.ch", is_primary=True)],
         ),
         actor_id=uuid.uuid4(),
+        dealership_id=uuid.uuid4(),
     )
 
 
@@ -282,7 +283,11 @@ def test_do_not_contact_also_stops_the_contract(db_session, engine):
     group_id = uuid.uuid4()
     contract, _item, customer = _stock_contract(db_session, dealership.id, group_id)
     update_customer(
-        db_session, customer=customer, data=CustomerUpdate(lifecycle_status="do_not_contact"), actor_id=uuid.uuid4()
+        db_session,
+        customer=customer,
+        data=CustomerUpdate(lifecycle_status="do_not_contact"),
+        actor_id=uuid.uuid4(),
+        dealership_id=uuid.uuid4(),
     )
 
     with pytest.raises(ConflictError):
@@ -300,7 +305,11 @@ def test_do_not_contact_also_stops_attaching_the_customer_to_an_offer(db_session
     group_id = uuid.uuid4()
     customer = _customer(db_session, group_id)
     update_customer(
-        db_session, customer=customer, data=CustomerUpdate(lifecycle_status="do_not_contact"), actor_id=uuid.uuid4()
+        db_session,
+        customer=customer,
+        data=CustomerUpdate(lifecycle_status="do_not_contact"),
+        actor_id=uuid.uuid4(),
+        dealership_id=uuid.uuid4(),
     )
 
     offer = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())

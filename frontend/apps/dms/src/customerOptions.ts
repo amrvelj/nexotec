@@ -3,8 +3,10 @@ import type {
   CustomerSource,
   CustomerType,
   EmailType,
+  Gender,
   Language,
   LegalForm,
+  PaymentTerms,
   PhoneType,
   PreferredChannel,
   Salutation,
@@ -171,6 +173,27 @@ export function translatedSourceOptions(t: Translate): { value: CustomerSource; 
     { value: 'marketplace', label: t('customerEnums.source.marketplace') },
     { value: 'other', label: t('customerEnums.source.other') },
   ]
+}
+
+// FR-17 / FR-18 stored fields (KAN-50). `gender` is segmentation-only and
+// distinct from `salutation`; `paymentTerms` is FR-18 region 4.
+const GENDER_VALUES: Gender[] = ['female', 'male', 'other', 'unspecified']
+const PAYMENT_TERMS_VALUES: PaymentTerms[] = ['prepayment', 'net_10', 'net_30', 'net_60', 'on_delivery']
+
+export function translatedGenderOptions(t: Translate): { value: Gender; label: string }[] {
+  return GENDER_VALUES.map((value) => ({ value, label: t(`customerEnums.gender.${value}`) }))
+}
+
+export function translatedGenderLabel(t: Translate, value: Gender): string {
+  return t(`customerEnums.gender.${value}`)
+}
+
+export function translatedPaymentTermsOptions(t: Translate): { value: PaymentTerms; label: string }[] {
+  return PAYMENT_TERMS_VALUES.map((value) => ({ value, label: t(`customerEnums.paymentTerms.${value}`) }))
+}
+
+export function translatedPaymentTermsLabel(t: Translate, value: PaymentTerms): string {
+  return t(`customerEnums.paymentTerms.${value}`)
 }
 
 export function translatedVehiclePartyRoleLabel(t: Translate, role: 'owner' | 'keeper' | 'driver'): string {

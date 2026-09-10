@@ -110,6 +110,19 @@
       "fax": "Fax",
       "personal": "Privat",
       "invoicing": "Rechnung"
+    },
+    "gender": {
+      "female": "Weiblich",
+      "male": "Männlich",
+      "other": "Andere",
+      "unspecified": "Keine Angabe"
+    },
+    "paymentTerms": {
+      "prepayment": "Vorauszahlung",
+      "net_10": "10 Tage netto",
+      "net_30": "30 Tage netto",
+      "net_60": "60 Tage netto",
+      "on_delivery": "Bei Lieferung"
     }
   },
   "customersList": {
@@ -180,7 +193,9 @@
         "status": "Status",
         "address": "Adresse",
         "contactPoints": "Kontaktpunkte",
-        "record": "Datensatz"
+        "record": "Datensatz",
+        "commercialStanding": "Geschäftsbeziehung",
+        "relationship": "Beziehung"
       },
       "fields": {
         "salutation": "Anrede",
@@ -200,7 +215,20 @@
         "cantonDerived": "Kanton (abgeleitet)",
         "customerNumber": "Kundennummer",
         "created": "Erstellt",
-        "lastChanged": "Zuletzt geändert"
+        "lastChanged": "Zuletzt geändert",
+        "title": "Titel",
+        "gender": "Geschlecht",
+        "paymentTerms": "Zahlungskonditionen",
+        "creditLimit": "Kreditlimite (Richtwert)",
+        "iban": "IBAN",
+        "vatRegistered": "MwSt-pflichtig",
+        "advisor": "Betreuer",
+        "customerSince": "Kunde seit",
+        "nextFollowUp": "Nächster Kontakt",
+        "website": "Website",
+        "newsletter": "Newsletter",
+        "tags": "Tags",
+        "notes": "Notizen"
       },
       "notSet": "Nicht angegeben",
       "addressForm": {

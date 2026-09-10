@@ -33,6 +33,15 @@ _VIN_RE = re.compile(r"^[A-HJ-NPR-Z0-9]{17}$")
 _UID_RE = re.compile(r"^CHE-\d{3}\.\d{3}\.\d{3}$")
 _UID_WEIGHTS = (5, 4, 3, 2, 7, 6, 5, 4)
 
+# IBAN (ISO 13616): 2-letter country code, 2 check digits, up to 30 more
+# alphanumerics — 15..34 characters once whitespace is stripped. Validity
+# is the ISO 7064 mod-97 test (Customer PRD, Commercial Standing): move the
+# first four characters to the end, map A..Z -> 10..35, the integer value
+# mod 97 must equal 1. This is a *format* check only — an IBAN here is a
+# payout destination for a refund or a trade-in, never a payment instrument
+# Nexotec operates (ADR-037).
+_IBAN_RE = re.compile(r"^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$")
+
 _DEFAULT_COUNTRY_CALLING_CODE = "41"
 
 
@@ -120,6 +129,28 @@ def is_valid_vin(value: str | None) -> bool:
     return value is not None and _VIN_RE.match(value) is not None
 
 
+def iban_is_valid(value: str) -> bool:
+    """Non-raising ISO 7064 mod-97 check over a whitespace-stripped,
+    upper-cased IBAN. Exposed for callers that branch rather than reject."""
+
+    compact = re.sub(r"\s", "", value or "").upper()
+    if not _IBAN_RE.match(compact):
+        return False
+    rearranged = compact[4:] + compact[:4]
+    digits = "".join(str(ord(ch) - 55) if ch.isalpha() else ch for ch in rearranged)
+    return int(digits) % 97 == 1
+
+
+def _validate_iban(value: str) -> str:
+    compact = re.sub(r"\s", "", value).upper()
+    if not iban_is_valid(compact):
+        raise ValueError(
+            "IBAN is not valid — it must be an ISO 13616 IBAN whose ISO 7064 mod-97 check passes, "
+            "e.g. 'CH93 0076 2011 6238 5295 7'."
+        )
+    return compact
+
+
 def _validate_swiss_uid(value: str) -> str:
     normalised = value.strip().upper()
     if not _UID_RE.match(normalised):
@@ -133,6 +164,7 @@ def _validate_swiss_uid(value: str) -> str:
 
 CantonCode = Annotated[str, AfterValidator(_validate_canton)]
 E164Phone = Annotated[str, AfterValidator(_validate_e164_phone)]
+Iban = Annotated[str, AfterValidator(_validate_iban)]
 HouseNumber = Annotated[str, AfterValidator(_validate_house_number)]
 SwissPostalCode = Annotated[str, AfterValidator(_validate_postal_code)]
 SwissUid = Annotated[str, AfterValidator(_validate_swiss_uid)]

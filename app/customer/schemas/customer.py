@@ -17,13 +17,15 @@ the customer, so a create either fully succeeds or leaves nothing behind.
 
 import datetime as dt
 import uuid
+from decimal import Decimal
 
-from pydantic import EmailStr, Field, model_validator
+from pydantic import EmailStr, Field, field_validator, model_validator
 
 from app.core.schemas import CamelModel
 from app.core.validators import (
     E164Phone,
     HouseNumber,
+    Iban,
     SwissUid,
     validate_postal_code_for_country,
 )
@@ -33,13 +35,50 @@ from app.customer.models.customer import (
     CustomerSource,
     CustomerType,
     EmailType,
+    Gender,
     Language,
     LegalForm,
+    PaymentTerms,
     PhoneType,
     PreferredChannel,
     Salutation,
 )
 from app.customer.models.vehicle_party import VehiclePartyRole
+
+# FR-17 stored-field shared helpers (KAN-50). `website` is "scheme-
+# normalised on save": a bare host gets `https://` prepended, an explicit
+# non-http(s) scheme is rejected outright. `tags` are free per-group
+# labels — trimmed, de-duplicated preserving first-seen order, blanks
+# dropped; not a reference list and never tidied into one.
+_MAX_TAGS = 50
+
+
+def _normalise_website(value: str | None) -> str | None:
+    if value is None:
+        return None
+    trimmed = value.strip()
+    if not trimmed:
+        return None
+    if "://" in trimmed:
+        if not trimmed.lower().startswith(("http://", "https://")):
+            raise ValueError("website must be an http or https URL.")
+        return trimmed
+    return f"https://{trimmed}"
+
+
+def _normalise_tags(value: list[str]) -> list[str]:
+    seen: list[str] = []
+    for raw in value:
+        tag = raw.strip()
+        if not tag:
+            continue
+        if len(tag) > 60:
+            raise ValueError("A tag cannot be longer than 60 characters.")
+        if tag not in seen:
+            seen.append(tag)
+    if len(seen) > _MAX_TAGS:
+        raise ValueError(f"A customer cannot carry more than {_MAX_TAGS} tags.")
+    return seen
 
 # --- Contact channels (WP-3 PR-5, ADR-067): customer_phone/email/address
 # are three child-record tables, each carrying the same six facts (type,
@@ -243,6 +282,34 @@ class CustomerCreate(CamelModel):
     source_ref: str | None = Field(default=None, max_length=255)
     marketing_consent: bool = False
 
+    # --- FR-17 / FR-18 stored fields (KAN-50) ---
+    title: str | None = Field(default=None, max_length=50)  # individual-only, free text
+    gender: Gender = Gender.UNSPECIFIED  # individual-only, segmentation-only, never inferred
+    website: str | None = Field(default=None, max_length=500)
+    newsletter: bool = False
+    payment_terms: PaymentTerms | None = None
+    # Advisory only in v1 — surfaced, never enforced (FR-18 region 4).
+    credit_limit: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
+    iban: Iban | None = None  # mod-97 validated; a payout destination, never a payment instrument
+    vat_registered: bool = False
+    # Defaults to the acting user on create (D-24) when omitted — resolved
+    # in the service, where the acting user is known.
+    advisor_id: uuid.UUID | None = None
+    customer_since: dt.date | None = None
+    next_follow_up: dt.date | None = None
+    tags: list[str] = Field(default_factory=list)
+    notes: str | None = None
+
+    @field_validator("website")
+    @classmethod
+    def _website_scheme(cls, value: str | None) -> str | None:
+        return _normalise_website(value)
+
+    @field_validator("tags")
+    @classmethod
+    def _clean_tags(cls, value: list[str]) -> list[str]:
+        return _normalise_tags(value)
+
     @model_validator(mode="after")
     def _require_a_contact_point(self) -> "CustomerCreate":
         if not self.phones and not self.emails:
@@ -288,6 +355,8 @@ class CustomerCreate(CamelModel):
                 raise ValueError("company_name is required for a business customer.")
             if self.first_name or self.last_name or self.birth_date or self.nationality:
                 raise ValueError("first_name, last_name, birth_date, and nationality are individual-only fields.")
+            if self.title or self.gender != Gender.UNSPECIFIED:
+                raise ValueError("title and gender are individual-only fields.")
         return self
 
     @model_validator(mode="after")
@@ -338,10 +407,47 @@ class CustomerUpdate(CamelModel):
     source_ref: str | None = Field(default=None, max_length=255)
     marketing_consent: bool | None = None
 
+    # --- FR-17 / FR-18 stored fields (KAN-50) ---
+    # A key present with `null` clears the value (the service reads
+    # model_dump(exclude_unset=True), so "absent" and "null" are distinct);
+    # `advisor_id: null` is how the UI un-assigns an advisor (D-24), and
+    # the create-time default is never re-applied here.
+    title: str | None = Field(default=None, max_length=50)
+    gender: Gender | None = None
+    website: str | None = Field(default=None, max_length=500)
+    newsletter: bool | None = None
+    payment_terms: PaymentTerms | None = None
+    credit_limit: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
+    iban: Iban | None = None
+    vat_registered: bool | None = None
+    advisor_id: uuid.UUID | None = None
+    customer_since: dt.date | None = None
+    next_follow_up: dt.date | None = None
+    tags: list[str] | None = None
+    notes: str | None = None
+
+    @field_validator("website")
+    @classmethod
+    def _website_scheme(cls, value: str | None) -> str | None:
+        return _normalise_website(value)
+
+    @field_validator("tags")
+    @classmethod
+    def _clean_tags(cls, value: list[str] | None) -> list[str] | None:
+        return None if value is None else _normalise_tags(value)
+
     @model_validator(mode="after")
     def _reject_merged_via_patch(self) -> "CustomerUpdate":
         if self.lifecycle_status == CustomerLifecycleStatus.MERGED:
             raise ValueError("lifecycle_status 'merged' can only be set via POST /v1/customers/{id}/merge.")
+        return self
+
+    @model_validator(mode="after")
+    def _gender_not_cleared(self) -> "CustomerUpdate":
+        # gender is NOT NULL on the model (defaults to `unspecified`); to
+        # "reset" it a caller sends 'unspecified', never null.
+        if "gender" in self.model_fields_set and self.gender is None:
+            raise ValueError("gender cannot be cleared — set it to 'unspecified' instead.")
         return self
 
 
@@ -356,11 +462,15 @@ class CustomerRead(CamelModel):
     last_name: str | None
     birth_date: dt.date | None
     nationality: str | None
+    title: str | None
+    gender: Gender
     company_name: str | None
     legal_form: LegalForm | None
     # tax_id deliberately absent — write-only, same convention as
     # DealershipRead never returning Dealership.tax_id.
     preferred_channel: PreferredChannel | None
+    website: str | None
+    newsletter: bool
     # Six read-model projections (ADR-067) — computed from customer_phone/
     # email/address child rows, never stored columns. The grid's flat
     # Mobile/Email/Work-phone columns read these, not a Customer field.
@@ -380,6 +490,25 @@ class CustomerRead(CamelModel):
     credit_block: bool
     credit_block_reason: str | None
     credit_blocked_at: dt.datetime | None
+
+    # --- FR-17 / FR-18 stored fields (KAN-50) ---
+    payment_terms: PaymentTerms | None
+    credit_limit: Decimal | None
+    iban: str | None
+    vat_registered: bool
+    # advisor: the P-2 three-column pattern — id + denormalised label +
+    # refresh timestamp. `advisor_id` is a platform User id (no FK).
+    advisor_id: uuid.UUID | None
+    advisor_label: str | None
+    advisor_label_refreshed_at: dt.datetime | None
+    customer_since: dt.date | None
+    next_follow_up: dt.date | None
+    notes: str | None
+    tags: list[str] = Field(default_factory=list)
+    # Provenance — the dealership that created the record (ADR-014: the
+    # GROUP owns the customer). Never scopes a read.
+    dealership_id: uuid.UUID | None
+
     version: int
     created_at: dt.datetime
     updated_at: dt.datetime
@@ -395,6 +524,20 @@ class CustomerPage(CamelModel):
     # 100k-row table just to render a footer.
     total: int
     total_is_estimate: bool
+
+
+class CustomerAdvisorOption(CamelModel):
+    """One option for the customer record's advisor picker (KAN-50 / D-24)
+    — an active user of the ACTING dealership. `label` is the same
+    `First Last` denormalised into `Customer.advisor_label` on assignment.
+    """
+
+    id: uuid.UUID
+    label: str
+
+
+class CustomerAdvisorOptionList(CamelModel):
+    items: list[CustomerAdvisorOption]
 
 
 class CustomerMergeRequest(CamelModel):

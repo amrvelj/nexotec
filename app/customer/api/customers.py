@@ -33,6 +33,8 @@ from app.customer.schemas.customer import (
     CustomerAddressPage,
     CustomerAddressRead,
     CustomerAddressUpdate,
+    CustomerAdvisorOption,
+    CustomerAdvisorOptionList,
     CustomerCreate,
     CustomerCreditBlockRequest,
     CustomerDuplicateCandidate,
@@ -92,9 +94,10 @@ def _idempotency_key(idempotency_key: str | None = Header(default=None, alias="I
 
 
 def _customer_read(db: Session, customer: Customer) -> CustomerRead:
-    """CustomerRead plus the six ADR-067 projections, computed here (never
-    stored) and layered on with model_copy — the base model_validate leaves
-    them at their schema default of None.
+    """CustomerRead plus the ADR-067 contact projections and the KAN-50
+    `tags` list, all computed here (never stored) and layered on with
+    model_copy — the base model_validate leaves them at their schema
+    default.
     """
 
     base = CustomerRead.model_validate(customer, from_attributes=True)
@@ -126,7 +129,11 @@ def create_customer(
             return JSONResponse(status_code=cached.response_status, content=cached.response_body)
 
     customer = customer_service.create_customer(
-        db, group_id=principal.group_id, data=body, actor_id=principal.user_id
+        db,
+        group_id=principal.group_id,
+        data=body,
+        actor_id=principal.user_id,
+        dealership_id=principal.tenant_id,
     )
     result = _customer_read(db, customer)
 
@@ -158,6 +165,22 @@ def duplicate_check(
     )
 
 
+@router.get("/customers/advisor-options", response_model=CustomerAdvisorOptionList)
+def list_customer_advisor_options(
+    principal: Principal = Depends(require_read("customers")),
+    db: Session = Depends(get_db),
+):
+    """The advisor picker's options (KAN-50 / D-24) — active users of the
+    ACTING dealership. Declared before `/customers/{customer_id}` so the
+    literal path is matched first. Gated on the `customers` read
+    capability, not the manager-only `dealership_users` one: a plain
+    advisor must be able to (re)assign a customer's advisor.
+    """
+
+    rows = customer_service.list_advisor_options(db, dealership_id=principal.tenant_id)
+    return CustomerAdvisorOptionList(items=[CustomerAdvisorOption.model_validate(row) for row in rows])
+
+
 @router.get("/customers/{customer_id}", response_model=CustomerRead)
 def get_customer(
     customer_id: uuid.UUID,
@@ -178,7 +201,9 @@ def update_customer(
 ):
     customer = customer_service.get_customer_or_404(db, principal.group_id, customer_id)
     check_version(customer.version, if_match, entity_name="Customer")
-    customer = customer_service.update_customer(db, customer=customer, data=body, actor_id=principal.user_id)
+    customer = customer_service.update_customer(
+        db, customer=customer, data=body, actor_id=principal.user_id, dealership_id=principal.tenant_id
+    )
     return _customer_read(db, customer)
 
 
