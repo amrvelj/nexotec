@@ -29,7 +29,9 @@ describe('CustomersListPage — grid state is the URL (ADR-056)', () => {
       },
     ])
 
-    const predicate = { id: 'p1', fieldId: 'canton', type: 'select', condition: 'is', value: 'BE' }
+    // The filter field id is the column id (§ ADR-058 — filters and columns
+    // are one set); the API parameter it maps to is still `canton`.
+    const predicate = { id: 'p1', fieldId: 'addressCanton', type: 'select', condition: 'is', value: 'BE' }
     renderWithProviders(
       <>
         <LocationProbe />

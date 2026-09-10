@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Copy, Pencil, Plus, Trash2 } from "lucide-react";
 import { purple, radius, slate, spacing, white } from "../tokens";
-import { CONDITIONS_BY_TYPE, describePredicate, type FilterFieldDef, type FilterPredicate } from "./filterPredicate";
+import { conditionsForField, describePredicate, type FilterFieldDef, type FilterPredicate } from "./filterPredicate";
 
 export interface FilterBuilderProps {
   /** Derived from the grid's own column defs (§ Action Bar: "the field
@@ -32,7 +32,7 @@ const DEFAULT_LABELS = {
 };
 
 function defaultPredicateFor(field: FilterFieldDef): FilterPredicate {
-  const condition = CONDITIONS_BY_TYPE[field.type][0].value;
+  const condition = conditionsForField(field)[0].value;
   return {
     id: crypto.randomUUID(),
     fieldId: field.id,
@@ -219,7 +219,7 @@ function PredicateEditorRow({
   const changeField = (fieldId: string) => {
     const newField = fields.find((f) => f.id === fieldId);
     if (!newField) return;
-    const condition = CONDITIONS_BY_TYPE[newField.type][0].value;
+    const condition = conditionsForField(newField)[0].value;
     onDraftChange({
       ...draft,
       fieldId,
@@ -258,7 +258,7 @@ function PredicateEditorRow({
         onChange={(e) => onDraftChange({ ...draft, condition: e.target.value })}
         style={selectStyle}
       >
-        {CONDITIONS_BY_TYPE[field.type].map((c) => (
+        {conditionsForField(field).map((c) => (
           <option key={c.value} value={c.value}>
             {c.label}
           </option>

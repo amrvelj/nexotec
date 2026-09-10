@@ -123,7 +123,33 @@
       "language": "Sprache",
       "status": "Status",
       "changed": "Geändert",
-      "creditBlock": "Kreditsperre"
+      "creditBlock": "Kreditsperre",
+      "contact": "Kontakt",
+      "salutation": "Anrede",
+      "firstName": "Vorname",
+      "lastName": "Nachname",
+      "companyName": "Firma",
+      "legalForm": "Rechtsform",
+      "birthDate": "Geburtsdatum",
+      "nationality": "Nationalität",
+      "phoneMobile": "Mobil",
+      "phoneLandline": "Festnetz",
+      "phoneWork": "Telefon geschäftlich",
+      "email": "E-Mail",
+      "emailSecondary": "E-Mail (weitere)",
+      "addressStreet": "Strasse",
+      "addressHouseNumber": "Hausnummer",
+      "addressLine2": "Adresszusatz",
+      "addressPostalCode": "PLZ",
+      "addressLocality": "Ort",
+      "canton": "Kanton",
+      "country": "Land",
+      "preferredChannel": "Bevorzugter Kanal",
+      "source": "Quelle",
+      "sourceRef": "Quellenreferenz",
+      "marketingConsent": "Marketing-Einwilligung",
+      "created": "Erstellt",
+      "duplicateOf": "Dublette von"
     },
     "rowActions": {
       "open": "Öffnen",
@@ -150,7 +176,8 @@
     "selection": {
       "count": "{{count}} ausgewählt",
       "clear": "Auswahl aufheben",
-      "copyIds": "IDs kopieren"
+      "export": "Exportieren",
+      "print": "Drucken"
     }
   },
   "customerDetail": {

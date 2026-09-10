@@ -13,13 +13,24 @@ export interface FilterFieldOption {
 }
 
 export interface FilterFieldDef {
-  /** Matches the field's own API filter parameter name — this is what a
-   * caller turns a resolved predicate into an actual query with. */
+  /** The column id this predicate filters — the SAME id the column
+   * registry uses (§ ADR-058: filters, sorts and columns are one set), and
+   * the stable key a stored predicate's `fieldId` carries. The API
+   * parameter it maps to is `param`, which may differ. */
   id: string;
   label: string;
   type: FilterFieldType;
   /** Required for `type: "select"` — every legal value, translated. */
   options?: FilterFieldOption[];
+  /** API query parameter this field maps to. Defaults to `id`. Kept
+   * separate so a param rename does not invalidate a saved view whose
+   * predicate stored the column id. */
+  param?: string;
+  /** Restrict the offered conditions to this subset of
+   * `CONDITIONS_BY_TYPE[type]`. Use it so the builder only ever offers a
+   * predicate the backing endpoint can actually honour. Omit for the full
+   * set. */
+  conditions?: string[];
 }
 
 export type TextCondition = "contains" | "equals" | "notEquals";
@@ -82,6 +93,21 @@ export const CONDITIONS_BY_TYPE: Record<FilterFieldType, { value: string; label:
     { value: "moreThanDaysAgo", label: "is more than N days ago" },
   ],
 };
+
+/**
+ * The conditions a field actually offers — the type's full set
+ * (`CONDITIONS_BY_TYPE`) narrowed to `field.conditions` when it declares
+ * one. A field narrows its set so the builder never offers a predicate the
+ * backing endpoint cannot honour (which would otherwise be accepted and
+ * then silently dropped).
+ */
+export function conditionsForField(field: FilterFieldDef): { value: string; label: string }[] {
+  const all = CONDITIONS_BY_TYPE[field.type];
+  if (!field.conditions) return all;
+  const allowed = new Set(field.conditions);
+  const narrowed = all.filter((c) => allowed.has(c.value));
+  return narrowed.length > 0 ? narrowed : all;
+}
 
 function pad(n: number): string {
   return String(n).padStart(2, "0");

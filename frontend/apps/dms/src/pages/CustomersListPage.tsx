@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Button, Group, Stack, Title } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
-import { Copy, ExternalLink, Users } from 'lucide-react'
+import { Download, ExternalLink, Printer, Users } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {
   ActionBar,
@@ -16,11 +16,13 @@ import {
   OverviewShellRegion,
   SelectionBar,
   ViewsAndFilters,
+  defaultColumnLayout,
+  deriveFilterFields,
+  resolveColumnLayout,
   resolveRelativeDateRange,
   useSetBreadcrumb,
   type ColumnRegistryEntry,
   type DateCondition,
-  type FilterFieldDef,
   type FilterPredicate,
   type GridColumnDef,
   type SavedView,
@@ -29,21 +31,26 @@ import {
 import { useUiPreferencesContext } from '../hooks/UiPreferencesContext'
 import { useGridPreferences } from '../hooks/useGridPreferences'
 import { useSavedViews } from '../hooks/useSavedViews'
+import { useCountryOptions } from '../hooks/useCountryOptions'
 import { api } from '../api/client'
 import { buildCustomerRowMenu } from '../components/customerRowMenu'
 import { CreditBlockDialog } from '../components/customer-detail/CreditBlockDialog'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
 import {
   CANTON_OPTIONS,
+  legalFormLabel,
   translatedCustomerTypeLabel,
   translatedCustomerTypeOptions,
   translatedLanguageOptions,
   translatedLifecycleLabel,
   translatedLifecycleOptions,
-  translatedSourceOptions,
+  translatedPreferredChannelLabel,
+  translatedSalutationLabel,
+  translatedSourceLabel,
 } from '../customerOptions'
 import { formatDate } from '../utils/format'
 import { customerName } from '../utils/customer'
+import { exportRowsToCsv, printRows, type ExportColumn } from '../utils/gridExport'
 import type { CustomerPage, CustomerRead, SalesOfferRead } from '../api/types'
 
 const GRID_KEY = 'mdm.customers.list'
@@ -83,48 +90,37 @@ function parseFiltersParam(raw: string): FilterPredicate[] {
 }
 
 /**
- * § Action Bar — Filter Builder's own field list "derived from the grid's
- * own columns." A hand-declared list rather than something mechanically
- * generated from `GridColumnDef` — `GridColumnMeta` has no filter-type
- * metadata yet, and adding it is a bigger cross-cutting change than this
- * one screen's wiring should carry; flagged here as the honest next step,
- * not silently worked around.
+ * `/customers` accepts a handful of fixed, independent query parameters —
+ * no generic predicate engine exists server-side. `paramByFieldId` is
+ * derived from the same column defs the filter builder is (`meta.filter`),
+ * so there is no second hand-maintained map to drift (§ ADR-058).
+ *
+ * The two conditions the API cannot honour — a `select` field's "is not"
+ * (the API takes one equality value per field) and a date's "more than N
+ * days ago" (`updated_since` is a lower bound only; there is no "changed
+ * before" parameter) — are not applied here because the columns that back
+ * these fields do not offer them (`meta.filter.conditions`). The guards
+ * below stay defensive regardless: an unknown field or condition is left
+ * unsent, never misfiltered.
  */
-function buildFilterFields(t: (key: string) => string): FilterFieldDef[] {
-  return [
-    { id: 'customerType', label: t('customersList.columns.type'), type: 'select', options: translatedCustomerTypeOptions(t) },
-    { id: 'lifecycleStatus', label: t('customersList.columns.status'), type: 'select', options: translatedLifecycleOptions(t) },
-    { id: 'language', label: t('customersList.columns.language'), type: 'select', options: translatedLanguageOptions(t) },
-    { id: 'canton', label: t('customersList.filters.canton'), type: 'select', options: CANTON_OPTIONS },
-    { id: 'updatedAt', label: t('customersList.columns.changed'), type: 'date' },
-  ]
-}
-
-/**
- * `/customers` accepts five fixed, independent query parameters — no
- * generic predicate engine exists server-side. Two real gaps, both left
- * unsent rather than silently misfiltering:
- * - a `select` field's "is not" condition has no backend equivalent (the
- *   API only ever accepts a single equality value per field);
- * - `updatedAt`'s `moreThanDaysAgo` resolves to an upper bound
- *   (`resolveRelativeDateRange`'s own `to`), and `updated_since` is a
- *   lower bound only — there is no "changed before" parameter at all.
- */
-function applyPredicatesToParams(params: URLSearchParams, predicates: FilterPredicate[]) {
-  const EQUALITY_PARAM: Record<string, string> = {
-    customerType: 'customer_type',
-    lifecycleStatus: 'lifecycle_status',
-    language: 'language',
-    canton: 'canton',
-  }
+function applyPredicatesToParams(
+  params: URLSearchParams,
+  predicates: FilterPredicate[],
+  paramByFieldId: Map<string, string>,
+) {
   for (const predicate of predicates) {
-    const paramName = EQUALITY_PARAM[predicate.fieldId]
-    if (paramName && predicate.condition === 'is' && typeof predicate.value === 'string') {
-      params.set(paramName, predicate.value)
-    }
-    if (predicate.fieldId === 'updatedAt' && predicate.condition !== 'moreThanDaysAgo') {
+    const paramName = paramByFieldId.get(predicate.fieldId)
+    if (!paramName) continue
+
+    if (predicate.type === 'date') {
+      if (predicate.condition === 'moreThanDaysAgo') continue
       const range = resolveRelativeDateRange(predicate.condition as DateCondition, predicate.days, new Date())
-      if (range.from) params.set('updated_since', range.from)
+      if (range.from) params.set(paramName, range.from)
+      continue
+    }
+
+    if (predicate.condition === 'is' && typeof predicate.value === 'string') {
+      params.set(paramName, predicate.value)
     }
   }
 }
@@ -138,6 +134,15 @@ export function CustomersListPage() {
   const gridPrefs = useGridPreferences(GRID_KEY, { sort: DEFAULT_SORT })
   const savedViews = useSavedViews(GRID_KEY)
   const [searchParams, setSearchParams] = useSearchParams()
+  const { options: countryOptions } = useCountryOptions()
+
+  // ISO 3166-1 alpha-2 -> localised country name, for the `nationality`
+  // and `addressCountry` columns. Falls back to the raw code while the
+  // reference list is still loading or for a code the list doesn't carry.
+  const countryLabel = useMemo(() => {
+    const byCode = new Map(countryOptions.map((o) => [o.value, o.label]))
+    return (code: string | null | undefined): string => (code ? (byCode.get(code) ?? code) : '')
+  }, [countryOptions])
 
   // "Pasting that URL reproduces the screen" — sort and filters are read
   // straight from the URL on every render (no local mirror to go stale
@@ -187,6 +192,247 @@ export function CustomersListPage() {
   const [blockDialogCustomer, setBlockDialogCustomer] = useState<CustomerRead | null>(null)
   const queryClient = useQueryClient()
 
+  const columns: GridColumnDef<CustomerRead>[] = useMemo(() => {
+    // A stored string field: hidden by default, dash for empty on screen,
+    // blank for empty in an export.
+    const text = (
+      id: string,
+      header: string,
+      pick: (row: CustomerRead) => string | null | undefined,
+      opts: { mono?: boolean } = {},
+    ): GridColumnDef<CustomerRead> => ({
+      id,
+      header,
+      cell: ({ row }) => pick(row.original) || '—',
+      meta: { defaultVisible: false, mono: opts.mono, exportValue: (row) => pick(row) ?? '' },
+    })
+
+    const date = (
+      id: string,
+      header: string,
+      pick: (row: CustomerRead) => string | null | undefined,
+    ): GridColumnDef<CustomerRead> => ({
+      id,
+      header,
+      cell: ({ row }) => {
+        const value = pick(row.original)
+        return value ? formatDate(value, locale) : '—'
+      },
+      meta: {
+        defaultVisible: false,
+        align: 'right',
+        exportValue: (row) => {
+          const value = pick(row)
+          return value ? formatDate(value, locale) : ''
+        },
+      },
+    })
+
+    return [
+      {
+        id: 'customerNumber',
+        header: t('customersList.columns.customerNumber'),
+        cell: ({ row }) => row.original.customerNumber,
+        meta: {
+          sortField: 'customerNumber',
+          pinned: 'left',
+          mono: true,
+          locked: true,
+          exportValue: (row) => row.customerNumber,
+        },
+      },
+      {
+        id: 'name',
+        header: t('customersList.columns.name'),
+        cell: ({ row }) => <span style={{ fontWeight: 600 }}>{customerName(row.original)}</span>,
+        // § Composite cells (FR-17 as amended 2026-09-07) — name carries
+        // locality as its secondary: inline at `default` density, stacked
+        // at `comfortable`, gone at `compact`. The `contact` column below
+        // is the other composite cell; both use `meta.secondary`, the one
+        // mechanism DataGrid already implements.
+        meta: {
+          sortField: 'lastName',
+          locked: true,
+          secondary: (row) => row.address?.addressLocality ?? null,
+          exportValue: (row) => customerName(row),
+        },
+      },
+      {
+        id: 'customerType',
+        header: t('customersList.columns.type'),
+        cell: ({ row }) => (
+          <CustomerTypeBadge type={row.original.customerType} label={translatedCustomerTypeLabel(t, row.original.customerType)} />
+        ),
+        meta: {
+          filter: { type: 'select', param: 'customer_type', options: translatedCustomerTypeOptions(t), conditions: ['is'] },
+          exportValue: (row) => translatedCustomerTypeLabel(t, row.customerType),
+        },
+      },
+      {
+        // FR-17 as amended — the composite Contact cell: mobile primary,
+        // email secondary, in ONE cell. When there is no mobile, email
+        // takes the primary line and there is no secondary — no stray
+        // separator. Both facts are ADR-067 read-model projections the
+        // list endpoint already ships on every row.
+        id: 'contact',
+        header: t('customersList.columns.contact'),
+        cell: ({ row }) => {
+          const { phoneMobile, email } = row.original
+          const primary = phoneMobile ?? email ?? '—'
+          return (
+            <span style={phoneMobile ? { fontFamily: 'ui-monospace, SF Mono, Menlo, monospace' } : undefined}>{primary}</span>
+          )
+        },
+        meta: {
+          secondary: (row) => (row.phoneMobile && row.email ? row.email : null),
+          exportValue: (row) => [row.phoneMobile, row.email].filter(Boolean).join(' / '),
+        },
+      },
+      {
+        id: 'language',
+        header: t('customersList.columns.language'),
+        cell: ({ row }) => <LanguageBadge language={row.original.language} />,
+        meta: {
+          filter: { type: 'select', param: 'language', options: translatedLanguageOptions(t), conditions: ['is'] },
+          exportValue: (row) => t(`customerEnums.language.${row.language}`),
+        },
+      },
+      {
+        id: 'lifecycleStatus',
+        header: t('customersList.columns.status'),
+        cell: ({ row }) => (
+          <LifecycleStatusBadge status={row.original.lifecycleStatus} label={translatedLifecycleLabel(t, row.original.lifecycleStatus)} />
+        ),
+        meta: {
+          filter: { type: 'select', param: 'lifecycle_status', options: translatedLifecycleOptions(t), conditions: ['is'] },
+          exportValue: (row) => translatedLifecycleLabel(t, row.lifecycleStatus),
+        },
+      },
+
+      // --- everything below: available (ADR-060 — every persisted field is
+      // a grid column), hidden by default; Half 2 of KAN-51 adds advisor,
+      // vehicles, open deals, lifetime revenue, last contact and tags to
+      // the default set once those stored fields land.
+      text('salutation', t('customersList.columns.salutation'), (row) =>
+        row.salutation ? translatedSalutationLabel(t, row.salutation) : null,
+      ),
+      text('firstName', t('customersList.columns.firstName'), (row) => row.firstName),
+      text('lastName', t('customersList.columns.lastName'), (row) => row.lastName),
+      text('companyName', t('customersList.columns.companyName'), (row) => row.companyName),
+      text('legalForm', t('customersList.columns.legalForm'), (row) => (row.legalForm ? legalFormLabel(row.legalForm) : null)),
+      date('birthDate', t('customersList.columns.birthDate'), (row) => row.birthDate),
+      text('nationality', t('customersList.columns.nationality'), (row) => countryLabel(row.nationality)),
+
+      text('phoneMobile', t('customersList.columns.phoneMobile'), (row) => row.phoneMobile, { mono: true }),
+      text('phoneLandline', t('customersList.columns.phoneLandline'), (row) => row.phoneLandline, { mono: true }),
+      text('phoneWork', t('customersList.columns.phoneWork'), (row) => row.phoneWork, { mono: true }),
+      text('email', t('customersList.columns.email'), (row) => row.email),
+      text('emailSecondary', t('customersList.columns.emailSecondary'), (row) => row.emailSecondary),
+
+      text('addressStreet', t('customersList.columns.addressStreet'), (row) => row.address?.addressStreet),
+      text('addressHouseNumber', t('customersList.columns.addressHouseNumber'), (row) => row.address?.addressHouseNumber),
+      text('addressLine2', t('customersList.columns.addressLine2'), (row) => row.address?.addressLine2),
+      text('addressPostalCode', t('customersList.columns.addressPostalCode'), (row) => row.address?.addressPostalCode, { mono: true }),
+      text('addressLocality', t('customersList.columns.addressLocality'), (row) => row.address?.addressLocality),
+      {
+        id: 'addressCanton',
+        header: t('customersList.columns.canton'),
+        cell: ({ row }) => row.original.address?.addressCanton ?? '—',
+        meta: {
+          defaultVisible: false,
+          filter: { type: 'select', param: 'canton', options: CANTON_OPTIONS, conditions: ['is'] },
+          exportValue: (row) => row.address?.addressCanton ?? '',
+        },
+      },
+      text('addressCountry', t('customersList.columns.country'), (row) => countryLabel(row.address?.addressCountry)),
+
+      text('preferredChannel', t('customersList.columns.preferredChannel'), (row) =>
+        row.preferredChannel ? translatedPreferredChannelLabel(t, row.preferredChannel) : null,
+      ),
+      text('source', t('customersList.columns.source'), (row) => (row.source ? translatedSourceLabel(t, row.source) : null)),
+      text('sourceRef', t('customersList.columns.sourceRef'), (row) => row.sourceRef),
+      {
+        id: 'marketingConsent',
+        header: t('customersList.columns.marketingConsent'),
+        cell: ({ row }) => (row.original.marketingConsent ? '✓' : '—'),
+        meta: {
+          defaultVisible: false,
+          align: 'right',
+          exportValue: (row) => (row.marketingConsent ? t('common.yes') : t('common.no')),
+        },
+      },
+      // KAN-44 / FR-18 — the credit block as a grid column, hidden by
+      // default, badge-rendered with the reason as its title.
+      {
+        id: 'creditBlock',
+        header: t('customersList.columns.creditBlock'),
+        cell: ({ row }) =>
+          row.original.creditBlock ? (
+            <span title={row.original.creditBlockReason ?? undefined}>
+              <Badge tone="destructive">{t('customersList.columns.creditBlock')}</Badge>
+            </span>
+          ) : (
+            '—'
+          ),
+        meta: {
+          defaultVisible: false,
+          exportValue: (row) => (row.creditBlock ? (row.creditBlockReason ?? t('common.yes')) : ''),
+        },
+      },
+      date('createdAt', t('customersList.columns.created'), (row) => row.createdAt),
+      {
+        id: 'updatedAt',
+        header: t('customersList.columns.changed'),
+        cell: ({ row }) => formatDate(row.original.updatedAt, locale),
+        // Out of the default-visible set per the FR-17 §B amendment, but
+        // still an available column and still the grid's default sort.
+        meta: {
+          defaultVisible: false,
+          sortField: 'updatedAt',
+          align: 'right',
+          filter: {
+            type: 'date',
+            param: 'updated_since',
+            conditions: ['today', 'thisWeek', 'thisMonth', 'thisYear', 'inTheLastDays'],
+          },
+          exportValue: (row) => formatDate(row.updatedAt, locale),
+        },
+      },
+      text('duplicateOfCustomerId', t('customersList.columns.duplicateOf'), (row) => row.duplicateOfCustomerId, { mono: true }),
+    ]
+  }, [t, locale, countryLabel])
+
+  const columnRegistry: ColumnRegistryEntry[] = useMemo(
+    () =>
+      columns.map((c) => ({
+        id: String(c.id),
+        label: typeof c.header === 'string' ? c.header : String(c.id),
+        defaultVisible: c.meta?.defaultVisible ?? true,
+        locked: c.meta?.locked,
+      })),
+    [columns]
+  )
+
+  // § ADR-058 — the filter field list IS the column registry: every column
+  // that declares `meta.filter` is a filter field, in registry order.
+  // Adding a filterable column is one edit (the column def), never a
+  // second edit to a parallel list.
+  const filterFields = useMemo(() => deriveFilterFields(columns), [columns])
+  const filterParamByFieldId = useMemo(
+    () => new Map(filterFields.map((f) => [f.id, f.param ?? f.id])),
+    [filterFields]
+  )
+
+  // The effective layout: the user's saved one, or the module default
+  // (which honours each column's `defaultVisible`). DataGrid,
+  // ColumnConfigPanel and the export column set all read the SAME value,
+  // so "what you see" is one definition — never the grid showing every
+  // column just because no preference has been saved yet.
+  const columnLayout = useMemo(
+    () => gridPrefs.columnLayout ?? defaultColumnLayout(columnRegistry),
+    [gridPrefs.columnLayout, columnRegistry]
+  )
+
   const sortParam = sort.length > 0 ? sort.map((s) => `${s.field}:${s.direction}`).join(',') : undefined
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isError, refetch, isRefetching } =
@@ -196,7 +442,7 @@ export function CustomersListPage() {
         const params = new URLSearchParams()
         if (debouncedQuery) params.set('q', debouncedQuery)
         if (sortParam) params.set('sort', sortParam)
-        applyPredicatesToParams(params, predicates)
+        applyPredicatesToParams(params, predicates, filterParamByFieldId)
         params.set('limit', '50')
         if (pageParam) params.set('cursor', pageParam)
         return api.get<CustomerPage>(`/customers?${params.toString()}`)
@@ -209,7 +455,38 @@ export function CustomersListPage() {
   const total = data?.pages[0]?.total ?? null
   const totalIsEstimate = data?.pages[0]?.totalIsEstimate ?? false
 
-  const filterFields = useMemo(() => buildFilterFields(t), [t])
+  // D-25 — Export and Print operate on the SELECTED rows in the CURRENTLY
+  // VISIBLE columns, in their on-screen order. `visibleColumnIds` is the
+  // same resolution DataGrid does for rendering, so "what you see is what
+  // you get" is literally true.
+  const visibleColumnIds = useMemo(
+    () => resolveColumnLayout(columnRegistry, columnLayout).visibleOrder,
+    [columnRegistry, columnLayout]
+  )
+
+  const exportColumns: ExportColumn<CustomerRead>[] = useMemo(() => {
+    const byId = new Map(columns.map((c) => [String(c.id), c]))
+    return visibleColumnIds
+      .map((id) => byId.get(id))
+      .filter((c): c is GridColumnDef<CustomerRead> => Boolean(c))
+      .map((c) => ({
+        header: typeof c.header === 'string' ? c.header : String(c.id),
+        value: (row: CustomerRead) => {
+          const raw = c.meta?.exportValue?.(row)
+          return raw == null ? '' : String(raw)
+        },
+      }))
+  }, [columns, visibleColumnIds])
+
+  const selectedRows = useMemo(() => rows.filter((row) => selectedIds.has(row.id)), [rows, selectedIds])
+
+  const exportSelection = () => {
+    const stamp = new Date().toISOString().slice(0, 10)
+    exportRowsToCsv(`customers_${stamp}.csv`, exportColumns, selectedRows)
+  }
+  const printSelection = () => {
+    printRows(t('customersList.title'), exportColumns, selectedRows)
+  }
 
   // Row-menu handlers this surface can do without a modal (link-vehicle
   // and merge stay on the detail screen — same posture ValuationsListPage
@@ -233,99 +510,6 @@ export function CustomersListPage() {
     )
     void queryClient.invalidateQueries({ queryKey: ['customers'] })
   }
-
-  const columns: GridColumnDef<CustomerRead>[] = useMemo(
-    () => [
-      {
-        id: 'customerNumber',
-        header: t('customersList.columns.customerNumber'),
-        cell: ({ row }) => row.original.customerNumber,
-        meta: { sortField: 'customerNumber', pinned: 'left', mono: true, locked: true },
-      },
-      {
-        id: 'name',
-        header: t('customersList.columns.name'),
-        cell: ({ row }) => <span style={{ fontWeight: 600 }}>{customerName(row.original)}</span>,
-        // § Composite cells — "show both facts at the shipped default
-        // density": the locality rides along inline at `default`, stacks
-        // underneath at `comfortable`, and disappears at `compact`. Every
-        // other column in this grid is single-fact, so this is the one
-        // place that behaviour is actually exercised on this screen.
-        meta: { sortField: 'lastName', locked: true, secondary: (row) => row.address?.addressLocality ?? null },
-      },
-      {
-        id: 'customerType',
-        header: t('customersList.columns.type'),
-        cell: ({ row }) => <CustomerTypeBadge type={row.original.customerType} label={translatedCustomerTypeLabel(t, row.original.customerType)} />,
-      },
-      {
-        id: 'language',
-        header: t('customersList.columns.language'),
-        cell: ({ row }) => <LanguageBadge language={row.original.language} />,
-      },
-      {
-        id: 'lifecycleStatus',
-        header: t('customersList.columns.status'),
-        cell: ({ row }) => <LifecycleStatusBadge status={row.original.lifecycleStatus} label={translatedLifecycleLabel(t, row.original.lifecycleStatus)} />,
-      },
-      {
-        id: 'updatedAt',
-        header: t('customersList.columns.changed'),
-        cell: ({ row }) => formatDate(row.original.updatedAt, locale),
-        meta: { sortField: 'updatedAt', align: 'right' },
-      },
-      // § ADR-060 — "every persisted field is available as a grid column."
-      // Three more of CustomerRead's own fields, hidden by default (a
-      // documented subset is visible, not "some fields can never be a
-      // column") — proof that ColumnConfigPanel's show/hide is showing
-      // something real, not window dressing on a fixed six-column grid.
-      {
-        id: 'canton',
-        header: t('customersList.filters.canton'),
-        cell: ({ row }) => row.original.address?.addressCanton ?? '—',
-        meta: { defaultVisible: false },
-      },
-      {
-        id: 'source',
-        header: t('customerDetail.overview.fields.source'),
-        cell: ({ row }) => (row.original.source ? translatedSourceOptions(t).find((o) => o.value === row.original.source)?.label : '—'),
-        meta: { defaultVisible: false },
-      },
-      {
-        id: 'marketingConsent',
-        header: t('customerDetail.overview.fields.marketingConsent'),
-        cell: ({ row }) => (row.original.marketingConsent ? '✓' : '—'),
-        meta: { defaultVisible: false, align: 'right' },
-      },
-      // KAN-44 / FR-18 — the credit block as a grid column, hidden by
-      // default, badge-rendered with the reason as its title.
-      {
-        id: 'creditBlock',
-        header: t('customersList.columns.creditBlock'),
-        cell: ({ row }) =>
-          row.original.creditBlock ? (
-            <span title={row.original.creditBlockReason ?? undefined}>
-              <Badge tone="destructive">{t('customersList.columns.creditBlock')}</Badge>
-            </span>
-          ) : (
-            '—'
-          ),
-        meta: { defaultVisible: false },
-      },
-    ],
-    [t, locale]
-  )
-
-  const columnRegistry: ColumnRegistryEntry[] = useMemo(
-    () =>
-      columns.map((c) => ({
-        id: String(c.id),
-        label: typeof c.header === 'string' ? c.header : String(c.id),
-        defaultVisible: c.meta?.defaultVisible ?? true,
-        locked: c.meta?.locked,
-      })),
-    [columns]
-  )
 
   const isFiltered = debouncedQuery.length > 0 || predicates.length > 0
   const currentViewName = (appliedViewId && savedViews.views.find((v) => v.id === appliedViewId)?.name) || t('customersList.allCustomersView')
@@ -380,7 +564,13 @@ export function CustomersListPage() {
                   }}
                 />
               }
-              columnsSlot={<ColumnConfigPanel registry={columnRegistry} layout={gridPrefs.columnLayout ?? { order: columnRegistry.map((c) => c.id), hidden: columnRegistry.filter((c) => !c.defaultVisible).map((c) => c.id), widths: {}, pinnedLeft: [] }} onLayoutChange={gridPrefs.setColumnLayout} />}
+              columnsSlot={
+                <ColumnConfigPanel
+                  registry={columnRegistry}
+                  layout={columnLayout}
+                  onLayoutChange={gridPrefs.setColumnLayout}
+                />
+              }
               labels={{
                 density: {
                   compact: t('common.density.compact'),
@@ -401,13 +591,16 @@ export function CustomersListPage() {
                 clearLabel={t('customersList.selection.clear')}
                 actions={[
                   {
-                    // A minimal, honest bulk action proving the contract —
-                    // not a real CSV export, which is a bigger feature
-                    // this screen doesn't own (out of WP-6c's scope:
-                    // presentation, not new backend/export capability).
-                    label: t('customersList.selection.copyIds'),
-                    icon: <Copy size={14} />,
-                    onClick: () => navigator.clipboard.writeText([...selectedIds].join(', ')),
+                    // D-25 — the SELECTED rows in the CURRENTLY VISIBLE
+                    // columns, as a real CSV file. Not "copy IDs".
+                    label: t('customersList.selection.export'),
+                    icon: <Download size={14} />,
+                    onClick: exportSelection,
+                  },
+                  {
+                    label: t('customersList.selection.print'),
+                    icon: <Printer size={14} />,
+                    onClick: printSelection,
                   },
                 ]}
               />
@@ -436,7 +629,7 @@ export function CustomersListPage() {
           isFiltered={isFiltered}
           locale={locale}
           selection={{ selectedIds, onSelectionChange: setSelectedIds }}
-          columnLayout={gridPrefs.columnLayout ?? undefined}
+          columnLayout={columnLayout}
           onColumnLayoutChange={gridPrefs.setColumnLayout}
           labels={{
             showing: (count) => t('common.showing', { count }),

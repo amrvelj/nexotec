@@ -40,6 +40,7 @@ export * from "./datagrid/ActionBar";
 export * from "./datagrid/FilterChips";
 export * from "./datagrid/SelectionBar";
 export * from "./datagrid/filterPredicate";
+export * from "./datagrid/deriveFilters";
 export * from "./datagrid/FilterBuilder";
 export * from "./datagrid/savedView";
 export * from "./datagrid/ViewsAndFilters";
