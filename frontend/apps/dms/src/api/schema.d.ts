@@ -4896,9 +4896,19 @@ export interface components {
          *     since Phase B — the old `preferred_contact_method` (email/phone/sms)
          *     overlapped with it and was dropped (D-03). "Which specific number" is
          *     answered by CustomerPhone.is_primary, not by a second enum.
+         *
+         *     D-21 (ruled 2026-09-07): the vocabulary is `email` / `phone` / `post` /
+         *     `whatsapp`. WhatsApp is a real Swiss-dealership channel that was absent,
+         *     and the rename ends the `mail`-vs-`letter` ambiguity. `mail` -> `email`,
+         *     `call` -> `phone`, `letter` -> `post` in one migration.
+         *
+         *     MESSAGE is retained as a LEGACY member with no clean target — it meant
+         *     SMS, and WhatsApp is not SMS. Pre-D-21 rows holding `message` still load
+         *     through this enum; it is not offered anywhere in the UI and awaits a
+         *     product decision (KAN-54). Do not map it silently.
          * @enum {string}
          */
-        PreferredChannel: "mail" | "call" | "message" | "letter";
+        PreferredChannel: "email" | "phone" | "post" | "whatsapp" | "message";
         /** ProviderCreate */
         ProviderCreate: {
             /** Authtype */

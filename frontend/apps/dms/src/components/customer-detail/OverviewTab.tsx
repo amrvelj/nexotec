@@ -20,6 +20,7 @@ import { formatCurrencyChf, formatDate } from '../../utils/format'
 import type { CountryOption } from '../../hooks/useCountryOptions'
 import { useAdvisorOptions } from '../../hooks/useAdvisorOptions'
 import { ContactPointsEditor, type ContactPointUpdatePatch } from './ContactPointsEditor'
+import { ContactChannelsSummary, PreferredChannelBadge } from './ContactChannelsSummary'
 import { PhoneInput } from '../PhoneInput'
 import type { CustomerEmailRead, CustomerPhoneRead, CustomerRead, CustomerUpdateInput, EmailType, PhoneType } from '../../api/types'
 
@@ -514,14 +515,8 @@ export function OverviewTab({
           </>
         )}
         <SelectField label={f.correspondenceLanguage} value={customer.language} options={translatedLanguageOptions(t)} patchKey="language" {...fieldProps} />
-        <SelectField
-          label={f.preferredChannel}
-          value={customer.preferredChannel}
-          options={translatedPreferredChannelOptions(t)}
-          patchKey="preferredChannel"
-          clearable
-          {...fieldProps}
-        />
+        {/* preferredChannel moved to the Contact card (FR-18 region 3, KAN-54) —
+            it names a channel, so it belongs with the channels. */}
       </OverviewCard>
 
       <OverviewCard title={t('customerDetail.overview.cards.status')}>
@@ -598,8 +593,28 @@ export function OverviewTab({
         </KeyValueRow>
       </OverviewCard>
 
-      <OverviewCard title={t('customerDetail.overview.cards.contactPoints')}>
+      <OverviewCard
+        title={t('customerDetail.overview.cards.contactPoints')}
+        badge={<PreferredChannelBadge preferredChannel={customer.preferredChannel} />}
+      >
         <Stack gap="md">
+          {/* FR-18 region 3 — read view: live tel:/mailto: links, primary
+              of the preferred kind marked. The editors below still own
+              add / edit / close. */}
+          <ContactChannelsSummary
+            phones={phones}
+            emails={emails}
+            address={customer.address ?? null}
+            preferredChannel={customer.preferredChannel}
+          />
+          <SelectField
+            label={f.preferredChannel}
+            value={customer.preferredChannel}
+            options={translatedPreferredChannelOptions(t)}
+            patchKey="preferredChannel"
+            clearable
+            {...fieldProps}
+          />
           <ContactPointsEditor<PhoneType>
             label={t('customerDetail.contactPoints.phoneNumbers')}
             addLabel={t('customerDetail.contactPoints.addPhone')}

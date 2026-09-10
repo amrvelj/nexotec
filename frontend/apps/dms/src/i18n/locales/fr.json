@@ -86,10 +86,11 @@
       "neutral": "Neutre"
     },
     "preferredChannel": {
-      "mail": "E-mail",
-      "call": "Appel",
-      "message": "Message",
-      "letter": "Lettre"
+      "email": "E-mail",
+      "phone": "Téléphone",
+      "post": "Courrier",
+      "whatsapp": "WhatsApp",
+      "message": "Message (obsolète)"
     },
     "source": {
       "walk_in": "Client de passage",
@@ -293,7 +294,10 @@
       "delete": "Supprimer",
       "consent": "Consentement",
       "confirm": "Confirmer",
-      "labelPlaceholder": "Libellé"
+      "labelPlaceholder": "Libellé",
+      "preferredChannelHeading": "Canal préféré",
+      "preferredMark": "Canal préféré",
+      "noPreferred": "Aucun canal préféré"
     },
     "phoneInput": {
       "country": "Pays",

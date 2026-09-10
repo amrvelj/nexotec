@@ -86,10 +86,11 @@
       "neutral": "Neutral"
     },
     "preferredChannel": {
-      "mail": "E-Mail",
-      "call": "Anruf",
-      "message": "Nachricht",
-      "letter": "Brief"
+      "email": "E-Mail",
+      "phone": "Telefon",
+      "post": "Post",
+      "whatsapp": "WhatsApp",
+      "message": "Nachricht (veraltet)"
     },
     "source": {
       "walk_in": "Laufkundschaft",
@@ -293,7 +294,10 @@
       "delete": "Löschen",
       "consent": "Einwilligung",
       "confirm": "Bestätigen",
-      "labelPlaceholder": "Bezeichnung"
+      "labelPlaceholder": "Bezeichnung",
+      "preferredChannelHeading": "Bevorzugter Kanal",
+      "preferredMark": "Bevorzugter Kanal",
+      "noPreferred": "Kein bevorzugter Kanal"
     },
     "phoneInput": {
       "country": "Land",

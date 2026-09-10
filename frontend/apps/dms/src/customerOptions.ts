@@ -88,11 +88,14 @@ export const LEGAL_FORM_OPTIONS: { value: LegalForm; label: string }[] = [
   { value: 'weitere', label: 'Weitere' },
 ]
 
+// D-21 (ruled 2026-09-07) — email / phone / post / whatsapp. `message`
+// (legacy SMS, no clean target) is retained on the backend enum so old
+// rows load, but is never offered as a choice.
 export const PREFERRED_CHANNEL_OPTIONS: { value: PreferredChannel; label: string }[] = [
-  { value: 'mail', label: 'Mail' },
-  { value: 'call', label: 'Call' },
-  { value: 'message', label: 'Message' },
-  { value: 'letter', label: 'Letter' },
+  { value: 'email', label: 'Email' },
+  { value: 'phone', label: 'Phone' },
+  { value: 'post', label: 'Post' },
+  { value: 'whatsapp', label: 'WhatsApp' },
 ]
 
 export const PHONE_TYPE_OPTIONS: { value: PhoneType; label: string }[] = [
@@ -156,12 +159,15 @@ export function translatedSalutationOptions(t: Translate): { value: Salutation; 
   ]
 }
 
+// D-21 — the pickable set is the four current values. `message` (legacy
+// SMS) is never offered; translatedPreferredChannelLabel still resolves it
+// for a customer who already holds it.
 export function translatedPreferredChannelOptions(t: Translate): { value: PreferredChannel; label: string }[] {
   return [
-    { value: 'mail', label: t('customerEnums.preferredChannel.mail') },
-    { value: 'call', label: t('customerEnums.preferredChannel.call') },
-    { value: 'message', label: t('customerEnums.preferredChannel.message') },
-    { value: 'letter', label: t('customerEnums.preferredChannel.letter') },
+    { value: 'email', label: t('customerEnums.preferredChannel.email') },
+    { value: 'phone', label: t('customerEnums.preferredChannel.phone') },
+    { value: 'post', label: t('customerEnums.preferredChannel.post') },
+    { value: 'whatsapp', label: t('customerEnums.preferredChannel.whatsapp') },
   ]
 }
 
