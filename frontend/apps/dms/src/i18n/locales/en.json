@@ -124,6 +124,17 @@
       "net_30": "Net 30 days",
       "net_60": "Net 60 days",
       "on_delivery": "On delivery"
+    },
+    "consentScope": {
+      "marketing": "Marketing",
+      "invoicing": "Invoicing",
+      "service": "Service"
+    },
+    "consentSource": {
+      "form": "Form",
+      "counter": "Counter",
+      "web": "Web",
+      "phone": "Phone"
     }
   },
   "customersList": {
@@ -297,7 +308,9 @@
       "labelPlaceholder": "Label",
       "preferredChannelHeading": "Preferred channel",
       "preferredMark": "Preferred channel",
-      "noPreferred": "No preferred channel"
+      "noPreferred": "No preferred channel",
+      "consentScope": "Scope",
+      "consentSource": "Source"
     },
     "phoneInput": {
       "country": "Country",

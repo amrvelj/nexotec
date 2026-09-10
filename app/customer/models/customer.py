@@ -140,6 +140,36 @@ class PreferredChannel(str, enum.Enum):
     MESSAGE = "message"  # legacy, D-21 — no target, retained so old rows load
 
 
+class ConsentScope(str, enum.Enum):
+    """FR-23 §1 (added 2026-09-07) — WHAT a per-channel consent covers.
+    ADR-067's "invoices yes, marketing no, at the same address" is exactly
+    the case a bare `granted` boolean cannot hold. Marketing selection
+    reads `consent_granted && consent_scope == MARKETING`; an
+    invoicing-scoped grant never authorises a campaign.
+
+    NULL on an existing row means `marketing` — that is what the flag has
+    meant until now, and inventing a different reading rewrites history. A
+    NEW grant must name its scope.
+    """
+
+    MARKETING = "marketing"
+    INVOICING = "invoicing"
+    SERVICE = "service"
+
+
+class ConsentSource(str, enum.Enum):
+    """FR-23 §1 — HOW consent was given. A closed enum (was free text): a
+    free string cannot be localised (FR-13), cannot be reported on, and
+    cannot be evidenced consistently, which is the one thing revDSG asks of
+    it.
+    """
+
+    FORM = "form"
+    COUNTER = "counter"
+    WEB = "web"
+    PHONE = "phone"
+
+
 class PhoneType(str, enum.Enum):
     """Remapped in WP-3 PR-5 (ADR-067): MOBILE unchanged, PRIVATE->LANDLINE,
     OFFICE->WORK — see that migration's own docstring for the reasoning.
@@ -444,7 +474,16 @@ class ContactChannelMixin:
     do_not_use: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     do_not_use_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     consent_granted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    consent_source: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # FR-23 §1 (KAN-52). `consent_scope` NULL means `marketing` on rows that
+    # predate the scope; a new grant names it. `consent_source` is the
+    # closed enum that replaced the free-text column — unmappable legacy
+    # values were set NULL and reported by the migration, not guessed.
+    consent_scope: Mapped[ConsentScope | None] = mapped_column(
+        SAEnum(ConsentScope, native_enum=False, length=16), nullable=True
+    )
+    consent_source: Mapped[ConsentSource | None] = mapped_column(
+        SAEnum(ConsentSource, native_enum=False, length=16), nullable=True
+    )
     consent_timestamp: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
 
 

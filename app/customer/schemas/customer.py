@@ -31,6 +31,8 @@ from app.core.validators import (
 )
 from app.customer.models.customer import (
     AddressType,
+    ConsentScope,
+    ConsentSource,
     CustomerLifecycleStatus,
     CustomerSource,
     CustomerType,
@@ -44,6 +46,16 @@ from app.customer.models.customer import (
     Salutation,
 )
 from app.customer.models.vehicle_party import VehiclePartyRole
+
+
+def _require_scope_on_grant(granted: bool | None, scope: ConsentScope | None) -> None:
+    """FR-23 §1 — a NEW consent grant must name what it covers. (A NULL
+    scope only ever means `marketing` on a row that predates the field.)"""
+
+    if granted is True and scope is None:
+        raise ValueError(
+            "A consent grant must name its scope: 'marketing', 'invoicing' or 'service' (FR-23 §1)."
+        )
 
 # FR-17 stored-field shared helpers (KAN-50). `website` is "scheme-
 # normalised on save": a bare host gets `https://` prepended, an explicit
@@ -95,6 +107,16 @@ class CustomerPhoneCreate(CamelModel):
     label: str | None = Field(default=None, max_length=60)
     phone_e164: E164Phone
     is_primary: bool = False
+    # FR-23 §1 — consent may be captured at customer creation (a signed
+    # form at the counter). `consent_scope` is required when granting.
+    consent_granted: bool = False
+    consent_scope: ConsentScope | None = None
+    consent_source: ConsentSource | None = None
+
+    @model_validator(mode="after")
+    def _consent_scope_on_grant(self) -> "CustomerPhoneCreate":
+        _require_scope_on_grant(self.consent_granted, self.consent_scope)
+        return self
 
 
 class CustomerPhoneUpdate(CamelModel):
@@ -106,7 +128,13 @@ class CustomerPhoneUpdate(CamelModel):
     do_not_use: bool | None = None
     do_not_use_reason: str | None = Field(default=None, max_length=500)
     consent_granted: bool | None = None
-    consent_source: str | None = Field(default=None, max_length=100)
+    consent_scope: ConsentScope | None = None
+    consent_source: ConsentSource | None = None
+
+    @model_validator(mode="after")
+    def _consent_scope_on_grant(self) -> "CustomerPhoneUpdate":
+        _require_scope_on_grant(self.consent_granted, self.consent_scope)
+        return self
 
 
 class CustomerPhoneRead(CamelModel):
@@ -121,7 +149,8 @@ class CustomerPhoneRead(CamelModel):
     do_not_use: bool
     do_not_use_reason: str | None
     consent_granted: bool
-    consent_source: str | None
+    consent_scope: ConsentScope | None
+    consent_source: ConsentSource | None
     consent_timestamp: dt.datetime | None
     created_at: dt.datetime
     updated_at: dt.datetime
@@ -136,6 +165,14 @@ class CustomerEmailCreate(CamelModel):
     label: str | None = Field(default=None, max_length=60)
     email_address: EmailStr
     is_primary: bool = False
+    consent_granted: bool = False
+    consent_scope: ConsentScope | None = None
+    consent_source: ConsentSource | None = None
+
+    @model_validator(mode="after")
+    def _consent_scope_on_grant(self) -> "CustomerEmailCreate":
+        _require_scope_on_grant(self.consent_granted, self.consent_scope)
+        return self
 
 
 class CustomerEmailUpdate(CamelModel):
@@ -147,7 +184,13 @@ class CustomerEmailUpdate(CamelModel):
     do_not_use: bool | None = None
     do_not_use_reason: str | None = Field(default=None, max_length=500)
     consent_granted: bool | None = None
-    consent_source: str | None = Field(default=None, max_length=100)
+    consent_scope: ConsentScope | None = None
+    consent_source: ConsentSource | None = None
+
+    @model_validator(mode="after")
+    def _consent_scope_on_grant(self) -> "CustomerEmailUpdate":
+        _require_scope_on_grant(self.consent_granted, self.consent_scope)
+        return self
 
 
 class CustomerEmailRead(CamelModel):
@@ -162,7 +205,8 @@ class CustomerEmailRead(CamelModel):
     do_not_use: bool
     do_not_use_reason: str | None
     consent_granted: bool
-    consent_source: str | None
+    consent_scope: ConsentScope | None
+    consent_source: ConsentSource | None
     consent_timestamp: dt.datetime | None
     created_at: dt.datetime
     updated_at: dt.datetime
@@ -188,10 +232,18 @@ class CustomerAddressCreate(CamelModel):
     # and `max_length=2` is a width check, not validation.
     address_country: str = Field(default="CH")
     is_primary: bool = False
+    consent_granted: bool = False
+    consent_scope: ConsentScope | None = None
+    consent_source: ConsentSource | None = None
 
     @model_validator(mode="after")
     def _validate_postal_code(self) -> "CustomerAddressCreate":
         validate_postal_code_for_country(self.address_postal_code, self.address_country)
+        return self
+
+    @model_validator(mode="after")
+    def _consent_scope_on_grant(self) -> "CustomerAddressCreate":
+        _require_scope_on_grant(self.consent_granted, self.consent_scope)
         return self
 
 
@@ -210,7 +262,13 @@ class CustomerAddressUpdate(CamelModel):
     do_not_use: bool | None = None
     do_not_use_reason: str | None = Field(default=None, max_length=500)
     consent_granted: bool | None = None
-    consent_source: str | None = Field(default=None, max_length=100)
+    consent_scope: ConsentScope | None = None
+    consent_source: ConsentSource | None = None
+
+    @model_validator(mode="after")
+    def _consent_scope_on_grant(self) -> "CustomerAddressUpdate":
+        _require_scope_on_grant(self.consent_granted, self.consent_scope)
+        return self
 
 
 class CustomerAddressRead(CamelModel):
@@ -233,7 +291,8 @@ class CustomerAddressRead(CamelModel):
     do_not_use: bool
     do_not_use_reason: str | None
     consent_granted: bool
-    consent_source: str | None
+    consent_scope: ConsentScope | None
+    consent_source: ConsentSource | None
     consent_timestamp: dt.datetime | None
     created_at: dt.datetime
     updated_at: dt.datetime

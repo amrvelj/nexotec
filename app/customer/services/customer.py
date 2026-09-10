@@ -33,6 +33,7 @@ from app.core.redact import REDACTED_PLACEHOLDER, is_secret_field
 from app.core.validators import normalise_phone
 from app.customer.models.customer import (
     AddressType,
+    ConsentScope,
     Customer,
     CustomerAddress,
     CustomerEmail,
@@ -581,6 +582,7 @@ def _add_contacts(db: Session, customer: Customer, data: CustomerCreate) -> None
                 is_primary=phone.is_primary or is_default_primary,
                 created_by=customer.created_by,
                 updated_by=customer.updated_by,
+                **_consent_create_kwargs(phone),
             )
         )
     for email, is_default_primary in zip(data.emails, _default_primary_flags(data.emails, lambda e: e.email_type)):
@@ -594,6 +596,7 @@ def _add_contacts(db: Session, customer: Customer, data: CustomerCreate) -> None
                 is_primary=email.is_primary or is_default_primary,
                 created_by=customer.created_by,
                 updated_by=customer.updated_by,
+                **_consent_create_kwargs(email),
             )
         )
     for address, is_default_primary in zip(
@@ -615,6 +618,7 @@ def _add_contacts(db: Session, customer: Customer, data: CustomerCreate) -> None
                 is_primary=address.is_primary or is_default_primary,
                 created_by=customer.created_by,
                 updated_by=customer.updated_by,
+                **_consent_create_kwargs(address),
             )
         )
 
@@ -1162,6 +1166,58 @@ def get_customer_phone_or_404(
     return phone
 
 
+def _consent_create_kwargs(data: Any) -> dict[str, Any]:
+    """The four consent columns for a freshly written contact-channel row
+    (FR-23 §1). The scope-required-on-grant rule is enforced at the schema;
+    the timestamp is stamped here — "when" is part of the record revDSG
+    asks for."""
+
+    granted = bool(getattr(data, "consent_granted", False))
+    return {
+        "consent_granted": granted,
+        "consent_scope": data.consent_scope,
+        "consent_source": data.consent_source,
+        "consent_timestamp": utcnow() if granted else None,
+    }
+
+
+def channel_authorises_marketing(row: Any) -> bool:
+    """FR-23 §1 — THE consumer rule. A contact-channel row authorises a
+    marketing send only when consent is granted AND its scope is
+    `marketing` (a NULL scope means `marketing` on rows that predate the
+    field). An invoicing- or service-scoped grant never authorises a
+    campaign.
+
+    No caller exists yet — Marketing is not built. Every future marketing
+    selection must read consent through this, not `consent_granted`
+    directly, or the whole point of FR-23 §1 is lost.
+    """
+
+    if not row.consent_granted:
+        return False
+    return row.consent_scope in (None, ConsentScope.MARKETING)
+
+
+def _consent_snapshot(row: Any) -> dict[str, Any]:
+    """The consent record as it stands, for an audit before/after (FR-11).
+    A consent change is exactly the kind of change the audit log exists for."""
+
+    return {
+        "consentGranted": row.consent_granted,
+        "consentScope": _plain(row.consent_scope),
+        "consentSource": _plain(row.consent_source),
+        "consentTimestamp": _plain(row.consent_timestamp),
+    }
+
+
+def _stamp_consent_timestamp_on_grant(row: Any, changes: dict[str, Any], *, was_granted: bool) -> None:
+    """A false -> true consent transition stamps `consent_timestamp`; a
+    revoke leaves the last-grant time in place as evidence."""
+
+    if changes.get("consent_granted") is True and not was_granted:
+        row.consent_timestamp = utcnow()
+
+
 def create_customer_phone(
     db: Session, *, customer: Customer, data: CustomerPhoneCreate, actor_id: uuid.UUID
 ) -> CustomerPhone:
@@ -1188,6 +1244,7 @@ def create_customer_phone(
         is_primary=is_primary,
         created_by=actor_id,
         updated_by=actor_id,
+        **_consent_create_kwargs(data),
     )
     db.add(phone)
     try:
@@ -1210,6 +1267,7 @@ def create_customer_phone(
             "label": phone.label,
             "phoneE164": phone.phone_e164,
             "isPrimary": phone.is_primary,
+            **_consent_snapshot(phone),
         },
     )
     db.commit()
@@ -1221,11 +1279,13 @@ def update_customer_phone(
     db: Session, *, phone: CustomerPhone, data: CustomerPhoneUpdate, actor_id: uuid.UUID
 ) -> CustomerPhone:
     changes = data.model_dump(exclude_unset=True)
+    was_granted = phone.consent_granted
     before = {
         "phoneType": phone.phone_type.value,
         "label": phone.label,
         "phoneE164": phone.phone_e164,
         "isPrimary": phone.is_primary,
+        **_consent_snapshot(phone),
     }
 
     becomes_unusable = (changes.get("valid_to") is not None and phone.valid_to is None) or (
@@ -1247,6 +1307,7 @@ def update_customer_phone(
         setattr(phone, field, value)
     if "phone_e164" in changes:
         phone.phone_normalised = normalise_phone(phone.phone_e164)
+    _stamp_consent_timestamp_on_grant(phone, changes, was_granted=was_granted)
     phone.updated_by = actor_id
 
     try:
@@ -1278,6 +1339,7 @@ def update_customer_phone(
             "label": phone.label,
             "phoneE164": phone.phone_e164,
             "isPrimary": phone.is_primary,
+            **_consent_snapshot(phone),
         },
     )
     db.commit()
@@ -1384,6 +1446,7 @@ def create_customer_email(
         is_primary=is_primary,
         created_by=actor_id,
         updated_by=actor_id,
+        **_consent_create_kwargs(data),
     )
     db.add(email)
     try:
@@ -1406,6 +1469,7 @@ def create_customer_email(
             "label": email.label,
             "emailAddress": email.email_address,
             "isPrimary": email.is_primary,
+            **_consent_snapshot(email),
         },
     )
     db.commit()
@@ -1417,11 +1481,13 @@ def update_customer_email(
     db: Session, *, email: CustomerEmail, data: CustomerEmailUpdate, actor_id: uuid.UUID
 ) -> CustomerEmail:
     changes = data.model_dump(exclude_unset=True)
+    was_granted = email.consent_granted
     before = {
         "emailType": email.email_type.value,
         "label": email.label,
         "emailAddress": email.email_address,
         "isPrimary": email.is_primary,
+        **_consent_snapshot(email),
     }
 
     becomes_unusable = (changes.get("valid_to") is not None and email.valid_to is None) or (
@@ -1441,6 +1507,7 @@ def update_customer_email(
 
     for field, value in changes.items():
         setattr(email, field, value)
+    _stamp_consent_timestamp_on_grant(email, changes, was_granted=was_granted)
     email.updated_by = actor_id
 
     try:
@@ -1470,6 +1537,7 @@ def update_customer_email(
             "label": email.label,
             "emailAddress": email.email_address,
             "isPrimary": email.is_primary,
+            **_consent_snapshot(email),
         },
     )
     db.commit()
@@ -1534,6 +1602,7 @@ def _address_audit_payload(address: CustomerAddress) -> dict[str, Any]:
         "addressCanton": address.address_canton,
         "addressCountry": address.address_country,
         "isPrimary": address.is_primary,
+        **_consent_snapshot(address),
     }
 
 
@@ -1585,6 +1654,7 @@ def create_customer_address(
         is_primary=is_primary,
         created_by=actor_id,
         updated_by=actor_id,
+        **_consent_create_kwargs(data),
     )
     db.add(address)
     db.flush()
@@ -1609,6 +1679,7 @@ def update_customer_address(
     changes = data.model_dump(exclude_unset=True)
     if "address_country" in changes:
         _validate_country_codes(db, {"addressCountry": changes["address_country"]})
+    was_granted = address.consent_granted
     before = _address_audit_payload(address)
 
     # KAN-46: addresses carry no FR-03 "last contact point" floor, but the
@@ -1631,6 +1702,7 @@ def update_customer_address(
         setattr(address, field, value)
     if "address_postal_code" in changes or "address_country" in changes:
         address.address_canton = derive_canton(address.address_postal_code, address.address_country)
+    _stamp_consent_timestamp_on_grant(address, changes, was_granted=was_granted)
     address.updated_by = actor_id
 
     db.flush()

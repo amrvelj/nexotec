@@ -3,6 +3,7 @@ import { Stack, Text } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 import { RepeatableRowGroup } from '@nexotec/ui-kit'
 import { ApiError } from '../../api/client'
+import { translatedConsentScopeOptions, translatedConsentSourceOptions } from '../../customerOptions'
 
 export interface ContactPointRow<TType extends string> {
   id: string
@@ -14,6 +15,7 @@ export interface ContactPointRow<TType extends string> {
   doNotUse?: boolean
   doNotUseReason?: string | null
   consentGranted: boolean
+  consentScope?: string | null
   consentSource?: string | null
   consentTimestamp?: string | null
 }
@@ -30,6 +32,7 @@ export interface ContactPointUpdatePatch<TType extends string> {
   doNotUse?: boolean
   doNotUseReason?: string | null
   consentGranted?: boolean
+  consentScope?: string | null
   consentSource?: string | null
 }
 
@@ -84,6 +87,8 @@ export function ContactPointsEditor<TType extends string>({
         onCreate={(draft) => onCreate({ type: draft.type as TType, value: draft.value })}
         onUpdate={(id, patch) => onUpdate(id, { ...patch, type: patch.type as TType | undefined })}
         onDelete={onDelete}
+        consentScopeOptions={translatedConsentScopeOptions(t)}
+        consentSourceOptions={translatedConsentSourceOptions(t)}
         describeError={(err) => (err instanceof ApiError ? err.message : t('customerDetail.errors.somethingWentWrong'))}
         labels={{
           primary: t('customerDetail.contactPoints.primary'),
@@ -92,6 +97,8 @@ export function ContactPointsEditor<TType extends string>({
           doesNotWorkReasonPlaceholder: t('customerDetail.contactPoints.doesNotWorkReasonPlaceholder'),
           delete: t('customerDetail.contactPoints.delete'),
           consent: t('customerDetail.contactPoints.consent'),
+          consentScope: t('customerDetail.contactPoints.consentScope'),
+          consentSource: t('customerDetail.contactPoints.consentSource'),
           save: t('customerDetail.contactPoints.save'),
           cancel: t('customerDetail.contactPoints.cancel'),
           confirm: t('customerDetail.contactPoints.confirm'),

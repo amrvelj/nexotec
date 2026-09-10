@@ -359,11 +359,31 @@ def test_consent_and_do_not_use_fields_round_trip(client):
     token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     only_email = client.get(f"/v1/customers/{customer['id']}/emails", headers=_bearer(token)).json()["items"][0]
 
+    # FR-23 §1 (KAN-52): consent_source is a closed enum and a grant must
+    # name its scope.
+    assert (
+        client.patch(
+            f"/v1/customers/{customer['id']}/emails/{only_email['id']}",
+            json={"consentGranted": True, "consentSource": "form"},  # no scope
+            headers=_bearer(token),
+        ).status_code
+        == 422
+    )
+    assert (
+        client.patch(
+            f"/v1/customers/{customer['id']}/emails/{only_email['id']}",
+            json={"consentGranted": True, "consentScope": "marketing", "consentSource": "signup-form"},
+            headers=_bearer(token),
+        ).status_code
+        == 422  # free-text source rejected
+    )
+
     response = client.patch(
         f"/v1/customers/{customer['id']}/emails/{only_email['id']}",
         json={
             "consentGranted": True,
-            "consentSource": "signup-form",
+            "consentScope": "marketing",
+            "consentSource": "form",
             "label": "Newsletter address",
         },
         headers=_bearer(token),
@@ -371,7 +391,9 @@ def test_consent_and_do_not_use_fields_round_trip(client):
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["consentGranted"] is True
-    assert body["consentSource"] == "signup-form"
+    assert body["consentScope"] == "marketing"
+    assert body["consentSource"] == "form"
+    assert body["consentTimestamp"] is not None
     assert body["label"] == "Newsletter address"
 
 

@@ -1,4 +1,6 @@
 import type {
+  ConsentScope,
+  ConsentSource,
   CustomerLifecycleStatus,
   CustomerSource,
   CustomerType,
@@ -222,6 +224,27 @@ export function translatedPaymentTermsOptions(t: Translate): { value: PaymentTer
 
 export function translatedPaymentTermsLabel(t: Translate, value: PaymentTerms): string {
   return t(`customerEnums.paymentTerms.${value}`)
+}
+
+// FR-23 §1 (KAN-52) — per-channel consent scope + source, closed enums,
+// stored language-independent.
+const CONSENT_SCOPE_VALUES: ConsentScope[] = ['marketing', 'invoicing', 'service']
+const CONSENT_SOURCE_VALUES: ConsentSource[] = ['form', 'counter', 'web', 'phone']
+
+export function translatedConsentScopeOptions(t: Translate): { value: ConsentScope; label: string }[] {
+  return CONSENT_SCOPE_VALUES.map((value) => ({ value, label: t(`customerEnums.consentScope.${value}`) }))
+}
+
+export function translatedConsentScopeLabel(t: Translate, value: ConsentScope): string {
+  return t(`customerEnums.consentScope.${value}`)
+}
+
+export function translatedConsentSourceOptions(t: Translate): { value: ConsentSource; label: string }[] {
+  return CONSENT_SOURCE_VALUES.map((value) => ({ value, label: t(`customerEnums.consentSource.${value}`) }))
+}
+
+export function translatedConsentSourceLabel(t: Translate, value: ConsentSource): string {
+  return t(`customerEnums.consentSource.${value}`)
 }
 
 export function translatedVehiclePartyRoleLabel(t: Translate, role: 'owner' | 'keeper' | 'driver'): string {
