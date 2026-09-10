@@ -14,6 +14,7 @@ that's Customer's real scoping key.
 
 import datetime as dt
 import uuid
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import func, or_, select
@@ -39,6 +40,7 @@ from app.customer.models.customer import (
     CustomerLifecycleStatus,
     CustomerNumberSequence,
     CustomerPhone,
+    CustomerTag,
     CustomerType,
     EmailType,
     Language,
@@ -60,7 +62,7 @@ from app.customer.schemas.customer import (
     CustomerVehicleCreate,
     CustomerVehicleUpdate,
 )
-from app.platform.public import get_active_reference_value_codes
+from app.platform.public import get_active_reference_value_codes, get_user_or_404, list_active_users
 from app.vehicle.public import get_vehicle_mdm_or_404, vehicle_mdm_catalogue_loader_option
 
 _PII_FIELDS = {
@@ -78,17 +80,39 @@ _PII_FIELDS = {
     "address_locality",
     "address_canton",
     "address_country",
+    # FR-17 (KAN-50). `notes` is PII by default — a note field not treated
+    # as PII is where the compliance problem hides; it is the attach point
+    # for the revDSG export and FR-14 anonymisation once those are built.
+    # `title` and `gender` are personal identity facts; `iban` is a
+    # financial identifier.
+    "title",
+    "gender",
+    "notes",
+    "iban",
 }
 # customer_number and language are audited too: the number because it is
 # the immutable business key printed on documents, language because sending
 # a customer a contract in the wrong language is exactly the kind of change
-# someone later disputes.
+# someone later disputes. The FR-17 commercial-standing and relationship
+# fields (KAN-50) are audited but are not all PII.
 _AUDITED_FIELDS = _PII_FIELDS | {
     "customer_number",
     "language",
     "lifecycle_status",
     "preferred_channel",
+    "website",
+    "newsletter",
+    "payment_terms",
+    "credit_limit",
+    "vat_registered",
+    "advisor_id",
+    "customer_since",
+    "next_follow_up",
+    "dealership_id",
 }
+# tags live in a child table (no `customer.tags` attribute) — audited
+# explicitly by create_customer / update_customer, not via the generic
+# _AUDITED_FIELDS comprehension.
 # Below this many digits a phone fragment matches most of the table, so it is
 # treated as a name search instead.
 _MIN_PHONE_SEARCH_DIGITS = 3
@@ -155,6 +179,11 @@ def _plain(value: Any) -> Any:
     # both. Checked before the ``.value`` branch because neither type has it.
     if isinstance(value, dt.date):
         return value.isoformat()
+    # Decimal (credit_limit) and UUID (advisor_id, dealership_id) are not
+    # JSON-serialisable by the engine's default json.dumps either — same
+    # reasoning as the date branch above.
+    if isinstance(value, (Decimal, uuid.UUID)):
+        return str(value)
     return value.value if hasattr(value, "value") else value
 
 
@@ -179,7 +208,7 @@ def _redact(field: str, value: Any) -> Any:
     return _plain(value)
 
 
-_INDIVIDUAL_ONLY_FIELDS = {"first_name", "last_name", "birth_date", "nationality"}
+_INDIVIDUAL_ONLY_FIELDS = {"first_name", "last_name", "birth_date", "nationality", "title", "gender"}
 _BUSINESS_ONLY_FIELDS = {"company_name", "legal_form", "tax_id"}
 
 # KAN-32: `nationality` and every `address_country` are ISO 3166-1 alpha-2
@@ -221,6 +250,65 @@ def _validate_country_codes(db: Session, values: dict[str, str | None]) -> None:
             "'DE', 'FR').",
             details={"invalid": invalid},
         )
+
+
+def _resolve_advisor_label(db: Session, *, dealership_id: uuid.UUID, user_id: uuid.UUID) -> str:
+    """Resolve a User id to its `First Last` label for the P-2 denormalised
+    `advisor_label` column. Scoped to the acting dealership: users are
+    dealership-owned and there is no group-wide user directory, so "the
+    advisor" is a user of the dealership doing the assignment.
+    """
+
+    try:
+        user = get_user_or_404(db, dealership_id, user_id)
+    except NotFoundError as exc:
+        raise UnprocessableEntityError(
+            "advisorId is not a user of your dealership.", details={"advisorId": str(user_id)}
+        ) from exc
+    return f"{user.first_name} {user.last_name}".strip()
+
+
+def list_advisor_options(db: Session, *, dealership_id: uuid.UUID) -> list[dict[str, Any]]:
+    """Active users of the acting dealership, as advisor-picker options
+    (KAN-50). Same `First Last` label that lands in Customer.advisor_label."""
+
+    return [
+        {"id": user.id, "label": f"{user.first_name} {user.last_name}".strip()}
+        for user in list_active_users(db, dealership_id=dealership_id)
+    ]
+
+
+def _apply_advisor(customer: Customer, *, advisor_id: uuid.UUID | None, label: str | None) -> None:
+    customer.advisor_id = advisor_id
+    customer.advisor_label = label
+    customer.advisor_label_refreshed_at = utcnow() if advisor_id is not None else None
+
+
+def _replace_customer_tags(db: Session, customer: Customer, tags: list[str], *, actor_id: uuid.UUID) -> None:
+    """Reconcile customer_tag rows to exactly `tags` (already normalised by
+    the schema): insert the missing, delete the absent. One local
+    transaction; the caller commits.
+    """
+
+    existing = {row.tag: row for row in db.scalars(select(CustomerTag).where(CustomerTag.customer_id == customer.id)).all()}
+    wanted = set(tags)
+    for tag in wanted - existing.keys():
+        db.add(
+            CustomerTag(
+                group_id=customer.group_id,
+                customer_id=customer.id,
+                tag=tag,
+                created_by=actor_id,
+                updated_by=actor_id,
+            )
+        )
+    for tag, row in existing.items():
+        if tag not in wanted:
+            db.delete(row)
+
+
+def _customer_tags(db: Session, customer_id: uuid.UUID) -> list[str]:
+    return sorted(db.scalars(select(CustomerTag.tag).where(CustomerTag.customer_id == customer_id)).all())
 
 
 def _validate_customer_type_fields_on_update(customer: Customer, changes: dict[str, Any]) -> None:
@@ -531,7 +619,14 @@ def _add_contacts(db: Session, customer: Customer, data: CustomerCreate) -> None
         )
 
 
-def create_customer(db: Session, *, group_id: uuid.UUID, data: CustomerCreate, actor_id: uuid.UUID) -> Customer:
+def create_customer(
+    db: Session,
+    *,
+    group_id: uuid.UUID,
+    data: CustomerCreate,
+    actor_id: uuid.UUID,
+    dealership_id: uuid.UUID,
+) -> Customer:
     _validate_country_codes(
         db,
         {
@@ -552,6 +647,8 @@ def create_customer(db: Session, *, group_id: uuid.UUID, data: CustomerCreate, a
         last_name=data.last_name,
         birth_date=data.birth_date,
         nationality=data.nationality,
+        title=data.title,
+        gender=data.gender,
         company_name=data.company_name,
         legal_form=data.legal_form,
         tax_id=data.tax_id,
@@ -560,12 +657,42 @@ def create_customer(db: Session, *, group_id: uuid.UUID, data: CustomerCreate, a
         source=data.source,
         source_ref=data.source_ref,
         marketing_consent=data.marketing_consent,
+        website=data.website,
+        newsletter=data.newsletter,
+        payment_terms=data.payment_terms,
+        credit_limit=data.credit_limit,
+        iban=data.iban,
+        vat_registered=data.vat_registered,
+        customer_since=data.customer_since,
+        next_follow_up=data.next_follow_up,
+        notes=data.notes,
+        # Provenance only — never a read/write scope (ADR-014). Set once.
+        dealership_id=dealership_id,
         created_by=actor_id,
         updated_by=actor_id,
     )
+
+    # advisorId defaults to the acting user on create (D-24). A bad
+    # explicit id is rejected; a default that cannot be resolved (a
+    # back-office / migration actor who is not a dealership user) leaves the
+    # customer unassigned rather than failing the whole create.
+    advisor_id = data.advisor_id if data.advisor_id is not None else actor_id
+    if advisor_id is not None:
+        try:
+            _apply_advisor(
+                customer,
+                advisor_id=advisor_id,
+                label=_resolve_advisor_label(db, dealership_id=dealership_id, user_id=advisor_id),
+            )
+        except UnprocessableEntityError:
+            if data.advisor_id is not None:
+                raise
+            _apply_advisor(customer, advisor_id=None, label=None)
+
     db.add(customer)
     db.flush()
     _add_contacts(db, customer, data)
+    _replace_customer_tags(db, customer, data.tags, actor_id=actor_id)
     try:
         db.flush()
     except IntegrityError as exc:
@@ -577,6 +704,8 @@ def create_customer(db: Session, *, group_id: uuid.UUID, data: CustomerCreate, a
         # one customer, or a customer_number race.
         raise ConflictError("Customer contact details conflict with an existing record.") from exc
 
+    after = {field: _redact(field, getattr(customer, field)) for field in _AUDITED_FIELDS}
+    after["tags"] = sorted(data.tags)
     record_audit_event(
         db,
         entity_type="customer",
@@ -584,7 +713,7 @@ def create_customer(db: Session, *, group_id: uuid.UUID, data: CustomerCreate, a
         tenant_id=group_id,
         action="create",
         actor_id=actor_id,
-        after={field: _redact(field, getattr(customer, field)) for field in _AUDITED_FIELDS},
+        after=after,
     )
     publish_event(
         db,
@@ -602,7 +731,14 @@ def create_customer(db: Session, *, group_id: uuid.UUID, data: CustomerCreate, a
     return customer
 
 
-def update_customer(db: Session, *, customer: Customer, data: CustomerUpdate, actor_id: uuid.UUID) -> Customer:
+def update_customer(
+    db: Session,
+    *,
+    customer: Customer,
+    data: CustomerUpdate,
+    actor_id: uuid.UUID,
+    dealership_id: uuid.UUID,
+) -> Customer:
     if customer.lifecycle_status in _TERMINAL_LIFECYCLE_STATUSES:
         raise ConflictError(
             f"Customer lifecycle_status '{customer.lifecycle_status.value}' is terminal and cannot be changed"
@@ -617,6 +753,32 @@ def update_customer(db: Session, *, customer: Customer, data: CustomerUpdate, ac
 
     before: dict[str, Any] = {}
     after: dict[str, Any] = {}
+
+    # advisor_id is handled out of the generic loop — it drives two more
+    # denormalised columns and (D-24) is never re-defaulted on update: an
+    # explicit id resolves a fresh label, an explicit null clears all three.
+    if "advisor_id" in changes:
+        new_advisor_id = changes.pop("advisor_id")
+        if customer.advisor_id != new_advisor_id:
+            before["advisor_id"] = _redact("advisor_id", customer.advisor_id)
+            after["advisor_id"] = _redact("advisor_id", new_advisor_id)
+            if new_advisor_id is None:
+                _apply_advisor(customer, advisor_id=None, label=None)
+            else:
+                _apply_advisor(
+                    customer,
+                    advisor_id=new_advisor_id,
+                    label=_resolve_advisor_label(db, dealership_id=dealership_id, user_id=new_advisor_id),
+                )
+
+    # tags live in a child table — full-replace against the normalised set.
+    if "tags" in changes:
+        new_tags = sorted(changes.pop("tags"))
+        current_tags = _customer_tags(db, customer.id)
+        if new_tags != current_tags:
+            before["tags"] = current_tags
+            after["tags"] = new_tags
+            _replace_customer_tags(db, customer, new_tags, actor_id=actor_id)
 
     for field, value in changes.items():
         current = getattr(customer, field)
@@ -835,6 +997,26 @@ def _repoint_external_ids(db: Session, *, duplicate_id: uuid.UUID, target_id: uu
     return repointed, dropped
 
 
+def _repoint_customer_tags(db: Session, *, duplicate_id: uuid.UUID, target_id: uuid.UUID) -> tuple[int, int]:
+    """A tag already on the survivor is dropped from the duplicate rather
+    than colliding on uq_customer_tag_customer_id_tag; the rest move over.
+    """
+
+    target_tags = {
+        row.tag for row in db.scalars(select(CustomerTag).where(CustomerTag.customer_id == target_id)).all()
+    }
+    repointed = dropped = 0
+    for row in db.scalars(select(CustomerTag).where(CustomerTag.customer_id == duplicate_id)).all():
+        if row.tag in target_tags:
+            db.delete(row)
+            dropped += 1
+        else:
+            row.customer_id = target_id
+            target_tags.add(row.tag)
+            repointed += 1
+    return repointed, dropped
+
+
 def merge_customer(
     db: Session, *, customer: Customer, duplicate_of_customer_id: uuid.UUID, actor_id: uuid.UUID
 ) -> Customer:
@@ -886,6 +1068,7 @@ def merge_customer(
     external_ids_repointed, external_ids_dropped = _repoint_external_ids(
         db, duplicate_id=customer.id, target_id=target.id
     )
+    tags_repointed, tags_dropped = _repoint_customer_tags(db, duplicate_id=customer.id, target_id=target.id)
 
     customer.lifecycle_status = CustomerLifecycleStatus.MERGED
     customer.duplicate_of_customer_id = duplicate_of_customer_id
@@ -914,6 +1097,8 @@ def merge_customer(
             "addressesDropped": addresses_dropped,
             "externalIdsRepointed": external_ids_repointed,
             "externalIdsDropped": external_ids_dropped,
+            "tagsRepointed": tags_repointed,
+            "tagsDropped": tags_dropped,
         },
     )
     publish_event(
@@ -1494,6 +1679,7 @@ _EMPTY_PROJECTIONS: dict[str, Any] = {
     "email": None,
     "email_secondary": None,
     "address": None,
+    "tags": [],
 }
 
 
@@ -1585,6 +1771,9 @@ def compute_customer_projections_batch(
             )
         )
     )
+    tags_by_customer: dict[uuid.UUID, list[str]] = {}
+    for row in db.scalars(select(CustomerTag).where(CustomerTag.customer_id.in_(customer_ids))).all():
+        tags_by_customer.setdefault(row.customer_id, []).append(row.tag)
 
     def _primary_of_type(rows: list[Any], type_column: str, type_value: Any) -> Any | None:
         of_type = [r for r in rows if getattr(r, type_column) == type_value]
@@ -1610,6 +1799,7 @@ def compute_customer_projections_batch(
             "email": email_row.email_address if email_row else None,
             "email_secondary": email_secondary_row.email_address if email_secondary_row else None,
             "address": CustomerAddressRead.model_validate(address_domicile) if address_domicile else None,
+            "tags": sorted(tags_by_customer.get(customer_id, [])),
         }
     return result
 

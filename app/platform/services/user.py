@@ -121,6 +121,23 @@ def list_dealer_manager_emails(db: Session, *, dealership_id: uuid.UUID) -> list
     return list(db.scalars(stmt).all())
 
 
+def list_active_users(db: Session, *, dealership_id: uuid.UUID) -> list[User]:
+    """Active users of a dealership, ordered by name — for a picker such as
+    the customer record's advisor field (KAN-50). Deliberately narrower
+    than list_users (no pagination, no role filter, active only): a picker
+    wants the short, current list, and it is reachable through
+    platform.public without the manager-only `dealership_users` read
+    capability list_users sits behind.
+    """
+
+    stmt = (
+        select(User)
+        .where(User.tenant_id == dealership_id, User.status.in_(tuple(_ACTIVE_USER_STATUSES)))
+        .order_by(User.last_name, User.first_name)
+    )
+    return list(db.scalars(stmt).all())
+
+
 def create_user(db: Session, *, dealership_id: uuid.UUID, data: UserCreate, actor_id: uuid.UUID) -> User:
     user = User(
         tenant_id=dealership_id,

@@ -260,6 +260,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/customers/advisor-options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Customer Advisor Options
+         * @description The advisor picker's options (KAN-50 / D-24) — active users of the
+         *     ACTING dealership. Declared before `/customers/{customer_id}` so the
+         *     literal path is matched first. Gated on the `customers` read
+         *     capability, not the manager-only `dealership_users` one: a plain
+         *     advisor must be able to (re)assign a customer's advisor.
+         */
+        get: operations["list_customer_advisor_options_v1_customers_advisor_options_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/customers/duplicate-check": {
         parameters: {
             query?: never;
@@ -3289,6 +3313,26 @@ export interface components {
             validTo?: string | null;
         };
         /**
+         * CustomerAdvisorOption
+         * @description One option for the customer record's advisor picker (KAN-50 / D-24)
+         *     — an active user of the ACTING dealership. `label` is the same
+         *     `First Last` denormalised into `Customer.advisor_label` on assignment.
+         */
+        CustomerAdvisorOption: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Label */
+            label: string;
+        };
+        /** CustomerAdvisorOptionList */
+        CustomerAdvisorOptionList: {
+            /** Items */
+            items: components["schemas"]["CustomerAdvisorOption"][];
+        };
+        /**
          * CustomerCreate
          * @description customer_type is immutable after creation (not settable via
          *     CustomerUpdate below) — gates which of the individual-only
@@ -3302,16 +3346,26 @@ export interface components {
         CustomerCreate: {
             /** Addresses */
             addresses?: components["schemas"]["CustomerAddressCreate"][];
+            /** Advisorid */
+            advisorId?: string | null;
             /** Birthdate */
             birthDate?: string | null;
             /** Companyname */
             companyName?: string | null;
+            /** Creditlimit */
+            creditLimit?: number | string | null;
+            /** Customersince */
+            customerSince?: string | null;
             /** @default individual */
             customerType?: components["schemas"]["CustomerType"];
             /** Emails */
             emails?: components["schemas"]["CustomerEmailCreate"][];
             /** Firstname */
             firstName?: string | null;
+            /** @default unspecified */
+            gender?: components["schemas"]["Gender"];
+            /** Iban */
+            iban?: string | null;
             language: components["schemas"]["Language"];
             /** Lastname */
             lastName?: string | null;
@@ -3325,6 +3379,16 @@ export interface components {
             marketingConsent?: boolean;
             /** Nationality */
             nationality?: string | null;
+            /**
+             * Newsletter
+             * @default false
+             */
+            newsletter?: boolean;
+            /** Nextfollowup */
+            nextFollowUp?: string | null;
+            /** Notes */
+            notes?: string | null;
+            paymentTerms?: components["schemas"]["PaymentTerms"] | null;
             /** Phones */
             phones?: components["schemas"]["CustomerPhoneCreate"][];
             preferredChannel?: components["schemas"]["PreferredChannel"] | null;
@@ -3332,11 +3396,22 @@ export interface components {
             source?: components["schemas"]["CustomerSource"] | null;
             /** Sourceref */
             sourceRef?: string | null;
+            /** Tags */
+            tags?: string[];
             /**
              * Taxid
              * @description Write-only; never returned by read endpoints.
              */
             taxId?: string | null;
+            /** Title */
+            title?: string | null;
+            /**
+             * Vatregistered
+             * @default false
+             */
+            vatRegistered?: boolean;
+            /** Website */
+            website?: string | null;
         };
         /**
          * CustomerCreditBlockRequest
@@ -3632,6 +3707,12 @@ export interface components {
         /** CustomerRead */
         CustomerRead: {
             address?: components["schemas"]["CustomerAddressRead"] | null;
+            /** Advisorid */
+            advisorId: string | null;
+            /** Advisorlabel */
+            advisorLabel: string | null;
+            /** Advisorlabelrefreshedat */
+            advisorLabelRefreshedAt: string | null;
             /** Birthdate */
             birthDate: string | null;
             /** Companyname */
@@ -3649,9 +3730,15 @@ export interface components {
             creditBlockReason: string | null;
             /** Creditblockedat */
             creditBlockedAt: string | null;
+            /** Creditlimit */
+            creditLimit: string | null;
             /** Customernumber */
             customerNumber: string;
+            /** Customersince */
+            customerSince: string | null;
             customerType: components["schemas"]["CustomerType"];
+            /** Dealershipid */
+            dealershipId: string | null;
             /** Duplicateofcustomerid */
             duplicateOfCustomerId: string | null;
             /** Email */
@@ -3660,11 +3747,14 @@ export interface components {
             emailSecondary?: string | null;
             /** Firstname */
             firstName: string | null;
+            gender: components["schemas"]["Gender"];
             /**
              * Groupid
              * Format: uuid
              */
             groupId: string;
+            /** Iban */
+            iban: string | null;
             /**
              * Id
              * Format: uuid
@@ -3679,6 +3769,13 @@ export interface components {
             marketingConsent: boolean;
             /** Nationality */
             nationality: string | null;
+            /** Newsletter */
+            newsletter: boolean;
+            /** Nextfollowup */
+            nextFollowUp: string | null;
+            /** Notes */
+            notes: string | null;
+            paymentTerms: components["schemas"]["PaymentTerms"] | null;
             /** Phonelandline */
             phoneLandline?: string | null;
             /** Phonemobile */
@@ -3690,6 +3787,10 @@ export interface components {
             source: components["schemas"]["CustomerSource"] | null;
             /** Sourceref */
             sourceRef: string | null;
+            /** Tags */
+            tags?: string[];
+            /** Title */
+            title: string | null;
             /**
              * Updatedat
              * Format: date-time
@@ -3697,8 +3798,12 @@ export interface components {
             updatedAt: string;
             /** Updatedby */
             updatedBy: string | null;
+            /** Vatregistered */
+            vatRegistered: boolean;
             /** Version */
             version: number;
+            /** Website */
+            website: string | null;
         };
         /**
          * CustomerSource
@@ -3727,12 +3832,21 @@ export interface components {
          *     to "per type" for phones/emails at the same time addresses joined them).
          */
         CustomerUpdate: {
+            /** Advisorid */
+            advisorId?: string | null;
             /** Birthdate */
             birthDate?: string | null;
             /** Companyname */
             companyName?: string | null;
+            /** Creditlimit */
+            creditLimit?: number | string | null;
+            /** Customersince */
+            customerSince?: string | null;
             /** Firstname */
             firstName?: string | null;
+            gender?: components["schemas"]["Gender"] | null;
+            /** Iban */
+            iban?: string | null;
             language?: components["schemas"]["Language"] | null;
             /** Lastname */
             lastName?: string | null;
@@ -3742,16 +3856,31 @@ export interface components {
             marketingConsent?: boolean | null;
             /** Nationality */
             nationality?: string | null;
+            /** Newsletter */
+            newsletter?: boolean | null;
+            /** Nextfollowup */
+            nextFollowUp?: string | null;
+            /** Notes */
+            notes?: string | null;
+            paymentTerms?: components["schemas"]["PaymentTerms"] | null;
             preferredChannel?: components["schemas"]["PreferredChannel"] | null;
             salutation?: components["schemas"]["Salutation"] | null;
             source?: components["schemas"]["CustomerSource"] | null;
             /** Sourceref */
             sourceRef?: string | null;
+            /** Tags */
+            tags?: string[] | null;
             /**
              * Taxid
              * @description Write-only; never returned by read endpoints.
              */
             taxId?: string | null;
+            /** Title */
+            title?: string | null;
+            /** Vatregistered */
+            vatRegistered?: boolean | null;
+            /** Website */
+            website?: string | null;
         };
         /**
          * CustomerVehicleCreate
@@ -4220,6 +4349,15 @@ export interface components {
          * @enum {string}
          */
         FranchiseType: "franchise" | "independent";
+        /**
+         * Gender
+         * @description FR-17, added 2026-08-21. Distinct from `Salutation` (a form of
+         *     address): `gender` is a segmentation fact and NOTHING infers it — not
+         *     the salutation, not the first name. Correspondence always follows
+         *     `salutation`. Defaults to `unspecified`.
+         * @enum {string}
+         */
+        Gender: "female" | "male" | "other" | "unspecified";
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -4735,6 +4873,15 @@ export interface components {
          * @enum {string}
          */
         PayloadKind: "success" | "error";
+        /**
+         * PaymentTerms
+         * @description FR-17 / FR-18 region 4. The customer's default terms, carried onto
+         *     the invoice by Finance. A per-deal override belongs to the deal, not
+         *     here. Hardcoded, not reference data — a fixed commercial vocabulary,
+         *     same call as `LegalForm`.
+         * @enum {string}
+         */
+        PaymentTerms: "prepayment" | "net_10" | "net_30" | "net_60" | "on_delivery";
         /**
          * PhoneType
          * @description Remapped in WP-3 PR-5 (ADR-067): MOBILE unchanged, PRIVATE->LANDLINE,
@@ -6926,6 +7073,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CustomerRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_customer_advisor_options_v1_customers_advisor_options_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerAdvisorOptionList"];
                 };
             };
             /** @description Validation Error */

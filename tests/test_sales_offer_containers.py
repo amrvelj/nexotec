@@ -24,6 +24,7 @@ def _customer(db_session, group_id):
             emails=[CustomerEmailCreate(email_type="personal", email_address="ursula.vogt@example.ch", is_primary=True)],
         ),
         actor_id=uuid.uuid4(),
+        dealership_id=uuid.uuid4(),
     )
 
 

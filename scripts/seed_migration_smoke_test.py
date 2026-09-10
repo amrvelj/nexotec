@@ -352,14 +352,27 @@ def _customer_has_credit_block_column(db: Session) -> bool:
     return "credit_block" in columns
 
 
+def _customer_has_fr17_fields(db: Session) -> bool:
+    """KAN-50 (Phase B2) added the FR-17 stored fields to customer, three
+    of them NOT NULL (gender/newsletter/vat_registered). Same trap as
+    _customer_has_credit_block_column one PR later — the customer table has
+    existed since WP-3 and already has credit_block on main, so only a
+    column-level check catches this: `gender` is the sentinel.
+    """
+
+    columns = {col["name"] for col in inspect(db.get_bind()).get_columns("customer")}
+    return "gender" in columns
+
+
 def _seed_customer_chain_new_schema(db: Session, *, group_id: uuid.UUID) -> uuid.UUID:
     """This PR's own heads already applied — group_id exists everywhere
     tenant_id used to, so the current ORM classes address the real schema
-    directly. Except WP-8 PR-6's own new customer columns specifically —
-    see _customer_has_credit_block_column.
+    directly. Except WP-8 PR-6's and KAN-50's own new customer columns
+    specifically — see _customer_has_credit_block_column /
+    _customer_has_fr17_fields.
     """
 
-    if _customer_has_credit_block_column(db):
+    if _customer_has_fr17_fields(db):
         customer = Customer(
             group_id=group_id,
             customer_number="K-000001",
@@ -372,13 +385,51 @@ def _seed_customer_chain_new_schema(db: Session, *, group_id: uuid.UUID) -> uuid
         db.add(customer)
         db.flush()
         customer_id = customer.id
+    elif _customer_has_credit_block_column(db):
+        # credit_block is live but KAN-50's FR-17 columns are not — the ORM
+        # Customer class above always sends gender/newsletter/vat_registered
+        # (NOT NULL, Python-side defaults), so a raw insert naming every
+        # column through WP-8's own customer shape, and no further, is the
+        # only way to write a row this PR's migrations haven't reached yet.
+        customer_id = uuid7()
+        db.execute(
+            sa.table(
+                "customer",
+                sa.column("id", GUID()),
+                sa.column("group_id", GUID()),
+                sa.column("customer_number", sa.String()),
+                sa.column("customer_type", sa.String()),
+                sa.column("language", sa.String()),
+                sa.column("first_name", sa.String()),
+                sa.column("last_name", sa.String()),
+                sa.column("lifecycle_status", sa.String()),
+                sa.column("marketing_consent", sa.Boolean()),
+                sa.column("credit_block", sa.Boolean()),
+                sa.column("version", sa.Integer()),
+                sa.column("created_at", sa.DateTime(timezone=True)),
+                sa.column("updated_at", sa.DateTime(timezone=True)),
+            )
+            .insert()
+            .values(
+                id=customer_id,
+                group_id=group_id,
+                customer_number="K-000001",
+                customer_type="INDIVIDUAL",
+                language="DE",
+                first_name="Anna",
+                last_name="Muster",
+                lifecycle_status="PROSPECT",
+                marketing_consent=False,
+                credit_block=False,
+                version=1,
+                created_at=utcnow(),
+                updated_at=utcnow(),
+            )
+        )
+        db.flush()
     else:
-        # credit_block/credit_block_reason/credit_blocked_at aren't live
-        # yet — a raw insert naming every column through WP-3's own
-        # customer shape, and no further, is the only way to write a row
-        # this PR's migrations haven't reached yet (the ORM class above
-        # always sends credit_block, a NOT NULL column with a Python-side
-        # default, so it can't be used here the way it's used above).
+        # Neither credit_block nor KAN-50's columns are live yet — the
+        # WP-3-PR-2 group-scoped shape only.
         customer_id = uuid7()
         db.execute(
             sa.table(

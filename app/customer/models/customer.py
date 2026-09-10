@@ -36,8 +36,9 @@ four ways that are worth reading before touching it:
 import datetime as dt
 import enum
 import uuid
+from decimal import Decimal
 
-from sqlalchemy import Boolean, Date, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import DECIMAL, Boolean, Date, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -86,6 +87,33 @@ class LegalForm(str, enum.Enum):
     VEREIN = "verein"
     GENOSSENSCHAFT = "genossenschaft"
     WEITERE = "weitere"
+
+
+class Gender(str, enum.Enum):
+    """FR-17, added 2026-08-21. Distinct from `Salutation` (a form of
+    address): `gender` is a segmentation fact and NOTHING infers it — not
+    the salutation, not the first name. Correspondence always follows
+    `salutation`. Defaults to `unspecified`.
+    """
+
+    FEMALE = "female"
+    MALE = "male"
+    OTHER = "other"
+    UNSPECIFIED = "unspecified"
+
+
+class PaymentTerms(str, enum.Enum):
+    """FR-17 / FR-18 region 4. The customer's default terms, carried onto
+    the invoice by Finance. A per-deal override belongs to the deal, not
+    here. Hardcoded, not reference data — a fixed commercial vocabulary,
+    same call as `LegalForm`.
+    """
+
+    PREPAYMENT = "prepayment"
+    NET_10 = "net_10"
+    NET_30 = "net_30"
+    NET_60 = "net_60"
+    ON_DELIVERY = "on_delivery"
 
 
 class PreferredChannel(str, enum.Enum):
@@ -208,6 +236,16 @@ class Customer(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     # Individual-only.
     birth_date: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
     nationality: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    # FR-17, individual-only. `title` is an academic/professional title
+    # (Dr., Prof., lic. iur.) and is FREE TEXT, not an enum — the list is
+    # open and a wrong enum forces staff to drop the title rather than
+    # record it. Rendered before the name in the letter opening, after the
+    # salutation. `gender` is segmentation-only and never inferred (see the
+    # Gender docstring); non-null, defaulting to UNSPECIFIED.
+    title: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    gender: Mapped[Gender] = mapped_column(
+        SAEnum(Gender, native_enum=False, length=16), nullable=False, default=Gender.UNSPECIFIED
+    )
     # Business-only. Indexed: without it, business customers were unfindable
     # by name at all (D-06) — the single worst gap Phase B closes.
     company_name: Mapped[str | None] = mapped_column(String(200), nullable=True, index=True)
@@ -271,6 +309,67 @@ class Customer(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     credit_block: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     credit_block_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
     credit_blocked_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+
+    # --- FR-17 / FR-18, ratified 2026-08-21, built in Phase B2 (KAN-50) ---
+    # Contact (both types). `website` is scheme-normalised at the schema
+    # boundary and rendered as a live link on the 360 — NOT business-gated
+    # (D-23, a sole trader is both). `newsletter` is gate 3 of the D-17
+    # three-gate hierarchy (legal basis = marketing_consent; where-exercised
+    # = per-channel consent scope; subscription = this) — a single boolean,
+    # not named lists; the send rule lives in Marketing, not here.
+    website: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    newsletter: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    # Commercial standing (both types) — FR-18 region 4, "on what terms may
+    # I sell to them?". Finance's region. `credit_limit` is ADVISORY in v1:
+    # surfaced, never enforced (enforcement needs an open-balance figure
+    # only Finance holds). `iban` is a payout destination for a refund or a
+    # trade-in, mod-97 validated — never a payment instrument (ADR-037).
+    # `vat_registered` does NOT change the sales document (one gross price,
+    # ADR-057); it is recorded because Finance and Stock's purchase booking
+    # need it.
+    payment_terms: Mapped[PaymentTerms | None] = mapped_column(
+        SAEnum(PaymentTerms, native_enum=False, length=20), nullable=True
+    )
+    credit_limit: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
+    iban: Mapped[str | None] = mapped_column(String(34), nullable=True)
+    vat_registered: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    # Relationship (both types) — FR-18 region 5, "what is our history and
+    # what happens next?".
+    #
+    # advisor_* is the P-2 three-column denormalised-label pattern (id +
+    # label + refresh timestamp, NO cross-context FK), same shape as
+    # vehicle/models/configuration.py's catalogue/vehicle links. The
+    # responsible sales advisor is a platform User; on create it defaults to
+    # the acting user (D-24), but the column stays nullable so "unassigned"
+    # is expressible and the UI can clear it, and the default is never
+    # re-applied on update.
+    advisor_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(), nullable=True, index=True, comment="Owned by the platform context (User). No DB-level FK (P-2)."
+    )
+    advisor_label: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    advisor_label_refreshed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    # When the relationship began — DISTINCT from created_at (when the row
+    # was typed): a migrated customer of twenty years' standing has
+    # yesterday's created_at and must not read as new.
+    customer_since: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
+    # The next planned contact — the one field in this region a human writes
+    # (last_contact_at and service_due are derived, Phase C).
+    next_follow_up: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
+    # Free internal note. PII BY DEFAULT — audit-logged (FR-11, via
+    # _PII_FIELDS in the service), and the attach point for the revDSG
+    # export and FR-14 anonymisation once those are built.
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Provenance — the dealership that CREATED the record, not the owner
+    # (the GROUP owns the customer, ADR-014; group_id above is the tenancy
+    # key). Reporting and provenance only: never scopes a read, never gates
+    # a write, and a customer is never moved between dealerships. Plain GUID
+    # with a comment naming the owner (P-2), no FK.
+    dealership_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(), nullable=True, index=True, comment="Owned by the platform context (Dealership). No DB-level FK."
+    )
 
     @property
     def legacy_address_mirror(self) -> dict[str, str | None] | None:
@@ -442,3 +541,27 @@ class CustomerAddress(ContactChannelMixin, PrimaryKeyMixin, TimestampMixin, Base
     address_locality: Mapped[str] = mapped_column(String(100), nullable=False)
     address_canton: Mapped[str | None] = mapped_column(String(2), nullable=True)
     address_country: Mapped[str] = mapped_column(String(2), nullable=False, default="CH")
+
+
+class CustomerTag(PrimaryKeyMixin, TimestampMixin, Base):
+    """A free per-group label on a customer (FR-17, FR-18 region 5):
+    *Flottenkunde*, *Oldtimer*, *Preisbewusst*. **Deliberately NOT a
+    reference list** — the value of a tag is that a dealership invents it on
+    Tuesday, which is the opposite of ReferenceList's platform-admin-managed,
+    globally-shared model. A child row rather than a JSON/ARRAY column on
+    `customer` so "filterable as one predicate per tag" (ADR-058) is a plain
+    EXISTS on both the Postgres lane of record and the SQLite fast lane.
+
+    group_id is denormalised from Customer.group_id at insert time, same as
+    every other group-scoped child table (a unique constraint cannot be
+    enforced across a join).
+    """
+
+    __tablename__ = "customer_tag"
+    __table_args__ = (UniqueConstraint("customer_id", "tag", name="uq_customer_tag_customer_id_tag"),)
+
+    group_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), nullable=False, index=True, comment="Owned by the platform context (DealerGroup). No DB-level FK."
+    )
+    customer_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("customer.id"), nullable=False, index=True)
+    tag: Mapped[str] = mapped_column(String(60), nullable=False)

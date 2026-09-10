@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Checkbox, Group, Select, SimpleGrid, Stack, Text, TextInput } from '@mantine/core'
+import { Checkbox, Group, Select, SimpleGrid, Stack, TagsInput, Text, Textarea, TextInput } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { InlineEditField, KeyValueRow, OverviewCard, purple, radius, slate, white } from '@nexotec/ui-kit'
@@ -7,15 +7,18 @@ import { BlockingFactsStrip } from './BlockingFactsStrip'
 import {
   LEGAL_FORM_OPTIONS,
   translatedEmailTypeOptions,
+  translatedGenderOptions,
   translatedLanguageOptions,
   translatedLifecycleOptions,
+  translatedPaymentTermsOptions,
   translatedPhoneTypeOptions,
   translatedPreferredChannelOptions,
   translatedSalutationOptions,
   translatedSourceOptions,
 } from '../../customerOptions'
-import { formatDate } from '../../utils/format'
+import { formatCurrencyChf, formatDate } from '../../utils/format'
 import type { CountryOption } from '../../hooks/useCountryOptions'
+import { useAdvisorOptions } from '../../hooks/useAdvisorOptions'
 import { ContactPointsEditor, type ContactPointUpdatePatch } from './ContactPointsEditor'
 import { PhoneInput } from '../PhoneInput'
 import type { CustomerEmailRead, CustomerPhoneRead, CustomerRead, CustomerUpdateInput, EmailType, PhoneType } from '../../api/types'
@@ -161,6 +164,148 @@ function SelectField({
             comboboxProps={{ withinPortal: true }}
           />
         )}
+      />
+    </KeyValueRow>
+  )
+}
+
+/** FR-17 `website` — scheme-normalised server-side, rendered as a live
+ * link (region 3). Click the link's row (not the link) to edit. */
+function WebsiteField({
+  label,
+  value,
+  onSaveField,
+  emptyLabel,
+}: Pick<FieldProps, 'onSaveField' | 'emptyLabel'> & { label: string; value: string | null }) {
+  const [draft, setDraft] = useState(value ?? '')
+  const [editing, setEditing] = useState(false)
+  const commit = () => {
+    setEditing(false)
+    if ((draft.trim() || null) !== (value ?? null)) void onSaveField({ website: draft.trim() || null })
+  }
+  return (
+    <KeyValueRow label={label}>
+      {editing ? (
+        <TextInput
+          autoFocus
+          size="xs"
+          value={draft}
+          onChange={(e) => setDraft(e.currentTarget.value)}
+          onKeyDown={(e) => e.key === 'Enter' && commit()}
+          onBlur={commit}
+        />
+      ) : value ? (
+        <Group gap={6} wrap="nowrap">
+          <a href={value} target="_blank" rel="noreferrer noopener" style={{ color: purple[6] }}>
+            {value}
+          </a>
+          <button type="button" onClick={() => { setDraft(value); setEditing(true) }} style={{ border: 'none', background: 'none', cursor: 'pointer', color: slate[4], fontSize: 12 }}>
+            ✎
+          </button>
+        </Group>
+      ) : (
+        <span onClick={() => { setDraft(''); setEditing(true) }} style={{ cursor: 'pointer', fontStyle: 'italic', color: slate[3] }}>
+          {emptyLabel}
+        </span>
+      )}
+    </KeyValueRow>
+  )
+}
+
+/** FR-18 region 4 `creditLimit` — advisory only. Shown as CHF; edited as a
+ * plain number. */
+function MoneyField({
+  label,
+  value,
+  patchKey,
+  onSaveField,
+  isConflict,
+  onReload,
+  emptyLabel,
+}: FieldProps & { label: string; value: string | null; patchKey: keyof CustomerUpdateInput }) {
+  const asNumber = value != null && value !== '' ? Number(value) : null
+  return (
+    <KeyValueRow label={label}>
+      <InlineEditField
+        value={asNumber != null && !Number.isNaN(asNumber) ? formatCurrencyChf(asNumber) : ''}
+        isEmpty={value == null || value === ''}
+        emptyLabel={emptyLabel}
+        editValue={value ?? ''}
+        onSave={(raw) => onSaveField({ [patchKey]: raw.trim() || null } as Partial<CustomerUpdateInput>)}
+        isConflict={isConflict}
+        onReload={onReload}
+        renderEditor={({ value: v, onChange, onKeyDown, onBlur, autoFocus }) => (
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            value={v}
+            autoFocus={autoFocus}
+            onChange={(e) => onChange(e.currentTarget.value)}
+            onKeyDown={onKeyDown}
+            onBlur={onBlur}
+            style={{ font: 'inherit', border: `1px solid ${slate[3]}`, borderRadius: radius.sm, padding: '2px 6px', width: 120 }}
+          />
+        )}
+      />
+    </KeyValueRow>
+  )
+}
+
+/** FR-17 `notes` — PII by default (audit-logged server-side). Multiline;
+ * commits on blur. */
+function NotesField({
+  label,
+  value,
+  onSaveField,
+  emptyLabel,
+}: Pick<FieldProps, 'onSaveField' | 'emptyLabel'> & { label: string; value: string | null }) {
+  const [draft, setDraft] = useState(value ?? '')
+  const [editing, setEditing] = useState(false)
+  return (
+    <KeyValueRow label={label}>
+      {editing ? (
+        <Textarea
+          autoFocus
+          size="xs"
+          autosize
+          minRows={2}
+          value={draft}
+          onChange={(e) => setDraft(e.currentTarget.value)}
+          onBlur={() => {
+            setEditing(false)
+            if ((draft.trim() || null) !== (value ?? null)) void onSaveField({ notes: draft.trim() || null })
+          }}
+        />
+      ) : (
+        <span
+          onClick={() => {
+            setDraft(value ?? '')
+            setEditing(true)
+          }}
+          style={{ cursor: 'pointer', whiteSpace: 'pre-wrap', fontStyle: value ? undefined : 'italic', color: value ? undefined : slate[3] }}
+        >
+          {value || emptyLabel}
+        </span>
+      )}
+    </KeyValueRow>
+  )
+}
+
+/** FR-17 `tags` — free per-group labels, full-replace on change. Not a
+ * reference list (ADR-058). */
+function TagsField({
+  label,
+  value,
+  onSaveField,
+}: { label: string; value: string[]; onSaveField: FieldProps['onSaveField'] }) {
+  return (
+    <KeyValueRow label={label}>
+      <TagsInput
+        size="xs"
+        value={value}
+        onChange={(next) => void onSaveField({ tags: next })}
+        comboboxProps={{ withinPortal: true }}
       />
     </KeyValueRow>
   )
@@ -321,6 +466,14 @@ export function OverviewTab({
   const { t } = useTranslation()
   const fieldProps: FieldProps = { onSaveField, isConflict, onReload, locale, emptyLabel: t('customerDetail.overview.notSet') }
   const f = t('customerDetail.overview.fields', { returnObjects: true }) as Record<string, string>
+  // KAN-50 / D-24 — active users of the acting dealership, for the advisor
+  // picker. The current advisor's stored label still renders when they are
+  // not in this list (e.g. resolved by another dealership).
+  const { options: advisorOptions } = useAdvisorOptions()
+  const advisorSelectOptions =
+    customer.advisorId && !advisorOptions.some((o) => o.value === customer.advisorId)
+      ? [...advisorOptions, { value: customer.advisorId, label: customer.advisorLabel ?? customer.advisorId }]
+      : advisorOptions
 
   return (
     <Stack gap="md">
@@ -335,6 +488,8 @@ export function OverviewTab({
             <SelectField label={f.salutation} value={customer.salutation} options={translatedSalutationOptions(t)} patchKey="salutation" clearable {...fieldProps} />
             <TextField label={f.firstName} value={customer.firstName} patchKey="firstName" {...fieldProps} />
             <TextField label={f.lastName} value={customer.lastName} patchKey="lastName" {...fieldProps} />
+            {/* FR-17 — free text, rendered after the salutation in the letter opening. */}
+            <TextField label={f.title} value={customer.title} patchKey="title" {...fieldProps} />
             <DateField label={f.dateOfBirth} value={customer.birthDate} patchKey="birthDate" {...fieldProps} />
             {/* KAN-32 — chosen from the `country` reference list, not typed. */}
             <SelectField
@@ -345,6 +500,8 @@ export function OverviewTab({
               clearable
               {...fieldProps}
             />
+            {/* FR-17 — segmentation only, distinct from salutation, never inferred. */}
+            <SelectField label={f.gender} value={customer.gender} options={translatedGenderOptions(t)} patchKey="gender" {...fieldProps} />
           </>
         ) : (
           <>
@@ -377,6 +534,56 @@ export function OverviewTab({
             styles={{ root: { display: 'inline-flex' } }}
           />
         </KeyValueRow>
+      </OverviewCard>
+
+      {/* FR-18 region 4 — "on what terms may I sell to them?". Finance's
+          region. Placed here in FR-18 order (region 4 before region 5); a
+          full re-ordering of this whole tab into FR-18's region sequence
+          is a separate FR-18 conformance task. */}
+      <OverviewCard title={t('customerDetail.overview.cards.commercialStanding')}>
+        <SelectField
+          label={f.paymentTerms}
+          value={customer.paymentTerms}
+          options={translatedPaymentTermsOptions(t)}
+          patchKey="paymentTerms"
+          clearable
+          {...fieldProps}
+        />
+        {/* Advisory only — surfaced, never enforced (FR-18 region 4). */}
+        <MoneyField label={f.creditLimit} value={customer.creditLimit} patchKey="creditLimit" {...fieldProps} />
+        <TextField label={f.iban} value={customer.iban} patchKey="iban" {...fieldProps} />
+        <KeyValueRow label={f.vatRegistered}>
+          <Checkbox
+            checked={customer.vatRegistered}
+            onChange={(e) => void onSaveField({ vatRegistered: e.currentTarget.checked })}
+            styles={{ root: { display: 'inline-flex' } }}
+          />
+        </KeyValueRow>
+      </OverviewCard>
+
+      {/* FR-18 region 5 — "what is our history and what happens next?".
+          `website` is spec-region-3; grouped here pending the tab re-order. */}
+      <OverviewCard title={t('customerDetail.overview.cards.relationship')}>
+        <SelectField
+          label={f.advisor}
+          value={customer.advisorId}
+          options={advisorSelectOptions}
+          patchKey="advisorId"
+          clearable
+          {...fieldProps}
+        />
+        <DateField label={f.customerSince} value={customer.customerSince} patchKey="customerSince" {...fieldProps} />
+        <DateField label={f.nextFollowUp} value={customer.nextFollowUp} patchKey="nextFollowUp" {...fieldProps} />
+        <WebsiteField label={f.website} value={customer.website} onSaveField={onSaveField} emptyLabel={fieldProps.emptyLabel} />
+        <KeyValueRow label={f.newsletter}>
+          <Checkbox
+            checked={customer.newsletter}
+            onChange={(e) => void onSaveField({ newsletter: e.currentTarget.checked })}
+            styles={{ root: { display: 'inline-flex' } }}
+          />
+        </KeyValueRow>
+        <TagsField label={f.tags} value={customer.tags ?? []} onSaveField={onSaveField} />
+        <NotesField label={f.notes} value={customer.notes} onSaveField={onSaveField} emptyLabel={fieldProps.emptyLabel} />
       </OverviewCard>
 
       <OverviewCard title={t('customerDetail.overview.cards.address')}>
