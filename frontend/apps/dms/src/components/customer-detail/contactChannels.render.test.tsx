@@ -104,6 +104,36 @@ describe('contact channels — detail screen (ADR-067)', () => {
     })
   })
 
+  it('the preferred channel moves off the identity card, badges the contact-card header, and marks the primary of its kind (KAN-54)', async () => {
+    installFakeBackend([
+      { match: /^\/customers\/c1$/, handler: () => customer({ id: 'c1', preferredChannel: 'phone' }) },
+      { match: /^\/customers\/c1\/phones$/, handler: () => ({ items: [phone({ id: 'p1', type: 'mobile', value: '+41 79 111 00 00', isPrimary: true })] }) },
+      { match: /^\/customers\/c1\/emails$/, handler: () => ({ items: [] }) },
+      { match: /^\/customers\/c1\/vehicles$/, handler: () => ({ items: [], nextCursor: null }) },
+      { match: /^\/customers\/c1\/external-ids$/, handler: () => ({ items: [], nextCursor: null }) },
+      { match: /^\/customers\/c1\/audit-log$/, handler: () => ({ items: [], nextCursor: null }) },
+      { match: /^\/sales\/(offers|contracts)$/, handler: () => ({ items: [], nextCursor: null }) },
+    ])
+    renderDetail()
+
+    const cardEl = (key: string): HTMLElement => {
+      const title = screen.getAllByText(i18n.t(`customerDetail.overview.cards.${key}`)).find((el) => el.tagName === 'DIV')!
+      return title.parentElement!.parentElement as HTMLElement
+    }
+    await screen.findAllByText(i18n.t('customerDetail.overview.cards.contactPoints'))
+    const contactCard = cardEl('contactPoints')
+
+    // header badge on the contact card (the value also shows in the editor
+    // row below, so at least two occurrences)
+    expect(within(contactCard).getAllByText(i18n.t('customerEnums.preferredChannel.phone')).length).toBeGreaterThan(0)
+    // the editor row lives in the contact card, not the identity card
+    expect(within(cardEl('identity')).queryByText(i18n.t('customerDetail.overview.fields.preferredChannel'))).not.toBeInTheDocument()
+    expect(within(contactCard).getByText(i18n.t('customerDetail.overview.fields.preferredChannel'))).toBeInTheDocument()
+    // the primary mobile is a tel: link and carries the preferred mark
+    expect(within(contactCard).getByRole('link', { name: '+41 79 111 00 00' })).toHaveAttribute('href', 'tel:+41791110000')
+    expect(within(contactCard).getByLabelText(i18n.t('customerDetail.contactPoints.preferredMark'))).toBeInTheDocument()
+  })
+
   it('a bounced address is closed, not deleted — kept behind the "former" toggle with its reason', async () => {
     const user = userEvent.setup()
     installCustomerBackend()
