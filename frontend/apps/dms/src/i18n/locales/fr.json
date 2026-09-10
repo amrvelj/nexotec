@@ -124,6 +124,17 @@
       "net_30": "Net à 30 jours",
       "net_60": "Net à 60 jours",
       "on_delivery": "À la livraison"
+    },
+    "consentScope": {
+      "marketing": "Marketing",
+      "invoicing": "Facturation",
+      "service": "Service"
+    },
+    "consentSource": {
+      "form": "Formulaire",
+      "counter": "Guichet",
+      "web": "Web",
+      "phone": "Téléphone"
     }
   },
   "customersList": {
@@ -297,7 +308,9 @@
       "labelPlaceholder": "Libellé",
       "preferredChannelHeading": "Canal préféré",
       "preferredMark": "Canal préféré",
-      "noPreferred": "Aucun canal préféré"
+      "noPreferred": "Aucun canal préféré",
+      "consentScope": "Portée",
+      "consentSource": "Source"
     },
     "phoneInput": {
       "country": "Pays",

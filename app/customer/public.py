@@ -7,6 +7,7 @@ from app.customer.models.customer import Customer, CustomerLifecycleStatus
 from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.customer.services.customer import (
     allocate_vehicle_party,
+    channel_authorises_marketing,
     get_customer_or_404,
     list_customer_vehicles,
     list_vehicle_parties,
@@ -21,6 +22,7 @@ __all__ = [
     "VehicleParty",
     "VehiclePartyRole",
     "allocate_vehicle_party",
+    "channel_authorises_marketing",
     "get_customer_or_404",
     "has_any_basis_for_group",
     "list_customer_vehicles",

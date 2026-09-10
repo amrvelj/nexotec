@@ -64,6 +64,16 @@ describe('contact channels — detail screen (ADR-067)', () => {
           return row
         },
       },
+      {
+        method: 'PATCH',
+        match: /^\/customers\/c1\/emails\/(.+)$/,
+        handler: (req) => {
+          const id = req.pathname.split('/').pop()!
+          const row = emails.find((e) => e.id === id)!
+          Object.assign(row, req.body as Partial<CustomerEmailRead>)
+          return row
+        },
+      },
     ])
   }
 
@@ -132,6 +142,33 @@ describe('contact channels — detail screen (ADR-067)', () => {
     // the primary mobile is a tel: link and carries the preferred mark
     expect(within(contactCard).getByRole('link', { name: '+41 79 111 00 00' })).toHaveAttribute('href', 'tel:+41791110000')
     expect(within(contactCard).getByLabelText(i18n.t('customerDetail.contactPoints.preferredMark'))).toBeInTheDocument()
+  })
+
+  it('granting consent reveals scope + source selectors and PATCHes the scope (FR-23 §1, KAN-52)', async () => {
+    const user = userEvent.setup()
+    const backend = installCustomerBackend()
+    renderDetail()
+
+    await screen.findByDisplayValue('hans.muster@example.ch')
+    const emailBlock = screen.getByText(i18n.t('customerDetail.contactPoints.emailAddresses')).parentElement as HTMLElement
+
+    // before granting: just the type select
+    expect(within(emailBlock).getAllByRole('combobox')).toHaveLength(1)
+
+    await user.click(within(emailBlock).getByRole('checkbox'))
+    await waitFor(() => {
+      const patch = backend.callsTo(/^\/customers\/c1\/emails\/e-1$/, 'PATCH').at(-1)!.body as Record<string, unknown>
+      expect(patch).toMatchObject({ consentGranted: true, consentScope: 'marketing' })
+    })
+
+    // now the scope + source selectors are shown
+    const combos = within(emailBlock).getAllByRole('combobox')
+    expect(combos).toHaveLength(3)
+    await user.selectOptions(combos[1], i18n.t('customerEnums.consentScope.invoicing'))
+    await waitFor(() => {
+      const patch = backend.callsTo(/^\/customers\/c1\/emails\/e-1$/, 'PATCH').at(-1)!.body as Record<string, unknown>
+      expect(patch).toMatchObject({ consentScope: 'invoicing' })
+    })
   })
 
   it('a bounced address is closed, not deleted — kept behind the "former" toggle with its reason', async () => {

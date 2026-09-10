@@ -629,6 +629,7 @@ export function OverviewTab({
               doNotUse: p.doNotUse,
               doNotUseReason: p.doNotUseReason,
               consentGranted: p.consentGranted,
+              consentScope: p.consentScope,
               consentSource: p.consentSource,
               consentTimestamp: p.consentTimestamp,
             }))}
@@ -652,6 +653,7 @@ export function OverviewTab({
               doNotUse: e.doNotUse,
               doNotUseReason: e.doNotUseReason,
               consentGranted: e.consentGranted,
+              consentScope: e.consentScope,
               consentSource: e.consentSource,
               consentTimestamp: e.consentTimestamp,
             }))}

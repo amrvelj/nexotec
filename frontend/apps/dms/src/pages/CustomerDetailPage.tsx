@@ -272,6 +272,7 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
       doNotUse: patch.doNotUse,
       doNotUseReason: patch.doNotUseReason,
       consentGranted: patch.consentGranted,
+      consentScope: patch.consentScope,
       consentSource: patch.consentSource,
     })
     invalidateContact('phones')
@@ -295,6 +296,7 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
       doNotUse: patch.doNotUse,
       doNotUseReason: patch.doNotUseReason,
       consentGranted: patch.consentGranted,
+      consentScope: patch.consentScope,
       consentSource: patch.consentSource,
     })
     invalidateContact('emails')

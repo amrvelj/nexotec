@@ -15,6 +15,9 @@ export interface RepeatableRowValue {
   doNotUse?: boolean;
   doNotUseReason?: string | null;
   consentGranted: boolean;
+  /** FR-23 §1 — WHAT the consent covers. null == marketing on a row that
+   * predates the scope. */
+  consentScope?: string | null;
   consentSource?: string | null;
   consentTimestamp?: string | null;
 }
@@ -27,7 +30,17 @@ export interface RepeatableRowTypeOption {
 export type RepeatableRowPatch = Partial<
   Pick<
     RepeatableRowValue,
-    "type" | "value" | "label" | "isPrimary" | "validTo" | "doNotUse" | "doNotUseReason" | "consentGranted" | "consentSource" | "consentTimestamp"
+    | "type"
+    | "value"
+    | "label"
+    | "isPrimary"
+    | "validTo"
+    | "doNotUse"
+    | "doNotUseReason"
+    | "consentGranted"
+    | "consentScope"
+    | "consentSource"
+    | "consentTimestamp"
   >
 >;
 
@@ -59,6 +72,8 @@ export interface RepeatableRowGroupProps {
     doesNotWorkReasonPlaceholder?: string;
     delete?: string;
     consent?: string;
+    consentScope?: string;
+    consentSource?: string;
     save?: string;
     cancel?: string;
     confirm?: string;
@@ -66,10 +81,15 @@ export interface RepeatableRowGroupProps {
     genericError?: string;
     labelFieldPlaceholder?: string;
   };
-  /** Recorded on the row when its consent checkbox is checked — this app
-   * has no self-service customer portal, so consent is always captured by
-   * whoever is operating this screen. */
-  consentSourceValue?: string;
+  /** FR-23 §1 — when consent is granted the advisor picks WHAT it covers
+   * (scope) and HOW it was given (source). Pass translated option lists to
+   * turn the consent checkbox into scope + source selectors; omit them and
+   * the checkbox stays a bare granted toggle (older callers). */
+  consentScopeOptions?: RepeatableRowTypeOption[];
+  consentSourceOptions?: RepeatableRowTypeOption[];
+  /** The scope a freshly granted consent starts as — `marketing` unless
+   * overridden, which is the meaning a bare `granted` has always had. */
+  defaultConsentScope?: string;
   /** Turns a thrown `onCreate`/`onUpdate`/`onDelete` error into row-level
    * text — e.g. unwrapping an `ApiError`'s own message. Defaults to the
    * error's own `message`, which is not translated. */
@@ -83,6 +103,8 @@ const DEFAULT_LABELS = {
   doesNotWorkReasonPlaceholder: "Reason (e.g. bounced, disconnected)",
   delete: "Delete",
   consent: "Consent",
+  consentScope: "Scope",
+  consentSource: "Source",
   save: "Save",
   cancel: "Cancel",
   confirm: "Confirm",
@@ -115,7 +137,9 @@ export function RepeatableRowGroup({
   onUpdate,
   onDelete,
   labels,
-  consentSourceValue = "advisor",
+  consentScopeOptions,
+  consentSourceOptions,
+  defaultConsentScope = "marketing",
   describeError,
 }: RepeatableRowGroupProps) {
   const L = { ...DEFAULT_LABELS, ...labels };
@@ -199,18 +223,24 @@ export function RepeatableRowGroup({
     const granted = !row.consentGranted;
     clearRowError(row.id);
     try {
-      await onUpdate(row.id, {
-        consentGranted: granted,
-        consentSource: granted ? consentSourceValue : row.consentSource,
-        // `consentTimestamp` is deliberately NOT sent — neither
-        // CustomerPhoneUpdate nor CustomerEmailUpdate accepts it
-        // (app/customer/schemas/customer.py), and nothing in the service
-        // layer stamps it on a consent change either, so a value sent here
-        // would be silently dropped by Pydantic's default `extra="ignore"`
-        // rather than actually persisted. A real, open backend gap —
-        // flagged here rather than pretended-away on the frontend, which
-        // is out of this package's scope to fix (WP-6c owns presentation).
-      });
+      await onUpdate(
+        row.id,
+        granted
+          // FR-23 §1 — a grant must name its scope; default to `marketing`
+          // (its historical meaning), the advisor refines with the scope
+          // selector. `consentTimestamp` is stamped server-side now.
+          ? { consentGranted: true, consentScope: row.consentScope ?? defaultConsentScope }
+          : { consentGranted: false },
+      );
+    } catch (err) {
+      setRowError(row.id, errorText(err));
+    }
+  };
+
+  const changeConsentField = async (row: RepeatableRowValue, patch: RepeatableRowPatch) => {
+    clearRowError(row.id);
+    try {
+      await onUpdate(row.id, patch);
     } catch (err) {
       setRowError(row.id, errorText(err));
     }
@@ -333,6 +363,44 @@ export function RepeatableRowGroup({
             }}
           />
         </div>
+        {/* FR-23 §1 — a granted consent shows (and edits) WHAT it covers
+            and HOW it was given, on a second line so the main row stays
+            legible. */}
+        {row.consentGranted && consentScopeOptions && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: spacing.xs, marginLeft: showStar ? 19 : 0, marginTop: 2, fontSize: 11, color: slate[5] }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              {L.consentScope}
+              <select
+                value={row.consentScope ?? "marketing"}
+                onChange={(e) => void changeConsentField(row, { consentScope: e.target.value })}
+                style={{ border: `1px solid ${slate[2]}`, borderRadius: radius.sm, padding: "2px 4px", fontSize: 11, background: white }}
+              >
+                {consentScopeOptions.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {consentSourceOptions && (
+              <label style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                {L.consentSource}
+                <select
+                  value={row.consentSource ?? ""}
+                  onChange={(e) => void changeConsentField(row, { consentSource: e.target.value || null })}
+                  style={{ border: `1px solid ${slate[2]}`, borderRadius: radius.sm, padding: "2px 4px", fontSize: 11, background: white }}
+                >
+                  <option value="">—</option>
+                  {consentSourceOptions.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+          </div>
+        )}
         {rowErrors[row.id] && <div style={{ fontSize: 11, color: semantic.destructive.text, marginLeft: showStar ? 19 : 0 }}>{rowErrors[row.id]}</div>}
       </div>
     );

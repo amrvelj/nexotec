@@ -3034,6 +3034,29 @@ export interface components {
             /** Expiresat */
             expiresAt?: string | null;
         };
+        /**
+         * ConsentScope
+         * @description FR-23 §1 (added 2026-09-07) — WHAT a per-channel consent covers.
+         *     ADR-067's "invoices yes, marketing no, at the same address" is exactly
+         *     the case a bare `granted` boolean cannot hold. Marketing selection
+         *     reads `consent_granted && consent_scope == MARKETING`; an
+         *     invoicing-scoped grant never authorises a campaign.
+         *
+         *     NULL on an existing row means `marketing` — that is what the flag has
+         *     meant until now, and inventing a different reading rewrites history. A
+         *     NEW grant must name its scope.
+         * @enum {string}
+         */
+        ConsentScope: "marketing" | "invoicing" | "service";
+        /**
+         * ConsentSource
+         * @description FR-23 §1 — HOW consent was given. A closed enum (was free text): a
+         *     free string cannot be localised (FR-13), cannot be reported on, and
+         *     cannot be evidenced consistently, which is the one thing revDSG asks of
+         *     it.
+         * @enum {string}
+         */
+        ConsentSource: "form" | "counter" | "web" | "phone";
         /** ContractCancelRequest */
         ContractCancelRequest: {
             /** Reason */
@@ -3211,6 +3234,13 @@ export interface components {
             addressStreet: string;
             addressType: components["schemas"]["AddressType"];
             /**
+             * Consentgranted
+             * @default false
+             */
+            consentGranted?: boolean;
+            consentScope?: components["schemas"]["ConsentScope"] | null;
+            consentSource?: components["schemas"]["ConsentSource"] | null;
+            /**
              * Isprimary
              * @default false
              */
@@ -3242,8 +3272,8 @@ export interface components {
             addressType: components["schemas"]["AddressType"];
             /** Consentgranted */
             consentGranted: boolean;
-            /** Consentsource */
-            consentSource: string | null;
+            consentScope: components["schemas"]["ConsentScope"] | null;
+            consentSource: components["schemas"]["ConsentSource"] | null;
             /** Consenttimestamp */
             consentTimestamp: string | null;
             /**
@@ -3299,8 +3329,8 @@ export interface components {
             addressType?: components["schemas"]["AddressType"] | null;
             /** Consentgranted */
             consentGranted?: boolean | null;
-            /** Consentsource */
-            consentSource?: string | null;
+            consentScope?: components["schemas"]["ConsentScope"] | null;
+            consentSource?: components["schemas"]["ConsentSource"] | null;
             /** Donotuse */
             doNotUse?: boolean | null;
             /** Donotusereason */
@@ -3464,6 +3494,13 @@ export interface components {
         /** CustomerEmailCreate */
         CustomerEmailCreate: {
             /**
+             * Consentgranted
+             * @default false
+             */
+            consentGranted?: boolean;
+            consentScope?: components["schemas"]["ConsentScope"] | null;
+            consentSource?: components["schemas"]["ConsentSource"] | null;
+            /**
              * Emailaddress
              * Format: email
              */
@@ -3486,8 +3523,8 @@ export interface components {
         CustomerEmailRead: {
             /** Consentgranted */
             consentGranted: boolean;
-            /** Consentsource */
-            consentSource: string | null;
+            consentScope: components["schemas"]["ConsentScope"] | null;
+            consentSource: components["schemas"]["ConsentSource"] | null;
             /** Consenttimestamp */
             consentTimestamp: string | null;
             /**
@@ -3533,8 +3570,8 @@ export interface components {
         CustomerEmailUpdate: {
             /** Consentgranted */
             consentGranted?: boolean | null;
-            /** Consentsource */
-            consentSource?: string | null;
+            consentScope?: components["schemas"]["ConsentScope"] | null;
+            consentSource?: components["schemas"]["ConsentSource"] | null;
             /** Donotuse */
             doNotUse?: boolean | null;
             /** Donotusereason */
@@ -3622,6 +3659,13 @@ export interface components {
         /** CustomerPhoneCreate */
         CustomerPhoneCreate: {
             /**
+             * Consentgranted
+             * @default false
+             */
+            consentGranted?: boolean;
+            consentScope?: components["schemas"]["ConsentScope"] | null;
+            consentSource?: components["schemas"]["ConsentSource"] | null;
+            /**
              * Isprimary
              * @default false
              */
@@ -3641,8 +3685,8 @@ export interface components {
         CustomerPhoneRead: {
             /** Consentgranted */
             consentGranted: boolean;
-            /** Consentsource */
-            consentSource: string | null;
+            consentScope: components["schemas"]["ConsentScope"] | null;
+            consentSource: components["schemas"]["ConsentSource"] | null;
             /** Consenttimestamp */
             consentTimestamp: string | null;
             /**
@@ -3688,8 +3732,8 @@ export interface components {
         CustomerPhoneUpdate: {
             /** Consentgranted */
             consentGranted?: boolean | null;
-            /** Consentsource */
-            consentSource?: string | null;
+            consentScope?: components["schemas"]["ConsentScope"] | null;
+            consentSource?: components["schemas"]["ConsentSource"] | null;
             /** Donotuse */
             doNotUse?: boolean | null;
             /** Donotusereason */
