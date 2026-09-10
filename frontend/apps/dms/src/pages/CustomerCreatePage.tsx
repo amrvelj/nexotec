@@ -1,26 +1,27 @@
-import { Container, Stack, Title } from '@mantine/core'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useSetBreadcrumb } from '@nexotec/ui-kit'
-import { CustomerCreateFlow } from '../components/CustomerCreateFlow'
+import { CustomerCreateDialog } from '../components/CustomerCreateDialog'
 
-// Page-level chrome only — all wizard state, validation, and the create
-// call itself live in CustomerCreateFlow so the same component can be
-// embedded elsewhere (e.g. a future "new customer" step inside an Offer
-// flow) without dragging this page's layout along with it.
+/**
+ * `/customers/new` — a real route so a pasted or bookmarked link and a
+ * browser refresh both land somewhere, following the ValuationCreatePage
+ * shape. It renders nothing of its own: the create surface is a dialog
+ * (FR-05 / FR-20), and closing or cancelling returns to the list. The
+ * common entry point is the "New customer" button on the list, which
+ * opens the same dialog in place without navigating.
+ */
 export function CustomerCreatePage() {
-  useSetBreadcrumb(['Master Data', 'Customers', 'New customer'])
+  const { t } = useTranslation()
   const navigate = useNavigate()
+  useSetBreadcrumb([t('shell.nav.masterData'), t('shell.nav.customers'), t('customerCreate.title')])
 
   return (
-    <Container py="xl" size="sm">
-      <Stack gap="xl">
-        <Title order={2}>New customer</Title>
-        <CustomerCreateFlow
-          onSuccess={(customer) => navigate(`/customers/${customer.id}`)}
-          onCancel={() => navigate('/customers')}
-          onOpenExisting={(customerId) => navigate(`/customers/${customerId}`)}
-        />
-      </Stack>
-    </Container>
+    <CustomerCreateDialog
+      opened
+      onClose={() => navigate('/customers')}
+      onCreated={(customer) => navigate(`/customers/${customer.id}`)}
+      onOpenExisting={(customerId) => navigate(`/customers/${customerId}`)}
+    />
   )
 }

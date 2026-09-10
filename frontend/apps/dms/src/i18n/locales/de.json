@@ -56,9 +56,68 @@
     "loading": "Lädt…"
   },
   "customerCreate": {
+    "title": "Neuer Kunde",
+    "steps": {
+      "type": "Typ",
+      "details": "Details"
+    },
+    "actions": {
+      "next": "Weiter",
+      "back": "Zurück",
+      "cancel": "Abbrechen",
+      "submit": "Kunde erstellen"
+    },
+    "type": {
+      "individual": {
+        "label": "Privatperson",
+        "description": "Eine Privatperson — Name, Geburtsdatum, Nationalität."
+      },
+      "business": {
+        "label": "Firma",
+        "description": "Eine Firma — Firmenname, Rechtsform, UID."
+      }
+    },
     "fields": {
+      "correspondenceLanguage": "Korrespondenzsprache",
+      "salutation": "Anrede",
+      "firstName": "Vorname",
+      "lastName": "Nachname",
+      "birthDate": "Geburtsdatum",
       "nationality": "Nationalität",
-      "country": "Land"
+      "companyName": "Firmenname",
+      "legalForm": "Rechtsform",
+      "uid": "UID",
+      "preferredChannel": "Bevorzugter Kanal",
+      "lifecycleStatus": "Lebenszyklusstatus",
+      "source": "Quelle",
+      "hasAddress": "Adresse hinzufügen",
+      "street": "Strasse",
+      "houseNumber": "Hausnr.",
+      "line2": "Adresszusatz (c/o, Postfach, …)",
+      "postalCode": "PLZ",
+      "locality": "Ort",
+      "country": "Land",
+      "marketingConsent": "Marketing-Einwilligung"
+    },
+    "descriptions": {
+      "correspondenceLanguage": "Die Sprache, in der die Dokumente und Briefe dieses Kunden verfasst werden."
+    },
+    "placeholders": {
+      "uid": "CHE-123.456.789"
+    },
+    "duplicates": {
+      "heading_one": "Möglicher bestehender Kunde",
+      "heading_other": "{{count}} mögliche bestehende Kunden",
+      "exactMatch": "Exakte Übereinstimmung",
+      "openInstead": "Stattdessen öffnen"
+    },
+    "validation": {
+      "individualNameRequired": "Geben Sie Vor- und Nachnamen der Privatperson ein.",
+      "companyNameRequired": "Geben Sie den Namen der Firma ein.",
+      "contactPointRequired": "Fügen Sie mindestens eine Telefonnummer oder E-Mail-Adresse hinzu."
+    },
+    "errors": {
+      "createFailed": "Der Kunde konnte nicht erstellt werden. Prüfen Sie das Formular und versuchen Sie es erneut."
     }
   },
   "customerEnums": {

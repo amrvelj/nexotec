@@ -192,7 +192,7 @@ describe('contact channels — create dialog (same RepeatableRowGroup, ADR-067)'
   async function openCreateFlowAtStep2(user: ReturnType<typeof userEvent.setup>) {
     installFakeBackend([{ match: /^\/customers\/duplicate-check$/, handler: () => ({ items: [], nextCursor: null }) }])
     renderWithProviders(<CustomerCreateFlow onSuccess={() => {}} onCancel={() => {}} />)
-    await user.click(screen.getByRole('button', { name: 'Next' }))
+    await user.click(screen.getByRole('button', { name: i18n.t('customerCreate.actions.next') }))
     await screen.findByText(i18n.t('customerDetail.contactPoints.phoneNumbers'))
   }
 

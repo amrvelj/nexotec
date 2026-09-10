@@ -56,9 +56,68 @@
     "loading": "Caricamento…"
   },
   "customerCreate": {
+    "title": "Nuovo cliente",
+    "steps": {
+      "type": "Tipo",
+      "details": "Dettagli"
+    },
+    "actions": {
+      "next": "Avanti",
+      "back": "Indietro",
+      "cancel": "Annulla",
+      "submit": "Crea cliente"
+    },
+    "type": {
+      "individual": {
+        "label": "Privato",
+        "description": "Una persona privata — nome, data di nascita, nazionalità."
+      },
+      "business": {
+        "label": "Azienda",
+        "description": "Un'azienda — ragione sociale, forma giuridica, UID."
+      }
+    },
     "fields": {
+      "correspondenceLanguage": "Lingua di corrispondenza",
+      "salutation": "Formula di cortesia",
+      "firstName": "Nome",
+      "lastName": "Cognome",
+      "birthDate": "Data di nascita",
       "nationality": "Nazionalità",
-      "country": "Paese"
+      "companyName": "Ragione sociale",
+      "legalForm": "Forma giuridica",
+      "uid": "UID",
+      "preferredChannel": "Canale preferito",
+      "lifecycleStatus": "Stato del ciclo di vita",
+      "source": "Origine",
+      "hasAddress": "Aggiungi un indirizzo",
+      "street": "Via",
+      "houseNumber": "N.",
+      "line2": "Complemento indirizzo (c/o, casella postale, …)",
+      "postalCode": "CAP",
+      "locality": "Località",
+      "country": "Paese",
+      "marketingConsent": "Consenso marketing"
+    },
+    "descriptions": {
+      "correspondenceLanguage": "La lingua in cui vengono redatti i documenti e le lettere di questo cliente."
+    },
+    "placeholders": {
+      "uid": "CHE-123.456.789"
+    },
+    "duplicates": {
+      "heading_one": "Possibile cliente esistente",
+      "heading_other": "{{count}} possibili clienti esistenti",
+      "exactMatch": "Corrispondenza esatta",
+      "openInstead": "Apri invece"
+    },
+    "validation": {
+      "individualNameRequired": "Inserisci un nome e un cognome per un cliente privato.",
+      "companyNameRequired": "Inserisci una ragione sociale per un cliente aziendale.",
+      "contactPointRequired": "Aggiungi almeno un numero di telefono o un indirizzo e-mail."
+    },
+    "errors": {
+      "createFailed": "Impossibile creare il cliente. Controlla il modulo e riprova."
     }
   },
   "customerEnums": {

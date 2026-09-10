@@ -6,7 +6,7 @@ import { useDebouncedValue } from '@mantine/hooks'
 import { useTranslation } from 'react-i18next'
 import { OverviewCard, Picker, SalesStatusBadge, StickyActionFooter, useOverlay, useSetBreadcrumb, type PickerRow } from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
-import { CustomerCreateFlow } from '../components/CustomerCreateFlow'
+import { CustomerCreateDialog } from '../components/CustomerCreateDialog'
 import { OfferAccessoriesAndOptions } from '../components/OfferAccessoriesAndOptions'
 import { OfferGenerateReviewModal } from '../components/OfferGenerateReviewModal'
 import { PriceBuildUp } from '../components/PriceBuildUp'
@@ -397,15 +397,14 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
         />
       </Modal>
 
-      <Modal opened={customerCreateOpen} onClose={() => setCustomerCreateOpen(false)} title={t('offerWorkspace.customer.createNew')} size="lg">
-        <CustomerCreateFlow
-          onSuccess={(customer) => {
-            patchOffer({ customerId: customer.id })
-            setCustomerCreateOpen(false)
-          }}
-          onCancel={() => setCustomerCreateOpen(false)}
-        />
-      </Modal>
+      <CustomerCreateDialog
+        opened={customerCreateOpen}
+        onClose={() => setCustomerCreateOpen(false)}
+        onCreated={(customer) => {
+          patchOffer({ customerId: customer.id })
+          setCustomerCreateOpen(false)
+        }}
+      />
     </Stack>
   )
 }

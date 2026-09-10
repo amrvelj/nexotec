@@ -17,13 +17,14 @@ import { api, ApiError } from '../api/client'
 import {
   LANGUAGE_OPTIONS,
   LEGAL_FORM_OPTIONS,
-  LIFECYCLE_OPTIONS,
-  PREFERRED_CHANNEL_OPTIONS,
-  SALUTATION_OPTIONS,
-  SOURCE_OPTIONS,
   translatedEmailTypeOptions,
+  translatedLifecycleOptions,
   translatedPhoneTypeOptions,
+  translatedPreferredChannelOptions,
+  translatedSalutationOptions,
+  translatedSourceOptions,
 } from '../customerOptions'
+import { SUPPORTED_LANGUAGES } from '../i18n'
 import { DuplicateWarningPanel } from './DuplicateWarningPanel'
 import { PhoneInput } from './PhoneInput'
 import { useCountryOptions } from '../hooks/useCountryOptions'
@@ -42,11 +43,6 @@ import type {
   PreferredChannel,
   Salutation,
 } from '../api/types'
-
-const STEPS: WizardStep[] = [
-  { id: 'type', label: 'Type' },
-  { id: 'details', label: 'Details' },
-]
 
 interface FormValues {
   language: Language
@@ -123,7 +119,11 @@ export interface CustomerCreateFlowProps {
  * with zero duplication of the two-step logic, validation, or the API call.
  */
 export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType, onOpenExisting }: CustomerCreateFlowProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const steps: WizardStep[] = [
+    { id: 'type', label: t('customerCreate.steps.type') },
+    { id: 'details', label: t('customerCreate.steps.details') },
+  ]
   const [step, setStep] = useState(initialCustomerType ? 1 : 0)
   const [customerType, setCustomerType] = useState<CustomerType>(initialCustomerType ?? 'individual')
   // § ADR-067 — the same RepeatableRowGroup the detail screen uses, in
@@ -146,7 +146,16 @@ export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType, o
   // them into one customer instead of creating duplicates.
   const idempotencyKey = useRef(crypto.randomUUID())
 
-  const form = useForm<FormValues>({ initialValues: EMPTY_VALUES })
+  // FR-03 / FR-13: correspondence language is a CUSTOMER field, but it
+  // pre-fills from the acting user's current UI language (and stays freely
+  // overridable). It is never bound to i18n.language after this initial seed.
+  // Take the base subtag so a region-tagged UI language ("fr-CH") still seeds
+  // "fr" rather than silently falling back to "de".
+  const uiBaseLanguage = i18n.language.split('-')[0]
+  const initialLanguage: Language = (SUPPORTED_LANGUAGES as readonly string[]).includes(uiBaseLanguage)
+    ? (uiBaseLanguage as Language)
+    : 'de'
+  const form = useForm<FormValues>({ initialValues: { ...EMPTY_VALUES, language: initialLanguage } })
   const { options: countryOptions } = useCountryOptions()
 
   // FR-04: "While the user types name, email or phone in the create form,
@@ -196,16 +205,16 @@ export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType, o
     setError(null)
 
     if (customerType === 'individual' && (!values.firstName.trim() || !values.lastName.trim())) {
-      setError('First name and last name are required for an individual customer.')
+      setError(t('customerCreate.validation.individualNameRequired'))
       return
     }
     if (customerType === 'business' && !values.companyName.trim()) {
-      setError('Company name is required for a business customer.')
+      setError(t('customerCreate.validation.companyNameRequired'))
       return
     }
     const hasContactPoint = phones.some((p) => p.value) || emails.some((e) => e.value)
     if (!hasContactPoint) {
-      setError('At least one phone number or email address is required.')
+      setError(t('customerCreate.validation.contactPointRequired'))
       return
     }
 
@@ -248,7 +257,7 @@ export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType, o
       const created = await api.post<CustomerRead>('/customers', payload, { 'Idempotency-Key': idempotencyKey.current })
       onSuccess(created)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to create customer.')
+      setError(err instanceof ApiError ? err.message : t('customerCreate.errors.createFailed'))
     } finally {
       setSubmitting(false)
     }
@@ -256,12 +265,15 @@ export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType, o
 
   return (
     <Wizard
-      steps={STEPS}
+      steps={steps}
       activeIndex={step}
       onBack={() => setStep(0)}
       onNext={handleNext}
       onCancel={onCancel}
-      submitLabel="Create customer"
+      nextLabel={t('customerCreate.actions.next')}
+      backLabel={t('customerCreate.actions.back')}
+      cancelLabel={t('customerCreate.actions.cancel')}
+      submitLabel={t('customerCreate.actions.submit')}
       submitting={submitting}
       error={error}
     >
@@ -269,15 +281,15 @@ export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType, o
         <SimpleGrid cols={2} spacing="md">
           <TypeOption
             icon={<User size={18} />}
-            label="Individual"
-            description="A private person — name, date of birth, nationality."
+            label={t('customerCreate.type.individual.label')}
+            description={t('customerCreate.type.individual.description')}
             selected={customerType === 'individual'}
             onClick={() => setCustomerType('individual')}
           />
           <TypeOption
             icon={<Building2 size={18} />}
-            label="Business"
-            description="A company — legal name, legal form, UID."
+            label={t('customerCreate.type.business.label')}
+            description={t('customerCreate.type.business.description')}
             selected={customerType === 'business'}
             onClick={() => setCustomerType('business')}
           />
@@ -285,8 +297,8 @@ export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType, o
       ) : (
         <Stack gap="sm">
           <Select
-            label="Correspondence language"
-            description="How this customer's documents and letters are written."
+            label={t('customerCreate.fields.correspondenceLanguage')}
+            description={t('customerCreate.descriptions.correspondenceLanguage')}
             data={LANGUAGE_OPTIONS}
             allowDeselect={false}
             required
@@ -294,15 +306,14 @@ export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType, o
           />
           {customerType === 'individual' ? (
             <>
-              <Select label="Salutation" data={SALUTATION_OPTIONS} clearable {...form.getInputProps('salutation')} />
+              <Select label={t('customerCreate.fields.salutation')} data={translatedSalutationOptions(t)} clearable {...form.getInputProps('salutation')} />
               <Group grow>
-                <TextInput label="First name" required {...form.getInputProps('firstName')} />
-                <TextInput label="Last name" required {...form.getInputProps('lastName')} />
+                <TextInput label={t('customerCreate.fields.firstName')} required {...form.getInputProps('firstName')} />
+                <TextInput label={t('customerCreate.fields.lastName')} required {...form.getInputProps('lastName')} />
               </Group>
               <Group grow>
-                <TextInput label="Date of birth" type="date" {...form.getInputProps('birthDate')} />
-                {/* KAN-32 — chosen from the `country` reference list, not typed;
-                    label via t() ahead of KAN-48's customerCreate namespace. */}
+                <TextInput label={t('customerCreate.fields.birthDate')} type="date" {...form.getInputProps('birthDate')} />
+                {/* KAN-32 — chosen from the `country` reference list, not typed. */}
                 <Select
                   label={t('customerCreate.fields.nationality')}
                   data={countryOptions}
@@ -315,10 +326,14 @@ export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType, o
             </>
           ) : (
             <>
-              <TextInput label="Company name" required {...form.getInputProps('companyName')} />
+              <TextInput label={t('customerCreate.fields.companyName')} required {...form.getInputProps('companyName')} />
               <Group grow>
-                <Select label="Legal form" data={LEGAL_FORM_OPTIONS} clearable {...form.getInputProps('legalForm')} />
-                <TextInput label="UID" placeholder="CHE-123.456.789" {...form.getInputProps('taxId')} />
+                {/* legalForm option labels are not localised — the same
+                    carve-out the detail screen and the grid use
+                    (customerOptions.ts). Revisiting it (a customerEnums.legalForm
+                    bundle) is a separate reference-data ticket. */}
+                <Select label={t('customerCreate.fields.legalForm')} data={LEGAL_FORM_OPTIONS} clearable {...form.getInputProps('legalForm')} />
+                <TextInput label={t('customerCreate.fields.uid')} placeholder={t('customerCreate.placeholders.uid')} {...form.getInputProps('taxId')} />
               </Group>
             </>
           )}
@@ -350,20 +365,20 @@ export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType, o
 
           {onOpenExisting && <DuplicateWarningPanel candidates={duplicates} onOpenExisting={onOpenExisting} />}
 
-          <Select label="Preferred contact channel" data={PREFERRED_CHANNEL_OPTIONS} clearable {...form.getInputProps('preferredChannel')} />
-          <Select label="Lifecycle status" data={LIFECYCLE_OPTIONS} {...form.getInputProps('lifecycleStatus')} />
-          <Select label="Source" data={SOURCE_OPTIONS} clearable {...form.getInputProps('source')} />
-          <Checkbox label="Has address" {...form.getInputProps('hasAddress', { type: 'checkbox' })} />
+          <Select label={t('customerCreate.fields.preferredChannel')} data={translatedPreferredChannelOptions(t)} clearable {...form.getInputProps('preferredChannel')} />
+          <Select label={t('customerCreate.fields.lifecycleStatus')} data={translatedLifecycleOptions(t)} {...form.getInputProps('lifecycleStatus')} />
+          <Select label={t('customerCreate.fields.source')} data={translatedSourceOptions(t)} clearable {...form.getInputProps('source')} />
+          <Checkbox label={t('customerCreate.fields.hasAddress')} {...form.getInputProps('hasAddress', { type: 'checkbox' })} />
           {form.values.hasAddress && (
             <Stack gap="sm">
               <Group grow>
-                <TextInput label="Street" {...form.getInputProps('street')} />
-                <TextInput label="House number" {...form.getInputProps('houseNumber')} />
+                <TextInput label={t('customerCreate.fields.street')} {...form.getInputProps('street')} />
+                <TextInput label={t('customerCreate.fields.houseNumber')} {...form.getInputProps('houseNumber')} />
               </Group>
-              <TextInput label="Address line 2 (c/o, PO box, ...)" {...form.getInputProps('line2')} />
+              <TextInput label={t('customerCreate.fields.line2')} {...form.getInputProps('line2')} />
               <Group grow>
-                <TextInput label="Postal code" {...form.getInputProps('postalCode')} />
-                <TextInput label="Locality" {...form.getInputProps('locality')} />
+                <TextInput label={t('customerCreate.fields.postalCode')} {...form.getInputProps('postalCode')} />
+                <TextInput label={t('customerCreate.fields.locality')} {...form.getInputProps('locality')} />
               </Group>
               <Select
                 label={t('customerCreate.fields.country')}
@@ -375,7 +390,7 @@ export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType, o
               />
             </Stack>
           )}
-          <Checkbox label="Marketing consent" {...form.getInputProps('marketingConsent', { type: 'checkbox' })} />
+          <Checkbox label={t('customerCreate.fields.marketingConsent')} {...form.getInputProps('marketingConsent', { type: 'checkbox' })} />
         </Stack>
       )}
     </Wizard>

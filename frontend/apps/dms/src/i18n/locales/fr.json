@@ -56,9 +56,68 @@
     "loading": "Chargement…"
   },
   "customerCreate": {
+    "title": "Nouveau client",
+    "steps": {
+      "type": "Type",
+      "details": "Détails"
+    },
+    "actions": {
+      "next": "Suivant",
+      "back": "Précédent",
+      "cancel": "Annuler",
+      "submit": "Créer le client"
+    },
+    "type": {
+      "individual": {
+        "label": "Particulier",
+        "description": "Un particulier — nom, date de naissance, nationalité."
+      },
+      "business": {
+        "label": "Entreprise",
+        "description": "Une entreprise — raison sociale, forme juridique, UID."
+      }
+    },
     "fields": {
+      "correspondenceLanguage": "Langue de correspondance",
+      "salutation": "Civilité",
+      "firstName": "Prénom",
+      "lastName": "Nom",
+      "birthDate": "Date de naissance",
       "nationality": "Nationalité",
-      "country": "Pays"
+      "companyName": "Raison sociale",
+      "legalForm": "Forme juridique",
+      "uid": "UID",
+      "preferredChannel": "Canal préféré",
+      "lifecycleStatus": "Statut du cycle de vie",
+      "source": "Source",
+      "hasAddress": "Ajouter une adresse",
+      "street": "Rue",
+      "houseNumber": "N°",
+      "line2": "Complément d'adresse (c/o, case postale, …)",
+      "postalCode": "NPA",
+      "locality": "Localité",
+      "country": "Pays",
+      "marketingConsent": "Consentement marketing"
+    },
+    "descriptions": {
+      "correspondenceLanguage": "La langue dans laquelle les documents et courriers de ce client sont rédigés."
+    },
+    "placeholders": {
+      "uid": "CHE-123.456.789"
+    },
+    "duplicates": {
+      "heading_one": "Client potentiellement existant",
+      "heading_other": "{{count}} clients potentiellement existants",
+      "exactMatch": "Correspondance exacte",
+      "openInstead": "Ouvrir à la place"
+    },
+    "validation": {
+      "individualNameRequired": "Saisissez un prénom et un nom pour un client particulier.",
+      "companyNameRequired": "Saisissez une raison sociale pour un client entreprise.",
+      "contactPointRequired": "Ajoutez au moins un numéro de téléphone ou une adresse e-mail."
+    },
+    "errors": {
+      "createFailed": "Le client n'a pas pu être créé. Vérifiez le formulaire et réessayez."
     }
   },
   "customerEnums": {

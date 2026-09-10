@@ -35,6 +35,7 @@ import { useCountryOptions } from '../hooks/useCountryOptions'
 import { api } from '../api/client'
 import { buildCustomerRowMenu } from '../components/customerRowMenu'
 import { CreditBlockDialog } from '../components/customer-detail/CreditBlockDialog'
+import { CustomerCreateDialog } from '../components/CustomerCreateDialog'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
 import {
   CANTON_OPTIONS,
@@ -190,6 +191,10 @@ export function CustomersListPage() {
   // KAN-44 — the credit-block set/clear form is reachable from the shared
   // row menu on this surface too (ADR-061), not only the detail screen.
   const [blockDialogCustomer, setBlockDialogCustomer] = useState<CustomerRead | null>(null)
+  // FR-05 / FR-20 — creating a customer opens the shared dialog over the
+  // list, not a navigation. `/customers/new` renders the same dialog for a
+  // pasted link (App.tsx → CustomerCreatePage).
+  const [createOpen, setCreateOpen] = useState(false)
   const queryClient = useQueryClient()
 
   const columns: GridColumnDef<CustomerRead>[] = useMemo(() => {
@@ -525,9 +530,7 @@ export function CustomersListPage() {
     <Stack gap="md">
       <Group justify="space-between">
         <Title order={2}>{t('customersList.title')}</Title>
-        <Button component={Link} to="/customers/new">
-          {t('customersList.newCustomer')}
-        </Button>
+        <Button onClick={() => setCreateOpen(true)}>{t('customersList.newCustomer')}</Button>
       </Group>
 
       <OverviewShellRegion
@@ -642,11 +645,7 @@ export function CustomersListPage() {
             icon: <Users size={24} />,
             title: t('customersList.emptyState.title'),
             description: t('customersList.emptyState.description'),
-            action: (
-              <Button component={Link} to="/customers/new">
-                {t('customersList.newCustomer')}
-              </Button>
-            ),
+            action: <Button onClick={() => setCreateOpen(true)}>{t('customersList.newCustomer')}</Button>,
           }}
           emptyFilteredState={{
             icon: <Users size={24} />,
@@ -702,6 +701,17 @@ export function CustomersListPage() {
           }}
         />
       )}
+
+      <CustomerCreateDialog
+        opened={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={(customer) => {
+          setCreateOpen(false)
+          void queryClient.invalidateQueries({ queryKey: ['customers'] })
+          navigate(`/customers/${customer.id}`)
+        }}
+        onOpenExisting={(customerId) => navigate(`/customers/${customerId}`)}
+      />
     </Stack>
   )
 }

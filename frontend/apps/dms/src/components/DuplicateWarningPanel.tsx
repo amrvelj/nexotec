@@ -1,5 +1,6 @@
 import { Building2, TriangleAlert, User } from 'lucide-react'
 import { Group, Stack, Text, UnstyledButton } from '@mantine/core'
+import { useTranslation } from 'react-i18next'
 import { Badge, LifecycleStatusBadge, purple, semantic, white } from '@nexotec/ui-kit'
 import type { CustomerDuplicateCandidate } from '../api/types'
 
@@ -19,6 +20,7 @@ export function DuplicateWarningPanel({
   candidates: CustomerDuplicateCandidate[]
   onOpenExisting: (customerId: string) => void
 }) {
+  const { t } = useTranslation()
   if (candidates.length === 0) return null
 
   return (
@@ -33,7 +35,7 @@ export function DuplicateWarningPanel({
       <Group gap={6} mb={8}>
         <TriangleAlert size={16} color={semantic.warning.text} />
         <Text size="sm" fw={600} c={semantic.warning.text}>
-          {candidates.length === 1 ? 'Possible existing customer' : `${candidates.length} possible existing customers`}
+          {t('customerCreate.duplicates.heading', { count: candidates.length })}
         </Text>
       </Group>
       <Stack gap={6}>
@@ -59,7 +61,7 @@ export function DuplicateWarningPanel({
                   <Text size="sm" fw={600}>
                     {candidateName(c) || c.customerNumber}
                   </Text>
-                  {c.match === 'exact' && <Badge tone="destructive">Exact match</Badge>}
+                  {c.match === 'exact' && <Badge tone="destructive">{t('customerCreate.duplicates.exactMatch')}</Badge>}
                 </Group>
                 <Text size="xs" c="dimmed">
                   {c.customerNumber}
@@ -71,7 +73,7 @@ export function DuplicateWarningPanel({
             <Group gap={8} wrap="nowrap">
               <LifecycleStatusBadge status={c.lifecycleStatus} />
               <Text size="xs" fw={600} c={purple[6]}>
-                Open instead
+                {t('customerCreate.duplicates.openInstead')}
               </Text>
             </Group>
           </UnstyledButton>
