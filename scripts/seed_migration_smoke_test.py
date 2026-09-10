@@ -364,6 +364,20 @@ def _customer_has_fr17_fields(db: Session) -> bool:
     return "gender" in columns
 
 
+def _contact_channel_has_consent_scope(db: Session) -> bool:
+    """KAN-52 (FR-23 §1) added `consent_scope` to all three contact-channel
+    tables and turned `consent_source` into an enum. Same trap as
+    _customer_has_fr17_fields one ticket later: customer_phone / customer_email
+    have carried the ADR-067 ContactChannelMixin columns since c7e2a91f4b06,
+    so only a column-level check catches this — `consent_scope` on
+    customer_phone is the sentinel. The CustomerPhone / CustomerEmail ORM
+    classes now always emit it, so the pre-KAN-52 schema needs a raw insert.
+    """
+
+    columns = {col["name"] for col in inspect(db.get_bind()).get_columns("customer_phone")}
+    return "consent_scope" in columns
+
+
 def _seed_customer_chain_new_schema(db: Session, *, group_id: uuid.UUID) -> uuid.UUID:
     """This PR's own heads already applied — group_id exists everywhere
     tenant_id used to, so the current ORM classes address the real schema
@@ -466,25 +480,97 @@ def _seed_customer_chain_new_schema(db: Session, *, group_id: uuid.UUID) -> uuid
         db.flush()
 
     db.add(CustomerNumberSequence(group_id=group_id, next_value=2))
-    db.add(
-        CustomerPhone(
-            group_id=group_id,
-            customer_id=customer_id,
-            phone_type=PhoneType.MOBILE,
-            phone_e164="+41791234567",
-            phone_normalised="41791234567",
-            is_primary=True,
+
+    if _contact_channel_has_consent_scope(db):
+        db.add(
+            CustomerPhone(
+                group_id=group_id,
+                customer_id=customer_id,
+                phone_type=PhoneType.MOBILE,
+                phone_e164="+41791234567",
+                phone_normalised="41791234567",
+                is_primary=True,
+            )
         )
-    )
-    db.add(
-        CustomerEmail(
-            group_id=group_id,
-            customer_id=customer_id,
-            email_type=EmailType.PERSONAL,
-            email_address="anna@example.ch",
-            is_primary=True,
+        db.add(
+            CustomerEmail(
+                group_id=group_id,
+                customer_id=customer_id,
+                email_type=EmailType.PERSONAL,
+                email_address="anna@example.ch",
+                is_primary=True,
+            )
         )
-    )
+    else:
+        # KAN-52's consent_scope isn't live yet — the CustomerPhone /
+        # CustomerEmail ORM classes always send it now, so raw-insert the
+        # pre-KAN-52 ContactChannelMixin shape. valid_from / do_not_use /
+        # consent_granted / is_primary are NOT NULL with no server default
+        # (c7e2a91f4b06), so all four must be named; the rest are nullable.
+        now = utcnow()
+        db.execute(
+            sa.table(
+                "customer_phone",
+                sa.column("id", GUID()),
+                sa.column("group_id", GUID()),
+                sa.column("customer_id", GUID()),
+                sa.column("phone_type", sa.String()),
+                sa.column("phone_e164", sa.String()),
+                sa.column("phone_normalised", sa.String()),
+                sa.column("is_primary", sa.Boolean()),
+                sa.column("valid_from", sa.DateTime(timezone=True)),
+                sa.column("do_not_use", sa.Boolean()),
+                sa.column("consent_granted", sa.Boolean()),
+                sa.column("created_at", sa.DateTime(timezone=True)),
+                sa.column("updated_at", sa.DateTime(timezone=True)),
+            )
+            .insert()
+            .values(
+                id=uuid7(),
+                group_id=group_id,
+                customer_id=customer_id,
+                phone_type="MOBILE",
+                phone_e164="+41791234567",
+                phone_normalised="41791234567",
+                is_primary=True,
+                valid_from=now,
+                do_not_use=False,
+                consent_granted=False,
+                created_at=now,
+                updated_at=now,
+            )
+        )
+        db.execute(
+            sa.table(
+                "customer_email",
+                sa.column("id", GUID()),
+                sa.column("group_id", GUID()),
+                sa.column("customer_id", GUID()),
+                sa.column("email_type", sa.String()),
+                sa.column("email_address", sa.String()),
+                sa.column("is_primary", sa.Boolean()),
+                sa.column("valid_from", sa.DateTime(timezone=True)),
+                sa.column("do_not_use", sa.Boolean()),
+                sa.column("consent_granted", sa.Boolean()),
+                sa.column("created_at", sa.DateTime(timezone=True)),
+                sa.column("updated_at", sa.DateTime(timezone=True)),
+            )
+            .insert()
+            .values(
+                id=uuid7(),
+                group_id=group_id,
+                customer_id=customer_id,
+                email_type="PERSONAL",
+                email_address="anna@example.ch",
+                is_primary=True,
+                valid_from=now,
+                do_not_use=False,
+                consent_granted=False,
+                created_at=now,
+                updated_at=now,
+            )
+        )
+
     db.add(
         CustomerExternalId(group_id=group_id, customer_id=customer_id, system_name="crm", external_id="CRM-1")
     )
