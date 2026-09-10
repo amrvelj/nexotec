@@ -173,6 +173,28 @@ export function translatedSourceOptions(t: Translate): { value: CustomerSource; 
   ]
 }
 
+// Single-value label helpers, same shape as translatedLifecycleLabel /
+// translatedCustomerTypeLabel above — for a grid cell that renders one
+// stored enum value rather than a full option list (KAN-51). legalForm has
+// no locale bundle (AG / GmbH / Einzelfirma read the same in all four
+// languages — the customer detail screen renders LEGAL_FORM_OPTIONS
+// directly for the same reason), so it uses that constant, not `t`.
+export function translatedSalutationLabel(t: Translate, value: Salutation): string {
+  return t(`customerEnums.salutation.${value}`)
+}
+
+export function translatedPreferredChannelLabel(t: Translate, value: PreferredChannel): string {
+  return t(`customerEnums.preferredChannel.${value}`)
+}
+
+export function translatedSourceLabel(t: Translate, value: CustomerSource): string {
+  return t(`customerEnums.source.${value}`)
+}
+
+export function legalFormLabel(value: LegalForm): string {
+  return LEGAL_FORM_OPTIONS.find((o) => o.value === value)?.label ?? value
+}
+
 export function translatedVehiclePartyRoleLabel(t: Translate, role: 'owner' | 'keeper' | 'driver'): string {
   return t(`customerEnums.vehiclePartyRole.${role}`)
 }

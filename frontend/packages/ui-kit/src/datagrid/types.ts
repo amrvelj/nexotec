@@ -1,5 +1,6 @@
 import type { ColumnDef } from "@tanstack/react-table";
 import type { ReactNode } from "react";
+import type { FilterFieldOption, FilterFieldType } from "./filterPredicate";
 
 export type SortDirection = "asc" | "desc";
 
@@ -45,6 +46,31 @@ export interface GridColumnMeta<T> {
    * `ColumnConfigPanel`, and is re-asserted visible against a stale saved
    * layout (`resolveColumnLayout`). */
   locked?: boolean;
+  /** § ADR-058 — "a view is a named set of filters, sorts and columns";
+   * they cannot be two hand-maintained lists. A column that declares this
+   * becomes a filter field, derived from the column registry by
+   * `deriveFilterFields` — never a second, separate list that drifts the
+   * moment a column is added. Omit for a column the backing list endpoint
+   * cannot filter on. */
+  filter?: {
+    type: FilterFieldType;
+    /** API query parameter this predicate maps to. Defaults to the column
+     * id. The stored predicate's `fieldId` stays the column id regardless,
+     * so a saved view / pasted URL survives a param rename. */
+    param?: string;
+    /** Required for `type: "select"` — every legal value, translated. */
+    options?: FilterFieldOption[];
+    /** Restrict the offered conditions to this subset of the type's full
+     * set (`CONDITIONS_BY_TYPE`). Use it to stop offering a predicate the
+     * API cannot honour, rather than accepting it and dropping it
+     * silently. Omit to offer every condition for the type. */
+    conditions?: string[];
+  };
+  /** Plain-text value of this column for a row, for CSV export / print —
+   * `cell` returns a `ReactNode` (a badge, a link), unusable as file text.
+   * A column with no `exportValue` contributes an empty cell to the
+   * export. */
+  exportValue?: (row: T) => string | number | null | undefined;
 }
 
 /**
