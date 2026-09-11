@@ -3,6 +3,7 @@ two distinct events (ADR-046), the ADR-052 is_invoiceable local replica,
 and the ADR-065/S-D19 credit-block/do-not-contact guards.
 """
 
+import datetime as dt
 import json
 import uuid
 from decimal import Decimal
@@ -10,10 +11,22 @@ from decimal import Decimal
 import pytest
 from sqlalchemy.orm import sessionmaker
 
+from app.core.base import utcnow
 from app.core.errors import ConflictError
 from app.core.outbox_model import OutboxMessage
-from app.customer.schemas.customer import CustomerCreate, CustomerEmailCreate, CustomerUpdate
-from app.customer.services.customer import create_customer, set_credit_block, update_customer
+from app.customer.schemas.customer import (
+    CustomerAddressCreate,
+    CustomerCreate,
+    CustomerEmailCreate,
+    CustomerUpdate,
+)
+from app.customer.services.customer import (
+    create_customer,
+    create_customer_address,
+    list_customer_addresses,
+    set_credit_block,
+    update_customer,
+)
 from app.inventory.models.stock_item import ReservationState, StockItemCondition
 from app.inventory.schemas.stock_item import StockItemCreate
 from app.inventory.services.stock_item import create_stock_item, get_stock_item_or_404
@@ -54,25 +67,41 @@ def _dealership(db_session) -> Dealership:
     return dealership
 
 
-def _customer(db_session, group_id):
+def _customer(db_session, group_id, *, with_address=True):
+    """A customer with a usable primary domicile address by default — a
+    contract cannot be confirmed without one (D-20 / KAN-55), so every
+    confirm-path test needs it. Pass with_address=False for the gate tests.
+    """
+
+    addresses = (
+        [
+            CustomerAddressCreate(
+                address_type="domicile", address_street="Bahnhofstrasse", address_house_number="1",
+                address_postal_code="8001", address_locality="Zürich", address_country="CH", is_primary=True,
+            )
+        ]
+        if with_address
+        else []
+    )
     return create_customer(
         db_session, group_id=group_id,
         data=CustomerCreate(
             customer_type="individual", language="de", first_name="Didier", last_name="Perrin",
             emails=[CustomerEmailCreate(email_type="personal", email_address="didier@example.ch", is_primary=True)],
+            addresses=addresses,
         ),
         actor_id=uuid.uuid4(),
         dealership_id=uuid.uuid4(),
     )
 
 
-def _stock_contract(db_session, dealership_id, group_id):
+def _stock_contract(db_session, dealership_id, group_id, *, with_address=True):
     item = create_stock_item(
         db_session, tenant_id=dealership_id,
         data=StockItemCreate(vehicle_label="Seat Leon 1.5 eTSI FR DSG", condition=StockItemCondition.USED, vin="1HGCM82633A004352"),
         actor_id=uuid.uuid4(),
     )
-    customer = _customer(db_session, group_id)
+    customer = _customer(db_session, group_id, with_address=with_address)
     offer = create_offer(db_session, tenant_id=dealership_id, actor_id=uuid.uuid4())
     offer = update_offer(
         db_session, offer=offer, group_id=group_id,
@@ -271,11 +300,15 @@ def test_confirmation_transaction_scope_is_separate_from_reserve(db_session, eng
 def test_credit_block_stops_the_contract(db_session, engine):
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
+    # customer has a usable address (via _stock_contract) so the refusal is
+    # the credit block, not the D-20 address gate that follows it.
     contract, _item, customer = _stock_contract(db_session, dealership.id, group_id)
     set_credit_block(db_session, customer=customer, blocked=True, reason="Zahlungsverzug", actor_id=uuid.uuid4())
 
-    with pytest.raises(ConflictError):
+    with pytest.raises(ConflictError) as exc:
         confirm_contract(db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=_session_factory(engine))
+    assert exc.value.details["reason"] == "credit_block"
+    assert exc.value.details["creditBlockReason"] == "Zahlungsverzug"
 
 
 def test_do_not_contact_also_stops_the_contract(db_session, engine):
@@ -290,8 +323,9 @@ def test_do_not_contact_also_stops_the_contract(db_session, engine):
         dealership_id=uuid.uuid4(),
     )
 
-    with pytest.raises(ConflictError):
+    with pytest.raises(ConflictError) as exc:
         confirm_contract(db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=_session_factory(engine))
+    assert exc.value.details["reason"] == "do_not_contact"
 
 
 def test_do_not_contact_also_stops_attaching_the_customer_to_an_offer(db_session):
@@ -327,6 +361,121 @@ def test_credit_block_does_not_stop_offer_creation_or_editing(db_session):
     group_id = uuid.uuid4()
     customer = _customer(db_session, group_id)
     set_credit_block(db_session, customer=customer, blocked=True, reason="Test", actor_id=uuid.uuid4())
+
+    offer = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())
+    updated = update_offer(
+        db_session, offer=offer, group_id=group_id, data=OfferUpdate(customer_id=customer.id), actor_id=uuid.uuid4()
+    )
+    assert updated.status == OfferStatus.DRAFT
+    assert updated.customer_id == customer.id
+
+
+# --- D-20 / KAN-55: a contract cannot be confirmed for a customer with no
+# usable domicile address. Same refusal path as the credit block; an offer
+# is never blocked.
+
+
+def test_confirm_contract_refused_when_customer_has_no_address(db_session, engine):
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    contract, _item, _customer = _stock_contract(db_session, dealership.id, group_id, with_address=False)
+
+    with pytest.raises(ConflictError) as exc:
+        confirm_contract(db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=_session_factory(engine))
+    assert exc.value.details["reason"] == "missing_address"
+    assert "address" in str(exc.value).lower()
+
+
+def test_confirm_contract_refused_when_only_domicile_row_is_closed(db_session, engine):
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    contract, _item, customer = _stock_contract(db_session, dealership.id, group_id)
+    # close the sole domicile row — a customer who moved and whose old
+    # address was ended has no usable address (FR-03 definition).
+    address = list_customer_addresses(db_session, customer_id=customer.id)[0]
+    address.valid_to = utcnow() - dt.timedelta(days=1)
+    db_session.flush()
+
+    with pytest.raises(ConflictError) as exc:
+        confirm_contract(db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=_session_factory(engine))
+    assert exc.value.details["reason"] == "missing_address"
+
+
+def test_confirm_contract_refused_when_only_domicile_row_is_do_not_use(db_session, engine):
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    contract, _item, customer = _stock_contract(db_session, dealership.id, group_id)
+    address = list_customer_addresses(db_session, customer_id=customer.id)[0]
+    address.do_not_use = True
+    db_session.flush()
+
+    with pytest.raises(ConflictError) as exc:
+        confirm_contract(db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=_session_factory(engine))
+    assert exc.value.details["reason"] == "missing_address"
+
+
+def test_confirm_contract_refused_for_billing_address_but_no_domicile(db_session, engine):
+    """A billing address does not satisfy the gate — the gate is domicile
+    only (one definition of "usable", and the contract is not an invoice).
+    Recorded as a deliberate call: the advisor adds a domicile row at
+    signing; the billing-vs-domicile asymmetry belongs to WP-9 invoicing.
+    """
+
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    contract, _item, customer = _stock_contract(db_session, dealership.id, group_id, with_address=False)
+    create_customer_address(
+        db_session, customer=customer,
+        data=CustomerAddressCreate(
+            address_type="billing", address_street="Rechnungsweg", address_house_number="2",
+            address_postal_code="3011", address_locality="Bern", address_country="CH", is_primary=True,
+        ),
+        actor_id=uuid.uuid4(),
+    )
+
+    with pytest.raises(ConflictError) as exc:
+        confirm_contract(db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=_session_factory(engine))
+    assert exc.value.details["reason"] == "missing_address"
+
+
+def test_a_prohibition_is_named_before_the_missing_address(db_session, engine):
+    """Guard order is deliberate: a credit block (not self-serviceable)
+    must be named before "add an address" (pointless to do first). A
+    blocked customer who ALSO has no address still refuses with the
+    block reason, not the address reason."""
+
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    contract, _item, customer = _stock_contract(db_session, dealership.id, group_id, with_address=False)
+    set_credit_block(db_session, customer=customer, blocked=True, reason="Zahlungsverzug", actor_id=uuid.uuid4())
+
+    with pytest.raises(ConflictError) as exc:
+        confirm_contract(db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=_session_factory(engine))
+    assert exc.value.details["reason"] == "credit_block"
+
+
+def test_confirm_contract_with_no_customer_still_confirms(db_session, engine):
+    """The address gate lives inside `if contract.customer_id is not None`,
+    so a contract with no customer (a shell contract, or the reconciliation
+    path) is unaffected."""
+
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    contract, _item, _customer = _stock_contract(db_session, dealership.id, group_id, with_address=False)
+    contract.customer_id = None
+    db_session.flush()
+
+    confirmed = confirm_contract(db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=_session_factory(engine))
+    assert confirmed.status == ContractStatus.CONFIRMED
+
+
+def test_offer_for_a_customer_with_no_usable_address_still_succeeds(db_session):
+    """Exit criterion 2 — an offer commits nobody and is often exactly
+    when the address gets collected. Mirrors the credit-block precedent."""
+
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    customer = _customer(db_session, group_id, with_address=False)
 
     offer = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())
     updated = update_offer(

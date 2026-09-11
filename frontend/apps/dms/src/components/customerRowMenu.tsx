@@ -62,6 +62,10 @@ export function buildCustomerRowMenu(
   // FR-22: do-not-contact wins over the block for the message, because it
   // is the stronger prohibition (it stops the offer too); then the block,
   // whose reason must be named; then the honest "flow not built" state.
+  // D-20 / KAN-55: when onNewContract is finally wired (customer→contract
+  // flow), add a missing-address disabledReason arm here — after the
+  // block, before "not yet available". The contract-confirm refusal
+  // already enforces it; this is the FR-22 proactive surface.
   const newContractDisabledReason = isDoNotContact
     ? t('customerRowMenu.newContractDisabledDoNotContact')
     : isBlocked
