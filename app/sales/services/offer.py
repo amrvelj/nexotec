@@ -13,7 +13,7 @@ from app.core.config import get_settings
 from app.core.errors import ConflictError, NotFoundError
 from app.core.outbox import OutboxEvent, publish
 from app.core.pagination import SortPageParams, build_sorted_page, count_capped, paginate_query_sorted
-from app.customer.public import CustomerLifecycleStatus, get_customer_or_404
+from app.customer.public import Customer, CustomerLifecycleStatus, get_customer_or_404
 from app.sales.models.offer import OfferStatus, SalesOffer
 from app.sales.schemas.offer import OfferContainerState, OfferUpdate
 from app.sales.services.deal_projection import upsert_deal_projection
@@ -24,7 +24,11 @@ from app.sales.services.snapshot import freeze_vehicle_snapshot
 _EVENT_PRODUCER = "sales"
 
 
-def _resolve_customer_label(customer) -> str:
+def resolve_customer_label(customer: Customer) -> str:
+    """Shared with contract.py's own customer_id-sourced denormalization
+    (KAN-58) — one label rule for both "attach a customer to an offer" and
+    "create a contract directly for a customer"."""
+
     if customer.company_name:
         return customer.company_name
     return " ".join(part for part in [customer.first_name, customer.last_name] if part) or customer.customer_number
@@ -164,7 +168,7 @@ def update_offer(
                     f"Customer {customer.customer_number} is do-not-contact — cannot be attached to an offer."
                 )
             offer.customer_id = customer.id
-            offer.customer_label = _resolve_customer_label(customer)
+            offer.customer_label = resolve_customer_label(customer)
             # CLAUDE.md's own rule: "the customer's correspondence language
             # is not the user's UI language" — denormalized here so
             # services/document.py never has to reach back into customer

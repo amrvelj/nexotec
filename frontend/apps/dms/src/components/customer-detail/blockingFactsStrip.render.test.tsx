@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
 import { Route, Routes } from 'react-router-dom'
-import { screen } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from '../../i18n'
 import { renderWithProviders } from '../../test/renderWithProviders'
@@ -23,6 +23,12 @@ function installBackend(over: Partial<CustomerRead> = {}) {
     { match: /^\/customers\/c1\/external-ids$/, handler: () => ({ items: [], nextCursor: null }) },
     { match: /^\/customers\/c1\/audit-log$/, handler: () => ({ items: [], nextCursor: null }) },
     { match: /^\/transactions$/, handler: () => ({ items: [], nextCursor: null }) },
+    // KAN-58 — the enabled "New contract" test below actually clicks it.
+    {
+      method: 'POST',
+      match: /^\/sales\/contracts$/,
+      handler: () => ({ id: 'new-contract', contractNumber: 'C-000009', version: 1 }),
+    },
   ])
 }
 
@@ -90,5 +96,24 @@ describe('BlockingFactsStrip (FR-18 region 1)', () => {
     const newContract = await screen.findByRole('menuitem', { name: new RegExp(i18n.t('customerRowMenu.newContract')) })
     expect(newContract).toHaveAttribute('data-disabled', 'true')
     expect(newContract).toHaveTextContent('Overdue invoice 4471')
+  })
+
+  // KAN-58 — the behaviour change this ticket actually makes: with neither
+  // flag, "New contract" moves from permanently-disabled ("not available
+  // yet") to a real, enabled action that posts a customer-attached contract.
+  it('neither flag: "New contract" is ENABLED in the overflow, and clicking it creates a contract for this customer', async () => {
+    const user = userEvent.setup()
+    const backend = installBackend()
+    renderDetail()
+
+    await screen.findByText(i18n.t('customerDetail.overview.cards.record'))
+
+    await user.click(screen.getByRole('button', { name: 'More actions' }))
+    const newContract = await screen.findByRole('menuitem', { name: new RegExp(i18n.t('customerRowMenu.newContract')) })
+    expect(newContract).not.toHaveAttribute('data-disabled', 'true')
+
+    await user.click(newContract)
+    await waitFor(() => expect(backend.callsTo(/^\/sales\/contracts$/, 'POST')).toHaveLength(1))
+    expect(backend.callsTo(/^\/sales\/contracts$/, 'POST')[0].body).toEqual({ customerId: 'c1' })
   })
 })

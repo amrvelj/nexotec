@@ -141,10 +141,16 @@ The UI rulings that bite most often, so you recognise them before you reach the 
   marker and never a German fallback, and the **customer's correspondence language is not the
   user's UI language** — never the same control, never the same stored field.
 
-> **There is no render-level test harness yet.** Neither `jsdom` nor `@testing-library` is a
-> dependency of either frontend workspace, so nothing renders a component in CI and several
-> WP-6c exit criteria are unproven. There is an open ticket for it. Until it lands, a UI
-> change is verified by looking, not by a test — do not claim otherwise in a commit message.
+> **There is a render-level test harness — `jsdom` + `@testing-library` (react/dom/user-event/
+> jest-dom), a dev dependency of both frontend workspaces since 2026-09-04.** The default test
+> environment stays `node` for pure-logic tests; a file opts into rendering per-file with
+> `// @vitest-environment jsdom`. Look for a sibling `*.render.test.tsx` before assuming a
+> component is only checkable by eye — most detail-screen and list-page components already
+> have one, and a change to a file that has one gets a render-test update in the same PR, not
+> a "verified by looking" claim in the commit message. *(This paragraph previously said the
+> harness didn't exist; it went stale the day it landed and stayed wrong for a week before a
+> review caught it mid-KAN-58 — check the actual devDependencies before trusting this file's
+> claims about test infrastructure.)*
 
 ## Where we are
 

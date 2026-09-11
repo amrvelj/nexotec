@@ -3064,6 +3064,8 @@ export interface components {
         };
         /** ContractCreate */
         ContractCreate: {
+            /** Customerid */
+            customerId?: string | null;
             /** Offerid */
             offerId?: string | null;
         };

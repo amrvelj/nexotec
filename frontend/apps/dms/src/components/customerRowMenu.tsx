@@ -30,14 +30,11 @@ export interface CustomerRowMenuHandlers {
   onMergeInto?: () => void
   onLinkVehicle?: () => void
   /**
-   * There is no customer→contract flow yet (`POST /sales/contracts` takes
-   * an `offerId` only; nothing attaches a customer to a bare contract).
-   * "New contract" therefore always renders (FR-22 requires it on both
-   * surfaces) but stays disabled with a "not yet available" reason when no
-   * flag blocks it — the same posture `StockDetailPage` takes for its own
-   * unbuilt create actions. Wire this once the Sales flow exists.
+   * KAN-58 — `POST /sales/contracts` now accepts `customerId` directly, so
+   * this is wired on both surfaces (list row menu and 360 header/overflow),
+   * same as `onNewOffer` above.
    */
-  onNewContract?: () => void
+  onNewContract: () => void
 }
 
 export interface CustomerRowMenu {
@@ -61,16 +58,13 @@ export function buildCustomerRowMenu(
 
   // FR-22: do-not-contact wins over the block for the message, because it
   // is the stronger prohibition (it stops the offer too); then the block,
-  // whose reason must be named; then the honest "flow not built" state.
-  // D-20 / KAN-55: when onNewContract is finally wired (customer→contract
-  // flow), add a missing-address disabledReason arm here — after the
-  // block, before "not yet available". The contract-confirm refusal
-  // already enforces it; this is the FR-22 proactive surface.
+  // whose reason must be named. D-20 / KAN-55's missing-address gate stays
+  // confirm-time only (never re-litigated at create) — see contract.py.
   const newContractDisabledReason = isDoNotContact
     ? t('customerRowMenu.newContractDisabledDoNotContact')
     : isBlocked
       ? t('customerRowMenu.newContractDisabledBlocked', { reason: customer.creditBlockReason ?? '—' })
-      : t('customerRowMenu.newContractNotYetAvailable')
+      : undefined
 
   const newOffer = {
     label: t('customerRowMenu.newOffer'),
@@ -80,11 +74,18 @@ export function buildCustomerRowMenu(
     disabledReason: newOfferDisabledReason,
   }
 
+  // Deliberately stricter than the backend: create_contract's own customerId
+  // path (KAN-58) actually PERMITS creating a pending contract for a
+  // credit-blocked customer — only confirm refuses it (ADR-065). This
+  // proactive disable is KAN-44's original FR-22 policy, unchanged by
+  // KAN-58 (see the ticket's own exit criterion 3): don't let the advisor
+  // start a contract that finance hasn't released yet, even though nothing
+  // downstream would reject the create call itself.
   const newContract = {
     label: t('customerRowMenu.newContract'),
     icon: <FileSignature size={16} />,
-    onClick: handlers.onNewContract ?? (() => {}),
-    disabled: isDoNotContact || isBlocked || !handlers.onNewContract,
+    onClick: handlers.onNewContract,
+    disabled: isDoNotContact || isBlocked,
     disabledReason: newContractDisabledReason,
   }
 

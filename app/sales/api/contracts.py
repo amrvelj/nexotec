@@ -40,7 +40,12 @@ def create_contract(
     if body.offer_id is not None:
         offer = offer_service.get_offer_or_404(db, principal.tenant_id, body.offer_id)
     contract = contract_service.create_contract(
-        db, tenant_id=principal.tenant_id, offer=offer, actor_id=principal.user_id
+        db,
+        tenant_id=principal.tenant_id,
+        offer=offer,
+        actor_id=principal.user_id,
+        customer_id=body.customer_id,
+        group_id=principal.group_id,
     )
     return ContractRead.model_validate(contract, from_attributes=True)
 

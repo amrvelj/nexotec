@@ -4,6 +4,8 @@ import datetime as dt
 import uuid
 from decimal import Decimal
 
+from pydantic import model_validator
+
 from app.core.schemas import CamelModel
 from app.sales.models.contract import ContractStatus, FinancingKind
 
@@ -12,6 +14,20 @@ class ContractCreate(CamelModel):
     # None = a direct "Vertrag erstellen" contract with no prior offer
     # (confirmed live as the stock detail header's own primary action).
     offer_id: uuid.UUID | None = None
+    # KAN-58 — the customer→contract entry point (FR-22 "New contract" on
+    # the customer row menu / 360 overflow / offers-and-contracts tab). An
+    # offer already carries its own customer, so this and offer_id are
+    # mutually exclusive — see the validator below.
+    customer_id: uuid.UUID | None = None
+
+    @model_validator(mode="after")
+    def _offer_xor_customer(self) -> "ContractCreate":
+        if self.offer_id is not None and self.customer_id is not None:
+            raise ValueError(
+                "offerId and customerId cannot both be set — a contract born from an offer already has that "
+                "offer's customer."
+            )
+        return self
 
 
 class ContractRead(CamelModel):

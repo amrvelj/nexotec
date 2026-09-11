@@ -43,6 +43,7 @@ import type {
   EmailType,
   PhoneType,
   SalesContractPage,
+  SalesContractRead,
   SalesOfferPage,
   SalesOfferRead,
 } from '../api/types'
@@ -101,6 +102,7 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
   const [linkVehicleOpen, setLinkVehicleOpen] = useState(false)
   const [creditBlockOpen, setCreditBlockOpen] = useState(false)
   const [creatingOffer, setCreatingOffer] = useState(false)
+  const [creatingContract, setCreatingContract] = useState(false)
 
   const setActiveTab = (tab: string) => {
     if (embedded) {
@@ -236,6 +238,20 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
     }
   }
 
+  // KAN-58 — the customer→contract entry point. Simpler than the offer
+  // flow above: ContractCreate accepts customerId directly, so this is one
+  // POST, not POST-then-PATCH.
+  const createContractForCustomer = async () => {
+    if (!id) return
+    setCreatingContract(true)
+    try {
+      const created = await api.post<SalesContractRead>('/sales/contracts', { customerId: id })
+      navigate(`/sales/contracts/${created.id}`)
+    } finally {
+      setCreatingContract(false)
+    }
+  }
+
   // KAN-14 / FR-22 / FR-12 — toggles the existing `lifecycleStatus` field
   // (already a plain PATCH-able field, `saveField` above) rather than a
   // new endpoint. Reverts to `active` when unset — ADR-065's own
@@ -363,17 +379,31 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
   // and the customer list's row menu both render from this one builder, so
   // "New offer" / "New contract" can never carry a different enabled state
   // or reason on the two surfaces. FR-14 anonymisation stays out (not
-  // built); "New contract" is present-but-disabled (no customer→contract
-  // flow yet — see buildCustomerRowMenu).
+  // built). KAN-58 wires "New contract" for real, on both surfaces.
   const rowMenu = buildCustomerRowMenu(t, customer, {
     onEdit: () => setActiveTab('overview'),
     onNewOffer: () => void createOfferForCustomer(),
+    onNewContract: () => void createContractForCustomer(),
     onCopyCustomerNumber: () => void navigator.clipboard.writeText(customer.customerNumber),
     onToggleDoNotContact: toggleDoNotContact,
     onManageCreditBlock: () => setCreditBlockOpen(true),
     onMergeInto: () => setMergeModalOpen(true),
     onLinkVehicle: () => setLinkVehicleOpen(true),
   })
+
+  // buildCustomerRowMenu has no concept of an in-flight request (it's a
+  // pure function of customer business state, shared with the list's row
+  // menu, which tracks no per-row "creating" state at all). The header's
+  // own alternativeAction below merges `creatingOffer` in by hand for the
+  // same reason — this does the equivalent for "New contract" inside the
+  // overflow, so a slow POST /sales/contracts can't be double-fired by
+  // reopening the "..." menu before the first request's navigate() lands.
+  const overflowActions = {
+    ...rowMenu.overflow,
+    createFrom: rowMenu.overflow.createFrom?.map((action) =>
+      action.label === t('customerRowMenu.newContract') ? { ...action, disabled: action.disabled || creatingContract } : action
+    ),
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -393,7 +423,7 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
           ...rowMenu.alternative,
           disabled: rowMenu.alternative.disabled || creatingOffer,
         }}
-        overflowActions={rowMenu.overflow}
+        overflowActions={overflowActions}
       />
 
       <DetailTabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
@@ -441,8 +471,27 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
           newOfferDisabled={creatingOffer || customer.lifecycleStatus === 'do_not_contact'}
           newOfferDisabledReason={
             customer.lifecycleStatus === 'do_not_contact'
-              ? t('customerDetail.header.newOfferDisabledReason')
+              // Was 'customerDetail.header.newOfferDisabledReason', a key
+              // that was never defined in any locale bundle (⚠ MISSING
+              // I18N KEY at runtime) — reusing the row menu's own key,
+              // which says the same thing and actually exists.
+              ? t('customerRowMenu.newOfferDisabledDoNotContact')
               : undefined
+          }
+          // KAN-58 — the empty-state "New contract" button, mirroring "New
+          // offer" above. Same do-not-contact→credit-block precedence as
+          // buildCustomerRowMenu's own newContract (ADR-061: one row-menu
+          // definition, but the disabled reason text is shared via i18n
+          // keys rather than routed through the builder itself, since this
+          // tab isn't a row-menu render).
+          onNewContract={() => void createContractForCustomer()}
+          newContractDisabled={creatingContract || customer.lifecycleStatus === 'do_not_contact' || customer.creditBlock}
+          newContractDisabledReason={
+            customer.lifecycleStatus === 'do_not_contact'
+              ? t('customerRowMenu.newContractDisabledDoNotContact')
+              : customer.creditBlock
+                ? t('customerRowMenu.newContractDisabledBlocked', { reason: customer.creditBlockReason ?? '—' })
+                : undefined
           }
         />
       )}

@@ -96,6 +96,13 @@ function install(offers: SalesOfferRead[], contracts: SalesContractRead[]): Fake
       handler: () => ({ id: 'new-offer', offerNumber: 'O-000009', version: 1 }),
     },
     { method: 'PATCH', match: /^\/sales\/offers\/new-offer$/, handler: (req) => ({ id: 'new-offer', ...(req.body as object) }) },
+    // KAN-58 — one POST is the whole flow (ContractCreate takes customerId
+    // directly), unlike the offer's POST-then-PATCH above.
+    {
+      method: 'POST',
+      match: /^\/sales\/contracts$/,
+      handler: () => ({ id: 'new-contract', contractNumber: 'C-000009', version: 1 }),
+    },
   ])
 }
 
@@ -145,6 +152,28 @@ describe('customer 360 — offers & contracts tab (KAN-45)', () => {
 
     await user.click(within(emptyState).getByRole('button', { name: i18n.t('salesList.newOffer') }))
     await waitFor(() => expect(backend.callsTo(/^\/sales\/offers$/, 'POST')).toHaveLength(1))
+  })
+
+  // KAN-58 — the empty state's own "New contract" entry point, beside "New
+  // offer" above. The fixture customer carries neither do-not-contact nor
+  // a credit block, so the button is enabled from the start (no disabled
+  // precedence to exercise here — that's blockingFactsStrip's job for the
+  // header/overflow surface).
+  it('a customer with neither shows the empty state, and New contract works', async () => {
+    const backend = install([], [])
+    renderDetail()
+    const user = userEvent.setup()
+
+    const emptyState = (
+      await screen.findByText(i18n.t('customerDetail.offersContracts.emptyState.title'))
+    ).parentElement as HTMLElement
+
+    const newContractButton = within(emptyState).getByRole('button', { name: i18n.t('customerRowMenu.newContract') })
+    expect(newContractButton).toBeEnabled()
+
+    await user.click(newContractButton)
+    await waitFor(() => expect(backend.callsTo(/^\/sales\/contracts$/, 'POST')).toHaveLength(1))
+    expect(backend.callsTo(/^\/sales\/contracts$/, 'POST')[0].body).toEqual({ customerId: 'c1' })
   })
 
   it('does not call the retired /transactions endpoint', async () => {

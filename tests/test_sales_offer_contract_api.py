@@ -5,8 +5,8 @@ import uuid
 from app.core.auth import AccessRole, create_access_token
 
 
-def _token(role: AccessRole | None = None, is_dealer_manager: bool = False) -> str:
-    tid = uuid.uuid4()
+def _token(role: AccessRole | None = None, is_dealer_manager: bool = False, tenant_id: uuid.UUID | None = None) -> str:
+    tid = tenant_id or uuid.uuid4()
     return create_access_token(
         user_id=uuid.uuid4(), tenant_id=tid, group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tid)),
         roles=frozenset({role}) if role else frozenset(), is_dealer_manager=is_dealer_manager,
@@ -15,6 +15,23 @@ def _token(role: AccessRole | None = None, is_dealer_manager: bool = False) -> s
 
 def _bearer(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
+
+
+def _create_dealership(client) -> str:
+    """KAN-58's customer-attached contract tests need a real Dealership row
+    — POST /v1/customers 404s on get_dealership_or_404 otherwise (the
+    tenant_id claim proving the caller's session is real)."""
+
+    token = _token(AccessRole.PLATFORM_ADMIN)
+    payload = {
+        "legalName": "Garage Musterbetrieb AG", "dealerLicenseNumber": "ZH-12345", "licenseState": "ZH",
+        "franchiseType": "independent",
+        "address": {"street": "Bahnhofstrasse", "houseNumber": "1", "postalCode": "8001", "locality": "Zürich", "canton": "ZH"},
+        "phone": "+41441234567", "taxId": "CHE-123.456.789",
+    }
+    response = client.post("/v1/dealerships", json=payload, headers=_bearer(token))
+    assert response.status_code == 201, response.text
+    return response.json()["id"]
 
 
 def test_create_offer_requires_write_capability(client):
@@ -84,6 +101,63 @@ def test_create_contract_from_offer(client):
     body = created.json()
     assert body["offerId"] == offer["id"]
     assert body["offerNumber"] == offer["offerNumber"]
+
+
+# --- KAN-58: POST /sales/contracts { customerId } — "New contract" from the
+# customer's own surfaces, with no offer at all. ---------------------------
+
+
+def test_create_contract_for_a_customer(client):
+    dealership_id = _create_dealership(client)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealership_id))
+    customer = client.post(
+        "/v1/customers",
+        json={
+            "firstName": "Ursula", "lastName": "Vogt", "language": "fr",
+            "emails": [{"emailType": "personal", "emailAddress": "ursula@example.ch"}],
+        },
+        headers=_bearer(token),
+    ).json()
+
+    created = client.post("/v1/sales/contracts", json={"customerId": customer["id"]}, headers=_bearer(token))
+    assert created.status_code == 201, created.text
+    body = created.json()
+    assert body["offerId"] is None
+    assert body["customerId"] == customer["id"]
+    assert body["customerLabel"] == "Ursula Vogt"
+
+
+def test_create_contract_for_a_do_not_contact_customer_is_409(client):
+    dealership_id = _create_dealership(client)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealership_id))
+    customer = client.post(
+        "/v1/customers",
+        json={
+            "firstName": "Beat", "lastName": "Frei", "language": "de",
+            "emails": [{"emailType": "personal", "emailAddress": "beat@example.ch"}],
+        },
+        headers=_bearer(token),
+    ).json()
+    client.patch(
+        f"/v1/customers/{customer['id']}",
+        json={"lifecycleStatus": "do_not_contact"},
+        headers={**_bearer(token), "If-Match": str(customer["version"])},
+    )
+
+    response = client.post("/v1/sales/contracts", json={"customerId": customer["id"]}, headers=_bearer(token))
+    assert response.status_code == 409, response.text
+
+
+def test_create_contract_offer_and_customer_together_is_422(client):
+    token = _token(role=AccessRole.SALES)
+    offer = client.post("/v1/sales/offers", headers=_bearer(token)).json()
+
+    response = client.post(
+        "/v1/sales/contracts",
+        json={"offerId": offer["id"], "customerId": str(uuid.uuid4())},
+        headers=_bearer(token),
+    )
+    assert response.status_code == 422, response.text
 
 
 def test_deal_grid_shows_one_row_per_lineage(client):
