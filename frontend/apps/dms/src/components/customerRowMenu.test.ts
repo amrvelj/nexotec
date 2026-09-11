@@ -10,6 +10,7 @@ function handlers(over: Partial<CustomerRowMenuHandlers> = {}): CustomerRowMenuH
   return {
     onEdit: vi.fn(),
     onNewOffer: vi.fn(),
+    onNewContract: vi.fn(),
     onCopyCustomerNumber: vi.fn(),
     onToggleDoNotContact: vi.fn(),
     onManageCreditBlock: vi.fn(),
@@ -49,12 +50,16 @@ describe('buildCustomerRowMenu (KAN-44 / ADR-061 anti-drift, FR-21/FR-22)', () =
     expect(newContractItem(menu).disabled).toBe(true)
   })
 
-  it('with no flag set, "New contract" is still shown but disabled — no customer→contract flow yet', () => {
-    const menu = buildCustomerRowMenu(t, cust(), handlers())
+  it('KAN-58 — with no flag set, "New contract" is enabled and fires its handler', () => {
+    const onNewContract = vi.fn()
+    const menu = buildCustomerRowMenu(t, cust(), handlers({ onNewContract }))
     expect(newOfferItem(menu).disabled).toBe(false)
     const nc = newContractItem(menu)
-    expect(nc.disabled).toBe(true)
-    expect(nc.disabledReason).toBe('customerRowMenu.newContractNotYetAvailable')
+    expect(nc.disabled).toBe(false)
+    expect(nc.disabledReason).toBeUndefined()
+
+    nc.onClick()
+    expect(onNewContract).toHaveBeenCalledOnce()
   })
 
   it('do-not-contact takes precedence over the block for the "New contract" reason', () => {

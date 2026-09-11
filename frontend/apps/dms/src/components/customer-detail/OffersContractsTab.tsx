@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { Button } from '@mantine/core'
+import { Button, Group } from '@mantine/core'
 import { Handshake } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -96,6 +96,9 @@ export function OffersContractsTab({
   onNewOffer,
   newOfferDisabled,
   newOfferDisabledReason,
+  onNewContract,
+  newContractDisabled,
+  newContractDisabledReason,
 }: {
   offers: SalesOfferRead[]
   contracts: SalesContractRead[]
@@ -105,6 +108,12 @@ export function OffersContractsTab({
   onNewOffer: () => void
   newOfferDisabled?: boolean
   newOfferDisabledReason?: string
+  // KAN-58 — the empty-state's own "New contract" entry point, mirroring
+  // "New offer" above (previously this tab's empty state had no contract
+  // path at all — flagged during KAN-58's plan and folded into its scope).
+  onNewContract: () => void
+  newContractDisabled?: boolean
+  newContractDisabledReason?: string
 }) {
   const { t } = useTranslation()
   const { density } = useUiPreferencesContext()
@@ -192,14 +201,25 @@ export function OffersContractsTab({
         title: t('customerDetail.offersContracts.emptyState.title'),
         description: t('customerDetail.offersContracts.emptyState.description'),
         action: (
-          <Button
-            size="xs"
-            onClick={onNewOffer}
-            disabled={newOfferDisabled}
-            title={newOfferDisabled ? newOfferDisabledReason : undefined}
-          >
-            {t('salesList.newOffer')}
-          </Button>
+          <Group gap="xs">
+            <Button
+              size="xs"
+              onClick={onNewOffer}
+              disabled={newOfferDisabled}
+              title={newOfferDisabled ? newOfferDisabledReason : undefined}
+            >
+              {t('salesList.newOffer')}
+            </Button>
+            <Button
+              size="xs"
+              variant="outline"
+              onClick={onNewContract}
+              disabled={newContractDisabled}
+              title={newContractDisabled ? newContractDisabledReason : undefined}
+            >
+              {t('customerRowMenu.newContract')}
+            </Button>
+          </Group>
         ),
       }}
     />

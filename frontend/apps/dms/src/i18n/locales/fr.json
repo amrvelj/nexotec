@@ -1419,7 +1419,6 @@
     "newContract": "Nouveau contrat",
     "newContractDisabledDoNotContact": "Ce client est marqué « ne pas contacter ».",
     "newContractDisabledBlocked": "Blocage de crédit ({{reason}}) — une offre reste possible ; un contrat requiert la libération du compte par la comptabilité.",
-    "newContractNotYetAvailable": "La création d’un contrat directement depuis un client n’est pas encore disponible.",
     "linkVehicle": "Lier un véhicule…",
     "setDoNotContact": "Marquer « ne pas contacter »",
     "removeDoNotContact": "Retirer « ne pas contacter »",

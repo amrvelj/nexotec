@@ -1419,7 +1419,6 @@
     "newContract": "New contract",
     "newContractDisabledDoNotContact": "This customer is marked do-not-contact.",
     "newContractDisabledBlocked": "Credit-blocked ({{reason}}) — an offer is still possible; a contract needs finance to release the account.",
-    "newContractNotYetAvailable": "Creating a contract directly from a customer isn't available yet.",
     "linkVehicle": "Link vehicle…",
     "setDoNotContact": "Set do-not-contact",
     "removeDoNotContact": "Remove do-not-contact",

@@ -52,7 +52,7 @@ import {
 import { formatDate } from '../utils/format'
 import { customerName } from '../utils/customer'
 import { exportRowsToCsv, printRows, type ExportColumn } from '../utils/gridExport'
-import type { CustomerPage, CustomerRead, SalesOfferRead } from '../api/types'
+import type { CustomerPage, CustomerRead, SalesContractRead, SalesOfferRead } from '../api/types'
 
 const GRID_KEY = 'mdm.customers.list'
 const DEFAULT_SORT: SortSpec[] = [{ field: 'updatedAt', direction: 'desc' }]
@@ -507,6 +507,14 @@ export function CustomersListPage() {
     navigate(`/sales/offers/${updated.id}`)
   }
 
+  // KAN-58 — "New contract", the customer→contract entry point. Simpler
+  // than the offer flow above: ContractCreate accepts customerId directly,
+  // so this is one POST, not POST-then-PATCH.
+  const createContractForCustomer = async (customerId: string) => {
+    const created = await api.post<SalesContractRead>('/sales/contracts', { customerId })
+    navigate(`/sales/contracts/${created.id}`)
+  }
+
   const toggleDoNotContact = async (row: CustomerRead) => {
     await api.patch<CustomerRead>(
       `/customers/${row.id}`,
@@ -672,6 +680,7 @@ export function CustomersListPage() {
             const menu = buildCustomerRowMenu(t, row, {
               onEdit: () => navigate(`/customers/${row.id}`),
               onNewOffer: () => void createOfferForCustomer(row.id),
+              onNewContract: () => void createContractForCustomer(row.id),
               onCopyCustomerNumber: () => void navigator.clipboard.writeText(row.customerNumber),
               onToggleDoNotContact: () => void toggleDoNotContact(row),
               onManageCreditBlock: () => setBlockDialogCustomer(row),

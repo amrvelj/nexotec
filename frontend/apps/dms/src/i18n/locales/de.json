@@ -1419,7 +1419,6 @@
     "newContract": "Neuer Vertrag",
     "newContractDisabledDoNotContact": "Dieser Kunde ist als „nicht kontaktieren“ markiert.",
     "newContractDisabledBlocked": "Kreditgesperrt ({{reason}}) — eine Offerte ist weiterhin möglich; ein Vertrag erfordert die Kontofreigabe durch die Buchhaltung.",
-    "newContractNotYetAvailable": "Das direkte Erstellen eines Vertrags aus einem Kunden ist noch nicht verfügbar.",
     "linkVehicle": "Fahrzeug verknüpfen…",
     "setDoNotContact": "Nicht kontaktieren setzen",
     "removeDoNotContact": "Nicht kontaktieren aufheben",

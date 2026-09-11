@@ -1419,7 +1419,6 @@
     "newContract": "Nuovo contratto",
     "newContractDisabledDoNotContact": "Questo cliente è contrassegnato come «non contattare».",
     "newContractDisabledBlocked": "Blocco creditizio ({{reason}}) — un’offerta è comunque possibile; un contratto richiede lo sblocco del conto da parte della contabilità.",
-    "newContractNotYetAvailable": "La creazione di un contratto direttamente da un cliente non è ancora disponibile.",
     "linkVehicle": "Collega veicolo…",
     "setDoNotContact": "Imposta «non contattare»",
     "removeDoNotContact": "Rimuovi «non contattare»",

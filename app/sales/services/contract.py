@@ -22,6 +22,7 @@ from app.sales.models.contract import ContractStatus, FinancingKind, SalesContra
 from app.sales.models.offer import SalesOffer
 from app.sales.services.deal_projection import upsert_deal_projection
 from app.sales.services.numbering import allocate_contract_number
+from app.sales.services.offer import resolve_customer_label
 
 _EVENT_PRODUCER = "sales"
 
@@ -36,25 +37,71 @@ def get_contract_or_404(db: Session, tenant_id: uuid.UUID, contract_id: uuid.UUI
 
 
 def create_contract(
-    db: Session, *, tenant_id: uuid.UUID, offer: SalesOffer | None, actor_id: uuid.UUID | None
+    db: Session,
+    *,
+    tenant_id: uuid.UUID,
+    offer: SalesOffer | None,
+    actor_id: uuid.UUID | None,
+    customer_id: uuid.UUID | None = None,
+    group_id: uuid.UUID | None = None,
 ) -> SalesContract:
-    """`offer=None` is the direct "Vertrag erstellen" path (confirmed live
-    as a stock item's own primary detail-header action); `offer` set is
-    "Vertrag erzeugen" from an existing offer's row menu, which denormalizes
-    the offer's number as lineage and copies its working fields across —
-    the confirmed reference prototype's own "C-001195 ← O-003216" header.
+    """`offer=None, customer_id=None` is the direct "Vertrag erstellen"
+    contract with neither (confirmed live as the stock detail header's own
+    primary action). `offer` set is "Vertrag erzeugen" from an existing
+    offer's row menu, which denormalizes the offer's number as lineage and
+    copies its working fields across — the confirmed reference prototype's
+    own "C-001195 ← O-003216" header.
+
+    `customer_id` set (KAN-58) is the customer→contract entry point — "New
+    contract" on the customer's own row menu / 360 overflow / offers-and-
+    contracts tab: a direct contract with no offer and no vehicle, just a
+    known customer. Mutually exclusive with `offer` (`ContractCreate`'s own
+    validator enforces this; not re-checked here) and requires `group_id`
+    to resolve the customer. Only `do_not_contact` refuses at this point
+    (ADR-065/FR-21 — the same attach-time guard `update_offer` uses for
+    offers); a credit block and D-20's missing-address gate stay
+    confirm-time-only refusals (KAN-55), because creating, like quoting,
+    commits nobody.
     """
+
+    customer = None
+    if customer_id is not None:
+        if group_id is None:
+            raise ValueError("create_contract(customer_id=...) requires group_id.")
+        customer = get_customer_or_404(db, group_id, customer_id)
+        if customer.lifecycle_status == CustomerLifecycleStatus.DO_NOT_CONTACT:
+            raise ConflictError(
+                f"Customer {customer.customer_number} is do-not-contact — cannot be attached to a contract."
+            )
 
     contract = SalesContract(
         tenant_id=tenant_id,
         contract_number=allocate_contract_number(db, tenant_id),
         offer_id=offer.id if offer is not None else None,
         offer_number=offer.offer_number if offer is not None else None,
-        customer_id=offer.customer_id if offer is not None else None,
-        customer_label=offer.customer_label if offer is not None else None,
+        customer_id=offer.customer_id if offer is not None else (customer.id if customer is not None else None),
+        customer_label=(
+            offer.customer_label
+            if offer is not None
+            else resolve_customer_label(customer)
+            if customer is not None
+            else None
+        ),
         customer_locality=offer.customer_locality if offer is not None else None,
-        customer_denorm_refreshed_at=offer.customer_denorm_refreshed_at if offer is not None else None,
-        customer_language=offer.customer_language if offer is not None else None,
+        customer_denorm_refreshed_at=(
+            offer.customer_denorm_refreshed_at
+            if offer is not None
+            else utcnow()
+            if customer is not None
+            else None
+        ),
+        customer_language=(
+            offer.customer_language
+            if offer is not None
+            else customer.language.value
+            if customer is not None
+            else None
+        ),
         vehicle_source=offer.vehicle_source if offer is not None else None,
         stock_item_id=offer.stock_item_id if offer is not None else None,
         vehicle_label=offer.vehicle_label if offer is not None else None,
