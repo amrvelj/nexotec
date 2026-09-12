@@ -3975,7 +3975,10 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Otherparties */
+            otherParties?: components["schemas"]["OtherVehiclePartySummary"][];
             role: components["schemas"]["VehiclePartyRole"];
+            stockItem?: components["schemas"]["VehicleStockLinkSummary"] | null;
             /**
              * Updatedat
              * Format: date-time
@@ -4913,6 +4916,26 @@ export interface components {
             label: string;
             /** Price */
             price: string;
+        };
+        /**
+         * OtherVehiclePartySummary
+         * @description KAN-49 / FR-19 — the other open party rows on the SAME vehicle, so a
+         *     seller taking a leased company car in trade sees owner/keeper/driver as
+         *     three different people, not just "this customer's car". Live-resolved
+         *     (intra-context: VehicleParty.customer_id -> another Customer row), not
+         *     the three-column denormalization pattern — that pattern is for
+         *     CROSS-context references (rule #2/#3); this is customer -> customer.
+         *     Closed rows are excluded — they are not parties now.
+         */
+        OtherVehiclePartySummary: {
+            /**
+             * Customerid
+             * Format: uuid
+             */
+            customerId: string;
+            /** Displayname */
+            displayName: string;
+            role: components["schemas"]["VehiclePartyRole"];
         };
         /**
          * PayloadKind
@@ -6535,6 +6558,22 @@ export interface components {
             wheelbaseMm?: number | null;
         };
         /**
+         * VehicleStockLinkSummary
+         * @description FR-19's 2026-09-07 amendment — a vehicle currently in the group's
+         *     own stock links to its stock item, beside the party roles. Just enough
+         *     to link and label; never price/margin (ADR-029/049 stay private to the
+         *     legal entity, and this read doesn't even fetch them).
+         */
+        VehicleStockLinkSummary: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Stocknumber */
+            stockNumber: string;
+        };
+        /**
          * VehicleUpdate
          * @description `status` changes are custodian-gated at the service layer (only the
          *     current custodian or platform_admin — see services/vehicle.py); every
@@ -8033,7 +8072,9 @@ export interface operations {
     };
     list_customer_vehicles_v1_customers__customer_id__vehicles_get: {
         parameters: {
-            query?: never;
+            query?: {
+                include_closed?: boolean;
+            };
             header?: {
                 authorization?: string | null;
             };

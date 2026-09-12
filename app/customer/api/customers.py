@@ -59,11 +59,13 @@ from app.customer.schemas.customer import (
     CustomerVehiclePage,
     CustomerVehicleRead,
     CustomerVehicleUpdate,
+    VehicleStockLinkSummary,
 )
 from app.customer.schemas.legal_basis import LegalBasisCreate, LegalBasisRead
 from app.customer.services import customer as customer_service
 from app.customer.services import legal_basis as legal_basis_service
 from app.db import get_db
+from app.inventory.public import get_stock_items_for_vehicles
 from app.platform.public import get_dealership_or_404
 
 router = APIRouter(tags=["customers"])
@@ -550,12 +552,35 @@ def delete_customer_external_id(
 @router.get("/customers/{customer_id}/vehicles", response_model=CustomerVehiclePage)
 def list_customer_vehicles(
     customer_id: uuid.UUID,
+    # KAN-49 / FR-19 — the Vehicles tab needs this customer's own historical
+    # (ended) roles to remain readable, marked as ended (it already renders
+    # `effectiveTo` for exactly this). Defaults to False, matching the
+    # service's own default and every other caller of this route — only the
+    # tab opts in, rather than the endpoint's default silently changing for
+    # whoever else reads it.
+    include_closed: bool = Query(default=False),
     principal: Principal = Depends(get_current_principal),
     db: Session = Depends(get_db),
 ):
     customer_service.get_customer_or_404(db, principal.group_id, customer_id)
-    rows = customer_service.list_customer_vehicles(db, customer_id=customer_id)
-    return CustomerVehiclePage(items=[CustomerVehicleRead.model_validate(r, from_attributes=True) for r in rows])
+    rows = customer_service.list_customer_vehicles(db, customer_id=customer_id, include_closed=include_closed)
+    vehicle_ids = [r.vehicle_id for r in rows]
+    other_parties_by_vehicle = customer_service.list_other_vehicle_parties_batch(
+        db, vehicle_ids=vehicle_ids, exclude_customer_id=customer_id, group_id=principal.group_id
+    )
+    stock_by_vehicle = get_stock_items_for_vehicles(db, group_id=principal.group_id, vehicle_ids=vehicle_ids)
+    items = [
+        CustomerVehicleRead.model_validate(r, from_attributes=True).model_copy(
+            update={
+                "other_parties": other_parties_by_vehicle.get(r.vehicle_id, []),
+                "stock_item": (
+                    VehicleStockLinkSummary(**stock_by_vehicle[r.vehicle_id]) if r.vehicle_id in stock_by_vehicle else None
+                ),
+            }
+        )
+        for r in rows
+    ]
+    return CustomerVehiclePage(items=items)
 
 
 @router.post("/customers/{customer_id}/vehicles", response_model=CustomerVehicleRead, status_code=201)

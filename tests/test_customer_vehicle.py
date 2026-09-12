@@ -4,7 +4,13 @@ driver roles with effective-from/to, backing the 360 view's Vehicles tab.
 
 import uuid
 
+from sqlalchemy import event
+
 from app.core.auth import AccessRole, create_access_token
+from app.inventory.models.stock_item import StockItemCondition
+from app.inventory.schemas.stock_item import StockItemCreate
+from app.inventory.services.stock_item import create_stock_item
+from app.platform.models.dealership import DealerGroup, Dealership
 
 VALID_ADDRESS = {
     "street": "Bahnhofstrasse",
@@ -384,3 +390,304 @@ def test_a_second_owner_allocated_from_the_vehicle_side_closes_the_first_read_fr
     ).json()["items"]
     assert len(second_customer_vehicles) == 1
     assert second_customer_vehicles[0]["role"] == "owner"
+
+
+# --- KAN-49 / FR-19: naming the other parties on the same car -----------------------
+
+
+def test_the_leased_company_car_case_names_all_other_open_parties(client):
+    """FR-19's own justification, end to end: three different parties on
+    one vehicle (owner, keeper, driver). Opening the driver's own tab must
+    name the other two, with their role and display name.
+    """
+
+    dealer_id, driver, vehicle = _setup(client)
+    owner = _create_customer(client, dealer_id, firstName="Leasing", lastName="AG")
+    keeper = _create_customer(client, dealer_id, firstName="Muster", lastName="GmbH")
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+
+    for customer, role in [(owner, "owner"), (keeper, "keeper"), (driver, "driver")]:
+        response = client.post(
+            f"/v1/customers/{customer['id']}/vehicles",
+            json={"vehicleId": vehicle["id"], "role": role},
+            headers=_bearer(token),
+        )
+        assert response.status_code == 201, response.text
+
+    items = client.get(f"/v1/customers/{driver['id']}/vehicles", headers=_bearer(token)).json()["items"]
+    assert len(items) == 1
+    others = {(p["role"], p["displayName"]) for p in items[0]["otherParties"]}
+    assert others == {("owner", "Leasing AG"), ("keeper", "Muster GmbH")}
+    # This customer's own role never appears in their own "others" list.
+    assert driver["id"] not in {p["customerId"] for p in items[0]["otherParties"]}
+
+
+def test_a_vehicle_with_a_single_party_has_no_other_parties(client):
+    dealer_id, customer, vehicle = _setup(client)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    client.post(
+        f"/v1/customers/{customer['id']}/vehicles", json={"vehicleId": vehicle["id"], "role": "owner"}, headers=_bearer(token)
+    )
+
+    items = client.get(f"/v1/customers/{customer['id']}/vehicles", headers=_bearer(token)).json()["items"]
+    assert items[0]["otherParties"] == []
+
+
+def test_a_closed_party_is_not_listed_as_a_current_other_party(client):
+    """Exit criterion 1 — closed rows are excluded from "others"; they are
+    not parties now."""
+
+    dealer_id, first_owner, vehicle = _setup(client)
+    second_owner = _create_customer(client, dealer_id)
+    viewer = _create_customer(client, dealer_id, firstName="Fahrer", lastName="Muster")
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+
+    client.post(
+        f"/v1/customers/{first_owner['id']}/vehicles", json={"vehicleId": vehicle["id"], "role": "owner"}, headers=_bearer(token)
+    )
+    # A different customer claiming "owner" closes first_owner's row (ADR-064).
+    client.post(
+        f"/v1/customers/{second_owner['id']}/vehicles", json={"vehicleId": vehicle["id"], "role": "owner"}, headers=_bearer(token)
+    )
+    client.post(
+        f"/v1/customers/{viewer['id']}/vehicles", json={"vehicleId": vehicle["id"], "role": "driver"}, headers=_bearer(token)
+    )
+
+    items = client.get(f"/v1/customers/{viewer['id']}/vehicles", headers=_bearer(token)).json()["items"]
+    other_ids = {p["customerId"] for p in items[0]["otherParties"]}
+    assert other_ids == {second_owner["id"]}  # the closed first_owner never appears
+
+
+def test_other_parties_never_cross_a_dealer_groups_boundary(client):
+    """KAN-49 review — a confirmed cross-group PII leak, fixed. VehicleParty
+    carries no group_id column and vehicle_mdm is a deliberately global,
+    tenant-agnostic fact (ADR-022) — so two entirely unrelated dealer
+    groups CAN legally attach a party row to the same vehicle_id. Without
+    scoping the Customer half of the join by the VIEWER's own group_id,
+    Group B would see Group A's customer's name and id as an "other
+    party" on a car neither dealership shares any relationship over.
+    """
+
+    dealer_a, secret_owner_a, vehicle = _setup(client)
+    dealer_b = _create_dealer(client)
+    driver_b = _create_customer(client, dealer_b, firstName="Someone", lastName="DriverB")
+    token_a = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_a))
+    token_b = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_b))
+
+    client.post(
+        f"/v1/customers/{secret_owner_a['id']}/vehicles",
+        json={"vehicleId": vehicle["id"], "role": "owner"},
+        headers=_bearer(token_a),
+    )
+    # Group B links its OWN customer to the SAME (globally-shared)
+    # vehicle_id — legal today, since vehicle_mdm has no tenant scope.
+    linked = client.post(
+        f"/v1/customers/{driver_b['id']}/vehicles",
+        json={"vehicleId": vehicle["id"], "role": "driver"},
+        headers=_bearer(token_b),
+    )
+    assert linked.status_code == 201, linked.text
+
+    items = client.get(f"/v1/customers/{driver_b['id']}/vehicles", headers=_bearer(token_b)).json()["items"]
+    assert len(items) == 1
+    assert items[0]["otherParties"] == []  # Group A's customer must never appear here
+
+
+def test_include_closed_shows_this_customers_own_ended_role_marked_ended(client):
+    """Exit criterion 4 — the historical-roles gap this ticket fixes:
+    ?include_closed=true (what the tab requests) must surface a customer's
+    own ended role, with effectiveTo set; the default (no query param)
+    keeps excluding it, matching every other caller of this endpoint.
+    """
+
+    dealer_id, first_owner, vehicle = _setup(client)
+    second_owner = _create_customer(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+
+    client.post(
+        f"/v1/customers/{first_owner['id']}/vehicles", json={"vehicleId": vehicle["id"], "role": "owner"}, headers=_bearer(token)
+    )
+    client.post(
+        f"/v1/customers/{second_owner['id']}/vehicles", json={"vehicleId": vehicle["id"], "role": "owner"}, headers=_bearer(token)
+    )
+
+    default_view = client.get(f"/v1/customers/{first_owner['id']}/vehicles", headers=_bearer(token)).json()["items"]
+    assert default_view == []
+
+    with_history = client.get(
+        f"/v1/customers/{first_owner['id']}/vehicles?include_closed=true", headers=_bearer(token)
+    ).json()["items"]
+    assert len(with_history) == 1
+    assert with_history[0]["effectiveTo"] is not None
+
+
+def test_listing_vehicles_does_not_go_n_plus_1(client, engine, db_session):
+    """The batch other-parties and stock-item lookups must not scale with
+    the number of vehicles on the tab — a handful of fixed queries
+    regardless of row count, never one per vehicle.
+
+    KAN-49 review: the first cut of this test gave every row to the SAME
+    customer and never enabled group-read, so BOTH functions' own second
+    query (the batched Customer fetch in list_other_vehicle_parties_batch;
+    the batched StockItem fetch in get_stock_items_for_vehicles) short-
+    circuited on an empty result before ever running — a per-row-loop
+    regression on either one would have shipped with this test green. This
+    version forces both second queries to actually execute: two DIFFERENT
+    other customers hold parties on two of the five vehicles, and one
+    vehicle has a real, group-read-enabled stock item.
+    """
+
+    dealer_id, customer, _first_vehicle = _setup(client)
+    _enable_group_read(db_session, dealer_id)
+    other_a = _create_customer(client, dealer_id, firstName="Other", lastName="A")
+    other_b = _create_customer(client, dealer_id, firstName="Other", lastName="B")
+    other_c = _create_customer(client, dealer_id, firstName="Other", lastName="C")
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+
+    vehicles = [_create_vehicle(client, dealer_id) for _ in range(4)] + [_first_vehicle]
+    for vehicle in vehicles:
+        client.post(
+            f"/v1/customers/{customer['id']}/vehicles",
+            json={"vehicleId": vehicle["id"], "role": "owner"},
+            headers=_bearer(token),
+        )
+    # Three vehicles also carry a DIFFERENT customer's party — forces
+    # list_other_vehicle_parties_batch's second (Customer) query to
+    # actually run, not just its first (VehicleParty) query, and with
+    # enough distinct other-customers that a per-row loop (3 queries)
+    # would be clearly distinguishable from the batched call (1 query).
+    for other, vehicle in [(other_a, vehicles[0]), (other_b, vehicles[1]), (other_c, vehicles[3])]:
+        client.post(
+            f"/v1/customers/{other['id']}/vehicles", json={"vehicleId": vehicle["id"], "role": "keeper"}, headers=_bearer(token)
+        )
+    # A real, matched, group-read-enabled stock item — forces
+    # get_stock_items_for_vehicles's second (StockItem) query to actually
+    # run, not just short-circuit on group_read_enabled being off.
+    create_stock_item(
+        db_session,
+        tenant_id=uuid.UUID(dealer_id),
+        data=StockItemCreate(
+            vehicle_label="Trade-in candidate", condition=StockItemCondition.USED,
+            vehicle_id=uuid.UUID(vehicles[2]["id"]), vin=vehicles[2]["vin"],
+        ),
+        actor_id=None,
+    )
+
+    queries = []
+
+    def _count(*_args, **_kwargs):
+        queries.append(1)
+
+    event.listen(engine, "before_cursor_execute", _count)
+    try:
+        response = client.get(f"/v1/customers/{customer['id']}/vehicles", headers=_bearer(token))
+    finally:
+        event.remove(engine, "before_cursor_execute", _count)
+
+    assert response.status_code == 200, response.text
+    items = response.json()["items"]
+    assert len(items) == 5
+    # Prove the second queries actually ran and found something, not just
+    # that the count stayed low — a query-count budget alone can't tell
+    # "batched" from "never reached".
+    other_names_by_vehicle = {item["vehicleId"]: {p["displayName"] for p in item["otherParties"]} for item in items}
+    assert other_names_by_vehicle[vehicles[0]["id"]] == {"Other A"}
+    assert other_names_by_vehicle[vehicles[1]["id"]] == {"Other B"}
+    assert other_names_by_vehicle[vehicles[3]["id"]] == {"Other C"}
+    assert next(item["stockItem"] for item in items if item["vehicleId"] == vehicles[2]["id"]) is not None
+
+    # Fixed cost regardless of the 5 rows / 3 other-parties / 1 stock item
+    # above: get_customer_or_404 (1), list_customer_vehicles (1),
+    # list_other_vehicle_parties_batch (2: the VehicleParty scan, then ONE
+    # batched Customer fetch for all 3 other customers), get_stock_items_
+    # for_vehicles (2: the DealerGroup check, then the batched StockItem
+    # query). A per-row loop on the Customer fetch would need 3 queries
+    # instead of 1 for the 3 distinct other-customers here — measurably
+    # over this bound, not lost in the noise the way a 1-vs-2 gap would be.
+    assert len(queries) <= 7, f"expected a fixed, batched query count; got {len(queries)}"
+
+
+# --- KAN-49 / FR-19 amendment: the stock-item link ------------------------------
+
+
+def _enable_group_read(db_session, dealer_id: str) -> None:
+    """Test tokens derive group_id as uuid5(NAMESPACE_OID, tenant_id) (see
+    _token above) — decoupled from the random real Dealership.dealer_
+    group_id a plain POST /v1/dealerships call creates. Repoints the
+    dealership at a DealerGroup row carrying THAT id instead, so the
+    principal's own group_id actually matches what
+    get_stock_items_for_vehicles looks up.
+
+    KAN-49 review: the tidier fix would be the other way around — give
+    _token() an optional group_id override and read the dealer's real,
+    already-auto-created dealer_group_id off the POST /v1/dealerships
+    response — but _create_dealer and every other helper below build their
+    own tokens internally with no way to thread that value through, and
+    this repoint keeps the change contained to one test-only helper rather
+    than touching signatures 20+ existing tests already call. The orphaned
+    original DealerGroup row this leaves behind is inert: engine's own
+    fixture drops the whole schema after each test, so nothing outlives
+    it.
+    """
+
+    group_id = uuid.uuid5(uuid.NAMESPACE_OID, dealer_id)
+    dealership = db_session.get(Dealership, uuid.UUID(dealer_id))
+    group = db_session.get(DealerGroup, group_id)
+    if group is None:
+        group = DealerGroup(id=group_id, name="Test group", group_read_enabled=True)
+        db_session.add(group)
+    else:
+        group.group_read_enabled = True
+    dealership.dealer_group_id = group_id
+    db_session.commit()
+
+
+def test_a_vehicle_in_the_groups_own_stock_links_to_its_stock_item(client, db_session):
+    dealer_id, customer, vehicle = _setup(client)
+    _enable_group_read(db_session, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    client.post(
+        f"/v1/customers/{customer['id']}/vehicles", json={"vehicleId": vehicle["id"], "role": "owner"}, headers=_bearer(token)
+    )
+    stock_item = create_stock_item(
+        db_session,
+        tenant_id=uuid.UUID(dealer_id),
+        data=StockItemCreate(vehicle_label="Trade-in candidate", condition=StockItemCondition.USED, vehicle_id=uuid.UUID(vehicle["id"]), vin=vehicle["vin"]),
+        actor_id=None,
+    )
+
+    items = client.get(f"/v1/customers/{customer['id']}/vehicles", headers=_bearer(token)).json()["items"]
+    assert items[0]["stockItem"] == {"id": str(stock_item.id), "stockNumber": stock_item.stock_number}
+
+
+def test_no_stock_link_when_group_read_is_not_enabled(client, db_session):
+    """group_read_enabled defaults to False (the fixture never calls
+    _enable_group_read) — the link is a nicety, not something that should
+    break the tab when the group hasn't opted in."""
+
+    dealer_id, customer, vehicle = _setup(client)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    client.post(
+        f"/v1/customers/{customer['id']}/vehicles", json={"vehicleId": vehicle["id"], "role": "owner"}, headers=_bearer(token)
+    )
+    create_stock_item(
+        db_session,
+        tenant_id=uuid.UUID(dealer_id),
+        data=StockItemCreate(vehicle_label="Trade-in candidate", condition=StockItemCondition.USED, vehicle_id=uuid.UUID(vehicle["id"]), vin=vehicle["vin"]),
+        actor_id=None,
+    )
+
+    items = client.get(f"/v1/customers/{customer['id']}/vehicles", headers=_bearer(token)).json()["items"]
+    assert items[0]["stockItem"] is None
+
+
+def test_no_stock_link_for_a_vehicle_with_no_stock_item(client, db_session):
+    dealer_id, customer, vehicle = _setup(client)
+    _enable_group_read(db_session, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    client.post(
+        f"/v1/customers/{customer['id']}/vehicles", json={"vehicleId": vehicle["id"], "role": "owner"}, headers=_bearer(token)
+    )
+
+    items = client.get(f"/v1/customers/{customer['id']}/vehicles", headers=_bearer(token)).json()["items"]
+    assert items[0]["stockItem"] is None

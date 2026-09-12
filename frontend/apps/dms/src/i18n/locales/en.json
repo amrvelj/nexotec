@@ -409,13 +409,15 @@
         "vehicle": "Vehicle",
         "role": "Role",
         "since": "Since",
-        "until": "Until"
+        "until": "Until",
+        "otherParties": "Other parties"
       },
       "emptyState": {
         "title": "No vehicles",
         "description": "This customer has no vehicle relationships on file."
       },
-      "addAction": "Link vehicle"
+      "addAction": "Link vehicle",
+      "inStockTitle": "In the group's own stock — {{stockNumber}}"
     },
     "offersContracts": {
       "emptyState": {

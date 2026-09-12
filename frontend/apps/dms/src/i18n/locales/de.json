@@ -409,13 +409,15 @@
         "vehicle": "Fahrzeug",
         "role": "Rolle",
         "since": "Seit",
-        "until": "Bis"
+        "until": "Bis",
+        "otherParties": "Weitere Parteien"
       },
       "emptyState": {
         "title": "Keine Fahrzeuge",
         "description": "Für diesen Kunden sind keine Fahrzeugbeziehungen erfasst."
       },
-      "addAction": "Fahrzeug verknüpfen"
+      "addAction": "Fahrzeug verknüpfen",
+      "inStockTitle": "Im eigenen Lager der Gruppe — {{stockNumber}}"
     },
     "offersContracts": {
       "emptyState": {

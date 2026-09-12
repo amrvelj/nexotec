@@ -53,3 +53,64 @@ def list_group_stock_items(
         ).all()
     )
     return [(item, dealership) for item, dealership in rows]
+
+
+def get_stock_items_for_vehicles(
+    db: Session, *, group_id: uuid.UUID, vehicle_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, dict]:
+    """KAN-49 / FR-19 amendment — "is this vehicle sitting in the group's
+    own stock, and what's its stock item" for a batch of vehicles at once
+    (the customer 360's Vehicles tab, one lookup for the whole page).
+    Same cross-tenant shape as list_group_stock_items above (Stock is
+    dealership-scoped, not group-scoped — this module exists specifically
+    for that JOIN on Dealership.dealer_group_id, see the module docstring
+    and test_no_ambient_group_read.py's own file allowlist), so it lives
+    here rather than in stock_item.py.
+
+    A plain dict per match, never an ORM row — matching
+    get_stock_item_pricing's own "plain dict, not an ORM row" posture so
+    the caller cannot hold or mutate an inventory object across the
+    context boundary.
+
+    No is_authorized parameter, unlike list_group_stock_items: that gate
+    is for the bulk group-stock-browsing FEATURE (a role check on top of
+    group_read_enabled); this is a passive "is this specific, already-
+    known vehicle already in stock" fact on someone else's own screen, so
+    only group_read_enabled applies. Returns {} rather than raising when
+    the flag is off — the stock-item link is a nicety, not something a
+    missing group setting should break the tab over.
+
+    Keyed by vehicle_id; a car can leave and re-enter stock over its life,
+    so `left_stock_at IS NULL` (currently in stock) is required — a link
+    to a car that has already left is not "currently in the group's own
+    stock" — and the newest match wins if more than one somehow qualifies.
+    """
+
+    if not vehicle_ids:
+        return {}
+
+    group = db.get(DealerGroup, group_id)
+    if group is None or not group.group_read_enabled:
+        return {}
+
+    dealership_ids = select(Dealership.id).where(Dealership.dealer_group_id == group_id)
+    rows = list(
+        db.scalars(
+            select(StockItem)
+            .where(
+                StockItem.vehicle_id.in_(vehicle_ids),
+                StockItem.tenant_id.in_(dealership_ids),
+                StockItem.left_stock_at.is_(None),
+            )
+            .order_by(StockItem.updated_at.desc())
+        ).all()
+    )
+    by_vehicle: dict[uuid.UUID, dict] = {}
+    for item in rows:
+        # vehicle_id is nullable on the column (pre-VIN pipeline items,
+        # ADR-045) but the .in_(vehicle_ids) filter above already excludes
+        # every None row.
+        assert item.vehicle_id is not None
+        # first seen = newest, due to order_by above
+        by_vehicle.setdefault(item.vehicle_id, {"id": item.id, "stockNumber": item.stock_number})
+    return by_vehicle
