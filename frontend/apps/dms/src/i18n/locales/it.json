@@ -233,7 +233,9 @@
       "sourceRef": "Riferimento origine",
       "marketingConsent": "Consenso marketing",
       "created": "Creato",
-      "duplicateOf": "Duplicato di"
+      "duplicateOf": "Duplicato di",
+      "advisor": "Consulente",
+      "tags": "Tag"
     },
     "rowActions": {
       "open": "Apri",

@@ -313,11 +313,38 @@ export function CustomersListPage() {
           exportValue: (row) => translatedLifecycleLabel(t, row.lifecycleStatus),
         },
       },
+      // KAN-51 Half 2 (partial) — advisor and tags are already stored
+      // (KAN-50) and already flow through CustomerRead on every row; only
+      // vehicles / open deals / lifetime revenue / last contact (four of
+      // the ratified 12 default cells) stay out. test_derived_fields_
+      // are_not_writable_in_phase_b2 (tests/test_customer_fr17_fields.py)
+      // keeps vehicle_count uncomputed alongside five other Phase-C
+      // fields (purchase_count, lifetime_revenue, open_deals,
+      // last_contact_at, service_due — only three of which are also grid
+      // columns) — read as "these ship as one Relationship-region batch,
+      // not staggered," so vehicles isn't cherry-picked out ahead of its
+      // still-blocked grid siblings just because its own dependency
+      // happens to be lighter.
+      {
+        id: 'advisor',
+        header: t('customersList.columns.advisor'),
+        cell: ({ row }) => row.original.advisorLabel ?? '—',
+        meta: { exportValue: (row) => row.advisorLabel ?? '' },
+      },
+      {
+        id: 'tags',
+        header: t('customersList.columns.tags'),
+        cell: ({ row }) => {
+          const tags = row.original.tags ?? []
+          return tags.length > 0 ? tags.join(', ') : '—'
+        },
+        meta: { exportValue: (row) => (row.tags ?? []).join(', ') },
+      },
 
       // --- everything below: available (ADR-060 — every persisted field is
-      // a grid column), hidden by default; Half 2 of KAN-51 adds advisor,
-      // vehicles, open deals, lifetime revenue, last contact and tags to
-      // the default set once those stored fields land.
+      // a grid column), hidden by default; the remaining Half 2 columns
+      // (vehicles, open deals, lifetime revenue, last contact) land
+      // together once the Phase-C reporting projection exists.
       text('salutation', t('customersList.columns.salutation'), (row) =>
         row.salutation ? translatedSalutationLabel(t, row.salutation) : null,
       ),

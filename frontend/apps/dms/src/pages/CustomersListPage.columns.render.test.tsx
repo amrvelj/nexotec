@@ -44,8 +44,8 @@ function route(rows = [customer({ id: 'c1' })]) {
   return installFakeBackend([{ match: /^\/customers$/, handler: () => customerPage(rows) }])
 }
 
-describe('CustomersListPage — the column set (KAN-51 half 1)', () => {
-  it('shows exactly the six default-visible cells whose fields exist today, in order', async () => {
+describe('CustomersListPage — the column set (KAN-51 half 1 + partial half 2)', () => {
+  it('shows exactly the eight default-visible cells whose fields exist today, in order', async () => {
     route()
     renderWithProviders(<CustomersListPage />, { route: '/customers' })
 
@@ -56,6 +56,10 @@ describe('CustomersListPage — the column set (KAN-51 half 1)', () => {
       .map((h) => h.textContent?.trim())
       .filter((text): text is string => Boolean(text))
 
+    // KAN-51 half 2 (partial): advisor and tags are already stored
+    // (KAN-50) and join the default set here. Vehicles / open deals /
+    // lifetime revenue / last contact stay out until the Phase-C
+    // reporting projection lands them all together.
     expect(headers).toEqual([
       columnHeader('customerNumber'),
       columnHeader('name'),
@@ -63,7 +67,34 @@ describe('CustomersListPage — the column set (KAN-51 half 1)', () => {
       columnHeader('contact'),
       columnHeader('language'),
       columnHeader('status'),
+      columnHeader('advisor'),
+      columnHeader('tags'),
     ])
+  })
+
+  it('advisor and tags render real content, and "—" when unset — no cherry-picked field renders empty', async () => {
+    route([
+      customer({ id: 'c1', customerNumber: 'K-1001', advisorLabel: 'Rey Ortiz', tags: ['Flottenkunde', 'Oldtimer'] }),
+      customer({ id: 'c2', customerNumber: 'K-1002', advisorLabel: null, tags: [] }),
+    ])
+    renderWithProviders(<CustomersListPage />, { route: '/customers' })
+
+    await screen.findByText('K-1001')
+    expect(screen.getByText('Rey Ortiz')).toBeInTheDocument()
+    expect(screen.getByText('Flottenkunde, Oldtimer')).toBeInTheDocument()
+
+    // KAN-51 review: a row-wide dash count is confounded by the
+    // pre-existing "contact" column, which also renders "—" for this
+    // fixture (no phoneMobile/email set) regardless of advisor/tags — so
+    // it can't tell "advisor regressed to blank" from "advisor is fine".
+    // Resolve the advisor/tags cells specifically, by column index.
+    const headers = screen.getAllByRole('columnheader')
+    const advisorIndex = headers.findIndex((h) => h.textContent?.trim() === columnHeader('advisor'))
+    const tagsIndex = headers.findIndex((h) => h.textContent?.trim() === columnHeader('tags'))
+    const rowTwo = screen.getByRole('row', { name: /K-1002/ })
+    const cells = within(rowTwo).getAllByRole('cell')
+    expect(cells[advisorIndex]).toHaveTextContent('—')
+    expect(cells[tagsIndex]).toHaveTextContent('—')
   })
 
   it('renders every persisted field as a toggleable column and the grid survives each toggle', async () => {
@@ -79,7 +110,7 @@ describe('CustomersListPage — the column set (KAN-51 half 1)', () => {
       screen.getAllByRole('checkbox').filter((box): box is HTMLInputElement => Boolean(box.closest('label')))
 
     const total = panelBoxes().length
-    expect(total).toBeGreaterThanOrEqual(30) // 33 CustomerRead columns
+    expect(total).toBeGreaterThanOrEqual(30) // 35 CustomerRead columns (KAN-51 review)
 
     for (let i = 0; i < total; i += 1) {
       const box = panelBoxes()[i]
@@ -185,6 +216,8 @@ describe('CustomersListPage — bulk Export (D-25)', () => {
       columnHeader('contact'),
       columnHeader('language'),
       columnHeader('status'),
+      columnHeader('advisor'),
+      columnHeader('tags'),
     ])
     // Both selected rows, and the accessor reaches real row data.
     expect(rows).toHaveLength(2)

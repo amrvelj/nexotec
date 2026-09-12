@@ -233,7 +233,9 @@
       "sourceRef": "Source reference",
       "marketingConsent": "Marketing consent",
       "created": "Created",
-      "duplicateOf": "Duplicate of"
+      "duplicateOf": "Duplicate of",
+      "advisor": "Advisor",
+      "tags": "Tags"
     },
     "rowActions": {
       "open": "Open",

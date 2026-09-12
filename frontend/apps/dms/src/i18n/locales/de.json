@@ -233,7 +233,9 @@
       "sourceRef": "Quellenreferenz",
       "marketingConsent": "Marketing-Einwilligung",
       "created": "Erstellt",
-      "duplicateOf": "Dublette von"
+      "duplicateOf": "Dublette von",
+      "advisor": "Betreuer",
+      "tags": "Tags"
     },
     "rowActions": {
       "open": "Öffnen",

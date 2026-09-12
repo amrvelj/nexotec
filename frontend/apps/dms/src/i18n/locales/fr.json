@@ -233,7 +233,9 @@
       "sourceRef": "Référence de source",
       "marketingConsent": "Consentement marketing",
       "created": "Créé",
-      "duplicateOf": "Doublon de"
+      "duplicateOf": "Doublon de",
+      "advisor": "Conseiller",
+      "tags": "Étiquettes"
     },
     "rowActions": {
       "open": "Ouvrir",
