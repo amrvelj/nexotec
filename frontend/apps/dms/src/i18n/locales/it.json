@@ -409,13 +409,15 @@
         "vehicle": "Veicolo",
         "role": "Ruolo",
         "since": "Dal",
-        "until": "Fino al"
+        "until": "Fino al",
+        "otherParties": "Altre parti"
       },
       "emptyState": {
         "title": "Nessun veicolo",
         "description": "Nessuna relazione con veicoli registrata per questo cliente."
       },
-      "addAction": "Collega veicolo"
+      "addAction": "Collega veicolo",
+      "inStockTitle": "Nel magazzino del gruppo — {{stockNumber}}"
     },
     "offersContracts": {
       "emptyState": {

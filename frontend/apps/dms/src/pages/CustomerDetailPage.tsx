@@ -137,7 +137,9 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
   })
   const vehiclesQuery = useQuery({
     queryKey: ['customer', id, 'vehicles'],
-    queryFn: () => api.get<CustomerVehiclePage>(`/customers/${id}/vehicles`),
+    // KAN-49 / FR-19 — include_closed=true: the tab shows this customer's
+    // historical (ended) roles too, marked as ended via effectiveTo.
+    queryFn: () => api.get<CustomerVehiclePage>(`/customers/${id}/vehicles?include_closed=true`),
     enabled: Boolean(id),
   })
   // FR-06 tab 3 / ADR-050 — the retired `transaction` table is gone; a
@@ -354,7 +356,15 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
   const tabs: DetailTab[] = useMemo(
     () => [
       { id: 'overview', label: t('customerDetail.tabs.overview') },
-      { id: 'vehicles', label: t('customerDetail.tabs.vehicles'), count: vehiclesQuery.data?.items.length },
+      // KAN-49 — the query now fetches include_closed=true (historical
+      // roles must render, FR-19), but the tab badge should still count
+      // only currently-active relationships, not "3" for a customer whose
+      // 3 vehicle relationships have all since ended.
+      {
+        id: 'vehicles',
+        label: t('customerDetail.tabs.vehicles'),
+        count: vehiclesQuery.data?.items.filter((v) => v.effectiveTo == null).length,
+      },
       {
         id: 'offersContracts',
         label: t('customerDetail.tabs.offersContracts'),

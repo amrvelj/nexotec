@@ -716,6 +716,31 @@ class VehiclePartySummary(CamelModel):
     trim: str | None
 
 
+class OtherVehiclePartySummary(CamelModel):
+    """KAN-49 / FR-19 — the other open party rows on the SAME vehicle, so a
+    seller taking a leased company car in trade sees owner/keeper/driver as
+    three different people, not just "this customer's car". Live-resolved
+    (intra-context: VehicleParty.customer_id -> another Customer row), not
+    the three-column denormalization pattern — that pattern is for
+    CROSS-context references (rule #2/#3); this is customer -> customer.
+    Closed rows are excluded — they are not parties now.
+    """
+
+    customer_id: uuid.UUID
+    role: VehiclePartyRole
+    display_name: str
+
+
+class VehicleStockLinkSummary(CamelModel):
+    """FR-19's 2026-09-07 amendment — a vehicle currently in the group's
+    own stock links to its stock item, beside the party roles. Just enough
+    to link and label; never price/margin (ADR-029/049 stay private to the
+    legal entity, and this read doesn't even fetch them)."""
+
+    id: uuid.UUID
+    stock_number: str
+
+
 class CustomerVehicleRead(CamelModel):
     id: uuid.UUID
     customer_id: uuid.UUID
@@ -724,6 +749,11 @@ class CustomerVehicleRead(CamelModel):
     effective_from: dt.datetime
     effective_to: dt.datetime | None
     vehicle: VehiclePartySummary
+    # KAN-49 / FR-19 — populated in a batch pass by the route, not derivable
+    # from the ORM row alone; see list_other_vehicle_parties_batch and
+    # get_stock_items_for_vehicles. Empty list / null are the common case.
+    other_parties: list[OtherVehiclePartySummary] = Field(default_factory=list)
+    stock_item: VehicleStockLinkSummary | None = None
     created_at: dt.datetime
     updated_at: dt.datetime
 

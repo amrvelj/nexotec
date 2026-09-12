@@ -409,13 +409,15 @@
         "vehicle": "Véhicule",
         "role": "Rôle",
         "since": "Depuis",
-        "until": "Jusqu'à"
+        "until": "Jusqu'à",
+        "otherParties": "Autres parties"
       },
       "emptyState": {
         "title": "Aucun véhicule",
         "description": "Aucune relation avec un véhicule enregistrée pour ce client."
       },
-      "addAction": "Lier un véhicule"
+      "addAction": "Lier un véhicule",
+      "inStockTitle": "Dans le stock du groupe — {{stockNumber}}"
     },
     "offersContracts": {
       "emptyState": {

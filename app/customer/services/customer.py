@@ -62,6 +62,7 @@ from app.customer.schemas.customer import (
     CustomerUpdate,
     CustomerVehicleCreate,
     CustomerVehicleUpdate,
+    OtherVehiclePartySummary,
 )
 from app.platform.public import get_active_reference_value_codes, get_user_or_404, list_active_users
 from app.vehicle.public import get_vehicle_mdm_or_404, vehicle_mdm_catalogue_loader_option
@@ -2072,6 +2073,85 @@ def list_vehicle_parties(
     if not include_closed:
         stmt = stmt.where(or_(VehicleParty.effective_to.is_(None), VehicleParty.effective_to > utcnow()))
     return list(db.scalars(stmt).all())
+
+
+def _display_name(customer: Customer) -> str:
+    """Same precedence `resolve_customer_label` uses in `sales` (company
+    name, else first+last, else customer number) — not shared across the
+    context boundary (rule #3: no cross-context imports), so each context
+    keeps its own copy of this small rule."""
+
+    if customer.company_name:
+        return customer.company_name
+    return " ".join(part for part in [customer.first_name, customer.last_name] if part) or customer.customer_number
+
+
+def list_other_vehicle_parties_batch(
+    db: Session, *, vehicle_ids: list[uuid.UUID], exclude_customer_id: uuid.UUID, group_id: uuid.UUID
+) -> dict[uuid.UUID, list[OtherVehiclePartySummary]]:
+    """KAN-49 / FR-19 — "who else is a party on the same car", for every
+    vehicle on the Vehicles tab in ONE pass (2 queries total, never N+1
+    regardless of how many vehicles the customer has). customer_id on
+    VehicleParty is intra-context (customer -> customer), so this is a
+    plain batched read, not the three-column denormalization pattern that
+    rule #2/#3 reserve for cross-context references.
+
+    Open parties only — exit criterion 1: a closed row is excluded from
+    "others", it is not a party now (this customer's own closed rows are a
+    separate, deliberately-included concern — see the /vehicles route).
+
+    group_id is required, not optional, on purpose. vehicle_mdm is a
+    deliberately global fact (ADR-022) and VehicleParty carries no group_id
+    column at all, so two entirely unrelated dealer groups can genuinely
+    attach a party row to the SAME vehicle_id — without this filter, one
+    group's advisor would see another group's customer's name and id as
+    an "other party" on a car neither dealership actually shares a
+    relationship over. Customers ARE group-scoped (ADR-014), so the
+    Customer half of this join is where the boundary has to be drawn.
+    A customer from a different group is silently skipped, the same as
+    the existing dangling-customer-id case below — never a 404 or an
+    error, since this is a read-model nicety on someone else's own tab,
+    not a request FOR that other customer's record.
+    """
+
+    if not vehicle_ids:
+        return {}
+
+    party_rows = list(
+        db.scalars(
+            select(VehicleParty)
+            .where(
+                VehicleParty.vehicle_id.in_(vehicle_ids),
+                VehicleParty.customer_id != exclude_customer_id,
+                or_(VehicleParty.effective_to.is_(None), VehicleParty.effective_to > utcnow()),
+            )
+            .order_by(VehicleParty.role)
+        ).all()
+    )
+    if not party_rows:
+        return {}
+
+    other_customer_ids = {p.customer_id for p in party_rows}
+    customers_by_id = {
+        c.id: c
+        for c in db.scalars(
+            select(Customer).where(Customer.id.in_(other_customer_ids), Customer.group_id == group_id)
+        ).all()
+    }
+
+    by_vehicle: dict[uuid.UUID, list[OtherVehiclePartySummary]] = {}
+    for party in party_rows:
+        other_customer = customers_by_id.get(party.customer_id)
+        # A dangling customer_id (deleted/merged elsewhere) is silently
+        # skipped rather than rendering a broken party row — the write
+        # path never leaves this dangling in practice, but a read-model
+        # projection should never 500 on stale data.
+        if other_customer is None:
+            continue
+        by_vehicle.setdefault(party.vehicle_id, []).append(
+            OtherVehiclePartySummary(customer_id=party.customer_id, role=party.role, display_name=_display_name(other_customer))
+        )
+    return by_vehicle
 
 
 def get_customer_vehicle_or_404(db: Session, *, customer_id: uuid.UUID, party_id: uuid.UUID) -> VehicleParty:

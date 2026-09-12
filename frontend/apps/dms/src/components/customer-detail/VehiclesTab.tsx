@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import { Button, Group } from '@mantine/core'
-import { Car, Plus } from 'lucide-react'
+import { Car, Plus, Warehouse } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { DataGrid, type GridColumnDef } from '@nexotec/ui-kit'
 import { useUiPreferencesContext } from '../../hooks/UiPreferencesContext'
@@ -51,7 +52,27 @@ export function VehiclesTab({
       {
         id: 'vehicle',
         header: t('customerDetail.vehicles.columns.vehicle'),
-        cell: ({ row }) => vehicleLabel(row.original.vehicle),
+        // KAN-49 / FR-19 amendment — a vehicle currently in the group's
+        // own stock carries a link to its stock item, beside the vehicle
+        // label (not its own column: it's a fact ABOUT this vehicle, same
+        // idea as the roles, not another row-level attribute).
+        cell: ({ row }) => {
+          const { stockItem } = row.original
+          return (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              {vehicleLabel(row.original.vehicle)}
+              {stockItem && (
+                <Link
+                  to={`/stock/${stockItem.id}`}
+                  title={t('customerDetail.vehicles.inStockTitle', { stockNumber: stockItem.stockNumber })}
+                  style={{ display: 'inline-flex', color: 'inherit' }}
+                >
+                  <Warehouse size={14} />
+                </Link>
+              )}
+            </span>
+          )
+        },
       },
       { id: 'role', header: t('customerDetail.vehicles.columns.role'), cell: ({ row }) => translatedVehiclePartyRoleLabel(t, row.original.role) },
       {
@@ -65,6 +86,34 @@ export function VehiclesTab({
         header: t('customerDetail.vehicles.columns.until'),
         cell: ({ row }) => (row.original.effectiveTo ? formatDate(row.original.effectiveTo, locale) : '—'),
         meta: { align: 'right' },
+      },
+      {
+        // KAN-49 / FR-19 — the OTHER parties on this same car (owner=
+        // leasing co, keeper=employer, driver=employee can all be true
+        // at once). Renders nothing — not "—", not "null" — when there
+        // are none (exit criterion 6), each name linking to that
+        // customer's own record.
+        id: 'otherParties',
+        header: t('customerDetail.vehicles.columns.otherParties'),
+        cell: ({ row }) => {
+          const others = row.original.otherParties ?? []
+          if (others.length === 0) return null
+          return (
+            <span style={{ display: 'inline-flex', flexWrap: 'wrap', gap: '4px 6px' }}>
+              {others.map((party, index) => (
+                // Keyed by customerId + role, not customerId alone: one
+                // customer can legitimately hold two open roles at once
+                // on the same vehicle (e.g. owner and keeper), which
+                // would otherwise collide.
+                <span key={`${party.customerId}-${party.role}`}>
+                  {translatedVehiclePartyRoleLabel(t, party.role)}:{' '}
+                  <Link to={`/customers/${party.customerId}`}>{party.displayName}</Link>
+                  {index < others.length - 1 ? ' ·' : ''}
+                </span>
+              ))}
+            </span>
+          )
+        },
       },
     ],
     [t, locale]
