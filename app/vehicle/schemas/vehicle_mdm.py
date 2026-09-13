@@ -143,16 +143,21 @@ class VehicleAccessoryCreate(CamelModel):
 
 
 class CatalogueOptionRead(CamelModel):
+    id: uuid.UUID
     option_code: str
     description: str
     option_group: str | None
     price: Decimal | None
+    is_included: bool
+    is_package: bool
+    equipment_features: list[str]
 
 
 class CatalogueColourRead(CamelModel):
     colour_code: str
     description: str
     colour_type: str
+    price: Decimal | None
 
 
 class CatalogueTyreSpecRead(CamelModel):
@@ -160,6 +165,8 @@ class CatalogueTyreSpecRead(CamelModel):
     size: str
     load_index: str | None
     speed_rating: str | None
+    season: str | None
+    remark: str | None
 
 
 class CatalogueImageRead(CamelModel):
@@ -167,6 +174,15 @@ class CatalogueImageRead(CamelModel):
     bild_typ: str
     bild_art: str
     sequence: int
+
+
+class CatalogueOptionRelationRead(CamelModel):
+    from_option_id: uuid.UUID
+    to_option_id: uuid.UUID
+    to_option_code: str
+    to_option_description: str
+    relation_type: str
+    price_in_combination: Decimal | None
 
 
 class CatalogueSpecificationRead(CamelModel):
@@ -188,6 +204,7 @@ class CatalogueSpecificationRead(CamelModel):
     colours: list[CatalogueColourRead]
     tyre_specs: list[CatalogueTyreSpecRead]
     images: list[CatalogueImageRead]
+    option_relations: list[CatalogueOptionRelationRead]
 
 
 class VehicleSearchResult(CamelModel):

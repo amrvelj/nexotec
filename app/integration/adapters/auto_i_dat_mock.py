@@ -84,21 +84,62 @@ _MASTER_DATA: dict[str, VariantMasterData] = {
 }
 
 _OPTIONS: dict[str, list[VariantOptionData]] = {
-    "FZ100001": [VariantOptionData(option_code="MET", description="Metallic paint", option_group="exterior", price=Decimal("800.00"))],
+    "FZ100001": [
+        VariantOptionData(
+            option_code="MET", description="Metallic paint", option_group="exterior", price=Decimal("800.00")
+        ),
+    ],
     "FZ100002": [
-        VariantOptionData(option_code="LED", description="LED headlights", option_group="exterior", price=Decimal("1200.00")),
-        VariantOptionData(option_code="NAV", description="Navigation Pro", option_group="infotainment", price=Decimal("1800.00")),
+        VariantOptionData(
+            option_code="LED",
+            description="LED headlights",
+            option_group="exterior",
+            price=Decimal("1200.00"),
+            equipment_feature_codes=["LED_HEADLIGHTS"],
+        ),
+        VariantOptionData(
+            option_code="NAV",
+            description="Navigation Pro",
+            option_group="infotainment",
+            price=Decimal("1800.00"),
+            equipment_feature_codes=["navigation", "APPLE_CARPLAY"],
+        ),
+        # KAN-43 — a package example: `is_package` offers to add its
+        # contents, never silently (FR-C-06); `is_included` demonstrates
+        # the "standard on this variant, still listed, zero price" case.
+        VariantOptionData(
+            option_code="WNTR",
+            description="Winter package",
+            option_group="comfort",
+            price=Decimal("450.00"),
+            is_package=True,
+        ),
+        VariantOptionData(
+            option_code="AC",
+            description="Air conditioning",
+            option_group="comfort",
+            price=Decimal("0.00"),
+            is_included=True,
+            equipment_feature_codes=["air_conditioning"],
+        ),
     ],
     "FZ100003": [
-        VariantOptionData(option_code="PAN", description="Panoramic sunroof", option_group="exterior", price=Decimal("1600.00")),
+        VariantOptionData(
+            option_code="PAN", description="Panoramic sunroof", option_group="exterior", price=Decimal("1600.00")
+        ),
     ],
 }
 
 # Keyed by Werkscode now, not FzKey — OptionenFarben's real search value
 # (KAN-38 PR 1). Every demo variant carries a werkscode in _MASTER_DATA.
+# `price=None` on the exterior colour models the common "free" case;
+# `GRY`'s price models FR-C-07's "surcharge is a price line in build mode".
 _COLOURS: dict[str, list[VariantColourData]] = {
     master.werkscode: [
-        VariantColourData(colour_code="BLK", description="Black metallic", colour_type="exterior"),
+        VariantColourData(colour_code="BLK", description="Black metallic", colour_type="exterior", price=Decimal("0.00")),
+        VariantColourData(
+            colour_code="RED", description="Rosso competizione", colour_type="exterior", price=Decimal("1100.00")
+        ),
         VariantColourData(colour_code="GRY", description="Grey cloth", colour_type="interior"),
     ]
     for master in _MASTER_DATA.values()
@@ -106,10 +147,19 @@ _COLOURS: dict[str, list[VariantColourData]] = {
 }
 
 # Keyed by TypSchNr now — PneuDimTS's real search value (KAN-38 PR 1).
+# One "both" row models the AchsenCode "1" fix; `remark`/`season` model
+# FR-C-08's BemDe/PneuTyp requirements.
 _TYRE_SPECS: dict[str, list[VariantTyreSpecData]] = {
     master.type_approval_numbers[0]: [
-        VariantTyreSpecData(axle="front", size="225/45 R18", load_index="95", speed_rating="Y"),
-        VariantTyreSpecData(axle="rear", size="225/45 R18", load_index="95", speed_rating="Y"),
+        VariantTyreSpecData(
+            axle="front", size="225/45 R18", load_index="95", speed_rating="Y",
+            remark="nur mit Leichtmetallfelgen", season="summer",
+        ),
+        VariantTyreSpecData(
+            axle="rear", size="225/45 R18", load_index="95", speed_rating="Y",
+            remark="nur mit Leichtmetallfelgen", season="summer",
+        ),
+        VariantTyreSpecData(axle="both", size="205/55 R16", load_index="91", speed_rating="H", season="winter"),
     ]
     for master in _MASTER_DATA.values()
     if master.type_approval_numbers

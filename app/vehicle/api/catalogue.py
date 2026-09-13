@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import Principal, get_current_principal
 from app.core.config import get_settings
+from app.core.errors import NotFoundError
 from app.core.pagination import SortPageParams, decode_sort_cursor
 from app.core.sorting import SortField, parse_sort
 from app.db import get_db
@@ -33,7 +34,15 @@ from app.vehicle.schemas.catalogue import (
     CatalogueVariantRead,
 )
 from app.vehicle.schemas.spec_block import VehicleSpecBlockRead
-from app.vehicle.services import catalogue_browse
+from app.vehicle.schemas.vehicle_mdm import (
+    CatalogueColourRead,
+    CatalogueImageRead,
+    CatalogueOptionRead,
+    CatalogueOptionRelationRead,
+    CatalogueSpecificationRead,
+    CatalogueTyreSpecRead,
+)
+from app.vehicle.services import catalogue_browse, catalogue_entitlements
 from app.vehicle.services.catalogue_browse import (
     CODED_FACET_COLUMNS,
     NUMERIC_FACET_COLUMNS,
@@ -202,4 +211,44 @@ def catalogue_facets(
         numeric={
             field: CatalogueNumericFacet(min=low, max=high) for field, (low, high) in facets.numeric.items()
         },
+    )
+
+
+@router.get("/catalogue/variants/{model_variant_id}/specification", response_model=CatalogueSpecificationRead)
+def get_variant_specification(
+    model_variant_id: uuid.UUID,
+    principal: Principal = Depends(get_current_principal),
+    db: Session = Depends(get_db),
+):
+    """The Configurator's own read of PR-4's tenant-scoped catalogue
+    mirror (KAN-43, C-E) — options/colours/tyres/images/relations for a
+    variant the advisor is building or has matched a record to.
+
+    Keyed by `model_variant_id` directly, never by a `vehicle_id`: a
+    configuration attaches to a catalogue variant (ADR-070 — never
+    `vehicle_mdm`), so `/vehicle-mdm/{id}/catalogue-specification`
+    (WP-6 PR-5, still used by the vehicle 360 screen) does not apply here.
+    Both routes share the same service function and the same
+    entitlement-degradation posture.
+    """
+
+    if db.get(ModelVariant, model_variant_id) is None:
+        raise NotFoundError(f"Catalogue variant {model_variant_id} was not found.")
+
+    result = catalogue_entitlements.get_catalogue_specification(
+        db, tenant_id=principal.tenant_id, model_variant_id=model_variant_id
+    )
+    return CatalogueSpecificationRead(
+        has_catalogue_match=result.has_catalogue_match,
+        has_provider_connection=result.has_provider_connection,
+        packages_available=result.packages_available,
+        images_available=result.images_available,
+        dealer_can_upload_images=result.dealer_can_upload_images,
+        options=[CatalogueOptionRead.model_validate(o, from_attributes=True) for o in result.options],
+        colours=[CatalogueColourRead.model_validate(c, from_attributes=True) for c in result.colours],
+        tyre_specs=[CatalogueTyreSpecRead.model_validate(t, from_attributes=True) for t in result.tyre_specs],
+        images=[CatalogueImageRead.model_validate(i, from_attributes=True) for i in result.images],
+        option_relations=[
+            CatalogueOptionRelationRead.model_validate(r, from_attributes=True) for r in result.option_relations
+        ],
     )

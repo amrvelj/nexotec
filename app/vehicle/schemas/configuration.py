@@ -52,6 +52,8 @@ class _ConfigurationObserved(CamelModel):
     interior_colour: str | None = Field(default=None, max_length=120)
     exterior_colour_surcharge: Decimal | None = None
     interior_colour_surcharge: Decimal | None = None
+    wheels: str | None = Field(default=None, max_length=120)
+    wheels_surcharge: Decimal | None = None
     notes: str | None = None
     # The five coded spec fields (canonical value_code strings) — declared
     # directly on the carrier, not inside the `spec` block payload, exactly
@@ -120,6 +122,8 @@ class ConfigurationRead(CamelModel):
     interior_colour: str | None
     exterior_colour_surcharge: Decimal | None
     interior_colour_surcharge: Decimal | None
+    wheels: str | None
+    wheels_surcharge: Decimal | None
     # Populated by the API layer from the configuration's own flat spec-block
     # columns — see `configuration.py::_read`.
     spec: VehicleSpecBlockRead

@@ -5,17 +5,32 @@ sync-age alarm as a pure function over persisted state.
 
 import datetime as dt
 import uuid
+from decimal import Decimal
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 
 from app.integration.models.connection import ConnectionEnvironment
 from app.integration.models.provider import IntegrationProvider
 from app.integration.schemas.connection import ConnectionCreate
 from app.integration.services import connections as connection_service
-from app.vehicle.models.catalogue import ModelVariant, VariantOption
+from app.vehicle.models.catalogue import Brand, ModelGroup, ModelVariant, VariantOption, VariantOptionEquipmentFeature
 from app.vehicle.models.catalogue_mirror import ColourCache, ImageRef, ProviderSyncState, TyreSpecCache
-from app.vehicle.models.provider import MappingGap
+from app.vehicle.models.provider import MappingGap, ProviderCodeMap
 from app.vehicle.services import catalogue_sync
+
+
+def _bare_variant(db_session, name: str = "Bare Variant") -> ModelVariant:
+    brand = Brand(code=f"b-{uuid.uuid4().hex[:8]}", display_name="Brand")
+    db_session.add(brand)
+    db_session.flush()
+    group = ModelGroup(brand_id=brand.id, name="Group")
+    db_session.add(group)
+    db_session.flush()
+    variant = ModelVariant(model_group_id=group.id, name=name, model_year_from=2022)
+    db_session.add(variant)
+    db_session.flush()
+    return variant
 
 
 def _make_mock_provider(db_session) -> IntegrationProvider:
@@ -55,8 +70,8 @@ def test_seed_tenant_catalogue_creates_global_variants_and_tenant_scoped_content
     assert result.variants_synced == 3
     assert db_session.query(ModelVariant).count() == 3
     assert db_session.query(VariantOption).filter_by(tenant_id=tenant_id).count() >= 1
-    assert db_session.query(ColourCache).filter_by(tenant_id=tenant_id).count() == 3 * 2  # 2 colours per variant
-    assert db_session.query(TyreSpecCache).filter_by(tenant_id=tenant_id).count() == 3 * 2  # front + rear
+    assert db_session.query(ColourCache).filter_by(tenant_id=tenant_id).count() == 3 * 3  # 3 colours per variant
+    assert db_session.query(TyreSpecCache).filter_by(tenant_id=tenant_id).count() == 3 * 3  # front + rear + both
     assert db_session.query(ImageRef).filter_by(tenant_id=tenant_id).count() == 3
 
     state = catalogue_sync.get_sync_state(db_session, tenant_id=tenant_id, provider_code="auto_i_dat_mock")
@@ -79,7 +94,7 @@ def test_seed_is_idempotent_reruns_do_not_duplicate_variants_or_tenant_content(d
     catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_id)
 
     assert db_session.query(ModelVariant).count() == 3  # never duplicated across two full seeds
-    assert db_session.query(ColourCache).filter_by(tenant_id=tenant_id).count() == 3 * 2
+    assert db_session.query(ColourCache).filter_by(tenant_id=tenant_id).count() == 3 * 3
 
 
 def test_seed_persists_the_variant_base_price_the_adapter_already_returns(db_session):
@@ -122,6 +137,189 @@ def test_seed_writes_a_mapping_gap_on_an_unresolved_provider_code(db_session):
     # separate rows for the identical miss.
     vehicle_kind_gap = next(g for g in gaps if g.code_group == "vehicle_kind" and g.provider_code == "1")
     assert vehicle_kind_gap.occurrences == 3
+
+
+# --- KAN-43 (C-E): options/colours/tyres field wiring --------------------
+
+
+def test_seed_populates_option_included_package_and_model_year(db_session):
+    """`is_included` / `is_package` / `model_year` were added to
+    `VariantOption` by C-A but never populated by this sync until now."""
+
+    provider = _make_mock_provider(db_session)
+    tenant_id = uuid.uuid4()
+    _make_connection(db_session, provider, tenant_id=tenant_id)
+
+    catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_id)
+
+    golf = db_session.query(ModelVariant).filter_by(name="Golf GTI 2.0 TSI DSG").one()
+    options = {
+        o.option_code: o
+        for o in db_session.query(VariantOption).filter_by(tenant_id=tenant_id, model_variant_id=golf.id).all()
+    }
+    assert options["WNTR"].is_package is True
+    assert options["WNTR"].is_included is False
+    assert options["AC"].is_included is True
+    assert options["AC"].is_package is False
+    assert all(o.model_year == golf.model_year_from for o in options.values())
+
+
+def test_seed_resolves_equipment_features_via_provider_code_map(db_session):
+    """`SuchCode` resolves through the same `resolve_provider_code`/
+    `MappingGap` machinery every other coded field uses — a mapped code
+    becomes a `VariantOptionEquipmentFeature` row, an unmapped one is left
+    off the option and surfaces as a gap instead (FR-C-06/ADR-072's own
+    "never silently dropped" posture, applied here to SuchCode)."""
+
+    provider = _make_mock_provider(db_session)
+    tenant_id = uuid.uuid4()
+    _make_connection(db_session, provider, tenant_id=tenant_id)
+    db_session.add(
+        ProviderCodeMap(
+            provider="auto_i_dat_mock", vehicle_kind="1", code_group="equipment_feature",
+            provider_code="navigation", canonical_list_code="equipment_feature", canonical_value_code="navigation",
+        )
+    )
+    db_session.commit()
+
+    catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_id)
+
+    golf = db_session.query(ModelVariant).filter_by(name="Golf GTI 2.0 TSI DSG").one()
+    nav = (
+        db_session.query(VariantOption)
+        .filter_by(tenant_id=tenant_id, model_variant_id=golf.id, option_code="NAV")
+        .one()
+    )
+    feature_codes = {link.feature_value_code for link in nav.equipment_feature_links}
+    # "navigation" resolves (mapped above); "APPLE_CARPLAY" does not (no
+    # mapping row exists for it) and is left off rather than stored raw.
+    assert feature_codes == {"navigation"}
+
+    gap = (
+        db_session.query(MappingGap)
+        .filter_by(provider="auto_i_dat_mock", code_group="equipment_feature", provider_code="APPLE_CARPLAY")
+        .one()
+    )
+    assert gap.resolved is False
+
+
+def test_sync_option_equipment_features_replaces_the_set_on_each_call(db_session):
+    """Unlike every other field in this sync (upsert-and-update-in-place,
+    never delete), an option's equipment-feature set is genuinely
+    many-valued: a feature the provider stops returning for an option must
+    disappear locally too, or a corrected SuchCode mapping would only ever
+    grow the set."""
+
+    tenant_id = uuid.uuid4()
+    variant = _bare_variant(db_session)
+    option = VariantOption(
+        tenant_id=tenant_id, model_variant_id=variant.id, option_code="NAV", description="Navigation"
+    )
+    db_session.add(option)
+    db_session.flush()
+    db_session.add(
+        ProviderCodeMap(
+            provider="auto_i_dat_mock", vehicle_kind="1", code_group="equipment_feature",
+            provider_code="navigation", canonical_list_code="equipment_feature", canonical_value_code="navigation",
+        )
+    )
+    db_session.commit()
+
+    catalogue_sync._sync_option_equipment_features(
+        db_session, tenant_id=tenant_id, provider_code="auto_i_dat_mock", vehicle_kind_code="1",
+        variant_option=option, feature_codes=["navigation"],
+    )
+    db_session.commit()
+    codes = {
+        r.feature_value_code
+        for r in db_session.query(VariantOptionEquipmentFeature).filter_by(variant_option_id=option.id)
+    }
+    assert codes == {"navigation"}
+
+    catalogue_sync._sync_option_equipment_features(
+        db_session, tenant_id=tenant_id, provider_code="auto_i_dat_mock", vehicle_kind_code="1",
+        variant_option=option, feature_codes=[],
+    )
+    db_session.commit()
+    codes = {
+        r.feature_value_code
+        for r in db_session.query(VariantOptionEquipmentFeature).filter_by(variant_option_id=option.id)
+    }
+    assert codes == set()
+
+
+def test_seed_populates_colour_surcharge_price(db_session):
+    """FR-C-07: "the surcharge is a price line in build mode." `Preis`
+    was on the raw response but parsed by no one until now."""
+
+    provider = _make_mock_provider(db_session)
+    tenant_id = uuid.uuid4()
+    _make_connection(db_session, provider, tenant_id=tenant_id)
+
+    catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_id)
+
+    golf = db_session.query(ModelVariant).filter_by(name="Golf GTI 2.0 TSI DSG").one()
+    colours = {
+        c.colour_code: c
+        for c in db_session.query(ColourCache).filter_by(tenant_id=tenant_id, model_variant_id=golf.id).all()
+    }
+    assert colours["BLK"].price == Decimal("0.00")
+    assert colours["RED"].price == Decimal("1100.00")
+    assert colours["GRY"].price is None  # interior colour, no surcharge in the fixture
+
+
+def test_seed_populates_tyre_remark_and_season(db_session):
+    """FR-C-08: BemDe ("nur mit Leichtmetallfelgen") and PneuTyp
+    (summer/winter) must be shown with the dimension."""
+
+    provider = _make_mock_provider(db_session)
+    tenant_id = uuid.uuid4()
+    _make_connection(db_session, provider, tenant_id=tenant_id)
+
+    catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_id)
+
+    golf = db_session.query(ModelVariant).filter_by(name="Golf GTI 2.0 TSI DSG").one()
+    specs = {
+        (t.axle, t.season): t
+        for t in db_session.query(TyreSpecCache).filter_by(tenant_id=tenant_id, model_variant_id=golf.id).all()
+    }
+    assert specs[("front", "summer")].remark == "nur mit Leichtmetallfelgen"
+    assert specs[("rear", "summer")].remark == "nur mit Leichtmetallfelgen"
+    assert specs[("both", "winter")].remark is None
+
+
+def test_tyre_spec_cache_allows_the_same_axle_with_two_different_seasons(db_session):
+    """The bug this ticket fixes: the original unique constraint keyed only
+    on (tenant, variant, axle), so a variant's summer and winter specs for
+    the same axle silently overwrote each other on upsert."""
+
+    tenant_id = uuid.uuid4()
+    variant = _bare_variant(db_session)
+    db_session.add(
+        TyreSpecCache(tenant_id=tenant_id, model_variant_id=variant.id, axle="front", season="summer", size="X")
+    )
+    db_session.flush()
+    db_session.add(
+        TyreSpecCache(tenant_id=tenant_id, model_variant_id=variant.id, axle="front", season="winter", size="Y")
+    )
+    db_session.flush()  # no IntegrityError — season is part of the key now
+
+    rows = db_session.query(TyreSpecCache).filter_by(tenant_id=tenant_id, model_variant_id=variant.id).all()
+    assert {(r.season, r.size) for r in rows} == {("summer", "X"), ("winter", "Y")}
+
+
+def test_tyre_spec_cache_still_rejects_a_true_duplicate(db_session):
+    tenant_id = uuid.uuid4()
+    variant = _bare_variant(db_session)
+    db_session.add(
+        TyreSpecCache(tenant_id=tenant_id, model_variant_id=variant.id, axle="front", season="summer", size="X")
+    )
+    db_session.flush()
+    db_session.add(
+        TyreSpecCache(tenant_id=tenant_id, model_variant_id=variant.id, axle="front", season="summer", size="Z")
+    )
+    with pytest.raises(IntegrityError):
+        db_session.flush()
 
 
 # --- daily delta ---------------------------------------------------------

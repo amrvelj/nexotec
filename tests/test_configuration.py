@@ -186,6 +186,36 @@ def test_audit_survives_a_first_registration_date_in_the_payload(db_session):
     )  # must not raise
 
 
+def test_wheels_field_pair_creates_updates_and_survives_a_copy(db_session):
+    """KAN-43 (C-E) — `wheels`/`wheels_surcharge` mirror the exterior/
+    interior colour pair C-C already shipped."""
+
+    tenant_id, actor_id = uuid.uuid4(), uuid.uuid4()
+    config = svc.create_configuration(
+        db_session, tenant_id=tenant_id, actor_id=actor_id,
+        data=ConfigurationCreate(
+            source=ConfigurationSource.MANUAL, mode=ConfigurationMode.RECORD,
+            match_method=ConfigurationMatchMethod.MANUAL,
+            wheels="18\" alloy \"Dijon\"", wheels_surcharge=Decimal("890.00"),
+            spec=VehicleSpecBlockInput(),
+        ),
+    )
+    assert config.wheels == "18\" alloy \"Dijon\""
+    assert config.wheels_surcharge == Decimal("890.00")
+
+    config = svc.update_configuration(
+        db_session, configuration=config, actor_id=actor_id,
+        data=ConfigurationUpdate(wheels="19\" alloy \"Turini\"", wheels_surcharge=Decimal("1490.00")),
+    )
+    assert config.wheels == "19\" alloy \"Turini\""
+    assert config.wheels_surcharge == Decimal("1490.00")
+
+    copy = svc.copy_configuration(db_session, source=config, actor_id=actor_id)
+    assert copy.wheels == config.wheels
+    assert copy.wheels_surcharge == config.wheels_surcharge
+    assert copy.id != config.id
+
+
 def test_copy_makes_a_new_id_with_the_same_content(db_session):
     variant = _variant(db_session)
     tenant_id, actor_id = uuid.uuid4(), uuid.uuid4()
@@ -264,6 +294,32 @@ def test_api_round_trip_create_read_patch(client, db_session):
 
     # cross-tenant → 404
     assert client.get(f"/v1/configurations/{cid}", headers=_bearer(uuid.uuid4())).status_code == 404
+
+
+def test_api_round_trip_wheels(client, db_session):
+    variant = _variant(db_session)
+    tenant_id = uuid.uuid4()
+    headers = _bearer(tenant_id)
+
+    created = client.post(
+        "/v1/configurations",
+        json={"source": "provider", "mode": "build", "matchMethod": "catalogue_browse",
+              "catalogueVariantId": str(variant.id)},
+        headers={**headers, "Idempotency-Key": str(uuid.uuid4())},
+    )
+    assert created.status_code == 201, created.text
+    body = created.json()
+    assert body["wheels"] is None and body["wheelsSurcharge"] is None
+    cid, version = body["id"], body["version"]
+
+    patched = client.patch(
+        f"/v1/configurations/{cid}",
+        json={"wheels": "19\" alloy \"Turini\"", "wheelsSurcharge": "1490.00"},
+        headers={**headers, "If-Match": str(version)},
+    )
+    assert patched.status_code == 200, patched.text
+    assert patched.json()["wheels"] == "19\" alloy \"Turini\""
+    assert patched.json()["wheelsSurcharge"] == "1490.00"
 
 
 def test_api_has_no_list_endpoint(client, db_session):

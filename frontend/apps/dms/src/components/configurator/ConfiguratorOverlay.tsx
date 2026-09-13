@@ -493,6 +493,8 @@ function previewRead(draft: Draft, mode: ConfiguratorMode): ConfigurationRead {
     interiorColour: draft.interiorColour || null,
     exteriorColourSurcharge: null,
     interiorColourSurcharge: null,
+    wheels: null,
+    wheelsSurcharge: null,
     fuelType: null,
     bodyStyle: null,
     drivetrain: null,

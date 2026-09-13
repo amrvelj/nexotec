@@ -49,6 +49,19 @@ class VariantOptionData:
     description: str
     option_group: str | None
     price: Decimal | None
+    # KAN-43 (C-E) — `Inklusiv`/`PackCode`/`SuchCode` exist on the raw
+    # `Optionen` response but were parsed by no one until now.
+    # `equipment_feature_codes` are auto-i-dat's own mapping from this
+    # concrete option to one or more of the ~70 curated SuchCode
+    # marketplace features (CodeGrpNr 045, comma-separated at the
+    # provider — one option can carry several) — not an alternative to
+    # selecting this option, a TAG on it (an advisor always selects real
+    # options, in both build and record mode; SuchCode is what Stock's
+    # marketplace publishing reads later, and the mapping is
+    # provider-supplied but user-correctable, never authoritative).
+    is_included: bool = False
+    is_package: bool = False
+    equipment_feature_codes: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -56,14 +69,25 @@ class VariantColourData:
     colour_code: str
     description: str
     colour_type: str  # "exterior" | "interior"
+    # KAN-43 (C-E) — FR-C-07: "the surcharge is a price line in build
+    # mode." `Preis` is on the raw `OptionenFarben` response but was
+    # parsed by no one until now.
+    price: Decimal | None = None
 
 
 @dataclass(frozen=True)
 class VariantTyreSpecData:
-    axle: str  # "front" | "rear"
+    axle: str  # "front" | "rear" | "both" | "variant"
     size: str
     load_index: str | None
     speed_rating: str | None
+    # KAN-43 (C-E) — FR-C-08: "the BemDe remark ... is displayed with the
+    # dimension, because a dimension valid only with alloy wheels and
+    # shown without that caveat is how the wrong tyre gets ordered." Also
+    # FR-C-08's own "PneuTyp (summer/winter)". Both parsed by no one until
+    # now — `remark` and `season` were entirely dropped from the pipeline.
+    remark: str | None = None
+    season: str | None = None  # "summer" | "winter"
 
 
 @dataclass(frozen=True)
