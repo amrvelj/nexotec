@@ -40,6 +40,8 @@ function config(over: Partial<ConfigurationRead> = {}): ConfigurationRead {
     interiorColour: null,
     exteriorColourSurcharge: null,
     interiorColourSurcharge: null,
+    wheels: null,
+    wheelsSurcharge: null,
     spec: { ps: 245, displacementCcm: 1984, trimName: 'GTI' },
     overriddenFields: [],
     options: [{ id: 'o1', sequence: 0, variantOptionId: null, optionCode: null, description: 'Sunroof', optionGroup: null, price: '1600.00', isIncluded: false, isPackage: false, selected: true, equipmentFeatures: [] }],

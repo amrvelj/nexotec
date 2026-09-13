@@ -141,6 +141,8 @@ def create_configuration(
         interior_colour=data.interior_colour,
         exterior_colour_surcharge=data.exterior_colour_surcharge,
         interior_colour_surcharge=data.interior_colour_surcharge,
+        wheels=data.wheels,
+        wheels_surcharge=data.wheels_surcharge,
         notes=data.notes,
     )
 
@@ -247,6 +249,8 @@ def update_configuration(
         "interior_colour",
         "exterior_colour_surcharge",
         "interior_colour_surcharge",
+        "wheels",
+        "wheels_surcharge",
         "notes",
         "brand_display_name",
         "model_group_name",
@@ -334,6 +338,8 @@ def copy_configuration(
         interior_colour=source.interior_colour,
         exterior_colour_surcharge=source.exterior_colour_surcharge,
         interior_colour_surcharge=source.interior_colour_surcharge,
+        wheels=source.wheels,
+        wheels_surcharge=source.wheels_surcharge,
         overridden_fields=list(source.overridden_fields),
         notes=source.notes,
         created_by=actor_id,

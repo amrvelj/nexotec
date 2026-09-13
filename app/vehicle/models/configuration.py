@@ -149,6 +149,12 @@ class VehicleConfiguration(
     interior_colour: Mapped[str | None] = mapped_column(String(120), nullable=True)
     exterior_colour_surcharge: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
     interior_colour_surcharge: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
+    # KAN-43 (C-E) — `PneuDimTS`, mirroring the colour pair above: free
+    # text (FR-C-07's "free text where the provider has no data" applies
+    # here too — not every configuration matches a catalogue variant with
+    # a type-approval number), with the surcharge as its own price line.
+    wheels: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    wheels_surcharge: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
 
     # Spec-block field names the advisor edited after a catalogue copy
     # (FR-C-03 — "marks that field as overridden, shown as such"). Audit

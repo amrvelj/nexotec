@@ -14,8 +14,9 @@ contract entitles them to see.
 
 import datetime as dt
 import uuid
+from decimal import Decimal
 
-from sqlalchemy import Date, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import DECIMAL, Date, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin
@@ -39,25 +40,41 @@ class ColourCache(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):
     colour_code: Mapped[str] = mapped_column(String(64), nullable=False)
     description: Mapped[str] = mapped_column(String(160), nullable=False)
     colour_type: Mapped[str] = mapped_column(String(16), nullable=False)  # "exterior" | "interior"
+    # KAN-43 / FR-C-07 — "the surcharge is a price line in build mode."
+    # Nullable/defaulted so a re-sync of an existing row never breaks.
+    price: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
 
 
 class TyreSpecCache(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):
-    """`PneuDimTS` — one row per (tenant, variant, axle)."""
+    """`PneuDimTS` — one row per (tenant, variant, axle, season). `season`
+    joined the natural key in KAN-43 (C-E): summer and winter specs for the
+    same axle are two different rows, not one row a re-sync overwrites —
+    the original two-column key silently collapsed them.
+    """
 
     __tablename__ = "vehicle_tyre_spec_cache"
     __table_args__ = (
         UniqueConstraint(
-            "tenant_id", "model_variant_id", "axle", name="uq_vehicle_tyre_spec_cache_tenant_variant_axle"
+            "tenant_id", "model_variant_id", "axle", "season",
+            name="uq_vehicle_tyre_spec_cache_tenant_variant_axle_season",
         ),
     )
 
     model_variant_id: Mapped[uuid.UUID] = mapped_column(
         GUID(), ForeignKey("vehicle_model_variant.id"), nullable=False, index=True
     )
-    axle: Mapped[str] = mapped_column(String(16), nullable=False)  # "front" | "rear"
+    axle: Mapped[str] = mapped_column(String(16), nullable=False)  # "front" | "rear" | "both" | "variant_*"
     size: Mapped[str] = mapped_column(String(32), nullable=False)
     load_index: Mapped[str | None] = mapped_column(String(8), nullable=True)
     speed_rating: Mapped[str | None] = mapped_column(String(4), nullable=True)
+    # KAN-43 / FR-C-08 — PneuTyp. Part of the unique key (see class
+    # docstring); nullable because not every dimension the provider
+    # returns carries one.
+    season: Mapped[str | None] = mapped_column(String(16), nullable=True)  # "summer" | "winter"
+    # KAN-43 / FR-C-08 — BemDe: "displayed with the dimension, because a
+    # dimension valid only with alloy wheels and shown without that
+    # caveat is how the wrong tyre gets ordered."
+    remark: Mapped[str | None] = mapped_column(String(160), nullable=True)
 
 
 class ImageRef(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):

@@ -173,6 +173,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/catalogue/variants/{model_variant_id}/specification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Variant Specification
+         * @description The Configurator's own read of PR-4's tenant-scoped catalogue
+         *     mirror (KAN-43, C-E) — options/colours/tyres/images/relations for a
+         *     variant the advisor is building or has matched a record to.
+         *
+         *     Keyed by `model_variant_id` directly, never by a `vehicle_id`: a
+         *     configuration attaches to a catalogue variant (ADR-070 — never
+         *     `vehicle_mdm`), so `/vehicle-mdm/{id}/catalogue-specification`
+         *     (WP-6 PR-5, still used by the vehicle 360 screen) does not apply here.
+         *     Both routes share the same service function and the same
+         *     entitlement-degradation posture.
+         */
+        get: operations["get_variant_specification_v1_catalogue_variants__model_variant_id__specification_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/configurations": {
         parameters: {
             query?: never;
@@ -2441,6 +2470,8 @@ export interface components {
             colourType: string;
             /** Description */
             description: string;
+            /** Price */
+            price: string | null;
         };
         /** CatalogueFacetValue */
         CatalogueFacetValue: {
@@ -2514,12 +2545,44 @@ export interface components {
         CatalogueOptionRead: {
             /** Description */
             description: string;
+            /** Equipmentfeatures */
+            equipmentFeatures: string[];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Isincluded */
+            isIncluded: boolean;
+            /** Ispackage */
+            isPackage: boolean;
             /** Optioncode */
             optionCode: string;
             /** Optiongroup */
             optionGroup: string | null;
             /** Price */
             price: string | null;
+        };
+        /** CatalogueOptionRelationRead */
+        CatalogueOptionRelationRead: {
+            /**
+             * Fromoptionid
+             * Format: uuid
+             */
+            fromOptionId: string;
+            /** Priceincombination */
+            priceInCombination: string | null;
+            /** Relationtype */
+            relationType: string;
+            /** Tooptioncode */
+            toOptionCode: string;
+            /** Tooptiondescription */
+            toOptionDescription: string;
+            /**
+             * Tooptionid
+             * Format: uuid
+             */
+            toOptionId: string;
         };
         /**
          * CatalogueSpecificationRead
@@ -2544,6 +2607,8 @@ export interface components {
             images: components["schemas"]["CatalogueImageRead"][];
             /** Imagesavailable */
             imagesAvailable: boolean;
+            /** Optionrelations */
+            optionRelations: components["schemas"]["CatalogueOptionRelationRead"][];
             /** Options */
             options: components["schemas"]["CatalogueOptionRead"][];
             /** Packagesavailable */
@@ -2577,6 +2642,10 @@ export interface components {
             axle: string;
             /** Loadindex */
             loadIndex: string | null;
+            /** Remark */
+            remark: string | null;
+            /** Season */
+            season: string | null;
             /** Size */
             size: string;
             /** Speedrating */
@@ -2699,6 +2768,10 @@ export interface components {
             vehicleKind?: string | null;
             /** Vin */
             vin?: string | null;
+            /** Wheels */
+            wheels?: string | null;
+            /** Wheelssurcharge */
+            wheelsSurcharge?: number | string | null;
         };
         /**
          * ConfigurationMatchMethod
@@ -2873,6 +2946,10 @@ export interface components {
             version: number;
             /** Vin */
             vin: string | null;
+            /** Wheels */
+            wheels: string | null;
+            /** Wheelssurcharge */
+            wheelsSurcharge: string | null;
         };
         /**
          * ConfigurationSource
@@ -2927,6 +3004,10 @@ export interface components {
             vehicleKind?: string | null;
             /** Vin */
             vin?: string | null;
+            /** Wheels */
+            wheels?: string | null;
+            /** Wheelssurcharge */
+            wheelsSurcharge?: number | string | null;
         };
         /** ConnectionCreate */
         ConnectionCreate: {
@@ -6897,6 +6978,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CatalogueVariantPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_variant_specification_v1_catalogue_variants__model_variant_id__specification_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                model_variant_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueSpecificationRead"];
                 };
             };
             /** @description Validation Error */

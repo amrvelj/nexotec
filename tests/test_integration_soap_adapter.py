@@ -28,6 +28,7 @@ field shape.
 import base64
 import time
 import uuid
+from decimal import Decimal
 
 import pytest
 
@@ -35,7 +36,7 @@ from app.core.audit import list_audit_events
 from app.integration.adapters import auto_i_dat_soap
 from app.integration.adapters.aes_decrypt import decrypt_aes_cbc, encrypt_aes_cbc
 from app.integration.adapters.auto_i_dat_parse import ProviderMaintenanceError, ProviderRejectedError
-from app.integration.adapters.auto_i_dat_soap import AutoIDatSoapAdapter, _serialise_suchwerte
+from app.integration.adapters.auto_i_dat_soap import AutoIDatSoapAdapter, _achsen_code_to_axle, _serialise_suchwerte
 from app.integration.models.connection import ConnectionEnvironment
 from app.integration.models.provider import IntegrationProvider
 from app.integration.schemas.connection import ConnectionCreate
@@ -110,9 +111,11 @@ _SPEC_XML: dict[str, str] = {
     "Optionen": (
         "<AutoiOptionen><Info><Status>0</Status><StatusMsg>OK</StatusMsg></Info>"
         "<Optionen><OptKey>100004</OptKey><BezDe>Klimaautomat</BezDe><Inklusiv>0</Inklusiv>"
-        "<Preis>2200</Preis><OptCode>B21</OptCode><PackCode>0</PackCode><Gruppe>5</Gruppe><SuchCode>2</SuchCode></Optionen>"
+        "<Preis>2200</Preis><OptCode>B21</OptCode><PackCode>0</PackCode><Gruppe>5</Gruppe><SuchCode>2,7</SuchCode></Optionen>"
         "<Optionen><OptKey>100005</OptKey><BezDe>Metallic-Lackierung</BezDe><Inklusiv>0</Inklusiv>"
         "<Preis>900</Preis><OptCode>MET</OptCode><PackCode>0</PackCode><Gruppe>2</Gruppe><SuchCode>9</SuchCode></Optionen>"
+        "<Optionen><OptKey>100006</OptKey><BezDe>Winterpaket</BezDe><Inklusiv>1</Inklusiv>"
+        "<Preis>0</Preis><OptCode>WNTR</OptCode><PackCode>5</PackCode><Gruppe>1</Gruppe><SuchCode></SuchCode></Optionen>"
         "</AutoiOptionen>"
     ),
     # p20
@@ -224,6 +227,28 @@ def test_serialise_suchwerte_never_touches_key_case():
     assert _serialise_suchwerte({"Fzart": "01"}) == "Fzart=01"
 
 
+# --- _achsen_code_to_axle (KAN-43 / FR-C-08: "front / rear / both / variants")
+
+
+def test_achsen_code_to_axle_maps_the_documented_codes():
+    assert _achsen_code_to_axle("1") == "both"
+    assert _achsen_code_to_axle("2") == "front"
+    assert _achsen_code_to_axle("3") == "rear"
+
+
+def test_achsen_code_to_axle_keeps_undocumented_codes_distinct_rather_than_bucketing_them():
+    # Codes 4-7 are undocumented manufacturer-specific variants — collapsing
+    # them to one shared bucket would recreate the exact "1"/"2" collision
+    # this ticket fixes, just for a different pair of codes.
+    assert _achsen_code_to_axle("4") == "variant_4"
+    assert _achsen_code_to_axle("5") == "variant_5"
+    assert _achsen_code_to_axle("4") != _achsen_code_to_axle("5")
+
+
+def test_achsen_code_to_axle_defaults_to_front_when_missing():
+    assert _achsen_code_to_axle(None) == "front"
+
+
 # --- AES decrypt (unchanged — pure) --------------------------------------
 
 
@@ -316,8 +341,16 @@ def test_fetch_options_requires_and_sends_the_model_year(db_session, monkeypatch
     options = adapter.fetch_options("141695", model_year=2012)
 
     assert soap.calls[-1]["Suchwerte"] == "FzKey=141695;Jahr=2012"
-    assert {o.option_code for o in options} == {"B21", "MET"}
-    assert next(o for o in options if o.option_code == "B21").description == "Klimaautomat"
+    assert {o.option_code for o in options} == {"B21", "MET", "WNTR"}
+    by_code = {o.option_code: o for o in options}
+    assert by_code["B21"].description == "Klimaautomat"
+    # KAN-43 — Inklusiv/PackCode/SuchCode, parsed by no one until now.
+    assert by_code["B21"].is_included is False
+    assert by_code["B21"].is_package is False
+    assert by_code["B21"].equipment_feature_codes == ["2", "7"]  # comma-separated at the provider
+    assert by_code["WNTR"].is_included is True
+    assert by_code["WNTR"].is_package is True  # PackCode "5" != "0"
+    assert by_code["WNTR"].equipment_feature_codes == []  # empty SuchCode element
 
 
 def test_fetch_colours_searches_on_werkscode_not_fz_key(db_session, monkeypatch):
@@ -331,6 +364,8 @@ def test_fetch_colours_searches_on_werkscode_not_fz_key(db_session, monkeypatch)
     assert soap.calls[-1]["Datenname"] == "OptionenFarben"
     assert soap.calls[-1]["Suchwerte"] == "Werkscode=191B51"
     assert {c.colour_code: c.colour_type for c in colours} == {"9H": "exterior", "ST": "interior"}
+    # KAN-43 / FR-C-07 — the surcharge, parsed by no one until now.
+    assert {c.colour_code: c.price for c in colours} == {"9H": Decimal(500), "ST": Decimal(0)}
 
 
 def test_fetch_tyre_specs_searches_on_type_approval_number(db_session, monkeypatch):
@@ -344,6 +379,11 @@ def test_fetch_tyre_specs_searches_on_type_approval_number(db_session, monkeypat
     assert soap.calls[-1]["Suchwerte"] == "TypSchNr=1MD448"
     assert [t.axle for t in tyres] == ["front", "rear"]
     assert tyres[0].size == "245/40 R18 V"
+    # KAN-43 / FR-C-08 — PneuTyp/BemDe, parsed by no one until now; an
+    # empty <BemDe/> element is None, not "".
+    assert [t.season for t in tyres] == ["summer", "summer"]
+    assert tyres[0].remark == "nur mit Leichtmetallfelgen"
+    assert tyres[1].remark is None
 
 
 def test_fetch_images_reads_bildurl(db_session, monkeypatch):

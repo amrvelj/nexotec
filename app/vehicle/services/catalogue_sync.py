@@ -50,7 +50,13 @@ from app.integration.public import (
     call_capability,
     get_enabled_connection,
 )
-from app.vehicle.models.catalogue import Brand, ModelGroup, ModelVariant, VariantOption
+from app.vehicle.models.catalogue import (
+    Brand,
+    ModelGroup,
+    ModelVariant,
+    VariantOption,
+    VariantOptionEquipmentFeature,
+)
 from app.vehicle.models.catalogue_mirror import ColourCache, ImageRef, ProviderSyncState, TyreSpecCache
 from app.vehicle.models.provider import ProviderEntityRef
 from app.vehicle.services.provider import resolve_provider_code
@@ -280,8 +286,50 @@ def upsert_model_variant(db: Session, *, provider_code: str, master: VariantMast
     return variant
 
 
+def _sync_option_equipment_features(
+    db: Session, *, tenant_id: uuid.UUID, provider_code: str, vehicle_kind_code: str,
+    variant_option: VariantOption, feature_codes: list[str],
+) -> None:
+    """`SuchCode` — a genuinely many-valued attribute of the option (unlike
+    every other field synced in this module), so it is replaced wholesale
+    on each sync rather than only ever grown: a feature the provider drops
+    from an option must disappear locally too, not accrete forever. A
+    provider code that fails to resolve is skipped (and left to
+    `resolve_provider_code`'s own MappingGap, PR-8's admin queue) rather
+    than blocking the rest of this option's sync.
+    """
+
+    resolved_codes = set()
+    for raw_code in feature_codes:
+        canonical = resolve_provider_code(
+            db, provider=provider_code, vehicle_kind=vehicle_kind_code, code_group="equipment_feature",
+            provider_code=raw_code,
+        )
+        if canonical is not None:
+            resolved_codes.add(canonical.value_code)
+
+    existing = list(
+        db.scalars(
+            select(VariantOptionEquipmentFeature).where(
+                VariantOptionEquipmentFeature.variant_option_id == variant_option.id
+            )
+        )
+    )
+    existing_codes = {row.feature_value_code for row in existing}
+    for row in existing:
+        if row.feature_value_code not in resolved_codes:
+            db.delete(row)
+    for code in resolved_codes - existing_codes:
+        db.add(
+            VariantOptionEquipmentFeature(
+                tenant_id=tenant_id, variant_option_id=variant_option.id, feature_value_code=code
+            )
+        )
+
+
 def _sync_tenant_variant_content(
-    db: Session, *, tenant_id: uuid.UUID, model_variant: ModelVariant, fz_key: str, master: VariantMasterData, adapter,
+    db: Session, *, tenant_id: uuid.UUID, provider_code: str, model_variant: ModelVariant, fz_key: str,
+    master: VariantMasterData, adapter,
 ) -> None:
     """Options/colours/tyre-specs/images — all tenant-scoped, all upserted
     by their own natural key so a re-sync never duplicates a row. Each
@@ -312,6 +360,16 @@ def _sync_tenant_variant_content(
         option_row.description = option.description
         option_row.option_group = option.option_group
         option_row.price = option.price
+        # KAN-43 (C-E) — these three columns were added by C-A but never
+        # populated by this sync until now.
+        option_row.is_included = option.is_included
+        option_row.is_package = option.is_package
+        option_row.model_year = model_variant.model_year_from
+        db.flush()  # option_row.id must exist before the child rows below reference it
+        _sync_option_equipment_features(
+            db, tenant_id=tenant_id, provider_code=provider_code, vehicle_kind_code=master.vehicle_kind_code,
+            variant_option=option_row, feature_codes=option.equipment_feature_codes,
+        )
 
     for colour in (adapter.fetch_colours(werkscode=master.werkscode) if master.werkscode else []):
         colour_row = db.scalar(
@@ -327,21 +385,25 @@ def _sync_tenant_variant_content(
             db.add(colour_row)
         colour_row.description = colour.description
         colour_row.colour_type = colour.colour_type
+        colour_row.price = colour.price
 
     _type_approval = master.type_approval_numbers[0] if master.type_approval_numbers else None
     for tyre in (adapter.fetch_tyre_specs(type_approval_number=_type_approval) if _type_approval else []):
         tyre_row = db.scalar(
             select(TyreSpecCache).where(
                 TyreSpecCache.tenant_id == tenant_id, TyreSpecCache.model_variant_id == model_variant.id,
-                TyreSpecCache.axle == tyre.axle,
+                TyreSpecCache.axle == tyre.axle, TyreSpecCache.season == tyre.season,
             )
         )
         if tyre_row is None:
-            tyre_row = TyreSpecCache(tenant_id=tenant_id, model_variant_id=model_variant.id, axle=tyre.axle)
+            tyre_row = TyreSpecCache(
+                tenant_id=tenant_id, model_variant_id=model_variant.id, axle=tyre.axle, season=tyre.season
+            )
             db.add(tyre_row)
         tyre_row.size = tyre.size
         tyre_row.load_index = tyre.load_index
         tyre_row.speed_rating = tyre.speed_rating
+        tyre_row.remark = tyre.remark
 
     for image in adapter.fetch_images(fz_key):
         image_row = db.scalar(
@@ -367,7 +429,8 @@ def _sync_keys(
         master = adapter.fetch_vehicle_master_data(fz_key)
         variant = upsert_model_variant(db, provider_code=provider_code, master=master)
         _sync_tenant_variant_content(
-            db, tenant_id=tenant_id, model_variant=variant, fz_key=fz_key, master=master, adapter=adapter
+            db, tenant_id=tenant_id, provider_code=provider_code, model_variant=variant, fz_key=fz_key,
+            master=master, adapter=adapter,
         )
     return len(fz_keys)
 

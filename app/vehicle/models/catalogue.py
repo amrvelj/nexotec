@@ -220,6 +220,58 @@ class VariantOptionEquipmentFeature(PrimaryKeyMixin, TenantScopedMixin, Timestam
     variant_option: Mapped[VariantOption] = relationship(back_populates="equipment_feature_links")
 
 
+class VariantOptionRelation(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):
+    """`OptionenAusschluss` (excludes) / `OptionenPack` (contains) / `Aktion`
+    (CodeGrpNr 047 — the remaining `option_relation_type` values, e.g.
+    `price_in_combination_with`, `becomes_standard_with`) — a directed
+    relation between two options on the same variant and model year.
+
+    **ADR-072: stored and shown, never enforced.** FR-C-06's own example —
+    "contained in Pack Family · excludes Sportsitze · CHF 400 in
+    combination with Klimaautomat · becomes standard with …" — is exactly
+    what this table renders; a conflicting selection warns the advisor, it
+    never blocks the selection.
+
+    `model_variant_id`/`model_year` are carried here too, not just derived
+    by joining through `from_option`/`to_option`: the configurator's own
+    read pattern is "every relation for the variant+year I'm showing", and
+    `VariantOption` itself documents that availability and relations are
+    scoped per (variant, model year) — this table's own primary query
+    never needs a two-hop join to answer it.
+
+    Tenant-partitioned like `VariantOption`/`VariantOptionEquipmentFeature`
+    (ADR-013): both ends are this dealer's own synced options, licensed
+    provider content exactly like the options they relate.
+    """
+
+    __tablename__ = "vehicle_variant_option_relation"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id", "from_option_id", "to_option_id", "relation_type",
+            name="uq_vehicle_variant_option_relation_natural_key",
+        ),
+    )
+
+    model_variant_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), ForeignKey("vehicle_model_variant.id"), nullable=False, index=True
+    )
+    model_year: Mapped[int] = mapped_column(Integer, nullable=False)
+    from_option_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), ForeignKey("vehicle_variant_option.id"), nullable=False, index=True
+    )
+    to_option_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), ForeignKey("vehicle_variant_option.id"), nullable=False, index=True
+    )
+    # A canonical `option_relation_type` value_code (platform reference
+    # data, a3d9c1e58f27), resolved through `provider_code_map` like every
+    # other coded field — never a raw provider code.
+    relation_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    # Only populated for `relation_type == "price_in_combination_with"`
+    # (FR-C-06's "CHF 400 in combination with Klimaautomat") — null for
+    # every other relation_type.
+    price_in_combination: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
+
+
 class VariantPrice(PrimaryKeyMixin, TimestampMixin, Base):
     """The new-car list price of a variant **per model year** — `FahrzeugePreise`.
 

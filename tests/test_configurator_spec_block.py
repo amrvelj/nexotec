@@ -23,6 +23,7 @@ from app.vehicle.models.catalogue import (
     ModelVariant,
     VariantOption,
     VariantOptionEquipmentFeature,
+    VariantOptionRelation,
     VariantPrice,
 )
 from app.vehicle.models.spec_block import SPEC_BLOCK_FIELDS
@@ -175,6 +176,94 @@ def test_variant_option_defaults_keep_the_existing_sync_path_working(db_session)
     assert option.is_included is False
     assert option.is_package is False
     assert option.model_year is None
+
+
+# --- 3b · variant option relations (KAN-43 / FR-C-06 / ADR-072) ------
+
+
+def _option(db_session, variant, code, tenant_id=None):
+    option = VariantOption(
+        tenant_id=tenant_id or uuid.uuid4(), model_variant_id=variant.id, option_code=code, description=code
+    )
+    db_session.add(option)
+    db_session.flush()
+    return option
+
+
+def test_option_relation_carries_type_and_combination_price(db_session):
+    variant = _variant(db_session)
+    tenant_id = uuid.uuid4()
+    pack = _option(db_session, variant, "PACK-CITY", tenant_id=tenant_id)
+    sportsitze = _option(db_session, variant, "SPORTSITZE", tenant_id=tenant_id)
+
+    relation = VariantOptionRelation(
+        tenant_id=tenant_id,
+        model_variant_id=variant.id,
+        model_year=2023,
+        from_option_id=pack.id,
+        to_option_id=sportsitze.id,
+        relation_type="excludes",
+        price_in_combination=None,
+    )
+    db_session.add(relation)
+    db_session.flush()
+    db_session.refresh(relation)
+
+    assert relation.relation_type == "excludes"
+    assert relation.price_in_combination is None
+
+
+def test_option_relation_carries_a_combination_price_when_that_is_the_relation(db_session):
+    variant = _variant(db_session)
+    tenant_id = uuid.uuid4()
+    a = _option(db_session, variant, "A", tenant_id=tenant_id)
+    b = _option(db_session, variant, "B", tenant_id=tenant_id)
+
+    relation = VariantOptionRelation(
+        tenant_id=tenant_id, model_variant_id=variant.id, model_year=2023,
+        from_option_id=a.id, to_option_id=b.id, relation_type="price_in_combination_with",
+        price_in_combination=Decimal("400.00"),
+    )
+    db_session.add(relation)
+    db_session.flush()
+    db_session.refresh(relation)
+
+    assert relation.price_in_combination == Decimal("400.00")
+
+
+def test_option_relation_is_unique_per_pair_and_type_but_allows_two_relation_types(db_session):
+    """The same (from, to) pair can carry more than one relation_type at
+    once (e.g. a package that both `contains` an option and later
+    `becomes_standard_with` it) — only an exact duplicate is rejected."""
+
+    variant = _variant(db_session)
+    tenant_id = uuid.uuid4()
+    a = _option(db_session, variant, "A", tenant_id=tenant_id)
+    b = _option(db_session, variant, "B", tenant_id=tenant_id)
+
+    db_session.add(
+        VariantOptionRelation(
+            tenant_id=tenant_id, model_variant_id=variant.id, model_year=2023,
+            from_option_id=a.id, to_option_id=b.id, relation_type="excludes",
+        )
+    )
+    db_session.flush()
+    db_session.add(
+        VariantOptionRelation(
+            tenant_id=tenant_id, model_variant_id=variant.id, model_year=2023,
+            from_option_id=a.id, to_option_id=b.id, relation_type="contains",
+        )
+    )
+    db_session.flush()  # different relation_type — no collision
+
+    db_session.add(
+        VariantOptionRelation(
+            tenant_id=tenant_id, model_variant_id=variant.id, model_year=2023,
+            from_option_id=a.id, to_option_id=b.id, relation_type="excludes",
+        )
+    )
+    with pytest.raises(IntegrityError):
+        db_session.flush()
 
 
 # --- 4 · the three new canonical lists -------------------------------

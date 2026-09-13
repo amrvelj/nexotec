@@ -21,6 +21,7 @@ from app.vehicle.schemas.vehicle_mdm import (
     CatalogueColourRead,
     CatalogueImageRead,
     CatalogueOptionRead,
+    CatalogueOptionRelationRead,
     CatalogueSpecificationRead,
     CatalogueTyreSpecRead,
     VehicleAccessoryCreate,
@@ -74,6 +75,9 @@ def get_catalogue_specification(
         colours=[CatalogueColourRead.model_validate(c, from_attributes=True) for c in result.colours],
         tyre_specs=[CatalogueTyreSpecRead.model_validate(t, from_attributes=True) for t in result.tyre_specs],
         images=[CatalogueImageRead.model_validate(i, from_attributes=True) for i in result.images],
+        option_relations=[
+            CatalogueOptionRelationRead.model_validate(r, from_attributes=True) for r in result.option_relations
+        ],
     )
 
 
