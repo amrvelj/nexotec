@@ -165,44 +165,65 @@ Extraction triggers (any one): a context needs independent scaling · it needs a
 retention or data-residency regime · another context's deploys keep breaking it ·
 engineering headcount reaches three · a provider licence demands process isolation.
 
-## Work-package status — audited 2026-09-03
+## Work-package status — audited 2026-09-03, corrected 2026-09-13
 
 Read this before assuming a package is finished. Every line was checked against the code, not
 against a commit message. The full evidence is in the Build Sequence's audited-status table.
+
+> **2026-09-13: this table had gone stale.** A pile of ~30 Kanban tickets sat in "In Review"
+> long after their PRs merged — nobody moved them to Done. Auditing that pile (each ticket's
+> claim checked against the actual current code, not the commit message) found 26 fully
+> shipped and corrected several of the gaps below. **If you're relying on a "NOT BUILT" or
+> gap note here for a decision, and it looks surprising, check the code before trusting it —
+> this file goes stale exactly this way and won't announce it.**
 
 | WP | Status |
 |---|---|
 | WP-1 Context seams | **Done.** 8 import-linter contracts with no ignore mechanism, gated in CI · zero cross-context FKs across all 42 FK sites · customer events from the real write path · a redelivery-idempotency test on the Postgres lane |
 | WP-2 Platform hardening | **Done.** RS256 + JWKS · roles as a frozenset · `make up` · OTel with `correlationId` in log and span · `/readyz` · Infisical |
-| WP-3 Organisation model | **Done.** One gap: the anti-ambient-group-read lint rule matches only `group_id ==`, and `inventory/services/group_listing.py` is a second group-read path it does not police |
+| WP-3 Organisation model | **Done.** The one gap this table used to note — the anti-ambient-group-read lint rule matching only `group_id ==` — **fixed 2026-09-13 (KAN-28)**: the rule now covers `dealer_group_id` too, across every spelling (`==`, `.in_()`, `filter_by`, raw SQL), against an exact file allowlist. |
 | WP-4 External identity | **Done.** Zitadel authenticates and never authorises; the `credential` table is dropped by migration |
-| WP-5 Vehicle three-layer model | **Partial — four exit criteria unmet.** See below |
-| WP-6 Provider gateway | **Substantially done.** Never run against a real auto-i-dat account — no WSDL, no credentials in the repo, only the mock path exercised |
+| WP-5 Vehicle three-layer model | **Partial — two of four exit criteria fixed 2026-09-13, two still open.** See below |
+| WP-6 Provider gateway | **Substantially done.** Never run against a real auto-i-dat account — no WSDL, no credentials in the repo, only the mock path exercised. The Configurator's own gateway-coverage work (C-0, KAN-38) is separately tracked — see below |
 | WP-6b Document template | **Done.** WeasyPrint in exactly one file, enforced by an architecture test |
-| WP-6c UI foundation | **Substantially done.** No render-level tests — see the note above |
-| WP-7 Stock and inventory | **Partial — three gaps.** See below |
-| WP-8 Sales and valuation | **Partial — four exit criteria contradicted.** See below |
+| WP-6c UI foundation | **Substantially done.** The render-level test harness this row used to say didn't exist landed 2026-09-04 (see the note above) — that's a WP-6c exit criterion, not a gap anymore |
+| WP-7 Stock and inventory | **Partial — one of three gaps fixed 2026-09-13, two still open.** See below |
+| WP-8 Sales and valuation | **Partial — three of four exit criteria fixed 2026-09-13, one partially.** See below |
 | WP-9 Numbering, period lock, invoicing | **NOT BUILT.** `app/finance/__init__.py` is a three-line stub |
 
 ### The specific gaps — do not assume these away
 
-**WP-5.** Plate lookup returns neither keeper nor open orders ("open orders" does not exist;
-`app/aftersales` is a stub) · **the nightly reconciliation has no scheduler** —
-`reconciliation_runner.run_all`'s only caller is a test · **the legacy `vehicle` table was
-never migrated off**: `legacy_vehicle_write_frozen` defaults to `False` so writes are open,
-and `app/customer/reconciliation.py` still points `vehicle_party` at the **legacy** table, so
-the exit criterion measures the wrong table · `catalogue_admin` is an API with no screen.
+**WP-5.** ~~The nightly reconciliation has no scheduler~~ **Fixed 2026-09-13 (KAN-20)** —
+`app/worker.py::register_daily_jobs` now calls `reconciliation_runner.run_all`, a real
+scheduled caller where only a test existed before. ~~The legacy `vehicle` table was never
+migrated off~~ **Fixed 2026-09-13 (KAN-18, KAN-31)** — `scripts/migrate_legacy_vehicles.py`
+(dry-run by default), `legacy_vehicle_write_frozen`, and both `app/customer/reconciliation.py`
+and customer-side vehicle-party allocation now point at the real `vehicle_mdm` table.
+**Still open:** plate lookup returns neither keeper nor open orders ("open orders" does not
+exist; `app/aftersales` is a stub) · `catalogue_admin` as a screen-less API — **not
+re-verified in the 2026-09-13 audit** (it wasn't in the "In Review" pile that prompted it;
+KAN-40's catalogue browse work landed since, so this specific claim may itself be stale —
+check before trusting it).
 
-**WP-7.** Landed cost and the fiktiver Vorsteuerabzug **never reach Sales** —
-`inventory/services/pricing.py` does not return them and `sales/services/snapshot.py` does
-not freeze them · marketplace publishing has **no transmission code and no consumer** ·
-`invoicing_gate.apply_finance_invoice_issued` has zero callers.
+**WP-7.** ~~Landed cost and the fiktiver Vorsteuerabzug never reach Sales~~ **Fixed
+2026-09-13 (KAN-25)** — `app/inventory/services/pricing.py::get_stock_item_pricing` now
+returns `landedCost`/`notionalInputTax*` alongside the pre-existing fields. **Still open:**
+marketplace publishing has no transmission code and no consumer (KAN-27, tracked in Notion as
+Ready for Development, not started) · `invoicing_gate.apply_finance_invoice_issued` has zero
+callers — not re-verified in the 2026-09-13 audit.
 
-**WP-8.** The offer **does not print in the customer's language** — `build_offer_content`
-takes no language parameter and the body labels are hardcoded German · **there is no VAT line
-on any document** where exactly one is required · `sales.contract.confirmed` carries **no
-pricing snapshot** · the `transaction` rows were **never migrated** (that migration is a
-Postgres `COMMENT ON TABLE`).
+**WP-8.** ~~The offer does not print in the customer's language ... no VAT line on any
+document~~ **Fixed 2026-09-13 (KAN-23)** — `build_offer_content`/`build_contract_content`
+take a required `language` parameter; the single gross-price VAT line is on the printed
+document per ADR-057. ~~`sales.contract.confirmed` carries no pricing snapshot~~ **Fixed
+2026-09-13 (KAN-24)** — `_confirmed_event_payload` now builds and includes one. The
+`transaction` rows: **`sale`-type rows now migrate for real (KAN-26)** —
+`scripts/migrate_transaction_rows.py`, dry-run by default, idempotent, through the real
+production write path (9/9 tests passing on Postgres). **`trade_in`-type rows are still
+explicitly NOT migrated** — `_migrate_trade_in()` unconditionally rejects every such row
+(`rejected_trade_in`), documented in the script's own docstring as not built, deferred to a
+separate follow-up because `supplier_is_vat_registered` and vehicle condition aren't
+recoverable from the legacy row.
 
 ## The twelve bounded contexts
 
@@ -289,7 +310,27 @@ Read the ADR before building against any of these.
   is often how the block gets resolved. **Do-not-contact is a different flag** and stops both,
   because it is about contact rather than credit.
 
-**The Configurator (2026-09-03) — specified, not yet built**
+**The Configurator (2026-09-03, specified) — substantially built as of 2026-09-13**
+
+> **This section previously said "specified, not yet built." That went stale without
+> anyone noticing — audited 2026-09-13 against a pile of miscategorized "In Review"
+> Kanban tickets that turned out to already be merged.** Confirmed shipped and tested at
+> current `main`: **C-A** (the spec block on all three carriers — `ModelVariant` and
+> `VehicleConfiguration` both carry the 38-field `VehicleSpecBlock`, a no-drift
+> architecture test enforces it, the three canonical reference lists are seeded), **C-B**
+> (catalogue browse + facets, provably making no live provider call, on the shared
+> DataGrid), and **C-C** (the `VehicleConfiguration` entity itself, the two-phase overlay,
+> both manual and catalogue modes, the never-writes-`vehicle-mdm` architecture guard).
+> **C-0** (gateway coverage) is half done — PR 1 (the real SOAP transport, the seven
+> pre-existing Datennamen) shipped; PR 2 (the fourteen new Datennamen, entitlement
+> probing, the `provider_code_map` seed from `Codes`) has not started, and the real-account
+> round trip is blocked on a staging auto-i-dat account that doesn't exist yet.
+> **C-D** (identification/plate cache), **C-E** (options, packages, colours, images) and
+> **C-F** (host integration into the offer flow, Stock pipeline and Valuation) were **not**
+> re-verified in that audit (they sit in Backlog, not the "In Review" pile that prompted
+> it) — do not assume they're built without checking. Same for **KAN-9 "Configurator -
+> Standard Flow"** itself: the building blocks below are real, but whether the end-to-end
+> flow they compose into is what that ticket actually needs is still an open question.
 
 - **ADR-068 — a configuration is a first-class entity** with its own ID, referenced by an
   offer, a stock item, a valuation or a vehicle. **No list screen and no nav entry.**
