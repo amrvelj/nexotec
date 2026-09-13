@@ -16,6 +16,10 @@ export interface FakeRequest {
   method: string
   params: URLSearchParams
   body: unknown
+  /** The real request headers (`Idempotency-Key`, `If-Match`, …) — a test
+   * asserting optimistic-concurrency behaviour reads this rather than
+   * re-deriving version state from response bodies alone. */
+  headers: Headers
 }
 
 export type FakeHandler = (req: FakeRequest) => unknown
@@ -34,6 +38,7 @@ export interface RecordedCall {
   pathname: string
   params: URLSearchParams
   body: unknown
+  headers: Headers
 }
 
 export interface FakeBackend {
@@ -160,7 +165,8 @@ export function installFakeBackend(routes: FakeRoute[]): FakeBackend {
     // The client's base URL carries the `/v1` prefix; routes are written
     // against the bare resource path (`/customers`, `/me/preferences/ui`).
     const pathname = url.pathname.replace(/^\/v1(?=\/|$)/, '')
-    calls.push({ method, path: pathname + url.search, pathname, params: url.searchParams, body })
+    const headers = new Headers(init?.headers)
+    calls.push({ method, path: pathname + url.search, pathname, params: url.searchParams, body, headers })
 
     const route = all.find((r) => (r.method ?? 'GET').toUpperCase() === method && r.match.test(pathname))
     if (!route) {
@@ -169,7 +175,7 @@ export function installFakeBackend(routes: FakeRoute[]): FakeBackend {
         { status: 404, headers: JSON_HEADERS },
       )
     }
-    return toResponse(route.handler({ url, pathname, method, params: url.searchParams, body }))
+    return toResponse(route.handler({ url, pathname, method, params: url.searchParams, body, headers }))
   }
 
   vi.stubGlobal('fetch', vi.fn(fetchImpl))

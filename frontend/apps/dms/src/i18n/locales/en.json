@@ -1392,7 +1392,36 @@
       }
     },
     "options": {
-      "placeholder": "Priced catalogue options, packages and colours arrive with C-E."
+      "noCatalogueVariant": "Catalogue options are not available for a manual configuration.",
+      "empty": "This variant has no options in the catalogue mirror.",
+      "loadError": "Options could not be loaded.",
+      "unavailable": {
+        "title": "Package data unavailable",
+        "body": "Package and compatibility data is not available on this account. Options are shown as a flat priced list."
+      },
+      "included": "Included",
+      "addFeature": "Add feature",
+      "conflict": {
+        "title": "Selections don't usually go together",
+        "body": "auto-i-dat's data describes what's usual, not a hard rule — this selection can still be confirmed.",
+        "dismiss": "Dismiss"
+      },
+      "packageOffer": {
+        "body": "{{package}} normally includes {{contents}}. Add them too?",
+        "add": "Add",
+        "skip": "Skip"
+      },
+      "relations": {
+        "excludes": "Excludes {{option}}",
+        "contains": "Contains {{option}}",
+        "containedIn": "Contained in {{option}}",
+        "becomesStandardWith": "Becomes standard with {{option}}",
+        "priceInCombinationWith": "{{price}} in combination with {{option}}",
+        "notWith": "Not available with {{option}}",
+        "onlyWith": "Only available with {{option}}",
+        "notInCombinationWith": "Not available in combination with {{option}}",
+        "onlyInCombinationWith": "Only available in combination with {{option}}"
+      }
     },
     "colour": {
       "exterior": "Exterior colour",
@@ -1414,7 +1443,8 @@
     },
     "save": "Save",
     "saveNew": "Save configuration",
-    "saveError": "The configuration could not be saved."
+    "saveError": "The configuration could not be saved.",
+    "saveOptionsError": "The configuration was saved, but its options could not be saved."
   },
   "customerRowMenu": {
     "edit": "Edit",

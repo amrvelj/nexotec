@@ -1392,7 +1392,36 @@
       }
     },
     "options": {
-      "placeholder": "Preisgeführte Katalogoptionen, Pakete und Farben folgen mit C-E."
+      "noCatalogueVariant": "Katalogoptionen sind für eine manuelle Konfiguration nicht verfügbar.",
+      "empty": "Für diese Variante sind keine Optionen im Katalogspiegel vorhanden.",
+      "loadError": "Optionen konnten nicht geladen werden.",
+      "unavailable": {
+        "title": "Paketdaten nicht verfügbar",
+        "body": "Paket- und Kompatibilitätsdaten sind für dieses Konto nicht verfügbar. Optionen werden als flache Preisliste angezeigt."
+      },
+      "included": "Inklusive",
+      "addFeature": "Merkmal hinzufügen",
+      "conflict": {
+        "title": "Diese Auswahl passt normalerweise nicht zusammen",
+        "body": "Die Daten von auto-i-dat beschreiben das Übliche, keine feste Regel — diese Auswahl kann trotzdem bestätigt werden.",
+        "dismiss": "Ausblenden"
+      },
+      "packageOffer": {
+        "body": "{{package}} enthält normalerweise {{contents}}. Auch hinzufügen?",
+        "add": "Hinzufügen",
+        "skip": "Überspringen"
+      },
+      "relations": {
+        "excludes": "Schliesst {{option}} aus",
+        "contains": "Enthält {{option}}",
+        "containedIn": "Enthalten in {{option}}",
+        "becomesStandardWith": "Wird serienmässig mit {{option}}",
+        "priceInCombinationWith": "{{price}} in Kombination mit {{option}}",
+        "notWith": "Nicht verfügbar mit {{option}}",
+        "onlyWith": "Nur verfügbar mit {{option}}",
+        "notInCombinationWith": "Nicht verfügbar in Kombination mit {{option}}",
+        "onlyInCombinationWith": "Nur verfügbar in Kombination mit {{option}}"
+      }
     },
     "colour": {
       "exterior": "Aussenfarbe",
@@ -1414,7 +1443,8 @@
     },
     "save": "Speichern",
     "saveNew": "Konfiguration speichern",
-    "saveError": "Die Konfiguration konnte nicht gespeichert werden."
+    "saveError": "Die Konfiguration konnte nicht gespeichert werden.",
+    "saveOptionsError": "Die Konfiguration wurde gespeichert, aber die Optionen konnten nicht gespeichert werden."
   },
   "customerRowMenu": {
     "edit": "Bearbeiten",
