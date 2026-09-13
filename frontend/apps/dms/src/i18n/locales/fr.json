@@ -1392,7 +1392,36 @@
       }
     },
     "options": {
-      "placeholder": "Les options catalogue tarifées, les packs et les couleurs arrivent avec C-E."
+      "noCatalogueVariant": "Les options catalogue ne sont pas disponibles pour une configuration manuelle.",
+      "empty": "Cette variante n'a aucune option dans le miroir du catalogue.",
+      "loadError": "Les options n'ont pas pu être chargées.",
+      "unavailable": {
+        "title": "Données de pack indisponibles",
+        "body": "Les données de pack et de compatibilité ne sont pas disponibles pour ce compte. Les options sont affichées sous forme de liste tarifée à plat."
+      },
+      "included": "Inclus",
+      "addFeature": "Ajouter une caractéristique",
+      "conflict": {
+        "title": "Ces sélections ne vont normalement pas ensemble",
+        "body": "Les données auto-i-dat décrivent l'usage habituel, pas une règle stricte — cette sélection peut tout de même être confirmée.",
+        "dismiss": "Ignorer"
+      },
+      "packageOffer": {
+        "body": "{{package}} inclut normalement {{contents}}. Les ajouter aussi ?",
+        "add": "Ajouter",
+        "skip": "Ignorer"
+      },
+      "relations": {
+        "excludes": "Exclut {{option}}",
+        "contains": "Contient {{option}}",
+        "containedIn": "Contenue dans {{option}}",
+        "becomesStandardWith": "Devient de série avec {{option}}",
+        "priceInCombinationWith": "{{price}} en combinaison avec {{option}}",
+        "notWith": "Non disponible avec {{option}}",
+        "onlyWith": "Disponible uniquement avec {{option}}",
+        "notInCombinationWith": "Non disponible en combinaison avec {{option}}",
+        "onlyInCombinationWith": "Disponible uniquement en combinaison avec {{option}}"
+      }
     },
     "colour": {
       "exterior": "Couleur extérieure",
@@ -1414,7 +1443,8 @@
     },
     "save": "Enregistrer",
     "saveNew": "Enregistrer la configuration",
-    "saveError": "La configuration n'a pas pu être enregistrée."
+    "saveError": "La configuration n'a pas pu être enregistrée.",
+    "saveOptionsError": "La configuration a été enregistrée, mais ses options n'ont pas pu être enregistrées."
   },
   "customerRowMenu": {
     "edit": "Modifier",

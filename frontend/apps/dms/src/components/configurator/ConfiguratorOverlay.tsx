@@ -19,6 +19,7 @@ import { DetailTabs, StickyActionFooter } from '@nexotec/ui-kit'
 import { api } from '../../api/client'
 import { CatalogueBrowseGrid } from '../catalogue/CatalogueBrowseGrid'
 import { ConfigurationSummaryCard } from './ConfigurationSummaryCard'
+import { OptionsTab } from './OptionsTab'
 import {
   SPEC_FIELD_GROUPS,
   SPEC_REF_LIST_CODES,
@@ -27,11 +28,20 @@ import {
   type ConfiguratorMode,
 } from '../../configurationOptions'
 import type {
+  CatalogueOptionRead,
+  CatalogueSpecificationRead,
   CatalogueVariantRead,
+  ConfigurationOptionInput,
+  ConfigurationOptionRead,
   ConfigurationRead,
   ReferenceValuePage,
   VehicleSpecBlockRead,
 } from '../../api/types'
+
+// KAN-43 (C-E) — option_group/equipment_feature join the spec block's own
+// reference lists in the one label-lookup query this file already has;
+// nothing here needs its own fetch.
+const OPTION_REF_LIST_CODES = [...SPEC_REF_LIST_CODES, 'option_group', 'equipment_feature']
 
 type Phase = 'find' | 'configure'
 type Section = 'specification' | 'options' | 'colour' | 'summary'
@@ -51,6 +61,9 @@ interface Draft {
   exteriorColour: string
   interiorColour: string
   notes: string
+  /** Explicit overrides only (KAN-43/C-E) — see `OptionsTabProps.selected`'s
+   * own doc comment for what "explicit" means here. */
+  selectedOptions: Map<string, ConfigurationOptionInput>
 }
 
 const EMPTY_SPEC: VehicleSpecBlockRead = {}
@@ -70,6 +83,7 @@ function draftFromVariant(v: CatalogueVariantRead): Draft {
     exteriorColour: '',
     interiorColour: '',
     notes: '',
+    selectedOptions: new Map(),
   }
 }
 
@@ -88,6 +102,7 @@ function emptyManualDraft(): Draft {
     exteriorColour: '',
     interiorColour: '',
     notes: '',
+    selectedOptions: new Map(),
   }
 }
 
@@ -144,6 +159,77 @@ export function ConfiguratorOverlay({ initialMode = 'build', onCommitted, onClos
     })
   }
 
+  // KAN-43 (C-E) — the catalogue's own options/colours/tyres/images for
+  // this variant. Never fetched for a manual configuration (no variant to
+  // ask about) — see OptionsTab's own "no catalogue data" state.
+  const specQuery = useQuery({
+    queryKey: ['catalogue-variant-specification', draft?.catalogueVariantId],
+    queryFn: () => api.get<CatalogueSpecificationRead>(`/catalogue/variants/${draft!.catalogueVariantId}/specification`),
+    enabled: draft?.catalogueVariantId != null,
+  })
+
+  const handleOptionToggle = (option: CatalogueOptionRead) => {
+    setDraft((prev) => {
+      if (!prev) return prev
+      const selectedOptions = new Map(prev.selectedOptions)
+      const existing = selectedOptions.get(option.id)
+      if (existing) {
+        // Flip `selected` rather than deleting the entry — an equipment-
+        // feature correction the advisor made while this option was
+        // checked must survive an uncheck/recheck in the same session,
+        // not silently reset to the catalogue's own defaults (Q-C-5:
+        // "the user should always be able to correct it").
+        selectedOptions.set(option.id, { ...existing, selected: !existing.selected })
+      } else {
+        selectedOptions.set(option.id, toConfigurationOptionInput(option))
+      }
+      return { ...prev, selectedOptions }
+    })
+  }
+
+  const handleAddPackageContents = (options: CatalogueOptionRead[]) => {
+    setDraft((prev) => {
+      if (!prev) return prev
+      const selectedOptions = new Map(prev.selectedOptions)
+      for (const o of options) {
+        const existing = selectedOptions.get(o.id)
+        selectedOptions.set(o.id, existing ? { ...existing, selected: true } : toConfigurationOptionInput(o))
+      }
+      return { ...prev, selectedOptions }
+    })
+  }
+
+  const handleUpdateFeatures = (variantOptionId: string, features: string[]) => {
+    setDraft((prev) => {
+      if (!prev) return prev
+      const selectedOptions = new Map(prev.selectedOptions)
+      const existing = selectedOptions.get(variantOptionId)
+      if (existing) {
+        selectedOptions.set(variantOptionId, { ...existing, equipmentFeatures: features })
+      } else {
+        // An included option the advisor is correcting for the first time
+        // — snapshot it from the catalogue row so the correction has
+        // somewhere to live (see OptionsTab's own doc comment on `selected`).
+        const catalogueOption = specQuery.data?.options.find((o) => o.id === variantOptionId)
+        if (!catalogueOption) return prev
+        selectedOptions.set(variantOptionId, {
+          ...toConfigurationOptionInput(catalogueOption),
+          equipmentFeatures: features,
+        })
+      }
+      return { ...prev, selectedOptions }
+    })
+  }
+
+  const optionGroupLabel = (code: string) =>
+    refLabels.data?.option_group?.find((r) => r.valueCode === code)?.label ?? null
+  const equipmentFeatureLabel = (code: string) =>
+    refLabels.data?.equipment_feature?.find((r) => r.valueCode === code)?.label ?? code
+  const equipmentFeatureOptions = (refLabels.data?.equipment_feature ?? []).map((r) => ({
+    value: r.valueCode,
+    label: r.label,
+  }))
+
   const save = async () => {
     if (!draft) return
     setSaving(true)
@@ -164,7 +250,8 @@ export function ConfiguratorOverlay({ initialMode = 'build', onCommitted, onClos
       }
 
       let config: ConfigurationRead
-      if (configurationId === null) {
+      const isFirstSave = configurationId === null
+      if (isFirstSave) {
         config = await api.post<ConfigurationRead>(
           '/configurations',
           {
@@ -187,7 +274,41 @@ export function ConfiguratorOverlay({ initialMode = 'build', onCommitted, onClos
           { 'If-Match': String(currentVersion) },
         )
       }
+      // Recorded immediately — the options PATCH below is a second, separate
+      // call, and if it fails after this one already succeeded, the local
+      // version must still match what the server actually holds. Leaving
+      // this until after both calls would strand `currentVersion` behind
+      // the server on a partial failure, and the very next save would send
+      // a stale If-Match and 409 forever.
       setCurrentVersion(config.version)
+
+      // Options ride a separate PATCH (C-C's own endpoint, unchanged by
+      // this ticket) — skipped on a brand-new configuration that never had
+      // an option touched (nothing to say yet), and skipped whenever the
+      // catalogue specification itself hasn't actually loaded (a manual
+      // configuration correctly has no spec at all; a provider one with a
+      // spec that's merely still loading, or failed to load, must NOT
+      // resend an authoritative empty list — that would silently wipe out
+      // every included/standard option the fetch just hasn't told us about
+      // yet). Every later save with a loaded spec resends the full current
+      // set, even empty, so removing every option and saving again
+      // actually clears them server-side.
+      const canSyncOptions = draft.catalogueVariantId == null || specQuery.data != null
+      const optionsPayload = finalOptionsPayload(draft, specQuery.data)
+      if (canSyncOptions && (!isFirstSave || optionsPayload.length > 0)) {
+        try {
+          config = await api.patch<ConfigurationRead>(
+            `/configurations/${config.id}/options`,
+            { options: optionsPayload },
+            { 'If-Match': String(config.version) },
+          )
+          setCurrentVersion(config.version)
+        } catch {
+          setError(t('configurator.saveOptionsError'))
+          return
+        }
+      }
+
       onCommitted(config)
     } catch {
       setError(t('configurator.saveError'))
@@ -200,8 +321,8 @@ export function ConfiguratorOverlay({ initialMode = 'build', onCommitted, onClos
 
   const readModel: ConfigurationRead | null = useMemo(() => {
     if (!draft) return null
-    return previewRead(draft, mode)
-  }, [draft, mode])
+    return previewRead(draft, mode, specQuery.data)
+  }, [draft, mode, specQuery.data])
 
   // -- Phase 1 -----------------------------------------------------------
   if (phase === 'find' || draft === null) {
@@ -382,9 +503,20 @@ export function ConfiguratorOverlay({ initialMode = 'build', onCommitted, onClos
       )}
 
       {section === 'options' && (
-        <Alert color="gray" icon={<Info size={16} />}>
-          {t('configurator.options.placeholder')}
-        </Alert>
+        <OptionsTab
+          spec={specQuery.data}
+          isLoading={specQuery.isLoading}
+          isError={specQuery.isError}
+          isManual={draft.catalogueVariantId == null}
+          mode={mode}
+          selected={draft.selectedOptions}
+          onToggle={handleOptionToggle}
+          onAddPackageContents={handleAddPackageContents}
+          onUpdateFeatures={handleUpdateFeatures}
+          optionGroupLabel={optionGroupLabel}
+          equipmentFeatureLabel={equipmentFeatureLabel}
+          equipmentFeatureOptions={equipmentFeatureOptions}
+        />
       )}
 
       {section === 'colour' && (
@@ -432,7 +564,7 @@ function useReferenceLabels() {
   const { i18n } = useTranslation()
   const lang = (i18n.language || 'de').slice(0, 2)
   return useQuery({
-    queryKey: ['configurator-ref-labels', SPEC_REF_LIST_CODES],
+    queryKey: ['configurator-ref-labels', OPTION_REF_LIST_CODES],
     queryFn: async () => {
       const key = `label${lang.charAt(0).toUpperCase()}${lang.slice(1)}` as
         | 'labelDe'
@@ -440,7 +572,7 @@ function useReferenceLabels() {
         | 'labelIt'
         | 'labelEn'
       const entries = await Promise.all(
-        SPEC_REF_LIST_CODES.map(async (code) => {
+        OPTION_REF_LIST_CODES.map(async (code) => {
           try {
             const page = await api.get<ReferenceValuePage>(`/reference-data/${code}?limit=200`)
             return [code, page.items.map((v) => ({ valueCode: v.valueCode, label: v[key] || v.valueCode }))] as const
@@ -466,9 +598,52 @@ function nonEmptySpec(spec: VehicleSpecBlockRead): Record<string, unknown> {
   return out
 }
 
+function toConfigurationOptionInput(option: CatalogueOptionRead): ConfigurationOptionInput {
+  return {
+    variantOptionId: option.id,
+    optionCode: option.optionCode,
+    description: option.description,
+    optionGroup: option.optionGroup,
+    price: option.price,
+    isIncluded: option.isIncluded,
+    isPackage: option.isPackage,
+    selected: true,
+    equipmentFeatures: [...option.equipmentFeatures],
+  }
+}
+
+/** Every included option (always) plus whatever the advisor explicitly
+ * selected — see `OptionsTabProps.selected`'s own doc comment on why the
+ * draft only ever tracks explicit overrides. */
+function finalOptionsPayload(
+  draft: Draft,
+  spec: CatalogueSpecificationRead | undefined,
+): ConfigurationOptionInput[] {
+  if (!spec) return []
+  return spec.options
+    .filter((o) => o.isIncluded || draft.selectedOptions.get(o.id)?.selected === true)
+    .map((o) => draft.selectedOptions.get(o.id) ?? toConfigurationOptionInput(o))
+}
+
+function previewOptions(draft: Draft, spec: CatalogueSpecificationRead | undefined): ConfigurationOptionRead[] {
+  return finalOptionsPayload(draft, spec).map((o, sequence) => ({
+    id: o.variantOptionId ?? `preview-${sequence}`,
+    sequence,
+    variantOptionId: o.variantOptionId ?? null,
+    optionCode: o.optionCode ?? null,
+    description: o.description,
+    optionGroup: o.optionGroup ?? null,
+    price: o.price != null ? String(o.price) : null,
+    isIncluded: o.isIncluded ?? false,
+    isPackage: o.isPackage ?? false,
+    selected: o.selected ?? true,
+    equipmentFeatures: o.equipmentFeatures ?? [],
+  }))
+}
+
 /** A client-side `ConfigurationRead` shape for the summary card preview,
  * before the draft is saved. */
-function previewRead(draft: Draft, mode: ConfiguratorMode): ConfigurationRead {
+function previewRead(draft: Draft, mode: ConfiguratorMode, spec: CatalogueSpecificationRead | undefined): ConfigurationRead {
   return {
     id: 'draft',
     tenantId: 'draft',
@@ -502,7 +677,7 @@ function previewRead(draft: Draft, mode: ConfiguratorMode): ConfigurationRead {
     vehicleKind: null,
     spec: draft.spec,
     overriddenFields: [...draft.overridden],
-    options: [],
+    options: previewOptions(draft, spec),
     notes: draft.notes || null,
     version: 0,
     createdAt: new Date().toISOString(),

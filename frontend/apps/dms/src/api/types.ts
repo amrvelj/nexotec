@@ -89,6 +89,16 @@ export type CatalogueModelGroupPage = Schemas['CatalogueModelGroupPage']
 export type CatalogueFacetsRead = Schemas['CatalogueFacetsRead']
 export type CatalogueFacetValue = Schemas['CatalogueFacetValue']
 
+// Configurator C-E (KAN-43) — the catalogue mirror's own options/colours/
+// tyres/images read, entitlement-degraded (shared with the vehicle-mdm
+// screen's identical endpoint)
+export type CatalogueSpecificationRead = Schemas['CatalogueSpecificationRead']
+export type CatalogueOptionRead = Schemas['CatalogueOptionRead']
+export type CatalogueColourRead = Schemas['CatalogueColourRead']
+export type CatalogueTyreSpecRead = Schemas['CatalogueTyreSpecRead']
+export type CatalogueImageRead = Schemas['CatalogueImageRead']
+export type CatalogueOptionRelationRead = Schemas['CatalogueOptionRelationRead']
+
 // Configurator C-C (KAN-41) — the configuration entity
 export type ConfigurationSource = Schemas['ConfigurationSource']
 export type ConfigurationMode = Schemas['ConfigurationMode']
@@ -96,6 +106,8 @@ export type ConfigurationMatchStatus = Schemas['ConfigurationMatchStatus']
 export type ConfigurationMatchMethod = Schemas['ConfigurationMatchMethod']
 export type ConfigurationRead = Schemas['ConfigurationRead']
 export type ConfigurationOptionRead = Schemas['ConfigurationOptionRead']
+export type ConfigurationOptionInput = Schemas['ConfigurationOptionInput']
+export type ConfigurationOptionsReplace = Schemas['ConfigurationOptionsReplace']
 export type ConfigurationCreate = Schemas['ConfigurationCreate']
 export type ConfigurationUpdate = Schemas['ConfigurationUpdate']
 

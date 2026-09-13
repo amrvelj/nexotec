@@ -1392,7 +1392,36 @@
       }
     },
     "options": {
-      "placeholder": "Le opzioni di catalogo con prezzo, i pacchetti e i colori arrivano con C-E."
+      "noCatalogueVariant": "Le opzioni di catalogo non sono disponibili per una configurazione manuale.",
+      "empty": "Questa variante non ha opzioni nello specchio del catalogo.",
+      "loadError": "Impossibile caricare le opzioni.",
+      "unavailable": {
+        "title": "Dati sui pacchetti non disponibili",
+        "body": "I dati su pacchetti e compatibilità non sono disponibili per questo account. Le opzioni vengono mostrate come elenco piatto con prezzo."
+      },
+      "included": "Incluso",
+      "addFeature": "Aggiungi funzione",
+      "conflict": {
+        "title": "Queste selezioni di solito non vanno insieme",
+        "body": "I dati di auto-i-dat descrivono la prassi abituale, non una regola fissa — questa selezione può comunque essere confermata.",
+        "dismiss": "Ignora"
+      },
+      "packageOffer": {
+        "body": "{{package}} include normalmente {{contents}}. Aggiungerli anche?",
+        "add": "Aggiungi",
+        "skip": "Salta"
+      },
+      "relations": {
+        "excludes": "Esclude {{option}}",
+        "contains": "Contiene {{option}}",
+        "containedIn": "Contenuta in {{option}}",
+        "becomesStandardWith": "Diventa di serie con {{option}}",
+        "priceInCombinationWith": "{{price}} in combinazione con {{option}}",
+        "notWith": "Non disponibile con {{option}}",
+        "onlyWith": "Disponibile solo con {{option}}",
+        "notInCombinationWith": "Non disponibile in combinazione con {{option}}",
+        "onlyInCombinationWith": "Disponibile solo in combinazione con {{option}}"
+      }
     },
     "colour": {
       "exterior": "Colore esterno",
@@ -1414,7 +1443,8 @@
     },
     "save": "Salva",
     "saveNew": "Salva la configurazione",
-    "saveError": "Impossibile salvare la configurazione."
+    "saveError": "Impossibile salvare la configurazione.",
+    "saveOptionsError": "La configurazione è stata salvata, ma non è stato possibile salvare le sue opzioni."
   },
   "customerRowMenu": {
     "edit": "Modifica",
