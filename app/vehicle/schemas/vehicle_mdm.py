@@ -174,6 +174,7 @@ class CatalogueImageRead(CamelModel):
     bild_typ: str
     bild_art: str
     sequence: int
+    image_url: str | None
 
 
 class CatalogueOptionRelationRead(CamelModel):

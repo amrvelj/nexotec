@@ -1354,6 +1354,7 @@
       "specification": "Spezifikation",
       "options": "Optionen",
       "colour": "Farbe & Räder",
+      "images": "Bilder",
       "summary": "Zusammenfassung"
     },
     "spec": {
@@ -1425,7 +1426,43 @@
     },
     "colour": {
       "exterior": "Aussenfarbe",
-      "interior": "Polsterfarbe"
+      "interior": "Polsterfarbe",
+      "pickFromCatalogue": "Aus Katalog wählen",
+      "surcharge": "Aufpreis"
+    },
+    "wheels": {
+      "title": "Räder & Reifen",
+      "axle": "Achse",
+      "dimension": "Dimension",
+      "season": "Saison",
+      "remark": "Bemerkung",
+      "description": "Räder",
+      "axlePosition": {
+        "front": "Vorne",
+        "rear": "Hinten",
+        "both": "Vorne + hinten"
+      },
+      "seasonLabel": {
+        "summer": "Sommer",
+        "winter": "Winter"
+      }
+    },
+    "images": {
+      "noCatalogueVariant": "Katalogbilder sind für eine manuelle Konfiguration nicht verfügbar.",
+      "unavailable": {
+        "title": "Bilder nicht verfügbar",
+        "body": "Bilder sind für dieses Konto nicht verfügbar.",
+        "uploadNote": "Ihr Betrieb kann hier eigene Fotos hinzufügen, sobald der manuelle Upload verfügbar ist."
+      },
+      "empty": "Für diese Variante sind keine Bilder im Katalogspiegel vorhanden.",
+      "bildArt": {
+        "exterior": "Aussen",
+        "interior": "Innen"
+      },
+      "bildTyp": {
+        "small": "Klein",
+        "large": "Gross"
+      }
     },
     "summary": {
       "firstRegistration": "Erstinverkehrsetzung",

@@ -57,6 +57,30 @@ const CATALOGUE_OPTION = {
   equipmentFeatures: [],
 }
 
+const CATALOGUE_COLOUR = {
+  colourCode: 'RED',
+  description: 'Rosso competizione',
+  colourType: 'exterior',
+  price: '1100.00',
+}
+
+const CATALOGUE_TYRE_SPEC = {
+  axle: 'front',
+  size: '225/45 R18',
+  loadIndex: '95',
+  speedRating: 'Y',
+  remark: 'nur mit Leichtmetallfelgen',
+  season: 'summer',
+}
+
+const CATALOGUE_IMAGE = {
+  imageKey: 'v1-front.jpg',
+  bildTyp: 'S',
+  bildArt: 'A',
+  sequence: 0,
+  imageUrl: 'https://images.autoi.ch/img/v1-front.jpg',
+}
+
 interface Ctx {
   backend: FakeBackend
   posted: () => Record<string, unknown>[]
@@ -131,9 +155,9 @@ function install(over: FakeRoute[] = []): Ctx {
         imagesAvailable: true,
         dealerCanUploadImages: false,
         options: [CATALOGUE_OPTION],
-        colours: [],
-        tyreSpecs: [],
-        images: [],
+        colours: [CATALOGUE_COLOUR],
+        tyreSpecs: [CATALOGUE_TYRE_SPEC],
+        images: [CATALOGUE_IMAGE],
         optionRelations: [],
       }),
     },
@@ -280,6 +304,38 @@ describe('ConfiguratorOverlay', () => {
     expect(ctx.posted()[0].source).toBe('provider')
     expect(ctx.posted()[0].catalogueVariantId).toBe('v1')
     expect(ctx.posted()[0].matchMethod).toBe('catalogue_browse')
+  })
+
+  it('KAN-43 (C-E) — picking a catalogue colour and typing a wheels description both reach the save body', async () => {
+    const user = userEvent.setup()
+    const ctx = install()
+    renderWithProviders(<Host onCommitted={vi.fn()} />)
+    await openOverlay(user)
+
+    const overlayEl = screen.getByRole('dialog')
+    await user.click(await within(overlayEl).findByText('Golf GTI'))
+    await screen.findByText(i18n.t('configurator.spec.groups.powertrain'))
+
+    await user.click(screen.getByText(i18n.t('configurator.sections.colour')))
+    const pickers = await screen.findAllByLabelText(i18n.t('configurator.colour.pickFromCatalogue'))
+    await user.click(pickers[0])
+    await user.click(await screen.findByRole('option', { name: 'Rosso competizione' }))
+    await user.type(screen.getByLabelText(i18n.t('configurator.wheels.description')), '19" Turini')
+
+    // The catalogue's own tyre dimension is shown as reference material.
+    expect(screen.getByTestId('tyre-spec-table')).toBeInTheDocument()
+    expect(screen.getByText('nur mit Leichtmetallfelgen')).toBeInTheDocument()
+
+    await user.click(screen.getByText(i18n.t('configurator.sections.images')))
+    expect(await screen.findByTestId('images-tab')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: i18n.t('configurator.saveNew') }))
+
+    await waitFor(() => expect(ctx.posted().length).toBe(1))
+    const body = ctx.posted()[0]
+    expect(body.exteriorColour).toBe('Rosso competizione')
+    expect(body.exteriorColourSurcharge).toBe('1100.00')
+    expect(body.wheels).toBe('19" Turini')
   })
 
   it('KAN-43 (C-E) — selecting a catalogue option carries it into a separate options save', async () => {

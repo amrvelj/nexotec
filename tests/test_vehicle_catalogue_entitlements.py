@@ -116,6 +116,21 @@ def test_specification_hides_images_without_images_entitlement(db_session):
     assert result.variants_synced == 3
 
 
+def test_specification_carries_the_full_image_url(db_session):
+    provider = _make_mock_provider(db_session)
+    tenant_id = uuid.uuid4()
+    _make_connection(db_session, provider, tenant_id=tenant_id)
+
+    catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_id)
+    variant = db_session.query(ModelVariant).first()
+
+    spec = catalogue_entitlements.get_catalogue_specification(db_session, tenant_id=tenant_id, model_variant_id=variant.id)
+    assert spec.images_available is True
+    assert len(spec.images) == 2  # front (exterior, small) + interior (large)
+    for image in spec.images:
+        assert image.image_url == f"https://images.autoi.ch/img/{image.image_key}"
+
+
 def test_specification_carries_the_new_c_e_fields_on_options_colours_and_tyres(db_session):
     """KAN-43 (C-E) — is_included/is_package/equipment_features on
     options, price on colours, season/remark on tyres."""
@@ -240,6 +255,7 @@ def test_catalogue_specification_endpoint_for_a_matched_vehicle_with_full_entitl
     assert body["hasCatalogueMatch"] is True
     assert body["hasProviderConnection"] is True
     assert body["imagesAvailable"] is True
+    assert body["images"][0]["imageUrl"] == f"https://images.autoi.ch/img/{body['images'][0]['imageKey']}"
 
 
 # --- the Configurator's own read, keyed by model_variant_id (KAN-43) -----

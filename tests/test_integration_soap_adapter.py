@@ -395,6 +395,11 @@ def test_fetch_images_reads_bildurl(db_session, monkeypatch):
 
     assert [i.image_key for i in images] == ["601071S.jpg", "601071I.jpg"]
     assert [i.bild_art for i in images] == ["A", "I"]
+    # KAN-43 — the full URL, previously discarded entirely.
+    assert [i.image_url for i in images] == [
+        "https://images.autoi.ch/img/601071S.jpg",
+        "https://images.autoi.ch/img/601071I.jpg",
+    ]
 
 
 def test_status_2_yields_an_empty_result_not_an_error(db_session, monkeypatch):

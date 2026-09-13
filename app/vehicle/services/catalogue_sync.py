@@ -418,6 +418,7 @@ def _sync_tenant_variant_content(
         image_row.bild_typ = image.bild_typ
         image_row.bild_art = image.bild_art
         image_row.sequence = image.sequence
+        image_row.image_url = image.image_url
 
     db.flush()
 

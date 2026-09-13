@@ -321,8 +321,9 @@ class AutoIDatSoapAdapter:
     def fetch_images(self, fz_key: str) -> list[VariantImageData]:
         # Bilder returns <BildURL> (a URL string), not a key + sequence.
         # ImageRef.image_key is String(160); a URL can exceed that, so the
-        # stable short key is the URL basename — the full URL is dropped
-        # pending an ImageRef schema change (open question #6).
+        # stable short key is the URL basename. KAN-43 (C-E) — the full URL
+        # is now ALSO kept (image_url, ImageRef's own new column) rather
+        # than dropped; open question #6 is resolved, not just worked around.
         result = self._suchen("Bilder", {"FzKey": fz_key})
         images: list[VariantImageData] = []
         for index, row in enumerate(result.rows):
@@ -333,6 +334,7 @@ class AutoIDatSoapAdapter:
                     bild_art=row_text(row, "BildArt") or "",
                     image_key=_image_key_from_url(url),
                     sequence=index,
+                    image_url=url or None,
                 )
             )
         return images

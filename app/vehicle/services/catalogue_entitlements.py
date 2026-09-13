@@ -85,6 +85,9 @@ class ImageSpec:
     bild_typ: str
     bild_art: str
     sequence: int
+    # KAN-43 (C-E) — the full URL, now retained by ImageRef; None for a
+    # row synced before this column existed (there were none in practice).
+    image_url: str | None = None
 
 
 @dataclass(frozen=True)
@@ -206,7 +209,10 @@ def get_catalogue_specification(
             select(ImageRef).where(ImageRef.tenant_id == tenant_id, ImageRef.model_variant_id == model_variant_id)
         ).all()
         images = [
-            ImageSpec(image_key=row.image_key, bild_typ=row.bild_typ, bild_art=row.bild_art, sequence=row.sequence)
+            ImageSpec(
+                image_key=row.image_key, bild_typ=row.bild_typ, bild_art=row.bild_art, sequence=row.sequence,
+                image_url=row.image_url,
+            )
             for row in image_rows
         ]
 

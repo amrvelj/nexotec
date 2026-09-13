@@ -96,6 +96,11 @@ class VariantImageData:
     bild_art: str
     image_key: str
     sequence: int
+    # KAN-43 (C-E) — the full `BildURL`, kept alongside `image_key` (the
+    # basename-only sync key) so a caller can actually render the photo.
+    # Previously discarded at ingestion because `ImageRef` had nowhere to
+    # put it (WP-6's own Open Item).
+    image_url: str | None = None
 
 
 @dataclass(frozen=True)

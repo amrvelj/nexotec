@@ -72,7 +72,7 @@ def test_seed_tenant_catalogue_creates_global_variants_and_tenant_scoped_content
     assert db_session.query(VariantOption).filter_by(tenant_id=tenant_id).count() >= 1
     assert db_session.query(ColourCache).filter_by(tenant_id=tenant_id).count() == 3 * 3  # 3 colours per variant
     assert db_session.query(TyreSpecCache).filter_by(tenant_id=tenant_id).count() == 3 * 3  # front + rear + both
-    assert db_session.query(ImageRef).filter_by(tenant_id=tenant_id).count() == 3
+    assert db_session.query(ImageRef).filter_by(tenant_id=tenant_id).count() == 3 * 2  # front + interior
 
     state = catalogue_sync.get_sync_state(db_session, tenant_id=tenant_id, provider_code="auto_i_dat_mock")
     assert state is not None
@@ -286,6 +286,28 @@ def test_seed_populates_tyre_remark_and_season(db_session):
     assert specs[("front", "summer")].remark == "nur mit Leichtmetallfelgen"
     assert specs[("rear", "summer")].remark == "nur mit Leichtmetallfelgen"
     assert specs[("both", "winter")].remark is None
+
+
+def test_seed_populates_the_full_image_url(db_session):
+    """FR-C-09 — the full BildURL, previously discarded at ingestion
+    (an explicit WP-6 Open Item); without it no caller can render a photo,
+    only reference an opaque key."""
+
+    provider = _make_mock_provider(db_session)
+    tenant_id = uuid.uuid4()
+    _make_connection(db_session, provider, tenant_id=tenant_id)
+
+    catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_id)
+
+    golf = db_session.query(ModelVariant).filter_by(name="Golf GTI 2.0 TSI DSG").one()
+    front = db_session.query(ImageRef).filter_by(
+        tenant_id=tenant_id, model_variant_id=golf.id, image_key="FZ100002-front.jpg"
+    ).one()
+    assert front.image_url == "https://images.autoi.ch/img/FZ100002-front.jpg"
+    interior = db_session.query(ImageRef).filter_by(
+        tenant_id=tenant_id, model_variant_id=golf.id, image_key="FZ100002-interior.jpg"
+    ).one()
+    assert interior.image_url == "https://images.autoi.ch/img/FZ100002-interior.jpg"
 
 
 def test_tyre_spec_cache_allows_the_same_axle_with_two_different_seasons(db_session):

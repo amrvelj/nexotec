@@ -165,8 +165,22 @@ _TYRE_SPECS: dict[str, list[VariantTyreSpecData]] = {
     if master.type_approval_numbers
 }
 
+
+# BildTyp: S (small, 210px) / L (large, 1200px). BildArt: A (Aussen/
+# exterior) / I (Innen/interior) — matching the real provider's own
+# two-letter codes (Webservice Fahrzeuge p23), not a placeholder value the
+# frontend's BILD_TYP_KEY/BILD_ART_KEY maps wouldn't recognise.
 _IMAGES: dict[str, list[VariantImageData]] = {
-    fz_key: [VariantImageData(bild_typ="1", bild_art="1", image_key=f"{fz_key}-front.jpg", sequence=0)]
+    fz_key: [
+        VariantImageData(
+            bild_typ="S", bild_art="A", image_key=f"{fz_key}-front.jpg", sequence=0,
+            image_url=f"https://images.autoi.ch/img/{fz_key}-front.jpg",
+        ),
+        VariantImageData(
+            bild_typ="L", bild_art="I", image_key=f"{fz_key}-interior.jpg", sequence=1,
+            image_url=f"https://images.autoi.ch/img/{fz_key}-interior.jpg",
+        ),
+    ]
     for fz_key in _DEMO_FZ_KEYS
 }
 
