@@ -78,10 +78,17 @@ class TyreSpecCache(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):
 
 
 class ImageRef(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):
-    """`Bilder` — a pointer to the provider's own image key, never the
-    image bytes themselves (no blob storage exists anywhere in this
-    codebase, per the WP-6 plan's own Open Items — this table is the seam
-    a future image-fetch/cache step would read, not that step itself).
+    """`Bilder` — a pointer to the provider's own image, never the image
+    bytes themselves (no blob storage exists anywhere in this codebase).
+
+    `image_key` (the URL basename) is the sync's own natural/unique key —
+    unchanged by KAN-43 (C-E). `image_url` is new: the adapter was
+    discarding auto-i-dat's full `BildURL` at ingestion because this
+    column didn't exist yet (an explicit WP-6 Open Item); without it there
+    was no way for any caller, including the Configurator's own images
+    tab, to actually render a photo. Nullable because rows synced before
+    this column existed (there were none in any real environment) would
+    otherwise need a backfill this ticket has no data to perform.
     """
 
     __tablename__ = "vehicle_image_ref"
@@ -97,6 +104,7 @@ class ImageRef(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):
     bild_typ: Mapped[str] = mapped_column(String(16), nullable=False)
     bild_art: Mapped[str] = mapped_column(String(16), nullable=False)
     image_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     sequence: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
 

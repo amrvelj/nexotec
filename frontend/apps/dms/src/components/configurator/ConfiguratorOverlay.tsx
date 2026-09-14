@@ -20,6 +20,8 @@ import { api } from '../../api/client'
 import { CatalogueBrowseGrid } from '../catalogue/CatalogueBrowseGrid'
 import { ConfigurationSummaryCard } from './ConfigurationSummaryCard'
 import { OptionsTab } from './OptionsTab'
+import { ColourWheelsTab } from './ColourWheelsTab'
+import { ImagesTab } from './ImagesTab'
 import {
   SPEC_FIELD_GROUPS,
   SPEC_REF_LIST_CODES,
@@ -44,7 +46,7 @@ import type {
 const OPTION_REF_LIST_CODES = [...SPEC_REF_LIST_CODES, 'option_group', 'equipment_feature']
 
 type Phase = 'find' | 'configure'
-type Section = 'specification' | 'options' | 'colour' | 'summary'
+type Section = 'specification' | 'options' | 'colour' | 'images' | 'summary'
 
 interface Draft {
   source: 'provider' | 'manual'
@@ -60,6 +62,12 @@ interface Draft {
   mileageKm: string
   exteriorColour: string
   interiorColour: string
+  /** Empty string means "not set" (matches `mileageKm`'s own convention) —
+   * `''` never reaches the wire as `NaN`, `save()` maps it to `null`. */
+  exteriorColourSurcharge: string
+  interiorColourSurcharge: string
+  wheels: string
+  wheelsSurcharge: string
   notes: string
   /** Explicit overrides only (KAN-43/C-E) — see `OptionsTabProps.selected`'s
    * own doc comment for what "explicit" means here. */
@@ -82,6 +90,10 @@ function draftFromVariant(v: CatalogueVariantRead): Draft {
     mileageKm: '',
     exteriorColour: '',
     interiorColour: '',
+    exteriorColourSurcharge: '',
+    interiorColourSurcharge: '',
+    wheels: '',
+    wheelsSurcharge: '',
     notes: '',
     selectedOptions: new Map(),
   }
@@ -101,6 +113,10 @@ function emptyManualDraft(): Draft {
     mileageKm: '',
     exteriorColour: '',
     interiorColour: '',
+    exteriorColourSurcharge: '',
+    interiorColourSurcharge: '',
+    wheels: '',
+    wheelsSurcharge: '',
     notes: '',
     selectedOptions: new Map(),
   }
@@ -246,6 +262,14 @@ export function ConfiguratorOverlay({ initialMode = 'build', onCommitted, onClos
         mileageKm: draft.mileageKm ? Number(draft.mileageKm) : null,
         exteriorColour: draft.exteriorColour || null,
         interiorColour: draft.interiorColour || null,
+        // KAN-43 (C-E) / FR-C-07, FR-C-08 — a surcharge only means anything
+        // in build mode (a new-vehicle price build-up); record mode never
+        // shows the inputs (see the 'colour' section below), so nothing
+        // here forces record-mode drafts to carry a stray non-null value.
+        exteriorColourSurcharge: draft.exteriorColourSurcharge || null,
+        interiorColourSurcharge: draft.interiorColourSurcharge || null,
+        wheels: draft.wheels || null,
+        wheelsSurcharge: draft.wheelsSurcharge || null,
         notes: draft.notes || null,
       }
 
@@ -395,6 +419,7 @@ export function ConfiguratorOverlay({ initialMode = 'build', onCommitted, onClos
           { id: 'specification', label: t('configurator.sections.specification') },
           { id: 'options', label: t('configurator.sections.options') },
           { id: 'colour', label: t('configurator.sections.colour') },
+          { id: 'images', label: t('configurator.sections.images') },
           { id: 'summary', label: t('configurator.sections.summary') },
         ]}
         activeTab={section}
@@ -520,18 +545,21 @@ export function ConfiguratorOverlay({ initialMode = 'build', onCommitted, onClos
       )}
 
       {section === 'colour' && (
-        <Group grow>
-          <TextInput
-            label={t('configurator.colour.exterior')}
-            value={draft.exteriorColour}
-            onChange={(e) => setDraft({ ...draft, exteriorColour: e.currentTarget.value })}
-          />
-          <TextInput
-            label={t('configurator.colour.interior')}
-            value={draft.interiorColour}
-            onChange={(e) => setDraft({ ...draft, interiorColour: e.currentTarget.value })}
-          />
-        </Group>
+        <ColourWheelsTab
+          spec={specQuery.data}
+          mode={mode}
+          exteriorColour={draft.exteriorColour}
+          interiorColour={draft.interiorColour}
+          exteriorColourSurcharge={draft.exteriorColourSurcharge}
+          interiorColourSurcharge={draft.interiorColourSurcharge}
+          wheels={draft.wheels}
+          wheelsSurcharge={draft.wheelsSurcharge}
+          onChange={(patch) => setDraft({ ...draft, ...patch })}
+        />
+      )}
+
+      {section === 'images' && (
+        <ImagesTab spec={specQuery.data} isLoading={specQuery.isLoading} isManual={draft.catalogueVariantId == null} />
       )}
 
       {section === 'summary' && readModel && (
@@ -666,10 +694,10 @@ function previewRead(draft: Draft, mode: ConfiguratorMode, spec: CatalogueSpecif
     variantName: draft.variantName,
     exteriorColour: draft.exteriorColour || null,
     interiorColour: draft.interiorColour || null,
-    exteriorColourSurcharge: null,
-    interiorColourSurcharge: null,
-    wheels: null,
-    wheelsSurcharge: null,
+    exteriorColourSurcharge: draft.exteriorColourSurcharge || null,
+    interiorColourSurcharge: draft.interiorColourSurcharge || null,
+    wheels: draft.wheels || null,
+    wheelsSurcharge: draft.wheelsSurcharge || null,
     fuelType: null,
     bodyStyle: null,
     drivetrain: null,

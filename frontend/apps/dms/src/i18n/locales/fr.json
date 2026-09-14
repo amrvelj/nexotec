@@ -1354,6 +1354,7 @@
       "specification": "Spécification",
       "options": "Options",
       "colour": "Couleur & roues",
+      "images": "Images",
       "summary": "Récapitulatif"
     },
     "spec": {
@@ -1425,7 +1426,43 @@
     },
     "colour": {
       "exterior": "Couleur extérieure",
-      "interior": "Couleur de sellerie"
+      "interior": "Couleur de sellerie",
+      "pickFromCatalogue": "Choisir dans le catalogue",
+      "surcharge": "Supplément"
+    },
+    "wheels": {
+      "title": "Roues & pneus",
+      "axle": "Essieu",
+      "dimension": "Dimension",
+      "season": "Saison",
+      "remark": "Remarque",
+      "description": "Roues",
+      "axlePosition": {
+        "front": "Avant",
+        "rear": "Arrière",
+        "both": "Avant + arrière"
+      },
+      "seasonLabel": {
+        "summer": "Été",
+        "winter": "Hiver"
+      }
+    },
+    "images": {
+      "noCatalogueVariant": "Les images du catalogue ne sont pas disponibles pour une configuration manuelle.",
+      "unavailable": {
+        "title": "Images indisponibles",
+        "body": "Les images ne sont pas disponibles pour ce compte.",
+        "uploadNote": "Votre établissement pourra ajouter ses propres photos ici dès que le téléversement manuel sera disponible."
+      },
+      "empty": "Cette variante n'a aucune image dans le miroir du catalogue.",
+      "bildArt": {
+        "exterior": "Extérieur",
+        "interior": "Intérieur"
+      },
+      "bildTyp": {
+        "small": "Petite",
+        "large": "Grande"
+      }
     },
     "summary": {
       "firstRegistration": "Première mise en circulation",

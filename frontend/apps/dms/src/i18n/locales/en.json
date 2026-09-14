@@ -1354,6 +1354,7 @@
       "specification": "Specification",
       "options": "Options",
       "colour": "Colour & wheels",
+      "images": "Images",
       "summary": "Summary"
     },
     "spec": {
@@ -1425,7 +1426,43 @@
     },
     "colour": {
       "exterior": "Exterior colour",
-      "interior": "Interior colour"
+      "interior": "Interior colour",
+      "pickFromCatalogue": "Pick from catalogue",
+      "surcharge": "Surcharge"
+    },
+    "wheels": {
+      "title": "Wheels & tyres",
+      "axle": "Axle",
+      "dimension": "Dimension",
+      "season": "Season",
+      "remark": "Remark",
+      "description": "Wheels",
+      "axlePosition": {
+        "front": "Front",
+        "rear": "Rear",
+        "both": "Front + rear"
+      },
+      "seasonLabel": {
+        "summer": "Summer",
+        "winter": "Winter"
+      }
+    },
+    "images": {
+      "noCatalogueVariant": "Catalogue images are not available for a manual configuration.",
+      "unavailable": {
+        "title": "Images unavailable",
+        "body": "Images are not available on this account.",
+        "uploadNote": "Your dealership can add its own photos here once manual upload is available."
+      },
+      "empty": "This variant has no images in the catalogue mirror.",
+      "bildArt": {
+        "exterior": "Exterior",
+        "interior": "Interior"
+      },
+      "bildTyp": {
+        "small": "Small",
+        "large": "Large"
+      }
     },
     "summary": {
       "firstRegistration": "First registration",

@@ -2506,6 +2506,8 @@ export interface components {
             bildTyp: string;
             /** Imagekey */
             imageKey: string;
+            /** Imageurl */
+            imageUrl: string | null;
             /** Sequence */
             sequence: number;
         };

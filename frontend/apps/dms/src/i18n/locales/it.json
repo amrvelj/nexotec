@@ -1354,6 +1354,7 @@
       "specification": "Specifica",
       "options": "Opzioni",
       "colour": "Colore & ruote",
+      "images": "Immagini",
       "summary": "Riepilogo"
     },
     "spec": {
@@ -1425,7 +1426,43 @@
     },
     "colour": {
       "exterior": "Colore esterno",
-      "interior": "Colore dei sedili"
+      "interior": "Colore dei sedili",
+      "pickFromCatalogue": "Scegli dal catalogo",
+      "surcharge": "Sovrapprezzo"
+    },
+    "wheels": {
+      "title": "Ruote & pneumatici",
+      "axle": "Asse",
+      "dimension": "Dimensione",
+      "season": "Stagione",
+      "remark": "Nota",
+      "description": "Ruote",
+      "axlePosition": {
+        "front": "Anteriore",
+        "rear": "Posteriore",
+        "both": "Anteriore + posteriore"
+      },
+      "seasonLabel": {
+        "summer": "Estate",
+        "winter": "Inverno"
+      }
+    },
+    "images": {
+      "noCatalogueVariant": "Le immagini di catalogo non sono disponibili per una configurazione manuale.",
+      "unavailable": {
+        "title": "Immagini non disponibili",
+        "body": "Le immagini non sono disponibili per questo account.",
+        "uploadNote": "La vostra sede potrà aggiungere qui le proprie foto non appena il caricamento manuale sarà disponibile."
+      },
+      "empty": "Questa variante non ha immagini nello specchio del catalogo.",
+      "bildArt": {
+        "exterior": "Esterno",
+        "interior": "Interno"
+      },
+      "bildTyp": {
+        "small": "Piccola",
+        "large": "Grande"
+      }
     },
     "summary": {
       "firstRegistration": "Prima immatricolazione",
