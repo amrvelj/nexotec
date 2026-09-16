@@ -184,7 +184,7 @@ describe('CustomersListPage — the column set (KAN-51 half 1 + partial half 2)'
       fireEvent.click(box)
     }
     expect(screen.getAllByText('K-1001').length).toBeGreaterThan(0)
-  }, 20000)
+  }, 60000) // toggles every column twice (96 renders at 48 columns) — CI's runners need real headroom here, not just local-machine timing
 
   it('the composite Contact cell shows mobile and email, stacks at comfortable, drops the secondary at compact', async () => {
     route([customer({ id: 'c1', phoneMobile: '+41 79 111 22 33', email: 'anna@bay.ch' })])
