@@ -772,6 +772,8 @@
       "notPublished": "Non publié",
       "lastPublishedAt": "Dernière publication : {{date}}",
       "neverPublished": "Jamais publié",
+      "transmissionPending": "Publication en cours…",
+      "transmissionFailed": "Échec de la publication",
       "publishTo": "Publier sur {{channel}}",
       "unpublish": "Dépublier de {{channel}}",
       "unpublishConfirmTitle": "Confirmer la dépublication",
