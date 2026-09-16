@@ -33,6 +33,8 @@ class StockItemUpdate(CamelModel):
     condition: StockItemCondition | None = None
     location_id: uuid.UUID | None = None
     odometer_km: int | None = None
+    exterior_colour: str | None = None
+    body_style: str | None = None
     list_price: Decimal | None = None
     effective_price: Decimal | None = None
     first_registration_date: dt.date | None = None
@@ -49,6 +51,8 @@ class StockItemRead(CamelModel):
     condition: StockItemCondition
     location_id: uuid.UUID | None
     odometer_km: int | None
+    exterior_colour: str | None
+    body_style: str | None
     list_price: Decimal | None
     effective_price: Decimal | None
     first_registration_date: dt.date | None

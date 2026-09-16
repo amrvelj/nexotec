@@ -28,6 +28,24 @@ class PublishingState(str, enum.Enum):
     PUBLISHED = "published"
 
 
+class TransmissionStatus(str, enum.Enum):
+    """Independent of `state` (ADR-054's own orthogonal-axes pattern):
+    `state` is the dealer's INTENT ("I want this published"); this is
+    whether the last attempt to tell the marketplace actually succeeded.
+    Conflating the two is exactly how the pre-KAN-27 code showed
+    "published" the instant a DB flag flipped, with nothing having left
+    the building. `TRANSMITTED` means the feed file was successfully
+    delivered — AS24i confirms import success only by a later, async
+    emailed report (Schnittstellenbeschrieb v34 §3.4) that this codebase
+    does not ingest, so `TRANSMITTED` is honestly "we delivered a
+    complete, valid file," never "the marketplace confirmed it live."
+    """
+
+    PENDING = "pending"
+    TRANSMITTED = "transmitted"
+    FAILED = "failed"
+
+
 # Per-channel title display limits — the field itself stores up to 500
 # characters (zusatztitel), but only this many show on the channel's own
 # results list. Not enforced as a DB constraint: it's a live counter the
@@ -83,3 +101,11 @@ class StockItemPublishing(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, Ti
     youtube_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     pdf_document_ref: Mapped[str | None] = mapped_column(String(500), nullable=True)
     last_published_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    # KAN-27 — set only by services/marketplace_transmission.py, never by
+    # publish()/unpublish() themselves (those only ever change `state`,
+    # the dealer's intent). PENDING until the first transmission attempt.
+    transmission_status: Mapped[TransmissionStatus] = mapped_column(
+        SAEnum(TransmissionStatus, native_enum=False, length=16), nullable=False, default=TransmissionStatus.PENDING
+    )
+    last_transmission_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    last_attempted_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)

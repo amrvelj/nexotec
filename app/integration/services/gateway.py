@@ -91,6 +91,25 @@ def _resolve_adapter(
     return factory(db, connection, actor_id, purpose)
 
 
+def resolve_adapter(
+    db: Session, connection: IntegrationConnection, *, actor_id: uuid.UUID | None = None, purpose: str = ""
+) -> ProviderAdapter:
+    """The same resolution `call_capability` does (enabled check, circuit
+    check, factory lookup) but WITHOUT any call-log row or circuit-
+    breaker recording — for a caller that needs the adapter object for a
+    purely local operation that makes no provider I/O (KAN-27's
+    `MarketplaceAdapter.validate_listing`, a pure data-shape check).
+
+    A real provider call must never use this — `call_capability` is the
+    only place a call that actually reaches the provider is allowed to
+    happen, precisely so every such call is logged and every failure
+    counted toward that connection's circuit breaker. Resolving an
+    adapter here to then quietly do I/O with it would defeat both.
+    """
+
+    return _resolve_adapter(db, connection, actor_id=actor_id, purpose=purpose)
+
+
 def record_call(
     db: Session,
     *,

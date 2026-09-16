@@ -4,7 +4,7 @@ import uuid
 from pydantic import Field
 
 from app.core.schemas import CamelModel
-from app.inventory.models.stock_item_publishing import MarketplaceChannel, PublishingState
+from app.inventory.models.stock_item_publishing import MarketplaceChannel, PublishingState, TransmissionStatus
 
 
 class BlockingCondition(CamelModel):
@@ -36,6 +36,9 @@ class PublishingRead(CamelModel):
     youtube_url: str | None
     pdf_document_ref: str | None
     last_published_at: dt.datetime | None
+    transmission_status: TransmissionStatus
+    last_transmission_error: str | None
+    last_attempted_at: dt.datetime | None
     blocking_conditions: list[BlockingCondition] = Field(default_factory=list)
     version: int
 

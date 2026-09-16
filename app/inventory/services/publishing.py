@@ -49,6 +49,22 @@ def compute_blocking_conditions(db: Session, item: StockItem) -> list[BlockingCo
     if item.effective_price is None:
         conditions.append(BlockingCondition(field="Preis", message="Kein Effektivpreis hinterlegt."))
 
+    if not item.exterior_colour:
+        conditions.append(BlockingCondition(field="Aussenfarbe", message="Keine Farbe hinterlegt."))
+
+    if not item.body_style:
+        conditions.append(BlockingCondition(field="Aufbau", message="Keine Karosserieform hinterlegt."))
+
+    if item.odometer_km is None:
+        conditions.append(BlockingCondition(field="Kilometer", message="Kein Kilometerstand hinterlegt."))
+
+    # AS24i's own carve-out (Schnittstellenbeschrieb v34 p8): a NEW car
+    # ships InvSetzJahr from its model year instead, since it may not have
+    # been registered yet — so this only blocks a used/demo/Tageszulassung
+    # item, which the spec's own wording requires a real date for.
+    if item.condition != StockItemCondition.NEW and item.first_registration_date is None:
+        conditions.append(BlockingCondition(field="InvSetzJahr", message="Keine Erstzulassung hinterlegt."))
+
     if (
         item.condition == StockItemCondition.NEW
         and item.odometer_km is not None
@@ -127,7 +143,16 @@ def unpublish(
 ) -> StockItemPublishing:
     """AS24i's own full-delivery semantics mean this DELETES the listing,
     its statistics and its URL at the marketplace — a confirmed
-    destructive action, never a plain toggle."""
+    destructive action, never a plain toggle.
+
+    KAN-27 — this used to flip the local flag and emit NOTHING, so the
+    marketplace never actually heard about it: full-delivery means the
+    item is only removed from AS24's own database once we deliver a feed
+    that omits it, which requires a consumer to re-run. Emits the same
+    minimal `{channel}` payload as `publish()`; the transmission consumer
+    re-derives "who is still published" from the database itself rather
+    than trusting either event's payload.
+    """
 
     if not confirm:
         raise BadRequestError("Unpublishing is a confirmed destructive action — resend with confirm=true.")
@@ -136,6 +161,19 @@ def unpublish(
     row.state = PublishingState.NOT_PUBLISHED
     row.updated_by = actor_id
     row.version += 1
+    db.flush()
+
+    publish_event(
+        db,
+        OutboxEvent(
+            event_type="inventory.stock_item.unpublished",
+            tenant_id=item.tenant_id,
+            producer=_EVENT_PRODUCER,
+            aggregate_type="stock_item",
+            aggregate_id=item.id,
+            payload={"channel": channel.value},
+        ),
+    )
     db.commit()
     db.refresh(row)
     return row

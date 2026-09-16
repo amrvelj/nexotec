@@ -24,6 +24,14 @@ one place that decides what `None` should mean for a given screen.
 `list_enabled_connection_tenant_ids_for_provider` (PR-4) is the daily-job
 composition root's own enumeration, never a direct query against
 `IntegrationConnection`/`IntegrationProvider` from outside this context.
+
+`resolve_adapter` (KAN-27) is `call_capability` without the call-log/
+circuit-breaker side effects — for a caller whose use of the adapter
+makes no provider I/O (validating data shape locally). A real provider
+call must always go through `call_capability` instead. `CircuitOpenError`
+is exported alongside it purely so such a caller can still fail
+gracefully when a connection's breaker is already open, without a real
+call ever being attempted.
 """
 
 from app.integration.adapters.base import (
@@ -37,6 +45,13 @@ from app.integration.adapters.base import (
     VariantOptionData,
     VariantTyreSpecData,
 )
+from app.integration.adapters.marketplace_base import (
+    MarketplaceAdapter,
+    MarketplaceListing,
+    MarketplaceListingError,
+    MarketplaceTransmissionError,
+    TransmissionResult,
+)
 from app.integration.models.connection import ConnectionStatus, IntegrationConnection
 from app.integration.models.entitlement import IntegrationEntitlement
 from app.integration.services.connections import (
@@ -49,17 +64,25 @@ from app.integration.services.gateway import (
     ProviderGatewayError,
     UnknownProviderError,
     call_capability,
+    resolve_adapter,
 )
+from app.integration.services.resilience import CircuitOpenError
 
 __all__ = [
+    "CircuitOpenError",
     "ConnectionDisabledError",
     "ConnectionStatus",
     "ForecastResult",
     "IntegrationConnection",
     "IntegrationEntitlement",
+    "MarketplaceAdapter",
+    "MarketplaceListing",
+    "MarketplaceListingError",
+    "MarketplaceTransmissionError",
     "ProviderAdapter",
     "ProviderGatewayError",
     "SystemWatermark",
+    "TransmissionResult",
     "UnknownProviderError",
     "ValuationResult",
     "VariantColourData",
@@ -71,4 +94,5 @@ __all__ = [
     "get_enabled_connection",
     "get_entitlement",
     "list_enabled_connection_tenant_ids_for_provider",
+    "resolve_adapter",
 ]

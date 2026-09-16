@@ -32,3 +32,9 @@ outside this package.
 # imports it lazily, inside the function body, so this import costs
 # nothing extra for tests/local dev that never construct a real adapter.
 from app.integration.adapters import auto_i_dat_soap as _auto_i_dat_soap  # noqa: F401
+
+# KAN-27 — same reasoning, for the AutoScout24 marketplace-transmission
+# adapter. No zeep/ftplib-equivalent cost here either: ftplib is a Python
+# stdlib module, and build_real_ftp_client only opens a connection when a
+# real adapter is actually constructed, never at import time.
+from app.integration.adapters import autoscout24 as _autoscout24  # noqa: F401

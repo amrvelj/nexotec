@@ -156,6 +156,27 @@ class StockItem(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMix
     )
 
     odometer_km: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # KAN-27 — a genuine, previously-undiscovered gap: no field anywhere in
+    # this codebase (StockItem, VehicleMdm's spec block, or the catalogue
+    # mirror) ever carried a stock item's own colour. AS24i's `Aussenfarbe`
+    # is mandatory ("Grundfarbe muss im String vorhanden sein" — Schnitt-
+    # stellenbeschrieb v34 p8), so publishing could never succeed without
+    # it. A configuration's own `exterior_colour` (KAN-43) is a different
+    # fact on a different entity — StockItem has no configuration_id to
+    # join through, and a colour is per-unit even for the same catalogue
+    # variant, so it belongs here, free text, same posture as the
+    # Configurator's own "free text is always the primary input."
+    exterior_colour: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # KAN-27 — a second, adjacent gap found while wiring the same AS24i
+    # mandatory field set: `vehicle_label` is one denormalized display
+    # string ("Volkswagen Käfer 1303 LS Cabriolet"), and `VehicleMdm` (the
+    # only thing `vehicle_id` points to) carries no body-style/structured
+    # make-model breakdown at all — `body_style` as a resolved column
+    # exists only on `ModelVariant`/`VehicleConfiguration`, neither of
+    # which a `StockItem` references. Same free-text, per-unit posture as
+    # `exterior_colour` above, for the same reason: AS24i's `Aufbau` is
+    # mandatory (p8) and there is nowhere else for it to come from.
+    body_style: Mapped[str | None] = mapped_column(String(64), nullable=True)
     list_price: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
     effective_price: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
 
