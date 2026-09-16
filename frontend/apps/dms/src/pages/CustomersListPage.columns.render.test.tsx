@@ -97,6 +97,62 @@ describe('CustomersListPage — the column set (KAN-51 half 1 + partial half 2)'
     expect(cells[tagsIndex]).toHaveTextContent('—')
   })
 
+  it('the thirteen fields with no column before this review are now available, hidden by default', async () => {
+    // KAN-51 (this review) — title, gender, website, newsletter,
+    // paymentTerms, creditLimit, iban, vatRegistered, creditBlockReason,
+    // creditBlockedAt, customerSince, nextFollowUp and notes were all
+    // already on CustomerRead (most since KAN-50) with no column at all.
+    const newFieldKeys = [
+      'customerTitle', 'gender', 'website', 'newsletter', 'paymentTerms', 'creditLimit', 'iban',
+      'vatRegistered', 'creditBlockReason', 'creditBlockedAt', 'customerSince', 'nextFollowUp', 'notes',
+    ]
+    route([customer({ id: 'c1' })])
+    renderWithProviders(<CustomersListPage />, { route: '/customers' })
+    await screen.findByText('K-1001')
+
+    // Not visible by default …
+    for (const key of newFieldKeys) {
+      expect(screen.queryByRole('columnheader', { name: new RegExp(columnHeader(key), 'i') })).not.toBeInTheDocument()
+    }
+
+    // … but every one is a real, toggleable column in the panel.
+    await userEvent.click(screen.getByRole('button', { name: 'Columns' }))
+    for (const key of newFieldKeys) {
+      expect(screen.getByRole('checkbox', { name: new RegExp(`^${columnHeader(key)}$`, 'i') })).toBeInTheDocument()
+    }
+  })
+
+  it('renders real values for the new columns once shown, and does not crash on a customer with none of them set', async () => {
+    route([
+      customer({
+        id: 'c1', customerNumber: 'K-2001', title: 'Dr.', gender: 'male', website: 'https://mueller-ag.ch',
+        newsletter: true, paymentTerms: 'net_30', creditLimit: '5000.00', iban: 'CH93 0076 2011 6238 5295 7',
+        vatRegistered: true, creditBlockReason: 'Zahlungsverzug', creditBlockedAt: '2026-03-01T00:00:00Z',
+        customerSince: '2020-01-15', nextFollowUp: '2026-10-01', notes: 'Bevorzugt Kontakt per E-Mail.',
+      }),
+      customer({ id: 'c2', customerNumber: 'K-2002' }),
+    ])
+    renderWithProviders(<CustomersListPage />, { route: '/customers' })
+    await screen.findByText('K-2001')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Columns' }))
+    for (const key of [
+      'customerTitle', 'gender', 'website', 'newsletter', 'paymentTerms', 'creditLimit', 'iban',
+      'vatRegistered', 'creditBlockReason', 'creditBlockedAt', 'customerSince', 'nextFollowUp', 'notes',
+    ]) {
+      await userEvent.click(screen.getByRole('checkbox', { name: new RegExp(`^${columnHeader(key)}$`, 'i') }))
+    }
+
+    expect(screen.getByText('Dr.')).toBeInTheDocument()
+    expect(screen.getByText('https://mueller-ag.ch')).toBeInTheDocument()
+    expect(screen.getByText('CH93 0076 2011 6238 5295 7')).toBeInTheDocument()
+    expect(screen.getByText('Bevorzugt Kontakt per E-Mail.')).toBeInTheDocument()
+
+    // K-2002 has none of these set — every new cell renders "—", never a crash.
+    const rowTwo = screen.getByRole('row', { name: /K-2002/ })
+    expect(within(rowTwo).getAllByText('—').length).toBeGreaterThan(0)
+  })
+
   it('renders every persisted field as a toggleable column and the grid survives each toggle', async () => {
     route([customer({ id: 'c1', customerNumber: 'K-1001' })])
     renderWithProviders(<CustomersListPage />, { route: '/customers' })
@@ -110,7 +166,7 @@ describe('CustomersListPage — the column set (KAN-51 half 1 + partial half 2)'
       screen.getAllByRole('checkbox').filter((box): box is HTMLInputElement => Boolean(box.closest('label')))
 
     const total = panelBoxes().length
-    expect(total).toBeGreaterThanOrEqual(30) // 35 CustomerRead columns (KAN-51 review)
+    expect(total).toBeGreaterThanOrEqual(45) // 48 CustomerRead columns (KAN-51 Half 1 complete)
 
     for (let i = 0; i < total; i += 1) {
       const box = panelBoxes()[i]

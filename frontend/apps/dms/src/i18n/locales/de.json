@@ -235,7 +235,20 @@
       "created": "Erstellt",
       "duplicateOf": "Dublette von",
       "advisor": "Betreuer",
-      "tags": "Tags"
+      "tags": "Tags",
+      "customerTitle": "Titel",
+      "gender": "Geschlecht",
+      "website": "Website",
+      "newsletter": "Newsletter",
+      "paymentTerms": "Zahlungskonditionen",
+      "creditLimit": "Kreditlimite",
+      "iban": "IBAN",
+      "vatRegistered": "MWST-pflichtig",
+      "creditBlockReason": "Grund der Kreditsperre",
+      "creditBlockedAt": "Kreditsperre seit",
+      "customerSince": "Kunde seit",
+      "nextFollowUp": "Nächste Nachfassung",
+      "notes": "Notizen"
     },
     "rowActions": {
       "open": "Öffnen",

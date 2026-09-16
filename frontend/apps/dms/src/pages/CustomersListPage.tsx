@@ -42,9 +42,11 @@ import {
   legalFormLabel,
   translatedCustomerTypeLabel,
   translatedCustomerTypeOptions,
+  translatedGenderLabel,
   translatedLanguageOptions,
   translatedLifecycleLabel,
   translatedLifecycleOptions,
+  translatedPaymentTermsLabel,
   translatedPreferredChannelLabel,
   translatedSalutationLabel,
   translatedSourceLabel,
@@ -348,10 +350,13 @@ export function CustomersListPage() {
       text('salutation', t('customersList.columns.salutation'), (row) =>
         row.salutation ? translatedSalutationLabel(t, row.salutation) : null,
       ),
+      text('customerTitle', t('customersList.columns.customerTitle'), (row) => row.title),
       text('firstName', t('customersList.columns.firstName'), (row) => row.firstName),
       text('lastName', t('customersList.columns.lastName'), (row) => row.lastName),
+      text('gender', t('customersList.columns.gender'), (row) => translatedGenderLabel(t, row.gender)),
       text('companyName', t('customersList.columns.companyName'), (row) => row.companyName),
       text('legalForm', t('customersList.columns.legalForm'), (row) => (row.legalForm ? legalFormLabel(row.legalForm) : null)),
+      text('website', t('customersList.columns.website'), (row) => row.website),
       date('birthDate', t('customersList.columns.birthDate'), (row) => row.birthDate),
       text('nationality', t('customersList.columns.nationality'), (row) => countryLabel(row.nationality)),
 
@@ -383,6 +388,7 @@ export function CustomersListPage() {
       ),
       text('source', t('customersList.columns.source'), (row) => (row.source ? translatedSourceLabel(t, row.source) : null)),
       text('sourceRef', t('customersList.columns.sourceRef'), (row) => row.sourceRef),
+      text('notes', t('customersList.columns.notes'), (row) => row.notes),
       {
         id: 'marketingConsent',
         header: t('customersList.columns.marketingConsent'),
@@ -393,8 +399,38 @@ export function CustomersListPage() {
           exportValue: (row) => (row.marketingConsent ? t('common.yes') : t('common.no')),
         },
       },
+      {
+        id: 'newsletter',
+        header: t('customersList.columns.newsletter'),
+        cell: ({ row }) => (row.original.newsletter ? '✓' : '—'),
+        meta: {
+          defaultVisible: false,
+          align: 'right',
+          exportValue: (row) => (row.newsletter ? t('common.yes') : t('common.no')),
+        },
+      },
+      // KAN-50 (FR-17/18 stored fields) — financial/credit facts, hidden
+      // by default alongside the other credit-adjacent columns below.
+      text('paymentTerms', t('customersList.columns.paymentTerms'), (row) =>
+        row.paymentTerms ? translatedPaymentTermsLabel(t, row.paymentTerms) : null,
+      ),
+      text('creditLimit', t('customersList.columns.creditLimit'), (row) => row.creditLimit),
+      text('iban', t('customersList.columns.iban'), (row) => row.iban, { mono: true }),
+      {
+        id: 'vatRegistered',
+        header: t('customersList.columns.vatRegistered'),
+        cell: ({ row }) => (row.original.vatRegistered ? '✓' : '—'),
+        meta: {
+          defaultVisible: false,
+          align: 'right',
+          exportValue: (row) => (row.vatRegistered ? t('common.yes') : t('common.no')),
+        },
+      },
       // KAN-44 / FR-18 — the credit block as a grid column, hidden by
-      // default, badge-rendered with the reason as its title.
+      // default, badge-rendered with the reason as its title. reason/
+      // blocked-at also get their own columns (KAN-51) — the badge's
+      // title attribute is a hover hint, not a substitute for either
+      // being independently sortable/exportable/visible on its own.
       {
         id: 'creditBlock',
         header: t('customersList.columns.creditBlock'),
@@ -411,6 +447,10 @@ export function CustomersListPage() {
           exportValue: (row) => (row.creditBlock ? (row.creditBlockReason ?? t('common.yes')) : ''),
         },
       },
+      text('creditBlockReason', t('customersList.columns.creditBlockReason'), (row) => row.creditBlockReason),
+      date('creditBlockedAt', t('customersList.columns.creditBlockedAt'), (row) => row.creditBlockedAt),
+      date('customerSince', t('customersList.columns.customerSince'), (row) => row.customerSince),
+      date('nextFollowUp', t('customersList.columns.nextFollowUp'), (row) => row.nextFollowUp),
       date('createdAt', t('customersList.columns.created'), (row) => row.createdAt),
       {
         id: 'updatedAt',
