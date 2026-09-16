@@ -325,12 +325,19 @@ Read the ADR before building against any of these.
 > pre-existing Datennamen) shipped; PR 2 (the fourteen new Datennamen, entitlement
 > probing, the `provider_code_map` seed from `Codes`) has not started, and the real-account
 > round trip is blocked on a staging auto-i-dat account that doesn't exist yet.
-> **C-D** (identification/plate cache), **C-E** (options, packages, colours, images) and
-> **C-F** (host integration into the offer flow, Stock pipeline and Valuation) were **not**
-> re-verified in that audit (they sit in Backlog, not the "In Review" pile that prompted
-> it) — do not assume they're built without checking. Same for **KAN-9 "Configurator -
-> Standard Flow"** itself: the building blocks below are real, but whether the end-to-end
-> flow they compose into is what that ticket actually needs is still an open question.
+> **C-D** (identification/plate cache) and **C-F** (host integration into the offer flow,
+> Stock pipeline and Valuation) were **not** re-verified in that audit (they sit in
+> Backlog, not the "In Review" pile that prompted it) — do not assume they're built
+> without checking. **C-E (options, packages, colours, wheels/tyres and images,
+> KAN-43) shipped 2026-09-14** as three PRs (#93 data layer, #94 Options tab, #95
+> Colour/Wheels/Images tab) — grouped options with inline relations, package offers,
+> the ADR-072 warn-never-block conflict banner, a catalogue-assisted colour picker
+> that never locks out free text, a PneuDimTS tyre-dimension table with `BemDe` shown
+> inline, and an entitlement-gated images grid backed by a real `image_url` (see the
+> auto-i-dat fact list below — the WP-6 Open Item this closed). Same for **KAN-9
+> "Configurator - Standard Flow"** itself: the building blocks below are real, but
+> whether the end-to-end flow they compose into is what that ticket actually needs is
+> still an open question.
 
 - **ADR-068 — a configuration is a first-class entity** with its own ID, referenced by an
   offer, a stock item, a valuation or a vehicle. **No list screen and no nav entry.**
@@ -347,7 +354,7 @@ Read the ADR before building against any of these.
 - **ADR-072 — option packages, exclusions and extra conditions are stored and shown, never
   enforced.** A conflicting selection warns; it never blocks.
 
-Three facts to carry into that work:
+Four facts to carry into that work:
 
 - **auto-i-dat *does* offer VIN decode — corrected by KAN-36, 2026-09-05.** This file,
   PRD-Configurator v1.1 and KAN-9 all previously said the opposite, inferred from the
@@ -374,6 +381,15 @@ Three facts to carry into that work:
   `find_model_variants_by_type_approval` for the 1..n reverse lookup.*
 - **`Antrieb` CodeGrpNr 112 is 2-Takt / 4-Takt / Kein Takt** — a stroke count, not a drive
   type. Groups 012 and 022 are Hinten/Vorne/Allrad. It needs its own `engine_cycle` list.
+- **The full provider image URL is now kept — closed by KAN-43 (C-E), 2026-09-14.**
+  `Bilder`'s `BildURL` was being discarded at ingestion: `ImageRef.image_key` (the sync's
+  own natural key, `String(160)`) is the URL's basename only, and the full URL had nowhere
+  to go — an explicit, unresolved WP-6 Open Item. Without it, no caller could ever render a
+  photo, only reference an opaque key. Fixed with a new `ImageRef.image_url` column
+  (`String(500)`, migration `90dc1077a569`) threaded through the SOAP adapter, the mock
+  adapter, `catalogue_sync`, `catalogue_entitlements` and the OpenAPI schema — not a proxy,
+  cache, or base-URL reconstruction scheme, since the provider already returns a complete,
+  directly fetchable URL per row.
 
 ## Non-negotiable rules
 
