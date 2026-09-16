@@ -48,20 +48,31 @@ export function PublishingTab({ stockItemId, locale }: PublishingTabProps) {
   const queryClient = useQueryClient()
   const [activeChannel, setActiveChannel] = useState<MarketplaceChannel>('autoscout24')
 
+  // KAN-27 (PR 2/2) — the outbox worker processes a publish/unpublish
+  // event out-of-process, typically within a second or two; polling only
+  // while transmissionStatus is still 'pending' shows the real outcome
+  // (transmitted/failed) without a manual reload, and stops on its own
+  // the moment the worker resolves it.
+  const refetchWhilePending = (query: { state: { data?: PublishingRead } }) =>
+    query.state.data?.transmissionStatus === 'pending' ? 1500 : false
+
   // Three explicit calls, not a .map() over CHANNELS — a fixed count of
   // hooks called in a fixed order, the safe form of "one query per
   // channel" rather than relying on CHANNELS never changing shape.
   const autoscout24Query = useQuery({
     queryKey: ['stock-item', stockItemId, 'publishing', 'autoscout24'],
     queryFn: () => api.get<PublishingRead>(`/inventory/stock-items/${stockItemId}/publishing/autoscout24`),
+    refetchInterval: refetchWhilePending,
   })
   const carmarketQuery = useQuery({
     queryKey: ['stock-item', stockItemId, 'publishing', 'carmarket'],
     queryFn: () => api.get<PublishingRead>(`/inventory/stock-items/${stockItemId}/publishing/carmarket`),
+    refetchInterval: refetchWhilePending,
   })
   const autolinaQuery = useQuery({
     queryKey: ['stock-item', stockItemId, 'publishing', 'autolina'],
     queryFn: () => api.get<PublishingRead>(`/inventory/stock-items/${stockItemId}/publishing/autolina`),
+    refetchInterval: refetchWhilePending,
   })
   const publishingByChannel: Partial<Record<MarketplaceChannel, PublishingRead>> = {
     ...(autoscout24Query.data ? { autoscout24: autoscout24Query.data } : {}),
