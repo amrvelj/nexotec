@@ -5145,8 +5145,12 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Lastattemptedat */
+            lastAttemptedAt: string | null;
             /** Lastpublishedat */
             lastPublishedAt: string | null;
+            /** Lasttransmissionerror */
+            lastTransmissionError: string | null;
             /** Pdfdocumentref */
             pdfDocumentRef: string | null;
             state: components["schemas"]["PublishingState"];
@@ -5155,6 +5159,7 @@ export interface components {
              * Format: uuid
              */
             stockItemId: string;
+            transmissionStatus: components["schemas"]["TransmissionStatus"];
             /** Version */
             version: number;
             /** Youtubeurl */
@@ -5469,6 +5474,8 @@ export interface components {
             ageingBucket?: components["schemas"]["AgeingBucket"] | null;
             /** Baseprice */
             basePrice: string | null;
+            /** Bodystyle */
+            bodyStyle: string | null;
             condition: components["schemas"]["StockItemCondition"];
             /**
              * Createdat
@@ -5479,6 +5486,8 @@ export interface components {
             effectivePrice: string | null;
             /** Expecteddelivery */
             expectedDelivery: string | null;
+            /** Exteriorcolour */
+            exteriorColour: string | null;
             /** Firstregistrationdate */
             firstRegistrationDate: string | null;
             /**
@@ -5550,9 +5559,13 @@ export interface components {
         };
         /** StockItemUpdate */
         StockItemUpdate: {
+            /** Bodystyle */
+            bodyStyle?: string | null;
             condition?: components["schemas"]["StockItemCondition"] | null;
             /** Effectiveprice */
             effectivePrice?: number | string | null;
+            /** Exteriorcolour */
+            exteriorColour?: string | null;
             /** Firstregistrationdate */
             firstRegistrationDate?: string | null;
             /** Listprice */
@@ -5721,6 +5734,21 @@ export interface components {
             /** Vehicleid */
             vehicleId?: string | null;
         };
+        /**
+         * TransmissionStatus
+         * @description Independent of `state` (ADR-054's own orthogonal-axes pattern):
+         *     `state` is the dealer's INTENT ("I want this published"); this is
+         *     whether the last attempt to tell the marketplace actually succeeded.
+         *     Conflating the two is exactly how the pre-KAN-27 code showed
+         *     "published" the instant a DB flag flipped, with nothing having left
+         *     the building. `TRANSMITTED` means the feed file was successfully
+         *     delivered — AS24i confirms import success only by a later, async
+         *     emailed report (Schnittstellenbeschrieb v34 §3.4) that this codebase
+         *     does not ingest, so `TRANSMITTED` is honestly "we delivered a
+         *     complete, valid file," never "the marketplace confirmed it live."
+         * @enum {string}
+         */
+        TransmissionStatus: "pending" | "transmitted" | "failed";
         /** UnpublishRequest */
         UnpublishRequest: {
             /** Confirm */

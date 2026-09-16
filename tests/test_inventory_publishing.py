@@ -1,5 +1,6 @@
 """WP-7 PR-8: marketplace publishing (ADR-062)."""
 
+import datetime as dt
 import uuid
 from decimal import Decimal
 
@@ -32,7 +33,18 @@ def _make_ready_item(db_session, tenant_id):
         actor_id=uuid.uuid4(),
     )
     item = promote_to_vehicle_mdm(db_session, item=item, vin="1HGCM82633A004352")
-    return update_stock_item(db_session, item=item, data=StockItemUpdate(effective_price=Decimal("19900.00")), actor_id=uuid.uuid4())
+    return update_stock_item(
+        db_session,
+        item=item,
+        data=StockItemUpdate(
+            effective_price=Decimal("19900.00"),
+            exterior_colour="Blau metallic",
+            body_style="Kombi",
+            odometer_km=42000,
+            first_registration_date=dt.date(2021, 3, 1),
+        ),
+        actor_id=uuid.uuid4(),
+    )
 
 
 def test_pipeline_item_is_blocked_with_the_marketplace_field_name(db_session):

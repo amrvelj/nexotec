@@ -29,7 +29,11 @@ from app.core.outbox_worker import poll_once
 from app.core.reconciliation import seconds_since_last_reconciliation
 from app.db import SessionLocal
 from app.integration.daily_jobs import run_daily_integration_jobs
-from app.inventory.consumers import handle_sales_contract_confirmed_message
+from app.inventory.consumers import (
+    handle_sales_contract_confirmed_message,
+    handle_stock_item_published_message,
+    handle_stock_item_unpublished_message,
+)
 from app.reconciliation_runner import run_all_daily
 from app.sales.consumers import handle_stock_item_purchased_message
 
@@ -59,6 +63,21 @@ def register_handlers(transport: InProcessTransport) -> None:
         "inventory.stock_item.purchased",
         consumer_name="sales.stock_item_purchased",
         handler=handle_stock_item_purchased_message,
+    )
+    # KAN-27 (WP-7, ADR-062) — the first consumer to perform outbound I/O
+    # to a third party. Both events funnel into the same full-feed
+    # recompute (marketplace_transmission.assemble_and_transmit) — see
+    # app.inventory.consumers's own docstring for why unpublish needs a
+    # consumer at all when it emits the "same" minimal payload as publish.
+    transport.register(
+        "inventory.stock_item.published",
+        consumer_name="inventory.marketplace_transmission_on_publish",
+        handler=handle_stock_item_published_message,
+    )
+    transport.register(
+        "inventory.stock_item.unpublished",
+        consumer_name="inventory.marketplace_transmission_on_unpublish",
+        handler=handle_stock_item_unpublished_message,
     )
 
     if os.environ.get("DMS_OUTBOX_WORKER_CI_SMOKE_TEST_PROBE") == "1":
