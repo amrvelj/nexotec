@@ -151,7 +151,8 @@ describe('CustomersListPage — the column set (KAN-51 half 1 + partial half 2)'
     // K-2002 has none of these set — every new cell renders "—", never a crash.
     const rowTwo = screen.getByRole('row', { name: /K-2002/ })
     expect(within(rowTwo).getAllByText('—').length).toBeGreaterThan(0)
-  })
+  }, 20000) // 13 userEvent.click() toggles, each a real pointer/focus/click sequence — same
+  // "CI's runners need real headroom" reasoning as the 60000ms override below, just fewer clicks
 
   it('renders every persisted field as a toggleable column and the grid survives each toggle', async () => {
     route([customer({ id: 'c1', customerNumber: 'K-1001' })])
