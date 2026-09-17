@@ -54,6 +54,14 @@ def freeze_vehicle_snapshot(db: Session, *, offer: SalesOffer) -> bool:
             "vehicleLabel": offer.vehicle_label,
             "condition": pricing["condition"],
             "basePrice": str(pricing["basePrice"]) if pricing["basePrice"] is not None else None,
+            # KAN-62 — not read by build_up() (which only ever consumes
+            # basePrice, already resolved above with the correct fallback
+            # for the no-options case); frozen purely so a later reader can
+            # see what the stock item's own list/effective price actually
+            # were at generation time, distinct from whichever one ended up
+            # supplying basePrice.
+            "listPrice": str(pricing["listPrice"]) if pricing["listPrice"] is not None else None,
+            "effectivePrice": str(pricing["effectivePrice"]) if pricing["effectivePrice"] is not None else None,
             "purchasePrice": str(pricing["purchasePrice"]) if pricing["purchasePrice"] is not None else None,
             # KAN-25: frozen alongside purchasePrice, same ADR-041 posture
             # — a later purchase-booking correction never changes an
