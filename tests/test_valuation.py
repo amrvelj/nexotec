@@ -7,6 +7,7 @@ from decimal import Decimal
 
 import pytest
 
+from app.core.auth import AccessRole, create_access_token
 from app.core.base import utcnow
 from app.core.errors import ConflictError
 from app.core.pagination import SortPageParams
@@ -220,3 +221,56 @@ def test_status_is_not_in_the_sort_allow_list():
     from app.valuation.api.valuations import VALUATION_SORT_FIELDS
 
     assert "status" not in VALUATION_SORT_FIELDS
+
+
+def _sales_token() -> str:
+    tenant_id = uuid.uuid4()
+    return create_access_token(
+        user_id=uuid.uuid4(),
+        tenant_id=tenant_id,
+        group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tenant_id)),
+        roles=frozenset({AccessRole.SALES}),
+    )
+
+
+def _bearer(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
+def test_create_valuation_over_http_returns_a_derived_status(client):
+    """KAN-65 — every request used to 500: `_valuation_read` built
+    `ValuationRead` by validating straight off the `Valuation` ORM object,
+    but `status` is derived (ADR-066) and is not a column, so pydantic
+    raised a ValidationError for the missing required field before the
+    derived value was ever attached. Every existing test called the
+    service layer directly and never touched this response path, so this
+    went unnoticed. This test goes through the real endpoint precisely to
+    close that gap.
+    """
+
+    response = client.post(
+        "/v1/valuations",
+        json={"finalOffer": "1000.00", "source": "manual", "validForDays": 30},
+        headers=_bearer(_sales_token()),
+    )
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["status"] == "valid"
+    assert body["finalOffer"] == "1000.00"
+    assert body["deductions"] == []
+
+
+def test_list_valuations_over_http_returns_a_derived_status_per_row(client):
+    token = _sales_token()
+    create = client.post(
+        "/v1/valuations",
+        json={"finalOffer": "500.00", "source": "manual", "validForDays": 30},
+        headers=_bearer(token),
+    )
+    assert create.status_code == 201, create.text
+
+    response = client.get("/v1/valuations", headers=_bearer(token))
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert len(body["items"]) == 1
+    assert body["items"][0]["status"] == "valid"
