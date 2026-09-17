@@ -31,6 +31,28 @@ import {
 
 const isConflict = (err: unknown) => err instanceof ApiError && err.status === 409
 
+// KAN-59: the endpoint caps a page at 100 (Settings.pagination_max_limit) —
+// `country` alone is ~250 rows, so a single `limit=200` request 422s
+// ("Input should be less than or equal to 100") for every list, on every
+// environment, regardless of how many rows it actually holds. This admin
+// screen's whole point is "see every value in this list to edit it," so it
+// walks the cursor rather than showing one truncated page — the same
+// pattern `useCountryOptions.ts` (KAN-32) already established for exactly
+// this list. Unlike that hook, this never passes `active` — the admin
+// screen manages inactive values too, not just what a dropdown would offer.
+async function fetchAllReferenceValues(listCode: ReferenceListCode): Promise<ReferenceValueRead[]> {
+  const rows: ReferenceValueRead[] = []
+  let cursor: string | null = null
+  do {
+    const params = new URLSearchParams({ limit: '100' })
+    if (cursor) params.set('cursor', cursor)
+    const page = await api.get<ReferenceValuePage>(`/reference-data/${listCode}?${params.toString()}`)
+    rows.push(...page.items)
+    cursor = page.nextCursor
+  } while (cursor)
+  return rows
+}
+
 export function ReferenceDataPage() {
   const { t } = useTranslation()
   useSetBreadcrumb([t('referenceData.breadcrumb'), t('referenceData.title')])
@@ -66,12 +88,12 @@ export function ReferenceDataPage() {
   const queryKey = ['reference-data', list] as const
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey,
-    queryFn: () => api.get<ReferenceValuePage>(`/reference-data/${list}?limit=200`),
+    queryFn: () => fetchAllReferenceValues(list),
   })
 
   const forbidden = error instanceof ApiError && error.status === 403
 
-  const rows = useMemo(() => data?.items ?? [], [data])
+  const rows = useMemo(() => data ?? [], [data])
   const visibleRows = useMemo(
     () => (debouncedQuery ? rows.filter((r) => referenceRowMatchesQuery(r, debouncedQuery)) : rows),
     [rows, debouncedQuery],
@@ -85,10 +107,8 @@ export function ReferenceDataPage() {
         { 'If-Match': String(args.row.version) },
       ),
     onSuccess: (updated) => {
-      queryClient.setQueryData<ReferenceValuePage>(queryKey, (prev) =>
-        prev
-          ? { ...prev, items: prev.items.map((it) => (it.valueCode === updated.valueCode ? updated : it)) }
-          : prev,
+      queryClient.setQueryData<ReferenceValueRead[]>(queryKey, (prev) =>
+        prev ? prev.map((it) => (it.valueCode === updated.valueCode ? updated : it)) : prev,
       )
     },
   })
