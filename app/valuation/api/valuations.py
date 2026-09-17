@@ -34,14 +34,23 @@ _DEFAULT_VALUATION_SORT = [
 
 
 def _valuation_read(db: Session, valuation: Valuation) -> ValuationRead:
+    """`status` is derived, never a column on `Valuation` (ADR-066) — so it
+    cannot be produced by validating straight off the ORM object the way
+    every other field can (KAN-65: that used to be exactly what this did,
+    and `ValuationRead.model_validate(valuation, from_attributes=True)`
+    raised a `ValidationError` — status missing — for every single
+    request, on every backend, because no existing test exercised this
+    HTTP response path). Assemble the dict by hand instead, with the two
+    derived fields filled in before validation ever runs.
+    """
+
     deductions = valuation_service.get_deductions(db, valuation.id)
-    base = ValuationRead.model_validate(valuation, from_attributes=True)
-    return base.model_copy(
-        update={
-            "status": valuation_service.derive_status(valuation),
-            "deductions": [DeductionRead.model_validate(d, from_attributes=True) for d in deductions],
-        }
-    )
+    fields = {
+        name: getattr(valuation, name) for name in ValuationRead.model_fields if name not in ("status", "deductions")
+    }
+    fields["status"] = valuation_service.derive_status(valuation)
+    fields["deductions"] = [DeductionRead.model_validate(d, from_attributes=True) for d in deductions]
+    return ValuationRead.model_validate(fields)
 
 
 @router.post("/valuations", response_model=ValuationRead, status_code=201)
