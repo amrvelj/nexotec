@@ -235,7 +235,20 @@
       "created": "Creato",
       "duplicateOf": "Duplicato di",
       "advisor": "Consulente",
-      "tags": "Tag"
+      "tags": "Tag",
+      "customerTitle": "Titolo",
+      "gender": "Genere",
+      "website": "Sito web",
+      "newsletter": "Newsletter",
+      "paymentTerms": "Condizioni di pagamento",
+      "creditLimit": "Limite di credito",
+      "iban": "IBAN",
+      "vatRegistered": "Soggetto a IVA",
+      "creditBlockReason": "Motivo del blocco creditizio",
+      "creditBlockedAt": "Bloccato dal",
+      "customerSince": "Cliente dal",
+      "nextFollowUp": "Prossimo richiamo",
+      "notes": "Note"
     },
     "rowActions": {
       "open": "Apri",

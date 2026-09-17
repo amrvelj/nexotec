@@ -235,7 +235,20 @@
       "created": "Créé",
       "duplicateOf": "Doublon de",
       "advisor": "Conseiller",
-      "tags": "Étiquettes"
+      "tags": "Étiquettes",
+      "customerTitle": "Titre",
+      "gender": "Genre",
+      "website": "Site web",
+      "newsletter": "Newsletter",
+      "paymentTerms": "Conditions de paiement",
+      "creditLimit": "Limite de crédit",
+      "iban": "IBAN",
+      "vatRegistered": "Assujetti à la TVA",
+      "creditBlockReason": "Motif du blocage de crédit",
+      "creditBlockedAt": "Bloqué depuis",
+      "customerSince": "Client depuis",
+      "nextFollowUp": "Prochaine relance",
+      "notes": "Notes"
     },
     "rowActions": {
       "open": "Ouvrir",

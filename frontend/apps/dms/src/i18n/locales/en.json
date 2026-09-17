@@ -235,7 +235,20 @@
       "created": "Created",
       "duplicateOf": "Duplicate of",
       "advisor": "Advisor",
-      "tags": "Tags"
+      "tags": "Tags",
+      "customerTitle": "Title",
+      "gender": "Gender",
+      "website": "Website",
+      "newsletter": "Newsletter",
+      "paymentTerms": "Payment terms",
+      "creditLimit": "Credit limit",
+      "iban": "IBAN",
+      "vatRegistered": "VAT registered",
+      "creditBlockReason": "Credit block reason",
+      "creditBlockedAt": "Credit blocked since",
+      "customerSince": "Customer since",
+      "nextFollowUp": "Next follow-up",
+      "notes": "Notes"
     },
     "rowActions": {
       "open": "Open",
