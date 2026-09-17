@@ -969,6 +969,9 @@
     },
     "pricing": {
       "emptyHint": "La struttura prezzo inizia dal veicolo — sceglietene prima uno.",
+      "noPriceTitle": "Nessun prezzo impostato",
+      "noPriceBody": "Per questo veicolo non è ancora stato impostato alcun prezzo — impostatene uno prima nella scheda di magazzino.",
+      "noPriceLink": "Apri la scheda di magazzino",
       "readyHint": "La struttura prezzo segue (prossimo passo).",
       "manualBasePrice": "Prezzo base",
       "basePrice": "Prezzo base",

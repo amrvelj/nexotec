@@ -969,6 +969,9 @@
     },
     "pricing": {
       "emptyHint": "Der Preisaufbau beginnt beim Fahrzeug — wählen Sie zuerst eines aus.",
+      "noPriceTitle": "Kein Preis hinterlegt",
+      "noPriceBody": "Für dieses Fahrzeug ist noch kein Preis hinterlegt — legen Sie zuerst einen Preis im Lagerbestand fest.",
+      "noPriceLink": "Lagerbestand öffnen",
       "readyHint": "Der Preisaufbau folgt (nächster Schritt).",
       "manualBasePrice": "Basispreis",
       "basePrice": "Grundpreis",

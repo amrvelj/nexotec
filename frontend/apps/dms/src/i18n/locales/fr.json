@@ -969,6 +969,9 @@
     },
     "pricing": {
       "emptyHint": "La structure de prix commence par le véhicule — choisissez-en un d'abord.",
+      "noPriceTitle": "Aucun prix défini",
+      "noPriceBody": "Aucun prix n'est encore défini pour ce véhicule — définissez-en un d'abord sur la fiche de stock.",
+      "noPriceLink": "Ouvrir la fiche de stock",
       "readyHint": "La structure de prix suit (prochaine étape).",
       "manualBasePrice": "Prix de base",
       "basePrice": "Prix de base",
