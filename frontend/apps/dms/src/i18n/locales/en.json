@@ -969,6 +969,9 @@
     },
     "pricing": {
       "emptyHint": "Pricing starts with the vehicle — choose one first.",
+      "noPriceTitle": "No price set",
+      "noPriceBody": "This vehicle has no price set yet — add one on the stock record first.",
+      "noPriceLink": "Open the stock record",
       "readyHint": "Pricing follows (next step).",
       "manualBasePrice": "Base price",
       "basePrice": "Base price",

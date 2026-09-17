@@ -12,6 +12,7 @@ import { OfferGenerateReviewModal } from '../components/OfferGenerateReviewModal
 import { PriceBuildUp } from '../components/PriceBuildUp'
 import { useDebouncedNumberField } from '../hooks/useDebouncedNumberField'
 import { CustomerDetailContent } from './CustomerDetailPage'
+import { StockDetailContent } from './StockDetailPage'
 import { translatedStockConditionOptions } from '../stockOptions'
 import { formatCurrencyChf } from '../utils/format'
 import type {
@@ -73,6 +74,13 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
   const openCustomerOverlay = () => {
     if (!customerId) return
     overlay.push({ key: `customer-overlay-${customerId}`, content: <CustomerDetailContent customerId={customerId} embedded /> })
+  }
+  // Same ADR-059 posture — KAN-64: the pricing section needs a way out to
+  // the stock record when it turns out there is no price to build from.
+  const stockItemId = offerQuery.data?.stockItemId ?? null
+  const openStockItemOverlay = () => {
+    if (!stockItemId) return
+    overlay.push({ key: `stock-overlay-${stockItemId}`, content: <StockDetailContent stockItemId={stockItemId} embedded /> })
   }
 
   const [generateOpen, setGenerateOpen] = useState(false)
@@ -156,7 +164,13 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
 
   const offer = offerQuery.data
   const containerById = Object.fromEntries((offer.containers ?? []).map((c) => [c.id, c]))
-  const missing = (offer.containers ?? []).filter((c) => c.requirement === 'required' && c.status === 'not_started')
+  // KAN-64 — must match services/offer.py::confirm_offer's own gate
+  // (status != "complete") exactly, or the button stays enabled for a
+  // container the backend will still reject at the final confirm step.
+  // Pricing's third status, "in_progress" (a vehicle is selected but no
+  // usable price exists yet), used to slip through here because this
+  // only checked for "not_started".
+  const missing = (offer.containers ?? []).filter((c) => c.requirement === 'required' && c.status !== 'complete')
 
   return (
     <Stack gap="lg">
@@ -256,7 +270,19 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
       </OverviewCard>
 
       {/* Preisaufbau */}
-      <OverviewCard title={t('offerWorkspace.containers.pricing')}>
+      <OverviewCard title={t('offerWorkspace.containers.pricing')} badge={requirementBadge(t, containerById.pricing?.requirement ?? 'required')}>
+        {containerById.pricing?.status === 'in_progress' && (
+          <Alert color="orange" title={t('offerWorkspace.pricing.noPriceTitle')} py="xs" mb="xs">
+            <Stack gap={4}>
+              <Text size="sm">{t('offerWorkspace.pricing.noPriceBody')}</Text>
+              {stockItemId && (
+                <UnstyledButton onClick={openStockItemOverlay}>
+                  <Text size="sm" fw={600} c="purple">{t('offerWorkspace.pricing.noPriceLink')}</Text>
+                </UnstyledButton>
+              )}
+            </Stack>
+          </Alert>
+        )}
         <PriceBuildUp
           offer={offer}
           onDiscountChange={(patch) => patchOffer({ discountType: patch.discountType, discountValue: patch.discountValue })}
