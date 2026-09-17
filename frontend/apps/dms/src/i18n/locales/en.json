@@ -1149,6 +1149,7 @@
     "platformScoped": "Platform-wide",
     "platformConnectionsTitle": "Connections",
     "categories": {
+      "marketplace": "Marketplace",
       "vehicle_data": "Vehicle data"
     },
     "fields": {

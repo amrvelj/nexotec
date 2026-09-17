@@ -1149,6 +1149,7 @@
     "platformScoped": "A livello di piattaforma",
     "platformConnectionsTitle": "Connessioni",
     "categories": {
+      "marketplace": "Marketplace",
       "vehicle_data": "Dati veicolo"
     },
     "fields": {
