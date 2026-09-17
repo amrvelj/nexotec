@@ -8,15 +8,17 @@ against a configured ``auto_i_dat`` connection, and diffs the parsed shape
 against ``MockAutoIDatAdapter``'s output for the same call. Per-Datenname
 it prints ``PASS`` / ``FAIL`` / ``SKIP``.
 
-PR 1 implements the seven transport-migrated Datennamen. The fourteen new
-ones (PR 2) are listed as ``TODO`` — ``KontrollschildInfo`` first, because
-it is the named exit criterion.
+PR 1 implemented the seven transport-migrated Datennamen; **PR 2 adds the
+fourteen new ones below** (``KontrollschildInfo`` first — it is the named
+exit criterion). Criterion 1 itself stays open regardless: it needs a real
+account, which this script can exercise but not conjure.
 
 Usage
 -----
     DMS_DATABASE_URL=... DMS_TAX_ID_ENCRYPTION_KEY=... PYTHONPATH=. \\
       python scripts/verify_auto_i_dat.py --connection-id <uuid> \\
-        [--fz-key 141695] [--werkscode 191B51] [--typ-sch-nr 1MD448] [--model-year 2012]
+        [--fz-key 141695] [--werkscode 191B51] [--typ-sch-nr 1MD448] [--model-year 2012] \\
+        [--plate ZH123456] [--fz-art 01] [--opt-key 100369] [--code-group 010]
 
 With no ``--connection-id`` every Datenname reports ``SKIP (no
 connection)`` and the script exits 0 — so it is safe to wire into CI
@@ -42,25 +44,23 @@ _IMPLEMENTED: list[tuple[str, str, str]] = [
     ("OptionenFarben", "fetch_colours", "werkscode"),
     ("PneuDimTS", "fetch_tyre_specs", "typ_sch_nr"),
     ("Bilder", "fetch_images", "fz_key"),
-]
-
-# PR 2 — added to this script as they are implemented. KontrollschildInfo
-# first: it is exit criterion 1.
-_TODO_PR2 = [
-    "KontrollschildInfo",  # <-- exit criterion 1
-    "Codes",
-    "FahrzeugArten",
-    "Marken",
-    "ModellGruppen",
-    "ModellGruppenKurz",
-    "FzgWerteGruppiert",
-    "Typenscheine",
-    "FahrzeugeMatch",
-    "FahrzeugePreise",
-    "FzgDatenTS",
-    "OptionenPack",
-    "OptionenAusschluss",
-    "OptionenZusatz",
+    # PR 2 — the fourteen new Datennamen. KontrollschildInfo first: it is
+    # exit criterion 1, which stays open (needs the real account) even
+    # though the code is now in place.
+    ("KontrollschildInfo", "lookup_plate", "plate"),  # <-- exit criterion 1
+    ("Codes", "fetch_codes", "none"),
+    ("FahrzeugArten", "list_vehicle_kinds", "none"),
+    ("Marken", "list_brands", "fz_art"),
+    ("ModellGruppen", "list_model_groups", "fz_art"),
+    ("ModellGruppenKurz", "list_model_groups_short", "fz_art"),
+    ("FzgWerteGruppiert", "fetch_grouped_values", "fz_art+gruppiert"),
+    ("Typenscheine", "fetch_type_approvals", "fz_key"),
+    ("FahrzeugeMatch", "find_best_match", "typ_sch_nr+neupreis"),
+    ("FahrzeugePreise", "fetch_vehicle_prices", "fz_key+model_year"),
+    ("FzgDatenTS", "fetch_type_approval_data", "typ_sch_nr"),
+    ("OptionenPack", "fetch_option_package_contents", "opt_key"),
+    ("OptionenAusschluss", "fetch_option_exclusions", "fz_key+model_year+opt_key"),
+    ("OptionenZusatz", "fetch_option_conditions", "fz_key+model_year+opt_key"),
 ]
 
 
@@ -89,7 +89,25 @@ def _call(adapter: Any, method: str, selector: str, args: argparse.Namespace) ->
     if selector == "werkscode":
         return fn(werkscode=args.werkscode)
     if selector == "typ_sch_nr":
-        return fn(type_approval_number=args.typ_sch_nr)
+        # `fetch_tyre_specs`'s own kwarg name predates PR 2 and stays as
+        # `type_approval_number`; the fourteen new methods below all spell
+        # it `typ_sch_nr`, matching the spec's own field name more
+        # directly — both selectors read from the same `--typ-sch-nr` arg.
+        if method == "fetch_tyre_specs":
+            return fn(type_approval_number=args.typ_sch_nr)
+        return fn(args.typ_sch_nr)
+    if selector == "plate":
+        return fn(args.plate, fz_art=args.fz_art)
+    if selector == "fz_art":
+        return fn(fz_art=args.fz_art)
+    if selector == "fz_art+gruppiert":
+        return fn(fz_art=args.fz_art, gruppiert=args.gruppiert)
+    if selector == "typ_sch_nr+neupreis":
+        return fn(typ_sch_nr=args.typ_sch_nr, neupreis=args.neupreis)
+    if selector == "opt_key":
+        return fn(args.opt_key)
+    if selector == "fz_key+model_year+opt_key":
+        return fn(args.fz_key, year=args.model_year, opt_key=args.opt_key)
     raise ValueError(f"unknown selector {selector!r}")
 
 
@@ -134,18 +152,13 @@ def _run(args: argparse.Namespace) -> int:
             print(f"{datenname:<18} {'PASS':<8} {real_shape}")
 
     print("-" * 72)
-    for datenname in _TODO_PR2:
-        marker = "  <-- exit criterion 1" if datenname == "KontrollschildInfo" else ""
-        print(f"{datenname:<18} {'TODO':<8} PR 2{marker}")
-
-    print("-" * 72)
     if real is None:
         print("SKIPPED — no --connection-id. Exit criterion 1 is still open (KAN-38 blocker: no staging account).")
         return 0
     if failures:
         print(f"{failures} FAILURE(S). Exit criterion 1 is NOT met.")
         return 1
-    print("All implemented Datennamen round-tripped. Add PR 2's fourteen, then criterion 1 is met.")
+    print("All 21 implemented Datennamen round-tripped against the real account. Exit criterion 1 is met.")
     return 0
 
 
@@ -158,6 +171,11 @@ def main() -> None:
     parser.add_argument(
         "--model-year", type=int, default=dt.datetime.now(dt.UTC).year, help="model year for Optionen"
     )
+    parser.add_argument("--plate", default="ZZ000000", help="a Kontrollschild known to the account")
+    parser.add_argument("--fz-art", default="01", help="FzArt for Marken/ModellGruppen(Kurz)/FzgWerteGruppiert")
+    parser.add_argument("--gruppiert", default="Aufbau", help="dimension for FzgWerteGruppiert")
+    parser.add_argument("--neupreis", type=int, default=20000, help="Neupreis for FahrzeugeMatch")
+    parser.add_argument("--opt-key", type=int, default=100000, help="an OptKey known to the account")
     args = parser.parse_args()
     sys.exit(_run(args))
 
