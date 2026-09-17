@@ -50,8 +50,6 @@ export function VehicleDetailPage() {
     )
   }
 
-  useSetBreadcrumb([t('shell.nav.masterData'), t('shell.nav.vehicles'), id ?? ''])
-
   const vehicleQuery = useQuery({
     queryKey: ['vehicle-mdm', id],
     queryFn: () => api.get<VehicleMdmRead>(`/vehicle-mdm/${id}`),
@@ -89,6 +87,16 @@ export function VehicleDetailPage() {
   })
 
   const vehicle = vehicleQuery.data
+
+  // KAN-63 — the breadcrumb must show the same human-readable label the
+  // header's own <DetailHeader title> already renders (vehicleNumber),
+  // never the raw route param — that used to leak the UUIDv7 primary key
+  // into the most prominent chrome on the page.
+  useSetBreadcrumb([
+    t('shell.nav.masterData'),
+    t('shell.nav.vehicles'),
+    vehicle?.vehicleNumber ?? t('vehicleDetail.header.vehicleFallback'),
+  ])
 
   const invalidatePartyRoles = () => {
     void queryClient.invalidateQueries({ queryKey: ['vehicle-mdm', id, 'party-roles'] })

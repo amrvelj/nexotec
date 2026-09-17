@@ -548,6 +548,7 @@
   },
   "vehicleDetail": {
     "header": {
+      "vehicleFallback": "Fahrzeug",
       "failedToLoad": "Fahrzeug konnte nicht geladen werden",
       "copyVin": "VIN kopieren",
       "merge": "Zusammenführen mit…",
@@ -709,6 +710,9 @@
     }
   },
   "stockDetail": {
+    "header": {
+      "stockFallback": "Lagerfahrzeug"
+    },
     "tabs": {
       "details": "Details",
       "wagenbuch": "Wagenbuch",

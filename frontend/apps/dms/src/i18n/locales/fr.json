@@ -548,6 +548,7 @@
   },
   "vehicleDetail": {
     "header": {
+      "vehicleFallback": "Véhicule",
       "failedToLoad": "Échec du chargement du véhicule",
       "copyVin": "Copier le n° de châssis",
       "merge": "Fusionner avec…",
@@ -709,6 +710,9 @@
     }
   },
   "stockDetail": {
+    "header": {
+      "stockFallback": "Véhicule en stock"
+    },
     "tabs": {
       "details": "Détails",
       "wagenbuch": "Livre de bord",
