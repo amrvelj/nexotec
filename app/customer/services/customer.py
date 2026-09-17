@@ -13,6 +13,7 @@ that's Customer's real scoping key.
 """
 
 import datetime as dt
+import logging
 import uuid
 from decimal import Decimal
 from typing import Any
@@ -66,6 +67,8 @@ from app.customer.schemas.customer import (
 )
 from app.platform.public import get_active_reference_value_codes, get_user_or_404, list_active_users
 from app.vehicle.public import get_vehicle_mdm_or_404, vehicle_mdm_catalogue_loader_option
+
+logger = logging.getLogger("app.customer")
 
 _PII_FIELDS = {
     "salutation",
@@ -466,7 +469,37 @@ def list_customers(
     # see count_capped for why this can never turn into a full table scan.
     total, total_is_estimate = count_capped(db, stmt, threshold=get_settings().count_exact_threshold)
     stmt = paginate_query_sorted(stmt, model=Customer, params=params)
-    rows = list(db.scalars(stmt).all())
+    try:
+        rows = list(db.scalars(stmt).all())
+    except LookupError:
+        # A stored column value that no longer matches any current Python
+        # enum member (KAN-60: a legacy preferred_channel value a rename
+        # migration missed) fails during SQLAlchemy's bulk row hydration —
+        # before any per-row Python code runs, so a normal try/except around
+        # row-by-row processing can't isolate it; ALL rows in the page fail
+        # together, not just the offending one. Recover by fetching just
+        # this page's ids (a bare uuid column, which can never fail to
+        # decode) and re-hydrating each customer individually, skipping —
+        # and logging — whichever single row still doesn't decode. One
+        # corrupt customer must never be able to take the whole list down
+        # for every other customer at the same dealer.
+        db.rollback()
+        id_stmt = stmt.with_only_columns(Customer.id)
+        ids = list(db.scalars(id_stmt).all())
+        rows = []
+        for customer_id in ids:
+            try:
+                customer = db.get(Customer, customer_id)
+            except LookupError:
+                db.rollback()
+                logger.error(
+                    "customer %s has a column value that no longer decodes against its enum — "
+                    "omitted from this list page rather than failing the whole request",
+                    customer_id,
+                )
+                continue
+            if customer is not None:
+                rows.append(customer)
     items, next_cursor = build_sorted_page(rows, params)
     return items, next_cursor, total, total_is_estimate
 
