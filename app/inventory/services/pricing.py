@@ -98,8 +98,24 @@ def get_stock_item_pricing(db: Session, *, tenant_id: uuid.UUID, stock_item_id: 
 
     item = get_stock_item_or_404(db, tenant_id, stock_item_id)
     options = list_options(db, tenant_id=tenant_id, stock_item_id=stock_item_id)
+    # KAN-62: base_price is set ONLY by set_options() above, which itself
+    # refuses any condition outside ITEMIZABLE_CONDITIONS (new/tagesz/demo)
+    # — a used stock item can never go through it, so base_price is not
+    # just usually unset for the ordinary used-car case, it is structurally
+    # unreachable. The model's own comment already documents the intended
+    # fallback ("listPrice stands alone... for the ordinary used-car case,
+    # no options"); it was never implemented, so every plain used car froze
+    # a permanent CHF 0 offer price. effective_price is preferred over
+    # list_price when both are set, matching DetailsTab.tsx's own "current
+    # asking price" treatment (list_price shown only as a struck-through
+    # reference once they diverge). Only applies with no options — when
+    # options exist, base_price really is the foundational number they're
+    # added on top of, and there's nothing honest to fall back to.
+    base_price = item.base_price
+    if base_price is None and not options:
+        base_price = item.effective_price if item.effective_price is not None else item.list_price
     return {
-        "basePrice": item.base_price,
+        "basePrice": base_price,
         "listPrice": item.list_price,
         "effectivePrice": item.effective_price,
         "purchasePrice": item.purchase_price,

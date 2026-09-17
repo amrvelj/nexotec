@@ -7,7 +7,7 @@ from app.inventory.models.stock_item import StockItemCondition
 from app.inventory.schemas.pricing import OptionInput
 from app.inventory.schemas.purchase import RecordPurchaseRequest
 from app.inventory.schemas.stock_item import StockItemCreate
-from app.inventory.services.pricing import set_options
+from app.inventory.services.pricing import get_stock_item_pricing, set_options
 from app.inventory.services.purchase import record_purchase
 from app.inventory.services.stock_item import create_stock_item
 from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
@@ -338,6 +338,97 @@ def test_switching_to_a_different_stock_item_refreezes(db_session):
         actor_id=uuid.uuid4(),
     )
     assert switched.base_price == Decimal("30000.00")
+
+
+def _used_car_priced_via_intake(db_session, tenant_id, *, list_price=None, effective_price=None):
+    """The ONLY way an ordinary used car is priced in this codebase: the
+    intake screen creates the item, then Listenpreis/Effektivpreis are
+    set inline on the detail page. set_options() is never reached — it
+    refuses any condition outside new/tagesz/demo, so base_price stays
+    structurally unset for the ordinary used-car case (KAN-62).
+    """
+
+    item = create_stock_item(
+        db_session,
+        tenant_id=tenant_id,
+        data=StockItemCreate(vehicle_label="VW Golf 8 GTI", condition=StockItemCondition.USED),
+        actor_id=uuid.uuid4(),
+    )
+    if list_price is not None:
+        item.list_price = list_price
+    if effective_price is not None:
+        item.effective_price = effective_price
+    db_session.commit()
+    return item
+
+
+def test_get_stock_item_pricing_falls_back_to_list_price_for_a_used_car_with_no_options(db_session):
+    dealership = _make_dealership(db_session)
+    item = _used_car_priced_via_intake(db_session, dealership.id, list_price=Decimal("32000.00"))
+    assert item.base_price is None  # confirms the fixture matches the real bug's precondition
+
+    pricing = get_stock_item_pricing(db_session, tenant_id=dealership.id, stock_item_id=item.id)
+
+    assert pricing["basePrice"] == Decimal("32000.00")
+
+
+def test_get_stock_item_pricing_prefers_effective_price_over_list_price_when_they_differ(db_session):
+    dealership = _make_dealership(db_session)
+    item = _used_car_priced_via_intake(
+        db_session, dealership.id, list_price=Decimal("32000.00"), effective_price=Decimal("29500.00")
+    )
+
+    pricing = get_stock_item_pricing(db_session, tenant_id=dealership.id, stock_item_id=item.id)
+
+    assert pricing["basePrice"] == Decimal("29500.00")
+
+
+def test_get_stock_item_pricing_stays_honestly_none_when_nothing_is_set(db_session):
+    """The fallback must never fabricate a price: with none of
+    base_price/list_price/effective_price set, basePrice stays None —
+    build_up()'s own existing Decimal(0) fallback (unchanged by this fix)
+    is what turns that into a reported zero, not a guess made here."""
+
+    dealership = _make_dealership(db_session)
+    item = _used_car_priced_via_intake(db_session, dealership.id)
+
+    pricing = get_stock_item_pricing(db_session, tenant_id=dealership.id, stock_item_id=item.id)
+
+    assert pricing["basePrice"] is None
+
+
+def test_base_price_fallback_does_not_apply_when_factory_options_exist(db_session):
+    """A catalogue-configured car (set_options already ran) must keep its
+    real base_price — the number options are added on top of — never
+    silently swapped for list_price/effective_price."""
+
+    dealership = _make_dealership(db_session)
+    item = _priced_stock_item(db_session, dealership.id)  # NEW condition, set_options already ran
+
+    pricing = get_stock_item_pricing(db_session, tenant_id=dealership.id, stock_item_id=item.id)
+
+    assert pricing["basePrice"] == item.base_price == Decimal("50000.00")
+
+
+def test_an_offer_against_an_ordinary_used_car_gets_a_real_price_end_to_end(db_session):
+    """KAN-62, reproduced exactly as found live: create a stock item the
+    normal way, price it the only way the UI allows, build an offer
+    against it — the price must not freeze at CHF 0."""
+
+    dealership = _make_dealership(db_session)
+    item = _used_car_priced_via_intake(db_session, dealership.id, effective_price=Decimal("32000.00"))
+    offer = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())
+
+    updated = update_offer(
+        db_session, offer=offer, group_id=uuid.uuid4(),
+        data=OfferUpdate(vehicle_source="stock", stock_item_id=item.id, vehicle_label=item.vehicle_label),
+        actor_id=uuid.uuid4(),
+    )
+
+    assert updated.base_price == Decimal("32000.00")
+    assert updated.list_price == Decimal("32000.00")
+    assert updated.gross_price == Decimal("32000.00")
+    assert Decimal(updated.vehicle_snapshot["effectivePrice"]) == Decimal("32000.00")
 
 
 def test_margin_has_no_group_scoped_reader_anywhere(client):
