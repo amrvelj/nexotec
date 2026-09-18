@@ -58,17 +58,29 @@ from app.integration.adapters.auto_i_dat_parse import (
     row_decimal,
     row_int,
     row_text,
+    year4,
     yyyymm_to_year,
 )
 from app.integration.adapters.base import (
+    BestMatchResult,
+    BrandData,
+    CodeMapEntryData,
     ForecastResult,
+    ModelGroupData,
+    ModelGroupShortData,
+    OptionConditionData,
+    OptionPackageContentData,
+    PlateInfoData,
     SystemWatermark,
+    TypeApprovalDataResult,
     ValuationResult,
     VariantColourData,
     VariantImageData,
     VariantMasterData,
     VariantOptionData,
     VariantTyreSpecData,
+    VehicleKindData,
+    VehiclePriceData,
 )
 from app.integration.models.connection import IntegrationConnection
 from app.integration.models.secret_ref import SecretSlot
@@ -339,6 +351,226 @@ class AutoIDatSoapAdapter:
             )
         return images
 
+    # -- fourteen new Datennamen (Configurator C-0 / KAN-38 PR 2) -------
+
+    def list_vehicle_kinds(self) -> list[VehicleKindData]:
+        result = self._suchen("FahrzeugArten")
+        return [
+            VehicleKindData(code=row_text(row, "FzArt") or "", label=first_lang_text(row, "Bez") or "")
+            for row in result.rows
+        ]
+
+    def list_brands(self, *, fz_art: str) -> list[BrandData]:
+        result = self._suchen("Marken", {"FzArt": fz_art})
+        return [
+            BrandData(code=row_text(row, "MarkenNr") or "", name=row_text(row, "Marke") or "")
+            for row in result.rows
+        ]
+
+    def list_model_groups(
+        self,
+        *,
+        fz_art: str | None = None,
+        marken_nr: str | None = None,
+        marke: str | None = None,
+        mod_grp_key: int | None = None,
+        mod_kurz_bez: str | None = None,
+        nur_neue: bool = False,
+        prod_von: int | None = None,
+        prod_bis: int | None = None,
+    ) -> list[ModelGroupData]:
+        # "Mindestens FzArt und MarkenNr (oder Marke) oder ModGrpKey" (p7).
+        suchwerte = _build_suchwerte(
+            FzArt=fz_art, MarkenNr=marken_nr, Marke=marke, ModGrpKey=mod_grp_key, ModKurzBez=mod_kurz_bez,
+            NurNeue="1" if nur_neue else None, ProdVon=prod_von, ProdBis=prod_bis,
+        )
+        result = self._suchen("ModellGruppen", suchwerte)
+        return [
+            ModelGroupData(
+                model_group_key=row_int(row, "ModGrpKey") or 0,
+                name_de=row_text(row, "ModBezDe") or "",
+                short_name=row_text(row, "ModKurzBez") or "",
+                production_from=year4(row_text(row, "ProdVon")),
+                production_to=year4(row_text(row, "ProdBis")),
+            )
+            for row in result.rows
+        ]
+
+    def list_model_groups_short(
+        self,
+        *,
+        fz_art: str,
+        marken_nr: str | None = None,
+        marke: str | None = None,
+        nur_neue: bool = False,
+        page: int | None = None,
+        per_page: int | None = None,
+    ) -> list[ModelGroupShortData]:
+        # "Mindestens FzArt plus ein weiterer Suchwert" (p8). Not for
+        # motorcycles (spec's own restriction — the caller's job to honour).
+        suchwerte = _build_suchwerte(
+            FzArt=fz_art, MarkenNr=marken_nr, Marke=marke, NurNeue="1" if nur_neue else None,
+        )
+        einstellungen: dict[str, str | int] = {}
+        if page is not None:
+            einstellungen["Seite"] = page
+        if per_page is not None:
+            einstellungen["ProSeite"] = per_page
+        result = self._suchen("ModellGruppenKurz", suchwerte, einstellungen=einstellungen)
+        return [
+            ModelGroupShortData(
+                brand_code=row_text(row, "MarkenNr") or "",
+                brand_name=row_text(row, "Marke") or "",
+                short_name=row_text(row, "ModKurzBez") or "",
+            )
+            for row in result.rows
+        ]
+
+    def search_vehicles(self, criteria: Mapping[str, str | int | Sequence[str | int]]) -> list[VariantMasterData]:
+        # `Fahrzeuge` widened to its full search parameter set (p9) — a
+        # parameter variant of the existing call, not a new Datenname.
+        # The caller passes exact spec keys (e.g. "TypSchNr", "Werkscode",
+        # "ModGrpKey", "Aufbau") — this method does no key translation, so
+        # it never drifts from the spec's own casing rule (p3).
+        result = self._suchen("Fahrzeuge", criteria, einstellungen={"Typenscheine": "1"})
+        return [_parse_vehicle_master_row(row) for row in result.rows]
+
+    def fetch_vehicle_prices(self, fz_key: str, *, year: int | None = None) -> list[VehiclePriceData]:
+        result = self._suchen("FahrzeugePreise", _build_suchwerte(FzKey=fz_key, Jahr=year))
+        return [
+            VehiclePriceData(year=row_int(row, "Jahr") or 0, price=row_int(row, "Preis") or 0)
+            for row in result.rows
+        ]
+
+    def fetch_grouped_values(
+        self,
+        *,
+        fz_art: str,
+        marken_nr: str | None = None,
+        marke: str | None = None,
+        mod_kurz_bez: str | None = None,
+        typ_sch_nr: str | None = None,
+        gruppiert: str,
+    ) -> list[str]:
+        # Sync-side completeness check only (KAN-38's own ruling) — NEVER
+        # a browse-facet source. One dimension per call; the row's own
+        # field name IS the `gruppiert` value, since the response's shape
+        # depends on what was asked for (p12).
+        suchwerte = _build_suchwerte(
+            FzArt=fz_art, MarkenNr=marken_nr, Marke=marke, ModKurzBez=mod_kurz_bez, TypSchNr=typ_sch_nr,
+        )
+        result = self._suchen("FzgWerteGruppiert", suchwerte, einstellungen={"Gruppiert": gruppiert})
+        return [value for row in result.rows if (value := row_text(row, gruppiert)) is not None]
+
+    def fetch_type_approvals(self, fz_key: str) -> list[str]:
+        result = self._suchen("Typenscheine", {"FzKey": fz_key})
+        return [value for row in result.rows if (value := row_text(row, "TypSchNr")) is not None]
+
+    def lookup_plate(self, plate: str, *, fz_art: str | None = None) -> list[PlateInfoData]:
+        # KontrollschildInfo (p14) — can return >1 row: a Wechselschild, or
+        # the same plate on a car and a motorcycle. Never .first; the
+        # caller (C-D's FR-C-02 waterfall) shows the FR-V-06 picker on >1.
+        result = self._suchen("KontrollschildInfo", _build_suchwerte(Kontrollschild=plate, FzArt=fz_art))
+        return [
+            PlateInfoData(
+                vehicle_kind_code=row_text(row, "FzArt") or "",
+                brand_name=row_text(row, "Marke") or "",
+                model_description=row_text(row, "ModBezDe") or "",
+                production_from=year4(row_text(row, "ProdVon")),
+                production_to=year4(row_text(row, "ProdBis")),
+                type_approval_number=row_text(row, "TypSchNr") or "",
+                first_registration_date=date_ddmmyyyy(row_text(row, "ErstIVDatum")),
+                stammnummer=row_text(row, "StammNr") or "",
+            )
+            for row in result.rows
+        ]
+
+    def find_best_match(
+        self,
+        *,
+        typ_sch_nr: str,
+        neupreis: int,
+        modell_bez: str | None = None,
+        eurotax_code: str | None = None,
+        getriebe: str | None = None,
+        tueren: int | None = None,
+    ) -> BestMatchResult:
+        result = self._suchen(
+            "FahrzeugeMatch",
+            _build_suchwerte(
+                TypSchNr=typ_sch_nr, Neupreis=neupreis, ModellBez=modell_bez, EurotaxCode=eurotax_code,
+                Getriebe=getriebe, Türen=tueren,
+            ),
+        )
+        # match_code (1=eindeutig, 2=bestmöglich) lives in Info, sibling of
+        # Status/StatusMsg — never applied silently (a "2" is a suggestion
+        # the advisor confirms, per C-D's own ConfigurationMatchStatus).
+        return BestMatchResult(vehicle=_parse_vehicle_master_row(result.first), match_code=result.match_code or 2)
+
+    def fetch_type_approval_data(
+        self, typ_sch_nr: str, *, getriebe: str | None = None, gaenge: int | None = None
+    ) -> TypeApprovalDataResult:
+        # "Bei Suche mit TypSchNr wird nur die EuroNorm zurückgegeben. Bei
+        # Suche mit TypSchNr, Getriebe und Gänge werden alle Daten
+        # zurückgegeben" (p28) — every field below is None unless the
+        # caller supplied Getriebe+Gänge too; this method never guesses a
+        # default for either.
+        result = self._suchen(
+            "FzgDatenTS", _build_suchwerte(TypSchNr=typ_sch_nr, Getriebe=getriebe, Gänge=gaenge)
+        )
+        el = result.rows[0] if result.rows else None
+        return TypeApprovalDataResult(
+            euro_norm=row_text(el, "EuroNorm"),
+            fuel_consumption_mixed=row_decimal(el, "VerbMix"),
+            emission_standard_code=row_text(el, "VerbNorm"),
+            energy_efficiency_category=row_text(el, "VerbKat"),
+            co2=row_int(el, "CO2"),
+            kerb_weight=row_int(el, "GewLeer"),
+            energy_consumption=row_decimal(el, "EnergieVerbrauch"),
+        )
+
+    def fetch_option_package_contents(self, opt_key: int) -> list[OptionPackageContentData]:
+        result = self._suchen("OptionenPack", {"OptKey": opt_key})
+        return [
+            OptionPackageContentData(opt_key=row_int(row, "OptKey") or 0, description=first_lang_text(row, "Bez") or "")
+            for row in result.rows
+        ]
+
+    def fetch_option_exclusions(self, fz_key: str, *, year: int, opt_key: int) -> list[int]:
+        result = self._suchen("OptionenAusschluss", {"FzKey": fz_key, "Jahr": year, "OptKey": opt_key})
+        return [value for row in result.rows if (value := row_int(row, "OptKey")) is not None]
+
+    def fetch_option_conditions(self, fz_key: str, *, year: int, opt_key: int) -> list[OptionConditionData]:
+        result = self._suchen("OptionenZusatz", {"FzKey": fz_key, "Jahr": year, "OptKey": opt_key})
+        return [
+            OptionConditionData(
+                opt_key=row_int(row, "OptKey") or 0,
+                description=first_lang_text(row, "Bez") or "",
+                aktion_code=row_text(row, "Aktion"),
+                price=row_decimal(row, "Preis"),
+            )
+            for row in result.rows
+        ]
+
+    def fetch_codes(
+        self, *, code_groups: list[str] | None = None, active_only: bool = False
+    ) -> list[CodeMapEntryData]:
+        # This adapter only fetches and shapes the raw (CodeGrpNr, CodeNr)
+        # -> label rows; resolving them into app.vehicle's ProviderCodeMap
+        # is a separate, later PR — that mapping is vehicle-context
+        # knowledge this adapter has no business holding (rule 3).
+        suchwerte = _build_suchwerte(CodeGrpNr=code_groups, Status="1" if active_only else None)
+        result = self._suchen("Codes", suchwerte)
+        return [
+            CodeMapEntryData(
+                code_group_nr=row_text(row, "CodeGrpNr") or "",
+                code_nr=row_text(row, "CodeNr") or "",
+                label_de=first_lang_text(row, "Bez") or "",
+                label_short_de=row_text(row, "BezKurzDe"),
+            )
+            for row in result.rows
+        ]
+
     # -- valuation / forecast -----------------------------------------
     #
     # No live caller today (Protocol compliance only). Valuation is
@@ -408,6 +640,47 @@ _ACHSEN_CODE = {
     "3": "rear",
 }
 _PNEU_TYP = {"121": "summer", "122": "winter"}  # PneuTyp (CodeGrpNr 500)
+
+
+def _build_suchwerte(
+    **kwargs: str | int | Sequence[str | int] | None,
+) -> dict[str, str | int | Sequence[str | int]]:
+    """Drop `None`-valued optional search criteria before they reach
+    `_serialise_suchwerte` — an omitted spec parameter must never become
+    the literal string `"Key=None"` on the wire. Shaped for `Suchwerte`
+    (which may carry a multi-value list, e.g. `Codes`' `CodeGrpNr`); a
+    call site building `Einstellungen` (never a `Sequence`, per
+    `_suchen`'s own narrower parameter type) builds its dict directly
+    instead of through this helper."""
+
+    return {key: value for key, value in kwargs.items() if value is not None}
+
+
+def _parse_vehicle_master_row(el: Any) -> VariantMasterData:
+    """Shared by `search_vehicles`/`find_best_match` — same field
+    reading as `fetch_vehicle_master_data`, but `fz_key` comes from the
+    row itself (`<FzKey>`) rather than an input parameter, since a
+    multi-result search has no single caller-supplied key to fall back
+    on."""
+
+    type_approvals = [t.text.strip() for t in el.findall(".//TypSchNr") if t.text and t.text.strip()]
+    return VariantMasterData(
+        fz_key=row_text(el, "FzKey") or "",
+        brand_code=row_text(el, "MarkenNr") or "",
+        brand_display_name=row_text(el, "Marke") or "",
+        model_group_name=row_text(el, "ModKurzBez") or row_text(el, "ModBezDe") or "",
+        variant_name=row_text(el, "TypDe") or "",
+        model_year_from=yyyymm_to_year(row_text(el, "ProdVon")) or 0,
+        model_year_to=yyyymm_to_year(row_text(el, "ProdBis")),
+        vehicle_kind_code=row_text(el, "FzArt") or "",
+        fuel_type_code=row_text(el, "Treibstoff"),
+        body_style_code=row_text(el, "Aufbau"),
+        drivetrain_code=row_text(el, "Antrieb"),
+        transmission_code=row_text(el, "Getriebe"),
+        base_price=row_decimal(el, "LetzterNP"),
+        werkscode=row_text(el, "Werkscode"),
+        type_approval_numbers=type_approvals,
+    )
 
 
 def _achsen_code_to_axle(raw: str | None) -> str:

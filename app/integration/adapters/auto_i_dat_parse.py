@@ -71,7 +71,7 @@ class SuchenResult:
     corresponding ``Einstellungen`` were sent.
     """
 
-    __slots__ = ("count", "datenname", "rows", "status", "status_msg", "total_pages")
+    __slots__ = ("count", "datenname", "match_code", "rows", "status", "status_msg", "total_pages")
 
     def __init__(
         self,
@@ -82,6 +82,7 @@ class SuchenResult:
         rows: list[ET.Element],
         total_pages: int | None = None,
         count: int | None = None,
+        match_code: int | None = None,
     ) -> None:
         self.datenname = datenname
         self.status = status
@@ -89,6 +90,11 @@ class SuchenResult:
         self.rows = rows
         self.total_pages = total_pages
         self.count = count
+        # `FahrzeugeMatch` only (p27) — 1=eindeutig, 2=bestmöglich. A
+        # sibling of Status/StatusMsg in <Info>, not a row field; kept as
+        # a narrow optional slot here rather than a general-purpose "extra
+        # Info fields" bag, matching total_pages/count's own precedent.
+        self.match_code = match_code
 
     @property
     def first(self) -> ET.Element:
@@ -133,9 +139,11 @@ def parse_suchen_result(datenname: str, xml_text: str | bytes) -> SuchenResult:
     if status == 1:
         raise ProviderMaintenanceError(f"{datenname}: {status_msg or 'webservice in maintenance'}")
 
-    rows = [child for child in root if _local_name(child.tag) == datenname]
+    expected_row_names = _ROW_NAME_ALIASES.get(datenname, (datenname,))
+    rows = [child for child in root if _local_name(child.tag) in expected_row_names]
     total_pages = _opt_int(row_text(info, "TotalSeiten")) if info is not None else None
     count = _opt_int(row_text(info, "Anzahl")) if info is not None else None
+    match_code = _opt_int(row_text(info, "MatchCode")) if info is not None else None
     return SuchenResult(
         datenname=datenname,
         status=status,
@@ -143,7 +151,18 @@ def parse_suchen_result(datenname: str, xml_text: str | bytes) -> SuchenResult:
         rows=rows,
         total_pages=total_pages,
         count=count,
+        match_code=match_code,
     )
+
+
+# `FahrzeugeMatch`'s own spec example (p27) misspells the row element as
+# `<FarhrzeugeMatch>` (transposed r/h) — unclear whether that's a doc typo
+# or the real wire shape. Matching both keeps this working either way; a
+# real-account run against `scripts/verify_auto_i_dat.py` is what actually
+# settles it (open question, same posture as `_maybe_b64decode`'s).
+_ROW_NAME_ALIASES: dict[str, tuple[str, ...]] = {
+    "FahrzeugeMatch": ("FahrzeugeMatch", "FarhrzeugeMatch"),
+}
 
 
 # --- field readers ---------------------------------------------------------
@@ -203,6 +222,22 @@ def yyyymm_to_year(raw: str | None) -> int | None:
     if not digits.isdigit() or set(digits) == {"0"}:
         return None
     year = int(digits[:4])
+    return year if year > 1900 else None
+
+
+def year4(raw: str | None) -> int | None:
+    """``ModellGruppen``/``KontrollschildInfo`` (``ProdVon``/``ProdBis``)
+    are plain 4-digit year strings — unlike ``Fahrzeuge``'s own
+    ``ProdVon``/``ProdBis``, which are 6-digit ``JJJJMM`` (see
+    ``yyyymm_to_year``). ``0000`` means "still in production" -> ``None``.
+    """
+
+    if not raw:
+        return None
+    digits = raw.strip()
+    if not digits.isdigit() or set(digits) == {"0"}:
+        return None
+    year = int(digits)
     return year if year > 1900 else None
 
 
