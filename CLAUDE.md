@@ -321,10 +321,20 @@ Read the ADR before building against any of these.
 > (catalogue browse + facets, provably making no live provider call, on the shared
 > DataGrid), and **C-C** (the `VehicleConfiguration` entity itself, the two-phase overlay,
 > both manual and catalogue modes, the never-writes-`vehicle-mdm` architecture guard).
-> **C-0** (gateway coverage) is half done — PR 1 (the real SOAP transport, the seven
-> pre-existing Datennamen) shipped; PR 2 (the fourteen new Datennamen, entitlement
-> probing, the `provider_code_map` seed from `Codes`) has not started, and the real-account
-> round trip is blocked on a staging auto-i-dat account that doesn't exist yet.
+> **C-0** (gateway coverage) is mostly built but **not closed** — PR 1 (the real SOAP
+> transport, the seven pre-existing Datennamen), **PR 2a** (#108, the fourteen new
+> Datennamen on the adapter and the mock) and **PR 2b** (2026-09-19, entitlement probing)
+> shipped. PR 2b is deliberately narrow: `gateway.test_connection` now probes **one**
+> capability, `fahrzeuge`, because the protocol has no "not entitled" signal (p4: an empty
+> string means bad credentials *or* Datenname) and only a criteria-free call made right
+> after `System` succeeded lets a rejection be attributed to the Datenname. The other seven
+> of the eight sheet capabilities are listed with reasons in
+> `app/integration/services/entitlement_probes.py::UNPROBEABLE`. **The inference is
+> unverified against a real account**, exit criterion 3 stays open (1 of 8 populated; the
+> consumer-side per-capability gate needs `catalogue_sync` split off its umbrella
+> `vehicle_data` capability), and PR 2c (the `provider_code_map` seed from `Codes`, with
+> the `112 → engine_cycle` test) has not started. The real-account round trip is blocked
+> on a staging auto-i-dat account that doesn't exist yet.
 > **C-D** (identification/plate cache) and **C-F** (host integration into the offer flow,
 > Stock pipeline and Valuation) were **not** re-verified in that audit (they sit in
 > Backlog, not the "In Review" pile that prompted it) — do not assume they're built
