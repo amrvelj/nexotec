@@ -392,9 +392,16 @@ def get_entitlement(
     )
 
 
-def _upsert_entitlement(
+def record_probed_entitlement(
     db: Session, *, connection_id: uuid.UUID, capability_code: str, granted: bool
 ) -> IntegrationEntitlement:
+    """Upsert the one `(connection, capability)` row as `source=probed`.
+    Used by `compute_vin_decode_entitlement` below (KAN-36) and by
+    `services/entitlement_probes.py`'s probes via `gateway.test_connection`
+    (KAN-38 PR 2b) — the two things that establish an entitlement by
+    observation rather than by declaration.
+    """
+
     existing = get_entitlement(db, connection_id=connection_id, capability_code=capability_code)
     now = utcnow()
     if existing is not None:
@@ -434,7 +441,7 @@ def compute_vin_decode_entitlement(db: Session, *, tenant_id: uuid.UUID) -> bool
 
     auto_i_dat_connection = get_enabled_connection(db, tenant_id=tenant_id, provider_code=_AUTO_I_DAT_PROVIDER_CODE)
     if auto_i_dat_connection is not None:
-        _upsert_entitlement(
+        record_probed_entitlement(
             db, connection_id=auto_i_dat_connection.id, capability_code=_VIN_DECODE_CAPABILITY, granted=granted
         )
     return granted

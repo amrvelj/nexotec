@@ -111,6 +111,28 @@ def _call(adapter: Any, method: str, selector: str, args: argparse.Namespace) ->
     raise ValueError(f"unknown selector {selector!r}")
 
 
+def _report_entitlement_probes(adapter: Any) -> None:
+    """Informational only — never affects the exit code. The entitlement
+    probe (KAN-38 PR 2b) *infers* "not entitled" from an empty string,
+    because the protocol has no such signal; this prints what it concluded
+    so a human can hold it against the account sheet. Until that has been
+    done once against a real account, the inference is unverified.
+    """
+
+    from app.integration.services import entitlement_probes
+
+    print("-" * 72)
+    print("entitlement inference — compare with the account sheet (unverified until this has been done once):")
+    for probe in entitlement_probes.probes_for("auto_i_dat"):
+        try:
+            verdict = "granted" if entitlement_probes.run_probe(probe, adapter) else "REFUSED"
+        except Exception as exc:  # noqa: BLE001 - a verification script reports, never crashes
+            print(f"{probe.capability_code:<18} {'ERROR':<8} {type(exc).__name__}: {exc}")
+        else:
+            print(f"{probe.capability_code:<18} {verdict:<8}")
+    print(f"not probed (see entitlement_probes.UNPROBEABLE): {', '.join(sorted(entitlement_probes.UNPROBEABLE))}")
+
+
 def _run(args: argparse.Namespace) -> int:
     from app.integration.adapters.auto_i_dat_mock import MockAutoIDatAdapter
 
@@ -150,6 +172,9 @@ def _run(args: argparse.Namespace) -> int:
             print(f"{datenname:<18} {'FAIL':<8} shape drift  real={real_shape}  mock={mock_shape}")
         else:
             print(f"{datenname:<18} {'PASS':<8} {real_shape}")
+
+    if real is not None:
+        _report_entitlement_probes(real)
 
     print("-" * 72)
     if real is None:

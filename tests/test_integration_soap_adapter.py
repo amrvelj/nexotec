@@ -41,7 +41,7 @@ from app.integration.models.connection import ConnectionEnvironment
 from app.integration.models.provider import IntegrationProvider
 from app.integration.schemas.connection import ConnectionCreate
 from app.integration.services import connections as connection_service
-from app.integration.services import resilience
+from app.integration.services import entitlement_probes, resilience
 
 _AES_KEY = b"0123456789abcdef"  # 16 bytes -> AES-128; matches FakeSecretsBackend below
 _IV = b"fedcba9876543210"
@@ -539,6 +539,36 @@ def test_list_vehicle_kinds(db_session, monkeypatch):
     kinds = adapter.list_vehicle_kinds()
 
     assert [(k.code, k.label) for k in kinds] == [("01", "Personenwagen")]
+
+
+def test_fahrzeuge_entitlement_probe_reads_an_empty_fahrzeugarten_response_as_refused(db_session, monkeypatch):
+    """KAN-38 PR 2b, end to end through the real adapter and the real
+    parser: an empty string on the criteria-free `FahrzeugArten` — after
+    `System` answered normally — is the one p4 cause that names the
+    Datenname, so the probe reads it as "not granted". An ordinary answer
+    reads as granted, and the call sends no `Suchwerte` at all.
+    """
+
+    provider = _make_provider(db_session)
+    connection = _make_connection(db_session, provider)
+    probe = entitlement_probes.probes_for("auto_i_dat")[0]
+    assert probe.capability_code == "fahrzeuge"
+
+    granted_soap = FakeSoapClient()
+    granted = _adapter(db_session, connection, soap_client=granted_soap, monkeypatch=monkeypatch)
+    assert entitlement_probes.run_probe(probe, granted) is True
+    assert [(c["Datenname"], c["Suchwerte"]) for c in granted_soap.calls] == [("FahrzeugArten", "")]
+
+    class _FahrzeugArtenRefusedClient(FakeSoapClient):
+        def Suchen(self, **kwargs):
+            if kwargs["Datenname"] == "FahrzeugArten":
+                return ""
+            return super().Suchen(**kwargs)
+
+    refused_soap = _FahrzeugArtenRefusedClient()
+    refused = _adapter(db_session, connection, soap_client=refused_soap, monkeypatch=monkeypatch)
+    assert refused.get_system_watermark().update_date is not None  # System is fine...
+    assert entitlement_probes.run_probe(probe, refused) is False  # ...FahrzeugArten is refused
 
 
 def test_list_brands_requires_fz_art(db_session, monkeypatch):

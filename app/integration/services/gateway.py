@@ -7,8 +7,11 @@ interchangeable by nothing more than which `provider_code` a connection
 points at.
 
 "No business data" (Integrations & API Credentials v0.1's own words) —
-this module writes exactly one thing, `integration_call_log`, and reads
-nothing but `integration_connection`/`integration_provider`. PR-6 adds
+this module writes `integration_call_log`, and reads nothing but
+`integration_connection`/`integration_provider`. The one other thing it
+writes is `integration_entitlement`, and only from `test_connection`'s
+probes (KAN-38 PR 2b) — registry metadata about the connection itself, not
+business data. PR-6 adds
 one narrow exception: `call_capability`'s optional `capture_raw_payload`
 callable, which — if a caller supplies one — writes a SECOND row to the
 structurally separate `integration_call_payload` table (never this
@@ -18,6 +21,7 @@ is the seam a future adapter revision uses, not a currently-exercised
 path.
 """
 
+import logging
 import time
 import uuid
 from collections.abc import Callable, Iterator
@@ -32,9 +36,12 @@ from app.integration.adapters.base import ProviderAdapter
 from app.integration.models.call_log import CallStatus, IntegrationCallLog
 from app.integration.models.call_payload import PayloadKind
 from app.integration.models.connection import ConnectionStatus, IntegrationConnection
+from app.integration.services import connections as connection_service
+from app.integration.services import entitlement_probes, resilience
 from app.integration.services import providers as provider_service
-from app.integration.services import resilience
 from app.integration.services import retention as retention_service
+
+logger = logging.getLogger("app.integration.gateway")
 
 
 class ProviderGatewayError(Exception):
@@ -206,10 +213,19 @@ def test_connection(db: Session, *, connection: IntegrationConnection) -> Integr
     """The dealer-facing "Test connection" action (PR-7's own UI) — a
     lightweight probe: fetch the system watermark, which every provider
     account can read regardless of its other entitlements. Updates
-    status/last_verified_at/last_error directly; probing per-capability
-    entitlements (images/packages/valuation/forecast) is PR-5's job.
+    status/last_verified_at/last_error directly.
+
+    KAN-38 PR 2b: once the watermark call has succeeded, also probes the
+    capabilities `services/entitlement_probes.py` can probe honestly and
+    records each result as an `integration_entitlement` row. The ordering is
+    load-bearing — a probe's rejection is only attributable to the
+    capability because `System` has just accepted the same credentials — so
+    a connection that fails here is never probed. Each probe is a real,
+    logged, potentially billed provider call: one click is now two calls
+    for `auto_i_dat`, not one.
     """
 
+    healthy = False
     try:
         with call_capability(db, connection=connection, capability="system_watermark") as adapter:
             adapter.get_system_watermark()
@@ -220,6 +236,47 @@ def test_connection(db: Session, *, connection: IntegrationConnection) -> Integr
         connection.status = ConnectionStatus.CONNECTED
         connection.last_verified_at = utcnow()
         connection.last_error = None
+        healthy = True
     db.commit()
+    if healthy:
+        _probe_entitlements(db, connection=connection)
     db.refresh(connection)
     return connection
+
+
+def _probe_entitlements(db: Session, *, connection: IntegrationConnection) -> None:
+    """A refusal is caught *inside* the `call_capability` block, so the
+    gateway records it as a successful call and the connection's circuit
+    breaker is not charged: the provider answered coherently, and what it
+    said was "not this capability". That is the per-capability degradation
+    the per-connection breaker would otherwise defeat — one un-entitled
+    capability must not take the connection's other capabilities offline.
+    (Within `test_connection` alone the breaker could not accumulate anyway,
+    since each click's successful `System` call resets it; the rule matters
+    for a probe run outside that reset.)
+
+    Anything other than a refusal (maintenance, transport, a bug) leaves the
+    existing entitlement row exactly as it was: an outage says nothing about
+    what the account is entitled to, and a probe failing must never fail
+    "Test connection" itself.
+    """
+
+    provider = provider_service.get_provider_or_404(db, connection.provider_id)
+    for probe in entitlement_probes.probes_for(provider.provider_code):
+        try:
+            with call_capability(
+                db,
+                connection=connection,
+                capability=probe.capability_code,
+                purpose=f"entitlement_probe:{probe.capability_code}",
+            ) as adapter:
+                granted = entitlement_probes.run_probe(probe, adapter)
+        except Exception:
+            logger.warning(
+                "entitlement probe for %s failed on connection %s; entitlement left unchanged",
+                probe.capability_code, connection.id, exc_info=True,
+            )
+            continue
+        connection_service.record_probed_entitlement(
+            db, connection_id=connection.id, capability_code=probe.capability_code, granted=granted
+        )
