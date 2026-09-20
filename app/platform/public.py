@@ -22,11 +22,7 @@ from app.platform.services.dealership import (
     get_location_or_404,
 )
 from app.platform.services.document_render import render_document
-from app.platform.services.reference_data import (
-    get_active_reference_value_codes,
-    get_reference_list_or_404,
-    get_reference_value_or_404,
-)
+from app.platform.services.reference_data import get_active_reference_value_codes
 from app.platform.services.user import get_user_or_404, list_active_users, list_dealer_manager_emails
 
 # WP-6b: Addressee/ContentDefinition/.../render_document are the shared
@@ -53,8 +49,6 @@ __all__ = [
     "get_dealership_default_correspondence_language",
     "get_dealership_or_404",
     "get_location_or_404",
-    "get_reference_list_or_404",
-    "get_reference_value_or_404",
     "get_user_or_404",
     "list_active_users",
     "list_dealer_manager_emails",

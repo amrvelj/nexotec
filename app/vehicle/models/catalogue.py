@@ -66,10 +66,8 @@ class ModelGroup(PrimaryKeyMixin, TimestampMixin, Base):
 class ModelVariant(VehicleSpecBlock, PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     """What auto-i-dat's FzKey identifies — e.g. "Giulietta 1.4 TB
     Progression". Descriptive fields here are canonical-taxonomy value_codes
-    (reference_value.value_code strings, validated at the service layer via
-    app.platform.public.get_reference_value_or_404 — same pattern the
-    shipped Vehicle model already uses for its own reference fields), never
-    a raw provider code.
+    (reference_value.value_code strings — the same shape the shipped Vehicle
+    model uses for its own reference fields), never a raw provider code.
 
     **The full specification block (ADR-071) is mixed in from
     `VehicleSpecBlock`** — the same ~40-field description carried by the
