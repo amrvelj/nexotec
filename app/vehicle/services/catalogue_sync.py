@@ -332,17 +332,25 @@ def _sync_tenant_variant_content(
     master: VariantMasterData, adapter,
 ) -> None:
     """Options/colours/tyre-specs/images — all tenant-scoped, all upserted
-    by their own natural key so a re-sync never duplicates a row. Each
-    capability call is independent: PR-5's entitlement-based degradation
-    means a dealer without the images permission simply gets an empty
-    `fetch_images` result here (or PR-5 skips calling it at all), never a
-    failure of the whole sync.
+    by their own natural key so a re-sync never duplicates a row.
+
+    Nothing here consults an entitlement, and the calls are not independent:
+    every one runs inside the caller's single `vehicle_data`
+    `call_capability` block, so a Datenname the provider refuses for this
+    account (the protocol documents no "not entitled" signal — see
+    `services/entitlement_probes.py` in `app.integration`) raises out of the
+    whole sync and is charged to the connection's breaker. That error path
+    also commits this session to write the call-log row, so the variant it
+    was on is left partially synced (its options, colours and tyre specs
+    persisted, its images not). Degrading per capability (KAN-38 exit
+    criterion 3) needs this split by capability first; until then
+    `catalogue_entitlements` only ever degrades what is *read*, never what
+    is fetched.
 
     C-0 PR 1: the real Datennamen need more than an `FzKey` —
     `Optionen` needs the model year, `OptionenFarben` the `Werkscode`,
     `PneuDimTS` a `TypSchNr`. All three come off `master`; a variant with
-    no `werkscode` / no type-approval number simply skips that call (same
-    three-way skip posture as an entitlement-degraded call).
+    no `werkscode` / no type-approval number simply skips that call.
     """
 
     for option in adapter.fetch_options(fz_key, model_year=model_variant.model_year_from):
