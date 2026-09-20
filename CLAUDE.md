@@ -332,9 +332,19 @@ Read the ADR before building against any of these.
 > `app/integration/services/entitlement_probes.py::UNPROBEABLE`. **The inference is
 > unverified against a real account**, exit criterion 3 stays open (1 of 8 populated; the
 > consumer-side per-capability gate needs `catalogue_sync` split off its umbrella
-> `vehicle_data` capability), and PR 2c (the `provider_code_map` seed from `Codes`, with
-> the `112 → engine_cycle` test) has not started. The real-account round trip is blocked
-> on a staging auto-i-dat account that doesn't exist yet.
+> `vehicle_data` capability). **PR 2c** (2026-09-20, migration `7c4e9a2b6d13`) seeded the
+> `auto_i_dat` `provider_code_map` — 127 rows, identity or strict-subset mappings only;
+> every other code is deliberately left to surface as a `mapping_gap` (FR-C-10: never
+> auto-mapped), and `112 → engine_cycle`, never `drivetrain`, is asserted by tests and by
+> the CI migration job. **Exit criterion 4 is partially met**, itemised: 76 of the spec's
+> 191 `(CodeGrpNr, code)` pairs are seeded, the other 115 each carry a recorded reason in
+> `scripts/auto_i_dat_code_snapshot.py`. The seed is **inert until a staging account
+> exists** (it is a 2021 snapshot; and whether the provider selects the code group by
+> `FzArt` or `FzArtExtern` is unknown — `scripts/verify_auto_i_dat.py` prints that gate),
+> and its 112 rows stay unused until **PR 2d** (kind-aware `Antrieb` routing in
+> `catalogue_sync`, which today resolves `Antrieb` as a drivetrain for every vehicle kind).
+> The real-account round trip is blocked on a staging auto-i-dat account that doesn't
+> exist yet.
 > **C-D** (identification/plate cache) and **C-F** (host integration into the offer flow,
 > Stock pipeline and Valuation) were **not** re-verified in that audit (they sit in
 > Backlog, not the "In Review" pile that prompted it) — do not assume they're built
@@ -390,7 +400,12 @@ Four facts to carry into that work:
   *Fixed on branch `fix/type-approval-many-to-many`, migration `eb660a3213bd`; use
   `find_model_variants_by_type_approval` for the 1..n reverse lookup.*
 - **`Antrieb` CodeGrpNr 112 is 2-Takt / 4-Takt / Kein Takt** — a stroke count, not a drive
-  type. Groups 012 and 022 are Hinten/Vorne/Allrad. It needs its own `engine_cycle` list.
+  type. Groups 012 and 022 are Hinten/Vorne/Allrad. It maps to the `engine_cycle` list
+  (seeded by C-A), never to `drivetrain`; migration `7c4e9a2b6d13` does exactly that and a
+  test asserts it. **`ProviderCodeMap` rows are keyed `(provider_code, raw FzArt, semantic
+  code_group = the canonical list's code, raw code)`** — never a numeric CodeGrpNr; the
+  model has no such column, and the earlier docstring and PRD wording that said otherwise
+  were wrong (the only production reader has always used the semantic name).
 - **The full provider image URL is now kept — closed by KAN-43 (C-E), 2026-09-14.**
   `Bilder`'s `BildURL` was being discarded at ingestion: `ImageRef.image_key` (the sync's
   own natural key, `String(160)`) is the URL's basename only, and the full URL had nowhere

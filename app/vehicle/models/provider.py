@@ -29,6 +29,28 @@ class ProviderCodeMap(PrimaryKeyMixin, TimestampMixin, Base):
     (CodeGrpNr 011) and Bleifrei Kat. for a motorcycle (CodeGrpNr 111) —
     the same (provider, code_group, code) triple means two different
     canonical values depending on what kind of vehicle it was read for.
+
+    **How a row is actually keyed** (the convention the only production
+    reader, `services/catalogue_sync.py`, uses — an earlier version of this
+    docstring described a numeric-CodeGrpNr keying that nothing has ever
+    produced; KAN-38 PR 2c):
+
+    - `provider` — the integration provider_code (`auto_i_dat`, or
+      `auto_i_dat_mock`), never a display name.
+    - `vehicle_kind` — the RAW provider vehicle-kind code exactly as the
+      adapter returns it (auto-i-dat's `FzArt`: `01` / `02` / `03`), not a
+      canonical kind. Matching is exact string equality, no padding.
+    - `code_group` — the *semantic field name*, which is also the code of
+      the canonical list it resolves into (`fuel_type`, `body_style`,
+      `drivetrain`, `engine_cycle`, …) — never a numeric `CodeGrpNr`. The
+      table has no CodeGrpNr column: the per-kind CodeGrpNr pattern
+      (010/020/110, …) lives in the seed migration that populated it.
+    - `provider_code` — the raw code value.
+
+    A vocabulary that does not depend on the vehicle kind is still stored
+    once per kind, because the resolver has no wildcard. Seeded rows and
+    rows an admin creates by resolving a `MappingGap` are indistinguishable
+    (no provenance column).
     """
 
     __tablename__ = "vehicle_provider_code_map"
