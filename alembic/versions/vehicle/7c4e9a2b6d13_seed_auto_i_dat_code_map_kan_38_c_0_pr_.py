@@ -19,21 +19,23 @@ matches `vehicle_kind` exactly and has no wildcard.
 and the canonical value are the same thing (identity or strict subset). Every
 ambiguous code, and every code with no canonical value, is deliberately left
 out so the resolver writes a `mapping_gap` for an admin: a code with no row is
-"never auto-mapped and never dropped" (FR-C-10). The reason for each of the
-115 unmapped `(CodeGrpNr, code)` pairs is recorded next to the spec snapshot in
-`scripts/auto_i_dat_code_snapshot.py`, and a test asserts that the seeded pairs
-and the recorded pairs together are exactly the spec's 191. Not seeded at all:
-`PneuTyp` (500), `AchsenCode` (550) and `FarbArt` — the adapter hard-codes them,
-so a map row would be a second definition of the same fact.
+"never auto-mapped and never dropped" (FR-C-10). Left out as ambiguous: the
+mild hybrids, the unqualified Elektro/Benzin|Diesel, Mech.-Aut., Sportwagen.
+Left out for want of a canonical value: cargo vans (canonical `van` reads
+Monospace / Monovolume in FR/IT), motorcycle body styles, `FzKlasse` (size
+classes, not the seeded homologation classes), most equipment features. Not
+seeded at all: `PneuTyp` (500), `AchsenCode` (550) and `FarbArt` — the adapter
+hard-codes them, so a map row would be a second definition of the same fact.
 
 **`112 → engine_cycle`.** `Antrieb` is one wire field with three code groups.
 012 / 022 (cars / light commercials) are a driven axle; **112 (motorcycles) is
 a stroke count — 2 Takt / 4 Takt / Kein Takt — and maps to `engine_cycle`,
 never `drivetrain`.** Code 2 collides ("Vorne" in 012/022, "2 Takt" in 112),
-which is why `vehicle_kind` is part of the key. These rows stay inert until the
-sync routes `Antrieb` by vehicle kind (KAN-38 PR 2d): today it resolves every
-kind under `drivetrain`, so a motorcycle's stroke code simply becomes a gap —
-it can never land in `drivetrain` from this seed.
+which is why `vehicle_kind` is part of the key. These rows are not read yet: the
+sync resolves `Antrieb` under `drivetrain` for every kind, so a motorcycle's
+stroke code simply becomes a gap — it can never land in `drivetrain` from this
+seed. Routing it by vehicle kind is a change to make with a real account to
+check it against (the FzArt / FzArtExtern question below).
 
 **Anomaly, reproduced not repaired.** Groups 021 and 111 print code 14 twice
 and no code 15 (in the rendered page and in the text layer). They are treated
@@ -88,8 +90,7 @@ FZART: dict[str, str] = {"01": "passenger_car", "02": "light_commercial", "03": 
 
 # (CodeGrpNr, FzArt kinds it applies to, code_group == canonical list, {code: canonical value}).
 # One entry per numbered group that gets any rows. The groups that do not
-# (014, 110, 500, 550) are recorded, with reasons, in
-# scripts/auto_i_dat_code_snapshot.py.
+# (014, 110, 500, 550) are deliberately left out — see the docstring above.
 GROUPS: tuple[tuple[str, tuple[str, ...], str, dict[str, str]], ...] = (
     ("010", ("01",), "body_style", {"1": "suv", "3": "coupe", "4": "van", "5": "estate", "6": "sedan", "9": "convertible"}),
     ("020", ("02",), "body_style", {"1": "suv", "7": "pickup"}),

@@ -234,11 +234,13 @@ class OptionConditionData:
 
 @dataclass(frozen=True)
 class CodeMapEntryData:
-    """`Codes` (p24) — one `(CodeGrpNr, CodeNr)` -> label row. This PR
-    only fetches and shapes this data; resolving it into
-    `app.vehicle`'s `ProviderCodeMap` rows is a separate, later PR (C-0
-    PR 2c) — the CodeGrpNr-to-canonical-field mapping is vehicle-context
-    knowledge this adapter has no business holding.
+    """`Codes` (p24) — one `(CodeGrpNr, CodeNr)` -> label row, as delivered.
+    Nothing resolves this into `app.vehicle`'s `ProviderCodeMap`: that table
+    was seeded from the specification's own tables (migration 7c4e9a2b6d13),
+    and a refresh from a live `Codes` call is not built — it needs a real
+    account and a ruling on whose credentials refresh a global table
+    (ADR-013). Its only reader today is `scripts/verify_auto_i_dat.py`, which
+    diffs it against the seed.
     """
 
     code_group_nr: str
