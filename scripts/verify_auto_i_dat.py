@@ -29,9 +29,11 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import importlib.util
 import sys
 import uuid
 from dataclasses import fields, is_dataclass
+from pathlib import Path
 from typing import Any
 
 # The seven Datennamen migrated onto the real `Suchen` transport in PR 1.
@@ -56,7 +58,7 @@ _IMPLEMENTED: list[tuple[str, str, str]] = [
     ("FzgWerteGruppiert", "fetch_grouped_values", "fz_art+gruppiert"),
     ("Typenscheine", "fetch_type_approvals", "fz_key"),
     ("FahrzeugeMatch", "find_best_match", "typ_sch_nr+neupreis"),
-    ("FahrzeugePreise", "fetch_vehicle_prices", "fz_key+model_year"),
+    ("FahrzeugePreise", "fetch_vehicle_prices", "fz_key"),
     ("FzgDatenTS", "fetch_type_approval_data", "typ_sch_nr"),
     ("OptionenPack", "fetch_option_package_contents", "opt_key"),
     ("OptionenAusschluss", "fetch_option_exclusions", "fz_key+model_year+opt_key"),
@@ -130,40 +132,51 @@ def _report_entitlement_probes(adapter: Any) -> None:
             print(f"{probe.capability_code:<18} {'ERROR':<8} {type(exc).__name__}: {exc}")
         else:
             print(f"{probe.capability_code:<18} {verdict:<8}")
-    print(f"not probed (see entitlement_probes.UNPROBEABLE): {', '.join(sorted(entitlement_probes.UNPROBEABLE))}")
+
+
+def _load_code_map_seed():
+    versions = Path(__file__).resolve().parent.parent / "alembic" / "versions" / "vehicle"
+    (path,) = sorted(versions.glob("7c4e9a2b6d13_*.py"))
+    spec = importlib.util.spec_from_file_location("kan38_code_map_seed", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def _report_code_map_diff(adapter: Any) -> None:
-    """Informational only — never affects the exit code. KAN-38 PR 2c seeded
-    the auto_i_dat provider_code_map from a June-2021 snapshot of the spec's
-    coded-field tables (`scripts/auto_i_dat_code_snapshot.py`); nothing in the
-    spec says that equals what the live `Codes` call returns (p35 reserves
-    new codes, p24 says retired ones stay). This prints the difference, and
-    the one check that cannot be automated yet — the seed's go-live gate.
+    """Informational only — never affects the exit code. The auto_i_dat code
+    map was seeded (KAN-38 PR 2c, migration 7c4e9a2b6d13) from a June-2021
+    reading of the spec's coded-field tables; nothing in the spec says that
+    equals what the live `Codes` call returns (p35 reserves new codes, p24
+    says retired ones stay). Per seeded CodeGrpNr this prints the live codes
+    the seed does not map (each becomes a mapping gap) and the seeded codes
+    the live call no longer returns — plus the one check that cannot be
+    automated yet, the seed's go-live gate.
     """
 
-    from scripts.auto_i_dat_code_snapshot import SPEC_CODES
+    seeded = {group: set(mapping) for group, _kinds, _code_group, mapping in _load_code_map_seed().GROUPS}
 
     print("-" * 72)
-    print("code-map seed vs live `Codes` (KAN-38 PR 2c) — the seed is a 2021 snapshot, unverified until now:")
+    print("code-map seed vs live `Codes` (KAN-38 PR 2c) — the seed is a 2021 reading, unverified until now:")
     try:
         live: dict[str, set[str]] = {}
-        for entry in adapter.fetch_codes(code_groups=list(SPEC_CODES)):
+        for entry in adapter.fetch_codes(code_groups=list(seeded)):
             live.setdefault(entry.code_group_nr, set()).add(entry.code_nr)
     except Exception as exc:  # noqa: BLE001 - a verification script reports, never crashes
         print(f"{'Codes':<18} {'ERROR':<8} {type(exc).__name__}: {exc}")
         return
-    for group, snapshot in sorted(SPEC_CODES.items()):
+    for group, codes in sorted(seeded.items()):
         got = live.get(group)
         if got is None:
-            print(f"{group:<18} {'MISSING':<8} the spec prints this group; the live call returned none of it")
+            print(f"{group:<18} {'MISSING':<8} the seed maps this group; the live call returned none of it")
             continue
-        new = sorted(got - set(snapshot), key=lambda c: (len(c), c))
-        gone = sorted(set(snapshot) - got, key=lambda c: (len(c), c))
-        if not new and not gone:
-            print(f"{group:<18} {'same':<8} {len(got)} codes")
-        else:
-            print(f"{group:<18} {'DIFFERS':<8} new live (each becomes a mapping gap): {new or '-'}; not returned live: {gone or '-'}")
+        by_code = lambda c: (len(c), c)  # noqa: E731 - numeric-looking codes, sort short before long
+        unmapped, stale = sorted(got - codes, key=by_code), sorted(codes - got, key=by_code)
+        print(
+            f"{group:<18} {'STALE' if stale else 'ok':<8} live codes the seed does not map (gaps): {unmapped or '-'}; "
+            f"seeded but not returned live: {stale or '-'}"
+        )
     print(
         "GO-LIVE GATE (manual): before any real tenant syncs, sample real `Fahrzeuge` rows and confirm the provider "
         "selects the code group by FzArt, not FzArtExtern (spec p34 is silent). A motorcycle classed FzArt 01 whose "

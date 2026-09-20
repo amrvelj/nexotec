@@ -30,10 +30,8 @@ class ProviderCodeMap(PrimaryKeyMixin, TimestampMixin, Base):
     the same (provider, code_group, code) triple means two different
     canonical values depending on what kind of vehicle it was read for.
 
-    **How a row is actually keyed** (the convention the only production
-    reader, `services/catalogue_sync.py`, uses — an earlier version of this
-    docstring described a numeric-CodeGrpNr keying that nothing has ever
-    produced; KAN-38 PR 2c):
+    **How a row is keyed** (the convention the only production reader,
+    `services/catalogue_sync.py`, uses):
 
     - `provider` — the integration provider_code (`auto_i_dat`, or
       `auto_i_dat_mock`), never a display name.

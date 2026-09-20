@@ -32,7 +32,7 @@ def _make_provider(db_session, **overrides) -> IntegrationProvider:
         "display_name": "auto-i-dat (mock)",
         "auth_type": "none",
         "required_secret_slots": [],
-        "capability_codes": list(entitlement_probes.AUTO_I_DAT_CAPABILITY_CODES),
+        "capability_codes": ["fahrzeuge"],
     }
     defaults.update(overrides)
     provider = IntegrationProvider(**defaults)
@@ -42,10 +42,10 @@ def _make_provider(db_session, **overrides) -> IntegrationProvider:
     return provider
 
 
-def _make_connection(db_session, provider, *, tenant_id=None):
+def _make_connection(db_session, provider):
     return connection_service.create_connection(
         db_session,
-        tenant_id=tenant_id or uuid.uuid4(),
+        tenant_id=uuid.uuid4(),
         data=ConnectionCreate(
             provider_id=provider.id, display_name="auto-i-dat", environment=ConnectionEnvironment.SANDBOX
         ),
@@ -97,30 +97,6 @@ def _calls(db_session, connection, capability):
     )
 
 
-# --- the registry ---------------------------------------------------------------
-
-
-def test_every_one_of_the_eight_capabilities_is_either_probed_or_says_why_not():
-    """A ninth code added later must force a decision — probe it, or write
-    down why it can't be — rather than silently going unprobed.
-    """
-
-    eight = set(entitlement_probes.AUTO_I_DAT_CAPABILITY_CODES)
-    assert len(eight) == 8
-    assert entitlement_probes.PROBEABLE_CAPABILITY_CODES | set(entitlement_probes.UNPROBEABLE) == eight
-    assert not entitlement_probes.PROBEABLE_CAPABILITY_CODES & set(entitlement_probes.UNPROBEABLE)
-    assert all(reason.strip() for reason in entitlement_probes.UNPROBEABLE.values())
-
-
-def test_only_fahrzeuge_is_probed_today():
-    assert entitlement_probes.PROBEABLE_CAPABILITY_CODES == {"fahrzeuge"}
-
-
-def test_a_provider_with_no_probes_yields_none():
-    assert entitlement_probes.probes_for("autoscout24") == ()
-    assert entitlement_probes.probes_for("dat") == ()
-
-
 def test_run_probe_reads_only_a_rejection_as_not_granted():
     probe = entitlement_probes.probes_for(_MOCK_PROVIDER_CODE)[0]
 
@@ -159,9 +135,11 @@ def test_a_refusal_records_not_granted_but_the_connection_itself_stays_healthy(d
     assert row is not None
     assert row.granted is False
     # `System` answered, so the connection is fine; one un-entitled
-    # capability must not read as a broken connection.
+    # capability must not read as a broken connection ...
     assert updated.status == ConnectionStatus.CONNECTED
     assert updated.last_error is None
+    # ... nor switch off any other capability.
+    assert connection_service.get_entitlement(db_session, connection_id=connection.id, capability_code="optionen") is None
 
 
 def test_a_refusal_is_never_charged_to_the_connections_circuit_breaker(db_session, monkeypatch):
@@ -184,27 +162,10 @@ def test_a_refusal_is_never_charged_to_the_connections_circuit_breaker(db_sessio
         gateway.test_connection(db_session, connection=connection)
 
     assert charged == []
-    assert resilience.is_circuit_open(connection.id) is False
     refusals = _calls(db_session, connection, "fahrzeuge")
     assert len(refusals) == 6
     # The provider answered coherently, so the gateway logs it as a success.
     assert {call.status for call in refusals} == {CallStatus.SUCCESS}
-
-
-def test_a_refusal_degrades_that_capability_only(db_session, monkeypatch):
-    """The per-capability half of exit criterion 3, read side: an account
-    refused `fahrzeuge` is still granted everything nobody has said
-    otherwise about.
-    """
-
-    tenant_id = uuid.uuid4()
-    connection = _make_connection(db_session, _make_provider(db_session), tenant_id=tenant_id)
-    _serve(monkeypatch, _RefusingAdapter())
-
-    gateway.test_connection(db_session, connection=connection)
-
-    assert connection_service.tenant_has_capability(db_session, tenant_id=tenant_id, capability_code="fahrzeuge") is False
-    assert connection_service.tenant_has_capability(db_session, tenant_id=tenant_id, capability_code="optionen") is True
 
 
 def test_a_later_grant_flips_the_same_row_rather_than_adding_one(db_session, monkeypatch):

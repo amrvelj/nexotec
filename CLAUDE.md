@@ -321,30 +321,23 @@ Read the ADR before building against any of these.
 > (catalogue browse + facets, provably making no live provider call, on the shared
 > DataGrid), and **C-C** (the `VehicleConfiguration` entity itself, the two-phase overlay,
 > both manual and catalogue modes, the never-writes-`vehicle-mdm` architecture guard).
-> **C-0** (gateway coverage) is mostly built but **not closed** — PR 1 (the real SOAP
-> transport, the seven pre-existing Datennamen), **PR 2a** (#108, the fourteen new
-> Datennamen on the adapter and the mock) and **PR 2b** (2026-09-19, entitlement probing)
-> shipped. PR 2b is deliberately narrow: `gateway.test_connection` now probes **one**
-> capability, `fahrzeuge`, because the protocol has no "not entitled" signal (p4: an empty
-> string means bad credentials *or* Datenname) and only a criteria-free call made right
-> after `System` succeeded lets a rejection be attributed to the Datenname. The other seven
-> of the eight sheet capabilities are listed with reasons in
-> `app/integration/services/entitlement_probes.py::UNPROBEABLE`. **The inference is
-> unverified against a real account**, exit criterion 3 stays open (1 of 8 populated; the
-> consumer-side per-capability gate needs `catalogue_sync` split off its umbrella
-> `vehicle_data` capability). **PR 2c** (2026-09-20, migration `7c4e9a2b6d13`) seeded the
-> `auto_i_dat` `provider_code_map` — 127 rows, identity or strict-subset mappings only;
-> every other code is deliberately left to surface as a `mapping_gap` (FR-C-10: never
-> auto-mapped), and `112 → engine_cycle`, never `drivetrain`, is asserted by tests and by
-> the CI migration job. **Exit criterion 4 is partially met**, itemised: 76 of the spec's
-> 191 `(CodeGrpNr, code)` pairs are seeded, the other 115 each carry a recorded reason in
-> `scripts/auto_i_dat_code_snapshot.py`. The seed is **inert until a staging account
-> exists** (it is a 2021 snapshot; and whether the provider selects the code group by
-> `FzArt` or `FzArtExtern` is unknown — `scripts/verify_auto_i_dat.py` prints that gate),
-> and its 112 rows stay unused until **PR 2d** (kind-aware `Antrieb` routing in
-> `catalogue_sync`, which today resolves `Antrieb` as a drivetrain for every vehicle kind).
-> The real-account round trip is blocked on a staging auto-i-dat account that doesn't
-> exist yet.
+> **C-0** (gateway coverage) is mostly built but **not closed**. PR 1 (the real SOAP
+> transport, the seven pre-existing Datennamen), PR 2a (#108, the fourteen new Datennamen
+> on the adapter and the mock), PR 2b (#109) and PR 2c (#110) shipped — **all against the
+> mock, unverified against a real account**, and most of it has no caller yet: of the
+> fourteen, only `FahrzeugArten` is called (by the entitlement probe); the rest wait for C-D
+> (KAN-42) or an unbuilt sync leg. **Entitlement (#109):** `gateway.test_connection` probes
+> `fahrzeuge` only — the protocol has no "not entitled" signal (p4: an empty string means
+> bad credentials *or* Datenname), and only a criteria-free call made right after `System`
+> succeeded lets a refusal be attributed to the Datenname. Nothing reads the row it writes,
+> so exit criterion 3 stays open. **Code map (#110):** migration `7c4e9a2b6d13` seeds the
+> `auto_i_dat` `provider_code_map` (127 rows; identity or strict-subset mappings only —
+> every other code becomes a `mapping_gap`, FR-C-10); `112 → engine_cycle`, never
+> `drivetrain`, is asserted by test. Exit criterion 4 is **partially met**. The seed is a
+> 2021 reading of the spec; whether the provider selects the code group by `FzArt` or
+> `FzArtExtern` is unknown (`scripts/verify_auto_i_dat.py` prints the gate), and the sync
+> still resolves `Antrieb` as a drivetrain for every kind. Both need a staging auto-i-dat
+> account, which doesn't exist yet.
 > **C-D** (identification/plate cache) and **C-F** (host integration into the offer flow,
 > Stock pipeline and Valuation) were **not** re-verified in that audit (they sit in
 > Backlog, not the "In Review" pile that prompted it) — do not assume they're built

@@ -41,6 +41,7 @@ import binascii
 import datetime as dt
 import uuid
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 from decimal import Decimal
 from typing import Any, Protocol
 
@@ -226,27 +227,9 @@ class AutoIDatSoapAdapter:
 
     def fetch_vehicle_master_data(self, fz_key: str) -> VariantMasterData:
         result = self._suchen("Fahrzeuge", {"FzKey": fz_key}, einstellungen={"Typenscheine": "1"})
-        el = result.first
-        # `Typenscheine=1` inlines the type-approval numbers; the exact
-        # nesting is unconfirmed (open question) — read defensively.
-        type_approvals = [t.text.strip() for t in el.findall(".//TypSchNr") if t.text and t.text.strip()]
-        return VariantMasterData(
-            fz_key=fz_key,
-            brand_code=row_text(el, "MarkenNr") or "",
-            brand_display_name=row_text(el, "Marke") or "",
-            model_group_name=row_text(el, "ModKurzBez") or row_text(el, "ModBezDe") or "",
-            variant_name=row_text(el, "TypDe") or "",
-            model_year_from=yyyymm_to_year(row_text(el, "ProdVon")) or 0,
-            model_year_to=yyyymm_to_year(row_text(el, "ProdBis")),
-            vehicle_kind_code=row_text(el, "FzArt") or "",
-            fuel_type_code=row_text(el, "Treibstoff"),
-            body_style_code=row_text(el, "Aufbau"),
-            drivetrain_code=row_text(el, "Antrieb"),
-            transmission_code=row_text(el, "Getriebe"),
-            base_price=row_decimal(el, "LetzterNP"),
-            werkscode=row_text(el, "Werkscode"),
-            type_approval_numbers=type_approvals,
-        )
+        # The caller's key is authoritative for a single-key fetch; a row's own
+        # <FzKey> is what a multi-result search has to go on.
+        return replace(_parse_vehicle_master_row(result.first), fz_key=fz_key)
 
     def list_changed_keys(self, *, since: dt.date) -> list[str]:
         # ChangedSince is TT.MM.JJJJ and may not predate today - 3 months
@@ -555,10 +538,10 @@ class AutoIDatSoapAdapter:
     def fetch_codes(
         self, *, code_groups: list[str] | None = None, active_only: bool = False
     ) -> list[CodeMapEntryData]:
-        # This adapter only fetches and shapes the raw (CodeGrpNr, CodeNr)
-        # -> label rows; resolving them into app.vehicle's ProviderCodeMap
-        # is a separate, later PR — that mapping is vehicle-context
-        # knowledge this adapter has no business holding (rule 3).
+        # Fetches and shapes the raw (CodeGrpNr, CodeNr) -> label rows only.
+        # The mapping into app.vehicle's ProviderCodeMap is vehicle-context
+        # knowledge this adapter has no business holding (rule 3), and that
+        # table is seeded, not fetched — see CodeMapEntryData.
         suchwerte = _build_suchwerte(CodeGrpNr=code_groups, Status="1" if active_only else None)
         result = self._suchen("Codes", suchwerte)
         return [
@@ -657,11 +640,10 @@ def _build_suchwerte(
 
 
 def _parse_vehicle_master_row(el: Any) -> VariantMasterData:
-    """Shared by `search_vehicles`/`find_best_match` — same field
-    reading as `fetch_vehicle_master_data`, but `fz_key` comes from the
-    row itself (`<FzKey>`) rather than an input parameter, since a
-    multi-result search has no single caller-supplied key to fall back
-    on."""
+    """One `<Fahrzeuge>` row as a `VariantMasterData`. `fz_key` is the row's
+    own `<FzKey>`; `fetch_vehicle_master_data` overrides it with the caller's.
+    `Typenscheine=1` inlines the type-approval numbers, but the exact nesting
+    is unconfirmed (open question) — read defensively."""
 
     type_approvals = [t.text.strip() for t in el.findall(".//TypSchNr") if t.text and t.text.strip()]
     return VariantMasterData(
