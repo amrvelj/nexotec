@@ -164,14 +164,16 @@ def test_fetch_option_conditions_reads_aktion_code():
 
 def test_fetch_codes_with_no_filter_returns_every_seeded_row():
     adapter = MockAutoIDatAdapter()
-    assert len(adapter.fetch_codes()) == 7
+    assert len(adapter.fetch_codes()) == 8
 
 
 def test_fetch_codes_filters_by_code_group():
     adapter = MockAutoIDatAdapter()
     codes = adapter.fetch_codes(code_groups=["112"])
-    assert {c.code_nr for c in codes} == {"2", "9"}
-    assert {c.label_de for c in codes} == {"4 Takt", "Kein Takt"}
+    # Spec p32: 112 is 2 = 2 Takt, 4 = 4 Takt, 9 = Kein Takt. The code -> label PAIRING is pinned, not just the
+    # two sets: PR 2a shipped code 2 labelled "4 Takt" with code 4 missing, and set-level assertions locked
+    # that in (KAN-38 PR 2c).
+    assert {c.code_nr: c.label_de for c in codes} == {"2": "2 Takt", "4": "4 Takt", "9": "Kein Takt"}
 
 
 def test_fetch_codes_112_never_yields_a_drivetrain_style_label():
@@ -182,5 +184,12 @@ def test_fetch_codes_112_never_yields_a_drivetrain_style_label():
     # as two separate spec-block columns to guard against.
     adapter = MockAutoIDatAdapter()
     codes_112 = {c.label_de for c in adapter.fetch_codes(code_groups=["112"])}
-    assert codes_112 == {"4 Takt", "Kein Takt"}
+    assert codes_112 == {"2 Takt", "4 Takt", "Kein Takt"}
     assert not codes_112 & {"Hinten", "Vorne", "Allrad"}
+
+
+def test_fetch_codes_carries_no_invented_short_labels():
+    # The spec prints exactly one short label anywhere (010/1 "Gpw", p24); the mock slice does not contain that
+    # code, so it must not invent any.
+    adapter = MockAutoIDatAdapter()
+    assert all(c.label_short_de is None for c in adapter.fetch_codes())

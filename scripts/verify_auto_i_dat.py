@@ -133,6 +133,45 @@ def _report_entitlement_probes(adapter: Any) -> None:
     print(f"not probed (see entitlement_probes.UNPROBEABLE): {', '.join(sorted(entitlement_probes.UNPROBEABLE))}")
 
 
+def _report_code_map_diff(adapter: Any) -> None:
+    """Informational only — never affects the exit code. KAN-38 PR 2c seeded
+    the auto_i_dat provider_code_map from a June-2021 snapshot of the spec's
+    coded-field tables (`scripts/auto_i_dat_code_snapshot.py`); nothing in the
+    spec says that equals what the live `Codes` call returns (p35 reserves
+    new codes, p24 says retired ones stay). This prints the difference, and
+    the one check that cannot be automated yet — the seed's go-live gate.
+    """
+
+    from scripts.auto_i_dat_code_snapshot import SPEC_CODES
+
+    print("-" * 72)
+    print("code-map seed vs live `Codes` (KAN-38 PR 2c) — the seed is a 2021 snapshot, unverified until now:")
+    try:
+        live: dict[str, set[str]] = {}
+        for entry in adapter.fetch_codes(code_groups=list(SPEC_CODES)):
+            live.setdefault(entry.code_group_nr, set()).add(entry.code_nr)
+    except Exception as exc:  # noqa: BLE001 - a verification script reports, never crashes
+        print(f"{'Codes':<18} {'ERROR':<8} {type(exc).__name__}: {exc}")
+        return
+    for group, snapshot in sorted(SPEC_CODES.items()):
+        got = live.get(group)
+        if got is None:
+            print(f"{group:<18} {'MISSING':<8} the spec prints this group; the live call returned none of it")
+            continue
+        new = sorted(got - set(snapshot), key=lambda c: (len(c), c))
+        gone = sorted(set(snapshot) - got, key=lambda c: (len(c), c))
+        if not new and not gone:
+            print(f"{group:<18} {'same':<8} {len(got)} codes")
+        else:
+            print(f"{group:<18} {'DIFFERS':<8} new live (each becomes a mapping gap): {new or '-'}; not returned live: {gone or '-'}")
+    print(
+        "GO-LIVE GATE (manual): before any real tenant syncs, sample real `Fahrzeuge` rows and confirm the provider "
+        "selects the code group by FzArt, not FzArtExtern (spec p34 is silent). A motorcycle classed FzArt 01 whose "
+        "Antrieb is 2 would otherwise map to 'fwd'. `body_style` is the one seeded group that differs between "
+        "kinds 01 and 02."
+    )
+
+
 def _run(args: argparse.Namespace) -> int:
     from app.integration.adapters.auto_i_dat_mock import MockAutoIDatAdapter
 
@@ -175,6 +214,7 @@ def _run(args: argparse.Namespace) -> int:
 
     if real is not None:
         _report_entitlement_probes(real)
+        _report_code_map_diff(real)
 
     print("-" * 72)
     if real is None:

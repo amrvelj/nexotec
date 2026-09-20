@@ -275,17 +275,27 @@ _OPTION_CONDITIONS: dict[int, list[OptionConditionData]] = {
 }
 
 # `Codes` (p24) — a small representative slice of the real CodeGrpNr
-# vocabulary this session already read from the spec's own "Kodierte
-# Felder" appendix (pages 32-34): Aufbau (010/020/110), Antrieb
-# (012/022/112 — the R-C-5 stroke-count trap), Einstufung (041).
+# vocabulary, transcribed from the spec's own "Kodierte Felder" tables
+# (pages 32-34): Aufbau (010), Antrieb (012, and 112 — the R-C-5 stroke-count
+# trap), Einstufung (041). Labels are the spec's own German text. The spec
+# prints exactly one short label anywhere (010/1 "Gpw", p24), so none is
+# invented here.
+#
+# KAN-38 PR 2c corrected this slice. PR 2a had 112 code 2 labelled "4 Takt"
+# and code 4 missing (the spec's 112 is 2 = 2 Takt, 4 = 4 Takt, 9 = Kein
+# Takt), a truncated 041 label, and short labels the spec does not carry —
+# on exactly the trap the ticket names, pinned by tests.
 _CODES: list[CodeMapEntryData] = [
-    CodeMapEntryData(code_group_nr="010", code_nr="6", label_de="Limousine", label_short_de="Lim"),
-    CodeMapEntryData(code_group_nr="010", code_nr="5", label_de="Kombi", label_short_de="Kombi"),
-    CodeMapEntryData(code_group_nr="012", code_nr="1", label_de="Hinten", label_short_de="Hinten"),
-    CodeMapEntryData(code_group_nr="012", code_nr="2", label_de="Vorne", label_short_de="Vorne"),
-    CodeMapEntryData(code_group_nr="112", code_nr="2", label_de="4 Takt", label_short_de="4T"),
+    CodeMapEntryData(code_group_nr="010", code_nr="6", label_de="Limousine", label_short_de=None),
+    CodeMapEntryData(code_group_nr="010", code_nr="5", label_de="Kombi", label_short_de=None),
+    CodeMapEntryData(code_group_nr="012", code_nr="1", label_de="Hinten", label_short_de=None),
+    CodeMapEntryData(code_group_nr="012", code_nr="2", label_de="Vorne", label_short_de=None),
+    CodeMapEntryData(code_group_nr="112", code_nr="2", label_de="2 Takt", label_short_de=None),
+    CodeMapEntryData(code_group_nr="112", code_nr="4", label_de="4 Takt", label_short_de=None),
     CodeMapEntryData(code_group_nr="112", code_nr="9", label_de="Kein Takt", label_short_de=None),
-    CodeMapEntryData(code_group_nr="041", code_nr="0", label_de="Definitive Einstufung", label_short_de=None),
+    CodeMapEntryData(
+        code_group_nr="041", code_nr="0", label_de="Definitive Einstufung (Bewertung möglich)", label_short_de=None
+    ),
 ]
 
 
