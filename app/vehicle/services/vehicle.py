@@ -13,15 +13,16 @@ import datetime as dt
 import uuid
 from typing import Any
 
+from pydantic.alias_generators import to_camel
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
 from app.core.base import utcnow
-from app.core.errors import ConflictError, NotFoundError
+from app.core.errors import ConflictError, NotFoundError, UnprocessableEntityError
 from app.core.pagination import PageParams, build_page, paginate_query
-from app.platform.public import get_reference_list_or_404, get_reference_value_or_404
+from app.platform.public import get_active_reference_value_codes
 from app.vehicle.models.vehicle import CustodyEventType, Vehicle, VehicleCustodyEvent, VehicleStatus
 from app.vehicle.schemas.vehicle import VehicleCreate, VehicleUpdate
 
@@ -43,12 +44,35 @@ def _plain(value: Any) -> Any:
 
 
 def _validate_reference_fields(db: Session, values: dict[str, Any]) -> None:
+    """A submitted value that is not an *active* value of its reference list
+    is a semantic error in the request: 422, naming every offending field,
+    the value sent and the list it was checked against (KAN-57 — the rule
+    KAN-32 set for customer nationality). A list that does not exist at all
+    is a deployment fault — the seed migration has not run — so it is a
+    `RuntimeError` (500), never a 404 or 422 that reads like the client sent
+    something wrong. A deactivated value is rejected on new writes; rows that
+    already reference one stay readable.
+    """
+
+    invalid: list[tuple[str, str]] = []
     for field in _REFERENCE_FIELDS:
         value_code = values.get(field)
         if value_code is None:
             continue
-        ref_list = get_reference_list_or_404(db, field)
-        get_reference_value_or_404(db, list_id=ref_list.id, value_code=value_code)
+        valid = get_active_reference_value_codes(db, field)
+        if valid is None:
+            raise RuntimeError(
+                f"The '{field}' reference list is not seeded. Run `alembic upgrade heads` on this "
+                f"deployment — vehicle {to_camel(field)} cannot be validated without it."
+            )
+        if value_code not in valid:
+            invalid.append((field, value_code))
+    if invalid:
+        rendered = ", ".join(f"{to_camel(field)}={code!r} (reference list '{field}')" for field, code in invalid)
+        raise UnprocessableEntityError(
+            f"Not an active value of the matching reference list: {rendered}.",
+            details={"invalid": {to_camel(field): code for field, code in invalid}},
+        )
 
 
 def get_vehicle_or_404(db: Session, vehicle_id: uuid.UUID) -> Vehicle:

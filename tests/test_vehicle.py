@@ -223,13 +223,79 @@ def test_condition_round_trips(client):
 # --- reference-data field validation ----------------------------------------------
 
 
-def test_unknown_reference_value_code_is_rejected(client):
+def test_unknown_reference_value_code_is_a_422_naming_the_field_the_value_and_the_list(client, db_session):
+    """KAN-57. This test used to seed no list at all and assert 404 — it
+    passed because the *list* was missing, so it could not tell "you sent a
+    bad fuel type" from "the platform isn't seeded". Here the list exists and
+    only the value is wrong.
+    """
+
+    _seed_value(db_session, _seed_list(db_session, "fuel_type"), "diesel")
+
     dealer_id = _create_dealer(client)
     token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
     response = client.post(
         "/v1/vehicles", json=_vehicle_payload(fuelType="not_a_real_value"), headers=_bearer(token)
     )
-    assert response.status_code == 404
+
+    assert response.status_code == 422, response.text
+    error = response.json()["error"]
+    assert error["details"]["invalid"] == {"fuelType": "not_a_real_value"}
+    assert "fuelType='not_a_real_value'" in error["message"] and "'fuel_type'" in error["message"]
+
+
+def test_every_bad_reference_field_is_reported_in_one_422_and_valid_ones_are_not(client, db_session):
+    _seed_value(db_session, _seed_list(db_session, "fuel_type"), "diesel")
+    _seed_value(db_session, _seed_list(db_session, "body_style"), "suv")
+    _seed_value(db_session, _seed_list(db_session, "transmission"), "manual")
+
+    dealer_id = _create_dealer(client)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    response = client.post(
+        "/v1/vehicles",
+        json=_vehicle_payload(fuelType="diesel", bodyStyle="hovercraft", transmission="telepathic"),
+        headers=_bearer(token),
+    )
+
+    assert response.status_code == 422, response.text
+    assert response.json()["error"]["details"]["invalid"] == {"bodyStyle": "hovercraft", "transmission": "telepathic"}
+
+
+def test_a_deactivated_reference_value_is_rejected_on_new_writes(client, db_session):
+    value = _seed_value(db_session, _seed_list(db_session, "fuel_type"), "diesel")
+    value.active = False
+    db_session.commit()
+
+    dealer_id = _create_dealer(client)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    response = client.post("/v1/vehicles", json=_vehicle_payload(fuelType="diesel"), headers=_bearer(token))
+
+    assert response.status_code == 422, response.text
+    assert response.json()["error"]["details"]["invalid"] == {"fuelType": "diesel"}
+
+
+def test_a_reference_list_that_is_not_seeded_is_a_deployment_fault_not_a_client_error(client):
+    """If the seed migration hasn't run, a vehicle create must fail loudly as
+    a server error — never a 404/422 that reads like the client did wrong."""
+
+    dealer_id = _create_dealer(client)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    with pytest.raises(RuntimeError, match="'fuel_type' reference list is not seeded"):
+        client.post("/v1/vehicles", json=_vehicle_payload(fuelType="diesel"), headers=_bearer(token))
+
+
+def test_patching_to_a_bad_reference_value_is_rejected(client, db_session):
+    _seed_value(db_session, _seed_list(db_session, "fuel_type"), "diesel")
+    dealer_id = _create_dealer(client)
+    body = _create_vehicle(client, dealer_id, fuelType="diesel")
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+
+    response = client.patch(
+        f"/v1/vehicles/{body['id']}", json={"fuelType": "nope"}, headers={**_bearer(token), "If-Match": "1"}
+    )
+
+    assert response.status_code == 422, response.text
+    assert response.json()["error"]["details"]["invalid"] == {"fuelType": "nope"}
 
 
 def test_valid_reference_value_code_is_accepted(client, db_session):
