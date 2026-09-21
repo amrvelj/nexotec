@@ -22,6 +22,8 @@ import uuid
 from collections.abc import Callable
 from typing import TypeVar
 
+from app.integration.errors import ProviderGatewayError
+
 T = TypeVar("T")
 
 _FAILURE_THRESHOLD = 5
@@ -30,7 +32,7 @@ _JITTER_RANGE_SECONDS = (0.1, 0.5)
 _DEFAULT_TIMEOUT_SECONDS = 10.0
 
 
-class CircuitOpenError(Exception):
+class CircuitOpenError(ProviderGatewayError):
     def __init__(self, connection_id: uuid.UUID) -> None:
         super().__init__(f"Circuit breaker is open for connection {connection_id} — too many recent failures.")
 

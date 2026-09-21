@@ -37,6 +37,7 @@ from app.integration.adapters import auto_i_dat_soap
 from app.integration.adapters.aes_decrypt import decrypt_aes_cbc, encrypt_aes_cbc
 from app.integration.adapters.auto_i_dat_parse import ProviderMaintenanceError, ProviderRejectedError
 from app.integration.adapters.auto_i_dat_soap import AutoIDatSoapAdapter, _achsen_code_to_axle, _serialise_suchwerte
+from app.integration.errors import ProviderConfigurationError, ProviderTransportError
 from app.integration.models.connection import ConnectionEnvironment
 from app.integration.models.provider import IntegrationProvider
 from app.integration.schemas.connection import ConnectionCreate
@@ -891,9 +892,34 @@ def test_soap_call_gives_up_after_one_retry_and_raises(db_session, monkeypatch):
     soap_client = FakeSoapClient(fail_times=2)
     adapter = _adapter(db_session, connection, soap_client=soap_client, monkeypatch=monkeypatch)
 
-    with pytest.raises(ConnectionError):
+    # The adapter's own type, not the client's: a raw `ConnectionError` used to
+    # escape here and, from `gateway.test_connection`, became an HTTP 500. The
+    # original is chained, not lost.
+    with pytest.raises(ProviderTransportError) as excinfo:
         adapter.fetch_vehicle_master_data("141695")
+    assert isinstance(excinfo.value.__cause__, ConnectionError)
     assert len(soap_client.calls) == 2  # never more than one retry
+
+
+def test_a_credential_lookup_failure_is_not_mistaken_for_a_transport_failure(db_session, monkeypatch):
+    """The password is resolved before the SOAP call, outside the block that
+    files errors under "transport" — so a missing secret is reported as the
+    configuration problem it is, and is not retried."""
+
+    monkeypatch.setattr(resilience, "_JITTER_RANGE_SECONDS", (0.0, 0.0))
+    provider = _make_provider(db_session)
+    connection = _make_connection(db_session, provider)
+    soap_client = FakeSoapClient()
+    # No secrets at all: FakeSecretsBackend raises KeyError, as the real SDK
+    # raises its own error for an unset slot.
+    monkeypatch.setattr(auto_i_dat_soap, "secrets_backend", FakeSecretsBackend({}))
+    adapter = AutoIDatSoapAdapter(
+        db=db_session, connection=connection, soap_client=soap_client, actor_id=uuid.uuid4(), purpose="test"
+    )
+
+    with pytest.raises(ProviderConfigurationError, match="'password' credential"):
+        adapter.get_system_watermark()
+    assert soap_client.calls == []  # never reached the wire, never retried
 
 
 # --- circuit breaker: opens after the threshold, per connection --------

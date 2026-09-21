@@ -38,13 +38,16 @@ from collections.abc import Iterable
 from decimal import Decimal, InvalidOperation
 from xml.etree import ElementTree as ET
 
+from app.integration.errors import ProviderGatewayError
 
-class AutoIDatResponseError(Exception):
+
+class AutoIDatResponseError(ProviderGatewayError):
     """Base for a structurally-wrong or provider-rejected ``Suchen``
-    response. Distinct from a transport failure (``ConnectionError`` /
-    ``TimeoutError`` from ``call_with_retry``) and from the gateway's own
-    ``ProviderGatewayError`` — this is "the call reached the provider and
-    came back unusable".
+    response — "the call reached the provider and came back unusable", as
+    opposed to a ``ProviderTransportError`` (it never got that far). A
+    ``ProviderGatewayError`` so ``gateway.test_connection`` reports it on the
+    connection instead of letting it escape as an HTTP 500; every message
+    raised here is text this module wrote, so it is safe to persist.
     """
 
 

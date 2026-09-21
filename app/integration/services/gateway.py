@@ -31,8 +31,10 @@ from decimal import Decimal
 from sqlalchemy.orm import Session
 
 from app.core.base import utcnow
+from app.core.errors import ConflictError
 from app.integration.adapters.auto_i_dat_mock import MockAutoIDatAdapter
 from app.integration.adapters.base import ProviderAdapter
+from app.integration.errors import ProviderGatewayError
 from app.integration.models.call_log import CallStatus, IntegrationCallLog
 from app.integration.models.call_payload import PayloadKind
 from app.integration.models.connection import ConnectionStatus, IntegrationConnection
@@ -44,11 +46,8 @@ from app.integration.services import retention as retention_service
 logger = logging.getLogger("app.integration.gateway")
 
 
-class ProviderGatewayError(Exception):
-    """Base for every gateway-level failure — never a bare exception
-    reaching a caller outside this context (PR-3's resilience layer wraps
-    this further with timeout/retry/circuit-breaker specifics).
-    """
+# `ProviderGatewayError` itself lives in `app.integration.errors` (a leaf, so
+# adapters can subclass it too) and is still importable from here.
 
 
 class ConnectionDisabledError(ProviderGatewayError):
@@ -215,6 +214,19 @@ def test_connection(db: Session, *, connection: IntegrationConnection) -> Integr
     account can read regardless of its other entitlements. Updates
     status/last_verified_at/last_error directly.
 
+    Any `ProviderGatewayError` — a refusal, a rejected login, a maintenance
+    window, a transport failure, an open circuit — becomes `ERROR` with the
+    exception's message in `last_error`, never an HTTP 500. That holds only
+    because adapters translate what their third-party client throws into that
+    type (`app/integration/errors.py`); this function deliberately does NOT
+    catch `Exception`, which would file a programmer error under "the
+    connection failed".
+
+    A marketplace connection has no such probe (`MarketplaceAdapter` has no
+    `System` equivalent), so it is refused with a 409 before anything is
+    resolved: nothing is logged, the breaker is not charged, and a healthy
+    connection is not marked `ERROR` for a call that never happened.
+
     KAN-38 PR 2b: once the watermark call has succeeded, also probes the
     capabilities `services/entitlement_probes.py` can probe honestly and
     records each result as an `integration_entitlement` row. The ordering is
@@ -225,11 +237,20 @@ def test_connection(db: Session, *, connection: IntegrationConnection) -> Integr
     for `auto_i_dat`, not one.
     """
 
+    provider = provider_service.get_provider_or_404(db, connection.provider_id)
+    if provider.category == "marketplace":
+        raise ConflictError(f"Connection testing is not available for {provider.display_name}.")
+
     healthy = False
     try:
         with call_capability(db, connection=connection, capability="system_watermark") as adapter:
             adapter.get_system_watermark()
     except ProviderGatewayError as exc:
+        # Traceback only when there is a chained foreign cause worth reading —
+        # `last_error` carries our own wording, the log carries what it hides.
+        logger.warning(
+            "connection test failed for connection %s: %s", connection.id, exc, exc_info=exc.__cause__ is not None
+        )
         connection.status = ConnectionStatus.ERROR
         connection.last_error = str(exc)
     else:
