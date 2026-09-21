@@ -52,6 +52,7 @@ from app.integration.adapters.marketplace_base import (
     MarketplaceTransmissionError,
     TransmissionResult,
 )
+from app.integration.errors import ProviderGatewayError
 from app.integration.models.connection import ConnectionStatus, IntegrationConnection
 from app.integration.models.entitlement import IntegrationEntitlement
 from app.integration.services.connections import (
@@ -61,7 +62,6 @@ from app.integration.services.connections import (
 )
 from app.integration.services.gateway import (
     ConnectionDisabledError,
-    ProviderGatewayError,
     UnknownProviderError,
     call_capability,
     resolve_adapter,

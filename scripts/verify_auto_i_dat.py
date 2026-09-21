@@ -78,6 +78,19 @@ def _shape(value: Any) -> Any:
     return type(value).__name__
 
 
+def _describe(exc: BaseException) -> str:
+    """The adapter words its errors for `integration_connection.last_error`
+    (class name only for anything foreign — a dealer manager reads that field)
+    and chains the original with `from`. This script's reader is an engineer
+    holding the account's credentials, who needs the original's message.
+    """
+
+    text = f"{type(exc).__name__}: {exc}"
+    if exc.__cause__ is not None:
+        text += f"  <- {type(exc.__cause__).__name__}: {exc.__cause__}"
+    return text
+
+
 def _call(adapter: Any, method: str, selector: str, args: argparse.Namespace) -> Any:
     fn = getattr(adapter, method)
     if selector == "none":
@@ -129,7 +142,7 @@ def _report_entitlement_probes(adapter: Any) -> None:
         try:
             verdict = "granted" if entitlement_probes.run_probe(probe, adapter) else "REFUSED"
         except Exception as exc:  # noqa: BLE001 - a verification script reports, never crashes
-            print(f"{probe.capability_code:<18} {'ERROR':<8} {type(exc).__name__}: {exc}")
+            print(f"{probe.capability_code:<18} {'ERROR':<8} {_describe(exc)}")
         else:
             print(f"{probe.capability_code:<18} {verdict:<8}")
 
@@ -164,7 +177,7 @@ def _report_code_map_diff(adapter: Any) -> None:
         for entry in adapter.fetch_codes(code_groups=list(seeded)):
             live.setdefault(entry.code_group_nr, set()).add(entry.code_nr)
     except Exception as exc:  # noqa: BLE001 - a verification script reports, never crashes
-        print(f"{'Codes':<18} {'ERROR':<8} {type(exc).__name__}: {exc}")
+        print(f"{'Codes':<18} {'ERROR':<8} {_describe(exc)}")
         return
     for group, codes in sorted(seeded.items()):
         got = live.get(group)
@@ -212,7 +225,7 @@ def _run(args: argparse.Namespace) -> int:
             real_out = _call(real, method, selector, args)
         except Exception as exc:  # noqa: BLE001 - a verification script reports, never crashes
             failures += 1
-            print(f"{datenname:<18} {'FAIL':<8} {type(exc).__name__}: {exc}")
+            print(f"{datenname:<18} {'FAIL':<8} {_describe(exc)}")
             continue
         try:
             mock_out = _call(mock, method, selector, args)

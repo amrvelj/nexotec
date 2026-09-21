@@ -51,6 +51,7 @@ from app.core.audit import record_audit_event
 from app.core.base import utcnow
 from app.integration.adapters.aes_decrypt import decrypt_aes_cbc
 from app.integration.adapters.auto_i_dat_parse import (
+    AutoIDatResponseError,
     SuchenResult,
     csv_list,
     date_ddmmyyyy,
@@ -83,6 +84,7 @@ from app.integration.adapters.base import (
     VehicleKindData,
     VehiclePriceData,
 )
+from app.integration.errors import ProviderConfigurationError, ProviderTransportError
 from app.integration.models.connection import IntegrationConnection
 from app.integration.models.secret_ref import SecretSlot
 from app.integration.services import secrets_backend
@@ -139,7 +141,15 @@ class SoapClient(Protocol):
 def build_zeep_client(wsdl_url: str) -> SoapClient:
     import zeep
 
-    return zeep.Client(wsdl_url).service  # type: ignore[return-value]
+    try:
+        return zeep.Client(wsdl_url).service  # type: ignore[return-value]
+    except Exception as exc:
+        # `zeep.Client` fetches and parses the WSDL over HTTP: this is the
+        # first network call a real connection makes, and the one a mistyped
+        # `wsdlUrl` fails on. Class name only — the message carries the URL.
+        raise ProviderTransportError(
+            f"The provider's WSDL could not be loaded from the configured wsdlUrl ({type(exc).__name__})."
+        ) from exc
 
 
 class AutoIDatSoapAdapter:
@@ -161,7 +171,17 @@ class AutoIDatSoapAdapter:
     # -- credentials ------------------------------------------------------
 
     def _resolve(self, slot: SecretSlot) -> str:
-        value = secrets_backend.resolve_secret(connection_id=self._connection.id, slot=slot.value)
+        try:
+            value = secrets_backend.resolve_secret(connection_id=self._connection.id, slot=slot.value)
+        except Exception as exc:
+            # The secrets manager's own SDK errors, most usefully "there is no
+            # such secret" — a dealer who created a connection and tested it
+            # before setting a slot. Class name only; the SDK's message may
+            # name the path it was reading.
+            raise ProviderConfigurationError(
+                f"The '{slot.value}' credential of this connection could not be read "
+                f"({type(exc).__name__}) — set it and test again."
+            ) from exc
         record_audit_event(
             self._db,
             entity_type="integration_secret_ref",
@@ -179,8 +199,19 @@ class AutoIDatSoapAdapter:
     def _aes_key(self) -> bytes:
         return self._resolve(SecretSlot.AES_KEY).encode("utf-8")
 
-    def _decrypt(self, raw: bytes) -> bytes:
-        return decrypt_aes_cbc(raw, key=self._aes_key())
+    def _decrypt(self, raw: bytes, *, datenname: str) -> bytes:
+        key = self._aes_key()  # resolved outside the `try`: a credential failure is not a decrypt failure
+        try:
+            return decrypt_aes_cbc(raw, key=key)
+        except ValueError as exc:
+            # Wrong-length key, a payload too short to hold an IV, or PKCS7
+            # padding that does not check out — every one of them is "this
+            # key does not open this response". The message names no key
+            # material, only its likeliest cause.
+            raise AutoIDatResponseError(
+                f"{datenname}: the response could not be decrypted "
+                "(wrong AES key, or the response is not encrypted)."
+            ) from exc
 
     # -- the one SOAP operation ----------------------------------------
 
@@ -204,23 +235,40 @@ class AutoIDatSoapAdapter:
         is not valid base64.
         """
 
-        raw: str = call_with_retry(
-            lambda: self._client.Suchen(
-                Benutzername=self._connection.config.get("username", ""),
-                Passwort=self._password(),
-                Sprache=sprache,
-                Datenname=datenname,
-                Suchwerte=_serialise_suchwerte(suchwerte),
-                Einstellungen=_serialise_suchwerte(einstellungen),
+        # Everything the call needs is prepared BEFORE the `try` below, so that
+        # only what the SOAP client itself throws is filed under "transport":
+        # a failed credential lookup or a bad argument is not a network
+        # problem, and must neither be retried nor be worded as one. (It also
+        # means the password is resolved, and audit-logged, once per call
+        # rather than once per attempt.)
+        benutzername = self._connection.config.get("username", "")
+        passwort = self._password()
+        suchwerte_wire = _serialise_suchwerte(suchwerte)
+        einstellungen_wire = _serialise_suchwerte(einstellungen)
+        try:
+            raw: str = call_with_retry(
+                lambda: self._client.Suchen(
+                    Benutzername=benutzername,
+                    Passwort=passwort,
+                    Sprache=sprache,
+                    Datenname=datenname,
+                    Suchwerte=suchwerte_wire,
+                    Einstellungen=einstellungen_wire,
+                )
             )
-        )
+        except Exception as exc:
+            # The one boundary where a foreign client's errors (requests'
+            # ConnectionError/Timeout, zeep's TransportError/Fault, a plain
+            # TimeoutError) become ours. Class name only, original chained:
+            # the message ends up in `integration_connection.last_error`.
+            raise ProviderTransportError(f"{datenname}: the request to the provider failed ({type(exc).__name__}).") from exc
         if raw is None or not str(raw).strip():
             # p4: an empty string means invalid Benutzername / Passwort /
             # Sprache / Datenname. Caught here, before decrypt, so it
             # surfaces as a rejection rather than an AES "ciphertext too
             # short" error.
             return parse_suchen_result(datenname, "")
-        xml_bytes = self._decrypt(_maybe_b64decode(raw))
+        xml_bytes = self._decrypt(_maybe_b64decode(raw), datenname=datenname)
         return parse_suchen_result(datenname, xml_bytes)
 
     # -- the seven Datennamen (migrated onto _suchen) -------------------
@@ -703,7 +751,7 @@ def _build_real_adapter(
 
     wsdl_url = connection.config.get("wsdlUrl")
     if not wsdl_url:
-        raise ValueError(f"Connection {connection.id} has no config.wsdlUrl set.")
+        raise ProviderConfigurationError(f"Connection {connection.id} has no config.wsdlUrl set.")
     return AutoIDatSoapAdapter(
         db=db, connection=connection, soap_client=build_zeep_client(wsdl_url), actor_id=actor_id, purpose=purpose
     )
