@@ -3,16 +3,26 @@ Reads `app.integration.public.get_entitlement` — never
 `IntegrationEntitlement` directly.
 
 No entitlement row for a capability defaults to **granted** (optimistic):
-probing per-capability entitlements is explicitly not built by PR-2/PR-3
-(`services/gateway.py`'s own docstring: "probing per-capability
-entitlements... is PR-5's job", and PR-2's own `/test` action only probes
-`system_watermark`) — so a freshly-connected account behaves as fully
-capable until something explicit says otherwise, matching this
-codebase's existing "don't degrade without cause" bias (the same
-reasoning behind "no provider contract keeps a fully usable module"). A
-future capability-probe step, or a human declaring a restriction, writes
-`granted=False` and this function starts respecting it immediately — no
-code change needed here.
+a freshly-connected account behaves as fully capable until something
+explicit says otherwise, matching this codebase's existing "don't degrade
+without cause" bias (the same reasoning behind "no provider contract keeps
+a fully usable module"). A row saying `granted=False` is respected
+immediately — no code change needed here.
+
+**`images` and `packages` can only be triggered by a hand-inserted row.**
+They are feature names (`app.integration.services.connections` describes the
+layers) and no line on an auto-i-dat account sheet entitles either: there is
+no image counter, and `Opt` is by name the `Optionen` counter — whether it
+also covers option packages is documented nowhere. The only per-account
+permissions the specification names are on `Bilder`'s `BildTyp`/`BildArt`
+parameters and `Optionen`'s `Einstellungen` parameter, and `AutoIDatSoapAdapter`
+sends neither. Nothing writes a row for either code and no API declares one.
+They stay because FR-C-06 specifies the degradation and the frontend renders
+it; what would make them live is per-capability degradation in the gateway
+(KAN-38 exit criterion 3).
+
+Valuation is not a catalogue concern: the screens that need it ask
+`tenant_has_capability("valuation")`, which follows the `bewertung` sheet line.
 
 A dealer with **no** connection at all degrades identically to one whose
 connection lacks a specific entitlement — from a caller's perspective
@@ -39,8 +49,6 @@ class CatalogueEntitlements:
     has_connection: bool
     images: bool
     packages: bool
-    valuation: bool
-    forecast: bool
 
 
 @dataclass(frozen=True)
@@ -137,14 +145,12 @@ def _is_granted(db: Session, *, connection_id: uuid.UUID, capability_code: str) 
 def get_catalogue_entitlements(db: Session, *, tenant_id: uuid.UUID) -> CatalogueEntitlements:
     found = find_enabled_vehicle_data_connection(db, tenant_id=tenant_id)
     if found is None:
-        return CatalogueEntitlements(has_connection=False, images=False, packages=False, valuation=False, forecast=False)
+        return CatalogueEntitlements(has_connection=False, images=False, packages=False)
     connection, _provider_code = found
     return CatalogueEntitlements(
         has_connection=True,
         images=_is_granted(db, connection_id=connection.id, capability_code="images"),
         packages=_is_granted(db, connection_id=connection.id, capability_code="packages"),
-        valuation=_is_granted(db, connection_id=connection.id, capability_code="valuation"),
-        forecast=_is_granted(db, connection_id=connection.id, capability_code="forecast"),
     )
 
 

@@ -26,7 +26,8 @@ def _make_mock_provider(db_session) -> IntegrationProvider:
         display_name="auto-i-dat (mock)",
         auth_type="none",
         required_secret_slots=[],
-        capability_codes=["vehicle_data", "images", "packages", "valuation", "forecast"],
+        # The eight account-sheet lines migration 49be490e2077 seeds.
+        capability_codes=["fahrzeuge", "optionen", "kontrollschild", "pneu", "bewertung", "vin", "vin_ident_db", "ins_tc"],
     )
     db_session.add(provider)
     db_session.commit()
@@ -43,6 +44,10 @@ def _make_connection(db_session, provider, *, tenant_id):
 
 
 def _deny(db_session, connection_id, capability_code):
+    """Insert the `granted=False` row a declaration would write. Nothing in production writes one for `images` /
+    `packages`, which is why the degradation tests below seed it by hand.
+    """
+
     db_session.add(
         IntegrationEntitlement(
             connection_id=connection_id, capability_code=capability_code, granted=False,
@@ -335,6 +340,29 @@ def test_capability_check_endpoint_respects_a_declared_denial(client, db_session
 
     response = client.get("/v1/integrations/capabilities/valuation", headers=_bearer(token))
     assert response.json()["granted"] is True
+
+
+def test_valuation_follows_the_bewertung_sheet_line(client, db_session):
+    """`valuation` is a feature; the row that entitles it is keyed by the `bewertung` sheet line. The gateway's
+    own writer is used on purpose: a row written the way production writes rows is the one that is read.
+    """
+
+    provider = _make_mock_provider(db_session)
+    tenant_id = uuid.uuid4()
+    connection = _make_connection(db_session, provider, tenant_id=tenant_id)
+    token = _token(tenant_id)
+
+    def granted(code: str) -> bool:
+        response = client.get(f"/v1/integrations/capabilities/{code}", headers=_bearer(token))
+        assert response.status_code == 200, response.text
+        return response.json()["granted"]
+
+    assert granted("valuation") is True
+    connection_service.record_probed_entitlement(
+        db_session, connection_id=connection.id, capability_code="bewertung", granted=False
+    )
+    assert granted("valuation") is False
+    assert granted("packages") is True  # per capability, never wholesale
 
 
 def test_capability_check_endpoint_needs_no_manager_flag(client, db_session):

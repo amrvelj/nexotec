@@ -28,6 +28,38 @@ from app.integration.services.secrets_backend import SecretsBackendNotConfigured
 
 _ENTITY_TYPE = "integration_connection"
 
+# Three vocabularies meet at `integration_entitlement.capability_code`, and
+# they are different layers:
+#
+#   sheet line  One of the eight counters on an auto-i-dat account's monthly
+#               usage statistics (fahrzeuge, optionen, kontrollschild, pneu,
+#               bewertung, vin, vin_ident_db, ins_tc), seeded as the provider's
+#               `capability_codes` by migration 49be490e2077. Entitlement rows
+#               are keyed by these. None of the specification PDFs says which
+#               Datenname bumps which counter, and only `fahrzeuge` is written
+#               today (the probe in `gateway.test_connection`); a line with no
+#               row reads as "granted".
+#   feature     A name a screen asks about through `tenant_has_capability`.
+#               Derived on each ask: `valuation` follows the sheet line
+#               `bewertung` (FEATURE_SHEET_LINES); `vin_decode` follows the
+#               health of the tenant's `dat` connection (below). `vin_decode`
+#               is NOT the sheet lines `vin` / `vin_ident_db` — those count VIN
+#               calls billed on the auto-i-dat sheet, this asks whether the
+#               tenant can decode a VIN at all; its row is a display cache.
+#   call label  What `call_capability(capability=...)` logs and keys the circuit
+#               breaker by: `vehicle_data` (catalogue_sync's umbrella over every
+#               Datenname it calls), `system_watermark`, `marketplace_publish`,
+#               and a probe's own sheet line. Never an entitlement.
+#
+# tests/architecture/test_capability_codes_are_in_the_vocabulary.py fails when
+# a consumer reads a code that is in none of the first two layers.
+
+# A feature whose entitlement is exactly one sheet line: `valuation` is the
+# Bewertung webservice, and `Bew` is that webservice's counter. `packages`,
+# `images` and `forecast` are absent because the specification supports no
+# such mapping (see catalogue_entitlements.py).
+FEATURE_SHEET_LINES: dict[str, str] = {"valuation": "bewertung"}
+
 # KAN-36 — vin_decode is never hand-declared: it's derived from the health
 # of the tenant's own `dat` connection (the DAT sub-account auto-i-dat
 # issues alongside the main account, which is what actually entitles VIN
@@ -465,10 +497,15 @@ def tenant_has_capability(db: Session, *, tenant_id: uuid.UUID, capability_code:
     across two, and "no row anywhere" must mean "not granted" — the
     opposite of this function's own optimistic bias for every other
     capability.
+
+    A feature named in `FEATURE_SHEET_LINES` is answered from its sheet
+    line: `valuation` reads `bewertung` rows.
     """
 
     if capability_code == _VIN_DECODE_CAPABILITY:
         return compute_vin_decode_entitlement(db, tenant_id=tenant_id)
+
+    capability_code = FEATURE_SHEET_LINES.get(capability_code, capability_code)
 
     connections = db.scalars(
         select(IntegrationConnection).where(
