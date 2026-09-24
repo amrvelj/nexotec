@@ -920,6 +920,8 @@
       "confirmRefused": {
         "title": "Vertrag nicht bestätigt",
         "missingAddress": "Für diesen Kunden ist keine Adresse hinterlegt. Erfassen Sie eine aktuelle Wohnadresse im Kundendatensatz, bevor der Vertrag bestätigt werden kann.",
+        "missingVehicle": "Dieser Vertrag hat noch kein Fahrzeug. Fügen Sie ein Fahrzeug hinzu, bevor der Vertrag bestätigt werden kann.",
+        "missingPrice": "Für diesen Vertrag ist noch kein Preis hinterlegt. Erfassen Sie einen Preis, bevor der Vertrag bestätigt werden kann.",
         "creditBlock": "Dieser Kunde ist kreditgesperrt ({{reason}}). Eine Offerte ist weiterhin möglich; der Vertrag erfordert die Kontofreigabe durch die Buchhaltung.",
         "doNotContact": "Dieser Kunde ist als «nicht kontaktieren» markiert. Der Vertrag kann nicht bestätigt werden.",
         "staleVersion": "Dieser Vertrag hat sich seit dem Laden der Seite geändert. Er wurde neu geladen — bitte prüfen und erneut versuchen.",
@@ -931,7 +933,8 @@
       "confirm": "Vertrag bestätigen",
       "confirmDisabledReason": "Nur im Status Offen bestätigbar.",
       "cancel": "Stornieren …",
-      "cancelDisabledReason": "Bereits storniert oder fakturiert."
+      "cancelDisabledReason": "Bereits storniert oder fakturiert.",
+      "confirmDisabledReasonEmpty": "Fahrzeug und Preis fehlen noch."
     },
     "stats": {
       "grossPrice": "Verkaufspreis",

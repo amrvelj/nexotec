@@ -516,3 +516,96 @@ def test_cancel_confirmed_contract_releases_the_reservation(db_session, engine):
     db_session.expire_all()
     refreshed_item = get_stock_item_or_404(db_session, dealership.id, item.id)
     assert refreshed_item.reservation_state == ReservationState.NONE
+
+
+# --- KAN-66 / G-67: a contract created with no offer (the KAN-58
+# customer->contract entry point, or a fully bare shell) has no vehicle and
+# no price. Nothing used to stop it from being confirmed as-is. Mirrors the
+# offer side's own completeness rule (compute_offer_containers: "pricing"
+# can never be complete without a vehicle first) rather than inventing a
+# new one.
+
+
+def test_confirm_contract_refused_when_born_from_a_customer_with_no_vehicle(db_session, engine):
+    """The exact KAN-58 reproduction: 'New contract' from a customer's own
+    row menu, with no offer at all."""
+
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    customer = _customer(db_session, group_id)
+    contract = create_contract(
+        db_session, tenant_id=dealership.id, offer=None, customer_id=customer.id, group_id=group_id, actor_id=uuid.uuid4()
+    )
+
+    with pytest.raises(ConflictError) as exc:
+        confirm_contract(db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=_session_factory(engine))
+    assert exc.value.details["reason"] == "missing_vehicle"
+    assert "vehicle" in str(exc.value).lower()
+
+
+def test_confirm_contract_refused_when_it_has_a_vehicle_but_no_price(db_session, engine):
+    """A synthetic gap the normal offer->contract path cannot itself
+    produce (apply_build_up always materializes a Decimal, even 0) — the
+    guard still has to hold if gross_price is ever genuinely null."""
+
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    contract, _item, _customer = _stock_contract(db_session, dealership.id, group_id)
+    contract.gross_price = None
+    db_session.flush()
+
+    with pytest.raises(ConflictError) as exc:
+        confirm_contract(db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=_session_factory(engine))
+    assert exc.value.details["reason"] == "missing_price"
+    assert "price" in str(exc.value).lower()
+
+
+def test_a_prohibition_is_named_before_missing_vehicle(db_session, engine):
+    """Same ordering rationale as the missing-address guard: a do-not-contact
+    customer refuses regardless of what the contract is for, so that is
+    named first when both are true. create_contract itself already refuses
+    a do-not-contact customer at creation (ADR-065/FR-21) — this customer
+    is flipped to do-not-contact AFTER the contract exists, the only way to
+    reach confirm_contract with both conditions present at once."""
+
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    customer = _customer(db_session, group_id)
+    contract = create_contract(
+        db_session, tenant_id=dealership.id, offer=None, customer_id=customer.id, group_id=group_id, actor_id=uuid.uuid4()
+    )
+    update_customer(
+        db_session, customer=customer, data=CustomerUpdate(lifecycle_status="do_not_contact"),
+        actor_id=uuid.uuid4(), dealership_id=uuid.uuid4(),
+    )
+
+    with pytest.raises(ConflictError) as exc:
+        confirm_contract(db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=_session_factory(engine))
+    assert exc.value.details["reason"] == "do_not_contact"
+
+
+def test_confirm_contract_with_no_offer_still_confirms_once_a_vehicle_and_price_exist(db_session, engine):
+    """The KAN-58 entry point stays usable once a vehicle/price get added —
+    this guard rejects an empty shell, not a bare contract as such. There is
+    no PATCH route to attach them (KAN-66 exit criterion 1), so this test
+    reaches in directly the way a future edit route would."""
+
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    customer = _customer(db_session, group_id)
+    item = create_stock_item(
+        db_session, tenant_id=dealership.id,
+        data=StockItemCreate(vehicle_label="Seat Leon 1.5 eTSI FR DSG", condition=StockItemCondition.USED, vin="1HGCM82633A004353"),
+        actor_id=uuid.uuid4(),
+    )
+    contract = create_contract(
+        db_session, tenant_id=dealership.id, offer=None, customer_id=customer.id, group_id=group_id, actor_id=uuid.uuid4()
+    )
+    contract.vehicle_source = "stock"
+    contract.stock_item_id = item.id
+    contract.vehicle_label = item.vehicle_label
+    contract.gross_price = Decimal("32000.00")
+    db_session.flush()
+
+    confirmed = confirm_contract(db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=_session_factory(engine))
+    assert confirmed.status == ContractStatus.CONFIRMED

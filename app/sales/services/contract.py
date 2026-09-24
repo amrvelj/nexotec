@@ -269,6 +269,29 @@ def confirm_contract(
                 details={"reason": "missing_address"},
             )
 
+    # KAN-66 (G-67) — the customer->contract entry point (KAN-58) creates a
+    # contract with no offer and therefore no vehicle or price at all; until
+    # now nothing stopped that shell from being signed as-is. Mirrors the
+    # offer side's own completeness gate (compute_offer_containers: pricing
+    # can never be "complete" without a vehicle first) rather than inventing
+    # a new rule. Checked after the customer prohibitions/address above, for
+    # the same "pointless to fix first" reason those are checked in that
+    # order: a blocked or address-less customer refuses regardless of what
+    # the contract is for, so that is named first when both are true.
+    has_vehicle = contract.vehicle_source is not None and (
+        contract.stock_item_id is not None or contract.vehicle_label is not None
+    )
+    if not has_vehicle:
+        raise ConflictError(
+            f"Contract {contract.contract_number} has no vehicle — cannot be confirmed.",
+            details={"reason": "missing_vehicle"},
+        )
+    if contract.gross_price is None:
+        raise ConflictError(
+            f"Contract {contract.contract_number} has no price — cannot be confirmed.",
+            details={"reason": "missing_price"},
+        )
+
     reservation_id: uuid.UUID | None = None
     if contract.vehicle_source == "stock" and contract.stock_item_id is not None:
         short_lived = session_factory()
