@@ -66,6 +66,10 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
     switch (details.reason) {
       case 'missing_address':
         return t('contractDetail.errors.confirmRefused.missingAddress')
+      case 'missing_vehicle':
+        return t('contractDetail.errors.confirmRefused.missingVehicle')
+      case 'missing_price':
+        return t('contractDetail.errors.confirmRefused.missingPrice')
       case 'do_not_contact':
         return t('contractDetail.errors.confirmRefused.doNotContact')
       case 'credit_block':
@@ -121,6 +125,16 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
   const businessKey = contract.offerNumber ? `${contract.contractNumber} ← ${contract.offerNumber}` : contract.contractNumber
   const isPending = contract.status === 'pending'
   const isTerminal = contract.status === 'cancelled' || contract.status === 'invoiced'
+  // KAN-66 (G-67) — a contract born from a customer with no offer
+  // (KAN-58) has no vehicle and no price. Mirror the backend's own
+  // completeness guard here (ADR-061: don't invite a click that will only
+  // be refused) rather than waiting for the 409 to say so.
+  const isEmpty = contract.vehicleSource == null || contract.grossPrice == null
+  const confirmDisabledReason = !isPending
+    ? t('contractDetail.actions.confirmDisabledReason')
+    : isEmpty
+      ? t('contractDetail.actions.confirmDisabledReasonEmpty')
+      : undefined
 
   const overflowActions: RowMenuGroups = {
     navigate: [],
@@ -156,8 +170,8 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
         primaryAction={{
           label: t('contractDetail.actions.confirm'),
           onClick: confirm,
-          disabled: !isPending,
-          disabledReason: !isPending ? t('contractDetail.actions.confirmDisabledReason') : undefined,
+          disabled: !isPending || isEmpty,
+          disabledReason: confirmDisabledReason,
         }}
         overflowActions={overflowActions}
       />

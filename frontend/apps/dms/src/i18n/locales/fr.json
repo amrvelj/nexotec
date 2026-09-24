@@ -920,6 +920,8 @@
       "confirmRefused": {
         "title": "Contrat non confirmé",
         "missingAddress": "Aucune adresse n'est enregistrée pour ce client. Ajoutez une adresse de domicile actuelle à la fiche client avant de pouvoir confirmer le contrat.",
+        "missingVehicle": "Ce contrat n'a pas encore de véhicule. Ajoutez-en un avant de pouvoir confirmer le contrat.",
+        "missingPrice": "Ce contrat n'a pas encore de prix. Ajoutez-en un avant de pouvoir confirmer le contrat.",
         "creditBlock": "Ce client fait l'objet d'un blocage de crédit ({{reason}}). Une offre reste possible ; le contrat requiert la libération du compte par la comptabilité.",
         "doNotContact": "Ce client est marqué « ne pas contacter ». Le contrat ne peut pas être confirmé.",
         "staleVersion": "Ce contrat a changé depuis le chargement de la page. Il a été rechargé — vérifiez-le et réessayez.",
@@ -931,7 +933,8 @@
       "confirm": "Confirmer le contrat",
       "confirmDisabledReason": "Confirmable uniquement à l'état ouvert.",
       "cancel": "Annuler …",
-      "cancelDisabledReason": "Déjà annulé ou facturé."
+      "cancelDisabledReason": "Déjà annulé ou facturé.",
+      "confirmDisabledReasonEmpty": "Véhicule et prix manquants."
     },
     "stats": {
       "grossPrice": "Prix de vente",

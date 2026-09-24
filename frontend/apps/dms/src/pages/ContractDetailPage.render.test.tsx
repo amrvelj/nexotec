@@ -14,14 +14,19 @@ import { ContractDetailPage } from './ContractDetailPage'
 // refusal used to be an unhandled promise rejection with zero feedback;
 // it now renders as a localised inline alert keyed off `details.reason`.
 
+// vehicleSource/grossPrice non-null (KAN-66 / G-67) — this fixture stands
+// for an ordinary offer-backed contract, which the client's own
+// vehicle/price completeness gate must never disable; the "empty contract"
+// describe block below overrides both to null on purpose.
 const CONTRACT = {
   id: 'k1',
   contractNumber: 'C-000001',
   offerNumber: 'O-000001',
   status: 'pending',
   version: 3,
+  vehicleSource: 'stock',
   vehicleLabel: 'Seat Leon',
-  grossPrice: null,
+  grossPrice: '32000.00',
   tradeInValue: null,
   payable: null,
   margin: null,
@@ -91,6 +96,26 @@ describe('ContractDetailPage — the confirm refusal is surfaced and localised (
     await waitFor(() => expect(screen.getByText(fr).textContent).not.toMatch(/⚠ MISSING I18N KEY/))
   })
 
+  it('a missing-vehicle 409 (KAN-66 / G-67) renders the localised inline alert', async () => {
+    const user = userEvent.setup()
+    refuseConfirm('missing_vehicle')
+    renderPage()
+
+    await user.click(await screen.findByRole('button', { name: i18n.t('contractDetail.actions.confirm') }))
+
+    expect(await screen.findByText(i18n.t('contractDetail.errors.confirmRefused.missingVehicle'))).toBeInTheDocument()
+  })
+
+  it('a missing-price 409 renders the localised inline alert', async () => {
+    const user = userEvent.setup()
+    refuseConfirm('missing_price')
+    renderPage()
+
+    await user.click(await screen.findByRole('button', { name: i18n.t('contractDetail.actions.confirm') }))
+
+    expect(await screen.findByText(i18n.t('contractDetail.errors.confirmRefused.missingPrice'))).toBeInTheDocument()
+  })
+
   it('a stale-version 409 (no reason) shows the localised reload message, never the backend English string', async () => {
     const user = userEvent.setup()
     installFakeBackend([
@@ -115,5 +140,42 @@ describe('ContractDetailPage — the confirm refusal is surfaced and localised (
 
     expect(await screen.findByText(i18n.t('contractDetail.errors.confirmRefused.staleVersion'))).toBeInTheDocument()
     expect(screen.queryByText(/SalesContract has been modified/)).not.toBeInTheDocument()
+  })
+})
+
+// KAN-66 (G-67) — a contract born from a customer with no offer (KAN-58)
+// has no vehicle/price at all. ADR-061: the primary action must not invite
+// a click that will only be refused — it disables itself, with a reason,
+// before the user ever gets to the 409.
+describe('ContractDetailPage — an empty contract (KAN-66 / G-67) disables confirm before the click', () => {
+  it('a pending contract with no vehicle and no price shows the confirm action disabled', async () => {
+    installFakeBackend([
+      {
+        match: /^\/sales\/contracts\/k1$/,
+        handler: () => ({ ...CONTRACT, vehicleSource: null, grossPrice: null }),
+      },
+      { match: /^\/sales\/contracts\/k1\/documents$/, handler: () => ({ items: [], nextCursor: null }) },
+    ])
+    renderPage()
+
+    // The reason itself lives in a Mantine Tooltip anchored to the disabled
+    // button (DetailHeader's own HeaderActionButton), revealed on hover —
+    // not asserted here, matching how this codebase's other
+    // disabled-primary-action test (OfferWorkspace.pricingRequired) sticks
+    // to the disabled state itself rather than the tooltip's mount timing.
+    expect(await screen.findByRole('button', { name: i18n.t('contractDetail.actions.confirm') })).toBeDisabled()
+  })
+
+  it('a pending contract with a vehicle and a price leaves confirm enabled', async () => {
+    installFakeBackend([
+      {
+        match: /^\/sales\/contracts\/k1$/,
+        handler: () => ({ ...CONTRACT, vehicleSource: 'stock', grossPrice: '32000.00' }),
+      },
+      { match: /^\/sales\/contracts\/k1\/documents$/, handler: () => ({ items: [], nextCursor: null }) },
+    ])
+    renderPage()
+
+    expect(await screen.findByRole('button', { name: i18n.t('contractDetail.actions.confirm') })).toBeEnabled()
   })
 })

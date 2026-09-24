@@ -920,6 +920,8 @@
       "confirmRefused": {
         "title": "Contract not confirmed",
         "missingAddress": "This customer has no address on file. Add a current domicile address to the customer record before the contract can be confirmed.",
+        "missingVehicle": "This contract has no vehicle yet. Add one before the contract can be confirmed.",
+        "missingPrice": "This contract has no price yet. Add one before the contract can be confirmed.",
         "creditBlock": "This customer has a credit block ({{reason}}). An offer is still possible; the contract needs the block cleared by accounting.",
         "doNotContact": "This customer is marked do-not-contact. The contract cannot be confirmed.",
         "staleVersion": "This contract changed since the page was loaded. It has been reloaded — review it and try again.",
@@ -931,7 +933,8 @@
       "confirm": "Confirm contract",
       "confirmDisabledReason": "Only confirmable while open.",
       "cancel": "Cancel …",
-      "cancelDisabledReason": "Already cancelled or invoiced."
+      "cancelDisabledReason": "Already cancelled or invoiced.",
+      "confirmDisabledReasonEmpty": "Still missing a vehicle and a price."
     },
     "stats": {
       "grossPrice": "Sale price",

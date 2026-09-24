@@ -127,6 +127,33 @@ def test_create_contract_for_a_customer(client):
     assert body["customerLabel"] == "Ursula Vogt"
 
 
+def test_confirming_a_contract_created_for_a_customer_with_no_vehicle_is_409(client):
+    """KAN-66 / G-67, reproduced live on staging 2026-09-21: the contract
+    above used to confirm (200) with every amount null. It must now refuse."""
+
+    dealership_id = _create_dealership(client)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealership_id))
+    customer = client.post(
+        "/v1/customers",
+        json={
+            "firstName": "Ursula", "lastName": "Vogt", "language": "fr",
+            "emails": [{"emailType": "personal", "emailAddress": "ursula.vogt@example.ch"}],
+            "addresses": [
+                {"addressType": "domicile", "addressStreet": "Bahnhofstrasse", "addressHouseNumber": "1",
+                 "addressPostalCode": "8001", "addressLocality": "Zürich", "addressCountry": "CH", "isPrimary": True}
+            ],
+        },
+        headers=_bearer(token),
+    ).json()
+    created = client.post("/v1/sales/contracts", json={"customerId": customer["id"]}, headers=_bearer(token)).json()
+
+    response = client.post(
+        f"/v1/sales/contracts/{created['id']}/confirm", headers={**_bearer(token), "If-Match": str(created["version"])}
+    )
+    assert response.status_code == 409, response.text
+    assert response.json()["error"]["details"]["reason"] == "missing_vehicle"
+
+
 def test_create_contract_for_a_do_not_contact_customer_is_409(client):
     dealership_id = _create_dealership(client)
     token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealership_id))
