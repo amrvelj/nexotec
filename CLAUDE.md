@@ -5,7 +5,8 @@ TanStack Query/Table/Virtual, Lucide). One deployable today.
 
 **Notion is the single source of truth.** This file is a working summary of it. Keep both in
 step: a work package is not done until the PRD says what shipped, the Gap Analysis cites the
-new head, and any decision taken during the build is an ADR rather than a PR comment.
+new head, the Kanban ticket says what shipped, and any decision taken during the build is an
+ADR rather than a PR comment.
 
 **Quality before speed.** This product is meant to last. Where a shortcut and a correct
 implementation disagree, take the correct one and say what it costs. Do not cut scope, skip
@@ -530,6 +531,26 @@ sync · `If-Match` on every mutation of a versioned entity · `Idempotency-Key` 
   shipped, the Gap Analysis is regenerated against the new head, and any decision taken
   during the build is an ADR in the Target Architecture. Draft those Notion changes
   alongside the PR, in the same session, or they will not happen.
+- **The Kanban ticket in Notion is updated every time, by you, in the same session.** The
+  board is `Nexotec Kanban Board`
+  (https://app.notion.com/p/3cf3e79334dd80f69bb8c2e6a19481ef). A ticket that disagrees with
+  the code is a defect, the same as a stale table in this file. Set **Status** to *In
+  Progress* when you start, to *In Review* when the branch is pushed (with the branch or PR
+  link), and to *Done* only after it merges. At each change of state write on the ticket what
+  actually shipped: the head or PR, which exit criteria are met and which are **not** (never
+  round a partial up), the decisions taken, and the screenshot below. A defect or open
+  question the work turns up gets its own ticket in that session, not a line in a PR
+  comment. If Notion cannot be reached, say so in the reply and hand over the exact text to
+  paste; never skip the update silently.
+- **Show your work with a screenshot, every time.** "It works" is not a result; a picture of
+  it working is. After any change a person can see, run it (the desktop app's preview tools
+  and Browser pane, or a headless screenshot elsewhere) and take a screenshot of the result:
+  the screen that changed, the state that used to be wrong, and for a fix the reproduction
+  that no longer reproduces. Put it in the reply and attach it to the Notion ticket. Work
+  with no screen of its own gets a screenshot of the nearest visible artefact (the CI run,
+  the rendered diff, the migrated record in the running app, the updated ticket); if there
+  truly is none, say so in one line rather than skipping it silently. "Verified" without a
+  screenshot is not verified.
 - **Do not claim an exit criterion in a commit message that the code does not meet.** The
   status table above exists because that happened, across three work packages.
 - **`frontend/apps/dms/src/api/types.ts` is generated, not hand-maintained (KAN-35).**
