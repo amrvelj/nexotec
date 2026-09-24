@@ -542,6 +542,15 @@ def test_confirm_contract_refused_when_born_from_a_customer_with_no_vehicle(db_s
     assert exc.value.details["reason"] == "missing_vehicle"
     assert "vehicle" in str(exc.value).lower()
 
+    # The refusal happens before any write: still pending, unsigned, and no
+    # sales.contract.confirmed was published (KAN-66 exit criterion 4 — an
+    # all-null pricingSnapshot must never reach the outbox).
+    db_session.refresh(contract)
+    assert contract.status == ContractStatus.PENDING
+    assert contract.signed_at is None
+    published = [m.event_type for m in db_session.query(OutboxMessage).filter_by(aggregate_id=contract.id).all()]
+    assert "sales.contract.confirmed" not in published
+
 
 def test_confirm_contract_refused_when_it_has_a_vehicle_but_no_price(db_session, engine):
     """A synthetic gap the normal offer->contract path cannot itself
