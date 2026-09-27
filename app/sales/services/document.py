@@ -128,7 +128,12 @@ def _price_build_up_lines(
     vat_base = payable if payable is not None else gross_price
     if vat_base is not None and vat_rate is not None:
         vat_amount = _compute_vat_amount(gross_price=vat_base, vat_rate=vat_rate)
-        rate_label = str(vat_rate.normalize())
+        # KAN-68: .normalize() alone renders a whole-number rate (10, 20.00)
+        # in scientific notation (1E+1, 2E+1) — Dealership.vat_rate has no
+        # format constraint stopping a dealer entering one. format(..., "f")
+        # forces fixed-point on the normalized value, trailing zeros still
+        # stripped (10.50 -> "10.5"), never exponential.
+        rate_label = format(vat_rate.normalize(), "f")
         lines.append(
             DocumentLine(
                 label=t(language, "priceBuildUp.includedVat", rate=rate_label), amount=vat_amount, style=LineStyle.SUB
