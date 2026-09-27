@@ -2155,6 +2155,11 @@ export interface paths {
          * List Party Roles
          * @description FR-V-16: current owner/keeper/driver, plus former allocations on
          *     request (include_closed=True) — never mixed into the default view.
+         *
+         *     Scoped by the caller's own group_id (ADR-014/ADR-049): vehicle_mdm is
+         *     a deliberately global fact, so a party row here may belong to a
+         *     customer in a different dealer group entirely — see
+         *     list_vehicle_parties' own docstring.
          */
         get: operations["list_party_roles_v1_vehicle_mdm__vehicle_id__party_roles_get"];
         put?: never;

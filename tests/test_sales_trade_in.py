@@ -23,9 +23,17 @@ def _offer_with_customer(db_session, tenant_id, customer_id):
 
 
 def test_set_trade_in_records_vehicle_and_allocates_owner_and_keeper(db_session):
+    from app.customer.models.customer import Customer, CustomerType, Language
+
     tenant_id = uuid.uuid4()
     group_id = uuid.uuid4()
-    customer_id = uuid.uuid4()
+    customer = Customer(
+        group_id=group_id, customer_number="K-300001", customer_type=CustomerType.INDIVIDUAL,
+        language=Language.EN, first_name="Trade", last_name="In",
+    )
+    db_session.add(customer)
+    db_session.flush()
+    customer_id = customer.id
     offer = _offer_with_customer(db_session, tenant_id, customer_id)
 
     updated = set_trade_in(
@@ -44,7 +52,7 @@ def test_set_trade_in_records_vehicle_and_allocates_owner_and_keeper(db_session)
     assert updated.trade_in_vin == "WVWZZZ1KZAW123456"
     assert updated.trade_in_label == "Skoda Octavia Combi 1.5 TSI"
 
-    parties = list_vehicle_parties(db_session, vehicle_id=updated.trade_in_vehicle_id)
+    parties = list_vehicle_parties(db_session, vehicle_id=updated.trade_in_vehicle_id, group_id=group_id)
     roles = {p.role for p in parties if p.customer_id == customer_id}
     assert roles == {VehiclePartyRole.OWNER, VehiclePartyRole.KEEPER}
 

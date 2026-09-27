@@ -9,10 +9,11 @@ from app.core.auth import create_access_token
 VALID_VIN = "1HGCM82633A004352"
 
 
-def _token(is_dealer_manager: bool = True) -> str:
+def _token(is_dealer_manager: bool = True, group_id: uuid.UUID | None = None) -> str:
     tid = uuid.uuid4()
     return create_access_token(
-        user_id=uuid.uuid4(), tenant_id=tid, group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tid)),
+        user_id=uuid.uuid4(), tenant_id=tid,
+        group_id=group_id if group_id is not None else uuid.uuid5(uuid.NAMESPACE_OID, str(tid)),
         roles=frozenset(), is_dealer_manager=is_dealer_manager,
     )
 
@@ -81,14 +82,14 @@ def test_accessory_add_and_close_via_delete(client):
 
 
 def test_party_roles_default_current_only(client, db_session):
-    token = _token()
+    group_id = uuid.uuid4()
+    token = _token(group_id=group_id)
     vehicle = _create_vehicle(client, token)
 
     from app.customer.models.customer import Customer, CustomerType, Language
     from app.customer.models.vehicle_party import VehiclePartyRole
     from app.customer.services.customer import allocate_vehicle_party
 
-    group_id = uuid.uuid4()
     alice = Customer(
         group_id=group_id, customer_number="K-100001", customer_type=CustomerType.INDIVIDUAL,
         language=Language.EN, first_name="Alice", last_name="A",
@@ -117,3 +118,53 @@ def test_party_roles_default_current_only(client, db_session):
         f"/v1/vehicle-mdm/{vehicle['id']}/party-roles?include_closed=true", headers=_bearer(token)
     ).json()
     assert len(history) == 2
+
+
+def test_party_roles_never_leaks_another_groups_customer(client, db_session):
+    """vehicle_mdm is a deliberately global fact (ADR-022): two entirely
+    unrelated dealer groups can attach a VehicleParty row to the SAME
+    vehicle_id, since the table carries no group_id of its own. Group A's
+    principal must never see group B's customer's id (or role) as a party
+    on a car neither dealership has any relationship over — rule #7
+    (cross-tenant reads are silently scoped, never a leak) and ADR-049.
+    """
+
+    from app.customer.models.customer import Customer, CustomerType, Language
+    from app.customer.models.vehicle_party import VehiclePartyRole
+    from app.customer.services.customer import allocate_vehicle_party
+
+    group_a = uuid.uuid4()
+    group_b = uuid.uuid4()
+    token_a = _token(group_id=group_a)
+    vehicle = _create_vehicle(client, token_a)
+
+    customer_a = Customer(
+        group_id=group_a, customer_number="K-200001", customer_type=CustomerType.INDIVIDUAL,
+        language=Language.EN, first_name="Group-A", last_name="Owner",
+    )
+    customer_b = Customer(
+        group_id=group_b, customer_number="K-200002", customer_type=CustomerType.INDIVIDUAL,
+        language=Language.EN, first_name="Group-B", last_name="Driver",
+    )
+    db_session.add_all([customer_a, customer_b])
+    db_session.flush()
+
+    allocate_vehicle_party(
+        db_session, vehicle_id=uuid.UUID(vehicle["id"]), customer_id=customer_a.id, role=VehiclePartyRole.OWNER,
+        group_id=group_a, actor_id=uuid.uuid4(),
+    )
+    allocate_vehicle_party(
+        db_session, vehicle_id=uuid.UUID(vehicle["id"]), customer_id=customer_b.id, role=VehiclePartyRole.DRIVER,
+        group_id=group_b, actor_id=uuid.uuid4(),
+    )
+
+    seen_by_a = client.get(f"/v1/vehicle-mdm/{vehicle['id']}/party-roles", headers=_bearer(token_a)).json()
+    assert len(seen_by_a) == 1
+    assert seen_by_a[0]["customerId"] == str(customer_a.id)
+    seen_customer_ids = {row["customerId"] for row in seen_by_a}
+    assert str(customer_b.id) not in seen_customer_ids
+
+    token_b = _token(group_id=group_b)
+    seen_by_b = client.get(f"/v1/vehicle-mdm/{vehicle['id']}/party-roles", headers=_bearer(token_b)).json()
+    assert len(seen_by_b) == 1
+    assert seen_by_b[0]["customerId"] == str(customer_b.id)

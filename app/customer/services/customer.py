@@ -2094,15 +2094,34 @@ def list_customer_vehicles(
 
 
 def list_vehicle_parties(
-    db: Session, *, vehicle_id: uuid.UUID, include_closed: bool = False
+    db: Session, *, vehicle_id: uuid.UUID, group_id: uuid.UUID, include_closed: bool = False
 ) -> list[VehicleParty]:
     """The vehicle-side mirror of list_customer_vehicles — FR-V-16's
     Vehicle 360 Identity tab needs "who holds which role on THIS car",
     keyed by vehicle rather than by customer. Same default-open-only /
     include_closed=True shape.
+
+    group_id is required, not optional, on purpose — same reasoning as
+    list_other_vehicle_parties_batch just below: vehicle_mdm is a
+    deliberately global fact (ADR-022) and VehicleParty carries no
+    group_id column at all, so two entirely unrelated dealer groups can
+    genuinely attach a party row to the SAME vehicle_id. Without this
+    join, one group's advisor would see another group's customer's id
+    (and, via the Identity tab's customer overlay, their name) as a party
+    on a car neither dealership has any relationship over — the exact
+    cross-tenant leak rule #7 and ADR-049 forbid. A row whose customer
+    belongs to another group (or is dangling) is silently dropped, never
+    a 403/404 on the whole vehicle: this is a read-model projection of a
+    globally-keyed fact, not a request FOR that other group's customer
+    record.
     """
 
-    stmt = select(VehicleParty).where(VehicleParty.vehicle_id == vehicle_id).order_by(VehicleParty.effective_from.desc())
+    stmt = (
+        select(VehicleParty)
+        .join(Customer, Customer.id == VehicleParty.customer_id)
+        .where(VehicleParty.vehicle_id == vehicle_id, Customer.group_id == group_id)
+        .order_by(VehicleParty.effective_from.desc())
+    )
     if not include_closed:
         stmt = stmt.where(or_(VehicleParty.effective_to.is_(None), VehicleParty.effective_to > utcnow()))
     return list(db.scalars(stmt).all())
