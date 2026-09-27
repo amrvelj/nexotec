@@ -217,6 +217,61 @@ def test_cost_basis_falls_back_to_purchase_price_when_no_landed_cost_recorded(db
     assert updated.margin == Decimal("8800.00")
 
 
+def _priced_stock_item_no_landed_cost_but_vat_free_supplier(db_session, tenant_id):
+    """KAN-71 fixture: a used car bought from a private individual — the
+    fiktiver Vorsteuerabzug applies — but landed_cost was never entered.
+    Unlike _priced_stock_item (supplier_is_vat_registered=True, so there
+    is no credit to lose either way), this item genuinely carries a
+    stored notional_input_tax_amount with no landed_cost to net it off
+    against — the exact combination the fallback branch was dropping.
+    """
+
+    item = create_stock_item(
+        db_session,
+        tenant_id=tenant_id,
+        data=StockItemCreate(vehicle_label="Audi A4 2.0 TDI Avant", condition=StockItemCondition.USED),
+        actor_id=uuid.uuid4(),
+    )
+    item = record_purchase(
+        db_session,
+        item=item,
+        data=RecordPurchaseRequest(
+            supplier_name="Privat, Hans Muster",
+            supplier_is_vat_registered=False,
+            purchase_price=Decimal("30000.00"),
+            purchase_date="2026-01-01",
+        ),
+        actor_id=uuid.uuid4(),
+    )
+    return item
+
+
+def test_cost_basis_nets_the_notional_credit_off_purchase_price_when_no_landed_cost_recorded(db_session):
+    """KAN-71: _cost_basis_from_snapshot's fallback (no landed_cost) used
+    to return bare purchase_price, silently dropping a real credit — the
+    same sign bug test_margin_uses_landed_cost_net_of_the_notional_input_
+    tax_credit guards on the landed-cost branch, but for this one nothing
+    covered it."""
+
+    dealership = _make_dealership(db_session)
+    item = _priced_stock_item_no_landed_cost_but_vat_free_supplier(db_session, dealership.id)
+    assert item.landed_cost is None
+    assert item.notional_input_tax_applicable is True
+    assert item.notional_input_tax_amount > 0  # a credit exists to lose
+    offer = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())
+
+    updated = update_offer(
+        db_session, offer=offer, group_id=uuid.uuid4(),
+        data=OfferUpdate(vehicle_source="stock", stock_item_id=item.id, vehicle_label=item.vehicle_label),
+        actor_id=uuid.uuid4(),
+    )
+
+    expected_cost_basis = item.purchase_price - item.notional_input_tax_amount
+    assert updated.cost_basis == expected_cost_basis
+    assert updated.cost_basis < item.purchase_price  # the credit reduced it, not just equalled it
+    assert updated.margin == updated.gross_price - expected_cost_basis
+
+
 def test_percent_discount_resolves_against_total_before_discount(db_session):
     dealership = _make_dealership(db_session)
     tenant_id = dealership.id

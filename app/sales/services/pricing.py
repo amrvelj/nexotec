@@ -40,16 +40,22 @@ def _cost_basis_from_snapshot(snapshot: dict) -> Decimal | None:
     Falls back to purchasePrice alone when no landed cost was ever
     recorded (WP-7 PR-3 predates this and plenty of stock items were
     priced before it — the old, less-precise cost basis, not a missing
-    one).
+    one). KAN-71: that fallback still owes the same credit — landed_cost
+    and notionalInputTaxAmount are computed independently
+    (app.inventory.services.purchase.record_purchase derives the credit
+    from purchase_price and the dealer's vat_rate alone), so a purchase
+    with no landed cost recorded can still carry a real credit, and
+    dropping it here silently overstated cost / understated margin.
     """
+
+    notional_input_tax = snapshot.get("notionalInputTaxAmount")
+    credit = Decimal(notional_input_tax) if notional_input_tax is not None else Decimal(0)
 
     landed_cost = snapshot.get("landedCost")
     if landed_cost is not None:
-        notional_input_tax = snapshot.get("notionalInputTaxAmount")
-        credit = Decimal(notional_input_tax) if notional_input_tax is not None else Decimal(0)
         return Decimal(landed_cost) - credit
     purchase_price = snapshot.get("purchasePrice")
-    return Decimal(purchase_price) if purchase_price is not None else None
+    return Decimal(purchase_price) - credit if purchase_price is not None else None
 
 
 def build_up(db: Session, *, offer: SalesOffer) -> dict:
