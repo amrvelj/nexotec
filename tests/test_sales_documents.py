@@ -3,7 +3,7 @@ generation-never-on-edit) and the margin-never-on-the-document guarantee.
 """
 
 import uuid
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from app.core.auth import AccessRole, create_access_token
 from app.core.i18n import SwissLanguage
@@ -201,11 +201,53 @@ def test_vat_line_is_the_reverse_inclusive_component_of_the_gross_price_not_an_a
     lines = _line_items_lines(content)
     vat_line = next(line for line in lines if "MWST" in line.label)
 
-    expected = (Decimal("36000.00") * Decimal("8.10") / Decimal("108.10")).quantize(Decimal("0.01"))
+    # KAN-68: explicit ROUND_HALF_UP, matching _compute_vat_amount — the
+    # bare .quantize() used here before used the ambient default
+    # (ROUND_HALF_EVEN) and only passed because this particular gross/rate
+    # combination isn't a rounding tie; see the dedicated tie test below.
+    expected = (Decimal("36000.00") * Decimal("8.10") / Decimal("108.10")).quantize(
+        Decimal("0.01"), rounding=ROUND_HALF_UP
+    )
     assert vat_line.amount == expected
     assert vat_line.amount > 0
     assert vat_line.amount < offer.payable  # the VAT component is smaller than the price it's a component of
     assert "8.1" in vat_line.label  # the rate itself is stated on the one line
+
+
+def test_vat_amount_rounds_a_genuine_tie_half_up_not_half_even():
+    """KAN-68: _compute_vat_amount calls .quantize(..., rounding=ROUND_HALF_UP)
+    explicitly, but nothing asserted the mode itself until this test — the
+    line above passed under either mode because 36'000 @ 8.10% isn't a tie.
+    A 100% rate is not a real Swiss VAT rate; it is the smallest gross
+    price/rate pair that lands the pre-rounded amount exactly on a X.XX5
+    boundary (24.69 * 100 / 200 = 12.345 exactly), which is what this test
+    needs to actually distinguish the two rounding modes:
+    ROUND_HALF_EVEN would give 12.34 (4 is even), production's
+    ROUND_HALF_UP gives 12.35.
+    """
+
+    offer = _bare_offer(payable=Decimal("24.69"))
+    content = build_offer_content(offer, language=SwissLanguage.DE, vat_rate=Decimal(100))
+    lines = _line_items_lines(content)
+    vat_line = next(line for line in lines if "MWST" in line.label)
+
+    assert vat_line.amount == Decimal("12.35")
+    assert vat_line.amount != Decimal("12.34")  # what ROUND_HALF_EVEN would have given
+
+
+def test_vat_rate_label_renders_a_whole_number_dealer_rate_without_scientific_notation():
+    """KAN-68: `Dealership.vat_rate` is a plain `DECIMAL(5,2)` with no
+    format constraint against the statutory 8.1/2.6/3.8/0 — a dealer can
+    enter a round number, and `str(vat_rate.normalize())` rendered one as
+    "1E+1" instead of "10"."""
+
+    offer = _bare_offer(payable=Decimal("36000.00"))
+    content = build_offer_content(offer, language=SwissLanguage.DE, vat_rate=Decimal(10))
+    lines = _line_items_lines(content)
+    vat_line = next(line for line in lines if "MWST" in line.label)
+
+    assert "10" in vat_line.label
+    assert "E+1" not in vat_line.label  # the bug: "1E+1" instead of "10"
 
 
 def test_no_vat_line_without_a_configured_rate():
