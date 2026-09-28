@@ -14,7 +14,7 @@ from app.core.auth import Principal, get_current_principal
 from app.core.concurrency import check_version, require_if_match
 from app.core.pagination import PageParams, page_params
 from app.core.permissions import require_write
-from app.customer.public import allocate_vehicle_party
+from app.customer.public import allocate_vehicle_party, get_customer_or_404
 from app.db import get_db
 from app.vehicle.schemas.vehicle_mdm import (
     VehicleAllocatePartyRequest,
@@ -123,9 +123,22 @@ def allocate_to_customer(
     exactly the same app.customer.public.allocate_vehicle_party the
     customer-side dialog uses, so the close-then-open semantics (ADR-064)
     are identical regardless of which record the user started from.
+
+    Unlike the customer-side dialog, `body.customer_id` here names a
+    customer the caller has not already reached through a group-scoped
+    path — the customer-side route resolves `customer` via
+    `get_customer_or_404(principal.group_id, ...)` before it ever calls
+    `allocate_vehicle_party`, so it can never name another group's
+    customer. This route must do the same lookup itself, or a caller
+    could allocate a party against any customer_id it can guess,
+    regardless of which group owns it. VehicleParty carries no group_id
+    of its own to catch this at the write; a customer from another group
+    is a 404, per rule #7, never a 403 and never a silent cross-group
+    write.
     """
 
     vehicle_mdm_service.get_vehicle_mdm_or_404(db, vehicle_id)  # 404s before touching customer at all
+    get_customer_or_404(db, principal.group_id, body.customer_id)
     party = allocate_vehicle_party(
         db, vehicle_id=vehicle_id, customer_id=body.customer_id, role=body.role,
         group_id=principal.group_id, actor_id=principal.user_id,
