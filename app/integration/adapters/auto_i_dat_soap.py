@@ -88,7 +88,7 @@ from app.integration.errors import ProviderConfigurationError, ProviderTransport
 from app.integration.models.connection import IntegrationConnection
 from app.integration.models.secret_ref import SecretSlot
 from app.integration.services import secrets_backend
-from app.integration.services.resilience import call_with_retry
+from app.integration.services.resilience import DEFAULT_TIMEOUT_SECONDS, call_with_retry
 
 # Request every language so no label data is dropped at the transport.
 # PR 1's seven wrappers consume the German text only; multi-language
@@ -138,11 +138,21 @@ class SoapClient(Protocol):
     ) -> str: ...
 
 
-def build_zeep_client(wsdl_url: str) -> SoapClient:
+def build_zeep_client(wsdl_url: str, *, timeout: float = DEFAULT_TIMEOUT_SECONDS) -> SoapClient:
+    """KAN-76 — zeep's default ``Transport`` allows 300 s for the WSDL load
+    and applies **no** timeout to an operation call, so a provider that
+    accepts the connection and never answers would hold the request thread
+    for good, once per ``call_with_retry`` attempt. The same bound covers
+    both here. It is ``requests``' timeout: it caps connecting and each wait
+    for the next byte, not the total length of a response that keeps
+    trickling in.
+    """
+
     import zeep
 
+    transport = zeep.Transport(timeout=timeout, operation_timeout=timeout)
     try:
-        return zeep.Client(wsdl_url).service  # type: ignore[return-value]
+        return zeep.Client(wsdl_url, transport=transport).service  # type: ignore[return-value]
     except Exception as exc:
         # `zeep.Client` fetches and parses the WSDL over HTTP: this is the
         # first network call a real connection makes, and the one a mistyped
@@ -224,7 +234,8 @@ class AutoIDatSoapAdapter:
         sprache: str = DEFAULT_SPRACHE,
     ) -> SuchenResult:
         """The single real operation. ``call_with_retry`` applies the
-        timeout-with-one-retry-with-jitter layer (``services/resilience.py``);
+        one-retry-with-jitter layer (``services/resilience.py``); each attempt
+        is bounded by the transport's timeout, set in ``build_zeep_client``;
         the gateway's per-connection circuit breaker wraps the whole
         capability call this method sits inside (``services/gateway.py``).
 

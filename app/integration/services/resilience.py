@@ -8,12 +8,16 @@ Split by where each concern actually applies: the circuit breaker lives
 at the gateway level (services/gateway.py's own `call_capability`) since
 it tracks a connection's overall health across every capability call: one
 connection's outage never degrades another's (state is keyed per
-connection, never global). Timeout-with-one-retry-with-jitter lives
-inside each adapter's own SOAP-call helper instead (only a real network
+connection, never global). One-retry-with-jitter lives inside each
+adapter's own SOAP-call helper instead (only a real network
 call can transiently fail and benefit from a retry — the mock adapter
 never needs one, and retrying a caller's own multi-step code block inside
 a `with call_capability(...)` would double-count any side effect on a
-partial retry, which is exactly the bug this split avoids).
+partial retry, which is exactly the bug this split avoids). The timeout
+is the transport's own: each adapter hands `DEFAULT_TIMEOUT_SECONDS` to
+the client it builds (`auto_i_dat_soap.build_zeep_client`), so every
+attempt `call_with_retry` makes is already bounded — this module cannot
+interrupt a blocked call from outside it.
 """
 
 import random
@@ -29,7 +33,10 @@ T = TypeVar("T")
 _FAILURE_THRESHOLD = 5
 _OPEN_DURATION_SECONDS = 60.0
 _JITTER_RANGE_SECONDS = (0.1, 0.5)
-_DEFAULT_TIMEOUT_SECONDS = 10.0
+# KAN-76 — per network wait (connect, and each read), not per response.
+# Not yet measured against a real auto-i-dat account (none exists):
+# scripts/verify_auto_i_dat.py prints each real call's time against it.
+DEFAULT_TIMEOUT_SECONDS = 10.0
 
 
 class CircuitOpenError(ProviderGatewayError):

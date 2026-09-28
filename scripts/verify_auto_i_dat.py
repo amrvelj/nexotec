@@ -31,6 +31,7 @@ import argparse
 import datetime as dt
 import importlib.util
 import sys
+import time
 import uuid
 from dataclasses import fields, is_dataclass
 from pathlib import Path
@@ -89,6 +90,10 @@ def _describe(exc: BaseException) -> str:
     if exc.__cause__ is not None:
         text += f"  <- {type(exc.__cause__).__name__}: {exc.__cause__}"
     return text
+
+
+def _elapsed(started: float) -> str:
+    return f"[{time.monotonic() - started:5.2f}s]"
 
 
 def _call(adapter: Any, method: str, selector: str, args: argparse.Namespace) -> Any:
@@ -200,6 +205,7 @@ def _report_code_map_diff(adapter: Any) -> None:
 
 def _run(args: argparse.Namespace) -> int:
     from app.integration.adapters.auto_i_dat_mock import MockAutoIDatAdapter
+    from app.integration.services.resilience import DEFAULT_TIMEOUT_SECONDS
 
     mock = MockAutoIDatAdapter()
     real = None
@@ -214,6 +220,9 @@ def _run(args: argparse.Namespace) -> int:
 
     failures = 0
     print(f"auto-i-dat adapter verification — {dt.datetime.now(dt.UTC).isoformat(timespec='seconds')}")
+    # KAN-76 — each real call's time is printed against the transport's
+    # timeout, which has never been measured against a real account.
+    print(f"transport timeout: {DEFAULT_TIMEOUT_SECONDS:.1f}s per network wait")
     print(f"{'Datenname':<18} {'result':<8} detail")
     print("-" * 72)
 
@@ -221,12 +230,14 @@ def _run(args: argparse.Namespace) -> int:
         if real is None:
             print(f"{datenname:<18} {'SKIP':<8} no connection (pass --connection-id to run for real)")
             continue
+        started = time.monotonic()
         try:
             real_out = _call(real, method, selector, args)
         except Exception as exc:  # noqa: BLE001 - a verification script reports, never crashes
             failures += 1
-            print(f"{datenname:<18} {'FAIL':<8} {_describe(exc)}")
+            print(f"{datenname:<18} {'FAIL':<8} {_elapsed(started)} {_describe(exc)}")
             continue
+        took = _elapsed(started)
         try:
             mock_out = _call(mock, method, selector, args)
         except Exception:  # noqa: BLE001
@@ -234,9 +245,9 @@ def _run(args: argparse.Namespace) -> int:
         real_shape, mock_shape = _shape(real_out), _shape(mock_out) if mock_out is not None else None
         if mock_shape is not None and real_shape != mock_shape:
             failures += 1
-            print(f"{datenname:<18} {'FAIL':<8} shape drift  real={real_shape}  mock={mock_shape}")
+            print(f"{datenname:<18} {'FAIL':<8} {took} shape drift  real={real_shape}  mock={mock_shape}")
         else:
-            print(f"{datenname:<18} {'PASS':<8} {real_shape}")
+            print(f"{datenname:<18} {'PASS':<8} {took} {real_shape}")
 
     if real is not None:
         _report_entitlement_probes(real)
