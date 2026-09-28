@@ -17,14 +17,13 @@ regression fails the test instead of hanging the test process.
 import socket
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
-from concurrent.futures import TimeoutError as FutureTimeoutError
+from concurrent.futures import ThreadPoolExecutor, wait
 from typing import Self
 
 import pytest
 
 from app.integration.adapters import auto_i_dat_soap
-from app.integration.adapters.auto_i_dat_soap import AutoIDatSoapAdapter, build_zeep_client
+from app.integration.adapters.auto_i_dat_soap import AutoIDatSoapAdapter, _build_real_adapter, build_zeep_client
 from app.integration.errors import ProviderTransportError
 from app.integration.services import resilience
 from tests.test_integration_soap_adapter import FakeSecretsBackend, _make_connection, _make_provider
@@ -127,25 +126,45 @@ class _SilentServer:
 def _run_with_watchdog(fn):
     """Runs ``fn`` in a worker thread and returns ``(exception, elapsed)``. A
     call still blocked after the watchdog fails the test instead of hanging
-    it; the blocked worker is released when the caller's ``_SilentServer``
-    block exits and closes the sockets it holds."""
+    it. Call this only inside a ``_SilentServer`` block: its exit closes the
+    sockets the blocked worker is waiting on, which is what releases that
+    (non-daemon) thread so the interpreter can still exit."""
 
     pool = ThreadPoolExecutor(max_workers=1)
     started = time.monotonic()
     future = pool.submit(fn)
     try:
-        future.result(timeout=_WATCHDOG_SECONDS)
-    except FutureTimeoutError:
-        pytest.fail(f"the call was still blocked after {_WATCHDOG_SECONDS}s — no timeout applied")
-    except Exception as exc:  # noqa: BLE001 - returned to the test to assert on
-        return exc, time.monotonic() - started
+        # `wait`, not `future.result(timeout=...)`: since Python 3.11 the latter
+        # raises the builtin TimeoutError, indistinguishable from a
+        # TimeoutError the call itself raised.
+        done, _ = wait([future], timeout=_WATCHDOG_SECONDS)
     finally:
         pool.shutdown(wait=False)
-    pytest.fail("the call against a silent server returned instead of raising")
+    if not done:
+        pytest.fail(f"the call was still blocked after {_WATCHDOG_SECONDS}s — no timeout applied")
+    exc = future.exception()
+    if exc is None:
+        pytest.fail("the call against a silent server returned instead of raising")
+    return exc, time.monotonic() - started
 
 
-def test_the_default_timeout_is_the_one_resilience_documents():
+def test_the_real_adapter_factory_bounds_its_transport_with_the_default_timeout(db_session, tmp_path):
+    """The path production takes — ``_build_real_adapter``, no timeout
+    argument anywhere — ends in a zeep transport bounded by
+    ``DEFAULT_TIMEOUT_SECONDS`` for both the WSDL load and every operation.
+    G-47 was exactly a timeout constant that existed and reached nothing."""
+
+    wsdl = tmp_path / "fahrzeuge.wsdl"
+    wsdl.write_text(_WSDL.format(address="http://127.0.0.1:9/Fahrzeuge.asmx"), encoding="utf-8")
+    connection = _make_connection(db_session, _make_provider(db_session))
+    connection.config = {**connection.config, "wsdlUrl": wsdl.as_uri()}
+
+    adapter = _build_real_adapter(db_session, connection, None, "vehicle_data")
+
+    transport = adapter._client._client.transport  # AutoIDatSoapAdapter -> zeep ServiceProxy -> zeep Client
     assert resilience.DEFAULT_TIMEOUT_SECONDS == 10.0
+    assert transport.load_timeout == resilience.DEFAULT_TIMEOUT_SECONDS
+    assert transport.operation_timeout == resilience.DEFAULT_TIMEOUT_SECONDS
 
 
 def test_a_wsdl_fetch_from_a_silent_server_is_aborted_within_the_timeout():

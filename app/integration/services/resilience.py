@@ -14,10 +14,11 @@ call can transiently fail and benefit from a retry — the mock adapter
 never needs one, and retrying a caller's own multi-step code block inside
 a `with call_capability(...)` would double-count any side effect on a
 partial retry, which is exactly the bug this split avoids). The timeout
-is the transport's own: each adapter hands `DEFAULT_TIMEOUT_SECONDS` to
-the client it builds (`auto_i_dat_soap.build_zeep_client`), so every
-attempt `call_with_retry` makes is already bounded — this module cannot
-interrupt a blocked call from outside it.
+is the transport's own: the auto-i-dat SOAP adapter hands
+`DEFAULT_TIMEOUT_SECONDS` to the zeep client it builds
+(`auto_i_dat_soap.build_zeep_client`), so every attempt `call_with_retry`
+makes there is already bounded — this module cannot interrupt a blocked
+call from outside it.
 """
 
 import random

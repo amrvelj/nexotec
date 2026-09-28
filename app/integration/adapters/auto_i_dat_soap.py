@@ -145,7 +145,7 @@ def build_zeep_client(wsdl_url: str, *, timeout: float = DEFAULT_TIMEOUT_SECONDS
     for good, once per ``call_with_retry`` attempt. The same bound covers
     both here. It is ``requests``' timeout: it caps connecting and each wait
     for the next byte, not the total length of a response that keeps
-    trickling in.
+    trickling in, nor a slow DNS lookup.
     """
 
     import zeep
