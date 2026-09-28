@@ -1,0 +1,238 @@
+#!/usr/bin/env bash
+# Give THIS checkout (main checkout or a worktree) its own working environment:
+#   - .venv with the project installed in editable mode FROM THIS CHECKOUT,
+#     re-synced whenever pyproject.toml changes
+#   - frontend node_modules, re-synced whenever package-lock.json changes
+#   - its own databases in the shared Postgres: dms_test_<checkout> for tests and,
+#     in a worktree, dms_dev_<checkout> for local runs - a copy of the main
+#     checkout's dms_platform (so log-in and data work in the preview), migrated
+#     to this branch's heads, so one branch's migrations never break another's
+#   - a dev-only .env (make env)
+#
+#   scripts/dev/bootstrap                 set up or repair; safe to re-run
+#   scripts/dev/bootstrap --reset-dev-db  worktree only: drop dms_dev_<checkout> and copy it again
+#
+# Why: a worktree that borrows another checkout's .venv imports that
+# checkout's `app` package (the editable install points there), so scripts
+# run the wrong code without any error. See .claude/rules/tests.md.
+#
+# Idempotent: re-running only repairs what is missing. Safe on macOS bash 3.2.
+set -euo pipefail
+
+RESET_DEV_DB=0
+for arg in ${1+"$@"}; do
+  case "$arg" in
+    --reset-dev-db) RESET_DEV_DB=1 ;;
+    -h|--help) sed -n '2,18p' "$0"; exit 0 ;;
+    *) echo "unknown option: $arg (see --help)"; exit 2 ;;
+  esac
+done
+
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-nexotec}"
+
+say() { printf '\n== %s\n' "$*"; }
+
+# ---- Python 3.13 ----------------------------------------------------------
+find_python() {
+  for candidate in python3.13 \
+      /Library/Frameworks/Python.framework/Versions/3.13/bin/python3.13 \
+      /opt/homebrew/bin/python3.13 /usr/local/bin/python3.13; do
+    if command -v "$candidate" >/dev/null 2>&1; then command -v "$candidate"; return 0; fi
+  done
+  return 1
+}
+
+venv_points_here() {
+  # true when .venv's editable install maps `app` to this checkout
+  # -I (isolated): the current directory is NOT on sys.path, so only the
+  # installed mapping can resolve `app` - exactly what scripts will see.
+  [ -x "$ROOT/.venv/bin/python" ] || return 1
+  (cd / && "$ROOT/.venv/bin/python" -I - "$ROOT" <<'PY' 2>/dev/null
+import sys, importlib.util, os
+spec = importlib.util.find_spec("app")
+ok = bool(spec and spec.origin) and os.path.realpath(os.path.dirname(os.path.dirname(spec.origin))) == os.path.realpath(sys.argv[1])
+sys.exit(0 if ok else 1)
+PY
+  )
+}
+
+MARKER="$ROOT/.venv/.nexotec-installed"
+install_project() {
+  if command -v uv >/dev/null 2>&1; then
+    uv pip install --python .venv/bin/python -e ".[dev]"
+  else
+    .venv/bin/python -m pip install --quiet -e ".[dev]"
+  fi
+  touch "$MARKER"
+}
+
+say "Python environment (.venv)"
+if venv_points_here; then
+  if [ ! -f "$MARKER" ] || [ pyproject.toml -nt "$MARKER" ]; then
+    echo "pyproject.toml changed since the last install - syncing dependencies"
+    install_project
+  fi
+  echo "ok: .venv exists, imports app from this checkout, dependencies in sync"
+else
+  if [ -e .venv ]; then
+    echo "existing .venv does not belong to this checkout - rebuilding it"
+    rm -rf .venv
+  fi
+  if command -v uv >/dev/null 2>&1; then
+    uv venv --python 3.13 .venv
+  else
+    PY="$(find_python)" || { echo "Python 3.13 not found. Install it (python.org or 'brew install python@3.13') or 'brew install uv'."; exit 1; }
+    "$PY" -m venv .venv
+    .venv/bin/python -m pip install --quiet --upgrade pip
+  fi
+  install_project
+  venv_points_here || { echo "The fresh .venv still does not import app from $ROOT - stop and investigate."; exit 1; }
+  echo "ok: .venv built from this checkout"
+fi
+
+# ---- Frontend ---------------------------------------------------------------
+say "Frontend dependencies"
+if [ -d frontend/node_modules ] && [ frontend/node_modules/.package-lock.json -nt frontend/package-lock.json ]; then
+  echo "ok: node_modules up to date"
+else
+  (cd frontend && npm ci --no-audit --no-fund)
+fi
+
+# ---- Dev secrets (.env) ---------------------------------------------------------
+say "Dev-only .env"
+if [ -f .env ]; then
+  echo "ok: .env exists"
+else
+  PATH="$ROOT/.venv/bin:$PATH" make env
+fi
+
+# ---- Postgres: this checkout's own test and dev databases -----------------------
+say "Postgres databases for this checkout"
+pg_up() { (exec 3<>/dev/tcp/localhost/5432) 2>/dev/null; }
+have_docker() { command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; }
+if ! pg_up && have_docker; then
+  docker compose up -d --wait db 2>/dev/null || docker compose up -d db
+  for _ in $(seq 1 30); do pg_up && break; sleep 1; done
+fi
+if ! pg_up; then
+  echo "Postgres is not reachable on localhost:5432. Start Docker Desktop and run this again."
+  echo "Until then pytest fails (it is pointed at Postgres); the SQLite fast lane never counts as verification."
+  exit 1
+fi
+
+# The script prints two lines: the dev database local runs use, and how it was
+# prepared (exists | copied | empty). Diagnostics go to stderr. It lives in a temp
+# file because bash 3.2 misparses here-documents inside $(...).
+DB_SCRIPT="$(mktemp "${TMPDIR:-/tmp}/nexotec-db.XXXXXX")"
+trap 'rm -f "$DB_SCRIPT"' EXIT
+cat > "$DB_SCRIPT" <<'PY'
+import os, re, subprocess, sys, time, psycopg
+root, reset = sys.argv[1], sys.argv[2] == "1"
+run = lambda *a: subprocess.run(["git", *a], cwd=root, capture_output=True, text=True).stdout.strip()
+is_wt = os.path.normpath(run("rev-parse", "--absolute-git-dir")) != os.path.normpath(run("rev-parse", "--path-format=absolute", "--git-common-dir"))
+slug = (re.sub(r"[^a-z0-9_]+", "_", os.path.basename(root).lower()).strip("_") or "x")[:40] if is_wt else "root"
+if reset and not is_wt:
+    sys.exit("--reset-dev-db only applies in a worktree; the main checkout uses dms_platform")
+for attempt in range(10):
+    try:
+        conn = psycopg.connect("postgresql://dms:dms@localhost:5432/postgres", autocommit=True, connect_timeout=5)
+        break
+    except psycopg.OperationalError:
+        if attempt == 9:
+            raise
+        time.sleep(1)
+with conn:
+    exists = lambda name: conn.execute("SELECT 1 FROM pg_database WHERE datname = %s", (name,)).fetchone()
+    def create(name, template=None):
+        conn.execute('CREATE DATABASE "' + name + '"' + (" TEMPLATE " + template if template else ""))
+    test = "dms_test_" + slug
+    if not exists(test):
+        create(test)
+        print("created " + test, file=sys.stderr)
+    else:
+        print("ok: " + test + " exists", file=sys.stderr)
+    if not is_wt:
+        if not exists("dms_platform"):
+            create("dms_platform")
+            print("created dms_platform", file=sys.stderr)
+        print("dms_platform")
+        print("exists")
+        sys.exit(0)
+    dev = "dms_dev_" + slug
+    if reset and exists(dev):
+        conn.execute('DROP DATABASE "' + dev + '" WITH (FORCE)')
+        print("dropped " + dev, file=sys.stderr)
+    how = "exists"
+    if not exists(dev):
+        how = "empty"
+        if exists("dms_platform"):
+            try:
+                create(dev, template="dms_platform")
+                how = "copied"
+            except psycopg.Error as exc:
+                print("could not copy dms_platform directly ({}), trying pg_dump".format(
+                    str(exc).splitlines()[0]), file=sys.stderr)
+        if how == "empty":
+            create(dev)
+        print("created " + dev + (" as a copy of dms_platform" if how == "copied" else ""), file=sys.stderr)
+    else:
+        print("ok: " + dev + " exists", file=sys.stderr)
+    print(dev)
+    print(how)
+PY
+DB_INFO="$("$ROOT/.venv/bin/python" "$DB_SCRIPT" "$ROOT" "$RESET_DEV_DB")"
+DEV_DB="$(printf '%s\n' "$DB_INFO" | sed -n 1p)"
+HOW="$(printf '%s\n' "$DB_INFO" | sed -n 2p)"
+
+if [ "$DEV_DB" != "dms_platform" ]; then
+  if [ "$HOW" = "empty" ]; then
+    # dms_platform is in use (the Docker app is running), so copy it with pg_dump instead.
+    if have_docker && docker compose exec -T db psql -U dms -d postgres -tAc \
+        "SELECT 1 FROM pg_database WHERE datname = 'dms_platform'" 2>/dev/null | grep -q 1; then
+      if docker compose exec -T db pg_dump -U dms --no-owner --no-privileges dms_platform \
+          | docker compose exec -T db psql -q -U dms -d "$DEV_DB" -v ON_ERROR_STOP=1 >/dev/null; then
+        HOW="copied"
+        echo "copied dms_platform into $DEV_DB with pg_dump"
+      else
+        echo "WARNING: copying dms_platform into $DEV_DB failed - it stays empty."
+      fi
+    fi
+  fi
+  # Point this checkout's local runs (preview, uvicorn, alembic) at its own dev database.
+  # docker compose sets its own DMS_DATABASE_URL inside the containers, so `make up` is unaffected.
+  URL="postgresql+psycopg://dms:dms@localhost:5432/$DEV_DB"
+  if grep -q '^DMS_DATABASE_URL=' .env; then
+    grep -v '^DMS_DATABASE_URL=' .env > .env.tmp && mv .env.tmp .env
+  fi
+  echo "DMS_DATABASE_URL=$URL" >> .env
+  echo "local runs use $DEV_DB (written to .env)"
+fi
+
+# Settings reads .env itself (pydantic env_file), so no sourcing: the JWT key's PEM
+# value is not shell-safe.
+if ! "$ROOT/.venv/bin/alembic" upgrade heads; then
+  echo "alembic upgrade heads FAILED on $DEV_DB."
+  if [ "$HOW" = "copied" ]; then
+    echo "If alembic reports an unknown revision, dms_platform is ahead of this branch: merge origin/main"
+    echo "into the branch, then run 'scripts/dev/bootstrap --reset-dev-db'."
+  fi
+  exit 1
+fi
+echo "ok: $DEV_DB migrated to heads"
+
+if [ "$HOW" = "empty" ]; then
+  SEED_ID="$(grep -E '^DMS_SEED_DEMO_AUTH_IDENTITY_ID=' .env | cut -d= -f2- || true)"
+  if [ -n "$SEED_ID" ]; then
+    DMS_SEED_DEMO_AUTH_IDENTITY_ID="$SEED_ID" "$ROOT/.venv/bin/python" scripts/seed_staging_demo.py \
+      && echo "seeded the demo dealership and user into $DEV_DB"
+  else
+    echo "NOTE: $DEV_DB started empty (no dms_platform to copy), so the preview has no user to log in with."
+    echo "      Run 'make up' once in the main checkout (or set DMS_SEED_DEMO_AUTH_IDENTITY_ID in .env),"
+    echo "      then 'scripts/dev/bootstrap --reset-dev-db' here."
+  fi
+fi
+
+say "Done"
+echo "This checkout is ready. Sessions put $ROOT/.venv/bin first on PATH and point pytest at its test database."
