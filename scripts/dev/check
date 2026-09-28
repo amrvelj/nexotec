@@ -33,6 +33,10 @@ PY = os.path.join(VENV_BIN, "python")
 ENV = dict(os.environ, COMPOSE_PROJECT_NAME=os.environ.get("COMPOSE_PROJECT_NAME", "nexotec"),
            PATH=VENV_BIN + os.pathsep + os.environ.get("PATH", ""), VIRTUAL_ENV=os.path.join(ROOT, ".venv"))
 ENV.pop("DMS_TEST_DATABASE_URL", None)  # set explicitly per lane below
+if sys.platform == "darwin":
+    # WeasyPrint loads Pango by name; macOS does not search Homebrew's lib folders on its own.
+    ENV["DYLD_FALLBACK_LIBRARY_PATH"] = "/opt/homebrew/lib:/usr/local/lib:{}/lib:/usr/lib".format(
+        os.path.expanduser("~"))
 
 LANE_PATTERNS = {
     "config": [r"^\.claude/", r"^CLAUDE\.md$", r"^scripts/dev/", r"^\.worktreeinclude$"],

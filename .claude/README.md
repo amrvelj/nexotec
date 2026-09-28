@@ -63,6 +63,20 @@ crashes never blocks (fail-open with a message); a missing hook script exits 0.
 
 `scripts/dev/gate status` prints what the push and the hand-over would say right now.
 
+## One-time machine setup (macOS)
+
+- `brew install gh uv pango`, then `gh auth login`; Docker Desktop running.
+- **Pango** is the system library WeasyPrint (PDFs) needs; without it nothing that imports the
+  app runs. Homebrew on Apple Silicon keeps it in `/opt/homebrew/lib`, which macOS does not
+  search, so `bootstrap`, `check`, the session hook and the preview API set
+  `DYLD_FALLBACK_LIBRARY_PATH` themselves. A shell of your own needs the same prefix for app
+  commands: `DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib:/usr/local/lib:/usr/lib .venv/bin/…`.
+- **Port 5432 must be free for the project's Docker database.** Another Postgres on it (for
+  example the postgresql.org installer, `/Library/PostgreSQL/<version>`, which starts at boot)
+  makes bootstrap stop with "the user dms was rejected". Stop it:
+  `sudo launchctl bootout system/<label>` and `sudo launchctl disable system/<label>`, with
+  the label from `plutil -extract Label raw /Library/LaunchDaemons/postgresql-<version>.plist`.
+
 ## Worktrees and the main checkout
 
 - Code work happens in worktree sessions (desktop app, worktree option). The main checkout stays
@@ -77,9 +91,11 @@ crashes never blocks (fail-open with a message); a missing hook script exits 0.
 - The Docker Compose project is pinned to `nexotec`, so a worktree never starts a second
   Postgres. Only one session can run the desktop preview at a time: CORS and the frontend's API
   base URL are fixed to ports 5173 and 8000 — stop Docker's `app` container
-  (`docker compose stop app worker`) before starting the preview. Log-in in the preview needs
-  the Zitadel values in `.env` and a user in the database (the copy of `dms_platform` has
-  yours).
+  (`docker compose stop app worker`) before starting the preview. Logged-in screens need a user
+  in `dms_platform` and a working local log-in. Today's log-in is WP-4's Zitadel front door,
+  which the in-house log-in replaces (D-A-07, `.claude/rules/platform.md`), so no dev tooling
+  is built around Zitadel. A worktree's dev database is copied from `dms_platform`, so it has
+  whatever users that has.
 
 ## Changing the setup
 

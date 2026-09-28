@@ -1012,6 +1012,21 @@ def venv_status(root):
     return True, "own .venv, installed from this checkout, first on PATH"
 
 
+DARWIN_LIBRARY_PATH = "/opt/homebrew/lib:/usr/local/lib:{}/lib:/usr/lib".format(os.path.expanduser("~"))
+
+
+def pango_loads(root):
+    """True when this checkout's .venv can import WeasyPrint (it needs the Pango library)."""
+    py = os.path.join(root, ".venv", "bin", "python")
+    if not os.path.exists(py):
+        return True  # nothing to check yet; bootstrap checks it
+    env = dict(os.environ)
+    if sys.platform == "darwin":
+        env["DYLD_FALLBACK_LIBRARY_PATH"] = DARWIN_LIBRARY_PATH
+    rc, _ = run([py, "-c", "import weasyprint"], cwd=root, env=env, timeout=20)
+    return rc == 0
+
+
 def ensure_test_db(root):
     """Create this checkout's test database if Postgres is up. Uses the
     checkout's own .venv (psycopg is a project dependency)."""
@@ -1058,6 +1073,13 @@ def cmd_session_start(data):
     env_lines = ['export VIRTUAL_ENV="{}"'.format(venv),
                  'export PATH="{}:$PATH"'.format(os.path.join(venv, "bin")),
                  'export DMS_TEST_DATABASE_URL="{}"'.format(test_db_url(root))]
+    if sys.platform == "darwin":
+        # WeasyPrint loads Pango by name; macOS does not search Homebrew's lib folders.
+        env_lines.append('export DYLD_FALLBACK_LIBRARY_PATH="{}"'.format(DARWIN_LIBRARY_PATH))
+    if ok and not pango_loads(root):
+        lines.append("- PDF library: WeasyPrint cannot load Pango, so nothing that imports the app runs "
+                     "(tests, migrations, the API) - install it (`brew install pango` on macOS), then "
+                     "`scripts/dev/bootstrap`")
     name = test_db_name(root)
     if postgres_reachable():
         if ensure_test_db(root):

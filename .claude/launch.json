@@ -11,7 +11,10 @@
         "8000"
       ],
       "port": 8000,
-      "autoPort": false
+      "autoPort": false,
+      "env": {
+        "DYLD_FALLBACK_LIBRARY_PATH": "/opt/homebrew/lib:/usr/local/lib:/usr/lib"
+      }
     },
     {
       "name": "nexotec-frontend",

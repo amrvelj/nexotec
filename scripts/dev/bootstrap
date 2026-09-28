@@ -31,6 +31,12 @@ done
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-nexotec}"
+if [ "$(uname -s)" = "Darwin" ]; then
+  # WeasyPrint (PDFs) loads Pango by library name. macOS does not search Homebrew's
+  # lib folders on its own, and strips DYLD_* variables from protected shells, so
+  # every script sets this itself (see also launch.json and the session hook).
+  export DYLD_FALLBACK_LIBRARY_PATH="/opt/homebrew/lib:/usr/local/lib:$HOME/lib:/usr/lib"
+fi
 
 say() { printf '\n== %s\n' "$*"; }
 
@@ -92,6 +98,21 @@ else
   echo "ok: .venv built from this checkout"
 fi
 
+# The app imports WeasyPrint, which needs the Pango system library: without it
+# nothing that imports the app runs - migrations, tests, the API.
+if .venv/bin/python -c "import weasyprint" >/dev/null 2>&1; then
+  echo "ok: WeasyPrint finds Pango"
+else
+  echo "WeasyPrint (PDF rendering) cannot load the Pango system library, so nothing that imports"
+  echo "the app can run. Install it, then run this again:"
+  if [ "$(uname -s)" = "Darwin" ]; then
+    echo "    brew install pango"
+  else
+    echo "    sudo apt-get install -y libglib2.0-0 libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz0b libfontconfig1"
+  fi
+  exit 1
+fi
+
 # ---- Frontend ---------------------------------------------------------------
 say "Frontend dependencies"
 if [ -d frontend/node_modules ] && [ frontend/node_modules/.package-lock.json -nt frontend/package-lock.json ]; then
@@ -139,9 +160,17 @@ for attempt in range(10):
     try:
         conn = psycopg.connect("postgresql://dms:dms@localhost:5432/postgres", autocommit=True, connect_timeout=5)
         break
-    except psycopg.OperationalError:
+    except psycopg.OperationalError as exc:
+        if "authentication failed" in str(exc) or "does not exist" in str(exc):
+            sys.exit(
+                "Port 5432 answers, but not as this project's database: the user dms was rejected.\n"
+                "Another Postgres is running on this machine (on macOS often the postgresql.org\n"
+                "installer, /Library/PostgreSQL/<version>, which starts at boot). Find it with\n"
+                "    ps aux | grep -i '[p]ostgres'\n"
+                "stop it (or move it to another port), then run scripts/dev/bootstrap again - it\n"
+                "starts the project's own database in Docker.")
         if attempt == 9:
-            raise
+            sys.exit("Cannot connect to Postgres on localhost:5432: " + str(exc).splitlines()[0])
         time.sleep(1)
 with conn:
     exists = lambda name: conn.execute("SELECT 1 FROM pg_database WHERE datname = %s", (name,)).fetchone()
