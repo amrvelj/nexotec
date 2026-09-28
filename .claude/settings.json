@@ -1,0 +1,257 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "model": "claude-opus-5-5",
+  "effortLevel": "high",
+  "env": {
+    "COMPOSE_PROJECT_NAME": "nexotec"
+  },
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "Bash(pytest*)",
+      "Bash(python -m pytest*)",
+      "Bash(python3 -m pytest*)",
+      "Bash(ruff check*)",
+      "Bash(python -m mypy*)",
+      "Bash(python3 -m mypy*)",
+      "Bash(lint-imports*)",
+      "Bash(.venv/bin/pytest*)",
+      "Bash(.venv/bin/python -m pytest*)",
+      "Bash(.venv/bin/ruff check*)",
+      "Bash(.venv/bin/python -m mypy*)",
+      "Bash(.venv/bin/lint-imports*)",
+      "Bash(.venv/bin/alembic upgrade heads*)",
+      "Bash(.venv/bin/alembic current*)",
+      "Bash(.venv/bin/alembic heads*)",
+      "Bash(alembic upgrade heads*)",
+      "Bash(alembic current*)",
+      "Bash(alembic heads*)",
+      "Bash(alembic history*)",
+      "Bash(alembic revision*)",
+      "Bash(alembic check*)",
+      "Bash(npm ci*)",
+      "Bash(npm run *)",
+      "Bash(npm test*)",
+      "Bash(npx vitest*)",
+      "Bash(npx tsc*)",
+      "Bash(npx oxlint*)",
+      "Bash(npx vite build*)",
+      "Bash(npx openapi-typescript*)",
+      "Bash(npx playwright screenshot http://localhost:* .claude/evidence/*)",
+      "Bash(make generate-frontend-types)",
+      "Bash(scripts/dev/check*)",
+      "Bash(scripts/dev/bootstrap*)",
+      "Bash(scripts/dev/gate status*)",
+      "Bash(scripts/dev/gate start *)",
+      "Bash(scripts/dev/gate no-visual *)",
+      "Bash(scripts/dev/gate evidence *)",
+      "Bash(scripts/dev/gate close)",
+      "Bash(uvicorn app.main:app*)",
+      "Bash(docker compose up -d db*)",
+      "Bash(docker compose ps*)",
+      "Bash(docker compose logs*)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git show*)",
+      "Bash(git blame*)",
+      "Bash(git grep*)",
+      "Bash(git ls-files*)",
+      "Bash(git rev-parse*)",
+      "Bash(git merge-base*)",
+      "Bash(git branch)",
+      "Bash(git branch --show-current*)",
+      "Bash(git branch --list*)",
+      "Bash(git branch -m *)",
+      "Bash(git fetch*)",
+      "Bash(git add*)",
+      "Bash(git commit*)",
+      "Bash(git switch -c *)",
+      "Bash(git switch kan-*)",
+      "Bash(git checkout -b *)",
+      "Bash(git merge origin/main*)",
+      "Bash(git merge --no-edit origin/main*)",
+      "Bash(git mv *)",
+      "Bash(git rm *)",
+      "Bash(git stash list*)",
+      "Bash(git worktree list*)",
+      "Bash(git remote -v)",
+      "Bash(gh pr view*)",
+      "Bash(gh pr create*)",
+      "Bash(gh pr checks*)",
+      "Bash(gh pr diff*)",
+      "Bash(gh pr list*)",
+      "Bash(gh pr edit*)",
+      "Bash(gh pr comment*)",
+      "Bash(gh run view*)",
+      "Bash(gh run list*)",
+      "Bash(gh run watch*)",
+      "mcp__claude_ai_Notion__notion-fetch",
+      "mcp__claude_ai_Notion__notion-search",
+      "mcp__claude_ai_Notion__notion-ai-search",
+      "mcp__claude_ai_Notion__notion-query-data-sources",
+      "mcp__claude_ai_Notion__notion-query-database-view",
+      "mcp__claude_ai_Notion__notion-get-comments",
+      "mcp__claude_ai_Notion__notion-get-users",
+      "WebSearch",
+      "WebFetch(domain:code.claude.com)",
+      "WebFetch(domain:docs.python.org)",
+      "WebFetch(domain:fastapi.tiangolo.com)",
+      "WebFetch(domain:docs.sqlalchemy.org)",
+      "WebFetch(domain:alembic.sqlalchemy.org)",
+      "WebFetch(domain:docs.pydantic.dev)",
+      "WebFetch(domain:mantine.dev)",
+      "WebFetch(domain:tanstack.com)",
+      "WebFetch(domain:vitest.dev)",
+      "WebFetch(domain:www.postgresql.org)",
+      "WebFetch(domain:dms-staging-tb9w.onrender.com)"
+    ],
+    "ask": [
+      "Bash(git push*)",
+      "Bash(alembic downgrade*)",
+      "Bash(git reset --hard*)",
+      "Bash(git clean*)",
+      "Bash(git restore*)",
+      "Bash(git checkout -- *)",
+      "Bash(git branch -d*)",
+      "Bash(git branch -D*)",
+      "Bash(git worktree remove*)",
+      "Bash(git worktree prune*)",
+      "Bash(scripts/dev/gate waive*)",
+      "Edit(/app/core/tenancy.py)",
+      "Edit(/app/core/auth.py)",
+      "Edit(/app/core/uuid7.py)",
+      "Edit(/app/core/base.py)",
+      "Edit(/app/core/concurrency.py)",
+      "Edit(/app/core/idempotency.py)",
+      "Edit(/app/core/pagination.py)",
+      "Edit(/app/core/errors.py)",
+      "Edit(/app/core/schemas.py)",
+      "Edit(/app/core/audit.py)",
+      "Edit(/app/core/outbox*.py)",
+      "Edit(/app/core/consumer.py)",
+      "Edit(/app/core/processed_event_model.py)",
+      "Edit(/app/core/types.py)",
+      "Edit(/app/core/config.py)",
+      "Edit(/.claude/hooks/**)",
+      "Edit(/.claude/settings.json)",
+      "Edit(/.claude/agents/**)",
+      "Edit(/scripts/dev/**)"
+    ],
+    "deny": [
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(git push * --force*)",
+      "Bash(git push * -f*)",
+      "Bash(git commit --no-verify*)",
+      "Bash(git commit * --no-verify*)",
+      "Bash(gh pr merge*)",
+      "Bash(gh repo delete*)",
+      "Bash(docker compose down -v*)",
+      "Bash(docker compose down --volumes*)",
+      "Bash(docker volume rm*)",
+      "Bash(rm -rf*)",
+      "Bash(rm -fr*)",
+      "Read(/.env)",
+      "Read(/.env.local)",
+      "Edit(/.env)",
+      "Edit(/frontend/apps/dms/src/api/schema.d.ts)",
+      "mcp__*Gmail*",
+      "mcp__*Google_Calendar*"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/hooks/nexotec_hooks.py\"; [ -f \"$f\" ] || exit 0; exec python3 \"$f\" session-start",
+            "timeout": 30,
+            "statusMessage": "Checking the Nexotec workspace"
+          }
+        ]
+      },
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/hooks/nexotec_hooks.py\"; [ -f \"$f\" ] || exit 0; exec python3 \"$f\" session-sync",
+            "timeout": 120,
+            "async": true
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/hooks/nexotec_hooks.py\"; [ -f \"$f\" ] || exit 0; exec python3 \"$f\" pre-bash",
+            "timeout": 120
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/hooks/nexotec_hooks.py\"; [ -f \"$f\" ] || exit 0; exec python3 \"$f\" pre-edit",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__.*[Nn]otion.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/hooks/nexotec_hooks.py\"; [ -f \"$f\" ] || exit 0; exec python3 \"$f\" pre-notion",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash|mcp__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/hooks/nexotec_hooks.py\"; [ -f \"$f\" ] || exit 0; exec python3 \"$f\" post-tool",
+            "timeout": 120
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "reviewer",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/hooks/nexotec_hooks.py\"; [ -f \"$f\" ] || exit 0; exec python3 \"$f\" subagent-stop",
+            "timeout": 120
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/hooks/nexotec_hooks.py\"; [ -f \"$f\" ] || exit 0; exec python3 \"$f\" stop",
+            "timeout": 120,
+            "statusMessage": "Checking the hand-over gate"
+          }
+        ]
+      }
+    ]
+  }
+}

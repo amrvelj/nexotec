@@ -1,0 +1,381 @@
+#!/usr/bin/env python3
+"""The local equivalent of CI, and the evidence the push gate asks for.
+
+    scripts/dev/check            lanes chosen from what changed vs origin/main
+    scripts/dev/check --full     every lane
+    scripts/dev/check --fast     backend on the SQLite fast lane; records NOTHING
+
+On success it records "pass" for the exact git tree it verified (see
+.claude/hooks/nexotec_hooks.py). The push gate compares that tree with the
+commit being pushed, so a pass is only valid for the code it actually ran on.
+
+Lanes mirror .github/workflows/test.yml, including both migration jobs (the
+round trip with seed + downgrade, and the upgrade from main's heads with the
+seed verified). Not mirrored here (CI still runs them): secret-scan,
+docker-build, outbox-worker-smoke-test. A change to the workflow runs every lane.
+"""
+
+import os
+import re
+import runpy  # noqa: F401  (used inside the generated snippet)
+import shutil
+import socket
+import subprocess
+import sys
+import tempfile
+import time
+
+ROOT = subprocess.run(["git", "rev-parse", "--show-toplevel"], stdout=subprocess.PIPE,
+                      universal_newlines=True, check=True).stdout.strip()
+HOOKS = os.path.join(ROOT, ".claude", "hooks", "nexotec_hooks.py")
+VENV_BIN = os.path.join(ROOT, ".venv", "bin")
+PY = os.path.join(VENV_BIN, "python")
+ENV = dict(os.environ, COMPOSE_PROJECT_NAME=os.environ.get("COMPOSE_PROJECT_NAME", "nexotec"),
+           PATH=VENV_BIN + os.pathsep + os.environ.get("PATH", ""), VIRTUAL_ENV=os.path.join(ROOT, ".venv"))
+ENV.pop("DMS_TEST_DATABASE_URL", None)  # set explicitly per lane below
+
+LANE_PATTERNS = {
+    "config": [r"^\.claude/", r"^CLAUDE\.md$", r"^scripts/dev/", r"^\.worktreeinclude$"],
+    "backend": [r"^app/", r"^tests/", r"^alembic/", r"^alembic\.ini$", r"^pyproject\.toml$", r"^scripts/[^/]+\.py$"],
+    # alembic/env.py imports app.db, app.model_registry and app.core.config; core tables live in app/core/*_model.py
+    "migrations": [r"^alembic/", r"^alembic\.ini$", r"^app/.*/models(/|\.py$)", r"^app/core/[^/]*_model\.py$",
+                   r"^app/model_registry\.py$", r"^app/db\.py$", r"^app/core/config\.py$", r"^pyproject\.toml$",
+                   r"^scripts/(seed|verify)_migration_smoke_test[^/]*\.py$"],
+    "frontend": [r"^frontend/"],
+    "api-types": [r"^app/", r"^frontend/apps/dms/src/api/", r"^scripts/generate_openapi_schema\.py$",
+                  r"^pyproject\.toml$", r"^frontend/package(-lock)?\.json$", r"^frontend/apps/dms/package\.json$"],
+}
+ORDER = ["config", "backend", "migrations", "api-types", "frontend"]
+EVERY_LANE = [r"^\.github/workflows/"]  # a change to CI itself: run everything
+
+
+def git(*args):
+    return subprocess.run(["git"] + list(args), cwd=ROOT, stdout=subprocess.PIPE,
+                          stderr=subprocess.DEVNULL, universal_newlines=True).stdout.strip()
+
+
+def hooks_cli(*args):
+    return subprocess.run([sys.executable, HOOKS, "cli"] + list(args), cwd=ROOT, stdout=subprocess.PIPE,
+                          universal_newlines=True).stdout.strip()
+
+
+def step(title, cmd, cwd=ROOT, env=None):
+    print("\n--- " + title + "\n$ " + " ".join(cmd), flush=True)
+    start = time.time()
+    rc = subprocess.run(cmd, cwd=cwd, env=env or ENV).returncode
+    print("--- {} ({}s)".format("ok" if rc == 0 else "FAILED (exit {})".format(rc), int(time.time() - start)), flush=True)
+    return rc == 0
+
+
+def changed_files():
+    """Files that differ from origin/main (committed, staged, unstaged, untracked);
+    None when origin/main is unknown - then nothing can be said about the diff."""
+    base = git("merge-base", "HEAD", "origin/main")
+    if not base:
+        return None
+    files = set(git("diff", "--name-only", base).splitlines())
+    files |= set(git("ls-files", "--others", "--exclude-standard").splitlines())
+    return sorted(f for f in files if f)
+
+
+def lanes_for(files):
+    if any(re.search(p, f) for f in files for p in EVERY_LANE):
+        return ORDER[:]
+    lanes = set()
+    for lane, patterns in LANE_PATTERNS.items():
+        if any(re.search(p, f) for f in files for p in patterns):
+            lanes.add(lane)
+    return [l for l in ORDER if l in lanes]
+
+
+def uncovered(files):
+    patterns = [p for ps in LANE_PATTERNS.values() for p in ps] + EVERY_LANE
+    return [f for f in files if not any(re.search(p, f) for p in patterns)]
+
+
+# ---------------------------------------------------------------- Postgres
+
+def pg_up():
+    try:
+        with socket.create_connection(("localhost", 5432), timeout=0.5):
+            return True
+    except OSError:
+        return False
+
+
+def ensure_postgres():
+    if pg_up():
+        return True
+    if shutil.which("docker") and subprocess.run(["docker", "info"], stdout=subprocess.DEVNULL,
+                                                 stderr=subprocess.DEVNULL).returncode == 0:
+        subprocess.run(["docker", "compose", "up", "-d", "db"], cwd=ROOT, env=ENV)
+        for _ in range(30):
+            if pg_up():
+                time.sleep(1)  # accept connections, not just the port
+                return True
+            time.sleep(1)
+    return False
+
+
+def db_slug():
+    git_dir = git("rev-parse", "--absolute-git-dir")
+    common = git("rev-parse", "--path-format=absolute", "--git-common-dir")
+    if os.path.normpath(git_dir) == os.path.normpath(common):
+        return "root"
+    return (re.sub(r"[^a-z0-9_]+", "_", os.path.basename(ROOT).lower()).strip("_") or "x")[:40]
+
+
+def recreate_db(name, drop=False):
+    code = (
+        "import sys, psycopg\n"
+        "name, drop = sys.argv[1], sys.argv[2] == '1'\n"
+        "with psycopg.connect('postgresql://dms:dms@localhost:5432/postgres', autocommit=True, connect_timeout=5) as c:\n"
+        "    exists = c.execute('SELECT 1 FROM pg_database WHERE datname = %s', (name,)).fetchone()\n"
+        "    if exists and drop:\n"
+        "        c.execute('DROP DATABASE \"' + name + '\" WITH (FORCE)')\n"
+        "        exists = None\n"
+        "    if not exists:\n"
+        "        c.execute('CREATE DATABASE \"' + name + '\"')\n"
+    )
+    return subprocess.run([PY, "-c", code, name, "1" if drop else "0"], cwd=ROOT, env=ENV).returncode == 0
+
+
+def pg_url(name):
+    return "postgresql+psycopg://dms:dms@localhost:5432/" + name
+
+
+# ---------------------------------------------------------------- lanes
+
+def lane_config():
+    ok = True
+    for path in (".claude/settings.json", ".claude/launch.json"):
+        if os.path.exists(os.path.join(ROOT, path)):
+            ok &= step("valid JSON: " + path, [sys.executable, "-c", "import json,sys; json.load(open(sys.argv[1]))", path])
+    ok &= step("hooks compile", [sys.executable, "-m", "py_compile", HOOKS])
+    ok &= step("hooks selftest", [sys.executable, HOOKS, "cli", "selftest"])
+    for script in ("scripts/dev/bootstrap", "scripts/dev/gate"):
+        ok &= step("bash syntax: " + script, ["bash", "-n", script])
+    print("\n--- frontmatter of rules, skills and agents")
+    problems = []
+    for folder, required in ((".claude/skills", ("description",)), (".claude/agents", ("name", "description"))):
+        base = os.path.join(ROOT, folder)
+        for dirpath, _dirs, names in os.walk(base):
+            for name in names:
+                if not name.endswith(".md") or (folder == ".claude/skills" and name != "SKILL.md"):
+                    continue
+                text = open(os.path.join(dirpath, name)).read()
+                fm = re.match(r"^---\n(.*?)\n---\n", text, re.S)
+                rel = os.path.relpath(os.path.join(dirpath, name), ROOT)
+                missing = [k for k in required if not (fm and re.search(r"^" + k + r":", fm.group(1), re.M))]
+                if missing:
+                    problems.append("{}: missing {}".format(rel, missing))
+                for line in (fm.group(1).splitlines() if fm else []):
+                    m = re.match(r"^([A-Za-z_-]+):\s*(.*)$", line)
+                    if m and ": " in m.group(2) and not m.group(2)[:1] in "\"'[{":
+                        problems.append("{}: `{}` has an unquoted ': ' - YAML would reject the "
+                                        "frontmatter and Claude Code would ignore it".format(rel, m.group(1)))
+    rules = os.path.join(ROOT, ".claude", "rules")
+    for name in sorted(os.listdir(rules)) if os.path.isdir(rules) else []:
+        text = open(os.path.join(rules, name)).read()
+        fm = re.match(r"^---\n(.*?)\n---\n", text, re.S)
+        if fm and re.search(r"^(?!paths:|  - |\s*$).+", fm.group(1), re.M):
+            problems.append("rules/{}: only `paths` is read from rule frontmatter".format(name))
+    lines = len(open(os.path.join(ROOT, "CLAUDE.md")).read().splitlines())
+    if lines > 200:
+        problems.append("CLAUDE.md has {} lines; keep it under 200 (move area detail into .claude/rules/)".format(lines))
+    print("\n".join(problems) if problems else "ok")
+    return ok and not problems
+
+
+def lane_backend(fast):
+    ok = step("ruff (CI: ruff check app tests)", [os.path.join(VENV_BIN, "ruff"), "check", "app", "tests"])
+    ok &= step("mypy (as a module)", [PY, "-m", "mypy", "app"])
+    ok &= step("import-linter", [os.path.join(VENV_BIN, "lint-imports")])
+    env = dict(ENV)
+    if fast:
+        ok &= step("pytest - SQLite fast lane (not verification)", [PY, "-m", "pytest", "-q"], env=env)
+        return ok
+    if not ensure_postgres():
+        print("\nPostgres is not reachable and could not be started (Docker Desktop running?). "
+              "Postgres is the lane of record (ADR-011) - this lane FAILS rather than falling back to SQLite.")
+        return False
+    name = "dms_test_" + db_slug()
+    if not recreate_db(name):
+        return False
+    env["DMS_TEST_DATABASE_URL"] = pg_url(name)
+    ok &= step("pytest - Postgres lane of record ({})".format(name), [PY, "-m", "pytest", "-q"], env=env)
+    return ok
+
+
+def ci_downgrade_target():
+    """The revision CI's migration-smoke-test downgrades to (kept in sync by reading the workflow)."""
+    try:
+        text = open(os.path.join(ROOT, ".github", "workflows", "test.yml")).read()
+    except OSError:
+        return None
+    m = re.search(r"run:\s*alembic downgrade (\w+)", text)
+    return m.group(1) if m else None
+
+
+def main_heads():
+    """Alembic heads of origin/main, read from an archive of its alembic/ folder (as CI does)."""
+    tmp = tempfile.mkdtemp(prefix="nexotec-main-heads-")
+    try:
+        archive = subprocess.run(["git", "archive", "origin/main", "alembic", "alembic.ini"], cwd=ROOT,
+                                 stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        if archive.returncode != 0:
+            return None
+        if subprocess.run(["tar", "-x", "-C", tmp], input=archive.stdout).returncode != 0:
+            return None
+        out = subprocess.run([os.path.join(VENV_BIN, "alembic"), "heads"], cwd=tmp, env=ENV,
+                             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, universal_newlines=True)
+        if out.returncode != 0:
+            return None
+        return [line.split()[0] for line in out.stdout.splitlines() if line.strip()]
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def lane_migrations():
+    """CI's two migration jobs: the round trip on an empty database (upgrade, seed,
+    downgrade, upgrade) and the upgrade from main's heads with seeded rows verified."""
+    if not ensure_postgres():
+        print("\nPostgres not reachable - migration smoke test cannot run.")
+        return False
+    alembic = os.path.join(VENV_BIN, "alembic")
+    name = "dms_migr_" + db_slug()
+    env = dict(ENV, DMS_DATABASE_URL=pg_url(name), PYTHONPATH=ROOT)
+    if not recreate_db(name, drop=True):
+        return False
+    ok = step("round trip: alembic upgrade heads on an empty database ({})".format(name),
+              [alembic, "upgrade", "heads"], env=env)
+    ok = ok and step("round trip: seed rows", [PY, "scripts/seed_migration_smoke_test.py"], env=env)
+    target = ci_downgrade_target()
+    if target:
+        ok = ok and step("round trip: alembic downgrade {} (as CI)".format(target), [alembic, "downgrade", target],
+                         env=env)
+        ok = ok and step("round trip: alembic upgrade heads (again)", [alembic, "upgrade", "heads"], env=env)
+    else:
+        print("\n(no `alembic downgrade <rev>` step found in test.yml - downgrade not exercised)")
+    if not ok:
+        return False
+    heads = main_heads()
+    if not heads:
+        print("\nCould not read origin/main's alembic heads - the upgrade-from-main job cannot be mirrored.")
+        return False
+    if not recreate_db(name, drop=True):
+        return False
+    for rev in heads:
+        ok = ok and step("from main: alembic upgrade {} (main's head)".format(rev), [alembic, "upgrade", rev], env=env)
+    ok = ok and step("from main: seed rows at main's schema", [PY, "scripts/seed_migration_smoke_test.py"], env=env)
+    ok = ok and step("from main: alembic upgrade heads (this branch)", [alembic, "upgrade", "heads"], env=env)
+    ok = ok and step("from main: verify the seeded rows survived", [PY, "scripts/verify_migration_smoke_test_seed.py"],
+                     env=env)
+    return ok
+
+
+GEN_SNIPPET = (
+    "import os, runpy\n"
+    "from cryptography.fernet import Fernet\n"
+    "from cryptography.hazmat.primitives import serialization\n"
+    "from cryptography.hazmat.primitives.asymmetric import rsa\n"
+    "d = os.environ.setdefault\n"
+    "d('DMS_TAX_ID_ENCRYPTION_KEY', Fernet.generate_key().decode())\n"
+    "d('DMS_JWT_PRIVATE_KEY', rsa.generate_private_key(public_exponent=65537, key_size=2048).private_bytes("
+    "serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()).decode())\n"
+    "d('DMS_ZITADEL_ISSUER', 'https://example.zitadel.cloud'); d('DMS_ZITADEL_CLIENT_ID', 'check')\n"
+    "d('DMS_ZITADEL_CLIENT_SECRET', 'check'); d('DMS_ZITADEL_REDIRECT_URI', 'http://localhost/cb')\n"
+    "d('DMS_SESSION_SECRET_KEY', 'check-session-secret-not-used')\n"
+    "runpy.run_path('scripts/generate_openapi_schema.py', run_name='__main__')\n"
+)
+
+
+def lane_api_types():
+    target = os.path.join(ROOT, "frontend", "apps", "dms", "src", "api", "schema.d.ts")
+    before = open(target, "rb").read() if os.path.exists(target) else b""
+    env = dict(ENV, PYTHONPATH=ROOT)
+    ok = step("dump app.openapi()", [PY, "-c", GEN_SNIPPET], env=env)
+    ok = ok and step("openapi-typescript -> schema.d.ts",
+                     ["npx", "openapi-typescript", "./openapi.json", "-o", "./src/api/schema.d.ts",
+                      "--default-non-nullable", "false"], cwd=os.path.join(ROOT, "frontend", "apps", "dms"))
+    if not ok:
+        return False
+    after = open(target, "rb").read()
+    if after != before:
+        print("\nschema.d.ts was out of date with the backend and has been REGENERATED in place. "
+              "Review the diff and commit it (CI's frontend-openapi-drift job would fail otherwise).")
+        return False
+    print("\n--- schema.d.ts matches the backend: ok")
+    return True
+
+
+def lane_frontend():
+    fe = os.path.join(ROOT, "frontend")
+    ok = True
+    installed = os.path.join(fe, "node_modules", ".package-lock.json")
+    if not os.path.exists(installed) or \
+            os.path.getmtime(installed) <= os.path.getmtime(os.path.join(fe, "package-lock.json")):
+        ok &= step("npm ci (package-lock.json is newer than node_modules)", ["npm", "ci", "--no-audit", "--no-fund"],
+                   cwd=fe)
+    kit, app = os.path.join(fe, "packages", "ui-kit"), os.path.join(fe, "apps", "dms")
+    for title, cmd, cwd in (
+        ("ui-kit oxlint", ["npx", "oxlint"], kit),
+        ("ui-kit typecheck", ["npx", "tsc", "-b", "--noEmit"], kit),
+        ("ui-kit vitest", ["npx", "vitest", "run"], kit),
+        ("dms oxlint", ["npx", "oxlint"], app),
+        ("dms tsc -b", ["npx", "tsc", "-b"], app),
+        ("dms vitest", ["npx", "vitest", "run"], app),
+        ("dms vite build", ["npx", "vite", "build"], app),
+    ):
+        ok = ok and step(title, cmd, cwd=cwd)
+    return ok
+
+
+# ---------------------------------------------------------------- main
+
+def main(argv):
+    full, fast = "--full" in argv, "--fast" in argv
+    files = changed_files()
+    if files is None:
+        print("origin/main is unknown in this checkout, so the diff cannot be computed. Run "
+              "`git fetch origin main` and check again.")
+        return 2
+    lanes = ORDER[:] if full else lanes_for(files)
+    if fast:
+        lanes = [l for l in lanes if l in ("config", "backend")] or ["backend"]
+    if set(lanes) & {"backend", "migrations", "api-types"} and not os.path.exists(PY):
+        print("This checkout has no .venv of its own. Run scripts/dev/bootstrap first.")
+        return 2
+    tree_before = hooks_cli("fingerprint")
+    print("Checking tree {} - {} changed file(s) vs origin/main - lanes: {}".format(
+        tree_before[:12], len(files), ", ".join(lanes) or "none (nothing that any lane covers changed)"))
+    outside = [] if full else uncovered(files)
+    if outside:
+        print("No local lane covers: {} - CI's other jobs (docker build, secret scan) still run on the PR."
+              .format(", ".join(outside[:12]) + (" ..." if len(outside) > 12 else "")))
+    results = {}
+    runners = {"config": lane_config, "backend": lambda: lane_backend(fast), "migrations": lane_migrations,
+               "api-types": lane_api_types, "frontend": lane_frontend}
+    for lane in lanes:
+        results[lane] = runners[lane]()
+    tree_after = hooks_cli("fingerprint")
+    print("\n==== Summary")
+    for lane in lanes:
+        print("  {:<11} {}".format(lane, "pass" if results[lane] else "FAIL"))
+    passed = all(results.values())
+    if tree_after != tree_before:
+        print("\nFiles changed while the check ran (tree {} -> {}), so this run proves nothing about the "
+              "final code. Review `git status`, then run the check again.".format(tree_before[:12], tree_after[:12]))
+        passed = False
+    if fast:
+        print("\n--fast: nothing recorded. Only a full-lane run counts for the push gate.")
+        return 0 if passed else 1
+    hooks_cli("stamp-checks", tree_after, "pass" if passed else "fail", *lanes)
+    print("\nRecorded: {} for tree {}.".format("PASS" if passed else "FAIL", tree_after[:12]))
+    if passed:
+        print("The push gate will accept a commit whose tree is exactly this one (commit everything first).")
+    return 0 if passed else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

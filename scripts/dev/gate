@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Command line for the Nexotec gates (.claude/hooks/nexotec_hooks.py).
+#   scripts/dev/gate status                          what push and hand-over still need
+#   scripts/dev/gate start KAN-71 <notion url>       set the active ticket (/ticket does this)
+#   scripts/dev/gate no-visual "<why>"               this change has no screen to show
+#   scripts/dev/gate evidence screenshot <file>      register a screenshot saved to a file
+#   scripts/dev/gate waive <ci|review|screenshot|notion|all> "<reason>"   Anto approves
+#   scripts/dev/gate close                           clear the active ticket (/ticket close)
+set -euo pipefail
+exec python3 "$(git rev-parse --show-toplevel)/.claude/hooks/nexotec_hooks.py" cli "$@"

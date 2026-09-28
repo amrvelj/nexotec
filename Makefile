@@ -1,4 +1,4 @@
-.PHONY: up down logs generate-frontend-types
+.PHONY: up env down logs generate-frontend-types
 
 # WP-2 PR-3 (closes G-13): brings the whole stack up from cold on a clean
 # machine, seeded, in one command. `.env` is generated once, on first run
@@ -6,7 +6,9 @@
 # by design (app/core/config.py), so docker-compose.yml's ${...}
 # substitution needs them from somewhere; this is that somewhere, and it's
 # git-ignored, dev-only, never the same secrets a real deployment uses.
-up:
+# `make env` alone writes the dev-only .env without starting anything
+# (scripts/dev/bootstrap uses it for local runs and the desktop preview).
+env:
 	@if [ ! -f .env ]; then \
 		echo "No .env found — generating dev-only secrets (first run only)."; \
 		python3 -c "from cryptography.fernet import Fernet; print('DMS_TAX_ID_ENCRYPTION_KEY=' + Fernet.generate_key().decode())" > .env; \
@@ -27,6 +29,8 @@ print('DMS_JWT_PRIVATE_KEY=' + pem.replace(chr(10), '\\\\n'))" >> .env; \
 		echo "in .env before the login flow will work; everything else starts fine"; \
 		echo "without them (login just 404s at Zitadel with a blank issuer)."; \
 	fi
+
+up: env
 	docker compose up --build
 
 down:
