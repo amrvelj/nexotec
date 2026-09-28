@@ -19,6 +19,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FutureTimeoutError
+from typing import Self
 
 import pytest
 
@@ -111,7 +112,7 @@ class _SilentServer:
     def accepted(self) -> int:
         return len(self._held)
 
-    def __enter__(self) -> "_SilentServer":
+    def __enter__(self) -> Self:
         self._thread.start()
         return self
 
