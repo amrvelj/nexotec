@@ -150,6 +150,11 @@ def test_allocate_to_customer_from_another_group_404s_not_403(client, db_session
     )
     assert response.status_code == 404, response.text
 
-    from app.customer.services.customer import list_vehicle_parties
+    # Unfiltered on purpose: a rogue row would belong to group B, so a
+    # group-A-scoped read (list_vehicle_parties) would pass vacuously.
+    from sqlalchemy import select
 
-    assert list_vehicle_parties(db_session, vehicle_id=uuid.UUID(created["id"])) == []
+    from app.customer.models.vehicle_party import VehicleParty
+
+    rows = db_session.scalars(select(VehicleParty).where(VehicleParty.vehicle_id == uuid.UUID(created["id"]))).all()
+    assert rows == []
