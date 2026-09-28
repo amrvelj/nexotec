@@ -107,7 +107,9 @@ Any code change after this point invalidates 2–4: redo them.
 2. **Work is not done when the code merges.** Every time — whether or not the ticket names
    them — draft the module PRD's status (what shipped) and the Gap Analysis (citing the new
    head), plus an ADR for any decision taken while building and whatever else the ticket
-   names. Spec-page writes ask Anto, which is intended.
+   names. Spec-page writes ask Anto, which is intended. His prompt shows only raw JSON, so
+   right before each one say in one plain sentence which page changes and how — e.g. "Gap
+   Analysis: add row G-104, manual configuration accepts unchecked codes, severity S3."
 3. Final reply to Anto: PR link, criteria met / not met, verification, screenshot, follow-up
    tickets, and anything waived with its reason.
 
@@ -125,6 +127,6 @@ open until it is complete. Never skip an update silently.
    and say so.
 2. Ticket Status → **Done**; change the callout to `Done — merged <date> as <short sha>, PR #<n>`.
 3. Close the loops: PRD status and Gap Analysis against the merged head, and anything else the
-   ticket names — spec-page writes ask Anto.
+   ticket names — spec-page writes ask Anto; say what each one changes first, as in step 7.
 4. `scripts/dev/gate close` (it refuses until the PR is merged), then tell Anto the worktree can
    be removed.
