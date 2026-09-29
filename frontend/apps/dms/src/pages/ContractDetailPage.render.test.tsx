@@ -191,3 +191,17 @@ describe('ContractDetailPage — an empty contract (KAN-66 / G-67) disables conf
     expect(await screen.findByRole('button', { name: i18n.t('contractDetail.actions.confirm') })).toBeEnabled()
   })
 })
+
+describe('ContractDetailPage — the trade-in figure carries its source (KAN-101)', () => {
+  it('marks a manual trade-in valuation as manual next to the trade-in value', async () => {
+    const withTradeIn = { ...CONTRACT, tradeInValue: '12000.00', tradeInValuationId: 'val-42' } as SalesContractRead
+    installFakeBackend([
+      { match: /^\/sales\/contracts\/k1$/, handler: () => withTradeIn },
+      { match: /^\/sales\/contracts\/k1\/documents$/, handler: () => ({ items: [], nextCursor: null }) },
+      { match: /^\/valuations\/val-42$/, handler: () => ({ id: 'val-42', source: 'manual', status: 'used' }) },
+    ])
+    renderPage()
+
+    expect(await screen.findByText(i18n.t('valuationSource.manual'))).toBeInTheDocument()
+  })
+})

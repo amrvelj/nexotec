@@ -927,7 +927,7 @@
         "staleVersion": "Dieser Vertrag hat sich seit dem Laden der Seite geändert. Er wurde neu geladen — bitte prüfen und erneut versuchen.",
         "badStatus": "Dieser Vertrag kann aus seinem aktuellen Status nicht mehr bestätigt werden.",
         "generic": "Der Vertrag konnte nicht bestätigt werden.",
-        "tradeInValuationExpired": "Die Eintauschbewertung dieses Vertrags ist abgelaufen. Bewerten Sie das Fahrzeug neu, bevor der Vertrag bestätigt werden kann."
+        "tradeInValuationExpired": "Die Eintauschbewertung dieses Vertrags ist abgelaufen, daher kann der Vertrag nicht bestätigt werden. Stornieren Sie ihn und erstellen Sie einen neuen Vertrag aus einer Offerte mit einer aktuellen Bewertung."
       }
     },
     "actions": {

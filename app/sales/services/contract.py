@@ -4,6 +4,7 @@ session — ADR-047 Pattern B — and the two distinct events) live together
 here.
 """
 
+import logging
 import uuid
 from collections.abc import Callable
 
@@ -26,6 +27,8 @@ from app.sales.services.offer import resolve_customer_label
 from app.valuation.public import consume_valuation_for_contract, revert_valuation_use
 
 _EVENT_PRODUCER = "sales"
+
+logger = logging.getLogger(__name__)
 
 
 def get_contract_or_404(db: Session, tenant_id: uuid.UUID, contract_id: uuid.UUID) -> SalesContract:
@@ -187,8 +190,8 @@ def _confirmed_event_payload(contract: SalesContract) -> dict:
     (WP-7, plus `tradeIn.valuationId` since KAN-101) — "existing"/"manual" (not "stock"/"manual", SalesContract's own
     vocabulary) is the one translation this function exists to make —
     PLUS the frozen `pricingSnapshot` WP-8's exit criterion requires
-    (ADR-046, additive). The inventory consumer ignores the new key; the
-    WP-9 invoice leg is its second reader.
+    (ADR-046, additive) — the inventory consumer ignores `pricingSnapshot`;
+    the WP-9 invoice leg is its second reader.
     """
 
     manual_configuration = None
@@ -232,10 +235,11 @@ def confirm_contract(
     together with it — that would be the shared-transaction anti-pattern
     ADR-047 exists to forbid).
 
-    A trade-in valuation is consumed next (KAN-101), on its own short-lived
-    session for the same reason. Several contracts may carry one valuation
-    (Anto, 2026-09-29), so an already-used one is accepted; one past its
-    validity refuses the confirmation, after releasing the reservation.
+    A trade-in valuation is consumed first (KAN-101), on its own short-lived
+    session for the same reason, before the reservation. Several contracts
+    may carry one valuation (Anto, 2026-09-29), so an already-used one is
+    accepted; one past its validity refuses the confirmation before anything
+    is reserved. If reserve() then refuses, "used" is reverted as below.
     If this function's own transaction fails, "used" is reverted only when
     this call set it and no other signed contract carries the valuation.
     Cancelling a signed contract never reverts it (ADR-066).
@@ -305,21 +309,10 @@ def confirm_contract(
             details={"reason": "missing_price"},
         )
 
-    reservation_id: uuid.UUID | None = None
-    if contract.vehicle_source == "stock" and contract.stock_item_id is not None:
-        short_lived = session_factory()
-        try:
-            result = reserve(
-                short_lived,
-                tenant_id=contract.tenant_id,
-                stock_item_id=contract.stock_item_id,
-                contract_id=contract.id,
-                idempotency_key=f"sales.contract.confirm:{contract.id}",
-            )
-        finally:
-            short_lived.close()
-        reservation_id = uuid.UUID(result["reservationId"])
-
+    # KAN-101 — the trade-in valuation is consumed BEFORE the reservation,
+    # so a refused or failed valuation call never leaves a reservation to
+    # undo (a released reservation's cached reserve() response would then
+    # hand a retry a reservation that no longer exists — KAN-114).
     valuation_newly_used = False
     if contract.trade_in_valuation_id is not None:
         short_lived = session_factory()
@@ -331,25 +324,37 @@ def confirm_contract(
                 actor_id=actor_id,
             )
         except ConflictError as exc:
-            _compensate_confirmation(
-                db, contract=contract, reservation_id=reservation_id, valuation_newly_used=False,
-                actor_id=actor_id, session_factory=session_factory,
-            )
             if (exc.details or {}).get("reason") == "valuation_expired":
                 raise ConflictError(
-                    f"The trade-in valuation of contract {contract.contract_number} has expired — "
-                    f"value the vehicle again before confirming.",
+                    f"The trade-in valuation of contract {contract.contract_number} has expired, so the "
+                    f"contract cannot be confirmed. Cancel it and create a new contract from an offer with a "
+                    f"current valuation.",
                     details={"reason": "trade_in_valuation_expired", "valuationId": str(contract.trade_in_valuation_id)},
                 ) from exc
             raise
+        finally:
+            short_lived.close()
+
+    reservation_id: uuid.UUID | None = None
+    if contract.vehicle_source == "stock" and contract.stock_item_id is not None:
+        short_lived = session_factory()
+        try:
+            result = reserve(
+                short_lived,
+                tenant_id=contract.tenant_id,
+                stock_item_id=contract.stock_item_id,
+                contract_id=contract.id,
+                idempotency_key=f"sales.contract.confirm:{contract.id}",
+            )
         except Exception:
             _compensate_confirmation(
-                db, contract=contract, reservation_id=reservation_id, valuation_newly_used=False,
+                db, contract=contract, reservation_id=None, valuation_newly_used=valuation_newly_used,
                 actor_id=actor_id, session_factory=session_factory,
             )
             raise
         finally:
             short_lived.close()
+        reservation_id = uuid.UUID(result["reservationId"])
 
     try:
         contract.status = ContractStatus.CONFIRMED
@@ -398,6 +403,11 @@ def _compensate_confirmation(
     "used" when this confirmation set it and no other signed contract
     carries it (a signed contract stays signed on it even if cancelled —
     ADR-066). Each on its own short-lived session, like the calls they undo.
+
+    Called from an `except` block, which re-raises the original error: each
+    action is attempted even if the other fails, and a failure here is
+    logged rather than raised, so it never masks why the confirmation
+    failed. What stays undone is left to reconciliation (ADR-047).
     """
 
     if reservation_id is not None:
@@ -409,31 +419,41 @@ def _compensate_confirmation(
                 reservation_id=reservation_id,
                 idempotency_key=f"sales.contract.confirm-compensate:{contract.id}",
             )
+        except Exception:
+            logger.exception(
+                "contract_confirm_compensation_failed",
+                extra={"contractId": str(contract.id), "action": "release_reservation"},
+            )
         finally:
             compensating.close()
 
     if valuation_newly_used and contract.trade_in_valuation_id is not None:
-        signed_elsewhere = db.scalar(
-            select(SalesContract.id)
-            .where(
-                SalesContract.tenant_id == contract.tenant_id,
-                SalesContract.trade_in_valuation_id == contract.trade_in_valuation_id,
-                SalesContract.id != contract.id,
-                SalesContract.signed_at.is_not(None),
+        compensating = session_factory()
+        try:
+            signed_elsewhere = compensating.scalar(
+                select(SalesContract.id)
+                .where(
+                    SalesContract.tenant_id == contract.tenant_id,
+                    SalesContract.trade_in_valuation_id == contract.trade_in_valuation_id,
+                    SalesContract.id != contract.id,
+                    SalesContract.signed_at.is_not(None),
+                )
+                .limit(1)
             )
-            .limit(1)
-        )
-        if signed_elsewhere is None:
-            compensating = session_factory()
-            try:
+            if signed_elsewhere is None:
                 revert_valuation_use(
                     compensating,
                     tenant_id=contract.tenant_id,
                     valuation_id=contract.trade_in_valuation_id,
                     actor_id=actor_id,
                 )
-            finally:
-                compensating.close()
+        except Exception:
+            logger.exception(
+                "contract_confirm_compensation_failed",
+                extra={"contractId": str(contract.id), "action": "revert_valuation_use"},
+            )
+        finally:
+            compensating.close()
 
 
 def request_invoice(db: Session, *, contract: SalesContract, actor_id: uuid.UUID | None) -> SalesContract:

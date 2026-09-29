@@ -1,15 +1,16 @@
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Alert, Loader, Text } from '@mantine/core'
+import { Alert, Group, Loader, Text } from '@mantine/core'
 import { Ban, FileSignature } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { DetailHeader, SalesStatusBadge, SalesTypeBadge, StatRow, useSetBreadcrumb, type RowMenuGroups } from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
 import { SalesDocumentsSection } from '../components/SalesDocumentsSection'
+import { ValuationSourceMarker } from '../components/ValuationSourceMarker'
 import { translatedSalesDealStatusLabel } from '../salesOptions'
 import { formatCurrencyChf } from '../utils/format'
-import type { SalesContractRead } from '../api/types'
+import type { SalesContractRead, ValuationRead } from '../api/types'
 
 export function ContractDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -41,6 +42,14 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
     queryKey: ['sales-contract', id],
     queryFn: () => api.get<SalesContractRead>(`/sales/contracts/${id}`),
     enabled: Boolean(id),
+  })
+
+  // KAN-101 — the trade-in figure is marked manual where it is (ADR-048).
+  const tradeInValuationId = contractQuery.data?.tradeInValuationId ?? null
+  const tradeInValuationQuery = useQuery({
+    queryKey: ['valuation', tradeInValuationId],
+    queryFn: () => api.get<ValuationRead>(`/valuations/${tradeInValuationId}`),
+    enabled: tradeInValuationId != null,
   })
 
   useSetBreadcrumb(embedded ? null : [t('shell.nav.sales'), contractQuery.data?.contractNumber ?? id])
@@ -183,7 +192,15 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
           { label: t('contractDetail.stats.grossPrice'), value: contract.grossPrice != null ? formatCurrencyChf(Number(contract.grossPrice)) : '—' },
           {
             label: t('contractDetail.stats.tradeIn'),
-            value: contract.tradeInValue != null ? `− ${formatCurrencyChf(Number(contract.tradeInValue))}` : '—',
+            value:
+              contract.tradeInValue != null ? (
+                <Group gap={6} wrap="nowrap" component="span">
+                  {`− ${formatCurrencyChf(Number(contract.tradeInValue))}`}
+                  {tradeInValuationQuery.data && <ValuationSourceMarker source={tradeInValuationQuery.data.source} />}
+                </Group>
+              ) : (
+                '—'
+              ),
             negative: contract.tradeInValue != null,
           },
           { label: t('contractDetail.stats.payable'), value: contract.payable != null ? formatCurrencyChf(Number(contract.payable)) : '—' },

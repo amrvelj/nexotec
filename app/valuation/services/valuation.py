@@ -191,6 +191,9 @@ def consume_for_contract(db: Session, *, valuation: Valuation, actor_id: uuid.UU
     accepted, as `mark_used` accepts it.
     """
 
+    # Row lock: two contracts confirmed at the same moment serialise here,
+    # so exactly one of them sets used_at and publishes valuation.used.
+    db.refresh(valuation, with_for_update=True)
     if not valuation.is_draft and valuation.valid_until < utcnow():
         raise ConflictError(
             f"Valuation {valuation.valuation_number} expired on {valuation.valid_until.date().isoformat()}.",

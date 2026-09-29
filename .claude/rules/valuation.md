@@ -2,6 +2,8 @@
 paths:
   - "app/valuation/**"
   - "app/sales/services/trade_in.py"
+  - "app/sales/services/contract.py"
+  - "app/inventory/services/pipeline.py"
   - "frontend/apps/dms/src/**/*aluation*"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises PRD-Vehicles (FR-V-09,
@@ -28,12 +30,14 @@ as any change to what it states. -->
   on read** — never stored, never repaired by a nightly job.
 - **A contract consumes its trade-in valuation at confirmation** (KAN-101):
   `sales/services/contract.py::confirm_contract` calls
-  `valuation.public.consume_valuation_for_contract` on its own session (ADR-047). **One
+  `valuation.public.consume_valuation_for_contract` on its own session (ADR-047), **before**
+  reserving the car, so a refusal never leaves a reservation to undo. **One
   valuation may back several contracts** (Anto, 2026-09-29) — the same VIN may be in pipeline
   twice, never twice in stock. A valuation past `valid_until` refuses the confirmation
-  (`trade_in_valuation_expired`); a draft does not. If the contract's own commit fails,
-  `revert_valuation_use` undoes "used" only when that confirmation set it and no other signed
-  contract carries it. **Cancelling a signed contract leaves it used** (ADR-066).
+  (`trade_in_valuation_expired`); a draft does not. If the reservation or the contract's own
+  commit fails, `revert_valuation_use` undoes "used" only when that confirmation set it and no
+  other signed contract carries it; each compensating action runs even if the other fails.
+  **Cancelling a signed contract leaves it used** (ADR-066).
 - **Stock's `valuationRef`** on a trade-in is set when inventory's `sales.contract.confirmed`
   consumer creates the pipeline item (`inventory/services/pipeline.py`, from
   `tradeIn.valuationId`) — the item does not exist when Sales confirms, so Sales never calls

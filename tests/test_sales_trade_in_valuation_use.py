@@ -161,7 +161,7 @@ def test_confirming_twice_is_refused_by_status_not_by_the_valuation(db_session, 
     assert derive_status(_reload_valuation(db_session, valuation.id)) == "used"
 
 
-def test_an_expired_valuation_refuses_confirmation_and_releases_the_reservation(db_session, engine):
+def test_an_expired_valuation_refuses_confirmation_before_anything_is_reserved(db_session, engine):
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
     valuation = _valuation(db_session, dealership.id, group_id)
@@ -177,6 +177,11 @@ def test_an_expired_valuation_refuses_confirmation_and_releases_the_reservation(
     db_session.rollback()
     db_session.expire_all()
     assert get_stock_item_or_404(db_session, dealership.id, item.id).reservation_state == ReservationState.NONE
+    # The valuation is consumed before the reservation, so a refusal never
+    # reserves and releases (review finding D; KAN-114's stale-cache path).
+    assert db_session.query(OutboxMessage).filter_by(
+        aggregate_id=item.id, event_type="inventory.stock_item.reserved"
+    ).count() == 0
     assert db_session.get(type(contract), contract.id).status == ContractStatus.PENDING
     assert derive_status(_reload_valuation(db_session, valuation.id)) == "expired"
 
@@ -213,6 +218,24 @@ def test_a_draft_valuation_is_accepted(db_session, engine):
     assert derive_status(_reload_valuation(db_session, valuation.id)) == "used"
 
 
+def test_a_draft_past_its_validity_date_is_still_accepted(db_session, engine):
+    """A draft is never 'expired' (derive_status); the refusal is for a
+    finalised valuation past its date only."""
+
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    valuation = _valuation(db_session, dealership.id, group_id, is_draft=True)
+    contract, _item = _trade_in_contract(db_session, dealership.id, group_id, valuation)
+    valuation.valid_until = dt.datetime.now(dt.UTC) - dt.timedelta(days=1)
+    db_session.commit()
+    assert derive_status(valuation) == "draft"
+
+    confirmed = _confirm(db_session, engine, contract, group_id)
+
+    assert confirmed.status == ContractStatus.CONFIRMED
+    assert derive_status(_reload_valuation(db_session, valuation.id)) == "used"
+
+
 def test_a_failed_contract_commit_reverts_used_and_releases_the_reservation(db_session, engine):
     """ADR-047: the valuation call committed on its own, so the failure of
     Sales's own transaction is repaired by a compensating call — never by
@@ -240,11 +263,19 @@ def test_a_failed_contract_commit_reverts_used_and_releases_the_reservation(db_s
 
 
 def test_a_failed_commit_leaves_used_alone_when_another_signed_contract_carries_it(db_session, engine):
+    """The case the signed-elsewhere check exists for: THIS confirmation set
+    "used", yet another contract is already signed on the valuation — as for
+    a contract signed before KAN-101, which never marked it."""
+
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
     valuation = _valuation(db_session, dealership.id, group_id)
     first, _ = _trade_in_contract(db_session, dealership.id, group_id, valuation)
     _confirm(db_session, engine, first, group_id)
+    # The pre-KAN-101 state: a signed contract, the valuation still unused.
+    stored = _reload_valuation(db_session, valuation.id)
+    stored.used_at = None
+    db_session.commit()
     second, _ = _trade_in_contract(db_session, dealership.id, group_id, valuation)
 
     with (
@@ -258,6 +289,49 @@ def test_a_failed_commit_leaves_used_alone_when_another_signed_contract_carries_
     assert db_session.query(OutboxMessage).filter_by(
         aggregate_id=valuation.id, event_type="valuation.valuation.use_reverted"
     ).count() == 0
+
+
+def test_a_refused_reservation_reverts_used(db_session, engine):
+    """The valuation is consumed first; if reserve() then refuses (the car
+    is already reserved), the confirmation's "used" is undone."""
+
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    valuation = _valuation(db_session, dealership.id, group_id)
+    contract, _item = _trade_in_contract(db_session, dealership.id, group_id, valuation)
+
+    with (
+        patch(
+            "app.sales.services.contract.reserve",
+            side_effect=ConflictError("already reserved", details={"stockItemId": "x"}),
+        ),
+        pytest.raises(ConflictError),
+    ):
+        _confirm(db_session, engine, contract, group_id)
+
+    db_session.rollback()
+    assert derive_status(_reload_valuation(db_session, valuation.id)) == "valid"
+    assert db_session.get(type(contract), contract.id).status == ContractStatus.PENDING
+
+
+def test_a_failing_release_does_not_stop_the_valuation_revert_or_mask_the_error(db_session, engine):
+    """Review finding B: each compensating action runs on its own, and the
+    error the caller sees is the one that failed the confirmation."""
+
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    valuation = _valuation(db_session, dealership.id, group_id)
+    contract, _item = _trade_in_contract(db_session, dealership.id, group_id, valuation)
+
+    with (
+        patch("app.sales.services.contract.upsert_deal_projection", side_effect=RuntimeError("boom")),
+        patch("app.sales.services.contract.release", side_effect=OSError("inventory unreachable")),
+        pytest.raises(RuntimeError, match="boom"),
+    ):
+        _confirm(db_session, engine, contract, group_id)
+
+    db_session.rollback()
+    assert derive_status(_reload_valuation(db_session, valuation.id)) == "valid"
 
 
 def test_cancelling_a_signed_contract_leaves_the_valuation_used(db_session, engine):

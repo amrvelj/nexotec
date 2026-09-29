@@ -56,6 +56,10 @@ against the code). "Open" lines cite a ticket; /drift-audit re-checks them weekl
   acquired. **Not enforced today:** `confirm_contract` has no purchase check. When it is built,
   it reads the local replica (ADR-052), never a synchronous query.
 - A contract needs a vehicle and a price before it can be confirmed.
+- **A trade-in valuation past its validity refuses confirmation** (`trade_in_valuation_expired`,
+  KAN-101); confirmation consumes the valuation first, then reserves the car — see
+  `.claude/rules/valuation.md`. Contracts before KAN-101 were confirmed without marking their
+  valuation used.
 - **ADR-065** — a credit block stops the contract, not the offer. An address-less customer is
   likewise gated at the contract (D-20).
 

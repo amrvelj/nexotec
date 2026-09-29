@@ -927,7 +927,7 @@
         "staleVersion": "Questo contratto è cambiato dal caricamento della pagina. È stato ricaricato — verificalo e riprova.",
         "badStatus": "Questo contratto non può più essere confermato dal suo stato attuale.",
         "generic": "Impossibile confermare il contratto.",
-        "tradeInValuationExpired": "La valutazione della permuta di questo contratto è scaduta. Valuta di nuovo il veicolo prima di poter confermare il contratto."
+        "tradeInValuationExpired": "La valutazione della permuta di questo contratto è scaduta, quindi il contratto non può essere confermato. Annullalo e crea un nuovo contratto da un'offerta con una valutazione aggiornata."
       }
     },
     "actions": {
