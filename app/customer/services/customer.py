@@ -1362,15 +1362,9 @@ def update_customer_phone(
     )
     if becomes_unusable:
         _assert_not_last_contact_point(db, phone.customer_id, removing="phone number")
-    reelect_primary = becomes_unusable and phone.is_primary
-
-    target_phone_type = changes.get("phone_type", phone.phone_type)
-    if changes.get("is_primary") is True and not phone.is_primary:
-        _unset_other_primaries(db, CustomerPhone, customer_id=phone.customer_id, type_value=target_phone_type)
-    elif changes.get("is_primary") is False and phone.is_primary:
-        raise BadRequestError(
-            "Cannot unset the primary phone directly — mark a different phone as primary instead."
-        )
+    groups_to_settle = _prepare_primary_change(
+        db, CustomerPhone, row=phone, changes=changes, becomes_unusable=becomes_unusable, noun="phone"
+    )
 
     for field, value in changes.items():
         setattr(phone, field, value)
@@ -1387,13 +1381,9 @@ def update_customer_phone(
             "This phone number is already on this customer.", details={"phoneE164": changes.get("phone_e164")}
         ) from exc
 
-    if reelect_primary:
-        # KAN-46: the row that was primary just became closed / do_not_use.
-        # Re-elect a usable survivor of the same type in this transaction so
-        # the Mobile/Landline/Work projection follows the working number
-        # instead of going null while one sits on the record.
-        _fixup_single_primary(db, CustomerPhone, customer_id=phone.customer_id, type_value=target_phone_type)
-        db.flush()
+    for type_value in groups_to_settle:
+        _fixup_single_primary(db, CustomerPhone, customer_id=phone.customer_id, type_value=type_value)
+    db.flush()
 
     record_audit_event(
         db,
@@ -1564,15 +1554,9 @@ def update_customer_email(
     )
     if becomes_unusable:
         _assert_not_last_contact_point(db, email.customer_id, removing="email address")
-    reelect_primary = becomes_unusable and email.is_primary
-
-    target_email_type = changes.get("email_type", email.email_type)
-    if changes.get("is_primary") is True and not email.is_primary:
-        _unset_other_primaries(db, CustomerEmail, customer_id=email.customer_id, type_value=target_email_type)
-    elif changes.get("is_primary") is False and email.is_primary:
-        raise BadRequestError(
-            "Cannot unset the primary email directly — mark a different email as primary instead."
-        )
+    groups_to_settle = _prepare_primary_change(
+        db, CustomerEmail, row=email, changes=changes, becomes_unusable=becomes_unusable, noun="email"
+    )
 
     for field, value in changes.items():
         setattr(email, field, value)
@@ -1588,10 +1572,9 @@ def update_customer_email(
             details={"emailAddress": changes.get("email_address")},
         ) from exc
 
-    if reelect_primary:
-        # KAN-46 — see update_customer_phone.
-        _fixup_single_primary(db, CustomerEmail, customer_id=email.customer_id, type_value=target_email_type)
-        db.flush()
+    for type_value in groups_to_settle:
+        _fixup_single_primary(db, CustomerEmail, customer_id=email.customer_id, type_value=type_value)
+    db.flush()
 
     record_audit_event(
         db,
@@ -1651,6 +1634,63 @@ def _unset_other_primaries(db: Session, model: type, *, customer_id: uuid.UUID, 
     )
     for row in rows:
         row.is_primary = False
+
+
+def _prepare_primary_change(
+    db: Session, model: type, *, row: Any, changes: dict[str, Any], becomes_unusable: bool, noun: str
+) -> list[Any]:
+    """The primary handling shared by the phone / email / address update
+    paths (ADR-067: exactly one primary per type-group, on every update).
+
+    Runs before `changes` are applied to `row`. Returns the type-groups the
+    caller must settle with `_fixup_single_primary` once the row is flushed.
+
+    A PATCH that changes the type touches two groups (KAN-102). The group
+    the row leaves re-elects if its primary left. In the group it joins,
+    `isPrimary: true` in the same PATCH makes the moved row the primary;
+    otherwise that group's existing usable primary stays and the moved row
+    is demoted — a type change never silently demotes another row (Anto,
+    KAN-102). A moved row joining a group with no primary is elected by the
+    fixup, whether or not it was primary before.
+
+    A row the same PATCH closes or flags do_not_use cannot take the flag, so
+    `isPrimary: true` on it leaves the group's existing primary alone.
+    """
+
+    type_column = _CONTACT_TYPE_COLUMN[model]
+    old_type = getattr(row, type_column)
+    new_type = changes.get(type_column, old_type)
+    moves = new_type != old_type
+
+    if changes.get("is_primary") is True:
+        if (not row.is_primary or moves) and not becomes_unusable:
+            _unset_other_primaries(db, model, customer_id=row.customer_id, type_value=new_type)
+    elif changes.get("is_primary") is False and row.is_primary:
+        raise BadRequestError(
+            f"Cannot unset the primary {noun} directly — mark a different {noun} as primary instead."
+        )
+    elif moves and row.is_primary:
+        target_primaries: list[Any] = list(
+            db.scalars(
+                select(model).where(
+                    model.customer_id == row.customer_id,  # type: ignore[attr-defined]
+                    getattr(model, type_column) == new_type,
+                    model.is_primary.is_(True),  # type: ignore[attr-defined]
+                )
+            ).all()
+        )
+        if any(_is_usable_row(r) for r in target_primaries):
+            row.is_primary = False
+
+    if moves:
+        return [old_type, new_type]
+    if becomes_unusable:
+        # KAN-46: a closed / do_not_use row is never primary. If it was (or
+        # this PATCH flags it), re-elect a usable survivor of the same type
+        # so the Mobile/Landline/Work projection follows the working number
+        # instead of going null. A no-op when the row was not primary.
+        return [new_type]
+    return []
 
 
 # --- CustomerAddress: multi-valued postal addresses (WP-3 PR-5, ADR-067).
@@ -1757,15 +1797,9 @@ def update_customer_address(
     becomes_unusable = (changes.get("valid_to") is not None and address.valid_to is None) or (
         changes.get("do_not_use") is True and not address.do_not_use
     )
-    reelect_primary = becomes_unusable and address.is_primary
-
-    target_address_type = changes.get("address_type", address.address_type)
-    if changes.get("is_primary") is True and not address.is_primary:
-        _unset_other_primaries(db, CustomerAddress, customer_id=address.customer_id, type_value=target_address_type)
-    elif changes.get("is_primary") is False and address.is_primary:
-        raise BadRequestError(
-            "Cannot unset the primary address directly — mark a different address as primary instead."
-        )
+    groups_to_settle = _prepare_primary_change(
+        db, CustomerAddress, row=address, changes=changes, becomes_unusable=becomes_unusable, noun="address"
+    )
 
     for field, value in changes.items():
         setattr(address, field, value)
@@ -1776,9 +1810,9 @@ def update_customer_address(
 
     db.flush()
 
-    if reelect_primary:
-        _fixup_single_primary(db, CustomerAddress, customer_id=address.customer_id, type_value=target_address_type)
-        db.flush()
+    for type_value in groups_to_settle:
+        _fixup_single_primary(db, CustomerAddress, customer_id=address.customer_id, type_value=type_value)
+    db.flush()
 
     record_audit_event(
         db,
