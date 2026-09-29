@@ -10,6 +10,7 @@ import { CustomerCreateDialog } from '../components/CustomerCreateDialog'
 import { OfferAccessoriesAndOptions } from '../components/OfferAccessoriesAndOptions'
 import { OfferGenerateReviewModal } from '../components/OfferGenerateReviewModal'
 import { PriceBuildUp } from '../components/PriceBuildUp'
+import { ValuationSourceMarker } from '../components/ValuationSourceMarker'
 import { useDebouncedNumberField } from '../hooks/useDebouncedNumberField'
 import { CustomerDetailContent } from './CustomerDetailPage'
 import { StockDetailContent } from './StockDetailPage'
@@ -22,6 +23,7 @@ import type {
   StockItemCondition,
   StockItemPage,
   StockItemRead,
+  ValuationRead,
 } from '../api/types'
 
 function requirementBadge(t: (key: string) => string, requirement: string) {
@@ -68,6 +70,14 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
     enabled: customerId != null,
   })
   const selectedCustomer = selectedCustomerQuery.data ?? null
+  // KAN-101 — the trade-in card marks a manual figure as manual (ADR-048),
+  // so it reads the attached valuation's source from the valuation module.
+  const tradeInValuationId = offerQuery.data?.tradeInValuationId ?? null
+  const tradeInValuationQuery = useQuery({
+    queryKey: ['valuation', tradeInValuationId],
+    queryFn: () => api.get<ValuationRead>(`/valuations/${tradeInValuationId}`),
+    enabled: tradeInValuationId != null,
+  })
   // § ADR-059 — opening the selected customer's own record from inside
   // the offer-generation process is an overlay, never a navigation (the
   // half-built offer must survive it intact).
@@ -300,9 +310,12 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
           <Stack gap={4}>
             <Text fw={600}>{offer.tradeInLabel}</Text>
             {offer.tradeInValue != null && (
-              <Text size="sm" c="dimmed">
-                {t('offerWorkspace.tradeIn.value')}: {formatCurrencyChf(Number(offer.tradeInValue))}
-              </Text>
+              <Group gap="xs">
+                <Text size="sm" c="dimmed">
+                  {t('offerWorkspace.tradeIn.value')}: {formatCurrencyChf(Number(offer.tradeInValue))}
+                </Text>
+                {tradeInValuationQuery.data && <ValuationSourceMarker source={tradeInValuationQuery.data.source} />}
+              </Group>
             )}
             {offer.tradeInValuationId && (
               <Text size="xs" c="dimmed">

@@ -1856,9 +1856,9 @@ export interface paths {
         put?: never;
         /**
          * Mark Valuation Used
-         * @description Exposed for completeness/manual correction — Sales's own contract-
-         *     confirmation flow (PR-6) calls app.valuation.public.mark_valuation_used
-         *     directly, not this HTTP endpoint.
+         * @description Manual correction only. Sales's contract confirmation consumes a
+         *     trade-in valuation through app.valuation.public.consume_valuation_for_contract
+         *     (KAN-101), not through this HTTP endpoint.
          */
         post: operations["mark_valuation_used_v1_valuations__valuation_id__mark_used_post"];
         delete?: never;

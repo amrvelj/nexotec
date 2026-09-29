@@ -116,6 +116,18 @@ describe('ContractDetailPage — the confirm refusal is surfaced and localised (
     expect(await screen.findByText(i18n.t('contractDetail.errors.confirmRefused.missingPrice'))).toBeInTheDocument()
   })
 
+  it('an expired trade-in valuation 409 (KAN-101) renders the localised inline alert', async () => {
+    const user = userEvent.setup()
+    refuseConfirm('trade_in_valuation_expired')
+    renderPage()
+
+    await user.click(await screen.findByRole('button', { name: i18n.t('contractDetail.actions.confirm') }))
+
+    expect(
+      await screen.findByText(i18n.t('contractDetail.errors.confirmRefused.tradeInValuationExpired')),
+    ).toBeInTheDocument()
+  })
+
   it('a stale-version 409 (no reason) shows the localised reload message, never the backend English string', async () => {
     const user = userEvent.setup()
     installFakeBackend([

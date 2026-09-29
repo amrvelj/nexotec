@@ -70,6 +70,8 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
         return t('contractDetail.errors.confirmRefused.missingVehicle')
       case 'missing_price':
         return t('contractDetail.errors.confirmRefused.missingPrice')
+      case 'trade_in_valuation_expired':
+        return t('contractDetail.errors.confirmRefused.tradeInValuationExpired')
       case 'do_not_contact':
         return t('contractDetail.errors.confirmRefused.doNotContact')
       case 'credit_block':

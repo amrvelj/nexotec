@@ -926,7 +926,8 @@
         "doNotContact": "Dieser Kunde ist als «nicht kontaktieren» markiert. Der Vertrag kann nicht bestätigt werden.",
         "staleVersion": "Dieser Vertrag hat sich seit dem Laden der Seite geändert. Er wurde neu geladen — bitte prüfen und erneut versuchen.",
         "badStatus": "Dieser Vertrag kann aus seinem aktuellen Status nicht mehr bestätigt werden.",
-        "generic": "Der Vertrag konnte nicht bestätigt werden."
+        "generic": "Der Vertrag konnte nicht bestätigt werden.",
+        "tradeInValuationExpired": "Die Eintauschbewertung dieses Vertrags ist abgelaufen. Bewerten Sie das Fahrzeug neu, bevor der Vertrag bestätigt werden kann."
       }
     },
     "actions": {
@@ -1537,5 +1538,9 @@
     "cancel": "Abbrechen",
     "conflict": "Dieser Kunde wurde seit dem Öffnen geändert. Bitte neu laden und erneut versuchen.",
     "failed": "Die Kreditsperre konnte nicht aktualisiert werden."
+  },
+  "valuationSource": {
+    "manual": "Manuell",
+    "auto_i_dat": "auto-i-dat"
   }
 }
