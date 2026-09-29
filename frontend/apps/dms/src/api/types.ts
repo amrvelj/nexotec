@@ -178,6 +178,7 @@ export type SalesDocumentRead = Schemas['DocumentRead']
 export type SalesDocumentPage = Schemas['DocumentPage']
 
 export type ValuationSourceValue = Schemas['ValuationSource']
+export type StockValuationRefRead = Schemas['ValuationRefRead']
 export type ValuationDeductionInput = Schemas['DeductionInput']
 export type ValuationDeductionRead = Schemas['DeductionRead']
 

@@ -45,11 +45,10 @@ _HEARTBEAT_INTERVAL_SECONDS = 30.0
 
 
 def register_handlers(transport: InProcessTransport) -> None:
-    """WP-7 PR-2 registers the first real consumer here — sales emits no
-    such event yet (see app.inventory.services.pipeline's own docstring),
-    so this is genuinely forward-compatible infrastructure, exercised
-    today only by tests/test_inventory_pipeline_consumer.py's directly-
-    constructed synthetic events.
+    """WP-7 PR-2 registered the first real consumer here: inventory turns
+    `sales.contract.confirmed` (emitted by app.sales.services.contract.
+    confirm_contract) into pipeline stock items — and, since KAN-101, gives
+    a trade-in's item its valuation pointer.
     """
 
     transport.register(

@@ -926,7 +926,8 @@
         "doNotContact": "Questo cliente è contrassegnato come «da non contattare». Il contratto non può essere confermato.",
         "staleVersion": "Questo contratto è cambiato dal caricamento della pagina. È stato ricaricato — verificalo e riprova.",
         "badStatus": "Questo contratto non può più essere confermato dal suo stato attuale.",
-        "generic": "Impossibile confermare il contratto."
+        "generic": "Impossibile confermare il contratto.",
+        "tradeInValuationExpired": "La valutazione della permuta di questo contratto è scaduta, quindi il contratto non può essere confermato. Annullalo e crea un nuovo contratto da un'offerta con una valutazione aggiornata."
       }
     },
     "actions": {
@@ -1537,5 +1538,9 @@
     "cancel": "Annulla",
     "conflict": "Questo cliente è cambiato dopo l’apertura. Ricarica e riprova.",
     "failed": "Impossibile aggiornare il blocco creditizio."
+  },
+  "valuationSource": {
+    "manual": "Manuale",
+    "auto_i_dat": "auto-i-dat"
   }
 }

@@ -926,7 +926,8 @@
         "doNotContact": "This customer is marked do-not-contact. The contract cannot be confirmed.",
         "staleVersion": "This contract changed since the page was loaded. It has been reloaded — review it and try again.",
         "badStatus": "This contract can no longer be confirmed from its current status.",
-        "generic": "The contract could not be confirmed."
+        "generic": "The contract could not be confirmed.",
+        "tradeInValuationExpired": "The trade-in valuation on this contract has expired, so the contract cannot be confirmed. Cancel it and create a new contract from an offer with a current valuation."
       }
     },
     "actions": {
@@ -1537,5 +1538,9 @@
     "cancel": "Cancel",
     "conflict": "This customer changed since you opened this. Reload and try again.",
     "failed": "Could not update the credit block."
+  },
+  "valuationSource": {
+    "manual": "Manual",
+    "auto_i_dat": "auto-i-dat"
   }
 }

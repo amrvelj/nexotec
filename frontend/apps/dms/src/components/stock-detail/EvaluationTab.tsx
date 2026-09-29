@@ -3,14 +3,9 @@ import { Loader } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 import { KeyValueRow, OverviewCard, slate } from '@nexotec/ui-kit'
 import { api } from '../../api/client'
+import type { StockValuationRefRead } from '../../api/types'
 import { formatCurrencyChf, formatDateTime } from '../../utils/format'
-
-interface ValuationRefRead {
-  valuationId: string | null
-  amount: string | null
-  valuedAt: string | null
-  source: string | null
-}
+import { ValuationSourceMarker } from '../ValuationSourceMarker'
 
 interface EvaluationTabProps {
   stockItemId: string
@@ -19,17 +14,16 @@ interface EvaluationTabProps {
 
 /**
  * § ADR-066/ADR-048 — Stock is a READER only. No form, no mutation: the
- * real valuation module (creation, list, draft/valid/expired/used status
- * derivation) is WP-8 scope. This tab renders whatever denormalized
- * pointer Stock currently holds and nothing else — building a local
- * create form here would be exactly the "wrong package" mistake the
- * brief warns against.
+ * valuation module owns creation, the list and the status. This tab
+ * renders the denormalized pointer Stock holds — set on a trade-in's
+ * pipeline item when its contract is confirmed (KAN-101) — and marks a
+ * manual figure as manual.
  */
 export function EvaluationTab({ stockItemId, locale }: EvaluationTabProps) {
   const { t } = useTranslation()
   const query = useQuery({
     queryKey: ['stock-item', stockItemId, 'valuation'],
-    queryFn: () => api.get<ValuationRefRead>(`/inventory/stock-items/${stockItemId}/valuation`),
+    queryFn: () => api.get<StockValuationRefRead>(`/inventory/stock-items/${stockItemId}/valuation`),
   })
 
   if (query.isLoading) return <Loader />
@@ -47,7 +41,9 @@ export function EvaluationTab({ stockItemId, locale }: EvaluationTabProps) {
           <KeyValueRow label={t('stockDetail.evaluation.valuedAt')}>
             {ref.valuedAt ? formatDateTime(ref.valuedAt, locale) : '—'}
           </KeyValueRow>
-          <KeyValueRow label={t('stockDetail.evaluation.source')}>{ref.source ?? '—'}</KeyValueRow>
+          <KeyValueRow label={t('stockDetail.evaluation.source')}>
+            <ValuationSourceMarker source={ref.source} />
+          </KeyValueRow>
         </>
       )}
       <p style={{ fontSize: 12, color: slate[5], marginTop: 12 }}>{t('stockDetail.evaluation.hint')}</p>

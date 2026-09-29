@@ -116,6 +116,18 @@ describe('ContractDetailPage — the confirm refusal is surfaced and localised (
     expect(await screen.findByText(i18n.t('contractDetail.errors.confirmRefused.missingPrice'))).toBeInTheDocument()
   })
 
+  it('an expired trade-in valuation 409 (KAN-101) renders the localised inline alert', async () => {
+    const user = userEvent.setup()
+    refuseConfirm('trade_in_valuation_expired')
+    renderPage()
+
+    await user.click(await screen.findByRole('button', { name: i18n.t('contractDetail.actions.confirm') }))
+
+    expect(
+      await screen.findByText(i18n.t('contractDetail.errors.confirmRefused.tradeInValuationExpired')),
+    ).toBeInTheDocument()
+  })
+
   it('a stale-version 409 (no reason) shows the localised reload message, never the backend English string', async () => {
     const user = userEvent.setup()
     installFakeBackend([
@@ -177,5 +189,19 @@ describe('ContractDetailPage — an empty contract (KAN-66 / G-67) disables conf
     renderPage()
 
     expect(await screen.findByRole('button', { name: i18n.t('contractDetail.actions.confirm') })).toBeEnabled()
+  })
+})
+
+describe('ContractDetailPage — the trade-in figure carries its source (KAN-101)', () => {
+  it('marks a manual trade-in valuation as manual next to the trade-in value', async () => {
+    const withTradeIn = { ...CONTRACT, tradeInValue: '12000.00', tradeInValuationId: 'val-42' } as SalesContractRead
+    installFakeBackend([
+      { match: /^\/sales\/contracts\/k1$/, handler: () => withTradeIn },
+      { match: /^\/sales\/contracts\/k1\/documents$/, handler: () => ({ items: [], nextCursor: null }) },
+      { match: /^\/valuations\/val-42$/, handler: () => ({ id: 'val-42', source: 'manual', status: 'used' }) },
+    ])
+    renderPage()
+
+    expect(await screen.findByText(i18n.t('valuationSource.manual'))).toBeInTheDocument()
   })
 })

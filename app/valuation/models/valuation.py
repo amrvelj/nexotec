@@ -100,9 +100,12 @@ class Valuation(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMix
     # else (valid/expired) is derived on read. A draft is never counted as
     # "valid" regardless of its own valid_until.
     is_draft: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    # Set once, by app.valuation.public.mark_valuation_used (Sales calls
-    # this at contract confirmation, PR-6) — "used" is terminal, an offer
-    # a contract has already consumed, never re-offered.
+    # Set when the first contract carrying this valuation as its trade-in
+    # is confirmed (app.valuation.public.consume_valuation_for_contract,
+    # KAN-101), or by the manual mark-used endpoint. Further contracts may
+    # carry it too (Anto, 2026-09-29). Cleared only by the compensating
+    # revert_valuation_use when that confirmation's own transaction failed;
+    # once a contract is signed on it, "used" is terminal (ADR-066).
     used_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
 
     supersedes_valuation_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True)
