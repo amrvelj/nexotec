@@ -112,9 +112,9 @@ def mark_valuation_used(
     principal: Principal = Depends(require_write("valuations")),
     db: Session = Depends(get_db),
 ):
-    """Exposed for completeness/manual correction — Sales's own contract-
-    confirmation flow (PR-6) calls app.valuation.public.mark_valuation_used
-    directly, not this HTTP endpoint.
+    """Manual correction only. Sales's contract confirmation consumes a
+    trade-in valuation through app.valuation.public.consume_valuation_for_contract
+    (KAN-101), not through this HTTP endpoint.
     """
 
     valuation = valuation_service.get_valuation_or_404(db, principal.tenant_id, valuation_id)

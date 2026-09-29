@@ -23,6 +23,7 @@ from app.sales.models.offer import SalesOffer
 from app.sales.services.deal_projection import upsert_deal_projection
 from app.sales.services.numbering import allocate_contract_number
 from app.sales.services.offer import resolve_customer_label
+from app.valuation.public import consume_valuation_for_contract, revert_valuation_use
 
 _EVENT_PRODUCER = "sales"
 
@@ -183,7 +184,7 @@ def _pricing_snapshot(contract: SalesContract) -> dict:
 
 def _confirmed_event_payload(contract: SalesContract) -> dict:
     """The four keys inventory's handle_sales_contract_confirmed reads
-    (WP-7) — "existing"/"manual" (not "stock"/"manual", SalesContract's own
+    (WP-7, plus `tradeIn.valuationId` since KAN-101) — "existing"/"manual" (not "stock"/"manual", SalesContract's own
     vocabulary) is the one translation this function exists to make —
     PLUS the frozen `pricingSnapshot` WP-8's exit criterion requires
     (ADR-046, additive). The inventory consumer ignores the new key; the
@@ -199,6 +200,10 @@ def _confirmed_event_payload(contract: SalesContract) -> dict:
         # Trade-ins are always a used car by definition — there is no
         # separate condition concept on the trade-in side to carry here.
         trade_in = {"vehicleLabel": contract.trade_in_label, "condition": "used"}
+        if contract.trade_in_valuation_id is not None:
+            # KAN-101 — inventory copies this valuation's pointer onto the
+            # trade-in's pipeline stock item when it creates it.
+            trade_in["valuationId"] = str(contract.trade_in_valuation_id)
 
     return {
         "contractId": str(contract.id),
@@ -226,6 +231,14 @@ def confirm_contract(
     reservation is released as a compensating action (never rolled back
     together with it — that would be the shared-transaction anti-pattern
     ADR-047 exists to forbid).
+
+    A trade-in valuation is consumed next (KAN-101), on its own short-lived
+    session for the same reason. Several contracts may carry one valuation
+    (Anto, 2026-09-29), so an already-used one is accepted; one past its
+    validity refuses the confirmation, after releasing the reservation.
+    If this function's own transaction fails, "used" is reverted only when
+    this call set it and no other signed contract carries the valuation.
+    Cancelling a signed contract never reverts it (ADR-066).
 
     `session_factory` defaults to the real `app.db.SessionLocal` (bound to
     the app's own configured database) — overridden only by tests, which
@@ -307,6 +320,37 @@ def confirm_contract(
             short_lived.close()
         reservation_id = uuid.UUID(result["reservationId"])
 
+    valuation_newly_used = False
+    if contract.trade_in_valuation_id is not None:
+        short_lived = session_factory()
+        try:
+            valuation_newly_used = consume_valuation_for_contract(
+                short_lived,
+                tenant_id=contract.tenant_id,
+                valuation_id=contract.trade_in_valuation_id,
+                actor_id=actor_id,
+            )
+        except ConflictError as exc:
+            _compensate_confirmation(
+                db, contract=contract, reservation_id=reservation_id, valuation_newly_used=False,
+                actor_id=actor_id, session_factory=session_factory,
+            )
+            if (exc.details or {}).get("reason") == "valuation_expired":
+                raise ConflictError(
+                    f"The trade-in valuation of contract {contract.contract_number} has expired — "
+                    f"value the vehicle again before confirming.",
+                    details={"reason": "trade_in_valuation_expired", "valuationId": str(contract.trade_in_valuation_id)},
+                ) from exc
+            raise
+        except Exception:
+            _compensate_confirmation(
+                db, contract=contract, reservation_id=reservation_id, valuation_newly_used=False,
+                actor_id=actor_id, session_factory=session_factory,
+            )
+            raise
+        finally:
+            short_lived.close()
+
     try:
         contract.status = ContractStatus.CONFIRMED
         contract.signed_at = utcnow()
@@ -330,21 +374,66 @@ def confirm_contract(
         db.commit()
     except Exception:
         db.rollback()
-        if reservation_id is not None:
-            compensating = session_factory()
-            try:
-                release(
-                    compensating,
-                    tenant_id=contract.tenant_id,
-                    reservation_id=reservation_id,
-                    idempotency_key=f"sales.contract.confirm-compensate:{contract.id}",
-                )
-            finally:
-                compensating.close()
+        _compensate_confirmation(
+            db, contract=contract, reservation_id=reservation_id, valuation_newly_used=valuation_newly_used,
+            actor_id=actor_id, session_factory=session_factory,
+        )
         raise
 
     db.refresh(contract)
     return contract
+
+
+def _compensate_confirmation(
+    db: Session,
+    *,
+    contract: SalesContract,
+    reservation_id: uuid.UUID | None,
+    valuation_newly_used: bool,
+    actor_id: uuid.UUID,
+    session_factory: Callable[[], Session],
+) -> None:
+    """ADR-047's compensating actions for a confirmation that did not
+    complete: release the reservation, and revert the trade-in valuation's
+    "used" when this confirmation set it and no other signed contract
+    carries it (a signed contract stays signed on it even if cancelled —
+    ADR-066). Each on its own short-lived session, like the calls they undo.
+    """
+
+    if reservation_id is not None:
+        compensating = session_factory()
+        try:
+            release(
+                compensating,
+                tenant_id=contract.tenant_id,
+                reservation_id=reservation_id,
+                idempotency_key=f"sales.contract.confirm-compensate:{contract.id}",
+            )
+        finally:
+            compensating.close()
+
+    if valuation_newly_used and contract.trade_in_valuation_id is not None:
+        signed_elsewhere = db.scalar(
+            select(SalesContract.id)
+            .where(
+                SalesContract.tenant_id == contract.tenant_id,
+                SalesContract.trade_in_valuation_id == contract.trade_in_valuation_id,
+                SalesContract.id != contract.id,
+                SalesContract.signed_at.is_not(None),
+            )
+            .limit(1)
+        )
+        if signed_elsewhere is None:
+            compensating = session_factory()
+            try:
+                revert_valuation_use(
+                    compensating,
+                    tenant_id=contract.tenant_id,
+                    valuation_id=contract.trade_in_valuation_id,
+                    actor_id=actor_id,
+                )
+            finally:
+                compensating.close()
 
 
 def request_invoice(db: Session, *, contract: SalesContract, actor_id: uuid.UUID | None) -> SalesContract:

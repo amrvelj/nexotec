@@ -179,6 +179,58 @@ def mark_used(db: Session, *, valuation: Valuation, actor_id: uuid.UUID | None) 
     return valuation
 
 
+def consume_for_contract(db: Session, *, valuation: Valuation, actor_id: uuid.UUID | None) -> bool:
+    """KAN-101 — a contract's confirmation consumes its trade-in valuation.
+    Returns True when THIS call set `used_at`, so the caller knows whether a
+    compensating `revert_use` is its to make.
+
+    One valuation may back several contracts (Anto, 2026-09-29): an
+    already-used valuation is accepted and nothing is published again. A
+    valuation past its validity is refused whether or not it is already
+    used — the dealership no longer stands behind that figure. A draft is
+    accepted, as `mark_used` accepts it.
+    """
+
+    if not valuation.is_draft and valuation.valid_until < utcnow():
+        raise ConflictError(
+            f"Valuation {valuation.valuation_number} expired on {valuation.valid_until.date().isoformat()}.",
+            details={"reason": "valuation_expired", "valuationId": str(valuation.id)},
+        )
+    if valuation.used_at is not None:
+        return False
+    mark_used(db, valuation=valuation, actor_id=actor_id)
+    return True
+
+
+def revert_use(db: Session, *, valuation: Valuation, actor_id: uuid.UUID | None) -> Valuation:
+    """The compensating action for `consume_for_contract` (ADR-047) — only
+    for a confirmation whose own transaction failed, so no contract ever
+    consumed the valuation. Never a way to re-open a used valuation once a
+    contract has been signed on it (ADR-066); the caller decides that.
+    """
+
+    if valuation.used_at is None:
+        return valuation  # idempotent — a retried compensation is a no-op
+    valuation.used_at = None
+    valuation.updated_by = actor_id
+    valuation.version += 1
+    db.flush()
+    publish(
+        db,
+        OutboxEvent(
+            event_type="valuation.valuation.use_reverted",
+            tenant_id=valuation.tenant_id,
+            producer=_EVENT_PRODUCER,
+            aggregate_type="valuation",
+            aggregate_id=valuation.id,
+            payload={"valuationNumber": valuation.valuation_number},
+        ),
+    )
+    db.commit()
+    db.refresh(valuation)
+    return valuation
+
+
 def list_valid_valuations_for_vehicle(db: Session, *, tenant_id: uuid.UUID, vehicle_id: uuid.UUID) -> list[Valuation]:
     """FR-S-08: "an existing valid valuation is offered before making a
     new one." Newest first — the newest is current (ADR-048 as amended).

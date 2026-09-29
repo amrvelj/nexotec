@@ -1,9 +1,12 @@
 """WP-7 PR-9 (ADR-066/ADR-048) — Stock reads the denormalized pointer.
-`set_valuation_ref` (WP-8 PR-5) is the write half, added now that
-app.valuation exists — Pattern B (ADR-047, own commit), called BY the
-valuation module or by Sales at contract confirmation (PR-6, once a
-trade-in becomes a real pipeline stock item), never written ambiently
-from inside inventory itself.
+
+It is written in two ways, both through `apply_valuation_ref`:
+- KAN-101: `pipeline.handle_sales_contract_confirmed` sets it in the same
+  transaction that creates a trade-in's pipeline stock item — the item
+  does not exist when Sales confirms the contract, so no Sales call could
+  target it;
+- `set_valuation_ref` (WP-8 PR-5) — Pattern B (ADR-047, own commit), for a
+  caller in another context. No production code calls it yet.
 """
 
 import datetime as dt
@@ -13,6 +16,7 @@ from decimal import Decimal
 from sqlalchemy.orm import Session
 
 from app.core.idempotency import find_cached_response, store_response
+from app.inventory.models.stock_item import StockItem
 from app.inventory.schemas.valuation import ValuationRefRead
 from app.inventory.services.stock_item import get_stock_item_or_404
 
@@ -25,6 +29,17 @@ def get_valuation_ref(db: Session, *, tenant_id: uuid.UUID, stock_item_id: uuid.
         valued_at=item.valuation_ref_valued_at,
         source=item.valuation_ref_source,
     )
+
+
+def apply_valuation_ref(
+    item: StockItem, *, valuation_id: uuid.UUID, amount: Decimal, valued_at: dt.datetime, source: str
+) -> None:
+    """Sets the four pointer columns; the caller flushes and commits."""
+
+    item.valuation_ref_id = valuation_id
+    item.valuation_ref_amount = amount
+    item.valuation_ref_valued_at = valued_at
+    item.valuation_ref_source = source
 
 
 def set_valuation_ref(
@@ -49,10 +64,7 @@ def set_valuation_ref(
         return ValuationRefRead.model_validate(cached.response_body)
 
     item = get_stock_item_or_404(db, tenant_id, stock_item_id)
-    item.valuation_ref_id = valuation_id
-    item.valuation_ref_amount = amount
-    item.valuation_ref_valued_at = valued_at
-    item.valuation_ref_source = source
+    apply_valuation_ref(item, valuation_id=valuation_id, amount=amount, valued_at=valued_at, source=source)
     db.flush()
 
     result = ValuationRefRead(valuation_id=valuation_id, amount=amount, valued_at=valued_at, source=source)

@@ -97,8 +97,10 @@ class SalesContract(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, Timestam
 
     # WP-8 PR-6 — trade-in, copied from the offer at creation (S-D18's
     # "vehicle AND allocation happen at OFFER time" — the contract only
-    # carries the read-only reference forward for the confirmation-time
-    # pipeline-creation payload and the set_valuation_ref call).
+    # carries the read-only reference forward). At confirmation (KAN-101)
+    # the valuation is consumed through app.valuation.public, and its id
+    # travels in the sales.contract.confirmed payload so inventory can set
+    # the pipeline stock item's valuation pointer when it creates the item.
     trade_in_vehicle_id: Mapped[uuid.UUID | None] = mapped_column(
         GUID(), nullable=True, comment="Owned by the vehicle context (VehicleMdm.id). No DB-level FK."
     )
