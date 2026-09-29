@@ -691,3 +691,206 @@ def test_has_usable_domicile_address_tracks_the_address_projection(client, db_se
     db_session.expire_all()
     assert has_usable_domicile_address(db_session, customer_id=cid) is False
     assert _projections(client, token, customer["id"])["address"] is None
+
+
+# --- KAN-102: changing the type of a row keeps one primary per type-group ----
+#
+# ADR-067's invariant has two groups to settle when a row changes type: the
+# one it leaves (re-elect if the primary left) and the one it joins. Anto's
+# ruling (KAN-102, 2026-09-29): the joined group's existing primary stays
+# and the moved row is demoted, unless the same PATCH says `isPrimary: true`;
+# a moved primary joining a group with no primary stays primary.
+
+
+def _add_email(client, token, customer_id, address, email_type="personal"):
+    return client.post(
+        f"/v1/customers/{customer_id}/emails",
+        json={"emailType": email_type, "emailAddress": address},
+        headers=_bearer(token),
+    ).json()
+
+
+def _primaries(client, token, customer_id, channel, type_key, value_key):
+    """{type: [values flagged primary]} — the invariant is one entry per list."""
+
+    items = client.get(f"/v1/customers/{customer_id}/{channel}", headers=_bearer(token)).json()["items"]
+    groups: dict[str, list[str]] = {}
+    for item in items:
+        groups.setdefault(item[type_key], [])
+        if item["isPrimary"]:
+            groups[item[type_key]].append(item[value_key])
+    return groups
+
+
+def test_moving_primary_phone_into_a_group_with_a_primary_keeps_that_primary(client):
+    dealer_id = _create_dealer(client)
+    customer = _create_customer(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    moved = _add_phone(client, token, customer["id"], "+41791111111")
+    _add_phone(client, token, customer["id"], "+41792222222")
+    _add_phone(client, token, customer["id"], "+41443333333", phone_type="work")
+    assert moved["isPrimary"] is True
+
+    response = client.patch(
+        f"/v1/customers/{customer['id']}/phones/{moved['id']}",
+        json={"phoneType": "work"},
+        headers=_bearer(token),
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["isPrimary"] is False
+
+    assert _primaries(client, token, customer["id"], "phones", "phoneType", "phoneE164") == {
+        "mobile": ["+41792222222"],
+        "work": ["+41443333333"],
+    }
+    body = _projections(client, token, customer["id"])
+    assert body["phoneMobile"] == "+41792222222"
+    assert body["phoneWork"] == "+41443333333"
+
+
+def test_moving_primary_phone_into_an_empty_group_stays_primary(client):
+    dealer_id = _create_dealer(client)
+    customer = _create_customer(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    moved = _add_phone(client, token, customer["id"], "+41791111111")
+    _add_phone(client, token, customer["id"], "+41792222222")
+
+    response = client.patch(
+        f"/v1/customers/{customer['id']}/phones/{moved['id']}",
+        json={"phoneType": "work"},
+        headers=_bearer(token),
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["isPrimary"] is True
+
+    assert _primaries(client, token, customer["id"], "phones", "phoneType", "phoneE164") == {
+        "mobile": ["+41792222222"],
+        "work": ["+41791111111"],
+    }
+
+
+def test_moving_primary_phone_with_is_primary_true_takes_over_the_new_group(client):
+    dealer_id = _create_dealer(client)
+    customer = _create_customer(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    moved = _add_phone(client, token, customer["id"], "+41791111111")
+    _add_phone(client, token, customer["id"], "+41792222222")
+    _add_phone(client, token, customer["id"], "+41443333333", phone_type="work")
+
+    response = client.patch(
+        f"/v1/customers/{customer['id']}/phones/{moved['id']}",
+        json={"phoneType": "work", "isPrimary": True},
+        headers=_bearer(token),
+    )
+    assert response.status_code == 200, response.text
+
+    assert _primaries(client, token, customer["id"], "phones", "phoneType", "phoneE164") == {
+        "mobile": ["+41792222222"],
+        "work": ["+41791111111"],
+    }
+
+
+def test_moving_a_non_primary_phone_into_an_empty_group_makes_it_primary(client):
+    dealer_id = _create_dealer(client)
+    customer = _create_customer(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    _add_phone(client, token, customer["id"], "+41791111111")
+    moved = _add_phone(client, token, customer["id"], "+41792222222")
+    assert moved["isPrimary"] is False
+
+    response = client.patch(
+        f"/v1/customers/{customer['id']}/phones/{moved['id']}",
+        json={"phoneType": "work"},
+        headers=_bearer(token),
+    )
+    assert response.status_code == 200, response.text
+
+    assert _primaries(client, token, customer["id"], "phones", "phoneType", "phoneE164") == {
+        "mobile": ["+41791111111"],
+        "work": ["+41792222222"],
+    }
+
+
+def test_moving_primary_email_keeps_one_primary_in_both_groups(client):
+    dealer_id = _create_dealer(client)
+    customer = _create_customer(client, dealer_id, emails=[{"emailType": "personal", "emailAddress": "anna@example.ch"}])
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    moved = client.get(f"/v1/customers/{customer['id']}/emails", headers=_bearer(token)).json()["items"][0]
+    assert moved["isPrimary"] is True
+    _add_email(client, token, customer["id"], "anna.privat@example.ch")
+    _add_email(client, token, customer["id"], "anna@muster-ag.ch", email_type="work")
+
+    response = client.patch(
+        f"/v1/customers/{customer['id']}/emails/{moved['id']}",
+        json={"emailType": "work"},
+        headers=_bearer(token),
+    )
+    assert response.status_code == 200, response.text
+
+    assert _primaries(client, token, customer["id"], "emails", "emailType", "emailAddress") == {
+        "personal": ["anna.privat@example.ch"],
+        "work": ["anna@muster-ag.ch"],
+    }
+
+
+def test_moving_and_closing_primary_email_in_one_patch_reelects_both_groups(client):
+    dealer_id = _create_dealer(client)
+    customer = _create_customer(client, dealer_id, emails=[{"emailType": "personal", "emailAddress": "anna@example.ch"}])
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    moved = client.get(f"/v1/customers/{customer['id']}/emails", headers=_bearer(token)).json()["items"][0]
+    _add_email(client, token, customer["id"], "anna.privat@example.ch")
+
+    response = client.patch(
+        f"/v1/customers/{customer['id']}/emails/{moved['id']}",
+        json={"emailType": "work", "validTo": "2020-01-01T00:00:00Z"},
+        headers=_bearer(token),
+    )
+    assert response.status_code == 200, response.text
+
+    # The closed row is primary nowhere; the group it left re-elected.
+    assert _primaries(client, token, customer["id"], "emails", "emailType", "emailAddress") == {
+        "personal": ["anna.privat@example.ch"],
+        "work": [],
+    }
+
+
+def test_moving_primary_address_keeps_one_primary_in_both_groups(client):
+    dealer_id = _create_dealer(client)
+    customer = _create_customer(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    moved = _add_address(client, token, customer["id"], "Marktgasse", postal="3011", locality="Bern")
+    _add_address(client, token, customer["id"], "Spitalgasse", postal="3011", locality="Bern")
+    _add_address(client, token, customer["id"], "Rechnungsweg", postal="3011", locality="Bern", address_type="billing")
+    assert moved["isPrimary"] is True
+
+    response = client.patch(
+        f"/v1/customers/{customer['id']}/addresses/{moved['id']}",
+        json={"addressType": "billing"},
+        headers=_bearer(token),
+    )
+    assert response.status_code == 200, response.text
+
+    assert _primaries(client, token, customer["id"], "addresses", "addressType", "addressStreet") == {
+        "domicile": ["Spitalgasse"],
+        "billing": ["Rechnungsweg"],
+    }
+    assert _projections(client, token, customer["id"])["address"]["addressStreet"] == "Spitalgasse"
+
+
+def test_flagging_and_closing_a_phone_in_one_patch_leaves_a_usable_primary(client):
+    dealer_id = _create_dealer(client)
+    customer = _create_customer(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    _add_phone(client, token, customer["id"], "+41791111111")
+    closing = _add_phone(client, token, customer["id"], "+41792222222")
+
+    response = client.patch(
+        f"/v1/customers/{customer['id']}/phones/{closing['id']}",
+        json={"isPrimary": True, "validTo": "2020-01-01T00:00:00Z"},
+        headers=_bearer(token),
+    )
+    assert response.status_code == 200, response.text
+
+    assert _primaries(client, token, customer["id"], "phones", "phoneType", "phoneE164") == {
+        "mobile": ["+41791111111"],
+    }
