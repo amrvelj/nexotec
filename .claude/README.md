@@ -36,7 +36,7 @@ everything were committed — in `<git dir>/nexotec-gates/state.json`, per workt
 | Applied migrations | PreToolUse `Edit|Write` | editing a migration file that exists on `origin/main` |
 | Commit | PreToolUse `Bash` | committing on `main`, or `--no-verify` |
 | Wrong environment | PreToolUse `Bash` | executing another checkout's `.venv` |
-| Notion writes | PreToolUse `mcp__…Notion…` | auto-allows writes to the active ticket and new Kanban tickets; asks for every other page |
+| Notion writes | PreToolUse `mcp__…Notion…` | auto-allows writes to the active ticket and new Kanban tickets; asks for every other page. The prompt shows raw JSON, so Claude first says in one plain sentence which page changes and how (CLAUDE.md) |
 | Gate state | PreToolUse `Edit|Write`, `Bash` | writing `nexotec-gates/state.json`, recording a check result other than through `scripts/dev/check`, or waiving other than through `scripts/dev/gate waive` |
 | Protected files via the shell | PreToolUse `Bash` | `sed -i`, `cp`, `mv`, `rm`, `tee`, `git mv`/`rm`/`restore`, redirects onto an applied migration or a generated file (denied), or onto a preserved file or the setup itself (asks Anto) |
 | Read-only reviewer | PreToolUse `Bash`, `Edit|Write` | the `reviewer` agent writing inside the checkout, committing, fixing, updating snapshots or running `scripts/dev/check` |

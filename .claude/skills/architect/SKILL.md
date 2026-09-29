@@ -30,7 +30,8 @@ Module features belong in their PRDs, not here. No code in this session.
 - Flag every assumption. Never invent a number (volumes, costs, dealer counts) — ask for it.
 - When something is decided, write it as an ADR in the Target Architecture decision log: next
   number, context, decision, consequences including the bad ones, rejected alternatives with
-  reasons, and the trigger for revisiting it. Notion writes ask Anto; that is intended.
+  reasons, and the trigger for revisiting it. Notion writes ask Anto; that is intended. Before
+  each one, say in one plain sentence which page changes and how — his prompt shows raw JSON.
 - Keep platform rules out of module PRDs; they inherit them.
 
 ## Definition of done
