@@ -1667,13 +1667,15 @@ def _prepare_primary_change(
             f"Cannot unset the primary {noun} directly — mark a different {noun} as primary instead."
         )
     elif moves and row.is_primary:
-        target_primaries = db.scalars(
-            select(model).where(
-                model.customer_id == row.customer_id,  # type: ignore[attr-defined]
-                getattr(model, type_column) == new_type,
-                model.is_primary.is_(True),  # type: ignore[attr-defined]
-            )
-        ).all()
+        target_primaries: list[Any] = list(
+            db.scalars(
+                select(model).where(
+                    model.customer_id == row.customer_id,  # type: ignore[attr-defined]
+                    getattr(model, type_column) == new_type,
+                    model.is_primary.is_(True),  # type: ignore[attr-defined]
+                )
+            ).all()
+        )
         if any(_is_usable_row(r) for r in target_primaries):
             row.is_primary = False
 
