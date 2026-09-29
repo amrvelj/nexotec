@@ -877,12 +877,24 @@ def test_moving_primary_address_keeps_one_primary_in_both_groups(client):
     assert _projections(client, token, customer["id"])["address"]["addressStreet"] == "Spitalgasse"
 
 
-def test_flagging_and_closing_a_phone_in_one_patch_leaves_a_usable_primary(client):
+def _make_second_phone_primary(client, token, customer_id):
+    """Oldest row A not primary, B primary — so "kept the primary" and
+    "elected the oldest" give different answers."""
+
+    _add_phone(client, token, customer_id, "+41791111111")
+    b = _add_phone(client, token, customer_id, "+41792222222")
+    response = client.patch(
+        f"/v1/customers/{customer_id}/phones/{b['id']}", json={"isPrimary": True}, headers=_bearer(token)
+    )
+    assert response.status_code == 200, response.text
+
+
+def test_flagging_and_closing_a_phone_in_one_patch_keeps_the_existing_primary(client):
     dealer_id = _create_dealer(client)
     customer = _create_customer(client, dealer_id)
     token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
-    _add_phone(client, token, customer["id"], "+41791111111")
-    closing = _add_phone(client, token, customer["id"], "+41792222222")
+    _make_second_phone_primary(client, token, customer["id"])
+    closing = _add_phone(client, token, customer["id"], "+41793333333")
 
     response = client.patch(
         f"/v1/customers/{customer['id']}/phones/{closing['id']}",
@@ -890,7 +902,27 @@ def test_flagging_and_closing_a_phone_in_one_patch_leaves_a_usable_primary(clien
         headers=_bearer(token),
     )
     assert response.status_code == 200, response.text
+    assert response.json()["isPrimary"] is False
 
     assert _primaries(client, token, customer["id"], "phones", "phoneType", "phoneE164") == {
-        "mobile": ["+41791111111"],
+        "mobile": ["+41792222222"],
+    }
+
+
+def test_moving_flagging_and_closing_a_phone_in_one_patch_keeps_the_target_primary(client):
+    dealer_id = _create_dealer(client)
+    customer = _create_customer(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    _make_second_phone_primary(client, token, customer["id"])
+    moving = _add_phone(client, token, customer["id"], "+41443333333", phone_type="work")
+
+    response = client.patch(
+        f"/v1/customers/{customer['id']}/phones/{moving['id']}",
+        json={"phoneType": "mobile", "isPrimary": True, "doNotUse": True, "doNotUseReason": "wrong number"},
+        headers=_bearer(token),
+    )
+    assert response.status_code == 200, response.text
+
+    assert _primaries(client, token, customer["id"], "phones", "phoneType", "phoneE164") == {
+        "mobile": ["+41792222222"],
     }

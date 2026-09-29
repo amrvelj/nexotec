@@ -1652,6 +1652,9 @@ def _prepare_primary_change(
     is demoted — a type change never silently demotes another row (Anto,
     KAN-102). A moved row joining a group with no primary is elected by the
     fixup, whether or not it was primary before.
+
+    A row the same PATCH closes or flags do_not_use cannot take the flag, so
+    `isPrimary: true` on it leaves the group's existing primary alone.
     """
 
     type_column = _CONTACT_TYPE_COLUMN[model]
@@ -1660,7 +1663,7 @@ def _prepare_primary_change(
     moves = new_type != old_type
 
     if changes.get("is_primary") is True:
-        if not row.is_primary or moves:
+        if (not row.is_primary or moves) and not becomes_unusable:
             _unset_other_primaries(db, model, customer_id=row.customer_id, type_value=new_type)
     elif changes.get("is_primary") is False and row.is_primary:
         raise BadRequestError(

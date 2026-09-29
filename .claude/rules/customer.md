@@ -36,6 +36,10 @@ main@568f416 on 2026-09-27. Fix this file in the same PR as any change to what i
   leaves re-elects. In the group it joins, `isPrimary: true` in the same PATCH makes the moved
   row primary; otherwise that group's existing primary stays and the moved row is demoted — a
   type change never silently demotes another row. Joining a group with no primary elects it.
+  A row the same PATCH closes or flags `doNotUse` never takes the flag, `isPrimary: true` or not.
+- **Not yet enforced:** reopening a row (`validTo: null`, `doNotUse: false`) in a group with no
+  usable row leaves that group without a primary; the projection's oldest-usable fallback
+  covers the grid. KAN-113.
 - The grid's `Mobile` / `Email` / `Work phone` are **read-model projections**, computed and
   never stored. Fallback: the flagged primary among usable rows, else the oldest usable row,
   else null. **Never add a flat column** — the cheap implementation is exactly what this
