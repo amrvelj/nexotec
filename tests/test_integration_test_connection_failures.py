@@ -162,6 +162,7 @@ def _wsdl_will_not_load(db_session, monkeypatch, tenant_id):
     # installed where the fast lane runs — a stub module works either way.
     stub = types.ModuleType("zeep")
     stub.Client = _fails  # type: ignore[attr-defined]
+    stub.Transport = lambda **kwargs: None  # type: ignore[attr-defined]  # KAN-76: built before the WSDL fetch
     monkeypatch.setitem(sys.modules, "zeep", stub)
     # No factory override: this is the real, registered `_build_real_adapter`.
     return _connection(db_session, tenant_id, config={"wsdlUrl": "https://wsdl.example.test/x?wsdl"})

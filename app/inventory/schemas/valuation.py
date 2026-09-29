@@ -1,8 +1,7 @@
-"""WP-7 PR-9 (ADR-066/ADR-048) — a read-only denormalized pointer. No
-app.valuation module exists yet (confirmed: no such package, no Valuation
-class anywhere in the repo), so there is deliberately no create/update
-schema here — Stock is a reader, never the module that models a
-valuation's own inputs/deductibles/status.
+"""WP-7 PR-9 (ADR-066/ADR-048) — a read-only denormalized pointer. There
+is deliberately no create/update schema here — Stock is a reader, never
+the module that models a valuation's own inputs/deductibles/status
+(app.valuation is).
 """
 
 import datetime as dt

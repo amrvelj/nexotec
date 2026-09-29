@@ -1,27 +1,22 @@
 """Pipeline vehicles and promotion (WP-7 PR-2, ADR-045).
 
 Two Sales auto-create paths, both idempotent, both landing in `pipeline`:
-a manual configuration on contract confirmation, and a trade-in. Neither
-corresponds to anything real in app.sales today — `grep -rn "contract"
-app/sales` turns up nothing domain-related, only a pre-PRD-Sales-v2
-Transaction model that ADR-050 will supersede in WP-8, and sales emits no
-outbox events at all yet. `handle_sales_contract_confirmed` is built as
-genuinely forward-compatible, idempotent consumer infrastructure — a
-webhook handler built before its sender exists — against an OPAQUE
-`contractId: GUID` and a synthetic payload shape documented below, tested
-via directly-constructed events (tests/test_inventory_pipeline_consumer.
-py), never coupled to app.sales.models.transaction.Transaction.
-
-Expected future `sales.contract.confirmed` payload shape (not yet
-produced anywhere):
+a manual configuration on contract confirmation, and a trade-in. The
+sender is `app.sales.services.contract.confirm_contract`; this handler
+reads its `sales.contract.confirmed` payload against an OPAQUE
+`contractId: GUID`:
 
     {
         "contractId": "<uuid>",
         "vehicleSource": "manual" | "existing",
         "manualConfiguration": {"vehicleLabel": str, "condition": str} | null,
-        "tradeIn": {"vehicleLabel": str, "condition": str} | null,
+        "tradeIn": {"vehicleLabel": str, "condition": str, "valuationId"?: "<uuid>"} | null,
         "pricingSnapshot": {"currency": "CHF", "basePrice": str|null, ...},
     }
+
+`tradeIn.valuationId` (KAN-101) is present when the trade-in carries a
+valuation; the trade-in's pipeline item then gets Stock's valuation
+pointer, read from app.valuation.public in this same transaction.
 
 `pricingSnapshot` (WP-8, ADR-046) is the frozen price build-up, added for
 the WP-9 invoice leg; this consumer ignores it. It never carries margin,
@@ -45,6 +40,8 @@ from app.core.outbox import OutboxEvent, publish
 from app.inventory.models.stock_item import LifecycleStatus, StockItem, StockItemCondition
 from app.inventory.schemas.stock_item import StockItemCreate
 from app.inventory.services.stock_item import _build_and_flush_stock_item, mark_purchased_if_ready
+from app.inventory.services.valuation import apply_valuation_ref
+from app.valuation.public import get_valuation_or_404
 from app.vehicle.public import create_or_get_vehicle_mdm
 
 _EVENT_PRODUCER = "inventory"
@@ -103,13 +100,26 @@ def handle_sales_contract_confirmed(db: Session, *, tenant_id: uuid.UUID, payloa
 
     trade_in = payload.get("tradeIn")
     if trade_in is not None:
-        _create_pipeline_item_idempotent(
+        item = _create_pipeline_item_idempotent(
             db,
             tenant_id=tenant_id,
             vehicle_label=trade_in["vehicleLabel"],
             condition=StockItemCondition(trade_in.get("condition", "used")),
             pipeline_ref=f"contract:{contract_id}:trade_in",
         )
+        valuation_id = trade_in.get("valuationId")
+        if valuation_id is not None:
+            # KAN-101 (ADR-048) — Stock holds the pointer, never a copy of
+            # the valuation's inputs; the valuation module stays its writer.
+            valuation = get_valuation_or_404(db, tenant_id, uuid.UUID(valuation_id))
+            apply_valuation_ref(
+                item,
+                valuation_id=valuation.id,
+                amount=valuation.final_offer,
+                valued_at=valuation.created_at,
+                source=valuation.source.value,
+            )
+            db.flush()
 
 
 def promote_to_vehicle_mdm(

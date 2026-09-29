@@ -235,10 +235,9 @@ class StockItem(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMix
 
     # WP-7 PR-9 — a denormalized POINTER only (ADR-066/ADR-048). Stock
     # never stores its own copy of a valuation's inputs/deductibles/net;
-    # the valuation module (WP-8) is the single writer of the real record.
-    # No app.valuation exists yet, so there is no FK, no create path here
-    # — this is a reader stub, updated only by a future cross-context call
-    # once that module ships.
+    # app.valuation is the single writer of the real record (no FK — a
+    # cross-context id). Set on a trade-in's pipeline item when it is
+    # created from a confirmed contract (KAN-101, services/pipeline.py).
     valuation_ref_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True)
     valuation_ref_amount: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
     valuation_ref_valued_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
