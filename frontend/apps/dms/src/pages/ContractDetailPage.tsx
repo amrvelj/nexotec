@@ -194,8 +194,8 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
             label: t('contractDetail.stats.tradeIn'),
             value:
               contract.tradeInValue != null ? (
-                <Group gap={6} wrap="nowrap" component="span">
-                  {`− ${formatCurrencyChf(Number(contract.tradeInValue))}`}
+                <Group gap={6} component="span">
+                  <span style={{ whiteSpace: 'nowrap' }}>{`− ${formatCurrencyChf(Number(contract.tradeInValue))}`}</span>
                   {tradeInValuationQuery.data && <ValuationSourceMarker source={tradeInValuationQuery.data.source} />}
                 </Group>
               ) : (
