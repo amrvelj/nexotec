@@ -231,7 +231,9 @@ def main_heads():
             return None
         if subprocess.run(["tar", "-x", "-C", tmp], input=archive.stdout).returncode != 0:
             return None
-        out = subprocess.run([os.path.join(VENV_BIN, "alembic"), "heads"], cwd=tmp, env=ENV,
+        # PYTHONPATH as in lane_migrations: main's migrations import `app` (e.g. a6c2f8de41b7
+        # imports app.core.postal_codes), and the archive has no app/ of its own.
+        out = subprocess.run([os.path.join(VENV_BIN, "alembic"), "heads"], cwd=tmp, env=dict(ENV, PYTHONPATH=ROOT),
                              stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, universal_newlines=True)
         if out.returncode != 0:
             return None
