@@ -7,6 +7,7 @@ here.
 import logging
 import uuid
 from collections.abc import Callable
+from dataclasses import dataclass
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -309,6 +310,13 @@ def confirm_contract(
             details={"reason": "missing_price"},
         )
 
+    # Plain values for the compensating actions: after db.rollback() the
+    # contract's attributes are expired, and reloading them could itself fail
+    # and hide why the confirmation failed.
+    ids = _ConfirmationIds(
+        tenant_id=contract.tenant_id, contract_id=contract.id, valuation_id=contract.trade_in_valuation_id
+    )
+
     # KAN-101 — the trade-in valuation is consumed BEFORE the reservation,
     # so a refused or failed valuation call never leaves a reservation to
     # undo (a released reservation's cached reserve() response would then
@@ -348,7 +356,7 @@ def confirm_contract(
             )
         except Exception:
             _compensate_confirmation(
-                db, contract=contract, reservation_id=None, valuation_newly_used=valuation_newly_used,
+                ids, reservation_id=None, valuation_newly_used=valuation_newly_used,
                 actor_id=actor_id, session_factory=session_factory,
             )
             raise
@@ -380,7 +388,7 @@ def confirm_contract(
     except Exception:
         db.rollback()
         _compensate_confirmation(
-            db, contract=contract, reservation_id=reservation_id, valuation_newly_used=valuation_newly_used,
+            ids, reservation_id=reservation_id, valuation_newly_used=valuation_newly_used,
             actor_id=actor_id, session_factory=session_factory,
         )
         raise
@@ -389,10 +397,16 @@ def confirm_contract(
     return contract
 
 
+@dataclass(frozen=True)
+class _ConfirmationIds:
+    tenant_id: uuid.UUID
+    contract_id: uuid.UUID
+    valuation_id: uuid.UUID | None
+
+
 def _compensate_confirmation(
-    db: Session,
+    ids: _ConfirmationIds,
     *,
-    contract: SalesContract,
     reservation_id: uuid.UUID | None,
     valuation_newly_used: bool,
     actor_id: uuid.UUID,
@@ -407,7 +421,8 @@ def _compensate_confirmation(
     Called from an `except` block, which re-raises the original error: each
     action is attempted even if the other fails, and a failure here is
     logged rather than raised, so it never masks why the confirmation
-    failed. What stays undone is left to reconciliation (ADR-047).
+    failed. ADR-047 leaves what stays undone to nightly reconciliation; no
+    check covers these two yet (KAN-115).
     """
 
     if reservation_id is not None:
@@ -415,42 +430,39 @@ def _compensate_confirmation(
         try:
             release(
                 compensating,
-                tenant_id=contract.tenant_id,
+                tenant_id=ids.tenant_id,
                 reservation_id=reservation_id,
-                idempotency_key=f"sales.contract.confirm-compensate:{contract.id}",
+                idempotency_key=f"sales.contract.confirm-compensate:{ids.contract_id}",
             )
         except Exception:
             logger.exception(
                 "contract_confirm_compensation_failed",
-                extra={"contractId": str(contract.id), "action": "release_reservation"},
+                extra={"contractId": str(ids.contract_id), "action": "release_reservation"},
             )
         finally:
             compensating.close()
 
-    if valuation_newly_used and contract.trade_in_valuation_id is not None:
+    if valuation_newly_used and ids.valuation_id is not None:
         compensating = session_factory()
         try:
             signed_elsewhere = compensating.scalar(
                 select(SalesContract.id)
                 .where(
-                    SalesContract.tenant_id == contract.tenant_id,
-                    SalesContract.trade_in_valuation_id == contract.trade_in_valuation_id,
-                    SalesContract.id != contract.id,
+                    SalesContract.tenant_id == ids.tenant_id,
+                    SalesContract.trade_in_valuation_id == ids.valuation_id,
+                    SalesContract.id != ids.contract_id,
                     SalesContract.signed_at.is_not(None),
                 )
                 .limit(1)
             )
             if signed_elsewhere is None:
                 revert_valuation_use(
-                    compensating,
-                    tenant_id=contract.tenant_id,
-                    valuation_id=contract.trade_in_valuation_id,
-                    actor_id=actor_id,
+                    compensating, tenant_id=ids.tenant_id, valuation_id=ids.valuation_id, actor_id=actor_id
                 )
         except Exception:
             logger.exception(
                 "contract_confirm_compensation_failed",
-                extra={"contractId": str(contract.id), "action": "revert_valuation_use"},
+                extra={"contractId": str(ids.contract_id), "action": "revert_valuation_use"},
             )
         finally:
             compensating.close()

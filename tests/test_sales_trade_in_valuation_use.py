@@ -15,11 +15,14 @@ Rulings exercised here (Anto, 2026-09-29, on the ticket):
 """
 
 import datetime as dt
+import os
+import threading
 import uuid
 from decimal import Decimal
 from unittest.mock import patch
 
 import pytest
+from sqlalchemy.orm import sessionmaker
 
 from app.core.errors import ConflictError
 from app.core.outbox_model import OutboxMessage
@@ -33,8 +36,9 @@ from app.sales.services.contract import cancel_contract, confirm_contract, creat
 from app.sales.services.offer import create_offer, update_offer
 from app.sales.services.trade_in import attach_trade_in_valuation, set_trade_in
 from app.valuation.models.valuation import Valuation, ValuationSource
+from app.valuation.public import consume_valuation_for_contract, get_valuation_or_404
 from app.valuation.schemas.valuation import ValuationCreate
-from app.valuation.services.valuation import create_valuation, derive_status
+from app.valuation.services.valuation import create_valuation, derive_status, mark_used
 from tests.test_sales_lifecycle_reservation import _customer, _dealership, _session_factory
 
 _TRADE_IN_VIN = "WVWZZZ1KZAW654321"
@@ -417,3 +421,47 @@ def test_a_redelivered_confirmation_leaves_one_trade_in_item_with_its_ref(db_ses
     ).all()
     assert len(items) == 1
     assert items[0].valuation_ref_id == valuation.id
+
+
+@pytest.mark.skipif(
+    not os.environ.get("DMS_TEST_DATABASE_URL"),
+    reason="Row locks need Postgres; SQLite (the fast lane) has no SELECT … FOR UPDATE.",
+)
+def test_two_simultaneous_consumptions_serialise_on_the_row_lock(db_session, engine):
+    """Two contracts confirmed at the same moment: the second valuation call
+    waits for the first's commit, then sees "used" and publishes nothing."""
+
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    valuation = _valuation(db_session, dealership.id, group_id)
+    factory = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
+
+    holder = factory()
+    held = get_valuation_or_404(holder, dealership.id, valuation.id)
+    holder.refresh(held, with_for_update=True)  # the first confirmation, mid-call
+
+    result: dict[str, bool] = {}
+
+    def second_confirmation() -> None:
+        session = factory()
+        try:
+            result["newly_used"] = consume_valuation_for_contract(
+                session, tenant_id=dealership.id, valuation_id=valuation.id, actor_id=None
+            )
+        finally:
+            session.close()
+
+    thread = threading.Thread(target=second_confirmation)
+    thread.start()
+    thread.join(1.0)
+    blocked = thread.is_alive()
+    mark_used(holder, valuation=held, actor_id=None)  # the first one commits, releasing the lock
+    holder.close()
+    thread.join(10)
+
+    assert blocked
+    assert result["newly_used"] is False
+    db_session.expire_all()
+    assert db_session.query(OutboxMessage).filter_by(
+        aggregate_id=valuation.id, event_type="valuation.used"
+    ).count() == 1
