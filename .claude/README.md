@@ -15,7 +15,8 @@ when it needs to explain or change the setup.
 | `.claude/settings.json` | every session | Model and effort, permissions, hooks, env |
 | `.claude/launch.json` | desktop preview | `nexotec-api` (:8000), `nexotec-frontend` (:5173), `nexotec-prototype` (:8123) |
 | `.worktreeinclude` | worktree creation | Copies the gitignored `.env` into new worktrees |
-| `scripts/dev/bootstrap` | once per checkout | Own `.venv`, `npm ci`, own test and dev databases, `.env` |
+| `scripts/dev/bootstrap` | once per checkout, and in every cloud session | Own `.venv`, `npm ci`, own test and dev databases, `.env` |
+| `scripts/dev/cloud-postgres` | cloud sessions, from bootstrap and check | Starts the cloud machine's own Postgres 16 with the `dms` user |
 | `scripts/dev/check` | before every push | CI-equivalent lanes; records a pass for the exact tree |
 | `scripts/dev/gate` | any time | Gate status, ticket start/close, waivers |
 
@@ -79,7 +80,8 @@ crashes never blocks (fail-open with a message); a missing hook script exits 0.
 
 ## Worktrees and the main checkout
 
-- Code work happens in worktree sessions (desktop app, worktree option). The main checkout stays
+- Code work happens in worktree sessions (desktop app, worktree option) or in cloud sessions
+  (next section). The main checkout stays
   on `main` and clean; a background hook fast-forwards it at session start.
 - Each checkout gets its own `.venv` (an editable install points at the checkout it was built
   from — a borrowed `.venv` runs another checkout's code), its own test database
@@ -96,6 +98,26 @@ crashes never blocks (fail-open with a message); a missing hook script exits 0.
   which the in-house log-in replaces (D-A-07, `.claude/rules/platform.md`), so no dev tooling
   is built around Zitadel. A worktree's dev database is copied from `dms_platform`, so it has
   whatever users that has.
+
+## Cloud sessions
+
+Start one from the desktop app or claude.ai/code with the environment set to **Cloud**, or from
+the phone's Code tab: repository `amrvelj/nexotec`, branch `main`, then `/ticket KAN-n`. The
+session clones the repository from GitHub, so CLAUDE.md, the rules, the skills, the reviewer
+and the hooks apply exactly as on the Mac. It works on its own fresh copy, as isolated as a
+worktree, so ticket work runs there; afterwards there is no worktree to remove — archive the
+session. Several can run at once, each on its own machine, with the Mac closed.
+
+- `scripts/dev/bootstrap` runs in every cloud session, because each starts fresh. There is no
+  Docker daemon there: bootstrap first starts the machine's own PostgreSQL 16 and creates the
+  `dms` user (`scripts/dev/cloud-postgres`), and `scripts/dev/check` starts it again when a
+  paused machine has lost it.
+- There is no desktop preview. The screenshot step starts the API and the frontend in the
+  background and captures with `npx playwright screenshot`, which the gate records.
+- The Drive folder (UI prototype, auto-i-dat PDFs) is out of reach: tickets that need it run on
+  the Mac.
+- Notion comes from the same claude.ai connector; `gh` is pre-installed and authenticated
+  through the cloud's GitHub proxy. The weekly `/drift-audit` routine is a cloud session too.
 
 ## Changing the setup
 
