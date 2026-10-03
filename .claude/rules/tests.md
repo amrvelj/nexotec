@@ -14,6 +14,10 @@ as any change to what it states. -->
 - **Postgres is the lane of record** (ADR-011). SQLite's weaker constraint and isolation
   enforcement hides real bugs; "tested" means Postgres. Every session points `pytest` at this
   checkout's own test database (`dms_test_<checkout>`), so parallel worktrees never share one.
+- **On Postgres the schema is built once per session** (`tests/conftest.py`), not per test:
+  every test starts with every table empty (`TRUNCATE`), and a test that changes the schema
+  has it rebuilt before the next test. A test that leaves a session open in a transaction can make
+  the next one fail with `lock timeout`: close every session a test opens.
 - **Architecture tests (`tests/architecture/`) are rulings in executable form.** Never weaken,
   skip or loosen one to make a change pass. If one blocks you, either the change or the ruling
   is wrong — raise it. They guard: gateway-only auto-i-dat calls, the capability vocabulary,

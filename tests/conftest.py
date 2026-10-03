@@ -5,7 +5,7 @@ from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -50,7 +50,8 @@ from tests.fake_oidc import FakeOidcClient
 # DMS_TEST_DATABASE_URL is set — see README "Running tests" and
 # .github/workflows/test.yml. User is the first FK relationship in the
 # schema; SQLite's weaker constraint/concurrency enforcement can hide bugs
-# that only show up against Postgres, so both lanes run in CI.
+# that only show up against Postgres, so CI runs the Postgres lane only
+# (ADR-011).
 _TEST_DATABASE_URL = os.environ.get("DMS_TEST_DATABASE_URL")
 
 
@@ -89,12 +90,143 @@ def _legacy_vehicle_writes_open():
         settings.legacy_vehicle_write_frozen = original
 
 
+# The Postgres lane builds the schema once per session, not once per test.
+# create_all + drop_all of every table and index around every test cost about
+# a second per test on Postgres, most of the lane's CI time, none of it
+# testing anything. Each test still starts where create_all left it: the
+# schema exactly as Base.metadata describes it, every table empty in new
+# storage (TRUNCATE, not DELETE: no dead rows pile up over the session, and
+# the table is what a newly created one is), identity sequences at their
+# start. _PostgresSchema.reset() re-establishes that before every test, and
+# rebuilds the schema if a test changed it (none does today; one that does
+# still gets what create_all gave it). The SQLite fast lane keeps a fresh
+# in-memory database per test.
+
+# Everything a test can observe about the schema of Base.metadata's tables:
+# the tables, their columns, defaults, constraints, indexes and triggers.
+# Rows and storage are not part of it, so TRUNCATE leaves it unchanged; any
+# DDL on these tables changes it.
+_SCHEMA_SIGNATURE = text(
+    """
+    WITH t AS (
+        SELECT oid, relname, relpersistence, relrowsecurity, reloptions, relacl FROM pg_class
+        WHERE relnamespace = current_schema()::regnamespace AND relkind = 'r' AND relname = ANY(:names)
+    )
+    SELECT md5(string_agg(line, E'\\n' ORDER BY line)) FROM (
+        SELECT concat_ws(' ', 'table', relname, relpersistence, relrowsecurity, reloptions, relacl) AS line
+          FROM t
+        UNION ALL
+        SELECT concat_ws(' ', 'column', t.relname, a.attname, a.attnum, a.atttypid, a.atttypmod,
+                         a.attnotnull, a.attisdropped, a.attidentity, a.attgenerated, a.attcollation)
+          FROM pg_attribute a JOIN t ON t.oid = a.attrelid WHERE a.attnum > 0
+        UNION ALL
+        SELECT concat_ws(' ', 'default', t.relname, d.adnum, d.adbin)
+          FROM pg_attrdef d JOIN t ON t.oid = d.adrelid
+        UNION ALL
+        SELECT concat_ws(' ', 'constraint', t.relname, k.conname, k.contype, k.condeferrable, k.condeferred,
+                         k.convalidated, k.conkey, k.confrelid, k.confkey, k.confupdtype, k.confdeltype,
+                         k.confmatchtype, k.conbin)
+          FROM pg_constraint k JOIN t ON t.oid = k.conrelid
+        UNION ALL
+        SELECT concat_ws(' ', 'index', t.relname, ic.relname, i.indisunique, i.indisprimary, i.indkey,
+                         i.indclass, i.indexprs, i.indpred)
+          FROM pg_index i JOIN t ON t.oid = i.indrelid JOIN pg_class ic ON ic.oid = i.indexrelid
+        UNION ALL
+        SELECT concat_ws(' ', 'trigger', t.relname, g.tgname, g.tgfoid, g.tgtype, g.tgenabled)
+          FROM pg_trigger g JOIN t ON t.oid = g.tgrelid
+    ) lines
+    """
+)
+
+# A table with no pages has held no row since it was created or truncated;
+# every other one gets new storage. Cheaper than asking each table for rows.
+_TABLES_WITH_PAGES = text(
+    """
+    SELECT relname FROM pg_class
+    WHERE relnamespace = current_schema()::regnamespace AND relkind = 'r' AND relname = ANY(:names)
+      AND pg_relation_size(oid) > 0
+    """
+)
+
+
+class _PostgresSchema:
+    """Builds, resets and finally drops the session's schema, over one
+    connection of its own that lives for the session: its catalog caches stay
+    warm, where a test's new connection starts cold. Tests never see it; it
+    holds no transaction between resets."""
+
+    def __init__(self) -> None:
+        self._engine = _make_engine()
+        self._names = [table.name for table in Base.metadata.sorted_tables]
+        self._signature: str | None = None
+
+    def build(self) -> None:
+        with self._engine.begin() as conn:
+            self._build(conn)
+
+    def reset(self) -> None:
+        with self._engine.begin() as conn:
+            # Nothing else uses this database, so waiting for a lock means an
+            # earlier test left a session open in a transaction. Fail with
+            # "lock timeout" instead of hanging the run (DROP TABLE used to).
+            conn.execute(text("SET LOCAL lock_timeout = '10s'"))
+            if self._signature_of(conn) != self._signature:
+                self._build(conn)
+                return
+            occupied = conn.execute(_TABLES_WITH_PAGES, {"names": self._names}).scalars().all()
+            if occupied:
+                # CASCADE: Postgres truncates a table that others reference
+                # only together with them.
+                names = ", ".join(conn.dialect.identifier_preparer.quote(name) for name in occupied)
+                conn.execute(text(f"TRUNCATE {names} RESTART IDENTITY CASCADE"))
+
+    def drop(self) -> None:
+        with self._engine.begin() as conn:
+            conn.execute(text("SET LOCAL lock_timeout = '10s'"))
+            Base.metadata.drop_all(conn)
+        self._engine.dispose()
+
+    def _build(self, conn) -> None:
+        Base.metadata.drop_all(conn)
+        Base.metadata.create_all(conn)
+        preparer = conn.dialect.identifier_preparer
+        for table in Base.metadata.sorted_tables:
+            # A table now lives for the whole session, not for one test. With
+            # autovacuum off it never holds a lock TRUNCATE has to wait for,
+            # and never gathers statistics a newly created table would not have.
+            conn.execute(
+                text(
+                    f"ALTER TABLE {preparer.format_table(table)} "
+                    "SET (autovacuum_enabled = off, toast.autovacuum_enabled = off)"
+                )
+            )
+        self._signature = self._signature_of(conn)
+
+    def _signature_of(self, conn) -> str:
+        return conn.execute(_SCHEMA_SIGNATURE, {"names": self._names}).scalar_one()
+
+
+@pytest.fixture(scope="session")
+def _postgres_schema():
+    if not _TEST_DATABASE_URL:
+        yield None
+        return
+    schema = _PostgresSchema()
+    schema.build()
+    yield schema
+    schema.drop()
+
+
 @pytest.fixture()
-def engine():
+def engine(_postgres_schema):
     eng = _make_engine()
-    Base.metadata.create_all(eng)
-    yield eng
-    Base.metadata.drop_all(eng)
+    if _postgres_schema is None:
+        Base.metadata.create_all(eng)
+        yield eng
+        Base.metadata.drop_all(eng)
+    else:
+        _postgres_schema.reset()
+        yield eng
     eng.dispose()
 
 
