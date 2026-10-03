@@ -101,44 +101,52 @@ def _legacy_vehicle_writes_open():
 # testing anything. Each test still starts where create_all left it, and
 # _PostgresSchema makes sure of it:
 # - before every test, every table is empty in new storage (TRUNCATE, not
-#   DELETE: no dead rows pile up over the session, and the table is what a
-#   newly created one is) and identity sequences are at their start;
-# - after any DDL in the test database (an event trigger counts it), the
-#   schema is rebuilt, so a test that changes it changes nothing for the next
-#   (an object a test leaves that depends on a test table, a view or a child
-#   table, makes the rebuild's drop_all fail loudly, as drop_all did before);
-# - after every test, a session of it still holding a lock on a test table
-#   fails that test and is terminated, so the rest of the run goes on
-#   (drop_all used to hang on it).
-# The SQLite fast lane keeps a fresh in-memory database per test.
+#   DELETE: no dead rows pile up over the session) with no planner
+#   statistics, as a newly created table is, and identity sequences are at
+#   their start;
+# - after any DDL in the test database (an event trigger counts it), or after
+#   a test ran ANALYZE or VACUUM on a test table, the schema is rebuilt, so a
+#   test that changes it changes nothing for the next (an object a test leaves
+#   that depends on a test table, a view or a child table, makes the
+#   rebuild's drop_all fail loudly, as drop_all did before);
+# - after every test, a session from this run's engines still holding a lock
+#   on a test table fails that test and is terminated, so the rest of the run
+#   goes on (drop_all used to hang on it).
+# Two deliberate differences from create_all per test: every test table has
+# autovacuum off, and the DDL counter lives in a schema of its own,
+# nexotec_tests. The SQLite fast lane keeps a fresh in-memory database per test.
 
 # Every DDL command on this database's objects is counted: columns,
 # constraints, indexes, triggers, rules, policies, inheritance, views, grants,
-# comments. TRUNCATE is not DDL and is not counted; nor are commands on
-# databases, roles and tablespaces, which an event trigger never sees. It needs
-# a superuser, which the test role is in CI, in docker compose and in cloud
-# sessions (scripts/dev/cloud-postgres).
-_STOP_COUNTING_DDL = (
-    "DROP EVENT TRIGGER IF EXISTS nexotec_tests_count_ddl",
-    "DROP FUNCTION IF EXISTS nexotec_tests_count_ddl()",
-    "DROP SEQUENCE IF EXISTS nexotec_tests_ddl_count",
-)
+# comments; under session_replication_role = replica too (ENABLE ALWAYS).
+# TRUNCATE, ANALYZE and VACUUM are not DDL and are not counted; nor are
+# commands on databases, roles and tablespaces, which an event trigger never
+# sees. It needs a superuser, which the test role is in CI, in docker compose
+# and in cloud sessions (scripts/dev/cloud-postgres).
+_STOP_COUNTING_DDL = ("DROP SCHEMA IF EXISTS nexotec_tests CASCADE",)  # the event trigger goes with its function
 _COUNT_DDL = _STOP_COUNTING_DDL + (
-    "CREATE SEQUENCE nexotec_tests_ddl_count",
+    "CREATE SCHEMA nexotec_tests",
+    "CREATE SEQUENCE nexotec_tests.ddl_count",
     (
-        "CREATE FUNCTION nexotec_tests_count_ddl() RETURNS event_trigger LANGUAGE plpgsql"
-        " AS $$ BEGIN PERFORM nextval('nexotec_tests_ddl_count'); END $$"
+        "CREATE FUNCTION nexotec_tests.count_ddl() RETURNS event_trigger LANGUAGE plpgsql"
+        " AS $$ BEGIN PERFORM nextval('nexotec_tests.ddl_count'); END $$"
     ),
-    "CREATE EVENT TRIGGER nexotec_tests_count_ddl ON ddl_command_end EXECUTE FUNCTION nexotec_tests_count_ddl()",
+    "CREATE EVENT TRIGGER nexotec_tests_count_ddl ON ddl_command_end EXECUTE FUNCTION nexotec_tests.count_ddl()",
+    "ALTER EVENT TRIGGER nexotec_tests_count_ddl ENABLE ALWAYS",
+    # The trigger runs as whoever ran the DDL, a test's non-superuser SET ROLE included.
+    "GRANT USAGE ON SCHEMA nexotec_tests TO PUBLIC",
+    "GRANT USAGE ON SEQUENCE nexotec_tests.ddl_count TO PUBLIC",
 )
 
-# A table with no pages has held no row since it was created or truncated;
-# every other one gets new storage. Cheaper than asking each table for rows.
-_TABLES_WITH_PAGES = text(
+# Per test table: has it any pages (a table without has no rows), and has it
+# planner state a newly created table lacks (reltuples is -1 until ANALYZE or
+# VACUUM sets it; statistics survive TRUNCATE).
+_TABLE_STATE = text(
     """
-    SELECT relname FROM pg_class
-    WHERE relnamespace = current_schema()::regnamespace AND relkind = 'r' AND relname = ANY(:names)
-      AND pg_relation_size(oid) > 0
+    SELECT c.relname, pg_relation_size(c.oid) > 0,
+           c.reltuples >= 0 OR EXISTS (SELECT 1 FROM pg_statistic s WHERE s.starelid = c.oid)
+    FROM pg_class c
+    WHERE c.relnamespace = current_schema()::regnamespace AND c.relkind = 'r' AND c.relname = ANY(:names)
     """
 )
 
@@ -186,10 +194,11 @@ class _PostgresSchema:
             # waiting here means another process uses this database. Fail with
             # "lock timeout" instead of hanging the run.
             conn.execute(text("SET LOCAL lock_timeout = '10s'"))
-            if self._ddl_count_of(conn) != self._ddl_count:
+            state = conn.execute(_TABLE_STATE, {"names": self._names}).all()
+            if self._ddl_count_of(conn) != self._ddl_count or any(analyzed for _, _, analyzed in state):
                 self._build(conn)
                 return
-            occupied = conn.execute(_TABLES_WITH_PAGES, {"names": self._names}).scalars().all()
+            occupied = [name for name, has_pages, _ in state if has_pages]
             if occupied:
                 # CASCADE: Postgres truncates a table that others reference
                 # only together with them.
@@ -237,7 +246,7 @@ class _PostgresSchema:
         self._ddl_count = self._ddl_count_of(conn)
 
     def _ddl_count_of(self, conn) -> int:
-        return conn.execute(text("SELECT last_value FROM nexotec_tests_ddl_count")).scalar_one()
+        return conn.execute(text("SELECT last_value FROM nexotec_tests.ddl_count")).scalar_one()
 
     def _lock_holders(self) -> list[tuple[int, str]]:
         with self._engine.connect() as conn:

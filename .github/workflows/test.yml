@@ -410,8 +410,8 @@ jobs:
         # The data directory is in memory (tmpfs). Constraints, isolation and
         # locking behave exactly as on disk; only a crash would lose data, and
         # this database is thrown away with the job. The TRUNCATE before every
-        # test (tests/conftest.py) is mostly file work: in local runs it was
-        # three times cheaper in memory, and the suite a fifth faster.
+        # test (tests/conftest.py) is mostly file work, which memory makes
+        # cheaper.
         options: >-
           --health-cmd pg_isready
           --health-interval 5s
