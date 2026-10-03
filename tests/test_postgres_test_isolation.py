@@ -129,19 +129,39 @@ def test_ddl_run_under_a_non_superuser_role_works_and_is_counted(engine, _postgr
             conn.execute(text(f'DROP ROLE IF EXISTS "{role}"'))
 
 
-def test_planner_state_a_test_leaves_is_gone_before_the_next(engine, db_session, _postgres_schema):
+def test_statistics_a_test_leaves_are_gone_even_if_it_truncated_the_table(engine, db_session, _postgres_schema):
+    """ANALYZE, then TRUNCATE: reltuples is back to -1, the statistics stay."""
     db_session.add(DealerGroup(name="analysed"))
     db_session.commit()
     with engine.connect() as conn:
         conn = conn.execution_options(isolation_level="AUTOCOMMIT")
-        conn.execute(text("ANALYZE dealer_group"))  # statistics, which TRUNCATE keeps
-        conn.execute(text("DELETE FROM reference_value"))
-        conn.execute(text("VACUUM reference_value"))  # reltuples 0 and, emptied, no pages left
+        conn.execute(text("ANALYZE dealer_group"))
+        conn.execute(text("TRUNCATE dealer_group CASCADE"))
     assert _planner_state(engine) != {(-1, 0)}
 
     _postgres_schema.reset()
 
     assert _planner_state(engine) == {(-1, 0)}  # what every newly created table has
+
+
+def test_vacuum_state_a_test_leaves_is_gone_before_the_next(engine, db_session, _postgres_schema):
+    """VACUUM alone: no statistics, but reltuples set, and the emptied table
+    has no pages left, so no TRUNCATE would reach it (no seeded table's
+    CASCADE does either: dealer_group references none)."""
+    db_session.add(DealerGroup(name="vacuumed"))
+    db_session.commit()
+    with engine.connect() as conn:
+        conn = conn.execution_options(isolation_level="AUTOCOMMIT")
+        conn.execute(text("DELETE FROM dealer_group"))
+        conn.execute(text("VACUUM dealer_group"))
+        pages, reltuples = conn.execute(
+            text("SELECT pg_relation_size(oid), reltuples FROM pg_class WHERE oid = 'dealer_group'::regclass")
+        ).one()
+    assert (pages, reltuples) == (0, 0)
+
+    _postgres_schema.reset()
+
+    assert _planner_state(engine) == {(-1, 0)}
 
 
 def test_a_session_left_open_in_a_transaction_fails_its_test_and_is_ended(engine, _postgres_schema):
