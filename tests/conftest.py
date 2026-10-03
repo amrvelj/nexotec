@@ -1,3 +1,4 @@
+import gc
 import os
 
 import pytest
@@ -53,11 +54,15 @@ from tests.fake_oidc import FakeOidcClient
 # that only show up against Postgres, so CI runs the Postgres lane only
 # (ADR-011).
 _TEST_DATABASE_URL = os.environ.get("DMS_TEST_DATABASE_URL")
+# Marks this run's own connections, so _PostgresSchema only ever terminates those.
+_APPLICATION_NAME = f"nexotec-tests-{os.getpid()}"
 
 
 def _make_engine():
     if _TEST_DATABASE_URL:
-        return create_engine(_TEST_DATABASE_URL, pool_pre_ping=True)
+        return create_engine(
+            _TEST_DATABASE_URL, pool_pre_ping=True, connect_args={"application_name": _APPLICATION_NAME}
+        )
     # StaticPool: TestClient runs the app in a separate thread (anyio
     # portal), and plain sqlite+pysqlite:///:memory: hands out a fresh
     # (empty) in-memory database per connection/thread otherwise — this
@@ -93,49 +98,38 @@ def _legacy_vehicle_writes_open():
 # The Postgres lane builds the schema once per session, not once per test.
 # create_all + drop_all of every table and index around every test cost about
 # a second per test on Postgres, most of the lane's CI time, none of it
-# testing anything. Each test still starts where create_all left it: the
-# schema exactly as Base.metadata describes it, every table empty in new
-# storage (TRUNCATE, not DELETE: no dead rows pile up over the session, and
-# the table is what a newly created one is), identity sequences at their
-# start. _PostgresSchema.reset() re-establishes that before every test, and
-# rebuilds the schema if a test changed it (none does today; one that does
-# still gets what create_all gave it). The SQLite fast lane keeps a fresh
-# in-memory database per test.
+# testing anything. Each test still starts where create_all left it, and
+# _PostgresSchema makes sure of it:
+# - before every test, every table is empty in new storage (TRUNCATE, not
+#   DELETE: no dead rows pile up over the session, and the table is what a
+#   newly created one is) and identity sequences are at their start;
+# - after any DDL in the test database (an event trigger counts it), the
+#   schema is rebuilt, so a test that changes it changes nothing for the next
+#   (an object a test leaves that depends on a test table, a view or a child
+#   table, makes the rebuild's drop_all fail loudly, as drop_all did before);
+# - after every test, a session of it still holding a lock on a test table
+#   fails that test and is terminated, so the rest of the run goes on
+#   (drop_all used to hang on it).
+# The SQLite fast lane keeps a fresh in-memory database per test.
 
-# Everything a test can observe about the schema of Base.metadata's tables:
-# the tables, their columns, defaults, constraints, indexes and triggers.
-# Rows and storage are not part of it, so TRUNCATE leaves it unchanged; any
-# DDL on these tables changes it.
-_SCHEMA_SIGNATURE = text(
-    """
-    WITH t AS (
-        SELECT oid, relname, relpersistence, relrowsecurity, reloptions, relacl FROM pg_class
-        WHERE relnamespace = current_schema()::regnamespace AND relkind = 'r' AND relname = ANY(:names)
-    )
-    SELECT md5(string_agg(line, E'\\n' ORDER BY line)) FROM (
-        SELECT concat_ws(' ', 'table', relname, relpersistence, relrowsecurity, reloptions, relacl) AS line
-          FROM t
-        UNION ALL
-        SELECT concat_ws(' ', 'column', t.relname, a.attname, a.attnum, a.atttypid, a.atttypmod,
-                         a.attnotnull, a.attisdropped, a.attidentity, a.attgenerated, a.attcollation)
-          FROM pg_attribute a JOIN t ON t.oid = a.attrelid WHERE a.attnum > 0
-        UNION ALL
-        SELECT concat_ws(' ', 'default', t.relname, d.adnum, d.adbin)
-          FROM pg_attrdef d JOIN t ON t.oid = d.adrelid
-        UNION ALL
-        SELECT concat_ws(' ', 'constraint', t.relname, k.conname, k.contype, k.condeferrable, k.condeferred,
-                         k.convalidated, k.conkey, k.confrelid, k.confkey, k.confupdtype, k.confdeltype,
-                         k.confmatchtype, k.conbin)
-          FROM pg_constraint k JOIN t ON t.oid = k.conrelid
-        UNION ALL
-        SELECT concat_ws(' ', 'index', t.relname, ic.relname, i.indisunique, i.indisprimary, i.indkey,
-                         i.indclass, i.indexprs, i.indpred)
-          FROM pg_index i JOIN t ON t.oid = i.indrelid JOIN pg_class ic ON ic.oid = i.indexrelid
-        UNION ALL
-        SELECT concat_ws(' ', 'trigger', t.relname, g.tgname, g.tgfoid, g.tgtype, g.tgenabled)
-          FROM pg_trigger g JOIN t ON t.oid = g.tgrelid
-    ) lines
-    """
+# Every DDL command on this database's objects is counted: columns,
+# constraints, indexes, triggers, rules, policies, inheritance, views, grants,
+# comments. TRUNCATE is not DDL and is not counted; nor are commands on
+# databases, roles and tablespaces, which an event trigger never sees. It needs
+# a superuser, which the test role is in CI, in docker compose and in cloud
+# sessions (scripts/dev/cloud-postgres).
+_STOP_COUNTING_DDL = (
+    "DROP EVENT TRIGGER IF EXISTS nexotec_tests_count_ddl",
+    "DROP FUNCTION IF EXISTS nexotec_tests_count_ddl()",
+    "DROP SEQUENCE IF EXISTS nexotec_tests_ddl_count",
+)
+_COUNT_DDL = _STOP_COUNTING_DDL + (
+    "CREATE SEQUENCE nexotec_tests_ddl_count",
+    (
+        "CREATE FUNCTION nexotec_tests_count_ddl() RETURNS event_trigger LANGUAGE plpgsql"
+        " AS $$ BEGIN PERFORM nextval('nexotec_tests_ddl_count'); END $$"
+    ),
+    "CREATE EVENT TRIGGER nexotec_tests_count_ddl ON ddl_command_end EXECUTE FUNCTION nexotec_tests_count_ddl()",
 )
 
 # A table with no pages has held no row since it was created or truncated;
@@ -148,9 +142,24 @@ _TABLES_WITH_PAGES = text(
     """
 )
 
+# This run's other sessions that hold a lock on a test table. Between tests
+# there must be none: drop_all, which needs all those locks, would have
+# waited for one forever.
+_LOCK_HOLDERS = text(
+    """
+    SELECT DISTINCT a.pid, c.relname FROM pg_locks l
+      JOIN pg_stat_activity a ON a.pid = l.pid
+      JOIN pg_class c ON c.oid = l.relation
+    WHERE l.locktype = 'relation' AND l.granted AND a.pid <> pg_backend_pid()
+      AND l.database = (SELECT oid FROM pg_database WHERE datname = current_database())
+      AND a.application_name = :application_name
+      AND c.relnamespace = current_schema()::regnamespace AND c.relname = ANY(:names)
+    """
+)
+
 
 class _PostgresSchema:
-    """Builds, resets and finally drops the session's schema, over one
+    """Builds, resets and finally drops the session's schema, over a
     connection of its own that lives for the session: its catalog caches stay
     warm, where a test's new connection starts cold. Tests never see it; it
     holds no transaction between resets."""
@@ -158,19 +167,26 @@ class _PostgresSchema:
     def __init__(self) -> None:
         self._engine = _make_engine()
         self._names = [table.name for table in Base.metadata.sorted_tables]
-        self._signature: str | None = None
+        self._ddl_count: int | None = None
 
     def build(self) -> None:
         with self._engine.begin() as conn:
+            if not conn.execute(text("SELECT rolsuper FROM pg_roles WHERE rolname = current_user")).scalar_one():
+                raise RuntimeError(
+                    "The Postgres test lane needs a superuser test role, as CI, docker compose and "
+                    "scripts/dev/cloud-postgres give it: without one, DDL run by a test goes unnoticed."
+                )
+            for statement in _COUNT_DDL:
+                conn.execute(text(statement))
             self._build(conn)
 
     def reset(self) -> None:
         with self._engine.begin() as conn:
-            # Nothing else uses this database, so waiting for a lock means an
-            # earlier test left a session open in a transaction. Fail with
-            # "lock timeout" instead of hanging the run (DROP TABLE used to).
+            # This run's own leftover sessions are ended after their test, so
+            # waiting here means another process uses this database. Fail with
+            # "lock timeout" instead of hanging the run.
             conn.execute(text("SET LOCAL lock_timeout = '10s'"))
-            if self._signature_of(conn) != self._signature:
+            if self._ddl_count_of(conn) != self._ddl_count:
                 self._build(conn)
                 return
             occupied = conn.execute(_TABLES_WITH_PAGES, {"names": self._names}).scalars().all()
@@ -180,9 +196,27 @@ class _PostgresSchema:
                 names = ", ".join(conn.dialect.identifier_preparer.quote(name) for name in occupied)
                 conn.execute(text(f"TRUNCATE {names} RESTART IDENTITY CASCADE"))
 
+    def check_sessions_closed(self, test: str) -> None:
+        holders = self._lock_holders()
+        if holders:
+            gc.collect()  # a session left only for the garbage collector to close holds nothing after this
+            holders = self._lock_holders()
+        if not holders:
+            return
+        with self._engine.begin() as conn:
+            for pid in sorted({pid for pid, _ in holders}):
+                conn.execute(text("SELECT pg_terminate_backend(:pid, 5000)"), {"pid": pid})
+        tables = ", ".join(sorted({table for _, table in holders}))
+        raise RuntimeError(
+            f"{test} left a database session open in a transaction, holding locks on: {tables}. "
+            "Its connection was terminated so the remaining tests can run; close every session a test opens."
+        )
+
     def drop(self) -> None:
         with self._engine.begin() as conn:
             conn.execute(text("SET LOCAL lock_timeout = '10s'"))
+            for statement in _STOP_COUNTING_DDL:
+                conn.execute(text(statement))
             Base.metadata.drop_all(conn)
         self._engine.dispose()
 
@@ -200,10 +234,15 @@ class _PostgresSchema:
                     "SET (autovacuum_enabled = off, toast.autovacuum_enabled = off)"
                 )
             )
-        self._signature = self._signature_of(conn)
+        self._ddl_count = self._ddl_count_of(conn)
 
-    def _signature_of(self, conn) -> str:
-        return conn.execute(_SCHEMA_SIGNATURE, {"names": self._names}).scalar_one()
+    def _ddl_count_of(self, conn) -> int:
+        return conn.execute(text("SELECT last_value FROM nexotec_tests_ddl_count")).scalar_one()
+
+    def _lock_holders(self) -> list[tuple[int, str]]:
+        with self._engine.connect() as conn:
+            rows = conn.execute(_LOCK_HOLDERS, {"application_name": _APPLICATION_NAME, "names": self._names})
+            return [(pid, table) for pid, table in rows]
 
 
 @pytest.fixture(scope="session")
@@ -218,16 +257,18 @@ def _postgres_schema():
 
 
 @pytest.fixture()
-def engine(_postgres_schema):
+def engine(_postgres_schema, request):
     eng = _make_engine()
     if _postgres_schema is None:
         Base.metadata.create_all(eng)
         yield eng
         Base.metadata.drop_all(eng)
-    else:
-        _postgres_schema.reset()
-        yield eng
+        eng.dispose()
+        return
+    _postgres_schema.reset()
+    yield eng
     eng.dispose()
+    _postgres_schema.check_sessions_closed(request.node.nodeid)
 
 
 @pytest.fixture(autouse=True)

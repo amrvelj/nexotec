@@ -6,18 +6,21 @@ paths:
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises ADR-011 and the recurring
 failure modes from the WP audits (wp-verification). Verified against main@568f416 on
-2026-09-28 (every present-tense claim checked against the code). Fix this file in the same PR
-as any change to what it states. -->
+2026-09-28 (every present-tense claim checked against the code); the schema-once bullet
+(KAN-133) against its own branch on 2026-10-03. Fix this file in the same PR as any change to
+what it states. -->
 
 # Tests
 
 - **Postgres is the lane of record** (ADR-011). SQLite's weaker constraint and isolation
   enforcement hides real bugs; "tested" means Postgres. Every session points `pytest` at this
   checkout's own test database (`dms_test_<checkout>`), so parallel worktrees never share one.
-- **On Postgres the schema is built once per session** (`tests/conftest.py`), not per test:
-  every test starts with every table empty (`TRUNCATE`), and a test that changes the schema
-  has it rebuilt before the next test. A test that leaves a session open in a transaction can make
-  the next one fail with `lock timeout`: close every session a test opens.
+- **On Postgres the schema is built once per session** (`tests/conftest.py`), not per test.
+  Every test starts with every table empty (`TRUNCATE`); any DDL a test runs is counted by an
+  event trigger and has the schema rebuilt before the next test; a test that leaves a session
+  open in a transaction fails at its own teardown, and its connection is ended so the run goes
+  on. Close every session a test opens. The test role must be a superuser, as CI, docker compose
+  and `scripts/dev/cloud-postgres` make it. `tests/test_postgres_test_isolation.py` pins all this.
 - **Architecture tests (`tests/architecture/`) are rulings in executable form.** Never weaken,
   skip or loosen one to make a change pass. If one blocks you, either the change or the ruling
   is wrong — raise it. They guard: gateway-only auto-i-dat calls, the capability vocabulary,
