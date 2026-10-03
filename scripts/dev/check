@@ -108,6 +108,9 @@ def pg_up():
 
 
 def ensure_postgres():
+    if os.environ.get("CLAUDE_CODE_REMOTE") == "true":
+        # A cloud session: this machine's own Postgres 16, which a paused machine can lose.
+        subprocess.run([os.path.join(ROOT, "scripts", "dev", "cloud-postgres")], cwd=ROOT, env=ENV)
     if pg_up():
         return True
     if shutil.which("docker") and subprocess.run(["docker", "info"], stdout=subprocess.DEVNULL,
@@ -200,7 +203,8 @@ def lane_backend(fast):
         ok &= step("pytest - SQLite fast lane (not verification)", [PY, "-m", "pytest", "-q"], env=env)
         return ok
     if not ensure_postgres():
-        print("\nPostgres is not reachable and could not be started (Docker Desktop running?). "
+        print("\nPostgres is not reachable and could not be started (Docker Desktop running? In a cloud "
+              "session, see scripts/dev/cloud-postgres's output above). "
               "Postgres is the lane of record (ADR-011) - this lane FAILS rather than falling back to SQLite.")
         return False
     name = "dms_test_" + db_slug()

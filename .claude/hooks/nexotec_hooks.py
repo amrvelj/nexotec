@@ -1050,16 +1050,28 @@ def cmd_session_start(data):
         return
     lines = []
     wt = is_worktree(root)
+    cloud = os.environ.get("CLAUDE_CODE_REMOTE") == "true"
     branch = current_branch(root) or "(detached HEAD)"
     lines.append("Nexotec session status (from .claude/hooks - trust this over memory):")
-    where = "worktree " + os.path.basename(root) if wt else "MAIN CHECKOUT"
+    if wt:
+        where = "worktree " + os.path.basename(root)
+    elif cloud:
+        where = "CLOUD SESSION (its own copy of the repository)"
+    else:
+        where = "MAIN CHECKOUT"
     rc, counts = git(root, "rev-list", "--left-right", "--count", "HEAD...origin/main")
     rel = ""
     if rc == 0 and counts:
         ahead, behind = counts.split()
         rel = " - {} ahead / {} behind origin/main".format(ahead, behind)
     lines.append("- Checkout: {} on branch `{}`{}".format(where, branch, rel))
-    if not wt:
+    if cloud and not wt:
+        lines.append(
+            "  A cloud session works on its own fresh copy, as isolated as a worktree: ticket work "
+            "runs here. Run `scripts/dev/bootstrap` first - it also starts this machine's Postgres. "
+            "There is no desktop preview; screenshots come from a headless browser (/ticket says how)."
+        )
+    elif not wt:
         lines.append(
             "  The main checkout stays on `main` and clean; code work happens in a "
             "worktree session. Do not edit or commit here unless Anto asks for it."
@@ -1089,9 +1101,11 @@ def cmd_session_start(data):
             lines.append("- Tests: `pytest` is pointed at Postgres database `{}`, which `scripts/dev/bootstrap` "
                          "creates - run it before testing".format(name))
     else:
-        lines.append("- Tests: Postgres is not reachable on localhost:5432 - start Docker Desktop, then run "
-                     "`scripts/dev/bootstrap`. Until then `pytest` fails (it is pointed at `{}`); the SQLite "
-                     "fast lane (`scripts/dev/check --fast`) never counts as verification (ADR-011)".format(name))
+        start = ("run `scripts/dev/bootstrap`, which starts this machine's Postgres" if cloud else
+                 "start Docker Desktop, then run `scripts/dev/bootstrap`")
+        lines.append("- Tests: Postgres is not reachable on localhost:5432 - {}. Until then `pytest` fails (it is "
+                     "pointed at `{}`); the SQLite fast lane (`scripts/dev/check --fast`) never counts as "
+                     "verification (ADR-011)".format(start, name))
     env_file = os.environ.get("CLAUDE_ENV_FILE")
     if env_file:
         try:

@@ -8,6 +8,8 @@
 #     checkout's dms_platform (so log-in and data work in the preview), migrated
 #     to this branch's heads, so one branch's migrations never break another's
 #   - a dev-only .env (make env)
+#   - in a cloud session (CLAUDE_CODE_REMOTE=true), which starts from a fresh copy every
+#     time: first this machine's own Postgres 16 (scripts/dev/cloud-postgres)
 #
 #   scripts/dev/bootstrap                 set up or repair; safe to re-run
 #   scripts/dev/bootstrap --reset-dev-db  worktree only: drop dms_dev_<checkout> and copy it again
@@ -133,6 +135,10 @@ fi
 say "Postgres databases for this checkout"
 pg_up() { (exec 3<>/dev/tcp/localhost/5432) 2>/dev/null; }
 have_docker() { command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; }
+if [ "${CLAUDE_CODE_REMOTE:-}" = "true" ]; then
+  # A cloud session: this machine has its own Postgres 16 and no Docker daemon.
+  "$ROOT/scripts/dev/cloud-postgres"
+fi
 if ! pg_up && have_docker; then
   docker compose up -d --wait db 2>/dev/null || docker compose up -d db
   for _ in $(seq 1 30); do pg_up && break; sleep 1; done

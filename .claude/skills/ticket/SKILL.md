@@ -25,10 +25,13 @@ If the argument ends in `close`, skip to **Close after merge** at the bottom.
 
 ## 1. Preconditions
 
-- You must be in a **worktree** session. If the status above says MAIN CHECKOUT, stop and ask
-  Anto to start a worktree session for this ticket.
+- You must be in a **worktree** session or a **cloud** session (each works on its own copy).
+  If the status above says MAIN CHECKOUT, stop and ask Anto to start a worktree or cloud
+  session for this ticket.
 - If the session status reported that this checkout has no environment of its own, run
   `scripts/dev/bootstrap` first (its tools and test database are picked up in this session).
+  A cloud session always needs it: it starts from a fresh copy, and bootstrap also starts that
+  machine's Postgres.
 
 ## 2. Read the ticket
 
@@ -42,8 +45,8 @@ If the argument ends in `close`, skip to **Close after merge** at the bottom.
    ask what he wants (a follow-up ticket is usually right).
 3. Register it: `scripts/dev/gate start KAN-<n> <ticket url>`. From now on, writes to this
    ticket page and new tickets on the board need no click; every other Notion write asks Anto.
-4. Name the branch `kan-<n>-<short-slug>` (`git branch -m kan-<n>-<slug>` if the worktree
-   started on a generated name).
+4. Name the branch `kan-<n>-<short-slug>`: `git branch -m kan-<n>-<slug>` if the session
+   started on a generated name, `git switch -c kan-<n>-<slug>` if it started on `main`.
 5. Set the ticket's Status to **In Progress** and comment: branch name, start time.
 
 ## 3. Re-verify, then plan
@@ -86,6 +89,11 @@ If the argument ends in `close`, skip to **Close after merge** at the bottom.
    `scripts/dev/gate evidence screenshot <file>`. Only if nothing at all can be shown:
    `scripts/dev/gate no-visual "<why>"`, and say so in the reply. Only one session can run
    the preview (fixed ports 8000/5173).
+   **In a cloud session** there is no desktop preview. Start the two `launch.json` commands
+   in the background (`.venv/bin/uvicorn app.main:app --port 8000` and
+   `npm --prefix frontend/apps/dms run dev -- --port 5173 --strictPort`), wait until both
+   answer, then `npx playwright screenshot http://localhost:5173/<path> .claude/evidence/<name>.png`
+   — the gate records that capture. Stop both servers afterwards.
 
 Any code change after this point invalidates 2–4: redo them.
 
@@ -129,4 +137,4 @@ open until it is complete. Never skip an update silently.
 3. Close the loops: PRD status and Gap Analysis against the merged head, and anything else the
    ticket names — spec-page writes ask Anto; say what each one changes first, as in step 7.
 4. `scripts/dev/gate close` (it refuses until the PR is merged), then tell Anto the worktree can
-   be removed.
+   be removed. A cloud session has no worktree: the session can simply be archived.

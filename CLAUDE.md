@@ -46,9 +46,9 @@ by ADR-015; ignore it.
 
 ## Commands
 
-- Once per checkout (main checkout or worktree): `scripts/dev/bootstrap` — its own `.venv`,
-  `npm ci`, its own test database (and, in a worktree, a dev database copied from the main
-  one). The session already has this checkout's `.venv/bin` first on PATH and `pytest` pointed
+- Once per checkout (main checkout, worktree, every cloud session): `scripts/dev/bootstrap` — its own `.venv`,
+  `npm ci`, its own test database (in a worktree, a dev database copied from the main one; in a
+  cloud session, it first starts that machine's Postgres). The session already has this checkout's `.venv/bin` first on PATH and `pytest` pointed
   at its test database, so the tools work as soon as bootstrap finishes. Never call another
   checkout's `.venv`: its editable install runs that checkout's code.
 - The check the push gate trusts: `scripts/dev/check` (lanes chosen from the diff;
@@ -86,7 +86,7 @@ CI (`.github/workflows/test.yml`) runs eleven jobs; whether they block a merge i
   fix, the reproduction that no longer reproduces; for work with no screen of its own, the
   nearest visible artefact. "None exists" is said in one line, never assumed. The hand-over
   gate enforces both.
-- Code work happens in a worktree session. The main checkout stays on `main`, clean.
+- Code work happens in a worktree or a cloud session, each on its own copy. The main checkout stays on `main`, clean.
 - No secrets in the application database, only references into the secrets manager. Secrets
   are never logged and never returned by any endpoint, to anyone.
 
@@ -197,4 +197,4 @@ it needs an explicit decision, never a side effect of a fix.
 ## Reference material outside the repository
 
 The Nexotec Drive folder — quote it: `"/Users/antomrvelj/Library/CloudStorage/GoogleDrive-mrvelj.anto@gmail.com/Meine Ablage/1. Persönlich/11. Arbeit/Anto/Nexotec"`:
-the UI prototype (`.claude/rules/ui.md`), auto-i-dat PDFs, dated reports. Opened only when a task names it.
+the UI prototype (`.claude/rules/ui.md`), auto-i-dat PDFs, dated reports. Opened only when a task names it; a cloud session cannot reach it — say so instead of guessing.
