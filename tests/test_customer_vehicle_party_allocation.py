@@ -10,7 +10,6 @@ import pytest
 from sqlalchemy import select
 
 from app.core.audit_model import AuditEvent
-
 from app.core.outbox_model import OutboxMessage
 from app.customer.models.customer import Customer, CustomerType, Language
 from app.customer.models.vehicle_party import VehiclePartyRole
