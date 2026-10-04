@@ -7,12 +7,13 @@ accountability).
 import uuid
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import select, union
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
-from app.core.errors import BadRequestError, ConflictError, NotFoundError
+from app.core.auth import AccessRole
+from app.core.errors import BadRequestError, ConflictError, ForbiddenError, NotFoundError
 from app.core.pagination import PageParams, build_page, paginate_query
 from app.core.tenancy import get_or_404
 from app.platform.models.dealership_membership import DealershipMembership
@@ -45,29 +46,92 @@ def _role_values(roles) -> list[str]:
     return sorted(_plain(role) for role in roles)
 
 
-def _assert_not_last_manager(db: Session, *, tenant_id: uuid.UUID, excluding_user_id: uuid.UUID) -> None:
-    """Roles & Permissions enforcement rule 7 / RP-1: a dealership must
-    always have at least one active manager. Checked against every OTHER
-    active manager in the tenant — a user who is themselves the last one
-    can't demote or deactivate themselves out of existence, nor can another
-    manager do it to them.
+def _assert_not_last_manager(
+    db: Session, *, dealership_id: uuid.UUID, excluding_user_id: uuid.UUID, message: str | None = None
+) -> None:
+    """Roles & Permissions enforcement rule 7 / RP-1 (Dealer Administration
+    FR-A-13): a dealership must always have at least one active manager.
+    Checked against every OTHER active manager of the dealership — a user
+    who is themselves the last one can't demote or deactivate themselves
+    out of existence, nor can another manager do it to them. A dealership's
+    managers are its home users holding User.is_dealer_manager plus anyone
+    whose membership of it holds the flag (KAN-98, D-A-01).
     """
 
-    other_active_managers = db.scalar(
+    other_home_manager = db.scalar(
         select(User.id)
         .where(
-            User.tenant_id == tenant_id,
+            User.tenant_id == dealership_id,
             User.id != excluding_user_id,
             User.is_dealer_manager.is_(True),
             User.status.in_(_ACTIVE_USER_STATUSES),
         )
         .limit(1)
     )
-    if other_active_managers is None:
+    other_manager_by_membership = db.scalar(
+        select(User.id)
+        .join(DealershipMembership, DealershipMembership.user_id == User.id)
+        .where(
+            DealershipMembership.dealership_id == dealership_id,
+            DealershipMembership.is_dealer_manager.is_(True),
+            User.id != excluding_user_id,
+            User.status.in_(_ACTIVE_USER_STATUSES),
+        )
+        .limit(1)
+    )
+    if other_home_manager is None and other_manager_by_membership is None:
         raise BadRequestError(
-            "This dealership must always have at least one active manager — "
+            message
+            or "This dealership must always have at least one active manager — "
             "cannot remove or deactivate its last one."
         )
+
+
+def is_dealer_manager_in(db: Session, *, user: User, dealership_id: uuid.UUID) -> bool:
+    """The user's manager flag in one dealership (KAN-98, D-A-01: held per
+    dealership). The home dealership reads User.is_dealer_manager; any
+    other dealership reads that membership's own flag, and no membership
+    means no flag. Never the home flag carried into a sister dealership.
+    """
+
+    if dealership_id == user.tenant_id:
+        return user.is_dealer_manager
+    flag = db.scalar(
+        select(DealershipMembership.is_dealer_manager).where(
+            DealershipMembership.user_id == user.id, DealershipMembership.dealership_id == dealership_id
+        )
+    )
+    return bool(flag)
+
+
+def _assert_may_create_with_roles(*, roles: list[AccessRole], actor_roles: frozenset[AccessRole]) -> None:
+    """KAN-97 (Dealer Administration: "`platform_admin` is Nexotec staff
+    only ... no dealer user can obtain it"): a dealer manager passes
+    require_write("dealership_users"), so this service — not the route — is
+    what stops them minting a platform_admin. 403, not 422: the body is
+    valid; who sent it is not allowed to.
+    """
+
+    if AccessRole.PLATFORM_ADMIN in actor_roles:
+        return
+    if AccessRole.PLATFORM_ADMIN.value in _role_values(roles):
+        raise ForbiddenError("Only platform staff can grant the platform_admin role.")
+
+
+def _assert_may_update(*, user: User, changes: dict[str, Any], actor_roles: frozenset[AccessRole]) -> None:
+    """KAN-97: a non-platform_admin may neither grant platform_admin nor
+    touch a user who already holds it — any field, not only the roles:
+    rewriting a staff account's email or auth_identity_id is an account
+    takeover, and deactivating it locks Nexotec staff out (Anto,
+    2026-10-04, option 1).
+    """
+
+    if AccessRole.PLATFORM_ADMIN in actor_roles:
+        return
+    if AccessRole.PLATFORM_ADMIN.value in user.access_roles:
+        raise ForbiddenError("Only platform staff can change a user who holds the platform_admin role.")
+    if changes.get("access_roles") is not None:
+        _assert_may_create_with_roles(roles=changes["access_roles"], actor_roles=actor_roles)
 
 
 def get_user_or_404(db: Session, dealership_id: uuid.UUID, user_id: uuid.UUID) -> User:
@@ -115,10 +179,21 @@ def list_dealer_manager_emails(db: Session, *, dealership_id: uuid.UUID) -> list
     cleared.
     """
 
-    stmt = select(User.email).where(
+    home_managers = select(User.email).where(
         User.tenant_id == dealership_id, User.is_dealer_manager.is_(True), User.status == UserStatus.ACTIVE
     )
-    return list(db.scalars(stmt).all())
+    # Managers by membership (KAN-98, D-A-01) are this dealership's
+    # managers too, so its warnings reach them as well.
+    managers_by_membership = (
+        select(User.email)
+        .join(DealershipMembership, DealershipMembership.user_id == User.id)
+        .where(
+            DealershipMembership.dealership_id == dealership_id,
+            DealershipMembership.is_dealer_manager.is_(True),
+            User.status == UserStatus.ACTIVE,
+        )
+    )
+    return list(db.scalars(union(home_managers, managers_by_membership)).all())
 
 
 def list_active_users(db: Session, *, dealership_id: uuid.UUID) -> list[User]:
@@ -138,7 +213,15 @@ def list_active_users(db: Session, *, dealership_id: uuid.UUID) -> list[User]:
     return list(db.scalars(stmt).all())
 
 
-def create_user(db: Session, *, dealership_id: uuid.UUID, data: UserCreate, actor_id: uuid.UUID) -> User:
+def create_user(
+    db: Session,
+    *,
+    dealership_id: uuid.UUID,
+    data: UserCreate,
+    actor_id: uuid.UUID,
+    actor_roles: frozenset[AccessRole],
+) -> User:
+    _assert_may_create_with_roles(roles=data.access_roles, actor_roles=actor_roles)
     user = User(
         tenant_id=dealership_id,
         first_name=data.first_name,
@@ -182,8 +265,11 @@ def create_user(db: Session, *, dealership_id: uuid.UUID, data: UserCreate, acto
     return user
 
 
-def update_user(db: Session, *, user: User, data: UserUpdate, actor_id: uuid.UUID) -> User:
+def update_user(
+    db: Session, *, user: User, data: UserUpdate, actor_id: uuid.UUID, actor_roles: frozenset[AccessRole]
+) -> User:
     changes = data.model_dump(exclude_unset=True)
+    _assert_may_update(user=user, changes=changes, actor_roles=actor_roles)
 
     if "employment_status" in changes and changes["employment_status"] is not None:
         new_employment_status = changes["employment_status"]
@@ -221,7 +307,24 @@ def update_user(db: Session, *, user: User, data: UserUpdate, actor_id: uuid.UUI
     was_active_manager = user.is_dealer_manager and user.status in _ACTIVE_USER_STATUSES
     will_be_active_manager = resulting_is_manager and resulting_status in _ACTIVE_USER_STATUSES
     if was_active_manager and not will_be_active_manager:
-        _assert_not_last_manager(db, tenant_id=user.tenant_id, excluding_user_id=user.id)
+        _assert_not_last_manager(db, dealership_id=user.tenant_id, excluding_user_id=user.id)
+    # The same rule for every sister dealership whose membership holds the
+    # flag (KAN-98): deactivating the user takes them out of those too.
+    if user.status in _ACTIVE_USER_STATUSES and resulting_status not in _ACTIVE_USER_STATUSES:
+        for managed_dealership_id in db.scalars(
+            select(DealershipMembership.dealership_id).where(
+                DealershipMembership.user_id == user.id, DealershipMembership.is_dealer_manager.is_(True)
+            )
+        ).all():
+            # No dealership id in the error: the caller administers the
+            # user's home dealership and need not learn the sister's.
+            _assert_not_last_manager(
+                db,
+                dealership_id=managed_dealership_id,
+                excluding_user_id=user.id,
+                message="This user is the last active manager of another dealership they are a member of — "
+                "cannot deactivate them until that dealership has another manager.",
+            )
 
     before: dict[str, Any] = {}
     after: dict[str, Any] = {}

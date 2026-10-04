@@ -157,7 +157,9 @@ def create_user(
         if cached is not None:
             return JSONResponse(status_code=cached.response_status, content=cached.response_body)
 
-    user = user_service.create_user(db, dealership_id=dealership_id, data=body, actor_id=principal.user_id)
+    user = user_service.create_user(
+        db, dealership_id=dealership_id, data=body, actor_id=principal.user_id, actor_roles=principal.roles
+    )
     result = UserRead.model_validate(user, from_attributes=True)
 
     if idempotency_key:
@@ -198,7 +200,9 @@ def update_user(
     require_tenant_match(dealership_id, principal)
     user = user_service.get_user_or_404(db, dealership_id, user_id)
     check_version(user.version, if_match, entity_name="User")
-    user = user_service.update_user(db, user=user, data=body, actor_id=principal.user_id)
+    user = user_service.update_user(
+        db, user=user, data=body, actor_id=principal.user_id, actor_roles=principal.roles
+    )
     return UserRead.model_validate(user, from_attributes=True)
 
 

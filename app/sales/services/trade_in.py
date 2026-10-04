@@ -15,7 +15,7 @@ from decimal import Decimal
 from sqlalchemy.orm import Session
 
 from app.core.errors import ConflictError
-from app.customer.public import VehiclePartyRole, allocate_vehicle_party
+from app.customer.public import VehiclePartyRole, allocate_vehicle_party, get_customer_or_404
 from app.sales.models.offer import OfferStatus, SalesOffer
 from app.sales.services.deal_projection import upsert_deal_projection
 from app.valuation.public import list_valid_valuations_for_vehicle
@@ -52,12 +52,18 @@ def set_trade_in(
     if offer.status != OfferStatus.DRAFT:
         raise ConflictError(f"Offer {offer.offer_number} can no longer be edited (status '{offer.status.value}').")
 
+    # KAN-99: resolve the party customer in the caller's group BEFORE any
+    # write — a customerId from another group is a 404 that must not leave
+    # a committed vehicle_mdm row behind (create_or_get_vehicle_mdm commits).
+    party_customer_id = customer_id or offer.customer_id
+    if party_customer_id is not None:
+        get_customer_or_404(db, group_id, party_customer_id)
+
     resolved_vin = _resolve_trade_in_vin(db, vin=vin, plate=plate, canton=canton)
     vehicle, _created = create_or_get_vehicle_mdm(db, vin=resolved_vin)
 
     # FR-S-08: the customer's own vehicles are offered first by party role
     # — allocate as BOTH owner and keeper (one role per call, ADR-064).
-    party_customer_id = customer_id or offer.customer_id
     if party_customer_id is not None:
         allocate_vehicle_party(
             db, vehicle_id=vehicle.id, customer_id=party_customer_id, role=VehiclePartyRole.OWNER,

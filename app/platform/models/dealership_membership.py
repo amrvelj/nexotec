@@ -7,12 +7,17 @@ table only records ADDITIONAL grants, e.g. a user who works across two
 dealerships in the same group. Both User and Dealership are platform-owned,
 so — unlike the cross-context GUID+comment convention — real DB foreign
 keys are correct here.
+
+is_dealer_manager (KAN-98, D-A-01): the manager flag is held per
+dealership. This row's flag is the user's manager flag in THIS dealership
+only; their home dealership's flag stays on User.is_dealer_manager. See
+app.platform.services.user.is_dealer_manager_in.
 """
 
 import datetime as dt
 import uuid
 
-from sqlalchemy import ForeignKey, UniqueConstraint
+from sqlalchemy import Boolean, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, utcnow
@@ -31,3 +36,4 @@ class DealershipMembership(PrimaryKeyMixin, Base):
         GUID(), ForeignKey("dealership.id"), nullable=False, index=True
     )
     granted_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
+    is_dealer_manager: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
