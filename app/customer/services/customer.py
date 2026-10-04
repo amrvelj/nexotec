@@ -2398,6 +2398,19 @@ def delete_customer_vehicle(db: Session, *, party: VehicleParty, actor_id: uuid.
     if party.effective_to is not None and party.effective_to <= utcnow():
         return
 
+    _close_vehicle_party(db, party=party, actor_id=actor_id, group_id=group_id)
+    db.commit()
+
+
+def _close_vehicle_party(db: Session, *, party: VehicleParty, actor_id: uuid.UUID, group_id: uuid.UUID) -> None:
+    """Sets effective_to and writes the audit row and the unlinked outbox
+    event — WITHOUT committing, so allocate_vehicle_party can close the
+    incumbent and insert the new holder in one transaction (KAN-99). A
+    commit between the two would leave the vehicle with no holder at all
+    if the insert then failed. `group_id` must be the group of the
+    customer on `party`: it stamps the audit row and the event.
+    """
+
     before = {
         "vehicleId": str(party.vehicle_id),
         "role": party.role.value,
@@ -2427,7 +2440,6 @@ def delete_customer_vehicle(db: Session, *, party: VehicleParty, actor_id: uuid.
             payload=_vehicle_party_payload(party),
         ),
     )
-    db.commit()
 
 
 def allocate_vehicle_party(
@@ -2442,20 +2454,53 @@ def allocate_vehicle_party(
     existing open row rather than closing-then-reopening an identical
     allocation. One dialog, reachable from either the vehicle or the
     customer (FR-V-05) — this is the function both call.
+
+    KAN-99 — holders are per dealer group (Anto's ruling, 2026-10-04;
+    ADR-014): vehicle_mdm is a global fact (ADR-022) and VehicleParty has
+    no group column, so two groups can each hold the same role on one
+    VIN. The incumbent is looked up through Customer.group_id — the same
+    intra-context join as list_vehicle_parties — so an allocation closes
+    only the caller's own group's holder and never touches another
+    group's timeline. `group_id` is the caller's group, and `customer_id`
+    must already have been resolved in it (the callers do so). The close
+    and the insert commit together; any failure rolls both back.
     """
 
     effective_from = effective_from or utcnow()
     current = db.scalar(
-        select(VehicleParty).where(
+        select(VehicleParty)
+        .join(Customer, Customer.id == VehicleParty.customer_id)
+        .where(
             VehicleParty.vehicle_id == vehicle_id,
             VehicleParty.role == role,
+            Customer.group_id == group_id,
             or_(VehicleParty.effective_to.is_(None), VehicleParty.effective_to > utcnow()),
         )
+        .order_by(VehicleParty.effective_from.desc())
+        .limit(1)
     )
     if current is not None and current.customer_id == customer_id:
         return current
-    if current is not None:
-        delete_customer_vehicle(db, party=current, actor_id=actor_id, group_id=group_id)
+
+    try:
+        party = _open_vehicle_party(
+            db, vehicle_id=vehicle_id, customer_id=customer_id, role=role, group_id=group_id,
+            actor_id=actor_id, effective_from=effective_from, incumbent=current,
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    db.refresh(party)
+    return party
+
+
+def _open_vehicle_party(
+    db: Session, *, vehicle_id: uuid.UUID, customer_id: uuid.UUID, role: VehiclePartyRole, group_id: uuid.UUID,
+    actor_id: uuid.UUID, effective_from: dt.datetime, incumbent: VehicleParty | None,
+) -> VehicleParty:
+    if incumbent is not None:
+        _close_vehicle_party(db, party=incumbent, actor_id=actor_id, group_id=group_id)
 
     party = VehicleParty(
         vehicle_id=vehicle_id, customer_id=customer_id, role=role, effective_from=effective_from, effective_to=None,
@@ -2479,8 +2524,6 @@ def allocate_vehicle_party(
             payload=_vehicle_party_payload(party),
         ),
     )
-    db.commit()
-    db.refresh(party)
     return party
 
 

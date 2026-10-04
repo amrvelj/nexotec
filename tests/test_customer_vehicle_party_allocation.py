@@ -6,12 +6,16 @@ overwrite, never a delete.
 import datetime as dt
 import uuid
 
+import pytest
 from sqlalchemy import select
+
+from app.core.audit_model import AuditEvent
 
 from app.core.outbox_model import OutboxMessage
 from app.customer.models.customer import Customer, CustomerType, Language
 from app.customer.models.vehicle_party import VehiclePartyRole
 from app.customer.schemas.customer import VehiclePartySummary
+from app.customer.services import customer as customer_service
 from app.customer.services.customer import allocate_vehicle_party, delete_customer_vehicle, list_customer_vehicles
 from app.vehicle.models.catalogue import Brand, ModelGroup, ModelVariant
 from app.vehicle.services.vehicle_mdm import create_vehicle_mdm
@@ -188,3 +192,108 @@ def test_summary_is_null_without_a_catalogue_match_and_resolved_with_one(db_sess
     assert matched_summary.model == "Giulietta"
     assert matched_summary.trim == "1.4 TB Progression"
     assert matched_summary.model_year == 2019  # the vehicle's OWN registration year, not the variant's 2016-2020 range
+
+
+# KAN-99 — holders are per dealer group (Anto's ruling, 2026-10-04; ADR-014,
+# ADR-064): vehicle_mdm is global, so two groups can each hold the same role
+# on one VIN. An allocation closes only the incumbent in the CALLER's group,
+# and the close and the insert are one transaction.
+
+def _group_customer(db_session, group_id: uuid.UUID, first_name: str) -> Customer:
+    customer = Customer(
+        group_id=group_id, customer_number=f"K-{uuid.uuid4().hex[:6]}", customer_type=CustomerType.INDIVIDUAL,
+        language=Language.EN, first_name=first_name, last_name="Muster",
+    )
+    db_session.add(customer)
+    db_session.flush()
+    return customer
+
+
+@pytest.mark.parametrize("role", list(VehiclePartyRole))
+@pytest.mark.parametrize("a_first", [True, False], ids=["a-then-b", "b-then-a"])
+def test_allocation_never_closes_another_groups_holder(db_session, role, a_first):
+    group_a, group_b = uuid.uuid4(), uuid.uuid4()
+    vehicle = _vehicle(db_session, vin="WVWZZZ1KZAW000099")
+    alice = _group_customer(db_session, group_a, "Alice")
+    bruno = _group_customer(db_session, group_b, "Bruno")
+
+    order = [(alice, group_a), (bruno, group_b)] if a_first else [(bruno, group_b), (alice, group_a)]
+    parties = {
+        group_id: allocate_vehicle_party(
+            db_session, vehicle_id=vehicle.id, customer_id=customer.id, role=role,
+            group_id=group_id, actor_id=uuid.uuid4(),
+        )
+        for customer, group_id in order
+    }
+
+    for party in parties.values():
+        db_session.refresh(party)
+        assert party.effective_to is None
+    assert db_session.scalars(
+        select(OutboxMessage).where(OutboxMessage.event_type == "customer.vehicle_party.unlinked")
+    ).all() == []
+
+
+def test_same_group_close_is_stamped_with_that_group(db_session):
+    group_a, group_b = uuid.uuid4(), uuid.uuid4()
+    vehicle = _vehicle(db_session, vin="WVWZZZ1KZAW000098")
+    bruno = _group_customer(db_session, group_b, "Bruno")
+    alice = _group_customer(db_session, group_a, "Alice")
+    anna = _group_customer(db_session, group_a, "Anna")
+
+    bruno_party = allocate_vehicle_party(
+        db_session, vehicle_id=vehicle.id, customer_id=bruno.id, role=VehiclePartyRole.OWNER,
+        group_id=group_b, actor_id=uuid.uuid4(),
+    )
+    alice_party = allocate_vehicle_party(
+        db_session, vehicle_id=vehicle.id, customer_id=alice.id, role=VehiclePartyRole.OWNER,
+        group_id=group_a, actor_id=uuid.uuid4(),
+    )
+    allocate_vehicle_party(
+        db_session, vehicle_id=vehicle.id, customer_id=anna.id, role=VehiclePartyRole.OWNER,
+        group_id=group_a, actor_id=uuid.uuid4(),
+    )
+
+    db_session.refresh(alice_party)
+    db_session.refresh(bruno_party)
+    assert alice_party.effective_to is not None
+    assert bruno_party.effective_to is None
+
+    removals = db_session.scalars(select(AuditEvent).where(AuditEvent.action == "vehicle_party_remove")).all()
+    assert [(r.entity_id, r.tenant_id) for r in removals] == [(alice.id, group_a)]
+    unlinked = db_session.scalars(
+        select(OutboxMessage).where(OutboxMessage.event_type == "customer.vehicle_party.unlinked")
+    ).all()
+    assert [(m.aggregate_id, m.tenant_id) for m in unlinked] == [(alice_party.id, group_a)]
+
+
+def test_failure_after_the_close_leaves_the_previous_holder_open(db_session, monkeypatch):
+    vehicle = _vehicle(db_session, vin="WVWZZZ1KZAW000097")
+    alice = _customer(db_session, "Alice")
+    bob = _customer(db_session, "Bob")
+    first = allocate_vehicle_party(
+        db_session, vehicle_id=vehicle.id, customer_id=alice.id, role=VehiclePartyRole.KEEPER,
+        group_id=GROUP_ID, actor_id=uuid.uuid4(),
+    )
+
+    real_record = customer_service.record_audit_event
+
+    def _fail_on_add(db, **kwargs):
+        if kwargs["action"] == "vehicle_party_add":
+            raise RuntimeError("forced failure after the close")
+        return real_record(db, **kwargs)
+
+    monkeypatch.setattr(customer_service, "record_audit_event", _fail_on_add)
+    with pytest.raises(RuntimeError):
+        allocate_vehicle_party(
+            db_session, vehicle_id=vehicle.id, customer_id=bob.id, role=VehiclePartyRole.KEEPER,
+            group_id=GROUP_ID, actor_id=uuid.uuid4(),
+        )
+    monkeypatch.undo()
+
+    db_session.rollback()
+    db_session.refresh(first)
+    assert first.effective_to is None
+    open_keepers = list_customer_vehicles(db_session, customer_id=bob.id)
+    assert open_keepers == []
+    assert db_session.scalars(select(AuditEvent).where(AuditEvent.action == "vehicle_party_remove")).all() == []

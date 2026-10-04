@@ -83,6 +83,11 @@ main@568f416 on 2026-09-27. Fix this file in the same PR as any change to what i
   the transfer on `finance.invoice.issued`.
 - Allocation resolves against `vehicle_mdm`, never the frozen legacy `vehicle` table, and must
   check that both sides belong to the caller's group (404, never a cross-group link).
+- **Holders are per dealer group** (Anto's ruling on KAN-99, 2026-10-04): the VIN is global
+  (`vehicle_mdm`), but each group keeps its own owner/keeper/driver history for it.
+  `allocate_vehicle_party` finds the incumbent through `Customer.group_id` and closes only
+  the caller's group's holder, in the **same transaction** as the insert — never another
+  group's row. Reads (`list_vehicle_parties`) are filtered the same way.
 - Group-wide customer history must be served from an event-built projection keyed by
   `group_id` (reporting), never by fan-out across dealerships × services (rule 11, two hops).
   **Not built:** `app/reporting` is a stub, and the History tab shows the audit log.
