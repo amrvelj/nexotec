@@ -13,12 +13,13 @@ that's Customer's real scoping key.
 """
 
 import datetime as dt
+import hashlib
 import logging
 import uuid
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
@@ -2398,6 +2399,19 @@ def delete_customer_vehicle(db: Session, *, party: VehicleParty, actor_id: uuid.
     if party.effective_to is not None and party.effective_to <= utcnow():
         return
 
+    _close_vehicle_party(db, party=party, actor_id=actor_id, group_id=group_id)
+    db.commit()
+
+
+def _close_vehicle_party(db: Session, *, party: VehicleParty, actor_id: uuid.UUID, group_id: uuid.UUID) -> None:
+    """Sets effective_to and writes the audit row and the unlinked outbox
+    event — WITHOUT committing, so allocate_vehicle_party can close the
+    incumbent and insert the new holder in one transaction (KAN-99). A
+    commit between the two would leave the vehicle with no holder at all
+    if the insert then failed. `group_id` must be the group of the
+    customer on `party`: it stamps the audit row and the event.
+    """
+
     before = {
         "vehicleId": str(party.vehicle_id),
         "role": party.role.value,
@@ -2427,7 +2441,6 @@ def delete_customer_vehicle(db: Session, *, party: VehicleParty, actor_id: uuid.
             payload=_vehicle_party_payload(party),
         ),
     )
-    db.commit()
 
 
 def allocate_vehicle_party(
@@ -2442,20 +2455,81 @@ def allocate_vehicle_party(
     existing open row rather than closing-then-reopening an identical
     allocation. One dialog, reachable from either the vehicle or the
     customer (FR-V-05) — this is the function both call.
+
+    KAN-99 — holders are per dealer group (Anto's ruling, 2026-10-04;
+    ADR-014): vehicle_mdm is a global fact (ADR-022) and VehicleParty has
+    no group column, so two groups can each hold the same role on one
+    VIN. The customer is resolved in the caller's group first (404, never
+    a cross-group link — the trade-in path passes a request-body id), and
+    the incumbents are looked up through Customer.group_id, the same
+    intra-context join as list_vehicle_parties. So an allocation closes
+    EVERY open holder of (vehicle, role) in the caller's group — a
+    backdated create or a reopened row can leave more than one — and
+    never touches another group's timeline. The close and the insert
+    commit together: a failure leaves nothing committed, and the
+    request's session rolls it back.
+
+    Concurrency: a row lock cannot serialise this — a concurrent request
+    never sees the row the other one is inserting, with or without an
+    incumbent — so on Postgres a transaction-scoped advisory lock on
+    (vehicle, role, group) is taken before the incumbent lookup. A second
+    allocation waits for the first to commit, then sees its row and
+    closes it. The incumbents are also locked FOR UPDATE, so an allocation
+    never re-closes a row a concurrent Disconnect has just closed (the
+    reverse — Disconnect takes no lock — predates KAN-99).
     """
 
+    get_customer_or_404(db, group_id, customer_id)
+    _lock_vehicle_role_in_group(db, vehicle_id=vehicle_id, role=role, group_id=group_id)
     effective_from = effective_from or utcnow()
-    current = db.scalar(
-        select(VehicleParty).where(
-            VehicleParty.vehicle_id == vehicle_id,
-            VehicleParty.role == role,
-            or_(VehicleParty.effective_to.is_(None), VehicleParty.effective_to > utcnow()),
-        )
+    incumbents = list(
+        db.scalars(
+            select(VehicleParty)
+            .join(Customer, Customer.id == VehicleParty.customer_id)
+            .where(
+                VehicleParty.vehicle_id == vehicle_id,
+                VehicleParty.role == role,
+                Customer.group_id == group_id,
+                or_(VehicleParty.effective_to.is_(None), VehicleParty.effective_to > utcnow()),
+            )
+            .order_by(VehicleParty.effective_from)
+            .with_for_update(of=VehicleParty)
+        ).all()
     )
-    if current is not None and current.customer_id == customer_id:
-        return current
-    if current is not None:
-        delete_customer_vehicle(db, party=current, actor_id=actor_id, group_id=group_id)
+    if len(incumbents) == 1 and incumbents[0].customer_id == customer_id:
+        return incumbents[0]
+
+    party = _open_vehicle_party(
+        db, vehicle_id=vehicle_id, customer_id=customer_id, role=role, group_id=group_id,
+        actor_id=actor_id, effective_from=effective_from, incumbents=incumbents,
+    )
+    db.commit()
+    db.refresh(party)
+    return party
+
+
+def _lock_vehicle_role_in_group(
+    db: Session, *, vehicle_id: uuid.UUID, role: VehiclePartyRole, group_id: uuid.UUID
+) -> None:
+    """pg_advisory_xact_lock on a 64-bit key derived from (vehicle, role,
+    group); released by the transaction's commit or rollback. SQLite (the
+    fast local lane, ADR-011) has no advisory locks and serialises
+    writers on its own, so this is a no-op there.
+    """
+
+    if db.get_bind().dialect.name != "postgresql":
+        return
+    digest = hashlib.sha256(f"vehicle_party:{vehicle_id}:{role.value}:{group_id}".encode()).digest()
+    key = int.from_bytes(digest[:8], "big", signed=True)
+    db.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": key})
+
+
+def _open_vehicle_party(
+    db: Session, *, vehicle_id: uuid.UUID, customer_id: uuid.UUID, role: VehiclePartyRole, group_id: uuid.UUID,
+    actor_id: uuid.UUID, effective_from: dt.datetime, incumbents: list[VehicleParty],
+) -> VehicleParty:
+    for incumbent in incumbents:
+        _close_vehicle_party(db, party=incumbent, actor_id=actor_id, group_id=group_id)
 
     party = VehicleParty(
         vehicle_id=vehicle_id, customer_id=customer_id, role=role, effective_from=effective_from, effective_to=None,
@@ -2479,8 +2553,6 @@ def allocate_vehicle_party(
             payload=_vehicle_party_payload(party),
         ),
     )
-    db.commit()
-    db.refresh(party)
     return party
 
 
