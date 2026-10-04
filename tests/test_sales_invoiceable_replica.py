@@ -40,6 +40,7 @@ from app.sales.models.stock_item_purchase import SalesStockItemPurchase
 from app.sales.schemas.offer import OfferUpdate
 from app.sales.services.contract import cancel_contract, confirm_contract, create_contract, request_invoice
 from app.sales.services.offer import create_offer, update_offer
+from app.sales.services.stock_item_purchase import record_stock_item_purchased
 
 _CONSUMER = "sales.stock_item_purchased"
 
@@ -339,6 +340,30 @@ def test_request_invoice_hands_off_once_the_vehicle_is_purchased(db_session, eng
             OutboxMessage.aggregate_id == contract.id, OutboxMessage.event_type == "sales.contract.invoice_requested"
         )
     ).one()
+
+
+def test_request_invoice_reads_the_purchase_as_of_now_not_as_of_loading(db_session, engine):
+    """The reviewer's interleaving: the purchase lands (another session,
+    committed) after this session loaded the contract. With a stored flag
+    the contract stayed False for good; derived, the gate sees the row."""
+
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    item = _stock_item(db_session, dealership.id)
+    contract = _contract_on(db_session, dealership.id, group_id, item)
+    confirm_contract(db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=_session_factory(engine))
+    assert contract.is_invoiceable is False
+
+    other = _session_factory(engine)()
+    try:
+        record_stock_item_purchased(other, tenant_id=dealership.id, stock_item_id=item.id, event_id=uuid.uuid4())
+        other.commit()
+    finally:
+        other.close()
+
+    request_invoice(db_session, contract=contract, actor_id=uuid.uuid4())
+
+    assert contract.is_invoiceable is True
 
 
 def test_request_invoice_refuses_a_manual_configuration_until_sales_knows_it_is_purchased(db_session, engine):

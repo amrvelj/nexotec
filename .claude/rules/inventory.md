@@ -27,8 +27,9 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
 - **ADR-049** — full commercial visibility inside the dealership (margin, discounts,
   Wagenbuch); **ADR-029** unchanged at the group boundary.
 - **ADR-052 — `is_invoiceable` is Stock's fact**, replicated to Sales through
-  `inventory.stock_item.purchased` (published once, by `mark_purchased_if_ready`); Sales keeps
-  it per stock item and never queries Stock synchronously for it. Reservation does not need the
+  `inventory.stock_item.purchased` (published once, by `mark_purchased_if_ready`; the legacy
+  transaction migration publishes nothing and writes Sales' replica row itself); Sales keeps it
+  per stock item and never queries Stock synchronously for it. Reservation does not need the
   purchase (K-12); Sales' invoicing does (KAN-100).
 - **Fiktiver Vorsteuerabzug** (Art. 28a MWSTG) is recorded at purchase booking
   (`app/inventory/services/purchase.py::record_purchase`), computed from the purchase price and

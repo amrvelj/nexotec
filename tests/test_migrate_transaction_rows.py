@@ -15,6 +15,7 @@ from app.inventory.models.stock_item import StockItem
 from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
 from app.sales.models.contract import ContractStatus, SalesContract
 from app.sales.models.offer import SalesOffer
+from app.sales.models.stock_item_purchase import SalesStockItemPurchase
 from app.sales.models.transaction import Transaction, TransactionStatus, TransactionType
 from app.vehicle.models.vehicle import Vehicle as LegacyVehicle
 from app.vehicle.models.vehicle import VehicleCondition, VehicleStatus
@@ -148,6 +149,10 @@ def test_commit_migrates_a_completed_sale_with_a_real_stock_link(db_session):
     assert offer is not None
     assert offer.stock_item_id == stock_item.id
     assert offer.vehicle_snapshot_frozen_at is not None  # the real freeze_vehicle_snapshot ran, not a stand-in
+    # KAN-100: no purchase was ever booked for a car only ever sold, so the
+    # contract derives not-invoiceable — the legacy sale was invoiced in the
+    # old system and must not be invoiced again.
+    assert contract.is_invoiceable is False
 
 
 def test_rerunning_after_commit_is_idempotent(db_session):
@@ -260,6 +265,7 @@ def test_dry_run_trade_in_writes_nothing(db_session):
     assert report.committed is False
     assert [o.outcome for o in report.outcomes] == ["migrated"]
     assert db_session.query(StockItem).count() == 0
+    assert db_session.query(SalesStockItemPurchase).count() == 0
 
 
 def test_a_trade_in_migrates_as_a_stock_acquisition_from_a_private_individual(db_session):
@@ -297,6 +303,11 @@ def test_a_trade_in_migrates_as_a_stock_acquisition_from_a_private_individual(db
     )
     assert item.is_invoiceable is True
     assert report.outcomes[0].new_stock_item_id == item.id
+    # KAN-100: the script publishes no inventory.stock_item.purchased, so it
+    # records the purchase in Sales' replica itself — or no later contract
+    # on this car could ever be invoiced.
+    replica = db_session.query(SalesStockItemPurchase).one()
+    assert (replica.tenant_id, replica.stock_item_id, replica.source_event_id) == (item.tenant_id, item.id, None)
 
 
 def test_a_trade_in_from_a_vat_registered_business_has_no_notional_input_tax(db_session):
@@ -345,6 +356,7 @@ def test_trade_in_rerun_is_idempotent(db_session):
 
     assert [o.outcome for o in second.outcomes] == ["already_migrated"]
     assert db_session.query(StockItem).count() == 1
+    assert db_session.query(SalesStockItemPurchase).count() == 1
 
 
 def test_a_trade_in_with_an_unresolvable_vehicle_is_reported_never_guessed(db_session):
@@ -502,6 +514,7 @@ def test_a_vehicle_traded_in_and_later_resold_ends_up_as_one_stock_item_with_bot
     contract = db_session.query(SalesContract).filter_by(legacy_transaction_id=sale_txn.id).one()
     assert contract.stock_item_id == item.id
     assert contract.gross_price == Decimal("15000.00")
+    assert contract.is_invoiceable is True  # KAN-100: the trade-in booked the purchase
 
 
 def test_processing_order_is_driven_by_transaction_date_not_insertion_order(db_session):

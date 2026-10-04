@@ -25,5 +25,9 @@ def handle_stock_item_purchased_message(db: Session, message: OutboxMessage) -> 
     if message.tenant_id is None:
         raise ValueError(f"inventory.stock_item.purchased message {message.id} has no tenant_id.")
     record_stock_item_purchased(
-        db, tenant_id=message.tenant_id, stock_item_id=message.aggregate_id, event_id=message.id
+        db,
+        tenant_id=message.tenant_id,
+        stock_item_id=message.aggregate_id,
+        event_id=message.id,
+        recorded_at=message.occurred_at,
     )

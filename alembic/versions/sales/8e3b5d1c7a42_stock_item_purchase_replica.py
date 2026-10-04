@@ -3,7 +3,10 @@
 Stock publishes `inventory.stock_item.purchased` once. Until now Sales kept
 the fact only on a contract that already existed when the event arrived, so
 a contract written later on a car already bought stayed not invoiceable
-forever. This table keeps the fact per stock item; create_contract reads it.
+forever. This table keeps the fact per stock item, and
+`sales_contract.is_invoiceable` is dropped: SalesContract derives it from
+this table in the query that loads the contract, so no stored copy can miss
+a purchase consumed while the contract was being written.
 
 `stock_item_id` is inventory's StockItem.id — a plain GUID with the owner
 named in its comment, no FK (rule 2). No display label: nothing displays
@@ -13,8 +16,11 @@ nothing to carry.
 Backfill: every purchase Stock already published is in `outbox_message`
 (the outbox is never purged). The backfill reads that event log — not
 inventory's stock_item table — keeps the first event per (tenant, stock
-item), then sets is_invoiceable on the contracts already on those items.
-It writes no outbox rows. Re-runnable: rows already present are skipped.
+item). It writes no outbox rows. Re-runnable: rows already present are
+skipped. Contracts need no backfill — their flag is now derived.
+
+Downgrade restores the stored column from the replica (true where a row
+exists), then drops the table.
 
 Revision ID: 8e3b5d1c7a42
 Revises: 50fe6834bfe2
@@ -89,12 +95,6 @@ def backfill(conn: sa.Connection) -> None:
     if rows:
         conn.execute(sa.insert(_purchase), rows)
 
-    purchased = sa.exists().where(
-        _purchase.c.tenant_id == _contract.c.tenant_id, _purchase.c.stock_item_id == _contract.c.stock_item_id
-    )
-    conn.execute(
-        sa.update(_contract).where(_contract.c.is_invoiceable.is_(False), purchased).values(is_invoiceable=True)
-    )
 
 
 def upgrade() -> None:
@@ -112,8 +112,8 @@ def upgrade() -> None:
         sa.Column(
             "source_event_id",
             postgresql.UUID(as_uuid=True),
-            nullable=False,
-            comment="outbox_message.id of the inventory.stock_item.purchased event.",
+            nullable=True,
+            comment="outbox_message.id of the inventory.stock_item.purchased event; null for a legacy-migrated purchase.",
         ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("tenant_id", "stock_item_id", name="uq_sales_stock_item_purchase_item"),
@@ -122,11 +122,18 @@ def upgrade() -> None:
         op.f("ix_sales_stock_item_purchase_tenant_id"), "sales_stock_item_purchase", ["tenant_id"], unique=False
     )
     backfill(op.get_bind())
+    op.drop_column("sales_contract", "is_invoiceable")
 
 
 def downgrade() -> None:
-    # sales_contract.is_invoiceable values set by the backfill stay as they
-    # are: they are true facts (the purchase was published), and the column
-    # predates this revision.
+    op.add_column(
+        "sales_contract",
+        sa.Column("is_invoiceable", sa.Boolean(), nullable=False, server_default=sa.false()),
+    )
+    op.alter_column("sales_contract", "is_invoiceable", server_default=None)
+    purchased = sa.exists().where(
+        _purchase.c.tenant_id == _contract.c.tenant_id, _purchase.c.stock_item_id == _contract.c.stock_item_id
+    )
+    op.get_bind().execute(sa.update(_contract).where(purchased).values(is_invoiceable=True))
     op.drop_index(op.f("ix_sales_stock_item_purchase_tenant_id"), table_name="sales_stock_item_purchase")
     op.drop_table("sales_stock_item_purchase")

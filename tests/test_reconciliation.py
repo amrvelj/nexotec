@@ -19,6 +19,7 @@ from app.customer.models.customer import Customer
 from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.reconciliation_runner import MultiContextReconciliationAlarm, run_all
 from app.sales import reconciliation as sales_reconciliation
+from app.sales.models.stock_item_purchase import SalesStockItemPurchase
 from app.sales.models.transaction import Transaction, TransactionStatus, TransactionType
 from app.vehicle import reconciliation as vehicle_reconciliation
 from app.vehicle.models.vehicle import CustodyEventType, VehicleCustodyEvent
@@ -297,6 +298,23 @@ def test_sales_reconciliation_detects_orphaned_customer_id(client, db_session):
 
     assert exc_info.value.run.orphans_found == 1
     assert exc_info.value.orphans[0].check_label == "transaction.customer_id -> customer.id"
+
+
+def test_sales_reconciliation_detects_a_purchase_replica_for_a_stock_item_that_does_not_exist(client, db_session):
+    """KAN-100 — Sales' replica of Stock's purchase fact names a stock item
+    by plain GUID (rule 2); nothing in the database stops it dangling."""
+
+    dealer_id = _create_dealer(client)
+    db_session.add(
+        SalesStockItemPurchase(tenant_id=uuid.UUID(dealer_id), stock_item_id=uuid.uuid4(), source_event_id=uuid.uuid4())
+    )
+    db_session.commit()
+
+    with pytest.raises(ReconciliationAlarm) as exc_info:
+        sales_reconciliation.run(db_session)
+
+    assert exc_info.value.run.orphans_found == 1
+    assert exc_info.value.orphans[0].check_label == "sales_stock_item_purchase.stock_item_id -> stock_item.id"
 
 
 # --- top-level runner: every context runs even when an earlier one alarms --------

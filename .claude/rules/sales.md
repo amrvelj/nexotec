@@ -23,10 +23,14 @@ against the code). "Open" lines cite a ticket; /drift-audit re-checks them weekl
   shared transaction (CLAUDE.md rule 12).
 - **ADR-052** — `is_invoiceable` is Stock's fact; Sales keeps a local replica and never queries
   Stock synchronously. Stock publishes `inventory.stock_item.purchased` once, so the replica is
-  kept **per stock item** (`sales_stock_item_purchase`, `app/sales/services/stock_item_purchase.py`)
-  whether or not a contract exists yet; the consumer marks every contract on the item, and
-  `create_contract` starts a contract on an already-purchased item as invoiceable (KAN-100).
-  `inventory.stock_item.storno` ("sets it back") is not emitted yet, so nothing clears it.
+  kept **per stock item** (`sales_stock_item_purchase`, written by
+  `app/sales/services/stock_item_purchase.py`) whether or not a contract exists yet.
+  `SalesContract.is_invoiceable` is **derived on read** from it — there is no stored column, so a
+  contract written after the purchase is invoiceable at once (KAN-100).
+  `scripts/migrate_transaction_rows.py` publishes no events, so it writes the replica row for a
+  legacy trade-in's purchase itself. `inventory.stock_item.storno` ("sets it back") is not
+  emitted yet, so nothing clears it. Reconciliation checks the replica's stock-item reference
+  only; comparing it against Stock's own fact is not built.
 - **ADR-050** — `sales_contract` supersedes the legacy `transaction` table. Legacy rows move via
   `scripts/migrate_transaction_rows.py`: dry-run by default, idempotent, written directly
   through the ORM and **publishing no outbox events** (a years-old sale must not look like

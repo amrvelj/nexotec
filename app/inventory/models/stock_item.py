@@ -218,8 +218,8 @@ class StockItem(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMix
     notional_input_tax_overridden: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     # WP-7 PR-5 (ADR-052) — a replicated fact, set by record_purchase once
-    # BOTH the VIN is known and the purchase is booked (S-D10: "the
-    # surviving confirmation gate is the purchase, not the tax"). Columns
+    # BOTH the VIN is known and the purchase is booked; Sales' invoicing
+    # needs it, contract confirmation does not (KAN-100). Columns
     # land here (PR-3) since record_purchase is what first needs them; the
     # full reconciliation-against-finance.invoice.issued logic is PR-5.
     is_invoiceable: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

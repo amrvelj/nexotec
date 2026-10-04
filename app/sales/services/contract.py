@@ -25,7 +25,6 @@ from app.sales.models.offer import SalesOffer
 from app.sales.services.deal_projection import upsert_deal_projection
 from app.sales.services.numbering import allocate_contract_number
 from app.sales.services.offer import resolve_customer_label
-from app.sales.services.stock_item_purchase import stock_item_is_purchased
 from app.valuation.public import consume_valuation_for_contract, revert_valuation_use
 
 _EVENT_PRODUCER = "sales"
@@ -133,12 +132,6 @@ def create_contract(
         ),
         created_by=actor_id,
         updated_by=actor_id,
-    )
-    # KAN-100 (ADR-052) — Stock publishes the purchase once. A contract
-    # written after it was consumed takes the fact from the local replica,
-    # never from a call to Stock.
-    contract.is_invoiceable = contract.stock_item_id is not None and stock_item_is_purchased(
-        db, tenant_id=tenant_id, stock_item_id=contract.stock_item_id
     )
     db.add(contract)
     db.flush()
@@ -478,14 +471,14 @@ def _compensate_confirmation(
 def request_invoice(db: Session, *, contract: SalesContract, actor_id: uuid.UUID | None) -> SalesContract:
     """ADR-046 — a genuinely distinct event from `sales.contract.confirmed`,
     never the same name for both moments. Emitted at hand-off, not at
-    signature; does not itself flip is_invoiceable (that is the local
-    replica the inventory.stock_item.purchased consumer maintains) or the
-    contract's own status (INVOICED is finance's own trigger, WP-9+).
+    signature; does not change the contract's status (INVOICED is
+    finance's own trigger, WP-9+).
 
     The purchase gate (Anto, 2026-10-04; ADR-052, FR-I-12): the dealership
     cannot invoice a vehicle it has not bought. Confirmation is NOT gated —
     a contract may be signed and the car reserved before the purchase
-    (PRD-Stock K-12). The gate reads the local replica only. A manually
+    (PRD-Stock K-12). `is_invoiceable` is derived from the local replica
+    in the query that loaded the contract — no call to Stock. A manually
     configured vehicle is refused too: confirmation makes it a pipeline
     stock item Sales is not told about, so Sales cannot see its purchase.
     """
@@ -495,6 +488,7 @@ def request_invoice(db: Session, *, contract: SalesContract, actor_id: uuid.UUID
             f"Contract {contract.contract_number} cannot request invoicing from status "
             f"'{contract.status.value}'."
         )
+    db.refresh(contract, ["is_invoiceable"])  # as of now, not as of when the caller loaded it
     if not contract.is_invoiceable:
         raise ConflictError(
             f"The vehicle of contract {contract.contract_number} has not been purchased yet — it cannot be "

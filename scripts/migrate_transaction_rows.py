@@ -30,7 +30,9 @@ inventory.stock_item.purchased etc. for a sale that happened years ago
 would make live consumers (a real stock reservation, a real pipeline
 auto-create) treat old history as something happening today. Rows are
 written directly via the ORM, same as migrate_legacy_vehicles.py's own
-precedent (that script publishes nothing either).
+precedent (that script publishes nothing either). Because Sales learns a
+purchase only from inventory.stock_item.purchased, a trade-in's booked
+purchase is also written straight into Sales' replica (KAN-100).
 
 `sale` -> a confirmed sales_contract with a SYNTHESISED offer (ADR-050's
 own word) AND a StockItem for the sold vehicle — NOT a plain-text
@@ -154,6 +156,7 @@ from app.sales.models.transaction import Transaction, TransactionStatus, Transac
 from app.sales.services.numbering import allocate_contract_number, allocate_offer_number
 from app.sales.services.pricing import apply_build_up
 from app.sales.services.snapshot import freeze_vehicle_snapshot
+from app.sales.services.stock_item_purchase import record_stock_item_purchased
 from app.vehicle.models.vehicle import Vehicle as LegacyVehicle
 from app.vehicle.models.vehicle import VehicleCondition as LegacyVehicleCondition
 from app.vehicle.models.vehicle_mdm import VehicleMdm
@@ -389,7 +392,6 @@ def _migrate_sale(db: Session, txn: Transaction, *, commit: bool) -> RowOutcome:
         payable=offer.gross_price,
         financing=FinancingKind.CASH,
         signed_at=txn.transaction_date,
-        is_invoiceable=True,
         legacy_transaction_id=txn.id,
         created_by=None,
         updated_by=None,
@@ -494,6 +496,11 @@ def _migrate_trade_in(db: Session, txn: Transaction, *, commit: bool) -> RowOutc
     stock_item.is_invoiceable = True
     stock_item.updated_by = None
     db.flush()
+    # KAN-100 — Sales learns a purchase from inventory.stock_item.purchased,
+    # which this script must not publish; it records the same fact in Sales'
+    # replica directly (event_id=None), or a later contract on this car could
+    # never be invoiced.
+    record_stock_item_purchased(db, tenant_id=stock_item.tenant_id, stock_item_id=stock_item.id, event_id=None)
 
     note = f"stock_item={stock_item.id}{' (reopened)' if not created else ''}"
     return RowOutcome(
