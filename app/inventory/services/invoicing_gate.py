@@ -15,9 +15,9 @@ FR-I-12: on a legitimate invoice against an in_stock, invoiceable item,
 the item leaves the active list (left_stock_at set, inventory.
 stock_item.sold emitted) — never a 4th lifecycle_status value. On an
 invoice against anything else (not in_stock, or in_stock but never
-marked invoiceable), that's a genuine integrity violation — the
-dealership's own gate (S-D10) should have refused the contract
-confirmation before Finance ever got here — so it's recorded as an audit
+marked invoiceable), that's a genuine integrity violation — Sales'
+invoice hand-off refuses a vehicle not purchased (KAN-100, ADR-052), so
+it should never have reached Finance — so it's recorded as an audit
 event and raised as a ConflictError, never silently accepted.
 """
 
@@ -60,7 +60,7 @@ def apply_finance_invoice_issued(
         db.commit()
         raise ConflictError(
             f"Stock item {stock_item_id} received an invoice but is not in_stock+invoiceable — "
-            "the confirmation gate (S-D10) should have refused this earlier.",
+            "Sales' invoicing gate should have refused this earlier.",
             details={"stockItemId": str(stock_item_id), "invoiceRef": invoice_ref},
         )
 

@@ -1,8 +1,8 @@
 """WP-8 PR-4: Price — one gross price (ADR-057/S-D10). PR-3 already built
 pricing.build_up() with no VAT concept anywhere; this pins the resulting
-shape down explicitly and confirms Sales can read the ADR-052 invoicing
-gate it will use in PR-6, so "the surviving confirmation gate is the
-purchase, not the tax" (S-D10) has something real to point at already.
+shape down explicitly and confirms Stock exposes the ADR-052 purchase
+fact as a purchase fact, never a tax concept. (The gate itself is at
+invoicing, read from Sales' replica — KAN-100.)
 """
 
 import uuid
@@ -45,10 +45,9 @@ def test_offer_and_contract_carry_exactly_one_customer_facing_price():
 
 
 def test_sales_can_read_the_invoicing_gate_stock_already_exposes(db_session):
-    """S-D10: "the surviving confirmation gate is the purchase, not the
-    tax." Confirms the fact PR-6's confirm_contract will gate on is
-    already reachable through app.inventory.public — no new inventory
-    surface needed for this.
+    """The gate is the purchase, not the tax. Stock's own fact, reachable
+    through app.inventory.public; Sales gates invoicing on its replica of
+    it, not on this read (ADR-052, KAN-100).
     """
 
     tenant_id = uuid.uuid4()

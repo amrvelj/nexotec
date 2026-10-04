@@ -28,8 +28,9 @@ re-checks the "not built" line weekly. -->
   numbers are working business keys; the gapless legal number is the invoice's. Do not grow
   `numbering.py` into the kernel.
 - **ADR-052:** `is_invoiceable` is Stock's fact, replicated to Sales through
-  `inventory.stock_item.purchased` (`app/sales/consumers.py` keeps the local replica); Sales
-  never queries Stock synchronously. `inventory/services/invoicing_gate.py::apply_finance_invoice_issued`
+  `inventory.stock_item.purchased` (kept per stock item in `sales_stock_item_purchase`); Sales
+  never queries Stock synchronously. Sales' invoice hand-off (`request_invoice`) refuses a
+  vehicle the replica does not show as purchased (KAN-100). `inventory/services/invoicing_gate.py::apply_finance_invoice_issued`
   re-asserts it on `finance.invoice.issued` and has no production caller until WP-9.
 - On `finance.invoice.issued`, the vehicle's holder transfer **closes** the previous party row
   (ADR-064).

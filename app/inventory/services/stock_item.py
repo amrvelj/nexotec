@@ -124,8 +124,9 @@ def _build_and_flush_stock_item(
 
 
 def mark_purchased_if_ready(db: Session, item: StockItem) -> bool:
-    """WP-7 PR-5 (ADR-052) / S-D10: "the surviving confirmation gate is the
-    purchase, not the tax." A stock item becomes invoiceable the moment
+    """WP-7 PR-5 (ADR-052): the dealership cannot invoice a vehicle it has
+    not bought (Anto, 2026-10-04 — the gate is at invoicing, not at contract
+    confirmation; KAN-100). A stock item becomes invoiceable the moment
     BOTH facts are true — VIN known (lifecycle_status=in_stock) and the
     purchase is booked (purchase_price set) — whichever of the two
     completes second. Called from both promote_to_vehicle_mdm (PR-2, VIN

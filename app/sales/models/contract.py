@@ -23,13 +23,14 @@ import enum
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import DECIMAL, Boolean, Date, String
+from sqlalchemy import DECIMAL, Date, String, exists
 from sqlalchemy import Enum as SAEnum
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, column_property, declared_attr, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
 from app.core.types import GUID, UTCDateTime
 from app.db import Base
+from app.sales.models.stock_item_purchase import SalesStockItemPurchase
 
 
 class FinancingKind(str, enum.Enum):
@@ -124,11 +125,22 @@ class SalesContract(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, Timestam
     signed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     delivery_date: Mapped[dt.date | None] = mapped_column(Date(), nullable=True)
 
-    # WP-8 PR-6 (ADR-052) — a LOCAL REPLICA, set by the
-    # inventory.stock_item.purchased consumer, never read live from
-    # inventory at confirmation time (the whole point of a replicated
-    # fact, mirroring how WP-7 built the equivalent on Stock's own side).
-    is_invoiceable: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    @declared_attr
+    def is_invoiceable(cls) -> Mapped[bool]:
+        """ADR-052 / KAN-100 — derived on read from Sales' local replica of
+        Stock's purchase fact (SalesStockItemPurchase), in the same SELECT
+        that loads the contract; never stored, never read live from Stock.
+        A stored copy could miss a purchase consumed while the contract was
+        being written, and nothing would ever correct it. False for a
+        contract with no stock item (a manual configuration: Sales is not
+        told the pipeline item it becomes)."""
+
+        return column_property(
+            exists().where(
+                SalesStockItemPurchase.tenant_id == cls.tenant_id,
+                SalesStockItemPurchase.stock_item_id == cls.stock_item_id,
+            )
+        )
     # Populated later by finance (WP-9+, out of scope) on
     # finance.invoice.issued — declared now for the same reason
     # ContractStatus.INVOICED is declared now.

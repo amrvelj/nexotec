@@ -10,6 +10,7 @@ import datetime as dt
 import uuid
 
 import pytest
+from sqlalchemy import update
 
 from app.core.auth import AccessRole, create_access_token
 from app.core.reconciliation import ReconciliationAlarm
@@ -17,8 +18,12 @@ from app.core.reconciliation_model import ReconciliationRun
 from app.customer import reconciliation as customer_reconciliation
 from app.customer.models.customer import Customer
 from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
+from app.inventory.models.stock_item import StockItem, StockItemCondition
+from app.inventory.schemas.stock_item import StockItemCreate
+from app.inventory.services.stock_item import create_stock_item
 from app.reconciliation_runner import MultiContextReconciliationAlarm, run_all
 from app.sales import reconciliation as sales_reconciliation
+from app.sales.models.stock_item_purchase import SalesStockItemPurchase
 from app.sales.models.transaction import Transaction, TransactionStatus, TransactionType
 from app.vehicle import reconciliation as vehicle_reconciliation
 from app.vehicle.models.vehicle import CustodyEventType, VehicleCustodyEvent
@@ -297,6 +302,73 @@ def test_sales_reconciliation_detects_orphaned_customer_id(client, db_session):
 
     assert exc_info.value.run.orphans_found == 1
     assert exc_info.value.orphans[0].check_label == "transaction.customer_id -> customer.id"
+
+
+def test_sales_reconciliation_detects_a_purchase_replica_for_a_stock_item_that_does_not_exist(client, db_session):
+    """KAN-100 — Sales' replica of Stock's purchase fact names a stock item
+    by plain GUID (rule 2); nothing in the database stops it dangling."""
+
+    dealer_id = _create_dealer(client)
+    db_session.add(
+        SalesStockItemPurchase(tenant_id=uuid.UUID(dealer_id), stock_item_id=uuid.uuid4(), source_event_id=uuid.uuid4())
+    )
+    db_session.commit()
+
+    with pytest.raises(ReconciliationAlarm) as exc_info:
+        sales_reconciliation.run(db_session)
+
+    assert exc_info.value.run.orphans_found == 1
+    assert exc_info.value.orphans[0].check_label == "sales_stock_item_purchase.stock_item_id -> stock_item.id"
+
+
+def _invoiceable_stock_item(db_session, dealer_id, *, hours_ago):
+    """A stock item Stock holds as purchased, last touched `hours_ago`."""
+
+    item = create_stock_item(
+        db_session, tenant_id=uuid.UUID(dealer_id),
+        data=StockItemCreate(vehicle_label="Seat Leon", condition=StockItemCondition.USED, vin="VSSZZZKLZNR000001"),
+        actor_id=None,
+    )
+    db_session.execute(
+        update(StockItem)
+        .where(StockItem.id == item.id)
+        .values(is_invoiceable=True, updated_at=dt.datetime.now(dt.UTC) - dt.timedelta(hours=hours_ago))
+    )
+    db_session.commit()
+    return item
+
+
+def test_sales_reconciliation_detects_a_purchase_sales_never_learned_of(client, db_session):
+    """KAN-100 — e.g. a trade-in migrated by scripts/migrate_transaction_rows.py
+    before it wrote the replica, or an event never published: Stock says
+    purchased, Sales cannot invoice, and only reconciliation can tell."""
+
+    dealer_id = _create_dealer(client)
+    item = _invoiceable_stock_item(db_session, dealer_id, hours_ago=2)
+
+    with pytest.raises(ReconciliationAlarm) as exc_info:
+        sales_reconciliation.run(db_session)
+
+    assert exc_info.value.run.orphans_found == 1
+    orphan = exc_info.value.orphans[0]
+    assert orphan.check_label == "stock_item.is_invoiceable -> sales_stock_item_purchase.stock_item_id"
+    assert orphan.dangling_value == item.id
+
+
+def test_sales_reconciliation_leaves_a_purchase_still_within_outbox_lag_alone(client, db_session):
+    dealer_id = _create_dealer(client)
+    _invoiceable_stock_item(db_session, dealer_id, hours_ago=0)
+
+    assert sales_reconciliation.run(db_session).orphans_found == 0
+
+
+def test_sales_reconciliation_accepts_a_mirrored_purchase(client, db_session):
+    dealer_id = _create_dealer(client)
+    item = _invoiceable_stock_item(db_session, dealer_id, hours_ago=2)
+    db_session.add(SalesStockItemPurchase(tenant_id=uuid.UUID(dealer_id), stock_item_id=item.id, source_event_id=None))
+    db_session.commit()
+
+    assert sales_reconciliation.run(db_session).orphans_found == 0
 
 
 # --- top-level runner: every context runs even when an earlier one alarms --------

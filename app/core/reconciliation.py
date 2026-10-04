@@ -12,9 +12,10 @@ issues an UPDATE or DELETE against the tables it inspects.
 
 import dataclasses
 import uuid
+from collections.abc import Callable
 from typing import Any, cast
 
-from sqlalchemy import select
+from sqlalchemy import ColumnElement, select
 from sqlalchemy.orm import DeclarativeBase, InstrumentedAttribute, Session
 
 from app.core.base import utcnow
@@ -27,6 +28,11 @@ class ReferenceCheck:
     resolves: source_model.source_fk_column must either be NULL (only
     permitted when nullable=True) or match some row's target_id_column on
     target_model.
+
+    `source_where`, when set, limits the check to the source rows it
+    matches — for a fact that must be mirrored only in some states (e.g.
+    "every row marked X has its replica row"). A callable, so a time-
+    relative condition is evaluated when the run happens, not at import.
     """
 
     label: str
@@ -36,6 +42,7 @@ class ReferenceCheck:
     target_model: type[DeclarativeBase]
     target_id_column: InstrumentedAttribute[Any]
     nullable: bool = False
+    source_where: Callable[[], ColumnElement[bool]] | None = None
 
 
 def find_orphans(db: Session, check: ReferenceCheck) -> list[tuple[uuid.UUID, uuid.UUID]]:
@@ -53,6 +60,8 @@ def find_orphans(db: Session, check: ReferenceCheck) -> list[tuple[uuid.UUID, uu
     )
     if check.nullable:
         stmt = stmt.where(check.source_fk_column.is_not(None))
+    if check.source_where is not None:
+        stmt = stmt.where(check.source_where())
     # ReferenceCheck's columns are InstrumentedAttribute[Any] — every real
     # caller passes GUID columns, but that's a fact this generic framework
     # can't express in the type of `check` itself.

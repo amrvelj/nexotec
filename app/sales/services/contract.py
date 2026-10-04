@@ -471,15 +471,29 @@ def _compensate_confirmation(
 def request_invoice(db: Session, *, contract: SalesContract, actor_id: uuid.UUID | None) -> SalesContract:
     """ADR-046 — a genuinely distinct event from `sales.contract.confirmed`,
     never the same name for both moments. Emitted at hand-off, not at
-    signature; does not itself flip is_invoiceable (that is the local
-    replica the inventory.stock_item.purchased consumer maintains) or the
-    contract's own status (INVOICED is finance's own trigger, WP-9+).
+    signature; does not change the contract's status (INVOICED is
+    finance's own trigger, WP-9+).
+
+    The purchase gate (Anto, 2026-10-04; ADR-052, FR-I-12): the dealership
+    cannot invoice a vehicle it has not bought. Confirmation is NOT gated —
+    a contract may be signed and the car reserved before the purchase
+    (PRD-Stock K-12). `is_invoiceable` is derived from the local replica
+    in the query that loaded the contract — no call to Stock. A manually
+    configured vehicle is refused too: confirmation makes it a pipeline
+    stock item Sales is not told about, so Sales cannot see its purchase.
     """
 
     if contract.status != ContractStatus.CONFIRMED:
         raise ConflictError(
             f"Contract {contract.contract_number} cannot request invoicing from status "
             f"'{contract.status.value}'."
+        )
+    db.refresh(contract, ["is_invoiceable"])  # as of now, not as of when the caller loaded it
+    if not contract.is_invoiceable:
+        raise ConflictError(
+            f"The vehicle of contract {contract.contract_number} has not been purchased yet — it cannot be "
+            f"invoiced until Stock has booked its purchase.",
+            details={"reason": "vehicle_not_purchased"},
         )
 
     publish(

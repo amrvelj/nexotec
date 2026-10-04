@@ -34,6 +34,7 @@ from app.sales.models.deal import SalesDeal, SalesNumberSequence
 from app.sales.models.document import SalesDocument
 from app.sales.models.line_item import SalesLineItem
 from app.sales.models.offer import SalesOffer
+from app.sales.models.stock_item_purchase import SalesStockItemPurchase
 from app.sales.models.transaction import Transaction
 from app.valuation.models.valuation import Valuation, ValuationDeduction, ValuationNumberSequence
 from app.vehicle.models.catalogue import (
@@ -103,6 +104,7 @@ __all__ = [
     "SalesLineItem",
     "SalesNumberSequence",
     "SalesOffer",
+    "SalesStockItemPurchase",
     "StockItem",
     "StockItemLedger",
     "StockItemMedia",

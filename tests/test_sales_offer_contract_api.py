@@ -263,3 +263,31 @@ def test_patch_offer_requires_if_match(client):
     offer = client.post("/v1/sales/offers", headers=_bearer(token)).json()
     response = client.patch(f"/v1/sales/offers/{offer['id']}", json={"vehicleLabel": "X"}, headers=_bearer(token))
     assert response.status_code == 400, response.text
+
+
+def test_request_invoice_for_a_vehicle_not_purchased_is_409_with_its_reason(client):
+    """KAN-100 (Anto, 2026-10-04): a contract is confirmed before the
+    purchase; invoicing is not. A manually configured vehicle is the case
+    Sales can never see purchased today, so it refuses over HTTP too."""
+
+    token = _token(role=AccessRole.SALES)
+    offer = client.post("/v1/sales/offers", headers=_bearer(token)).json()
+    offer = client.patch(
+        f"/v1/sales/offers/{offer['id']}",
+        json={"vehicleSource": "manual", "vehicleLabel": "Volkswagen ID.4 Pro", "manualVehicleCondition": "new", "manualBasePrice": "52000.00"},
+        headers={**_bearer(token), "If-Match": str(offer["version"])},
+    ).json()
+    contract = client.post("/v1/sales/contracts", json={"offerId": offer["id"]}, headers=_bearer(token)).json()
+    assert contract["isInvoiceable"] is False
+    confirmed = client.post(
+        f"/v1/sales/contracts/{contract['id']}/confirm", headers={**_bearer(token), "If-Match": str(contract["version"])}
+    )
+    assert confirmed.status_code == 200, confirmed.text
+
+    response = client.post(
+        f"/v1/sales/contracts/{contract['id']}/request-invoice",
+        headers={**_bearer(token), "If-Match": str(confirmed.json()["version"])},
+    )
+
+    assert response.status_code == 409, response.text
+    assert response.json()["error"]["details"] == {"reason": "vehicle_not_purchased"}
