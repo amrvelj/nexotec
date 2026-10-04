@@ -317,3 +317,163 @@ def test_demoting_a_manager_is_allowed_when_another_active_manager_remains(clien
     )
     assert response.status_code == 200
     assert response.json()["isDealerManager"] is False
+
+
+# --- KAN-97: platform_admin is Nexotec staff only --------------------------
+# A dealer manager passes require_write("dealership_users"), so the service
+# layer is what stops them granting platform_admin, removing it, or editing
+# (and so taking over) an account that holds it.
+
+
+def _manager_token(dealer_id: str) -> str:
+    return _token(tenant_id=uuid.UUID(dealer_id), is_dealer_manager=True)
+
+
+def _list_user_emails(client, dealer_id: str) -> list[str]:
+    response = client.get(
+        f"/v1/dealerships/{dealer_id}/users", headers=_bearer(_token(AccessRole.PLATFORM_ADMIN))
+    )
+    assert response.status_code == 200, response.text
+    return [u["email"] for u in response.json()["items"]]
+
+
+def _get_user(client, dealer_id: str, user_id: str) -> dict:
+    response = client.get(
+        f"/v1/dealerships/{dealer_id}/users/{user_id}", headers=_bearer(_token(AccessRole.PLATFORM_ADMIN))
+    )
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+def test_manager_cannot_create_a_platform_admin_user(client):
+    dealer_id = _create_dealer(client)
+    _create_user(client, dealer_id, _token(AccessRole.PLATFORM_ADMIN))
+
+    response = client.post(
+        f"/v1/dealerships/{dealer_id}/users",
+        json=_user_payload(email="escalate@example.ch", accessRoles=["sales", "platform_admin"]),
+        headers=_bearer(_manager_token(dealer_id)),
+    )
+
+    assert response.status_code == 403, response.text
+    assert response.json()["error"]["code"] == "forbidden"
+    assert "escalate@example.ch" not in _list_user_emails(client, dealer_id)
+
+
+def test_manager_cannot_grant_platform_admin_to_an_existing_user(client):
+    dealer_id = _create_dealer(client)
+    user = _create_user(client, dealer_id, _token(AccessRole.PLATFORM_ADMIN))
+
+    response = client.patch(
+        f"/v1/dealerships/{dealer_id}/users/{user['id']}",
+        json={"accessRoles": ["sales", "platform_admin"]},
+        headers={**_bearer(_manager_token(dealer_id)), "If-Match": "1"},
+    )
+
+    assert response.status_code == 403, response.text
+    after = _get_user(client, dealer_id, user["id"])
+    assert after["accessRoles"] == ["sales"]
+    assert after["version"] == 1
+
+
+def test_manager_cannot_remove_platform_admin(client):
+    dealer_id = _create_dealer(client)
+    platform_admin_token = _token(AccessRole.PLATFORM_ADMIN)
+    _create_user(client, dealer_id, platform_admin_token, email="manager@example.ch")
+    staff = _create_user(
+        client,
+        dealer_id,
+        platform_admin_token,
+        email="staff@example.ch",
+        accessRoles=["platform_admin"],
+        isDealerManager=False,
+    )
+
+    response = client.patch(
+        f"/v1/dealerships/{dealer_id}/users/{staff['id']}",
+        json={"accessRoles": ["sales"]},
+        headers={**_bearer(_manager_token(dealer_id)), "If-Match": "1"},
+    )
+
+    assert response.status_code == 403, response.text
+    after = _get_user(client, dealer_id, staff["id"])
+    assert after["accessRoles"] == ["platform_admin"]
+    assert after["version"] == 1
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"authIdentityId": "stub-sub-taken-over"},
+        {"email": "taken-over@example.ch"},
+        {"status": "deactivated"},
+        {"accessRoles": ["platform_admin"]},  # unchanged roles: still an edit of a staff account
+    ],
+)
+def test_manager_cannot_edit_a_user_who_holds_platform_admin(client, change):
+    # Option 1 (Anto, 2026-10-04): changing the login identity or email of a
+    # staff account is an account takeover, so a non-platform_admin may not
+    # edit such a user at all — not just its roles.
+    dealer_id = _create_dealer(client)
+    platform_admin_token = _token(AccessRole.PLATFORM_ADMIN)
+    _create_user(client, dealer_id, platform_admin_token, email="manager@example.ch")
+    staff = _create_user(
+        client,
+        dealer_id,
+        platform_admin_token,
+        email="staff@example.ch",
+        accessRoles=["platform_admin"],
+        isDealerManager=False,
+    )
+
+    response = client.patch(
+        f"/v1/dealerships/{dealer_id}/users/{staff['id']}",
+        json=change,
+        headers={**_bearer(_manager_token(dealer_id)), "If-Match": "1"},
+    )
+
+    assert response.status_code == 403, response.text
+    after = _get_user(client, dealer_id, staff["id"])
+    assert after == staff
+
+
+def test_platform_admin_can_grant_and_remove_platform_admin(client):
+    dealer_id = _create_dealer(client)
+    platform_admin_token = _token(AccessRole.PLATFORM_ADMIN)
+    _create_user(client, dealer_id, platform_admin_token, email="manager@example.ch")
+
+    created = _create_user(
+        client, dealer_id, platform_admin_token, email="staff@example.ch", accessRoles=["platform_admin"]
+    )
+    assert created["accessRoles"] == ["platform_admin"]
+
+    other = _create_user(client, dealer_id, platform_admin_token, email="other@example.ch")
+    granted = client.patch(
+        f"/v1/dealerships/{dealer_id}/users/{other['id']}",
+        json={"accessRoles": ["sales", "platform_admin"]},
+        headers={**_bearer(platform_admin_token), "If-Match": "1"},
+    )
+    assert granted.status_code == 200, granted.text
+    assert granted.json()["accessRoles"] == ["platform_admin", "sales"]
+
+    removed = client.patch(
+        f"/v1/dealerships/{dealer_id}/users/{other['id']}",
+        json={"accessRoles": ["sales"]},
+        headers={**_bearer(platform_admin_token), "If-Match": "2"},
+    )
+    assert removed.status_code == 200, removed.text
+    assert removed.json()["accessRoles"] == ["sales"]
+
+
+def test_manager_can_still_edit_roles_of_ordinary_users(client):
+    dealer_id = _create_dealer(client)
+    user = _create_user(client, dealer_id, _token(AccessRole.PLATFORM_ADMIN))
+
+    response = client.patch(
+        f"/v1/dealerships/{dealer_id}/users/{user['id']}",
+        json={"accessRoles": ["sales", "inventory"]},
+        headers={**_bearer(_manager_token(dealer_id)), "If-Match": "1"},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["accessRoles"] == ["inventory", "sales"]
