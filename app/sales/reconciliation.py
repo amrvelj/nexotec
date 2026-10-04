@@ -2,12 +2,20 @@
 read-only — see app.core.reconciliation for the mechanism.
 
 Only the replica of Stock's purchase fact (KAN-100) is checked among the
-WP-8 tables; sales_contract's own references are not yet (a Kanban ticket
-tracks it, together with comparing the replica against Stock's fact).
+WP-8 tables, both ways round: each replica row names a real stock item, and
+each stock item Stock holds as purchased (is_invoiceable) has its replica
+row — a purchase Sales never learned of (an event lost, or a purchase
+written without one) would otherwise leave the car un-invoiceable in Sales
+with no alarm. sales_contract's own references are not checked yet
+(KAN-145); a replica row whose purchase Stock reversed cannot exist until
+Stock emits storno (KAN-146).
 """
+
+import datetime as dt
 
 from sqlalchemy.orm import Session
 
+from app.core.base import utcnow
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, run_reconciliation
 from app.customer.public import Customer
 from app.inventory.public import StockItem
@@ -17,6 +25,10 @@ from app.sales.models.transaction import Transaction
 from app.vehicle.public import Vehicle
 
 CONTEXT = "sales"
+
+# A purchase is published in the same commit that marks the item and reaches
+# Sales within outbox lag; only items left unmirrored longer than this alarm.
+_PURCHASE_REPLICATION_GRACE = dt.timedelta(hours=1)
 
 CHECKS = [
     ReferenceCheck(
@@ -58,6 +70,16 @@ CHECKS = [
         source_fk_column=SalesStockItemPurchase.stock_item_id,
         target_model=StockItem,
         target_id_column=StockItem.id,
+    ),
+    ReferenceCheck(
+        label="stock_item.is_invoiceable -> sales_stock_item_purchase.stock_item_id",
+        source_model=StockItem,
+        source_row_id_column=StockItem.id,
+        source_fk_column=StockItem.id,
+        target_model=SalesStockItemPurchase,
+        target_id_column=SalesStockItemPurchase.stock_item_id,
+        source_where=lambda: (StockItem.is_invoiceable.is_(True))
+        & (StockItem.updated_at < utcnow() - _PURCHASE_REPLICATION_GRACE),
     ),
 ]
 

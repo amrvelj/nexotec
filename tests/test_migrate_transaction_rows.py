@@ -150,8 +150,9 @@ def test_commit_migrates_a_completed_sale_with_a_real_stock_link(db_session):
     assert offer.stock_item_id == stock_item.id
     assert offer.vehicle_snapshot_frozen_at is not None  # the real freeze_vehicle_snapshot ran, not a stand-in
     # KAN-100: no purchase was ever booked for a car only ever sold, so the
-    # contract derives not-invoiceable — the legacy sale was invoiced in the
-    # old system and must not be invoiced again.
+    # contract derives not-invoiceable from Stock's fact. (That a migrated,
+    # CONFIRMED legacy sale could still be handed to invoicing when its car
+    # came in as a legacy trade-in is a separate, older gap.)
     assert contract.is_invoiceable is False
 
 

@@ -19,8 +19,10 @@ inventory's stock_item table — keeps the first event per (tenant, stock
 item). It writes no outbox rows. Re-runnable: rows already present are
 skipped. Contracts need no backfill — their flag is now derived.
 
-Downgrade restores the stored column from the replica (true where a row
-exists), then drops the table.
+Downgrade re-creates the stored column from the replica (true where a row
+exists), then drops the table. Not lossless: a legacy sale contract that
+scripts/migrate_transaction_rows.py stored as true before KAN-100 comes
+back false unless its car has a replica row.
 
 Revision ID: 8e3b5d1c7a42
 Revises: 50fe6834bfe2

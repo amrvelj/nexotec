@@ -29,8 +29,9 @@ against the code). "Open" lines cite a ticket; /drift-audit re-checks them weekl
   contract written after the purchase is invoiceable at once (KAN-100).
   `scripts/migrate_transaction_rows.py` publishes no events, so it writes the replica row for a
   legacy trade-in's purchase itself. `inventory.stock_item.storno` ("sets it back") is not
-  emitted yet, so nothing clears it. Reconciliation checks the replica's stock-item reference
-  only; comparing it against Stock's own fact is not built.
+  emitted yet, so nothing clears it (KAN-146). Nightly reconciliation alarms on a replica row
+  naming no stock item and on a stock item Stock holds as purchased for over an hour with no
+  replica row; `sales_contract`'s own references are not reconciled (KAN-145).
 - **ADR-050** — `sales_contract` supersedes the legacy `transaction` table. Legacy rows move via
   `scripts/migrate_transaction_rows.py`: dry-run by default, idempotent, written directly
   through the ORM and **publishing no outbox events** (a years-old sale must not look like
@@ -64,7 +65,8 @@ against the code). "Open" lines cite a ticket; /drift-audit re-checks them weekl
   (`details.reason = "vehicle_not_purchased"`). A contract **may be confirmed** — and the car
   reserved — before the purchase; confirming a manually configured vehicle makes it a pipeline
   stock item. Such a contract stays refused at invoicing because Sales is never told that
-  pipeline item's id. PRD-Sales S-D10 still says confirmation is gated; it is being corrected.
+  pipeline item's id (KAN-144). PRD-Sales S-D10 still says confirmation is gated; it is being
+  corrected.
 - A contract needs a vehicle and a price before it can be confirmed.
 - **A trade-in valuation past its validity refuses confirmation** (`trade_in_valuation_expired`,
   KAN-101); confirmation consumes the valuation first, then reserves the car — see
