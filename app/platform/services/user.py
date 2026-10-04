@@ -45,7 +45,9 @@ def _role_values(roles) -> list[str]:
     return sorted(_plain(role) for role in roles)
 
 
-def _assert_not_last_manager(db: Session, *, dealership_id: uuid.UUID, excluding_user_id: uuid.UUID) -> None:
+def _assert_not_last_manager(
+    db: Session, *, dealership_id: uuid.UUID, excluding_user_id: uuid.UUID, message: str | None = None
+) -> None:
     """Roles & Permissions enforcement rule 7 / RP-1 (Dealer Administration
     FR-A-13): a dealership must always have at least one active manager.
     Checked against every OTHER active manager of the dealership — a user
@@ -78,9 +80,9 @@ def _assert_not_last_manager(db: Session, *, dealership_id: uuid.UUID, excluding
     )
     if other_home_manager is None and other_manager_by_membership is None:
         raise BadRequestError(
-            "This dealership must always have at least one active manager — "
-            "cannot remove or deactivate its last one.",
-            details={"dealershipId": str(dealership_id)},
+            message
+            or "This dealership must always have at least one active manager — "
+            "cannot remove or deactivate its last one."
         )
 
 
@@ -272,7 +274,15 @@ def update_user(db: Session, *, user: User, data: UserUpdate, actor_id: uuid.UUI
                 DealershipMembership.user_id == user.id, DealershipMembership.is_dealer_manager.is_(True)
             )
         ).all():
-            _assert_not_last_manager(db, dealership_id=managed_dealership_id, excluding_user_id=user.id)
+            # No dealership id in the error: the caller administers the
+            # user's home dealership and need not learn the sister's.
+            _assert_not_last_manager(
+                db,
+                dealership_id=managed_dealership_id,
+                excluding_user_id=user.id,
+                message="This user is the last active manager of another dealership they are a member of — "
+                "cannot deactivate them until that dealership has another manager.",
+            )
 
     before: dict[str, Any] = {}
     after: dict[str, Any] = {}

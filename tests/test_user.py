@@ -350,17 +350,25 @@ def test_demoting_the_last_home_manager_is_allowed_when_a_manager_by_membership_
 
 
 @pytest.mark.parametrize(
-    ("membership_is_manager", "member_status"),
-    [(False, "active"), (True, "deactivated")],
+    ("membership_is_manager", "member_status", "member_is_home_manager"),
+    [
+        (False, "active", False),
+        # The original defect, moved into the count: A's manager holding a
+        # plain membership in B is not B's manager.
+        (False, "active", True),
+        (True, "deactivated", False),
+    ],
 )
 def test_a_plain_or_inactive_membership_does_not_count_as_another_manager(
-    client, db_session, membership_is_manager, member_status
+    client, db_session, membership_is_manager, member_status, member_is_home_manager
 ):
     platform_admin_token = _token(AccessRole.PLATFORM_ADMIN)
     dealer_a = _create_dealer(client)
     dealer_b = _create_dealer(client)
     home_manager_of_b = _create_user(client, dealer_b, platform_admin_token, email="b@example.ch")
-    member = _create_user(client, dealer_a, platform_admin_token, email="a@example.ch", isDealerManager=False)
+    member = _create_user(
+        client, dealer_a, platform_admin_token, email="a@example.ch", isDealerManager=member_is_home_manager
+    )
     # dealer_a needs a manager of its own before `member` can be deactivated there.
     _create_user(client, dealer_a, platform_admin_token, email="a.mgr@example.ch")
     if member_status != "active":
@@ -431,4 +439,4 @@ def test_deactivating_a_sister_dealerships_last_manager_by_membership_is_rejecte
         headers={**_bearer(platform_admin_token), "If-Match": "1"},
     )
     assert response.status_code == 400
-    assert response.json()["error"]["details"] == {"dealershipId": dealer_b}
+    assert response.json()["error"]["details"] is None  # never names the sister dealership
