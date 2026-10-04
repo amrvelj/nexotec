@@ -19,8 +19,9 @@ paths:
 Administration PRD and Authentication & Identity (rulings D-A-01…D-A-09, 2026-09-20; they
 absorb Roles & Permissions v0.2 and supersede ADR-027). Verified against main@568f416 on
 2026-09-28 (every present-tense claim checked against the code), except the "Access — what
-exists today" paragraph, re-verified against the KAN-97 branch on 2026-10-04. "Not built" lines
-are re-checked weekly by /drift-audit. -->
+exists today" paragraph, re-verified against the KAN-97 branch on 2026-10-04, and the D-A-01
+bullet, re-checked for KAN-98 on 2026-10-04. "Not built" lines are re-checked weekly by
+/drift-audit. -->
 
 # Platform: organisation, access, administration, authentication
 
@@ -35,7 +36,14 @@ are re-checked weekly by /drift-audit. -->
   `inventory/services/group_listing.py`, `platform/services/dealership.py`. The test covers
   `group_id` and `dealer_group_id` in every spelling. A new group read is an ADR plus an
   allowlist entry. Cross-tenant reads return 404, never 403.
-- **No group-level administrator in v1** (D-A-01). The manager flag is held per dealership.
+- **No group-level administrator in v1** (D-A-01). The manager flag is held per dealership
+  (KAN-98): `User.is_dealer_manager` for the home dealership, `dealership_membership.
+  is_dealer_manager` for each sister dealership (default false, never copied from the home
+  flag). `POST /v1/auth/switch-dealership` mints the target's flag via
+  `user_service.is_dealer_manager_in`. The last-active-manager rule (FR-A-13) and the manager
+  e-mail list count managers by membership too. No endpoint grants a membership or its flag
+  yet. `LoginResponse.user.isDealerManager` is the User row's home flag, not the active
+  dealership's — never gate a screen on it; the session's own flag is the token claim.
 
 ## Access — what exists today
 

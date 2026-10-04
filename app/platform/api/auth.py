@@ -198,7 +198,9 @@ def switch_dealership(
         group_id=dealership.dealer_group_id,
         memberships=membership_ids,
         roles=frozenset(AccessRole(role) for role in user.access_roles),
-        is_dealer_manager=user.is_dealer_manager,
+        # The TARGET dealership's flag, never the home one carried across
+        # (KAN-98, D-A-01: the manager flag is held per dealership).
+        is_dealer_manager=user_service.is_dealer_manager_in(db, user=user, dealership_id=dealership.id),
     )
     _set_session_cookie(response, token)
     return _login_response(db, user=user, active_dealership=dealership, membership_ids=membership_ids)
