@@ -427,7 +427,7 @@ def test_concurrent_allocations_leave_exactly_one_open_holder(engine, db_session
         # assertion above is reported as itself, not as a teardown error.
         release.set()
         first.join(timeout=10)
-        if second.is_alive() or second.ident is not None:
+        if second.ident is not None:  # started
             second.join(timeout=10)
         monkeypatch.undo()
 
