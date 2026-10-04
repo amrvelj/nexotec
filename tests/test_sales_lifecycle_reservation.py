@@ -31,12 +31,12 @@ from app.inventory.models.stock_item import ReservationState, StockItemCondition
 from app.inventory.schemas.stock_item import StockItemCreate
 from app.inventory.services.stock_item import create_stock_item, get_stock_item_or_404
 from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
-from app.sales.consumers import handle_stock_item_purchased
 from app.sales.models.contract import ContractStatus
 from app.sales.models.offer import OfferStatus
 from app.sales.schemas.offer import OfferUpdate
 from app.sales.services.contract import cancel_contract, confirm_contract, create_contract, request_invoice
 from app.sales.services.offer import create_offer, update_offer
+from app.sales.services.stock_item_purchase import record_stock_item_purchased
 
 
 def _session_factory(engine):
@@ -250,8 +250,11 @@ def test_two_events_are_never_the_same_name(db_session, engine):
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
 
-    contract, _item, _customer = _stock_contract(db_session, dealership.id, group_id)
+    contract, item, _customer = _stock_contract(db_session, dealership.id, group_id)
     confirm_contract(db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=_session_factory(engine))
+    # KAN-100: invoicing needs the purchase (Anto, 2026-10-04).
+    record_stock_item_purchased(db_session, tenant_id=dealership.id, stock_item_id=item.id, event_id=uuid.uuid4())
+    db_session.refresh(contract)
     request_invoice(db_session, contract=contract, actor_id=uuid.uuid4())
 
     event_types = {
@@ -493,13 +496,13 @@ def test_stock_item_purchased_consumer_sets_is_invoiceable(db_session, engine):
     confirm_contract(db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=_session_factory(engine))
     assert contract.is_invoiceable is False
 
-    handle_stock_item_purchased(db_session, tenant_id=dealership.id, stock_item_id=item.id)
+    record_stock_item_purchased(db_session, tenant_id=dealership.id, stock_item_id=item.id, event_id=uuid.uuid4())
 
     db_session.refresh(contract)
     assert contract.is_invoiceable is True
 
     # Idempotent — a second delivery of the same fact is a no-op.
-    handle_stock_item_purchased(db_session, tenant_id=dealership.id, stock_item_id=item.id)
+    record_stock_item_purchased(db_session, tenant_id=dealership.id, stock_item_id=item.id, event_id=uuid.uuid4())
     db_session.refresh(contract)
     assert contract.is_invoiceable is True
 

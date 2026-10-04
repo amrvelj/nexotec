@@ -21,9 +21,12 @@ against the code). "Open" lines cite a ticket; /drift-audit re-checks them weekl
   moments.
 - **ADR-047** — a write spanning two contexts is a call with a compensating action, never a
   shared transaction (CLAUDE.md rule 12).
-- **ADR-052** — `is_invoiceable` is Stock's fact; Sales keeps a local replica maintained by the
-  `inventory.stock_item.purchased` consumer (`app/sales/consumers.py`) and never queries Stock
-  synchronously.
+- **ADR-052** — `is_invoiceable` is Stock's fact; Sales keeps a local replica and never queries
+  Stock synchronously. Stock publishes `inventory.stock_item.purchased` once, so the replica is
+  kept **per stock item** (`sales_stock_item_purchase`, `app/sales/services/stock_item_purchase.py`)
+  whether or not a contract exists yet; the consumer marks every contract on the item, and
+  `create_contract` starts a contract on an already-purchased item as invoiceable (KAN-100).
+  `inventory.stock_item.storno` ("sets it back") is not emitted yet, so nothing clears it.
 - **ADR-050** — `sales_contract` supersedes the legacy `transaction` table. Legacy rows move via
   `scripts/migrate_transaction_rows.py`: dry-run by default, idempotent, written directly
   through the ORM and **publishing no outbox events** (a years-old sale must not look like
@@ -51,10 +54,13 @@ against the code). "Open" lines cite a ticket; /drift-audit re-checks them weekl
 
 ## Contract rules
 
-- **Purchase gate (S-D10):** a contract on a stock vehicle may not be confirmed until that
-  stock item's purchase is booked — otherwise the dealership sells something it has not
-  acquired. **Not enforced today:** `confirm_contract` has no purchase check. When it is built,
-  it reads the local replica (ADR-052), never a synchronous query.
+- **Purchase gate — at invoicing, not at confirmation** (Anto, 2026-10-04, KAN-100; ADR-052,
+  PRD-Stock K-12/FR-I-12): the dealership cannot invoice a vehicle it has not bought.
+  `request_invoice` refuses a contract whose replica says not purchased
+  (`details.reason = "vehicle_not_purchased"`). A contract **may be confirmed** — and the car
+  reserved — before the purchase; confirming a manually configured vehicle makes it a pipeline
+  stock item. Such a contract stays refused at invoicing because Sales is never told that
+  pipeline item's id. PRD-Sales S-D10 still says confirmation is gated; it is being corrected.
 - A contract needs a vehicle and a price before it can be confirmed.
 - **A trade-in valuation past its validity refuses confirmation** (`trade_in_valuation_expired`,
   KAN-101); confirmation consumes the valuation first, then reserves the car — see
