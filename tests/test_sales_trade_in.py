@@ -5,7 +5,7 @@ from decimal import Decimal
 
 import pytest
 
-from app.core.errors import ConflictError
+from app.core.errors import ConflictError, NotFoundError
 from app.customer.public import VehiclePartyRole, list_vehicle_parties
 from app.sales.schemas.offer import OfferUpdate
 from app.sales.services.offer import create_offer, update_offer
@@ -183,3 +183,25 @@ def test_payable_is_gross_price_minus_trade_in_value(db_session):
     )
 
     assert offer.payable == Decimal("64310.00")
+
+
+def test_trade_in_for_another_groups_customer_is_a_404(db_session):
+    """KAN-99: body.customerId is resolved in the caller's group by
+    allocate_vehicle_party — 404, never a cross-group VehicleParty."""
+
+    from app.customer.models.customer import Customer, CustomerType, Language
+
+    other_group = uuid.uuid4()
+    stranger = Customer(
+        group_id=other_group, customer_number="K-300099", customer_type=CustomerType.INDIVIDUAL,
+        language=Language.DE, first_name="Fremd", last_name="Kunde",
+    )
+    db_session.add(stranger)
+    db_session.commit()
+    offer = create_offer(db_session, tenant_id=uuid.uuid4(), actor_id=uuid.uuid4())
+
+    with pytest.raises(NotFoundError):
+        set_trade_in(
+            db_session, offer=offer, group_id=uuid.uuid4(), vin="WVWZZZ1KZAW444444", plate=None, canton=None,
+            vehicle_label="VW Golf", customer_id=stranger.id, actor_id=uuid.uuid4(),
+        )

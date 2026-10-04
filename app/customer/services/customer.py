@@ -2458,48 +2458,50 @@ def allocate_vehicle_party(
     KAN-99 — holders are per dealer group (Anto's ruling, 2026-10-04;
     ADR-014): vehicle_mdm is a global fact (ADR-022) and VehicleParty has
     no group column, so two groups can each hold the same role on one
-    VIN. The incumbent is looked up through Customer.group_id — the same
-    intra-context join as list_vehicle_parties — so an allocation closes
-    only the caller's own group's holder and never touches another
-    group's timeline. `group_id` is the caller's group, and `customer_id`
-    must already have been resolved in it (the callers do so). The close
-    and the insert commit together; any failure rolls both back.
+    VIN. The customer is resolved in the caller's group first (404, never
+    a cross-group link — the trade-in path passes a request-body id), and
+    the incumbents are looked up through Customer.group_id, the same
+    intra-context join as list_vehicle_parties. So an allocation closes
+    EVERY open holder of (vehicle, role) in the caller's group — a
+    backdated create or a reopened row can leave more than one — and
+    never touches another group's timeline. The rows are locked FOR
+    UPDATE, and the close and the insert commit together: a failure
+    leaves nothing committed, and the request's session rolls it back.
     """
 
+    get_customer_or_404(db, group_id, customer_id)
     effective_from = effective_from or utcnow()
-    current = db.scalar(
-        select(VehicleParty)
-        .join(Customer, Customer.id == VehicleParty.customer_id)
-        .where(
-            VehicleParty.vehicle_id == vehicle_id,
-            VehicleParty.role == role,
-            Customer.group_id == group_id,
-            or_(VehicleParty.effective_to.is_(None), VehicleParty.effective_to > utcnow()),
-        )
-        .order_by(VehicleParty.effective_from.desc())
-        .limit(1)
+    incumbents = list(
+        db.scalars(
+            select(VehicleParty)
+            .join(Customer, Customer.id == VehicleParty.customer_id)
+            .where(
+                VehicleParty.vehicle_id == vehicle_id,
+                VehicleParty.role == role,
+                Customer.group_id == group_id,
+                or_(VehicleParty.effective_to.is_(None), VehicleParty.effective_to > utcnow()),
+            )
+            .order_by(VehicleParty.effective_from)
+            .with_for_update(of=VehicleParty)
+        ).all()
     )
-    if current is not None and current.customer_id == customer_id:
-        return current
+    if len(incumbents) == 1 and incumbents[0].customer_id == customer_id:
+        return incumbents[0]
 
-    try:
-        party = _open_vehicle_party(
-            db, vehicle_id=vehicle_id, customer_id=customer_id, role=role, group_id=group_id,
-            actor_id=actor_id, effective_from=effective_from, incumbent=current,
-        )
-        db.commit()
-    except Exception:
-        db.rollback()
-        raise
+    party = _open_vehicle_party(
+        db, vehicle_id=vehicle_id, customer_id=customer_id, role=role, group_id=group_id,
+        actor_id=actor_id, effective_from=effective_from, incumbents=incumbents,
+    )
+    db.commit()
     db.refresh(party)
     return party
 
 
 def _open_vehicle_party(
     db: Session, *, vehicle_id: uuid.UUID, customer_id: uuid.UUID, role: VehiclePartyRole, group_id: uuid.UUID,
-    actor_id: uuid.UUID, effective_from: dt.datetime, incumbent: VehicleParty | None,
+    actor_id: uuid.UUID, effective_from: dt.datetime, incumbents: list[VehicleParty],
 ) -> VehicleParty:
-    if incumbent is not None:
+    for incumbent in incumbents:
         _close_vehicle_party(db, party=incumbent, actor_id=actor_id, group_id=group_id)
 
     party = VehicleParty(

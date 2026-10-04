@@ -10,12 +10,19 @@ import pytest
 from sqlalchemy import select
 
 from app.core.audit_model import AuditEvent
+from app.core.base import utcnow
+from app.core.errors import NotFoundError
 from app.core.outbox_model import OutboxMessage
 from app.customer.models.customer import Customer, CustomerType, Language
-from app.customer.models.vehicle_party import VehiclePartyRole
+from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.customer.schemas.customer import VehiclePartySummary
 from app.customer.services import customer as customer_service
-from app.customer.services.customer import allocate_vehicle_party, delete_customer_vehicle, list_customer_vehicles
+from app.customer.services.customer import (
+    allocate_vehicle_party,
+    delete_customer_vehicle,
+    list_customer_vehicles,
+    list_vehicle_parties,
+)
 from app.vehicle.models.catalogue import Brand, ModelGroup, ModelVariant
 from app.vehicle.services.vehicle_mdm import create_vehicle_mdm
 
@@ -296,3 +303,68 @@ def test_failure_after_the_close_leaves_the_previous_holder_open(db_session, mon
     open_keepers = list_customer_vehicles(db_session, customer_id=bob.id)
     assert open_keepers == []
     assert db_session.scalars(select(AuditEvent).where(AuditEvent.action == "vehicle_party_remove")).all() == []
+
+
+def _open_row(db_session, vehicle_id, customer, role, days_ago):
+    row = VehicleParty(
+        vehicle_id=vehicle_id, customer_id=customer.id, role=role,
+        effective_from=utcnow() - dt.timedelta(days=days_ago), effective_to=None,
+    )
+    db_session.add(row)
+    db_session.commit()
+    return row
+
+
+def test_allocation_closes_every_open_holder_in_the_callers_group(db_session):
+    """A backdated create or a reopened row can leave two open holders of
+    one (vehicle, role) in a group; a new holder closes all of them."""
+
+    vehicle = _vehicle(db_session, vin="WVWZZZ1KZAW000096")
+    xaver, yara, zoe = (_customer(db_session, n) for n in ("Xaver", "Yara", "Zoe"))
+    older = _open_row(db_session, vehicle.id, xaver, VehiclePartyRole.OWNER, days_ago=30)
+    newer = _open_row(db_session, vehicle.id, yara, VehiclePartyRole.OWNER, days_ago=10)
+
+    allocate_vehicle_party(
+        db_session, vehicle_id=vehicle.id, customer_id=zoe.id, role=VehiclePartyRole.OWNER,
+        group_id=GROUP_ID, actor_id=uuid.uuid4(),
+    )
+
+    for row in (older, newer):
+        db_session.refresh(row)
+        assert row.effective_to is not None
+    assert [p.customer_id for p in list_vehicle_parties(db_session, vehicle_id=vehicle.id, group_id=GROUP_ID)] == [zoe.id]
+
+
+def test_reallocating_a_holder_who_shares_the_role_leaves_exactly_one_open(db_session):
+    vehicle = _vehicle(db_session, vin="WVWZZZ1KZAW000095")
+    xaver, yara = _customer(db_session, "Xaver"), _customer(db_session, "Yara")
+    _open_row(db_session, vehicle.id, xaver, VehiclePartyRole.OWNER, days_ago=30)
+    _open_row(db_session, vehicle.id, yara, VehiclePartyRole.OWNER, days_ago=10)
+
+    allocate_vehicle_party(
+        db_session, vehicle_id=vehicle.id, customer_id=xaver.id, role=VehiclePartyRole.OWNER,
+        group_id=GROUP_ID, actor_id=uuid.uuid4(),
+    )
+
+    assert [p.customer_id for p in list_vehicle_parties(db_session, vehicle_id=vehicle.id, group_id=GROUP_ID)] == [xaver.id]
+
+
+def test_allocating_another_groups_customer_is_a_404_and_writes_nothing(db_session):
+    group_b = uuid.uuid4()
+    vehicle = _vehicle(db_session, vin="WVWZZZ1KZAW000094")
+    bruno = _group_customer(db_session, group_b, "Bruno")
+    berta = _group_customer(db_session, group_b, "Berta")
+    brunos = allocate_vehicle_party(
+        db_session, vehicle_id=vehicle.id, customer_id=bruno.id, role=VehiclePartyRole.OWNER,
+        group_id=group_b, actor_id=uuid.uuid4(),
+    )
+
+    with pytest.raises(NotFoundError):
+        allocate_vehicle_party(
+            db_session, vehicle_id=vehicle.id, customer_id=berta.id, role=VehiclePartyRole.OWNER,
+            group_id=GROUP_ID, actor_id=uuid.uuid4(),
+        )
+    db_session.rollback()
+
+    assert [p.id for p in list_vehicle_parties(db_session, vehicle_id=vehicle.id, group_id=group_b)] == [brunos.id]
+    assert list_customer_vehicles(db_session, customer_id=berta.id, include_closed=True) == []
