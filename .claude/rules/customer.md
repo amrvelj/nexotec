@@ -9,7 +9,8 @@ paths:
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises PRD-Customers v2.2 (incl. its
 §Conformance review, rulings D-03…D-26), ADR-014, ADR-064, ADR-065, ADR-067. Verified against
-main@568f416 on 2026-09-27; the vehicle-party lines against KAN-99's branch on 2026-10-04. Fix this file in the same PR as any change to what it states;
+main@568f416 on 2026-09-27; the vehicle-party lines against KAN-99's branch on
+2026-10-04. Fix this file in the same PR as any change to what it states;
 /drift-audit re-checks it weekly. -->
 
 # Customers
@@ -87,10 +88,11 @@ main@568f416 on 2026-09-27; the vehicle-party lines against KAN-99's branch on 2
   (`vehicle_mdm`), but each group keeps its own owner/keeper/driver history for it.
   `allocate_vehicle_party` resolves the customer in the caller's group (404 otherwise — this
   covers the trade-in path too), then closes **every** open holder of that (vehicle, role) in
-  the caller's group, found through `Customer.group_id` and locked `FOR UPDATE`, in the **same
-  transaction** as the insert — never another group's row. Reads (`list_vehicle_parties`) are
-  filtered the same way. **Not built:** two concurrent first allocations can still both
-  insert (no lock exists when there is no incumbent).
+  the caller's group, found through `Customer.group_id`, in the **same transaction** as the
+  insert — never another group's row. Concurrent allocations are serialised by a Postgres
+  advisory lock on (vehicle, role, group): a row lock cannot do it, because a concurrent
+  request never sees the row being inserted. Reads (`list_vehicle_parties`) are filtered the
+  same way.
 - Group-wide customer history must be served from an event-built projection keyed by
   `group_id` (reporting), never by fan-out across dealerships × services (rule 11, two hops).
   **Not built:** `app/reporting` is a stub, and the History tab shows the audit log.

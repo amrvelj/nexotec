@@ -13,12 +13,13 @@ that's Customer's real scoping key.
 """
 
 import datetime as dt
+import hashlib
 import logging
 import uuid
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
@@ -2464,12 +2465,21 @@ def allocate_vehicle_party(
     intra-context join as list_vehicle_parties. So an allocation closes
     EVERY open holder of (vehicle, role) in the caller's group — a
     backdated create or a reopened row can leave more than one — and
-    never touches another group's timeline. The rows are locked FOR
-    UPDATE, and the close and the insert commit together: a failure
-    leaves nothing committed, and the request's session rolls it back.
+    never touches another group's timeline. The close and the insert
+    commit together: a failure leaves nothing committed, and the
+    request's session rolls it back.
+
+    Concurrency: a row lock cannot serialise this — a concurrent request
+    never sees the row the other one is inserting, with or without an
+    incumbent — so on Postgres a transaction-scoped advisory lock on
+    (vehicle, role, group) is taken before the incumbent lookup. A second
+    allocation waits for the first to commit, then sees its row and
+    closes it. The incumbents are additionally locked FOR UPDATE against
+    a concurrent Disconnect.
     """
 
     get_customer_or_404(db, group_id, customer_id)
+    _lock_vehicle_role_in_group(db, vehicle_id=vehicle_id, role=role, group_id=group_id)
     effective_from = effective_from or utcnow()
     incumbents = list(
         db.scalars(
@@ -2495,6 +2505,22 @@ def allocate_vehicle_party(
     db.commit()
     db.refresh(party)
     return party
+
+
+def _lock_vehicle_role_in_group(
+    db: Session, *, vehicle_id: uuid.UUID, role: VehiclePartyRole, group_id: uuid.UUID
+) -> None:
+    """pg_advisory_xact_lock on a 64-bit key derived from (vehicle, role,
+    group); released by the transaction's commit or rollback. SQLite (the
+    fast local lane, ADR-011) has no advisory locks and serialises
+    writers on its own, so this is a no-op there.
+    """
+
+    if db.get_bind().dialect.name != "postgresql":
+        return
+    digest = hashlib.sha256(f"vehicle_party:{vehicle_id}:{role.value}:{group_id}".encode()).digest()
+    key = int.from_bytes(digest[:8], "big", signed=True)
+    db.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": key})
 
 
 def _open_vehicle_party(

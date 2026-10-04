@@ -4,6 +4,7 @@ import uuid
 from decimal import Decimal
 
 import pytest
+from sqlalchemy import select
 
 from app.core.errors import ConflictError, NotFoundError
 from app.customer.public import VehiclePartyRole, list_vehicle_parties
@@ -13,6 +14,7 @@ from app.sales.services.trade_in import attach_trade_in_valuation, set_trade_in
 from app.valuation.models.valuation import ValuationSource
 from app.valuation.schemas.valuation import ValuationCreate
 from app.valuation.services.valuation import create_valuation
+from app.vehicle.models.vehicle_mdm import VehicleMdm
 
 
 def _offer_with_customer(db_session, tenant_id, customer_id):
@@ -205,3 +207,5 @@ def test_trade_in_for_another_groups_customer_is_a_404(db_session):
             db_session, offer=offer, group_id=uuid.uuid4(), vin="WVWZZZ1KZAW444444", plate=None, canton=None,
             vehicle_label="VW Golf", customer_id=stranger.id, actor_id=uuid.uuid4(),
         )
+    db_session.rollback()
+    assert db_session.scalar(select(VehicleMdm).where(VehicleMdm.vin == "WVWZZZ1KZAW444444")) is None

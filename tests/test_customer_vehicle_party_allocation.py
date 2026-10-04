@@ -4,10 +4,12 @@ overwrite, never a delete.
 """
 
 import datetime as dt
+import threading
 import uuid
 
 import pytest
 from sqlalchemy import select
+from sqlalchemy.orm import sessionmaker
 
 from app.core.audit_model import AuditEvent
 from app.core.base import utcnow
@@ -368,3 +370,63 @@ def test_allocating_another_groups_customer_is_a_404_and_writes_nothing(db_sessi
 
     assert [p.id for p in list_vehicle_parties(db_session, vehicle_id=vehicle.id, group_id=group_b)] == [brunos.id]
     assert list_customer_vehicles(db_session, customer_id=berta.id, include_closed=True) == []
+
+
+@pytest.mark.parametrize("with_incumbent", [True, False], ids=["incumbent", "first-allocation"])
+def test_concurrent_allocations_leave_exactly_one_open_holder(engine, db_session, monkeypatch, with_incumbent):
+    """Two allocations of one (vehicle, role) in one group at the same
+    time: the second waits for the first's commit, then closes its row.
+    A row lock alone cannot do this — the second request never sees the
+    row the first is inserting."""
+
+    if engine.dialect.name != "postgresql":
+        pytest.skip("advisory locks are Postgres-only; the SQLite lane serialises writers itself")
+
+    vehicle = _vehicle(db_session, vin="WVWZZZ1KZAW000093")
+    xaver, yara, zoe = (_customer(db_session, n) for n in ("Xaver", "Yara", "Zoe"))
+    db_session.commit()
+    if with_incumbent:
+        allocate_vehicle_party(
+            db_session, vehicle_id=vehicle.id, customer_id=xaver.id, role=VehiclePartyRole.OWNER,
+            group_id=GROUP_ID, actor_id=uuid.uuid4(),
+        )
+
+    first_inserted, release = threading.Event(), threading.Event()
+    real_record = customer_service.record_audit_event
+
+    def _pause_first(db, **kwargs):
+        if kwargs["action"] == "vehicle_party_add" and threading.current_thread().name == "first":
+            first_inserted.set()
+            release.wait(timeout=10)
+        return real_record(db, **kwargs)
+
+    monkeypatch.setattr(customer_service, "record_audit_event", _pause_first)
+    factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+    errors: list[Exception] = []
+
+    def _allocate(customer_id):
+        with factory() as session:
+            try:
+                allocate_vehicle_party(
+                    session, vehicle_id=vehicle.id, customer_id=customer_id, role=VehiclePartyRole.OWNER,
+                    group_id=GROUP_ID, actor_id=uuid.uuid4(),
+                )
+            except Exception as exc:  # noqa: BLE001 — collected and asserted empty below, never swallowed
+                errors.append(exc)
+
+    first = threading.Thread(target=_allocate, args=(yara.id,), name="first")
+    second = threading.Thread(target=_allocate, args=(zoe.id,), name="second")
+    first.start()
+    assert first_inserted.wait(timeout=10)
+    second.start()
+    second.join(timeout=1)
+    assert second.is_alive()  # blocked behind the first allocation's lock
+    release.set()
+    first.join(timeout=10)
+    second.join(timeout=10)
+    monkeypatch.undo()
+
+    assert errors == []
+    db_session.expire_all()
+    open_holders = list_vehicle_parties(db_session, vehicle_id=vehicle.id, group_id=GROUP_ID)
+    assert [p.customer_id for p in open_holders] == [zoe.id]
