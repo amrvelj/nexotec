@@ -1346,11 +1346,54 @@ def cmd_post_tool(data):
                 return
 
 
+def handback_report(path):
+    """The report a subagent handed back through a tool call, read from its own transcript.
+    Some harnesses (cloud sessions) deliver the report as the input of a `SubagentHandback`
+    tool call and end the subagent with a short "Done", so `last_assistant_message` alone
+    never shows the reviewer's `VERDICT:` line (KAN-134)."""
+    report = ""
+    try:
+        with open(os.path.expanduser(path), encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                if "tool_use" not in line:
+                    continue
+                try:
+                    content = (json.loads(line).get("message") or {}).get("content")
+                except (ValueError, AttributeError):
+                    continue
+                for block in content if isinstance(content, list) else []:
+                    if not (isinstance(block, dict) and block.get("type") == "tool_use"
+                            and "handback" in str(block.get("name", "")).lower()):
+                        continue
+                    given = block.get("input") or {}
+                    text = given.get("message") if isinstance(given.get("message"), str) else \
+                        "\n".join(v for v in given.values() if isinstance(v, str))
+                    if text:
+                        report = text
+    except (OSError, TypeError):
+        return ""
+    return report
+
+
+def subagent_report(data):
+    """A subagent's final report: its last message, or - when that carries no verdict - the
+    report it handed back through a tool call (handback_report)."""
+    message = data.get("last_assistant_message") or ""
+    if REVIEW_VERDICT.search(message):
+        return message
+    path = data.get("agent_transcript_path")
+    if not path and data.get("transcript_path") and data.get("agent_id"):
+        path = os.path.join(os.path.splitext(data["transcript_path"])[0], "subagents",
+                            "agent-{}.jsonl".format(data["agent_id"]))
+    report = handback_report(path) if path else ""
+    return report if REVIEW_VERDICT.search(report) else message
+
+
 def cmd_subagent_stop(data):
     root = root_from(data)
     if not root:
         return
-    message = data.get("last_assistant_message") or ""
+    message = subagent_report(data)
     found = REVIEW_VERDICT.findall(message)
     verdict = found[-1].upper() if found else "NONE"
     commit = tree = None
@@ -1744,6 +1787,21 @@ def selftest():
     assert reviewer_problem(["git", "diff", "origin/main..HEAD"], [], "/r", "/r") is None
     assert reviewer_problem(["git", "commit", "-m", "x"], [], "/r", "/r")
     assert reviewer_problem(["npx", "vitest", "run", "-u"], [], "/r", "/r")
+    # the verdict in the last message, or in a hand-back tool call when the message is a "Done"
+    report = "Findings: none.\nREVIEWED: 0123abc\nVERDICT: PASS"
+    assert subagent_report({"last_assistant_message": report}) == report
+    with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False) as fh:
+        fh.write(json.dumps({"type": "assistant", "message": {"role": "assistant", "content": [
+            {"type": "tool_use", "name": "SubagentHandback", "input": {"message": report}}]}}) + "\n")
+        fh.write(json.dumps({"type": "assistant", "message": {"role": "assistant", "content": [
+            {"type": "text", "text": "Done."}]}}) + "\n")
+    try:
+        got = subagent_report({"last_assistant_message": "Done.", "agent_transcript_path": fh.name})
+        assert REVIEW_VERDICT.findall(got) == ["PASS"] and REVIEWED_COMMIT.findall(got) == ["0123abc"], got
+        assert subagent_report({"last_assistant_message": "Done.", "agent_transcript_path": fh.name + ".gone"}) \
+            == "Done."
+    finally:
+        os.unlink(fh.name)
     # --- Notion
     assert notion_id("https://app.notion.com/p/3cf3e79334dd80f69bb8c2e6a19481ef?pvs=4") == "3cf3e79334dd80f69bb8c2e6a19481ef"
     assert notion_id("3cf3e793-34dd-805c-9017-000b5a24915f") in KANBAN_IDS
