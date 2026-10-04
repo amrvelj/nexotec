@@ -18,8 +18,10 @@ paths:
 <!-- Maintainer note (stripped before Claude sees it). Summarises ADR-014, ADR-051, the Dealer
 Administration PRD and Authentication & Identity (rulings D-A-01…D-A-09, 2026-09-20; they
 absorb Roles & Permissions v0.2 and supersede ADR-027). Verified against main@568f416 on
-2026-09-28 (every present-tense claim checked against the code). "Not built" lines are
-re-checked weekly by /drift-audit. -->
+2026-09-28 (every present-tense claim checked against the code), except the "Access — what
+exists today" paragraph, re-verified against the KAN-97 branch on 2026-10-04, and the D-A-01
+bullet, re-checked for KAN-98 on 2026-10-04. "Not built" lines are re-checked weekly by
+/drift-audit. -->
 
 # Platform: organisation, access, administration, authentication
 
@@ -34,15 +36,27 @@ re-checked weekly by /drift-audit. -->
   `inventory/services/group_listing.py`, `platform/services/dealership.py`. The test covers
   `group_id` and `dealer_group_id` in every spelling. A new group read is an ADR plus an
   allowlist entry. Cross-tenant reads return 404, never 403.
-- **No group-level administrator in v1** (D-A-01). The manager flag is held per dealership.
+- **No group-level administrator in v1** (D-A-01). The manager flag is held per dealership
+  (KAN-98): `User.is_dealer_manager` for the home dealership, `dealership_membership.
+  is_dealer_manager` for each sister dealership (default false, never copied from the home
+  flag). `POST /v1/auth/switch-dealership` mints the target's flag via
+  `user_service.is_dealer_manager_in`. The last-active-manager rule (FR-A-13) and the manager
+  e-mail list count managers by membership too. No endpoint grants a membership or its flag
+  yet. `LoginResponse.user.isDealerManager` is the User row's home flag, not the active
+  dealership's — never gate a screen on it; the session's own flag is the token claim.
 
 ## Access — what exists today
 
-`User.access_roles` (a list) plus the `is_dealer_manager` flag; `platform_admin` is Nexotec
-staff only, never a dealer flag. Permissions are capability-based: `Capability(read_roles,
-write_roles)` in `app/core/permissions.py`; `require_read` / `require_write` check
-platform_admin, then the roles, then the manager flag. An empty `write_roles` means platform
-staff or the dealer manager only.
+`User.access_roles` (a list) plus the `is_dealer_manager` flag. `platform_admin` is Nexotec
+staff only. It is an ordinary `AccessRole` value, so `app/platform/services/user.py`
+(`create_user` / `update_user`, required `actor_roles`) is what guards it: only a
+`platform_admin` principal may grant or remove it, or edit any field of a user who holds it
+(KAN-97) — anyone else gets 403. Permissions are capability-based:
+`Capability(read_roles, write_roles, manager_can_write=True)` in `app/core/permissions.py`;
+`require_read` / `require_write` check platform_admin, then the roles, then the manager flag
+(on writes only if `manager_can_write`). `read_roles=None` = any role; an empty set = manager
+only. An empty `write_roles` = platform staff or the manager — except `audit_logs`, which the
+manager cannot write.
 
 ## Dealer Administration (D-A-01 … D-A-06) — decided, NOT built
 

@@ -323,3 +323,95 @@ def test_switching_to_a_dealership_outside_your_memberships_is_forbidden(client,
 def test_switch_dealership_requires_authentication(client):
     response = client.post("/v1/auth/switch-dealership", json={"dealershipId": str(uuid.uuid4())})
     assert response.status_code == 401
+
+
+# --- the manager flag is held per dealership (KAN-98, D-A-01) ----------------------
+
+
+def _session_cookie_for_dealership(client, oidc_fake, user: dict, dealership_id: str) -> str:
+    """Logs in (home dealership) and switches to `dealership_id`, returning
+    the session token the switch minted.
+    """
+
+    token = _login_via_oidc(client, oidc_fake, user).cookies.get("dms_session")
+    client.cookies.set("dms_session", token)
+    try:
+        response = client.post("/v1/auth/switch-dealership", json={"dealershipId": dealership_id})
+    finally:
+        client.cookies.delete("dms_session")
+    assert response.status_code == 200, response.text
+    return response.cookies.get("dms_session")
+
+
+def _create_user_as(client, token: str, dealership_id: str, email: str):
+    client.cookies.set("dms_session", token)
+    try:
+        return client.post(
+            f"/v1/dealerships/{dealership_id}/users",
+            json={
+                "firstName": "Beat",
+                "lastName": "Neu",
+                "email": email,
+                "role": "sales",
+                "accessRoles": ["sales"],
+                "isDealerManager": False,
+                "authIdentityId": f"stub-sub-{uuid.uuid4()}",
+            },
+        )
+    finally:
+        client.cookies.delete("dms_session")
+
+
+def test_a_home_manager_with_a_plain_membership_is_not_a_manager_in_the_sister_dealership(
+    client, oidc_fake, db_session
+):
+    from app.platform.models.dealership_membership import DealershipMembership
+
+    dealer_a = _create_dealer(client)
+    dealer_b = _create_dealer(client, dealerLicenseNumber="ZH-99999")
+    manager_of_a = _create_user(client, dealer_a)  # isDealerManager=True on the home dealership
+    db_session.add(DealershipMembership(user_id=uuid.UUID(manager_of_a["id"]), dealership_id=uuid.UUID(dealer_b)))
+    db_session.commit()
+
+    token_in_b = _session_cookie_for_dealership(client, oidc_fake, manager_of_a, dealer_b)
+
+    # require_write("dealership_users") — manager-only — refuses them in B.
+    response = _create_user_as(client, token_in_b, dealer_b, "beat.b@example.ch")
+    assert response.status_code == 403
+
+
+def test_a_membership_that_holds_the_manager_flag_is_a_manager_in_that_dealership(client, oidc_fake, db_session):
+    from app.platform.models.dealership_membership import DealershipMembership
+
+    dealer_a = _create_dealer(client)
+    dealer_b = _create_dealer(client, dealerLicenseNumber="ZH-99999")
+    user = _create_user(client, dealer_a, isDealerManager=False, email="nomgr@example.ch")
+    # dealer_a keeps a manager of its own; this user is a manager in B only.
+    _create_user(client, dealer_a, email="home.mgr@example.ch")
+    db_session.add(
+        DealershipMembership(
+            user_id=uuid.UUID(user["id"]), dealership_id=uuid.UUID(dealer_b), is_dealer_manager=True
+        )
+    )
+    db_session.commit()
+
+    token_in_b = _session_cookie_for_dealership(client, oidc_fake, user, dealer_b)
+    assert _create_user_as(client, token_in_b, dealer_b, "beat.b@example.ch").status_code == 201
+
+    token_in_a = _session_cookie_for_dealership(client, oidc_fake, user, dealer_a)
+    assert _create_user_as(client, token_in_a, dealer_a, "beat.a@example.ch").status_code == 403
+
+
+def test_switching_back_to_the_home_dealership_restores_the_home_manager_flag(client, oidc_fake, db_session):
+    from app.platform.models.dealership_membership import DealershipMembership
+
+    dealer_a = _create_dealer(client)
+    dealer_b = _create_dealer(client, dealerLicenseNumber="ZH-99999")
+    manager_of_a = _create_user(client, dealer_a)
+    db_session.add(DealershipMembership(user_id=uuid.UUID(manager_of_a["id"]), dealership_id=uuid.UUID(dealer_b)))
+    db_session.commit()
+
+    _session_cookie_for_dealership(client, oidc_fake, manager_of_a, dealer_b)
+    token_in_a = _session_cookie_for_dealership(client, oidc_fake, manager_of_a, dealer_a)
+
+    assert _create_user_as(client, token_in_a, dealer_a, "beat.a@example.ch").status_code == 201
