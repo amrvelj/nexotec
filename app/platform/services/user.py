@@ -12,7 +12,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
-from app.core.errors import BadRequestError, ConflictError, NotFoundError
+from app.core.auth import AccessRole
+from app.core.errors import BadRequestError, ConflictError, ForbiddenError, NotFoundError
 from app.core.pagination import PageParams, build_page, paginate_query
 from app.core.tenancy import get_or_404
 from app.platform.models.dealership_membership import DealershipMembership
@@ -68,6 +69,36 @@ def _assert_not_last_manager(db: Session, *, tenant_id: uuid.UUID, excluding_use
             "This dealership must always have at least one active manager — "
             "cannot remove or deactivate its last one."
         )
+
+
+def _assert_may_create_with_roles(*, roles, actor_roles: frozenset[AccessRole]) -> None:
+    """KAN-97 (Dealer Administration: "`platform_admin` is Nexotec staff
+    only ... no dealer user can obtain it"): a dealer manager passes
+    require_write("dealership_users"), so this service — not the route — is
+    what stops them minting a platform_admin. 403, not 422: the body is
+    valid; who sent it is not allowed to.
+    """
+
+    if AccessRole.PLATFORM_ADMIN in actor_roles:
+        return
+    if AccessRole.PLATFORM_ADMIN.value in _role_values(roles):
+        raise ForbiddenError("Only platform staff can grant the platform_admin role.")
+
+
+def _assert_may_update(*, user: User, changes: dict[str, Any], actor_roles: frozenset[AccessRole]) -> None:
+    """KAN-97: a non-platform_admin may neither grant platform_admin nor
+    touch a user who already holds it — any field, not only the roles:
+    rewriting a staff account's email or auth_identity_id is an account
+    takeover, and deactivating it locks Nexotec staff out (Anto,
+    2026-10-04, option 1).
+    """
+
+    if AccessRole.PLATFORM_ADMIN in actor_roles:
+        return
+    if AccessRole.PLATFORM_ADMIN.value in user.access_roles:
+        raise ForbiddenError("Only platform staff can change a user who holds the platform_admin role.")
+    if changes.get("access_roles") is not None:
+        _assert_may_create_with_roles(roles=changes["access_roles"], actor_roles=actor_roles)
 
 
 def get_user_or_404(db: Session, dealership_id: uuid.UUID, user_id: uuid.UUID) -> User:
@@ -138,7 +169,15 @@ def list_active_users(db: Session, *, dealership_id: uuid.UUID) -> list[User]:
     return list(db.scalars(stmt).all())
 
 
-def create_user(db: Session, *, dealership_id: uuid.UUID, data: UserCreate, actor_id: uuid.UUID) -> User:
+def create_user(
+    db: Session,
+    *,
+    dealership_id: uuid.UUID,
+    data: UserCreate,
+    actor_id: uuid.UUID,
+    actor_roles: frozenset[AccessRole],
+) -> User:
+    _assert_may_create_with_roles(roles=data.access_roles, actor_roles=actor_roles)
     user = User(
         tenant_id=dealership_id,
         first_name=data.first_name,
@@ -182,8 +221,11 @@ def create_user(db: Session, *, dealership_id: uuid.UUID, data: UserCreate, acto
     return user
 
 
-def update_user(db: Session, *, user: User, data: UserUpdate, actor_id: uuid.UUID) -> User:
+def update_user(
+    db: Session, *, user: User, data: UserUpdate, actor_id: uuid.UUID, actor_roles: frozenset[AccessRole]
+) -> User:
     changes = data.model_dump(exclude_unset=True)
+    _assert_may_update(user=user, changes=changes, actor_roles=actor_roles)
 
     if "employment_status" in changes and changes["employment_status"] is not None:
         new_employment_status = changes["employment_status"]

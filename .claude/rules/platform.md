@@ -38,11 +38,16 @@ re-checked weekly by /drift-audit. -->
 
 ## Access — what exists today
 
-`User.access_roles` (a list) plus the `is_dealer_manager` flag; `platform_admin` is Nexotec
-staff only, never a dealer flag. Permissions are capability-based: `Capability(read_roles,
-write_roles)` in `app/core/permissions.py`; `require_read` / `require_write` check
-platform_admin, then the roles, then the manager flag. An empty `write_roles` means platform
-staff or the dealer manager only.
+`User.access_roles` (a list) plus the `is_dealer_manager` flag. `platform_admin` is Nexotec
+staff only. It is an ordinary `AccessRole` value, so `app/platform/services/user.py`
+(`create_user` / `update_user`, required `actor_roles`) is what guards it: only a
+`platform_admin` principal may grant or remove it, or edit any field of a user who holds it
+(KAN-97) — anyone else gets 403. Permissions are capability-based:
+`Capability(read_roles, write_roles, manager_can_write=True)` in `app/core/permissions.py`;
+`require_read` / `require_write` check platform_admin, then the roles, then the manager flag
+(on writes only if `manager_can_write`). `read_roles=None` = any role; an empty set = manager
+only. An empty `write_roles` = platform staff or the manager — except `audit_logs`, which the
+manager cannot write.
 
 ## Dealer Administration (D-A-01 … D-A-06) — decided, NOT built
 
