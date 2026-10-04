@@ -2474,8 +2474,9 @@ def allocate_vehicle_party(
     incumbent — so on Postgres a transaction-scoped advisory lock on
     (vehicle, role, group) is taken before the incumbent lookup. A second
     allocation waits for the first to commit, then sees its row and
-    closes it. The incumbents are additionally locked FOR UPDATE against
-    a concurrent Disconnect.
+    closes it. The incumbents are also locked FOR UPDATE, so an allocation
+    never re-closes a row a concurrent Disconnect has just closed (the
+    reverse — Disconnect takes no lock — predates KAN-99).
     """
 
     get_customer_or_404(db, group_id, customer_id)

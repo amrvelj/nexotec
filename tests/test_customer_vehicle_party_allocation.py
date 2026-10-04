@@ -417,14 +417,19 @@ def test_concurrent_allocations_leave_exactly_one_open_holder(engine, db_session
     first = threading.Thread(target=_allocate, args=(yara.id,), name="first")
     second = threading.Thread(target=_allocate, args=(zoe.id,), name="second")
     first.start()
-    assert first_inserted.wait(timeout=10)
-    second.start()
-    second.join(timeout=1)
-    assert second.is_alive()  # blocked behind the first allocation's lock
-    release.set()
-    first.join(timeout=10)
-    second.join(timeout=10)
-    monkeypatch.undo()
+    try:
+        assert first_inserted.wait(timeout=10)
+        second.start()
+        second.join(timeout=1)
+        assert second.is_alive()  # blocked behind the first allocation's lock
+    finally:
+        # Always let the paused first allocation finish, so a failed
+        # assertion above is reported as itself, not as a teardown error.
+        release.set()
+        first.join(timeout=10)
+        if second.is_alive() or second.ident is not None:
+            second.join(timeout=10)
+        monkeypatch.undo()
 
     assert errors == []
     db_session.expire_all()
