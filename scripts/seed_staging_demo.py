@@ -56,11 +56,13 @@ def main() -> None:
 
     db = SessionLocal()
     try:
-        # No platform_admin User row exists in this schema (platform_admin
-        # is a JWT claim, not a tenant-owned User) — a synthetic actor id
-        # stands in for "the platform" on this seed's own audit trail, same
-        # as the acceptance tests do for platform_admin-attributed actions.
+        # This seed acts as the platform: a synthetic actor id stands in for
+        # it on the seed's own audit trail (same as the acceptance tests do
+        # for platform_admin-attributed actions), and it calls the user
+        # service with platform_admin authority — the service refuses
+        # platform_admin-only changes to anyone else (KAN-97).
         seed_actor_id = uuid.uuid4()
+        seed_actor_roles = frozenset({AccessRole.PLATFORM_ADMIN})
 
         dealership = db.scalar(select(Dealership).where(Dealership.legal_name == DEMO_LEGAL_NAME))
         if dealership is None:
@@ -104,6 +106,7 @@ def main() -> None:
                     auth_identity_id=auth_identity_id,
                 ),
                 actor_id=seed_actor_id,
+                actor_roles=seed_actor_roles,
             )
             print(f"Created demo user {DEMO_EMAIL} with auth_identity_id={auth_identity_id}.")
         elif user.auth_identity_id != auth_identity_id:
@@ -117,6 +120,7 @@ def main() -> None:
                 user=user,
                 data=UserUpdate(auth_identity_id=auth_identity_id),
                 actor_id=seed_actor_id,
+                actor_roles=seed_actor_roles,
             )
             print(f"Updated demo user {DEMO_EMAIL}'s auth_identity_id to {auth_identity_id}.")
         else:

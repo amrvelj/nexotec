@@ -18,8 +18,9 @@ paths:
 <!-- Maintainer note (stripped before Claude sees it). Summarises ADR-014, ADR-051, the Dealer
 Administration PRD and Authentication & Identity (rulings D-A-01…D-A-09, 2026-09-20; they
 absorb Roles & Permissions v0.2 and supersede ADR-027). Verified against main@568f416 on
-2026-09-28 (every present-tense claim checked against the code). "Not built" lines are
-re-checked weekly by /drift-audit. -->
+2026-09-28 (every present-tense claim checked against the code), except the "Access — what
+exists today" paragraph, re-verified against the KAN-97 branch on 2026-10-04. "Not built" lines
+are re-checked weekly by /drift-audit. -->
 
 # Platform: organisation, access, administration, authentication
 

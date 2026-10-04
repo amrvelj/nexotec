@@ -71,7 +71,7 @@ def _assert_not_last_manager(db: Session, *, tenant_id: uuid.UUID, excluding_use
         )
 
 
-def _assert_may_create_with_roles(*, roles, actor_roles: frozenset[AccessRole]) -> None:
+def _assert_may_create_with_roles(*, roles: list[AccessRole], actor_roles: frozenset[AccessRole]) -> None:
     """KAN-97 (Dealer Administration: "`platform_admin` is Nexotec staff
     only ... no dealer user can obtain it"): a dealer manager passes
     require_write("dealership_users"), so this service — not the route — is
