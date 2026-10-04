@@ -80,9 +80,11 @@ class User(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMixin, B
     # schema/service boundary; nothing outside that layer should read this
     # column directly.
     access_roles: Mapped[list[str]] = mapped_column(JSON, nullable=False)
-    # Administration of THIS dealership only (Roles & Permissions RP-1,
-    # ADR-026) — orthogonal to access_roles. A dealership must always have
-    # at least one active manager; see services/user.py::_assert_not_last_manager.
+    # Administration of THIS (home) dealership only (Roles & Permissions
+    # RP-1, ADR-026) — orthogonal to access_roles. A sister dealership the
+    # user may switch to has its own flag on DealershipMembership (KAN-98,
+    # D-A-01). A dealership must always have at least one active manager;
+    # see services/user.py::_assert_not_last_manager.
     is_dealer_manager: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     employment_status: Mapped[EmploymentStatus] = mapped_column(
         SAEnum(EmploymentStatus, native_enum=False, length=32),

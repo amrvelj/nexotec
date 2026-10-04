@@ -34,7 +34,13 @@ re-checked weekly by /drift-audit. -->
   `inventory/services/group_listing.py`, `platform/services/dealership.py`. The test covers
   `group_id` and `dealer_group_id` in every spelling. A new group read is an ADR plus an
   allowlist entry. Cross-tenant reads return 404, never 403.
-- **No group-level administrator in v1** (D-A-01). The manager flag is held per dealership.
+- **No group-level administrator in v1** (D-A-01). The manager flag is held per dealership
+  (KAN-98): `User.is_dealer_manager` for the home dealership, `dealership_membership.
+  is_dealer_manager` for each sister dealership (default false, never copied from the home
+  flag). `POST /v1/auth/switch-dealership` mints the target's flag via
+  `user_service.is_dealer_manager_in`. The last-active-manager rule (FR-A-13) and the manager
+  e-mail list count managers by membership too. No endpoint grants a membership or its flag
+  yet.
 
 ## Access — what exists today
 

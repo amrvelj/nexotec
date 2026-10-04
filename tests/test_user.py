@@ -317,3 +317,118 @@ def test_demoting_a_manager_is_allowed_when_another_active_manager_remains(clien
     )
     assert response.status_code == 200
     assert response.json()["isDealerManager"] is False
+
+
+# --- a manager by membership counts as the dealership's manager (KAN-98) --------
+
+
+def _grant_membership(db_session, *, user_id: str, dealership_id: str, is_dealer_manager: bool) -> None:
+    from app.platform.models.dealership_membership import DealershipMembership
+
+    db_session.add(
+        DealershipMembership(
+            user_id=uuid.UUID(user_id), dealership_id=uuid.UUID(dealership_id), is_dealer_manager=is_dealer_manager
+        )
+    )
+    db_session.commit()
+
+
+def test_demoting_the_last_home_manager_is_allowed_when_a_manager_by_membership_remains(client, db_session):
+    platform_admin_token = _token(AccessRole.PLATFORM_ADMIN)
+    dealer_a = _create_dealer(client)
+    dealer_b = _create_dealer(client)
+    home_manager_of_b = _create_user(client, dealer_b, platform_admin_token, email="b@example.ch")
+    sister_manager = _create_user(client, dealer_a, platform_admin_token, email="a@example.ch")
+    _grant_membership(db_session, user_id=sister_manager["id"], dealership_id=dealer_b, is_dealer_manager=True)
+
+    response = client.patch(
+        f"/v1/dealerships/{dealer_b}/users/{home_manager_of_b['id']}",
+        json={"isDealerManager": False},
+        headers={**_bearer(platform_admin_token), "If-Match": "1"},
+    )
+    assert response.status_code == 200
+
+
+@pytest.mark.parametrize(
+    ("membership_is_manager", "member_status"),
+    [(False, "active"), (True, "deactivated")],
+)
+def test_a_plain_or_inactive_membership_does_not_count_as_another_manager(
+    client, db_session, membership_is_manager, member_status
+):
+    platform_admin_token = _token(AccessRole.PLATFORM_ADMIN)
+    dealer_a = _create_dealer(client)
+    dealer_b = _create_dealer(client)
+    home_manager_of_b = _create_user(client, dealer_b, platform_admin_token, email="b@example.ch")
+    member = _create_user(client, dealer_a, platform_admin_token, email="a@example.ch", isDealerManager=False)
+    # dealer_a needs a manager of its own before `member` can be deactivated there.
+    _create_user(client, dealer_a, platform_admin_token, email="a.mgr@example.ch")
+    if member_status != "active":
+        response = client.patch(
+            f"/v1/dealerships/{dealer_a}/users/{member['id']}",
+            json={"status": member_status},
+            headers={**_bearer(platform_admin_token), "If-Match": "1"},
+        )
+        assert response.status_code == 200, response.text
+    _grant_membership(
+        db_session, user_id=member["id"], dealership_id=dealer_b, is_dealer_manager=membership_is_manager
+    )
+
+    response = client.patch(
+        f"/v1/dealerships/{dealer_b}/users/{home_manager_of_b['id']}",
+        json={"isDealerManager": False},
+        headers={**_bearer(platform_admin_token), "If-Match": "1"},
+    )
+    assert response.status_code == 400
+
+
+def test_manager_emails_include_an_active_manager_by_membership_only(client, db_session):
+    from app.platform.public import list_dealer_manager_emails
+
+    platform_admin_token = _token(AccessRole.PLATFORM_ADMIN)
+    dealer_a = _create_dealer(client)
+    dealer_b = _create_dealer(client)
+    _create_user(client, dealer_b, platform_admin_token, email="home.b@example.ch")
+    sister_manager = _create_user(client, dealer_a, platform_admin_token, email="sister.mgr@example.ch")
+    plain_member = _create_user(client, dealer_a, platform_admin_token, email="plain@example.ch")
+    _grant_membership(db_session, user_id=sister_manager["id"], dealership_id=dealer_b, is_dealer_manager=True)
+    _grant_membership(db_session, user_id=plain_member["id"], dealership_id=dealer_b, is_dealer_manager=False)
+    # Created users start `invited`; warnings go to active managers only.
+    from app.platform.models.user import User, UserStatus
+
+    db_session.query(User).update({User.status: UserStatus.ACTIVE})
+    db_session.commit()
+
+    assert sorted(list_dealer_manager_emails(db_session, dealership_id=uuid.UUID(dealer_b))) == [
+        "home.b@example.ch",
+        "sister.mgr@example.ch",
+    ]
+    # A's manager list is A's home managers only — a membership elsewhere grants nothing here.
+    assert sorted(list_dealer_manager_emails(db_session, dealership_id=uuid.UUID(dealer_a))) == [
+        "plain@example.ch",
+        "sister.mgr@example.ch",
+    ]
+
+
+def test_deactivating_a_sister_dealerships_last_manager_by_membership_is_rejected(client, db_session):
+    platform_admin_token = _token(AccessRole.PLATFORM_ADMIN)
+    dealer_a = _create_dealer(client)
+    dealer_b = _create_dealer(client)
+    home_manager_of_b = _create_user(client, dealer_b, platform_admin_token, email="b@example.ch")
+    sister_manager = _create_user(client, dealer_a, platform_admin_token, email="a@example.ch")
+    _create_user(client, dealer_a, platform_admin_token, email="a.mgr@example.ch")  # A keeps a manager
+    _grant_membership(db_session, user_id=sister_manager["id"], dealership_id=dealer_b, is_dealer_manager=True)
+    demoted = client.patch(
+        f"/v1/dealerships/{dealer_b}/users/{home_manager_of_b['id']}",
+        json={"isDealerManager": False},
+        headers={**_bearer(platform_admin_token), "If-Match": "1"},
+    )
+    assert demoted.status_code == 200
+
+    response = client.patch(
+        f"/v1/dealerships/{dealer_a}/users/{sister_manager['id']}",
+        json={"status": "deactivated"},
+        headers={**_bearer(platform_admin_token), "If-Match": "1"},
+    )
+    assert response.status_code == 400
+    assert response.json()["error"]["details"] == {"dealershipId": dealer_b}
