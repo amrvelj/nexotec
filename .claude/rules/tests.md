@@ -6,14 +6,24 @@ paths:
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises ADR-011 and the recurring
 failure modes from the WP audits (wp-verification). Verified against main@568f416 on
-2026-09-28 (every present-tense claim checked against the code). Fix this file in the same PR
-as any change to what it states. -->
+2026-09-28 (every present-tense claim checked against the code); the schema-once bullet
+(KAN-133) against its own branch on 2026-10-03. Fix this file in the same PR as any change to
+what it states. -->
 
 # Tests
 
 - **Postgres is the lane of record** (ADR-011). SQLite's weaker constraint and isolation
   enforcement hides real bugs; "tested" means Postgres. Every session points `pytest` at this
   checkout's own test database (`dms_test_<checkout>`), so parallel worktrees never share one.
+- **On Postgres the schema is built once per session** (`tests/conftest.py`), not per test.
+  Every test starts with every table empty (`TRUNCATE`) and without planner statistics. Any DDL
+  a test runs (an event trigger counts it), or an `ANALYZE`/`VACUUM` of a test table, has the
+  schema rebuilt before the next test. A session from the `engine` fixture that a test leaves
+  open in a transaction, holding a lock on a test table, fails that test at its teardown and is
+  terminated so the run goes on; a connection opened any other way is not ended and can block
+  the next test until `lock timeout`. Close every session a test opens. The test role must be a
+  superuser, as CI, docker compose and `scripts/dev/cloud-postgres` make it.
+  `tests/test_postgres_test_isolation.py` pins the reset, the rebuild and the session check.
 - **Architecture tests (`tests/architecture/`) are rulings in executable form.** Never weaken,
   skip or loosen one to make a change pass. If one blocks you, either the change or the ruling
   is wrong — raise it. They guard: gateway-only auto-i-dat calls, the capability vocabulary,

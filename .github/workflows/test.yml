@@ -407,11 +407,17 @@ jobs:
           POSTGRES_DB: dms_platform_test
         ports:
           - 5432:5432
+        # The data directory is in memory (tmpfs). Constraints, isolation and
+        # locking behave exactly as on disk; only a crash would lose data, and
+        # this database is thrown away with the job. The TRUNCATE before every
+        # test (tests/conftest.py) is mostly file work, which memory makes
+        # cheaper.
         options: >-
           --health-cmd pg_isready
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+          --tmpfs /var/lib/postgresql/data
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
