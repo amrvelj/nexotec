@@ -23,6 +23,7 @@ from app.inventory.schemas.stock_item import StockItemCreate
 from app.inventory.services.stock_item import create_stock_item
 from app.reconciliation_runner import MultiContextReconciliationAlarm, run_all
 from app.sales import reconciliation as sales_reconciliation
+from app.sales.models.contract import ContractStatus, SalesContract
 from app.sales.models.stock_item_purchase import SalesStockItemPurchase
 from app.sales.models.transaction import Transaction, TransactionStatus, TransactionType
 from app.vehicle import reconciliation as vehicle_reconciliation
@@ -367,6 +368,43 @@ def test_sales_reconciliation_accepts_a_mirrored_purchase(client, db_session):
     item = _invoiceable_stock_item(db_session, dealer_id, hours_ago=2)
     db_session.add(SalesStockItemPurchase(tenant_id=uuid.UUID(dealer_id), stock_item_id=item.id, source_event_id=None))
     db_session.commit()
+
+    assert sales_reconciliation.run(db_session).orphans_found == 0
+
+
+def _manual_contract(db_session, dealer_id, *, signed_hours_ago, stock_item_id=None):
+    contract = SalesContract(
+        tenant_id=uuid.UUID(dealer_id), contract_number=f"C-{uuid.uuid4().hex[:6]}", vehicle_source="manual",
+        vehicle_label="Volkswagen ID.4 Pro", status=ContractStatus.CONFIRMED, stock_item_id=stock_item_id,
+        signed_at=dt.datetime.now(dt.UTC) - dt.timedelta(hours=signed_hours_ago),
+    )
+    db_session.add(contract)
+    db_session.commit()
+    return contract
+
+
+def test_sales_reconciliation_detects_a_manual_configuration_never_linked(client, db_session):
+    """KAN-144 — the link arrives on inventory.stock_item.added within outbox
+    lag; a confirmed manual contract still unlinked after that can never be
+    invoiced (a lost event, or one confirmed before KAN-144 — KAN-159)."""
+
+    dealer_id = _create_dealer(client)
+    contract = _manual_contract(db_session, dealer_id, signed_hours_ago=2)
+
+    with pytest.raises(ReconciliationAlarm) as exc_info:
+        sales_reconciliation.run(db_session)
+
+    assert exc_info.value.run.orphans_found == 1
+    orphan = exc_info.value.orphans[0]
+    assert orphan.check_label == "confirmed manual configuration with no pipeline stock item"
+    assert (orphan.source_table, orphan.source_row_id, orphan.dangling_value) == ("sales_contract", contract.id, contract.id)
+
+
+def test_sales_reconciliation_leaves_a_fresh_or_linked_manual_contract_alone(client, db_session):
+    dealer_id = _create_dealer(client)
+    _manual_contract(db_session, dealer_id, signed_hours_ago=0)
+    item = _invoiceable_stock_item(db_session, dealer_id, hours_ago=0)
+    _manual_contract(db_session, dealer_id, signed_hours_ago=2, stock_item_id=item.id)
 
     assert sales_reconciliation.run(db_session).orphans_found == 0
 

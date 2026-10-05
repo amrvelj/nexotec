@@ -174,7 +174,8 @@ def test_redelivery_links_once(db_session, engine):
     db_session.refresh(contract)
     version = contract.version
 
-    # The same fact under a new event id (a replay) changes nothing either.
+    # The handler itself is idempotent too: the same message handled again
+    # outside the harness's processed_event guard bumps nothing.
     handle_stock_item_added_message(db_session, message)
     db_session.commit()
     db_session.refresh(contract)
@@ -228,6 +229,52 @@ def test_a_trade_in_pipeline_item_is_not_linked_as_the_sold_vehicle(db_session, 
     ).one()
 
     consume_once(db_session, message=message, consumer_name="sales.stock_item_added", handler=handle_stock_item_added_message)
+
+    db_session.refresh(contract)
+    assert contract.stock_item_id is None
+
+
+def test_a_second_different_item_never_replaces_the_link(db_session, engine):
+    """One manual configuration, one pipeline item (Stock's unique
+    pipeline_ref). Another item naming the same contract is an integrity
+    problem to log, never to overwrite."""
+
+    dealership = _dealership(db_session)
+    contract = _confirmed_manual_contract(db_session, engine, dealership)
+    item = _stock_creates_the_pipeline_item(db_session, contract)
+    _deliver_added(db_session, item)
+    db_session.refresh(contract)
+    version = contract.version
+    publish(
+        db_session,
+        OutboxEvent(
+            event_type="inventory.stock_item.added", tenant_id=dealership.id, producer="inventory",
+            aggregate_type="stock_item", aggregate_id=uuid.uuid4(),
+            payload={"stockNumber": "S-000999", "vehicleLabel": "x", "originContractId": str(contract.id), "originRole": "manual_configuration"},
+        ),
+    )
+    db_session.commit()
+    rogue = db_session.scalars(
+        select(OutboxMessage).where(
+            OutboxMessage.event_type == "inventory.stock_item.added",
+            OutboxMessage.payload["stockNumber"].as_string() == "S-000999",
+        )
+    ).one()
+
+    consume_once(db_session, message=rogue, consumer_name="sales.stock_item_added", handler=handle_stock_item_added_message)
+
+    db_session.refresh(contract)
+    assert contract.stock_item_id == item.id
+    assert contract.version == version
+
+
+def test_the_link_handler_leaves_the_commit_to_the_harness(db_session, engine):
+    dealership = _dealership(db_session)
+    contract = _confirmed_manual_contract(db_session, engine, dealership)
+    item = _stock_creates_the_pipeline_item(db_session, contract)
+
+    handle_stock_item_added_message(db_session, _message(db_session, "inventory.stock_item.added", item.id))
+    db_session.rollback()
 
     db_session.refresh(contract)
     assert contract.stock_item_id is None
