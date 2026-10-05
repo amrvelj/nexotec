@@ -24,7 +24,9 @@ against the code). "Open" lines cite a ticket; /drift-audit re-checks them weekl
 - **ADR-052** — `is_invoiceable` is Stock's fact; Sales keeps a local replica and never queries
   Stock synchronously. Stock publishes `inventory.stock_item.purchased` once, so the replica is
   kept **per stock item** (`sales_stock_item_purchase`, written by
-  `app/sales/services/stock_item_purchase.py`) whether or not a contract exists yet.
+  `app/sales/services/stock_item_purchase.py`) whether or not a contract exists yet, with
+  rule 2's label (`stock_item_label`, the stock number from the event, and
+  `stock_item_denorm_refreshed_at`; KAN-150).
   `SalesContract.is_invoiceable` is **derived on read** from it — there is no stored column, so a
   contract written after the purchase is invoiceable at once (KAN-100).
   `scripts/migrate_transaction_rows.py` publishes no events, so it writes the replica row for a

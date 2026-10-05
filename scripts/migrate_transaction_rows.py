@@ -500,7 +500,13 @@ def _migrate_trade_in(db: Session, txn: Transaction, *, commit: bool) -> RowOutc
     # which this script must not publish; it records the same fact in Sales'
     # replica directly (event_id=None), or a later contract on this car could
     # never be invoiced.
-    record_stock_item_purchased(db, tenant_id=stock_item.tenant_id, stock_item_id=stock_item.id, event_id=None)
+    record_stock_item_purchased(
+        db,
+        tenant_id=stock_item.tenant_id,
+        stock_item_id=stock_item.id,
+        event_id=None,
+        stock_item_label=stock_item.stock_number,
+    )
 
     note = f"stock_item={stock_item.id}{' (reopened)' if not created else ''}"
     return RowOutcome(

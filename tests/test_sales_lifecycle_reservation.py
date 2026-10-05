@@ -253,7 +253,7 @@ def test_two_events_are_never_the_same_name(db_session, engine):
     contract, item, _customer = _stock_contract(db_session, dealership.id, group_id)
     confirm_contract(db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=_session_factory(engine))
     # KAN-100: invoicing needs the purchase (Anto, 2026-10-04).
-    record_stock_item_purchased(db_session, tenant_id=dealership.id, stock_item_id=item.id, event_id=uuid.uuid4())
+    record_stock_item_purchased(db_session, tenant_id=dealership.id, stock_item_id=item.id, event_id=uuid.uuid4(), stock_item_label=item.stock_number)
     db_session.refresh(contract)
     request_invoice(db_session, contract=contract, actor_id=uuid.uuid4())
 
@@ -496,13 +496,13 @@ def test_stock_item_purchased_consumer_sets_is_invoiceable(db_session, engine):
     confirm_contract(db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=_session_factory(engine))
     assert contract.is_invoiceable is False
 
-    record_stock_item_purchased(db_session, tenant_id=dealership.id, stock_item_id=item.id, event_id=uuid.uuid4())
+    record_stock_item_purchased(db_session, tenant_id=dealership.id, stock_item_id=item.id, event_id=uuid.uuid4(), stock_item_label=item.stock_number)
 
     db_session.refresh(contract)
     assert contract.is_invoiceable is True
 
     # Idempotent — a second delivery of the same fact is a no-op.
-    record_stock_item_purchased(db_session, tenant_id=dealership.id, stock_item_id=item.id, event_id=uuid.uuid4())
+    record_stock_item_purchased(db_session, tenant_id=dealership.id, stock_item_id=item.id, event_id=uuid.uuid4(), stock_item_label=item.stock_number)
     db_session.refresh(contract)
     assert contract.is_invoiceable is True
 
