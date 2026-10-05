@@ -114,6 +114,7 @@ def test_allocate_to_customer_via_vehicle_side(client, db_session):
     )
     assert response.status_code == 201, response.text
     assert response.json()["customerId"] == str(customer.id)
+    assert response.json()["displayName"] == "Ada Lovelace"  # KAN-140
 
 
 def test_allocate_to_customer_from_another_group_404s_not_403(client, db_session):

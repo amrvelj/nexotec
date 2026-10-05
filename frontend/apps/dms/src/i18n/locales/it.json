@@ -584,6 +584,7 @@
       },
       "searchCustomer": "Cerca cliente…",
       "noCustomers": "Nessun cliente trovato",
+      "unnamedCustomer": "Cliente senza nome",
       "showFormer": "Mostra parti precedenti",
       "hideFormer": "Nascondi parti precedenti"
     },

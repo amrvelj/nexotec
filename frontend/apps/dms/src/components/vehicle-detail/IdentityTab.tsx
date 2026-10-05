@@ -21,6 +21,8 @@ interface IdentityTabProps {
 
 const ROLES: VehiclePartyRole[] = ['owner', 'keeper', 'driver']
 
+const PARTY_LINK_STYLE = { color: purple[6], background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' } as const
+
 /**
  * FR-V-15: identity fields are editable ONLY here — inline, per the
  * "editing one value on a record already on screen is inline" rule.
@@ -51,9 +53,14 @@ export function IdentityTab({
   // overlay on top, not a navigation." Working on a vehicle's party
   // allocation and needing to check the customer behind a raw id is
   // exactly that process — this used to just print the id as plain text.
-  // No onClose invalidation: nothing this tab renders (role, customer id)
+  // No onClose invalidation: nothing this tab renders (role, customer name)
   // can change from inside the overlaid Customer 360, so there is
   // genuinely nothing here for U-11 to invalidate on close.
+  // KAN-140: the holder's name, never the raw customer id (an internal id
+  // is never user-visible text). displayName is optional on the contract,
+  // so a row without one falls back to a translated label, not the UUID.
+  const partyLabel = (p: VehiclePartyAllocationRead) => p.displayName || t('vehicleDetail.parties.unnamedCustomer')
+
   const openCustomerOverlay = (customerId: string) => {
     overlay.push({
       key: `customer-overlay-${customerId}`,
@@ -121,9 +128,9 @@ export function IdentityTab({
               <button
                 type="button"
                 onClick={() => openCustomerOverlay(p.customerId)}
-                style={{ fontFamily: 'monospace', fontSize: 12, color: purple[6], background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
+                style={PARTY_LINK_STYLE}
               >
-                {p.customerId}
+                {partyLabel(p)}
               </button>
             </Group>
           ))}
@@ -170,9 +177,9 @@ export function IdentityTab({
                     <button
                       type="button"
                       onClick={() => openCustomerOverlay(p.customerId)}
-                      style={{ fontFamily: 'monospace', fontSize: 12, color: purple[6], background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
+                      style={PARTY_LINK_STYLE}
                     >
-                      {p.customerId}
+                      {partyLabel(p)}
                     </button>
                   </Group>
                 ))}

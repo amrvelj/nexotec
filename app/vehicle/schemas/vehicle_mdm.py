@@ -102,6 +102,10 @@ class VehiclePartyAllocationRead(CamelModel):
     role: VehiclePartyRole
     effective_from: dt.datetime
     effective_to: dt.datetime | None
+    # KAN-140: the holder's name, resolved live inside the customer context
+    # (customer.public) within the caller's group — never stored here, so
+    # no three-column label. Optional: an additive contract change.
+    display_name: str | None = None
 
 
 class VehiclePlateRead(CamelModel):

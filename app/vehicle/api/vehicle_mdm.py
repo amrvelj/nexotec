@@ -14,7 +14,7 @@ from app.core.auth import Principal, get_current_principal
 from app.core.concurrency import check_version, require_if_match
 from app.core.pagination import PageParams, page_params
 from app.core.permissions import require_write
-from app.customer.public import allocate_vehicle_party, get_customer_or_404
+from app.customer.public import allocate_vehicle_party, customer_display_name, get_customer_or_404
 from app.db import get_db
 from app.vehicle.schemas.vehicle_mdm import (
     VehicleAllocatePartyRequest,
@@ -138,9 +138,11 @@ def allocate_to_customer(
     """
 
     vehicle_mdm_service.get_vehicle_mdm_or_404(db, vehicle_id)  # 404s before touching customer at all
-    get_customer_or_404(db, principal.group_id, body.customer_id)
+    customer = get_customer_or_404(db, principal.group_id, body.customer_id)
     party = allocate_vehicle_party(
         db, vehicle_id=vehicle_id, customer_id=body.customer_id, role=body.role,
         group_id=principal.group_id, actor_id=principal.user_id,
     )
-    return VehiclePartyAllocationRead.model_validate(party, from_attributes=True)
+    return VehiclePartyAllocationRead.model_validate(party, from_attributes=True).model_copy(
+        update={"display_name": customer_display_name(customer)}
+    )

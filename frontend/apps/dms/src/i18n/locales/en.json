@@ -584,6 +584,7 @@
       },
       "searchCustomer": "Search customer…",
       "noCustomers": "No customers found",
+      "unnamedCustomer": "Unnamed customer",
       "showFormer": "Show former parties",
       "hideFormer": "Hide former parties"
     },
