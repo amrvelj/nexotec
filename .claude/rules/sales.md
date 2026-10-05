@@ -66,9 +66,10 @@ against the code). "Open" lines cite a ticket; /drift-audit re-checks them weekl
   `request_invoice` refuses a contract whose replica says not purchased
   (`details.reason = "vehicle_not_purchased"`). A contract **may be confirmed** — and the car
   reserved — before the purchase; confirming a manually configured vehicle makes it a pipeline
-  stock item. Such a contract stays refused at invoicing because Sales is never told that
-  pipeline item's id (KAN-144). PRD-Sales S-D10 still says confirmation is gated; it is being
-  corrected.
+  stock item; Stock names the contract on `inventory.stock_item.added` (`originContractId`,
+  `originRole`), and Sales records the item on the contract (`stock_item_id` plus rule 2's
+  label; `vehicle_source` stays `manual`), so the same purchase gate applies (KAN-144).
+  PRD-Sales S-D10 was corrected to match on 2026-10-04.
 - A contract needs a vehicle and a price before it can be confirmed.
 - **A trade-in valuation past its validity refuses confirmation** (`trade_in_valuation_expired`,
   KAN-101); confirmation consumes the valuation first, then reserves the car — see

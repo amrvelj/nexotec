@@ -35,7 +35,7 @@ from app.inventory.consumers import (
     handle_stock_item_unpublished_message,
 )
 from app.reconciliation_runner import run_all_daily
-from app.sales.consumers import handle_stock_item_purchased_message
+from app.sales.consumers import handle_stock_item_added_message, handle_stock_item_purchased_message
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 logger = logging.getLogger("app.worker")
@@ -62,6 +62,13 @@ def register_handlers(transport: InProcessTransport) -> None:
         "inventory.stock_item.purchased",
         consumer_name="sales.stock_item_purchased",
         handler=handle_stock_item_purchased_message,
+    )
+    # KAN-144 — a manual configuration's contract learns the pipeline stock
+    # item its confirmation created, so the purchase gate can apply to it.
+    transport.register(
+        "inventory.stock_item.added",
+        consumer_name="sales.stock_item_added",
+        handler=handle_stock_item_added_message,
     )
     # KAN-27 (WP-7, ADR-062) — the first consumer to perform outbound I/O
     # to a third party. Both events funnel into the same full-feed

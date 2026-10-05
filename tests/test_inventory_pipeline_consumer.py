@@ -217,3 +217,52 @@ def test_promote_requires_pipeline_lifecycle(db_session):
     assert item.lifecycle_status == LifecycleStatus.IN_STOCK
     with pytest.raises(ConflictError):
         promote_to_vehicle_mdm(db_session, item=item, vin="WVWUWDJ62012T0KD3")
+
+
+# --- KAN-144: the pipeline item names the contract that created it ---------
+
+
+def _added_payload(db_session, item_id):
+    return db_session.scalar(
+        select(OutboxMessage.payload).where(
+            OutboxMessage.event_type == "inventory.stock_item.added", OutboxMessage.aggregate_id == item_id
+        )
+    )
+
+
+def test_a_contract_created_pipeline_item_names_its_origin_on_the_added_event(db_session):
+    """Additive fields on inventory.stock_item.added (Anto, 2026-10-04): Sales
+    is told which contract a pipeline item came from, so it can learn the
+    item's purchase."""
+
+    tenant_id = uuid.uuid4()
+    contract_id = uuid.uuid4()
+    handle_sales_contract_confirmed(
+        db_session,
+        tenant_id=tenant_id,
+        payload={
+            "contractId": str(contract_id),
+            "vehicleSource": "manual",
+            "manualConfiguration": {"vehicleLabel": "Škoda Octavia Combi", "condition": "new"},
+            "tradeIn": {"vehicleLabel": "VW Golf", "condition": "used"},
+        },
+    )
+    db_session.commit()
+
+    items = {i.pipeline_ref: i for i in db_session.scalars(select(StockItem).where(StockItem.tenant_id == tenant_id))}
+    manual = _added_payload(db_session, items[f"contract:{contract_id}:manual"].id)
+    trade_in = _added_payload(db_session, items[f"contract:{contract_id}:trade_in"].id)
+    assert manual["originContractId"] == str(contract_id)
+    assert manual["originRole"] == "manual_configuration"
+    assert manual["stockNumber"] and manual["vehicleLabel"] == "Škoda Octavia Combi"
+    assert trade_in["originContractId"] == str(contract_id)
+    assert trade_in["originRole"] == "trade_in"
+
+
+def test_a_stock_item_added_directly_carries_no_origin(db_session):
+    item = create_stock_item(
+        db_session, tenant_id=uuid.uuid4(),
+        data=StockItemCreate(vehicle_label="Seat Leon", condition=StockItemCondition.USED, vin="1HGCM82633A004352"),
+        actor_id=uuid.uuid4(),
+    )
+    assert set(_added_payload(db_session, item.id)) == {"stockNumber", "vehicleLabel"}
