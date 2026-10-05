@@ -233,6 +233,49 @@ def test_redelivery_of_the_same_event_is_a_no_op(db_session):
     assert contract.is_invoiceable is True
 
 
+def test_the_replica_carries_the_stock_number_as_its_display_label(db_session):
+    """KAN-150 (rule 2, three-column pattern): the stock number Stock
+    publishes on the event, and when Sales copied it."""
+
+    dealership = _dealership(db_session)
+    item = _stock_item(db_session, dealership.id)
+    _purchase(db_session, item)
+    message = _purchased_message(db_session, item)
+    _deliver(db_session, message)
+
+    row = db_session.scalars(select(SalesStockItemPurchase)).one()
+    assert row.stock_item_label == item.stock_number
+    assert row.stock_item_denorm_refreshed_at == message.occurred_at
+
+
+def test_a_later_event_refreshes_a_changed_label(db_session):
+    dealership = _dealership(db_session)
+    item = _stock_item(db_session, dealership.id)
+    _purchase(db_session, item)
+    _deliver(db_session, _purchased_message(db_session, item))
+
+    publish(
+        db_session,
+        OutboxEvent(
+            event_type="inventory.stock_item.purchased", tenant_id=dealership.id, producer="inventory",
+            aggregate_type="stock_item", aggregate_id=item.id, payload={"stockNumber": "S-RENUMBERED"},
+        ),
+    )
+    db_session.commit()
+    replay = db_session.scalars(
+        select(OutboxMessage).where(
+            OutboxMessage.event_type == "inventory.stock_item.purchased",
+            OutboxMessage.aggregate_id == item.id,
+            OutboxMessage.payload["stockNumber"].as_string() == "S-RENUMBERED",
+        )
+    ).one()
+    _deliver(db_session, replay)
+
+    row = db_session.scalars(select(SalesStockItemPurchase)).one()
+    assert row.stock_item_label == "S-RENUMBERED"
+    assert row.stock_item_denorm_refreshed_at == replay.occurred_at
+
+
 def test_the_same_fact_under_a_new_event_id_keeps_one_row(db_session):
     """At-least-once from a producer that re-publishes (a replay): a second
     event id for the same purchase is not a second purchase."""
@@ -356,7 +399,7 @@ def test_request_invoice_reads_the_purchase_as_of_now_not_as_of_loading(db_sessi
 
     other = _session_factory(engine)()
     try:
-        record_stock_item_purchased(other, tenant_id=dealership.id, stock_item_id=item.id, event_id=uuid.uuid4())
+        record_stock_item_purchased(other, tenant_id=dealership.id, stock_item_id=item.id, event_id=uuid.uuid4(), stock_item_label=item.stock_number)
         other.commit()
     finally:
         other.close()
@@ -425,3 +468,45 @@ def test_the_migration_backfills_from_purchases_already_published(db_session, en
     assert [(r.tenant_id, r.stock_item_id, r.source_event_id) for r in rows] == [(dealership.id, item.id, message.id)]
     db_session.refresh(contract)
     assert contract.is_invoiceable is True
+
+
+def _load_label_migration():
+    path = next(Path(__file__).resolve().parents[1].glob("alembic/versions/sales/*_stock_item_purchase_label.py"))
+    spec = importlib.util.spec_from_file_location("kan150_migration", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_the_label_migration_backfills_from_the_event_payload(db_session, engine):
+    """KAN-150 — replica rows written before the label existed take it from
+    their own purchase event's payload (the event log, not Stock's table)."""
+
+    dealership = _dealership(db_session)
+    item = _stock_item(db_session, dealership.id)
+    _purchase(db_session, item)
+    message = _purchased_message(db_session, item)
+    db_session.add(
+        SalesStockItemPurchase(
+            tenant_id=dealership.id, stock_item_id=item.id, source_event_id=message.id, recorded_at=message.occurred_at
+        )
+    )
+    legacy_item = create_stock_item(
+        db_session, tenant_id=dealership.id,
+        data=StockItemCreate(vehicle_label="VW Golf", condition=StockItemCondition.USED, vin="WVWZZZ1KZAW000003"),
+        actor_id=uuid.uuid4(),
+    )
+    db_session.add(SalesStockItemPurchase(tenant_id=dealership.id, stock_item_id=legacy_item.id, source_event_id=None))
+    db_session.commit()
+
+    with engine.begin() as conn:
+        _load_label_migration().backfill(conn)
+        _load_label_migration().backfill(conn)  # re-runnable
+
+    db_session.expire_all()
+    rows = {r.stock_item_id: r for r in db_session.scalars(select(SalesStockItemPurchase))}
+    assert rows[item.id].stock_item_label == item.stock_number
+    assert rows[item.id].stock_item_denorm_refreshed_at == message.occurred_at
+    # A legacy row has no event to read; it stays unlabelled rather than
+    # reading Stock's table (Anto's ruling on KAN-100's backfill source).
+    assert rows[legacy_item.id].stock_item_label is None

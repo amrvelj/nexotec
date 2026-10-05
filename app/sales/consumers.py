@@ -29,5 +29,6 @@ def handle_stock_item_purchased_message(db: Session, message: OutboxMessage) -> 
         tenant_id=message.tenant_id,
         stock_item_id=message.aggregate_id,
         event_id=message.id,
+        stock_item_label=(message.payload or {}).get("stockNumber"),
         recorded_at=message.occurred_at,
     )

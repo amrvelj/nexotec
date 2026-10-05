@@ -309,6 +309,8 @@ def test_a_trade_in_migrates_as_a_stock_acquisition_from_a_private_individual(db
     # on this car could ever be invoiced.
     replica = db_session.query(SalesStockItemPurchase).one()
     assert (replica.tenant_id, replica.stock_item_id, replica.source_event_id) == (item.tenant_id, item.id, None)
+    assert replica.stock_item_label == item.stock_number  # KAN-150, rule 2
+    assert replica.stock_item_denorm_refreshed_at is not None
 
 
 def test_a_trade_in_from_a_vat_registered_business_has_no_notional_input_tax(db_session):

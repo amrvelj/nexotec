@@ -22,7 +22,7 @@ Stock yet; when it is, its consumer deletes the row and clears the flag.
 import datetime as dt
 import uuid
 
-from sqlalchemy import UniqueConstraint
+from sqlalchemy import String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, utcnow
@@ -37,6 +37,11 @@ class SalesStockItemPurchase(PrimaryKeyMixin, TenantScopedMixin, Base):
     stock_item_id: Mapped[uuid.UUID] = mapped_column(
         GUID(), nullable=False, comment="Owned by the inventory context (StockItem.id). No DB-level FK."
     )
+    # Rule 2's display label and its refresh time (KAN-150): the stock number
+    # Stock publishes on the purchase event. Null only for a legacy row
+    # recorded before the label existed, which has no event to read it from.
+    stock_item_label: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    stock_item_denorm_refreshed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     # When Stock published the fact (the event's occurred_at); for a legacy
     # purchase, when the migration recorded it. Not Stock's purchase_date,
     # which stays Stock's and is not copied here.

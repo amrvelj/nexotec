@@ -10,6 +10,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.base import utcnow
 from app.sales.models.stock_item_purchase import SalesStockItemPurchase
 
 
@@ -19,6 +20,7 @@ def record_stock_item_purchased(
     tenant_id: uuid.UUID,
     stock_item_id: uuid.UUID,
     event_id: uuid.UUID | None,
+    stock_item_label: str | None,
     recorded_at: dt.datetime | None = None,
 ) -> None:
     """Stock publishes the purchase once, so the fact is kept per stock item
@@ -33,17 +35,32 @@ def record_stock_item_purchased(
 
     `event_id=None` only for a purchase recorded without an event — the
     legacy migration (ADR-050 publishes none).
+
+    `stock_item_label` is rule 2's display label (KAN-150): the stock
+    number. A later delivery carrying a different one refreshes it — the
+    label is a copy, the purchase fact itself never changes.
     """
 
+    refreshed_at = recorded_at or utcnow()
     existing = db.scalar(
-        select(SalesStockItemPurchase.id).where(
+        select(SalesStockItemPurchase).where(
             SalesStockItemPurchase.tenant_id == tenant_id, SalesStockItemPurchase.stock_item_id == stock_item_id
         )
     )
     if existing is not None:
+        if stock_item_label is not None and existing.stock_item_label != stock_item_label:
+            existing.stock_item_label = stock_item_label
+            existing.stock_item_denorm_refreshed_at = refreshed_at
+            db.flush()
         return
-    row = SalesStockItemPurchase(tenant_id=tenant_id, stock_item_id=stock_item_id, source_event_id=event_id)
-    if recorded_at is not None:
-        row.recorded_at = recorded_at
-    db.add(row)
+    db.add(
+        SalesStockItemPurchase(
+            tenant_id=tenant_id,
+            stock_item_id=stock_item_id,
+            source_event_id=event_id,
+            recorded_at=refreshed_at,
+            stock_item_label=stock_item_label,
+            stock_item_denorm_refreshed_at=refreshed_at if stock_item_label is not None else None,
+        )
+    )
     db.flush()
