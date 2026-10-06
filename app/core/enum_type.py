@@ -35,7 +35,7 @@ import enum
 from collections.abc import Iterable
 from typing import Any, cast
 
-from sqlalchemy import String, false, literal
+from sqlalchemy import String, literal
 from sqlalchemy.sql import operators
 from sqlalchemy.types import TypeDecorator
 
@@ -72,6 +72,19 @@ class StoredEnum(TypeDecorator):
 
     # --- decoding ---------------------------------------------------------
 
+    def _resolve(self, item: Any) -> enum.Enum | None:
+        """The member `item` denotes, or None. A member of another enum
+        class (Language vs SwissLanguage share their values) resolves by
+        its value, then its name — as sqlalchemy.Enum did."""
+
+        if isinstance(item, self.enum_class):
+            return item
+        if isinstance(item, enum.Enum):
+            return self._lookup.get(str(item.value)) or self._lookup.get(item.name)
+        if isinstance(item, str):
+            return self._lookup.get(item)
+        return None
+
     def member_for(self, stored: str) -> enum.Enum:
         """The member a stored (or submitted) string denotes, in either form."""
 
@@ -92,7 +105,7 @@ class StoredEnum(TypeDecorator):
     def process_bind_param(self, value: Any, dialect: Any) -> str | None:
         if value is None:
             return None
-        member = value if isinstance(value, self.enum_class) else self.member_for(value)
+        member = self._resolve(value) or self.member_for(value)
         return member.name if _WRITE_FORM == "name" else member.value
 
     def process_result_value(self, value: Any, dialect: Any) -> enum.Enum | None:
@@ -110,10 +123,10 @@ class StoredEnum(TypeDecorator):
         `not_in` widen the same way. NULL handling is unchanged: `!=` and
         `NOT IN` both leave NULL rows out, as before.
 
-        A filter string that is neither a name nor a value of the enum
-        matches nothing (and `!=` matches every non-NULL row) — the same
-        result `sqlalchemy.Enum` gave by passing it through to SQL. It must
-        never raise: some filters take a client-supplied string (e.g.
+        A filter string that is neither a name nor a value of the enum is
+        sent to SQL unchanged, exactly as sqlalchemy.Enum sent it: it matches
+        nothing, and negation and NULLs behave as they always did. It must
+        never raise — some filters take a client-supplied string (e.g.
         `?role=` on the user list), and that would be a 500. Writes still
         refuse an unknown string (`process_bind_param`).
 
@@ -126,22 +139,25 @@ class StoredEnum(TypeDecorator):
 
         def _forms(self, other: Any) -> list[Any] | None:
             column_type = cast(StoredEnum, self.type)
-            if isinstance(other, (column_type.enum_class, str)):
+            if isinstance(other, (str, enum.Enum)):
                 items = [other]
             elif isinstance(other, Iterable) and not isinstance(other, bytes):
                 items = list(other)
-                if not all(isinstance(i, (column_type.enum_class, str)) for i in items):
-                    return None
+                if not items or not all(isinstance(i, (str, enum.Enum)) for i in items):
+                    return None  # empty, or expressions: SQLAlchemy's own handling
             else:
                 return None
             # Plain String literals, so the bind side passes each form
             # through unchanged instead of re-encoding it to _WRITE_FORM.
             forms: list[str] = []
             for item in items:
-                member = item if isinstance(item, column_type.enum_class) else column_type._lookup.get(str(item))
+                member = column_type._resolve(item)
                 if member is None:
-                    continue  # unknown filter value: matches nothing
-                for form in column_type.stored_forms(member):
+                    # Unknown: as-is (an enum member of no matching class by its value).
+                    candidates = [str(item.value) if isinstance(item, enum.Enum) else str(item)]
+                else:
+                    candidates = column_type.stored_forms(member)
+                for form in candidates:
                     if form not in forms:
                         forms.append(form)
             return [literal(form, String()) for form in forms]
@@ -153,7 +169,5 @@ class StoredEnum(TypeDecorator):
                 forms = self._forms(other[0])
                 if forms is not None:
                     positive = op in (operators.eq, operators.in_op)
-                    if not forms:
-                        return false() if positive else self.expr.is_not(None)
                     return self.expr.in_(forms) if positive else self.expr.not_in(forms)
             return super().operate(op, *other, **kwargs)

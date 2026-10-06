@@ -21,6 +21,13 @@ class Colour(str, enum.Enum):
     BLUE = "blue"
 
 
+class Shade(str, enum.Enum):
+    """Same values as Colour, different class."""
+
+    DARK_RED = "dark_red"
+    BLUE = "blue"
+
+
 _metadata = MetaData()
 _paint = Table(
     "kan86_paint", _metadata, Column("id", Integer, primary_key=True), Column("colour", StoredEnum(Colour, length=16))
@@ -51,12 +58,16 @@ def test_reading_and_writing(paint):
         rows = dict(conn.execute(select(_paint.c.id, _paint.c.colour)).all())
     assert rows == {1: Colour.DARK_RED, 2: Colour.DARK_RED, 3: Colour.BLUE, 4: None}
 
-    # A write stores the member NAME, from a member or from either string form.
+    # A write stores the member NAME, from a member, either string form, or
+    # another class's member with the same value.
     with paint.begin() as conn:
-        conn.execute(insert(_paint), [{"id": 6, "colour": Colour.BLUE}, {"id": 7, "colour": "dark_red"}])
+        conn.execute(
+            insert(_paint),
+            [{"id": 6, "colour": Colour.BLUE}, {"id": 7, "colour": "dark_red"}, {"id": 9, "colour": Shade.BLUE}],
+        )
     with paint.connect() as conn:
-        stored = dict(conn.execute(text("SELECT id, colour FROM kan86_paint WHERE id IN (6, 7)")).all())
-    assert stored == {6: "BLUE", 7: "DARK_RED"}
+        stored = dict(conn.execute(text("SELECT id, colour FROM kan86_paint WHERE id IN (6, 7, 9)")).all())
+    assert stored == {6: "BLUE", 7: "DARK_RED", 9: "BLUE"}
 
     # Writing an unknown string is refused.
     with paint.begin() as conn, pytest.raises(StatementError, match="'GREEN' is not among"):
@@ -84,13 +95,20 @@ def test_filters_match_both_forms_and_never_raise(paint):
     # IS NULL is untouched.
     assert _ids(paint, colour.is_(None)) == [4]
     assert _ids(paint, colour == None) == [4]  # the ORM spelling of IS NULL
-    # An unknown filter string matches nothing (and != every non-NULL row),
-    # as sqlalchemy.Enum did — filters can carry client input, so no raise.
+    assert _ids(paint, colour.not_in([])) == [1, 2, 3, 4]  # SQLAlchemy's own empty NOT IN
+    # An unknown filter string goes to SQL as-is, as sqlalchemy.Enum sent it:
+    # matches nothing, and negation/NULLs behave as plain SQL. Filters can
+    # carry client input, so it must never raise.
     assert _ids(paint, colour == "green") == []
     assert _ids(paint, colour != "green") == [1, 2, 3]
+    assert _ids(paint, ~(colour == "green")) == [1, 2, 3]
     assert _ids(paint, colour.in_(["green", "blue"])) == [3]
     assert _ids(paint, colour.in_(["green"])) == []
     assert _ids(paint, colour.not_in(["green"])) == [1, 2, 3]
+    # A member of another enum class with the same values (Language vs
+    # SwissLanguage) resolves by its value, as sqlalchemy.Enum resolved it.
+    assert _ids(paint, colour == Shade.BLUE) == [3]
+    assert _ids(paint, colour.in_([Shade.DARK_RED])) == [1, 2]
 
 
 def test_an_ambiguous_vocabulary_is_refused():
