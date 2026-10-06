@@ -8,6 +8,7 @@ from alembic import context
 
 import app.model_registry  # noqa: F401  registers every model on Base.metadata
 from app.core.config import get_settings
+from app.core.enum_type import StoredEnum
 from app.db import Base, with_psycopg_driver
 
 # this is the Alembic Config object, which provides
@@ -41,6 +42,18 @@ config.set_main_option("sqlalchemy.url", with_psycopg_driver(get_settings().data
 # ... etc.
 
 
+def render_item(type_, obj, autogen_context):
+    """Autogenerate renders a StoredEnum column as the plain VARCHAR it is.
+    A migration must never import app types (the code moves on, the
+    migration must not), and StoredEnum's repr would not even carry its
+    enum class (KAN-86)."""
+
+    if type_ == "type" and isinstance(obj, StoredEnum):
+        autogen_context.imports.add("import sqlalchemy as sa")
+        return f"sa.String(length={obj.length})"
+    return False
+
+
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
 
@@ -59,6 +72,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        render_item=render_item,
     )
 
     with context.begin_transaction():
@@ -80,7 +94,7 @@ def run_migrations_online() -> None:
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, target_metadata=target_metadata
+            connection=connection, target_metadata=target_metadata, render_item=render_item
         )
 
         with context.begin_transaction():

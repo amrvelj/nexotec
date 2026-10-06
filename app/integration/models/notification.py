@@ -19,10 +19,10 @@ import enum
 import uuid
 
 from sqlalchemy import Date, Integer, String
-from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TimestampMixin
+from app.core.enum_type import StoredEnum
 from app.core.types import GUID
 from app.db import Base
 
@@ -50,7 +50,7 @@ class IntegrationNotification(PrimaryKeyMixin, TimestampMixin, Base):
     # aggregates across every tenant's warnings for the day.
     connection_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True, index=True)
     tenant_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True, index=True)
-    kind: Mapped[NotificationKind] = mapped_column(SAEnum(NotificationKind, native_enum=False, length=24), nullable=False)
+    kind: Mapped[NotificationKind] = mapped_column(StoredEnum(NotificationKind, length=24), nullable=False)
     # Which T-N threshold this is, for an expiry warning; null for the
     # other two kinds, which have no threshold concept.
     threshold_days: Mapped[int | None] = mapped_column(Integer, nullable=True)

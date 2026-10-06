@@ -3,10 +3,10 @@ import enum
 import uuid
 
 from sqlalchemy import JSON, Index, Integer, String, Text, text
-from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, utcnow
+from app.core.enum_type import StoredEnum
 from app.core.types import GUID, UTCDateTime
 from app.db import Base
 
@@ -36,14 +36,15 @@ class OutboxMessage(PrimaryKeyMixin, Base):
         # already filters status, so indexing status again inside would be
         # redundant — this indexes exactly what the query still has to
         # search on once status is fixed.
-        # SQLAlchemy's Enum(native_enum=False) persists the member NAME
-        # ('PENDING'), not the value ('pending') — confirmed empirically,
-        # same convention as every other enum column in this codebase (see
-        # the b7c1e4a92f10 migration's note on this exact gotcha).
+        # Both stored forms while KAN-86 moves enum columns from the member
+        # NAME to .value (app/core/enum_type.py): the poller's
+        # `status == PENDING` compiles to `status IN ('PENDING', 'pending')`,
+        # and Postgres only uses a partial index whose predicate that
+        # filter implies. Same order as StoredEnum.stored_forms.
         Index(
             "ix_outbox_message_pending_next_attempt_at",
             "next_attempt_at",
-            postgresql_where=text("status = 'PENDING'"),
+            postgresql_where=text("status IN ('PENDING', 'pending')"),
         ),
     )
 
@@ -63,7 +64,7 @@ class OutboxMessage(PrimaryKeyMixin, Base):
     payload: Mapped[dict] = mapped_column(JSON, nullable=False)
 
     status: Mapped[OutboxStatus] = mapped_column(
-        SAEnum(OutboxStatus, native_enum=False, length=16), nullable=False, default=OutboxStatus.PENDING
+        StoredEnum(OutboxStatus, length=16), nullable=False, default=OutboxStatus.PENDING
     )
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     next_attempt_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), nullable=False, default=utcnow)

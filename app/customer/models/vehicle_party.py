@@ -30,11 +30,11 @@ import datetime as dt
 import enum
 import uuid
 
-from sqlalchemy import Enum as SAEnum
 from sqlalchemy import UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.base import PrimaryKeyMixin, TimestampMixin, utcnow
+from app.core.enum_type import StoredEnum
 from app.core.types import GUID, UTCDateTime
 from app.db import Base
 from app.vehicle.public import VehicleMdm
@@ -76,7 +76,7 @@ class VehicleParty(PrimaryKeyMixin, TimestampMixin, Base):
         comment="Same context (customer) as this table. No DB-level FK (PR-2, ADR-015) — named explicitly in scope.",
     )
     role: Mapped[VehiclePartyRole] = mapped_column(
-        SAEnum(VehiclePartyRole, native_enum=False, length=16), nullable=False
+        StoredEnum(VehiclePartyRole, length=16), nullable=False
     )
     effective_from: Mapped[dt.datetime] = mapped_column(UTCDateTime(), nullable=False, default=utcnow)
     effective_to: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)

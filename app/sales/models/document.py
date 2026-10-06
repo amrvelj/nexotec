@@ -21,10 +21,10 @@ import uuid
 from typing import Any
 
 from sqlalchemy import JSON, Integer, String
-from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin
+from app.core.enum_type import StoredEnum
 from app.core.types import GUID, UTCDateTime
 from app.db import Base
 
@@ -38,7 +38,7 @@ class SalesDocument(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):
     __tablename__ = "sales_document"
 
     owner_type: Mapped[DocumentOwnerType] = mapped_column(
-        SAEnum(DocumentOwnerType, native_enum=False, length=16), nullable=False
+        StoredEnum(DocumentOwnerType, length=16), nullable=False
     )
     owner_id: Mapped[uuid.UUID] = mapped_column(GUID(), nullable=False, index=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False)

@@ -21,11 +21,11 @@ import datetime as dt
 import enum
 import uuid
 
-from sqlalchemy import Enum as SAEnum
 from sqlalchemy import ForeignKey, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TimestampMixin, VersionedMixin, utcnow
+from app.core.enum_type import StoredEnum
 from app.core.types import GUID, UTCDateTime
 from app.db import Base
 
@@ -76,7 +76,7 @@ class Vehicle(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     trim: Mapped[str | None] = mapped_column(String(100), nullable=True)
     engine: Mapped[str | None] = mapped_column(String(100), nullable=True)
     condition: Mapped[VehicleCondition] = mapped_column(
-        SAEnum(VehicleCondition, native_enum=False, length=32), nullable=False
+        StoredEnum(VehicleCondition, length=32), nullable=False
     )
 
     # Reference-data value_codes (issue #3) — validated against the matching
@@ -100,14 +100,14 @@ class Vehicle(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     odometer: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     registration_status: Mapped[RegistrationStatus] = mapped_column(
-        SAEnum(RegistrationStatus, native_enum=False, length=32),
+        StoredEnum(RegistrationStatus, length=32),
         nullable=False,
         default=RegistrationStatus.UNREGISTERED,
     )
     registration_canton: Mapped[str | None] = mapped_column(String(2), nullable=True)
 
     status: Mapped[VehicleStatus] = mapped_column(
-        SAEnum(VehicleStatus, native_enum=False, length=32), nullable=False, default=VehicleStatus.IN_TRANSIT
+        StoredEnum(VehicleStatus, length=32), nullable=False, default=VehicleStatus.IN_TRANSIT
     )
     current_custodian_partner_id: Mapped[uuid.UUID | None] = mapped_column(
         GUID(),
@@ -137,7 +137,7 @@ class VehicleCustodyEvent(PrimaryKeyMixin, Base):
         comment="Owned by the platform context (Dealership). No DB-level FK (PR-2, ADR-015) — reconciled nightly.",
     )
     event_type: Mapped[CustodyEventType] = mapped_column(
-        SAEnum(CustodyEventType, native_enum=False, length=32), nullable=False
+        StoredEnum(CustodyEventType, length=32), nullable=False
     )
     event_date: Mapped[dt.datetime] = mapped_column(UTCDateTime(), nullable=False)
     transaction_id: Mapped[uuid.UUID | None] = mapped_column(

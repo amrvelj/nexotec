@@ -11,10 +11,10 @@ import enum
 import uuid
 
 from sqlalchemy import Boolean, ForeignKey, String, UniqueConstraint
-from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TimestampMixin
+from app.core.enum_type import StoredEnum
 from app.core.types import GUID, UTCDateTime
 from app.db import Base
 
@@ -36,6 +36,6 @@ class IntegrationEntitlement(PrimaryKeyMixin, TimestampMixin, Base):
     capability_code: Mapped[str] = mapped_column(String(64), nullable=False)
     granted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     source: Mapped[EntitlementSource] = mapped_column(
-        SAEnum(EntitlementSource, native_enum=False, length=16), nullable=False
+        StoredEnum(EntitlementSource, length=16), nullable=False
     )
     checked_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), nullable=False)

@@ -8,11 +8,11 @@ import datetime as dt
 import enum
 import uuid
 
-from sqlalchemy import Enum as SAEnum
 from sqlalchemy import ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin, utcnow
+from app.core.enum_type import StoredEnum
 from app.core.types import GUID, UTCDateTime
 from app.db import Base
 
@@ -89,9 +89,9 @@ class StockItemPublishing(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, Ti
     )
 
     stock_item_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("stock_item.id"), nullable=False, index=True)
-    channel: Mapped[MarketplaceChannel] = mapped_column(SAEnum(MarketplaceChannel, native_enum=False, length=16), nullable=False)
+    channel: Mapped[MarketplaceChannel] = mapped_column(StoredEnum(MarketplaceChannel, length=16), nullable=False)
     state: Mapped[PublishingState] = mapped_column(
-        SAEnum(PublishingState, native_enum=False, length=16), nullable=False, default=PublishingState.NOT_PUBLISHED
+        StoredEnum(PublishingState, length=16), nullable=False, default=PublishingState.NOT_PUBLISHED
     )
     zusatztitel: Mapped[str | None] = mapped_column(String(500), nullable=True)
     bemerkungen: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -105,7 +105,7 @@ class StockItemPublishing(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, Ti
     # publish()/unpublish() themselves (those only ever change `state`,
     # the dealer's intent). PENDING until the first transmission attempt.
     transmission_status: Mapped[TransmissionStatus] = mapped_column(
-        SAEnum(TransmissionStatus, native_enum=False, length=16), nullable=False, default=TransmissionStatus.PENDING
+        StoredEnum(TransmissionStatus, length=16), nullable=False, default=TransmissionStatus.PENDING
     )
     last_transmission_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     last_attempted_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)

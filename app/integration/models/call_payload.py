@@ -20,11 +20,11 @@ doesn't hold for every row this table could ever carry.
 import enum
 import uuid
 
-from sqlalchemy import Enum as SAEnum
 from sqlalchemy import ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TimestampMixin
+from app.core.enum_type import StoredEnum
 from app.core.types import GUID, EncryptedString
 from app.db import Base
 
@@ -42,5 +42,5 @@ class IntegrationCallPayload(PrimaryKeyMixin, TimestampMixin, Base):
         GUID(), ForeignKey("integration_call_log.id"), nullable=False, index=True
     )
     tenant_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True, index=True)
-    kind: Mapped[PayloadKind] = mapped_column(SAEnum(PayloadKind, native_enum=False, length=16), nullable=False)
+    kind: Mapped[PayloadKind] = mapped_column(StoredEnum(PayloadKind, length=16), nullable=False)
     payload: Mapped[str] = mapped_column(EncryptedString(), nullable=False)

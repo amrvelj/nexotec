@@ -24,10 +24,10 @@ import enum
 import uuid
 
 from sqlalchemy import JSON, Boolean, String
-from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
+from app.core.enum_type import StoredEnum
 from app.core.types import GUID
 from app.db import Base
 
@@ -72,7 +72,7 @@ class User(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMixin, B
     email: Mapped[str] = mapped_column(String(254), nullable=False, unique=True)
     phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
-    role: Mapped[UserRole] = mapped_column(SAEnum(UserRole, native_enum=False, length=32), nullable=False)
+    role: Mapped[UserRole] = mapped_column(StoredEnum(UserRole, length=32), nullable=False)
     # Role *values* (AccessRole.value strings), not AccessRole members —
     # SQLAlchemy's Enum type only maps a column to ONE enum member per row,
     # so a genuinely multi-valued set has to be plain JSON here. See
@@ -87,7 +87,7 @@ class User(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMixin, B
     # see services/user.py::_assert_not_last_manager.
     is_dealer_manager: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     employment_status: Mapped[EmploymentStatus] = mapped_column(
-        SAEnum(EmploymentStatus, native_enum=False, length=32),
+        StoredEnum(EmploymentStatus, length=32),
         nullable=False,
         default=EmploymentStatus.ACTIVE,
     )
@@ -101,7 +101,7 @@ class User(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMixin, B
     auth_identity_id: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
 
     status: Mapped[UserStatus] = mapped_column(
-        SAEnum(UserStatus, native_enum=False, length=32), nullable=False, default=UserStatus.INVITED
+        StoredEnum(UserStatus, length=32), nullable=False, default=UserStatus.INVITED
     )
 
     @property

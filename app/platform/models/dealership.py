@@ -23,10 +23,10 @@ import uuid
 from decimal import Decimal
 
 from sqlalchemy import DECIMAL, JSON, Boolean, ForeignKey, String
-from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
+from app.core.enum_type import StoredEnum
 from app.core.i18n import SwissLanguage
 from app.core.types import GUID, EncryptedString
 from app.db import Base
@@ -81,7 +81,7 @@ class Dealership(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     dealer_license_number: Mapped[str] = mapped_column(String(64), nullable=False)
     license_state: Mapped[str] = mapped_column(String(2), nullable=False)
     franchise_type: Mapped[FranchiseType] = mapped_column(
-        SAEnum(FranchiseType, native_enum=False, length=32), nullable=False
+        StoredEnum(FranchiseType, length=32), nullable=False
     )
     oem_affiliations: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
 
@@ -101,7 +101,7 @@ class Dealership(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     tax_id: Mapped[str] = mapped_column(EncryptedString(), nullable=False)
 
     status: Mapped[DealershipStatus] = mapped_column(
-        SAEnum(DealershipStatus, native_enum=False, length=32),
+        StoredEnum(DealershipStatus, length=32),
         nullable=False,
         default=DealershipStatus.PENDING_ONBOARDING,
     )
@@ -119,7 +119,7 @@ class Dealership(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     logo_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     brand_primary_color: Mapped[str] = mapped_column(String(7), nullable=False, default="#7C3AED")
     default_correspondence_language: Mapped[SwissLanguage] = mapped_column(
-        SAEnum(SwissLanguage, native_enum=False, length=8), nullable=False, default=SwissLanguage.DE
+        StoredEnum(SwissLanguage, length=8), nullable=False, default=SwissLanguage.DE
     )
 
     # WP-7 PR-3 (ADR-057): the ONE VAT figure in the whole system — no

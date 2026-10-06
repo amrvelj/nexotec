@@ -16,10 +16,10 @@ import uuid
 from decimal import Decimal
 
 from sqlalchemy import DECIMAL, Boolean, ForeignKey, String, UniqueConstraint
-from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, utcnow
+from app.core.enum_type import StoredEnum
 from app.core.types import GUID, UTCDateTime
 from app.db import Base
 
@@ -82,8 +82,8 @@ class StockItemLedger(PrimaryKeyMixin, TenantScopedMixin, Base):
     __table_args__ = (UniqueConstraint("tenant_id", "source_ref", name="uq_stock_item_ledger_tenant_id_source_ref"),)
 
     stock_item_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("stock_item.id"), nullable=False, index=True)
-    category: Mapped[LedgerCategory] = mapped_column(SAEnum(LedgerCategory, native_enum=False, length=32), nullable=False)
-    direction: Mapped[LedgerDirection] = mapped_column(SAEnum(LedgerDirection, native_enum=False, length=8), nullable=False)
+    category: Mapped[LedgerCategory] = mapped_column(StoredEnum(LedgerCategory, length=32), nullable=False)
+    direction: Mapped[LedgerDirection] = mapped_column(StoredEnum(LedgerDirection, length=8), nullable=False)
     amount: Mapped[Decimal] = mapped_column(DECIMAL(12, 2), nullable=False)
     occurred_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), nullable=False)
     # The idempotency key for recordCost — unique per tenant. A human

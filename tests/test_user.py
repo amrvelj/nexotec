@@ -273,6 +273,25 @@ def test_list_users_filters_by_role_and_status(client):
     assert items[0]["role"] == "sales"
 
 
+def test_list_users_with_an_unknown_role_is_an_empty_page_not_a_500(client):
+    """`?role=` is a free string. KAN-86's StoredEnum must treat a value
+    that is no UserRole as matching nothing — as sqlalchemy.Enum did —
+    never raise while the query is built."""
+
+    platform_admin_token = _token(AccessRole.PLATFORM_ADMIN)
+    dealer_id = _create_dealer(client)
+    _create_user(
+        client, dealer_id, platform_admin_token, email="a@example.ch", role="sales", accessRoles=["sales"]
+    )
+
+    response = client.get(
+        f"/v1/dealerships/{dealer_id}/users?role=no-such-role", headers=_bearer(platform_admin_token)
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["items"] == []
+
+
 # --- last-manager invariant (WP-2 PR-2, Roles & Permissions rule 7 / RP-1) ----
 
 

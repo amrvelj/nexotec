@@ -26,10 +26,10 @@ import uuid
 from decimal import Decimal
 
 from sqlalchemy import DECIMAL, Boolean, Date, Index, Integer, String, UniqueConstraint, text
-from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
+from app.core.enum_type import StoredEnum
 from app.core.types import GUID, UTCDateTime
 from app.db import Base
 
@@ -129,10 +129,10 @@ class StockItem(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMix
     vehicle_label: Mapped[str] = mapped_column(String(200), nullable=False)
 
     lifecycle_status: Mapped[LifecycleStatus] = mapped_column(
-        SAEnum(LifecycleStatus, native_enum=False, length=16), nullable=False, default=LifecycleStatus.PIPELINE
+        StoredEnum(LifecycleStatus, length=16), nullable=False, default=LifecycleStatus.PIPELINE
     )
     reservation_state: Mapped[ReservationState] = mapped_column(
-        SAEnum(ReservationState, native_enum=False, length=16), nullable=False, default=ReservationState.NONE
+        StoredEnum(ReservationState, length=16), nullable=False, default=ReservationState.NONE
     )
     # WP-7 PR-4 (ADR-047). reserved_by_contract_id is opaque — Sales's own
     # id, never a real FK (no app.sales.Contract exists yet either). One
@@ -148,7 +148,7 @@ class StockItem(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMix
     )
     active_reservation_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True, index=True, unique=True)
     condition: Mapped[StockItemCondition] = mapped_column(
-        SAEnum(StockItemCondition, native_enum=False, length=16), nullable=False
+        StoredEnum(StockItemCondition, length=16), nullable=False
     )
 
     location_id: Mapped[uuid.UUID | None] = mapped_column(

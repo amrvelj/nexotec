@@ -24,10 +24,10 @@ import uuid
 from decimal import Decimal
 
 from sqlalchemy import DECIMAL, Boolean, Integer, String
-from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin
+from app.core.enum_type import StoredEnum
 from app.core.types import GUID
 from app.db import Base
 
@@ -43,7 +43,7 @@ class SalesLineItem(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):
     offer_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True, index=True)
     contract_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True, index=True)
 
-    kind: Mapped[LineItemKind] = mapped_column(SAEnum(LineItemKind, native_enum=False, length=16), nullable=False)
+    kind: Mapped[LineItemKind] = mapped_column(StoredEnum(LineItemKind, length=16), nullable=False)
     code: Mapped[str] = mapped_column(String(64), nullable=False)
     label: Mapped[str] = mapped_column(String(200), nullable=False)
     unit_price: Mapped[Decimal] = mapped_column(DECIMAL(12, 2), nullable=False)

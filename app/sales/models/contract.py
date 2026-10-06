@@ -24,10 +24,10 @@ import uuid
 from decimal import Decimal
 
 from sqlalchemy import DECIMAL, Date, String, exists
-from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, column_property, declared_attr, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
+from app.core.enum_type import StoredEnum
 from app.core.types import GUID, UTCDateTime
 from app.db import Base
 from app.sales.models.stock_item_purchase import SalesStockItemPurchase
@@ -58,7 +58,7 @@ class SalesContract(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, Timestam
     offer_number: Mapped[str | None] = mapped_column(String(16), nullable=True)
 
     status: Mapped[ContractStatus] = mapped_column(
-        SAEnum(ContractStatus, native_enum=False, length=16), nullable=False, default=ContractStatus.PENDING
+        StoredEnum(ContractStatus, length=16), nullable=False, default=ContractStatus.PENDING
     )
 
     customer_id: Mapped[uuid.UUID | None] = mapped_column(
@@ -120,7 +120,7 @@ class SalesContract(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, Timestam
     payable: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
 
     financing: Mapped[FinancingKind | None] = mapped_column(
-        SAEnum(FinancingKind, native_enum=False, length=16), nullable=True
+        StoredEnum(FinancingKind, length=16), nullable=True
     )
 
     # WP-8 PR-6 (ADR-047, Pattern B) — set by confirm_contract's own
