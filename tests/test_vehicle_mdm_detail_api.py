@@ -168,3 +168,88 @@ def test_party_roles_never_leaks_another_groups_customer(client, db_session):
     seen_by_b = client.get(f"/v1/vehicle-mdm/{vehicle['id']}/party-roles", headers=_bearer(token_b)).json()
     assert len(seen_by_b) == 1
     assert seen_by_b[0]["customerId"] == str(customer_b.id)
+
+
+def test_party_roles_carry_the_holders_display_name_current_and_closed(client, db_session):
+    """KAN-140: the Identity tab shows who holds each role, not a raw
+    customer UUID — so every row, current and closed, carries the
+    customer's display name (same precedence as the customer side's
+    "other parties": company name, else first+last, else number)."""
+
+    group_id = uuid.uuid4()
+    token = _token(group_id=group_id)
+    vehicle = _create_vehicle(client, token)
+
+    from app.customer.models.customer import Customer, CustomerType, Language
+    from app.customer.models.vehicle_party import VehiclePartyRole
+    from app.customer.services.customer import allocate_vehicle_party
+
+    former = Customer(
+        group_id=group_id, customer_number="K-300001", customer_type=CustomerType.INDIVIDUAL,
+        language=Language.EN, first_name="Frieda", last_name="Former",
+    )
+    company = Customer(
+        group_id=group_id, customer_number="K-300002", customer_type=CustomerType.BUSINESS,
+        language=Language.EN, company_name="Leasing AG",
+    )
+    db_session.add_all([former, company])
+    db_session.flush()
+
+    for holder in (former, company):
+        allocate_vehicle_party(
+            db_session, vehicle_id=uuid.UUID(vehicle["id"]), customer_id=holder.id, role=VehiclePartyRole.KEEPER,
+            group_id=group_id, actor_id=uuid.uuid4(),
+        )
+
+    current = client.get(f"/v1/vehicle-mdm/{vehicle['id']}/party-roles", headers=_bearer(token)).json()
+    assert [(row["customerId"], row["displayName"]) for row in current] == [(str(company.id), "Leasing AG")]
+
+    history = client.get(
+        f"/v1/vehicle-mdm/{vehicle['id']}/party-roles?include_closed=true", headers=_bearer(token)
+    ).json()
+    assert {row["customerId"]: row["displayName"] for row in history} == {
+        str(company.id): "Leasing AG",
+        str(former.id): "Frieda Former",
+    }
+
+
+def test_party_roles_never_resolve_another_groups_customer_name(client, db_session):
+    """KAN-140's Do-not-touch: adding the name must not widen the group
+    scope — group B's holder on the same VIN stays invisible to group A,
+    name included, in the history view as well as the default one."""
+
+    from app.customer.models.customer import Customer, CustomerType, Language
+    from app.customer.models.vehicle_party import VehiclePartyRole
+    from app.customer.services.customer import allocate_vehicle_party
+
+    group_a = uuid.uuid4()
+    group_b = uuid.uuid4()
+    token_a = _token(group_id=group_a)
+    vehicle = _create_vehicle(client, token_a)
+
+    mine = Customer(
+        group_id=group_a, customer_number="K-400001", customer_type=CustomerType.INDIVIDUAL,
+        language=Language.EN, first_name="Anna", last_name="Mine",
+    )
+    theirs = Customer(
+        group_id=group_b, customer_number="K-400002", customer_type=CustomerType.INDIVIDUAL,
+        language=Language.EN, first_name="Secret", last_name="Elsewhere",
+    )
+    db_session.add_all([mine, theirs])
+    db_session.flush()
+
+    allocate_vehicle_party(
+        db_session, vehicle_id=uuid.UUID(vehicle["id"]), customer_id=mine.id, role=VehiclePartyRole.OWNER,
+        group_id=group_a, actor_id=uuid.uuid4(),
+    )
+    allocate_vehicle_party(
+        db_session, vehicle_id=uuid.UUID(vehicle["id"]), customer_id=theirs.id, role=VehiclePartyRole.OWNER,
+        group_id=group_b, actor_id=uuid.uuid4(),
+    )
+
+    response = client.get(
+        f"/v1/vehicle-mdm/{vehicle['id']}/party-roles?include_closed=true", headers=_bearer(token_a)
+    )
+    assert response.status_code == 200, response.text
+    assert [row["displayName"] for row in response.json()] == ["Anna Mine"]
+    assert "Elsewhere" not in response.text

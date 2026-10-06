@@ -22,18 +22,30 @@ export function formatDateTime(iso: string, locale = 'de-CH'): string {
 // fr-CH vs `1'234.5` under de-CH/it-CH/en-CH), which would silently
 // diverge from every PDF WeasyPrint renders (always a period) if this
 // forwarded the active UI language instead of pinning to 'de-CH'. The
-// grouping separator itself is already the ASCII apostrophe (U+0027) in
-// 'de-CH' output, not the typographic U+2019 the backend's own docstring
-// warns Python's locale-free approach must guard against — verified
-// empirically, no normalization needed on the JS side.
+// grouping separator is pinned too (KAN-156): it is not taken from Intl's
+// output, because CLDR's own de-CH data changed it — older ICU builds give
+// the ASCII apostrophe (U+0027), newer ones (ICU 77 / CLDR 46+, and the
+// browsers that ship them) the typographic U+2019. The PDFs always print
+// U+0027, so formatSwiss rebuilds the string from formatToParts and writes
+// every group and decimal part itself; only the digits come from Intl.
+
+const GROUP = "'"
+const DECIMAL = '.'
+
+function formatSwiss(value: number, options?: Intl.NumberFormatOptions): string {
+  return new Intl.NumberFormat('de-CH', options)
+    .formatToParts(value)
+    .map((part) => (part.type === 'group' ? GROUP : part.type === 'decimal' ? DECIMAL : part.value))
+    .join('')
+}
 
 export function formatNumber(value: number): string {
-  return new Intl.NumberFormat('de-CH').format(value)
+  return formatSwiss(value)
 }
 
 export function formatCurrencyChf(value: number): string {
   const rounded = Math.round(value * 100) / 100
   const sign = rounded < 0 ? '− ' : '' // real minus sign U+2212, matching format_currency_chf
-  const formatted = new Intl.NumberFormat('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Math.abs(rounded))
+  const formatted = formatSwiss(Math.abs(rounded), { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   return `${sign}CHF ${formatted}`
 }

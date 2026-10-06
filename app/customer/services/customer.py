@@ -19,9 +19,9 @@ import uuid
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import func, or_, select, text
+from sqlalchemy import Select, func, or_, select, text
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, load_only
 
 from app.core.audit import record_audit_event
 from app.core.base import utcnow
@@ -2151,22 +2151,55 @@ def list_vehicle_parties(
     record.
     """
 
+    stmt = _vehicle_parties_in_group_stmt(
+        VehicleParty, vehicle_id=vehicle_id, group_id=group_id, include_closed=include_closed
+    )
+    return list(db.scalars(stmt).all())
+
+
+def list_vehicle_party_holders(
+    db: Session, *, vehicle_id: uuid.UUID, group_id: uuid.UUID, include_closed: bool = False
+) -> list[tuple[VehicleParty, str]]:
+    """KAN-140 — list_vehicle_parties plus each holder's display name, for
+    the Identity tab (an internal id is never user-visible text). Built
+    from the SAME group-scoped statement, so a name can only come from a
+    customer the row filter already admits: another group's holder is
+    dropped before its name is ever read.
+    """
+
+    stmt = _vehicle_parties_in_group_stmt(
+        VehicleParty, Customer, vehicle_id=vehicle_id, group_id=group_id, include_closed=include_closed
+    ).options(
+        # Only what customer_display_name reads — never the whole row (which
+        # would decrypt tax_id just to build a label).
+        load_only(Customer.company_name, Customer.first_name, Customer.last_name, Customer.customer_number)
+    )
+    return [(party, customer_display_name(customer)) for party, customer in db.execute(stmt).all()]
+
+
+def _vehicle_parties_in_group_stmt(
+    *entities: type[VehicleParty] | type[Customer], vehicle_id: uuid.UUID, group_id: uuid.UUID, include_closed: bool
+) -> Select:
+    """The one group-scoped read behind list_vehicle_parties and
+    list_vehicle_party_holders — see list_vehicle_parties for why the
+    Customer join is the group boundary."""
+
     stmt = (
-        select(VehicleParty)
+        select(*entities)
         .join(Customer, Customer.id == VehicleParty.customer_id)
         .where(VehicleParty.vehicle_id == vehicle_id, Customer.group_id == group_id)
         .order_by(VehicleParty.effective_from.desc())
     )
     if not include_closed:
         stmt = stmt.where(or_(VehicleParty.effective_to.is_(None), VehicleParty.effective_to > utcnow()))
-    return list(db.scalars(stmt).all())
+    return stmt
 
 
-def _display_name(customer: Customer) -> str:
-    """Same precedence `resolve_customer_label` uses in `sales` (company
-    name, else first+last, else customer number) — not shared across the
-    context boundary (rule #3: no cross-context imports), so each context
-    keeps its own copy of this small rule."""
+def customer_display_name(customer: Customer) -> str:
+    """Company name, else first+last, else customer number — the same
+    precedence `resolve_customer_label` uses in `sales`, which keeps its own
+    copy rather than importing this. Exported through customer.public for
+    the vehicle context's party-roles and allocate responses (KAN-140)."""
 
     if customer.company_name:
         return customer.company_name
@@ -2236,7 +2269,7 @@ def list_other_vehicle_parties_batch(
         if other_customer is None:
             continue
         by_vehicle.setdefault(party.vehicle_id, []).append(
-            OtherVehiclePartySummary(customer_id=party.customer_id, role=party.role, display_name=_display_name(other_customer))
+            OtherVehiclePartySummary(customer_id=party.customer_id, role=party.role, display_name=customer_display_name(other_customer))
         )
     return by_vehicle
 

@@ -39,6 +39,32 @@ describe('formatNumber', () => {
     // decimal mark as the WeasyPrint-rendered document for the same figure.
     expect(formatNumber(1234.5)).toBe("1'234.5")
   })
+
+  it("does not depend on the runtime's CLDR grouping separator (KAN-156)", () => {
+    // ICU 77 / CLDR 46+ formats de-CH grouping as U+2019; older builds as
+    // U+0027. Emulate the newer data on both of Intl's entry points, so this
+    // fails on any runtime if the separator is ever taken from Intl.
+    const proto = Intl.NumberFormat.prototype
+    const formatDescriptor = Object.getOwnPropertyDescriptor(proto, 'format')!
+    const originalFormatToParts = proto.formatToParts
+    const typographicParts = function (this: Intl.NumberFormat, value: number) {
+      return originalFormatToParts.call(this, value).map((part) => (part.type === 'group' ? { ...part, value: '’' } : part))
+    }
+    proto.formatToParts = typographicParts
+    Object.defineProperty(proto, 'format', {
+      configurable: true,
+      get(this: Intl.NumberFormat) {
+        return (value: number) => typographicParts.call(this, value).map((part) => part.value).join('')
+      },
+    })
+    try {
+      expect(formatNumber(1234567)).toBe("1'234'567")
+      expect(formatCurrencyChf(12500)).toBe("CHF 12'500.00")
+    } finally {
+      Object.defineProperty(proto, 'format', formatDescriptor)
+      proto.formatToParts = originalFormatToParts
+    }
+  })
 })
 
 describe('formatCurrencyChf', () => {

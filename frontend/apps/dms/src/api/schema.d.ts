@@ -2171,7 +2171,8 @@ export interface paths {
          *     Scoped by the caller's own group_id (ADR-014/ADR-049): vehicle_mdm is
          *     a deliberately global fact, so a party row here may belong to a
          *     customer in a different dealer group entirely — see
-         *     list_vehicle_parties' own docstring.
+         *     list_vehicle_parties' own docstring. The holder's name (KAN-140)
+         *     comes from the same group-scoped read, never from a wider lookup.
          */
         get: operations["list_party_roles_v1_vehicle_mdm__vehicle_id__party_roles_get"];
         put?: never;
@@ -6328,6 +6329,8 @@ export interface components {
              * Format: uuid
              */
             customerId: string;
+            /** Displayname */
+            displayName?: string | null;
             /**
              * Effectivefrom
              * Format: date-time

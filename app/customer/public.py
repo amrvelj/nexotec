@@ -8,10 +8,12 @@ from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.customer.services.customer import (
     allocate_vehicle_party,
     channel_authorises_marketing,
+    customer_display_name,
     get_customer_or_404,
     has_usable_domicile_address,
     list_customer_vehicles,
     list_vehicle_parties,
+    list_vehicle_party_holders,
     repoint_vehicle_party,
     set_credit_block,
 )
@@ -24,11 +26,13 @@ __all__ = [
     "VehiclePartyRole",
     "allocate_vehicle_party",
     "channel_authorises_marketing",
+    "customer_display_name",
     "get_customer_or_404",
     "has_any_basis_for_group",
     "has_usable_domicile_address",
     "list_customer_vehicles",
     "list_vehicle_parties",
+    "list_vehicle_party_holders",
     "repoint_vehicle_party",
     "set_credit_block",
 ]

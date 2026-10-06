@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from app.core.auth import Principal, get_current_principal
 from app.core.errors import NotFoundError
 from app.core.permissions import require_read, require_write
-from app.customer.public import list_vehicle_parties
+from app.customer.public import list_vehicle_party_holders
 from app.db import get_db
 from app.vehicle.models.vehicle_history import VehicleAccessory
 from app.vehicle.schemas.vehicle_mdm import (
@@ -170,11 +170,17 @@ def list_party_roles(
     Scoped by the caller's own group_id (ADR-014/ADR-049): vehicle_mdm is
     a deliberately global fact, so a party row here may belong to a
     customer in a different dealer group entirely — see
-    list_vehicle_parties' own docstring.
+    list_vehicle_parties' own docstring. The holder's name (KAN-140)
+    comes from the same group-scoped read, never from a wider lookup.
     """
 
     vehicle_mdm_service.get_vehicle_mdm_or_404(db, vehicle_id)
-    rows = list_vehicle_parties(
+    holders = list_vehicle_party_holders(
         db, vehicle_id=vehicle_id, group_id=principal.group_id, include_closed=include_closed
     )
-    return [VehiclePartyAllocationRead.model_validate(r, from_attributes=True) for r in rows]
+    return [
+        VehiclePartyAllocationRead.model_validate(party, from_attributes=True).model_copy(
+            update={"display_name": display_name}
+        )
+        for party, display_name in holders
+    ]

@@ -17,9 +17,13 @@ interface IdentityTabProps {
   customerCandidates: { id: string; label: string; sublabel?: string }[]
   customerSearch: string
   onCustomerSearchChange: (q: string) => void
+  /** U-11: fired when a customer overlay opened from a party row closes. */
+  onCustomerOverlayClose: () => void
 }
 
 const ROLES: VehiclePartyRole[] = ['owner', 'keeper', 'driver']
+
+const PARTY_LINK_STYLE = { color: purple[6], background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' } as const
 
 /**
  * FR-V-15: identity fields are editable ONLY here — inline, per the
@@ -39,6 +43,7 @@ export function IdentityTab({
   customerCandidates,
   customerSearch,
   onCustomerSearchChange,
+  onCustomerOverlayClose,
 }: IdentityTabProps) {
   const { t } = useTranslation()
   const [allocating, setAllocating] = useState(false)
@@ -47,17 +52,24 @@ export function IdentityTab({
   const isConflict = (err: unknown) => err instanceof ApiError && err.status === 409
   const overlay = useOverlay()
 
+  // KAN-140: the holder's name, never the raw customer id (an internal id
+  // is never user-visible text). displayName is optional on the contract,
+  // so a row without one falls back to a translated label, not the UUID.
+  const partyLabel = (p: VehiclePartyAllocationRead) => p.displayName || t('vehicleDetail.parties.unnamedCustomer')
+
   // § ADR-059 — "opening a record from inside a process renders it as an
   // overlay on top, not a navigation." Working on a vehicle's party
   // allocation and needing to check the customer behind a raw id is
   // exactly that process — this used to just print the id as plain text.
-  // No onClose invalidation: nothing this tab renders (role, customer id)
-  // can change from inside the overlaid Customer 360, so there is
-  // genuinely nothing here for U-11 to invalidate on close.
+  // U-11 (KAN-140): the party rows show the holder's name, and the
+  // overlaid Customer 360 can edit it inline — so closing the overlay hands
+  // back to the page to refetch the party roles, or the card keeps the old
+  // name until something unrelated refetches it.
   const openCustomerOverlay = (customerId: string) => {
     overlay.push({
       key: `customer-overlay-${customerId}`,
       content: <CustomerDetailContent customerId={customerId} embedded />,
+      onClose: onCustomerOverlayClose,
     })
   }
 
@@ -121,9 +133,9 @@ export function IdentityTab({
               <button
                 type="button"
                 onClick={() => openCustomerOverlay(p.customerId)}
-                style={{ fontFamily: 'monospace', fontSize: 12, color: purple[6], background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
+                style={PARTY_LINK_STYLE}
               >
-                {p.customerId}
+                {partyLabel(p)}
               </button>
             </Group>
           ))}
@@ -170,9 +182,9 @@ export function IdentityTab({
                     <button
                       type="button"
                       onClick={() => openCustomerOverlay(p.customerId)}
-                      style={{ fontFamily: 'monospace', fontSize: 12, color: purple[6], background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
+                      style={PARTY_LINK_STYLE}
                     >
-                      {p.customerId}
+                      {partyLabel(p)}
                     </button>
                   </Group>
                 ))}
