@@ -101,11 +101,16 @@ Any code change after this point invalidates 2–4: redo them.
 
 1. `git push -u origin HEAD`, as its own command — Anto approves the push; the gate blocks it
    unless the check passed for exactly this commit.
-2. `gh pr create --title "KAN-<n>: <what changed>"` with a body containing: the ticket link;
-   what changed; an exit-criteria table (met / **NOT met**, with the evidence for each); the
-   verification commands and results; what you did not verify; follow-up tickets.
-3. `gh pr checks --watch` until CI finishes (re-run it if the command times out). Red: fix, then
-   check → commit → review → push again.
+2. Open the PR over GitHub's **REST** API — `gh pr create`/`view`/`checks` use GraphQL, which
+   cloud sessions refuse (KAN-155). Use the GitHub MCP tools where the session has them, else
+   `gh api -X POST 'repos/{owner}/{repo}/pulls' -f title="KAN-<n>: <what changed>" -f head=<branch>
+   -f base=main -F draft=true -F body=@<body file>`. The body: the ticket link; what changed; an
+   exit-criteria table (met / **NOT met**, with the evidence for each); the verification commands
+   and results; what you did not verify; follow-up tickets.
+3. Wait until CI finishes: poll `gh api 'repos/{owner}/{repo}/commits/<head sha>/check-runs'
+   --jq '.check_runs[] | [.name, .status, .conclusion] | @tsv'` (or the MCP tools' check runs)
+   until every run is `completed`; `scripts/dev/gate status` reads the same REST answer. Red: fix,
+   then check → commit → review → push again.
 
 ## 7. Hand over
 
@@ -131,8 +136,8 @@ open until it is complete. Never skip an update silently.
 
 ## Close after merge (`/ticket KAN-<n> close`)
 
-1. `gh pr view <branch or PR number> --json state,mergedAt,mergeCommit,url`. Not merged → stop
-   and say so.
+1. `gh api 'repos/{owner}/{repo}/pulls/<n>' --jq '{merged, merged_at, merge_commit_sha, html_url}'`
+   (REST; or the MCP tools). Not merged → stop and say so.
 2. Ticket Status → **Done**; change the callout to `Done — merged <date> as <short sha>, PR #<n>`.
 3. Close the loops: PRD status and Gap Analysis against the merged head, and anything else the
    ticket names — spec-page writes ask Anto; say what each one changes first, as in step 7.
