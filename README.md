@@ -144,6 +144,14 @@ faster and with no Docker required. Add the Postgres lane locally too
 before pushing anything with a new FK/constraint — pre-commit running
 green is not the same guarantee CI's `postgres` job gives you.
 
+What the SQLite lane does **not** check: VARCHAR lengths (SQLite stores any
+length), row locks (`with_for_update` is a no-op, so lock races and number
+allocation under concurrency go untested), and the Postgres-only tests,
+which skip. Foreign keys *are* enforced: `tests/conftest.py` turns
+`PRAGMA foreign_keys` on for every connection. Every run's header names the
+database it uses, and the short summary prints each skip reason, so a
+fast-lane run never reads like the lane of record.
+
 ## Database migrations
 
 One chain per bounded context (PR-3, ADR-015), branched forward from a

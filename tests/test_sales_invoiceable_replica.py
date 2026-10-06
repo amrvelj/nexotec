@@ -14,6 +14,7 @@ consume_once with the handler app.worker registers.
 
 import datetime as dt
 import importlib.util
+import os
 import uuid
 from decimal import Decimal
 from pathlib import Path
@@ -441,6 +442,15 @@ def test_request_invoice_refuses_a_manual_configuration_until_sales_knows_it_is_
 # --- The migration's backfill ------------------------------------------------
 
 
+# Alembic runs against Postgres only. The migrations' lightweight tables type
+# their ids as postgresql.UUID, which on SQLite binds 32 hex digits while the
+# app's GUID stores 36-character strings, so the backfills find no rows there.
+_postgres_only_migration = pytest.mark.skipif(
+    not os.environ.get("DMS_TEST_DATABASE_URL"),
+    reason="Migration backfill: Alembic runs on Postgres only (ADR-011); SQLite binds the migration's UUIDs differently.",
+)
+
+
 def _load_migration():
     path = next(Path(__file__).resolve().parents[1].glob("alembic/versions/sales/*_stock_item_purchase_replica.py"))
     spec = importlib.util.spec_from_file_location("kan100_migration", path)
@@ -449,6 +459,7 @@ def _load_migration():
     return module
 
 
+@_postgres_only_migration
 def test_the_migration_backfills_from_purchases_already_published(db_session, engine):
     """Purchases Stock published before this table existed are in the
     outbox (never purged). The backfill reads the event log — not Stock's
@@ -480,6 +491,7 @@ def _load_label_migration():
     return module
 
 
+@_postgres_only_migration
 def test_the_label_migration_backfills_from_the_event_payload(db_session, engine):
     """KAN-150 — replica rows written before the label existed take it from
     their own purchase event's payload (the event log, not Stock's table)."""
