@@ -20,6 +20,7 @@ from app.integration.models.entitlement import IntegrationEntitlement
 from app.integration.models.notification import IntegrationNotification
 from app.integration.models.provider import IntegrationProvider
 from app.integration.models.secret_ref import IntegrationSecretRef
+from app.inventory.models.cancelled_contract import InventoryCancelledContract
 from app.inventory.models.stock_item import StockItem, StockNumberSequence
 from app.inventory.models.stock_item_ledger import StockItemLedger
 from app.inventory.models.stock_item_option import StockItemOption
@@ -83,6 +84,7 @@ __all__ = [
     "IntegrationNotification",
     "IntegrationProvider",
     "IntegrationSecretRef",
+    "InventoryCancelledContract",
     "LegalBasis",
     "Location",
     "MappingGap",

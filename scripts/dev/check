@@ -44,7 +44,8 @@ LANE_PATTERNS = {
     # alembic/env.py imports app.db, app.model_registry and app.core.config; core tables live in app/core/*_model.py
     "migrations": [r"^alembic/", r"^alembic\.ini$", r"^app/.*/models(/|\.py$)", r"^app/core/[^/]*_model\.py$",
                    r"^app/model_registry\.py$", r"^app/db\.py$", r"^app/core/config\.py$", r"^pyproject\.toml$",
-                   r"^scripts/(seed|verify)_migration_smoke_test[^/]*\.py$"],
+                   r"^scripts/(seed|verify)_migration_smoke_test[^/]*\.py$",
+                   r"^scripts/check_concurrent_alembic_upgrade\.py$"],
     "frontend": [r"^frontend/"],
     "api-types": [r"^app/", r"^frontend/apps/dms/src/api/", r"^scripts/generate_openapi_schema\.py$",
                   r"^pyproject\.toml$", r"^frontend/package(-lock)?\.json$", r"^frontend/apps/dms/package\.json$"],
@@ -159,18 +160,18 @@ def lane_config():
         if os.path.exists(os.path.join(ROOT, path)):
             ok &= step("valid JSON: " + path, [sys.executable, "-c", "import json,sys; json.load(open(sys.argv[1]))", path])
     if os.path.exists(os.path.join(ROOT, ".claude/launch.json")):
-        # The desktop app starts preview commands through a protected macOS launcher that drops
-        # DYLD_* from a configuration's "env" before the command runs (KAN-112). Such a variable
-        # goes in as an argument to /usr/bin/env instead.
+        # The desktop app starts preview commands through a hardened macOS launcher, and dyld
+        # strips DYLD_* at that exec, so a configuration's "env" never delivers one (KAN-109,
+        # KAN-112). scripts/dev/run-api sets the library path after the launcher instead.
         ok &= step("launch.json passes no DYLD_* through env", [sys.executable, "-c", (
             "import json,sys\n"
             "bad=[c['name'] for c in json.load(open(sys.argv[1]))['configurations']"
             " if any(k.startswith('DYLD_') for k in c.get('env', {}))]\n"
-            "sys.exit('DYLD_* in env of ' + ', '.join(bad) + ': pass it via /usr/bin/env' if bad else 0)"),
+            "sys.exit('DYLD_* in env of ' + ', '.join(bad) + ': set it in scripts/dev/run-api' if bad else 0)"),
             ".claude/launch.json"])
     ok &= step("hooks compile", [sys.executable, "-m", "py_compile", HOOKS])
     ok &= step("hooks selftest", [sys.executable, HOOKS, "cli", "selftest"])
-    for script in ("scripts/dev/bootstrap", "scripts/dev/gate"):
+    for script in ("scripts/dev/bootstrap", "scripts/dev/gate", "scripts/dev/run-api"):
         ok &= step("bash syntax: " + script, ["bash", "-n", script])
     print("\n--- frontmatter of rules, skills and agents")
     problems = []
@@ -277,6 +278,9 @@ def lane_migrations():
         ok = ok and step("round trip: alembic upgrade heads (again)", [alembic, "upgrade", "heads"], env=env)
     else:
         print("\n(no `alembic downgrade <rev>` step found in test.yml - downgrade not exercised)")
+    # As CI's migration-smoke-test: two overlapping upgrades, each trial on its own throwaway database.
+    ok = ok and step("concurrent: two alembic upgrade heads 0.2 s apart (KAN-92)",
+                     [PY, "scripts/check_concurrent_alembic_upgrade.py", "--repeat", "3"], env=env)
     if not ok:
         return False
     heads = main_heads()

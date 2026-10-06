@@ -36,8 +36,8 @@ export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-nexotec}"
 if [ "$(uname -s)" = "Darwin" ]; then
   # WeasyPrint (PDFs) loads Pango by library name. macOS does not search Homebrew's
   # lib folders on its own, and strips DYLD_* variables from protected shells, so
-  # every script sets this itself (see also the session hook, and launch.json, which
-  # passes it to /usr/bin/env because the desktop app's launcher drops it from "env").
+  # every script sets this itself (so do scripts/dev/run-api, which the desktop preview
+  # starts, and the session hook; launch.json's `env` cannot - KAN-109).
   export DYLD_FALLBACK_LIBRARY_PATH="/opt/homebrew/lib:/usr/local/lib:$HOME/lib:/usr/lib"
 fi
 

@@ -41,6 +41,16 @@
       "error": "Suche fehlgeschlagen — bitte erneut versuchen."
     }
   },
+  "userRole": {
+    "sales": "Verkaufsberater/in",
+    "service_advisor": "Serviceberater/in",
+    "finance_manager": "Finanzverantwortliche/r",
+    "gm": "Geschäftsführer/in",
+    "admin": "Administrator/in",
+    "technician": "Techniker/in",
+    "parts": "Teileberater/in",
+    "other": "Mitarbeiter/in"
+  },
   "common": {
     "filter": "Filter",
     "clear": "Zurücksetzen",

@@ -41,6 +41,16 @@
       "error": "Ricerca non riuscita — riprova."
     }
   },
+  "userRole": {
+    "sales": "Consulente di vendita",
+    "service_advisor": "Consulente di servizio",
+    "finance_manager": "Responsabile finanze",
+    "gm": "Direttore/trice generale",
+    "admin": "Amministratore/trice",
+    "technician": "Tecnico/a",
+    "parts": "Consulente ricambi",
+    "other": "Collaboratore/trice"
+  },
   "common": {
     "filter": "Filtro",
     "clear": "Cancella",

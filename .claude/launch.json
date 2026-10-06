@@ -3,11 +3,8 @@
   "configurations": [
     {
       "name": "nexotec-api",
-      "runtimeExecutable": "/usr/bin/env",
+      "runtimeExecutable": "scripts/dev/run-api",
       "runtimeArgs": [
-        "DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib:/usr/local/lib:/usr/lib",
-        ".venv/bin/uvicorn",
-        "app.main:app",
         "--reload",
         "--port",
         "8000"
