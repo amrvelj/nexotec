@@ -227,7 +227,9 @@ function DmsShellInner({ children }: { children: ReactNode }) {
         moduleSubtitle: 'DMS',
         groups: navGroups,
         activeHref,
-        user: { name: `${user.firstName} ${user.lastName}`, email: user.email, role: user.role },
+        // KAN-163 — `user.role` is the UserRole enum code (`gm`,
+        // `service_advisor`); the sidebar shows its translated job title.
+        user: { name: `${user.firstName} ${user.lastName}`, email: user.email, role: t(`userRole.${user.role}`) },
         uiLanguage,
         onLanguageChange: setUiLanguage,
         onSignOut: () => {

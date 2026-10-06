@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event'
 import i18n from '../i18n'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { installFakeBackend } from '../test/fakeBackend'
+import type { UserRead } from '../api/types'
 import { DmsShell } from './DmsShell'
 
 // KAN-152 item 4 — CLAUDE.md i18n: no user-visible string is hardcoded.
@@ -14,13 +15,31 @@ import { DmsShell } from './DmsShell'
 
 const LANGUAGES = ['de', 'fr', 'it', 'en'] as const
 
+type UserRole = UserRead['role']
+
+// KAN-163 — a Record keyed by the generated union: a UserRole value added
+// to the backend fails the typecheck here until it gets a label.
+const ALL_USER_ROLES: Record<UserRole, true> = {
+  sales: true,
+  service_advisor: true,
+  finance_manager: true,
+  gm: true,
+  admin: true,
+  technician: true,
+  parts: true,
+  other: true,
+}
+
 const JSDOM_WIDTH = window.innerWidth
 
 function setViewportWidth(width: number) {
   Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: width })
 }
 
-function renderShell(uiLanguage: (typeof LANGUAGES)[number], { wide = true } = {}) {
+function renderShell(
+  uiLanguage: (typeof LANGUAGES)[number],
+  { wide = true, role = 'service_advisor' as UserRole } = {},
+) {
   // AppShell auto-collapses the sidebar below its breakpoint; jsdom's
   // default 1024px is below it.
   setViewportWidth(wide ? 1920 : 800)
@@ -36,7 +55,7 @@ function renderShell(uiLanguage: (typeof LANGUAGES)[number], { wide = true } = {
       handler: () => ({
         user: {
           id: 'user-1', dealershipId: 'd-1', firstName: 'Test', lastName: 'Advisor', email: 'advisor@example.ch',
-          phone: null, role: 'Advisor', accessRoles: ['sales'], isDealerManager: false, employmentStatus: 'employed',
+          phone: null, role, accessRoles: ['sales'], isDealerManager: false, employmentStatus: 'active',
           authIdentityId: 'auth-1', status: 'active', version: 1,
           createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z',
         },
@@ -98,5 +117,31 @@ describe('DmsShell sidebar — every chrome string is translated (KAN-152)', () 
       expect(within(nav).queryByRole('button', { name: english })).not.toBeInTheDocument()
     }
     expect(screen.queryByRole('navigation', { name: 'Main' })).not.toBeInTheDocument()
+  })
+})
+
+// KAN-163 — the account card used to show `user.role` as-is, so every user
+// read the UserRole enum code (`gm`, `service_advisor`) under their name.
+describe('DmsShell sidebar — the account card shows a translated job title (KAN-163)', () => {
+  it('shows the German job title, not the enum code', async () => {
+    renderShell('de', { role: 'gm' })
+    const nav = await screen.findByRole('navigation', { name: i18n.getFixedT('de')('shell.sidebar.mainNavigation') })
+    expect(await within(nav).findByText('Geschäftsführer/in')).toBeInTheDocument()
+    expect(within(nav).queryByText('gm')).not.toBeInTheDocument()
+  })
+
+  it('shows the French job title, not the enum code', async () => {
+    renderShell('fr', { role: 'service_advisor' })
+    const nav = await screen.findByRole('navigation', { name: 'Navigation principale' })
+    expect(await within(nav).findByText('Conseiller/ère de service')).toBeInTheDocument()
+    expect(within(nav).queryByText('service_advisor')).not.toBeInTheDocument()
+  })
+
+  it('has a label for every UserRole value in every UI language', () => {
+    for (const lng of LANGUAGES) {
+      for (const role of Object.keys(ALL_USER_ROLES)) {
+        expect(i18n.exists(`userRole.${role}`, { lng, fallbackLng: [] }), `${lng}: userRole.${role}`).toBe(true)
+      }
+    }
   })
 })

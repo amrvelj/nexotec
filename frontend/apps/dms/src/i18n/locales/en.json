@@ -41,6 +41,16 @@
       "error": "Search failed — try again."
     }
   },
+  "userRole": {
+    "sales": "Sales consultant",
+    "service_advisor": "Service advisor",
+    "finance_manager": "Finance manager",
+    "gm": "General manager",
+    "admin": "Administrator",
+    "technician": "Technician",
+    "parts": "Parts advisor",
+    "other": "Staff member"
+  },
   "common": {
     "filter": "Filter",
     "clear": "Clear",
