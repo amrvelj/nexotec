@@ -20,6 +20,7 @@ from collections.abc import Callable
 
 import pytest
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.customer.services.customer import _allocate_customer_number
@@ -111,3 +112,22 @@ def test_steady_state_rollback_still_refunds_the_number(engine, name):
     with factory() as session:
         assert allocate(session) == f"{prefix}-000002"
         session.commit()
+
+
+@pytest.mark.parametrize("name", ALLOCATORS)
+def test_the_callers_own_integrity_error_is_not_swallowed_on_first_use(engine, name):
+    """The first-use savepoint catches IntegrityError, but only the counter
+    row's own. A caller's pending row that breaks a constraint must still
+    surface as an IntegrityError (which callers map to 409), not be eaten
+    and turned into a PendingRollbackError (a 500)."""
+
+    from app.core.uuid7 import uuid7
+    from app.platform.models.reference_data import ReferenceList
+
+    allocate, _ = ALLOCATORS[name]
+    factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+    with factory() as session:
+        session.add(ReferenceList(id=uuid7(), list_code="country"))  # seeded by conftest: a duplicate
+        with pytest.raises(IntegrityError):
+            allocate(session)
+        session.rollback()
