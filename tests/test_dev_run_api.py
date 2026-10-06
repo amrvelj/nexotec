@@ -89,6 +89,7 @@ def test_wrapper_leaves_linux_alone(tmp_path):
 
 
 def test_wrapper_runs_without_arguments(tmp_path):
-    # Written as ${1+"$@"} so macOS bash 3.2 does not call an empty "$@" unbound under set -u.
+    # The call the README offers for a shell of your own. On this bash a bare "$@" would pass
+    # too, so this pins that the call works, not the ${1+"$@"} guard itself.
     _, seen = _run_wrapper(tmp_path, "Darwin", args=())
     assert seen["args"] == "app.main:app"
