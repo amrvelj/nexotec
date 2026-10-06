@@ -6,7 +6,7 @@ import { CounterTextarea, MediaGallery, OverviewCard, semantic, slate, spacing }
 import { api } from '../../api/client'
 import { BlockingConditionBanner } from './BlockingConditionBanner'
 import { ChannelPublishCard } from './ChannelPublishCard'
-import type { MarketplaceChannel, MediaRead, PublishingRead } from '../../api/types'
+import type { EquipmentRead, MarketplaceChannel, MediaRead, PublishingRead } from '../../api/types'
 
 const CHANNELS: MarketplaceChannel[] = ['autoscout24', 'carmarket', 'autolina']
 
@@ -18,13 +18,6 @@ const CHANNEL_LABELS: Record<MarketplaceChannel, string> = {
   autoscout24: 'AutoScout24',
   carmarket: 'Carmarket',
   autolina: 'Autolina',
-}
-
-interface EquipmentRead {
-  ausstattungCodes: string[]
-  extras: string[]
-  eigenschaften: string[]
-  providerAusstattung: Record<string, string>
 }
 
 interface PublishingTabProps {

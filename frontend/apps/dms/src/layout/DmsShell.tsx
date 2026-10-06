@@ -233,7 +233,18 @@ function DmsShellInner({ children }: { children: ReactNode }) {
         onSignOut: () => {
           logout().then(() => navigate('/login'))
         },
-        signOutLabel: t('shell.signOut'),
+        labels: {
+          mainNavigation: t('shell.sidebar.mainNavigation'),
+          expandSidebar: t('shell.sidebar.expandSidebar'),
+          collapseSidebar: t('shell.sidebar.collapseSidebar'),
+          soon: t('shell.sidebar.soon'),
+          notifications: t('shell.sidebar.notifications'),
+          notificationsSoon: t('shell.sidebar.notificationsSoon'),
+          accountMenu: t('shell.sidebar.accountMenu'),
+          language: t('shell.sidebar.language'),
+          switchDealership: t('shell.sidebar.switchDealership'),
+          signOut: t('shell.signOut'),
+        },
         activeDealership: activeDealership ?? undefined,
         memberships,
         onSwitchDealership: (dealershipId) => {

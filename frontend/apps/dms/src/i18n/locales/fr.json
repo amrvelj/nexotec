@@ -23,6 +23,17 @@
       "catalogue": "Catalogue"
     },
     "signOut": "Se déconnecter",
+    "sidebar": {
+      "mainNavigation": "Navigation principale",
+      "expandSidebar": "Déplier la barre latérale",
+      "collapseSidebar": "Replier la barre latérale",
+      "soon": "BIENTÔT",
+      "notifications": "Notifications",
+      "notificationsSoon": "Notifications (bientôt)",
+      "accountMenu": "Menu du compte",
+      "language": "Langue",
+      "switchDealership": "Changer de concession"
+    },
     "globalSearch": {
       "placeholder": "Rechercher…",
       "recents": "Récents",
@@ -668,6 +679,8 @@
     "title": "Stock",
     "newStockItem": "Ajouter un véhicule",
     "searchPlaceholder": "Plaque, VIN, client, offre…",
+    "loadError": "Impossible de charger le stock.",
+    "groupLoadError": "Impossible de charger le stock du groupe.",
     "allStockView": "Tous les véhicules",
     "columns": {
       "stockNumber": "N° de stock",

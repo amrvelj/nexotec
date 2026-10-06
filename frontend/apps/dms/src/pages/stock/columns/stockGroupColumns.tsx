@@ -53,7 +53,8 @@ export function buildStockGroupColumns(t: Translate, locale: string): GridColumn
       id: 'dealershipLabel',
       header: t('stockList.columns.dealership'),
       cell: ({ row }) => row.original.dealershipLabel,
-      meta: { sortField: 'dealershipLabel' },
+      // Not sortable: the label lives on platform's Dealership, and the
+      // group endpoint sorts only on stock's own indexed columns (KAN-152).
     },
     {
       id: 'condition',
@@ -99,7 +100,7 @@ export function buildStockGroupColumns(t: Translate, locale: string): GridColumn
       id: 'vin',
       header: t('stockList.columns.vin'),
       cell: ({ row }) => row.original.vin ?? '—',
-      meta: { defaultVisible: false, mono: true },
+      meta: { defaultVisible: false, mono: true, sortField: 'vin' },
     },
     {
       id: 'updatedAt',

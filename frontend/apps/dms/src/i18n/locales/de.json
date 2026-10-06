@@ -23,6 +23,17 @@
       "catalogue": "Katalog"
     },
     "signOut": "Abmelden",
+    "sidebar": {
+      "mainNavigation": "Hauptnavigation",
+      "expandSidebar": "Seitenleiste ausklappen",
+      "collapseSidebar": "Seitenleiste einklappen",
+      "soon": "BALD",
+      "notifications": "Benachrichtigungen",
+      "notificationsSoon": "Benachrichtigungen (bald)",
+      "accountMenu": "Kontomenü",
+      "language": "Sprache",
+      "switchDealership": "Betrieb wechseln"
+    },
     "globalSearch": {
       "placeholder": "Suchen…",
       "recents": "Kürzlich",
@@ -668,6 +679,8 @@
     "title": "Lagerbestand",
     "newStockItem": "Fahrzeug aufnehmen",
     "searchPlaceholder": "Kontrollschild, VIN, Kunde, Offerte…",
+    "loadError": "Bestand konnte nicht geladen werden.",
+    "groupLoadError": "Gruppenbestand konnte nicht geladen werden.",
     "allStockView": "Alle Fahrzeuge",
     "columns": {
       "stockNumber": "Lagernr.",
@@ -680,7 +693,7 @@
       "changed": "Geändert",
       "vin": "VIN",
       "listPrice": "Listenpreis",
-      "dealership": "Standort",
+      "dealership": "Betrieb",
       "ageingBucket": "Standtage-Ampel",
       "basePrice": "Basispreis",
       "purchasePrice": "Einkaufspreis",

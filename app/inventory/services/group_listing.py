@@ -20,20 +20,31 @@ from collections.abc import Callable
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.errors import NotFoundError
+from app.core.pagination import SortPageParams, build_sorted_page, count_capped, paginate_query_sorted
 from app.inventory.models.stock_item import StockItem
 from app.platform.public import DealerGroup, Dealership
 
 
 def list_group_stock_items(
-    db: Session, *, principal_group_id: uuid.UUID, requested_group_id: uuid.UUID, is_authorized: Callable[[], bool]
-) -> list[tuple[StockItem, Dealership]]:
-    """Returns (item, dealership) pairs so the caller can build
-    dealershipLabel without a second round trip. 404s — never 403s — on:
-    a group_id the caller doesn't belong to, a group with group_read_enabled
-    still off, or a caller whose role doesn't grant this read at all
-    (is_authorized, supplied by the API layer, same shape as
-    get_group_read_or_404's own parameter).
+    db: Session,
+    *,
+    principal_group_id: uuid.UUID,
+    requested_group_id: uuid.UUID,
+    is_authorized: Callable[[], bool],
+    q: str | None,
+    params: SortPageParams,
+) -> tuple[list[tuple[StockItem, Dealership]], str | None, int, bool]:
+    """Returns one page of (item, dealership) pairs so the caller can build
+    dealershipLabel without a second round trip, plus the next cursor and
+    the capped total — sorted, searched and paged server-side exactly like
+    the tenant grid's list_stock_items (KAN-152: UI/UX Core Principles,
+    "every column sortable server-side, cursor-based lazy loading").
+    404s — never 403s — on: a group_id the caller doesn't belong to, a
+    group with group_read_enabled still off, or a caller whose role
+    doesn't grant this read at all (is_authorized, supplied by the API
+    layer, same shape as get_group_read_or_404's own parameter).
     """
 
     if not is_authorized() or principal_group_id != requested_group_id:
@@ -44,15 +55,27 @@ def list_group_stock_items(
         raise NotFoundError(f"Dealer group {requested_group_id} was not found.")
 
     dealership_ids = select(Dealership.id).where(Dealership.dealer_group_id == requested_group_id)
-    rows = list(
-        db.execute(
-            select(StockItem, Dealership)
-            .join(Dealership, Dealership.id == StockItem.tenant_id)
-            .where(StockItem.tenant_id.in_(dealership_ids), StockItem.left_stock_at.is_(None))
-            .order_by(StockItem.updated_at.desc())
-        ).all()
+    stmt = select(StockItem).where(StockItem.tenant_id.in_(dealership_ids), StockItem.left_stock_at.is_(None))
+    if q:
+        like = f"%{q}%"
+        stmt = stmt.where(
+            (StockItem.stock_number.ilike(like))
+            | (StockItem.vin.ilike(like))
+            | (StockItem.vehicle_label.ilike(like))
+        )
+
+    total, total_is_estimate = count_capped(db, stmt, threshold=get_settings().count_exact_threshold)
+    rows = list(db.scalars(paginate_query_sorted(stmt, model=StockItem, params=params)).all())
+    items, next_cursor = build_sorted_page(rows, params)
+
+    # The page's dealerships in one query, rather than joining them into
+    # the paged statement: build_sorted_page reads the cursor's sort values
+    # off a StockItem, not a row tuple.
+    tenant_ids = {item.tenant_id for item in items}
+    dealerships = (
+        {d.id: d for d in db.scalars(select(Dealership).where(Dealership.id.in_(tenant_ids)))} if tenant_ids else {}
     )
-    return [(item, dealership) for item, dealership in rows]
+    return [(item, dealerships[item.tenant_id]) for item in items], next_cursor, total, total_is_estimate
 
 
 def get_stock_items_for_vehicles(

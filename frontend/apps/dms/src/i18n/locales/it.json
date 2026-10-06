@@ -23,6 +23,17 @@
       "catalogue": "Catalogo"
     },
     "signOut": "Disconnetti",
+    "sidebar": {
+      "mainNavigation": "Navigazione principale",
+      "expandSidebar": "Espandi la barra laterale",
+      "collapseSidebar": "Comprimi la barra laterale",
+      "soon": "PRESTO",
+      "notifications": "Notifiche",
+      "notificationsSoon": "Notifiche (presto)",
+      "accountMenu": "Menu account",
+      "language": "Lingua",
+      "switchDealership": "Cambia concessionaria"
+    },
     "globalSearch": {
       "placeholder": "Cerca…",
       "recents": "Recenti",
@@ -668,6 +679,8 @@
     "title": "Magazzino",
     "newStockItem": "Aggiungi veicolo",
     "searchPlaceholder": "Targa, VIN, cliente, offerta…",
+    "loadError": "Impossibile caricare lo stock.",
+    "groupLoadError": "Impossibile caricare lo stock del gruppo.",
     "allStockView": "Tutti i veicoli",
     "columns": {
       "stockNumber": "N. di magazzino",
@@ -680,7 +693,7 @@
       "changed": "Modificato",
       "vin": "VIN",
       "listPrice": "Prezzo di listino",
-      "dealership": "Sede",
+      "dealership": "Concessionaria",
       "ageingBucket": "Indicatore di anzianità",
       "basePrice": "Prezzo base",
       "purchasePrice": "Prezzo di acquisto",
