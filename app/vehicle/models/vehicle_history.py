@@ -15,10 +15,10 @@ import enum
 import uuid
 
 from sqlalchemy import Boolean, Date, ForeignKey, Integer, String, Text
-from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.base import PrimaryKeyMixin, TimestampMixin, utcnow
+from app.core.enum_type import StoredEnum
 from app.core.types import GUID, UTCDateTime
 from app.db import Base
 from app.vehicle.models.vehicle_mdm import VehicleMdm
@@ -51,7 +51,7 @@ class VehicleOdometerReading(PrimaryKeyMixin, TimestampMixin, Base):
     vehicle_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("vehicle_mdm.id"), nullable=False, index=True)
     value: Mapped[int] = mapped_column(Integer, nullable=False)
     reading_date: Mapped[dt.date] = mapped_column(Date, nullable=False)
-    source: Mapped[OdometerSource] = mapped_column(SAEnum(OdometerSource, native_enum=False, length=16), nullable=False)
+    source: Mapped[OdometerSource] = mapped_column(StoredEnum(OdometerSource, length=16), nullable=False)
     implausible: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     recording_tenant_id: Mapped[uuid.UUID] = mapped_column(
         GUID(), nullable=False, comment="Owned by the platform context (Dealership). No DB-level FK — reconciled nightly."
@@ -104,7 +104,7 @@ class VehicleCustodyEvent(PrimaryKeyMixin, Base):
         GUID(), nullable=False, index=True,
         comment="Owned by the platform context (Dealership). No DB-level FK — reconciled nightly.",
     )
-    event_type: Mapped[CustodyEventType] = mapped_column(SAEnum(CustodyEventType, native_enum=False, length=16), nullable=False)
+    event_type: Mapped[CustodyEventType] = mapped_column(StoredEnum(CustodyEventType, length=16), nullable=False)
     event_date: Mapped[dt.datetime] = mapped_column(UTCDateTime(), nullable=False)
     transaction_id: Mapped[uuid.UUID | None] = mapped_column(
         GUID(), nullable=True,

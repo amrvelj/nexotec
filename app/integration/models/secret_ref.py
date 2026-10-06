@@ -13,11 +13,11 @@ import datetime as dt
 import enum
 import uuid
 
-from sqlalchemy import Enum as SAEnum
 from sqlalchemy import ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TimestampMixin
+from app.core.enum_type import StoredEnum
 from app.core.types import GUID, UTCDateTime
 from app.db import Base
 
@@ -37,6 +37,6 @@ class IntegrationSecretRef(PrimaryKeyMixin, TimestampMixin, Base):
     connection_id: Mapped[uuid.UUID] = mapped_column(
         GUID(), ForeignKey("integration_connection.id"), nullable=False, index=True
     )
-    slot: Mapped[SecretSlot] = mapped_column(SAEnum(SecretSlot, native_enum=False, length=16), nullable=False)
+    slot: Mapped[SecretSlot] = mapped_column(StoredEnum(SecretSlot, length=16), nullable=False)
     secret_ref: Mapped[str] = mapped_column(String(300), nullable=False)
     rotated_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)

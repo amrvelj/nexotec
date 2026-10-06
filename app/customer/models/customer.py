@@ -39,10 +39,10 @@ import uuid
 from decimal import Decimal
 
 from sqlalchemy import DECIMAL, Boolean, Date, ForeignKey, Integer, String, Text, UniqueConstraint
-from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TimestampMixin, VersionedMixin, utcnow
+from app.core.enum_type import StoredEnum
 from app.core.types import GUID, EncryptedString, UTCDateTime
 from app.db import Base
 
@@ -261,13 +261,13 @@ class Customer(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     customer_number: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
 
     customer_type: Mapped[CustomerType] = mapped_column(
-        SAEnum(CustomerType, native_enum=False, length=32), nullable=False, default=CustomerType.INDIVIDUAL
+        StoredEnum(CustomerType, length=32), nullable=False, default=CustomerType.INDIVIDUAL
     )
     language: Mapped[Language] = mapped_column(
-        SAEnum(Language, native_enum=False, length=8), nullable=False, default=Language.DE
+        StoredEnum(Language, length=8), nullable=False, default=Language.DE
     )
     salutation: Mapped[Salutation | None] = mapped_column(
-        SAEnum(Salutation, native_enum=False, length=16), nullable=True
+        StoredEnum(Salutation, length=16), nullable=True
     )
     # Individual-only; nullable since a BUSINESS customer has no
     # first/last name (company_name below instead). Mutual exclusivity by
@@ -285,20 +285,20 @@ class Customer(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     # Gender docstring); non-null, defaulting to UNSPECIFIED.
     title: Mapped[str | None] = mapped_column(String(50), nullable=True)
     gender: Mapped[Gender] = mapped_column(
-        SAEnum(Gender, native_enum=False, length=16), nullable=False, default=Gender.UNSPECIFIED
+        StoredEnum(Gender, length=16), nullable=False, default=Gender.UNSPECIFIED
     )
     # Business-only. Indexed: without it, business customers were unfindable
     # by name at all (D-06) — the single worst gap Phase B closes.
     company_name: Mapped[str | None] = mapped_column(String(200), nullable=True, index=True)
     legal_form: Mapped[LegalForm | None] = mapped_column(
-        SAEnum(LegalForm, native_enum=False, length=32), nullable=True
+        StoredEnum(LegalForm, length=32), nullable=True
     )
     # Encrypted at rest (EncryptedString), same as Dealership.tax_id — CTO
     # ruling, 2026-08-07: consistency, cheap to apply. Format + mod-11 check
     # digit validated at the schema boundary since Phase B (D-16).
     tax_id: Mapped[str | None] = mapped_column(EncryptedString(), nullable=True)
     preferred_channel: Mapped[PreferredChannel | None] = mapped_column(
-        SAEnum(PreferredChannel, native_enum=False, length=16), nullable=True
+        StoredEnum(PreferredChannel, length=16), nullable=True
     )
 
     # Swiss address, optional at creation (all-or-nothing: either every
@@ -323,12 +323,12 @@ class Customer(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     address_country: Mapped[str | None] = mapped_column(String(2), nullable=True)
 
     lifecycle_status: Mapped[CustomerLifecycleStatus] = mapped_column(
-        SAEnum(CustomerLifecycleStatus, native_enum=False, length=32),
+        StoredEnum(CustomerLifecycleStatus, length=32),
         nullable=False,
         default=CustomerLifecycleStatus.PROSPECT,
     )
     source: Mapped[CustomerSource | None] = mapped_column(
-        SAEnum(CustomerSource, native_enum=False, length=32), nullable=True
+        StoredEnum(CustomerSource, length=32), nullable=True
     )
     source_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
@@ -370,7 +370,7 @@ class Customer(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     # ADR-057); it is recorded because Finance and Stock's purchase booking
     # need it.
     payment_terms: Mapped[PaymentTerms | None] = mapped_column(
-        SAEnum(PaymentTerms, native_enum=False, length=20), nullable=True
+        StoredEnum(PaymentTerms, length=20), nullable=True
     )
     credit_limit: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
     iban: Mapped[str | None] = mapped_column(String(34), nullable=True)
@@ -479,10 +479,10 @@ class ContactChannelMixin:
     # closed enum that replaced the free-text column — unmappable legacy
     # values were set NULL and reported by the migration, not guessed.
     consent_scope: Mapped[ConsentScope | None] = mapped_column(
-        SAEnum(ConsentScope, native_enum=False, length=16), nullable=True
+        StoredEnum(ConsentScope, length=16), nullable=True
     )
     consent_source: Mapped[ConsentSource | None] = mapped_column(
-        SAEnum(ConsentSource, native_enum=False, length=16), nullable=True
+        StoredEnum(ConsentSource, length=16), nullable=True
     )
     consent_timestamp: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
 
@@ -503,7 +503,7 @@ class CustomerPhone(ContactChannelMixin, PrimaryKeyMixin, TimestampMixin, Base):
         GUID(), nullable=False, index=True, comment="Owned by the platform context (DealerGroup). No DB-level FK."
     )
     customer_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("customer.id"), nullable=False, index=True)
-    phone_type: Mapped[PhoneType] = mapped_column(SAEnum(PhoneType, native_enum=False, length=16), nullable=False)
+    phone_type: Mapped[PhoneType] = mapped_column(StoredEnum(PhoneType, length=16), nullable=False)
     # E.164 with the country prefix.
     phone_e164: Mapped[str] = mapped_column(String(20), nullable=False)
     # Digits-only projection of phone_e164, maintained by the service layer.
@@ -527,7 +527,7 @@ class CustomerEmail(ContactChannelMixin, PrimaryKeyMixin, TimestampMixin, Base):
         GUID(), nullable=False, index=True, comment="Owned by the platform context (DealerGroup). No DB-level FK."
     )
     customer_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("customer.id"), nullable=False, index=True)
-    email_type: Mapped[EmailType] = mapped_column(SAEnum(EmailType, native_enum=False, length=16), nullable=False)
+    email_type: Mapped[EmailType] = mapped_column(StoredEnum(EmailType, length=16), nullable=False)
     email_address: Mapped[str] = mapped_column(String(254), nullable=False, index=True)
 
 
@@ -582,7 +582,7 @@ class CustomerAddress(ContactChannelMixin, PrimaryKeyMixin, TimestampMixin, Base
     )
     customer_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("customer.id"), nullable=False, index=True)
     address_type: Mapped[AddressType] = mapped_column(
-        SAEnum(AddressType, native_enum=False, length=16), nullable=False
+        StoredEnum(AddressType, length=16), nullable=False
     )
     address_street: Mapped[str] = mapped_column(String(200), nullable=False)
     address_line2: Mapped[str | None] = mapped_column(String(200), nullable=True)

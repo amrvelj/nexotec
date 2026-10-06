@@ -26,10 +26,10 @@ from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import DECIMAL, JSON, ForeignKey, Integer, String
-from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
+from app.core.enum_type import StoredEnum
 from app.core.types import GUID, UTCDateTime
 from app.db import Base
 
@@ -45,7 +45,7 @@ class SalesOffer(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMi
 
     offer_number: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
     status: Mapped[OfferStatus] = mapped_column(
-        SAEnum(OfferStatus, native_enum=False, length=16), nullable=False, default=OfferStatus.DRAFT
+        StoredEnum(OfferStatus, length=16), nullable=False, default=OfferStatus.DRAFT
     )
 
     customer_id: Mapped[uuid.UUID | None] = mapped_column(

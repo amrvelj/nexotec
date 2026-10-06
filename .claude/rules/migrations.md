@@ -43,8 +43,11 @@ in the same PR as any change to what it states. -->
   but a historical backfill **publishes no outbox events**: live consumers would act on old
   history as if it happened today (see the `migrate_transaction_rows.py` docstring). The dry
   run reports exactly what the real run would write, including rows it cannot migrate and why.
-- **Enum columns:** SQLAlchemy persists enum member **names** by default, not values. A
-  migration that rewrites enum data must write what the ORM can decode.
+- **Enum columns** are `StoredEnum` (`app/core/enum_type.py`), never a bare `sqlalchemy.Enum`
+  (an architecture test enforces it). KAN-86 is moving storage from the member **name** to
+  `.value` in three steps; until its step 3 lands a column may hold either form, so a
+  migration that reads or rewrites enum data handles both and writes the form
+  `enum_type._WRITE_FORM` names. Raw SQL never assumes one form.
 - The legacy `vehicle` table is write-frozen (ADR-021, `legacy_vehicle_write_frozen`); new code
   never writes it.
 - `scripts/dev/check` mirrors both CI migration jobs whenever migrations, models or their

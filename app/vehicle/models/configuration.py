@@ -25,10 +25,10 @@ import uuid
 from decimal import Decimal
 
 from sqlalchemy import DECIMAL, JSON, Boolean, Date, ForeignKey, Integer, String, Text
-from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
+from app.core.enum_type import StoredEnum
 from app.core.types import GUID, UTCDateTime
 from app.db import Base
 from app.vehicle.models.spec_block import VehicleSpecBlock
@@ -89,18 +89,18 @@ class VehicleConfiguration(
     __tablename__ = "vehicle_configuration"
 
     source: Mapped[ConfigurationSource] = mapped_column(
-        SAEnum(ConfigurationSource, native_enum=False, length=16), nullable=False
+        StoredEnum(ConfigurationSource, length=16), nullable=False
     )
     mode: Mapped[ConfigurationMode] = mapped_column(
-        SAEnum(ConfigurationMode, native_enum=False, length=16), nullable=False
+        StoredEnum(ConfigurationMode, length=16), nullable=False
     )
     catalogue_match_status: Mapped[ConfigurationMatchStatus] = mapped_column(
-        SAEnum(ConfigurationMatchStatus, native_enum=False, length=24),
+        StoredEnum(ConfigurationMatchStatus, length=24),
         nullable=False,
         default=ConfigurationMatchStatus.UNVERIFIED,
     )
     match_method: Mapped[ConfigurationMatchMethod] = mapped_column(
-        SAEnum(ConfigurationMatchMethod, native_enum=False, length=20), nullable=False
+        StoredEnum(ConfigurationMatchMethod, length=20), nullable=False
     )
 
     # --- the five coded spec fields that predate the ADR-071 mixin and

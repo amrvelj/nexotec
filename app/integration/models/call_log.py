@@ -13,10 +13,10 @@ import uuid
 from decimal import Decimal
 
 from sqlalchemy import DECIMAL, ForeignKey, Integer, String
-from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TimestampMixin
+from app.core.enum_type import StoredEnum
 from app.core.types import GUID
 from app.db import Base
 
@@ -39,7 +39,7 @@ class IntegrationCallLog(PrimaryKeyMixin, TimestampMixin, Base):
     # integration_connection just to filter by tenant.
     tenant_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True, index=True)
     capability: Mapped[str] = mapped_column(String(64), nullable=False)
-    status: Mapped[CallStatus] = mapped_column(SAEnum(CallStatus, native_enum=False, length=16), nullable=False)
+    status: Mapped[CallStatus] = mapped_column(StoredEnum(CallStatus, length=16), nullable=False)
     duration_ms: Mapped[int] = mapped_column(Integer, nullable=False)
     cost_units: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 4), nullable=True)
     correlation_id: Mapped[uuid.UUID] = mapped_column(GUID(), nullable=False, index=True)

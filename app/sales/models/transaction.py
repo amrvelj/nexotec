@@ -18,10 +18,10 @@ import uuid
 from decimal import Decimal
 
 from sqlalchemy import DECIMAL, String, Text
-from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
+from app.core.enum_type import StoredEnum
 from app.core.types import GUID, UTCDateTime
 from app.db import Base
 
@@ -47,10 +47,10 @@ class Transaction(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampM
     )
 
     transaction_type: Mapped[TransactionType] = mapped_column(
-        SAEnum(TransactionType, native_enum=False, length=16), nullable=False
+        StoredEnum(TransactionType, length=16), nullable=False
     )
     status: Mapped[TransactionStatus] = mapped_column(
-        SAEnum(TransactionStatus, native_enum=False, length=16), nullable=False, default=TransactionStatus.DRAFT
+        StoredEnum(TransactionStatus, length=16), nullable=False, default=TransactionStatus.DRAFT
     )
     customer_id: Mapped[uuid.UUID] = mapped_column(
         GUID(), nullable=False, index=True, comment="Owned by the customer context. No DB-level FK (PR-2, ADR-015)."

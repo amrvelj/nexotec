@@ -17,10 +17,10 @@ import enum
 import uuid
 
 from sqlalchemy import JSON, Boolean, CheckConstraint, ForeignKey, String, Text, UniqueConstraint
-from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TimestampMixin, VersionedMixin
+from app.core.enum_type import StoredEnum
 from app.core.types import GUID, UTCDateTime
 from app.db import Base
 
@@ -47,11 +47,9 @@ class IntegrationConnection(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Bas
     __tablename__ = "integration_connection"
     __table_args__ = (
         CheckConstraint(
-            # SAEnum(native_enum=False) stores the Python member NAME
-            # (uppercase), not .value — the same convention every other
-            # enum column in this codebase already relies on (no
-            # values_callable anywhere in app/). 'PLATFORM'/'TENANT' here,
-            # never the lowercase .value strings.
+            # Rows store the member NAME ('PLATFORM'/'TENANT') until KAN-86
+            # step 2, whose migration rewrites every enum column to .value
+            # and this constraint with it (app/core/enum_type.py).
             "(scope = 'PLATFORM' AND tenant_id IS NULL) OR (scope = 'TENANT' AND tenant_id IS NOT NULL)",
             name="ck_integration_connection_scope_tenant_id",
         ),
@@ -72,14 +70,14 @@ class IntegrationConnection(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Bas
         GUID(), ForeignKey("integration_provider.id"), nullable=False, index=True
     )
     scope: Mapped[ConnectionScope] = mapped_column(
-        SAEnum(ConnectionScope, native_enum=False, length=16), nullable=False
+        StoredEnum(ConnectionScope, length=16), nullable=False
     )
     # No TenantScopedMixin: that mixin forces NOT NULL, which a
     # platform-scoped connection must not have (see the check constraint).
     tenant_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True, index=True)
     display_name: Mapped[str] = mapped_column(String(200), nullable=False)
     environment: Mapped[ConnectionEnvironment] = mapped_column(
-        SAEnum(ConnectionEnvironment, native_enum=False, length=16), nullable=False
+        StoredEnum(ConnectionEnvironment, length=16), nullable=False
     )
     # Non-secret only — endpoint URLs, customer/branch/mandant numbers,
     # and (A-9) an optional "retentionMode" key, default "full_cache" when
@@ -88,7 +86,7 @@ class IntegrationConnection(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Bas
     config: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     status: Mapped[ConnectionStatus] = mapped_column(
-        SAEnum(ConnectionStatus, native_enum=False, length=16),
+        StoredEnum(ConnectionStatus, length=16),
         nullable=False,
         default=ConnectionStatus.NOT_CONFIGURED,
     )

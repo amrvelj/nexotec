@@ -19,10 +19,10 @@ import enum
 import uuid
 
 from sqlalchemy import JSON, Date, ForeignKey, Integer, String
-from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.base import PrimaryKeyMixin, TimestampMixin, VersionedMixin
+from app.core.enum_type import StoredEnum
 from app.core.types import GUID
 from app.db import Base
 from app.vehicle.models.catalogue import ModelVariant
@@ -83,13 +83,13 @@ class VehicleMdm(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
         GUID(), ForeignKey("vehicle_model_variant.id"), nullable=True
     )
     catalogue_match_status: Mapped[CatalogueMatchStatus] = mapped_column(
-        SAEnum(CatalogueMatchStatus, native_enum=False, length=16),
+        StoredEnum(CatalogueMatchStatus, length=16),
         nullable=False,
         default=CatalogueMatchStatus.UNVERIFIED,
     )
 
     vehicle_status: Mapped[VehicleStatus] = mapped_column(
-        SAEnum(VehicleStatus, native_enum=False, length=16), nullable=False, default=VehicleStatus.ACTIVE
+        StoredEnum(VehicleStatus, length=16), nullable=False, default=VehicleStatus.ACTIVE
     )
 
     # Provenance of a one-way PR-7 migration — permanently retained per

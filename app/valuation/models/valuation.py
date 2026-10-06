@@ -29,10 +29,10 @@ import uuid
 from decimal import Decimal
 
 from sqlalchemy import DECIMAL, Boolean, Date, Integer, String
-from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
+from app.core.enum_type import StoredEnum
 from app.core.types import GUID, UTCDateTime
 from app.db import Base
 
@@ -83,7 +83,7 @@ class Valuation(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMix
     customer_label: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
     source: Mapped[ValuationSource] = mapped_column(
-        SAEnum(ValuationSource, native_enum=False, length=16), nullable=False
+        StoredEnum(ValuationSource, length=16), nullable=False
     )
     provider_value: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
     # IHR EINTAUSCHANGEBOT (confirmed live) — the final trade-in offer.
