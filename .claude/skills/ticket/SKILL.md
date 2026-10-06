@@ -90,7 +90,7 @@ If the argument ends in `close`, skip to **Close after merge** at the bottom.
    `scripts/dev/gate no-visual "<why>"`, and say so in the reply. Only one session can run
    the preview (fixed ports 8000/5173).
    **In a cloud session** there is no desktop preview. Start the two `launch.json` commands
-   in the background (`.venv/bin/uvicorn app.main:app --port 8000` and
+   in the background (`scripts/dev/run-api --port 8000` and
    `npm --prefix frontend/apps/dms run dev -- --port 5173 --strictPort`), wait until both
    answer, then `npx playwright screenshot http://localhost:5173/<path> .claude/evidence/<name>.png`
    — the gate records that capture. Stop both servers afterwards.
