@@ -679,6 +679,8 @@
     "title": "Stock",
     "newStockItem": "Add vehicle",
     "searchPlaceholder": "Plate, VIN, customer, offer…",
+    "loadError": "Failed to load stock.",
+    "groupLoadError": "Failed to load group stock.",
     "allStockView": "All stock",
     "columns": {
       "stockNumber": "Stock no.",

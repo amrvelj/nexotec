@@ -5454,10 +5454,19 @@ export interface components {
             /** Vin */
             vin?: string | null;
         };
-        /** StockItemGroupPage */
+        /**
+         * StockItemGroupPage
+         * @description Same page envelope as the tenant grid's StockItemPage (KAN-152).
+         */
         StockItemGroupPage: {
             /** Items */
             items: components["schemas"]["StockItemGroupRead"][];
+            /** Nextcursor */
+            nextCursor: string | null;
+            /** Total */
+            total: number;
+            /** Totalisestimate */
+            totalIsEstimate: boolean;
         };
         /** StockItemGroupRead */
         StockItemGroupRead: {
@@ -9473,7 +9482,13 @@ export interface operations {
     };
     list_my_group_stock_v1_inventory_groups_mine_stock_items_get: {
         parameters: {
-            query?: never;
+            query?: {
+                q?: string | null;
+                /** @description e.g. 'stockNumber:asc,updatedAt:desc' */
+                sort?: string | null;
+                limit?: number;
+                cursor?: string | null;
+            };
             header?: {
                 authorization?: string | null;
             };
@@ -9506,7 +9521,13 @@ export interface operations {
     };
     list_group_stock_v1_inventory_groups__group_id__stock_items_get: {
         parameters: {
-            query?: never;
+            query?: {
+                q?: string | null;
+                /** @description e.g. 'stockNumber:asc,updatedAt:desc' */
+                sort?: string | null;
+                limit?: number;
+                cursor?: string | null;
+            };
             header?: {
                 authorization?: string | null;
             };

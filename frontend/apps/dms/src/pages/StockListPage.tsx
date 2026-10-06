@@ -98,10 +98,10 @@ export function StockListPage() {
   const gridPrefs = useGridPreferences(GRID_KEY, { sort: DEFAULT_SORT })
   const savedViews = useSavedViews(GRID_KEY)
   const [searchParams, setSearchParams] = useSearchParams()
-  // § ADR-056 — layout/scope choices like this belong on the reader's own
-  // ergonomics record, not the shareable URL (only search/sort/filters are
-  // URL-synced on this screen); local state is the right home for it.
-  const [scope, setScope] = useState<StockScope>('own')
+  // § ADR-056 — search, filters, sort AND scope live in the URL, so a group-
+  // scope list can be bookmarked, shared and reloaded (KAN-152). Own scope
+  // is the default and leaves no parameter.
+  const scope: StockScope = searchParams.get('scope') === 'group' ? 'group' : 'own'
 
   const sort = searchParams.get('sort') ? parseSortParam(searchParams.get('sort')!) : gridPrefs.sort
   const predicates = searchParams.get('filters') ? safeParseFilters(searchParams.get('filters')!) : []
@@ -122,6 +122,17 @@ export function StockListPage() {
 
   const setSort = (next: SortSpec[]) => {
     gridPrefs.setSort(next)
+    updateUrl({ sort: next.length > 0 ? serializeSort(next) : null })
+  }
+
+  const setScope = (next: StockScope) => {
+    updateUrl({ scope: next === 'group' ? 'group' : null })
+  }
+
+  // The group grid sorts on the same indexed columns but has no per-user
+  // grid preferences (§ ADR-055), so its sort lives in the URL alone.
+  const groupSort = searchParams.get('sort') ? parseSortParam(searchParams.get('sort')!) : DEFAULT_SORT
+  const setGroupSort = (next: SortSpec[]) => {
     updateUrl({ sort: next.length > 0 ? serializeSort(next) : null })
   }
 
@@ -154,6 +165,7 @@ export function StockListPage() {
       },
       initialPageParam: null as string | null,
       getNextPageParam: (lastPage) => lastPage.nextCursor,
+      enabled: scope === 'own',
     })
 
   const rows = useMemo(() => data?.pages.flatMap((page) => page.items) ?? [], [data])
@@ -358,7 +370,13 @@ export function StockListPage() {
       </Group>
 
       {scope === 'group' ? (
-        <GroupStockGrid />
+        <GroupStockGrid
+          query={query}
+          debouncedQuery={debouncedQuery}
+          onQueryChange={setQuery}
+          sort={groupSort}
+          onSortChange={setGroupSort}
+        />
       ) : (
       <OverviewShellRegion
         header={<div />}
@@ -434,7 +452,7 @@ export function StockListPage() {
           fetchingNextPage={isFetchingNextPage}
           hasNextPage={Boolean(hasNextPage)}
           onLoadMore={() => fetchNextPage()}
-          error={isError ? 'Failed to load stock.' : null}
+          error={isError ? t('stockList.loadError') : null}
           onRetry={() => refetch()}
           total={total}
           totalIsEstimate={totalIsEstimate}

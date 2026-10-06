@@ -679,6 +679,8 @@
     "title": "Lagerbestand",
     "newStockItem": "Fahrzeug aufnehmen",
     "searchPlaceholder": "Kontrollschild, VIN, Kunde, Offerte…",
+    "loadError": "Bestand konnte nicht geladen werden.",
+    "groupLoadError": "Gruppenbestand konnte nicht geladen werden.",
     "allStockView": "Alle Fahrzeuge",
     "columns": {
       "stockNumber": "Lagernr.",

@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useMemo } from 'react'
+import { useInfiniteQuery } from '@tanstack/react-query'
 import { Building2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { ActionBar, DataGrid, OverviewShellRegion, type SortSpec } from '@nexotec/ui-kit'
@@ -9,6 +9,16 @@ import { toSwissLocale, type SupportedLanguage } from '../../i18n'
 import { buildStockGroupColumns } from './columns/stockGroupColumns'
 import type { StockItemGroupPage } from '../../api/types'
 
+interface GroupStockGridProps {
+  /** Search and sort are owned by StockListPage, which keeps them in the
+   * URL (§ ADR-056) alongside `?scope=group`. */
+  query: string
+  debouncedQuery: string
+  onQueryChange: (query: string) => void
+  sort: SortSpec[]
+  onSortChange: (sort: SortSpec[]) => void
+}
+
 /**
  * § ADR-055 — "a different artefact, dressed differently, not a greyed-
  * out version of your own grid." Deliberately simpler chrome than the
@@ -16,30 +26,37 @@ import type { StockItemGroupPage } from '../../api/types'
  * the group projection doesn't carry the fields those would operate on
  * anyway, and there is no per-user preference worth persisting for a
  * read-only cross-dealership roster.
+ *
+ * Sort, search and paging are server-side, like the own-stock grid (UI/UX
+ * Core Principles; KAN-152) — the group roster can be the whole group's
+ * stock, so it is never loaded into one response or filtered here.
  */
-export function GroupStockGrid() {
+export function GroupStockGrid({ query, debouncedQuery, onQueryChange, sort, onSortChange }: GroupStockGridProps) {
   const { t, i18n } = useTranslation()
   const locale = toSwissLocale(i18n.language as SupportedLanguage)
   const { density, setDensity } = useUiPreferencesContext()
-  const [query, setQuery] = useState('')
 
-  const groupQuery = useQuery({
-    queryKey: ['stock-items', 'group'],
-    queryFn: () => api.get<StockItemGroupPage>('/inventory/groups/mine/stock-items'),
+  const sortParam = sort.length > 0 ? sort.map((s) => `${s.field}:${s.direction}`).join(',') : undefined
+
+  const groupQuery = useInfiniteQuery({
+    queryKey: ['stock-items', 'group', debouncedQuery, sortParam],
+    queryFn: async ({ pageParam }: { pageParam: string | null }) => {
+      const params = new URLSearchParams()
+      if (debouncedQuery) params.set('q', debouncedQuery)
+      if (sortParam) params.set('sort', sortParam)
+      params.set('limit', '50')
+      if (pageParam) params.set('cursor', pageParam)
+      return api.get<StockItemGroupPage>(`/inventory/groups/mine/stock-items?${params.toString()}`)
+    },
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
   })
 
-  const allRows = groupQuery.data?.items ?? []
-  const rows = query
-    ? allRows.filter(
-        (r) =>
-          r.vehicleLabel.toLowerCase().includes(query.toLowerCase()) ||
-          r.stockNumber.toLowerCase().includes(query.toLowerCase()) ||
-          (r.vin ?? '').toLowerCase().includes(query.toLowerCase())
-      )
-    : allRows
+  const rows = useMemo(() => groupQuery.data?.pages.flatMap((page) => page.items) ?? [], [groupQuery.data])
+  const total = groupQuery.data?.pages[0]?.total ?? null
+  const totalIsEstimate = groupQuery.data?.pages[0]?.totalIsEstimate ?? false
 
   const columns = useMemo(() => buildStockGroupColumns(t, locale), [t, locale])
-  const sort: SortSpec[] = []
 
   return (
     <OverviewShellRegion
@@ -47,7 +64,7 @@ export function GroupStockGrid() {
       actionBar={
         <ActionBar
           searchValue={query}
-          onSearchChange={setQuery}
+          onSearchChange={onQueryChange}
           searchPlaceholder={t('stockList.searchPlaceholder')}
           density={density}
           onDensityChange={setDensity}
@@ -71,18 +88,18 @@ export function GroupStockGrid() {
         rows={rows}
         getRowId={(row) => row.id}
         sort={sort}
-        onSortChange={() => {}}
+        onSortChange={onSortChange}
         density={density}
         loading={groupQuery.isLoading}
         refetching={groupQuery.isRefetching && !groupQuery.isLoading}
-        fetchingNextPage={false}
-        hasNextPage={false}
-        onLoadMore={() => {}}
-        error={groupQuery.isError ? 'Failed to load group stock.' : null}
+        fetchingNextPage={groupQuery.isFetchingNextPage}
+        hasNextPage={Boolean(groupQuery.hasNextPage)}
+        onLoadMore={() => groupQuery.fetchNextPage()}
+        error={groupQuery.isError ? t('stockList.groupLoadError') : null}
         onRetry={() => groupQuery.refetch()}
-        total={rows.length}
-        totalIsEstimate={false}
-        isFiltered={query.length > 0}
+        total={total}
+        totalIsEstimate={totalIsEstimate}
+        isFiltered={debouncedQuery.length > 0}
         locale={locale}
         labels={{
           showing: (count) => t('common.showing', { count }),

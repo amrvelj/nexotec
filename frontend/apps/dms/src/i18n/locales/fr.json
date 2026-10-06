@@ -679,6 +679,8 @@
     "title": "Stock",
     "newStockItem": "Ajouter un véhicule",
     "searchPlaceholder": "Plaque, VIN, client, offre…",
+    "loadError": "Impossible de charger le stock.",
+    "groupLoadError": "Impossible de charger le stock du groupe.",
     "allStockView": "Tous les véhicules",
     "columns": {
       "stockNumber": "N° de stock",
