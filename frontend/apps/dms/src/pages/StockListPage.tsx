@@ -36,27 +36,13 @@ import {
   translatedStockReservationLabel,
 } from '../stockOptions'
 import { formatDate, formatCurrencyChf } from '../utils/format'
+import { parseSortParam, serializeSort } from '../utils/sortParam'
 import { GroupStockGrid } from './stock/GroupStockGrid'
 import { ScopeSwitchMenu, type StockScope } from './stock/components/ScopeSwitchMenu'
 import type { StockItemPage, StockItemRead } from '../api/types'
 
 const GRID_KEY = 'inventory.stock.list'
 const DEFAULT_SORT: SortSpec[] = [{ field: 'updatedAt', direction: 'desc' }]
-
-function parseSortParam(raw: string): SortSpec[] {
-  return raw
-    .split(',')
-    .map((part): SortSpec | null => {
-      const [field, direction] = part.split(':')
-      if (!field) return null
-      return { field, direction: direction === 'asc' ? 'asc' : 'desc' }
-    })
-    .filter((s): s is SortSpec => s !== null)
-}
-
-function serializeSort(sort: SortSpec[]): string {
-  return sort.map((s) => `${s.field}:${s.direction}`).join(',')
-}
 
 function buildFilterFields(t: (key: string) => string): FilterFieldDef[] {
   return [
