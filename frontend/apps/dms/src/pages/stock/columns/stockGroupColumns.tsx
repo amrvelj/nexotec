@@ -100,7 +100,7 @@ export function buildStockGroupColumns(t: Translate, locale: string): GridColumn
       id: 'vin',
       header: t('stockList.columns.vin'),
       cell: ({ row }) => row.original.vin ?? '—',
-      meta: { defaultVisible: false, mono: true },
+      meta: { defaultVisible: false, mono: true, sortField: 'vin' },
     },
     {
       id: 'updatedAt',

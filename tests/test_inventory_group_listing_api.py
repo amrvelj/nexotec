@@ -67,3 +67,25 @@ def test_groups_mine_rejects_an_unsortable_field_with_422(client, db_session):
         "/v1/inventory/groups/mine/stock-items", params={"sort": "listPrice:asc"}, headers=_bearer(token)
     )
     assert response.status_code == 422, response.text
+
+
+def test_groups_mine_sorts_on_exactly_the_tenant_grids_fields(client, db_session):
+    """The group grid's columns (stockGroupColumns.test.ts) offer exactly
+    these sorts; a field dropped here would 422 a header click there."""
+
+    from app.inventory.api.stock_items import STOCK_ITEM_SORT_FIELDS
+
+    assert set(STOCK_ITEM_SORT_FIELDS) == {"stockNumber", "vin", "updatedAt", "createdAt"}
+
+    group = DealerGroup(name="Paged", group_read_enabled=True)
+    db_session.add(group)
+    db_session.commit()
+    token = _token(group.id, AccessRole.INVENTORY)
+    for field in STOCK_ITEM_SORT_FIELDS:
+        for direction in ("asc", "desc"):
+            response = client.get(
+                "/v1/inventory/groups/mine/stock-items",
+                params={"sort": f"{field}:{direction}"},
+                headers=_bearer(token),
+            )
+            assert response.status_code == 200, (field, direction, response.text)

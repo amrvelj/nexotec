@@ -119,6 +119,25 @@ describe('StockListPage — scope is part of the URL (ADR-056, KAN-152)', () => 
     expect(screen.queryByText('Garage Süd AG')).not.toBeInTheDocument()
   })
 
+  it('entering group scope drops own-stock filters, which the group grid does not apply (ADR-058)', async () => {
+    installFakeBackend([
+      { match: /^\/inventory\/groups\/mine\/stock-items$/, handler: () => groupPage([groupRow()]) },
+      { match: /^\/inventory\/stock-items$/, handler: () => EMPTY_OWN_PAGE },
+    ])
+    const predicate = { id: 'p1', fieldId: 'lifecycleStatus', type: 'select', condition: 'is', value: 'in_stock' }
+
+    renderAt(`/stock?filters=${encodeURIComponent(JSON.stringify([predicate]))}`)
+    expect(screen.getByTestId('location-search').textContent).toContain('filters=')
+
+    await userEvent.click(await screen.findByRole('button', { name: i18n.t('stockList.scope.own') }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: i18n.t('stockList.scope.group') }))
+
+    await screen.findByText('Garage Süd AG')
+    const search = screen.getByTestId('location-search').textContent ?? ''
+    expect(search).toContain('scope=group')
+    expect(search).not.toContain('filters=')
+  })
+
   it('sorting the group grid is a server-side sort recorded in the URL', async () => {
     const backend = installFakeBackend([
       { match: /^\/inventory\/groups\/mine\/stock-items$/, handler: () => groupPage([groupRow()]) },

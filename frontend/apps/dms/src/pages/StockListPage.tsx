@@ -112,7 +112,10 @@ export function StockListPage() {
   }
 
   const setScope = (next: StockScope) => {
-    updateUrl({ scope: next === 'group' ? 'group' : null })
+    // The group grid has no filters (§ ADR-055), so own-stock filter chips
+    // are dropped on the way in: a shared ?scope=group URL must never claim
+    // a filter the grid it opens does not apply (§ ADR-058).
+    updateUrl(next === 'group' ? { scope: 'group', filters: null } : { scope: null })
   }
 
   // The group grid sorts on the same indexed columns but has no per-user
@@ -135,7 +138,7 @@ export function StockListPage() {
 
   const [appliedViewId, setAppliedViewId] = useState<string | null>(null)
 
-  const sortParam = sort.length > 0 ? sort.map((s) => `${s.field}:${s.direction}`).join(',') : undefined
+  const sortParam = sort.length > 0 ? serializeSort(sort) : undefined
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isError, refetch, isRefetching } =
     useInfiniteQuery({

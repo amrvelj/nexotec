@@ -7,6 +7,7 @@ import { useUiPreferencesContext } from '../../hooks/UiPreferencesContext'
 import { api } from '../../api/client'
 import { toSwissLocale, type SupportedLanguage } from '../../i18n'
 import { buildStockGroupColumns } from './columns/stockGroupColumns'
+import { serializeSort } from '../../utils/sortParam'
 import type { StockItemGroupPage } from '../../api/types'
 
 interface GroupStockGridProps {
@@ -36,7 +37,7 @@ export function GroupStockGrid({ query, debouncedQuery, onQueryChange, sort, onS
   const locale = toSwissLocale(i18n.language as SupportedLanguage)
   const { density, setDensity } = useUiPreferencesContext()
 
-  const sortParam = sort.length > 0 ? sort.map((s) => `${s.field}:${s.direction}`).join(',') : undefined
+  const sortParam = sort.length > 0 ? serializeSort(sort) : undefined
 
   const groupQuery = useInfiniteQuery({
     queryKey: ['stock-items', 'group', debouncedQuery, sortParam],
