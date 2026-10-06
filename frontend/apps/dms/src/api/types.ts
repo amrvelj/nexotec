@@ -141,6 +141,7 @@ export type TransmissionStatus = Schemas['TransmissionStatus']
 export type BlockingCondition = Schemas['BlockingCondition']
 export type PublishingRead = Schemas['PublishingRead']
 export type MediaRead = Schemas['MediaRead']
+export type EquipmentRead = Schemas['EquipmentRead']
 
 // Sales — offer/contract container state, valuation
 export type OfferContainerState = Schemas['OfferContainerState']
