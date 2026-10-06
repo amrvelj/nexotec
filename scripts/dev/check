@@ -160,7 +160,7 @@ def lane_config():
             ok &= step("valid JSON: " + path, [sys.executable, "-c", "import json,sys; json.load(open(sys.argv[1]))", path])
     ok &= step("hooks compile", [sys.executable, "-m", "py_compile", HOOKS])
     ok &= step("hooks selftest", [sys.executable, HOOKS, "cli", "selftest"])
-    for script in ("scripts/dev/bootstrap", "scripts/dev/gate"):
+    for script in ("scripts/dev/bootstrap", "scripts/dev/gate", "scripts/dev/run-api"):
         ok &= step("bash syntax: " + script, ["bash", "-n", script])
     print("\n--- frontmatter of rules, skills and agents")
     problems = []

@@ -528,6 +528,9 @@ def cancel_contract(
     """PENDING or CONFIRMED can both be cancelled — CONFIRMED additionally
     releases the stock reservation first (Pattern B, dedicated session,
     same reasoning as confirm_contract's own reserve() call).
+    A manual configuration has no reservation_id here: Stock reserved its
+    pipeline item itself and releases it on `sales.contract.cancelled`
+    (KAN-158).
     """
 
     if contract.status not in (ContractStatus.PENDING, ContractStatus.CONFIRMED):
