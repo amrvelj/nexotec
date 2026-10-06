@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, screen } from '@testing-library/react'
 import i18n from '../../i18n'
 import { renderWithProviders } from '../../test/renderWithProviders'
+import { installFakeBackend } from '../../test/fakeBackend'
 import { IdentityTab } from './IdentityTab'
 import type { VehicleMdmRead, VehiclePartyAllocationRead } from '../../api/types'
 
@@ -41,7 +42,11 @@ function party(over: Partial<VehiclePartyAllocationRead>): VehiclePartyAllocatio
   }
 }
 
-function renderTab(parties: VehiclePartyAllocationRead[], formerParties: VehiclePartyAllocationRead[] = []) {
+function renderTab(
+  parties: VehiclePartyAllocationRead[],
+  formerParties: VehiclePartyAllocationRead[] = [],
+  onCustomerOverlayClose: () => void = () => {},
+) {
   return renderWithProviders(
     <IdentityTab
       vehicle={vehicle}
@@ -53,6 +58,7 @@ function renderTab(parties: VehiclePartyAllocationRead[], formerParties: Vehicle
       customerCandidates={[]}
       customerSearch=""
       onCustomerSearchChange={() => {}}
+      onCustomerOverlayClose={onCustomerOverlayClose}
     />,
   )
 }
@@ -79,5 +85,18 @@ describe('IdentityTab party rows show the holder, never the customer id (KAN-140
 
     expect(screen.getByRole('button', { name: i18n.t('vehicleDetail.parties.unnamedCustomer') })).toBeTruthy()
     expect(container.textContent).not.toMatch(UUID_LIKE)
+  })
+
+  it('asks the page to refetch the party roles when the customer overlay closes (U-11)', () => {
+    // The overlaid Customer 360 can rename the holder inline; the card must
+    // not keep showing the old name once the overlay is closed.
+    installFakeBackend([])
+    const onClose = vi.fn()
+    renderTab([party({})], [], onClose)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Leasing AG' }))
+    expect(onClose).not.toHaveBeenCalled()
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(onClose).toHaveBeenCalledTimes(1)
   })
 })

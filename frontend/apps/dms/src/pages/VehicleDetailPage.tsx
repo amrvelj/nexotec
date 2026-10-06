@@ -209,6 +209,7 @@ export function VehicleDetailPage() {
           customerCandidates={customerCandidates}
           customerSearch={customerSearch}
           onCustomerSearchChange={setCustomerSearch}
+          onCustomerOverlayClose={invalidatePartyRoles}
         />
       )}
       {activeTab === 'plates' && <PlatesTab plates={platesQuery.data ?? []} loading={platesQuery.isLoading} />}

@@ -91,8 +91,10 @@ main@568f416 on 2026-09-27; the vehicle-party lines against KAN-99's branch on
   the caller's group, found through `Customer.group_id`, in the **same transaction** as the
   insert — never another group's row. Concurrent allocations are serialised by a Postgres
   advisory lock on (vehicle, role, group): a row lock cannot do it, because a concurrent
-  request never sees the row being inserted. Reads (`list_vehicle_parties`) are filtered the
-  same way.
+  request never sees the row being inserted. Reads (`list_vehicle_parties`, and
+  `list_vehicle_party_holders`, which also returns each holder's name for the Identity tab,
+  KAN-140) are filtered the same way, through one shared statement: a name can only come from
+  a holder the group filter already admits.
 - Group-wide customer history must be served from an event-built projection keyed by
   `group_id` (reporting), never by fan-out across dealerships × services (rule 11, two hops).
   **Not built:** `app/reporting` is a stub, and the History tab shows the audit log.

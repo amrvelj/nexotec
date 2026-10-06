@@ -19,9 +19,9 @@ import uuid
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import func, or_, select, text
+from sqlalchemy import Select, func, or_, select, text
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, load_only
 
 from app.core.audit import record_audit_event
 from app.core.base import utcnow
@@ -2169,11 +2169,17 @@ def list_vehicle_party_holders(
 
     stmt = _vehicle_parties_in_group_stmt(
         VehicleParty, Customer, vehicle_id=vehicle_id, group_id=group_id, include_closed=include_closed
+    ).options(
+        # Only what customer_display_name reads — never the whole row (which
+        # would decrypt tax_id just to build a label).
+        load_only(Customer.company_name, Customer.first_name, Customer.last_name, Customer.customer_number)
     )
     return [(party, customer_display_name(customer)) for party, customer in db.execute(stmt).all()]
 
 
-def _vehicle_parties_in_group_stmt(*entities, vehicle_id: uuid.UUID, group_id: uuid.UUID, include_closed: bool):
+def _vehicle_parties_in_group_stmt(
+    *entities: type[VehicleParty] | type[Customer], vehicle_id: uuid.UUID, group_id: uuid.UUID, include_closed: bool
+) -> Select:
     """The one group-scoped read behind list_vehicle_parties and
     list_vehicle_party_holders — see list_vehicle_parties for why the
     Customer join is the group boundary."""
@@ -2190,10 +2196,10 @@ def _vehicle_parties_in_group_stmt(*entities, vehicle_id: uuid.UUID, group_id: u
 
 
 def customer_display_name(customer: Customer) -> str:
-    """Same precedence `resolve_customer_label` uses in `sales` (company
-    name, else first+last, else customer number) — not shared across the
-    context boundary (rule #3: no cross-context imports), so each context
-    keeps its own copy of this small rule."""
+    """Company name, else first+last, else customer number — the same
+    precedence `resolve_customer_label` uses in `sales`, which keeps its own
+    copy rather than importing this. Exported through customer.public for
+    the vehicle context's party-roles and allocate responses (KAN-140)."""
 
     if customer.company_name:
         return customer.company_name
