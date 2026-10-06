@@ -5,7 +5,7 @@ import { useDebouncedValue } from '@mantine/hooks'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { Copy, Database, Plug } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { formatCurrencyChf } from '../../utils/format'
+import { formatCurrencyChf, formatNumber } from '../../utils/format'
 import {
   ActionBar,
   ColumnConfigPanel,
@@ -254,13 +254,14 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
       {
         id: 'ps',
         header: t('catalogueBrowse.columns.ps'),
-        cell: ({ row }) => row.original.spec.ps ?? '—',
+        cell: ({ row }) => (row.original.spec.ps != null ? formatNumber(row.original.spec.ps) : '—'),
         meta: { sortField: 'ps', align: 'right' },
       },
       {
         id: 'displacementCcm',
         header: t('catalogueBrowse.columns.displacementCcm'),
-        cell: ({ row }) => row.original.spec.displacementCcm ?? '—',
+        cell: ({ row }) =>
+          row.original.spec.displacementCcm != null ? formatNumber(row.original.spec.displacementCcm) : '—',
         meta: { sortField: 'displacementCcm', align: 'right', defaultVisible: false },
       },
       {

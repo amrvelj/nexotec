@@ -58,7 +58,8 @@ export function DetailsTab({ item, locale, onSaveField, onReload, onRecordPurcha
         <OverviewCard title={t('stockDetail.commercial.title')}>
           <KeyValueRow label={t('stockDetail.commercial.odometerKm')}>
             <InlineEditField
-              value={item.odometerKm != null ? String(item.odometerKm) : ''}
+              value={item.odometerKm != null ? formatNumber(item.odometerKm) : ''}
+              editValue={item.odometerKm != null ? String(item.odometerKm) : ''}
               isEmpty={item.odometerKm == null}
               emptyLabel={t('common.notSet')}
               onSave={(v) => onSaveField({ odometerKm: v ? Number(v) : null })}
@@ -68,7 +69,8 @@ export function DetailsTab({ item, locale, onSaveField, onReload, onRecordPurcha
           </KeyValueRow>
           <KeyValueRow label={t('stockDetail.commercial.listPrice')}>
             <InlineEditField
-              value={item.listPrice ?? ''}
+              value={item.listPrice != null ? formatCurrencyChf(Number(item.listPrice)) : ''}
+              editValue={item.listPrice ?? ''}
               isEmpty={item.listPrice == null}
               emptyLabel={t('common.notSet')}
               onSave={(v) => onSaveField({ listPrice: v || null })}
@@ -78,7 +80,8 @@ export function DetailsTab({ item, locale, onSaveField, onReload, onRecordPurcha
           </KeyValueRow>
           <KeyValueRow label={t('stockDetail.commercial.effectivePrice')}>
             <InlineEditField
-              value={item.effectivePrice ?? ''}
+              value={item.effectivePrice != null ? formatCurrencyChf(Number(item.effectivePrice)) : ''}
+              editValue={item.effectivePrice ?? ''}
               isEmpty={item.effectivePrice == null}
               emptyLabel={t('common.notSet')}
               onSave={(v) => onSaveField({ effectivePrice: v || null })}

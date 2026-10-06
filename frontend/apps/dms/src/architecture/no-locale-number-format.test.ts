@@ -33,6 +33,8 @@ const FORBIDDEN: { name: string; pattern: RegExp }[] = [
   { name: "Mantine's NumberFormatter", pattern: /\bNumberFormatter\b/ },
 ]
 
+const BARE_NUMERIC_PLACEHOLDER = /\{\{\s*(count|max)\s*\}\}/
+
 function collectFiles(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
     if (SKIP_DIR_NAMES.has(entry)) continue
@@ -75,6 +77,24 @@ describe('numbers are formatted only through formatNumber / formatCurrencyChf', 
     }
 
     expect(offenders).toEqual([])
+  })
+
+  // Counts in translated strings: `{{count}}` alone is interpolated raw
+  // (`12500`); `{{count, number}}` goes through i18n/index.ts's Swiss
+  // formatter. `count` and `max` are the numeric variables the bundles use.
+  it('every count and max in the locale bundles is formatted with `, number`', () => {
+    const localesDir = join(FRONTEND_ROOT, 'apps/dms/src/i18n/locales')
+    const offenders: string[] = []
+    for (const file of readdirSync(localesDir).filter((f) => f.endsWith('.json'))) {
+      readFileSync(join(localesDir, file), 'utf-8')
+        .split('\n')
+        .forEach((line, index) => {
+          if (BARE_NUMERIC_PLACEHOLDER.test(line)) offenders.push(`${file}:${index + 1}: ${line.trim()}`)
+        })
+    }
+    expect(offenders).toEqual([])
+    expect(BARE_NUMERIC_PLACEHOLDER.test('"x": "{{count}} selected"')).toBe(true)
+    expect(BARE_NUMERIC_PLACEHOLDER.test('"x": "{{count, number}} selected"')).toBe(false)
   })
 
   // The scan above passes on an empty result as easily as on a clean tree —

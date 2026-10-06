@@ -37,8 +37,8 @@
     "retry": "Retry",
     "loadingMore": "Loading…",
     "rowActionsLabel": "Row actions",
-    "showing": "Showing {{count}}",
-    "showingOfTotal": "Showing {{count}} of {{total}}",
+    "showing": "Showing {{count, number}}",
+    "showingOfTotal": "Showing {{count, number}} of {{total}}",
     "removeFilter": "Remove filter: {{label}}",
     "density": {
       "compact": "Compact",
@@ -107,7 +107,7 @@
     },
     "duplicates": {
       "heading_one": "Possible existing customer",
-      "heading_other": "{{count}} possible existing customers",
+      "heading_other": "{{count, number}} possible existing customers",
       "exactMatch": "Exact match",
       "openInstead": "Open instead"
     },
@@ -273,7 +273,7 @@
     },
     "allCustomersView": "All customers",
     "selection": {
-      "count": "{{count}} selected",
+      "count": "{{count, number}} selected",
       "clear": "Clear selection",
       "export": "Export",
       "print": "Print"
@@ -534,7 +534,7 @@
       "action": "Clear search"
     },
     "selection": {
-      "count": "{{count}} selected",
+      "count": "{{count, number}} selected",
       "clear": "Clear selection",
       "copyIds": "Copy IDs"
     }
@@ -784,7 +784,7 @@
       "manual": "Manual"
     },
     "publishing": {
-      "blockingBannerTitle": "{{count}} item(s) are blocking publication",
+      "blockingBannerTitle": "{{count, number}} item(s) are blocking publication",
       "channelsTitle": "Channels",
       "published": "Published",
       "notPublished": "Not published",
@@ -798,7 +798,7 @@
       "unpublishConfirmSubmit": "Unpublish",
       "unpublishConfirmBody": "The listing on {{channel}} will be deleted along with its statistics and URL. This cannot be undone.",
       "listingTextTitle": "Listing text",
-      "titleDisplayLimit": "{{count}} characters shown on the results list.",
+      "titleDisplayLimit": "{{count, number}} characters shown on the results list.",
       "haendlerbemerkungenHint": "Internal only — never appears in the listing.",
       "fields": {
         "zusatztitel": "Additional title",
@@ -814,7 +814,7 @@
         "moveRight": "Move right",
         "remove": "Remove",
         "addPhoto": "Add photo",
-        "countOf": "{{count}} / {{max}}"
+        "countOf": "{{count, number}} / {{max, number}}"
       },
       "equipment": {
         "title": "Equipment",
@@ -879,7 +879,7 @@
       "open": "Open"
     },
     "selection": {
-      "count": "{{count}} selected",
+      "count": "{{count, number}} selected",
       "clear": "Clear selection",
       "copyIds": "Copy IDs"
     }
@@ -1355,7 +1355,7 @@
       "action": "Reset filters"
     },
     "selection": {
-      "count": "{{count}} selected",
+      "count": "{{count, number}} selected",
       "clear": "Clear selection",
       "copyIds": "Copy IDs"
     }

@@ -84,8 +84,8 @@ export interface DataGridProps<T> {
 }
 
 const DEFAULT_GRID_LABELS = {
-  showing: (shown: number) => `Showing ${shown}`,
-  showingOfTotal: (shown: number, total: string) => `Showing ${shown} of ${total}`,
+  showing: (shown: number) => `Showing ${formatNumber(shown)}`,
+  showingOfTotal: (shown: number, total: string) => `Showing ${formatNumber(shown)} of ${total}`,
   loadingMore: "Loading…",
   retry: "Retry",
   rowActionsLabel: "Row actions",
