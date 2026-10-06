@@ -10,6 +10,9 @@ Registered in app.worker.register_handlers as:
         consumer_name="inventory.sales_contract_confirmed",
         handler=handle_sales_contract_confirmed_message,
     )
+
+and, since KAN-158, `sales.contract.cancelled` as
+`inventory.sales_contract_cancelled` (handle_sales_contract_cancelled_message).
 """
 
 from sqlalchemy.orm import Session

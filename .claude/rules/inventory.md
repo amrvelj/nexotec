@@ -39,8 +39,10 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   releases it on `sales.contract.cancelled` (consumer `inventory.sales_contract_cancelled`,
   matching `reserved_by_contract_id`), and records the cancellation in
   `inventory_cancelled_contract` (with the contract number as rule 2's label), so a
-  confirmation delivered after it (a retried delivery) creates the item unreserved. Both
-  consumers take a per-contract advisory lock first, so two workers cannot interleave them. A
+  confirmation delivered after it (a retried delivery) creates the item unreserved. The
+  cancellation consumer, and the confirmation consumer when it carries a manual configuration,
+  take a per-contract advisory lock first, so two workers cannot interleave them. Nightly
+  reconciliation checks the record's `contract_id` and `tenant_id`. A
   stock car's reservation is still made and released by Sales' synchronous
   `reserve()`/`release()` calls (ADR-047 Pattern B). Before KAN-158, manual items were created
   unreserved and cancellations were not recorded (backfill: KAN-166).
