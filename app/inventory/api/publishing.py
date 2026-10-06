@@ -12,6 +12,7 @@ from app.inventory.models.stock_item import StockItem
 from app.inventory.models.stock_item_publishing import MarketplaceChannel, StockItemPublishing
 from app.inventory.schemas.publishing import (
     AddMediaRequest,
+    EquipmentRead,
     ListingTextUpdate,
     MediaRead,
     PublishingRead,
@@ -81,7 +82,7 @@ def unpublish_from_channel(
     return _publishing_read(db, item, row)
 
 
-@router.get("/inventory/stock-items/{stock_item_id}/equipment")
+@router.get("/inventory/stock-items/{stock_item_id}/equipment", response_model=EquipmentRead)
 def get_equipment(
     stock_item_id: uuid.UUID,
     principal: Principal = Depends(get_current_principal),
@@ -95,8 +96,8 @@ def get_equipment(
 
     item = stock_item_service.get_stock_item_or_404(db, principal.tenant_id, stock_item_id)
     if item.vehicle_id is None:
-        return {"ausstattungCodes": [], "extras": [], "eigenschaften": [], "providerAusstattung": {}}
-    return get_vehicle_equipment(db, item.vehicle_id)
+        return EquipmentRead(ausstattung_codes=[], extras=[], eigenschaften=[], provider_ausstattung={})
+    return EquipmentRead.model_validate(get_vehicle_equipment(db, item.vehicle_id))
 
 
 @router.get("/inventory/stock-items/{stock_item_id}/media", response_model=list[MediaRead])

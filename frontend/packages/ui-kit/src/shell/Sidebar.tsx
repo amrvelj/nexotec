@@ -22,6 +22,26 @@ export interface DealershipSummary {
   legalName: string;
 }
 
+/** Every user-visible string the sidebar renders (CLAUDE.md i18n: none is
+ * hardcoded). Required, with no English default — a caller that forgets
+ * one fails to type-check rather than shipping English chrome to a French
+ * or Italian user (KAN-152). */
+export interface SidebarLabels {
+  /** aria-label of the `<nav>` landmark. */
+  mainNavigation: string;
+  expandSidebar: string;
+  collapseSidebar: string;
+  /** The badge on a not-yet-built nav module or the notifications row. */
+  soon: string;
+  notifications: string;
+  /** The disabled notifications item in the collapsed account menu. */
+  notificationsSoon: string;
+  accountMenu: string;
+  language: string;
+  switchDealership: string;
+  signOut: string;
+}
+
 export interface SidebarProps {
   brand: ReactNode;
   productName: string;
@@ -34,8 +54,7 @@ export interface SidebarProps {
   uiLanguage: UiLanguage;
   onLanguageChange: (language: UiLanguage) => void;
   onSignOut: () => void;
-  /** Translated "Sign out" label — defaults to English. */
-  signOutLabel?: string;
+  labels: SidebarLabels;
   /** The dealership the current session is acting as. */
   activeDealership?: DealershipSummary;
   /** Every dealership this user may switch to, including activeDealership
@@ -76,7 +95,7 @@ export function Sidebar({
   uiLanguage,
   onLanguageChange,
   onSignOut,
-  signOutLabel = "Sign out",
+  labels,
   activeDealership,
   memberships,
   onSwitchDealership,
@@ -88,7 +107,7 @@ export function Sidebar({
 
   return (
     <nav
-      aria-label="Main"
+      aria-label={labels.mainNavigation}
       style={{
         width,
         flexShrink: 0,
@@ -152,7 +171,14 @@ export function Sidebar({
               )
             ) : null}
             {group.items.map((item) => (
-              <NavItem key={item.href} item={item} collapsed={collapsed} active={item.href === activeHref} Link={Link} />
+              <NavItem
+                key={item.href}
+                item={item}
+                collapsed={collapsed}
+                active={item.href === activeHref}
+                soonLabel={labels.soon}
+                Link={Link}
+              />
             ))}
           </div>
         ))}
@@ -163,7 +189,7 @@ export function Sidebar({
         <button
           type="button"
           onClick={onToggleCollapsed}
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          aria-label={collapsed ? labels.expandSidebar : labels.collapseSidebar}
           style={{
             display: "flex",
             alignItems: "center",
@@ -222,7 +248,7 @@ export function Sidebar({
               }}
             >
               <Bell size={16} strokeWidth={2} />
-              <span>Notifications</span>
+              <span>{labels.notifications}</span>
               <span
                 style={{
                   marginLeft: "auto",
@@ -234,7 +260,7 @@ export function Sidebar({
                   padding: "1px 6px",
                 }}
               >
-                SOON
+                {labels.soon}
               </span>
             </div>
           </div>
@@ -244,7 +270,7 @@ export function Sidebar({
           <Menu shadow="md" width={240} position="right-end" offset={8}>
             <Menu.Target>
               <UnstyledButton
-                aria-label="Account menu"
+                aria-label={labels.accountMenu}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -294,7 +320,7 @@ export function Sidebar({
               {collapsed && (
                 <>
                   <Menu.Divider />
-                  <Menu.Label>Language</Menu.Label>
+                  <Menu.Label>{labels.language}</Menu.Label>
                   <div style={{ padding: `0 ${spacing.sm} ${spacing.xs}` }}>
                     <SegmentedControl
                       size="xs"
@@ -310,7 +336,7 @@ export function Sidebar({
                     />
                   </div>
                   <Menu.Item leftSection={<Bell size={16} />} disabled>
-                    Notifications (soon)
+                    {labels.notificationsSoon}
                   </Menu.Item>
                 </>
               )}
@@ -318,7 +344,7 @@ export function Sidebar({
               {canSwitchDealership && activeDealership && (
                 <>
                   <Menu.Divider />
-                  <Menu.Label>Switch dealership</Menu.Label>
+                  <Menu.Label>{labels.switchDealership}</Menu.Label>
                   {memberships!.map((dealership) => (
                     <Menu.Item
                       key={dealership.id}
@@ -335,7 +361,7 @@ export function Sidebar({
 
               <Menu.Divider />
               <Menu.Item leftSection={<LogOut size={16} />} onClick={onSignOut}>
-                {signOutLabel}
+                {labels.signOut}
               </Menu.Item>
             </Menu.Dropdown>
           </Menu>
@@ -349,11 +375,13 @@ function NavItem({
   item,
   collapsed,
   active,
+  soonLabel,
   Link,
 }: {
   item: NavItemConfig;
   collapsed: boolean;
   active: boolean;
+  soonLabel: string;
   Link: LinkLike;
 }) {
   const Icon = item.icon;
@@ -393,7 +421,7 @@ function NavItem({
             padding: "1px 6px",
           }}
         >
-          SOON
+          {soonLabel}
         </span>
       )}
     </div>
