@@ -17,4 +17,5 @@ cd "$ROOT"
 if [ "$(uname -s)" = "Darwin" ]; then
   export DYLD_FALLBACK_LIBRARY_PATH="/opt/homebrew/lib:/usr/local/lib:$HOME/lib:/usr/lib"
 fi
-exec "$ROOT/.venv/bin/uvicorn" app.main:app "$@"
+# ${1+"$@"}: macOS bash 3.2 treats an empty "$@" as unbound under set -u.
+exec "$ROOT/.venv/bin/uvicorn" app.main:app ${1+"$@"}

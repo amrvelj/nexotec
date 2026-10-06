@@ -42,7 +42,7 @@ def test_wrapper_is_executable():
     assert WRAPPER.stat().st_mode & stat.S_IXUSR
 
 
-def _run_wrapper(tmp_path, uname):
+def _run_wrapper(tmp_path, uname, args=("--reload", "--port", "8000")):
     """Run a copy of the wrapper in a fake checkout whose uvicorn reports what it got."""
     checkout = tmp_path / "checkout"
     (checkout / "scripts" / "dev").mkdir(parents=True)
@@ -63,7 +63,7 @@ def _run_wrapper(tmp_path, uname):
     env["PATH"] = f"{bin_dir}{os.pathsep}{env['PATH']}"
     env["HOME"] = "/Users/someone"
     result = subprocess.run(
-        [str(checkout / "scripts" / "dev" / "run-api"), "--reload", "--port", "8000"],
+        [str(checkout / "scripts" / "dev" / "run-api"), *args],
         cwd=tmp_path,
         env=env,
         capture_output=True,
@@ -86,3 +86,9 @@ def test_wrapper_leaves_linux_alone(tmp_path):
     assert seen["dyld"] == "unset"
     assert seen["args"] == "app.main:app --reload --port 8000"
     assert Path(seen["cwd"]).resolve() == checkout.resolve()
+
+
+def test_wrapper_runs_without_arguments(tmp_path):
+    # Written as ${1+"$@"} so macOS bash 3.2 does not call an empty "$@" unbound under set -u.
+    _, seen = _run_wrapper(tmp_path, "Darwin", args=())
+    assert seen["args"] == "app.main:app"
