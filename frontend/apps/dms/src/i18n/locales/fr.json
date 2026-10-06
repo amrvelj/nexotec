@@ -41,6 +41,16 @@
       "error": "La recherche a échoué — veuillez réessayer."
     }
   },
+  "userRole": {
+    "sales": "Conseiller/ère de vente",
+    "service_advisor": "Conseiller/ère de service",
+    "finance_manager": "Responsable financier/ère",
+    "gm": "Directeur/trice général/e",
+    "admin": "Administrateur/trice",
+    "technician": "Technicien/ne",
+    "parts": "Conseiller/ère pièces",
+    "other": "Collaborateur/trice"
+  },
   "common": {
     "filter": "Filtrer",
     "clear": "Effacer",
