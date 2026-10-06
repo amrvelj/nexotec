@@ -138,6 +138,37 @@ describe('StockListPage — scope is part of the URL (ADR-056, KAN-152)', () => 
     expect(search).not.toContain('filters=')
   })
 
+  it('a saved view applied before entering group scope is no longer shown as applied on return', async () => {
+    const predicate = { id: 'p1', fieldId: 'lifecycleStatus', type: 'select', condition: 'is', value: 'in_stock' }
+    installFakeBackend([
+      { match: /^\/inventory\/groups\/mine\/stock-items$/, handler: () => groupPage([groupRow()]) },
+      { match: /^\/inventory\/stock-items$/, handler: () => EMPTY_OWN_PAGE },
+      {
+        method: 'GET',
+        match: /\/me\/preferences\/views:inventory\.stock\.list$/,
+        handler: () => ({
+          payload: { schemaVersion: 1, views: [{ id: 'v1', name: 'Nur an Lager', snapshot: { filters: [predicate] } }] },
+        }),
+      },
+    ])
+
+    renderAt('/stock')
+    await userEvent.click(await screen.findByRole('button', { name: new RegExp(i18n.t('stockList.allStockView')) }))
+    await userEvent.click(await screen.findByText('Nur an Lager'))
+    expect(await screen.findByRole('button', { name: /Nur an Lager/ })).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('stockList.scope.own') }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: i18n.t('stockList.scope.group') }))
+    await screen.findByText('Garage Süd AG')
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('stockList.scope.group') }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: i18n.t('stockList.scope.own') }))
+
+    // Its filters were dropped on the way into group scope, so the control
+    // must not still name the view.
+    expect(await screen.findByRole('button', { name: new RegExp(i18n.t('stockList.allStockView')) })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Nur an Lager/ })).not.toBeInTheDocument()
+  })
+
   it('sorting the group grid is a server-side sort recorded in the URL', async () => {
     const backend = installFakeBackend([
       { match: /^\/inventory\/groups\/mine\/stock-items$/, handler: () => groupPage([groupRow()]) },

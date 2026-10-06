@@ -111,11 +111,16 @@ export function StockListPage() {
     updateUrl({ sort: next.length > 0 ? serializeSort(next) : null })
   }
 
+  const [appliedViewId, setAppliedViewId] = useState<string | null>(null)
+
   const setScope = (next: StockScope) => {
     // The group grid has no filters (§ ADR-055), so own-stock filter chips
     // are dropped on the way in: a shared ?scope=group URL must never claim
     // a filter the grid it opens does not apply (§ ADR-058).
     updateUrl(next === 'group' ? { scope: 'group', filters: null } : { scope: null })
+    // A saved view is a set of filters (§ ADR-058); with its filters gone,
+    // the control must stop naming it.
+    if (next === 'group') setAppliedViewId(null)
   }
 
   // The group grid sorts on the same indexed columns but has no per-user
@@ -136,7 +141,6 @@ export function StockListPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedQuery])
 
-  const [appliedViewId, setAppliedViewId] = useState<string | null>(null)
 
   const sortParam = sort.length > 0 ? serializeSort(sort) : undefined
 
