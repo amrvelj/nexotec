@@ -189,36 +189,63 @@ describe('contact channels — detail screen (ADR-067)', () => {
 })
 
 describe('contact channels — create dialog (same RepeatableRowGroup, ADR-067)', () => {
-  async function openCreateFlowAtStep2(user: ReturnType<typeof userEvent.setup>) {
+  // KAN-165: this test drives ~30 keystrokes and ~10 clicks through the
+  // Mantine create flow, and each one re-renders it in React's development
+  // build, so it is CPU-bound, not waiting on a timer. Two things keep it
+  // well inside the 5 s budget. `delay: null` removes user-event's
+  // setTimeout(0) between keystrokes, a yield a loaded machine can stretch
+  // out. Role queries are scoped to the phone block, because a *ByRole
+  // query computes the accessible name of every candidate in its container.
+  async function openCreateFlowAtStep2(user: ReturnType<typeof userEvent.setup>): Promise<HTMLElement> {
     installFakeBackend([{ match: /^\/customers\/duplicate-check$/, handler: () => ({ items: [], nextCursor: null }) }])
     renderWithProviders(<CustomerCreateFlow onSuccess={() => {}} onCancel={() => {}} />)
     await user.click(screen.getByRole('button', { name: i18n.t('customerCreate.actions.next') }))
-    await screen.findByText(i18n.t('customerDetail.contactPoints.phoneNumbers'))
+    // The heading's parent is the phone block (heading + RepeatableRowGroup).
+    const heading = await screen.findByText(i18n.t('customerDetail.contactPoints.phoneNumbers'))
+    return heading.parentElement as HTMLElement
   }
 
-  async function addPhone(user: ReturnType<typeof userEvent.setup>, type: string, national: string) {
-    await user.click(screen.getByRole('button', { name: new RegExp(i18n.t('customerDetail.contactPoints.addPhone'), 'i') }))
-    const save = screen.getByRole('button', { name: i18n.t('customerDetail.contactPoints.save') })
+  async function addPhone(
+    user: ReturnType<typeof userEvent.setup>,
+    phoneBlock: HTMLElement,
+    type: string,
+    national: string,
+    entry: 'type' | 'paste',
+  ) {
+    await user.click(within(phoneBlock).getByRole('button', { name: new RegExp(i18n.t('customerDetail.contactPoints.addPhone'), 'i') }))
+    const save = within(phoneBlock).getByRole('button', { name: i18n.t('customerDetail.contactPoints.save') })
     const addForm = save.closest('div') as HTMLElement
     // The native type <select> is the first combobox in the add row.
     await user.selectOptions(within(addForm).getAllByRole('combobox')[0], type)
-    await user.type(within(addForm).getByLabelText(i18n.t('customerDetail.phoneInput.number')), national)
+    const numberInput = within(addForm).getByLabelText(i18n.t('customerDetail.phoneInput.number'))
+    if (entry === 'type') {
+      await user.type(numberInput, national)
+    } else {
+      await user.click(numberInput)
+      await user.paste(national)
+    }
     await user.click(save)
   }
 
   it('two mobiles and a work landline render; the mobile primary is marked and re-marking moves it in one interaction', async () => {
-    const user = userEvent.setup()
-    await openCreateFlowAtStep2(user)
+    const user = userEvent.setup({ delay: null })
+    const phoneBlock = await openCreateFlowAtStep2(user)
 
-    await addPhone(user, 'mobile', '791110000')
-    await addPhone(user, 'mobile', '792220000')
-    await addPhone(user, 'work', '443330000')
+    // The first number is typed key by key. Each keystroke re-renders every
+    // row in the group (the add-row draft is the group's state), so typing
+    // all three cost ~0.5 s. The other two are pasted, which is a real way
+    // to enter a number and goes through the same onChange.
+    await addPhone(user, phoneBlock, 'mobile', '791110000', 'type')
+    await addPhone(user, phoneBlock, 'mobile', '792220000', 'paste')
+    await addPhone(user, phoneBlock, 'work', '443330000', 'paste')
 
     expect(screen.getByDisplayValue('0791110000')).toBeInTheDocument()
     expect(screen.getByDisplayValue('0792220000')).toBeInTheDocument()
     expect(screen.getByDisplayValue('0443330000')).toBeInTheDocument()
 
-    let stars = screen.getAllByRole('button', { name: primaryPrefix() })
+    // No email rows exist here, so every primary star on screen is in the
+    // phone block: scoping the query does not narrow what it can see.
+    let stars = within(phoneBlock).getAllByRole('button', { name: primaryPrefix() })
     expect(stars).toHaveLength(2)
     expect(pressedCount(stars)).toBe(1)
     expect(stars[0]).toHaveAttribute('aria-pressed', 'true')
@@ -226,7 +253,7 @@ describe('contact channels — create dialog (same RepeatableRowGroup, ADR-067)'
     await user.click(stars[1])
 
     await waitFor(() => {
-      stars = screen.getAllByRole('button', { name: primaryPrefix() })
+      stars = within(phoneBlock).getAllByRole('button', { name: primaryPrefix() })
       expect(pressedCount(stars)).toBe(1)
       expect(stars[1]).toHaveAttribute('aria-pressed', 'true')
       expect(stars[0]).toHaveAttribute('aria-pressed', 'false')
