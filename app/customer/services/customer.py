@@ -350,9 +350,15 @@ def _allocate_customer_number(db: Session, group_id: uuid.UUID) -> str:
 
     row = db.get(CustomerNumberSequence, group_id, with_for_update=True)
     if row is None:
-        row = CustomerNumberSequence(group_id=group_id, next_value=1)
-        db.add(row)
-        db.flush()
+        # First use of this key. A concurrent first caller can insert the same
+        # row: its commit turns our INSERT into a UniqueViolation (KAN-70). The
+        # savepoint keeps the caller's transaction alive through that, and the
+        # locked re-read below then waits for and takes the winner's row.
+        try:
+            with db.begin_nested():
+                db.add(CustomerNumberSequence(group_id=group_id, next_value=1))
+        except IntegrityError:
+            pass  # the concurrent caller's row now exists; re-read it below
         row = db.get(CustomerNumberSequence, group_id, with_for_update=True)
         assert row is not None, "just-flushed CustomerNumberSequence row vanished before it could be re-read"
 
