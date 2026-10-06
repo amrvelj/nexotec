@@ -8,6 +8,7 @@ since KAN-99 the service can no longer produce a cross-group close, and
 that is exactly the history this detection exists to find.
 """
 
+import os
 import uuid
 
 import pytest
@@ -21,6 +22,10 @@ from app.core.outbox_model import OutboxMessage
 from app.customer.models.customer import Customer, CustomerType, Language
 from app.customer.reconciliation import CloseCategory, find_cross_group_vehicle_party_closes
 from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
+
+_POSTGRES_ONLY = pytest.mark.skipif(
+    not os.environ.get("DMS_TEST_DATABASE_URL"), reason="READ ONLY transactions need Postgres (ADR-011)"
+)
 
 
 def _group(db_session, name: str) -> DealerGroup:
@@ -161,6 +166,7 @@ def test_other_audit_actions_and_event_types_are_ignored(db_session):
     assert find_cross_group_vehicle_party_closes(db_session).rows == []
 
 
+@_POSTGRES_ONLY
 def test_detection_runs_inside_a_read_only_transaction(db_session):
     """Read-only is enforced, not asserted: Postgres rejects any write a
     READ ONLY transaction attempts, flushed or not."""
@@ -178,6 +184,7 @@ def test_detection_runs_inside_a_read_only_transaction(db_session):
     db_session.rollback()
 
 
+@_POSTGRES_ONLY
 def test_the_operator_script_refuses_writes(db_session, monkeypatch):
     """main() opens its session READ ONLY: a write slipped into the
     detection would raise instead of landing."""
