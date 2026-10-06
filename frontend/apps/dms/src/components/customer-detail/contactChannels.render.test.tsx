@@ -189,13 +189,16 @@ describe('contact channels — detail screen (ADR-067)', () => {
 })
 
 describe('contact channels — create dialog (same RepeatableRowGroup, ADR-067)', () => {
-  // KAN-165: this test drives ~30 keystrokes and ~10 clicks through the
-  // Mantine create flow, and each one re-renders it in React's development
-  // build, so it is CPU-bound, not waiting on a timer. Two things keep it
-  // well inside the 5 s budget. `delay: null` removes user-event's
-  // setTimeout(0) between keystrokes, a yield a loaded machine can stretch
-  // out. Role queries are scoped to the phone block, because a *ByRole
-  // query computes the accessible name of every candidate in its container.
+  // KAN-165: this test is CPU-bound, not waiting on a timer. Every keystroke
+  // and click re-renders the Mantine create flow in React's development
+  // build. Three changes cut it by about a quarter (measured: ~2.0 s to
+  // ~1.45 s idle, ~4.7 s to ~3.3 s with the CPU oversubscribed 2x):
+  // - role queries are scoped to the phone block, because a *ByRole query
+  //   computes the accessible name of every candidate in its container;
+  // - two of the three numbers are pasted rather than typed (see the test);
+  // - `delay: null` drops user-event's setTimeout(0) after each keystroke
+  //   (within noise on an idle machine).
+  // The rest is the components' own re-render cost.
   async function openCreateFlowAtStep2(user: ReturnType<typeof userEvent.setup>): Promise<HTMLElement> {
     installFakeBackend([{ match: /^\/customers\/duplicate-check$/, handler: () => ({ items: [], nextCursor: null }) }])
     renderWithProviders(<CustomerCreateFlow onSuccess={() => {}} onCancel={() => {}} />)
@@ -243,8 +246,9 @@ describe('contact channels — create dialog (same RepeatableRowGroup, ADR-067)'
     expect(screen.getByDisplayValue('0792220000')).toBeInTheDocument()
     expect(screen.getByDisplayValue('0443330000')).toBeInTheDocument()
 
-    // No email rows exist here, so every primary star on screen is in the
-    // phone block: scoping the query does not narrow what it can see.
+    // Scoping the star query to the phone block must not narrow what it
+    // can see: every toggle (aria-pressed) on screen is one of these two.
+    expect(document.querySelectorAll('button[aria-pressed]')).toHaveLength(2)
     let stars = within(phoneBlock).getAllByRole('button', { name: primaryPrefix() })
     expect(stars).toHaveLength(2)
     expect(pressedCount(stars)).toBe(1)
