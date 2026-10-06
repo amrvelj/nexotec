@@ -8,14 +8,19 @@ still serving. Each test seeds the value form with raw SQL — the ORM can
 only write names in this step — and goes through a real endpoint.
 """
 
+import os
 import uuid
 
+import pytest
 from sqlalchemy import select, text
 
 from app.core.auth import AccessRole, create_access_token
 from app.core.outbox_model import OutboxMessage, OutboxStatus
 from app.core.outbox_worker import poll_once
 from app.customer.models.customer import ConsentSource, Customer, CustomerEmail
+
+# Raw SQL here is Postgres's (`::text`, `interval`); the lane of record runs it.
+pytestmark = pytest.mark.skipif(not os.environ.get("DMS_TEST_DATABASE_URL"), reason="Postgres-only (ADR-011)")
 
 
 def _token(tenant_id: uuid.UUID, role: AccessRole | None = None, *, is_dealer_manager: bool = False) -> str:
@@ -115,6 +120,25 @@ def test_customer_list_returns_both_forms_with_their_projections(client, db_sess
     assert set(by_id) == {named["id"], valued["id"]}
     assert by_id[valued["id"]]["customerType"] == "individual"
     assert by_id[valued["id"]]["email"] == valued["email"]
+
+
+def test_a_value_form_contact_row_alone_no_longer_500s_the_customer_list(client, db_session):
+    """KAN-91's exact shape: the customer row is in the name form (so
+    KAN-60's guard in list_customers lets it through), only its email row
+    holds the lowercase consent_source 3c8f2a6b1e40 wrote. That row reaches
+    compute_customer_projections_batch, which 500'd the whole page."""
+
+    tenant_id = _create_dealership(client)
+    customer = _create_customer(client, tenant_id, "Valued")
+    db_session.execute(
+        text("UPDATE customer_email SET consent_source = 'form' WHERE customer_id = :id"), {"id": customer["id"]}
+    )
+    db_session.commit()
+
+    response = client.get("/v1/customers", headers=_bearer(_token(tenant_id, AccessRole.SALES)))
+
+    assert response.status_code == 200, response.text
+    assert [(i["id"], i["email"]) for i in response.json()["items"]] == [(customer["id"], customer["email"])]
 
 
 def test_customer_list_filters_match_both_forms(client, db_session):

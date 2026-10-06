@@ -16,7 +16,6 @@ Create Date: 2026-10-06 00:00:00.000000
 
 from typing import Sequence, Union
 
-import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
@@ -26,17 +25,27 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 _INDEX = "ix_outbox_message_pending_next_attempt_at"
+_BUILDING = "ix_outbox_message_pending_next_attempt_at_new"
 
 
 def _rebuild(predicate: str) -> None:
-    op.drop_index(_INDEX, table_name="outbox_message")
-    op.create_index(
-        _INDEX,
-        "outbox_message",
-        ["next_attempt_at"],
-        unique=False,
-        postgresql_where=sa.text(predicate),
-    )
+    """Without locking the outbox. A plain DROP INDEX holds an ACCESS
+    EXCLUSIVE lock on outbox_message until the startup migration's
+    transaction commits, and CREATE INDEX scans the whole table, which
+    nothing ever purges: every request that publishes an event, and the
+    poller, would wait. So the new index is built CONCURRENTLY under a
+    temporary name, the old one dropped CONCURRENTLY, and the new one
+    renamed (a catalogue-only change). Every step is safe to re-run after a
+    failure part-way: a half-built (invalid) index under the temporary name
+    is dropped first."""
+
+    with op.get_context().autocommit_block():
+        op.execute(f"DROP INDEX CONCURRENTLY IF EXISTS {_BUILDING}")
+        op.execute(
+            f"CREATE INDEX CONCURRENTLY {_BUILDING} ON outbox_message (next_attempt_at) WHERE {predicate}"
+        )
+        op.execute(f"DROP INDEX CONCURRENTLY IF EXISTS {_INDEX}")
+        op.execute(f"ALTER INDEX {_BUILDING} RENAME TO {_INDEX}")
 
 
 def upgrade() -> None:

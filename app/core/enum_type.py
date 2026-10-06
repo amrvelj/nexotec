@@ -35,7 +35,7 @@ import enum
 from collections.abc import Iterable
 from typing import Any, cast
 
-from sqlalchemy import String, literal
+from sqlalchemy import String, false, literal
 from sqlalchemy.sql import operators
 from sqlalchemy.types import TypeDecorator
 
@@ -109,38 +109,51 @@ class StoredEnum(TypeDecorator):
         """`col == X` becomes `col IN (<name>, <value>)`; `!=`, `in_` and
         `not_in` widen the same way. NULL handling is unchanged: `!=` and
         `NOT IN` both leave NULL rows out, as before.
+
+        A filter string that is neither a name nor a value of the enum
+        matches nothing (and `!=` matches every non-NULL row) — the same
+        result `sqlalchemy.Enum` gave by passing it through to SQL. It must
+        never raise: some filters take a client-supplied string (e.g.
+        `?role=` on the user list), and that would be a 500. Writes still
+        refuse an unknown string (`process_bind_param`).
+
+        NOT widened, so they see one form only while a table holds both:
+        ordering (`ORDER BY`, `<`, `>`, `BETWEEN`), `IS [NOT] DISTINCT FROM`,
+        `case(value=col)`, column-to-column comparison, explicit
+        `bindparam()`s, and unique constraints. KAN-86 step 2 has to keep
+        each of these in mind for the deploy overlap.
         """
 
         def _forms(self, other: Any) -> list[Any] | None:
             column_type = cast(StoredEnum, self.type)
-            if isinstance(other, column_type.enum_class):
-                members = [other]
-            elif isinstance(other, str):
-                members = [column_type.member_for(other)]
-            elif isinstance(other, Iterable) and not isinstance(other, (str, bytes)):
+            if isinstance(other, (column_type.enum_class, str)):
+                items = [other]
+            elif isinstance(other, Iterable) and not isinstance(other, bytes):
                 items = list(other)
                 if not all(isinstance(i, (column_type.enum_class, str)) for i in items):
                     return None
-                members = [i if isinstance(i, column_type.enum_class) else column_type.member_for(i) for i in items]
             else:
                 return None
             # Plain String literals, so the bind side passes each form
             # through unchanged instead of re-encoding it to _WRITE_FORM.
             forms: list[str] = []
-            for member in members:
+            for item in items:
+                member = item if isinstance(item, column_type.enum_class) else column_type._lookup.get(str(item))
+                if member is None:
+                    continue  # unknown filter value: matches nothing
                 for form in column_type.stored_forms(member):
                     if form not in forms:
                         forms.append(form)
             return [literal(form, String()) for form in forms]
 
         def operate(self, op: Any, *other: Any, **kwargs: Any) -> Any:
-            if len(other) == 1:
-                if op in (operators.eq, operators.ne) and isinstance(other[0], (str, enum.Enum)):
-                    forms = self._forms(other[0])
-                    if forms is not None:
-                        return self.expr.in_(forms) if op is operators.eq else self.expr.not_in(forms)
-                if op in (operators.in_op, operators.not_in_op):
-                    forms = self._forms(other[0])
-                    if forms is not None:
-                        return super().operate(op, forms, **kwargs)
+            if len(other) == 1 and op in (operators.eq, operators.ne, operators.in_op, operators.not_in_op):
+                if op in (operators.eq, operators.ne) and not isinstance(other[0], (str, enum.Enum)):
+                    return super().operate(op, *other, **kwargs)
+                forms = self._forms(other[0])
+                if forms is not None:
+                    positive = op in (operators.eq, operators.in_op)
+                    if not forms:
+                        return false() if positive else self.expr.is_not(None)
+                    return self.expr.in_(forms) if positive else self.expr.not_in(forms)
             return super().operate(op, *other, **kwargs)
