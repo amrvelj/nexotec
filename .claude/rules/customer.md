@@ -95,6 +95,13 @@ main@568f416 on 2026-09-27; the vehicle-party lines against KAN-99's branch on
   `list_vehicle_party_holders`, which also returns each holder's name for the Identity tab,
   KAN-140) are filtered the same way, through one shared statement: a name can only come from
   a holder the group filter already admits.
+- **Cross-group closes written before KAN-99 are detected, not repaired** (KAN-139):
+  `app.customer.reconciliation.find_cross_group_vehicle_party_closes` (run by
+  `scripts/detect_cross_group_vehicle_party_closes.py`) classifies every
+  `vehicle_party_remove` audit row and `unlinked` outbox event against the closed customer's
+  group. A stamp of a dealership in that group is same-group: closes before WP-3 PR-2
+  (2026-08-25) carry the dealership's tenant id. Read-only and not a nightly check (the audit
+  log is append-only, so a finding never clears); a repair is Anto's decision.
 - Group-wide customer history must be served from an event-built projection keyed by
   `group_id` (reporting), never by fan-out across dealerships × services (rule 11, two hops).
   **Not built:** `app/reporting` is a stub, and the History tab shows the audit log.
