@@ -2,10 +2,11 @@
 outbox to a consumer and is provably not reprocessed on redelivery.
 
 Runs on the Postgres lane only (ADR-011 — Postgres is the database of
-record; SQLite may never be the only lane gating a merge). Skipped, not
-failed, when DMS_TEST_DATABASE_URL is unset, since both CI lanes invoke the
-same `pytest` command over the same test tree — this is the only thing that
-distinguishes them from inside a test.
+record, and the only lane CI runs — .github/workflows/test.yml's `postgres`
+job). Skipped, not failed, when DMS_TEST_DATABASE_URL is unset: that is the
+SQLite fast lane, a local convenience over the same test tree, and the env
+var is the only thing that distinguishes the two lanes from inside a test.
+The skip reason prints in every run's short summary (`-rs`, KAN-87).
 
 The "real consumer" here is a stand-in read-model projection (same pattern
 tests/test_outbox.py uses with DemoWidget for the probe event) — no
