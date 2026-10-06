@@ -112,10 +112,13 @@ services:
   # defeats the point of having one.
   #
   # Also runs `alembic upgrade heads` on its own startup, same as the web
-  # service — redundant on a normal deploy (whichever service starts
-  # second just finds the schema already current), but it means this
-  # service has no ordering dependency on the web service ever having
-  # deployed first, including on a brand new environment.
+  # service — redundant on a normal deploy, but it means this service has
+  # no ordering dependency on the web service ever having deployed first,
+  # including on a brand new environment. Safe even when both start at the
+  # same moment: alembic/env.py takes a Postgres advisory lock inside the
+  # migration transaction, so the second run waits for the first to commit
+  # and then finds the schema already current (KAN-92; CI's
+  # migration-smoke-test runs two upgrades concurrently to prove it).
   - name: dms-staging-outbox-worker
     type: worker
     runtime: python
