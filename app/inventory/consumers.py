@@ -57,5 +57,9 @@ def handle_sales_contract_cancelled_message(db: Session, message: OutboxMessage)
     if message.tenant_id is None:
         raise ValueError(f"sales.contract.cancelled message {message.id} has no tenant_id.")
     record_contract_cancelled(
-        db, tenant_id=message.tenant_id, contract_id=message.aggregate_id, cancelled_at=message.occurred_at
+        db,
+        tenant_id=message.tenant_id,
+        contract_id=message.aggregate_id,
+        contract_label=message.payload["contractNumber"],
+        cancelled_at=message.occurred_at,
     )

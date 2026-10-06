@@ -29,9 +29,10 @@ never calls reserve() for it.
 """
 
 import datetime as dt
+import hashlib
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from app.core.errors import ConflictError, NotFoundError
@@ -159,22 +160,55 @@ def release_and_flush(db: Session, *, item: StockItem) -> None:
     )
 
 
-def record_contract_cancelled(
-    db: Session, *, tenant_id: uuid.UUID, contract_id: uuid.UUID, cancelled_at: dt.datetime
-) -> None:
-    """KAN-158 — Stock's side of a contract's cancellation, commit-free (the
-    consumer harness commits). Stock first records that the contract is
-    cancelled, so a confirmation that reaches it later (a retried delivery)
-    never reserves the ordered car (contract_is_cancelled), then releases
-    whatever the contract still holds. A manual configuration's pipeline item
-    is the case this exists for; a stock car's reservation was already
-    released by cancel_contract's own synchronous call, so nothing matches
-    it any more and nothing is emitted twice. Matching on the holder, under a
-    row lock, never touches a reservation another contract has taken since.
+def lock_contract(db: Session, *, tenant_id: uuid.UUID, contract_id: uuid.UUID) -> None:
+    """pg_advisory_xact_lock on a 64-bit key derived from (tenant, contract),
+    released by the transaction's commit or rollback. Both KAN-158 consumers
+    take it first, so a confirmation and a cancellation for one contract,
+    handled by two workers at once, run one after the other: the cancellation
+    then sees the item the confirmation created, or the confirmation sees the
+    recorded cancellation. SQLite (the fast local lane, ADR-011) has no
+    advisory locks and serialises writers on its own, so this is a no-op
+    there. Same idiom as app.customer.services.customer.
     """
 
+    if db.get_bind().dialect.name != "postgresql":
+        return
+    digest = hashlib.sha256(f"inventory.contract:{tenant_id}:{contract_id}".encode()).digest()
+    key = int.from_bytes(digest[:8], "big", signed=True)
+    db.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": key})
+
+
+def record_contract_cancelled(
+    db: Session,
+    *,
+    tenant_id: uuid.UUID,
+    contract_id: uuid.UUID,
+    contract_label: str,
+    cancelled_at: dt.datetime,
+) -> None:
+    """KAN-158 — Stock's side of a contract's cancellation, commit-free (the
+    consumer harness commits). Under the contract's lock, Stock first records
+    that the contract is cancelled, so a confirmation that reaches it later (a
+    retried delivery) never reserves the ordered car (contract_is_cancelled),
+    then releases whatever the contract still holds. A manual configuration's
+    pipeline item is the case this exists for; a stock car's reservation was
+    already released by cancel_contract's own synchronous call, so nothing
+    matches it any more and nothing is emitted twice. Matching on the holder,
+    under a row lock, never touches a reservation another contract has taken
+    since.
+    """
+
+    lock_contract(db, tenant_id=tenant_id, contract_id=contract_id)
     if not contract_is_cancelled(db, tenant_id=tenant_id, contract_id=contract_id):
-        db.add(InventoryCancelledContract(tenant_id=tenant_id, contract_id=contract_id, cancelled_at=cancelled_at))
+        db.add(
+            InventoryCancelledContract(
+                tenant_id=tenant_id,
+                contract_id=contract_id,
+                contract_label=contract_label,
+                contract_denorm_refreshed_at=cancelled_at,
+                cancelled_at=cancelled_at,
+            )
+        )
         db.flush()
 
     items = db.scalars(

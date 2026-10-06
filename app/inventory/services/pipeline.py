@@ -43,7 +43,7 @@ from app.core.errors import ConflictError
 from app.core.outbox import OutboxEvent, publish
 from app.inventory.models.stock_item import LifecycleStatus, StockItem, StockItemCondition
 from app.inventory.schemas.stock_item import StockItemCreate
-from app.inventory.services.reservation import contract_is_cancelled, reserve_and_flush
+from app.inventory.services.reservation import contract_is_cancelled, lock_contract, reserve_and_flush
 from app.inventory.services.stock_item import _build_and_flush_stock_item, mark_purchased_if_ready
 from app.inventory.services.valuation import apply_valuation_ref
 from app.valuation.public import get_valuation_or_404
@@ -105,6 +105,8 @@ def handle_sales_contract_confirmed(db: Session, *, tenant_id: uuid.UUID, payloa
 
     manual_configuration = payload.get("manualConfiguration")
     if manual_configuration is not None:
+        # KAN-158 — serialised with this contract's cancellation consumer.
+        lock_contract(db, tenant_id=tenant_id, contract_id=uuid.UUID(contract_id))
         ordered, created = _create_pipeline_item_idempotent(
             db,
             tenant_id=tenant_id,

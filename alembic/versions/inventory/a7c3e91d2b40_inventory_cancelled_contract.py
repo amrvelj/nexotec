@@ -35,6 +35,8 @@ def upgrade() -> None:
             nullable=False,
             comment="Owned by the sales context (SalesContract.id). No DB-level FK.",
         ),
+        sa.Column("contract_label", sa.String(length=16), nullable=False),
+        sa.Column("contract_denorm_refreshed_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("cancelled_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
     )

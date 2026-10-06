@@ -38,10 +38,12 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   FR-I-11; KAN-158), in the consumer transaction that creates it; a trade-in's is not. Stock
   releases it on `sales.contract.cancelled` (consumer `inventory.sales_contract_cancelled`,
   matching `reserved_by_contract_id`), and records the cancellation in
-  `inventory_cancelled_contract`, so a confirmation delivered after it (a retried delivery)
-  creates the item unreserved. A stock car's reservation is still made and released by Sales'
-  synchronous `reserve()`/`release()` calls (ADR-047 Pattern B). Items of manual contracts
-  confirmed before KAN-158 were created unreserved (backfill: KAN-166).
+  `inventory_cancelled_contract` (with the contract number as rule 2's label), so a
+  confirmation delivered after it (a retried delivery) creates the item unreserved. Both
+  consumers take a per-contract advisory lock first, so two workers cannot interleave them. A
+  stock car's reservation is still made and released by Sales' synchronous
+  `reserve()`/`release()` calls (ADR-047 Pattern B). Before KAN-158, manual items were created
+  unreserved and cancellations were not recorded (backfill: KAN-166).
 - **Fiktiver Vorsteuerabzug** (Art. 28a MWSTG) is recorded at purchase booking
   (`app/inventory/services/purchase.py::record_purchase`), computed from the purchase price and
   the dealership's `vat_rate`, independent of `landed_cost`. Stock owns it; Sales only reads it.

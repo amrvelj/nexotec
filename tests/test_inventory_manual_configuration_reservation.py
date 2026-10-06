@@ -10,9 +10,13 @@ delivers them: the real outbox rows, through app.core.consumer.consume_once
 with the handlers app.worker registers.
 """
 
+import datetime as dt
+import os
+import threading
 import uuid
 from decimal import Decimal
 
+import pytest
 from sqlalchemy import func, select
 from sqlalchemy.orm import sessionmaker
 
@@ -23,6 +27,7 @@ from app.core.outbox_transport import InProcessTransport
 from app.core.outbox_worker import poll_once
 from app.core.uuid7 import uuid7
 from app.inventory.consumers import handle_sales_contract_cancelled_message, handle_sales_contract_confirmed_message
+from app.inventory.models.cancelled_contract import InventoryCancelledContract
 from app.inventory.models.stock_item import ReservationState, StockItem, StockItemCondition
 from app.inventory.schemas.stock_item import StockItemCreate
 from app.inventory.services.pipeline import handle_sales_contract_confirmed
@@ -310,6 +315,9 @@ def test_a_confirmation_retried_after_the_cancellation_leaves_the_item_free(db_s
     transport.register("sales.contract.cancelled", consumer_name=_CANCELLED_CONSUMER, handler=handle_sales_contract_cancelled_message)
 
     assert poll_once(db_session, transport).retried == 1
+    # Hold the retry back for as long as the test needs, whatever the runner's speed.
+    db_session.get(OutboxMessage, confirmed_id).next_attempt_at = utcnow() + dt.timedelta(hours=1)
+    db_session.commit()
 
     cancel_contract(db_session, contract=contract, reason="Kunde storniert.", actor_id=uuid.uuid4(), session_factory=_session_factory(engine))
     poll_once(db_session, transport)  # the cancellation; the confirmation is still backing off
@@ -324,6 +332,69 @@ def test_a_confirmation_retried_after_the_cancellation_leaves_the_item_free(db_s
     item = _manual_item(db_session, contract)
     assert item.reservation_state == ReservationState.NONE
     assert _event_count(db_session, "inventory.stock_item.reserved", item.id) == 0
+
+
+def test_stock_records_the_cancelled_contract_with_its_label(db_session, engine):
+    """Rule 2: Sales' contract id is stored with its display label and the
+    time that label was read."""
+
+    dealership = _dealership(db_session)
+    contract = _confirmed_contract(db_session, engine, dealership)
+    cancel_contract(db_session, contract=contract, reason="Kunde storniert.", actor_id=uuid.uuid4(), session_factory=_session_factory(engine))
+    cancelled = _message(db_session, "sales.contract.cancelled", contract.id)
+    _deliver_cancelled(db_session, contract)
+
+    record = db_session.scalars(select(InventoryCancelledContract).where(InventoryCancelledContract.contract_id == contract.id)).one()
+    assert record.tenant_id == dealership.id
+    assert record.contract_label == contract.contract_number
+    assert record.contract_denorm_refreshed_at == cancelled.occurred_at
+    assert record.cancelled_at == cancelled.occurred_at
+
+
+@pytest.mark.skipif(not os.environ.get("DMS_TEST_DATABASE_URL"), reason="advisory locks and concurrent sessions: Postgres only")
+def test_a_cancellation_consumed_while_the_confirmation_is_in_flight_still_releases(db_session, engine):
+    """Two workers at once: the confirmation consumer has created and reserved
+    the item but not committed when the cancellation consumer runs. The
+    cancellation waits for it (a per-contract advisory lock) and then releases
+    the item it can now see."""
+
+    dealership = _dealership(db_session)
+    contract = _confirmed_contract(db_session, engine, dealership)
+    cancel_contract(db_session, contract=contract, reason="Kunde storniert.", actor_id=uuid.uuid4(), session_factory=_session_factory(engine))
+    confirmed_id = _message(db_session, "sales.contract.confirmed", contract.id).id
+    cancelled_id = _message(db_session, "sales.contract.cancelled", contract.id).id
+
+    confirming = _session_factory(engine)()
+    cancelling = _session_factory(engine)()
+    try:
+        handle_sales_contract_confirmed_message(confirming, confirming.get(OutboxMessage, confirmed_id))  # not committed
+
+        done = threading.Event()
+        errors: list[BaseException] = []
+
+        def cancel_in_another_worker():
+            try:
+                handle_sales_contract_cancelled_message(cancelling, cancelling.get(OutboxMessage, cancelled_id))
+                cancelling.commit()
+            except Exception as exc:  # noqa: BLE001 — collected and asserted empty below, never swallowed
+                errors.append(exc)
+            finally:
+                done.set()
+
+        worker = threading.Thread(target=cancel_in_another_worker)
+        worker.start()
+        assert not done.wait(timeout=1.0), "the cancellation did not wait for the in-flight confirmation"
+        confirming.commit()
+        worker.join(timeout=10)
+        assert done.is_set() and not errors, errors
+    finally:
+        confirming.close()
+        cancelling.close()
+
+    db_session.expire_all()
+    item = _manual_item(db_session, contract)
+    assert item.reservation_state == ReservationState.NONE
+    assert _event_count(db_session, "inventory.stock_item.released", item.id) == 1
 
 
 def test_the_worker_registers_the_cancellation_consumer():
