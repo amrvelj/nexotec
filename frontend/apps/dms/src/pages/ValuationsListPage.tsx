@@ -24,7 +24,7 @@ import { useGridPreferences } from '../hooks/useGridPreferences'
 import { useSavedViews } from '../hooks/useSavedViews'
 import { useUiPreferencesContext } from '../hooks/UiPreferencesContext'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
-import { formatCurrencyChf, formatDate } from '../utils/format'
+import { formatCurrencyChf, formatDate, formatNumber } from '../utils/format'
 import type { ValuationPage, ValuationRead } from '../api/types'
 
 const GRID_KEY = 'valuations.list'
@@ -136,7 +136,7 @@ export function ValuationsListPage() {
       {
         id: 'mileage',
         header: t('valuationsList.columns.mileage'),
-        cell: ({ row }) => (row.original.mileage != null ? row.original.mileage.toLocaleString(locale) : '—'),
+        cell: ({ row }) => (row.original.mileage != null ? formatNumber(row.original.mileage) : '—'),
         meta: { sortField: 'mileage', align: 'right' },
       },
       {
@@ -286,7 +286,6 @@ export function ValuationsListPage() {
           total={total}
           totalIsEstimate={totalIsEstimate}
           isFiltered={isFiltered}
-          locale={locale}
           columnLayout={gridPrefs.columnLayout ?? undefined}
           onColumnLayoutChange={gridPrefs.setColumnLayout}
           labels={{

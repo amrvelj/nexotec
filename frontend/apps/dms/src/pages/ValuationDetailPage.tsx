@@ -7,7 +7,7 @@ import { DetailHeader, OverviewCard, SpecGrid, ValuationSourceBadge, ValuationSt
 import { api, ApiError } from '../api/client'
 import { buildValuationRowMenu } from '../components/valuationRowMenu'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
-import { formatCurrencyChf, formatDate } from '../utils/format'
+import { formatCurrencyChf, formatDate, formatNumber } from '../utils/format'
 import { CustomerDetailContent } from './CustomerDetailPage'
 import type { ValuationRead } from '../api/types'
 
@@ -143,7 +143,7 @@ export function ValuationDetailContent({ valuationId: id, embedded = false }: Va
           items={[
             { label: t('valuationDetail.vehicleCard.vin'), value: valuation.vehicleVin ?? '—' },
             { label: t('valuationDetail.vehicleCard.plate'), value: valuation.vehiclePlate ?? '—' },
-            { label: t('valuationDetail.vehicleCard.mileage'), value: valuation.mileage != null ? `${valuation.mileage.toLocaleString(i18n.language)} km` : '—' },
+            { label: t('valuationDetail.vehicleCard.mileage'), value: valuation.mileage != null ? `${formatNumber(valuation.mileage)} km` : '—' },
             { label: t('valuationDetail.vehicleCard.firstRegistration'), value: valuation.vehicleFirstRegistration ? formatDate(valuation.vehicleFirstRegistration, locale) : '—' },
             { label: t('valuationDetail.vehicleCard.customer'), value: valuation.customerLabel ?? t('valuationsList.noCustomer') },
           ]}

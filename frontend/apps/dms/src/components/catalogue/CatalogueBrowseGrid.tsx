@@ -5,6 +5,7 @@ import { useDebouncedValue } from '@mantine/hooks'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { Copy, Database, Plug } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { formatCurrencyChf, formatNumber } from '../../utils/format'
 import {
   ActionBar,
   ColumnConfigPanel,
@@ -23,7 +24,7 @@ import { useGridPreferences } from '../../hooks/useGridPreferences'
 import { useSavedViews } from '../../hooks/useSavedViews'
 import { api } from '../../api/client'
 import { applyCatalogueFilters, buildCatalogueFilterFields, FACET_LIST_CODE } from '../../catalogueOptions'
-import { toSwissLocale, type SupportedLanguage } from '../../i18n'
+import type { SupportedLanguage } from '../../i18n'
 import type {
   BrandPage,
   CatalogueBrowseMode,
@@ -108,8 +109,7 @@ export interface CatalogueBrowseGridProps {
  * embedded in the configurator overlay's "Find the car" phase (C-C).
  */
 export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGridProps) {
-  const { t, i18n } = useTranslation()
-  const locale = toSwissLocale(i18n.language as SupportedLanguage)
+  const { t } = useTranslation()
   const { density, setDensity } = useUiPreferencesContext()
   const gridPrefs = useGridPreferences(GRID_KEY, { sort: DEFAULT_SORT })
   const savedViews = useSavedViews(GRID_KEY)
@@ -254,20 +254,21 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
       {
         id: 'ps',
         header: t('catalogueBrowse.columns.ps'),
-        cell: ({ row }) => row.original.spec.ps ?? '—',
+        cell: ({ row }) => (row.original.spec.ps != null ? formatNumber(row.original.spec.ps) : '—'),
         meta: { sortField: 'ps', align: 'right' },
       },
       {
         id: 'displacementCcm',
         header: t('catalogueBrowse.columns.displacementCcm'),
-        cell: ({ row }) => row.original.spec.displacementCcm ?? '—',
+        cell: ({ row }) =>
+          row.original.spec.displacementCcm != null ? formatNumber(row.original.spec.displacementCcm) : '—',
         meta: { sortField: 'displacementCcm', align: 'right', defaultVisible: false },
       },
       {
         id: 'basePrice',
         header: t('catalogueBrowse.columns.basePrice'),
         cell: ({ row }) =>
-          row.original.currentPrice ? formatChf(row.original.currentPrice.amount, locale) : '—',
+          row.original.currentPrice ? formatChf(row.original.currentPrice.amount) : '—',
         meta: { sortField: 'basePrice', align: 'right' },
       },
       {
@@ -307,7 +308,7 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
         meta: { align: 'right', defaultVisible: false },
       },
     ],
-    [t, locale, labelFor],
+    [t, labelFor],
   )
 
   const columnRegistry: ColumnRegistryEntry[] = useMemo(
@@ -472,7 +473,6 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
           total={total}
           totalIsEstimate={totalIsEstimate}
           isFiltered={isFiltered}
-          locale={locale}
           selection={{ selectedIds, onSelectionChange: setSelectedIds }}
           columnLayout={gridPrefs.columnLayout ?? undefined}
           onColumnLayoutChange={gridPrefs.setColumnLayout}
@@ -507,7 +507,7 @@ function codeLabel(
   return valueCode ? labelFor(listCode, valueCode) : '—'
 }
 
-function formatChf(amount: string, locale: string): string {
+function formatChf(amount: string): string {
   const n = Number(amount)
-  return Number.isFinite(n) ? `CHF ${n.toLocaleString(locale)}` : amount
+  return Number.isFinite(n) ? formatCurrencyChf(n) : amount
 }

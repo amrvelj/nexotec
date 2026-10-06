@@ -194,7 +194,6 @@ export function OffersContractsTab({
       total={rows.length}
       totalIsEstimate={false}
       isFiltered={false}
-      locale={locale}
       labels={dataGridLabels(t)}
       emptyState={{
         icon: <Handshake size={24} />,
