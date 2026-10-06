@@ -17,18 +17,27 @@ def allocate_vehicle_number(db: Session) -> str:
     """Allocate the next `F-000001`-style number. Global — unlike the
     per-group CustomerNumberSequence (app.customer.models.customer), a
     vehicle is a global fact (ADR-022), so there is exactly one counter,
-    not one per group. Same row-lock-then-increment idiom, same "gaps are
-    harmless, reuse is not" reasoning: a failed transaction burns a
-    number on purpose rather than risk two vehicles sharing one.
+    not one per group. Same row-lock-then-increment idiom: a failed
+    transaction rolls back its increment, so its number is re-issued to
+    the next caller (G-71); a committed number is never handed out twice.
     """
 
     row = db.get(VehicleNumberSequence, "GLOBAL", with_for_update=True)
     if row is None:
-        row = VehicleNumberSequence(singleton_key="GLOBAL", next_value=1)
-        db.add(row)
+        # First use of this key. A concurrent first caller can insert the same
+        # row: its commit turns our INSERT into a UniqueViolation (KAN-70). The
+        # savepoint keeps the caller's transaction alive through that, and the
+        # locked re-read below then waits for and takes the winner's row.
+        # Flush the caller's own pending rows first, so that the except below
+        # can only ever see this counter row's INSERT.
         db.flush()
+        try:
+            with db.begin_nested():
+                db.add(VehicleNumberSequence(singleton_key="GLOBAL", next_value=1))
+        except IntegrityError:
+            pass  # the concurrent caller's row now exists; re-read it below
         row = db.get(VehicleNumberSequence, "GLOBAL", with_for_update=True)
-        assert row is not None, "just-flushed VehicleNumberSequence row vanished before it could be re-read"
+        assert row is not None, "VehicleNumberSequence row missing after its first-use INSERT or the concurrent winner's"
 
     value = row.next_value
     row.next_value += 1

@@ -342,19 +342,29 @@ def _allocate_customer_number(db: Session, group_id: uuid.UUID) -> str:
     (the fast test lane) `with_for_update` is a no-op, which is fine —
     SQLite serialises writers anyway.
 
-    Numbers are allocated, not derived from a COUNT: a failed transaction
-    burns a number and that is deliberate. Gaps are harmless; reuse is not,
-    because a reused number would silently point at two different customers
-    in printed documents.
+    Numbers are allocated, not derived from a COUNT. A failed transaction
+    rolls back its increment with everything else, so the next caller is
+    re-issued that number (G-71) — it never reached a committed customer.
+    What must never happen is reuse of a committed number, because it
+    would silently point at two different customers in printed documents.
     """
 
     row = db.get(CustomerNumberSequence, group_id, with_for_update=True)
     if row is None:
-        row = CustomerNumberSequence(group_id=group_id, next_value=1)
-        db.add(row)
+        # First use of this key. A concurrent first caller can insert the same
+        # row: its commit turns our INSERT into a UniqueViolation (KAN-70). The
+        # savepoint keeps the caller's transaction alive through that, and the
+        # locked re-read below then waits for and takes the winner's row.
+        # Flush the caller's own pending rows first, so that the except below
+        # can only ever see this counter row's INSERT.
         db.flush()
+        try:
+            with db.begin_nested():
+                db.add(CustomerNumberSequence(group_id=group_id, next_value=1))
+        except IntegrityError:
+            pass  # the concurrent caller's row now exists; re-read it below
         row = db.get(CustomerNumberSequence, group_id, with_for_update=True)
-        assert row is not None, "just-flushed CustomerNumberSequence row vanished before it could be re-read"
+        assert row is not None, "CustomerNumberSequence row missing after its first-use INSERT or the concurrent winner's"
 
     value = row.next_value
     row.next_value = value + 1
