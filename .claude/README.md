@@ -70,8 +70,10 @@ crashes never blocks (fail-open with a message); a missing hook script exits 0.
 - **Pango** is the system library WeasyPrint (PDFs) needs; without it nothing that imports the
   app runs. Homebrew on Apple Silicon keeps it in `/opt/homebrew/lib`, which macOS does not
   search, so `bootstrap`, `check`, the session hook and the preview API set
-  `DYLD_FALLBACK_LIBRARY_PATH` themselves. A shell of your own needs the same prefix for app
-  commands: `DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib:/usr/local/lib:/usr/lib .venv/bin/…`.
+  `DYLD_FALLBACK_LIBRARY_PATH` themselves. The preview API passes it as an argument to
+  `/usr/bin/env` (`launch.json`): the desktop app's launcher drops `DYLD_*` from a
+  configuration's `env`, and `check` refuses one there (KAN-112). A shell of your own needs
+  the same prefix for app commands: `DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib:/usr/local/lib:/usr/lib .venv/bin/…`.
 - **Port 5432 must be free for the project's Docker database.** Another Postgres on it (for
   example the postgresql.org installer, `/Library/PostgreSQL/<version>`, which starts at boot)
   makes bootstrap stop with "the user dms was rejected". Stop it:

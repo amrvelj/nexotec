@@ -158,6 +158,16 @@ def lane_config():
     for path in (".claude/settings.json", ".claude/launch.json"):
         if os.path.exists(os.path.join(ROOT, path)):
             ok &= step("valid JSON: " + path, [sys.executable, "-c", "import json,sys; json.load(open(sys.argv[1]))", path])
+    if os.path.exists(os.path.join(ROOT, ".claude/launch.json")):
+        # The desktop app starts preview commands through a protected macOS launcher that drops
+        # DYLD_* from a configuration's "env" before the command runs (KAN-112). Such a variable
+        # goes in as an argument to /usr/bin/env instead.
+        ok &= step("launch.json passes no DYLD_* through env", [sys.executable, "-c", (
+            "import json,sys\n"
+            "bad=[c['name'] for c in json.load(open(sys.argv[1]))['configurations']"
+            " if any(k.startswith('DYLD_') for k in c.get('env', {}))]\n"
+            "sys.exit('DYLD_* in env of ' + ', '.join(bad) + ': pass it via /usr/bin/env' if bad else 0)"),
+            ".claude/launch.json"])
     ok &= step("hooks compile", [sys.executable, "-m", "py_compile", HOOKS])
     ok &= step("hooks selftest", [sys.executable, HOOKS, "cli", "selftest"])
     for script in ("scripts/dev/bootstrap", "scripts/dev/gate"):

@@ -3,18 +3,17 @@
   "configurations": [
     {
       "name": "nexotec-api",
-      "runtimeExecutable": ".venv/bin/uvicorn",
+      "runtimeExecutable": "/usr/bin/env",
       "runtimeArgs": [
+        "DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib:/usr/local/lib:/usr/lib",
+        ".venv/bin/uvicorn",
         "app.main:app",
         "--reload",
         "--port",
         "8000"
       ],
       "port": 8000,
-      "autoPort": false,
-      "env": {
-        "DYLD_FALLBACK_LIBRARY_PATH": "/opt/homebrew/lib:/usr/local/lib:/usr/lib"
-      }
+      "autoPort": false
     },
     {
       "name": "nexotec-frontend",
