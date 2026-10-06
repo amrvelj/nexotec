@@ -23,6 +23,17 @@
       "catalogue": "Catalogo"
     },
     "signOut": "Disconnetti",
+    "sidebar": {
+      "mainNavigation": "Navigazione principale",
+      "expandSidebar": "Espandi la barra laterale",
+      "collapseSidebar": "Comprimi la barra laterale",
+      "soon": "PRESTO",
+      "notifications": "Notifiche",
+      "notificationsSoon": "Notifiche (presto)",
+      "accountMenu": "Menu account",
+      "language": "Lingua",
+      "switchDealership": "Cambia concessionaria"
+    },
     "globalSearch": {
       "placeholder": "Cerca…",
       "recents": "Recenti",

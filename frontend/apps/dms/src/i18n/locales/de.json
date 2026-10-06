@@ -23,6 +23,17 @@
       "catalogue": "Katalog"
     },
     "signOut": "Abmelden",
+    "sidebar": {
+      "mainNavigation": "Hauptnavigation",
+      "expandSidebar": "Seitenleiste ausklappen",
+      "collapseSidebar": "Seitenleiste einklappen",
+      "soon": "BALD",
+      "notifications": "Benachrichtigungen",
+      "notificationsSoon": "Benachrichtigungen (bald)",
+      "accountMenu": "Kontomenü",
+      "language": "Sprache",
+      "switchDealership": "Betrieb wechseln"
+    },
     "globalSearch": {
       "placeholder": "Suchen…",
       "recents": "Kürzlich",

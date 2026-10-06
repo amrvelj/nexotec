@@ -23,6 +23,17 @@
       "catalogue": "Catalogue"
     },
     "signOut": "Sign out",
+    "sidebar": {
+      "mainNavigation": "Main navigation",
+      "expandSidebar": "Expand sidebar",
+      "collapseSidebar": "Collapse sidebar",
+      "soon": "SOON",
+      "notifications": "Notifications",
+      "notificationsSoon": "Notifications (soon)",
+      "accountMenu": "Account menu",
+      "language": "Language",
+      "switchDealership": "Switch dealership"
+    },
     "globalSearch": {
       "placeholder": "Search…",
       "recents": "Recent",
