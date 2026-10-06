@@ -83,7 +83,6 @@ export function GroupStockGrid() {
         total={rows.length}
         totalIsEstimate={false}
         isFiltered={query.length > 0}
-        locale={locale}
         labels={{
           showing: (count) => t('common.showing', { count }),
           showingOfTotal: (count, totalStr) => t('common.showingOfTotal', { count, total: totalStr }),

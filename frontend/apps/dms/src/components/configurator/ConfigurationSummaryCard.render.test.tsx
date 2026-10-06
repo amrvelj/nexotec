@@ -91,4 +91,16 @@ describe('ConfigurationSummaryCard', () => {
     expect(screen.getByText('Sunroof')).toBeInTheDocument()
     expect(screen.queryByText(/1,600|1'600|1600/)).not.toBeInTheDocument()
   })
+
+  // KAN-160: the option price goes through formatCurrencyChf — the same
+  // `CHF 12'500.00` as the printed document, whatever the UI language.
+  it("renders an option price as CHF 12'500.00 under the French UI", async () => {
+    await i18n.changeLanguage('fr')
+    try {
+      renderIn('h', config({ options: [{ ...config().options[0], price: '12500.00' }] }))
+      expect(screen.getByText("CHF 12'500.00")).toBeInTheDocument()
+    } finally {
+      await i18n.changeLanguage('de')
+    }
+  })
 })

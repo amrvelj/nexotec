@@ -8,6 +8,7 @@ import { FormDialog, Picker, type PickerRow } from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
 import { CustomerCreateDialog } from './CustomerCreateDialog'
 import type { CapabilityCheckRead, CustomerPage, CustomerRead, ValuationCreate, ValuationRead, ValuationSourceValue } from '../api/types'
+import { formatCurrencyChf } from '../utils/format'
 
 export interface ValuationCreateDialogProps {
   opened: boolean
@@ -191,7 +192,7 @@ export function ValuationCreateDialog({ opened, onClose, onCreated, supersedes }
               <Group key={i} justify="space-between">
                 <Text size="sm">{d.label}</Text>
                 <Group gap="xs">
-                  <Text size="sm">− {d.amount} CHF</Text>
+                  <Text size="sm">− {formatCurrencyChf(Number(d.amount))}</Text>
                   <UnstyledButton onClick={() => removeDeduction(i)} aria-label={t('common.remove')}>
                     <Trash2 size={14} />
                   </UnstyledButton>

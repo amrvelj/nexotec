@@ -1,6 +1,7 @@
 import { Badge, Card, Group, Stack, Text } from '@mantine/core'
 import { AlertTriangle, PencilRuler } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { formatCurrencyChf, formatNumber } from '../../utils/format'
 import { SpecGrid } from '@nexotec/ui-kit'
 import type { ConfigurationRead } from '../../api/types'
 
@@ -29,10 +30,10 @@ export function ConfigurationSummaryCard({ configuration, onOpenConfigurator }: 
     { label: t('catalogueBrowse.columns.fuelType'), value: c.fuelType ?? '—' },
     { label: t('catalogueBrowse.columns.drivetrain'), value: c.drivetrain ?? '—' },
     { label: t('catalogueBrowse.columns.transmission'), value: c.transmission ?? '—' },
-    { label: t('catalogueBrowse.columns.ps'), value: s.ps ?? '—' },
-    { label: t('catalogueBrowse.columns.displacementCcm'), value: s.displacementCcm ?? '—' },
+    { label: t('catalogueBrowse.columns.ps'), value: s.ps != null ? formatNumber(s.ps) : '—' },
+    { label: t('catalogueBrowse.columns.displacementCcm'), value: s.displacementCcm != null ? formatNumber(s.displacementCcm) : '—' },
     { label: t('configurator.summary.firstRegistration'), value: c.firstRegistrationDate ?? '—' },
-    { label: t('configurator.summary.mileage'), value: c.mileageKm != null ? `${c.mileageKm} km` : '—' },
+    { label: t('configurator.summary.mileage'), value: c.mileageKm != null ? `${formatNumber(c.mileageKm)} km` : '—' },
     { label: t('configurator.summary.colour'), value: c.exteriorColour ?? '—' },
   ]
 
@@ -90,7 +91,7 @@ export function ConfigurationSummaryCard({ configuration, onOpenConfigurator }: 
                 <Text size="sm">{o.description}</Text>
                 {c.mode === 'build' && o.price != null && !o.isIncluded && (
                   <Text size="sm" c="dimmed">
-                    CHF {Number(o.price).toLocaleString()}
+                    {formatCurrencyChf(Number(o.price))}
                   </Text>
                 )}
               </Group>
