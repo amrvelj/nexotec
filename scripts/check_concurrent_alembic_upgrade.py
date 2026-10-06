@@ -1,4 +1,6 @@
-"""Two `alembic upgrade heads` at the same moment must both succeed (KAN-92, CI only).
+"""Two `alembic upgrade heads` at the same moment must both succeed (KAN-92).
+
+Runs in CI's migration-smoke-test and in the migrations lane of scripts/dev/check.
 
 The web service and the outbox worker both migrate on start (render.yaml,
 docker-compose.yml), and so does the Dockerfile CMD of every web replica.
@@ -18,7 +20,9 @@ Asserts schema state, not only exit codes: a lock taken in the wrong place
 makes Alembic leave its transaction uncommitted, so `upgrade heads` exits 0
 with no tables and no alembic_version (measured, see the ticket). Both
 processes must exit 0, alembic_version must hold exactly the heads `alembic
-heads` reports, and every table on Base.metadata must exist.
+heads` reports, and every table on Base.metadata must exist. A trial in which
+the first process had already finished when the second started proves nothing
+and fails too.
 
 Usage: DMS_DATABASE_URL=... python scripts/check_concurrent_alembic_upgrade.py [--repeat N]
 """
@@ -40,6 +44,8 @@ from app.db import Base, with_psycopg_driver
 PENDING_FROM_REVISION = "d2f7b0e9c453"
 SECOND_PROCESS_OFFSET_S = 0.2
 UPGRADE_TIMEOUT_S = 300
+# This interpreter's alembic, never whichever `alembic` comes first on PATH (it may be another checkout's).
+ALEMBIC = [sys.executable, "-m", "alembic"]
 
 
 def libpq_url(sqlalchemy_url: str, database: str) -> str:
@@ -55,7 +61,7 @@ def sqlalchemy_url_for(sqlalchemy_url: str, database: str) -> str:
 
 def alembic(args: list[str], env: dict[str, str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        ["alembic", *args], env=env, capture_output=True, text=True, timeout=UPGRADE_TIMEOUT_S, check=False
+        [*ALEMBIC, *args], env=env, capture_output=True, text=True, timeout=UPGRADE_TIMEOUT_S, check=False
     )
 
 
@@ -74,6 +80,7 @@ def run_trial(base_url: str, scenario: str, heads: set[str]) -> list[str]:
         admin.execute(f'CREATE DATABASE "{name}"')
     env = dict(os.environ, DMS_DATABASE_URL=sqlalchemy_url_for(base_url, name))
     problems: list[str] = []
+    procs: list[subprocess.Popen[str]] = []
     try:
         if scenario == "pending":
             prep = alembic(["upgrade", PENDING_FROM_REVISION], env)
@@ -82,18 +89,19 @@ def run_trial(base_url: str, scenario: str, heads: set[str]) -> list[str]:
                     f"preparing: `alembic upgrade {PENDING_FROM_REVISION}` exited {prep.returncode}:\n{prep.stderr[-2000:]}"
                 ]
 
-        procs = []
         for offset in (0.0, SECOND_PROCESS_OFFSET_S):
             time.sleep(offset)
             procs.append(
                 subprocess.Popen(
-                    ["alembic", "upgrade", "heads"],
+                    [*ALEMBIC, "upgrade", "heads"],
                     env=env,
                     text=True,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
                 )
             )
+        if procs[0].poll() is not None:
+            problems.append("process 1 had already finished when process 2 started - the runs did not overlap")
         for i, proc in enumerate(procs, start=1):
             output, _ = proc.communicate(timeout=UPGRADE_TIMEOUT_S)
             if proc.returncode != 0:
@@ -119,6 +127,10 @@ def run_trial(base_url: str, scenario: str, heads: set[str]) -> list[str]:
         if missing:
             problems.append(f"{len(missing)} of {len(Base.metadata.tables)} mapped tables missing, e.g. {missing[:5]}")
     finally:
+        for proc in procs:  # only still running after a timeout; DROP ... WITH (FORCE) would cut them off anyway
+            if proc.poll() is None:
+                proc.kill()
+                proc.wait()
         with psycopg.connect(admin_url, autocommit=True) as admin:
             admin.execute(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)')
     return problems
@@ -128,6 +140,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--repeat", type=int, default=1, help="trials per scenario (default 1)")
     args = parser.parse_args()
+    if args.repeat < 1:
+        parser.error("--repeat must be at least 1")
 
     base_url = get_settings().database_url
     if make_url(with_psycopg_driver(base_url)).get_backend_name() != "postgresql":

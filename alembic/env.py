@@ -88,12 +88,19 @@ def run_migrations_online() -> None:
             # `alembic upgrade heads` on start (render.yaml, docker-compose.yml,
             # Dockerfile CMD). Without this lock two overlapping runs both start
             # the same migration and the second exits 1 (KAN-92). It is taken
-            # here, inside Alembic's own transaction, and released when that
-            # transaction ends: the second run waits, then finds the schema
-            # current. Never take it with connection.execute() before
-            # begin_transaction(), nor as a session-level pg_advisory_lock:
-            # SQLAlchemy's autobegin then makes Alembic treat the transaction as
-            # external and never commit it (exit 0, nothing migrated).
+            # here, as the first statement inside Alembic's own transaction, and
+            # released when that transaction commits: the second run waits, then
+            # finds the schema current. Keep it here. Executed on the connection
+            # before context.configure(), SQLAlchemy's autobegin opens a
+            # transaction Alembic treats as external and never commits (measured:
+            # exit 0, nothing migrated); a session-level pg_advisory_lock would
+            # outlive the transaction it protects.
+            # Two assumptions hold the guarantee: the whole upgrade is ONE
+            # transaction (no transaction_per_migration, no autocommit_block()
+            # such as CREATE INDEX CONCURRENTLY - either commits mid-run and
+            # releases the lock), and READ COMMITTED isolation (under REPEATABLE
+            # READ the waiting run's snapshot predates the winner's commit, so it
+            # would read a stale alembic_version).
             if connection.dialect.name == "postgresql":
                 connection.execute(
                     text("SELECT pg_advisory_xact_lock(:key)"),
