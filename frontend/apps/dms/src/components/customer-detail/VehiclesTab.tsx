@@ -141,7 +141,6 @@ export function VehiclesTab({
         total={vehicles.length}
         totalIsEstimate={false}
         isFiltered={false}
-        locale={locale}
         labels={dataGridLabels(t)}
         emptyState={{
           icon: <Car size={24} />,

@@ -4,6 +4,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { ChevronDown, ChevronsUpDown, ChevronUp, CircleAlert } from "lucide-react";
 import { purple, radius, semantic, slate, slate25, spacing, white } from "../tokens";
 import { RowMenu, type RowMenuGroups } from "../components/RowMenu";
+import { formatNumber } from "../format/swissNumber";
 import { cycleSort } from "./sorting";
 import { resizeColumn, resolveColumnLayout, type ColumnLayoutState, type ColumnRegistryEntry } from "./columnLayout";
 import "./datagrid.css";
@@ -69,10 +70,6 @@ export interface DataGridProps<T> {
    * hasn't adopted this yet are completely unaffected. */
   columnLayout?: ColumnLayoutState;
   onColumnLayoutChange?: (layout: ColumnLayoutState) => void;
-  /** Swiss locale tag (de-CH/fr-CH/it-CH/en-CH) for the footer's row-count
-   * formatting — apostrophe thousands separator per FR-13. Defaults to the
-   * browser locale for screens that haven't adopted i18n yet. */
-  locale?: string;
   /** Translated overrides for the handful of strings this generic grid
    * owns itself (footer count, retry, loading-more, row-actions trigger).
    * Defaults to the current English copy — optional so untranslated
@@ -126,7 +123,6 @@ export function DataGrid<T>({
   selection,
   columnLayout,
   onColumnLayoutChange,
-  locale,
   labels,
 }: DataGridProps<T>) {
   const L = { ...DEFAULT_GRID_LABELS, ...labels };
@@ -468,7 +464,7 @@ export function DataGrid<T>({
         <span>
           {total === null
             ? L.showing(rows.length)
-            : L.showingOfTotal(rows.length, `${total.toLocaleString(locale)}${totalIsEstimate ? "+" : ""}`)}
+            : L.showingOfTotal(rows.length, `${formatNumber(total)}${totalIsEstimate ? "+" : ""}`)}
         </span>
         {fetchingNextPage && <span>{L.loadingMore}</span>}
       </div>

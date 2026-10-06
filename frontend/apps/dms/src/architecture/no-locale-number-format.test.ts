@@ -1,0 +1,90 @@
+/// <reference types="node" />
+// Node-only file in a browser-typed project — see no-hardcoded-colour.test.ts
+// for why this one reference is the right opt-in.
+import { describe, expect, it } from 'vitest'
+import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+// KAN-160: every user-visible number and CHF amount goes through
+// formatNumber / formatCurrencyChf (packages/ui-kit/src/format/
+// swissNumber.ts, re-exported by apps/dms/src/utils/format.ts). Anything
+// else takes the runtime's CLDR data — U+2019 grouping under ICU 77, a comma
+// decimal and narrow-space grouping under fr-CH, the browser's language with
+// no locale at all — so the same figure looks different on two screens and
+// differs from the printed PDF (`12'500`, period decimal). oxlint has no
+// custom-rule mechanism, so this is a build-failing scan, like the colour one.
+//
+// Dates are not this guard's business: formatDate/formatDateTime follow the
+// locale tag on purpose and use Intl.DateTimeFormat, which is not matched.
+
+const FRONTEND_ROOT = join(dirname(fileURLToPath(import.meta.url)), '../../../..')
+const SCAN_ROOTS = ['apps/dms/src', 'packages/ui-kit/src'].map((p) => join(FRONTEND_ROOT, p))
+
+// The one implementation of Swiss number formatting.
+const EXEMPT_SUFFIXES = ['/packages/ui-kit/src/format/swissNumber.ts']
+
+const SCAN_EXTENSIONS = ['.ts', '.tsx']
+const SKIP_DIR_NAMES = new Set(['node_modules', 'dist', 'build', '.git'])
+
+const FORBIDDEN: { name: string; pattern: RegExp }[] = [
+  { name: 'toLocaleString', pattern: /\.toLocaleString\s*\(/ },
+  { name: 'Intl.NumberFormat', pattern: /\bIntl\s*\.\s*NumberFormat\b/ },
+  { name: "Mantine's NumberFormatter", pattern: /\bNumberFormatter\b/ },
+]
+
+function collectFiles(dir: string, out: string[] = []): string[] {
+  for (const entry of readdirSync(dir)) {
+    if (SKIP_DIR_NAMES.has(entry)) continue
+    const full = join(dir, entry)
+    if (statSync(full).isDirectory()) {
+      collectFiles(full, out)
+    } else if (SCAN_EXTENSIONS.some((ext) => entry.endsWith(ext))) {
+      out.push(full)
+    }
+  }
+  return out
+}
+
+function offendingLines(source: string): string[] {
+  const out: string[] = []
+  source.split('\n').forEach((line, index) => {
+    for (const { name, pattern } of FORBIDDEN) {
+      if (pattern.test(line)) out.push(`${index + 1}: ${name}: ${line.trim()}`)
+    }
+  })
+  return out
+}
+
+describe('numbers are formatted only through formatNumber / formatCurrencyChf', () => {
+  it('finds no locale-dependent number formatting in apps/dms/src or packages/ui-kit/src', () => {
+    const offenders: string[] = []
+    const files = SCAN_ROOTS.flatMap((root) => collectFiles(root))
+    // An empty walk would pass vacuously — the swissNumber.ts exemption
+    // proves the kit root was actually scanned.
+    expect(files.some((file) => EXEMPT_SUFFIXES.some((suffix) => file.endsWith(suffix)))).toBe(true)
+
+    for (const file of files) {
+      if (EXEMPT_SUFFIXES.some((suffix) => file.endsWith(suffix))) continue
+      // Tests may need to name or emulate Intl to assert against it
+      // (format.test.ts emulates newer CLDR data on Intl.NumberFormat).
+      if (/\.test\.tsx?$/.test(file)) continue
+      for (const line of offendingLines(readFileSync(file, 'utf-8'))) {
+        offenders.push(`${file.slice(FRONTEND_ROOT.length + 1)}:${line}`)
+      }
+    }
+
+    expect(offenders).toEqual([])
+  })
+
+  // The scan above passes on an empty result as easily as on a clean tree —
+  // this proves each pattern fires on the shapes KAN-160 removed.
+  it('each pattern matches the call shapes it exists to stop', () => {
+    expect(offendingLines('{r.value.toLocaleString()}')).toHaveLength(1)
+    expect(offendingLines('`CHF ${n.toLocaleString(locale)}`')).toHaveLength(1)
+    expect(offendingLines("new Intl.NumberFormat('fr-CH').format(n)")).toHaveLength(1)
+    expect(offendingLines(`<NumberFormatter value={n} thousandSeparator="'" />`)).toHaveLength(1)
+    expect(offendingLines('formatNumber(row.original.odometerKm)')).toEqual([])
+    expect(offendingLines('new Date(iso).toLocaleDateString()')).toEqual([])
+  })
+})

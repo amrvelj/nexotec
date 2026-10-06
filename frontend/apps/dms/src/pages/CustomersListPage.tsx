@@ -705,7 +705,6 @@ export function CustomersListPage() {
           total={total}
           totalIsEstimate={totalIsEstimate}
           isFiltered={isFiltered}
-          locale={locale}
           selection={{ selectedIds, onSelectionChange: setSelectedIds }}
           columnLayout={columnLayout}
           onColumnLayoutChange={gridPrefs.setColumnLayout}

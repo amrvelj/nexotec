@@ -1,6 +1,7 @@
 import { Badge, Card, Group, Stack, Text } from '@mantine/core'
 import { AlertTriangle, PencilRuler } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { formatCurrencyChf } from '../../utils/format'
 import { SpecGrid } from '@nexotec/ui-kit'
 import type { ConfigurationRead } from '../../api/types'
 
@@ -90,7 +91,7 @@ export function ConfigurationSummaryCard({ configuration, onOpenConfigurator }: 
                 <Text size="sm">{o.description}</Text>
                 {c.mode === 'build' && o.price != null && !o.isIncluded && (
                   <Text size="sm" c="dimmed">
-                    CHF {Number(o.price).toLocaleString()}
+                    {formatCurrencyChf(Number(o.price))}
                   </Text>
                 )}
               </Group>
