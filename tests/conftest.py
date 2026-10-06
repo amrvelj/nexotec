@@ -6,7 +6,7 @@ from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, event, make_url, text
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -46,13 +46,15 @@ from app.platform.services.oidc import get_oidc_client
 from tests.demo_models import DemoWidget  # noqa: F401  registers the test-only tenant-scoped model
 from tests.fake_oidc import FakeOidcClient
 
-# Two test lanes (CTO condition on issue #2's merge): fast SQLite in-memory
-# by default, or the real Postgres container from docker-compose when
-# DMS_TEST_DATABASE_URL is set — see README "Running tests" and
-# .github/workflows/test.yml. User is the first FK relationship in the
-# schema; SQLite's weaker constraint/concurrency enforcement can hide bugs
-# that only show up against Postgres, so CI runs the Postgres lane only
-# (ADR-011).
+# Two test lanes: Postgres when DMS_TEST_DATABASE_URL is set (the lane of
+# record, and the only one CI runs: .github/workflows/test.yml's `postgres`
+# job, ADR-011), else SQLite in-memory as a fast local lane. SQLite checks
+# less than Postgres: foreign keys only because _make_engine turns them on,
+# and never VARCHAR lengths, row locks (with_for_update is a no-op) or the
+# Postgres-only tests, which skip. pytest_report_header below names the lane
+# in every run's header (-q hides the header), and -rfEs in pyproject.toml
+# prints every skip reason, so a fast-lane run cannot pass for the lane of record.
+# See README "Running tests".
 _TEST_DATABASE_URL = os.environ.get("DMS_TEST_DATABASE_URL")
 # Marks this run's own connections, so _PostgresSchema only ever terminates those.
 _APPLICATION_NAME = f"nexotec-tests-{os.getpid()}"
@@ -69,8 +71,28 @@ def _make_engine():
     # keeps every checkout on the single shared connection regardless of
     # thread, needed once `client` below drives real HTTP requests through
     # entity routers that hit the DB (issue #2+).
-    return create_engine(
+    eng = create_engine(
         "sqlite+pysqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=StaticPool
+    )
+    # SQLite ignores foreign keys unless each connection asks for them
+    # (KAN-87); tests/test_test_database_enforces_foreign_keys.py pins it.
+    event.listen(eng, "connect", _enforce_sqlite_foreign_keys)
+    return eng
+
+
+def _enforce_sqlite_foreign_keys(dbapi_connection, _connection_record) -> None:
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
+
+
+def pytest_report_header(config) -> str:
+    if _TEST_DATABASE_URL:
+        url = make_url(_TEST_DATABASE_URL).render_as_string(hide_password=True)
+        return f"test database: {url} (Postgres, the lane of record, ADR-011)"
+    return (
+        "test database: SQLite in-memory: fast local lane, NOT the lane of record (ADR-011);"
+        " does not check VARCHAR lengths or row locks; Postgres-only tests are skipped."
     )
 
 

@@ -30,6 +30,7 @@ from app.core.reconciliation import seconds_since_last_reconciliation
 from app.db import SessionLocal
 from app.integration.daily_jobs import run_daily_integration_jobs
 from app.inventory.consumers import (
+    handle_sales_contract_cancelled_message,
     handle_sales_contract_confirmed_message,
     handle_stock_item_published_message,
     handle_stock_item_unpublished_message,
@@ -55,6 +56,13 @@ def register_handlers(transport: InProcessTransport) -> None:
         "sales.contract.confirmed",
         consumer_name="inventory.sales_contract_confirmed",
         handler=handle_sales_contract_confirmed_message,
+    )
+    # KAN-158 — Stock releases what a cancelled contract still holds: the
+    # reservation it made itself on a manual configuration's pipeline item.
+    transport.register(
+        "sales.contract.cancelled",
+        consumer_name="inventory.sales_contract_cancelled",
+        handler=handle_sales_contract_cancelled_message,
     )
     # WP-8 PR-6 — the second real consumer: sales.stock_item_purchased
     # maintains its own local is_invoiceable replica (ADR-052).
