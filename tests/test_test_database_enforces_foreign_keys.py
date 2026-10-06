@@ -18,7 +18,7 @@ from app.platform.models.reference_data import ReferenceValue
 
 def test_a_child_row_without_its_parent_is_rejected(engine):
     now = utcnow()
-    with pytest.raises(IntegrityError), engine.begin() as conn:
+    with pytest.raises(IntegrityError, match="(?i)foreign key"), engine.begin() as conn:
         conn.execute(
             insert(ReferenceValue.__table__).values(
                 id=uuid.uuid4(),

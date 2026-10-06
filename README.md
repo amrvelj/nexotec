@@ -122,8 +122,8 @@ in this repo can provision for you.
 **Postgres is the only lane that gates a merge** (ADR-011,
 `.github/workflows/test.yml`'s `postgres` job) — the real container from
 `docker-compose.yml`. SQLite's weaker constraint/concurrency enforcement
-can hide bugs (missing FK violations, isolation differences) that only
-show up against Postgres.
+can hide bugs (unchecked lengths, row locks, isolation differences) that
+only show up against Postgres.
 
 ```bash
 docker compose up -d db
@@ -149,8 +149,9 @@ length), row locks (`with_for_update` is a no-op, so lock races and number
 allocation under concurrency go untested), and the Postgres-only tests,
 which skip. Foreign keys *are* enforced: `tests/conftest.py` turns
 `PRAGMA foreign_keys` on for every connection. Every run's header names the
-database it uses, and the short summary prints each skip reason, so a
-fast-lane run never reads like the lane of record.
+database it uses (unless `-q` hides the header, as `scripts/dev/check`'s
+own step titles name the lane instead), and the short summary prints each
+skip reason, so a fast-lane run never reads like the lane of record.
 
 ## Database migrations
 

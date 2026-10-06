@@ -51,8 +51,9 @@ from tests.fake_oidc import FakeOidcClient
 # job, ADR-011), else SQLite in-memory as a fast local lane. SQLite checks
 # less than Postgres: foreign keys only because _make_engine turns them on,
 # and never VARCHAR lengths, row locks (with_for_update is a no-op) or the
-# Postgres-only tests, which skip. pytest_report_header below says on every
-# run which lane it is, so a fast-lane run cannot pass for the lane of record.
+# Postgres-only tests, which skip. pytest_report_header below names the lane
+# in every run's header (-q hides the header), and -rfEs in pyproject.toml
+# prints every skip reason, so a fast-lane run cannot pass for the lane of record.
 # See README "Running tests".
 _TEST_DATABASE_URL = os.environ.get("DMS_TEST_DATABASE_URL")
 # Marks this run's own connections, so _PostgresSchema only ever terminates those.

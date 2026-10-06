@@ -67,8 +67,9 @@ seed-tools = [
 pythonpath = ["."]
 testpaths = ["tests"]
 # Skip reasons in every short summary: a bare "N skipped" hides that a
-# Postgres-only test did not run on the SQLite fast lane (KAN-87).
-addopts = "-rs"
+# Postgres-only test did not run on the SQLite fast lane (KAN-87). -r
+# replaces pytest's default "fE", so failures and errors are named too.
+addopts = "-rfEs"
 
 [build-system]
 requires = ["setuptools>=68"]

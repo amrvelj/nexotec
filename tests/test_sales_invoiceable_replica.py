@@ -442,12 +442,13 @@ def test_request_invoice_refuses_a_manual_configuration_until_sales_knows_it_is_
 # --- The migration's backfill ------------------------------------------------
 
 
-# Alembic runs against Postgres only. The migrations' lightweight tables type
-# their ids as postgresql.UUID, which on SQLite binds 32 hex digits while the
-# app's GUID stores 36-character strings, so the backfills find no rows there.
+# These call the migrations' backfill() directly, and migrations target
+# Postgres only. Their lightweight tables type ids as postgresql.UUID, which on
+# SQLite binds 32 hex digits while the app's GUID stores 36-character strings,
+# so the backfills' joins and UPDATEs match nothing there.
 _postgres_only_migration = pytest.mark.skipif(
     not os.environ.get("DMS_TEST_DATABASE_URL"),
-    reason="Migration backfill: Alembic runs on Postgres only (ADR-011); SQLite binds the migration's UUIDs differently.",
+    reason="Migration backfill: migrations target Postgres only (ADR-011); SQLite binds the migration's UUIDs differently.",
 )
 
 
