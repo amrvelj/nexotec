@@ -147,6 +147,8 @@ describe('CustomersListPage — the column set (KAN-51 half 1 + partial half 2)'
     expect(screen.getByText('https://mueller-ag.ch')).toBeInTheDocument()
     expect(screen.getByText('CH93 0076 2011 6238 5295 7')).toBeInTheDocument()
     expect(screen.getByText('Bevorzugt Kontakt per E-Mail.')).toBeInTheDocument()
+    // KAN-160: the credit limit is a CHF amount, formatted like everywhere else.
+    expect(screen.getByText("CHF 5'000.00")).toBeInTheDocument()
 
     // K-2002 has none of these set — every new cell renders "—", never a crash.
     const rowTwo = screen.getByRole('row', { name: /K-2002/ })

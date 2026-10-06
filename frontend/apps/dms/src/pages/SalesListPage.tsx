@@ -330,7 +330,6 @@ export function SalesListPage() {
           total={total}
           totalIsEstimate={totalIsEstimate}
           isFiltered={isFiltered}
-          locale={locale}
           columnLayout={gridPrefs.columnLayout ?? undefined}
           onColumnLayoutChange={gridPrefs.setColumnLayout}
           labels={{

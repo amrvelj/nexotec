@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { X } from "lucide-react";
 import { purple, radius, semantic, spacing, typography } from "../tokens";
+import { formatNumber } from "../format/swissNumber";
 
 export interface SelectionBarAction {
   label: string;
@@ -28,7 +29,7 @@ export interface SelectionBarProps {
  */
 export function SelectionBar({ count, onClear, actions, clearLabel = "Clear selection", countLabel }: SelectionBarProps) {
   if (count === 0) return null;
-  const label = (countLabel ?? ((n: number) => `${n} selected`))(count);
+  const label = (countLabel ?? ((n: number) => `${formatNumber(n)} selected`))(count);
 
   return (
     <div

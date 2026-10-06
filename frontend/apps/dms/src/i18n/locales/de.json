@@ -37,8 +37,8 @@
     "retry": "Erneut versuchen",
     "loadingMore": "Wird geladen…",
     "rowActionsLabel": "Zeilenaktionen",
-    "showing": "{{count}} angezeigt",
-    "showingOfTotal": "{{count}} von {{total}} angezeigt",
+    "showing": "{{count, number}} angezeigt",
+    "showingOfTotal": "{{count, number}} von {{total}} angezeigt",
     "removeFilter": "Filter entfernen: {{label}}",
     "density": {
       "compact": "Kompakt",
@@ -107,7 +107,7 @@
     },
     "duplicates": {
       "heading_one": "Möglicher bestehender Kunde",
-      "heading_other": "{{count}} mögliche bestehende Kunden",
+      "heading_other": "{{count, number}} mögliche bestehende Kunden",
       "exactMatch": "Exakte Übereinstimmung",
       "openInstead": "Stattdessen öffnen"
     },
@@ -273,7 +273,7 @@
     },
     "allCustomersView": "Alle Kunden",
     "selection": {
-      "count": "{{count}} ausgewählt",
+      "count": "{{count, number}} ausgewählt",
       "clear": "Auswahl aufheben",
       "export": "Exportieren",
       "print": "Drucken"
@@ -534,7 +534,7 @@
       "action": "Suche löschen"
     },
     "selection": {
-      "count": "{{count}} ausgewählt",
+      "count": "{{count, number}} ausgewählt",
       "clear": "Auswahl aufheben",
       "copyIds": "IDs kopieren"
     }
@@ -784,7 +784,7 @@
       "manual": "Manuell"
     },
     "publishing": {
-      "blockingBannerTitle": "{{count}} Punkt(e) verhindern die Publikation",
+      "blockingBannerTitle": "{{count, number}} Punkt(e) verhindern die Publikation",
       "channelsTitle": "Kanäle",
       "published": "Publiziert",
       "notPublished": "Nicht publiziert",
@@ -798,7 +798,7 @@
       "unpublishConfirmSubmit": "Depublizieren",
       "unpublishConfirmBody": "Das Inserat auf {{channel}} wird zusammen mit seiner Statistik und der Inserate-URL gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.",
       "listingTextTitle": "Inseratetexte",
-      "titleDisplayLimit": "Auf der Ergebnisliste werden {{count}} Zeichen angezeigt.",
+      "titleDisplayLimit": "Auf der Ergebnisliste werden {{count, number}} Zeichen angezeigt.",
       "haendlerbemerkungenHint": "Nur für den Betrieb sichtbar — erscheint nicht im Inserat.",
       "fields": {
         "zusatztitel": "Zusatztitel",
@@ -814,7 +814,7 @@
         "moveRight": "Nach rechts verschieben",
         "remove": "Entfernen",
         "addPhoto": "Foto hinzufügen",
-        "countOf": "{{count}} / {{max}}"
+        "countOf": "{{count, number}} / {{max, number}}"
       },
       "equipment": {
         "title": "Ausstattung",
@@ -879,7 +879,7 @@
       "open": "Öffnen"
     },
     "selection": {
-      "count": "{{count}} ausgewählt",
+      "count": "{{count, number}} ausgewählt",
       "clear": "Auswahl aufheben",
       "copyIds": "IDs kopieren"
     }
@@ -1355,7 +1355,7 @@
       "action": "Filter zurücksetzen"
     },
     "selection": {
-      "count": "{{count}} ausgewählt",
+      "count": "{{count, number}} ausgewählt",
       "clear": "Auswahl aufheben",
       "copyIds": "IDs kopieren"
     }
