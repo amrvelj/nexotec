@@ -19,6 +19,12 @@ cancellation) or the nightly reconciliation job (compares every active
 reservation against a confirmed contract and releases orphans — not
 built in this PR; flagged as PR-7/WP-8 follow-up work, same as the
 sales-side producer this whole module waits on) clears one.
+
+KAN-158 — a manual configuration's pipeline item is reserved by Stock itself
+when its consumer creates the item (reserve_and_flush, in the consumer's
+transaction), and released by Stock when it consumes
+`sales.contract.cancelled` (release_reservations_held_by_contract). Sales
+never calls reserve() for it.
 """
 
 import uuid
@@ -61,24 +67,7 @@ def reserve(
             details={"stockItemId": str(stock_item_id)},
         )
 
-    reservation_id = uuid7()
-    item.reservation_state = ReservationState.RESERVED
-    item.reserved_by_contract_id = contract_id
-    item.active_reservation_id = reservation_id
-    item.version += 1
-    db.flush()
-
-    publish(
-        db,
-        OutboxEvent(
-            event_type="inventory.stock_item.reserved",
-            tenant_id=tenant_id,
-            producer=_EVENT_PRODUCER,
-            aggregate_type="stock_item",
-            aggregate_id=item.id,
-            payload={"reservationId": str(reservation_id), "contractId": str(contract_id)},
-        ),
-    )
+    reservation_id = reserve_and_flush(db, item=item, contract_id=contract_id)
 
     response_body = {"reservationId": str(reservation_id), "stockItemId": str(item.id)}
     store_response(
@@ -104,6 +93,50 @@ def release(db: Session, *, tenant_id: uuid.UUID, reservation_id: uuid.UUID, ide
     if item is None:
         raise NotFoundError(f"Reservation {reservation_id} was not found.")
 
+    release_and_flush(db, item=item)
+
+    response_body = {"stockItemId": str(item.id)}
+    store_response(
+        db, tenant_id=tenant_id, key=idempotency_key, path=path, body=body, response_status=200,
+        response_body=response_body,
+    )
+    db.commit()
+    return response_body
+
+
+def reserve_and_flush(db: Session, *, item: StockItem, contract_id: uuid.UUID) -> uuid.UUID:
+    """The commit-free core of reserve(), shared with the pipeline consumer
+    (KAN-158), whose write must land in the SAME transaction as the consumer
+    harness's ProcessedEvent row. The caller has already established that
+    the item carries no active reservation.
+    """
+
+    reservation_id = uuid7()
+    item.reservation_state = ReservationState.RESERVED
+    item.reserved_by_contract_id = contract_id
+    item.active_reservation_id = reservation_id
+    item.version += 1
+    db.flush()
+
+    publish(
+        db,
+        OutboxEvent(
+            event_type="inventory.stock_item.reserved",
+            tenant_id=item.tenant_id,
+            producer=_EVENT_PRODUCER,
+            aggregate_type="stock_item",
+            aggregate_id=item.id,
+            payload={"reservationId": str(reservation_id), "contractId": str(contract_id)},
+        ),
+    )
+    return reservation_id
+
+
+def release_and_flush(db: Session, *, item: StockItem) -> None:
+    """The commit-free core of release(), shared with the
+    `sales.contract.cancelled` consumer (KAN-158) for the same reason."""
+
+    reservation_id = item.active_reservation_id
     item.reservation_state = ReservationState.NONE
     item.reserved_by_contract_id = None
     item.active_reservation_id = None
@@ -114,7 +147,7 @@ def release(db: Session, *, tenant_id: uuid.UUID, reservation_id: uuid.UUID, ide
         db,
         OutboxEvent(
             event_type="inventory.stock_item.released",
-            tenant_id=tenant_id,
+            tenant_id=item.tenant_id,
             producer=_EVENT_PRODUCER,
             aggregate_type="stock_item",
             aggregate_id=item.id,
@@ -122,10 +155,25 @@ def release(db: Session, *, tenant_id: uuid.UUID, reservation_id: uuid.UUID, ide
         ),
     )
 
-    response_body = {"stockItemId": str(item.id)}
-    store_response(
-        db, tenant_id=tenant_id, key=idempotency_key, path=path, body=body, response_status=200,
-        response_body=response_body,
-    )
-    db.commit()
-    return response_body
+
+def release_reservations_held_by_contract(db: Session, *, tenant_id: uuid.UUID, contract_id: uuid.UUID) -> None:
+    """KAN-158 — Stock's side of a contract's cancellation: whatever the
+    cancelled contract still holds is released, commit-free (the consumer
+    harness commits). A manual configuration's pipeline item is the case
+    this exists for; a stock car's reservation was already released by
+    cancel_contract's own synchronous call, so nothing matches it any more
+    and nothing is emitted twice. Matching on the holder, under a row lock,
+    never touches a reservation another contract has taken since.
+    """
+
+    items = db.scalars(
+        select(StockItem)
+        .where(
+            StockItem.tenant_id == tenant_id,
+            StockItem.reserved_by_contract_id == contract_id,
+            StockItem.reservation_state == ReservationState.RESERVED,
+        )
+        .with_for_update()
+    ).all()
+    for item in items:
+        release_and_flush(db, item=item)

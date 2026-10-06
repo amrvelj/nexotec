@@ -18,6 +18,7 @@ from app.core.outbox_model import OutboxMessage
 from app.inventory.models.stock_item_publishing import MarketplaceChannel
 from app.inventory.services import marketplace_transmission
 from app.inventory.services.pipeline import handle_sales_contract_confirmed
+from app.inventory.services.reservation import release_reservations_held_by_contract
 
 
 def handle_sales_contract_confirmed_message(db: Session, message: OutboxMessage) -> None:
@@ -46,3 +47,12 @@ def handle_stock_item_published_message(db: Session, message: OutboxMessage) -> 
 
 def handle_stock_item_unpublished_message(db: Session, message: OutboxMessage) -> None:
     _handle_marketplace_transmission_message(db, message)
+
+
+def handle_sales_contract_cancelled_message(db: Session, message: OutboxMessage) -> None:
+    """KAN-158 — a cancelled contract's reservations are released by Stock,
+    their one writer. The contract is the event's aggregate."""
+
+    if message.tenant_id is None:
+        raise ValueError(f"sales.contract.cancelled message {message.id} has no tenant_id.")
+    release_reservations_held_by_contract(db, tenant_id=message.tenant_id, contract_id=message.aggregate_id)
