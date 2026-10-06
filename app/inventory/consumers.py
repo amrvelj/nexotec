@@ -10,6 +10,9 @@ Registered in app.worker.register_handlers as:
         consumer_name="inventory.sales_contract_confirmed",
         handler=handle_sales_contract_confirmed_message,
     )
+
+and, since KAN-158, `sales.contract.cancelled` as
+`inventory.sales_contract_cancelled` (handle_sales_contract_cancelled_message).
 """
 
 from sqlalchemy.orm import Session
@@ -18,6 +21,7 @@ from app.core.outbox_model import OutboxMessage
 from app.inventory.models.stock_item_publishing import MarketplaceChannel
 from app.inventory.services import marketplace_transmission
 from app.inventory.services.pipeline import handle_sales_contract_confirmed
+from app.inventory.services.reservation import record_contract_cancelled
 
 
 def handle_sales_contract_confirmed_message(db: Session, message: OutboxMessage) -> None:
@@ -46,3 +50,19 @@ def handle_stock_item_published_message(db: Session, message: OutboxMessage) -> 
 
 def handle_stock_item_unpublished_message(db: Session, message: OutboxMessage) -> None:
     _handle_marketplace_transmission_message(db, message)
+
+
+def handle_sales_contract_cancelled_message(db: Session, message: OutboxMessage) -> None:
+    """KAN-158 — Stock records the cancellation and releases what the
+    contract still holds; Stock is the one writer of both. The contract is
+    the event's aggregate."""
+
+    if message.tenant_id is None:
+        raise ValueError(f"sales.contract.cancelled message {message.id} has no tenant_id.")
+    record_contract_cancelled(
+        db,
+        tenant_id=message.tenant_id,
+        contract_id=message.aggregate_id,
+        contract_label=message.payload["contractNumber"],
+        cancelled_at=message.occurred_at,
+    )

@@ -22,6 +22,10 @@ pointer, read from app.valuation.public in this same transaction.
 the WP-9 invoice leg; this consumer ignores it. It never carries margin,
 trade-in purchase price or cost basis (ADR-029).
 
+The manual configuration's item is created reserved for the contract
+(KAN-158, PRD-Stock K-12): the customer has ordered that car. The
+trade-in's is not — the dealership is buying it, nobody has ordered it.
+
 `vehicleSource == "manual"` and a non-empty `tradeIn` are independent —
 a contract can carry either, both, or neither (a manual configuration
 paid for partly by a trade-in is the ordinary case, not an edge case).
@@ -39,6 +43,7 @@ from app.core.errors import ConflictError
 from app.core.outbox import OutboxEvent, publish
 from app.inventory.models.stock_item import LifecycleStatus, StockItem, StockItemCondition
 from app.inventory.schemas.stock_item import StockItemCreate
+from app.inventory.services.reservation import contract_is_cancelled, lock_contract, reserve_and_flush
 from app.inventory.services.stock_item import _build_and_flush_stock_item, mark_purchased_if_ready
 from app.inventory.services.valuation import apply_valuation_ref
 from app.valuation.public import get_valuation_or_404
@@ -55,8 +60,10 @@ def _create_pipeline_item_idempotent(
     condition: StockItemCondition,
     pipeline_ref: str,
     origin: dict[str, str],
-) -> StockItem:
-    """Defense-in-depth against a genuine duplicate emission (a different
+) -> tuple[StockItem, bool]:
+    """Returns the item and whether this call created it.
+
+    Defense-in-depth against a genuine duplicate emission (a different
     message id, same business event) — the outbox harness's ProcessedEvent
     table already stops the SAME message id being handled twice; this
     catches the case that slips past it, via the (tenant_id, pipeline_ref)
@@ -67,14 +74,14 @@ def _create_pipeline_item_idempotent(
         select(StockItem).where(StockItem.tenant_id == tenant_id, StockItem.pipeline_ref == pipeline_ref)
     )
     if existing is not None:
-        return existing
+        return existing, False
 
     try:
         # No commit here — this must land in the SAME transaction as the
         # outbox consumer harness's ProcessedEvent row (app.core.consumer's
         # own "one rule"). consume_once() commits once, after the handler
         # returns.
-        return _build_and_flush_stock_item(
+        item = _build_and_flush_stock_item(
             db,
             tenant_id=tenant_id,
             data=StockItemCreate(vehicle_label=vehicle_label, condition=condition),
@@ -82,6 +89,7 @@ def _create_pipeline_item_idempotent(
             pipeline_ref=pipeline_ref,
             origin=origin,
         )
+        return item, True
     except IntegrityError:
         db.rollback()
         existing = db.scalar(
@@ -89,7 +97,7 @@ def _create_pipeline_item_idempotent(
         )
         if existing is None:
             raise
-        return existing
+        return existing, False
 
 
 def handle_sales_contract_confirmed(db: Session, *, tenant_id: uuid.UUID, payload: dict[str, Any]) -> None:
@@ -97,7 +105,9 @@ def handle_sales_contract_confirmed(db: Session, *, tenant_id: uuid.UUID, payloa
 
     manual_configuration = payload.get("manualConfiguration")
     if manual_configuration is not None:
-        _create_pipeline_item_idempotent(
+        # KAN-158 — serialised with this contract's cancellation consumer.
+        lock_contract(db, tenant_id=tenant_id, contract_id=uuid.UUID(contract_id))
+        ordered, created = _create_pipeline_item_idempotent(
             db,
             tenant_id=tenant_id,
             vehicle_label=manual_configuration["vehicleLabel"],
@@ -105,10 +115,19 @@ def handle_sales_contract_confirmed(db: Session, *, tenant_id: uuid.UUID, payloa
             pipeline_ref=f"contract:{contract_id}:manual",
             origin={"originContractId": str(contract_id), "originRole": "manual_configuration"},
         )
+        # KAN-158 (PRD-Stock K-12, FR-I-11) — the ordered car is reserved for
+        # its contract from the moment it exists, in this same transaction.
+        # Only an item this call creates (a duplicate emission that finds the
+        # item already there leaves it as it is), and never for a contract
+        # Stock already knows is cancelled: the cancellation can be consumed
+        # before this confirmation, when the confirmation's first delivery
+        # failed and is retried after backoff.
+        if created and not contract_is_cancelled(db, tenant_id=tenant_id, contract_id=uuid.UUID(contract_id)):
+            reserve_and_flush(db, item=ordered, contract_id=uuid.UUID(contract_id))
 
     trade_in = payload.get("tradeIn")
     if trade_in is not None:
-        item = _create_pipeline_item_idempotent(
+        item, _created = _create_pipeline_item_idempotent(
             db,
             tenant_id=tenant_id,
             vehicle_label=trade_in["vehicleLabel"],
