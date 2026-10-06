@@ -23,12 +23,33 @@
       "catalogue": "Catalogo"
     },
     "signOut": "Disconnetti",
+    "sidebar": {
+      "mainNavigation": "Navigazione principale",
+      "expandSidebar": "Espandi la barra laterale",
+      "collapseSidebar": "Comprimi la barra laterale",
+      "soon": "PRESTO",
+      "notifications": "Notifiche",
+      "notificationsSoon": "Notifiche (presto)",
+      "accountMenu": "Menu account",
+      "language": "Lingua",
+      "switchDealership": "Cambia concessionaria"
+    },
     "globalSearch": {
       "placeholder": "Cerca…",
       "recents": "Recenti",
       "noResults": "Nessun risultato",
       "error": "Ricerca non riuscita — riprova."
     }
+  },
+  "userRole": {
+    "sales": "Consulente di vendita",
+    "service_advisor": "Consulente di servizio",
+    "finance_manager": "Responsabile finanze",
+    "gm": "Direttore/trice generale",
+    "admin": "Amministratore/trice",
+    "technician": "Tecnico/a",
+    "parts": "Consulente ricambi",
+    "other": "Collaboratore/trice"
   },
   "common": {
     "filter": "Filtro",
@@ -37,8 +58,8 @@
     "retry": "Riprova",
     "loadingMore": "Caricamento…",
     "rowActionsLabel": "Azioni riga",
-    "showing": "{{count}} visualizzati",
-    "showingOfTotal": "{{count}} di {{total}} visualizzati",
+    "showing": "{{count, number}} visualizzati",
+    "showingOfTotal": "{{count, number}} di {{total}} visualizzati",
     "removeFilter": "Rimuovi filtro: {{label}}",
     "density": {
       "compact": "Compatta",
@@ -107,7 +128,7 @@
     },
     "duplicates": {
       "heading_one": "Possibile cliente esistente",
-      "heading_other": "{{count}} possibili clienti esistenti",
+      "heading_other": "{{count, number}} possibili clienti esistenti",
       "exactMatch": "Corrispondenza esatta",
       "openInstead": "Apri invece"
     },
@@ -273,7 +294,7 @@
     },
     "allCustomersView": "Tutti i clienti",
     "selection": {
-      "count": "{{count}} selezionati",
+      "count": "{{count, number}} selezionati",
       "clear": "Deseleziona",
       "export": "Esporta",
       "print": "Stampa"
@@ -534,7 +555,7 @@
       "action": "Cancella ricerca"
     },
     "selection": {
-      "count": "{{count}} selezionati",
+      "count": "{{count, number}} selezionati",
       "clear": "Deseleziona",
       "copyIds": "Copia ID"
     }
@@ -668,6 +689,8 @@
     "title": "Magazzino",
     "newStockItem": "Aggiungi veicolo",
     "searchPlaceholder": "Targa, VIN, cliente, offerta…",
+    "loadError": "Impossibile caricare lo stock.",
+    "groupLoadError": "Impossibile caricare lo stock del gruppo.",
     "allStockView": "Tutti i veicoli",
     "columns": {
       "stockNumber": "N. di magazzino",
@@ -680,7 +703,7 @@
       "changed": "Modificato",
       "vin": "VIN",
       "listPrice": "Prezzo di listino",
-      "dealership": "Sede",
+      "dealership": "Concessionaria",
       "ageingBucket": "Indicatore di anzianità",
       "basePrice": "Prezzo base",
       "purchasePrice": "Prezzo di acquisto",
@@ -784,7 +807,7 @@
       "manual": "Manuale"
     },
     "publishing": {
-      "blockingBannerTitle": "{{count}} punto/i impediscono la pubblicazione",
+      "blockingBannerTitle": "{{count, number}} punto/i impediscono la pubblicazione",
       "channelsTitle": "Canali",
       "published": "Pubblicato",
       "notPublished": "Non pubblicato",
@@ -798,7 +821,7 @@
       "unpublishConfirmSubmit": "Rimuovi",
       "unpublishConfirmBody": "L'annuncio su {{channel}} verrà eliminato insieme alle statistiche e all'URL. Questa azione è irreversibile.",
       "listingTextTitle": "Testi dell'annuncio",
-      "titleDisplayLimit": "Nella lista dei risultati vengono mostrati {{count}} caratteri.",
+      "titleDisplayLimit": "Nella lista dei risultati vengono mostrati {{count, number}} caratteri.",
       "haendlerbemerkungenHint": "Visibile solo internamente — non appare nell'annuncio.",
       "fields": {
         "zusatztitel": "Titolo aggiuntivo",
@@ -814,7 +837,7 @@
         "moveRight": "Sposta a destra",
         "remove": "Rimuovi",
         "addPhoto": "Aggiungi foto",
-        "countOf": "{{count}} / {{max}}"
+        "countOf": "{{count, number}} / {{max, number}}"
       },
       "equipment": {
         "title": "Dotazione",
@@ -879,7 +902,7 @@
       "open": "Apri"
     },
     "selection": {
-      "count": "{{count}} selezionati",
+      "count": "{{count, number}} selezionati",
       "clear": "Deseleziona",
       "copyIds": "Copia ID"
     }
@@ -1355,7 +1378,7 @@
       "action": "Reimposta i filtri"
     },
     "selection": {
-      "count": "{{count}} selezionati",
+      "count": "{{count, number}} selezionati",
       "clear": "Annulla selezione",
       "copyIds": "Copia ID"
     }

@@ -23,12 +23,33 @@
       "catalogue": "Katalog"
     },
     "signOut": "Abmelden",
+    "sidebar": {
+      "mainNavigation": "Hauptnavigation",
+      "expandSidebar": "Seitenleiste ausklappen",
+      "collapseSidebar": "Seitenleiste einklappen",
+      "soon": "BALD",
+      "notifications": "Benachrichtigungen",
+      "notificationsSoon": "Benachrichtigungen (bald)",
+      "accountMenu": "Kontomenü",
+      "language": "Sprache",
+      "switchDealership": "Betrieb wechseln"
+    },
     "globalSearch": {
       "placeholder": "Suchen…",
       "recents": "Kürzlich",
       "noResults": "Keine Treffer",
       "error": "Suche fehlgeschlagen — bitte erneut versuchen."
     }
+  },
+  "userRole": {
+    "sales": "Verkaufsberater/in",
+    "service_advisor": "Serviceberater/in",
+    "finance_manager": "Finanzverantwortliche/r",
+    "gm": "Geschäftsführer/in",
+    "admin": "Administrator/in",
+    "technician": "Techniker/in",
+    "parts": "Teileberater/in",
+    "other": "Mitarbeiter/in"
   },
   "common": {
     "filter": "Filter",
@@ -37,8 +58,8 @@
     "retry": "Erneut versuchen",
     "loadingMore": "Wird geladen…",
     "rowActionsLabel": "Zeilenaktionen",
-    "showing": "{{count}} angezeigt",
-    "showingOfTotal": "{{count}} von {{total}} angezeigt",
+    "showing": "{{count, number}} angezeigt",
+    "showingOfTotal": "{{count, number}} von {{total}} angezeigt",
     "removeFilter": "Filter entfernen: {{label}}",
     "density": {
       "compact": "Kompakt",
@@ -107,7 +128,7 @@
     },
     "duplicates": {
       "heading_one": "Möglicher bestehender Kunde",
-      "heading_other": "{{count}} mögliche bestehende Kunden",
+      "heading_other": "{{count, number}} mögliche bestehende Kunden",
       "exactMatch": "Exakte Übereinstimmung",
       "openInstead": "Stattdessen öffnen"
     },
@@ -273,7 +294,7 @@
     },
     "allCustomersView": "Alle Kunden",
     "selection": {
-      "count": "{{count}} ausgewählt",
+      "count": "{{count, number}} ausgewählt",
       "clear": "Auswahl aufheben",
       "export": "Exportieren",
       "print": "Drucken"
@@ -534,7 +555,7 @@
       "action": "Suche löschen"
     },
     "selection": {
-      "count": "{{count}} ausgewählt",
+      "count": "{{count, number}} ausgewählt",
       "clear": "Auswahl aufheben",
       "copyIds": "IDs kopieren"
     }
@@ -668,6 +689,8 @@
     "title": "Lagerbestand",
     "newStockItem": "Fahrzeug aufnehmen",
     "searchPlaceholder": "Kontrollschild, VIN, Kunde, Offerte…",
+    "loadError": "Bestand konnte nicht geladen werden.",
+    "groupLoadError": "Gruppenbestand konnte nicht geladen werden.",
     "allStockView": "Alle Fahrzeuge",
     "columns": {
       "stockNumber": "Lagernr.",
@@ -680,7 +703,7 @@
       "changed": "Geändert",
       "vin": "VIN",
       "listPrice": "Listenpreis",
-      "dealership": "Standort",
+      "dealership": "Betrieb",
       "ageingBucket": "Standtage-Ampel",
       "basePrice": "Basispreis",
       "purchasePrice": "Einkaufspreis",
@@ -784,7 +807,7 @@
       "manual": "Manuell"
     },
     "publishing": {
-      "blockingBannerTitle": "{{count}} Punkt(e) verhindern die Publikation",
+      "blockingBannerTitle": "{{count, number}} Punkt(e) verhindern die Publikation",
       "channelsTitle": "Kanäle",
       "published": "Publiziert",
       "notPublished": "Nicht publiziert",
@@ -798,7 +821,7 @@
       "unpublishConfirmSubmit": "Depublizieren",
       "unpublishConfirmBody": "Das Inserat auf {{channel}} wird zusammen mit seiner Statistik und der Inserate-URL gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.",
       "listingTextTitle": "Inseratetexte",
-      "titleDisplayLimit": "Auf der Ergebnisliste werden {{count}} Zeichen angezeigt.",
+      "titleDisplayLimit": "Auf der Ergebnisliste werden {{count, number}} Zeichen angezeigt.",
       "haendlerbemerkungenHint": "Nur für den Betrieb sichtbar — erscheint nicht im Inserat.",
       "fields": {
         "zusatztitel": "Zusatztitel",
@@ -814,7 +837,7 @@
         "moveRight": "Nach rechts verschieben",
         "remove": "Entfernen",
         "addPhoto": "Foto hinzufügen",
-        "countOf": "{{count}} / {{max}}"
+        "countOf": "{{count, number}} / {{max, number}}"
       },
       "equipment": {
         "title": "Ausstattung",
@@ -879,7 +902,7 @@
       "open": "Öffnen"
     },
     "selection": {
-      "count": "{{count}} ausgewählt",
+      "count": "{{count, number}} ausgewählt",
       "clear": "Auswahl aufheben",
       "copyIds": "IDs kopieren"
     }
@@ -1355,7 +1378,7 @@
       "action": "Filter zurücksetzen"
     },
     "selection": {
-      "count": "{{count}} ausgewählt",
+      "count": "{{count, number}} ausgewählt",
       "clear": "Auswahl aufheben",
       "copyIds": "IDs kopieren"
     }

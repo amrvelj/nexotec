@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Alert, Badge, Button, Group, Stack, Title } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
 import { useQuery } from '@tanstack/react-query'
@@ -10,6 +10,7 @@ import { useUiPreferencesContext } from '../hooks/UiPreferencesContext'
 import { api } from '../api/client'
 import { VehicleCreateDialog } from '../components/vehicle/VehicleCreateDialog'
 import type { VehicleMdmRead, VehicleSearchResult } from '../api/types'
+import { parseSortParam, serializeSort } from '../utils/sortParam'
 
 const GRID_KEY = 'mdm.vehicles.list'
 
@@ -28,9 +29,34 @@ export function VehiclesListPage() {
   const navigate = useNavigate()
   const { density, setDensity } = useUiPreferencesContext()
 
-  const [query, setQuery] = useState('')
+  // § ADR-056 — search and sort live in the URL, as on Customers and
+  // Stock, so a vehicle search can be bookmarked, shared and reloaded.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const updateUrl = (patch: Record<string, string | null>) => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        for (const [key, value] of Object.entries(patch)) {
+          if (value === null) next.delete(key)
+          else next.set(key, value)
+        }
+        return next
+      },
+      { replace: true }
+    )
+  }
+
+  const [query, setQuery] = useState(() => searchParams.get('q') ?? '')
   const [debouncedQuery] = useDebouncedValue(query, 250)
-  const [sort, setSort] = useState<SortSpec[]>([])
+  useEffect(() => {
+    updateUrl({ q: debouncedQuery || null })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedQuery])
+
+  const sort: SortSpec[] = searchParams.get('sort') ? parseSortParam(searchParams.get('sort')!) : []
+  const setSort = (next: SortSpec[]) => {
+    updateUrl({ sort: next.length > 0 ? serializeSort(next) : null })
+  }
   const [createOpen, setCreateOpen] = useState(false)
   // KAN-7 — every other list grid (Customers already shipped; Sales gets
   // the same fix alongside this one) offers selection + a bulk action.

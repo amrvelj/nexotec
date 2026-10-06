@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Button, Group, Modal, NumberFormatter, Select, Stack, Text, TextInput } from '@mantine/core'
+import { Button, Group, Modal, Select, Stack, Text, TextInput } from '@mantine/core'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plug } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -7,7 +7,7 @@ import { ConnectionStatusBadge, KeyValueRow, OverviewCard, RowMenu } from '@nexo
 import { api, ApiError } from '../api/client'
 import { buildConnectionRowMenu } from '../components/connectionRowMenu'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
-import { formatDate } from '../utils/format'
+import { formatDate, formatNumber } from '../utils/format'
 import type {
   IntegrationConnectionPage,
   IntegrationConnectionRead,
@@ -270,7 +270,7 @@ function UsageModal({ connection, onClose }: { connection: IntegrationConnection
         ) : (
           <>
             <KeyValueRow label={t('integrationsList.usageModal.calls')}>
-              <NumberFormatter value={usageQuery.data?.callsThisPeriod ?? 0} thousandSeparator="'" />
+              {formatNumber(usageQuery.data?.callsThisPeriod ?? 0)}
             </KeyValueRow>
             <KeyValueRow label={t('integrationsList.usageModal.cost')}>
               {usageQuery.data?.costUnitsThisPeriod ?? '—'}

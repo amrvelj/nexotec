@@ -112,7 +112,6 @@ export function ExternalIdsTab({ externalIds, loading, error, canWrite, onCreate
         total={externalIds.length}
         totalIsEstimate={false}
         isFiltered={false}
-        locale={locale}
         labels={dataGridLabels(t)}
         emptyState={{
           icon: <Link2 size={24} />,

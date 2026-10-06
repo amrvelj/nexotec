@@ -23,12 +23,33 @@
       "catalogue": "Catalogue"
     },
     "signOut": "Se déconnecter",
+    "sidebar": {
+      "mainNavigation": "Navigation principale",
+      "expandSidebar": "Déplier la barre latérale",
+      "collapseSidebar": "Replier la barre latérale",
+      "soon": "BIENTÔT",
+      "notifications": "Notifications",
+      "notificationsSoon": "Notifications (bientôt)",
+      "accountMenu": "Menu du compte",
+      "language": "Langue",
+      "switchDealership": "Changer de concession"
+    },
     "globalSearch": {
       "placeholder": "Rechercher…",
       "recents": "Récents",
       "noResults": "Aucun résultat",
       "error": "La recherche a échoué — veuillez réessayer."
     }
+  },
+  "userRole": {
+    "sales": "Conseiller/ère de vente",
+    "service_advisor": "Conseiller/ère de service",
+    "finance_manager": "Responsable financier/ère",
+    "gm": "Directeur/trice général/e",
+    "admin": "Administrateur/trice",
+    "technician": "Technicien/ne",
+    "parts": "Conseiller/ère pièces",
+    "other": "Collaborateur/trice"
   },
   "common": {
     "filter": "Filtrer",
@@ -37,8 +58,8 @@
     "retry": "Réessayer",
     "loadingMore": "Chargement…",
     "rowActionsLabel": "Actions de la ligne",
-    "showing": "{{count}} affiché(s)",
-    "showingOfTotal": "{{count}} sur {{total}} affiché(s)",
+    "showing": "{{count, number}} affiché(s)",
+    "showingOfTotal": "{{count, number}} sur {{total}} affiché(s)",
     "removeFilter": "Supprimer le filtre : {{label}}",
     "density": {
       "compact": "Compact",
@@ -107,7 +128,7 @@
     },
     "duplicates": {
       "heading_one": "Client potentiellement existant",
-      "heading_other": "{{count}} clients potentiellement existants",
+      "heading_other": "{{count, number}} clients potentiellement existants",
       "exactMatch": "Correspondance exacte",
       "openInstead": "Ouvrir à la place"
     },
@@ -273,7 +294,7 @@
     },
     "allCustomersView": "Tous les clients",
     "selection": {
-      "count": "{{count}} sélectionné(s)",
+      "count": "{{count, number}} sélectionné(s)",
       "clear": "Effacer la sélection",
       "export": "Exporter",
       "print": "Imprimer"
@@ -534,7 +555,7 @@
       "action": "Effacer la recherche"
     },
     "selection": {
-      "count": "{{count}} sélectionné(s)",
+      "count": "{{count, number}} sélectionné(s)",
       "clear": "Effacer la sélection",
       "copyIds": "Copier les ID"
     }
@@ -668,6 +689,8 @@
     "title": "Stock",
     "newStockItem": "Ajouter un véhicule",
     "searchPlaceholder": "Plaque, VIN, client, offre…",
+    "loadError": "Impossible de charger le stock.",
+    "groupLoadError": "Impossible de charger le stock du groupe.",
     "allStockView": "Tous les véhicules",
     "columns": {
       "stockNumber": "N° de stock",
@@ -784,7 +807,7 @@
       "manual": "Manuel"
     },
     "publishing": {
-      "blockingBannerTitle": "{{count}} point(s) empêchent la publication",
+      "blockingBannerTitle": "{{count, number}} point(s) empêchent la publication",
       "channelsTitle": "Canaux",
       "published": "Publié",
       "notPublished": "Non publié",
@@ -798,7 +821,7 @@
       "unpublishConfirmSubmit": "Dépublier",
       "unpublishConfirmBody": "L'annonce sur {{channel}} sera supprimée avec ses statistiques et son URL. Cette action est irréversible.",
       "listingTextTitle": "Textes de l'annonce",
-      "titleDisplayLimit": "{{count}} caractères s'affichent sur la liste de résultats.",
+      "titleDisplayLimit": "{{count, number}} caractères s'affichent sur la liste de résultats.",
       "haendlerbemerkungenHint": "Visible uniquement en interne — n'apparaît pas dans l'annonce.",
       "fields": {
         "zusatztitel": "Titre additionnel",
@@ -814,7 +837,7 @@
         "moveRight": "Déplacer à droite",
         "remove": "Supprimer",
         "addPhoto": "Ajouter une photo",
-        "countOf": "{{count}} / {{max}}"
+        "countOf": "{{count, number}} / {{max, number}}"
       },
       "equipment": {
         "title": "Équipement",
@@ -879,7 +902,7 @@
       "open": "Ouvrir"
     },
     "selection": {
-      "count": "{{count}} sélectionné(s)",
+      "count": "{{count, number}} sélectionné(s)",
       "clear": "Effacer la sélection",
       "copyIds": "Copier les ID"
     }
@@ -1355,7 +1378,7 @@
       "action": "Réinitialiser les filtres"
     },
     "selection": {
-      "count": "{{count}} sélectionné(s)",
+      "count": "{{count, number}} sélectionné(s)",
       "clear": "Effacer la sélection",
       "copyIds": "Copier les ID"
     }

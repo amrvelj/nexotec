@@ -4,6 +4,7 @@ import datetime as dt
 import uuid
 
 from sqlalchemy import or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.base import utcnow
@@ -22,11 +23,20 @@ _EVENT_PRODUCER = "valuation"
 def allocate_valuation_number(db: Session, tenant_id: uuid.UUID) -> str:
     row = db.get(ValuationNumberSequence, tenant_id, with_for_update=True)
     if row is None:
-        row = ValuationNumberSequence(tenant_id=tenant_id, next_value=1)
-        db.add(row)
+        # First use of this key. A concurrent first caller can insert the same
+        # row: its commit turns our INSERT into a UniqueViolation (KAN-70). The
+        # savepoint keeps the caller's transaction alive through that, and the
+        # locked re-read below then waits for and takes the winner's row.
+        # Flush the caller's own pending rows first, so that the except below
+        # can only ever see this counter row's INSERT.
         db.flush()
+        try:
+            with db.begin_nested():
+                db.add(ValuationNumberSequence(tenant_id=tenant_id, next_value=1))
+        except IntegrityError:
+            pass  # the concurrent caller's row now exists; re-read it below
         row = db.get(ValuationNumberSequence, tenant_id, with_for_update=True)
-        assert row is not None, "just-flushed ValuationNumberSequence row vanished before it could be re-read"
+        assert row is not None, "ValuationNumberSequence row missing after its first-use INSERT or the concurrent winner's"
 
     value = row.next_value
     row.next_value += 1

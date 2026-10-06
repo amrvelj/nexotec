@@ -47,6 +47,17 @@ class UnpublishRequest(CamelModel):
     confirm: bool
 
 
+class EquipmentRead(CamelModel):
+    """§ ADR-062 — the vehicle's equipment as the publishing tab reads it
+    (owned and edited in app.vehicle). Declared so schema.d.ts carries
+    the type rather than the frontend hand-writing one (KAN-35)."""
+
+    ausstattung_codes: list[str]
+    extras: list[str]
+    eigenschaften: list[str]
+    provider_ausstattung: dict[str, str]
+
+
 class MediaRead(CamelModel):
     id: uuid.UUID
     position: int

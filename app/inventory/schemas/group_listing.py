@@ -33,4 +33,9 @@ class StockItemGroupRead(CamelModel):
 
 
 class StockItemGroupPage(CamelModel):
+    """Same page envelope as the tenant grid's StockItemPage (KAN-152)."""
+
     items: list[StockItemGroupRead]
+    next_cursor: str | None
+    total: int
+    total_is_estimate: bool

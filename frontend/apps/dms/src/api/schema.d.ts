@@ -4490,6 +4490,24 @@ export interface components {
             source: string;
         };
         /**
+         * EquipmentRead
+         * @description § ADR-062 — the vehicle's equipment as the publishing tab reads it
+         *     (owned and edited in app.vehicle). Declared so schema.d.ts carries
+         *     the type rather than the frontend hand-writing one (KAN-35).
+         */
+        EquipmentRead: {
+            /** Ausstattungcodes */
+            ausstattungCodes: string[];
+            /** Eigenschaften */
+            eigenschaften: string[];
+            /** Extras */
+            extras: string[];
+            /** Providerausstattung */
+            providerAusstattung: {
+                [key: string]: string;
+            };
+        };
+        /**
          * FinancingKind
          * @enum {string}
          */
@@ -5436,10 +5454,19 @@ export interface components {
             /** Vin */
             vin?: string | null;
         };
-        /** StockItemGroupPage */
+        /**
+         * StockItemGroupPage
+         * @description Same page envelope as the tenant grid's StockItemPage (KAN-152).
+         */
         StockItemGroupPage: {
             /** Items */
             items: components["schemas"]["StockItemGroupRead"][];
+            /** Nextcursor */
+            nextCursor: string | null;
+            /** Total */
+            total: number;
+            /** Totalisestimate */
+            totalIsEstimate: boolean;
         };
         /** StockItemGroupRead */
         StockItemGroupRead: {
@@ -9455,7 +9482,13 @@ export interface operations {
     };
     list_my_group_stock_v1_inventory_groups_mine_stock_items_get: {
         parameters: {
-            query?: never;
+            query?: {
+                q?: string | null;
+                /** @description e.g. 'stockNumber:asc,updatedAt:desc' */
+                sort?: string | null;
+                limit?: number;
+                cursor?: string | null;
+            };
             header?: {
                 authorization?: string | null;
             };
@@ -9488,7 +9521,13 @@ export interface operations {
     };
     list_group_stock_v1_inventory_groups__group_id__stock_items_get: {
         parameters: {
-            query?: never;
+            query?: {
+                q?: string | null;
+                /** @description e.g. 'stockNumber:asc,updatedAt:desc' */
+                sort?: string | null;
+                limit?: number;
+                cursor?: string | null;
+            };
             header?: {
                 authorization?: string | null;
             };
@@ -9770,7 +9809,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["EquipmentRead"];
                 };
             };
             /** @description Validation Error */

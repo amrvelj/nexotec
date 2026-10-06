@@ -1,5 +1,6 @@
 import i18next from 'i18next'
 import { initReactI18next } from 'react-i18next'
+import { formatNumber } from '@nexotec/ui-kit'
 import de from './locales/de.json'
 import fr from './locales/fr.json'
 import it from './locales/it.json'
@@ -28,6 +29,21 @@ void i18next.use(initReactI18next).init({
   fallbackLng: 'en',
   interpolation: { escapeValue: false },
   parseMissingKeyHandler: (key) => `⚠ MISSING I18N KEY: ${key}`,
+})
+
+// KAN-160: i18next's built-in `number` formatter is Intl's own number format in the
+// active language — fr-CH would render `{{count, number}}` as `12 500`.
+// Replace it with the app's one Swiss number formatter, so a count in a
+// translated string reads `12'500` in all four languages, like every other
+// number on screen and on the printed document. `{{count}}` keeps its raw
+// value for plural selection; the format applies to the rendered text only.
+// The bundles write every count as `{{count, number}}` (enforced by
+// architecture/no-locale-number-format.test.ts).
+// A value that is not a number passes through as-is rather than rendering
+// "NaN" (i18next does not call formatters for a missing variable at all).
+i18next.services.formatter?.add('number', (value) => {
+  const n = typeof value === 'number' ? value : Number(value)
+  return value != null && value !== '' && Number.isFinite(n) ? formatNumber(n) : String(value ?? '')
 })
 
 export default i18next

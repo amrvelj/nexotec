@@ -227,13 +227,26 @@ function DmsShellInner({ children }: { children: ReactNode }) {
         moduleSubtitle: 'DMS',
         groups: navGroups,
         activeHref,
-        user: { name: `${user.firstName} ${user.lastName}`, email: user.email, role: user.role },
+        // KAN-163 — `user.role` is the UserRole enum code (`gm`,
+        // `service_advisor`); the sidebar shows its translated job title.
+        user: { name: `${user.firstName} ${user.lastName}`, email: user.email, role: t(`userRole.${user.role}`) },
         uiLanguage,
         onLanguageChange: setUiLanguage,
         onSignOut: () => {
           logout().then(() => navigate('/login'))
         },
-        signOutLabel: t('shell.signOut'),
+        labels: {
+          mainNavigation: t('shell.sidebar.mainNavigation'),
+          expandSidebar: t('shell.sidebar.expandSidebar'),
+          collapseSidebar: t('shell.sidebar.collapseSidebar'),
+          soon: t('shell.sidebar.soon'),
+          notifications: t('shell.sidebar.notifications'),
+          notificationsSoon: t('shell.sidebar.notificationsSoon'),
+          accountMenu: t('shell.sidebar.accountMenu'),
+          language: t('shell.sidebar.language'),
+          switchDealership: t('shell.sidebar.switchDealership'),
+          signOut: t('shell.signOut'),
+        },
         activeDealership: activeDealership ?? undefined,
         memberships,
         onSwitchDealership: (dealershipId) => {

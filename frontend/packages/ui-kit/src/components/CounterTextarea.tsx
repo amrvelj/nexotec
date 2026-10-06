@@ -1,5 +1,6 @@
 import { Textarea } from "@mantine/core";
 import { semantic, slate, typography } from "../tokens";
+import { formatNumber } from "../format/swissNumber";
 
 export interface CounterTextareaProps {
   label: string;
@@ -35,7 +36,7 @@ export function CounterTextarea({
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
         <span style={{ fontSize: typography.label.size, fontWeight: typography.label.weight, color: slate[7] }}>{label}</span>
         <span style={{ fontSize: typography.meta.size, color: overLimit ? semantic.destructive.text : slate[5] }}>
-          {value.length} / {maxLength}
+          {formatNumber(value.length)} / {formatNumber(maxLength)}
         </span>
       </div>
       <Textarea

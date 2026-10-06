@@ -17,6 +17,7 @@ when it needs to explain or change the setup.
 | `.worktreeinclude` | worktree creation | Copies the gitignored `.env` into new worktrees |
 | `scripts/dev/bootstrap` | once per checkout, and in every cloud session | Own `.venv`, `npm ci`, own test and dev databases, `.env` |
 | `scripts/dev/cloud-postgres` | cloud sessions, from bootstrap and check | Starts the cloud machine's own Postgres 16 with the `dms` user |
+| `scripts/dev/run-api` | desktop preview (`nexotec-api`) | Starts this checkout's uvicorn with the macOS library path set |
 | `scripts/dev/check` | before every push | CI-equivalent lanes; records a pass for the exact tree |
 | `scripts/dev/gate` | any time | Gate status, ticket start/close, waivers |
 
@@ -69,9 +70,13 @@ crashes never blocks (fail-open with a message); a missing hook script exits 0.
 - `brew install gh uv pango`, then `gh auth login`; Docker Desktop running.
 - **Pango** is the system library WeasyPrint (PDFs) needs; without it nothing that imports the
   app runs. Homebrew on Apple Silicon keeps it in `/opt/homebrew/lib`, which macOS does not
-  search, so `bootstrap`, `check`, the session hook and the preview API set
-  `DYLD_FALLBACK_LIBRARY_PATH` themselves. A shell of your own needs the same prefix for app
-  commands: `DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib:/usr/local/lib:/usr/lib .venv/bin/…`.
+  search, so `bootstrap`, `check`, the session hook and `scripts/dev/run-api` (what the
+  preview's `nexotec-api` starts) set `DYLD_FALLBACK_LIBRARY_PATH` themselves. It cannot go
+  in `launch.json`'s `env`: the desktop app starts preview servers through a launcher signed
+  with the hardened runtime, which strips every `DYLD_*` variable before uvicorn sees it
+  (KAN-109). A shell of your own needs the same prefix for app commands:
+  `DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib:/usr/local/lib:/usr/lib .venv/bin/…`, or
+  `scripts/dev/run-api` for the API.
 - **Port 5432 must be free for the project's Docker database.** Another Postgres on it (for
   example the postgresql.org installer, `/Library/PostgreSQL/<version>`, which starts at boot)
   makes bootstrap stop with "the user dms was rejected". Stop it:

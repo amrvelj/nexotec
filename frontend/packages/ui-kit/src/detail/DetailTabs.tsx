@@ -1,5 +1,6 @@
 import { purple, radius, slate, spacing } from "../tokens";
 import type { DetailTab } from "./types";
+import { formatNumber } from "../format/swissNumber";
 
 export interface DetailTabsProps {
   tabs: DetailTab[];
@@ -67,7 +68,7 @@ export function DetailTabs({ tabs, activeTab, onTabChange }: DetailTabsProps) {
                   textAlign: "center",
                 }}
               >
-                {tab.count}
+                {formatNumber(tab.count)}
               </span>
             )}
           </button>
