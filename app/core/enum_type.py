@@ -33,7 +33,7 @@ from __future__ import annotations
 
 import enum
 from collections.abc import Iterable
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import String, literal
 from sqlalchemy.sql import operators
@@ -57,6 +57,7 @@ class StoredEnum(TypeDecorator):
     def __init__(self, enum_class: type[enum.Enum], *, length: int) -> None:
         super().__init__(length=length)
         self.enum_class = enum_class
+        self.length = length
         lookup: dict[str, enum.Enum] = {}
         for member in enum_class:
             if not isinstance(member.value, str):
@@ -100,7 +101,7 @@ class StoredEnum(TypeDecorator):
         return self.member_for(value)
 
     def copy(self, **kw: Any) -> StoredEnum:
-        return StoredEnum(self.enum_class, length=self.impl.length)
+        return StoredEnum(self.enum_class, length=self.length)
 
     # --- filtering --------------------------------------------------------
 
@@ -111,7 +112,7 @@ class StoredEnum(TypeDecorator):
         """
 
         def _forms(self, other: Any) -> list[Any] | None:
-            column_type: StoredEnum = self.type
+            column_type = cast(StoredEnum, self.type)
             if isinstance(other, column_type.enum_class):
                 members = [other]
             elif isinstance(other, str):
