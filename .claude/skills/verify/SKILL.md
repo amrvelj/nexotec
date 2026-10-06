@@ -17,8 +17,9 @@ has fresh context and cannot edit files, so the work is never graded by whoever 
   .base.sha, head_sha: .head.sha, merge_commit_sha, html_url}'` (REST — `gh pr view` is GraphQL,
   refused in cloud sessions). The ticket is the `KAN-<n>` in its title or body.
 - `KAN-<n>`: fetch the ticket from the board (see `/ticket` for the query); find its PR with
-  `for p in 1 2 3; do gh api "repos/{owner}/{repo}/pulls?state=all&per_page=100&page=$p" --jq
-  '.[] | select(.title | test("KAN-<n>\\b")) | [.number, .title, .state] | @tsv'; done`. The cloud
+  `p=1; while out=$(gh api "repos/{owner}/{repo}/pulls?state=all&per_page=100&page=$p") && [ "$out" != "[]" ];
+  do echo "$out" | jq -r '.[] | select(.title | test("KAN-<n>\\b")) | [.number, .title, .state] | @tsv';
+  p=$((p+1)); done`. The cloud
   proxy accepts only `repos/{owner}/{repo}/...` paths: it refuses `search/...`, and `--paginate`
   (its next-page links use numeric `repositories/<id>/...` paths), so page explicitly.
 - `WP-<n>`: the work package page in the Build Sequence (Notion, linked in CLAUDE.md); the

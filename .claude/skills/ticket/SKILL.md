@@ -104,7 +104,7 @@ Any code change after this point invalidates 2–4: redo them.
 2. Open the PR over GitHub's **REST** API — `gh pr create`/`view`/`checks` use GraphQL, which
    cloud sessions refuse (KAN-155). Use the GitHub MCP tools where the session has them, else
    `gh api -X POST 'repos/{owner}/{repo}/pulls' -f title="KAN-<n>: <what changed>" -f head=<branch>
-   -f base=main -F draft=true -F body=@<body file>`. The body: the ticket link; what changed; an
+   -f base=main -F body=@<body file>`. The body: the ticket link; what changed; an
    exit-criteria table (met / **NOT met**, with the evidence for each); the verification commands
    and results; what you did not verify; follow-up tickets.
 3. Wait until CI finishes: poll `gh api 'repos/{owner}/{repo}/commits/<head sha>/check-runs'
