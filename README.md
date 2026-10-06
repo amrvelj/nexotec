@@ -151,6 +151,15 @@ frozen shared trunk — `alembic heads` lists all of them. Always use
 `heads` (plural), never `head`: with multiple independent chains, the
 singular form either fails or silently applies only one.
 
+Every service that starts from this codebase migrates first — the web
+service and the outbox worker in `render.yaml` and `docker-compose.yml`,
+and the Dockerfile's default `CMD` — so several `alembic upgrade heads` can
+run against one database at the same moment. That is safe:
+`alembic/env.py` takes a Postgres advisory lock (`pg_advisory_xact_lock`)
+inside the migration transaction, so a second run waits until the first
+commits and then finds nothing left to apply. CI proves it with
+`scripts/check_concurrent_alembic_upgrade.py` (KAN-92).
+
 ```bash
 alembic upgrade heads                                              # apply every context's head
 alembic heads                                                      # list current heads, one per context
