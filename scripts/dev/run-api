@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Start this checkout's API - what the desktop preview runs (.claude/launch.json ->
+# nexotec-api). Arguments go to uvicorn after `app.main:app`:
+#
+#   scripts/dev/run-api --reload --port 8000
+#
+# Why a wrapper: WeasyPrint (PDFs) loads Pango by library name, and macOS does not
+# search Homebrew's lib folders on its own. The Claude desktop app starts preview
+# servers through a launcher signed with the hardened runtime, and dyld strips every
+# DYLD_* variable at that exec - so a DYLD_FALLBACK_LIBRARY_PATH in launch.json's
+# `env` never reaches uvicorn, which then dies importing WeasyPrint (KAN-109). Set
+# here, after the launcher, it does. Linux needs nothing and gets nothing.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+cd "$ROOT"
+if [ "$(uname -s)" = "Darwin" ]; then
+  export DYLD_FALLBACK_LIBRARY_PATH="/opt/homebrew/lib:/usr/local/lib:$HOME/lib:/usr/lib"
+fi
+# ${1+"$@"}, as in bootstrap: guards against bash versions that treat an empty "$@" as
+# unbound under set -u (unconfirmed for macOS bash 3.2; harmless either way).
+exec "$ROOT/.venv/bin/uvicorn" app.main:app ${1+"$@"}

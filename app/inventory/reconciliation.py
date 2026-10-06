@@ -1,5 +1,6 @@
 """Inventory's outbound cross-context references (WP-7 PR-5; the
-reserved_by_contract_id check added WP-8 PR-6). Everything here is
+reserved_by_contract_id check added WP-8 PR-6; the cancelled-contract
+record's two checks added KAN-158). Everything here is
 read-only — see app.core.reconciliation for the mechanism.
 
 The invoicing-gate invariant (is_invoiceable vs. a real
@@ -12,6 +13,7 @@ apply_finance_invoice_issued instead.
 from sqlalchemy.orm import Session
 
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, run_reconciliation
+from app.inventory.models.cancelled_contract import InventoryCancelledContract
 from app.inventory.models.stock_item import StockItem
 from app.platform.public import Dealership, Location
 from app.sales.public import SalesContract
@@ -54,6 +56,22 @@ CHECKS = [
         target_model=SalesContract,
         target_id_column=SalesContract.id,
         nullable=True,  # only set while reservation_state='reserved'
+    ),
+    ReferenceCheck(
+        label="inventory_cancelled_contract.tenant_id -> dealership.id",
+        source_model=InventoryCancelledContract,
+        source_row_id_column=InventoryCancelledContract.id,
+        source_fk_column=InventoryCancelledContract.tenant_id,
+        target_model=Dealership,
+        target_id_column=Dealership.id,
+    ),
+    ReferenceCheck(
+        label="inventory_cancelled_contract.contract_id -> sales_contract.id",
+        source_model=InventoryCancelledContract,
+        source_row_id_column=InventoryCancelledContract.id,
+        source_fk_column=InventoryCancelledContract.contract_id,
+        target_model=SalesContract,
+        target_id_column=SalesContract.id,
     ),
 ]
 

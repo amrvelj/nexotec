@@ -22,6 +22,11 @@ in the same PR as any change to what it states. -->
   descends from its own context's branch — `alembic revision -m "…" --head customer@head` (with
   `--autogenerate` when models changed) — which places the file in that context's folder. It
   never touches another context's tables.
+- **One upgrade is one transaction.** Concurrent `alembic upgrade heads` runs (web, worker,
+  replicas) are serialised by a transaction-scoped advisory lock in `alembic/env.py` (KAN-92).
+  A migration that commits mid-run — `op.get_context().autocommit_block()`, e.g. `CREATE INDEX
+  CONCURRENTLY` — or turning on `transaction_per_migration` releases that lock early: part of
+  the plan, with the lock reworked in the same PR.
 - A stub context has no chain yet: its first migration needs a new labelled branch root and its
   folder added to `version_locations` in `alembic.ini` — part of the plan.
 - **A migration is part of the plan** you show Anto before building (CLAUDE.md, "Plan before
@@ -48,6 +53,6 @@ in the same PR as any change to what it states. -->
 - The legacy `vehicle` table is write-frozen (ADR-021, `legacy_vehicle_write_frozen`); new code
   never writes it.
 - `scripts/dev/check` mirrors both CI migration jobs whenever migrations, models or their
-  imports change: upgrade from empty → seed → downgrade to CI's target → upgrade, and upgrade
-  from main's heads → seed → upgrade → verify the seeded rows survived. A `downgrade()` is
-  exercised, so it must work.
+  imports change: upgrade from empty → seed → downgrade to CI's target → upgrade → two
+  concurrent upgrades (KAN-92), and upgrade from main's heads → seed → upgrade → verify the
+  seeded rows survived. A `downgrade()` is exercised, so it must work.
