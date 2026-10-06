@@ -71,7 +71,8 @@ against the code). "Open" lines cite a ticket; /drift-audit re-checks them weekl
   label; `vehicle_source` stays `manual`), so the same purchase gate applies (KAN-144).
   Stock creates that item already reserved for the contract and releases it when it consumes
   `sales.contract.cancelled`; Sales makes no reservation call for it and its
-  `reservation_id` stays empty (KAN-158).
+  `reservation_id` stays empty (KAN-158). Contracts confirmed before KAN-158 have an
+  unreserved item (backfill: KAN-166).
   PRD-Sales S-D10 was corrected to match on 2026-10-04.
 - A contract needs a vehicle and a price before it can be confirmed.
 - **A trade-in valuation past its validity refuses confirmation** (`trade_in_valuation_expired`,

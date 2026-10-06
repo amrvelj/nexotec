@@ -23,10 +23,12 @@ sales-side producer this whole module waits on) clears one.
 KAN-158 — a manual configuration's pipeline item is reserved by Stock itself
 when its consumer creates the item (reserve_and_flush, in the consumer's
 transaction), and released by Stock when it consumes
-`sales.contract.cancelled` (release_reservations_held_by_contract). Sales
+`sales.contract.cancelled` (record_contract_cancelled), which also records
+the cancellation so a confirmation delivered after it never reserves. Sales
 never calls reserve() for it.
 """
 
+import datetime as dt
 import uuid
 
 from sqlalchemy import select
@@ -36,6 +38,7 @@ from app.core.errors import ConflictError, NotFoundError
 from app.core.idempotency import find_cached_response, store_response
 from app.core.outbox import OutboxEvent, publish
 from app.core.uuid7 import uuid7
+from app.inventory.models.cancelled_contract import InventoryCancelledContract
 from app.inventory.models.stock_item import ReservationState, StockItem
 
 _EVENT_PRODUCER = "inventory"
@@ -156,15 +159,23 @@ def release_and_flush(db: Session, *, item: StockItem) -> None:
     )
 
 
-def release_reservations_held_by_contract(db: Session, *, tenant_id: uuid.UUID, contract_id: uuid.UUID) -> None:
-    """KAN-158 — Stock's side of a contract's cancellation: whatever the
-    cancelled contract still holds is released, commit-free (the consumer
-    harness commits). A manual configuration's pipeline item is the case
-    this exists for; a stock car's reservation was already released by
-    cancel_contract's own synchronous call, so nothing matches it any more
-    and nothing is emitted twice. Matching on the holder, under a row lock,
-    never touches a reservation another contract has taken since.
+def record_contract_cancelled(
+    db: Session, *, tenant_id: uuid.UUID, contract_id: uuid.UUID, cancelled_at: dt.datetime
+) -> None:
+    """KAN-158 — Stock's side of a contract's cancellation, commit-free (the
+    consumer harness commits). Stock first records that the contract is
+    cancelled, so a confirmation that reaches it later (a retried delivery)
+    never reserves the ordered car (contract_is_cancelled), then releases
+    whatever the contract still holds. A manual configuration's pipeline item
+    is the case this exists for; a stock car's reservation was already
+    released by cancel_contract's own synchronous call, so nothing matches
+    it any more and nothing is emitted twice. Matching on the holder, under a
+    row lock, never touches a reservation another contract has taken since.
     """
+
+    if not contract_is_cancelled(db, tenant_id=tenant_id, contract_id=contract_id):
+        db.add(InventoryCancelledContract(tenant_id=tenant_id, contract_id=contract_id, cancelled_at=cancelled_at))
+        db.flush()
 
     items = db.scalars(
         select(StockItem)
@@ -177,3 +188,15 @@ def release_reservations_held_by_contract(db: Session, *, tenant_id: uuid.UUID, 
     ).all()
     for item in items:
         release_and_flush(db, item=item)
+
+
+def contract_is_cancelled(db: Session, *, tenant_id: uuid.UUID, contract_id: uuid.UUID) -> bool:
+    return (
+        db.scalar(
+            select(InventoryCancelledContract.id).where(
+                InventoryCancelledContract.tenant_id == tenant_id,
+                InventoryCancelledContract.contract_id == contract_id,
+            )
+        )
+        is not None
+    )

@@ -43,7 +43,7 @@ from app.core.errors import ConflictError
 from app.core.outbox import OutboxEvent, publish
 from app.inventory.models.stock_item import LifecycleStatus, StockItem, StockItemCondition
 from app.inventory.schemas.stock_item import StockItemCreate
-from app.inventory.services.reservation import reserve_and_flush
+from app.inventory.services.reservation import contract_is_cancelled, reserve_and_flush
 from app.inventory.services.stock_item import _build_and_flush_stock_item, mark_purchased_if_ready
 from app.inventory.services.valuation import apply_valuation_ref
 from app.valuation.public import get_valuation_or_404
@@ -113,13 +113,14 @@ def handle_sales_contract_confirmed(db: Session, *, tenant_id: uuid.UUID, payloa
             pipeline_ref=f"contract:{contract_id}:manual",
             origin={"originContractId": str(contract_id), "originRole": "manual_configuration"},
         )
-        if created:
-            # KAN-158 (PRD-Stock K-12, FR-I-11) — the ordered car is reserved
-            # for its contract from the moment it exists, in this same
-            # transaction. Only an item this call creates: a duplicate
-            # emission that finds the item already there leaves its
-            # reservation as it is, so a contract cancelled in between never
-            # gets the car back.
+        # KAN-158 (PRD-Stock K-12, FR-I-11) — the ordered car is reserved for
+        # its contract from the moment it exists, in this same transaction.
+        # Only an item this call creates (a duplicate emission that finds the
+        # item already there leaves it as it is), and never for a contract
+        # Stock already knows is cancelled: the cancellation can be consumed
+        # before this confirmation, when the confirmation's first delivery
+        # failed and is retried after backoff.
+        if created and not contract_is_cancelled(db, tenant_id=tenant_id, contract_id=uuid.UUID(contract_id)):
             reserve_and_flush(db, item=ordered, contract_id=uuid.UUID(contract_id))
 
     trade_in = payload.get("tradeIn")

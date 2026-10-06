@@ -19,6 +19,8 @@ from sqlalchemy.orm import sessionmaker
 from app.core.base import utcnow
 from app.core.consumer import consume_once
 from app.core.outbox_model import OutboxMessage, OutboxStatus
+from app.core.outbox_transport import InProcessTransport
+from app.core.outbox_worker import poll_once
 from app.core.uuid7 import uuid7
 from app.inventory.consumers import handle_sales_contract_cancelled_message, handle_sales_contract_confirmed_message
 from app.inventory.models.stock_item import ReservationState, StockItem, StockItemCondition
@@ -265,6 +267,63 @@ def test_a_cancellation_leaves_another_contracts_reservation_alone(db_session, e
     assert _manual_item(db_session, kept).reservation_state == ReservationState.RESERVED
     assert _manual_item(db_session, kept).reserved_by_contract_id == kept.id
     assert _manual_item(db_session, dropped).reservation_state == ReservationState.NONE
+
+
+def test_a_cancellation_consumed_before_the_confirmation_leaves_the_item_free(db_session, engine):
+    """Delivery is at-least-once, not in order: the cancellation can reach
+    Stock before the confirmation's first successful delivery. Stock
+    remembers the cancellation and creates the item unreserved."""
+
+    dealership = _dealership(db_session)
+    contract = _confirmed_contract(db_session, engine, dealership)
+    cancel_contract(db_session, contract=contract, reason="Kunde storniert.", actor_id=uuid.uuid4(), session_factory=_session_factory(engine))
+
+    assert _deliver_cancelled(db_session, contract) is True
+    assert _deliver_confirmed(db_session, _message(db_session, "sales.contract.confirmed", contract.id)) is True
+
+    item = _manual_item(db_session, contract)
+    assert item.reservation_state == ReservationState.NONE
+    assert item.reserved_by_contract_id is None
+    assert _event_count(db_session, "inventory.stock_item.reserved", item.id) == 0
+
+
+def test_a_confirmation_retried_after_the_cancellation_leaves_the_item_free(db_session, engine):
+    """The reviewer's reproduction, through the real worker: the
+    confirmation's consumer fails once and is retried after backoff; the
+    contract is cancelled in that window and the cancellation is delivered
+    first."""
+
+    dealership = _dealership(db_session)
+    contract = _confirmed_contract(db_session, engine, dealership)
+    confirmed_id = _message(db_session, "sales.contract.confirmed", contract.id).id
+
+    failures = []
+
+    def fails_once(db, message):
+        if not failures:
+            failures.append(message.id)
+            raise RuntimeError("transient failure")
+        handle_sales_contract_confirmed_message(db, message)
+
+    transport = InProcessTransport(_session_factory(engine))
+    transport.register("sales.contract.confirmed", consumer_name=_CONFIRMED_CONSUMER, handler=fails_once)
+    transport.register("sales.contract.cancelled", consumer_name=_CANCELLED_CONSUMER, handler=handle_sales_contract_cancelled_message)
+
+    assert poll_once(db_session, transport).retried == 1
+
+    cancel_contract(db_session, contract=contract, reason="Kunde storniert.", actor_id=uuid.uuid4(), session_factory=_session_factory(engine))
+    poll_once(db_session, transport)  # the cancellation; the confirmation is still backing off
+    assert db_session.get(OutboxMessage, confirmed_id).status == OutboxStatus.PENDING
+
+    db_session.get(OutboxMessage, confirmed_id).next_attempt_at = utcnow()  # the backoff elapses
+    db_session.commit()
+    poll_once(db_session, transport)
+
+    db_session.expire_all()
+    assert db_session.get(OutboxMessage, confirmed_id).status == OutboxStatus.PUBLISHED
+    item = _manual_item(db_session, contract)
+    assert item.reservation_state == ReservationState.NONE
+    assert _event_count(db_session, "inventory.stock_item.reserved", item.id) == 0
 
 
 def test_the_worker_registers_the_cancellation_consumer():
