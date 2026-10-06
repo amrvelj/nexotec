@@ -21,4 +21,9 @@ describe('{{count, number}} interpolation', () => {
     expect(i18n.t('customerCreate.duplicates.heading', { count: 1 })).toBe('Possible existing customer')
     expect(i18n.t('customerCreate.duplicates.heading', { count: 1200 })).toBe("1'200 possible existing customers")
   })
+
+  it('passes a non-numeric value through instead of rendering NaN', async () => {
+    await i18n.changeLanguage('en')
+    expect(i18n.t('stockDetail.publishing.media.countOf', { count: 3, max: 'n/a' })).toBe('3 / n/a')
+  })
 })

@@ -51,7 +51,7 @@ import {
   translatedSalutationLabel,
   translatedSourceLabel,
 } from '../customerOptions'
-import { formatDate } from '../utils/format'
+import { formatCurrencyChf, formatDate } from '../utils/format'
 import { customerName } from '../utils/customer'
 import { exportRowsToCsv, printRows, type ExportColumn } from '../utils/gridExport'
 import type { CustomerPage, CustomerRead, SalesContractRead, SalesOfferRead } from '../api/types'
@@ -414,7 +414,13 @@ export function CustomersListPage() {
       text('paymentTerms', t('customersList.columns.paymentTerms'), (row) =>
         row.paymentTerms ? translatedPaymentTermsLabel(t, row.paymentTerms) : null,
       ),
-      text('creditLimit', t('customersList.columns.creditLimit'), (row) => row.creditLimit),
+      {
+        id: 'creditLimit',
+        header: t('customersList.columns.creditLimit'),
+        cell: ({ row }) => (row.original.creditLimit != null ? formatCurrencyChf(Number(row.original.creditLimit)) : '—'),
+        // The export keeps the raw decimal, like every other export value.
+        meta: { defaultVisible: false, align: 'right', exportValue: (row) => row.creditLimit ?? '' },
+      },
       text('iban', t('customersList.columns.iban'), (row) => row.iban, { mono: true }),
       {
         id: 'vatRegistered',

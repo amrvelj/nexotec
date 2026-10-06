@@ -39,7 +39,12 @@ void i18next.use(initReactI18next).init({
 // value for plural selection; the format applies to the rendered text only.
 // The bundles write every count as `{{count, number}}` (enforced by
 // architecture/no-locale-number-format.test.ts).
-i18next.services.formatter?.add('number', (value) => formatNumber(Number(value)))
+// A value that is not a number passes through as-is rather than rendering
+// "NaN" (i18next does not call formatters for a missing variable at all).
+i18next.services.formatter?.add('number', (value) => {
+  const n = typeof value === 'number' ? value : Number(value)
+  return value != null && value !== '' && Number.isFinite(n) ? formatNumber(n) : String(value ?? '')
+})
 
 export default i18next
 
