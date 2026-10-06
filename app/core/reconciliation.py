@@ -12,7 +12,7 @@ issues an UPDATE or DELETE against the tables it inspects.
 
 import dataclasses
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import Any, cast
 
 from sqlalchemy import ColumnElement, select
@@ -43,6 +43,29 @@ class ReferenceCheck:
     target_id_column: InstrumentedAttribute[Any]
     nullable: bool = False
     source_where: Callable[[], ColumnElement[bool]] | None = None
+
+
+@dataclasses.dataclass(frozen=True)
+class StateCheck:
+    """A row that is in a given state at all is a finding — for a fact that
+    should have arrived by now and has not (e.g. "a confirmed contract
+    still waiting for an event after its grace period"), where there is no
+    reference to resolve because the reference itself is what is missing.
+    The finding is recorded against the row itself (dangling_value = its
+    id). `where` is a callable, evaluated when the run happens.
+    """
+
+    label: str
+    source_model: type[DeclarativeBase]
+    source_row_id_column: InstrumentedAttribute[Any]
+    where: Callable[[], ColumnElement[bool]]
+
+
+def find_rows_in_state(db: Session, check: StateCheck) -> list[tuple[uuid.UUID, uuid.UUID]]:
+    """Read-only: (row id, row id) for every source row matching `where`."""
+
+    rows = db.execute(select(check.source_row_id_column).select_from(check.source_model).where(check.where())).all()
+    return [(row[0], row[0]) for row in rows]
 
 
 def find_orphans(db: Session, check: ReferenceCheck) -> list[tuple[uuid.UUID, uuid.UUID]]:
@@ -84,7 +107,9 @@ class ReconciliationAlarm(Exception):
         )
 
 
-def run_reconciliation(db: Session, *, context: str, checks: list[ReferenceCheck]) -> ReconciliationRun:
+def run_reconciliation(
+    db: Session, *, context: str, checks: Sequence[ReferenceCheck | StateCheck]
+) -> ReconciliationRun:
     """Runs every check for one context, persists a ReconciliationRun plus
     one ReconciliationOrphan per finding, commits, then raises
     ReconciliationAlarm if anything was found. Never deletes or repairs —
@@ -97,14 +122,20 @@ def run_reconciliation(db: Session, *, context: str, checks: list[ReferenceCheck
 
     orphans: list[ReconciliationOrphan] = []
     for check in checks:
-        for source_row_id, dangling_value in find_orphans(db, check):
+        if isinstance(check, StateCheck):
+            findings = find_rows_in_state(db, check)
+            target_table = check.source_model.__tablename__
+        else:
+            findings = find_orphans(db, check)
+            target_table = check.target_model.__tablename__
+        for source_row_id, dangling_value in findings:
             orphan = ReconciliationOrphan(
                 run_id=run.id,
                 context=context,
                 check_label=check.label,
                 source_table=check.source_model.__tablename__,
                 source_row_id=source_row_id,
-                target_table=check.target_model.__tablename__,
+                target_table=target_table,
                 dangling_value=dangling_value,
                 detected_at=utcnow(),
             )

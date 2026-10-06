@@ -411,9 +411,11 @@ def test_request_invoice_reads_the_purchase_as_of_now_not_as_of_loading(db_sessi
 
 def test_request_invoice_refuses_a_manual_configuration_until_sales_knows_it_is_purchased(db_session, engine):
     """A manually configured vehicle becomes a pipeline stock item on
-    confirmation (inventory.services.pipeline). Sales is not told that
-    item's id, so it cannot learn the purchase — and may not invoice what
-    it cannot show the dealership owns. Refused, never waved through."""
+    confirmation (inventory.services.pipeline). Until Sales has learned
+    that item (KAN-144, inventory.stock_item.added) and its purchase, it
+    may not invoice what it cannot show the dealership owns. Refused, never
+    waved through; tests/test_sales_manual_configuration_link.py covers the
+    contract becoming invoiceable once both have arrived."""
 
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()

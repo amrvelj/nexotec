@@ -77,6 +77,11 @@ class SalesContract(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, Timestam
     stock_item_id: Mapped[uuid.UUID | None] = mapped_column(
         GUID(), nullable=True, comment="Owned by the inventory context (StockItem.id). No DB-level FK."
     )
+    # Rule 2's display label (the stock number) and when it was copied. Set
+    # when Sales learns a manual configuration's pipeline item (KAN-144);
+    # null on a stock-sourced contract, where Sales never sees the number.
+    stock_item_label: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    stock_item_denorm_refreshed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     vehicle_label: Mapped[str | None] = mapped_column(String(200), nullable=True)
     manual_vehicle_condition: Mapped[str | None] = mapped_column(String(16), nullable=True)
 
