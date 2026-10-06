@@ -122,8 +122,8 @@ in this repo can provision for you.
 **Postgres is the only lane that gates a merge** (ADR-011,
 `.github/workflows/test.yml`'s `postgres` job) — the real container from
 `docker-compose.yml`. SQLite's weaker constraint/concurrency enforcement
-can hide bugs (missing FK violations, isolation differences) that only
-show up against Postgres.
+can hide bugs (unchecked lengths, row locks, isolation differences) that
+only show up against Postgres.
 
 ```bash
 docker compose up -d db
@@ -144,12 +144,30 @@ faster and with no Docker required. Add the Postgres lane locally too
 before pushing anything with a new FK/constraint — pre-commit running
 green is not the same guarantee CI's `postgres` job gives you.
 
+What the SQLite lane does **not** check: VARCHAR lengths (SQLite stores any
+length), row locks (`with_for_update` is a no-op, so lock races and number
+allocation under concurrency go untested), and the Postgres-only tests,
+which skip. Foreign keys *are* enforced: `tests/conftest.py` turns
+`PRAGMA foreign_keys` on for every connection. Every run's header names the
+database it uses (unless `-q` hides the header, as `scripts/dev/check`'s
+own step titles name the lane instead), and the short summary prints each
+skip reason, so a fast-lane run never reads like the lane of record.
+
 ## Database migrations
 
 One chain per bounded context (PR-3, ADR-015), branched forward from a
 frozen shared trunk — `alembic heads` lists all of them. Always use
 `heads` (plural), never `head`: with multiple independent chains, the
 singular form either fails or silently applies only one.
+
+Every service that starts from this codebase migrates first — the web
+service and the outbox worker in `render.yaml` and `docker-compose.yml`,
+and the Dockerfile's default `CMD` — so several `alembic upgrade heads` can
+run against one database at the same moment. That is safe:
+`alembic/env.py` takes a Postgres advisory lock (`pg_advisory_xact_lock`)
+inside the migration transaction, so a second run waits until the first
+commits and then finds nothing left to apply. CI proves it with
+`scripts/check_concurrent_alembic_upgrade.py` (KAN-92).
 
 ```bash
 alembic upgrade heads                                              # apply every context's head
