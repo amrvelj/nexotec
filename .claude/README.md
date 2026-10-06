@@ -21,7 +21,7 @@ when it needs to explain or change the setup.
 | `scripts/dev/gate` | any time | Gate status, ticket start/close, waivers |
 
 There is no `AGENTS.md` (only Claude Code works in this repository) and no `.mcp.json` (Notion
-comes from the claude.ai connector, GitHub goes through `gh`, screenshots through the desktop
+comes from the claude.ai connector, GitHub goes through `gh api` (REST only — KAN-155), screenshots through the desktop
 preview). Add either only when a concrete need appears.
 
 ## The gates
@@ -117,7 +117,9 @@ session. Several can run at once, each on its own machine, with the Mac closed.
 - The Drive folder (UI prototype, auto-i-dat PDFs) is out of reach: tickets that need it run on
   the Mac.
 - Notion comes from the same claude.ai connector; `gh` is pre-installed and authenticated
-  through the cloud's GitHub proxy. The weekly `/drift-audit` routine is a cloud session too.
+  through the cloud's GitHub proxy, which refuses GraphQL (`gh pr view`, `gh pr checks`,
+  `gh pr create`): the gates and `/ticket` use `gh api` REST calls, which work here and on the
+  Mac. The weekly `/drift-audit` routine is a cloud session too.
 
 ## Changing the setup
 

@@ -13,10 +13,15 @@ has fresh context and cannot edit files, so the work is never graded by whoever 
 
 ## 1. Resolve the target (you, in this session)
 
-- `PR-<n>`: `gh pr view <n> --json title,body,headRefName,baseRefOid,headRefOid,mergeCommit,url`.
-  The ticket is the `KAN-<n>` in its title or body.
+- `PR-<n>`: `gh api 'repos/{owner}/{repo}/pulls/<n>' --jq '{title, body, head: .head.ref, base_sha:
+  .base.sha, head_sha: .head.sha, merge_commit_sha, html_url}'` (REST — `gh pr view` is GraphQL,
+  refused in cloud sessions). The ticket is the `KAN-<n>` in its title or body.
 - `KAN-<n>`: fetch the ticket from the board (see `/ticket` for the query); find its PR with
-  `gh pr list --state all --search "KAN-<n>"`.
+  `p=1; while out=$(gh api "repos/{owner}/{repo}/pulls?state=all&per_page=100&page=$p") && [ "$out" != "[]" ];
+  do echo "$out" | jq -r '.[] | select(.title | test("KAN-<n>\\b")) | [.number, .title, .state] | @tsv';
+  p=$((p+1)); done`. The cloud
+  proxy accepts only `repos/{owner}/{repo}/...` paths: it refuses `search/...`, and `--paginate`
+  (its next-page links use numeric `repositories/<id>/...` paths), so page explicitly.
 - `WP-<n>`: the work package page in the Build Sequence (Notion, linked in CLAUDE.md); the
   range is the merged head it names against the previous verified head.
 - `<base>..<head>`: as given.

@@ -76,6 +76,7 @@ def _build_and_flush_stock_item(
     data: StockItemCreate,
     actor_id: uuid.UUID | None,
     pipeline_ref: str | None,
+    origin: dict[str, str] | None = None,
 ) -> StockItem:
     """The commit-free core, shared by create_stock_item (HTTP path, owns
     its own commit) and app.inventory.services.pipeline's consumer path
@@ -117,7 +118,11 @@ def _build_and_flush_stock_item(
             producer=_EVENT_PRODUCER,
             aggregate_type="stock_item",
             aggregate_id=item.id,
-            payload={"stockNumber": item.stock_number, "vehicleLabel": item.vehicle_label},
+            # KAN-144 — `origin` (originContractId, originRole) is added only
+            # when a contract's confirmation created the item, so Sales can
+            # link a manual configuration to it. Additive: a consumer that
+            # ignores unknown keys is unaffected.
+            payload={"stockNumber": item.stock_number, "vehicleLabel": item.vehicle_label, **(origin or {})},
         ),
     )
     return item

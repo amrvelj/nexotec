@@ -48,7 +48,13 @@ _EVENT_PRODUCER = "inventory"
 
 
 def _create_pipeline_item_idempotent(
-    db: Session, *, tenant_id: uuid.UUID, vehicle_label: str, condition: StockItemCondition, pipeline_ref: str
+    db: Session,
+    *,
+    tenant_id: uuid.UUID,
+    vehicle_label: str,
+    condition: StockItemCondition,
+    pipeline_ref: str,
+    origin: dict[str, str],
 ) -> StockItem:
     """Defense-in-depth against a genuine duplicate emission (a different
     message id, same business event) — the outbox harness's ProcessedEvent
@@ -74,6 +80,7 @@ def _create_pipeline_item_idempotent(
             data=StockItemCreate(vehicle_label=vehicle_label, condition=condition),
             actor_id=None,
             pipeline_ref=pipeline_ref,
+            origin=origin,
         )
     except IntegrityError:
         db.rollback()
@@ -96,6 +103,7 @@ def handle_sales_contract_confirmed(db: Session, *, tenant_id: uuid.UUID, payloa
             vehicle_label=manual_configuration["vehicleLabel"],
             condition=StockItemCondition(manual_configuration.get("condition", "new")),
             pipeline_ref=f"contract:{contract_id}:manual",
+            origin={"originContractId": str(contract_id), "originRole": "manual_configuration"},
         )
 
     trade_in = payload.get("tradeIn")
@@ -106,6 +114,7 @@ def handle_sales_contract_confirmed(db: Session, *, tenant_id: uuid.UUID, payloa
             vehicle_label=trade_in["vehicleLabel"],
             condition=StockItemCondition(trade_in.get("condition", "used")),
             pipeline_ref=f"contract:{contract_id}:trade_in",
+            origin={"originContractId": str(contract_id), "originRole": "trade_in"},
         )
         valuation_id = trade_in.get("valuationId")
         if valuation_id is not None:

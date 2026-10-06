@@ -51,6 +51,7 @@ import re
 import shutil
 import socket
 import subprocess
+import urllib.parse
 import sys
 import tempfile
 import traceback
@@ -1428,24 +1429,119 @@ def waived(state, tree, gate):
     return None
 
 
+def gh_api(root, path, timeout=40, missing_ok=False):
+    """`gh api <path>` over GitHub's REST API - GraphQL (`gh pr view`, `gh pr checks`) is refused
+    from Claude Code cloud sessions (KAN-154/155), REST works there and on the Mac alike.
+    `{owner}/{repo}` in `path` are filled in by `gh` from the checkout's remote.
+    Returns (data or None, problem or None); a refusal is reported in GitHub's own words.
+    `missing_ok`: an HTTP 404 means "there is none" (e.g. an unprotected branch), not a problem."""
+    try:
+        proc = subprocess.run(["gh", "api", path], cwd=root, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                              universal_newlines=True, timeout=timeout)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return None, "GitHub could not be reached through `gh api` ({}).".format(exc.__class__.__name__)
+    if proc.returncode != 0:
+        if missing_ok and "(HTTP 404)" in (proc.stderr or ""):
+            return None, None
+        detail = (proc.stderr or proc.stdout or "").strip().splitlines()
+        return None, "GitHub refused `gh api {}`: {}".format(path.split("?")[0], detail[0] if detail else
+                                                            "exit {}".format(proc.returncode))
+    try:
+        return json.loads(proc.stdout or "null"), None
+    except ValueError:
+        return None, "Could not read the `gh api {}` response.".format(path.split("?")[0])
+
+
+def gh_api_pages(root, path, key=None, per_page=100, max_pages=10):
+    """Every page of a list endpoint: a plain JSON array, or the array under `key` (check-runs).
+    Pages explicitly with `page=`: `gh api --paginate` follows next-page links that use numeric
+    `repositories/<id>/...` paths, which the cloud proxy refuses."""
+    items = []
+    sep = "&" if "?" in path else "?"
+    for page in range(1, max_pages + 1):
+        data, problem = gh_api(root, "{}{}per_page={}&page={}".format(path, sep, per_page, page))
+        if problem:
+            return None, problem
+        batch = (data or {}).get(key) or [] if key else (data or [])
+        items.extend(batch)
+        if len(batch) < per_page:
+            return items, None
+    # Never a silently shortened list: a missing failed run would read as green.
+    return None, "`gh api {}` has more than {} entries - the gate does not read further.".format(
+        path.split("?")[0], per_page * max_pages)
+
+
+def pick_pull(pulls):
+    """The PR `gh pr view <branch>` would show: the open one, else the most recent."""
+    if not pulls:
+        return None
+    open_ones = [p for p in pulls if p.get("state") == "open"]
+    return max(open_ones or pulls, key=lambda p: p.get("number") or 0)
+
+
+def pr_from_rest(pull, check_runs, statuses, required=()):
+    """The REST answers shaped as `ci_problem` reads them (formerly `gh pr view --json`).
+    A required check (base-branch protection) that has not reported at all counts as pending -
+    as GraphQL's EXPECTED did - so a job that never starts cannot let the gate through."""
+    state = "MERGED" if pull.get("merged_at") else (pull.get("state") or "").upper()
+    rollup = [{"name": c.get("name"), "status": (c.get("status") or "").upper(),
+               "conclusion": (c.get("conclusion") or "").upper()} for c in check_runs]
+    rollup += [{"__typename": "StatusContext", "context": st.get("context"), "state": (st.get("state") or "").upper()}
+               for st in statuses]
+    reported = {c.get("name") for c in check_runs} | {st.get("context") for st in statuses}
+    rollup += [{"__typename": "StatusContext", "context": name, "state": "EXPECTED"}
+               for name in required if name not in reported]
+    return {"number": pull.get("number"), "url": pull.get("html_url"), "state": state,
+            "headRefOid": (pull.get("head") or {}).get("sha"), "statusCheckRollup": rollup}
+
+
+def branch_pull(root, branch):
+    """(pull or None, problem or None) for `branch` in this checkout's GitHub repository."""
+    pulls, problem = gh_api(root, "repos/{{owner}}/{{repo}}/pulls?state=all&per_page=100&head={{owner}}:{}".format(
+        urllib.parse.quote(branch, safe="")))
+    if problem:
+        return None, problem
+    return pick_pull(pulls or []), None
+
+
 def pr_status(root, branch):
     """Return (problem or None, pr dict or None)."""
     if not shutil.which("gh"):
         return "The GitHub CLI `gh` is not installed, so the PR and CI cannot be verified " \
                "(`brew install gh`, `gh auth login`).", None
-    rc, out = run(["gh", "pr", "view", branch, "--json", "number,url,state,headRefOid,statusCheckRollup"],
-                  cwd=root, timeout=40)
-    if rc != 0 or not out:
-        rc_auth, _ = run(["gh", "auth", "status"], cwd=root, timeout=20)
-        if rc_auth != 0:
-            return "`gh` is not signed in to GitHub (or GitHub is unreachable), so the PR and CI cannot be " \
-                   "verified - run `gh auth login`.", None
-        return "No pull request found for `{}`. Open it with `gh pr create` (title: what changed; " \
-               "body: exit criteria met / not met, verification, screenshots).".format(branch), None
-    try:
-        return None, json.loads(out)
-    except ValueError:
-        return "Could not read `gh pr view` output.", None
+    pull, problem = branch_pull(root, branch)
+    if problem:
+        return problem + " - so the PR and CI cannot be verified.", None
+    if pull is None:
+        return "No pull request found for `{}`. Open it (`gh api -X POST repos/{{owner}}/{{repo}}/pulls`, or the " \
+               "GitHub tools; title: what changed; body: exit criteria met / not met, verification, " \
+               "screenshots).".format(branch), None
+    sha = (pull.get("head") or {}).get("sha")
+    check_runs, problem = gh_api_pages(root, "repos/{{owner}}/{{repo}}/commits/{}/check-runs".format(sha),
+                                       key="check_runs")
+    if problem:
+        return problem + " - so CI cannot be verified.", None
+    statuses, problem = gh_api_pages(root, "repos/{{owner}}/{{repo}}/commits/{}/statuses".format(sha))
+    if problem:
+        return problem + " - so CI cannot be verified.", None
+    base = urllib.parse.quote((pull.get("base") or {}).get("ref") or "main", safe="")
+    protection, problem = gh_api(root, "repos/{{owner}}/{{repo}}/branches/{}/protection/required_status_checks".format(
+        base), missing_ok=True)
+    if problem:
+        return problem + " - so the required checks cannot be read.", None
+    required = (protection or {}).get("contexts") or []
+    return None, pr_from_rest(pull, check_runs, latest_statuses(statuses), required)
+
+
+def latest_statuses(statuses):
+    """`commits/{sha}/statuses` lists every status ever posted, newest first; keep the newest per
+    context (what the combined status reports)."""
+    seen, latest = set(), []
+    for st in statuses:
+        if st.get("context") not in seen:
+            seen.add(st.get("context"))
+            latest.append(st)
+    return latest
 
 
 def ci_problem(pr, head):
@@ -1454,7 +1550,7 @@ def ci_problem(pr, head):
             pr["headRefOid"][:10], head[:10])
     checks = pr.get("statusCheckRollup") or []
     if not checks:
-        return "CI has not reported on the PR yet - wait with `gh pr checks --watch`."
+        return "CI has not reported on the PR yet - wait for its check runs before handing over."
     pending, failed = [], []
     for c in checks:
         name = c.get("name") or c.get("context") or "?"
@@ -1472,7 +1568,7 @@ def ci_problem(pr, head):
     if failed:
         return "CI failed: {}. Fix it, re-run `scripts/dev/check`, push, and wait again.".format(", ".join(failed))
     if pending:
-        return "CI is still running ({}). Wait with `gh pr checks --watch` before handing over.".format(
+        return "CI is still running ({}). Wait for it to finish before handing over.".format(
             ", ".join(pending[:6]))
     return None
 
@@ -1602,13 +1698,11 @@ GATES = ("ci", "review", "screenshot", "notion", "all")
 
 
 def pr_merged(root, branch):
+    """The branch's PR is merged - read over REST (`merged_at`), which works in cloud sessions."""
     if not (branch and shutil.which("gh")):
         return False
-    rc, out = run(["gh", "pr", "view", branch, "--json", "state"], cwd=root, timeout=40)
-    try:
-        return rc == 0 and json.loads(out).get("state") == "MERGED"
-    except ValueError:
-        return False
+    pull, problem = branch_pull(root, branch)
+    return problem is None and pull is not None and bool(pull.get("merged_at"))
 
 
 def cli(argv):
@@ -1642,7 +1736,7 @@ def cli(argv):
         branch = current_branch(root)
         pending = state.get("ticket") or handover_open(state)
         if pending and not abandon and not pr_merged(root, branch):
-            print("The pull request for `{}` is not merged (or `gh` cannot tell), so the ticket stays open. "
+            print("The pull request for `{}` is not merged (or GitHub cannot be asked), so the ticket stays open. "
                   "`close` is for after Anto merged it; to drop the ticket without a merge, Anto runs "
                   "`scripts/dev/gate close --abandon`.".format(branch), file=sys.stderr)
             return 2
@@ -1802,6 +1896,57 @@ def selftest():
             == "Done."
     finally:
         os.unlink(fh.name)
+    # --- GitHub over REST (KAN-155): recorded response shapes, no network
+    head_sha = "6266cfb0bfc512858711c07847fe192c8e8fdb22"
+    pull_open = {"number": 7, "state": "open", "merged_at": None, "html_url": "https://github.com/o/r/pull/7",
+                 "head": {"sha": head_sha}}
+    pull_old = {"number": 3, "state": "closed", "merged_at": None, "head": {"sha": "0" * 40}}
+    pull_merged = {"number": 9, "state": "closed", "merged_at": "2026-10-06T05:51:51Z", "head": {"sha": head_sha}}
+    assert pick_pull([pull_old, pull_open]) is pull_open and pick_pull([pull_old, pull_merged]) is pull_merged
+    assert pick_pull([pull_merged, pull_open]) is pull_open  # the open PR wins over a newer closed one
+    assert pick_pull([]) is None
+    green = [{"name": "pytest", "status": "completed", "conclusion": "success"},
+             {"name": "docs", "status": "completed", "conclusion": "skipped"}]
+    pr = pr_from_rest(pull_open, green, [])
+    assert pr["headRefOid"] == head_sha and pr["state"] == "OPEN" and pr["number"] == 7
+    assert ci_problem(pr, head_sha) is None
+    assert "not your local HEAD" in ci_problem(pr, "f" * 40)
+    assert "has not reported" in ci_problem(pr_from_rest(pull_open, [], []), head_sha)
+    pending = green + [{"name": "mypy", "status": "in_progress", "conclusion": None}]
+    assert "still running (mypy)" in ci_problem(pr_from_rest(pull_open, pending, []), head_sha)
+    failed = green + [{"name": "ruff", "status": "completed", "conclusion": "failure"}]
+    assert "CI failed: ruff" in ci_problem(pr_from_rest(pull_open, failed, []), head_sha)
+    status_pending = [{"context": "deploy/preview", "state": "pending"}]
+    assert "deploy/preview" in ci_problem(pr_from_rest(pull_open, green, status_pending), head_sha)
+    status_error = [{"context": "deploy/preview", "state": "error"}]
+    assert "CI failed: deploy/preview" in ci_problem(pr_from_rest(pull_open, green, status_error), head_sha)
+    assert pr_from_rest(pull_merged, green, [])["state"] == "MERGED"
+    # a required check that never reported holds the gate, as GraphQL's EXPECTED did
+    assert "still running (mypy)" in ci_problem(pr_from_rest(pull_open, green, [], ["pytest", "mypy"]), head_sha)
+    assert ci_problem(pr_from_rest(pull_open, green, [], ["pytest"]), head_sha) is None
+    newest_first = [{"context": "deploy", "state": "success"}, {"context": "deploy", "state": "pending"}]
+    assert latest_statuses(newest_first) == newest_first[:1]
+    real_run = subprocess.run
+    try:
+        subprocess.run = lambda *a, **k: subprocess.CompletedProcess(a[0], 1, "", (
+            "HTTP 403: GitHub GraphQL is not available from Claude Code sessions\n"))
+        data, problem = gh_api("/", "repos/{owner}/{repo}/pulls?head=x")
+        assert data is None and problem == ("GitHub refused `gh api repos/{owner}/{repo}/pulls`: HTTP 403: GitHub "
+                                            "GraphQL is not available from Claude Code sessions"), problem
+        subprocess.run = lambda *a, **k: subprocess.CompletedProcess(a[0], 0, json.dumps([pull_merged]), "")
+        assert branch_pull("/", "kan-1-x") == (pull_merged, None)
+        pages = iter([json.dumps({"check_runs": green * 50}), json.dumps({"check_runs": green[:1]})])
+        subprocess.run = lambda *a, **k: subprocess.CompletedProcess(a[0], 0, next(pages), "")
+        runs, problem = gh_api_pages("/", "repos/{owner}/{repo}/commits/x/check-runs", key="check_runs")
+        assert problem is None and len(runs) == 101
+        subprocess.run = lambda *a, **k: subprocess.CompletedProcess(a[0], 0, json.dumps({"check_runs": green * 50}), "")
+        runs, problem = gh_api_pages("/", "repos/{owner}/{repo}/commits/x/check-runs", key="check_runs")
+        assert runs is None and "more than 1000" in problem  # never a silently shortened list
+        subprocess.run = lambda *a, **k: subprocess.CompletedProcess(a[0], 1, "", "gh: Branch not found (HTTP 404)\n")
+        assert gh_api("/", "repos/{owner}/{repo}/branches/x/protection", missing_ok=True) == (None, None)
+        assert gh_api("/", "repos/{owner}/{repo}/branches/x/protection")[1].endswith("(HTTP 404)")
+    finally:
+        subprocess.run = real_run
     # --- Notion
     assert notion_id("https://app.notion.com/p/3cf3e79334dd80f69bb8c2e6a19481ef?pvs=4") == "3cf3e79334dd80f69bb8c2e6a19481ef"
     assert notion_id("3cf3e793-34dd-805c-9017-000b5a24915f") in KANBAN_IDS

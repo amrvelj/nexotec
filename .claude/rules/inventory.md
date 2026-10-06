@@ -31,6 +31,9 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   transaction migration publishes nothing and writes Sales' replica row itself); Sales keeps it
   per stock item and never queries Stock synchronously for it. Reservation does not need the
   purchase (K-12); Sales' invoicing does (KAN-100).
+- A pipeline item a contract's confirmation creates names that contract on
+  `inventory.stock_item.added` (`originContractId`, `originRole`: `manual_configuration` |
+  `trade_in`; additive, KAN-144). A directly added item carries neither.
 - **Fiktiver Vorsteuerabzug** (Art. 28a MWSTG) is recorded at purchase booking
   (`app/inventory/services/purchase.py::record_purchase`), computed from the purchase price and
   the dealership's `vat_rate`, independent of `landed_cost`. Stock owns it; Sales only reads it.
