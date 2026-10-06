@@ -9,9 +9,11 @@ outbox event with group A. KAN-99 stopped new ones; this finds the rows
 already written. The classification is
 app.customer.reconciliation.find_cross_group_vehicle_party_closes.
 
-READ-ONLY. It issues SELECTs only and rolls its session back; there is
-no --commit. A repair (reopening a wrongly closed row, a compensating
-event) is Anto's decision on the ticket, never this script's. The audit
+READ-ONLY, enforced by the database: on Postgres the session runs in a
+`SET TRANSACTION READ ONLY` transaction, so any write would fail rather
+than land; it is rolled back at the end. There is no --commit. A repair
+(reopening a wrongly closed row, a compensating event) is Anto's
+decision on the ticket, never this script's. The audit
 log is append-only (app/core/audit.py): never edit or delete its rows.
 
 Exit status: 0 when there is nothing cross-group or unresolved, 1
@@ -22,6 +24,8 @@ Usage:
 """
 
 import sys
+
+from sqlalchemy import text
 
 from app.customer.reconciliation import CloseCategory, VehiclePartyCloseReport, find_cross_group_vehicle_party_closes
 from app.db import SessionLocal
@@ -48,6 +52,8 @@ def render(report: VehiclePartyCloseReport) -> str:
 def main() -> int:
     db = SessionLocal()
     try:
+        if db.get_bind().dialect.name == "postgresql":
+            db.execute(text("SET TRANSACTION READ ONLY"))
         report = find_cross_group_vehicle_party_closes(db)
     finally:
         db.rollback()

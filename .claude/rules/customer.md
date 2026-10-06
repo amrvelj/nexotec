@@ -10,7 +10,7 @@ paths:
 <!-- Maintainer note (stripped before Claude sees it). Summarises PRD-Customers v2.2 (incl. its
 §Conformance review, rulings D-03…D-26), ADR-014, ADR-064, ADR-065, ADR-067. Verified against
 main@568f416 on 2026-09-27; the vehicle-party lines against KAN-99's branch on
-2026-10-04. Fix this file in the same PR as any change to what it states;
+2026-10-04, the cross-group close detection against KAN-139's branch on 2026-10-06. Fix this file in the same PR as any change to what it states;
 /drift-audit re-checks it weekly. -->
 
 # Customers
@@ -99,9 +99,11 @@ main@568f416 on 2026-09-27; the vehicle-party lines against KAN-99's branch on
   `app.customer.reconciliation.find_cross_group_vehicle_party_closes` (run by
   `scripts/detect_cross_group_vehicle_party_closes.py`) classifies every
   `vehicle_party_remove` audit row and `unlinked` outbox event against the closed customer's
-  group. A stamp of a dealership in that group is same-group: closes before WP-3 PR-2
-  (2026-08-25) carry the dealership's tenant id. Read-only and not a nightly check (the audit
-  log is append-only, so a finding never clears); a repair is Anto's decision.
+  group. A stamp of a dealership in that group is same-group: before WP-3 PR-2 (2026-08-25)
+  the action was the D-12 hard-delete, stamped with the dealership. Close-then-open dates from
+  WP-5 PR-9 (2026-08-28), so a genuine finding falls between then and KAN-99. Read-only (a
+  `READ ONLY` transaction) and not a nightly check (the audit log is append-only, so a finding
+  never clears); a repair is Anto's decision.
 - Group-wide customer history must be served from an event-built projection keyed by
   `group_id` (reporting), never by fan-out across dealerships × services (rule 11, two hops).
   **Not built:** `app/reporting` is a stub, and the History tab shows the audit log.

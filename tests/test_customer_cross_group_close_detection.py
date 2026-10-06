@@ -10,7 +10,10 @@ that is exactly the history this detection exists to find.
 
 import uuid
 
-from sqlalchemy import func, select
+import pytest
+from sqlalchemy import func, select, text, update
+from sqlalchemy.exc import DBAPIError
+from sqlalchemy.orm import sessionmaker
 
 from app.core.audit_model import AuditEvent
 from app.core.base import utcnow
@@ -158,25 +161,49 @@ def test_other_audit_actions_and_event_types_are_ignored(db_session):
     assert find_cross_group_vehicle_party_closes(db_session).rows == []
 
 
-def test_detection_writes_nothing(db_session):
+def test_detection_runs_inside_a_read_only_transaction(db_session):
+    """Read-only is enforced, not asserted: Postgres rejects any write a
+    READ ONLY transaction attempts, flushed or not."""
+
     group_a, group_b = _group(db_session, "A"), _group(db_session, "B")
     holder_in_b = _customer(db_session, group_b)
     _close_audit(db_session, customer_id=holder_in_b.id, stamped=group_a.id)
     _unlinked_event(db_session, customer_id=str(holder_in_b.id), stamped=group_a.id)
     db_session.commit()
 
-    def counts():
-        return tuple(
-            db_session.scalar(select(func.count()).select_from(model))
-            for model in (AuditEvent, OutboxMessage, Customer, DealerGroup, Dealership)
-        )
-
-    before = counts()
-    find_cross_group_vehicle_party_closes(db_session)
-
+    db_session.execute(text("SET TRANSACTION READ ONLY"))
+    report = find_cross_group_vehicle_party_closes(db_session)
+    assert len(report.findings) == 2
     assert not db_session.new and not db_session.dirty and not db_session.deleted
     db_session.rollback()
-    assert counts() == before
+
+
+def test_the_operator_script_refuses_writes(db_session, monkeypatch):
+    """main() opens its session READ ONLY: a write slipped into the
+    detection would raise instead of landing."""
+
+    import scripts.detect_cross_group_vehicle_party_closes as script
+
+    sessions = []
+
+    def session_factory():
+        session = sessionmaker(bind=db_session.get_bind())()
+        sessions.append(session)
+        return session
+
+    def writing_detection(db):
+        db.execute(update(Customer).values(first_name="Overwritten"))
+        raise AssertionError("the write was accepted")
+
+    _customer(db_session, _group(db_session, "A"))
+    db_session.commit()
+    monkeypatch.setattr(script, "SessionLocal", session_factory)
+    monkeypatch.setattr(script, "find_cross_group_vehicle_party_closes", writing_detection)
+
+    with pytest.raises(DBAPIError, match="read-only transaction"):
+        script.main()
+    assert db_session.scalar(select(func.count()).where(Customer.first_name == "Overwritten")) == 0
+    assert all(not session.in_transaction() for session in sessions)
 
 
 def test_the_operator_report_names_each_finding(db_session):

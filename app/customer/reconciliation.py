@@ -162,12 +162,16 @@ def find_cross_group_vehicle_party_closes(db: Session) -> VehiclePartyCloseRepor
     - SAME_GROUP — stamped with the customer's own group.
     - SAME_GROUP_DEALERSHIP_STAMP — stamped with a dealership of that group.
       Before WP-3 PR-2 (026d3bb, 2026-08-25) customers were dealership-
-      scoped and the close carried the dealership's tenant id; a sister
-      dealership in the same group is not a cross-group close under the
-      KAN-99 ruling. A dealership is judged by its group today: one that
-      moved groups since is classified by where it is now.
+      scoped and `vehicle_party_remove` was the D-12 Disconnect, which
+      hard-deleted the row and stamped the dealership's tenant id. Such a
+      row records a removal with no VehicleParty row behind it, and never
+      has an outbox twin. A dealership is judged by its group today: one
+      that moved groups since is classified by where it is now.
     - CROSS_GROUP — stamped with another group, or a dealership of another
-      group. These are the findings.
+      group. These are the findings. Close-then-open arrived with WP-5
+      PR-9 (48100da, 2026-08-28), group-stamped from the start, so a
+      genuine finding falls between then and KAN-99's deploy and its
+      VehicleParty row still exists.
     - UNRESOLVED — the customer, or what the stamp names, no longer
       resolves, or the row carries no stamp. Reported, never guessed.
 
