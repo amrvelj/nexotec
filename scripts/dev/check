@@ -44,7 +44,8 @@ LANE_PATTERNS = {
     # alembic/env.py imports app.db, app.model_registry and app.core.config; core tables live in app/core/*_model.py
     "migrations": [r"^alembic/", r"^alembic\.ini$", r"^app/.*/models(/|\.py$)", r"^app/core/[^/]*_model\.py$",
                    r"^app/model_registry\.py$", r"^app/db\.py$", r"^app/core/config\.py$", r"^pyproject\.toml$",
-                   r"^scripts/(seed|verify)_migration_smoke_test[^/]*\.py$"],
+                   r"^scripts/(seed|verify)_migration_smoke_test[^/]*\.py$",
+                   r"^scripts/check_concurrent_alembic_upgrade\.py$"],
     "frontend": [r"^frontend/"],
     "api-types": [r"^app/", r"^frontend/apps/dms/src/api/", r"^scripts/generate_openapi_schema\.py$",
                   r"^pyproject\.toml$", r"^frontend/package(-lock)?\.json$", r"^frontend/apps/dms/package\.json$"],
@@ -267,6 +268,9 @@ def lane_migrations():
         ok = ok and step("round trip: alembic upgrade heads (again)", [alembic, "upgrade", "heads"], env=env)
     else:
         print("\n(no `alembic downgrade <rev>` step found in test.yml - downgrade not exercised)")
+    # As CI's migration-smoke-test: two overlapping upgrades, each trial on its own throwaway database.
+    ok = ok and step("concurrent: two alembic upgrade heads 0.2 s apart (KAN-92)",
+                     [PY, "scripts/check_concurrent_alembic_upgrade.py", "--repeat", "3"], env=env)
     if not ok:
         return False
     heads = main_heads()

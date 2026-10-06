@@ -2,6 +2,7 @@ from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
+from sqlalchemy import text
 
 from alembic import context
 
@@ -19,6 +20,12 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
+
+# Postgres advisory-lock key that serialises concurrent `alembic upgrade heads`
+# runs against one database (KAN-92). Any fixed signed 64-bit value works; this
+# one is the first 8 bytes of sha256(b"nexotec:alembic-upgrade"), big-endian,
+# signed. Advisory locks are per database; nothing else may take this key.
+MIGRATION_ADVISORY_LOCK_KEY = -7906448801533702249
 
 # Real connection string comes from app settings (DMS_DATABASE_URL env var),
 # not the placeholder in alembic.ini — keeps one source of truth. Normalized
@@ -77,6 +84,21 @@ def run_migrations_online() -> None:
         )
 
         with context.begin_transaction():
+            # The web service, the outbox worker and every web replica run
+            # `alembic upgrade heads` on start (render.yaml, docker-compose.yml,
+            # Dockerfile CMD). Without this lock two overlapping runs both start
+            # the same migration and the second exits 1 (KAN-92). It is taken
+            # here, inside Alembic's own transaction, and released when that
+            # transaction ends: the second run waits, then finds the schema
+            # current. Never take it with connection.execute() before
+            # begin_transaction(), nor as a session-level pg_advisory_lock:
+            # SQLAlchemy's autobegin then makes Alembic treat the transaction as
+            # external and never commit it (exit 0, nothing migrated).
+            if connection.dialect.name == "postgresql":
+                connection.execute(
+                    text("SELECT pg_advisory_xact_lock(:key)"),
+                    {"key": MIGRATION_ADVISORY_LOCK_KEY},
+                )
             context.run_migrations()
 
 
