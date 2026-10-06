@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Copy, Pencil, Plus, Trash2 } from "lucide-react";
 import { purple, radius, slate, spacing, white } from "../tokens";
 import { conditionsForField, describePredicate, type FilterFieldDef, type FilterPredicate } from "./filterPredicate";
+import { formatNumber } from "../format/swissNumber";
 
 export interface FilterBuilderProps {
   /** Derived from the grid's own column defs (§ Action Bar: "the field
@@ -28,7 +29,7 @@ const DEFAULT_LABELS = {
   addFilter: "+ New filter…",
   save: "Save",
   cancel: "Cancel",
-  matchCount: (count: number) => `${count} matching`,
+  matchCount: (count: number) => `${formatNumber(count)} matching`,
 };
 
 function defaultPredicateFor(field: FilterFieldDef): FilterPredicate {

@@ -1,5 +1,6 @@
 import type { FilterFieldDef, FilterPredicate } from '@nexotec/ui-kit'
 import type { CatalogueBrowseMode, CatalogueFacetsRead } from './api/types'
+import { formatNumber } from './utils/format'
 
 /** Mode → the production-year default (PRD `NurNeue`): `build` shows only
  * in-production ranges, `record` shows everything. */
@@ -58,7 +59,7 @@ export function buildCatalogueFilterFields(
       type: 'select',
       options: values.map((v) => ({
         value: v.valueCode,
-        label: `${labelFor(listCode, v.valueCode)} (${v.count})`,
+        label: `${labelFor(listCode, v.valueCode)} (${formatNumber(v.count)})`,
       })),
     })
   }

@@ -9,6 +9,7 @@ import { ActionBar, DataGrid, type GridColumnDef, type SortSpec } from '@nexotec
 import { useUiPreferencesContext } from '../hooks/UiPreferencesContext'
 import { api } from '../api/client'
 import type { MappingGapPage, MappingGapRead } from '../api/types'
+import { formatNumber } from '../utils/format'
 
 const GRID_KEY = 'vehicleMdm.mappingGaps'
 
@@ -120,7 +121,7 @@ export function MappingGapsQueue({ paramPrefix = '' }: MappingGapsQueueProps) {
       {
         id: 'occurrences',
         header: t('mappingGaps.columns.occurrences'),
-        cell: ({ row }) => <Badge variant="light">{row.original.occurrences}</Badge>,
+        cell: ({ row }) => <Badge variant="light">{formatNumber(row.original.occurrences)}</Badge>,
         meta: { align: 'right' },
       },
       {

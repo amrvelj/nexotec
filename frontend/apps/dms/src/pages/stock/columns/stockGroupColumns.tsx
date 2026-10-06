@@ -9,7 +9,7 @@ import {
   translatedStockLifecycleLabel,
   translatedStockReservationLabel,
 } from '../../../stockOptions'
-import { formatCurrencyChf, formatDate } from '../../../utils/format'
+import { formatCurrencyChf, formatDate, formatNumber } from '../../../utils/format'
 import type { StockItemGroupRead } from '../../../api/types'
 
 type Translate = (key: string) => string
@@ -87,7 +87,7 @@ export function buildStockGroupColumns(t: Translate, locale: string): GridColumn
     {
       id: 'odometerKm',
       header: t('stockList.columns.odometerKm'),
-      cell: ({ row }) => (row.original.odometerKm != null ? row.original.odometerKm.toLocaleString(locale) : '—'),
+      cell: ({ row }) => (row.original.odometerKm != null ? formatNumber(row.original.odometerKm) : '—'),
       meta: { align: 'right', defaultVisible: false },
     },
     {

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Alert, Badge, Button, Group, Loader, NumberInput, Select, Stack, Table, TextInput } from '@mantine/core'
 import { AlertTriangle, Plus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { formatNumber } from '../../utils/format'
 import type { OdometerSource, VehicleOdometerReadingRead } from '../../api/types'
 
 interface OdometerTabProps {
@@ -76,7 +77,7 @@ export function OdometerTab({ readings, loading, onAdd }: OdometerTabProps) {
             )}
             {readings.map((r) => (
               <Table.Tr key={r.id}>
-                <Table.Td>{r.value.toLocaleString()}</Table.Td>
+                <Table.Td>{formatNumber(r.value)}</Table.Td>
                 <Table.Td>{r.readingDate}</Table.Td>
                 <Table.Td>{t(`vehicleDetail.odometer.sourceLabel.${r.source}`)}</Table.Td>
                 <Table.Td>

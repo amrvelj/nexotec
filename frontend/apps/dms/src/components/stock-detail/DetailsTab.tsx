@@ -3,7 +3,7 @@ import { Button } from '@mantine/core'
 import { InlineEditField, KeyValueRow, OverviewCard, ProgressiveDisclosure, SpecGrid, slate } from '@nexotec/ui-kit'
 import { useTranslation } from 'react-i18next'
 import { ApiError } from '../../api/client'
-import { formatCurrencyChf, formatDate } from '../../utils/format'
+import { formatCurrencyChf, formatDate, formatNumber } from '../../utils/format'
 import { RecordPurchaseDialog } from './RecordPurchaseDialog'
 import type { StockItemRead } from '../../api/types'
 
@@ -48,7 +48,7 @@ export function DetailsTab({ item, locale, onSaveField, onReload, onRecordPurcha
         columns={4}
         items={[
           { label: t('stockDetail.spec.firstRegistrationDate'), value: item.firstRegistrationDate ? formatDate(item.firstRegistrationDate, locale) : '—' },
-          { label: t('stockDetail.spec.odometerKm'), value: item.odometerKm != null ? `${item.odometerKm.toLocaleString(locale)} km` : '—' },
+          { label: t('stockDetail.spec.odometerKm'), value: item.odometerKm != null ? `${formatNumber(item.odometerKm)} km` : '—' },
           { label: t('stockDetail.spec.stockNumber'), value: item.stockNumber },
           { label: t('stockDetail.spec.vin'), value: item.vin ?? t('common.notSet') },
         ]}
@@ -58,7 +58,8 @@ export function DetailsTab({ item, locale, onSaveField, onReload, onRecordPurcha
         <OverviewCard title={t('stockDetail.commercial.title')}>
           <KeyValueRow label={t('stockDetail.commercial.odometerKm')}>
             <InlineEditField
-              value={item.odometerKm != null ? String(item.odometerKm) : ''}
+              value={item.odometerKm != null ? formatNumber(item.odometerKm) : ''}
+              editValue={item.odometerKm != null ? String(item.odometerKm) : ''}
               isEmpty={item.odometerKm == null}
               emptyLabel={t('common.notSet')}
               onSave={(v) => onSaveField({ odometerKm: v ? Number(v) : null })}
@@ -68,7 +69,8 @@ export function DetailsTab({ item, locale, onSaveField, onReload, onRecordPurcha
           </KeyValueRow>
           <KeyValueRow label={t('stockDetail.commercial.listPrice')}>
             <InlineEditField
-              value={item.listPrice ?? ''}
+              value={item.listPrice != null ? formatCurrencyChf(Number(item.listPrice)) : ''}
+              editValue={item.listPrice ?? ''}
               isEmpty={item.listPrice == null}
               emptyLabel={t('common.notSet')}
               onSave={(v) => onSaveField({ listPrice: v || null })}
@@ -78,7 +80,8 @@ export function DetailsTab({ item, locale, onSaveField, onReload, onRecordPurcha
           </KeyValueRow>
           <KeyValueRow label={t('stockDetail.commercial.effectivePrice')}>
             <InlineEditField
-              value={item.effectivePrice ?? ''}
+              value={item.effectivePrice != null ? formatCurrencyChf(Number(item.effectivePrice)) : ''}
+              editValue={item.effectivePrice ?? ''}
               isEmpty={item.effectivePrice == null}
               emptyLabel={t('common.notSet')}
               onSave={(v) => onSaveField({ effectivePrice: v || null })}

@@ -35,7 +35,7 @@ import {
   translatedStockLifecycleOptions,
   translatedStockReservationLabel,
 } from '../stockOptions'
-import { formatDate, formatCurrencyChf } from '../utils/format'
+import { formatDate, formatCurrencyChf, formatNumber } from '../utils/format'
 import { parseSortParam, serializeSort } from '../utils/sortParam'
 import { GroupStockGrid } from './stock/GroupStockGrid'
 import { ScopeSwitchMenu, type StockScope } from './stock/components/ScopeSwitchMenu'
@@ -207,7 +207,7 @@ export function StockListPage() {
       {
         id: 'odometerKm',
         header: t('stockList.columns.odometerKm'),
-        cell: ({ row }) => (row.original.odometerKm != null ? row.original.odometerKm.toLocaleString(locale) : '—'),
+        cell: ({ row }) => (row.original.odometerKm != null ? formatNumber(row.original.odometerKm) : '—'),
         meta: { align: 'right' },
       },
       {
@@ -450,7 +450,6 @@ export function StockListPage() {
           total={total}
           totalIsEstimate={totalIsEstimate}
           isFiltered={isFiltered}
-          locale={locale}
           columnLayout={gridPrefs.columnLayout ?? undefined}
           onColumnLayoutChange={gridPrefs.setColumnLayout}
           labels={{

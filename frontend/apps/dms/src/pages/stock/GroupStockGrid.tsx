@@ -101,7 +101,6 @@ export function GroupStockGrid({ query, debouncedQuery, onQueryChange, sort, onS
         total={total}
         totalIsEstimate={totalIsEstimate}
         isFiltered={debouncedQuery.length > 0}
-        locale={locale}
         labels={{
           showing: (count) => t('common.showing', { count }),
           showingOfTotal: (count, totalStr) => t('common.showingOfTotal', { count, total: totalStr }),
