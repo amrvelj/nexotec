@@ -812,3 +812,23 @@ def test_a_stock_offer_document_is_not_itemised(db_session):
     ) is not None
     # … and its document still shows only the options total, as before
     assert _included_option_lines(db_session, offer=offer) == []
+
+
+def test_a_saved_configurations_mode_cannot_change_under_its_host(db_session):
+    """The mode matrix holds after attach too: a Path B configuration cannot
+    be turned into a record one behind the offer's back."""
+
+    dealership = _dealership(db_session)
+    config = _build_configuration(db_session, dealership.id)
+    offer = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())
+    update_offer(db_session, offer=offer, group_id=uuid.uuid4(), data=OfferUpdate(configuration_id=config.id), actor_id=None)
+
+    with pytest.raises(UnprocessableEntityError) as refused:
+        configuration_service.update_configuration(
+            db_session, configuration=config, actor_id=uuid.uuid4(), data=ConfigurationUpdate(mode=ConfigurationMode.RECORD),
+        )
+    assert refused.value.details["reason"] == "configuration_mode_fixed"
+    # resending the same mode (what the overlay does on every save) is fine
+    configuration_service.update_configuration(
+        db_session, configuration=config, actor_id=uuid.uuid4(), data=ConfigurationUpdate(mode=ConfigurationMode.BUILD),
+    )

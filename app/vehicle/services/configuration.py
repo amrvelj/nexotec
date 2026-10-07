@@ -207,6 +207,17 @@ def update_configuration(
     actor_id: uuid.UUID,
     data: ConfigurationUpdate,
 ) -> VehicleConfiguration:
+    # C-F (KAN-10): a configuration's mode is fixed once saved. Hosts check
+    # the PRD v1.4 mode matrix when they attach one (offer Path B build only,
+    # valuation record only); changing it afterwards would put a record
+    # configuration under an offer, or a build one under a valuation,
+    # without any host ever seeing the change.
+    if data.mode is not None and data.mode != configuration.mode:
+        raise UnprocessableEntityError(
+            "A saved configuration's mode cannot be changed; copy it into a new configuration instead.",
+            details={"reason": "configuration_mode_fixed"},
+        )
+
     spec_before: dict[str, Any] = {}
     spec_after: dict[str, Any] = {}
 
