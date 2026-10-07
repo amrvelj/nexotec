@@ -173,6 +173,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/catalogue/variants/{model_variant_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Variant
+         * @description One variant, the same shape a browse row has (KAN-42, C-D): the
+         *     identification picker names variants by id, and the configurator starts
+         *     from the full row exactly as it does from a browse selection. A mirror
+         *     read — no provider call.
+         */
+        get: operations["get_variant_v1_catalogue_variants__model_variant_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/catalogue/variants/{model_variant_id}/specification": {
         parameters: {
             query?: never;
@@ -269,6 +292,32 @@ export interface paths {
         head?: never;
         /** Replace Options */
         patch: operations["replace_options_v1_configurations__configuration_id__options_patch"];
+        trace?: never;
+    };
+    "/v1/configurations/{configuration_id}/resync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview Resync
+         * @description FR-C-16 — what re-syncing from the catalogue would change, field by
+         *     field, with the advisor's overrides marked. Changes nothing.
+         */
+        get: operations["preview_resync_v1_configurations__configuration_id__resync_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Apply Resync
+         * @description FR-C-16 — applies exactly the fields the advisor chose. Never
+         *     automatic: nothing else in the system calls this.
+         */
+        patch: operations["apply_resync_v1_configurations__configuration_id__resync_patch"];
         trace?: never;
     };
     "/v1/customers": {
@@ -1867,6 +1916,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/vehicle-identification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Identify Vehicle */
+        get: operations["identify_vehicle_v1_vehicle_identification_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/vehicle-identification/best-match": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Propose Best Match */
+        get: operations["propose_best_match_v1_vehicle_identification_best_match_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/vehicle-mdm": {
         parameters: {
             query?: never;
@@ -2133,6 +2216,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/vehicle-mdm/{vehicle_id}/configuration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Vehicle Configuration
+         * @description FR-C-15 — Vehicle 360's Specification tab: this tenant's newest
+         *     configuration linked to the vehicle, read-only. Customer 360 reaches it
+         *     through the vehicle (this route), never through a customer: a
+         *     configuration has no customer, and giving it one would compete with
+         *     `VehicleParty`. 404 when this tenant holds none.
+         */
+        get: operations["get_vehicle_configuration_v1_vehicle_mdm__vehicle_id__configuration_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/vehicle-mdm/{vehicle_id}/odometer-readings": {
         parameters: {
             query?: never;
@@ -2378,6 +2485,30 @@ export interface components {
             reason: string | null;
             /** Tenantid */
             tenantId: string | null;
+        };
+        /** BestMatchFieldRead */
+        BestMatchFieldRead: {
+            /** Agrees */
+            agrees: boolean;
+            /** Entered */
+            entered: string | null;
+            /** Field */
+            field: string;
+            /** Matched */
+            matched: string | null;
+        };
+        /** BestMatchProposalRead */
+        BestMatchProposalRead: {
+            candidate: components["schemas"]["VariantCandidateRead"];
+            /** Fields */
+            fields: components["schemas"]["BestMatchFieldRead"][];
+            /** Matchcode */
+            matchCode: number;
+            /** Newprice */
+            newPrice: string;
+            newPriceSource: components["schemas"]["NewPriceSource"];
+            /** Requiresconfirmation */
+            requiresConfirmation: boolean;
         };
         /**
          * BlockingCondition
@@ -2750,6 +2881,8 @@ export interface components {
             brandDisplayName?: string | null;
             /** Cataloguevariantid */
             catalogueVariantId?: string | null;
+            /** Confirmedbestmatchcode */
+            confirmedBestMatchCode?: number | null;
             /** Drivetrain */
             drivetrain?: string | null;
             /** Exteriorcolour */
@@ -2796,9 +2929,10 @@ export interface components {
         /**
          * ConfigurationMatchMethod
          * @description How the car was identified — **kept permanently**, because a later
-         *     dispute turns on it. The full waterfall is C-D; C-C produces
-         *     `catalogue_browse` and `manual`, and `vin` when a VIN resolved to an
-         *     existing MDM record.
+         *     dispute turns on it. The overlay sends the method of the waterfall rung
+         *     that resolved the car (`app.vehicle.services.identification`, C-D):
+         *     `vin`, `kontrollschild`, `stammnummer`, `typenschein` or `werkscode`;
+         *     `catalogue_browse` and `manual` otherwise.
          * @enum {string}
          */
         ConfigurationMatchMethod: "vin" | "kontrollschild" | "typenschein" | "stammnummer" | "werkscode" | "catalogue_browse" | "manual";
@@ -3185,6 +3319,10 @@ export interface components {
         ContractRead: {
             /** Cancelledreason */
             cancelledReason: string | null;
+            /** Configurationid */
+            configurationId?: string | null;
+            /** Configurationlabel */
+            configurationLabel?: string | null;
             /** Contractnumber */
             contractNumber: string;
             /**
@@ -3229,6 +3367,8 @@ export interface components {
             status: components["schemas"]["ContractStatus"];
             /** Stockitemid */
             stockItemId: string | null;
+            /** Tradeinconfigurationid */
+            tradeInConfigurationId?: string | null;
             /** Tradeinlabel */
             tradeInLabel: string | null;
             /** Tradeinpurchaseprice */
@@ -4507,6 +4647,22 @@ export interface components {
                 [key: string]: string;
             };
         };
+        /** ExistingVehicleRead */
+        ExistingVehicleRead: {
+            /** Cataloguevariantid */
+            catalogueVariantId: string | null;
+            /** Reusableconfigurationid */
+            reusableConfigurationId: string | null;
+            /**
+             * Vehicleid
+             * Format: uuid
+             */
+            vehicleId: string;
+            /** Vehiclenumber */
+            vehicleNumber: string;
+            /** Vin */
+            vin: string;
+        };
         /**
          * FinancingKind
          * @enum {string}
@@ -4531,6 +4687,46 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /**
+         * IdentificationNote
+         * @description Why the waterfall did what it did — rendered as a hint, never as an
+         *     error. `VIN_DECODE_NOT_ENTITLED` is deliberately silent on screen: a
+         *     dealer without the DAT sub-account sees what they saw before it existed.
+         * @enum {string}
+         */
+        IdentificationNote: "vin_decode_not_entitled" | "vin_decode_unavailable" | "no_provider_connection" | "plate_lookup_not_entitled" | "plate_lookup_failed" | "plate_cache_hit" | "plate_not_found";
+        /**
+         * IdentificationOutcome
+         * @description What the overlay renders next. `variants` with exactly one entry is
+         *     decisive; with more it is a picker. `plate_records` is always a picker.
+         * @enum {string}
+         */
+        IdentificationOutcome: "existing_vehicle" | "variants" | "plate_records" | "none";
+        /** IdentificationRead */
+        IdentificationRead: {
+            /** Bestmatchavailable */
+            bestMatchAvailable: boolean;
+            existingVehicle: components["schemas"]["ExistingVehicleRead"] | null;
+            kind: components["schemas"]["IdentifierKind"];
+            matchMethod: components["schemas"]["ConfigurationMatchMethod"];
+            /** Notes */
+            notes: components["schemas"]["IdentificationNote"][];
+            observed: components["schemas"]["ObservedIdentityRead"];
+            outcome: components["schemas"]["IdentificationOutcome"];
+            /** Platerecords */
+            plateRecords: components["schemas"]["PlateRecordRead"][];
+            /** Platerecordsconflict */
+            plateRecordsConflict: boolean;
+            /** Platerecordsinterchangeable */
+            plateRecordsInterchangeable: boolean;
+            /** Variants */
+            variants: components["schemas"]["VariantCandidateRead"][];
+        };
+        /**
+         * IdentifierKind
+         * @enum {string}
+         */
+        IdentifierKind: "vin" | "kontrollschild" | "stammnummer" | "typenschein" | "werkscode";
         /**
          * Language
          * @description The customer's correspondence language (Customer PRD D-01/FR-13).
@@ -4833,6 +5029,14 @@ export interface components {
             url: string;
         };
         /**
+         * NewPriceSource
+         * @description Where a best-match Neupreis came from (FR-C-02 step 5) — shown with
+         *     the proposal, because a match run against the wrong year's price
+         *     returns a plausible wrong car rather than an error.
+         * @enum {string}
+         */
+        NewPriceSource: "catalogue" | "document" | "customer";
+        /**
          * NotionalInputTaxOverrideRequest
          * @description FR-I-xx / Art. 28a MWSTG. `reason` is required — an override is
          *     always an audited entry naming the actor, the prefilled value, the
@@ -4846,6 +5050,21 @@ export interface components {
             rate?: number | string | null;
             /** Reason */
             reason: string;
+        };
+        /** ObservedIdentityRead */
+        ObservedIdentityRead: {
+            /** Firstregistrationdate */
+            firstRegistrationDate: string | null;
+            /** Licenceplate */
+            licencePlate: string | null;
+            /** Stammnummer */
+            stammnummer: string | null;
+            /** Typeapprovalnumber */
+            typeApprovalNumber: string | null;
+            /** Vin */
+            vin: string | null;
+            /** Werkscode */
+            werkscode: string | null;
         };
         /**
          * OdometerSource
@@ -4890,6 +5109,10 @@ export interface components {
             basePrice: string | null;
             /** Cancelledreason */
             cancelledReason: string | null;
+            /** Configurationid */
+            configurationId?: string | null;
+            /** Configurationlabel */
+            configurationLabel?: string | null;
             /** Containers */
             containers?: components["schemas"]["OfferContainerState"][];
             /** Copiedfromofferid */
@@ -4945,6 +5168,8 @@ export interface components {
             stockItemId: string | null;
             /** Totalbeforediscount */
             totalBeforeDiscount: string | null;
+            /** Tradeinconfigurationid */
+            tradeInConfigurationId?: string | null;
             /** Tradeinlabel */
             tradeInLabel: string | null;
             /** Tradeinpurchaseprice */
@@ -4986,6 +5211,8 @@ export interface components {
          *     contract) except pricing which needs a vehicle first.
          */
         OfferUpdate: {
+            /** Configurationid */
+            configurationId?: string | null;
             /** Customerid */
             customerId?: string | null;
             /** Discounttype */
@@ -5078,6 +5305,25 @@ export interface components {
          * @enum {string}
          */
         PhoneType: "mobile" | "landline" | "work" | "fax";
+        /** PlateRecordRead */
+        PlateRecordRead: {
+            /** Brandname */
+            brandName: string;
+            /** Firstregistrationdate */
+            firstRegistrationDate: string | null;
+            /** Modeldescription */
+            modelDescription: string;
+            /** Productionfrom */
+            productionFrom: number | null;
+            /** Productionto */
+            productionTo: number | null;
+            /** Stammnummer */
+            stammnummer: string;
+            /** Typeapprovalnumber */
+            typeApprovalNumber: string;
+            /** Vehiclekindcode */
+            vehicleKindCode: string;
+        };
         /**
          * PreferredChannel
          * @description How the customer wants to be reached. Sole contact-preference field
@@ -5372,6 +5618,26 @@ export interface components {
             contractId: string;
         };
         /**
+         * ResyncFieldRead
+         * @description FR-C-16 — one field on which the catalogue now disagrees. Values are
+         *     rendered as strings or numbers exactly as stored.
+         */
+        ResyncFieldRead: {
+            /** Catalogue */
+            catalogue: string | number | boolean | null;
+            /** Current */
+            current: string | number | boolean | null;
+            /** Field */
+            field: string;
+            /** Overridden */
+            overridden: boolean;
+        };
+        /** ResyncRequest */
+        ResyncRequest: {
+            /** Fields */
+            fields: string[];
+        };
+        /**
          * Salutation
          * @description Drives the letter opening in the customer's language (D-15).
          *     NEUTRAL produces a gender-neutral salutation rather than guessing.
@@ -5437,6 +5703,8 @@ export interface components {
         /** StockItemCreate */
         StockItemCreate: {
             condition: components["schemas"]["StockItemCondition"];
+            /** Configurationid */
+            configurationId?: string | null;
             /** Effectiveprice */
             effectivePrice?: number | string | null;
             /** Firstregistrationdate */
@@ -5522,6 +5790,10 @@ export interface components {
             /** Bodystyle */
             bodyStyle: string | null;
             condition: components["schemas"]["StockItemCondition"];
+            /** Configurationid */
+            configurationId?: string | null;
+            /** Configurationlabel */
+            configurationLabel?: string | null;
             /**
              * Createdat
              * Format: date-time
@@ -5982,6 +6254,8 @@ export interface components {
         };
         /** ValuationCreate */
         ValuationCreate: {
+            /** Configurationid */
+            configurationId?: string | null;
             /** Customerid */
             customerId?: string | null;
             /** Deductions */
@@ -6033,6 +6307,10 @@ export interface components {
         };
         /** ValuationRead */
         ValuationRead: {
+            /** Configurationid */
+            configurationId?: string | null;
+            /** Configurationlabel */
+            configurationLabel?: string | null;
             /**
              * Createdat
              * Format: date-time
@@ -6118,6 +6396,34 @@ export interface components {
          * @enum {string}
          */
         ValuationSource: "auto_i_dat" | "manual";
+        /** VariantCandidateRead */
+        VariantCandidateRead: {
+            /** Baseprice */
+            basePrice: string | null;
+            /** Basepriceyear */
+            basePriceYear: number | null;
+            /** Branddisplayname */
+            brandDisplayName: string | null;
+            /**
+             * Cataloguevariantid
+             * Format: uuid
+             */
+            catalogueVariantId: string;
+            /** Kw */
+            kw: number | null;
+            /** Modelgroupname */
+            modelGroupName: string | null;
+            /** Modelyearfrom */
+            modelYearFrom: number;
+            /** Modelyearto */
+            modelYearTo: number | null;
+            /** Newpriceforyear */
+            newPriceForYear: string | null;
+            /** Ps */
+            ps: number | null;
+            /** Variantname */
+            variantName: string;
+        };
         /** VehicleAccessoryCreate */
         VehicleAccessoryCreate: {
             /** Accessorytype */
@@ -7072,6 +7378,41 @@ export interface operations {
             };
         };
     };
+    get_variant_v1_catalogue_variants__model_variant_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                model_variant_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueVariantRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_variant_specification_v1_catalogue_variants__model_variant_id__specification_get: {
         parameters: {
             query?: never;
@@ -7272,6 +7613,81 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ConfigurationOptionsReplace"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfigurationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_resync_v1_configurations__configuration_id__resync_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                configuration_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResyncFieldRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    apply_resync_v1_configurations__configuration_id__resync_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                configuration_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResyncRequest"];
             };
         };
         responses: {
@@ -11971,6 +12387,80 @@ export interface operations {
             };
         };
     };
+    identify_vehicle_v1_vehicle_identification_get: {
+        parameters: {
+            query: {
+                q: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IdentificationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    propose_best_match_v1_vehicle_identification_best_match_get: {
+        parameters: {
+            query: {
+                typeApprovalNumber: string;
+                newPrice: number | string;
+                newPriceSource: components["schemas"]["NewPriceSource"];
+                modelDescription?: string | null;
+                firstRegistrationDate?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BestMatchProposalRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     create_vehicle_v1_vehicle_mdm_post: {
         parameters: {
             query?: never;
@@ -12552,6 +13042,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CatalogueSpecificationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_vehicle_configuration_v1_vehicle_mdm__vehicle_id__configuration_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                vehicle_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfigurationRead"];
                 };
             };
             /** @description Validation Error */

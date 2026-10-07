@@ -58,11 +58,11 @@ router = APIRouter(tags=["vehicles"])
 
 # Endpoint-level guard, not services/vehicle.py's own _TERMINAL_STATUSES
 # (which excludes SOLD — that set only blocks arbitrary status PATCH
-# changes, a narrower concept). complete_transaction sets vehicle.status =
-# SOLD *before* calling create_custody_event, so a service-level guard here
-# would incorrectly reject the very call transitioning the vehicle into
-# this state — the check belongs at the API boundary, on direct client
-# requests only (CTO review, 2026-08-06).
+# changes, a narrower concept). It was put here because Sales' old
+# complete_transaction set vehicle.status = SOLD *before* calling
+# create_custody_event, which a service-level guard would have rejected
+# (CTO review, 2026-08-06); that caller was deleted by KAN-90, and the
+# guard stays on direct client requests at the API boundary.
 _BLOCKED_CUSTODY_EVENT_STATUSES = (VehicleStatus.SOLD, VehicleStatus.TOTALED, VehicleStatus.SCRAPPED)
 
 

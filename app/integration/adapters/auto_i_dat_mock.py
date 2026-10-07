@@ -233,6 +233,30 @@ _PLATES: dict[str, list[PlateInfoData]] = {
             first_registration_date=dt.date(2003, 10, 3), stammnummer="626702193",
         )
     ],
+    # KAN-42 — one record whose Typenschein the mock catalogue carries, so a
+    # plate resolves all the way to a variant.
+    "BE123456": [
+        PlateInfoData(
+            vehicle_kind_code="01", brand_name="Volkswagen", model_description="Golf GTI 2.0 TSI DSG",
+            production_from=2021, production_to=None, type_approval_number="2CD456",
+            first_registration_date=dt.date(2022, 3, 1), stammnummer="777888999",
+        )
+    ],
+    # KAN-42 — a genuine conflict: one Stammnummer reported under two
+    # different Typenscheine (a data-quality event, never a picker of two
+    # legitimate cars).
+    "GE111111": [
+        PlateInfoData(
+            vehicle_kind_code="01", brand_name="Alfa Romeo", model_description="Giulietta 1.4 TB Progression",
+            production_from=2010, production_to=2013, type_approval_number="1AB234",
+            first_registration_date=dt.date(2012, 1, 9), stammnummer="123123123",
+        ),
+        PlateInfoData(
+            vehicle_kind_code="01", brand_name="BMW", model_description="320d Touring",
+            production_from=2019, production_to=None, type_approval_number="3EF789",
+            first_registration_date=dt.date(2012, 1, 9), stammnummer="123123123",
+        ),
+    ],
     # A Wechselschild — one plate, two vehicles (FR-V-06 picker case).
     "ZH999999": [
         PlateInfoData(

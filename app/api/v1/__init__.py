@@ -33,6 +33,7 @@ from app.vehicle.api.catalogue import router as vehicle_catalogue_router
 from app.vehicle.api.catalogue_admin import router as vehicle_catalogue_admin_router
 from app.vehicle.api.catalogue_sync import router as vehicle_catalogue_sync_router
 from app.vehicle.api.configuration import router as vehicle_configuration_router
+from app.vehicle.api.identification import router as vehicle_identification_router
 from app.vehicle.api.lookup import router as vehicle_lookup_router
 from app.vehicle.api.vehicle_mdm import router as vehicle_mdm_router
 from app.vehicle.api.vehicle_mdm_detail import router as vehicle_mdm_detail_router
@@ -48,6 +49,7 @@ api_v1_router.include_router(vehicles_router)
 api_v1_router.include_router(vehicle_lookup_router)
 api_v1_router.include_router(vehicle_catalogue_router)
 api_v1_router.include_router(vehicle_configuration_router)
+api_v1_router.include_router(vehicle_identification_router)
 api_v1_router.include_router(vehicle_catalogue_admin_router)
 api_v1_router.include_router(vehicle_catalogue_sync_router)  # before vehicle_mdm_router — see that router's own {vehicle_id} catch-all
 api_v1_router.include_router(vehicle_mdm_router)

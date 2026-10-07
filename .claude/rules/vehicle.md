@@ -61,16 +61,27 @@ re-checks them weekly. -->
 - **ADR-071** — one specification block, three carriers: the catalogue variant, the
   configuration, and the host's frozen snapshot. A field on one and not the others is a defect
   (`test_spec_block_carriers_do_not_drift.py`). `ModelVariant` and `VehicleConfiguration`
-  carry it; the offer's frozen `vehicle_snapshot` exists (ADR-041,
-  `sales/services/snapshot.py::freeze_vehicle_snapshot`) but does not carry the spec block
-  yet — C-F (KAN-10).
+  carry it; the offer's frozen `vehicle_snapshot` (ADR-041,
+  `sales/services/snapshot.py::freeze_vehicle_snapshot`) carries it under `spec` when Path B
+  attached a configuration (KAN-10).
 - **ADR-072** — option packages, exclusions and extra conditions are stored and shown, never
   enforced: a conflict warns, it never blocks.
 - **Host / mode matrix** (PRD v1.4): Stock → add to pipeline: both (`build` factory order,
   `record` bought in) · Offer → new configuration: `build` only · Offer → trade-in: `record`,
   via the valuation path · Valuation → new valuation: `record` only. The configuration entity
   supports both modes; the host decides which is reachable. Never bake a mode switch into the
-  offer overlay.
+  offer overlay. Each host enforces it at its API (`configuration_mode_not_allowed`, 422) and
+  the overlay takes `allowedModes`; hosts read a configuration only through
+  `vehicle.public.get_configuration_for_host` (KAN-10).
+- **Identification (FR-C-02, KAN-42)** is `services/identification.py`, one input
+  (`GET /v1/vehicle-identification`): VIN → vehicle-mdm, then the entitled provider decode
+  (not called: no specification, KAN-81 — calling the stub would trip the connection's
+  circuit breaker); plate → `KontrollschildInfo` behind the per-tenant plate-lookup cache
+  (30-day TTL, daily purge, never enumerable); Stammnummer → vehicle-mdm, then that cache;
+  Typenschein and Werkscode → the mirror. Several hits are a picker, never a choice; a
+  `FahrzeugeMatch` best match is a proposal, confirmed through `confirmedBestMatchCode`.
+- **Re-sync (FR-C-16)** is only ever the advisor's request (`/v1/configurations/{id}/resync`):
+  disagreeing fields listed, overrides marked, only chosen fields applied.
 
 ## auto-i-dat facts that are easy to get wrong
 
@@ -98,8 +109,9 @@ re-checks them weekly. -->
   silent default.
 - **Keep the provider's full image URL** (`ImageRef.image_url`); the provider returns a
   directly fetchable URL per image — no proxy, no base-URL reconstruction.
-- Stammnummer resolves only against our own vehicle-mdm; plate, Typenschein and Werkscode are
-  the other provider-backed inputs.
+- Stammnummer resolves only against our own data (vehicle-mdm, then the plate-lookup cache);
+  auto-i-dat accepts no Stammnummer search. The catalogue sync links each variant to its
+  Typenscheine (`vehicle_variant_type_approval`, KAN-42).
 
 ## Catalogue administration
 
