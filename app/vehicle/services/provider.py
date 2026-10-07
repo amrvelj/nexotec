@@ -95,7 +95,18 @@ def resolve_mapping_gap(
     mapping already exists but the gap is still open (a seed migration such
     as `7c4e9a2b6d13` mapped the key later): the gap is closed against the
     existing row, never a second insert. Returns True when anything changed.
+
+    The gap row is locked and re-read first, so two admins resolving the same
+    gap at once are serialised: the second sees the first one's commit and is
+    the no-op (or the 409), never a second audit row over a stale snapshot.
+    An exact repeat is answered before validation, so a value deactivated
+    since — or a legacy list-less code group — never turns "already done"
+    into an error.
     """
+
+    db.refresh(gap, with_for_update=True)
+    if gap.resolved and canonical_list_code == gap.code_group and gap.resolved_value_code == canonical_value_code:
+        return False
 
     if canonical_list_code != gap.code_group:
         raise UnprocessableEntityError(
@@ -123,9 +134,9 @@ def resolve_mapping_gap(
     if existing is None:
         try:
             # Inside a savepoint (`begin_nested` flushes what is already
-            # pending first, so the insert must be added in here): a concurrent
-            # resolve of the same key that wins the race rolls back only this
-            # insert, and the caller's transaction and `gap` stay usable.
+            # pending first, so the insert must be added in here): a row for
+            # the same key committed meanwhile rolls back only this insert,
+            # and the caller's transaction and `gap` stay usable.
             with db.begin_nested():
                 db.add(
                     ProviderCodeMap(
@@ -141,22 +152,23 @@ def resolve_mapping_gap(
                 )
                 db.flush()
         except IntegrityError:
+            # Only a code map written outside a resolve (a seed migration) can
+            # collide here — the gap lock serialises resolves of this key.
             existing = _find_code_map(db, gap)
             if existing is None:
                 raise
 
-    if existing is not None:
-        if (existing.canonical_list_code, existing.canonical_value_code) != (canonical_list_code, canonical_value_code):
-            raise ConflictError(
-                f"Provider code '{gap.provider_code}' is already mapped to "
-                f"{existing.canonical_list_code}/{existing.canonical_value_code}.",
-                details={
-                    "canonicalListCode": existing.canonical_list_code,
-                    "canonicalValueCode": existing.canonical_value_code,
-                },
-            )
-        if gap.resolved and gap.resolved_value_code == canonical_value_code:
-            return False
+    if existing is not None and (existing.canonical_list_code, existing.canonical_value_code) != (
+        canonical_list_code, canonical_value_code
+    ):
+        raise ConflictError(
+            f"Provider code '{gap.provider_code}' is already mapped to "
+            f"{existing.canonical_list_code}/{existing.canonical_value_code}.",
+            details={
+                "canonicalListCode": existing.canonical_list_code,
+                "canonicalValueCode": existing.canonical_value_code,
+            },
+        )
 
     gap.resolved = True
     gap.resolved_at = utcnow()

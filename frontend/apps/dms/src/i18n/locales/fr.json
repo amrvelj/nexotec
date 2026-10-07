@@ -512,11 +512,12 @@
       "listCode": "Liste de référence",
       "valueCode": "Valeur canonique",
       "confirm": "Résoudre",
-      "providerCode": "Code fournisseur",
       "valuePlaceholder": "Choisir une valeur",
       "noValues": "Aucune valeur correspondante",
-      "valuesLoadError": "Les valeurs de cette liste n'ont pas pu être chargées. Un écart dont le groupe de codes n'a pas de liste de référence ne peut pas être résolu.",
-      "error": "L'écart n'a pas pu être résolu."
+      "valuesLoadError": "Les valeurs de cette liste n'ont pas pu être chargées.",
+      "error": "L'écart n'a pas pu être résolu.",
+      "gapKey": "Fournisseur · type de véhicule · code",
+      "noList": "Le groupe de codes « {{codeGroup}} » n'a pas de liste de référence ; cet écart ne pourra être résolu qu'une fois la liste créée."
     }
   },
   "vehiclesList": {

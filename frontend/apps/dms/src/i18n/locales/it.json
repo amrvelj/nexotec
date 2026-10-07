@@ -512,11 +512,12 @@
       "listCode": "Lista di riferimento",
       "valueCode": "Valore canonico",
       "confirm": "Risolvi",
-      "providerCode": "Codice fornitore",
       "valuePlaceholder": "Scegli un valore",
       "noValues": "Nessun valore corrispondente",
-      "valuesLoadError": "Impossibile caricare i valori di questa lista. Una lacuna il cui gruppo di codici non ha una lista di riferimento non può essere risolta.",
-      "error": "Impossibile risolvere la lacuna."
+      "valuesLoadError": "Impossibile caricare i valori di questa lista.",
+      "error": "Impossibile risolvere la lacuna.",
+      "gapKey": "Fornitore · tipo di veicolo · codice",
+      "noList": "Il gruppo di codici «{{codeGroup}}» non ha una lista di riferimento: questa lacuna potrà essere risolta solo quando ne esisterà una."
     }
   },
   "vehiclesList": {

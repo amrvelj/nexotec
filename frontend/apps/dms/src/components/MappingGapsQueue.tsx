@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Alert, Badge, Button, Group, Modal, Select, Stack, TextInput } from '@mantine/core'
+import { Alert, Badge, Button, Select, Stack, TextInput } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { ActionBar, DataGrid, type GridColumnDef, type SortSpec } from '@nexotec/ui-kit'
+import { ActionBar, DataGrid, FormDialog, type GridColumnDef, type SortSpec } from '@nexotec/ui-kit'
 import { useUiPreferencesContext } from '../hooks/UiPreferencesContext'
 import { useReferenceValueOptions } from '../hooks/useReferenceValueOptions'
 import { api, ApiError } from '../api/client'
@@ -227,49 +227,50 @@ export function MappingGapsQueue({ paramPrefix = '' }: MappingGapsQueueProps) {
         }}
       />
 
-      <Modal
+      <FormDialog
         opened={resolvingGap !== null}
         onClose={() => setResolvingGap(null)}
         title={t('mappingGaps.resolveModal.title')}
+        onSubmit={submitResolve}
+        submitLabel={t('mappingGaps.resolveModal.confirm')}
+        cancelLabel={t('common.cancel')}
+        submitting={resolving}
+        submitDisabled={!valueCode}
       >
-        <Stack gap="sm">
-          <TextInput
-            label={t('mappingGaps.resolveModal.providerCode')}
-            value={resolvingGap ? `${resolvingGap.provider} · ${resolvingGap.vehicleKind} · ${resolvingGap.providerCode}` : ''}
-            readOnly
-          />
-          <TextInput label={t('mappingGaps.resolveModal.listCode')} value={resolvingGap?.codeGroup ?? ''} readOnly />
-          <Select
-            label={t('mappingGaps.resolveModal.valueCode')}
-            placeholder={t('mappingGaps.resolveModal.valuePlaceholder')}
-            data={valueOptions.options}
-            value={valueCode}
-            onChange={(value) => {
-              setValueCode(value)
-              setResolveError(null)
-            }}
-            searchable
-            nothingFoundMessage={t('mappingGaps.resolveModal.noValues')}
-            disabled={valueOptions.isLoading || valueOptions.isError}
-            error={valueOptions.isError ? t('mappingGaps.resolveModal.valuesLoadError') : undefined}
-            comboboxProps={{ withinPortal: true }}
-            data-autofocus
-          />
-          {resolveError && (
-            <Alert color="red" role="alert">
-              {resolveError}
-            </Alert>
-          )}
-          <Group justify="flex-end">
-            <Button variant="default" onClick={() => setResolvingGap(null)}>
-              {t('common.cancel')}
-            </Button>
-            <Button onClick={() => void submitResolve()} loading={resolving} disabled={!valueCode}>
-              {t('mappingGaps.resolveModal.confirm')}
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
+        <TextInput
+          label={t('mappingGaps.resolveModal.gapKey')}
+          value={resolvingGap ? `${resolvingGap.provider} · ${resolvingGap.vehicleKind} · ${resolvingGap.providerCode}` : ''}
+          readOnly
+        />
+        <TextInput label={t('mappingGaps.resolveModal.listCode')} value={resolvingGap?.codeGroup ?? ''} readOnly />
+        <Select
+          label={t('mappingGaps.resolveModal.valueCode')}
+          placeholder={t('mappingGaps.resolveModal.valuePlaceholder')}
+          data={valueOptions.options}
+          value={valueCode}
+          onChange={(value) => {
+            setValueCode(value)
+            setResolveError(null)
+          }}
+          searchable
+          nothingFoundMessage={t('mappingGaps.resolveModal.noValues')}
+          disabled={valueOptions.isLoading || valueOptions.isError}
+          error={
+            valueOptions.isMissingList
+              ? t('mappingGaps.resolveModal.noList', { codeGroup: resolvingGap?.codeGroup ?? '' })
+              : valueOptions.isError
+                ? t('mappingGaps.resolveModal.valuesLoadError')
+                : undefined
+          }
+          comboboxProps={{ withinPortal: true }}
+          data-autofocus
+        />
+        {resolveError && (
+          <Alert color="red" role="alert">
+            {resolveError}
+          </Alert>
+        )}
+      </FormDialog>
     </Stack>
   )
 }

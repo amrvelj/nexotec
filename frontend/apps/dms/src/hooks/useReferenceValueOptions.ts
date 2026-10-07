@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { api } from '../api/client'
+import { api, ApiError } from '../api/client'
 import type { ReferenceValuePage, ReferenceValueRead } from '../api/types'
 import { SUPPORTED_LANGUAGES, type SupportedLanguage } from '../i18n'
 
@@ -11,7 +11,7 @@ export interface ReferenceValueOption {
   label: string
 }
 
-const LABEL_FIELD: Record<SupportedLanguage, 'labelDe' | 'labelFr' | 'labelIt' | 'labelEn'> = {
+export const LABEL_FIELD: Record<SupportedLanguage, 'labelDe' | 'labelFr' | 'labelIt' | 'labelEn'> = {
   de: 'labelDe',
   fr: 'labelFr',
   it: 'labelIt',
@@ -19,7 +19,7 @@ const LABEL_FIELD: Record<SupportedLanguage, 'labelDe' | 'labelFr' | 'labelIt' |
 }
 
 // A list page caps at 100 rows (Settings.pagination_max_limit), so walk the cursor.
-async function fetchActiveValues(listCode: string): Promise<ReferenceValueRead[]> {
+export async function fetchActiveReferenceValues(listCode: string): Promise<ReferenceValueRead[]> {
   const rows: ReferenceValueRead[] = []
   let cursor: string | null = null
   do {
@@ -34,7 +34,7 @@ async function fetchActiveValues(listCode: string): Promise<ReferenceValueRead[]
   return rows
 }
 
-function resolveLanguage(raw: string): SupportedLanguage {
+export function resolveLanguage(raw: string): SupportedLanguage {
   return (SUPPORTED_LANGUAGES as readonly string[]).includes(raw) ? (raw as SupportedLanguage) : 'en'
 }
 
@@ -42,7 +42,9 @@ function resolveLanguage(raw: string): SupportedLanguage {
  * The active values of one reference list, labelled in the UI language and
  * sorted by the list's own `sortOrder` — the same set the server validates a
  * write against (`get_active_reference_value_codes`). Pass `null` to fetch
- * nothing (a closed dialog).
+ * nothing (a closed dialog). `isMissingList` is a 404 for the list itself —
+ * a legacy code group with no reference list — kept apart from any other
+ * load failure so the caller can say which one happened.
  *
  * Each label carries its code (`Diesel (diesel)`): the admin picking a value
  * is mapping codes, and two values can share a label across languages. A row
@@ -53,13 +55,14 @@ export function useReferenceValueOptions(listCode: string | null): {
   options: ReferenceValueOption[]
   isLoading: boolean
   isError: boolean
+  isMissingList: boolean
 } {
   const { i18n } = useTranslation()
   const language = resolveLanguage(i18n.language)
 
   const query = useQuery({
     queryKey: ['reference-data', listCode, 'active'],
-    queryFn: () => fetchActiveValues(listCode as string),
+    queryFn: () => fetchActiveReferenceValues(listCode as string),
     enabled: listCode !== null,
     retry: false,
   })
@@ -80,5 +83,10 @@ export function useReferenceValueOptions(listCode: string | null): {
       })
   }, [query.data, language])
 
-  return { options, isLoading: query.isLoading, isError: query.isError }
+  return {
+    options,
+    isLoading: query.isLoading,
+    isError: query.isError,
+    isMissingList: query.error instanceof ApiError && query.error.status === 404,
+  }
 }

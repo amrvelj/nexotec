@@ -6,9 +6,11 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
+from app.core.audit import list_audit_events
 from app.core.errors import ConflictError, UnprocessableEntityError
 from app.platform.models.reference_data import ReferenceList, ReferenceValue
 from app.vehicle.models.provider import MappingGap, ProviderCodeMap
+from app.vehicle.services import catalogue_admin
 from app.vehicle.services import provider as provider_service
 from app.vehicle.services.provider import resolve_mapping_gap, resolve_provider_code
 
@@ -191,10 +193,11 @@ def test_an_open_gap_whose_key_was_mapped_since_closes_against_the_existing_row(
     assert len(db_session.scalars(select(ProviderCodeMap).where(ProviderCodeMap.provider_code == "3")).all()) == 1
 
 
-def test_a_resolve_that_loses_the_race_answers_from_the_winning_row(db_session, engine, monkeypatch):
-    """Two admins resolve the same key at once: both see no mapping, the other
-    commits first, and this insert hits `uq_vehicle_provider_code_map_natural_key`.
-    The IntegrityError is the backstop, never an unhandled 500.
+def test_an_insert_that_collides_on_the_natural_key_answers_from_the_existing_row(db_session, engine, monkeypatch):
+    """A code map for the key is committed elsewhere (a seed migration) after
+    this resolve looked for one: the insert hits
+    `uq_vehicle_provider_code_map_natural_key`. The IntegrityError is the
+    backstop, never an unhandled 500.
     """
 
     _seed_list(db_session, "fuel_type", FUEL_TYPES)
@@ -265,3 +268,52 @@ def test_a_gap_whose_code_group_has_no_reference_list_is_refused_not_a_crash(db_
         )
     assert "no reference list" in exc.value.message
     assert gap.resolved is False
+
+
+def test_two_admins_resolving_the_same_gap_at_once_write_one_resolve(db_session, engine):
+    """The loser loaded the gap before the winner committed its full resolve.
+    It must see the winner's commit — the gap row is locked and re-read — and
+    be the no-op: one audit row, the winner's `resolved_at` and `resolved_by`.
+    """
+
+    _seed_list(db_session, "fuel_type", FUEL_TYPES)
+    gap = _open_gap(db_session, "12")
+    db_session.commit()
+    assert gap.resolved is False  # the loser's snapshot, taken before the winner commits
+
+    winner_id = uuid.uuid4()
+    other = sessionmaker(bind=engine, expire_on_commit=False)()
+    try:
+        winner_gap = catalogue_admin.get_mapping_gap_or_404(other, gap.id)
+        catalogue_admin.resolve_gap(
+            other, gap=winner_gap, canonical_list_code="fuel_type", canonical_value_code="plugin_hybrid",
+            actor_id=winner_id,
+        )
+        winner_resolved_at = winner_gap.resolved_at
+    finally:
+        other.close()
+
+    catalogue_admin.resolve_gap(
+        db_session, gap=gap, canonical_list_code="fuel_type", canonical_value_code="plugin_hybrid",
+        actor_id=uuid.uuid4(),
+    )
+
+    assert gap.resolved_by == winner_id
+    assert gap.resolved_at == winner_resolved_at
+    events = list_audit_events(db_session, entity_type="vehicle_mapping_gap", entity_id=gap.id, tenant_id=None)
+    assert len(events) == 1
+
+
+def test_a_repeat_after_the_value_was_deactivated_is_still_the_no_op(db_session):
+    _seed_list(db_session, "fuel_type", FUEL_TYPES)
+    gap = _open_gap(db_session, "12")
+    resolve_mapping_gap(
+        db_session, gap=gap, canonical_list_code="fuel_type", canonical_value_code="plugin_hybrid", actor_id=uuid.uuid4()
+    )
+    value = db_session.scalar(select(ReferenceValue).where(ReferenceValue.value_code == "plugin_hybrid"))
+    value.active = False
+    db_session.flush()
+
+    assert resolve_mapping_gap(
+        db_session, gap=gap, canonical_list_code="fuel_type", canonical_value_code="plugin_hybrid", actor_id=uuid.uuid4()
+    ) is False

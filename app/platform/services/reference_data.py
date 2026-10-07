@@ -39,7 +39,10 @@ def get_active_reference_value_codes(db: Session, list_code: str) -> set[str] | 
     The ``None`` case matters to callers in other contexts: a missing list is
     a deployment fault (the seed migration has not run on this branch head),
     not a client error, and must not be turned into a 404/422 on the caller's
-    own endpoint. A value that is present but ``active = false`` is simply
+    own endpoint. The one exception is resolving a vehicle mapping gap
+    (KAN-77): there the list code is a stored provider code group, and a
+    legacy group with no list is a refusal (409) the admin can read, not a
+    fault. A value that is present but ``active = false`` is simply
     absent from the returned set — deactivated codes are rejected on new
     writes while rows that already reference them stay readable.
     """

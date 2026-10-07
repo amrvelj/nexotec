@@ -141,4 +141,24 @@ describe('MappingGapsQueue — resolve dialog (KAN-77)', () => {
     )
     expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
+
+  it('says so when the gap\'s code group has no reference list, instead of offering values', async () => {
+    const user = userEvent.setup()
+    installFakeBackend([
+      {
+        match: /^\/vehicle-mdm\/mapping-gaps$/,
+        handler: () => ({ items: [{ ...page().items[0], codeGroup: '011', providerCode: '7' }], nextCursor: null }),
+      },
+      {
+        match: /^\/reference-data\/011$/,
+        handler: () => status(404, { error: { code: 'not_found', message: "Reference list '011' was not found.", details: null } }),
+      },
+    ])
+    renderWithProviders(<MappingGapsQueue />)
+
+    await user.click(await screen.findByRole('button', { name: 'Zuordnen' }))
+    const dialog = await screen.findByRole('dialog')
+    expect(await within(dialog).findByText(/Die Codegruppe «011» hat keine Referenzliste/)).toBeInTheDocument()
+    expect(within(dialog).getByRole('textbox', { name: 'Kanonischer Wert' })).toBeDisabled()
+  })
 })
