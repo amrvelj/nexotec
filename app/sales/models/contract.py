@@ -70,7 +70,7 @@ class SalesContract(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, Timestam
     customer_language: Mapped[str | None] = mapped_column(String(2), nullable=True)
 
     # WP-8 PR-6 — copied from the offer at creation (S-D09/ADR-045's
-    # own vocabulary): "existing" once confirmed means reserve() targets a
+    # own vocabulary): "existing" once confirmed means the reservation targets a
     # real stock_item_id; "manual" means handle_sales_contract_confirmed
     # (already built, WP-7) materializes a new pipeline stock item instead.
     vehicle_source: Mapped[str | None] = mapped_column(String(16), nullable=True)  # "stock" | "manual"
@@ -124,7 +124,7 @@ class SalesContract(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, Timestam
     )
 
     # WP-8 PR-6 (ADR-047, Pattern B) — set by confirm_contract's own
-    # reserve() call; opaque, matches app.inventory's own
+    # reserve_for_contract() call; opaque, matches app.inventory's own
     # StockItem.active_reservation_id shape (no DB FK, cross-context id).
     reservation_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True)
     signed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)

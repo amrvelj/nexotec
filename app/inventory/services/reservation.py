@@ -111,13 +111,16 @@ def reserve_for_contract(
 
     path = f"inventory.reserve:{stock_item_id}"
     body = {"contractId": str(contract_id)}
-    cached = find_cached_response(db, tenant_id=tenant_id, key=idempotency_key, path=path, body=body)
 
     item = db.scalar(
         select(StockItem).where(StockItem.id == stock_item_id, StockItem.tenant_id == tenant_id).with_for_update()
     )
     if item is None:
         raise NotFoundError(f"Stock item {stock_item_id} was not found.")
+    # Read under the row lock, not before it: an attempt that reserved,
+    # stored the key and was compensated in between would otherwise leave
+    # this one storing the same key a second time (a unique violation).
+    cached = find_cached_response(db, tenant_id=tenant_id, key=idempotency_key, path=path, body=body)
     if item.reservation_state == ReservationState.RESERVED and item.reserved_by_contract_id == contract_id:
         db.commit()
         return {"reservationId": str(item.active_reservation_id), "stockItemId": str(item.id)}

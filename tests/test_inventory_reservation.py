@@ -1,5 +1,7 @@
 """WP-7 PR-4: the reservation service (ADR-047)."""
 
+import os
+import threading
 import uuid
 
 import pytest
@@ -231,12 +233,75 @@ def test_reserve_for_contract_replay_is_409_when_another_contract_holds_the_item
 
 
 def test_reserve_for_contract_key_reuse_with_another_contract_is_409(db_session):
+    """The key check, not the item check: the item is free again when the
+    key is reused, so only the key can refuse."""
+
     tenant_id = uuid.uuid4()
     item = _make_item(db_session, tenant_id)
-    reserve_for_contract(
+    first = reserve_for_contract(
         db_session, tenant_id=tenant_id, stock_item_id=item.id, contract_id=uuid.uuid4(), idempotency_key="reused"
     )
-    with pytest.raises(ConflictError):
+    release(db_session, tenant_id=tenant_id, reservation_id=uuid.UUID(first["reservationId"]), idempotency_key="rk1")
+
+    with pytest.raises(ConflictError) as refused:
         reserve_for_contract(
             db_session, tenant_id=tenant_id, stock_item_id=item.id, contract_id=uuid.uuid4(), idempotency_key="reused"
         )
+
+    assert refused.value.details == {"idempotencyKey": "reused"}
+    db_session.expire_all()
+    assert db_session.get(StockItem, item.id).reservation_state == ReservationState.NONE
+
+
+@pytest.mark.skipif(not os.environ.get("DMS_TEST_DATABASE_URL"), reason="row-lock interleaving needs Postgres")
+def test_reserve_for_contract_reads_the_key_under_the_row_lock(db_session, engine):
+    """Attempt A reserves, stores the key and is compensated between attempt
+    B's key lookup and B's row lock. Read before the lock, B would find no
+    key, reserve, and store the key a second time (a unique violation, a
+    500). Read under the lock, A cannot run in that gap: it waits for B."""
+
+    from unittest.mock import patch
+
+    import app.inventory.services.reservation as reservation_module
+
+    tenant_id = uuid.uuid4()
+    item = _make_item(db_session, tenant_id)
+    item_id = item.id
+    contract_id = uuid.uuid4()
+    factory = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
+    real_find = reservation_module.find_cached_response
+    errors: list[BaseException] = []
+
+    def attempt_a():
+        session = factory()
+        try:
+            result = reserve_for_contract(
+                session, tenant_id=tenant_id, stock_item_id=item_id, contract_id=contract_id, idempotency_key="k1"
+            )
+            release(session, tenant_id=tenant_id, reservation_id=uuid.UUID(result["reservationId"]), idempotency_key="a-comp")
+        except BaseException as exc:  # surfaced by the assertion below
+            errors.append(exc)
+        finally:
+            session.close()
+
+    thread = threading.Thread(target=attempt_a)
+
+    def find_then_let_a_run(*args, **kwargs):
+        found = real_find(*args, **kwargs)
+        if thread.ident is None:  # B's lookup, not A's own
+            thread.start()
+            thread.join(timeout=1.0)
+        return found
+
+    session_b = factory()
+    try:
+        with patch.object(reservation_module, "find_cached_response", side_effect=find_then_let_a_run):
+            reserve_for_contract(
+                session_b, tenant_id=tenant_id, stock_item_id=item_id, contract_id=contract_id, idempotency_key="k1"
+            )
+    finally:
+        session_b.close()
+        thread.join(timeout=10.0)
+
+    assert not thread.is_alive()
+    assert errors == []

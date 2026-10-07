@@ -43,9 +43,8 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   cancellation consumer, and the confirmation consumer when it carries a manual configuration,
   take a per-contract advisory lock first, so two workers cannot interleave them. Nightly
   reconciliation checks the record's `contract_id` and `tenant_id`. A
-  stock car's reservation is still made and released by Sales' synchronous
-  `reserve()`/`release()` calls (ADR-047 Pattern B). Sales confirms through
-  `reserve_for_contract`, idempotent by (item, contract): the contract's live reservation if it
+  stock car's reservation is still made and released by Sales' synchronous calls (ADR-047
+  Pattern B): `reserve_for_contract` and `release`. `reserve_for_contract` is idempotent by (item, contract): the contract's live reservation if it
   holds one, a fresh one if the item is free (a compensation released the first), else 409; each
   compensating release is keyed per reservation (KAN-114). The HTTP endpoint keeps `reserve()`,
   whose replayed key returns the stored response with no side effect. Before KAN-158, manual items were created

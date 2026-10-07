@@ -227,8 +227,8 @@ def confirm_contract(
     session_factory: Callable[[], Session] = SessionLocal,
 ) -> SalesContract:
     """The core of PR-6. Guards (ADR-065/S-D19), then — for a "stock"
-    vehicle source only — reserve() on a DEDICATED SHORT-LIVED SESSION
-    (ADR-047 Pattern B): reserve() ends in its own commit, and passing the
+    vehicle source only — reserve_for_contract() on a DEDICATED SHORT-LIVED
+    SESSION (ADR-047 Pattern B): it ends in its own commit, and passing the
     request session while holding this function's own uncommitted writes
     would sweep them in on the ordinary path and silently violate the rule
     on any other. If this function's own transaction then fails, the
@@ -240,7 +240,7 @@ def confirm_contract(
     session for the same reason, before the reservation. Several contracts
     may carry one valuation (Anto, 2026-09-29), so an already-used one is
     accepted; one past its validity refuses the confirmation before anything
-    is reserved. If reserve() then refuses, "used" is reverted as below.
+    is reserved. If the reservation is then refused, "used" is reverted as below.
     If this function's own transaction fails, "used" is reverted only when
     this call set it and no other signed contract carries the valuation.
     Cancelling a signed contract never reverts it (ADR-066).
@@ -531,7 +531,7 @@ def cancel_contract(
 ) -> SalesContract:
     """PENDING or CONFIRMED can both be cancelled — CONFIRMED additionally
     releases the stock reservation first (Pattern B, dedicated session,
-    same reasoning as confirm_contract's own reserve() call).
+    same reasoning as confirm_contract's own reserve_for_contract() call).
     A manual configuration has no reservation_id here: Stock reserved its
     pipeline item itself and releases it on `sales.contract.cancelled`
     (KAN-158).

@@ -3,12 +3,13 @@ contract allows `app.<other-context>` to import `app.inventory.public`, never
 `app.inventory.models` / `app.inventory.services` / `app.inventory.api`
 directly.
 
-`reserve`/`release` (PR-4) are the first real cross-context entries, for
-WP-8's future Sales caller — each owns its own commit (ADR-047, Pattern
-B); the caller supplies its own Idempotency-Key and calls from OUTSIDE
-its own contract-write transaction. Sales' confirmation calls
-`reserve_for_contract`, idempotent by (item, contract) rather than by key
-alone, so a retry after a compensating release reserves again (KAN-114).
+`reserve_for_contract`/`release` (PR-4, KAN-114) are Sales' cross-context
+entries — each owns its own commit (ADR-047, Pattern B); the caller
+supplies its own Idempotency-Key and calls from OUTSIDE its own
+contract-write transaction. `reserve_for_contract` is idempotent by (item,
+contract) rather than by key alone, so a retry after a compensating release
+reserves again. `reserve` (key-replay idempotency, as the HTTP endpoint
+serves it) has no caller outside inventory since KAN-114.
 
 `get_stock_item_pricing` (WP-8 PR-3) is a second, read-only Sales entry —
 a plain dict, never an ORM row, matching app.vehicle.public's own
