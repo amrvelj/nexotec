@@ -31,6 +31,9 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   transaction migration publishes nothing and writes Sales' replica row itself); Sales keeps it
   per stock item and never queries Stock synchronously for it. Reservation does not need the
   purchase (K-12); Sales' invoicing does (KAN-100).
+- **A pipeline item can point at a configuration** (`configuration_id`, KAN-10): added from
+  the Stock list in either mode (FR-C-13), or carried by a contract's confirmation for a
+  configured car or a configured trade-in. It never writes vehicle-mdm (ADR-070).
 - A pipeline item a contract's confirmation creates names that contract on
   `inventory.stock_item.added` (`originContractId`, `originRole`: `manual_configuration` |
   `trade_in`; additive, KAN-144). A directly added item carries neither.
@@ -43,8 +46,11 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   cancellation consumer, and the confirmation consumer when it carries a manual configuration,
   take a per-contract advisory lock first, so two workers cannot interleave them. Nightly
   reconciliation checks the record's `contract_id` and `tenant_id`. A
-  stock car's reservation is still made and released by Sales' synchronous
-  `reserve()`/`release()` calls (ADR-047 Pattern B). Before KAN-158, manual items were created
+  stock car's reservation is still made and released by Sales' synchronous calls (ADR-047
+  Pattern B): `reserve_for_contract` and `release`. `reserve_for_contract` is idempotent by (item, contract): the contract's live reservation if it
+  holds one, a fresh one if the item is free (a compensation released the first), else 409; each
+  compensating release is keyed per reservation (KAN-114). The HTTP endpoint keeps `reserve()`,
+  whose replayed key returns the stored response with no side effect. Before KAN-158, manual items were created
   unreserved and cancellations were not recorded; `scripts/backfill_manual_configuration_reservations.py`
   (KAN-166, dry run unless `--commit`, re-runnable) repairs both. It learns which contracts are
   cancelled from the `sales.contract.cancelled` events in the outbox, never from Sales' tables;

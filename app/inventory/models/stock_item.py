@@ -163,8 +163,10 @@ class StockItem(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMix
     # stellenbeschrieb v34 p8), so publishing could never succeed without
     # it. A configuration's own `exterior_colour` (KAN-43) is a different
     # fact on a different entity — StockItem has no configuration_id to
-    # join through, and a colour is per-unit even for the same catalogue
-    # variant, so it belongs here, free text, same posture as the
+    # join through (KAN-27's wording; C-F added `configuration_id` below,
+    # which describes the ordered/recorded car, not this unit's paint), and
+    # a colour is per-unit even for the same catalogue variant, so it
+    # belongs here, free text, same posture as the
     # Configurator's own "free text is always the primary input."
     exterior_colour: Mapped[str | None] = mapped_column(String(100), nullable=True)
     # KAN-27 — a second, adjacent gap found while wiring the same AS24i
@@ -190,6 +192,19 @@ class StockItem(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMix
     pipeline_ref: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
     order_date: Mapped[dt.date | None] = mapped_column(Date(), nullable=True)
     expected_delivery: Mapped[dt.date | None] = mapped_column(Date(), nullable=True)
+    # C-F (KAN-10, FR-C-12/FR-C-13) — the configuration this pipeline item
+    # points at: a factory order (`build`) or a car being bought in
+    # (`record`), added from the Stock list or created by a contract's
+    # confirmation. "The configuration is what the pipeline item points at,
+    # not a replacement for it" (PRD-Configurator). Three-column pattern,
+    # owned by the vehicle context, no FK (rule 2). Goods-in verification
+    # (WP-7) reads it; it never writes vehicle-mdm (ADR-070).
+    configuration_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(), nullable=True, index=True,
+        comment="Owned by the vehicle context (VehicleConfiguration.id). No DB-level FK.",
+    )
+    configuration_label: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    configuration_label_refreshed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     # Set once, by promote_to_vehicle_mdm, the moment lifecycle_status
     # flips pipeline -> in_stock. Ageing (PR-7) is derived from this, never
     # from created_at — a factory order's time in the pipeline doesn't

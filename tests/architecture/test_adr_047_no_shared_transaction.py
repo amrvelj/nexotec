@@ -148,8 +148,8 @@ _IN_PROCESS_STATE = {
 _OWN_COMMIT_WRITES = {
     # Stock reservation for a confirmed contract, and its release on
     # cancellation / by the orphan sweep (WP-7 PR-4, WP-8 PR-6).
-    "app.inventory.public.reserve": (
-        "app.inventory.services.reservation.reserve",
+    "app.inventory.public.reserve_for_contract": (
+        "app.inventory.services.reservation.reserve_for_contract",
         "sales: confirm_contract",
     ),
     "app.inventory.public.release": (
@@ -190,8 +190,11 @@ _OWN_COMMIT_WRITES = {
         "inventory: promote_to_vehicle_mdm; sales: trade-in; valuation: create",
     ),
     # The daily job composition root runs the catalogue delta per tenant.
+    # Since KAN-78 the run's unconditional sync-state commit lives in
+    # `_save_run_progress` (reached through `_run`), shared by the delta and
+    # the full seed it can fall back to.
     "app.vehicle.public.run_daily_delta_for_tenant": (
-        "app.vehicle.services.catalogue_sync.run_daily_delta_for_tenant",
+        "app.vehicle.services.catalogue_sync._save_run_progress",
         "integration: daily_jobs",
     ),
     # Every provider call writes exactly one integration_call_log row,
@@ -224,6 +227,8 @@ _READS = {
     "app.integration.public.get_enabled_connection",
     "app.integration.public.get_entitlement",
     "app.integration.public.resolve_adapter",
+    # KAN-42: the identification waterfall asks whether VIN decode is entitled.
+    "app.integration.public.vin_decode_granted",
     "app.inventory.public.get_stock_item_pricing",
     "app.inventory.public.get_stock_items_for_vehicles",
     "app.platform.public.get_active_reference_value_codes",
@@ -238,6 +243,8 @@ _READS = {
     # Reads persisted sync state only (its docstring); the daily job calls
     # it after run_daily_delta_for_tenant has committed.
     "app.vehicle.public.check_sync_age_alarm_for_tenant",
+    # KAN-10: offer, stock item and valuation read the configuration they reference.
+    "app.vehicle.public.get_configuration_for_host",
     "app.vehicle.public.get_vehicle_equipment",
     "app.vehicle.public.get_vehicle_mdm_or_404",
     "app.vehicle.public.get_vehicle_or_404",

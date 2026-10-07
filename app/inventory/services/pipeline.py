@@ -60,6 +60,7 @@ def _create_pipeline_item_idempotent(
     condition: StockItemCondition,
     pipeline_ref: str,
     origin: dict[str, str],
+    configuration_id: str | None = None,
 ) -> tuple[StockItem, bool]:
     """Returns the item and whether this call created it.
 
@@ -84,10 +85,17 @@ def _create_pipeline_item_idempotent(
         item = _build_and_flush_stock_item(
             db,
             tenant_id=tenant_id,
-            data=StockItemCreate(vehicle_label=vehicle_label, condition=condition),
+            data=StockItemCreate(
+                vehicle_label=vehicle_label,
+                condition=condition,
+                configuration_id=uuid.UUID(configuration_id) if configuration_id else None,
+            ),
             actor_id=None,
             pipeline_ref=pipeline_ref,
             origin=origin,
+            # C-F (KAN-10): the contract's vehicle label is the
+            # configuration's label at the time it was attached.
+            configuration_label=vehicle_label if configuration_id else None,
         )
         return item, True
     except IntegrityError:
@@ -114,6 +122,9 @@ def handle_sales_contract_confirmed(db: Session, *, tenant_id: uuid.UUID, payloa
             condition=StockItemCondition(manual_configuration.get("condition", "new")),
             pipeline_ref=f"contract:{contract_id}:manual",
             origin={"originContractId": str(contract_id), "originRole": "manual_configuration"},
+            # C-F (KAN-10, FR-C-12) — the pipeline item carries the
+            # configuration; no vehicle-mdm record is written (ADR-070).
+            configuration_id=manual_configuration.get("configurationId"),
         )
         # KAN-158 (PRD-Stock K-12, FR-I-11) — the ordered car is reserved for
         # its contract from the moment it exists, in this same transaction.
@@ -134,6 +145,7 @@ def handle_sales_contract_confirmed(db: Session, *, tenant_id: uuid.UUID, payloa
             condition=StockItemCondition(trade_in.get("condition", "used")),
             pipeline_ref=f"contract:{contract_id}:trade_in",
             origin={"originContractId": str(contract_id), "originRole": "trade_in"},
+            configuration_id=trade_in.get("configurationId"),
         )
         valuation_id = trade_in.get("valuationId")
         if valuation_id is not None:

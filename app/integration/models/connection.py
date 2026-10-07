@@ -47,12 +47,12 @@ class IntegrationConnection(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Bas
     __tablename__ = "integration_connection"
     __table_args__ = (
         CheckConstraint(
-            # Names only, while every writer stores the member NAME. KAN-86
-            # step 2 (writes .value) must widen this to accept both forms —
-            # step-1 instances keep writing 'PLATFORM'/'TENANT' during that
-            # deploy — and only KAN-175 narrows it to the values
-            # (app/core/enum_type.py).
-            "(scope = 'PLATFORM' AND tenant_id IS NULL) OR (scope = 'TENANT' AND tenant_id IS NOT NULL)",
+            # Both forms (KAN-86 step 2, migration 75d35e49f1ca): writes
+            # store .value, while step-1 instances kept writing
+            # 'PLATFORM'/'TENANT' during that deploy. KAN-175 narrows it to
+            # the values (app/core/enum_type.py).
+            "(scope IN ('PLATFORM', 'platform') AND tenant_id IS NULL) "
+            "OR (scope IN ('TENANT', 'tenant') AND tenant_id IS NOT NULL)",
             name="ck_integration_connection_scope_tenant_id",
         ),
         # NULL is not equal to NULL in a SQL unique constraint, so this

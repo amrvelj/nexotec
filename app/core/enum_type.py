@@ -18,10 +18,11 @@ the worker rewrites `outbox_message.status` every few seconds):
 3. A second idempotent sweep catches names written during step 2's
    overlap; reads and filters become strict (`.value` only). That step is KAN-175.
 
-`_WRITE_FORM` is the step switch. Until step 3 lands, nothing in the
-database is guaranteed to be in one form — never write raw SQL against an
-enum column that assumes one; compare through the ORM column instead,
-which matches both.
+`_WRITE_FORM` is the step switch; step 2 has flipped it to "value". Until
+step 3 lands, nothing in the database is guaranteed to be in one form — rows
+written by step-1 instances during step 2's deploy are still names — so
+never write raw SQL against an enum column that assumes one; compare
+through the ORM column instead, which matches both.
 
 What it does NOT do: invent a member for a stored string that is neither a
 member name nor a value. That still raises `LookupError`, exactly as
@@ -39,8 +40,8 @@ from sqlalchemy import String, literal
 from sqlalchemy.sql import operators
 from sqlalchemy.types import TypeDecorator
 
-# Which form a write stores: "name" until KAN-86 step 2, then "value".
-_WRITE_FORM = "name"
+# Which form a write stores: "name" in KAN-86 step 1, "value" from step 2 on.
+_WRITE_FORM = "value"
 
 
 class StoredEnum(TypeDecorator):
@@ -75,12 +76,12 @@ class StoredEnum(TypeDecorator):
     def _resolve(self, item: Any) -> enum.Enum | None:
         """The member `item` denotes, or None. A member of another enum
         class (Language vs SwissLanguage share their values) resolves by
-        its value, then its name — as sqlalchemy.Enum did."""
+        its value only, as sqlalchemy.Enum did."""
 
         if isinstance(item, self.enum_class):
             return item
         if isinstance(item, enum.Enum):
-            return self._lookup.get(str(item.value)) or self._lookup.get(item.name)
+            return self._lookup.get(str(item.value))
         if isinstance(item, str):
             return self._lookup.get(item)
         return None
@@ -133,8 +134,9 @@ class StoredEnum(TypeDecorator):
         NOT widened, so they see one form only while a table holds both:
         ordering (`ORDER BY`, `<`, `>`, `BETWEEN`), `IS [NOT] DISTINCT FROM`,
         `case(value=col)`, column-to-column comparison, explicit
-        `bindparam()`s, and unique constraints. KAN-86 step 2 has to keep
-        each of these in mind for the deploy overlap.
+        `bindparam()`s, and unique constraints. Every value is the
+        lower-cased name today, so ordering agrees once a table holds one
+        form; while it holds both (until KAN-175), each of these sees one.
         """
 
         def _forms(self, other: Any) -> list[Any] | None:

@@ -453,7 +453,8 @@
         "description": "This customer has no vehicle relationships on file."
       },
       "addAction": "Link vehicle",
-      "inStockTitle": "In the group's own stock — {{stockNumber}}"
+      "inStockTitle": "In the group's own stock — {{stockNumber}}",
+      "specification": "Specification"
     },
     "offersContracts": {
       "emptyState": {
@@ -588,7 +589,8 @@
       "identity": "Identity",
       "plates": "Plates",
       "odometer": "Odometer",
-      "accessories": "Accessories"
+      "accessories": "Accessories",
+      "specification": "Specification"
     },
     "identity": {
       "title": "Identity",
@@ -648,6 +650,10 @@
       "add": "Add",
       "remove": "Remove",
       "none": "No accessories recorded"
+    },
+    "specification": {
+      "empty": "This dealership holds no configuration of this vehicle.",
+      "loadError": "The specification could not be loaded."
     }
   },
   "dashboard": {
@@ -737,7 +743,9 @@
     "scope": {
       "own": "Own stock",
       "group": "Group stock"
-    }
+    },
+    "addToPipeline": "Add to pipeline",
+    "addToPipelineError": "The vehicle could not be added to the pipeline."
   },
   "stockDetail": {
     "header": {
@@ -860,6 +868,9 @@
       "valuedAt": "Valued at",
       "source": "Source",
       "hint": "Valuations are created and managed in the Sales module — this area only shows the current pointer."
+    },
+    "configuration": {
+      "title": "Configuration"
     }
   },
   "stockCreate": {
@@ -1003,7 +1014,8 @@
       "search": "Search vehicle",
       "configure": "Configure",
       "searchPlaceholder": "Stock number, VIN, plate …",
-      "manualLabelPlaceholder": "Vehicle description"
+      "configured": "Configured",
+      "attachError": "The configuration could not be attached."
     },
     "pricing": {
       "emptyHint": "Pricing starts with the vehicle — choose one first.",
@@ -1034,7 +1046,9 @@
       "vinLabel": "VIN",
       "vinPlaceholder": "e.g. WVWZZZ1KZAW123456",
       "labelLabel": "Vehicle description",
-      "add": "Add trade-in vehicle"
+      "add": "Add trade-in vehicle",
+      "valueWithConfigurator": "Identify and value",
+      "attachError": "The valuation could not be attached."
     },
     "leasing": {
       "hint": "No leasing calculator in v1 (S-D03). Free-text inputs, so a later calculator can be dropped in without a schema change.",
@@ -1149,7 +1163,10 @@
     "noteCard": {
       "title": "Note"
     },
-    "validityHelp": "Status is computed on read, never patched overnight — valid until {{validUntil}}."
+    "validityHelp": "Status is computed on read, never patched overnight — valid until {{validUntil}}.",
+    "configuration": {
+      "title": "Configuration"
+    }
   },
   "valuationCreate": {
     "title": "Create valuation",
@@ -1178,7 +1195,10 @@
     "finalOffer": "Trade-in offer",
     "finalOfferHint": "May differ from the net value — that's the negotiation.",
     "note": "Note",
-    "noProviderCapability": "auto-i-dat valuation is not available for this dealership — enter the trade-in value manually below."
+    "noProviderCapability": "auto-i-dat valuation is not available for this dealership — enter the trade-in value manually below.",
+    "configurator": {
+      "skip": "Enter by hand instead"
+    }
   },
   "integrationsList": {
     "title": "Integrations",
@@ -1244,6 +1264,17 @@
       "status": "Status",
       "stale": "Stale",
       "healthy": "Healthy",
+      "pending": "Pending variants",
+      "pendingCount_one": "{{count, number}} pending",
+      "pendingCount_other": "{{count, number}} pending",
+      "pendingField": {
+        "master_data": "master data",
+        "options": "options",
+        "colours": "colours",
+        "tyre_specs": "tyres",
+        "images": "images",
+        "not_attempted": "not attempted"
+      },
       "emptyState": {
         "title": "No catalogue sync yet",
         "description": "No tenant has synced a catalogue mirror yet."
@@ -1352,7 +1383,8 @@
       "modelYear": "Model year",
       "inProduction": "In production",
       "typeApprovals": "Type approvals",
-      "updatedAt": "Changed"
+      "updatedAt": "Changed",
+      "trimName": "Trim"
     },
     "filters": {
       "fuelType": "Fuel",
@@ -1397,8 +1429,8 @@
     },
     "find": {
       "title": "Find the car",
-      "idLabel": "VIN (optional)",
-      "idHint": "Chassis number, if known — the full identification waterfall arrives with C-D.",
+      "idLabel": "Identify the car",
+      "idHint": "VIN, licence plate, Stammnummer, Typenschein or factory code — one field, the system recognises which.",
       "manual": "Configure manually",
       "browse": "Browse the catalogue",
       "unverifiedNote": "Manual configuration — marked “unverified” until it is matched to a catalogue entry. No valuation, no publishing until then."
@@ -1446,7 +1478,9 @@
         "tankCapacityL": "Tank capacity (l)",
         "werkscode": "Factory code",
         "importcode": "Import code",
-        "basePriceYear": "Price year"
+        "basePriceYear": "Price year",
+        "vehicleKind": "Vehicle kind",
+        "priceIsNet": "Price is net"
       }
     },
     "options": {
@@ -1538,7 +1572,87 @@
     "save": "Save",
     "saveNew": "Save configuration",
     "saveError": "The configuration could not be saved.",
-    "saveOptionsError": "The configuration was saved, but its options could not be saved."
+    "saveOptionsError": "The configuration was saved, but its options could not be saved.",
+    "identify": {
+      "submit": "Identify",
+      "error": "Identification failed.",
+      "unrecognised": "That is not a VIN, a licence plate, a Stammnummer, a Typenschein or a factory code.",
+      "recognisedAs": "Recognised as: {{kind}}",
+      "kind": {
+        "vin": "VIN",
+        "kontrollschild": "Licence plate",
+        "stammnummer": "Stammnummer",
+        "typenschein": "Typenschein",
+        "werkscode": "Factory code"
+      },
+      "existingVehicle": {
+        "title": "Vehicle already known — {{number}}",
+        "reuse": "Reuse its configuration",
+        "noVariant": "It has no catalogue entry — browse the catalogue or configure manually."
+      },
+      "reuseModeMismatch": "This configuration is in “{{mode}}” mode and cannot be used here.",
+      "variantsTitle": "Which variant is it?",
+      "variantTitle": "Catalogue match",
+      "plateRecords": {
+        "wechselschild": "Interchangeable plate — the plate is assigned to several vehicles. Pick the one in front of you.",
+        "conflict": "The register reports conflicting data for this plate. Pick the right vehicle; the conflict has been reported.",
+        "several": "Several earlier lookups name this Stammnummer. Pick the vehicle in front of you."
+      },
+      "none": "No catalogue match. Browse the catalogue below or configure manually.",
+      "pickerEmpty": "No candidates",
+      "productionYears": "{{from}}–{{to}}",
+      "inProduction": "since {{from}}",
+      "notes": {
+        "vin_decode_unavailable": "Provider VIN decoding is not available yet — continue with the plate or the Typenschein.",
+        "no_provider_connection": "No vehicle-data provider is connected — browse the catalogue or configure manually.",
+        "plate_lookup_not_entitled": "Plate lookup is not enabled on this account.",
+        "plate_lookup_failed": "The provider's plate lookup failed. Please try again later.",
+        "plate_cache_hit": "From an earlier lookup (not billed again).",
+        "plate_not_found": "No vehicle is registered under this plate."
+      }
+    },
+    "bestMatch": {
+      "title": "Best match",
+      "hint": "Needs the new price for this car's model year. The result is a proposal you confirm.",
+      "newPrice": "New price (CHF)",
+      "source": {
+        "label": "Source of the new price",
+        "catalogue": "Catalogue (model year)",
+        "document": "Registration / importer document",
+        "customer": "Stated by the customer"
+      },
+      "modelDescription": "Model description (optional)",
+      "ask": "Find best match",
+      "error": "No match was found for this Typenschein and new price.",
+      "proposal": "Proposed: {{label}}",
+      "matchCode": {
+        "1": "Unique match",
+        "2": "Best possible match — check before confirming"
+      },
+      "fields": {
+        "typeApprovalNumber": "Typenschein",
+        "newPrice": "New price",
+        "modelDescription": "Model description"
+      },
+      "entered": "Entered",
+      "matched": "Catalogue",
+      "agrees": "matches",
+      "differs": "differs",
+      "confirm": "Confirm this vehicle",
+      "discard": "Discard"
+    },
+    "resync": {
+      "open": "Re-sync from catalogue",
+      "title": "Re-sync from the catalogue",
+      "hint": "The catalogue now differs on these fields. Nothing changes unless you tick it.",
+      "none": "The configuration matches the catalogue.",
+      "field": "Field",
+      "current": "Configuration",
+      "catalogue": "Catalogue",
+      "overridden": "overridden by you",
+      "apply": "Apply selected",
+      "error": "Re-sync failed."
+    }
   },
   "customerRowMenu": {
     "edit": "Edit",

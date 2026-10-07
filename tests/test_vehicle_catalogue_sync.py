@@ -10,10 +10,14 @@ from decimal import Decimal
 import pytest
 from sqlalchemy.exc import IntegrityError
 
+from app.integration.adapters.auto_i_dat_mock import MockAutoIDatAdapter
+from app.integration.errors import ProviderGatewayError, ProviderTransportError
+from app.integration.models.call_log import CallStatus, IntegrationCallLog
 from app.integration.models.connection import ConnectionEnvironment
 from app.integration.models.provider import IntegrationProvider
 from app.integration.schemas.connection import ConnectionCreate
 from app.integration.services import connections as connection_service
+from app.integration.services import gateway, resilience
 from app.vehicle.models.catalogue import Brand, ModelGroup, ModelVariant, VariantOption, VariantOptionEquipmentFeature
 from app.vehicle.models.catalogue_mirror import ColourCache, ImageRef, ProviderSyncState, TyreSpecCache
 from app.vehicle.models.provider import MappingGap, ProviderCodeMap
@@ -442,3 +446,307 @@ def test_check_sync_age_alarm_for_tenant_reads_persisted_state(db_session):
     db_session.commit()
 
     assert catalogue_sync.check_sync_age_alarm_for_tenant(db_session, tenant_id=tenant_id, today=today) is True
+
+
+def test_seed_links_each_variant_to_its_typenscheine_once(db_session):
+    """KAN-42 (C-D): FR-C-02 step 4 resolves a Typenschein through
+    `vehicle_variant_type_approval`, which the sync never wrote before."""
+
+    from app.vehicle.models.catalogue import TypeApproval, VariantTypeApproval
+    from app.vehicle.services.catalogue import find_model_variants_by_type_approval
+
+    provider = _make_mock_provider(db_session)
+    tenant_id = uuid.uuid4()
+    _make_connection(db_session, provider, tenant_id=tenant_id)
+
+    catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_id)
+    catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_id)
+
+    assert [v.name for v in find_model_variants_by_type_approval(db_session, "2CD456")] == ["Golf GTI 2.0 TSI DSG"]
+    assert db_session.query(TypeApproval).filter_by(type_approval_number="2CD456").count() == 1
+    assert db_session.query(VariantTypeApproval).count() == 3
+
+
+# --- per-FzKey isolation (KAN-78) -------------------------------------------
+
+
+class _Refused(ProviderGatewayError):
+    """What a refused Datenname looks like by the time it leaves an adapter."""
+
+
+class _RefusingAdapter(MockAutoIDatAdapter):
+    """The mock, refusing chosen calls the way a provider refuses a
+    Datenname an account is not entitled to. `changed_keys` overrides what
+    `FzKeyChanged` returns, so a later run can be made to see no changes.
+    """
+
+    def __init__(self, *, refuse_images_for=(), refuse_master_for=(), changed_keys=None) -> None:
+        super().__init__()
+        self.refuse_images_for = set(refuse_images_for)
+        self.refuse_master_for = set(refuse_master_for)
+        self.changed_keys = changed_keys
+        self.master_calls: list[str] = []
+
+    def list_changed_keys(self, *, since):
+        return list(self.changed_keys) if self.changed_keys is not None else super().list_changed_keys(since=since)
+
+    def fetch_vehicle_master_data(self, fz_key):
+        self.master_calls.append(fz_key)
+        if fz_key in self.refuse_master_for:
+            raise _Refused("Fahrzeuge refused for this account")
+        return super().fetch_vehicle_master_data(fz_key)
+
+    def fetch_images(self, fz_key):
+        if fz_key in self.refuse_images_for:
+            raise _Refused("Bilder refused for this account")
+        return super().fetch_images(fz_key)
+
+
+@pytest.fixture()
+def refusing_adapter(monkeypatch):
+    """Installs one `_RefusingAdapter` behind the mock provider_code and
+    counts every circuit-breaker charge, so a test can assert the gateway's
+    own failure signal is still emitted exactly as before.
+    """
+
+    adapter = _RefusingAdapter()
+    monkeypatch.setitem(gateway._ADAPTER_FACTORIES, "auto_i_dat_mock", lambda *_args: adapter)
+    adapter.breaker_failures = []
+    real_record_failure = resilience.record_failure
+
+    def _spy(connection_id):
+        adapter.breaker_failures.append(connection_id)
+        real_record_failure(connection_id)
+
+    monkeypatch.setattr(resilience, "record_failure", _spy)
+    yield adapter
+
+
+def _error_log_rows(db_session, connection_id):
+    return (
+        db_session.query(IntegrationCallLog)
+        .filter_by(connection_id=connection_id, status=CallStatus.ERROR)
+        .all()
+    )
+
+
+def test_a_refused_field_for_one_fz_key_no_longer_aborts_the_rest_of_the_seed(db_session, refusing_adapter):
+    provider = _make_mock_provider(db_session)
+    tenant_id = uuid.uuid4()
+    connection = _make_connection(db_session, provider, tenant_id=tenant_id)
+    refusing_adapter.refuse_images_for = {"FZ100002"}
+
+    try:
+        result = catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_id)
+    finally:
+        resilience.reset_circuit(connection.id)
+
+    # The run completes and says what it skipped, by key and by field.
+    assert result.variants_synced == 2
+    assert [(s.fz_key, s.field, s.error) for s in result.skipped] == [("FZ100002", "images", "_Refused")]
+
+    # The refused variant leaves nothing half-written: its savepoint rolled
+    # back the master data, options and colours fetched before the refusal
+    # (KAN-90's rule, applied per key). It is pending, and retried next run.
+    assert catalogue_sync.find_variant_by_fz_key(db_session, provider_code="auto_i_dat_mock", fz_key="FZ100002") is None
+    assert db_session.query(ColourCache).filter_by(tenant_id=tenant_id).count() == 2 * 3
+
+    # ... and the variant AFTER it is synced in full, not silently skipped.
+    later_variant = catalogue_sync.find_variant_by_fz_key(
+        db_session, provider_code="auto_i_dat_mock", fz_key="FZ100003"
+    )
+    assert db_session.query(ImageRef).filter_by(tenant_id=tenant_id, model_variant_id=later_variant.id).count() == 2
+
+    # The gateway's own failure signal is unchanged: one ERROR row, one breaker charge.
+    assert len(_error_log_rows(db_session, connection.id)) == 1
+    assert refusing_adapter.breaker_failures == [connection.id]
+
+    # The skipped key is on the sync state, not only in the call log.
+    state = catalogue_sync.get_sync_state(db_session, tenant_id=tenant_id, provider_code="auto_i_dat_mock")
+    assert [(p["fz_key"], p["field"], p["error"]) for p in state.pending_fz_keys] == [
+        ("FZ100002", "images", "_Refused")
+    ]
+    assert state.last_system_watermark_date is not None
+
+
+def test_a_refused_fz_key_is_retried_by_the_next_delta_even_when_the_provider_reports_no_change(
+    db_session, refusing_adapter
+):
+    provider = _make_mock_provider(db_session)
+    tenant_id = uuid.uuid4()
+    connection = _make_connection(db_session, provider, tenant_id=tenant_id)
+    seed_day = dt.date(2026, 6, 1)
+
+    try:
+        refusing_adapter.refuse_images_for = {"FZ100002"}
+        catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_id, today=seed_day)
+
+        # Still refused: the run completes again, the key stays pending, the cursor moves on.
+        refusing_adapter.changed_keys = []
+        refusing_adapter.master_calls.clear()
+        day_two = seed_day + dt.timedelta(days=1)
+        result = catalogue_sync.run_daily_delta_for_tenant(db_session, tenant_id=tenant_id, today=day_two)
+        assert refusing_adapter.master_calls == ["FZ100002"]
+        assert [s.fz_key for s in result.skipped] == ["FZ100002"]
+        state = catalogue_sync.get_sync_state(db_session, tenant_id=tenant_id, provider_code="auto_i_dat_mock")
+        assert state.last_delta_cursor == day_two
+        assert [p["fz_key"] for p in state.pending_fz_keys] == ["FZ100002"]
+
+        # The provider accepts it now: synced in full, and no longer pending.
+        refusing_adapter.refuse_images_for = set()
+        refusing_adapter.master_calls.clear()
+        result = catalogue_sync.run_daily_delta_for_tenant(
+            db_session, tenant_id=tenant_id, today=day_two + dt.timedelta(days=1)
+        )
+    finally:
+        resilience.reset_circuit(connection.id)
+
+    assert refusing_adapter.master_calls == ["FZ100002"]
+    assert result.skipped == ()
+    assert result.variants_synced == 1
+    db_session.refresh(state)
+    assert state.pending_fz_keys == []
+    variant = catalogue_sync.find_variant_by_fz_key(db_session, provider_code="auto_i_dat_mock", fz_key="FZ100002")
+    assert db_session.query(ImageRef).filter_by(tenant_id=tenant_id, model_variant_id=variant.id).count() == 2
+
+
+def test_an_opened_circuit_ends_the_run_cleanly_and_leaves_every_unsynced_key_pending(
+    db_session, refusing_adapter
+):
+    provider = _make_mock_provider(db_session)
+    tenant_id = uuid.uuid4()
+    connection = _make_connection(db_session, provider, tenant_id=tenant_id)
+    keys = [f"FZ9000{n:02d}" for n in range(7)]
+    refusing_adapter.changed_keys = keys
+    refusing_adapter.refuse_master_for = set(keys)
+
+    try:
+        result = catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_id)
+    finally:
+        resilience.reset_circuit(connection.id)
+
+    # The breaker opens after its threshold; nothing past that point reaches the provider.
+    assert refusing_adapter.master_calls == keys[:5]
+    assert len(_error_log_rows(db_session, connection.id)) == 5
+    assert result.variants_synced == 0
+    assert [(s.fz_key, s.field) for s in result.skipped] == (
+        [(k, "master_data") for k in keys[:5]] + [(k, "not_attempted") for k in keys[5:]]
+    )
+    state = catalogue_sync.get_sync_state(db_session, tenant_id=tenant_id, provider_code="auto_i_dat_mock")
+    assert [p["fz_key"] for p in state.pending_fz_keys] == keys
+    # The watermark was not fetched through an open circuit, so A-12 is not fooled.
+    assert state.last_system_watermark_date is None
+
+
+def test_a_programmer_error_still_aborts_the_run(db_session, refusing_adapter):
+    """Only a provider failure is isolated; a bug is not filed as one."""
+
+    provider = _make_mock_provider(db_session)
+    tenant_id = uuid.uuid4()
+    connection = _make_connection(db_session, provider, tenant_id=tenant_id)
+    refusing_adapter.changed_keys = ["FZ100001", "NO-SUCH-KEY", "FZ100003"]
+
+    try:
+        with pytest.raises(KeyError):
+            catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_id)
+    finally:
+        resilience.reset_circuit(connection.id)
+
+    assert refusing_adapter.master_calls == ["FZ100001", "NO-SUCH-KEY"]  # FZ100003 never attempted
+    assert catalogue_sync.get_sync_state(db_session, tenant_id=tenant_id, provider_code="auto_i_dat_mock") is None
+
+
+def test_the_breaker_opening_on_the_last_key_still_ends_the_run_cleanly(db_session, refusing_adapter):
+    """The fifth consecutive failure is the run's last key, so the loop never
+    sees the open circuit; the watermark call does, and must not raise.
+    """
+
+    provider = _make_mock_provider(db_session)
+    tenant_id = uuid.uuid4()
+    connection = _make_connection(db_session, provider, tenant_id=tenant_id)
+    keys = [f"FZ9100{n:02d}" for n in range(5)]
+    refusing_adapter.changed_keys = keys
+    refusing_adapter.refuse_master_for = set(keys)
+
+    try:
+        result = catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_id)
+    finally:
+        resilience.reset_circuit(connection.id)
+
+    assert [(s.fz_key, s.field) for s in result.skipped] == [(k, "master_data") for k in keys]
+    state = catalogue_sync.get_sync_state(db_session, tenant_id=tenant_id, provider_code="auto_i_dat_mock")
+    assert [p["fz_key"] for p in state.pending_fz_keys] == keys
+    assert state.last_system_watermark_date is None
+
+
+def test_an_adapter_that_fails_to_build_mid_run_stops_the_loop(db_session, monkeypatch):
+    """A WSDL that will not load fails in the gateway's adapter resolution,
+    before any call: not about the key, never logged or charged by the
+    gateway. The loop must stop, not retry the build for every later key.
+    """
+
+    provider = _make_mock_provider(db_session)
+    tenant_id = uuid.uuid4()
+    connection = _make_connection(db_session, provider, tenant_id=tenant_id)
+    builds = []
+
+    def _factory(*_args):
+        builds.append(1)
+        if len(builds) >= 3:  # FzKeyChanged, FZ100001 build fine; FZ100002 onwards cannot
+            raise ProviderTransportError("WSDL could not be loaded")
+        return MockAutoIDatAdapter()
+
+    monkeypatch.setitem(gateway._ADAPTER_FACTORIES, "auto_i_dat_mock", _factory)
+    try:
+        result = catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_id)
+    finally:
+        resilience.reset_circuit(connection.id)
+
+    assert len(builds) == 3  # no further build for FZ100003, nor for the watermark
+    db_session.rollback()  # read back only what was committed
+    assert result.variants_synced == 1
+    assert [(s.fz_key, s.field, s.error) for s in result.skipped] == [
+        ("FZ100002", "not_attempted", "ProviderTransportError"),
+        ("FZ100003", "not_attempted", "ProviderTransportError"),
+    ]
+    state = catalogue_sync.get_sync_state(db_session, tenant_id=tenant_id, provider_code="auto_i_dat_mock")
+    assert [p["fz_key"] for p in state.pending_fz_keys] == ["FZ100002", "FZ100003"]
+    assert state.last_system_watermark_date is None
+
+
+def test_a_delta_falling_back_to_a_reseed_still_reports_what_it_skipped(db_session, refusing_adapter):
+    provider = _make_mock_provider(db_session)
+    tenant_id = uuid.uuid4()
+    connection = _make_connection(db_session, provider, tenant_id=tenant_id)
+    refusing_adapter.refuse_images_for = {"FZ100003"}
+
+    try:
+        result = catalogue_sync.run_daily_delta_for_tenant(db_session, tenant_id=tenant_id)
+    finally:
+        resilience.reset_circuit(connection.id)
+
+    assert result.fell_back_to_full_reseed is True
+    assert [(s.fz_key, s.field) for s in result.skipped] == [("FZ100003", "images")]
+
+
+def test_a_failing_watermark_call_still_leaves_the_runs_progress_saved(db_session, refusing_adapter):
+    provider = _make_mock_provider(db_session)
+    tenant_id = uuid.uuid4()
+    connection = _make_connection(db_session, provider, tenant_id=tenant_id)
+    refusing_adapter.refuse_images_for = {"FZ100002"}
+
+    def _refuse_system():
+        raise _Refused("System unavailable")
+
+    refusing_adapter.get_system_watermark = _refuse_system
+    day = dt.date(2026, 6, 2)
+    try:
+        with pytest.raises(_Refused):
+            catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_id, today=day)
+    finally:
+        resilience.reset_circuit(connection.id)
+
+    db_session.rollback()  # read back only what was committed
+    state = catalogue_sync.get_sync_state(db_session, tenant_id=tenant_id, provider_code="auto_i_dat_mock")
+    assert state.last_delta_cursor == day
+    assert [p["fz_key"] for p in state.pending_fz_keys] == ["FZ100002"]

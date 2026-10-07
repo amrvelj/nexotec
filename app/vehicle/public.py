@@ -4,11 +4,13 @@ contract allows `app.<other-context>` to import `app.vehicle.public`, never
 """
 
 import dataclasses
+import logging
 import uuid
 from collections.abc import Iterable
 
 from sqlalchemy.orm import Session
 
+from app.vehicle.models.configuration import VehicleConfiguration
 from app.vehicle.models.spec_block import (
     SPEC_BLOCK_ALL_FIELDS,
     spec_block_as_dict,
@@ -18,12 +20,23 @@ from app.vehicle.models.vehicle import CustodyEventType, Vehicle, VehicleStatus
 from app.vehicle.models.vehicle_mdm import VehicleMdm
 from app.vehicle.services.catalogue_sync import (
     NoVehicleDataConnectionError,
+    SkippedFzKey,
     SyncResult,
     check_sync_age_alarm_for_tenant,
     run_daily_delta_for_tenant,
     seed_tenant_catalogue,
 )
+from app.vehicle.services.host_configuration import BUILD as CONFIGURATION_MODE_BUILD
+from app.vehicle.services.host_configuration import RECORD as CONFIGURATION_MODE_RECORD
+from app.vehicle.services.host_configuration import (
+    ConfigurationModeNotAllowedError,
+    ConfigurationPriceLine,
+    HostConfiguration,
+)
+from app.vehicle.services.plate_lookup_cache import purge_expired_plate_lookups
 from app.vehicle.services.vehicle import create_custody_event, get_vehicle_or_404
+
+logger = logging.getLogger(__name__)
 
 
 # WP-7 PR-1: inventory's StockItem.vehicle_id references VehicleMdm (WP-5's
@@ -164,18 +177,49 @@ def match_vehicle(
     )
 
 
+def get_configuration_for_host(
+    db: Session, *, tenant_id: uuid.UUID, configuration_id: uuid.UUID
+) -> HostConfiguration:
+    """C-F (KAN-10) — what an offer, a stock item or a valuation reads from
+    the configuration it stores. 404 for another tenant's configuration.
+    Deferred import: `configuration_host` reaches `services.vehicle_mdm`,
+    the cycle described above `get_vehicle_mdm_or_404`."""
+
+    from app.vehicle.services.configuration_host import get_configuration_for_host as _get
+
+    return _get(db, tenant_id=tenant_id, configuration_id=configuration_id)
+
+
+def run_daily_plate_lookup_purge(db: Session) -> None:
+    """KAN-42 (C-D) — the daily job that deletes plate-lookup cache rows past
+    their TTL (`app.vehicle.services.plate_lookup_cache`). Registered in
+    `app/worker.py`."""
+
+    deleted = purge_expired_plate_lookups(db)
+    if deleted:
+        logger.info("plate-lookup cache purge", extra={"deleted": deleted})
+
+
 __all__ = [
+    "CONFIGURATION_MODE_BUILD",
+    "CONFIGURATION_MODE_RECORD",
     "SPEC_BLOCK_ALL_FIELDS",
+    "ConfigurationModeNotAllowedError",
+    "ConfigurationPriceLine",
     "CustodyEventType",
+    "HostConfiguration",
     "NoVehicleDataConnectionError",
+    "SkippedFzKey",
     "SyncResult",
     "Vehicle",
+    "VehicleConfiguration",
     "VehicleMdm",
     "VehicleStatus",
     "VehicleSummary",
     "check_sync_age_alarm_for_tenant",
     "create_custody_event",
     "create_or_get_vehicle_mdm",
+    "get_configuration_for_host",
     "get_vehicle_equipment",
     "get_vehicle_mdm_or_404",
     "get_vehicle_or_404",
@@ -183,6 +227,7 @@ __all__ = [
     "has_current_energy_rating",
     "match_vehicle",
     "run_daily_delta_for_tenant",
+    "run_daily_plate_lookup_purge",
     "seed_tenant_catalogue",
     "spec_block_as_dict",
     "spec_block_field_names",

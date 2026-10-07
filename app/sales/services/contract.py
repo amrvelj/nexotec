@@ -19,7 +19,7 @@ from app.core.outbox import OutboxEvent, publish
 from app.core.pagination import SortPageParams, build_sorted_page, count_capped, paginate_query_sorted
 from app.customer.public import CustomerLifecycleStatus, get_customer_or_404, has_usable_domicile_address
 from app.db import SessionLocal
-from app.inventory.public import release, reserve
+from app.inventory.public import release, reserve_for_contract
 from app.sales.models.contract import ContractStatus, FinancingKind, SalesContract
 from app.sales.models.offer import SalesOffer
 from app.sales.services.deal_projection import upsert_deal_projection
@@ -111,6 +111,9 @@ def create_contract(
         stock_item_id=offer.stock_item_id if offer is not None else None,
         vehicle_label=offer.vehicle_label if offer is not None else None,
         manual_vehicle_condition=offer.manual_vehicle_condition if offer is not None else None,
+        configuration_id=offer.configuration_id if offer is not None else None,
+        configuration_label=offer.configuration_label if offer is not None else None,
+        configuration_label_refreshed_at=offer.configuration_label_refreshed_at if offer is not None else None,
         base_price=offer.base_price if offer is not None else None,
         options_total=offer.options_total if offer is not None else None,
         list_price=offer.list_price if offer is not None else None,
@@ -121,6 +124,10 @@ def create_contract(
         trade_in_vehicle_id=offer.trade_in_vehicle_id if offer is not None else None,
         trade_in_label=offer.trade_in_label if offer is not None else None,
         trade_in_vin=offer.trade_in_vin if offer is not None else None,
+        trade_in_configuration_id=offer.trade_in_configuration_id if offer is not None else None,
+        trade_in_configuration_label_refreshed_at=(
+            offer.trade_in_configuration_label_refreshed_at if offer is not None else None
+        ),
         trade_in_valuation_id=offer.trade_in_valuation_id if offer is not None else None,
         trade_in_value=offer.trade_in_value if offer is not None else None,
         trade_in_purchase_price=offer.trade_in_purchase_price if offer is not None else None,
@@ -198,12 +205,22 @@ def _confirmed_event_payload(contract: SalesContract) -> dict:
     manual_configuration = None
     if contract.vehicle_source == "manual":
         manual_configuration = {"vehicleLabel": contract.vehicle_label, "condition": contract.manual_vehicle_condition}
+        if contract.configuration_id is not None:
+            # C-F (KAN-10, FR-C-12) — additive: inventory carries it onto
+            # the pipeline stock item it creates. No vehicle-mdm record is
+            # written for it (ADR-070).
+            manual_configuration["configurationId"] = str(contract.configuration_id)
 
     trade_in = None
-    if contract.trade_in_vehicle_id is not None:
+    if contract.trade_in_vehicle_id is not None or contract.trade_in_configuration_id is not None:
         # Trade-ins are always a used car by definition — there is no
         # separate condition concept on the trade-in side to carry here.
+        # C-F (KAN-10): a trade-in captured through the valuation path has a
+        # configuration and no vehicle-mdm record; it becomes a pipeline
+        # item all the same (S-D11).
         trade_in = {"vehicleLabel": contract.trade_in_label, "condition": "used"}
+        if contract.trade_in_configuration_id is not None:
+            trade_in["configurationId"] = str(contract.trade_in_configuration_id)
         if contract.trade_in_valuation_id is not None:
             # KAN-101 — inventory copies this valuation's pointer onto the
             # trade-in's pipeline stock item when it creates it.
@@ -227,8 +244,8 @@ def confirm_contract(
     session_factory: Callable[[], Session] = SessionLocal,
 ) -> SalesContract:
     """The core of PR-6. Guards (ADR-065/S-D19), then — for a "stock"
-    vehicle source only — reserve() on a DEDICATED SHORT-LIVED SESSION
-    (ADR-047 Pattern B): reserve() ends in its own commit, and passing the
+    vehicle source only — reserve_for_contract() on a DEDICATED SHORT-LIVED
+    SESSION (ADR-047 Pattern B): it ends in its own commit, and passing the
     request session while holding this function's own uncommitted writes
     would sweep them in on the ordinary path and silently violate the rule
     on any other. If this function's own transaction then fails, the
@@ -240,7 +257,7 @@ def confirm_contract(
     session for the same reason, before the reservation. Several contracts
     may carry one valuation (Anto, 2026-09-29), so an already-used one is
     accepted; one past its validity refuses the confirmation before anything
-    is reserved. If reserve() then refuses, "used" is reverted as below.
+    is reserved. If the reservation is then refused, "used" is reverted as below.
     If this function's own transaction fails, "used" is reverted only when
     this call set it and no other signed contract carries the valuation.
     Cancelling a signed contract never reverts it (ADR-066).
@@ -319,8 +336,9 @@ def confirm_contract(
 
     # KAN-101 — the trade-in valuation is consumed BEFORE the reservation,
     # so a refused or failed valuation call never leaves a reservation to
-    # undo (a released reservation's cached reserve() response would then
-    # hand a retry a reservation that no longer exists — KAN-114).
+    # undo. A retry after a compensated commit failure reuses the same key;
+    # reserve_for_contract answers it from the item, so the retry reserves
+    # the car again rather than replaying the released reservation (KAN-114).
     valuation_newly_used = False
     if contract.trade_in_valuation_id is not None:
         short_lived = session_factory()
@@ -347,7 +365,7 @@ def confirm_contract(
     if contract.vehicle_source == "stock" and contract.stock_item_id is not None:
         short_lived = session_factory()
         try:
-            result = reserve(
+            result = reserve_for_contract(
                 short_lived,
                 tenant_id=contract.tenant_id,
                 stock_item_id=contract.stock_item_id,
@@ -432,7 +450,10 @@ def _compensate_confirmation(
                 compensating,
                 tenant_id=ids.tenant_id,
                 reservation_id=reservation_id,
-                idempotency_key=f"sales.contract.confirm-compensate:{ids.contract_id}",
+                # Per reservation, not per contract: a retried confirmation
+                # makes a new reservation, and its own compensation must not
+                # collide with an earlier attempt's key (KAN-114).
+                idempotency_key=f"sales.contract.confirm-compensate:{ids.contract_id}:{reservation_id}",
             )
         except Exception:
             logger.exception(
@@ -527,7 +548,7 @@ def cancel_contract(
 ) -> SalesContract:
     """PENDING or CONFIRMED can both be cancelled — CONFIRMED additionally
     releases the stock reservation first (Pattern B, dedicated session,
-    same reasoning as confirm_contract's own reserve() call).
+    same reasoning as confirm_contract's own reserve_for_contract() call).
     A manual configuration has no reservation_id here: Stock reserved its
     pipeline item itself and releases it on `sales.contract.cancelled`
     (KAN-158).
@@ -547,6 +568,16 @@ def cancel_contract(
                 tenant_id=contract.tenant_id,
                 reservation_id=contract.reservation_id,
                 idempotency_key=f"sales.contract.cancel:{contract.id}",
+            )
+        except NotFoundError:
+            # KAN-114 — a contract confirmed before that fix may point at a
+            # reservation its own compensation already released. Nothing is
+            # left to release under that id, and Stock's cancellation
+            # consumer still releases whatever this contract holds (KAN-158),
+            # so the cancellation goes ahead rather than 404ing.
+            logger.warning(
+                "contract_cancel_reservation_already_released",
+                extra={"contractId": str(contract.id), "reservationId": str(contract.reservation_id)},
             )
         finally:
             short_lived.close()

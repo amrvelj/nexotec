@@ -40,6 +40,12 @@ _REPO = Path(__file__).resolve().parent.parent.parent
 _SCANNED = [
     _REPO / "app" / "vehicle" / "services" / "configuration.py",
     _REPO / "app" / "vehicle" / "api" / "configuration.py",
+    # C-D (KAN-42): identification resolves against vehicle-mdm, never writes it.
+    _REPO / "app" / "vehicle" / "services" / "identification.py",
+    _REPO / "app" / "vehicle" / "services" / "plate_lookup_cache.py",
+    _REPO / "app" / "vehicle" / "api" / "identification.py",
+    # C-F (KAN-10): what hosts read, and re-sync.
+    _REPO / "app" / "vehicle" / "services" / "configuration_host.py",
 ]
 
 

@@ -4,8 +4,21 @@ provider), feeding the platform view's own health-board grid.
 
 import datetime as dt
 import uuid
+from typing import Literal
 
 from app.core.schemas import CamelModel
+
+
+class PendingFzKeyRead(CamelModel):
+    """KAN-78: one FzKey the last sync run did not sync in full. `field` is
+    the provider call it failed on, or `not_attempted` when the circuit had
+    opened; `error` is an exception class name, never a provider message.
+    """
+
+    fz_key: str
+    field: Literal["master_data", "options", "colours", "tyre_specs", "images", "not_attempted"]
+    error: str
+    failed_at: dt.datetime
 
 
 class CatalogueSyncStatusRead(CamelModel):
@@ -15,6 +28,8 @@ class CatalogueSyncStatusRead(CamelModel):
     last_delta_cursor: dt.date | None
     last_system_watermark_date: dt.date | None
     last_system_checked_at: dt.datetime | None
+    # KAN-78: retried by the next delta; empty when the last run synced every key.
+    pending_fz_keys: list[PendingFzKeyRead]
     # Derived on read (never stored, never repaired by a nightly job —
     # the same posture every other derived-status field in this codebase
     # already uses), the same >7-day A-12 boundary catalogue_sync.py's

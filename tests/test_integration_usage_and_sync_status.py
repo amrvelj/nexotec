@@ -131,3 +131,30 @@ def test_catalogue_sync_status_lists_every_tenant_and_flags_staleness(client, db
     assert len(rows) == 1
     assert rows[0]["tenantId"] == str(tenant_id)
     assert rows[0]["stale"] is False  # just seeded, today's watermark
+
+
+def test_catalogue_sync_status_shows_the_keys_the_last_run_left_pending(client, db_session):
+    """KAN-78: a skipped FzKey is visible to an operator on the board, not
+    only as an ERROR row in the call log.
+    """
+
+    provider = _make_provider(db_session)
+    tenant_id = uuid.uuid4()
+    connection_service.create_connection(
+        db_session, tenant_id=tenant_id,
+        data=ConnectionCreate(provider_id=provider.id, display_name="auto-i-dat", environment=ConnectionEnvironment.SANDBOX),
+        actor_id=uuid.uuid4(),
+    )
+    catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_id)
+    state = catalogue_sync.get_sync_state(db_session, tenant_id=tenant_id, provider_code="auto_i_dat_mock")
+    assert state.pending_fz_keys == []
+    state.pending_fz_keys = [
+        {"fz_key": "FZ100002", "field": "images", "error": "ProviderGatewayError", "failed_at": "2026-10-07T08:00:00+00:00"}
+    ]
+    db_session.commit()
+
+    response = client.get("/v1/vehicle-mdm/catalogue-sync-status", headers=_bearer(_platform_admin_token()))
+    assert response.status_code == 200, response.text
+    assert response.json()[0]["pendingFzKeys"] == [
+        {"fzKey": "FZ100002", "field": "images", "error": "ProviderGatewayError", "failedAt": "2026-10-07T08:00:00Z"}
+    ]
