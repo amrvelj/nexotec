@@ -1,12 +1,14 @@
 """WP-5 PR-2: provider abstraction — resolution and the mapping-gap queue."""
 
+import os
+import threading
 import uuid
 
 import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
-from app.core.audit import list_audit_events
+from app.core.audit import list_audit_events, record_audit_event
 from app.core.errors import ConflictError, UnprocessableEntityError
 from app.platform.models.reference_data import ReferenceList, ReferenceValue
 from app.vehicle.models.provider import MappingGap, ProviderCodeMap
@@ -270,10 +272,11 @@ def test_a_gap_whose_code_group_has_no_reference_list_is_refused_not_a_crash(db_
     assert gap.resolved is False
 
 
-def test_two_admins_resolving_the_same_gap_at_once_write_one_resolve(db_session, engine):
-    """The loser loaded the gap before the winner committed its full resolve.
-    It must see the winner's commit — the gap row is locked and re-read — and
-    be the no-op: one audit row, the winner's `resolved_at` and `resolved_by`.
+def test_a_resolve_over_a_stale_snapshot_sees_the_committed_one(db_session, engine):
+    """The second admin loaded the gap before the first committed a full
+    resolve. The re-read makes it the no-op: one audit row, the first one's
+    `resolved_at` and `resolved_by`. (The overlapping case, where the first
+    has not committed yet, is the threaded test below.)
     """
 
     _seed_list(db_session, "fuel_type", FUEL_TYPES)
@@ -317,3 +320,62 @@ def test_a_repeat_after_the_value_was_deactivated_is_still_the_no_op(db_session)
     assert resolve_mapping_gap(
         db_session, gap=gap, canonical_list_code="fuel_type", canonical_value_code="plugin_hybrid", actor_id=uuid.uuid4()
     ) is False
+
+
+@pytest.mark.skipif(not os.environ.get("DMS_TEST_DATABASE_URL"), reason="row locks and concurrent sessions: Postgres only")
+def test_two_overlapping_resolves_of_the_same_gap_write_one_resolve(db_session, engine):
+    """Admin A has resolved the gap but not committed; admin B loaded it before
+    and resolves the same target. B must wait on the gap row lock, then see A's
+    commit and be the no-op — without the lock it inserts over the uncommitted
+    map row, recovers from the IntegrityError and resolves a second time.
+    """
+
+    _seed_list(db_session, "fuel_type", FUEL_TYPES)
+    gap_id = _open_gap(db_session, "12").id
+    db_session.commit()
+
+    factory = sessionmaker(bind=engine, expire_on_commit=False)
+    session_a, session_b = factory(), factory()
+    actor_a = uuid.uuid4()
+    errors: list[BaseException] = []
+    try:
+        stale_gap_b = catalogue_admin.get_mapping_gap_or_404(session_b, gap_id)
+        session_b.commit()  # B's snapshot: unresolved
+
+        # A: the body of catalogue_admin.resolve_gap, minus its commit.
+        gap_a = catalogue_admin.get_mapping_gap_or_404(session_a, gap_id)
+        assert resolve_mapping_gap(
+            session_a, gap=gap_a, canonical_list_code="fuel_type", canonical_value_code="plugin_hybrid", actor_id=actor_a
+        )
+        record_audit_event(
+            session_a, entity_type="vehicle_mapping_gap", entity_id=gap_id, tenant_id=None, action="resolve",
+            actor_id=actor_a,
+        )
+
+        def _resolve_b() -> None:
+            try:
+                catalogue_admin.resolve_gap(
+                    session_b, gap=stale_gap_b, canonical_list_code="fuel_type",
+                    canonical_value_code="plugin_hybrid", actor_id=uuid.uuid4(),
+                )
+            except BaseException as exc:  # noqa: BLE001 — collected and asserted empty below, never swallowed
+                errors.append(exc)
+
+        thread_b = threading.Thread(target=_resolve_b)
+        thread_b.start()
+        thread_b.join(timeout=1.0)
+        assert thread_b.is_alive(), "B must wait for A's transaction, not resolve over it"
+
+        session_a.commit()
+        thread_b.join(timeout=10.0)
+        assert not thread_b.is_alive()
+        assert not errors, errors
+    finally:
+        session_a.close()
+        session_b.close()
+
+    gap = db_session.get(MappingGap, gap_id)
+    db_session.refresh(gap)
+    assert gap.resolved_by == actor_a
+    events = list_audit_events(db_session, entity_type="vehicle_mapping_gap", entity_id=gap_id, tenant_id=None)
+    assert len(events) == 1
