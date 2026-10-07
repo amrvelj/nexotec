@@ -9,7 +9,9 @@ transaction.repoint_customer_transactions's "join the caller's
 transaction"). A future Sales caller (WP-8) calls this from OUTSIDE its
 own contract-write transaction, with its own Idempotency-Key, a timeout
 and one retry on its side — this module's only obligation is that ITS
-half is atomic and idempotent on its own.
+half is atomic and idempotent on its own. Sales confirms through
+reserve_for_contract(), idempotent by (item, contract) rather than by key
+alone, because a replay may follow a compensating release (KAN-114).
 
 Reservation is allowed while pipeline (a factory order already sold is
 the ordinary case, not an edge case) — no lifecycle_status check here at
@@ -78,6 +80,64 @@ def reserve(
         db, tenant_id=tenant_id, key=idempotency_key, path=path, body=body, response_status=201,
         response_body=response_body,
     )
+    db.commit()
+    return response_body
+
+
+def reserve_for_contract(
+    db: Session, *, tenant_id: uuid.UUID, stock_item_id: uuid.UUID, contract_id: uuid.UUID, idempotency_key: str
+) -> dict:
+    """Sales' confirmation entry (KAN-114): reserve() made idempotent by
+    (stock item, contract), not by key alone. Same response and the same
+    409 as reserve().
+
+    Sales retries a confirmation under one key per contract, and between
+    two attempts its compensation may have released the reservation the
+    first one made (its own commit failed — ADR-047). Replaying the cached
+    response would then confirm the contract on a car that is no longer
+    reserved. So the item answers, under its row lock: the contract's live
+    reservation is returned, a free item is reserved again, and an item
+    another contract holds is the ordinary 409. The key still guards
+    against reuse with another contract (find_cached_response), but a
+    reservation made on a replay is not recorded against it — the record is
+    write-once — which is why "held by this contract" is what a later
+    replay matches on.
+
+    The HTTP endpoint keeps reserve(): a replayed Idempotency-Key there
+    returns the stored response with no side effect, as the API convention
+    promises (a late duplicate must never re-reserve a car its caller has
+    released since). Sales only calls this for a PENDING contract.
+    """
+
+    path = f"inventory.reserve:{stock_item_id}"
+    body = {"contractId": str(contract_id)}
+
+    item = db.scalar(
+        select(StockItem).where(StockItem.id == stock_item_id, StockItem.tenant_id == tenant_id).with_for_update()
+    )
+    if item is None:
+        raise NotFoundError(f"Stock item {stock_item_id} was not found.")
+    # Read under the row lock, not before it: an attempt that reserved,
+    # stored the key and was compensated in between would otherwise leave
+    # this one storing the same key a second time (a unique violation).
+    cached = find_cached_response(db, tenant_id=tenant_id, key=idempotency_key, path=path, body=body)
+    if item.reservation_state == ReservationState.RESERVED and item.reserved_by_contract_id == contract_id:
+        db.commit()
+        return {"reservationId": str(item.active_reservation_id), "stockItemId": str(item.id)}
+    if item.reservation_state == ReservationState.RESERVED:
+        raise ConflictError(
+            f"Stock item {stock_item_id} already carries an active reservation.",
+            details={"stockItemId": str(stock_item_id)},
+        )
+
+    reservation_id = reserve_and_flush(db, item=item, contract_id=contract_id)
+
+    response_body = {"reservationId": str(reservation_id), "stockItemId": str(item.id)}
+    if cached is None:
+        store_response(
+            db, tenant_id=tenant_id, key=idempotency_key, path=path, body=body, response_status=201,
+            response_body=response_body,
+        )
     db.commit()
     return response_body
 

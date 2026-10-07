@@ -621,3 +621,105 @@ def test_confirm_contract_with_no_offer_still_confirms_once_a_vehicle_and_price_
 
     confirmed = confirm_contract(db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=_session_factory(engine))
     assert confirmed.status == ContractStatus.CONFIRMED
+
+
+# --- KAN-114: retrying a confirmation after its compensation ran. reserve()
+# used to replay its cached response — the released reservation — so the
+# retry confirmed the contract on a car that was no longer reserved, and
+# cancelling it then 404'd on the stale reservation.
+
+
+def test_a_retry_after_a_compensated_confirmation_reserves_the_car_again(db_session, engine):
+    from unittest.mock import patch
+
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    contract, item, _customer = _stock_contract(db_session, dealership.id, group_id)
+    factory = _session_factory(engine)
+
+    with (
+        patch("app.sales.services.contract.upsert_deal_projection", side_effect=RuntimeError("boom")),
+        pytest.raises(RuntimeError),
+    ):
+        confirm_contract(db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=factory)
+    db_session.rollback()
+    db_session.expire_all()
+    assert get_stock_item_or_404(db_session, dealership.id, item.id).reservation_state == ReservationState.NONE
+
+    contract = db_session.get(type(contract), contract.id)
+    confirmed = confirm_contract(db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=factory)
+
+    assert confirmed.status == ContractStatus.CONFIRMED
+    db_session.expire_all()
+    refreshed_item = get_stock_item_or_404(db_session, dealership.id, item.id)
+    assert refreshed_item.reservation_state == ReservationState.RESERVED
+    assert refreshed_item.reserved_by_contract_id == contract.id
+    assert refreshed_item.active_reservation_id == confirmed.reservation_id
+
+    cancelled = cancel_contract(db_session, contract=confirmed, reason="Kunde storniert.", actor_id=uuid.uuid4(), session_factory=factory)
+    assert cancelled.status == ContractStatus.CANCELLED
+    db_session.expire_all()
+    assert get_stock_item_or_404(db_session, dealership.id, item.id).reservation_state == ReservationState.NONE
+
+
+def test_two_compensated_failures_in_a_row_leave_the_car_free(db_session, engine):
+    """Each retry makes a new reservation, so each compensation must release
+    its own: one release key per contract would be refused on the second
+    failure, leaving the car reserved by a contract that is still pending."""
+
+    from unittest.mock import patch
+
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    contract, item, _customer = _stock_contract(db_session, dealership.id, group_id)
+    factory = _session_factory(engine)
+
+    for _attempt in range(2):
+        with (
+            patch("app.sales.services.contract.upsert_deal_projection", side_effect=RuntimeError("boom")),
+            pytest.raises(RuntimeError),
+        ):
+            confirm_contract(db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=factory)
+        db_session.rollback()
+        db_session.expire_all()
+        refreshed_item = get_stock_item_or_404(db_session, dealership.id, item.id)
+        assert refreshed_item.reservation_state == ReservationState.NONE
+        assert refreshed_item.reserved_by_contract_id is None
+        contract = db_session.get(type(contract), contract.id)
+        assert contract.status == ContractStatus.PENDING
+
+    confirmed = confirm_contract(db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=factory)
+    db_session.expire_all()
+    refreshed_item = get_stock_item_or_404(db_session, dealership.id, item.id)
+    assert refreshed_item.reserved_by_contract_id == contract.id
+    assert refreshed_item.active_reservation_id == confirmed.reservation_id
+
+
+def test_cancel_succeeds_for_a_confirmed_contract_whose_reservation_is_already_released(db_session, engine):
+    """A contract confirmed before the KAN-114 fix may point at a reservation
+    Stock no longer holds. Cancelling it must not 404 on that: there is
+    nothing left to release, and Stock's `sales.contract.cancelled` consumer
+    still releases whatever the contract holds (KAN-158)."""
+
+    from app.inventory.public import release
+
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    contract, _item, _customer = _stock_contract(db_session, dealership.id, group_id)
+    factory = _session_factory(engine)
+    confirmed = confirm_contract(db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=factory)
+    side = factory()
+    try:
+        release(side, tenant_id=dealership.id, reservation_id=confirmed.reservation_id, idempotency_key="stale")
+    finally:
+        side.close()
+
+    cancelled = cancel_contract(db_session, contract=confirmed, reason="Kunde storniert.", actor_id=uuid.uuid4(), session_factory=factory)
+
+    assert cancelled.status == ContractStatus.CANCELLED
+    cancelled_events = (
+        db_session.query(OutboxMessage)
+        .filter(OutboxMessage.event_type == "sales.contract.cancelled", OutboxMessage.aggregate_id == contract.id)
+        .count()
+    )
+    assert cancelled_events == 1

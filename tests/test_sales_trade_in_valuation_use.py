@@ -306,7 +306,7 @@ def test_a_refused_reservation_reverts_used(db_session, engine):
 
     with (
         patch(
-            "app.sales.services.contract.reserve",
+            "app.sales.services.contract.reserve_for_contract",
             side_effect=ConflictError("already reserved", details={"stockItemId": "x"}),
         ),
         pytest.raises(ConflictError),
