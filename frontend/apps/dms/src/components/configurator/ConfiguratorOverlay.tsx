@@ -26,10 +26,13 @@ import { IdentificationPanel, type IdentifiedStart } from './IdentificationPanel
 import { ConfigurationResyncPanel } from './ConfigurationResyncPanel'
 import { HostCommitError } from './hostCommitError'
 import {
+  CODED_FIELDS,
+  CODED_REF_LIST_CODES,
   SPEC_FIELD_GROUPS,
   SPEC_REF_LIST_CODES,
   configuratorModeOptions,
   specFieldLabelKey,
+  type CodedFieldKey,
   type ConfiguratorMode,
 } from '../../configurationOptions'
 import type {
@@ -46,8 +49,10 @@ import type {
 
 // KAN-43 (C-E) — option_group/equipment_feature join the spec block's own
 // reference lists in the one label-lookup query this file already has;
-// nothing here needs its own fetch.
-const OPTION_REF_LIST_CODES = [...SPEC_REF_LIST_CODES, 'option_group', 'equipment_feature']
+// nothing here needs its own fetch. KAN-96 adds the five coded fields' lists.
+const OPTION_REF_LIST_CODES = [...SPEC_REF_LIST_CODES, ...CODED_REF_LIST_CODES, 'option_group', 'equipment_feature']
+
+type CodedValues = Record<CodedFieldKey, string | null>
 
 type Phase = 'find' | 'configure'
 type Section = 'specification' | 'options' | 'colour' | 'images' | 'summary'
@@ -61,6 +66,10 @@ interface Draft {
   spec: VehicleSpecBlockRead
   /** spec keys the advisor changed after a catalogue copy */
   overridden: Set<string>
+  /** KAN-96 — the five coded fields. Picked from their reference lists on a
+   * manual configuration; on a provider one they are the catalogue's, shown
+   * in the summary and never sent back. */
+  coded: CodedValues
   vin: string
   firstRegistrationDate: string
   mileageKm: string
@@ -87,6 +96,16 @@ interface Draft {
 
 const EMPTY_SPEC: VehicleSpecBlockRead = {}
 
+function codedFrom(source: CodedValues): CodedValues {
+  return {
+    vehicleKind: source.vehicleKind,
+    fuelType: source.fuelType,
+    bodyStyle: source.bodyStyle,
+    drivetrain: source.drivetrain,
+    transmission: source.transmission,
+  }
+}
+
 function draftFromVariant(v: CatalogueVariantRead): Draft {
   return {
     source: 'provider',
@@ -96,6 +115,7 @@ function draftFromVariant(v: CatalogueVariantRead): Draft {
     variantName: v.variantName,
     spec: { ...v.spec },
     overridden: new Set(),
+    coded: codedFrom(v),
     vin: '',
     firstRegistrationDate: '',
     mileageKm: '',
@@ -124,6 +144,7 @@ function emptyManualDraft(): Draft {
     variantName: '',
     spec: { ...EMPTY_SPEC },
     overridden: new Set(),
+    coded: { vehicleKind: null, fuelType: null, bodyStyle: null, drivetrain: null, transmission: null },
     vin: '',
     firstRegistrationDate: '',
     mileageKm: '',
@@ -170,6 +191,7 @@ function draftFromRead(c: ConfigurationRead): Draft {
     variantName: c.variantName,
     spec: { ...c.spec },
     overridden: new Set(c.overriddenFields),
+    coded: codedFrom(c),
     vin: c.vin ?? '',
     firstRegistrationDate: c.firstRegistrationDate ?? '',
     mileageKm: c.mileageKm != null ? String(c.mileageKm) : '',
@@ -355,8 +377,36 @@ export function ConfiguratorOverlay({
     label: r.label,
   }))
 
+  // KAN-96 — a coded field offers only the active values of its list. A
+  // stored value that is no longer active (or no longer in the list) stays
+  // visible, disabled, so the advisor sees what has to be replaced: the API
+  // refuses a save that carries it (Anto, 2026-10-07). An empty or unloaded
+  // list flags nothing — the API remains the authority.
+  const codedOptions = (listCode: string, current: string | null) => {
+    const values = refLabels.data?.[listCode] ?? []
+    const data: { value: string; label: string; disabled?: boolean }[] = values
+      .filter((r) => r.active)
+      .map((r) => ({ value: r.valueCode, label: r.label }))
+    if (current != null && !data.some((d) => d.value === current)) {
+      data.push({ value: current, label: values.find((r) => r.valueCode === current)?.label ?? current, disabled: true })
+    }
+    return data
+  }
+  const codedValueRetired = (listCode: string, current: string | null) => {
+    const values = refLabels.data?.[listCode] ?? []
+    if (current == null || values.length === 0) return false
+    return !values.some((r) => r.valueCode === current && r.active)
+  }
+
   const save = async () => {
     if (!draft) return
+    if (draft.source === 'manual') {
+      const retired = CODED_FIELDS.filter((f) => codedValueRetired(f.listCode, draft.coded[f.key]))
+      if (retired.length > 0) {
+        setError(t('configurator.spec.retiredSaveError', { fields: retired.map((f) => t(f.labelKey)).join(', ') }))
+        return
+      }
+    }
     setSaving(true)
     setError(null)
     try {
@@ -383,6 +433,9 @@ export function ConfiguratorOverlay({
         licencePlate: draft.licencePlate || null,
         stammnummer: draft.stammnummer || null,
         typeApprovalNumber: draft.typeApprovalNumber || null,
+        // KAN-96 — only a manual configuration sends its coded fields; a
+        // provider one's come from the catalogue and are not the advisor's.
+        ...(draft.source === 'manual' ? draft.coded : {}),
       }
 
       let config: ConfigurationRead
@@ -613,6 +666,30 @@ export function ConfiguratorOverlay({
             </Alert>
           )}
 
+          {draft.source === 'manual' && (
+            <Stack gap="xs">
+              <Text fw={600} size="sm">
+                {t('configurator.spec.groups.vehicleType')}
+              </Text>
+              <Group grow align="flex-start" wrap="wrap">
+                {CODED_FIELDS.map((f) => (
+                  <Select
+                    key={f.key}
+                    label={t(f.labelKey)}
+                    data={codedOptions(f.listCode, draft.coded[f.key])}
+                    value={draft.coded[f.key]}
+                    onChange={(v) =>
+                      setDraft((prev) => (prev ? { ...prev, coded: { ...prev.coded, [f.key]: v } } : prev))
+                    }
+                    error={codedValueRetired(f.listCode, draft.coded[f.key]) ? t('configurator.spec.retired') : undefined}
+                    clearable
+                    w={200}
+                  />
+                ))}
+              </Group>
+            </Stack>
+          )}
+
           {SPEC_FIELD_GROUPS.map((group) => (
             <Stack key={group.titleKey} gap="xs">
               <Text fw={600} size="sm">
@@ -744,13 +821,16 @@ function useReferenceLabels() {
         OPTION_REF_LIST_CODES.map(async (code) => {
           try {
             const page = await api.get<ReferenceValuePage>(`/reference-data/${code}?limit=200`)
-            return [code, page.items.map((v) => ({ valueCode: v.valueCode, label: v[key] || v.valueCode }))] as const
+            return [
+              code,
+              page.items.map((v) => ({ valueCode: v.valueCode, label: v[key] || v.valueCode, active: v.active })),
+            ] as const
           } catch {
             return [code, []] as const
           }
         }),
       )
-      return Object.fromEntries(entries) as Record<string, { valueCode: string; label: string }[]>
+      return Object.fromEntries(entries) as Record<string, { valueCode: string; label: string; active: boolean }[]>
     },
   })
 }
@@ -844,11 +924,7 @@ function previewRead(draft: Draft, mode: ConfiguratorMode, spec: CatalogueSpecif
     interiorColourSurcharge: draft.interiorColourSurcharge || null,
     wheels: draft.wheels || null,
     wheelsSurcharge: draft.wheelsSurcharge || null,
-    fuelType: null,
-    bodyStyle: null,
-    drivetrain: null,
-    transmission: null,
-    vehicleKind: null,
+    ...draft.coded,
     spec: draft.spec,
     overriddenFields: [...draft.overridden],
     options: previewOptions(draft, spec),
