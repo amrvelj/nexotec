@@ -662,6 +662,39 @@ def test_a_retry_after_a_compensated_confirmation_reserves_the_car_again(db_sess
     assert get_stock_item_or_404(db_session, dealership.id, item.id).reservation_state == ReservationState.NONE
 
 
+def test_two_compensated_failures_in_a_row_leave_the_car_free(db_session, engine):
+    """Each retry makes a new reservation, so each compensation must release
+    its own: one release key per contract would be refused on the second
+    failure, leaving the car reserved by a contract that is still pending."""
+
+    from unittest.mock import patch
+
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    contract, item, _customer = _stock_contract(db_session, dealership.id, group_id)
+    factory = _session_factory(engine)
+
+    for _attempt in range(2):
+        with (
+            patch("app.sales.services.contract.upsert_deal_projection", side_effect=RuntimeError("boom")),
+            pytest.raises(RuntimeError),
+        ):
+            confirm_contract(db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=factory)
+        db_session.rollback()
+        db_session.expire_all()
+        refreshed_item = get_stock_item_or_404(db_session, dealership.id, item.id)
+        assert refreshed_item.reservation_state == ReservationState.NONE
+        assert refreshed_item.reserved_by_contract_id is None
+        contract = db_session.get(type(contract), contract.id)
+        assert contract.status == ContractStatus.PENDING
+
+    confirmed = confirm_contract(db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=factory)
+    db_session.expire_all()
+    refreshed_item = get_stock_item_or_404(db_session, dealership.id, item.id)
+    assert refreshed_item.reserved_by_contract_id == contract.id
+    assert refreshed_item.active_reservation_id == confirmed.reservation_id
+
+
 def test_cancel_succeeds_for_a_confirmed_contract_whose_reservation_is_already_released(db_session, engine):
     """A contract confirmed before the KAN-114 fix may point at a reservation
     Stock no longer holds. Cancelling it must not 404 on that: there is
@@ -684,3 +717,9 @@ def test_cancel_succeeds_for_a_confirmed_contract_whose_reservation_is_already_r
     cancelled = cancel_contract(db_session, contract=confirmed, reason="Kunde storniert.", actor_id=uuid.uuid4(), session_factory=factory)
 
     assert cancelled.status == ContractStatus.CANCELLED
+    cancelled_events = (
+        db_session.query(OutboxMessage)
+        .filter(OutboxMessage.event_type == "sales.contract.cancelled", OutboxMessage.aggregate_id == contract.id)
+        .count()
+    )
+    assert cancelled_events == 1

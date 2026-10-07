@@ -19,7 +19,7 @@ from app.core.outbox import OutboxEvent, publish
 from app.core.pagination import SortPageParams, build_sorted_page, count_capped, paginate_query_sorted
 from app.customer.public import CustomerLifecycleStatus, get_customer_or_404, has_usable_domicile_address
 from app.db import SessionLocal
-from app.inventory.public import release, reserve
+from app.inventory.public import release, reserve_for_contract
 from app.sales.models.contract import ContractStatus, FinancingKind, SalesContract
 from app.sales.models.offer import SalesOffer
 from app.sales.services.deal_projection import upsert_deal_projection
@@ -319,9 +319,9 @@ def confirm_contract(
 
     # KAN-101 — the trade-in valuation is consumed BEFORE the reservation,
     # so a refused or failed valuation call never leaves a reservation to
-    # undo. A retry after a compensated commit failure reuses the same
-    # reserve() key; reserve() answers a replay from the item, so the retry
-    # reserves the car again (KAN-114).
+    # undo. A retry after a compensated commit failure reuses the same key;
+    # reserve_for_contract answers it from the item, so the retry reserves
+    # the car again rather than replaying the released reservation (KAN-114).
     valuation_newly_used = False
     if contract.trade_in_valuation_id is not None:
         short_lived = session_factory()
@@ -348,7 +348,7 @@ def confirm_contract(
     if contract.vehicle_source == "stock" and contract.stock_item_id is not None:
         short_lived = session_factory()
         try:
-            result = reserve(
+            result = reserve_for_contract(
                 short_lived,
                 tenant_id=contract.tenant_id,
                 stock_item_id=contract.stock_item_id,
@@ -433,7 +433,10 @@ def _compensate_confirmation(
                 compensating,
                 tenant_id=ids.tenant_id,
                 reservation_id=reservation_id,
-                idempotency_key=f"sales.contract.confirm-compensate:{ids.contract_id}",
+                # Per reservation, not per contract: a retried confirmation
+                # makes a new reservation, and its own compensation must not
+                # collide with an earlier attempt's key (KAN-114).
+                idempotency_key=f"sales.contract.confirm-compensate:{ids.contract_id}:{reservation_id}",
             )
         except Exception:
             logger.exception(

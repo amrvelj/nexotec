@@ -9,7 +9,7 @@ from app.core.errors import ConflictError, NotFoundError
 from app.core.uuid7 import uuid7
 from app.inventory.models.stock_item import LifecycleStatus, ReservationState, StockItem, StockItemCondition
 from app.inventory.schemas.stock_item import StockItemCreate
-from app.inventory.services.reservation import release, reserve
+from app.inventory.services.reservation import release, reserve, reserve_for_contract
 from app.inventory.services.stock_item import create_stock_item
 
 
@@ -142,18 +142,41 @@ def test_reserve_commits_independently_of_the_callers_own_transaction(db_session
 
 
 # --- KAN-114: a replayed key whose reservation was released since. The
-# idempotency record has no TTL, so without a check a retry under the same
-# key was handed back the released reservation id and reserved nothing.
+# idempotency record has no TTL, so Sales' retry under its per-contract key
+# was handed back the released reservation id and reserved nothing.
+# reserve_for_contract (Sales' entry) answers from the item; reserve() (the
+# HTTP endpoint) keeps the stored-response replay the API convention promises.
 
 
-def test_replay_after_release_reserves_the_item_again(db_session):
+def test_reserve_replay_after_release_returns_the_stored_response_and_reserves_nothing(db_session):
+    """The public endpoint's contract, pinned: a late duplicate never
+    re-reserves a car its caller has released since."""
+
     tenant_id = uuid.uuid4()
     item = _make_item(db_session, tenant_id)
     contract_id = uuid.uuid4()
     first = reserve(db_session, tenant_id=tenant_id, stock_item_id=item.id, contract_id=contract_id, idempotency_key="k1")
     release(db_session, tenant_id=tenant_id, reservation_id=uuid.UUID(first["reservationId"]), idempotency_key="rk1")
 
-    second = reserve(db_session, tenant_id=tenant_id, stock_item_id=item.id, contract_id=contract_id, idempotency_key="k1")
+    replay = reserve(db_session, tenant_id=tenant_id, stock_item_id=item.id, contract_id=contract_id, idempotency_key="k1")
+
+    assert replay == first
+    db_session.expire_all()
+    assert db_session.get(StockItem, item.id).reservation_state == ReservationState.NONE
+
+
+def test_reserve_for_contract_replay_after_release_reserves_the_item_again(db_session):
+    tenant_id = uuid.uuid4()
+    item = _make_item(db_session, tenant_id)
+    contract_id = uuid.uuid4()
+    first = reserve_for_contract(
+        db_session, tenant_id=tenant_id, stock_item_id=item.id, contract_id=contract_id, idempotency_key="k1"
+    )
+    release(db_session, tenant_id=tenant_id, reservation_id=uuid.UUID(first["reservationId"]), idempotency_key="rk1")
+
+    second = reserve_for_contract(
+        db_session, tenant_id=tenant_id, stock_item_id=item.id, contract_id=contract_id, idempotency_key="k1"
+    )
 
     assert second["reservationId"] != first["reservationId"]
     db_session.expire_all()
@@ -163,34 +186,57 @@ def test_replay_after_release_reserves_the_item_again(db_session):
     assert str(refreshed.active_reservation_id) == second["reservationId"]
 
 
-def test_replay_after_release_and_re_reserve_returns_the_live_reservation(db_session):
-    """The key's second reservation is never recorded against the key, so a
-    third call under it must find the contract's live reservation, not
-    reserve twice or 409 against itself."""
+def test_reserve_for_contract_replay_returns_the_live_reservation(db_session):
+    """The replay's new reservation is never recorded against the key, so a
+    further call must find the contract's live reservation, not reserve
+    twice or 409 against itself."""
 
     tenant_id = uuid.uuid4()
     item = _make_item(db_session, tenant_id)
     contract_id = uuid.uuid4()
-    first = reserve(db_session, tenant_id=tenant_id, stock_item_id=item.id, contract_id=contract_id, idempotency_key="k1")
+    first = reserve_for_contract(
+        db_session, tenant_id=tenant_id, stock_item_id=item.id, contract_id=contract_id, idempotency_key="k1"
+    )
     release(db_session, tenant_id=tenant_id, reservation_id=uuid.UUID(first["reservationId"]), idempotency_key="rk1")
-    second = reserve(db_session, tenant_id=tenant_id, stock_item_id=item.id, contract_id=contract_id, idempotency_key="k1")
+    second = reserve_for_contract(
+        db_session, tenant_id=tenant_id, stock_item_id=item.id, contract_id=contract_id, idempotency_key="k1"
+    )
 
-    third = reserve(db_session, tenant_id=tenant_id, stock_item_id=item.id, contract_id=contract_id, idempotency_key="k1")
+    third = reserve_for_contract(
+        db_session, tenant_id=tenant_id, stock_item_id=item.id, contract_id=contract_id, idempotency_key="k1"
+    )
 
     assert third == second
+    assert third != first
 
 
-def test_replay_after_release_is_409_when_another_contract_holds_the_item(db_session):
+def test_reserve_for_contract_replay_is_409_when_another_contract_holds_the_item(db_session):
     tenant_id = uuid.uuid4()
     item = _make_item(db_session, tenant_id)
     contract_id = uuid.uuid4()
-    first = reserve(db_session, tenant_id=tenant_id, stock_item_id=item.id, contract_id=contract_id, idempotency_key="k1")
+    first = reserve_for_contract(
+        db_session, tenant_id=tenant_id, stock_item_id=item.id, contract_id=contract_id, idempotency_key="k1"
+    )
     release(db_session, tenant_id=tenant_id, reservation_id=uuid.UUID(first["reservationId"]), idempotency_key="rk1")
     other_contract_id = uuid.uuid4()
     reserve(db_session, tenant_id=tenant_id, stock_item_id=item.id, contract_id=other_contract_id, idempotency_key="k2")
 
     with pytest.raises(ConflictError):
-        reserve(db_session, tenant_id=tenant_id, stock_item_id=item.id, contract_id=contract_id, idempotency_key="k1")
+        reserve_for_contract(
+            db_session, tenant_id=tenant_id, stock_item_id=item.id, contract_id=contract_id, idempotency_key="k1"
+        )
 
     db_session.expire_all()
     assert db_session.get(StockItem, item.id).reserved_by_contract_id == other_contract_id
+
+
+def test_reserve_for_contract_key_reuse_with_another_contract_is_409(db_session):
+    tenant_id = uuid.uuid4()
+    item = _make_item(db_session, tenant_id)
+    reserve_for_contract(
+        db_session, tenant_id=tenant_id, stock_item_id=item.id, contract_id=uuid.uuid4(), idempotency_key="reused"
+    )
+    with pytest.raises(ConflictError):
+        reserve_for_contract(
+            db_session, tenant_id=tenant_id, stock_item_id=item.id, contract_id=uuid.uuid4(), idempotency_key="reused"
+        )

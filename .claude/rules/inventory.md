@@ -44,10 +44,11 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   take a per-contract advisory lock first, so two workers cannot interleave them. Nightly
   reconciliation checks the record's `contract_id` and `tenant_id`. A
   stock car's reservation is still made and released by Sales' synchronous
-  `reserve()`/`release()` calls (ADR-047 Pattern B). `reserve()` answers a replayed key from
-  the item, not from the cache: the contract's live reservation if it holds one, a fresh
-  reservation if the item is free (the cached one was released — Sales' compensation), else
-  409 (KAN-114). Before KAN-158, manual items were created
+  `reserve()`/`release()` calls (ADR-047 Pattern B). Sales confirms through
+  `reserve_for_contract`, idempotent by (item, contract): the contract's live reservation if it
+  holds one, a fresh one if the item is free (a compensation released the first), else 409; each
+  compensating release is keyed per reservation (KAN-114). The HTTP endpoint keeps `reserve()`,
+  whose replayed key returns the stored response with no side effect. Before KAN-158, manual items were created
   unreserved and cancellations were not recorded; `scripts/backfill_manual_configuration_reservations.py`
   (KAN-166, dry run unless `--commit`, re-runnable) repairs both. It learns which contracts are
   cancelled from the `sales.contract.cancelled` events in the outbox, never from Sales' tables;

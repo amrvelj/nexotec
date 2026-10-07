@@ -6,7 +6,9 @@ directly.
 `reserve`/`release` (PR-4) are the first real cross-context entries, for
 WP-8's future Sales caller — each owns its own commit (ADR-047, Pattern
 B); the caller supplies its own Idempotency-Key and calls from OUTSIDE
-its own contract-write transaction.
+its own contract-write transaction. Sales' confirmation calls
+`reserve_for_contract`, idempotent by (item, contract) rather than by key
+alone, so a retry after a compensating release reserves again (KAN-114).
 
 `get_stock_item_pricing` (WP-8 PR-3) is a second, read-only Sales entry —
 a plain dict, never an ORM row, matching app.vehicle.public's own
@@ -18,7 +20,7 @@ boundary.
 from app.inventory.models.stock_item import LifecycleStatus, ReservationState, StockItem, StockItemCondition
 from app.inventory.services.group_listing import get_stock_items_for_vehicles
 from app.inventory.services.pricing import get_stock_item_pricing
-from app.inventory.services.reservation import release, reserve
+from app.inventory.services.reservation import release, reserve, reserve_for_contract
 from app.inventory.services.stock_item import get_stock_item_or_404
 from app.inventory.services.valuation import set_valuation_ref
 
@@ -32,5 +34,6 @@ __all__ = [
     "get_stock_items_for_vehicles",
     "release",
     "reserve",
+    "reserve_for_contract",
     "set_valuation_ref",
 ]
