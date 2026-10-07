@@ -62,7 +62,7 @@ from app.integration.public import (
     ProviderGatewayError,
     call_capability,
     get_entitlement,
-    tenant_has_capability,
+    vin_decode_granted,
 )
 from app.vehicle.models.catalogue import ModelVariant, VariantPrice
 from app.vehicle.models.configuration import ConfigurationMatchMethod, VehicleConfiguration
@@ -371,7 +371,7 @@ def _identify_vin(db: Session, *, tenant_id: uuid.UUID, actor_id: uuid.UUID | No
         )
 
     notes: list[IdentificationNote] = []
-    if not tenant_has_capability(db, tenant_id=tenant_id, capability_code="vin_decode"):
+    if not vin_decode_granted(db, tenant_id=tenant_id):
         notes.append(IdentificationNote.VIN_DECODE_NOT_ENTITLED)
     else:
         notes.append(_attempt_vin_decode(db, tenant_id=tenant_id))

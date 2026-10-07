@@ -216,7 +216,7 @@ def test_with_the_vin_entitlement_the_unspecified_decode_falls_through_too(db_se
     call is logged against the connection's circuit breaker."""
 
     tenant_id = _connected_tenant(db_session, seed=False)
-    monkeypatch.setattr(svc, "tenant_has_capability", lambda db, *, tenant_id, capability_code: True)
+    monkeypatch.setattr(svc, "vin_decode_granted", lambda db, *, tenant_id: True)
     calls_before = _all_calls(db_session)
 
     result = svc.identify(db_session, tenant_id=tenant_id, actor_id=None, query="WVWZZZ1KZAW000098")
@@ -224,6 +224,46 @@ def test_with_the_vin_entitlement_the_unspecified_decode_falls_through_too(db_se
     assert result.outcome == IdentificationOutcome.NONE
     assert result.notes == [IdentificationNote.VIN_DECODE_UNAVAILABLE]
     assert _all_calls(db_session) == calls_before
+
+
+def test_a_vin_lookup_writes_nothing_into_integration(db_session):
+    """ADR-047: the VIN rung asks integration whether decode is entitled,
+    and that question must not write integration's cached `vin_decode`
+    entitlement row inside this request's transaction. A tenant with an
+    enabled `auto_i_dat` connection is the case where
+    `tenant_has_capability("vin_decode")` would upsert it."""
+
+    tenant_id = _connected_tenant(db_session, seed=False)
+    provider = IntegrationProvider(
+        provider_code="auto_i_dat",
+        category="vehicle_data",
+        display_name="auto-i-dat",
+        auth_type="none",
+        required_secret_slots=[],
+        capability_codes=["fahrzeuge"],
+    )
+    db_session.add(provider)
+    db_session.commit()
+    connection_service.create_connection(
+        db_session,
+        tenant_id=tenant_id,
+        data=ConnectionCreate(provider_id=provider.id, display_name="live", environment=ConnectionEnvironment.SANDBOX),
+        actor_id=uuid.uuid4(),
+    )
+    db_session.commit()
+
+    result = svc.identify(db_session, tenant_id=tenant_id, actor_id=None, query="WVWZZZ1KZAW000097")
+
+    assert result.notes == [IdentificationNote.VIN_DECODE_NOT_ENTITLED]
+    assert not db_session.new and not db_session.dirty
+    assert (
+        db_session.scalar(
+            select(func.count())
+            .select_from(IntegrationEntitlement)
+            .where(IntegrationEntitlement.capability_code == "vin_decode")
+        )
+        == 0
+    )
 
 
 # --- Kontrollschild -------------------------------------------------------

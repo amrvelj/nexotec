@@ -224,6 +224,8 @@ _READS = {
     "app.integration.public.get_enabled_connection",
     "app.integration.public.get_entitlement",
     "app.integration.public.resolve_adapter",
+    # KAN-42: the identification waterfall asks whether VIN decode is entitled.
+    "app.integration.public.vin_decode_granted",
     "app.inventory.public.get_stock_item_pricing",
     "app.inventory.public.get_stock_items_for_vehicles",
     "app.platform.public.get_active_reference_value_codes",
@@ -238,6 +240,8 @@ _READS = {
     # Reads persisted sync state only (its docstring); the daily job calls
     # it after run_daily_delta_for_tenant has committed.
     "app.vehicle.public.check_sync_age_alarm_for_tenant",
+    # KAN-10: offer, stock item and valuation read the configuration they reference.
+    "app.vehicle.public.get_configuration_for_host",
     "app.vehicle.public.get_vehicle_equipment",
     "app.vehicle.public.get_vehicle_mdm_or_404",
     "app.vehicle.public.get_vehicle_or_404",

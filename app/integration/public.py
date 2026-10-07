@@ -33,10 +33,13 @@ is exported alongside it purely so such a caller can still fail
 gracefully when a connection's breaker is already open, without a real
 call ever being attempted.
 
-`PlateInfoData` / `BestMatchResult` and `tenant_has_capability` (KAN-42,
+`PlateInfoData` / `BestMatchResult` and `vin_decode_granted` (KAN-42,
 C-D) are what the identification waterfall in
 `app.vehicle.services.identification` needs: the `KontrollschildInfo` and
-`FahrzeugeMatch` return shapes, and the `vin_decode` feature check.
+`FahrzeugeMatch` return shapes, and a read-only `vin_decode` check (not
+`tenant_has_capability`, whose `vin_decode` branch upserts a cached
+entitlement row — ADR-047 keeps that write out of another context's
+transaction).
 """
 
 from app.integration.adapters.base import (
@@ -66,7 +69,7 @@ from app.integration.services.connections import (
     get_enabled_connection,
     get_entitlement,
     list_enabled_connection_tenant_ids_for_provider,
-    tenant_has_capability,
+    vin_decode_granted,
 )
 from app.integration.services.gateway import (
     ConnectionDisabledError,
@@ -105,5 +108,5 @@ __all__ = [
     "get_entitlement",
     "list_enabled_connection_tenant_ids_for_provider",
     "resolve_adapter",
-    "tenant_has_capability",
+    "vin_decode_granted",
 ]

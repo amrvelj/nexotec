@@ -11,10 +11,13 @@ from decimal import Decimal
 from typing import Any
 
 from app.core.errors import UnprocessableEntityError
-from app.vehicle.models.configuration import ConfigurationMode
 
-BUILD = ConfigurationMode.BUILD.value
-RECORD = ConfigurationMode.RECORD.value
+# Literals, not `ConfigurationMode.X.value`: the ADR-047 guard
+# (tests/architecture/test_adr_047_no_shared_transaction.py) cannot follow a
+# public export assigned from an attribute. tests/test_configurator_hosts.py
+# pins both to the enum.
+BUILD = "build"
+RECORD = "record"
 
 
 class ConfigurationModeNotAllowedError(UnprocessableEntityError):

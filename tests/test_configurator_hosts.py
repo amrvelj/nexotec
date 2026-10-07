@@ -45,6 +45,7 @@ from app.vehicle.models.configuration import (
 )
 from app.vehicle.models.spec_block import SPEC_BLOCK_ALL_FIELDS
 from app.vehicle.models.vehicle_mdm import VehicleMdm
+from app.vehicle.public import CONFIGURATION_MODE_BUILD, CONFIGURATION_MODE_RECORD
 from app.vehicle.schemas.configuration import ConfigurationCreate, ConfigurationOptionInput, ConfigurationUpdate
 from app.vehicle.schemas.spec_block import VehicleSpecBlockInput
 from app.vehicle.services import configuration as configuration_service
@@ -172,6 +173,14 @@ def _bearer(tenant_id: uuid.UUID) -> dict[str, str]:
 
 
 # --- FR-C-12: offer Path B ------------------------------------------------
+
+
+def test_the_public_mode_constants_are_the_stored_enum_values():
+    # They are literals so the ADR-047 guard can follow them; this keeps
+    # them from drifting from the enum the column stores.
+    assert CONFIGURATION_MODE_BUILD == ConfigurationMode.BUILD.value
+    assert CONFIGURATION_MODE_RECORD == ConfigurationMode.RECORD.value
+    assert {CONFIGURATION_MODE_BUILD, CONFIGURATION_MODE_RECORD} == {m.value for m in ConfigurationMode}
 
 
 def test_path_b_attaches_a_build_configuration_and_prefills_pricing(db_session):
