@@ -241,10 +241,10 @@ _READS = {
     "app.vehicle.public.get_vehicle_equipment",
     "app.vehicle.public.get_vehicle_mdm_or_404",
     "app.vehicle.public.get_vehicle_or_404",
+    # KAN-84: vehicle labels for customer's VehicleParty, batched.
+    "app.vehicle.public.get_vehicle_summaries",
     "app.vehicle.public.has_current_energy_rating",
     "app.vehicle.public.match_vehicle",
-    # Returns a SQLAlchemy loader option; touches no session.
-    "app.vehicle.public.vehicle_mdm_catalogue_loader_option",
 }
 
 
