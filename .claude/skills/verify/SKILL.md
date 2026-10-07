@@ -47,7 +47,7 @@ Give it everything from step 1 and the directory from step 2, plus this brief:
 - Commit messages are claims. Claims like "backfills all rows", "every lane is green", "zero
   behaviour change" or "discussed with Anto" are checked against the code and a run, or reported
   as unverifiable.
-- **Run everything you can:** `ruff check app tests`, `python -m mypy app`, `lint-imports`,
+- **Run everything you can:** `ruff check app tests`, `python -m mypy app scripts`, `lint-imports`,
   `pytest` on Postgres, `alembic upgrade heads` against an empty Postgres database, and the
   frontend chain (oxlint, `tsc -b`, `vitest run`, `vite build`). Any migration that backfills
   data: run it for real and query the result (rows, nulls, values equal to their source). Any

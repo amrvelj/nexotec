@@ -19,6 +19,7 @@ import datetime as dt
 import importlib.util
 import sys
 from pathlib import Path
+from typing import NoReturn
 
 from sqlalchemy import select
 
@@ -56,7 +57,7 @@ _CATALOGUE_VARIANT_NAME = "Smoke Variant 1.4 TB"
 _CATALOGUE_FIRST_REGISTRATION_FROM = dt.date(2015, 6, 1)
 
 
-def fail(message: str) -> None:
+def fail(message: str) -> NoReturn:
     print(f"FAIL: {message}")
     sys.exit(1)
 
