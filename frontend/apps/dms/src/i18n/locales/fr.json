@@ -1258,6 +1258,17 @@
       "status": "Statut",
       "stale": "Obsolète",
       "healthy": "À jour",
+      "pending": "Variantes en attente",
+      "pendingCount_one": "{{count, number}} en attente",
+      "pendingCount_other": "{{count, number}} en attente",
+      "pendingField": {
+        "master_data": "données de base",
+        "options": "options",
+        "colours": "couleurs",
+        "tyre_specs": "pneus",
+        "images": "images",
+        "not_attempted": "non tenté"
+      },
       "emptyState": {
         "title": "Aucune synchronisation du catalogue",
         "description": "Aucun garage n'a encore synchronisé de miroir de catalogue."
