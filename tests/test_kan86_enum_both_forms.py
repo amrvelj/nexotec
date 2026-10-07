@@ -1,11 +1,11 @@
-"""KAN-86 step 1: every enum column reads, and every enum filter matches,
-both the member NAME and its .value (app/core/enum_type.py).
+"""KAN-86 steps 1 and 2: every enum column reads, and every enum filter
+matches, both the member NAME and its .value (app/core/enum_type.py).
 
-Rows in the value form already exist (KAN-91's consent_source rows, any
-insert that relied on a migration's lowercase server default), and from
-KAN-86 step 2 on every rewritten row is in it, while code from this step is
-still serving. Each test seeds the value form with raw SQL — the ORM can
-only write names in this step — and goes through a real endpoint.
+Until KAN-175 a table can hold both: step 2 writes values and rewrites
+existing names, while step-1 instances still serving during that deploy
+write names. Each test puts a "named" row back into the name form with raw
+SQL (the ORM writes values from step 2 on), seeds the value form the same
+way, and goes through a real endpoint.
 """
 
 import os
@@ -65,6 +65,28 @@ def _create_customer(client, tenant_id: uuid.UUID, first_name: str) -> dict:
     return response.json()
 
 
+def _to_name_form(db_session, customer_id: str) -> None:
+    """Puts one customer and its email row back into the member-NAME form
+    — what a step-1 instance writes during step 2's deploy. Every value is
+    the lower-cased name, so upper() is the name."""
+
+    db_session.execute(
+        text(
+            "UPDATE customer SET customer_type = upper(customer_type), language = upper(language), "
+            "lifecycle_status = upper(lifecycle_status), gender = upper(gender) WHERE id = :id"
+        ),
+        {"id": customer_id},
+    )
+    db_session.execute(
+        text(
+            "UPDATE customer_email SET email_type = upper(email_type), consent_source = upper(consent_source), "
+            "consent_scope = upper(consent_scope) WHERE customer_id = :id"
+        ),
+        {"id": customer_id},
+    )
+    db_session.commit()
+
+
 def _to_value_form(db_session, customer_id: str) -> None:
     """Rewrites one customer and its email row to the .value form — what
     KAN-86 step 2's migration (and, for consent_source, KAN-52's
@@ -90,6 +112,7 @@ def _to_value_form(db_session, customer_id: str) -> None:
 def test_seeded_rows_really_are_in_both_forms(client, db_session):
     tenant_id = _create_dealership(client)
     named = _create_customer(client, tenant_id, "Named")
+    _to_name_form(db_session, named["id"])
     valued = _create_customer(client, tenant_id, "Valued")
     _to_value_form(db_session, valued["id"])
 
@@ -110,6 +133,7 @@ def test_customer_list_returns_both_forms_with_their_projections(client, db_sess
 
     tenant_id = _create_dealership(client)
     named = _create_customer(client, tenant_id, "Named")
+    _to_name_form(db_session, named["id"])
     valued = _create_customer(client, tenant_id, "Valued")
     _to_value_form(db_session, valued["id"])
 
@@ -130,6 +154,7 @@ def test_a_value_form_contact_row_alone_no_longer_500s_the_customer_list(client,
 
     tenant_id = _create_dealership(client)
     customer = _create_customer(client, tenant_id, "Valued")
+    _to_name_form(db_session, customer["id"])
     db_session.execute(
         text("UPDATE customer_email SET consent_source = 'form' WHERE customer_id = :id"), {"id": customer["id"]}
     )
@@ -144,6 +169,7 @@ def test_a_value_form_contact_row_alone_no_longer_500s_the_customer_list(client,
 def test_customer_list_filters_match_both_forms(client, db_session):
     tenant_id = _create_dealership(client)
     named = _create_customer(client, tenant_id, "Named")
+    _to_name_form(db_session, named["id"])
     valued = _create_customer(client, tenant_id, "Valued")
     _to_value_form(db_session, valued["id"])
     headers = _bearer(_token(tenant_id, AccessRole.SALES))
@@ -170,15 +196,20 @@ def test_customer_detail_reads_the_value_form(client, db_session):
     assert [(e["emailType"], e["consentSource"]) for e in emails.json()["items"]] == [("personal", "form")]
 
 
-def test_a_write_to_a_value_form_row_stores_the_name(client, db_session):
-    """Step 1 writes names only; a row touched by this code goes back to the
-    name form, which step 2's migration and step 3's sweep both rewrite."""
+def test_a_write_to_a_name_form_row_stores_the_value(client, db_session):
+    """From step 2 on a write stores .value; a name-form row a step-1
+    instance left behind is in the value form again once this code touches
+    it."""
 
     tenant_id = _create_dealership(client)
-    valued = _create_customer(client, tenant_id, "Valued")
-    _to_value_form(db_session, valued["id"])
+    named = _create_customer(client, tenant_id, "Named")
+    _to_name_form(db_session, named["id"])
+    db_session.execute(
+        text("UPDATE customer_email SET consent_source = 'FORM' WHERE customer_id = :id"), {"id": named["id"]}
+    )
+    db_session.commit()
 
-    customer = db_session.get(Customer, uuid.UUID(valued["id"]))
+    customer = db_session.get(Customer, uuid.UUID(named["id"]))
     email = db_session.scalars(select(CustomerEmail).where(CustomerEmail.customer_id == customer.id)).one()
     assert email.consent_source is ConsentSource.FORM
     email.consent_source = ConsentSource.WEB
@@ -187,7 +218,7 @@ def test_a_write_to_a_value_form_row_stores_the_name(client, db_session):
     stored = db_session.execute(
         text("SELECT consent_source FROM customer_email WHERE id = :id"), {"id": str(email.id)}
     ).scalar_one()
-    assert stored == "WEB"
+    assert stored == "web"
 
 
 def test_stock_list_and_its_status_filter_read_both_forms(client, db_session):
@@ -201,6 +232,10 @@ def test_stock_list_and_its_status_filter_read_both_forms(client, db_session):
         assert response.status_code == 201, response.text
         ids.append(response.json()["id"])
     named_id, valued_id = ids
+    db_session.execute(
+        text("UPDATE stock_item SET lifecycle_status = upper(lifecycle_status), condition = upper(condition) WHERE id = :id"),
+        {"id": named_id},
+    )
     before = db_session.execute(
         text("SELECT lifecycle_status, condition FROM stock_item WHERE id = :id"), {"id": valued_id}
     ).one()
