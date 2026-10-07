@@ -31,8 +31,8 @@ what it states. -->
   never in a rendered document, no ambient group reads, layout code only in the document
   renderer, no password hash and no `credential` table anywhere (to be inverted, not deleted,
   by D-A-07 — see the platform rules), no `vatTreatment`, a non-enumerable plate lookup, the
-  shared identity response shape, spec-block carriers that do not drift, and enum columns only
-  as `StoredEnum` (KAN-86).
+  shared identity response shape, spec-block carriers that do not drift, enum columns only
+  as `StoredEnum` (KAN-86), and no foreign key or `relationship()` crossing a context (KAN-84).
 - **A test that gates an exit criterion must never skip silently.** The one accepted skip is a
   Postgres-only test on the SQLite fast lane (`skipif(not os.environ.get("DMS_TEST_DATABASE_URL"))`,
   as in `test_customer_outbox_idempotency.py`), because CI's gating lane always runs Postgres.
