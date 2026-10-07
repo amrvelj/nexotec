@@ -45,7 +45,12 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   reconciliation checks the record's `contract_id` and `tenant_id`. A
   stock car's reservation is still made and released by Sales' synchronous
   `reserve()`/`release()` calls (ADR-047 Pattern B). Before KAN-158, manual items were created
-  unreserved and cancellations were not recorded (backfill: KAN-166).
+  unreserved and cancellations were not recorded; `scripts/backfill_manual_configuration_reservations.py`
+  (KAN-166, dry run unless `--commit`, re-runnable) repairs both. It learns which contracts are
+  cancelled from the `sales.contract.cancelled` events in the outbox, never from Sales' tables;
+  a contract confirmed and never cancelled (confirmed or invoiced, even once its car has left
+  stock) gets its item reserved; an item held by another contract, or one Stock released before,
+  is reported, never overwritten or re-reserved.
 - **Fiktiver Vorsteuerabzug** (Art. 28a MWSTG) is recorded at purchase booking
   (`app/inventory/services/purchase.py::record_purchase`), computed from the purchase price and
   the dealership's `vat_rate`, independent of `landed_cost`. Stock owns it; Sales only reads it.
