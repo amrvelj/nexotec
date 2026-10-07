@@ -510,9 +510,15 @@
     },
     "resolveModal": {
       "title": "Zuordnungslücke auflösen",
-      "listCode": "Kanonischer Listencode",
-      "valueCode": "Kanonischer Wertcode",
-      "confirm": "Zuordnen"
+      "listCode": "Referenzliste",
+      "valueCode": "Kanonischer Wert",
+      "confirm": "Zuordnen",
+      "valuePlaceholder": "Wert wählen",
+      "noValues": "Kein passender Wert",
+      "valuesLoadError": "Die Werte dieser Liste konnten nicht geladen werden.",
+      "error": "Die Lücke konnte nicht aufgelöst werden.",
+      "gapKey": "Anbieter · Fahrzeugart · Code",
+      "noList": "Die Codegruppe «{{codeGroup}}» hat keine Referenzliste. Diese Lücke kann erst aufgelöst werden, wenn es eine gibt."
     }
   },
   "vehiclesList": {
