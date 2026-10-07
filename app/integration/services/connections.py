@@ -452,6 +452,18 @@ def record_probed_entitlement(
     return row
 
 
+def vin_decode_granted(db: Session, *, tenant_id: uuid.UUID) -> bool:
+    """KAN-36's derivation alone, writing nothing: does this tenant hold a
+    healthy (`enabled` + `CONNECTED`) `dat` connection. Exported through
+    `app.integration.public` for another context's request (the KAN-42
+    identification waterfall), which must not carry integration's cached
+    entitlement row in its own transaction (ADR-047) — that upsert stays in
+    `compute_vin_decode_entitlement` below, on integration's own paths."""
+
+    dat_connection = get_enabled_connection(db, tenant_id=tenant_id, provider_code=_DAT_PROVIDER_CODE)
+    return dat_connection is not None and dat_connection.status == ConnectionStatus.CONNECTED
+
+
 def compute_vin_decode_entitlement(db: Session, *, tenant_id: uuid.UUID) -> bool:
     """KAN-36 — derived, never hand-declared: granted exactly when this
     tenant holds a healthy (`enabled` + `CONNECTED`) `dat` connection, the
@@ -468,8 +480,7 @@ def compute_vin_decode_entitlement(db: Session, *, tenant_id: uuid.UUID) -> bool
     the return value here always is.
     """
 
-    dat_connection = get_enabled_connection(db, tenant_id=tenant_id, provider_code=_DAT_PROVIDER_CODE)
-    granted = dat_connection is not None and dat_connection.status == ConnectionStatus.CONNECTED
+    granted = vin_decode_granted(db, tenant_id=tenant_id)
 
     auto_i_dat_connection = get_enabled_connection(db, tenant_id=tenant_id, provider_code=_AUTO_I_DAT_PROVIDER_CODE)
     if auto_i_dat_connection is not None:

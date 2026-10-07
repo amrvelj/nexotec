@@ -33,6 +33,11 @@ class ValuationCreate(CamelModel):
     vehicle_plate: str | None = None
     vehicle_first_registration: dt.date | None = None
     mileage: int | None = None
+    # C-F (KAN-10, FR-C-14): the `record`-mode configuration the car was
+    # captured in. With it, the vehicle fields above default from the
+    # configuration and **no vehicle-mdm record is created** (ADR-070,
+    # amending FR-V-17); without it, the pre-C-F behaviour is unchanged.
+    configuration_id: uuid.UUID | None = None
 
     customer_id: uuid.UUID | None = None
 
@@ -65,6 +70,8 @@ class ValuationRead(CamelModel):
     vehicle_vin: str | None
     vehicle_first_registration: dt.date | None
     mileage: int | None
+    configuration_id: uuid.UUID | None = None
+    configuration_label: str | None = None
     customer_id: uuid.UUID | None
     customer_label: str | None
     source: ValuationSource

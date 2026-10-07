@@ -15,9 +15,11 @@ import { CustomerDetailPage } from './CustomerDetailPage'
 // another screen without the underlying screen losing state." The one the
 // ADR is written for — "a seller thirty minutes into a negotiation who
 // opens the customer … presses back and finds an empty draft has learned
-// never to click that again." Here: a half-typed vehicle label on the
+// never to click that again." Here: a half-typed trade-in VIN on the
 // offer workspace must still be there after the customer overlay opens,
-// is used, and closes.
+// is used, and closes. (C-F, KAN-10: this used the manual vehicle-label
+// field, which FR-C-12 replaced with the configurator overlay; the
+// configurator's own round trip is OfferWorkspace.configurator.render.test.)
 
 const draftOffer = (): SalesOfferRead => ({
   id: 'o1',
@@ -97,23 +99,23 @@ function renderWorkspace() {
   )
 }
 
-const manualLabelPlaceholder = () => i18n.t('offerWorkspace.vehicle.manualLabelPlaceholder')
+const tradeInVinLabel = () => i18n.t('offerWorkspace.tradeIn.vinLabel')
 
 async function typeHalfBuiltVehicle(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(await screen.findByRole('button', { name: i18n.t('offerWorkspace.vehicle.configure') }))
-  const field = screen.getByPlaceholderText(manualLabelPlaceholder())
-  await user.type(field, 'Ferrari Testarossa 1987')
+  await user.click(await screen.findByRole('button', { name: i18n.t('offerWorkspace.tradeIn.add') }))
+  const field = screen.getByLabelText(tradeInVinLabel())
+  await user.type(field, 'ZFFSG17A0H0071234')
   return field
 }
 
 describe('OfferWorkspace — a customer overlay never disturbs the offer underneath (ADR-059)', () => {
-  it('keeps the half-typed vehicle label through opening, using and closing the overlay', async () => {
+  it('keeps the half-typed trade-in VIN through opening, using and closing the overlay', async () => {
     const user = userEvent.setup()
     installOfferBackend()
     renderWorkspace()
 
     await typeHalfBuiltVehicle(user)
-    expect(screen.getByPlaceholderText(manualLabelPlaceholder())).toHaveValue('Ferrari Testarossa 1987')
+    expect(screen.getByLabelText(tradeInVinLabel())).toHaveValue('ZFFSG17A0H0071234')
 
     // Open the customer as an overlay.
     await user.click(screen.getByRole('button', { name: 'Hans Muster' }))
@@ -131,7 +133,7 @@ describe('OfferWorkspace — a customer overlay never disturbs the offer underne
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
 
     // The offer workspace still holds exactly what was typed.
-    expect(screen.getByPlaceholderText(manualLabelPlaceholder())).toHaveValue('Ferrari Testarossa 1987')
+    expect(screen.getByLabelText(tradeInVinLabel())).toHaveValue('ZFFSG17A0H0071234')
     expect(screen.getByTestId('path')).toHaveTextContent('/sales/offers/o1')
   })
 
@@ -147,6 +149,6 @@ describe('OfferWorkspace — a customer overlay never disturbs the offer underne
     await user.keyboard('{Escape}')
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
 
-    expect(screen.getByPlaceholderText(manualLabelPlaceholder())).toHaveValue('Ferrari Testarossa 1987')
+    expect(screen.getByLabelText(tradeInVinLabel())).toHaveValue('ZFFSG17A0H0071234')
   })
 })

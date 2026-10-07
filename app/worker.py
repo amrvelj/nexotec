@@ -41,6 +41,7 @@ from app.inventory.consumers import (
 )
 from app.reconciliation_runner import run_all_daily
 from app.sales.consumers import handle_stock_item_added_message, handle_stock_item_purchased_message
+from app.vehicle.public import run_daily_plate_lookup_purge
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 logger = logging.getLogger("app.worker")
@@ -155,7 +156,7 @@ def _refresh_vehicle_party_labels(db: Session) -> None:
 
 
 def register_daily_jobs() -> None:
-    """Three daily jobs, run in registration order once per day on this
+    """Four daily jobs, run in registration order once per day on this
     process (app.core.daily_scheduler):
 
     1. ``integration.daily_jobs`` — WP-6's per-tenant catalogue delta sync
@@ -175,11 +176,14 @@ def register_daily_jobs() -> None:
        reconciles the state the catalogue delta just refreshed, not a
        half-synced one; a finding is logged and swallowed (see
        app.reconciliation_runner.run_all_daily), never re-run every cycle.
+    4. ``vehicle.plate_lookup_cache.purge`` — deletes plate-lookup cache rows
+       past their 30-day TTL (KAN-42, FR-C-02; revDSG data minimisation).
     """
 
     register_daily_job("integration.daily_jobs", run_daily_integration_jobs)
     register_daily_job("customer.vehicle_party_labels", _refresh_vehicle_party_labels)
     register_daily_job("reconciliation.run_all", run_all_daily)
+    register_daily_job("vehicle.plate_lookup_cache.purge", run_daily_plate_lookup_purge)
 
 
 def run(*, max_iterations: int | None = None) -> None:

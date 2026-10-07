@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Button } from '@mantine/core'
 import { InlineEditField, KeyValueRow, OverviewCard, ProgressiveDisclosure, SpecGrid, slate } from '@nexotec/ui-kit'
+import { HostConfigurationCard } from '../configurator/HostConfigurationCard'
 import { useTranslation } from 'react-i18next'
 import { ApiError } from '../../api/client'
 import { formatCurrencyChf, formatDate, formatNumber } from '../../utils/format'
@@ -105,6 +106,13 @@ export function DetailsTab({ item, locale, onSaveField, onReload, onRecordPurcha
           </KeyValueRow>
         </OverviewCard>
       </div>
+
+      {item.configurationId && (
+        // C-F (KAN-10, FR-C-13) — the configuration this pipeline item points at.
+        <OverviewCard title={t('stockDetail.configuration.title')}>
+          <HostConfigurationCard configurationId={item.configurationId} />
+        </OverviewCard>
+      )}
 
       <ProgressiveDisclosure label={t('stockDetail.purchase.title')}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

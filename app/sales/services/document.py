@@ -26,6 +26,7 @@ price, never a rate breakdown across multiple lines.
 """
 
 import uuid
+from collections.abc import Sequence
 from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy import func, select
@@ -48,6 +49,7 @@ from app.platform.public import (
 from app.sales.i18n import t
 from app.sales.models.contract import SalesContract
 from app.sales.models.document import DocumentOwnerType, SalesDocument
+from app.sales.models.line_item import LineItemKind, SalesLineItem
 from app.sales.models.offer import SalesOffer
 
 _DEFAULT_LANGUAGE = SwissLanguage.DE
@@ -76,6 +78,7 @@ def _compute_vat_amount(*, gross_price: Decimal, vat_rate: Decimal) -> Decimal:
 def _price_build_up_lines(
     *,
     base_price: Decimal | None,
+    option_lines: Sequence[tuple[str, Decimal]] = (),
     options_total: Decimal | None,
     list_price: Decimal | None,
     accessories_total: Decimal | None,
@@ -95,6 +98,13 @@ def _price_build_up_lines(
     lines: list[DocumentLine] = []
     if base_price is not None:
         lines.append(DocumentLine(label=t(language, "priceBuildUp.basePrice"), amount=base_price))
+    # C-F (KAN-10, FR-C-12) — a configured car's factory-option lines,
+    # itemised: the configuration's price lines (options, colour and
+    # wheels surcharges; empty for any other offer). Provider text as delivered
+    # (ADR-044); the amount is each line's own net after its own discount,
+    # so the lines add up to the total below.
+    for label, amount in option_lines:
+        lines.append(DocumentLine(label=label, amount=amount))
     if options_total is not None and options_total > 0:
         lines.append(
             DocumentLine(label=t(language, "priceBuildUp.optionsTotal"), amount=options_total, style=LineStyle.SUB)
@@ -142,7 +152,13 @@ def _price_build_up_lines(
     return lines
 
 
-def build_offer_content(offer: SalesOffer, *, language: SwissLanguage, vat_rate: Decimal | None) -> ContentDefinition:
+def build_offer_content(
+    offer: SalesOffer,
+    *,
+    language: SwissLanguage,
+    vat_rate: Decimal | None,
+    option_lines: Sequence[tuple[str, Decimal]] = (),
+) -> ContentDefinition:
     """`language` is the CUSTOMER's correspondence language (offer.
     customer_language), passed explicitly by the caller — never read from
     ambient/UI-locale context, which is what makes "wrong language on the
@@ -162,6 +178,7 @@ def build_offer_content(offer: SalesOffer, *, language: SwissLanguage, vat_rate:
             LineItemsBlock(
                 lines=_price_build_up_lines(
                     base_price=offer.base_price,
+                    option_lines=option_lines,
                     options_total=offer.options_total,
                     list_price=offer.list_price,
                     accessories_total=offer.accessories_total,
@@ -219,10 +236,33 @@ def _next_version(db: Session, *, tenant_id: uuid.UUID, owner_type: DocumentOwne
     return (current_max or 0) + 1
 
 
+def _included_option_lines(db: Session, *, offer: SalesOffer) -> list[tuple[str, Decimal]]:
+    """C-F (KAN-10, FR-C-12): a configured car's price lines are itemised on
+    its document. Only for an offer built in the configurator — a stock
+    offer's document (Path A, out of this change's scope) is unchanged."""
+
+    if offer.configuration_id is None:
+        return []
+    rows = db.scalars(
+        select(SalesLineItem)
+        .where(
+            SalesLineItem.offer_id == offer.id,
+            SalesLineItem.kind == LineItemKind.FACTORY_OPTION,
+            SalesLineItem.included.is_(True),
+        )
+        .order_by(SalesLineItem.position, SalesLineItem.id)
+    ).all()
+    return [
+        (row.label, (row.unit_price * row.quantity) - (row.discount_resolved_amount or Decimal(0))) for row in rows
+    ]
+
+
 def generate_offer_document(db: Session, *, offer: SalesOffer, actor_id: uuid.UUID | None) -> SalesDocument:
     language = SwissLanguage(offer.customer_language) if offer.customer_language else _DEFAULT_LANGUAGE
     dealership = get_dealership_or_404(db, offer.tenant_id)
-    content = build_offer_content(offer, language=language, vat_rate=dealership.vat_rate)
+    content = build_offer_content(
+        offer, language=language, vat_rate=dealership.vat_rate, option_lines=_included_option_lines(db, offer=offer)
+    )
     document = SalesDocument(
         tenant_id=offer.tenant_id,
         owner_type=DocumentOwnerType.OFFER,

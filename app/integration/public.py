@@ -32,10 +32,20 @@ call must always go through `call_capability` instead. `CircuitOpenError`
 is exported alongside it purely so such a caller can still fail
 gracefully when a connection's breaker is already open, without a real
 call ever being attempted.
+
+`PlateInfoData` / `BestMatchResult` and `vin_decode_granted` (KAN-42,
+C-D) are what the identification waterfall in
+`app.vehicle.services.identification` needs: the `KontrollschildInfo` and
+`FahrzeugeMatch` return shapes, and a read-only `vin_decode` check (not
+`tenant_has_capability`, whose `vin_decode` branch upserts a cached
+entitlement row — ADR-047 keeps that write out of another context's
+transaction).
 """
 
 from app.integration.adapters.base import (
+    BestMatchResult,
     ForecastResult,
+    PlateInfoData,
     ProviderAdapter,
     SystemWatermark,
     ValuationResult,
@@ -59,6 +69,7 @@ from app.integration.services.connections import (
     get_enabled_connection,
     get_entitlement,
     list_enabled_connection_tenant_ids_for_provider,
+    vin_decode_granted,
 )
 from app.integration.services.gateway import (
     ConnectionDisabledError,
@@ -69,6 +80,7 @@ from app.integration.services.gateway import (
 from app.integration.services.resilience import CircuitOpenError
 
 __all__ = [
+    "BestMatchResult",
     "CircuitOpenError",
     "ConnectionDisabledError",
     "ConnectionStatus",
@@ -79,6 +91,7 @@ __all__ = [
     "MarketplaceListing",
     "MarketplaceListingError",
     "MarketplaceTransmissionError",
+    "PlateInfoData",
     "ProviderAdapter",
     "ProviderGatewayError",
     "SystemWatermark",
@@ -95,4 +108,5 @@ __all__ = [
     "get_entitlement",
     "list_enabled_connection_tenant_ids_for_provider",
     "resolve_adapter",
+    "vin_decode_granted",
 ]
