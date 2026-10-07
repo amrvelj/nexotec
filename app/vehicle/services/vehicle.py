@@ -259,13 +259,10 @@ def create_custody_event(
     event_date: dt.datetime | None,
     transaction_id: uuid.UUID | None,
     actor_id: uuid.UUID,
-    commit: bool = True,
 ) -> VehicleCustodyEvent:
-    """commit=False lets a caller (complete_transaction) fold this
-    function's Vehicle/custody-event/audit mutations into its own single
-    db.commit(), instead of this committing on its own — see that
-    function's docstring for why (CTO review, 2026-08-06). Direct endpoint
-    callers keep the default commit=True, unchanged.
+    """Always commits its own transaction. The `commit=False` switch that
+    let Sales' retired complete_transaction fold this write into its own
+    transaction was removed with that caller (KAN-90, ADR-047).
     """
     event = VehicleCustodyEvent(
         vehicle_id=vehicle.id,
@@ -301,9 +298,6 @@ def create_custody_event(
             "eventType": _plain(event_type),
         },
     )
-    if commit:
-        db.commit()
-        db.refresh(event)
-    else:
-        db.flush()
+    db.commit()
+    db.refresh(event)
     return event

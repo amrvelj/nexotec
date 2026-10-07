@@ -339,10 +339,10 @@ def _sync_tenant_variant_content(
     `call_capability` block, so a Datenname the provider refuses for this
     account (the protocol documents no "not entitled" signal — see
     `services/entitlement_probes.py` in `app.integration`) raises out of the
-    whole sync and is charged to the connection's breaker. That error path
-    also commits this session to write the call-log row, so the variant it
-    was on is left partially synced (its options, colours and tyre specs
-    persisted, its images not). Degrading per capability (KAN-38 exit
+    whole sync and is charged to the connection's breaker. Nothing the sync
+    wrote is kept: the gateway logs the failed call on a session of its own
+    (KAN-90), and the caller rolls this session back, so the next run
+    redoes the sync from the unchanged cursor. Degrading per capability (KAN-38 exit
     criterion 3) needs this split by capability first; until then
     `catalogue_entitlements` only ever degrades what is *read*, never what
     is fetched.
