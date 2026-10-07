@@ -101,7 +101,8 @@ main@568f416 on 2026-09-27; the vehicle-party lines against KAN-99's branch on
   `app.vehicle.public.get_vehicle_summaries` whenever a row is opened, created or repointed,
   and re-read nightly by `refresh_vehicle_party_labels` (`customer.vehicle_party_labels`), so a
   later catalogue match or VIN correction shows within a day (Anto's ruling, option A). A row
-  without a label yet is filled for a read in memory only and labelled by its next write.
+  without a label yet is filled for a read in memory only, and labelled by its next PATCH,
+  DELETE or re-confirm, or by the nightly job.
   `tests/architecture/test_no_cross_context_mapping.py` forbids a relationship or FK back.
 - **Cross-group closes written before KAN-99 are detected, not repaired** (KAN-139):
   `app.customer.reconciliation.find_cross_group_vehicle_party_closes` (run by
