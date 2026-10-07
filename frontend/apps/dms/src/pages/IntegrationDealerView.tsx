@@ -252,6 +252,16 @@ function ConnectDialog({
   )
 }
 
+// The 30-day sum of cost_units, a DECIMAL(12, 4) column (app/integration/
+// models/call_log.py), arrives as a decimal string; shown at that scale so the
+// fourth decimal is never rounded away (KAN-164). A double holds it exactly up
+// to about 1e11 units, far beyond any indicative usage figure.
+const COST_UNITS_SCALE = 4
+
+function formatCostUnits(value: string | null): string {
+  return value === null ? '—' : formatNumber(Number(value), COST_UNITS_SCALE)
+}
+
 function UsageModal({ connection, onClose }: { connection: IntegrationConnectionRead | null; onClose: () => void }) {
   const { t } = useTranslation()
   const usageQuery = useQuery({
@@ -273,7 +283,7 @@ function UsageModal({ connection, onClose }: { connection: IntegrationConnection
               {formatNumber(usageQuery.data?.callsThisPeriod ?? 0)}
             </KeyValueRow>
             <KeyValueRow label={t('integrationsList.usageModal.cost')}>
-              {usageQuery.data?.costUnitsThisPeriod ?? '—'}
+              {formatCostUnits(usageQuery.data?.costUnitsThisPeriod ?? null)}
             </KeyValueRow>
             <Text size="xs" c="dimmed">{t('integrationsList.usageModal.indicative')}</Text>
           </>
