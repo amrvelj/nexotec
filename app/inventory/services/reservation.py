@@ -52,19 +52,34 @@ def reserve(
     already carries an active reservation — a second reserve on an
     already-reserved item is a genuine conflict, not something retried
     away by the caller's own retry/timeout policy.
+
+    KAN-114 — a replayed key is answered from the item, not from the cache
+    alone. The cached reservation may have been released since (Sales'
+    compensation releases it when its own commit fails, and the user then
+    retries under the same key); replaying it would confirm a contract on a
+    car that is no longer reserved. So under the row lock: the contract's
+    live reservation is returned, and an item that is free is reserved
+    again. The new reservation is not recorded against the key (the record
+    is write-once), which is why "held by this contract" is what a later
+    replay matches on. An item another contract holds is the ordinary 409.
     """
 
     path = f"inventory.reserve:{stock_item_id}"
     body = {"contractId": str(contract_id)}
     cached = find_cached_response(db, tenant_id=tenant_id, key=idempotency_key, path=path, body=body)
-    if cached is not None:
-        return cached.response_body
 
     item = db.scalar(
         select(StockItem).where(StockItem.id == stock_item_id, StockItem.tenant_id == tenant_id).with_for_update()
     )
     if item is None:
         raise NotFoundError(f"Stock item {stock_item_id} was not found.")
+    if (
+        cached is not None
+        and item.reservation_state == ReservationState.RESERVED
+        and item.reserved_by_contract_id == contract_id
+    ):
+        db.commit()
+        return {"reservationId": str(item.active_reservation_id), "stockItemId": str(item.id)}
     if item.reservation_state == ReservationState.RESERVED:
         raise ConflictError(
             f"Stock item {stock_item_id} already carries an active reservation.",
@@ -74,10 +89,11 @@ def reserve(
     reservation_id = reserve_and_flush(db, item=item, contract_id=contract_id)
 
     response_body = {"reservationId": str(reservation_id), "stockItemId": str(item.id)}
-    store_response(
-        db, tenant_id=tenant_id, key=idempotency_key, path=path, body=body, response_status=201,
-        response_body=response_body,
-    )
+    if cached is None:
+        store_response(
+            db, tenant_id=tenant_id, key=idempotency_key, path=path, body=body, response_status=201,
+            response_body=response_body,
+        )
     db.commit()
     return response_body
 

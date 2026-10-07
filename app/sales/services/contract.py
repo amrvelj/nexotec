@@ -319,8 +319,9 @@ def confirm_contract(
 
     # KAN-101 — the trade-in valuation is consumed BEFORE the reservation,
     # so a refused or failed valuation call never leaves a reservation to
-    # undo (a released reservation's cached reserve() response would then
-    # hand a retry a reservation that no longer exists — KAN-114).
+    # undo. A retry after a compensated commit failure reuses the same
+    # reserve() key; reserve() answers a replay from the item, so the retry
+    # reserves the car again (KAN-114).
     valuation_newly_used = False
     if contract.trade_in_valuation_id is not None:
         short_lived = session_factory()
@@ -547,6 +548,16 @@ def cancel_contract(
                 tenant_id=contract.tenant_id,
                 reservation_id=contract.reservation_id,
                 idempotency_key=f"sales.contract.cancel:{contract.id}",
+            )
+        except NotFoundError:
+            # KAN-114 — a contract confirmed before that fix may point at a
+            # reservation its own compensation already released. Nothing is
+            # left to release under that id, and Stock's cancellation
+            # consumer still releases whatever this contract holds (KAN-158),
+            # so the cancellation goes ahead rather than 404ing.
+            logger.warning(
+                "contract_cancel_reservation_already_released",
+                extra={"contractId": str(contract.id), "reservationId": str(contract.reservation_id)},
             )
         finally:
             short_lived.close()
