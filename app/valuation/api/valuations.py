@@ -12,6 +12,7 @@ from app.core.pagination import SortPageParams, decode_sort_cursor
 from app.core.permissions import require_write
 from app.core.sorting import SortField, parse_sort
 from app.db import get_db
+from app.sales.public import valuations_carried_by_signed_contracts
 from app.valuation.models.valuation import Valuation
 from app.valuation.schemas.valuation import DeductionRead, ValuationCreate, ValuationPage, ValuationRead
 from app.valuation.services import valuation as valuation_service
@@ -33,24 +34,33 @@ _DEFAULT_VALUATION_SORT = [
 ]
 
 
-def _valuation_read(db: Session, valuation: Valuation) -> ValuationRead:
+def _valuation_read(db: Session, valuation: Valuation, *, has_signed_contract: bool) -> ValuationRead:
     """`status` is derived, never a column on `Valuation` (ADR-066) — so it
     cannot be produced by validating straight off the ORM object the way
     every other field can (KAN-65: that used to be exactly what this did,
     and `ValuationRead.model_validate(valuation, from_attributes=True)`
     raised a `ValidationError` — status missing — for every single
     request, on every backend, because no existing test exercised this
-    HTTP response path). Assemble the dict by hand instead, with the two
+    HTTP response path). Assemble the dict by hand instead, with the
     derived fields filled in before validation ever runs.
     """
 
     deductions = valuation_service.get_deductions(db, valuation.id)
-    fields = {
-        name: getattr(valuation, name) for name in ValuationRead.model_fields if name not in ("status", "deductions")
-    }
+    derived = ("status", "deductions", "has_signed_contract")
+    fields = {name: getattr(valuation, name) for name in ValuationRead.model_fields if name not in derived}
     fields["status"] = valuation_service.derive_status(valuation)
     fields["deductions"] = [DeductionRead.model_validate(d, from_attributes=True) for d in deductions]
+    fields["has_signed_contract"] = has_signed_contract
     return ValuationRead.model_validate(fields)
+
+
+def _valuation_reads(db: Session, tenant_id: uuid.UUID, valuations: list[Valuation]) -> list[ValuationRead]:
+    """KAN-115 — one Sales read for the whole page, not one per row."""
+
+    carried = valuations_carried_by_signed_contracts(
+        db, tenant_id=tenant_id, valuation_ids=[valuation.id for valuation in valuations]
+    )
+    return [_valuation_read(db, valuation, has_signed_contract=valuation.id in carried) for valuation in valuations]
 
 
 @router.post("/valuations", response_model=ValuationRead, status_code=201)
@@ -62,7 +72,7 @@ def create_valuation(
     valuation = valuation_service.create_valuation(
         db, tenant_id=principal.tenant_id, group_id=principal.group_id, data=body, actor_id=principal.user_id
     )
-    return _valuation_read(db, valuation)
+    return _valuation_reads(db, principal.tenant_id, [valuation])[0]
 
 
 @router.get("/valuations", response_model=ValuationPage)
@@ -88,7 +98,7 @@ def list_valuations(
         params=params,
     )
     return ValuationPage(
-        items=[_valuation_read(db, r) for r in rows],
+        items=_valuation_reads(db, principal.tenant_id, rows),
         next_cursor=next_cursor,
         total=total,
         total_is_estimate=total_is_estimate,
@@ -102,7 +112,7 @@ def get_valuation(
     db: Session = Depends(get_db),
 ):
     valuation = valuation_service.get_valuation_or_404(db, principal.tenant_id, valuation_id)
-    return _valuation_read(db, valuation)
+    return _valuation_reads(db, principal.tenant_id, [valuation])[0]
 
 
 @router.post("/valuations/{valuation_id}/mark-used", response_model=ValuationRead)
@@ -112,12 +122,14 @@ def mark_valuation_used(
     principal: Principal = Depends(require_write("valuations")),
     db: Session = Depends(get_db),
 ):
-    """Manual correction only. Sales's contract confirmation consumes a
-    trade-in valuation through app.valuation.public.consume_valuation_for_contract
-    (KAN-101), not through this HTTP endpoint.
+    """«Als verwendet markieren» — a repair, only for a valuation a signed
+    contract carries (KAN-115; 409 `no_signed_contract` otherwise). Sales's
+    contract confirmation stamps a trade-in valuation through
+    app.valuation.public.consume_valuation_for_contract (KAN-101), not
+    through this HTTP endpoint.
     """
 
     valuation = valuation_service.get_valuation_or_404(db, principal.tenant_id, valuation_id)
     check_version(valuation.version, if_match, entity_name="Valuation")
-    valuation = valuation_service.mark_used(db, valuation=valuation, actor_id=principal.user_id)
-    return _valuation_read(db, valuation)
+    valuation = valuation_service.mark_used_by_hand(db, valuation=valuation, actor_id=principal.user_id)
+    return _valuation_reads(db, principal.tenant_id, [valuation])[0]

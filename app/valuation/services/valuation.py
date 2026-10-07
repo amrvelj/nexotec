@@ -13,6 +13,7 @@ from app.core.errors import ConflictError, NotFoundError
 from app.core.outbox import OutboxEvent, publish
 from app.core.pagination import SortPageParams, build_sorted_page, count_capped, paginate_query_sorted
 from app.customer.public import get_customer_or_404
+from app.sales.public import valuations_carried_by_signed_contracts
 from app.valuation.models.valuation import Valuation, ValuationDeduction, ValuationNumberSequence
 from app.valuation.schemas.valuation import ValuationCreate
 from app.vehicle.public import CONFIGURATION_MODE_RECORD, create_or_get_vehicle_mdm, get_configuration_for_host
@@ -180,13 +181,15 @@ def create_valuation(
 
 
 def mark_used(db: Session, *, valuation: Valuation, actor_id: uuid.UUID | None) -> Valuation:
+    """Stamps the valuation «Verwendet» and publishes `valuation.used` — the
+    one writer of `used_at`. Its two callers decide whether the stamp is
+    allowed: `consume_for_contract` (a confirmation; refuses a valuation
+    past its validity) and `mark_used_by_hand` (a signed contract must carry
+    it, KAN-115). Own commit.
+    """
+
     if valuation.used_at is not None:
         return valuation  # idempotent — a contract confirmed twice via retry must not double-fire
-    if derive_status(valuation) not in ("valid", "draft"):
-        raise ConflictError(
-            f"Valuation {valuation.valuation_number} cannot be marked used from status "
-            f"'{derive_status(valuation)}'."
-        )
 
     valuation.used_at = utcnow()
     valuation.updated_by = actor_id
@@ -232,6 +235,35 @@ def consume_for_contract(db: Session, *, valuation: Valuation, actor_id: uuid.UU
         return False
     mark_used(db, valuation=valuation, actor_id=actor_id)
     return True
+
+
+def mark_used_by_hand(db: Session, *, valuation: Valuation, actor_id: uuid.UUID | None) -> Valuation:
+    """«Als verwendet markieren» — repairs a stamp a signed deal should have
+    set. Only a signed deal stamps a valuation (Anto, 2026-10-07, KAN-115),
+    so this is allowed only when a signed contract of this dealership
+    carries the valuation as its trade-in, whatever its status: an expired
+    one included, since the contract was signed on it — typically before
+    KAN-101 stamped at confirmation. Refused otherwise
+    (`details.reason == "no_signed_contract"`). A valuation already stamped
+    is left as it is.
+    """
+
+    # Row lock, as in consume_for_contract: a confirmation stamping the same
+    # valuation at this moment serialises here, so valuation.used fires once.
+    # Both early exits write nothing; the rollback only releases the lock.
+    db.refresh(valuation, with_for_update=True)
+    if valuation.used_at is not None:
+        db.rollback()
+        return valuation
+    carried = valuations_carried_by_signed_contracts(db, tenant_id=valuation.tenant_id, valuation_ids=[valuation.id])
+    if valuation.id not in carried:
+        db.rollback()
+        raise ConflictError(
+            f"Valuation {valuation.valuation_number} is the trade-in of no signed contract, so it cannot be "
+            f"marked used: only a signed deal uses a valuation.",
+            details={"reason": "no_signed_contract", "valuationId": str(valuation.id)},
+        )
+    return mark_used(db, valuation=valuation, actor_id=actor_id)
 
 
 def revert_use(db: Session, *, valuation: Valuation, actor_id: uuid.UUID | None) -> Valuation:

@@ -238,6 +238,8 @@ _READS = {
     "app.platform.public.list_dealer_manager_emails",
     # Builds a PDF from content Sales supplies; persists nothing.
     "app.platform.public.render_document",
+    # KAN-115: valuation asks which valuations a signed contract carries.
+    "app.sales.public.valuations_carried_by_signed_contracts",
     "app.valuation.public.get_valuation_or_404",
     "app.valuation.public.list_valid_valuations_for_vehicle",
     # Reads persisted sync state only (its docstring); the daily job calls

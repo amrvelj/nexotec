@@ -38,6 +38,13 @@ as any change to what it states. -->
   commit fails, `revert_valuation_use` undoes "used" only when that confirmation set it and no
   other signed contract carries it; each compensating action runs even if the other fails.
   **Cancelling a signed contract leaves it used** (ADR-066).
+- **Only a signed deal uses a valuation** (Anto, 2026-10-07, KAN-115). «Als verwendet
+  markieren» (`POST /v1/valuations/{id}/mark-used`, `services/valuation.py::mark_used_by_hand`)
+  repairs a missed stamp: allowed only when a signed contract (`signed_at` set, cancelled
+  included) carries the valuation, **whatever its status, expired included** — the contracts
+  signed before KAN-101 stamped nothing; refused otherwise (`no_signed_contract`). Sales answers
+  through `sales.public.valuations_carried_by_signed_contracts`; `ValuationRead.hasSignedContract`
+  carries the same answer to the row menu. `mark_used` is the one writer of `used_at`.
 - **Stock's `valuationRef`** on a trade-in is set when inventory's `sales.contract.confirmed`
   consumer creates the pipeline item (`inventory/services/pipeline.py`, from
   `tradeIn.valuationId`) — the item does not exist when Sales confirms, so Sales never calls

@@ -23,13 +23,23 @@ export interface ValuationRowMenu {
  * model docstring, app/valuation/models/valuation.py) — "Neu bewerten"
  * (create a new row with `supersedesValuationId` set) is the only
  * correction mechanism, for ANY status including draft.
+ *
+ * «Als verwendet markieren» repairs a stamp a signed deal should have set:
+ * only a signed deal uses a valuation (KAN-115), so it is offered only when a
+ * signed contract carries the valuation — whatever its status, expired
+ * included — and never once it is already used.
  */
 export function buildValuationRowMenu(
   t: (key: string, options?: Record<string, unknown>) => string,
-  valuation: Pick<ValuationRead, 'status' | 'customerId' | 'vehicleId'>,
+  valuation: Pick<ValuationRead, 'status' | 'customerId' | 'vehicleId' | 'hasSignedContract'>,
   actions: ValuationRowMenuActions
 ): ValuationRowMenu {
-  const canMarkUsed = valuation.status === 'valid' || valuation.status === 'draft'
+  const markUsedDisabledReason =
+    valuation.status === 'used'
+      ? t('valuationDetail.actions.markUsedAlreadyUsed')
+      : !valuation.hasSignedContract
+        ? t('valuationDetail.actions.markUsedNoSignedContract')
+        : undefined
 
   const overflow: RowMenuGroups = {
     navigate: [
@@ -45,8 +55,8 @@ export function buildValuationRowMenu(
         label: t('valuationDetail.actions.markUsed'),
         icon: <CheckCircle size={16} />,
         onClick: actions.onMarkUsed,
-        disabled: !canMarkUsed,
-        disabledReason: !canMarkUsed ? t('valuationDetail.actions.markUsedDisabledReason') : undefined,
+        disabled: markUsedDisabledReason !== undefined,
+        disabledReason: markUsedDisabledReason,
       },
     ],
   }
