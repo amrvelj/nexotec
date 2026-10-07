@@ -63,6 +63,11 @@ _reconciliation_age_gauge = _alarm_meter.create_gauge(
     description="Time since the last completed nightly cross-context reconciliation run.",
     unit="s",
 )
+_label_age_gauge = _alarm_meter.create_gauge(
+    "dms.label.age_seconds",
+    description="Age of the stalest denormalised cross-context label (CLAUDE.md rule 2), per label.",
+    unit="s",
+)
 
 
 def record_outbox_lag_seconds(seconds: float | None) -> None:
@@ -86,6 +91,15 @@ def record_reconciliation_age_seconds(seconds: float | None) -> None:
 
     if seconds is not None:
         _reconciliation_age_gauge.set(seconds)
+
+
+def record_label_age_seconds(label: str, seconds: float | None) -> None:
+    """KAN-84 — sync-age alarm (CLAUDE.md rule 10) for a three-column-pattern
+    label kept fresh by a job: `label` names it (e.g. "vehicle_party.vehicle").
+    None (never labelled) leaves the gauge unset, like reconciliation age."""
+
+    if seconds is not None:
+        _label_age_gauge.set(seconds, attributes={"label": label})
 
 _correlation_id: contextvars.ContextVar[str | None] = contextvars.ContextVar("correlation_id", default=None)
 _tenant_id: contextvars.ContextVar[str | None] = contextvars.ContextVar("tenant_id", default=None)

@@ -113,8 +113,8 @@ class ModelVariant(VehicleSpecBlock, PrimaryKeyMixin, VersionedMixin, TimestampM
     # must produce. On this (type) carrier they are read-only views over the
     # `model_group → brand` structure; on the configuration / snapshot they
     # are denormalised columns/keys captured at capture time. Callers that
-    # read these in bulk should eager-load via
-    # `app.vehicle.public.vehicle_mdm_catalogue_loader_option`.
+    # read these in bulk should eager-load the `model_group → brand` chain
+    # (as `app.vehicle.public.get_vehicle_summaries` does).
     @property
     def variant_name(self) -> str:
         return self.name
