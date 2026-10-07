@@ -243,4 +243,31 @@ describe('IdentificationPanel', () => {
     await identify(user, '§§§')
     expect(await screen.findByText(i18n.t('configurator.identify.unrecognised'))).toBeInTheDocument()
   })
+
+  it('keeps the Stammnummer as the method when one of its cached records is picked', async () => {
+    const user = userEvent.setup()
+    const { onStart } = setup([
+      {
+        method: 'GET',
+        match: /^\/vehicle-identification$/,
+        handler: (req) =>
+          req.params.get('q') === '2CD456'
+            ? ONE_VARIANT
+            : {
+                ...WECHSELSCHILD,
+                kind: 'stammnummer',
+                matchMethod: 'stammnummer',
+                observed: { ...identification().observed, stammnummer: '444555666' },
+              },
+      },
+    ])
+
+    await identify(user, '444.555.666')
+    expect(await screen.findByText(i18n.t('configurator.identify.plateRecords.several'))).toBeInTheDocument()
+    await user.click(screen.getByText('Volkswagen Golf GTI'))
+    await user.click(await screen.findByText('Volkswagen Golf Golf GTI'))
+
+    await waitFor(() => expect(onStart).toHaveBeenCalledTimes(1))
+    expect(onStart.mock.calls[0][0].matchMethod).toBe('stammnummer')
+  })
 })

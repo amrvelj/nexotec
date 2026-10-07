@@ -480,7 +480,8 @@ def _identify_plate(
 
     if len(records) > 1:
         conflict = _is_conflict(records)
-        if conflict:
+        # Raised once per provider answer, not again on every cache hit.
+        if conflict and IdentificationNote.PLATE_CACHE_HIT not in notes:
             _publish_plate_conflict(db, tenant_id=tenant_id, plate=plate, records=records)
         return IdentificationResult(
             kind=IdentifierKind.KONTROLLSCHILD,
@@ -523,7 +524,22 @@ def _identify_stammnummer(db: Session, *, tenant_id: uuid.UUID, stammnummer: str
             outcome=IdentificationOutcome.NONE,
             observed=observed,
         )
-    record = cached[0]
+    if len(cached) > 1:
+        # Several earlier answers name this Stammnummer: a picker, never a
+        # choice (exit criterion 2). Two Typenscheine for one Stammnummer
+        # is the same data-quality conflict as on the plate rung.
+        conflict = _is_conflict(cached)
+        return IdentificationResult(
+            kind=IdentifierKind.STAMMNUMMER,
+            match_method=ConfigurationMatchMethod.STAMMNUMMER,
+            outcome=IdentificationOutcome.PLATE_RECORDS,
+            observed=observed,
+            plate_records=[_plate_record(r) for r in cached],
+            plate_records_interchangeable=not conflict,
+            plate_records_conflict=conflict,
+            notes=[IdentificationNote.PLATE_CACHE_HIT],
+        )
+    (record,) = cached
     return _typenschein_result(
         db,
         kind=IdentifierKind.STAMMNUMMER,

@@ -98,9 +98,9 @@ def _price_build_up_lines(
     lines: list[DocumentLine] = []
     if base_price is not None:
         lines.append(DocumentLine(label=t(language, "priceBuildUp.basePrice"), amount=base_price))
-    # C-F (KAN-10, FR-C-12) — the offer's factory-option lines, itemised:
-    # for a configured car these are the configuration's price lines
-    # (options, colour and wheels surcharges). Provider text as delivered
+    # C-F (KAN-10, FR-C-12) — a configured car's factory-option lines,
+    # itemised: the configuration's price lines (options, colour and
+    # wheels surcharges; empty for any other offer). Provider text as delivered
     # (ADR-044); the amount is each line's own net after its own discount,
     # so the lines add up to the total below.
     for label, amount in option_lines:
@@ -237,6 +237,12 @@ def _next_version(db: Session, *, tenant_id: uuid.UUID, owner_type: DocumentOwne
 
 
 def _included_option_lines(db: Session, *, offer: SalesOffer) -> list[tuple[str, Decimal]]:
+    """C-F (KAN-10, FR-C-12): a configured car's price lines are itemised on
+    its document. Only for an offer built in the configurator — a stock
+    offer's document (Path A, out of this change's scope) is unchanged."""
+
+    if offer.configuration_id is None:
+        return []
     rows = db.scalars(
         select(SalesLineItem)
         .where(

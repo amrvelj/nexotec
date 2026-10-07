@@ -1,7 +1,7 @@
 """KAN-42 (C-D) — the plate-lookup cache (FR-C-02).
 
 `KontrollschildInfo` answers, kept per tenant (ADR-013) for the TTL stated
-in `app/vehicle/services/identification.py::PLATE_LOOKUP_CACHE_TTL`.
+in `app/vehicle/services/plate_lookup_cache.py::PLATE_LOOKUP_CACHE_TTL`.
 Read by an exact plate or an exact Stammnummer only — never enumerable.
 
 Revision ID: 65ee7f43405f

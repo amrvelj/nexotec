@@ -537,3 +537,37 @@ def test_a_picked_candidate_reads_back_as_a_full_catalogue_variant(client, db_se
     assert body["variantName"] == "Golf GTI 2.0 TSI DSG"
     assert "2CD456" in body["typeApprovalNumbers"]
     assert client.get(f"/v1/catalogue/variants/{uuid.uuid4()}", headers=_bearer(tenant_id)).status_code == 404
+
+
+def test_a_stammnummer_with_several_cached_records_is_a_picker_never_a_choice(db_session):
+    """Exit criterion 2 on the Stammnummer rung: GE111111's answer names one
+    Stammnummer under two Typenscheine."""
+
+    tenant_id = _connected_tenant(db_session)
+    svc.identify(db_session, tenant_id=tenant_id, actor_id=None, query="GE111111")
+
+    result = svc.identify(db_session, tenant_id=tenant_id, actor_id=None, query="123.123.123")
+
+    assert result.outcome == IdentificationOutcome.PLATE_RECORDS
+    assert result.variants == []
+    assert {r.type_approval_number for r in result.plate_records} == {"1AB234", "3EF789"}
+    assert result.plate_records_conflict is True
+
+
+def test_a_plate_conflict_is_raised_once_per_provider_answer_not_per_lookup(db_session):
+    tenant_id = _connected_tenant(db_session)
+    for _ in range(3):
+        svc.identify(db_session, tenant_id=tenant_id, actor_id=None, query="GE111111")
+
+    assert db_session.scalar(
+        select(func.count()).select_from(OutboxMessage).where(OutboxMessage.event_type == "vehicle.plate_lookup.conflicted")
+    ) == 1
+
+
+def test_a_record_stored_twice_never_reads_as_a_wechselschild(db_session):
+    tenant_id = uuid.uuid4()
+    (record,) = __import__("app.integration.adapters.auto_i_dat_mock", fromlist=["_PLATES"])._PLATES["BE123456"]
+    plate_lookup_cache.store_records_for_plate(db_session, tenant_id=tenant_id, plate="BE123456", records=[record, record])
+    db_session.commit()
+
+    assert plate_lookup_cache.cached_records_for_plate(db_session, tenant_id=tenant_id, plate="BE123456") == [record]

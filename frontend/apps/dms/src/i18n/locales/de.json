@@ -1009,7 +1009,6 @@
       "configure": "Konfigurieren",
       "searchPlaceholder": "Lagernummer, VIN, Kontrollschild …",
       "configured": "Konfiguriert",
-      "fromStock": "Aus dem Bestand",
       "attachError": "Die Konfiguration konnte nicht übernommen werden."
     },
     "pricing": {
@@ -1579,7 +1578,8 @@
       "variantTitle": "Katalogtreffer",
       "plateRecords": {
         "wechselschild": "Wechselschild — das Kontrollschild ist mehreren Fahrzeugen zugeteilt. Wählen Sie das Fahrzeug vor Ort.",
-        "conflict": "Das Register meldet widersprüchliche Daten zu diesem Kontrollschild. Wählen Sie das richtige Fahrzeug; der Widerspruch wurde gemeldet."
+        "conflict": "Das Register meldet widersprüchliche Daten zu diesem Kontrollschild. Wählen Sie das richtige Fahrzeug; der Widerspruch wurde gemeldet.",
+        "several": "Mehrere frühere Abfragen nennen diese Stammnummer. Wählen Sie das Fahrzeug vor Ort."
       },
       "none": "Kein Katalogtreffer. Im Katalog unten suchen oder manuell konfigurieren.",
       "pickerEmpty": "Keine Kandidaten",

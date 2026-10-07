@@ -1009,7 +1009,6 @@
       "configure": "Configura",
       "searchPlaceholder": "Numero di magazzino, VIN, targa …",
       "configured": "Configurato",
-      "fromStock": "Dal magazzino",
       "attachError": "Non è stato possibile riprendere la configurazione."
     },
     "pricing": {
@@ -1579,7 +1578,8 @@
       "variantTitle": "Corrispondenza a catalogo",
       "plateRecords": {
         "wechselschild": "Targa intercambiabile — la targa è attribuita a più veicoli. Scegliere quello presente.",
-        "conflict": "Il registro segnala dati contraddittori per questa targa. Scegliere il veicolo giusto; la contraddizione è stata segnalata."
+        "conflict": "Il registro segnala dati contraddittori per questa targa. Scegliere il veicolo giusto; la contraddizione è stata segnalata.",
+        "several": "Diverse ricerche precedenti citano questo numero di matricola. Scegliere il veicolo presente."
       },
       "none": "Nessuna corrispondenza. Sfogliare il catalogo qui sotto o configurare manualmente.",
       "pickerEmpty": "Nessun candidato",

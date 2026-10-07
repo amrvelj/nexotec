@@ -58,16 +58,24 @@ export function IdentificationPanel({ allowedModes, onStart, onReuse, onQueryCha
   // A plate record the advisor picked: its observed facts ride along when
   // the Typenschein it names is resolved next.
   const [carried, setCarried] = useState<Partial<ObservedIdentityRead> | null>(null)
+  // How the car was identified before a picked record sent us to its
+  // Typenschein — the plate or the Stammnummer, kept permanently.
+  const [carriedMethod, setCarriedMethod] = useState<ConfigurationMatchMethod | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const identify = async (q: string, carry: Partial<ObservedIdentityRead> | null = null) => {
+  const identify = async (
+    q: string,
+    carry: Partial<ObservedIdentityRead> | null = null,
+    method: ConfigurationMatchMethod | null = null,
+  ) => {
     setLoading(true)
     setError(null)
     try {
       const found = await api.get<IdentificationRead>(`/vehicle-identification?q=${encodeURIComponent(q)}`)
       setResult(found)
       setCarried(carry)
+      setCarriedMethod(method)
     } catch (err) {
       setResult(null)
       const unrecognised = err instanceof ApiError && err.details?.reason === 'unrecognised_identifier'
@@ -80,13 +88,9 @@ export function IdentificationPanel({ allowedModes, onStart, onReuse, onQueryCha
   const observed: ObservedIdentityRead | null = result
     ? { ...result.observed, ...Object.fromEntries(Object.entries(carried ?? {}).filter(([, v]) => v != null)) }
     : null
-  // A picked plate record keeps the plate as the method — it is how the car
-  // was identified, even though its Typenschein resolved the variant.
-  const matchMethod: ConfigurationMatchMethod | null = result
-    ? carried?.licencePlate
-      ? 'kontrollschild'
-      : result.matchMethod
-    : null
+  // A picked record keeps the plate (or Stammnummer) as the method — it is
+  // how the car was identified, even though its Typenschein resolved the variant.
+  const matchMethod: ConfigurationMatchMethod | null = result ? (carriedMethod ?? result.matchMethod) : null
 
   const startFromCandidate = async (variantId: string, confirmedBestMatchCode?: number) => {
     if (!observed || !matchMethod) return
@@ -114,11 +118,15 @@ export function IdentificationPanel({ allowedModes, onStart, onReuse, onQueryCha
   }
 
   const pickPlateRecord = (record: PlateRecordRead) =>
-    void identify(record.typeApprovalNumber, {
-      licencePlate: result?.observed.licencePlate ?? null,
-      stammnummer: record.stammnummer,
-      firstRegistrationDate: record.firstRegistrationDate,
-    })
+    void identify(
+      record.typeApprovalNumber,
+      {
+        licencePlate: result?.observed.licencePlate ?? null,
+        stammnummer: record.stammnummer,
+        firstRegistrationDate: record.firstRegistrationDate,
+      },
+      result?.matchMethod ?? null,
+    )
 
   const visibleNotes = (result?.notes ?? []).filter((n) => !SILENT_NOTES.has(n))
 
@@ -198,7 +206,9 @@ export function IdentificationPanel({ allowedModes, onStart, onReuse, onQueryCha
               title={
                 result.plateRecordsConflict
                   ? t('configurator.identify.plateRecords.conflict')
-                  : t('configurator.identify.plateRecords.wechselschild')
+                  : result.kind === 'stammnummer'
+                    ? t('configurator.identify.plateRecords.several')
+                    : t('configurator.identify.plateRecords.wechselschild')
               }
             >
               <Picker
@@ -258,6 +268,7 @@ export function IdentificationPanel({ allowedModes, onStart, onReuse, onQueryCha
 }
 
 function variantRow(t: (k: string, o?: Record<string, unknown>) => string, v: VariantCandidateRead): PickerRow {
+  const psUnit = t('catalogueBrowse.columns.ps')
   const years =
     v.modelYearTo != null
       ? t('configurator.identify.productionYears', { from: v.modelYearFrom, to: v.modelYearTo })
@@ -267,7 +278,7 @@ function variantRow(t: (k: string, o?: Record<string, unknown>) => string, v: Va
     id: v.catalogueVariantId,
     identifier: years,
     label: [v.brandDisplayName, v.modelGroupName, v.variantName].filter(Boolean).join(' '),
-    sublabel: [v.ps != null ? `${v.ps} PS` : null, price != null ? formatCurrencyChf(Number(price)) : null]
+    sublabel: [v.ps != null ? `${v.ps} ${psUnit}` : null, price != null ? formatCurrencyChf(Number(price)) : null]
       .filter(Boolean)
       .join(' · '),
   }

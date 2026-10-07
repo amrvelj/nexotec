@@ -2,16 +2,40 @@
 never re-read from live catalogue/stock data afterward (WP-8 PR-3).
 """
 
+from dataclasses import dataclass
 from decimal import Decimal
 
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.core.base import utcnow
 from app.inventory.public import get_stock_item_pricing
 from app.sales.models.line_item import LineItemKind, SalesLineItem
 from app.sales.models.offer import SalesOffer
+from app.sales.services.pricing import resolve_discount
 from app.vehicle.public import HostConfiguration, get_configuration_for_host
+
+
+@dataclass(frozen=True)
+class _SellerEdit:
+    """What a seller may have done to a factory-option line (FR-S-07)."""
+
+    included: bool
+    discount_type: str | None
+    discount_value: Decimal | None
+    discount_suppressed_reason: str | None
+
+    @classmethod
+    def of(cls, row: SalesLineItem) -> "_SellerEdit":
+        return cls(row.included, row.discount_type, row.discount_value, row.discount_suppressed_reason)
+
+    def apply(self, row: SalesLineItem) -> None:
+        row.included = self.included
+        if self.discount_type is not None and self.discount_value is not None:
+            row.discount_type = self.discount_type
+            row.discount_value = self.discount_value
+            row.discount_suppressed_reason = self.discount_suppressed_reason
+            row.discount_resolved_amount = resolve_discount(self.discount_type, self.discount_value, row.unit_price)
 
 
 def _vehicle_identity(offer: SalesOffer, configuration: HostConfiguration | None) -> str | None:
@@ -51,6 +75,21 @@ def freeze_vehicle_snapshot(db: Session, *, offer: SalesOffer) -> bool:
     existing = offer.vehicle_snapshot or {}
     if offer.vehicle_snapshot_frozen_at is not None and existing.get("_identity") == identity:
         return False
+
+    # C-F (KAN-10): a new version of the SAME configuration (the advisor
+    # reopened and saved it) keeps what the seller did to its lines — a
+    # deselection or a per-line discount — matched by code. A different
+    # configuration or vehicle starts clean.
+    kept: dict[tuple[str, str], _SellerEdit] = {}
+    if configuration is not None and existing.get("configurationId") == str(configuration.id):
+        kept = {
+            (row.code, row.label): _SellerEdit.of(row)
+            for row in db.scalars(
+                select(SalesLineItem).where(
+                    SalesLineItem.offer_id == offer.id, SalesLineItem.kind == LineItemKind.FACTORY_OPTION
+                )
+            ).all()
+        }
 
     db.execute(
         delete(SalesLineItem).where(SalesLineItem.offer_id == offer.id, SalesLineItem.kind == LineItemKind.FACTORY_OPTION)
@@ -124,19 +163,22 @@ def freeze_vehicle_snapshot(db: Session, *, offer: SalesOffer) -> bool:
             "spec": configuration.spec,
         }
         for position, line in enumerate(configuration.price_lines):
-            db.add(
-                SalesLineItem(
-                    tenant_id=offer.tenant_id,
-                    offer_id=offer.id,
-                    kind=LineItemKind.FACTORY_OPTION,
-                    code=line.code or line.kind,
-                    label=line.label[:200],
-                    unit_price=line.price,
-                    quantity=1,
-                    included=True,
-                    position=position,
-                )
+            code, label = line.code or line.kind, line.label[:200]
+            row = SalesLineItem(
+                tenant_id=offer.tenant_id,
+                offer_id=offer.id,
+                kind=LineItemKind.FACTORY_OPTION,
+                code=code,
+                label=label,
+                unit_price=line.price,
+                quantity=1,
+                included=True,
+                position=position,
             )
+            edit = kept.get((code, label))
+            if edit is not None:
+                edit.apply(row)
+            db.add(row)
     else:
         # Manual configuration — no stock item, no known cost, no options
         # to itemize (S-D09/ADR-045: this never touches inventory).

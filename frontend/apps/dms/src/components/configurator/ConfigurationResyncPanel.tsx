@@ -22,6 +22,12 @@ const CODED_LABEL_KEYS: Record<string, string> = {
   transmission: 'catalogueBrowse.columns.transmission',
 }
 
+function display(value: ResyncFieldRead['current']): string {
+  if (value === null || value === undefined) return '—'
+  if (typeof value === 'boolean') return value ? '✓' : '✗'
+  return String(value)
+}
+
 function fieldLabelKey(field: string): string {
   const key = field.replace(/_([a-z0-9])/g, (_, c: string) => c.toUpperCase())
   return CODED_LABEL_KEYS[key] ?? specFieldLabelKey(key)
@@ -116,8 +122,8 @@ export function ConfigurationResyncPanel({ configurationId, version, onClose, on
                         </Badge>
                       )}
                     </Table.Td>
-                    <Table.Td>{f.current ?? '—'}</Table.Td>
-                    <Table.Td>{f.catalogue ?? '—'}</Table.Td>
+                    <Table.Td>{display(f.current)}</Table.Td>
+                    <Table.Td>{display(f.catalogue)}</Table.Td>
                   </Table.Tr>
                 ))}
               </Table.Tbody>

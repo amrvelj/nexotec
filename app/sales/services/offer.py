@@ -227,7 +227,8 @@ def _attach_configuration(
 
     Attaching makes the vehicle container a configuration (`manual`, no
     stock item), labels it, and prefills the base price from the
-    configuration unless this PATCH sets one. The option and surcharge
+    configuration unless this PATCH sets one or the same configuration was
+    already attached (the seller's own figure stands). The option and surcharge
     price lines arrive with the snapshot freeze that follows.
     """
 
@@ -236,6 +237,7 @@ def _attach_configuration(
         return
     host = get_configuration_for_host(db, tenant_id=offer.tenant_id, configuration_id=configuration_id)
     host.require_mode(host="offer workspace", allowed=(CONFIGURATION_MODE_BUILD,))
+    is_new_configuration = offer.configuration_id != host.id
     offer.configuration_id = host.id
     offer.configuration_label = host.label
     offer.configuration_label_refreshed_at = utcnow()
@@ -245,7 +247,9 @@ def _attach_configuration(
     offer.manual_vehicle_condition = "new"
     for field in ("vehicle_source", "stock_item_id", "vehicle_label", "manual_vehicle_condition"):
         changes.pop(field, None)
-    if "manual_base_price" not in changes:
+    # Re-attaching the same configuration (the advisor reopened and saved
+    # it) never overwrites a base price the seller set.
+    if "manual_base_price" not in changes and (is_new_configuration or offer.manual_base_price is None):
         offer.manual_base_price = host.base_price
 
 
@@ -282,12 +286,19 @@ def copy_offer(db: Session, *, source: SalesOffer, actor_id: uuid.UUID | None) -
         vehicle_label=source.vehicle_label,
         manual_vehicle_condition=source.manual_vehicle_condition,
         manual_base_price=source.manual_base_price,
+        # C-F (KAN-10): a configured car stays configured on the copy — same
+        # configuration reference, re-frozen below like everything else.
+        configuration_id=source.configuration_id,
+        configuration_label=source.configuration_label,
+        configuration_label_refreshed_at=source.configuration_label_refreshed_at,
         discount_type=source.discount_type,
         discount_value=source.discount_value,
         trade_in_vehicle_id=source.trade_in_vehicle_id,
         trade_in_label=source.trade_in_label,
         trade_in_vin=source.trade_in_vin,
         trade_in_valuation_id=source.trade_in_valuation_id,
+        trade_in_configuration_id=source.trade_in_configuration_id,
+        trade_in_configuration_label_refreshed_at=source.trade_in_configuration_label_refreshed_at,
         trade_in_value=source.trade_in_value,
         trade_in_purchase_price=source.trade_in_purchase_price,
         leasing_down_payment=source.leasing_down_payment,

@@ -707,3 +707,108 @@ def test_sales_reconciliation_checks_every_configuration_reference():
         "sales_contract.configuration_id -> vehicle_configuration.id",
         "sales_contract.trade_in_configuration_id -> vehicle_configuration.id",
     } <= labels
+
+
+# --- review findings (KAN-10) ---------------------------------------------
+
+
+def test_copying_a_configured_offer_keeps_the_configuration_and_its_lines(db_session, engine):
+    from app.sales.services.offer import copy_offer
+
+    dealership = _dealership(db_session)
+    config = _build_configuration(db_session, dealership.id)
+    trade_in_config = _record_configuration(db_session, dealership.id)
+    valuation = create_valuation(
+        db_session, tenant_id=dealership.id, group_id=uuid.uuid4(), actor_id=None,
+        data=ValuationCreate(configuration_id=trade_in_config.id, source=ValuationSource.MANUAL, final_offer=Decimal("2500.00")),
+    )
+    source = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())
+    source = update_offer(db_session, offer=source, group_id=uuid.uuid4(), data=OfferUpdate(configuration_id=config.id), actor_id=None)
+    source = attach_trade_in_valuation(db_session, offer=source, valuation_id=valuation.id, actor_id=None)
+
+    copy = copy_offer(db_session, source=source, actor_id=uuid.uuid4())
+
+    assert copy.configuration_id == config.id
+    assert copy.trade_in_configuration_id == trade_in_config.id
+    assert copy.options_total == source.options_total == Decimal("3730.00")
+    assert copy.list_price == source.list_price
+
+    group_id = uuid.uuid4()
+    contract = create_contract(db_session, tenant_id=dealership.id, offer=copy, actor_id=uuid.uuid4())
+    contract = confirm_contract(
+        db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=_session_factory(engine)
+    )
+    payload = _message(db_session, "sales.contract.confirmed", contract.id).payload
+    assert payload["manualConfiguration"]["configurationId"] == str(config.id)
+    assert payload["tradeIn"]["configurationId"] == str(trade_in_config.id)
+
+
+def test_reattaching_the_same_configuration_keeps_the_sellers_base_price_and_line_edits(db_session):
+    from app.sales.schemas.line_item import LineItemFactoryOptionPatch, LineItemsReplaceRequest
+    from app.sales.services.line_items import replace_line_items
+
+    dealership = _dealership(db_session)
+    config = _build_configuration(db_session, dealership.id)
+    offer = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())
+    offer = update_offer(db_session, offer=offer, group_id=uuid.uuid4(), data=OfferUpdate(configuration_id=config.id), actor_id=None)
+    offer = update_offer(db_session, offer=offer, group_id=uuid.uuid4(), data=OfferUpdate(manual_base_price=Decimal("49000.00")), actor_id=None)
+    lines = db_session.scalars(
+        select(SalesLineItem).where(SalesLineItem.offer_id == offer.id).order_by(SalesLineItem.position)
+    ).all()
+    replace_line_items(
+        db_session, offer=offer, actor_id=None,
+        data=LineItemsReplaceRequest(
+            factory_options=[
+                LineItemFactoryOptionPatch(
+                    id=li.id,
+                    included=li.code != "PD2",
+                    discount_type="amount" if li.code == "HP1" else None,
+                    discount_value=Decimal("250.00") if li.code == "HP1" else None,
+                )
+                for li in lines
+            ]
+        ),
+    )
+
+    # the advisor reopens the configuration, changes something, saves
+    configuration_service.update_configuration(
+        db_session, configuration=config, actor_id=uuid.uuid4(), data=ConfigurationUpdate(notes="Kunde wünscht Lieferung im März"),
+    )
+    offer = update_offer(db_session, offer=offer, group_id=uuid.uuid4(), data=OfferUpdate(configuration_id=config.id), actor_id=None)
+
+    assert offer.manual_base_price == Decimal("49000.00")
+    by_code = {
+        li.code: li for li in db_session.scalars(select(SalesLineItem).where(SalesLineItem.offer_id == offer.id)).all()
+    }
+    assert by_code["PD2"].included is False
+    assert by_code["HP1"].discount_resolved_amount == Decimal("250.00")
+    assert offer.options_total == Decimal("1250.00") - Decimal("250.00") + Decimal("990.00")
+
+
+def test_a_stock_offer_document_is_not_itemised(db_session):
+    """Path A is out of scope: only a configured offer itemises its lines."""
+
+    dealership = _dealership(db_session)
+    item = create_stock_item(
+        db_session, tenant_id=dealership.id, actor_id=None,
+        data=StockItemCreate(vehicle_label="Skoda Enyaq", condition=StockItemCondition.NEW, vin="TMBJC9NY0RF000002"),
+    )
+    from app.inventory.schemas.pricing import OptionInput
+    from app.inventory.services.pricing import set_options
+
+    set_options(
+        db_session, item=item, base_price=Decimal("48000.00"), actor_id=None,
+        options=[OptionInput(code="WP", label="Wärmepumpe", price=Decimal("1200.00"))],
+    )
+    db_session.commit()
+    offer = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())
+    offer = update_offer(
+        db_session, offer=offer, group_id=uuid.uuid4(),
+        data=OfferUpdate(vehicle_source="stock", stock_item_id=item.id, vehicle_label=item.vehicle_label), actor_id=None,
+    )
+    # the stock offer does carry a factory-option line …
+    assert db_session.scalar(
+        select(SalesLineItem).where(SalesLineItem.offer_id == offer.id, SalesLineItem.kind == LineItemKind.FACTORY_OPTION)
+    ) is not None
+    # … and its document still shows only the options total, as before
+    assert _included_option_lines(db_session, offer=offer) == []

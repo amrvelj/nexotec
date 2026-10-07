@@ -33,6 +33,13 @@ def _fresh_after(now: dt.datetime) -> dt.datetime:
     return now - PLATE_LOOKUP_CACHE_TTL
 
 
+def _distinct(rows) -> list[PlateInfoData]:
+    """Two concurrent first lookups of one plate can both store the answer;
+    the same record twice must never read as a Wechselschild."""
+
+    return list(dict.fromkeys(_to_record(row) for row in rows))
+
+
 def _to_record(row: PlateLookupCacheEntry) -> PlateInfoData:
     return PlateInfoData(
         vehicle_kind_code=row.vehicle_kind_code,
@@ -66,7 +73,7 @@ def cached_records_for_plate(
     ).all()
     if not rows:
         return None
-    return [_to_record(row) for row in rows]
+    return _distinct(rows)
 
 
 def cached_records_for_stammnummer(
@@ -84,7 +91,7 @@ def cached_records_for_stammnummer(
         )
         .order_by(PlateLookupCacheEntry.fetched_at.desc(), PlateLookupCacheEntry.id)
     ).all()
-    return [_to_record(row) for row in rows]
+    return _distinct(rows)
 
 
 def store_records_for_plate(

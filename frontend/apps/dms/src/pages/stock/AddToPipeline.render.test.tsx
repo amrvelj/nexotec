@@ -79,8 +79,13 @@ describe('Stock list — add to pipeline (FR-C-13)', () => {
       { route: '/stock' },
     )
 
-    await user.click(await screen.findByRole('button', { name: i18n.t('stockList.addToPipeline') }))
+    // A half-typed search on the list underneath must survive the overlay.
+    const search = await screen.findByPlaceholderText(i18n.t('stockList.searchPlaceholder'))
+    await user.type(search, 'Justy')
+    await user.click(screen.getByRole('button', { name: i18n.t('stockList.addToPipeline') }))
     const overlay = await screen.findByRole('dialog')
+    expect(screen.getByPlaceholderText(i18n.t('stockList.searchPlaceholder'))).toHaveValue('Justy')
+    expect(screen.getByTestId('path')).toHaveTextContent('/stock')
     expect(within(overlay).getByText(i18n.t('configurator.mode.build'))).toBeInTheDocument()
     expect(within(overlay).getByText(i18n.t('configurator.mode.record'))).toBeInTheDocument()
 

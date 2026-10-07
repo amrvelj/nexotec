@@ -2,7 +2,7 @@
 
 `KontrollschildInfo` is billed per call and advisors retype the same plate
 while they talk to a customer, so every answer is kept for
-`PLATE_LOOKUP_CACHE_TTL` (`app.vehicle.services.identification`) and a
+`PLATE_LOOKUP_CACHE_TTL` (`app.vehicle.services.plate_lookup_cache`) and a
 repeat lookup inside that window costs nothing.
 
 **Tenant-partitioned** (ADR-013): the rows are licensed provider data,

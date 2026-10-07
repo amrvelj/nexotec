@@ -1009,7 +1009,6 @@
       "configure": "Configure",
       "searchPlaceholder": "Stock number, VIN, plate …",
       "configured": "Configured",
-      "fromStock": "From stock",
       "attachError": "The configuration could not be attached."
     },
     "pricing": {
@@ -1579,7 +1578,8 @@
       "variantTitle": "Catalogue match",
       "plateRecords": {
         "wechselschild": "Interchangeable plate — the plate is assigned to several vehicles. Pick the one in front of you.",
-        "conflict": "The register reports conflicting data for this plate. Pick the right vehicle; the conflict has been reported."
+        "conflict": "The register reports conflicting data for this plate. Pick the right vehicle; the conflict has been reported.",
+        "several": "Several earlier lookups name this Stammnummer. Pick the vehicle in front of you."
       },
       "none": "No catalogue match. Browse the catalogue below or configure manually.",
       "pickerEmpty": "No candidates",

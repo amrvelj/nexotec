@@ -1009,7 +1009,6 @@
       "configure": "Configurer",
       "searchPlaceholder": "Numéro de stock, VIN, plaque …",
       "configured": "Configuré",
-      "fromStock": "Du stock",
       "attachError": "La configuration n'a pas pu être reprise."
     },
     "pricing": {
@@ -1579,7 +1578,8 @@
       "variantTitle": "Correspondance catalogue",
       "plateRecords": {
         "wechselschild": "Plaque interchangeable — la plaque est attribuée à plusieurs véhicules. Choisissez celui qui est devant vous.",
-        "conflict": "Le registre signale des données contradictoires pour cette plaque. Choisissez le bon véhicule ; la contradiction a été signalée."
+        "conflict": "Le registre signale des données contradictoires pour cette plaque. Choisissez le bon véhicule ; la contradiction a été signalée.",
+        "several": "Plusieurs recherches antérieures citent ce numéro matricule. Choisissez le véhicule présent."
       },
       "none": "Aucune correspondance. Parcourez le catalogue ci-dessous ou configurez manuellement.",
       "pickerEmpty": "Aucun candidat",

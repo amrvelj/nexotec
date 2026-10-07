@@ -298,10 +298,7 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
             <HostConfigurationCard configurationId={offer.configurationId} onOpenConfigurator={openConfigurator} />
           </Stack>
         ) : offer.vehicleLabel ? (
-          <Stack gap={4}>
-            {offer.vehicleSource === 'stock' && <Text size="xs" c="dimmed">{t('offerWorkspace.vehicle.fromStock')}</Text>}
-            <Text fw={600}>{offer.vehicleLabel}</Text>
-          </Stack>
+          <Text fw={600}>{offer.vehicleLabel}</Text>
         ) : vehicleMode === 'search' ? (
           <Picker
             rows={(vehicleSearch.data?.items ?? []).map(
