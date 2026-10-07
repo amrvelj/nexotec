@@ -41,6 +41,8 @@ def upgrade() -> None:
         sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("created_by", postgresql.UUID(as_uuid=True), nullable=True),
+        sa.Column("updated_by", postgresql.UUID(as_uuid=True), nullable=True),
         sa.ForeignKeyConstraint(["model_variant_id"], ["vehicle_model_variant.id"]),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("model_variant_id", "provider", "code_group", name="uq_vehicle_variant_provider_code_field"),
