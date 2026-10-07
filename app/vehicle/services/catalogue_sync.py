@@ -56,7 +56,7 @@ import logging
 import re
 import uuid
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Final, Literal
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -114,7 +114,7 @@ class NoVehicleDataConnectionError(Exception):
 
 # The value `SkippedFzKey.field` takes for a key the run never sent to the
 # provider because the connection itself failed (see `_ConnectionFailed`).
-NOT_ATTEMPTED = "not_attempted"
+NOT_ATTEMPTED: Final = "not_attempted"
 
 SkippedField = Literal["master_data", "options", "colours", "tyre_specs", "images", "not_attempted"]
 
