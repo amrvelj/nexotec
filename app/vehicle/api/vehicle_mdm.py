@@ -7,15 +7,18 @@ VehicleMdm is a global fact, same as the shipped table it replaces
 
 import uuid
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.auth import Principal, get_current_principal
 from app.core.concurrency import check_version, require_if_match
-from app.core.pagination import PageParams, page_params
+from app.core.config import get_settings
+from app.core.pagination import SortPageParams, decode_sort_cursor
 from app.core.permissions import require_write
+from app.core.sorting import SortField, parse_sort
 from app.customer.public import allocate_vehicle_party, customer_display_name, get_customer_or_404
 from app.db import get_db
+from app.vehicle.models.vehicle_mdm import VehicleMdm
 from app.vehicle.schemas.vehicle_mdm import (
     VehicleAllocatePartyRequest,
     VehicleMdmCreate,
@@ -30,12 +33,32 @@ from app.vehicle.services import vehicle_mdm as vehicle_mdm_service
 from app.vehicle.services.search import filter_vehicles, resolve_identifier
 
 router = APIRouter(tags=["vehicle-mdm"])
+settings = get_settings()
+
+# KAN-161 (U-02/U-03): every column of the vehicle list is sortable, and
+# each one is indexed — vehicle_number/vin/stammnummer since rev
+# 5c7e33d9cc78, the two statuses since rev a9d4c2e7f1b3. The statuses sort
+# by their stored code, not by the translated label the grid shows.
+VEHICLE_MDM_SORT_FIELDS: dict[str, object] = {
+    "vehicleNumber": VehicleMdm.vehicle_number,
+    "vin": VehicleMdm.vin,
+    "stammnummer": VehicleMdm.stammnummer,
+    "catalogueMatchStatus": VehicleMdm.catalogue_match_status,
+    "vehicleStatus": VehicleMdm.vehicle_status,
+}
+# Declared per grid (FR-UI-01). Vehicle numbers are allocated in creation
+# order, so this keeps the list's previous (created_at) order, on an index.
+_DEFAULT_VEHICLE_MDM_SORT = [
+    SortField(api_name="vehicleNumber", column=VehicleMdm.vehicle_number, direction="asc", nullable=False)
+]
 
 
 @router.get("/vehicle-mdm/search", response_model=VehicleSearchResult)
 def search_vehicles(
     q: str = "",
-    params: PageParams = Depends(page_params),
+    sort: str | None = Query(default=None, description="e.g. 'vin:asc,vehicleStatus:desc'"),
+    limit: int = Query(default=settings.pagination_default_limit, ge=1, le=settings.pagination_max_limit),
+    cursor: str | None = Query(default=None),
     principal: Principal = Depends(get_current_principal),
     db: Session = Depends(get_db),
 ):
@@ -44,29 +67,37 @@ def search_vehicles(
     picks. `resolved`/`pickerCandidates` are populated only when `q` looks
     like an identifier; otherwise `filtered` is the ordinary grid page and
     the other two are empty, exactly as if the user had typed a brand
-    fragment.
+    fragment. `sort`, the cursor and the count apply to `filtered` only.
     """
+
+    sort_fields = parse_sort(sort, allowed=VEHICLE_MDM_SORT_FIELDS) or _DEFAULT_VEHICLE_MDM_SORT
+    params = SortPageParams(limit=limit, cursor=decode_sort_cursor(cursor) if cursor else None, sort_fields=sort_fields)
 
     resolution = resolve_identifier(db, q) if q else None
     if resolution is not None:
-        rows, next_cursor = filter_vehicles(db, query=None, params=params)
+        rows, next_cursor, total, total_is_estimate = filter_vehicles(db, query=None, params=params)
         return VehicleSearchResult(
             resolved=VehicleMdmRead.model_validate(resolution.resolved, from_attributes=True)
             if resolution.resolved
             else None,
             picker_candidates=resolution.picker_candidates,
-            filtered=VehicleMdmPage(
-                items=[VehicleMdmRead.model_validate(v, from_attributes=True) for v in rows], next_cursor=next_cursor
-            ),
+            filtered=_page(rows, next_cursor, total, total_is_estimate),
         )
 
-    rows, next_cursor = filter_vehicles(db, query=q or None, params=params)
+    rows, next_cursor, total, total_is_estimate = filter_vehicles(db, query=q or None, params=params)
     return VehicleSearchResult(
         resolved=None,
         picker_candidates=[],
-        filtered=VehicleMdmPage(
-            items=[VehicleMdmRead.model_validate(v, from_attributes=True) for v in rows], next_cursor=next_cursor
-        ),
+        filtered=_page(rows, next_cursor, total, total_is_estimate),
+    )
+
+
+def _page(rows: list[VehicleMdm], next_cursor: str | None, total: int, total_is_estimate: bool) -> VehicleMdmPage:
+    return VehicleMdmPage(
+        items=[VehicleMdmRead.model_validate(v, from_attributes=True) for v in rows],
+        next_cursor=next_cursor,
+        total=total,
+        total_is_estimate=total_is_estimate,
     )
 
 

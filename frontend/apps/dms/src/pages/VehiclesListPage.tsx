@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Alert, Badge, Button, Group, Stack, Title } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
-import { useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery } from '@tanstack/react-query'
 import { AlertTriangle, Car, Copy, ExternalLink } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { ActionBar, DataGrid, Picker, SelectionBar, useSetBreadcrumb, type GridColumnDef, type SortSpec } from '@nexotec/ui-kit'
@@ -66,13 +66,24 @@ export function VehiclesListPage() {
   // screen doesn't own.
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
-  const searchQuery = useQuery({
-    queryKey: [GRID_KEY, debouncedQuery],
-    queryFn: () => api.get<VehicleSearchResult>(`/vehicle-mdm/search?q=${encodeURIComponent(debouncedQuery)}`),
+  // KAN-161 — sorted server-side and loaded page by page by cursor, like
+  // every other list grid. The identifier hit and the picker only ever
+  // come with the first page; later pages are grid rows only.
+  const sortParam = sort.length > 0 ? serializeSort(sort) : undefined
+  const searchQuery = useInfiniteQuery({
+    queryKey: [GRID_KEY, debouncedQuery, sortParam],
+    queryFn: ({ pageParam }: { pageParam: string | null }) => {
+      const params = new URLSearchParams({ q: debouncedQuery, limit: '50' })
+      if (sortParam) params.set('sort', sortParam)
+      if (pageParam) params.set('cursor', pageParam)
+      return api.get<VehicleSearchResult>(`/vehicle-mdm/search?${params.toString()}`)
+    },
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => lastPage.filtered.nextCursor,
   })
 
-  const result = searchQuery.data
-  const rows = result?.filtered.items ?? []
+  const result = searchQuery.data?.pages[0]
+  const rows = useMemo(() => searchQuery.data?.pages.flatMap((page) => page.filtered.items) ?? [], [searchQuery.data])
 
   const columns: GridColumnDef<VehicleMdmRead>[] = useMemo(
     () => [
@@ -80,13 +91,19 @@ export function VehiclesListPage() {
         id: 'vehicleNumber',
         header: t('vehiclesList.columns.vehicleNumber'),
         cell: ({ row }) => row.original.vehicleNumber,
-        meta: { pinned: 'left', mono: true },
+        meta: { sortField: 'vehicleNumber', pinned: 'left', mono: true },
       },
-      { id: 'vin', header: t('vehiclesList.columns.vin'), cell: ({ row }) => row.original.vin, meta: { mono: true } },
+      {
+        id: 'vin',
+        header: t('vehiclesList.columns.vin'),
+        cell: ({ row }) => row.original.vin,
+        meta: { sortField: 'vin', mono: true },
+      },
       {
         id: 'stammnummer',
         header: t('vehiclesList.columns.stammnummer'),
         cell: ({ row }) => row.original.stammnummer ?? <NotSet />,
+        meta: { sortField: 'stammnummer' },
       },
       {
         id: 'catalogueMatchStatus',
@@ -96,11 +113,13 @@ export function VehiclesListPage() {
             {t(`vehiclesList.matchStatus.${row.original.catalogueMatchStatus}`)}
           </Badge>
         ),
+        meta: { sortField: 'catalogueMatchStatus' },
       },
       {
         id: 'vehicleStatus',
         header: t('vehiclesList.columns.status'),
         cell: ({ row }) => <Badge variant="light">{t(`vehiclesList.status.${row.original.vehicleStatus}`)}</Badge>,
+        meta: { sortField: 'vehicleStatus' },
       },
     ],
     [t],
@@ -195,16 +214,18 @@ export function VehiclesListPage() {
         rowHref={(row) => `/vehicles/${row.id}`}
         selection={{ selectedIds, onSelectionChange: setSelectedIds }}
         loading={searchQuery.isLoading}
-        fetchingNextPage={false}
-        hasNextPage={false}
-        onLoadMore={() => {}}
+        refetching={searchQuery.isRefetching && !searchQuery.isLoading}
+        fetchingNextPage={searchQuery.isFetchingNextPage}
+        hasNextPage={Boolean(searchQuery.hasNextPage)}
+        onLoadMore={() => searchQuery.fetchNextPage()}
         error={searchQuery.isError ? t('vehiclesList.loadError') : null}
         onRetry={() => searchQuery.refetch()}
-        total={null}
-        totalIsEstimate={false}
+        total={result?.filtered.total ?? null}
+        totalIsEstimate={result?.filtered.totalIsEstimate ?? false}
         isFiltered={debouncedQuery.length > 0}
         labels={{
           showing: (count) => t('common.showing', { count }),
+          showingOfTotal: (count, totalStr) => t('common.showingOfTotal', { count, total: totalStr }),
           loadingMore: t('common.loadingMore'),
           retry: t('common.retry'),
           rowActionsLabel: t('common.rowActionsLabel'),
