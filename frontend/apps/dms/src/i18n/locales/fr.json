@@ -510,9 +510,15 @@
     },
     "resolveModal": {
       "title": "Résoudre l'écart de correspondance",
-      "listCode": "Code de liste canonique",
-      "valueCode": "Code de valeur canonique",
-      "confirm": "Résoudre"
+      "listCode": "Liste de référence",
+      "valueCode": "Valeur canonique",
+      "confirm": "Résoudre",
+      "valuePlaceholder": "Choisir une valeur",
+      "noValues": "Aucune valeur correspondante",
+      "valuesLoadError": "Les valeurs de cette liste n'ont pas pu être chargées.",
+      "error": "L'écart n'a pas pu être résolu.",
+      "gapKey": "Fournisseur · type de véhicule · code",
+      "noList": "Le groupe de codes « {{codeGroup}} » n'a pas de liste de référence ; cet écart ne pourra être résolu qu'une fois la liste créée."
     }
   },
   "vehiclesList": {
@@ -1258,6 +1264,17 @@
       "status": "Statut",
       "stale": "Obsolète",
       "healthy": "À jour",
+      "pending": "Variantes en attente",
+      "pendingCount_one": "{{count, number}} en attente",
+      "pendingCount_other": "{{count, number}} en attente",
+      "pendingField": {
+        "master_data": "données de base",
+        "options": "options",
+        "colours": "couleurs",
+        "tyre_specs": "pneus",
+        "images": "images",
+        "not_attempted": "non tenté"
+      },
       "emptyState": {
         "title": "Aucune synchronisation du catalogue",
         "description": "Aucun garage n'a encore synchronisé de miroir de catalogue."

@@ -510,9 +510,15 @@
     },
     "resolveModal": {
       "title": "Resolve mapping gap",
-      "listCode": "Canonical list code",
-      "valueCode": "Canonical value code",
-      "confirm": "Resolve"
+      "listCode": "Reference list",
+      "valueCode": "Canonical value",
+      "confirm": "Resolve",
+      "valuePlaceholder": "Choose a value",
+      "noValues": "No matching value",
+      "valuesLoadError": "The values of this list could not be loaded.",
+      "error": "The gap could not be resolved.",
+      "gapKey": "Provider · vehicle kind · code",
+      "noList": "The code group '{{codeGroup}}' has no reference list, so this gap cannot be resolved until one exists."
     }
   },
   "vehiclesList": {
@@ -1258,6 +1264,17 @@
       "status": "Status",
       "stale": "Stale",
       "healthy": "Healthy",
+      "pending": "Pending variants",
+      "pendingCount_one": "{{count, number}} pending",
+      "pendingCount_other": "{{count, number}} pending",
+      "pendingField": {
+        "master_data": "master data",
+        "options": "options",
+        "colours": "colours",
+        "tyre_specs": "tyres",
+        "images": "images",
+        "not_attempted": "not attempted"
+      },
       "emptyState": {
         "title": "No catalogue sync yet",
         "description": "No tenant has synced a catalogue mirror yet."

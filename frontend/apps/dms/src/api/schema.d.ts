@@ -2786,6 +2786,8 @@ export interface components {
             lastSystemCheckedAt: string | null;
             /** Lastsystemwatermarkdate */
             lastSystemWatermarkDate: string | null;
+            /** Pendingfzkeys */
+            pendingFzKeys: components["schemas"]["PendingFzKeyRead"][];
             /** Providercode */
             providerCode: string;
             /** Stale */
@@ -5306,6 +5308,28 @@ export interface components {
          * @enum {string}
          */
         PaymentTerms: "prepayment" | "net_10" | "net_30" | "net_60" | "on_delivery";
+        /**
+         * PendingFzKeyRead
+         * @description KAN-78: one FzKey the last sync run did not sync in full. `field` is
+         *     the provider call it failed on, or `not_attempted` when the circuit had
+         *     opened; `error` is an exception class name, never a provider message.
+         */
+        PendingFzKeyRead: {
+            /** Error */
+            error: string;
+            /**
+             * Failedat
+             * Format: date-time
+             */
+            failedAt: string;
+            /**
+             * Field
+             * @enum {string}
+             */
+            field: "master_data" | "options" | "colours" | "tyre_specs" | "images" | "not_attempted";
+            /** Fzkey */
+            fzKey: string;
+        };
         /**
          * PhoneType
          * @description Remapped in WP-3 PR-5 (ADR-067): MOBILE unchanged, PRIVATE->LANDLINE,

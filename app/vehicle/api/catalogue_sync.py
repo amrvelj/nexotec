@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import Principal, require_access_role
 from app.db import get_db
-from app.vehicle.schemas.catalogue_sync import CatalogueSyncStatusRead
+from app.vehicle.schemas.catalogue_sync import CatalogueSyncStatusRead, PendingFzKeyRead
 from app.vehicle.services import catalogue_sync as catalogue_sync_service
 
 router = APIRouter(tags=["vehicle-mdm"])
@@ -36,6 +36,7 @@ def list_catalogue_sync_status(
             last_delta_cursor=state.last_delta_cursor,
             last_system_watermark_date=state.last_system_watermark_date,
             last_system_checked_at=state.last_system_checked_at,
+            pending_fz_keys=[PendingFzKeyRead.model_validate(entry) for entry in state.pending_fz_keys],
             stale=catalogue_sync_service.compute_sync_age_alarm(state, today=today),
         )
         for state in states

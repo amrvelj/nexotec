@@ -97,10 +97,12 @@ def list_mapping_gaps(db: Session, *, resolved: bool | None, params: PageParams)
 def resolve_gap(
     db: Session, *, gap: MappingGap, canonical_list_code: str, canonical_value_code: str, actor_id: uuid.UUID
 ) -> MappingGap:
-    gap = resolve_mapping_gap(
+    changed = resolve_mapping_gap(
         db, gap=gap, canonical_list_code=canonical_list_code, canonical_value_code=canonical_value_code,
         actor_id=actor_id,
     )
+    if not changed:
+        return gap  # a repeat of a resolve that already happened — no second audit row
     record_audit_event(
         db, entity_type="vehicle_mapping_gap", entity_id=gap.id, tenant_id=None, action="resolve", actor_id=actor_id,
         after={

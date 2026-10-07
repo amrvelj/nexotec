@@ -510,9 +510,15 @@
     },
     "resolveModal": {
       "title": "Risolvi lacuna di mappatura",
-      "listCode": "Codice lista canonico",
-      "valueCode": "Codice valore canonico",
-      "confirm": "Risolvi"
+      "listCode": "Lista di riferimento",
+      "valueCode": "Valore canonico",
+      "confirm": "Risolvi",
+      "valuePlaceholder": "Scegli un valore",
+      "noValues": "Nessun valore corrispondente",
+      "valuesLoadError": "Impossibile caricare i valori di questa lista.",
+      "error": "Impossibile risolvere la lacuna.",
+      "gapKey": "Fornitore · tipo di veicolo · codice",
+      "noList": "Il gruppo di codici «{{codeGroup}}» non ha una lista di riferimento: questa lacuna potrà essere risolta solo quando ne esisterà una."
     }
   },
   "vehiclesList": {
@@ -1258,6 +1264,17 @@
       "status": "Stato",
       "stale": "Obsoleto",
       "healthy": "Aggiornato",
+      "pending": "Varianti in sospeso",
+      "pendingCount_one": "{{count, number}} in sospeso",
+      "pendingCount_other": "{{count, number}} in sospeso",
+      "pendingField": {
+        "master_data": "dati di base",
+        "options": "opzioni",
+        "colours": "colori",
+        "tyre_specs": "pneumatici",
+        "images": "immagini",
+        "not_attempted": "non tentato"
+      },
       "emptyState": {
         "title": "Nessuna sincronizzazione del catalogo",
         "description": "Nessun concessionario ha ancora sincronizzato un mirror del catalogo."

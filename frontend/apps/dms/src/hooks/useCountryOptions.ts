@@ -1,42 +1,12 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { api } from '../api/client'
-import type { ReferenceValuePage, ReferenceValueRead } from '../api/types'
-import { SUPPORTED_LANGUAGES, type SupportedLanguage } from '../i18n'
+import { fetchActiveReferenceValues, LABEL_FIELD, resolveLanguage } from './useReferenceValueOptions'
 
 /** `{ value, label }` for a Mantine `Select` / the customer `SelectField`. */
 export interface CountryOption {
   value: string
   label: string
-}
-
-const LABEL_FIELD: Record<SupportedLanguage, 'labelDe' | 'labelFr' | 'labelIt' | 'labelEn'> = {
-  de: 'labelDe',
-  fr: 'labelFr',
-  it: 'labelIt',
-  en: 'labelEn',
-}
-
-// The `country` reference list is ~250 rows and the list endpoint caps a
-// page at 100 (Settings.pagination_max_limit), so walk the cursor. It
-// changes essentially never — one long-lived cache entry, shared by the
-// create wizard and every customer detail screen.
-async function fetchActiveCountries(): Promise<ReferenceValueRead[]> {
-  const rows: ReferenceValueRead[] = []
-  let cursor: string | null = null
-  do {
-    const params = new URLSearchParams({ active: 'true', limit: '100' })
-    if (cursor) params.set('cursor', cursor)
-    const page = await api.get<ReferenceValuePage>(`/reference-data/country?${params.toString()}`)
-    rows.push(...page.items)
-    cursor = page.nextCursor
-  } while (cursor)
-  return rows
-}
-
-function resolveLanguage(raw: string): SupportedLanguage {
-  return (SUPPORTED_LANGUAGES as readonly string[]).includes(raw) ? (raw as SupportedLanguage) : 'en'
 }
 
 /**
@@ -58,7 +28,9 @@ export function useCountryOptions(): {
 
   const query = useQuery({
     queryKey: ['reference-data', 'country', 'active'],
-    queryFn: fetchActiveCountries,
+    // ~250 rows; it changes essentially never — one long-lived cache entry,
+    // shared by the create wizard and every customer detail screen.
+    queryFn: () => fetchActiveReferenceValues('country'),
     staleTime: 60 * 60 * 1000,
     gcTime: 24 * 60 * 60 * 1000,
   })

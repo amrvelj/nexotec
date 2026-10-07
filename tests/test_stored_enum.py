@@ -1,4 +1,4 @@
-"""StoredEnum (app/core/enum_type.py), KAN-86 step 1: decoding, encoding and
+"""StoredEnum (app/core/enum_type.py), KAN-86 steps 1 and 2: decoding, encoding and
 the widened comparisons, on a throwaway table so no model's vocabulary is
 involved.
 
@@ -26,6 +26,12 @@ class Shade(str, enum.Enum):
 
     DARK_RED = "dark_red"
     BLUE = "blue"
+
+
+class Tint(str, enum.Enum):
+    """A member NAME Colour has, with a value Colour does not."""
+
+    BLUE = "azure"
 
 
 _metadata = MetaData()
@@ -58,8 +64,8 @@ def test_reading_and_writing(paint):
         rows = dict(conn.execute(select(_paint.c.id, _paint.c.colour)).all())
     assert rows == {1: Colour.DARK_RED, 2: Colour.DARK_RED, 3: Colour.BLUE, 4: None}
 
-    # A write stores the member NAME, from a member, either string form, or
-    # another class's member with the same value.
+    # A write stores the .value (KAN-86 step 2), from a member, either
+    # string form, or another class's member with the same value.
     with paint.begin() as conn:
         conn.execute(
             insert(_paint),
@@ -67,7 +73,7 @@ def test_reading_and_writing(paint):
         )
     with paint.connect() as conn:
         stored = dict(conn.execute(text("SELECT id, colour FROM kan86_paint WHERE id IN (6, 7, 9)")).all())
-    assert stored == {6: "BLUE", 7: "DARK_RED", 9: "BLUE"}
+    assert stored == {6: "blue", 7: "dark_red", 9: "blue"}
 
     # Writing an unknown string is refused.
     with paint.begin() as conn, pytest.raises(StatementError, match="'GREEN' is not among"):
@@ -118,3 +124,14 @@ def test_an_ambiguous_vocabulary_is_refused():
 
     with pytest.raises(TypeError, match="'B' names two different members"):
         StoredEnum(Clash, length=8)
+
+
+def test_another_classs_member_resolves_by_its_value_never_by_its_name():
+    """As sqlalchemy.Enum did. Tint.BLUE is 'azure': matching it to
+    Colour.BLUE by name would write a colour nobody chose."""
+
+    column_type = StoredEnum(Colour, length=16)
+
+    assert column_type.process_bind_param(Shade.BLUE, None) == "blue"
+    with pytest.raises(LookupError, match="is not among the defined enum values"):
+        column_type.process_bind_param(Tint.BLUE, None)
