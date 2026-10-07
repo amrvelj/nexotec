@@ -20,7 +20,7 @@ function LocationProbe() {
 const EMPTY_RESULT: VehicleSearchResult = {
   resolved: null,
   pickerCandidates: [],
-  filtered: { items: [], nextCursor: null },
+  filtered: { items: [], nextCursor: null, total: 0, totalIsEstimate: false },
 }
 
 function renderAt(route: string) {

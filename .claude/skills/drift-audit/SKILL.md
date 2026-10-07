@@ -50,7 +50,7 @@ For `CLAUDE.md` and every file in `.claude/rules/`:
 
 ## 4. The setup itself
 
-`python3 .claude/hooks/nexotec_hooks.py cli selftest` passes; `CLAUDE.md` is under 200 lines;
+`python3 .claude/hooks/nexotec_hooks.py cli selftest` passes; `CLAUDE.md` is at most 200 lines;
 every rule file has only `paths` in its frontmatter.
 
 ## Output

@@ -86,10 +86,14 @@ class VehicleMdm(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
         StoredEnum(CatalogueMatchStatus, length=16),
         nullable=False,
         default=CatalogueMatchStatus.UNVERIFIED,
+        index=True,  # KAN-161: a vehicle-list sort key (U-03)
     )
 
     vehicle_status: Mapped[VehicleStatus] = mapped_column(
-        StoredEnum(VehicleStatus, length=16), nullable=False, default=VehicleStatus.ACTIVE
+        StoredEnum(VehicleStatus, length=16),
+        nullable=False,
+        default=VehicleStatus.ACTIVE,
+        index=True,  # KAN-161: a vehicle-list sort key (U-03)
     )
 
     # Provenance of a one-way PR-7 migration — permanently retained per

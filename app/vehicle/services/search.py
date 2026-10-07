@@ -10,7 +10,8 @@ from dataclasses import dataclass
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from app.core.pagination import PageParams, build_page, paginate_query
+from app.core.config import get_settings
+from app.core.pagination import SortPageParams, build_sorted_page, count_capped, paginate_query_sorted
 from app.vehicle.models.vehicle_mdm import VehicleMdm
 from app.vehicle.schemas.vehicle_mdm import VehiclePickerCandidate
 from app.vehicle.services.plate import resolve_plate
@@ -92,18 +93,25 @@ def _vin(db: Session, vehicle_id: uuid.UUID) -> str:
     return vehicle.vin if vehicle else ""
 
 
-def filter_vehicles(db: Session, *, query: str | None, params: PageParams) -> tuple[list[VehicleMdm], str | None]:
+def filter_vehicles(
+    db: Session, *, query: str | None, params: SortPageParams
+) -> tuple[list[VehicleMdm], str | None, int, bool]:
     """The ordinary grid filter path — anything that didn't resolve as an
     identifier. Filters on the vehicle's own fields only; filtering by
     brand/model/variant name is FR-V-01's catalogue search, a distinct
     surface from this list per the PRD's own module split, not folded in
     here.
+
+    Returns (page, next_cursor, total, total_is_estimate): sorted by the
+    caller's sort fields (KAN-161) and counted before the page is cut.
     """
 
     stmt = select(VehicleMdm).where(VehicleMdm.merged_into_vehicle_id.is_(None))
     if query:
         like = f"%{query}%"
         stmt = stmt.where(or_(VehicleMdm.vin.ilike(like), VehicleMdm.vehicle_number.ilike(like)))
-    stmt = paginate_query(stmt, model=VehicleMdm, params=params)
+    total, total_is_estimate = count_capped(db, stmt, threshold=get_settings().count_exact_threshold)
+    stmt = paginate_query_sorted(stmt, model=VehicleMdm, params=params)
     rows = list(db.scalars(stmt).all())
-    return build_page(rows, params)
+    page, next_cursor = build_sorted_page(rows, params)
+    return page, next_cursor, total, total_is_estimate

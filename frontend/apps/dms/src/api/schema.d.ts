@@ -2006,7 +2006,7 @@ export interface paths {
          *     picks. `resolved`/`pickerCandidates` are populated only when `q` looks
          *     like an identifier; otherwise `filtered` is the ordinary grid page and
          *     the other two are empty, exactly as if the user had typed a brand
-         *     fragment.
+         *     fragment. `sort`, the cursor and the count apply to `filtered` only.
          */
         get: operations["search_vehicles_v1_vehicle_mdm_search_get"];
         put?: never;
@@ -6259,6 +6259,10 @@ export interface components {
             items: components["schemas"]["VehicleMdmRead"][];
             /** Nextcursor */
             nextCursor: string | null;
+            /** Total */
+            total: number;
+            /** Totalisestimate */
+            totalIsEstimate: boolean;
         };
         /** VehicleMdmRead */
         VehicleMdmRead: {
@@ -12269,6 +12273,8 @@ export interface operations {
         parameters: {
             query?: {
                 q?: string;
+                /** @description e.g. 'vin:asc,vehicleStatus:desc' */
+                sort?: string | null;
                 limit?: number;
                 cursor?: string | null;
             };

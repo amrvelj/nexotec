@@ -70,6 +70,10 @@ class VehicleMdmCreateResult(CamelModel):
 class VehicleMdmPage(CamelModel):
     items: list[VehicleMdmRead]
     next_cursor: str | None
+    # KAN-161 (U-07): the grid footer's count — exact up to
+    # count_exact_threshold, an estimate above it.
+    total: int
+    total_is_estimate: bool
 
 
 class VehiclePickerCandidate(CamelModel):
