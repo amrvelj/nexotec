@@ -24,7 +24,7 @@ KAN-175 sweeps.
   inverse; step-1 code reads both either way.
 
 Revision ID: 63b0d0b20fab
-Revises: 6d2a8f4c1e95
+Revises: d652c2e3627a
 Create Date: 2026-10-07 00:00:00.000000
 
 """
@@ -36,7 +36,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "63b0d0b20fab"
-down_revision: Union[str, Sequence[str], None] = "6d2a8f4c1e95"
+down_revision: Union[str, Sequence[str], None] = "d652c2e3627a"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
