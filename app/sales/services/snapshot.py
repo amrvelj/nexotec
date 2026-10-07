@@ -11,16 +11,20 @@ from app.core.base import utcnow
 from app.inventory.public import get_stock_item_pricing
 from app.sales.models.line_item import LineItemKind, SalesLineItem
 from app.sales.models.offer import SalesOffer
+from app.vehicle.public import HostConfiguration, get_configuration_for_host
 
 
-def _vehicle_identity(offer: SalesOffer) -> str | None:
+def _vehicle_identity(offer: SalesOffer, configuration: HostConfiguration | None) -> str | None:
     """What "the same vehicle" means for re-freeze purposes — a different
-    stock item, or edited manual details, are both a genuine vehicle
-    change; anything else re-running this function is a no-op.
+    stock item, edited manual details, or (C-F) a different configuration
+    or a new version of the same one, are all a genuine vehicle change;
+    anything else re-running this function is a no-op.
     """
 
     if offer.vehicle_source == "stock" and offer.stock_item_id is not None:
         return f"stock:{offer.stock_item_id}"
+    if configuration is not None:
+        return f"configuration:{configuration.id}:{configuration.version}"
     if offer.vehicle_source == "manual" and offer.vehicle_label is not None:
         return f"manual:{offer.vehicle_label}:{offer.manual_vehicle_condition}"
     return None
@@ -35,7 +39,12 @@ def freeze_vehicle_snapshot(db: Session, *, offer: SalesOffer) -> bool:
     last freeze. Returns True iff it froze/re-froze.
     """
 
-    identity = _vehicle_identity(offer)
+    configuration = None
+    if offer.vehicle_source == "manual" and offer.configuration_id is not None:
+        configuration = get_configuration_for_host(
+            db, tenant_id=offer.tenant_id, configuration_id=offer.configuration_id
+        )
+    identity = _vehicle_identity(offer, configuration)
     if identity is None:
         return False
 
@@ -86,6 +95,43 @@ def freeze_vehicle_snapshot(db: Session, *, offer: SalesOffer) -> bool:
                     code=option["code"],
                     label=option["label"],
                     unit_price=Decimal(option["price"]),
+                    quantity=1,
+                    included=True,
+                    position=position,
+                )
+            )
+    elif configuration is not None:
+        # C-F (KAN-10, FR-C-12) — Path B through the configurator. The
+        # configuration's price lines (selected options, colour and wheels
+        # surcharges; FR-C-03) become this offer's factory-option lines,
+        # which build_up() sums and the document itemises; the base price
+        # was prefilled into manual_base_price when it was attached. The
+        # ADR-071 specification block is frozen here — its third carrier.
+        # Still no stock item and no known cost (S-D09/ADR-045).
+        snapshot = {
+            "_identity": identity,
+            "vehicleLabel": offer.vehicle_label,
+            "condition": offer.manual_vehicle_condition,
+            "configurationId": str(configuration.id),
+            "configurationVersion": configuration.version,
+            "basePrice": None,
+            "basePriceYear": configuration.base_price_year,
+            "purchasePrice": None,
+            "landedCost": None,
+            "notionalInputTaxApplicable": None,
+            "notionalInputTaxRate": None,
+            "notionalInputTaxAmount": None,
+            "spec": configuration.spec,
+        }
+        for position, line in enumerate(configuration.price_lines):
+            db.add(
+                SalesLineItem(
+                    tenant_id=offer.tenant_id,
+                    offer_id=offer.id,
+                    kind=LineItemKind.FACTORY_OPTION,
+                    code=line.code or line.kind,
+                    label=line.label[:200],
+                    unit_price=line.price,
                     quantity=1,
                     included=True,
                     position=position,

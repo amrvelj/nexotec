@@ -9,6 +9,7 @@ Tenant-scoped (ADR-013): every read is filtered by `principal.tenant_id`
 and a cross-tenant id is **404, never 403** (rule 7).
 """
 
+import dataclasses
 import uuid
 
 from fastapi import APIRouter, Depends, Header, Request
@@ -26,9 +27,12 @@ from app.vehicle.schemas.configuration import (
     ConfigurationOptionsReplace,
     ConfigurationRead,
     ConfigurationUpdate,
+    ResyncFieldRead,
+    ResyncRequest,
 )
 from app.vehicle.schemas.spec_block import VehicleSpecBlockRead
 from app.vehicle.services import configuration as configuration_service
+from app.vehicle.services import configuration_host
 
 router = APIRouter(tags=["configuration"])
 
@@ -156,4 +160,59 @@ def replace_options(
     config = configuration_service.replace_options(
         db, configuration=config, actor_id=principal.user_id, options=body.options
     )
+    return _read(config)
+
+
+# --- C-F (KAN-10) ------------------------------------------------------------
+
+
+@router.get("/vehicle-mdm/{vehicle_id}/configuration", response_model=ConfigurationRead)
+def get_vehicle_configuration(
+    vehicle_id: uuid.UUID,
+    principal: Principal = Depends(get_current_principal),
+    db: Session = Depends(get_db),
+):
+    """FR-C-15 — Vehicle 360's Specification tab: this tenant's newest
+    configuration linked to the vehicle, read-only. Customer 360 reaches it
+    through the vehicle (this route), never through a customer: a
+    configuration has no customer, and giving it one would compete with
+    `VehicleParty`. 404 when this tenant holds none."""
+
+    config = configuration_host.find_configuration_for_vehicle(
+        db, tenant_id=principal.tenant_id, vehicle_id=vehicle_id
+    )
+    return _read(config)
+
+
+@router.get("/configurations/{configuration_id}/resync", response_model=list[ResyncFieldRead])
+def preview_resync(
+    configuration_id: uuid.UUID,
+    principal: Principal = Depends(require_write("configurations")),
+    db: Session = Depends(get_db),
+):
+    """FR-C-16 — what re-syncing from the catalogue would change, field by
+    field, with the advisor's overrides marked. Changes nothing."""
+
+    config = configuration_service.get_configuration_or_404(
+        db, tenant_id=principal.tenant_id, configuration_id=configuration_id
+    )
+    return [ResyncFieldRead.model_validate(dataclasses.asdict(f)) for f in configuration_host.preview_resync(db, configuration=config)]
+
+
+@router.patch("/configurations/{configuration_id}/resync", response_model=ConfigurationRead)
+def apply_resync(
+    configuration_id: uuid.UUID,
+    body: ResyncRequest,
+    if_match: int = Depends(require_if_match),
+    principal: Principal = Depends(require_write("configurations")),
+    db: Session = Depends(get_db),
+):
+    """FR-C-16 — applies exactly the fields the advisor chose. Never
+    automatic: nothing else in the system calls this."""
+
+    config = configuration_service.get_configuration_or_404(
+        db, tenant_id=principal.tenant_id, configuration_id=configuration_id
+    )
+    check_version(config.version, if_match, entity_name="VehicleConfiguration")
+    config = configuration_host.apply_resync(db, configuration=config, actor_id=principal.user_id, fields=body.fields)
     return _read(config)

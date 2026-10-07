@@ -75,6 +75,18 @@ class Valuation(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMix
     vehicle_first_registration: Mapped[dt.date | None] = mapped_column(Date(), nullable=True)
     mileage: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
+    # C-F (KAN-10, FR-C-14 amending FR-V-17) — the `record`-mode
+    # configuration this valuation was captured from. A valuation made this
+    # way creates **no vehicle-mdm record** (ADR-070); `vehicle_id` is set
+    # only when the configuration already links an existing vehicle.
+    # Three-column pattern, no FK (rule 2).
+    configuration_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(), nullable=True, index=True,
+        comment="Owned by the vehicle context (VehicleConfiguration.id). No DB-level FK.",
+    )
+    configuration_label: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    configuration_label_refreshed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+
     # Null = "Ohne Kunde" (confirmed live filter chip — the standalone
     # application's own unattached case, FR-V-17).
     customer_id: Mapped[uuid.UUID | None] = mapped_column(

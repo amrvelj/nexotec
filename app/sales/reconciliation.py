@@ -7,7 +7,8 @@ each stock item Stock holds as purchased (is_invoiceable) has its replica
 row — a purchase Sales never learned of (an event lost, or a purchase
 written without one) would otherwise leave the car un-invoiceable in Sales
 with no alarm. A confirmed manual configuration still not linked to its
-pipeline stock item (KAN-144) is reported too. sales_contract's own references
+pipeline stock item (KAN-144) is reported too, and (C-F, KAN-10) every configuration an offer or a
+contract references must exist. Otherwise sales_contract's own references
 are not checked yet (KAN-145); a replica row whose purchase Stock reversed cannot exist until
 Stock emits storno (KAN-146).
 """
@@ -22,9 +23,10 @@ from app.customer.public import Customer
 from app.inventory.public import StockItem
 from app.platform.public import Dealership, User
 from app.sales.models.contract import ContractStatus, SalesContract
+from app.sales.models.offer import SalesOffer
 from app.sales.models.stock_item_purchase import SalesStockItemPurchase
 from app.sales.models.transaction import Transaction
-from app.vehicle.public import Vehicle
+from app.vehicle.public import Vehicle, VehicleConfiguration
 
 CONTEXT = "sales"
 
@@ -95,6 +97,46 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         & (SalesContract.status == ContractStatus.CONFIRMED)
         & SalesContract.stock_item_id.is_(None)
         & (SalesContract.signed_at < utcnow() - _OUTBOX_LAG_GRACE),
+    ),
+    # C-F (KAN-10): the configuration it was built or captured in.
+    ReferenceCheck(
+        label="sales_offer.configuration_id -> vehicle_configuration.id",
+        source_model=SalesOffer,
+        source_row_id_column=SalesOffer.id,
+        source_fk_column=SalesOffer.configuration_id,
+        target_model=VehicleConfiguration,
+        target_id_column=VehicleConfiguration.id,
+        nullable=True,
+    ),
+    # C-F (KAN-10): the configuration it was built or captured in.
+    ReferenceCheck(
+        label="sales_offer.trade_in_configuration_id -> vehicle_configuration.id",
+        source_model=SalesOffer,
+        source_row_id_column=SalesOffer.id,
+        source_fk_column=SalesOffer.trade_in_configuration_id,
+        target_model=VehicleConfiguration,
+        target_id_column=VehicleConfiguration.id,
+        nullable=True,
+    ),
+    # C-F (KAN-10): the configuration it was built or captured in.
+    ReferenceCheck(
+        label="sales_contract.configuration_id -> vehicle_configuration.id",
+        source_model=SalesContract,
+        source_row_id_column=SalesContract.id,
+        source_fk_column=SalesContract.configuration_id,
+        target_model=VehicleConfiguration,
+        target_id_column=VehicleConfiguration.id,
+        nullable=True,
+    ),
+    # C-F (KAN-10): the configuration it was built or captured in.
+    ReferenceCheck(
+        label="sales_contract.trade_in_configuration_id -> vehicle_configuration.id",
+        source_model=SalesContract,
+        source_row_id_column=SalesContract.id,
+        source_fk_column=SalesContract.trade_in_configuration_id,
+        target_model=VehicleConfiguration,
+        target_id_column=VehicleConfiguration.id,
+        nullable=True,
     ),
 ]
 

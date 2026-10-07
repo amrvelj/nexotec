@@ -20,6 +20,7 @@ from app.sales.services.deal_projection import upsert_deal_projection
 from app.sales.services.numbering import allocate_offer_number
 from app.sales.services.pricing import apply_build_up
 from app.sales.services.snapshot import freeze_vehicle_snapshot
+from app.vehicle.public import CONFIGURATION_MODE_BUILD, get_configuration_for_host
 
 _EVENT_PRODUCER = "sales"
 
@@ -180,6 +181,12 @@ def update_offer(
             # dropped).
             offer.customer_denorm_refreshed_at = utcnow()
 
+    if "configuration_id" in changes:
+        _attach_configuration(db, offer=offer, configuration_id=changes.pop("configuration_id"), changes=changes)
+    elif changes.get("vehicle_source") == "stock":
+        # Path A replaces Path B — a stock car carries no configuration.
+        _clear_configuration(offer)
+
     for field, value in changes.items():
         setattr(offer, field, value)
 
@@ -201,6 +208,45 @@ def update_offer(
     db.commit()
     db.refresh(offer)
     return offer
+
+
+def _clear_configuration(offer: SalesOffer) -> None:
+    offer.configuration_id = None
+    offer.configuration_label = None
+    offer.configuration_label_refreshed_at = None
+
+
+def _attach_configuration(
+    db: Session, *, offer: SalesOffer, configuration_id: uuid.UUID | None, changes: dict
+) -> None:
+    """FR-C-12 — Path B's configurator hands back a configuration id. The
+    offer workspace accepts **`build` mode only** (PRD v1.4): a used car
+    being sold comes from stock through Path A, and a trade-in goes through
+    the valuation path. A `record` configuration here is a 422, so the mode
+    matrix holds at the API, not only in the overlay.
+
+    Attaching makes the vehicle container a configuration (`manual`, no
+    stock item), labels it, and prefills the base price from the
+    configuration unless this PATCH sets one. The option and surcharge
+    price lines arrive with the snapshot freeze that follows.
+    """
+
+    if configuration_id is None:
+        _clear_configuration(offer)
+        return
+    host = get_configuration_for_host(db, tenant_id=offer.tenant_id, configuration_id=configuration_id)
+    host.require_mode(host="offer workspace", allowed=(CONFIGURATION_MODE_BUILD,))
+    offer.configuration_id = host.id
+    offer.configuration_label = host.label
+    offer.configuration_label_refreshed_at = utcnow()
+    offer.vehicle_source = "manual"
+    offer.stock_item_id = None
+    offer.vehicle_label = host.label
+    offer.manual_vehicle_condition = "new"
+    for field in ("vehicle_source", "stock_item_id", "vehicle_label", "manual_vehicle_condition"):
+        changes.pop(field, None)
+    if "manual_base_price" not in changes:
+        offer.manual_base_price = host.base_price
 
 
 def copy_offer(db: Session, *, source: SalesOffer, actor_id: uuid.UUID | None) -> SalesOffer:

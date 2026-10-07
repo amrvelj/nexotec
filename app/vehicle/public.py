@@ -8,6 +8,7 @@ import uuid
 
 from sqlalchemy.orm import Session
 
+from app.vehicle.models.configuration import VehicleConfiguration
 from app.vehicle.models.spec_block import (
     SPEC_BLOCK_ALL_FIELDS,
     spec_block_as_dict,
@@ -21,6 +22,13 @@ from app.vehicle.services.catalogue_sync import (
     check_sync_age_alarm_for_tenant,
     run_daily_delta_for_tenant,
     seed_tenant_catalogue,
+)
+from app.vehicle.services.host_configuration import BUILD as CONFIGURATION_MODE_BUILD
+from app.vehicle.services.host_configuration import RECORD as CONFIGURATION_MODE_RECORD
+from app.vehicle.services.host_configuration import (
+    ConfigurationModeNotAllowedError,
+    ConfigurationPriceLine,
+    HostConfiguration,
 )
 from app.vehicle.services.plate_lookup_cache import purge_expired_plate_lookups
 from app.vehicle.services.vehicle import create_custody_event, get_vehicle_or_404
@@ -129,6 +137,19 @@ def match_vehicle(
     )
 
 
+def get_configuration_for_host(
+    db: Session, *, tenant_id: uuid.UUID, configuration_id: uuid.UUID
+) -> HostConfiguration:
+    """C-F (KAN-10) — what an offer, a stock item or a valuation reads from
+    the configuration it stores. 404 for another tenant's configuration.
+    Deferred import: `configuration_host` reaches `services.vehicle_mdm`,
+    the cycle described above `get_vehicle_mdm_or_404`."""
+
+    from app.vehicle.services.configuration_host import get_configuration_for_host as _get
+
+    return _get(db, tenant_id=tenant_id, configuration_id=configuration_id)
+
+
 def run_daily_plate_lookup_purge(db: Session) -> None:
     """KAN-42 (C-D) — the daily job that deletes plate-lookup cache rows past
     their TTL (`app.vehicle.services.plate_lookup_cache`). Registered in
@@ -140,16 +161,23 @@ def run_daily_plate_lookup_purge(db: Session) -> None:
 
 
 __all__ = [
+    "CONFIGURATION_MODE_BUILD",
+    "CONFIGURATION_MODE_RECORD",
     "SPEC_BLOCK_ALL_FIELDS",
+    "ConfigurationModeNotAllowedError",
+    "ConfigurationPriceLine",
     "CustodyEventType",
+    "HostConfiguration",
     "NoVehicleDataConnectionError",
     "SyncResult",
     "Vehicle",
+    "VehicleConfiguration",
     "VehicleMdm",
     "VehicleStatus",
     "check_sync_age_alarm_for_tenant",
     "create_custody_event",
     "create_or_get_vehicle_mdm",
+    "get_configuration_for_host",
     "get_vehicle_equipment",
     "get_vehicle_mdm_or_404",
     "get_vehicle_or_404",

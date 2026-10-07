@@ -137,3 +137,17 @@ class ConfigurationRead(CamelModel):
     version: int
     created_at: dt.datetime
     updated_at: dt.datetime
+
+
+class ResyncFieldRead(CamelModel):
+    """FR-C-16 — one field on which the catalogue now disagrees. Values are
+    rendered as strings or numbers exactly as stored."""
+
+    field: str
+    current: str | int | float | bool | None
+    catalogue: str | int | float | bool | None
+    overridden: bool
+
+
+class ResyncRequest(CamelModel):
+    fields: list[str] = Field(min_length=1)

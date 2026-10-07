@@ -111,6 +111,9 @@ def create_contract(
         stock_item_id=offer.stock_item_id if offer is not None else None,
         vehicle_label=offer.vehicle_label if offer is not None else None,
         manual_vehicle_condition=offer.manual_vehicle_condition if offer is not None else None,
+        configuration_id=offer.configuration_id if offer is not None else None,
+        configuration_label=offer.configuration_label if offer is not None else None,
+        configuration_label_refreshed_at=offer.configuration_label_refreshed_at if offer is not None else None,
         base_price=offer.base_price if offer is not None else None,
         options_total=offer.options_total if offer is not None else None,
         list_price=offer.list_price if offer is not None else None,
@@ -121,6 +124,10 @@ def create_contract(
         trade_in_vehicle_id=offer.trade_in_vehicle_id if offer is not None else None,
         trade_in_label=offer.trade_in_label if offer is not None else None,
         trade_in_vin=offer.trade_in_vin if offer is not None else None,
+        trade_in_configuration_id=offer.trade_in_configuration_id if offer is not None else None,
+        trade_in_configuration_label_refreshed_at=(
+            offer.trade_in_configuration_label_refreshed_at if offer is not None else None
+        ),
         trade_in_valuation_id=offer.trade_in_valuation_id if offer is not None else None,
         trade_in_value=offer.trade_in_value if offer is not None else None,
         trade_in_purchase_price=offer.trade_in_purchase_price if offer is not None else None,
@@ -198,12 +205,22 @@ def _confirmed_event_payload(contract: SalesContract) -> dict:
     manual_configuration = None
     if contract.vehicle_source == "manual":
         manual_configuration = {"vehicleLabel": contract.vehicle_label, "condition": contract.manual_vehicle_condition}
+        if contract.configuration_id is not None:
+            # C-F (KAN-10, FR-C-12) — additive: inventory carries it onto
+            # the pipeline stock item it creates. No vehicle-mdm record is
+            # written for it (ADR-070).
+            manual_configuration["configurationId"] = str(contract.configuration_id)
 
     trade_in = None
-    if contract.trade_in_vehicle_id is not None:
+    if contract.trade_in_vehicle_id is not None or contract.trade_in_configuration_id is not None:
         # Trade-ins are always a used car by definition — there is no
         # separate condition concept on the trade-in side to carry here.
+        # C-F (KAN-10): a trade-in captured through the valuation path has a
+        # configuration and no vehicle-mdm record; it becomes a pipeline
+        # item all the same (S-D11).
         trade_in = {"vehicleLabel": contract.trade_in_label, "condition": "used"}
+        if contract.trade_in_configuration_id is not None:
+            trade_in["configurationId"] = str(contract.trade_in_configuration_id)
         if contract.trade_in_valuation_id is not None:
             # KAN-101 — inventory copies this valuation's pointer onto the
             # trade-in's pipeline stock item when it creates it.
