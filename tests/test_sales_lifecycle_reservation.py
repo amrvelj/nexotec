@@ -672,7 +672,7 @@ def test_cancel_succeeds_for_a_confirmed_contract_whose_reservation_is_already_r
 
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
-    contract, item, _customer = _stock_contract(db_session, dealership.id, group_id)
+    contract, _item, _customer = _stock_contract(db_session, dealership.id, group_id)
     factory = _session_factory(engine)
     confirmed = confirm_contract(db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=factory)
     side = factory()
