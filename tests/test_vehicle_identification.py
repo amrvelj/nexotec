@@ -523,3 +523,17 @@ def test_identification_needs_configuration_write_access(client, db_session):
     )
     assert response.status_code == 403
     assert _plate_calls(db_session, tenant_id) == 0
+
+
+def test_a_picked_candidate_reads_back_as_a_full_catalogue_variant(client, db_session):
+    tenant_id = _connected_tenant(db_session)
+    result = svc.identify(db_session, tenant_id=tenant_id, actor_id=None, query="2CD456")
+    (candidate,) = result.variants
+
+    response = client.get(f"/v1/catalogue/variants/{candidate.catalogue_variant_id}", headers=_bearer(tenant_id))
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["variantName"] == "Golf GTI 2.0 TSI DSG"
+    assert "2CD456" in body["typeApprovalNumbers"]
+    assert client.get(f"/v1/catalogue/variants/{uuid.uuid4()}", headers=_bearer(tenant_id)).status_code == 404

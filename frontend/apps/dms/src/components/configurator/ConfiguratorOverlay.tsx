@@ -22,6 +22,9 @@ import { ConfigurationSummaryCard } from './ConfigurationSummaryCard'
 import { OptionsTab } from './OptionsTab'
 import { ColourWheelsTab } from './ColourWheelsTab'
 import { ImagesTab } from './ImagesTab'
+import { IdentificationPanel, type IdentifiedStart } from './IdentificationPanel'
+import { ConfigurationResyncPanel } from './ConfigurationResyncPanel'
+import { HostCommitError } from './hostCommitError'
 import {
   SPEC_FIELD_GROUPS,
   SPEC_REF_LIST_CODES,
@@ -33,6 +36,7 @@ import type {
   CatalogueOptionRead,
   CatalogueSpecificationRead,
   CatalogueVariantRead,
+  ConfigurationMatchMethod,
   ConfigurationOptionInput,
   ConfigurationOptionRead,
   ConfigurationRead,
@@ -69,6 +73,13 @@ interface Draft {
   wheels: string
   wheelsSurcharge: string
   notes: string
+  /** C-D (KAN-42) — what identification established, kept as observed
+   * data, and how the car was identified (kept permanently). */
+  licencePlate: string
+  stammnummer: string
+  typeApprovalNumber: string
+  matchMethod: ConfigurationMatchMethod | null
+  confirmedBestMatchCode: number | null
   /** Explicit overrides only (KAN-43/C-E) — see `OptionsTabProps.selected`'s
    * own doc comment for what "explicit" means here. */
   selectedOptions: Map<string, ConfigurationOptionInput>
@@ -95,6 +106,11 @@ function draftFromVariant(v: CatalogueVariantRead): Draft {
     wheels: '',
     wheelsSurcharge: '',
     notes: '',
+    licencePlate: '',
+    stammnummer: '',
+    typeApprovalNumber: '',
+    matchMethod: null,
+    confirmedBestMatchCode: null,
     selectedOptions: new Map(),
   }
 }
@@ -118,15 +134,90 @@ function emptyManualDraft(): Draft {
     wheels: '',
     wheelsSurcharge: '',
     notes: '',
+    licencePlate: '',
+    stammnummer: '',
+    typeApprovalNumber: '',
+    matchMethod: null,
+    confirmedBestMatchCode: null,
     selectedOptions: new Map(),
   }
 }
 
+/** C-F — reopening a saved configuration: phase 2, every field as stored,
+ * catalogue options keyed by the variant option they came from. */
+function draftFromRead(c: ConfigurationRead): Draft {
+  const selectedOptions = new Map<string, ConfigurationOptionInput>()
+  for (const o of c.options) {
+    if (o.variantOptionId) {
+      selectedOptions.set(o.variantOptionId, {
+        variantOptionId: o.variantOptionId,
+        optionCode: o.optionCode,
+        description: o.description,
+        optionGroup: o.optionGroup,
+        price: o.price,
+        isIncluded: o.isIncluded,
+        isPackage: o.isPackage,
+        selected: o.selected,
+        equipmentFeatures: [...o.equipmentFeatures],
+      })
+    }
+  }
+  return {
+    source: c.source,
+    catalogueVariantId: c.catalogueVariantId,
+    brandDisplayName: c.brandDisplayName,
+    modelGroupName: c.modelGroupName,
+    variantName: c.variantName,
+    spec: { ...c.spec },
+    overridden: new Set(c.overriddenFields),
+    vin: c.vin ?? '',
+    firstRegistrationDate: c.firstRegistrationDate ?? '',
+    mileageKm: c.mileageKm != null ? String(c.mileageKm) : '',
+    exteriorColour: c.exteriorColour ?? '',
+    interiorColour: c.interiorColour ?? '',
+    exteriorColourSurcharge: c.exteriorColourSurcharge ?? '',
+    interiorColourSurcharge: c.interiorColourSurcharge ?? '',
+    wheels: c.wheels ?? '',
+    wheelsSurcharge: c.wheelsSurcharge ?? '',
+    notes: c.notes ?? '',
+    licencePlate: c.licencePlate ?? '',
+    stammnummer: c.stammnummer ?? '',
+    typeApprovalNumber: c.typeApprovalNumber ?? '',
+    matchMethod: c.matchMethod,
+    confirmedBestMatchCode: null,
+    selectedOptions,
+  }
+}
+
+function withObserved(draft: Draft, start: IdentifiedStart): Draft {
+  const o = start.observed
+  return {
+    ...draft,
+    vin: o.vin ?? draft.vin,
+    licencePlate: o.licencePlate ?? '',
+    stammnummer: o.stammnummer ?? '',
+    typeApprovalNumber: o.typeApprovalNumber ?? '',
+    firstRegistrationDate: o.firstRegistrationDate ?? draft.firstRegistrationDate,
+    matchMethod: start.matchMethod,
+    confirmedBestMatchCode: start.confirmedBestMatchCode ?? null,
+  }
+}
+
+const ALL_MODES: ConfiguratorMode[] = ['build', 'record']
+
+
 export interface ConfiguratorOverlayProps {
-  /** Prefilled from the host, changeable in phase 1. */
+  /** The modes this host allows (PRD v1.4 mode matrix): offer Path B
+   * `['build']`, valuation and the offer's trade-in `['record']`, the stock
+   * pipeline both. With one mode there is **no mode switch at all**. */
+  allowedModes?: ConfiguratorMode[]
+  /** Prefilled from the host, changeable in phase 1 among `allowedModes`. */
   initialMode?: ConfiguratorMode
-  /** Called with the saved configuration when the advisor commits. */
-  onCommitted: (configuration: ConfigurationRead) => void
+  /** C-F — reopen a saved configuration in phase 2 (edit, re-sync). */
+  existing?: ConfigurationRead | null
+  /** Called with the saved configuration when the advisor commits. May be
+   * async; a rejected `HostCommitError` is shown in the overlay. */
+  onCommitted: (configuration: ConfigurationRead) => void | Promise<void>
   /** Close without committing (the overlay's close button / Escape also
    * calls this via the host's `useOverlay().pop`). */
   onClose: () => void
@@ -139,14 +230,23 @@ export interface ConfiguratorOverlayProps {
  * modes. No standalone route: a host renders this inside an
  * `OverlayProvider` layer (C-F wires the real hosts).
  */
-export function ConfiguratorOverlay({ initialMode = 'build', onCommitted, onClose }: ConfiguratorOverlayProps) {
+export function ConfiguratorOverlay({
+  allowedModes = ALL_MODES,
+  initialMode,
+  existing = null,
+  onCommitted,
+  onClose,
+}: ConfiguratorOverlayProps) {
   const { t } = useTranslation()
-  const [phase, setPhase] = useState<Phase>('find')
-  const [mode, setMode] = useState<ConfiguratorMode>(initialMode)
+  const [phase, setPhase] = useState<Phase>(existing ? 'configure' : 'find')
+  const [mode, setMode] = useState<ConfiguratorMode>(
+    existing?.mode ?? (initialMode && allowedModes.includes(initialMode) ? initialMode : allowedModes[0]),
+  )
   const [section, setSection] = useState<Section>('specification')
-  const [draft, setDraft] = useState<Draft | null>(null)
+  const [draft, setDraft] = useState<Draft | null>(existing ? draftFromRead(existing) : null)
   const [vinInput, setVinInput] = useState('')
-  const [configurationId, setConfigurationId] = useState<string | null>(null)
+  const [configurationId, setConfigurationId] = useState<string | null>(existing?.id ?? null)
+  const [resyncOpen, setResyncOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -154,15 +254,24 @@ export function ConfiguratorOverlay({ initialMode = 'build', onCommitted, onClos
 
   const startFromVariant = (variant: CatalogueVariantRead) => {
     const d = draftFromVariant(variant)
-    if (vinInput.trim()) d.vin = vinInput.trim()
+    // A 17-character input that matched nothing is kept as the VIN.
+    const typed = vinInput.trim().toUpperCase()
+    if (typed.length === 17) d.vin = typed
     setDraft(d)
     setPhase('configure')
   }
 
   const startManual = () => {
     const d = emptyManualDraft()
-    if (vinInput.trim()) d.vin = vinInput.trim()
+    // A 17-character input that matched nothing is kept as the VIN.
+    const typed = vinInput.trim().toUpperCase()
+    if (typed.length === 17) d.vin = typed
     setDraft(d)
+    setPhase('configure')
+  }
+
+  const startFromIdentification = (start: IdentifiedStart) => {
+    setDraft(withObserved(draftFromVariant(start.variant), start))
     setPhase('configure')
   }
 
@@ -271,6 +380,9 @@ export function ConfiguratorOverlay({ initialMode = 'build', onCommitted, onClos
         wheels: draft.wheels || null,
         wheelsSurcharge: draft.wheelsSurcharge || null,
         notes: draft.notes || null,
+        licencePlate: draft.licencePlate || null,
+        stammnummer: draft.stammnummer || null,
+        typeApprovalNumber: draft.typeApprovalNumber || null,
       }
 
       let config: ConfigurationRead
@@ -281,8 +393,9 @@ export function ConfiguratorOverlay({ initialMode = 'build', onCommitted, onClos
           {
             ...body,
             source: draft.source,
-            matchMethod: draft.source === 'provider' ? 'catalogue_browse' : 'manual',
+            matchMethod: draft.matchMethod ?? (draft.source === 'provider' ? 'catalogue_browse' : 'manual'),
             catalogueVariantId: draft.catalogueVariantId,
+            confirmedBestMatchCode: draft.confirmedBestMatchCode,
             brandDisplayName: draft.brandDisplayName || null,
             modelGroupName: draft.modelGroupName || null,
             variantName: draft.variantName || null,
@@ -333,15 +446,15 @@ export function ConfiguratorOverlay({ initialMode = 'build', onCommitted, onClos
         }
       }
 
-      onCommitted(config)
-    } catch {
-      setError(t('configurator.saveError'))
+      await onCommitted(config)
+    } catch (err) {
+      setError(err instanceof HostCommitError ? err.message : t('configurator.saveError'))
     } finally {
       setSaving(false)
     }
   }
 
-  const [currentVersion, setCurrentVersion] = useState(0)
+  const [currentVersion, setCurrentVersion] = useState(existing?.version ?? 0)
 
   const readModel: ConfigurationRead | null = useMemo(() => {
     if (!draft) return null
@@ -354,27 +467,33 @@ export function ConfiguratorOverlay({ initialMode = 'build', onCommitted, onClos
       <Stack gap="lg" p="xl" maw={1100} mx="auto">
         <Title order={3}>{t('configurator.find.title')}</Title>
 
-        <Group gap="xs">
-          <Text size="sm" fw={500}>
-            {t('configurator.mode.label')}
-          </Text>
-          <SegmentedControl
-            size="xs"
-            data={configuratorModeOptions(t)}
-            value={mode}
-            onChange={(v) => setMode(v as ConfiguratorMode)}
-            aria-label={t('configurator.mode.label')}
-          />
-        </Group>
+        {allowedModes.length > 1 && (
+          <Group gap="xs">
+            <Text size="sm" fw={500}>
+              {t('configurator.mode.label')}
+            </Text>
+            <SegmentedControl
+              size="xs"
+              data={configuratorModeOptions(t).filter((o) => allowedModes.includes(o.value))}
+              value={mode}
+              onChange={(v) => setMode(v as ConfiguratorMode)}
+              aria-label={t('configurator.mode.label')}
+            />
+          </Group>
+        )}
 
-        <TextInput
-          label={t('configurator.find.idLabel')}
-          description={t('configurator.find.idHint')}
-          placeholder="WVWZZZ..."
-          value={vinInput}
-          onChange={(e) => setVinInput(e.currentTarget.value)}
-          maxLength={17}
-          w={360}
+        {error && <Alert color="red">{error}</Alert>}
+
+        <IdentificationPanel
+          allowedModes={allowedModes}
+          onStart={startFromIdentification}
+          onReuse={(configuration) => {
+            setError(null)
+            Promise.resolve(onCommitted(configuration)).catch((err: unknown) =>
+              setError(err instanceof HostCommitError ? err.message : t('configurator.saveError')),
+            )
+          }}
+          onQueryChange={setVinInput}
         />
 
         <Group>
@@ -409,10 +528,32 @@ export function ConfiguratorOverlay({ initialMode = 'build', onCommitted, onClos
           {[draft.brandDisplayName, draft.variantName].filter(Boolean).join(' ') ||
             t('configurator.configure.title')}
         </Title>
-        <Button variant="subtle" size="xs" onClick={() => setPhase('find')}>
-          {t('configurator.configure.back')}
-        </Button>
+        <Group gap="xs">
+          {configurationId && draft.catalogueVariantId && (
+            <Button variant="default" size="xs" onClick={() => setResyncOpen(true)}>
+              {t('configurator.resync.open')}
+            </Button>
+          )}
+          {!existing && (
+            <Button variant="subtle" size="xs" onClick={() => setPhase('find')}>
+              {t('configurator.configure.back')}
+            </Button>
+          )}
+        </Group>
       </Group>
+
+      {configurationId && resyncOpen && (
+        <ConfigurationResyncPanel
+          configurationId={configurationId}
+          version={currentVersion}
+          onClose={() => setResyncOpen(false)}
+          onApplied={(config) => {
+            setDraft(draftFromRead(config))
+            setCurrentVersion(config.version)
+            setResyncOpen(false)
+          }}
+        />
+      )}
 
       <DetailTabs
         tabs={[
@@ -677,17 +818,22 @@ function previewRead(draft: Draft, mode: ConfiguratorMode, spec: CatalogueSpecif
     tenantId: 'draft',
     source: draft.source,
     mode,
-    catalogueMatchStatus: draft.source === 'provider' ? 'matched' : 'unverified',
-    matchMethod: draft.source === 'provider' ? 'catalogue_browse' : 'manual',
+    catalogueMatchStatus:
+      draft.source !== 'provider'
+        ? 'unverified'
+        : draft.confirmedBestMatchCode === 2
+          ? 'best_match_confirmed'
+          : 'matched',
+    matchMethod: draft.matchMethod ?? (draft.source === 'provider' ? 'catalogue_browse' : 'manual'),
     catalogueVariantId: draft.catalogueVariantId,
     catalogueVariantLabel: null,
     vehicleId: null,
     vehicleLabel: null,
     vin: draft.vin || null,
-    stammnummer: null,
-    typeApprovalNumber: null,
+    stammnummer: draft.stammnummer || null,
+    typeApprovalNumber: draft.typeApprovalNumber || null,
     firstRegistrationDate: draft.firstRegistrationDate || null,
-    licencePlate: null,
+    licencePlate: draft.licencePlate || null,
     mileageKm: draft.mileageKm ? Number(draft.mileageKm) : null,
     brandDisplayName: draft.brandDisplayName,
     modelGroupName: draft.modelGroupName,

@@ -453,7 +453,8 @@
         "description": "Nessuna relazione con veicoli registrata per questo cliente."
       },
       "addAction": "Collega veicolo",
-      "inStockTitle": "Nel magazzino del gruppo — {{stockNumber}}"
+      "inStockTitle": "Nel magazzino del gruppo — {{stockNumber}}",
+      "specification": "Specifica"
     },
     "offersContracts": {
       "emptyState": {
@@ -582,7 +583,8 @@
       "identity": "Identità",
       "plates": "Targhe",
       "odometer": "Chilometraggio",
-      "accessories": "Accessori"
+      "accessories": "Accessori",
+      "specification": "Specifica"
     },
     "identity": {
       "title": "Identità",
@@ -642,6 +644,10 @@
       "add": "Aggiungi",
       "remove": "Rimuovi",
       "none": "Nessun accessorio registrato"
+    },
+    "specification": {
+      "empty": "Nessuna configurazione di questo veicolo in questa azienda.",
+      "loadError": "Non è stato possibile caricare la specifica."
     }
   },
   "dashboard": {
@@ -731,7 +737,9 @@
     "scope": {
       "own": "Magazzino proprio",
       "group": "Magazzino del gruppo"
-    }
+    },
+    "addToPipeline": "Aggiungere alla pipeline",
+    "addToPipelineError": "Non è stato possibile aggiungere il veicolo alla pipeline."
   },
   "stockDetail": {
     "header": {
@@ -854,6 +862,9 @@
       "valuedAt": "Valutato il",
       "source": "Fonte",
       "hint": "Le valutazioni vengono create e gestite nel modulo Vendite — quest'area mostra solo lo stato attuale."
+    },
+    "configuration": {
+      "title": "Configurazione"
     }
   },
   "stockCreate": {
@@ -997,7 +1008,9 @@
       "search": "Cerca veicolo",
       "configure": "Configura",
       "searchPlaceholder": "Numero di magazzino, VIN, targa …",
-      "manualLabelPlaceholder": "Descrizione del veicolo"
+      "configured": "Configurato",
+      "fromStock": "Dal magazzino",
+      "attachError": "Non è stato possibile riprendere la configurazione."
     },
     "pricing": {
       "emptyHint": "La struttura prezzo inizia dal veicolo — sceglietene prima uno.",
@@ -1028,7 +1041,9 @@
       "vinLabel": "VIN",
       "vinPlaceholder": "es. WVWZZZ1KZAW123456",
       "labelLabel": "Descrizione del veicolo",
-      "add": "Aggiungi veicolo permuta"
+      "add": "Aggiungi veicolo permuta",
+      "valueWithConfigurator": "Identificare e valutare",
+      "attachError": "Non è stato possibile riprendere la valutazione."
     },
     "leasing": {
       "hint": "Nessun calcolatore di leasing nella v1 (S-D03). Campi liberi, così un futuro calcolatore potrà essere inserito senza modifiche allo schema.",
@@ -1143,7 +1158,10 @@
     "noteCard": {
       "title": "Nota"
     },
-    "validityHelp": "Lo stato è calcolato in lettura, mai aggiornato di notte — valida fino al {{validUntil}}."
+    "validityHelp": "Lo stato è calcolato in lettura, mai aggiornato di notte — valida fino al {{validUntil}}.",
+    "configuration": {
+      "title": "Configurazione"
+    }
   },
   "valuationCreate": {
     "title": "Crea valutazione",
@@ -1172,7 +1190,10 @@
     "finalOffer": "Offerta di permuta",
     "finalOfferHint": "Può differire dal valore netto — è la trattativa.",
     "note": "Nota",
-    "noProviderCapability": "La valutazione auto-i-dat non è disponibile per questa concessionaria — inserire manualmente il valore di permuta qui sotto."
+    "noProviderCapability": "La valutazione auto-i-dat non è disponibile per questa concessionaria — inserire manualmente il valore di permuta qui sotto.",
+    "configurator": {
+      "skip": "Rilevare a mano senza configuratore"
+    }
   },
   "integrationsList": {
     "title": "Integrazioni",
@@ -1346,7 +1367,8 @@
       "modelYear": "Anno modello",
       "inProduction": "In produzione",
       "typeApprovals": "Approvazioni del tipo",
-      "updatedAt": "Modificato"
+      "updatedAt": "Modificato",
+      "trimName": "Allestimento"
     },
     "filters": {
       "fuelType": "Carburante",
@@ -1391,8 +1413,8 @@
     },
     "find": {
       "title": "Trova il veicolo",
-      "idLabel": "VIN (facoltativo)",
-      "idHint": "Numero di telaio, se noto — la ricerca di identificazione completa arriva con C-D.",
+      "idLabel": "Identificare il veicolo",
+      "idHint": "VIN, targa, numero di matricola, approvazione del tipo o codice di fabbrica — un solo campo, il sistema riconosce quale.",
       "manual": "Configura manualmente",
       "browse": "Sfoglia il catalogo",
       "unverifiedNote": "Configurazione manuale — contrassegnata come «non verificata» finché non è associata a una voce di catalogo. Nessuna valutazione, nessuna pubblicazione fino ad allora."
@@ -1440,7 +1462,9 @@
         "tankCapacityL": "Capacità del serbatoio (l)",
         "werkscode": "Codice di fabbrica",
         "importcode": "Codice di importazione",
-        "basePriceYear": "Anno del prezzo"
+        "basePriceYear": "Anno del prezzo",
+        "vehicleKind": "Genere di veicolo",
+        "priceIsNet": "Prezzo netto"
       }
     },
     "options": {
@@ -1532,7 +1556,86 @@
     "save": "Salva",
     "saveNew": "Salva la configurazione",
     "saveError": "Impossibile salvare la configurazione.",
-    "saveOptionsError": "La configurazione è stata salvata, ma non è stato possibile salvare le sue opzioni."
+    "saveOptionsError": "La configurazione è stata salvata, ma non è stato possibile salvare le sue opzioni.",
+    "identify": {
+      "submit": "Identificare",
+      "error": "L'identificazione non è riuscita.",
+      "unrecognised": "Non è né un VIN, né una targa, né un numero di matricola, né un'approvazione del tipo, né un codice di fabbrica.",
+      "recognisedAs": "Riconosciuto come: {{kind}}",
+      "kind": {
+        "vin": "VIN",
+        "kontrollschild": "Targa",
+        "stammnummer": "Numero di matricola",
+        "typenschein": "Approvazione del tipo",
+        "werkscode": "Codice di fabbrica"
+      },
+      "existingVehicle": {
+        "title": "Veicolo già noto — {{number}}",
+        "reuse": "Riprendere la sua configurazione",
+        "noVariant": "Nessuna voce di catalogo — sfogliare il catalogo o configurare manualmente."
+      },
+      "reuseModeMismatch": "Questa configurazione è in modalità «{{mode}}» e non può essere usata qui.",
+      "variantsTitle": "Di quale variante si tratta?",
+      "variantTitle": "Corrispondenza a catalogo",
+      "plateRecords": {
+        "wechselschild": "Targa intercambiabile — la targa è attribuita a più veicoli. Scegliere quello presente.",
+        "conflict": "Il registro segnala dati contraddittori per questa targa. Scegliere il veicolo giusto; la contraddizione è stata segnalata."
+      },
+      "none": "Nessuna corrispondenza. Sfogliare il catalogo qui sotto o configurare manualmente.",
+      "pickerEmpty": "Nessun candidato",
+      "productionYears": "{{from}}–{{to}}",
+      "inProduction": "dal {{from}}",
+      "notes": {
+        "vin_decode_unavailable": "La decodifica VIN presso il fornitore non è ancora disponibile — continuare con la targa o l'approvazione del tipo.",
+        "no_provider_connection": "Nessun fornitore di dati veicolo collegato — sfogliare il catalogo o configurare manualmente.",
+        "plate_lookup_not_entitled": "La ricerca per targa non è abilitata per questo account.",
+        "plate_lookup_failed": "La ricerca per targa presso il fornitore non è riuscita. Riprovare più tardi.",
+        "plate_cache_hit": "Da una ricerca precedente (non fatturata di nuovo).",
+        "plate_not_found": "Nessun veicolo è registrato per questa targa."
+      }
+    },
+    "bestMatch": {
+      "title": "Migliore corrispondenza",
+      "hint": "Richiede il prezzo a nuovo per l'anno modello di questo veicolo. Il risultato è una proposta da confermare.",
+      "newPrice": "Prezzo a nuovo (CHF)",
+      "source": {
+        "label": "Fonte del prezzo a nuovo",
+        "catalogue": "Catalogo (anno modello)",
+        "document": "Licenza di circolazione / documento importatore",
+        "customer": "Indicazione del cliente"
+      },
+      "modelDescription": "Designazione del modello (facoltativo)",
+      "ask": "Cercare la corrispondenza",
+      "error": "Nessuna corrispondenza per questa approvazione del tipo e questo prezzo a nuovo.",
+      "proposal": "Proposta: {{label}}",
+      "matchCode": {
+        "1": "Corrispondenza univoca",
+        "2": "Migliore corrispondenza possibile — verificare prima di confermare"
+      },
+      "fields": {
+        "typeApprovalNumber": "Approvazione del tipo",
+        "newPrice": "Prezzo a nuovo",
+        "modelDescription": "Designazione del modello"
+      },
+      "entered": "Inserito",
+      "matched": "Catalogo",
+      "agrees": "corrisponde",
+      "differs": "differisce",
+      "confirm": "Confermare questo veicolo",
+      "discard": "Scartare"
+    },
+    "resync": {
+      "open": "Aggiornare dal catalogo",
+      "title": "Aggiornare dal catalogo",
+      "hint": "Il catalogo differisce su questi campi. Cambia solo ciò che si spunta.",
+      "none": "La configurazione corrisponde al catalogo.",
+      "field": "Campo",
+      "current": "Configurazione",
+      "catalogue": "Catalogo",
+      "overridden": "modificato da voi",
+      "apply": "Applicare la selezione",
+      "error": "L'aggiornamento non è riuscito."
+    }
   },
   "customerRowMenu": {
     "edit": "Modifica",

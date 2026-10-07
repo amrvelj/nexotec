@@ -7,7 +7,8 @@ import { useTranslation } from 'react-i18next'
 import { FormDialog, Picker, type PickerRow } from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
 import { CustomerCreateDialog } from './CustomerCreateDialog'
-import type { CapabilityCheckRead, CustomerPage, CustomerRead, ValuationCreate, ValuationRead, ValuationSourceValue } from '../api/types'
+import { ConfigurationSummaryCard } from './configurator/ConfigurationSummaryCard'
+import type { CapabilityCheckRead, ConfigurationRead, CustomerPage, CustomerRead, ValuationCreate, ValuationRead, ValuationSourceValue } from '../api/types'
 import { formatCurrencyChf } from '../utils/format'
 
 export interface ValuationCreateDialogProps {
@@ -18,6 +19,11 @@ export interface ValuationCreateDialogProps {
    * vehicle/customer facts are copied across; its own value figures are
    * NOT (a revaluation is a fresh opinion, not a duplicate). */
   supersedes?: ValuationRead | null
+  /** C-F (KAN-10, FR-C-14) — the `record`-mode configuration the car was
+   * just captured in. Its facts prefill the vehicle section and it travels
+   * as `configurationId`: the backend then creates **no** vehicle-mdm record
+   * (ADR-070, amending FR-V-17). */
+  configuration?: ConfigurationRead | null
 }
 
 const DEDUCTIONS_EMPTY: { label: string; amount: string }[] = []
@@ -33,15 +39,16 @@ const DEDUCTIONS_EMPTY: { label: string; amount: string }[] = []
  * neither its UI nor its async per-row persistence model; a small local
  * editor is the honest choice here, not a shortcut around a real gap.
  */
-export function ValuationCreateDialog({ opened, onClose, onCreated, supersedes }: ValuationCreateDialogProps) {
+export function ValuationCreateDialog({ opened, onClose, onCreated, supersedes, configuration = null }: ValuationCreateDialogProps) {
   const { t } = useTranslation()
 
-  const [vin, setVin] = useState(supersedes?.vehicleVin ?? '')
-  const [make, setMake] = useState(supersedes?.vehicleMake ?? '')
-  const [model, setModel] = useState(supersedes?.vehicleModel ?? '')
-  const [trim, setTrim] = useState(supersedes?.vehicleTrim ?? '')
-  const [plate, setPlate] = useState(supersedes?.vehiclePlate ?? '')
-  const [mileage, setMileage] = useState<number | ''>(supersedes?.mileage ?? '')
+  const c = configuration
+  const [vin, setVin] = useState(c?.vin ?? supersedes?.vehicleVin ?? '')
+  const [make, setMake] = useState(c?.brandDisplayName ?? supersedes?.vehicleMake ?? '')
+  const [model, setModel] = useState(c?.modelGroupName ?? supersedes?.vehicleModel ?? '')
+  const [trim, setTrim] = useState(c?.variantName ?? supersedes?.vehicleTrim ?? '')
+  const [plate, setPlate] = useState(c?.licencePlate ?? supersedes?.vehiclePlate ?? '')
+  const [mileage, setMileage] = useState<number | ''>(c?.mileageKm ?? supersedes?.mileage ?? '')
 
   const [customerId, setCustomerId] = useState<string | null>(supersedes?.customerId ?? null)
   const [customerLabel, setCustomerLabel] = useState<string | null>(supersedes?.customerLabel ?? null)
@@ -105,6 +112,8 @@ export function ValuationCreateDialog({ opened, onClose, onCreated, supersedes }
         note: note || null,
         validForDays,
         supersedesValuationId: supersedes?.id ?? null,
+        configurationId: configuration?.id ?? null,
+        vehicleFirstRegistration: configuration?.firstRegistrationDate ?? null,
       }
       const created = await api.post<ValuationRead>('/valuations', body)
       onCreated(created)
@@ -135,6 +144,7 @@ export function ValuationCreateDialog({ opened, onClose, onCreated, supersedes }
 
           <Stack gap="xs">
             <Text size="sm" fw={600}>{t('valuationCreate.vehicleSection')}</Text>
+            {configuration && <ConfigurationSummaryCard configuration={configuration} />}
             <Group grow>
               <TextInput label={t('valuationCreate.vin')} value={vin} onChange={(e) => setVin(e.currentTarget.value.toUpperCase())} />
               <NumberInput label={t('valuationCreate.mileage')} value={mileage} onChange={(v) => setMileage(v === '' ? '' : Number(v))} />

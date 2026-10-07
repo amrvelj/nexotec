@@ -1,16 +1,24 @@
+import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Loader } from '@mantine/core'
+import { Button, Group, Loader, Stack } from '@mantine/core'
 import { useSetBreadcrumb } from '@nexotec/ui-kit'
 import { useTranslation } from 'react-i18next'
 import { api } from '../api/client'
 import { ValuationCreateDialog } from '../components/ValuationCreateDialog'
-import type { ValuationRead } from '../api/types'
+import { ConfiguratorOverlay } from '../components/configurator/ConfiguratorOverlay'
+import type { ConfigurationRead, ValuationRead } from '../api/types'
 
 /** `/valuations/new` (optionally `?supersedes=<id>` for "Neu bewerten") —
  * a dedicated route rather than a modal state on the list page, so a
  * direct link/refresh lands here too, matching OfferCreateRedirectPage's
  * own routing shape for the analogous "new draft" entry point.
+ *
+ * C-F (KAN-10, FR-C-14): a new valuation first captures the car in the
+ * configurator, **`record` mode only** — one input identifies it from a
+ * plate, VIN or Typenschein — then the valuation dialog opens prefilled
+ * and carries the configuration. Entering the car by hand stays available;
+ * a revaluation ("Neu bewerten") copies its predecessor and skips this step.
  */
 export function ValuationCreatePage() {
   const { t } = useTranslation()
@@ -26,10 +34,35 @@ export function ValuationCreatePage() {
     enabled: Boolean(supersedesId),
   })
 
+  const [step, setStep] = useState<'configure' | 'form'>(supersedesId ? 'form' : 'configure')
+  const [configuration, setConfiguration] = useState<ConfigurationRead | null>(null)
+
   if (supersedesId && supersedesQuery.isLoading) return <Loader />
+
+  if (step === 'configure') {
+    return (
+      <Stack gap="xs">
+        <ConfiguratorOverlay
+          allowedModes={['record']}
+          onCommitted={(captured) => {
+            setConfiguration(captured)
+            setStep('form')
+          }}
+          onClose={() => navigate('/valuations')}
+        />
+        <Group justify="center">
+          <Button variant="subtle" onClick={() => setStep('form')}>
+            {t('valuationCreate.configurator.skip')}
+          </Button>
+        </Group>
+      </Stack>
+    )
+  }
 
   return (
     <ValuationCreateDialog
+      key={configuration?.id ?? 'by-hand'}
+      configuration={configuration}
       opened
       onClose={() => navigate('/valuations')}
       onCreated={(valuation) => navigate(`/valuations/${valuation.id}`, { replace: true })}

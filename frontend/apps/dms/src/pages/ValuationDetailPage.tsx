@@ -9,6 +9,7 @@ import { buildValuationRowMenu } from '../components/valuationRowMenu'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
 import { formatCurrencyChf, formatDate, formatNumber } from '../utils/format'
 import { CustomerDetailContent } from './CustomerDetailPage'
+import { HostConfigurationCard } from '../components/configurator/HostConfigurationCard'
 import type { ValuationRead } from '../api/types'
 
 export function ValuationDetailPage() {
@@ -149,6 +150,14 @@ export function ValuationDetailContent({ valuationId: id, embedded = false }: Va
           ]}
         />
       </OverviewCard>
+
+      {valuation.configurationId && (
+        // C-F (KAN-10, FR-C-14) — the record-mode configuration this
+        // valuation was captured in.
+        <OverviewCard title={t('valuationDetail.configuration.title')}>
+          <HostConfigurationCard configurationId={valuation.configurationId} />
+        </OverviewCard>
+      )}
 
       {valuation.note && (
         <OverviewCard title={t('valuationDetail.noteCard.title')}>

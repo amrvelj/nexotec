@@ -38,6 +38,7 @@ import {
 import { formatDate, formatCurrencyChf, formatNumber } from '../utils/format'
 import { parseSortParam, serializeSort } from '../utils/sortParam'
 import { GroupStockGrid } from './stock/GroupStockGrid'
+import { AddToPipelineButton } from './stock/AddToPipelineButton'
 import { ScopeSwitchMenu, type StockScope } from './stock/components/ScopeSwitchMenu'
 import type { StockItemPage, StockItemRead } from '../api/types'
 
@@ -356,6 +357,7 @@ export function StockListPage() {
         <Title order={2}>{t('stockList.title')}</Title>
         <Group gap="sm">
           <ScopeSwitchMenu scope={scope} onScopeChange={setScope} />
+          <AddToPipelineButton />
           <Button component={Link} to="/stock/new">
             {t('stockList.newStockItem')}
           </Button>

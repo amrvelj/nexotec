@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Alert, Button, Group, Loader, Modal, NumberInput, Select, Stack, Text, TextInput, Title, UnstyledButton } from '@mantine/core'
+import { Alert, Button, Group, Loader, Modal, NumberInput, Stack, Text, TextInput, Title, UnstyledButton } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
 import { useTranslation } from 'react-i18next'
 import { OverviewCard, Picker, SalesStatusBadge, StickyActionFooter, useOverlay, useSetBreadcrumb, type PickerRow } from '@nexotec/ui-kit'
@@ -11,16 +11,19 @@ import { OfferAccessoriesAndOptions } from '../components/OfferAccessoriesAndOpt
 import { OfferGenerateReviewModal } from '../components/OfferGenerateReviewModal'
 import { PriceBuildUp } from '../components/PriceBuildUp'
 import { ValuationSourceMarker } from '../components/ValuationSourceMarker'
+import { ValuationCreateDialog } from '../components/ValuationCreateDialog'
+import { ConfiguratorOverlay } from '../components/configurator/ConfiguratorOverlay'
+import { HostCommitError } from '../components/configurator/hostCommitError'
+import { HostConfigurationCard } from '../components/configurator/HostConfigurationCard'
 import { useDebouncedNumberField } from '../hooks/useDebouncedNumberField'
 import { CustomerDetailContent } from './CustomerDetailPage'
 import { StockDetailContent } from './StockDetailPage'
-import { translatedStockConditionOptions } from '../stockOptions'
 import { formatCurrencyChf } from '../utils/format'
 import type {
+  ConfigurationRead,
   CustomerPage,
   CustomerRead,
   SalesOfferRead,
-  StockItemCondition,
   StockItemPage,
   StockItemRead,
   ValuationRead,
@@ -105,7 +108,7 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
     enabled: customerPickerOpen && debouncedCustomerQuery.length > 0,
   })
 
-  const [vehicleMode, setVehicleMode] = useState<'idle' | 'search' | 'manual'>('idle')
+  const [vehicleMode, setVehicleMode] = useState<'idle' | 'search'>('idle')
   const [vehicleQuery, setVehicleQuery] = useState('')
   const [debouncedVehicleQuery] = useDebouncedValue(vehicleQuery, 250)
   const vehicleSearch = useQuery({
@@ -113,18 +116,83 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
     queryFn: () => api.get<StockItemPage>(`/inventory/stock-items?q=${encodeURIComponent(debouncedVehicleQuery)}&limit=10`),
     enabled: vehicleMode === 'search' && debouncedVehicleQuery.length > 0,
   })
-  const [manualLabel, setManualLabel] = useState('')
-  const [manualCondition, setManualCondition] = useState<StockItemCondition>('used')
 
   const [tradeInMode, setTradeInMode] = useState(false)
   const [tradeInVin, setTradeInVin] = useState('')
   const [tradeInLabel, setTradeInLabel] = useState('')
 
+  // The configurator runs in an overlay pushed with a closure; reading the
+  // offer through a ref keeps its If-Match current even when the advisor
+  // autosaved another container while the overlay was open.
+  const latestOffer = useRef<SalesOfferRead | undefined>(undefined)
+  latestOffer.current = offerQuery.data
+
   const patchOffer = async (patch: Record<string, unknown>) => {
-    const offer = offerQuery.data
+    const offer = latestOffer.current
     if (!offer) return
     const updated = await api.patch<SalesOfferRead>(`/sales/offers/${id}`, patch, { 'If-Match': String(offer.version) })
     queryClient.setQueryData(['sales-offer', id], updated)
+  }
+
+  // FR-C-12 — Path B is the configurator, as an overlay (ADR-059): the
+  // half-built offer underneath is never navigated away from. **Build mode
+  // only** (PRD v1.4): a used car being sold comes from stock through
+  // Path A, so this host offers no mode switch at all.
+  const openConfigurator = (existing: ConfigurationRead | null = null) =>
+    overlay.push({
+      key: 'configurator-offer-vehicle',
+      content: (
+        <ConfiguratorOverlay
+          allowedModes={['build']}
+          existing={existing}
+          onCommitted={async (configuration) => {
+            try {
+              await patchOffer({ configurationId: configuration.id })
+            } catch {
+              throw new HostCommitError(t('offerWorkspace.vehicle.attachError'))
+            }
+            await queryClient.invalidateQueries({ queryKey: ['configuration', configuration.id] })
+            overlay.pop()
+          }}
+          onClose={() => overlay.pop()}
+        />
+      ),
+    })
+
+  // The trade-in carve-out (FR-C-12): the customer's car is captured in
+  // **record** mode through the valuation path — configurator first, then
+  // the valuation, which the offer references. Path A could never find it.
+  const [tradeInConfiguration, setTradeInConfiguration] = useState<ConfigurationRead | null>(null)
+  const [tradeInError, setTradeInError] = useState<string | null>(null)
+  const openTradeInConfigurator = () =>
+    overlay.push({
+      key: 'configurator-offer-trade-in',
+      content: (
+        <ConfiguratorOverlay
+          allowedModes={['record']}
+          onCommitted={(configuration) => {
+            setTradeInConfiguration(configuration)
+            overlay.pop()
+          }}
+          onClose={() => overlay.pop()}
+        />
+      ),
+    })
+  const attachTradeInValuation = async (valuation: ValuationRead) => {
+    const offer = latestOffer.current
+    if (!offer) return
+    setTradeInError(null)
+    try {
+      const updated = await api.post<SalesOfferRead>(
+        `/sales/offers/${id}/trade-in/valuation`,
+        { valuationId: valuation.id },
+        { 'If-Match': String(offer.version) },
+      )
+      queryClient.setQueryData(['sales-offer', id], updated)
+      setTradeInConfiguration(null)
+    } catch {
+      setTradeInError(t('offerWorkspace.tradeIn.attachError'))
+    }
   }
 
   // KAN-8 — same fix as PriceBuildUp.tsx's own fields, same root cause:
@@ -224,32 +292,15 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
 
       {/* Fahrzeug */}
       <OverviewCard title={t('offerWorkspace.containers.vehicle')} badge={requirementBadge(t, containerById.vehicle?.requirement ?? 'required')}>
-        {offer.vehicleLabel ? (
-          <Text fw={600}>{offer.vehicleLabel}</Text>
-        ) : vehicleMode === 'manual' ? (
-          <Stack gap="xs">
-            <TextInput
-              placeholder={t('offerWorkspace.vehicle.manualLabelPlaceholder')}
-              value={manualLabel}
-              onChange={(e) => setManualLabel(e.currentTarget.value)}
-            />
-            <Select data={translatedStockConditionOptions(t)} value={manualCondition} onChange={(v) => setManualCondition((v as StockItemCondition) ?? 'used')} />
-            <Group gap="xs">
-              <Button
-                size="xs"
-                disabled={!manualLabel}
-                onClick={() =>
-                  patchOffer({ vehicleSource: 'manual', vehicleLabel: manualLabel, manualVehicleCondition: manualCondition }).then(() =>
-                    setVehicleMode('idle')
-                  )
-                }
-              >
-                {t('common.save')}
-              </Button>
-              <Button variant="subtle" size="xs" onClick={() => setVehicleMode('idle')}>
-                {t('common.cancel')}
-              </Button>
-            </Group>
+        {offer.configurationId ? (
+          <Stack gap={4} data-testid="offer-vehicle-configured">
+            <Text size="xs" c="dimmed">{t('offerWorkspace.vehicle.configured')}</Text>
+            <HostConfigurationCard configurationId={offer.configurationId} onOpenConfigurator={openConfigurator} />
+          </Stack>
+        ) : offer.vehicleLabel ? (
+          <Stack gap={4}>
+            {offer.vehicleSource === 'stock' && <Text size="xs" c="dimmed">{t('offerWorkspace.vehicle.fromStock')}</Text>}
+            <Text fw={600}>{offer.vehicleLabel}</Text>
           </Stack>
         ) : vehicleMode === 'search' ? (
           <Picker
@@ -271,7 +322,7 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
               <Button variant="default" size="xs" onClick={() => setVehicleMode('search')}>
                 {t('offerWorkspace.vehicle.search')}
               </Button>
-              <Button variant="subtle" size="xs" onClick={() => setVehicleMode('manual')}>
+              <Button variant="subtle" size="xs" onClick={() => openConfigurator()}>
                 {t('offerWorkspace.vehicle.configure')}
               </Button>
             </Group>
@@ -306,9 +357,10 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
 
       {/* Eintauschfahrzeug */}
       <OverviewCard title={t('offerWorkspace.containers.tradeIn')} badge={requirementBadge(t, 'optional')}>
-        {offer.tradeInVehicleId ? (
+        {offer.tradeInVehicleId || offer.tradeInConfigurationId ? (
           <Stack gap={4}>
             <Text fw={600}>{offer.tradeInLabel}</Text>
+            {offer.tradeInConfigurationId && <HostConfigurationCard configurationId={offer.tradeInConfigurationId} />}
             {offer.tradeInValue != null && (
               <Group gap="xs">
                 <Text size="sm" c="dimmed">
@@ -358,9 +410,15 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
             <Text size="sm" c="dimmed">
               {offer.customerId ? t('offerWorkspace.tradeIn.readyHint') : t('offerWorkspace.tradeIn.emptyHint')}
             </Text>
-            <Button variant="default" size="xs" onClick={() => setTradeInMode(true)} style={{ alignSelf: 'flex-start' }}>
-              {t('offerWorkspace.tradeIn.add')}
-            </Button>
+            {tradeInError && <Alert color="red" py="xs">{tradeInError}</Alert>}
+            <Group gap="xs">
+              <Button variant="default" size="xs" onClick={openTradeInConfigurator}>
+                {t('offerWorkspace.tradeIn.valueWithConfigurator')}
+              </Button>
+              <Button variant="subtle" size="xs" onClick={() => setTradeInMode(true)}>
+                {t('offerWorkspace.tradeIn.add')}
+              </Button>
+            </Group>
           </Stack>
         )}
       </OverviewCard>
@@ -435,6 +493,16 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
           placeholder={t('offerWorkspace.customer.search')}
         />
       </Modal>
+
+      {tradeInConfiguration && (
+        <ValuationCreateDialog
+          key={tradeInConfiguration.id}
+          opened
+          configuration={tradeInConfiguration}
+          onClose={() => setTradeInConfiguration(null)}
+          onCreated={(valuation) => void attachTradeInValuation(valuation)}
+        />
+      )}
 
       <CustomerCreateDialog
         opened={customerCreateOpen}
