@@ -448,6 +448,25 @@ def test_check_sync_age_alarm_for_tenant_reads_persisted_state(db_session):
     assert catalogue_sync.check_sync_age_alarm_for_tenant(db_session, tenant_id=tenant_id, today=today) is True
 
 
+def test_seed_links_each_variant_to_its_typenscheine_once(db_session):
+    """KAN-42 (C-D): FR-C-02 step 4 resolves a Typenschein through
+    `vehicle_variant_type_approval`, which the sync never wrote before."""
+
+    from app.vehicle.models.catalogue import TypeApproval, VariantTypeApproval
+    from app.vehicle.services.catalogue import find_model_variants_by_type_approval
+
+    provider = _make_mock_provider(db_session)
+    tenant_id = uuid.uuid4()
+    _make_connection(db_session, provider, tenant_id=tenant_id)
+
+    catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_id)
+    catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_id)
+
+    assert [v.name for v in find_model_variants_by_type_approval(db_session, "2CD456")] == ["Golf GTI 2.0 TSI DSG"]
+    assert db_session.query(TypeApproval).filter_by(type_approval_number="2CD456").count() == 1
+    assert db_session.query(VariantTypeApproval).count() == 3
+
+
 # --- per-FzKey isolation (KAN-78) -------------------------------------------
 
 
@@ -526,12 +545,11 @@ def test_a_refused_field_for_one_fz_key_no_longer_aborts_the_rest_of_the_seed(db
     assert result.variants_synced == 2
     assert [(s.fz_key, s.field, s.error) for s in result.skipped] == [("FZ100002", "images", "_Refused")]
 
-    # The failing variant keeps what it fetched before the refusal ...
-    failed_variant = catalogue_sync.find_variant_by_fz_key(
-        db_session, provider_code="auto_i_dat_mock", fz_key="FZ100002"
-    )
-    assert db_session.query(ColourCache).filter_by(tenant_id=tenant_id, model_variant_id=failed_variant.id).count() == 3
-    assert db_session.query(ImageRef).filter_by(tenant_id=tenant_id, model_variant_id=failed_variant.id).count() == 0
+    # The refused variant leaves nothing half-written: its savepoint rolled
+    # back the master data, options and colours fetched before the refusal
+    # (KAN-90's rule, applied per key). It is pending, and retried next run.
+    assert catalogue_sync.find_variant_by_fz_key(db_session, provider_code="auto_i_dat_mock", fz_key="FZ100002") is None
+    assert db_session.query(ColourCache).filter_by(tenant_id=tenant_id).count() == 2 * 3
 
     # ... and the variant AFTER it is synced in full, not silently skipped.
     later_variant = catalogue_sync.find_variant_by_fz_key(

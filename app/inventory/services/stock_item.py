@@ -19,6 +19,7 @@ from app.inventory.models.stock_item import (
     StockNumberSequence,
 )
 from app.inventory.schemas.stock_item import StockItemCreate, StockItemUpdate
+from app.vehicle.public import CONFIGURATION_MODE_BUILD, CONFIGURATION_MODE_RECORD, get_configuration_for_host
 
 _EVENT_PRODUCER = "inventory"
 
@@ -87,6 +88,7 @@ def _build_and_flush_stock_item(
     actor_id: uuid.UUID | None,
     pipeline_ref: str | None,
     origin: dict[str, str] | None = None,
+    configuration_label: str | None = None,
 ) -> StockItem:
     """The commit-free core, shared by create_stock_item (HTTP path, owns
     its own commit) and app.inventory.services.pipeline's consumer path
@@ -109,6 +111,9 @@ def _build_and_flush_stock_item(
         effective_price=data.effective_price,
         first_registration_date=data.first_registration_date,
         pipeline_ref=pipeline_ref,
+        configuration_id=data.configuration_id,
+        configuration_label=configuration_label if data.configuration_id is not None else None,
+        configuration_label_refreshed_at=utcnow() if data.configuration_id is not None else None,
         # A stock item created directly (not via the pipeline/promotion
         # path, PR-2) already has a VIN in hand — it goes straight to
         # in_stock rather than sitting in pipeline with nothing to promote.
@@ -175,7 +180,22 @@ def mark_purchased_if_ready(db: Session, item: StockItem) -> bool:
 def create_stock_item(
     db: Session, *, tenant_id: uuid.UUID, data: StockItemCreate, actor_id: uuid.UUID | None
 ) -> StockItem:
-    item = _build_and_flush_stock_item(db, tenant_id=tenant_id, data=data, actor_id=actor_id, pipeline_ref=None)
+    configuration_label = None
+    if data.configuration_id is not None:
+        # FR-C-13: both modes are legitimate here — `build` for a factory
+        # order, `record` for a car being bought in. Keeping `record` is what
+        # makes the offer workspace's `build`-only rule safe: a used car
+        # bought but not yet received is this pipeline item, which Path A
+        # finds. 404 for another tenant's configuration.
+        configuration = get_configuration_for_host(db, tenant_id=tenant_id, configuration_id=data.configuration_id)
+        configuration.require_mode(
+            host="stock pipeline", allowed=(CONFIGURATION_MODE_BUILD, CONFIGURATION_MODE_RECORD)
+        )
+        configuration_label = configuration.label
+    item = _build_and_flush_stock_item(
+        db, tenant_id=tenant_id, data=data, actor_id=actor_id, pipeline_ref=None,
+        configuration_label=configuration_label,
+    )
     db.commit()
     db.refresh(item)
     return item

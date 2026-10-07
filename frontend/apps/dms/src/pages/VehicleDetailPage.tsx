@@ -8,6 +8,7 @@ import { DetailHeader, DetailTabs, useSetBreadcrumb, type DetailTab } from '@nex
 import { api, ApiError } from '../api/client'
 import { IdentityTab } from '../components/vehicle-detail/IdentityTab'
 import { PlatesTab } from '../components/vehicle-detail/PlatesTab'
+import { SpecificationTab } from '../components/vehicle-detail/SpecificationTab'
 import { OdometerTab } from '../components/vehicle-detail/OdometerTab'
 import { AccessoriesTab } from '../components/vehicle-detail/AccessoriesTab'
 import type {
@@ -26,7 +27,8 @@ const DEFAULT_TAB = 'identity'
 /**
  * FR-V-16 Vehicle 360 — the same DetailHeader/DetailTabs shell
  * CustomerDetailPage already uses, with the vehicle's own field set and
- * tabs (Identity/Plates/Odometer/Accessories). Primary action Edit
+ * tabs (Identity/Plates/Odometer/Accessories, and C-F's read-only
+ * Specification). Primary action Edit
  * (identity fields are already inline, so this focuses the Identity
  * tab); alternative is Allocate to customer (ADR-061's action contract).
  */
@@ -146,6 +148,7 @@ export function VehicleDetailPage() {
       { id: 'plates', label: t('vehicleDetail.tabs.plates'), count: platesQuery.data?.length },
       { id: 'odometer', label: t('vehicleDetail.tabs.odometer'), count: odometerQuery.data?.length },
       { id: 'accessories', label: t('vehicleDetail.tabs.accessories'), count: accessoriesQuery.data?.length },
+      { id: 'specification', label: t('vehicleDetail.tabs.specification') },
     ],
     [t, platesQuery.data, odometerQuery.data, accessoriesQuery.data],
   )
@@ -224,6 +227,7 @@ export function VehicleDetailPage() {
           onRemove={removeAccessory}
         />
       )}
+      {activeTab === 'specification' && <SpecificationTab vehicleId={vehicle.id} />}
     </div>
   )
 }

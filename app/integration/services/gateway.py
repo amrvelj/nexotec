@@ -7,7 +7,8 @@ interchangeable by nothing more than which `provider_code` a connection
 points at.
 
 "No business data" (Integrations & API Credentials v0.1's own words) —
-this module writes `integration_call_log`, and reads nothing but
+this module writes `integration_call_log` (through `call_capability`'s
+own session, never the caller's — ADR-047, KAN-90), and reads nothing but
 `integration_connection`/`integration_provider`. The one other thing it
 writes is `integration_entitlement`, and only from `test_connection`'s
 probes (KAN-38 PR 2b) — registry metadata about the connection itself, not
@@ -28,6 +29,7 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from decimal import Decimal
 
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.core.base import utcnow
@@ -169,32 +171,73 @@ def call_capability(
     exists so a future adapter revision can start capturing a real wire
     payload without any change to this function's own callers.
 
+    Every row this function causes — the call log, a captured payload,
+    and whatever the adapter records itself (the real auto-i-dat adapter
+    audit-logs each credential resolution) — is written through a session
+    of the gateway's OWN on the caller's engine, and committed there
+    whether the caller's block succeeds or raises. The caller's session
+    is never written to or committed here, so whatever the caller writes
+    inside the `with` block is committed or rolled back by the caller
+    alone (ADR-047, KAN-90). Before KAN-90, `record_call` committed the
+    caller's session: a catalogue sync that failed half-way saved its
+    half-written catalogue rows together with the error log row.
+
+    Precondition: the caller holds no uncommitted write or row lock on this
+    connection's own `integration_connection` row — the log row's foreign
+    key waits on it from another session, and the wait is bounded by
+    `_LOG_LOCK_TIMEOUT` so a misuse fails instead of hanging.
+
     Usage:
         with call_capability(db, connection=connection, capability="vehicle_data") as adapter:
             data = adapter.fetch_vehicle_master_data(fz_key)
     """
 
-    adapter = _resolve_adapter(db, connection, actor_id=actor_id, purpose=purpose or capability)
-    started_at = time.monotonic()
-    try:
-        yield adapter
-    except Exception:
-        duration_ms = int((time.monotonic() - started_at) * 1000)
-        resilience.record_failure(connection.id)
-        log = record_call(
-            db, connection=connection, capability=capability, status=CallStatus.ERROR,
-            duration_ms=duration_ms, correlation_id=correlation_id,
-        )
-        _maybe_capture_payload(db, log=log, kind=PayloadKind.ERROR, capture_raw_payload=capture_raw_payload)
-        raise
-    else:
-        duration_ms = int((time.monotonic() - started_at) * 1000)
-        resilience.record_success(connection.id)
-        log = record_call(
-            db, connection=connection, capability=capability, status=CallStatus.SUCCESS,
-            duration_ms=duration_ms, correlation_id=correlation_id,
-        )
-        _maybe_capture_payload(db, log=log, kind=PayloadKind.SUCCESS, capture_raw_payload=capture_raw_payload)
+    with Session(bind=db.get_bind(), autoflush=False, expire_on_commit=False) as gateway_db:
+        adapter = _resolve_adapter(gateway_db, connection, actor_id=actor_id, purpose=purpose or capability)
+        # The provider lookup was a read: end its transaction so the
+        # connection goes back to the pool for the length of the caller's
+        # block (a full catalogue seed, say).
+        gateway_db.commit()
+        started_at = time.monotonic()
+        try:
+            yield adapter
+        except Exception:
+            duration_ms = int((time.monotonic() - started_at) * 1000)
+            resilience.record_failure(connection.id)
+            _bound_lock_wait(gateway_db)
+            log = record_call(
+                gateway_db, connection=connection, capability=capability, status=CallStatus.ERROR,
+                duration_ms=duration_ms, correlation_id=correlation_id,
+            )
+            _maybe_capture_payload(
+                gateway_db, log=log, kind=PayloadKind.ERROR, capture_raw_payload=capture_raw_payload
+            )
+            raise
+        else:
+            duration_ms = int((time.monotonic() - started_at) * 1000)
+            resilience.record_success(connection.id)
+            _bound_lock_wait(gateway_db)
+            log = record_call(
+                gateway_db, connection=connection, capability=capability, status=CallStatus.SUCCESS,
+                duration_ms=duration_ms, correlation_id=correlation_id,
+            )
+            _maybe_capture_payload(
+                gateway_db, log=log, kind=PayloadKind.SUCCESS, capture_raw_payload=capture_raw_payload
+            )
+
+
+_LOG_LOCK_TIMEOUT = "5s"
+
+
+def _bound_lock_wait(db: Session) -> None:
+    """The call log's foreign key takes a KEY SHARE lock on the connection
+    row. A caller holding a conflicting lock on that row in its own open
+    transaction would make the gateway's session wait on its own request
+    forever — Postgres sees two sessions, not a deadlock. Bound the wait
+    for this transaction only (`SET LOCAL`)."""
+
+    if db.get_bind().dialect.name == "postgresql":
+        db.execute(text(f"SET LOCAL lock_timeout = '{_LOG_LOCK_TIMEOUT}'"))
 
 
 def _maybe_capture_payload(

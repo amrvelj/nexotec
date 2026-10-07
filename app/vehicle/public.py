@@ -3,10 +3,14 @@ contract allows `app.<other-context>` to import `app.vehicle.public`, never
 `app.vehicle.models` / `app.vehicle.services` / `app.vehicle.api` directly.
 """
 
+import dataclasses
+import logging
 import uuid
+from collections.abc import Iterable
 
 from sqlalchemy.orm import Session
 
+from app.vehicle.models.configuration import VehicleConfiguration
 from app.vehicle.models.spec_block import (
     SPEC_BLOCK_ALL_FIELDS,
     spec_block_as_dict,
@@ -22,7 +26,17 @@ from app.vehicle.services.catalogue_sync import (
     run_daily_delta_for_tenant,
     seed_tenant_catalogue,
 )
+from app.vehicle.services.host_configuration import BUILD as CONFIGURATION_MODE_BUILD
+from app.vehicle.services.host_configuration import RECORD as CONFIGURATION_MODE_RECORD
+from app.vehicle.services.host_configuration import (
+    ConfigurationModeNotAllowedError,
+    ConfigurationPriceLine,
+    HostConfiguration,
+)
+from app.vehicle.services.plate_lookup_cache import purge_expired_plate_lookups
 from app.vehicle.services.vehicle import create_custody_event, get_vehicle_or_404
+
+logger = logging.getLogger(__name__)
 
 
 # WP-7 PR-1: inventory's StockItem.vehicle_id references VehicleMdm (WP-5's
@@ -32,8 +46,7 @@ from app.vehicle.services.vehicle import create_custody_event, get_vehicle_or_40
 # get_vehicle_mdm_or_404 is wrapped, not re-exported directly from
 # app.vehicle.services.vehicle_mdm: that module imports app.vehicle.schemas.
 # vehicle_mdm (for update_vehicle_mdm's parameter type), which imports
-# app.customer.public — and app.customer.models.vehicle_party imports THIS
-# module (for the legacy Vehicle/VehicleStatus types above), so a
+# app.customer.public — and app.customer's services import THIS module, so a
 # module-level import here would be a real import cycle, not just a slow
 # one. Deferred to call time, well after both modules have finished
 # loading at process startup.
@@ -43,25 +56,63 @@ def get_vehicle_mdm_or_404(db: Session, vehicle_id: uuid.UUID) -> VehicleMdm:
     return _get_vehicle_mdm_or_404(db, vehicle_id)
 
 
-def vehicle_mdm_catalogue_loader_option():
-    """A composable SQLAlchemy loader option (`Load.options()`-ready) that
-    eager-loads the chain `VehicleMdm.make/model/trim` resolve through
-    (`catalogue_variant -> model_group -> brand`), without exposing
-    `ModelVariant`/`ModelGroup`/`Brand` themselves across the boundary —
-    those stay vehicle-internal; only functions cross `app.vehicle.public`.
+@dataclasses.dataclass(frozen=True)
+class VehicleSummary:
+    """The display fields another context denormalises about a vehicle_mdm
+    row (CLAUDE.md rule 2's label, KAN-84) — plain data, never the ORM row.
+    make/model/trim come from the OPTIONAL catalogue match and model_year
+    from first registration, so all four may be None."""
 
-    Caller shape: `joinedload(SomeParty.vehicle).options(vehicle_mdm_catalogue_loader_option())`
-    (KAN-31 — app.customer.services.customer::list_customer_vehicles is the
-    first caller, loading VehiclePartySummary's make/model/trim).
+    id: uuid.UUID
+    vin: str
+    vehicle_number: str
+    make: str | None
+    model: str | None
+    model_year: int | None
+    trim: str | None
+
+
+_SUMMARY_BATCH = 500
+
+
+def get_vehicle_summaries(db: Session, vehicle_ids: Iterable[uuid.UUID]) -> dict[uuid.UUID, VehicleSummary]:
+    """KAN-84 — the label source for customer's VehicleParty (and any other
+    context that keeps a vehicle label), replacing the cross-context ORM
+    relationship it used to join through. One query per 500 ids, with the
+    catalogue chain (`catalogue_variant -> model_group -> brand`) eager-
+    loaded so make/model/trim never lazy-load per row. An id with no
+    vehicle_mdm row is simply absent from the result — dangling references
+    are the nightly reconciliation's to report, not this read's to raise on.
     """
 
+    from sqlalchemy import select
     from sqlalchemy.orm import joinedload
 
     from app.vehicle.models.catalogue import ModelGroup, ModelVariant
 
-    return joinedload(VehicleMdm.catalogue_variant).options(
-        joinedload(ModelVariant.model_group).options(joinedload(ModelGroup.brand))
-    )
+    ids = list(dict.fromkeys(vehicle_ids))
+    summaries: dict[uuid.UUID, VehicleSummary] = {}
+    for start in range(0, len(ids), _SUMMARY_BATCH):
+        rows = db.scalars(
+            select(VehicleMdm)
+            .options(
+                joinedload(VehicleMdm.catalogue_variant).options(
+                    joinedload(ModelVariant.model_group).options(joinedload(ModelGroup.brand))
+                )
+            )
+            .where(VehicleMdm.id.in_(ids[start : start + _SUMMARY_BATCH]))
+        ).all()
+        for v in rows:
+            summaries[v.id] = VehicleSummary(
+                id=v.id,
+                vin=v.vin,
+                vehicle_number=v.vehicle_number,
+                make=v.make,
+                model=v.model,
+                model_year=v.model_year,
+                trim=v.trim,
+            )
+    return summaries
 
 
 def create_or_get_vehicle_mdm(
@@ -126,26 +177,58 @@ def match_vehicle(
     )
 
 
+def get_configuration_for_host(
+    db: Session, *, tenant_id: uuid.UUID, configuration_id: uuid.UUID
+) -> HostConfiguration:
+    """C-F (KAN-10) — what an offer, a stock item or a valuation reads from
+    the configuration it stores. 404 for another tenant's configuration.
+    Deferred import: `configuration_host` reaches `services.vehicle_mdm`,
+    the cycle described above `get_vehicle_mdm_or_404`."""
+
+    from app.vehicle.services.configuration_host import get_configuration_for_host as _get
+
+    return _get(db, tenant_id=tenant_id, configuration_id=configuration_id)
+
+
+def run_daily_plate_lookup_purge(db: Session) -> None:
+    """KAN-42 (C-D) — the daily job that deletes plate-lookup cache rows past
+    their TTL (`app.vehicle.services.plate_lookup_cache`). Registered in
+    `app/worker.py`."""
+
+    deleted = purge_expired_plate_lookups(db)
+    if deleted:
+        logger.info("plate-lookup cache purge", extra={"deleted": deleted})
+
+
 __all__ = [
+    "CONFIGURATION_MODE_BUILD",
+    "CONFIGURATION_MODE_RECORD",
     "SPEC_BLOCK_ALL_FIELDS",
+    "ConfigurationModeNotAllowedError",
+    "ConfigurationPriceLine",
     "CustodyEventType",
+    "HostConfiguration",
     "NoVehicleDataConnectionError",
     "SkippedFzKey",
     "SyncResult",
     "Vehicle",
+    "VehicleConfiguration",
     "VehicleMdm",
     "VehicleStatus",
+    "VehicleSummary",
     "check_sync_age_alarm_for_tenant",
     "create_custody_event",
     "create_or_get_vehicle_mdm",
+    "get_configuration_for_host",
     "get_vehicle_equipment",
     "get_vehicle_mdm_or_404",
     "get_vehicle_or_404",
+    "get_vehicle_summaries",
     "has_current_energy_rating",
     "match_vehicle",
     "run_daily_delta_for_tenant",
+    "run_daily_plate_lookup_purge",
     "seed_tenant_catalogue",
     "spec_block_as_dict",
     "spec_block_field_names",
-    "vehicle_mdm_catalogue_loader_option",
 ]

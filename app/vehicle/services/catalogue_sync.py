@@ -74,8 +74,10 @@ from app.vehicle.models.catalogue import (
     Brand,
     ModelGroup,
     ModelVariant,
+    TypeApproval,
     VariantOption,
     VariantOptionEquipmentFeature,
+    VariantTypeApproval,
 )
 from app.vehicle.models.catalogue_mirror import ColourCache, ImageRef, ProviderSyncState, TyreSpecCache
 from app.vehicle.models.provider import ProviderEntityRef
@@ -292,6 +294,7 @@ def upsert_model_variant(db: Session, *, provider_code: str, master: VariantMast
 
     existing = find_variant_by_fz_key(db, provider_code=provider_code, fz_key=master.fz_key)
     if existing is not None:
+        _link_type_approvals(db, variant=existing, type_approval_numbers=master.type_approval_numbers)
         return existing
 
     brand = _upsert_brand(db, display_name=master.brand_display_name)
@@ -340,7 +343,39 @@ def upsert_model_variant(db: Session, *, provider_code: str, master: VariantMast
         )
     )
     db.flush()
+    _link_type_approvals(db, variant=variant, type_approval_numbers=master.type_approval_numbers)
     return variant
+
+
+def _link_type_approvals(db: Session, *, variant: ModelVariant, type_approval_numbers: list[str]) -> None:
+    """KAN-42 (C-D): records the variant's Typenscheine so FR-C-02 step 4's
+    reverse lookup (`find_model_variants_by_type_approval`) can find a
+    synced variant at all — before this, nothing outside a smoke-test seed
+    wrote `vehicle_variant_type_approval`, so the Typenschein rung (and a
+    plate that resolves through it) could never reach a synced car.
+
+    Additive and idempotent: an existing `TypeApproval` row for the number
+    is reused (the column is deliberately not unique, so the first row
+    found is taken), an existing link is left alone, and a Typenschein the
+    provider stops reporting is not unlinked here — a delta never removes
+    catalogue facts.
+    """
+
+    for number in dict.fromkeys(n.strip().upper() for n in type_approval_numbers if n and n.strip()):
+        approval = db.scalar(
+            select(TypeApproval)
+            .where(TypeApproval.type_approval_number == number)
+            .order_by(TypeApproval.created_at, TypeApproval.id)
+            .limit(1)
+        )
+        if approval is None:
+            approval = TypeApproval(type_approval_number=number)
+            db.add(approval)
+            db.flush()
+        linked = db.get(VariantTypeApproval, (variant.id, approval.id))
+        if linked is None:
+            db.add(VariantTypeApproval(model_variant_id=variant.id, type_approval_id=approval.id))
+    db.flush()
 
 
 def _sync_option_equipment_features(
@@ -393,19 +428,19 @@ def _sync_tenant_variant_content(
 
     Nothing here consults an entitlement, and the four calls are not
     independent of each other: they share this FzKey's one `vehicle_data`
-    `call_capability` block (`_sync_one_key`), so a Datenname the provider
-    refuses for this account (the protocol documents no "not entitled"
-    signal — see `services/entitlement_probes.py` in `app.integration`)
-    ends this FzKey's sync and is charged to the connection's breaker. That
-    error path commits this session to write the call-log row, so the
-    variant is left partially synced (e.g. its options, colours and tyre
-    specs persisted, its images not) — which is why the key goes onto
-    `ProviderSyncState.pending_fz_keys` and is retried next run. Other
-    FzKeys in the run are unaffected (KAN-78). Degrading per capability
-    (KAN-38 exit criterion 3) still needs these calls split by capability;
-    until then `catalogue_entitlements` only ever degrades what is *read*,
-    never what is fetched. `progress.field` is set before each call so a
-    failure can say which one it was.
+    `call_capability` block and savepoint (`_sync_one_key`), so a Datenname
+    the provider refuses for this account (the protocol documents no "not
+    entitled" signal — see `services/entitlement_probes.py` in
+    `app.integration`) ends this FzKey's sync and is charged to the
+    connection's breaker. Nothing this FzKey wrote is kept: the gateway logs
+    the failed call on a session of its own (KAN-90) and the savepoint rolls
+    this key's writes back, so the variant is never left half-synced; the
+    key goes onto `ProviderSyncState.pending_fz_keys` and is retried next
+    run. Other FzKeys in the run are unaffected (KAN-78). Degrading per
+    capability (KAN-38 exit criterion 3) still needs these calls split by
+    capability; until then `catalogue_entitlements` only ever degrades what
+    is *read*, never what is fetched. `progress.field` is set before each
+    call so a failure can say which one it was.
 
     C-0 PR 1: the real Datennamen need more than an `FzKey` —
     `Optionen` needs the model year, `OptionenFarben` the `Werkscode`,
@@ -518,9 +553,11 @@ def _sync_one_key(
     db: Session, *, connection: IntegrationConnection, tenant_id: uuid.UUID, provider_code: str, fz_key: str,
     actor_id: uuid.UUID | None, purpose: str,
 ) -> SkippedFzKey | None:
-    """One FzKey in its own `call_capability` block: the gateway logs it
-    (SUCCESS or ERROR), charges or resets the breaker, commits, and
-    re-raises a failure — which is caught here and returned as the skip.
+    """One FzKey in its own `call_capability` block and savepoint: the
+    gateway logs the call (SUCCESS or ERROR) on its own session and charges
+    or resets the breaker; a failure rolls back this key's writes and is
+    re-raised — caught here and returned as the skip. A synced key is
+    committed before the next one starts.
 
     A `ProviderGatewayError` raised before the block is entered comes from
     the gateway resolving the adapter (`CircuitOpenError`,
@@ -536,16 +573,22 @@ def _sync_one_key(
             db, connection=connection, capability="vehicle_data", actor_id=actor_id, purpose=purpose,
         ) as adapter:
             progress.entered = True
-            master = adapter.fetch_vehicle_master_data(fz_key)
-            variant = upsert_model_variant(db, provider_code=provider_code, master=master)
-            _sync_tenant_variant_content(
-                db, tenant_id=tenant_id, provider_code=provider_code, model_variant=variant, fz_key=fz_key,
-                master=master, adapter=adapter, progress=progress,
-            )
+            # Rolled back on any failure before the gateway sees it, so a
+            # refused key leaves nothing half-written (KAN-90's rule, per key).
+            with db.begin_nested():
+                master = adapter.fetch_vehicle_master_data(fz_key)
+                variant = upsert_model_variant(db, provider_code=provider_code, master=master)
+                _sync_tenant_variant_content(
+                    db, tenant_id=tenant_id, provider_code=provider_code, model_variant=variant, fz_key=fz_key,
+                    master=master, adapter=adapter, progress=progress,
+                )
     except ProviderGatewayError as exc:
         if not progress.entered:
             raise _ConnectionFailed(exc) from exc
         return SkippedFzKey(fz_key=fz_key, field=progress.field, error=type(exc).__name__)
+    # Each synced key is committed on its own, so a later key — or a bug
+    # that aborts the run — never takes the keys already synced with it.
+    db.commit()
     return None
 
 

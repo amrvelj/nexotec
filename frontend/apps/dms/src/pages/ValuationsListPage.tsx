@@ -20,6 +20,7 @@ import {
 } from '@nexotec/ui-kit'
 import { api } from '../api/client'
 import { buildValuationRowMenu } from '../components/valuationRowMenu'
+import { NewValuationButton } from '../components/NewValuationButton'
 import { useGridPreferences } from '../hooks/useGridPreferences'
 import { useSavedViews } from '../hooks/useSavedViews'
 import { useUiPreferencesContext } from '../hooks/UiPreferencesContext'
@@ -191,9 +192,7 @@ export function ValuationsListPage() {
     <Stack gap="md">
       <Group justify="space-between">
         <Title order={2}>{t('valuationsList.title')}</Title>
-        <Button component={Link} to="/valuations/new">
-          {t('valuationsList.newValuation')}
-        </Button>
+        <NewValuationButton />
       </Group>
 
       <Group gap="xs">
@@ -300,9 +299,7 @@ export function ValuationsListPage() {
             title: t('valuationsList.emptyState.title'),
             description: t('valuationsList.emptyState.description'),
             action: (
-              <Button component={Link} to="/valuations/new">
-                {t('valuationsList.newValuation')}
-              </Button>
+              <NewValuationButton />
             ),
           }}
           emptyFilteredState={{

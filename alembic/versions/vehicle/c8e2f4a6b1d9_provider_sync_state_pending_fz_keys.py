@@ -8,7 +8,7 @@ cursor has moved past the day they failed. Existing rows start with an
 empty list: no run before this revision recorded per-key failures.
 
 Revision ID: c8e2f4a6b1d9
-Revises: a9d4c2e7f1b3
+Revises: 65ee7f43405f
 Create Date: 2026-10-07 00:00:00.000000
 
 """
@@ -20,7 +20,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "c8e2f4a6b1d9"
-down_revision: Union[str, Sequence[str], None] = "a9d4c2e7f1b3"
+down_revision: Union[str, Sequence[str], None] = "65ee7f43405f"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

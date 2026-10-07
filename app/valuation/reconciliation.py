@@ -8,7 +8,7 @@ from app.core.reconciliation import ReconciliationRun, ReferenceCheck, run_recon
 from app.customer.public import Customer
 from app.platform.public import Dealership
 from app.valuation.models.valuation import Valuation
-from app.vehicle.public import VehicleMdm
+from app.vehicle.public import VehicleConfiguration, VehicleMdm
 
 CONTEXT = "valuation"
 
@@ -38,6 +38,16 @@ CHECKS = [
         target_model=Customer,
         target_id_column=Customer.id,
         nullable=True,  # "Ohne Kunde" (confirmed live filter chip)
+    ),
+    # C-F (KAN-10): the configuration it was built or captured in.
+    ReferenceCheck(
+        label="valuation.configuration_id -> vehicle_configuration.id",
+        source_model=Valuation,
+        source_row_id_column=Valuation.id,
+        source_fk_column=Valuation.configuration_id,
+        target_model=VehicleConfiguration,
+        target_id_column=VehicleConfiguration.id,
+        nullable=True,
     ),
 ]
 
