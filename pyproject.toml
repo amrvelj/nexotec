@@ -124,6 +124,13 @@ ignore_missing_imports = true
 module = "weasyprint.*"
 ignore_missing_imports = true
 
+# Same reasoning — no stubs shipped, and Babel is the optional `seed-tools`
+# extra, not installed by `.[dev]`; scripts/gen_country_reference_seed.py is
+# the only importer (KAN-32), type-checked with scripts/ since KAN-142.
+[[tool.mypy.overrides]]
+module = "babel.*"
+ignore_missing_imports = true
+
 [tool.importlinter]
 root_package = "app"
 include_external_packages = true

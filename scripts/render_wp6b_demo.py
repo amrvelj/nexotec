@@ -26,6 +26,7 @@ import subprocess
 import sys
 from decimal import Decimal
 from pathlib import Path
+from typing import TypedDict
 
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import serialization
@@ -69,12 +70,34 @@ from app.platform.schemas.document_content import (
 )
 from app.platform.services.document_render import render_document
 
+class _DemoStrings(TypedDict):
+    """One language's demo strings — typed so each lookup keeps its own type
+    (every value is a str except the addressee's lines)."""
+
+    title: str
+    date_label: str
+    advisor_label: str
+    advisor: str
+    addressee: list[str]
+    vehicle_heading: str
+    vin_label: str
+    km_label: str
+    km: str
+    base_price: str
+    options: str
+    discount: str
+    total: str
+    note: str
+    buyer: str
+    seller: str
+
+
 # The one content definition rendered for every (dealership, language) pair —
 # demo-only, exercises every block type once. Content strings are supplied
 # per language here because THIS SCRIPT plays the role of a future content-
 # producing module (WP-7/8/9) — the render layer itself has no vocabulary
 # of its own to translate, per its own schema's docstring.
-_STRINGS = {
+_STRINGS: dict[SwissLanguage, _DemoStrings] = {
     SwissLanguage.DE: {
         "title": "Offerte O-2026-0042",
         "date_label": "Datum",

@@ -197,7 +197,7 @@ def lane_config():
 
 def lane_backend(fast):
     ok = step("ruff (CI: ruff check app tests)", [os.path.join(VENV_BIN, "ruff"), "check", "app", "tests"])
-    ok &= step("mypy (as a module)", [PY, "-m", "mypy", "app"])
+    ok &= step("mypy (as a module; CI: mypy app scripts)", [PY, "-m", "mypy", "app", "scripts"])
     ok &= step("import-linter", [os.path.join(VENV_BIN, "lint-imports")])
     env = dict(ENV)
     if fast:
