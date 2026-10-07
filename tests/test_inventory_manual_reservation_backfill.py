@@ -366,6 +366,9 @@ def test_recording_a_cancellation_reports_the_items_it_releases(db_session, engi
     (line,) = [line for line in report.lines if line.contract_id == contract.id]
     assert line.outcome == BackfillOutcome.CANCELLATION_RECORDED
     assert line.detail == "released 1 item(s)"
+    from scripts.backfill_manual_configuration_reservations import render
+
+    assert f"contract {contract.id} ({contract.contract_number}, tenant {dealership.id}) — released 1 item(s)" in render(report)
     db_session.expire_all()
     assert _manual_item(db_session, contract).reservation_state == ReservationState.NONE
 

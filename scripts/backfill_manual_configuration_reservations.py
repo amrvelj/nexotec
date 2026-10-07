@@ -21,7 +21,11 @@ import argparse
 import sys
 
 from app.db import SessionLocal
-from app.inventory.services.reservation_backfill import BackfillReport, backfill_manual_configuration_reservations
+from app.inventory.services.reservation_backfill import (
+    BackfillOutcome,
+    BackfillReport,
+    backfill_manual_configuration_reservations,
+)
 
 
 def render(report: BackfillReport) -> str:
@@ -29,6 +33,12 @@ def render(report: BackfillReport) -> str:
     lines = [f"KAN-166 manual-configuration reservation backfill ({mode})", ""]
     for outcome, count in report.counts().items():
         lines.append(f"{outcome.value}: {count}")
+    releasing = [
+        line for line in report.lines if line.outcome == BackfillOutcome.CANCELLATION_RECORDED and line.detail
+    ]
+    lines += ["", f"RELEASES (inventory.stock_item.released published): {len(releasing)} contract(s)"]
+    for line in releasing:
+        lines.append(f"  contract {line.contract_id} ({line.contract_label}, tenant {line.tenant_id}) — {line.detail}")
     attention = report.needs_attention
     lines += ["", f"NEEDS ATTENTION: {len(attention)}"]
     for line in attention:
