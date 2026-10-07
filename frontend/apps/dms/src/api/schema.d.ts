@@ -2086,10 +2086,16 @@ export interface paths {
          * Search Vehicles
          * @description FR-V-06/FR-V-16: ONE search box, two behaviours, decided by the
          *     string's own shape — never a second field, never a mode the caller
-         *     picks. `resolved`/`pickerCandidates` are populated only when `q` looks
-         *     like an identifier; otherwise `filtered` is the ordinary grid page and
-         *     the other two are empty, exactly as if the user had typed a brand
+         *     picks. When `q` looks like an identifier, `resolved`/`pickerCandidates`
+         *     carry the answer and `filtered` is an empty page (KAN-82) — also when
+         *     the identifier matches nothing, which is "no such vehicle", not a cue
+         *     to show some other one. Otherwise `filtered` is the ordinary grid page
+         *     and the other two are empty, exactly as if the user had typed a brand
          *     fragment. `sort`, the cursor and the count apply to `filtered` only.
+         *
+         *     The Vehicles screen keeps its grid where it was under a resolved hit
+         *     (FR-V-06, "resolves above the grid") by reading the unfiltered page
+         *     itself; this endpoint never sends a page unrelated to `q`.
          */
         get: operations["search_vehicles_v1_vehicle_mdm_search_get"];
         put?: never;
@@ -6847,6 +6853,50 @@ export interface components {
             vin: string;
         };
         /**
+         * VehicleSearchHit
+         * @description The vehicle an identifier resolved to (FR-V-06), plus its plate valid
+         *     today — the "one line of disambiguating context" a global-search row
+         *     carries (FR-UI-08, KAN-82). Only on the targeted hit, never on grid
+         *     rows: the plate table is never listable (ADR-039).
+         */
+        VehicleSearchHit: {
+            catalogueMatchStatus: components["schemas"]["CatalogueMatchStatus"];
+            /** Cataloguevariantid */
+            catalogueVariantId: string | null;
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            /** Currentplate */
+            currentPlate: string | null;
+            /** Firstregistrationdate */
+            firstRegistrationDate: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Mergedintovehicleid */
+            mergedIntoVehicleId: string | null;
+            /** Stammnummer */
+            stammnummer: string | null;
+            /** Typeapprovalnumber */
+            typeApprovalNumber: string | null;
+            /**
+             * Updatedat
+             * Format: date-time
+             */
+            updatedAt: string;
+            /** Vehiclenumber */
+            vehicleNumber: string;
+            vehicleStatus: components["schemas"]["app__vehicle__models__vehicle_mdm__VehicleStatus"];
+            /** Version */
+            version: number;
+            /** Vin */
+            vin: string;
+        };
+        /**
          * VehicleSearchResult
          * @description The ONE search box's response shape (FR-V-06/FR-V-16): the string
          *     either resolves as an identifier (above the grid) or filters it —
@@ -6857,7 +6907,7 @@ export interface components {
             filtered: components["schemas"]["VehicleMdmPage"];
             /** Pickercandidates */
             pickerCandidates: components["schemas"]["VehiclePickerCandidate"][];
-            resolved: components["schemas"]["VehicleMdmRead"] | null;
+            resolved: components["schemas"]["VehicleSearchHit"] | null;
         };
         /**
          * VehicleSpecBlockInput

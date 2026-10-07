@@ -111,35 +111,82 @@ function buildGlobalSearch(t: (key: string) => string, navigate: (path: string) 
         api.get<CustomerPage>(`/customers?q=${encodeURIComponent(query)}&limit=${GLOBAL_SEARCH_LIMIT_PER_ENTITY}`),
         api.get<VehicleSearchResult>(`/vehicle-mdm/search?q=${encodeURIComponent(query)}`),
       ])
-      const groups: GlobalSearchGroup[] = [
-        {
-          key: 'customers',
-          label: t('shell.nav.customers'),
-          items: customers.items.map((c) => ({
-            id: c.id,
-            identifier: c.customerNumber,
-            label: customerName(c),
-            sublabel: c.address ? `${c.address.addressPostalCode} ${c.address.addressLocality}` : undefined,
-            href: `/customers/${c.id}`,
-          })),
-        },
-        {
-          key: 'vehicles',
-          label: t('shell.nav.vehicles'),
-          // `resolved`/`pickerCandidates` serve the dedicated identifier-
-          // resolution UX on the vehicle list itself (FR-V-06/16) — global
-          // search only ever shows the ordinary filtered page.
-          items: vehicles.filtered.items.slice(0, GLOBAL_SEARCH_LIMIT_PER_ENTITY).map((v) => ({
-            id: v.id,
-            identifier: v.vin,
-            label: v.vehicleNumber,
-            href: `/vehicles/${v.id}`,
-          })),
-        },
-      ]
+      const customerGroup: GlobalSearchGroup = {
+        key: 'customers',
+        label: t('shell.nav.customers'),
+        items: customers.items.map((c) => ({
+          id: c.id,
+          identifier: c.customerNumber,
+          label: customerName(c),
+          sublabel: c.address ? `${c.address.addressPostalCode} ${c.address.addressLocality}` : undefined,
+          href: `/customers/${c.id}`,
+        })),
+      }
+      const vehicleGroup = buildVehicleGroup(t, vehicles)
+      // § FR-UI-08 — identifiers first, best group first: a plate or VIN
+      // that resolved is the exact answer, so its group leads.
+      const groups = vehicleGroup.isIdentifierAnswer ? [vehicleGroup.group, customerGroup] : [customerGroup, vehicleGroup.group]
       return groups.filter((group) => group.items.length > 0)
     },
     onSelect: (item) => navigate(item.href),
+  }
+}
+
+/**
+ * KAN-82 — global search is FR-V-06's second entry point: "a plate typed
+ * here resolves through the same rules as FR-V-06, ambiguity picker
+ * included; global search never guesses either" (FR-UI-08). The server
+ * decides from the string's shape whether it is an identifier, so this
+ * reads its answer rather than guessing again: the resolved vehicle, or
+ * the picker's candidates under the same Wechselschild / conflict
+ * headings the Vehicles screen shows, or — for anything else — the
+ * ordinary filtered page. An identifier that matches nothing comes back
+ * with an empty page, so it reads as no match, never as other cars.
+ */
+function buildVehicleGroup(
+  t: (key: string) => string,
+  result: VehicleSearchResult,
+): { group: GlobalSearchGroup; isIdentifierAnswer: boolean } {
+  if (result.resolved) {
+    const v = result.resolved
+    return {
+      isIdentifierAnswer: true,
+      group: {
+        key: 'vehicles',
+        label: t('shell.nav.vehicles'),
+        items: [{ id: v.id, identifier: v.vin, label: v.vehicleNumber, sublabel: v.currentPlate ?? undefined, href: `/vehicles/${v.id}` }],
+      },
+    }
+  }
+  if (result.pickerCandidates.length > 0) {
+    const isWechselschild = result.pickerCandidates.every((c) => !c.isConflict)
+    return {
+      isIdentifierAnswer: true,
+      group: {
+        key: 'vehicles',
+        label: isWechselschild ? t('vehiclesList.picker.wechselschildTitle') : t('vehiclesList.picker.conflictTitle'),
+        items: result.pickerCandidates.map((c) => ({
+          id: c.id,
+          identifier: c.vin,
+          label: c.vehicleNumber,
+          sublabel: c.plate ?? undefined,
+          href: `/vehicles/${c.id}`,
+        })),
+      },
+    }
+  }
+  return {
+    isIdentifierAnswer: false,
+    group: {
+      key: 'vehicles',
+      label: t('shell.nav.vehicles'),
+      items: result.filtered.items.slice(0, GLOBAL_SEARCH_LIMIT_PER_ENTITY).map((v) => ({
+        id: v.id,
+        identifier: v.vin,
+        label: v.vehicleNumber,
+        href: `/vehicles/${v.id}`,
+      })),
+    },
   }
 }
 
