@@ -34,8 +34,11 @@ def _make_provider(db_session, **overrides) -> IntegrationProvider:
 
 def _make_connection(db_session, provider, *, tenant_id=None, enabled=True):
     connection = connection_service.create_connection(
-        db_session, tenant_id=tenant_id or uuid.uuid4(),
-        data=ConnectionCreate(provider_id=provider.id, display_name="auto-i-dat", environment=ConnectionEnvironment.SANDBOX),
+        db_session,
+        tenant_id=tenant_id or uuid.uuid4(),
+        data=ConnectionCreate(
+            provider_id=provider.id, display_name="auto-i-dat", environment=ConnectionEnvironment.SANDBOX
+        ),
         actor_id=uuid.uuid4(),
     )
     if not enabled:
@@ -167,6 +170,56 @@ def test_gateway_writes_no_business_data_only_call_log(db_session):
     assert db_session.query(ModelVariant).count() == 0
 
 
+def test_a_failed_call_never_commits_the_callers_half_written_rows(db_session, engine):
+    """ADR-047 (KAN-90): the gateway's log row is integration's own write
+    and is committed on its own; a row the caller wrote inside the block
+    belongs to the caller's transaction and dies with the caller's
+    rollback. Before KAN-90, record_call committed the caller's session, so
+    a catalogue sync that failed half-way kept its half-written rows."""
+
+    from sqlalchemy.orm import Session
+
+    from app.vehicle.models.catalogue import Brand
+
+    provider = _make_provider(db_session)
+    connection = _make_connection(db_session, provider)
+
+    try:
+        with gateway.call_capability(db_session, connection=connection, capability="vehicle_data") as adapter:
+            db_session.add(Brand(code="half-written", display_name="Half written"))
+            db_session.flush()
+            adapter.fetch_vehicle_master_data("NOPE")
+        raise AssertionError("expected KeyError")
+    except KeyError:
+        db_session.rollback()
+
+    with Session(engine) as fresh:
+        assert fresh.query(Brand).filter_by(code="half-written").count() == 0
+        logs = fresh.query(IntegrationCallLog).filter_by(connection_id=connection.id).all()
+        assert [log.status for log in logs] == [CallStatus.ERROR]
+
+
+def test_a_successful_call_leaves_the_callers_work_for_the_caller_to_commit(db_session, engine):
+    from sqlalchemy.orm import Session
+
+    from app.vehicle.models.catalogue import Brand
+
+    provider = _make_provider(db_session)
+    connection = _make_connection(db_session, provider)
+
+    with gateway.call_capability(db_session, connection=connection, capability="vehicle_data") as adapter:
+        db_session.add(Brand(code="callers-own", display_name="Caller's own"))
+        db_session.flush()
+        adapter.fetch_vehicle_master_data("FZ100001")
+
+    with Session(engine) as fresh:
+        assert fresh.query(Brand).filter_by(code="callers-own").count() == 0  # not committed by the gateway
+        assert fresh.query(IntegrationCallLog).filter_by(connection_id=connection.id).count() == 1
+    db_session.commit()
+    with Session(engine) as fresh:
+        assert fresh.query(Brand).filter_by(code="callers-own").count() == 1
+
+
 def test_test_connection_endpoint_updates_status_and_last_verified(db_session):
     provider = _make_provider(db_session)
     connection = _make_connection(db_session, provider)
@@ -192,8 +245,11 @@ def test_test_connection_marks_error_status_when_the_provider_is_unregistered(db
 
 def _token(tenant_id: uuid.UUID, *, is_dealer_manager: bool = True) -> str:
     return create_access_token(
-        user_id=uuid.uuid4(), tenant_id=tenant_id, group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tenant_id)),
-        roles=frozenset(), is_dealer_manager=is_dealer_manager,
+        user_id=uuid.uuid4(),
+        tenant_id=tenant_id,
+        group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tenant_id)),
+        roles=frozenset(),
+        is_dealer_manager=is_dealer_manager,
     )
 
 

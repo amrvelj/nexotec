@@ -26,12 +26,20 @@ What it proves:
    `create_vehicle_mdm`). Delete the commit, or the call that leads to it,
    and this fails naming the function. A commit reached only through a
    third context's public function does not count.
-3. No `_READS` function and no `_SHARED_TRANSACTION_EXCEPTIONS` function
-   reaches a `.commit()`: a read that starts writing has to be classified
-   again, and an exception that starts committing must move to
-   `_OWN_COMMIT_WRITES` (and its follow-up ticket be closed).
-4. A cross-context public module is only ever imported as
-   `from app.<ctx>.public import <name>` — the one form point 1 can see.
+   A commit home may not take a `commit` switch a caller could turn off,
+   and a savepoint's `begin_nested().commit()` is not a commit.
+3. No `_READS` function reaches a write of any kind (a session write, a
+   row lock, an outbox/audit/idempotency record), and no
+   `_SHARED_TRANSACTION_EXCEPTIONS` function reaches a `.commit()`: a read
+   that starts writing has to be classified again, and an exception that
+   starts committing must move to `_OWN_COMMIT_WRITES` (and its follow-up
+   ticket be closed).
+4. One context reaches another only as `from app.<ctx>.public import
+   <name>` — a whole public module, another context's non-public module
+   (import-linter forbids only models/services/api) or a public function
+   exported by assignment fails, since point 1 could not see the call.
+   Every package under app/ is one of the twelve contexts or declared
+   wiring (`core`, `api`).
 
 The one known exception — decided by Anto on 2026-10-07 (KAN-90, exit
 criterion 1): `app.sales.public.repoint_customer_transactions`, called by
@@ -43,15 +51,28 @@ consumes idempotently". It is recorded here rather than fixed because the
 table it touches is retired for new business writes (ADR-050:
 `_refuse_retired_write()` refuses every create/update/complete/cancel), so
 the debt is bounded to legacy rows touched by a merge; the replacement is
-its own Backlog ticket.
+KAN-185.
+
+Two more found while building KAN-90 were fixed rather than recorded
+(Anto, 2026-10-07): the retired `complete_transaction`'s unreachable body,
+which wrote the vehicle's custody event inside Sales' transaction, was
+deleted; and `call_capability` now writes its log on a session of its own
+instead of committing the caller's (a failed catalogue sync used to keep
+its half-written rows).
 
 What it does not prove: that the caller makes the call OUTSIDE its own
 transaction, in the right order, with an Idempotency-Key and a
-compensating action — the behavioural tests (`test_inventory_reservation`,
-`test_inventory_valuation_ref`, `test_sales_lifecycle_reservation`,
-`test_sales_trade_in_valuation_use`) cover those per call. It scans `app/`
-only: `scripts/migrate_transaction_rows.py`'s shared Sales+Inventory
-transaction is KAN-106.
+compensating action, nor which session a commit runs on — an own-commit
+write sharing the caller's session commits whatever the caller has
+pending. The behavioural tests cover those per call
+(`test_inventory_reservation`, `test_sales_lifecycle_reservation`,
+`test_sales_trade_in_valuation_use`, and in `test_integration_gateway`
+the two KAN-90 tests on the caller's own rows). It does not follow a
+write made by assigning to another context's ORM object (rule 1's
+territory), and it scans the twelve contexts only: the composition roots
+directly under app/ (main, worker, reconciliation_runner) wire contexts
+together, and `scripts/migrate_transaction_rows.py`'s shared
+Sales+Inventory transaction is KAN-106.
 
 Same discipline as test_no_ambient_group_read.py: explicit names with a
 reason each, never a whole-module or whole-directory exemption.
@@ -150,18 +171,16 @@ _OWN_COMMIT_WRITES = {
         "app.vehicle.services.vehicle_mdm.create_vehicle_mdm",
         "inventory: promote_to_vehicle_mdm; sales: trade-in; valuation: create",
     ),
-    "app.vehicle.public.create_custody_event": (
-        "app.vehicle.services.vehicle.create_custody_event",
-        "sales: legacy transaction completion (retired, ADR-050)",
-    ),
     # The daily job composition root runs the catalogue delta per tenant.
     "app.vehicle.public.run_daily_delta_for_tenant": (
         "app.vehicle.services.catalogue_sync.run_daily_delta_for_tenant",
         "integration: daily_jobs",
     ),
     # Every provider call writes exactly one integration_call_log row,
-    # committed in record_call (a captured payload commits again later,
-    # only sometimes — which is why the commit's home is named).
+    # committed in record_call on the gateway's OWN session, never the
+    # caller's (KAN-90; tests/test_integration_gateway.py pins that the
+    # caller's rows are left to the caller). A captured payload commits
+    # again, only sometimes — which is why the commit's home is named.
     "app.integration.public.call_capability": (
         "app.integration.services.gateway.record_call",
         "inventory: marketplace transmission; vehicle: catalogue sync/browse",
@@ -169,11 +188,11 @@ _OWN_COMMIT_WRITES = {
 }
 
 # ADR-047's forbidden shape, known and tracked. Anto, 2026-10-07 (KAN-90):
-# recorded, not fixed here — see the module docstring.
+# recorded, not fixed here — see the module docstring. KAN-185 replaces it.
 _SHARED_TRANSACTION_EXCEPTIONS = {
     "app.sales.public.repoint_customer_transactions": (
         "customer: _repoint_transactions inside the merge transaction; legacy table retired by ADR-050; "
-        "to be replaced by a customer.merged event consumed by sales"
+        "to be replaced by a customer.merged event consumed by sales (KAN-185)"
     ),
 }
 
