@@ -8915,6 +8915,8 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response; the same key with a different body is a 409. */
+                "Idempotency-Key"?: string | null;
             };
             path: {
                 dealer_group_id: string;
@@ -8987,8 +8989,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "Idempotency-Key"?: string | null;
                 authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response; the same key with a different body is a 409. */
+                "Idempotency-Key"?: string | null;
             };
             path?: never;
             cookie?: {
@@ -9253,8 +9256,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "Idempotency-Key"?: string | null;
                 authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response; the same key with a different body is a 409. */
+                "Idempotency-Key"?: string | null;
             };
             path: {
                 dealership_id: string;
@@ -11125,8 +11129,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "Idempotency-Key"?: string | null;
                 authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response; the same key with a different body is a 409. */
+                "Idempotency-Key"?: string | null;
             };
             path: {
                 list_code: string;
