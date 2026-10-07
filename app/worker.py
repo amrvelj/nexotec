@@ -22,6 +22,7 @@ from app.core.daily_scheduler import register_daily_job, run_due_daily_jobs
 from app.core.observability import (
     record_consumer_lag_seconds,
     record_dead_letter_count,
+    record_label_age_seconds,
     record_outbox_lag_seconds,
     record_reconciliation_age_seconds,
 )
@@ -29,7 +30,7 @@ from app.core.outbox import consumer_lag_seconds, dead_letter_count, oldest_pend
 from app.core.outbox_transport import InProcessTransport
 from app.core.outbox_worker import poll_once
 from app.core.reconciliation import seconds_since_last_reconciliation
-from app.customer.public import refresh_vehicle_party_labels
+from app.customer.public import oldest_vehicle_party_label_age_seconds, refresh_vehicle_party_labels
 from app.db import SessionLocal
 from app.integration.daily_jobs import run_daily_integration_jobs
 from app.inventory.consumers import (
@@ -133,6 +134,9 @@ def _heartbeat(db, transport: InProcessTransport) -> None:
     reconciliation_age = seconds_since_last_reconciliation(db)
     record_reconciliation_age_seconds(reconciliation_age)
 
+    vehicle_party_label_age = oldest_vehicle_party_label_age_seconds(db)
+    record_label_age_seconds("vehicle_party.vehicle", vehicle_party_label_age)
+
     logger.info(
         "outbox heartbeat",
         extra={
@@ -140,6 +144,7 @@ def _heartbeat(db, transport: InProcessTransport) -> None:
             "deadLetterCount": dead,
             "consumerLagSeconds": consumer_lags,
             "reconciliationAgeSeconds": reconciliation_age,
+            "vehiclePartyLabelAgeSeconds": vehicle_party_label_age,
         },
     )
 

@@ -95,6 +95,14 @@ main@568f416 on 2026-09-27; the vehicle-party lines against KAN-99's branch on
   `list_vehicle_party_holders`, which also returns each holder's name for the Identity tab,
   KAN-140) are filtered the same way, through one shared statement: a name can only come from
   a holder the group filter already admits.
+- **A party row carries the vehicle's label, never a join** (KAN-84, rule 2):
+  `vehicle_vin`, `vehicle_number`, `vehicle_make`, `vehicle_model`, `vehicle_model_year`,
+  `vehicle_trim` and `vehicle_label_refreshed_at`, copied from
+  `app.vehicle.public.get_vehicle_summaries` whenever a row is opened, created or repointed,
+  and re-read nightly by `refresh_vehicle_party_labels` (`customer.vehicle_party_labels`), so a
+  later catalogue match or VIN correction shows within a day (Anto's ruling, option A). A row
+  without a label yet is filled for a read in memory only and labelled by its next write.
+  `tests/architecture/test_no_cross_context_mapping.py` forbids a relationship or FK back.
 - **Cross-group closes written before KAN-99 are detected, not repaired** (KAN-139):
   `app.customer.reconciliation.find_cross_group_vehicle_party_closes` (run by
   `scripts/detect_cross_group_vehicle_party_closes.py`) classifies every

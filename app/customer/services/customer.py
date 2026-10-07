@@ -22,7 +22,6 @@ from typing import Any
 from sqlalchemy import Select, func, or_, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, load_only
-from sqlalchemy.orm.attributes import set_committed_value
 
 from app.core.audit import record_audit_event
 from app.core.base import utcnow
@@ -50,7 +49,7 @@ from app.customer.models.customer import (
     Language,
     PhoneType,
 )
-from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
+from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole, VehiclePartyVehicleLabel
 from app.customer.schemas.customer import (
     CustomerAddressCreate,
     CustomerAddressRead,
@@ -2172,13 +2171,16 @@ def _write_vehicle_labels(db: Session, parties: list[VehicleParty]) -> None:
         for column, value in _label_changes(party, summary).items():
             setattr(party, column, value)
         party.vehicle_label_refreshed_at = now
+        party.__dict__.pop("_vehicle_label_read_fill", None)
 
 
 def _fill_unlabelled_vehicle_parties_for_read(db: Session, parties: list[VehicleParty]) -> None:
     """A row written before KAN-84 has no label until the nightly refresh
-    reaches it. A read fills it in memory only (committed state, so nothing
-    is flushed — a GET never writes); vehicle_label_refreshed_at stays None,
-    which is the truth about what is stored."""
+    reaches it. A read fills it in memory only: the label is held in a plain
+    instance attribute that VehicleParty.vehicle prefers, outside ORM state,
+    so nothing is flushed (a GET never writes) and a later write to the same
+    object in the same session still sees the stored columns as empty and
+    writes them."""
 
     unlabelled = [p for p in parties if p.vehicle_label_refreshed_at is None]
     if not unlabelled:
@@ -2188,8 +2190,35 @@ def _fill_unlabelled_vehicle_parties_for_read(db: Session, parties: list[Vehicle
         summary = summaries.get(party.vehicle_id)
         if summary is None:
             continue
-        for column, field in _VEHICLE_LABEL_FIELDS.items():
-            set_committed_value(party, column, getattr(summary, field))
+        party.__dict__["_vehicle_label_read_fill"] = VehiclePartyVehicleLabel(
+            id=party.vehicle_id,
+            vin=summary.vin,
+            vehicle_number=summary.vehicle_number,
+            make=summary.make,
+            model=summary.model,
+            model_year=summary.model_year,
+            trim=summary.trim,
+        )
+
+
+def oldest_vehicle_party_label_age_seconds(db: Session) -> float | None:
+    """Age of the stalest stored vehicle label — what the worker heartbeat
+    records as `dms.label.age_seconds{label="vehicle_party.vehicle"}` (CLAUDE.md
+    rule 10). The nightly job restamps every row it can resolve, so a value
+    well past a day means the job has stopped. None when no row has ever been
+    labelled. Rows whose vehicle no longer exists are never restamped; they
+    are the reconciliation's finding, not this alarm's, and are excluded."""
+
+    oldest = db.scalar(
+        select(func.min(VehicleParty.vehicle_label_refreshed_at)).where(
+            VehicleParty.vehicle_label_refreshed_at.is_not(None)
+        )
+    )
+    if oldest is None:
+        return None
+    if oldest.tzinfo is None:
+        oldest = oldest.replace(tzinfo=dt.UTC)
+    return (utcnow() - oldest).total_seconds()
 
 
 _LABEL_REFRESH_BATCH = 500
@@ -2226,6 +2255,7 @@ def refresh_vehicle_party_labels(db: Session) -> int:
             summary = summaries.get(party.vehicle_id)
             if summary is None:
                 continue
+            party.__dict__.pop("_vehicle_label_read_fill", None)
             changes = _label_changes(party, summary)
             if changes:
                 for column, value in changes.items():
@@ -2652,7 +2682,13 @@ def allocate_vehicle_party(
         ).all()
     )
     if len(incumbents) == 1 and incumbents[0].customer_id == customer_id:
-        return incumbents[0]
+        incumbent = incumbents[0]
+        # KAN-84: a re-confirmed row written before KAN-84 has no label yet;
+        # the response is built from it, so label it now.
+        if incumbent.vehicle_label_refreshed_at is None:
+            _write_vehicle_labels(db, [incumbent])
+            db.commit()
+        return incumbent
 
     party = _open_vehicle_party(
         db, vehicle_id=vehicle_id, customer_id=customer_id, role=role, group_id=group_id,

@@ -119,8 +119,14 @@ class VehicleParty(PrimaryKeyMixin, TimestampMixin, Base):
     @property
     def vehicle(self) -> "VehiclePartyVehicleLabel":
         """The label columns in the shape VehiclePartySummary reads
-        (`CustomerVehicleRead.vehicle`) — no join, no other context's row."""
+        (`CustomerVehicleRead.vehicle`) — no join, no other context's row.
+        A row with no stored label yet may carry a read-only fill (see
+        app.customer.services.customer._fill_unlabelled_vehicle_parties_for_read),
+        held in a plain instance attribute, never in ORM state."""
 
+        read_fill = self.__dict__.get("_vehicle_label_read_fill")
+        if read_fill is not None:
+            return read_fill
         return VehiclePartyVehicleLabel(
             id=self.vehicle_id,
             vin=self.vehicle_vin,

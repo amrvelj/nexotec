@@ -6,14 +6,18 @@ import-linter (rule 3) only sees Python import statements. A string passed to
 `relationship()`'s target or `primaryjoin` string is invisible to it too — so
 a model in one context can reach into another context's table without the
 import-linter ever noticing. This closes that gap from the other side: it
-walks SQLAlchemy's own mapped-model metadata (everything `app.model_registry`
-registers on `Base`, the same set Alembic and the test schema use — no
-database, no per-directory regex) and asserts:
+walks SQLAlchemy's own mapped-model metadata (no database, no regex over
+source) and asserts:
 
 - the FK gate: every ForeignKey's target table is mapped by a model of the
   same bounded context as the table that declares it;
 - the relationship gate: every relationship()'s target class lives in the
   same bounded context as the class that declares it.
+
+Every model module — `app/<context>/models/*.py` and `app/core/*_model.py` —
+is imported here first, so the gate never depends on `app.model_registry`
+listing it (KAN-84's review found that registry missing one), and a table on
+`Base.metadata` that no model maps fails the gate rather than escaping it.
 
 A model's context is the second segment of its module path
 (`app.<context>.…`; `app.core.*_model` is the `core` context). A reference
@@ -27,6 +31,7 @@ vehicle) with denormalised label columns. A new entry needs an ADR, not a
 convenience.
 """
 
+import importlib
 from pathlib import Path
 
 from sqlalchemy import Column, ForeignKey, MetaData, Table
@@ -36,6 +41,20 @@ import app.model_registry  # noqa: F401  (registers every mapped class on Base)
 from app.db import Base
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
+_APP_ROOT = _REPO_ROOT / "app"
+
+
+def _model_module_files() -> list[Path]:
+    files = [*_APP_ROOT.glob("*/models/*.py"), *(_APP_ROOT / "core").glob("*_model.py")]
+    return sorted(f for f in files if f.name != "__init__.py")
+
+
+def _module_name(file: Path) -> str:
+    return ".".join(file.relative_to(_REPO_ROOT).with_suffix("").parts)
+
+
+for _file in _model_module_files():
+    importlib.import_module(_module_name(_file))
 
 # (repo-relative file of the declaring class, attribute name) -> reason.
 _ALLOWED_RELATIONSHIPS: dict[tuple[str, str], str] = {}
@@ -115,7 +134,14 @@ def _app_mappers() -> list[Mapper]:
 
 
 def test_no_foreign_key_or_relationship_crosses_a_context():
-    violations = find_cross_context_mappings(_app_mappers())
+    mappers = _app_mappers()
+    mapped_tables = {t.name for m in mappers for t in m.tables}
+    # demo_* tables: tests/demo_models.py's fixture models, excluded with them.
+    unmapped = sorted(n for n in Base.metadata.tables if n not in mapped_tables and not n.startswith("demo_"))
+    violations = [
+        f"table {name} is on Base.metadata but no model maps it, so its owning context cannot be checked"
+        for name in unmapped
+    ] + find_cross_context_mappings(mappers)
     assert not violations, (
         "CLAUDE.md rule 2 — no cross-context foreign keys or joins. Store the other context's id as a plain GUID "
         "column (comment naming the owner) plus a denormalised label and labelRefreshedAt:\n  "
@@ -124,9 +150,18 @@ def test_no_foreign_key_or_relationship_crosses_a_context():
 
 
 def test_the_gate_sees_every_mapped_model():
-    """Guards the guard: if model_registry stopped registering a context, the
-    gate would pass vacuously for it."""
+    """Guards the guard: every model module that defines a mapped class is
+    among the mappers walked, so no module — and no context — passes
+    vacuously."""
 
+    walked_modules = {m.class_.__module__ for m in _app_mappers()}
+    for file in _model_module_files():
+        module = importlib.import_module(_module_name(file))
+        defines_a_model = any(
+            isinstance(v, type) and v.__module__ == module.__name__ and hasattr(v, "__mapper__")
+            for v in vars(module).values()
+        )
+        assert not defines_a_model or module.__name__ in walked_modules, module.__name__
     contexts = {_context_of(m.class_) for m in _app_mappers()}
     assert {"core", "platform", "customer", "vehicle", "sales", "inventory", "valuation", "integration"} <= contexts
 

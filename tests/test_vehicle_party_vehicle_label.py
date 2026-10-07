@@ -251,6 +251,86 @@ def test_the_next_write_to_an_unlabelled_row_stores_its_label(client, db_session
     assert row.vehicle_vin == vehicle["vin"] and row.vehicle_label_refreshed_at is not None
 
 
+def test_reconfirming_the_holder_of_an_unlabelled_row_labels_it(client, db_session):
+    """Review finding 1: the ADR-064 re-confirm no-op returns the stored row
+    as-is — without this it had no label and the response failed (500)."""
+
+    dealer_id, customer, vehicle = _setup(client)
+    party_id = _unlabelled_party(db_session, vehicle["id"], customer["id"])
+
+    body = _link(client, dealer_id, customer["id"], vehicle["id"], role="owner")
+
+    assert body["id"] == str(party_id)
+    assert body["vehicle"]["vin"] == vehicle["vin"]
+    assert _party(db_session, party_id).vehicle_vin == vehicle["vin"]
+
+
+def test_disconnecting_an_unlabelled_row_stores_its_label(client, db_session):
+    dealer_id, customer, vehicle = _setup(client)
+    party_id = _unlabelled_party(db_session, vehicle["id"], customer["id"])
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+
+    response = client.delete(f"/v1/customers/{customer['id']}/vehicles/{party_id}", headers=_bearer(token))
+
+    assert response.status_code == 204, response.text
+    row = _party(db_session, party_id)
+    assert row.effective_to is not None
+    assert row.vehicle_vin == vehicle["vin"] and row.vehicle_label_refreshed_at is not None
+
+
+def test_a_read_fill_never_hides_the_empty_columns_from_a_later_write(client, db_session):
+    """Review finding 3: a read and a write of the same row in ONE session.
+    The read's fill must not make the write think the label is already
+    stored (it used to: NULL labels stamped as fresh)."""
+
+    from app.customer.services import customer as customer_service
+
+    _dealer_id, customer, vehicle = _setup(client)
+    party_id = _unlabelled_party(db_session, vehicle["id"], customer["id"])
+
+    listed = customer_service.list_customer_vehicles(db_session, customer_id=uuid.UUID(customer["id"]))
+    assert listed[0].vehicle.vin == vehicle["vin"]
+    customer_service.get_customer_vehicle_or_404(
+        db_session, customer_id=uuid.UUID(customer["id"]), party_id=party_id
+    )
+    db_session.commit()
+
+    row = _party(db_session, party_id)
+    assert row.vehicle_vin == vehicle["vin"] and row.vehicle_label_refreshed_at is not None
+    assert row.vehicle.vin == vehicle["vin"]
+
+
+# --- the sync-age alarm (rule 10) --------------------------------------------------------
+
+
+def test_label_age_is_none_until_a_row_is_labelled_then_the_stalest_age(client, db_session):
+    from app.customer.services.customer import oldest_vehicle_party_label_age_seconds
+
+    dealer_id, customer, vehicle = _setup(client)
+    _unlabelled_party(db_session, vehicle["id"], customer["id"])
+    assert oldest_vehicle_party_label_age_seconds(db_session) is None
+
+    other = _create_vehicle(client, dealer_id)
+    body = _link(client, dealer_id, customer["id"], other["id"], role="keeper")
+    row = _party(db_session, body["id"])
+    row.vehicle_label_refreshed_at = dt.datetime.now(dt.UTC) - dt.timedelta(hours=30)
+    db_session.commit()
+
+    age = oldest_vehicle_party_label_age_seconds(db_session)
+    assert 30 * 3600 <= age < 31 * 3600
+
+
+def test_the_worker_heartbeat_records_the_label_age(client, db_session, monkeypatch):
+    recorded = []
+    monkeypatch.setattr(worker, "record_label_age_seconds", lambda label, s: recorded.append((label, s)))
+    dealer_id, customer, vehicle = _setup(client)
+    _link(client, dealer_id, customer["id"], vehicle["id"])
+
+    worker._heartbeat(db_session, worker.InProcessTransport(lambda: db_session))
+
+    assert len(recorded) == 1 and recorded[0][0] == "vehicle_party.vehicle" and recorded[0][1] is not None
+
+
 # --- scheduling --------------------------------------------------------------------------
 
 
