@@ -48,8 +48,9 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   unreserved and cancellations were not recorded; `scripts/backfill_manual_configuration_reservations.py`
   (KAN-166, dry run unless `--commit`, re-runnable) repairs both. It learns which contracts are
   cancelled from the `sales.contract.cancelled` events in the outbox, never from Sales' tables;
-  a contract confirmed and never cancelled (confirmed or invoiced) gets its item reserved, an
-  item held by another contract is reported, not overwritten.
+  a contract confirmed and never cancelled (confirmed or invoiced, even once its car has left
+  stock) gets its item reserved; an item held by another contract, or one Stock released before,
+  is reported, never overwritten or re-reserved.
 - **Fiktiver Vorsteuerabzug** (Art. 28a MWSTG) is recorded at purchase booking
   (`app/inventory/services/purchase.py::record_purchase`), computed from the purchase price and
   the dealership's `vat_rate`, independent of `landed_cost`. Stock owns it; Sales only reads it.

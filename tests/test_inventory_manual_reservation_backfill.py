@@ -16,12 +16,14 @@ import pytest
 from sqlalchemy import func, select
 from sqlalchemy.orm import sessionmaker
 
+from app.core.base import utcnow
 from app.core.consumer import consume_once
 from app.core.outbox_model import OutboxMessage
 from app.core.uuid7 import uuid7
 from app.inventory.consumers import handle_sales_contract_confirmed_message
 from app.inventory.models.cancelled_contract import InventoryCancelledContract
 from app.inventory.models.stock_item import ReservationState, StockItem
+from app.inventory.services.reservation import release_and_flush
 from app.inventory.services.reservation_backfill import BackfillOutcome, backfill_manual_configuration_reservations
 from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
 from app.sales.schemas.offer import OfferUpdate
@@ -267,3 +269,117 @@ def test_the_script_runs_dry_by_default_and_exits_zero_when_nothing_needs_attent
     assert script.main(["--commit"]) == 0
     db_session.expire_all()
     assert db_session.get(StockItem, item.id).reserved_by_contract_id == contract.id
+
+
+def test_an_invoiced_car_that_has_left_stock_is_reserved_too(db_session, engine):
+    """Anto, 2026-10-07: an invoiced contract's car is reserved like a confirmed one."""
+
+    dealership = _dealership(db_session)
+    contract, item = _pre_kan_158_manual_item(db_session, engine, dealership)
+    item.left_stock_at = utcnow()
+    db_session.commit()
+
+    report = backfill_manual_configuration_reservations(db_session, commit=True)
+
+    assert _outcome(report, contract.id) == BackfillOutcome.RESERVED
+    db_session.expire_all()
+    item = db_session.get(StockItem, item.id)
+    assert item.reserved_by_contract_id == contract.id
+    assert item.left_stock_at is not None
+
+
+def test_an_item_released_before_is_reported_not_reserved_again(db_session, engine):
+    dealership = _dealership(db_session)
+    contract, item = _pre_kan_158_manual_item(db_session, engine, dealership)
+    backfill_manual_configuration_reservations(db_session, commit=True)
+    db_session.expire_all()
+    release_and_flush(db_session, item=db_session.get(StockItem, item.id))  # released on purpose, e.g. via the API
+    db_session.commit()
+    reserved_before = _events(db_session, "inventory.stock_item.reserved")
+
+    report = backfill_manual_configuration_reservations(db_session, commit=True)
+
+    assert _outcome(report, contract.id) == BackfillOutcome.RELEASED_BEFORE
+    assert report.needs_attention
+    db_session.expire_all()
+    assert db_session.get(StockItem, item.id).reservation_state == ReservationState.NONE
+    assert _events(db_session, "inventory.stock_item.reserved") == reserved_before
+
+
+def test_an_item_in_another_tenant_than_its_confirmation_is_reported(db_session, engine):
+    dealership = _dealership(db_session)
+    contract, item = _pre_kan_158_manual_item(db_session, engine, dealership)
+    item.tenant_id = _dealership(db_session).id
+    db_session.commit()
+
+    report = backfill_manual_configuration_reservations(db_session, commit=True)
+
+    assert _outcome(report, contract.id) == BackfillOutcome.TENANT_MISMATCH
+    db_session.expire_all()
+    assert db_session.get(StockItem, item.id).reservation_state == ReservationState.NONE
+
+
+def test_a_cancellation_stock_recorded_without_a_sales_event_is_reported(db_session, engine):
+    dealership = _dealership(db_session)
+    contract, item = _pre_kan_158_manual_item(db_session, engine, dealership)
+    db_session.add(
+        InventoryCancelledContract(
+            tenant_id=dealership.id, contract_id=contract.id, contract_label=contract.contract_number,
+            contract_denorm_refreshed_at=utcnow(), cancelled_at=utcnow(),
+        )
+    )
+    db_session.commit()
+
+    report = backfill_manual_configuration_reservations(db_session, commit=True)
+
+    assert _outcome(report, contract.id) == BackfillOutcome.CANCELLATION_RECORDED_WITHOUT_EVENT
+    db_session.expire_all()
+    assert db_session.get(StockItem, item.id).reservation_state == ReservationState.NONE
+
+
+def test_a_cancellation_without_a_tenant_is_reported_and_the_contract_never_treated_as_live(db_session, engine):
+    dealership = _dealership(db_session)
+    contract, item = _pre_kan_158_manual_item(db_session, engine, dealership)
+    _cancel(db_session, engine, contract)
+    _message(db_session, "sales.contract.cancelled", contract.id).tenant_id = None
+    db_session.commit()
+
+    report = backfill_manual_configuration_reservations(db_session, commit=True)
+
+    assert _outcome(report, contract.id) == BackfillOutcome.CANCELLATION_WITHOUT_TENANT
+    assert report.needs_attention
+    db_session.expire_all()
+    assert db_session.get(StockItem, item.id).reservation_state == ReservationState.NONE
+    assert db_session.scalar(select(func.count()).select_from(InventoryCancelledContract)) == 0
+
+
+def test_recording_a_cancellation_reports_the_items_it_releases(db_session, engine):
+    """A post-KAN-158 item whose cancellation message was never consumed (pending or dead-lettered)."""
+
+    dealership = _dealership(db_session)
+    contract = _confirmed_manual_contract(db_session, engine, dealership)
+    _deliver_confirmed(db_session, contract)  # created reserved, as KAN-158 does
+    _cancel(db_session, engine, contract)
+
+    report = backfill_manual_configuration_reservations(db_session, commit=True)
+
+    (line,) = [line for line in report.lines if line.contract_id == contract.id]
+    assert line.outcome == BackfillOutcome.CANCELLATION_RECORDED
+    assert line.detail == "released 1 item(s)"
+    db_session.expire_all()
+    assert _manual_item(db_session, contract).reservation_state == ReservationState.NONE
+
+
+def test_the_script_exits_one_when_something_needs_attention(db_session, engine, capsys, monkeypatch):
+    import scripts.backfill_manual_configuration_reservations as script
+
+    dealership = _dealership(db_session)
+    contract, _item = _pre_kan_158_manual_item(db_session, engine, dealership)
+    db_session.delete(_message(db_session, "sales.contract.confirmed", contract.id))
+    db_session.commit()
+    monkeypatch.setattr(script, "SessionLocal", _session_factory(engine))
+
+    assert script.main([]) == 1
+    out = capsys.readouterr().out
+    assert "NEEDS ATTENTION: 1" in out
+    assert f"contract {contract.id}" in out

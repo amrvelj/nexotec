@@ -14,7 +14,8 @@ never from Sales' tables. Every `sales.contract.confirmed` and
 rows), and they are Sales' public facts: reading them is what the consumer
 would have done had it existed. A contract with a confirmation and no
 cancellation is still live — confirmed or invoiced — and its ordered car
-is reserved (an invoiced car is sold to that customer; Anto, 2026-10-07).
+is reserved, also once it has left stock (an invoiced car is sold to that
+customer and must not be offered to another; Anto, 2026-10-07).
 
 TWO PHASES, ADR-047. Phase 1 reads the event log and Stock's manual items
 in one read-only pass, then ends that transaction. Phase 2 writes one
@@ -23,16 +24,20 @@ the KAN-158 consumers take, re-reading Stock's own state under it. Nothing
 outside Stock is read inside a write transaction.
 
 Per contract:
-- live, item unreserved, no cancellation recorded -> reserved for it
-  (reserve_and_flush, which publishes `inventory.stock_item.reserved`).
+- live, item unreserved, no cancellation recorded, never released -> reserved
+  for it (reserve_and_flush, which publishes `inventory.stock_item.reserved`).
+- live, but Stock released the item before (an `inventory.stock_item.released`
+  for it) -> reported, never re-reserved: someone released it on purpose.
 - live, item already reserved by it -> nothing.
 - item reserved by another contract -> reported, never overwritten.
 - cancelled, not yet recorded -> record_contract_cancelled, the consumer's
   own step (the event's contract number as rule 2's label, its occurred_at
   as cancelled_at), for every cancelled contract, manual or not; the item
-  stays unreserved. Already recorded -> nothing.
+  stays unreserved, and anything the contract still holds is released (the
+  report line says how many). Already recorded -> nothing.
 - an item with no confirmation event, a tenant that differs from the
-  event's, or an item that has left stock -> reported, never written.
+  event's, or a cancellation event without a tenant -> reported, never
+  written (the contract is never treated as live).
 
 Re-running is a no-op: every write is guarded by the state it produces.
 `commit=False` (the default of the script) runs each contract's
@@ -45,7 +50,7 @@ import datetime as dt
 import enum
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.outbox_model import OutboxMessage
@@ -71,7 +76,8 @@ class BackfillOutcome(str, enum.Enum):
     CANCELLATION_RECORDED_WITHOUT_EVENT = "cancellation_recorded_without_event"
     NO_CONFIRMATION_EVENT = "no_confirmation_event"
     TENANT_MISMATCH = "tenant_mismatch"
-    LEFT_STOCK = "left_stock"
+    CANCELLATION_WITHOUT_TENANT = "cancellation_without_tenant"
+    RELEASED_BEFORE = "released_before"
 
 
 _NEEDS_ATTENTION = {
@@ -79,14 +85,15 @@ _NEEDS_ATTENTION = {
     BackfillOutcome.CANCELLATION_RECORDED_WITHOUT_EVENT,
     BackfillOutcome.NO_CONFIRMATION_EVENT,
     BackfillOutcome.TENANT_MISMATCH,
-    BackfillOutcome.LEFT_STOCK,
+    BackfillOutcome.CANCELLATION_WITHOUT_TENANT,
+    BackfillOutcome.RELEASED_BEFORE,
 }
 
 
 @dataclasses.dataclass(frozen=True)
 class BackfillLine:
     contract_id: uuid.UUID
-    tenant_id: uuid.UUID
+    tenant_id: uuid.UUID | None
     contract_label: str | None
     stock_item_id: uuid.UUID | None
     outcome: BackfillOutcome
@@ -108,7 +115,7 @@ class BackfillReport:
 
 @dataclasses.dataclass(frozen=True)
 class _Cancellation:
-    tenant_id: uuid.UUID
+    tenant_id: uuid.UUID | None
     contract_label: str
     cancelled_at: dt.datetime
 
@@ -133,7 +140,7 @@ def _read_phase(
 ) -> tuple[dict[uuid.UUID, _ManualItem], dict[uuid.UUID, uuid.UUID | None], dict[uuid.UUID, _Cancellation]]:
     """Phase 1: Stock's manual items, and Sales' published confirmations and
     cancellations, keyed by contract id. A contract's earliest cancellation
-    wins when Sales emitted it twice."""
+    with a tenant wins when Sales emitted it twice."""
 
     items: dict[uuid.UUID, _ManualItem] = {}
     for item_id, tenant_id, pipeline_ref in db.execute(
@@ -159,7 +166,8 @@ def _read_phase(
         .where(OutboxMessage.event_type == "sales.contract.cancelled")
         .order_by(OutboxMessage.occurred_at)
     ):
-        if message.aggregate_id in cancellations or message.tenant_id is None:
+        known = cancellations.get(message.aggregate_id)
+        if known is not None and (known.tenant_id is not None or message.tenant_id is None):
             continue
         cancellations[message.aggregate_id] = _Cancellation(
             tenant_id=message.tenant_id,
@@ -182,20 +190,32 @@ def _backfill_cancelled(
             detail=detail,
         )
 
-    if item is not None and item.tenant_id != cancellation.tenant_id:
+    tenant_id = cancellation.tenant_id
+    if tenant_id is None:
+        return line(BackfillOutcome.CANCELLATION_WITHOUT_TENANT)
+    if item is not None and item.tenant_id != tenant_id:
         return line(BackfillOutcome.TENANT_MISMATCH, f"item tenant {item.tenant_id}")
 
-    lock_contract(db, tenant_id=cancellation.tenant_id, contract_id=contract_id)
-    if contract_is_cancelled(db, tenant_id=cancellation.tenant_id, contract_id=contract_id):
+    lock_contract(db, tenant_id=tenant_id, contract_id=contract_id)
+    if contract_is_cancelled(db, tenant_id=tenant_id, contract_id=contract_id):
         return line(BackfillOutcome.CANCELLATION_ALREADY_RECORDED)
+    held = db.scalar(
+        select(func.count())
+        .select_from(StockItem)
+        .where(
+            StockItem.tenant_id == tenant_id,
+            StockItem.reserved_by_contract_id == contract_id,
+            StockItem.reservation_state == ReservationState.RESERVED,
+        )
+    )
     record_contract_cancelled(
         db,
-        tenant_id=cancellation.tenant_id,
+        tenant_id=tenant_id,
         contract_id=contract_id,
         contract_label=cancellation.contract_label,
         cancelled_at=cancellation.cancelled_at,
     )
-    return line(BackfillOutcome.CANCELLATION_RECORDED)
+    return line(BackfillOutcome.CANCELLATION_RECORDED, f"released {held} item(s)" if held else "")
 
 
 def _backfill_live(
@@ -230,8 +250,18 @@ def _backfill_live(
         if stock_item.reserved_by_contract_id == contract_id:
             return line(BackfillOutcome.ALREADY_RESERVED)
         return line(BackfillOutcome.HELD_BY_OTHER_CONTRACT, f"reserved by contract {stock_item.reserved_by_contract_id}")
-    if stock_item.left_stock_at is not None:
-        return line(BackfillOutcome.LEFT_STOCK)
+    released_before = db.scalar(
+        select(OutboxMessage.id)
+        .where(
+            OutboxMessage.event_type == "inventory.stock_item.released",
+            OutboxMessage.aggregate_id == stock_item.id,
+        )
+        .limit(1)
+    )
+    if released_before is not None:
+        return line(BackfillOutcome.RELEASED_BEFORE)
+    # An item that has left stock is reserved too: it is this contract's
+    # invoiced car (Anto, 2026-10-07).
     reserve_and_flush(db, item=stock_item, contract_id=contract_id)
     return line(BackfillOutcome.RESERVED)
 
