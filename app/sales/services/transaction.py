@@ -2,35 +2,31 @@
 /cancel state transitions. "Full field-level audit on every state
 transition" (spec §4) — every create/update/complete/cancel is logged.
 
-/complete is the only path that mutates Vehicle custody/status, reusing
-app.vehicle.public.create_custody_event (via context-seams PR-1) so the
-custody chain has one writer, not two competing implementations
-(Transaction and Vehicle's own custody-events endpoint). See
-complete_transaction's docstring for the cross-context commit-ordering
-note — flagged as the same "synchronous in MDM" open question the
-original spec called out (§4 open question 9), not silently resolved,
-and now also tracked as residual cross-context write coupling for PR-4/5
-to replace with events.
+RETIRED for new business writes (ADR-050, WP-8 PR-7): create, update,
+complete and cancel all refuse via _refuse_retired_write. /complete used
+to mutate Vehicle custody/status inside Sales' own transaction; that body
+was unreachable and has been deleted (KAN-90, ADR-047).
+repoint_customer_transactions is the one write left, kept for legacy rows
+after a customer merge (KAN-185 replaces it with an event).
 """
 
 import datetime as dt
 import uuid
 from decimal import Decimal
-from typing import Any
+from typing import Any, NoReturn
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
-from app.core.base import utcnow
-from app.core.errors import BadRequestError, ConflictError
+from app.core.errors import ConflictError
 from app.core.pagination import PageParams, build_page, paginate_query
 from app.core.tenancy import get_or_404
 from app.customer.public import get_customer_or_404
 from app.platform.public import get_user_or_404
 from app.sales.models.transaction import Transaction, TransactionStatus, TransactionType
 from app.sales.schemas.transaction import TransactionCreate, TransactionUpdate
-from app.vehicle.public import CustodyEventType, VehicleStatus, create_custody_event, get_vehicle_or_404
+from app.vehicle.public import get_vehicle_or_404
 
 _RETIRED_MESSAGE = (
     "The `transaction` table is retired (WP-8 PR-7, ADR-050/S-D12) — superseded by "
@@ -39,7 +35,7 @@ _RETIRED_MESSAGE = (
 )
 
 
-def _refuse_retired_write() -> None:
+def _refuse_retired_write() -> NoReturn:
     raise ConflictError(_RETIRED_MESSAGE, details={"successor": "/v1/sales/offers, /v1/sales/contracts"})
 
 
@@ -52,7 +48,6 @@ _AUDITED_FIELDS = {
     "external_ref",
     "notes",
 }
-_VEHICLE_BLOCKED_SALE_STATUSES = {VehicleStatus.SOLD, VehicleStatus.TOTALED, VehicleStatus.SCRAPPED}
 
 
 def _plain(value: Any) -> Any:
@@ -215,106 +210,14 @@ def update_transaction(
 
 def complete_transaction(db: Session, *, transaction: Transaction, actor_id: uuid.UUID) -> Transaction:
     """RETIRED (WP-8 PR-7) — refuses immediately, see _refuse_retired_write.
-    The only path that mutates Vehicle custody/status. Transaction and
-    Vehicle live in the same database, same session, same process — no real
-    cross-service boundary forces two commits, so this issues exactly one
-    (`vehicle_service.create_custody_event(..., commit=False)`, then a
-    single `db.commit()` here covering the Transaction's own status change
-    together with the Vehicle/custody-event mutation). Originally this
-    called create_custody_event with its default commit=True, splitting the
-    write into two commits with the *dangerous* ordering (Transaction
-    committed COMPLETED first, Vehicle mutation second) — a failure in
-    between would have left a `completed` Transaction with a Vehicle that
-    was never actually mutated, and `status != DRAFT` blocks the normal API
-    from ever retrying it. Fixed per CTO review, 2026-08-06.
+    Its old body set the vehicle's status and wrote a custody event through
+    `app.vehicle.public.create_custody_event(..., commit=False)` inside
+    Sales' own transaction — a shared cross-context transaction (ADR-047).
+    Unreachable since the retirement, and deleted by KAN-90 (Anto,
+    2026-10-07) so it cannot be revived; git history keeps it.
     """
 
     _refuse_retired_write()
-    if transaction.status != TransactionStatus.DRAFT:
-        raise ConflictError(
-            f"Transaction status '{transaction.status.value}' cannot be completed — only draft"
-            " transactions may be completed.",
-            details={"currentStatus": transaction.status.value},
-        )
-    if transaction.amount is None:
-        raise BadRequestError("amount is required before a transaction can be completed.")
-
-    # PRE-EXISTING RACE (confirmed, not introduced by PR-4): get_vehicle_or_404
-    # is a plain db.get(), no FOR UPDATE, and the API layer's If-Match/
-    # check_version only guards Transaction.version, never Vehicle's — so
-    # two concurrent complete_transaction calls against transactions that
-    # share a vehicle_id can both read the same vehicle.status, both pass
-    # the blocked-status check below, and the second plain
-    # `vehicle.status = ...` silently overwrites the first's write on
-    # commit. No lock, no conflict error, today — a genuine lost update.
-    #
-    # PR-4 (the outbox) widens this window from milliseconds to a poll
-    # interval once the write moves off this synchronous path — it does
-    # not create the race. The fix, decided for PR-5 and recorded here so
-    # it isn't rediscovered as a surprise: the vehicle consumer that
-    # applies this event must issue a guarded state transition —
-    #   UPDATE vehicle SET status = ... WHERE id = ? AND status = <expected>
-    # — and treat zero rows affected as a genuine conflict to dead-letter
-    # (clear error, no blind retry into the same wall), not a bug. That's
-    # race-safe and idempotent in one move, and composes with the version
-    # column the architecture already mandates. This synchronous read
-    # itself is unaffected either way — it's the write that changes.
-    vehicle = get_vehicle_or_404(db, transaction.vehicle_id)
-
-    if transaction.transaction_type == TransactionType.SALE:
-        if vehicle.current_custodian_partner_id != transaction.tenant_id:
-            raise ConflictError(
-                "Cannot complete a sale — this dealer does not currently hold custody of the vehicle.",
-                details={"vehicleId": str(vehicle.id)},
-            )
-        if vehicle.status in _VEHICLE_BLOCKED_SALE_STATUSES:
-            raise ConflictError(
-                f"Cannot complete a sale — vehicle status '{vehicle.status.value}' does not allow it.",
-                details={"vehicleStatus": vehicle.status.value},
-            )
-        vehicle.status = VehicleStatus.SOLD
-        event_type = CustodyEventType.SOLD
-    else:  # TRADE_IN — dealer acquires the vehicle from the customer
-        vehicle.status = VehicleStatus.IN_STOCK
-        event_type = CustodyEventType.ACQUIRED
-
-    before_status = transaction.status
-    transaction.status = TransactionStatus.COMPLETED
-    transaction.transaction_date = utcnow()
-    transaction.updated_by = actor_id
-    transaction.version += 1
-
-    record_audit_event(
-        db,
-        entity_type="transaction",
-        entity_id=transaction.id,
-        tenant_id=transaction.tenant_id,
-        action="complete",
-        actor_id=actor_id,
-        before={"status": _plain(before_status)},
-        after={"status": _plain(transaction.status), "amount": _plain(transaction.amount)},
-    )
-
-    # commit=False: this call's Vehicle/custody-event/audit mutations join
-    # the single db.commit() below instead of committing on their own.
-    # Cross-context write (sales mutating vehicle-owned rows/columns,
-    # vehicle.status included above) tracked as residual coupling — see
-    # module docstring; PR-4/PR-5 replace this with a published event
-    # vehicle consumes idempotently instead of a direct synchronous call.
-    create_custody_event(
-        db,
-        vehicle=vehicle,
-        event_type=event_type,
-        partner_id=transaction.tenant_id,
-        event_date=transaction.transaction_date,
-        transaction_id=transaction.id,
-        actor_id=actor_id,
-        commit=False,
-    )
-
-    db.commit()
-    db.refresh(transaction)
-    return transaction
 
 
 def cancel_transaction(
