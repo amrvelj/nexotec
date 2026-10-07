@@ -950,11 +950,11 @@ def main() -> None:
         if _vehicle_party_has_vehicle_label(db):
             db.add(VehicleParty(vehicle_id=vehicle.id, customer_id=customer_id, role=VehiclePartyRole.OWNER))
         else:
-            # KAN-84's label columns aren't live yet — a Core insert on the
-            # same Table names only the columns given (plus Python-side
+            # KAN-84's label columns aren't live yet — an insert with explicit
+            # values names only the columns given (plus Python-side
             # defaults), so it fits the pre-KAN-84 shape.
             db.execute(
-                VehicleParty.__table__.insert().values(
+                sa.insert(VehicleParty).values(
                     vehicle_id=vehicle.id, customer_id=customer_id, role=VehiclePartyRole.OWNER
                 )
             )
