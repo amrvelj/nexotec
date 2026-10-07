@@ -279,7 +279,7 @@ def test_reserve_for_contract_reads_the_key_under_the_row_lock(db_session, engin
                 session, tenant_id=tenant_id, stock_item_id=item_id, contract_id=contract_id, idempotency_key="k1"
             )
             release(session, tenant_id=tenant_id, reservation_id=uuid.UUID(result["reservationId"]), idempotency_key="a-comp")
-        except BaseException as exc:  # surfaced by the assertion below
+        except BaseException as exc:  # noqa: BLE001 — collected and asserted empty below, never swallowed
             errors.append(exc)
         finally:
             session.close()
