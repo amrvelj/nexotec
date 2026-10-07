@@ -1238,6 +1238,9 @@
       "status": "Statut",
       "stale": "Obsolète",
       "healthy": "À jour",
+      "pending": "Variantes en attente",
+      "pendingCount_one": "{{count, number}} en attente",
+      "pendingCount_other": "{{count, number}} en attente",
       "emptyState": {
         "title": "Aucune synchronisation du catalogue",
         "description": "Aucun garage n'a encore synchronisé de miroir de catalogue."

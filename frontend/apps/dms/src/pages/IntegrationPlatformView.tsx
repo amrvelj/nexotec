@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Stack, Text, Title } from '@mantine/core'
+import { Stack, Text, Title, Tooltip } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, Building2 } from 'lucide-react'
@@ -255,6 +255,26 @@ function FleetHealthBoard({
         id: 'lastSystemWatermarkDate',
         header: t('integrationsList.healthBoard.providerWatermark'),
         cell: ({ row }) => (row.original.lastSystemWatermarkDate ? formatDate(row.original.lastSystemWatermarkDate, locale) : '—'),
+      },
+      {
+        // KAN-78: variants the last sync run could not sync in full; the next delta retries them.
+        id: 'pendingFzKeys',
+        header: t('integrationsList.healthBoard.pending'),
+        cell: ({ row }) => {
+          const pending = row.original.pendingFzKeys
+          if (pending.length === 0) return '—'
+          return (
+            <Tooltip
+              multiline
+              label={pending.map((entry) => `${entry.fzKey} · ${entry.field}`).join('\n')}
+              style={{ whiteSpace: 'pre-line' }}
+            >
+              <Text size="sm" c="orange" fw={600}>
+                {t('integrationsList.healthBoard.pendingCount', { count: pending.length })}
+              </Text>
+            </Tooltip>
+          )
+        },
       },
       {
         id: 'stale',

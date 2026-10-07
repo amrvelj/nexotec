@@ -1238,6 +1238,9 @@
       "status": "Status",
       "stale": "Veraltet",
       "healthy": "Aktuell",
+      "pending": "Ausstehende Varianten",
+      "pendingCount_one": "{{count, number}} ausstehend",
+      "pendingCount_other": "{{count, number}} ausstehend",
       "emptyState": {
         "title": "Noch keine Katalogsynchronisation",
         "description": "Noch kein Mandant hat einen Katalog-Spiegel synchronisiert."

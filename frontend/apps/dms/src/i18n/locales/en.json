@@ -1238,6 +1238,9 @@
       "status": "Status",
       "stale": "Stale",
       "healthy": "Healthy",
+      "pending": "Pending variants",
+      "pendingCount_one": "{{count, number}} pending",
+      "pendingCount_other": "{{count, number}} pending",
       "emptyState": {
         "title": "No catalogue sync yet",
         "description": "No tenant has synced a catalogue mirror yet."

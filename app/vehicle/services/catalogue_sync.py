@@ -33,19 +33,35 @@ so a delta job that "succeeds" while doing nothing still keeps the
 watermark current, and the alarm still fires if the *provider's own*
 System date stops moving forward, independent of the delta job's own
 reported outcome.
+
+Per-FzKey isolation (KAN-78): each FzKey is synced in its own
+`call_capability` block, so a provider failure on one key (a Datenname the
+account is refused, a transport error) is still logged as an ERROR call and
+still charged to the connection's breaker by the gateway — and then caught
+here, recorded on `SyncResult.skipped` and `ProviderSyncState.pending_fz_keys`,
+and the run moves on to the next key. Only a `ProviderGatewayError` is
+isolated this way; anything else is a bug and still aborts the run. When
+the breaker opens mid-run, the keys not yet tried are recorded as pending
+without a call, the watermark is not fetched, and the run ends cleanly. A
+run therefore logs one call per FzKey plus one for `FzKeyChanged` and one
+for `System`, not one per run.
 """
 
 import datetime as dt
+import logging
 import re
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.base import utcnow
 from app.integration.public import (
+    CircuitOpenError,
+    ConnectionDisabledError,
     IntegrationConnection,
+    ProviderGatewayError,
     VariantMasterData,
     call_capability,
     get_enabled_connection,
@@ -60,6 +76,8 @@ from app.vehicle.models.catalogue import (
 from app.vehicle.models.catalogue_mirror import ColourCache, ImageRef, ProviderSyncState, TyreSpecCache
 from app.vehicle.models.provider import ProviderEntityRef
 from app.vehicle.services.provider import resolve_provider_code
+
+logger = logging.getLogger("app.vehicle.catalogue_sync")
 
 # Mock and real are separate provider_codes / separate connections, never
 # a runtime flag (rule 7's own posture) — a tenant's own vehicle-data
@@ -90,6 +108,24 @@ class NoVehicleDataConnectionError(Exception):
         super().__init__(f"Tenant {tenant_id} has no enabled vehicle-data connection.")
 
 
+# The value `SkippedFzKey.field` takes for a key the run never sent to the
+# provider because the connection's circuit had opened.
+NOT_ATTEMPTED = "not_attempted"
+
+
+@dataclass(frozen=True)
+class SkippedFzKey:
+    """One FzKey a run did not sync in full. `field` is the call it failed
+    on (`master_data`, `options`, `colours`, `tyre_specs`, `images`) or
+    `NOT_ATTEMPTED`; `error` is the exception's class name, never its
+    message.
+    """
+
+    fz_key: str
+    field: str
+    error: str
+
+
 @dataclass(frozen=True)
 class SyncResult:
     tenant_id: uuid.UUID
@@ -97,6 +133,14 @@ class SyncResult:
     provider_code: str
     variants_synced: int
     fell_back_to_full_reseed: bool = False
+    skipped: tuple[SkippedFzKey, ...] = ()
+
+
+@dataclass
+class _KeyProgress:
+    """Which provider call the current FzKey is on, so a failure can name it."""
+
+    field: str = "master_data"
 
 
 def _slugify(name: str) -> str:
@@ -205,6 +249,17 @@ def _resolve_code(
     return canonical.value_code if canonical is not None else None
 
 
+def find_variant_by_fz_key(db: Session, *, provider_code: str, fz_key: str) -> ModelVariant | None:
+    ref = db.scalar(
+        select(ProviderEntityRef).where(
+            ProviderEntityRef.entity_type == _ENTITY_TYPE_MODEL_VARIANT,
+            ProviderEntityRef.provider == provider_code,
+            ProviderEntityRef.provider_key == fz_key,
+        )
+    )
+    return db.get(ModelVariant, ref.entity_id) if ref is not None else None
+
+
 def upsert_model_variant(db: Session, *, provider_code: str, master: VariantMasterData) -> ModelVariant:
     """Keyed by `ProviderEntityRef(entity_type="model_variant", provider,
     provider_key=fz_key)` — the natural idempotency key for a re-run seed
@@ -225,17 +280,9 @@ def upsert_model_variant(db: Session, *, provider_code: str, master: VariantMast
     else).
     """
 
-    ref = db.scalar(
-        select(ProviderEntityRef).where(
-            ProviderEntityRef.entity_type == _ENTITY_TYPE_MODEL_VARIANT,
-            ProviderEntityRef.provider == provider_code,
-            ProviderEntityRef.provider_key == master.fz_key,
-        )
-    )
-    if ref is not None:
-        existing = db.get(ModelVariant, ref.entity_id)
-        if existing is not None:
-            return existing
+    existing = find_variant_by_fz_key(db, provider_code=provider_code, fz_key=master.fz_key)
+    if existing is not None:
+        return existing
 
     brand = _upsert_brand(db, display_name=master.brand_display_name)
     group = _upsert_model_group(db, brand=brand, name=master.model_group_name)
@@ -329,23 +376,26 @@ def _sync_option_equipment_features(
 
 def _sync_tenant_variant_content(
     db: Session, *, tenant_id: uuid.UUID, provider_code: str, model_variant: ModelVariant, fz_key: str,
-    master: VariantMasterData, adapter,
+    master: VariantMasterData, adapter, progress: _KeyProgress,
 ) -> None:
     """Options/colours/tyre-specs/images — all tenant-scoped, all upserted
     by their own natural key so a re-sync never duplicates a row.
 
-    Nothing here consults an entitlement, and the calls are not independent:
-    every one runs inside the caller's single `vehicle_data`
-    `call_capability` block, so a Datenname the provider refuses for this
-    account (the protocol documents no "not entitled" signal — see
-    `services/entitlement_probes.py` in `app.integration`) raises out of the
-    whole sync and is charged to the connection's breaker. That error path
-    also commits this session to write the call-log row, so the variant it
-    was on is left partially synced (its options, colours and tyre specs
-    persisted, its images not). Degrading per capability (KAN-38 exit
-    criterion 3) needs this split by capability first; until then
-    `catalogue_entitlements` only ever degrades what is *read*, never what
-    is fetched.
+    Nothing here consults an entitlement, and the four calls are not
+    independent of each other: they share this FzKey's one `vehicle_data`
+    `call_capability` block (`_sync_one_key`), so a Datenname the provider
+    refuses for this account (the protocol documents no "not entitled"
+    signal — see `services/entitlement_probes.py` in `app.integration`)
+    ends this FzKey's sync and is charged to the connection's breaker. That
+    error path commits this session to write the call-log row, so the
+    variant is left partially synced (e.g. its options, colours and tyre
+    specs persisted, its images not) — which is why the key goes onto
+    `ProviderSyncState.pending_fz_keys` and is retried next run. Other
+    FzKeys in the run are unaffected (KAN-78). Degrading per capability
+    (KAN-38 exit criterion 3) still needs these calls split by capability;
+    until then `catalogue_entitlements` only ever degrades what is *read*,
+    never what is fetched. `progress.field` is set before each call so a
+    failure can say which one it was.
 
     C-0 PR 1: the real Datennamen need more than an `FzKey` —
     `Optionen` needs the model year, `OptionenFarben` the `Werkscode`,
@@ -353,6 +403,7 @@ def _sync_tenant_variant_content(
     no `werkscode` / no type-approval number simply skips that call.
     """
 
+    progress.field = "options"
     for option in adapter.fetch_options(fz_key, model_year=model_variant.model_year_from):
         option_row = db.scalar(
             select(VariantOption).where(
@@ -379,6 +430,7 @@ def _sync_tenant_variant_content(
             variant_option=option_row, feature_codes=option.equipment_feature_codes,
         )
 
+    progress.field = "colours"
     for colour in (adapter.fetch_colours(werkscode=master.werkscode) if master.werkscode else []):
         colour_row = db.scalar(
             select(ColourCache).where(
@@ -396,6 +448,7 @@ def _sync_tenant_variant_content(
         colour_row.price = colour.price
 
     _type_approval = master.type_approval_numbers[0] if master.type_approval_numbers else None
+    progress.field = "tyre_specs"
     for tyre in (adapter.fetch_tyre_specs(type_approval_number=_type_approval) if _type_approval else []):
         tyre_row = db.scalar(
             select(TyreSpecCache).where(
@@ -413,6 +466,7 @@ def _sync_tenant_variant_content(
         tyre_row.speed_rating = tyre.speed_rating
         tyre_row.remark = tyre.remark
 
+    progress.field = "images"
     for image in adapter.fetch_images(fz_key):
         image_row = db.scalar(
             select(ImageRef).where(
@@ -431,17 +485,147 @@ def _sync_tenant_variant_content(
     db.flush()
 
 
+@dataclass
+class _RunOutcome:
+    variants_synced: int = 0
+    skipped: list[SkippedFzKey] = field(default_factory=list)
+    circuit_opened: bool = False
+
+
+def _sync_one_key(
+    db: Session, *, connection: IntegrationConnection, tenant_id: uuid.UUID, provider_code: str, fz_key: str,
+    actor_id: uuid.UUID | None, purpose: str,
+) -> SkippedFzKey | None:
+    """One FzKey in its own `call_capability` block: the gateway logs it
+    (SUCCESS or ERROR), charges or resets the breaker, commits, and
+    re-raises a failure — which is caught here and returned as the skip.
+
+    `CircuitOpenError` and `ConnectionDisabledError` are refusals the
+    gateway makes *before* any call, about the connection rather than this
+    key, so they propagate to the caller instead.
+    """
+
+    progress = _KeyProgress()
+    try:
+        with call_capability(
+            db, connection=connection, capability="vehicle_data", actor_id=actor_id, purpose=purpose,
+        ) as adapter:
+            master = adapter.fetch_vehicle_master_data(fz_key)
+            variant = upsert_model_variant(db, provider_code=provider_code, master=master)
+            _sync_tenant_variant_content(
+                db, tenant_id=tenant_id, provider_code=provider_code, model_variant=variant, fz_key=fz_key,
+                master=master, adapter=adapter, progress=progress,
+            )
+    except (CircuitOpenError, ConnectionDisabledError):
+        raise
+    except ProviderGatewayError as exc:
+        return SkippedFzKey(fz_key=fz_key, field=progress.field, error=type(exc).__name__)
+    return None
+
+
 def _sync_keys(
-    db: Session, *, tenant_id: uuid.UUID, provider_code: str, fz_keys: list[str], adapter,
-) -> int:
-    for fz_key in fz_keys:
-        master = adapter.fetch_vehicle_master_data(fz_key)
-        variant = upsert_model_variant(db, provider_code=provider_code, master=master)
-        _sync_tenant_variant_content(
-            db, tenant_id=tenant_id, provider_code=provider_code, model_variant=variant, fz_key=fz_key,
-            master=master, adapter=adapter,
+    db: Session, *, connection: IntegrationConnection, tenant_id: uuid.UUID, provider_code: str,
+    fz_keys: list[str], actor_id: uuid.UUID | None, purpose: str,
+) -> _RunOutcome:
+    """Every key is attempted unless the connection's circuit opens; a
+    provider failure on one key is recorded and the loop moves on. Once
+    the circuit is open, the gateway refuses before any call, so that key
+    and every later one are recorded as `NOT_ATTEMPTED`. Anything that is
+    not a `ProviderGatewayError` — a bug, a database error — propagates
+    and aborts the run, as before.
+    """
+
+    outcome = _RunOutcome()
+    for index, fz_key in enumerate(fz_keys):
+        try:
+            skipped = _sync_one_key(
+                db, connection=connection, tenant_id=tenant_id, provider_code=provider_code, fz_key=fz_key,
+                actor_id=actor_id, purpose=purpose,
+            )
+        except CircuitOpenError:
+            outcome.circuit_opened = True
+            outcome.skipped.extend(
+                SkippedFzKey(fz_key=key, field=NOT_ATTEMPTED, error=CircuitOpenError.__name__)
+                for key in fz_keys[index:]
+            )
+            break
+        if skipped is None:
+            outcome.variants_synced += 1
+        else:
+            outcome.skipped.append(skipped)
+    return outcome
+
+
+def _keys_to_sync(changed: list[str], state: ProviderSyncState | None) -> list[str]:
+    """What the provider reports changed, then every key a previous run
+    left pending that is not already in that list — order kept, no key
+    twice.
+    """
+
+    keys = list(dict.fromkeys(changed))
+    seen = set(keys)
+    for entry in (state.pending_fz_keys if state is not None else []):
+        if entry["fz_key"] not in seen:
+            keys.append(entry["fz_key"])
+            seen.add(entry["fz_key"])
+    return keys
+
+
+def _run(
+    db: Session, *, connection: IntegrationConnection, tenant_id: uuid.UUID, provider_code: str,
+    since: dt.date, actor_id: uuid.UUID | None, purpose: str, today: dt.date, full_seed: bool,
+) -> SyncResult:
+    with call_capability(
+        db, connection=connection, capability="vehicle_data", actor_id=actor_id, purpose=purpose,
+    ) as adapter:
+        changed = adapter.list_changed_keys(since=since)
+
+    state = get_sync_state(db, tenant_id=tenant_id, provider_code=provider_code)
+    fz_keys = _keys_to_sync(changed, state)
+    outcome = _sync_keys(
+        db, connection=connection, tenant_id=tenant_id, provider_code=provider_code, fz_keys=fz_keys,
+        actor_id=actor_id, purpose=purpose,
+    )
+
+    # Progress is written before the watermark call, so a run that skipped
+    # keys — or whose watermark call fails — still advances the cursor and
+    # keeps its pending list: nothing that failed is lost by moving on.
+    run_at = utcnow()
+    state = _get_or_create_sync_state(db, tenant_id=tenant_id, provider_code=provider_code)
+    if full_seed:
+        state.last_full_seed_at = run_at
+    state.last_delta_cursor = today
+    state.pending_fz_keys = [
+        {"fz_key": s.fz_key, "field": s.field, "error": s.error, "failed_at": run_at.isoformat()}
+        for s in outcome.skipped
+    ]
+    db.commit()
+
+    if outcome.skipped:
+        logger.warning(
+            "catalogue sync skipped %d of %d FzKeys", len(outcome.skipped), len(fz_keys),
+            extra={
+                "tenantId": str(tenant_id), "providerCode": provider_code,
+                "circuitOpened": outcome.circuit_opened,
+            },
         )
-    return len(fz_keys)
+
+    # Through an open circuit the watermark would not be fetched anyway;
+    # leaving it untouched lets the A-12 alarm notice a mirror that stops
+    # moving, rather than asking the gateway for a call it will refuse.
+    if not outcome.circuit_opened:
+        with call_capability(
+            db, connection=connection, capability="vehicle_data", actor_id=actor_id, purpose=purpose,
+        ) as adapter:
+            watermark = adapter.get_system_watermark()
+        state.last_system_watermark_date = watermark.update_date
+        state.last_system_checked_at = utcnow()
+        db.commit()
+
+    return SyncResult(
+        tenant_id=tenant_id, connection_id=connection.id, provider_code=provider_code,
+        variants_synced=outcome.variants_synced, skipped=tuple(outcome.skipped),
+    )
 
 
 def seed_tenant_catalogue(
@@ -457,27 +641,9 @@ def seed_tenant_catalogue(
     if found is None:
         raise NoVehicleDataConnectionError(tenant_id)
     connection, provider_code = found
-    today = today or utcnow().date()
-
-    with call_capability(
-        db, connection=connection, capability="vehicle_data", actor_id=actor_id, purpose="seed",
-    ) as adapter:
-        fz_keys = adapter.list_changed_keys(since=_EPOCH_FOR_FULL_SEED)
-        variants_synced = _sync_keys(
-            db, tenant_id=tenant_id, provider_code=provider_code, fz_keys=fz_keys, adapter=adapter,
-        )
-        watermark = adapter.get_system_watermark()
-
-    state = _get_or_create_sync_state(db, tenant_id=tenant_id, provider_code=provider_code)
-    state.last_full_seed_at = utcnow()
-    state.last_delta_cursor = today
-    state.last_system_watermark_date = watermark.update_date
-    state.last_system_checked_at = utcnow()
-    db.commit()
-
-    return SyncResult(
-        tenant_id=tenant_id, connection_id=connection.id, provider_code=provider_code,
-        variants_synced=variants_synced,
+    return _run(
+        db, connection=connection, tenant_id=tenant_id, provider_code=provider_code, since=_EPOCH_FOR_FULL_SEED,
+        actor_id=actor_id, purpose="seed", today=today or utcnow().date(), full_seed=True,
     )
 
 
@@ -489,7 +655,8 @@ def run_daily_delta_for_tenant(
     full reseed instead of ever sending a request auto-i-dat would
     reject — `fell_back_to_full_reseed=True` on the result makes this
     visible to the caller (and, via PR-7's sync-status endpoint, to a
-    platform operator) rather than silent.
+    platform operator) rather than silent. Keys a previous run left
+    pending are retried alongside what `FzKeyChanged` reports (KAN-78).
     """
 
     found = find_enabled_vehicle_data_connection(db, tenant_id=tenant_id)
@@ -505,25 +672,10 @@ def run_daily_delta_for_tenant(
         result = seed_tenant_catalogue(db, tenant_id=tenant_id, actor_id=actor_id, today=today)
         return SyncResult(
             tenant_id=result.tenant_id, connection_id=result.connection_id, provider_code=result.provider_code,
-            variants_synced=result.variants_synced, fell_back_to_full_reseed=True,
+            variants_synced=result.variants_synced, fell_back_to_full_reseed=True, skipped=result.skipped,
         )
 
-    with call_capability(
-        db, connection=connection, capability="vehicle_data", actor_id=actor_id, purpose="delta",
-    ) as adapter:
-        fz_keys = adapter.list_changed_keys(since=since)
-        variants_synced = _sync_keys(
-            db, tenant_id=tenant_id, provider_code=provider_code, fz_keys=fz_keys, adapter=adapter,
-        )
-        watermark = adapter.get_system_watermark()
-
-    state = _get_or_create_sync_state(db, tenant_id=tenant_id, provider_code=provider_code)
-    state.last_delta_cursor = today
-    state.last_system_watermark_date = watermark.update_date
-    state.last_system_checked_at = utcnow()
-    db.commit()
-
-    return SyncResult(
-        tenant_id=tenant_id, connection_id=connection.id, provider_code=provider_code,
-        variants_synced=variants_synced,
+    return _run(
+        db, connection=connection, tenant_id=tenant_id, provider_code=provider_code, since=since,
+        actor_id=actor_id, purpose="delta", today=today, full_seed=False,
     )

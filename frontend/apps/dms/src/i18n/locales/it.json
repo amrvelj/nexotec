@@ -1238,6 +1238,9 @@
       "status": "Stato",
       "stale": "Obsoleto",
       "healthy": "Aggiornato",
+      "pending": "Varianti in sospeso",
+      "pendingCount_one": "{{count, number}} in sospeso",
+      "pendingCount_other": "{{count, number}} in sospeso",
       "emptyState": {
         "title": "Nessuna sincronizzazione del catalogo",
         "description": "Nessun concessionario ha ancora sincronizzato un mirror del catalogo."

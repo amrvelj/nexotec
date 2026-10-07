@@ -16,6 +16,7 @@ from app.vehicle.models.vehicle import CustodyEventType, Vehicle, VehicleStatus
 from app.vehicle.models.vehicle_mdm import VehicleMdm
 from app.vehicle.services.catalogue_sync import (
     NoVehicleDataConnectionError,
+    SkippedFzKey,
     SyncResult,
     check_sync_age_alarm_for_tenant,
     run_daily_delta_for_tenant,
@@ -129,6 +130,7 @@ __all__ = [
     "SPEC_BLOCK_ALL_FIELDS",
     "CustodyEventType",
     "NoVehicleDataConnectionError",
+    "SkippedFzKey",
     "SyncResult",
     "Vehicle",
     "VehicleMdm",
