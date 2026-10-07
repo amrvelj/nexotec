@@ -57,6 +57,18 @@ describe('HistoryTab — values are formatted by field (KAN-164)', () => {
     expect(screen.getByText(/80000 → 80001/)).toBeInTheDocument()
   })
 
+  // KAN-160 split this out because "a number there may be a year": a
+  // number under a key that is not an amount or a count stays ungrouped,
+  // and so does any key of an entity other than the customer.
+  it('leaves numbers under other keys and other entities ungrouped', () => {
+    renderHistory([
+      event({ id: 'ev-1', before: { model_year: 2019 }, after: { model_year: 2024 } }),
+      event({ id: 'ev-2', entityType: 'vehicle', before: { credit_limit: 9000 }, after: { credit_limit: 12500 } }),
+    ])
+    expect(screen.getByText(/2019 → 2024/)).toBeInTheDocument()
+    expect(screen.getByText(/9000 → 12500/)).toBeInTheDocument()
+  })
+
   it('leaves a redacted or non-numeric amount as recorded', () => {
     renderHistory([event({ before: { credit_limit: null }, after: { credit_limit: '***redacted***' } })])
     expect(screen.getByText(/— → \*\*\*redacted\*\*\*/)).toBeInTheDocument()

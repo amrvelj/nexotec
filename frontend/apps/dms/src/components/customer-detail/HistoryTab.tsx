@@ -19,18 +19,19 @@ function prettifyKey(key: string): string {
 }
 
 // Every event on this tab is entity_type "customer" (app/customer/services/
-// customer.py), so a value's meaning comes from its key, not its typeof
+// customer.py), so a value's meaning comes from the entity and key, not typeof
 // (KAN-164): credit_limit reaches the audit log as a decimal *string*
 // (`"12500.00"`), while customer_number, postal codes and IDs are figures that
-// must never be grouped. Formatting is therefore opt-in per field; any key
-// not named here renders as recorded.
+// must never be grouped. Formatting is therefore opt-in per field of the
+// customer entity; any other key or entity renders as recorded.
 type FieldKind = 'amountChf' | 'quantity'
 
 function camelKey(key: string): string {
   return key.replace(/_([a-z0-9])/g, (_, c: string) => c.toUpperCase())
 }
 
-function fieldKind(key: string): FieldKind | null {
+function fieldKind(entityType: string, key: string): FieldKind | null {
+  if (entityType !== 'customer') return null
   const k = camelKey(key)
   if (k === 'creditLimit') return 'amountChf'
   // The merge event's counts (vehiclePartiesRepointed, tagsDropped, …).
@@ -38,11 +39,11 @@ function fieldKind(key: string): FieldKind | null {
   return null
 }
 
-function formatValue(key: string, v: unknown, t: (key: string) => string): string {
+function formatValue(entityType: string, key: string, v: unknown, t: (key: string) => string): string {
   if (v === null || v === undefined) return '—'
   if (typeof v === 'boolean') return v ? t('common.yes') : t('common.no')
   if (typeof v === 'object') return JSON.stringify(v)
-  const kind = fieldKind(key)
+  const kind = fieldKind(entityType, key)
   if (kind !== null && (typeof v === 'number' || typeof v === 'string') && v !== '' && Number.isFinite(Number(v))) {
     return kind === 'amountChf' ? formatCurrencyChf(Number(v)) : formatNumber(Number(v))
   }
@@ -95,7 +96,7 @@ function HistoryEvent({ event, isYou, locale }: { event: AuditEventRead; isYou: 
                 <Text component="span" fw={500} c={slate[7]}>
                   {prettifyKey(c.key)}
                 </Text>
-                : {formatValue(c.key, c.before, t)} → {formatValue(c.key, c.after, t)}
+                : {formatValue(event.entityType, c.key, c.before, t)} → {formatValue(event.entityType, c.key, c.after, t)}
               </Text>
             ))}
           </Stack>

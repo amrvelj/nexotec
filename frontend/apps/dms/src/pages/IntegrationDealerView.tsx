@@ -252,9 +252,10 @@ function ConnectDialog({
   )
 }
 
-// cost_units is DECIMAL(12, 4) (app/integration/models/call_log.py) and
-// arrives as a decimal string; shown at that scale so the fourth decimal is
-// never rounded away (KAN-164). Twelve significant digits fit a double exactly.
+// The 30-day sum of cost_units, a DECIMAL(12, 4) column (app/integration/
+// models/call_log.py), arrives as a decimal string; shown at that scale so the
+// fourth decimal is never rounded away (KAN-164). A double holds it exactly up
+// to about 1e11 units, far beyond any indicative usage figure.
 const COST_UNITS_SCALE = 4
 
 function formatCostUnits(value: string | null): string {
