@@ -50,9 +50,11 @@ in the same PR as any change to what it states. -->
   run reports exactly what the real run would write, including rows it cannot migrate and why.
 - **Enum columns** are `StoredEnum` (`app/core/enum_type.py`), never a bare `sqlalchemy.Enum`
   (an architecture test enforces it). KAN-86 is moving storage from the member **name** to
-  `.value` in three steps; until its step 3 lands a column may hold either form, so a
-  migration that reads or rewrites enum data handles both and writes the form
-  `enum_type._WRITE_FORM` names. Raw SQL never assumes one form.
+  `.value` in three steps. Step 2 writes `.value` and rewrote existing rows (one
+  `*_kan86_<context>_enum_values.py` migration per chain), but names written by step-1
+  instances during that deploy remain until KAN-175 (step 3) sweeps them — so a migration
+  that reads or rewrites enum data still handles both forms and writes `.value`. Raw SQL never
+  assumes one form.
 - The legacy `vehicle` table is write-frozen (ADR-021, `legacy_vehicle_write_frozen`); new code
   never writes it.
 - `scripts/dev/check` mirrors both CI migration jobs whenever migrations, models or their
