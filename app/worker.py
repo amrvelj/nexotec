@@ -16,6 +16,8 @@ import logging
 import os
 import time
 
+from sqlalchemy.orm import Session
+
 from app.core.daily_scheduler import register_daily_job, run_due_daily_jobs
 from app.core.observability import (
     record_consumer_lag_seconds,
@@ -27,6 +29,7 @@ from app.core.outbox import consumer_lag_seconds, dead_letter_count, oldest_pend
 from app.core.outbox_transport import InProcessTransport
 from app.core.outbox_worker import poll_once
 from app.core.reconciliation import seconds_since_last_reconciliation
+from app.customer.public import refresh_vehicle_party_labels
 from app.db import SessionLocal
 from app.integration.daily_jobs import run_daily_integration_jobs
 from app.inventory.consumers import (
@@ -141,15 +144,25 @@ def _heartbeat(db, transport: InProcessTransport) -> None:
     )
 
 
+def _refresh_vehicle_party_labels(db: Session) -> None:
+    changed = refresh_vehicle_party_labels(db)
+    logger.info("customer.vehicle_party_labels: %d party row(s) relabelled", changed)
+
+
 def register_daily_jobs() -> None:
-    """Two daily jobs, run in registration order once per day on this
+    """Three daily jobs, run in registration order once per day on this
     process (app.core.daily_scheduler):
 
     1. ``integration.daily_jobs`` — WP-6's per-tenant catalogue delta sync
        plus the A-12 sync-age alarm (PR-4), then ADR-024's retention purge
        and ADR-025's expiry warnings / support digest (PR-6). One
        composition root (app/integration/daily_jobs.py), one registration.
-    2. ``reconciliation.run_all`` — the nightly cross-context reconciliation
+    2. ``customer.vehicle_party_labels`` — KAN-84: re-reads every
+       VehicleParty's denormalised vehicle label (VIN, number, make, model,
+       year, trim) through app.vehicle.public, so a catalogue match or VIN
+       correction made after the link shows within a day. After the sync,
+       so a catalogue change it brought in reaches the labels the same night.
+    3. ``reconciliation.run_all`` — the nightly cross-context reconciliation
        (P-10, CLAUDE.md rule 10). There are no cross-context foreign keys
        anywhere in this codebase, so the database cannot detect a dangling
        reference; this job walking every context's ReferenceCheck list is
@@ -160,6 +173,7 @@ def register_daily_jobs() -> None:
     """
 
     register_daily_job("integration.daily_jobs", run_daily_integration_jobs)
+    register_daily_job("customer.vehicle_party_labels", _refresh_vehicle_party_labels)
     register_daily_job("reconciliation.run_all", run_all_daily)
 
 

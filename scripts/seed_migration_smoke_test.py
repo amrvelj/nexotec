@@ -364,6 +364,17 @@ def _customer_has_fr17_fields(db: Session) -> bool:
     return "gender" in columns
 
 
+def _vehicle_party_has_vehicle_label(db: Session) -> bool:
+    """KAN-84 added the denormalised vehicle label columns to vehicle_party
+    (all nullable). The VehicleParty ORM class now always emits them, so the
+    pre-KAN-84 schema needs an insert that leaves them out — `vehicle_vin`
+    is the sentinel.
+    """
+
+    columns = {col["name"] for col in inspect(db.get_bind()).get_columns("vehicle_party")}
+    return "vehicle_vin" in columns
+
+
 def _contact_channel_has_consent_scope(db: Session) -> bool:
     """KAN-52 (FR-23 §1) added `consent_scope` to all three contact-channel
     tables and turned `consent_source` into an enum. Same trap as
@@ -933,7 +944,17 @@ def main() -> None:
         db.add(vehicle)
         db.flush()
 
-        db.add(VehicleParty(vehicle_id=vehicle.id, customer_id=customer_id, role=VehiclePartyRole.OWNER))
+        if _vehicle_party_has_vehicle_label(db):
+            db.add(VehicleParty(vehicle_id=vehicle.id, customer_id=customer_id, role=VehiclePartyRole.OWNER))
+        else:
+            # KAN-84's label columns aren't live yet — a Core insert on the
+            # same Table names only the columns given (plus Python-side
+            # defaults), so it fits the pre-KAN-84 shape.
+            db.execute(
+                VehicleParty.__table__.insert().values(
+                    vehicle_id=vehicle.id, customer_id=customer_id, role=VehiclePartyRole.OWNER
+                )
+            )
 
         _seed_catalogue_type_approval(db)
 

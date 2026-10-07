@@ -14,6 +14,7 @@ from app.customer.services.customer import (
     list_customer_vehicles,
     list_vehicle_parties,
     list_vehicle_party_holders,
+    refresh_vehicle_party_labels,
     repoint_vehicle_party,
     set_credit_block,
 )
@@ -33,6 +34,7 @@ __all__ = [
     "list_customer_vehicles",
     "list_vehicle_parties",
     "list_vehicle_party_holders",
+    "refresh_vehicle_party_labels",
     "repoint_vehicle_party",
     "set_credit_block",
 ]
