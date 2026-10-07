@@ -70,9 +70,10 @@ class ConfigurationMatchStatus(str, enum.Enum):
 
 class ConfigurationMatchMethod(str, enum.Enum):
     """How the car was identified — **kept permanently**, because a later
-    dispute turns on it. The full waterfall is C-D; C-C produces
-    `catalogue_browse` and `manual`, and `vin` when a VIN resolved to an
-    existing MDM record."""
+    dispute turns on it. The overlay sends the method of the waterfall rung
+    that resolved the car (`app.vehicle.services.identification`, C-D):
+    `vin`, `kontrollschild`, `stammnummer`, `typenschein` or `werkscode`;
+    `catalogue_browse` and `manual` otherwise."""
 
     VIN = "vin"
     KONTROLLSCHILD = "kontrollschild"

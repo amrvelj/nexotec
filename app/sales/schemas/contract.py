@@ -42,12 +42,15 @@ class ContractRead(CamelModel):
     vehicle_source: str | None
     stock_item_id: uuid.UUID | None
     vehicle_label: str | None
+    configuration_id: uuid.UUID | None = None
+    configuration_label: str | None = None
     manual_vehicle_condition: str | None
     gross_price: Decimal | None
     margin: Decimal | None
     trade_in_vehicle_id: uuid.UUID | None
     trade_in_label: str | None
     trade_in_vin: str | None
+    trade_in_configuration_id: uuid.UUID | None = None
     trade_in_valuation_id: uuid.UUID | None
     trade_in_value: Decimal | None
     trade_in_purchase_price: Decimal | None

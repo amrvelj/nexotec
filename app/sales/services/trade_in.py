@@ -14,6 +14,7 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
+from app.core.base import utcnow
 from app.core.errors import ConflictError
 from app.customer.public import VehiclePartyRole, allocate_vehicle_party, get_customer_or_404
 from app.sales.models.offer import OfferStatus, SalesOffer
@@ -122,6 +123,18 @@ def attach_trade_in_valuation(
 
 def _attach(offer: SalesOffer, valuation) -> None:
     offer.trade_in_valuation_id = valuation.id
+    if valuation.configuration_id is not None:
+        # C-F (KAN-10, FR-C-12 carve-out) — a trade-in captured through the
+        # valuation path in `record` mode: the offer carries the
+        # valuation's configuration forward, and where no vehicle-mdm record
+        # was resolved (ADR-070: the valuation path never writes one), the
+        # valuation's own vehicle fields label the trade-in.
+        offer.trade_in_configuration_id = valuation.configuration_id
+        offer.trade_in_configuration_label_refreshed_at = utcnow()
+        if offer.trade_in_vehicle_id is None:
+            offer.trade_in_label = valuation.configuration_label or offer.trade_in_label
+            offer.trade_in_vin = valuation.vehicle_vin
+            offer.trade_in_vehicle_id = valuation.vehicle_id
     offer.trade_in_value = valuation.final_offer
     # Seller-adjustable afterward (S-D04) — defaults to the valuation's own
     # figure, not force-kept in sync with it.

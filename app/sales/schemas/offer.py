@@ -57,6 +57,9 @@ class OfferUpdate(CamelModel):
     vehicle_label: str | None = None
     manual_vehicle_condition: str | None = None
     manual_base_price: Decimal | None = None
+    # C-F (KAN-10, FR-C-12): Path B's configuration, `build` mode only.
+    # Setting it makes the container a configuration; null detaches it.
+    configuration_id: uuid.UUID | None = None
     leasing_down_payment: Decimal | None = None
     leasing_term_months: int | None = None
     leasing_km_per_year: int | None = None
@@ -76,6 +79,8 @@ class OfferRead(CamelModel):
     vehicle_source: str | None
     stock_item_id: uuid.UUID | None
     vehicle_label: str | None
+    configuration_id: uuid.UUID | None = None
+    configuration_label: str | None = None
     manual_vehicle_condition: str | None
     manual_base_price: Decimal | None
     leasing_down_payment: Decimal | None
@@ -100,6 +105,7 @@ class OfferRead(CamelModel):
     trade_in_vehicle_id: uuid.UUID | None
     trade_in_label: str | None
     trade_in_vin: str | None
+    trade_in_configuration_id: uuid.UUID | None = None
     trade_in_valuation_id: uuid.UUID | None
     trade_in_value: Decimal | None
     trade_in_purchase_price: Decimal | None

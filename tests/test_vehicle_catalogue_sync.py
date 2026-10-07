@@ -442,3 +442,22 @@ def test_check_sync_age_alarm_for_tenant_reads_persisted_state(db_session):
     db_session.commit()
 
     assert catalogue_sync.check_sync_age_alarm_for_tenant(db_session, tenant_id=tenant_id, today=today) is True
+
+
+def test_seed_links_each_variant_to_its_typenscheine_once(db_session):
+    """KAN-42 (C-D): FR-C-02 step 4 resolves a Typenschein through
+    `vehicle_variant_type_approval`, which the sync never wrote before."""
+
+    from app.vehicle.models.catalogue import TypeApproval, VariantTypeApproval
+    from app.vehicle.services.catalogue import find_model_variants_by_type_approval
+
+    provider = _make_mock_provider(db_session)
+    tenant_id = uuid.uuid4()
+    _make_connection(db_session, provider, tenant_id=tenant_id)
+
+    catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_id)
+    catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_id)
+
+    assert [v.name for v in find_model_variants_by_type_approval(db_session, "2CD456")] == ["Golf GTI 2.0 TSI DSG"]
+    assert db_session.query(TypeApproval).filter_by(type_approval_number="2CD456").count() == 1
+    assert db_session.query(VariantTypeApproval).count() == 3

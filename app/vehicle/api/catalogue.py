@@ -191,6 +191,23 @@ def browse_variants(
     )
 
 
+@router.get("/catalogue/variants/{model_variant_id}", response_model=CatalogueVariantRead)
+def get_variant(
+    model_variant_id: uuid.UUID,
+    principal: Principal = Depends(get_current_principal),
+    db: Session = Depends(get_db),
+):
+    """One variant, the same shape a browse row has (KAN-42, C-D): the
+    identification picker names variants by id, and the configurator starts
+    from the full row exactly as it does from a browse selection. A mirror
+    read — no provider call."""
+
+    variant = db.get(ModelVariant, model_variant_id)
+    if variant is None:
+        raise NotFoundError(f"Catalogue variant {model_variant_id} was not found.")
+    return _variant_read(variant)
+
+
 @router.get("/catalogue/facets", response_model=CatalogueFacetsRead)
 def catalogue_facets(
     brand_id: uuid.UUID | None = Query(default=None, alias="brandId"),

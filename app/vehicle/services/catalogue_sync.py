@@ -54,8 +54,10 @@ from app.vehicle.models.catalogue import (
     Brand,
     ModelGroup,
     ModelVariant,
+    TypeApproval,
     VariantOption,
     VariantOptionEquipmentFeature,
+    VariantTypeApproval,
 )
 from app.vehicle.models.catalogue_mirror import ColourCache, ImageRef, ProviderSyncState, TyreSpecCache
 from app.vehicle.models.provider import ProviderEntityRef
@@ -235,6 +237,7 @@ def upsert_model_variant(db: Session, *, provider_code: str, master: VariantMast
     if ref is not None:
         existing = db.get(ModelVariant, ref.entity_id)
         if existing is not None:
+            _link_type_approvals(db, variant=existing, type_approval_numbers=master.type_approval_numbers)
             return existing
 
     brand = _upsert_brand(db, display_name=master.brand_display_name)
@@ -283,7 +286,39 @@ def upsert_model_variant(db: Session, *, provider_code: str, master: VariantMast
         )
     )
     db.flush()
+    _link_type_approvals(db, variant=variant, type_approval_numbers=master.type_approval_numbers)
     return variant
+
+
+def _link_type_approvals(db: Session, *, variant: ModelVariant, type_approval_numbers: list[str]) -> None:
+    """KAN-42 (C-D): records the variant's Typenscheine so FR-C-02 step 4's
+    reverse lookup (`find_model_variants_by_type_approval`) can find a
+    synced variant at all — before this, nothing outside a smoke-test seed
+    wrote `vehicle_variant_type_approval`, so the Typenschein rung (and a
+    plate that resolves through it) could never reach a synced car.
+
+    Additive and idempotent: an existing `TypeApproval` row for the number
+    is reused (the column is deliberately not unique, so the first row
+    found is taken), an existing link is left alone, and a Typenschein the
+    provider stops reporting is not unlinked here — a delta never removes
+    catalogue facts.
+    """
+
+    for number in dict.fromkeys(n.strip().upper() for n in type_approval_numbers if n and n.strip()):
+        approval = db.scalar(
+            select(TypeApproval)
+            .where(TypeApproval.type_approval_number == number)
+            .order_by(TypeApproval.created_at, TypeApproval.id)
+            .limit(1)
+        )
+        if approval is None:
+            approval = TypeApproval(type_approval_number=number)
+            db.add(approval)
+            db.flush()
+        linked = db.get(VariantTypeApproval, (variant.id, approval.id))
+        if linked is None:
+            db.add(VariantTypeApproval(model_variant_id=variant.id, type_approval_id=approval.id))
+    db.flush()
 
 
 def _sync_option_equipment_features(
