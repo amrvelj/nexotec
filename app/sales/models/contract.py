@@ -84,6 +84,16 @@ class SalesContract(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, Timestam
     stock_item_denorm_refreshed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     vehicle_label: Mapped[str | None] = mapped_column(String(200), nullable=True)
     manual_vehicle_condition: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    # C-F (KAN-10, FR-C-12) — offer Path B: the configuration this vehicle
+    # was built in, a `build`-mode configuration owned by the vehicle
+    # context (three-column pattern, rule 2). Set only with
+    # vehicle_source == "manual". vehicle_label above is its display label
+    # at attach time; the frozen vehicle_snapshot carries its spec block.
+    configuration_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(), nullable=True, comment="Owned by the vehicle context (VehicleConfiguration.id). No DB-level FK."
+    )
+    configuration_label: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    configuration_label_refreshed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
 
     # WP-8 PR-7 — the full build-up, copied from the offer at creation so
     # the contract's own generated document (services/document.py) can
@@ -112,6 +122,15 @@ class SalesContract(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, Timestam
     )
     trade_in_label: Mapped[str | None] = mapped_column(String(200), nullable=True)
     trade_in_vin: Mapped[str | None] = mapped_column(String(17), nullable=True)
+    # C-F (KAN-10) — a trade-in captured through the valuation path in
+    # `record` mode (FR-C-12's carve-out, S-D11) carries the valuation's
+    # configuration; trade_in_label is its display label. No vehicle-mdm
+    # record exists for such a trade-in (ADR-070), so trade_in_vehicle_id
+    # stays null.
+    trade_in_configuration_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(), nullable=True, comment="Owned by the vehicle context (VehicleConfiguration.id). No DB-level FK."
+    )
+    trade_in_configuration_label_refreshed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     trade_in_valuation_id: Mapped[uuid.UUID | None] = mapped_column(
         GUID(), nullable=True, comment="Owned by the valuation context (Valuation.id). No DB-level FK."
     )

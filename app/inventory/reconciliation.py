@@ -17,7 +17,7 @@ from app.inventory.models.cancelled_contract import InventoryCancelledContract
 from app.inventory.models.stock_item import StockItem
 from app.platform.public import Dealership, Location
 from app.sales.public import SalesContract
-from app.vehicle.public import VehicleMdm
+from app.vehicle.public import VehicleConfiguration, VehicleMdm
 
 CONTEXT = "inventory"
 
@@ -72,6 +72,16 @@ CHECKS = [
         source_fk_column=InventoryCancelledContract.contract_id,
         target_model=SalesContract,
         target_id_column=SalesContract.id,
+    ),
+    # C-F (KAN-10): the configuration it was built or captured in.
+    ReferenceCheck(
+        label="stock_item.configuration_id -> vehicle_configuration.id",
+        source_model=StockItem,
+        source_row_id_column=StockItem.id,
+        source_fk_column=StockItem.configuration_id,
+        target_model=VehicleConfiguration,
+        target_id_column=VehicleConfiguration.id,
+        nullable=True,
     ),
 ]
 

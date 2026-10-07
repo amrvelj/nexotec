@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { Button, Group } from '@mantine/core'
-import { Car, Plus, Warehouse } from 'lucide-react'
+import { Car, FileText, Plus, Warehouse } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { DataGrid, type GridColumnDef } from '@nexotec/ui-kit'
 import { useUiPreferencesContext } from '../../hooks/UiPreferencesContext'
@@ -61,6 +61,18 @@ export function VehiclesTab({
           return (
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
               {vehicleLabel(row.original.vehicle)}
+              {/* C-F (KAN-10, FR-C-15) — Customer 360 reaches a configuration
+                  THROUGH THE VEHICLE: its Specification tab. A configuration
+                  has no customer; a customer-keyed route would be a second
+                  ownership link competing with VehicleParty. */}
+              <Link
+                to={`/vehicles/${row.original.vehicle.id}?tab=specification`}
+                title={t('customerDetail.vehicles.specification')}
+                aria-label={t('customerDetail.vehicles.specification')}
+                style={{ display: 'inline-flex', color: 'inherit' }}
+              >
+                <FileText size={14} />
+              </Link>
               {stockItem && (
                 <Link
                   to={`/stock/${stockItem.id}`}

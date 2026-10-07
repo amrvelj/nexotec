@@ -62,3 +62,38 @@ def test_no_route_lists_vehicle_plate_without_an_identifier():
         # test exists to forbid.
         has_path_param = "{" in path
         assert has_path_param, f"{path} is a GET route over plates with no identifier in the path"
+
+
+# KAN-42 (C-D): the plate-lookup cache holds plate → Stammnummer pairs from
+# `KontrollschildInfo`, the same personal-data risk (R-2), so it gets the
+# same two guards. The only function that reads the table without an exact
+# identifier is the TTL purge, which deletes and returns a count — it never
+# hands a row to anyone.
+_CACHE_FUNCTIONS_WITHOUT_AN_IDENTIFIER = {"purge_expired_plate_lookups"}
+
+
+def test_every_plate_lookup_cache_function_requires_an_exact_identifier():
+    from app.vehicle.services import plate_lookup_cache
+
+    checked = 0
+    for name, func in inspect.getmembers(plate_lookup_cache, inspect.isfunction):
+        if func.__module__ != plate_lookup_cache.__name__ or name.startswith("_"):
+            continue
+        if name in _CACHE_FUNCTIONS_WITHOUT_AN_IDENTIFIER:
+            assert inspect.signature(func).return_annotation is int, f"{name} must return a count, never rows"
+            continue
+        params = inspect.signature(func).parameters
+        assert "tenant_id" in params, f"{name} reads the cache without a tenant — ADR-013"
+        assert "plate" in params or "stammnummer" in params, f"{name} has no exact identifier — is it enumerable?"
+        checked += 1
+    assert checked >= 3
+
+
+def test_no_route_lists_the_plate_lookup_cache():
+    from app.main import app
+
+    for route in app.routes:
+        path = getattr(route, "path", "")
+        assert "plate-lookup" not in path and "plate_lookup" not in path, (
+            f"{path} exposes the plate-lookup cache; it is read only through vehicle-identification"
+        )

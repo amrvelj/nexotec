@@ -15,7 +15,7 @@ from app.core.pagination import SortPageParams, build_sorted_page, count_capped,
 from app.customer.public import get_customer_or_404
 from app.valuation.models.valuation import Valuation, ValuationDeduction, ValuationNumberSequence
 from app.valuation.schemas.valuation import ValuationCreate
-from app.vehicle.public import create_or_get_vehicle_mdm
+from app.vehicle.public import CONFIGURATION_MODE_RECORD, create_or_get_vehicle_mdm, get_configuration_for_host
 
 _EVENT_PRODUCER = "valuation"
 
@@ -88,15 +88,31 @@ def create_valuation(
     db: Session, *, tenant_id: uuid.UUID, group_id: uuid.UUID, data: ValuationCreate, actor_id: uuid.UUID | None
 ) -> Valuation:
     """Creatable with no customer, no offer, no vehicle in the register
-    (confirmed live). A `vin` resolves or creates the real vehicle-mdm
-    record in the SAME step (FR-V's own "one step, not two") — never a
-    separate follow-up call the seller has to remember to make.
+    (confirmed live). Without a configuration, a `vin` resolves or creates
+    the real vehicle-mdm record in the SAME step (FR-V's own "one step, not
+    two"). With one (C-F, FR-C-14), nothing is written to vehicle-mdm.
     """
 
+    configuration = None
+    if data.configuration_id is not None:
+        # FR-C-14 (amends FR-V-17, ADR-070): a valuation captured in the
+        # configurator creates a configuration, not a vehicle — the vehicle
+        # fields default from it, and only an MDM record the configuration
+        # already links is referenced. `record` mode only (PRD v1.4).
+        configuration = get_configuration_for_host(db, tenant_id=tenant_id, configuration_id=data.configuration_id)
+        configuration.require_mode(host="valuation", allowed=(CONFIGURATION_MODE_RECORD,))
+
     vehicle_id = None
-    if data.vin:
+    if configuration is not None:
+        vehicle_id = configuration.vehicle_id
+    elif data.vin:
         vehicle, _created = create_or_get_vehicle_mdm(db, vin=data.vin)
         vehicle_id = vehicle.id
+
+    def _from_configuration(value, attribute: str):
+        if value is not None or configuration is None:
+            return value
+        return getattr(configuration, attribute)
 
     customer_label = None
     if data.customer_id is not None:
@@ -110,13 +126,16 @@ def create_valuation(
         tenant_id=tenant_id,
         valuation_number=allocate_valuation_number(db, tenant_id),
         vehicle_id=vehicle_id,
-        vehicle_make=data.vehicle_make,
-        vehicle_model=data.vehicle_model,
-        vehicle_trim=data.vehicle_trim,
-        vehicle_plate=data.vehicle_plate,
-        vehicle_vin=data.vin,
-        vehicle_first_registration=data.vehicle_first_registration,
-        mileage=data.mileage,
+        vehicle_make=_from_configuration(data.vehicle_make, "brand_display_name"),
+        vehicle_model=_from_configuration(data.vehicle_model, "model_group_name"),
+        vehicle_trim=_from_configuration(data.vehicle_trim, "variant_name"),
+        vehicle_plate=_from_configuration(data.vehicle_plate, "licence_plate"),
+        vehicle_vin=_from_configuration(data.vin, "vin"),
+        vehicle_first_registration=_from_configuration(data.vehicle_first_registration, "first_registration_date"),
+        mileage=_from_configuration(data.mileage, "mileage_km"),
+        configuration_id=configuration.id if configuration is not None else None,
+        configuration_label=configuration.label if configuration is not None else None,
+        configuration_label_refreshed_at=utcnow() if configuration is not None else None,
         customer_id=data.customer_id,
         customer_label=customer_label,
         source=data.source,

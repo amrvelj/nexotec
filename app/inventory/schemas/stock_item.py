@@ -26,6 +26,10 @@ class StockItemCreate(CamelModel):
     # time, it arrives later via promotion (PR-2).
     vehicle_id: uuid.UUID | None = None
     vin: str | None = None
+    # C-F (KAN-10, FR-C-13) — "add to pipeline" from the Stock list: the
+    # configuration the configurator just produced, `build` for a factory
+    # order or `record` for a car being bought in (both modes allowed).
+    configuration_id: uuid.UUID | None = None
 
 
 class StockItemUpdate(CamelModel):
@@ -57,6 +61,8 @@ class StockItemRead(CamelModel):
     effective_price: Decimal | None
     first_registration_date: dt.date | None
     pipeline_ref: str | None
+    configuration_id: uuid.UUID | None = None
+    configuration_label: str | None = None
     order_date: dt.date | None
     expected_delivery: dt.date | None
     in_stock_at: dt.datetime | None
