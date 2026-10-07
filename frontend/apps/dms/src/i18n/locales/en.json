@@ -509,9 +509,14 @@
     },
     "resolveModal": {
       "title": "Resolve mapping gap",
-      "listCode": "Canonical list code",
-      "valueCode": "Canonical value code",
-      "confirm": "Resolve"
+      "listCode": "Reference list",
+      "valueCode": "Canonical value",
+      "confirm": "Resolve",
+      "providerCode": "Provider code",
+      "valuePlaceholder": "Choose a value",
+      "noValues": "No matching value",
+      "valuesLoadError": "The values of this list could not be loaded. A gap whose code group has no reference list cannot be resolved.",
+      "error": "The gap could not be resolved."
     }
   },
   "vehiclesList": {

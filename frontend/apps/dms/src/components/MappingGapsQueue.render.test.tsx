@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { screen } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import i18n from '../i18n'
 import { renderWithProviders } from '../test/renderWithProviders'
-import { installFakeBackend } from '../test/fakeBackend'
-import type { MappingGapPage } from '../api/types'
+import { installFakeBackend, status, type FakeRoute } from '../test/fakeBackend'
+import type { MappingGapPage, ReferenceValueRead } from '../api/types'
 import { MappingGapsQueue } from './MappingGapsQueue'
 
 // KAN-164 — "Last seen" used toLocaleDateString() with no locale, so it
@@ -57,4 +58,87 @@ describe('MappingGapsQueue — last-seen date follows FR-13 (KAN-164)', () => {
       expect(screen.queryByText('3/7/2026')).not.toBeInTheDocument()
     })
   }
+})
+
+// KAN-77 — the resolve dialog offers only the active values of the gap's own
+// reference list (its codeGroup), and a refused resolve shows the server's
+// message instead of failing silently with the dialog still open.
+
+const fuelGap = (): MappingGapPage => ({
+  items: [{ ...page().items[0], codeGroup: 'fuel_type', providerCode: '17' }],
+  nextCursor: null,
+})
+
+const value = (valueCode: string, labelDe: string, sortOrder: number): ReferenceValueRead => ({
+  id: `fuel_type-${valueCode}`,
+  listCode: 'fuel_type',
+  valueCode,
+  labelDe,
+  labelFr: labelDe,
+  labelIt: labelDe,
+  labelEn: labelDe,
+  sortOrder,
+  active: true,
+  version: 1,
+  createdAt: '2026-01-01T00:00:00Z',
+  updatedAt: '2026-01-01T00:00:00Z',
+  createdBy: null,
+  updatedBy: null,
+})
+
+function resolveRoutes(resolve: FakeRoute['handler']): FakeRoute[] {
+  return [
+    { match: /^\/vehicle-mdm\/mapping-gaps$/, handler: () => fuelGap() },
+    {
+      match: /^\/reference-data\/fuel_type$/,
+      handler: () => ({ items: [value('diesel', 'Diesel', 2), value('petrol', 'Benzin', 1)], nextCursor: null }),
+    },
+    { method: 'POST', match: /^\/vehicle-mdm\/mapping-gaps\/gap-1\/resolve$/, handler: resolve },
+  ]
+}
+
+async function chooseDiesel(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(await screen.findByRole('button', { name: 'Zuordnen' }))
+  const dialog = await screen.findByRole('dialog')
+  expect(within(dialog).getByDisplayValue('fuel_type')).toHaveAttribute('readonly')
+  await user.click(within(dialog).getByRole('textbox', { name: 'Kanonischer Wert' }))
+  const options = await screen.findAllByRole('option')
+  expect(options.map((o) => o.textContent)).toEqual(['Benzin (petrol)', 'Diesel (diesel)'])
+  await user.click(screen.getByRole('option', { name: 'Diesel (diesel)' }))
+  return dialog
+}
+
+describe('MappingGapsQueue — resolve dialog (KAN-77)', () => {
+  it('sends the gap\'s own list and the chosen value, then closes', async () => {
+    const user = userEvent.setup()
+    const backend = installFakeBackend(resolveRoutes(() => ({ ...fuelGap().items[0], resolved: true })))
+    renderWithProviders(<MappingGapsQueue />)
+
+    const dialog = await chooseDiesel(user)
+    await user.click(within(dialog).getByRole('button', { name: 'Zuordnen' }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    const [call] = backend.callsTo(/\/resolve$/, 'POST')
+    expect(call.body).toEqual({ canonicalListCode: 'fuel_type', canonicalValueCode: 'diesel' })
+  })
+
+  it('shows the server\'s message when the resolve is refused, and keeps the dialog open', async () => {
+    const user = userEvent.setup()
+    installFakeBackend(
+      resolveRoutes(() =>
+        status(409, {
+          error: { code: 'conflict', message: "Provider code '17' is already mapped to fuel_type/petrol.", details: null },
+        }),
+      ),
+    )
+    renderWithProviders(<MappingGapsQueue />)
+
+    const dialog = await chooseDiesel(user)
+    await user.click(within(dialog).getByRole('button', { name: 'Zuordnen' }))
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      "Provider code '17' is already mapped to fuel_type/petrol.",
+    )
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+  })
 })

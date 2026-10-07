@@ -509,9 +509,14 @@
     },
     "resolveModal": {
       "title": "Résoudre l'écart de correspondance",
-      "listCode": "Code de liste canonique",
-      "valueCode": "Code de valeur canonique",
-      "confirm": "Résoudre"
+      "listCode": "Liste de référence",
+      "valueCode": "Valeur canonique",
+      "confirm": "Résoudre",
+      "providerCode": "Code fournisseur",
+      "valuePlaceholder": "Choisir une valeur",
+      "noValues": "Aucune valeur correspondante",
+      "valuesLoadError": "Les valeurs de cette liste n'ont pas pu être chargées. Un écart dont le groupe de codes n'a pas de liste de référence ne peut pas être résolu.",
+      "error": "L'écart n'a pas pu être résolu."
     }
   },
   "vehiclesList": {

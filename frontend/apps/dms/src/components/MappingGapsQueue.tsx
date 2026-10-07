@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Badge, Button, Group, Modal, Stack, TextInput } from '@mantine/core'
+import { Alert, Badge, Button, Group, Modal, Select, Stack, TextInput } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { ActionBar, DataGrid, type GridColumnDef, type SortSpec } from '@nexotec/ui-kit'
 import { useUiPreferencesContext } from '../hooks/UiPreferencesContext'
-import { api } from '../api/client'
+import { useReferenceValueOptions } from '../hooks/useReferenceValueOptions'
+import { api, ApiError } from '../api/client'
 import type { MappingGapPage, MappingGapRead } from '../api/types'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
 import { formatDate, formatNumber } from '../utils/format'
@@ -36,6 +37,11 @@ interface MappingGapsQueueProps {
  * No server-side sort (the list endpoint doesn't support it) — columns
  * render without a sortField, so the header has no sort affordance, per
  * ADR-060 / U-10's "sortability is separate from visibility".
+ *
+ * The resolve dialog (KAN-77) offers only the active values of the gap's own
+ * reference list — its `codeGroup` is that list's code — so a typo can never
+ * become a canonical value. A refused resolve (409 already mapped / no list,
+ * 422 not an active value) shows the server's message in the dialog.
  */
 export function MappingGapsQueue({ paramPrefix = '' }: MappingGapsQueueProps) {
   const { t, i18n } = useTranslation()
@@ -62,9 +68,16 @@ export function MappingGapsQueue({ paramPrefix = '' }: MappingGapsQueueProps) {
 
   const [sort, setSort] = useState<SortSpec[]>([])
   const [resolvingGap, setResolvingGap] = useState<MappingGapRead | null>(null)
-  const [listCode, setListCode] = useState('')
-  const [valueCode, setValueCode] = useState('')
+  const [valueCode, setValueCode] = useState<string | null>(null)
   const [resolving, setResolving] = useState(false)
+  const [resolveError, setResolveError] = useState<string | null>(null)
+  const valueOptions = useReferenceValueOptions(resolvingGap?.codeGroup ?? null)
+
+  const openResolve = (gap: MappingGapRead) => {
+    setResolvingGap(gap)
+    setValueCode(null)
+    setResolveError(null)
+  }
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isError, refetch, isRefetching } =
     useInfiniteQuery({
@@ -92,15 +105,18 @@ export function MappingGapsQueue({ paramPrefix = '' }: MappingGapsQueueProps) {
   )
 
   const submitResolve = async () => {
-    if (!resolvingGap) return
+    if (!resolvingGap || !valueCode) return
     setResolving(true)
+    setResolveError(null)
     try {
       await api.post(`/vehicle-mdm/mapping-gaps/${resolvingGap.id}/resolve`, {
-        canonicalListCode: listCode,
+        canonicalListCode: resolvingGap.codeGroup,
         canonicalValueCode: valueCode,
       })
       setResolvingGap(null)
       await queryClient.invalidateQueries({ queryKey: ['vehicle-mdm', GRID_KEY] })
+    } catch (err) {
+      setResolveError(err instanceof ApiError ? err.message : t('mappingGaps.resolveModal.error'))
     } finally {
       setResolving(false)
     }
@@ -140,11 +156,7 @@ export function MappingGapsQueue({ paramPrefix = '' }: MappingGapsQueueProps) {
             size="xs"
             variant="light"
             leftSection={<Check size={14} />}
-            onClick={() => {
-              setResolvingGap(row.original)
-              setListCode('')
-              setValueCode('')
-            }}
+            onClick={() => openResolve(row.original)}
           >
             {t('mappingGaps.resolve')}
           </Button>
@@ -222,21 +234,37 @@ export function MappingGapsQueue({ paramPrefix = '' }: MappingGapsQueueProps) {
       >
         <Stack gap="sm">
           <TextInput
-            label={t('mappingGaps.resolveModal.listCode')}
-            value={listCode}
-            onChange={(e) => setListCode(e.currentTarget.value)}
+            label={t('mappingGaps.resolveModal.providerCode')}
+            value={resolvingGap ? `${resolvingGap.provider} · ${resolvingGap.vehicleKind} · ${resolvingGap.providerCode}` : ''}
+            readOnly
+          />
+          <TextInput label={t('mappingGaps.resolveModal.listCode')} value={resolvingGap?.codeGroup ?? ''} readOnly />
+          <Select
+            label={t('mappingGaps.resolveModal.valueCode')}
+            placeholder={t('mappingGaps.resolveModal.valuePlaceholder')}
+            data={valueOptions.options}
+            value={valueCode}
+            onChange={(value) => {
+              setValueCode(value)
+              setResolveError(null)
+            }}
+            searchable
+            nothingFoundMessage={t('mappingGaps.resolveModal.noValues')}
+            disabled={valueOptions.isLoading || valueOptions.isError}
+            error={valueOptions.isError ? t('mappingGaps.resolveModal.valuesLoadError') : undefined}
+            comboboxProps={{ withinPortal: true }}
             data-autofocus
           />
-          <TextInput
-            label={t('mappingGaps.resolveModal.valueCode')}
-            value={valueCode}
-            onChange={(e) => setValueCode(e.currentTarget.value)}
-          />
+          {resolveError && (
+            <Alert color="red" role="alert">
+              {resolveError}
+            </Alert>
+          )}
           <Group justify="flex-end">
             <Button variant="default" onClick={() => setResolvingGap(null)}>
               {t('common.cancel')}
             </Button>
-            <Button onClick={() => void submitResolve()} loading={resolving} disabled={!listCode || !valueCode}>
+            <Button onClick={() => void submitResolve()} loading={resolving} disabled={!valueCode}>
               {t('mappingGaps.resolveModal.confirm')}
             </Button>
           </Group>

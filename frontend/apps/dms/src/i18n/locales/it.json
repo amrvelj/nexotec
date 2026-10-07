@@ -509,9 +509,14 @@
     },
     "resolveModal": {
       "title": "Risolvi lacuna di mappatura",
-      "listCode": "Codice lista canonico",
-      "valueCode": "Codice valore canonico",
-      "confirm": "Risolvi"
+      "listCode": "Lista di riferimento",
+      "valueCode": "Valore canonico",
+      "confirm": "Risolvi",
+      "providerCode": "Codice fornitore",
+      "valuePlaceholder": "Scegli un valore",
+      "noValues": "Nessun valore corrispondente",
+      "valuesLoadError": "Impossibile caricare i valori di questa lista. Una lacuna il cui gruppo di codici non ha una lista di riferimento non può essere risolta.",
+      "error": "Impossibile risolvere la lacuna."
     }
   },
   "vehiclesList": {

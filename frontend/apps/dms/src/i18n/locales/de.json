@@ -509,9 +509,14 @@
     },
     "resolveModal": {
       "title": "Zuordnungslücke auflösen",
-      "listCode": "Kanonischer Listencode",
-      "valueCode": "Kanonischer Wertcode",
-      "confirm": "Zuordnen"
+      "listCode": "Referenzliste",
+      "valueCode": "Kanonischer Wert",
+      "confirm": "Zuordnen",
+      "providerCode": "Anbietercode",
+      "valuePlaceholder": "Wert wählen",
+      "noValues": "Kein passender Wert",
+      "valuesLoadError": "Die Werte dieser Liste konnten nicht geladen werden. Eine Lücke, deren Codegruppe keine Referenzliste hat, kann nicht aufgelöst werden.",
+      "error": "Die Lücke konnte nicht aufgelöst werden."
     }
   },
   "vehiclesList": {
