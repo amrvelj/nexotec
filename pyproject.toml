@@ -124,6 +124,14 @@ ignore_missing_imports = true
 module = "weasyprint.*"
 ignore_missing_imports = true
 
+# Babel ships its own types, but it is the optional `seed-tools` extra and
+# `.[dev]` does not install it, so mypy cannot find it at all in CI.
+# scripts/gen_country_reference_seed.py is the only importer (KAN-32),
+# type-checked with scripts/ since KAN-142.
+[[tool.mypy.overrides]]
+module = "babel.*"
+ignore_missing_imports = true
+
 [tool.importlinter]
 root_package = "app"
 include_external_packages = true

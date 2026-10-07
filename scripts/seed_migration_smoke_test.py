@@ -907,6 +907,7 @@ def main() -> None:
     try:
         new_schema = "dealership" in set(inspect(db.get_bind()).get_table_names())
 
+        group_id: uuid.UUID | None
         if new_schema:
             dealer_id, group_id = _seed_dealer_and_group_new_schema(db)
         else:
@@ -915,7 +916,9 @@ def main() -> None:
 
         user_id = _seed_user(db, tenant_id=dealer_id)
 
-        if new_schema:
+        # group_id is set exactly when new_schema is; testing it rather than
+        # new_schema lets the type checker see it is not None here.
+        if group_id is not None:
             customer_id = _seed_customer_chain_new_schema(db, group_id=group_id)
         else:
             customer_id = _seed_customer_chain_old_schema(db, dealer_id=dealer_id)
