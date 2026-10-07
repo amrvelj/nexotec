@@ -29,6 +29,7 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from decimal import Decimal
 
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.core.base import utcnow
@@ -181,6 +182,11 @@ def call_capability(
     caller's session: a catalogue sync that failed half-way saved its
     half-written catalogue rows together with the error log row.
 
+    Precondition: the caller holds no uncommitted write or row lock on this
+    connection's own `integration_connection` row — the log row's foreign
+    key waits on it from another session, and the wait is bounded by
+    `_LOG_LOCK_TIMEOUT` so a misuse fails instead of hanging.
+
     Usage:
         with call_capability(db, connection=connection, capability="vehicle_data") as adapter:
             data = adapter.fetch_vehicle_master_data(fz_key)
@@ -188,12 +194,17 @@ def call_capability(
 
     with Session(bind=db.get_bind(), autoflush=False, expire_on_commit=False) as gateway_db:
         adapter = _resolve_adapter(gateway_db, connection, actor_id=actor_id, purpose=purpose or capability)
+        # The provider lookup was a read: end its transaction so the
+        # connection goes back to the pool for the length of the caller's
+        # block (a full catalogue seed, say).
+        gateway_db.commit()
         started_at = time.monotonic()
         try:
             yield adapter
         except Exception:
             duration_ms = int((time.monotonic() - started_at) * 1000)
             resilience.record_failure(connection.id)
+            _bound_lock_wait(gateway_db)
             log = record_call(
                 gateway_db, connection=connection, capability=capability, status=CallStatus.ERROR,
                 duration_ms=duration_ms, correlation_id=correlation_id,
@@ -205,6 +216,7 @@ def call_capability(
         else:
             duration_ms = int((time.monotonic() - started_at) * 1000)
             resilience.record_success(connection.id)
+            _bound_lock_wait(gateway_db)
             log = record_call(
                 gateway_db, connection=connection, capability=capability, status=CallStatus.SUCCESS,
                 duration_ms=duration_ms, correlation_id=correlation_id,
@@ -212,6 +224,20 @@ def call_capability(
             _maybe_capture_payload(
                 gateway_db, log=log, kind=PayloadKind.SUCCESS, capture_raw_payload=capture_raw_payload
             )
+
+
+_LOG_LOCK_TIMEOUT = "5s"
+
+
+def _bound_lock_wait(db: Session) -> None:
+    """The call log's foreign key takes a KEY SHARE lock on the connection
+    row. A caller holding a conflicting lock on that row in its own open
+    transaction would make the gateway's session wait on its own request
+    forever — Postgres sees two sessions, not a deadlock. Bound the wait
+    for this transaction only (`SET LOCAL`)."""
+
+    if db.get_bind().dialect.name == "postgresql":
+        db.execute(text(f"SET LOCAL lock_timeout = '{_LOG_LOCK_TIMEOUT}'"))
 
 
 def _maybe_capture_payload(

@@ -26,10 +26,13 @@ What it proves:
    `create_vehicle_mdm`). Delete the commit, or the call that leads to it,
    and this fails naming the function. A commit reached only through a
    third context's public function does not count.
-   A commit home may not take a `commit` switch a caller could turn off,
-   and a savepoint's `begin_nested().commit()` is not a commit.
-3. No `_READS` function reaches a write of any kind (a session write, a
-   row lock, an outbox/audit/idempotency record), and no
+   A commit home may not take a `commit`/`autocommit` switch a caller could
+   turn off (a switch under another name is not recognised), and a
+   savepoint's `.commit()` is not a commit.
+3. No `_READS` function reaches a write shape this test recognises — a
+   session write or commit, a row lock, an outbox/audit/idempotency
+   record, SQLAlchemy DML or raw DML text, or an assignment to an
+   attribute (the ORM write idiom) — and no
    `_SHARED_TRANSACTION_EXCEPTIONS` function reaches a `.commit()`: a read
    that starts writing has to be classified again, and an exception that
    starts committing must move to `_OWN_COMMIT_WRITES` (and its follow-up
@@ -37,7 +40,8 @@ What it proves:
 4. One context reaches another only as `from app.<ctx>.public import
    <name>` — a whole public module, another context's non-public module
    (import-linter forbids only models/services/api) or a public function
-   exported by assignment fails, since point 1 could not see the call.
+   exported by assignment (an alias, a lambda, a `partial(...)`) fails,
+   since point 1 could not see the call.
    Every package under app/ is one of the twelve contexts or declared
    wiring (`core`, `api`).
 
@@ -85,6 +89,8 @@ from collections.abc import Callable
 from functools import cache
 from pathlib import Path
 
+import pytest
+
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _APP_ROOT = _REPO_ROOT / "app"
 
@@ -119,7 +125,19 @@ _COMMIT_SWITCHES = frozenset({"commit", "autocommit"})
 # What a read must never reach: session writes, row locks taken in the
 # caller's transaction, and the write helpers of app/core.
 _SESSION_WRITE_METHODS = frozenset({"add", "add_all", "delete", "flush", "merge", "commit", "with_for_update"})
-_WRITE_HELPERS = frozenset({"publish", "record_audit_event", "store_response", "insert", "update"})
+_WRITE_HELPERS = frozenset(
+    {"publish", "publish_event", "record_audit_event", "store_response", "insert", "update", "delete"}
+)
+_WRITE_SQL = ("insert", "update", "delete", "merge", "truncate")
+
+# Functions a read reaches that assign attributes of plain in-process
+# objects, never of a database row: their attribute assignments are not
+# writes. Every other write shape is still checked in them.
+_IN_PROCESS_STATE = {
+    # The per-connection circuit breaker is a dataclass in process memory
+    # (resilience.py's own docstring); is_circuit_open half-opens it.
+    "app.integration.services.resilience.is_circuit_open",
+}
 
 # Cross-context writes that commit their own transaction (ADR-047), keyed
 # by the public symbol other contexts import. Value: the function whose own
@@ -183,7 +201,7 @@ _OWN_COMMIT_WRITES = {
     # again, only sometimes — which is why the commit's home is named.
     "app.integration.public.call_capability": (
         "app.integration.services.gateway.record_call",
-        "inventory: marketplace transmission; vehicle: catalogue sync/browse",
+        "inventory: marketplace transmission; vehicle: catalogue seed and daily delta",
     ),
 }
 
@@ -334,27 +352,69 @@ def _callee(call: ast.Call, module: str, local_imports: dict, root: Path) -> tup
     return callee_module, node
 
 
+def _savepoint_names(function: _FunctionNode) -> set[str]:
+    """Names bound to a savepoint (`sp = db.begin_nested()`), whose
+    `.commit()` releases the savepoint and commits nothing."""
+
+    return {
+        target.id
+        for node in ast.walk(function)
+        if isinstance(node, ast.Assign)
+        and isinstance(node.value, ast.Call)
+        and isinstance(node.value.func, ast.Attribute)
+        and node.value.func.attr == "begin_nested"
+        for target in node.targets
+        if isinstance(target, ast.Name)
+    }
+
+
 def _commits_directly(function: _FunctionNode) -> bool:
     """A `<session>.commit()` in the function's own body. A savepoint's
-    `db.begin_nested().commit()` (a call's result) commits nothing."""
+    `db.begin_nested().commit()` (a call's result, or a name bound to one)
+    commits nothing."""
 
-    return any(
-        isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Attribute)
-        and node.func.attr == "commit"
-        and not isinstance(node.func.value, ast.Call)
-        for node in ast.walk(function)
-    )
-
-
-def _writes_directly(function: _FunctionNode) -> bool:
+    savepoints = _savepoint_names(function)
     for node in ast.walk(function):
+        if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "commit"):
+            continue
+        receiver = node.func.value
+        if isinstance(receiver, ast.Call) or (isinstance(receiver, ast.Name) and receiver.id in savepoints):
+            continue
+        return True
+    return False
+
+
+def _writes_directly(module: str, function: _FunctionNode, root: Path) -> bool:
+    """The write shapes a reviewed read must not contain: a session write or
+    commit, a row lock (`with_for_update` as a call or a keyword), a write
+    helper of app/core or SQLAlchemy's DML constructs (also through an
+    import alias), raw DML text, or an assignment to an attribute — the
+    ORM's own write idiom, flushed by whoever commits next."""
+
+    path = _module_file(module, root)
+    assert path is not None
+    imports = {**_import_map(_parse(path).body, module), **_import_map(function, module)}
+    in_process_state = f"{module}.{function.name}" in _IN_PROCESS_STATE
+    for node in ast.walk(function):
+        if isinstance(node, (ast.Assign, ast.AugAssign, ast.AnnAssign)) and not in_process_state:
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            if any(isinstance(target, ast.Attribute) for target in targets):
+                return True
         if not isinstance(node, ast.Call):
             continue
-        if isinstance(node.func, ast.Attribute) and node.func.attr in _SESSION_WRITE_METHODS:
+        if any(keyword.arg == "with_for_update" for keyword in node.keywords):
             return True
-        if isinstance(node.func, ast.Name) and node.func.id in _WRITE_HELPERS:
+        func = node.func
+        if isinstance(func, ast.Attribute) and func.attr in _SESSION_WRITE_METHODS:
             return True
+        if isinstance(func, ast.Name):
+            original = imports.get(func.id, (None, func.id))[1] or func.id
+            if func.id in _WRITE_HELPERS or original in _WRITE_HELPERS:
+                return True
+            if func.id == "text" and node.args and isinstance(node.args[0], ast.Constant):
+                statement = str(node.args[0].value).lstrip().lower()
+                if statement.startswith(_WRITE_SQL):
+                    return True
     return False
 
 
@@ -471,7 +531,7 @@ def _cross_context_functions(root: Path, contexts: frozenset[str]) -> tuple[dict
         node = resolved[1]
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             functions[symbol] = files
-        elif isinstance(node, ast.Assign) and isinstance(node.value, (ast.Name, ast.Attribute, ast.Lambda)):
+        elif isinstance(node, ast.Assign) and isinstance(node.value, (ast.Name, ast.Attribute, ast.Lambda, ast.Call)):
             problems.append(
                 f"{symbol} is exported by assignment, which this test cannot follow — export it with `def` or "
                 "an import in public.py."
@@ -538,7 +598,7 @@ def _classification_problems(
     for symbol in sorted(reads):
         if symbol in calls:
             module, function = _public_function(symbol, root)
-            if _reaches(module, function, root, lambda _m, f: _writes_directly(f)):
+            if _reaches(module, function, root, lambda m, f: _writes_directly(m, f, root)):
                 problems.append(
                     f"{symbol} is classified as a read but reaches a write (session write, row lock, outbox, "
                     "audit or idempotency record) — classify it again."
@@ -774,3 +834,50 @@ def test_self_test_an_undeclared_app_package_is_reported(tmp_path: Path) -> None
     assert _package_problems(app, _FIXTURE_CONTEXTS) == [
         "app/newctx/ is neither one of the bounded contexts nor declared in _NOT_A_CONTEXT."
     ]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "    row = db.get(1)\n    row.price = 0\n    return row",
+        '    return db.execute(text("UPDATE stock SET price = 0"))',
+        "    row = db.get(1)\n    db.refresh(row, with_for_update=True)\n    return row",
+        "    emit(db, 1)\n    return db.get(1)",
+        "    return db.execute(delete(1))",
+    ],
+    ids=["attribute-assignment", "raw-dml-text", "refresh-row-lock", "aliased-outbox-publish", "sqlalchemy-delete"],
+)
+def test_self_test_a_read_with_another_write_shape_fails(tmp_path: Path, body: str) -> None:
+    files = dict(_FIXTURE)
+    files["stock/services.py"] = _replace(
+        files["stock/services.py"],
+        "def peek(db):\n    return db.get(1)",
+        f"from app.core.outbox import publish as emit\n\ndef peek(db):\n{body}",
+    )
+    app = _write(tmp_path, files)
+    problems = _fixture_problems(app, _FIXTURE_WRITES, set(), _FIXTURE_READS)
+    assert len(problems) == 1 and "app.stock.public.peek" in problems[0] and "reaches a write" in problems[0]
+
+
+def test_self_test_a_savepoint_bound_to_a_name_is_not_a_commit(tmp_path: Path) -> None:
+    files = dict(_FIXTURE)
+    files["stock/services.py"] = _replace(
+        files["stock/services.py"],
+        "    db.add(1)\n    db.commit()\n",
+        "    savepoint = db.begin_nested()\n    db.add(1)\n    savepoint.commit()\n",
+    )
+    app = _write(tmp_path, files)
+    problems = _fixture_problems(app, _FIXTURE_WRITES, set(), _FIXTURE_READS)
+    assert len(problems) == 1 and "app.stock.public.reserve" in problems[0] and "no longer commits" in problems[0]
+
+
+def test_self_test_a_partial_export_is_reported(tmp_path: Path) -> None:
+    files = dict(_FIXTURE)
+    files["stock/public.py"] += (
+        "from functools import partial\nfrom app.stock.services import reserve as _reserve\n"
+        "hidden = partial(_reserve)\n"
+    )
+    files["sales/contract.py"] = _replace(files["sales/contract.py"], "peek, relay", "peek, relay, hidden")
+    app = _write(tmp_path, files)
+    problems = _fixture_problems(app, _FIXTURE_WRITES, set(), _FIXTURE_READS)
+    assert len(problems) == 1 and "app.stock.public.hidden" in problems[0] and "by assignment" in problems[0]
