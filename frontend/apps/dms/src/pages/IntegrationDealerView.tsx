@@ -252,6 +252,15 @@ function ConnectDialog({
   )
 }
 
+// cost_units is DECIMAL(12, 4) (app/integration/models/call_log.py) and
+// arrives as a decimal string; shown at that scale so the fourth decimal is
+// never rounded away (KAN-164). Twelve significant digits fit a double exactly.
+const COST_UNITS_SCALE = 4
+
+function formatCostUnits(value: string | null): string {
+  return value === null ? '—' : formatNumber(Number(value), COST_UNITS_SCALE)
+}
+
 function UsageModal({ connection, onClose }: { connection: IntegrationConnectionRead | null; onClose: () => void }) {
   const { t } = useTranslation()
   const usageQuery = useQuery({
@@ -273,7 +282,7 @@ function UsageModal({ connection, onClose }: { connection: IntegrationConnection
               {formatNumber(usageQuery.data?.callsThisPeriod ?? 0)}
             </KeyValueRow>
             <KeyValueRow label={t('integrationsList.usageModal.cost')}>
-              {usageQuery.data?.costUnitsThisPeriod ?? '—'}
+              {formatCostUnits(usageQuery.data?.costUnitsThisPeriod ?? null)}
             </KeyValueRow>
             <Text size="xs" c="dimmed">{t('integrationsList.usageModal.indicative')}</Text>
           </>

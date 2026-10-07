@@ -12,6 +12,16 @@ describe("formatNumber", () => {
     expect(formatNumber(1234.5)).toBe("1'234.5");
     expect(formatNumber(999)).toBe("999");
   });
+
+  // KAN-164: without fractionDigits Intl caps at 3 decimals; a DECIMAL(12, 4)
+  // value needs all four kept, and trailing zeros shown at the column's scale.
+  it("keeps exactly the fraction digits asked for", () => {
+    expect(formatNumber(1234.5678)).toBe("1'234.568");
+    expect(formatNumber(1234.5678, 4)).toBe("1'234.5678");
+    expect(formatNumber(1234.5, 4)).toBe("1'234.5000");
+    expect(formatNumber(0, 4)).toBe("0.0000");
+    expect(formatNumber(12500, 0)).toBe("12'500");
+  });
 });
 
 describe("formatCurrencyChf", () => {

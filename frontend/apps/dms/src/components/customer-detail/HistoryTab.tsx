@@ -3,7 +3,7 @@ import { History } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { slate } from '@nexotec/ui-kit'
 import { useAuth } from '../../auth/AuthContext'
-import { formatDateTime } from '../../utils/format'
+import { formatCurrencyChf, formatDateTime, formatNumber } from '../../utils/format'
 import type { AuditEventRead } from '../../api/types'
 
 // Customer-level audit events snapshot snake_case model attributes
@@ -18,10 +18,34 @@ function prettifyKey(key: string): string {
   return spaced.charAt(0).toUpperCase() + spaced.slice(1)
 }
 
-function formatValue(v: unknown): string {
+// Every event on this tab is entity_type "customer" (app/customer/services/
+// customer.py), so a value's meaning comes from its key, not its typeof
+// (KAN-164): credit_limit reaches the audit log as a decimal *string*
+// (`"12500.00"`), while customer_number, postal codes and IDs are figures that
+// must never be grouped. Formatting is therefore opt-in per field; any key
+// not named here renders as recorded.
+type FieldKind = 'amountChf' | 'quantity'
+
+function camelKey(key: string): string {
+  return key.replace(/_([a-z0-9])/g, (_, c: string) => c.toUpperCase())
+}
+
+function fieldKind(key: string): FieldKind | null {
+  const k = camelKey(key)
+  if (k === 'creditLimit') return 'amountChf'
+  // The merge event's counts (vehiclePartiesRepointed, tagsDropped, …).
+  if (/(Repointed|Dropped)$/.test(k)) return 'quantity'
+  return null
+}
+
+function formatValue(key: string, v: unknown, t: (key: string) => string): string {
   if (v === null || v === undefined) return '—'
-  if (typeof v === 'boolean') return v ? 'Yes' : 'No'
+  if (typeof v === 'boolean') return v ? t('common.yes') : t('common.no')
   if (typeof v === 'object') return JSON.stringify(v)
+  const kind = fieldKind(key)
+  if (kind !== null && (typeof v === 'number' || typeof v === 'string') && v !== '' && Number.isFinite(Number(v))) {
+    return kind === 'amountChf' ? formatCurrencyChf(Number(v)) : formatNumber(Number(v))
+  }
   return String(v)
 }
 
@@ -71,7 +95,7 @@ function HistoryEvent({ event, isYou, locale }: { event: AuditEventRead; isYou: 
                 <Text component="span" fw={500} c={slate[7]}>
                   {prettifyKey(c.key)}
                 </Text>
-                : {formatValue(c.before)} → {formatValue(c.after)}
+                : {formatValue(c.key, c.before, t)} → {formatValue(c.key, c.after, t)}
               </Text>
             ))}
           </Stack>
