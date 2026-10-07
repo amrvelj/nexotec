@@ -67,9 +67,38 @@ from pathlib import Path
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _APP_ROOT = _REPO_ROOT / "app"
 
-# Contexts whose code is scanned for cross-context calls. app/core is
-# cross-cutting code that imports no context at all (CLAUDE.md rule 8).
-_NOT_A_CONTEXT = {"core"}
+# The twelve bounded contexts (CLAUDE.md). Every package directly under
+# app/ is one of these or declared in _NOT_A_CONTEXT, so a new context
+# cannot be skipped by the scan without a visible edit here.
+_CONTEXTS = frozenset(
+    {
+        "platform",
+        "customer",
+        "vehicle",
+        "sales",
+        "inventory",
+        "valuation",
+        "integration",
+        "aftersales",
+        "parts",
+        "finance",
+        "reporting",
+        "compliance",
+    }
+)
+# app/core is cross-cutting code importing no context (CLAUDE.md rule 8);
+# app/api is the router wiring that mounts every context's endpoints.
+# Modules directly under app/ (main, worker, model_registry,
+# reconciliation_runner, db) are composition roots, not contexts.
+_NOT_A_CONTEXT = frozenset({"core", "api"})
+
+# A function whose job is to commit must not be able to switch that off.
+_COMMIT_SWITCHES = frozenset({"commit", "autocommit"})
+
+# What a read must never reach: session writes, row locks taken in the
+# caller's transaction, and the write helpers of app/core.
+_SESSION_WRITE_METHODS = frozenset({"add", "add_all", "delete", "flush", "merge", "commit", "with_for_update"})
+_WRITE_HELPERS = frozenset({"publish", "record_audit_event", "store_response", "insert", "update"})
 
 # Cross-context writes that commit their own transaction (ADR-047), keyed
 # by the public symbol other contexts import. Value: the function whose own
@@ -287,10 +316,35 @@ def _callee(call: ast.Call, module: str, local_imports: dict, root: Path) -> tup
 
 
 def _commits_directly(function: _FunctionNode) -> bool:
+    """A `<session>.commit()` in the function's own body. A savepoint's
+    `db.begin_nested().commit()` (a call's result) commits nothing."""
+
     return any(
-        isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "commit"
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "commit"
+        and not isinstance(node.func.value, ast.Call)
         for node in ast.walk(function)
     )
+
+
+def _writes_directly(function: _FunctionNode) -> bool:
+    for node in ast.walk(function):
+        if not isinstance(node, ast.Call):
+            continue
+        if isinstance(node.func, ast.Attribute) and node.func.attr in _SESSION_WRITE_METHODS:
+            return True
+        if isinstance(node.func, ast.Name) and node.func.id in _WRITE_HELPERS:
+            return True
+    return False
+
+
+def _commit_switch(function: _FunctionNode) -> str | None:
+    arguments = function.args
+    for argument in [*arguments.posonlyargs, *arguments.args, *arguments.kwonlyargs]:
+        if argument.arg in _COMMIT_SWITCHES:
+            return argument.arg
+    return None
 
 
 def _reaches(
@@ -337,14 +391,28 @@ def _public_function(symbol: str, root: Path) -> tuple[str, _FunctionNode]:
 # --- the scan ----------------------------------------------------------
 
 
-def _cross_context_imports(root: Path) -> tuple[dict[str, set[str]], list[str]]:
-    """public symbol -> importing files; plus import forms the scan cannot see."""
+def _package_problems(root: Path, contexts: frozenset[str]) -> list[str]:
+    return [
+        f"app/{path.name}/ is neither one of the bounded contexts nor declared in _NOT_A_CONTEXT."
+        for path in sorted(root.iterdir())
+        if path.is_dir()
+        and (path / "__init__.py").is_file()
+        and path.name not in contexts
+        and path.name not in _NOT_A_CONTEXT
+    ]
+
+
+def _cross_context_imports(root: Path, contexts: frozenset[str]) -> tuple[dict[str, set[str]], list[str]]:
+    """public symbol -> importing files; plus imports the scan cannot see:
+    a public module imported whole, or another context's non-public module
+    (import-linter forbids only models/services/api, so a `consumers` or
+    `daily_jobs` import would otherwise slip past both guards)."""
 
     imported: dict[str, set[str]] = {}
     unseeable: list[str] = []
     for path in sorted(root.rglob("*.py")):
         relative = path.relative_to(root.parent)
-        if len(relative.parts) < 3 or relative.parts[1] in _NOT_A_CONTEXT:
+        if len(relative.parts) < 3 or relative.parts[1] not in contexts:
             continue
         context = relative.parts[1]
         importer = ".".join(relative.with_suffix("").parts)
@@ -352,31 +420,44 @@ def _cross_context_imports(root: Path) -> tuple[dict[str, set[str]], list[str]]:
             if isinstance(node, ast.ImportFrom):
                 module = _absolute(node, importer) or ""
                 parts = module.split(".")
-                if len(parts) < 2 or parts[0] != "app" or parts[1] == context or parts[1] in _NOT_A_CONTEXT:
+                if len(parts) < 2 or parts[0] != "app" or parts[1] == context or parts[1] not in contexts:
                     continue
                 if module.endswith(".public"):
                     for alias in node.names:
                         imported.setdefault(f"{module}.{alias.name}", set()).add(str(relative))
-                elif any(alias.name == "public" for alias in node.names):
+                elif len(parts) == 2 and all(alias.name == "public" for alias in node.names):
                     unseeable.append(f"{relative}:{node.lineno} `from {module} import public`")
+                else:
+                    names = ", ".join(alias.name for alias in node.names)
+                    unseeable.append(f"{relative}:{node.lineno} `from {module} import {names}`")
             elif isinstance(node, ast.Import):
                 for alias in node.names:
                     parts = alias.name.split(".")
-                    if len(parts) >= 3 and parts[1] != context and parts[2] == "public":
+                    if len(parts) >= 2 and parts[0] == "app" and parts[1] != context and parts[1] in contexts:
                         unseeable.append(f"{relative}:{node.lineno} `import {alias.name}`")
     return imported, unseeable
 
 
-def _cross_context_functions(root: Path) -> dict[str, set[str]]:
-    imported, _ = _cross_context_imports(root)
+def _cross_context_functions(root: Path, contexts: frozenset[str]) -> tuple[dict[str, set[str]], list[str]]:
+    """public function -> importing files; plus public symbols the scan
+    cannot classify (an assignment alias such as `x = _services.x`)."""
+
+    imported, _ = _cross_context_imports(root, contexts)
     functions: dict[str, set[str]] = {}
+    problems: list[str] = []
     for symbol, files in imported.items():
         module, _, name = symbol.rpartition(".")
         resolved = _resolve(module, name, root)
         assert resolved is not None, f"{symbol} is imported by {sorted(files)} but cannot be resolved."
-        if isinstance(resolved[1], (ast.FunctionDef, ast.AsyncFunctionDef)):
+        node = resolved[1]
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             functions[symbol] = files
-    return functions
+        elif isinstance(node, ast.Assign) and isinstance(node.value, (ast.Name, ast.Attribute, ast.Lambda)):
+            problems.append(
+                f"{symbol} is exported by assignment, which this test cannot follow — export it with `def` or "
+                "an import in public.py."
+            )
+    return functions, problems
 
 
 def _classification_problems(
@@ -384,13 +465,15 @@ def _classification_problems(
     own_commit: dict[str, tuple[str, str]],
     exceptions: dict[str, str] | set[str],
     reads: set[str],
+    contexts: frozenset[str] = _CONTEXTS,
 ) -> list[str]:
     problems: list[str] = []
     classified = [*own_commit, *exceptions, *reads]
     for symbol in sorted({s for s in classified if classified.count(s) > 1}):
         problems.append(f"{symbol} is classified more than once.")
 
-    calls = _cross_context_functions(root)
+    calls, problems_with_exports = _cross_context_functions(root, contexts)
+    problems.extend(problems_with_exports)
     for symbol in sorted(set(calls) - set(classified)):
         problems.append(
             f"{symbol} is called across a context seam by {sorted(calls[symbol])} but is not classified. "
@@ -409,7 +492,13 @@ def _classification_problems(
             problems.append(f"{symbol}: its commit's home {commits_in} no longer exists — update this test.")
             continue
         target = (home[0], home[1].name)
-        if not _commits_directly(home[1]):
+        switch = _commit_switch(home[1])
+        if switch is not None:
+            problems.append(
+                f"{symbol}: {commits_in} takes a `{switch}` parameter, so a caller can switch its commit off and "
+                "join the write to its own transaction (ADR-047). Classify the write by what callers pass."
+            )
+        elif not _commits_directly(home[1]):
             problems.append(
                 f"{symbol} is a cross-context write but {commits_in} no longer commits — the write would join "
                 "the caller's transaction (ADR-047)."
@@ -430,8 +519,11 @@ def _classification_problems(
     for symbol in sorted(reads):
         if symbol in calls:
             module, function = _public_function(symbol, root)
-            if _reaches_commit(module, function, root):
-                problems.append(f"{symbol} is classified as a read but reaches a commit — classify it again.")
+            if _reaches(module, function, root, lambda _m, f: _writes_directly(f)):
+                problems.append(
+                    f"{symbol} is classified as a read but reaches a write (session write, row lock, outbox, "
+                    "audit or idempotency record) — classify it again."
+                )
     return problems
 
 
@@ -440,8 +532,13 @@ def test_every_cross_context_call_is_classified_and_own_commit_writes_commit() -
     assert not problems, "ADR-047:\n" + "\n".join(problems)
 
 
+def test_every_app_package_is_a_context_or_declared_wiring() -> None:
+    problems = _package_problems(_APP_ROOT, _CONTEXTS)
+    assert not problems, "\n".join(problems)
+
+
 def test_cross_context_public_modules_are_imported_by_name() -> None:
-    _, unseeable = _cross_context_imports(_APP_ROOT)
+    _, unseeable = _cross_context_imports(_APP_ROOT, _CONTEXTS)
     assert not unseeable, (
         "Import another context's public functions by name (`from app.<ctx>.public import f`) so the "
         "ADR-047 classification can see each call:\n" + "\n".join(unseeable)
@@ -487,6 +584,11 @@ _FIXTURE_WRITES = {
     "app.stock.public.relay": ("app.stock.services._save", "sales: confirm"),
 }
 _FIXTURE_READS = {"app.stock.public.peek"}
+_FIXTURE_CONTEXTS = frozenset({"stock", "sales", "ledger"})
+
+
+def _fixture_problems(app: Path, writes: dict, exceptions: dict | set, reads: set) -> list[str]:
+    return _classification_problems(app, writes, exceptions, reads, _FIXTURE_CONTEXTS)
 
 
 def _replace(source: str, old: str, new: str) -> str:
@@ -496,7 +598,7 @@ def _replace(source: str, old: str, new: str) -> str:
 
 def test_self_test_a_well_formed_tree_passes(tmp_path: Path) -> None:
     app = _write(tmp_path, _FIXTURE)
-    assert _classification_problems(app, _FIXTURE_WRITES, set(), _FIXTURE_READS) == []
+    assert _fixture_problems(app, _FIXTURE_WRITES, set(), _FIXTURE_READS) == []
 
 
 def test_self_test_a_write_with_its_commit_removed_fails(tmp_path: Path) -> None:
@@ -505,7 +607,7 @@ def test_self_test_a_write_with_its_commit_removed_fails(tmp_path: Path) -> None
         files["stock/services.py"], "    db.add(1)\n    db.commit()\n", "    db.add(1)\n"
     )
     app = _write(tmp_path, files)
-    problems = _classification_problems(app, _FIXTURE_WRITES, set(), _FIXTURE_READS)
+    problems = _fixture_problems(app, _FIXTURE_WRITES, set(), _FIXTURE_READS)
     assert len(problems) == 1 and "app.stock.public.reserve" in problems[0] and "no longer commits" in problems[0]
 
 
@@ -519,7 +621,7 @@ def test_self_test_a_conditional_commit_elsewhere_does_not_hide_the_lost_one(tmp
         files["stock/services.py"], "def _save(db):\n    db.commit()", "def _save(db):\n    db.flush()"
     )
     app = _write(tmp_path, files)
-    problems = _classification_problems(app, _FIXTURE_WRITES, set(), _FIXTURE_READS)
+    problems = _fixture_problems(app, _FIXTURE_WRITES, set(), _FIXTURE_READS)
     assert len(problems) == 1 and "app.stock.public.relay" in problems[0] and "_save no longer commits" in problems[0]
 
 
@@ -527,20 +629,20 @@ def test_self_test_a_write_that_stops_calling_its_commit_home_fails(tmp_path: Pa
     files = dict(_FIXTURE)
     files["stock/services.py"] = _replace(files["stock/services.py"], "    _save(db)\n", "")
     app = _write(tmp_path, files)
-    problems = _classification_problems(app, _FIXTURE_WRITES, set(), _FIXTURE_READS)
+    problems = _fixture_problems(app, _FIXTURE_WRITES, set(), _FIXTURE_READS)
     assert len(problems) == 1 and "app.stock.public.relay" in problems[0] and "no longer reaches" in problems[0]
 
 
 def test_self_test_an_unclassified_cross_context_call_fails(tmp_path: Path) -> None:
     app = _write(tmp_path, _FIXTURE)
     writes = {"app.stock.public.reserve": _FIXTURE_WRITES["app.stock.public.reserve"]}
-    problems = _classification_problems(app, writes, set(), _FIXTURE_READS)
+    problems = _fixture_problems(app, writes, set(), _FIXTURE_READS)
     assert len(problems) == 1 and "app.stock.public.relay" in problems[0] and "not classified" in problems[0]
 
 
 def test_self_test_a_stale_entry_fails(tmp_path: Path) -> None:
     app = _write(tmp_path, _FIXTURE)
-    problems = _classification_problems(app, _FIXTURE_WRITES, set(), _FIXTURE_READS | {"app.stock.public.gone"})
+    problems = _fixture_problems(app, _FIXTURE_WRITES, set(), _FIXTURE_READS | {"app.stock.public.gone"})
     assert len(problems) == 1 and "app.stock.public.gone" in problems[0] and "no other context calls it" in problems[0]
 
 
@@ -550,14 +652,14 @@ def test_self_test_a_read_that_commits_fails(tmp_path: Path) -> None:
     files["stock/public.py"] = "from app.stock.services import reserve, peek, relay, sneaky\n"
     files["sales/contract.py"] = _replace(files["sales/contract.py"], "peek, relay", "peek, relay, sneaky")
     app = _write(tmp_path, files)
-    problems = _classification_problems(app, _FIXTURE_WRITES, set(), _FIXTURE_READS | {"app.stock.public.sneaky"})
+    problems = _fixture_problems(app, _FIXTURE_WRITES, set(), _FIXTURE_READS | {"app.stock.public.sneaky"})
     assert len(problems) == 1 and "sneaky" in problems[0] and "read" in problems[0]
 
 
 def test_self_test_a_shared_transaction_exception_that_starts_committing_fails(tmp_path: Path) -> None:
     app = _write(tmp_path, _FIXTURE)
     writes = {"app.stock.public.relay": _FIXTURE_WRITES["app.stock.public.relay"]}
-    problems = _classification_problems(app, writes, {"app.stock.public.reserve"}, _FIXTURE_READS)
+    problems = _fixture_problems(app, writes, {"app.stock.public.reserve"}, _FIXTURE_READS)
     assert len(problems) == 1 and "move it to _OWN_COMMIT_WRITES" in problems[0]
 
 
@@ -576,7 +678,7 @@ def test_self_test_a_commit_home_in_another_context_is_not_followed(tmp_path: Pa
     files["ledger/public.py"] = "def book(db):\n    db.commit()\n"
     app = _write(tmp_path, files)
     writes = {**_FIXTURE_WRITES, "app.stock.public.relay": ("app.ledger.public.book", "sales: confirm")}
-    problems = _classification_problems(app, writes, set(), _FIXTURE_READS)
+    problems = _fixture_problems(app, writes, set(), _FIXTURE_READS)
     # stock now imports ledger.public too, so `book` needs a classification
     # of its own; relay must still be reported as not reaching its commit.
     assert any("app.stock.public.relay" in p and "no longer reaches" in p for p in problems), problems
@@ -586,5 +688,70 @@ def test_self_test_a_module_level_public_import_is_reported(tmp_path: Path) -> N
     files = dict(_FIXTURE)
     files["sales/other.py"] = "from app.stock import public\n"
     app = _write(tmp_path, files)
-    _, unseeable = _cross_context_imports(app)
+    _, unseeable = _cross_context_imports(app, _FIXTURE_CONTEXTS)
     assert unseeable == ["app/sales/other.py:1 `from app.stock import public`"]
+
+
+def test_self_test_a_non_public_cross_context_import_is_reported(tmp_path: Path) -> None:
+    files = dict(_FIXTURE)
+    files["sales/other.py"] = "from app.stock.services import reserve\n"
+    app = _write(tmp_path, files)
+    _, unseeable = _cross_context_imports(app, _FIXTURE_CONTEXTS)
+    assert unseeable == ["app/sales/other.py:1 `from app.stock.services import reserve`"]
+
+
+def test_self_test_a_read_that_writes_without_committing_fails(tmp_path: Path) -> None:
+    """The shape ADR-047 forbids: a "read" whose write joins the caller's
+    transaction."""
+
+    files = dict(_FIXTURE)
+    files["stock/services.py"] = _replace(
+        files["stock/services.py"],
+        "def peek(db):\n    return db.get(1)",
+        "def peek(db):\n    db.add(2)\n    return db.get(1)",
+    )
+    app = _write(tmp_path, files)
+    problems = _fixture_problems(app, _FIXTURE_WRITES, set(), _FIXTURE_READS)
+    assert len(problems) == 1 and "app.stock.public.peek" in problems[0] and "reaches a write" in problems[0]
+
+
+def test_self_test_a_commit_home_with_a_commit_switch_fails(tmp_path: Path) -> None:
+    files = dict(_FIXTURE)
+    files["stock/services.py"] = _replace(
+        files["stock/services.py"],
+        "def reserve(db):\n    db.add(1)\n    db.commit()",
+        "def reserve(db, commit=True):\n    db.add(1)\n    if commit:\n        db.commit()",
+    )
+    app = _write(tmp_path, files)
+    problems = _fixture_problems(app, _FIXTURE_WRITES, set(), _FIXTURE_READS)
+    assert len(problems) == 1 and "app.stock.public.reserve" in problems[0] and "`commit` parameter" in problems[0]
+
+
+def test_self_test_a_savepoint_commit_is_not_a_commit(tmp_path: Path) -> None:
+    files = dict(_FIXTURE)
+    files["stock/services.py"] = _replace(
+        files["stock/services.py"],
+        "    db.add(1)\n    db.commit()\n",
+        "    db.add(1)\n    db.begin_nested().commit()\n",
+    )
+    app = _write(tmp_path, files)
+    problems = _fixture_problems(app, _FIXTURE_WRITES, set(), _FIXTURE_READS)
+    assert len(problems) == 1 and "app.stock.public.reserve" in problems[0] and "no longer commits" in problems[0]
+
+
+def test_self_test_an_assignment_alias_export_is_reported(tmp_path: Path) -> None:
+    files = dict(_FIXTURE)
+    files["stock/public.py"] += "from app.stock import services as _services\nhidden = _services.reserve\n"
+    files["sales/contract.py"] = _replace(files["sales/contract.py"], "peek, relay", "peek, relay, hidden")
+    app = _write(tmp_path, files)
+    problems = _fixture_problems(app, _FIXTURE_WRITES, set(), _FIXTURE_READS)
+    assert len(problems) == 1 and "app.stock.public.hidden" in problems[0] and "by assignment" in problems[0]
+
+
+def test_self_test_an_undeclared_app_package_is_reported(tmp_path: Path) -> None:
+    files = dict(_FIXTURE)
+    files["newctx/__init__.py"] = ""
+    app = _write(tmp_path, files)
+    assert _package_problems(app, _FIXTURE_CONTEXTS) == [
+        "app/newctx/ is neither one of the bounded contexts nor declared in _NOT_A_CONTEXT."
+    ]
