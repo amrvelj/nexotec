@@ -3,6 +3,7 @@ contract allows `app.<other-context>` to import `app.vehicle.public`, never
 `app.vehicle.models` / `app.vehicle.services` / `app.vehicle.api` directly.
 """
 
+import logging
 import uuid
 
 from sqlalchemy.orm import Session
@@ -21,7 +22,10 @@ from app.vehicle.services.catalogue_sync import (
     run_daily_delta_for_tenant,
     seed_tenant_catalogue,
 )
+from app.vehicle.services.plate_lookup_cache import purge_expired_plate_lookups
 from app.vehicle.services.vehicle import create_custody_event, get_vehicle_or_404
+
+logger = logging.getLogger(__name__)
 
 
 # WP-7 PR-1: inventory's StockItem.vehicle_id references VehicleMdm (WP-5's
@@ -125,6 +129,16 @@ def match_vehicle(
     )
 
 
+def run_daily_plate_lookup_purge(db: Session) -> None:
+    """KAN-42 (C-D) — the daily job that deletes plate-lookup cache rows past
+    their TTL (`app.vehicle.services.plate_lookup_cache`). Registered in
+    `app/worker.py`."""
+
+    deleted = purge_expired_plate_lookups(db)
+    if deleted:
+        logger.info("plate-lookup cache purge", extra={"deleted": deleted})
+
+
 __all__ = [
     "SPEC_BLOCK_ALL_FIELDS",
     "CustodyEventType",
@@ -142,6 +156,7 @@ __all__ = [
     "has_current_energy_rating",
     "match_vehicle",
     "run_daily_delta_for_tenant",
+    "run_daily_plate_lookup_purge",
     "seed_tenant_catalogue",
     "spec_block_as_dict",
     "spec_block_field_names",

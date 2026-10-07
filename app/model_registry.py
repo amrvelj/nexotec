@@ -56,6 +56,7 @@ from app.vehicle.models.configuration import (
 )
 from app.vehicle.models.energy_rating import ModelVariantEnergyRating
 from app.vehicle.models.plate import DealerPlate, DealerPlateAssignment, VehiclePlate, VehiclePlateConflict
+from app.vehicle.models.plate_lookup_cache import PlateLookupCacheEntry
 from app.vehicle.models.provider import MappingGap, ProviderCodeMap, ProviderEntityRef
 from app.vehicle.models.vehicle import Vehicle, VehicleCustodyEvent
 from app.vehicle.models.vehicle_history import VehicleAccessory, VehicleOdometerReading
@@ -92,6 +93,7 @@ __all__ = [
     "ModelVariant",
     "ModelVariantEnergyRating",
     "OutboxMessage",
+    "PlateLookupCacheEntry",
     "ProcessedEvent",
     "ProviderCodeMap",
     "ProviderEntityRef",

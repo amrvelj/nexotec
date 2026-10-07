@@ -71,6 +71,10 @@ class ConfigurationCreate(_ConfigurationObserved):
     match_method: ConfigurationMatchMethod
     # provider path: the variant whose spec block is copied at capture
     catalogue_variant_id: uuid.UUID | None = None
+    # KAN-42 (C-D): set only when the advisor confirmed a FahrzeugeMatch
+    # proposal for `catalogue_variant_id` — the MatchCode it carried. 2
+    # records `best_match_confirmed`; 1 records `matched`.
+    confirmed_best_match_code: int | None = Field(default=None, ge=1, le=2)
     # manual path: the spec block, field by field
     spec: VehicleSpecBlockInput | None = None
     brand_display_name: str | None = Field(default=None, max_length=120)

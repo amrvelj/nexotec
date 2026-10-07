@@ -156,8 +156,14 @@ def create_configuration(
         config.catalogue_variant_label = _variant_label(variant)
         config.catalogue_variant_label_refreshed_at = utcnow()
         _copy_spec_block_from_variant(config, variant)
-        config.catalogue_match_status = ConfigurationMatchStatus.MATCHED
+        config.catalogue_match_status = (
+            ConfigurationMatchStatus.BEST_MATCH_CONFIRMED
+            if data.confirmed_best_match_code == 2
+            else ConfigurationMatchStatus.MATCHED
+        )
     else:
+        if data.confirmed_best_match_code is not None:
+            raise UnprocessableEntityError("A confirmed best match needs a provider configuration.")
         config.catalogue_match_status = ConfigurationMatchStatus.UNVERIFIED
         if data.spec is not None:
             _apply_spec_payload(config, data.spec)
