@@ -639,6 +639,28 @@ def _keys_to_sync(changed: list[str], state: ProviderSyncState | None) -> list[s
     return keys
 
 
+def _save_run_progress(
+    db: Session, *, tenant_id: uuid.UUID, provider_code: str, today: dt.date, full_seed: bool,
+    skipped: list[SkippedFzKey],
+) -> ProviderSyncState:
+    """The run's one unconditional commit: cursor, seed time and pending
+    list. Kept apart from `_run`'s conditional watermark commit so the
+    ADR-047 guard can name this one as the delta's commit home.
+    """
+
+    run_at = utcnow()
+    state = _get_or_create_sync_state(db, tenant_id=tenant_id, provider_code=provider_code)
+    if full_seed:
+        state.last_full_seed_at = run_at
+    state.last_delta_cursor = today
+    state.pending_fz_keys = [
+        {"fz_key": s.fz_key, "field": s.field, "error": s.error, "failed_at": run_at.isoformat()}
+        for s in skipped
+    ]
+    db.commit()
+    return state
+
+
 def _run(
     db: Session, *, connection: IntegrationConnection, tenant_id: uuid.UUID, provider_code: str,
     since: dt.date, actor_id: uuid.UUID | None, purpose: str, today: dt.date, full_seed: bool,
@@ -658,16 +680,10 @@ def _run(
     # Progress is written before the watermark call, so a run that skipped
     # keys — or whose watermark call fails — still advances the cursor and
     # keeps its pending list: nothing that failed is lost by moving on.
-    run_at = utcnow()
-    state = _get_or_create_sync_state(db, tenant_id=tenant_id, provider_code=provider_code)
-    if full_seed:
-        state.last_full_seed_at = run_at
-    state.last_delta_cursor = today
-    state.pending_fz_keys = [
-        {"fz_key": s.fz_key, "field": s.field, "error": s.error, "failed_at": run_at.isoformat()}
-        for s in outcome.skipped
-    ]
-    db.commit()
+    state = _save_run_progress(
+        db, tenant_id=tenant_id, provider_code=provider_code, today=today, full_seed=full_seed,
+        skipped=outcome.skipped,
+    )
 
     # Not fetched once the connection has failed: the gateway would refuse
     # or fail it again, and leaving the watermark untouched lets the A-12
