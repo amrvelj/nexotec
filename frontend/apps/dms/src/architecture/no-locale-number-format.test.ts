@@ -15,8 +15,11 @@ import { fileURLToPath } from 'node:url'
 // differs from the printed PDF (`12'500`, period decimal). oxlint has no
 // custom-rule mechanism, so this is a build-failing scan, like the colour one.
 //
-// Dates are not this guard's business: formatDate/formatDateTime follow the
-// locale tag on purpose and use Intl.DateTimeFormat, which is not matched.
+// Dates are not the number scan's business: formatDate/formatDateTime follow
+// the locale tag on purpose and use Intl.DateTimeFormat, which it does not
+// match. They have their own scan below (KAN-164): a date rendered with
+// toLocaleDateString() and no locale follows the browser, not the UI language
+// and FR-13's dd.MM.yyyy, so dates likewise go through one implementation.
 
 const FRONTEND_ROOT = join(dirname(fileURLToPath(import.meta.url)), '../../../..')
 const SCAN_ROOTS = ['apps/dms/src', 'packages/ui-kit/src'].map((p) => join(FRONTEND_ROOT, p))
@@ -31,6 +34,15 @@ const FORBIDDEN: { name: string; pattern: RegExp }[] = [
   { name: 'toLocaleString', pattern: /\.toLocaleString\s*\(/ },
   { name: 'Intl.NumberFormat', pattern: /\bIntl\s*\.\s*NumberFormat\b/ },
   { name: "Mantine's NumberFormatter", pattern: /\bNumberFormatter\b/ },
+]
+
+// The one implementation of date formatting (formatDate / formatDateTime).
+const DATE_EXEMPT_SUFFIXES = ['/apps/dms/src/utils/format.ts']
+
+const FORBIDDEN_DATE: { name: string; pattern: RegExp }[] = [
+  { name: 'toLocaleDateString', pattern: /\.toLocaleDateString\s*\(/ },
+  { name: 'toLocaleTimeString', pattern: /\.toLocaleTimeString\s*\(/ },
+  { name: 'Intl.DateTimeFormat', pattern: /\bIntl\s*\.\s*DateTimeFormat\b/ },
 ]
 
 const BARE_NUMERIC_PLACEHOLDER = /\{\{\s*(count|max)\s*\}\}/
@@ -48,17 +60,17 @@ function collectFiles(dir: string, out: string[] = []): string[] {
   return out
 }
 
-function offendingLines(source: string): string[] {
+function offendingLines(source: string, forbidden = FORBIDDEN): string[] {
   const out: string[] = []
   source.split('\n').forEach((line, index) => {
-    for (const { name, pattern } of FORBIDDEN) {
+    for (const { name, pattern } of forbidden) {
       if (pattern.test(line)) out.push(`${index + 1}: ${name}: ${line.trim()}`)
     }
   })
   return out
 }
 
-describe('numbers are formatted only through formatNumber / formatCurrencyChf', () => {
+describe('numbers and dates are formatted only through the shared formatters', () => {
   it('finds no locale-dependent number formatting in apps/dms/src or packages/ui-kit/src', () => {
     const offenders: string[] = []
     const files = SCAN_ROOTS.flatMap((root) => collectFiles(root))
@@ -72,6 +84,23 @@ describe('numbers are formatted only through formatNumber / formatCurrencyChf', 
       // (format.test.ts emulates newer CLDR data on Intl.NumberFormat).
       if (/\.test\.tsx?$/.test(file)) continue
       for (const line of offendingLines(readFileSync(file, 'utf-8'))) {
+        offenders.push(`${file.slice(FRONTEND_ROOT.length + 1)}:${line}`)
+      }
+    }
+
+    expect(offenders).toEqual([])
+  })
+
+  it('finds no date formatting outside formatDate / formatDateTime', () => {
+    const offenders: string[] = []
+    const files = SCAN_ROOTS.flatMap((root) => collectFiles(root))
+    // As above: the exemption proves apps/dms was actually scanned.
+    expect(files.some((file) => DATE_EXEMPT_SUFFIXES.some((suffix) => file.endsWith(suffix)))).toBe(true)
+
+    for (const file of files) {
+      if (DATE_EXEMPT_SUFFIXES.some((suffix) => file.endsWith(suffix))) continue
+      if (/\.test\.tsx?$/.test(file)) continue
+      for (const line of offendingLines(readFileSync(file, 'utf-8'), FORBIDDEN_DATE)) {
         offenders.push(`${file.slice(FRONTEND_ROOT.length + 1)}:${line}`)
       }
     }
@@ -106,5 +135,12 @@ describe('numbers are formatted only through formatNumber / formatCurrencyChf', 
     expect(offendingLines(`<NumberFormatter value={n} thousandSeparator="'" />`)).toHaveLength(1)
     expect(offendingLines('formatNumber(row.original.odometerKm)')).toEqual([])
     expect(offendingLines('new Date(iso).toLocaleDateString()')).toEqual([])
+  })
+
+  it('each date pattern matches the call shapes it exists to stop', () => {
+    expect(offendingLines('new Date(row.original.lastSeenAt).toLocaleDateString()', FORBIDDEN_DATE)).toHaveLength(1)
+    expect(offendingLines("d.toLocaleTimeString('de-CH')", FORBIDDEN_DATE)).toHaveLength(1)
+    expect(offendingLines("new Intl.DateTimeFormat('en-US').format(d)", FORBIDDEN_DATE)).toHaveLength(1)
+    expect(offendingLines('formatDate(row.original.lastSeenAt, locale)', FORBIDDEN_DATE)).toEqual([])
   })
 })
