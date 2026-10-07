@@ -1485,7 +1485,8 @@
         "drivetrain": "Trazione"
       },
       "retired": "Non più disponibile — scegli un valore attuale",
-      "retiredSaveError": "Non più disponibile: {{fields}}. Scegli un valore attuale prima di salvare."
+      "retiredSaveError": "Non più disponibile: {{fields}}. Scegli un valore attuale prima di salvare.",
+      "listUnavailable": "Impossibile caricare l'elenco"
     },
     "options": {
       "noCatalogueVariant": "Le opzioni di catalogo non sono disponibili per una configurazione manuale.",

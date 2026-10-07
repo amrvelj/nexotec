@@ -1485,7 +1485,8 @@
         "drivetrain": "Drive"
       },
       "retired": "No longer available — choose a current value",
-      "retiredSaveError": "No longer available: {{fields}}. Choose a current value before saving."
+      "retiredSaveError": "No longer available: {{fields}}. Choose a current value before saving.",
+      "listUnavailable": "The list could not be loaded"
     },
     "options": {
       "noCatalogueVariant": "Catalogue options are not available for a manual configuration.",

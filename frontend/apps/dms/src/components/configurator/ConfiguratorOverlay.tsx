@@ -25,6 +25,7 @@ import { ImagesTab } from './ImagesTab'
 import { IdentificationPanel, type IdentifiedStart } from './IdentificationPanel'
 import { ConfigurationResyncPanel } from './ConfigurationResyncPanel'
 import { HostCommitError } from './hostCommitError'
+import { LABEL_FIELD, fetchActiveReferenceValues, resolveLanguage } from '../../hooks/useReferenceValueOptions'
 import {
   CODED_FIELDS,
   CODED_REF_LIST_CODES,
@@ -44,13 +45,14 @@ import type {
   ConfigurationOptionRead,
   ConfigurationRead,
   ReferenceValuePage,
+  ReferenceValueRead,
   VehicleSpecBlockRead,
 } from '../../api/types'
 
 // KAN-43 (C-E) — option_group/equipment_feature join the spec block's own
 // reference lists in the one label-lookup query this file already has;
-// nothing here needs its own fetch. KAN-96 adds the five coded fields' lists.
-const OPTION_REF_LIST_CODES = [...SPEC_REF_LIST_CODES, ...CODED_REF_LIST_CODES, 'option_group', 'equipment_feature']
+// nothing here needs its own fetch.
+const OPTION_REF_LIST_CODES = [...SPEC_REF_LIST_CODES, 'option_group', 'equipment_feature']
 
 type CodedValues = Record<CodedFieldKey, string | null>
 
@@ -259,7 +261,7 @@ export function ConfiguratorOverlay({
   onCommitted,
   onClose,
 }: ConfiguratorOverlayProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [phase, setPhase] = useState<Phase>(existing ? 'configure' : 'find')
   const [mode, setMode] = useState<ConfiguratorMode>(
     existing?.mode ?? (initialMode && allowedModes.includes(initialMode) ? initialMode : allowedModes[0]),
@@ -273,6 +275,7 @@ export function ConfiguratorOverlay({
   const [error, setError] = useState<string | null>(null)
 
   const refLabels = useReferenceLabels()
+  const codedValues = useCodedFieldValues()
 
   const startFromVariant = (variant: CatalogueVariantRead) => {
     const d = draftFromVariant(variant)
@@ -377,25 +380,33 @@ export function ConfiguratorOverlay({
     label: r.label,
   }))
 
-  // KAN-96 — a coded field offers only the active values of its list. A
-  // stored value that is no longer active (or no longer in the list) stays
-  // visible, disabled, so the advisor sees what has to be replaced: the API
-  // refuses a save that carries it (Anto, 2026-10-07). An empty or unloaded
-  // list flags nothing — the API remains the authority.
+  // KAN-96 — a coded field offers the active values of its list, the same
+  // set the API accepts. A stored value outside that set (retired by the
+  // admin, or never on the list) stays visible as `⚠ <code>`, disabled and
+  // flagged, because the API refuses a save that carries it (Anto,
+  // 2026-10-07). A list that failed to load says so on its field and flags
+  // nothing — the API remains the authority.
+  const codedLabelField = LABEL_FIELD[resolveLanguage(i18n.language)]
   const codedOptions = (listCode: string, current: string | null) => {
-    const values = refLabels.data?.[listCode] ?? []
-    const data: { value: string; label: string; disabled?: boolean }[] = values
-      .filter((r) => r.active)
-      .map((r) => ({ value: r.valueCode, label: r.label }))
+    const data: { value: string; label: string; disabled?: boolean }[] = [...(codedValues.data?.[listCode] ?? [])]
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((r) => ({
+        value: r.valueCode,
+        label: r[codedLabelField].trim() !== '' ? r[codedLabelField] : `⚠ ${r.valueCode}`,
+      }))
     if (current != null && !data.some((d) => d.value === current)) {
-      data.push({ value: current, label: values.find((r) => r.valueCode === current)?.label ?? current, disabled: true })
+      data.push({ value: current, label: `⚠ ${current}`, disabled: true })
     }
     return data
   }
   const codedValueRetired = (listCode: string, current: string | null) => {
-    const values = refLabels.data?.[listCode] ?? []
-    if (current == null || values.length === 0) return false
-    return !values.some((r) => r.valueCode === current && r.active)
+    const rows = codedValues.data?.[listCode]
+    if (current == null || rows == null) return false
+    return !rows.some((r) => r.valueCode === current)
+  }
+  const codedFieldError = (listCode: string, current: string | null) => {
+    if (codedValues.data?.[listCode] === null) return t('configurator.spec.listUnavailable')
+    return codedValueRetired(listCode, current) ? t('configurator.spec.retired') : undefined
   }
 
   const save = async () => {
@@ -681,7 +692,7 @@ export function ConfiguratorOverlay({
                     onChange={(v) =>
                       setDraft((prev) => (prev ? { ...prev, coded: { ...prev.coded, [f.key]: v } } : prev))
                     }
-                    error={codedValueRetired(f.listCode, draft.coded[f.key]) ? t('configurator.spec.retired') : undefined}
+                    error={codedFieldError(f.listCode, draft.coded[f.key])}
                     clearable
                     w={200}
                   />
@@ -821,16 +832,34 @@ function useReferenceLabels() {
         OPTION_REF_LIST_CODES.map(async (code) => {
           try {
             const page = await api.get<ReferenceValuePage>(`/reference-data/${code}?limit=200`)
-            return [
-              code,
-              page.items.map((v) => ({ valueCode: v.valueCode, label: v[key] || v.valueCode, active: v.active })),
-            ] as const
+            return [code, page.items.map((v) => ({ valueCode: v.valueCode, label: v[key] || v.valueCode }))] as const
           } catch {
             return [code, []] as const
           }
         }),
       )
-      return Object.fromEntries(entries) as Record<string, { valueCode: string; label: string; active: boolean }[]>
+      return Object.fromEntries(entries) as Record<string, { valueCode: string; label: string }[]>
+    },
+  })
+}
+
+/** KAN-96 — the active values of the five coded fields' lists, paged within
+ * the API's cap. A list that fails to load is `null`, so its field can say
+ * so instead of silently offering nothing. */
+function useCodedFieldValues() {
+  return useQuery({
+    queryKey: ['reference-data', 'configurator-coded-fields', 'active'],
+    queryFn: async () => {
+      const entries = await Promise.all(
+        CODED_REF_LIST_CODES.map(async (code) => {
+          try {
+            return [code, await fetchActiveReferenceValues(code)] as const
+          } catch {
+            return [code, null] as const
+          }
+        }),
+      )
+      return Object.fromEntries(entries) as Record<string, ReferenceValueRead[] | null>
     },
   })
 }

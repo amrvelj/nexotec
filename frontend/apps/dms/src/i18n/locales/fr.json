@@ -1485,7 +1485,8 @@
         "drivetrain": "Transmission"
       },
       "retired": "N'est plus disponible — choisissez une valeur actuelle",
-      "retiredSaveError": "N'est plus disponible : {{fields}}. Choisissez une valeur actuelle avant d'enregistrer."
+      "retiredSaveError": "N'est plus disponible : {{fields}}. Choisissez une valeur actuelle avant d'enregistrer.",
+      "listUnavailable": "La liste n'a pas pu être chargée"
     },
     "options": {
       "noCatalogueVariant": "Les options catalogue ne sont pas disponibles pour une configuration manuelle.",

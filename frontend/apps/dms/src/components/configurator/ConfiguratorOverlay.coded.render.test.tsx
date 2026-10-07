@@ -13,7 +13,8 @@ import { ConfiguratorOverlay } from './ConfiguratorOverlay'
 // body, drive, transmission) are picked from the admin's reference lists,
 // never typed. A value retired from its list is not offered; one already on
 // a saved configuration is shown, flagged, and blocks the save until it is
-// replaced (Anto, 2026-10-07: every save uses current list values).
+// replaced (Anto, 2026-10-07: every save uses current list values). The
+// fake honours `active` and the API's page cap of 100, as the real one does.
 
 vi.mock('@tanstack/react-virtual', () => ({
   useVirtualizer: ({ count, estimateSize }: { count: number; estimateSize: () => number }) => {
@@ -46,9 +47,10 @@ interface Ctx {
   saved: () => Record<string, unknown>[]
 }
 
-function install(): Ctx {
+function install(over: FakeRoute[] = []): Ctx {
   const saved: Record<string, unknown>[] = []
   const routes: FakeRoute[] = [
+    ...over,
     { method: 'GET', match: /\/catalogue\/model-groups$/, handler: () => ({ items: [] }) },
     { method: 'GET', match: /\/catalogue\/facets$/, handler: () => ({ browseAvailable: true, coded: {}, numeric: {} }) },
     {
@@ -64,7 +66,15 @@ function install(): Ctx {
         dealerCanUploadImages: true, options: [], colours: [], tyreSpecs: [], images: [], optionRelations: [],
       }),
     },
-    { method: 'GET', match: /\/reference-data\/fuel_type$/, handler: () => ({ items: FUEL_TYPES, nextCursor: null }) },
+    {
+      method: 'GET',
+      match: /\/reference-data\/fuel_type$/,
+      handler: (req) => {
+        if (Number(req.params.get('limit') ?? 50) > 100) return { __status: 422, body: { error: { code: 'validation_error', message: 'limit' } } }
+        const items = req.params.get('active') === 'true' ? FUEL_TYPES.filter((v) => v.active) : FUEL_TYPES
+        return { items, nextCursor: null }
+      },
+    },
     { method: 'GET', match: /\/reference-data\//, handler: () => ({ items: [], nextCursor: null }) },
     {
       method: 'POST',
@@ -142,7 +152,7 @@ describe('ConfiguratorOverlay — coded fields on a manual configuration (KAN-96
     )
 
     const fuel = await screen.findByRole('textbox', { name: fuelLabel() })
-    await waitFor(() => expect(fuel).toHaveValue('Wasserstoff'))
+    await waitFor(() => expect(fuel).toHaveValue('⚠ hydrogen'))
     expect(screen.getByText(i18n.t('configurator.spec.retired'))).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: i18n.t('configurator.save') }))
@@ -157,6 +167,16 @@ describe('ConfiguratorOverlay — coded fields on a manual configuration (KAN-96
 
     await waitFor(() => expect(ctx.saved()).toHaveLength(1))
     expect(ctx.saved()[0].fuelType).toBe('diesel')
+  })
+
+  it('a list that cannot be loaded says so on its field instead of offering nothing', async () => {
+    const user = userEvent.setup()
+    install([{ method: 'GET', match: /\/reference-data\/body_style$/, handler: () => ({ __status: 500, body: {} }) }])
+    renderWithProviders(<ConfiguratorOverlay allowedModes={['build']} onCommitted={vi.fn()} onClose={vi.fn()} />)
+
+    await user.click(await screen.findByRole('button', { name: i18n.t('configurator.find.manual') }))
+    expect(await screen.findByText(i18n.t('configurator.spec.listUnavailable'))).toBeInTheDocument()
+    expect(screen.getAllByText(i18n.t('configurator.spec.listUnavailable'))).toHaveLength(1)
   })
 
   it('a provider configuration shows no coded selection lists and never sends its catalogue codes back', async () => {
