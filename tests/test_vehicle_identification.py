@@ -12,8 +12,10 @@ from decimal import Decimal
 import pytest
 from sqlalchemy import func, select
 
+from app import worker
 from app.core.auth import AccessRole, create_access_token
 from app.core.base import utcnow
+from app.core.daily_scheduler import _REGISTRY, registered_job_names
 from app.core.errors import UnprocessableEntityError
 from app.core.outbox_model import OutboxMessage
 from app.integration.models.call_log import IntegrationCallLog
@@ -359,6 +361,16 @@ def test_a_cached_answer_past_its_ttl_is_fetched_again_and_then_purged(db_sessio
 
     svc.identify(db_session, tenant_id=tenant_id, actor_id=None, query="BE123456")
     assert _plate_calls(db_session, tenant_id) == 2
+
+
+def test_the_worker_registers_the_daily_plate_lookup_purge():
+    # The TTL is only a promise if something deletes the expired rows.
+    _REGISTRY.clear()
+    try:
+        worker.register_daily_jobs()
+        assert "vehicle.plate_lookup_cache.purge" in registered_job_names()
+    finally:
+        _REGISTRY.clear()
 
 
 def test_the_stated_ttl_is_thirty_days():

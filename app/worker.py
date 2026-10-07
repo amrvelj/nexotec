@@ -156,7 +156,7 @@ def _refresh_vehicle_party_labels(db: Session) -> None:
 
 
 def register_daily_jobs() -> None:
-    """Three daily jobs, run in registration order once per day on this
+    """Four daily jobs, run in registration order once per day on this
     process (app.core.daily_scheduler):
 
     1. ``integration.daily_jobs`` — WP-6's per-tenant catalogue delta sync
@@ -176,7 +176,7 @@ def register_daily_jobs() -> None:
        reconciles the state the catalogue delta just refreshed, not a
        half-synced one; a finding is logged and swallowed (see
        app.reconciliation_runner.run_all_daily), never re-run every cycle.
-    3. ``vehicle.plate_lookup_cache.purge`` — deletes plate-lookup cache rows
+    4. ``vehicle.plate_lookup_cache.purge`` — deletes plate-lookup cache rows
        past their 30-day TTL (KAN-42, FR-C-02; revDSG data minimisation).
     """
 
