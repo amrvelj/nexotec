@@ -52,14 +52,26 @@ def test_first_run_creates_the_demo_dealership_and_user(seed, db_session):
     assert user.auth_identity_id == "zitadel-sub-1"
 
 
+def _demo_user(db_session) -> User:
+    user = db_session.scalar(select(User).where(User.email == seed_staging_demo.DEMO_EMAIL))
+    assert user is not None
+    return user
+
+
 def test_second_run_with_the_same_identity_writes_nothing(seed, db_session):
     seed("zitadel-sub-1")
     before = _counts(db_session)
+    user = _demo_user(db_session)
+    user_before = (user.version, user.updated_at)
     db_session.rollback()
 
     seed("zitadel-sub-1")
 
     assert _counts(db_session) == before
+    # Not just no new rows: the existing user is not rewritten either.
+    user = _demo_user(db_session)
+    db_session.refresh(user)
+    assert (user.version, user.updated_at) == user_before
 
 
 def test_a_changed_identity_is_reconciled_onto_the_existing_user(seed, db_session):
@@ -71,12 +83,12 @@ def test_a_changed_identity_is_reconciled_onto_the_existing_user(seed, db_sessio
 
     dealerships_after, users_after, _, _ = _counts(db_session)
     assert (dealerships_after, users_after) == (dealerships_before, users_before)
-    user = db_session.scalar(select(User).where(User.email == seed_staging_demo.DEMO_EMAIL))
-    assert user is not None
-    assert user.auth_identity_id == "zitadel-sub-real"
+    assert _demo_user(db_session).auth_identity_id == "zitadel-sub-real"
 
 
-def test_without_the_identity_it_exits_1_and_writes_nothing(engine, monkeypatch, db_session):
+def test_without_the_identity_it_exits_1_and_writes_nothing(seed, monkeypatch, db_session):
+    # Through the seed fixture, so a write before the check would land in the
+    # test database and be counted, not in app.db's own database.
     monkeypatch.delenv("DMS_SEED_DEMO_AUTH_IDENTITY_ID", raising=False)
     before = _counts(db_session)
     db_session.rollback()

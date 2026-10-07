@@ -70,6 +70,7 @@ from app.platform.schemas.document_content import (
 )
 from app.platform.services.document_render import render_document
 
+
 class _DemoStrings(TypedDict):
     """One language's demo strings — typed so each lookup keeps its own type
     (every value is a str except the addressee's lines)."""
