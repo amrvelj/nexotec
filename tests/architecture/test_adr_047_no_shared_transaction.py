@@ -148,8 +148,8 @@ _IN_PROCESS_STATE = {
 _OWN_COMMIT_WRITES = {
     # Stock reservation for a confirmed contract, and its release on
     # cancellation / by the orphan sweep (WP-7 PR-4, WP-8 PR-6).
-    "app.inventory.public.reserve": (
-        "app.inventory.services.reservation.reserve",
+    "app.inventory.public.reserve_for_contract": (
+        "app.inventory.services.reservation.reserve_for_contract",
         "sales: confirm_contract",
     ),
     "app.inventory.public.release": (
