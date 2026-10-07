@@ -43,8 +43,10 @@ as any change to what it states. -->
   `tradeIn.valuationId`) — the item does not exist when Sales confirms, so Sales never calls
   `inventory.public.set_valuation_ref` (which still has no production caller).
 - **ADR-070** (amending FR-V-17): a *configuration* never writes vehicle-mdm; it attaches to a
-  valuation. **Today `create_valuation` still creates or gets the vehicle-mdm record when a VIN
-  is given** (`services/valuation.py`), and the offer trade-in (`sales/services/trade_in.py`)
-  creates the vehicle itself and attaches an existing valid valuation. The record-mode
-  valuation path from the offer is C-F (KAN-10), not built. Whether valuations keep creating
-  vehicles is Anto's call — read ADR-070 and ask; never change it in passing.
+  valuation. A valuation created **with** a `configurationId` (`record` mode only, KAN-10)
+  takes its vehicle fields from it and creates no vehicle-mdm record; created **without** one,
+  `create_valuation` still creates or gets the vehicle-mdm record when a VIN is given
+  (`services/valuation.py`), and the offer's VIN trade-in (`sales/services/trade_in.py`) still
+  creates the vehicle. Ending those two is Anto's call — read ADR-070 and ask; never change it
+  in passing. The offer's record-mode trade-in path (configurator → valuation → the offer
+  references it) is built (KAN-10).

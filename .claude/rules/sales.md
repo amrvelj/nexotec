@@ -90,6 +90,12 @@ against the code). "Open" lines cite a ticket; /drift-audit re-checks them weekl
   `build_offer_content` / `build_contract_content` take a required `language`.
 - **ADR-051** — one shared document template layer (platform); see `.claude/rules/platform.md`.
 - **ADR-041** — the offer freezes a `vehicle_snapshot` (`services/snapshot.py`).
+- **FR-C-12 (KAN-10)** — Path B is the configurator, `build` only: `configurationId` on the
+  offer prefills `manualBasePrice`, freezes the spec block and turns the configuration's price
+  lines into factory-option lines (re-frozen on a new configuration version while a draft).
+  It travels to the contract and, as `manualConfiguration.configurationId`, onto the pipeline
+  item. A trade-in captured through the valuation path carries `tradeInConfigurationId` and
+  has no vehicle-mdm record. The offer document itemises the factory-option lines.
 
 ## Visibility and numbers
 
