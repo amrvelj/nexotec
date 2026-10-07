@@ -1258,6 +1258,17 @@
       "status": "Stato",
       "stale": "Obsoleto",
       "healthy": "Aggiornato",
+      "pending": "Varianti in sospeso",
+      "pendingCount_one": "{{count, number}} in sospeso",
+      "pendingCount_other": "{{count, number}} in sospeso",
+      "pendingField": {
+        "master_data": "dati di base",
+        "options": "opzioni",
+        "colours": "colori",
+        "tyre_specs": "pneumatici",
+        "images": "immagini",
+        "not_attempted": "non tentato"
+      },
       "emptyState": {
         "title": "Nessuna sincronizzazione del catalogo",
         "description": "Nessun concessionario ha ancora sincronizzato un mirror del catalogo."

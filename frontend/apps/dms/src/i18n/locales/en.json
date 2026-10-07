@@ -1258,6 +1258,17 @@
       "status": "Status",
       "stale": "Stale",
       "healthy": "Healthy",
+      "pending": "Pending variants",
+      "pendingCount_one": "{{count, number}} pending",
+      "pendingCount_other": "{{count, number}} pending",
+      "pendingField": {
+        "master_data": "master data",
+        "options": "options",
+        "colours": "colours",
+        "tyre_specs": "tyres",
+        "images": "images",
+        "not_attempted": "not attempted"
+      },
       "emptyState": {
         "title": "No catalogue sync yet",
         "description": "No tenant has synced a catalogue mirror yet."

@@ -16,7 +16,7 @@ import datetime as dt
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import DECIMAL, Date, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import DECIMAL, JSON, Date, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin
@@ -127,3 +127,12 @@ class ProviderSyncState(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base
     last_delta_cursor: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
     last_system_watermark_date: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
     last_system_checked_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    # KAN-78: every FzKey the last run did not sync in full — refused by the
+    # provider (`field` names the call it was on) or never attempted because
+    # the connection's circuit opened (`field` = "not_attempted"). Each entry
+    # is {fz_key, field, error, failed_at}; `error` is the exception's class
+    # name only, never its message. The next delta retries these alongside
+    # whatever `FzKeyChanged` reports, so advancing `last_delta_cursor` past
+    # a failed run never loses a variant; each run replaces the list with its
+    # own failures.
+    pending_fz_keys: Mapped[list[dict[str, str]]] = mapped_column(JSON, nullable=False, default=list)
