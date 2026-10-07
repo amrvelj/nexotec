@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Button, Group, Loader, Stack } from '@mantine/core'
 import { useSetBreadcrumb } from '@nexotec/ui-kit'
@@ -17,8 +17,11 @@ import type { ConfigurationRead, ValuationRead } from '../api/types'
  * C-F (KAN-10, FR-C-14): a new valuation first captures the car in the
  * configurator, **`record` mode only** — one input identifies it from a
  * plate, VIN or Typenschein — then the valuation dialog opens prefilled
- * and carries the configuration. Entering the car by hand stays available;
- * a revaluation ("Neu bewerten") copies its predecessor and skips this step.
+ * and carries the configuration. From the list the configurator is an
+ * overlay (`NewValuationButton`) and the configuration arrives here in the
+ * navigation state; a direct link captures it on this page first.
+ * Entering the car by hand stays available; a revaluation ("Neu bewerten")
+ * copies its predecessor and skips this step.
  */
 export function ValuationCreatePage() {
   const { t } = useTranslation()
@@ -34,8 +37,10 @@ export function ValuationCreatePage() {
     enabled: Boolean(supersedesId),
   })
 
-  const [step, setStep] = useState<'configure' | 'form'>(supersedesId ? 'form' : 'configure')
-  const [configuration, setConfiguration] = useState<ConfigurationRead | null>(null)
+  const location = useLocation()
+  const handedOver = (location.state as { configuration?: ConfigurationRead } | null)?.configuration ?? null
+  const [step, setStep] = useState<'configure' | 'form'>(supersedesId || handedOver ? 'form' : 'configure')
+  const [configuration, setConfiguration] = useState<ConfigurationRead | null>(handedOver)
 
   if (supersedesId && supersedesQuery.isLoading) return <Loader />
 

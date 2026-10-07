@@ -9,6 +9,7 @@ import { installFakeBackend, status, type FakeRoute } from '../test/fakeBackend'
 import { configurationRead } from '../test/configuratorFixtures'
 import type { CustomerVehicleRead } from '../api/types'
 import { ValuationCreatePage } from './ValuationCreatePage'
+import { ValuationsListPage } from './ValuationsListPage'
 import { SpecificationTab } from '../components/vehicle-detail/SpecificationTab'
 import { VehiclesTab } from '../components/customer-detail/VehiclesTab'
 
@@ -87,6 +88,41 @@ describe('Valuation → new valuation (FR-C-14)', () => {
       vehicleFirstRegistration: '2003-10-03',
     })
     expect(await screen.findByText('valuation detail')).toBeInTheDocument()
+  })
+
+  it('opens from the Valuations list as an overlay over the list, record only', async () => {
+    const user = userEvent.setup()
+    installFakeBackend([
+      {
+        method: 'POST',
+        match: /^\/configurations$/,
+        handler: () => ({
+          __status: 201,
+          body: configurationRead({ id: 'cfg-l', mode: 'record', source: 'manual', catalogueVariantId: null, brandDisplayName: 'Subaru' }),
+        }),
+      },
+      { method: 'GET', match: /^\/valuations$/, handler: () => ({ items: [], nextCursor: null, total: 0, totalIsEstimate: false }) },
+      ...CATALOGUE,
+    ])
+    renderWithProviders(
+      <Routes>
+        <Route path="/valuations" element={<ValuationsListPage />} />
+        <Route path="/valuations/new" element={<ValuationCreatePage />} />
+      </Routes>,
+      { route: '/valuations' },
+    )
+
+    await user.click((await screen.findAllByRole('button', { name: i18n.t('valuationsList.newValuation') }))[0])
+    const overlay = await screen.findByRole('dialog')
+    // An overlay over the list: the list is still mounted underneath.
+    expect(screen.getByRole('heading', { name: i18n.t('valuationsList.title') })).toBeInTheDocument()
+    expect(within(overlay).queryByText(i18n.t('configurator.mode.build'))).not.toBeInTheDocument()
+    await user.click(within(overlay).getByRole('button', { name: i18n.t('configurator.find.manual') }))
+    await user.click(await within(overlay).findByRole('button', { name: i18n.t('configurator.saveNew') }))
+
+    const dialog = await screen.findByRole('dialog', { name: i18n.t('valuationCreate.title') })
+    expect(within(dialog).getByLabelText(i18n.t('valuationCreate.make'))).toHaveValue('Subaru')
+    expect(within(dialog).getByTestId('configuration-summary-card')).toBeInTheDocument()
   })
 
   it('still lets the advisor enter a car by hand, without a configuration', async () => {
