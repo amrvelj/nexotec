@@ -703,6 +703,7 @@ def test_an_adapter_that_fails_to_build_mid_run_stops_the_loop(db_session, monke
         resilience.reset_circuit(connection.id)
 
     assert len(builds) == 3  # no further build for FZ100003, nor for the watermark
+    db_session.rollback()  # read back only what was committed
     assert result.variants_synced == 1
     assert [(s.fz_key, s.field, s.error) for s in result.skipped] == [
         ("FZ100002", "not_attempted", "ProviderTransportError"),
@@ -745,6 +746,7 @@ def test_a_failing_watermark_call_still_leaves_the_runs_progress_saved(db_sessio
     finally:
         resilience.reset_circuit(connection.id)
 
+    db_session.rollback()  # read back only what was committed
     state = catalogue_sync.get_sync_state(db_session, tenant_id=tenant_id, provider_code="auto_i_dat_mock")
     assert state.last_delta_cursor == day
     assert [p["fz_key"] for p in state.pending_fz_keys] == ["FZ100002"]

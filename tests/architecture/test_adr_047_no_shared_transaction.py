@@ -190,10 +190,11 @@ _OWN_COMMIT_WRITES = {
         "inventory: promote_to_vehicle_mdm; sales: trade-in; valuation: create",
     ),
     # The daily job composition root runs the catalogue delta per tenant.
-    # Since KAN-78 the run's sync-state commit lives in `_run`, shared by
-    # the delta and the full seed it can fall back to.
+    # Since KAN-78 the run's unconditional sync-state commit lives in
+    # `_save_run_progress` (reached through `_run`), shared by the delta and
+    # the full seed it can fall back to.
     "app.vehicle.public.run_daily_delta_for_tenant": (
-        "app.vehicle.services.catalogue_sync._run",
+        "app.vehicle.services.catalogue_sync._save_run_progress",
         "integration: daily_jobs",
     ),
     # Every provider call writes exactly one integration_call_log row,
