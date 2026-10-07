@@ -883,7 +883,9 @@
     },
     "submit": "Ajouter",
     "errors": {
-      "somethingWentWrong": "Une erreur s'est produite."
+      "somethingWentWrong": "Une erreur s'est produite.",
+      "vinAlreadyInStock": "Ce VIN est déjà en stock — numéro de stock {{stockNumber}}.",
+      "openExisting": "Ouvrir le véhicule"
     }
   },
   "salesList": {

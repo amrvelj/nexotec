@@ -883,7 +883,9 @@
     },
     "submit": "Aufnehmen",
     "errors": {
-      "somethingWentWrong": "Etwas ist schiefgelaufen."
+      "somethingWentWrong": "Etwas ist schiefgelaufen.",
+      "vinAlreadyInStock": "Diese VIN ist bereits an Lager — Lagernummer {{stockNumber}}.",
+      "openExisting": "Fahrzeug öffnen"
     }
   },
   "salesList": {

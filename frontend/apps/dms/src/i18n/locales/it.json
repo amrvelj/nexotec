@@ -883,7 +883,9 @@
     },
     "submit": "Aggiungi",
     "errors": {
-      "somethingWentWrong": "Qualcosa è andato storto."
+      "somethingWentWrong": "Qualcosa è andato storto.",
+      "vinAlreadyInStock": "Questo VIN è già a magazzino — numero di magazzino {{stockNumber}}.",
+      "openExisting": "Apri il veicolo"
     }
   },
   "salesList": {
