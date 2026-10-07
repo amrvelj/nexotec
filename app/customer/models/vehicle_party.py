@@ -24,20 +24,29 @@ zero VehicleParty rows in any environment (the customer-side create path
 see scripts/repoint_legacy_vehicle_party_references.py for the
 defensive, idempotent repoint-or-report pass this ticket's own review
 asked for, kept as a safety net rather than a live migration.
+
+KAN-84 (CLAUDE.md rule 2): the vehicle's display fields are denormalised
+onto this row — the three-column pattern, with six label columns in place
+of one — instead of the viewonly relationship() to VehicleMdm this used to
+join through. Written whenever a party row is opened or repointed (through
+app.vehicle.public.get_vehicle_summaries) and re-read nightly by
+app.customer.services.customer.refresh_vehicle_party_labels, so a later
+catalogue match or VIN correction shows within a day.
+tests/architecture/test_no_cross_context_mapping.py keeps it that way.
 """
 
+import dataclasses
 import datetime as dt
 import enum
 import uuid
 
-from sqlalchemy import UniqueConstraint
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import Integer, String, UniqueConstraint
+from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TimestampMixin, utcnow
 from app.core.enum_type import StoredEnum
 from app.core.types import GUID, UTCDateTime
 from app.db import Base
-from app.vehicle.public import VehicleMdm
 
 
 class VehiclePartyRole(str, enum.Enum):
@@ -81,19 +90,60 @@ class VehicleParty(PrimaryKeyMixin, TimestampMixin, Base):
     effective_from: Mapped[dt.datetime] = mapped_column(UTCDateTime(), nullable=False, default=utcnow)
     effective_to: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
 
-    # Read-only convenience for the customer-vehicle list response (D-12) —
-    # the 360 view needs VIN/make/model, not just the FK. No back-populates
-    # on VehicleMdm: nothing needs "all parties for this vehicle" yet, and
-    # adding an unused collection relationship is guessing at a shape no
-    # endpoint asks for.
-    #
-    # KAN-31: repointed from the legacy Vehicle table to VehicleMdm — see
-    # the module docstring. Explicit primaryjoin + foreign(): vehicle_id
-    # has no DB-level FK as of PR-2, so SQLAlchemy can no longer infer the
-    # join condition on its own. Same eager-load behaviour as before
-    # (still driven by joinedload() at the call site) — this only
-    # replaces what the dropped FK used to tell it.
-    vehicle: Mapped[VehicleMdm] = relationship(
-        primaryjoin="foreign(VehicleParty.vehicle_id) == VehicleMdm.id",
-        viewonly=True,
+    # KAN-84 — the vehicle's label, denormalised (rule 2). Owned by the
+    # vehicle context; copied from app.vehicle.public.get_vehicle_summaries.
+    # Nullable only because rows written before KAN-84 carry none until the
+    # nightly refresh reaches them; the read path fills those in memory.
+    vehicle_vin: Mapped[str | None] = mapped_column(
+        String(17), nullable=True, comment="Label from the vehicle context (vehicle_mdm.vin). KAN-84."
     )
+    vehicle_number: Mapped[str | None] = mapped_column(
+        String(16), nullable=True, comment="Label from the vehicle context (vehicle_mdm.vehicle_number). KAN-84."
+    )
+    vehicle_make: Mapped[str | None] = mapped_column(
+        String(120), nullable=True, comment="Label from the vehicle context (catalogue brand). KAN-84."
+    )
+    vehicle_model: Mapped[str | None] = mapped_column(
+        String(120), nullable=True, comment="Label from the vehicle context (catalogue model group). KAN-84."
+    )
+    vehicle_model_year: Mapped[int | None] = mapped_column(
+        Integer, nullable=True, comment="Label from the vehicle context (first registration year). KAN-84."
+    )
+    vehicle_trim: Mapped[str | None] = mapped_column(
+        String(160), nullable=True, comment="Label from the vehicle context (catalogue variant name). KAN-84."
+    )
+    vehicle_label_refreshed_at: Mapped[dt.datetime | None] = mapped_column(
+        UTCDateTime(), nullable=True, comment="When the vehicle_* labels were last read from the vehicle context."
+    )
+
+    @property
+    def vehicle(self) -> "VehiclePartyVehicleLabel":
+        """The label columns in the shape VehiclePartySummary reads
+        (`CustomerVehicleRead.vehicle`) — no join, no other context's row.
+        A row with no stored label yet may carry a read-only fill (see
+        app.customer.services.customer._fill_unlabelled_vehicle_parties_for_read),
+        held in a plain instance attribute, never in ORM state."""
+
+        read_fill = self.__dict__.get("_vehicle_label_read_fill")
+        if read_fill is not None:
+            return read_fill
+        return VehiclePartyVehicleLabel(
+            id=self.vehicle_id,
+            vin=self.vehicle_vin,
+            vehicle_number=self.vehicle_number,
+            make=self.vehicle_make,
+            model=self.vehicle_model,
+            model_year=self.vehicle_model_year,
+            trim=self.vehicle_trim,
+        )
+
+
+@dataclasses.dataclass(frozen=True)
+class VehiclePartyVehicleLabel:
+    id: uuid.UUID
+    vin: str | None
+    vehicle_number: str | None
+    make: str | None
+    model: str | None
+    model_year: int | None
+    trim: str | None
