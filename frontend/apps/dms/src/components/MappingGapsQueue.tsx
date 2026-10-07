@@ -9,7 +9,8 @@ import { ActionBar, DataGrid, type GridColumnDef, type SortSpec } from '@nexotec
 import { useUiPreferencesContext } from '../hooks/UiPreferencesContext'
 import { api } from '../api/client'
 import type { MappingGapPage, MappingGapRead } from '../api/types'
-import { formatNumber } from '../utils/format'
+import { toSwissLocale, type SupportedLanguage } from '../i18n'
+import { formatDate, formatNumber } from '../utils/format'
 
 const GRID_KEY = 'vehicleMdm.mappingGaps'
 
@@ -37,7 +38,8 @@ interface MappingGapsQueueProps {
  * ADR-060 / U-10's "sortability is separate from visibility".
  */
 export function MappingGapsQueue({ paramPrefix = '' }: MappingGapsQueueProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = toSwissLocale(i18n.language as SupportedLanguage)
   const { density, setDensity } = useUiPreferencesContext()
   const queryClient = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -127,7 +129,7 @@ export function MappingGapsQueue({ paramPrefix = '' }: MappingGapsQueueProps) {
       {
         id: 'lastSeenAt',
         header: t('mappingGaps.columns.lastSeen'),
-        cell: ({ row }) => new Date(row.original.lastSeenAt).toLocaleDateString(),
+        cell: ({ row }) => formatDate(row.original.lastSeenAt, locale),
         meta: { align: 'right' },
       },
       {
@@ -149,7 +151,7 @@ export function MappingGapsQueue({ paramPrefix = '' }: MappingGapsQueueProps) {
         ),
       },
     ],
-    [t],
+    [t, locale],
   )
 
   return (

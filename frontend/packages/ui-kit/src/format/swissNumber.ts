@@ -29,8 +29,14 @@ function formatSwiss(value: number, options?: Intl.NumberFormatOptions): string 
     .join("");
 }
 
-export function formatNumber(value: number): string {
-  return formatSwiss(value);
+// `fractionDigits` fixes the decimals shown (KAN-164). format_number_ch
+// prints a Decimal at its own scale (`Decimal("1234.5000")` → `1'234.5000`);
+// a JS number carries no scale, so a caller rendering a DECIMAL column states
+// the column's scale here. Without it Intl rounds to at most 3 decimals,
+// which would silently drop the fourth of a DECIMAL(12, 4).
+export function formatNumber(value: number, fractionDigits?: number): string {
+  if (fractionDigits === undefined) return formatSwiss(value);
+  return formatSwiss(value, { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits });
 }
 
 export function formatCurrencyChf(value: number): string {
