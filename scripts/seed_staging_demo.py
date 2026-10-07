@@ -37,7 +37,7 @@ from sqlalchemy import select
 
 from app.core.auth import AccessRole
 from app.db import SessionLocal
-from app.platform.models.dealership import Dealership
+from app.platform.models.dealership import Dealership, FranchiseType
 from app.platform.models.user import User, UserRole
 from app.platform.schemas.dealership import DealershipAddress, DealershipCreate
 from app.platform.schemas.user import UserCreate, UserUpdate
@@ -72,7 +72,7 @@ def main() -> None:
                     legal_name=DEMO_LEGAL_NAME,
                     dealer_license_number="DEMO-0001",
                     license_state="ZH",
-                    franchise_type="independent",
+                    franchise_type=FranchiseType.INDEPENDENT,
                     address=DealershipAddress(
                         street="Bahnhofstrasse",
                         house_number="1",

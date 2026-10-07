@@ -8,13 +8,14 @@ Usage: DMS_DATABASE_URL=... DMS_TAX_ID_ENCRYPTION_KEY=... python scripts/verify_
 
 import sys
 import uuid
+from typing import NoReturn
 
 from app.core.outbox_model import OutboxMessage, OutboxStatus
 from app.core.processed_event_model import ProcessedEvent
 from app.db import SessionLocal
 
 
-def fail(message: str) -> None:
+def fail(message: str) -> NoReturn:
     print(f"FAIL: {message}")
     sys.exit(1)
 

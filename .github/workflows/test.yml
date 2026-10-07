@@ -41,6 +41,9 @@ jobs:
       - run: ruff check app tests
 
   mypy:
+    # Covers scripts/ too since KAN-142, but the name stays: "mypy (app/)" is a
+    # required status check on main by this exact string, and renaming the job
+    # would leave every PR waiting on a check that never reports.
     name: mypy (app/)
     runs-on: ubuntu-latest
     steps:
@@ -49,7 +52,9 @@ jobs:
         with:
           python-version: "3.13"
       - run: pip install -e ".[dev]"
-      - run: mypy app
+      # scripts/ too (KAN-142): seed_staging_demo.py runs on every deploy, and a
+      # service signature change once broke it with nothing to notice.
+      - run: mypy app scripts
 
   frontend:
     name: frontend (oxlint, tsc, vitest, build)
