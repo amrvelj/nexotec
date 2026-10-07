@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.auth import Principal, get_current_principal
+from app.core.base import utcnow
 from app.core.concurrency import check_version, require_if_match
 from app.core.config import get_settings
 from app.core.pagination import SortPageParams, decode_sort_cursor
@@ -27,9 +28,11 @@ from app.vehicle.schemas.vehicle_mdm import (
     VehicleMdmRead,
     VehicleMdmUpdate,
     VehiclePartyAllocationRead,
+    VehicleSearchHit,
     VehicleSearchResult,
 )
 from app.vehicle.services import vehicle_mdm as vehicle_mdm_service
+from app.vehicle.services.plate import list_plates_for_vehicle
 from app.vehicle.services.search import filter_vehicles, resolve_identifier
 
 router = APIRouter(tags=["vehicle-mdm"])
@@ -64,24 +67,30 @@ def search_vehicles(
 ):
     """FR-V-06/FR-V-16: ONE search box, two behaviours, decided by the
     string's own shape — never a second field, never a mode the caller
-    picks. `resolved`/`pickerCandidates` are populated only when `q` looks
-    like an identifier; otherwise `filtered` is the ordinary grid page and
-    the other two are empty, exactly as if the user had typed a brand
-    fragment. `sort`, the cursor and the count apply to `filtered` only.
+    picks. When `q` resolves as an identifier, `resolved` (or
+    `pickerCandidates`) carries the answer and `filtered` is an empty page
+    (KAN-82): never a page unrelated to `q` beside the hit. Otherwise —
+    free text, or an identifier-shaped string that found neither a hit nor
+    a picker — `filtered` is the ordinary grid filtered by `q` and the
+    other two are empty. The fall-through matters because the shapes are
+    loose: a half-typed vehicle number (`F-0001`) or VIN prefix (`VF1`)
+    looks like a plate, and must still filter; a real identifier that
+    matches nothing filters to an empty page, i.e. "no such vehicle".
+    `sort`, the cursor and the count apply to `filtered` only.
+
+    The Vehicles screen keeps its grid where it was under a hit (FR-V-06,
+    "resolves above the grid") by reading the unfiltered page itself.
     """
 
     sort_fields = parse_sort(sort, allowed=VEHICLE_MDM_SORT_FIELDS) or _DEFAULT_VEHICLE_MDM_SORT
     params = SortPageParams(limit=limit, cursor=decode_sort_cursor(cursor) if cursor else None, sort_fields=sort_fields)
 
     resolution = resolve_identifier(db, q) if q else None
-    if resolution is not None:
-        rows, next_cursor, total, total_is_estimate = filter_vehicles(db, query=None, params=params)
+    if resolution is not None and (resolution.resolved or resolution.picker_candidates):
         return VehicleSearchResult(
-            resolved=VehicleMdmRead.model_validate(resolution.resolved, from_attributes=True)
-            if resolution.resolved
-            else None,
+            resolved=_search_hit(db, resolution.resolved) if resolution.resolved else None,
             picker_candidates=resolution.picker_candidates,
-            filtered=_page(rows, next_cursor, total, total_is_estimate),
+            filtered=_page([], None, 0, False),
         )
 
     rows, next_cursor, total, total_is_estimate = filter_vehicles(db, query=q or None, params=params)
@@ -90,6 +99,25 @@ def search_vehicles(
         picker_candidates=[],
         filtered=_page(rows, next_cursor, total, total_is_estimate),
     )
+
+
+def _search_hit(db: Session, vehicle: VehicleMdm) -> VehicleSearchHit:
+    """The resolved vehicle plus its Kontrollschild valid today (KAN-82) —
+    read through this one car's own plate history, the targeted read the
+    non-enumerability rule allows (ADR-039), never a plate listing.
+    """
+
+    today = utcnow().date()
+    current_plate = next(
+        (
+            row.plate
+            for row in list_plates_for_vehicle(db, vehicle_id=vehicle.id)
+            if row.valid_from <= today and (row.valid_to is None or row.valid_to >= today)
+        ),
+        None,
+    )
+    read = VehicleMdmRead.model_validate(vehicle, from_attributes=True)
+    return VehicleSearchHit(**read.model_dump(), current_plate=current_plate)
 
 
 def _page(rows: list[VehicleMdm], next_cursor: str | None, total: int, total_is_estimate: bool) -> VehicleMdmPage:

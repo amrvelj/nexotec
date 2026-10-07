@@ -161,8 +161,11 @@ def test_unknown_or_malformed_sort_is_422(client, sort):
 
 def test_identifier_resolution_still_resolves_and_the_grid_below_honours_sort(client, db_session):
     """Do-not-touch (FR-V-06/FR-V-16): a VIN-shaped query resolves above
-    the grid exactly as before; the grid page beside it is the unfiltered
-    list, now sorted and counted like any other page."""
+    the grid exactly as before. Since KAN-82 the hit carries no page of
+    its own (`filtered` is empty: an unrelated page there misled global
+    search); the grid that stays below it on the Vehicles screen is the
+    unfiltered list, read with an empty `q` and sorted and counted like
+    any other page."""
 
     vin = "1HGCM82633A004352"
     _seed(db_session, FLEET + [{"vehicle_number": "F-000006", "vin": vin}])
@@ -171,6 +174,10 @@ def test_identifier_resolution_still_resolves_and_the_grid_below_honours_sort(cl
 
     assert body["resolved"]["vin"] == vin
     assert body["pickerCandidates"] == []
-    vins = [i["vin"] for i in body["filtered"]["items"]]
+    assert body["filtered"]["items"] == []
+    assert body["filtered"]["total"] == 0
+
+    grid = _search(client, q="", sort="vin:asc", limit=50)
+    vins = [i["vin"] for i in grid["filtered"]["items"]]
     assert vins == sorted(vins)
-    assert body["filtered"]["total"] == 6
+    assert grid["filtered"]["total"] == 6

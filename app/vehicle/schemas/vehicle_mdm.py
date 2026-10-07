@@ -216,6 +216,16 @@ class CatalogueSpecificationRead(CamelModel):
     option_relations: list[CatalogueOptionRelationRead]
 
 
+class VehicleSearchHit(VehicleMdmRead):
+    """The vehicle an identifier resolved to (FR-V-06), plus its plate valid
+    today — the "one line of disambiguating context" a global-search row
+    carries (FR-UI-08, KAN-82). Only on the targeted hit, never on grid
+    rows: the plate table is never listable (ADR-039).
+    """
+
+    current_plate: str | None
+
+
 class VehicleSearchResult(CamelModel):
     """The ONE search box's response shape (FR-V-06/FR-V-16): the string
     either resolves as an identifier (above the grid) or filters it —
@@ -223,6 +233,6 @@ class VehicleSearchResult(CamelModel):
     which of two fields the user typed into.
     """
 
-    resolved: VehicleMdmRead | None
+    resolved: VehicleSearchHit | None
     picker_candidates: list[VehiclePickerCandidate]
     filtered: VehicleMdmPage

@@ -67,23 +67,43 @@ export function VehiclesListPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
   // KAN-161 — sorted server-side and loaded page by page by cursor, like
-  // every other list grid. The identifier hit and the picker only ever
-  // come with the first page; later pages are grid rows only.
+  // every other list grid. A query that resolves as an identifier comes
+  // back as one page — the hit or the picker, no grid rows (KAN-82).
   const sortParam = sort.length > 0 ? serializeSort(sort) : undefined
+  const fetchPage = (q: string, cursor: string | null) => {
+    const params = new URLSearchParams({ q, limit: '50' })
+    if (sortParam) params.set('sort', sortParam)
+    if (cursor) params.set('cursor', cursor)
+    return api.get<VehicleSearchResult>(`/vehicle-mdm/search?${params.toString()}`)
+  }
   const searchQuery = useInfiniteQuery({
     queryKey: [GRID_KEY, debouncedQuery, sortParam],
-    queryFn: ({ pageParam }: { pageParam: string | null }) => {
-      const params = new URLSearchParams({ q: debouncedQuery, limit: '50' })
-      if (sortParam) params.set('sort', sortParam)
-      if (pageParam) params.set('cursor', pageParam)
-      return api.get<VehicleSearchResult>(`/vehicle-mdm/search?${params.toString()}`)
-    },
+    queryFn: ({ pageParam }: { pageParam: string | null }) => fetchPage(debouncedQuery, pageParam),
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.filtered.nextCursor,
   })
 
   const result = searchQuery.data?.pages[0]
-  const rows = useMemo(() => searchQuery.data?.pages.flatMap((page) => page.filtered.items) ?? [], [searchQuery.data])
+
+  // KAN-82 — an identifier hit resolves ABOVE the grid, and the grid
+  // "stays where it was" (FR-V-06): the hit's own response carries no rows
+  // (an unrelated page there misled global search), so the grid reads the
+  // unfiltered list — the same cache entry as an empty search box. An
+  // identifier that matches nothing has neither hit nor picker; its
+  // `filtered` page is filtered by that identifier, so a real one shows the
+  // no-match state (there is no such car) and a half-typed one still
+  // filters.
+  const showsHit = Boolean(result && (result.resolved || result.pickerCandidates.length > 0))
+  const unfilteredQuery = useInfiniteQuery({
+    queryKey: [GRID_KEY, '', sortParam],
+    queryFn: ({ pageParam }: { pageParam: string | null }) => fetchPage('', pageParam),
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => lastPage.filtered.nextCursor,
+    enabled: showsHit,
+  })
+  const gridQuery = showsHit ? unfilteredQuery : searchQuery
+  const gridPage = gridQuery.data?.pages[0]
+  const rows = useMemo(() => gridQuery.data?.pages.flatMap((page) => page.filtered.items) ?? [], [gridQuery.data])
 
   const columns: GridColumnDef<VehicleMdmRead>[] = useMemo(
     () => [
@@ -138,8 +158,11 @@ export function VehiclesListPage() {
         searchPlaceholder={t('vehiclesList.searchPlaceholder')}
         density={density}
         onDensityChange={setDensity}
-        onRefresh={() => searchQuery.refetch()}
-        refreshing={searchQuery.isRefetching}
+        onRefresh={() => {
+          void searchQuery.refetch()
+          if (showsHit) void unfilteredQuery.refetch()
+        }}
+        refreshing={searchQuery.isRefetching || (showsHit && unfilteredQuery.isRefetching)}
         labels={{
           density: {
             compact: t('common.density.compact'),
@@ -213,16 +236,19 @@ export function VehiclesListPage() {
         density={density}
         rowHref={(row) => `/vehicles/${row.id}`}
         selection={{ selectedIds, onSelectionChange: setSelectedIds }}
-        loading={searchQuery.isLoading}
-        refetching={searchQuery.isRefetching && !searchQuery.isLoading}
-        fetchingNextPage={searchQuery.isFetchingNextPage}
-        hasNextPage={Boolean(searchQuery.hasNextPage)}
-        onLoadMore={() => searchQuery.fetchNextPage()}
-        error={searchQuery.isError ? t('vehiclesList.loadError') : null}
-        onRetry={() => searchQuery.refetch()}
-        total={result?.filtered.total ?? null}
-        totalIsEstimate={result?.filtered.totalIsEstimate ?? false}
-        isFiltered={debouncedQuery.length > 0}
+        loading={searchQuery.isLoading || (showsHit && unfilteredQuery.isLoading)}
+        refetching={gridQuery.isRefetching && !gridQuery.isLoading}
+        fetchingNextPage={gridQuery.isFetchingNextPage}
+        hasNextPage={Boolean(gridQuery.hasNextPage)}
+        onLoadMore={() => gridQuery.fetchNextPage()}
+        error={searchQuery.isError || gridQuery.isError ? t('vehiclesList.loadError') : null}
+        onRetry={() => {
+          void searchQuery.refetch()
+          if (showsHit) void unfilteredQuery.refetch()
+        }}
+        total={gridPage?.filtered.total ?? null}
+        totalIsEstimate={gridPage?.filtered.totalIsEstimate ?? false}
+        isFiltered={debouncedQuery.length > 0 && !showsHit}
         labels={{
           showing: (count) => t('common.showing', { count }),
           showingOfTotal: (count, totalStr) => t('common.showingOfTotal', { count, total: totalStr }),

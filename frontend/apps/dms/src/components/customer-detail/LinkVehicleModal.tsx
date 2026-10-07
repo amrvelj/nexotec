@@ -22,11 +22,26 @@ export interface LinkVehicleModalProps {
  * reuses the exact one-search-box endpoint `VehiclesListPage.tsx` itself
  * calls (`GET /vehicle-mdm/search`), never a second lookup mechanism.
  */
+
+/** What picking a vehicle needs — a resolved hit, a picker candidate and a
+ * filtered row all carry it. */
+type LinkCandidate = Pick<VehicleMdmRead, 'id' | 'vehicleNumber' | 'vin'> & { plate?: string | null }
+
+/** KAN-82 — a full VIN, vehicle number, Stammnummer or plate comes back as
+ * `resolved` (or, for a shared plate, `pickerCandidates`) with an empty
+ * `filtered` page, so the candidates are read in that order. A shared
+ * plate lists every car it names; nothing is preselected. */
+function linkCandidates(result: VehicleSearchResult | undefined): LinkCandidate[] {
+  if (!result) return []
+  if (result.resolved) return [{ ...result.resolved, plate: result.resolved.currentPlate }]
+  if (result.pickerCandidates.length > 0) return result.pickerCandidates
+  return result.filtered.items
+}
 export function LinkVehicleModal({ opened, onClose, onLinked, customerId }: LinkVehicleModalProps) {
   const { t } = useTranslation()
   const [query, setQuery] = useState('')
   const [debouncedQuery] = useDebouncedValue(query, 250)
-  const [selectedVehicle, setSelectedVehicle] = useState<VehicleMdmRead | null>(null)
+  const [selectedVehicle, setSelectedVehicle] = useState<LinkCandidate | null>(null)
   const [role, setRole] = useState<VehiclePartyRole>('owner')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -36,7 +51,7 @@ export function LinkVehicleModal({ opened, onClose, onLinked, customerId }: Link
     queryFn: () => api.get<VehicleSearchResult>(`/vehicle-mdm/search?q=${encodeURIComponent(debouncedQuery)}`),
     enabled: opened && debouncedQuery.length > 0,
   })
-  const candidates = searchQuery.data?.filtered.items ?? []
+  const candidates = linkCandidates(searchQuery.data)
 
   const reset = () => {
     setQuery('')
@@ -96,6 +111,7 @@ export function LinkVehicleModal({ opened, onClose, onLinked, customerId }: Link
                 {candidates.map((v) => (
                   <Button key={v.id} variant="default" size="xs" onClick={() => setSelectedVehicle(v)} justify="space-between" fullWidth>
                     {v.vehicleNumber} — {v.vin}
+                    {v.plate ? ` — ${v.plate}` : ''}
                   </Button>
                 ))}
               </Stack>
