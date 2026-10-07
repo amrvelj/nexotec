@@ -95,7 +95,7 @@ def test_a_wechselschild_plate_answers_with_the_picker_only(client, db_session):
     _assert_empty_page(body["filtered"])
 
 
-def test_an_identifier_that_matches_nothing_returns_nothing(client, db_session):
+def test_a_real_identifier_that_matches_nothing_filters_to_nothing(client, db_session):
     _seed(db_session)
     db_session.commit()
 
@@ -117,3 +117,21 @@ def test_a_brand_fragment_still_filters_and_an_empty_query_still_lists(client, d
     fragment = client.get("/v1/vehicle-mdm/search?q=WBA3A5", headers=_bearer()).json()
     assert fragment["resolved"] is None
     assert [v["vin"] for v in fragment["filtered"]["items"]] == ["WBA3A5C51CF256985"]
+
+
+def test_a_half_typed_vehicle_number_or_vin_prefix_still_filters(client, db_session):
+    """`F-0001` and `VF1` are plate-shaped (`_PLATE_RE` is loose on
+    purpose), so they are tried as identifiers first; finding no plate,
+    they must still filter — never a false "no match" while matching cars
+    exist (KAN-82 review)."""
+
+    target = _seed(db_session)
+    db_session.commit()
+
+    by_number = client.get(f"/v1/vehicle-mdm/search?q={target.vehicle_number[:6]}", headers=_bearer()).json()
+    assert by_number["resolved"] is None
+    assert str(target.id) in {v["id"] for v in by_number["filtered"]["items"]}
+
+    by_vin_prefix = client.get("/v1/vehicle-mdm/search?q=VF1", headers=_bearer()).json()
+    assert by_vin_prefix["resolved"] is None
+    assert [v["vin"] for v in by_vin_prefix["filtered"]["items"]] == ["VF1RFB00X57123456"]

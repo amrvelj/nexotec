@@ -2086,16 +2086,19 @@ export interface paths {
          * Search Vehicles
          * @description FR-V-06/FR-V-16: ONE search box, two behaviours, decided by the
          *     string's own shape — never a second field, never a mode the caller
-         *     picks. When `q` looks like an identifier, `resolved`/`pickerCandidates`
-         *     carry the answer and `filtered` is an empty page (KAN-82) — also when
-         *     the identifier matches nothing, which is "no such vehicle", not a cue
-         *     to show some other one. Otherwise `filtered` is the ordinary grid page
-         *     and the other two are empty, exactly as if the user had typed a brand
-         *     fragment. `sort`, the cursor and the count apply to `filtered` only.
+         *     picks. When `q` resolves as an identifier, `resolved` (or
+         *     `pickerCandidates`) carries the answer and `filtered` is an empty page
+         *     (KAN-82): never a page unrelated to `q` beside the hit. Otherwise —
+         *     free text, or an identifier-shaped string that found neither a hit nor
+         *     a picker — `filtered` is the ordinary grid filtered by `q` and the
+         *     other two are empty. The fall-through matters because the shapes are
+         *     loose: a half-typed vehicle number (`F-0001`) or VIN prefix (`VF1`)
+         *     looks like a plate, and must still filter; a real identifier that
+         *     matches nothing filters to an empty page, i.e. "no such vehicle".
+         *     `sort`, the cursor and the count apply to `filtered` only.
          *
-         *     The Vehicles screen keeps its grid where it was under a resolved hit
-         *     (FR-V-06, "resolves above the grid") by reading the unfiltered page
-         *     itself; this endpoint never sends a page unrelated to `q`.
+         *     The Vehicles screen keeps its grid where it was under a hit (FR-V-06,
+         *     "resolves above the grid") by reading the unfiltered page itself.
          */
         get: operations["search_vehicles_v1_vehicle_mdm_search_get"];
         put?: never;

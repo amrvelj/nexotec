@@ -20,10 +20,11 @@ _VIN_RE = re.compile(r"^[A-HJ-NPR-Z0-9]{17}$")
 _VEHICLE_NUMBER_RE = re.compile(r"^F-\d{6}$", re.IGNORECASE)
 _STAMMNUMMER_RE = re.compile(r"^\d{9}$")
 # Swiss plate shape: 1-2 letters (canton) + space + digits. Deliberately
-# loose — a false-positive here just means a plate-shaped filter string
-# also gets tried as an identifier and comes back empty, falling through
-# to the filter path; a false negative would wrongly treat a real plate
-# as a filter, which is the worse failure.
+# loose — a false-positive here (`F-0001`, a VIN prefix like `VF1`) just
+# means a plate-shaped filter string also gets tried as an identifier and
+# comes back empty, and the caller falls through to the filter path
+# (app.vehicle.api.vehicle_mdm.search_vehicles, KAN-82); a false negative
+# would wrongly treat a real plate as a filter, which is the worse failure.
 _PLATE_RE = re.compile(r"^([A-Z]{1,2})[\s-]?(\d{1,6})$", re.IGNORECASE)
 
 
@@ -37,8 +38,9 @@ def resolve_identifier(db: Session, query: str) -> SearchResolution | None:
     """Returns None if `query` doesn't look like any identifier at all —
     the caller then falls through to an ordinary grid filter. Returns a
     SearchResolution (possibly with no hit at all, i.e. resolved=None and
-    an empty picker) if it DOES look like one, since "looks like a VIN but
-    matches nothing" is still a resolve attempt, not a filter.
+    an empty picker) if it DOES look like one. A resolution with neither a
+    hit nor a picker sends the caller down the filter path too (KAN-82):
+    the shapes are loose, so "no identifier hit" is not "no vehicle".
     """
 
     q = query.strip()

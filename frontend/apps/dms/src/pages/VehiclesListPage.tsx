@@ -67,8 +67,8 @@ export function VehiclesListPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
   // KAN-161 — sorted server-side and loaded page by page by cursor, like
-  // every other list grid. The identifier hit and the picker only ever
-  // come with the first page; later pages are grid rows only.
+  // every other list grid. A query that resolves as an identifier comes
+  // back as one page — the hit or the picker, no grid rows (KAN-82).
   const sortParam = sort.length > 0 ? serializeSort(sort) : undefined
   const fetchPage = (q: string, cursor: string | null) => {
     const params = new URLSearchParams({ q, limit: '50' })
@@ -89,8 +89,10 @@ export function VehiclesListPage() {
   // "stays where it was" (FR-V-06): the hit's own response carries no rows
   // (an unrelated page there misled global search), so the grid reads the
   // unfiltered list — the same cache entry as an empty search box. An
-  // identifier that matches nothing has neither hit nor picker, so its
-  // empty `filtered` page shows the no-match state: there is no such car.
+  // identifier that matches nothing has neither hit nor picker; its
+  // `filtered` page is filtered by that identifier, so a real one shows the
+  // no-match state (there is no such car) and a half-typed one still
+  // filters.
   const showsHit = Boolean(result && (result.resolved || result.pickerCandidates.length > 0))
   const unfilteredQuery = useInfiniteQuery({
     queryKey: [GRID_KEY, '', sortParam],

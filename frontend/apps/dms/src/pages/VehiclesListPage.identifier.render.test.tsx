@@ -56,8 +56,8 @@ const tr = (key: string) => i18n.t(key)
 afterEach(() => cleanup())
 
 describe('VehiclesListPage — an identifier resolves above a grid that stays where it was (KAN-82)', () => {
-  it('a resolved plate shows the match above the unfiltered list', async () => {
-    const backend = renderAt('/vehicles?q=ZH%2012345')
+  it('a resolved plate shows the match above the unfiltered list, in the chosen sort', async () => {
+    const backend = renderAt('/vehicles?q=ZH%2012345&sort=vin:asc')
 
     const alert = await screen.findByRole('alert')
     expect(within(alert).getByText(tr('vehiclesList.resolved.title'))).toBeInTheDocument()
@@ -69,8 +69,10 @@ describe('VehiclesListPage — an identifier resolves above a grid that stays wh
     expect(screen.getByText(FLEET[2].vin)).toBeInTheDocument()
     expect(screen.getAllByText(FLEET[1].vin)).toHaveLength(2)
     expect(screen.queryByText(tr('vehiclesList.emptyFilteredState.title'))).not.toBeInTheDocument()
-    const queries = backend.callsTo(/^\/vehicle-mdm\/search$/, 'GET').map((c) => c.params.get('q'))
-    expect(queries).toEqual(expect.arrayContaining(['ZH 12345', '']))
+    const calls = backend.callsTo(/^\/vehicle-mdm\/search$/, 'GET')
+    expect(calls.map((c) => c.params.get('q'))).toEqual(expect.arrayContaining(['ZH 12345', '']))
+    // The grid under the hit is the user's grid: it keeps their sort.
+    expect(calls.filter((c) => c.params.get('q') === '').every((c) => c.params.get('sort') === 'vin:asc')).toBe(true)
   })
 
   it('an identifier that matches nothing shows the no-match state, not the fleet', async () => {

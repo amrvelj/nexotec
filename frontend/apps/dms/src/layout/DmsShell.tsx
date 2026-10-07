@@ -140,8 +140,9 @@ function buildGlobalSearch(t: (key: string) => string, navigate: (path: string) 
  * reads its answer rather than guessing again: the resolved vehicle, or
  * the picker's candidates under the same Wechselschild / conflict
  * headings the Vehicles screen shows, or — for anything else — the
- * ordinary filtered page. An identifier that matches nothing comes back
- * with an empty page, so it reads as no match, never as other cars.
+ * ordinary filtered page — which, for an identifier that matches nothing,
+ * is filtered by that identifier and so empty: it reads as no match, never
+ * as other cars.
  */
 function buildVehicleGroup(
   t: (key: string) => string,
