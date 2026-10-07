@@ -9,6 +9,7 @@ import {
   ConnectionStatusBadge,
   DataGrid,
   OverviewShellRegion,
+  semantic,
   ViewsAndFilters,
   type GridColumnDef,
   type SortSpec,
@@ -266,10 +267,12 @@ function FleetHealthBoard({
           return (
             <Tooltip
               multiline
-              label={pending.map((entry) => `${entry.fzKey} · ${entry.field}`).join('\n')}
+              label={pending
+                .map((entry) => `${entry.fzKey} · ${t(`integrationsList.healthBoard.pendingField.${entry.field}`)}`)
+                .join('\n')}
               style={{ whiteSpace: 'pre-line' }}
             >
-              <Text size="sm" c="orange" fw={600}>
+              <Text size="sm" c={semantic.warning.text} fw={600}>
                 {t('integrationsList.healthBoard.pendingCount', { count: pending.length })}
               </Text>
             </Tooltip>

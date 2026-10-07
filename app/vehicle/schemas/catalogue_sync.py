@@ -4,6 +4,7 @@ provider), feeding the platform view's own health-board grid.
 
 import datetime as dt
 import uuid
+from typing import Literal
 
 from app.core.schemas import CamelModel
 
@@ -15,7 +16,7 @@ class PendingFzKeyRead(CamelModel):
     """
 
     fz_key: str
-    field: str
+    field: Literal["master_data", "options", "colours", "tyre_specs", "images", "not_attempted"]
     error: str
     failed_at: dt.datetime
 

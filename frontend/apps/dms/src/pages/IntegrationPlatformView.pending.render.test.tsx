@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { installFakeBackend } from '../test/fakeBackend'
 import type { CatalogueSyncStatusRead } from '../api/types'
@@ -53,6 +54,10 @@ describe('IntegrationPlatformView fleet health board — pending variants (KAN-7
     renderWithProviders(<IntegrationPlatformView />)
     // The cell re-renders once the dealership names arrive, so assert on the settled tree.
     await waitFor(() => expect(screen.getByText('2 ausstehend')).toBeInTheDocument())
+    // The field codes are translated, never shown raw.
+    await userEvent.hover(screen.getByText('2 ausstehend'))
+    expect(await screen.findByText(/FZ100002 · Bilder/)).toBeInTheDocument()
+    expect(screen.queryByText(/images/)).not.toBeInTheDocument()
   })
 
   it('shows a dash when the last run synced every variant', async () => {
@@ -60,5 +65,6 @@ describe('IntegrationPlatformView fleet health board — pending variants (KAN-7
     renderWithProviders(<IntegrationPlatformView />)
     await waitFor(() => expect(screen.getByText('auto_i_dat')).toBeInTheDocument())
     expect(screen.queryByText(/\d+ ausstehend/)).not.toBeInTheDocument()
+    expect(screen.getAllByText('—').length).toBeGreaterThan(0)
   })
 })

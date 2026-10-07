@@ -5086,8 +5086,11 @@ export interface components {
              * Format: date-time
              */
             failedAt: string;
-            /** Field */
-            field: string;
+            /**
+             * Field
+             * @enum {string}
+             */
+            field: "master_data" | "options" | "colours" | "tyre_specs" | "images" | "not_attempted";
             /** Fzkey */
             fzKey: string;
         };

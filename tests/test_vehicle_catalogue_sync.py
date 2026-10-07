@@ -11,7 +11,7 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 
 from app.integration.adapters.auto_i_dat_mock import MockAutoIDatAdapter
-from app.integration.errors import ProviderGatewayError
+from app.integration.errors import ProviderGatewayError, ProviderTransportError
 from app.integration.models.call_log import CallStatus, IntegrationCallLog
 from app.integration.models.connection import ConnectionEnvironment
 from app.integration.models.provider import IntegrationProvider
@@ -633,3 +633,100 @@ def test_a_programmer_error_still_aborts_the_run(db_session, refusing_adapter):
             catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_id)
     finally:
         resilience.reset_circuit(connection.id)
+
+    assert refusing_adapter.master_calls == ["FZ100001", "NO-SUCH-KEY"]  # FZ100003 never attempted
+    assert catalogue_sync.get_sync_state(db_session, tenant_id=tenant_id, provider_code="auto_i_dat_mock") is None
+
+
+def test_the_breaker_opening_on_the_last_key_still_ends_the_run_cleanly(db_session, refusing_adapter):
+    """The fifth consecutive failure is the run's last key, so the loop never
+    sees the open circuit; the watermark call does, and must not raise.
+    """
+
+    provider = _make_mock_provider(db_session)
+    tenant_id = uuid.uuid4()
+    connection = _make_connection(db_session, provider, tenant_id=tenant_id)
+    keys = [f"FZ9100{n:02d}" for n in range(5)]
+    refusing_adapter.changed_keys = keys
+    refusing_adapter.refuse_master_for = set(keys)
+
+    try:
+        result = catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_id)
+    finally:
+        resilience.reset_circuit(connection.id)
+
+    assert [(s.fz_key, s.field) for s in result.skipped] == [(k, "master_data") for k in keys]
+    state = catalogue_sync.get_sync_state(db_session, tenant_id=tenant_id, provider_code="auto_i_dat_mock")
+    assert [p["fz_key"] for p in state.pending_fz_keys] == keys
+    assert state.last_system_watermark_date is None
+
+
+def test_an_adapter_that_fails_to_build_mid_run_stops_the_loop(db_session, monkeypatch):
+    """A WSDL that will not load fails in the gateway's adapter resolution,
+    before any call: not about the key, never logged or charged by the
+    gateway. The loop must stop, not retry the build for every later key.
+    """
+
+    provider = _make_mock_provider(db_session)
+    tenant_id = uuid.uuid4()
+    connection = _make_connection(db_session, provider, tenant_id=tenant_id)
+    builds = []
+
+    def _factory(*_args):
+        builds.append(1)
+        if len(builds) >= 3:  # FzKeyChanged, FZ100001 build fine; FZ100002 onwards cannot
+            raise ProviderTransportError("WSDL could not be loaded")
+        return MockAutoIDatAdapter()
+
+    monkeypatch.setitem(gateway._ADAPTER_FACTORIES, "auto_i_dat_mock", _factory)
+    try:
+        result = catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_id)
+    finally:
+        resilience.reset_circuit(connection.id)
+
+    assert len(builds) == 3  # no further build for FZ100003, nor for the watermark
+    assert result.variants_synced == 1
+    assert [(s.fz_key, s.field, s.error) for s in result.skipped] == [
+        ("FZ100002", "not_attempted", "ProviderTransportError"),
+        ("FZ100003", "not_attempted", "ProviderTransportError"),
+    ]
+    state = catalogue_sync.get_sync_state(db_session, tenant_id=tenant_id, provider_code="auto_i_dat_mock")
+    assert [p["fz_key"] for p in state.pending_fz_keys] == ["FZ100002", "FZ100003"]
+    assert state.last_system_watermark_date is None
+
+
+def test_a_delta_falling_back_to_a_reseed_still_reports_what_it_skipped(db_session, refusing_adapter):
+    provider = _make_mock_provider(db_session)
+    tenant_id = uuid.uuid4()
+    connection = _make_connection(db_session, provider, tenant_id=tenant_id)
+    refusing_adapter.refuse_images_for = {"FZ100003"}
+
+    try:
+        result = catalogue_sync.run_daily_delta_for_tenant(db_session, tenant_id=tenant_id)
+    finally:
+        resilience.reset_circuit(connection.id)
+
+    assert result.fell_back_to_full_reseed is True
+    assert [(s.fz_key, s.field) for s in result.skipped] == [("FZ100003", "images")]
+
+
+def test_a_failing_watermark_call_still_leaves_the_runs_progress_saved(db_session, refusing_adapter):
+    provider = _make_mock_provider(db_session)
+    tenant_id = uuid.uuid4()
+    connection = _make_connection(db_session, provider, tenant_id=tenant_id)
+    refusing_adapter.refuse_images_for = {"FZ100002"}
+
+    def _refuse_system():
+        raise _Refused("System unavailable")
+
+    refusing_adapter.get_system_watermark = _refuse_system
+    day = dt.date(2026, 6, 2)
+    try:
+        with pytest.raises(_Refused):
+            catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_id, today=day)
+    finally:
+        resilience.reset_circuit(connection.id)
+
+    state = catalogue_sync.get_sync_state(db_session, tenant_id=tenant_id, provider_code="auto_i_dat_mock")
+    assert state.last_delta_cursor == day
+    assert [p["fz_key"] for p in state.pending_fz_keys] == ["FZ100002"]

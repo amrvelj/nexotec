@@ -39,12 +39,16 @@ Per-FzKey isolation (KAN-78): each FzKey is synced in its own
 account is refused, a transport error) is still logged as an ERROR call and
 still charged to the connection's breaker by the gateway — and then caught
 here, recorded on `SyncResult.skipped` and `ProviderSyncState.pending_fz_keys`,
-and the run moves on to the next key. Only a `ProviderGatewayError` is
-isolated this way; anything else is a bug and still aborts the run. When
-the breaker opens mid-run, the keys not yet tried are recorded as pending
-without a call, the watermark is not fetched, and the run ends cleanly. A
-run therefore logs one call per FzKey plus one for `FzKeyChanged` and one
-for `System`, not one per run.
+and the run moves on to the next key. Only a `ProviderGatewayError` raised
+*by a call* is isolated this way; anything else is a bug and still aborts
+the run. A failure about the connection rather than the key — the breaker
+open, the connection disabled, or the adapter failing to build (a WSDL that
+will not load) — stops the loop: the keys not yet synced are recorded as
+pending without a call, the watermark is not fetched, and the run ends
+cleanly. A run therefore logs one call per FzKey plus one for
+`FzKeyChanged` and one for `System`, not one per run — and, because the
+gateway resolves an adapter per `call_capability`, builds the adapter that
+many times too.
 """
 
 import datetime as dt
@@ -52,6 +56,7 @@ import logging
 import re
 import uuid
 from dataclasses import dataclass, field
+from typing import Literal
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -59,7 +64,6 @@ from sqlalchemy.orm import Session
 from app.core.base import utcnow
 from app.integration.public import (
     CircuitOpenError,
-    ConnectionDisabledError,
     IntegrationConnection,
     ProviderGatewayError,
     VariantMasterData,
@@ -109,8 +113,10 @@ class NoVehicleDataConnectionError(Exception):
 
 
 # The value `SkippedFzKey.field` takes for a key the run never sent to the
-# provider because the connection's circuit had opened.
+# provider because the connection itself failed (see `_ConnectionFailed`).
 NOT_ATTEMPTED = "not_attempted"
+
+SkippedField = Literal["master_data", "options", "colours", "tyre_specs", "images", "not_attempted"]
 
 
 @dataclass(frozen=True)
@@ -122,7 +128,7 @@ class SkippedFzKey:
     """
 
     fz_key: str
-    field: str
+    field: SkippedField
     error: str
 
 
@@ -140,7 +146,11 @@ class SyncResult:
 class _KeyProgress:
     """Which provider call the current FzKey is on, so a failure can name it."""
 
-    field: str = "master_data"
+    field: SkippedField = "master_data"
+    # Set as the first statement inside the `call_capability` block: a
+    # failure while it is still False came from resolving the adapter, not
+    # from a call about this key.
+    entered: bool = False
 
 
 def _slugify(name: str) -> str:
@@ -489,7 +499,19 @@ def _sync_tenant_variant_content(
 class _RunOutcome:
     variants_synced: int = 0
     skipped: list[SkippedFzKey] = field(default_factory=list)
-    circuit_opened: bool = False
+    # Set when the connection itself failed mid-run; the run stops calling
+    # the provider and does not fetch the watermark.
+    connection_failed: bool = False
+
+
+class _ConnectionFailed(Exception):
+    """A per-key `call_capability` failed before its block was entered —
+    the breaker is open, the connection is disabled, or the adapter could
+    not be built. None of that is about the key, so the loop stops."""
+
+    def __init__(self, cause: ProviderGatewayError) -> None:
+        super().__init__(type(cause).__name__)
+        self.error = type(cause).__name__
 
 
 def _sync_one_key(
@@ -500,9 +522,12 @@ def _sync_one_key(
     (SUCCESS or ERROR), charges or resets the breaker, commits, and
     re-raises a failure — which is caught here and returned as the skip.
 
-    `CircuitOpenError` and `ConnectionDisabledError` are refusals the
-    gateway makes *before* any call, about the connection rather than this
-    key, so they propagate to the caller instead.
+    A `ProviderGatewayError` raised before the block is entered comes from
+    the gateway resolving the adapter (`CircuitOpenError`,
+    `ConnectionDisabledError`, a WSDL that will not load). The gateway
+    neither logs nor charges those, and they are about the connection, not
+    this key — so they are raised as `_ConnectionFailed` for the caller to
+    stop on.
     """
 
     progress = _KeyProgress()
@@ -510,15 +535,16 @@ def _sync_one_key(
         with call_capability(
             db, connection=connection, capability="vehicle_data", actor_id=actor_id, purpose=purpose,
         ) as adapter:
+            progress.entered = True
             master = adapter.fetch_vehicle_master_data(fz_key)
             variant = upsert_model_variant(db, provider_code=provider_code, master=master)
             _sync_tenant_variant_content(
                 db, tenant_id=tenant_id, provider_code=provider_code, model_variant=variant, fz_key=fz_key,
                 master=master, adapter=adapter, progress=progress,
             )
-    except (CircuitOpenError, ConnectionDisabledError):
-        raise
     except ProviderGatewayError as exc:
+        if not progress.entered:
+            raise _ConnectionFailed(exc) from exc
         return SkippedFzKey(fz_key=fz_key, field=progress.field, error=type(exc).__name__)
     return None
 
@@ -527,12 +553,12 @@ def _sync_keys(
     db: Session, *, connection: IntegrationConnection, tenant_id: uuid.UUID, provider_code: str,
     fz_keys: list[str], actor_id: uuid.UUID | None, purpose: str,
 ) -> _RunOutcome:
-    """Every key is attempted unless the connection's circuit opens; a
-    provider failure on one key is recorded and the loop moves on. Once
-    the circuit is open, the gateway refuses before any call, so that key
-    and every later one are recorded as `NOT_ATTEMPTED`. Anything that is
-    not a `ProviderGatewayError` — a bug, a database error — propagates
-    and aborts the run, as before.
+    """Every key is attempted unless the connection itself fails; a
+    provider failure on one key is recorded and the loop moves on. Once the
+    connection fails (`_ConnectionFailed`), that key and every later one
+    are recorded as `NOT_ATTEMPTED` without a call. Anything that is not a
+    `ProviderGatewayError` — a bug, a database error — propagates and
+    aborts the run, as before.
     """
 
     outcome = _RunOutcome()
@@ -542,11 +568,10 @@ def _sync_keys(
                 db, connection=connection, tenant_id=tenant_id, provider_code=provider_code, fz_key=fz_key,
                 actor_id=actor_id, purpose=purpose,
             )
-        except CircuitOpenError:
-            outcome.circuit_opened = True
+        except _ConnectionFailed as failure:
+            outcome.connection_failed = True
             outcome.skipped.extend(
-                SkippedFzKey(fz_key=key, field=NOT_ATTEMPTED, error=CircuitOpenError.__name__)
-                for key in fz_keys[index:]
+                SkippedFzKey(fz_key=key, field=NOT_ATTEMPTED, error=failure.error) for key in fz_keys[index:]
             )
             break
         if skipped is None:
@@ -601,26 +626,32 @@ def _run(
     ]
     db.commit()
 
-    if outcome.skipped:
+    # Not fetched once the connection has failed: the gateway would refuse
+    # or fail it again, and leaving the watermark untouched lets the A-12
+    # alarm notice a mirror that stops moving. The breaker can also open on
+    # the run's last key, which the loop never sees — that refusal ends the
+    # run the same way rather than raising out of it.
+    if not outcome.connection_failed:
+        try:
+            with call_capability(
+                db, connection=connection, capability="vehicle_data", actor_id=actor_id, purpose=purpose,
+            ) as adapter:
+                watermark = adapter.get_system_watermark()
+        except CircuitOpenError:
+            outcome.connection_failed = True
+        else:
+            state.last_system_watermark_date = watermark.update_date
+            state.last_system_checked_at = utcnow()
+            db.commit()
+
+    if outcome.skipped or outcome.connection_failed:
         logger.warning(
             "catalogue sync skipped %d of %d FzKeys", len(outcome.skipped), len(fz_keys),
             extra={
                 "tenantId": str(tenant_id), "providerCode": provider_code,
-                "circuitOpened": outcome.circuit_opened,
+                "connectionFailed": outcome.connection_failed,
             },
         )
-
-    # Through an open circuit the watermark would not be fetched anyway;
-    # leaving it untouched lets the A-12 alarm notice a mirror that stops
-    # moving, rather than asking the gateway for a call it will refuse.
-    if not outcome.circuit_opened:
-        with call_capability(
-            db, connection=connection, capability="vehicle_data", actor_id=actor_id, purpose=purpose,
-        ) as adapter:
-            watermark = adapter.get_system_watermark()
-        state.last_system_watermark_date = watermark.update_date
-        state.last_system_checked_at = utcnow()
-        db.commit()
 
     return SyncResult(
         tenant_id=tenant_id, connection_id=connection.id, provider_code=provider_code,
