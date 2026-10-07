@@ -82,6 +82,9 @@ describe('IdentificationPanel', () => {
     await identify(user, 'ZH999999')
     const picker = await screen.findByText(i18n.t('configurator.identify.plateRecords.wechselschild'))
     expect(screen.queryByText(i18n.t('configurator.identify.plateRecords.conflict'))).not.toBeInTheDocument()
+    // Legitimate, not an error: the informational alert, not the conflict one.
+    expect(screen.getByTestId('plate-records-interchangeable')).toBeInTheDocument()
+    expect(screen.queryByTestId('plate-records-conflict')).not.toBeInTheDocument()
     expect(screen.getByText('Alfa Romeo Giulietta 1.4 TB')).toBeInTheDocument()
     expect(screen.getByText('Volkswagen Golf GTI')).toBeInTheDocument()
     expect(onStart).not.toHaveBeenCalled()
@@ -119,6 +122,7 @@ describe('IdentificationPanel', () => {
 
     await identify(user, 'GE111111')
     expect(await screen.findByText(i18n.t('configurator.identify.plateRecords.conflict'))).toBeInTheDocument()
+    expect(screen.getByTestId('plate-records-conflict')).toBeInTheDocument()
     expect(screen.queryByText(i18n.t('configurator.identify.plateRecords.wechselschild'))).not.toBeInTheDocument()
   })
 

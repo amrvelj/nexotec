@@ -188,9 +188,13 @@ export function IdentificationPanel({ allowedModes, onStart, onReuse, onQueryCha
           )}
 
           {result.outcome === 'plate_records' && (
+            // A Wechselschild (or one plate on a car and a motorcycle) is
+            // legitimate — informational, never styled as a warning (KAN-42
+            // exit criterion 3). Only a genuine conflict is.
             <Alert
-              icon={<AlertTriangle size={16} />}
-              color={result.plateRecordsConflict ? 'orange' : 'yellow'}
+              icon={result.plateRecordsConflict ? <AlertTriangle size={16} /> : <Info size={16} />}
+              color={result.plateRecordsConflict ? 'orange' : 'blue'}
+              data-testid={result.plateRecordsConflict ? 'plate-records-conflict' : 'plate-records-interchangeable'}
               title={
                 result.plateRecordsConflict
                   ? t('configurator.identify.plateRecords.conflict')
@@ -217,8 +221,8 @@ export function IdentificationPanel({ allowedModes, onStart, onReuse, onQueryCha
 
           {result.variants.length > 0 && (
             <Alert
-              icon={<AlertTriangle size={16} />}
-              color={result.variants.length > 1 ? 'yellow' : 'gray'}
+              icon={<Info size={16} />}
+              color={result.variants.length > 1 ? 'blue' : 'gray'}
               title={
                 result.variants.length > 1
                   ? t('configurator.identify.variantsTitle')
