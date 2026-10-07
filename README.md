@@ -108,6 +108,7 @@ alarm gauges every 30s once metrics are configured:
 | `dms.outbox.lag_seconds` | Age of the oldest still-pending outbox message | fires if > 300s |
 | `dms.outbox.dead_letter_count` | Messages that exhausted all retry attempts | fires if > 0 |
 | `dms.consumer.lag_seconds{consumer_name=...}` | Time since a consumer last processed anything | fires if > 300s, per consumer |
+| `dms.label.age_seconds{label=...}` | Age of the stalest denormalised cross-context label, per label (KAN-84: `vehicle_party.vehicle`, refreshed by the nightly `customer.vehicle_party_labels` job) | fires if > 93600s (26h), per label |
 
 No real consumer is registered yet (PR-4 shipped outbox machinery only, no
 business events — see `app/worker.py::register_handlers`), so
