@@ -8,6 +8,7 @@ before this PR — none, for the five FK-target entities.
 
 import datetime as dt
 import uuid
+from decimal import Decimal
 
 import pytest
 from sqlalchemy import update
@@ -24,8 +25,12 @@ from app.inventory.services.stock_item import create_stock_item
 from app.reconciliation_runner import MultiContextReconciliationAlarm, run_all
 from app.sales import reconciliation as sales_reconciliation
 from app.sales.models.contract import ContractStatus, SalesContract
+from app.sales.models.offer import SalesOffer
 from app.sales.models.stock_item_purchase import SalesStockItemPurchase
 from app.sales.models.transaction import Transaction, TransactionStatus, TransactionType
+from app.valuation.models.valuation import ValuationSource
+from app.valuation.schemas.valuation import ValuationCreate
+from app.valuation.services.valuation import create_valuation
 from app.vehicle import reconciliation as vehicle_reconciliation
 from app.vehicle.models.vehicle import CustodyEventType, VehicleCustodyEvent
 
@@ -322,14 +327,18 @@ def test_sales_reconciliation_detects_a_purchase_replica_for_a_stock_item_that_d
     assert exc_info.value.orphans[0].check_label == "sales_stock_item_purchase.stock_item_id -> stock_item.id"
 
 
+def _stock_item(db_session, dealer_id):
+    return create_stock_item(
+        db_session, tenant_id=uuid.UUID(dealer_id),
+        data=StockItemCreate(vehicle_label="Seat Leon", condition=StockItemCondition.USED, vin=_random_vin()),
+        actor_id=None,
+    )
+
+
 def _invoiceable_stock_item(db_session, dealer_id, *, hours_ago):
     """A stock item Stock holds as purchased, last touched `hours_ago`."""
 
-    item = create_stock_item(
-        db_session, tenant_id=uuid.UUID(dealer_id),
-        data=StockItemCreate(vehicle_label="Seat Leon", condition=StockItemCondition.USED, vin="VSSZZZKLZNR000001"),
-        actor_id=None,
-    )
+    item = _stock_item(db_session, dealer_id)
     db_session.execute(
         update(StockItem)
         .where(StockItem.id == item.id)
@@ -352,8 +361,8 @@ def test_sales_reconciliation_detects_a_purchase_sales_never_learned_of(client, 
 
     assert exc_info.value.run.orphans_found == 1
     orphan = exc_info.value.orphans[0]
-    assert orphan.check_label == "stock_item.is_invoiceable -> sales_stock_item_purchase.stock_item_id"
-    assert orphan.dangling_value == item.id
+    assert orphan.check_label == "stock item purchased in Stock with no purchase replica in its dealership"
+    assert (orphan.source_table, orphan.source_row_id) == ("stock_item", item.id)
 
 
 def test_sales_reconciliation_leaves_a_purchase_still_within_outbox_lag_alone(client, db_session):
@@ -407,6 +416,145 @@ def test_sales_reconciliation_leaves_a_fresh_or_linked_manual_contract_alone(cli
     _manual_contract(db_session, dealer_id, signed_hours_ago=2, stock_item_id=item.id)
 
     assert sales_reconciliation.run(db_session).orphans_found == 0
+
+
+def test_sales_reconciliation_detects_a_purchase_recorded_for_another_dealership(client, db_session):
+    """KAN-145 — SalesContract.is_invoiceable matches the replica on tenant
+    as well as item, so a replica filed under another dealership of the
+    group leaves the car un-invoiceable where it was bought, and claims a
+    purchase the other dealership never made. Both rows are findings."""
+
+    dealer_id = _create_dealer(client)
+    other_dealer_id = _create_dealer(client)
+    item = _invoiceable_stock_item(db_session, dealer_id, hours_ago=2)
+    replica = SalesStockItemPurchase(tenant_id=uuid.UUID(other_dealer_id), stock_item_id=item.id, source_event_id=None)
+    db_session.add(replica)
+    db_session.commit()
+
+    with pytest.raises(ReconciliationAlarm) as exc_info:
+        sales_reconciliation.run(db_session)
+
+    assert sorted((o.check_label, o.source_table, o.source_row_id) for o in exc_info.value.orphans) == [
+        ("purchase replica whose stock item is not purchased in Stock for its dealership",
+         "sales_stock_item_purchase", replica.id),
+        ("stock item purchased in Stock with no purchase replica in its dealership", "stock_item", item.id),
+    ]
+
+
+def test_sales_reconciliation_detects_a_purchase_stock_never_recorded(client, db_session):
+    """KAN-145 — a replica (written by a script, say) for a car Stock does not
+    hold as purchased: Sales would let it be invoiced before the dealership
+    has bought it."""
+
+    dealer_id = _create_dealer(client)
+    item = _stock_item(db_session, dealer_id)
+    replica = SalesStockItemPurchase(tenant_id=uuid.UUID(dealer_id), stock_item_id=item.id, source_event_id=None)
+    db_session.add(replica)
+    db_session.commit()
+
+    with pytest.raises(ReconciliationAlarm) as exc_info:
+        sales_reconciliation.run(db_session)
+
+    assert exc_info.value.run.orphans_found == 1
+    orphan = exc_info.value.orphans[0]
+    assert orphan.check_label == "purchase replica whose stock item is not purchased in Stock for its dealership"
+    assert (orphan.source_table, orphan.source_row_id, orphan.dangling_value) == (
+        "sales_stock_item_purchase", replica.id, replica.id,
+    )
+
+
+def _offer(db_session, dealer_id, **columns):
+    offer = SalesOffer(tenant_id=uuid.UUID(dealer_id), offer_number=f"O-{uuid.uuid4().hex[:6]}")
+    for name, value in columns.items():
+        setattr(offer, name, value)
+    db_session.add(offer)
+    db_session.commit()
+    return offer
+
+
+def _contract(db_session, dealer_id, **columns):
+    contract = SalesContract(tenant_id=uuid.UUID(dealer_id), contract_number=f"C-{uuid.uuid4().hex[:6]}")
+    for name, value in columns.items():
+        setattr(contract, name, value)
+    db_session.add(contract)
+    db_session.commit()
+    return contract
+
+
+@pytest.mark.parametrize(
+    ("seed", "column", "label", "extra"),
+    [
+        (_offer, "tenant_id", "sales_offer.tenant_id -> dealership.id", {}),
+        (_offer, "customer_id", "sales_offer.customer_id -> customer.id", {}),
+        (_offer, "stock_item_id", "sales_offer.stock_item_id -> stock_item.id", {}),
+        (_offer, "trade_in_vehicle_id", "sales_offer.trade_in_vehicle_id -> vehicle_mdm.id", {}),
+        (_offer, "trade_in_valuation_id", "sales_offer.trade_in_valuation_id -> valuation.id", {}),
+        (_contract, "tenant_id", "sales_contract.tenant_id -> dealership.id", {}),
+        (_contract, "customer_id", "sales_contract.customer_id -> customer.id", {}),
+        (_contract, "stock_item_id", "sales_contract.stock_item_id -> stock_item.id", {}),
+        (_contract, "trade_in_vehicle_id", "sales_contract.trade_in_vehicle_id -> vehicle_mdm.id", {}),
+        (_contract, "trade_in_valuation_id", "sales_contract.trade_in_valuation_id -> valuation.id", {}),
+        (
+            _contract, "reservation_id", "sales_contract.reservation_id -> stock_item.active_reservation_id",
+            {"status": ContractStatus.CONFIRMED, "signed_at": dt.datetime.now(dt.UTC)},
+        ),
+    ],
+)
+def test_sales_reconciliation_detects_each_dangling_offer_and_contract_reference(
+    client, db_session, seed, column, label, extra
+):
+    """KAN-145 — every cross-context id on sales_offer and sales_contract is
+    a plain GUID (rule 2); only reconciliation can tell when one dangles."""
+
+    dealer_id = _create_dealer(client)
+    dangling = uuid.uuid4()
+    row = seed(db_session, dealer_id, **{column: dangling}, **extra)
+
+    with pytest.raises(ReconciliationAlarm) as exc_info:
+        sales_reconciliation.run(db_session)
+
+    assert [(o.check_label, o.source_row_id, o.dangling_value) for o in exc_info.value.orphans] == [
+        (label, row.id, dangling)
+    ]
+
+
+def test_sales_reconciliation_accepts_offers_and_contracts_whose_references_resolve(client, db_session):
+    """The clean side of KAN-145: real references, absent (null) ones, a
+    confirmed contract whose car is still held for it, and a cancelled
+    contract that keeps the id of the hold it released."""
+
+    dealer_id = _create_dealer(client)
+    customer_id = uuid.UUID(_create_customer(client, dealer_id)["id"])
+    trade_in_vehicle_id = _create_vehicle_mdm(db_session)
+    valuation = create_valuation(
+        db_session, tenant_id=uuid.UUID(dealer_id), group_id=uuid.UUID(_REAL_GROUP_IDS[dealer_id]), actor_id=None,
+        data=ValuationCreate(source=ValuationSource.MANUAL, final_offer=Decimal("2500.00")),
+    )
+    db_session.commit()
+    held_item = _stock_item(db_session, dealer_id)
+    released_item = _stock_item(db_session, dealer_id)
+    references = {
+        "customer_id": customer_id, "trade_in_vehicle_id": trade_in_vehicle_id, "trade_in_valuation_id": valuation.id,
+    }
+
+    _offer(db_session, dealer_id)
+    _offer(db_session, dealer_id, stock_item_id=held_item.id, **references)
+    confirmed = _contract(
+        db_session, dealer_id, status=ContractStatus.CONFIRMED, signed_at=dt.datetime.now(dt.UTC),
+        vehicle_source="stock", stock_item_id=held_item.id, reservation_id=uuid.uuid4(), **references,
+    )
+    db_session.execute(
+        update(StockItem).where(StockItem.id == held_item.id).values(active_reservation_id=confirmed.reservation_id)
+    )
+    db_session.commit()
+    _contract(
+        db_session, dealer_id, status=ContractStatus.CANCELLED, vehicle_source="stock",
+        stock_item_id=released_item.id, reservation_id=uuid.uuid4(),
+    )
+
+    run = sales_reconciliation.run(db_session)
+
+    assert run.orphans_found == 0
 
 
 # --- top-level runner: every context runs even when an earlier one alarms --------
