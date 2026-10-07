@@ -190,7 +190,7 @@ def lane_config():
             problems.append("rules/{}: only `paths` is read from rule frontmatter".format(name))
     lines = len(open(os.path.join(ROOT, "CLAUDE.md")).read().splitlines())
     if lines > 200:
-        problems.append("CLAUDE.md has {} lines; keep it under 200 (move area detail into .claude/rules/)".format(lines))
+        problems.append("CLAUDE.md has {} lines; keep it to at most 200 (move area detail into .claude/rules/)".format(lines))
     print("\n".join(problems) if problems else "ok")
     return ok and not problems
 

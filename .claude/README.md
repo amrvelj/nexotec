@@ -7,7 +7,7 @@ when it needs to explain or change the setup.
 
 | Piece | Loaded | Job |
 |---|---|---|
-| `CLAUDE.md` | every session | Rules true in every session. No build status. Under 200 lines. |
+| `CLAUDE.md` | every session | Rules true in every session. No build status. At most 200 lines. |
 | `.claude/rules/*.md` | when Claude reads a file matching the rule's `paths` | Rulings for one area (UI, customer, vehicle, sales, …) |
 | `.claude/skills/*/SKILL.md` | when invoked (`/ticket`, `/verify`, `/spec-review`, `/architect`, `/drift-audit`) | Workflows |
 | `.claude/agents/reviewer.md` | when delegated to | Independent review with fresh context; cannot edit |
