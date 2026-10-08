@@ -16,6 +16,7 @@ token either way.
 
 import logging
 import uuid
+from dataclasses import dataclass
 from typing import Any
 
 from fastapi import APIRouter, Depends, Request, Response
@@ -31,7 +32,7 @@ from app.core.auth import (
     get_current_principal,
 )
 from app.core.config import get_settings
-from app.core.errors import ForbiddenError
+from app.core.errors import ForbiddenError, UnauthorizedError
 from app.db import get_db
 from app.platform.models.dealership import Dealership
 from app.platform.models.user import User, UserStatus
@@ -64,6 +65,49 @@ def _set_session_cookie(response: Response, token: str) -> None:
 
 def _membership_ids(db: Session, *, user_id: uuid.UUID, home_dealership_id: uuid.UUID) -> frozenset[uuid.UUID]:
     return frozenset({home_dealership_id}) | user_service.list_membership_dealership_ids(db, user_id=user_id)
+
+
+# Auth & Identity risk 4: whether a user may hold a session at all is checked
+# where every minting path passes, never in each route (KAN-141). Same rule
+# as login has always applied.
+_INACTIVE_STATUSES = frozenset({UserStatus.SUSPENDED, UserStatus.DEACTIVATED})
+
+
+@dataclass(frozen=True)
+class _MintedSession:
+    token: str
+    dealership: Dealership
+    membership_ids: frozenset[uuid.UUID]
+
+
+def _mint_session(db: Session, *, user: User, dealership_id: uuid.UUID) -> _MintedSession:
+    """The one path every session token is minted through — login and
+    switch-dealership alike (KAN-141). Everything is read from the database
+    at the moment of minting, never from a token the caller already holds:
+    a suspended or deactivated user is refused with 401 (the only
+    UnauthorizedError raised here), and the target must be the home
+    dealership or a current dealership_membership row — 403 otherwise,
+    checked before the dealership is looked up, so an unknown id reveals
+    nothing.
+    """
+
+    if user.status in _INACTIVE_STATUSES:
+        raise UnauthorizedError("This user account is not active.")
+    membership_ids = _membership_ids(db, user_id=user.id, home_dealership_id=user.tenant_id)
+    if dealership_id not in membership_ids:
+        raise ForbiddenError("This dealership is not one of your memberships.")
+    dealership = dealership_service.get_dealership_or_404(db, dealership_id)
+    token = create_access_token(
+        user_id=user.id,
+        tenant_id=dealership.id,
+        group_id=dealership.dealer_group_id,
+        memberships=membership_ids,
+        roles=frozenset(AccessRole(role) for role in user.access_roles),
+        # The TARGET dealership's flag, never the home one carried across
+        # (KAN-98, D-A-01: the manager flag is held per dealership).
+        is_dealer_manager=user_service.is_dealer_manager_in(db, user=user, dealership_id=dealership.id),
+    )
+    return _MintedSession(token=token, dealership=dealership, membership_ids=membership_ids)
 
 
 def _login_response(db: Session, *, user, active_dealership: Dealership, membership_ids) -> LoginResponse:
@@ -126,27 +170,21 @@ async def oidc_callback(
     if user is None:
         logger.warning("oidc_login_rejected_not_provisioned", extra={"sub": identity.sub})
         return RedirectResponse(_error_redirect_url())
-    if user.status in (UserStatus.SUSPENDED, UserStatus.DEACTIVATED):
+    try:
+        # The home dealership is always a membership, so the only refusal
+        # possible here is an inactive user.
+        minted = _mint_session(db, user=user, dealership_id=user.tenant_id)
+    except UnauthorizedError:
         logger.warning("oidc_login_rejected_inactive_user", extra={"sub": identity.sub, "user_id": str(user.id)})
         return RedirectResponse(_error_redirect_url())
 
-    dealership = dealership_service.get_dealership_or_404(db, user.tenant_id)
-    membership_ids = _membership_ids(db, user_id=user.id, home_dealership_id=user.tenant_id)
-    token = create_access_token(
-        user_id=user.id,
-        tenant_id=user.tenant_id,
-        group_id=dealership.dealer_group_id,
-        memberships=membership_ids,
-        roles=frozenset(AccessRole(role) for role in user.access_roles),
-        is_dealer_manager=user.is_dealer_manager,
-    )
     # The cookie must be set directly on the Response object this endpoint
     # actually returns — FastAPI only merges an injected `response: Response`
     # dependency's headers/cookies into the final response when the route
     # returns a plain value it wraps itself, not when the route returns its
     # own Response (RedirectResponse here) explicitly.
     redirect = RedirectResponse(_success_redirect_url())
-    _set_session_cookie(redirect, token)
+    _set_session_cookie(redirect, minted.token)
     return redirect
 
 
@@ -184,23 +222,16 @@ def switch_dealership(
     the TARGET dealership's own dealer_group_id, not assumed unchanged from
     the caller's current token, since a membership could in principle span
     two different groups.
+
+    A fresh token is a renewed session, so it is minted like a login
+    (KAN-141): the user's status and memberships are re-read from the
+    database, never trusted from the token the caller already holds — a
+    user deactivated or a membership revoked since login is refused.
     """
 
-    if body.dealership_id not in principal.memberships:
-        raise ForbiddenError("This dealership is not one of your memberships.")
-
-    dealership = dealership_service.get_dealership_or_404(db, body.dealership_id)
     user = user_service.get_own_user_or_404(db, principal.user_id)
-    membership_ids = _membership_ids(db, user_id=user.id, home_dealership_id=user.tenant_id)
-    token = create_access_token(
-        user_id=user.id,
-        tenant_id=dealership.id,
-        group_id=dealership.dealer_group_id,
-        memberships=membership_ids,
-        roles=frozenset(AccessRole(role) for role in user.access_roles),
-        # The TARGET dealership's flag, never the home one carried across
-        # (KAN-98, D-A-01: the manager flag is held per dealership).
-        is_dealer_manager=user_service.is_dealer_manager_in(db, user=user, dealership_id=dealership.id),
+    minted = _mint_session(db, user=user, dealership_id=body.dealership_id)
+    _set_session_cookie(response, minted.token)
+    return _login_response(
+        db, user=user, active_dealership=minted.dealership, membership_ids=minted.membership_ids
     )
-    _set_session_cookie(response, token)
-    return _login_response(db, user=user, active_dealership=dealership, membership_ids=membership_ids)

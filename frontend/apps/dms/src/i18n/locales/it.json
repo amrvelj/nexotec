@@ -883,7 +883,9 @@
     },
     "submit": "Aggiungi",
     "errors": {
-      "somethingWentWrong": "Qualcosa è andato storto."
+      "somethingWentWrong": "Qualcosa è andato storto.",
+      "vinAlreadyInStock": "Questo VIN è già a magazzino — numero di magazzino {{stockNumber}}.",
+      "openExisting": "Apri il veicolo"
     }
   },
   "salesList": {
@@ -1137,7 +1139,8 @@
     "actions": {
       "revalue": "Rivaluta",
       "markUsed": "Segna come utilizzata",
-      "markUsedDisabledReason": "Possibile solo da bozza o valida.",
+      "markUsedAlreadyUsed": "Già segnata come utilizzata.",
+      "markUsedNoSignedContract": "Possibile solo se un contratto firmato contiene questa valutazione come permuta.",
       "openCustomer": "Apri cliente",
       "openVehicle": "Apri veicolo"
     },
@@ -1455,7 +1458,8 @@
         "dimensions": "Dimensioni & pesi",
         "consumption": "Consumo & energia",
         "codes": "Codici",
-        "price": "Prezzo"
+        "price": "Prezzo",
+        "vehicleType": "Tipo di veicolo"
       },
       "fields": {
         "modelTypeName": "Tipo di modello",
@@ -1480,8 +1484,12 @@
         "importcode": "Codice di importazione",
         "basePriceYear": "Anno del prezzo",
         "vehicleKind": "Genere di veicolo",
-        "priceIsNet": "Prezzo netto"
-      }
+        "priceIsNet": "Prezzo netto",
+        "drivetrain": "Trazione"
+      },
+      "retired": "Non più disponibile — scegli un valore attuale",
+      "retiredSaveError": "Non più disponibile: {{fields}}. Scegli un valore attuale prima di salvare.",
+      "listUnavailable": "Impossibile caricare l'elenco"
     },
     "options": {
       "noCatalogueVariant": "Le opzioni di catalogo non sono disponibili per una configurazione manuale.",

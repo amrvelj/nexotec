@@ -19,9 +19,9 @@ paths:
 Administration PRD and Authentication & Identity (rulings D-A-01…D-A-09, 2026-09-20; they
 absorb Roles & Permissions v0.2 and supersede ADR-027). Verified against main@568f416 on
 2026-09-28 (every present-tense claim checked against the code), except the "Access — what
-exists today" paragraph, re-verified against the KAN-97 branch on 2026-10-04, and the D-A-01
-bullet, re-checked for KAN-98 on 2026-10-04. "Not built" lines are re-checked weekly by
-/drift-audit. -->
+exists today" paragraph, re-verified against the KAN-97 branch on 2026-10-04, the D-A-01
+bullet, re-checked for KAN-98 on 2026-10-04, and the "Session minting" paragraph, added from
+the KAN-141 branch on 2026-10-07. "Not built" lines are re-checked weekly by /drift-audit. -->
 
 # Platform: organisation, access, administration, authentication
 
@@ -57,6 +57,17 @@ staff only. It is an ordinary `AccessRole` value, so `app/platform/services/user
 (on writes only if `manager_can_write`). `read_roles=None` = any role; an empty set = manager
 only. An empty `write_roles` = platform staff or the manager — except `audit_logs`, which the
 manager cannot write.
+
+**Session minting (KAN-141).** Today every session token is minted through `_mint_session` in
+`app/platform/api/auth.py` — the OIDC callback and switch-dealership. It refuses a suspended
+or deactivated user (401) and authorises the target dealership from the home dealership plus
+`dealership_membership` rows, never the token's `memberships` claim (403). Auth & Identity
+risk 4 puts such checks where every minting path passes, so KAN-196's `POST /v1/auth/login`
+mints through it. **Open, not settled here (KAN-254):** the ADR-028 terminal path
+(`WORKSHOP_TERMINAL_AUTH_DESIGN.md`) is designed to call `create_access_token` directly with
+fixed `{TECHNICIAN}` roles, which `_mint_session` cannot mint — how it gets the status check
+needs an ADR. Not yet true: `get_current_principal` does not check `status`, so an issued
+token works until it expires (FR-A-10; KAN-196's sessions step).
 
 ## Dealer Administration (D-A-01 … D-A-06) — decided, NOT built
 
