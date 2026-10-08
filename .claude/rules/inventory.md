@@ -62,8 +62,8 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   `services/reservation_sweep.py`), registered after `reconciliation.run_all`. A reservation
   whose contract is cancelled, missing, or pending is released; confirmed and invoiced keep the
   car (Anto, 2026-10-07). A pending contract's reservation made in the last hour waits for the
-  next run, because a confirmation commits the reservation before the contract (the builder's
-  margin, pending Anto's ruling). Stock reads the statuses through
+  next run, because a confirmation commits the reservation before the contract (Anto,
+  2026-10-08). Stock reads the statuses through
   `app.sales.public.get_contract_statuses` on a session of its own, and releases each orphan
   in its own commit (ADR-047). Each run logs one line with its counts in the message text; a
   failed release is logged at ERROR and retried the next night.

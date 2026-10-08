@@ -180,8 +180,9 @@ def register_daily_jobs() -> None:
     4. ``inventory.orphaned_reservations.release`` — KAN-122: Stock frees a
        car whose reservation no longer has a signed contract behind it
        (app.inventory.daily_jobs). A repair, so not part of the read-only
-       reconciliation; after it, so a reservation naming a missing contract
-       is recorded as a dangling reference before it is released.
+       reconciliation; after it, so that, when reconciliation ran first that
+       day, a reservation naming a missing contract is recorded as a
+       dangling reference before it is released.
     5. ``vehicle.plate_lookup_cache.purge`` — deletes plate-lookup cache rows
        past their 30-day TTL (KAN-42, FR-C-02; revDSG data minimisation).
     """

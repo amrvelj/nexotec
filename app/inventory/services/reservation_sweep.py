@@ -36,12 +36,12 @@ semantics are KAN-114's, and the confirmed-contract-without-reservation
 state that would leave is what KAN-115's check is for.
 
 Not reconciliation: app.core.reconciliation detects and never repairs (P-10,
-ADR-079). This is the repair ADR-047 gives the nightly run, registered as a
-daily job of its own (app.inventory.daily_jobs) after
-`reconciliation.run_all` (app/worker.py), so that, when reconciliation ran
-first that day, a reservation naming a missing contract is recorded as a
-dangling reference before it is released. The one-hour margin is the
-builder's (KAN-122), pending Anto's ruling.
+ADR-079). This is the repair ADR-047 gives the nightly run: a daily job of
+its own with its own record (app.inventory.daily_jobs; Anto, 2026-10-08:
+finding and fixing stay apart), registered after `reconciliation.run_all`
+(app/worker.py), so that, when reconciliation ran first that day, a
+reservation naming a missing contract is recorded as a dangling reference
+before it is released. The one-hour margin: Anto, 2026-10-08.
 """
 
 import dataclasses

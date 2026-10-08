@@ -440,8 +440,9 @@ def _compensate_confirmation(
     action is attempted even if the other fails, and a failure here is
     logged rather than raised, so it never masks why the confirmation
     failed. ADR-047 leaves what stays undone to the nightly run: a release
-    left undone is freed by Stock's orphan sweep (KAN-122) once the contract
-    has been pending for an hour; no check covers the valuation yet (KAN-115).
+    left undone is freed by Stock's orphan sweep (KAN-122) on its first run
+    once the reservation is an hour old; no check covers the valuation yet
+    (KAN-115).
     """
 
     if reservation_id is not None:
