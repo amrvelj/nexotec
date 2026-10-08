@@ -4,10 +4,11 @@ read-only — see app.core.reconciliation for the mechanism.
 Every cross-context id on sales_offer and sales_contract must resolve
 (KAN-145): the dealership, the users who created and last changed it, the
 customer, stock item, trade-in vehicle, trade-in valuation and configurations.
-They are matched on id alone, not on the row's dealership. A contract's reservation_id names no row of its
-own — it is the stock item's active_reservation_id, cleared when the hold is
-released — so it is checked only while the contract is confirmed: a signed
-contract whose car is no longer held for it could be sold twice.
+They are matched on id alone, not on the row's dealership (KAN-259). A
+contract's reservation_id names no row of its own — it is the stock item's
+active_reservation_id, cleared when the hold is released — so it is checked
+only while the contract is confirmed: a signed contract whose car is no
+longer held for it could be sold twice.
 
 The replica of Stock's purchase fact (KAN-100) is checked against Stock both
 ways round, per dealership (KAN-145): each stock item Stock holds as purchased

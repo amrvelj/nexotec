@@ -189,12 +189,13 @@ def test_a_signed_contract_naming_no_existing_valuation_is_left_to_the_reference
     assert _findings(sales_reconciliation, db_session, SIGNED_WITHOUT_USED_VALUATION) == []
 
 
-def test_a_signed_contract_naming_another_dealerships_valuation_is_left_to_the_reference_check(db_session):
+def test_a_signed_contract_naming_another_dealerships_valuation_is_not_this_checks_finding(db_session):
     """A valuation is tenant-private (ADR-029) and the hand stamp looks for
     signed contracts in the valuation's own dealership, so this check asks
     only about a valuation of the contract's own dealership: a finding here
     could never be cleared. Another dealership's id on a contract is a
-    reference problem — KAN-145's check, not this one."""
+    reference problem, but KAN-145's reference check matches on id alone,
+    so nothing reports it yet (KAN-259)."""
 
     dealership, other = _dealership(db_session), _dealership(db_session)
     foreign = _valuation(db_session, other.id, uuid.uuid4())
