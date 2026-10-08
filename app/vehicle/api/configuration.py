@@ -13,12 +13,12 @@ import dataclasses
 import uuid
 
 from fastapi import APIRouter, Depends, Header, Request
-from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from app.core.auth import Principal, get_current_principal
 from app.core.concurrency import check_version, require_if_match
 from app.core.idempotency import find_cached_response, store_response
+from app.core.idempotent_route import replay_stored_response
 from app.core.permissions import require_write
 from app.db import get_db
 from app.vehicle.schemas.configuration import (
@@ -81,7 +81,7 @@ def create_configuration(
             db, tenant_id=principal.tenant_id, key=idempotency_key, path=request.url.path, body=request_body
         )
         if cached is not None:
-            return JSONResponse(status_code=cached.response_status, content=cached.response_body)
+            return replay_stored_response(cached)
 
     config = configuration_service.create_configuration(
         db, tenant_id=principal.tenant_id, actor_id=principal.user_id, data=body
