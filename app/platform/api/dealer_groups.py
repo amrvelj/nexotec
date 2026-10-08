@@ -10,11 +10,12 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.core.auth import Principal, require_access_role
+from app.core.idempotent_route import IdempotentRoute
 from app.db import get_db
 from app.platform.schemas.dealership import DealerGroupRead
 from app.platform.services import dealership as dealership_service
 
-router = APIRouter(tags=["dealer-groups"])
+router = APIRouter(tags=["dealer-groups"], route_class=IdempotentRoute)
 
 
 @router.post("/dealer-groups/{dealer_group_id}/enable-group-read", response_model=DealerGroupRead)

@@ -29,7 +29,6 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, Depends, Header, Request
-from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from app.core.audit import list_audit_events
@@ -39,6 +38,7 @@ from app.core.concurrency import check_version, require_if_match
 from app.core.config import get_settings
 from app.core.errors import ConflictError, ForbiddenError
 from app.core.idempotency import find_cached_response, store_response
+from app.core.idempotent_route import replay_stored_response
 from app.core.pagination import PageParams, page_params
 from app.core.permissions import require_read, require_write
 from app.db import get_db
@@ -119,7 +119,7 @@ def create_vehicle(
             db, tenant_id=principal.tenant_id, key=idempotency_key, path=request.url.path, body=request_body
         )
         if cached is not None:
-            return JSONResponse(status_code=cached.response_status, content=cached.response_body)
+            return replay_stored_response(cached)
 
     vehicle = vehicle_service.create_vehicle(
         db, data=body, custodian_partner_id=principal.tenant_id, actor_id=principal.user_id
@@ -220,7 +220,7 @@ def create_custody_event(
             db, tenant_id=principal.tenant_id, key=idempotency_key, path=request.url.path, body=request_body
         )
         if cached is not None:
-            return JSONResponse(status_code=cached.response_status, content=cached.response_body)
+            return replay_stored_response(cached)
 
     event = vehicle_service.create_custody_event(
         db,

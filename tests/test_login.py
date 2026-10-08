@@ -10,7 +10,7 @@ import uuid
 
 import pytest
 
-from app.core.auth import AccessRole, create_access_token
+from app.core.auth import AccessRole, create_access_token, get_current_principal
 from app.platform.services.oidc import OidcError, ZitadelIdentity
 
 VALID_ADDRESS = {
@@ -323,6 +323,104 @@ def test_switching_to_a_dealership_outside_your_memberships_is_forbidden(client,
 def test_switch_dealership_requires_authentication(client):
     response = client.post("/v1/auth/switch-dealership", json={"dealershipId": str(uuid.uuid4())})
     assert response.status_code == 401
+
+
+# --- switch-dealership re-checks the database, never the token (KAN-141) ------------
+
+
+def _switch_with(client, token: str, dealership_id: str):
+    client.cookies.set("dms_session", token)
+    try:
+        return client.post("/v1/auth/switch-dealership", json={"dealershipId": dealership_id})
+    finally:
+        client.cookies.delete("dms_session")
+
+
+def _user_with_a_sister_membership(client, db_session) -> tuple[str, str, dict]:
+    from app.platform.models.dealership_membership import DealershipMembership
+
+    dealer_a = _create_dealer(client)
+    dealer_b = _create_dealer(client, dealerLicenseNumber="ZH-99999")
+    # Not a manager — otherwise the "always at least one manager" guard
+    # would correctly reject the status change some of these tests make.
+    user = _create_user(client, dealer_a, isDealerManager=False)
+    db_session.add(DealershipMembership(user_id=uuid.UUID(user["id"]), dealership_id=uuid.UUID(dealer_b)))
+    db_session.commit()
+    return dealer_a, dealer_b, user
+
+
+@pytest.mark.parametrize("target", ["home", "sister"])
+@pytest.mark.parametrize("status", ["suspended", "deactivated"])
+def test_switch_dealership_refuses_a_user_made_inactive_after_login(client, oidc_fake, db_session, status, target):
+    """Dealer Administration FR-A-10: no window in which a deactivated user
+    still holds a working session. Switching — even back to the dealership
+    the token is already in — would otherwise mint a fresh token with a new
+    expiry, renewing the session indefinitely past the deactivation.
+    """
+
+    dealer_a, dealer_b, user = _user_with_a_sister_membership(client, db_session)
+    token = _login_via_oidc(client, oidc_fake, user).cookies.get("dms_session")
+    assert token
+
+    response = client.patch(
+        f"/v1/dealerships/{dealer_a}/users/{user['id']}",
+        json={"status": status},
+        headers={**_bearer(_token(AccessRole.PLATFORM_ADMIN)), "If-Match": "1"},
+    )
+    assert response.status_code == 200, response.text
+
+    response = _switch_with(client, token, dealer_a if target == "home" else dealer_b)
+    assert response.status_code == 401
+    # Refused for the account's status, not for a token that never arrived.
+    assert response.json()["error"]["message"] == "This user account is not active."
+    assert "dms_session=" not in response.headers.get("set-cookie", "")
+
+
+def test_switch_dealership_refuses_a_membership_revoked_after_login(client, oidc_fake, db_session):
+    from sqlalchemy import delete
+
+    from app.platform.models.dealership_membership import DealershipMembership
+
+    _, dealer_b, user = _user_with_a_sister_membership(client, db_session)
+    token = _login_via_oidc(client, oidc_fake, user).cookies.get("dms_session")
+
+    db_session.execute(
+        delete(DealershipMembership).where(
+            DealershipMembership.user_id == uuid.UUID(user["id"]),
+            DealershipMembership.dealership_id == uuid.UUID(dealer_b),
+        )
+    )
+    db_session.commit()
+    # The token the caller still holds keeps claiming the membership.
+    assert uuid.UUID(dealer_b) in get_current_principal(token).memberships
+
+    response = _switch_with(client, token, dealer_b)
+    assert response.status_code == 403
+    assert response.json()["error"]["message"] == "This dealership is not one of your memberships."
+    assert "dms_session=" not in response.headers.get("set-cookie", "")
+
+
+def test_switch_dealership_allows_a_membership_granted_after_login(client, oidc_fake, db_session):
+    """The database is the authority both ways: a membership granted after
+    login is switchable without signing in again, although the token's
+    memberships claim does not list it yet.
+    """
+
+    from app.platform.models.dealership_membership import DealershipMembership
+
+    dealer_a = _create_dealer(client)
+    dealer_b = _create_dealer(client, dealerLicenseNumber="ZH-99999")
+    user = _create_user(client, dealer_a)
+    token = _login_via_oidc(client, oidc_fake, user).cookies.get("dms_session")
+    assert uuid.UUID(dealer_b) not in get_current_principal(token).memberships
+
+    db_session.add(DealershipMembership(user_id=uuid.UUID(user["id"]), dealership_id=uuid.UUID(dealer_b)))
+    db_session.commit()
+
+    response = _switch_with(client, token, dealer_b)
+    assert response.status_code == 200, response.text
+    assert response.json()["activeDealership"]["id"] == dealer_b
+    assert {m["id"] for m in response.json()["memberships"]} == {dealer_a, dealer_b}
 
 
 # --- the manager flag is held per dealership (KAN-98, D-A-01) ----------------------

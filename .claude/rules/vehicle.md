@@ -36,6 +36,12 @@ re-checks them weekly. -->
   contracts are per dealer, so each dealer's cache is fetched with that dealer's credentials
   and never travels through the cross-tenant shared identity response (FR-V-14; architecture
   test on its shape).
+- **Except variant master data** (ADR-075, amending ADR-013): `Brand`, `ModelGroup`,
+  `ModelVariant` with its spec block and list price, `VariantPrice`, `TypeApproval` — and the
+  raw codes a variant was read from (`VariantProviderCode`, KAN-83) — are stored once, globally,
+  readable by every dealer. Options, colours, tyres, images and sync state stay per tenant.
+- A sync visit fills a variant's NULL fields and never overwrites a set one; resolving a
+  mapping gap fills the variants it left NULL at once (KAN-83).
 - Every auto-i-dat call goes through the gateway (architecture test). Provider codes never
   appear in application code: canonical taxonomy + `provider_code_map`.
 - **One registry, many gateways.** `integration` owns connections, write-only secret refs

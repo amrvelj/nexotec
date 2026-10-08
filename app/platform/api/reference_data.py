@@ -12,13 +12,12 @@ every other tenant's dropdowns, with nothing to contain it (unlike Vehicle,
 which at least has per-tenant custody events).
 """
 
-from fastapi import APIRouter, Depends, Header, Request
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.core.auth import Principal, get_current_principal, require_access_role
 from app.core.concurrency import check_version, require_if_match
-from app.core.idempotency import find_cached_response, store_response
+from app.core.idempotent_route import IdempotentRoute
 from app.core.pagination import PageParams, page_params
 from app.db import get_db
 from app.platform.schemas.reference_data import (
@@ -29,11 +28,7 @@ from app.platform.schemas.reference_data import (
 )
 from app.platform.services import reference_data as reference_data_service
 
-router = APIRouter(tags=["reference-data"])
-
-
-def _idempotency_key(idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")) -> str | None:
-    return idempotency_key
+router = APIRouter(tags=["reference-data"], route_class=IdempotentRoute)
 
 
 @router.get("/reference-data/{list_code}", response_model=ReferenceValuePage)
@@ -57,38 +52,14 @@ def list_reference_values(
 def create_reference_value(
     list_code: str,
     body: ReferenceValueCreate,
-    request: Request,
-    idempotency_key: str | None = Depends(_idempotency_key),
     principal: Principal = Depends(require_access_role()),  # platform_admin only
     db: Session = Depends(get_db),
 ):
     ref_list = reference_data_service.get_reference_list_or_404(db, list_code)
-
-    request_body = body.model_dump(mode="json", by_alias=True)
-    if idempotency_key:
-        cached = find_cached_response(
-            db, tenant_id=principal.tenant_id, key=idempotency_key, path=request.url.path, body=request_body
-        )
-        if cached is not None:
-            return JSONResponse(status_code=cached.response_status, content=cached.response_body)
-
     value = reference_data_service.create_reference_value(
         db, ref_list=ref_list, data=body, actor_id=principal.user_id
     )
-    result = ReferenceValueRead.model_validate(value, from_attributes=True)
-
-    if idempotency_key:
-        store_response(
-            db,
-            tenant_id=principal.tenant_id,
-            key=idempotency_key,
-            path=request.url.path,
-            body=request_body,
-            response_status=201,
-            response_body=result.model_dump(mode="json", by_alias=True),
-        )
-        db.commit()
-    return result
+    return ReferenceValueRead.model_validate(value, from_attributes=True)
 
 
 @router.patch("/reference-data/{list_code}/{value_code}", response_model=ReferenceValueRead)

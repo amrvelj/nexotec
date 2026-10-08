@@ -1,6 +1,6 @@
 """Provider abstraction (WP-5 PR-2): the mapping layer that keeps every
 provider code out of application code. No provider calls are made from
-here — that is WP-6's provider-gateway job; these three tables exist so
+here — that is WP-6's provider-gateway job; these tables exist so
 WP-6 has somewhere correct to write its results, and so PR-1's catalogue
 and PR-3's physical vehicle can already speak in canonical codes today,
 with manual entry (FR-V-03), before any provider integration exists.
@@ -14,7 +14,7 @@ MappingGap, never silently dropped, and surfaces in PR-8's admin queue.
 import datetime as dt
 import uuid
 
-from sqlalchemy import Boolean, Integer, String, UniqueConstraint
+from sqlalchemy import Boolean, ForeignKey, Index, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TimestampMixin, utcnow
@@ -92,6 +92,43 @@ class ProviderEntityRef(PrimaryKeyMixin, TimestampMixin, Base):
     entity_id: Mapped[uuid.UUID] = mapped_column(GUID(), nullable=False, index=True)
     provider: Mapped[str] = mapped_column(String(32), nullable=False)
     provider_key: Mapped[str] = mapped_column(String(64), nullable=False)
+
+
+class VariantProviderCode(PrimaryKeyMixin, TimestampMixin, Base):
+    """The raw provider code the provider most recently sent for a
+    `ModelVariant`'s coded field (KAN-83, FR-C-10) — one row per (variant,
+    provider, code_group), keyed
+    exactly as `ProviderCodeMap` and `MappingGap` key a code (`vehicle_kind`
+    is the raw provider vehicle-kind qualifier, `code_group` the semantic
+    field name). The catalogue sync writes it on every visit, so resolving a
+    gap can fill the variants that gap left `NULL` at once
+    (`catalogue_sync.apply_resolved_code_to_variants`), without waiting for
+    the provider to report the variant as changed.
+
+    Global, like the variant it describes: auto-i-dat variant master data is
+    shared platform-wide (ADR-075, amending ADR-013). A field the provider
+    sends no code for has no row. The row follows the provider; the field
+    does not: once a field holds a value, a changed code updates this row
+    but never the field (only an explicit refresh replaces a set value).
+    """
+
+    __tablename__ = "vehicle_variant_provider_code"
+    __table_args__ = (
+        UniqueConstraint(
+            "model_variant_id", "provider", "code_group", name="uq_vehicle_variant_provider_code_field"
+        ),
+        Index(
+            "ix_vehicle_variant_provider_code_code_key", "provider", "vehicle_kind", "code_group", "provider_code"
+        ),
+    )
+
+    model_variant_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), ForeignKey("vehicle_model_variant.id"), nullable=False
+    )
+    provider: Mapped[str] = mapped_column(String(32), nullable=False)
+    vehicle_kind: Mapped[str] = mapped_column(String(64), nullable=False)
+    code_group: Mapped[str] = mapped_column(String(32), nullable=False)
+    provider_code: Mapped[str] = mapped_column(String(32), nullable=False)
 
 
 class MappingGap(PrimaryKeyMixin, TimestampMixin, Base):

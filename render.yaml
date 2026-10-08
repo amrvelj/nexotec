@@ -20,26 +20,29 @@
 #        from cryptography.hazmat.primitives.asymmetric import rsa
 #        key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 #        print(key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()).decode())"
-#      Paste the same PEM into BOTH this service and the outbox-worker
-#      service below — Render's generic generateValue secret is a random
-#      string, not RS256 key material, so this can't be automated either.
-#      The worker never verifies a token itself, but it still constructs
-#      Settings() on import, so it needs a syntactically valid key too; the
-#      same PEM in both places is simpler than explaining why they could
-#      legally differ.
+#      Paste the PEM into this service — Render's generic generateValue
+#      secret is a random string, not RS256 key material, so this can't be
+#      automated either. Should the outbox-worker service (commented out at
+#      the end of this file, KAN-234) ever be provisioned, paste the same
+#      PEM there too: the worker never verifies a token itself, but it still
+#      constructs Settings() on import, so it needs a syntactically valid
+#      key; the same PEM in both places is simpler than explaining why they
+#      could legally differ.
 #   3. DMS_ZITADEL_ISSUER / DMS_ZITADEL_CLIENT_ID / DMS_ZITADEL_CLIENT_SECRET
 #      (WP-4, ADR-016) — from the Zitadel org + application registration for
 #      this environment. DMS_ZITADEL_REDIRECT_URI (below, a plain value, not
 #      a secret) must exactly match the callback URL registered there — an
 #      OIDC provider rejects a mismatch outright, and Render's own generic
 #      generateValue secret obviously can't produce real Zitadel credentials.
-#      Paste the same three values into BOTH this service and the
-#      outbox-worker service below (same reasoning as DMS_JWT_PRIVATE_KEY
-#      above — the worker constructs Settings() on import too).
+#      Paste the three values into this service (and into the outbox-worker
+#      service too, if it is ever provisioned — same reasoning as
+#      DMS_JWT_PRIVATE_KEY above: the worker constructs Settings() on import).
 #   4. DMS_SESSION_SECRET_KEY — generate with:
 #        python -c "import secrets; print(secrets.token_urlsafe(32))"
 #      Signs the transient OIDC login state/nonce/PKCE cookie only, never
-#      the actual session. Paste into both services, same reasoning as #3.
+#      the actual session. Paste into this service (and into the
+#      outbox-worker service too, if it is ever provisioned), same
+#      reasoning as #3.
 #   5. DMS_SEED_DEMO_AUTH_IDENTITY_ID — the demo account's real Zitadel
 #      `sub`, from a demo person pre-provisioned once, by hand, in the
 #      Zitadel console (WP-4 retired the local password this used to be —
@@ -51,7 +54,20 @@
 
 databases:
   - name: dms-staging-db
-    plan: free
+    # 0.1c-256mb, not free (KAN-234): a free Render Postgres expires 30
+    # days after creation and is deleted after a 14-day grace period
+    # (render.com/docs/free, read 2026-10-07), so the live database was
+    # moved to the smallest paid plan, USD 6/month, by hand. A Blueprint
+    # cannot downgrade a database, so with `plan: free` here the sync
+    # failed from 2026-10-06 on ("databases[0].plan cannot downgrade
+    # database from 0.1c-256mb to Free") and no change in this file reached
+    # Render. `0.1c-256mb` is the plan ID Render documents and the string
+    # its error names; `basic-256mb` is the same plan's legacy name, still
+    # accepted in Blueprints (render.com/docs/compute-plans, read
+    # 2026-10-07). This line is the one paid item on staging today; whether
+    # staging stays on Render, and on a paid database, is the hosting
+    # decision KAN-234 records as an ADR in the Target Architecture.
+    plan: 0.1c-256mb
     databaseName: dms_staging
     user: dms_staging
 
@@ -102,6 +118,48 @@ services:
       - key: DMS_SEED_DEMO_AUTH_IDENTITY_ID
         sync: false
 
+  # ---------------------------------------------------------------------
+  # Outbox worker — NOT PROVISIONED ON STAGING (KAN-234).
+  #
+  # Render's free instance type exists for web services, Postgres, Key
+  # Value and static sites only — "Other service types don't support Free
+  # instances" (render.com/docs/free, read 2026-10-07); the smallest worker
+  # plan is 0.5c-512mb, the legacy `starter`, at USD 7/month. So this
+  # service was never created. Declared, it would make the next successful
+  # Blueprint sync create it on that paid plan; the goal is a free staging
+  # environment for as long as it is only staging, so the definition is
+  # kept below, commented out, until KAN-234's hosting ADR says otherwise.
+  # (docker-compose.yml's `worker` service is the same split, provisioned.)
+  #
+  # Without `python -m app.worker` staging delivers NO outbox events and
+  # runs NO daily jobs — the web screens still work, so these flows fail
+  # silently there (app/worker.py::register_handlers, register_daily_jobs):
+  #   - sales.contract.confirmed  -> inventory creates the pipeline stock
+  #     item (a trade-in's item carries its valuation pointer, KAN-101)
+  #   - sales.contract.cancelled  -> inventory releases the reservation on a
+  #     manual configuration's pipeline item (KAN-158)
+  #   - inventory.stock_item.purchased -> sales' is_invoiceable replica
+  #     (ADR-052)
+  #   - inventory.stock_item.added -> a manual configuration's contract
+  #     learns its pipeline stock item (KAN-144)
+  #   - inventory.stock_item.published / .unpublished -> marketplace
+  #     transmission (KAN-27, ADR-062)
+  #   - daily: integration.daily_jobs (auto-i-dat catalogue delta sync,
+  #     sync-age alarm, retention purge, expiry warnings / support digest),
+  #     customer.vehicle_party_labels (KAN-84), reconciliation.run_all
+  #     (CLAUDE.md rule 10), vehicle.plate_lookup_cache.purge (KAN-42)
+  #   - the worker's 30 s heartbeat (app/worker.py::_heartbeat): the
+  #     dms.outbox.lag_seconds, dead-letter, consumer-lag, reconciliation-age
+  #     and label-age gauges — the alarms that would show events piling up
+  #     — and its "outbox heartbeat" log line. The gauges are inert without
+  #     an OTLP endpoint, which this file does not configure; the log line
+  #     needs none and is lost with the process.
+  #
+  # The original service definition and its design notes follow, unchanged
+  # apart from being commented out. Where they say "Starter tier, not
+  # free", read: a worker has no free plan at all; their point stands — a
+  # worker that spins down defeats its purpose.
+  # ---------------------------------------------------------------------
   # Outbox worker (PR-4, Decision 3): same codebase, same database,
   # different entrypoint — not a second deployable in the ADR-015 sense.
   # Two reasons this is its own service rather than a background task on
@@ -119,33 +177,33 @@ services:
   # migration transaction, so the second run waits for the first to commit
   # and then finds the schema already current (KAN-92; CI's
   # migration-smoke-test runs two upgrades concurrently to prove it).
-  - name: dms-staging-outbox-worker
-    type: worker
-    runtime: python
-    plan: starter
-    buildCommand: pip install -e .
-    startCommand: alembic upgrade heads && python -m app.worker
-    envVars:
-      - key: PYTHON_VERSION
-        value: 3.13.0
-      - key: DMS_DATABASE_URL
-        fromDatabase:
-          name: dms-staging-db
-          property: connectionString
-      - key: DMS_JWT_PRIVATE_KEY
-        sync: false
-      - key: DMS_TAX_ID_ENCRYPTION_KEY
-        sync: false
-      - key: DMS_ZITADEL_ISSUER
-        sync: false
-      - key: DMS_ZITADEL_CLIENT_ID
-        sync: false
-      - key: DMS_ZITADEL_CLIENT_SECRET
-        sync: false
-      - key: DMS_ZITADEL_REDIRECT_URI
-        # Same corrected hostname as the web service above — must match
-        # exactly, since this is what Zitadel's registered redirect URI
-        # compares against.
-        value: https://dms-staging-tb9w.onrender.com/v1/auth/oidc/callback
-      - key: DMS_SESSION_SECRET_KEY
-        sync: false
+  # - name: dms-staging-outbox-worker
+  #   type: worker
+  #   runtime: python
+  #   plan: starter
+  #   buildCommand: pip install -e .
+  #   startCommand: alembic upgrade heads && python -m app.worker
+  #   envVars:
+  #     - key: PYTHON_VERSION
+  #       value: 3.13.0
+  #     - key: DMS_DATABASE_URL
+  #       fromDatabase:
+  #         name: dms-staging-db
+  #         property: connectionString
+  #     - key: DMS_JWT_PRIVATE_KEY
+  #       sync: false
+  #     - key: DMS_TAX_ID_ENCRYPTION_KEY
+  #       sync: false
+  #     - key: DMS_ZITADEL_ISSUER
+  #       sync: false
+  #     - key: DMS_ZITADEL_CLIENT_ID
+  #       sync: false
+  #     - key: DMS_ZITADEL_CLIENT_SECRET
+  #       sync: false
+  #     - key: DMS_ZITADEL_REDIRECT_URI
+  #       # Same corrected hostname as the web service above — must match
+  #       # exactly, since this is what Zitadel's registered redirect URI
+  #       # compares against.
+  #       value: https://dms-staging-tb9w.onrender.com/v1/auth/oidc/callback
+  #     - key: DMS_SESSION_SECRET_KEY
+  #       sync: false

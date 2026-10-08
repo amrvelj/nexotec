@@ -20,6 +20,7 @@ import { CircleAlert, Check, Languages, Plus, ShieldCheck } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { FormDialog, InlineEditField, semantic, useSetBreadcrumb } from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
+import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import type { ReferenceValuePage, ReferenceValueRead } from '../api/types'
 import { REFERENCE_LIST_CODES, type ReferenceListCode } from '../referenceLists'
 import {
@@ -296,12 +297,16 @@ function CreateValueDialog({
   const [submitting, setSubmitting] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [formError, setFormError] = useState<string | null>(null)
+  // KAN-119: a retried submit carries the same key, so the server replays the
+  // first create instead of making a second value; reopening starts afresh.
+  const idempotency = useIdempotencyKey()
 
   useEffect(() => {
     if (opened) {
       setForm(empty)
       setFieldErrors({})
       setFormError(null)
+      idempotency.renew()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opened])
@@ -311,7 +316,8 @@ function CreateValueDialog({
     setFieldErrors({})
     setFormError(null)
     try {
-      await api.post(`/reference-data/${listCode}`, { ...form }, { 'Idempotency-Key': crypto.randomUUID() })
+      await api.post(`/reference-data/${listCode}`, { ...form }, idempotency.headers())
+      idempotency.renew()
       onCreated()
     } catch (err) {
       if (err instanceof ApiError && err.status === 422 && err.details) {
@@ -331,8 +337,12 @@ function CreateValueDialog({
     }
   }
 
-  const set = (key: keyof typeof form) => (e: ChangeEvent<HTMLInputElement>) =>
-    setForm((f) => ({ ...f, [key]: e.currentTarget.value }))
+  // Read the value now: React runs a queued updater later, after the event
+  // has cleared currentTarget (fast typing crashed the dialog).
+  const set = (key: keyof typeof form) => (e: ChangeEvent<HTMLInputElement>) => {
+    const value = e.currentTarget.value
+    setForm((f) => ({ ...f, [key]: value }))
+  }
 
   return (
     <FormDialog

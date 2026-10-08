@@ -19,6 +19,7 @@ import time
 from sqlalchemy.orm import Session
 
 from app.core.daily_scheduler import register_daily_job, run_due_daily_jobs
+from app.core.idempotent_route import run_daily_idempotency_record_purge
 from app.core.observability import (
     record_consumer_lag_seconds,
     record_dead_letter_count,
@@ -185,6 +186,9 @@ def register_daily_jobs() -> None:
        dangling reference before it is released.
     5. ``vehicle.plate_lookup_cache.purge`` — deletes plate-lookup cache rows
        past their 30-day TTL (KAN-42, FR-C-02; revDSG data minimisation).
+    5. ``core.idempotency_records.purge`` — deletes Idempotency-Key records
+       older than 24 hours (KAN-119): a retry comes within minutes, and a
+       stored response can carry personal data.
     """
 
     register_daily_job("integration.daily_jobs", run_daily_integration_jobs)
@@ -192,6 +196,7 @@ def register_daily_jobs() -> None:
     register_daily_job("reconciliation.run_all", run_all_daily)
     register_daily_job("inventory.orphaned_reservations.release", run_daily_reservation_sweep)
     register_daily_job("vehicle.plate_lookup_cache.purge", run_daily_plate_lookup_purge)
+    register_daily_job("core.idempotency_records.purge", run_daily_idempotency_record_purge)
 
 
 def run(*, max_iterations: int | None = None) -> None:

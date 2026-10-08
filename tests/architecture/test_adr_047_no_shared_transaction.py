@@ -244,6 +244,8 @@ _READS = {
     # KAN-122: Stock's reservation sweep reads its contracts' statuses, on a
     # session of its own (tests/test_inventory_reservation_sweep.py).
     "app.sales.public.get_contract_statuses",
+    # KAN-115: valuation asks which valuations a signed contract carries.
+    "app.sales.public.valuations_carried_by_signed_contracts",
     "app.valuation.public.get_valuation_or_404",
     "app.valuation.public.list_valid_valuations_for_vehicle",
     # Reads persisted sync state only (its docstring); the daily job calls

@@ -44,7 +44,13 @@ from app.core.outbox import OutboxEvent, publish
 from app.inventory.models.stock_item import LifecycleStatus, StockItem, StockItemCondition
 from app.inventory.schemas.stock_item import StockItemCreate
 from app.inventory.services.reservation import contract_is_cancelled, lock_contract, reserve_and_flush
-from app.inventory.services.stock_item import _build_and_flush_stock_item, mark_purchased_if_ready
+from app.inventory.services.stock_item import (
+    _build_and_flush_stock_item,
+    _check_vin_not_in_stock,
+    _item_in_stock_with_vin,
+    _vin_already_in_stock,
+    mark_purchased_if_ready,
+)
 from app.inventory.services.valuation import apply_valuation_ref
 from app.valuation.public import get_valuation_or_404
 from app.vehicle.public import create_or_get_vehicle_mdm
@@ -178,14 +184,29 @@ def promote_to_vehicle_mdm(
             details={"stockItemId": str(item.id)},
         )
 
+    # KAN-111: the same car may be in pipeline twice (two contracts can
+    # carry one trade-in, KAN-101), never twice in stock. Checked before
+    # vehicle-mdm is touched, so a refused promotion writes nothing (a race
+    # on a VIN vehicle-mdm has never seen is refused there first: KAN-257).
+    _check_vin_not_in_stock(db, tenant_id=item.tenant_id, vin=vin)
+
     vehicle, _created = create_or_get_vehicle_mdm(db, vin=vin, catalogue_variant_id=catalogue_variant_id)
 
-    item.vehicle_id = vehicle.id
-    item.vin = vehicle.vin
-    item.lifecycle_status = LifecycleStatus.IN_STOCK
-    item.in_stock_at = utcnow()
-    item.version += 1
-    db.flush()
+    try:
+        # A savepoint, so a racing promotion of the same VIN undoes only
+        # this item's change (expiring it back to its pipeline state), not
+        # the caller's session.
+        with db.begin_nested():
+            item.vehicle_id = vehicle.id
+            item.vin = vehicle.vin
+            item.lifecycle_status = LifecycleStatus.IN_STOCK
+            item.in_stock_at = utcnow()
+            item.version += 1
+    except IntegrityError:
+        held_by = _item_in_stock_with_vin(db, tenant_id=item.tenant_id, vin=vin)
+        if held_by is None:
+            raise
+        raise _vin_already_in_stock(held_by) from None
 
     publish(
         db,

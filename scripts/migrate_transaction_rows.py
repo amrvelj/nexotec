@@ -46,11 +46,14 @@ path, not a hand-rolled duplicate), not a string description.
 — this was previously rejected unconditionally; both cited blockers
 turned out to be stale, see below).
 
-ONE STOCK ITEM PER VIN, REUSED ACROSS BOTH ROW TYPES. `stock_item` has a
-real DB-level uniqueness constraint on (tenant_id, vin) where vin is not
-null — a vehicle traded in and later resold (two separate completed
-`transaction` rows) cannot get two stock_item rows for the same VIN, the
-database refuses it. Both `_migrate_sale` and `_migrate_trade_in` go
+ONE STOCK ITEM PER VIN, REUSED ACROSS BOTH ROW TYPES. When this script was
+written, `stock_item` had a DB-level uniqueness constraint on (tenant_id,
+vin) over every row — a vehicle traded in and later resold (two separate
+completed `transaction` rows) could not get two stock_item rows for the
+same VIN. Since KAN-111 the constraint covers only items that have not
+left stock, and live Stock takes a returning car in as a new item; this
+script still keeps one row per VIN, and whether legacy history should
+follow KAN-111 is KAN-256. Both `_migrate_sale` and `_migrate_trade_in` go
 through `_get_or_create_stock_item`: if a row for this VIN already
 exists (created by the other side of a trade-in/resale pair processed
 earlier in this pass — rows are ordered by transaction_date, with
@@ -232,8 +235,8 @@ def _get_or_create_stock_item(
     """Returns (item, created). If a stock_item already exists for this
     VIN — created by the other side of a trade-in/resale pair processed
     earlier in this same pass — it is reused rather than inserting a
-    second row for the same VIN, which the database's own uniqueness
-    constraint on (tenant_id, vin) forbids.
+    second row for the same VIN, which the uniqueness constraint forbade
+    before KAN-111 (see the module docstring and KAN-256).
     """
 
     existing = _resolve_existing_stock_item_by_vin(db, tenant_id, vehicle_mdm.vin)

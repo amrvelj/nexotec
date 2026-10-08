@@ -86,13 +86,21 @@ class StockItem(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMix
     __tablename__ = "stock_item"
     __table_args__ = (
         UniqueConstraint("tenant_id", "stock_number", name="uq_stock_item_tenant_id_stock_number"),
+        # KAN-111: a VIN is in a dealership's stock at most once, but only
+        # among items that have not left stock — a car invoiced years ago
+        # (left_stock_at set, FR-I-12) may come back, as a trade-in say, as
+        # a new item; the sold row stays as history. A storno'd car keeps
+        # blocking its VIN: it is still the dealership's car. The service
+        # checks first, so a duplicate is a 409 with a reason
+        # (services/stock_item.py::_check_vin_not_in_stock); this index is
+        # what holds when two writers race past that check.
         Index(
-            "uq_stock_item_tenant_id_vin",
+            "uq_stock_item_tenant_id_vin_in_stock",
             "tenant_id",
             "vin",
             unique=True,
-            postgresql_where=text("vin IS NOT NULL"),
-            sqlite_where=text("vin IS NOT NULL"),
+            postgresql_where=text("vin IS NOT NULL AND left_stock_at IS NULL"),
+            sqlite_where=text("vin IS NOT NULL AND left_stock_at IS NULL"),
         ),
         # WP-7 PR-2: the defense-in-depth half of consumer idempotency — the
         # outbox harness's ProcessedEvent table already stops the SAME

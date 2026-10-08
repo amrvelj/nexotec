@@ -114,8 +114,9 @@ class Valuation(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMix
     is_draft: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     # Set when the first contract carrying this valuation as its trade-in
     # is confirmed (app.valuation.public.consume_valuation_for_contract,
-    # KAN-101), or by the manual mark-used endpoint. Further contracts may
-    # carry it too (Anto, 2026-09-29). Cleared only by the compensating
+    # KAN-101), or by hand («Als verwendet markieren») only when a signed
+    # contract carries it — only a signed deal uses a valuation (KAN-115).
+    # Further contracts may carry it too (Anto, 2026-09-29). Cleared only by the compensating
     # revert_valuation_use when that confirmation's own transaction failed;
     # once a contract is signed on it, "used" is terminal (ADR-066).
     used_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
