@@ -83,8 +83,11 @@ First run generates a local-only `.env` with fresh dev secrets
 exist — see the Makefile's own comment for why. `make down` stops it,
 `make logs` tails all three services. This is `docker-compose.yml`'s `app`
 and `worker` services — same image (`Dockerfile`), different entrypoint;
-not a second deployable (ADR-001/ADR-015), mirroring `render.yaml`'s own
-web/worker split.
+not a second deployable (ADR-001/ADR-015), the same web/worker split
+`render.yaml` documents. On Render's staging the worker is *not*
+provisioned (no free worker plan — KAN-234; `render.yaml`'s comment lists
+what that disables), so event-driven and nightly flows cannot be tested
+there until the staging hosting decision lands.
 
 ## Observability (WP-2 PR-3, closes G-16)
 
@@ -162,7 +165,7 @@ frozen shared trunk — `alembic heads` lists all of them. Always use
 singular form either fails or silently applies only one.
 
 Every service that starts from this codebase migrates first — the web
-service and the outbox worker in `render.yaml` and `docker-compose.yml`,
+service in `render.yaml`, both `app` and `worker` in `docker-compose.yml`,
 and the Dockerfile's default `CMD` — so several `alembic upgrade heads` can
 run against one database at the same moment. That is safe:
 `alembic/env.py` takes a Postgres advisory lock (`pg_advisory_xact_lock`)
