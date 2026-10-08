@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest'
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from '../../i18n'
 import { renderWithProviders } from '../../test/renderWithProviders'
@@ -152,8 +152,13 @@ describe('ConfiguratorOverlay — coded fields on a manual configuration (KAN-96
     )
 
     const fuel = await screen.findByRole('textbox', { name: fuelLabel() })
-    await waitFor(() => expect(fuel).toHaveValue('⚠ hydrogen'))
+    await waitFor(() => expect(fuel).toHaveValue('hydrogen'))
     expect(screen.getByText(i18n.t('configurator.spec.retired'))).toBeInTheDocument()
+    // Emptying the field is no way round the guard: a saved configuration's
+    // coded field offers no clear button (a PATCH null keeps the old value,
+    // KAN-247), so the retired value stays until it is replaced. Mantine
+    // renders its clear button aria-hidden, hence `hidden: true`.
+    expect(within(fuel.parentElement!).queryByRole('button', { hidden: true })).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: i18n.t('configurator.save') }))
     expect(
@@ -167,6 +172,28 @@ describe('ConfiguratorOverlay — coded fields on a manual configuration (KAN-96
 
     await waitFor(() => expect(ctx.saved()).toHaveLength(1))
     expect(ctx.saved()[0].fuelType).toBe('diesel')
+  })
+
+  it('a saved configuration\'s coded field can be changed but not emptied', async () => {
+    const user = userEvent.setup()
+    install()
+    renderWithProviders(
+      <ConfiguratorOverlay
+        allowedModes={['build']}
+        existing={configurationRead({ source: 'manual', catalogueVariantId: null, catalogueVariantLabel: null, fuelType: 'petrol' })}
+        onCommitted={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    )
+
+    const fuel = await screen.findByRole('textbox', { name: fuelLabel() })
+    await waitFor(() => expect(fuel).toHaveValue('Benzin'))
+    expect(within(fuel.parentElement!).queryByRole('button', { hidden: true })).not.toBeInTheDocument()
+
+    // Picking the selected option again does not deselect it.
+    await user.click(fuel)
+    await user.click(await screen.findByRole('option', { name: 'Benzin' }))
+    expect(fuel).toHaveValue('Benzin')
   })
 
   it('a list that cannot be loaded says so on its field instead of offering nothing', async () => {
