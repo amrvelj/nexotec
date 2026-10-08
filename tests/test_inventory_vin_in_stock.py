@@ -27,6 +27,7 @@ from app.inventory.services.pipeline import handle_sales_contract_confirmed, pro
 from app.inventory.services.purchase import record_purchase
 from app.inventory.services.stock_item import create_stock_item
 from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
+from app.vehicle.public import create_or_get_vehicle_mdm
 
 VIN = "WVWZZZ1KZAW000001"
 
@@ -212,6 +213,30 @@ def test_once_a_sold_car_is_back_in_stock_it_blocks_its_vin_again(db_session):
     assert refused.value.details["stockItemId"] == str(returned.id)
 
 
+@pytest.mark.parametrize("lifecycle", [LifecycleStatus.STORNO_PENDING, LifecycleStatus.PIPELINE])
+def test_a_car_whose_purchase_is_cancelled_still_blocks_its_vin(db_session, monkeypatch, lifecycle):
+    """Anto, 2026-10-07: a storno'd car is still the dealership's car until
+    it is invoiced, so it keeps its VIN — while storno is pending, and once
+    it is back in pipeline with its VIN (FR-I-05; no storno service exists
+    yet, so the state is set directly). Pins the ruling in the check and in
+    the index, should either ever filter on lifecycle_status instead of
+    left_stock_at."""
+
+    tenant_id = uuid.uuid4()
+    held = _in_stock(db_session, tenant_id)
+    held.lifecycle_status = lifecycle
+    db_session.commit()
+
+    with pytest.raises(ConflictError) as refused:
+        _in_stock(db_session, tenant_id)
+    assert refused.value.details["stockItemId"] == str(held.id)
+
+    monkeypatch.setattr(stock_item_service, "_check_vin_not_in_stock", lambda *a, **k: None)
+    with pytest.raises(ConflictError) as refused_by_index:
+        _in_stock(db_session, tenant_id)
+    assert refused_by_index.value.details["stockItemId"] == str(held.id)
+
+
 # --- Two writers racing past the check: still a 409, never a 500 -----------
 
 
@@ -245,6 +270,31 @@ def test_a_racing_promotion_is_refused_by_the_index_with_the_same_reason(db_sess
     assert trade_in.lifecycle_status == LifecycleStatus.PIPELINE
     assert trade_in.vin is None
     assert _vin_assigned_events(db_session, trade_in.id) == []
+
+
+def test_a_refused_racing_promotion_keeps_the_callers_own_work(db_session, monkeypatch):
+    """The refusal undoes the promotion's savepoint, not the caller's
+    transaction: a row the caller flushed before promoting survives it."""
+
+    tenant_id = uuid.uuid4()
+    _in_stock(db_session, tenant_id)
+    trade_in = _pipeline(db_session, tenant_id)
+    # The car is already in vehicle-mdm (FR-V-15: same VIN, same car), so
+    # the promotion commits nothing on its way to the savepoint.
+    create_or_get_vehicle_mdm(db_session, vin=VIN, catalogue_variant_id=None)
+    callers_work = stock_item_service._build_and_flush_stock_item(
+        db_session,
+        tenant_id=tenant_id,
+        data=StockItemCreate(vehicle_label="The caller's own pending item", condition=StockItemCondition.NEW),
+        actor_id=None,
+        pipeline_ref=None,
+    )
+    monkeypatch.setattr(pipeline_service, "_check_vin_not_in_stock", lambda *a, **k: None)
+
+    with pytest.raises(ConflictError):
+        promote_to_vehicle_mdm(db_session, item=trade_in, vin=VIN)
+
+    assert db_session.scalar(select(StockItem.id).where(StockItem.id == callers_work.id)) == callers_work.id
 
 
 # --- Over HTTP -------------------------------------------------------------

@@ -72,6 +72,9 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   left stock (`uq_stock_item_tenant_id_vin_in_stock`, `left_stock_at IS NULL`). Creating or
   promoting a second one is 409 `vin_already_in_stock` with the holder's `stockItemId` and
   `stockNumber`, checked before vehicle-mdm is touched; the index refuses a racing writer with the
-  same 409. A car that left stock (invoiced) comes back as a new item, its sold row kept as
+  same 409 — except two promotions racing on a VIN vehicle-mdm has never seen, where vehicle-mdm's
+  own uniqueness refuses the second first, with its 409 and no `reason` (KAN-257; promotion has
+  no caller yet). A car that left stock (invoiced) comes back as a new item, its sold row kept as
   history; a storno'd car still blocks its VIN. The same car may be in pipeline twice (pipeline
-  items carry no VIN until promotion).
+  items carry no VIN until promotion). The legacy transaction import still reopens a sold car's
+  row instead (KAN-256).

@@ -186,7 +186,8 @@ def promote_to_vehicle_mdm(
 
     # KAN-111: the same car may be in pipeline twice (two contracts can
     # carry one trade-in, KAN-101), never twice in stock. Checked before
-    # vehicle-mdm is touched, so a refused promotion writes nothing.
+    # vehicle-mdm is touched, so a refused promotion writes nothing (a race
+    # on a VIN vehicle-mdm has never seen is refused there first: KAN-257).
     _check_vin_not_in_stock(db, tenant_id=item.tenant_id, vin=vin)
 
     vehicle, _created = create_or_get_vehicle_mdm(db, vin=vin, catalogue_variant_id=catalogue_variant_id)
