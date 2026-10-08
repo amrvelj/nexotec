@@ -423,11 +423,11 @@ def test_a_claim_in_flight_has_nothing_to_replay():
 def test_records_older_than_a_day_are_purged_in_flight_claims_included(db_session):
     now = utcnow()
 
-    def record(key: str, age: dt.timedelta, status: int | None) -> IdempotencyRecord:
+    def record(key: str, age: dt.timedelta, status: int | None, path: str = "/v1/things") -> IdempotencyRecord:
         return IdempotencyRecord(
             idempotency_key=key,
             tenant_id=_TENANT,
-            request_path="/v1/things",
+            request_path=path,
             request_hash="h",
             response_status=status,
             response_body={"id": key} if status else None,
@@ -439,14 +439,16 @@ def test_records_older_than_a_day_are_purged_in_flight_claims_included(db_sessio
             record("expired", dt.timedelta(hours=25), 201),
             record("stuck", dt.timedelta(hours=25), None),
             record("fresh", dt.timedelta(hours=23), 201),
+            # inventory's own Pattern-B key: its late-duplicate promise is not ours to shorten
+            record("inventory-own", dt.timedelta(days=30), 201, path=f"inventory.reserve:{uuid.uuid4()}"),
         ]
     )
     db_session.commit()
 
     assert purge_expired_idempotency_records(db_session, now=now) == 2
-    assert [r.idempotency_key for r in _records(db_session)] == ["fresh"]
+    assert sorted(r.idempotency_key for r in _records(db_session)) == ["fresh", "inventory-own"]
     assert IDEMPOTENCY_RECORD_TTL == dt.timedelta(hours=24)
-    assert db_session.scalar(select(func.count()).select_from(IdempotencyRecord)) == 1
+    assert db_session.scalar(select(func.count()).select_from(IdempotencyRecord)) == 2
 
 
 def test_the_worker_registers_the_daily_purge():

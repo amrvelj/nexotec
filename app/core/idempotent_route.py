@@ -30,10 +30,14 @@ duplicate, until the daily purge removes the row (``IDEMPOTENCY_RECORD_TTL``).
 Closing that window entirely needs the record written inside the service's
 own transaction, as ``app/inventory/services/reservation.py`` does.
 
-Records are kept for ``IDEMPOTENCY_RECORD_TTL`` and then purged by a daily job
-(``purge_expired_idempotency_records``, registered in ``app/worker.py``): a
-retry comes within seconds or minutes, and a stored response can carry
-personal data (a created customer's name and contact details).
+Records of HTTP requests are kept for ``IDEMPOTENCY_RECORD_TTL`` and then
+purged by a daily job (``purge_expired_idempotency_records``, registered in
+``app/worker.py``): a retry comes within seconds or minutes, and a stored
+response can carry personal data (a created customer's name and contact
+details). The purge leaves alone the records a context writes under a path of
+its own (inventory's ``inventory.reserve:<item>`` and the like, through
+``app/core/idempotency.py`` directly): how long those guard against a late
+duplicate is that context's promise, not this module's.
 
 The stored request is the path and the JSON body, and the replay restores the
 status and JSON body only. Routes that would break either assumption are
@@ -187,7 +191,8 @@ async def _keyed_request(
         max_length=255,
         description=(
             "Optional. A fresh value (a UUID) per form submission, reused only when retrying that same "
-            "submission. A retry gets the original response; the same key with a different body is a 409."
+            "submission. A retry gets the original response. The same key with a different request, or "
+            "while the first request is still being processed, is a 409. Keys are kept for 24 hours."
         ),
     ),
     principal: Principal = Depends(get_current_principal),
@@ -322,11 +327,17 @@ async def _settle(step: Callable[..., None], *args: Any) -> None:
 
 
 def purge_expired_idempotency_records(db: Session, *, now: dt.datetime | None = None) -> int:
-    """Daily job: deletes every record older than IDEMPOTENCY_RECORD_TTL,
-    across tenants, in-flight claims included. Returns the number deleted."""
+    """Daily job: deletes every record of an HTTP request (its path starts
+    with "/") older than IDEMPOTENCY_RECORD_TTL, across tenants, in-flight
+    claims included. A context's own records (``inventory.reserve:<item>``)
+    are not touched — module docstring. Returns the number deleted."""
 
     cutoff = (now or utcnow()) - IDEMPOTENCY_RECORD_TTL
-    result = db.execute(delete(IdempotencyRecord).where(IdempotencyRecord.created_at <= cutoff))
+    result = db.execute(
+        delete(IdempotencyRecord).where(
+            IdempotencyRecord.created_at <= cutoff, IdempotencyRecord.request_path.startswith("/")
+        )
+    )
     db.commit()
     return int(result.rowcount or 0)  # type: ignore[attr-defined]
 

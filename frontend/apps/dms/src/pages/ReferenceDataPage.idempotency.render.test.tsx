@@ -61,4 +61,34 @@ describe('ReferenceDataPage — Idempotency-Key per submission', () => {
     expect(next).toBeTruthy()
     expect(next).not.toBe(first)
   })
+
+  it('gives a dialog reopened after a failed submit a new key: a new form is a new submission', async () => {
+    const user = userEvent.setup()
+    const backend = installFakeBackend([
+      { method: 'GET', match: /\/reference-data\//, handler: () => ({ items: [], nextCursor: null }) },
+      {
+        method: 'POST',
+        match: /\/reference-data\/fuel_type$/,
+        handler: () => status(503, { error: { code: 'unavailable', message: 'Try again.', details: null } }),
+      },
+    ])
+    renderWithProviders(<ReferenceDataPage />, { route: '/settings/reference' })
+    const postKeys = () =>
+      backend.callsTo(/\/reference-data\/fuel_type$/, 'POST').map((call) => call.headers.get('Idempotency-Key'))
+
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      await user.click(await screen.findByRole('button', { name: i18n.t('referenceData.create.trigger') }))
+      const dialog = within(await screen.findByRole('dialog'))
+      await user.type(dialog.getByLabelText(i18n.t('referenceData.columns.code'), { exact: false }), 'diesel')
+      await user.click(dialog.getByRole('button', { name: i18n.t('referenceData.create.submit') }))
+      expect(await dialog.findByText('Try again.')).toBeInTheDocument()
+      await user.click(dialog.getByRole('button', { name: i18n.t('common.cancel') }))
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    }
+
+    const [first, afterReopen] = postKeys()
+    expect(first).toBeTruthy()
+    expect(afterReopen).toBeTruthy()
+    expect(afterReopen).not.toBe(first)
+  })
 })
