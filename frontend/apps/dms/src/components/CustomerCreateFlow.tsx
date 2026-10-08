@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react'
+import { useEffect, useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react'
 import { Checkbox, Group, Select, SimpleGrid, Stack, Text, TextInput, UnstyledButton } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
 import { useForm } from '@mantine/form'
@@ -28,6 +28,7 @@ import { SUPPORTED_LANGUAGES } from '../i18n'
 import { DuplicateWarningPanel } from './DuplicateWarningPanel'
 import { PhoneInput } from './PhoneInput'
 import { useCountryOptions } from '../hooks/useCountryOptions'
+import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import type {
   CustomerCreateInput,
   CustomerDuplicateCandidate,
@@ -144,7 +145,7 @@ export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType, o
   // network error and a re-click of Submit) so the backend's idempotency
   // check — POST /customers accepts an Idempotency-Key header — collapses
   // them into one customer instead of creating duplicates.
-  const idempotencyKey = useRef(crypto.randomUUID())
+  const idempotencyKey = useIdempotencyKey()
 
   // FR-03 / FR-13: correspondence language is a CUSTOMER field, but it
   // pre-fills from the acting user's current UI language (and stays freely
@@ -254,7 +255,8 @@ export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType, o
           ? { firstName: values.firstName, lastName: values.lastName, birthDate: values.birthDate || null, nationality: values.nationality || null }
           : { companyName: values.companyName, legalForm: values.legalForm || null, taxId: values.taxId || null }),
       }
-      const created = await api.post<CustomerRead>('/customers', payload, { 'Idempotency-Key': idempotencyKey.current })
+      const created = await api.post<CustomerRead>('/customers', payload, idempotencyKey.headers())
+      idempotencyKey.renew()
       onSuccess(created)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t('customerCreate.errors.createFailed'))

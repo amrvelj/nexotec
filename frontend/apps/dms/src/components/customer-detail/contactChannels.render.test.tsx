@@ -5,7 +5,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from '../../i18n'
 import { renderWithProviders } from '../../test/renderWithProviders'
-import { installFakeBackend } from '../../test/fakeBackend'
+import { installFakeBackend, status } from '../../test/fakeBackend'
 import { customer, email, phone } from '../../test/fixtures'
 import type { CustomerEmailRead, CustomerPhoneRead } from '../../api/types'
 import { CustomerDetailPage } from '../../pages/CustomerDetailPage'
@@ -262,5 +262,65 @@ describe('contact channels — create dialog (same RepeatableRowGroup, ADR-067)'
       expect(stars[1]).toHaveAttribute('aria-pressed', 'true')
       expect(stars[0]).toHaveAttribute('aria-pressed', 'false')
     })
+  })
+})
+
+describe('contact channels — one Idempotency-Key per added row (KAN-266)', () => {
+  it('a phone add retried after a failure keeps its key; the next phone gets a new one', async () => {
+    const user = userEvent.setup()
+    const phones: CustomerPhoneRead[] = []
+    let posts = 0
+    const backend = installFakeBackend([
+      { match: /^\/customers\/c1$/, handler: () => customer({ id: 'c1' }) },
+      { match: /^\/customers\/c1\/phones$/, method: 'GET', handler: () => ({ items: phones }) },
+      {
+        method: 'POST',
+        match: /^\/customers\/c1\/phones$/,
+        handler: (req) => {
+          posts += 1
+          if (posts === 1) return status(503, { error: { code: 'unavailable', message: 'Try again.', details: null } })
+          const body = req.body as { phoneType: 'mobile'; phoneE164: string }
+          const row = phone({ id: `p-${posts}`, type: body.phoneType, value: body.phoneE164, isPrimary: phones.length === 0 })
+          phones.push(row)
+          return status(201, row)
+        },
+      },
+      { match: /^\/customers\/c1\/emails$/, handler: () => ({ items: [] }) },
+      { match: /^\/customers\/c1\/vehicles$/, handler: () => ({ items: [], nextCursor: null }) },
+      { match: /^\/customers\/c1\/external-ids$/, handler: () => ({ items: [], nextCursor: null }) },
+      { match: /^\/customers\/c1\/audit-log$/, handler: () => ({ items: [], nextCursor: null }) },
+    ])
+    renderWithProviders(
+      <Routes>
+        <Route path="/customers/:id" element={<CustomerDetailPage />} />
+      </Routes>,
+      { route: '/customers/c1' },
+    )
+    const phoneBlock = (await screen.findByText(i18n.t('customerDetail.contactPoints.phoneNumbers'))).parentElement as HTMLElement
+    const keys = () => backend.callsTo(/^\/customers\/c1\/phones$/, 'POST').map((call) => call.headers.get('Idempotency-Key'))
+
+    const addPhone = async (national: string) => {
+      await user.click(within(phoneBlock).getByRole('button', { name: new RegExp(i18n.t('customerDetail.contactPoints.addPhone'), 'i') }))
+      const save = within(phoneBlock).getByRole('button', { name: i18n.t('customerDetail.contactPoints.save') })
+      await user.type(within(save.closest('div') as HTMLElement).getByLabelText(i18n.t('customerDetail.phoneInput.number')), national)
+      await user.click(save)
+    }
+
+    await addPhone('791110000')
+    expect(await within(phoneBlock).findByText('Try again.')).toBeInTheDocument()
+    await user.click(within(phoneBlock).getByRole('button', { name: i18n.t('customerDetail.contactPoints.save') }))
+    await waitFor(() => expect(keys()).toHaveLength(2))
+    await waitFor(() =>
+      expect(within(phoneBlock).queryByRole('button', { name: i18n.t('customerDetail.contactPoints.save') })).not.toBeInTheDocument(),
+    )
+
+    await addPhone('792220000')
+    await waitFor(() => expect(keys()).toHaveLength(3))
+
+    const [first, retry, next] = keys()
+    expect(first).toBeTruthy()
+    expect(retry).toBe(first)
+    expect(next).toBeTruthy()
+    expect(next).not.toBe(first)
   })
 })

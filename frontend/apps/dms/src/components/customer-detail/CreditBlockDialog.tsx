@@ -3,6 +3,7 @@ import { Stack, Text, Textarea } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 import { FormDialog } from '@nexotec/ui-kit'
 import { api, ApiError } from '../../api/client'
+import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
 import type { CustomerRead } from '../../api/types'
 
 interface CreditBlockDialogProps {
@@ -27,13 +28,17 @@ export function CreditBlockDialog({ opened, onClose, customer, onSaved }: Credit
   const [reasonError, setReasonError] = useState<string | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  // KAN-266: a retried submit replays the first answer instead of a 409.
+  const idempotency = useIdempotencyKey()
 
   useEffect(() => {
     if (opened) {
       setReason('')
       setReasonError(null)
       setSubmitError(null)
+      idempotency.renew()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opened])
 
   const submit = async () => {
@@ -47,8 +52,9 @@ export function CreditBlockDialog({ opened, onClose, customer, onSaved }: Credit
       const updated = await api.post<CustomerRead>(
         `/customers/${customer.id}/credit-block`,
         { blocked: !isBlocked, reason: isBlocked ? null : reason.trim() },
-        { 'If-Match': String(customer.version) },
+        { 'If-Match': String(customer.version), ...idempotency.headers() },
       )
+      idempotency.renew()
       onSaved(updated)
       onClose()
     } catch (err) {

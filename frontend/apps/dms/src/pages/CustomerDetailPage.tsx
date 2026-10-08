@@ -20,6 +20,7 @@ import { translatedCustomerTypeLabel, translatedLifecycleLabel } from '../custom
 import { buildCustomerRowMenu } from '../components/customerRowMenu'
 import { OverviewTab, type AddressDraft } from '../components/customer-detail/OverviewTab'
 import { useCountryOptions } from '../hooks/useCountryOptions'
+import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import type { ContactPointUpdatePatch } from '../components/customer-detail/ContactPointsEditor'
 import { VehiclesTab } from '../components/customer-detail/VehiclesTab'
 import { OffersContractsTab, toCustomerDealRows } from '../components/customer-detail/OffersContractsTab'
@@ -103,6 +104,13 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
   const [creditBlockOpen, setCreditBlockOpen] = useState(false)
   const [creatingOffer, setCreatingOffer] = useState(false)
   const [creatingContract, setCreatingContract] = useState(false)
+  // KAN-266: one Idempotency-Key per submission of each create — a retry
+  // after a failed save reuses it, so the server replays instead of
+  // creating the row twice; it renews once the save has gone through.
+  const addressKey = useIdempotencyKey()
+  const phoneKey = useIdempotencyKey()
+  const emailKey = useIdempotencyKey()
+  const externalIdKey = useIdempotencyKey()
 
   const setActiveTab = (tab: string) => {
     if (embedded) {
@@ -210,7 +218,8 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
       if (existing) {
         await api.patch<CustomerAddressRead>(`/customers/${id}/addresses/${existing.id}`, body)
       } else {
-        await api.post<CustomerAddressRead>(`/customers/${id}/addresses`, body)
+        await api.post<CustomerAddressRead>(`/customers/${id}/addresses`, body, addressKey.headers())
+        addressKey.renew()
       }
     }
     // The address is embedded on the customer resource itself
@@ -277,7 +286,12 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
   }
 
   const createPhone = async (row: { type: PhoneType; value: string }) => {
-    await api.post<CustomerPhoneRead>(`/customers/${id}/phones`, { phoneType: row.type, phoneE164: row.value })
+    await api.post<CustomerPhoneRead>(
+      `/customers/${id}/phones`,
+      { phoneType: row.type, phoneE164: row.value },
+      phoneKey.headers(),
+    )
+    phoneKey.renew()
     invalidateContact('phones')
   }
   const updatePhone = async (phoneId: string, patch: ContactPointUpdatePatch<PhoneType>) => {
@@ -301,7 +315,12 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
   }
 
   const createEmail = async (row: { type: EmailType; value: string }) => {
-    await api.post<CustomerEmailRead>(`/customers/${id}/emails`, { emailType: row.type, emailAddress: row.value })
+    await api.post<CustomerEmailRead>(
+      `/customers/${id}/emails`,
+      { emailType: row.type, emailAddress: row.value },
+      emailKey.headers(),
+    )
+    emailKey.renew()
     invalidateContact('emails')
   }
   const updateEmail = async (emailId: string, patch: ContactPointUpdatePatch<EmailType>) => {
@@ -333,7 +352,12 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
   }
 
   const createExternalId = async (row: { systemName: string; externalId: string }) => {
-    await api.post<CustomerExternalIdRead>(`/customers/${id}/external-ids`, { systemName: row.systemName, externalId: row.externalId })
+    await api.post<CustomerExternalIdRead>(
+      `/customers/${id}/external-ids`,
+      { systemName: row.systemName, externalId: row.externalId },
+      externalIdKey.headers(),
+    )
+    externalIdKey.renew()
     invalidateExternalIds()
   }
   const updateExternalId = async (rowId: string, patch: { systemName?: string; externalId?: string }) => {

@@ -5,7 +5,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from '../../i18n'
 import { renderWithProviders } from '../../test/renderWithProviders'
-import { installFakeBackend } from '../../test/fakeBackend'
+import { installFakeBackend, status } from '../../test/fakeBackend'
 import { customer } from '../../test/fixtures'
 import type { CustomerRead } from '../../api/types'
 import { CustomerDetailPage } from '../../pages/CustomerDetailPage'
@@ -14,8 +14,9 @@ import { CustomerDetailPage } from '../../pages/CustomerDetailPage'
 // Reason is mandatory when blocking (the API raises 409; the form checks it
 // first). Reached from the shared row menu, never a header button.
 
-function installBackend(over: Partial<CustomerRead> = {}) {
+function installBackend(over: Partial<CustomerRead> = {}, { failFirstPost = false } = {}) {
   const record = customer({ id: 'c1', customerNumber: 'K-1001', version: 3, ...over })
+  let posts = 0
   return installFakeBackend([
     { match: /^\/customers\/c1$/, handler: () => record },
     { match: /^\/customers\/c1\/phones$/, handler: () => ({ items: [] }) },
@@ -28,6 +29,10 @@ function installBackend(over: Partial<CustomerRead> = {}) {
       method: 'POST',
       match: /^\/customers\/c1\/credit-block$/,
       handler: (req) => {
+        posts += 1
+        if (failFirstPost && posts === 1) {
+          return status(503, { error: { code: 'unavailable', message: 'Try again.', details: null } })
+        }
         const body = req.body as { blocked: boolean; reason: string | null }
         return { ...record, creditBlock: body.blocked, creditBlockReason: body.reason, version: record.version + 1 }
       },
@@ -98,5 +103,32 @@ describe('CreditBlockDialog (KAN-44)', () => {
       expect(calls).toHaveLength(1)
       expect(calls[0].body).toEqual({ blocked: false, reason: null })
     })
+  })
+
+  it('a retried submit carries the same Idempotency-Key; reopening the dialog starts a new one (KAN-266)', async () => {
+    const user = userEvent.setup()
+    const backend = installBackend({}, { failFirstPost: true })
+    renderDetail()
+    const keys = () => backend.callsTo(/credit-block/, 'POST').map((call) => call.headers.get('Idempotency-Key'))
+
+    await openCreditBlockItem(user, i18n.t('customerRowMenu.setCreditBlock'))
+    let dialog = await screen.findByRole('dialog')
+    await user.type(within(dialog).getByRole('textbox'), 'Overdue invoice 4471')
+    await user.click(within(dialog).getByRole('button', { name: i18n.t('creditBlockDialog.setSubmit') }))
+    expect(await within(dialog).findByText('Try again.')).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: i18n.t('creditBlockDialog.setSubmit') }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+
+    // The block went through, so the row menu now offers to remove it.
+    await openCreditBlockItem(user, i18n.t('customerRowMenu.removeCreditBlock'))
+    dialog = await screen.findByRole('dialog')
+    await user.click(within(dialog).getByRole('button', { name: i18n.t('creditBlockDialog.clearSubmit') }))
+    await waitFor(() => expect(keys()).toHaveLength(3))
+
+    const [first, retry, next] = keys()
+    expect(first).toBeTruthy()
+    expect(retry).toBe(first)
+    expect(next).toBeTruthy()
+    expect(next).not.toBe(first)
   })
 })
