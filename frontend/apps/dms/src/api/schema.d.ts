@@ -1910,9 +1910,11 @@ export interface paths {
         put?: never;
         /**
          * Mark Valuation Used
-         * @description Manual correction only. Sales's contract confirmation consumes a
-         *     trade-in valuation through app.valuation.public.consume_valuation_for_contract
-         *     (KAN-101), not through this HTTP endpoint.
+         * @description «Als verwendet markieren» — a repair, only for a valuation a signed
+         *     contract carries (KAN-115; 409 `no_signed_contract` otherwise). Sales's
+         *     contract confirmation stamps a trade-in valuation through
+         *     app.valuation.public.consume_valuation_for_contract (KAN-101), not
+         *     through this HTTP endpoint.
          */
         post: operations["mark_valuation_used_v1_valuations__valuation_id__mark_used_post"];
         delete?: never;
@@ -6364,6 +6366,8 @@ export interface components {
             deductions?: components["schemas"]["DeductionRead"][];
             /** Finaloffer */
             finalOffer: string;
+            /** Hassignedcontract */
+            hasSignedContract: boolean;
             /**
              * Id
              * Format: uuid
