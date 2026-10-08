@@ -57,6 +57,16 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   a contract confirmed and never cancelled (confirmed or invoiced, even once its car has left
   stock) gets its item reserved; an item held by another contract, or one Stock released before,
   is reported, never overwritten or re-reserved.
+- **The nightly orphan sweep frees a car whose contract is not signed** (KAN-122, KAN-173):
+  daily job `inventory.orphaned_reservations.release` (`daily_jobs.py`,
+  `services/reservation_sweep.py`), registered after `reconciliation.run_all`. A reservation
+  whose contract is cancelled, missing, or pending is released; confirmed and invoiced keep the
+  car (Anto, 2026-10-07). A pending contract's reservation made in the last hour waits for the
+  next run, because a confirmation commits the reservation before the contract (Anto,
+  2026-10-08). Stock reads the statuses through
+  `app.sales.public.get_contract_statuses` on a session of its own, and releases each orphan
+  in its own commit (ADR-047). Each run logs one line with its counts in the message text; a
+  failed release is logged at ERROR and retried the next night.
 - **Fiktiver Vorsteuerabzug** (Art. 28a MWSTG) is recorded at purchase booking
   (`app/inventory/services/purchase.py::record_purchase`), computed from the purchase price and
   the dealership's `vat_rate`, independent of `landed_cost`. Stock owns it; Sales only reads it.
@@ -76,5 +86,8 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   own uniqueness refuses the second first, with its 409 and no `reason` (KAN-257; promotion has
   no caller yet). A car that left stock (invoiced) comes back as a new item, its sold row kept as
   history; a storno'd car still blocks its VIN. The same car may be in pipeline twice (pipeline
-  items carry no VIN until promotion). The legacy transaction import still reopens a sold car's
-  row instead (KAN-256).
+  items carry no VIN until promotion). The legacy transaction import follows the same rule: a car
+  the old system shows sold and later traded back in gets a second item, the sold one is never
+  reopened, and a row for a car live Stock holds or has sold is reported
+  (`vehicle_known_to_live_stock`), never applied — history is imported before a dealership starts
+  to work (Anto, 2026-10-08; KAN-256).
