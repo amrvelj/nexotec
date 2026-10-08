@@ -192,7 +192,7 @@ it needs an explicit decision, never a side effect of a fix.
 - **i18n:** DE, FR, IT, EN are all first class, reference data included. No user-visible
   string is hardcoded; a missing key renders a loud marker, never a German fallback; the
   customer's correspondence language is not the user's UI language.
-- **Licensed provider data** (auto-i-dat) is tenant-partitioned, never global (ADR-013).
+- **Licensed provider data** (auto-i-dat) is per tenant (ADR-013); variant master data is global (ADR-075).
 
 ## Reference material outside the repository
 
