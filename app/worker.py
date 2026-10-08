@@ -39,6 +39,7 @@ from app.inventory.consumers import (
     handle_stock_item_published_message,
     handle_stock_item_unpublished_message,
 )
+from app.inventory.daily_jobs import run_daily_reservation_sweep
 from app.reconciliation_runner import run_all_daily
 from app.sales.consumers import handle_stock_item_added_message, handle_stock_item_purchased_message
 from app.vehicle.public import run_daily_plate_lookup_purge
@@ -156,7 +157,7 @@ def _refresh_vehicle_party_labels(db: Session) -> None:
 
 
 def register_daily_jobs() -> None:
-    """Four daily jobs, run in registration order once per day on this
+    """Five daily jobs, run in registration order once per day on this
     process (app.core.daily_scheduler):
 
     1. ``integration.daily_jobs`` — WP-6's per-tenant catalogue delta sync
@@ -176,13 +177,19 @@ def register_daily_jobs() -> None:
        reconciles the state the catalogue delta just refreshed, not a
        half-synced one; a finding is logged and swallowed (see
        app.reconciliation_runner.run_all_daily), never re-run every cycle.
-    4. ``vehicle.plate_lookup_cache.purge`` — deletes plate-lookup cache rows
+    4. ``inventory.orphaned_reservations.release`` — KAN-122: Stock frees a
+       car whose reservation no longer has a signed contract behind it
+       (app.inventory.daily_jobs). A repair, so not part of the read-only
+       reconciliation; after it, so a reservation naming a missing contract
+       is recorded as a dangling reference before it is released.
+    5. ``vehicle.plate_lookup_cache.purge`` — deletes plate-lookup cache rows
        past their 30-day TTL (KAN-42, FR-C-02; revDSG data minimisation).
     """
 
     register_daily_job("integration.daily_jobs", run_daily_integration_jobs)
     register_daily_job("customer.vehicle_party_labels", _refresh_vehicle_party_labels)
     register_daily_job("reconciliation.run_all", run_all_daily)
+    register_daily_job("inventory.orphaned_reservations.release", run_daily_reservation_sweep)
     register_daily_job("vehicle.plate_lookup_cache.purge", run_daily_plate_lookup_purge)
 
 

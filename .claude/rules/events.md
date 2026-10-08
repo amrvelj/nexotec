@@ -40,5 +40,10 @@ claim checked against the code). Fix this file in the same PR as any change to w
   three-column-pattern **label** from its owner (`customer.vehicle_party_labels`, KAN-84) is not
   a repair: the label is a copy, refreshed on purpose, and its age is a gauge
   (`dms.label.age_seconds`, alert threshold in README's alarm table).
+- Stock's orphan-reservation sweep (`inventory.orphaned_reservations.release`, KAN-122; see
+  `.claude/rules/inventory.md`) is the one repair a nightly job makes today, as ADR-047 assigns
+  it. It is its own daily job, not part of reconciliation, registered after
+  `reconciliation.run_all`. Whether that is the rule for every such repair waits on Anto's
+  ruling on an ADR-047 addendum, drafted in KAN-122.
 - **Outbox now, broker later** (ADR-006): the Postgres-backed transport stays until the third
   independently deployed service exists.
