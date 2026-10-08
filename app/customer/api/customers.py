@@ -15,7 +15,6 @@ import datetime as dt
 import uuid
 
 from fastapi import APIRouter, Depends, Header, Query, Request
-from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from app.core.audit import list_audit_events
@@ -24,6 +23,7 @@ from app.core.auth import Principal, get_current_principal, require_access_role
 from app.core.concurrency import check_version, require_if_match
 from app.core.config import get_settings
 from app.core.idempotency import find_cached_response, store_response
+from app.core.idempotent_route import replay_stored_response
 from app.core.pagination import SortPageParams, decode_sort_cursor
 from app.core.permissions import require_read, require_write
 from app.core.sorting import SortField, parse_sort
@@ -128,7 +128,7 @@ def create_customer(
             db, tenant_id=principal.tenant_id, key=idempotency_key, path=request.url.path, body=request_body
         )
         if cached is not None:
-            return JSONResponse(status_code=cached.response_status, content=cached.response_body)
+            return replay_stored_response(cached)
 
     customer = customer_service.create_customer(
         db,
