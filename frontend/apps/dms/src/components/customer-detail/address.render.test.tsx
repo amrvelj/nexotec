@@ -242,6 +242,74 @@ describe('customer address — detail screen (ADR-067, KAN-30)', () => {
     })
   })
 
+  it('after a lost POST was settled by a PATCH, re-entering the same address once cleared is a new submission (KAN-266)', async () => {
+    // The lost POST's key is still held by the server. Sent again for the
+    // same address, it would replay that first 201 and create nothing.
+    let address: CustomerAddressRead | null = null
+    let posts = 0
+    const backend = installFakeBackend([
+      { match: /^\/customers\/c1$/, handler: () => customer({ id: 'c1', address }) },
+      ...infraRoutes(null).slice(0, -1),
+      {
+        method: 'POST',
+        match: /^\/customers\/c1\/addresses$/,
+        handler: (req) => {
+          posts += 1
+          address = { ...customerAddress({ id: `addr-${posts}` }), ...(req.body as object) }
+          if (posts === 1) return status(504, { error: { code: 'gateway_timeout', message: 'Response lost.', details: null } })
+          return status(201, address)
+        },
+      },
+      {
+        method: 'PATCH',
+        match: /^\/customers\/c1\/addresses\/addr-1$/,
+        handler: (req) => (address = { ...address!, ...(req.body as object) }),
+      },
+      {
+        method: 'DELETE',
+        match: /^\/customers\/c1\/addresses\/addr-1$/,
+        handler: () => {
+          address = null
+          return { __status: 204 }
+        },
+      },
+    ])
+    renderDetail()
+    const user = userEvent.setup()
+    const field = (key: string) => screen.getByLabelText(i18n.t(`customerDetail.overview.addressForm.${key}`))
+    const save = () => user.click(screen.getByRole('button', { name: i18n.t('customerDetail.overview.addressForm.save') }))
+    const enter = async () => {
+      await user.type(field('street'), 'Marktgasse')
+      await user.type(field('houseNumber'), '5')
+      await user.type(field('postalCode'), '3011')
+      await user.type(field('locality'), 'Bern')
+    }
+    const keys = () => backend.callsTo(/^\/customers\/c1\/addresses$/, 'POST').map((call) => call.headers.get('Idempotency-Key'))
+
+    await screen.findAllByText(i18n.t('customerDetail.overview.cards.address'))
+    await user.click(within(addressCard()).getAllByText(i18n.t('customerDetail.overview.notSet'))[0])
+    await enter()
+    await save()
+    expect(await screen.findByText('Response lost.')).toBeInTheDocument()
+    await save()
+    await waitFor(() => expect(backend.callsTo(/^\/customers\/c1\/addresses\/addr-1$/, 'PATCH')).toHaveLength(1))
+
+    await user.click(await screen.findByText('Marktgasse 5, 3011 Bern'))
+    for (const key of ['street', 'houseNumber', 'postalCode', 'locality']) await user.clear(field(key))
+    await save()
+    await waitFor(() => expect(backend.callsTo(/^\/customers\/c1\/addresses\/addr-1$/, 'DELETE')).toHaveLength(1))
+
+    await user.click((await within(addressCard()).findAllByText(i18n.t('customerDetail.overview.notSet')))[0])
+    await enter()
+    await save()
+    await waitFor(() => expect(keys()).toHaveLength(2))
+
+    const [lost, reentered] = keys()
+    expect(lost).toBeTruthy()
+    expect(reentered).toBeTruthy()
+    expect(reentered).not.toBe(lost)
+  })
+
   it('clearing every field on an existing address DELETEs it', async () => {
     const existing = customerAddress({ id: 'addr-7' })
     const backend = installFakeBackend([

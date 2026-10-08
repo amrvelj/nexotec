@@ -106,9 +106,12 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
   const [creatingContract, setCreatingContract] = useState(false)
   // KAN-266: one Idempotency-Key per submission of each create — a retry
   // after a failed save reuses it, so the server replays instead of
-  // creating the row twice; it renews once the save has gone through, and
-  // a different request (another value, another customer: this screen stays
-  // mounted when :id changes) gets a new one.
+  // creating the row twice; a different request (another value, another
+  // customer: this screen stays mounted when :id changes) gets a new one.
+  // Every successful write of a kind (create, update, delete) renews that
+  // kind's key: a key left by a create whose response was lost would
+  // otherwise replay, creating nothing, when the same value is added again
+  // after that row was edited or deleted.
   const addressKey = useIdempotencyKey()
   const phoneKey = useIdempotencyKey()
   const emailKey = useIdempotencyKey()
@@ -230,9 +233,9 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
           await queryClient.invalidateQueries({ queryKey: ['customer', id] })
           throw err
         }
-        addressKey.renew()
       }
     }
+    addressKey.renew()
     // The address is embedded on the customer resource itself
     // (CustomerRead.address), unlike phones/emails' own list endpoint —
     // refetching the customer is what picks up the change.
@@ -292,6 +295,8 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
   // Every mutation still writes an audit event server-side (phone_add,
   // phone_remove, ...), so history needs the same invalidation.
   const invalidateContact = (kind: 'phones' | 'emails') => {
+    const createKey = kind === 'phones' ? phoneKey : emailKey
+    createKey.renew()
     void queryClient.invalidateQueries({ queryKey: ['customer', id, kind] })
     void queryClient.invalidateQueries({ queryKey: ['customer', id, 'history'] })
   }
@@ -300,7 +305,6 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
     const path = `/customers/${id}/phones`
     const body = { phoneType: row.type, phoneE164: row.value }
     await api.post<CustomerPhoneRead>(path, body, phoneKey.headers([path, body]))
-    phoneKey.renew()
     invalidateContact('phones')
   }
   const updatePhone = async (phoneId: string, patch: ContactPointUpdatePatch<PhoneType>) => {
@@ -327,7 +331,6 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
     const path = `/customers/${id}/emails`
     const body = { emailType: row.type, emailAddress: row.value }
     await api.post<CustomerEmailRead>(path, body, emailKey.headers([path, body]))
-    emailKey.renew()
     invalidateContact('emails')
   }
   const updateEmail = async (emailId: string, patch: ContactPointUpdatePatch<EmailType>) => {
@@ -354,6 +357,7 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
   // CustomerExternalId docstring) — no version column either, same
   // no-If-Match shape as the contact-point handlers above.
   const invalidateExternalIds = () => {
+    externalIdKey.renew()
     void queryClient.invalidateQueries({ queryKey: ['customer', id, 'external-ids'] })
     void queryClient.invalidateQueries({ queryKey: ['customer', id, 'history'] })
   }
@@ -362,7 +366,6 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
     const path = `/customers/${id}/external-ids`
     const body = { systemName: row.systemName, externalId: row.externalId }
     await api.post<CustomerExternalIdRead>(path, body, externalIdKey.headers([path, body]))
-    externalIdKey.renew()
     invalidateExternalIds()
   }
   const updateExternalId = async (rowId: string, patch: { systemName?: string; externalId?: string }) => {

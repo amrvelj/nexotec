@@ -267,9 +267,9 @@ describe('contact channels — create dialog (same RepeatableRowGroup, ADR-067)'
 
 describe('contact channels — one Idempotency-Key per added row (KAN-266)', () => {
   // The first phone POST fails; every later one succeeds.
-  async function renderWithFailingFirstPhone() {
+  async function renderWithFailingFirstPhone(initial: CustomerPhoneRead[] = []) {
     const user = userEvent.setup()
-    const phones: CustomerPhoneRead[] = []
+    const phones: CustomerPhoneRead[] = [...initial]
     let posts = 0
     const backend = installFakeBackend([
       { match: /^\/customers\/c1$/, handler: () => customer({ id: 'c1' }) },
@@ -284,6 +284,15 @@ describe('contact channels — one Idempotency-Key per added row (KAN-266)', () 
           const row = phone({ id: `p-${posts}`, type: body.phoneType, value: body.phoneE164, isPrimary: phones.length === 0 })
           phones.push(row)
           return status(201, row)
+        },
+      },
+      {
+        method: 'PATCH',
+        match: /^\/customers\/c1\/phones\/(.+)$/,
+        handler: (req) => {
+          const row = phones.find((p) => p.id === req.pathname.split('/').pop())!
+          Object.assign(row, req.body as Partial<CustomerPhoneRead>)
+          return row
         },
       },
       { match: /^\/customers\/c1\/emails$/, handler: () => ({ items: [] }) },
@@ -306,7 +315,7 @@ describe('contact channels — one Idempotency-Key per added row (KAN-266)', () 
       await user.type(numberInput(), national)
       await user.click(saveButton()!)
     }
-    return { user, phoneBlock, keys, saveButton, numberInput, addPhone }
+    return { user, backend, phoneBlock, keys, saveButton, numberInput, addPhone }
   }
 
   it('a phone add retried after a failure keeps its key; the next phone gets a new one', async () => {
@@ -344,5 +353,28 @@ describe('contact channels — one Idempotency-Key per added row (KAN-266)', () 
     expect(first).toBeTruthy()
     expect(corrected).toBeTruthy()
     expect(corrected).not.toBe(first)
+  })
+
+  it('the key of a failed add is retired by the next phone write that goes through', async () => {
+    // Had the failed add's response been lost, the server would hold its key:
+    // the same number added again after another phone write (an edit, a
+    // delete) must be a new submission, not a replay that creates nothing.
+    const { user, backend, phoneBlock, keys, addPhone } = await renderWithFailingFirstPhone([
+      phone({ id: 'p-a', type: 'mobile', value: '+41791110000', isPrimary: true }),
+      phone({ id: 'p-b', type: 'mobile', value: '+41792220000', isPrimary: false }),
+    ])
+
+    await addPhone('793330000')
+    expect(await within(phoneBlock).findByText('Try again.')).toBeInTheDocument()
+    await user.click(within(phoneBlock).getByRole('button', { name: i18n.t('customerDetail.contactPoints.cancel') }))
+    await user.click(within(phoneBlock).getAllByRole('button', { name: primaryPrefix() })[1])
+    await waitFor(() => expect(backend.callsTo(/^\/customers\/c1\/phones\/p-b$/, 'PATCH')).toHaveLength(1))
+    await addPhone('793330000')
+    await waitFor(() => expect(keys()).toHaveLength(2))
+
+    const [failed, later] = keys()
+    expect(failed).toBeTruthy()
+    expect(later).toBeTruthy()
+    expect(later).not.toBe(failed)
   })
 })
