@@ -32,8 +32,12 @@ against the code). "Open" lines cite a ticket; /drift-audit re-checks them weekl
   `scripts/migrate_transaction_rows.py` publishes no events, so it writes the replica row for a
   legacy trade-in's purchase itself. `inventory.stock_item.storno` ("sets it back") is not
   emitted yet, so nothing clears it (KAN-146). Nightly reconciliation alarms on a replica row
-  naming no stock item and on a stock item Stock holds as purchased for over an hour with no
-  replica row; `sales_contract`'s own references are not reconciled (KAN-145).
+  naming no stock item, on a stock item Stock holds as purchased, last changed over an hour ago,
+  with no replica row in its own dealership, and on a replica row whose item Stock does not hold
+  as purchased for that dealership — both match on tenant, as `is_invoiceable` does (KAN-145).
+  Every cross-context id on `sales_offer` and `sales_contract` (`created_by`/`updated_by`
+  included) is reconciled too, on id alone, not on the row's dealership (KAN-259); a contract's
+  `reservation_id` only while it is confirmed, since a released hold is cleared on the stock item.
 - **ADR-050** — `sales_contract` supersedes the legacy `transaction` table. Legacy rows move via
   `scripts/migrate_transaction_rows.py`: dry-run by default, idempotent, written directly
   through the ORM and **publishing no outbox events** (a years-old sale must not look like
@@ -79,7 +83,8 @@ against the code). "Open" lines cite a ticket; /drift-audit re-checks them weekl
   KAN-101); confirmation consumes the valuation first, then reserves the car — see
   `.claude/rules/valuation.md`. Contracts before KAN-101 were confirmed without marking their
   valuation used; nightly reconciliation reports every signed contract whose trade-in valuation
-  is not used, and «Als verwendet markieren» repairs it, expired or not (KAN-115).
+  of its own dealership is not used, and «Als verwendet markieren» repairs it, expired or not
+  (KAN-115). One naming another dealership's valuation is reported by nothing yet (KAN-259).
 - **ADR-065** — a credit block stops the contract, not the offer. An address-less customer is
   likewise gated at the contract (D-20).
 
