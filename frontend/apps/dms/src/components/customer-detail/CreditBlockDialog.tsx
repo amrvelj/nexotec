@@ -38,8 +38,7 @@ export function CreditBlockDialog({ opened, onClose, customer, onSaved }: Credit
       setSubmitError(null)
       idempotency.renew()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [opened])
+  }, [opened, idempotency])
 
   const submit = async () => {
     if (!isBlocked && reason.trim().length === 0) {

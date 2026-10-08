@@ -105,7 +105,7 @@ describe('CreditBlockDialog (KAN-44)', () => {
     })
   })
 
-  it('a retried submit carries the same Idempotency-Key; reopening the dialog starts a new one (KAN-266)', async () => {
+  it('a retried submit carries the same Idempotency-Key; the next submission gets a new one (KAN-266)', async () => {
     const user = userEvent.setup()
     const backend = installBackend({}, { failFirstPost: true })
     renderDetail()
@@ -130,5 +130,33 @@ describe('CreditBlockDialog (KAN-44)', () => {
     expect(retry).toBe(first)
     expect(next).toBeTruthy()
     expect(next).not.toBe(first)
+  })
+
+  it('a block that failed, then the dialog closed and reopened, is sent under a new key (KAN-266)', async () => {
+    // Without the renew on opening, the key of a failed submission would
+    // follow the dialog to the next opening, for this customer or the next.
+    const user = userEvent.setup()
+    const backend = installBackend({}, { failFirstPost: true })
+    renderDetail()
+    const keys = () => backend.callsTo(/credit-block/, 'POST').map((call) => call.headers.get('Idempotency-Key'))
+
+    await openCreditBlockItem(user, i18n.t('customerRowMenu.setCreditBlock'))
+    let dialog = await screen.findByRole('dialog')
+    await user.type(within(dialog).getByRole('textbox'), 'Overdue invoice 4471')
+    await user.click(within(dialog).getByRole('button', { name: i18n.t('creditBlockDialog.setSubmit') }))
+    expect(await within(dialog).findByText('Try again.')).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+
+    await openCreditBlockItem(user, i18n.t('customerRowMenu.setCreditBlock'))
+    dialog = await screen.findByRole('dialog')
+    await user.type(within(dialog).getByRole('textbox'), 'Overdue invoice 4471')
+    await user.click(within(dialog).getByRole('button', { name: i18n.t('creditBlockDialog.setSubmit') }))
+    await waitFor(() => expect(keys()).toHaveLength(2))
+
+    const [failed, reopened] = keys()
+    expect(failed).toBeTruthy()
+    expect(reopened).toBeTruthy()
+    expect(reopened).not.toBe(failed)
   })
 })

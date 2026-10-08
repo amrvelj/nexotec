@@ -221,7 +221,15 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
         await api.patch<CustomerAddressRead>(`/customers/${id}/addresses/${existing.id}`, body)
       } else {
         const path = `/customers/${id}/addresses`
-        await api.post<CustomerAddressRead>(path, body, addressKey.headers([path, body]))
+        try {
+          await api.post<CustomerAddressRead>(path, body, addressKey.headers([path, body]))
+        } catch (err) {
+          // A response lost on the way back may still have created the row.
+          // Refetch before the error shows, so the next save PATCHes that row
+          // instead of adding a second address this screen would never show.
+          await queryClient.invalidateQueries({ queryKey: ['customer', id] })
+          throw err
+        }
         addressKey.renew()
       }
     }
