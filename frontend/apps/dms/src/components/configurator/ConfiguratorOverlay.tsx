@@ -382,10 +382,11 @@ export function ConfiguratorOverlay({
 
   // KAN-96 — a coded field offers the active values of its list, the same
   // set the API accepts. A stored value outside that set (retired by the
-  // admin, or never on the list) stays visible as `⚠ <code>`, disabled and
-  // flagged, because the API refuses a save that carries it (Anto,
-  // 2026-10-07). A list that failed to load says so on its field and flags
-  // nothing — the API remains the authority.
+  // admin, or never on the list) stays visible as its code, disabled and
+  // flagged with a field error, because the API refuses a save that carries
+  // it (Anto, 2026-10-07). `⚠ <code>` is kept for the other case, an active
+  // value with no label in this language. A list that failed to load says
+  // so on its field and flags nothing — the API remains the authority.
   const codedLabelField = LABEL_FIELD[resolveLanguage(i18n.language)]
   const codedOptions = (listCode: string, current: string | null) => {
     const data: { value: string; label: string; disabled?: boolean }[] = [...(codedValues.data?.[listCode] ?? [])]
@@ -395,7 +396,7 @@ export function ConfiguratorOverlay({
         label: r[codedLabelField].trim() !== '' ? r[codedLabelField] : `⚠ ${r.valueCode}`,
       }))
     if (current != null && !data.some((d) => d.value === current)) {
-      data.push({ value: current, label: `⚠ ${current}`, disabled: true })
+      data.push({ value: current, label: current, disabled: true })
     }
     return data
   }
@@ -693,7 +694,13 @@ export function ConfiguratorOverlay({
                       setDraft((prev) => (prev ? { ...prev, coded: { ...prev.coded, [f.key]: v } } : prev))
                     }
                     error={codedFieldError(f.listCode, draft.coded[f.key])}
-                    clearable
+                    // Once saved, a coded field can be changed but not
+                    // emptied: a PATCH reads null as "leave alone" (KAN-247),
+                    // so a cleared field would save while keeping the old
+                    // value — retired values included, which would slip past
+                    // the guard in save(). Lift this with KAN-247.
+                    clearable={configurationId === null}
+                    allowDeselect={configurationId === null}
                     w={200}
                   />
                 ))}
