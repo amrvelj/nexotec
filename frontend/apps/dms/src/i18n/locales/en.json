@@ -883,7 +883,9 @@
     },
     "submit": "Add",
     "errors": {
-      "somethingWentWrong": "Something went wrong."
+      "somethingWentWrong": "Something went wrong.",
+      "vinAlreadyInStock": "This VIN is already in stock — stock number {{stockNumber}}.",
+      "openExisting": "Open vehicle"
     }
   },
   "salesList": {

@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.base import utcnow
 from app.core.config import get_settings
-from app.core.errors import NotFoundError
+from app.core.errors import ConflictError, NotFoundError
 from app.core.outbox import OutboxEvent, publish
 from app.core.pagination import SortPageParams, build_sorted_page, count_capped, paginate_query_sorted
 from app.inventory.models.stock_item import (
@@ -78,6 +78,43 @@ def get_stock_item_or_404(db: Session, tenant_id: uuid.UUID, stock_item_id: uuid
     if item is None:
         raise NotFoundError(f"Stock item {stock_item_id} was not found.")
     return item
+
+
+def _item_in_stock_with_vin(db: Session, *, tenant_id: uuid.UUID, vin: str) -> StockItem | None:
+    """KAN-111: the dealership's item holding this VIN that has not left
+    stock — what `uq_stock_item_tenant_id_vin_in_stock` allows at most one
+    of. An item that left stock (invoiced, FR-I-12) does not count; a
+    storno'd one still does (Anto, 2026-10-07)."""
+
+    return db.scalar(
+        select(StockItem).where(
+            StockItem.tenant_id == tenant_id, StockItem.vin == vin, StockItem.left_stock_at.is_(None)
+        )
+    )
+
+
+def _vin_already_in_stock(held_by: StockItem) -> ConflictError:
+    """The one refusal for a second item with a VIN already in stock —
+    `reason` for the UI to localise, the holder so it can link to it."""
+
+    return ConflictError(
+        f"This VIN is already in stock as {held_by.stock_number}.",
+        details={
+            "reason": "vin_already_in_stock",
+            "stockItemId": str(held_by.id),
+            "stockNumber": held_by.stock_number,
+        },
+    )
+
+
+def _check_vin_not_in_stock(db: Session, *, tenant_id: uuid.UUID, vin: str) -> None:
+    """Refuse before writing, so the ordinary duplicate is a 409 with a
+    reason. Two writers can still race past it; the unique index then
+    refuses, and the callers map that to the same 409."""
+
+    held_by = _item_in_stock_with_vin(db, tenant_id=tenant_id, vin=vin)
+    if held_by is not None:
+        raise _vin_already_in_stock(held_by)
 
 
 def _build_and_flush_stock_item(
@@ -192,10 +229,20 @@ def create_stock_item(
             host="stock pipeline", allowed=(CONFIGURATION_MODE_BUILD, CONFIGURATION_MODE_RECORD)
         )
         configuration_label = configuration.label
-    item = _build_and_flush_stock_item(
-        db, tenant_id=tenant_id, data=data, actor_id=actor_id, pipeline_ref=None,
-        configuration_label=configuration_label,
-    )
+    if data.vin is not None:
+        _check_vin_not_in_stock(db, tenant_id=tenant_id, vin=data.vin)
+    try:
+        item = _build_and_flush_stock_item(
+            db, tenant_id=tenant_id, data=data, actor_id=actor_id, pipeline_ref=None,
+            configuration_label=configuration_label,
+        )
+    except IntegrityError:
+        # KAN-111: another writer took this VIN into stock after the check.
+        db.rollback()
+        held_by = _item_in_stock_with_vin(db, tenant_id=tenant_id, vin=data.vin) if data.vin is not None else None
+        if held_by is None:
+            raise
+        raise _vin_already_in_stock(held_by) from None
     db.commit()
     db.refresh(item)
     return item
