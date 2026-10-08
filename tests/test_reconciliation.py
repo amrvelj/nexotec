@@ -20,6 +20,7 @@ from app.customer import reconciliation as customer_reconciliation
 from app.customer.models.customer import Customer
 from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.inventory.models.stock_item import StockItem, StockItemCondition
+from app.inventory.public import reserve_for_contract
 from app.inventory.schemas.stock_item import StockItemCreate
 from app.inventory.services.stock_item import create_stock_item
 from app.reconciliation_runner import MultiContextReconciliationAlarm, run_all
@@ -420,9 +421,9 @@ def test_sales_reconciliation_leaves_a_fresh_or_linked_manual_contract_alone(cli
 
 def test_sales_reconciliation_detects_a_purchase_recorded_for_another_dealership(client, db_session):
     """KAN-145 — SalesContract.is_invoiceable matches the replica on tenant
-    as well as item, so a replica filed under another dealership of the
-    group leaves the car un-invoiceable where it was bought, and claims a
-    purchase the other dealership never made. Both rows are findings."""
+    as well as item, so a replica filed under another dealership leaves the
+    car un-invoiceable where it was bought, and claims a purchase the other
+    dealership never made. Both rows are findings."""
 
     dealer_id = _create_dealer(client)
     other_dealer_id = _create_dealer(client)
@@ -485,11 +486,15 @@ def _contract(db_session, dealer_id, **columns):
     ("seed", "column", "label", "extra"),
     [
         (_offer, "tenant_id", "sales_offer.tenant_id -> dealership.id", {}),
+        (_offer, "created_by", "sales_offer.created_by -> user.id", {}),
+        (_offer, "updated_by", "sales_offer.updated_by -> user.id", {}),
         (_offer, "customer_id", "sales_offer.customer_id -> customer.id", {}),
         (_offer, "stock_item_id", "sales_offer.stock_item_id -> stock_item.id", {}),
         (_offer, "trade_in_vehicle_id", "sales_offer.trade_in_vehicle_id -> vehicle_mdm.id", {}),
         (_offer, "trade_in_valuation_id", "sales_offer.trade_in_valuation_id -> valuation.id", {}),
         (_contract, "tenant_id", "sales_contract.tenant_id -> dealership.id", {}),
+        (_contract, "created_by", "sales_contract.created_by -> user.id", {}),
+        (_contract, "updated_by", "sales_contract.updated_by -> user.id", {}),
         (_contract, "customer_id", "sales_contract.customer_id -> customer.id", {}),
         (_contract, "stock_item_id", "sales_contract.stock_item_id -> stock_item.id", {}),
         (_contract, "trade_in_vehicle_id", "sales_contract.trade_in_vehicle_id -> vehicle_mdm.id", {}),
@@ -524,6 +529,7 @@ def test_sales_reconciliation_accepts_offers_and_contracts_whose_references_reso
     contract that keeps the id of the hold it released."""
 
     dealer_id = _create_dealer(client)
+    user_id = uuid.UUID(_create_user(client, dealer_id)["id"])
     customer_id = uuid.UUID(_create_customer(client, dealer_id)["id"])
     trade_in_vehicle_id = _create_vehicle_mdm(db_session)
     valuation = create_valuation(
@@ -534,18 +540,21 @@ def test_sales_reconciliation_accepts_offers_and_contracts_whose_references_reso
     held_item = _stock_item(db_session, dealer_id)
     released_item = _stock_item(db_session, dealer_id)
     references = {
-        "customer_id": customer_id, "trade_in_vehicle_id": trade_in_vehicle_id, "trade_in_valuation_id": valuation.id,
+        "created_by": user_id, "updated_by": user_id, "customer_id": customer_id,
+        "trade_in_vehicle_id": trade_in_vehicle_id, "trade_in_valuation_id": valuation.id,
     }
 
     _offer(db_session, dealer_id)
     _offer(db_session, dealer_id, stock_item_id=held_item.id, **references)
     confirmed = _contract(
         db_session, dealer_id, status=ContractStatus.CONFIRMED, signed_at=dt.datetime.now(dt.UTC),
-        vehicle_source="stock", stock_item_id=held_item.id, reservation_id=uuid.uuid4(), **references,
+        vehicle_source="stock", stock_item_id=held_item.id, **references,
     )
-    db_session.execute(
-        update(StockItem).where(StockItem.id == held_item.id).values(active_reservation_id=confirmed.reservation_id)
+    held = reserve_for_contract(
+        db_session, tenant_id=uuid.UUID(dealer_id), stock_item_id=held_item.id, contract_id=confirmed.id,
+        idempotency_key=f"test:{confirmed.id}",
     )
+    confirmed.reservation_id = uuid.UUID(held["reservationId"])
     db_session.commit()
     _contract(
         db_session, dealer_id, status=ContractStatus.CANCELLED, vehicle_source="stock",

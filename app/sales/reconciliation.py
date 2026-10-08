@@ -2,8 +2,9 @@
 read-only — see app.core.reconciliation for the mechanism.
 
 Every cross-context id on sales_offer and sales_contract must resolve
-(KAN-145): the dealership, customer, stock item, trade-in vehicle, trade-in
-valuation and configurations. A contract's reservation_id names no row of its
+(KAN-145): the dealership, the users who created and last changed it, the
+customer, stock item, trade-in vehicle, trade-in valuation and configurations.
+They are matched on id alone, not on the row's dealership. A contract's reservation_id names no row of its
 own — it is the stock item's active_reservation_id, cleared when the hold is
 released — so it is checked only while the contract is confirmed: a signed
 contract whose car is no longer held for it could be sold twice.
@@ -85,6 +86,26 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         target_model=Dealership,
         target_id_column=Dealership.id,
     ),
+    # Who wrote it: the signed-in user (the token's subject), or null for a
+    # legacy-migrated row.
+    ReferenceCheck(
+        label="sales_offer.created_by -> user.id",
+        source_model=SalesOffer,
+        source_row_id_column=SalesOffer.id,
+        source_fk_column=SalesOffer.created_by,
+        target_model=User,
+        target_id_column=User.id,
+        nullable=True,
+    ),
+    ReferenceCheck(
+        label="sales_offer.updated_by -> user.id",
+        source_model=SalesOffer,
+        source_row_id_column=SalesOffer.id,
+        source_fk_column=SalesOffer.updated_by,
+        target_model=User,
+        target_id_column=User.id,
+        nullable=True,
+    ),
     ReferenceCheck(
         label="sales_offer.customer_id -> customer.id",
         source_model=SalesOffer,
@@ -149,6 +170,24 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         source_fk_column=SalesContract.tenant_id,
         target_model=Dealership,
         target_id_column=Dealership.id,
+    ),
+    ReferenceCheck(
+        label="sales_contract.created_by -> user.id",
+        source_model=SalesContract,
+        source_row_id_column=SalesContract.id,
+        source_fk_column=SalesContract.created_by,
+        target_model=User,
+        target_id_column=User.id,
+        nullable=True,
+    ),
+    ReferenceCheck(
+        label="sales_contract.updated_by -> user.id",
+        source_model=SalesContract,
+        source_row_id_column=SalesContract.id,
+        source_fk_column=SalesContract.updated_by,
+        target_model=User,
+        target_id_column=User.id,
+        nullable=True,
     ),
     ReferenceCheck(
         label="sales_contract.customer_id -> customer.id",
