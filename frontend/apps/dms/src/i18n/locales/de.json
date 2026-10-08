@@ -1139,7 +1139,8 @@
     "actions": {
       "revalue": "Neu bewerten",
       "markUsed": "Als verwendet markieren",
-      "markUsedDisabledReason": "Nur aus Entwurf oder gültig möglich.",
+      "markUsedAlreadyUsed": "Bereits als verwendet markiert.",
+      "markUsedNoSignedContract": "Nur möglich, wenn ein unterschriebener Vertrag diese Bewertung als Eintausch enthält.",
       "openCustomer": "Kunde öffnen",
       "openVehicle": "Fahrzeug öffnen"
     },

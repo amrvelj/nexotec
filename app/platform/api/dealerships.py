@@ -15,15 +15,14 @@ used to read _WRITE_ROLES.
 
 import uuid
 
-from fastapi import APIRouter, Depends, Header, Request
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.core.audit import list_tenant_audit_events
 from app.core.audit_schemas import AuditEventPage, AuditEventRead
 from app.core.auth import Principal, get_current_principal, require_access_role
 from app.core.concurrency import check_version, require_if_match
-from app.core.idempotency import find_cached_response, store_response
+from app.core.idempotent_route import IdempotentRoute
 from app.core.pagination import PageParams, page_params
 from app.core.permissions import require_read, require_write
 from app.core.tenancy import require_tenant_match
@@ -35,11 +34,7 @@ from app.platform.schemas.user import UserCreate, UserPage, UserRead, UserUpdate
 from app.platform.services import dealership as dealership_service
 from app.platform.services import user as user_service
 
-router = APIRouter(tags=["dealerships"])
-
-
-def _idempotency_key(idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")) -> str | None:
-    return idempotency_key
+router = APIRouter(tags=["dealerships"], route_class=IdempotentRoute)
 
 
 # --- Dealership ------------------------------------------------------------
@@ -48,34 +43,11 @@ def _idempotency_key(idempotency_key: str | None = Header(default=None, alias="I
 @router.post("/dealerships", response_model=DealershipRead, status_code=201)
 def create_dealership(
     body: DealershipCreate,
-    request: Request,
-    idempotency_key: str | None = Depends(_idempotency_key),
     principal: Principal = Depends(require_access_role()),  # platform_admin only
     db: Session = Depends(get_db),
 ):
-    request_body = body.model_dump(mode="json", by_alias=True)
-    if idempotency_key:
-        cached = find_cached_response(
-            db, tenant_id=principal.tenant_id, key=idempotency_key, path=request.url.path, body=request_body
-        )
-        if cached is not None:
-            return JSONResponse(status_code=cached.response_status, content=cached.response_body)
-
     dealership = dealership_service.create_dealership(db, data=body, actor_id=principal.user_id)
-    result = DealershipRead.model_validate(dealership, from_attributes=True)
-
-    if idempotency_key:
-        store_response(
-            db,
-            tenant_id=principal.tenant_id,
-            key=idempotency_key,
-            path=request.url.path,
-            body=request_body,
-            response_status=201,
-            response_body=result.model_dump(mode="json", by_alias=True),
-        )
-        db.commit()
-    return result
+    return DealershipRead.model_validate(dealership, from_attributes=True)
 
 
 @router.get("/dealerships/{dealership_id}", response_model=DealershipRead)
@@ -141,39 +113,16 @@ def get_dealership_audit_log(
 def create_user(
     dealership_id: uuid.UUID,
     body: UserCreate,
-    request: Request,
-    idempotency_key: str | None = Depends(_idempotency_key),
     principal: Principal = Depends(require_write("dealership_users")),
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealership_id, principal)
     dealership_service.get_dealership_or_404(db, dealership_id)  # 404s a well-formed but nonexistent dealership_id
 
-    request_body = body.model_dump(mode="json", by_alias=True)
-    if idempotency_key:
-        cached = find_cached_response(
-            db, tenant_id=dealership_id, key=idempotency_key, path=request.url.path, body=request_body
-        )
-        if cached is not None:
-            return JSONResponse(status_code=cached.response_status, content=cached.response_body)
-
     user = user_service.create_user(
         db, dealership_id=dealership_id, data=body, actor_id=principal.user_id, actor_roles=principal.roles
     )
-    result = UserRead.model_validate(user, from_attributes=True)
-
-    if idempotency_key:
-        store_response(
-            db,
-            tenant_id=dealership_id,
-            key=idempotency_key,
-            path=request.url.path,
-            body=request_body,
-            response_status=201,
-            response_body=result.model_dump(mode="json", by_alias=True),
-        )
-        db.commit()
-    return result
+    return UserRead.model_validate(user, from_attributes=True)
 
 
 @router.get("/dealerships/{dealership_id}/users/{user_id}", response_model=UserRead)

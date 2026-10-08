@@ -1910,9 +1910,11 @@ export interface paths {
         put?: never;
         /**
          * Mark Valuation Used
-         * @description Manual correction only. Sales's contract confirmation consumes a
-         *     trade-in valuation through app.valuation.public.consume_valuation_for_contract
-         *     (KAN-101), not through this HTTP endpoint.
+         * @description «Als verwendet markieren» — a repair, only for a valuation a signed
+         *     contract carries (KAN-115; 409 `no_signed_contract` otherwise). Sales's
+         *     contract confirmation stamps a trade-in valuation through
+         *     app.valuation.public.consume_valuation_for_contract (KAN-101), not
+         *     through this HTTP endpoint.
          */
         post: operations["mark_valuation_used_v1_valuations__valuation_id__mark_used_post"];
         delete?: never;
@@ -6364,6 +6366,8 @@ export interface components {
             deductions?: components["schemas"]["DeductionRead"][];
             /** Finaloffer */
             finalOffer: string;
+            /** Hassignedcontract */
+            hasSignedContract: boolean;
             /**
              * Id
              * Format: uuid
@@ -8920,6 +8924,8 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for 24 hours. */
+                "Idempotency-Key"?: string | null;
             };
             path: {
                 dealer_group_id: string;
@@ -8992,8 +8998,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "Idempotency-Key"?: string | null;
                 authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for 24 hours. */
+                "Idempotency-Key"?: string | null;
             };
             path?: never;
             cookie?: {
@@ -9258,8 +9265,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "Idempotency-Key"?: string | null;
                 authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for 24 hours. */
+                "Idempotency-Key"?: string | null;
             };
             path: {
                 dealership_id: string;
@@ -11130,8 +11138,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "Idempotency-Key"?: string | null;
                 authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for 24 hours. */
+                "Idempotency-Key"?: string | null;
             };
             path: {
                 list_code: string;

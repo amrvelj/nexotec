@@ -87,6 +87,10 @@ class ValuationRead(CamelModel):
     # Derived on read (services/valuation.py::derive_status), never stored:
     # "draft" | "valid" | "expired" | "used".
     status: str
+    # KAN-115 — whether a signed contract of this dealership carries it as
+    # its trade-in (read from Sales on every read, never stored). Only then
+    # may it be marked used by hand: only a signed deal uses a valuation.
+    has_signed_contract: bool
     version: int
     created_by: uuid.UUID | None
     created_at: dt.datetime

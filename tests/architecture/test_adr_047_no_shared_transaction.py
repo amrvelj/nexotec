@@ -70,7 +70,9 @@ compensating action, nor which session a commit runs on — an own-commit
 write sharing the caller's session commits whatever the caller has
 pending. The behavioural tests cover those per call
 (`test_inventory_reservation`, `test_sales_lifecycle_reservation`,
-`test_sales_trade_in_valuation_use`, and in `test_integration_gateway`
+`test_sales_trade_in_valuation_use`, `test_inventory_reservation_sweep`
+(KAN-122: Stock's sweep reads Sales' statuses outside its write
+transactions, by recording each transaction's statements), and in `test_integration_gateway`
 the two KAN-90 tests on the caller's own rows). It does not follow a
 write made by assigning to another context's ORM object (rule 1's
 territory), and it scans the twelve contexts only: the composition roots
@@ -147,14 +149,15 @@ _IN_PROCESS_STATE = {
 # the loss of the one that always runs.
 _OWN_COMMIT_WRITES = {
     # Stock reservation for a confirmed contract, and its release on
-    # cancellation / by the orphan sweep (WP-7 PR-4, WP-8 PR-6).
+    # cancellation or as the confirmation's compensation (WP-7 PR-4). The
+    # orphan sweep moved into inventory (KAN-122) and calls release itself.
     "app.inventory.public.reserve_for_contract": (
         "app.inventory.services.reservation.reserve_for_contract",
         "sales: confirm_contract",
     ),
     "app.inventory.public.release": (
         "app.inventory.services.reservation.release",
-        "sales: cancel_contract, release_orphaned_reservations",
+        "sales: cancel_contract, confirm_contract's compensation",
     ),
     # A vehicle merge re-points VehicleParty rows; customer stays their
     # writer (FR-V-12). Called after vehicle's own commit.
@@ -238,6 +241,11 @@ _READS = {
     "app.platform.public.list_dealer_manager_emails",
     # Builds a PDF from content Sales supplies; persists nothing.
     "app.platform.public.render_document",
+    # KAN-122: Stock's reservation sweep reads its contracts' statuses, on a
+    # session of its own (tests/test_inventory_reservation_sweep.py).
+    "app.sales.public.get_contract_statuses",
+    # KAN-115: valuation asks which valuations a signed contract carries.
+    "app.sales.public.valuations_carried_by_signed_contracts",
     "app.valuation.public.get_valuation_or_404",
     "app.valuation.public.list_valid_valuations_for_vehicle",
     # Reads persisted sync state only (its docstring); the daily job calls

@@ -1139,7 +1139,8 @@
     "actions": {
       "revalue": "Réévaluer",
       "markUsed": "Marquer comme utilisée",
-      "markUsedDisabledReason": "Possible seulement depuis brouillon ou valide.",
+      "markUsedAlreadyUsed": "Déjà marquée comme utilisée.",
+      "markUsedNoSignedContract": "Possible uniquement si un contrat signé contient cette évaluation comme reprise.",
       "openCustomer": "Ouvrir le client",
       "openVehicle": "Ouvrir le véhicule"
     },
