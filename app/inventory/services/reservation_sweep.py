@@ -32,8 +32,10 @@ stock item's `updated_at` is the clock: reserving writes the row, and any
 later edit only moves it forward, which can delay a release but never
 hasten one. Not covered: a confirmation retried on an already-orphaned
 pending contract in the instant between steps 2 and 3 — reserve and release
-semantics are KAN-114's, and the confirmed-contract-without-reservation
-state that would leave is what KAN-115's check is for.
+semantics are KAN-114's. The confirmed-contract-without-reservation state
+that would leave is reported by Sales' nightly reconciliation check
+`sales_contract.reservation_id -> stock_item.active_reservation_id`
+(KAN-145, app/sales/reconciliation.py).
 
 Not reconciliation: app.core.reconciliation detects and never repairs (P-10,
 ADR-079). This is the repair ADR-047 gives the nightly run: a daily job of
