@@ -147,7 +147,10 @@ services:
   #   - daily: integration.daily_jobs (auto-i-dat catalogue delta sync,
   #     sync-age alarm, retention purge, expiry warnings / support digest),
   #     customer.vehicle_party_labels (KAN-84), reconciliation.run_all
-  #     (CLAUDE.md rule 10), vehicle.plate_lookup_cache.purge (KAN-42)
+  #     (CLAUDE.md rule 10), vehicle.plate_lookup_cache.purge (KAN-42),
+  #     core.idempotency_records.purge (KAN-119 — without it, Idempotency-Key
+  #     records are never purged and a claim left in flight answers 409
+  #     indefinitely)
   #   - the worker's 30 s heartbeat (app/worker.py::_heartbeat): the
   #     dms.outbox.lag_seconds, dead-letter, consumer-lag, reconciliation-age
   #     and label-age gauges — the alarms that would show events piling up
