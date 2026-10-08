@@ -182,7 +182,8 @@ def create_valuation(
 
 def mark_used(db: Session, *, valuation: Valuation, actor_id: uuid.UUID | None) -> Valuation:
     """Stamps the valuation «Verwendet» and publishes `valuation.used` — the
-    one writer of `used_at`. Its two callers decide whether the stamp is
+    one place that sets `used_at` (only the compensating `revert_use` clears
+    it). Its two callers decide whether the stamp is
     allowed: `consume_for_contract` (a confirmation; refuses a valuation
     past its validity) and `mark_used_by_hand` (a signed contract must carry
     it, KAN-115). Own commit.

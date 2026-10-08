@@ -4,6 +4,9 @@ paths:
   - "app/sales/services/trade_in.py"
   - "app/sales/services/contract.py"
   - "app/inventory/services/pipeline.py"
+  - "app/sales/services/signed_trade_ins.py"
+  - "app/sales/reconciliation.py"
+  - "app/inventory/reconciliation.py"
   - "frontend/apps/dms/src/**/*aluation*"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises PRD-Vehicles (FR-V-09,
@@ -40,16 +43,19 @@ as any change to what it states. -->
   **Cancelling a signed contract leaves it used** (ADR-066).
 - **Only a signed deal uses a valuation** (Anto, 2026-10-07, KAN-115). «Als verwendet
   markieren» (`POST /v1/valuations/{id}/mark-used`, `services/valuation.py::mark_used_by_hand`)
-  repairs a missed stamp: allowed only when a signed contract (`signed_at` set, cancelled
-  included) carries the valuation, **whatever its status, expired included** — the contracts
-  signed before KAN-101 stamped nothing; refused otherwise (`no_signed_contract`). Sales answers
-  through `sales.public.valuations_carried_by_signed_contracts`; `ValuationRead.hasSignedContract`
-  carries the same answer to the row menu. `mark_used` is the one writer of `used_at`.
+  repairs a missed stamp: allowed only when a signed contract of the same dealership
+  (`signed_at` set, cancelled included) carries the valuation, **whatever its status, expired
+  included** — the contracts signed before KAN-101 stamped nothing; refused otherwise
+  (`no_signed_contract`). Sales answers through
+  `sales.public.valuations_carried_by_signed_contracts`; `ValuationRead.hasSignedContract`
+  carries the same answer to the row menu. `mark_used` is the one place that sets `used_at`
+  (only the compensating `revert_use` clears it).
 - **Nightly reconciliation reports, never repairs, the stamp and Stock's pointer** (KAN-115,
   rule 10): a valuation stamped for over an hour that no signed contract of its dealership
   carries (`valuation/reconciliation.py` — a confirmation whose commit and compensation both
-  failed, or a hand stamp from before KAN-115); a signed contract whose existing trade-in
-  valuation is not stamped (`sales/reconciliation.py` — signed before KAN-101, or the
+  failed, or a hand stamp from before KAN-115; nothing in the app clears either unless the
+  contract is confirmed again: KAN-253); a signed contract whose existing trade-in valuation of
+  the same dealership is not stamped (`sales/reconciliation.py` — signed before KAN-101, or the
   compensation race; repaired by hand as above); a `stock_item.valuation_ref_id` naming no
   valuation, or a `valuation_ref_amount` that differs from its `final_offer`
   (`inventory/reconciliation.py`). Nothing writes `used_at` from these checks.

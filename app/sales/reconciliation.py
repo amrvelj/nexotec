@@ -148,8 +148,10 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         # another confirmation's compensation in the race ADR-047 leaves to
         # this job. Signed is `signed_at` set: cancelling keeps the stamp
         # (ADR-066). Repaired by hand: «Als verwendet markieren» stamps a
-        # valuation a signed contract carries, expired or not. A valuation
-        # that does not exist at all is KAN-145's reference check.
+        # valuation a signed contract carries, expired or not. Only a
+        # valuation of the contract's own dealership counts (tenant-private,
+        # ADR-029; the hand stamp looks for contracts there too): one that
+        # does not exist there is a reference problem, KAN-145's check.
         label="signed contract whose trade-in valuation is not used",
         source_model=SalesContract,
         source_row_id_column=SalesContract.id,
