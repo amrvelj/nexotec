@@ -26,12 +26,13 @@ in the handler:
 
 What it does not cover: a process dying between the handler's commit and the
 completion leaves the claim in flight. Retries then get 409, never a
-duplicate, until the daily purge removes the row (``IDEMPOTENCY_RECORD_TTL``).
+duplicate, until the daily purge removes the row: it runs once a day and takes
+rows older than ``IDEMPOTENCY_RECORD_TTL``, so a claim can stand 24 to 48 hours.
 Closing that window entirely needs the record written inside the service's
 own transaction, as ``app/inventory/services/reservation.py`` does.
 
-Records of HTTP requests are kept for ``IDEMPOTENCY_RECORD_TTL`` and then
-purged by a daily job (``purge_expired_idempotency_records``, registered in
+Records of HTTP requests are kept for at least ``IDEMPOTENCY_RECORD_TTL`` and
+then purged by a daily job (``purge_expired_idempotency_records``, registered in
 ``app/worker.py``): a retry comes within seconds or minutes, and a stored
 response can carry personal data (a created customer's name and contact
 details). The purge leaves alone the records a context writes under a path of
@@ -192,7 +193,7 @@ async def _keyed_request(
         description=(
             "Optional. A fresh value (a UUID) per form submission, reused only when retrying that same "
             "submission. A retry gets the original response. The same key with a different request, or "
-            "while the first request is still being processed, is a 409. Keys are kept for 24 hours."
+            "while the first request is still being processed, is a 409. Keys are kept for at least 24 hours."
         ),
     ),
     principal: Principal = Depends(get_current_principal),
