@@ -25,6 +25,7 @@ from app.inventory.models.stock_item import StockItem, StockItemCondition
 from app.inventory.schemas.stock_item import StockItemCreate
 from app.inventory.services.pipeline import handle_sales_contract_confirmed
 from app.inventory.services.stock_item import create_stock_item
+from app.platform.models.user import User, UserRole, UserStatus
 from app.sales import reconciliation as sales_reconciliation
 from app.sales.models.contract import ContractStatus, SalesContract
 from app.valuation import reconciliation as valuation_reconciliation
@@ -188,12 +189,13 @@ def test_a_signed_contract_naming_no_existing_valuation_is_left_to_the_reference
     assert _findings(sales_reconciliation, db_session, SIGNED_WITHOUT_USED_VALUATION) == []
 
 
-def test_a_signed_contract_naming_another_dealerships_valuation_is_left_to_the_reference_check(db_session):
+def test_a_signed_contract_naming_another_dealerships_valuation_is_not_this_checks_finding(db_session):
     """A valuation is tenant-private (ADR-029) and the hand stamp looks for
     signed contracts in the valuation's own dealership, so this check asks
     only about a valuation of the contract's own dealership: a finding here
     could never be cleared. Another dealership's id on a contract is a
-    reference problem — KAN-145's check, not this one."""
+    reference problem, but KAN-145's reference check matches on id alone,
+    so nothing reports it yet (KAN-259)."""
 
     dealership, other = _dealership(db_session), _dealership(db_session)
     foreign = _valuation(db_session, other.id, uuid.uuid4())
@@ -285,13 +287,21 @@ def test_a_matching_pointer_and_no_pointer_are_not_reported(db_session):
 def test_a_completed_confirmation_with_a_trade_in_leaves_all_three_jobs_clean(db_session, engine):
     """No false positive from the real flow: confirm the contract (valuation
     stamped, contract signed), let Stock create the trade-in item with its
-    pointer, then run the three jobs whole, past the grace period."""
+    pointer, then run the three jobs whole, past the grace period. A real
+    user writes the deal, as the signed-in seller always does (KAN-145
+    checks the actor columns)."""
 
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
+    seller = User(
+        tenant_id=dealership.id, first_name="Sam", last_name="Sales", email=f"sam-{uuid.uuid4().hex[:8]}@example.ch",
+        role=UserRole.SALES, access_roles=["sales"], status=UserStatus.ACTIVE, auth_identity_id=str(uuid.uuid4()),
+    )
+    db_session.add(seller)
+    db_session.commit()
     valuation = _valuation(db_session, dealership.id, group_id)
-    contract, _item = _trade_in_contract(db_session, dealership.id, group_id, valuation)
-    _confirm(db_session, engine, contract, group_id)
+    contract, _item = _trade_in_contract(db_session, dealership.id, group_id, valuation, actor_id=seller.id)
+    _confirm(db_session, engine, contract, group_id, actor_id=seller.id)
     message = db_session.query(OutboxMessage).filter_by(
         aggregate_id=contract.id, event_type="sales.contract.confirmed"
     ).one()
