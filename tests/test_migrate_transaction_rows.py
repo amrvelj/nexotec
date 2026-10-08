@@ -505,7 +505,7 @@ def test_a_vehicle_traded_in_and_later_resold_ends_up_as_one_stock_item_with_bot
     outcomes_by_txn = {o.transaction_id: o for o in report.outcomes}
     assert outcomes_by_txn[trade_in_txn.id].outcome == "migrated"
     assert outcomes_by_txn[sale_txn.id].outcome == "migrated"
-    assert db_session.query(StockItem).count() == 1  # never two rows for the same VIN
+    assert db_session.query(StockItem).count() == 1  # one stay in stock, so one item for both rows
 
     item = db_session.query(StockItem).one()
     assert item.purchase_price == Decimal("12000.00")  # the trade-in's own acquisition fact, untouched by the sale
@@ -682,7 +682,7 @@ def test_legacy_rows_never_touch_a_car_live_stock_holds_even_beside_a_sold_row(d
     returned row, neither a legacy trade-in nor a legacy sale may pick one
     arbitrarily, reopen the sold row (IntegrityError on the in-stock VIN
     index), close the live car out or overwrite its purchase: each row is
-    reported as vehicle_in_live_stock and nothing changes.
+    reported as vehicle_known_to_live_stock and nothing changes.
     """
 
     _dealership(db_session)
@@ -702,10 +702,10 @@ def test_legacy_rows_never_touch_a_car_live_stock_holds_even_beside_a_sold_row(d
 
     assert report.aborted is False
     outcomes_by_txn = {o.transaction_id: o for o in report.outcomes}
-    assert outcomes_by_txn[trade_in.id].outcome == "vehicle_in_live_stock"
-    assert outcomes_by_txn[sale.id].outcome == "vehicle_in_live_stock"
+    assert outcomes_by_txn[trade_in.id].outcome == "vehicle_known_to_live_stock"
+    assert outcomes_by_txn[sale.id].outcome == "vehicle_known_to_live_stock"
     assert str(returned.id) in outcomes_by_txn[trade_in.id].notes
-    assert "VEHICLE_IN_LIVE_STOCK" in report.summary()
+    assert "VEHICLE_KNOWN_TO_LIVE_STOCK" in report.summary()
     db_session.expire_all()
     assert {i.id: _snapshot(i) for i in db_session.query(StockItem).all()} == before
     assert db_session.query(SalesContract).count() == 0
@@ -729,7 +729,7 @@ def test_a_legacy_trade_in_never_fills_a_live_item_that_has_no_purchase_yet(db_s
 
     report = run_migration(db_session, commit=True)
 
-    assert [o.outcome for o in report.outcomes] == ["vehicle_in_live_stock"]
+    assert [o.outcome for o in report.outcomes] == ["vehicle_known_to_live_stock"]
     db_session.expire_all()
     assert _snapshot(db_session.get(StockItem, live.id)) == before
     assert db_session.query(StockItem).filter_by(pipeline_ref=f"legacy-transaction:{trade_in.id}").count() == 0
@@ -747,14 +747,48 @@ def test_a_legacy_sale_never_closes_out_a_car_live_stock_holds(db_session):
 
     report = run_migration(db_session, commit=True)
 
-    assert [o.outcome for o in report.outcomes] == ["vehicle_in_live_stock"]
+    assert [o.outcome for o in report.outcomes] == ["vehicle_known_to_live_stock"]
     db_session.expire_all()
     assert _snapshot(db_session.get(StockItem, live.id)) == before
     assert db_session.query(SalesContract).count() == 0
 
 
+def test_legacy_rows_never_touch_a_car_live_stock_has_already_sold(db_session):
+    """A car live Stock took in and sold, with no item in stock now: a legacy
+    trade-in must not create a phantom item in stock (with a years-old
+    in_stock_at and a booked purchase) for a car the dealership no longer
+    has, and a legacy sale is not mistaken for a second legacy sale. Both
+    are reported; nothing is written.
+    """
+
+    _dealership(db_session)
+    customer = _customer(db_session)
+    legacy = _legacy_vehicle(db_session)
+    mdm = _migrated_vehicle_mdm(db_session, legacy)
+    live_sold = _live_stock_item(
+        db_session, mdm, stock_number="S-LIVE", purchase_price=Decimal("10000.00"),
+        left_stock_at=dt.datetime(2026, 9, 20, tzinfo=dt.UTC),
+    )
+    trade_in = _trade_in_transaction(db_session, customer_id=customer.id, vehicle_id=legacy.id)
+    sale = _sale_transaction(db_session, customer_id=customer.id, vehicle_id=legacy.id)
+    db_session.commit()
+    before = _snapshot(live_sold)
+
+    report = run_migration(db_session, commit=True)
+
+    outcomes_by_txn = {o.transaction_id: o for o in report.outcomes}
+    assert outcomes_by_txn[trade_in.id].outcome == "vehicle_known_to_live_stock"
+    assert outcomes_by_txn[sale.id].outcome == "vehicle_known_to_live_stock"
+    assert "S-LIVE" in outcomes_by_txn[sale.id].notes
+    db_session.expire_all()
+    assert db_session.query(StockItem).count() == 1
+    assert _snapshot(db_session.get(StockItem, live_sold.id)) == before
+    assert db_session.query(SalesContract).count() == 0
+    assert db_session.query(SalesStockItemPurchase).count() == 0
+
+
 def test_dry_run_reports_a_car_live_stock_holds(db_session):
-    """The dry run reports exactly what the real run would (migrations rule)."""
+    """The dry run reports a car live Stock holds, as the real run does."""
 
     _dealership(db_session)
     customer = _customer(db_session)
@@ -767,7 +801,7 @@ def test_dry_run_reports_a_car_live_stock_holds(db_session):
 
     report = run_migration(db_session, commit=False)
 
-    assert [o.outcome for o in report.outcomes] == ["vehicle_in_live_stock", "vehicle_in_live_stock"]
+    assert [o.outcome for o in report.outcomes] == ["vehicle_known_to_live_stock", "vehicle_known_to_live_stock"]
 
 
 def test_two_trade_ins_with_no_intervening_sale_report_the_second_as_a_conflict(db_session):
