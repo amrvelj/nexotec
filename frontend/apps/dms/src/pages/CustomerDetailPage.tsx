@@ -106,7 +106,9 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
   const [creatingContract, setCreatingContract] = useState(false)
   // KAN-266: one Idempotency-Key per submission of each create — a retry
   // after a failed save reuses it, so the server replays instead of
-  // creating the row twice; it renews once the save has gone through.
+  // creating the row twice; it renews once the save has gone through, and
+  // a different request (another value, another customer: this screen stays
+  // mounted when :id changes) gets a new one.
   const addressKey = useIdempotencyKey()
   const phoneKey = useIdempotencyKey()
   const emailKey = useIdempotencyKey()
@@ -218,7 +220,8 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
       if (existing) {
         await api.patch<CustomerAddressRead>(`/customers/${id}/addresses/${existing.id}`, body)
       } else {
-        await api.post<CustomerAddressRead>(`/customers/${id}/addresses`, body, addressKey.headers())
+        const path = `/customers/${id}/addresses`
+        await api.post<CustomerAddressRead>(path, body, addressKey.headers([path, body]))
         addressKey.renew()
       }
     }
@@ -286,11 +289,9 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
   }
 
   const createPhone = async (row: { type: PhoneType; value: string }) => {
-    await api.post<CustomerPhoneRead>(
-      `/customers/${id}/phones`,
-      { phoneType: row.type, phoneE164: row.value },
-      phoneKey.headers(),
-    )
+    const path = `/customers/${id}/phones`
+    const body = { phoneType: row.type, phoneE164: row.value }
+    await api.post<CustomerPhoneRead>(path, body, phoneKey.headers([path, body]))
     phoneKey.renew()
     invalidateContact('phones')
   }
@@ -315,11 +316,9 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
   }
 
   const createEmail = async (row: { type: EmailType; value: string }) => {
-    await api.post<CustomerEmailRead>(
-      `/customers/${id}/emails`,
-      { emailType: row.type, emailAddress: row.value },
-      emailKey.headers(),
-    )
+    const path = `/customers/${id}/emails`
+    const body = { emailType: row.type, emailAddress: row.value }
+    await api.post<CustomerEmailRead>(path, body, emailKey.headers([path, body]))
     emailKey.renew()
     invalidateContact('emails')
   }
@@ -352,11 +351,9 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
   }
 
   const createExternalId = async (row: { systemName: string; externalId: string }) => {
-    await api.post<CustomerExternalIdRead>(
-      `/customers/${id}/external-ids`,
-      { systemName: row.systemName, externalId: row.externalId },
-      externalIdKey.headers(),
-    )
+    const path = `/customers/${id}/external-ids`
+    const body = { systemName: row.systemName, externalId: row.externalId }
+    await api.post<CustomerExternalIdRead>(path, body, externalIdKey.headers([path, body]))
     externalIdKey.renew()
     invalidateExternalIds()
   }

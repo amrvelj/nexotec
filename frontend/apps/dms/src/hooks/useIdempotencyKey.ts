@@ -15,15 +15,32 @@ import { useCallback, useMemo, useRef } from 'react'
  * submission gets a key of its own. A failed submission keeps its key: the
  * server releases the key of a request that failed, so the corrected form is
  * sent again under it.
+ *
+ * `headers(request)` (KAN-266) is for a form that can send a different request
+ * without being reopened — an inline add row, a screen that stays mounted while
+ * its record changes. Pass what identifies the request (its path and body): a
+ * different request than the last one gets a new key, the same request (a
+ * retry) keeps it. Without it, a response lost on the way back leaves the key
+ * bound to that request, and every different request sent under it is a 409.
  */
-export function useIdempotencyKey(): { headers: () => Record<string, string>; renew: () => void } {
+export function useIdempotencyKey(): {
+  headers: (request?: unknown) => Record<string, string>
+  renew: () => void
+} {
   const key = useRef<string | null>(null)
-  const headers = useCallback(() => {
+  const lastRequest = useRef<string | null>(null)
+  const headers = useCallback((request?: unknown) => {
+    if (request !== undefined) {
+      const fingerprint = JSON.stringify(request)
+      if (lastRequest.current !== null && lastRequest.current !== fingerprint) key.current = null
+      lastRequest.current = fingerprint
+    }
     key.current ??= crypto.randomUUID()
     return { 'Idempotency-Key': key.current }
   }, [])
   const renew = useCallback(() => {
     key.current = null
+    lastRequest.current = null
   }, [])
   return useMemo(() => ({ headers, renew }), [headers, renew])
 }

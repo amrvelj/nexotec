@@ -13,7 +13,7 @@ from sqlalchemy import func, select
 from app.core.auth import AccessRole, create_access_token
 from app.customer.models.customer import Customer, CustomerAddress, CustomerEmail, CustomerExternalId, CustomerPhone
 from app.customer.models.legal_basis import LegalBasis
-from app.customer.models.vehicle_party import VehicleParty
+from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
 
 VALID_ADDRESS = {
     "street": "Bahnhofstrasse",
@@ -91,6 +91,13 @@ def _count(db_session, model, *where) -> int:
     return db_session.scalar(select(func.count()).select_from(model).where(*where))
 
 
+def _assert_key_conflict(response, key: str) -> None:
+    """A 409 for the reused key, not for some other conflict (a stale If-Match)."""
+
+    assert response.status_code == 409, response.text
+    assert response.json()["error"]["details"]["idempotencyKey"] == key
+
+
 def _twice(client, path: str, token: str, body: dict | None, **extra: str):
     key = str(uuid.uuid4())
     first = client.post(path, json=body, headers=_headers(token, key, **extra))
@@ -119,7 +126,7 @@ def test_create_customer_with_a_reused_key_and_another_body_is_a_409(client, db_
 
     response = client.post("/v1/customers", json=_customer_payload(firstName="Berta"), headers=_headers(token, key))
 
-    assert response.status_code == 409
+    _assert_key_conflict(response, key)
     assert _count(db_session, Customer) == 1
 
 
@@ -188,7 +195,7 @@ def test_each_child_create_with_a_reused_key_and_another_body_is_a_409(client, d
 
         response = client.post(path, json=other, headers=_headers(writer, key))
 
-        assert response.status_code == 409, segment
+        _assert_key_conflict(response, key)
         assert _count(db_session, model, model.customer_id == uuid.UUID(customer["id"])) == before, segment
 
 
@@ -202,14 +209,38 @@ def _vehicle(client, token: str) -> dict:
     return response.json()["vehicle"]
 
 
-def test_link_vehicle_twice_under_one_key_makes_one_party(client, db_session):
+def test_a_retried_link_replays_instead_of_taking_the_vehicle_back(client, db_session):
+    """Re-linking the same customer, vehicle and role is a no-op, so a retry
+    straight after the first link would pass without the key. A retry after
+    another customer has become the owner shows it: run again, it would close
+    B's ownership and make A the owner once more."""
+
     _, token = _setup(client)
-    customer = _customer(client, token)
+    first_owner = _customer(client, token)
+    next_owner = _customer(client, token)
     vehicle = _vehicle(client, token)
+    body = {"vehicleId": vehicle["id"], "role": "owner"}
+    key = str(uuid.uuid4())
+    path = f"/v1/customers/{first_owner['id']}/vehicles"
 
-    _twice(client, f"/v1/customers/{customer['id']}/vehicles", token, {"vehicleId": vehicle["id"], "role": "owner"})
+    first = client.post(path, json=body, headers=_headers(token, key))
+    assert first.status_code == 201, first.text
+    taken = client.post(f"/v1/customers/{next_owner['id']}/vehicles", json=body, headers=_headers(token))
+    assert taken.status_code == 201, taken.text
+    retry = client.post(path, json=body, headers=_headers(token, key))
 
-    assert _count(db_session, VehicleParty, VehicleParty.customer_id == uuid.UUID(customer["id"])) == 1
+    assert retry.status_code == first.status_code
+    assert retry.json() == first.json()
+    db_session.expire_all()
+    open_owners = db_session.scalars(
+        select(VehicleParty.customer_id).where(
+            VehicleParty.vehicle_id == uuid.UUID(vehicle["id"]),
+            VehicleParty.role == VehiclePartyRole.OWNER,
+            VehicleParty.effective_to.is_(None),
+        )
+    ).all()
+    assert open_owners == [uuid.UUID(next_owner["id"])]
+    assert _count(db_session, VehicleParty, VehicleParty.customer_id == uuid.UUID(first_owner["id"])) == 1
 
 
 def test_link_vehicle_with_a_reused_key_and_another_body_is_a_409(client, db_session):
@@ -221,7 +252,7 @@ def test_link_vehicle_with_a_reused_key_and_another_body_is_a_409(client, db_ses
 
     response = client.post(path, json={"vehicleId": vehicle["id"], "role": "driver"}, headers=_headers(token, key))
 
-    assert response.status_code == 409
+    _assert_key_conflict(response, key)
     assert _count(db_session, VehicleParty, VehicleParty.customer_id == uuid.UUID(customer["id"])) == 1
 
 
@@ -247,7 +278,7 @@ def test_record_legal_basis_with_a_reused_key_and_another_body_is_a_409(client, 
 
     response = client.post(path, json={**body, "scope": "everything"}, headers=_headers(_admin(dealership), key))
 
-    assert response.status_code == 409
+    _assert_key_conflict(response, key)
     assert _count(db_session, LegalBasis, LegalBasis.customer_id == uuid.UUID(customer["id"])) == 1
 
 
@@ -274,7 +305,7 @@ def test_credit_block_with_a_reused_key_and_another_body_is_a_409(client, db_ses
 
     response = client.post(path, json={"blocked": False}, headers=_headers(token, key, **{"If-Match": "2"}))
 
-    assert response.status_code == 409
+    _assert_key_conflict(response, key)
     db_session.expire_all()
     assert db_session.get(Customer, uuid.UUID(customer["id"])).credit_block is True
 
@@ -304,6 +335,6 @@ def test_merge_with_a_reused_key_and_another_survivor_is_a_409(client, db_sessio
         path, json={"duplicateOfCustomerId": other["id"]}, headers=_headers(token, key, **{"If-Match": "1"})
     )
 
-    assert response.status_code == 409
+    _assert_key_conflict(response, key)
     db_session.expire_all()
     assert db_session.get(Customer, uuid.UUID(duplicate["id"])).duplicate_of_customer_id == uuid.UUID(survivor["id"])

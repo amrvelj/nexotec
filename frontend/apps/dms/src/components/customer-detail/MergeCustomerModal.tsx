@@ -63,6 +63,7 @@ export function MergeCustomerModal({ opened, onClose, customer, phones, emails, 
     setSurvivor(null)
     setConfirmed(false)
     setError(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opened])
 
   useEffect(() => {

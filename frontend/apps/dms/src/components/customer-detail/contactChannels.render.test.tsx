@@ -266,7 +266,8 @@ describe('contact channels — create dialog (same RepeatableRowGroup, ADR-067)'
 })
 
 describe('contact channels — one Idempotency-Key per added row (KAN-266)', () => {
-  it('a phone add retried after a failure keeps its key; the next phone gets a new one', async () => {
+  // The first phone POST fails; every later one succeeds.
+  async function renderWithFailingFirstPhone() {
     const user = userEvent.setup()
     const phones: CustomerPhoneRead[] = []
     let posts = 0
@@ -298,21 +299,24 @@ describe('contact channels — one Idempotency-Key per added row (KAN-266)', () 
     )
     const phoneBlock = (await screen.findByText(i18n.t('customerDetail.contactPoints.phoneNumbers'))).parentElement as HTMLElement
     const keys = () => backend.callsTo(/^\/customers\/c1\/phones$/, 'POST').map((call) => call.headers.get('Idempotency-Key'))
-
+    const saveButton = () => within(phoneBlock).queryByRole('button', { name: i18n.t('customerDetail.contactPoints.save') })
+    const numberInput = () => within(saveButton()!.closest('div') as HTMLElement).getByLabelText(i18n.t('customerDetail.phoneInput.number'))
     const addPhone = async (national: string) => {
       await user.click(within(phoneBlock).getByRole('button', { name: new RegExp(i18n.t('customerDetail.contactPoints.addPhone'), 'i') }))
-      const save = within(phoneBlock).getByRole('button', { name: i18n.t('customerDetail.contactPoints.save') })
-      await user.type(within(save.closest('div') as HTMLElement).getByLabelText(i18n.t('customerDetail.phoneInput.number')), national)
-      await user.click(save)
+      await user.type(numberInput(), national)
+      await user.click(saveButton()!)
     }
+    return { user, phoneBlock, keys, saveButton, numberInput, addPhone }
+  }
+
+  it('a phone add retried after a failure keeps its key; the next phone gets a new one', async () => {
+    const { user, phoneBlock, keys, saveButton, addPhone } = await renderWithFailingFirstPhone()
 
     await addPhone('791110000')
     expect(await within(phoneBlock).findByText('Try again.')).toBeInTheDocument()
-    await user.click(within(phoneBlock).getByRole('button', { name: i18n.t('customerDetail.contactPoints.save') }))
+    await user.click(saveButton()!)
     await waitFor(() => expect(keys()).toHaveLength(2))
-    await waitFor(() =>
-      expect(within(phoneBlock).queryByRole('button', { name: i18n.t('customerDetail.contactPoints.save') })).not.toBeInTheDocument(),
-    )
+    await waitFor(() => expect(saveButton()).not.toBeInTheDocument())
 
     await addPhone('792220000')
     await waitFor(() => expect(keys()).toHaveLength(3))
@@ -322,5 +326,23 @@ describe('contact channels — one Idempotency-Key per added row (KAN-266)', () 
     expect(retry).toBe(first)
     expect(next).toBeTruthy()
     expect(next).not.toBe(first)
+  })
+
+  it('a corrected value saved after a failure is a different request and gets a new key', async () => {
+    // Had the first response been lost rather than refused, the server would
+    // hold the key for the first number: the corrected one under it is a 409.
+    const { user, phoneBlock, keys, saveButton, numberInput, addPhone } = await renderWithFailingFirstPhone()
+
+    await addPhone('791110000')
+    expect(await within(phoneBlock).findByText('Try again.')).toBeInTheDocument()
+    await user.clear(numberInput())
+    await user.type(numberInput(), '793330000')
+    await user.click(saveButton()!)
+    await waitFor(() => expect(keys()).toHaveLength(2))
+
+    const [first, corrected] = keys()
+    expect(first).toBeTruthy()
+    expect(corrected).toBeTruthy()
+    expect(corrected).not.toBe(first)
   })
 })
