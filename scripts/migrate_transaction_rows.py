@@ -483,6 +483,9 @@ def _migrate_sale(db: Session, txn: Transaction, *, commit: bool) -> RowOutcome:
         updated_by=None,
     )
     db.add(contract)
+    # Sessions do not autoflush: this flush is what lets a later row in the
+    # same --commit run see legacy_transaction_id and recognise the item as
+    # this import's (`_live_stock_item_for_vin`).
     db.flush()
 
     note = f"stock_item={stock_item.id}{' (reused)' if not created else ''} offer={offer.id} contract={contract.id}"
@@ -510,8 +513,10 @@ def _migrate_trade_in(db: Session, txn: Transaction, *, commit: bool) -> RowOutc
     if dealership is None:
         return RowOutcome(txn.id, "trade_in", "dealership_unresolved", f"dealership {txn.tenant_id} does not exist")
 
-    # A sold item for this VIN is history and plays no part: a car traded
-    # back in after a sale is a new stay in stock, so a new item (KAN-256).
+    # Any item live Stock created for this VIN, in stock or sold, stops the
+    # row (NEVER A CAR LIVE STOCK KNOWS). This import's own sold item is
+    # history and plays no part: a car traded back in after a sale is a new
+    # stay in stock, so a new item (KAN-256).
     live_item = _live_stock_item_for_vin(db, txn.tenant_id, vehicle_mdm.vin)
     if live_item is not None:
         return _vehicle_known_to_live_stock(txn, "trade_in", live_item, vehicle_mdm)
