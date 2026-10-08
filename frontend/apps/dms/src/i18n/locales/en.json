@@ -883,7 +883,9 @@
     },
     "submit": "Add",
     "errors": {
-      "somethingWentWrong": "Something went wrong."
+      "somethingWentWrong": "Something went wrong.",
+      "vinAlreadyInStock": "This VIN is already in stock — stock number {{stockNumber}}.",
+      "openExisting": "Open vehicle"
     }
   },
   "salesList": {
@@ -1456,7 +1458,8 @@
         "dimensions": "Dimensions & weights",
         "consumption": "Consumption & energy",
         "codes": "Codes",
-        "price": "Price"
+        "price": "Price",
+        "vehicleType": "Vehicle type"
       },
       "fields": {
         "modelTypeName": "Model type",
@@ -1481,8 +1484,12 @@
         "importcode": "Import code",
         "basePriceYear": "Price year",
         "vehicleKind": "Vehicle kind",
-        "priceIsNet": "Price is net"
-      }
+        "priceIsNet": "Price is net",
+        "drivetrain": "Drive"
+      },
+      "retired": "No longer available — choose a current value",
+      "retiredSaveError": "No longer available: {{fields}}. Choose a current value before saving.",
+      "listUnavailable": "The list could not be loaded"
     },
     "options": {
       "noCatalogueVariant": "Catalogue options are not available for a manual configuration.",

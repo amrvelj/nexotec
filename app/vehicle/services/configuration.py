@@ -42,6 +42,7 @@ from app.vehicle.schemas.configuration import (
     ConfigurationOptionInput,
     ConfigurationUpdate,
 )
+from app.vehicle.services.reference_codes import validate_reference_codes
 from app.vehicle.services.vehicle_mdm import get_vehicle_mdm_by_vin
 
 _EVENT_PRODUCER = "vehicle.configuration"
@@ -51,7 +52,8 @@ _MATCHED_STATUSES = {ConfigurationMatchStatus.MATCHED, ConfigurationMatchStatus.
 
 # The five coded spec fields declared directly on the carriers (not in the
 # `VehicleSpecBlock` mixin) — see the model. Copied / diffed alongside
-# `SPEC_BLOCK_FIELDS`.
+# `SPEC_BLOCK_FIELDS`. Each holds a value of the reference list of the same
+# name; a value a client sends is checked against it (KAN-96).
 _CODED_SPEC_FIELDS = ("vehicle_kind", "fuel_type", "body_style", "drivetrain", "transmission")
 _ALL_SPEC_FIELDS = (*SPEC_BLOCK_FIELDS, *_CODED_SPEC_FIELDS)
 
@@ -103,6 +105,21 @@ def _apply_spec_payload(config: VehicleConfiguration, spec: Any) -> None:
     for field in SPEC_BLOCK_FIELDS:
         if field in data:
             setattr(config, field, data[field])
+
+
+def _validate_coded_spec_fields(db: Session, data: ConfigurationCreate | ConfigurationUpdate) -> None:
+    """Every coded spec value the client sent must be an active value of
+    its reference list — 422 otherwise, 500 if a list is missing
+    (`validate_reference_codes`, the rule KAN-57 set for `/v1/vehicles`).
+
+    A PATCH checks every value it carries, one sent back unchanged included:
+    a value retired from its list refuses the save (Anto, 2026-10-07).
+    Codes a provider configuration copies from its variant at capture are
+    not checked here — their integrity belongs to catalogue sync (KAN-75 /
+    KAN-77).
+    """
+
+    validate_reference_codes(db, {field: getattr(data, field) for field in _CODED_SPEC_FIELDS}, _CODED_SPEC_FIELDS)
 
 
 def _link_vehicle_if_vin_resolves(db: Session, config: VehicleConfiguration) -> None:
@@ -164,6 +181,7 @@ def create_configuration(
     else:
         if data.confirmed_best_match_code is not None:
             raise UnprocessableEntityError("A confirmed best match needs a provider configuration.")
+        _validate_coded_spec_fields(db, data)
         config.catalogue_match_status = ConfigurationMatchStatus.UNVERIFIED
         if data.spec is not None:
             _apply_spec_payload(config, data.spec)
@@ -217,6 +235,8 @@ def update_configuration(
             "A saved configuration's mode cannot be changed; copy it into a new configuration instead.",
             details={"reason": "configuration_mode_fixed"},
         )
+    # Before anything on the row changes: a refused PATCH leaves it as it was.
+    _validate_coded_spec_fields(db, data)
 
     spec_before: dict[str, Any] = {}
     spec_after: dict[str, Any] = {}

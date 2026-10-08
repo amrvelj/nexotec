@@ -114,6 +114,11 @@ export interface paths {
          *     the TARGET dealership's own dealer_group_id, not assumed unchanged from
          *     the caller's current token, since a membership could in principle span
          *     two different groups.
+         *
+         *     A fresh token is a renewed session, so it is minted like a login
+         *     (KAN-141): the user's status and memberships are re-read from the
+         *     database, never trusted from the token the caller already holds — a
+         *     user deactivated or a membership revoked since login is refused.
          */
         post: operations["switch_dealership_v1_auth_switch_dealership_post"];
         delete?: never;

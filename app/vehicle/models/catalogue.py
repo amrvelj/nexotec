@@ -11,9 +11,10 @@ VehicleMdm.catalogue_variant_id here.
 All tables here are global (no tenant_id) — a model variant is not owned by
 a dealer, same reasoning as the shipped Vehicle table's own "a VIN is
 decoded manufacturer data" note. No provider code appears in any column
-here: PR-2's provider_entity_ref/provider_code_map is the only place a raw
-provider code is allowed to exist, and application code reads through it,
-never around it.
+here: PR-2's provider tables (`app/vehicle/models/provider.py` — the
+entity refs, the code map, and since KAN-83 each variant's recorded raw
+codes) are the only place a raw provider code is allowed to exist, and
+application code reads through them, never around them.
 """
 
 import datetime as dt

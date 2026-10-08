@@ -7,7 +7,8 @@
 #
 # One deployable (ADR-001/ADR-015): `app` and `worker` are the same image,
 # same codebase, different entrypoint — not two services in the ADR-015
-# sense, mirroring render.yaml's own web/worker split.
+# sense, the same web/worker split render.yaml documents (its worker is
+# not provisioned on staging — KAN-234).
 services:
   db:
     image: postgres:16-alpine
