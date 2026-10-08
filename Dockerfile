@@ -1,7 +1,8 @@
 # One deployable (ADR-001/ADR-015) — this image is used for BOTH the web
 # service and the outbox worker (docker-compose.yml's `app` and `worker`
-# services), same as render.yaml's two Render services already share one
-# codebase. Different process, not a second deployable.
+# services): the same web/worker split render.yaml documents (where the
+# worker is not provisioned on staging — KAN-234). Different process, not
+# a second deployable.
 
 # --- frontend build stage ------------------------------------------------
 FROM node:22-slim AS frontend-build
