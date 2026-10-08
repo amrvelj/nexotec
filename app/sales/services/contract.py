@@ -439,8 +439,11 @@ def _compensate_confirmation(
     Called from an `except` block, which re-raises the original error: each
     action is attempted even if the other fails, and a failure here is
     logged rather than raised, so it never masks why the confirmation
-    failed. ADR-047 leaves what stays undone to nightly reconciliation; no
-    check covers these two yet (KAN-115).
+    failed. ADR-047 leaves what stays undone to nightly reconciliation: a
+    revert that stays undone is reported by the valuation job's "used
+    valuation with no signed contract carrying it" (KAN-115); a release that
+    stays undone leaves an orphaned reservation, which nothing sweeps yet
+    (KAN-122).
     """
 
     if reservation_id is not None:

@@ -7,6 +7,7 @@ from app.sales.models.contract import SalesContract
 from app.sales.models.offer import SalesOffer
 from app.sales.models.transaction import Transaction
 from app.sales.services.customer_merge import repoint_customer_sales_records
+from app.sales.services.signed_trade_ins import valuations_carried_by_signed_contracts
 from app.sales.services.transaction import repoint_customer_transactions
 
 __all__ = [
@@ -15,4 +16,5 @@ __all__ = [
     "Transaction",
     "repoint_customer_sales_records",
     "repoint_customer_transactions",
+    "valuations_carried_by_signed_contracts",
 ]

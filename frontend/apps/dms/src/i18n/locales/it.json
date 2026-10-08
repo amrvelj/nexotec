@@ -1139,7 +1139,8 @@
     "actions": {
       "revalue": "Rivaluta",
       "markUsed": "Segna come utilizzata",
-      "markUsedDisabledReason": "Possibile solo da bozza o valida.",
+      "markUsedAlreadyUsed": "Già segnata come utilizzata.",
+      "markUsedNoSignedContract": "Possibile solo se un contratto firmato contiene questa valutazione come permuta.",
       "openCustomer": "Apri cliente",
       "openVehicle": "Apri veicolo"
     },

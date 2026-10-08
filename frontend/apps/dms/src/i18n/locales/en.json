@@ -1139,7 +1139,8 @@
     "actions": {
       "revalue": "Revalue",
       "markUsed": "Mark as used",
-      "markUsedDisabledReason": "Only possible from draft or valid.",
+      "markUsedAlreadyUsed": "Already marked as used.",
+      "markUsedNoSignedContract": "Only possible when a signed contract carries this valuation as its trade-in.",
       "openCustomer": "Open customer",
       "openVehicle": "Open vehicle"
     },
