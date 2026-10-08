@@ -17,10 +17,9 @@ Reservation is allowed while pipeline (a factory order already sold is
 the ordinary case, not an edge case) — no lifecycle_status check here at
 all, only ONE active reservation per item, checked under a row lock.
 There is no time-based expiry in v1 — only release() (called on contract
-cancellation) or the nightly reconciliation job (compares every active
-reservation against a confirmed contract and releases orphans — not
-built in this PR; flagged as PR-7/WP-8 follow-up work, same as the
-sales-side producer this whole module waits on) clears one.
+cancellation, or as a failed confirmation's compensation) or the nightly
+orphan sweep (app.inventory.services.reservation_sweep, KAN-122: frees a
+reservation whose contract is not signed) clears one.
 
 KAN-158 — a manual configuration's pipeline item is reserved by Stock itself
 when its consumer creates the item (reserve_and_flush, in the consumer's
