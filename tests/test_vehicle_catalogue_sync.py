@@ -3,13 +3,16 @@ delta with its exact 3-month `ChangedSince` hard limit, and the A-12
 sync-age alarm as a pure function over persisted state.
 """
 
+import dataclasses
 import datetime as dt
 import uuid
 from decimal import Decimal
 
 import pytest
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
+from app.core.audit import list_audit_events
 from app.integration.adapters.auto_i_dat_mock import MockAutoIDatAdapter
 from app.integration.errors import ProviderGatewayError, ProviderTransportError
 from app.integration.models.call_log import CallStatus, IntegrationCallLog
@@ -18,10 +21,12 @@ from app.integration.models.provider import IntegrationProvider
 from app.integration.schemas.connection import ConnectionCreate
 from app.integration.services import connections as connection_service
 from app.integration.services import gateway, resilience
+from app.platform.models.reference_data import ReferenceList, ReferenceValue
 from app.vehicle.models.catalogue import Brand, ModelGroup, ModelVariant, VariantOption, VariantOptionEquipmentFeature
 from app.vehicle.models.catalogue_mirror import ColourCache, ImageRef, ProviderSyncState, TyreSpecCache
-from app.vehicle.models.provider import MappingGap, ProviderCodeMap
-from app.vehicle.services import catalogue_sync
+from app.vehicle.models.provider import MappingGap, ProviderCodeMap, VariantProviderCode
+from app.vehicle.services import catalogue_admin, catalogue_sync
+from app.vehicle.services.provider import resolve_provider_code
 
 
 def _bare_variant(db_session, name: str = "Bare Variant") -> ModelVariant:
@@ -750,3 +755,230 @@ def test_a_failing_watermark_call_still_leaves_the_runs_progress_saved(db_sessio
     state = catalogue_sync.get_sync_state(db_session, tenant_id=tenant_id, provider_code="auto_i_dat_mock")
     assert state.last_delta_cursor == day
     assert [p["fz_key"] for p in state.pending_fz_keys] == ["FZ100002"]
+
+
+# --- KAN-83: a resolved gap heals the variants it left NULL -------------------
+
+
+def _seed_reference_list(db_session, list_code: str, values: tuple[str, ...]) -> None:
+    ref_list = ReferenceList(list_code=list_code)
+    db_session.add(ref_list)
+    db_session.flush()
+    for code in values:
+        db_session.add(
+            ReferenceValue(
+                list_id=ref_list.id, value_code=code, label_de=code, label_fr=code, label_it=code, label_en=code,
+            )
+        )
+    db_session.commit()
+
+
+def _variant(db_session, fz_key: str) -> ModelVariant:
+    variant = catalogue_sync.find_variant_by_fz_key(db_session, provider_code="auto_i_dat_mock", fz_key=fz_key)
+    assert variant is not None
+    return variant
+
+
+def _seeded_tenant(db_session) -> uuid.UUID:
+    provider = _make_mock_provider(db_session)
+    tenant_id = uuid.uuid4()
+    _make_connection(db_session, provider, tenant_id=tenant_id)
+    catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_id)
+    return tenant_id
+
+
+def _fuel_gap(db_session, provider_code: str) -> MappingGap:
+    gap = db_session.scalar(
+        select(MappingGap).where(
+            MappingGap.provider == "auto_i_dat_mock", MappingGap.code_group == "fuel_type",
+            MappingGap.provider_code == provider_code,
+        )
+    )
+    assert gap is not None
+    return gap
+
+
+def test_the_sync_records_each_variants_raw_provider_codes(db_session):
+    _seeded_tenant(db_session)
+
+    rows = db_session.scalars(
+        select(VariantProviderCode).where(VariantProviderCode.model_variant_id == _variant(db_session, "FZ100001").id)
+    ).all()
+
+    assert {(r.provider, r.vehicle_kind, r.code_group, r.provider_code) for r in rows} == {
+        ("auto_i_dat_mock", "1", "vehicle_kind", "1"),
+        ("auto_i_dat_mock", "1", "fuel_type", "3"),
+        ("auto_i_dat_mock", "1", "body_style", "5"),
+        ("auto_i_dat_mock", "1", "drivetrain", "1"),
+        ("auto_i_dat_mock", "1", "transmission", "M"),
+    }
+
+
+def test_resolving_a_gap_fills_the_variants_it_left_null_at_once(db_session):
+    """No sync runs after the resolve: the variants are filled by the
+    resolve itself, and only those whose raw code is the gap's."""
+
+    _seeded_tenant(db_session)
+    _seed_reference_list(db_session, "fuel_type", ("petrol", "diesel"))
+    assert _variant(db_session, "FZ100001").fuel_type is None
+    gap = _fuel_gap(db_session, "3")
+    actor_id = uuid.uuid4()
+
+    catalogue_admin.resolve_gap(
+        db_session, gap=gap, canonical_list_code="fuel_type", canonical_value_code="petrol", actor_id=actor_id,
+    )
+
+    assert _variant(db_session, "FZ100001").fuel_type == "petrol"
+    assert _variant(db_session, "FZ100002").fuel_type == "petrol"
+    assert _variant(db_session, "FZ100003").fuel_type is None  # raw code "4" — a different gap
+    events = list_audit_events(db_session, entity_type="vehicle_mapping_gap", entity_id=gap.id, tenant_id=None)
+    assert events[0].after["variantsFilled"] == 2
+
+
+def test_resolving_a_gap_never_overwrites_a_field_that_already_holds_a_value(db_session):
+    _seeded_tenant(db_session)
+    _seed_reference_list(db_session, "fuel_type", ("petrol", "diesel"))
+    kept = _variant(db_session, "FZ100001")
+    kept.fuel_type = "diesel"
+    version = kept.version
+    db_session.commit()
+
+    catalogue_admin.resolve_gap(
+        db_session, gap=_fuel_gap(db_session, "3"), canonical_list_code="fuel_type", canonical_value_code="petrol",
+        actor_id=uuid.uuid4(),
+    )
+
+    kept = _variant(db_session, "FZ100001")
+    assert kept.fuel_type == "diesel"
+    assert kept.version == version
+    filled = _variant(db_session, "FZ100002")
+    assert filled.fuel_type == "petrol"
+    assert filled.version == 2
+
+
+def test_a_resync_fills_a_coded_field_whose_code_has_been_mapped_since(db_session):
+    """A mapping written outside a resolve (a seed migration) is picked up
+    by the next visit of the variant."""
+
+    tenant_id = _seeded_tenant(db_session)
+    db_session.add(
+        ProviderCodeMap(
+            provider="auto_i_dat_mock", vehicle_kind="1", code_group="body_style", provider_code="5",
+            canonical_list_code="body_style", canonical_value_code="hatchback",
+        )
+    )
+    db_session.commit()
+
+    catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_id)
+
+    assert _variant(db_session, "FZ100001").body_style == "hatchback"
+    assert _variant(db_session, "FZ100003").body_style is None  # raw code "4", still unmapped
+
+
+def test_a_resync_fills_null_master_fields_and_never_overwrites_set_ones(db_session):
+    tenant_id = _seeded_tenant(db_session)
+    emptied = _variant(db_session, "FZ100001")
+    emptied.model_year_to = None
+    emptied.base_price = None
+    emptied.werkscode = None
+    edited = _variant(db_session, "FZ100002")
+    edited.base_price = Decimal("1.00")
+    edited.werkscode = "LOCAL"
+    edited.name = "Locally renamed"
+    db_session.commit()
+
+    catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_id)
+
+    emptied = _variant(db_session, "FZ100001")
+    assert (emptied.model_year_to, emptied.base_price, emptied.werkscode) == (2021, Decimal("28900.00"), "ALF14TB")
+    assert emptied.version == 2  # one bump for the one visit that filled
+    edited = _variant(db_session, "FZ100002")
+    assert (edited.base_price, edited.werkscode, edited.name) == (Decimal("1.00"), "LOCAL", "Locally renamed")
+
+
+def test_a_resync_of_an_unchanged_variant_does_not_bump_its_version(db_session):
+    tenant_id = _seeded_tenant(db_session)
+    before = _variant(db_session, "FZ100001").version
+
+    catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_id)
+
+    assert _variant(db_session, "FZ100001").version == before
+
+
+def test_a_raw_code_the_provider_changes_is_recorded_and_a_dropped_one_removed(db_session, monkeypatch):
+    tenant_id = _seeded_tenant(db_session)
+    original = MockAutoIDatAdapter.fetch_vehicle_master_data
+
+    def _changed(self, fz_key):
+        master = original(self, fz_key)
+        if fz_key != "FZ100001":
+            return master
+        return dataclasses.replace(master, fuel_type_code="9", drivetrain_code=None)
+
+    monkeypatch.setattr(MockAutoIDatAdapter, "fetch_vehicle_master_data", _changed)
+    catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_id)
+
+    codes = {
+        r.code_group: r.provider_code
+        for r in db_session.scalars(
+            select(VariantProviderCode).where(
+                VariantProviderCode.model_variant_id == _variant(db_session, "FZ100001").id
+            )
+        )
+    }
+    assert codes["fuel_type"] == "9"
+    assert "drivetrain" not in codes
+
+
+def _variant_with_raw_fuel_code(db_session, *, provider: str, vehicle_kind: str, raw_code: str) -> ModelVariant:
+    variant = _bare_variant(db_session, name=f"{provider} kind {vehicle_kind}")
+    db_session.add(
+        VariantProviderCode(
+            model_variant_id=variant.id, provider=provider, vehicle_kind=vehicle_kind, code_group="fuel_type",
+            provider_code=raw_code,
+        )
+    )
+    db_session.commit()
+    return variant
+
+
+def test_resolving_a_gap_fills_only_variants_of_its_own_vehicle_kind_and_provider(db_session):
+    """The vehicle-kind qualifier is load-bearing (`ProviderCodeMap`): fuel
+    code "3" is Diesel for a car and Bleifrei for a motorcycle. A gap for
+    one kind, or one provider, never fills another's variants."""
+
+    _seeded_tenant(db_session)
+    _seed_reference_list(db_session, "fuel_type", ("petrol", "diesel"))
+    motorcycle = _variant_with_raw_fuel_code(db_session, provider="auto_i_dat_mock", vehicle_kind="2", raw_code="3")
+    other_provider = _variant_with_raw_fuel_code(db_session, provider="auto_i_dat", vehicle_kind="1", raw_code="3")
+
+    catalogue_admin.resolve_gap(
+        db_session, gap=_fuel_gap(db_session, "3"), canonical_list_code="fuel_type", canonical_value_code="petrol",
+        actor_id=uuid.uuid4(),
+    )
+
+    assert _variant(db_session, "FZ100001").fuel_type == "petrol"
+    db_session.expire_all()
+    assert db_session.get(ModelVariant, motorcycle.id).fuel_type is None
+    assert db_session.get(ModelVariant, other_provider.id).fuel_type is None
+
+
+def test_resolving_a_gap_whose_code_group_is_not_a_variant_field_fills_nothing(db_session):
+    """An equipment feature is an option attribute, not a variant column:
+    its resolve succeeds and fills no variant (never an AttributeError)."""
+
+    _seeded_tenant(db_session)
+    _seed_reference_list(db_session, "equipment_feature", ("heated_seats",))
+    resolve_provider_code(
+        db_session, provider="auto_i_dat_mock", vehicle_kind="1", code_group="equipment_feature", provider_code="HS",
+    )
+    gap = db_session.scalar(select(MappingGap).where(MappingGap.code_group == "equipment_feature"))
+
+    catalogue_admin.resolve_gap(
+        db_session, gap=gap, canonical_list_code="equipment_feature", canonical_value_code="heated_seats",
+        actor_id=uuid.uuid4(),
+    )
+
+    assert gap.resolved is True
+    events = list_audit_events(db_session, entity_type="vehicle_mapping_gap", entity_id=gap.id, tenant_id=None)
+    assert events[0].after["variantsFilled"] == 0

@@ -103,6 +103,23 @@ export const SPEC_FIELD_GROUPS: { titleKey: string; fields: SpecFieldDef[] }[] =
 
 export const ALL_SPEC_FIELDS: SpecFieldDef[] = SPEC_FIELD_GROUPS.flatMap((g) => g.fields)
 
+/** KAN-96 — the five coded fields. They sit on the configuration itself,
+ * not in the spec block (exactly like `CatalogueVariantRead`), and each
+ * holds an active value of the reference list of the same name: the API
+ * refuses anything else (422). On a manual configuration they are picked
+ * from that list, never typed. */
+export type CodedFieldKey = 'vehicleKind' | 'fuelType' | 'bodyStyle' | 'drivetrain' | 'transmission'
+
+export const CODED_FIELDS: { key: CodedFieldKey; listCode: string; labelKey: string }[] = [
+  { key: 'vehicleKind', listCode: 'vehicle_kind', labelKey: 'configurator.spec.fields.vehicleKind' },
+  { key: 'fuelType', listCode: 'fuel_type', labelKey: 'catalogueBrowse.columns.fuelType' },
+  { key: 'bodyStyle', listCode: 'body_style', labelKey: 'catalogueBrowse.columns.bodyStyle' },
+  { key: 'drivetrain', listCode: 'drivetrain', labelKey: 'configurator.spec.fields.drivetrain' },
+  { key: 'transmission', listCode: 'transmission', labelKey: 'catalogueBrowse.columns.transmission' },
+]
+
+export const CODED_REF_LIST_CODES: string[] = CODED_FIELDS.map((f) => f.listCode)
+
 export const SPEC_REF_LIST_CODES: string[] = Array.from(
   new Set(ALL_SPEC_FIELDS.filter((f) => f.kind === 'ref').map((f) => f.listCode!)),
 )

@@ -30,6 +30,7 @@ from app.sales.models.offer import SalesOffer
 from app.sales.models.stock_item_purchase import SalesStockItemPurchase
 from app.sales.models.transaction import Transaction, TransactionStatus, TransactionType
 from app.valuation.models.valuation import ValuationSource
+from app.valuation.public import consume_valuation_for_contract
 from app.valuation.schemas.valuation import ValuationCreate
 from app.valuation.services.valuation import create_valuation
 from app.vehicle import reconciliation as vehicle_reconciliation
@@ -558,6 +559,11 @@ def test_sales_reconciliation_accepts_offers_and_contracts_whose_references_reso
     confirmed = _contract(
         db_session, dealer_id, status=ContractStatus.CONFIRMED, signed_at=dt.datetime.now(dt.UTC),
         vehicle_source="stock", stock_item_id=held_item.id, **references,
+    )
+    # What confirmation does: stamp the trade-in valuation used (KAN-101),
+    # then hold the car for the contract.
+    consume_valuation_for_contract(
+        db_session, tenant_id=uuid.UUID(dealer_id), valuation_id=valuation.id, actor_id=user_id,
     )
     held = reserve_for_contract(
         db_session, tenant_id=uuid.UUID(dealer_id), stock_item_id=held_item.id, contract_id=confirmed.id,

@@ -1,11 +1,33 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Button, Container, Group, Select, Stack, TextInput, Title } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 import { semantic, useSetBreadcrumb } from '@nexotec/ui-kit'
-import { api } from '../api/client'
+import { api, ApiError } from '../api/client'
 import { translatedStockConditionOptions } from '../stockOptions'
 import type { StockItemCondition, StockItemRead } from '../api/types'
+
+/**
+ * KAN-111: a VIN already on a stock item that has not left stock is
+ * refused (409 `vin_already_in_stock`) — the message names that item and
+ * links to it. Every other failure keeps the generic message; the
+ * backend's English text is never shown.
+ */
+interface SubmitError {
+  heldBy?: { id: string; stockNumber: string }
+}
+
+function submitError(err: unknown): SubmitError {
+  const details = err instanceof ApiError && err.status === 409 ? (err.details ?? {}) : {}
+  if (
+    details.reason === 'vin_already_in_stock' &&
+    typeof details.stockItemId === 'string' &&
+    typeof details.stockNumber === 'string'
+  ) {
+    return { heldBy: { id: details.stockItemId, stockNumber: details.stockNumber } }
+  }
+  return {}
+}
 
 /**
  * FR-I-01 "Fahrzeug aufnehmen" — the minimal manual-entry path (vehicle
@@ -23,7 +45,7 @@ export function StockCreatePage() {
   const [condition, setCondition] = useState<StockItemCondition>('used')
   const [vin, setVin] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<SubmitError | null>(null)
 
   const conditionOptions = translatedStockConditionOptions(t)
 
@@ -37,8 +59,8 @@ export function StockCreatePage() {
         vin: vin || undefined,
       })
       navigate(`/stock/${created.id}`)
-    } catch {
-      setError(t('stockCreate.errors.somethingWentWrong'))
+    } catch (err) {
+      setError(submitError(err))
     } finally {
       setSubmitting(false)
     }
@@ -68,7 +90,21 @@ export function StockCreatePage() {
             value={vin}
             onChange={(e) => setVin(e.currentTarget.value.toUpperCase())}
           />
-          {error && <span style={{ color: semantic.destructive.text }}>{error}</span>}
+          {error && (
+            <span style={{ color: semantic.destructive.text }}>
+              {error.heldBy
+                ? t('stockCreate.errors.vinAlreadyInStock', { stockNumber: error.heldBy.stockNumber })
+                : t('stockCreate.errors.somethingWentWrong')}
+              {error.heldBy && (
+                <>
+                  {' '}
+                  <Link to={`/stock/${error.heldBy.id}`} style={{ color: 'inherit' }}>
+                    {t('stockCreate.errors.openExisting')}
+                  </Link>
+                </>
+              )}
+            </span>
+          )}
           <Group justify="flex-end">
             <Button variant="default" onClick={() => navigate('/stock')}>
               {t('common.cancel')}

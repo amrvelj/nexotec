@@ -58,30 +58,32 @@ def _valuation(db_session, tenant_id, group_id, *, source=ValuationSource.MANUAL
 _STOCK_VINS = iter(f"TMBJJ7NE0L0{n:06d}" for n in range(1, 1000))
 
 
-def _trade_in_contract(db_session, dealership_id, group_id, valuation: Valuation):
+def _trade_in_contract(db_session, dealership_id, group_id, valuation: Valuation, *, actor_id=None):
     """A contract on its own stock car (a fresh VIN each call, so two deals
     never collide on stock's VIN index) whose offer carries the trade-in
     with `valuation` attached explicitly — the auto-attach in set_trade_in
-    skips drafts."""
+    skips drafts. `actor_id` defaults to a fresh id per write; pass a real
+    user's id when reconciliation runs over the result (KAN-145 checks the
+    actor columns)."""
 
     item = create_stock_item(
         db_session, tenant_id=dealership_id,
         data=StockItemCreate(vehicle_label="Skoda Octavia 2.0 TDI", condition=StockItemCondition.USED, vin=next(_STOCK_VINS)),
-        actor_id=uuid.uuid4(),
+        actor_id=actor_id or uuid.uuid4(),
     )
     customer = _customer(db_session, group_id)
-    offer = create_offer(db_session, tenant_id=dealership_id, actor_id=uuid.uuid4())
+    offer = create_offer(db_session, tenant_id=dealership_id, actor_id=actor_id or uuid.uuid4())
     offer = update_offer(
         db_session, offer=offer, group_id=group_id,
         data=OfferUpdate(customer_id=customer.id, vehicle_source="stock", stock_item_id=item.id, vehicle_label=item.vehicle_label),
-        actor_id=uuid.uuid4(),
+        actor_id=actor_id or uuid.uuid4(),
     )
     offer = set_trade_in(
         db_session, offer=offer, group_id=group_id, vin=_TRADE_IN_VIN, plate=None, canton=None,
-        vehicle_label="VW Golf 1.5 TSI", customer_id=None, actor_id=uuid.uuid4(),
+        vehicle_label="VW Golf 1.5 TSI", customer_id=None, actor_id=actor_id or uuid.uuid4(),
     )
-    offer = attach_trade_in_valuation(db_session, offer=offer, valuation_id=valuation.id, actor_id=uuid.uuid4())
-    contract = create_contract(db_session, tenant_id=dealership_id, offer=offer, actor_id=uuid.uuid4())
+    offer = attach_trade_in_valuation(db_session, offer=offer, valuation_id=valuation.id, actor_id=actor_id or uuid.uuid4())
+    contract = create_contract(db_session, tenant_id=dealership_id, offer=offer, actor_id=actor_id or uuid.uuid4())
     assert contract.trade_in_valuation_id == valuation.id
     return contract, item
 
@@ -91,9 +93,9 @@ def _reload_valuation(db_session, valuation_id) -> Valuation:
     return db_session.get(Valuation, valuation_id)
 
 
-def _confirm(db_session, engine, contract, group_id):
+def _confirm(db_session, engine, contract, group_id, *, actor_id=None):
     return confirm_contract(
-        db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(),
+        db_session, contract=contract, group_id=group_id, actor_id=actor_id or uuid.uuid4(),
         session_factory=_session_factory(engine),
     )
 

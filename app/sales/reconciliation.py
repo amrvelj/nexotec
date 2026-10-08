@@ -18,7 +18,8 @@ replica row's item is purchased in Stock for that same dealership, or Sales
 would invoice a car the dealership has not bought. Both match on tenant as
 well as item because SalesContract.is_invoiceable does. A confirmed manual
 configuration still not linked to its pipeline stock item (KAN-144) is
-reported too.
+reported too, and so is a signed contract whose trade-in valuation is not
+stamped «Verwendet» (KAN-115).
 """
 
 import datetime as dt
@@ -315,6 +316,30 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
             StockItem.is_invoiceable.is_(True),
         )
         .correlate(SalesStockItemPurchase)
+        .exists(),
+    ),
+    StateCheck(
+        # KAN-115 — a confirmation stamps its trade-in valuation before the
+        # contract is signed (KAN-101), so a signed contract whose valuation
+        # is not stamped was signed before KAN-101, or lost the stamp to
+        # another confirmation's compensation in the race ADR-047 leaves to
+        # this job. Signed is `signed_at` set: cancelling keeps the stamp
+        # (ADR-066). Repaired by hand: «Als verwendet markieren» stamps a
+        # valuation a signed contract carries, expired or not. Only a
+        # valuation of the contract's own dealership counts (tenant-private,
+        # ADR-029; the hand stamp looks for contracts there too): one that
+        # does not exist at all is KAN-145's reference check; one of another
+        # dealership passes that check, which matches on id alone (KAN-259).
+        label="signed contract whose trade-in valuation is not used",
+        source_model=SalesContract,
+        source_row_id_column=SalesContract.id,
+        where=lambda: SalesContract.signed_at.is_not(None)
+        & select(Valuation.id)
+        .where(
+            Valuation.tenant_id == SalesContract.tenant_id,
+            Valuation.id == SalesContract.trade_in_valuation_id,
+            Valuation.used_at.is_(None),
+        )
         .exists(),
     ),
 ]

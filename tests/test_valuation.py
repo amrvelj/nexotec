@@ -12,6 +12,7 @@ from app.core.base import utcnow
 from app.core.errors import ConflictError
 from app.core.pagination import SortPageParams
 from app.core.sorting import SortField
+from app.sales.models.contract import ContractStatus, SalesContract
 from app.valuation.models.valuation import Valuation, ValuationSource
 from app.valuation.schemas.valuation import DEFAULT_VALIDITY_DAYS, DeductionInput, ValuationCreate
 from app.valuation.services.valuation import (
@@ -22,6 +23,7 @@ from app.valuation.services.valuation import (
     list_valid_valuations_for_vehicle,
     list_valuations,
     mark_used,
+    mark_used_by_hand,
 )
 
 
@@ -166,17 +168,80 @@ def test_mark_used_is_terminal_and_idempotent(db_session):
     assert again.used_at == used.used_at
 
 
-def test_mark_used_refuses_an_already_expired_valuation(db_session):
-    tenant_id = uuid.uuid4()
+def _manual_valuation(db_session, tenant_id: uuid.UUID, *, expired: bool = False) -> Valuation:
     valuation = create_valuation(
         db_session, tenant_id=tenant_id, group_id=uuid.uuid4(),
         data=ValuationCreate(source=ValuationSource.MANUAL, final_offer=Decimal(10000)), actor_id=uuid.uuid4(),
     )
-    valuation.valid_until = utcnow() - dt.timedelta(days=1)
-    db_session.commit()
+    if expired:
+        valuation.valid_until = utcnow() - dt.timedelta(days=1)
+        db_session.commit()
+    return valuation
 
-    with pytest.raises(ConflictError):
-        mark_used(db_session, valuation=valuation, actor_id=uuid.uuid4())
+
+def _contract_carrying(
+    db_session, valuation_id: uuid.UUID, *, tenant_id: uuid.UUID, signed: bool,
+    status: ContractStatus = ContractStatus.CONFIRMED,
+) -> SalesContract:
+    contract = SalesContract(
+        tenant_id=tenant_id, contract_number=f"C-{uuid.uuid4().hex[:6]}", status=status,
+        trade_in_valuation_id=valuation_id, signed_at=utcnow() if signed else None,
+    )
+    db_session.add(contract)
+    db_session.commit()
+    return contract
+
+
+def test_mark_used_by_hand_refuses_a_valuation_no_signed_contract_carries(db_session):
+    """KAN-115 (Anto, 2026-10-07): only a signed deal stamps a valuation
+    «Verwendet». A pending contract, or a signed one of another dealership,
+    is no signed deal of this one."""
+
+    tenant_id = uuid.uuid4()
+    valuation = _manual_valuation(db_session, tenant_id)
+    _contract_carrying(db_session, valuation.id, tenant_id=tenant_id, signed=False, status=ContractStatus.PENDING)
+    _contract_carrying(db_session, valuation.id, tenant_id=uuid.uuid4(), signed=True)
+
+    with pytest.raises(ConflictError) as exc:
+        mark_used_by_hand(db_session, valuation=valuation, actor_id=uuid.uuid4())
+
+    assert exc.value.details["reason"] == "no_signed_contract"
+    db_session.expire_all()
+    assert db_session.get(Valuation, valuation.id).used_at is None
+
+
+def test_mark_used_by_hand_stamps_an_expired_valuation_a_signed_contract_carries(db_session):
+    """The repair for a contract signed before KAN-101 stamped automatically:
+    its valuation has usually expired since, and still has to be stamped."""
+
+    tenant_id = uuid.uuid4()
+    valuation = _manual_valuation(db_session, tenant_id, expired=True)
+    _contract_carrying(db_session, valuation.id, tenant_id=tenant_id, signed=True)
+
+    used = mark_used_by_hand(db_session, valuation=valuation, actor_id=uuid.uuid4())
+
+    assert derive_status(used) == "used"
+
+
+def test_mark_used_by_hand_counts_a_cancelled_contract_that_was_signed(db_session):
+    """Cancelling a signed contract leaves its valuation used (ADR-066)."""
+
+    tenant_id = uuid.uuid4()
+    valuation = _manual_valuation(db_session, tenant_id)
+    _contract_carrying(db_session, valuation.id, tenant_id=tenant_id, signed=True, status=ContractStatus.CANCELLED)
+
+    assert derive_status(mark_used_by_hand(db_session, valuation=valuation, actor_id=uuid.uuid4())) == "used"
+
+
+def test_mark_used_by_hand_leaves_an_already_stamped_valuation_as_it_is(db_session):
+    tenant_id = uuid.uuid4()
+    valuation = _manual_valuation(db_session, tenant_id)
+    stamped = mark_used(db_session, valuation=valuation, actor_id=None)
+    used_at, version = stamped.used_at, stamped.version
+
+    again = mark_used_by_hand(db_session, valuation=stamped, actor_id=uuid.uuid4())
+
+    assert (again.used_at, again.version) == (used_at, version)
 
 
 def test_list_valid_valuations_for_vehicle_excludes_expired_and_draft(db_session):
@@ -274,3 +339,67 @@ def test_list_valuations_over_http_returns_a_derived_status_per_row(client):
     body = response.json()
     assert len(body["items"]) == 1
     assert body["items"][0]["status"] == "valid"
+
+
+def _sales_principal() -> tuple[str, uuid.UUID]:
+    tenant_id = uuid.uuid4()
+    token = create_access_token(
+        user_id=uuid.uuid4(),
+        tenant_id=tenant_id,
+        group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tenant_id)),
+        roles=frozenset({AccessRole.SALES}),
+    )
+    return token, tenant_id
+
+
+def test_valuation_read_says_whether_a_signed_contract_carries_it(client, db_session):
+    """KAN-115 — the screen enables «Als verwendet markieren» only for a
+    valuation a signed contract carries, so every read says whether one does."""
+
+    token, tenant_id = _sales_principal()
+    carried = client.post(
+        "/v1/valuations", json={"finalOffer": "800.00", "source": "manual"}, headers=_bearer(token)
+    ).json()
+    alone = client.post(
+        "/v1/valuations", json={"finalOffer": "900.00", "source": "manual"}, headers=_bearer(token)
+    ).json()
+    assert carried["hasSignedContract"] is False
+    _contract_carrying(db_session, uuid.UUID(carried["id"]), tenant_id=tenant_id, signed=True)
+
+    assert client.get(f"/v1/valuations/{carried['id']}", headers=_bearer(token)).json()["hasSignedContract"] is True
+    listed = {row["id"]: row["hasSignedContract"] for row in client.get("/v1/valuations", headers=_bearer(token)).json()["items"]}
+    assert listed == {carried["id"]: True, alone["id"]: False}
+
+
+def test_mark_used_over_http_refuses_a_valuation_no_signed_contract_carries(client):
+    token, _tenant_id = _sales_principal()
+    created = client.post(
+        "/v1/valuations", json={"finalOffer": "700.00", "source": "manual"}, headers=_bearer(token)
+    ).json()
+
+    response = client.post(
+        f"/v1/valuations/{created['id']}/mark-used",
+        headers={**_bearer(token), "If-Match": str(created["version"])},
+    )
+
+    assert response.status_code == 409, response.text
+    assert response.json()["error"]["details"]["reason"] == "no_signed_contract"
+
+
+def test_mark_used_over_http_stamps_an_expired_valuation_a_signed_contract_carries(client, db_session):
+    token, tenant_id = _sales_principal()
+    created = client.post(
+        "/v1/valuations", json={"finalOffer": "600.00", "source": "manual"}, headers=_bearer(token)
+    ).json()
+    valuation = db_session.get(Valuation, uuid.UUID(created["id"]))
+    valuation.valid_until = utcnow() - dt.timedelta(days=1)
+    db_session.commit()
+    _contract_carrying(db_session, valuation.id, tenant_id=tenant_id, signed=True)
+
+    response = client.post(
+        f"/v1/valuations/{created['id']}/mark-used",
+        headers={**_bearer(token), "If-Match": str(created["version"])},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "used"
