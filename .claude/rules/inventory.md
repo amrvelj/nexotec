@@ -76,5 +76,7 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   own uniqueness refuses the second first, with its 409 and no `reason` (KAN-257; promotion has
   no caller yet). A car that left stock (invoiced) comes back as a new item, its sold row kept as
   history; a storno'd car still blocks its VIN. The same car may be in pipeline twice (pipeline
-  items carry no VIN until promotion). The legacy transaction import still reopens a sold car's
-  row instead (KAN-256).
+  items carry no VIN until promotion). The legacy transaction import follows the same rule: a car
+  the old system shows sold and later traded back in gets a second item, the sold one is never
+  reopened, and a row for a car live Stock holds is reported (`vehicle_in_live_stock`), never
+  applied — history is imported before a dealership starts to work (Anto, 2026-10-08; KAN-256).

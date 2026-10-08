@@ -2,8 +2,10 @@
 rows into sales_contract (+ a synthesised offer) for `sale` rows, or a
 StockItem carrying the acquisition for `trade_in` rows — see
 scripts/migrate_transaction_rows.py's own module docstring for why the
-trade-in path is no longer an unconditional rejection, and for the
-one-stock-item-per-VIN reuse/reopen behavior between the two row types.
+trade-in path is no longer an unconditional rejection, and for how the
+two row types share a stock item: a resale closes out the trade-in's item,
+a car traded back in after a sale gets a second item (KAN-256), and a car
+live Stock holds is never touched.
 """
 
 import datetime as dt
@@ -11,7 +13,7 @@ import uuid
 from decimal import ROUND_HALF_UP, Decimal
 
 from app.customer.models.customer import Customer, CustomerType, Language
-from app.inventory.models.stock_item import StockItem
+from app.inventory.models.stock_item import LifecycleStatus, StockItem, StockItemCondition
 from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
 from app.sales.models.contract import ContractStatus, SalesContract
 from app.sales.models.offer import SalesOffer
@@ -475,14 +477,12 @@ def test_certified_pre_owned_condition_combined_with_a_vat_registered_customer_t
 
 
 def test_a_vehicle_traded_in_and_later_resold_ends_up_as_one_stock_item_with_both_facts(db_session):
-    """The core interaction the module docstring calls out: `stock_item`
-    has a real (tenant_id, vin) uniqueness constraint, so a vehicle that
-    was both traded in and later resold — two separate completed
-    `transaction` rows — cannot get two stock_item rows. Both rows now
-    migrate, sharing ONE stock item: the trade-in's acquisition facts and
-    the sale's own disposal facts (left_stock_at, resale price) and its
-    contract all land on/reference the SAME row, rather than the resale
-    being silently walked away from.
+    """The core interaction the module docstring calls out: a vehicle
+    traded in and later resold — two separate completed `transaction` rows
+    — is one stay in stock, so both rows share ONE stock item: the
+    trade-in's acquisition facts and the sale's own disposal facts
+    (left_stock_at, resale price) and its contract all land on/reference
+    the SAME row, rather than the resale being silently walked away from.
     """
 
     _dealership(db_session)
@@ -555,21 +555,19 @@ def test_processing_order_is_driven_by_transaction_date_not_insertion_order(db_s
     assert item.left_stock_at is not None
 
 
-def test_a_vehicle_sold_then_later_reacquired_as_a_trade_in_reopens_the_same_stock_item(db_session):
-    """The reverse, equally ordinary pattern: a vehicle sold once (its
-    stock_item closed out), later comes back to the SAME dealer as a
-    trade-in from a different customer. Same VIN, so the same stock_item
-    row is reopened (not a second, VIN-colliding row) — lifecycle back to
-    in_stock, left_stock_at cleared, and the new acquisition's own facts
-    recorded, without disturbing the first sale's own, already-confirmed
-    contract.
+def test_a_vehicle_sold_then_later_reacquired_as_a_trade_in_gets_a_second_stock_item(db_session):
+    """KAN-256 (Anto, 2026-10-08): a car sold once and later traded back in
+    to the SAME dealer becomes a second stock item, as live Stock does since
+    KAN-111. The sold item stays as history and is never reopened: its
+    left_stock_at, its sale price and its contract are untouched, and the
+    reacquisition's purchase facts land on the new item only.
     """
 
     _dealership(db_session)
     first_owner = _customer(db_session)
     second_owner = _customer(db_session, vat_registered=True)
     legacy = _legacy_vehicle(db_session)
-    _migrated_vehicle_mdm(db_session, legacy)
+    mdm = _migrated_vehicle_mdm(db_session, legacy)
     first_sale_txn = _sale_transaction(
         db_session, customer_id=first_owner.id, vehicle_id=legacy.id, amount=Decimal("20000.00"),
         transaction_date=dt.datetime(2023, 1, 5, tzinfo=dt.UTC),
@@ -585,19 +583,191 @@ def test_a_vehicle_sold_then_later_reacquired_as_a_trade_in_reopens_the_same_sto
     outcomes_by_txn = {o.transaction_id: o for o in report.outcomes}
     assert outcomes_by_txn[first_sale_txn.id].outcome == "migrated"
     assert outcomes_by_txn[reacquisition_txn.id].outcome == "migrated"
-    assert db_session.query(StockItem).count() == 1  # reopened, not duplicated
+    assert db_session.query(StockItem).filter_by(vin=mdm.vin).count() == 2
 
-    item = db_session.query(StockItem).one()
-    assert item.lifecycle_status.value == "in_stock"  # reopened
-    assert item.left_stock_at is None  # no longer known to have left stock
-    assert item.supplier_is_vat_registered is True  # the reacquisition's own fact, not the first sale's
-    assert item.purchase_price == Decimal("9000.00")
-    assert item.pipeline_ref == f"legacy-transaction:{reacquisition_txn.id}"
-
-    # The first sale's own contract is untouched and still points at this item.
     first_contract = db_session.query(SalesContract).filter_by(legacy_transaction_id=first_sale_txn.id).one()
-    assert first_contract.stock_item_id == item.id
+    sold = db_session.get(StockItem, first_contract.stock_item_id)
+    returned = db_session.query(StockItem).filter_by(pipeline_ref=f"legacy-transaction:{reacquisition_txn.id}").one()
+    assert sold.id != returned.id
+
+    # The sold item is history: never reopened, its sale facts untouched.
+    assert sold.left_stock_at == dt.datetime(2023, 1, 5, tzinfo=dt.UTC)
+    assert sold.effective_price == Decimal("20000.00")
+    assert sold.purchase_price is None
+    assert sold.pipeline_ref is None
     assert first_contract.gross_price == Decimal("20000.00")
+
+    # The returning car is a new item carrying the reacquisition's own facts.
+    assert returned.vehicle_id == mdm.id
+    assert returned.lifecycle_status.value == "in_stock"
+    assert returned.in_stock_at == dt.datetime(2024, 8, 1, tzinfo=dt.UTC)
+    assert returned.left_stock_at is None
+    assert returned.supplier_is_vat_registered is True
+    assert returned.purchase_price == Decimal("9000.00")
+    assert returned.stock_number != sold.stock_number
+    assert outcomes_by_txn[reacquisition_txn.id].new_stock_item_id == returned.id
+    # KAN-100: the replica records the purchase against the new item, not the sold one.
+    replica = db_session.query(SalesStockItemPurchase).one()
+    assert replica.stock_item_id == returned.id
+
+
+def test_sold_traded_back_in_and_sold_again_closes_the_returned_item_not_the_first(db_session):
+    """KAN-256: once a VIN has a sold item and a returned one, the second
+    sale resolves deterministically to the item still in stock — never to
+    the first, already sold one.
+    """
+
+    _dealership(db_session)
+    customer = _customer(db_session)
+    legacy = _legacy_vehicle(db_session)
+    mdm = _migrated_vehicle_mdm(db_session, legacy)
+    first_sale = _sale_transaction(
+        db_session, customer_id=customer.id, vehicle_id=legacy.id, amount=Decimal("20000.00"),
+        transaction_date=dt.datetime(2022, 3, 1, tzinfo=dt.UTC),
+    )
+    trade_in = _trade_in_transaction(
+        db_session, customer_id=customer.id, vehicle_id=legacy.id, amount=Decimal("11000.00"),
+        transaction_date=dt.datetime(2023, 5, 1, tzinfo=dt.UTC),
+    )
+    second_sale = _sale_transaction(
+        db_session, customer_id=customer.id, vehicle_id=legacy.id, amount=Decimal("14000.00"),
+        transaction_date=dt.datetime(2023, 9, 1, tzinfo=dt.UTC),
+    )
+    db_session.commit()
+
+    report = run_migration(db_session, commit=True)
+
+    assert [o.outcome for o in report.outcomes] == ["migrated", "migrated", "migrated"]
+    assert db_session.query(StockItem).filter_by(vin=mdm.vin).count() == 2
+    first = db_session.get(
+        StockItem, db_session.query(SalesContract).filter_by(legacy_transaction_id=first_sale.id).one().stock_item_id
+    )
+    second_contract = db_session.query(SalesContract).filter_by(legacy_transaction_id=second_sale.id).one()
+    returned = db_session.query(StockItem).filter_by(pipeline_ref=f"legacy-transaction:{trade_in.id}").one()
+    assert second_contract.stock_item_id == returned.id
+    assert returned.left_stock_at == dt.datetime(2023, 9, 1, tzinfo=dt.UTC)
+    assert returned.effective_price == Decimal("14000.00")
+    assert returned.purchase_price == Decimal("11000.00")
+    assert first.left_stock_at == dt.datetime(2022, 3, 1, tzinfo=dt.UTC)
+    assert first.effective_price == Decimal("20000.00")
+    assert second_contract.is_invoiceable is True  # the trade-in booked the returned item's purchase
+
+
+def _live_stock_item(db_session, mdm, *, stock_number, left_stock_at=None, purchase_price=None) -> StockItem:
+    """A stock item live Stock created — not by this import (no
+    legacy-transaction pipeline_ref)."""
+
+    item = StockItem(
+        tenant_id=TENANT_ID, stock_number=stock_number, vehicle_id=mdm.id, vin=mdm.vin,
+        vehicle_label="Alfa Romeo Giulietta (2020)", condition=StockItemCondition.USED,
+        lifecycle_status=LifecycleStatus.IN_STOCK, in_stock_at=dt.datetime(2026, 9, 1, tzinfo=dt.UTC),
+        left_stock_at=left_stock_at, purchase_price=purchase_price,
+    )
+    db_session.add(item)
+    db_session.flush()
+    return item
+
+
+def _snapshot(item: StockItem) -> tuple:
+    return (
+        item.version, item.left_stock_at, item.in_stock_at, item.purchase_price, item.effective_price,
+        item.pipeline_ref, item.supplier_name, item.is_invoiceable,
+    )
+
+
+def test_legacy_rows_never_touch_a_car_live_stock_holds_even_beside_a_sold_row(db_session):
+    """KAN-256: historical data is imported before a dealership starts to
+    work (Anto, 2026-10-08), so a car live Stock holds can only meet this
+    import by mistake. With a VIN carrying both a sold row and a live
+    returned row, neither a legacy trade-in nor a legacy sale may pick one
+    arbitrarily, reopen the sold row (IntegrityError on the in-stock VIN
+    index), close the live car out or overwrite its purchase: each row is
+    reported as vehicle_in_live_stock and nothing changes.
+    """
+
+    _dealership(db_session)
+    customer = _customer(db_session)
+    legacy = _legacy_vehicle(db_session)
+    mdm = _migrated_vehicle_mdm(db_session, legacy)
+    sold = _live_stock_item(
+        db_session, mdm, stock_number="S-OLD", left_stock_at=dt.datetime(2026, 9, 15, tzinfo=dt.UTC),
+    )
+    returned = _live_stock_item(db_session, mdm, stock_number="S-NEW")
+    trade_in = _trade_in_transaction(db_session, customer_id=customer.id, vehicle_id=legacy.id)
+    sale = _sale_transaction(db_session, customer_id=customer.id, vehicle_id=legacy.id)
+    db_session.commit()
+    before = {sold.id: _snapshot(sold), returned.id: _snapshot(returned)}
+
+    report = run_migration(db_session, commit=True)
+
+    assert report.aborted is False
+    outcomes_by_txn = {o.transaction_id: o for o in report.outcomes}
+    assert outcomes_by_txn[trade_in.id].outcome == "vehicle_in_live_stock"
+    assert outcomes_by_txn[sale.id].outcome == "vehicle_in_live_stock"
+    assert str(returned.id) in outcomes_by_txn[trade_in.id].notes
+    assert "VEHICLE_IN_LIVE_STOCK" in report.summary()
+    db_session.expire_all()
+    assert {i.id: _snapshot(i) for i in db_session.query(StockItem).all()} == before
+    assert db_session.query(SalesContract).count() == 0
+    assert db_session.query(SalesStockItemPurchase).count() == 0
+
+
+def test_a_legacy_trade_in_never_fills_a_live_item_that_has_no_purchase_yet(db_session):
+    """Before KAN-256 a legacy trade-in wrote its years-old purchase facts
+    onto any in-stock item without a purchase price — which only live Stock
+    can create. Reported instead, never written.
+    """
+
+    _dealership(db_session)
+    customer = _customer(db_session)
+    legacy = _legacy_vehicle(db_session)
+    mdm = _migrated_vehicle_mdm(db_session, legacy)
+    live = _live_stock_item(db_session, mdm, stock_number="S-LIVE")
+    trade_in = _trade_in_transaction(db_session, customer_id=customer.id, vehicle_id=legacy.id)
+    db_session.commit()
+    before = _snapshot(live)
+
+    report = run_migration(db_session, commit=True)
+
+    assert [o.outcome for o in report.outcomes] == ["vehicle_in_live_stock"]
+    db_session.expire_all()
+    assert _snapshot(db_session.get(StockItem, live.id)) == before
+    assert db_session.query(StockItem).filter_by(pipeline_ref=f"legacy-transaction:{trade_in.id}").count() == 0
+
+
+def test_a_legacy_sale_never_closes_out_a_car_live_stock_holds(db_session):
+    _dealership(db_session)
+    customer = _customer(db_session)
+    legacy = _legacy_vehicle(db_session)
+    mdm = _migrated_vehicle_mdm(db_session, legacy)
+    live = _live_stock_item(db_session, mdm, stock_number="S-LIVE", purchase_price=Decimal("10000.00"))
+    _sale_transaction(db_session, customer_id=customer.id, vehicle_id=legacy.id)
+    db_session.commit()
+    before = _snapshot(live)
+
+    report = run_migration(db_session, commit=True)
+
+    assert [o.outcome for o in report.outcomes] == ["vehicle_in_live_stock"]
+    db_session.expire_all()
+    assert _snapshot(db_session.get(StockItem, live.id)) == before
+    assert db_session.query(SalesContract).count() == 0
+
+
+def test_dry_run_reports_a_car_live_stock_holds(db_session):
+    """The dry run reports exactly what the real run would (migrations rule)."""
+
+    _dealership(db_session)
+    customer = _customer(db_session)
+    legacy = _legacy_vehicle(db_session)
+    mdm = _migrated_vehicle_mdm(db_session, legacy)
+    _live_stock_item(db_session, mdm, stock_number="S-LIVE")
+    _trade_in_transaction(db_session, customer_id=customer.id, vehicle_id=legacy.id)
+    _sale_transaction(db_session, customer_id=customer.id, vehicle_id=legacy.id)
+    db_session.commit()
+
+    report = run_migration(db_session, commit=False)
+
+    assert [o.outcome for o in report.outcomes] == ["vehicle_in_live_stock", "vehicle_in_live_stock"]
 
 
 def test_two_trade_ins_with_no_intervening_sale_report_the_second_as_a_conflict(db_session):

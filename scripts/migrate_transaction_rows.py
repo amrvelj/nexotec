@@ -46,41 +46,45 @@ path, not a hand-rolled duplicate), not a string description.
 — this was previously rejected unconditionally; both cited blockers
 turned out to be stale, see below).
 
-ONE STOCK ITEM PER VIN, REUSED ACROSS BOTH ROW TYPES. When this script was
-written, `stock_item` had a DB-level uniqueness constraint on (tenant_id,
-vin) over every row — a vehicle traded in and later resold (two separate
-completed `transaction` rows) could not get two stock_item rows for the
-same VIN. Since KAN-111 the constraint covers only items that have not
-left stock, and live Stock takes a returning car in as a new item; this
-script still keeps one row per VIN, and whether legacy history should
-follow KAN-111 is KAN-256. Both `_migrate_sale` and `_migrate_trade_in` go
-through `_get_or_create_stock_item`: if a row for this VIN already
-exists (created by the other side of a trade-in/resale pair processed
-earlier in this pass — rows are ordered by transaction_date, with
-Transaction.id as a tiebreak, specifically so a trade-in is normally
-seen before its own later resale), that row is REUSED and updated with
-this row's own fields, rather than creating a duplicate or silently
-walking away:
-  - a `sale` row sets left_stock_at + base/list/effective_price on
-    whichever item it resolves (freshly created or reused from an
-    earlier trade-in), since a sale is definitionally the vehicle
+ONE STOCK ITEM PER STAY IN STOCK, AS LIVE STOCK DOES (KAN-111, KAN-256).
+A VIN is in a dealership's stock at most once
+(`uq_stock_item_tenant_id_vin_in_stock`, over items with left_stock_at
+NULL); a car that left stock and comes back is a NEW item, and the sold
+one stays as history. Legacy history follows the same rule (Anto,
+2026-10-08): a car the old system shows sold and later traded back in
+gets a second stock item, and the sold item is never reopened — its
+left_stock_at, sale price and contract, and any purchase it carried,
+stay exactly as they were. Rows are processed by transaction_date, with
+Transaction.id as a tiebreak, so a trade-in is seen before its own later
+resale. For each row, `_stock_items_for_vin` resolves the VIN
+deterministically: the one item still in stock (the index allows at
+most one), and the most recently sold one (latest left_stock_at, then
+id). Then:
+  - a `trade_in` row with no item in stock creates a NEW item carrying
+    the acquisition (supplier_name, supplier_is_vat_registered,
+    purchase_date, purchase_price, notional_input_tax_*), whether or not
+    the VIN was sold before.
+  - a `sale` row closes out the item in stock (the stay an earlier
+    trade-in opened): left_stock_at + base/list/effective_price, the
+    acquisition left untouched. With no item in stock and none sold, it
+    creates the item it sells; a sale is definitionally the vehicle
     leaving stock at that price, however it got there.
-  - a `trade_in` row (re)opens whichever item it resolves: sets
-    lifecycle_status=IN_STOCK, in_stock_at=this row's date,
-    left_stock_at=None, condition, and the acquisition fields
-    (supplier_name, supplier_is_vat_registered, purchase_date,
-    purchase_price, notional_input_tax_*) — covering both "this VIN has
-    never been seen before" and "this VIN was sold earlier and is now
-    being reacquired as a trade-in" (a real, ordinary used-car-dealer
-    pattern, not a corner case).
 Two genuine anomalies are reported rather than silently overwritten,
 since a migration tool should never guess which of two conflicting
-historical facts is right: a `trade_in` row landing on an item that
-ALREADY carries acquisition data (`vehicle_already_in_stock` — two
-trade-ins for the same vehicle with no intervening sale between them),
-and a `sale` row landing on an item ALREADY closed out by an earlier
-resale (`vehicle_already_in_stock` — two sales with no intervening
-trade-in). Both are left untouched and flagged for a human to look at.
+historical facts is right: a `trade_in` row for a car this import
+already has in stock (`vehicle_already_in_stock` — two trade-ins with no
+intervening sale), and a `sale` row for a car with no item in stock but
+one already sold (`vehicle_already_in_stock` — two sales with no
+intervening trade-in). Both are left untouched and flagged for a human.
+
+NEVER A CAR LIVE STOCK HOLDS. Historical data is imported before a
+dealership starts to work (Anto, 2026-10-08), so an item in stock that
+this import did not create — live Stock's — can only meet it by mistake.
+This import's own items in stock are exactly its trade-ins, each marked
+`pipeline_ref = legacy-transaction:<id>`; any other item in stock for
+the VIN is live. A row that would close it out, or write a years-old
+purchase onto it, is reported (`vehicle_in_live_stock`) and changes
+nothing.
 
 WHY THE TRADE-IN PATH WAS PREVIOUSLY BLOCKED, AND WHY IT NO LONGER IS
 The original rejection (see git history / Notion KAN-26) cited two
@@ -118,13 +122,16 @@ Per-row outcome, in the report:
 - `vehicle_already_in_stock` — a genuine anomaly: two rows of the SAME
   type for one VIN with no intervening row of the other type between
   them (see above). Reported, not overwritten.
+- `vehicle_in_live_stock`  — the VIN is in stock on an item live Stock
+  created, not this import (see NEVER A CAR LIVE STOCK HOLDS). Reported;
+  the live item is never touched.
 - `condition_lossy`        — the legacy Vehicle's own condition was
   certified_pre_owned, which StockItemCondition has no value for;
   approximated as USED (matches migrate_legacy_vehicles.py's own
   totaled->scrapped precedent: flagged, not silent).
 - `migrated`                — sale: a sales_contract + synthesised
-  sales_offer were created, against a StockItem (new or reused).
-  trade_in: a StockItem (new, or reused-and-reopened) was created/updated
+  sales_offer were created, against a StockItem (new, or the one an
+  earlier trade-in opened). trade_in: a new StockItem was created
   carrying the acquisition. (Or would be, in dry-run — dry-run does not
   flush, so it cannot detect a same-pass vehicle_already_in_stock/reuse
   interaction between two rows that would only become visible to each
@@ -170,6 +177,14 @@ _VEHICLE_ALREADY_IN_STOCK_NOTE = (
     "migration does not resolve on your behalf, reported rather than silently overwritten"
 )
 
+_VEHICLE_IN_LIVE_STOCK_NOTE = (
+    "stock_item {item_id} (stock number {stock_number}) for vehicle_mdm {mdm_id} (vin={vin}) is in stock and was "
+    "not created by this import — live Stock holds the car. History is imported before a dealership starts to work, "
+    "so this {row_type} row is reported and the live item is left untouched"
+)
+
+_LEGACY_PIPELINE_REF_PREFIX = "legacy-transaction:"
+
 _CONDITION_MAP: dict[LegacyVehicleCondition, StockItemCondition] = {
     LegacyVehicleCondition.NEW: StockItemCondition.NEW,
     LegacyVehicleCondition.USED: StockItemCondition.USED,
@@ -212,7 +227,7 @@ class MigrationReport:
         for row in self.outcomes:
             if row.outcome in (
                 "vehicle_unresolved", "customer_unresolved", "dealership_unresolved", "vehicle_already_in_stock",
-                "condition_lossy", "amount_missing", "transaction_date_missing", "error",
+                "vehicle_in_live_stock", "condition_lossy", "amount_missing", "transaction_date_missing", "error",
             ):
                 lines.append(f"    {row.outcome.upper()} {row.transaction_type} {row.transaction_id}: {row.notes}")
         return "\n".join(lines)
@@ -222,26 +237,56 @@ def _resolve_vehicle_mdm(db: Session, legacy_vehicle_id: uuid.UUID) -> VehicleMd
     return db.scalar(select(VehicleMdm).where(VehicleMdm.migrated_from_legacy_vehicle_id == legacy_vehicle_id))
 
 
-def _resolve_existing_stock_item_by_vin(db: Session, tenant_id: uuid.UUID, vin: str | None) -> StockItem | None:
-    if vin is None:
-        return None
-    return db.scalar(select(StockItem).where(StockItem.tenant_id == tenant_id, StockItem.vin == vin))
+@dataclasses.dataclass(frozen=True)
+class _VinStockItems:
+    in_stock: StockItem | None
+    latest_sold: StockItem | None
 
 
-def _get_or_create_stock_item(
-    db: Session, *, tenant_id: uuid.UUID, vehicle_mdm: VehicleMdm, legacy_vehicle: LegacyVehicle,
-    condition: StockItemCondition,
-) -> tuple[StockItem, bool]:
-    """Returns (item, created). If a stock_item already exists for this
-    VIN — created by the other side of a trade-in/resale pair processed
-    earlier in this same pass — it is reused rather than inserting a
-    second row for the same VIN, which the uniqueness constraint forbade
-    before KAN-111 (see the module docstring and KAN-256).
+def _stock_items_for_vin(db: Session, tenant_id: uuid.UUID, vin: str | None) -> _VinStockItems:
+    """The VIN's item still in stock — at most one, by
+    uq_stock_item_tenant_id_vin_in_stock — and its most recently sold item
+    (latest left_stock_at, then id), so a VIN with a sold row and a
+    returned one never resolves to an arbitrary row (KAN-256).
     """
 
-    existing = _resolve_existing_stock_item_by_vin(db, tenant_id, vehicle_mdm.vin)
-    if existing is not None:
-        return existing, False
+    if vin is None:
+        return _VinStockItems(in_stock=None, latest_sold=None)
+    of_vin = select(StockItem).where(StockItem.tenant_id == tenant_id, StockItem.vin == vin)
+    in_stock = db.scalars(of_vin.where(StockItem.left_stock_at.is_(None))).one_or_none()
+    latest_sold = db.scalars(
+        of_vin.where(StockItem.left_stock_at.is_not(None))
+        .order_by(StockItem.left_stock_at.desc(), StockItem.id.desc())
+        .limit(1)
+    ).one_or_none()
+    return _VinStockItems(in_stock=in_stock, latest_sold=latest_sold)
+
+
+def _created_by_this_import(item: StockItem) -> bool:
+    """This import leaves only its trade-ins in stock, each marked with its
+    transaction (see `_migrate_trade_in`); any other item in stock is live
+    Stock's."""
+
+    return item.pipeline_ref is not None and item.pipeline_ref.startswith(_LEGACY_PIPELINE_REF_PREFIX)
+
+
+def _vehicle_in_live_stock(txn: Transaction, row_type: str, item: StockItem, vehicle_mdm: VehicleMdm) -> RowOutcome:
+    return RowOutcome(
+        txn.id, row_type, "vehicle_in_live_stock",
+        _VEHICLE_IN_LIVE_STOCK_NOTE.format(
+            item_id=item.id, stock_number=item.stock_number, mdm_id=vehicle_mdm.id, vin=vehicle_mdm.vin,
+            row_type=row_type,
+        ),
+    )
+
+
+def _create_stock_item(
+    db: Session, *, tenant_id: uuid.UUID, vehicle_mdm: VehicleMdm, legacy_vehicle: LegacyVehicle,
+    condition: StockItemCondition,
+) -> StockItem:
+    """A new item, in stock. Callers create one only when the VIN has no
+    item in stock, so the in-stock VIN index never refuses it."""
+
     item = StockItem(
         tenant_id=tenant_id,
         stock_number=allocate_stock_number(db, tenant_id),
@@ -255,7 +300,7 @@ def _get_or_create_stock_item(
     )
     db.add(item)
     db.flush()
-    return item, True
+    return item
 
 
 def _vehicle_label(legacy: LegacyVehicle) -> str:
@@ -307,13 +352,16 @@ def _migrate_sale(db: Session, txn: Transaction, *, commit: bool) -> RowOutcome:
     if customer is None:
         return RowOutcome(txn.id, "sale", "customer_unresolved", f"customer {txn.customer_id} does not exist")
 
-    existing_item = _resolve_existing_stock_item_by_vin(db, txn.tenant_id, vehicle_mdm.vin)
-    if existing_item is not None and existing_item.left_stock_at is not None:
+    vin_items = _stock_items_for_vin(db, txn.tenant_id, vehicle_mdm.vin)
+    if vin_items.in_stock is not None and not _created_by_this_import(vin_items.in_stock):
+        return _vehicle_in_live_stock(txn, "sale", vin_items.in_stock, vehicle_mdm)
+    if vin_items.in_stock is None and vin_items.latest_sold is not None:
+        sold = vin_items.latest_sold
         return RowOutcome(
             txn.id, "sale", "vehicle_already_in_stock",
             _VEHICLE_ALREADY_IN_STOCK_NOTE.format(
-                item_id=existing_item.id, mdm_id=vehicle_mdm.id, vin=vehicle_mdm.vin,
-                conflict=f"a resale (left_stock_at={existing_item.left_stock_at})", row_type="sale",
+                item_id=sold.id, mdm_id=vehicle_mdm.id, vin=vehicle_mdm.vin,
+                conflict=f"a resale (left_stock_at={sold.left_stock_at})", row_type="sale",
             ),
         )
 
@@ -335,14 +383,15 @@ def _migrate_sale(db: Session, txn: Transaction, *, commit: bool) -> RowOutcome:
     assert txn.amount is not None
     assert txn.transaction_date is not None
 
-    stock_item, created = _get_or_create_stock_item(
+    # A sale is definitionally the vehicle leaving stock at this price,
+    # however it got into stock — the stay an earlier-processed trade-in
+    # opened (its in_stock_at/acquisition fields are that trade-in's own,
+    # more accurate than anything this row could supply, and are left
+    # untouched), or an item created here when none is in stock.
+    created = vin_items.in_stock is None
+    stock_item = vin_items.in_stock or _create_stock_item(
         db, tenant_id=txn.tenant_id, vehicle_mdm=vehicle_mdm, legacy_vehicle=legacy_vehicle, condition=condition,
     )
-    # A sale is definitionally the vehicle leaving stock at this price,
-    # however it got into stock — freshly created here, or reused from an
-    # earlier-processed trade-in acquisition (in_stock_at/acquisition
-    # fields on a reused item are that trade-in's own, more accurate than
-    # anything this row could supply, and are left untouched).
     if created:
         stock_item.in_stock_at = txn.transaction_date
     stock_item.left_stock_at = txn.transaction_date  # ADR-054: "sold" is not a lifecycle value
@@ -427,13 +476,17 @@ def _migrate_trade_in(db: Session, txn: Transaction, *, commit: bool) -> RowOutc
     if dealership is None:
         return RowOutcome(txn.id, "trade_in", "dealership_unresolved", f"dealership {txn.tenant_id} does not exist")
 
-    existing_item = _resolve_existing_stock_item_by_vin(db, txn.tenant_id, vehicle_mdm.vin)
-    if existing_item is not None and existing_item.purchase_price is not None:
+    # A sold item for this VIN is history and plays no part: a car traded
+    # back in after a sale is a new stay in stock, so a new item (KAN-256).
+    in_stock = _stock_items_for_vin(db, txn.tenant_id, vehicle_mdm.vin).in_stock
+    if in_stock is not None and not _created_by_this_import(in_stock):
+        return _vehicle_in_live_stock(txn, "trade_in", in_stock, vehicle_mdm)
+    if in_stock is not None:
         return RowOutcome(
             txn.id, "trade_in", "vehicle_already_in_stock",
             _VEHICLE_ALREADY_IN_STOCK_NOTE.format(
-                item_id=existing_item.id, mdm_id=vehicle_mdm.id, vin=vehicle_mdm.vin,
-                conflict=f"acquisition data (purchase_price={existing_item.purchase_price})", row_type="trade_in",
+                item_id=in_stock.id, mdm_id=vehicle_mdm.id, vin=vehicle_mdm.vin,
+                conflict=f"acquisition data (purchase_price={in_stock.purchase_price})", row_type="trade_in",
             ),
         )
 
@@ -446,7 +499,7 @@ def _migrate_trade_in(db: Session, txn: Transaction, *, commit: bool) -> RowOutc
         )
 
     if not commit:
-        note = f"would resolve/create a Stock acquisition (in_stock) for vehicle {vehicle_mdm.id}"
+        note = f"would create a Stock acquisition (in_stock) for vehicle {vehicle_mdm.id}"
         return RowOutcome(txn.id, "trade_in", "migrated", (lossy_note + "; " if lossy_note else "") + note)
 
     # run_migration already rejected amount_missing/transaction_date_missing
@@ -464,25 +517,21 @@ def _migrate_trade_in(db: Session, txn: Transaction, *, commit: bool) -> RowOutc
         else None
     )
 
-    stock_item, created = _get_or_create_stock_item(
+    # A new stay in stock, whether the VIN was never seen before or was
+    # sold earlier and is now reacquired as a trade-in — an ordinary
+    # used-car-dealer pattern, not a corner case.
+    stock_item = _create_stock_item(
         db, tenant_id=txn.tenant_id, vehicle_mdm=vehicle_mdm, legacy_vehicle=legacy_vehicle, condition=condition,
     )
-    # (Re)open the acquisition: covers both "never seen this VIN before"
-    # and "this VIN was sold earlier and is now being reacquired as a
-    # trade-in" — an ordinary used-car-dealer pattern, not a corner case.
-    stock_item.condition = condition
-    stock_item.lifecycle_status = LifecycleStatus.IN_STOCK
     stock_item.in_stock_at = txn.transaction_date
-    stock_item.left_stock_at = None
     # Same idempotency mechanism the live consumer path uses
     # (app.inventory.services.pipeline._create_pipeline_item_idempotent)
     # — a unique index on (tenant_id, pipeline_ref) already exists for
     # exactly this purpose, so this migration reuses it rather than
     # adding a legacy_transaction_id column to StockItem the way
-    # SalesContract carries one for the sale path. Set even when reusing
-    # an item created by an earlier sale row, so a re-run of THIS
-    # transaction is correctly detected as already_migrated.
-    stock_item.pipeline_ref = f"legacy-transaction:{txn.id}"
+    # SalesContract carries one for the sale path. It also marks the item
+    # as this import's (`_created_by_this_import`).
+    stock_item.pipeline_ref = f"{_LEGACY_PIPELINE_REF_PREFIX}{txn.id}"
     stock_item.supplier_name = _customer_label(customer)
     stock_item.supplier_is_vat_registered = supplier_is_vat_registered
     stock_item.purchase_date = txn.transaction_date.date()
@@ -511,7 +560,7 @@ def _migrate_trade_in(db: Session, txn: Transaction, *, commit: bool) -> RowOutc
         stock_item_label=stock_item.stock_number,
     )
 
-    note = f"stock_item={stock_item.id}{' (reopened)' if not created else ''}"
+    note = f"stock_item={stock_item.id}"
     return RowOutcome(
         txn.id, "trade_in", "migrated", (lossy_note + "; " if lossy_note else "") + note,
         new_stock_item_id=stock_item.id,
@@ -537,7 +586,7 @@ def run_migration(db: Session, *, commit: bool) -> MigrationReport:
         try:
             existing_contract = db.scalar(select(SalesContract).where(SalesContract.legacy_transaction_id == txn.id))
             existing_stock_item = db.scalar(
-                select(StockItem).where(StockItem.pipeline_ref == f"legacy-transaction:{txn.id}")
+                select(StockItem).where(StockItem.pipeline_ref == f"{_LEGACY_PIPELINE_REF_PREFIX}{txn.id}")
             )
             if existing_contract is not None or existing_stock_item is not None:
                 outcomes.append(RowOutcome(txn.id, txn.transaction_type.value, "already_migrated"))
