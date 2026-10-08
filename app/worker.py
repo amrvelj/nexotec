@@ -158,7 +158,7 @@ def _refresh_vehicle_party_labels(db: Session) -> None:
 
 
 def register_daily_jobs() -> None:
-    """Five daily jobs, run in registration order once per day on this
+    """Six daily jobs, run in registration order once per day on this
     process (app.core.daily_scheduler):
 
     1. ``integration.daily_jobs`` — WP-6's per-tenant catalogue delta sync
@@ -186,7 +186,7 @@ def register_daily_jobs() -> None:
        dangling reference before it is released.
     5. ``vehicle.plate_lookup_cache.purge`` — deletes plate-lookup cache rows
        past their 30-day TTL (KAN-42, FR-C-02; revDSG data minimisation).
-    5. ``core.idempotency_records.purge`` — deletes the Idempotency-Key
+    6. ``core.idempotency_records.purge`` — deletes the Idempotency-Key
        records of HTTP requests older than 24 hours (KAN-119): a retry comes
        within minutes, and a stored response can carry personal data. The
        records a context keeps under its own path (inventory's
