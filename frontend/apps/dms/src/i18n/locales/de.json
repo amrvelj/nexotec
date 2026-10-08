@@ -1455,7 +1455,8 @@
         "dimensions": "Masse & Gewichte",
         "consumption": "Verbrauch & Energie",
         "codes": "Codes",
-        "price": "Preis"
+        "price": "Preis",
+        "vehicleType": "Fahrzeugtyp"
       },
       "fields": {
         "modelTypeName": "Modelltyp",
@@ -1480,8 +1481,12 @@
         "importcode": "Importcode",
         "basePriceYear": "Preisjahr",
         "vehicleKind": "Fahrzeugart",
-        "priceIsNet": "Preis netto"
-      }
+        "priceIsNet": "Preis netto",
+        "drivetrain": "Antriebsart"
+      },
+      "retired": "Nicht mehr verfügbar — bitte einen aktuellen Wert wählen",
+      "retiredSaveError": "Nicht mehr verfügbar: {{fields}}. Bitte vor dem Speichern einen aktuellen Wert wählen.",
+      "listUnavailable": "Die Liste konnte nicht geladen werden"
     },
     "options": {
       "noCatalogueVariant": "Katalogoptionen sind für eine manuelle Konfiguration nicht verfügbar.",
