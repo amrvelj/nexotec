@@ -179,9 +179,11 @@ def register_daily_jobs() -> None:
        app.reconciliation_runner.run_all_daily), never re-run every cycle.
     4. ``vehicle.plate_lookup_cache.purge`` — deletes plate-lookup cache rows
        past their 30-day TTL (KAN-42, FR-C-02; revDSG data minimisation).
-    5. ``core.idempotency_records.purge`` — deletes Idempotency-Key records
-       older than 24 hours (KAN-119): a retry comes within minutes, and a
-       stored response can carry personal data.
+    5. ``core.idempotency_records.purge`` — deletes the Idempotency-Key
+       records of HTTP requests older than 24 hours (KAN-119): a retry comes
+       within minutes, and a stored response can carry personal data. The
+       records a context keeps under its own path (inventory's
+       ``inventory.reserve:<item>``) are left alone.
     """
 
     register_daily_job("integration.daily_jobs", run_daily_integration_jobs)
