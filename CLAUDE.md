@@ -174,11 +174,6 @@ sync · `If-Match` on every mutation of a versioned entity · `Idempotency-Key` 
 OpenAPI published per context. A newly required request field is a breaking contract change:
 it needs an explicit decision, never a side effect of a fix.
 
-A POST honours `Idempotency-Key` by living on a router built with `route_class=IdempotentRoute`
-(`app/core/idempotent_route.py`) — never by hand-copying the lookup. KAN-119 converts one
-context per PR; what remains is the allowlist in
-`tests/architecture/test_every_post_accepts_idempotency_key.py`.
-
 ## Domain rules that apply everywhere
 
 - **Organisation** (ADR-014): group → dealership → location. The **dealership** is the tenant.
