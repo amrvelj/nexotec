@@ -1,6 +1,6 @@
 """Provider abstraction (WP-5 PR-2): the mapping layer that keeps every
 provider code out of application code. No provider calls are made from
-here — that is WP-6's provider-gateway job; these three tables exist so
+here — that is WP-6's provider-gateway job; these tables exist so
 WP-6 has somewhere correct to write its results, and so PR-1's catalogue
 and PR-3's physical vehicle can already speak in canonical codes today,
 with manual entry (FR-V-03), before any provider integration exists.
@@ -95,8 +95,9 @@ class ProviderEntityRef(PrimaryKeyMixin, TimestampMixin, Base):
 
 
 class VariantProviderCode(PrimaryKeyMixin, TimestampMixin, Base):
-    """The raw provider code a `ModelVariant`'s coded field was read from
-    (KAN-83, FR-C-10) — one row per (variant, provider, code_group), keyed
+    """The raw provider code the provider most recently sent for a
+    `ModelVariant`'s coded field (KAN-83, FR-C-10) — one row per (variant,
+    provider, code_group), keyed
     exactly as `ProviderCodeMap` and `MappingGap` key a code (`vehicle_kind`
     is the raw provider vehicle-kind qualifier, `code_group` the semantic
     field name). The catalogue sync writes it on every visit, so resolving a
@@ -106,7 +107,9 @@ class VariantProviderCode(PrimaryKeyMixin, TimestampMixin, Base):
 
     Global, like the variant it describes: auto-i-dat variant master data is
     shared platform-wide (ADR-075, amending ADR-013). A field the provider
-    sends no code for has no row.
+    sends no code for has no row. The row follows the provider; the field
+    does not: once a field holds a value, a changed code updates this row
+    but never the field (only an explicit refresh replaces a set value).
     """
 
     __tablename__ = "vehicle_variant_provider_code"

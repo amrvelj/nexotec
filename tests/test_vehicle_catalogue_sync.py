@@ -26,6 +26,7 @@ from app.vehicle.models.catalogue import Brand, ModelGroup, ModelVariant, Varian
 from app.vehicle.models.catalogue_mirror import ColourCache, ImageRef, ProviderSyncState, TyreSpecCache
 from app.vehicle.models.provider import MappingGap, ProviderCodeMap, VariantProviderCode
 from app.vehicle.services import catalogue_admin, catalogue_sync
+from app.vehicle.services.provider import resolve_provider_code
 
 
 def _bare_variant(db_session, name: str = "Bare Variant") -> ModelVariant:
@@ -890,6 +891,7 @@ def test_a_resync_fills_null_master_fields_and_never_overwrites_set_ones(db_sess
 
     emptied = _variant(db_session, "FZ100001")
     assert (emptied.model_year_to, emptied.base_price, emptied.werkscode) == (2021, Decimal("28900.00"), "ALF14TB")
+    assert emptied.version == 2  # one bump for the one visit that filled
     edited = _variant(db_session, "FZ100002")
     assert (edited.base_price, edited.werkscode, edited.name) == (Decimal("1.00"), "LOCAL", "Locally renamed")
 
@@ -926,3 +928,57 @@ def test_a_raw_code_the_provider_changes_is_recorded_and_a_dropped_one_removed(d
     }
     assert codes["fuel_type"] == "9"
     assert "drivetrain" not in codes
+
+
+def _variant_with_raw_fuel_code(db_session, *, provider: str, vehicle_kind: str, raw_code: str) -> ModelVariant:
+    variant = _bare_variant(db_session, name=f"{provider} kind {vehicle_kind}")
+    db_session.add(
+        VariantProviderCode(
+            model_variant_id=variant.id, provider=provider, vehicle_kind=vehicle_kind, code_group="fuel_type",
+            provider_code=raw_code,
+        )
+    )
+    db_session.commit()
+    return variant
+
+
+def test_resolving_a_gap_fills_only_variants_of_its_own_vehicle_kind_and_provider(db_session):
+    """The vehicle-kind qualifier is load-bearing (`ProviderCodeMap`): fuel
+    code "3" is Diesel for a car and Bleifrei for a motorcycle. A gap for
+    one kind, or one provider, never fills another's variants."""
+
+    _seeded_tenant(db_session)
+    _seed_reference_list(db_session, "fuel_type", ("petrol", "diesel"))
+    motorcycle = _variant_with_raw_fuel_code(db_session, provider="auto_i_dat_mock", vehicle_kind="2", raw_code="3")
+    other_provider = _variant_with_raw_fuel_code(db_session, provider="auto_i_dat", vehicle_kind="1", raw_code="3")
+
+    catalogue_admin.resolve_gap(
+        db_session, gap=_fuel_gap(db_session, "3"), canonical_list_code="fuel_type", canonical_value_code="petrol",
+        actor_id=uuid.uuid4(),
+    )
+
+    assert _variant(db_session, "FZ100001").fuel_type == "petrol"
+    db_session.expire_all()
+    assert db_session.get(ModelVariant, motorcycle.id).fuel_type is None
+    assert db_session.get(ModelVariant, other_provider.id).fuel_type is None
+
+
+def test_resolving_a_gap_whose_code_group_is_not_a_variant_field_fills_nothing(db_session):
+    """An equipment feature is an option attribute, not a variant column:
+    its resolve succeeds and fills no variant (never an AttributeError)."""
+
+    _seeded_tenant(db_session)
+    _seed_reference_list(db_session, "equipment_feature", ("heated_seats",))
+    resolve_provider_code(
+        db_session, provider="auto_i_dat_mock", vehicle_kind="1", code_group="equipment_feature", provider_code="HS",
+    )
+    gap = db_session.scalar(select(MappingGap).where(MappingGap.code_group == "equipment_feature"))
+
+    catalogue_admin.resolve_gap(
+        db_session, gap=gap, canonical_list_code="equipment_feature", canonical_value_code="heated_seats",
+        actor_id=uuid.uuid4(),
+    )
+
+    assert gap.resolved is True
+    events = list_audit_events(db_session, entity_type="vehicle_mapping_gap", entity_id=gap.id, tenant_id=None)
+    assert events[0].after["variantsFilled"] == 0

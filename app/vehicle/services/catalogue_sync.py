@@ -58,7 +58,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Final, Literal
 
-from sqlalchemy import select
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
 from app.core.base import utcnow
@@ -100,9 +100,16 @@ _EPOCH_FOR_FULL_SEED = dt.date(1970, 1, 1)
 
 _ENTITY_TYPE_MODEL_VARIANT = "model_variant"
 
-# The variant fields resolved through `ProviderCodeMap`. Each one's
+# The variant fields resolved through `ProviderCodeMap`, each with the
+# `VariantMasterData` attribute its raw code arrives in. A field's
 # `code_group` is its own column name (see `ProviderCodeMap`'s docstring).
-_CODED_FIELDS: Final = ("vehicle_kind", "fuel_type", "body_style", "drivetrain", "transmission")
+_CODED_FIELDS: Final = {
+    "vehicle_kind": "vehicle_kind_code",
+    "fuel_type": "fuel_type_code",
+    "body_style": "body_style_code",
+    "drivetrain": "drivetrain_code",
+    "transmission": "transmission_code",
+}
 # Master-data fields a later visit fills while they are NULL (KAN-83).
 # `name` and `model_year_from` are NOT NULL, so there is never a gap to fill.
 _FILLABLE_MASTER_FIELDS: Final = ("model_year_to", "base_price", "werkscode")
@@ -363,13 +370,7 @@ def upsert_model_variant(db: Session, *, provider_code: str, master: VariantMast
 
 
 def _raw_codes(master: VariantMasterData) -> dict[str, str | None]:
-    return {
-        "vehicle_kind": master.vehicle_kind_code,
-        "fuel_type": master.fuel_type_code,
-        "body_style": master.body_style_code,
-        "drivetrain": master.drivetrain_code,
-        "transmission": master.transmission_code,
-    }
+    return {code_group: getattr(master, attribute) for code_group, attribute in _CODED_FIELDS.items()}
 
 
 def _record_raw_codes(db: Session, *, variant: ModelVariant, provider_code: str, master: VariantMasterData) -> None:
@@ -409,15 +410,22 @@ def _fill_null_fields(db: Session, *, variant: ModelVariant, provider_code: str,
     is one global row (ADR-075), and replacing a value it already holds is
     the explicit refresh's job, not a sync side effect. A code that still
     does not resolve leaves the field NULL and touches its gap again, as on
-    creation. The version moves only when a field was actually filled.
+    creation.
+
+    Every code is resolved first — which may write its `MappingGap` — and
+    only then is the variant written, by one conditional UPDATE: the same
+    gap-then-variant lock order as a resolve (`resolve_mapping_gap` locks
+    the gap, `apply_resolved_code_to_variants` then the variants), so the
+    two cannot deadlock; and the `IS NULL` test and the version bump happen
+    in the database, so a field a resolve filled meanwhile is kept and the
+    version moves once per actual change.
     """
 
-    filled = False
+    fills: dict[str, object] = {}
     for field_name in _FILLABLE_MASTER_FIELDS:
         value = getattr(master, field_name)
         if getattr(variant, field_name) is None and value is not None:
-            setattr(variant, field_name, value)
-            filled = True
+            fills[field_name] = value
     for code_group, raw_code in _raw_codes(master).items():
         if getattr(variant, code_group) is not None or raw_code is None:
             continue
@@ -426,11 +434,23 @@ def _fill_null_fields(db: Session, *, variant: ModelVariant, provider_code: str,
             code_group=code_group, provider_value=raw_code,
         )
         if canonical is not None:
-            setattr(variant, code_group, canonical)
-            filled = True
-    if filled:
-        variant.version += 1
-        db.flush()
+            fills[code_group] = canonical
+    if not fills:
+        return
+
+    columns = {name: getattr(ModelVariant, name) for name in fills}
+    db.execute(
+        update(ModelVariant)
+        .where(ModelVariant.id == variant.id, or_(*(column.is_(None) for column in columns.values())))
+        .values(
+            {
+                **{name: func.coalesce(column, fills[name]) for name, column in columns.items()},
+                "version": ModelVariant.version + 1,
+            }
+        )
+        .execution_options(synchronize_session=False)
+    )
+    db.refresh(variant)
 
 
 def apply_resolved_code_to_variants(
@@ -441,30 +461,31 @@ def apply_resolved_code_to_variants(
     kind, code group, code) — the variants a just-resolved mapping gap had
     been blocking (KAN-83, FR-C-10). A variant that already holds a value
     is left as it is. Code groups that are not variant fields (an equipment
-    feature, an engine cycle) fill nothing. Returns how many were filled.
+    feature, an engine cycle) fill nothing here. Returns how many were
+    filled.
+
+    One conditional UPDATE: the NULL test runs in the database under the
+    row lock, so a variant a concurrent sync has just filled is skipped,
+    and each filled variant's version moves exactly once.
     """
 
     if code_group not in _CODED_FIELDS:
         return 0
     field_column = getattr(ModelVariant, code_group)
-    variants = db.scalars(
-        select(ModelVariant)
-        .join(VariantProviderCode, VariantProviderCode.model_variant_id == ModelVariant.id)
-        .where(
-            VariantProviderCode.provider == provider,
-            VariantProviderCode.vehicle_kind == vehicle_kind,
-            VariantProviderCode.code_group == code_group,
-            VariantProviderCode.provider_code == provider_code,
-            field_column.is_(None),
-        )
-        .with_for_update(of=ModelVariant)
-    ).all()
-    for variant in variants:
-        setattr(variant, code_group, value_code)
-        variant.version += 1
+    blocked = select(VariantProviderCode.model_variant_id).where(
+        VariantProviderCode.provider == provider,
+        VariantProviderCode.vehicle_kind == vehicle_kind,
+        VariantProviderCode.code_group == code_group,
+        VariantProviderCode.provider_code == provider_code,
+    )
+    result = db.execute(
+        update(ModelVariant)
+        .where(ModelVariant.id.in_(blocked), field_column.is_(None))
+        .values({code_group: value_code, "version": ModelVariant.version + 1})
+        .execution_options(synchronize_session="fetch")
+    )
     db.flush()
-    return len(variants)
-
+    return result.rowcount  # type: ignore[attr-defined]
 
 def _link_type_approvals(db: Session, *, variant: ModelVariant, type_approval_numbers: list[str]) -> None:
     """KAN-42 (C-D): records the variant's Typenscheine so FR-C-02 step 4's
