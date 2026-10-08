@@ -490,14 +490,23 @@ def _contract(db_session, dealer_id, **columns):
         (_offer, "updated_by", "sales_offer.updated_by -> user.id", {}),
         (_offer, "customer_id", "sales_offer.customer_id -> customer.id", {}),
         (_offer, "stock_item_id", "sales_offer.stock_item_id -> stock_item.id", {}),
+        (_offer, "configuration_id", "sales_offer.configuration_id -> vehicle_configuration.id", {}),
         (_offer, "trade_in_vehicle_id", "sales_offer.trade_in_vehicle_id -> vehicle_mdm.id", {}),
+        (
+            _offer, "trade_in_configuration_id", "sales_offer.trade_in_configuration_id -> vehicle_configuration.id", {},
+        ),
         (_offer, "trade_in_valuation_id", "sales_offer.trade_in_valuation_id -> valuation.id", {}),
         (_contract, "tenant_id", "sales_contract.tenant_id -> dealership.id", {}),
         (_contract, "created_by", "sales_contract.created_by -> user.id", {}),
         (_contract, "updated_by", "sales_contract.updated_by -> user.id", {}),
         (_contract, "customer_id", "sales_contract.customer_id -> customer.id", {}),
         (_contract, "stock_item_id", "sales_contract.stock_item_id -> stock_item.id", {}),
+        (_contract, "configuration_id", "sales_contract.configuration_id -> vehicle_configuration.id", {}),
         (_contract, "trade_in_vehicle_id", "sales_contract.trade_in_vehicle_id -> vehicle_mdm.id", {}),
+        (
+            _contract, "trade_in_configuration_id",
+            "sales_contract.trade_in_configuration_id -> vehicle_configuration.id", {},
+        ),
         (_contract, "trade_in_valuation_id", "sales_contract.trade_in_valuation_id -> valuation.id", {}),
         (
             _contract, "reservation_id", "sales_contract.reservation_id -> stock_item.active_reservation_id",
