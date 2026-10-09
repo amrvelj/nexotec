@@ -14,7 +14,7 @@ Customer isn't part of that.
 import datetime as dt
 import uuid
 
-from fastapi import APIRouter, Depends, Header, Query, Request
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.audit import list_audit_events
@@ -22,8 +22,7 @@ from app.core.audit_schemas import AuditEventPage, AuditEventRead
 from app.core.auth import Principal, get_current_principal, require_access_role
 from app.core.concurrency import check_version, require_if_match
 from app.core.config import get_settings
-from app.core.idempotency import find_cached_response, store_response
-from app.core.idempotent_route import replay_stored_response
+from app.core.idempotent_route import IdempotentRoute
 from app.core.pagination import SortPageParams, decode_sort_cursor
 from app.core.permissions import require_read, require_write
 from app.core.sorting import SortField, parse_sort
@@ -68,7 +67,7 @@ from app.db import get_db
 from app.inventory.public import get_stock_items_for_vehicles
 from app.platform.public import get_dealership_or_404
 
-router = APIRouter(tags=["customers"])
+router = APIRouter(tags=["customers"], route_class=IdempotentRoute)
 settings = get_settings()
 
 # U-02/U-03: only columns with a supporting index are offered as sortable —
@@ -91,10 +90,6 @@ _DEFAULT_CUSTOMER_SORT = [
 ]
 
 
-def _idempotency_key(idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")) -> str | None:
-    return idempotency_key
-
-
 def _customer_read(db: Session, customer: Customer) -> CustomerRead:
     """CustomerRead plus the ADR-067 contact projections and the KAN-50
     `tags` list, all computed here (never stored) and layered on with
@@ -109,8 +104,6 @@ def _customer_read(db: Session, customer: Customer) -> CustomerRead:
 @router.post("/customers", response_model=CustomerRead, status_code=201)
 def create_customer(
     body: CustomerCreate,
-    request: Request,
-    idempotency_key: str | None = Depends(_idempotency_key),
     principal: Principal = Depends(require_write("customers")),
     db: Session = Depends(get_db),
 ):
@@ -122,14 +115,6 @@ def create_customer(
     # — the dealership check is just proving the caller's session is real.
     get_dealership_or_404(db, principal.tenant_id)
 
-    request_body = body.model_dump(mode="json", by_alias=True)
-    if idempotency_key:
-        cached = find_cached_response(
-            db, tenant_id=principal.tenant_id, key=idempotency_key, path=request.url.path, body=request_body
-        )
-        if cached is not None:
-            return replay_stored_response(cached)
-
     customer = customer_service.create_customer(
         db,
         group_id=principal.group_id,
@@ -137,20 +122,7 @@ def create_customer(
         actor_id=principal.user_id,
         dealership_id=principal.tenant_id,
     )
-    result = _customer_read(db, customer)
-
-    if idempotency_key:
-        store_response(
-            db,
-            tenant_id=principal.tenant_id,
-            key=idempotency_key,
-            path=request.url.path,
-            body=request_body,
-            response_status=201,
-            response_body=result.model_dump(mode="json", by_alias=True),
-        )
-        db.commit()
-    return result
+    return _customer_read(db, customer)
 
 
 @router.get("/customers/duplicate-check", response_model=CustomerDuplicateCandidateList)

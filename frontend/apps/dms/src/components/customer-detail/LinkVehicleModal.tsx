@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useDebouncedValue } from '@mantine/hooks'
 import { useQuery } from '@tanstack/react-query'
 import { Button, Group, Modal, Select, Stack, Text, TextInput } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 import { api, ApiError } from '../../api/client'
+import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
 import { translatedVehiclePartyRoleLabel } from '../../customerOptions'
 import type { VehicleMdmRead, VehiclePartyRole, VehicleSearchResult } from '../../api/types'
 
@@ -45,6 +46,12 @@ export function LinkVehicleModal({ opened, onClose, onLinked, customerId }: Link
   const [role, setRole] = useState<VehiclePartyRole>('owner')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // KAN-266: one key per link submission; a retry after a failure reuses it,
+  // another vehicle or role gets a new one, and so does every opening.
+  const idempotency = useIdempotencyKey()
+  useEffect(() => {
+    if (opened) idempotency.renew()
+  }, [opened, idempotency])
 
   const searchQuery = useQuery({
     queryKey: ['vehicle-search-for-link', debouncedQuery],
@@ -65,7 +72,10 @@ export function LinkVehicleModal({ opened, onClose, onLinked, customerId }: Link
     setSubmitting(true)
     setError(null)
     try {
-      await api.post(`/customers/${customerId}/vehicles`, { vehicleId: selectedVehicle.id, role })
+      const path = `/customers/${customerId}/vehicles`
+      const body = { vehicleId: selectedVehicle.id, role }
+      await api.post(path, body, idempotency.headers([path, body]))
+      idempotency.renew()
       reset()
       onLinked()
       onClose()

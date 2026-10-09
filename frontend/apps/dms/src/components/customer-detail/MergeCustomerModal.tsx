@@ -4,6 +4,7 @@ import { Checkbox, Group, Loader, Modal, Stack, Text, TextInput, UnstyledButton 
 import { useDebouncedValue } from '@mantine/hooks'
 import { CustomerTypeBadge, LifecycleStatusBadge, purple, semantic, slate, white } from '@nexotec/ui-kit'
 import { api, ApiError } from '../../api/client'
+import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
 import type { CustomerEmailPage, CustomerEmailRead, CustomerPage, CustomerPhonePage, CustomerPhoneRead, CustomerRead } from '../../api/types'
 
 function customerLabel(c: CustomerRead): string {
@@ -51,15 +52,18 @@ export function MergeCustomerModal({ opened, onClose, customer, phones, emails, 
   const [confirmed, setConfirmed] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // KAN-266: a retried merge replays the first answer instead of a 409.
+  const idempotency = useIdempotencyKey()
 
   useEffect(() => {
     if (opened) return
+    idempotency.renew()
     setQuery('')
     setResults([])
     setSurvivor(null)
     setConfirmed(false)
     setError(null)
-  }, [opened])
+  }, [opened, idempotency])
 
   useEffect(() => {
     if (debouncedQuery.trim().length < 2) {
@@ -105,7 +109,12 @@ export function MergeCustomerModal({ opened, onClose, customer, phones, emails, 
     setSubmitting(true)
     setError(null)
     try {
-      await api.post(`/customers/${customer.id}/merge`, { duplicateOfCustomerId: survivor.id }, { 'If-Match': String(customer.version) })
+      await api.post(
+        `/customers/${customer.id}/merge`,
+        { duplicateOfCustomerId: survivor.id },
+        { 'If-Match': String(customer.version), ...idempotency.headers() },
+      )
+      idempotency.renew()
       onMerged(survivor.id)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to merge.')

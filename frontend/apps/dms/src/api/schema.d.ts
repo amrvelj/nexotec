@@ -7846,8 +7846,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "Idempotency-Key"?: string | null;
                 authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                "Idempotency-Key"?: string | null;
             };
             path?: never;
             cookie?: {
@@ -8063,6 +8064,8 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                "Idempotency-Key"?: string | null;
             };
             path: {
                 customer_id: string;
@@ -8212,6 +8215,8 @@ export interface operations {
             header?: {
                 "If-Match"?: string | null;
                 authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                "Idempotency-Key"?: string | null;
             };
             path: {
                 customer_id: string;
@@ -8286,6 +8291,8 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                "Idempotency-Key"?: string | null;
             };
             path: {
                 customer_id: string;
@@ -8434,6 +8441,8 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                "Idempotency-Key"?: string | null;
             };
             path: {
                 customer_id: string;
@@ -8547,6 +8556,8 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                "Idempotency-Key"?: string | null;
             };
             path: {
                 customer_id: string;
@@ -8587,6 +8598,8 @@ export interface operations {
             header?: {
                 "If-Match"?: string | null;
                 authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                "Idempotency-Key"?: string | null;
             };
             path: {
                 customer_id: string;
@@ -8661,6 +8674,8 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                "Idempotency-Key"?: string | null;
             };
             path: {
                 customer_id: string;
@@ -8811,6 +8826,8 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                "Idempotency-Key"?: string | null;
             };
             path: {
                 customer_id: string;

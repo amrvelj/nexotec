@@ -7,7 +7,7 @@ import userEvent from '@testing-library/user-event'
 import i18n from '../i18n'
 import en from '../i18n/locales/en.json'
 import { renderWithProviders } from '../test/renderWithProviders'
-import { installFakeBackend } from '../test/fakeBackend'
+import { installFakeBackend, status } from '../test/fakeBackend'
 import { customer, customerPage } from '../test/fixtures'
 import { CustomerCreateFlow } from './CustomerCreateFlow'
 import { CustomerCreatePage } from '../pages/CustomerCreatePage'
@@ -237,6 +237,43 @@ function LocationProbe() {
   const location = useLocation()
   return <div data-testid="loc">{location.pathname}</div>
 }
+
+describe('CustomerCreateFlow — one Idempotency-Key per submission (KAN-266)', () => {
+  it('a submit retried after a failure carries the same key, so the server replays instead of creating twice', async () => {
+    const user = userEvent.setup()
+    const created = vi.fn()
+    let posts = 0
+    const backend = installFakeBackend([
+      { match: /^\/customers\/duplicate-check$/, handler: () => ({ items: [], nextCursor: null }) },
+      {
+        method: 'POST',
+        match: /^\/customers$/,
+        handler: (req) => {
+          posts += 1
+          if (posts === 1) return status(503, { error: { code: 'unavailable', message: 'Try again.', details: null } })
+          return status(201, { id: 'new-1', ...(req.body as object) })
+        },
+      },
+    ])
+    const { container } = renderWithProviders(<CustomerCreateFlow onSuccess={created} onCancel={() => {}} />)
+
+    await advanceToDetails(user)
+    await user.type(container.querySelector<HTMLInputElement>('input[data-path="firstName"]')!, 'Anna')
+    await user.type(container.querySelector<HTMLInputElement>('input[data-path="lastName"]')!, 'Muster')
+    await user.click(screen.getByRole('button', { name: new RegExp(i18n.t('customerDetail.contactPoints.addEmail'), 'i') }))
+    await user.type(container.querySelector<HTMLInputElement>('input[type="email"]')!, 'anna@example.ch')
+    await user.click(screen.getByRole('button', { name: i18n.t('customerDetail.contactPoints.save') }))
+    await user.click(screen.getByRole('button', { name: i18n.t('customerCreate.actions.submit') }))
+    expect(await screen.findByText('Try again.')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: i18n.t('customerCreate.actions.submit') }))
+
+    await waitFor(() => expect(created).toHaveBeenCalledTimes(1))
+    const keys = backend.callsTo(/^\/customers$/, 'POST').map((call) => call.headers.get('Idempotency-Key'))
+    expect(keys).toHaveLength(2)
+    expect(keys[0]).toBeTruthy()
+    expect(keys[1]).toBe(keys[0])
+  })
+})
 
 describe('the create surface is a dialog (KAN-48, FR-05 / FR-20)', () => {
   function installListBackend(rows = [customer({ id: 'c1', customerNumber: 'K-000042', lastName: 'Meier' })]) {

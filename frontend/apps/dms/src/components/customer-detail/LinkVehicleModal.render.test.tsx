@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
+import { useState } from 'react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from '../../i18n'
 import { renderWithProviders } from '../../test/renderWithProviders'
-import { installFakeBackend } from '../../test/fakeBackend'
+import { installFakeBackend, status } from '../../test/fakeBackend'
 import type { VehicleMdmRead, VehicleSearchResult } from '../../api/types'
 import { LinkVehicleModal } from './LinkVehicleModal'
 
@@ -79,5 +80,68 @@ describe('LinkVehicleModal — a full identifier finds its vehicle (KAN-82)', ()
     await type('WVW')
 
     expect(await screen.findByRole('button', { name: /F-000002 — WVWZZZ1JZXW000001/ })).toBeInTheDocument()
+  })
+})
+
+describe('LinkVehicleModal — one Idempotency-Key per link submission (KAN-266)', () => {
+  // The first link POST fails; every later one succeeds.
+  function renderReopenable() {
+    let posts = 0
+    const backend = installFakeBackend([
+      { method: 'GET', match: /^\/vehicle-mdm\/search$/, handler: (req) => SEARCH[req.params.get('q') ?? ''] },
+      {
+        method: 'POST',
+        match: /^\/customers\/cust-1\/vehicles$/,
+        handler: () => {
+          posts += 1
+          return posts === 1 ? status(503, { error: { code: 'unavailable', message: 'Try again.', details: null } }) : {}
+        },
+      },
+    ])
+    function Harness() {
+      const [opened, setOpened] = useState(true)
+      return (
+        <>
+          <button type="button" onClick={() => setOpened(true)}>reopen</button>
+          <LinkVehicleModal opened={opened} onClose={() => setOpened(false)} onLinked={() => {}} customerId="cust-1" />
+        </>
+      )
+    }
+    renderWithProviders(<Harness />)
+    const keys = () => backend.callsTo(/^\/customers\/cust-1\/vehicles$/, 'POST').map((call) => call.headers.get('Idempotency-Key'))
+    return { keys }
+  }
+
+  async function linkTarget() {
+    await type('ZH 12345')
+    await userEvent.click(await screen.findByRole('button', { name: /F-000001 — ZAR94000007123456 — ZH 12345/ }))
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('customerDetail.linkVehicle.confirm') }))
+  }
+
+  it('a link retried after a failure keeps its key', async () => {
+    const { keys } = renderReopenable()
+    await linkTarget()
+    expect(await screen.findByText('Try again.')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('customerDetail.linkVehicle.confirm') }))
+
+    await waitFor(() => expect(keys()).toHaveLength(2))
+    expect(keys()[0]).toBeTruthy()
+    expect(keys()[1]).toBe(keys()[0])
+  })
+
+  it('the same link sent after closing and reopening the dialog gets a new key', async () => {
+    const { keys } = renderReopenable()
+    await linkTarget()
+    expect(await screen.findByText('Try again.')).toBeInTheDocument()
+
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByText('Try again.')).not.toBeInTheDocument())
+    await userEvent.click(screen.getByRole('button', { name: 'reopen' }))
+    await linkTarget()
+
+    await waitFor(() => expect(keys()).toHaveLength(2))
+    expect(keys()[1]).toBeTruthy()
+    expect(keys()[1]).not.toBe(keys()[0])
   })
 })

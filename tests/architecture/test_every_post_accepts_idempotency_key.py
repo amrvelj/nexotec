@@ -28,20 +28,11 @@ EXEMPT = {
     "yields the same session",
 }
 
-# KAN-119 converts one context per PR; this list shrinks to empty by the last.
+# KAN-266 converts one context per PR; this list shrinks to empty by the last.
 # Do not add to it: a new POST goes on an IdempotentRoute router.
 NOT_YET_CONVERTED = {
     "/v1/configurations",
     "/v1/configurations/{configuration_id}/copy",
-    "/v1/customers",
-    "/v1/customers/{customer_id}/addresses",
-    "/v1/customers/{customer_id}/credit-block",
-    "/v1/customers/{customer_id}/emails",
-    "/v1/customers/{customer_id}/external-ids",
-    "/v1/customers/{customer_id}/legal-basis",
-    "/v1/customers/{customer_id}/merge",
-    "/v1/customers/{customer_id}/phones",
-    "/v1/customers/{customer_id}/vehicles",
     "/v1/integrations/connections",
     "/v1/integrations/connections/{connection_id}/disable",
     "/v1/integrations/connections/{connection_id}/enable",

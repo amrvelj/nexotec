@@ -5,7 +5,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from '../../i18n'
 import { renderWithProviders } from '../../test/renderWithProviders'
-import { installFakeBackend } from '../../test/fakeBackend'
+import { installFakeBackend, status } from '../../test/fakeBackend'
 import { customer, customerAddress } from '../../test/fixtures'
 import type { CustomerAddressRead } from '../../api/types'
 import { CustomerDetailPage } from '../../pages/CustomerDetailPage'
@@ -194,6 +194,120 @@ describe('customer address — detail screen (ADR-067, KAN-30)', () => {
     expect(backend.callsTo(/^\/customers\/c1\/addresses\/addr-9$/, 'PATCH')[0].body).toMatchObject({
       addressLocality: 'Winterthur',
     })
+  })
+
+  it('a corrected address saved after a lost response PATCHes the row that response created (KAN-266)', async () => {
+    // The first POST reaches the server and creates the row, but its response
+    // is lost: the page sees a 504. Posting the corrected address under a new
+    // key would leave the first row behind as a second, hidden address.
+    let address: CustomerAddressRead | null = null
+    const backend = installFakeBackend([
+      { match: /^\/customers\/c1$/, handler: () => customer({ id: 'c1', address }) },
+      ...infraRoutes(null).slice(0, -1),
+      {
+        method: 'POST',
+        match: /^\/customers\/c1\/addresses$/,
+        handler: (req) => {
+          address = { ...customerAddress({ id: 'addr-lost' }), ...(req.body as object) }
+          return status(504, { error: { code: 'gateway_timeout', message: 'Response lost.', details: null } })
+        },
+      },
+      {
+        method: 'PATCH',
+        match: /^\/customers\/c1\/addresses\/addr-lost$/,
+        handler: (req) => (address = { ...address!, ...(req.body as object) }),
+      },
+    ])
+    renderDetail()
+    const user = userEvent.setup()
+
+    await screen.findAllByText(i18n.t('customerDetail.overview.cards.address'))
+    await user.click(within(addressCard()).getAllByText(i18n.t('customerDetail.overview.notSet'))[0])
+    const street = screen.getByLabelText(i18n.t('customerDetail.overview.addressForm.street'))
+    await user.type(street, 'Marktgase')
+    await user.type(screen.getByLabelText(i18n.t('customerDetail.overview.addressForm.houseNumber')), '5')
+    await user.type(screen.getByLabelText(i18n.t('customerDetail.overview.addressForm.postalCode')), '3011')
+    await user.type(screen.getByLabelText(i18n.t('customerDetail.overview.addressForm.locality')), 'Bern')
+    await user.click(screen.getByRole('button', { name: i18n.t('customerDetail.overview.addressForm.save') }))
+    expect(await screen.findByText('Response lost.')).toBeInTheDocument()
+
+    await user.clear(street)
+    await user.type(street, 'Marktgasse')
+    await user.click(screen.getByRole('button', { name: i18n.t('customerDetail.overview.addressForm.save') }))
+
+    await waitFor(() => expect(backend.callsTo(/^\/customers\/c1\/addresses\/addr-lost$/, 'PATCH')).toHaveLength(1))
+    expect(backend.callsTo(/^\/customers\/c1\/addresses$/, 'POST')).toHaveLength(1)
+    expect(backend.callsTo(/^\/customers\/c1\/addresses\/addr-lost$/, 'PATCH')[0].body).toMatchObject({
+      addressStreet: 'Marktgasse',
+    })
+  })
+
+  it('after a lost POST was settled by a PATCH, re-entering the same address once cleared is a new submission (KAN-266)', async () => {
+    // The lost POST's key is still held by the server. Sent again for the
+    // same address, it would replay that first 201 and create nothing.
+    let address: CustomerAddressRead | null = null
+    let posts = 0
+    const backend = installFakeBackend([
+      { match: /^\/customers\/c1$/, handler: () => customer({ id: 'c1', address }) },
+      ...infraRoutes(null).slice(0, -1),
+      {
+        method: 'POST',
+        match: /^\/customers\/c1\/addresses$/,
+        handler: (req) => {
+          posts += 1
+          address = { ...customerAddress({ id: `addr-${posts}` }), ...(req.body as object) }
+          if (posts === 1) return status(504, { error: { code: 'gateway_timeout', message: 'Response lost.', details: null } })
+          return status(201, address)
+        },
+      },
+      {
+        method: 'PATCH',
+        match: /^\/customers\/c1\/addresses\/addr-1$/,
+        handler: (req) => (address = { ...address!, ...(req.body as object) }),
+      },
+      {
+        method: 'DELETE',
+        match: /^\/customers\/c1\/addresses\/addr-1$/,
+        handler: () => {
+          address = null
+          return { __status: 204 }
+        },
+      },
+    ])
+    renderDetail()
+    const user = userEvent.setup()
+    const field = (key: string) => screen.getByLabelText(i18n.t(`customerDetail.overview.addressForm.${key}`))
+    const save = () => user.click(screen.getByRole('button', { name: i18n.t('customerDetail.overview.addressForm.save') }))
+    const enter = async () => {
+      await user.type(field('street'), 'Marktgasse')
+      await user.type(field('houseNumber'), '5')
+      await user.type(field('postalCode'), '3011')
+      await user.type(field('locality'), 'Bern')
+    }
+    const keys = () => backend.callsTo(/^\/customers\/c1\/addresses$/, 'POST').map((call) => call.headers.get('Idempotency-Key'))
+
+    await screen.findAllByText(i18n.t('customerDetail.overview.cards.address'))
+    await user.click(within(addressCard()).getAllByText(i18n.t('customerDetail.overview.notSet'))[0])
+    await enter()
+    await save()
+    expect(await screen.findByText('Response lost.')).toBeInTheDocument()
+    await save()
+    await waitFor(() => expect(backend.callsTo(/^\/customers\/c1\/addresses\/addr-1$/, 'PATCH')).toHaveLength(1))
+
+    await user.click(await screen.findByText('Marktgasse 5, 3011 Bern'))
+    for (const key of ['street', 'houseNumber', 'postalCode', 'locality']) await user.clear(field(key))
+    await save()
+    await waitFor(() => expect(backend.callsTo(/^\/customers\/c1\/addresses\/addr-1$/, 'DELETE')).toHaveLength(1))
+
+    await user.click((await within(addressCard()).findAllByText(i18n.t('customerDetail.overview.notSet')))[0])
+    await enter()
+    await save()
+    await waitFor(() => expect(keys()).toHaveLength(2))
+
+    const [lost, reentered] = keys()
+    expect(lost).toBeTruthy()
+    expect(reentered).toBeTruthy()
+    expect(reentered).not.toBe(lost)
   })
 
   it('clearing every field on an existing address DELETEs it', async () => {

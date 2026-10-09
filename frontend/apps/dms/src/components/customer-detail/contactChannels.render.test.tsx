@@ -5,7 +5,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from '../../i18n'
 import { renderWithProviders } from '../../test/renderWithProviders'
-import { installFakeBackend } from '../../test/fakeBackend'
+import { installFakeBackend, status } from '../../test/fakeBackend'
 import { customer, email, phone } from '../../test/fixtures'
 import type { CustomerEmailRead, CustomerPhoneRead } from '../../api/types'
 import { CustomerDetailPage } from '../../pages/CustomerDetailPage'
@@ -262,5 +262,119 @@ describe('contact channels — create dialog (same RepeatableRowGroup, ADR-067)'
       expect(stars[1]).toHaveAttribute('aria-pressed', 'true')
       expect(stars[0]).toHaveAttribute('aria-pressed', 'false')
     })
+  })
+})
+
+describe('contact channels — one Idempotency-Key per added row (KAN-266)', () => {
+  // The first phone POST fails; every later one succeeds.
+  async function renderWithFailingFirstPhone(initial: CustomerPhoneRead[] = []) {
+    const user = userEvent.setup()
+    const phones: CustomerPhoneRead[] = [...initial]
+    let posts = 0
+    const backend = installFakeBackend([
+      { match: /^\/customers\/c1$/, handler: () => customer({ id: 'c1' }) },
+      { match: /^\/customers\/c1\/phones$/, method: 'GET', handler: () => ({ items: phones }) },
+      {
+        method: 'POST',
+        match: /^\/customers\/c1\/phones$/,
+        handler: (req) => {
+          posts += 1
+          if (posts === 1) return status(503, { error: { code: 'unavailable', message: 'Try again.', details: null } })
+          const body = req.body as { phoneType: 'mobile'; phoneE164: string }
+          const row = phone({ id: `p-${posts}`, type: body.phoneType, value: body.phoneE164, isPrimary: phones.length === 0 })
+          phones.push(row)
+          return status(201, row)
+        },
+      },
+      {
+        method: 'PATCH',
+        match: /^\/customers\/c1\/phones\/(.+)$/,
+        handler: (req) => {
+          const row = phones.find((p) => p.id === req.pathname.split('/').pop())!
+          Object.assign(row, req.body as Partial<CustomerPhoneRead>)
+          return row
+        },
+      },
+      { match: /^\/customers\/c1\/emails$/, handler: () => ({ items: [] }) },
+      { match: /^\/customers\/c1\/vehicles$/, handler: () => ({ items: [], nextCursor: null }) },
+      { match: /^\/customers\/c1\/external-ids$/, handler: () => ({ items: [], nextCursor: null }) },
+      { match: /^\/customers\/c1\/audit-log$/, handler: () => ({ items: [], nextCursor: null }) },
+    ])
+    renderWithProviders(
+      <Routes>
+        <Route path="/customers/:id" element={<CustomerDetailPage />} />
+      </Routes>,
+      { route: '/customers/c1' },
+    )
+    const phoneBlock = (await screen.findByText(i18n.t('customerDetail.contactPoints.phoneNumbers'))).parentElement as HTMLElement
+    const keys = () => backend.callsTo(/^\/customers\/c1\/phones$/, 'POST').map((call) => call.headers.get('Idempotency-Key'))
+    const saveButton = () => within(phoneBlock).queryByRole('button', { name: i18n.t('customerDetail.contactPoints.save') })
+    const numberInput = () => within(saveButton()!.closest('div') as HTMLElement).getByLabelText(i18n.t('customerDetail.phoneInput.number'))
+    const addPhone = async (national: string) => {
+      await user.click(within(phoneBlock).getByRole('button', { name: new RegExp(i18n.t('customerDetail.contactPoints.addPhone'), 'i') }))
+      await user.type(numberInput(), national)
+      await user.click(saveButton()!)
+    }
+    return { user, backend, phoneBlock, keys, saveButton, numberInput, addPhone }
+  }
+
+  it('a phone add retried after a failure keeps its key; the next phone gets a new one', async () => {
+    const { user, phoneBlock, keys, saveButton, addPhone } = await renderWithFailingFirstPhone()
+
+    await addPhone('791110000')
+    expect(await within(phoneBlock).findByText('Try again.')).toBeInTheDocument()
+    await user.click(saveButton()!)
+    await waitFor(() => expect(keys()).toHaveLength(2))
+    await waitFor(() => expect(saveButton()).not.toBeInTheDocument())
+
+    await addPhone('792220000')
+    await waitFor(() => expect(keys()).toHaveLength(3))
+
+    const [first, retry, next] = keys()
+    expect(first).toBeTruthy()
+    expect(retry).toBe(first)
+    expect(next).toBeTruthy()
+    expect(next).not.toBe(first)
+  })
+
+  it('a corrected value saved after a failure is a different request and gets a new key', async () => {
+    // Had the first response been lost rather than refused, the server would
+    // hold the key for the first number: the corrected one under it is a 409.
+    const { user, phoneBlock, keys, saveButton, numberInput, addPhone } = await renderWithFailingFirstPhone()
+
+    await addPhone('791110000')
+    expect(await within(phoneBlock).findByText('Try again.')).toBeInTheDocument()
+    await user.clear(numberInput())
+    await user.type(numberInput(), '793330000')
+    await user.click(saveButton()!)
+    await waitFor(() => expect(keys()).toHaveLength(2))
+
+    const [first, corrected] = keys()
+    expect(first).toBeTruthy()
+    expect(corrected).toBeTruthy()
+    expect(corrected).not.toBe(first)
+  })
+
+  it('the key of a failed add is retired by the next phone write that goes through', async () => {
+    // Had the failed add's response been lost, the server would hold its key:
+    // the same number added again after another phone write (an edit, a
+    // delete) must be a new submission, not a replay that creates nothing.
+    const { user, backend, phoneBlock, keys, addPhone } = await renderWithFailingFirstPhone([
+      phone({ id: 'p-a', type: 'mobile', value: '+41791110000', isPrimary: true }),
+      phone({ id: 'p-b', type: 'mobile', value: '+41792220000', isPrimary: false }),
+    ])
+
+    await addPhone('793330000')
+    expect(await within(phoneBlock).findByText('Try again.')).toBeInTheDocument()
+    await user.click(within(phoneBlock).getByRole('button', { name: i18n.t('customerDetail.contactPoints.cancel') }))
+    await user.click(within(phoneBlock).getAllByRole('button', { name: primaryPrefix() })[1])
+    await waitFor(() => expect(backend.callsTo(/^\/customers\/c1\/phones\/p-b$/, 'PATCH')).toHaveLength(1))
+    await addPhone('793330000')
+    await waitFor(() => expect(keys()).toHaveLength(2))
+
+    const [failed, later] = keys()
+    expect(failed).toBeTruthy()
+    expect(later).toBeTruthy()
+    expect(later).not.toBe(failed)
   })
 })
