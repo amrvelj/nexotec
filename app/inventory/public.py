@@ -8,10 +8,10 @@ entries — each owns its own commit (ADR-047, Pattern B); the caller
 supplies its own Idempotency-Key and calls from OUTSIDE its own
 contract-write transaction. `reserve_for_contract` is idempotent by (item,
 contract) rather than by key alone, so a retry after a compensating release
-reserves again. `reserve` (key-replay idempotency when a key is passed) has
-no caller outside inventory since KAN-114; the HTTP endpoints call `reserve`
-and `release` without a key, because their IdempotentRoute holds the
-client's (KAN-266).
+reserves again. `reserve` (key-replay idempotency) has no caller outside
+inventory since KAN-114. Both `reserve` and `release` require the caller's
+key; the HTTP endpoints use the service's own `*_without_key` entries,
+because their IdempotentRoute holds the client's key (KAN-266).
 
 `get_stock_item_pricing` (WP-8 PR-3) is a second, read-only Sales entry —
 a plain dict, never an ORM row, matching app.vehicle.public's own

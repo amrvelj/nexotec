@@ -146,13 +146,15 @@ def test_reserve_commits_independently_of_the_callers_own_transaction(db_session
 # --- KAN-114: a replayed key whose reservation was released since. The
 # idempotency record has no TTL, so Sales' retry under its per-contract key
 # was handed back the released reservation id and reserved nothing.
-# reserve_for_contract (Sales' entry) answers from the item; reserve() (the
-# HTTP endpoint) keeps the stored-response replay the API convention promises.
+# reserve_for_contract (Sales' entry) answers from the item; reserve() keeps
+# the stored-response replay under a caller's own key. The HTTP endpoint's
+# replay is the route's since KAN-266 (tests/test_inventory_idempotency.py::
+# test_a_late_retry_of_a_reserve_never_re_reserves_a_released_car).
 
 
 def test_reserve_replay_after_release_returns_the_stored_response_and_reserves_nothing(db_session):
-    """The public endpoint's contract, pinned: a late duplicate never
-    re-reserves a car its caller has released since."""
+    """reserve()'s keyed contract: a late duplicate under the caller's key
+    never re-reserves a car its caller has released since."""
 
     tenant_id = uuid.uuid4()
     item = _make_item(db_session, tenant_id)
