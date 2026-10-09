@@ -36,8 +36,6 @@ NOT_YET_CONVERTED = {
     "/v1/integrations/connections/{connection_id}/enable",
     "/v1/integrations/connections/{connection_id}/test",
     "/v1/integrations/providers",
-    "/v1/valuations",
-    "/v1/valuations/{valuation_id}/mark-used",
 }
 
 

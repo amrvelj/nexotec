@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.auth import Principal, get_current_principal
 from app.core.concurrency import check_version, require_if_match
 from app.core.config import get_settings
+from app.core.idempotent_route import IdempotentRoute
 from app.core.pagination import SortPageParams, decode_sort_cursor
 from app.core.permissions import require_write
 from app.core.sorting import SortField, parse_sort
@@ -17,7 +18,7 @@ from app.valuation.models.valuation import Valuation
 from app.valuation.schemas.valuation import DeductionRead, ValuationCreate, ValuationPage, ValuationRead
 from app.valuation.services import valuation as valuation_service
 
-router = APIRouter(tags=["valuation"])
+router = APIRouter(tags=["valuation"], route_class=IdempotentRoute)
 settings = get_settings()
 
 # U-03 — status is deliberately ABSENT from this allow-list: it is derived
