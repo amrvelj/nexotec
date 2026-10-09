@@ -819,7 +819,8 @@
         "source": "Herkunft"
       },
       "auto": "Automatisch",
-      "manual": "Manuell"
+      "manual": "Manuell",
+      "error": "Die Kosten konnten nicht erfasst werden. Bitte erneut versuchen."
     },
     "publishing": {
       "blockingBannerTitle": "{{count, number}} Punkt(e) verhindern die Publikation",

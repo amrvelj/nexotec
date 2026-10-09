@@ -6,6 +6,7 @@ import { semantic, useSetBreadcrumb } from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
 import { translatedStockConditionOptions } from '../stockOptions'
 import type { StockItemCondition, StockItemRead } from '../api/types'
+import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 
 /**
  * KAN-111: a VIN already on a stock item that has not left stock is
@@ -46,6 +47,9 @@ export function StockCreatePage() {
   const [vin, setVin] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<SubmitError | null>(null)
+  // KAN-266: one key per submission — a retry after a failure gets the item
+  // the first attempt created; a corrected form is another request.
+  const idempotency = useIdempotencyKey()
 
   const conditionOptions = translatedStockConditionOptions(t)
 
@@ -53,11 +57,9 @@ export function StockCreatePage() {
     setSubmitting(true)
     setError(null)
     try {
-      const created = await api.post<StockItemRead>('/inventory/stock-items', {
-        vehicleLabel,
-        condition,
-        vin: vin || undefined,
-      })
+      const body = { vehicleLabel, condition, vin: vin || undefined }
+      const created = await api.post<StockItemRead>('/inventory/stock-items', body, idempotency.headers(body))
+      idempotency.renew()
       navigate(`/stock/${created.id}`)
     } catch (err) {
       setError(submitError(err))

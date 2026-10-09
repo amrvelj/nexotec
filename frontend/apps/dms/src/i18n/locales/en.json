@@ -819,7 +819,8 @@
         "source": "Source"
       },
       "auto": "Automatic",
-      "manual": "Manual"
+      "manual": "Manual",
+      "error": "The cost could not be recorded. Please try again."
     },
     "publishing": {
       "blockingBannerTitle": "{{count, number}} item(s) are blocking publication",

@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.core.auth import Principal, get_current_principal
+from app.core.idempotent_route import IdempotentRoute
 from app.core.permissions import require_write
 from app.db import get_db
 from app.inventory.models.stock_item import StockItem
@@ -23,7 +24,7 @@ from app.inventory.services import publishing as publishing_service
 from app.inventory.services import stock_item as stock_item_service
 from app.vehicle.public import get_vehicle_equipment
 
-router = APIRouter(tags=["inventory"])
+router = APIRouter(tags=["inventory"], route_class=IdempotentRoute)
 
 
 def _publishing_read(db: Session, item: StockItem, row: StockItemPublishing) -> PublishingRead:

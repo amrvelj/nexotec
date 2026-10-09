@@ -120,6 +120,50 @@ describe('Stock list — add to pipeline (FR-C-13)', () => {
 
     expect(await within(overlay).findByText(i18n.t('stockList.addToPipelineError'))).toBeInTheDocument()
   })
+
+  it('a pipeline item retried after a failure carries the same Idempotency-Key (KAN-266)', async () => {
+    // The first create fails (had its response been lost, the server would
+    // hold the item): saving again re-sends the same request under the same
+    // key, so the server replays instead of adding the car twice.
+    const user = userEvent.setup()
+    const config = configurationRead({ source: 'manual', catalogueVariantId: null })
+    let attempts = 0
+    const backend = installFakeBackend([
+      { method: 'POST', match: /^\/configurations$/, handler: () => ({ __status: 201, body: config }) },
+      { method: 'PATCH', match: /^\/configurations\/[^/]+$/, handler: () => config },
+      { method: 'PATCH', match: /^\/configurations\/[^/]+\/options$/, handler: () => config },
+      {
+        method: 'POST',
+        match: /^\/inventory\/stock-items$/,
+        handler: () => {
+          attempts += 1
+          if (attempts === 1) return status(503, { error: { code: 'unavailable', message: 'Try again.', details: null } })
+          return { __status: 201, body: { id: 'si-9' } }
+        },
+      },
+      ...CATALOGUE,
+    ])
+    renderWithProviders(
+      <>
+        <StockListPage />
+        <LocationProbe />
+      </>,
+      { route: '/stock' },
+    )
+
+    await user.click(await screen.findByRole('button', { name: i18n.t('stockList.addToPipeline') }))
+    const overlay = await screen.findByRole('dialog')
+    await user.click(within(overlay).getByRole('button', { name: i18n.t('configurator.find.manual') }))
+    await user.click(await within(overlay).findByRole('button', { name: i18n.t('configurator.saveNew') }))
+    expect(await within(overlay).findByText(i18n.t('stockList.addToPipelineError'))).toBeInTheDocument()
+    await user.click(within(overlay).getByRole('button', { name: i18n.t('configurator.save') }))
+    await waitFor(() => expect(screen.getByTestId('path')).toHaveTextContent('/stock/si-9'))
+
+    const keys = backend.callsTo(/^\/inventory\/stock-items$/, 'POST').map((call) => call.headers.get('Idempotency-Key'))
+    expect(keys).toHaveLength(2)
+    expect(keys[0]).toBeTruthy()
+    expect(keys[1]).toBe(keys[0])
+  })
 })
 
 describe('Stock detail — a pipeline item shows its configuration', () => {

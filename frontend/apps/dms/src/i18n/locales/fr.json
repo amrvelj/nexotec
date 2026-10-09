@@ -819,7 +819,8 @@
         "source": "Origine"
       },
       "auto": "Automatique",
-      "manual": "Manuel"
+      "manual": "Manuel",
+      "error": "Les frais n’ont pas pu être enregistrés. Veuillez réessayer."
     },
     "publishing": {
       "blockingBannerTitle": "{{count, number}} point(s) empêchent la publication",
