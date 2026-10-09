@@ -514,3 +514,75 @@ describe('ConfiguratorOverlay', () => {
     expect(ctx.postedOptions().length).toBe(0)
   })
 })
+
+describe('ConfiguratorOverlay — one Idempotency-Key per first save (KAN-266)', () => {
+  // The first POST /configurations fails; every later one succeeds.
+  function installFailingFirstCreate() {
+    let attempts = 0
+    const ctx = install([
+      {
+        method: 'POST',
+        match: /\/configurations$/,
+        handler: (req) => {
+          attempts += 1
+          if (attempts === 1) return status(503, { error: { code: 'unavailable', message: 'Try again.', details: null } })
+          const b = req.body as Record<string, unknown>
+          return status(201, {
+            id: 'cfg-1', tenantId: 't1', source: b.source, mode: b.mode, catalogueMatchStatus: 'matched',
+            matchMethod: b.matchMethod, catalogueVariantId: b.catalogueVariantId ?? null, catalogueVariantLabel: null,
+            vehicleId: null, vehicleLabel: null, vin: null, stammnummer: null, typeApprovalNumber: null,
+            firstRegistrationDate: null, licencePlate: null, mileageKm: null, brandDisplayName: 'Volkswagen',
+            modelGroupName: 'Golf', variantName: 'Golf GTI', vehicleKind: null, fuelType: null, bodyStyle: null,
+            drivetrain: null, transmission: null, exteriorColour: null, interiorColour: null,
+            exteriorColourSurcharge: null, interiorColourSurcharge: null, wheels: b.wheels ?? null, wheelsSurcharge: null,
+            spec: {}, overriddenFields: [], options: [], notes: null, version: 1,
+            createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z',
+          })
+        },
+      },
+    ])
+    const keys = () => ctx.backend.callsTo(/\/configurations$/, 'POST').map((call) => call.headers.get('Idempotency-Key'))
+    return { keys }
+  }
+
+  async function pickVariant(user: ReturnType<typeof userEvent.setup>) {
+    await openOverlay(user)
+    await user.click(await within(screen.getByRole('dialog')).findByText('Golf GTI'))
+    await screen.findByText(i18n.t('configurator.spec.groups.powertrain'))
+  }
+
+  it('a first save retried after a failure carries the same key, so the server replays instead of creating twice', async () => {
+    const user = userEvent.setup()
+    const { keys } = installFailingFirstCreate()
+    const onCommitted = vi.fn()
+    renderWithProviders(<Host onCommitted={onCommitted} />)
+    await pickVariant(user)
+
+    await user.click(screen.getByRole('button', { name: i18n.t('configurator.saveNew') }))
+    await waitFor(() => expect(keys()).toHaveLength(1))
+    await user.click(screen.getByRole('button', { name: i18n.t('configurator.saveNew') }))
+    await waitFor(() => expect(onCommitted).toHaveBeenCalled())
+
+    expect(keys()).toHaveLength(2)
+    expect(keys()[0]).toBeTruthy()
+    expect(keys()[1]).toBe(keys()[0])
+  })
+
+  it('a draft changed after a failed first save is another request and gets a new key', async () => {
+    const user = userEvent.setup()
+    const { keys } = installFailingFirstCreate()
+    renderWithProviders(<Host onCommitted={vi.fn()} />)
+    await pickVariant(user)
+
+    await user.click(screen.getByRole('button', { name: i18n.t('configurator.saveNew') }))
+    await waitFor(() => expect(keys()).toHaveLength(1))
+    await user.click(screen.getByText(i18n.t('configurator.sections.colour')))
+    await user.type(screen.getByLabelText(i18n.t('configurator.wheels.description')), '19" Turini')
+    await user.click(screen.getByRole('button', { name: i18n.t('configurator.saveNew') }))
+    await waitFor(() => expect(keys()).toHaveLength(2))
+
+    expect(keys()[0]).toBeTruthy()
+    expect(keys()[1]).toBeTruthy()
+    expect(keys()[1]).not.toBe(keys()[0])
+  })
+})

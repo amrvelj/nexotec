@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import Principal, get_current_principal
 from app.core.errors import NotFoundError
+from app.core.idempotent_route import IdempotentRoute
 from app.core.permissions import require_read, require_write
 from app.customer.public import list_vehicle_party_holders
 from app.db import get_db
@@ -36,7 +37,7 @@ from app.vehicle.services import vehicle_history as history_service
 from app.vehicle.services import vehicle_mdm as vehicle_mdm_service
 from app.vehicle.services.plate import list_plates_for_vehicle
 
-router = APIRouter(tags=["vehicle-mdm-detail"])
+router = APIRouter(tags=["vehicle-mdm-detail"], route_class=IdempotentRoute)
 
 
 @router.get("/vehicle-mdm/{vehicle_id}/plates", response_model=list[VehiclePlateRead])

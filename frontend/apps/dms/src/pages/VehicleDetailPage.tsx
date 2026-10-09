@@ -11,6 +11,7 @@ import { PlatesTab } from '../components/vehicle-detail/PlatesTab'
 import { SpecificationTab } from '../components/vehicle-detail/SpecificationTab'
 import { OdometerTab } from '../components/vehicle-detail/OdometerTab'
 import { AccessoriesTab } from '../components/vehicle-detail/AccessoriesTab'
+import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import type {
   CustomerPage,
   OdometerSource,
@@ -100,7 +101,19 @@ export function VehicleDetailPage() {
     vehicle?.vehicleNumber ?? t('vehicleDetail.header.vehicleFallback'),
   ])
 
+  // KAN-266: one Idempotency-Key per submission of each create — a retry
+  // after a failed save reuses it, so the server replays instead of writing
+  // twice; a different request (another value, another vehicle: this screen
+  // stays mounted when :id changes) gets a new one. Every successful write
+  // of a kind renews that kind's key, so a key left by a create whose
+  // response was lost never replays, creating nothing, for a later identical
+  // value.
+  const allocateKey = useIdempotencyKey()
+  const odometerKey = useIdempotencyKey()
+  const accessoryKey = useIdempotencyKey()
+
   const invalidatePartyRoles = () => {
+    allocateKey.renew()
     void queryClient.invalidateQueries({ queryKey: ['vehicle-mdm', id, 'party-roles'] })
   }
 
@@ -113,22 +126,31 @@ export function VehicleDetailPage() {
   const reload = () => void vehicleQuery.refetch()
 
   const allocate = async (customerId: string, role: VehiclePartyRole) => {
-    await api.post(`/vehicle-mdm/${id}/allocate`, { customerId, role })
+    const path = `/vehicle-mdm/${id}/allocate`
+    const body = { customerId, role }
+    await api.post(path, body, allocateKey.headers([path, body]))
     invalidatePartyRoles()
   }
 
   const addOdometerReading = async (value: number, readingDate: string, source: OdometerSource) => {
-    await api.post(`/vehicle-mdm/${id}/odometer-readings`, { value, readingDate, source })
+    const path = `/vehicle-mdm/${id}/odometer-readings`
+    const body = { value, readingDate, source }
+    await api.post(path, body, odometerKey.headers([path, body]))
+    odometerKey.renew()
     void queryClient.invalidateQueries({ queryKey: ['vehicle-mdm', id, 'odometer-readings'] })
   }
 
   const addAccessory = async (accessoryType: string, description: string, validFrom: string) => {
-    await api.post(`/vehicle-mdm/${id}/accessories`, { accessoryType, description: description || null, validFrom })
+    const path = `/vehicle-mdm/${id}/accessories`
+    const body = { accessoryType, description: description || null, validFrom }
+    await api.post(path, body, accessoryKey.headers([path, body]))
+    accessoryKey.renew()
     void queryClient.invalidateQueries({ queryKey: ['vehicle-mdm', id, 'accessories'] })
   }
 
   const removeAccessory = async (accessoryId: string) => {
     await api.delete(`/vehicle-mdm/${id}/accessories/${accessoryId}`)
+    accessoryKey.renew()
     void queryClient.invalidateQueries({ queryKey: ['vehicle-mdm', id, 'accessories'] })
   }
 

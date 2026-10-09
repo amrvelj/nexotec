@@ -9,6 +9,7 @@ import { ActionBar, DataGrid, FormDialog, type GridColumnDef, type SortSpec } fr
 import { useUiPreferencesContext } from '../hooks/UiPreferencesContext'
 import { useReferenceValueOptions } from '../hooks/useReferenceValueOptions'
 import { api, ApiError } from '../api/client'
+import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import type { MappingGapPage, MappingGapRead } from '../api/types'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
 import { formatDate, formatNumber } from '../utils/format'
@@ -72,6 +73,10 @@ export function MappingGapsQueue({ paramPrefix = '' }: MappingGapsQueueProps) {
   const [resolving, setResolving] = useState(false)
   const [resolveError, setResolveError] = useState<string | null>(null)
   const valueOptions = useReferenceValueOptions(resolvingGap?.codeGroup ?? null)
+  // KAN-266: one key per resolution — the same gap and value sent again (a
+  // retry, from the same dialog or a reopened one) replays the first answer;
+  // another gap or value gets a new key.
+  const resolveKey = useIdempotencyKey()
 
   const openResolve = (gap: MappingGapRead) => {
     setResolvingGap(gap)
@@ -109,10 +114,10 @@ export function MappingGapsQueue({ paramPrefix = '' }: MappingGapsQueueProps) {
     setResolving(true)
     setResolveError(null)
     try {
-      await api.post(`/vehicle-mdm/mapping-gaps/${resolvingGap.id}/resolve`, {
-        canonicalListCode: resolvingGap.codeGroup,
-        canonicalValueCode: valueCode,
-      })
+      const path = `/vehicle-mdm/mapping-gaps/${resolvingGap.id}/resolve`
+      const body = { canonicalListCode: resolvingGap.codeGroup, canonicalValueCode: valueCode }
+      await api.post(path, body, resolveKey.headers([path, body]))
+      resolveKey.renew()
       setResolvingGap(null)
       await queryClient.invalidateQueries({ queryKey: ['vehicle-mdm', GRID_KEY] })
     } catch (err) {

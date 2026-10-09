@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import Principal, get_current_principal, require_access_role
 from app.core.concurrency import check_version, require_if_match
+from app.core.idempotent_route import IdempotentRoute
 from app.core.pagination import PageParams, page_params
 from app.db import get_db
 from app.vehicle.schemas.catalogue import (
@@ -25,7 +26,7 @@ from app.vehicle.schemas.catalogue import (
 )
 from app.vehicle.services import catalogue_admin
 
-router = APIRouter(tags=["vehicle-mdm-admin"])
+router = APIRouter(tags=["vehicle-mdm-admin"], route_class=IdempotentRoute)
 
 
 @router.get("/vehicle-mdm/brands", response_model=BrandPage)

@@ -28,7 +28,7 @@ import datetime as dt
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, Header, Request
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.core.audit import list_audit_events
@@ -37,8 +37,7 @@ from app.core.auth import AccessRole, Principal, get_current_principal
 from app.core.concurrency import check_version, require_if_match
 from app.core.config import get_settings
 from app.core.errors import ConflictError, ForbiddenError
-from app.core.idempotency import find_cached_response, store_response
-from app.core.idempotent_route import replay_stored_response
+from app.core.idempotent_route import IdempotentRoute
 from app.core.pagination import PageParams, page_params
 from app.core.permissions import require_read, require_write
 from app.db import get_db
@@ -54,7 +53,7 @@ from app.vehicle.schemas.vehicle import (
 )
 from app.vehicle.services import vehicle as vehicle_service
 
-router = APIRouter(tags=["vehicles"])
+router = APIRouter(tags=["vehicles"], route_class=IdempotentRoute)
 
 # Endpoint-level guard, not services/vehicle.py's own _TERMINAL_STATUSES
 # (which excludes SOLD — that set only blocks arbitrary status PATCH
@@ -64,10 +63,6 @@ router = APIRouter(tags=["vehicles"])
 # (CTO review, 2026-08-06); that caller was deleted by KAN-90, and the
 # guard stays on direct client requests at the API boundary.
 _BLOCKED_CUSTODY_EVENT_STATUSES = (VehicleStatus.SOLD, VehicleStatus.TOTALED, VehicleStatus.SCRAPPED)
-
-
-def _idempotency_key(idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")) -> str | None:
-    return idempotency_key
 
 
 def _reject_if_legacy_frozen() -> None:
@@ -107,37 +102,14 @@ def _serialize_vehicle(vehicle, principal: Principal, db: Session) -> VehicleRea
 @router.post("/vehicles", response_model=VehicleRead, status_code=201)
 def create_vehicle(
     body: VehicleCreate,
-    request: Request,
-    idempotency_key: str | None = Depends(_idempotency_key),
     principal: Principal = Depends(require_write("vehicle_mdm")),
     db: Session = Depends(get_db),
 ):
     _reject_if_legacy_frozen()
-    request_body = body.model_dump(mode="json", by_alias=True)
-    if idempotency_key:
-        cached = find_cached_response(
-            db, tenant_id=principal.tenant_id, key=idempotency_key, path=request.url.path, body=request_body
-        )
-        if cached is not None:
-            return replay_stored_response(cached)
-
     vehicle = vehicle_service.create_vehicle(
         db, data=body, custodian_partner_id=principal.tenant_id, actor_id=principal.user_id
     )
-    result = _serialize_vehicle(vehicle, principal, db)
-
-    if idempotency_key:
-        store_response(
-            db,
-            tenant_id=principal.tenant_id,
-            key=idempotency_key,
-            path=request.url.path,
-            body=request_body,
-            response_status=201,
-            response_body=result.model_dump(mode="json", by_alias=True),
-        )
-        db.commit()
-    return result
+    return _serialize_vehicle(vehicle, principal, db)
 
 
 @router.get("/vehicles/by-vin/{vin}", response_model=VehicleRead)
@@ -188,8 +160,6 @@ def update_vehicle(
 def create_custody_event(
     vehicle_id: uuid.UUID,
     body: CustodyEventCreate,
-    request: Request,
-    idempotency_key: str | None = Depends(_idempotency_key),
     principal: Principal = Depends(require_write("vehicle_mdm")),
     db: Session = Depends(get_db),
 ):
@@ -214,14 +184,6 @@ def create_custody_event(
         if AccessRole.PLATFORM_ADMIN not in principal.roles and not is_custodian:
             raise ForbiddenError("Only the current custodian may record a sale out of custody.")
 
-    request_body = body.model_dump(mode="json", by_alias=True)
-    if idempotency_key:
-        cached = find_cached_response(
-            db, tenant_id=principal.tenant_id, key=idempotency_key, path=request.url.path, body=request_body
-        )
-        if cached is not None:
-            return replay_stored_response(cached)
-
     event = vehicle_service.create_custody_event(
         db,
         vehicle=vehicle,
@@ -231,20 +193,7 @@ def create_custody_event(
         transaction_id=body.transaction_id,
         actor_id=principal.user_id,
     )
-    result = CustodyEventRead.model_validate(event, from_attributes=True)
-
-    if idempotency_key:
-        store_response(
-            db,
-            tenant_id=principal.tenant_id,
-            key=idempotency_key,
-            path=request.url.path,
-            body=request_body,
-            response_status=201,
-            response_body=result.model_dump(mode="json", by_alias=True),
-        )
-        db.commit()
-    return result
+    return CustodyEventRead.model_validate(event, from_attributes=True)
 
 
 @router.get("/vehicles/{vehicle_id}/custody-events", response_model=CustodyEventPage)

@@ -14,6 +14,7 @@ from app.core.auth import Principal, get_current_principal
 from app.core.base import utcnow
 from app.core.concurrency import check_version, require_if_match
 from app.core.config import get_settings
+from app.core.idempotent_route import IdempotentRoute
 from app.core.pagination import SortPageParams, decode_sort_cursor
 from app.core.permissions import require_write
 from app.core.sorting import SortField, parse_sort
@@ -35,7 +36,7 @@ from app.vehicle.services import vehicle_mdm as vehicle_mdm_service
 from app.vehicle.services.plate import list_plates_for_vehicle
 from app.vehicle.services.search import filter_vehicles, resolve_identifier
 
-router = APIRouter(tags=["vehicle-mdm"])
+router = APIRouter(tags=["vehicle-mdm"], route_class=IdempotentRoute)
 settings = get_settings()
 
 # KAN-161 (U-02/U-03): every column of the vehicle list is sortable, and

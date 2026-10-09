@@ -1,9 +1,10 @@
-import { useState } from 'react'
-import { TextInput } from '@mantine/core'
+import { useEffect, useState } from 'react'
+import { Alert, TextInput } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 import { FormDialog } from '@nexotec/ui-kit'
-import { api } from '../../api/client'
+import { api, ApiError } from '../../api/client'
 import type { VehicleMdmCreateResult, VehicleMdmRead } from '../../api/types'
+import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
 
 interface VehicleCreateDialogProps {
   opened: boolean
@@ -24,17 +25,28 @@ export function VehicleCreateDialog({ opened, onClose, onCreated }: VehicleCreat
   const [vin, setVin] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [existing, setExisting] = useState<VehicleMdmRead | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  // KAN-266: one key per submission — a retry after a failure gets the
+  // first answer back; another VIN, or another opening, gets a new key.
+  const idempotency = useIdempotencyKey()
+  useEffect(() => {
+    if (opened) idempotency.renew()
+  }, [opened, idempotency])
 
   const reset = () => {
     setVin('')
     setExisting(null)
+    setError(null)
   }
 
   const submit = async () => {
     setSubmitting(true)
     setExisting(null)
+    setError(null)
     try {
-      const result = await api.post<VehicleMdmCreateResult>('/vehicle-mdm', { vin })
+      const body = { vin }
+      const result = await api.post<VehicleMdmCreateResult>('/vehicle-mdm', body, idempotency.headers(body))
+      idempotency.renew()
       if (result.created) {
         reset()
         onCreated(result.vehicle)
@@ -42,6 +54,9 @@ export function VehicleCreateDialog({ opened, onClose, onCreated }: VehicleCreat
         // FR-V-15 — not an error: offer to open the existing record.
         setExisting(result.vehicle)
       }
+    } catch (err) {
+      // Shown, so the user can send it again: a retry carries the same key.
+      setError(err instanceof ApiError ? err.message : t('vehicleCreate.error'))
     } finally {
       setSubmitting(false)
     }
@@ -81,6 +96,11 @@ export function VehicleCreateDialog({ opened, onClose, onCreated }: VehicleCreat
         data-autofocus
         styles={{ input: { fontFamily: 'monospace' } }}
       />
+      {error && (
+        <Alert color="red" role="alert">
+          {error}
+        </Alert>
+      )}
     </FormDialog>
   )
 }

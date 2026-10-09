@@ -572,7 +572,8 @@
     "vinLabel": "N° de châssis",
     "submit": "Créer",
     "existingNotice": "Ce n° de châssis existe déjà sous {{vehicleNumber}}.",
-    "openExisting": "Ouvrir l’enregistrement existant"
+    "openExisting": "Ouvrir l’enregistrement existant",
+    "error": "Le véhicule n’a pas pu être créé. Veuillez réessayer."
   },
   "vehicleDetail": {
     "header": {

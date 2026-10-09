@@ -572,7 +572,8 @@
     "vinLabel": "VIN",
     "submit": "Create",
     "existingNotice": "This VIN already exists as {{vehicleNumber}}.",
-    "openExisting": "Open existing record"
+    "openExisting": "Open existing record",
+    "error": "The vehicle could not be created. Please try again."
   },
   "vehicleDetail": {
     "header": {

@@ -12,13 +12,12 @@ and a cross-tenant id is **404, never 403** (rule 7).
 import dataclasses
 import uuid
 
-from fastapi import APIRouter, Depends, Header, Request
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.core.auth import Principal, get_current_principal
 from app.core.concurrency import check_version, require_if_match
-from app.core.idempotency import find_cached_response, store_response
-from app.core.idempotent_route import replay_stored_response
+from app.core.idempotent_route import IdempotentRoute
 from app.core.permissions import require_write
 from app.db import get_db
 from app.vehicle.schemas.configuration import (
@@ -34,11 +33,7 @@ from app.vehicle.schemas.spec_block import VehicleSpecBlockRead
 from app.vehicle.services import configuration as configuration_service
 from app.vehicle.services import configuration_host
 
-router = APIRouter(tags=["configuration"])
-
-
-def _idempotency_key(idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")) -> str | None:
-    return idempotency_key
+router = APIRouter(tags=["configuration"], route_class=IdempotentRoute)
 
 
 def _read(config) -> ConfigurationRead:
@@ -70,36 +65,13 @@ def _read(config) -> ConfigurationRead:
 @router.post("/configurations", response_model=ConfigurationRead, status_code=201)
 def create_configuration(
     body: ConfigurationCreate,
-    request: Request,
-    idempotency_key: str | None = Depends(_idempotency_key),
     principal: Principal = Depends(require_write("configurations")),
     db: Session = Depends(get_db),
 ):
-    request_body = body.model_dump(mode="json", by_alias=True)
-    if idempotency_key:
-        cached = find_cached_response(
-            db, tenant_id=principal.tenant_id, key=idempotency_key, path=request.url.path, body=request_body
-        )
-        if cached is not None:
-            return replay_stored_response(cached)
-
     config = configuration_service.create_configuration(
         db, tenant_id=principal.tenant_id, actor_id=principal.user_id, data=body
     )
-    result = _read(config)
-
-    if idempotency_key:
-        store_response(
-            db,
-            tenant_id=principal.tenant_id,
-            key=idempotency_key,
-            path=request.url.path,
-            body=request_body,
-            response_status=201,
-            response_body=result.model_dump(mode="json", by_alias=True),
-        )
-        db.commit()
-    return result
+    return _read(config)
 
 
 @router.get("/configurations/{configuration_id}", response_model=ConfigurationRead)
