@@ -53,13 +53,43 @@ def reserve(
     already carries an active reservation — a second reserve on an
     already-reserved item is a genuine conflict, not something retried
     away by the caller's own retry/timeout policy.
+
+    A replayed key returns the stored response with no side effect, for as
+    long as the record lives (a context's own records are not purged). No
+    cross-context caller uses it today (Sales confirms through
+    reserve_for_contract); the HTTP endpoint calls reserve_without_key.
     """
+
+    return _reserve(
+        db, tenant_id=tenant_id, stock_item_id=stock_item_id, contract_id=contract_id, idempotency_key=idempotency_key
+    )
+
+
+def reserve_without_key(
+    db: Session, *, tenant_id: uuid.UUID, stock_item_id: uuid.UUID, contract_id: uuid.UUID
+) -> dict:
+    """reserve() for the HTTP endpoint (KAN-266): its IdempotentRoute holds
+    the client's key, and a second record under that key would collide with
+    the route's claim, so nothing is stored here."""
+
+    return _reserve(db, tenant_id=tenant_id, stock_item_id=stock_item_id, contract_id=contract_id, idempotency_key=None)
+
+
+def _reserve(
+    db: Session,
+    *,
+    tenant_id: uuid.UUID,
+    stock_item_id: uuid.UUID,
+    contract_id: uuid.UUID,
+    idempotency_key: str | None,
+) -> dict:
 
     path = f"inventory.reserve:{stock_item_id}"
     body = {"contractId": str(contract_id)}
-    cached = find_cached_response(db, tenant_id=tenant_id, key=idempotency_key, path=path, body=body)
-    if cached is not None:
-        return cached.response_body
+    if idempotency_key is not None:
+        cached = find_cached_response(db, tenant_id=tenant_id, key=idempotency_key, path=path, body=body)
+        if cached is not None:
+            return cached.response_body
 
     item = db.scalar(
         select(StockItem).where(StockItem.id == stock_item_id, StockItem.tenant_id == tenant_id).with_for_update()
@@ -75,10 +105,11 @@ def reserve(
     reservation_id = reserve_and_flush(db, item=item, contract_id=contract_id)
 
     response_body = {"reservationId": str(reservation_id), "stockItemId": str(item.id)}
-    store_response(
-        db, tenant_id=tenant_id, key=idempotency_key, path=path, body=body, response_status=201,
-        response_body=response_body,
-    )
+    if idempotency_key is not None:
+        store_response(
+            db, tenant_id=tenant_id, key=idempotency_key, path=path, body=body, response_status=201,
+            response_body=response_body,
+        )
     db.commit()
     return response_body
 
@@ -102,10 +133,11 @@ def reserve_for_contract(
     write-once — which is why "held by this contract" is what a later
     replay matches on.
 
-    The HTTP endpoint keeps reserve(): a replayed Idempotency-Key there
-    returns the stored response with no side effect, as the API convention
-    promises (a late duplicate must never re-reserve a car its caller has
-    released since). Sales only calls this for a PENDING contract.
+    The HTTP endpoint (reserve_without_key, on an IdempotentRoute since
+    KAN-266) answers a replayed Idempotency-Key with the stored response and
+    no side effect, as the API convention promises, for as long as the HTTP
+    record is kept (at least 24 h). Sales only calls this for a PENDING
+    contract.
     """
 
     path = f"inventory.reserve:{stock_item_id}"
@@ -142,11 +174,27 @@ def reserve_for_contract(
 
 
 def release(db: Session, *, tenant_id: uuid.UUID, reservation_id: uuid.UUID, idempotency_key: str) -> dict:
+    """Sales' cancellation and compensation, and the orphan sweep, each pass
+    a key of their own; a replay returns the stored response with no side
+    effect. The HTTP endpoint calls release_without_key."""
+
+    return _release(db, tenant_id=tenant_id, reservation_id=reservation_id, idempotency_key=idempotency_key)
+
+
+def release_without_key(db: Session, *, tenant_id: uuid.UUID, reservation_id: uuid.UUID) -> dict:
+    """release() for the HTTP endpoint (KAN-266): its IdempotentRoute holds
+    the client's key, so nothing is stored here."""
+
+    return _release(db, tenant_id=tenant_id, reservation_id=reservation_id, idempotency_key=None)
+
+
+def _release(db: Session, *, tenant_id: uuid.UUID, reservation_id: uuid.UUID, idempotency_key: str | None) -> dict:
     path = f"inventory.release:{reservation_id}"
     body: dict = {}
-    cached = find_cached_response(db, tenant_id=tenant_id, key=idempotency_key, path=path, body=body)
-    if cached is not None:
-        return cached.response_body
+    if idempotency_key is not None:
+        cached = find_cached_response(db, tenant_id=tenant_id, key=idempotency_key, path=path, body=body)
+        if cached is not None:
+            return cached.response_body
 
     item = db.scalar(
         select(StockItem)
@@ -159,10 +207,11 @@ def release(db: Session, *, tenant_id: uuid.UUID, reservation_id: uuid.UUID, ide
     release_and_flush(db, item=item)
 
     response_body = {"stockItemId": str(item.id)}
-    store_response(
-        db, tenant_id=tenant_id, key=idempotency_key, path=path, body=body, response_status=200,
-        response_body=response_body,
-    )
+    if idempotency_key is not None:
+        store_response(
+            db, tenant_id=tenant_id, key=idempotency_key, path=path, body=body, response_status=200,
+            response_body=response_body,
+        )
     db.commit()
     return response_body
 

@@ -49,8 +49,13 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   stock car's reservation is still made and released by Sales' synchronous calls (ADR-047
   Pattern B): `reserve_for_contract` and `release`. `reserve_for_contract` is idempotent by (item, contract): the contract's live reservation if it
   holds one, a fresh one if the item is free (a compensation released the first), else 409; each
-  compensating release is keyed per reservation (KAN-114). The HTTP endpoint keeps `reserve()`,
-  whose replayed key returns the stored response with no side effect. Before KAN-158, manual items were created
+  compensating release is keyed per reservation (KAN-114). The HTTP reserve and release
+  endpoints are `IdempotentRoute`s (KAN-266, Anto 2026-10-08): the route holds the client's
+  optional key and calls `reserve_without_key()`/`release_without_key()`, so a replay returns
+  the stored response with no side effect for as long as the HTTP record lives (at least
+  24 h). `reserve_for_contract()` and `release()` still require their caller's key and keep
+  their own records, never purged, for Sales and the orphan sweep; `reserve()` keeps the keyed
+  form but has no caller outside inventory (KAN-114). Before KAN-158, manual items were created
   unreserved and cancellations were not recorded; `scripts/backfill_manual_configuration_reservations.py`
   (KAN-166, dry run unless `--commit`, re-runnable) repairs both. It learns which contracts are
   cancelled from the `sales.contract.cancelled` events in the outbox, never from Sales' tables;

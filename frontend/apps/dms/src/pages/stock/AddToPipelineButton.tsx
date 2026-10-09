@@ -7,6 +7,7 @@ import { api } from '../../api/client'
 import { ConfiguratorOverlay } from '../../components/configurator/ConfiguratorOverlay'
 import { HostCommitError } from '../../components/configurator/hostCommitError'
 import { configurationLabel } from '../../components/configurator/configurationLabel'
+import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
 import type { ConfigurationRead, StockItemCreate, StockItemRead } from '../../api/types'
 
 /**
@@ -20,6 +21,11 @@ export function AddToPipelineButton() {
   const { t } = useTranslation()
   const overlay = useOverlay()
   const navigate = useNavigate()
+  // KAN-266: one key per pipeline item. The configurator retries the host
+  // commit when it failed (a response lost on the way back): the same
+  // request keeps its key and the server replays the item it created, where
+  // a key minted per request added the car twice. Renewed on every opening.
+  const idempotency = useIdempotencyKey()
 
   const addToPipeline = async (configuration: ConfigurationRead) => {
     const body: StockItemCreate = {
@@ -31,15 +37,17 @@ export function AddToPipelineButton() {
     }
     let item: StockItemRead
     try {
-      item = await api.post<StockItemRead>('/inventory/stock-items', body, { 'Idempotency-Key': crypto.randomUUID() })
+      item = await api.post<StockItemRead>('/inventory/stock-items', body, idempotency.headers(body))
     } catch {
       throw new HostCommitError(t('stockList.addToPipelineError'))
     }
+    idempotency.renew()
     overlay.pop()
     navigate(`/stock/${item.id}`)
   }
 
-  const open = () =>
+  const open = () => {
+    idempotency.renew()
     overlay.push({
       key: 'configurator-add-to-pipeline',
       content: (
@@ -50,6 +58,7 @@ export function AddToPipelineButton() {
         />
       ),
     })
+  }
 
   return (
     <Button variant="default" leftSection={<Workflow size={16} />} onClick={open}>

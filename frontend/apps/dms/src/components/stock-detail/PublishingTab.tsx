@@ -7,6 +7,7 @@ import { api } from '../../api/client'
 import { BlockingConditionBanner } from './BlockingConditionBanner'
 import { ChannelPublishCard } from './ChannelPublishCard'
 import type { EquipmentRead, MarketplaceChannel, MediaRead, PublishingRead } from '../../api/types'
+import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
 
 const CHANNELS: MarketplaceChannel[] = ['autoscout24', 'carmarket', 'autolina']
 
@@ -84,6 +85,16 @@ export function PublishingTab({ stockItemId, locale }: PublishingTabProps) {
 
   const invalidatePublishing = (channel: MarketplaceChannel) =>
     queryClient.invalidateQueries({ queryKey: ['stock-item', stockItemId, 'publishing', channel] })
+  // KAN-266: one Idempotency-Key per submission — a retry after a failed
+  // save reuses it; a different request (another channel, action, photo or
+  // order) gets a new one. Every successful write of a kind renews that
+  // kind's key: a channel's publish or unpublish, a photo's add, removal or
+  // reorder. Otherwise a key left by a write whose response was lost would
+  // replay that first answer, writing nothing, when the same request is sent
+  // again later (an unpublish after a publish would leave the listing live).
+  const channelKey = useIdempotencyKey()
+  const mediaKey = useIdempotencyKey()
+
   const invalidateMedia = () => queryClient.invalidateQueries({ queryKey: ['stock-item', stockItemId, 'media'] })
 
   const activePublishing = publishingByChannel[activeChannel]
@@ -99,12 +110,17 @@ export function PublishingTab({ stockItemId, locale }: PublishingTabProps) {
   }
 
   const publishChannel = async (channel: MarketplaceChannel) => {
-    await api.post(`/inventory/stock-items/${stockItemId}/publishing/${channel}/publish`)
+    const path = `/inventory/stock-items/${stockItemId}/publishing/${channel}/publish`
+    await api.post(path, undefined, channelKey.headers([path]))
+    channelKey.renew()
     void invalidatePublishing(channel)
   }
 
   const unpublishChannel = async (channel: MarketplaceChannel) => {
-    await api.post(`/inventory/stock-items/${stockItemId}/publishing/${channel}/unpublish`, { confirm: true })
+    const path = `/inventory/stock-items/${stockItemId}/publishing/${channel}/unpublish`
+    const body = { confirm: true }
+    await api.post(path, body, channelKey.headers([path, body]))
+    channelKey.renew()
     void invalidatePublishing(channel)
   }
 
@@ -113,15 +129,22 @@ export function PublishingTab({ stockItemId, locale }: PublishingTabProps) {
   const addMedia = async () => {
     const url = window.prompt(t('stockDetail.publishing.media.addPrompt'))
     if (!url) return
-    await api.post(`/inventory/stock-items/${stockItemId}/media`, { url })
+    const path = `/inventory/stock-items/${stockItemId}/media`
+    const body = { url }
+    await api.post(path, body, mediaKey.headers([path, body]))
+    mediaKey.renew()
     void invalidateMedia()
   }
   const removeMedia = async (mediaId: string) => {
     await api.delete(`/inventory/stock-items/${stockItemId}/media/${mediaId}`)
+    mediaKey.renew()
     void invalidateMedia()
   }
   const reorderMedia = async (orderedIds: string[]) => {
-    await api.post(`/inventory/stock-items/${stockItemId}/media/reorder`, { orderedMediaIds: orderedIds })
+    const path = `/inventory/stock-items/${stockItemId}/media/reorder`
+    const body = { orderedMediaIds: orderedIds }
+    await api.post(path, body, mediaKey.headers([path, body]))
+    mediaKey.renew()
     void invalidateMedia()
   }
 

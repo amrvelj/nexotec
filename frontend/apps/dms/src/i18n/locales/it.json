@@ -819,7 +819,8 @@
         "source": "Origine"
       },
       "auto": "Automatico",
-      "manual": "Manuale"
+      "manual": "Manuale",
+      "error": "Non è stato possibile registrare i costi. Riprovare."
     },
     "publishing": {
       "blockingBannerTitle": "{{count, number}} punto/i impediscono la pubblicazione",

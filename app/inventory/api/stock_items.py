@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.auth import Principal, get_current_principal
 from app.core.concurrency import check_version, require_if_match
 from app.core.config import get_settings
+from app.core.idempotent_route import IdempotentRoute
 from app.core.pagination import SortPageParams, decode_sort_cursor
 from app.core.permissions import require_write
 from app.core.sorting import SortField, parse_sort
@@ -24,7 +25,7 @@ from app.inventory.schemas.stock_item import (
 from app.inventory.services import purchase as purchase_service
 from app.inventory.services import stock_item as stock_item_service
 
-router = APIRouter(tags=["inventory"])
+router = APIRouter(tags=["inventory"], route_class=IdempotentRoute)
 settings = get_settings()
 
 # U-02/U-03: only indexed columns are offered as sortable — see the

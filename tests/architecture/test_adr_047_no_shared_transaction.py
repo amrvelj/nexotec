@@ -151,12 +151,14 @@ _OWN_COMMIT_WRITES = {
     # Stock reservation for a confirmed contract, and its release on
     # cancellation or as the confirmation's compensation (WP-7 PR-4). The
     # orphan sweep moved into inventory (KAN-122) and calls release itself.
+    # Since KAN-266 release() and the HTTP endpoint's release_without_key()
+    # share `_release`, which holds the commit.
     "app.inventory.public.reserve_for_contract": (
         "app.inventory.services.reservation.reserve_for_contract",
         "sales: confirm_contract",
     ),
     "app.inventory.public.release": (
-        "app.inventory.services.reservation.release",
+        "app.inventory.services.reservation._release",
         "sales: cancel_contract, confirm_contract's compensation",
     ),
     # A vehicle merge re-points VehicleParty rows; customer stays their

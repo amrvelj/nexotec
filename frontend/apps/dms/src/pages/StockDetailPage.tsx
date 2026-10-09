@@ -13,6 +13,7 @@ import { EvaluationTab } from '../components/stock-detail/EvaluationTab'
 import { PublishingTab } from '../components/stock-detail/PublishingTab'
 import { WagenbuchTab } from '../components/stock-detail/WagenbuchTab'
 import type { LedgerCategory, LedgerEntryPage, StockItemRead } from '../api/types'
+import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 
 const DEFAULT_TAB = 'details'
 
@@ -94,6 +95,13 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
 
   const reload = () => void itemQuery.refetch()
 
+  // KAN-266: one Idempotency-Key per submission of each POST — a retry
+  // after a failed save reuses it (the server replays instead of writing
+  // twice); a different request gets a new one, and so does every request
+  // after a successful one.
+  const purchaseKey = useIdempotencyKey()
+  const costKey = useIdempotencyKey()
+
   const recordPurchase = async (data: {
     supplierName: string
     supplierIsVatRegistered: boolean
@@ -103,14 +111,19 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
   }) => {
     const item = itemQuery.data
     if (!item) return
-    const updated = await api.post<StockItemRead>(`/inventory/stock-items/${id}/purchase`, data, {
+    const path = `/inventory/stock-items/${id}/purchase`
+    const updated = await api.post<StockItemRead>(path, data, {
       'If-Match': String(item.version),
+      ...purchaseKey.headers([path, data]),
     })
+    purchaseKey.renew()
     queryClient.setQueryData(['stock-item', id], updated)
   }
 
   const recordCost = async (data: { category: LedgerCategory; amount: number; occurredAt: string; sourceRef: string }) => {
-    await api.post(`/inventory/stock-items/${id}/ledger-entries`, data)
+    const path = `/inventory/stock-items/${id}/ledger-entries`
+    await api.post(path, data, costKey.headers([path, data]))
+    costKey.renew()
     void queryClient.invalidateQueries({ queryKey: ['stock-item', id, 'ledger-entries'] })
   }
 

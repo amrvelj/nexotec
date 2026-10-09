@@ -81,3 +81,49 @@ describe('StockCreatePage — a VIN already in stock (KAN-111)', () => {
     expect(screen.queryByRole('link')).not.toBeInTheDocument()
   })
 })
+
+describe('StockCreatePage — one Idempotency-Key per submission (KAN-266)', () => {
+  // The first create fails; every later one succeeds.
+  function installFailingFirstCreate() {
+    let attempts = 0
+    const backend = installFakeBackend([
+      {
+        method: 'POST',
+        match: /^\/inventory\/stock-items$/,
+        handler: () => {
+          attempts += 1
+          if (attempts === 1) return status(503, { error: { code: 'unavailable', message: 'Try again.', details: null } })
+          return status(201, { id: 'si-1' })
+        },
+      },
+    ])
+    return () => backend.callsTo(/^\/inventory\/stock-items$/, 'POST').map((call) => call.headers.get('Idempotency-Key'))
+  }
+
+  it('a create retried after a failure carries the same key', async () => {
+    const keys = installFailingFirstCreate()
+    const user = await submitWithVin()
+    expect(await screen.findByText(i18n.t('stockCreate.errors.somethingWentWrong'))).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: i18n.t('stockCreate.submit') }))
+
+    expect(await screen.findByText('stock detail page')).toBeInTheDocument()
+    expect(keys()).toHaveLength(2)
+    expect(keys()[0]).toBeTruthy()
+    expect(keys()[1]).toBe(keys()[0])
+  })
+
+  it('a corrected form after a failure is another request and gets a new key', async () => {
+    const keys = installFailingFirstCreate()
+    const user = await submitWithVin()
+    expect(await screen.findByText(i18n.t('stockCreate.errors.somethingWentWrong'))).toBeInTheDocument()
+
+    await user.type(screen.getByLabelText(i18n.t('stockCreate.fields.vehicleLabel'), { exact: false }), ' Variant')
+    await user.click(screen.getByRole('button', { name: i18n.t('stockCreate.submit') }))
+
+    expect(await screen.findByText('stock detail page')).toBeInTheDocument()
+    expect(keys()).toHaveLength(2)
+    expect(keys()[1]).toBeTruthy()
+    expect(keys()[1]).not.toBe(keys()[0])
+  })
+})
