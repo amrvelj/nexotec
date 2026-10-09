@@ -255,8 +255,11 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
     if (!id) return
     setCreatingOffer(true)
     try {
-      // A retry after a failure replays the offer the first POST created
-      // instead of making a second one, then sets its customer.
+      // A retry after a failed POST replays the offer the first POST
+      // created instead of making a second one, then sets its customer. If
+      // the PATCH landed and only its response was lost, the retry's PATCH
+      // is a version conflict until the screen is opened again: no second
+      // offer either way.
       const created = await api.post<SalesOfferRead>('/sales/offers', undefined, offerCreateKey.headers([id]))
       const updated = await api.patch<SalesOfferRead>(
         `/sales/offers/${created.id}`,

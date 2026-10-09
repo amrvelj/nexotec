@@ -576,7 +576,8 @@ export function CustomersListPage() {
   //
   // KAN-266 — each passes its customer as the request: a retry for the same
   // customer keeps its key and replays the first create, another customer
-  // gets a new key.
+  // gets a new key. As on the customer screen, a retry after a PATCH that
+  // landed with its response lost is a version conflict, not a second offer.
   const createOfferForCustomer = async (customerId: string) => {
     const created = await api.post<SalesOfferRead>('/sales/offers', undefined, offerCreateKey.headers([customerId]))
     const updated = await api.patch<SalesOfferRead>(

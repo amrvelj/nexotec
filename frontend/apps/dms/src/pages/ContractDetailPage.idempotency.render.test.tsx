@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Route, Routes } from 'react-router-dom'
 import { cleanup, screen, waitFor } from '@testing-library/react'
@@ -7,7 +8,7 @@ import i18n from '../i18n'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { installFakeBackend, status } from '../test/fakeBackend'
 import type { SalesContractRead } from '../api/types'
-import { ContractDetailPage } from './ContractDetailPage'
+import { ContractDetailContent, ContractDetailPage } from './ContractDetailPage'
 
 // KAN-266 — the contract screen's confirm and cancel carry an
 // Idempotency-Key beside their If-Match. A confirm retried after a failure
@@ -83,6 +84,45 @@ describe('ContractDetailPage — one Idempotency-Key per submission (KAN-266)', 
     expect(first.headers.get('Idempotency-Key')).toBeTruthy()
     expect(retry.headers.get('Idempotency-Key')).toBe(first.headers.get('Idempotency-Key'))
     expect(retry.headers.get('If-Match')).toBe('3')
+  })
+
+  it('the same screen confirming another contract after a failure uses a new key', async () => {
+    // ADR-059: embedded, the screen stays mounted while its contract changes.
+    // A key left by k1's failed confirm must not travel to k2's.
+    const user = userEvent.setup()
+    const backend = installFakeBackend([
+      { method: 'GET', match: /^\/sales\/contracts\/(k1|k2)$/, handler: (req) => ({ ...CONTRACT, id: req.pathname.split('/')[3] }) },
+      { match: /^\/sales\/contracts\/(k1|k2)\/documents$/, handler: () => ({ items: [], nextCursor: null }) },
+      {
+        method: 'POST',
+        match: /^\/sales\/contracts\/k1\/confirm$/,
+        handler: () => status(503, { error: { code: 'unavailable', message: 'Service unavailable', details: null } }),
+      },
+      { method: 'POST', match: /^\/sales\/contracts\/k2\/confirm$/, handler: () => ({ ...CONTRACT, id: 'k2', status: 'confirmed', version: 4 }) },
+    ])
+    function Host() {
+      const [contractId, setContractId] = useState('k1')
+      return (
+        <>
+          <button type="button" onClick={() => setContractId('k2')}>next contract</button>
+          <ContractDetailContent contractId={contractId} embedded />
+        </>
+      )
+    }
+    renderWithProviders(<Host />)
+
+    await user.click(await screen.findByRole('button', { name: i18n.t('contractDetail.actions.confirm') }))
+    await screen.findByText(i18n.t('contractDetail.errors.confirmRefused.generic'))
+    await user.click(screen.getByRole('button', { name: 'next contract' }))
+    await waitFor(() => expect(backend.callsTo(/^\/sales\/contracts\/k2$/, 'GET').length).toBeGreaterThan(0))
+    await user.click(await screen.findByRole('button', { name: i18n.t('contractDetail.actions.confirm') }))
+    await waitFor(() => expect(backend.callsTo(/k2\/confirm$/, 'POST')).toHaveLength(1))
+
+    const [k1] = backend.callsTo(/k1\/confirm$/, 'POST')
+    const [k2] = backend.callsTo(/k2\/confirm$/, 'POST')
+    expect(k1.headers.get('Idempotency-Key')).toBeTruthy()
+    expect(k2.headers.get('Idempotency-Key')).toBeTruthy()
+    expect(k2.headers.get('Idempotency-Key')).not.toBe(k1.headers.get('Idempotency-Key'))
   })
 
   it('a cancel carries a key beside its If-Match', async () => {

@@ -319,24 +319,27 @@ def test_a_retried_offer_cancel_replays_its_success_instead_of_a_version_conflic
 
 
 def test_an_offer_cancel_with_a_reused_key_and_another_reason_is_a_409(client):
+    """Same offer, same path, current If-Match: only the body differs."""
+
     token = _token()
-    first, other = _offer(client, token), _offer(client, token)
-    key, _ = _twice(
+    offer = _offer(client, token)
+    key, cancelled = _twice(
         client,
-        f"/v1/sales/offers/{first['id']}/cancel",
+        f"/v1/sales/offers/{offer['id']}/cancel",
         token,
         {"reason": "Kunde hat abgesagt."},
-        **{"If-Match": _if_match(first)},
+        **{"If-Match": _if_match(offer)},
     )
 
     response = client.post(
-        f"/v1/sales/offers/{other['id']}/cancel",
+        f"/v1/sales/offers/{offer['id']}/cancel",
         json={"reason": "Fahrzeug verkauft."},
-        headers=_headers(token, key, **{"If-Match": _if_match(other)}),
+        headers=_headers(token, key, **{"If-Match": _if_match(cancelled)}),
     )
 
     _assert_key_conflict(response, key)
-    assert client.get(f"/v1/sales/offers/{other['id']}", headers=_headers(token)).json()["status"] == "draft"
+    stored = client.get(f"/v1/sales/offers/{offer['id']}", headers=_headers(token)).json()
+    assert stored["cancelledReason"] == "Kunde hat abgesagt."
 
 
 # --- POST /v1/sales/offers/{id}/documents (no body) -------------------------------
@@ -498,24 +501,27 @@ def test_a_retried_contract_cancel_replays_its_success_instead_of_a_version_conf
 
 
 def test_a_contract_cancel_with_a_reused_key_and_another_reason_is_a_409(client):
+    """Same contract, same path, current If-Match: only the body differs."""
+
     token = _token()
-    first, other = _contract(client, token), _contract(client, token)
-    key, _ = _twice(
+    contract = _contract(client, token)
+    key, cancelled = _twice(
         client,
-        f"/v1/sales/contracts/{first['id']}/cancel",
+        f"/v1/sales/contracts/{contract['id']}/cancel",
         token,
         {"reason": "Kunde storniert."},
-        **{"If-Match": _if_match(first)},
+        **{"If-Match": _if_match(contract)},
     )
 
     response = client.post(
-        f"/v1/sales/contracts/{other['id']}/cancel",
+        f"/v1/sales/contracts/{contract['id']}/cancel",
         json={"reason": "Finanzierung abgelehnt."},
-        headers=_headers(token, key, **{"If-Match": _if_match(other)}),
+        headers=_headers(token, key, **{"If-Match": _if_match(cancelled)}),
     )
 
     _assert_key_conflict(response, key)
-    assert client.get(f"/v1/sales/contracts/{other['id']}", headers=_headers(token)).json()["status"] == "pending"
+    stored = client.get(f"/v1/sales/contracts/{contract['id']}", headers=_headers(token)).json()
+    assert stored["cancelledReason"] == "Kunde storniert."
 
 
 # --- POST /v1/sales/contracts/{id}/documents (no body) -----------------------------
