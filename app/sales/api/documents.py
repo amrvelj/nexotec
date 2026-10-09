@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 
 from app.core.auth import Principal, get_current_principal
+from app.core.idempotent_route import IdempotentRoute
 from app.core.permissions import require_write
 from app.db import get_db
 from app.sales.models.document import DocumentOwnerType
@@ -17,7 +18,7 @@ from app.sales.services import contract as contract_service
 from app.sales.services import document as document_service
 from app.sales.services import offer as offer_service
 
-router = APIRouter(tags=["sales"])
+router = APIRouter(tags=["sales"], route_class=IdempotentRoute)
 
 
 @router.post("/sales/offers/{offer_id}/documents", response_model=DocumentRead, status_code=201)

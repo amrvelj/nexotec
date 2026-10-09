@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react'
+import { StrictMode, type ReactElement } from 'react'
 import { render, type RenderResult } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -12,6 +12,10 @@ export interface RenderOptions {
   /** Initial entry for the MemoryRouter — this IS the "pasted URL". */
   route?: string
   queryClient?: QueryClient
+  /** Mount under a root `<StrictMode>`, as `main.tsx` does, so React runs a
+   * mounting component's effects twice, as in development. A `<StrictMode>`
+   * passed inside `ui` did not double-run them here. */
+  strictMode?: boolean
 }
 
 export interface RenderWithProvidersResult extends RenderResult {
@@ -35,7 +39,7 @@ export function renderWithProviders(ui: ReactElement, options: RenderOptions = {
       },
     })
 
-  const result = render(
+  const tree = (
     <MantineProvider theme={theme} env="test">
       <QueryClientProvider client={queryClient}>
         <MemoryRouter initialEntries={[options.route ?? '/']}>
@@ -46,8 +50,9 @@ export function renderWithProviders(ui: ReactElement, options: RenderOptions = {
           </AuthProvider>
         </MemoryRouter>
       </QueryClientProvider>
-    </MantineProvider>,
+    </MantineProvider>
   )
+  const result = render(options.strictMode ? <StrictMode>{tree}</StrictMode> : tree)
 
   return Object.assign(result, { queryClient })
 }

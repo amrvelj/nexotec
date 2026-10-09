@@ -116,6 +116,10 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
   const phoneKey = useIdempotencyKey()
   const emailKey = useIdempotencyKey()
   const externalIdKey = useIdempotencyKey()
+  // The "new offer" and "new contract" actions pass this customer as the
+  // request, so a retry keeps its key and replays the first create.
+  const offerCreateKey = useIdempotencyKey()
+  const contractCreateKey = useIdempotencyKey()
 
   const setActiveTab = (tab: string) => {
     if (embedded) {
@@ -251,12 +255,15 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
     if (!id) return
     setCreatingOffer(true)
     try {
-      const created = await api.post<SalesOfferRead>('/sales/offers')
+      // A retry after a failure replays the offer the first POST created
+      // instead of making a second one, then sets its customer.
+      const created = await api.post<SalesOfferRead>('/sales/offers', undefined, offerCreateKey.headers([id]))
       const updated = await api.patch<SalesOfferRead>(
         `/sales/offers/${created.id}`,
         { customerId: id },
         { 'If-Match': String(created.version) }
       )
+      offerCreateKey.renew()
       navigate(`/sales/offers/${updated.id}`)
     } finally {
       setCreatingOffer(false)
@@ -270,7 +277,9 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
     if (!id) return
     setCreatingContract(true)
     try {
-      const created = await api.post<SalesContractRead>('/sales/contracts', { customerId: id })
+      const body = { customerId: id }
+      const created = await api.post<SalesContractRead>('/sales/contracts', body, contractCreateKey.headers(body))
+      contractCreateKey.renew()
       navigate(`/sales/contracts/${created.id}`)
     } finally {
       setCreatingContract(false)

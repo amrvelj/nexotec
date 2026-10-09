@@ -3,6 +3,7 @@ import { Alert, Button, Group, Loader, Modal, Stack, Text } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 import { DocumentPreview } from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
+import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { formatCurrencyChf } from '../utils/format'
 import type { SalesDocumentRead, SalesOfferRead } from '../api/types'
 
@@ -37,16 +38,24 @@ export function OfferGenerateReviewModal({ opened, onClose, offer, onFinalized }
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
   const [finalizing, setFinalizing] = useState(false)
   const [finalizeError, setFinalizeError] = useState<string | null>(null)
+  // KAN-266 — a build or confirm retried after a lost response keeps its
+  // key: the server replays the document it built (no second version) or
+  // the finalize it ran (no version conflict). Each success, and every
+  // closing, renews the key.
+  const documentKey = useIdempotencyKey()
+  const finalizeKey = useIdempotencyKey()
 
   useEffect(() => {
     if (!opened) {
+      documentKey.renew()
+      finalizeKey.renew()
       setStep('build')
       setDocument(null)
       setPdfUrl(null)
       setBuildError(null)
       setFinalizeError(null)
     }
-  }, [opened])
+  }, [opened, documentKey, finalizeKey])
 
   useEffect(() => {
     if (!document) return
@@ -73,7 +82,9 @@ export function OfferGenerateReviewModal({ opened, onClose, offer, onFinalized }
     setBuilding(true)
     setBuildError(null)
     try {
-      const created = await api.post<SalesDocumentRead>(`/sales/offers/${offer.id}/documents`)
+      const path = `/sales/offers/${offer.id}/documents`
+      const created = await api.post<SalesDocumentRead>(path, undefined, documentKey.headers([path]))
+      documentKey.renew()
       setDocument(created)
       setStep('review')
     } catch (err) {
@@ -87,9 +98,12 @@ export function OfferGenerateReviewModal({ opened, onClose, offer, onFinalized }
     setFinalizing(true)
     setFinalizeError(null)
     try {
-      const finalized = await api.post<SalesOfferRead>(`/sales/offers/${offer.id}/finalize`, undefined, {
+      const path = `/sales/offers/${offer.id}/finalize`
+      const finalized = await api.post<SalesOfferRead>(path, undefined, {
         'If-Match': String(offer.version),
+        ...finalizeKey.headers([path]),
       })
+      finalizeKey.renew()
       onFinalized(finalized)
     } catch (err) {
       setFinalizeError(err instanceof ApiError ? err.message : t('offerWorkspace.generate.finalizeError'))

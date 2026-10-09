@@ -162,6 +162,7 @@ describe('OfferWorkspace — the trade-in through the valuation path (FR-C-12 ca
     let offer = draftOffer()
     const valuationBodies: Record<string, unknown>[] = []
     const attached: unknown[] = []
+    const attachHeaders: Headers[] = []
     const tradeIn = configurationRead({
       id: 'cfg-ti', mode: 'record', source: 'manual', catalogueVariantId: null,
       brandDisplayName: 'Subaru', modelGroupName: 'Justy', variantName: 'G3X', licencePlate: 'ZH123456', mileageKm: 148000,
@@ -183,6 +184,7 @@ describe('OfferWorkspace — the trade-in through the valuation path (FR-C-12 ca
         match: /^\/sales\/offers\/o1\/trade-in\/valuation$/,
         handler: (req) => {
           attached.push(req.body)
+          attachHeaders.push(req.headers)
           offer = draftOffer({
             ...offer, version: 2, tradeInValuationId: 'val-7', tradeInConfigurationId: 'cfg-ti',
             tradeInLabel: 'Subaru Justy G3X', tradeInValue: '2500.00',
@@ -210,6 +212,9 @@ describe('OfferWorkspace — the trade-in through the valuation path (FR-C-12 ca
     await user.click(within(valuationDialog).getByRole('button', { name: i18n.t('valuationCreate.submit') }))
 
     await waitFor(() => expect(attached).toEqual([{ valuationId: 'val-7' }]))
+    // KAN-266 — the attach carries an Idempotency-Key beside its If-Match.
+    expect(attachHeaders[0].get('Idempotency-Key')).toBeTruthy()
+    expect(attachHeaders[0].get('If-Match')).toBe('1')
     expect(valuationBodies[0]).toMatchObject({ configurationId: 'cfg-ti', vehiclePlate: 'ZH123456' })
     expect(await screen.findByText('Subaru Justy G3X')).toBeInTheDocument()
     await waitFor(() => expect(screen.getAllByTestId('configuration-summary-card').length).toBeGreaterThan(0))

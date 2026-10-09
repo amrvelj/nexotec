@@ -30,6 +30,7 @@ import {
 } from '@nexotec/ui-kit'
 import { useUiPreferencesContext } from '../hooks/UiPreferencesContext'
 import { useGridPreferences } from '../hooks/useGridPreferences'
+import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { useSavedViews } from '../hooks/useSavedViews'
 import { useCountryOptions } from '../hooks/useCountryOptions'
 import { api } from '../api/client'
@@ -198,6 +199,8 @@ export function CustomersListPage() {
   // pasted link (App.tsx → CustomerCreatePage).
   const [createOpen, setCreateOpen] = useState(false)
   const queryClient = useQueryClient()
+  const offerCreateKey = useIdempotencyKey()
+  const contractCreateKey = useIdempotencyKey()
 
   const columns: GridColumnDef<CustomerRead>[] = useMemo(() => {
     // A stored string field: hidden by default, dash for empty on screen,
@@ -570,13 +573,18 @@ export function CustomersListPage() {
   // and merge stay on the detail screen — same posture ValuationsListPage
   // takes). "New offer" is the same POST-then-PATCH sequence
   // CustomerDetailPage runs, started from the row.
+  //
+  // KAN-266 — each passes its customer as the request: a retry for the same
+  // customer keeps its key and replays the first create, another customer
+  // gets a new key.
   const createOfferForCustomer = async (customerId: string) => {
-    const created = await api.post<SalesOfferRead>('/sales/offers')
+    const created = await api.post<SalesOfferRead>('/sales/offers', undefined, offerCreateKey.headers([customerId]))
     const updated = await api.patch<SalesOfferRead>(
       `/sales/offers/${created.id}`,
       { customerId },
       { 'If-Match': String(created.version) },
     )
+    offerCreateKey.renew()
     navigate(`/sales/offers/${updated.id}`)
   }
 
@@ -584,7 +592,9 @@ export function CustomersListPage() {
   // than the offer flow above: ContractCreate accepts customerId directly,
   // so this is one POST, not POST-then-PATCH.
   const createContractForCustomer = async (customerId: string) => {
-    const created = await api.post<SalesContractRead>('/sales/contracts', { customerId })
+    const body = { customerId }
+    const created = await api.post<SalesContractRead>('/sales/contracts', body, contractCreateKey.headers(body))
+    contractCreateKey.renew()
     navigate(`/sales/contracts/${created.id}`)
   }
 

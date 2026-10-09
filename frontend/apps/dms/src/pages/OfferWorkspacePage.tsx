@@ -16,6 +16,7 @@ import { ConfiguratorOverlay } from '../components/configurator/ConfiguratorOver
 import { HostCommitError } from '../components/configurator/hostCommitError'
 import { HostConfigurationCard } from '../components/configurator/HostConfigurationCard'
 import { useDebouncedNumberField } from '../hooks/useDebouncedNumberField'
+import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { CustomerDetailContent } from './CustomerDetailPage'
 import { StockDetailContent } from './StockDetailPage'
 import { formatCurrencyChf } from '../utils/format'
@@ -164,6 +165,11 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
   // the valuation, which the offer references. Path A could never find it.
   const [tradeInConfiguration, setTradeInConfiguration] = useState<ConfigurationRead | null>(null)
   const [tradeInError, setTradeInError] = useState<string | null>(null)
+  // KAN-266 — one key per kind, passed the request: a retry keeps its key
+  // and replays its success; another VIN or valuation gets a new one. Each
+  // success renews its kind's key.
+  const tradeInKey = useIdempotencyKey()
+  const valuationKey = useIdempotencyKey()
   const openTradeInConfigurator = () =>
     overlay.push({
       key: 'configurator-offer-trade-in',
@@ -183,11 +189,13 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
     if (!offer) return
     setTradeInError(null)
     try {
-      const updated = await api.post<SalesOfferRead>(
-        `/sales/offers/${id}/trade-in/valuation`,
-        { valuationId: valuation.id },
-        { 'If-Match': String(offer.version) },
-      )
+      const path = `/sales/offers/${id}/trade-in/valuation`
+      const body = { valuationId: valuation.id }
+      const updated = await api.post<SalesOfferRead>(path, body, {
+        'If-Match': String(offer.version),
+        ...valuationKey.headers([path, body]),
+      })
+      valuationKey.renew()
       queryClient.setQueryData(['sales-offer', id], updated)
       setTradeInConfiguration(null)
     } catch {
@@ -225,9 +233,12 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
   }) => {
     const offer = offerQuery.data
     if (!offer) return
-    const updated = await api.post<SalesOfferRead>(`/sales/offers/${id}/trade-in`, body, {
+    const path = `/sales/offers/${id}/trade-in`
+    const updated = await api.post<SalesOfferRead>(path, body, {
       'If-Match': String(offer.version),
+      ...tradeInKey.headers([path, body]),
     })
+    tradeInKey.renew()
     queryClient.setQueryData(['sales-offer', id], updated)
   }
 

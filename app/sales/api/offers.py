@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.auth import Principal, get_current_principal
 from app.core.concurrency import check_version, require_if_match
 from app.core.config import get_settings
+from app.core.idempotent_route import IdempotentRoute
 from app.core.pagination import SortPageParams, decode_sort_cursor
 from app.core.permissions import require_write
 from app.core.sorting import SortField, parse_sort
@@ -26,7 +27,7 @@ from app.sales.services import line_items as line_items_service
 from app.sales.services import offer as offer_service
 from app.sales.services import trade_in as trade_in_service
 
-router = APIRouter(tags=["sales"])
+router = APIRouter(tags=["sales"], route_class=IdempotentRoute)
 settings = get_settings()
 
 OFFER_SORT_FIELDS: dict[str, object] = {
