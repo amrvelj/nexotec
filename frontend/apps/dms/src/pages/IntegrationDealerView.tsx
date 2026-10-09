@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Button, Group, Modal, Select, Stack, Text, TextInput } from '@mantine/core'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plug } from 'lucide-react'
@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { ConnectionStatusBadge, KeyValueRow, OverviewCard, RowMenu } from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
 import { buildConnectionRowMenu } from '../components/connectionRowMenu'
+import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
 import { formatDate, formatNumber } from '../utils/format'
 import type {
@@ -63,6 +64,11 @@ export function IntegrationDealerView() {
   const [rotatingFor, setRotatingFor] = useState<IntegrationConnectionRead | null>(null)
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['integrations'] })
+  // KAN-266 — one key per kind, passed the request: a retry keeps its key and
+  // replays the first answer (a test is a logged, possibly billed provider
+  // call); every success renews it, so the next click is a new submission.
+  const testKey = useIdempotencyKey()
+  const toggleKey = useIdempotencyKey()
 
   const connectionsByProviderId = useMemo(() => {
     const map = new Map<string, IntegrationConnectionRead>()
@@ -81,12 +87,17 @@ export function IntegrationDealerView() {
   }, [providersQuery.data])
 
   const test = async (connection: IntegrationConnectionRead) => {
-    await api.post(`/integrations/connections/${connection.id}/test`)
+    const path = `/integrations/connections/${connection.id}/test`
+    await api.post(path, undefined, testKey.headers([path]))
+    testKey.renew()
     await invalidate()
   }
 
+  // Enable and disable require If-Match (the backend refuses them without it).
   const toggleEnabled = async (connection: IntegrationConnectionRead) => {
-    await api.post(`/integrations/connections/${connection.id}/${connection.enabled ? 'disable' : 'enable'}`)
+    const path = `/integrations/connections/${connection.id}/${connection.enabled ? 'disable' : 'enable'}`
+    await api.post(path, undefined, { 'If-Match': String(connection.version), ...toggleKey.headers([path]) })
+    toggleKey.renew()
     await invalidate()
   }
 
@@ -188,6 +199,14 @@ function ConnectDialog({
   const [configValues, setConfigValues] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // KAN-266 — the create carries one key per connection attempt. It is kept
+  // until the secrets are written too: when a secret write fails after the
+  // create succeeded, "Verbinden" again replays the created connection
+  // instead of being refused as a duplicate. A new provider gets a new key.
+  const createKey = useIdempotencyKey()
+  useEffect(() => {
+    if (provider) createKey.renew()
+  }, [provider, createKey])
 
   if (!provider) return null
 
@@ -195,16 +214,13 @@ function ConnectDialog({
     setSubmitting(true)
     setError(null)
     try {
-      const created = await api.post<IntegrationConnectionRead>('/integrations/connections', {
-        providerId: provider.id,
-        displayName: provider.displayName,
-        environment,
-        config: configValues,
-      })
+      const body = { providerId: provider.id, displayName: provider.displayName, environment, config: configValues }
+      const created = await api.post<IntegrationConnectionRead>('/integrations/connections', body, createKey.headers(body))
       for (const slot of provider.requiredSecretSlots) {
         const value = secrets[slot]
         if (value) await api.put(`/integrations/connections/${created.id}/secrets/${slot}`, { secretValue: value })
       }
+      createKey.renew()
       onConnected()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t('integrationsList.connectError'))

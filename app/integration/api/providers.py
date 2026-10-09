@@ -11,11 +11,12 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import Principal, get_current_principal, require_access_role
 from app.core.concurrency import check_version, require_if_match
+from app.core.idempotent_route import IdempotentRoute
 from app.db import get_db
 from app.integration.schemas.provider import ProviderCreate, ProviderPage, ProviderRead, ProviderUpdate
 from app.integration.services import providers as provider_service
 
-router = APIRouter(tags=["integrations"])
+router = APIRouter(tags=["integrations"], route_class=IdempotentRoute)
 
 
 @router.get("/integrations/providers", response_model=ProviderPage)

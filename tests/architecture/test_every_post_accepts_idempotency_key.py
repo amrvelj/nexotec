@@ -21,22 +21,15 @@ from app.main import app
 
 # Ratified by Anto on 2026-10-07 (KAN-119). Neither can take the route class:
 # both set the session cookie on `Response`, which a replay would not restore.
-# Both are already safe to repeat.
+# Both are already safe to repeat. The only exemptions: KAN-266 converted every
+# other POST, and its not-yet-converted allowlist is gone. A new exemption is
+# Anto's ruling by name.
 EXEMPT = {
     "/v1/auth/logout": "deletes the session cookie; no tenant to key on, and a second logout changes nothing",
     "/v1/auth/switch-dealership": "its result is the new session cookie; switching to the same dealership again "
     "yields the same session",
 }
 
-# KAN-266 converts one context per PR; this list shrinks to empty by the last.
-# Do not add to it: a new POST goes on an IdempotentRoute router.
-NOT_YET_CONVERTED = {
-    "/v1/integrations/connections",
-    "/v1/integrations/connections/{connection_id}/disable",
-    "/v1/integrations/connections/{connection_id}/enable",
-    "/v1/integrations/connections/{connection_id}/test",
-    "/v1/integrations/providers",
-}
 
 
 def _api_routes(routes) -> Iterator[tuple[str, APIRoute]]:
@@ -69,7 +62,7 @@ def test_every_post_honours_the_idempotency_key():
     published = _published_posts()
     failures = []
     for path, route in sorted(_post_routes().items()):
-        if path in EXEMPT or path in NOT_YET_CONVERTED:
+        if path in EXEMPT:
             continue
         header = next(
             (
@@ -88,11 +81,10 @@ def test_every_post_honours_the_idempotency_key():
     assert not failures, "\n".join(failures)
 
 
-def test_the_allowlists_carry_no_stale_entry():
+def test_the_exemptions_carry_no_stale_entry():
     posts = _post_routes()
-    assert not EXEMPT.keys() & NOT_YET_CONVERTED
-    for path in [*EXEMPT, *NOT_YET_CONVERTED]:
-        assert path in posts, f"{path} is allow-listed but no longer a POST route — remove the entry"
+    for path in EXEMPT:
+        assert path in posts, f"{path} is exempt but no longer a POST route — remove the entry"
         assert not isinstance(posts[path], IdempotentRoute), (
-            f"POST {path} is an IdempotentRoute now — remove it from the allowlist"
+            f"POST {path} is an IdempotentRoute now — remove its exemption"
         )
