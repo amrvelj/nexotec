@@ -6,12 +6,13 @@ import userEvent from '@testing-library/user-event'
 import i18n from '../i18n'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { installFakeBackend } from '../test/fakeBackend'
+import { customer } from '../test/fixtures'
 import { VehicleDetailPage } from './VehicleDetailPage'
 
 // KAN-266 — the vehicle screen's creates (odometer reading, accessory,
 // allocation) carry one Idempotency-Key per submission. A successful write
-// retires its key: a second identical reading or accessory is a new record,
-// never a replay of the first answer that creates nothing.
+// retires its key: a second identical reading, accessory or allocation is a
+// new submission, never a replay of the first answer that writes nothing.
 //
 // Not covered here: a retry after a failure keeping its key. The tab forms
 // do not catch a failed save (it shows nothing and rejects unhandled), so a
@@ -28,6 +29,7 @@ function install() {
   }
   const accessories: Record<string, unknown>[] = []
   const readings: Record<string, unknown>[] = []
+  const anna = customer({ id: 'cust-1', firstName: 'Anna', lastName: 'Muster', customerNumber: 'K-000001' })
   return installFakeBackend([
     { match: new RegExp(`^/vehicle-mdm/${ID}$`), handler: () => vehicle },
     { match: new RegExp(`^/vehicle-mdm/${ID}/plates$`), handler: () => [] },
@@ -42,6 +44,15 @@ function install() {
         accessories.push(row)
         return { __status: 201, body: row }
       },
+    },
+    { method: 'GET', match: /^\/customers$/, handler: () => ({ items: [anna], nextCursor: null }) },
+    {
+      method: 'POST',
+      match: new RegExp(`^/vehicle-mdm/${ID}/allocate$`),
+      handler: (req) => ({
+        __status: 201,
+        body: { id: 'party-1', vehicleId: ID, effectiveFrom: '2026-01-01T00:00:00Z', effectiveTo: null, ...(req.body as object) },
+      }),
     },
     {
       method: 'POST',
@@ -108,6 +119,28 @@ describe('VehicleDetailPage — one Idempotency-Key per create (KAN-266)', () =>
     await waitFor(() => expect(keysOf(backend, 'odometer-readings')).toHaveLength(2))
 
     const [first, second] = keysOf(backend, 'odometer-readings')
+    expect(first).toBeTruthy()
+    expect(second).toBeTruthy()
+    expect(second).not.toBe(first)
+  })
+
+  it('allocating the same customer twice in a row is two submissions, each under its own key', async () => {
+    const user = userEvent.setup()
+    const backend = install()
+    renderTab('identity')
+
+    const allocate = async () => {
+      await user.click(await screen.findByRole('button', { name: i18n.t('vehicleDetail.parties.allocate') }))
+      await user.type(screen.getByPlaceholderText(i18n.t('vehicleDetail.parties.searchCustomer')), 'Muster')
+      await user.click(await screen.findByText('Anna Muster'))
+    }
+    await allocate()
+    await waitFor(() => expect(keysOf(backend, 'allocate')).toHaveLength(1))
+    await allocate()
+    await waitFor(() => expect(keysOf(backend, 'allocate')).toHaveLength(2))
+
+    expect(backend.callsTo(/\/allocate$/, 'POST')[0].body).toEqual({ customerId: 'cust-1', role: 'owner' })
+    const [first, second] = keysOf(backend, 'allocate')
     expect(first).toBeTruthy()
     expect(second).toBeTruthy()
     expect(second).not.toBe(first)
