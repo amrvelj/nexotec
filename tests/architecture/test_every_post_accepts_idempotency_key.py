@@ -31,8 +31,6 @@ EXEMPT = {
 # KAN-266 converts one context per PR; this list shrinks to empty by the last.
 # Do not add to it: a new POST goes on an IdempotentRoute router.
 NOT_YET_CONVERTED = {
-    "/v1/configurations",
-    "/v1/configurations/{configuration_id}/copy",
     "/v1/integrations/connections",
     "/v1/integrations/connections/{connection_id}/disable",
     "/v1/integrations/connections/{connection_id}/enable",
@@ -65,14 +63,6 @@ NOT_YET_CONVERTED = {
     "/v1/transactions/{transaction_id}/complete",
     "/v1/valuations",
     "/v1/valuations/{valuation_id}/mark-used",
-    "/v1/vehicle-mdm",
-    "/v1/vehicle-mdm/brands",
-    "/v1/vehicle-mdm/mapping-gaps/{gap_id}/resolve",
-    "/v1/vehicle-mdm/{vehicle_id}/accessories",
-    "/v1/vehicle-mdm/{vehicle_id}/allocate",
-    "/v1/vehicle-mdm/{vehicle_id}/odometer-readings",
-    "/v1/vehicles",
-    "/v1/vehicles/{vehicle_id}/custody-events",
 }
 
 

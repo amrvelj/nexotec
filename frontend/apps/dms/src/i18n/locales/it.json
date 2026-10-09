@@ -572,7 +572,8 @@
     "vinLabel": "Telaio",
     "submit": "Crea",
     "existingNotice": "Questo numero di telaio esiste già come {{vehicleNumber}}.",
-    "openExisting": "Apri il record esistente"
+    "openExisting": "Apri il record esistente",
+    "error": "Non è stato possibile creare il veicolo. Riprovare."
   },
   "vehicleDetail": {
     "header": {

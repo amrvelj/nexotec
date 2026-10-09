@@ -162,3 +162,52 @@ describe('MappingGapsQueue — resolve dialog (KAN-77)', () => {
     expect(within(dialog).getByRole('textbox', { name: 'Kanonischer Wert' })).toBeDisabled()
   })
 })
+
+describe('MappingGapsQueue — one Idempotency-Key per resolution (KAN-266)', () => {
+  // The first resolve fails; every later one succeeds.
+  function installFailingFirstResolve() {
+    let attempts = 0
+    const backend = installFakeBackend(
+      resolveRoutes(() => {
+        attempts += 1
+        if (attempts === 1) return status(503, { error: { code: 'unavailable', message: 'Try again.', details: null } })
+        return { ...fuelGap().items[0], resolved: true }
+      }),
+    )
+    return () => backend.callsTo(/\/resolve$/, 'POST').map((call) => call.headers.get('Idempotency-Key'))
+  }
+
+  it('a resolve retried after a failure carries the same key', async () => {
+    const user = userEvent.setup()
+    const keys = installFailingFirstResolve()
+    renderWithProviders(<MappingGapsQueue />)
+
+    const dialog = await chooseDiesel(user)
+    await user.click(within(dialog).getByRole('button', { name: 'Zuordnen' }))
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('Try again.')
+    await user.click(within(dialog).getByRole('button', { name: 'Zuordnen' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+
+    expect(keys()).toHaveLength(2)
+    expect(keys()[0]).toBeTruthy()
+    expect(keys()[1]).toBe(keys()[0])
+  })
+
+  it('another value chosen after a failure is another request and gets a new key', async () => {
+    const user = userEvent.setup()
+    const keys = installFailingFirstResolve()
+    renderWithProviders(<MappingGapsQueue />)
+
+    const dialog = await chooseDiesel(user)
+    await user.click(within(dialog).getByRole('button', { name: 'Zuordnen' }))
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('Try again.')
+    await user.click(within(dialog).getByRole('textbox', { name: 'Kanonischer Wert' }))
+    await user.click(await screen.findByRole('option', { name: 'Benzin (petrol)' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Zuordnen' }))
+    await waitFor(() => expect(keys()).toHaveLength(2))
+
+    expect(keys()[0]).toBeTruthy()
+    expect(keys()[1]).toBeTruthy()
+    expect(keys()[1]).not.toBe(keys()[0])
+  })
+})

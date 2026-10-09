@@ -26,6 +26,7 @@ import { IdentificationPanel, type IdentifiedStart } from './IdentificationPanel
 import { ConfigurationResyncPanel } from './ConfigurationResyncPanel'
 import { HostCommitError } from './hostCommitError'
 import { LABEL_FIELD, fetchActiveReferenceValues, resolveLanguage } from '../../hooks/useReferenceValueOptions'
+import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
 import {
   CODED_FIELDS,
   CODED_REF_LIST_CODES,
@@ -273,6 +274,12 @@ export function ConfiguratorOverlay({
   const [resyncOpen, setResyncOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // KAN-266: the first save's POST carries one key per submission, so a
+  // retry after a failure (a response lost on the way back) gets the
+  // configuration it created instead of a second one. A draft changed after
+  // that failure is another request and gets a new key. The overlay mounts
+  // afresh on every opening.
+  const createKey = useIdempotencyKey()
 
   const refLabels = useReferenceLabels()
   const codedValues = useCodedFieldValues()
@@ -453,21 +460,19 @@ export function ConfiguratorOverlay({
       let config: ConfigurationRead
       const isFirstSave = configurationId === null
       if (isFirstSave) {
-        config = await api.post<ConfigurationRead>(
-          '/configurations',
-          {
-            ...body,
-            source: draft.source,
-            matchMethod: draft.matchMethod ?? (draft.source === 'provider' ? 'catalogue_browse' : 'manual'),
-            catalogueVariantId: draft.catalogueVariantId,
-            confirmedBestMatchCode: draft.confirmedBestMatchCode,
-            brandDisplayName: draft.brandDisplayName || null,
-            modelGroupName: draft.modelGroupName || null,
-            variantName: draft.variantName || null,
-            spec: specPayload,
-          },
-          { 'Idempotency-Key': crypto.randomUUID() },
-        )
+        const createBody = {
+          ...body,
+          source: draft.source,
+          matchMethod: draft.matchMethod ?? (draft.source === 'provider' ? 'catalogue_browse' : 'manual'),
+          catalogueVariantId: draft.catalogueVariantId,
+          confirmedBestMatchCode: draft.confirmedBestMatchCode,
+          brandDisplayName: draft.brandDisplayName || null,
+          modelGroupName: draft.modelGroupName || null,
+          variantName: draft.variantName || null,
+          spec: specPayload,
+        }
+        config = await api.post<ConfigurationRead>('/configurations', createBody, createKey.headers(createBody))
+        createKey.renew()
         setConfigurationId(config.id)
       } else {
         config = await api.patch<ConfigurationRead>(
