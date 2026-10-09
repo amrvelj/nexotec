@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Alert, Button, Group, Modal, NumberInput, Select, Stack, Text, TextInput, Textarea, UnstyledButton } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
 import { useQuery } from '@tanstack/react-query'
@@ -6,6 +6,7 @@ import { Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { FormDialog, Picker, type PickerRow } from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
+import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { CustomerCreateDialog } from './CustomerCreateDialog'
 import { ConfigurationSummaryCard } from './configurator/ConfigurationSummaryCard'
 import type { CapabilityCheckRead, ConfigurationRead, CustomerPage, CustomerRead, ValuationCreate, ValuationRead, ValuationSourceValue } from '../api/types'
@@ -41,6 +42,16 @@ const DEDUCTIONS_EMPTY: { label: string; amount: string }[] = []
  */
 export function ValuationCreateDialog({ opened, onClose, onCreated, supersedes, configuration = null }: ValuationCreateDialogProps) {
   const { t } = useTranslation()
+  // KAN-266: one key per submission — a retry after a failure gets the
+  // first answer back; another valuation, or another opening, gets a new key.
+  // A success does not renew it: both hosts close the dialog once they have
+  // used the valuation, and it stays open only when that failed (the offer's
+  // trade-in attach). "Erstellen" again then replays the valuation already
+  // created instead of creating a second one.
+  const idempotency = useIdempotencyKey()
+  useEffect(() => {
+    if (opened) idempotency.renew()
+  }, [opened, idempotency])
 
   const c = configuration
   const [vin, setVin] = useState(c?.vin ?? supersedes?.vehicleVin ?? '')
@@ -115,7 +126,7 @@ export function ValuationCreateDialog({ opened, onClose, onCreated, supersedes, 
         configurationId: configuration?.id ?? null,
         vehicleFirstRegistration: configuration?.firstRegistrationDate ?? null,
       }
-      const created = await api.post<ValuationRead>('/valuations', body)
+      const created = await api.post<ValuationRead>('/valuations', body, idempotency.headers(body))
       onCreated(created)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t('valuationCreate.error'))

@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { DetailHeader, OverviewCard, SpecGrid, ValuationSourceBadge, ValuationStatusBadge, useOverlay, useSetBreadcrumb } from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
 import { buildValuationRowMenu } from '../components/valuationRowMenu'
+import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
 import { formatCurrencyChf, formatDate, formatNumber } from '../utils/format'
 import { CustomerDetailContent } from './CustomerDetailPage'
@@ -39,6 +40,10 @@ export function ValuationDetailContent({ valuationId: id, embedded = false }: Va
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const overlay = useOverlay()
+  // KAN-266 — a stamp retried after a lost response replays its success
+  // instead of a version conflict; another valuation on this screen
+  // (embedded, ADR-059) gets a new key.
+  const markUsedKey = useIdempotencyKey()
 
   const valuationQuery = useQuery({
     queryKey: ['valuation', id],
@@ -51,9 +56,12 @@ export function ValuationDetailContent({ valuationId: id, embedded = false }: Va
   const markUsed = async () => {
     const valuation = valuationQuery.data
     if (!valuation) return
-    const updated = await api.post<ValuationRead>(`/valuations/${id}/mark-used`, undefined, {
+    const path = `/valuations/${id}/mark-used`
+    const updated = await api.post<ValuationRead>(path, undefined, {
       'If-Match': String(valuation.version),
+      ...markUsedKey.headers([path]),
     })
+    markUsedKey.renew()
     queryClient.setQueryData(['valuation', id], updated)
   }
 

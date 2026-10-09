@@ -22,6 +22,7 @@ import { api } from '../api/client'
 import { buildValuationRowMenu } from '../components/valuationRowMenu'
 import { NewValuationButton } from '../components/NewValuationButton'
 import { useGridPreferences } from '../hooks/useGridPreferences'
+import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { useSavedViews } from '../hooks/useSavedViews'
 import { useUiPreferencesContext } from '../hooks/UiPreferencesContext'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
@@ -59,6 +60,7 @@ export function ValuationsListPage() {
   useSetBreadcrumb([t('shell.nav.valuations')])
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const markUsedKey = useIdempotencyKey()
   const { density, setDensity } = useUiPreferencesContext()
   const gridPrefs = useGridPreferences(GRID_KEY, { sort: DEFAULT_SORT })
   const savedViews = useSavedViews(GRID_KEY)
@@ -183,8 +185,12 @@ export function ValuationsListPage() {
 
   const rowHref = (row: ValuationRead) => `/valuations/${row.id}`
 
+  // KAN-266 — passes its valuation as the request: a retry for the same row
+  // keeps its key and replays the first stamp, another row gets a new key.
   const markUsed = async (valuation: ValuationRead) => {
-    await api.post(`/valuations/${valuation.id}/mark-used`, undefined, { 'If-Match': String(valuation.version) })
+    const path = `/valuations/${valuation.id}/mark-used`
+    await api.post(path, undefined, { 'If-Match': String(valuation.version), ...markUsedKey.headers([path]) })
+    markUsedKey.renew()
     await queryClient.invalidateQueries({ queryKey: ['valuations'] })
   }
 
