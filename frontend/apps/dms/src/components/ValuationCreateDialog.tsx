@@ -45,9 +45,9 @@ export function ValuationCreateDialog({ opened, onClose, onCreated, supersedes, 
   // KAN-266: one key per submission — a retry after a failure gets the
   // first answer back; another valuation, or another opening, gets a new key.
   // A success does not renew it: both hosts close the dialog once they have
-  // used the valuation, and it stays open only when that failed (the offer's
-  // trade-in attach). "Erstellen" again then replays the valuation already
-  // created instead of creating a second one.
+  // used the valuation, and it stays open only while the offer's trade-in
+  // attach is still running or after it failed. "Erstellen" again then
+  // replays the valuation already created instead of creating a second one.
   const idempotency = useIdempotencyKey()
   useEffect(() => {
     if (opened) idempotency.renew()

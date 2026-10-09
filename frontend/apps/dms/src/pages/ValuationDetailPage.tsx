@@ -41,8 +41,8 @@ export function ValuationDetailContent({ valuationId: id, embedded = false }: Va
   const queryClient = useQueryClient()
   const overlay = useOverlay()
   // KAN-266 — a stamp retried after a lost response replays its success
-  // instead of a version conflict; another valuation on this screen
-  // (embedded, ADR-059) gets a new key.
+  // instead of a version conflict; another valuation shown by the same
+  // mounted screen (/valuations/:id changing under it) gets a new key.
   const markUsedKey = useIdempotencyKey()
 
   const valuationQuery = useQuery({
