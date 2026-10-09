@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Alert, Loader } from '@mantine/core'
@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { DetailHeader, useSetBreadcrumb } from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
 import { SalesDocumentsSection } from '../components/SalesDocumentsSection'
+import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { OfferWorkspaceContent } from './OfferWorkspacePage'
 import type { SalesOfferRead } from '../api/types'
 
@@ -20,15 +21,22 @@ import type { SalesOfferRead } from '../api/types'
  */
 export function OfferCreateRedirectPage() {
   const navigate = useNavigate()
+  // KAN-266 — the create carries the mount's key, and the mount sends it
+  // once: StrictMode runs this effect twice in development, and a second
+  // POST made a second empty offer (and, under the same key, would be a 409
+  // while the first is in flight, leaving this page on its loader).
+  const idempotency = useIdempotencyKey()
+  const created = useRef<Promise<SalesOfferRead> | null>(null)
   useEffect(() => {
     let cancelled = false
-    void api.post<SalesOfferRead>('/sales/offers').then((offer) => {
+    created.current ??= api.post<SalesOfferRead>('/sales/offers', undefined, idempotency.headers())
+    void created.current.then((offer) => {
       if (!cancelled) navigate(`/sales/offers/${offer.id}`, { replace: true })
     })
     return () => {
       cancelled = true
     }
-  }, [navigate])
+  }, [navigate, idempotency])
   return <Loader />
 }
 
@@ -53,6 +61,10 @@ export function OfferDetailContent({ offerId: id, embedded = false }: OfferDetai
   const { t } = useTranslation()
   const navigate = useNavigate()
   const [copying, setCopying] = useState(false)
+  // KAN-266 — a copy retried after a lost response replays the first copy;
+  // a successful copy renews the key (this screen stays mounted when it
+  // navigates to the copy).
+  const copyKey = useIdempotencyKey()
 
   const offerQuery = useQuery({
     queryKey: ['sales-offer', id],
@@ -68,7 +80,9 @@ export function OfferDetailContent({ offerId: id, embedded = false }: OfferDetai
   const copyOffer = async () => {
     setCopying(true)
     try {
-      const copy = await api.post<SalesOfferRead>(`/sales/offers/${id}/copy`)
+      const path = `/sales/offers/${id}/copy`
+      const copy = await api.post<SalesOfferRead>(path, undefined, copyKey.headers([path]))
+      copyKey.renew()
       navigate(`/sales/offers/${copy.id}`)
     } finally {
       setCopying(false)

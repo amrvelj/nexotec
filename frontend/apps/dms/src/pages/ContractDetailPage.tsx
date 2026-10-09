@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { DetailHeader, SalesStatusBadge, SalesTypeBadge, StatRow, useSetBreadcrumb, type RowMenuGroups } from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
 import { SalesDocumentsSection } from '../components/SalesDocumentsSection'
+import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { ValuationSourceMarker } from '../components/ValuationSourceMarker'
 import { translatedSalesDealStatusLabel } from '../salesOptions'
 import { formatCurrencyChf } from '../utils/format'
@@ -37,6 +38,11 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [confirmError, setConfirmError] = useState<string | null>(null)
+  // KAN-266 — one key per kind: a confirm retried after a lost response
+  // gets its success replayed instead of a version conflict. Each success
+  // renews its kind's key.
+  const confirmKey = useIdempotencyKey()
+  const cancelKey = useIdempotencyKey()
 
   const contractQuery = useQuery({
     queryKey: ['sales-contract', id],
@@ -99,9 +105,12 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
     if (!contract) return
     setConfirmError(null)
     try {
-      const updated = await api.post<SalesContractRead>(`/sales/contracts/${id}/confirm`, undefined, {
+      const path = `/sales/contracts/${id}/confirm`
+      const updated = await api.post<SalesContractRead>(path, undefined, {
         'If-Match': String(contract.version),
+        ...confirmKey.headers([path]),
       })
+      confirmKey.renew()
       queryClient.setQueryData(['sales-contract', id], updated)
     } catch (err) {
       setConfirmError(confirmRefusalMessage(err))
@@ -113,11 +122,13 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
     if (!contract) return
     const reason = window.prompt(t('contractDetail.cancelReasonPrompt'))
     if (!reason) return
-    const updated = await api.post<SalesContractRead>(
-      `/sales/contracts/${id}/cancel`,
-      { reason },
-      { 'If-Match': String(contract.version) }
-    )
+    const path = `/sales/contracts/${id}/cancel`
+    const body = { reason }
+    const updated = await api.post<SalesContractRead>(path, body, {
+      'If-Match': String(contract.version),
+      ...cancelKey.headers([path, body]),
+    })
+    cancelKey.renew()
     queryClient.setQueryData(['sales-contract', id], updated)
   }
 

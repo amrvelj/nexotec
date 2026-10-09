@@ -5,6 +5,7 @@ import { FileText } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { DocumentPreview } from '@nexotec/ui-kit'
 import { api } from '../api/client'
+import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { formatDateTime } from '../utils/format'
 import type { SalesDocumentOwnerType, SalesDocumentPage, SalesDocumentRead } from '../api/types'
 
@@ -31,6 +32,10 @@ export function SalesDocumentsSection({ ownerType, ownerId }: SalesDocumentsSect
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
   const [pdfError, setPdfError] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
+  // KAN-266 — a generate retried after a lost response keeps its key, so the
+  // server replays the version it built instead of building another. Every
+  // generate that succeeds renews it: the next click is a new version.
+  const generateKey = useIdempotencyKey()
 
   const basePath = ownerType === 'offer' ? `/sales/offers/${ownerId}` : `/sales/contracts/${ownerId}`
 
@@ -79,7 +84,9 @@ export function SalesDocumentsSection({ ownerType, ownerId }: SalesDocumentsSect
   const generate = async () => {
     setGenerating(true)
     try {
-      const created = await api.post<SalesDocumentRead>(`${basePath}/documents`)
+      const path = `${basePath}/documents`
+      const created = await api.post<SalesDocumentRead>(path, undefined, generateKey.headers([path]))
+      generateKey.renew()
       await queryClient.invalidateQueries({ queryKey: ['sales-documents', ownerType, ownerId] })
       setSelectedId(created.id)
     } finally {

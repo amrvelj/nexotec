@@ -152,6 +152,8 @@ describe('customer 360 — offers & contracts tab (KAN-45)', () => {
 
     await user.click(within(emptyState).getByRole('button', { name: i18n.t('salesList.newOffer') }))
     await waitFor(() => expect(backend.callsTo(/^\/sales\/offers$/, 'POST')).toHaveLength(1))
+    // KAN-266 — the create carries an Idempotency-Key.
+    expect(backend.callsTo(/^\/sales\/offers$/, 'POST')[0].headers.get('Idempotency-Key')).toBeTruthy()
   })
 
   // KAN-58 — the empty state's own "New contract" entry point, beside "New
@@ -174,6 +176,7 @@ describe('customer 360 — offers & contracts tab (KAN-45)', () => {
     await user.click(newContractButton)
     await waitFor(() => expect(backend.callsTo(/^\/sales\/contracts$/, 'POST')).toHaveLength(1))
     expect(backend.callsTo(/^\/sales\/contracts$/, 'POST')[0].body).toEqual({ customerId: 'c1' })
+    expect(backend.callsTo(/^\/sales\/contracts$/, 'POST')[0].headers.get('Idempotency-Key')).toBeTruthy()
   })
 
   it('does not call the retired /transactions endpoint', async () => {
