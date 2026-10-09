@@ -16,6 +16,7 @@ import {
 } from '@nexotec/ui-kit'
 import { api } from '../api/client'
 import { buildConnectionRowMenu } from '../components/connectionRowMenu'
+import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { useSavedViews } from '../hooks/useSavedViews'
 import { useUiPreferencesContext } from '../hooks/UiPreferencesContext'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
@@ -94,12 +95,20 @@ export function IntegrationPlatformView() {
   )
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['integrations'] })
+  // KAN-266 — as on the dealer view: one key per kind, passed the request,
+  // renewed on success. Enable and disable require If-Match.
+  const testKey = useIdempotencyKey()
+  const toggleKey = useIdempotencyKey()
   const test = async (connection: IntegrationConnectionRead) => {
-    await api.post(`/integrations/connections/${connection.id}/test`)
+    const path = `/integrations/connections/${connection.id}/test`
+    await api.post(path, undefined, testKey.headers([path]))
+    testKey.renew()
     await invalidate()
   }
   const toggleEnabled = async (connection: IntegrationConnectionRead) => {
-    await api.post(`/integrations/connections/${connection.id}/${connection.enabled ? 'disable' : 'enable'}`)
+    const path = `/integrations/connections/${connection.id}/${connection.enabled ? 'disable' : 'enable'}`
+    await api.post(path, undefined, { 'If-Match': String(connection.version), ...toggleKey.headers([path]) })
+    toggleKey.renew()
     await invalidate()
   }
 

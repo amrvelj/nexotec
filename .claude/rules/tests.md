@@ -36,7 +36,7 @@ what it states. -->
   no shared cross-context transaction: every cross-context call classified, every cross-context
   write committing its own transaction except the one named exception KAN-185 replaces
   (ADR-047, KAN-90), and every POST an `IdempotentRoute` declaring an optional
-  `Idempotency-Key` (KAN-119; its not-yet-converted allowlist only shrinks).
+  `Idempotency-Key`, the two ratified exemptions aside (a new one is Anto's ruling by name).
 - **A test that gates an exit criterion must never skip silently.** The one accepted skip is a
   Postgres-only test on the SQLite fast lane (`skipif(not os.environ.get("DMS_TEST_DATABASE_URL"))`,
   as in `test_customer_outbox_idempotency.py`), because CI's gating lane always runs Postgres.
