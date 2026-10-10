@@ -92,8 +92,8 @@ against the code). "Open" lines cite a ticket; /drift-audit re-checks them weekl
   of its own dealership is not used, and «Als verwendet markieren» repairs it, expired or not
   (KAN-115). One naming another dealership's valuation is reported by nothing yet (KAN-259).
 - **ADR-065** — a credit block stops contract confirmation, not the offer. An address-less
-  customer is likewise gated at confirmation (D-20); do-not-contact refuses the offer, the
-  contract's creation and its confirmation.
+  customer is likewise gated at confirmation (D-20). Do-not-contact refuses the offer, a
+  contract created straight from the customer, and every confirmation.
 
 ## Documents
 

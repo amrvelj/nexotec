@@ -27,8 +27,9 @@ re-checks them weekly. -->
 ## Identity
 
 - **VIN is mandatory in vehicle-mdm.** A pre-VIN vehicle is a pipeline stock item in
-  `inventory` (ADR-045), promoted on VIN arrival by
-  `inventory/services/pipeline.py::promote_to_vehicle_mdm`, idempotent per stock item (FR-V-04).
+  `inventory` (ADR-045), to be promoted on VIN arrival by
+  `inventory/services/pipeline.py::promote_to_vehicle_mdm`, idempotent per stock item (FR-V-04)
+  — no production caller yet.
 - **A licence plate is never an identifier** — Wechselschild (one plate, two vehicles),
   reassignment, cantonal changes. `vehicle_plate` is a child table with validity dates and a
   `plate_group_id`; an ambiguous lookup shows a picker and never guesses. Plate lookup must
