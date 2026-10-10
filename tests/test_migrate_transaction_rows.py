@@ -560,6 +560,26 @@ def test_a_migrated_legacy_sale_cannot_be_handed_to_invoicing_again(db_session):
     ).all() == []
 
 
+def test_a_migrated_legacy_sale_without_a_trade_in_is_refused_as_legacy_not_as_unpurchased(db_session):
+    """KAN-147: the provenance check runs before the purchase gate, so the
+    reason names what is true — the old system invoiced it — rather than a
+    purchase the migration never had to book."""
+
+    _dealership(db_session)
+    legacy = _legacy_vehicle(db_session)
+    _migrated_vehicle_mdm(db_session, legacy)
+    sale_txn = _sale_transaction(db_session, customer_id=_customer(db_session).id, vehicle_id=legacy.id)
+    db_session.commit()
+    run_migration(db_session, commit=True)
+    contract = db_session.query(SalesContract).filter_by(legacy_transaction_id=sale_txn.id).one()
+    assert contract.is_invoiceable is False
+
+    with pytest.raises(ConflictError) as excinfo:
+        request_invoice(db_session, contract=contract, actor_id=uuid.uuid4())
+
+    assert excinfo.value.details == {"reason": "legacy_sale"}
+
+
 def test_processing_order_is_driven_by_transaction_date_not_insertion_order(db_session):
     """The interaction above relies on rows being processed by
     transaction_date, not by the order they were inserted/returned by an
