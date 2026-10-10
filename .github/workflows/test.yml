@@ -55,6 +55,12 @@ jobs:
       # scripts/ too (KAN-142): seed_staging_demo.py runs on every deploy, and a
       # service signature change once broke it with nothing to notice.
       - run: mypy app scripts
+      # KAN-236: render.yaml validated against the vendored copy of Render's Blueprint
+      # schema — the same script scripts/dev/check's `deploy` lane runs. It lives in
+      # this required job rather than a job of its own so a red result blocks the
+      # merge; a new job name would not be a required status check until someone
+      # adds it to main's branch protection.
+      - run: python scripts/check_render_yaml.py
 
   frontend:
     name: frontend (oxlint, tsc, vitest, build)

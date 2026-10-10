@@ -52,6 +52,15 @@ dev = [
     "import-linter>=2.5,<3.0",
     "ruff>=0.16,<0.17",
     "mypy>=1.19,<2.0",
+    # KAN-236: scripts/check_render_yaml.py validates render.yaml against Render's
+    # Blueprint schema (the `deploy` lane of scripts/dev/check and a step in CI's
+    # mypy job). PyYAML is declared because that script is the only `import yaml`
+    # in the repo (until now it arrived only through uvicorn[standard]); the stub
+    # packages keep `mypy app scripts` honest about both libraries.
+    "jsonschema>=4.23,<5.0",
+    "PyYAML>=6.0,<7.0",
+    "types-jsonschema>=4.23,<5.0",
+    "types-PyYAML>=6.0,<7.0",
 ]
 # One-off tooling for regenerating checked-in seed data — NOT a runtime or
 # test dependency. `scripts/gen_country_reference_seed.py` (KAN-32) pulls
