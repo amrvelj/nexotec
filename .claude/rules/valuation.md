@@ -15,15 +15,15 @@ paths:
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises PRD-Vehicles (FR-V-09,
 FR-V-17), ADR-029, ADR-048 as amended, ADR-066, ADR-070, ADR-074. Verified against
-main@7805816 on 2026-10-10 (every present-tense claim checked against the code). Fix this file in the same PR
-as any change to what it states. -->
+main@7805816 on 2026-10-10 (every present-tense claim checked against the code). Fix this
+file in the same PR as any change to what it states. -->
 
 # Valuations
 
 - **`valuation` is its own bounded context** — "a dated commercial opinion, not a vehicle
-  fact"; the PRD gives it its own audit and retention rules, not implemented yet. Not under `vehicle` (vehicle identity is
-  global, valuations are tenant-private) and not under `sales` (Sales owns the trade-in
-  workflow, not the valuation record).
+  fact"; the PRD gives it its own audit and retention rules, not implemented yet. Not under
+  `vehicle` (vehicle identity is global, valuations are tenant-private) and not under `sales`
+  (Sales owns the trade-in workflow, not the valuation record).
 - **Single writer.** Sales and Stock hold a `valuationRef` and read the same record; there is
   never a second writer.
 - **Tenant-private even within a group** (ADR-029): a sister dealership never sees another's
