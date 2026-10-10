@@ -92,6 +92,15 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.13.0
+      - key: DMS_ENVIRONMENT
+        # Names this deployment to its own telemetry: app/core/observability.py
+        # stamps every trace and metric with deployment.environment and hands
+        # the same value to Sentry, once DMS_OTEL_EXPORTER_OTLP_ENDPOINT or
+        # DMS_SENTRY_DSN is configured (neither is set here yet). Without this
+        # value staging would then have reported itself as "development", the
+        # default of settings.environment, a plain string in app/core/config.py
+        # (KAN-258). A plain value, not a secret.
+        value: staging
       - key: DMS_DATABASE_URL
         fromDatabase:
           name: dms-staging-db
@@ -159,9 +168,9 @@ services:
   #     needs none and is lost with the process.
   #
   # The original service definition and its design notes follow, unchanged
-  # apart from being commented out. Where they say "Starter tier, not
-  # free", read: a worker has no free plan at all; their point stands — a
-  # worker that spins down defeats its purpose.
+  # apart from being commented out and KAN-258's DMS_ENVIRONMENT line. Where
+  # they say "Starter tier, not free", read: a worker has no free plan at
+  # all; their point stands — a worker that spins down defeats its purpose.
   # ---------------------------------------------------------------------
   # Outbox worker (PR-4, Decision 3): same codebase, same database,
   # different entrypoint — not a second deployable in the ADR-015 sense.
@@ -189,6 +198,9 @@ services:
   #   envVars:
   #     - key: PYTHON_VERSION
   #       value: 3.13.0
+  #     - key: DMS_ENVIRONMENT
+  #       # Same value as the web service: one deployment, one name (KAN-258).
+  #       value: staging
   #     - key: DMS_DATABASE_URL
   #       fromDatabase:
   #         name: dms-staging-db
