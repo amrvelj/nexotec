@@ -8,17 +8,21 @@ paths:
   - "scripts/migrate_*.py"
   - "scripts/repoint_*.py"
   - "scripts/*migration_smoke_test*.py"
+  - "app/db.py"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises ADR-015 (PR-3 chains),
 ADR-011, ADR-021, rule 2 and the verification lessons from the WP audits. Verified against
-main@568f416 on 2026-09-28 (every present-tense claim checked against the code). Fix this file
+main@7805816 on 2026-10-10 (every present-tense claim checked against the code). Fix this file
 in the same PR as any change to what it states. -->
 
 # Schema, migrations and data migrations
 
 - **`alembic upgrade heads` — plural.** There is one chain per context under
   `alembic/versions/<context>/`, each rooted in a branch-root revision labelled with the context
-  (ADR-015, PR-3); the tables in `app/core/*_model.py` live in the `core` chain. A new migration
+  and branched from the frozen shared trunk (`b36486886126`: the 19 pre-split revisions in
+  `alembic/versions/` itself, which never move) (ADR-015, PR-3). New changes to
+  `app/core/*_model.py` tables go in the `core` chain, though `audit_event`,
+  `idempotency_record` and the reconciliation tables were created in the trunk. A new migration
   descends from its own context's branch — `alembic revision -m "…" --head customer@head` (with
   `--autogenerate` when models changed) — which places the file in that context's folder. It
   never touches another context's tables.

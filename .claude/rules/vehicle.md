@@ -10,11 +10,16 @@ paths:
   - "frontend/apps/dms/src/**/*onfigurat*"
   - "frontend/apps/dms/src/**/*onfigurat*/**"
   - "frontend/apps/dms/src/components/MappingGapsQueue.tsx"
+  - "frontend/apps/dms/src/**/*ntegration*"
+  - "frontend/apps/dms/src/components/connectionRowMenu.tsx"
+  - "alembic/versions/vehicle/**"
+  - "alembic/versions/integration/**"
+  - "app/sales/services/snapshot.py"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises PRD-Vehicles, PRD-Configurator
-v1.4 (ADR-068…ADR-072, host/mode matrix), Integrations & API Credentials, ADR-013, ADR-041,
-ADR-044, ADR-045, KAN-36/38/43. Verified against main@568f416 on 2026-09-28 (every
-present-tense claim checked against the code). "Not built" lines cite a ticket; /drift-audit
+v1.4 (ADR-068…ADR-072, host/mode matrix), Integrations & API Credentials, ADR-013 as amended
+by ADR-075, ADR-041, ADR-044, ADR-045, KAN-36/38/43. Verified against main@7805816 on
+2026-10-10 (every present-tense claim checked against the code). "Not built" lines cite a ticket; /drift-audit
 re-checks them weekly. -->
 
 # Vehicles, catalogue, configurator and the provider gateway
@@ -22,8 +27,8 @@ re-checks them weekly. -->
 ## Identity
 
 - **VIN is mandatory in vehicle-mdm.** A pre-VIN vehicle is a pipeline stock item in
-  `inventory` (ADR-045), promoted on VIN arrival, idempotently by `pipeline_vehicle_id`
-  (FR-V-04).
+  `inventory` (ADR-045), promoted on VIN arrival by
+  `inventory/services/pipeline.py::promote_to_vehicle_mdm`, idempotent per stock item (FR-V-04).
 - **A licence plate is never an identifier** — Wechselschild (one plate, two vehicles),
   reassignment, cantonal changes. `vehicle_plate` is a child table with validity dates and a
   `plate_group_id`; an ambiguous lookup shows a picker and never guesses. Plate lookup must
@@ -32,18 +37,21 @@ re-checks them weekly. -->
 
 ## Licensed data and the gateway
 
-- **Licensed provider data is tenant-partitioned, never global** (ADR-013): auto-i-dat
-  contracts are per dealer, so each dealer's cache is fetched with that dealer's credentials
-  and never travels through the cross-tenant shared identity response (FR-V-14; architecture
-  test on its shape).
-- **Except variant master data** (ADR-075, amending ADR-013): `Brand`, `ModelGroup`,
-  `ModelVariant` with its spec block and list price, `VariantPrice`, `TypeApproval` — and the
-  raw codes a variant was read from (`VariantProviderCode`, KAN-83) — are stored once, globally,
-  readable by every dealer. Options, colours, tyres, images and sync state stay per tenant.
+- **Licensed provider data is tenant-partitioned** (ADR-013, amended by ADR-075): options,
+  option features and relations, colours, tyres, images and sync state are fetched with each
+  dealer's own credentials and quota (`TenantScopedMixin`) and never travel through the
+  cross-tenant shared identity response (FR-V-14; architecture test on its shape).
+- **ADR-075 — auto-i-dat variant master data is global**, by auto-i-dat's written permission:
+  `Brand`, `ModelGroup`, `ModelVariant` (spec block and list price included), `VariantPrice`
+  and `TypeApproval` — and the raw codes a variant was read from (`VariantProviderCode`,
+  KAN-83) — carry no `tenant_id` and are readable by every dealer, with or without an
+  auto-i-dat contract, including through a VIN or Stammnummer lookup. Widening the share to
+  options, colours, tyres or images, or adding another provider's master data, is a new
+  decision — never a side effect.
 - A sync visit fills a variant's NULL fields and never overwrites a set one; resolving a
   mapping gap fills the variants it left NULL at once (KAN-83).
 - Every auto-i-dat call goes through the gateway (architecture test). Provider codes never
-  appear in application code: canonical taxonomy + `provider_code_map`.
+  appear in application code: canonical taxonomy + `ProviderCodeMap` (`vehicle_provider_code_map`).
 - **One registry, many gateways.** `integration` owns connections, write-only secret refs
   (`integration_secret_ref`, one row per secret slot; values live in the secrets manager,
   never in the app database), entitlements, call log and retention. The auto-i-dat adapters
@@ -107,8 +115,8 @@ re-checks them weekly. -->
   `engine_cycle`. **The sync does not read that row yet:** `catalogue_sync.py` resolves
   `Antrieb` under `drivetrain` for every vehicle kind and never writes `engine_cycle`. Routing
   by vehicle kind waits for a staging account — whether the provider selects the code group by
-  `FzArt` or `FzArtExtern` is unknown (`scripts/verify_auto_i_dat.py` prints it); never route
-  it on a guess.
+  `FzArt` or `FzArtExtern` is unknown (`scripts/verify_auto_i_dat.py` prints it as a manual
+  go-live check); never route it on a guess.
 - **`ProviderCodeMap` is keyed `(provider, vehicle_kind, code_group, provider_code)`** —
   `vehicle_kind` is the raw FzArt, `code_group` the semantic list code, `provider_code` the raw
   code; never a numeric CodeGrpNr. Unmapped codes become a `mapping_gap` (FR-C-10), never a
