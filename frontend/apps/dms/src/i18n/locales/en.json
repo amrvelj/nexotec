@@ -973,6 +973,11 @@
         "badStatus": "This contract can no longer be confirmed from its current status.",
         "generic": "The contract could not be confirmed.",
         "tradeInValuationExpired": "The trade-in valuation on this contract has expired, so the contract cannot be confirmed. Cancel it and create a new contract from an offer with a current valuation."
+      },
+      "editRefused": {
+        "staleVersion": "The contract was changed in the meantime. The current version is loaded – please make your change again.",
+        "notPending": "The contract is no longer open and can no longer be changed.",
+        "generic": "The change could not be saved."
       }
     },
     "actions": {
@@ -989,7 +994,11 @@
       "margin": "Margin"
     },
     "financing": "Financing",
-    "cancelReasonPrompt": "Reason for cancellation:"
+    "cancelReasonPrompt": "Reason for cancellation:",
+    "edit": {
+      "title": "Complete the contract",
+      "hint": "Until the contract is confirmed, its vehicle, price build-up and trade-in can be added or adjusted here. Confirming freezes it."
+    }
   },
   "offerWorkspace": {
     "title": "Create offer",
@@ -1052,7 +1061,8 @@
       "labelLabel": "Vehicle description",
       "add": "Add trade-in vehicle",
       "valueWithConfigurator": "Identify and value",
-      "attachError": "The valuation could not be attached."
+      "attachError": "The valuation could not be attached.",
+      "saveError": "The trade-in could not be saved."
     },
     "leasing": {
       "hint": "No leasing calculator in v1 (S-D03). Free-text inputs, so a later calculator can be dropped in without a schema change.",
@@ -1092,7 +1102,12 @@
     "empty": "No document generated yet.",
     "previewError": "Preview could not be loaded.",
     "download": "Download",
-    "version": "Version {{version}}"
+    "version": "Version {{version}}",
+    "errors": {
+      "missingVehicle": "A contract document cannot be generated without a vehicle. Add a vehicle first.",
+      "missingPrice": "A contract document cannot be generated without a price. Complete the price build-up first.",
+      "generic": "The document could not be generated."
+    }
   },
   "valuationsList": {
     "title": "Valuations",

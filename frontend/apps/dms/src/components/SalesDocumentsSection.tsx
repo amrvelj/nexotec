@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Button, Group, Loader, Stack, Text, UnstyledButton } from '@mantine/core'
+import { Alert, Button, Group, Loader, Stack, Text, UnstyledButton } from '@mantine/core'
 import { FileText } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { DocumentPreview } from '@nexotec/ui-kit'
-import { api } from '../api/client'
+import { api, ApiError } from '../api/client'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { formatDateTime } from '../utils/format'
 import type { SalesDocumentOwnerType, SalesDocumentPage, SalesDocumentRead } from '../api/types'
@@ -32,6 +32,7 @@ export function SalesDocumentsSection({ ownerType, ownerId }: SalesDocumentsSect
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
   const [pdfError, setPdfError] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
+  const [generateError, setGenerateError] = useState<string | null>(null)
   // KAN-266 — a generate retried after a lost response keeps its key, so the
   // server replays the version it built instead of building another. Every
   // generate that succeeds renews it: the next click is a new version.
@@ -81,14 +82,27 @@ export function SalesDocumentsSection({ ownerType, ownerId }: SalesDocumentsSect
     }
   }, [selectedId, t])
 
+  // KAN-67 — a contract with no vehicle or no price is refused by reason
+  // (409), never printed empty; the refusal is said here in the user's
+  // language, never the backend's English message.
+  const generateRefusalMessage = (err: unknown): string => {
+    const reason = err instanceof ApiError && err.status === 409 ? (err.details as { reason?: unknown } | null)?.reason : null
+    if (reason === 'missing_vehicle') return t('salesDocuments.errors.missingVehicle')
+    if (reason === 'missing_price') return t('salesDocuments.errors.missingPrice')
+    return t('salesDocuments.errors.generic')
+  }
+
   const generate = async () => {
     setGenerating(true)
+    setGenerateError(null)
     try {
       const path = `${basePath}/documents`
       const created = await api.post<SalesDocumentRead>(path, undefined, generateKey.headers([path]))
       generateKey.renew()
       await queryClient.invalidateQueries({ queryKey: ['sales-documents', ownerType, ownerId] })
       setSelectedId(created.id)
+    } catch (err) {
+      setGenerateError(generateRefusalMessage(err))
     } finally {
       setGenerating(false)
     }
@@ -104,6 +118,12 @@ export function SalesDocumentsSection({ ownerType, ownerId }: SalesDocumentsSect
           {t('salesDocuments.generate')}
         </Button>
       </Group>
+
+      {generateError && (
+        <Alert color="red" py="xs" withCloseButton onClose={() => setGenerateError(null)}>
+          {generateError}
+        </Alert>
+      )}
 
       {documentsQuery.isLoading && <Loader size="sm" />}
 

@@ -973,6 +973,11 @@
         "badStatus": "Questo contratto non può più essere confermato dal suo stato attuale.",
         "generic": "Impossibile confermare il contratto.",
         "tradeInValuationExpired": "La valutazione della permuta di questo contratto è scaduta, quindi il contratto non può essere confermato. Annullalo e crea un nuovo contratto da un'offerta con una valutazione aggiornata."
+      },
+      "editRefused": {
+        "staleVersion": "Il contratto è stato modificato nel frattempo. È stata caricata la versione attuale – ripetere la modifica.",
+        "notPending": "Il contratto non è più aperto e non può più essere modificato.",
+        "generic": "Non è stato possibile salvare la modifica."
       }
     },
     "actions": {
@@ -989,7 +994,11 @@
       "margin": "Margine"
     },
     "financing": "Finanziamento",
-    "cancelReasonPrompt": "Motivo dell'annullamento:"
+    "cancelReasonPrompt": "Motivo dell'annullamento:",
+    "edit": {
+      "title": "Completare il contratto",
+      "hint": "Finché il contratto non è confermato, il veicolo, la composizione del prezzo e la permuta possono essere completati o modificati qui. La conferma lo congela."
+    }
   },
   "offerWorkspace": {
     "title": "Crea offerta",
@@ -1052,7 +1061,8 @@
       "labelLabel": "Descrizione del veicolo",
       "add": "Aggiungi veicolo permuta",
       "valueWithConfigurator": "Identificare e valutare",
-      "attachError": "Non è stato possibile riprendere la valutazione."
+      "attachError": "Non è stato possibile riprendere la valutazione.",
+      "saveError": "Non è stato possibile salvare il veicolo in permuta."
     },
     "leasing": {
       "hint": "Nessun calcolatore di leasing nella v1 (S-D03). Campi liberi, così un futuro calcolatore potrà essere inserito senza modifiche allo schema.",
@@ -1092,7 +1102,12 @@
     "empty": "Nessun documento ancora generato.",
     "previewError": "Impossibile caricare l’anteprima.",
     "download": "Scarica",
-    "version": "Versione {{version}}"
+    "version": "Versione {{version}}",
+    "errors": {
+      "missingVehicle": "Senza veicolo non è possibile generare un documento di contratto. Registrare prima un veicolo.",
+      "missingPrice": "Senza prezzo non è possibile generare un documento di contratto. Completare prima la composizione del prezzo.",
+      "generic": "Non è stato possibile generare il documento."
+    }
   },
   "valuationsList": {
     "title": "Valutazioni",
