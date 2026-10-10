@@ -34,6 +34,14 @@ ticket; /drift-audit re-checks them weekly. -->
   reassignment, cantonal changes. `vehicle_plate` is a child table with validity dates and a
   `plate_group_id`; an ambiguous lookup shows a picker and never guesses. Plate lookup must
   not be enumerable (architecture test).
+- **Plate-history reads (Plates tab, resolved search hit) are audited and limited per user** (KAN-231):
+  only through `services/plate_read_guard.py::read_plate_history`, never
+  `plate.list_plates_for_vehicle` directly (architecture test). Past `plate_read_limit`
+  distinct vehicles per `plate_read_window_seconds` (platform settings, 60 per hour) the Plates
+  tab gets 403 `plate_read_limit_reached` and a search hit `currentPlateWithheld`. **Not yet
+  covered:** `GET /v1/vehicle-mdm/lookup` (ADR-043, `services/lookup.py::_current_plate`) still
+  returns a vehicle's current plate unaudited and unlimited — KAN-231 left it out of scope; the
+  export through it stays open until KAN-279 lands.
 - Vehicle identity is global; everything licensed about it is not (next section).
 
 ## Licensed data and the gateway
