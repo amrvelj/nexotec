@@ -32,9 +32,13 @@ type LinkCandidate = Pick<VehicleMdmRead, 'id' | 'vehicleNumber' | 'vin'> & { pl
  * `resolved` (or, for a shared plate, `pickerCandidates`) with an empty
  * `filtered` page, so the candidates are read in that order. A shared
  * plate lists every car it names; nothing is preselected. */
-function linkCandidates(result: VehicleSearchResult | undefined): LinkCandidate[] {
+function linkCandidates(result: VehicleSearchResult | undefined, withheldLabel: string): LinkCandidate[] {
   if (!result) return []
-  if (result.resolved) return [{ ...result.resolved, plate: result.resolved.currentPlate }]
+  // KAN-231: past the plate-read limit the hit resolves with its plate withheld.
+  if (result.resolved) {
+    const { currentPlate, currentPlateWithheld } = result.resolved
+    return [{ ...result.resolved, plate: currentPlateWithheld ? withheldLabel : currentPlate }]
+  }
   if (result.pickerCandidates.length > 0) return result.pickerCandidates
   return result.filtered.items
 }
@@ -58,7 +62,7 @@ export function LinkVehicleModal({ opened, onClose, onLinked, customerId }: Link
     queryFn: () => api.get<VehicleSearchResult>(`/vehicle-mdm/search?q=${encodeURIComponent(debouncedQuery)}`),
     enabled: opened && debouncedQuery.length > 0,
   })
-  const candidates = linkCandidates(searchQuery.data)
+  const candidates = linkCandidates(searchQuery.data, t('vehicleDetail.plates.withheld'))
 
   const reset = () => {
     setQuery('')

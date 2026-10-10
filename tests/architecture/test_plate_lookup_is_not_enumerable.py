@@ -102,9 +102,14 @@ def test_no_route_lists_the_plate_lookup_cache():
 # KAN-231: `list_plates_for_vehicle` is targeted (one vehicle id), but the
 # vehicle list pages through every vehicle without an identifier, so the two
 # composed export the plate table in N+1 calls. The per-function guards above
-# cannot see that composition; this one closes it — every plate-history read
-# goes through `plate_read_guard`, which audits it and enforces the per-user
-# limit. A new caller of the raw function anywhere else fails here.
+# cannot see that composition. This one makes the two routes that hand out a
+# vehicle's plate history (the Plates tab, a resolved search hit) read it only
+# through `plate_read_guard`, which audits it and enforces the per-user limit;
+# a new caller of the raw function anywhere else fails here. It matches the
+# function's name only: a direct `select(VehiclePlate)` by vehicle id passes
+# it — `services/lookup.py::_current_plate` behind `GET /v1/vehicle-mdm/lookup`
+# (ADR-043, out of KAN-231's scope) is exactly that, and still hands out the
+# current plate unaudited and unlimited until KAN-279 closes it.
 _PLATE_HISTORY_READERS = {"app/vehicle/services/plate.py", "app/vehicle/services/plate_read_guard.py"}
 
 

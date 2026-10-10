@@ -6,15 +6,18 @@ the Plates tab and on the plate of a resolved search hit alike.
 """
 
 import datetime as dt
+import threading
 import uuid
 
 import pytest
 from sqlalchemy import select
+from sqlalchemy.orm import sessionmaker
 
 from app.core.audit_model import AuditEvent
 from app.core.auth import create_access_token
 from app.core.base import utcnow
 from app.core.config import get_settings
+from app.vehicle.services import plate_read_guard
 from app.vehicle.services.plate import record_plate_assignment
 from app.vehicle.services.plate_read_guard import (
     ACTION_PLATE_READ,
@@ -179,3 +182,76 @@ def test_a_resolved_search_hit_is_audited_and_withholds_its_plate_past_the_limit
     assert hit["id"] == str(vehicles[LIMIT].id)
     assert (hit["currentPlate"], hit["currentPlateWithheld"]) == (None, True)
     assert _plate_audit(db_session, user)[-1].action == ACTION_PLATE_READ_REFUSED
+
+
+def test_concurrent_reads_by_one_user_cannot_both_slip_under_the_limit(engine, db_session, monkeypatch):
+    """Limit 1, two different vehicles read at once by one user: the second
+    read waits for the first's commit, then counts it and is refused.
+    Without the per-actor lock both would count zero prior reads and pass."""
+
+    if engine.dialect.name != "postgresql":
+        pytest.skip("advisory locks are Postgres-only; the SQLite lane serialises writers itself")
+
+    monkeypatch.setattr(get_settings(), "plate_read_limit", 1)
+    vehicles = _seed(db_session)
+    user, tenant = uuid.uuid4(), uuid.uuid4()
+
+    first_counted, release = threading.Event(), threading.Event()
+    real_record = plate_read_guard.record_audit_event
+
+    def _pause_first(db, **kwargs):
+        if threading.current_thread().name == "first":
+            first_counted.set()
+            release.wait(timeout=10)
+        return real_record(db, **kwargs)
+
+    monkeypatch.setattr(plate_read_guard, "record_audit_event", _pause_first)
+    factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+    results: dict[str, bool] = {}
+    errors: list[Exception] = []
+
+    def _read(vehicle_id):
+        with factory() as session:
+            try:
+                plates = plate_read_guard.read_plate_history(
+                    session, actor_id=user, tenant_id=tenant, vehicle_id=vehicle_id, purpose="plates_tab"
+                )
+                results[threading.current_thread().name] = plates is not None
+            except Exception as exc:  # noqa: BLE001 — collected and asserted empty below, never swallowed
+                errors.append(exc)
+
+    first = threading.Thread(target=_read, args=(vehicles[0].id,), name="first")
+    second = threading.Thread(target=_read, args=(vehicles[1].id,), name="second")
+    first.start()
+    try:
+        assert first_counted.wait(timeout=10)
+        second.start()
+        second.join(timeout=1)
+        assert second.is_alive()  # blocked behind the first read's lock
+    finally:
+        release.set()
+        first.join(timeout=10)
+        if second.ident is not None:
+            second.join(timeout=10)
+        monkeypatch.undo()
+
+    assert errors == []
+    assert results == {"first": True, "second": False}
+
+
+def test_the_plate_read_entity_type_is_the_one_the_index_covers():
+    """The guard's entity type is spelled in three places — the guard, the
+    core model's partial index and its migration. Renaming one would leave
+    the per-read count without its index, silently."""
+
+    import pathlib
+
+    from app.core.audit_model import AuditEvent
+
+    predicate = f"entity_type = '{PLATE_READ_ENTITY_TYPE}'"
+    [index] = [i for i in AuditEvent.__table__.indexes if i.name == "ix_audit_event_plate_read_actor_created"]
+    assert str(index.dialect_options["postgresql"]["where"]) == predicate
+    migration = pathlib.Path(__file__).resolve().parents[1] / (
+        "alembic/versions/core/a3d8f6c2e917_audit_event_plate_read_index_kan_231.py"
+    )
+    assert predicate in migration.read_text(encoding="utf-8")

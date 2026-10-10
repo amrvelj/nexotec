@@ -65,6 +65,8 @@ export function VehicleDetailPage() {
     // KAN-231: a refusal past the plate-read limit is final for now and is
     // audited server-side on every attempt — never retry it.
     retry: (failureCount, error) => !isPlateReadLimitError(error) && failureCount < 3,
+    // Every fetch is an audited plate read; a window refocus is not a new look.
+    refetchOnWindowFocus: false,
     enabled: Boolean(id),
   })
   const odometerQuery = useQuery({

@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.core.secrets import resolve_secret_env
@@ -83,8 +84,10 @@ class Settings(BaseSettings):
     # the plates are third parties' personal data on a shared, non-tenant
     # vehicle record, so no dealership may loosen it (not an A-RULE-0
     # dealership setting).
-    plate_read_limit: int = 60
-    plate_read_window_seconds: int = 3600
+    # 0 refuses every new vehicle (a lock-down, or to demonstrate the
+    # refusal); a negative limit or an empty window is a misconfiguration.
+    plate_read_limit: int = Field(default=60, ge=0)
+    plate_read_window_seconds: int = Field(default=3600, gt=0)
 
     # Field-level encryption for Dealership.tax_id (Swiss addendum tax_id
     # requirement + spec open question 8). Single static Fernet key from

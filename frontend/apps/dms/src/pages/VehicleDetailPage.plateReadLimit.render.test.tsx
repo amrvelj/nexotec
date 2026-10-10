@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { Route, Routes } from 'react-router-dom'
 import { cleanup, screen } from '@testing-library/react'
+import { QueryClient } from '@tanstack/react-query'
 import i18n from '../i18n'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { installFakeBackend } from '../test/fakeBackend'
@@ -58,13 +59,15 @@ describe('VehicleDetailPage — plate-read limit (KAN-231)', () => {
       <Routes>
         <Route path="/vehicles/:id" element={<VehicleDetailPage />} />
       </Routes>,
-      { route: `/vehicles/${ID}?tab=plates` },
+      // The app's own client (main.tsx: `new QueryClient()`, retry 3), not
+      // the test default of retry: false — otherwise the no-retry check
+      // below could not fail.
+      { route: `/vehicles/${ID}?tab=plates`, queryClient: new QueryClient() },
     )
 
     expect(await screen.findByText(message)).toBeTruthy()
     expect(screen.getByText('F-000001')).toBeTruthy()
-    // The page's own retry policy, not the test client's: wait out the
-    // first retry delay (1s) and check the refusal was asked once.
+    // Wait out the first retry delay (1s): the refusal was asked once.
     await new Promise((resolve) => setTimeout(resolve, 1200))
     expect(backend.callsTo(new RegExp(`/vehicle-mdm/${ID}/plates$`), 'GET')).toHaveLength(1)
   })
