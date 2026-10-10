@@ -84,8 +84,10 @@ def create_contract(
         # same deal twice, and for a legacy sale's synthesised offer it would
         # hand a sale the old system invoiced to invoicing again. The offer's
         # row lock serialises two concurrent creations; a cancelled contract
-        # frees the offer for a new one.
-        db.scalar(select(SalesOffer.id).where(SalesOffer.id == offer.id).with_for_update())
+        # frees the offer for a new one. Re-read under the lock, so the
+        # contract copies the offer as committed (a customer merge since the
+        # caller loaded it included), not the caller's stale object.
+        db.refresh(offer, with_for_update=True)
         live = db.scalar(
             select(SalesContract.contract_number).where(
                 SalesContract.tenant_id == tenant_id,
@@ -95,7 +97,7 @@ def create_contract(
         )
         if live is not None:
             raise ConflictError(
-                f"Offer {offer.offer_number} already has contract {live} — cancel it before creating another.",
+                f"Offer {offer.offer_number} already has contract {live}; only a cancelled contract frees an offer.",
                 details={"reason": "offer_already_contracted", "contractNumber": live},
             )
 
