@@ -98,9 +98,12 @@ def run_migrations_online() -> None:
         )
 
         with context.begin_transaction():
-            # The web service, the outbox worker and every web replica run
-            # `alembic upgrade heads` on start (render.yaml, docker-compose.yml,
-            # Dockerfile CMD). Without this lock two overlapping runs both start
+            # Every service that starts from this codebase runs `alembic upgrade
+            # heads` first: the web service in render.yaml, both `app` and
+            # `worker` in docker-compose.yml, the Dockerfile's default CMD and
+            # every web replica (the worker is declared in render.yaml too, but
+            # commented out: not provisioned on staging, KAN-234). Without
+            # this lock two overlapping runs both start
             # the same migration and the second exits 1 (KAN-92). It is taken
             # here, as the first statement inside Alembic's own transaction, and
             # released when that transaction commits: the second run waits, then
