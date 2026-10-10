@@ -2313,7 +2313,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Plates */
+        /**
+         * List Plates
+         * @description Audited and limited per user (KAN-231, `services/plate_read_guard.py`):
+         *     past the limit this answers 403 with `details.reason`
+         *     `plate_read_limit_reached`, and the refusal is audited too.
+         */
         get: operations["list_plates_v1_vehicle_mdm__vehicle_id__plates_get"];
         put?: never;
         post?: never;
@@ -6894,6 +6899,10 @@ export interface components {
          *     today — the "one line of disambiguating context" a global-search row
          *     carries (FR-UI-08, KAN-82). Only on the targeted hit, never on grid
          *     rows: the plate table is never listable (ADR-039).
+         *
+         *     Reading it is a plate read like the Plates tab (KAN-231): audited, and
+         *     past the caller's limit `current_plate` is None with
+         *     `current_plate_withheld` True, so the screen can say why.
          */
         VehicleSearchHit: {
             catalogueMatchStatus: components["schemas"]["CatalogueMatchStatus"];
@@ -6906,6 +6915,11 @@ export interface components {
             createdAt: string;
             /** Currentplate */
             currentPlate: string | null;
+            /**
+             * Currentplatewithheld
+             * @default false
+             */
+            currentPlateWithheld?: boolean;
             /** Firstregistrationdate */
             firstRegistrationDate: string | null;
             /**

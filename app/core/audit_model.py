@@ -1,7 +1,7 @@
 import datetime as dt
 import uuid
 
-from sqlalchemy import JSON, String, Text
+from sqlalchemy import JSON, Index, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, utcnow
@@ -15,6 +15,17 @@ class AuditEvent(PrimaryKeyMixin, Base):
     """
 
     __tablename__ = "audit_event"
+    __table_args__ = (
+        # KAN-231: the per-user plate-read limit counts this user's recent
+        # plate reads on every plate read. Partial, so it covers only those
+        # rows and costs nothing on every other audit write.
+        Index(
+            "ix_audit_event_plate_read_actor_created",
+            "actor_id",
+            "created_at",
+            postgresql_where=text("entity_type = 'vehicle_plate_history'"),
+        ),
+    )
 
     entity_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     entity_id: Mapped[uuid.UUID] = mapped_column(GUID(), nullable=False, index=True)

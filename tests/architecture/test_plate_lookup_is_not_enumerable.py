@@ -97,3 +97,48 @@ def test_no_route_lists_the_plate_lookup_cache():
         assert "plate-lookup" not in path and "plate_lookup" not in path, (
             f"{path} exposes the plate-lookup cache; it is read only through vehicle-identification"
         )
+
+
+# KAN-231: `list_plates_for_vehicle` is targeted (one vehicle id), but the
+# vehicle list pages through every vehicle without an identifier, so the two
+# composed export the plate table in N+1 calls. The per-function guards above
+# cannot see that composition; this one closes it — every plate-history read
+# goes through `plate_read_guard`, which audits it and enforces the per-user
+# limit. A new caller of the raw function anywhere else fails here.
+_PLATE_HISTORY_READERS = {"app/vehicle/services/plate.py", "app/vehicle/services/plate_read_guard.py"}
+
+
+def test_plate_history_is_read_only_through_the_audited_guard():
+    import ast
+    import pathlib
+
+    root = pathlib.Path(__file__).resolve().parents[2]
+    offenders = []
+    for path in sorted((root / "app").rglob("*.py")):
+        relative = path.relative_to(root).as_posix()
+        if relative in _PLATE_HISTORY_READERS:
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Name | ast.Attribute | ast.alias):
+                name = node.id if isinstance(node, ast.Name) else node.attr if isinstance(node, ast.Attribute) else node.name
+                if name == "list_plates_for_vehicle":
+                    offenders.append(f"{relative}:{getattr(node, 'lineno', '?')}")
+    assert not offenders, (
+        "plate history read outside plate_read_guard (unaudited, unlimited — KAN-231): " + ", ".join(offenders)
+    )
+
+
+def test_every_plate_read_route_goes_through_the_guard():
+    """The two routes that hand out a vehicle's plates — the Plates tab and
+    the resolved search hit — both import the guard's reader, never the raw
+    function (the test above), and the guard itself still calls it."""
+
+    import inspect as _inspect
+
+    from app.vehicle.api import vehicle_mdm, vehicle_mdm_detail
+    from app.vehicle.services import plate_read_guard
+
+    assert "read_plate_history" in _inspect.getsource(vehicle_mdm_detail.list_plates)
+    assert "read_plate_history" in _inspect.getsource(vehicle_mdm._search_hit)
+    assert "list_plates_for_vehicle" in _inspect.getsource(plate_read_guard.read_plate_history)

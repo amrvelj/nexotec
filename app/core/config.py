@@ -76,6 +76,16 @@ class Settings(BaseSettings):
 
     idempotency_key_ttl_seconds: int = 86400
 
+    # KAN-231 (ADR-039, PRD Vehicles Halterauskunftssperre, Anto's "log and
+    # limit" ruling 2026-10-10): one user may read the plate history of at
+    # most this many DISTINCT vehicles per rolling window; a vehicle already
+    # read inside the window does not count again. Platform-wide by design:
+    # the plates are third parties' personal data on a shared, non-tenant
+    # vehicle record, so no dealership may loosen it (not an A-RULE-0
+    # dealership setting).
+    plate_read_limit: int = 60
+    plate_read_window_seconds: int = 3600
+
     # Field-level encryption for Dealership.tax_id (Swiss addendum tax_id
     # requirement + spec open question 8). Single static Fernet key from
     # settings, not a KMS-backed per-tenant key — real key-management

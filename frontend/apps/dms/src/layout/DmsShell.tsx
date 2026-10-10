@@ -155,7 +155,7 @@ function buildVehicleGroup(
       group: {
         key: 'vehicles',
         label: t('shell.nav.vehicles'),
-        items: [{ id: v.id, identifier: v.vin, label: v.vehicleNumber, sublabel: v.currentPlate ?? undefined, href: `/vehicles/${v.id}` }],
+        items: [{ id: v.id, identifier: v.vin, label: v.vehicleNumber, sublabel: v.currentPlateWithheld ? t('vehicleDetail.plates.withheld') : (v.currentPlate ?? undefined), href: `/vehicles/${v.id}` }],
       },
     }
   }
