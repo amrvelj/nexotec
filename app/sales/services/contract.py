@@ -22,6 +22,7 @@ from app.db import SessionLocal
 from app.inventory.public import release, reserve_for_contract
 from app.sales.models.contract import ContractStatus, FinancingKind, SalesContract
 from app.sales.models.offer import SalesOffer
+from app.sales.services.contract_completeness import require_complete
 from app.sales.services.deal_projection import upsert_deal_projection
 from app.sales.services.numbering import allocate_contract_number
 from app.sales.services.offer import resolve_customer_label
@@ -313,19 +314,8 @@ def confirm_contract(
     # the same "pointless to fix first" reason those are checked in that
     # order: a blocked or address-less customer refuses regardless of what
     # the contract is for, so that is named first when both are true.
-    has_vehicle = contract.vehicle_source is not None and (
-        contract.stock_item_id is not None or contract.vehicle_label is not None
-    )
-    if not has_vehicle:
-        raise ConflictError(
-            f"Contract {contract.contract_number} has no vehicle — cannot be confirmed.",
-            details={"reason": "missing_vehicle"},
-        )
-    if contract.gross_price is None:
-        raise ConflictError(
-            f"Contract {contract.contract_number} has no price — cannot be confirmed.",
-            details={"reason": "missing_price"},
-        )
+    # KAN-67: the one definition, shared with contract document generation.
+    require_complete(contract, action="confirmed")
 
     # Plain values for the compensating actions: after db.rollback() the
     # contract's attributes are expired, and reloading them could itself fail
