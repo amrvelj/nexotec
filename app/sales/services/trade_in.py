@@ -7,6 +7,9 @@ Sales never owns the traded-in vehicle (S-D11/ADR-045) — it is a real
 `VehicleMdm` row, created through `app.vehicle.public`, exactly like any
 other vehicle. The pipeline STOCK ITEM this trade-in eventually becomes is
 a separate, later moment: contract confirmation (PR-6), not here.
+
+KAN-67 (ADR-083): a pending contract records its trade-in through the same
+two functions — `deal` is an offer or a contract.
 """
 
 import uuid
@@ -17,8 +20,7 @@ from sqlalchemy.orm import Session
 from app.core.base import utcnow
 from app.core.errors import ConflictError
 from app.customer.public import VehiclePartyRole, allocate_vehicle_party, get_customer_or_404
-from app.sales.models.offer import OfferStatus, SalesOffer
-from app.sales.services.deal_projection import upsert_deal_projection
+from app.sales.services.priced_deal import DealT, PricedDeal, project, require_editable
 from app.valuation.public import list_valid_valuations_for_vehicle
 from app.vehicle.public import create_or_get_vehicle_mdm, match_vehicle
 
@@ -41,7 +43,7 @@ def _resolve_trade_in_vin(db: Session, *, vin: str | None, plate: str | None, ca
 def set_trade_in(
     db: Session,
     *,
-    offer: SalesOffer,
+    deal: DealT,
     group_id: uuid.UUID,
     vin: str | None,
     plate: str | None,
@@ -49,14 +51,13 @@ def set_trade_in(
     vehicle_label: str,
     customer_id: uuid.UUID | None,
     actor_id: uuid.UUID,
-) -> SalesOffer:
-    if offer.status != OfferStatus.DRAFT:
-        raise ConflictError(f"Offer {offer.offer_number} can no longer be edited (status '{offer.status.value}').")
+) -> DealT:
+    require_editable(deal)
 
     # KAN-99: resolve the party customer in the caller's group BEFORE any
     # write — a customerId from another group is a 404 that must not leave
     # a committed vehicle_mdm row behind (create_or_get_vehicle_mdm commits).
-    party_customer_id = customer_id or offer.customer_id
+    party_customer_id = customer_id or deal.customer_id
     if party_customer_id is not None:
         get_customer_or_404(db, group_id, party_customer_id)
 
@@ -75,31 +76,31 @@ def set_trade_in(
             group_id=group_id, actor_id=actor_id,
         )
 
-    offer.trade_in_vehicle_id = vehicle.id
-    offer.trade_in_vin = vehicle.vin
-    offer.trade_in_label = vehicle_label
+    deal.trade_in_vehicle_id = vehicle.id
+    deal.trade_in_vin = vehicle.vin
+    deal.trade_in_label = vehicle_label
 
     # FR-S-08: "an existing valid valuation is offered before a new one is
     # made" — auto-attach the newest valid one if there is exactly the
     # unambiguous case; a caller with multiple candidates chooses via
     # attach_trade_in_valuation instead of relying on this default.
-    existing = list_valid_valuations_for_vehicle(db, tenant_id=offer.tenant_id, vehicle_id=vehicle.id)
+    existing = list_valid_valuations_for_vehicle(db, tenant_id=deal.tenant_id, vehicle_id=vehicle.id)
     if existing:
-        _attach(offer, existing[0])
+        _attach(deal, existing[0])
 
-    offer.updated_by = actor_id
-    offer.version += 1
-    _recompute_payable(offer)
+    deal.updated_by = actor_id
+    deal.version += 1
+    _recompute_payable(deal)
     db.flush()
-    upsert_deal_projection(db, offer=offer)
+    project(db, deal)
     db.commit()
-    db.refresh(offer)
-    return offer
+    db.refresh(deal)
+    return deal
 
 
 def attach_trade_in_valuation(
-    db: Session, *, offer: SalesOffer, valuation_id: uuid.UUID, actor_id: uuid.UUID | None
-) -> SalesOffer:
+    db: Session, *, deal: DealT, valuation_id: uuid.UUID, actor_id: uuid.UUID | None
+) -> DealT:
     """Explicit attach — used when the seller picks a specific valuation
     from the list FR-S-08 shows (rather than set_trade_in's own single-
     candidate default), or after creating a brand new one via
@@ -109,42 +110,42 @@ def attach_trade_in_valuation(
 
     from app.valuation.public import get_valuation_or_404
 
-    valuation = get_valuation_or_404(db, offer.tenant_id, valuation_id)
-    _attach(offer, valuation)
-    offer.updated_by = actor_id
-    offer.version += 1
-    _recompute_payable(offer)
+    valuation = get_valuation_or_404(db, deal.tenant_id, valuation_id)
+    _attach(deal, valuation)
+    deal.updated_by = actor_id
+    deal.version += 1
+    _recompute_payable(deal)
     db.flush()
-    upsert_deal_projection(db, offer=offer)
+    project(db, deal)
     db.commit()
-    db.refresh(offer)
-    return offer
+    db.refresh(deal)
+    return deal
 
 
-def _attach(offer: SalesOffer, valuation) -> None:
-    offer.trade_in_valuation_id = valuation.id
+def _attach(deal: PricedDeal, valuation) -> None:
+    deal.trade_in_valuation_id = valuation.id
     if valuation.configuration_id is not None:
         # C-F (KAN-10, FR-C-12 carve-out) — a trade-in captured through the
         # valuation path in `record` mode: the offer carries the
         # valuation's configuration forward, and where no vehicle-mdm record
         # was resolved (ADR-070: the valuation path never writes one), the
         # valuation's own vehicle fields label the trade-in.
-        offer.trade_in_configuration_id = valuation.configuration_id
-        offer.trade_in_configuration_label_refreshed_at = utcnow()
-        if offer.trade_in_vehicle_id is None:
-            offer.trade_in_label = valuation.configuration_label or offer.trade_in_label
-            offer.trade_in_vin = valuation.vehicle_vin
-            offer.trade_in_vehicle_id = valuation.vehicle_id
-    offer.trade_in_value = valuation.final_offer
+        deal.trade_in_configuration_id = valuation.configuration_id
+        deal.trade_in_configuration_label_refreshed_at = utcnow()
+        if deal.trade_in_vehicle_id is None:
+            deal.trade_in_label = valuation.configuration_label or deal.trade_in_label
+            deal.trade_in_vin = valuation.vehicle_vin
+            deal.trade_in_vehicle_id = valuation.vehicle_id
+    deal.trade_in_value = valuation.final_offer
     # Seller-adjustable afterward (S-D04) — defaults to the valuation's own
     # figure, not force-kept in sync with it.
-    if offer.trade_in_purchase_price is None:
-        offer.trade_in_purchase_price = valuation.final_offer
+    if deal.trade_in_purchase_price is None:
+        deal.trade_in_purchase_price = valuation.final_offer
 
 
-def _recompute_payable(offer: SalesOffer) -> None:
-    if offer.gross_price is None:
-        offer.payable = None
+def _recompute_payable(deal: PricedDeal) -> None:
+    if deal.gross_price is None:
+        deal.payable = None
         return
-    trade_in = offer.trade_in_value or Decimal(0)
-    offer.payable = offer.gross_price - trade_in
+    trade_in = deal.trade_in_value or Decimal(0)
+    deal.payable = deal.gross_price - trade_in

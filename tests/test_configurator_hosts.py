@@ -535,7 +535,7 @@ def test_a_trade_in_identified_from_its_plate_reaches_the_offer_as_a_valuation_r
         sold = _build_configuration(db_session, tenant_id)
         offer = create_offer(db_session, tenant_id=tenant_id, actor_id=uuid.uuid4())
         offer = update_offer(db_session, offer=offer, group_id=group_id, data=OfferUpdate(configuration_id=sold.id), actor_id=None)
-        offer = attach_trade_in_valuation(db_session, offer=offer, valuation_id=valuation.id, actor_id=None)
+        offer = attach_trade_in_valuation(db_session, deal=offer, valuation_id=valuation.id, actor_id=None)
 
         assert offer.trade_in_valuation_id == valuation.id
         assert offer.trade_in_configuration_id == trade_in_config.id
@@ -733,7 +733,7 @@ def test_copying_a_configured_offer_keeps_the_configuration_and_its_lines(db_ses
     )
     source = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())
     source = update_offer(db_session, offer=source, group_id=uuid.uuid4(), data=OfferUpdate(configuration_id=config.id), actor_id=None)
-    source = attach_trade_in_valuation(db_session, offer=source, valuation_id=valuation.id, actor_id=None)
+    source = attach_trade_in_valuation(db_session, deal=source, valuation_id=valuation.id, actor_id=None)
 
     copy = copy_offer(db_session, source=source, actor_id=uuid.uuid4())
 
@@ -765,7 +765,7 @@ def test_reattaching_the_same_configuration_keeps_the_sellers_base_price_and_lin
         select(SalesLineItem).where(SalesLineItem.offer_id == offer.id).order_by(SalesLineItem.position)
     ).all()
     replace_line_items(
-        db_session, offer=offer, actor_id=None,
+        db_session, deal=offer, actor_id=None,
         data=LineItemsReplaceRequest(
             factory_options=[
                 LineItemFactoryOptionPatch(

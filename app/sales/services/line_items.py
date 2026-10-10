@@ -26,25 +26,34 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import ConflictError, NotFoundError
 from app.sales.models.line_item import LineItemKind, SalesLineItem
-from app.sales.models.offer import OfferStatus, SalesOffer
 from app.sales.schemas.line_item import LineItemsReplaceRequest
-from app.sales.services.deal_projection import upsert_deal_projection
-from app.sales.services.offer import vehicle_condition
+from app.sales.services.priced_deal import (
+    DealT,
+    PricedDeal,
+    line_item_owner,
+    line_item_owner_clause,
+    project,
+    require_editable,
+    vehicle_condition,
+)
 from app.sales.services.pricing import apply_build_up, resolve_discount
 
 
-def list_line_items(db: Session, *, tenant_id: uuid.UUID, offer_id: uuid.UUID) -> list[SalesLineItem]:
+def list_line_items(db: Session, *, deal: PricedDeal) -> list[SalesLineItem]:
+    """KAN-67: an offer's or a contract's own lines — `deal` was already
+    loaded through its tenant-scoped get_*_or_404."""
+
     return list(
         db.scalars(
             select(SalesLineItem)
-            .where(SalesLineItem.tenant_id == tenant_id, SalesLineItem.offer_id == offer_id)
+            .where(SalesLineItem.tenant_id == deal.tenant_id, line_item_owner_clause(deal))
             .order_by(SalesLineItem.kind, SalesLineItem.position)
         ).all()
     )
 
 
-def _is_used_vehicle(offer: SalesOffer) -> bool:
-    return vehicle_condition(offer) == "used"
+def _is_used_vehicle(deal: PricedDeal) -> bool:
+    return vehicle_condition(deal) == "used"
 
 
 def _apply_discount(
@@ -71,13 +80,12 @@ def _apply_discount(
 
 
 def replace_line_items(
-    db: Session, *, offer: SalesOffer, data: LineItemsReplaceRequest, actor_id: uuid.UUID | None
-) -> SalesOffer:
-    if offer.status != OfferStatus.DRAFT:
-        raise ConflictError(f"Offer {offer.offer_number} can no longer be edited (status '{offer.status.value}').")
+    db: Session, *, deal: DealT, data: LineItemsReplaceRequest, actor_id: uuid.UUID | None
+) -> DealT:
+    require_editable(deal)
 
-    used_vehicle = _is_used_vehicle(offer)
-    existing_by_id = {li.id: li for li in list_line_items(db, tenant_id=offer.tenant_id, offer_id=offer.id)}
+    used_vehicle = _is_used_vehicle(deal)
+    existing_by_id = {li.id: li for li in list_line_items(db, deal=deal)}
 
     # Accessories — a full replace (S-D14: an offer-level collection the
     # seller builds up directly, never system-managed).
@@ -95,8 +103,8 @@ def replace_line_items(
             accessory_row = found
         else:
             accessory_row = SalesLineItem(
-                tenant_id=offer.tenant_id,
-                offer_id=offer.id,
+                tenant_id=deal.tenant_id,
+                **line_item_owner(deal),
                 kind=LineItemKind.ACCESSORY,
                 unit_price=accessory.unit_price,
                 included=True,
@@ -132,10 +140,10 @@ def replace_line_items(
 
     db.flush()
 
-    apply_build_up(db, offer=offer)
-    offer.updated_by = actor_id
-    offer.version += 1
-    upsert_deal_projection(db, offer=offer)
+    apply_build_up(db, deal=deal)
+    deal.updated_by = actor_id
+    deal.version += 1
+    project(db, deal)
     db.commit()
-    db.refresh(offer)
-    return offer
+    db.refresh(deal)
+    return deal
