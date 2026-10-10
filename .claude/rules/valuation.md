@@ -24,8 +24,9 @@ file in the same PR as any change to what it states. -->
   fact"; the PRD gives it its own audit and retention rules, not implemented yet. Not under
   `vehicle` (vehicle identity is global, valuations are tenant-private) and not under `sales`
   (Sales owns the trade-in workflow, not the valuation record).
-- **Single writer.** Sales and Stock hold a `valuationRef` and read the same record; there is
-  never a second writer.
+- **Single writer.** Sales holds `trade_in_valuation_id` (offer and contract) and Stock
+  `valuation_ref_*`, both read-only references to the same record; there is never a second
+  writer.
 - **Tenant-private even within a group** (ADR-029): a sister dealership never sees another's
   valuations.
 - **A vehicle carries a LIST of valuations** (ADR-048 as amended, ADR-066). The newest is
