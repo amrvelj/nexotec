@@ -1,0 +1,6 @@
+{
+  "source": "https://render.com/schema/render.yaml.json",
+  "fetched": "2026-10-10",
+  "sha256": "8a3fb8da6b4f55fe686fbefa790e011d3dd7895f013f355953c572a21ab6494a",
+  "refresh": "python scripts/check_render_yaml.py --refresh-schema"
+}
