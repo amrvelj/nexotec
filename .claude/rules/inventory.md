@@ -48,7 +48,9 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   reconciliation checks the record's `contract_id` and `tenant_id`. A
   stock car's reservation is still made and released by Sales' synchronous calls (ADR-047
   Pattern B): `reserve_for_contract` and `release`. `reserve_for_contract` is idempotent by (item, contract): the contract's live reservation if it
-  holds one, a fresh one if the item is free (a compensation released the first), else 409; each
+  holds one, a fresh one if the item is free (a compensation released the first), else 409; a
+  car that has left stock (`left_stock_at` set) is never reserved again — 409
+  `vehicle_left_stock`, from `reserve` and `reserve_for_contract` alike (KAN-147); each
   compensating release is keyed per reservation (KAN-114). The HTTP reserve and release
   endpoints are `IdempotentRoute`s (KAN-266, Anto 2026-10-08): the route holds the client's
   optional key and calls `reserve_without_key()`/`release_without_key()`, so a replay returns

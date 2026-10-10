@@ -3368,6 +3368,8 @@ export interface components {
             invoiceRef: string | null;
             /** Isinvoiceable */
             isInvoiceable: boolean;
+            /** Islegacy */
+            isLegacy: boolean;
             /** Manualvehiclecondition */
             manualVehicleCondition: string | null;
             /** Margin */

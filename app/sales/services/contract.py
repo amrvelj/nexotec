@@ -79,6 +79,26 @@ def create_contract(
                 f"Customer {customer.customer_number} is do-not-contact — cannot be attached to a contract."
             )
 
+    if offer is not None:
+        # KAN-147 — one live contract per offer: a second one would sell the
+        # same deal twice, and for a legacy sale's synthesised offer it would
+        # hand a sale the old system invoiced to invoicing again. The offer's
+        # row lock serialises two concurrent creations; a cancelled contract
+        # frees the offer for a new one.
+        db.scalar(select(SalesOffer.id).where(SalesOffer.id == offer.id).with_for_update())
+        live = db.scalar(
+            select(SalesContract.contract_number).where(
+                SalesContract.tenant_id == tenant_id,
+                SalesContract.offer_id == offer.id,
+                SalesContract.status != ContractStatus.CANCELLED,
+            ).limit(1)
+        )
+        if live is not None:
+            raise ConflictError(
+                f"Offer {offer.offer_number} already has contract {live} — cancel it before creating another.",
+                details={"reason": "offer_already_contracted", "contractNumber": live},
+            )
+
     contract = SalesContract(
         tenant_id=tenant_id,
         contract_number=allocate_contract_number(db, tenant_id),
@@ -572,6 +592,14 @@ def cancel_contract(
         raise ConflictError(
             f"Contract {contract.contract_number} cannot be cancelled from status '{contract.status.value}'.",
             details={"status": contract.status.value},
+        )
+    if contract.legacy_transaction_id is not None:
+        # KAN-147 — a legacy sale is history (ADR-050): cancelling it would
+        # publish a years-old sale as today's business and free its offer
+        # for a second contract.
+        raise ConflictError(
+            f"Contract {contract.contract_number} was migrated from the legacy system — it cannot be cancelled.",
+            details={"reason": "legacy_sale"},
         )
 
     if contract.status == ContractStatus.CONFIRMED and contract.reservation_id is not None:

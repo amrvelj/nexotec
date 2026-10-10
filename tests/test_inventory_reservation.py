@@ -7,6 +7,7 @@ import uuid
 import pytest
 from sqlalchemy.orm import sessionmaker
 
+from app.core.base import utcnow
 from app.core.errors import ConflictError, NotFoundError
 from app.core.uuid7 import uuid7
 from app.inventory.models.stock_item import LifecycleStatus, ReservationState, StockItem, StockItemCondition
@@ -307,3 +308,42 @@ def test_reserve_for_contract_reads_the_key_under_the_row_lock(db_session, engin
 
     assert not thread.is_alive()
     assert errors == []
+
+
+@pytest.mark.parametrize("entry", ["reserve", "reserve_for_contract"])
+def test_a_car_that_has_left_stock_cannot_be_reserved(db_session, entry):
+    """KAN-147: a car that left stock (invoiced, or sold in the legacy
+    system) would be sold a second time if a new contract could reserve it."""
+
+    tenant_id = uuid.uuid4()
+    item = _make_item(db_session, tenant_id)
+    item.left_stock_at = utcnow()
+    db_session.commit()
+    call = reserve if entry == "reserve" else reserve_for_contract
+
+    with pytest.raises(ConflictError) as excinfo:
+        call(db_session, tenant_id=tenant_id, stock_item_id=item.id, contract_id=uuid.uuid4(), idempotency_key="k1")
+
+    assert excinfo.value.details == {"reason": "vehicle_left_stock", "stockItemId": str(item.id)}
+    db_session.expire_all()
+    assert db_session.get(StockItem, item.id).reservation_state == ReservationState.NONE
+
+
+def test_the_contract_that_holds_a_car_that_left_stock_still_gets_its_reservation_back(db_session):
+    """An invoiced car keeps its contract's reservation (the sweep leaves it);
+    that contract's replay is answered from the item, not refused."""
+
+    tenant_id = uuid.uuid4()
+    item = _make_item(db_session, tenant_id)
+    contract_id = uuid.uuid4()
+    first = reserve_for_contract(
+        db_session, tenant_id=tenant_id, stock_item_id=item.id, contract_id=contract_id, idempotency_key="k1"
+    )
+    db_session.get(StockItem, item.id).left_stock_at = utcnow()
+    db_session.commit()
+
+    again = reserve_for_contract(
+        db_session, tenant_id=tenant_id, stock_item_id=item.id, contract_id=contract_id, idempotency_key="k1"
+    )
+
+    assert again == first

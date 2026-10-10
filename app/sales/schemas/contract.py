@@ -60,6 +60,9 @@ class ContractRead(CamelModel):
     signed_at: dt.datetime | None
     delivery_date: dt.date | None
     is_invoiceable: bool
+    # KAN-147 — migrated from the legacy `transaction` table (ADR-050): the
+    # old system invoiced it, so it can be neither invoiced nor cancelled.
+    is_legacy: bool
     invoice_ref: str | None
     cancelled_reason: str | None
     version: int

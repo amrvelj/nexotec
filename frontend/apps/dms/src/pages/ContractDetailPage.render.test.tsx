@@ -128,6 +128,16 @@ describe('ContractDetailPage — the confirm refusal is surfaced and localised (
     ).toBeInTheDocument()
   })
 
+  it('a sold car (KAN-147, 409 vehicle_left_stock) renders the localised inline alert', async () => {
+    const user = userEvent.setup()
+    refuseConfirm('vehicle_left_stock', { stockItemId: 'si-1' })
+    renderPage()
+
+    await user.click(await screen.findByRole('button', { name: i18n.t('contractDetail.actions.confirm') }))
+
+    expect(await screen.findByText(i18n.t('contractDetail.errors.confirmRefused.vehicleLeftStock'))).toBeInTheDocument()
+  })
+
   it('a stale-version 409 (no reason) shows the localised reload message, never the backend English string', async () => {
     const user = userEvent.setup()
     installFakeBackend([
@@ -189,6 +199,39 @@ describe('ContractDetailPage — an empty contract (KAN-66 / G-67) disables conf
     renderPage()
 
     expect(await screen.findByRole('button', { name: i18n.t('contractDetail.actions.confirm') })).toBeEnabled()
+  })
+})
+
+// KAN-147 — a sale migrated from the legacy system was invoiced there; the
+// backend refuses its cancellation (409 legacy_sale), so the action is
+// disabled before the click (ADR-061), with its own reason.
+describe('ContractDetailPage — a legacy sale cannot be cancelled (KAN-147)', () => {
+  it('a confirmed legacy contract shows cancel disabled', async () => {
+    installFakeBackend([
+      { match: /^\/sales\/contracts\/k1$/, handler: () => ({ ...CONTRACT, status: 'confirmed', isLegacy: true }) },
+      { match: /^\/sales\/contracts\/k1\/documents$/, handler: () => ({ items: [], nextCursor: null }) },
+    ])
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(await screen.findByRole('button', { name: 'More actions' }))
+    const item = await screen.findByRole('menuitem', { name: new RegExp(i18n.t('contractDetail.actions.cancel')) })
+    expect(item).toBeDisabled()
+    expect(item).toHaveTextContent(i18n.t('contractDetail.actions.cancelDisabledReasonLegacy'))
+  })
+
+  it('a confirmed contract created live keeps cancel enabled', async () => {
+    installFakeBackend([
+      { match: /^\/sales\/contracts\/k1$/, handler: () => ({ ...CONTRACT, status: 'confirmed', isLegacy: false }) },
+      { match: /^\/sales\/contracts\/k1\/documents$/, handler: () => ({ items: [], nextCursor: null }) },
+    ])
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(await screen.findByRole('button', { name: 'More actions' }))
+    expect(
+      await screen.findByRole('menuitem', { name: new RegExp(i18n.t('contractDetail.actions.cancel')) }),
+    ).toBeEnabled()
   })
 })
 

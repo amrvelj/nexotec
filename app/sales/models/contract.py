@@ -177,6 +177,11 @@ class SalesContract(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, Timestam
     # migrated_from_legacy_vehicle_id's own precedent — never used for
     # lookups by the live application: an audit trail, a "already
     # migrated, do not re-migrate" guard, and (KAN-147) the mark that makes
-    # request_invoice refuse a sale the legacy system already invoiced.
+    # request_invoice and cancel_contract refuse a sale the legacy system
+    # already invoiced (`is_legacy` on the read model).
     # Null for every ordinarily-created contract.
     legacy_transaction_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True, index=True)
+
+    @property
+    def is_legacy(self) -> bool:
+        return self.legacy_transaction_id is not None

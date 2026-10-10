@@ -24,7 +24,7 @@ from app.sales.models.contract import ContractStatus, SalesContract
 from app.sales.models.offer import SalesOffer
 from app.sales.models.stock_item_purchase import SalesStockItemPurchase
 from app.sales.models.transaction import Transaction, TransactionStatus, TransactionType
-from app.sales.services.contract import request_invoice
+from app.sales.services.contract import cancel_contract, create_contract, request_invoice
 from app.vehicle.models.vehicle import Vehicle as LegacyVehicle
 from app.vehicle.models.vehicle import VehicleCondition, VehicleStatus
 from app.vehicle.services.vehicle_mdm import create_or_get_vehicle_mdm
@@ -578,6 +578,52 @@ def test_a_migrated_legacy_sale_without_a_trade_in_is_refused_as_legacy_not_as_u
         request_invoice(db_session, contract=contract, actor_id=uuid.uuid4())
 
     assert excinfo.value.details == {"reason": "legacy_sale"}
+
+
+def _migrated_legacy_resale(db_session) -> SalesContract:
+    _dealership(db_session)
+    legacy = _legacy_vehicle(db_session)
+    _migrated_vehicle_mdm(db_session, legacy)
+    _trade_in_transaction(db_session, customer_id=_customer(db_session).id, vehicle_id=legacy.id)
+    sale_txn = _sale_transaction(
+        db_session, customer_id=_customer(db_session).id, vehicle_id=legacy.id, amount=Decimal("15000.00"),
+        transaction_date=dt.datetime(2024, 6, 20, tzinfo=dt.UTC),
+    )
+    db_session.commit()
+    run_migration(db_session, commit=True)
+    return db_session.query(SalesContract).filter_by(legacy_transaction_id=sale_txn.id).one()
+
+
+def test_a_migrated_legacy_sale_cannot_be_cancelled(db_session):
+    """KAN-147: cancelling it would publish a years-old sale as today's
+    business (ADR-050) and free its offer for a second contract."""
+
+    contract = _migrated_legacy_resale(db_session)
+
+    with pytest.raises(ConflictError) as excinfo:
+        cancel_contract(db_session, contract=contract, reason="test", actor_id=uuid.uuid4())
+
+    assert excinfo.value.details == {"reason": "legacy_sale"}
+    db_session.expire_all()
+    assert db_session.get(SalesContract, contract.id).status == ContractStatus.CONFIRMED
+    assert db_session.scalars(select(OutboxMessage).where(OutboxMessage.aggregate_id == contract.id)).all() == []
+
+
+def test_a_legacy_sales_synthesised_offer_cannot_take_a_second_contract(db_session):
+    """KAN-147 review: the migration leaves the synthesised offer open, and a
+    second contract from it carries no legacy mark — it would have confirmed
+    on the sold car and been handed to invoicing. The offer's live (legacy)
+    contract refuses it."""
+
+    contract = _migrated_legacy_resale(db_session)
+    offer = db_session.get(SalesOffer, contract.offer_id)
+
+    with pytest.raises(ConflictError) as excinfo:
+        create_contract(db_session, tenant_id=TENANT_ID, offer=offer, actor_id=uuid.uuid4())
+
+    assert excinfo.value.details == {"reason": "offer_already_contracted", "contractNumber": contract.contract_number}
+    db_session.rollback()
+    assert db_session.query(SalesContract).count() == 1
 
 
 def test_processing_order_is_driven_by_transaction_date_not_insertion_order(db_session):

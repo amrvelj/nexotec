@@ -972,7 +972,8 @@
         "staleVersion": "This contract changed since the page was loaded. It has been reloaded — review it and try again.",
         "badStatus": "This contract can no longer be confirmed from its current status.",
         "generic": "The contract could not be confirmed.",
-        "tradeInValuationExpired": "The trade-in valuation on this contract has expired, so the contract cannot be confirmed. Cancel it and create a new contract from an offer with a current valuation."
+        "tradeInValuationExpired": "The trade-in valuation on this contract has expired, so the contract cannot be confirmed. Cancel it and create a new contract from an offer with a current valuation.",
+        "vehicleLeftStock": "This vehicle has already left stock (sold). It cannot be reserved again, so the contract cannot be confirmed."
       }
     },
     "actions": {
@@ -980,6 +981,7 @@
       "confirmDisabledReason": "Only confirmable while open.",
       "cancel": "Cancel …",
       "cancelDisabledReason": "Already cancelled or invoiced.",
+      "cancelDisabledReasonLegacy": "Sale migrated from the legacy system — already invoiced there, so it cannot be cancelled.",
       "confirmDisabledReasonEmpty": "Still missing a vehicle and a price."
     },
     "stats": {

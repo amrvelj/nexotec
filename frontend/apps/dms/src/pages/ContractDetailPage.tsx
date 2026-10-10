@@ -87,6 +87,8 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
         return t('contractDetail.errors.confirmRefused.missingPrice')
       case 'trade_in_valuation_expired':
         return t('contractDetail.errors.confirmRefused.tradeInValuationExpired')
+      case 'vehicle_left_stock':
+        return t('contractDetail.errors.confirmRefused.vehicleLeftStock')
       case 'do_not_contact':
         return t('contractDetail.errors.confirmRefused.doNotContact')
       case 'credit_block':
@@ -165,8 +167,14 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
         label: t('contractDetail.actions.cancel'),
         icon: <Ban size={16} />,
         onClick: cancel,
-        disabled: isTerminal,
-        disabledReason: isTerminal ? t('contractDetail.actions.cancelDisabledReason') : undefined,
+        // KAN-147 — a sale migrated from the legacy system is history; the
+        // backend refuses its cancellation (409 legacy_sale).
+        disabled: isTerminal || contract.isLegacy,
+        disabledReason: isTerminal
+          ? t('contractDetail.actions.cancelDisabledReason')
+          : contract.isLegacy
+            ? t('contractDetail.actions.cancelDisabledReasonLegacy')
+            : undefined,
       },
     ],
   }
