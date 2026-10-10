@@ -583,6 +583,7 @@ def cancel_contract(
     """PENDING or CONFIRMED can both be cancelled — CONFIRMED additionally
     releases the stock reservation first (Pattern B, dedicated session,
     same reasoning as confirm_contract's own reserve_for_contract() call).
+    A contract migrated from the legacy system is refused (KAN-147).
     A manual configuration has no reservation_id here: Stock reserved its
     pipeline item itself and releases it on `sales.contract.cancelled`
     (KAN-158).

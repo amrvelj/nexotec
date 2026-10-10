@@ -47,7 +47,8 @@ against the code). "Open" lines cite a ticket; /drift-audit re-checks them weekl
   read model) — the old system invoiced it (Anto, 2026-10-10; KAN-147).
 - **One live contract per offer** (KAN-147): `create_contract` refuses an offer that already
   has a non-cancelled contract (409 `offer_already_contracted`, with its `contractNumber`),
-  under the offer's row lock; a cancelled contract frees the offer. This is what keeps a
+  under the offer's row lock; a cancelled contract frees the offer. Sales writers take row
+  locks offer → contract → deal; the customer merge's repointing flushes in that order too. This is what keeps a
   legacy sale's synthesised offer from taking a second contract.
 
 ## Price and VAT (ADR-057)
