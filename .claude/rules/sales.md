@@ -42,7 +42,9 @@ against the code). "Open" lines cite a ticket; /drift-audit re-checks them weekl
   `scripts/migrate_transaction_rows.py`: dry-run by default, idempotent, written directly
   through the ORM and **publishing no outbox events** (a years-old sale must not look like
   today's business to live consumers); its dry run reports exactly what the real run would
-  write.
+  write. A migrated sale stays `CONFIRMED`, and `request_invoice` refuses any contract with
+  `legacy_transaction_id` set (409, reason `legacy_sale`) — the old system invoiced it
+  (Anto, 2026-10-10; KAN-147).
 
 ## Price and VAT (ADR-057)
 

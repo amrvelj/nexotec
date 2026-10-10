@@ -12,6 +12,11 @@ import datetime as dt
 import uuid
 from decimal import ROUND_HALF_UP, Decimal
 
+import pytest
+from sqlalchemy import select
+
+from app.core.errors import ConflictError
+from app.core.outbox_model import OutboxMessage
 from app.customer.models.customer import Customer, CustomerType, Language
 from app.inventory.models.stock_item import LifecycleStatus, StockItem, StockItemCondition
 from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
@@ -19,6 +24,7 @@ from app.sales.models.contract import ContractStatus, SalesContract
 from app.sales.models.offer import SalesOffer
 from app.sales.models.stock_item_purchase import SalesStockItemPurchase
 from app.sales.models.transaction import Transaction, TransactionStatus, TransactionType
+from app.sales.services.contract import request_invoice
 from app.vehicle.models.vehicle import Vehicle as LegacyVehicle
 from app.vehicle.models.vehicle import VehicleCondition, VehicleStatus
 from app.vehicle.services.vehicle_mdm import create_or_get_vehicle_mdm
@@ -518,6 +524,40 @@ def test_a_vehicle_traded_in_and_later_resold_ends_up_as_one_stock_item_with_bot
     assert contract.stock_item_id == item.id
     assert contract.gross_price == Decimal("15000.00")
     assert contract.is_invoiceable is True  # KAN-100: the trade-in booked the purchase
+
+
+def test_a_migrated_legacy_sale_cannot_be_handed_to_invoicing_again(db_session):
+    """KAN-147 (Anto, 2026-10-10; ADR-050): a legacy sale was invoiced in the
+    old system. It stays CONFIRMED and derives `is_invoiceable` like any other
+    contract, so request_invoice refuses it by its provenance instead — a
+    second invoice would break the gapless numbering's meaning (ADR-032)."""
+
+    _dealership(db_session)
+    legacy = _legacy_vehicle(db_session)
+    _migrated_vehicle_mdm(db_session, legacy)
+    _trade_in_transaction(
+        db_session, customer_id=_customer(db_session).id, vehicle_id=legacy.id, amount=Decimal("12000.00"),
+        transaction_date=dt.datetime(2024, 1, 10, tzinfo=dt.UTC),
+    )
+    sale_txn = _sale_transaction(
+        db_session, customer_id=_customer(db_session).id, vehicle_id=legacy.id, amount=Decimal("15000.00"),
+        transaction_date=dt.datetime(2024, 6, 20, tzinfo=dt.UTC),
+    )
+    db_session.commit()
+    run_migration(db_session, commit=True)
+    contract = db_session.query(SalesContract).filter_by(legacy_transaction_id=sale_txn.id).one()
+    assert contract.status == ContractStatus.CONFIRMED
+    assert contract.is_invoiceable is True  # the purchase gate alone would let it through
+
+    with pytest.raises(ConflictError) as excinfo:
+        request_invoice(db_session, contract=contract, actor_id=uuid.uuid4())
+
+    assert excinfo.value.details == {"reason": "legacy_sale"}
+    assert db_session.scalars(
+        select(OutboxMessage).where(
+            OutboxMessage.aggregate_id == contract.id, OutboxMessage.event_type == "sales.contract.invoice_requested"
+        )
+    ).all() == []
 
 
 def test_processing_order_is_driven_by_transaction_date_not_insertion_order(db_session):

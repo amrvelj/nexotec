@@ -175,7 +175,8 @@ class SalesContract(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, Timestam
     # KAN-26 (ADR-050): provenance + idempotency key for
     # scripts/migrate_transaction_rows.py, matching VehicleMdm.
     # migrated_from_legacy_vehicle_id's own precedent — never used for
-    # lookups by the live application, purely an audit trail and a
-    # "already migrated, do not re-migrate" guard. Null for every
-    # ordinarily-created contract.
+    # lookups by the live application: an audit trail, a "already
+    # migrated, do not re-migrate" guard, and (KAN-147) the mark that makes
+    # request_invoice refuse a sale the legacy system already invoiced.
+    # Null for every ordinarily-created contract.
     legacy_transaction_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True, index=True)

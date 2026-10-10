@@ -505,12 +505,23 @@ def request_invoice(db: Session, *, contract: SalesContract, actor_id: uuid.UUID
     in the query that loaded the contract — no call to Stock. A manually
     configured vehicle is refused too: confirmation makes it a pipeline
     stock item Sales is not told about, so Sales cannot see its purchase.
+
+    A contract migrated from the legacy `transaction` table is refused
+    whatever its purchase (Anto, 2026-10-10; KAN-147, ADR-050): the old
+    system invoiced it, and a second invoice would break the gapless
+    numbering's meaning (ADR-032). It stays CONFIRMED as migrated.
     """
 
     if contract.status != ContractStatus.CONFIRMED:
         raise ConflictError(
             f"Contract {contract.contract_number} cannot request invoicing from status "
             f"'{contract.status.value}'."
+        )
+    if contract.legacy_transaction_id is not None:
+        raise ConflictError(
+            f"Contract {contract.contract_number} was migrated from the legacy system, which invoiced it — "
+            f"it cannot be invoiced again.",
+            details={"reason": "legacy_sale"},
         )
     db.refresh(contract, ["is_invoiceable"])  # as of now, not as of when the caller loaded it
     if not contract.is_invoiceable:
