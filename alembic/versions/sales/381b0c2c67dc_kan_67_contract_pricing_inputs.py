@@ -15,7 +15,9 @@ yields the contract's own figures (same vehicle, same base, options,
 accessories, discount and price): an offer edited after its contract was
 created no longer describes that contract, and copying it would silently
 change the contract's price on its first edit. Such a contract keeps no
-inputs; its first vehicle edit freezes a fresh snapshot. Confirmed,
+inputs and its figures as they are: it is not editable (409
+`contract_priced_without_inputs`, services/contract_completeness.py) but can
+still be confirmed or cancelled. Confirmed,
 cancelled and invoiced contracts are frozen and get nothing; a contract
 created directly (no offer) has nothing to copy. Writes no outbox rows.
 Re-runnable: a contract that already has a snapshot or line items is

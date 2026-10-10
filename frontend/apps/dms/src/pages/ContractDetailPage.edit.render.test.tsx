@@ -190,6 +190,34 @@ describe('ContractDetailPage — a pending contract can be completed (KAN-67)', 
     expect(screen.queryByTestId('contract-edit')).not.toBeInTheDocument()
   })
 
+  it('a car with no price entered (CHF 0.00, pricing in progress) can still be confirmed — Anto, 2026-10-10', async () => {
+    installFakeBackend(
+      baseRoutes(() => ({
+        ...PRICED,
+        manualBasePrice: null,
+        basePrice: '0.00',
+        listPrice: '0.00',
+        grossPrice: '0.00',
+        payable: '0.00',
+        containers: PRICED.containers?.map((c) => (c.id === 'pricing' ? { ...c, status: 'in_progress' } : c)),
+      })),
+    )
+    renderPage()
+
+    expect(await screen.findByTestId('contract-edit')).toBeInTheDocument()
+    expect(screen.getByText(i18n.t('offerWorkspace.pricing.noPriceTitle'))).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: i18n.t('contractDetail.actions.confirm') })).toBeEnabled()
+  })
+
+  it('a contract priced before it kept its inputs shows why it cannot be edited, and can still be confirmed', async () => {
+    installFakeBackend(baseRoutes(() => ({ ...PRICED, vehicleSnapshotFrozenAt: null, manualBasePrice: null })))
+    renderPage()
+
+    expect(await screen.findByText(i18n.t('contractDetail.edit.pricedWithoutInputs'))).toBeInTheDocument()
+    expect(screen.queryByTestId('contract-edit')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: i18n.t('contractDetail.actions.confirm') })).toBeEnabled()
+  })
+
   it('renders the edit section in Italian', async () => {
     await i18n.changeLanguage('it')
     installFakeBackend(baseRoutes(() => EMPTY))

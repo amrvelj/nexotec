@@ -997,7 +997,8 @@
     "cancelReasonPrompt": "Grund für die Stornierung:",
     "edit": {
       "title": "Vertrag vervollständigen",
-      "hint": "Solange der Vertrag nicht bestätigt ist, lassen sich Fahrzeug, Preisaufbau und Eintauschfahrzeug hier ergänzen oder anpassen. Mit der Bestätigung wird er eingefroren."
+      "hint": "Solange der Vertrag nicht bestätigt ist, lassen sich Fahrzeug, Preisaufbau und Eintauschfahrzeug hier ergänzen oder anpassen. Mit der Bestätigung wird er eingefroren.",
+      "pricedWithoutInputs": "Dieser Vertrag wurde bepreist, bevor Verträge ihre Preisgrundlagen speicherten. Er kann so bestätigt oder storniert, aber nicht mehr angepasst werden."
     }
   },
   "offerWorkspace": {

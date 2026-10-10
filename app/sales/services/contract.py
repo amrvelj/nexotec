@@ -238,8 +238,9 @@ def update_contract(
 
 def _pricing_snapshot(contract: SalesContract) -> dict:
     """The price build-up as it stood at confirmation — the contract's own
-    frozen columns (WP-8 PR-7, copied from the offer at creation and never
-    recomputed), not a recomputation at publish time. A frozen snapshot
+    columns (WP-8 PR-7, copied from the offer at creation and, since
+    KAN-67, rebuilt only while the contract is pending; confirmation
+    freezes them), not a recomputation at publish time. A frozen snapshot
     that could drift would not be a snapshot.
 
     Entity-private figures — `margin`, `trade_in_purchase_price`,

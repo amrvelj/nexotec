@@ -40,7 +40,11 @@ from app.sales.services.contract import (
 from app.sales.services.document import generate_contract_document
 from app.sales.services.line_items import list_line_items, replace_line_items
 from app.sales.services.offer import update_offer
-from app.sales.services.trade_in import set_trade_in
+from app.sales.services.priced_deal import compute_containers
+from app.sales.services.trade_in import attach_trade_in_valuation, set_trade_in
+from app.valuation.models.valuation import ValuationSource
+from app.valuation.schemas.valuation import ValuationCreate
+from app.valuation.services.valuation import create_valuation
 from tests.test_configurator_hosts import _build_configuration, _record_configuration
 from tests.test_sales_lifecycle_reservation import _customer, _dealership, _session_factory
 from tests.test_sales_offer_refinements import _offer_with_vehicle, _stock_item
@@ -182,23 +186,63 @@ def test_a_contract_takes_accessories_and_option_changes_through_its_own_line_it
     assert contract.gross_price == Decimal("38150.00")
 
 
+def _valuation(db_session, dealership_id: uuid.UUID, group_id: uuid.UUID, vin: str, final_offer: Decimal):
+    return create_valuation(
+        db_session, tenant_id=dealership_id, group_id=group_id,
+        data=ValuationCreate(vin=vin, source=ValuationSource.MANUAL, final_offer=final_offer),
+        actor_id=uuid.uuid4(),
+    )
+
+
+def _manual_car(db_session, contract: SalesContract, price: str = "18000.00") -> SalesContract:
+    return _edit(
+        db_session, contract, vehicle_source="manual", vehicle_label="Volkswagen Käfer",
+        manual_vehicle_condition="used", manual_base_price=Decimal(price),
+    )
+
+
 def test_a_trade_in_on_a_contract_reduces_what_the_customer_pays(db_session):
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
-    contract = _customer_born_contract(db_session, dealership.id, group_id)
-    contract = _edit(
-        db_session, contract, vehicle_source="manual", vehicle_label="Volkswagen Käfer",
-        manual_vehicle_condition="used", manual_base_price=Decimal("18000.00"),
-    )
+    contract = _manual_car(db_session, _customer_born_contract(db_session, dealership.id, group_id))
 
     contract = set_trade_in(
         db_session, deal=contract, group_id=group_id, vin="WVWZZZ1KZAW000001", plate=None, canton=None,
         vehicle_label="Opel Corsa", customer_id=None, actor_id=uuid.uuid4(),
     )
+    assert (contract.trade_in_vin, contract.trade_in_label) == ("WVWZZZ1KZAW000001", "Opel Corsa")
+    valuation = _valuation(db_session, dealership.id, group_id, "WVWZZZ1KZAW000001", Decimal("6000.00"))
 
-    assert contract.trade_in_vehicle_id is not None
-    assert contract.trade_in_vin == "WVWZZZ1KZAW000001"
-    assert contract.trade_in_label == "Opel Corsa"
+    contract = attach_trade_in_valuation(db_session, deal=contract, valuation_id=valuation.id, actor_id=uuid.uuid4())
+
+    assert contract.trade_in_valuation_id == valuation.id
+    assert contract.trade_in_value == Decimal("6000.00")
+    assert contract.gross_price == Decimal("18000.00")
+    assert contract.payable == Decimal("12000.00")
+
+
+# --- CHF 0.00 is a price (Anto, 2026-10-10) ---------------------------------------
+
+
+def test_a_car_without_a_price_entered_is_signed_at_chf_0(db_session, engine):
+    """Product owner's ruling: build_up() turns a car with no base price into
+    CHF 0.00, and that may be confirmed and printed — only an empty price is
+    missing_price. The pricing container still flags it as in progress."""
+
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    contract = _customer_born_contract(db_session, dealership.id, group_id)
+    contract = _edit(db_session, contract, vehicle_source="manual", vehicle_label="Volkswagen Käfer",
+                     manual_vehicle_condition="used")
+    assert contract.gross_price == Decimal("0.00")
+    assert {c.id: c.status for c in compute_containers(contract)}["pricing"] == "in_progress"
+
+    assert generate_contract_document(db_session, contract=contract, actor_id=None).version == 1
+    contract = confirm_contract(
+        db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(),
+        session_factory=_session_factory(engine),
+    )
+    assert contract.status == ContractStatus.CONFIRMED
 
 
 # --- frozen on confirm, closed on cancel ---------------------------------------
@@ -216,6 +260,7 @@ def test_a_confirmed_contract_cannot_be_edited(db_session, engine):
         db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(),
         session_factory=_session_factory(engine),
     )
+    valuation = _valuation(db_session, dealership.id, group_id, "WVWZZZ1KZAW777777", Decimal("9000.00"))
 
     for edit in (
         lambda: _edit(db_session, contract, discount_type="amount", discount_value=Decimal("1000.00")),
@@ -226,6 +271,9 @@ def test_a_confirmed_contract_cannot_be_edited(db_session, engine):
             db_session, deal=contract, group_id=group_id, vin="WVWZZZ1KZAW000001", plate=None, canton=None,
             vehicle_label="Opel Corsa", customer_id=None, actor_id=uuid.uuid4(),
         ),
+        lambda: attach_trade_in_valuation(  # review finding: this route skipped the freeze
+            db_session, deal=contract, valuation_id=valuation.id, actor_id=uuid.uuid4()
+        ),
     ):
         with pytest.raises(ConflictError) as refused:
             edit()
@@ -233,6 +281,7 @@ def test_a_confirmed_contract_cannot_be_edited(db_session, engine):
 
     db_session.refresh(contract)
     assert contract.gross_price == Decimal("18000.00")
+    assert (contract.payable, contract.trade_in_valuation_id) == (Decimal("18000.00"), None)
 
 
 def test_a_cancelled_contract_cannot_be_edited(db_session):
@@ -548,3 +597,44 @@ def test_the_migration_skips_a_contract_whose_offer_changed_and_every_signed_one
     assert db_session.get(SalesContract, drifted.id).vehicle_snapshot is None
     assert db_session.get(SalesContract, signed.id).vehicle_snapshot is None
     assert list_line_items(db_session, deal=db_session.get(SalesContract, signed.id)) == []
+
+
+def test_a_contract_priced_without_inputs_is_not_editable_but_still_confirms(db_session, engine):
+    """Review finding: a pending offer-born contract the backfill skipped has
+    figures but no snapshot or lines; rebuilding would start from nothing
+    (38'800 -> 150). It is refused by reason, and it can still be signed
+    as it stands."""
+
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    item = _stock_item(db_session, dealership.id)
+    offer = _offer_with_vehicle(db_session, dealership.id, item, group_id=group_id)
+    offer.customer_id = _customer(db_session, group_id).id
+    db_session.commit()
+    contract = create_contract(db_session, tenant_id=dealership.id, offer=offer, actor_id=uuid.uuid4())
+    _as_before_the_migration(db_session, contract)
+    db_session.expire_all()
+    contract = db_session.get(SalesContract, contract.id)
+    assert {c.id: c.status for c in compute_containers(contract)}["pricing"] == "complete"
+
+    for edit in (
+        lambda: _edit(db_session, contract, discount_type="amount", discount_value=Decimal("100.00")),
+        lambda: replace_line_items(
+            db_session, deal=contract,
+            data=LineItemsReplaceRequest(
+                accessories=[LineItemAccessoryInput(code="MATS", label="Fussmatten", unit_price=Decimal("150.00"))]
+            ),
+            actor_id=uuid.uuid4(),
+        ),
+    ):
+        with pytest.raises(ConflictError) as refused:
+            edit()
+        assert refused.value.details["reason"] == "contract_priced_without_inputs"
+
+    db_session.refresh(contract)
+    assert contract.gross_price == Decimal("38800.00")
+    contract = confirm_contract(
+        db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(),
+        session_factory=_session_factory(engine),
+    )
+    assert contract.status == ContractStatus.CONFIRMED

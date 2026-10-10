@@ -128,8 +128,10 @@ class SalesContract(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, Timestam
     margin: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
 
     # WP-8 PR-6 — trade-in, copied from the offer at creation (S-D18's
-    # "vehicle AND allocation happen at OFFER time" — the contract only
-    # carries the read-only reference forward). At confirmation (KAN-101)
+    # "vehicle AND allocation happen at OFFER time"); since KAN-67
+    # (ADR-083) a pending contract may also record its own, through the
+    # offer's trade-in service — a read-only reference all the same. At
+    # confirmation (KAN-101)
     # the valuation is consumed through app.valuation.public, and its id
     # travels in the sales.contract.confirmed payload so inventory can set
     # the pipeline stock item's valuation pointer when it creates the item.

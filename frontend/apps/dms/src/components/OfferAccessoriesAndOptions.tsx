@@ -86,7 +86,13 @@ export function OfferAccessoriesAndOptions<D extends SalesPricedDealRead>({
       onDealUpdated(updated)
       await queryClient.invalidateQueries({ queryKey: lineItemsKey })
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t('offerWorkspace.lineItems.error'))
+      // KAN-67 — a contract that is no longer editable is said in the
+      // user's language; other refusals keep the server's explanation (a
+      // used car's per-line discount needs a reason, …), as before.
+      const reason = err instanceof ApiError ? (err.details as { reason?: unknown } | null)?.reason : null
+      if (reason === 'contract_not_pending') setError(t('contractDetail.errors.editRefused.notPending'))
+      else if (reason === 'contract_priced_without_inputs') setError(t('contractDetail.edit.pricedWithoutInputs'))
+      else setError(err instanceof ApiError ? err.message : t('offerWorkspace.lineItems.error'))
     }
   }
 

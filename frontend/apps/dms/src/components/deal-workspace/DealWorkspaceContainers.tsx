@@ -33,10 +33,11 @@ import type {
  * `patch` is the host's own autosave PATCH. It must read the deal's
  * current version itself (the hosts keep it in a ref), because the
  * configurator overlay calls it from a closure that can outlive the render
- * it was created in. It rejects when the server refuses the edit; the host
- * reports that itself (the contract shows why — confirmed elsewhere, stale
- * version), so the fire-and-forget callers here only stop the rejection
- * going unhandled, while the configurator turns it into its own error.
+ * it was created in. It rejects when the server refuses the edit. The
+ * contract page reports why (confirmed elsewhere, stale version); the offer
+ * workspace shows nothing, as before this extraction, when its autosave
+ * fails. The fire-and-forget callers here only stop the rejection going
+ * unhandled; the configurator turns it into its own error.
  */
 export interface DealContainerProps<D extends SalesPricedDealRead> {
   ownerType: SalesDealOwnerType

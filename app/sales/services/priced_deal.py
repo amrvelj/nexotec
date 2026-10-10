@@ -23,7 +23,11 @@ from app.sales.models.contract import ContractStatus, SalesContract
 from app.sales.models.line_item import SalesLineItem
 from app.sales.models.offer import OfferStatus, SalesOffer
 from app.sales.schemas.offer import OfferContainerState
-from app.sales.services.contract_completeness import has_vehicle
+from app.sales.services.contract_completeness import (
+    has_base_price,
+    has_vehicle,
+    is_priced_without_inputs,
+)
 from app.sales.services.deal_projection import upsert_deal_projection
 
 PricedDeal = SalesOffer | SalesContract
@@ -38,13 +42,24 @@ def number(deal: PricedDeal) -> str:
 def require_editable(deal: PricedDeal) -> None:
     """An offer is edited while it is a draft; a contract while it is
     pending. A contract's refusal names `contract_not_pending` so the UI can
-    say why (confirmed = signed and frozen; cancelled = closed)."""
+    say why (confirmed = signed and frozen; cancelled = closed), or
+    `contract_priced_without_inputs` for one whose price predates its inputs
+    (contract_completeness.is_priced_without_inputs)."""
 
     if isinstance(deal, SalesContract):
         if deal.status != ContractStatus.PENDING:
             raise ConflictError(
                 f"Contract {deal.contract_number} can no longer be edited (status '{deal.status.value}').",
                 details={"reason": "contract_not_pending", "status": deal.status.value},
+            )
+        if is_priced_without_inputs(deal):
+            # Rebuilding its price would start from nothing (no snapshot, no
+            # lines) and rewrite a figure the customer may already have
+            # seen; it can still be confirmed or cancelled as it stands.
+            raise ConflictError(
+                f"Contract {deal.contract_number} was priced before contracts kept their pricing inputs and "
+                f"cannot be edited. Confirm it as it stands, or cancel it and create a new one.",
+                details={"reason": "contract_priced_without_inputs"},
             )
         return
     if deal.status != OfferStatus.DRAFT:
@@ -100,15 +115,10 @@ def compute_containers(deal: PricedDeal) -> list[OfferContainerState]:
     """
 
     vehicle = has_vehicle(deal)
-    # WP-8 PR-3 — "complete" means a REAL price exists to build from, not
-    # merely "gross_price is not None" (build_up() always materializes a
-    # value, including a legitimate Decimal(0) for an unpriced manual
-    # config — that is not the same thing as "priced").
-    has_base_price = (deal.vehicle_source == "manual" and deal.manual_base_price is not None) or (
-        deal.vehicle_source == "stock"
-        and deal.vehicle_snapshot is not None
-        and deal.vehicle_snapshot.get("basePrice") is not None
-    )
+    # "complete" means a REAL base price (contract_completeness.has_base_price)
+    # — a hint, not the confirm gate: a contract may be signed at CHF 0.00
+    # (Anto, 2026-10-10). One priced without inputs is complete as it stands.
+    priced = has_base_price(deal) or (isinstance(deal, SalesContract) and is_priced_without_inputs(deal))
     containers = [
         OfferContainerState(
             id="customer",
@@ -119,7 +129,7 @@ def compute_containers(deal: PricedDeal) -> list[OfferContainerState]:
         OfferContainerState(
             id="pricing",
             requirement="required",
-            status="complete" if has_base_price else ("in_progress" if vehicle else "not_started"),
+            status="complete" if priced else ("in_progress" if vehicle else "not_started"),
         ),
         OfferContainerState(
             id="trade_in",

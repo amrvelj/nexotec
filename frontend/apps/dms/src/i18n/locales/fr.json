@@ -997,7 +997,8 @@
     "cancelReasonPrompt": "Motif de l'annulation :",
     "edit": {
       "title": "Compléter le contrat",
-      "hint": "Tant que le contrat n'est pas confirmé, le véhicule, la composition du prix et la reprise peuvent être complétés ou ajustés ici. La confirmation le fige."
+      "hint": "Tant que le contrat n'est pas confirmé, le véhicule, la composition du prix et la reprise peuvent être complétés ou ajustés ici. La confirmation le fige.",
+      "pricedWithoutInputs": "Ce contrat a été chiffré avant que les contrats ne conservent leurs bases de prix. Il peut être confirmé ou annulé tel quel, mais plus ajusté."
     }
   },
   "offerWorkspace": {

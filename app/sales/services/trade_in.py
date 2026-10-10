@@ -106,9 +106,16 @@ def attach_trade_in_valuation(
     candidate default), or after creating a brand new one via
     app.valuation.public. A read-only reference (S-D04): only the id and
     final_offer are copied, never the valuation's own inputs/deductibles.
+
+    KAN-67: refused like every other edit once the deal is no longer
+    editable — a signed contract's valuation and payable are frozen with
+    the rest of it (and its valuation is already stamped used), and an offer
+    that left draft is no longer edited either.
     """
 
     from app.valuation.public import get_valuation_or_404
+
+    require_editable(deal)
 
     valuation = get_valuation_or_404(db, deal.tenant_id, valuation_id)
     _attach(deal, valuation)

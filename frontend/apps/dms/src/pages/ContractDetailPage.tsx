@@ -99,6 +99,7 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
       const details = (err.details ?? {}) as Record<string, unknown>
       if (details.currentVersion != null) return t('contractDetail.errors.editRefused.staleVersion')
       if (details.reason === 'contract_not_pending') return t('contractDetail.errors.editRefused.notPending')
+      if (details.reason === 'contract_priced_without_inputs') return t('contractDetail.edit.pricedWithoutInputs')
     }
     return t('contractDetail.errors.editRefused.generic')
   }
@@ -209,7 +210,13 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
   // (KAN-58) has no vehicle and no price. Mirror the backend's own
   // completeness guard here (ADR-061: don't invite a click that will only
   // be refused) rather than waiting for the 409 to say so.
+  // CHF 0.00 counts as a price (Anto, 2026-10-10, KAN-67) — only an empty
+  // one is refused, as on the server.
   const isEmpty = contract.vehicleSource == null || contract.grossPrice == null
+  // A contract priced before contracts kept their pricing inputs: its
+  // figures stand, but the server refuses to rebuild them (409
+  // contract_priced_without_inputs) — say so instead of offering editors.
+  const pricedWithoutInputs = contract.vehicleSnapshotFrozenAt == null && contract.grossPrice != null
   const confirmDisabledReason = !isPending
     ? t('contractDetail.actions.confirmDisabledReason')
     : isEmpty
@@ -298,7 +305,13 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
 
       {contract.financing && <Text size="sm" c="dimmed">{t('contractDetail.financing')}: {t(`salesEnums.financing.${contract.financing}`)}</Text>}
 
-      {isPending && (
+      {isPending && pricedWithoutInputs && (
+        <Alert color="gray" data-testid="contract-priced-without-inputs">
+          {t('contractDetail.edit.pricedWithoutInputs')}
+        </Alert>
+      )}
+
+      {isPending && !pricedWithoutInputs && (
         <Stack gap="md" data-testid="contract-edit">
           <div>
             <Title order={4}>{t('contractDetail.edit.title')}</Title>

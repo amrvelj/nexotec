@@ -80,14 +80,20 @@ against the code). "Open" lines cite a ticket; /drift-audit re-checks them weekl
   PRD-Sales S-D10 was corrected to match on 2026-10-04.
 - A contract needs a vehicle and a price before it can be confirmed — and before its document
   can be generated (`services/contract_completeness.py`, one rule for both; KAN-67).
-- **A pending contract is editable, a confirmed one frozen** (ADR-083 draft, Anto 2026-10-10,
-  KAN-67): `PATCH /sales/contracts/{id}`, `.../trade-in`, `.../trade-in/valuation` and
-  `.../line-items` take the offer's own request bodies and run the offer's own code — snapshot,
-  build-up, line items and trade-in take a `PricedDeal` (`services/priced_deal.py`), and
-  `services/deal_editing.py` is the one vehicle-and-price edit for both. `sales_contract` holds
-  the same pricing inputs as `sales_offer`; a contract from an offer copies them and its line
-  items (`contract_id`). Any other state refuses with `contract_not_pending`. An edit publishes
-  no event. Never give the contract a second copy of a pricing rule.
+- **A pending contract is editable, a confirmed one frozen** (Anto 2026-10-10, KAN-67; ADR-083
+  drafted, not yet in the log): `PATCH /sales/contracts/{id}` (`ContractUpdate`: the
+  vehicle-and-price subset of `OfferUpdate`, no customer), and `.../trade-in`,
+  `.../trade-in/valuation` and `.../line-items` with the offer's own request bodies. All run the
+  offer's own code — snapshot, build-up, line items and trade-in take a `PricedDeal`
+  (`services/priced_deal.py`), and `services/deal_editing.py` is the one vehicle-and-price edit
+  for both. `sales_contract` holds the same pricing inputs as `sales_offer`; a contract from an
+  offer copies them and its line items (`contract_id`). Every one of these routes refuses a
+  contract that is not pending (`contract_not_pending`) and one priced before contracts kept
+  their inputs (`contract_priced_without_inputs`; it can still be confirmed or cancelled).
+  An edit publishes no event. Never give the contract a second copy of a pricing rule.
+- **CHF 0.00 is a price** (Anto, 2026-10-10, KAN-67): a car whose base price was never entered
+  builds to 0.00 and may be confirmed and printed; only an empty price is `missing_price`
+  (`contract_completeness.has_price`). The pricing container still shows "in progress" for it.
 - **A trade-in valuation past its validity refuses confirmation** (`trade_in_valuation_expired`,
   KAN-101); confirmation consumes the valuation first, then reserves the car — see
   `.claude/rules/valuation.md`. Contracts before KAN-101 were confirmed without marking their

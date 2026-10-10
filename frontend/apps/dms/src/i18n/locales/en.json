@@ -997,7 +997,8 @@
     "cancelReasonPrompt": "Reason for cancellation:",
     "edit": {
       "title": "Complete the contract",
-      "hint": "Until the contract is confirmed, its vehicle, price build-up and trade-in can be added or adjusted here. Confirming freezes it."
+      "hint": "Until the contract is confirmed, its vehicle, price build-up and trade-in can be added or adjusted here. Confirming freezes it.",
+      "pricedWithoutInputs": "This contract was priced before contracts kept their pricing inputs. It can be confirmed or cancelled as it stands, but no longer adjusted."
     }
   },
   "offerWorkspace": {

@@ -9,7 +9,7 @@ from sqlalchemy import select
 from app.core.errors import ConflictError, NotFoundError
 from app.customer.public import VehiclePartyRole, list_vehicle_parties
 from app.sales.schemas.offer import OfferUpdate
-from app.sales.services.offer import create_offer, update_offer
+from app.sales.services.offer import cancel_offer, create_offer, update_offer
 from app.sales.services.trade_in import attach_trade_in_valuation, set_trade_in
 from app.valuation.models.valuation import ValuationSource
 from app.valuation.schemas.valuation import ValuationCreate
@@ -125,6 +125,28 @@ def test_attach_trade_in_valuation_explicit(db_session):
     offer = attach_trade_in_valuation(db_session, deal=offer, valuation_id=second.id, actor_id=uuid.uuid4())
     assert offer.trade_in_valuation_id == second.id
     assert offer.trade_in_value == Decimal(9500)
+
+
+def test_attaching_a_valuation_to_an_offer_that_left_draft_is_refused(db_session):
+    """KAN-67: attach_trade_in_valuation now checks, like set_trade_in always
+    did, that the deal is still editable — a non-draft offer is not."""
+
+    tenant_id = uuid.uuid4()
+    valuation = create_valuation(
+        db_session, tenant_id=tenant_id, group_id=uuid.uuid4(),
+        data=ValuationCreate(vin="WVWZZZ1KZAW333333", source=ValuationSource.MANUAL, final_offer=Decimal(9000)),
+        actor_id=uuid.uuid4(),
+    )
+    offer = cancel_offer(
+        db_session, offer=create_offer(db_session, tenant_id=tenant_id, actor_id=uuid.uuid4()),
+        reason="Kunde verzichtet", actor_id=uuid.uuid4(),
+    )
+
+    with pytest.raises(ConflictError):
+        attach_trade_in_valuation(db_session, deal=offer, valuation_id=valuation.id, actor_id=uuid.uuid4())
+
+    db_session.refresh(offer)
+    assert offer.trade_in_valuation_id is None
 
 
 def test_plate_only_without_a_decisive_match_is_refused(db_session):
