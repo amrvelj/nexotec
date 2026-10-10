@@ -8,16 +8,20 @@ paths:
   - "app/sales/reconciliation.py"
   - "app/inventory/reconciliation.py"
   - "frontend/apps/dms/src/**/*aluation*"
+  - "app/inventory/services/valuation.py"
+  - "app/inventory/schemas/valuation.py"
+  - "frontend/packages/ui-kit/src/components/Valuation*Badge.tsx"
+  - "alembic/versions/valuation/**"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises PRD-Vehicles (FR-V-09,
-FR-V-17), ADR-029, ADR-048 as amended, ADR-066, ADR-070. Verified against main@568f416 on
-2026-09-28 (every present-tense claim checked against the code). Fix this file in the same PR
+FR-V-17), ADR-029, ADR-048 as amended, ADR-066, ADR-070, ADR-074. Verified against
+main@7805816 on 2026-10-10 (every present-tense claim checked against the code). Fix this file in the same PR
 as any change to what it states. -->
 
 # Valuations
 
 - **`valuation` is its own bounded context** — "a dated commercial opinion, not a vehicle
-  fact", with its own audit and retention rules. Not under `vehicle` (vehicle identity is
+  fact"; the PRD gives it its own audit and retention rules, not implemented yet. Not under `vehicle` (vehicle identity is
   global, valuations are tenant-private) and not under `sales` (Sales owns the trade-in
   workflow, not the valuation record).
 - **Single writer.** Sales and Stock hold a `valuationRef` and read the same record; there is
@@ -29,8 +33,9 @@ as any change to what it states. -->
   figure is **marked manual everywhere it renders**.
 - **A valuation is a standalone application**: creatable with no customer, no offer and no
   vehicle in the register. It carries a **validity period**.
-- **Status `draft → valid → expired`** (plus `used` once a contract consumes it) is **derived
-  on read** — never stored, never repaired by a nightly job.
+- **Status `draft → valid → expired`** (plus `used` once a contract consumes it, or once the
+  manual `POST /v1/valuations/{id}/mark-used` correction sets it) is **derived on read** from
+  `is_draft`, `valid_until` and `used_at` — never stored, never repaired by a nightly job.
 - **A contract consumes its trade-in valuation at confirmation** (KAN-101):
   `sales/services/contract.py::confirm_contract` calls
   `valuation.public.consume_valuation_for_contract` on its own session (ADR-047), **before**
@@ -59,10 +64,12 @@ as any change to what it states. -->
   compensation race; repaired by hand as above); a `stock_item.valuation_ref_id` naming no
   valuation, or a `valuation_ref_amount` that differs from its `final_offer`
   (`inventory/reconciliation.py`). Nothing writes `used_at` from these checks.
-- **Stock's `valuationRef`** on a trade-in is set when inventory's `sales.contract.confirmed`
-  consumer creates the pipeline item (`inventory/services/pipeline.py`, from
-  `tradeIn.valuationId`) — the item does not exist when Sales confirms, so Sales never calls
-  `inventory.public.set_valuation_ref` (which still has no production caller).
+- **Stock's `valuationRef`** on a trade-in (ADR-074) is set when inventory's
+  `sales.contract.confirmed` consumer creates the pipeline item (`inventory/services/pipeline.py`,
+  from `tradeIn.valuationId`, read through `valuation.public` in the same transaction) — the
+  item does not exist when Sales confirms, so Sales never calls
+  `inventory.public.set_valuation_ref` (which still has no production caller). The event
+  carries only the id, never the figure.
 - **ADR-070** (amending FR-V-17): a *configuration* never writes vehicle-mdm; it attaches to a
   valuation. A valuation created **with** a `configurationId` (`record` mode only, KAN-10)
   takes its vehicle fields from it and creates no vehicle-mdm record; created **without** one,

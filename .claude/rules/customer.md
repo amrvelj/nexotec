@@ -6,12 +6,14 @@ paths:
   - "frontend/apps/dms/src/components/DuplicateWarningPanel.tsx"
   - "frontend/apps/dms/src/components/PhoneInput.tsx"
   - "app/core/postal_codes.py"
+  - "frontend/apps/dms/src/hooks/useAdvisorOptions.ts"
+  - "tests/test_customer*.py"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises PRD-Customers v2.2 (incl. its
-§Conformance review, rulings D-03…D-26), ADR-014, ADR-064, ADR-065, ADR-067. Verified against
-main@568f416 on 2026-09-27; the vehicle-party lines against KAN-99's branch on
-2026-10-04, the cross-group close detection against KAN-139's branch on 2026-10-06. Fix this file in the same PR as any change to what it states;
-/drift-audit re-checks it weekly. -->
+§Conformance review, rulings D-03…D-26), ADR-014, ADR-030, ADR-064, ADR-065, ADR-067.
+Verified against main@7805816 on 2026-10-10 (every present-tense claim checked against the
+code). Fix this file in the same PR as any change to what it states; /drift-audit re-checks it
+weekly. -->
 
 # Customers
 
@@ -22,8 +24,9 @@ main@568f416 on 2026-09-27; the vehicle-party lines against KAN-99's branch on
   dedupe path, not two. The scope column is `group_id`, never `tenant_id`. Numbers come from a
   per-group sequence, allocated inside the caller's transaction (a rollback re-issues).
 - Sharing a customer between sister dealerships shares it between separate legal entities
-  (data controllers). A revDSG legal basis is needed before a real multi-dealership group
-  holds data — raise it, do not decide it.
+  (data controllers). The evidence record exists (`LegalBasis`, ADR-030, append-only;
+  `enable_group_read` refuses without one); whether a real group may share data is the open
+  legal question — raise it, do not decide it.
 
 ## Contact channels (ADR-067) — child records, not columns
 
@@ -38,25 +41,30 @@ main@568f416 on 2026-09-27; the vehicle-party lines against KAN-99's branch on
   row primary; otherwise that group's existing primary stays and the moved row is demoted — a
   type change never silently demotes another row. Joining a group with no primary elects it.
   A row the same PATCH closes or flags `doNotUse` never takes the flag, `isPrimary: true` or not.
-- **Not yet enforced:** reopening a row (`validTo: null`, `doNotUse: false`) in a group with no
-  usable row leaves that group without a primary; the projection's oldest-usable fallback
-  covers the grid. KAN-113.
-- The grid's `Mobile` / `Email` / `Work phone` are **read-model projections**, computed and
-  never stored. Fallback: the flagged primary among usable rows, else the oldest usable row,
-  else null. **Never add a flat column** — the cheap implementation is exactly what this
-  decision removed.
-- `consent.scope` (marketing / invoicing / service) and `consentSource` as an enum
-  (form / counter / web / phone) — see FR-23.
+- **Not yet enforced:** two paths leave a type-group with usable rows and no primary — reopening
+  a row (`validTo: null`, `doNotUse: false`) in a group with no usable row (KAN-113), and
+  creating a row without `isPrimary: true` in a group whose rows are all closed or `doNotUse`
+  (create elects only the first row of a type ever written; KAN-151). The projection's
+  oldest-usable fallback covers the grid.
+- The six contact projections — `phoneMobile`, `phoneLandline`, `phoneWork`, `email`,
+  `emailSecondary`, `address` (primary domicile) — are **read-model projections**, computed and
+  never stored. Per type: the flagged primary among usable rows, else the oldest usable row,
+  else null; `email` is personal, else work; `emailSecondary` is work when distinct. **Never
+  add a flat column** — the cheap implementation is exactly what this decision removed.
+- `consentScope` (marketing / invoicing / service; required on a new grant, NULL on a legacy row
+  reads as marketing) and `consentSource` as an enum (form / counter / web / phone) — see FR-23.
 
 ## Rulings (all closed — do not re-open)
 
 - **D-17 — a marketing send requires three gates:** `marketingConsent` (the legal basis under
-  revDSG) · per-channel `consent.scope = marketing` · `newsletter` (the subscription, one
-  boolean, permanently).
-- **D-20 — the address is optional at creation**; an address-less customer is gated at the
-  **contract**, not the offer.
+  revDSG) · per-channel `consentGranted` with `consentScope = marketing` (read through
+  `channel_authorises_marketing`; no caller yet — Marketing is not built) · `newsletter` (the
+  subscription, one boolean, permanently).
+- **D-20 — the address is optional at creation**; an address-less customer is gated at contract
+  **confirmation**, not at the offer or at contract creation.
 - **D-21 — `preferredChannel`** ∈ `email` / `phone` / `post` / `whatsapp`. The retired
-  `message` value has no clean target: report such rows, never map them to `whatsapp`.
+  `message` value is still an enum member (old rows load) and the API still accepts it on write
+  — only the UI omits it. Report such rows, never map them to `whatsapp`.
 - **D-22** — salutation `herr` / `frau` / `firma` / `neutral`, for persons and businesses.
   Gender is independent (`female` / `male` / `other` / `unspecified`) — **never inferred from
   the salutation**.
@@ -64,7 +72,8 @@ main@568f416 on 2026-09-27; the vehicle-party lines against KAN-99's branch on
   on create only; nullable and clearable. **D-25** — the list offers Export and Print; there
   is **no bulk anonymise**. **D-26** — the field is `creditBlock`, with `creditBlockedAt`.
 - **Legal form** is one of six codes (`ag`, `gmbh`, `einzelfirma`, `verein`, `genossenschaft`,
-  `weitere`) with localised labels. SA, Sàrl and Sagl are the French/Italian *names* of AG and
+  `weitere`). Labels are meant to be localised; today they are hardcoded German in
+  `customerOptions.ts` (KAN-104). SA, Sàrl and Sagl are the French/Italian *names* of AG and
   GmbH, not separate forms; the registered name keeps its own suffix.
 - **Canton is derived server-side from the postal code (D-13)** and never accepted from the
   client. It is not a removable field: the list filter, a grid column and the audit trail
@@ -72,18 +81,22 @@ main@568f416 on 2026-09-27; the vehicle-party lines against KAN-99's branch on
 
 ## Blocks and flags
 
-- **ADR-065 — a credit block stops the contract, not the offer** (quoting a blocked customer
-  is often how the block gets resolved). **Do-not-contact is a different flag** and stops both.
+- **ADR-065 — a credit block stops contract confirmation, not the offer** (quoting a blocked
+  customer is often how the block gets resolved). **Do-not-contact is a different fact** — the
+  `lifecycleStatus` value `do_not_contact`, not a flag — and stops the offer and the contract.
 - A credit block must be visible on the customer's own screens, not only inside the offer.
 
 ## Vehicles and parties
 
 - **ADR-064 — vehicle–customer links carry a role and are time-bounded.** Owner, keeper
   (Halter) and driver are different parties often enough that collapsing them loses what a
-  seller needs. A new holder **closes** the previous row instead of overwriting it — including
-  the transfer on `finance.invoice.issued`.
-- Allocation resolves against `vehicle_mdm`, never the frozen legacy `vehicle` table, and must
-  check that both sides belong to the caller's group (404, never a cross-group link).
+  seller needs. A new holder **closes** the previous row instead of overwriting it
+  (`allocate_vehicle_party`). **Not built:** the transfer on `finance.invoice.issued` (WP-9,
+  KAN-74).
+- Allocation resolves the vehicle against `vehicle_mdm` (global, ADR-022), never the frozen
+  legacy `vehicle` table — `allocate_vehicle_party` does not look it up, so its callers resolve
+  it first (the allocate routes 404 an unknown one; the offer trade-in creates or gets it) — and
+  resolves the customer in the caller's group (404, never a cross-group link).
 - **Holders are per dealer group** (Anto's ruling on KAN-99, 2026-10-04): the VIN is global
   (`vehicle_mdm`), but each group keeps its own owner/keeper/driver history for it.
   `allocate_vehicle_party` resolves the customer in the caller's group (404 otherwise — this

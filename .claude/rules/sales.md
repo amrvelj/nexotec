@@ -6,10 +6,14 @@ paths:
   - "frontend/apps/dms/src/**/*ontract*"
   - "frontend/apps/dms/src/**/*ales*"
   - "frontend/apps/dms/src/components/PriceBuildUp.tsx"
+  - "frontend/packages/ui-kit/src/components/Sales*"
+  - "frontend/packages/ui-kit/src/components/DocumentPreview.tsx"
+  - "tests/architecture/test_margin_never_in_rendered_document.py"
+  - "tests/architecture/test_no_vat_treatment_field.py"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises PRD-Sales v2 (S-D10),
 ADR-041, ADR-046, ADR-047, ADR-049, ADR-050, ADR-051, ADR-052, ADR-057, ADR-063, ADR-065 and
-KAN-66/68/71. Verified against main@568f416 on 2026-09-28 (every present-tense claim checked
+KAN-66/68/71. Verified against main@7805816 on 2026-10-10 (every present-tense claim checked
 against the code). "Open" lines cite a ticket; /drift-audit re-checks them weekly. -->
 
 # Sales: offers, contracts, pricing, documents
@@ -41,8 +45,8 @@ against the code). "Open" lines cite a ticket; /drift-audit re-checks them weekl
 - **ADR-050** — `sales_contract` supersedes the legacy `transaction` table. Legacy rows move via
   `scripts/migrate_transaction_rows.py`: dry-run by default, idempotent, written directly
   through the ORM and **publishing no outbox events** (a years-old sale must not look like
-  today's business to live consumers); its dry run reports exactly what the real run would
-  write.
+  today's business to live consumers). Its dry run writes nothing but does not flush, so a
+  same-pass VIN reuse or `vehicle_already_in_stock` conflict shows only in the `--commit` report.
 
 ## Price and VAT (ADR-057)
 
@@ -51,14 +55,16 @@ against the code). "Open" lines cite a ticket; /drift-audit re-checks them weekl
   no `vatTreatment`** anywhere — do not reintroduce one.
 - VAT is **one line on the printed document only**, computed at the dealership's
   `Dealership.vat_rate` (Notion calls it `dealer_settings.vat_rate` — no such table exists) in
-  `app/sales/services/document.py::_price_build_up_lines` (label key `priceBuildUp.includedVat`).
+  `app/sales/services/document.py::_price_build_up_lines` (label key `priceBuildUp.includedVat`);
+  a dealership with no `vat_rate` gets no VAT line, never a guessed rate.
 - **The VAT base when a trade-in is involved is undecided (KAN-68).** Today the line is
   computed on `payable` (after the trade-in), else the gross price (`document.py`). Leave that
   as it is; any change to the base needs Anto's ruling.
 - *Why:* Margenbesteuerung for used cars was abolished on 1 January 2010 and replaced by the
   **fiktiver Vorsteuerabzug** (Art. 28a MWSTG). Margin taxation survives only as Art. 24a MWSTG
   for Sammlerstücke (first registration more than 30 years before purchase) — out of scope for
-  v1. ADR-033 and ADR-053 are superseded.
+  v1. ADR-033 and ADR-053 are superseded in part by ADR-057; only the fiktiver Vorsteuerabzug
+  survives.
 - The fiktiver Vorsteuerabzug is a **purchase-side** fact owned by Stock. Sales reads it
   through the stock item's pricing (`landedCost`, `notionalInputTax*`) to compute margin and
   never writes it. Margin nets the notional credit whether or not a landed cost was recorded.
@@ -85,15 +91,18 @@ against the code). "Open" lines cite a ticket; /drift-audit re-checks them weekl
   valuation used; nightly reconciliation reports every signed contract whose trade-in valuation
   of its own dealership is not used, and «Als verwendet markieren» repairs it, expired or not
   (KAN-115). One naming another dealership's valuation is reported by nothing yet (KAN-259).
-- **ADR-065** — a credit block stops the contract, not the offer. An address-less customer is
-  likewise gated at the contract (D-20).
+- **ADR-065** — a credit block stops contract confirmation, not the offer. An address-less
+  customer is likewise gated at confirmation (D-20); do-not-contact refuses the offer, the
+  contract's creation and its confirmation.
 
 ## Documents
 
 - **ADR-063** — generating an offer is two steps: build, then review the rendered document in
   the **customer's correspondence language**, with the seller-only margin panel beside it,
   never on it (architecture test: margin never in a rendered document).
-  `build_offer_content` / `build_contract_content` take a required `language`.
+  `build_offer_content` / `build_contract_content` take a required `language`; a record with no
+  customer language renders in DE (`_DEFAULT_LANGUAGE`) — a German fallback awaiting a ruling
+  (KAN-104).
 - **ADR-051** — one shared document template layer (platform); see `.claude/rules/platform.md`.
 - **ADR-041** — the offer freezes a `vehicle_snapshot` (`services/snapshot.py`).
 - **FR-C-12 (KAN-10)** — Path B is the configurator, `build` only: `configurationId` on the
@@ -109,5 +118,5 @@ against the code). "Open" lines cite a ticket; /drift-audit re-checks them weekl
   Wagenbuch); **ADR-029** unchanged at the group boundary.
 - Offer and contract numbers are **working business keys, not legal document numbers** — the
   gapless legal number is the invoice's (ADR-032, see `.claude/rules/finance.md`).
-  `app/sales/services/numbering.py` allocates per dealership inside the caller's transaction,
-  so a rollback re-issues the same number.
+  `app/sales/services/numbering.py` allocates one counter per (dealership, series — `offer`,
+  `contract`) inside the caller's transaction, so a rollback re-issues the same number.

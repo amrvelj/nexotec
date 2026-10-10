@@ -4,7 +4,7 @@ paths:
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises Notion "UI/UX Specification —
 the one UI page", UI/UX Core Principles, ADR-044, ADR-056…ADR-063 and KAN-35. Verified against
-main@568f416 on 2026-09-27. Fix this file in the same PR as any change to what it states;
+main@7805816 on 2026-10-10. Fix this file in the same PR as any change to what it states;
 /drift-audit re-checks it weekly. -->
 
 # Anything a user can see
@@ -66,20 +66,24 @@ change plus an ADR — never a local component. No colour outside the tokens.
 - Grids (UI/UX Core Principles): every column sortable server-side; column order, visibility,
   width and pinning configurable and persisted per user; a three-dots row menu on every row;
   cursor-based lazy loading; maximum information density; Shift + wheel scrolls horizontally.
-- The dashboard is the landing page and the breadcrumb root (FR-UI-07). Account chrome lives
-  only in the sidebar footer; the top bar carries the breadcrumb.
+- The dashboard is the landing page (FR-UI-07) and should be the breadcrumb root — not built:
+  breadcrumbs start at the nav group and are not links (KAN-104). Account chrome lives only in
+  the sidebar footer; the top bar carries the breadcrumb.
 
 ## i18n
 
 - Bundles: `frontend/apps/dms/src/i18n/locales/{de,en,fr,it}.json`. A new key goes into all
   four in the same change; `localeKeyParity.test.ts` fails otherwise.
-- A missing key renders a loud marker, never a German fallback. No hardcoded user-visible
-  string, including labels in dialogs and wizards.
+- A key missing from every bundle renders `⚠ MISSING I18N KEY: <key>`; one missing only from
+  the active locale falls back to English (`fallbackLng: 'en'`), never German —
+  `localeKeyParity.test.ts` keeps that from shipping. No hardcoded user-visible string,
+  including labels in dialogs and wizards.
 - The customer's **correspondence language** is not the user's **UI language** — never the
   same control, never the same stored field.
 - Canonical reference data is translated by us; provider option text is stored and rendered
   **as delivered**, never translated (ADR-044).
-- New users default to the dealership's language.
+- New users should default to the dealership's language — not built: `useUiPreferences.ts`
+  hard-defaults `uiLanguage` to `'de'` (KAN-104).
 
 ## Tests and evidence
 
@@ -95,6 +99,8 @@ change plus an ADR — never a local component. No colour outside the tokens.
 
 `src/api/schema.d.ts` is generated from the backend's own `app.openapi()` and diffed in CI
 (`frontend-openapi-drift`); editing it is blocked. `src/api/types.ts` derives every
-request/response type from it. A shape the backend under-types (a `str` whose real values are a
-literal union) is a `NARROWED` override in `types.ts`, commented as such — never a hand-written
-interface. After a backend schema change: `make generate-frontend-types`, then commit the result.
+request/response type from it, except the documented FRONTEND-ONLY `ApiErrorBody` (the error
+envelope has no OpenAPI schema). A shape the backend under-types (a `str` whose real values are
+a literal union) is a `NARROWED` override in `types.ts`, commented as such — never a
+hand-written interface. After a backend schema change: `make generate-frontend-types`, then
+commit the result.

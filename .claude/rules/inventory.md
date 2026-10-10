@@ -4,10 +4,13 @@ paths:
   - "frontend/apps/dms/src/**/*tock*"
   - "frontend/apps/dms/src/**/*tock*/**"
   - "frontend/apps/dms/src/pages/stock/**"
+  - "frontend/packages/ui-kit/src/components/Stock*"
+  - "app/integration/adapters/autoscout24.py"
+  - "app/integration/adapters/marketplace_base.py"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises PRD-Stock, ADR-045, ADR-049,
-ADR-052, ADR-054, ADR-055, ADR-062 and the VAT reasoning of ADR-057. Verified against
-main@568f416 on 2026-09-28 (every present-tense claim checked against the code). "Not built"
+ADR-052, ADR-054, ADR-055, ADR-062, ADR-074 and the VAT reasoning of ADR-057. Verified against
+main@7805816 on 2026-10-10 (every present-tense claim checked against the code). "Not built"
 lines cite a ticket; /drift-audit re-checks them weekly. -->
 
 # Stock and inventory
@@ -22,8 +25,10 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   which is the ordinary case.
 - **ADR-055 — group-readable stock is its own enumerated projection** (`StockItemGroupRead`),
   not the tenant grid with columns removed. `tests/test_inventory_group_listing.py` asserts by
-  name that price, cost, notional-input-tax, purchase, supplier, invoicing and valuation fields
-  are absent from it. In the UI, group stock is a scope switch with the dealership as a filter.
+  name that effective and base price, landed cost, notional-input-tax, purchase, supplier,
+  invoicing and valuation fields are absent from it; `listPrice` is deliberately present. In the
+  UI, group stock is a scope switch (`ScopeSwitchMenu`); the dealership is a column, not
+  sortable (it lives on platform's table). A dealership filter is not built (KAN-104).
 - **ADR-049** — full commercial visibility inside the dealership (margin, discounts,
   Wagenbuch); **ADR-029** unchanged at the group boundary.
 - **ADR-052 — `is_invoiceable` is Stock's fact**, replicated to Sales through
@@ -31,6 +36,9 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   transaction migration publishes nothing and writes Sales' replica row itself); Sales keeps it
   per stock item and never queries Stock synchronously for it. Reservation does not need the
   purchase (K-12); Sales' invoicing does (KAN-100).
+- **ADR-074** — a trade-in's `valuationRef` is written by inventory's own
+  `sales.contract.confirmed` consumer when it creates the pipeline item; Sales never writes it.
+  Details in `.claude/rules/valuation.md`.
 - **A pipeline item can point at a configuration** (`configuration_id`, KAN-10): added from
   the Stock list in either mode (FR-C-13), or carried by a contract's confirmation for a
   configured car or a configured trade-in. It never writes vehicle-mdm (ADR-070).
@@ -74,7 +82,8 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   failed release is logged at ERROR and retried the next night.
 - **Fiktiver Vorsteuerabzug** (Art. 28a MWSTG) is recorded at purchase booking
   (`app/inventory/services/purchase.py::record_purchase`), computed from the purchase price and
-  the dealership's `vat_rate`, independent of `landed_cost`. Stock owns it; Sales only reads it.
+  the dealership's `vat_rate`, independent of `landed_cost`; it can be overridden afterwards
+  (`override_notional_input_tax`, audited). Stock owns it; Sales only reads it.
 - **Marketplaces are three, not one** (ADR-062): AutoScout24 (AS24i v34.0, which drives the
   canonical field mapping), Carmarket and Autolina. **Full-delivery semantics:** an object no
   longer transmitted is **deleted** at the marketplace, with its statistics and its URL, so
