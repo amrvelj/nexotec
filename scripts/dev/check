@@ -40,6 +40,11 @@ if sys.platform == "darwin":
 
 LANE_PATTERNS = {
     "config": [r"^\.claude/", r"^CLAUDE\.md$", r"^scripts/dev/", r"^\.worktreeinclude$"],
+    # KAN-236: render.yaml had no lane, so a change to it recorded a PASS without running
+    # anything. The lane validates the file's shape (plan and region names, keys, types)
+    # against Render's schema; what Render decides against the live service's state
+    # (KAN-234's refused downgrade) still shows only in its dashboard.
+    "deploy": [r"^render\.yaml$", r"^scripts/check_render_yaml\.py$", r"^scripts/dev/render\.yaml\.schema"],
     "backend": [r"^app/", r"^tests/", r"^alembic/", r"^alembic\.ini$", r"^pyproject\.toml$", r"^scripts/[^/]+\.py$"],
     # alembic/env.py imports app.db, app.model_registry and app.core.config; core tables live in app/core/*_model.py
     "migrations": [r"^alembic/", r"^alembic\.ini$", r"^app/.*/models(/|\.py$)", r"^app/core/[^/]*_model\.py$",
@@ -50,7 +55,7 @@ LANE_PATTERNS = {
     "api-types": [r"^app/", r"^frontend/apps/dms/src/api/", r"^scripts/generate_openapi_schema\.py$",
                   r"^pyproject\.toml$", r"^frontend/package(-lock)?\.json$", r"^frontend/apps/dms/package\.json$"],
 }
-ORDER = ["config", "backend", "migrations", "api-types", "frontend"]
+ORDER = ["config", "deploy", "backend", "migrations", "api-types", "frontend"]
 EVERY_LANE = [r"^\.github/workflows/"]  # a change to CI itself: run everything
 
 
@@ -193,6 +198,14 @@ def lane_config():
         problems.append("CLAUDE.md has {} lines; keep it to at most 200 (move area detail into .claude/rules/)".format(lines))
     print("\n".join(problems) if problems else "ok")
     return ok and not problems
+
+
+def lane_deploy():
+    # Validates render.yaml against the vendored copy of Render's Blueprint schema
+    # (scripts/dev/render.yaml.schema.json, provenance in the .meta.json next to it);
+    # CI's mypy job runs the same script as its last step, so the two stay in step.
+    return step("render.yaml validates against Render's Blueprint schema (KAN-236)",
+                [PY, "scripts/check_render_yaml.py"])
 
 
 def lane_backend(fast):
@@ -356,8 +369,8 @@ def main(argv):
         return 2
     lanes = ORDER[:] if full else lanes_for(files)
     if fast:
-        lanes = [l for l in lanes if l in ("config", "backend")] or ["backend"]
-    if set(lanes) & {"backend", "migrations", "api-types"} and not os.path.exists(PY):
+        lanes = [l for l in lanes if l in ("config", "deploy", "backend")] or ["backend"]
+    if set(lanes) & {"deploy", "backend", "migrations", "api-types"} and not os.path.exists(PY):
         print("This checkout has no .venv of its own. Run scripts/dev/bootstrap first.")
         return 2
     tree_before = hooks_cli("fingerprint")
@@ -368,8 +381,8 @@ def main(argv):
         print("No local lane covers: {} - CI's other jobs (docker build, secret scan) still run on the PR."
               .format(", ".join(outside[:12]) + (" ..." if len(outside) > 12 else "")))
     results = {}
-    runners = {"config": lane_config, "backend": lambda: lane_backend(fast), "migrations": lane_migrations,
-               "api-types": lane_api_types, "frontend": lane_frontend}
+    runners = {"config": lane_config, "deploy": lane_deploy, "backend": lambda: lane_backend(fast),
+               "migrations": lane_migrations, "api-types": lane_api_types, "frontend": lane_frontend}
     for lane in lanes:
         results[lane] = runners[lane]()
     tree_after = hooks_cli("fingerprint")

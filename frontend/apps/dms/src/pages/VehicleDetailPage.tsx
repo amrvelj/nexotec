@@ -8,6 +8,7 @@ import { DetailHeader, DetailTabs, useSetBreadcrumb, type DetailTab } from '@nex
 import { api, ApiError } from '../api/client'
 import { IdentityTab } from '../components/vehicle-detail/IdentityTab'
 import { PlatesTab } from '../components/vehicle-detail/PlatesTab'
+import { isPlateReadLimitError } from '../components/vehicle-detail/plateReadLimit'
 import { SpecificationTab } from '../components/vehicle-detail/SpecificationTab'
 import { OdometerTab } from '../components/vehicle-detail/OdometerTab'
 import { AccessoriesTab } from '../components/vehicle-detail/AccessoriesTab'
@@ -61,6 +62,11 @@ export function VehicleDetailPage() {
   const platesQuery = useQuery({
     queryKey: ['vehicle-mdm', id, 'plates'],
     queryFn: () => api.get<VehiclePlateRead[]>(`/vehicle-mdm/${id}/plates`),
+    // KAN-231: a refusal past the plate-read limit is final for now and is
+    // audited server-side on every attempt — never retry it.
+    retry: (failureCount, error) => !isPlateReadLimitError(error) && failureCount < 3,
+    // Every fetch is an audited plate read; a window refocus is not a new look.
+    refetchOnWindowFocus: false,
     enabled: Boolean(id),
   })
   const odometerQuery = useQuery({
@@ -237,7 +243,11 @@ export function VehicleDetailPage() {
           onCustomerOverlayClose={invalidatePartyRoles}
         />
       )}
-      {activeTab === 'plates' && <PlatesTab plates={platesQuery.data ?? []} loading={platesQuery.isLoading} />}
+      {activeTab === 'plates' && <PlatesTab
+          plates={platesQuery.data ?? []}
+          loading={platesQuery.isLoading}
+          limitReached={isPlateReadLimitError(platesQuery.error)}
+        />}
       {activeTab === 'odometer' && (
         <OdometerTab readings={odometerQuery.data ?? []} loading={odometerQuery.isLoading} onAdd={addOdometerReading} />
       )}

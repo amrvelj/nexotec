@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.core.secrets import resolve_secret_env
@@ -75,6 +76,18 @@ class Settings(BaseSettings):
     cors_allowed_origins: list[str] = ["http://localhost:5173"]
 
     idempotency_key_ttl_seconds: int = 86400
+
+    # KAN-231 (ADR-039, PRD Vehicles Halterauskunftssperre, Anto's "log and
+    # limit" ruling 2026-10-10): one user may read the plate history of at
+    # most this many DISTINCT vehicles per rolling window; a vehicle already
+    # read inside the window does not count again. Platform-wide by design:
+    # the plates are third parties' personal data on a shared, non-tenant
+    # vehicle record, so no dealership may loosen it (not an A-RULE-0
+    # dealership setting).
+    # 0 refuses every new vehicle (a lock-down, or to demonstrate the
+    # refusal); a negative limit or an empty window is a misconfiguration.
+    plate_read_limit: int = Field(default=60, ge=0)
+    plate_read_window_seconds: int = Field(default=3600, gt=0)
 
     # Field-level encryption for Dealership.tax_id (Swiss addendum tax_id
     # requirement + spec open question 8). Single static Fernet key from

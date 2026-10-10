@@ -10,10 +10,14 @@ paths:
   - "app/*/consumers.py"
   - "app/**/*consumer*.py"
   - "app/**/*reconciliation*.py"
+  - "app/core/daily_scheduler*.py"
+  - "app/*/daily_jobs.py"
+  - "app/core/observability.py"
+  - "scripts/*outbox*.py"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises rules 4–6, 10 and 12, ADR-006,
-ADR-046, ADR-047, Gap G-16. Verified against main@568f416 on 2026-09-28 (every present-tense
-claim checked against the code). Fix this file in the same PR as any change to what it states. -->
+ADR-046, ADR-047. Verified against main@7805816 on 2026-10-10 (every present-tense claim
+checked against the code). Fix this file in the same PR as any change to what it states. -->
 
 # Events, outbox, consumers and reconciliation
 
@@ -23,18 +27,22 @@ claim checked against the code). Fix this file in the same PR as any change to w
 - **Names are facts in the past tense, never commands.** New event types use
   `<context>.<entity>.<verb>` (`inventory.stock_item.purchased`, `sales.contract.confirmed`).
   Existing two-part names stay as they are (`customer.created`, `valuation.used`,
-  `configuration.matched`, …): consumers and `processed_event` key on the name, so a rename is
-  a contract change for Anto to decide.
+  `configuration.matched`, …): consumers subscribe by the name (`transport.register` in
+  `app/worker.py`) and pending `outbox_message` rows carry it in `event_type`, so a rename is a
+  contract change for Anto to decide.
 - **Consumers are idempotent** by `eventId` against the processed-events table; delivery is
-  at-least-once. Every new consumer gets a redelivery-idempotency test on the Postgres lane.
+  at-least-once. Every new consumer gets a redelivery-idempotency test on the Postgres lane
+  (today the two marketplace-transmission consumers have none, and nothing makes a new consumer
+  get one — KAN-124).
 - **Payload shapes are consistent** across the event types of one entity, and every envelope
   field carries meaning — a `correlationId` generated fresh per event correlates nothing
-  (Gap G-16; `app/core/outbox.py` still defaults it to a fresh `uuid7()`).
+  (`app/core/outbox.py` still defaults it to a fresh `uuid7()` and no producer passes one —
+  KAN-125).
 - **Cross-context writes** are a call with a compensating action, never a shared transaction
   (ADR-047, CLAUDE.md rule 12) — each side commits its own work. Two contract events, never
   one (ADR-046).
-- Consumers and daily jobs are registered in `app/worker.py` (`register_daily_jobs`, e.g.
-  `reconciliation.run_all`).
+- Consumers are registered in `app/worker.py::register_handlers` (event type + `consumer_name`);
+  daily jobs in `register_daily_jobs` (e.g. `integration.daily_jobs`, `reconciliation.run_all`).
 - **Reconciliation monitors; it does not repair.** Derived state (such as a valuation's status)
   is derived on read, never "fixed" by a nightly job. Dead letters alert. A job that re-reads a
   three-column-pattern **label** from its owner (`customer.vehicle_party_labels`, KAN-84) is not

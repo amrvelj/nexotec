@@ -625,7 +625,9 @@
       "validTo": "Valido fino al",
       "current": "attuale",
       "none": "Nessuna targa registrata",
-      "wechselschild": "Targa interscambiabile"
+      "wechselschild": "Targa interscambiabile",
+      "limitReached": "Ha consultato le targhe di molti veicoli in poco tempo. Riprovi più tardi.",
+      "withheld": "Targa nascosta – limite raggiunto"
     },
     "odometer": {
       "value": "Lettura",

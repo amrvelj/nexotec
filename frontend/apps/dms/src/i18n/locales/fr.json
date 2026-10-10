@@ -625,7 +625,9 @@
       "validTo": "Valide jusqu’à",
       "current": "actuelle",
       "none": "Aucune plaque enregistrée",
-      "wechselschild": "Plaque interchangeable"
+      "wechselschild": "Plaque interchangeable",
+      "limitReached": "Vous avez consulté les plaques de nombreux véhicules en peu de temps. Veuillez réessayer plus tard.",
+      "withheld": "Plaque masquée – limite atteinte"
     },
     "odometer": {
       "value": "Relève",

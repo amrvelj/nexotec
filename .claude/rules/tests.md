@@ -5,10 +5,9 @@ paths:
   - "frontend/**/*.test.tsx"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises ADR-011 and the recurring
-failure modes from the WP audits (wp-verification). Verified against main@568f416 on
-2026-09-28 (every present-tense claim checked against the code); the schema-once bullet
-(KAN-133) against its own branch on 2026-10-03. Fix this file in the same PR as any change to
-what it states. -->
+failure modes from the WP audits (wp-verification). Verified against main@7805816 on
+2026-10-10 (every present-tense claim checked against the code). Fix this file in the same PR
+as any change to what it states. -->
 
 # Tests
 
@@ -16,7 +15,8 @@ what it states. -->
   enforcement hides real bugs; "tested" means Postgres. Every session points `pytest` at this
   checkout's own test database (`dms_test_<checkout>`), so parallel worktrees never share one.
 - **On Postgres the schema is built once per session** (`tests/conftest.py`), not per test.
-  Every test starts with every table empty (`TRUNCATE`) and without planner statistics. Any DDL
+  Every test starts with every table empty (`TRUNCATE`) and without planner statistics, except
+  the `country` reference list the autouse `_seed_country_reference_list` fixture seeds. Any DDL
   a test runs (an event trigger counts it), or an `ANALYZE`/`VACUUM` of a test table, has the
   schema rebuilt before the next test. A session from the `engine` fixture that a test leaves
   open in a transaction, holding a lock on a test table, fails that test at its teardown and is

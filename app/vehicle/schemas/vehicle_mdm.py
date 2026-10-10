@@ -221,9 +221,14 @@ class VehicleSearchHit(VehicleMdmRead):
     today — the "one line of disambiguating context" a global-search row
     carries (FR-UI-08, KAN-82). Only on the targeted hit, never on grid
     rows: the plate table is never listable (ADR-039).
+
+    Reading it is a plate read like the Plates tab (KAN-231): audited, and
+    past the caller's limit `current_plate` is None with
+    `current_plate_withheld` True, so the screen can say why.
     """
 
     current_plate: str | None
+    current_plate_withheld: bool = False
 
 
 class VehicleSearchResult(CamelModel):
