@@ -51,7 +51,9 @@ in the same PR as any change to what it states. -->
   writes), idempotent, and reuse the production computations instead of re-implementing them —
   but a historical backfill **publishes no outbox events**: live consumers would act on old
   history as if it happened today (see the `migrate_transaction_rows.py` docstring). The dry
-  run reports exactly what the real run would write, including rows it cannot migrate and why.
+  run reports what the real run would write, including rows it cannot migrate and why — but a
+  dry run that does not flush cannot see conflicts between rows of the same pass
+  (`migrate_transaction_rows.py`'s cannot; the `--commit` report is authoritative there).
 - **Enum columns** are `StoredEnum` (`app/core/enum_type.py`), never a bare `sqlalchemy.Enum`
   (an architecture test enforces it). KAN-86 is moving storage from the member **name** to
   `.value` in three steps. Step 2 writes `.value` and rewrote existing rows (one
