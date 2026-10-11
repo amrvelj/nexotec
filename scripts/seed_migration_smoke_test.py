@@ -99,9 +99,11 @@ def _seed_user(db: Session, *, tenant_id: uuid.UUID) -> uuid.UUID:
         "first_name": "Smoke",
         "last_name": "Test",
         "email": "smoke-test@example.ch",
-        "role": "SALES",
-        "employment_status": "ACTIVE",
-        "status": "ACTIVE",
+        # Values, not names: main stores .value since KAN-86 step 2, and since
+        # KAN-175 every enum column's CHECK refuses a name.
+        "role": "sales",
+        "employment_status": "active",
+        "status": "active",
         "auth_identity_id": "smoke-test-sub",
         "version": 1,
         "created_at": now,
