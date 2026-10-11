@@ -47,7 +47,7 @@ LANE_PATTERNS = {
     # (KAN-234's refused downgrade) still shows only in its dashboard.
     "deploy": [r"^render\.yaml$", r"^scripts/check_render_yaml\.py$", r"^scripts/dev/render\.yaml\.schema"],
     "backend": [r"^app/", r"^tests/", r"^alembic/", r"^alembic\.ini$", r"^pyproject\.toml$", r"^scripts/[^/]+\.py$"],
-    # Plus every app/ file alembic/env.py loads, derived at run time: migration_inputs() (KAN-300).
+    # Plus every app/ file a migration run loads, derived at run time: migration_inputs() (KAN-300).
     "migrations": [r"^alembic/", r"^alembic\.ini$", r"^app/.*/models(/|\.py$)", r"^app/core/[^/]*_model\.py$",
                    r"^app/model_registry\.py$", r"^app/db\.py$", r"^app/core/config\.py$", r"^pyproject\.toml$",
                    r"^scripts/(seed|verify)_migration_smoke_test[^/]*\.py$",
@@ -100,7 +100,7 @@ def lanes_for(files):
     if "migrations" not in lanes and app_files:
         inputs = migration_inputs()
         if inputs is None:
-            print("Could not list the app/ files alembic/env.py loads, so the migration lanes run for any app/ change.")
+            print("Could not list the app/ files a migration run loads, so the migration lanes run for any app/ change.")
             lanes.add("migrations")
         elif any(f in inputs for f in app_files):
             lanes.add("migrations")
@@ -108,11 +108,11 @@ def lanes_for(files):
 
 
 def migration_inputs():
-    """Every app/ file a migration run loads: the modules alembic/env.py and the migrations import
-    from app (app.model_registry among them, so every model) and everything those import, as
-    repository paths. Derived, not
-    listed (KAN-300): a hand-kept list missed app/core/enum_type.py, which env.py and every enum
-    column import. None when they cannot be listed - lanes_for() then runs the lanes."""
+    """Every app/ file a migration run loads, as repository paths: the modules alembic/env.py and
+    the migrations import from app (app.model_registry among them, so every model), everything
+    those import, and the data files beside each loaded package. Derived, not listed (KAN-300): a
+    hand-kept list missed app/core/enum_type.py, which env.py and every enum column import. None
+    when they cannot be listed - lanes_for() then runs the lanes."""
 
     sources = [os.path.join(ROOT, "alembic", "env.py")]
     for folder, _dirs, filenames in os.walk(os.path.join(ROOT, "alembic", "versions")):
@@ -133,7 +133,7 @@ def migration_inputs():
                          universal_newlines=True)
     if out.returncode != 0:
         return None
-    return set(out.stdout.split())
+    return set(out.stdout.splitlines())
 
 
 def uncovered(files):
