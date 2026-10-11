@@ -67,6 +67,6 @@ in the same PR as any change to what it states. -->
 - The legacy `vehicle` table is write-frozen (ADR-021, `legacy_vehicle_write_frozen`); new code
   never writes it.
 - `scripts/dev/check` mirrors both CI migration jobs whenever migrations, models or their
-  imports change: upgrade from empty → seed → downgrade to CI's target → upgrade → two
+  imports change (every `app/` file `alembic/env.py` loads, derived at run time — KAN-300): upgrade from empty → seed → downgrade to CI's target → upgrade → two
   concurrent upgrades (KAN-92), and upgrade from main's heads → seed → upgrade → verify the
   seeded rows survived. A `downgrade()` is exercised, so it must work.
