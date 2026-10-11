@@ -38,7 +38,7 @@ import enum
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import DECIMAL, Boolean, Date, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import DECIMAL, Boolean, Date, ForeignKey, Integer, String, Text, UniqueConstraint, false
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TimestampMixin, VersionedMixin, utcnow
@@ -368,13 +368,18 @@ class Customer(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     # trade-in, mod-97 validated — never a payment instrument (ADR-037).
     # `vat_registered` does NOT change the sales document (one gross price,
     # ADR-057); it is recorded because Finance and Stock's purchase booking
-    # need it.
+    # need it. Its `false` is also the default, so `vat_status_confirmed`
+    # says someone has checked it (KAN-295): a trade-in from an unconfirmed
+    # non-registered customer books a fiktiver Vorsteuerabzug on a guess.
     payment_terms: Mapped[PaymentTerms | None] = mapped_column(
         StoredEnum(PaymentTerms, length=20), nullable=True
     )
     credit_limit: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
     iban: Mapped[str | None] = mapped_column(String(34), nullable=True)
     vat_registered: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    vat_status_confirmed: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
 
     # Relationship (both types) — FR-18 region 5, "what is our history and
     # what happens next?".

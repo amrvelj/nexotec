@@ -555,6 +555,16 @@ export function OverviewTab({
             styles={{ root: { display: 'inline-flex' } }}
           />
         </KeyValueRow>
+        {/* KAN-295 — someone has checked "VAT-registered" (its "no" is also the
+            default). The legacy import holds a non-registered customer's
+            trade-in until this is ticked. */}
+        <KeyValueRow label={f.vatStatusConfirmed}>
+          <Checkbox
+            checked={customer.vatStatusConfirmed}
+            onChange={(e) => void onSaveField({ vatStatusConfirmed: e.currentTarget.checked })}
+            styles={{ root: { display: 'inline-flex' } }}
+          />
+        </KeyValueRow>
       </OverviewCard>
 
       {/* FR-18 region 5 — "what is our history and what happens next?".

@@ -435,6 +435,16 @@ export function CustomersListPage() {
           exportValue: (row) => (row.vatRegistered ? t('common.yes') : t('common.no')),
         },
       },
+      {
+        id: 'vatStatusConfirmed',
+        header: t('customersList.columns.vatStatusConfirmed'),
+        cell: ({ row }) => (row.original.vatStatusConfirmed ? '✓' : '—'),
+        meta: {
+          defaultVisible: false,
+          align: 'right',
+          exportValue: (row) => (row.vatStatusConfirmed ? t('common.yes') : t('common.no')),
+        },
+      },
       // KAN-44 / FR-18 — the credit block as a grid column, hidden by
       // default, badge-rendered with the reason as its title. reason/
       // blocked-at also get their own columns (KAN-51) — the badge's

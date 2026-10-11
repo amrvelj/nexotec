@@ -3820,6 +3820,11 @@ export interface components {
              * @default false
              */
             vatRegistered?: boolean;
+            /**
+             * Vatstatusconfirmed
+             * @default false
+             */
+            vatStatusConfirmed?: boolean;
             /** Website */
             website?: string | null;
         };
@@ -4224,6 +4229,8 @@ export interface components {
             updatedBy: string | null;
             /** Vatregistered */
             vatRegistered: boolean;
+            /** Vatstatusconfirmed */
+            vatStatusConfirmed: boolean;
             /** Version */
             version: number;
             /** Website */
@@ -4303,6 +4310,8 @@ export interface components {
             title?: string | null;
             /** Vatregistered */
             vatRegistered?: boolean | null;
+            /** Vatstatusconfirmed */
+            vatStatusConfirmed?: boolean | null;
             /** Website */
             website?: string | null;
         };

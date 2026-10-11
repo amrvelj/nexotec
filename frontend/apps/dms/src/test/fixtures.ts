@@ -44,6 +44,7 @@ export function customer(overrides: Partial<CustomerRead> = {}): CustomerRead {
     creditLimit: null,
     iban: null,
     vatRegistered: false,
+    vatStatusConfirmed: false,
     advisorId: null,
     advisorLabel: null,
     advisorLabelRefreshedAt: null,

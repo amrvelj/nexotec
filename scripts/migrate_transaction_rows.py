@@ -101,11 +101,11 @@ missing inputs. Re-verified 2026-09-17, both are stale:
   added by KAN-50 after this rejection was written. The customer
   trading in the vehicle IS the acquisition's supplier. Only partly
   stale, though: a `false` there cannot be told apart from "never
-  recorded" (see `supplier_vat_status_unconfirmed` below, KAN-73).
+  recorded" — `Customer.vat_status_confirmed` says someone checked it
+  (see `supplier_vat_status_unconfirmed` below, KAN-295).
 Product owner's own ruling stands and is still honoured: a genuinely
 absent value is reported, never guessed. Condition is no longer absent;
-a false VAT status is migrated, but flagged for a human until the product
-owner and Finance rule on it.
+an unconfirmed false VAT status is held, not migrated (Anto, 2026-10-11).
 
 Per-row outcome, in the report:
 - `not_completed`          — status was draft or cancelled. Never touched.
@@ -139,25 +139,28 @@ Per-row outcome, in the report:
   interaction between two rows that would only become visible to each
   other on a real commit; a real --commit run is always the
   authoritative report for that specific interaction.)
+- `supplier_vat_status_unconfirmed` — a trade-in whose customer is not
+  VAT-registered and whose VAT status nobody has confirmed
+  (`Customer.vat_status_confirmed` false). Held, nothing written (Anto,
+  2026-10-11, KAN-295): migrated, it would book a fiktiver Vorsteuerabzug
+  (Art. 28a MWSTG), a tax figure, on a value that may only be the
+  default. The note gives the credit it would book. Tick «VAT status
+  confirmed» on the customer (and «VAT registered» if it is) and re-run.
+- `held_behind_unconfirmed_trade_in` — a later row (sale or trade-in) for a
+  car whose earlier trade-in is held. Nothing written: the trade-in opens
+  the car's stay in stock, so migrating this row alone would write the
+  wrong history. Migrates with it on the re-run.
 - `already_migrated`       — this transaction id is already stamped on a
   sales_contract (sale) or a stock_item.pipeline_ref (trade_in). A
   re-run reports every row here and changes nothing.
 
-A `migrated` row may carry flags — written, but approximated or resting on
-a value nobody can vouch for. Each flag is counted in the summary, and every
+A `migrated` row may carry a flag — written, but approximated. Each flag is counted in the summary, and every
 `migrated` row is printed with its note, so a human reading the dry run sees
 them before --commit (KAN-73):
 - `condition_lossy`        — the legacy Vehicle's own condition was
   certified_pre_owned, which StockItemCondition has no value for;
   approximated as USED (matches migrate_legacy_vehicles.py's own
   totaled->scrapped precedent: flagged, not silent).
-- `supplier_vat_status_unconfirmed` — a trade-in whose customer has
-  vat_registered = false. Customer.vat_registered is a NOT NULL boolean
-  defaulting to false, so "recorded as not VAT-registered" cannot be told
-  apart from "never recorded", yet the row writes a fiktiver Vorsteuerabzug
-  (Art. 28a MWSTG) on it. Reported, not decided: whether such a row must
-  wait until the customer's VAT status is confirmed is the product owner's
-  and Finance's ruling (KAN-73, exit criterion 1).
 
 The offer and contract a sale creates carry the customer's correspondence
 language (`customer_language`), as a live offer does — a migrated document
@@ -231,8 +234,7 @@ class RowOutcome:
     notes: str = ""
     new_contract_id: uuid.UUID | None = None
     new_stock_item_id: uuid.UUID | None = None
-    # On a `migrated` row: what was approximated or rests on an unconfirmed
-    # value (`condition_lossy`, `supplier_vat_status_unconfirmed`).
+    # On a `migrated` row: what was approximated (`condition_lossy`).
     flags: list[str] = dataclasses.field(default_factory=list)
 
 
@@ -360,6 +362,23 @@ def _vehicle_known_to_live_stock(
     )
 
 
+# (dealership, VIN) -> the held trade-in every later row for that car waits behind.
+_HeldVins = dict[tuple[uuid.UUID, str | None], uuid.UUID]
+
+
+def _held_behind(txn: Transaction, row_type: str, vehicle_mdm: VehicleMdm, held_by: uuid.UUID) -> RowOutcome:
+    """A later row for a car whose earlier trade-in is held waits with it: the
+    trade-in opens the car's stay in stock, so migrating this row alone would
+    write the wrong history (a sale would create its own item; on the re-run
+    the trade-in would then open a second, phantom stay)."""
+
+    return RowOutcome(
+        txn.id, row_type, "held_behind_unconfirmed_trade_in",
+        f"vehicle_mdm {vehicle_mdm.id} (vin={vehicle_mdm.vin}): its earlier trade-in {held_by} is held "
+        "(supplier_vat_status_unconfirmed) — nothing written; migrates with it once that is resolved",
+    )
+
+
 def _create_stock_item(
     db: Session, *, tenant_id: uuid.UUID, vehicle_mdm: VehicleMdm, legacy_vehicle: LegacyVehicle,
     condition: StockItemCondition,
@@ -417,7 +436,7 @@ def _compute_notional_input_tax(*, purchase_price: Decimal, rate: Decimal | None
     return (purchase_price * rate / (Decimal(100) + rate)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
-def _migrate_sale(db: Session, txn: Transaction, *, commit: bool) -> RowOutcome:
+def _migrate_sale(db: Session, txn: Transaction, *, commit: bool, held: _HeldVins) -> RowOutcome:
     legacy_vehicle = db.get(LegacyVehicle, txn.vehicle_id)
     if legacy_vehicle is None:
         return RowOutcome(txn.id, "sale", "vehicle_unresolved", f"legacy vehicle {txn.vehicle_id} does not exist")
@@ -428,6 +447,9 @@ def _migrate_sale(db: Session, txn: Transaction, *, commit: bool) -> RowOutcome:
             f"legacy vehicle {legacy_vehicle.id} has no vehicle_mdm row carrying it as "
             "migrated_from_legacy_vehicle_id — run scripts/migrate_legacy_vehicles.py first",
         )
+    held_by = held.get((txn.tenant_id, vehicle_mdm.vin))
+    if held_by is not None:
+        return _held_behind(txn, "sale", vehicle_mdm, held_by)
     customer = db.get(Customer, txn.customer_id)
     if customer is None:
         return RowOutcome(txn.id, "sale", "customer_unresolved", f"customer {txn.customer_id} does not exist")
@@ -548,7 +570,7 @@ def _migrate_sale(db: Session, txn: Transaction, *, commit: bool) -> RowOutcome:
     )
 
 
-def _migrate_trade_in(db: Session, txn: Transaction, *, commit: bool) -> RowOutcome:
+def _migrate_trade_in(db: Session, txn: Transaction, *, commit: bool, held: _HeldVins) -> RowOutcome:
     legacy_vehicle = db.get(LegacyVehicle, txn.vehicle_id)
     if legacy_vehicle is None:
         return RowOutcome(txn.id, "trade_in", "vehicle_unresolved", f"legacy vehicle {txn.vehicle_id} does not exist")
@@ -559,6 +581,9 @@ def _migrate_trade_in(db: Session, txn: Transaction, *, commit: bool) -> RowOutc
             f"legacy vehicle {legacy_vehicle.id} has no vehicle_mdm row carrying it as "
             "migrated_from_legacy_vehicle_id — run scripts/migrate_legacy_vehicles.py first",
         )
+    held_by = held.get((txn.tenant_id, vehicle_mdm.vin))
+    if held_by is not None:
+        return _held_behind(txn, "trade_in", vehicle_mdm, held_by)
     customer = db.get(Customer, txn.customer_id)
     if customer is None:
         return RowOutcome(txn.id, "trade_in", "customer_unresolved", f"customer {txn.customer_id} does not exist")
@@ -593,10 +618,10 @@ def _migrate_trade_in(db: Session, txn: Transaction, *, commit: bool) -> RowOutc
 
     flags = ["condition_lossy"] if lossy_note else []
     notes = [lossy_note] if lossy_note else []
-    if not customer.vat_registered:
-        # Not decided here (KAN-73, exit criterion 1): reported so a human
-        # confirms the supplier's VAT status before the credit is filed.
-        flags.append("supplier_vat_status_unconfirmed")
+    if not customer.vat_registered and not customer.vat_status_confirmed:
+        # Held, not migrated (Anto, 2026-10-11, KAN-295): `false` cannot be
+        # told apart from never recorded, and the credit is a tax figure.
+        held[(txn.tenant_id, vehicle_mdm.vin)] = txn.id
         notional = (
             _compute_notional_input_tax(purchase_price=txn.amount, rate=dealership.vat_rate)
             if txn.amount is not None
@@ -608,10 +633,11 @@ def _migrate_trade_in(db: Session, txn: Transaction, *, commit: bool) -> RowOutc
             else "a fiktiver Vorsteuerabzug marked applicable, its amount not computable (the dealership has no "
             "vat_rate)"
         )
-        notes.append(
-            f"customer {customer.id} has vat_registered=false, which cannot be told apart from never recorded — "
-            f"migrated as a non-VAT-registered supplier with {credit}; confirm the customer's VAT status before "
-            "filing it"
+        return RowOutcome(
+            txn.id, "trade_in", "supplier_vat_status_unconfirmed",
+            f"customer {customer.customer_number} ({customer.id}) has vat_registered=false, which cannot be told "
+            f"apart from never recorded — held, nothing written. Migrated, it would book {credit}. Confirm the "
+            "status in Customers (tick «VAT status confirmed», and «VAT registered» if it is), then re-run",
         )
 
     if not commit:
@@ -696,6 +722,7 @@ def run_migration(db: Session, *, commit: bool) -> MigrationReport:
         ).all()
     )
     outcomes: list[RowOutcome] = []
+    held: _HeldVins = {}
 
     for txn in rows:
         try:
@@ -730,9 +757,9 @@ def run_migration(db: Session, *, commit: bool) -> MigrationReport:
                 )
                 continue
             if txn.transaction_type == TransactionType.TRADE_IN:
-                outcomes.append(_migrate_trade_in(db, txn, commit=commit))
+                outcomes.append(_migrate_trade_in(db, txn, commit=commit, held=held))
                 continue
-            outcomes.append(_migrate_sale(db, txn, commit=commit))
+            outcomes.append(_migrate_sale(db, txn, commit=commit, held=held))
         except Exception as exc:  # noqa: BLE001 — a migration tool reports, it does not crash
             db.rollback()
             outcomes.append(
