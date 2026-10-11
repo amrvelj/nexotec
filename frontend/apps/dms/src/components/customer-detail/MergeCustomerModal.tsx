@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Building2, Search, TriangleAlert, User } from 'lucide-react'
 import { Checkbox, Group, Loader, Modal, Stack, Text, TextInput, UnstyledButton } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
+import { Trans, useTranslation } from 'react-i18next'
 import { CustomerTypeBadge, LifecycleStatusBadge, purple, semantic, slate, white } from '@nexotec/ui-kit'
 import { api, ApiError } from '../../api/client'
 import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
@@ -39,6 +40,7 @@ interface MergeCustomerModalProps {
  * from it. The record the user picks in this modal is the survivor.
  */
 export function MergeCustomerModal({ opened, onClose, customer, phones, emails, onMerged }: MergeCustomerModalProps) {
+  const { t } = useTranslation()
   const [query, setQuery] = useState('')
   const [debouncedQuery] = useDebouncedValue(query, 300)
   const [results, setResults] = useState<CustomerRead[]>([])
@@ -117,23 +119,26 @@ export function MergeCustomerModal({ opened, onClose, customer, phones, emails, 
       idempotency.renew()
       onMerged(survivor.id)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to merge.')
+      setError(err instanceof ApiError ? err.message : t('customerDetail.merge.error'))
     } finally {
       setSubmitting(false)
     }
   }
 
   return (
-    <Modal opened={opened} onClose={onClose} title="Merge duplicate customer" size="lg">
+    <Modal opened={opened} onClose={onClose} title={t('customerDetail.merge.title')} size="lg">
       {!survivor ? (
         <Stack gap="sm">
           <Text size="sm" c="dimmed">
-            Search for the customer <strong>{customerLabel(customer) || customer.customerNumber}</strong> should be merged into. That
-            record survives; this one is marked merged.
+            <Trans
+              i18nKey="customerDetail.merge.intro"
+              values={{ name: customerLabel(customer) || customer.customerNumber }}
+              components={{ strong: <strong /> }}
+            />
           </Text>
           <TextInput
             leftSection={<Search size={16} />}
-            placeholder="Search by name, email, phone, customer number…"
+            placeholder={t('customerDetail.merge.searchPlaceholder')}
             value={query}
             onChange={(e) => setQuery(e.currentTarget.value)}
             autoFocus
@@ -162,7 +167,7 @@ export function MergeCustomerModal({ opened, onClose, customer, phones, emails, 
             ))}
             {!searching && debouncedQuery.trim().length >= 2 && results.length === 0 && (
               <Text size="sm" c="dimmed" ta="center" py="sm">
-                No matches.
+                {t('customerDetail.merge.noMatches')}
               </Text>
             )}
           </Stack>
@@ -170,15 +175,15 @@ export function MergeCustomerModal({ opened, onClose, customer, phones, emails, 
       ) : (
         <Stack gap="md">
           <UnstyledButton onClick={() => setSurvivor(null)} style={{ fontSize: 13, color: purple[6], fontWeight: 600 }}>
-            ← Choose a different survivor
+            {t('customerDetail.merge.chooseDifferent')}
           </UnstyledButton>
 
           {loadingSurvivorContacts ? (
             <Loader size="sm" mx="auto" />
           ) : (
             <Group grow align="stretch">
-              <CompareColumn title="This customer — will be merged" customer={customer} phones={phones} emails={emails} tone="destructive" />
-              <CompareColumn title="Survivor — will remain" customer={survivor} phones={survivorPhones} emails={survivorEmails} tone="success" />
+              <CompareColumn title={t('customerDetail.merge.duplicateColumn')} customer={customer} phones={phones} emails={emails} tone="destructive" />
+              <CompareColumn title={t('customerDetail.merge.survivorColumn')} customer={survivor} phones={survivorPhones} emails={survivorEmails} tone="success" />
             </Group>
           )}
 
@@ -186,16 +191,15 @@ export function MergeCustomerModal({ opened, onClose, customer, phones, emails, 
             <Group gap={6} mb={6}>
               <TriangleAlert size={16} color={semantic.warning.text} />
               <Text size="sm" fw={600} c={semantic.warning.text}>
-                This cannot be undone
+                {t('customerDetail.merge.irreversibleTitle')}
               </Text>
             </Group>
             <Text size="xs" c={semantic.warning.text}>
-              Vehicles, transactions, phones, emails and external IDs move to the survivor. This customer becomes read-only and is hidden
-              from search.
+              {t('customerDetail.merge.irreversibleBody')}
             </Text>
             <Checkbox
               mt={8}
-              label="I understand this is permanent"
+              label={t('customerDetail.merge.confirm')}
               checked={confirmed}
               onChange={(e) => setConfirmed(e.currentTarget.checked)}
             />
@@ -209,7 +213,7 @@ export function MergeCustomerModal({ opened, onClose, customer, phones, emails, 
 
           <Group justify="flex-end">
             <UnstyledButton onClick={onClose} style={{ fontSize: 14, fontWeight: 600, color: slate[6], padding: '8px 14px' }}>
-              Cancel
+              {t('common.cancel')}
             </UnstyledButton>
             <button
               type="button"
@@ -226,7 +230,7 @@ export function MergeCustomerModal({ opened, onClose, customer, phones, emails, 
                 cursor: confirmed && !submitting ? 'pointer' : 'not-allowed',
               }}
             >
-              {submitting ? 'Merging…' : 'Merge customers'}
+              {submitting ? t('customerDetail.merge.submitting') : t('customerDetail.merge.submit')}
             </button>
           </Group>
         </Stack>
