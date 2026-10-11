@@ -156,6 +156,25 @@ describe('CustomersListPage — the column set (KAN-51 half 1 + partial half 2)'
   }, 20000) // 13 userEvent.click() toggles, each a real pointer/focus/click sequence — same
   // "CI's runners need real headroom" reasoning as the 60000ms override below, just fewer clicks
 
+  it('VAT status confirmed is a column, hidden by default, rendered as a tick (KAN-295)', async () => {
+    route([
+      customer({ id: 'c1', customerNumber: 'K-3001', vatStatusConfirmed: true }),
+      customer({ id: 'c2', customerNumber: 'K-3002', vatStatusConfirmed: false }),
+    ])
+    renderWithProviders(<CustomersListPage />, { route: '/customers' })
+    await screen.findByText('K-3001')
+    const header = new RegExp(`^${columnHeader('vatStatusConfirmed')}$`, 'i')
+    expect(screen.queryByRole('columnheader', { name: header })).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Columns' }))
+    await userEvent.click(screen.getByRole('checkbox', { name: header }))
+
+    const index = screen.getAllByRole('columnheader').findIndex((th) => header.test(th.textContent ?? ''))
+    expect(index).toBeGreaterThan(-1)
+    expect(within(screen.getByRole('row', { name: /K-3001/ })).getAllByRole('cell')[index]).toHaveTextContent('✓')
+    expect(within(screen.getByRole('row', { name: /K-3002/ })).getAllByRole('cell')[index]).toHaveTextContent('—')
+  })
+
   it('renders every persisted field as a toggleable column and the grid survives each toggle', async () => {
     route([customer({ id: 'c1', customerNumber: 'K-1001' })])
     renderWithProviders(<CustomersListPage />, { route: '/customers' })

@@ -99,9 +99,11 @@ def _seed_user(db: Session, *, tenant_id: uuid.UUID) -> uuid.UUID:
         "first_name": "Smoke",
         "last_name": "Test",
         "email": "smoke-test@example.ch",
-        "role": "SALES",
-        "employment_status": "ACTIVE",
-        "status": "ACTIVE",
+        # Values, not names: main stores .value since KAN-86 step 2, and since
+        # KAN-175 every enum column's CHECK refuses a name.
+        "role": "sales",
+        "employment_status": "active",
+        "status": "active",
         "auth_identity_id": "smoke-test-sub",
         "version": 1,
         "created_at": now,
@@ -364,6 +366,33 @@ def _customer_has_fr17_fields(db: Session) -> bool:
     return "gender" in columns
 
 
+def _customer_has_vat_status_confirmed(db: Session) -> bool:
+    """KAN-295 added customer.vat_status_confirmed (NOT NULL, Python-side
+    default on the ORM class), so the ORM insert below breaks on main's
+    schema until this PR's customer migration has run."""
+
+    columns = {col["name"] for col in inspect(db.get_bind()).get_columns("customer")}
+    return "vat_status_confirmed" in columns
+
+
+def _seed_fr17_customer_raw(db: Session, *, group_id: uuid.UUID) -> uuid.UUID:
+    """The FR-17 customer shape (KAN-50) without KAN-295's column, written
+    through the reflected table so only the columns main's schema really has
+    are named. Values, not names: main writes .value since KAN-86 step 2."""
+
+    customer_table = sa.Table("customer", sa.MetaData(), autoload_with=db.get_bind())
+    customer_id = uuid7()
+    now = utcnow()
+    values = {
+        "id": customer_id, "group_id": group_id, "customer_number": "K-000001", "customer_type": "individual",
+        "language": "de", "first_name": "Anna", "last_name": "Muster", "lifecycle_status": "prospect",
+        "gender": "unspecified", "marketing_consent": False, "credit_block": False, "newsletter": False,
+        "vat_registered": False, "version": 1, "created_at": now, "updated_at": now,
+    }
+    db.execute(customer_table.insert().values({k: v for k, v in values.items() if k in customer_table.c}))
+    return customer_id
+
+
 def _vehicle_party_has_vehicle_label(db: Session) -> bool:
     """KAN-84 added the denormalised vehicle label columns to vehicle_party
     (all nullable). The VehicleParty ORM class now always emits them, so the
@@ -397,7 +426,9 @@ def _seed_customer_chain_new_schema(db: Session, *, group_id: uuid.UUID) -> uuid
     _customer_has_fr17_fields.
     """
 
-    if _customer_has_fr17_fields(db):
+    if _customer_has_fr17_fields(db) and not _customer_has_vat_status_confirmed(db):
+        customer_id = _seed_fr17_customer_raw(db, group_id=group_id)
+    elif _customer_has_fr17_fields(db):
         customer = Customer(
             group_id=group_id,
             customer_number="K-000001",

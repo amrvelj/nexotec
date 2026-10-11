@@ -59,10 +59,15 @@ def _dealership(db_session, *, vat_rate=Decimal("8.10")) -> Dealership:
     return dealership
 
 
-def _customer(db_session, *, vat_registered=False, language=Language.EN) -> Customer:
+def _customer(db_session, *, vat_registered=False, vat_status_confirmed=True, language=Language.EN) -> Customer:
+    """A customer whose VAT status someone has checked (vat_status_confirmed),
+    so a trade-in from them migrates. The held path (KAN-295) passes
+    vat_status_confirmed=False explicitly."""
+
     customer = Customer(
         group_id=uuid.uuid4(), customer_number=f"K-{uuid.uuid4().hex[:6]}", customer_type=CustomerType.INDIVIDUAL,
         language=language, first_name="Ada", last_name="Lovelace", vat_registered=vat_registered,
+        vat_status_confirmed=vat_status_confirmed,
     )
     db_session.add(customer)
     db_session.flush()
@@ -1080,14 +1085,14 @@ def test_the_printed_report_shows_every_migrated_row(db_session):
     assert "flagged" not in text
 
 
-def test_a_trade_in_whose_supplier_vat_status_cannot_be_confirmed_is_flagged_not_decided(db_session):
-    """KAN-73 (1, report-only until the product owner and Finance rule):
-    vat_registered=false cannot be told apart from never recorded, yet the
-    row writes a fiktiver Vorsteuerabzug. Migrated as before, but flagged,
-    counted and printed with the credit it writes."""
+def test_a_trade_in_from_an_unconfirmed_non_registered_customer_is_held_not_migrated(db_session):
+    """KAN-295 (Anto, 2026-10-11: "hold them"): vat_registered=false that
+    nobody confirmed cannot be told apart from never recorded, and migrating
+    it books a fiktiver Vorsteuerabzug. Held — nothing written, dry or
+    commit — and printed with the credit it would book."""
 
     _dealership(db_session, vat_rate=Decimal("8.10"))
-    customer = _customer(db_session, vat_registered=False)
+    customer = _customer(db_session, vat_registered=False, vat_status_confirmed=False)
     legacy = _legacy_vehicle(db_session)
     _migrated_vehicle_mdm(db_session, legacy)
     txn = _trade_in_transaction(db_session, customer_id=customer.id, vehicle_id=legacy.id, amount=Decimal("10000.00"))
@@ -1097,18 +1102,82 @@ def test_a_trade_in_whose_supplier_vat_status_cannot_be_confirmed_is_flagged_not
         report = run_migration(db_session, commit=commit)
         text = report.summary()
 
-        assert report.outcomes[0].outcome == "migrated"
-        assert report.outcomes[0].flags == ["supplier_vat_status_unconfirmed"]
-        assert "  flagged supplier_vat_status_unconfirmed: 1" in text
-        assert f"MIGRATED [supplier_vat_status_unconfirmed] trade_in {txn.id}" in text
-        assert "fiktiver Vorsteuerabzug of CHF 749.31" in text
-    item = db_session.query(StockItem).filter_by(pipeline_ref=f"legacy-transaction:{txn.id}").one()
-    assert item.notional_input_tax_amount == Decimal("749.31")  # the behaviour is unchanged, only reported
+        assert [o.outcome for o in report.outcomes] == ["supplier_vat_status_unconfirmed"]
+        assert "  supplier_vat_status_unconfirmed: 1" in text
+        assert f"SUPPLIER_VAT_STATUS_UNCONFIRMED trade_in {txn.id}: customer {customer.customer_number}" in text
+        assert "would book a fiktiver Vorsteuerabzug of CHF 749.31" in text
+        assert "VAT status confirmed" in text
+    assert db_session.query(StockItem).count() == 0
+    assert db_session.query(SalesStockItemPurchase).count() == 0
 
 
-def test_the_vat_flag_note_says_so_when_the_dealership_has_no_vat_rate(db_session):
+def test_a_held_trade_in_holds_the_later_sale_of_the_same_car_until_confirmed(db_session):
+    """KAN-295: the trade-in opens the car's stay in stock. Migrating its later
+    sale alone would create an item for the sale and, on the re-run, a second
+    phantom stay for the trade-in. Both wait; once the customer's VAT status
+    is ticked confirmed, a re-run migrates both onto one item."""
+
+    _dealership(db_session, vat_rate=Decimal("8.10"))
+    customer = _customer(db_session, vat_registered=False, vat_status_confirmed=False)
+    buyer = _customer(db_session, vat_registered=False, vat_status_confirmed=False)
+    legacy = _legacy_vehicle(db_session)
+    mdm = _migrated_vehicle_mdm(db_session, legacy)
+    trade_in = _trade_in_transaction(
+        db_session, customer_id=customer.id, vehicle_id=legacy.id, amount=Decimal("10000.00"),
+        transaction_date=dt.datetime(2023, 1, 10, tzinfo=dt.UTC),
+    )
+    sale = _sale_transaction(
+        db_session, customer_id=buyer.id, vehicle_id=legacy.id, amount=Decimal("14000.00"),
+        transaction_date=dt.datetime(2023, 6, 1, tzinfo=dt.UTC),
+    )
+    db_session.commit()
+
+    held = run_migration(db_session, commit=True)
+
+    assert [o.outcome for o in held.outcomes] == ["supplier_vat_status_unconfirmed", "held_behind_unconfirmed_trade_in"]
+    assert f"its earlier trade-in {trade_in.id} is held" in held.outcomes[1].notes
+    assert db_session.query(StockItem).count() == 0
+    assert db_session.query(SalesContract).count() == 0
+
+    customer.vat_status_confirmed = True  # someone checked: genuinely not VAT-registered
+    db_session.commit()
+    report = run_migration(db_session, commit=True)
+
+    assert [o.outcome for o in report.outcomes] == ["migrated", "migrated"]
+    item = db_session.query(StockItem).filter_by(vin=mdm.vin).one()
+    assert item.pipeline_ref == f"legacy-transaction:{trade_in.id}"
+    assert item.notional_input_tax_amount == Decimal("749.31")
+    assert item.left_stock_at == sale.transaction_date
+    assert db_session.query(SalesContract).filter_by(legacy_transaction_id=sale.id).one().stock_item_id == item.id
+
+
+def test_a_held_trade_in_does_not_hold_another_car(db_session):
+    _dealership(db_session)
+    unconfirmed = _customer(db_session, vat_registered=False, vat_status_confirmed=False)
+    confirmed = _customer(db_session, vat_registered=False, vat_status_confirmed=True)
+    held_car = _legacy_vehicle(db_session, vin="ZAR94000007100001")
+    other_car = _legacy_vehicle(db_session, vin="ZAR94000007100002")
+    _migrated_vehicle_mdm(db_session, held_car)
+    _migrated_vehicle_mdm(db_session, other_car)
+    _trade_in_transaction(
+        db_session, customer_id=unconfirmed.id, vehicle_id=held_car.id,
+        transaction_date=dt.datetime(2023, 1, 1, tzinfo=dt.UTC),
+    )
+    _trade_in_transaction(
+        db_session, customer_id=confirmed.id, vehicle_id=other_car.id,
+        transaction_date=dt.datetime(2023, 2, 1, tzinfo=dt.UTC),
+    )
+    db_session.commit()
+
+    report = run_migration(db_session, commit=True)
+
+    assert [o.outcome for o in report.outcomes] == ["supplier_vat_status_unconfirmed", "migrated"]
+    assert db_session.query(StockItem).one().vin == "ZAR94000007100002"
+
+
+def test_the_held_note_says_so_when_the_dealership_has_no_vat_rate(db_session):
     _dealership(db_session, vat_rate=None)
-    customer = _customer(db_session, vat_registered=False)
+    customer = _customer(db_session, vat_registered=False, vat_status_confirmed=False)
     legacy = _legacy_vehicle(db_session)
     _migrated_vehicle_mdm(db_session, legacy)
     _trade_in_transaction(db_session, customer_id=customer.id, vehicle_id=legacy.id)
@@ -1120,9 +1189,12 @@ def test_the_vat_flag_note_says_so_when_the_dealership_has_no_vat_rate(db_sessio
     assert "CHF None" not in text
 
 
-def test_a_trade_in_from_a_vat_registered_supplier_is_not_flagged(db_session):
+def test_a_trade_in_from_a_vat_registered_supplier_is_not_held_even_unconfirmed(db_session):
+    """vat_registered=true is never the default, so someone set it: no credit is
+    booked on it, and nothing is held."""
+
     _dealership(db_session)
-    customer = _customer(db_session, vat_registered=True)
+    customer = _customer(db_session, vat_registered=True, vat_status_confirmed=False)
     legacy = _legacy_vehicle(db_session)
     _migrated_vehicle_mdm(db_session, legacy)
     _trade_in_transaction(db_session, customer_id=customer.id, vehicle_id=legacy.id)
@@ -1130,6 +1202,7 @@ def test_a_trade_in_from_a_vat_registered_supplier_is_not_flagged(db_session):
 
     report = run_migration(db_session, commit=False)
 
+    assert [o.outcome for o in report.outcomes] == ["migrated"]
     assert report.outcomes[0].flags == []
     assert "flagged" not in report.summary()
 

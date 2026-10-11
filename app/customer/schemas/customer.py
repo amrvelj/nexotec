@@ -351,6 +351,8 @@ class CustomerCreate(CamelModel):
     credit_limit: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
     iban: Iban | None = None  # mod-97 validated; a payout destination, never a payment instrument
     vat_registered: bool = False
+    # KAN-295 — someone has checked vat_registered (its false is also the default).
+    vat_status_confirmed: bool = False
     # Defaults to the acting user on create (D-24) when omitted — resolved
     # in the service, where the acting user is known.
     advisor_id: uuid.UUID | None = None
@@ -490,6 +492,7 @@ class CustomerUpdate(CamelModel):
     credit_limit: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
     iban: Iban | None = None
     vat_registered: bool | None = None
+    vat_status_confirmed: bool | None = None
     advisor_id: uuid.UUID | None = None
     customer_since: dt.date | None = None
     next_follow_up: dt.date | None = None
@@ -566,6 +569,7 @@ class CustomerRead(CamelModel):
     credit_limit: Decimal | None
     iban: str | None
     vat_registered: bool
+    vat_status_confirmed: bool
     # advisor: the P-2 three-column pattern — id + denormalised label +
     # refresh timestamp. `advisor_id` is a platform User id (no FK).
     advisor_id: uuid.UUID | None

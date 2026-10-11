@@ -69,9 +69,11 @@ def create_contract(
     customer_id: uuid.UUID | None = None,
     group_id: uuid.UUID | None = None,
 ) -> SalesContract:
-    """`offer=None, customer_id=None` is the direct "Vertrag erstellen"
-    contract with neither (confirmed live as the stock detail header's own
-    primary action). `offer` set is "Vertrag erzeugen" from an existing
+    """`offer=None, customer_id=None` — a contract with neither — is refused
+    at the API since KAN-276 (Anto, 2026-10-11: "no empty contracts";
+    `ContractCreate`'s validator); tests still build one here to set up a
+    pending contract with no buyer, the state a contract from a customer-less
+    offer is in. `offer` set is "Vertrag erzeugen" from an existing
     offer's row menu, which denormalizes the offer's number as lineage and
     copies its working fields across — the confirmed reference prototype's
     own "C-001195 ← O-003216" header.

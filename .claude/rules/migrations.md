@@ -55,12 +55,14 @@ in the same PR as any change to what it states. -->
   dry run that does not flush cannot see conflicts between rows of the same pass
   (`migrate_transaction_rows.py`'s cannot; the `--commit` report is authoritative there).
 - **Enum columns** are `StoredEnum` (`app/core/enum_type.py`), never a bare `sqlalchemy.Enum`
-  (an architecture test enforces it). KAN-86 is moving storage from the member **name** to
-  `.value` in three steps. Step 2 writes `.value` and rewrote existing rows (one
-  `*_kan86_<context>_enum_values.py` migration per chain), but names written by step-1
-  instances during that deploy remain until KAN-175 (step 3) sweeps them — so a migration
-  that reads or rewrites enum data still handles both forms and writes `.value`. Raw SQL never
-  assumes one form.
+  (an architecture test enforces it), and hold the member's **`.value`** and nothing else
+  (KAN-86, finished by KAN-175 on 2026-10-11: one `*_kan175_<context>_enum_values_only.py`
+  per chain swept the last names). Raw SQL compares against the value (`status = 'pending'`).
+- **Every enum column carries `ck_{table}_{column}_enum`** — `"{column}" IN ({values})` — which
+  `StoredEnum` attaches to the model. Alembic's autogenerate does not compare CHECK
+  constraints, so a migration that **adds an enum column, or a member**, creates (or drops and
+  recreates) that constraint by hand with `enum_check_name` / `enum_check_condition`'s exact
+  name and wording; `tests/test_kan175_enum_values_only.py` checks the model side.
 - The legacy `vehicle` table is write-frozen (ADR-021, `legacy_vehicle_write_frozen`); new code
   never writes it.
 - `scripts/dev/check` mirrors both CI migration jobs whenever migrations, models or their

@@ -52,6 +52,13 @@ against the code). "Open" lines cite a ticket; /drift-audit re-checks them weekl
   2026-10-10, option 2 of KAN-147). `cancel_contract` refuses it too (same reason; `isLegacy`
   on the read model), so its offer never frees for a second contract — KAN-147's own design
   under Anto's "solve it all here" (KAN-277 folded in), pending the ADR-050 amendment.
+  A legacy trade-in whose customer is not VAT-registered and not `vatStatusConfirmed` is held
+  (`supplier_vat_status_unconfirmed`, nothing written), and so is every later row for the same
+  car (`held_behind_unconfirmed_trade_in`) — Anto, 2026-10-11, KAN-295.
+- **No empty contracts** (Anto, 2026-10-11, KAN-276): `POST /sales/contracts` needs `offerId`
+  or `customerId` (`ContractCreate` refuses neither, 422). A contract from an offer with no
+  customer can still be confirmed — signing without a buyer was not ruled out (KAN-276
+  option 1 not chosen).
 - **One live contract per offer** (KAN-147): `create_contract` refuses an offer that already
   has a non-cancelled contract (409 `offer_already_contracted`, with its `contractNumber`),
   under the offer's row lock; a cancelled contract frees the offer. That refusal is what keeps

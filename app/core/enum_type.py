@@ -5,47 +5,72 @@ Why it exists. `sqlalchemy.Enum(..., native_enum=False)` without a
 (`email`). Migrations kept being written against `.value` — KAN-60 (a
 rename that matched zero rows, then a 500 on `GET /v1/customers`) and
 KAN-91 (a migration that lowercased `consent_source` into values the ORM
-could not decode). KAN-86 moves every enum column to storing `.value`, in
+could not decode). KAN-86 moved every enum column to storing `.value`, in
 three steps, because a deploy runs old and new code side by side for a
-while (Render migrates on startup while the old instances still serve, and
-the worker rewrites `outbox_message.status` every few seconds):
+while (Render migrates on startup while the old instances still serve):
 
-1. Every column reads EITHER form, and every equality filter matches EITHER
-   form. Writes still store the NAME. Nothing in the database changes yet.
-2. Writes store `.value`, and one migration per context rewrites existing
-   names to values. Code from step 1 still running during that deploy
-   reads, filters and writes correctly against the rewritten rows.
-3. A second idempotent sweep catches names written during step 2's
-   overlap; reads and filters become strict (`.value` only). That step is KAN-175.
+1. Every column read EITHER form, and every equality filter matched EITHER
+   form. Writes still stored the NAME.
+2. Writes stored `.value`, and one migration per context rewrote existing
+   names to values. Step-1 code still running during that deploy read,
+   filtered and wrote correctly against the rewritten rows.
+3. (KAN-175, this module as it stands) A second idempotent sweep per context
+   rewrote the names step-1 instances wrote during step 2's overlap, and
+   reads and filters became strict: a column holds `.value` and nothing
+   else. Step-2 code still running during this deploy writes values and
+   filters on both forms, so the overlap is safe.
 
-`_WRITE_FORM` is the step switch; step 2 has flipped it to "value". Until
-step 3 lands, nothing in the database is guaranteed to be in one form — rows
-written by step-1 instances during step 2's deploy are still names — so
-never write raw SQL against an enum column that assumes one; compare
-through the ORM column instead, which matches both.
+Since step 3 every StoredEnum column also carries a CHECK constraint
+`"{column}" IN ({values})` (`ck_{table}_{column}_enum`), attached here when
+the column joins its table and created on existing tables by the KAN-175
+migrations: an unknown string can no longer be stored, so every list
+endpoint is safe against undecodable rows. Alembic's autogenerate does not
+compare CHECK constraints, so a new enum column, or a new member, needs its
+constraint created (or replaced) in its migration by hand.
 
-What it does NOT do: invent a member for a stored string that is neither a
-member name nor a value. That still raises `LookupError`, exactly as
-`sqlalchemy.Enum` did, so KAN-60's isolate-and-skip in `list_customers`
-keeps working and a genuinely unknown value stays loud.
+What it does NOT do: invent a member for a stored string that is not a
+value. That still raises `LookupError`, exactly as `sqlalchemy.Enum` did.
+A filter is different: it may take a client-supplied string (`?role=` on the
+user list), so an equality or IN filter on a string that is no value matches
+nothing instead of raising (a 500).
 """
 
 from __future__ import annotations
 
 import enum
 from collections.abc import Iterable
-from typing import Any, cast
+from typing import Any
 
-from sqlalchemy import String, literal
+from sqlalchemy import CheckConstraint, Column, String, Table, event, literal, text
 from sqlalchemy.sql import operators
 from sqlalchemy.types import TypeDecorator
 
-# Which form a write stores: "name" in KAN-86 step 1, "value" from step 2 on.
-_WRITE_FORM = "value"
+# Postgres truncates identifiers longer than this; a truncated constraint
+# name would no longer match the one its migration created.
+_MAX_IDENTIFIER_LENGTH = 63
+
+
+def enum_check_name(table: str, column: str) -> str:
+    """The name of the CHECK constraint on an enum column (KAN-175)."""
+
+    name = f"ck_{table}_{column}_enum"
+    if len(name) > _MAX_IDENTIFIER_LENGTH:
+        raise ValueError(f"{name}: longer than {_MAX_IDENTIFIER_LENGTH} characters — choose a shorter name")
+    return name
+
+
+def enum_check_condition(column: str, values: list[str]) -> str:
+    """The CHECK constraint's condition: the column holds one of `values`."""
+
+    return f'"{column}" IN ({", ".join(_quote(value) for value in values)})'
+
+
+def _quote(value: str) -> str:
+    return "'" + value.replace("'", "''") + "'"
 
 
 class StoredEnum(TypeDecorator):
-    """A VARCHAR column holding a member of `enum_class`.
+    """A VARCHAR column holding the `.value` of a member of `enum_class`.
 
     Declared as `StoredEnum(MyEnum, length=16)`, in place of
     `SAEnum(MyEnum, native_enum=False, length=16)`. `length` is required:
@@ -63,20 +88,21 @@ class StoredEnum(TypeDecorator):
         for member in enum_class:
             if not isinstance(member.value, str):
                 raise TypeError(f"{enum_class.__name__}.{member.name}: StoredEnum needs string values")
-            for form in (member.name, member.value):
-                if lookup.get(form, member) is not member:
-                    # One member's value spelled like another member's name
-                    # would make a stored string ambiguous.
-                    raise TypeError(f"{enum_class.__name__}: '{form}' names two different members")
-                lookup[form] = member
+            lookup[member.value] = member
         self._lookup = lookup
+
+    @property
+    def values(self) -> list[str]:
+        """Every value the column may hold, in definition order."""
+
+        return list(self._lookup)
 
     # --- decoding ---------------------------------------------------------
 
     def _resolve(self, item: Any) -> enum.Enum | None:
         """The member `item` denotes, or None. A member of another enum
         class (Language vs SwissLanguage share their values) resolves by
-        its value only, as sqlalchemy.Enum did."""
+        its value, as sqlalchemy.Enum did."""
 
         if isinstance(item, self.enum_class):
             return item
@@ -87,27 +113,24 @@ class StoredEnum(TypeDecorator):
         return None
 
     def member_for(self, stored: str) -> enum.Enum:
-        """The member a stored (or submitted) string denotes, in either form."""
+        """The member a stored (or submitted) value denotes."""
 
         try:
             return self._lookup[stored]
         except KeyError:
             raise LookupError(
                 f"'{stored}' is not among the defined enum values. Enum name: "
-                f"{self.enum_class.__name__.lower()}. Possible values: "
-                f"{', '.join(m.name for m in self.enum_class)}"
+                f"{self.enum_class.__name__.lower()}. Possible values: {', '.join(self._lookup)}"
             ) from None
-
-    def stored_forms(self, member: enum.Enum) -> list[str]:
-        """Every string a row holding `member` may contain right now."""
-
-        return [member.name] if member.name == member.value else [member.name, member.value]
 
     def process_bind_param(self, value: Any, dialect: Any) -> str | None:
         if value is None:
             return None
         member = self._resolve(value) or self.member_for(value)
-        return member.name if _WRITE_FORM == "name" else member.value
+        return str(member.value)
+
+    def process_literal_param(self, value: Any, dialect: Any) -> str:
+        return _quote(str(self.process_bind_param(value, dialect)))
 
     def process_result_value(self, value: Any, dialect: Any) -> enum.Enum | None:
         if value is None:
@@ -120,27 +143,13 @@ class StoredEnum(TypeDecorator):
     # --- filtering --------------------------------------------------------
 
     class comparator_factory(TypeDecorator.Comparator):
-        """`col == X` becomes `col IN (<name>, <value>)`; `!=`, `in_` and
-        `not_in` widen the same way. NULL handling is unchanged: `!=` and
-        `NOT IN` both leave NULL rows out, as before.
+        """`==`, `!=`, `in_` and `not_in` against members or strings compare
+        the stored value. A string that is no value is compared as it is, so
+        it matches nothing and never raises — a filter may take a
+        client-supplied string. NULL handling is SQL's own."""
 
-        A filter string that is neither a name nor a value of the enum is
-        sent to SQL unchanged, exactly as sqlalchemy.Enum sent it: it matches
-        nothing, and negation and NULLs behave as they always did. It must
-        never raise — some filters take a client-supplied string (e.g.
-        `?role=` on the user list), and that would be a 500. Writes still
-        refuse an unknown string (`process_bind_param`).
-
-        NOT widened, so they see one form only while a table holds both:
-        ordering (`ORDER BY`, `<`, `>`, `BETWEEN`), `IS [NOT] DISTINCT FROM`,
-        `case(value=col)`, column-to-column comparison, explicit
-        `bindparam()`s, and unique constraints. Every value is the
-        lower-cased name today, so ordering agrees once a table holds one
-        form; while it holds both (until KAN-175), each of these sees one.
-        """
-
-        def _forms(self, other: Any) -> list[Any] | None:
-            column_type = cast(StoredEnum, self.type)
+        def _stored(self, other: Any) -> list[Any] | None:
+            column_type: StoredEnum = self.type  # type: ignore[assignment]
             if isinstance(other, (str, enum.Enum)):
                 items = [other]
             elif isinstance(other, Iterable) and not isinstance(other, bytes):
@@ -149,27 +158,37 @@ class StoredEnum(TypeDecorator):
                     return None  # empty, or expressions: SQLAlchemy's own handling
             else:
                 return None
-            # Plain String literals, so the bind side passes each form
-            # through unchanged instead of re-encoding it to _WRITE_FORM.
-            forms: list[str] = []
+            stored: list[Any] = []
             for item in items:
                 member = column_type._resolve(item)
-                if member is None:
-                    # Unknown: as-is (an enum member of no matching class by its value).
-                    candidates = [str(item.value) if isinstance(item, enum.Enum) else str(item)]
-                else:
-                    candidates = column_type.stored_forms(member)
-                for form in candidates:
-                    if form not in forms:
-                        forms.append(form)
-            return [literal(form, String()) for form in forms]
+                text_form = str(member.value) if member is not None else (
+                    str(item.value) if isinstance(item, enum.Enum) else str(item)
+                )
+                stored.append(literal(text_form, String()))
+            return stored
 
         def operate(self, op: Any, *other: Any, **kwargs: Any) -> Any:
             if len(other) == 1 and op in (operators.eq, operators.ne, operators.in_op, operators.not_in_op):
-                if op in (operators.eq, operators.ne) and not isinstance(other[0], (str, enum.Enum)):
-                    return super().operate(op, *other, **kwargs)
-                forms = self._forms(other[0])
-                if forms is not None:
-                    positive = op in (operators.eq, operators.in_op)
-                    return self.expr.in_(forms) if positive else self.expr.not_in(forms)
+                stored = self._stored(other[0])
+                if stored is not None:
+                    if op is operators.eq:
+                        return self.expr == stored[0] if len(stored) == 1 else self.expr.in_(stored)
+                    if op is operators.ne:
+                        return self.expr != stored[0] if len(stored) == 1 else self.expr.not_in(stored)
+                    return self.expr.in_(stored) if op is operators.in_op else self.expr.not_in(stored)
             return super().operate(op, *other, **kwargs)
+
+    # --- the CHECK constraint ---------------------------------------------
+
+    def _set_parent(self, parent: Any, outer: bool = False, **kw: Any) -> None:
+        super()._set_parent(parent, outer=outer, **kw)
+        if isinstance(parent, Column):
+            event.listen(parent, "after_parent_attach", self._attach_check)
+
+    def _attach_check(self, column: Column[Any], table: Any) -> None:
+        if not isinstance(table, Table):
+            return
+        name = enum_check_name(table.name, column.name)
+        if any(getattr(constraint, "name", None) == name for constraint in table.constraints):
+            return
+        table.append_constraint(CheckConstraint(text(enum_check_condition(column.name, self.values)), name=name))

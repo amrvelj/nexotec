@@ -11,6 +11,7 @@ from decimal import Decimal
 
 import pytest
 
+from app.core.audit_model import AuditEvent
 from app.core.auth import AccessRole, create_access_token
 from app.core.errors import UnprocessableEntityError
 from app.core.validators import iban_is_valid
@@ -198,6 +199,38 @@ def test_credit_limit_is_stored_as_a_plain_advisory_decimal(db_session):
     assert customer.credit_limit == Decimal("25000.00")
     # Advisory only — there is no enforcement hook anywhere on the model.
     assert not hasattr(customer, "credit_limit_enforced")
+
+
+def test_vat_status_confirmed_starts_unticked_and_a_patch_ticks_it_audited(client, db_session):
+    """KAN-295 (Anto, 2026-10-11): vat_registered=false is also the default, so
+    a checkbox says someone checked it. Every customer starts unconfirmed."""
+
+    dealer_id = _create_dealer(client)
+    user = _create_user(client, dealer_id)
+    token = _token(tenant_id=uuid.UUID(dealer_id), user_id=uuid.UUID(user["id"]))
+    body = {
+        "firstName": "Ada", "lastName": "Byron", "language": "de",
+        "emails": [{"emailType": "personal", "emailAddress": "ada@example.ch"}],
+    }
+    created = client.post("/v1/customers", json=body, headers=_bearer(token)).json()
+    assert created["vatRegistered"] is False
+    assert created["vatStatusConfirmed"] is False
+
+    resp = client.patch(
+        f"/v1/customers/{created['id']}",
+        json={"vatStatusConfirmed": True},
+        headers={**_bearer(token), "If-Match": str(created["version"])},
+    )
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["vatStatusConfirmed"] is True
+    assert resp.json()["vatRegistered"] is False
+    audited = [
+        e for e in db_session.query(AuditEvent).filter_by(entity_id=uuid.UUID(created["id"]), action="update")
+        if "vat_status_confirmed" in (e.after or {})
+    ]
+    assert len(audited) == 1
+    assert audited[0].after["vat_status_confirmed"] is True
 
 
 # --- advisor (P-2 three-column, D-24) -----------------------------------

@@ -97,6 +97,25 @@ describe('customer 360 — Commercial standing & Relationship (KAN-50)', () => {
     })
   })
 
+  it('ticking VAT status confirmed PATCHes the customer (KAN-295)', async () => {
+    const backend = installFakeBackend([
+      ...routes(),
+      { method: 'PATCH', match: /^\/customers\/c1$/, handler: (req) => customer({ id: 'c1', ...(req.body as object) }) },
+    ])
+    render()
+    await ready()
+    const user = userEvent.setup()
+
+    const box = within(fieldRow('commercialStanding', 'vatStatusConfirmed')).getByRole('checkbox')
+    expect(box).not.toBeChecked()
+    await user.click(box)
+
+    await waitFor(() => {
+      const patches = backend.callsTo(/^\/customers\/c1$/, 'PATCH')
+      expect(patches.at(-1)!.body).toEqual({ vatStatusConfirmed: true })
+    })
+  })
+
   it('adding a tag PATCHes the full tag list', async () => {
     const backend = installFakeBackend([
       ...routes({ tags: ['Oldtimer'] }),

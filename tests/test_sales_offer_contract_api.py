@@ -3,6 +3,7 @@
 import uuid
 
 from app.core.auth import AccessRole, create_access_token
+from app.sales.models.contract import SalesContract
 
 
 def _token(role: AccessRole | None = None, is_dealer_manager: bool = False, tenant_id: uuid.UUID | None = None) -> str:
@@ -83,13 +84,18 @@ def test_cancel_offer(client):
     assert response.json()["status"] == "cancelled"
 
 
-def test_create_contract_direct(client):
+def test_a_contract_with_neither_an_offer_nor_a_customer_is_refused(client, db_session):
+    """KAN-276 (Anto, 2026-10-11: "no empty contracts"): a contract is created
+    from an offer or for a customer, never from nothing."""
+
     token = _token(role=AccessRole.SALES)
-    created = client.post("/v1/sales/contracts", json={}, headers=_bearer(token))
-    assert created.status_code == 201, created.text
-    body = created.json()
-    assert body["status"] == "pending"
-    assert body["offerId"] is None
+
+    for body in ({}, {"offerId": None, "customerId": None}):
+        response = client.post("/v1/sales/contracts", json=body, headers=_bearer(token))
+        assert response.status_code == 422, response.text
+        assert "offerId or customerId" in response.text
+
+    assert db_session.query(SalesContract).count() == 0
 
 
 def test_create_contract_from_offer(client):
@@ -225,7 +231,9 @@ def test_deal_grid_excludes_draft_offers(client):
 
 def test_deal_grid_shows_pending_contracts(client):
     token = _token(role=AccessRole.SALES)
-    client.post("/v1/sales/contracts", json={}, headers=_bearer(token))  # a direct contract, no offer — pending
+    offer = client.post("/v1/sales/offers", headers=_bearer(token)).json()
+    created = client.post("/v1/sales/contracts", json={"offerId": offer["id"]}, headers=_bearer(token))
+    assert created.status_code == 201, created.text  # pending
 
     response = client.get("/v1/sales/deals", headers=_bearer(token))
     assert response.status_code == 200, response.text
