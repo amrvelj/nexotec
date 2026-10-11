@@ -86,7 +86,10 @@ def create_contract(
         # row lock serialises two concurrent creations; a cancelled contract
         # frees the offer for a new one. Re-read under the lock, so the
         # contract copies the offer as committed (a customer merge since the
-        # caller loaded it included), not the caller's stale object.
+        # caller loaded it included), not the caller's stale object. The flush
+        # first keeps a caller's own pending change to the offer, which a
+        # refresh would otherwise discard.
+        db.flush()
         db.refresh(offer, with_for_update=True)
         live = db.scalar(
             select(SalesContract.contract_number).where(

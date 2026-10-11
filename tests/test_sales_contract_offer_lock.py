@@ -1,6 +1,7 @@
 """KAN-147: one live contract per offer, held by the offer's row lock in
 create_contract — and that lock taken in the same order (offer, then deal)
-as every other Sales writer, the customer merge's repointing included.
+as every other Sales writer: the customer merge's repointing flushes in that
+order, and upsert_deal_projection flushes its caller's offer before the deal.
 
 Row-lock interleaving needs Postgres; SQLite has no row locks.
 """
@@ -22,9 +23,11 @@ from app.customer.services.customer import create_customer
 from app.sales.models.contract import SalesContract
 from app.sales.models.deal import SalesDeal
 from app.sales.models.offer import SalesOffer
+from app.sales.schemas.line_item import LineItemsReplaceRequest
 from app.sales.schemas.offer import OfferUpdate
 from app.sales.services.contract import create_contract
 from app.sales.services.customer_merge import repoint_customer_sales_records
+from app.sales.services.line_items import replace_line_items
 from app.sales.services.offer import create_offer, update_offer
 
 pytestmark = pytest.mark.skipif(
@@ -186,3 +189,38 @@ def test_a_contract_copies_the_offer_as_committed_not_as_its_caller_loaded_it(db
     assert contract.customer_id == target_id
     db_session.expire_all()
     assert {d.customer_id for d in db_session.scalars(select(SalesDeal).where(SalesDeal.offer_id == offer_id))} == {target_id}
+
+
+def test_an_offer_line_item_save_during_a_contract_creation_does_not_deadlock(db_session, engine):
+    """KAN-147 review: replace_line_items changed the offer and left one
+    flush in upsert_deal_projection to write it, which wrote sales_deal
+    first — while create_contract held the offer and waited on the deal."""
+
+    tenant_id, _customer_id, offer_id = _offer_for_a_customer(db_session)
+    factory = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
+    errors: list[BaseException] = []
+
+    def save_line_items():
+        session = factory()
+        try:
+            replace_line_items(
+                session, offer=session.get(SalesOffer, offer_id), data=LineItemsReplaceRequest(), actor_id=uuid.uuid4()
+            )
+        except BaseException as exc:  # noqa: BLE001 — asserted below, never swallowed
+            errors.append(exc)
+        finally:
+            session.close()
+
+    other = threading.Thread(target=save_line_items)
+    blocked: list[bool] = []
+    session = factory()
+    try:
+        with _hold_the_offer_lock_while(other, engine, blocked):
+            create_contract(session, tenant_id=tenant_id, offer=session.get(SalesOffer, offer_id), actor_id=uuid.uuid4())
+    finally:
+        session.close()
+        _join(other)
+
+    assert blocked == [True]
+    assert not other.is_alive()
+    assert errors == []

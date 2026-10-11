@@ -21,6 +21,13 @@ def upsert_deal_projection(
     if contract is None and offer is None:
         raise ValueError("upsert_deal_projection requires an offer or a contract")
 
+    # Write the caller's pending offer/contract changes BEFORE the deal row:
+    # every Sales writer takes row locks offer -> contract -> deal
+    # (create_contract holds the offer's lock while it writes the deal,
+    # KAN-147). Left to one flush, the unit of work orders sales_deal before
+    # sales_offer and deadlocks against that creation.
+    db.flush()
+
     if contract is not None:
         deal_id = contract.offer_id if contract.offer_id is not None else contract.id
         deal = db.get(SalesDeal, deal_id)

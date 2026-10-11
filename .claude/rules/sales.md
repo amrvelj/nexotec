@@ -47,15 +47,19 @@ against the code). "Open" lines cite a ticket; /drift-audit re-checks them weekl
   through the ORM and **publishing no outbox events** (a years-old sale must not look like
   today's business to live consumers). Its dry run writes nothing but does not flush, so a
   same-pass VIN reuse or `vehicle_already_in_stock` conflict shows only in the `--commit` report.
-  A migrated sale stays `CONFIRMED`; `request_invoice` and `cancel_contract` refuse any contract
-  with `legacy_transaction_id` set (409, reason `legacy_sale`; `isLegacy` on the read model) —
-  the old system invoiced it (Anto, 2026-10-10; KAN-147).
+  A migrated sale stays `CONFIRMED` and `request_invoice` refuses any contract with
+  `legacy_transaction_id` set (409, reason `legacy_sale`) — the old system invoiced it (Anto,
+  2026-10-10, option 2 of KAN-147). `cancel_contract` refuses it too (same reason; `isLegacy`
+  on the read model), so its offer never frees for a second contract — KAN-147's own design
+  under Anto's "solve it all here" (KAN-277 folded in), pending the ADR-050 amendment.
 - **One live contract per offer** (KAN-147): `create_contract` refuses an offer that already
   has a non-cancelled contract (409 `offer_already_contracted`, with its `contractNumber`),
   under the offer's row lock; a cancelled contract frees the offer. That refusal is what keeps
   a legacy sale's synthesised offer from taking a second contract.
-- **Sales writers take row locks offer → contract → deal**; the customer merge's repointing
-  flushes in that order too, so it cannot deadlock a contract creation (KAN-147).
+- **Sales writers take row locks offer → contract → deal** (KAN-147): `upsert_deal_projection`
+  flushes its caller's offer/contract changes before it writes the deal, and the customer
+  merge's repointing flushes offers, then contracts, then deals — so neither can deadlock a
+  contract creation holding the offer.
 
 ## Price and VAT (ADR-057)
 
