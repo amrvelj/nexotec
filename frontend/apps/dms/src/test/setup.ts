@@ -73,16 +73,19 @@ if (typeof window !== 'undefined') {
 // threw "window is not defined" and failed the run — on whichever PR was
 // unlucky. So a jsdom test's default `fetch` is this stand-in: it records
 // the request and never settles (nothing lands after teardown), and the
-// test fails below, naming it. `installFakeBackend` replaces it.
+// test fails below, naming it. `installFakeBackend` replaces it. It is the
+// file's baseline `fetch`, not a per-test stub, so `vi.unstubAllGlobals()`
+// restores the stand-in, never the real fetch: a request fired after a test
+// (an unmount's debounced save, say) still never reaches the network.
 let unstubbedRequests: string[] = []
 if (typeof window !== 'undefined') {
+  globalThis.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+    unstubbedRequests.push(`${(init?.method ?? 'GET').toUpperCase()} ${url}`)
+    return new Promise<Response>(() => {})
+  }
   beforeEach(() => {
     unstubbedRequests = []
-    vi.stubGlobal('fetch', (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-      unstubbedRequests.push(`${(init?.method ?? 'GET').toUpperCase()} ${url}`)
-      return new Promise<Response>(() => {})
-    })
   })
 }
 
