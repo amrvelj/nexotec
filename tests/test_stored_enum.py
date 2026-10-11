@@ -11,6 +11,8 @@ rather than one each.
 import enum
 
 import pytest
+from alembic.autogenerate import render_python_code
+from alembic.operations import ops
 from sqlalchemy import CheckConstraint, Column, Integer, MetaData, Table, insert, select, text
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import IntegrityError, StatementError
@@ -145,6 +147,29 @@ def test_a_copied_table_carries_each_check_once():
     assert _check_names(renamed) == ["ck_kan297_paint_colour_enum"]
     ddl = str(CreateTable(renamed).compile(dialect=postgresql.dialect()))
     assert "CONSTRAINT ck_kan297_paint_colour_enum CHECK (colour IN ('dark_red', 'blue'))" in ddl
+
+
+def _render_type_as_varchar(type_, obj, autogen_context):
+    """alembic/env.py's render_item (it cannot be imported: env.py runs migrations)."""
+
+    if type_ == "type" and isinstance(obj, StoredEnum):
+        autogen_context.imports.add("import sqlalchemy as sa")
+        return f"sa.String(length={obj.length})"
+    return False
+
+
+def test_autogenerate_renders_each_check_once():
+    """Alembic's op.to_table(), which renders autogenerate's create_table,
+    copies the columns — each attaching its own CHECK — and then appends the
+    copied constraints. The second copy of a name is dropped, so a generated
+    migration does not create the same constraint twice (Postgres refuses it)."""
+
+    create = ops.CreateTableOp.from_table(_paint)
+    assert _check_names(create.to_table()) == ["ck_kan86_paint_colour_enum"]
+
+    rendered = render_python_code(ops.UpgradeOps(ops=[create]), render_item=_render_type_as_varchar)
+    assert rendered.count("sa.CheckConstraint(") == 1
+    assert "sa.CheckConstraint(\"colour IN ('dark_red', 'blue')\", name='ck_kan86_paint_colour_enum')" in rendered
 
 
 def test_the_check_constraint_is_named_and_shaped_for_its_migration():

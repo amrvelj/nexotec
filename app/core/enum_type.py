@@ -196,10 +196,23 @@ class StoredEnum(TypeDecorator):
         # type-bound. Table.to_metadata() then skips it and the copied column
         # attaches its own (KAN-297) — one CHECK per copy, named after the
         # copy's table. Postgres stores it exactly as it stores a migration's
-        # enum_check_condition() (tests/test_migrated_enum_checks.py), and
-        # Alembic's autogenerate still renders it in a create_table.
-        table.append_constraint(
-            CheckConstraint(
-                type_coerce(column, String()).in_(self.values), name=name, _autoattach=False, _type_bound=True
-            )
+        # enum_check_condition() (tests/test_migrated_enum_checks.py).
+        check = CheckConstraint(
+            type_coerce(column, String()).in_(self.values), name=name, _autoattach=False, _type_bound=True
         )
+        event.listen(check, "after_parent_attach", _drop_if_already_there, propagate=True)
+        table.append_constraint(check)
+
+
+def _drop_if_already_there(check: CheckConstraint, table: Any) -> None:
+    """Alembic's op.to_table(), which renders autogenerate's create_table,
+    copies the columns — each attaching its own CHECK — and then appends the
+    copied constraints too. A copy carries this listener (SQLAlchemy copies a
+    schema item's propagating listeners), so the second CHECK of a name leaves
+    the table again: a generated migration creates it once (KAN-297;
+    tests/test_stored_enum.py renders one)."""
+
+    if isinstance(table, Table) and any(
+        other is not check and getattr(other, "name", None) == check.name for other in table.constraints
+    ):
+        table.constraints.discard(check)

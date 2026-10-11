@@ -227,6 +227,15 @@ def test_a_status_sorted_walk_returns_every_vehicle_once_after_the_sweep(client,
 _SHADOW_TABLES = ("vehicle_mdm", "integration_connection")
 
 
+def _shadow_enum_checks(conn) -> int:
+    return conn.execute(
+        text(
+            "SELECT count(*) FROM pg_constraint WHERE connamespace = 'kan298_shadow'::regnamespace "
+            "AND conname LIKE 'ck\\_%\\_enum'"
+        )
+    ).scalar_one()
+
+
 def test_the_constraint_helpers_ignore_a_second_schema_holding_the_same_tables(engine):
     """A test database can hold a second copy of the tables in another schema
     (a restored dump, another checkout's schema), with the same constraint
@@ -240,22 +249,14 @@ def test_the_constraint_helpers_ignore_a_second_schema_holding_the_same_tables(e
             conn.execute(text(f"CREATE TABLE kan298_shadow.{table} (LIKE public.{table} INCLUDING ALL)"))
     try:
         with engine.begin() as conn:
-            shadow = conn.execute(
-                text(
-                    "SELECT count(*) FROM pg_constraint WHERE connamespace = 'kan298_shadow'::regnamespace "
-                    "AND conname LIKE 'ck\\_%\\_enum'"
-                )
-            ).scalar_one()
+            shadow = _shadow_enum_checks(conn)
             assert shadow == sum(1 for table, _name in public if table in _SHADOW_TABLES) > 0
 
             assert enum_checks(conn) == public
             assert "'platform'" in scope_check_definition(conn)
             assert drop_enum_checks(conn) == len(public)
             assert enum_checks(conn) == {}
-            still_there = conn.execute(
-                text("SELECT count(*) FROM pg_constraint WHERE connamespace = 'kan298_shadow'::regnamespace")
-            ).scalar_one()
-            assert still_there > shadow  # the copy's enum CHECKs, and its other constraints, untouched
+            assert _shadow_enum_checks(conn) == shadow  # the copy's untouched
     finally:
         with engine.begin() as conn:
             conn.execute(text("DROP SCHEMA kan298_shadow CASCADE"))

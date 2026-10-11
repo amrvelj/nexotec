@@ -16,6 +16,7 @@ in Backlog) would subsume it.
 """
 
 import os
+import pathlib
 import subprocess
 import sys
 import uuid
@@ -29,6 +30,8 @@ from app.core.enum_type import StoredEnum, enum_check_name
 from app.db import Base
 from scripts.check_concurrent_alembic_upgrade import UPGRADE_TIMEOUT_S, libpq_url, sqlalchemy_url_for
 from tests.enum_test_support import enum_checks
+
+_REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]  # alembic.ini
 
 pytestmark = pytest.mark.skipif(not os.environ.get("DMS_TEST_DATABASE_URL"), reason="Postgres-only (ADR-011)")
 
@@ -63,6 +66,7 @@ def migrated_url():
         url = sqlalchemy_url_for(base, name)
         upgrade = subprocess.run(
             [sys.executable, "-m", "alembic", "upgrade", "heads"],
+            cwd=_REPO_ROOT,
             env=dict(os.environ, DMS_DATABASE_URL=url),
             capture_output=True,
             text=True,
