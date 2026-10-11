@@ -23,6 +23,9 @@
       "catalogue": "Catalogue"
     },
     "signOut": "Se déconnecter",
+    "environmentNotice": {
+      "outboxWorkerAbsent": "Cet environnement n’exécute aucun worker en arrière-plan : les événements n’y sont pas distribués et les tâches nocturnes ne s’exécutent pas."
+    },
     "sidebar": {
       "mainNavigation": "Navigation principale",
       "expandSidebar": "Déplier la barre latérale",

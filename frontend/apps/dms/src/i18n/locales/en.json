@@ -23,6 +23,9 @@
       "catalogue": "Catalogue"
     },
     "signOut": "Sign out",
+    "environmentNotice": {
+      "outboxWorkerAbsent": "This environment runs no background worker: events are not delivered and nightly jobs do not run here."
+    },
     "sidebar": {
       "mainNavigation": "Main navigation",
       "expandSidebar": "Expand sidebar",

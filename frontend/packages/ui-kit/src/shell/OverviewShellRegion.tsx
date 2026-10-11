@@ -1,6 +1,12 @@
 import type { ReactNode } from "react";
 import { layout } from "../tokens";
 
+/** The docked region's height: the viewport minus the topbar, minus the
+ * optional notice strip AppShell publishes as `--shell-notice-height`
+ * (0px without one), minus <main>'s own padding — i.e. exactly <main>'s
+ * content box. Exported so a test can pin the subtraction. */
+export const OVERVIEW_REGION_HEIGHT = `calc(100vh - ${layout.topbarHeight} - var(--shell-notice-height, 0px) - ${layout.contentPaddingTop} - ${layout.contentPaddingBottom})`;
+
 export interface OverviewShellRegionProps {
   /** The page title, subtitle, whatever else sits above the action bar.
    * Scrolls away with the page — this is the part of "the one layout
@@ -35,11 +41,13 @@ export function OverviewShellRegion({ header, actionBar, children }: OverviewShe
           top: 0,
           display: "flex",
           flexDirection: "column",
-          // AppShell's <main> already excludes the topbar (a flex sibling,
-          // not an ancestor) — this only has to give back <main>'s own
-          // padding so the sticky region fills exactly the remaining
-          // viewport once docked, with no residual scroll at the bottom.
-          height: `calc(100vh - ${layout.topbarHeight} - ${layout.contentPaddingTop} - ${layout.contentPaddingBottom})`,
+          // AppShell's <main> already excludes the topbar and the optional
+          // notice strip (flex siblings, not ancestors) — this only has to
+          // give back <main>'s own padding, and the notice's measured
+          // height (`--shell-notice-height`, 0px without one), so the
+          // sticky region fills exactly the remaining viewport once
+          // docked, with no residual scroll at the bottom.
+          height: OVERVIEW_REGION_HEIGHT,
           minHeight: 0,
         }}
       >

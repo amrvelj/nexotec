@@ -23,6 +23,9 @@
       "catalogue": "Katalog"
     },
     "signOut": "Abmelden",
+    "environmentNotice": {
+      "outboxWorkerAbsent": "Diese Umgebung betreibt keinen Hintergrund-Worker: Ereignisse werden hier nicht zugestellt und nächtliche Jobs laufen nicht."
+    },
     "sidebar": {
       "mainNavigation": "Hauptnavigation",
       "expandSidebar": "Seitenleiste ausklappen",
