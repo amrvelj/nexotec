@@ -21,10 +21,16 @@ const MARKER = /⚠ MISSING I18N KEY/
 const DUPLICATE = customer({ id: 'dup-1', customerNumber: 'K-000001', firstName: 'Hans', lastName: 'Muster', version: 4 })
 const SURVIVOR = customer({ id: 'surv-1', customerNumber: 'K-000002', firstName: 'Hans', lastName: 'Mustermann' })
 
-// Every English string the dialog owns — none may show in another language.
-const ENGLISH_PHRASES = Object.entries(en.customerDetail.merge)
-  .filter(([key]) => key !== 'intro')
-  .map(([, value]) => value)
+// Every English string the dialog shows — its own, and the labels of the
+// customer-type and lifecycle badges it renders — none may show in another
+// language.
+const ENGLISH_PHRASES = [
+  ...Object.entries(en.customerDetail.merge)
+    .filter(([key]) => key !== 'intro')
+    .map(([, value]) => value),
+  en.customerEnums.customerType.individual,
+  en.customerEnums.lifecycleStatus.active,
+]
 const ENGLISH_INTRO = /should be merged into/
 
 function install({ failFirstMerge = false } = {}) {
@@ -96,6 +102,8 @@ describe('MergeCustomerModal — every string is translated (KAN-268)', () => {
       expect(screen.getByText(i18n.t('customerDetail.merge.survivorColumn'))).toBeInTheDocument()
       expect(screen.getByText(i18n.t('customerDetail.merge.irreversibleBody'))).toBeInTheDocument()
       expect(screen.getByRole('button', { name: i18n.t('customerDetail.merge.submit') })).toBeInTheDocument()
+      expect(screen.getAllByText(i18n.t('customerEnums.customerType.individual'))).toHaveLength(2)
+      expect(screen.getAllByText(i18n.t('customerEnums.lifecycleStatus.active'))).toHaveLength(2)
 
       const text = screen.getByRole('dialog').textContent ?? ''
       expect(text).not.toMatch(MARKER)
@@ -114,6 +122,17 @@ describe('MergeCustomerModal — every string is translated (KAN-268)', () => {
     await user.type(screen.getByPlaceholderText(i18n.t('customerDetail.merge.searchPlaceholder')), 'Muster')
     expect(await screen.findByText(i18n.t('customerDetail.merge.noMatches'))).toBeInTheDocument()
     expect(screen.queryByText(en.customerDetail.merge.noMatches)).toBeNull()
+  })
+})
+
+describe('MergeCustomerModal — the intro names the duplicate verbatim', () => {
+  it('renders a name that looks like markup as text', async () => {
+    installFakeBackend([])
+    const odd = customer({ ...DUPLICATE, customerType: 'business', companyName: 'Garage <strong>Alpha</strong> & Söhne AG' })
+    renderWithProviders(<MergeCustomerModal opened onClose={() => {}} customer={odd} phones={[]} emails={[]} onMerged={() => {}} />)
+
+    const name = await screen.findByText('Garage <strong>Alpha</strong> & Söhne AG')
+    expect(name.tagName).toBe('STRONG')
   })
 })
 
@@ -155,6 +174,28 @@ describe('MergeCustomerModal — the merge POST (KAN-266, KAN-271)', () => {
     const [first, retry] = mergeCalls(backend)
     expect(first.headers.get('Idempotency-Key')).toBeTruthy()
     expect(retry.headers.get('Idempotency-Key')).toBe(first.headers.get('Idempotency-Key'))
+  })
+
+  it('a dropped connection (no response at all) shows the translated merge error', async () => {
+    await i18n.changeLanguage('it')
+    const user = userEvent.setup()
+    installFakeBackend([
+      { method: 'GET', match: /^\/customers$/, handler: () => ({ items: [DUPLICATE, SURVIVOR], nextCursor: null }) },
+      { method: 'GET', match: /^\/customers\/surv-1\/(phones|emails)$/, handler: () => ({ items: [] }) },
+      {
+        method: 'POST',
+        match: /^\/customers\/dup-1\/merge$/,
+        handler: () => {
+          throw new TypeError('Failed to fetch')
+        },
+      },
+    ])
+    renderModal()
+
+    await pickSurvivor(user)
+    await confirmAndSubmit(user)
+    expect(await screen.findByText(i18n.t('customerDetail.merge.error'))).toBeInTheDocument()
+    expect(i18n.t('customerDetail.merge.error')).not.toBe(en.customerDetail.merge.error)
   })
 
   it('opening the dialog again is a new submission under a new key', async () => {

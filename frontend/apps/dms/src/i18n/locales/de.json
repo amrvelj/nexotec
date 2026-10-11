@@ -489,7 +489,7 @@
     },
     "merge": {
       "title": "Doppelten Kunden zusammenführen",
-      "intro": "Suchen Sie den Kunden, mit dem <strong>{{name}}</strong> zusammengeführt werden soll. Jener Datensatz bleibt bestehen, dieser wird als zusammengeführt markiert.",
+      "intro": "Suchen Sie den Kunden, mit dem <name/> zusammengeführt werden soll. Jener Datensatz bleibt bestehen, dieser wird als zusammengeführt markiert.",
       "searchPlaceholder": "Nach Name, E-Mail, Telefon, Kundennummer suchen…",
       "noMatches": "Keine Treffer.",
       "chooseDifferent": "← Anderen verbleibenden Kunden wählen",

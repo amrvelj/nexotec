@@ -489,7 +489,7 @@
     },
     "merge": {
       "title": "Unisci cliente duplicato",
-      "intro": "Cerca il cliente a cui unire <strong>{{name}}</strong>. Quel record resta; questo viene contrassegnato come unito.",
+      "intro": "Cerca il cliente a cui unire <name/>. Quel record resta; questo viene contrassegnato come unito.",
       "searchPlaceholder": "Cerca per nome, e-mail, telefono, numero cliente…",
       "noMatches": "Nessun risultato.",
       "chooseDifferent": "← Scegli un altro cliente da mantenere",

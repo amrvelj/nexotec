@@ -489,7 +489,7 @@
     },
     "merge": {
       "title": "Merge duplicate customer",
-      "intro": "Search for the customer that <strong>{{name}}</strong> should be merged into. That record survives; this one is marked merged.",
+      "intro": "Search for the customer that <name/> should be merged into. That record survives; this one is marked merged.",
       "searchPlaceholder": "Search by name, email, phone, customer number…",
       "noMatches": "No matches.",
       "chooseDifferent": "← Choose a different survivor",

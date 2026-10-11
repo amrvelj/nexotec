@@ -20,7 +20,7 @@ import { VehicleDetailPage } from './VehicleDetailPage'
 
 const ID = 'veh-1'
 
-type FailOn = 'odometer-readings' | 'accessories' | 'allocate' | 'accessory-remove'
+type FailOn = 'odometer-readings' | 'odometer-network' | 'accessories' | 'allocate' | 'accessory-remove'
 
 // A gateway's timeout page: no API error envelope, so the screen must fall
 // back to a translated message (KAN-271).
@@ -83,6 +83,10 @@ function install({ failFirst }: { failFirst?: FailOn } = {}) {
       handler: (req) => {
         const failure = failOnce('odometer-readings', gatewayTimeout)
         if (failure) return failure
+        // The request never gets a response: fetch rejects, no ApiError.
+        failOnce('odometer-network', () => {
+          throw new TypeError('Failed to fetch')
+        })
         const row = { id: `odo-${readings.length + 1}`, vehicleId: ID, implausible: false, ...(req.body as object) }
         readings.push(row)
         return { __status: 201, body: row }
@@ -202,6 +206,19 @@ describe('VehicleDetailPage — a failed save says so and keeps its key (KAN-269
     const [failedKey, retryKey] = keysOf(backend, 'odometer-readings')
     expect(failedKey).toBeTruthy()
     expect(retryKey).toBe(failedKey)
+  })
+
+  it('a dropped connection on an odometer save shows the tab\'s translated fallback', async () => {
+    await i18n.changeLanguage('de')
+    const user = userEvent.setup()
+    install({ failFirst: 'odometer-network' })
+    renderTab('odometer')
+
+    await user.type(await screen.findByLabelText(i18n.t('vehicleDetail.odometer.value')), '42000')
+    fireEvent.change(screen.getByLabelText(i18n.t('vehicleDetail.odometer.date')), { target: { value: '2026-01-01' } })
+    await user.click(screen.getByRole('button', { name: i18n.t('vehicleDetail.odometer.record') }))
+
+    expect((await screen.findByRole('alert')).textContent).toBe(i18n.t('vehicleDetail.odometer.saveError'))
   })
 
   it('a failed accessory shows the server message, keeps the input, and the retry reuses the key', async () => {

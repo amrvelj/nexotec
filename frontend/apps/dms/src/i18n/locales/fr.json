@@ -489,7 +489,7 @@
     },
     "merge": {
       "title": "Fusionner un client en double",
-      "intro": "Recherchez le client avec lequel <strong>{{name}}</strong> doit être fusionné. Cet enregistrement est conservé ; celui-ci est marqué comme fusionné.",
+      "intro": "Recherchez le client avec lequel <name/> doit être fusionné. Cet enregistrement est conservé ; celui-ci est marqué comme fusionné.",
       "searchPlaceholder": "Rechercher par nom, e-mail, téléphone, numéro de client…",
       "noMatches": "Aucun résultat.",
       "chooseDifferent": "← Choisir un autre client conservé",

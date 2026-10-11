@@ -6,6 +6,7 @@ import { Trans, useTranslation } from 'react-i18next'
 import { CustomerTypeBadge, LifecycleStatusBadge, purple, semantic, slate, white } from '@nexotec/ui-kit'
 import { api, ApiError } from '../../api/client'
 import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
+import { translatedCustomerTypeLabel, translatedLifecycleLabel } from '../../customerOptions'
 import type { CustomerEmailPage, CustomerEmailRead, CustomerPage, CustomerPhonePage, CustomerPhoneRead, CustomerRead } from '../../api/types'
 
 function customerLabel(c: CustomerRead): string {
@@ -130,10 +131,11 @@ export function MergeCustomerModal({ opened, onClose, customer, phones, emails, 
       {!survivor ? (
         <Stack gap="sm">
           <Text size="sm" c="dimmed">
+            {/* The name is the element's own child, not an interpolated value:
+                <Trans> would parse markup inside an interpolated name. */}
             <Trans
               i18nKey="customerDetail.merge.intro"
-              values={{ name: customerLabel(customer) || customer.customerNumber }}
-              components={{ strong: <strong /> }}
+              components={{ name: <strong>{customerLabel(customer) || customer.customerNumber}</strong> }}
             />
           </Text>
           <TextInput
@@ -162,7 +164,7 @@ export function MergeCustomerModal({ opened, onClose, customer, phones, emails, 
                     </Text>
                   </Stack>
                 </Group>
-                <LifecycleStatusBadge status={c.lifecycleStatus} />
+                <LifecycleStatusBadge status={c.lifecycleStatus} label={translatedLifecycleLabel(t, c.lifecycleStatus)} />
               </UnstyledButton>
             ))}
             {!searching && debouncedQuery.trim().length >= 2 && results.length === 0 && (
@@ -252,6 +254,7 @@ function CompareColumn({
   emails: CustomerEmailRead[]
   tone: 'destructive' | 'success'
 }) {
+  const { t } = useTranslation()
   const toneColors = semantic[tone]
   return (
     <div style={{ border: `1px solid ${toneColors.border}`, backgroundColor: toneColors.surface, borderRadius: 8, padding: 12 }}>
@@ -260,7 +263,7 @@ function CompareColumn({
       </Text>
       <Stack gap={4}>
         <Group gap={6}>
-          <CustomerTypeBadge type={customer.customerType} />
+          <CustomerTypeBadge type={customer.customerType} label={translatedCustomerTypeLabel(t, customer.customerType)} />
           <Text size="sm" fw={600}>
             {customerLabel(customer) || customer.customerNumber}
           </Text>
@@ -270,7 +273,7 @@ function CompareColumn({
         </Text>
         <Text size="xs">{primaryPhone(phones)}</Text>
         <Text size="xs">{primaryEmail(emails)}</Text>
-        <LifecycleStatusBadge status={customer.lifecycleStatus} />
+        <LifecycleStatusBadge status={customer.lifecycleStatus} label={translatedLifecycleLabel(t, customer.lifecycleStatus)} />
       </Stack>
     </div>
   )
