@@ -33,7 +33,7 @@ from app.vehicle.schemas.vehicle_mdm import (
     VehicleSearchResult,
 )
 from app.vehicle.services import vehicle_mdm as vehicle_mdm_service
-from app.vehicle.services.plate import list_plates_for_vehicle
+from app.vehicle.services.plate_read_guard import read_plate_history
 from app.vehicle.services.search import filter_vehicles, resolve_identifier
 
 router = APIRouter(tags=["vehicle-mdm"], route_class=IdempotentRoute)
@@ -89,7 +89,7 @@ def search_vehicles(
     resolution = resolve_identifier(db, q) if q else None
     if resolution is not None and (resolution.resolved or resolution.picker_candidates):
         return VehicleSearchResult(
-            resolved=_search_hit(db, resolution.resolved) if resolution.resolved else None,
+            resolved=_search_hit(db, resolution.resolved, principal) if resolution.resolved else None,
             picker_candidates=resolution.picker_candidates,
             filtered=_page([], None, 0, False),
         )
@@ -102,22 +102,25 @@ def search_vehicles(
     )
 
 
-def _search_hit(db: Session, vehicle: VehicleMdm) -> VehicleSearchHit:
+def _search_hit(db: Session, vehicle: VehicleMdm, principal: Principal) -> VehicleSearchHit:
     """The resolved vehicle plus its Kontrollschild valid today (KAN-82) —
     read through this one car's own plate history, the targeted read the
-    non-enumerability rule allows (ADR-039), never a plate listing.
+    non-enumerability rule allows (ADR-039), never a plate listing. That
+    read is audited and limited like the Plates tab (KAN-231); past the
+    limit the hit still resolves, with the plate withheld.
     """
 
+    read = VehicleMdmRead.model_validate(vehicle, from_attributes=True)
+    plates = read_plate_history(
+        db, actor_id=principal.user_id, tenant_id=principal.tenant_id, vehicle_id=vehicle.id, purpose="search_hit"
+    )
+    if plates is None:
+        return VehicleSearchHit(**read.model_dump(), current_plate=None, current_plate_withheld=True)
     today = utcnow().date()
     current_plate = next(
-        (
-            row.plate
-            for row in list_plates_for_vehicle(db, vehicle_id=vehicle.id)
-            if row.valid_from <= today and (row.valid_to is None or row.valid_to >= today)
-        ),
+        (row.plate for row in plates if row.valid_from <= today and (row.valid_to is None or row.valid_to >= today)),
         None,
     )
-    read = VehicleMdmRead.model_validate(vehicle, from_attributes=True)
     return VehicleSearchHit(**read.model_dump(), current_plate=current_plate)
 
 

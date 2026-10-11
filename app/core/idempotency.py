@@ -1,21 +1,17 @@
-"""POST idempotency-key handling (API-conventions cross-cutting rule).
+"""POST idempotency records (API conventions, ADR-035).
 
-Usage in a route handler:
+An HTTP route does not call this module. Its router is built with
+``route_class=IdempotentRoute`` (``app/core/idempotent_route.py``), which
+claims, replays and completes the record for every POST; the guard
+``tests/architecture/test_every_post_accepts_idempotency_key.py`` refuses a
+POST without it.
 
-    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key")
-
-    def create_widget(body, request, idempotency_key=..., principal=..., db=...):
-        if idempotency_key:
-            cached = find_cached_response(db, tenant_id=principal.tenant_id,
-                                           key=idempotency_key, path=request.url.path,
-                                           body=body.model_dump(mode="json"))
-            if cached is not None:
-                return JSONResponse(status_code=cached.response_status, content=cached.response_body)
-        ... create the widget ...
-        if idempotency_key:
-            store_response(db, tenant_id=..., key=..., path=..., body=...,
-                            response_status=201, response_body=result)
-        return result
+A context calls ``find_cached_response`` and ``store_response`` directly only
+for a keyed write of its own, inside its own transaction and under a path of
+its own (``inventory.reserve:<item>`` in
+``app/inventory/services/reservation.py``): a repeat of the request gets the
+stored response, the same key with another request a 409. The daily purge of
+HTTP records leaves these alone.
 """
 
 import hashlib

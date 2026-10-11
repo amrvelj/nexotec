@@ -12,16 +12,19 @@ paths:
   - "frontend/apps/dms/src/**/*ignIn*"
   - "frontend/apps/dms/src/**/ProtectedRoute*"
   - "frontend/apps/dms/src/**/ReferenceDataPage*"
-  - "frontend/apps/dms/src/**/*ntegration*"
   - "frontend/apps/dms/src/**/*ogin*"
+  - "frontend/apps/dms/src/layout/DmsShell.tsx"
+  - "tests/architecture/test_no_ambient_group_read.py"
+  - "frontend/packages/ui-kit/src/components/DocumentPreview.tsx"
+  - "tests/test_auth.py"
+  - "tests/test_user.py"
+  - "tests/test_tenancy.py"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises ADR-014, ADR-051, the Dealer
 Administration PRD and Authentication & Identity (rulings D-A-01…D-A-09, 2026-09-20; they
-absorb Roles & Permissions v0.2 and supersede ADR-027). Verified against main@568f416 on
-2026-09-28 (every present-tense claim checked against the code), except the "Access — what
-exists today" paragraph, re-verified against the KAN-97 branch on 2026-10-04, the D-A-01
-bullet, re-checked for KAN-98 on 2026-10-04, and the "Session minting" paragraph, added from
-the KAN-141 branch on 2026-10-07. "Not built" lines are re-checked weekly by /drift-audit. -->
+absorb Roles & Permissions v0.2 and supersede ADR-027). Verified against main@7805816 on
+2026-10-10 (every present-tense claim checked against the code). "Not built" lines are
+re-checked weekly by /drift-audit. -->
 
 # Platform: organisation, access, administration, authentication
 
@@ -33,9 +36,10 @@ the KAN-141 branch on 2026-10-07. "Not built" lines are re-checked weekly by /dr
 - Tenant scope comes from the token. Group-scoped reads exist only in the files that
   `tests/architecture/test_no_ambient_group_read.py` allow-lists — `core/tenancy.py`
   (`get_group_read_or_404`), `customer/services/customer.py`, `customer/services/legal_basis.py`,
-  `inventory/services/group_listing.py`, `platform/services/dealership.py`. The test covers
-  `group_id` and `dealer_group_id` in every spelling. A new group read is an ADR plus an
-  allowlist entry. Cross-tenant reads return 404, never 403.
+  `inventory/services/group_listing.py`, `platform/services/dealership.py`. The test catches
+  `group_id` / `dealer_group_id` in `==`, `.in_(`, `filter_by(…=)` and single-line `text(…)`
+  (a multi-line `text()` escapes it). A new group read is an ADR plus an allowlist entry.
+  Cross-tenant reads return 404, never 403.
 - **No group-level administrator in v1** (D-A-01). The manager flag is held per dealership
   (KAN-98): `User.is_dealer_manager` for the home dealership, `dealership_membership.
   is_dealer_manager` for each sister dealership (default false, never copied from the home
@@ -51,12 +55,15 @@ the KAN-141 branch on 2026-10-07. "Not built" lines are re-checked weekly by /dr
 staff only. It is an ordinary `AccessRole` value, so `app/platform/services/user.py`
 (`create_user` / `update_user`, required `actor_roles`) is what guards it: only a
 `platform_admin` principal may grant or remove it, or edit any field of a user who holds it
-(KAN-97) — anyone else gets 403. Permissions are capability-based:
-`Capability(read_roles, write_roles, manager_can_write=True)` in `app/core/permissions.py`;
-`require_read` / `require_write` check platform_admin, then the roles, then the manager flag
-(on writes only if `manager_can_write`). `read_roles=None` = any role; an empty set = manager
-only. An empty `write_roles` = platform staff or the manager — except `audit_logs`, which the
-manager cannot write.
+(KAN-97) — anyone else gets 403. **Not yet true:** a `platform_admin` can still grant it to a
+user homed in a dealership — platform staff have no storage of their own until the Platform
+users panel exists (Dealer Administration PRD, status 2026-10-04).
+
+Permissions are capability-based: `Capability(read_roles, write_roles, manager_can_write=True)`
+in `app/core/permissions.py`; `require_read` / `require_write` check platform_admin, then the
+roles, then the manager flag (on writes only if `manager_can_write`). `read_roles=None` = any
+role; an empty set = manager only. An empty `write_roles` = platform staff or the manager —
+except `audit_logs`, which the manager cannot write.
 
 **Session minting (KAN-141).** Today every session token is minted through `_mint_session` in
 `app/platform/api/auth.py` — the OIDC callback and switch-dealership. It refuses a suspended
@@ -101,8 +108,8 @@ One shared template layer (`app/platform/models/document_template.py`). WeasyPri
 only in `app/platform/services/document_render.py`, and no HTML-tag string literal (`<table`,
 `<div`, `<style`, `<html`) appears anywhere else in `app/`
 (`test_no_layout_code_outside_document_render.py`).
-One template definition, two consumers — the PDF and the ui-kit `DocumentPreview` — never two
-renderers.
+One template definition and one renderer (`document_render.py`); the ui-kit `DocumentPreview`
+only displays the PDF it produced — never a second renderer.
 
 ## Authentication (D-A-07 … D-A-09) — decided, NOT built
 

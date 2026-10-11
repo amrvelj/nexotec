@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.auth import Principal, get_current_principal
-from app.core.errors import NotFoundError
+from app.core.errors import ForbiddenError, NotFoundError
 from app.core.idempotent_route import IdempotentRoute
 from app.core.permissions import require_read, require_write
 from app.customer.public import list_vehicle_party_holders
@@ -35,17 +35,31 @@ from app.vehicle.schemas.vehicle_mdm import (
 from app.vehicle.services import catalogue_entitlements
 from app.vehicle.services import vehicle_history as history_service
 from app.vehicle.services import vehicle_mdm as vehicle_mdm_service
-from app.vehicle.services.plate import list_plates_for_vehicle
+from app.vehicle.services.plate_read_guard import REFUSAL_REASON, read_plate_history
 
 router = APIRouter(tags=["vehicle-mdm-detail"], route_class=IdempotentRoute)
 
 
 @router.get("/vehicle-mdm/{vehicle_id}/plates", response_model=list[VehiclePlateRead])
 def list_plates(
-    vehicle_id: uuid.UUID, principal: Principal = Depends(get_current_principal), db: Session = Depends(get_db)
+    vehicle_id: uuid.UUID,
+    principal: Principal = Depends(require_read("vehicle_mdm")),
+    db: Session = Depends(get_db),
 ):
+    """Audited and limited per user (KAN-231, `services/plate_read_guard.py`):
+    past the limit this answers 403 with `details.reason`
+    `plate_read_limit_reached`, and the refusal is audited too.
+    """
+
     vehicle_mdm_service.get_vehicle_mdm_or_404(db, vehicle_id)
-    rows = list_plates_for_vehicle(db, vehicle_id=vehicle_id)
+    rows = read_plate_history(
+        db, actor_id=principal.user_id, tenant_id=principal.tenant_id, vehicle_id=vehicle_id, purpose="plates_tab"
+    )
+    if rows is None:
+        raise ForbiddenError(
+            "Too many vehicles' plates read in a short time; try again later.",
+            details={"reason": REFUSAL_REASON},
+        )
     return [VehiclePlateRead.model_validate(r, from_attributes=True) for r in rows]
 
 

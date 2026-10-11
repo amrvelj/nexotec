@@ -40,9 +40,8 @@ same PR (the reviewer checks); otherwise file a Kanban ticket with the replaceme
   · `Authentication & Identity` https://app.notion.com/p/3e13e79334dd81e5ab31fe5d8b2ba8bd
   · `Integrations & API Credentials` https://app.notion.com/p/3b73e79334dd8122bea0daa6b2b92df8
 
-Otherwise read Notion when these files do not cover the decision in front of you — not as a
-warm-up. The Target Architecture's "Roadmap to the target" table (Stages A–F) is superseded
-by ADR-015; ignore it.
+Otherwise read Notion only when these files do not cover the decision in front of you. The
+Target Architecture's "Roadmap to the target" table (Stages A–F) is superseded by ADR-015.
 
 ## Commands
 
@@ -61,8 +60,8 @@ by ADR-015; ignore it.
 - Frontend: `npm run lint --prefix frontend` · `npm run build --prefix frontend` ·
   `npx vitest run` in `frontend/apps/dms` or `frontend/packages/ui-kit`
 - API types: `make generate-frontend-types` — `schema.d.ts` is generated, never edited
-- Run it: the desktop preview (`.claude/launch.json`: api, frontend, prototype; stop Docker's
-  `app` first — both want port 8000), or `make up` for the whole stack in Docker
+- Run it: the desktop preview (`.claude/launch.json`: `nexotec-api`, `nexotec-frontend`,
+  `nexotec-prototype`; stop Docker's `app` first — both want port 8000), or `make up` in Docker
 - Gates: `scripts/dev/gate status` shows what the push and the hand-over still need
 
 CI (`.github/workflows/test.yml`) runs eleven jobs; whether they block a merge is `main`'s branch protection.
@@ -97,7 +96,7 @@ ADR-015 rules that extraction happens when a trigger fires, not on a schedule: a
 independent scaling · a different retention or data-residency regime · another context's deploys
 keep breaking it · engineering headcount reaches three · a provider licence demands process
 isolation. Until then we build **hard seams inside one application** — no second deployable,
-second database, service template, broker or `services/` directory. A trigger fired? Say so; do not act.
+second database, service template, broker or top-level `services/` directory. A trigger fired? Say so; do not act.
 
 ## The twelve bounded contexts
 
@@ -125,9 +124,10 @@ delete them, and do not treat a stub as a licence to put its concerns somewhere 
 2. **No cross-context foreign keys, joins or shared tables.** Another context's ID is a plain
    `GUID` column with a comment naming the owner, plus a denormalised display label and a
    `labelRefreshedAt` timestamp — the three-column pattern.
-3. **No cross-context imports.** Enforced by import-linter, which gates CI and **has no
-   suppression mechanism**. `<context>.public` is the only door. Moving a boundary is an ADR,
-   not an ignore entry. This rule is what makes the ADR-015 bet safe.
+3. **No cross-context imports** — `<context>.public` is the only door (what makes ADR-015 safe).
+   import-linter gates CI with **no suppression mechanism**, but covers only `models`/`services`/
+   `api` (+ integration `adapters`); `schemas`, `consumers`, `reconciliation` rest on this rule
+   alone. Moving a boundary is an ADR, not an ignore entry.
 4. **Every state change others care about goes through the transactional outbox** — business
    row and outbox row in *one local transaction*. Never a dual write.
 5. **Events are facts in the past tense, never commands.** `vehicle.odometer.recorded`, not
@@ -171,8 +171,8 @@ Edits to these files (all in `app/core/`) ask Anto first, whichever tool makes t
 
 Path-versioned `/v1` · camelCase JSON · cursor pagination · `updatedSince` for incremental
 sync · `If-Match` on every mutation of a versioned entity · `Idempotency-Key` on every POST ·
-OpenAPI published per context. A newly required request field is a breaking contract change:
-it needs an explicit decision, never a side effect of a fix.
+OpenAPI published per service (one today). A newly required request field is a breaking
+contract change: it needs an explicit decision, never a side effect of a fix.
 
 ## Domain rules that apply everywhere
 
@@ -187,12 +187,11 @@ it needs an explicit decision, never a side effect of a fix.
   identifier (details in `.claude/rules/vehicle.md`).
 - **VAT** (ADR-057): one price — gross, CHF incl. MwSt; no net line or VAT breakdown on
   screen, VAT is one line on the printed document only. **There is no `vatTreatment`** — no
-  field, enum, column, badge or switch, anywhere; `tests/architecture/test_no_vat_treatment_field.py`
-  enforces it. Details in the sales and inventory rules.
+  field, enum, column, badge or switch, anywhere; `test_no_vat_treatment_field.py` enforces it
+  in `app/` and frontend sources (not `alembic/` or locale JSON). See the sales and inventory rules.
 - **i18n:** DE, FR, IT, EN are all first class, reference data included. No user-visible
   string is hardcoded; a missing key renders a loud marker, never a German fallback; the
   customer's correspondence language is not the user's UI language.
-- **Licensed provider data** (auto-i-dat) is per tenant (ADR-013); variant master data is global (ADR-075).
 
 ## Reference material outside the repository
 

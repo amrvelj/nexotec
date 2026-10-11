@@ -625,7 +625,9 @@
       "validTo": "Gültig bis",
       "current": "aktuell",
       "none": "Keine Kennzeichen erfasst",
-      "wechselschild": "Wechselschild"
+      "wechselschild": "Wechselschild",
+      "limitReached": "Sie haben in kurzer Zeit die Kennzeichen vieler Fahrzeuge angesehen. Bitte versuchen Sie es später erneut.",
+      "withheld": "Kennzeichen ausgeblendet – Limite erreicht"
     },
     "odometer": {
       "value": "Kilometerstand",

@@ -1,19 +1,23 @@
-import { Badge, Loader, Table } from '@mantine/core'
+import { Alert, Badge, Loader, Table } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 import type { VehiclePlateRead } from '../../api/types'
 
 interface PlatesTabProps {
   plates: VehiclePlateRead[]
   loading: boolean
+  /** KAN-231: the user has read the plates of too many vehicles in the
+   * window; the API refused (403, `plate_read_limit_reached`). */
+  limitReached?: boolean
 }
 
 /** FR-V-16 Plates tab — this vehicle's own Kontrollschild history. A
  * Wechselschild pair (shared plateGroupId) is shown as a normal pair of
  * rows, not flagged — the overlap is expected (ADR-039).
  */
-export function PlatesTab({ plates, loading }: PlatesTabProps) {
+export function PlatesTab({ plates, loading, limitReached = false }: PlatesTabProps) {
   const { t } = useTranslation()
   if (loading) return <Loader size="sm" />
+  if (limitReached) return <Alert color="yellow">{t('vehicleDetail.plates.limitReached')}</Alert>
 
   return (
     <Table>

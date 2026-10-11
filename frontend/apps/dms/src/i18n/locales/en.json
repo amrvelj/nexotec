@@ -625,7 +625,9 @@
       "validTo": "Valid to",
       "current": "current",
       "none": "No plates recorded",
-      "wechselschild": "Wechselschild"
+      "wechselschild": "Wechselschild",
+      "limitReached": "You have viewed many licence plates in a short time. Try again later.",
+      "withheld": "Plate hidden – limit reached"
     },
     "odometer": {
       "value": "Reading",

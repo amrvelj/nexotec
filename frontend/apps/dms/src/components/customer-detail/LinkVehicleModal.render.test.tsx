@@ -37,6 +37,8 @@ const SEARCH: Record<string, VehicleSearchResult> = {
     filtered: EMPTY_PAGE,
   },
   WVW: { resolved: null, pickerCandidates: [], filtered: { items: [PAIR], nextCursor: null, total: 1, totalIsEstimate: false } },
+  // KAN-231: past the plate-read limit the hit resolves with its plate withheld.
+  [TARGET.vin]: { resolved: { ...TARGET, currentPlate: null, currentPlateWithheld: true }, pickerCandidates: [], filtered: EMPTY_PAGE },
 }
 
 function renderModal() {
@@ -64,6 +66,14 @@ describe('LinkVehicleModal — a full identifier finds its vehicle (KAN-82)', ()
 
     await waitFor(() => expect(backend.callsTo(/^\/customers\/cust-1\/vehicles$/, 'POST')).toHaveLength(1))
     expect(backend.callsTo(/^\/customers\/cust-1\/vehicles$/, 'POST')[0].body).toEqual({ vehicleId: TARGET.id, role: 'owner' })
+  })
+
+  it('past the plate-read limit the vehicle is still offered, saying its plate is hidden (KAN-231)', async () => {
+    renderModal()
+    await type(TARGET.vin)
+
+    const withheld = i18n.t('vehicleDetail.plates.withheld')
+    expect(await screen.findByRole('button', { name: `F-000001 — ZAR94000007123456 — ${withheld}` })).toBeInTheDocument()
   })
 
   it('a shared plate offers both cars and preselects neither', async () => {

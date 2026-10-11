@@ -51,6 +51,13 @@ const SEARCH: Record<string, VehicleSearchResult> = {
     filtered: EMPTY_PAGE,
   },
   'AG 55555': { resolved: null, pickerCandidates: [], filtered: EMPTY_PAGE },
+  // KAN-231: past the caller's plate-read limit the hit still resolves,
+  // with its plate withheld.
+  [TARGET.vin]: {
+    resolved: { ...TARGET, currentPlate: null, currentPlateWithheld: true },
+    pickerCandidates: [],
+    filtered: EMPTY_PAGE,
+  },
   WBA: { resolved: null, pickerCandidates: [], filtered: { items: [BMW], nextCursor: null, total: 1, totalIsEstimate: false } },
 }
 
@@ -118,6 +125,16 @@ describe('DmsShell global search — identifiers resolve as on the Vehicles scre
 
     await userEvent.click(options[0])
     expect(await screen.findByText(`vehicle page ${TARGET.id}`)).toBeInTheDocument()
+  })
+
+  it('past the plate-read limit the vehicle still resolves, saying its plate is hidden (KAN-231)', async () => {
+    renderShell()
+    await search(TARGET.vin)
+
+    const options = await screen.findAllByRole('option')
+    expect(options).toHaveLength(1)
+    expect(within(options[0]).getByText(TARGET.vehicleNumber)).toBeInTheDocument()
+    expect(within(options[0]).getByText(tr('vehicleDetail.plates.withheld'))).toBeInTheDocument()
   })
 
   it('a resolved identifier leads, above any customer match', async () => {
