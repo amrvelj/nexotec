@@ -5,10 +5,13 @@ string that is neither form, and give every enum column its CHECK constraint
 outbox index and the integration connection CHECK narrowed to the values.
 
 Each migration freezes its own column list; the first tests check it still
-agrees with the models. The rest run the real upgrade()/downgrade() on
-Postgres over a schema without the CHECKs (a database from before KAN-175,
-tests/enum_test_support.py), and walk the Vehicles list sorted by status
-over the swept rows (KAN-183, folded into this ticket by Anto on 2026-10-11).
+agrees with the models. (That a migrated database carries exactly the CHECKs
+the models declare is tests/test_migrated_enum_checks.py, KAN-296.) The rest
+run the real upgrade()/downgrade() on Postgres over a schema without the
+CHECKs (a database from before KAN-175, tests/enum_test_support.py), walk the
+Vehicles list sorted by status over the swept rows (KAN-183, folded into this
+ticket by Anto on 2026-10-11), and pin that the constraint helpers read the
+current schema only (KAN-298).
 """
 
 import os
@@ -21,10 +24,15 @@ import sqlalchemy as sa
 from sqlalchemy import text
 
 import app.model_registry  # noqa: F401  registers every model on Base.metadata
-from app.core.enum_type import StoredEnum, enum_check_condition, enum_check_name
+from app.core.enum_type import StoredEnum, enum_check_name
 from app.db import Base
 from app.vehicle.models.vehicle_mdm import CatalogueMatchStatus, VehicleMdm, VehicleStatus
-from tests.enum_test_support import drop_enum_checks, widen_connection_scope_check
+from tests.enum_test_support import (
+    drop_enum_checks,
+    enum_checks,
+    scope_check_definition,
+    widen_connection_scope_check,
+)
 from tests.test_kan86_value_migrations import _load, _raw, _run, _seed_one_row_each, _set_raw
 from tests.test_vehicle_mdm_search_sort import _walk
 
@@ -54,9 +62,7 @@ def _frozen() -> dict[tuple[str, str], tuple[tuple[str, str], ...]]:
 
 
 def _enum_checks(conn) -> set[str]:
-    return set(
-        conn.scalars(text("SELECT conname FROM pg_constraint WHERE contype = 'c' AND conname LIKE 'ck\\_%\\_enum'"))
-    )
+    return {name for _table, name in enum_checks(conn)}
 
 
 # --- the frozen lists match the models -------------------------------------------
@@ -82,17 +88,6 @@ def test_every_frozen_column_agrees_with_its_context_and_its_members():
                 continue  # removed since; its own migration owns that
             assert set(pairs) <= set(current), (context, table, column)
     assert len(_frozen()) == 62
-
-
-def test_the_models_carry_the_same_constraints_the_migrations_create():
-    """The schema the tests build (Base.metadata) has one CHECK per enum
-    column, named and worded as its migration creates it."""
-
-    for (table, column), pairs in _frozen().items():
-        constraint = next(
-            c for c in Base.metadata.tables[table].constraints if getattr(c, "name", None) == enum_check_name(table, column)
-        )
-        assert str(constraint.sqltext) == enum_check_condition(column, [value for _name, value in pairs]), (table, column)
 
 
 def test_the_database_refuses_a_name_and_an_unknown_string(db_session):
@@ -142,12 +137,6 @@ def _index_definition(conn) -> str:
     return conn.execute(text("SELECT pg_get_indexdef('ix_outbox_message_pending_next_attempt_at'::regclass)")).scalar_one()
 
 
-def _scope_check(conn) -> str:
-    return conn.execute(
-        text("SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'ck_integration_connection_scope_tenant_id'")
-    ).scalar_one()
-
-
 def test_upgrade_sweeps_every_name_then_constrains_every_column_and_downgrade_drops_them(engine, seeded_in_name_form):
     frozen = seeded_in_name_form
     with engine.begin() as conn:
@@ -158,7 +147,7 @@ def test_upgrade_sweeps_every_name_then_constrains_every_column_and_downgrade_dr
         assert {key: _raw(conn, *key) for key in frozen} == {key: pairs[-1][1] for key, pairs in frozen.items()}
         assert _enum_checks(conn) == {enum_check_name(table, column) for table, column in frozen}
         assert "= 'pending'" in _index_definition(conn) and "PENDING" not in _index_definition(conn)
-        assert "'platform'" in _scope_check(conn) and "PLATFORM" not in _scope_check(conn)
+        assert "'platform'" in scope_check_definition(conn) and "PLATFORM" not in scope_check_definition(conn)
 
         for module in _MIGRATIONS.values():  # a second run changes nothing (CHECKs aside, created once)
             module._rewrite_names(conn)
@@ -170,7 +159,7 @@ def test_upgrade_sweeps_every_name_then_constrains_every_column_and_downgrade_dr
             _run(conn, module.downgrade)
         assert _enum_checks(conn) == set()
         assert "PENDING" in _index_definition(conn)
-        assert "PLATFORM" in _scope_check(conn)
+        assert "PLATFORM" in scope_check_definition(conn)
         # Values stay values: step-2 code reads them.
         assert {key: _raw(conn, *key) for key in frozen} == {key: pairs[-1][1] for key, pairs in frozen.items()}
 
@@ -231,3 +220,43 @@ def test_a_status_sorted_walk_returns_every_vehicle_once_after_the_sweep(client,
             groups.setdefault(row[key], []).append(row)
         expected = [row for value in groups for row in sorted(groups[value], key=_FLEET.index)]
     assert numbers == [row[0] for row in expected]
+
+
+# --- KAN-298: the constraint helpers read the current schema only ----------------
+
+_SHADOW_TABLES = ("vehicle_mdm", "integration_connection")
+
+
+def _shadow_enum_checks(conn) -> int:
+    return conn.execute(
+        text(
+            "SELECT count(*) FROM pg_constraint WHERE connamespace = 'kan298_shadow'::regnamespace "
+            "AND conname LIKE 'ck\\_%\\_enum'"
+        )
+    ).scalar_one()
+
+
+def test_the_constraint_helpers_ignore_a_second_schema_holding_the_same_tables(engine):
+    """A test database can hold a second copy of the tables in another schema
+    (a restored dump, another checkout's schema), with the same constraint
+    names. The helpers the migration tests use must read, and drop, the
+    current schema's constraints only."""
+
+    with engine.begin() as conn:
+        public = enum_checks(conn)
+        conn.execute(text("CREATE SCHEMA kan298_shadow"))
+        for table in _SHADOW_TABLES:
+            conn.execute(text(f"CREATE TABLE kan298_shadow.{table} (LIKE public.{table} INCLUDING ALL)"))
+    try:
+        with engine.begin() as conn:
+            shadow = _shadow_enum_checks(conn)
+            assert shadow == sum(1 for table, _name in public if table in _SHADOW_TABLES) > 0
+
+            assert enum_checks(conn) == public
+            assert "'platform'" in scope_check_definition(conn)
+            assert drop_enum_checks(conn) == len(public)
+            assert enum_checks(conn) == {}
+            assert _shadow_enum_checks(conn) == shadow  # the copy's untouched
+    finally:
+        with engine.begin() as conn:
+            conn.execute(text("DROP SCHEMA kan298_shadow CASCADE"))

@@ -15,6 +15,7 @@ seed verified). Not mirrored here (CI still runs them): secret-scan,
 docker-build, outbox-worker-smoke-test. A change to the workflow runs every lane.
 """
 
+import ast
 import os
 import re
 import runpy  # noqa: F401  (used inside the generated snippet)
@@ -46,7 +47,7 @@ LANE_PATTERNS = {
     # (KAN-234's refused downgrade) still shows only in its dashboard.
     "deploy": [r"^render\.yaml$", r"^scripts/check_render_yaml\.py$", r"^scripts/dev/render\.yaml\.schema"],
     "backend": [r"^app/", r"^tests/", r"^alembic/", r"^alembic\.ini$", r"^pyproject\.toml$", r"^scripts/[^/]+\.py$"],
-    # alembic/env.py imports app.db, app.model_registry and app.core.config; core tables live in app/core/*_model.py
+    # Plus every app/ file a migration run loads, derived at run time: migration_inputs() (KAN-300).
     "migrations": [r"^alembic/", r"^alembic\.ini$", r"^app/.*/models(/|\.py$)", r"^app/core/[^/]*_model\.py$",
                    r"^app/model_registry\.py$", r"^app/db\.py$", r"^app/core/config\.py$", r"^pyproject\.toml$",
                    r"^scripts/(seed|verify)_migration_smoke_test[^/]*\.py$",
@@ -95,7 +96,44 @@ def lanes_for(files):
     for lane, patterns in LANE_PATTERNS.items():
         if any(re.search(p, f) for f in files for p in patterns):
             lanes.add(lane)
+    app_files = [f for f in files if f.startswith("app/")]
+    if "migrations" not in lanes and app_files:
+        inputs = migration_inputs()
+        if inputs is None:
+            print("Could not list the app/ files a migration run loads, so the migration lanes run for any app/ change.")
+            lanes.add("migrations")
+        elif any(f in inputs for f in app_files):
+            lanes.add("migrations")
     return [l for l in ORDER if l in lanes]
+
+
+def migration_inputs():
+    """Every app/ file a migration run loads, as repository paths: the modules alembic/env.py and
+    the migrations import from app (app.model_registry among them, so every model), everything
+    those import, and the data files beside each loaded package. Derived, not listed (KAN-300): a
+    hand-kept list missed app/core/enum_type.py, which env.py and every enum column import. None
+    when they cannot be listed - lanes_for() then runs the lanes."""
+
+    sources = [os.path.join(ROOT, "alembic", "env.py")]
+    for folder, _dirs, filenames in os.walk(os.path.join(ROOT, "alembic", "versions")):
+        sources += [os.path.join(folder, name) for name in filenames if name.endswith(".py")]
+    names = set()
+    for source in sources:  # a migration may import app code of its own (reference data, postal codes)
+        try:
+            tree = ast.parse(open(source).read())
+        except (OSError, SyntaxError):
+            return None
+        names |= {node.module for node in ast.walk(tree) if isinstance(node, ast.ImportFrom) and node.module}
+        names |= {alias.name for node in ast.walk(tree) if isinstance(node, ast.Import) for alias in node.names}
+    names = sorted(name for name in names if name.split(".")[0] == "app")
+    if not os.path.exists(PY):
+        return None
+    out = subprocess.run([PY, "-c", DMS_ENV_DEFAULTS + MIGRATION_INPUTS_SNIPPET] + names, cwd=ROOT,
+                         env=dict(ENV, PYTHONPATH=ROOT), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                         universal_newlines=True)
+    if out.returncode != 0:
+        return None
+    return set(out.stdout.splitlines())
 
 
 def uncovered(files):
@@ -301,8 +339,9 @@ def lane_migrations():
     return ok
 
 
-GEN_SNIPPET = (
-    "import os, runpy\n"
+# Settings app.core.config refuses to start without; throwaway values, never a real secret.
+DMS_ENV_DEFAULTS = (
+    "import os\n"
     "from cryptography.fernet import Fernet\n"
     "from cryptography.hazmat.primitives import serialization\n"
     "from cryptography.hazmat.primitives.asymmetric import rsa\n"
@@ -313,7 +352,27 @@ GEN_SNIPPET = (
     "d('DMS_ZITADEL_ISSUER', 'https://example.zitadel.cloud'); d('DMS_ZITADEL_CLIENT_ID', 'check')\n"
     "d('DMS_ZITADEL_CLIENT_SECRET', 'check'); d('DMS_ZITADEL_REDIRECT_URI', 'http://localhost/cb')\n"
     "d('DMS_SESSION_SECRET_KEY', 'check-session-secret-not-used')\n"
-    "runpy.run_path('scripts/generate_openapi_schema.py', run_name='__main__')\n"
+)
+GEN_SNIPPET = DMS_ENV_DEFAULTS + "import runpy\nrunpy.run_path('scripts/generate_openapi_schema.py', run_name='__main__')\n"
+# Imports the modules named on the command line, then prints every loaded file under app/, and
+# the data files beside each loaded package's __init__.py (a seed CSV read through importlib.resources).
+MIGRATION_INPUTS_SNIPPET = (
+    "import importlib, sys\n"
+    "for name in sys.argv[1:]:\n"
+    "    importlib.import_module(name)\n"
+    "app_dir = os.path.join(os.getcwd(), 'app') + os.sep\n"
+    "paths = set()\n"
+    "for module in list(sys.modules.values()):\n"
+    "    path = getattr(module, '__file__', None) or ''\n"
+    "    if not path.startswith(app_dir):\n"
+    "        continue\n"
+    "    paths.add(path)\n"
+    "    if os.path.basename(path) == '__init__.py':\n"
+    "        folder = os.path.dirname(path)\n"
+    "        paths |= {os.path.join(folder, f) for f in os.listdir(folder)\n"
+    "                  if os.path.isfile(os.path.join(folder, f)) and not f.endswith(('.py', '.pyc'))}\n"
+    "for path in sorted(paths):\n"
+    "    print(os.path.relpath(path, os.getcwd()).replace(os.sep, '/'))\n"
 )
 
 
