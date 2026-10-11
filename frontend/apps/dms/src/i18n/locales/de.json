@@ -78,7 +78,8 @@
     "no": "Nein",
     "save": "Speichern",
     "remove": "Entfernen",
-    "loading": "Lädt…"
+    "loading": "Lädt…",
+    "requestFailed": "Die Anfrage ist fehlgeschlagen. Bitte versuchen Sie es erneut."
   },
   "customerCreate": {
     "title": "Neuer Kunde",
@@ -485,6 +486,21 @@
       "role": "Rolle",
       "confirm": "Verknüpfen",
       "error": "Das Fahrzeug konnte nicht verknüpft werden."
+    },
+    "merge": {
+      "title": "Doppelten Kunden zusammenführen",
+      "intro": "Suchen Sie den Kunden, mit dem <name/> zusammengeführt werden soll. Jener Datensatz bleibt bestehen, dieser wird als zusammengeführt markiert.",
+      "searchPlaceholder": "Nach Name, E-Mail, Telefon, Kundennummer suchen…",
+      "noMatches": "Keine Treffer.",
+      "chooseDifferent": "← Anderen verbleibenden Kunden wählen",
+      "duplicateColumn": "Dieser Kunde — wird zusammengeführt",
+      "survivorColumn": "Verbleibender Kunde — bleibt bestehen",
+      "irreversibleTitle": "Dies kann nicht rückgängig gemacht werden",
+      "irreversibleBody": "Fahrzeuge, Transaktionen, Telefonnummern, E-Mail-Adressen und externe IDs gehen auf den verbleibenden Kunden über. Dieser Kunde wird schreibgeschützt und in der Suche ausgeblendet.",
+      "confirm": "Ich verstehe, dass dies endgültig ist",
+      "submitting": "Wird zusammengeführt…",
+      "submit": "Kunden zusammenführen",
+      "error": "Die Kunden konnten nicht zusammengeführt werden."
     }
   },
   "signInError": {
@@ -622,7 +638,8 @@
       "noCustomers": "Keine Kunden gefunden",
       "unnamedCustomer": "Kunde ohne Namen",
       "showFormer": "Frühere Beteiligte anzeigen",
-      "hideFormer": "Frühere Beteiligte ausblenden"
+      "hideFormer": "Frühere Beteiligte ausblenden",
+      "allocateError": "Der Kunde konnte nicht zugeordnet werden."
     },
     "plates": {
       "plate": "Kennzeichen",
@@ -649,7 +666,8 @@
         "valuation": "Bewertung",
         "manual": "Manuell",
         "import": "Import"
-      }
+      },
+      "saveError": "Der Kilometerstand konnte nicht gespeichert werden."
     },
     "accessories": {
       "type": "Typ",
@@ -658,7 +676,9 @@
       "validTo": "Gültig bis",
       "add": "Hinzufügen",
       "remove": "Entfernen",
-      "none": "Kein Zubehör erfasst"
+      "none": "Kein Zubehör erfasst",
+      "saveError": "Das Zubehör konnte nicht gespeichert werden.",
+      "removeError": "Das Zubehör konnte nicht entfernt werden."
     },
     "specification": {
       "empty": "In diesem Betrieb gibt es keine Konfiguration dieses Fahrzeugs.",

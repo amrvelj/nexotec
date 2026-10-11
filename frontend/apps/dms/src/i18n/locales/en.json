@@ -78,7 +78,8 @@
     "no": "No",
     "save": "Save",
     "remove": "Remove",
-    "loading": "Loading…"
+    "loading": "Loading…",
+    "requestFailed": "The request failed. Please try again."
   },
   "customerCreate": {
     "title": "New customer",
@@ -485,6 +486,21 @@
       "role": "Role",
       "confirm": "Link",
       "error": "The vehicle could not be linked."
+    },
+    "merge": {
+      "title": "Merge duplicate customer",
+      "intro": "Search for the customer that <name/> should be merged into. That record survives; this one is marked merged.",
+      "searchPlaceholder": "Search by name, email, phone, customer number…",
+      "noMatches": "No matches.",
+      "chooseDifferent": "← Choose a different survivor",
+      "duplicateColumn": "This customer — will be merged",
+      "survivorColumn": "Survivor — will remain",
+      "irreversibleTitle": "This cannot be undone",
+      "irreversibleBody": "Vehicles, transactions, phones, emails and external IDs move to the survivor. This customer becomes read-only and is hidden from search.",
+      "confirm": "I understand this is permanent",
+      "submitting": "Merging…",
+      "submit": "Merge customers",
+      "error": "The customers could not be merged."
     }
   },
   "signInError": {
@@ -622,7 +638,8 @@
       "noCustomers": "No customers found",
       "unnamedCustomer": "Unnamed customer",
       "showFormer": "Show former parties",
-      "hideFormer": "Hide former parties"
+      "hideFormer": "Hide former parties",
+      "allocateError": "The customer could not be allocated."
     },
     "plates": {
       "plate": "Plate",
@@ -649,7 +666,8 @@
         "valuation": "Valuation",
         "manual": "Manual",
         "import": "Import"
-      }
+      },
+      "saveError": "The reading could not be saved."
     },
     "accessories": {
       "type": "Type",
@@ -658,7 +676,9 @@
       "validTo": "Valid to",
       "add": "Add",
       "remove": "Remove",
-      "none": "No accessories recorded"
+      "none": "No accessories recorded",
+      "saveError": "The accessory could not be saved.",
+      "removeError": "The accessory could not be removed."
     },
     "specification": {
       "empty": "This dealership holds no configuration of this vehicle.",
