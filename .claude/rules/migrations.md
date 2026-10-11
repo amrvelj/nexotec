@@ -62,8 +62,9 @@ in the same PR as any change to what it states. -->
   `StoredEnum` attaches to the model. Autogenerate renders it once in a new table's
   `create_table` (KAN-297), but it does not compare CHECK constraints: a migration that **adds an
   enum column to an existing table, or a member**, creates (or drops and recreates) that
-  constraint by hand with `enum_check_name` / `enum_check_condition`'s exact name and wording. `tests/test_migrated_enum_checks.py` runs `alembic upgrade heads` on a
-  throwaway database and fails on any `ck_*_enum` that differs from the models' (KAN-296).
+  constraint by hand with `enum_check_name` / `enum_check_condition`'s exact name and wording.
+  `tests/test_migrated_enum_checks.py` runs `alembic upgrade heads` on a throwaway database and
+  fails on any `ck_*_enum` that differs from the models' (KAN-296).
 - The legacy `vehicle` table is write-frozen (ADR-021, `legacy_vehicle_write_frozen`); new code
   never writes it.
 - `scripts/dev/check` mirrors both CI migration jobs whenever migrations, models or anything a
