@@ -3,11 +3,13 @@
 import datetime as dt
 import uuid
 from decimal import Decimal
+from typing import Literal
 
-from pydantic import model_validator
+from pydantic import Field, model_validator
 
 from app.core.schemas import CamelModel
 from app.sales.models.contract import ContractStatus, FinancingKind
+from app.sales.schemas.offer import OfferContainerState
 
 
 class ContractCreate(CamelModel):
@@ -30,6 +32,29 @@ class ContractCreate(CamelModel):
         return self
 
 
+class ContractUpdate(CamelModel):
+    """KAN-67 (ADR-083) — completes or adjusts a PENDING contract: its
+    vehicle (FR-S-05 Path A: a stock item; Path B: a `build` configuration;
+    or a manually described car) and the seller's own pricing inputs. Every
+    field is optional and applied incrementally, like the offer's autosave
+    PATCH (OfferUpdate) and with the same meaning; every derived figure is
+    recomputed server-side, never taken from the client. The customer is
+    not editable here — a contract keeps the customer it was created for.
+    The trade-in and the line items have their own routes, as on the offer.
+    """
+
+    vehicle_source: Literal["stock", "manual"] | None = None
+    stock_item_id: uuid.UUID | None = None
+    vehicle_label: str | None = Field(default=None, max_length=200)
+    manual_vehicle_condition: str | None = Field(default=None, max_length=16)
+    manual_base_price: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
+    # FR-C-12, `build` mode only. Setting it makes the vehicle a
+    # configuration; null detaches it.
+    configuration_id: uuid.UUID | None = None
+    discount_type: Literal["percent", "amount"] | None = None
+    discount_value: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
+
+
 class ContractRead(CamelModel):
     id: uuid.UUID
     contract_number: str
@@ -45,7 +70,21 @@ class ContractRead(CamelModel):
     configuration_id: uuid.UUID | None = None
     configuration_label: str | None = None
     manual_vehicle_condition: str | None
+    # KAN-67 — the pricing inputs and the full build-up, as on OfferRead.
+    manual_base_price: Decimal | None = None
+    vehicle_snapshot_frozen_at: dt.datetime | None = None
+    base_price: Decimal | None = None
+    options_total: Decimal | None = None
+    list_price: Decimal | None = None
+    accessories_total: Decimal | None = None
+    total_before_discount: Decimal | None = None
+    discount_type: str | None = None
+    discount_value: Decimal | None = None
+    discount_amount: Decimal | None = None
     gross_price: Decimal | None
+    # ADR-049/029 — entity-private, like OfferRead's: no group-scoped
+    # endpoint returns a contract.
+    cost_basis: Decimal | None = None
     margin: Decimal | None
     trade_in_vehicle_id: uuid.UUID | None
     trade_in_label: str | None
@@ -65,6 +104,11 @@ class ContractRead(CamelModel):
     is_legacy: bool
     invoice_ref: str | None
     cancelled_reason: str | None
+    # KAN-67 — computed in the API's _contract_read, never stored (as on
+    # OfferRead): what is still missing, and the condition the per-line
+    # discount rule reads.
+    containers: list[OfferContainerState] = Field(default_factory=list)
+    vehicle_condition: str | None = None
     version: int
     created_at: dt.datetime
     updated_at: dt.datetime

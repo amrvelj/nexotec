@@ -524,7 +524,7 @@ def test_cancel_confirmed_contract_releases_the_reservation(db_session, engine):
 # --- KAN-66 / G-67: a contract created with no offer (the KAN-58
 # customer->contract entry point, or a fully bare shell) has no vehicle and
 # no price. Nothing used to stop it from being confirmed as-is. Mirrors the
-# offer side's own completeness rule (compute_offer_containers: "pricing"
+# offer side's own completeness rule (compute_containers: "pricing"
 # can never be complete without a vehicle first) rather than inventing a
 # new one.
 

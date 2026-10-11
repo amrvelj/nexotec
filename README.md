@@ -113,10 +113,13 @@ alarm gauges every 30s once metrics are configured:
 | `dms.consumer.lag_seconds{consumer_name=...}` | Time since a consumer last processed anything | fires if > 300s, per consumer |
 | `dms.label.age_seconds{label=...}` | Age of the stalest denormalised cross-context label, per label (KAN-84: `vehicle_party.vehicle`, refreshed by the nightly `customer.vehicle_party_labels` job) | fires if > 93600s (26h), per label |
 
-No real consumer is registered yet (PR-4 shipped outbox machinery only, no
-business events — see `app/worker.py::register_handlers`), so
-`dms.consumer.lag_seconds` has nothing to report in production today; the
-metric and its alert are ready for the first one that lands. Configure the
+Consumers are registered in `app/worker.py::register_handlers` — that
+function is the current list, one `transport.register(...)` per consumer.
+On every heartbeat the worker reports `dms.consumer.lag_seconds` for each
+registered consumer that has processed at least one event (one that never
+has leaves its gauge unset rather than reporting a sentinel), so its alert
+in the table above fires per consumer once it has gone quiet for longer
+than the threshold. Configure the
 actual Grafana alert rules in your Grafana Cloud instance against these
 metric names — that's account-specific and isn't something a config file
 in this repo can provision for you.

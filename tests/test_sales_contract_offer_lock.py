@@ -204,7 +204,7 @@ def test_an_offer_line_item_save_during_a_contract_creation_does_not_deadlock(db
         session = factory()
         try:
             replace_line_items(
-                session, offer=session.get(SalesOffer, offer_id), data=LineItemsReplaceRequest(), actor_id=uuid.uuid4()
+                session, deal=session.get(SalesOffer, offer_id), data=LineItemsReplaceRequest(), actor_id=uuid.uuid4()
             )
         except BaseException as exc:  # noqa: BLE001 — asserted below, never swallowed
             errors.append(exc)

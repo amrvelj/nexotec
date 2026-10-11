@@ -1,10 +1,13 @@
-"""Cross-cutting daily-job scheduler (WP-6 PR-4). Piggybacks on the
-already-running, already-paid `dms-staging-outbox-worker` process rather
-than a dedicated Render Cron Job service — a genuine, reversible cost/
-complexity trade (WP-6 plan's own Reconciliation 5), not a silent default:
-promoting to a dedicated cron service later is a small change to the same
-entrypoint (`app/worker.py`'s own poll loop calls `run_due_daily_jobs`
-once per cycle), never a rewrite.
+"""Cross-cutting daily-job scheduler (WP-6 PR-4). Piggybacks on the outbox
+worker process (`python -m app.worker`), which runs anyway, rather than a
+dedicated cron service — a genuine, reversible cost/complexity trade
+(WP-6 plan's own Reconciliation 5), not a silent default: promoting to a
+dedicated cron service later is a small change to the same entrypoint
+(`app/worker.py`'s own poll loop calls `run_due_daily_jobs` once per
+cycle), never a rewrite. The worker runs wherever it is provisioned:
+docker-compose's `worker` service locally; on Render's staging it is
+declared in render.yaml but commented out and not provisioned (KAN-234,
+ADR-081), so there these jobs do not run at all.
 
 No scheduling mechanism existed anywhere in this codebase before this —
 `app/reconciliation_runner.py` is a plain library function with no

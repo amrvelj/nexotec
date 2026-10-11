@@ -97,7 +97,22 @@ against the code). "Open" lines cite a ticket; /drift-audit re-checks them weekl
   `reservation_id` stays empty (KAN-158). Contracts confirmed before KAN-158 have an
   unreserved item (backfill: KAN-166).
   PRD-Sales S-D10 was corrected to match on 2026-10-04.
-- A contract needs a vehicle and a price before it can be confirmed.
+- A contract needs a vehicle and a price before it can be confirmed — and before its document
+  can be generated (`services/contract_completeness.py`, one rule for both; KAN-67).
+- **A pending contract is editable, a confirmed one frozen** (Anto 2026-10-10, KAN-67; ADR-083
+  drafted, not yet in the log): `PATCH /sales/contracts/{id}` (`ContractUpdate`: the
+  vehicle-and-price subset of `OfferUpdate`, no customer), and `.../trade-in`,
+  `.../trade-in/valuation` and `.../line-items` with the offer's own request bodies. All run the
+  offer's own code — snapshot, build-up, line items and trade-in take a `PricedDeal`
+  (`services/priced_deal.py`), and `services/deal_editing.py` is the one vehicle-and-price edit
+  for both. `sales_contract` holds the same pricing inputs as `sales_offer`; a contract from an
+  offer copies them and its line items (`contract_id`). Every one of these routes refuses a
+  contract that is not pending (`contract_not_pending`) and one priced before contracts kept
+  their inputs (`contract_priced_without_inputs`; it can still be confirmed or cancelled).
+  An edit publishes no event. Never give the contract a second copy of a pricing rule.
+- **CHF 0.00 is a price** (Anto, 2026-10-10, KAN-67): a car whose base price was never entered
+  builds to 0.00 and may be confirmed and printed; only an empty price is `missing_price`
+  (`contract_completeness.has_price`). The pricing container still shows "in progress" for it.
 - **A trade-in valuation past its validity refuses confirmation** (`trade_in_valuation_expired`,
   KAN-101); confirmation consumes the valuation first, then reserves the car — see
   `.claude/rules/valuation.md`. Contracts before KAN-101 were confirmed without marking their
@@ -117,7 +132,8 @@ against the code). "Open" lines cite a ticket; /drift-audit re-checks them weekl
   customer language renders in DE (`_DEFAULT_LANGUAGE`) — a German fallback awaiting a ruling
   (KAN-104).
 - **ADR-051** — one shared document template layer (platform); see `.claude/rules/platform.md`.
-- **ADR-041** — the offer freezes a `vehicle_snapshot` (`services/snapshot.py`).
+- **ADR-041** — the offer freezes a `vehicle_snapshot` (`services/snapshot.py`); a pending
+  contract freezes its own through the same function (KAN-67).
 - **FR-C-12 (KAN-10)** — Path B is the configurator, `build` only: `configurationId` on the
   offer prefills `manualBasePrice`, freezes the spec block and turns the configuration's price
   lines into factory-option lines (re-frozen on a new configuration version while a draft).

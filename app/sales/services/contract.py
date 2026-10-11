@@ -4,6 +4,7 @@ session — ADR-047 Pattern B — and the two distinct events) live together
 here.
 """
 
+import copy
 import logging
 import uuid
 from collections.abc import Callable
@@ -21,10 +22,15 @@ from app.customer.public import CustomerLifecycleStatus, get_customer_or_404, ha
 from app.db import SessionLocal
 from app.inventory.public import release, reserve_for_contract
 from app.sales.models.contract import ContractStatus, FinancingKind, SalesContract
+from app.sales.models.line_item import SalesLineItem
 from app.sales.models.offer import SalesOffer
+from app.sales.schemas.contract import ContractUpdate
+from app.sales.services.contract_completeness import require_complete
+from app.sales.services.deal_editing import apply_vehicle_and_pricing_changes
 from app.sales.services.deal_projection import upsert_deal_projection
 from app.sales.services.numbering import allocate_contract_number
 from app.sales.services.offer import resolve_customer_label
+from app.sales.services.priced_deal import require_editable
 from app.valuation.public import consume_valuation_for_contract, revert_valuation_use
 
 _EVENT_PRODUCER = "sales"
@@ -136,6 +142,15 @@ def create_contract(
         stock_item_id=offer.stock_item_id if offer is not None else None,
         vehicle_label=offer.vehicle_label if offer is not None else None,
         manual_vehicle_condition=offer.manual_vehicle_condition if offer is not None else None,
+        # KAN-67 (ADR-083) — the pricing inputs travel with the figures, so
+        # the contract can be edited while pending through the same build-up.
+        manual_base_price=offer.manual_base_price if offer is not None else None,
+        vehicle_snapshot=copy.deepcopy(offer.vehicle_snapshot) if offer is not None else None,
+        vehicle_snapshot_frozen_at=offer.vehicle_snapshot_frozen_at if offer is not None else None,
+        discount_type=offer.discount_type if offer is not None else None,
+        discount_value=offer.discount_value if offer is not None else None,
+        total_before_discount=offer.total_before_discount if offer is not None else None,
+        cost_basis=offer.cost_basis if offer is not None else None,
         configuration_id=offer.configuration_id if offer is not None else None,
         configuration_label=offer.configuration_label if offer is not None else None,
         configuration_label_refreshed_at=offer.configuration_label_refreshed_at if offer is not None else None,
@@ -167,6 +182,8 @@ def create_contract(
     )
     db.add(contract)
     db.flush()
+    if offer is not None:
+        _copy_line_items(db, offer=offer, contract=contract)
 
     publish(
         db,
@@ -189,10 +206,66 @@ def create_contract(
     return contract
 
 
+def _copy_line_items(db: Session, *, offer: SalesOffer, contract: SalesContract) -> None:
+    """KAN-67 — the offer's factory-option and accessory lines, as new rows
+    owned by the contract (`contract_id`), so an edit of the pending
+    contract rebuilds the price from the same lines the offer priced. The
+    offer keeps its own rows: it stays the record of what was quoted."""
+
+    rows = db.scalars(
+        select(SalesLineItem).where(SalesLineItem.tenant_id == offer.tenant_id, SalesLineItem.offer_id == offer.id)
+    ).all()
+    for row in rows:
+        db.add(
+            SalesLineItem(
+                tenant_id=contract.tenant_id,
+                contract_id=contract.id,
+                kind=row.kind,
+                code=row.code,
+                label=row.label,
+                unit_price=row.unit_price,
+                quantity=row.quantity,
+                included=row.included,
+                discount_type=row.discount_type,
+                discount_value=row.discount_value,
+                discount_resolved_amount=row.discount_resolved_amount,
+                discount_suppressed_reason=row.discount_suppressed_reason,
+                position=row.position,
+            )
+        )
+    db.flush()
+
+
+def update_contract(
+    db: Session, *, contract: SalesContract, data: ContractUpdate, actor_id: uuid.UUID | None
+) -> SalesContract:
+    """KAN-67 (ADR-083) — completes or adjusts a PENDING contract's vehicle
+    and price, through the offer's own edit code (deal_editing), so the two
+    can never price the same input differently. A confirmed contract is
+    frozen (PRD-Sales v2: pricing "editable before confirmation, frozen on
+    confirm"), a cancelled one closed: both refuse with
+    `contract_not_pending`.
+
+    Publishes no event: nothing outside Sales acts on a pending contract,
+    and the frozen figures travel in `sales.contract.confirmed`'s
+    pricingSnapshot (ADR-046), exactly as an offer's autosave publishes
+    none. The deal grid is re-projected in the same transaction.
+    """
+
+    require_editable(contract)
+    changes = data.model_dump(exclude_unset=True)
+    apply_vehicle_and_pricing_changes(db, deal=contract, changes=changes, actor_id=actor_id, host="contract")
+    upsert_deal_projection(db, contract=contract)
+    db.commit()
+    db.refresh(contract)
+    return contract
+
+
 def _pricing_snapshot(contract: SalesContract) -> dict:
     """The price build-up as it stood at confirmation — the contract's own
-    frozen columns (WP-8 PR-7, copied from the offer at creation and never
-    recomputed), not a recomputation at publish time. A frozen snapshot
+    columns (WP-8 PR-7, copied from the offer at creation and, since
+    KAN-67, rebuilt only while the contract is pending; confirmation
+    freezes them), not a recomputation at publish time. A frozen snapshot
     that could drift would not be a snapshot.
 
     Entity-private figures — `margin`, `trade_in_purchase_price`,
@@ -332,25 +405,14 @@ def confirm_contract(
     # KAN-66 (G-67) — the customer->contract entry point (KAN-58) creates a
     # contract with no offer and therefore no vehicle or price at all; until
     # now nothing stopped that shell from being signed as-is. Mirrors the
-    # offer side's own completeness gate (compute_offer_containers: pricing
+    # offer side's own completeness gate (compute_containers: pricing
     # can never be "complete" without a vehicle first) rather than inventing
     # a new rule. Checked after the customer prohibitions/address above, for
     # the same "pointless to fix first" reason those are checked in that
     # order: a blocked or address-less customer refuses regardless of what
     # the contract is for, so that is named first when both are true.
-    has_vehicle = contract.vehicle_source is not None and (
-        contract.stock_item_id is not None or contract.vehicle_label is not None
-    )
-    if not has_vehicle:
-        raise ConflictError(
-            f"Contract {contract.contract_number} has no vehicle — cannot be confirmed.",
-            details={"reason": "missing_vehicle"},
-        )
-    if contract.gross_price is None:
-        raise ConflictError(
-            f"Contract {contract.contract_number} has no price — cannot be confirmed.",
-            details={"reason": "missing_price"},
-        )
+    # KAN-67: the one definition, shared with contract document generation.
+    require_complete(contract, action="confirmed")
 
     # Plain values for the compensating actions: after db.rollback() the
     # contract's attributes are expired, and reloading them could itself fail

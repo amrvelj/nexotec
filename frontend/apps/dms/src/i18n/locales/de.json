@@ -976,6 +976,11 @@
         "generic": "Der Vertrag konnte nicht bestätigt werden.",
         "tradeInValuationExpired": "Die Eintauschbewertung dieses Vertrags ist abgelaufen, daher kann der Vertrag nicht bestätigt werden. Stornieren Sie ihn und erstellen Sie einen neuen Vertrag aus einer Offerte mit einer aktuellen Bewertung.",
         "vehicleLeftStock": "Dieses Fahrzeug hat den Bestand bereits verlassen (verkauft). Es kann nicht erneut reserviert werden — der Vertrag kann nicht bestätigt werden."
+      },
+      "editRefused": {
+        "staleVersion": "Der Vertrag wurde inzwischen geändert. Die aktuelle Fassung ist geladen – bitte die Änderung erneut vornehmen.",
+        "notPending": "Der Vertrag ist nicht mehr offen und kann nicht mehr geändert werden.",
+        "generic": "Die Änderung konnte nicht gespeichert werden."
       }
     },
     "actions": {
@@ -993,7 +998,12 @@
       "margin": "Marge"
     },
     "financing": "Finanzierung",
-    "cancelReasonPrompt": "Grund für die Stornierung:"
+    "cancelReasonPrompt": "Grund für die Stornierung:",
+    "edit": {
+      "title": "Vertrag vervollständigen",
+      "hint": "Solange der Vertrag nicht bestätigt ist, lassen sich Fahrzeug, Preisaufbau und Eintauschfahrzeug hier ergänzen oder anpassen. Mit der Bestätigung wird er eingefroren.",
+      "pricedWithoutInputs": "Dieser Vertrag wurde bepreist, bevor Verträge ihre Preisgrundlagen speicherten. Er kann so bestätigt oder storniert, aber nicht mehr angepasst werden."
+    }
   },
   "offerWorkspace": {
     "title": "Offerte erstellen",
@@ -1056,7 +1066,8 @@
       "labelLabel": "Fahrzeugbezeichnung",
       "add": "Eintauschfahrzeug hinzufügen",
       "valueWithConfigurator": "Identifizieren und bewerten",
-      "attachError": "Die Bewertung konnte nicht übernommen werden."
+      "attachError": "Die Bewertung konnte nicht übernommen werden.",
+      "saveError": "Das Eintauschfahrzeug konnte nicht gespeichert werden."
     },
     "leasing": {
       "hint": "Kein Leasingrechner in v1 (S-D03). Freie Eingaben, damit ein späterer Rechner ohne Umbau eingesetzt werden kann.",
@@ -1096,7 +1107,12 @@
     "empty": "Noch kein Dokument erzeugt.",
     "previewError": "Vorschau konnte nicht geladen werden.",
     "download": "Herunterladen",
-    "version": "Version {{version}}"
+    "version": "Version {{version}}",
+    "errors": {
+      "missingVehicle": "Ohne Fahrzeug kann kein Vertragsdokument erzeugt werden. Bitte zuerst ein Fahrzeug erfassen.",
+      "missingPrice": "Ohne Preis kann kein Vertragsdokument erzeugt werden. Bitte zuerst den Preisaufbau vervollständigen.",
+      "generic": "Das Dokument konnte nicht erzeugt werden."
+    }
   },
   "valuationsList": {
     "title": "Bewertungen",
