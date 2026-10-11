@@ -214,7 +214,7 @@ describe('ContractDetailPage — a legacy sale cannot be cancelled (KAN-147)', (
     const user = userEvent.setup()
     renderPage()
 
-    await user.click(await screen.findByRole('button', { name: 'Weitere Aktionen' }))
+    await user.click(await screen.findByRole('button', { name: i18n.t('common.moreActions') }))
     const item = await screen.findByRole('menuitem', { name: new RegExp(i18n.t('contractDetail.actions.cancel')) })
     expect(item).toBeDisabled()
     expect(item).toHaveTextContent(i18n.t('contractDetail.actions.cancelDisabledReasonLegacy'))
@@ -228,7 +228,7 @@ describe('ContractDetailPage — a legacy sale cannot be cancelled (KAN-147)', (
     const user = userEvent.setup()
     renderPage()
 
-    await user.click(await screen.findByRole('button', { name: 'Weitere Aktionen' }))
+    await user.click(await screen.findByRole('button', { name: i18n.t('common.moreActions') }))
     expect(
       await screen.findByRole('menuitem', { name: new RegExp(i18n.t('contractDetail.actions.cancel')) }),
     ).toBeEnabled()

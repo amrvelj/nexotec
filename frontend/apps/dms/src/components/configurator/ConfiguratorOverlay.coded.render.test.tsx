@@ -263,4 +263,29 @@ describe('ConfiguratorOverlay — spec reference fields (KAN-239)', () => {
     const field = await screen.findByRole('textbox', { name: i18n.t(specFieldLabelKey('emissionStandard')) })
     await waitFor(() => expect(field).toHaveAccessibleDescription(i18n.t('configurator.spec.listUnavailable')))
   })
+
+  it('offers active values only; a stored value retired since stays visible, disabled', async () => {
+    const user = userEvent.setup()
+    install([
+      {
+        method: 'GET',
+        match: /\/reference-data\/engine_cycle$/,
+        handler: () => ({ items: [value('four_stroke', 'Viertakt'), value('two_stroke', 'Zweitakt', false)], nextCursor: null }),
+      },
+    ])
+    renderWithProviders(
+      <ConfiguratorOverlay
+        allowedModes={['build']}
+        existing={configurationRead({ source: 'manual', catalogueVariantId: null, spec: { engineCycle: 'two_stroke' } })}
+        onCommitted={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    )
+
+    const field = await screen.findByRole('textbox', { name: i18n.t(specFieldLabelKey('engineCycle')) })
+    await waitFor(() => expect(field).toHaveValue('Zweitakt'))
+    await user.click(field)
+    expect(await screen.findByRole('option', { name: 'Viertakt' })).not.toHaveAttribute('data-combobox-disabled')
+    expect(screen.getByRole('option', { name: 'Zweitakt' })).toHaveAttribute('data-combobox-disabled')
+  })
 })

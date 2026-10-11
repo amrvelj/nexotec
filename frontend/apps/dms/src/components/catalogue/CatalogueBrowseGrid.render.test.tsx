@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { screen } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from '../../i18n'
 import { renderWithProviders } from '../../test/renderWithProviders'
@@ -166,5 +166,19 @@ describe('CatalogueBrowseGrid reference labels (KAN-239)', () => {
     expect(await screen.findByText(i18n.t('catalogueBrowse.labelsLoadError.title'))).toBeInTheDocument()
     expect(screen.getByText('⚠ petrol')).toBeInTheDocument()
     expect(screen.queryByText('petrol')).not.toBeInTheDocument()
+  })
+
+  it('a brand list that fails to load says so on the brand field', async () => {
+    installFakeBackend([
+      { method: 'GET', match: /\/vehicle-mdm\/brands$/, handler: () => status(500, { code: 'internal', message: 'boom' }) },
+      ...catalogueRoutes([]),
+    ])
+
+    renderWithProviders(<CatalogueBrowseGrid mode="build" />)
+
+    const brand = screen.getByRole('textbox', { name: i18n.t('catalogueBrowse.drilldown.brand') })
+    await waitFor(() =>
+      expect(brand).toHaveAccessibleDescription(i18n.t('catalogueBrowse.drilldown.brandsLoadError')),
+    )
   })
 })

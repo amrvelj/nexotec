@@ -92,7 +92,7 @@ describe('BlockingFactsStrip (FR-18 region 1)', () => {
     const newOffer = screen.getByRole('button', { name: i18n.t('customerRowMenu.newOffer') })
     expect(newOffer).toBeEnabled()
 
-    await user.click(screen.getByRole('button', { name: 'Weitere Aktionen' }))
+    await user.click(screen.getByRole('button', { name: i18n.t('common.moreActions') }))
     const newContract = await screen.findByRole('menuitem', { name: new RegExp(i18n.t('customerRowMenu.newContract')) })
     expect(newContract).toHaveAttribute('data-disabled', 'true')
     expect(newContract).toHaveTextContent('Overdue invoice 4471')
@@ -108,7 +108,7 @@ describe('BlockingFactsStrip (FR-18 region 1)', () => {
 
     await screen.findByText(i18n.t('customerDetail.overview.cards.record'))
 
-    await user.click(screen.getByRole('button', { name: 'Weitere Aktionen' }))
+    await user.click(screen.getByRole('button', { name: i18n.t('common.moreActions') }))
     const newContract = await screen.findByRole('menuitem', { name: new RegExp(i18n.t('customerRowMenu.newContract')) })
     expect(newContract).not.toHaveAttribute('data-disabled', 'true')
 

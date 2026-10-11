@@ -92,14 +92,20 @@ describe("RowMenu default trigger", () => {
     expect(onRowActivate).not.toHaveBeenCalled();
   });
 
-  it("opens a grid row's menu on Enter without activating the row", async () => {
+  it("opens a grid row's menu and runs an item on Enter, without activating the row", async () => {
     const user = userEvent.setup();
     const onRowActivate = vi.fn();
-    wrap(gridWithRowMenu(onRowActivate, () => {}));
+    const onEdit = vi.fn();
+    wrap(gridWithRowMenu(onRowActivate, onEdit));
 
     screen.getByRole("button", { name: "Zeilenaktionen" }).focus();
     await user.keyboard("{Enter}");
     expect(await screen.findByRole("menu")).toBeInTheDocument();
+    expect(onRowActivate).not.toHaveBeenCalled();
+
+    screen.getByRole("menuitem", { name: "Bearbeiten" }).focus();
+    await user.keyboard("{Enter}");
+    expect(onEdit).toHaveBeenCalledTimes(1);
     expect(onRowActivate).not.toHaveBeenCalled();
   });
 });

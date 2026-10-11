@@ -51,7 +51,7 @@ function renderDetail() {
 
 async function openCreditBlockItem(user: ReturnType<typeof userEvent.setup>, label: string) {
   await screen.findByText(i18n.t('customerDetail.overview.cards.record'))
-  await user.click(screen.getByRole('button', { name: 'Weitere Aktionen' }))
+  await user.click(screen.getByRole('button', { name: i18n.t('common.moreActions') }))
   await user.click(await screen.findByRole('menuitem', { name: label }))
 }
 

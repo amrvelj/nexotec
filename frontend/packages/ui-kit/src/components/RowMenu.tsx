@@ -50,7 +50,14 @@ export function RowMenu({ groups, ariaLabel, trigger }: RowMenuProps) {
   return (
     <Menu shadow="md" width={220} position="bottom-end" withinPortal>
       <Menu.Target>{trigger ?? <DefaultTrigger ariaLabel={ariaLabel} />}</Menu.Target>
-      <Menu.Dropdown onClick={(e) => e.stopPropagation()}>
+      {/* React events bubble through the portal: an item's click, Enter or
+          Space must not also reach a row that activates on them (KAN-252). */}
+      <Menu.Dropdown
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") e.stopPropagation();
+        }}
+      >
         {sections.map((section, index) => (
           <Fragment key={section.key}>
             {index > 0 && <Menu.Divider />}
