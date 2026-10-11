@@ -316,6 +316,55 @@ describe('ContractDetailPage — a pending contract can be completed (KAN-67)', 
     expect(await screen.findByText(i18n.t('contractDetail.errors.editRefused.staleVersion'))).toBeInTheDocument()
     expect(screen.queryByText(/has been modified since/)).not.toBeInTheDocument()
     await waitFor(() => expect(backend.callsTo(/\/line-items$/, 'GET').length).toBeGreaterThanOrEqual(2))
+    // KAN-289 — and the contract itself, so the next save carries the current version.
+    await waitFor(() => expect(backend.callsTo(/^\/sales\/contracts\/k1$/, 'GET').length).toBeGreaterThanOrEqual(2))
+  })
+
+  it('a price save still on its way holds Confirm until it lands (KAN-289)', async () => {
+    let release: (value: unknown) => void = () => {}
+    const backend = installFakeBackend([
+      {
+        method: 'PATCH',
+        match: /^\/sales\/contracts\/k1$/,
+        handler: () => new Promise((resolve) => (release = resolve)),
+      },
+      ...baseRoutes(() => ({ ...PRICED, discountType: 'amount' })),
+    ])
+    renderPage()
+
+    const discount = await screen.findByRole('textbox', { name: i18n.t('offerWorkspace.pricing.discountValue') })
+    fireEvent.change(discount, { target: { value: '1000' } })
+    // Past the debounce the figure is sent; while the PATCH is unanswered Confirm still waits.
+    await waitFor(() => expect(backend.callsTo(/^\/sales\/contracts\/k1$/, 'PATCH')).toHaveLength(1), { timeout: 2000 })
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    expect(screen.getByRole('button', { name: i18n.t('contractDetail.actions.confirm') })).toBeDisabled()
+
+    release({ ...PRICED, discountType: 'amount', discountValue: '1000.00', grossPrice: '17000.00', version: PRICED.version + 1 })
+    await waitFor(() => expect(screen.getByRole('button', { name: i18n.t('contractDetail.actions.confirm') })).toBeEnabled())
+  })
+
+  it('a trade-in save still on its way holds Confirm until it lands (KAN-289)', async () => {
+    const user = userEvent.setup()
+    let release: (value: unknown) => void = () => {}
+    const backend = installFakeBackend([
+      {
+        method: 'POST',
+        match: /^\/sales\/contracts\/k1\/trade-in$/,
+        handler: () => new Promise((resolve) => (release = resolve)),
+      },
+      ...baseRoutes(() => PRICED),
+    ])
+    renderPage()
+
+    await user.click(await screen.findByRole('button', { name: i18n.t('offerWorkspace.tradeIn.add') }))
+    await user.type(screen.getByRole('textbox', { name: i18n.t('offerWorkspace.tradeIn.vinLabel') }), 'WVWZZZ1KZAW555555')
+    await user.type(screen.getByRole('textbox', { name: i18n.t('offerWorkspace.tradeIn.labelLabel') }), 'Opel Corsa')
+    await user.click(screen.getByRole('button', { name: i18n.t('common.save') }))
+    await waitFor(() => expect(backend.callsTo(/\/trade-in$/, 'POST')).toHaveLength(1))
+    expect(screen.getByRole('button', { name: i18n.t('contractDetail.actions.confirm') })).toBeDisabled()
+
+    release({ ...PRICED, tradeInVehicleId: 'veh-9', tradeInLabel: 'Opel Corsa', version: PRICED.version + 1 })
+    await waitFor(() => expect(screen.getByRole('button', { name: i18n.t('contractDetail.actions.confirm') })).toBeEnabled())
   })
 
   it('renders the edit section in Italian', async () => {
