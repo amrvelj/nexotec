@@ -84,14 +84,16 @@ ticket; /drift-audit re-checks them weekly. -->
 - **ADR-071** — one specification block, three carriers: the catalogue variant, the
   configuration, and the host's frozen snapshot. A field on one and not the others is a defect
   (`test_spec_block_carriers_do_not_drift.py`). `ModelVariant` and `VehicleConfiguration`
-  carry it; the offer's frozen `vehicle_snapshot` (ADR-041,
+  carry it; the offer's (and a contract's, KAN-67) frozen `vehicle_snapshot` (ADR-041,
   `sales/services/snapshot.py::freeze_vehicle_snapshot`) carries it under `spec` when Path B
   attached a configuration (KAN-10).
 - **ADR-072** — option packages, exclusions and extra conditions are stored and shown, never
   enforced: a conflict warns, it never blocks.
-- **Host / mode matrix** (PRD v1.4): Stock → add to pipeline: both (`build` factory order,
-  `record` bought in) · Offer → new configuration: `build` only · Offer → trade-in: `record`,
-  via the valuation path · Valuation → new valuation: `record` only. The configuration entity
+- **Host / mode matrix** (PRD v1.4; the pending contract added by KAN-67, ADR-083 drafted —
+  PRD not yet amended): Stock → add to pipeline: both (`build` factory order, `record` bought
+  in) · Offer and pending contract → new configuration: `build` only · Offer and pending
+  contract → trade-in: `record`, via the valuation path · Valuation → new valuation: `record`
+  only. The configuration entity
   supports both modes; the host decides which is reachable. Never bake a mode switch into the
   offer overlay. Each host enforces it at its API (`configuration_mode_not_allowed`, 422) and
   the overlay takes `allowedModes`; hosts read a configuration only through

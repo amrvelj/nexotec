@@ -2,10 +2,11 @@ import { Group, NumberInput, Select, Stack, Text } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 import { useDebouncedNumberField } from '../hooks/useDebouncedNumberField'
 import { formatCurrencyChf } from '../utils/format'
-import type { SalesOfferRead } from '../api/types'
+import type { SalesPricedDealRead } from '../api/types'
 
 export interface PriceBuildUpProps {
-  offer: SalesOfferRead
+  /** An offer draft or a pending contract (KAN-67) — the same build-up. */
+  deal: SalesPricedDealRead
   onDiscountChange: (patch: { discountType: string | null; discountValue: number | null }) => void
   onManualBasePriceChange?: (value: number | null) => void
 }
@@ -33,24 +34,24 @@ function row(label: string, value: string, opts?: { bold?: boolean; negative?: b
  * that never includes these fields at all (see
  * tests/architecture/test_margin_never_in_rendered_document.py).
  */
-export function PriceBuildUp({ offer, onDiscountChange, onManualBasePriceChange }: PriceBuildUpProps) {
+export function PriceBuildUp({ deal, onDiscountChange, onManualBasePriceChange }: PriceBuildUpProps) {
   const { t } = useTranslation()
 
   // KAN-8 — local, debounced state; see useDebouncedNumberField's own
   // docstring for why a NumberInput bound straight to a per-keystroke
   // autosave silently drops digits.
   const [manualBasePrice, setManualBasePrice] = useDebouncedNumberField(
-    offer.manualBasePrice != null ? Number(offer.manualBasePrice) : null,
-    offer.id,
+    deal.manualBasePrice != null ? Number(deal.manualBasePrice) : null,
+    deal.id,
     (value) => onManualBasePriceChange?.(value)
   )
   const [discountValue, setDiscountValue] = useDebouncedNumberField(
-    offer.discountValue != null ? Number(offer.discountValue) : null,
-    offer.id,
-    (value) => onDiscountChange({ discountType: offer.discountType, discountValue: value })
+    deal.discountValue != null ? Number(deal.discountValue) : null,
+    deal.id,
+    (value) => onDiscountChange({ discountType: deal.discountType, discountValue: value })
   )
 
-  if (offer.vehicleSnapshotFrozenAt == null && offer.vehicleSource !== 'manual') {
+  if (deal.vehicleSnapshotFrozenAt == null && deal.vehicleSource !== 'manual') {
     return (
       <Text size="sm" c="dimmed">
         {t('offerWorkspace.pricing.emptyHint')}
@@ -60,20 +61,20 @@ export function PriceBuildUp({ offer, onDiscountChange, onManualBasePriceChange 
 
   return (
     <Stack gap="xs">
-      {offer.vehicleSource === 'manual' ? (
+      {deal.vehicleSource === 'manual' ? (
         <NumberInput
           label={t('offerWorkspace.pricing.manualBasePrice')}
           value={manualBasePrice}
           onChange={(v) => setManualBasePrice(v === '' ? '' : Number(v))}
         />
       ) : (
-        row(t('offerWorkspace.pricing.basePrice'), offer.basePrice != null ? formatCurrencyChf(Number(offer.basePrice)) : '—')
+        row(t('offerWorkspace.pricing.basePrice'), deal.basePrice != null ? formatCurrencyChf(Number(deal.basePrice)) : '—')
       )}
-      {offer.optionsTotal != null && Number(offer.optionsTotal) > 0 &&
-        row(t('offerWorkspace.pricing.optionsTotal'), formatCurrencyChf(Number(offer.optionsTotal)))}
-      {row(t('offerWorkspace.pricing.listPrice'), offer.listPrice != null ? formatCurrencyChf(Number(offer.listPrice)) : '—', { bold: true })}
-      {offer.accessoriesTotal != null && Number(offer.accessoriesTotal) > 0 &&
-        row(t('offerWorkspace.pricing.accessoriesTotal'), formatCurrencyChf(Number(offer.accessoriesTotal)))}
+      {deal.optionsTotal != null && Number(deal.optionsTotal) > 0 &&
+        row(t('offerWorkspace.pricing.optionsTotal'), formatCurrencyChf(Number(deal.optionsTotal)))}
+      {row(t('offerWorkspace.pricing.listPrice'), deal.listPrice != null ? formatCurrencyChf(Number(deal.listPrice)) : '—', { bold: true })}
+      {deal.accessoriesTotal != null && Number(deal.accessoriesTotal) > 0 &&
+        row(t('offerWorkspace.pricing.accessoriesTotal'), formatCurrencyChf(Number(deal.accessoriesTotal)))}
 
       <Group grow>
         <Select
@@ -83,29 +84,29 @@ export function PriceBuildUp({ offer, onDiscountChange, onManualBasePriceChange 
             { value: 'percent', label: t('offerWorkspace.pricing.discountPercent') },
             { value: 'amount', label: t('offerWorkspace.pricing.discountAmount') },
           ]}
-          value={offer.discountType ?? ''}
+          value={deal.discountType ?? ''}
           onChange={(v) => onDiscountChange({ discountType: v || null, discountValue: discountValue === '' ? null : discountValue })}
         />
         <NumberInput
           label={t('offerWorkspace.pricing.discountValue')}
-          disabled={!offer.discountType}
+          disabled={!deal.discountType}
           value={discountValue}
           onChange={(v) => setDiscountValue(v === '' ? '' : Number(v))}
         />
       </Group>
-      {offer.discountAmount != null &&
-        Number(offer.discountAmount) > 0 &&
-        row(t('offerWorkspace.pricing.discountAmount'), `− ${formatCurrencyChf(Number(offer.discountAmount))}`, { negative: true })}
+      {deal.discountAmount != null &&
+        Number(deal.discountAmount) > 0 &&
+        row(t('offerWorkspace.pricing.discountAmount'), `− ${formatCurrencyChf(Number(deal.discountAmount))}`, { negative: true })}
 
-      {row(t('offerWorkspace.pricing.grossPrice'), offer.grossPrice != null ? formatCurrencyChf(Number(offer.grossPrice)) : '—', { bold: true })}
+      {row(t('offerWorkspace.pricing.grossPrice'), deal.grossPrice != null ? formatCurrencyChf(Number(deal.grossPrice)) : '—', { bold: true })}
 
-      {offer.margin != null && (
+      {deal.margin != null && (
         <Stack gap={2} mt="xs" p="xs" style={{ border: '1px dashed var(--mantine-color-red-4)', borderRadius: 6 }}>
           <Text size="xs" fw={700} c="red">
             {t('offerWorkspace.pricing.internalOnly')}
           </Text>
-          {row(t('offerWorkspace.pricing.costBasis'), offer.costBasis != null ? formatCurrencyChf(Number(offer.costBasis)) : '—')}
-          {row(t('offerWorkspace.pricing.margin'), formatCurrencyChf(Number(offer.margin)), { bold: true })}
+          {row(t('offerWorkspace.pricing.costBasis'), deal.costBasis != null ? formatCurrencyChf(Number(deal.costBasis)) : '—')}
+          {row(t('offerWorkspace.pricing.margin'), formatCurrencyChf(Number(deal.margin)), { bold: true })}
         </Stack>
       )}
     </Stack>

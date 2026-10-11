@@ -1,5 +1,10 @@
 """ADR-041 — freeze the vehicle specification once, at generation time,
 never re-read from live catalogue/stock data afterward (WP-8 PR-3).
+
+KAN-67 (ADR-083): the same freeze serves a pending contract — `deal` is an
+offer or a contract, and a contract's factory-option lines hang off
+`contract_id`. A confirmed contract is never re-frozen: its edit routes
+refuse before this is reached.
 """
 
 from dataclasses import dataclass
@@ -11,7 +16,7 @@ from sqlalchemy.orm import Session
 from app.core.base import utcnow
 from app.inventory.public import get_stock_item_pricing
 from app.sales.models.line_item import LineItemKind, SalesLineItem
-from app.sales.models.offer import SalesOffer
+from app.sales.services.priced_deal import PricedDeal, line_item_owner, line_item_owner_clause
 from app.sales.services.pricing import resolve_discount
 from app.vehicle.public import HostConfiguration, get_configuration_for_host
 
@@ -38,23 +43,23 @@ class _SellerEdit:
             row.discount_resolved_amount = resolve_discount(self.discount_type, self.discount_value, row.unit_price)
 
 
-def _vehicle_identity(offer: SalesOffer, configuration: HostConfiguration | None) -> str | None:
+def _vehicle_identity(deal: PricedDeal, configuration: HostConfiguration | None) -> str | None:
     """What "the same vehicle" means for re-freeze purposes — a different
     stock item, edited manual details, or (C-F) a different configuration
     or a new version of the same one, are all a genuine vehicle change;
     anything else re-running this function is a no-op.
     """
 
-    if offer.vehicle_source == "stock" and offer.stock_item_id is not None:
-        return f"stock:{offer.stock_item_id}"
+    if deal.vehicle_source == "stock" and deal.stock_item_id is not None:
+        return f"stock:{deal.stock_item_id}"
     if configuration is not None:
         return f"configuration:{configuration.id}:{configuration.version}"
-    if offer.vehicle_source == "manual" and offer.vehicle_label is not None:
-        return f"manual:{offer.vehicle_label}:{offer.manual_vehicle_condition}"
+    if deal.vehicle_source == "manual" and deal.vehicle_label is not None:
+        return f"manual:{deal.vehicle_label}:{deal.manual_vehicle_condition}"
     return None
 
 
-def freeze_vehicle_snapshot(db: Session, *, offer: SalesOffer) -> bool:
+def freeze_vehicle_snapshot(db: Session, *, deal: PricedDeal) -> bool:
     """Idempotent per vehicle identity: freezing twice for the SAME
     vehicle is a no-op (the confirmed reference prototype's own footer,
     verbatim: "a later catalogue correction never changes an existing
@@ -64,16 +69,16 @@ def freeze_vehicle_snapshot(db: Session, *, offer: SalesOffer) -> bool:
     """
 
     configuration = None
-    if offer.vehicle_source == "manual" and offer.configuration_id is not None:
+    if deal.vehicle_source == "manual" and deal.configuration_id is not None:
         configuration = get_configuration_for_host(
-            db, tenant_id=offer.tenant_id, configuration_id=offer.configuration_id
+            db, tenant_id=deal.tenant_id, configuration_id=deal.configuration_id
         )
-    identity = _vehicle_identity(offer, configuration)
+    identity = _vehicle_identity(deal, configuration)
     if identity is None:
         return False
 
-    existing = offer.vehicle_snapshot or {}
-    if offer.vehicle_snapshot_frozen_at is not None and existing.get("_identity") == identity:
+    existing = deal.vehicle_snapshot or {}
+    if deal.vehicle_snapshot_frozen_at is not None and existing.get("_identity") == identity:
         return False
 
     # C-F (KAN-10): a new version of the SAME configuration (the advisor
@@ -86,20 +91,20 @@ def freeze_vehicle_snapshot(db: Session, *, offer: SalesOffer) -> bool:
             (row.code, row.label): _SellerEdit.of(row)
             for row in db.scalars(
                 select(SalesLineItem).where(
-                    SalesLineItem.offer_id == offer.id, SalesLineItem.kind == LineItemKind.FACTORY_OPTION
+                    line_item_owner_clause(deal), SalesLineItem.kind == LineItemKind.FACTORY_OPTION
                 )
             ).all()
         }
 
     db.execute(
-        delete(SalesLineItem).where(SalesLineItem.offer_id == offer.id, SalesLineItem.kind == LineItemKind.FACTORY_OPTION)
+        delete(SalesLineItem).where(line_item_owner_clause(deal), SalesLineItem.kind == LineItemKind.FACTORY_OPTION)
     )
 
-    if offer.vehicle_source == "stock" and offer.stock_item_id is not None:
-        pricing = get_stock_item_pricing(db, tenant_id=offer.tenant_id, stock_item_id=offer.stock_item_id)
+    if deal.vehicle_source == "stock" and deal.stock_item_id is not None:
+        pricing = get_stock_item_pricing(db, tenant_id=deal.tenant_id, stock_item_id=deal.stock_item_id)
         snapshot = {
             "_identity": identity,
-            "vehicleLabel": offer.vehicle_label,
+            "vehicleLabel": deal.vehicle_label,
             "condition": pricing["condition"],
             "basePrice": str(pricing["basePrice"]) if pricing["basePrice"] is not None else None,
             # KAN-62 — not read by build_up() (which only ever consumes
@@ -128,8 +133,8 @@ def freeze_vehicle_snapshot(db: Session, *, offer: SalesOffer) -> bool:
         for position, option in enumerate(pricing["options"]):
             db.add(
                 SalesLineItem(
-                    tenant_id=offer.tenant_id,
-                    offer_id=offer.id,
+                    tenant_id=deal.tenant_id,
+                    **line_item_owner(deal),
                     kind=LineItemKind.FACTORY_OPTION,
                     code=option["code"],
                     label=option["label"],
@@ -149,8 +154,8 @@ def freeze_vehicle_snapshot(db: Session, *, offer: SalesOffer) -> bool:
         # Still no stock item and no known cost (S-D09/ADR-045).
         snapshot = {
             "_identity": identity,
-            "vehicleLabel": offer.vehicle_label,
-            "condition": offer.manual_vehicle_condition,
+            "vehicleLabel": deal.vehicle_label,
+            "condition": deal.manual_vehicle_condition,
             "configurationId": str(configuration.id),
             "configurationVersion": configuration.version,
             "basePrice": None,
@@ -165,8 +170,8 @@ def freeze_vehicle_snapshot(db: Session, *, offer: SalesOffer) -> bool:
         for position, line in enumerate(configuration.price_lines):
             code, label = line.code or line.kind, line.label[:200]
             row = SalesLineItem(
-                tenant_id=offer.tenant_id,
-                offer_id=offer.id,
+                tenant_id=deal.tenant_id,
+                **line_item_owner(deal),
                 kind=LineItemKind.FACTORY_OPTION,
                 code=code,
                 label=label,
@@ -184,8 +189,8 @@ def freeze_vehicle_snapshot(db: Session, *, offer: SalesOffer) -> bool:
         # to itemize (S-D09/ADR-045: this never touches inventory).
         snapshot = {
             "_identity": identity,
-            "vehicleLabel": offer.vehicle_label,
-            "condition": offer.manual_vehicle_condition,
+            "vehicleLabel": deal.vehicle_label,
+            "condition": deal.manual_vehicle_condition,
             "basePrice": None,
             "purchasePrice": None,
             "landedCost": None,
@@ -194,7 +199,7 @@ def freeze_vehicle_snapshot(db: Session, *, offer: SalesOffer) -> bool:
             "notionalInputTaxAmount": None,
         }
 
-    offer.vehicle_snapshot = snapshot
-    offer.vehicle_snapshot_frozen_at = utcnow()
+    deal.vehicle_snapshot = snapshot
+    deal.vehicle_snapshot_frozen_at = utcnow()
     db.flush()
     return True

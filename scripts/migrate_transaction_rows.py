@@ -453,8 +453,8 @@ def _migrate_sale(db: Session, txn: Transaction, *, commit: bool) -> RowOutcome:
     # The real production code path — not a hand-rolled duplicate — so the
     # migrated offer's snapshot and build-up are indistinguishable in
     # shape from one generated live.
-    freeze_vehicle_snapshot(db, offer=offer)
-    apply_build_up(db, offer=offer)
+    freeze_vehicle_snapshot(db, deal=offer)
+    apply_build_up(db, deal=offer)
     db.flush()
 
     contract = SalesContract(

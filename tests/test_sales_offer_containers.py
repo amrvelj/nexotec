@@ -9,7 +9,8 @@ from app.core.errors import ConflictError
 from app.customer.schemas.customer import CustomerCreate, CustomerEmailCreate
 from app.customer.services.customer import create_customer
 from app.sales.schemas.offer import OfferUpdate
-from app.sales.services.offer import cancel_offer, compute_offer_containers, create_offer, update_offer
+from app.sales.services.offer import cancel_offer, create_offer, update_offer
+from app.sales.services.priced_deal import compute_containers
 
 
 def _customer(db_session, group_id):
@@ -32,7 +33,7 @@ def test_containers_start_not_started_except_leasing(db_session):
     tenant_id = uuid.uuid4()
     offer = create_offer(db_session, tenant_id=tenant_id, actor_id=uuid.uuid4())
 
-    containers = compute_offer_containers(offer)
+    containers = compute_containers(offer)
     by_id = {c.id: c for c in containers}
 
     assert by_id["customer"].requirement == "required"
@@ -74,7 +75,7 @@ def test_update_offer_manual_vehicle_marks_vehicle_container_complete(db_session
         actor_id=uuid.uuid4(),
     )
 
-    containers = {c.id: c for c in compute_offer_containers(updated)}
+    containers = {c.id: c for c in compute_containers(updated)}
     assert containers["vehicle"].status == "complete"
     # Pricing becomes available (not yet "complete" — no fields to fill
     # until PR-3) the moment a vehicle exists.

@@ -1,6 +1,8 @@
 """Outbox worker entrypoint (PR-4, Decision 3) — `python -m app.worker`.
-Separate Render background-worker process from the web service: same
-codebase, same database, different entrypoint. Not a second deployable in
+A separate background process from the web service: same codebase, same
+database, different entrypoint. Provisioned as docker-compose's `worker`
+service; on Render's staging it is declared in render.yaml but commented
+out and not provisioned (KAN-234, ADR-081). Not a second deployable in
 the ADR-015 sense — same code, same database, the bounded-context
 boundary is unchanged; this is process topology, not architecture.
 

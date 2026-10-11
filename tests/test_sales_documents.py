@@ -5,7 +5,10 @@ generation-never-on-edit) and the margin-never-on-the-document guarantee.
 import uuid
 from decimal import ROUND_HALF_UP, Decimal
 
+import pytest
+
 from app.core.auth import AccessRole, create_access_token
+from app.core.errors import ConflictError
 from app.core.i18n import SwissLanguage
 from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
 from app.sales.models.contract import ContractStatus, SalesContract
@@ -52,6 +55,7 @@ def _bare_contract(**overrides) -> SalesContract:
         "contract_number": "C-000001",
         "status": ContractStatus.PENDING,
         "customer_label": "Peter Beispiel",
+        "vehicle_source": "manual",
         "vehicle_label": "VW Golf GTI",
         "base_price": Decimal("38000.00"),
         "list_price": Decimal("38000.00"),
@@ -319,6 +323,32 @@ def test_generate_contract_document_is_independent_of_the_offer_sequence(db_sess
     assert contract_document.version == 1  # its own sequence, not the offer's
 
 
+@pytest.mark.parametrize(
+    ("overrides", "reason"),
+    [
+        ({"vehicle_source": None, "vehicle_label": None}, "missing_vehicle"),
+        ({"gross_price": None}, "missing_price"),
+    ],
+)
+def test_contract_document_refuses_a_contract_with_no_vehicle_or_no_price(db_session, overrides, reason):
+    """KAN-67 exit 3: an incomplete contract is refused with a specific
+    reason, never rendered as an empty document — the same reasons, in the
+    same order, as confirm_contract's KAN-66 guard."""
+
+    dealership = _make_dealership(db_session)
+    contract = _bare_contract(tenant_id=dealership.id, **overrides)
+    db_session.add(contract)
+    db_session.commit()
+    db_session.refresh(contract)
+
+    with pytest.raises(ConflictError) as exc:
+        generate_contract_document(db_session, contract=contract, actor_id=None)
+    assert exc.value.details["reason"] == reason
+    assert count_documents(
+        db_session, tenant_id=contract.tenant_id, owner_type=DocumentOwnerType.CONTRACT, owner_id=contract.id
+    ) == 0
+
+
 def test_document_correspondence_language_defaults_when_customer_has_none(db_session):
     dealership = _make_dealership(db_session)
     offer = _bare_offer(tenant_id=dealership.id, customer_language=None)
@@ -395,6 +425,30 @@ def test_generate_and_list_offer_documents_via_api(client):
     listed = client.get(f"/v1/sales/offers/{offer['id']}/documents", headers=_bearer(token))
     assert listed.status_code == 200, listed.text
     assert len(listed.json()["items"]) == 1
+
+
+def test_generating_a_document_for_a_contract_created_for_a_customer_is_409(client):
+    """KAN-67 exit 3, through the API: the customer-born contract (KAN-58)
+    has no vehicle yet, so the generate route refuses it by reason."""
+
+    dealer_id = _create_dealer(client)
+    token = _token(role=AccessRole.SALES, tenant_id=uuid.UUID(dealer_id))
+    customer = client.post(
+        "/v1/customers",
+        json={
+            "firstName": "Ursula", "lastName": "Vogt", "language": "fr",
+            "emails": [{"emailType": "personal", "emailAddress": "ursula.vogt@example.ch"}],
+        },
+        headers=_bearer(token),
+    ).json()
+    contract = client.post("/v1/sales/contracts", json={"customerId": customer["id"]}, headers=_bearer(token))
+    assert contract.status_code == 201, contract.text
+
+    response = client.post(f"/v1/sales/contracts/{contract.json()['id']}/documents", headers=_bearer(token))
+    assert response.status_code == 409, response.text
+    assert response.json()["error"]["details"]["reason"] == "missing_vehicle"
+    listed = client.get(f"/v1/sales/contracts/{contract.json()['id']}/documents", headers=_bearer(token))
+    assert listed.json()["items"] == []
 
 
 def test_document_pdf_download_cross_tenant_is_404(client):

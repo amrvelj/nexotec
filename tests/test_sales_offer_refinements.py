@@ -112,7 +112,7 @@ def test_replace_line_items_adds_accessory_and_recomputes_totals(db_session):
 
     updated = replace_line_items(
         db_session,
-        offer=offer,
+        deal=offer,
         data=LineItemsReplaceRequest(
             accessories=[LineItemAccessoryInput(code="MATS", label="Fussmatten", unit_price=Decimal("150.00"))]
         ),
@@ -130,7 +130,7 @@ def test_replace_line_items_removes_accessory_not_resubmitted(db_session):
 
     offer = replace_line_items(
         db_session,
-        offer=offer,
+        deal=offer,
         data=LineItemsReplaceRequest(
             accessories=[LineItemAccessoryInput(code="MATS", label="Fussmatten", unit_price=Decimal("150.00"))]
         ),
@@ -140,7 +140,7 @@ def test_replace_line_items_removes_accessory_not_resubmitted(db_session):
         li.id for li in db_session.query(SalesLineItem).filter_by(offer_id=offer.id, kind=LineItemKind.ACCESSORY).all()
     )
 
-    updated = replace_line_items(db_session, offer=offer, data=LineItemsReplaceRequest(accessories=[]), actor_id=uuid.uuid4())
+    updated = replace_line_items(db_session, deal=offer, data=LineItemsReplaceRequest(accessories=[]), actor_id=uuid.uuid4())
 
     assert updated.accessories_total == Decimal(0)
     remaining = db_session.query(SalesLineItem).filter_by(id=accessory_id).first()
@@ -154,7 +154,7 @@ def test_replace_line_items_updates_an_existing_accessory_by_id(db_session):
 
     offer = replace_line_items(
         db_session,
-        offer=offer,
+        deal=offer,
         data=LineItemsReplaceRequest(
             accessories=[LineItemAccessoryInput(code="MATS", label="Fussmatten", unit_price=Decimal("150.00"))]
         ),
@@ -164,7 +164,7 @@ def test_replace_line_items_updates_an_existing_accessory_by_id(db_session):
 
     updated = replace_line_items(
         db_session,
-        offer=offer,
+        deal=offer,
         data=LineItemsReplaceRequest(
             accessories=[
                 LineItemAccessoryInput(id=accessory.id, code="MATS", label="Fussmatten Premium", unit_price=Decimal("220.00"))
@@ -190,7 +190,7 @@ def test_toggle_factory_option_excluded_recomputes_options_total(db_session):
 
     updated = replace_line_items(
         db_session,
-        offer=offer,
+        deal=offer,
         data=LineItemsReplaceRequest(
             factory_options=[LineItemFactoryOptionPatch(id=option.id, included=False)]
         ),
@@ -211,7 +211,7 @@ def test_replace_line_items_unknown_factory_option_id_is_404(db_session):
     with pytest.raises(NotFoundError):
         replace_line_items(
             db_session,
-            offer=offer,
+            deal=offer,
             data=LineItemsReplaceRequest(
                 factory_options=[LineItemFactoryOptionPatch(id=uuid.uuid4(), included=False)]
             ),
@@ -237,7 +237,7 @@ def test_discount_on_used_vehicle_line_item_requires_a_reason(db_session):
     with pytest.raises(ConflictError):
         replace_line_items(
             db_session,
-            offer=offer,
+            deal=offer,
             data=LineItemsReplaceRequest(
                 accessories=[
                     LineItemAccessoryInput(
@@ -257,7 +257,7 @@ def test_discount_on_used_vehicle_line_item_succeeds_with_a_reason(db_session):
 
     updated = replace_line_items(
         db_session,
-        offer=offer,
+        deal=offer,
         data=LineItemsReplaceRequest(
             accessories=[
                 LineItemAccessoryInput(
@@ -282,7 +282,7 @@ def test_discount_on_new_vehicle_line_item_does_not_require_a_reason(db_session)
 
     updated = replace_line_items(
         db_session,
-        offer=offer,
+        deal=offer,
         data=LineItemsReplaceRequest(
             accessories=[
                 LineItemAccessoryInput(
@@ -306,7 +306,7 @@ def test_replace_line_items_refused_once_offer_is_no_longer_draft(db_session):
     with pytest.raises(ConflictError):
         replace_line_items(
             db_session,
-            offer=finalized,
+            deal=finalized,
             data=LineItemsReplaceRequest(accessories=[LineItemAccessoryInput(code="X", label="X", unit_price=Decimal(1))]),
             actor_id=uuid.uuid4(),
         )

@@ -978,6 +978,11 @@
         "badStatus": "Ce contrat ne peut plus être confirmé depuis son statut actuel.",
         "generic": "Le contrat n'a pas pu être confirmé.",
         "tradeInValuationExpired": "L'évaluation de reprise de ce contrat a expiré ; le contrat ne peut donc pas être confirmé. Annulez-le et créez un nouveau contrat à partir d'une offre avec une évaluation à jour."
+      },
+      "editRefused": {
+        "staleVersion": "Le contrat a été modifié entre-temps. La version actuelle est chargée – veuillez refaire votre modification.",
+        "notPending": "Le contrat n'est plus ouvert et ne peut plus être modifié.",
+        "generic": "La modification n'a pas pu être enregistrée."
       }
     },
     "actions": {
@@ -994,7 +999,12 @@
       "margin": "Marge"
     },
     "financing": "Financement",
-    "cancelReasonPrompt": "Motif de l'annulation :"
+    "cancelReasonPrompt": "Motif de l'annulation :",
+    "edit": {
+      "title": "Compléter le contrat",
+      "hint": "Tant que le contrat n'est pas confirmé, le véhicule, la composition du prix et la reprise peuvent être complétés ou ajustés ici. La confirmation le fige.",
+      "pricedWithoutInputs": "Ce contrat a été chiffré avant que les contrats ne conservent leurs bases de prix. Il peut être confirmé ou annulé tel quel, mais plus ajusté."
+    }
   },
   "offerWorkspace": {
     "title": "Créer une offre",
@@ -1057,7 +1067,8 @@
       "labelLabel": "Description du véhicule",
       "add": "Ajouter un véhicule de reprise",
       "valueWithConfigurator": "Identifier et évaluer",
-      "attachError": "L'évaluation n'a pas pu être reprise."
+      "attachError": "L'évaluation n'a pas pu être reprise.",
+      "saveError": "Le véhicule de reprise n'a pas pu être enregistré."
     },
     "leasing": {
       "hint": "Pas de calculateur de leasing en v1 (S-D03). Saisies libres, pour qu'un futur calculateur puisse être intégré sans changement de schéma.",
@@ -1097,7 +1108,12 @@
     "empty": "Aucun document généré pour le moment.",
     "previewError": "Impossible de charger l’aperçu.",
     "download": "Télécharger",
-    "version": "Version {{version}}"
+    "version": "Version {{version}}",
+    "errors": {
+      "missingVehicle": "Impossible de générer un document de contrat sans véhicule. Veuillez d'abord saisir un véhicule.",
+      "missingPrice": "Impossible de générer un document de contrat sans prix. Veuillez d'abord compléter la composition du prix.",
+      "generic": "Le document n'a pas pu être généré."
+    }
   },
   "valuationsList": {
     "title": "Évaluations",

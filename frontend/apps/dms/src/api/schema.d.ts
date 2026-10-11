@@ -1476,7 +1476,8 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /** Update Contract */
+        patch: operations["update_contract_v1_sales_contracts__contract_id__patch"];
         trace?: never;
     };
     "/v1/sales/contracts/{contract_id}/cancel": {
@@ -1531,6 +1532,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/sales/contracts/{contract_id}/line-items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Contract Line Items */
+        get: operations["list_contract_line_items_v1_sales_contracts__contract_id__line_items_get"];
+        /**
+         * Replace Contract Line Items
+         * @description S-D14, as on the offer: accessories are a full replace; factory
+         *     options a per-id patch. Returns the contract with its price rebuilt.
+         */
+        put: operations["replace_contract_line_items_v1_sales_contracts__contract_id__line_items_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/sales/contracts/{contract_id}/request-invoice": {
         parameters: {
             query?: never;
@@ -1542,6 +1565,40 @@ export interface paths {
         put?: never;
         /** Request Invoice */
         post: operations["request_invoice_v1_sales_contracts__contract_id__request_invoice_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sales/contracts/{contract_id}/trade-in": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set Contract Trade In */
+        post: operations["set_contract_trade_in_v1_sales_contracts__contract_id__trade_in_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sales/contracts/{contract_id}/trade-in/valuation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Attach Contract Trade In Valuation */
+        post: operations["attach_contract_trade_in_valuation_v1_sales_contracts__contract_id__trade_in_valuation_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3340,14 +3397,22 @@ export interface components {
         };
         /** ContractRead */
         ContractRead: {
+            /** Accessoriestotal */
+            accessoriesTotal?: string | null;
+            /** Baseprice */
+            basePrice?: string | null;
             /** Cancelledreason */
             cancelledReason: string | null;
             /** Configurationid */
             configurationId?: string | null;
             /** Configurationlabel */
             configurationLabel?: string | null;
+            /** Containers */
+            containers?: components["schemas"]["OfferContainerState"][];
             /** Contractnumber */
             contractNumber: string;
+            /** Costbasis */
+            costBasis?: string | null;
             /**
              * Createdat
              * Format: date-time
@@ -3361,6 +3426,12 @@ export interface components {
             customerLocality: string | null;
             /** Deliverydate */
             deliveryDate: string | null;
+            /** Discountamount */
+            discountAmount?: string | null;
+            /** Discounttype */
+            discountType?: string | null;
+            /** Discountvalue */
+            discountValue?: string | null;
             financing: components["schemas"]["FinancingKind"] | null;
             /** Grossprice */
             grossPrice: string | null;
@@ -3373,6 +3444,10 @@ export interface components {
             invoiceRef: string | null;
             /** Isinvoiceable */
             isInvoiceable: boolean;
+            /** Listprice */
+            listPrice?: string | null;
+            /** Manualbaseprice */
+            manualBasePrice?: string | null;
             /** Manualvehiclecondition */
             manualVehicleCondition: string | null;
             /** Margin */
@@ -3381,6 +3456,8 @@ export interface components {
             offerId: string | null;
             /** Offernumber */
             offerNumber: string | null;
+            /** Optionstotal */
+            optionsTotal?: string | null;
             /** Payable */
             payable: string | null;
             /** Reservationid */
@@ -3390,6 +3467,8 @@ export interface components {
             status: components["schemas"]["ContractStatus"];
             /** Stockitemid */
             stockItemId: string | null;
+            /** Totalbeforediscount */
+            totalBeforeDiscount?: string | null;
             /** Tradeinconfigurationid */
             tradeInConfigurationId?: string | null;
             /** Tradeinlabel */
@@ -3409,8 +3488,12 @@ export interface components {
              * Format: date-time
              */
             updatedAt: string;
+            /** Vehiclecondition */
+            vehicleCondition?: string | null;
             /** Vehiclelabel */
             vehicleLabel: string | null;
+            /** Vehiclesnapshotfrozenat */
+            vehicleSnapshotFrozenAt?: string | null;
             /** Vehiclesource */
             vehicleSource: string | null;
             /** Version */
@@ -3421,6 +3504,35 @@ export interface components {
          * @enum {string}
          */
         ContractStatus: "pending" | "confirmed" | "cancelled" | "invoiced";
+        /**
+         * ContractUpdate
+         * @description KAN-67 (ADR-083) — completes or adjusts a PENDING contract: its
+         *     vehicle (FR-S-05 Path A: a stock item; Path B: a `build` configuration;
+         *     or a manually described car) and the seller's own pricing inputs. Every
+         *     field is optional and applied incrementally, like the offer's autosave
+         *     PATCH (OfferUpdate) and with the same meaning; every derived figure is
+         *     recomputed server-side, never taken from the client. The customer is
+         *     not editable here — a contract keeps the customer it was created for.
+         *     The trade-in and the line items have their own routes, as on the offer.
+         */
+        ContractUpdate: {
+            /** Configurationid */
+            configurationId?: string | null;
+            /** Discounttype */
+            discountType?: ("percent" | "amount") | null;
+            /** Discountvalue */
+            discountValue?: number | string | null;
+            /** Manualbaseprice */
+            manualBasePrice?: number | string | null;
+            /** Manualvehiclecondition */
+            manualVehicleCondition?: string | null;
+            /** Stockitemid */
+            stockItemId?: string | null;
+            /** Vehiclelabel */
+            vehicleLabel?: string | null;
+            /** Vehiclesource */
+            vehicleSource?: ("stock" | "manual") | null;
+        };
         /**
          * CustodyEventCreate
          * @description `partner_id` defaults to the caller's own tenant and must equal it
@@ -11390,6 +11502,46 @@ export interface operations {
             };
         };
     };
+    update_contract_v1_sales_contracts__contract_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                contract_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContractUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     cancel_contract_v1_sales_contracts__contract_id__cancel_post: {
         parameters: {
             query?: never;
@@ -11542,6 +11694,81 @@ export interface operations {
             };
         };
     };
+    list_contract_line_items_v1_sales_contracts__contract_id__line_items_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                contract_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LineItemPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    replace_contract_line_items_v1_sales_contracts__contract_id__line_items_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                contract_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LineItemsReplaceRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     request_invoice_v1_sales_contracts__contract_id__request_invoice_post: {
         parameters: {
             query?: never;
@@ -11559,6 +11786,90 @@ export interface operations {
             };
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_contract_trade_in_v1_sales_contracts__contract_id__trade_in_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                contract_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TradeInRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    attach_contract_trade_in_valuation_v1_sales_contracts__contract_id__trade_in_valuation_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                contract_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttachValuationRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

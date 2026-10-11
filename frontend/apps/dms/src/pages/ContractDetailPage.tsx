@@ -1,12 +1,26 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Alert, Group, Loader, Text } from '@mantine/core'
+import { Alert, Group, Loader, Stack, Text, Title } from '@mantine/core'
 import { Ban, FileSignature } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { DetailHeader, SalesStatusBadge, SalesTypeBadge, StatRow, useSetBreadcrumb, type RowMenuGroups } from '@nexotec/ui-kit'
+import {
+  DetailHeader,
+  SalesStatusBadge,
+  SalesTypeBadge,
+  StatRow,
+  useOverlay,
+  useSetBreadcrumb,
+  type RowMenuGroups,
+} from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
+import {
+  DealPricingContainer,
+  DealTradeInContainer,
+  DealVehicleContainer,
+} from '../components/deal-workspace/DealWorkspaceContainers'
 import { SalesDocumentsSection } from '../components/SalesDocumentsSection'
+import { StockDetailContent } from './StockDetailPage'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { ValuationSourceMarker } from '../components/ValuationSourceMarker'
 import { translatedSalesDealStatusLabel } from '../salesOptions'
@@ -33,6 +47,11 @@ export interface ContractDetailContentProps {
  * Eintauschfahrzeug / Zu bezahlen / Marge). Preisaufbau/Beteiligte/
  * Dokumente/Verlauf tabs and the document print-preview (ADR-063) extend
  * this same shell in PR-7/8.
+ *
+ * KAN-67 (ADR-083) — while the contract is pending, the offer workspace's
+ * own vehicle, price build-up and trade-in containers complete or adjust
+ * it in place (the customer is fixed). Confirming freezes it: the
+ * containers are gone and the server refuses any edit.
  */
 export function ContractDetailContent({ contractId: id, embedded = false }: ContractDetailContentProps) {
   const { t } = useTranslation()
@@ -43,6 +62,8 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
   // renews its kind's key.
   const confirmKey = useIdempotencyKey()
   const cancelKey = useIdempotencyKey()
+  const [editError, setEditError] = useState<string | null>(null)
+  const overlay = useOverlay()
 
   const contractQuery = useQuery({
     queryKey: ['sales-contract', id],
@@ -59,6 +80,44 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
   })
 
   useSetBreadcrumb(embedded ? null : [t('shell.nav.sales'), contractQuery.data?.contractNumber ?? id])
+
+  // The configurator overlay calls `patchContract` from a closure; reading
+  // the contract through a ref keeps its If-Match current (same reason as
+  // the offer workspace's own latestOffer ref).
+  const latestContract = useRef<SalesContractRead | undefined>(undefined)
+  latestContract.current = contractQuery.data
+  const onContractUpdated = (updated: SalesContractRead) => {
+    setEditError(null)
+    queryClient.setQueryData(['sales-contract', id], updated)
+  }
+
+  // A refused edit is said in the user's language, keyed off the 409's
+  // shape (never the backend's English message), and the page refetches so
+  // it shows what the contract now is — confirmed in another tab, say.
+  const editRefusalMessage = (err: unknown): string => {
+    if (err instanceof ApiError && err.status === 409) {
+      const details = (err.details ?? {}) as Record<string, unknown>
+      if (details.currentVersion != null) return t('contractDetail.errors.editRefused.staleVersion')
+      if (details.reason === 'contract_not_pending') return t('contractDetail.errors.editRefused.notPending')
+      if (details.reason === 'contract_priced_without_inputs') return t('contractDetail.edit.pricedWithoutInputs')
+    }
+    return t('contractDetail.errors.editRefused.generic')
+  }
+
+  const patchContract = async (patch: Record<string, unknown>) => {
+    const contract = latestContract.current
+    if (!contract) return
+    try {
+      const updated = await api.patch<SalesContractRead>(`/sales/contracts/${id}`, patch, {
+        'If-Match': String(contract.version),
+      })
+      onContractUpdated(updated)
+    } catch (err) {
+      setEditError(editRefusalMessage(err))
+      void contractQuery.refetch()
+      throw err
+    }
+  }
 
   // Confirmation is refused (409) for a customer the dealership may not
   // contact, may not extend credit to (FR-S-24), or whose address it does
@@ -151,12 +210,34 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
   // (KAN-58) has no vehicle and no price. Mirror the backend's own
   // completeness guard here (ADR-061: don't invite a click that will only
   // be refused) rather than waiting for the 409 to say so.
+  // CHF 0.00 counts as a price (Anto, 2026-10-10, KAN-67) — only an empty
+  // one is refused, as on the server.
   const isEmpty = contract.vehicleSource == null || contract.grossPrice == null
+  // A contract priced before contracts kept their pricing inputs: its
+  // figures stand, but the server refuses to rebuild them (409
+  // contract_priced_without_inputs) — say so instead of offering editors.
+  const pricedWithoutInputs = contract.vehicleSnapshotFrozenAt == null && contract.grossPrice != null
   const confirmDisabledReason = !isPending
     ? t('contractDetail.actions.confirmDisabledReason')
     : isEmpty
       ? t('contractDetail.actions.confirmDisabledReasonEmpty')
       : undefined
+
+  const containerProps = {
+    ownerType: 'contract' as const,
+    deal: contract,
+    getDeal: () => latestContract.current,
+    patch: patchContract,
+    onDealUpdated: onContractUpdated,
+  }
+  // ADR-059 — the stock record opens over the contract, never instead of it.
+  const openStockItemOverlay = () => {
+    if (!contract.stockItemId) return
+    overlay.push({
+      key: `stock-overlay-${contract.stockItemId}`,
+      content: <StockDetailContent stockItemId={contract.stockItemId} embedded />,
+    })
+  }
 
   const overflowActions: RowMenuGroups = {
     navigate: [],
@@ -223,6 +304,29 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
       />
 
       {contract.financing && <Text size="sm" c="dimmed">{t('contractDetail.financing')}: {t(`salesEnums.financing.${contract.financing}`)}</Text>}
+
+      {isPending && pricedWithoutInputs && (
+        <Alert color="gray" data-testid="contract-priced-without-inputs">
+          {t('contractDetail.edit.pricedWithoutInputs')}
+        </Alert>
+      )}
+
+      {isPending && !pricedWithoutInputs && (
+        <Stack gap="md" data-testid="contract-edit">
+          <div>
+            <Title order={4}>{t('contractDetail.edit.title')}</Title>
+            <Text size="sm" c="dimmed">{t('contractDetail.edit.hint')}</Text>
+          </div>
+          {editError && (
+            <Alert color="red" withCloseButton onClose={() => setEditError(null)}>
+              {editError}
+            </Alert>
+          )}
+          <DealVehicleContainer {...containerProps} />
+          <DealPricingContainer {...containerProps} onOpenStockItem={openStockItemOverlay} />
+          <DealTradeInContainer {...containerProps} />
+        </Stack>
+      )}
 
       <SalesDocumentsSection ownerType="contract" ownerId={id} />
     </div>

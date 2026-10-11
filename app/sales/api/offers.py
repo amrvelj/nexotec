@@ -26,6 +26,7 @@ from app.sales.schemas.offer import (
 from app.sales.services import line_items as line_items_service
 from app.sales.services import offer as offer_service
 from app.sales.services import trade_in as trade_in_service
+from app.sales.services.priced_deal import compute_containers, vehicle_condition
 
 router = APIRouter(tags=["sales"], route_class=IdempotentRoute)
 settings = get_settings()
@@ -47,8 +48,8 @@ def _offer_read(offer: SalesOffer) -> OfferRead:
     base = OfferRead.model_validate(offer, from_attributes=True)
     return base.model_copy(
         update={
-            "containers": offer_service.compute_offer_containers(offer),
-            "vehicle_condition": offer_service.vehicle_condition(offer),
+            "containers": compute_containers(offer),
+            "vehicle_condition": vehicle_condition(offer),
         }
     )
 
@@ -124,7 +125,7 @@ def set_trade_in(
     check_version(offer.version, if_match, entity_name="SalesOffer")
     offer = trade_in_service.set_trade_in(
         db,
-        offer=offer,
+        deal=offer,
         group_id=principal.group_id,
         vin=body.vin,
         plate=body.plate,
@@ -147,7 +148,7 @@ def attach_trade_in_valuation(
     offer = offer_service.get_offer_or_404(db, principal.tenant_id, offer_id)
     check_version(offer.version, if_match, entity_name="SalesOffer")
     offer = trade_in_service.attach_trade_in_valuation(
-        db, offer=offer, valuation_id=body.valuation_id, actor_id=principal.user_id
+        db, deal=offer, valuation_id=body.valuation_id, actor_id=principal.user_id
     )
     return _offer_read(offer)
 
@@ -202,8 +203,8 @@ def list_offer_line_items(
     principal: Principal = Depends(get_current_principal),
     db: Session = Depends(get_db),
 ):
-    offer_service.get_offer_or_404(db, principal.tenant_id, offer_id)  # 404-not-403, tenant scoping
-    items = line_items_service.list_line_items(db, tenant_id=principal.tenant_id, offer_id=offer_id)
+    offer = offer_service.get_offer_or_404(db, principal.tenant_id, offer_id)  # 404-not-403, tenant scoping
+    items = line_items_service.list_line_items(db, deal=offer)
     return LineItemPage(items=[LineItemRead.model_validate(i, from_attributes=True) for i in items])
 
 
@@ -223,5 +224,5 @@ def replace_offer_line_items(
 
     offer = offer_service.get_offer_or_404(db, principal.tenant_id, offer_id)
     check_version(offer.version, if_match, entity_name="SalesOffer")
-    offer = line_items_service.replace_line_items(db, offer=offer, data=body, actor_id=principal.user_id)
+    offer = line_items_service.replace_line_items(db, deal=offer, data=body, actor_id=principal.user_id)
     return _offer_read(offer)
