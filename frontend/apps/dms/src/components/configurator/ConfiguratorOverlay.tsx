@@ -310,9 +310,13 @@ export function ConfiguratorOverlay({
   // the first save has happened, `configurationId` would otherwise turn the
   // next car's save into a PATCH of the configuration already saved (one
   // record describing two cars, FR-C-11). The saved one stays as it is;
-  // only this overlay session lets go of it.
+  // only this overlay session lets go of it. Back is disabled while a save
+  // is in flight: its result would otherwise put the old id back. The typed
+  // identification input goes too — the panel remounts empty, and a stale
+  // VIN must not ride into the next car's draft.
   const backToFind = () => {
     setConfigurationId(null)
+    setVinInput('')
     setCurrentVersion(0)
     setDraft(null)
     setResyncOpen(false)
@@ -643,7 +647,7 @@ export function ConfiguratorOverlay({
             </Button>
           )}
           {!existing && (
-            <Button variant="subtle" size="xs" onClick={backToFind}>
+            <Button variant="subtle" size="xs" onClick={backToFind} disabled={saving}>
               {t('configurator.configure.back')}
             </Button>
           )}
