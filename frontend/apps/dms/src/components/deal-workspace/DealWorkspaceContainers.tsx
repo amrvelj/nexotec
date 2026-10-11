@@ -46,7 +46,13 @@ export interface DealContainerProps<D extends SalesPricedDealRead> {
   getDeal: () => D | undefined
   patch: (patch: Record<string, unknown>) => Promise<void>
   onDealUpdated: (deal: D) => void
+  /** KAN-288 — every save that is not `patch` (line items, trade-in) runs
+   * through this, so a host that ends the edit (signing a contract) can wait
+   * for it. Optional: the offer workspace has nothing to wait for. */
+  trackSave?: <T>(work: Promise<T>) => Promise<T>
 }
+
+const untracked = <T,>(work: Promise<T>) => work
 
 const routeSegment = (ownerType: SalesDealOwnerType) => (ownerType === 'offer' ? 'offers' : 'contracts')
 const reportedByHost = () => undefined
@@ -154,6 +160,7 @@ export function DealPricingContainer<D extends SalesPricedDealRead>({
   deal,
   patch,
   onDealUpdated,
+  trackSave,
   onOpenStockItem,
   onUnsavedChange,
 }: DealContainerProps<D> & { onOpenStockItem?: () => void; onUnsavedChange?: (unsaved: boolean) => void }) {
@@ -184,7 +191,7 @@ export function DealPricingContainer<D extends SalesPricedDealRead>({
         onManualBasePriceChange={(value) => void patch({ manualBasePrice: value }).catch(reportedByHost)}
         onUnsavedChange={onUnsavedChange}
       />
-      <OfferAccessoriesAndOptions ownerType={ownerType} deal={deal} onDealUpdated={onDealUpdated} />
+      <OfferAccessoriesAndOptions ownerType={ownerType} deal={deal} onDealUpdated={onDealUpdated} trackSave={trackSave} />
     </OverviewCard>
   )
 }
@@ -197,6 +204,7 @@ export function DealTradeInContainer<D extends SalesPricedDealRead>({
   deal,
   getDeal,
   onDealUpdated,
+  trackSave = untracked,
 }: DealContainerProps<D>) {
   const { t } = useTranslation()
   const overlay = useOverlay()
@@ -242,10 +250,12 @@ export function DealTradeInContainer<D extends SalesPricedDealRead>({
     try {
       const path = `${basePath}/trade-in/valuation`
       const body = { valuationId: valuation.id }
-      const updated = await api.post<D>(path, body, {
-        'If-Match': String(current.version),
-        ...valuationKey.headers([path, body]),
-      })
+      const updated = await trackSave(
+        api.post<D>(path, body, {
+          'If-Match': String(current.version),
+          ...valuationKey.headers([path, body]),
+        })
+      )
       valuationKey.renew()
       onDealUpdated(updated)
       setTradeInConfiguration(null)
@@ -264,10 +274,12 @@ export function DealTradeInContainer<D extends SalesPricedDealRead>({
     const current = getDeal()
     if (!current) return
     const path = `${basePath}/trade-in`
-    const updated = await api.post<D>(path, body, {
-      'If-Match': String(current.version),
-      ...tradeInKey.headers([path, body]),
-    })
+    const updated = await trackSave(
+      api.post<D>(path, body, {
+        'If-Match': String(current.version),
+        ...tradeInKey.headers([path, body]),
+      })
+    )
     tradeInKey.renew()
     onDealUpdated(updated)
   }

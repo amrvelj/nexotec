@@ -23,7 +23,7 @@ import { useDebouncedValue } from '@mantine/hooks'
  * typed" failure mode this hook exists to close.
  *
  * Returns `[value, setValue, unsaved]` — `unsaved` is true while a typed
- * value waits out the delay (KAN-67).
+ * value waits out the delay (KAN-288).
  */
 export function useDebouncedNumberField(
   serverValue: number | null,
@@ -54,8 +54,10 @@ export function useDebouncedNumberField(
     onCommitRef.current(debounced === '' ? null : Number(debounced))
   }, [debounced])
 
-  // KAN-67 — the third value: a typed value not yet handed to `onCommit`.
+  // KAN-288 — the third value: a typed value not yet handed to `onCommit`.
   // A host that ends the edit (signing a contract) waits for it, or the
   // value would be dropped when the field unmounts and its timer is cleared.
-  return [local, setLocal, local !== debounced]
+  // Object.is: a lone "-" parses to NaN, and NaN !== NaN would read as
+  // "unsaved" forever.
+  return [local, setLocal, !Object.is(local, debounced)]
 }

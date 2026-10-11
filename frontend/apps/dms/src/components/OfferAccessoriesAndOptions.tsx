@@ -19,6 +19,8 @@ export interface OfferAccessoriesAndOptionsProps<D extends SalesPricedDealRead> 
   ownerType: SalesDealOwnerType
   deal: D
   onDealUpdated: (deal: D) => void
+  /** KAN-288 — the host's save tracker (see DealContainerProps.trackSave). */
+  trackSave?: <T>(work: Promise<T>) => Promise<T>
 }
 
 /**
@@ -41,6 +43,7 @@ export function OfferAccessoriesAndOptions<D extends SalesPricedDealRead>({
   ownerType,
   deal,
   onDealUpdated,
+  trackSave = (work) => work,
 }: OfferAccessoriesAndOptionsProps<D>) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -82,7 +85,7 @@ export function OfferAccessoriesAndOptions<D extends SalesPricedDealRead>({
   }) => {
     setError(null)
     try {
-      const updated = await api.put<D>(lineItemsPath, body, { 'If-Match': String(deal.version) })
+      const updated = await trackSave(api.put<D>(lineItemsPath, body, { 'If-Match': String(deal.version) }))
       onDealUpdated(updated)
       await queryClient.invalidateQueries({ queryKey: lineItemsKey })
     } catch (err) {
@@ -91,9 +94,11 @@ export function OfferAccessoriesAndOptions<D extends SalesPricedDealRead>({
       // used car's per-line discount needs a reason, …), as before.
       const details = err instanceof ApiError ? (err.details as { reason?: unknown; currentVersion?: unknown } | null) : null
       if (err instanceof ApiError && err.status === 409 && details?.currentVersion != null) {
-        // Stale If-Match: reload the deal so the next save carries its
-        // current version instead of failing the same way again.
+        // Stale If-Match: reload the deal AND its lines. Accessories are a
+        // full replace built from the lines, so a current version with a
+        // stale list could delete a line someone else just added.
         void queryClient.invalidateQueries({ queryKey: [ownerType === 'offer' ? 'sales-offer' : 'sales-contract', deal.id] })
+        void queryClient.invalidateQueries({ queryKey: lineItemsKey })
         setError(
           ownerType === 'contract'
             ? t('contractDetail.errors.editRefused.staleVersion')

@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 def get_contract_or_404(
     db: Session, tenant_id: uuid.UUID, contract_id: uuid.UUID, *, for_update: bool = False
 ) -> SalesContract:
-    """`for_update` (KAN-67) locks the row until the caller commits: every
+    """`for_update` (KAN-288) locks the row until the caller commits: every
     route that changes a contract loads it this way, so an edit and a
     confirmation of the same contract run one after the other. Without it,
     an edit that read the contract while pending could write after it was

@@ -259,6 +259,65 @@ describe('ContractDetailPage — a pending contract can be completed (KAN-67)', 
     expect(backend.callsTo(/\/confirm$/, 'POST')[0].headers.get('If-Match')).toBe(String(PRICED.version + 1))
   })
 
+  it('a line-item save still on its way holds Confirm until it lands (KAN-288 review)', async () => {
+    const user = userEvent.setup()
+    let release: (value: unknown) => void = () => {}
+    const OPTION = {
+      id: 'li-1', kind: 'factory_option', code: 'LED', label: 'LED-Scheinwerfer', unitPrice: '800.00', quantity: 1,
+      included: true, discountType: null, discountValue: null, discountResolvedAmount: null,
+      discountSuppressedReason: null, position: 0,
+    }
+    const backend = installFakeBackend([
+      {
+        method: 'PUT',
+        match: /^\/sales\/contracts\/k1\/line-items$/,
+        handler: () => new Promise((resolve) => (release = resolve)),
+      },
+      { match: /^\/sales\/contracts\/k1\/line-items$/, handler: () => ({ items: [OPTION] }) },
+      ...baseRoutes(() => PRICED),
+    ])
+    renderPage()
+
+    await user.click(await screen.findByRole('checkbox', { name: 'LED-Scheinwerfer' }))
+    await waitFor(() => expect(backend.callsTo(/\/line-items$/, 'PUT')).toHaveLength(1))
+    expect(screen.getByRole('button', { name: i18n.t('contractDetail.actions.confirm') })).toBeDisabled()
+
+    release({ ...PRICED, optionsTotal: '0.00', version: PRICED.version + 1 })
+    await waitFor(() => expect(screen.getByRole('button', { name: i18n.t('contractDetail.actions.confirm') })).toBeEnabled())
+  })
+
+  it('a stale-version line-item refusal is said in the user\'s language and reloads the lines (KAN-288 review)', async () => {
+    const user = userEvent.setup()
+    const OPTION = {
+      id: 'li-1', kind: 'factory_option', code: 'LED', label: 'LED-Scheinwerfer', unitPrice: '800.00', quantity: 1,
+      included: true, discountType: null, discountValue: null, discountResolvedAmount: null,
+      discountSuppressedReason: null, position: 0,
+    }
+    const backend = installFakeBackend([
+      {
+        method: 'PUT',
+        match: /^\/sales\/contracts\/k1\/line-items$/,
+        handler: () =>
+          status(409, {
+            error: {
+              code: 'conflict',
+              message: 'SalesContract has been modified since If-Match version 2 (current version is 3).',
+              details: { currentVersion: 3, ifMatchVersion: 2 },
+            },
+          }),
+      },
+      { match: /^\/sales\/contracts\/k1\/line-items$/, handler: () => ({ items: [OPTION] }) },
+      ...baseRoutes(() => PRICED),
+    ])
+    renderPage()
+
+    await user.click(await screen.findByRole('checkbox', { name: 'LED-Scheinwerfer' }))
+
+    expect(await screen.findByText(i18n.t('contractDetail.errors.editRefused.staleVersion'))).toBeInTheDocument()
+    expect(screen.queryByText(/has been modified since/)).not.toBeInTheDocument()
+    await waitFor(() => expect(backend.callsTo(/\/line-items$/, 'GET').length).toBeGreaterThanOrEqual(2))
+  })
+
   it('renders the edit section in Italian', async () => {
     await i18n.changeLanguage('it')
     installFakeBackend(baseRoutes(() => EMPTY))

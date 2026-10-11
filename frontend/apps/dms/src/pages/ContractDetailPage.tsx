@@ -63,7 +63,7 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
   const confirmKey = useIdempotencyKey()
   const cancelKey = useIdempotencyKey()
   const [editError, setEditError] = useState<string | null>(null)
-  // KAN-67 — a typed price still waiting out its debounce, or a save on its
+  // KAN-288 — a typed price still waiting out its debounce, or a save on its
   // way to the server. Confirming meanwhile would sign the previous figure
   // and drop the typed one (the edit section unmounts on confirm), so the
   // primary action waits for both.
@@ -110,21 +110,29 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
     return t('contractDetail.errors.editRefused.generic')
   }
 
+  // KAN-288 — every save (autosave PATCH, line items, trade-in) runs
+  // through here, so Confirm waits for whichever is still on its way.
+  const trackSave = async <T,>(work: Promise<T>): Promise<T> => {
+    setSavesInFlight((n) => n + 1)
+    try {
+      return await work
+    } finally {
+      setSavesInFlight((n) => n - 1)
+    }
+  }
+
   const patchContract = async (patch: Record<string, unknown>) => {
     const contract = latestContract.current
     if (!contract) return
-    setSavesInFlight((n) => n + 1)
     try {
-      const updated = await api.patch<SalesContractRead>(`/sales/contracts/${id}`, patch, {
-        'If-Match': String(contract.version),
-      })
+      const updated = await trackSave(
+        api.patch<SalesContractRead>(`/sales/contracts/${id}`, patch, { 'If-Match': String(contract.version) })
+      )
       onContractUpdated(updated)
     } catch (err) {
       setEditError(editRefusalMessage(err))
       void contractQuery.refetch()
       throw err
-    } finally {
-      setSavesInFlight((n) => n - 1)
     }
   }
 
@@ -243,6 +251,7 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
     getDeal: () => latestContract.current,
     patch: patchContract,
     onDealUpdated: onContractUpdated,
+    trackSave,
   }
   // ADR-059 — the stock record opens over the contract, never instead of it.
   const openStockItemOverlay = () => {

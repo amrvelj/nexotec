@@ -10,7 +10,7 @@ export interface PriceBuildUpProps {
   deal: SalesPricedDealRead
   onDiscountChange: (patch: { discountType: string | null; discountValue: number | null }) => void
   onManualBasePriceChange?: (value: number | null) => void
-  /** KAN-67 — told whether a typed figure is still waiting to be saved, so a
+  /** KAN-288 — told whether a typed figure is still waiting to be saved, so a
    * host that ends the edit (signing a contract) can wait for it. */
   onUnsavedChange?: (unsaved: boolean) => void
 }
