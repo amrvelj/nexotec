@@ -26,7 +26,7 @@ import {
 } from '../customerOptions'
 import { SUPPORTED_LANGUAGES } from '../i18n'
 import { DuplicateWarningPanel } from './DuplicateWarningPanel'
-import { PhoneInput } from './PhoneInput'
+import { PHONE_INPUT_MIN_WIDTH, PhoneInput } from './PhoneInput'
 import { useCountryOptions } from '../hooks/useCountryOptions'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import type {
@@ -350,6 +350,7 @@ export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType, o
             renderValueEditor={(value, onChange) => (
               <PhoneInput label={t('customerDetail.phoneInput.country')} value={value} onChange={onChange} />
             )}
+            valueEditorMinWidth={PHONE_INPUT_MIN_WIDTH}
             t={t}
           />
           <ContactRowGroup
@@ -451,6 +452,7 @@ function ContactRowGroup({
   rows,
   handlers,
   renderValueEditor,
+  valueEditorMinWidth,
   t,
 }: {
   label: string
@@ -460,6 +462,7 @@ function ContactRowGroup({
   rows: RepeatableRowValue[]
   handlers: RowGroupHandlers
   renderValueEditor: (value: string, onChange: (v: string) => void, autoFocus: boolean) => ReactNode
+  valueEditorMinWidth?: number
   t: (key: string) => string
 }) {
   return (
@@ -476,6 +479,7 @@ function ContactRowGroup({
         defaultType={defaultType}
         rows={rows}
         renderValueEditor={renderValueEditor}
+        valueEditorMinWidth={valueEditorMinWidth}
         onCreate={handlers.onCreate}
         onUpdate={handlers.onUpdate}
         onDelete={handlers.onDelete}

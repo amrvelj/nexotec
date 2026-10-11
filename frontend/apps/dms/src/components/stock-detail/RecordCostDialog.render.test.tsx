@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from '../../i18n'
+import { installFakeBackend } from '../../test/fakeBackend'
 import { renderWithProviders } from '../../test/renderWithProviders'
 import { RecordCostDialog } from './RecordCostDialog'
 
@@ -39,6 +40,11 @@ async function fill(user: ReturnType<typeof userEvent.setup>, amount: string) {
 const submit = (user: ReturnType<typeof userEvent.setup>) =>
   user.click(screen.getByRole('button', { name: i18n.t('stockDetail.wagenbuch.submit') }))
 
+// KAN-172 — renderWithProviders' AuthProvider and preference scope fetch on
+// mount; the fake backend answers them instead of the network.
+beforeEach(() => {
+  installFakeBackend([])
+})
 afterEach(() => cleanup())
 
 describe('RecordCostDialog — one sourceRef per request (KAN-266)', () => {

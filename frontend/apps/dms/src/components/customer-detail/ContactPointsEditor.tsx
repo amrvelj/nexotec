@@ -43,6 +43,8 @@ interface ContactPointsEditorProps<TType extends string> {
   rows: ContactPointRow<TType>[]
   newRowType: TType
   renderValueEditor: (value: string, onChange: (v: string) => void, autoFocus: boolean) => ReactNode
+  /** Passed to RepeatableRowGroup: below it the row wraps (KAN-267). */
+  valueEditorMinWidth?: number
   onCreate: (row: { type: TType; value: string }) => Promise<void>
   onUpdate: (id: string, patch: ContactPointUpdatePatch<TType>) => Promise<void>
   onDelete: (id: string) => Promise<void>
@@ -64,6 +66,7 @@ export function ContactPointsEditor<TType extends string>({
   rows,
   newRowType,
   renderValueEditor,
+  valueEditorMinWidth,
   onCreate,
   onUpdate,
   onDelete,
@@ -84,6 +87,7 @@ export function ContactPointsEditor<TType extends string>({
         defaultType={newRowType}
         rows={rows}
         renderValueEditor={renderValueEditor}
+        valueEditorMinWidth={valueEditorMinWidth}
         onCreate={(draft) => onCreate({ type: draft.type as TType, value: draft.value })}
         onUpdate={(id, patch) => onUpdate(id, { ...patch, type: patch.type as TType | undefined })}
         onDelete={onDelete}

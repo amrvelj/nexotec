@@ -4,9 +4,9 @@ context-level module, like app.integration.daily_jobs, so the worker never
 reaches into this context's services.
 
 One log line per run with its counts — the record Anto asked for
-(2026-10-07). The counts are in the message text itself: the worker sets up
-logging with a format that has no `extra` fields (app/worker.py), so they
-would be dropped; they are passed as `extra` too, for a structured formatter.
+(2026-10-07). The counts are in the message text itself, so they read the
+same in any log format; they are passed as `extra` too, which the worker's
+JSON formatter (app.core.observability, since KAN-248) writes as fields.
 A failed release is logged at ERROR — the alarm — and does not fail the
 job: raising would re-run the whole sweep every poll cycle (1s) on a
 release that keeps failing, the trap app.reconciliation_runner.run_all_daily

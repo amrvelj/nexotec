@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, screen } from '@testing-library/react'
 import i18n from '../../i18n'
 import { renderWithProviders } from '../../test/renderWithProviders'
@@ -64,6 +64,12 @@ function renderTab(
 }
 
 describe('IdentityTab party rows show the holder, never the customer id (KAN-140)', () => {
+  // KAN-172 — renderWithProviders' AuthProvider and preference scope fetch on
+  // mount; every test gets the fake backend, not the network.
+  beforeEach(() => {
+    installFakeBackend([])
+  })
+
   it('names every current and former holder', () => {
     void i18n.changeLanguage('de')
     const { container } = renderTab(
@@ -90,7 +96,6 @@ describe('IdentityTab party rows show the holder, never the customer id (KAN-140
   it('asks the page to refetch the party roles when the customer overlay closes (U-11)', () => {
     // The overlaid Customer 360 can rename the holder inline; the card must
     // not keep showing the old name once the overlay is closed.
-    installFakeBackend([])
     const onClose = vi.fn()
     renderTab([party({})], [], onClose)
 

@@ -19,6 +19,21 @@ const COUNTRY_CODES = [
 
 const DEFAULT_COUNTRY_CODE = '+41'
 
+// The country select is sized for the longest label it ships — German
+// "Vereinigtes Königreich (+44)" — so no country is cut off into what reads
+// as a wrong calling code ("Liechtenstein (+42"). KAN-267.
+const COUNTRY_SELECT_WIDTH = 272
+
+// Room for a full national number with its trunk 0 (12 digits).
+const NUMBER_INPUT_MIN_WIDTH = 150
+
+// The width at which country and number sit side by side. Hosts that lay
+// the editor out in a row (RepeatableRowGroup's `valueEditorMinWidth`) pass
+// it, so the row gives the editor a line of its own instead of squeezing it;
+// narrower than this (a narrow card), the number moves under the country
+// (KAN-267).
+export const PHONE_INPUT_MIN_WIDTH = COUNTRY_SELECT_WIDTH + 10 + NUMBER_INPUT_MIN_WIDTH
+
 // Longest-prefix match so e.g. +423 (Liechtenstein) isn't mis-split as +41
 // followed by a stray leading "3". Re-adds the trunk 0 stripped by emit()
 // below, so editing an existing customer shows the number back in the same
@@ -72,7 +87,9 @@ export function PhoneInput({ label, value, onChange }: PhoneInputProps) {
   }
 
   return (
-    <Group grow gap="xs" align="flex-end">
+    // preventGrowOverflow off: by default `grow` caps each child at half the
+    // row, which held the country select below its width (KAN-267).
+    <Group grow preventGrowOverflow={false} gap="xs" align="flex-end" wrap="wrap">
       <Select
         label={label}
         data={COUNTRY_CODES.map((c) => ({ value: c.code, label: `${c.flag} ${t(c.nameKey)} (${c.code})` }))}
@@ -83,11 +100,12 @@ export function PhoneInput({ label, value, onChange }: PhoneInputProps) {
           emit(nextCode, localNumber)
         }}
         allowDeselect={false}
-        style={{ flex: '0 0 220px' }}
+        style={{ flex: `0 0 ${COUNTRY_SELECT_WIDTH}px` }}
       />
       <TextInput
         label={t('customerDetail.phoneInput.number')}
         placeholder="791234567"
+        style={{ flex: `1 1 ${NUMBER_INPUT_MIN_WIDTH}px`, minWidth: NUMBER_INPUT_MIN_WIDTH }}
         value={localNumber}
         onChange={(event) => {
           const next = event.currentTarget.value

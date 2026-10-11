@@ -37,7 +37,7 @@ from starlette.types import ASGIApp
 
 from app.core.auth import SESSION_COOKIE_NAME
 from app.core.config import get_settings
-from app.core.redact import REDACTED_PLACEHOLDER, is_secret_field
+from app.core.redact import REDACTED_PLACEHOLDER, SECRET_FIELDS, is_secret_field
 
 CORRELATION_ID_HEADER = "X-Correlation-Id"
 
@@ -172,7 +172,13 @@ def _otlp_headers(raw: str | None) -> dict[str, str]:
     return headers
 
 
-def configure_tracing(app: FastAPI) -> None:
+def configure_tracing(app: FastAPI | None = None) -> None:
+    """Registers the OTLP trace and metric providers. `app` is None for a
+    process with no HTTP server (app.worker, KAN-248): it gets the same
+    providers — the alarm gauges above are recorded there, and stay no-ops
+    until a MeterProvider exists in that process — and no FastAPI
+    instrumentation."""
+
     settings = get_settings()
     if not settings.otel_exporter_otlp_endpoint:
         return
@@ -211,10 +217,26 @@ def configure_tracing(app: FastAPI) -> None:
     # friends automatically once a MeterProvider is registered above; nothing
     # here hand-rolls that. Distributed traces across the HTTP boundary are
     # the same call.
-    FastAPIInstrumentor.instrument_app(app)
+    if app is not None:
+        FastAPIInstrumentor.instrument_app(app)
+
+
+def _sentry_secret_names() -> list[str]:
+    """SECRET_FIELDS as Sentry's scrubber sees them: lower-cased, snake_case
+    (`secret_value`) and camelCase (`secretValue` -> `secretvalue`)."""
+
+    return sorted(SECRET_FIELDS | {name.replace("_", "") for name in SECRET_FIELDS})
 
 
 def configure_sentry() -> None:
+    """Secrets are never logged, and a Sentry event is a log line that leaves
+    the process: no stack-frame locals (an adapter holds a resolved secret in
+    one — KAN-248, now that the worker reports too), and app.core.redact's
+    SECRET_FIELDS scrubbed by name, recursively, on top of Sentry's own
+    denylist (the same boundary JSONLogFormatter applies). Sentry compares
+    lower-cased names exactly, and request bodies are camelCase on the wire
+    (`secretValue`, `taxId`), so each name is listed in both spellings."""
+
     settings = get_settings()
     if not settings.sentry_dsn:
         return
@@ -222,11 +244,14 @@ def configure_sentry() -> None:
     import sentry_sdk
     from sentry_sdk.integrations.fastapi import FastApiIntegration
     from sentry_sdk.integrations.logging import LoggingIntegration
+    from sentry_sdk.scrubber import DEFAULT_DENYLIST, EventScrubber
 
     sentry_sdk.init(
         dsn=settings.sentry_dsn,
         environment=settings.environment,
         traces_sample_rate=0.1,
+        include_local_variables=False,
+        event_scrubber=EventScrubber(denylist=[*DEFAULT_DENYLIST, *_sentry_secret_names()], recursive=True),
         integrations=[FastApiIntegration(), LoggingIntegration(level=logging.INFO, event_level=logging.ERROR)],
     )
 

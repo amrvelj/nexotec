@@ -339,8 +339,8 @@ def test_the_worker_registers_the_sweep_after_reconciliation(_clean_registry):
 
 
 def test_the_daily_job_records_its_counts(db_session, engine, caplog):
-    """In the message text: the worker's log format (app/worker.py) has no
-    `extra` fields, so they would be dropped."""
+    """In the message text, so the counts read the same in any log format
+    (and as `extra` fields in the worker's JSON lines)."""
 
     tenant_id = uuid.uuid4()
     orphan = _item(db_session, tenant_id, label="Orphan")
