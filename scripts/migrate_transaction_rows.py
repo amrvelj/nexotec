@@ -128,10 +128,6 @@ Per-row outcome, in the report:
 - `vehicle_known_to_live_stock` — the VIN has an item live Stock
   created, in stock or sold, not this import (see NEVER A CAR LIVE STOCK
   KNOWS). Reported; nothing is written.
-- `condition_lossy`        — the legacy Vehicle's own condition was
-  certified_pre_owned, which StockItemCondition has no value for;
-  approximated as USED (matches migrate_legacy_vehicles.py's own
-  totaled->scrapped precedent: flagged, not silent).
 - `migrated`                — sale: a sales_contract + synthesised
   sales_offer were created, against a StockItem (new, or the one an
   earlier trade-in opened). trade_in: a new StockItem was created
@@ -143,6 +139,31 @@ Per-row outcome, in the report:
 - `already_migrated`       — this transaction id is already stamped on a
   sales_contract (sale) or a stock_item.pipeline_ref (trade_in). A
   re-run reports every row here and changes nothing.
+
+A `migrated` row may carry flags — written, but approximated or resting on
+a value nobody can vouch for. Each flag is counted in the summary, and every
+`migrated` row is printed with its note, so a human reading the dry run sees
+them before --commit (KAN-73):
+- `condition_lossy`        — the legacy Vehicle's own condition was
+  certified_pre_owned, which StockItemCondition has no value for;
+  approximated as USED (matches migrate_legacy_vehicles.py's own
+  totaled->scrapped precedent: flagged, not silent).
+- `supplier_vat_status_unconfirmed` — a trade-in whose customer has
+  vat_registered = false. Customer.vat_registered is a NOT NULL boolean
+  defaulting to false, so "recorded as not VAT-registered" cannot be told
+  apart from "never recorded", yet the row writes a fiktiver Vorsteuerabzug
+  (Art. 28a MWSTG) on it. Reported, not decided: whether such a row must
+  wait until the customer's VAT status is confirmed is the product owner's
+  and Finance's ruling (KAN-73, exit criterion 1).
+
+The offer and contract a sale creates carry the customer's correspondence
+language (`customer_language`), as a live offer does — a migrated document
+is never printed in the German fallback for a French, Italian or English
+customer (KAN-73).
+
+Exit code: 0 when the run completed (dry or committed), 1 when it aborted
+on an unexpected error — everything rolled back, nothing written, whether or
+not --commit was given.
 
 Usage:
     DMS_DATABASE_URL=... python scripts/migrate_transaction_rows.py            # dry run (default)
@@ -207,6 +228,9 @@ class RowOutcome:
     notes: str = ""
     new_contract_id: uuid.UUID | None = None
     new_stock_item_id: uuid.UUID | None = None
+    # On a `migrated` row: what was approximated or rests on an unconfirmed
+    # value (`condition_lossy`, `supplier_vat_status_unconfirmed`).
+    flags: list[str] = dataclasses.field(default_factory=list)
 
 
 @dataclasses.dataclass
@@ -215,24 +239,44 @@ class MigrationReport:
     total_rows: int
     outcomes: list[RowOutcome]
     aborted: bool = False
+    # Whether --commit was given, so an aborted commit run is never labelled
+    # a dry run (`committed` is False for both).
+    commit_requested: bool = False
 
     def summary(self) -> str:
         counts: dict[str, int] = {}
+        flag_counts: dict[str, int] = {}
         for row in self.outcomes:
             counts[row.outcome] = counts.get(row.outcome, 0) + 1
+            for flag in row.flags:
+                flag_counts[flag] = flag_counts.get(flag, 0) + 1
+        if self.aborted:
+            mode = (
+                "COMMIT RUN ABORTED — rolled back, nothing written"
+                if self.commit_requested
+                else "DRY RUN ABORTED (nothing written)"
+            )
+        else:
+            mode = "COMMITTED" if self.committed else "DRY RUN (nothing written)"
         lines = [
-            f"migrate_transaction_rows: {'COMMITTED' if self.committed else 'DRY RUN (nothing written)'}"
-            + (" — ABORTED" if self.aborted else ""),
+            f"migrate_transaction_rows: {mode}",
             f"  total transaction rows examined: {self.total_rows}",
         ]
         for outcome, count in sorted(counts.items()):
             lines.append(f"  {outcome}: {count}")
+        for flag, count in sorted(flag_counts.items()):
+            lines.append(f"  flagged {flag}: {count}")
+        # Every row but the two that carry nothing to read: a re-run's
+        # already_migrated and a draft/cancelled not_completed. A migrated
+        # row is printed too — its note is what it wrote or would write, and
+        # its flags are what a human must check before --commit.
         for row in self.outcomes:
-            if row.outcome in (
-                "vehicle_unresolved", "customer_unresolved", "dealership_unresolved", "vehicle_already_in_stock",
-                "vehicle_known_to_live_stock", "condition_lossy", "amount_missing", "transaction_date_missing", "error",
-            ):
-                lines.append(f"    {row.outcome.upper()} {row.transaction_type} {row.transaction_id}: {row.notes}")
+            if row.outcome in ("already_migrated", "not_completed"):
+                continue
+            flags = f" [{', '.join(row.flags)}]" if row.flags else ""
+            lines.append(
+                f"    {row.outcome.upper()}{flags} {row.transaction_type} {row.transaction_id}: {row.notes}"
+            )
         return "\n".join(lines)
 
 
@@ -407,9 +451,11 @@ def _migrate_sale(db: Session, txn: Transaction, *, commit: bool) -> RowOutcome:
             f"approximated as 'used' for transaction {txn.id}"
         )
 
+    flags = ["condition_lossy"] if lossy_note else []
+
     if not commit:
         note = f"would resolve/create a stock item + confirmed contract for vehicle {vehicle_mdm.id}"
-        return RowOutcome(txn.id, "sale", "migrated", (lossy_note + "; " if lossy_note else "") + note)
+        return RowOutcome(txn.id, "sale", "migrated", (lossy_note + "; " if lossy_note else "") + note, flags=flags)
 
     # run_migration already rejected amount_missing/transaction_date_missing
     # before ever dispatching here — narrows the type for mypy and doubles
@@ -441,6 +487,9 @@ def _migrate_sale(db: Session, txn: Transaction, *, commit: bool) -> RowOutcome:
         status=OfferStatus.OPEN,
         customer_id=customer.id,
         customer_label=_customer_label(customer),
+        # The correspondence language, as update_offer sets it from the same
+        # Customer row — without it the document falls back to German (KAN-73).
+        customer_language=customer.language.value,
         vehicle_source="stock",
         stock_item_id=stock_item.id,
         vehicle_label=stock_item.vehicle_label,
@@ -465,6 +514,7 @@ def _migrate_sale(db: Session, txn: Transaction, *, commit: bool) -> RowOutcome:
         status=ContractStatus.CONFIRMED,
         customer_id=offer.customer_id,
         customer_label=offer.customer_label,
+        customer_language=offer.customer_language,
         vehicle_source=offer.vehicle_source,
         stock_item_id=offer.stock_item_id,
         vehicle_label=offer.vehicle_label,
@@ -491,7 +541,7 @@ def _migrate_sale(db: Session, txn: Transaction, *, commit: bool) -> RowOutcome:
     note = f"stock_item={stock_item.id}{' (reused)' if not created else ''} offer={offer.id} contract={contract.id}"
     return RowOutcome(
         txn.id, "sale", "migrated", (lossy_note + "; " if lossy_note else "") + note, new_contract_id=contract.id,
-        new_stock_item_id=stock_item.id,
+        new_stock_item_id=stock_item.id, flags=flags,
     )
 
 
@@ -538,9 +588,26 @@ def _migrate_trade_in(db: Session, txn: Transaction, *, commit: bool) -> RowOutc
             f"approximated as 'used' for transaction {txn.id}"
         )
 
+    flags = ["condition_lossy"] if lossy_note else []
+    notes = [lossy_note] if lossy_note else []
+    if not customer.vat_registered:
+        # Not decided here (KAN-73, exit criterion 1): reported so a human
+        # confirms the supplier's VAT status before the credit is filed.
+        flags.append("supplier_vat_status_unconfirmed")
+        notional = (
+            _compute_notional_input_tax(purchase_price=txn.amount, rate=dealership.vat_rate)
+            if txn.amount is not None
+            else None
+        )
+        notes.append(
+            f"customer {customer.id} has vat_registered=false, which cannot be told apart from never recorded — "
+            f"migrated as a non-VAT-registered supplier with a fiktiver Vorsteuerabzug of CHF {notional} "
+            f"(rate {dealership.vat_rate}); confirm the customer's VAT status before filing it"
+        )
+
     if not commit:
-        note = f"would create a Stock acquisition (in_stock) for vehicle {vehicle_mdm.id}"
-        return RowOutcome(txn.id, "trade_in", "migrated", (lossy_note + "; " if lossy_note else "") + note)
+        notes.append(f"would create a Stock acquisition (in_stock) for vehicle {vehicle_mdm.id}")
+        return RowOutcome(txn.id, "trade_in", "migrated", "; ".join(notes), flags=flags)
 
     # run_migration already rejected amount_missing/transaction_date_missing
     # before ever dispatching here — narrows the type for mypy and doubles
@@ -600,10 +667,9 @@ def _migrate_trade_in(db: Session, txn: Transaction, *, commit: bool) -> RowOutc
         stock_item_label=stock_item.stock_number,
     )
 
-    note = f"stock_item={stock_item.id}"
+    notes.append(f"stock_item={stock_item.id}")
     return RowOutcome(
-        txn.id, "trade_in", "migrated", (lossy_note + "; " if lossy_note else "") + note,
-        new_stock_item_id=stock_item.id,
+        txn.id, "trade_in", "migrated", "; ".join(notes), new_stock_item_id=stock_item.id, flags=flags,
     )
 
 
@@ -663,14 +729,16 @@ def run_migration(db: Session, *, commit: bool) -> MigrationReport:
             outcomes.append(
                 RowOutcome(txn.id, txn.transaction_type.value, "error", f"{type(exc).__name__}: {exc}")
             )
-            return MigrationReport(committed=False, total_rows=len(rows), outcomes=outcomes, aborted=True)
+            return MigrationReport(
+                committed=False, total_rows=len(rows), outcomes=outcomes, aborted=True, commit_requested=commit,
+            )
 
     if commit:
         db.commit()
     else:
         db.rollback()
 
-    return MigrationReport(committed=commit, total_rows=len(rows), outcomes=outcomes)
+    return MigrationReport(committed=commit, total_rows=len(rows), outcomes=outcomes, commit_requested=commit)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -688,7 +756,7 @@ def main(argv: list[str] | None = None) -> int:
         db.close()
 
     print(report.summary())
-    return 0
+    return 1 if report.aborted else 0
 
 
 if __name__ == "__main__":
