@@ -23,6 +23,9 @@ from sqlalchemy.orm import Session
 from app.core.daily_scheduler import register_daily_job, run_due_daily_jobs
 from app.core.idempotent_route import run_daily_idempotency_record_purge
 from app.core.observability import (
+    configure_logging,
+    configure_sentry,
+    configure_tracing,
     record_consumer_lag_seconds,
     record_dead_letter_count,
     record_label_age_seconds,
@@ -47,11 +50,24 @@ from app.reconciliation_runner import run_all_daily
 from app.sales.consumers import handle_stock_item_added_message, handle_stock_item_purchased_message
 from app.vehicle.public import run_daily_plate_lookup_purge
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 logger = logging.getLogger("app.worker")
 
 _POLL_INTERVAL_SECONDS = 1.0
 _HEARTBEAT_INTERVAL_SECONDS = 30.0
+
+
+def configure_observability() -> None:
+    """KAN-248 — the set-up app/main.py runs for the web process: JSON log
+    lines, Sentry (an ERROR log line becomes an event, so the reconciliation
+    alarm, a failing daily job and a failed reservation release reach
+    someone) and the OTLP providers (so the heartbeat's alarm gauges are
+    exported). Each is inert while its DMS_* variable is unset. Called at
+    startup, not at import, so importing this module (the tests do) changes
+    no process-wide state."""
+
+    configure_logging()
+    configure_sentry()
+    configure_tracing()
 
 
 def register_handlers(transport: InProcessTransport) -> None:
@@ -251,6 +267,7 @@ def run(*, max_iterations: int | None = None) -> None:
 
 
 if __name__ == "__main__":
+    configure_observability()
     _max_iterations_env = os.environ.get("DMS_OUTBOX_WORKER_MAX_ITERATIONS")
     _max_iterations = int(_max_iterations_env) if _max_iterations_env else None
     logger.info("outbox worker starting", extra={"maxIterations": _max_iterations})

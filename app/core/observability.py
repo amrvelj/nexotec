@@ -172,7 +172,13 @@ def _otlp_headers(raw: str | None) -> dict[str, str]:
     return headers
 
 
-def configure_tracing(app: FastAPI) -> None:
+def configure_tracing(app: FastAPI | None = None) -> None:
+    """Registers the OTLP trace and metric providers. `app` is None for a
+    process with no HTTP server (app.worker, KAN-248): it gets the same
+    providers — the alarm gauges above are recorded there, and stay no-ops
+    until a MeterProvider exists in that process — and no FastAPI
+    instrumentation."""
+
     settings = get_settings()
     if not settings.otel_exporter_otlp_endpoint:
         return
@@ -211,7 +217,8 @@ def configure_tracing(app: FastAPI) -> None:
     # friends automatically once a MeterProvider is registered above; nothing
     # here hand-rolls that. Distributed traces across the HTTP boundary are
     # the same call.
-    FastAPIInstrumentor.instrument_app(app)
+    if app is not None:
+        FastAPIInstrumentor.instrument_app(app)
 
 
 def configure_sentry() -> None:
