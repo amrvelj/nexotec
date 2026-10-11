@@ -15,6 +15,13 @@ export interface DetailHeaderAction {
   disabledReason?: string;
 }
 
+/** KAN-232 — the header's own chrome strings, translated by the caller
+ * (same pattern as the sidebar's `labels`): the kit hardcodes no language. */
+export interface DetailHeaderLabels {
+  /** Accessible name of the overflow `⋯` button and its menu. */
+  moreActions: string;
+}
+
 export interface DetailHeaderProps {
   /** 54px square — an icon, initials circle, or similar entity mark. */
   entityMark: ReactNode;
@@ -37,6 +44,7 @@ export interface DetailHeaderProps {
    * through the same `RowMenu` component — never a second, hand-rolled
    * menu that can drift from the grid's. */
   overflowActions?: RowMenuGroups;
+  labels: DetailHeaderLabels;
 }
 
 /**
@@ -53,6 +61,7 @@ export function DetailHeader({
   primaryAction,
   alternativeAction,
   overflowActions,
+  labels,
 }: DetailHeaderProps) {
   return (
     <div
@@ -102,9 +111,9 @@ export function DetailHeader({
           {overflowActions && (
             <RowMenu
               groups={overflowActions}
-              ariaLabel="More actions"
+              ariaLabel={labels.moreActions}
               trigger={
-                <ActionIcon variant="subtle" color="gray" size="lg" aria-label="More actions">
+                <ActionIcon variant="subtle" color="gray" size="lg" aria-label={labels.moreActions}>
                   <MoreHorizontal size={18} />
                 </ActionIcon>
               }

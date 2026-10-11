@@ -61,6 +61,7 @@
     "retry": "Erneut versuchen",
     "loadingMore": "Wird geladen…",
     "rowActionsLabel": "Zeilenaktionen",
+    "moreActions": "Weitere Aktionen",
     "showing": "{{count, number}} angezeigt",
     "showingOfTotal": "{{count, number}} von {{total}} angezeigt",
     "removeFilter": "Filter entfernen: {{label}}",

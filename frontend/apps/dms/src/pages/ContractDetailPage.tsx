@@ -290,6 +290,7 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
       )}
 
       <DetailHeader
+        labels={{ moreActions: t('common.moreActions') }}
         entityMark={<FileSignature size={24} />}
         title={contract.vehicleLabel ?? t('contractDetail.untitled')}
         businessKey={businessKey}

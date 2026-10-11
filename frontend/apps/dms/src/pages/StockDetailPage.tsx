@@ -150,6 +150,7 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <DetailHeader
+        labels={{ moreActions: t('common.moreActions') }}
         entityMark={<Warehouse size={24} />}
         title={item.vehicleLabel}
         businessKey={item.vin ? `${item.stockNumber} · ${item.vin}` : item.stockNumber}

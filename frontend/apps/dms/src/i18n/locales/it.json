@@ -61,6 +61,7 @@
     "retry": "Riprova",
     "loadingMore": "Caricamento…",
     "rowActionsLabel": "Azioni riga",
+    "moreActions": "Altre azioni",
     "showing": "{{count, number}} visualizzati",
     "showingOfTotal": "{{count, number}} di {{total}} visualizzati",
     "removeFilter": "Rimuovi filtro: {{label}}",

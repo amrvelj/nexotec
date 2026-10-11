@@ -41,7 +41,7 @@ describe('ValuationDetailPage — mark-used carries a key (KAN-266)', () => {
     )
 
     await screen.findByText('B-000001')
-    await user.click(screen.getByRole('button', { name: 'More actions' }))
+    await user.click(screen.getByRole('button', { name: 'Weitere Aktionen' }))
     await user.click(await screen.findByRole('menuitem', { name: new RegExp(i18n.t('valuationDetail.actions.markUsed')) }))
     await waitFor(() => expect(backend.callsTo(/\/mark-used$/, 'POST')).toHaveLength(1))
 

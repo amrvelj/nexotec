@@ -61,6 +61,7 @@
     "retry": "Réessayer",
     "loadingMore": "Chargement…",
     "rowActionsLabel": "Actions de la ligne",
+    "moreActions": "Plus d'actions",
     "showing": "{{count, number}} affiché(s)",
     "showingOfTotal": "{{count, number}} sur {{total}} affiché(s)",
     "removeFilter": "Supprimer le filtre : {{label}}",
