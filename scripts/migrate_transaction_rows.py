@@ -97,12 +97,15 @@ missing inputs. Re-verified 2026-09-17, both are stale:
   original claim addressed the wrong data source (a trade-in's own
   Transaction row has no condition column, true, but it was never the
   right place to look — the linked vehicle always was).
-- supplier_is_vat_registered now has a real source: Customer.vat_registered,
+- supplier_is_vat_registered now has a source: Customer.vat_registered,
   added by KAN-50 after this rejection was written. The customer
-  trading in the vehicle IS the acquisition's supplier.
+  trading in the vehicle IS the acquisition's supplier. Only partly
+  stale, though: a `false` there cannot be told apart from "never
+  recorded" (see `supplier_vat_status_unconfirmed` below, KAN-73).
 Product owner's own ruling stands and is still honoured: a genuinely
-absent value is reported, never guessed. What changed is that these two
-values are no longer genuinely absent.
+absent value is reported, never guessed. Condition is no longer absent;
+a false VAT status is migrated, but flagged for a human until the product
+owner and Finance rule on it.
 
 Per-row outcome, in the report:
 - `not_completed`          — status was draft or cancelled. Never touched.
@@ -599,10 +602,16 @@ def _migrate_trade_in(db: Session, txn: Transaction, *, commit: bool) -> RowOutc
             if txn.amount is not None
             else None
         )
+        credit = (
+            f"a fiktiver Vorsteuerabzug of CHF {notional} (rate {dealership.vat_rate})"
+            if notional is not None
+            else "a fiktiver Vorsteuerabzug marked applicable, its amount not computable (the dealership has no "
+            "vat_rate)"
+        )
         notes.append(
             f"customer {customer.id} has vat_registered=false, which cannot be told apart from never recorded — "
-            f"migrated as a non-VAT-registered supplier with a fiktiver Vorsteuerabzug of CHF {notional} "
-            f"(rate {dealership.vat_rate}); confirm the customer's VAT status before filing it"
+            f"migrated as a non-VAT-registered supplier with {credit}; confirm the customer's VAT status before "
+            "filing it"
         )
 
     if not commit:

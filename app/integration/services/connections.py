@@ -178,6 +178,9 @@ def list_connections(
     return items, next_cursor, total, total_is_estimate
 
 
+_UNIQUE_CONNECTION_CONSTRAINT = "uq_integration_connection_tenant_provider_env"
+
+
 def _duplicate_connection(
     data: ConnectionCreate, provider_code: str, tenant_id: uuid.UUID | None
 ) -> ConflictError:
@@ -247,6 +250,9 @@ def create_connection(
             db.add(connection)
             db.flush()
     except IntegrityError as exc:
+        # Only the duplicate is a 409; any other integrity failure stays loud.
+        if getattr(getattr(exc.orig, "diag", None), "constraint_name", None) != _UNIQUE_CONNECTION_CONSTRAINT:
+            raise
         raise _duplicate_connection(data, provider.provider_code, resolved_tenant_id) from exc
     record_audit_event(
         db,

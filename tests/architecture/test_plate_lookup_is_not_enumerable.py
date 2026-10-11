@@ -51,9 +51,11 @@ def test_every_plate_query_function_requires_an_exact_identifier():
 
 
 def _is_plate_segment(segment: str) -> bool:
-    """`plates`, `vehicle-plate`, `vehicle_plates` — not `document-template`."""
+    """A plate token anywhere in the segment — `plates`, `vehicle-plate`,
+    `vehicle-plate-history`, `vehicle_plates_export` — but not `document-template`.
+    Wider than the old `vehicle-plate`/`vehicle_plate` substring, never narrower."""
 
-    return re.search(r"(^|[-_])plates?$", segment) is not None
+    return re.search(r"(^|[-_])plates?($|[-_])", segment) is not None
 
 
 def _plate_list_violations(routes) -> tuple[int, list[str]]:
@@ -95,6 +97,14 @@ def test_the_plate_list_guard_catches_a_route_listing_every_plate():
     def list_every_plate() -> list[str]:
         return []
 
+    @router.get("/vehicle-plate-history")
+    def export_plate_history() -> list[str]:
+        return []
+
+    @router.get("/dealerships/document-template")
+    def not_a_plate_route() -> list[str]:
+        return []
+
     @router.get("/vehicle-mdm/{vehicle_id}/plates")
     def plates_of_one_vehicle(vehicle_id: str) -> list[str]:
         return []
@@ -103,8 +113,11 @@ def test_the_plate_list_guard_catches_a_route_listing_every_plate():
 
     inspected, violations = _plate_list_violations(app.routes)
 
-    assert inspected == 2
-    assert violations == ["/v1/vehicle-plates is a GET route over plates with no identifier in the path"]
+    assert inspected == 3
+    assert violations == [
+        "/v1/vehicle-plates is a GET route over plates with no identifier in the path",
+        "/v1/vehicle-plate-history is a GET route over plates with no identifier in the path",
+    ]
 
 
 # KAN-42 (C-D): the plate-lookup cache holds plate → Stammnummer pairs from

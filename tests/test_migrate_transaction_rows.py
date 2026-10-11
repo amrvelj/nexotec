@@ -1106,6 +1106,20 @@ def test_a_trade_in_whose_supplier_vat_status_cannot_be_confirmed_is_flagged_not
     assert item.notional_input_tax_amount == Decimal("749.31")  # the behaviour is unchanged, only reported
 
 
+def test_the_vat_flag_note_says_so_when_the_dealership_has_no_vat_rate(db_session):
+    _dealership(db_session, vat_rate=None)
+    customer = _customer(db_session, vat_registered=False)
+    legacy = _legacy_vehicle(db_session)
+    _migrated_vehicle_mdm(db_session, legacy)
+    _trade_in_transaction(db_session, customer_id=customer.id, vehicle_id=legacy.id)
+    db_session.commit()
+
+    text = run_migration(db_session, commit=False).summary()
+
+    assert "its amount not computable (the dealership has no vat_rate)" in text
+    assert "CHF None" not in text
+
+
 def test_a_trade_in_from_a_vat_registered_supplier_is_not_flagged(db_session):
     _dealership(db_session)
     customer = _customer(db_session, vat_registered=True)
@@ -1134,10 +1148,19 @@ class _SessionKeptOpen:
 
 
 def _make_the_first_sale_fail(db_session, monkeypatch):
-    customer = _customer(db_session)
+    """A trade-in that migrates (and flushes its stock item), then a sale
+    that fails — so "nothing written" proves the rollback, not an empty run."""
+
+    _dealership(db_session)
+    customer = _customer(db_session, vat_registered=True)
     legacy = _legacy_vehicle(db_session)
     _migrated_vehicle_mdm(db_session, legacy)
-    _sale_transaction(db_session, customer_id=customer.id, vehicle_id=legacy.id)
+    _trade_in_transaction(
+        db_session, customer_id=customer.id, vehicle_id=legacy.id, transaction_date=dt.datetime(2024, 1, 1, tzinfo=dt.UTC)
+    )
+    _sale_transaction(
+        db_session, customer_id=customer.id, vehicle_id=legacy.id, transaction_date=dt.datetime(2024, 6, 1, tzinfo=dt.UTC)
+    )
     db_session.commit()
 
     def boom(*_args, **_kwargs):
@@ -1158,7 +1181,11 @@ def test_an_aborted_commit_run_exits_non_zero_and_is_never_labelled_a_dry_run(db
     assert exit_code == 1
     assert "migrate_transaction_rows: COMMIT RUN ABORTED — rolled back, nothing written" in out
     assert "DRY RUN" not in out
+    assert "MIGRATED trade_in" in out  # the first row did run ...
     assert "ERROR sale" in out and "RuntimeError: simulated failure" in out
+    db_session.expire_all()
+    assert db_session.query(StockItem).count() == 0  # ... and its stock item was rolled back
+    assert db_session.query(SalesStockItemPurchase).count() == 0
     assert db_session.query(SalesContract).count() == 0
 
 

@@ -5,6 +5,7 @@ explicit check (the unique constraint is the backstop).
 """
 
 import logging
+import os
 import uuid
 
 import pytest
@@ -75,6 +76,10 @@ def test_a_second_platform_connection_for_one_provider_and_environment_is_a_409(
     assert _count(db_session, IntegrationConnection, IntegrationConnection.tenant_id.is_(None)) == 1
 
 
+@pytest.mark.skipif(
+    not os.environ.get("DMS_TEST_DATABASE_URL"),
+    reason="Postgres-only: the mapping reads the violated constraint's name from psycopg's diagnostics",
+)
 def test_a_create_racing_past_the_check_is_refused_by_the_constraint_as_the_same_409(db_session, monkeypatch):
     """Two concurrent creates both pass the explicit check; the loser's
     flush hits uq_integration_connection_tenant_provider_env. Simulated by
