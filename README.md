@@ -85,9 +85,10 @@ exist — see the Makefile's own comment for why. `make down` stops it,
 and `worker` services — same image (`Dockerfile`), different entrypoint;
 not a second deployable (ADR-001/ADR-015), the same web/worker split
 `render.yaml` documents. On Render's staging the worker is *not*
-provisioned (no free worker plan — KAN-234; `render.yaml`'s comment lists
-what that disables), so event-driven and nightly flows run in CI and in
-docker-compose but are not rehearsed on staging. ADR-081 (option D,
+provisioned (no free worker plan — KAN-234; `app/worker.py::register_handlers`
+and `register_daily_jobs` list what that disables), so event-driven and
+nightly flows run in CI and in docker-compose but are not rehearsed on
+staging. ADR-081 (option D,
 2026-10-10) keeps staging as it is and documents the gap instead of closing
 it: the staging UI says so on every signed-in screen (KAN-275, ADR-084 —
 `VITE_OUTBOX_WORKER_ABSENT` in `render.yaml`'s build command), and each

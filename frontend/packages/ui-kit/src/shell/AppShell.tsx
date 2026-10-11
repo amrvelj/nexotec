@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { slate, spacing } from "../tokens";
 import { BreadcrumbProvider } from "./BreadcrumbContext";
 import { Sidebar, type SidebarProps } from "./Sidebar";
@@ -50,19 +50,24 @@ export function AppShell({ sidebar, topbar, collapsed, onToggleCollapsed, notice
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  useEffect(() => {
+  // Layout effect, so the first painted frame already carries the height;
+  // keyed on presence, not identity (the app builds a new element every
+  // render), so the observer attaches once and catches text and wrap
+  // changes itself. getBoundingClientRect keeps sub-pixel heights.
+  const hasNotice = notice != null && notice !== false;
+  useLayoutEffect(() => {
     const element = noticeRef.current;
     if (!element) {
       setNoticeHeight(0);
       return;
     }
-    const measure = () => setNoticeHeight(element.offsetHeight);
+    const measure = () => setNoticeHeight(element.getBoundingClientRect().height);
     measure();
     if (typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(measure);
     observer.observe(element);
     return () => observer.disconnect();
-  }, [notice]);
+  }, [hasNotice]);
 
   useEffect(() => {
     const handleKeydown = (event: KeyboardEvent) => {
@@ -90,7 +95,7 @@ export function AppShell({ sidebar, topbar, collapsed, onToggleCollapsed, notice
           }}
         >
           <Topbar {...topbar} breadcrumb={breadcrumb} />
-          {notice && (
+          {hasNotice && (
             <div ref={noticeRef} style={{ flexShrink: 0 }}>
               {notice}
             </div>

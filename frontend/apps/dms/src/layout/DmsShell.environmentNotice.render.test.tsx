@@ -51,14 +51,15 @@ async function shellIsUp(lng: (typeof LANGUAGES)[number]) {
   await screen.findByRole('navigation', { name: i18n.getFixedT(lng)('shell.sidebar.mainNavigation') })
 }
 
-// jsdom lays nothing out, so offsetHeight is 0 unless stubbed: the height
-// AppShell publishes as --shell-notice-height is asserted through a stub.
+// jsdom lays nothing out, so every box measures 0 unless stubbed: the height
+// AppShell publishes as --shell-notice-height is asserted through a stub of
+// getBoundingClientRect, which AppShell measures with.
 const NOTICE_PX = 25
-const offsetHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight')
+const measure = Element.prototype.getBoundingClientRect
 
 afterEach(async () => {
   vi.unstubAllEnvs()
-  if (offsetHeight) Object.defineProperty(HTMLElement.prototype, 'offsetHeight', offsetHeight)
+  Element.prototype.getBoundingClientRect = measure
   window.localStorage.clear()
   await i18n.changeLanguage('de')
 })
@@ -77,7 +78,8 @@ describe('DmsShell environment notice — staging runs no outbox worker (KAN-275
   })
 
   it('publishes its measured height for the overview grids (--shell-notice-height)', async () => {
-    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, get: () => NOTICE_PX })
+    Element.prototype.getBoundingClientRect = () =>
+      ({ height: NOTICE_PX, width: 0, x: 0, y: 0, top: 0, left: 0, right: 0, bottom: 0, toJSON: () => ({}) }) as DOMRect
     vi.stubEnv('VITE_OUTBOX_WORKER_ABSENT', 'true')
     renderShell('de')
     await shellIsUp('de')
