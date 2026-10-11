@@ -793,7 +793,7 @@
       "createOffer": "Créer une offre",
       "createContract": "Créer un contrat",
       "salesNotYetBuilt": "Le module Vente n'est pas encore disponible.",
-      "leftStock": "Ce véhicule a quitté le stock le {{date}} (vendu) et ne peut pas être vendu à nouveau."
+      "leftStock": "Ce véhicule a quitté le stock le {{date}} (vendu)."
     },
     "spec": {
       "firstRegistrationDate": "1re mise en circulation",

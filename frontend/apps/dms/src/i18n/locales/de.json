@@ -793,7 +793,7 @@
       "createOffer": "Offerte erstellen",
       "createContract": "Vertrag erstellen",
       "salesNotYetBuilt": "Verkauf ist noch nicht verfügbar.",
-      "leftStock": "Dieses Fahrzeug hat den Bestand am {{date}} verlassen (verkauft) und kann nicht erneut verkauft werden."
+      "leftStock": "Dieses Fahrzeug hat den Bestand am {{date}} verlassen (verkauft)."
     },
     "spec": {
       "firstRegistrationDate": "Erstzulassung",

@@ -793,7 +793,7 @@
       "createOffer": "Create offer",
       "createContract": "Create contract",
       "salesNotYetBuilt": "Sales is not available yet.",
-      "leftStock": "This vehicle left stock on {{date}} (sold) and cannot be sold again."
+      "leftStock": "This vehicle left stock on {{date}} (sold)."
     },
     "spec": {
       "firstRegistrationDate": "First registration",
