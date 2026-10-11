@@ -78,7 +78,8 @@
     "no": "Non",
     "save": "Enregistrer",
     "remove": "Supprimer",
-    "loading": "Chargement…"
+    "loading": "Chargement…",
+    "requestFailed": "La requête a échoué. Veuillez réessayer."
   },
   "customerCreate": {
     "title": "Nouveau client",
@@ -485,6 +486,21 @@
       "role": "Rôle",
       "confirm": "Lier",
       "error": "Le véhicule n'a pas pu être lié."
+    },
+    "merge": {
+      "title": "Fusionner un client en double",
+      "intro": "Recherchez le client avec lequel <name/> doit être fusionné. Cet enregistrement est conservé ; celui-ci est marqué comme fusionné.",
+      "searchPlaceholder": "Rechercher par nom, e-mail, téléphone, numéro de client…",
+      "noMatches": "Aucun résultat.",
+      "chooseDifferent": "← Choisir un autre client conservé",
+      "duplicateColumn": "Ce client — sera fusionné",
+      "survivorColumn": "Client conservé — restera",
+      "irreversibleTitle": "Cette action est irréversible",
+      "irreversibleBody": "Les véhicules, transactions, numéros de téléphone, e-mails et ID externes sont transférés au client conservé. Ce client passe en lecture seule et n'apparaît plus dans la recherche.",
+      "confirm": "Je comprends que cette action est définitive",
+      "submitting": "Fusion en cours…",
+      "submit": "Fusionner les clients",
+      "error": "Les clients n'ont pas pu être fusionnés."
     }
   },
   "signInError": {
@@ -622,7 +638,8 @@
       "noCustomers": "Aucun client trouvé",
       "unnamedCustomer": "Client sans nom",
       "showFormer": "Afficher les anciennes parties",
-      "hideFormer": "Masquer les anciennes parties"
+      "hideFormer": "Masquer les anciennes parties",
+      "allocateError": "Le client n'a pas pu être attribué."
     },
     "plates": {
       "plate": "Plaque",
@@ -649,7 +666,8 @@
         "valuation": "Évaluation",
         "manual": "Manuel",
         "import": "Importation"
-      }
+      },
+      "saveError": "Le relevé n'a pas pu être enregistré."
     },
     "accessories": {
       "type": "Type",
@@ -658,7 +676,9 @@
       "validTo": "Valide jusqu’à",
       "add": "Ajouter",
       "remove": "Retirer",
-      "none": "Aucun accessoire enregistré"
+      "none": "Aucun accessoire enregistré",
+      "saveError": "L'accessoire n'a pas pu être enregistré.",
+      "removeError": "L'accessoire n'a pas pu être retiré."
     },
     "specification": {
       "empty": "Aucune configuration de ce véhicule dans cette entreprise.",

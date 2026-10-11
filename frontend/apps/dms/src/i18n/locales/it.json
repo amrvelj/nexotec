@@ -78,7 +78,8 @@
     "no": "No",
     "save": "Salva",
     "remove": "Rimuovi",
-    "loading": "Caricamento…"
+    "loading": "Caricamento…",
+    "requestFailed": "La richiesta non è riuscita. Riprova."
   },
   "customerCreate": {
     "title": "Nuovo cliente",
@@ -485,6 +486,21 @@
       "role": "Ruolo",
       "confirm": "Collega",
       "error": "Non è stato possibile collegare il veicolo."
+    },
+    "merge": {
+      "title": "Unisci cliente duplicato",
+      "intro": "Cerca il cliente a cui unire <name/>. Quel record resta; questo viene contrassegnato come unito.",
+      "searchPlaceholder": "Cerca per nome, e-mail, telefono, numero cliente…",
+      "noMatches": "Nessun risultato.",
+      "chooseDifferent": "← Scegli un altro cliente da mantenere",
+      "duplicateColumn": "Questo cliente — verrà unito",
+      "survivorColumn": "Cliente mantenuto — resterà",
+      "irreversibleTitle": "Questa operazione non può essere annullata",
+      "irreversibleBody": "Veicoli, transazioni, numeri di telefono, e-mail e ID esterni passano al cliente mantenuto. Questo cliente diventa di sola lettura e non compare più nella ricerca.",
+      "confirm": "Ho capito che l'operazione è definitiva",
+      "submitting": "Unione in corso…",
+      "submit": "Unisci clienti",
+      "error": "Impossibile unire i clienti."
     }
   },
   "signInError": {
@@ -622,7 +638,8 @@
       "noCustomers": "Nessun cliente trovato",
       "unnamedCustomer": "Cliente senza nome",
       "showFormer": "Mostra parti precedenti",
-      "hideFormer": "Nascondi parti precedenti"
+      "hideFormer": "Nascondi parti precedenti",
+      "allocateError": "Impossibile assegnare il cliente."
     },
     "plates": {
       "plate": "Targa",
@@ -649,7 +666,8 @@
         "valuation": "Valutazione",
         "manual": "Manuale",
         "import": "Importazione"
-      }
+      },
+      "saveError": "Impossibile salvare la lettura."
     },
     "accessories": {
       "type": "Tipo",
@@ -658,7 +676,9 @@
       "validTo": "Valido fino al",
       "add": "Aggiungi",
       "remove": "Rimuovi",
-      "none": "Nessun accessorio registrato"
+      "none": "Nessun accessorio registrato",
+      "saveError": "Impossibile salvare l'accessorio.",
+      "removeError": "Impossibile rimuovere l'accessorio."
     },
     "specification": {
       "empty": "Nessuna configurazione di questo veicolo in questa azienda.",

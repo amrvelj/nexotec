@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Alert, Badge, Button, Group, Loader, NumberInput, Select, Stack, Table, TextInput } from '@mantine/core'
 import { AlertTriangle, Plus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { ApiError } from '../../api/client'
 import { formatNumber } from '../../utils/format'
 import type { OdometerSource, VehicleOdometerReadingRead } from '../../api/types'
 
@@ -26,14 +27,20 @@ export function OdometerTab({ readings, loading, onAdd }: OdometerTabProps) {
   const [date, setDate] = useState('')
   const [source, setSource] = useState<OdometerSource>('manual')
   const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
+  // KAN-269 (ADR-035): a failed save says so and keeps what was typed, so
+  // the retry — under the same Idempotency-Key — is one click away.
   const submit = async () => {
     if (value === '' || !date) return
     setSubmitting(true)
+    setError(null)
     try {
       await onAdd(value, date, source)
       setValue('')
       setDate('')
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t('vehicleDetail.odometer.saveError'))
     } finally {
       setSubmitting(false)
     }
@@ -54,6 +61,12 @@ export function OdometerTab({ readings, loading, onAdd }: OdometerTabProps) {
           {t('vehicleDetail.odometer.record')}
         </Button>
       </Group>
+
+      {error && (
+        <Alert color="red" role="alert">
+          {error}
+        </Alert>
+      )}
 
       {loading ? (
         <Loader size="sm" />
