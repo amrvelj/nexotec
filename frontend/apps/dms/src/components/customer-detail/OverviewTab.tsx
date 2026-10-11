@@ -22,7 +22,7 @@ import type { CountryOption } from '../../hooks/useCountryOptions'
 import { useAdvisorOptions } from '../../hooks/useAdvisorOptions'
 import { ContactPointsEditor, type ContactPointUpdatePatch } from './ContactPointsEditor'
 import { ContactChannelsSummary, PreferredChannelBadge } from './ContactChannelsSummary'
-import { PhoneInput } from '../PhoneInput'
+import { PHONE_INPUT_MIN_WIDTH, PhoneInput } from '../PhoneInput'
 import type { CustomerEmailRead, CustomerPhoneRead, CustomerRead, CustomerUpdateInput, EmailType, PhoneType } from '../../api/types'
 
 /** The domicile address form's own field names — mapped onto
@@ -659,6 +659,7 @@ export function OverviewTab({
             }))}
             newRowType="mobile"
             renderValueEditor={(value, onChange) => <PhoneInput label={t('customerDetail.phoneInput.country')} value={value} onChange={onChange} />}
+            valueEditorMinWidth={PHONE_INPUT_MIN_WIDTH}
             onCreate={onCreatePhone}
             onUpdate={onUpdatePhone}
             onDelete={onDeletePhone}

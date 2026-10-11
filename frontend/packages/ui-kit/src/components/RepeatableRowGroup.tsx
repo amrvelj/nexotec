@@ -58,6 +58,11 @@ export interface RepeatableRowGroupProps {
   defaultType: string;
   rows: RepeatableRowValue[];
   renderValueEditor: (value: string, onChange: (v: string) => void, autoFocus: boolean) => ReactNode;
+  /** The narrowest the value editor may get, in px (KAN-267). Below it the
+   * row wraps instead of squeezing the editor: the label, consent and menu
+   * move to a second line. A composite editor (a phone's country and
+   * number) passes what it needs to stay readable. */
+  valueEditorMinWidth?: number;
   onCreate: (draft: { type: string; value: string }) => Promise<void>;
   onUpdate: (id: string, patch: RepeatableRowPatch) => Promise<void>;
   /** Real deletion — only ever offered for a row created THIS session
@@ -113,6 +118,9 @@ const DEFAULT_LABELS = {
   labelFieldPlaceholder: "Label",
 };
 
+// Wide enough for an e-mail address or a name in the kit's 13px type.
+const DEFAULT_VALUE_EDITOR_MIN_WIDTH = 200;
+
 function isFormer(row: RepeatableRowValue): boolean {
   return Boolean(row.doNotUse) || Boolean(row.validTo && new Date(row.validTo).getTime() <= Date.now());
 }
@@ -133,6 +141,7 @@ export function RepeatableRowGroup({
   defaultType,
   rows,
   renderValueEditor,
+  valueEditorMinWidth = DEFAULT_VALUE_EDITOR_MIN_WIDTH,
   onCreate,
   onUpdate,
   onDelete,
@@ -338,30 +347,37 @@ export function RepeatableRowGroup({
             ))}
           </select>
 
-          <div style={{ flex: 1, minWidth: 0 }}>{renderValueEditor(row.value, (v) => void onUpdate(row.id, { value: v }), false)}</div>
+          <div data-row-part="value" style={valueEditorStyle(valueEditorMinWidth)}>
+            {renderValueEditor(row.value, (v) => void onUpdate(row.id, { value: v }), false)}
+          </div>
 
-          <input
-            value={row.label ?? ""}
-            onChange={(e) => void onUpdate(row.id, { label: e.target.value || null })}
-            placeholder={L.labelFieldPlaceholder}
-            style={{ flex: "0 0 90px", border: `1px solid ${slate[2]}`, borderRadius: radius.sm, padding: "4px 6px", fontSize: 12, color: slate[6] }}
-          />
+          {/* One cluster, so a row too narrow for everything wraps it whole
+              onto a second line, right-aligned, instead of squeezing the
+              value editor (KAN-267). */}
+          <div data-row-part="trailing" style={trailingClusterStyle}>
+            <input
+              value={row.label ?? ""}
+              onChange={(e) => void onUpdate(row.id, { label: e.target.value || null })}
+              placeholder={L.labelFieldPlaceholder}
+              style={{ width: 90, minWidth: 0, boxSizing: "border-box", border: `1px solid ${slate[2]}`, borderRadius: radius.sm, padding: "4px 6px", fontSize: 12, color: slate[6] }}
+            />
 
-          <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: slate[5], flexShrink: 0 }}>
-            <input type="checkbox" checked={row.consentGranted} onChange={() => void toggleConsent(row)} />
-            {L.consent}
-          </label>
+            <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: slate[5], flexShrink: 0 }}>
+              <input type="checkbox" checked={row.consentGranted} onChange={() => void toggleConsent(row)} />
+              {L.consent}
+            </label>
 
-          <RowMenu
-            ariaLabel={`${label} row actions`}
-            groups={{
-              edit: [
-                { label: L.noLongerValid, icon: null, onClick: () => void closeNoLongerValid(row) },
-                { label: L.doesNotWork, icon: null, onClick: () => setMarkingDoesNotWorkId(row.id) },
-              ],
-              destructive: draft ? [{ label: L.delete, icon: null, onClick: () => void deleteDraft(row) }] : [],
-            }}
-          />
+            <RowMenu
+              ariaLabel={`${label} row actions`}
+              groups={{
+                edit: [
+                  { label: L.noLongerValid, icon: null, onClick: () => void closeNoLongerValid(row) },
+                  { label: L.doesNotWork, icon: null, onClick: () => setMarkingDoesNotWorkId(row.id) },
+                ],
+                destructive: draft ? [{ label: L.delete, icon: null, onClick: () => void deleteDraft(row) }] : [],
+              }}
+            />
+          </div>
         </div>
         {/* FR-23 §1 — a granted consent shows (and edits) WHAT it covers
             and HOW it was given, on a second line so the main row stays
@@ -435,13 +451,17 @@ export function RepeatableRowGroup({
               </option>
             ))}
           </select>
-          <div style={{ flex: 1 }}>{renderValueEditor(draftValue, setDraftValue, true)}</div>
-          <button type="button" onClick={() => void commitAdd()} disabled={!draftValue || addSaving} style={confirmButtonStyle}>
-            {L.save}
-          </button>
-          <button type="button" onClick={() => setAdding(false)} disabled={addSaving} style={cancelButtonStyle}>
-            {L.cancel}
-          </button>
+          <div data-row-part="value" style={valueEditorStyle(valueEditorMinWidth)}>
+            {renderValueEditor(draftValue, setDraftValue, true)}
+          </div>
+          <div data-row-part="trailing" style={trailingClusterStyle}>
+            <button type="button" onClick={() => void commitAdd()} disabled={!draftValue || addSaving} style={confirmButtonStyle}>
+              {L.save}
+            </button>
+            <button type="button" onClick={() => setAdding(false)} disabled={addSaving} style={cancelButtonStyle}>
+              {L.cancel}
+            </button>
+          </div>
           {addError && <span style={{ fontSize: 11, color: semantic.destructive.text }}>{addError}</span>}
         </div>
       ) : (
@@ -466,8 +486,25 @@ export function RepeatableRowGroup({
 
 const rowContainerStyle: React.CSSProperties = {
   display: "flex",
+  flexWrap: "wrap",
   alignItems: "center",
   gap: spacing.xs,
+};
+
+// Grows into the row's free width and never below its minimum: a row
+// narrower than that wraps (KAN-267), where `minWidth: 0` used to let the
+// editor collapse to a few pixels. Capped at the row's width, so a very
+// narrow container still shows the editor whole on its own line.
+function valueEditorStyle(minWidth: number): React.CSSProperties {
+  return { flex: `1 1 ${minWidth}px`, minWidth: `min(${minWidth}px, 100%)` };
+}
+
+const trailingClusterStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: spacing.xs,
+  marginLeft: "auto",
+  flexShrink: 0,
 };
 
 const addButtonStyle: React.CSSProperties = {

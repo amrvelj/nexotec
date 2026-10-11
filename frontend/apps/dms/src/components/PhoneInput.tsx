@@ -19,6 +19,12 @@ const COUNTRY_CODES = [
 
 const DEFAULT_COUNTRY_CODE = '+41'
 
+// The narrowest this editor stays readable at: the 220px country select,
+// the gap, and a full national number with its label on one line. Hosts
+// that lay it out in a row (RepeatableRowGroup's `valueEditorMinWidth`)
+// pass it, so the row wraps instead of squeezing it (KAN-267).
+export const PHONE_INPUT_MIN_WIDTH = 360
+
 // Longest-prefix match so e.g. +423 (Liechtenstein) isn't mis-split as +41
 // followed by a stray leading "3". Re-adds the trunk 0 stripped by emit()
 // below, so editing an existing customer shows the number back in the same

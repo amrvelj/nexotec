@@ -10,6 +10,7 @@ import { customer, email, phone } from '../../test/fixtures'
 import type { CustomerEmailRead, CustomerPhoneRead } from '../../api/types'
 import { CustomerDetailPage } from '../../pages/CustomerDetailPage'
 import { CustomerCreateFlow } from '../CustomerCreateFlow'
+import { PHONE_INPUT_MIN_WIDTH } from '../PhoneInput'
 
 // WP-6c exit criterion (ADR-067): "a customer with two mobiles, a work
 // landline and a bounced email renders correctly in the create dialog and
@@ -19,6 +20,10 @@ import { CustomerCreateFlow } from '../CustomerCreateFlow'
 
 const primaryPrefix = () => new RegExp(`^${i18n.t('customerDetail.contactPoints.primary')}`)
 const pressedCount = (buttons: HTMLElement[]) => buttons.filter((b) => b.getAttribute('aria-pressed') === 'true').length
+// KAN-267 — the kit row's value-editor slot (RepeatableRowGroup's `data-row-part`).
+const valueSlotFlex = (el: HTMLElement) => (el.closest('[data-row-part="value"]') as HTMLElement).style.flex
+// The add row: Save sits in the row's trailing cluster (KAN-267), one level down.
+const addRowOf = (save: HTMLElement) => (save.closest('[data-row-part="trailing"]') as HTMLElement).parentElement as HTMLElement
 
 describe('contact channels — detail screen (ADR-067)', () => {
   function installCustomerBackend() {
@@ -112,6 +117,14 @@ describe('contact channels — detail screen (ADR-067)', () => {
       expect(stars[1]).toHaveAttribute('aria-pressed', 'true')
       expect(stars[0]).toHaveAttribute('aria-pressed', 'false')
     })
+  })
+
+  it('a phone row keeps its country and number at the phone editor\'s width; an e-mail row at the default (KAN-267)', async () => {
+    installCustomerBackend()
+    renderDetail()
+
+    expect(valueSlotFlex(await screen.findByDisplayValue('0791110000'))).toBe(`1 1 ${PHONE_INPUT_MIN_WIDTH}px`)
+    expect(valueSlotFlex(screen.getByDisplayValue('hans.muster@example.ch'))).toBe('1 1 200px')
   })
 
   it('the preferred channel moves off the identity card, badges the contact-card header, and marks the primary of its kind (KAN-54)', async () => {
@@ -217,7 +230,7 @@ describe('contact channels — create dialog (same RepeatableRowGroup, ADR-067)'
   ) {
     await user.click(within(phoneBlock).getByRole('button', { name: new RegExp(i18n.t('customerDetail.contactPoints.addPhone'), 'i') }))
     const save = within(phoneBlock).getByRole('button', { name: i18n.t('customerDetail.contactPoints.save') })
-    const addForm = save.closest('div') as HTMLElement
+    const addForm = addRowOf(save)
     // The native type <select> is the first combobox in the add row.
     await user.selectOptions(within(addForm).getAllByRole('combobox')[0], type)
     const numberInput = within(addForm).getByLabelText(i18n.t('customerDetail.phoneInput.number'))
@@ -229,6 +242,14 @@ describe('contact channels — create dialog (same RepeatableRowGroup, ADR-067)'
     }
     await user.click(save)
   }
+
+  it('the add row gives the phone editor its width (KAN-267)', async () => {
+    const user = userEvent.setup({ delay: null })
+    const phoneBlock = await openCreateFlowAtStep2(user)
+    await user.click(within(phoneBlock).getByRole('button', { name: new RegExp(i18n.t('customerDetail.contactPoints.addPhone'), 'i') }))
+
+    expect(valueSlotFlex(within(phoneBlock).getByLabelText(i18n.t('customerDetail.phoneInput.number')))).toBe(`1 1 ${PHONE_INPUT_MIN_WIDTH}px`)
+  })
 
   it('two mobiles and a work landline render; the mobile primary is marked and re-marking moves it in one interaction', async () => {
     const user = userEvent.setup({ delay: null })
@@ -309,7 +330,7 @@ describe('contact channels — one Idempotency-Key per added row (KAN-266)', () 
     const phoneBlock = (await screen.findByText(i18n.t('customerDetail.contactPoints.phoneNumbers'))).parentElement as HTMLElement
     const keys = () => backend.callsTo(/^\/customers\/c1\/phones$/, 'POST').map((call) => call.headers.get('Idempotency-Key'))
     const saveButton = () => within(phoneBlock).queryByRole('button', { name: i18n.t('customerDetail.contactPoints.save') })
-    const numberInput = () => within(saveButton()!.closest('div') as HTMLElement).getByLabelText(i18n.t('customerDetail.phoneInput.number'))
+    const numberInput = () => within(addRowOf(saveButton()!)).getByLabelText(i18n.t('customerDetail.phoneInput.number'))
     const addPhone = async (national: string) => {
       await user.click(within(phoneBlock).getByRole('button', { name: new RegExp(i18n.t('customerDetail.contactPoints.addPhone'), 'i') }))
       await user.type(numberInput(), national)
