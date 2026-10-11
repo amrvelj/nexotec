@@ -97,7 +97,17 @@ describe('MergeCustomerModal — every string is translated (KAN-268)', () => {
       expect(dialog.textContent).toContain('Hans Muster')
       expect(dialog.textContent).not.toMatch(ENGLISH_INTRO)
 
-      await pickSurvivor(user)
+      // Step 1: the search result rows, lifecycle badge included.
+      await user.type(screen.getByPlaceholderText(i18n.t('customerDetail.merge.searchPlaceholder')), 'Muster')
+      await screen.findByText('Hans Mustermann')
+      expect(screen.getByText(i18n.t('customerEnums.lifecycleStatus.active'))).toBeInTheDocument()
+      const searchText = screen.getByRole('dialog').textContent ?? ''
+      for (const phrase of ENGLISH_PHRASES) {
+        expect(searchText.includes(phrase), `"${phrase}" leaked on the search step in ${lng}`).toBe(false)
+      }
+
+      await user.click(screen.getByText('Hans Mustermann'))
+      await screen.findByText(i18n.t('customerDetail.merge.irreversibleTitle'))
       expect(screen.getByText(i18n.t('customerDetail.merge.duplicateColumn'))).toBeInTheDocument()
       expect(screen.getByText(i18n.t('customerDetail.merge.survivorColumn'))).toBeInTheDocument()
       expect(screen.getByText(i18n.t('customerDetail.merge.irreversibleBody'))).toBeInTheDocument()
