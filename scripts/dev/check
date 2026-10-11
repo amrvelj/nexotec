@@ -108,17 +108,23 @@ def lanes_for(files):
 
 
 def migration_inputs():
-    """Every app/ file alembic/env.py loads: the modules it imports from app (app.model_registry
-    among them, so every model) and everything those import, as repository paths. Derived, not
+    """Every app/ file a migration run loads: the modules alembic/env.py and the migrations import
+    from app (app.model_registry among them, so every model) and everything those import, as
+    repository paths. Derived, not
     listed (KAN-300): a hand-kept list missed app/core/enum_type.py, which env.py and every enum
     column import. None when they cannot be listed - lanes_for() then runs the lanes."""
 
-    try:
-        tree = ast.parse(open(os.path.join(ROOT, "alembic", "env.py")).read())
-    except (OSError, SyntaxError):
-        return None
-    names = {node.module for node in ast.walk(tree) if isinstance(node, ast.ImportFrom) and node.module}
-    names |= {alias.name for node in ast.walk(tree) if isinstance(node, ast.Import) for alias in node.names}
+    sources = [os.path.join(ROOT, "alembic", "env.py")]
+    for folder, _dirs, filenames in os.walk(os.path.join(ROOT, "alembic", "versions")):
+        sources += [os.path.join(folder, name) for name in filenames if name.endswith(".py")]
+    names = set()
+    for source in sources:  # a migration may import app code of its own (reference data, postal codes)
+        try:
+            tree = ast.parse(open(source).read())
+        except (OSError, SyntaxError):
+            return None
+        names |= {node.module for node in ast.walk(tree) if isinstance(node, ast.ImportFrom) and node.module}
+        names |= {alias.name for node in ast.walk(tree) if isinstance(node, ast.Import) for alias in node.names}
     names = sorted(name for name in names if name.split(".")[0] == "app")
     if not os.path.exists(PY):
         return None
@@ -348,16 +354,25 @@ DMS_ENV_DEFAULTS = (
     "d('DMS_SESSION_SECRET_KEY', 'check-session-secret-not-used')\n"
 )
 GEN_SNIPPET = DMS_ENV_DEFAULTS + "import runpy\nrunpy.run_path('scripts/generate_openapi_schema.py', run_name='__main__')\n"
-# Imports the modules named on the command line, then prints every loaded file under app/.
+# Imports the modules named on the command line, then prints every loaded file under app/, and
+# the data files beside each loaded package's __init__.py (a seed CSV read through importlib.resources).
 MIGRATION_INPUTS_SNIPPET = (
     "import importlib, sys\n"
     "for name in sys.argv[1:]:\n"
     "    importlib.import_module(name)\n"
     "app_dir = os.path.join(os.getcwd(), 'app') + os.sep\n"
+    "paths = set()\n"
     "for module in list(sys.modules.values()):\n"
     "    path = getattr(module, '__file__', None) or ''\n"
-    "    if path.startswith(app_dir):\n"
-    "        print(os.path.relpath(path, os.getcwd()).replace(os.sep, '/'))\n"
+    "    if not path.startswith(app_dir):\n"
+    "        continue\n"
+    "    paths.add(path)\n"
+    "    if os.path.basename(path) == '__init__.py':\n"
+    "        folder = os.path.dirname(path)\n"
+    "        paths |= {os.path.join(folder, f) for f in os.listdir(folder)\n"
+    "                  if os.path.isfile(os.path.join(folder, f)) and not f.endswith(('.py', '.pyc'))}\n"
+    "for path in sorted(paths):\n"
+    "    print(os.path.relpath(path, os.getcwd()).replace(os.sep, '/'))\n"
 )
 
 
