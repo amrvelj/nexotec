@@ -1263,33 +1263,24 @@ def notion_tool(tool_name):
 
 
 def cmd_pre_notion(data):
+    """Every Notion write is allowed without Anto's click (Anto, 2026-10-11:
+    "you are free to update Notion, I don't need to allow it every time").
+    Writes to the active ticket are still recorded as hand-over evidence
+    (PostToolUse); what a write to any other page changes is said in the
+    reply and the PR, not in a prompt."""
     tool = notion_tool(data.get("tool_name"))
     if not tool or tool.startswith(NOTION_READ_PREFIXES):
         return
     root = root_from(data)
     ticket = (load_state(root) if root else {}).get("ticket") or {}
-    ticket_page = ticket.get("page_id")
     ti = data.get("tool_input") or {}
-    if tool in NOTION_TICKET_WRITES:
-        target = notion_id(ti.get("page_id"))
-        if ticket_page and target == ticket_page:
-            pre_decision("allow", "Notion write to the active ticket {}".format(ticket.get("id")))
-            return
-        pre_decision("ask", "This Notion write targets a page that is NOT the active ticket ({}). "
-                            "Spec pages (PRDs, ADR log, Gap Analysis) change only with Anto's approval."
-                     .format(ticket.get("id") or "no active ticket"))
+    if tool in NOTION_TICKET_WRITES and ticket.get("page_id") and notion_id(ti.get("page_id")) == ticket.get("page_id"):
+        pre_decision("allow", "Notion write to the active ticket {}".format(ticket.get("id")))
         return
-    if tool in NOTION_CREATE:
-        parent_ids = {notion_id(s) for s in all_strings(ti.get("parent"))}
-        if parent_ids & KANBAN_IDS:
-            pre_decision("allow", "New ticket on the Nexotec Kanban Board")
-            return
-        pre_decision("ask", "Creates Notion pages outside the Kanban board.")
+    if tool in NOTION_CREATE and {notion_id(s) for s in all_strings(ti.get("parent"))} & KANBAN_IDS:
+        pre_decision("allow", "New ticket on the Nexotec Kanban Board")
         return
-    if tool in NOTION_UPLOADS and ticket_page:
-        pre_decision("allow", "Upload for the active ticket {}".format(ticket.get("id")))
-        return
-    pre_decision("ask", "Notion write ({}) outside the ticket lifecycle.".format(tool))
+    pre_decision("allow", "Notion write ({}) - Anto allows every Notion write (2026-10-11)".format(tool))
 
 
 # --------------------------------------------------------------------------

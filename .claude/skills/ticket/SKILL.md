@@ -44,7 +44,8 @@ If the argument ends in `close`, skip to **Close after merge** at the bottom.
    Review** → stop and ask Anto: the ticket may not be vetted yet. **In Review** or **Done** →
    ask what he wants (a follow-up ticket is usually right).
 3. Register it: `scripts/dev/gate start KAN-<n> <ticket url>`. From now on, writes to this
-   ticket page and new tickets on the board need no click; every other Notion write asks Anto.
+   ticket page count as the ticket's hand-over evidence. No Notion write asks Anto (his ruling,
+   2026-10-11).
 4. Name the branch `kan-<n>-<short-slug>`: `git branch -m kan-<n>-<slug>` if the session
    started on a generated name, `git switch -c kan-<n>-<slug>` if it started on `main`.
 5. Set the ticket's Status to **In Progress** and comment: branch name, start time.
@@ -120,9 +121,9 @@ Any code change after this point invalidates 2–4: redo them.
 2. **Work is not done when the code merges.** Every time — whether or not the ticket names
    them — draft the module PRD's status (what shipped) and the Gap Analysis (citing the new
    head), plus an ADR for any decision taken while building and whatever else the ticket
-   names. Spec-page writes ask Anto, which is intended. His prompt shows only raw JSON, so
-   right before each one say in one plain sentence which page changes and how — e.g. "Gap
-   Analysis: add row G-104, manual configuration accepts unchecked codes, severity S3."
+   names. Write them directly (no Notion write asks Anto, 2026-10-11), and list each spec-page
+   change in one plain sentence in the final reply — e.g. "Gap Analysis: add row G-104, manual
+   configuration accepts unchecked codes, severity S3."
 3. Final reply to Anto: PR link, criteria met / not met, verification, screenshot, follow-up
    tickets, and anything waived with its reason.
 
@@ -140,6 +141,6 @@ open until it is complete. Never skip an update silently.
    (REST; or the MCP tools). Not merged → stop and say so.
 2. Ticket Status → **Done**; change the callout to `Done — merged <date> as <short sha>, PR #<n>`.
 3. Close the loops: PRD status and Gap Analysis against the merged head, and anything else the
-   ticket names — spec-page writes ask Anto; say what each one changes first, as in step 7.
+   ticket names — written directly; say what each one changed, as in step 7.
 4. `scripts/dev/gate close` (it refuses until the PR is merged), then tell Anto the worktree can
    be removed. A cloud session has no worktree: the session can simply be archived.

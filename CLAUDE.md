@@ -78,7 +78,7 @@ CI (`.github/workflows/test.yml`) runs eleven jobs; whether they block a merge i
   A defect or open question found while building gets its own Kanban ticket, in that session.
 - **Work is not done when the code merges:** the module PRD's status says what shipped and the
   Gap Analysis cites the new head — every time, whether or not the ticket names them; draft those edits in the same session.
-- **Before a Notion write that asks Anto**, say in one plain sentence which page changes and how: his prompt shows only raw JSON.
+- **Notion writes need no click from Anto** (his ruling, 2026-10-11): write directly, and say in one plain sentence which page changed and how.
 - Commit messages and PR descriptions are claims. Never round a partial up: say which exit
   criteria are met and which are **not**, and what you did not verify.
 - "Verified" means a check you ran, on this code — and a screenshot: the changed screen; for a
