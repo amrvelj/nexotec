@@ -528,26 +528,29 @@ def test_a_contract_cancel_with_a_reused_key_and_another_reason_is_a_409(client)
 
 
 def test_generate_contract_document_twice_under_one_key_makes_one_document(client, db_session):
+    # A priced contract: an empty one is refused before any document (KAN-67).
     dealership = _dealership(db_session)
     token = _token(dealership.id)
-    contract = _contract(client, token)
+    contract = _confirmable_contract(db_session, dealership.id, uuid.uuid4())
 
-    _, document = _twice(client, f"/v1/sales/contracts/{contract['id']}/documents", token, None)
+    _, document = _twice(client, f"/v1/sales/contracts/{contract.id}/documents", token, None)
 
     assert document["version"] == 1
-    assert _count(db_session, SalesDocument, SalesDocument.owner_id == uuid.UUID(contract["id"])) == 1
+    assert _count(db_session, SalesDocument, SalesDocument.owner_id == contract.id) == 1
 
 
 def test_generate_contract_document_with_a_reused_key_on_another_contract_is_a_409(client, db_session):
     dealership = _dealership(db_session)
     token = _token(dealership.id)
-    first, other = _contract(client, token), _contract(client, token)
-    key, _ = _twice(client, f"/v1/sales/contracts/{first['id']}/documents", token, None)
+    group_id = uuid.uuid4()
+    first = _confirmable_contract(db_session, dealership.id, group_id)
+    other = _confirmable_contract(db_session, dealership.id, group_id)
+    key, _ = _twice(client, f"/v1/sales/contracts/{first.id}/documents", token, None)
 
-    response = client.post(f"/v1/sales/contracts/{other['id']}/documents", headers=_headers(token, key))
+    response = client.post(f"/v1/sales/contracts/{other.id}/documents", headers=_headers(token, key))
 
     _assert_key_conflict(response, key)
-    assert _count(db_session, SalesDocument, SalesDocument.owner_id == uuid.UUID(other["id"])) == 0
+    assert _count(db_session, SalesDocument, SalesDocument.owner_id == other.id) == 0
 
 
 # --- the retired /v1/transactions writes ---------------------------------------------

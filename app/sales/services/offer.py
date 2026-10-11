@@ -15,12 +15,13 @@ from app.core.outbox import OutboxEvent, publish
 from app.core.pagination import SortPageParams, build_sorted_page, count_capped, paginate_query_sorted
 from app.customer.public import Customer, CustomerLifecycleStatus, get_customer_or_404
 from app.sales.models.offer import OfferStatus, SalesOffer
-from app.sales.schemas.offer import OfferContainerState, OfferUpdate
+from app.sales.schemas.offer import OfferUpdate
+from app.sales.services.deal_editing import apply_vehicle_and_pricing_changes
 from app.sales.services.deal_projection import upsert_deal_projection
 from app.sales.services.numbering import allocate_offer_number
+from app.sales.services.priced_deal import compute_containers, require_editable
 from app.sales.services.pricing import apply_build_up
 from app.sales.services.snapshot import freeze_vehicle_snapshot
-from app.vehicle.public import CONFIGURATION_MODE_BUILD, get_configuration_for_host
 
 _EVENT_PRODUCER = "sales"
 
@@ -33,73 +34,6 @@ def resolve_customer_label(customer: Customer) -> str:
     if customer.company_name:
         return customer.company_name
     return " ".join(part for part in [customer.first_name, customer.last_name] if part) or customer.customer_number
-
-
-def vehicle_condition(offer: SalesOffer) -> str | None:
-    """A manual configuration's condition lives on its own column; a
-    stock vehicle's lives only inside the frozen vehicle_snapshot JSON
-    (ADR-041) — one place to read either, shared by the API's own
-    OfferRead.vehicle_condition and services/line_items.py's used-vehicle
-    discount-suppression rule.
-    """
-
-    if offer.vehicle_source == "manual":
-        return offer.manual_vehicle_condition
-    if offer.vehicle_snapshot:
-        return offer.vehicle_snapshot.get("condition")
-    return None
-
-
-def compute_offer_containers(offer: SalesOffer) -> list[OfferContainerState]:
-    """Server-computed, never client-derived (FR-S-05) — the sticky
-    footer's missing-requirements list and each container's own status
-    badge both read from this one function, so they can never disagree.
-
-    Requirement levels and the "placeholder" status for Leasing are fixed
-    properties of the container itself (confirmed live against the
-    reference prototype); everything else is derived from what has
-    actually been filled in so far.
-    """
-
-    has_vehicle = offer.vehicle_source is not None and (
-        offer.stock_item_id is not None or offer.vehicle_label is not None
-    )
-    # WP-8 PR-3 — "complete" means a REAL price exists to build from, not
-    # merely "gross_price is not None" (build_up() always materializes a
-    # value, including a legitimate Decimal(0) for an unpriced manual
-    # config — that is not the same thing as "priced").
-    has_base_price = (offer.vehicle_source == "manual" and offer.manual_base_price is not None) or (
-        offer.vehicle_source == "stock"
-        and offer.vehicle_snapshot is not None
-        and offer.vehicle_snapshot.get("basePrice") is not None
-    )
-    return [
-        OfferContainerState(
-            id="customer",
-            requirement="required",
-            status="complete" if offer.customer_id is not None else "not_started",
-        ),
-        OfferContainerState(
-            id="vehicle", requirement="required", status="complete" if has_vehicle else "not_started"
-        ),
-        OfferContainerState(
-            id="pricing",
-            requirement="required",
-            status="complete" if has_base_price else ("in_progress" if has_vehicle else "not_started"),
-        ),
-        OfferContainerState(
-            id="trade_in",
-            requirement="optional",
-            status="complete" if offer.trade_in_vehicle_id is not None else "not_started",
-        ),
-        OfferContainerState(
-            id="leasing",
-            requirement="optional",
-            # S-D03 — never a real calculator in v1; "placeholder" is a
-            # genuine third status, not "complete" dressed up.
-            status="placeholder",
-        ),
-    ]
 
 
 def get_offer_or_404(db: Session, tenant_id: uuid.UUID, offer_id: uuid.UUID) -> SalesOffer:
@@ -145,8 +79,7 @@ def update_offer(
     client) — see the module's "split by staleness class" rule.
     """
 
-    if offer.status != OfferStatus.DRAFT:
-        raise ConflictError(f"Offer {offer.offer_number} can no longer be edited (status '{offer.status.value}').")
+    require_editable(offer)
 
     changes = data.model_dump(exclude_unset=True)
 
@@ -181,76 +114,12 @@ def update_offer(
             # dropped).
             offer.customer_denorm_refreshed_at = utcnow()
 
-    if "configuration_id" in changes:
-        _attach_configuration(db, offer=offer, configuration_id=changes.pop("configuration_id"), changes=changes)
-    elif changes.get("vehicle_source") == "stock":
-        # Path A replaces Path B — a stock car carries no configuration.
-        _clear_configuration(offer)
-
-    for field, value in changes.items():
-        setattr(offer, field, value)
-
-    offer.updated_by = actor_id
-    offer.version += 1
-    db.flush()
-
-    # WP-8 PR-3 — re-derive pricing on every touch, not behind a separate
-    # "build" button: FR-S-05's autosave is live, and freeze_vehicle_snapshot
-    # is itself idempotent per vehicle identity, so this is cheap and safe
-    # to call unconditionally once a vehicle exists.
-    if freeze_vehicle_snapshot(db, offer=offer):
-        db.flush()
-    if offer.vehicle_snapshot is not None:
-        apply_build_up(db, offer=offer)
-        db.flush()
+    apply_vehicle_and_pricing_changes(db, deal=offer, changes=changes, actor_id=actor_id, host="offer workspace")
 
     upsert_deal_projection(db, offer=offer)
     db.commit()
     db.refresh(offer)
     return offer
-
-
-def _clear_configuration(offer: SalesOffer) -> None:
-    offer.configuration_id = None
-    offer.configuration_label = None
-    offer.configuration_label_refreshed_at = None
-
-
-def _attach_configuration(
-    db: Session, *, offer: SalesOffer, configuration_id: uuid.UUID | None, changes: dict
-) -> None:
-    """FR-C-12 — Path B's configurator hands back a configuration id. The
-    offer workspace accepts **`build` mode only** (PRD v1.4): a used car
-    being sold comes from stock through Path A, and a trade-in goes through
-    the valuation path. A `record` configuration here is a 422, so the mode
-    matrix holds at the API, not only in the overlay.
-
-    Attaching makes the vehicle container a configuration (`manual`, no
-    stock item), labels it, and prefills the base price from the
-    configuration unless this PATCH sets one or the same configuration was
-    already attached (the seller's own figure stands). The option and surcharge
-    price lines arrive with the snapshot freeze that follows.
-    """
-
-    if configuration_id is None:
-        _clear_configuration(offer)
-        return
-    host = get_configuration_for_host(db, tenant_id=offer.tenant_id, configuration_id=configuration_id)
-    host.require_mode(host="offer workspace", allowed=(CONFIGURATION_MODE_BUILD,))
-    is_new_configuration = offer.configuration_id != host.id
-    offer.configuration_id = host.id
-    offer.configuration_label = host.label
-    offer.configuration_label_refreshed_at = utcnow()
-    offer.vehicle_source = "manual"
-    offer.stock_item_id = None
-    offer.vehicle_label = host.label
-    offer.manual_vehicle_condition = "new"
-    for field in ("vehicle_source", "stock_item_id", "vehicle_label", "manual_vehicle_condition"):
-        changes.pop(field, None)
-    # Re-attaching the same configuration (the advisor reopened and saved
-    # it) never overwrites a base price the seller set.
-    if "manual_base_price" not in changes and (is_new_configuration or offer.manual_base_price is None):
-        offer.manual_base_price = host.base_price
 
 
 def copy_offer(db: Session, *, source: SalesOffer, actor_id: uuid.UUID | None) -> SalesOffer:
@@ -310,10 +179,10 @@ def copy_offer(db: Session, *, source: SalesOffer, actor_id: uuid.UUID | None) -
     db.add(offer)
     db.flush()
 
-    if freeze_vehicle_snapshot(db, offer=offer):
+    if freeze_vehicle_snapshot(db, deal=offer):
         db.flush()
     if offer.vehicle_snapshot is not None:
-        apply_build_up(db, offer=offer)
+        apply_build_up(db, deal=offer)
         db.flush()
 
     publish(
@@ -348,7 +217,7 @@ def finalize_offer(db: Session, *, offer: SalesOffer, actor_id: uuid.UUID | None
     if offer.status != OfferStatus.DRAFT:
         raise ConflictError(f"Offer {offer.offer_number} is not a draft (status '{offer.status.value}').")
 
-    missing = [c.id for c in compute_offer_containers(offer) if c.requirement == "required" and c.status != "complete"]
+    missing = [c.id for c in compute_containers(offer) if c.requirement == "required" and c.status != "complete"]
     if missing:
         raise ConflictError(
             f"Offer {offer.offer_number} is missing required containers: {', '.join(missing)}.",

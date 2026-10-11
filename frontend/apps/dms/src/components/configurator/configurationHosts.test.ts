@@ -42,8 +42,12 @@ describe('one configuration summary card', () => {
 
   it('every host reaches a configuration through the shared card', () => {
     const host = (path: string) => FILES.find((f) => f.path === path)!.text
-    // offer workspace (Path B and the trade-in), stock item, valuation
-    expect(importsHostCard(host('pages/OfferWorkspacePage.tsx'))).toBe(true)
+    // offer workspace and pending contract (Path B and the trade-in; one set
+    // of containers since KAN-67), stock item, valuation
+    expect(importsHostCard(host('components/deal-workspace/DealWorkspaceContainers.tsx'))).toBe(true)
+    const usesDealContainers = /from ['"][^'"]*\/deal-workspace\/DealWorkspaceContainers['"]/
+    expect(host('pages/OfferWorkspacePage.tsx')).toMatch(usesDealContainers)
+    expect(host('pages/ContractDetailPage.tsx')).toMatch(usesDealContainers)
     expect(importsHostCard(host('components/stock-detail/DetailsTab.tsx'))).toBe(true)
     expect(importsHostCard(host('pages/ValuationDetailPage.tsx'))).toBe(true)
     // Vehicle 360
