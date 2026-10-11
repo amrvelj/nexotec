@@ -25,7 +25,12 @@ import { ImagesTab } from './ImagesTab'
 import { IdentificationPanel, type IdentifiedStart } from './IdentificationPanel'
 import { ConfigurationResyncPanel } from './ConfigurationResyncPanel'
 import { HostCommitError } from './hostCommitError'
-import { LABEL_FIELD, fetchActiveReferenceValues, resolveLanguage } from '../../hooks/useReferenceValueOptions'
+import {
+  LABEL_FIELD,
+  fetchActiveReferenceValues,
+  fetchAllReferenceValues,
+  resolveLanguage,
+} from '../../hooks/useReferenceValueOptions'
 import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
 import {
   CODED_FIELDS,
@@ -45,7 +50,6 @@ import type {
   ConfigurationOptionInput,
   ConfigurationOptionRead,
   ConfigurationRead,
-  ReferenceValuePage,
   ReferenceValueRead,
   VehicleSpecBlockRead,
 } from '../../api/types'
@@ -378,14 +382,33 @@ export function ConfiguratorOverlay({
     })
   }
 
-  const optionGroupLabel = (code: string) =>
-    refLabels.data?.option_group?.find((r) => r.valueCode === code)?.label ?? null
-  const equipmentFeatureLabel = (code: string) =>
-    refLabels.data?.equipment_feature?.find((r) => r.valueCode === code)?.label ?? code
-  const equipmentFeatureOptions = (refLabels.data?.equipment_feature ?? []).map((r) => ({
-    value: r.valueCode,
-    label: r.label,
-  }))
+  // A list that failed to load marks its codes `⚠`, as does a code missing
+  // from its loaded list — never the raw code as if it were a label. Until
+  // the lists arrive, the code stands in.
+  const refLabel = (listCode: string, code: string) => {
+    if (!refLabels.data) return code
+    const label = refLabels.data[listCode]?.find((r) => r.valueCode === code)?.label
+    return label ?? `⚠ ${code}`
+  }
+  const optionGroupLabel = (code: string) => refLabel('option_group', code)
+  const equipmentFeatureLabel = (code: string) => refLabel('equipment_feature', code)
+  // A picker offers active values only — the full list is for labelling
+  // what is already stored.
+  const equipmentFeatureOptions = (refLabels.data?.equipment_feature ?? [])
+    .filter((r) => r.active)
+    .map((r) => ({ value: r.valueCode, label: r.label }))
+  // KAN-239 — a spec reference field offers its list's active values; a
+  // stored value retired since stays visible, disabled (the KAN-96 pattern).
+  const specRefOptions = (listCode: string, current: string | null) => {
+    const rows = refLabels.data?.[listCode] ?? []
+    const data: { value: string; label: string; disabled?: boolean }[] = rows
+      .filter((r) => r.active)
+      .map((r) => ({ value: r.valueCode, label: r.label }))
+    if (current != null && !data.some((d) => d.value === current)) {
+      data.push({ value: current, label: refLabel(listCode, current), disabled: true })
+    }
+    return data
+  }
 
   // KAN-96 — a coded field offers the active values of its list, the same
   // set the API accepts. A stored value outside that set (retired by the
@@ -729,12 +752,10 @@ export function ConfiguratorOverlay({
                       <Select
                         key={f.key as string}
                         label={withMark}
-                        data={(refLabels.data?.[f.listCode!] ?? []).map((r) => ({
-                          value: r.valueCode,
-                          label: r.label,
-                        }))}
+                        data={specRefOptions(f.listCode!, (draft.spec[f.key] as string) ?? null)}
                         value={(draft.spec[f.key] as string) ?? null}
                         onChange={(v) => setSpecField(f.key, v)}
+                        error={refLabels.data?.[f.listCode!] === null ? t('configurator.spec.listUnavailable') : undefined}
                         clearable
                         w={200}
                       />
@@ -829,28 +850,36 @@ export function ConfiguratorOverlay({
 
 // --- helpers --------------------------------------------------------
 
+/** Every value of the spec and option lists, labelled in the UI language.
+ * KAN-239 — each list is paged within the API's cap (it once asked
+ * `limit=200`, which the API answers 422, and the catch hid it as an empty
+ * list). Retired values are kept to label what is stored; pickers filter to
+ * `active`. A list that failed to load is `null`, so its field can say so; a
+ * value with no label in this language renders `⚠ <code>`. */
 function useReferenceLabels() {
   const { i18n } = useTranslation()
-  const lang = (i18n.language || 'de').slice(0, 2)
+  const field = LABEL_FIELD[resolveLanguage(i18n.language)]
   return useQuery({
-    queryKey: ['configurator-ref-labels', OPTION_REF_LIST_CODES],
+    queryKey: ['configurator-ref-labels', OPTION_REF_LIST_CODES, field],
     queryFn: async () => {
-      const key = `label${lang.charAt(0).toUpperCase()}${lang.slice(1)}` as
-        | 'labelDe'
-        | 'labelFr'
-        | 'labelIt'
-        | 'labelEn'
       const entries = await Promise.all(
         OPTION_REF_LIST_CODES.map(async (code) => {
           try {
-            const page = await api.get<ReferenceValuePage>(`/reference-data/${code}?limit=200`)
-            return [code, page.items.map((v) => ({ valueCode: v.valueCode, label: v[key] || v.valueCode }))] as const
+            const rows = await fetchAllReferenceValues(code)
+            return [
+              code,
+              rows.map((v) => ({
+                valueCode: v.valueCode,
+                label: v[field]?.trim() ? v[field] : `⚠ ${v.valueCode}`,
+                active: v.active,
+              })),
+            ] as const
           } catch {
-            return [code, []] as const
+            return [code, null] as const
           }
         }),
       )
-      return Object.fromEntries(entries) as Record<string, { valueCode: string; label: string }[]>
+      return Object.fromEntries(entries) as Record<string, { valueCode: string; label: string; active: boolean }[] | null>
     },
   })
 }

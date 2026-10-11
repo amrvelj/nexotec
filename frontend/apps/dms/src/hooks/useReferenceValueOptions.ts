@@ -19,11 +19,12 @@ export const LABEL_FIELD: Record<SupportedLanguage, 'labelDe' | 'labelFr' | 'lab
 }
 
 // A list page caps at 100 rows (Settings.pagination_max_limit), so walk the cursor.
-export async function fetchActiveReferenceValues(listCode: string): Promise<ReferenceValueRead[]> {
+async function fetchReferenceValues(listCode: string, activeOnly: boolean): Promise<ReferenceValueRead[]> {
   const rows: ReferenceValueRead[] = []
   let cursor: string | null = null
   do {
-    const params = new URLSearchParams({ active: 'true', limit: '100' })
+    const params = new URLSearchParams({ limit: '100' })
+    if (activeOnly) params.set('active', 'true')
     if (cursor) params.set('cursor', cursor)
     const page = await api.get<ReferenceValuePage>(
       `/reference-data/${encodeURIComponent(listCode)}?${params.toString()}`,
@@ -32,6 +33,17 @@ export async function fetchActiveReferenceValues(listCode: string): Promise<Refe
     cursor = page.nextCursor
   } while (cursor)
   return rows
+}
+
+/** The values a write may pick — what a dropdown offers. */
+export function fetchActiveReferenceValues(listCode: string): Promise<ReferenceValueRead[]> {
+  return fetchReferenceValues(listCode, true)
+}
+
+/** Every value of a list, retired ones included — what a stored code needs to
+ * find its label, and what the reference-data admin screen edits. */
+export function fetchAllReferenceValues(listCode: string): Promise<ReferenceValueRead[]> {
+  return fetchReferenceValues(listCode, false)
 }
 
 export function resolveLanguage(raw: string): SupportedLanguage {

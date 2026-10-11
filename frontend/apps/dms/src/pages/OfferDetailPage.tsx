@@ -113,6 +113,7 @@ export function OfferDetailContent({ offerId: id, embedded = false }: OfferDetai
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <DetailHeader
+        labels={{ moreActions: t('common.moreActions') }}
         entityMark={<Handshake size={24} />}
         title={offer.vehicleLabel ?? t('offerDetail.untitled')}
         businessKey={offer.offerNumber}

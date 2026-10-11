@@ -18,7 +18,7 @@ from decimal import Decimal
 from pathlib import Path
 
 import pytest
-from sqlalchemy import delete, null, select, update
+from sqlalchemy import delete, func, null, select, update
 
 from app.core.auth import AccessRole, create_access_token
 from app.core.errors import ConflictError, UnprocessableEntityError
@@ -640,7 +640,13 @@ def test_a_contract_priced_without_inputs_is_not_editable_but_still_confirms(db_
     assert contract.status == ContractStatus.CONFIRMED
 
 
-@_postgres_only_migration
+_postgres_only_row_locks = pytest.mark.skipif(
+    not os.environ.get("DMS_TEST_DATABASE_URL"),
+    reason="Row locks: SELECT ... FOR UPDATE waits only on Postgres (ADR-011); SQLite has no row locks.",
+)
+
+
+@_postgres_only_row_locks
 def test_an_edit_waits_for_a_confirmation_in_progress_and_is_then_refused(db_session, engine):
     """Review finding: an edit that read the contract while pending could
     write after it was signed and rewrite the frozen price. Every changing
@@ -688,8 +694,9 @@ def test_an_edit_waits_for_a_confirmation_in_progress_and_is_then_refused(db_ses
     assert db_session.get(SalesContract, contract.id).gross_price == Decimal("18000.00")
 
 
-def test_the_trade_in_routes_refuse_a_contract_priced_without_inputs(db_session):
-    """Review hygiene finding: both trade-in routes go through the same guard."""
+def test_the_trade_in_routes_refuse_a_contract_priced_without_inputs(client, db_session):
+    """Both trade-in routes go through the same guard — called as routes,
+    not as their services (KAN-289)."""
 
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
@@ -700,29 +707,93 @@ def test_the_trade_in_routes_refuse_a_contract_priced_without_inputs(db_session)
     db_session.expire_all()
     contract = db_session.get(SalesContract, contract.id)
     valuation = _valuation(db_session, dealership.id, group_id, "WVWZZZ1KZAW444444", Decimal("5000.00"))
+    headers = {**_token(dealership.id, group_id), "If-Match": str(contract.version)}
 
-    for edit in (
-        lambda: set_trade_in(
-            db_session, deal=contract, group_id=group_id, vin="WVWZZZ1KZAW444444", plate=None, canton=None,
-            vehicle_label="Opel Corsa", customer_id=None, actor_id=uuid.uuid4(),
-        ),
-        lambda: attach_trade_in_valuation(db_session, deal=contract, valuation_id=valuation.id, actor_id=uuid.uuid4()),
+    for path, body in (
+        ("trade-in", {"vin": "WVWZZZ1KZAW444444", "vehicleLabel": "Opel Corsa"}),
+        ("trade-in/valuation", {"valuationId": str(valuation.id)}),
     ):
-        with pytest.raises(ConflictError) as refused:
-            edit()
-        assert refused.value.details["reason"] == "contract_priced_without_inputs"
+        response = client.post(f"/v1/sales/contracts/{contract.id}/{path}", json=body, headers=headers)
+        assert response.status_code == 409, response.text
+        assert response.json()["error"]["details"]["reason"] == "contract_priced_without_inputs"
 
 
-@_postgres_only_migration
-@pytest.mark.parametrize("route", ["patch", "line_items", "trade_in"])
-def test_an_edit_route_waits_for_a_confirmation_in_progress_and_is_refused(client, db_session, engine, route):
-    """KAN-288 review: the lock must be taken by the routes themselves. A
-    session holds the contract row as a confirmation does while the real
-    route runs in a thread; the route is still blocked after 0.8 s, and once
-    the confirmation commits it is refused — as a stale version, because its
-    If-Match was read before the signature — and the signed price stands.
-    Without `for_update` on the route the edit returns 200 and re-prices the
-    signed contract."""
+# --- every changing route locks the contract row (KAN-288, KAN-289) ----------------
+
+
+def _held_by_a_confirmation(db_session, dealership_id: uuid.UUID, group_id: uuid.UUID, engine):
+    """A pending manual-car contract; the session holding it confirms it."""
+
+    contract = _manual_car(db_session, _customer_born_contract(db_session, dealership_id, group_id))
+
+    def holder_action(session, held: SalesContract) -> None:
+        confirm_contract(
+            session, contract=held, group_id=group_id, actor_id=uuid.uuid4(),
+            session_factory=_session_factory(engine),
+        )
+
+    return contract, holder_action, (ContractStatus.CONFIRMED, Decimal("18000.00"))
+
+
+def _held_by_a_cancellation(db_session, dealership_id: uuid.UUID, group_id: uuid.UUID, engine):
+    """A signed contract on a bought stock car, so request-invoice would
+    pass; the session holding it cancels it."""
+
+    from tests.test_sales_invoiceable_replica import _contract_on, _deliver, _purchase, _purchased_message
+    from tests.test_sales_invoiceable_replica import _stock_item as _vin_stock_item
+
+    item = _vin_stock_item(db_session, dealership_id)
+    _purchase(db_session, item)
+    assert _deliver(db_session, _purchased_message(db_session, item)) is True
+    contract = _contract_on(db_session, dealership_id, group_id, item)
+    contract = confirm_contract(
+        db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(),
+        session_factory=_session_factory(engine),
+    )
+    assert contract.is_invoiceable is True
+
+    def holder_action(session, held: SalesContract) -> None:
+        cancel_contract(
+            session, contract=held, reason="Kunde tritt zurück", actor_id=uuid.uuid4(),
+            session_factory=_session_factory(engine),
+        )
+
+    return contract, holder_action, (ContractStatus.CANCELLED, contract.gross_price)
+
+
+# route -> (method, path suffix, body, how the row is held). Every route the
+# contract API has that changes the row.
+_LOCKED_ROUTES = {
+    "patch": ("patch", "", {"discountType": "amount", "discountValue": "5000.00"}, _held_by_a_confirmation),
+    "line_items": (
+        "put", "/line-items", {"accessories": [{"code": "MATS", "label": "Fussmatten", "unitPrice": "150.00"}]},
+        _held_by_a_confirmation,
+    ),
+    "trade_in": ("post", "/trade-in", {"vin": "WVWZZZ1KZAW555555", "vehicleLabel": "Opel Corsa"}, _held_by_a_confirmation),
+    "trade_in_valuation": ("post", "/trade-in/valuation", "valuation", _held_by_a_confirmation),
+    "confirm": ("post", "/confirm", None, _held_by_a_confirmation),
+    "cancel": ("post", "/cancel", {"reason": "Kunde tritt zurück"}, _held_by_a_confirmation),
+    "request_invoice": ("post", "/request-invoice", None, _held_by_a_cancellation),
+}
+
+
+@_postgres_only_row_locks
+@pytest.mark.usefixtures("app_sessions_on_the_test_engine")
+@pytest.mark.parametrize("route", list(_LOCKED_ROUTES))
+def test_a_changing_route_waits_for_a_change_in_progress_and_is_refused(client, db_session, engine, route):
+    """KAN-288 review, completed by KAN-289: the lock must be taken by every
+    changing route itself. A session holds the contract row as a
+    confirmation (or a cancellation) does while the real route runs in a
+    thread; the route is still blocked after 0.8 s, and once the holder
+    commits it is refused — as a stale version, because its If-Match was read
+    before — and the holder's outcome stands. Without `for_update` on the
+    route it reads the row unlocked and passes the version check. A route
+    that writes the row then waits only at its own UPDATE and overwrites the
+    holder's commit with 200: an edit re-prices a signed contract (or attaches
+    a trade-in to it), a second confirmation publishes a second
+    `sales.contract.confirmed`, a cancel undoes a signature. Request-invoice
+    writes no contract row, so it is not held at all: it publishes
+    `sales.contract.invoice_requested` for a contract being cancelled."""
 
     import threading
     import time
@@ -731,46 +802,40 @@ def test_an_edit_route_waits_for_a_confirmation_in_progress_and_is_refused(clien
 
     from app.sales.services.contract import get_contract_or_404
 
+    method, suffix, body, hold = _LOCKED_ROUTES[route]
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
-    contract = _manual_car(db_session, _customer_born_contract(db_session, dealership.id, group_id))
+    contract, holder_action, outcome = hold(db_session, dealership.id, group_id, engine)
+    if body == "valuation":
+        body = {"valuationId": str(_valuation(db_session, dealership.id, group_id, "WVWZZZ1KZAW666666", Decimal("5000.00")).id)}
     headers = {**_token(dealership.id, group_id), "If-Match": str(contract.version)}
-    requests = {
-        "patch": lambda: client.patch(
-            f"/v1/sales/contracts/{contract.id}", json={"discountType": "amount", "discountValue": "5000.00"},
-            headers=headers,
-        ),
-        "line_items": lambda: client.put(
-            f"/v1/sales/contracts/{contract.id}/line-items",
-            json={"accessories": [{"code": "MATS", "label": "Fussmatten", "unitPrice": "150.00"}]},
-            headers=headers,
-        ),
-        "trade_in": lambda: client.post(
-            f"/v1/sales/contracts/{contract.id}/trade-in",
-            json={"vin": "WVWZZZ1KZAW555555", "vehicleLabel": "Opel Corsa"}, headers=headers,
-        ),
-    }
+    events_before = db_session.scalar(select(func.count()).select_from(OutboxMessage).where(OutboxMessage.aggregate_id == contract.id))
     result = {}
 
-    confirming = Session(bind=engine)
+    def send() -> None:
+        result["response"] = client.request(
+            method, f"/v1/sales/contracts/{contract.id}{suffix}", json=body, headers=headers
+        )
+
+    holding = Session(bind=engine)
     try:
-        held = get_contract_or_404(confirming, dealership.id, contract.id, for_update=True)
-        sender = threading.Thread(target=lambda: result.update(response=requests[route]()))
+        held = get_contract_or_404(holding, dealership.id, contract.id, for_update=True)
+        sender = threading.Thread(target=send)
         sender.start()
         time.sleep(0.8)
         blocked_while_held = sender.is_alive()
-        confirm_contract(
-            confirming, contract=held, group_id=group_id, actor_id=uuid.uuid4(),
-            session_factory=_session_factory(engine),
-        )
+        holder_action(holding, held)
         sender.join(10)
     finally:
-        confirming.close()
+        holding.close()
 
     assert blocked_while_held
     response = result["response"]
     assert response.status_code == 409, response.text
     assert response.json()["error"]["details"]["currentVersion"] == contract.version + 1
     db_session.expire_all()
-    signed = db_session.get(SalesContract, contract.id)
-    assert (signed.status, signed.gross_price) == (ContractStatus.CONFIRMED, Decimal("18000.00"))
+    after = db_session.get(SalesContract, contract.id)
+    # `after` is `contract` (one identity map), so the expectation is a constant, never read back from it.
+    assert (after.status, after.gross_price, after.trade_in_valuation_id) == (*outcome, None)
+    # The contract's only new event is the holder's (confirmed / cancelled), none from the route.
+    assert db_session.scalar(select(func.count()).select_from(OutboxMessage).where(OutboxMessage.aggregate_id == contract.id)) == events_before + 1

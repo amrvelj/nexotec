@@ -6,7 +6,7 @@ import i18n from '../../i18n'
 import { renderWithProviders } from '../../test/renderWithProviders'
 import { installFakeBackend, type FakeRoute } from '../../test/fakeBackend'
 import { catalogueVariant, configurationRead } from '../../test/configuratorFixtures'
-import { CODED_FIELDS } from '../../configurationOptions'
+import { CODED_FIELDS, specFieldLabelKey } from '../../configurationOptions'
 import { ConfiguratorOverlay } from './ConfiguratorOverlay'
 
 // KAN-96 — a manual configuration's five coded fields (vehicle kind, fuel,
@@ -225,5 +225,67 @@ describe('ConfiguratorOverlay — coded fields on a manual configuration (KAN-96
 
     await waitFor(() => expect(ctx.saved()).toHaveLength(1))
     for (const f of CODED_FIELDS) expect(ctx.saved()[0]).not.toHaveProperty(f.key)
+  })
+})
+
+// KAN-239 — the spec block's reference fields (engine cycle, emission
+// standard, …) once asked for their lists with `limit=200`, which the API
+// answers 422; the catch turned that into an empty dropdown.
+describe('ConfiguratorOverlay — spec reference fields (KAN-239)', () => {
+  it('offers a list longer than one page, fetched within the API cap', async () => {
+    const user = userEvent.setup()
+    install([
+      {
+        method: 'GET',
+        match: /\/reference-data\/engine_cycle$/,
+        handler: (req) => {
+          if (Number(req.params.get('limit') ?? 50) > 100) return { __status: 422, body: { error: { code: 'validation_error', message: 'limit' } } }
+          return req.params.get('cursor') === 'p2'
+            ? { items: [value('four_stroke', 'Viertakt')], nextCursor: null }
+            : { items: [value('two_stroke', 'Zweitakt')], nextCursor: 'p2' }
+        },
+      },
+    ])
+    renderWithProviders(<ConfiguratorOverlay allowedModes={['build']} onCommitted={vi.fn()} onClose={vi.fn()} />)
+
+    await user.click(await screen.findByRole('button', { name: i18n.t('configurator.find.manual') }))
+    await user.click(await screen.findByRole('textbox', { name: i18n.t(specFieldLabelKey('engineCycle')) }))
+    expect(await screen.findByRole('option', { name: 'Zweitakt' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Viertakt' })).toBeInTheDocument()
+  })
+
+  it('a spec list that cannot be loaded says so on its field', async () => {
+    const user = userEvent.setup()
+    install([{ method: 'GET', match: /\/reference-data\/emission_standard$/, handler: () => ({ __status: 500, body: {} }) }])
+    renderWithProviders(<ConfiguratorOverlay allowedModes={['build']} onCommitted={vi.fn()} onClose={vi.fn()} />)
+
+    await user.click(await screen.findByRole('button', { name: i18n.t('configurator.find.manual') }))
+    const field = await screen.findByRole('textbox', { name: i18n.t(specFieldLabelKey('emissionStandard')) })
+    await waitFor(() => expect(field).toHaveAccessibleDescription(i18n.t('configurator.spec.listUnavailable')))
+  })
+
+  it('offers active values only; a stored value retired since stays visible, disabled', async () => {
+    const user = userEvent.setup()
+    install([
+      {
+        method: 'GET',
+        match: /\/reference-data\/engine_cycle$/,
+        handler: () => ({ items: [value('four_stroke', 'Viertakt'), value('two_stroke', 'Zweitakt', false)], nextCursor: null }),
+      },
+    ])
+    renderWithProviders(
+      <ConfiguratorOverlay
+        allowedModes={['build']}
+        existing={configurationRead({ source: 'manual', catalogueVariantId: null, spec: { engineCycle: 'two_stroke' } })}
+        onCommitted={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    )
+
+    const field = await screen.findByRole('textbox', { name: i18n.t(specFieldLabelKey('engineCycle')) })
+    await waitFor(() => expect(field).toHaveValue('Zweitakt'))
+    await user.click(field)
+    expect(await screen.findByRole('option', { name: 'Viertakt' })).not.toHaveAttribute('data-combobox-disabled')
+    expect(screen.getByRole('option', { name: 'Zweitakt' })).toHaveAttribute('data-combobox-disabled')
   })
 })

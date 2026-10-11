@@ -56,7 +56,7 @@ export interface OptionsTabProps {
   onToggle: (option: CatalogueOptionRead) => void
   onAddPackageContents: (options: CatalogueOptionRead[]) => void
   onUpdateFeatures: (variantOptionId: string, features: string[]) => void
-  optionGroupLabel: (valueCode: string) => string | null
+  optionGroupLabel: (valueCode: string) => string
   equipmentFeatureLabel: (valueCode: string) => string
   equipmentFeatureOptions: { value: string; label: string }[]
 }
@@ -303,7 +303,7 @@ export function OptionsTab({
 
       {[...groups.entries()].map(([groupCode, groupOptions]) => (
         <Stack key={groupCode ?? '__ungrouped'} gap="xs">
-          {groupCode && <Text fw={600} size="sm">{optionGroupLabel(groupCode) ?? groupCode}</Text>}
+          {groupCode && <Text fw={600} size="sm">{optionGroupLabel(groupCode)}</Text>}
           {groupOptions.map((option) => {
             const showFeatures = isSelected(option)
             const features = featuresFor(option)
