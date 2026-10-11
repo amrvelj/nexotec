@@ -69,7 +69,7 @@ def test_an_orphan_alarms_and_the_worker_survives(db_session):
 
     # run_due_daily_jobs is what the worker loop calls every poll cycle; it
     # must not raise, and the job must be marked done (not left to re-run
-    # every 1s until someone repairs the id).
+    # on every scheduler retry until someone repairs the id).
     ran = run_due_daily_jobs(db_session, today=today)
 
     assert _RECONCILIATION_JOB_NAME in ran
@@ -95,7 +95,7 @@ def test_run_all_daily_swallows_the_alarm_rather_than_raising(db_session):
 
     # Directly, without the scheduler: a MultiContextReconciliationAlarm is
     # a finding, not a failure — it must not propagate out of the adapter
-    # (which would kill the worker loop / trigger a 1s retry storm).
+    # (which would leave the job unmarked and re-run it on every retry).
     assert run_all_daily(db_session) is None
 
     assert db_session.query(ReconciliationOrphan).count() == 1

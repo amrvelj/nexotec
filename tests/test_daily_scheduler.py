@@ -10,6 +10,7 @@ import logging
 
 import pytest
 
+from app.core import daily_scheduler
 from app.core.daily_scheduler import (
     _REGISTRY,
     REALARM_AFTER,
@@ -195,3 +196,29 @@ def test_one_jobs_failure_does_not_stop_a_later_job_in_the_same_registry(db_sess
 
     assert ran == ["healthy"]
     assert calls == ["healthy"]
+
+
+def test_the_backoff_counts_from_when_a_slow_job_failed_not_from_the_start_of_the_cycle(db_session, monkeypatch):
+    """A job that runs for ten minutes before it raises must wait its full
+    first backoff after the failure, not be retried on the next cycle
+    because ten minutes have passed since the cycle began."""
+
+    clock = {"now": _T0}
+    monkeypatch.setattr(daily_scheduler, "utcnow", lambda: clock["now"])
+    attempts = []
+
+    def _slow_failure(db):
+        attempts.append(clock["now"])
+        clock["now"] += dt.timedelta(minutes=10)
+        raise RuntimeError("timed out after ten minutes")
+
+    register_daily_job("slow", _slow_failure)
+
+    run_due_daily_jobs(db_session, today=_T0.date())  # fails at T0 + 10 min
+    clock["now"] += dt.timedelta(seconds=1)
+    run_due_daily_jobs(db_session, today=_T0.date())
+    assert len(attempts) == 1  # the next cycle, a second after the failure, waits
+
+    clock["now"] = _T0 + dt.timedelta(minutes=10) + RETRY_BACKOFF_FIRST
+    run_due_daily_jobs(db_session, today=_T0.date())
+    assert len(attempts) == 2

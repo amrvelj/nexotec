@@ -143,9 +143,7 @@ def _has_run_today(db: Session, *, job_name: str, today: dt.date) -> bool:
     )
 
 
-def run_due_daily_jobs(
-    db: Session, *, today: dt.date | None = None, now: dt.datetime | None = None
-) -> list[str]:
+def run_due_daily_jobs(db: Session, *, today: dt.date | None = None, now: dt.datetime | None = None) -> list[str]:
     """Runs every registered job not yet marked done today, in
     registration order. Returns the names of jobs that ran (successfully)
     this call. A job that raises is logged and skipped — never marked
@@ -154,10 +152,16 @@ def run_due_daily_jobs(
     the same registry from running this same cycle.
     """
 
+    clock_given = now is not None
     now = now or utcnow()
     today = today or now.date()
     ran: list[str] = []
     for job_name, job in _REGISTRY.items():
+        if not clock_given:
+            # A slow job earlier in this cycle must not age the next one's
+            # clock, nor this one's own failure time (its backoff counts
+            # from when it failed).
+            now = utcnow()
         episode = _EPISODES.get(job_name)
         if episode is not None and now < episode.next_attempt_at:
             continue
@@ -169,12 +173,12 @@ def run_due_daily_jobs(
             db.commit()
         except Exception:
             db.rollback()
-            alarm, message, extra = _record_failure(job_name, now)
+            alarm, message, extra = _record_failure(job_name, now if clock_given else utcnow())
             if alarm:
                 logger.exception(message, extra=extra)
             else:
                 logger.warning(message, exc_info=True, extra=extra)
             continue
         ran.append(job_name)
-        _record_success(job_name, now)
+        _record_success(job_name, now if clock_given else utcnow())
     return ran

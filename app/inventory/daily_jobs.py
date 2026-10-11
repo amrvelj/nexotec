@@ -8,8 +8,8 @@ One log line per run with its counts — the record Anto asked for
 same in any log format; they are passed as `extra` too, which the worker's
 JSON formatter (app.core.observability, since KAN-248) writes as fields.
 A failed release is logged at ERROR — the alarm — and does not fail the
-job: raising would re-run the whole sweep every poll cycle (1s) on a
-release that keeps failing, the trap app.reconciliation_runner.run_all_daily
+job: raising would re-run the whole sweep on every scheduler retry
+(KAN-303 backoff) on a release that keeps failing, the trap app.reconciliation_runner.run_all_daily
 avoids the same way. The next night's run tries it again.
 """
 
