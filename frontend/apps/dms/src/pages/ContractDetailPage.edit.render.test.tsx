@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from 'vitest'
 import { Route, Routes } from 'react-router-dom'
-import { screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from '../i18n'
 import { renderWithProviders } from '../test/renderWithProviders'
@@ -216,6 +216,46 @@ describe('ContractDetailPage — a pending contract can be completed (KAN-67)', 
     expect(await screen.findByText(i18n.t('contractDetail.edit.pricedWithoutInputs'))).toBeInTheDocument()
     expect(screen.queryByTestId('contract-edit')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: i18n.t('contractDetail.actions.confirm') })).toBeEnabled()
+  })
+
+  it('a discount typed just before Confirm is saved first, then signed with its version (review finding)', async () => {
+    let current: SalesContractRead = { ...PRICED, discountType: 'amount' }
+    const backend = installFakeBackend([
+      {
+        method: 'PATCH',
+        match: /^\/sales\/contracts\/k1$/,
+        handler: (req) => {
+          current = { ...current, ...(req.body as object), grossPrice: '17000.00', version: current.version + 1 }
+          return current
+        },
+      },
+      {
+        method: 'POST',
+        match: /^\/sales\/contracts\/k1\/confirm$/,
+        handler: () => {
+          current = { ...current, status: 'confirmed', version: current.version + 1 }
+          return current
+        },
+      },
+      ...baseRoutes(() => current),
+    ])
+    renderPage()
+
+    const discount = await screen.findByRole('textbox', { name: i18n.t('offerWorkspace.pricing.discountValue') })
+    fireEvent.change(discount, { target: { value: '1000' } })
+    const confirmButton = screen.getByRole('button', { name: i18n.t('contractDetail.actions.confirm') })
+    // Within the debounce the typed figure is unsaved: Confirm waits for it.
+    expect(confirmButton).toBeDisabled()
+    fireEvent.click(confirmButton)
+    expect(backend.callsTo(/\/confirm$/, 'POST')).toHaveLength(0)
+
+    await waitFor(() => expect(backend.callsTo(/^\/sales\/contracts\/k1$/, 'PATCH')).toHaveLength(1), { timeout: 2000 })
+    await waitFor(() => expect(screen.getByRole('button', { name: i18n.t('contractDetail.actions.confirm') })).toBeEnabled())
+    fireEvent.click(screen.getByRole('button', { name: i18n.t('contractDetail.actions.confirm') }))
+
+    await waitFor(() => expect(backend.callsTo(/\/confirm$/, 'POST')).toHaveLength(1))
+    expect(backend.callsTo(/^\/sales\/contracts\/k1$/, 'PATCH')[0].body).toMatchObject({ discountValue: 1000 })
+    expect(backend.callsTo(/\/confirm$/, 'POST')[0].headers.get('If-Match')).toBe(String(PRICED.version + 1))
   })
 
   it('renders the edit section in Italian', async () => {

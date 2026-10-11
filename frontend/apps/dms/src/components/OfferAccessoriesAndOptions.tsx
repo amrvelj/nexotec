@@ -89,9 +89,18 @@ export function OfferAccessoriesAndOptions<D extends SalesPricedDealRead>({
       // KAN-67 — a contract that is no longer editable is said in the
       // user's language; other refusals keep the server's explanation (a
       // used car's per-line discount needs a reason, …), as before.
-      const reason = err instanceof ApiError ? (err.details as { reason?: unknown } | null)?.reason : null
-      if (reason === 'contract_not_pending') setError(t('contractDetail.errors.editRefused.notPending'))
-      else if (reason === 'contract_priced_without_inputs') setError(t('contractDetail.edit.pricedWithoutInputs'))
+      const details = err instanceof ApiError ? (err.details as { reason?: unknown; currentVersion?: unknown } | null) : null
+      if (err instanceof ApiError && err.status === 409 && details?.currentVersion != null) {
+        // Stale If-Match: reload the deal so the next save carries its
+        // current version instead of failing the same way again.
+        void queryClient.invalidateQueries({ queryKey: [ownerType === 'offer' ? 'sales-offer' : 'sales-contract', deal.id] })
+        setError(
+          ownerType === 'contract'
+            ? t('contractDetail.errors.editRefused.staleVersion')
+            : err.message
+        )
+      } else if (details?.reason === 'contract_not_pending') setError(t('contractDetail.errors.editRefused.notPending'))
+      else if (details?.reason === 'contract_priced_without_inputs') setError(t('contractDetail.edit.pricedWithoutInputs'))
       else setError(err instanceof ApiError ? err.message : t('offerWorkspace.lineItems.error'))
     }
   }

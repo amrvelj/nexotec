@@ -987,7 +987,8 @@
       "confirmDisabledReason": "Confermabile solo se aperto.",
       "cancel": "Annulla …",
       "cancelDisabledReason": "Già annullato o fatturato.",
-      "confirmDisabledReasonEmpty": "Mancano ancora veicolo e prezzo."
+      "confirmDisabledReasonEmpty": "Mancano ancora veicolo e prezzo.",
+      "confirmDisabledReasonSaving": "Le modifiche sono ancora in fase di salvataggio."
     },
     "stats": {
       "grossPrice": "Prezzo di vendita",

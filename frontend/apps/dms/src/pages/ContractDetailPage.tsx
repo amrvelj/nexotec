@@ -63,6 +63,12 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
   const confirmKey = useIdempotencyKey()
   const cancelKey = useIdempotencyKey()
   const [editError, setEditError] = useState<string | null>(null)
+  // KAN-67 — a typed price still waiting out its debounce, or a save on its
+  // way to the server. Confirming meanwhile would sign the previous figure
+  // and drop the typed one (the edit section unmounts on confirm), so the
+  // primary action waits for both.
+  const [pricingUnsaved, setPricingUnsaved] = useState(false)
+  const [savesInFlight, setSavesInFlight] = useState(0)
   const overlay = useOverlay()
 
   const contractQuery = useQuery({
@@ -107,6 +113,7 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
   const patchContract = async (patch: Record<string, unknown>) => {
     const contract = latestContract.current
     if (!contract) return
+    setSavesInFlight((n) => n + 1)
     try {
       const updated = await api.patch<SalesContractRead>(`/sales/contracts/${id}`, patch, {
         'If-Match': String(contract.version),
@@ -116,6 +123,8 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
       setEditError(editRefusalMessage(err))
       void contractQuery.refetch()
       throw err
+    } finally {
+      setSavesInFlight((n) => n - 1)
     }
   }
 
@@ -161,7 +170,7 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
 
   const confirm = async () => {
     const contract = contractQuery.data
-    if (!contract) return
+    if (!contract || pricingUnsaved || savesInFlight > 0) return
     setConfirmError(null)
     try {
       const path = `/sales/contracts/${id}/confirm`
@@ -217,11 +226,14 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
   // figures stand, but the server refuses to rebuild them (409
   // contract_priced_without_inputs) — say so instead of offering editors.
   const pricedWithoutInputs = contract.vehicleSnapshotFrozenAt == null && contract.grossPrice != null
+  const isSaving = pricingUnsaved || savesInFlight > 0
   const confirmDisabledReason = !isPending
     ? t('contractDetail.actions.confirmDisabledReason')
     : isEmpty
       ? t('contractDetail.actions.confirmDisabledReasonEmpty')
-      : undefined
+      : isSaving
+        ? t('contractDetail.actions.confirmDisabledReasonSaving')
+        : undefined
 
   const containerProps = {
     ownerType: 'contract' as const,
@@ -273,7 +285,7 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
         primaryAction={{
           label: t('contractDetail.actions.confirm'),
           onClick: confirm,
-          disabled: !isPending || isEmpty,
+          disabled: !isPending || isEmpty || isSaving,
           disabledReason: confirmDisabledReason,
         }}
         overflowActions={overflowActions}
@@ -323,7 +335,7 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
             </Alert>
           )}
           <DealVehicleContainer {...containerProps} />
-          <DealPricingContainer {...containerProps} onOpenStockItem={openStockItemOverlay} />
+          <DealPricingContainer {...containerProps} onOpenStockItem={openStockItemOverlay} onUnsavedChange={setPricingUnsaved} />
           <DealTradeInContainer {...containerProps} />
         </Stack>
       )}

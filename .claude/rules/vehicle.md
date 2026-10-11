@@ -89,8 +89,7 @@ ticket; /drift-audit re-checks them weekly. -->
   attached a configuration (KAN-10).
 - **ADR-072** — option packages, exclusions and extra conditions are stored and shown, never
   enforced: a conflict warns, it never blocks.
-- **Host / mode matrix** (PRD v1.4; the pending contract added by KAN-67, ADR-083 drafted —
-  PRD not yet amended): Stock → add to pipeline: both (`build` factory order, `record` bought
+- **Host / mode matrix** (PRD v1.4; the pending contract added by KAN-67, ADR-083): Stock → add to pipeline: both (`build` factory order, `record` bought
   in) · Offer and pending contract → new configuration: `build` only · Offer and pending
   contract → trade-in: `record`, via the valuation path · Valuation → new valuation: `record`
   only. The configuration entity

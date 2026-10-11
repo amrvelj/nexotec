@@ -987,7 +987,8 @@
       "confirmDisabledReason": "Nur im Status Offen bestätigbar.",
       "cancel": "Stornieren …",
       "cancelDisabledReason": "Bereits storniert oder fakturiert.",
-      "confirmDisabledReasonEmpty": "Fahrzeug und Preis fehlen noch."
+      "confirmDisabledReasonEmpty": "Fahrzeug und Preis fehlen noch.",
+      "confirmDisabledReasonSaving": "Änderungen werden noch gespeichert."
     },
     "stats": {
       "grossPrice": "Verkaufspreis",

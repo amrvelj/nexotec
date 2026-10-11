@@ -987,7 +987,8 @@
       "confirmDisabledReason": "Confirmable uniquement à l'état ouvert.",
       "cancel": "Annuler …",
       "cancelDisabledReason": "Déjà annulé ou facturé.",
-      "confirmDisabledReasonEmpty": "Véhicule et prix manquants."
+      "confirmDisabledReasonEmpty": "Véhicule et prix manquants.",
+      "confirmDisabledReasonSaving": "Les modifications sont encore en cours d'enregistrement."
     },
     "stats": {
       "grossPrice": "Prix de vente",

@@ -155,7 +155,8 @@ export function DealPricingContainer<D extends SalesPricedDealRead>({
   patch,
   onDealUpdated,
   onOpenStockItem,
-}: DealContainerProps<D> & { onOpenStockItem?: () => void }) {
+  onUnsavedChange,
+}: DealContainerProps<D> & { onOpenStockItem?: () => void; onUnsavedChange?: (unsaved: boolean) => void }) {
   const { t } = useTranslation()
   const pricingStatus = (deal.containers ?? []).find((c) => c.id === 'pricing')?.status
   return (
@@ -181,6 +182,7 @@ export function DealPricingContainer<D extends SalesPricedDealRead>({
           void patch({ discountType: change.discountType, discountValue: change.discountValue }).catch(reportedByHost)
         }
         onManualBasePriceChange={(value) => void patch({ manualBasePrice: value }).catch(reportedByHost)}
+        onUnsavedChange={onUnsavedChange}
       />
       <OfferAccessoriesAndOptions ownerType={ownerType} deal={deal} onDealUpdated={onDealUpdated} />
     </OverviewCard>

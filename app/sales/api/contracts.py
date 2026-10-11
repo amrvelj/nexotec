@@ -117,7 +117,7 @@ def update_contract(
     principal: Principal = Depends(require_write("sales_contracts")),
     db: Session = Depends(get_db),
 ):
-    contract = contract_service.get_contract_or_404(db, principal.tenant_id, contract_id)
+    contract = contract_service.get_contract_or_404(db, principal.tenant_id, contract_id, for_update=True)
     check_version(contract.version, if_match, entity_name="SalesContract")
     contract = contract_service.update_contract(db, contract=contract, data=body, actor_id=principal.user_id)
     return _contract_read(contract)
@@ -131,7 +131,7 @@ def set_contract_trade_in(
     principal: Principal = Depends(require_write("sales_contracts")),
     db: Session = Depends(get_db),
 ):
-    contract = contract_service.get_contract_or_404(db, principal.tenant_id, contract_id)
+    contract = contract_service.get_contract_or_404(db, principal.tenant_id, contract_id, for_update=True)
     check_version(contract.version, if_match, entity_name="SalesContract")
     contract = trade_in_service.set_trade_in(
         db,
@@ -155,7 +155,7 @@ def attach_contract_trade_in_valuation(
     principal: Principal = Depends(require_write("sales_contracts")),
     db: Session = Depends(get_db),
 ):
-    contract = contract_service.get_contract_or_404(db, principal.tenant_id, contract_id)
+    contract = contract_service.get_contract_or_404(db, principal.tenant_id, contract_id, for_update=True)
     check_version(contract.version, if_match, entity_name="SalesContract")
     contract = trade_in_service.attach_trade_in_valuation(
         db, deal=contract, valuation_id=body.valuation_id, actor_id=principal.user_id
@@ -185,7 +185,7 @@ def replace_contract_line_items(
     """S-D14, as on the offer: accessories are a full replace; factory
     options a per-id patch. Returns the contract with its price rebuilt."""
 
-    contract = contract_service.get_contract_or_404(db, principal.tenant_id, contract_id)
+    contract = contract_service.get_contract_or_404(db, principal.tenant_id, contract_id, for_update=True)
     check_version(contract.version, if_match, entity_name="SalesContract")
     contract = line_items_service.replace_line_items(db, deal=contract, data=body, actor_id=principal.user_id)
     return _contract_read(contract)
@@ -198,7 +198,7 @@ def confirm_contract(
     principal: Principal = Depends(require_write("sales_contracts")),
     db: Session = Depends(get_db),
 ):
-    contract = contract_service.get_contract_or_404(db, principal.tenant_id, contract_id)
+    contract = contract_service.get_contract_or_404(db, principal.tenant_id, contract_id, for_update=True)
     check_version(contract.version, if_match, entity_name="SalesContract")
     contract = contract_service.confirm_contract(
         db, contract=contract, group_id=principal.group_id, actor_id=principal.user_id
@@ -213,7 +213,7 @@ def request_invoice(
     principal: Principal = Depends(require_write("sales_contracts")),
     db: Session = Depends(get_db),
 ):
-    contract = contract_service.get_contract_or_404(db, principal.tenant_id, contract_id)
+    contract = contract_service.get_contract_or_404(db, principal.tenant_id, contract_id, for_update=True)
     check_version(contract.version, if_match, entity_name="SalesContract")
     contract = contract_service.request_invoice(db, contract=contract, actor_id=principal.user_id)
     return _contract_read(contract)
@@ -227,7 +227,7 @@ def cancel_contract(
     principal: Principal = Depends(require_write("sales_contracts")),
     db: Session = Depends(get_db),
 ):
-    contract = contract_service.get_contract_or_404(db, principal.tenant_id, contract_id)
+    contract = contract_service.get_contract_or_404(db, principal.tenant_id, contract_id, for_update=True)
     check_version(contract.version, if_match, entity_name="SalesContract")
     contract = contract_service.cancel_contract(db, contract=contract, reason=body.reason, actor_id=principal.user_id)
     return _contract_read(contract)

@@ -987,7 +987,8 @@
       "confirmDisabledReason": "Only confirmable while open.",
       "cancel": "Cancel …",
       "cancelDisabledReason": "Already cancelled or invoiced.",
-      "confirmDisabledReasonEmpty": "Still missing a vehicle and a price."
+      "confirmDisabledReasonEmpty": "Still missing a vehicle and a price.",
+      "confirmDisabledReasonSaving": "Changes are still being saved."
     },
     "stats": {
       "grossPrice": "Sale price",

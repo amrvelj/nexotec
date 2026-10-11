@@ -38,10 +38,23 @@ _EVENT_PRODUCER = "sales"
 logger = logging.getLogger(__name__)
 
 
-def get_contract_or_404(db: Session, tenant_id: uuid.UUID, contract_id: uuid.UUID) -> SalesContract:
-    contract = db.scalar(
-        select(SalesContract).where(SalesContract.id == contract_id, SalesContract.tenant_id == tenant_id)
-    )
+def get_contract_or_404(
+    db: Session, tenant_id: uuid.UUID, contract_id: uuid.UUID, *, for_update: bool = False
+) -> SalesContract:
+    """`for_update` (KAN-67) locks the row until the caller commits: every
+    route that changes a contract loads it this way, so an edit and a
+    confirmation of the same contract run one after the other. Without it,
+    an edit that read the contract while pending could write after it was
+    signed (the If-Match check compares the version as read, not as
+    written) and rewrite a frozen price behind the confirmed event. The
+    lock is Postgres's row lock, taken in the request's own session; the
+    cross-context calls confirmation makes run on sessions of their own and
+    never touch this row."""
+
+    stmt = select(SalesContract).where(SalesContract.id == contract_id, SalesContract.tenant_id == tenant_id)
+    if for_update:
+        stmt = stmt.with_for_update()
+    contract = db.scalar(stmt)
     if contract is None:
         raise NotFoundError(f"Contract {contract_id} was not found.")
     return contract
