@@ -974,7 +974,8 @@
         "staleVersion": "Ce contrat a changé depuis le chargement de la page. Il a été rechargé — vérifiez-le et réessayez.",
         "badStatus": "Ce contrat ne peut plus être confirmé depuis son statut actuel.",
         "generic": "Le contrat n'a pas pu être confirmé.",
-        "tradeInValuationExpired": "L'évaluation de reprise de ce contrat a expiré ; le contrat ne peut donc pas être confirmé. Annulez-le et créez un nouveau contrat à partir d'une offre avec une évaluation à jour."
+        "tradeInValuationExpired": "L'évaluation de reprise de ce contrat a expiré ; le contrat ne peut donc pas être confirmé. Annulez-le et créez un nouveau contrat à partir d'une offre avec une évaluation à jour.",
+        "vehicleLeftStock": "Ce véhicule a déjà quitté le stock (vendu). Il ne peut pas être réservé à nouveau ; le contrat ne peut donc pas être confirmé."
       },
       "editRefused": {
         "staleVersion": "Le contrat a été modifié entre-temps. La version actuelle est chargée – veuillez refaire votre modification.",
@@ -987,6 +988,7 @@
       "confirmDisabledReason": "Confirmable uniquement à l'état ouvert.",
       "cancel": "Annuler …",
       "cancelDisabledReason": "Déjà annulé ou facturé.",
+      "cancelDisabledReasonLegacy": "Vente reprise de l'ancien système — déjà facturée là-bas, elle ne peut pas être annulée.",
       "confirmDisabledReasonEmpty": "Véhicule et prix manquants."
     },
     "stats": {

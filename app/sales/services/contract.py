@@ -85,6 +85,31 @@ def create_contract(
                 f"Customer {customer.customer_number} is do-not-contact — cannot be attached to a contract."
             )
 
+    if offer is not None:
+        # KAN-147 — one live contract per offer: a second one would sell the
+        # same deal twice, and for a legacy sale's synthesised offer it would
+        # hand a sale the old system invoiced to invoicing again. The offer's
+        # row lock serialises two concurrent creations; a cancelled contract
+        # frees the offer for a new one. Re-read under the lock, so the
+        # contract copies the offer as committed (a customer merge since the
+        # caller loaded it included), not the caller's stale object. The flush
+        # first keeps a caller's own pending change to the offer, which a
+        # refresh would otherwise discard.
+        db.flush()
+        db.refresh(offer, with_for_update=True)
+        live = db.scalar(
+            select(SalesContract.contract_number).where(
+                SalesContract.tenant_id == tenant_id,
+                SalesContract.offer_id == offer.id,
+                SalesContract.status != ContractStatus.CANCELLED,
+            ).limit(1)
+        )
+        if live is not None:
+            raise ConflictError(
+                f"Offer {offer.offer_number} already has contract {live}; only a cancelled contract frees an offer.",
+                details={"reason": "offer_already_contracted", "contractNumber": live},
+            )
+
     contract = SalesContract(
         tenant_id=tenant_id,
         contract_number=allocate_contract_number(db, tenant_id),
@@ -567,12 +592,23 @@ def request_invoice(db: Session, *, contract: SalesContract, actor_id: uuid.UUID
     in the query that loaded the contract — no call to Stock. A manually
     configured vehicle is refused too: confirmation makes it a pipeline
     stock item Sales is not told about, so Sales cannot see its purchase.
+
+    A contract migrated from the legacy `transaction` table is refused
+    whatever its purchase (Anto, 2026-10-10; KAN-147, ADR-050): the old
+    system invoiced it, and a second invoice would break the gapless
+    numbering's meaning (ADR-032). It stays CONFIRMED as migrated.
     """
 
     if contract.status != ContractStatus.CONFIRMED:
         raise ConflictError(
             f"Contract {contract.contract_number} cannot request invoicing from status "
             f"'{contract.status.value}'."
+        )
+    if contract.legacy_transaction_id is not None:
+        raise ConflictError(
+            f"Contract {contract.contract_number} was migrated from the legacy system, which invoiced it — "
+            f"it cannot be invoiced again.",
+            details={"reason": "legacy_sale"},
         )
     db.refresh(contract, ["is_invoiceable"])  # as of now, not as of when the caller loaded it
     if not contract.is_invoiceable:
@@ -614,6 +650,7 @@ def cancel_contract(
     """PENDING or CONFIRMED can both be cancelled — CONFIRMED additionally
     releases the stock reservation first (Pattern B, dedicated session,
     same reasoning as confirm_contract's own reserve_for_contract() call).
+    A contract migrated from the legacy system is refused (KAN-147).
     A manual configuration has no reservation_id here: Stock reserved its
     pipeline item itself and releases it on `sales.contract.cancelled`
     (KAN-158).
@@ -623,6 +660,14 @@ def cancel_contract(
         raise ConflictError(
             f"Contract {contract.contract_number} cannot be cancelled from status '{contract.status.value}'.",
             details={"status": contract.status.value},
+        )
+    if contract.legacy_transaction_id is not None:
+        # KAN-147 — a legacy sale is history (ADR-050): cancelling it would
+        # publish a years-old sale as today's business and free its offer
+        # for a second contract.
+        raise ConflictError(
+            f"Contract {contract.contract_number} was migrated from the legacy system — it cannot be cancelled.",
+            details={"reason": "legacy_sale"},
         )
 
     if contract.status == ContractStatus.CONFIRMED and contract.reservation_id is not None:

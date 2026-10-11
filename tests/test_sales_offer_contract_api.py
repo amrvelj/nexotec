@@ -291,3 +291,29 @@ def test_request_invoice_for_a_vehicle_not_purchased_is_409_with_its_reason(clie
 
     assert response.status_code == 409, response.text
     assert response.json()["error"]["details"] == {"reason": "vehicle_not_purchased"}
+
+
+def test_an_offer_has_one_live_contract_until_that_one_is_cancelled(client):
+    """KAN-147: a second contract from the same offer would sell the deal
+    twice (and, for a legacy sale's synthesised offer, invoice it again).
+    Cancelling the first frees the offer."""
+
+    token = _token(role=AccessRole.SALES)
+    offer = client.post("/v1/sales/offers", headers=_bearer(token)).json()
+    first = client.post("/v1/sales/contracts", json={"offerId": offer["id"]}, headers=_bearer(token)).json()
+    assert first["isLegacy"] is False
+
+    second = client.post("/v1/sales/contracts", json={"offerId": offer["id"]}, headers=_bearer(token))
+
+    assert second.status_code == 409, second.text
+    assert second.json()["error"]["details"] == {
+        "reason": "offer_already_contracted", "contractNumber": first["contractNumber"]
+    }
+
+    cancelled = client.post(
+        f"/v1/sales/contracts/{first['id']}/cancel", json={"reason": "Kunde verzichtet"},
+        headers={**_bearer(token), "If-Match": str(first["version"])},
+    )
+    assert cancelled.status_code == 200, cancelled.text
+    again = client.post("/v1/sales/contracts", json={"offerId": offer["id"]}, headers=_bearer(token))
+    assert again.status_code == 201, again.text
