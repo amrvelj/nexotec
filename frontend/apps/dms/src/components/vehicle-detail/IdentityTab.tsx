@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Badge, Button, Group, Select, Stack } from '@mantine/core'
+import { Alert, Badge, Button, Group, Select, Stack } from '@mantine/core'
 import { UserPlus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { InlineEditField, KeyValueRow, OverviewCard, Picker, purple, useOverlay } from '@nexotec/ui-kit'
@@ -47,10 +47,34 @@ export function IdentityTab({
 }: IdentityTabProps) {
   const { t } = useTranslation()
   const [allocating, setAllocating] = useState(false)
+  const [allocationSaving, setAllocationSaving] = useState(false)
+  const [allocationError, setAllocationError] = useState<string | null>(null)
   const [role, setRole] = useState<VehiclePartyRole>('owner')
   const [showFormer, setShowFormer] = useState(false)
   const isConflict = (err: unknown) => err instanceof ApiError && err.status === 409
   const overlay = useOverlay()
+
+  // KAN-269 (ADR-035): a failed allocation leaves the picker open with the
+  // chosen role and search, says why, and stops showing it as busy — the
+  // retry (same customer, same role) reuses its Idempotency-Key.
+  const allocate = async (customerId: string) => {
+    if (allocationSaving) return
+    setAllocationSaving(true)
+    setAllocationError(null)
+    try {
+      await onAllocate(customerId, role)
+      setAllocating(false)
+    } catch (err) {
+      setAllocationError(err instanceof ApiError ? err.message : t('vehicleDetail.parties.allocateError'))
+    } finally {
+      setAllocationSaving(false)
+    }
+  }
+
+  const closeAllocation = () => {
+    setAllocating(false)
+    setAllocationError(null)
+  }
 
   // KAN-140: the holder's name, never the raw customer id (an internal id
   // is never user-visible text). displayName is optional on the contract,
@@ -158,13 +182,17 @@ export function IdentityTab({
                 rows={customerCandidates}
                 query={customerSearch}
                 onQueryChange={onCustomerSearchChange}
-                onSelect={(row) => {
-                  void onAllocate(row.id, role).then(() => setAllocating(false))
-                }}
+                onSelect={(row) => void allocate(row.id)}
+                loading={allocationSaving}
                 placeholder={t('vehicleDetail.parties.searchCustomer')}
                 emptyLabel={t('vehicleDetail.parties.noCustomers')}
               />
-              <Button variant="default" size="xs" onClick={() => setAllocating(false)}>
+              {allocationError && (
+                <Alert color="red" role="alert">
+                  {allocationError}
+                </Alert>
+              )}
+              <Button variant="default" size="xs" onClick={closeAllocation}>
                 {t('common.cancel')}
               </Button>
             </Stack>

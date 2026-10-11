@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { ActionIcon, Button, Group, Loader, Stack, Table, TextInput } from '@mantine/core'
+import { ActionIcon, Alert, Button, Group, Loader, Stack, Table, TextInput } from '@mantine/core'
 import { Plus, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { ApiError } from '../../api/client'
 import type { VehicleAccessoryRead } from '../../api/types'
 
 interface AccessoriesTabProps {
@@ -19,16 +20,32 @@ export function AccessoriesTab({ accessories, loading, onAdd, onRemove }: Access
   const [type, setType] = useState('')
   const [description, setDescription] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
+  // KAN-269 (ADR-035): a failed add or remove says so; a failed add keeps
+  // what was typed, so the retry — under the same Idempotency-Key — is one
+  // click away.
   const submit = async () => {
     if (!type) return
     setSubmitting(true)
+    setError(null)
     try {
       await onAdd(type, description, new Date().toISOString().slice(0, 10))
       setType('')
       setDescription('')
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t('vehicleDetail.accessories.saveError'))
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const remove = async (accessoryId: string) => {
+    setError(null)
+    try {
+      await onRemove(accessoryId)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t('vehicleDetail.accessories.removeError'))
     }
   }
 
@@ -41,6 +58,12 @@ export function AccessoriesTab({ accessories, loading, onAdd, onRemove }: Access
           {t('vehicleDetail.accessories.add')}
         </Button>
       </Group>
+
+      {error && (
+        <Alert color="red" role="alert">
+          {error}
+        </Alert>
+      )}
 
       {loading ? (
         <Loader size="sm" />
@@ -73,7 +96,7 @@ export function AccessoriesTab({ accessories, loading, onAdd, onRemove }: Access
                   <Table.Td>{a.validTo ?? ''}</Table.Td>
                   <Table.Td>
                     {!closed && (
-                      <ActionIcon variant="subtle" color="red" size="sm" onClick={() => void onRemove(a.id)} aria-label={t('vehicleDetail.accessories.remove')}>
+                      <ActionIcon variant="subtle" color="red" size="sm" onClick={() => void remove(a.id)} aria-label={t('vehicleDetail.accessories.remove')}>
                         <X size={14} />
                       </ActionIcon>
                     )}

@@ -1,3 +1,4 @@
+import i18n from '../i18n'
 import type { ApiErrorBody } from './types'
 
 // Session auth is an httpOnly cookie (issue #8) — this app never reads or
@@ -20,6 +21,19 @@ export class ApiError extends Error {
   }
 }
 
+// KAN-271: a response without the API's error body (a gateway's HTML 502/
+// 503/504, an empty or non-JSON body) still reaches the screen as an
+// `ApiError`, and most screens show `err.message` as it is — so the fallback
+// is a translated message in the active UI language, never a literal.
+function toApiError(status: number, errorBody: ApiErrorBody | null): ApiError {
+  return new ApiError(
+    status,
+    errorBody?.error?.code ?? 'unknown_error',
+    errorBody?.error?.message ?? i18n.t('common.requestFailed'),
+    errorBody?.error?.details ?? null,
+  )
+}
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
@@ -37,13 +51,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const body = await response.json().catch(() => null)
 
   if (!response.ok) {
-    const errorBody = body as ApiErrorBody | null
-    throw new ApiError(
-      response.status,
-      errorBody?.error?.code ?? 'unknown_error',
-      errorBody?.error?.message ?? 'Something went wrong.',
-      errorBody?.error?.details ?? null,
-    )
+    throw toApiError(response.status, body as ApiErrorBody | null)
   }
 
   return body as T
@@ -58,13 +66,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 async function getBlobUrl(path: string): Promise<string> {
   const response = await fetch(`${API_BASE_URL}${path}`, { credentials: 'include' })
   if (!response.ok) {
-    const errorBody = (await response.json().catch(() => null)) as ApiErrorBody | null
-    throw new ApiError(
-      response.status,
-      errorBody?.error?.code ?? 'unknown_error',
-      errorBody?.error?.message ?? 'Something went wrong.',
-      errorBody?.error?.details ?? null,
-    )
+    throw toApiError(response.status, (await response.json().catch(() => null)) as ApiErrorBody | null)
   }
   const blob = await response.blob()
   return URL.createObjectURL(blob)
