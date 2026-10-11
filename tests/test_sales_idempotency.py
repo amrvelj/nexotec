@@ -87,7 +87,9 @@ def _offer(client, token: str) -> dict:
 
 
 def _contract(client, token: str) -> dict:
-    response = client.post("/v1/sales/contracts", json={}, headers=_headers(token))
+    # KAN-276: a contract comes from an offer or is created for a customer, never from nothing.
+    offer = _offer(client, token)
+    response = client.post("/v1/sales/contracts", json={"offerId": offer["id"]}, headers=_headers(token))
     assert response.status_code == 201, response.text
     return response.json()
 
@@ -135,9 +137,9 @@ def test_create_offer_twice_under_one_key_makes_one_offer(client, db_session):
 def test_an_offer_create_key_reused_for_a_contract_create_is_a_409(client, db_session):
     tenant_id = uuid.uuid4()
     token = _token(tenant_id)
-    key, _ = _twice(client, "/v1/sales/offers", token, None)
+    key, offer = _twice(client, "/v1/sales/offers", token, None)
 
-    response = client.post("/v1/sales/contracts", json={}, headers=_headers(token, key))
+    response = client.post("/v1/sales/contracts", json={"offerId": offer["id"]}, headers=_headers(token, key))
 
     _assert_key_conflict(response, key)
     assert _count(db_session, SalesContract, SalesContract.tenant_id == tenant_id) == 0
@@ -374,8 +376,9 @@ def test_generate_offer_document_with_a_reused_key_on_another_offer_is_a_409(cli
 def test_create_contract_twice_under_one_key_makes_one_contract(client, db_session):
     tenant_id = uuid.uuid4()
     token = _token(tenant_id)
+    offer = _offer(client, token)
 
-    _twice(client, "/v1/sales/contracts", token, {})
+    _twice(client, "/v1/sales/contracts", token, {"offerId": offer["id"]})
 
     assert _count(db_session, SalesContract, SalesContract.tenant_id == tenant_id) == 1
 
@@ -384,12 +387,13 @@ def test_create_contract_with_a_reused_key_and_another_body_is_a_409(client, db_
     tenant_id = uuid.uuid4()
     token = _token(tenant_id)
     offer = _offer(client, token)
-    key, _ = _twice(client, "/v1/sales/contracts", token, {})
+    other_offer = _offer(client, token)
+    key, _ = _twice(client, "/v1/sales/contracts", token, {"offerId": offer["id"]})
 
-    response = client.post("/v1/sales/contracts", json={"offerId": offer["id"]}, headers=_headers(token, key))
+    response = client.post("/v1/sales/contracts", json={"offerId": other_offer["id"]}, headers=_headers(token, key))
 
     _assert_key_conflict(response, key)
-    assert _count(db_session, SalesContract, SalesContract.offer_id == uuid.UUID(offer["id"])) == 0
+    assert _count(db_session, SalesContract, SalesContract.offer_id == uuid.UUID(other_offer["id"])) == 0
 
 
 # --- POST /v1/sales/contracts/{id}/confirm (If-Match, no body) --------------------

@@ -13,8 +13,9 @@ from app.sales.schemas.offer import OfferContainerState
 
 
 class ContractCreate(CamelModel):
-    # None = a direct "Vertrag erstellen" contract with no prior offer
-    # (confirmed live as the stock detail header's own primary action).
+    # Exactly one of offer_id and customer_id (KAN-276, Anto 2026-10-11: "no
+    # empty contracts"). A contract with neither had no buyer, no vehicle and
+    # no price, and could still be completed and signed (KAN-67).
     offer_id: uuid.UUID | None = None
     # KAN-58 — the customer→contract entry point (FR-22 "New contract" on
     # the customer row menu / 360 overflow / offers-and-contracts tab). An
@@ -28,6 +29,11 @@ class ContractCreate(CamelModel):
             raise ValueError(
                 "offerId and customerId cannot both be set — a contract born from an offer already has that "
                 "offer's customer."
+            )
+        if self.offer_id is None and self.customer_id is None:
+            raise ValueError(
+                "A contract needs offerId or customerId — it is created from an offer or for a customer, never "
+                "from nothing."
             )
         return self
 

@@ -168,7 +168,8 @@ def test_offers_endpoint_accepts_customer_id(client):
 
 def test_contracts_endpoint_accepts_customer_id(client):
     token = _token()
-    client.post("/v1/sales/contracts", json={}, headers=_bearer(token))
+    offer = client.post("/v1/sales/offers", headers=_bearer(token)).json()
+    client.post("/v1/sales/contracts", json={"offerId": offer["id"]}, headers=_bearer(token))
 
     match = client.get(f"/v1/sales/contracts?customer_id={uuid.uuid4()}", headers=_bearer(token))
     assert match.status_code == 200, match.text
