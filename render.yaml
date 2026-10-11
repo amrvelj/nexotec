@@ -68,6 +68,11 @@ databases:
     # staging stays on Render, and on a paid database, is the hosting
     # decision KAN-234 records as an ADR in the Target Architecture.
     plan: 0.1c-256mb
+    # Pinned to what the live database is in (Render dashboard, read by
+    # Anto 2026-10-11): ADR-016's "Render, EU (Frankfurt)" — Swiss/EU data
+    # residency. Without this key Render defaults a NEW resource to Oregon
+    # (USA), and a region cannot be changed after creation (KAN-238).
+    region: frankfurt
     databaseName: dms_staging
     user: dms_staging
 
@@ -76,6 +81,10 @@ services:
     type: web
     runtime: python
     plan: free
+    # Same pin as the database, for the same reason (KAN-238): Frankfurt
+    # is where the live service is, and only services in one region can
+    # share Render's private network the day the worker is provisioned.
+    region: frankfurt
     # VITE_OUTBOX_WORKER_ABSENT=true: the SPA tells every signed-in user that
     # this environment runs no outbox worker — no event consumer, no daily
     # job (app/worker.py::register_handlers and register_daily_jobs are the
@@ -175,7 +184,8 @@ services:
   #     needs none and is lost with the process.
   #
   # The original service definition and its design notes follow, unchanged
-  # apart from being commented out and KAN-258's DMS_ENVIRONMENT line. Where
+  # apart from being commented out, KAN-258's DMS_ENVIRONMENT line and
+  # KAN-238's region pin. Where
   # they say "Starter tier, not free", read: a worker has no free plan at
   # all; their point stands — a worker that spins down defeats its purpose.
   # ---------------------------------------------------------------------
@@ -200,6 +210,8 @@ services:
   #   type: worker
   #   runtime: python
   #   plan: starter
+  #   # Same pin as the web service and the database (KAN-238).
+  #   region: frankfurt
   #   buildCommand: pip install -e .
   #   startCommand: alembic upgrade heads && python -m app.worker
   #   envVars:
