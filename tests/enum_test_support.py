@@ -14,20 +14,40 @@ from sqlalchemy import text
 
 from app.core.auth import AccessRole, create_access_token
 
+# The current schema's constraints only: a test database may hold a second
+# copy of the tables in another schema, with the same names (KAN-298).
+_IN_CURRENT_SCHEMA = "connamespace = current_schema()::regnamespace"
+_ENUM_CHECKS = (
+    "SELECT (SELECT relname FROM pg_class WHERE oid = conrelid), conname, pg_get_constraintdef(oid) "
+    f"FROM pg_constraint WHERE {_IN_CURRENT_SCHEMA} AND contype = 'c' AND conname LIKE 'ck\\_%\\_enum'"
+)
+
+
+def enum_checks(conn) -> dict[tuple[str, str], str]:
+    """Every `ck_*_enum` constraint: (table, name) -> definition."""
+
+    return {(table, name): definition for table, name, definition in conn.execute(text(_ENUM_CHECKS))}
+
+
+def scope_check_definition(conn) -> str:
+    """ck_integration_connection_scope_tenant_id, as Postgres prints it."""
+
+    return conn.execute(
+        text(
+            "SELECT pg_get_constraintdef(oid) FROM pg_constraint "
+            f"WHERE {_IN_CURRENT_SCHEMA} AND conname = 'ck_integration_connection_scope_tenant_id'"
+        )
+    ).scalar_one()
+
 
 def drop_enum_checks(conn) -> int:
     """Drops every `ck_*_enum` constraint (a database from before KAN-175);
     returns how many."""
 
-    rows = conn.execute(
-        text(
-            "SELECT conrelid::regclass::text, conname FROM pg_constraint "
-            "WHERE contype = 'c' AND conname LIKE 'ck\\_%\\_enum'"
-        )
-    ).all()
-    for table, name in rows:
-        conn.execute(text(f'ALTER TABLE {table} DROP CONSTRAINT "{name}"'))
-    return len(rows)
+    checks = enum_checks(conn)
+    for table, name in checks:
+        conn.execute(text(f'ALTER TABLE "{table}" DROP CONSTRAINT "{name}"'))
+    return len(checks)
 
 
 def widen_connection_scope_check(conn) -> None:

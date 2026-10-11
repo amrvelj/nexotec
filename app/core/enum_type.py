@@ -26,7 +26,8 @@ the column joins its table and created on existing tables by the KAN-175
 migrations: an unknown string can no longer be stored, so every list
 endpoint is safe against undecodable rows. Alembic's autogenerate does not
 compare CHECK constraints, so a new enum column, or a new member, needs its
-constraint created (or replaced) in its migration by hand.
+constraint created (or replaced) in its migration by hand;
+tests/test_migrated_enum_checks.py fails until it is (KAN-296).
 
 What it does NOT do: invent a member for a stored string that is not a
 value. That still raises `LookupError`, exactly as `sqlalchemy.Enum` did.
@@ -41,7 +42,7 @@ import enum
 from collections.abc import Iterable
 from typing import Any
 
-from sqlalchemy import CheckConstraint, Column, String, Table, event, literal, text
+from sqlalchemy import CheckConstraint, Column, String, Table, event, literal, type_coerce
 from sqlalchemy.sql import operators
 from sqlalchemy.types import TypeDecorator
 
@@ -191,4 +192,14 @@ class StoredEnum(TypeDecorator):
         name = enum_check_name(table.name, column.name)
         if any(getattr(constraint, "name", None) == name for constraint in table.constraints):
             return
-        table.append_constraint(CheckConstraint(text(enum_check_condition(column.name, self.values)), name=name))
+        # Built as sqlalchemy.Enum builds its own CHECK: on the column, and
+        # type-bound. Table.to_metadata() then skips it and the copied column
+        # attaches its own (KAN-297) — one CHECK per copy, named after the
+        # copy's table. Postgres stores it exactly as it stores a migration's
+        # enum_check_condition() (tests/test_migrated_enum_checks.py), and
+        # Alembic's autogenerate still renders it in a create_table.
+        table.append_constraint(
+            CheckConstraint(
+                type_coerce(column, String()).in_(self.values), name=name, _autoattach=False, _type_bound=True
+            )
+        )

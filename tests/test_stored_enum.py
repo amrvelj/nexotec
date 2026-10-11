@@ -11,8 +11,10 @@ rather than one each.
 import enum
 
 import pytest
-from sqlalchemy import Column, Integer, MetaData, Table, insert, select, text
+from sqlalchemy import CheckConstraint, Column, Integer, MetaData, Table, insert, select, text
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import IntegrityError, StatementError
+from sqlalchemy.schema import CreateTable
 
 from app.core.enum_type import StoredEnum, enum_check_condition, enum_check_name
 
@@ -126,6 +128,23 @@ def test_another_classs_member_resolves_by_its_value_never_by_its_name():
     assert column_type.process_bind_param(Shade.BLUE, None) == "blue"
     with pytest.raises(LookupError, match="is not among the defined enum values"):
         column_type.process_bind_param(Tint.BLUE, None)
+
+
+def _check_names(table: Table) -> list[str]:
+    return sorted(c.name for c in table.constraints if isinstance(c, CheckConstraint))
+
+
+def test_a_copied_table_carries_each_check_once():
+    """KAN-297: Table.to_metadata() copies the table's constraints and attaches
+    the copied column, which attaches its own CHECK. The copy carries one, named
+    after the table it now belongs to."""
+
+    assert _check_names(_paint.to_metadata(MetaData())) == ["ck_kan86_paint_colour_enum"]
+
+    renamed = _paint.to_metadata(MetaData(), name="kan297_paint")
+    assert _check_names(renamed) == ["ck_kan297_paint_colour_enum"]
+    ddl = str(CreateTable(renamed).compile(dialect=postgresql.dialect()))
+    assert "CONSTRAINT ck_kan297_paint_colour_enum CHECK (colour IN ('dark_red', 'blue'))" in ddl
 
 
 def test_the_check_constraint_is_named_and_shaped_for_its_migration():

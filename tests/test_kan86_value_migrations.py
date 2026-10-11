@@ -40,6 +40,7 @@ from tests.enum_test_support import (
     _to_name_form,
     _token,
     drop_enum_checks,
+    scope_check_definition,
     widen_connection_scope_check,
 )
 
@@ -307,12 +308,6 @@ def test_a_row_already_in_value_form_is_not_touched(engine, seeded, capsys):
 _NAMES_CHECK = "(scope = 'PLATFORM' AND tenant_id IS NULL) OR (scope = 'TENANT' AND tenant_id IS NOT NULL)"
 
 
-def _check_definition(conn) -> str:
-    return conn.execute(
-        text("SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'ck_integration_connection_scope_tenant_id'")
-    ).scalar_one()
-
-
 def _with_mains_check(conn) -> None:
     """The integration_connection CHECK as main has it: names only."""
 
@@ -339,7 +334,7 @@ def test_upgrade_widens_the_check_then_rewrites_and_downgrade_undoes_both(engine
             _run(conn, module.upgrade)
 
         assert {key: _raw(conn, *key) for key in seeded} == {key: m.value for key, m in members.items()}
-        assert "'platform'" in _check_definition(conn) and "'PLATFORM'" in _check_definition(conn)
+        assert "'platform'" in scope_check_definition(conn) and "'PLATFORM'" in scope_check_definition(conn)
         # A step-1 instance still serving writes the name: the widened CHECK takes it.
         _set_raw(conn, "integration_connection", "scope", "TENANT")
         # (Stored; since KAN-175 the code no longer reads a name — step 3's
@@ -350,7 +345,7 @@ def test_upgrade_widens_the_check_then_rewrites_and_downgrade_undoes_both(engine
         for module in reversed(list(_MIGRATIONS.values())):
             _run(conn, module.downgrade)
         after = {key: _raw(conn, *key) for key in seeded}
-        assert "'platform'" not in _check_definition(conn)
+        assert "'platform'" not in scope_check_definition(conn)
 
     expected = {key: m.name for key, m in members.items()}
     expected[("integration_connection", "scope")] = "TENANT"
