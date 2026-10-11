@@ -3,7 +3,7 @@
 // harmless there: registering jest-dom's matchers is environment-free, and
 // the RTL cleanup + DOM shims are only wired when a DOM actually exists (a
 // render test that declared `// @vitest-environment jsdom`).
-import { afterEach, vi } from 'vitest'
+import { afterEach, beforeEach, vi } from 'vitest'
 import '@testing-library/jest-dom/vitest'
 
 if (typeof window !== 'undefined') {
@@ -66,6 +66,26 @@ if (typeof window !== 'undefined') {
   }
 }
 
+// KAN-172 — a render test never reaches the network. Under
+// renderWithProviders, AuthProvider sends GET /auth/me on mount; in a file
+// that installed no fake backend that went to the real localhost:8000, and
+// when it settled after vitest had torn jsdom down, React's state update
+// threw "window is not defined" and failed the run — on whichever PR was
+// unlucky. So a jsdom test's default `fetch` is this stand-in: it records
+// the request and never settles (nothing lands after teardown), and the
+// test fails below, naming it. `installFakeBackend` replaces it.
+let unstubbedRequests: string[] = []
+if (typeof window !== 'undefined') {
+  beforeEach(() => {
+    unstubbedRequests = []
+    vi.stubGlobal('fetch', (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+      unstubbedRequests.push(`${(init?.method ?? 'GET').toUpperCase()} ${url}`)
+      return new Promise<Response>(() => {})
+    })
+  })
+}
+
 afterEach(async () => {
   vi.unstubAllGlobals()
   if (typeof document !== 'undefined') {
@@ -76,5 +96,13 @@ afterEach(async () => {
     } catch {
       // no-op — some environments deny storage access
     }
+  }
+  if (unstubbedRequests.length > 0) {
+    const requests = unstubbedRequests
+    unstubbedRequests = []
+    throw new Error(
+      `This render test called fetch without a fake backend: ${requests.join(', ')}. ` +
+        'Call installFakeBackend (src/test/fakeBackend.ts) in the test or its beforeEach.',
+    )
   }
 })

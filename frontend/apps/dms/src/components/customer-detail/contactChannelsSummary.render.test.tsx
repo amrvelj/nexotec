@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { screen, within } from '@testing-library/react'
 import i18n from '../../i18n'
+import { installFakeBackend } from '../../test/fakeBackend'
 import { renderWithProviders } from '../../test/renderWithProviders'
 import { customerAddress, email, phone } from '../../test/fixtures'
 import { ContactChannelsSummary, PreferredChannelBadge } from './ContactChannelsSummary'
@@ -10,6 +11,12 @@ import { ContactChannelsSummary, PreferredChannelBadge } from './ContactChannels
 // links, the primary row of the PREFERRED kind marked, a header badge that
 // survives the customer having no row of that kind, and dead rows never
 // linked.
+
+// KAN-172 — renderWithProviders mounts AuthProvider, which asks for
+// /auth/me; without the fake backend that request went to the network.
+beforeEach(() => {
+  installFakeBackend([])
+})
 
 const mobile = (over = {}) => phone({ type: 'mobile', value: '+41 79 111 22 33', isPrimary: true, ...over })
 const work = (over = {}) => phone({ type: 'work', value: '+41 44 000 00 00', ...over })
