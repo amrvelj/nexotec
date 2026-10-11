@@ -18,8 +18,9 @@ import {
   Warehouse,
   Wrench,
 } from 'lucide-react'
-import { AppShell, OverlayProvider, purple, white, type GlobalSearchGroup, type GlobalSearchProps, type NavGroupConfig } from '@nexotec/ui-kit'
+import { AppShell, EnvironmentNotice, OverlayProvider, purple, white, type GlobalSearchGroup, type GlobalSearchProps, type NavGroupConfig } from '@nexotec/ui-kit'
 import { useAuth } from '../auth/AuthContext'
+import { outboxWorkerAbsent } from '../config/deployment'
 import { UiPreferencesProvider, useUiPreferencesContext } from '../hooks/UiPreferencesContext'
 import { api } from '../api/client'
 import { customerName } from '../utils/customer'
@@ -303,6 +304,16 @@ function DmsShellInner({ children }: { children: ReactNode }) {
         linkComponent: Link,
       }}
       topbar={{ search: buildGlobalSearch(t, navigate) }}
+      // KAN-275 — ADR-081 (option D): staging runs no outbox worker, so no
+      // event consumer and no nightly job runs there. Say so on every
+      // signed-in screen (ADR-084) rather than let a tester read a missing
+      // pipeline item as a bug. Build-time setting, never the environment's
+      // name.
+      notice={
+        outboxWorkerAbsent() ? (
+          <EnvironmentNotice>{t('shell.environmentNotice.outboxWorkerAbsent')}</EnvironmentNotice>
+        ) : undefined
+      }
     >
       {/* § ADR-059 — mounted once, here, so any screen in the app can open
           an overlay via useOverlay() without knowing where the stack

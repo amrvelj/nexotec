@@ -32,6 +32,7 @@ export * from "./shell/OverviewShellRegion";
 export * from "./shell/overlayStack";
 export * from "./shell/Overlay";
 export * from "./shell/AppShell";
+export * from "./shell/EnvironmentNotice";
 export * from "./datagrid/types";
 export * from "./datagrid/sorting";
 export * from "./datagrid/columnLayout";

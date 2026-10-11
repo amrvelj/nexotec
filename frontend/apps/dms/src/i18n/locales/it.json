@@ -23,6 +23,9 @@
       "catalogue": "Catalogo"
     },
     "signOut": "Disconnetti",
+    "environmentNotice": {
+      "outboxWorkerAbsent": "Questo ambiente non esegue alcun worker in background: gli eventi non vengono recapitati e i job notturni non vengono eseguiti."
+    },
     "sidebar": {
       "mainNavigation": "Navigazione principale",
       "expandSidebar": "Espandi la barra laterale",
