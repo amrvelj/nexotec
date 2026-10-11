@@ -992,7 +992,8 @@
       "cancel": "Cancel …",
       "cancelDisabledReason": "Already cancelled or invoiced.",
       "cancelDisabledReasonLegacy": "Sale migrated from the legacy system — already invoiced there, so it cannot be cancelled.",
-      "confirmDisabledReasonEmpty": "Still missing a vehicle and a price."
+      "confirmDisabledReasonEmpty": "Still missing a vehicle and a price.",
+      "confirmDisabledReasonSaving": "Changes are still being saved."
     },
     "stats": {
       "grossPrice": "Sale price",

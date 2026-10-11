@@ -21,13 +21,16 @@ import { useDebouncedValue } from '@mantine/hooks'
  * round-trip of this same field's own value, which would reintroduce the
  * exact same "server value arrives mid-edit and clobbers what's being
  * typed" failure mode this hook exists to close.
+ *
+ * Returns `[value, setValue, unsaved]` — `unsaved` is true while a typed
+ * value waits out the delay (KAN-288).
  */
 export function useDebouncedNumberField(
   serverValue: number | null,
   resetKey: unknown,
   onCommit: (value: number | null) => void,
   delay = 500
-): [number | '', (value: number | '') => void] {
+): [number | '', (value: number | '') => void, boolean] {
   const [local, setLocal] = useState<number | ''>(serverValue ?? '')
   const [debounced] = useDebouncedValue(local, delay)
   const committedRef = useRef<number | ''>(serverValue ?? '')
@@ -51,5 +54,10 @@ export function useDebouncedNumberField(
     onCommitRef.current(debounced === '' ? null : Number(debounced))
   }, [debounced])
 
-  return [local, setLocal]
+  // KAN-288 — the third value: a typed value not yet handed to `onCommit`.
+  // A host that ends the edit (signing a contract) waits for it, or the
+  // value would be dropped when the field unmounts and its timer is cleared.
+  // Object.is: a lone "-" parses to NaN, and NaN !== NaN would read as
+  // "unsaved" forever.
+  return [local, setLocal, !Object.is(local, debounced)]
 }

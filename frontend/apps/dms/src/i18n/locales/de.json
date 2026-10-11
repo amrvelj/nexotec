@@ -992,7 +992,8 @@
       "cancel": "Stornieren …",
       "cancelDisabledReason": "Bereits storniert oder fakturiert.",
       "cancelDisabledReasonLegacy": "Aus dem Altsystem übernommener Verkauf — dort bereits fakturiert, kann nicht storniert werden.",
-      "confirmDisabledReasonEmpty": "Fahrzeug und Preis fehlen noch."
+      "confirmDisabledReasonEmpty": "Fahrzeug und Preis fehlen noch.",
+      "confirmDisabledReasonSaving": "Änderungen werden noch gespeichert."
     },
     "stats": {
       "grossPrice": "Verkaufspreis",

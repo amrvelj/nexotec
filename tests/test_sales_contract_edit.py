@@ -638,3 +638,139 @@ def test_a_contract_priced_without_inputs_is_not_editable_but_still_confirms(db_
         session_factory=_session_factory(engine),
     )
     assert contract.status == ContractStatus.CONFIRMED
+
+
+@_postgres_only_migration
+def test_an_edit_waits_for_a_confirmation_in_progress_and_is_then_refused(db_session, engine):
+    """Review finding: an edit that read the contract while pending could
+    write after it was signed and rewrite the frozen price. Every changing
+    route loads the contract `for_update`, so the edit's read waits until
+    the confirmation commits — and then sees it signed."""
+
+    from sqlalchemy import text
+    from sqlalchemy.exc import OperationalError
+    from sqlalchemy.orm import Session
+
+    from app.sales.services.contract import get_contract_or_404
+
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    contract = _manual_car(db_session, _customer_born_contract(db_session, dealership.id, group_id))
+
+    confirming = Session(bind=engine)  # the confirm request, holding the row
+    editing = Session(bind=engine)  # a PATCH arriving meanwhile
+    try:
+        held = get_contract_or_404(confirming, dealership.id, contract.id, for_update=True)
+        editing.execute(text("SET LOCAL lock_timeout = '200ms'"))
+        with pytest.raises(OperationalError):
+            get_contract_or_404(editing, dealership.id, contract.id, for_update=True)
+        editing.rollback()
+
+        confirm_contract(
+            confirming, contract=held, group_id=group_id, actor_id=uuid.uuid4(),
+            session_factory=_session_factory(engine),
+        )
+
+        seen = get_contract_or_404(editing, dealership.id, contract.id, for_update=True)
+        assert seen.status == ContractStatus.CONFIRMED
+        with pytest.raises(ConflictError) as refused:
+            update_contract(
+                editing, contract=seen, data=ContractUpdate(discount_type="amount", discount_value=Decimal("5000.00")),
+                actor_id=uuid.uuid4(),
+            )
+        assert refused.value.details["reason"] == "contract_not_pending"
+        editing.rollback()
+    finally:
+        confirming.close()
+        editing.close()
+
+    db_session.expire_all()
+    assert db_session.get(SalesContract, contract.id).gross_price == Decimal("18000.00")
+
+
+def test_the_trade_in_routes_refuse_a_contract_priced_without_inputs(db_session):
+    """Review hygiene finding: both trade-in routes go through the same guard."""
+
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    item = _stock_item(db_session, dealership.id)
+    offer = _offer_with_vehicle(db_session, dealership.id, item, group_id=group_id)
+    contract = create_contract(db_session, tenant_id=dealership.id, offer=offer, actor_id=uuid.uuid4())
+    _as_before_the_migration(db_session, contract)
+    db_session.expire_all()
+    contract = db_session.get(SalesContract, contract.id)
+    valuation = _valuation(db_session, dealership.id, group_id, "WVWZZZ1KZAW444444", Decimal("5000.00"))
+
+    for edit in (
+        lambda: set_trade_in(
+            db_session, deal=contract, group_id=group_id, vin="WVWZZZ1KZAW444444", plate=None, canton=None,
+            vehicle_label="Opel Corsa", customer_id=None, actor_id=uuid.uuid4(),
+        ),
+        lambda: attach_trade_in_valuation(db_session, deal=contract, valuation_id=valuation.id, actor_id=uuid.uuid4()),
+    ):
+        with pytest.raises(ConflictError) as refused:
+            edit()
+        assert refused.value.details["reason"] == "contract_priced_without_inputs"
+
+
+@_postgres_only_migration
+@pytest.mark.parametrize("route", ["patch", "line_items", "trade_in"])
+def test_an_edit_route_waits_for_a_confirmation_in_progress_and_is_refused(client, db_session, engine, route):
+    """KAN-288 review: the lock must be taken by the routes themselves. A
+    session holds the contract row as a confirmation does while the real
+    route runs in a thread; the route is still blocked after 0.8 s, and once
+    the confirmation commits it is refused — as a stale version, because its
+    If-Match was read before the signature — and the signed price stands.
+    Without `for_update` on the route the edit returns 200 and re-prices the
+    signed contract."""
+
+    import threading
+    import time
+
+    from sqlalchemy.orm import Session
+
+    from app.sales.services.contract import get_contract_or_404
+
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    contract = _manual_car(db_session, _customer_born_contract(db_session, dealership.id, group_id))
+    headers = {**_token(dealership.id, group_id), "If-Match": str(contract.version)}
+    requests = {
+        "patch": lambda: client.patch(
+            f"/v1/sales/contracts/{contract.id}", json={"discountType": "amount", "discountValue": "5000.00"},
+            headers=headers,
+        ),
+        "line_items": lambda: client.put(
+            f"/v1/sales/contracts/{contract.id}/line-items",
+            json={"accessories": [{"code": "MATS", "label": "Fussmatten", "unitPrice": "150.00"}]},
+            headers=headers,
+        ),
+        "trade_in": lambda: client.post(
+            f"/v1/sales/contracts/{contract.id}/trade-in",
+            json={"vin": "WVWZZZ1KZAW555555", "vehicleLabel": "Opel Corsa"}, headers=headers,
+        ),
+    }
+    result = {}
+
+    confirming = Session(bind=engine)
+    try:
+        held = get_contract_or_404(confirming, dealership.id, contract.id, for_update=True)
+        sender = threading.Thread(target=lambda: result.update(response=requests[route]()))
+        sender.start()
+        time.sleep(0.8)
+        blocked_while_held = sender.is_alive()
+        confirm_contract(
+            confirming, contract=held, group_id=group_id, actor_id=uuid.uuid4(),
+            session_factory=_session_factory(engine),
+        )
+        sender.join(10)
+    finally:
+        confirming.close()
+
+    assert blocked_while_held
+    response = result["response"]
+    assert response.status_code == 409, response.text
+    assert response.json()["error"]["details"]["currentVersion"] == contract.version + 1
+    db_session.expire_all()
+    signed = db_session.get(SalesContract, contract.id)
+    assert (signed.status, signed.gross_price) == (ContractStatus.CONFIRMED, Decimal("18000.00"))

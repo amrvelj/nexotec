@@ -992,7 +992,8 @@
       "cancel": "Annulla …",
       "cancelDisabledReason": "Già annullato o fatturato.",
       "cancelDisabledReasonLegacy": "Vendita ripresa dal sistema precedente — già fatturata lì, non può essere annullata.",
-      "confirmDisabledReasonEmpty": "Mancano ancora veicolo e prezzo."
+      "confirmDisabledReasonEmpty": "Mancano ancora veicolo e prezzo.",
+      "confirmDisabledReasonSaving": "Le modifiche sono ancora in fase di salvataggio."
     },
     "stats": {
       "grossPrice": "Prezzo di vendita",

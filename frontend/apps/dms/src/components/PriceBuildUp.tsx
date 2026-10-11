@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Group, NumberInput, Select, Stack, Text } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 import { useDebouncedNumberField } from '../hooks/useDebouncedNumberField'
@@ -9,6 +10,9 @@ export interface PriceBuildUpProps {
   deal: SalesPricedDealRead
   onDiscountChange: (patch: { discountType: string | null; discountValue: number | null }) => void
   onManualBasePriceChange?: (value: number | null) => void
+  /** KAN-288 — told whether a typed figure is still waiting to be saved, so a
+   * host that ends the edit (signing a contract) can wait for it. */
+  onUnsavedChange?: (unsaved: boolean) => void
 }
 
 function row(label: string, value: string, opts?: { bold?: boolean; negative?: boolean }) {
@@ -34,22 +38,29 @@ function row(label: string, value: string, opts?: { bold?: boolean; negative?: b
  * that never includes these fields at all (see
  * tests/architecture/test_margin_never_in_rendered_document.py).
  */
-export function PriceBuildUp({ deal, onDiscountChange, onManualBasePriceChange }: PriceBuildUpProps) {
+export function PriceBuildUp({ deal, onDiscountChange, onManualBasePriceChange, onUnsavedChange }: PriceBuildUpProps) {
   const { t } = useTranslation()
 
   // KAN-8 — local, debounced state; see useDebouncedNumberField's own
   // docstring for why a NumberInput bound straight to a per-keystroke
   // autosave silently drops digits.
-  const [manualBasePrice, setManualBasePrice] = useDebouncedNumberField(
+  const [manualBasePrice, setManualBasePrice, manualBasePriceUnsaved] = useDebouncedNumberField(
     deal.manualBasePrice != null ? Number(deal.manualBasePrice) : null,
     deal.id,
     (value) => onManualBasePriceChange?.(value)
   )
-  const [discountValue, setDiscountValue] = useDebouncedNumberField(
+  const [discountValue, setDiscountValue, discountValueUnsaved] = useDebouncedNumberField(
     deal.discountValue != null ? Number(deal.discountValue) : null,
     deal.id,
     (value) => onDiscountChange({ discountType: deal.discountType, discountValue: value })
   )
+
+  const unsaved = manualBasePriceUnsaved || discountValueUnsaved
+  useEffect(() => {
+    onUnsavedChange?.(unsaved)
+  }, [unsaved, onUnsavedChange])
+  // Unmounting with nothing left to save: the host must not wait for us.
+  useEffect(() => () => onUnsavedChange?.(false), [onUnsavedChange])
 
   if (deal.vehicleSnapshotFrozenAt == null && deal.vehicleSource !== 'manual') {
     return (

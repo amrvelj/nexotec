@@ -175,7 +175,9 @@ export function installFakeBackend(routes: FakeRoute[]): FakeBackend {
         { status: 404, headers: JSON_HEADERS },
       )
     }
-    return toResponse(route.handler({ url, pathname, method, params: url.searchParams, body, headers }))
+    // A handler may return a promise — a test holds a request "in flight"
+    // until it resolves it (KAN-288).
+    return toResponse(await route.handler({ url, pathname, method, params: url.searchParams, body, headers }))
   }
 
   vi.stubGlobal('fetch', vi.fn(fetchImpl))
