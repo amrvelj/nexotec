@@ -56,6 +56,7 @@ const EMPTY: SalesContractRead = {
   signedAt: null,
   deliveryDate: null,
   isInvoiceable: false,
+  isLegacy: false,
   invoiceRef: null,
   cancelledReason: null,
   containers: [

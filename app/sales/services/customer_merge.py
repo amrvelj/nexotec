@@ -21,13 +21,20 @@ from app.sales.models.offer import SalesOffer
 
 
 def repoint_customer_sales_records(db: Session, *, duplicate_id: uuid.UUID, target_id: uuid.UUID) -> int:
+    # Row locks in the order every other Sales writer takes them — offer,
+    # then contract, then deal (create_contract locks the offer before it
+    # writes the deal, KAN-147). One flush would let the unit of work write
+    # sales_deal first and deadlock against a contract being created from
+    # one of these offers.
     offers = list(db.scalars(select(SalesOffer).where(SalesOffer.customer_id == duplicate_id)).all())
     for offer in offers:
         offer.customer_id = target_id
+    db.flush()
 
     contracts = list(db.scalars(select(SalesContract).where(SalesContract.customer_id == duplicate_id)).all())
     for contract in contracts:
         contract.customer_id = target_id
+    db.flush()
 
     deals = list(db.scalars(select(SalesDeal).where(SalesDeal.customer_id == duplicate_id)).all())
     for deal in deals:

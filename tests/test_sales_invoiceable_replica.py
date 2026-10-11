@@ -36,7 +36,7 @@ from app.inventory.services.purchase import record_purchase
 from app.inventory.services.stock_item import create_stock_item
 from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
 from app.sales.consumers import handle_stock_item_purchased_message
-from app.sales.models.contract import ContractStatus
+from app.sales.models.contract import ContractStatus, SalesContract
 from app.sales.models.stock_item_purchase import SalesStockItemPurchase
 from app.sales.schemas.offer import OfferUpdate
 from app.sales.services.contract import cancel_contract, confirm_contract, create_contract, request_invoice
@@ -525,3 +525,25 @@ def test_the_label_migration_backfills_from_the_event_payload(db_session, engine
     # A legacy row has no event to read; it stays unlabelled rather than
     # reading Stock's table (Anto's ruling on KAN-100's backfill source).
     assert rows[legacy_item.id].stock_item_label is None
+
+
+def test_confirming_a_contract_on_a_car_that_has_left_stock_is_refused_with_its_reason(db_session, engine):
+    """KAN-147: Stock refuses to reserve a sold car, and Sales passes the
+    reason through so the contract page can say why (`vehicle_left_stock`)."""
+
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    item = _stock_item(db_session, dealership.id)
+    contract = _contract_on(db_session, dealership.id, group_id, item)
+    item.left_stock_at = dt.datetime(2024, 6, 20, tzinfo=dt.UTC)
+    db_session.commit()
+
+    with pytest.raises(ConflictError) as excinfo:
+        confirm_contract(
+            db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(),
+            session_factory=_session_factory(engine),
+        )
+
+    assert excinfo.value.details == {"reason": "vehicle_left_stock", "stockItemId": str(item.id)}
+    db_session.expire_all()
+    assert db_session.get(SalesContract, contract.id).status == ContractStatus.PENDING
