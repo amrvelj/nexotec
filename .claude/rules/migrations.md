@@ -59,13 +59,16 @@ in the same PR as any change to what it states. -->
   (KAN-86, finished by KAN-175 on 2026-10-11: one `*_kan175_<context>_enum_values_only.py`
   per chain swept the last names). Raw SQL compares against the value (`status = 'pending'`).
 - **Every enum column carries `ck_{table}_{column}_enum`** — `"{column}" IN ({values})` — which
-  `StoredEnum` attaches to the model. Alembic's autogenerate does not compare CHECK
-  constraints, so a migration that **adds an enum column, or a member**, creates (or drops and
-  recreates) that constraint by hand with `enum_check_name` / `enum_check_condition`'s exact
-  name and wording; `tests/test_kan175_enum_values_only.py` checks the model side.
+  `StoredEnum` attaches to the model. Autogenerate renders it once in a new table's
+  `create_table` (KAN-297), but it does not compare CHECK constraints: a migration that **adds an
+  enum column to an existing table, or a member**, creates (or drops and recreates) that
+  constraint by hand with `enum_check_name` / `enum_check_condition`'s exact name and wording.
+  `tests/test_migrated_enum_checks.py` runs `alembic upgrade heads` on a throwaway database and
+  fails on any `ck_*_enum` that differs from the models' (KAN-296).
 - The legacy `vehicle` table is write-frozen (ADR-021, `legacy_vehicle_write_frozen`); new code
   never writes it.
-- `scripts/dev/check` mirrors both CI migration jobs whenever migrations, models or their
-  imports change: upgrade from empty → seed → downgrade to CI's target → upgrade → two
-  concurrent upgrades (KAN-92), and upgrade from main's heads → seed → upgrade → verify the
-  seeded rows survived. A `downgrade()` is exercised, so it must work.
+- `scripts/dev/check` mirrors both CI migration jobs whenever migrations, models or anything a
+  migration run loads change (every such `app/` file, derived at run time — KAN-300): upgrade
+  from empty → seed → downgrade to CI's target → upgrade → two concurrent upgrades (KAN-92), and
+  upgrade from main's heads → seed → upgrade → verify the seeded rows survived. A `downgrade()`
+  is exercised, so it must work.
