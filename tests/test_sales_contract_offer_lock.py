@@ -224,3 +224,17 @@ def test_an_offer_line_item_save_during_a_contract_creation_does_not_deadlock(db
     assert blocked == [True]
     assert not other.is_alive()
     assert errors == []
+
+
+def test_create_contract_keeps_its_callers_pending_change_to_the_offer(db_session):
+    """create_contract re-reads the offer under its lock; it flushes first,
+    so a change its caller made and has not committed is what the contract
+    copies, not what the refresh would otherwise reload."""
+
+    tenant_id, _customer_id, offer_id = _offer_for_a_customer(db_session)
+    offer = db_session.get(SalesOffer, offer_id)
+    offer.vehicle_label = "Cupra Born 58 kWh"  # pending, not flushed
+
+    contract = create_contract(db_session, tenant_id=tenant_id, offer=offer, actor_id=uuid.uuid4())
+
+    assert contract.vehicle_label == "Cupra Born 58 kWh"
