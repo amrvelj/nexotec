@@ -462,6 +462,7 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <DetailHeader
+        labels={{ moreActions: t('common.moreActions') }}
         entityMark={customer.customerType === 'business' ? <Building2 size={24} /> : <User size={24} />}
         title={label ?? customer.customerNumber}
         businessKey={customer.customerNumber}

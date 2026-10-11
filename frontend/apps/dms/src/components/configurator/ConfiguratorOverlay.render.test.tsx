@@ -462,8 +462,10 @@ describe('ConfiguratorOverlay', () => {
         match: /\/reference-data\/equipment_feature$/,
         handler: () => ({
           items: [
-            { valueCode: 'navigation', labelDe: 'Navigation', labelFr: 'Navigation', labelIt: 'Navigazione', labelEn: 'Navigation' },
-            { valueCode: 'air_conditioning', labelDe: 'Klimaanlage', labelFr: 'Climatisation', labelIt: 'Climatizzatore', labelEn: 'Air conditioning' },
+            { valueCode: 'navigation', labelDe: 'Navigation', labelFr: 'Navigation', labelIt: 'Navigazione', labelEn: 'Navigation', active: true },
+            { valueCode: 'air_conditioning', labelDe: 'Klimaanlage', labelFr: 'Climatisation', labelIt: 'Climatizzatore', labelEn: 'Air conditioning', active: true },
+            // Retired: still labels a stored code, never offered (KAN-239).
+            { valueCode: 'cassette', labelDe: 'Kassettendeck', labelFr: 'Lecteur cassette', labelIt: 'Mangianastri', labelEn: 'Cassette deck', active: false },
           ],
           nextCursor: null,
         }),
@@ -483,7 +485,9 @@ describe('ConfiguratorOverlay', () => {
     await user.click(within(optionRow).getByRole('checkbox'))
     const picker = within(optionRow).getByPlaceholderText(i18n.t('configurator.options.addFeature'))
     await user.click(picker)
-    await user.click(await screen.findByRole('option', { name: 'Klimaanlage' }))
+    const klima = await screen.findByRole('option', { name: 'Klimaanlage' })
+    expect(screen.queryByRole('option', { name: 'Kassettendeck' })).not.toBeInTheDocument()
+    await user.click(klima)
     expect(within(optionRow).getByText('Klimaanlage')).toBeInTheDocument()
 
     // Uncheck, then recheck — the correction must survive.
@@ -495,6 +499,32 @@ describe('ConfiguratorOverlay', () => {
     await waitFor(() => expect(ctx.postedOptions().length).toBe(1))
     const body = ctx.postedOptions()[0] as { options: { equipmentFeatures: string[] }[] }
     expect(body.options[0].equipmentFeatures).toEqual(expect.arrayContaining(['air_conditioning']))
+  })
+
+  it('KAN-239 — an equipment-feature list that failed to load marks the option\'s feature codes, never shows them as labels', async () => {
+    const user = userEvent.setup()
+    install([
+      { method: 'GET', match: /\/reference-data\/equipment_feature$/, handler: () => ({ __status: 500, body: {} }) },
+      {
+        method: 'GET',
+        match: /\/catalogue\/variants\/v1\/specification$/,
+        handler: () => ({
+          hasCatalogueMatch: true, hasProviderConnection: true, packagesAvailable: true, imagesAvailable: false,
+          dealerCanUploadImages: false, options: [{ ...CATALOGUE_OPTION, equipmentFeatures: ['navigation'] }],
+          colours: [], tyreSpecs: [], images: [], optionRelations: [],
+        }),
+      },
+    ])
+    renderWithProviders(<Host onCommitted={vi.fn()} />)
+    await openOverlay(user)
+
+    await user.click(await within(screen.getByRole('dialog')).findByText('Golf GTI'))
+    await screen.findByText(i18n.t('configurator.spec.groups.powertrain'))
+    await user.click(screen.getByText(i18n.t('configurator.sections.options')))
+    const optionRow = (await screen.findByText('Navigation Pro')).closest('[data-testid^="option-row-"]') as HTMLElement
+    await user.click(within(optionRow).getByRole('checkbox'))
+
+    expect(await within(optionRow).findByText('⚠ navigation')).toBeInTheDocument()
   })
 
   it('KAN-43 (C-E) — a manual configuration shows no catalogue options, and never posts an options save', async () => {

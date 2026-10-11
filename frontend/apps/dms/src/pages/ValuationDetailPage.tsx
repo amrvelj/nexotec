@@ -98,6 +98,7 @@ export function ValuationDetailContent({ valuationId: id, embedded = false }: Va
   return (
     <Stack gap="lg">
       <DetailHeader
+        labels={{ moreActions: t('common.moreActions') }}
         entityMark={<CarFront size={24} />}
         title={vehicleTitle}
         businessKey={valuation.valuationNumber}

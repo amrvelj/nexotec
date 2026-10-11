@@ -193,6 +193,7 @@ export function VehicleDetailPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <DetailHeader
+        labels={{ moreActions: t('common.moreActions') }}
         entityMark={<Car size={24} />}
         title={vehicle.vehicleNumber}
         businessKey={vehicle.vin}

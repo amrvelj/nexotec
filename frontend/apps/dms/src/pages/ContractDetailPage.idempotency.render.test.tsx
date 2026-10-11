@@ -132,7 +132,7 @@ describe('ContractDetailPage — one Idempotency-Key per submission (KAN-266)', 
     renderPage()
 
     await screen.findByRole('button', { name: i18n.t('contractDetail.actions.confirm') })
-    await user.click(screen.getByRole('button', { name: 'More actions' }))
+    await user.click(screen.getByRole('button', { name: i18n.t('common.moreActions') }))
     await user.click(await screen.findByRole('menuitem', { name: new RegExp(i18n.t('contractDetail.actions.cancel')) }))
     await waitFor(() => expect(backend.callsTo(/\/cancel$/, 'POST')).toHaveLength(1))
 

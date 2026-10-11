@@ -1,4 +1,4 @@
-import { Fragment, type ReactNode } from "react";
+import { forwardRef, Fragment, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { Menu } from "@mantine/core";
 import { MoreHorizontal } from "lucide-react";
 import { radius, semantic, slate } from "../tokens";
@@ -50,7 +50,14 @@ export function RowMenu({ groups, ariaLabel, trigger }: RowMenuProps) {
   return (
     <Menu shadow="md" width={220} position="bottom-end" withinPortal>
       <Menu.Target>{trigger ?? <DefaultTrigger ariaLabel={ariaLabel} />}</Menu.Target>
-      <Menu.Dropdown onClick={(e) => e.stopPropagation()}>
+      {/* React events bubble through the portal: an item's click, Enter or
+          Space must not also reach a row that activates on them (KAN-252). */}
+      <Menu.Dropdown
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") e.stopPropagation();
+        }}
+      >
         {sections.map((section, index) => (
           <Fragment key={section.key}>
             {index > 0 && <Menu.Divider />}
@@ -77,14 +84,31 @@ export function RowMenu({ groups, ariaLabel, trigger }: RowMenuProps) {
   );
 }
 
-function DefaultTrigger({ ariaLabel }: { ariaLabel: string }) {
+// KAN-252 — Mantine's `Menu.Target` opens the menu by cloning its child with
+// an `onClick`, a `ref` and its aria attributes. The trigger must take and
+// forward all three; one that drops them renders a button that opens nothing.
+// The click and the Enter/Space key stop here so they never reach a grid row
+// that activates on click or Enter (`onRowActivate`) or is itself a link.
+type DefaultTriggerProps = ButtonHTMLAttributes<HTMLButtonElement> & { ariaLabel: string };
+
+const DefaultTrigger = forwardRef<HTMLButtonElement, DefaultTriggerProps>(function DefaultTrigger(
+  { ariaLabel, onClick, onKeyDown, style, ...rest },
+  ref
+) {
   return (
     <button
+      {...rest}
+      ref={ref}
       type="button"
       aria-label={ariaLabel}
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
+        onClick?.(e);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") e.stopPropagation();
+        onKeyDown?.(e);
       }}
       style={{
         border: "none",
@@ -97,12 +121,13 @@ function DefaultTrigger({ ariaLabel }: { ariaLabel: string }) {
         width: 28,
         height: 28,
         borderRadius: radius.sm,
+        ...style,
       }}
     >
       <MoreHorizontal size={18} />
     </button>
   );
-}
+});
 
 // Re-exported so a caller that wants the destructive colour token to match
 // this menu's own (e.g. a confirm dialog after clicking a destructive
