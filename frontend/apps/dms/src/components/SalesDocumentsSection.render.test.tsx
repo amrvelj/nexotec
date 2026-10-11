@@ -4,7 +4,7 @@ import { cleanup, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from '../i18n'
 import { renderWithProviders } from '../test/renderWithProviders'
-import { installFakeBackend } from '../test/fakeBackend'
+import { installFakeBackend, status } from '../test/fakeBackend'
 import { SalesDocumentsSection } from './SalesDocumentsSection'
 
 // KAN-266 — "Dokument erzeugen" carries an Idempotency-Key, and every
@@ -46,5 +46,28 @@ describe('SalesDocumentsSection — one Idempotency-Key per generate (KAN-266)',
     expect(first).toBeTruthy()
     expect(second).toBeTruthy()
     expect(second).not.toBe(first)
+  })
+})
+
+describe('SalesDocumentsSection — a refused contract document says why (KAN-67)', () => {
+  it.each([
+    ['missing_vehicle', 'salesDocuments.errors.missingVehicle'],
+    ['missing_price', 'salesDocuments.errors.missingPrice'],
+  ])('a %s 409 renders the localised reason, and no document', async (reason, key) => {
+    const user = userEvent.setup()
+    installFakeBackend([
+      { method: 'GET', match: /^\/sales\/contracts\/k1\/documents$/, handler: () => ({ items: [], nextCursor: null }) },
+      {
+        method: 'POST',
+        match: /^\/sales\/contracts\/k1\/documents$/,
+        handler: () => status(409, { error: { code: 'conflict', message: 'Contract C-000001 has no …', details: { reason } } }),
+      },
+    ])
+    renderWithProviders(<SalesDocumentsSection ownerType="contract" ownerId="k1" />)
+
+    await user.click(await screen.findByRole('button', { name: i18n.t('salesDocuments.generate') }))
+
+    expect(await screen.findByText(i18n.t(key))).toBeInTheDocument()
+    expect(screen.getByText(i18n.t('salesDocuments.empty'))).toBeInTheDocument()
   })
 })

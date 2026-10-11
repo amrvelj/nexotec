@@ -1,43 +1,23 @@
 import { useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Alert, Button, Group, Loader, Modal, NumberInput, Stack, Text, TextInput, Title, UnstyledButton } from '@mantine/core'
+import { Alert, Button, Group, Loader, Modal, NumberInput, Stack, Text, Title, UnstyledButton } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
 import { useTranslation } from 'react-i18next'
-import { OverviewCard, Picker, SalesStatusBadge, StickyActionFooter, useOverlay, useSetBreadcrumb, type PickerRow } from '@nexotec/ui-kit'
+import { OverviewCard, Picker, StickyActionFooter, useOverlay, useSetBreadcrumb, type PickerRow } from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
 import { CustomerCreateDialog } from '../components/CustomerCreateDialog'
-import { OfferAccessoriesAndOptions } from '../components/OfferAccessoriesAndOptions'
 import { OfferGenerateReviewModal } from '../components/OfferGenerateReviewModal'
-import { PriceBuildUp } from '../components/PriceBuildUp'
-import { ValuationSourceMarker } from '../components/ValuationSourceMarker'
-import { ValuationCreateDialog } from '../components/ValuationCreateDialog'
-import { ConfiguratorOverlay } from '../components/configurator/ConfiguratorOverlay'
-import { HostCommitError } from '../components/configurator/hostCommitError'
-import { HostConfigurationCard } from '../components/configurator/HostConfigurationCard'
+import {
+  DealPricingContainer,
+  DealTradeInContainer,
+  DealVehicleContainer,
+  RequirementBadge,
+} from '../components/deal-workspace/DealWorkspaceContainers'
 import { useDebouncedNumberField } from '../hooks/useDebouncedNumberField'
-import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { CustomerDetailContent } from './CustomerDetailPage'
 import { StockDetailContent } from './StockDetailPage'
-import { formatCurrencyChf } from '../utils/format'
-import type {
-  ConfigurationRead,
-  CustomerPage,
-  CustomerRead,
-  SalesOfferRead,
-  StockItemPage,
-  StockItemRead,
-  ValuationRead,
-} from '../api/types'
-
-function requirementBadge(t: (key: string) => string, requirement: string) {
-  return (
-    <SalesStatusBadge
-      status={requirement === 'required' ? 'open' : 'draft'}
-      label={requirement === 'required' ? t('offerWorkspace.requirement.required') : t('offerWorkspace.requirement.optional')}
-    />
-  )
-}
+import type { CustomerPage, CustomerRead, SalesOfferRead } from '../api/types'
 
 /**
  * `/sales/offers/:id` while status=draft — the container-based generation
@@ -74,14 +54,6 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
     enabled: customerId != null,
   })
   const selectedCustomer = selectedCustomerQuery.data ?? null
-  // KAN-101 — the trade-in card marks a manual figure as manual (ADR-048),
-  // so it reads the attached valuation's source from the valuation module.
-  const tradeInValuationId = offerQuery.data?.tradeInValuationId ?? null
-  const tradeInValuationQuery = useQuery({
-    queryKey: ['valuation', tradeInValuationId],
-    queryFn: () => api.get<ValuationRead>(`/valuations/${tradeInValuationId}`),
-    enabled: tradeInValuationId != null,
-  })
   // § ADR-059 — opening the selected customer's own record from inside
   // the offer-generation process is an overlay, never a navigation (the
   // half-built offer must survive it intact).
@@ -109,19 +81,6 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
     enabled: customerPickerOpen && debouncedCustomerQuery.length > 0,
   })
 
-  const [vehicleMode, setVehicleMode] = useState<'idle' | 'search'>('idle')
-  const [vehicleQuery, setVehicleQuery] = useState('')
-  const [debouncedVehicleQuery] = useDebouncedValue(vehicleQuery, 250)
-  const vehicleSearch = useQuery({
-    queryKey: ['stock-item-search', debouncedVehicleQuery],
-    queryFn: () => api.get<StockItemPage>(`/inventory/stock-items?q=${encodeURIComponent(debouncedVehicleQuery)}&limit=10`),
-    enabled: vehicleMode === 'search' && debouncedVehicleQuery.length > 0,
-  })
-
-  const [tradeInMode, setTradeInMode] = useState(false)
-  const [tradeInVin, setTradeInVin] = useState('')
-  const [tradeInLabel, setTradeInLabel] = useState('')
-
   // The configurator runs in an overlay pushed with a closure; reading the
   // offer through a ref keeps its If-Match current even when the advisor
   // autosaved another container while the overlay was open.
@@ -133,74 +92,6 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
     if (!offer) return
     const updated = await api.patch<SalesOfferRead>(`/sales/offers/${id}`, patch, { 'If-Match': String(offer.version) })
     queryClient.setQueryData(['sales-offer', id], updated)
-  }
-
-  // FR-C-12 — Path B is the configurator, as an overlay (ADR-059): the
-  // half-built offer underneath is never navigated away from. **Build mode
-  // only** (PRD v1.4): a used car being sold comes from stock through
-  // Path A, so this host offers no mode switch at all.
-  const openConfigurator = (existing: ConfigurationRead | null = null) =>
-    overlay.push({
-      key: 'configurator-offer-vehicle',
-      content: (
-        <ConfiguratorOverlay
-          allowedModes={['build']}
-          existing={existing}
-          onCommitted={async (configuration) => {
-            try {
-              await patchOffer({ configurationId: configuration.id })
-            } catch {
-              throw new HostCommitError(t('offerWorkspace.vehicle.attachError'))
-            }
-            await queryClient.invalidateQueries({ queryKey: ['configuration', configuration.id] })
-            overlay.pop()
-          }}
-          onClose={() => overlay.pop()}
-        />
-      ),
-    })
-
-  // The trade-in carve-out (FR-C-12): the customer's car is captured in
-  // **record** mode through the valuation path — configurator first, then
-  // the valuation, which the offer references. Path A could never find it.
-  const [tradeInConfiguration, setTradeInConfiguration] = useState<ConfigurationRead | null>(null)
-  const [tradeInError, setTradeInError] = useState<string | null>(null)
-  // KAN-266 — one key per kind, passed the request: a retry keeps its key
-  // and replays its success; another VIN or valuation gets a new one. Each
-  // success renews its kind's key.
-  const tradeInKey = useIdempotencyKey()
-  const valuationKey = useIdempotencyKey()
-  const openTradeInConfigurator = () =>
-    overlay.push({
-      key: 'configurator-offer-trade-in',
-      content: (
-        <ConfiguratorOverlay
-          allowedModes={['record']}
-          onCommitted={(configuration) => {
-            setTradeInConfiguration(configuration)
-            overlay.pop()
-          }}
-          onClose={() => overlay.pop()}
-        />
-      ),
-    })
-  const attachTradeInValuation = async (valuation: ValuationRead) => {
-    const offer = latestOffer.current
-    if (!offer) return
-    setTradeInError(null)
-    try {
-      const path = `/sales/offers/${id}/trade-in/valuation`
-      const body = { valuationId: valuation.id }
-      const updated = await api.post<SalesOfferRead>(path, body, {
-        'If-Match': String(offer.version),
-        ...valuationKey.headers([path, body]),
-      })
-      valuationKey.renew()
-      queryClient.setQueryData(['sales-offer', id], updated)
-      setTradeInConfiguration(null)
-    } catch {
-      setTradeInError(t('offerWorkspace.tradeIn.attachError'))
-    }
   }
 
   // KAN-8 — same fix as PriceBuildUp.tsx's own fields, same root cause:
@@ -224,24 +115,6 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
     (value) => patchOffer({ leasingKmPerYear: value })
   )
 
-  const submitTradeIn = async (body: {
-    vin: string | null
-    plate: string | null
-    canton: string | null
-    vehicleLabel: string
-    customerId: string | null
-  }) => {
-    const offer = offerQuery.data
-    if (!offer) return
-    const path = `/sales/offers/${id}/trade-in`
-    const updated = await api.post<SalesOfferRead>(path, body, {
-      'If-Match': String(offer.version),
-      ...tradeInKey.headers([path, body]),
-    })
-    tradeInKey.renew()
-    queryClient.setQueryData(['sales-offer', id], updated)
-  }
-
   if (offerQuery.isLoading) return <Loader />
   if (offerQuery.isError || !offerQuery.data) {
     return (
@@ -253,6 +126,14 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
 
   const offer = offerQuery.data
   const containerById = Object.fromEntries((offer.containers ?? []).map((c) => [c.id, c]))
+  const onOfferUpdated = (updated: SalesOfferRead) => queryClient.setQueryData(['sales-offer', id], updated)
+  const containerProps = {
+    ownerType: 'offer' as const,
+    deal: offer,
+    getDeal: () => latestOffer.current,
+    patch: patchOffer,
+    onDealUpdated: onOfferUpdated,
+  }
   // KAN-64 — must match services/offer.py::confirm_offer's own gate
   // (status != "complete") exactly, or the button stays enabled for a
   // container the backend will still reject at the final confirm step.
@@ -269,7 +150,7 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
       </Group>
 
       {/* Kunde */}
-      <OverviewCard title={t('offerWorkspace.containers.customer')} badge={requirementBadge(t, containerById.customer?.requirement ?? 'required')}>
+      <OverviewCard title={t('offerWorkspace.containers.customer')} badge={<RequirementBadge requirement={containerById.customer?.requirement ?? 'required'} />}>
         {offer.customerId ? (
           <Stack gap={4}>
             <UnstyledButton onClick={openCustomerOverlay}>
@@ -301,138 +182,12 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
         )}
       </OverviewCard>
 
-      {/* Fahrzeug */}
-      <OverviewCard title={t('offerWorkspace.containers.vehicle')} badge={requirementBadge(t, containerById.vehicle?.requirement ?? 'required')}>
-        {offer.configurationId ? (
-          <Stack gap={4} data-testid="offer-vehicle-configured">
-            <Text size="xs" c="dimmed">{t('offerWorkspace.vehicle.configured')}</Text>
-            <HostConfigurationCard configurationId={offer.configurationId} onOpenConfigurator={openConfigurator} />
-          </Stack>
-        ) : offer.vehicleLabel ? (
-          <Text fw={600}>{offer.vehicleLabel}</Text>
-        ) : vehicleMode === 'search' ? (
-          <Picker
-            rows={(vehicleSearch.data?.items ?? []).map(
-              (item: StockItemRead): PickerRow => ({ id: item.id, identifier: item.stockNumber, label: item.vehicleLabel, sublabel: item.vin ?? undefined })
-            )}
-            query={vehicleQuery}
-            onQueryChange={setVehicleQuery}
-            onSelect={(row) =>
-              patchOffer({ vehicleSource: 'stock', stockItemId: row.id, vehicleLabel: row.label }).then(() => setVehicleMode('idle'))
-            }
-            loading={vehicleSearch.isFetching}
-            placeholder={t('offerWorkspace.vehicle.searchPlaceholder')}
-          />
-        ) : (
-          <Stack gap="xs">
-            <Text size="sm" c="dimmed">{t('offerWorkspace.vehicle.emptyHint')}</Text>
-            <Group gap="xs">
-              <Button variant="default" size="xs" onClick={() => setVehicleMode('search')}>
-                {t('offerWorkspace.vehicle.search')}
-              </Button>
-              <Button variant="subtle" size="xs" onClick={() => openConfigurator()}>
-                {t('offerWorkspace.vehicle.configure')}
-              </Button>
-            </Group>
-          </Stack>
-        )}
-      </OverviewCard>
-
-      {/* Preisaufbau */}
-      <OverviewCard title={t('offerWorkspace.containers.pricing')} badge={requirementBadge(t, containerById.pricing?.requirement ?? 'required')}>
-        {containerById.pricing?.status === 'in_progress' && (
-          <Alert color="orange" title={t('offerWorkspace.pricing.noPriceTitle')} py="xs" mb="xs">
-            <Stack gap={4}>
-              <Text size="sm">{t('offerWorkspace.pricing.noPriceBody')}</Text>
-              {stockItemId && (
-                <UnstyledButton onClick={openStockItemOverlay}>
-                  <Text size="sm" fw={600} c="purple">{t('offerWorkspace.pricing.noPriceLink')}</Text>
-                </UnstyledButton>
-              )}
-            </Stack>
-          </Alert>
-        )}
-        <PriceBuildUp
-          offer={offer}
-          onDiscountChange={(patch) => patchOffer({ discountType: patch.discountType, discountValue: patch.discountValue })}
-          onManualBasePriceChange={(value) => patchOffer({ manualBasePrice: value })}
-        />
-        <OfferAccessoriesAndOptions
-          offer={offer}
-          onOfferUpdated={(updated) => queryClient.setQueryData(['sales-offer', id], updated)}
-        />
-      </OverviewCard>
-
-      {/* Eintauschfahrzeug */}
-      <OverviewCard title={t('offerWorkspace.containers.tradeIn')} badge={requirementBadge(t, 'optional')}>
-        {offer.tradeInVehicleId || offer.tradeInConfigurationId ? (
-          <Stack gap={4}>
-            <Text fw={600}>{offer.tradeInLabel}</Text>
-            {offer.tradeInConfigurationId && <HostConfigurationCard configurationId={offer.tradeInConfigurationId} />}
-            {offer.tradeInValue != null && (
-              <Group gap="xs">
-                <Text size="sm" c="dimmed">
-                  {t('offerWorkspace.tradeIn.value')}: {formatCurrencyChf(Number(offer.tradeInValue))}
-                </Text>
-                {tradeInValuationQuery.data && <ValuationSourceMarker source={tradeInValuationQuery.data.source} />}
-              </Group>
-            )}
-            {offer.tradeInValuationId && (
-              <Text size="xs" c="dimmed">
-                {t('offerWorkspace.tradeIn.fromExistingValuation')}
-              </Text>
-            )}
-          </Stack>
-        ) : tradeInMode ? (
-          <Stack gap="xs">
-            <TextInput
-              label={t('offerWorkspace.tradeIn.vinLabel')}
-              placeholder={t('offerWorkspace.tradeIn.vinPlaceholder')}
-              value={tradeInVin}
-              onChange={(e) => setTradeInVin(e.currentTarget.value)}
-            />
-            <TextInput
-              label={t('offerWorkspace.tradeIn.labelLabel')}
-              value={tradeInLabel}
-              onChange={(e) => setTradeInLabel(e.currentTarget.value)}
-            />
-            <Group gap="xs">
-              <Button
-                size="xs"
-                disabled={!tradeInVin || !tradeInLabel}
-                onClick={() =>
-                  submitTradeIn({ vin: tradeInVin, plate: null, canton: null, vehicleLabel: tradeInLabel, customerId: null }).then(
-                    () => setTradeInMode(false)
-                  )
-                }
-              >
-                {t('common.save')}
-              </Button>
-              <Button variant="subtle" size="xs" onClick={() => setTradeInMode(false)}>
-                {t('common.cancel')}
-              </Button>
-            </Group>
-          </Stack>
-        ) : (
-          <Stack gap="xs">
-            <Text size="sm" c="dimmed">
-              {offer.customerId ? t('offerWorkspace.tradeIn.readyHint') : t('offerWorkspace.tradeIn.emptyHint')}
-            </Text>
-            {tradeInError && <Alert color="red" py="xs">{tradeInError}</Alert>}
-            <Group gap="xs">
-              <Button variant="default" size="xs" onClick={openTradeInConfigurator}>
-                {t('offerWorkspace.tradeIn.valueWithConfigurator')}
-              </Button>
-              <Button variant="subtle" size="xs" onClick={() => setTradeInMode(true)}>
-                {t('offerWorkspace.tradeIn.add')}
-              </Button>
-            </Group>
-          </Stack>
-        )}
-      </OverviewCard>
+      <DealVehicleContainer {...containerProps} />
+      <DealPricingContainer {...containerProps} onOpenStockItem={openStockItemOverlay} />
+      <DealTradeInContainer {...containerProps} />
 
       {/* Leasing — S-D03: a refused calculator, free-text only */}
-      <OverviewCard title={t('offerWorkspace.containers.leasing')} badge={requirementBadge(t, 'optional')}>
+      <OverviewCard title={t('offerWorkspace.containers.leasing')} badge={<RequirementBadge requirement="optional" />}>
         <Stack gap="xs">
           <Text size="sm" c="dimmed">{t('offerWorkspace.leasing.hint')}</Text>
           <Group grow>
@@ -501,16 +256,6 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
           placeholder={t('offerWorkspace.customer.search')}
         />
       </Modal>
-
-      {tradeInConfiguration && (
-        <ValuationCreateDialog
-          key={tradeInConfiguration.id}
-          opened
-          configuration={tradeInConfiguration}
-          onClose={() => setTradeInConfiguration(null)}
-          onCreated={(valuation) => void attachTradeInValuation(valuation)}
-        />
-      )}
 
       <CustomerCreateDialog
         opened={customerCreateOpen}

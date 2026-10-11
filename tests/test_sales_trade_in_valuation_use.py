@@ -79,10 +79,10 @@ def _trade_in_contract(db_session, dealership_id, group_id, valuation: Valuation
         actor_id=actor_id or uuid.uuid4(),
     )
     offer = set_trade_in(
-        db_session, offer=offer, group_id=group_id, vin=_TRADE_IN_VIN, plate=None, canton=None,
+        db_session, deal=offer, group_id=group_id, vin=_TRADE_IN_VIN, plate=None, canton=None,
         vehicle_label="VW Golf 1.5 TSI", customer_id=None, actor_id=actor_id or uuid.uuid4(),
     )
-    offer = attach_trade_in_valuation(db_session, offer=offer, valuation_id=valuation.id, actor_id=actor_id or uuid.uuid4())
+    offer = attach_trade_in_valuation(db_session, deal=offer, valuation_id=valuation.id, actor_id=actor_id or uuid.uuid4())
     contract = create_contract(db_session, tenant_id=dealership_id, offer=offer, actor_id=actor_id or uuid.uuid4())
     assert contract.trade_in_valuation_id == valuation.id
     return contract, item

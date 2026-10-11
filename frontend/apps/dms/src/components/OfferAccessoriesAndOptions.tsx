@@ -5,11 +5,20 @@ import { Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { api, ApiError } from '../api/client'
 import { formatCurrencyChf } from '../utils/format'
-import type { CapabilityCheckRead, SalesLineItemPage, SalesLineItemRead, SalesOfferRead } from '../api/types'
+import type {
+  CapabilityCheckRead,
+  SalesDealOwnerType,
+  SalesLineItemPage,
+  SalesLineItemRead,
+  SalesPricedDealRead,
+} from '../api/types'
 
-export interface OfferAccessoriesAndOptionsProps {
-  offer: SalesOfferRead
-  onOfferUpdated: (offer: SalesOfferRead) => void
+export interface OfferAccessoriesAndOptionsProps<D extends SalesPricedDealRead> {
+  /** KAN-67 — an offer draft or a pending contract; `ownerType` picks the
+   * route (`/sales/offers/…` or `/sales/contracts/…`), same request body. */
+  ownerType: SalesDealOwnerType
+  deal: D
+  onDealUpdated: (deal: D) => void
 }
 
 /**
@@ -28,7 +37,11 @@ export interface OfferAccessoriesAndOptionsProps {
  * that ever HAVE factory-option rows are exactly the ones the discount-
  * suppression rule doesn't apply to.
  */
-export function OfferAccessoriesAndOptions({ offer, onOfferUpdated }: OfferAccessoriesAndOptionsProps) {
+export function OfferAccessoriesAndOptions<D extends SalesPricedDealRead>({
+  ownerType,
+  deal,
+  onDealUpdated,
+}: OfferAccessoriesAndOptionsProps<D>) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [newCode, setNewCode] = useState('')
@@ -39,7 +52,7 @@ export function OfferAccessoriesAndOptions({ offer, onOfferUpdated }: OfferAcces
   const [newReason, setNewReason] = useState('')
   const [error, setError] = useState<string | null>(null)
 
-  const isUsed = offer.vehicleCondition === 'used'
+  const isUsed = deal.vehicleCondition === 'used'
 
   // WP-6 PR-5 — without the provider's `packages` capability, factory
   // options already render as this flat, ungrouped checkbox list (no
@@ -51,10 +64,12 @@ export function OfferAccessoriesAndOptions({ offer, onOfferUpdated }: OfferAcces
   })
   const packagesUnavailable = packagesCapability.data?.granted === false
 
+  const lineItemsPath = `/sales/${ownerType === 'offer' ? 'offers' : 'contracts'}/${deal.id}/line-items`
+  const lineItemsKey = ['sales-line-items', ownerType, deal.id]
   const lineItemsQuery = useQuery({
-    queryKey: ['sales-offer-line-items', offer.id],
-    queryFn: () => api.get<SalesLineItemPage>(`/sales/offers/${offer.id}/line-items`),
-    enabled: offer.vehicleSnapshotFrozenAt != null || offer.vehicleSource === 'manual',
+    queryKey: lineItemsKey,
+    queryFn: () => api.get<SalesLineItemPage>(lineItemsPath),
+    enabled: deal.vehicleSnapshotFrozenAt != null || deal.vehicleSource === 'manual',
   })
 
   const items = lineItemsQuery.data?.items ?? []
@@ -67,13 +82,17 @@ export function OfferAccessoriesAndOptions({ offer, onOfferUpdated }: OfferAcces
   }) => {
     setError(null)
     try {
-      const updated = await api.put<SalesOfferRead>(`/sales/offers/${offer.id}/line-items`, body, {
-        'If-Match': String(offer.version),
-      })
-      onOfferUpdated(updated)
-      await queryClient.invalidateQueries({ queryKey: ['sales-offer-line-items', offer.id] })
+      const updated = await api.put<D>(lineItemsPath, body, { 'If-Match': String(deal.version) })
+      onDealUpdated(updated)
+      await queryClient.invalidateQueries({ queryKey: lineItemsKey })
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t('offerWorkspace.lineItems.error'))
+      // KAN-67 — a contract that is no longer editable is said in the
+      // user's language; other refusals keep the server's explanation (a
+      // used car's per-line discount needs a reason, …), as before.
+      const reason = err instanceof ApiError ? (err.details as { reason?: unknown } | null)?.reason : null
+      if (reason === 'contract_not_pending') setError(t('contractDetail.errors.editRefused.notPending'))
+      else if (reason === 'contract_priced_without_inputs') setError(t('contractDetail.edit.pricedWithoutInputs'))
+      else setError(err instanceof ApiError ? err.message : t('offerWorkspace.lineItems.error'))
     }
   }
 
@@ -126,7 +145,7 @@ export function OfferAccessoriesAndOptions({ offer, onOfferUpdated }: OfferAcces
     })
   }
 
-  if (offer.vehicleSnapshotFrozenAt == null && offer.vehicleSource !== 'manual') return null
+  if (deal.vehicleSnapshotFrozenAt == null && deal.vehicleSource !== 'manual') return null
 
   return (
     <Stack gap="sm" mt="sm" pt="sm" style={{ borderTop: '1px solid var(--mantine-color-gray-3)' }}>

@@ -22,8 +22,9 @@ import datetime as dt
 import enum
 import uuid
 from decimal import Decimal
+from typing import Any
 
-from sqlalchemy import DECIMAL, Date, String, exists
+from sqlalchemy import DECIMAL, JSON, Date, String, exists
 from sqlalchemy.orm import Mapped, column_property, declared_attr, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
@@ -95,25 +96,42 @@ class SalesContract(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, Timestam
     configuration_label: Mapped[str | None] = mapped_column(String(200), nullable=True)
     configuration_label_refreshed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
 
+    # KAN-67 (ADR-083) — the pricing INPUTS, same columns and meaning as on
+    # SalesOffer, so a pending contract runs the offer's own snapshot and
+    # build-up code (services/snapshot.py, services/pricing.py) rather than
+    # a second copy of it. Copied from the offer at creation, together with
+    # its line items (SalesLineItem.contract_id); set by the contract's own
+    # edit routes while it is pending; frozen once it is confirmed.
+    manual_base_price: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
+    vehicle_snapshot: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    vehicle_snapshot_frozen_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    discount_type: Mapped[str | None] = mapped_column(String(16), nullable=True)  # "percent" | "amount"
+    discount_value: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
+
     # WP-8 PR-7 — the full build-up, copied from the offer at creation so
     # the contract's own generated document (services/document.py) can
     # itemize base -> options -> list -> discount -> price, exactly like
     # the confirmed live Preisaufbau tab on an already-confirmed contract.
+    # KAN-67: re-derived by pricing.apply_build_up on every edit of a
+    # pending contract, never trusted from the client.
     base_price: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
     options_total: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
     list_price: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
     accessories_total: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
+    total_before_discount: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
     discount_amount: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
     gross_price: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
     # WP-8 PR-3 — copied from the offer at the moment of creation (like
     # gross_price above); entity-private, same posture as
-    # SalesOffer.margin. A direct contract (no offer) has no pricing
-    # build-up of its own yet, so this stays None.
+    # SalesOffer.margin and SalesOffer.cost_basis (ADR-029).
+    cost_basis: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
     margin: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
 
     # WP-8 PR-6 — trade-in, copied from the offer at creation (S-D18's
-    # "vehicle AND allocation happen at OFFER time" — the contract only
-    # carries the read-only reference forward). At confirmation (KAN-101)
+    # "vehicle AND allocation happen at OFFER time"); since KAN-67
+    # (ADR-083) a pending contract may also record its own, through the
+    # offer's trade-in service — a read-only reference all the same. At
+    # confirmation (KAN-101)
     # the valuation is consumed through app.valuation.public, and its id
     # travels in the sales.contract.confirmed payload so inventory can set
     # the pipeline stock item's valuation pointer when it creates the item.

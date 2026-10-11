@@ -51,6 +51,7 @@ from app.sales.models.contract import SalesContract
 from app.sales.models.document import DocumentOwnerType, SalesDocument
 from app.sales.models.line_item import LineItemKind, SalesLineItem
 from app.sales.models.offer import SalesOffer
+from app.sales.services.contract_completeness import require_complete
 
 _DEFAULT_LANGUAGE = SwissLanguage.DE
 
@@ -280,6 +281,9 @@ def generate_offer_document(db: Session, *, offer: SalesOffer, actor_id: uuid.UU
 
 
 def generate_contract_document(db: Session, *, contract: SalesContract, actor_id: uuid.UUID | None) -> SalesDocument:
+    # KAN-67 — a contract with no vehicle or no price is refused by reason,
+    # never rendered as an empty document; the same rule confirmation uses.
+    require_complete(contract, action="printed")
     language = SwissLanguage(contract.customer_language) if contract.customer_language else _DEFAULT_LANGUAGE
     dealership = get_dealership_or_404(db, contract.tenant_id)
     content = build_contract_content(contract, language=language, vat_rate=dealership.vat_rate)
