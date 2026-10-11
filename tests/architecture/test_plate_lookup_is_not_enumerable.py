@@ -13,8 +13,12 @@ kind of hole fails CI immediately:
 """
 
 import inspect
+import re
+
+from fastapi import APIRouter, FastAPI
 
 from app.vehicle.services import plate as plate_service
+from tests.route_walk import api_routes, path_segments
 
 # Functions in this module that legitimately don't take a bare plate+canton
 # pair — they operate on a specific dealer plate (a different, tenant-owned
@@ -46,22 +50,61 @@ def test_every_plate_query_function_requires_an_exact_identifier():
         assert "canton" in params, f"{name} has no 'canton' parameter — is this an enumerable query?"
 
 
+def _is_plate_segment(segment: str) -> bool:
+    """`plates`, `vehicle-plate`, `vehicle_plates` — not `document-template`."""
+
+    return re.search(r"(^|[-_])plates?$", segment) is not None
+
+
+def _plate_list_violations(routes) -> tuple[int, list[str]]:
+    """(GET routes over plates inspected, those with no identifier in the path).
+
+    A safe route names its target in the path itself (a plate value, a
+    vehicle id) — {plate}/{vehicle_id}/etc. A route with no path parameter
+    at all is exactly the "list everything" shape this guard forbids."""
+
+    inspected, violations = 0, []
+    for path, route in api_routes(routes):
+        if "GET" not in route.methods or not any(_is_plate_segment(s) for s in path_segments(path)):
+            continue
+        inspected += 1
+        if "{" not in path:
+            violations.append(f"{path} is a GET route over plates with no identifier in the path")
+    return inspected, violations
+
+
 def test_no_route_lists_vehicle_plate_without_an_identifier():
     from app.main import app
 
-    for route in app.routes:
-        path = getattr(route, "path", "")
-        if "vehicle-plate" not in path and "vehicle_plate" not in path:
-            continue
-        methods = getattr(route, "methods", set()) or set()
-        if "GET" not in methods:
-            continue
-        # A safe route names its target in the path itself (a plate value,
-        # a vehicle id) — {plate}/{vehicle_id}/etc. A route with no path
-        # parameter at all is exactly the "list everything" shape this
-        # test exists to forbid.
-        has_path_param = "{" in path
-        assert has_path_param, f"{path} is a GET route over plates with no identifier in the path"
+    inspected, violations = _plate_list_violations(app.routes)
+
+    # KAN-241: today GET /v1/vehicle-mdm/{vehicle_id}/plates. Zero means the
+    # walk no longer reaches the API routes, not that there is nothing to guard.
+    assert inspected >= 1, "the guard inspected no plate route — it is not reaching the API routes"
+    assert not violations, violations
+
+
+def test_the_plate_list_guard_catches_a_route_listing_every_plate():
+    """KAN-241, exit criterion 3: the guard fails on a violating route mounted
+    the way the real ones are (an included router), not only on a flat list."""
+
+    app = FastAPI()
+    router = APIRouter(prefix="/v1")
+
+    @router.get("/vehicle-plates")
+    def list_every_plate() -> list[str]:
+        return []
+
+    @router.get("/vehicle-mdm/{vehicle_id}/plates")
+    def plates_of_one_vehicle(vehicle_id: str) -> list[str]:
+        return []
+
+    app.include_router(router)
+
+    inspected, violations = _plate_list_violations(app.routes)
+
+    assert inspected == 2
+    assert violations == ["/v1/vehicle-plates is a GET route over plates with no identifier in the path"]
 
 
 # KAN-42 (C-D): the plate-lookup cache holds plate → Stammnummer pairs from
@@ -89,14 +132,41 @@ def test_every_plate_lookup_cache_function_requires_an_exact_identifier():
     assert checked >= 3
 
 
+def _plate_lookup_cache_routes(routes) -> tuple[int, list[str]]:
+    """(API routes inspected, those exposing the plate-lookup cache)."""
+
+    inspected, exposing = 0, []
+    for path, _route in api_routes(routes):
+        inspected += 1
+        if "plate-lookup" in path or "plate_lookup" in path:
+            exposing.append(f"{path} exposes the plate-lookup cache; it is read only through vehicle-identification")
+    return inspected, exposing
+
+
 def test_no_route_lists_the_plate_lookup_cache():
     from app.main import app
 
-    for route in app.routes:
-        path = getattr(route, "path", "")
-        assert "plate-lookup" not in path and "plate_lookup" not in path, (
-            f"{path} exposes the plate-lookup cache; it is read only through vehicle-identification"
-        )
+    inspected, exposing = _plate_lookup_cache_routes(app.routes)
+
+    # KAN-241: a guard that sees no route at all would pass whatever the routes are.
+    assert inspected >= 100, f"the guard inspected only {inspected} routes — it is not reaching the API routes"
+    assert not exposing, exposing
+
+
+def test_the_plate_lookup_cache_guard_catches_a_route_exposing_the_cache():
+    app = FastAPI()
+    router = APIRouter(prefix="/v1")
+
+    @router.get("/plate-lookups")
+    def list_plate_lookups() -> list[str]:
+        return []
+
+    app.include_router(router)
+
+    inspected, exposing = _plate_lookup_cache_routes(app.routes)
+
+    assert inspected == 1
+    assert exposing == ["/v1/plate-lookups exposes the plate-lookup cache; it is read only through vehicle-identification"]
 
 
 # KAN-231: `list_plates_for_vehicle` is targeted (one vehicle id), but the
