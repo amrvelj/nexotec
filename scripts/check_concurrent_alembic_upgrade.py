@@ -2,8 +2,10 @@
 
 Runs in CI's migration-smoke-test and in the migrations lane of scripts/dev/check.
 
-The web service and the outbox worker both migrate on start (render.yaml,
-docker-compose.yml), and so does the Dockerfile CMD of every web replica.
+Every service that starts from this codebase migrates first: the web service
+in render.yaml, both `app` and `worker` in docker-compose.yml, the
+Dockerfile's default CMD and every web replica (the worker is declared in
+render.yaml too, but commented out: not provisioned on staging, KAN-234).
 alembic/env.py serialises them with a Postgres advisory lock; this script is
 the proof, and fails on an env.py without the lock.
 

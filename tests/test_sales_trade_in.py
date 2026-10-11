@@ -9,7 +9,7 @@ from sqlalchemy import select
 from app.core.errors import ConflictError, NotFoundError
 from app.customer.public import VehiclePartyRole, list_vehicle_parties
 from app.sales.schemas.offer import OfferUpdate
-from app.sales.services.offer import create_offer, update_offer
+from app.sales.services.offer import cancel_offer, create_offer, update_offer
 from app.sales.services.trade_in import attach_trade_in_valuation, set_trade_in
 from app.valuation.models.valuation import ValuationSource
 from app.valuation.schemas.valuation import ValuationCreate
@@ -40,7 +40,7 @@ def test_set_trade_in_records_vehicle_and_allocates_owner_and_keeper(db_session)
 
     updated = set_trade_in(
         db_session,
-        offer=offer,
+        deal=offer,
         group_id=group_id,
         vin="WVWZZZ1KZAW123456",
         plate=None,
@@ -73,7 +73,7 @@ def test_set_trade_in_auto_attaches_an_existing_valid_valuation(db_session):
 
     offer = create_offer(db_session, tenant_id=tenant_id, actor_id=uuid.uuid4())
     updated = set_trade_in(
-        db_session, offer=offer, group_id=uuid.uuid4(), vin=vin, plate=None, canton=None,
+        db_session, deal=offer, group_id=uuid.uuid4(), vin=vin, plate=None, canton=None,
         vehicle_label="Skoda Octavia", customer_id=None, actor_id=uuid.uuid4(),
     )
 
@@ -92,7 +92,7 @@ def test_trade_in_purchase_price_is_seller_adjustable_independently(db_session):
     )
     offer = create_offer(db_session, tenant_id=tenant_id, actor_id=uuid.uuid4())
     offer = set_trade_in(
-        db_session, offer=offer, group_id=uuid.uuid4(), vin=vin, plate=None, canton=None,
+        db_session, deal=offer, group_id=uuid.uuid4(), vin=vin, plate=None, canton=None,
         vehicle_label="Fiat 500", customer_id=None, actor_id=uuid.uuid4(),
     )
 
@@ -113,7 +113,7 @@ def test_attach_trade_in_valuation_explicit(db_session):
     )
     offer = create_offer(db_session, tenant_id=tenant_id, actor_id=uuid.uuid4())
     offer = set_trade_in(
-        db_session, offer=offer, group_id=uuid.uuid4(), vin=vin, plate=None, canton=None,
+        db_session, deal=offer, group_id=uuid.uuid4(), vin=vin, plate=None, canton=None,
         vehicle_label="Seat Leon", customer_id=None, actor_id=uuid.uuid4(),
     )
     # A second, explicitly attached valuation overrides the auto-attached one.
@@ -122,9 +122,31 @@ def test_attach_trade_in_valuation_explicit(db_session):
         data=ValuationCreate(vin=vin, source=ValuationSource.MANUAL, final_offer=Decimal(9500)),
         actor_id=uuid.uuid4(),
     )
-    offer = attach_trade_in_valuation(db_session, offer=offer, valuation_id=second.id, actor_id=uuid.uuid4())
+    offer = attach_trade_in_valuation(db_session, deal=offer, valuation_id=second.id, actor_id=uuid.uuid4())
     assert offer.trade_in_valuation_id == second.id
     assert offer.trade_in_value == Decimal(9500)
+
+
+def test_attaching_a_valuation_to_an_offer_that_left_draft_is_refused(db_session):
+    """KAN-67: attach_trade_in_valuation now checks, like set_trade_in always
+    did, that the deal is still editable — a non-draft offer is not."""
+
+    tenant_id = uuid.uuid4()
+    valuation = create_valuation(
+        db_session, tenant_id=tenant_id, group_id=uuid.uuid4(),
+        data=ValuationCreate(vin="WVWZZZ1KZAW333333", source=ValuationSource.MANUAL, final_offer=Decimal(9000)),
+        actor_id=uuid.uuid4(),
+    )
+    offer = cancel_offer(
+        db_session, offer=create_offer(db_session, tenant_id=tenant_id, actor_id=uuid.uuid4()),
+        reason="Kunde verzichtet", actor_id=uuid.uuid4(),
+    )
+
+    with pytest.raises(ConflictError):
+        attach_trade_in_valuation(db_session, deal=offer, valuation_id=valuation.id, actor_id=uuid.uuid4())
+
+    db_session.refresh(offer)
+    assert offer.trade_in_valuation_id is None
 
 
 def test_plate_only_without_a_decisive_match_is_refused(db_session):
@@ -133,7 +155,7 @@ def test_plate_only_without_a_decisive_match_is_refused(db_session):
 
     with pytest.raises(ConflictError):
         set_trade_in(
-            db_session, offer=offer, group_id=uuid.uuid4(), vin=None, plate="ZH123456", canton="ZH",
+            db_session, deal=offer, group_id=uuid.uuid4(), vin=None, plate="ZH123456", canton="ZH",
             vehicle_label="Unknown car", customer_id=None, actor_id=uuid.uuid4(),
         )
 
@@ -180,7 +202,7 @@ def test_payable_is_gross_price_minus_trade_in_value(db_session):
         actor_id=uuid.uuid4(),
     )
     offer = set_trade_in(
-        db_session, offer=offer, group_id=uuid.uuid4(), vin="WVWZZZ1KZAW333333", plate=None, canton=None,
+        db_session, deal=offer, group_id=uuid.uuid4(), vin="WVWZZZ1KZAW333333", plate=None, canton=None,
         vehicle_label="Skoda Octavia Combi 1.5 TSI", customer_id=None, actor_id=uuid.uuid4(),
     )
 
@@ -204,7 +226,7 @@ def test_trade_in_for_another_groups_customer_is_a_404(db_session):
 
     with pytest.raises(NotFoundError):
         set_trade_in(
-            db_session, offer=offer, group_id=uuid.uuid4(), vin="WVWZZZ1KZAW444444", plate=None, canton=None,
+            db_session, deal=offer, group_id=uuid.uuid4(), vin="WVWZZZ1KZAW444444", plate=None, canton=None,
             vehicle_label="VW Golf", customer_id=stranger.id, actor_id=uuid.uuid4(),
         )
     db_session.rollback()
