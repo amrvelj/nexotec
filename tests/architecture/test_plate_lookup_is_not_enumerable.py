@@ -50,12 +50,14 @@ def test_every_plate_query_function_requires_an_exact_identifier():
         assert "canton" in params, f"{name} has no 'canton' parameter — is this an enumerable query?"
 
 
-def _is_plate_segment(segment: str) -> bool:
-    """A plate token anywhere in the segment — `plates`, `vehicle-plate`,
-    `vehicle-plate-history`, `vehicle_plates_export` — but not `document-template`.
-    Wider than the old `vehicle-plate`/`vehicle_plate` substring, never narrower."""
+def _is_plate_path(path: str) -> bool:
+    """The guard's original rule — `vehicle-plate`/`vehicle_plate` anywhere in
+    the path (`vehicle-plates.csv`, `vehicle-platenumbers`) — plus a plate token
+    in any segment (`plates`, `plate-history`), but not `document-template`."""
 
-    return re.search(r"(^|[-_])plates?($|[-_])", segment) is not None
+    if "vehicle-plate" in path or "vehicle_plate" in path:
+        return True
+    return any(re.search(r"(^|[-_])plates?($|[^a-z])", segment) for segment in path_segments(path))
 
 
 def _plate_list_violations(routes) -> tuple[int, list[str]]:
@@ -67,7 +69,7 @@ def _plate_list_violations(routes) -> tuple[int, list[str]]:
 
     inspected, violations = 0, []
     for path, route in api_routes(routes):
-        if "GET" not in route.methods or not any(_is_plate_segment(s) for s in path_segments(path)):
+        if "GET" not in route.methods or not _is_plate_path(path):
             continue
         inspected += 1
         if "{" not in path:
@@ -101,6 +103,10 @@ def test_the_plate_list_guard_catches_a_route_listing_every_plate():
     def export_plate_history() -> list[str]:
         return []
 
+    @router.get("/vehicle-plates.csv")
+    def export_every_plate() -> list[str]:
+        return []
+
     @router.get("/dealerships/document-template")
     def not_a_plate_route() -> list[str]:
         return []
@@ -113,10 +119,11 @@ def test_the_plate_list_guard_catches_a_route_listing_every_plate():
 
     inspected, violations = _plate_list_violations(app.routes)
 
-    assert inspected == 3
+    assert inspected == 4
     assert violations == [
         "/v1/vehicle-plates is a GET route over plates with no identifier in the path",
         "/v1/vehicle-plate-history is a GET route over plates with no identifier in the path",
+        "/v1/vehicle-plates.csv is a GET route over plates with no identifier in the path",
     ]
 
 
