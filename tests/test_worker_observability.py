@@ -6,14 +6,20 @@ the nightly reconciliation alarm, a failing daily job, a failed reservation
 release — stayed in the process log, and the heartbeat's alarm gauges were
 recorded against OTel's no-op meter, so nothing was ever exported.
 
-No network: Sentry gets a capturing transport, the OTLP exporters and the
-metric reader are swapped for in-memory ones, and the global OTel providers
-are captured instead of set, so no other test sees them.
+No network: Sentry gets a capturing transport, and the OTLP exporters and
+the metric reader are swapped for in-memory ones. The metrics test runs the
+worker's set-up in a subprocess: OTel's global providers can be set once per
+process, and no other test should run under them.
 """
 
 import ast
 import datetime as dt
+import json
 import logging
+import os
+import subprocess
+import sys
+import uuid
 from pathlib import Path
 
 import pytest
@@ -95,9 +101,41 @@ def test_the_worker_writes_json_log_lines_with_extra_fields(monkeypatch, capsys)
     _settings(monkeypatch, sentry_dsn=None, otel_exporter_otlp_endpoint=None)
 
     worker.configure_observability()
-    [handler] = logging.getLogger().handlers
+    logging.getLogger("app.worker").info("outbox poll", extra={"claimed": 3, "dead": 0})
 
-    assert isinstance(handler.formatter, observability.JSONLogFormatter)
+    [line] = [json.loads(raw) for raw in capsys.readouterr().err.splitlines() if '"outbox poll"' in raw]
+    assert line["logger"] == "app.worker"
+    assert (line["claimed"], line["dead"]) == (3, 0)
+
+
+def test_a_sentry_event_carries_no_secret_from_a_frame_or_an_extra_field(db_session, monkeypatch):
+    """Secrets are never logged (CLAUDE.md): no stack-frame locals, and
+    app.core.redact's SECRET_FIELDS scrubbed by name."""
+
+    _settings(monkeypatch, sentry_dsn=_FAKE_DSN, otel_exporter_otlp_endpoint=None)
+    transport = _capture_sentry(monkeypatch)
+    worker.configure_observability()
+
+    # Made at run time: the event carries source-context lines, so a literal
+    # would be found there whether or not a value leaked.
+    local_secret, extra_secret = f"local-{uuid.uuid4().hex}", f"extra-{uuid.uuid4().hex}"
+
+    def _adapter_call(value):
+        client_secret = value  # noqa: F841 - the frame local under test
+        raise RuntimeError("provider refused")
+
+    try:
+        _adapter_call(local_secret)
+    except RuntimeError:
+        logging.getLogger("app.integration").exception(
+            "provider call failed", extra={"client_secret": extra_secret, "provider": "auto_i_dat"}
+        )
+
+    [event] = transport.events
+    serialized = json.dumps(event, default=str)
+    assert local_secret not in serialized
+    assert extra_secret not in serialized
+    assert "auto_i_dat" in serialized  # an ordinary extra field still arrives
 
 
 def test_without_a_dsn_the_worker_leaves_sentry_inert(monkeypatch):
@@ -111,47 +149,64 @@ def test_without_a_dsn_the_worker_leaves_sentry_inert(monkeypatch):
     assert transport.events == []
 
 
-def test_with_an_otlp_endpoint_the_worker_registers_the_providers_its_alarm_gauges_need(monkeypatch):
+_GAUGE_PROBE = """
+import json
+from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.http import trace_exporter
+from opentelemetry.sdk.metrics import export as metrics_export
+from opentelemetry.sdk.metrics.export import InMemoryMetricReader
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+
+reader = InMemoryMetricReader()
+metrics_export.PeriodicExportingMetricReader = lambda exporter: reader
+trace_exporter.OTLPSpanExporter = lambda **kw: InMemorySpanExporter()
+
+from app import worker
+from app.core import observability
+
+worker.configure_observability()
+observability.record_outbox_lag_seconds(7)
+observability.record_dead_letter_count(0)
+observability.record_consumer_lag_seconds("inventory.sales_contract_confirmed", 3)
+observability.record_reconciliation_age_seconds(60)
+observability.record_label_age_seconds("vehicle_party.vehicle", 120)
+data = reader.get_metrics_data()
+print(json.dumps({
+    "metrics": sorted({m.name for rm in data.resource_metrics for sm in rm.scope_metrics for m in sm.metrics}),
+    "tracerProvider": type(trace.get_tracer_provider()).__name__,
+}))
+"""
+
+
+def test_with_an_otlp_endpoint_the_heartbeat_alarm_gauges_are_exported_from_the_worker():
     """The heartbeat's gauges (README's alarm table) are created at import
     against OTel's API meter and become real only once the process registers
-    a MeterProvider. The worker now does; it does not instrument FastAPI."""
+    a MeterProvider. Before KAN-248 the worker registered none, so this list
+    was empty. A fresh process, so the global providers stay out of every
+    other test."""
 
-    from opentelemetry import metrics, trace
-    from opentelemetry.exporter.otlp.proto.http import metric_exporter, trace_exporter
-    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-    from opentelemetry.sdk.metrics import MeterProvider
-    from opentelemetry.sdk.metrics import export as metrics_export
-    from opentelemetry.sdk.metrics.export import InMemoryMetricReader
-    from opentelemetry.sdk.trace import TracerProvider
-    from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+    env = {**os.environ, "DMS_OTEL_EXPORTER_OTLP_ENDPOINT": "http://collector.example.invalid:4318"}
+    env.pop("DMS_SENTRY_DSN", None)
+    result = subprocess.run(
+        [sys.executable, "-c", _GAUGE_PROBE],
+        cwd=Path(worker.__file__).resolve().parents[1],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    probe = json.loads(result.stdout.strip().splitlines()[-1])
 
-    _settings(monkeypatch, sentry_dsn=None, otel_exporter_otlp_endpoint="http://collector.example.invalid:4318")
-    reader = InMemoryMetricReader()
-    monkeypatch.setattr(metrics_export, "PeriodicExportingMetricReader", lambda exporter: reader)
-    monkeypatch.setattr(metric_exporter, "OTLPMetricExporter", lambda **kw: None)
-    monkeypatch.setattr(trace_exporter, "OTLPSpanExporter", lambda **kw: InMemorySpanExporter())
-    registered: dict[str, object] = {}
-    monkeypatch.setattr(metrics, "set_meter_provider", lambda provider: registered.update(meter=provider))
-    monkeypatch.setattr(trace, "set_tracer_provider", lambda provider: registered.update(tracer=provider))
-    instrumented: list[object] = []
-    monkeypatch.setattr(FastAPIInstrumentor, "instrument_app", lambda app: instrumented.append(app))
-
-    worker.configure_observability()
-
-    meter_provider, tracer_provider = registered["meter"], registered["tracer"]
-    try:
-        assert isinstance(meter_provider, MeterProvider)
-        assert isinstance(tracer_provider, TracerProvider)
-        assert instrumented == []
-
-        # The provider the worker registers collects what its reader is handed.
-        meter_provider.get_meter("dms.alarms").create_gauge("dms.outbox.lag_seconds").set(7)
-        exported = reader.get_metrics_data()
-        names = {m.name for rm in exported.resource_metrics for sm in rm.scope_metrics for m in sm.metrics}
-        assert "dms.outbox.lag_seconds" in names
-    finally:
-        meter_provider.shutdown()
-        tracer_provider.shutdown()
+    assert probe["metrics"] == [
+        "dms.consumer.lag_seconds",
+        "dms.label.age_seconds",
+        "dms.outbox.dead_letter_count",
+        "dms.outbox.lag_seconds",
+        "dms.reconciliation.age_seconds",
+    ]
+    assert probe["tracerProvider"] == "TracerProvider"
 
 
 def test_the_worker_entrypoint_configures_observability_before_it_runs():

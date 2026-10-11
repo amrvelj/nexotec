@@ -37,7 +37,7 @@ from starlette.types import ASGIApp
 
 from app.core.auth import SESSION_COOKIE_NAME
 from app.core.config import get_settings
-from app.core.redact import REDACTED_PLACEHOLDER, is_secret_field
+from app.core.redact import REDACTED_PLACEHOLDER, SECRET_FIELDS, is_secret_field
 
 CORRELATION_ID_HEADER = "X-Correlation-Id"
 
@@ -222,6 +222,12 @@ def configure_tracing(app: FastAPI | None = None) -> None:
 
 
 def configure_sentry() -> None:
+    """Secrets are never logged, and a Sentry event is a log line that leaves
+    the process: no stack-frame locals (an adapter holds a resolved secret in
+    one — KAN-248, now that the worker reports too), and app.core.redact's
+    SECRET_FIELDS scrubbed by name, recursively, on top of Sentry's own
+    denylist (the same boundary JSONLogFormatter applies)."""
+
     settings = get_settings()
     if not settings.sentry_dsn:
         return
@@ -229,11 +235,14 @@ def configure_sentry() -> None:
     import sentry_sdk
     from sentry_sdk.integrations.fastapi import FastApiIntegration
     from sentry_sdk.integrations.logging import LoggingIntegration
+    from sentry_sdk.scrubber import DEFAULT_DENYLIST, EventScrubber
 
     sentry_sdk.init(
         dsn=settings.sentry_dsn,
         environment=settings.environment,
         traces_sample_rate=0.1,
+        include_local_variables=False,
+        event_scrubber=EventScrubber(denylist=[*DEFAULT_DENYLIST, *sorted(SECRET_FIELDS)], recursive=True),
         integrations=[FastApiIntegration(), LoggingIntegration(level=logging.INFO, event_level=logging.ERROR)],
     )
 
