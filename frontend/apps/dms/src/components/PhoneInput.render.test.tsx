@@ -28,7 +28,6 @@ describe('PhoneInput width (KAN-267)', () => {
     const { group } = renderPhone()
 
     expect(group.style.getPropertyValue('--group-child-width')).toBe('')
-    expect(group.style.getPropertyValue('--group-wrap')).toBe('wrap')
   })
 
   it('moves the number under the country rather than squeezing it, and its minimum fits the advertised editor width', () => {

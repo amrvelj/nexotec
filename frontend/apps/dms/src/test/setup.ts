@@ -90,10 +90,14 @@ if (typeof window !== 'undefined') {
 }
 
 afterEach(async () => {
-  vi.unstubAllGlobals()
+  // Unmount first, while the test's own fetch (its fake backend) is still
+  // installed: a request sent during unmount belongs to that test (KAN-172).
   if (typeof document !== 'undefined') {
     const { cleanup } = await import('@testing-library/react')
     cleanup()
+  }
+  vi.unstubAllGlobals()
+  if (typeof document !== 'undefined') {
     try {
       window.localStorage.clear()
     } catch {

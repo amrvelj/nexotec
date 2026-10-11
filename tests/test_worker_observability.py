@@ -108,7 +108,7 @@ def test_the_worker_writes_json_log_lines_with_extra_fields(monkeypatch, capsys)
     assert (line["claimed"], line["dead"]) == (3, 0)
 
 
-def test_a_sentry_event_carries_no_secret_from_a_frame_or_an_extra_field(db_session, monkeypatch):
+def test_a_sentry_event_carries_no_secret_from_a_frame_or_an_extra_field(monkeypatch):
     """Secrets are never logged (CLAUDE.md): no stack-frame locals, and
     app.core.redact's SECRET_FIELDS scrubbed by name."""
 
@@ -136,6 +136,37 @@ def test_a_sentry_event_carries_no_secret_from_a_frame_or_an_extra_field(db_sess
     assert local_secret not in serialized
     assert extra_secret not in serialized
     assert "auto_i_dat" in serialized  # an ordinary extra field still arrives
+
+
+def test_a_web_500_sends_no_camel_case_secret_from_the_request_body(monkeypatch):
+    """The web process's events carry the request body, camelCase on the wire
+    (SecretWriteRequest's `secretValue`, a customer's `taxId`)."""
+
+    from fastapi import FastAPI, Request
+    from fastapi.testclient import TestClient
+
+    _settings(monkeypatch, sentry_dsn=_FAKE_DSN, otel_exporter_otlp_endpoint=None)
+    transport = _capture_sentry(monkeypatch)
+    observability.configure_sentry()
+
+    app = FastAPI()
+
+    @app.put("/probe")
+    async def probe(request: Request):
+        await request.json()
+        raise RuntimeError("kan-248 web fault")
+
+    secret_value, tax_id = f"live-{uuid.uuid4().hex}", f"CHE-{uuid.uuid4().hex[:9]}"
+    response = TestClient(app, raise_server_exceptions=False).put(
+        "/probe", json={"secretValue": secret_value, "taxId": tax_id, "provider": "auto_i_dat"}
+    )
+
+    assert response.status_code == 500
+    [event] = [e for e in transport.events if e.get("request")]
+    serialized = json.dumps(event, default=str)
+    assert secret_value not in serialized
+    assert tax_id not in serialized
+    assert event["request"]["data"]["provider"] == "auto_i_dat"  # the body is still there, scrubbed
 
 
 def test_without_a_dsn_the_worker_leaves_sentry_inert(monkeypatch):

@@ -221,12 +221,21 @@ def configure_tracing(app: FastAPI | None = None) -> None:
         FastAPIInstrumentor.instrument_app(app)
 
 
+def _sentry_secret_names() -> list[str]:
+    """SECRET_FIELDS as Sentry's scrubber sees them: lower-cased, snake_case
+    (`secret_value`) and camelCase (`secretValue` -> `secretvalue`)."""
+
+    return sorted(SECRET_FIELDS | {name.replace("_", "") for name in SECRET_FIELDS})
+
+
 def configure_sentry() -> None:
     """Secrets are never logged, and a Sentry event is a log line that leaves
     the process: no stack-frame locals (an adapter holds a resolved secret in
     one — KAN-248, now that the worker reports too), and app.core.redact's
     SECRET_FIELDS scrubbed by name, recursively, on top of Sentry's own
-    denylist (the same boundary JSONLogFormatter applies)."""
+    denylist (the same boundary JSONLogFormatter applies). Sentry compares
+    lower-cased names exactly, and request bodies are camelCase on the wire
+    (`secretValue`, `taxId`), so each name is listed in both spellings."""
 
     settings = get_settings()
     if not settings.sentry_dsn:
@@ -242,7 +251,7 @@ def configure_sentry() -> None:
         environment=settings.environment,
         traces_sample_rate=0.1,
         include_local_variables=False,
-        event_scrubber=EventScrubber(denylist=[*DEFAULT_DENYLIST, *sorted(SECRET_FIELDS)], recursive=True),
+        event_scrubber=EventScrubber(denylist=[*DEFAULT_DENYLIST, *_sentry_secret_names()], recursive=True),
         integrations=[FastApiIntegration(), LoggingIntegration(level=logging.INFO, event_level=logging.ERROR)],
     )
 
