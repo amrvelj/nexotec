@@ -787,11 +787,13 @@ def test_a_changing_route_waits_for_a_change_in_progress_and_is_refused(client, 
     thread; the route is still blocked after 0.8 s, and once the holder
     commits it is refused — as a stale version, because its If-Match was read
     before — and the holder's outcome stands. Without `for_update` on the
-    route it reads the row unlocked, passes the version check, waits only at
-    its own UPDATE and then overwrites the holder's commit with 200: an edit
-    re-prices a signed contract, a second confirmation publishes a second
-    `sales.contract.confirmed`, a cancel undoes a signature, an invoice
-    request revives a cancelled contract."""
+    route it reads the row unlocked and passes the version check. A route
+    that writes the row then waits only at its own UPDATE and overwrites the
+    holder's commit with 200: an edit re-prices a signed contract (or attaches
+    a trade-in to it), a second confirmation publishes a second
+    `sales.contract.confirmed`, a cancel undoes a signature. Request-invoice
+    writes no contract row, so it is not held at all: it publishes
+    `sales.contract.invoice_requested` for a contract being cancelled."""
 
     import threading
     import time
@@ -833,6 +835,7 @@ def test_a_changing_route_waits_for_a_change_in_progress_and_is_refused(client, 
     assert response.json()["error"]["details"]["currentVersion"] == contract.version + 1
     db_session.expire_all()
     after = db_session.get(SalesContract, contract.id)
-    assert (after.status, after.gross_price, after.trade_in_valuation_id) == (*outcome, contract.trade_in_valuation_id)
+    # `after` is `contract` (one identity map), so the expectation is a constant, never read back from it.
+    assert (after.status, after.gross_price, after.trade_in_valuation_id) == (*outcome, None)
     # The contract's only new event is the holder's (confirmed / cancelled), none from the route.
     assert db_session.scalar(select(func.count()).select_from(OutboxMessage).where(OutboxMessage.aggregate_id == contract.id)) == events_before + 1

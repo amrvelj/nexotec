@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Route, Routes } from 'react-router-dom'
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from '../i18n'
 import { renderWithProviders } from '../test/renderWithProviders'
-import { installFakeBackend, status } from '../test/fakeBackend'
+import { installFakeBackend, status, type FakeRoute } from '../test/fakeBackend'
+import { configurationRead } from '../test/configuratorFixtures'
 import type { SalesContractRead } from '../api/types'
 import { ContractDetailPage } from './ContractDetailPage'
 
@@ -14,6 +15,20 @@ import { ContractDetailPage } from './ContractDetailPage'
 // now carries the offer workspace's own vehicle, price and trade-in
 // containers, saving through PATCH /sales/contracts/{id}; confirmed, it is
 // frozen and they are gone.
+
+// The configurator's grid virtualises its rows; jsdom has no layout, so it
+// renders every row instead (as OfferWorkspace.configurator.render.test.tsx).
+vi.mock('@tanstack/react-virtual', () => ({
+  useVirtualizer: ({ count, estimateSize }: { count: number; estimateSize: () => number }) => {
+    const size = estimateSize()
+    return {
+      getVirtualItems: () =>
+        Array.from({ length: count }, (_, index) => ({ index, key: index, start: index * size, size })),
+      getTotalSize: () => count * size,
+      measure: () => {},
+    }
+  },
+}))
 
 const EMPTY: SalesContractRead = {
   id: 'k1',
@@ -286,7 +301,7 @@ describe('ContractDetailPage — a pending contract can be completed (KAN-67)', 
     await waitFor(() => expect(screen.getByRole('button', { name: i18n.t('contractDetail.actions.confirm') })).toBeEnabled())
   })
 
-  it('a stale-version line-item refusal is said in the user\'s language and reloads the lines (KAN-288 review)', async () => {
+  it('a stale-version line-item refusal is said in the user\'s language and reloads the lines and the contract (KAN-288 review)', async () => {
     const user = userEvent.setup()
     const OPTION = {
       id: 'li-1', kind: 'factory_option', code: 'LED', label: 'LED-Scheinwerfer', unitPrice: '800.00', quantity: 1,
@@ -336,7 +351,6 @@ describe('ContractDetailPage — a pending contract can be completed (KAN-67)', 
     fireEvent.change(discount, { target: { value: '1000' } })
     // Past the debounce the figure is sent; while the PATCH is unanswered Confirm still waits.
     await waitFor(() => expect(backend.callsTo(/^\/sales\/contracts\/k1$/, 'PATCH')).toHaveLength(1), { timeout: 2000 })
-    await new Promise((resolve) => setTimeout(resolve, 100))
     expect(screen.getByRole('button', { name: i18n.t('contractDetail.actions.confirm') })).toBeDisabled()
 
     release({ ...PRICED, discountType: 'amount', discountValue: '1000.00', grossPrice: '17000.00', version: PRICED.version + 1 })
@@ -364,6 +378,57 @@ describe('ContractDetailPage — a pending contract can be completed (KAN-67)', 
     expect(screen.getByRole('button', { name: i18n.t('contractDetail.actions.confirm') })).toBeDisabled()
 
     release({ ...PRICED, tradeInVehicleId: 'veh-9', tradeInLabel: 'Opel Corsa', version: PRICED.version + 1 })
+    await waitFor(() => expect(screen.getByRole('button', { name: i18n.t('contractDetail.actions.confirm') })).toBeEnabled())
+  })
+
+  it('a trade-in valuation attach still on its way holds Confirm until it lands (KAN-289 review)', async () => {
+    const user = userEvent.setup()
+    let release: (value: unknown) => void = () => {}
+    const tradeIn = configurationRead({
+      id: 'cfg-ti', mode: 'record', source: 'manual', catalogueVariantId: null,
+      brandDisplayName: 'Subaru', modelGroupName: 'Justy', variantName: 'G3X', licencePlate: 'ZH123456', mileageKm: 148000,
+    })
+    const catalogue: FakeRoute[] = [
+      { method: 'GET', match: /\/catalogue\/model-groups$/, handler: () => ({ items: [] }) },
+      { method: 'GET', match: /\/catalogue\/facets$/, handler: () => ({ browseAvailable: true, coded: {}, numeric: {} }) },
+      {
+        method: 'GET',
+        match: /\/catalogue\/variants$/,
+        handler: () => ({ items: [], nextCursor: null, total: 0, totalIsEstimate: false, browseAvailable: true }),
+      },
+      { method: 'GET', match: /\/reference-data\//, handler: () => ({ items: [], nextCursor: null }) },
+      { method: 'GET', match: /^\/integrations\/capabilities\//, handler: () => ({ capabilityCode: 'x', granted: false }) },
+    ]
+    const backend = installFakeBackend([
+      { method: 'POST', match: /^\/configurations$/, handler: () => ({ __status: 201, body: tradeIn }) },
+      { method: 'GET', match: /^\/configurations\/cfg-ti$/, handler: () => tradeIn },
+      { method: 'POST', match: /^\/valuations$/, handler: () => ({ __status: 201, body: { id: 'val-7' } }) },
+      {
+        method: 'POST',
+        match: /^\/sales\/contracts\/k1\/trade-in\/valuation$/,
+        handler: () => new Promise((resolve) => (release = resolve)),
+      },
+      { method: 'GET', match: /^\/valuations\/val-7$/, handler: () => ({ id: 'val-7', source: 'manual' }) },
+      ...catalogue,
+      ...baseRoutes(() => PRICED),
+    ])
+    renderPage()
+
+    await user.click(await screen.findByRole('button', { name: i18n.t('offerWorkspace.tradeIn.valueWithConfigurator') }))
+    const overlay = await screen.findByRole('dialog')
+    await user.click(within(overlay).getByRole('button', { name: i18n.t('configurator.find.manual') }))
+    await user.click(await within(overlay).findByRole('button', { name: i18n.t('configurator.saveNew') }))
+    const valuationDialog = await screen.findByRole('dialog', { name: i18n.t('valuationCreate.title') })
+    await user.type(within(valuationDialog).getByLabelText(i18n.t('valuationCreate.finalOffer'), { exact: false }), '2500')
+    await user.click(within(valuationDialog).getByRole('button', { name: i18n.t('valuationCreate.submit') }))
+
+    await waitFor(() => expect(backend.callsTo(/\/trade-in\/valuation$/, 'POST')).toHaveLength(1))
+    expect(screen.getByRole('button', { name: i18n.t('contractDetail.actions.confirm') })).toBeDisabled()
+
+    release({
+      ...PRICED, tradeInValuationId: 'val-7', tradeInConfigurationId: 'cfg-ti', tradeInLabel: 'Subaru Justy G3X',
+      tradeInValue: '2500.00', payable: '15500.00', version: PRICED.version + 1,
+    })
     await waitFor(() => expect(screen.getByRole('button', { name: i18n.t('contractDetail.actions.confirm') })).toBeEnabled())
   })
 
