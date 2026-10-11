@@ -6,18 +6,16 @@ against concurrent twins — and its OpenAPI declares the header, optional.
 A header declared by hand is not enough: the hand-copied pattern stored the
 key only after the work had committed, so two concurrent submits both did it.
 
-The walk flattens included routers. Under FastAPI 0.141 `app.routes` holds
-only the top level (the docs routes and one `_IncludedRouter`); a loop over it
-alone sees no API route and passes whatever the routes are. The first test
-pins that the walk sees exactly the POSTs the OpenAPI publishes.
+The walk (`tests/route_walk.py`, shared since KAN-241) flattens included
+routers: under FastAPI 0.141 `app.routes` holds only the top level. The first
+test pins that the walk sees exactly the POSTs the OpenAPI publishes.
 """
-
-from collections.abc import Iterator
 
 from fastapi.routing import APIRoute
 
 from app.core.idempotent_route import IDEMPOTENCY_KEY_HEADER, IdempotentRoute
 from app.main import app
+from tests.route_walk import api_routes
 
 # Ratified by Anto on 2026-10-07 (KAN-119). Neither can take the route class:
 # both set the session cookie on `Response`, which a replay would not restore.
@@ -31,21 +29,8 @@ EXEMPT = {
 }
 
 
-
-def _api_routes(routes) -> Iterator[tuple[str, APIRoute]]:
-    """Every APIRoute the app serves, with the full path it is served at."""
-
-    for route in routes:
-        if isinstance(route, APIRoute):
-            yield route.path, route
-        elif hasattr(route, "effective_route_contexts"):  # fastapi.routing._IncludedRouter
-            for context in route.effective_route_contexts():
-                if isinstance(context.original_route, APIRoute):
-                    yield context.path, context.original_route
-
-
 def _post_routes() -> dict[str, APIRoute]:
-    return {path: route for path, route in _api_routes(app.routes) if "POST" in route.methods}
+    return {path: route for path, route in api_routes(app.routes) if "POST" in route.methods}
 
 
 def _published_posts() -> dict[str, dict]:

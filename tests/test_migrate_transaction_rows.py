@@ -28,7 +28,8 @@ from app.sales.services.contract import cancel_contract, create_contract, reques
 from app.vehicle.models.vehicle import Vehicle as LegacyVehicle
 from app.vehicle.models.vehicle import VehicleCondition, VehicleStatus
 from app.vehicle.services.vehicle_mdm import create_or_get_vehicle_mdm
-from scripts.migrate_transaction_rows import run_migration
+from scripts import migrate_transaction_rows
+from scripts.migrate_transaction_rows import main, run_migration
 
 TENANT_ID = uuid.uuid4()
 
@@ -58,10 +59,10 @@ def _dealership(db_session, *, vat_rate=Decimal("8.10")) -> Dealership:
     return dealership
 
 
-def _customer(db_session, *, vat_registered=False) -> Customer:
+def _customer(db_session, *, vat_registered=False, language=Language.EN) -> Customer:
     customer = Customer(
         group_id=uuid.uuid4(), customer_number=f"K-{uuid.uuid4().hex[:6]}", customer_type=CustomerType.INDIVIDUAL,
-        language=Language.EN, first_name="Ada", last_name="Lovelace", vat_registered=vat_registered,
+        language=language, first_name="Ada", last_name="Lovelace", vat_registered=vat_registered,
     )
     db_session.add(customer)
     db_session.flush()
@@ -986,3 +987,219 @@ def test_transaction_table_itself_is_never_written_to(db_session):
     db_session.refresh(txn)
     assert txn.version == original_version
     assert txn.status == TransactionStatus.COMPLETED
+
+
+# --- KAN-73: language, an honest report, the exit code ----------------------
+
+
+def test_a_migrated_sale_carries_the_customers_correspondence_language(db_session):
+    """KAN-73 (2): without customer_language the document falls back to German."""
+
+    customer = _customer(db_session, language=Language.FR)
+    legacy = _legacy_vehicle(db_session)
+    _migrated_vehicle_mdm(db_session, legacy)
+    txn = _sale_transaction(db_session, customer_id=customer.id, vehicle_id=legacy.id)
+    db_session.commit()
+
+    run_migration(db_session, commit=True)
+
+    contract = db_session.query(SalesContract).filter_by(legacy_transaction_id=txn.id).one()
+    offer = db_session.get(SalesOffer, contract.offer_id)
+    assert offer.customer_language == "fr"
+    assert contract.customer_language == "fr"
+
+
+def test_two_full_trade_in_and_sale_cycles_on_one_vin_all_migrate(db_session):
+    """KAN-73 (3): trade-in -> sale -> trade-in -> sale. Each row has an
+    intervening row of the other type, so none is a conflict: two stays in
+    stock, each opened by its trade-in and closed by its sale."""
+
+    _dealership(db_session)
+    customer = _customer(db_session, vat_registered=True)
+    legacy = _legacy_vehicle(db_session)
+    mdm = _migrated_vehicle_mdm(db_session, legacy)
+    dates = [dt.datetime(2021 + i, 1, 1, tzinfo=dt.UTC) for i in range(4)]
+    first_trade_in = _trade_in_transaction(
+        db_session, customer_id=customer.id, vehicle_id=legacy.id, amount=Decimal("10000.00"), transaction_date=dates[0]
+    )
+    first_sale = _sale_transaction(
+        db_session, customer_id=customer.id, vehicle_id=legacy.id, amount=Decimal("13000.00"), transaction_date=dates[1]
+    )
+    second_trade_in = _trade_in_transaction(
+        db_session, customer_id=customer.id, vehicle_id=legacy.id, amount=Decimal("8000.00"), transaction_date=dates[2]
+    )
+    second_sale = _sale_transaction(
+        db_session, customer_id=customer.id, vehicle_id=legacy.id, amount=Decimal("11000.00"), transaction_date=dates[3]
+    )
+    db_session.commit()
+
+    report = run_migration(db_session, commit=True)
+
+    assert [o.outcome for o in report.outcomes] == ["migrated"] * 4
+    items = db_session.query(StockItem).filter_by(vin=mdm.vin).order_by(StockItem.in_stock_at).all()
+    assert len(items) == 2
+    for item, trade_in, sale, (bought, sold) in zip(
+        items, (first_trade_in, second_trade_in), (first_sale, second_sale),
+        ((Decimal("10000.00"), Decimal("13000.00")), (Decimal("8000.00"), Decimal("11000.00"))), strict=True,
+    ):
+        assert item.pipeline_ref == f"legacy-transaction:{trade_in.id}"
+        assert (item.purchase_price, item.effective_price) == (bought, sold)
+        assert item.in_stock_at == trade_in.transaction_date
+        assert item.left_stock_at == sale.transaction_date
+        assert db_session.query(SalesContract).filter_by(legacy_transaction_id=sale.id).one().stock_item_id == item.id
+
+
+def test_the_printed_report_shows_a_condition_lossy_approximation(db_session):
+    """KAN-73 (4): the approximation reaches the printed dry-run report, not
+    only the in-memory RowOutcome."""
+
+    customer = _customer(db_session)
+    legacy = _legacy_vehicle(db_session, condition=VehicleCondition.CERTIFIED_PRE_OWNED)
+    _migrated_vehicle_mdm(db_session, legacy)
+    txn = _sale_transaction(db_session, customer_id=customer.id, vehicle_id=legacy.id)
+    db_session.commit()
+
+    report = run_migration(db_session, commit=False)
+    text = report.summary()
+
+    assert report.outcomes[0].flags == ["condition_lossy"]
+    assert "  flagged condition_lossy: 1" in text
+    assert f"    MIGRATED [condition_lossy] sale {txn.id}: legacy condition 'certified_pre_owned'" in text
+
+
+def test_the_printed_report_shows_every_migrated_row(db_session):
+    customer = _customer(db_session)
+    legacy = _legacy_vehicle(db_session)
+    _migrated_vehicle_mdm(db_session, legacy)
+    txn = _sale_transaction(db_session, customer_id=customer.id, vehicle_id=legacy.id)
+    db_session.commit()
+
+    text = run_migration(db_session, commit=False).summary()
+
+    assert f"    MIGRATED sale {txn.id}: would resolve/create a stock item" in text
+    assert "flagged" not in text
+
+
+def test_a_trade_in_whose_supplier_vat_status_cannot_be_confirmed_is_flagged_not_decided(db_session):
+    """KAN-73 (1, report-only until the product owner and Finance rule):
+    vat_registered=false cannot be told apart from never recorded, yet the
+    row writes a fiktiver Vorsteuerabzug. Migrated as before, but flagged,
+    counted and printed with the credit it writes."""
+
+    _dealership(db_session, vat_rate=Decimal("8.10"))
+    customer = _customer(db_session, vat_registered=False)
+    legacy = _legacy_vehicle(db_session)
+    _migrated_vehicle_mdm(db_session, legacy)
+    txn = _trade_in_transaction(db_session, customer_id=customer.id, vehicle_id=legacy.id, amount=Decimal("10000.00"))
+    db_session.commit()
+
+    for commit in (False, True):
+        report = run_migration(db_session, commit=commit)
+        text = report.summary()
+
+        assert report.outcomes[0].outcome == "migrated"
+        assert report.outcomes[0].flags == ["supplier_vat_status_unconfirmed"]
+        assert "  flagged supplier_vat_status_unconfirmed: 1" in text
+        assert f"MIGRATED [supplier_vat_status_unconfirmed] trade_in {txn.id}" in text
+        assert "fiktiver Vorsteuerabzug of CHF 749.31" in text
+    item = db_session.query(StockItem).filter_by(pipeline_ref=f"legacy-transaction:{txn.id}").one()
+    assert item.notional_input_tax_amount == Decimal("749.31")  # the behaviour is unchanged, only reported
+
+
+def test_the_vat_flag_note_says_so_when_the_dealership_has_no_vat_rate(db_session):
+    _dealership(db_session, vat_rate=None)
+    customer = _customer(db_session, vat_registered=False)
+    legacy = _legacy_vehicle(db_session)
+    _migrated_vehicle_mdm(db_session, legacy)
+    _trade_in_transaction(db_session, customer_id=customer.id, vehicle_id=legacy.id)
+    db_session.commit()
+
+    text = run_migration(db_session, commit=False).summary()
+
+    assert "its amount not computable (the dealership has no vat_rate)" in text
+    assert "CHF None" not in text
+
+
+def test_a_trade_in_from_a_vat_registered_supplier_is_not_flagged(db_session):
+    _dealership(db_session)
+    customer = _customer(db_session, vat_registered=True)
+    legacy = _legacy_vehicle(db_session)
+    _migrated_vehicle_mdm(db_session, legacy)
+    _trade_in_transaction(db_session, customer_id=customer.id, vehicle_id=legacy.id)
+    db_session.commit()
+
+    report = run_migration(db_session, commit=False)
+
+    assert report.outcomes[0].flags == []
+    assert "flagged" not in report.summary()
+
+
+class _SessionKeptOpen:
+    """main() closes its session; the test's own must outlive it."""
+
+    def __init__(self, session):
+        self._session = session
+
+    def __getattr__(self, name):
+        return getattr(self._session, name)
+
+    def close(self):
+        pass
+
+
+def _make_the_first_sale_fail(db_session, monkeypatch):
+    """A trade-in that migrates (and flushes its stock item), then a sale
+    that fails — so "nothing written" proves the rollback, not an empty run."""
+
+    _dealership(db_session)
+    customer = _customer(db_session, vat_registered=True)
+    legacy = _legacy_vehicle(db_session)
+    _migrated_vehicle_mdm(db_session, legacy)
+    _trade_in_transaction(
+        db_session, customer_id=customer.id, vehicle_id=legacy.id, transaction_date=dt.datetime(2024, 1, 1, tzinfo=dt.UTC)
+    )
+    _sale_transaction(
+        db_session, customer_id=customer.id, vehicle_id=legacy.id, transaction_date=dt.datetime(2024, 6, 1, tzinfo=dt.UTC)
+    )
+    db_session.commit()
+
+    def boom(*_args, **_kwargs):
+        raise RuntimeError("simulated failure")
+
+    monkeypatch.setattr(migrate_transaction_rows, "_migrate_sale", boom)
+    monkeypatch.setattr(migrate_transaction_rows, "SessionLocal", lambda: _SessionKeptOpen(db_session))
+
+
+def test_an_aborted_commit_run_exits_non_zero_and_is_never_labelled_a_dry_run(db_session, monkeypatch, capsys):
+    """KAN-73 (5)."""
+
+    _make_the_first_sale_fail(db_session, monkeypatch)
+
+    exit_code = main(["--commit"])
+    out = capsys.readouterr().out
+
+    assert exit_code == 1
+    assert "migrate_transaction_rows: COMMIT RUN ABORTED — rolled back, nothing written" in out
+    assert "DRY RUN" not in out
+    assert "MIGRATED trade_in" in out  # the first row did run ...
+    assert "ERROR sale" in out and "RuntimeError: simulated failure" in out
+    db_session.expire_all()
+    assert db_session.query(StockItem).count() == 0  # ... and its stock item was rolled back
+    assert db_session.query(SalesStockItemPurchase).count() == 0
+    assert db_session.query(SalesContract).count() == 0
+
+
+def test_an_aborted_dry_run_exits_non_zero(db_session, monkeypatch, capsys):
+    _make_the_first_sale_fail(db_session, monkeypatch)
+
+    exit_code = main([])
+
+    assert exit_code == 1
+    assert "migrate_transaction_rows: DRY RUN ABORTED (nothing written)" in capsys.readouterr().out
+
+
+def test_a_completed_run_exits_zero(db_session, monkeypatch, capsys):
+    monkeypatch.setattr(migrate_transaction_rows, "SessionLocal", lambda: _SessionKeptOpen(db_session))
+
+    assert main([]) == 0
+    assert "migrate_transaction_rows: DRY RUN (nothing written)" in capsys.readouterr().out

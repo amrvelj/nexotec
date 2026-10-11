@@ -11,6 +11,7 @@ import uuid
 from decimal import Decimal
 
 import pytest
+from fastapi import APIRouter, FastAPI
 from pydantic.alias_generators import to_camel
 from sqlalchemy import event, select
 from sqlalchemy.orm import Session, sessionmaker
@@ -50,6 +51,7 @@ from app.vehicle.schemas.configuration import ConfigurationCreate, Configuration
 from app.vehicle.schemas.spec_block import VehicleSpecBlockInput
 from app.vehicle.services import configuration as configuration_service
 from app.vehicle.services import configuration_host
+from tests.route_walk import api_routes
 
 # --- fixtures -----------------------------------------------------------
 
@@ -586,10 +588,38 @@ def test_no_route_reaches_a_configuration_through_a_customer():
 
     from app.main import app
 
-    for route in app.routes:
-        path = getattr(route, "path", "")
-        if "configuration" in path:
-            assert "customer" not in path, path
+    inspected, violations = _customer_keyed_configuration_routes(app.routes)
+
+    # KAN-241: zero would mean the walk no longer reaches the API routes.
+    assert inspected >= 1, "the guard inspected no configuration route — it is not reaching the API routes"
+    assert not violations, violations
+
+
+def _customer_keyed_configuration_routes(routes) -> tuple[int, list[str]]:
+    """(configuration routes inspected, those reached through a customer)."""
+
+    configuration_paths = [path for path, _route in api_routes(routes) if "configuration" in path]
+    return len(configuration_paths), [path for path in configuration_paths if "customer" in path]
+
+
+def test_the_customer_configuration_guard_catches_a_customer_keyed_route():
+    """KAN-241, exit criterion 3: red on a violating route mounted through an
+    included router, as the real routes are."""
+
+    app = FastAPI()
+    router = APIRouter(prefix="/v1")
+
+    @router.get("/customers/{customer_id}/configurations")
+    def configurations_of_a_customer(customer_id: str) -> list[str]:
+        return []
+
+    @router.get("/configurations/{configuration_id}")
+    def one_configuration(configuration_id: str) -> dict:
+        return {}
+
+    app.include_router(router)
+
+    assert _customer_keyed_configuration_routes(app.routes) == (2, ["/v1/customers/{customer_id}/configurations"])
 
 
 # --- FR-C-16: re-sync, never automatic, per field ------------------------

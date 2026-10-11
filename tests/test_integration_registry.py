@@ -5,7 +5,6 @@ CRUD, manager-flag-only gating, tenant scoping.
 import uuid
 
 import pytest
-from sqlalchemy.exc import IntegrityError
 
 from app.core.auth import AccessRole, create_access_token
 from app.core.errors import ConflictError, NotFoundError
@@ -179,13 +178,13 @@ def test_duplicate_connection_same_tenant_provider_environment_is_refused(db_ses
         data=ConnectionCreate(provider_id=provider.id, display_name="First", environment=ConnectionEnvironment.SANDBOX),
         actor_id=uuid.uuid4(),
     )
-    with pytest.raises(IntegrityError):  # the DB's own unique constraint
+    # KAN-274: a 409 the client can explain, not the IntegrityError (500) it used to escape as.
+    with pytest.raises(ConflictError):
         connection_service.create_connection(
             db_session, tenant_id=tenant_id,
             data=ConnectionCreate(provider_id=provider.id, display_name="Second", environment=ConnectionEnvironment.SANDBOX),
             actor_id=uuid.uuid4(),
         )
-    db_session.rollback()
 
 
 def test_platform_scope_connection_has_null_tenant_id(db_session):

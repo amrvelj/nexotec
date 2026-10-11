@@ -91,12 +91,10 @@ PRESERVED_PATTERN = re.compile(r"^app/core/outbox[^/]*\.py$")
 # The gates themselves - a change to them asks Anto.
 SETUP_PREFIXES = (".claude/hooks/", ".claude/agents/", "scripts/dev/")
 SETUP_FILES = (".claude/settings.json",)
-# "Nexotec Kanban Board": its database id and its data source id. New tickets
-# may be created under either without Anto's click.
+# "Nexotec Kanban Board": its database id and its data source id.
 KANBAN_IDS = {"3cf3e79334dd80f69bb8c2e6a19481ef", "3cf3e79334dd805c9017000b5a24915f"}
+# Writes to the active ticket's page count as its hand-over evidence (PostToolUse).
 NOTION_TICKET_WRITES = ("notion-update-page", "notion-create-comment")
-NOTION_UPLOADS = ("notion-create-file-upload", "notion-create-attachment")
-NOTION_CREATE = ("notion-create-pages",)
 NOTION_READ_PREFIXES = (
     "notion-fetch", "notion-search", "notion-query", "notion-get", "notion-list",
     "notion-ai-search", "notion-read", "notion-download", "notion-check",
@@ -1262,34 +1260,25 @@ def notion_tool(tool_name):
     return tool_name.split("__")[-1].lower()
 
 
-def cmd_pre_notion(data):
+def notion_decision(data):
+    """(decision, reason) for a Notion tool call, or None for a read.
+
+    Every Notion write is allowed without Anto's click (Anto, 2026-10-11:
+    "you are free to update Notion, I don't need to allow it every time").
+    The reviewer stays read-only. What a write to a page other than the
+    active ticket changed is said in the reply and the PR, not in a prompt."""
     tool = notion_tool(data.get("tool_name"))
     if not tool or tool.startswith(NOTION_READ_PREFIXES):
-        return
-    root = root_from(data)
-    ticket = (load_state(root) if root else {}).get("ticket") or {}
-    ticket_page = ticket.get("page_id")
-    ti = data.get("tool_input") or {}
-    if tool in NOTION_TICKET_WRITES:
-        target = notion_id(ti.get("page_id"))
-        if ticket_page and target == ticket_page:
-            pre_decision("allow", "Notion write to the active ticket {}".format(ticket.get("id")))
-            return
-        pre_decision("ask", "This Notion write targets a page that is NOT the active ticket ({}). "
-                            "Spec pages (PRDs, ADR log, Gap Analysis) change only with Anto's approval."
-                     .format(ticket.get("id") or "no active ticket"))
-        return
-    if tool in NOTION_CREATE:
-        parent_ids = {notion_id(s) for s in all_strings(ti.get("parent"))}
-        if parent_ids & KANBAN_IDS:
-            pre_decision("allow", "New ticket on the Nexotec Kanban Board")
-            return
-        pre_decision("ask", "Creates Notion pages outside the Kanban board.")
-        return
-    if tool in NOTION_UPLOADS and ticket_page:
-        pre_decision("allow", "Upload for the active ticket {}".format(ticket.get("id")))
-        return
-    pre_decision("ask", "Notion write ({}) outside the ticket lifecycle.".format(tool))
+        return None
+    if data.get("agent_type") == "reviewer":
+        return "deny", "The reviewer is read-only - report the Notion change as a finding instead."
+    return "allow", "Notion write ({}) - Anto allows every Notion write (2026-10-11)".format(tool)
+
+
+def cmd_pre_notion(data):
+    decision = notion_decision(data)
+    if decision:
+        pre_decision(*decision)
 
 
 # --------------------------------------------------------------------------
@@ -1728,8 +1717,8 @@ def cli(argv):
             if previous and previous != rest[0]:
                 st["events"] = [e for e in st.get("events", []) if e.get("kind") != "notion"]
         update_state(root, start)
-        print("Active ticket: {} (Notion page {}). Writes to this page and new Kanban tickets no longer "
-              "need Anto's click.".format(rest[0], page))
+        print("Active ticket: {} (Notion page {}). Writes to this page count as its hand-over evidence."
+              .format(rest[0], page))
         return 0
     if cmd == "close":
         abandon = "--abandon" in rest
@@ -1952,6 +1941,10 @@ def selftest():
     assert notion_id("3cf3e793-34dd-805c-9017-000b5a24915f") in KANBAN_IDS
     assert notion_id("https://www.notion.so/Margin-drops-3e83e79334dd81c3b6f1d732105a81e6?v=0123456789abcdef0123456789abcdef") == "3e83e79334dd81c3b6f1d732105a81e6"
     assert notion_tool("mcp__claude_ai_Notion__notion-update-page") == "notion-update-page"
+    assert notion_decision({"tool_name": "mcp__claude_ai_Notion__notion-fetch"}) is None
+    assert notion_decision({"tool_name": "mcp__claude_ai_Notion__notion-update-page"})[0] == "allow"
+    assert notion_decision({"tool_name": "mcp__Notion__notion-move-pages"})[0] == "allow"
+    assert notion_decision({"tool_name": "mcp__Notion__notion-update-page", "agent_type": "reviewer"})[0] == "deny"
     # --- evidence
     assert is_screenshot("mcp__Claude_Preview__preview_screenshot", {})
     assert is_screenshot("mcp__Claude_Browser__computer", {"action": "screenshot"})

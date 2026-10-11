@@ -9,6 +9,7 @@ import uuid
 from decimal import Decimal
 
 from sqlalchemy import delete, func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
@@ -177,6 +178,25 @@ def list_connections(
     return items, next_cursor, total, total_is_estimate
 
 
+_UNIQUE_CONNECTION_CONSTRAINT = "uq_integration_connection_tenant_provider_env"
+
+
+def _duplicate_connection(
+    data: ConnectionCreate, provider_code: str, tenant_id: uuid.UUID | None
+) -> ConflictError:
+    scope = "platform-scoped" if tenant_id is None else "tenant-scoped"
+    return ConflictError(
+        f"A {scope} {data.environment.value} connection to '{provider_code}' already exists.",
+        details={
+            "reason": "duplicate_connection",
+            "scope": data.scope.value,
+            "tenantId": str(tenant_id) if tenant_id is not None else None,
+            "providerCode": provider_code,
+            "environment": data.environment.value,
+        },
+    )
+
+
 def create_connection(
     db: Session, *, tenant_id: uuid.UUID | None, data: ConnectionCreate, actor_id: uuid.UUID | None
 ) -> IntegrationConnection:
@@ -192,24 +212,28 @@ def create_connection(
 
     if data.scope == ConnectionScope.PLATFORM:
         resolved_tenant_id = None
-        # The DB's own unique constraint can't catch two NULL-tenant_id
-        # duplicates (NULL never equals NULL in SQL) — checked explicitly
-        # here instead, the one case that constraint structurally misses.
-        existing = db.scalar(
-            select(IntegrationConnection).where(
-                IntegrationConnection.scope == ConnectionScope.PLATFORM,
-                IntegrationConnection.provider_id == provider.id,
-                IntegrationConnection.environment == data.environment,
-            )
-        )
-        if existing is not None:
-            raise ConflictError(
-                f"A platform-scoped {data.environment.value} connection to '{provider.provider_code}' already exists."
-            )
     else:
         if tenant_id is None:
             raise ConflictError("A tenant-scoped connection requires a tenant.")
         resolved_tenant_id = tenant_id
+
+    # KAN-274: a duplicate is a 409 the client can explain, never the 500
+    # an unmapped IntegrityError becomes. Checked explicitly for both
+    # scopes — the platform scope has to be, since the unique constraint
+    # cannot see two NULL tenant_ids as equal — and the constraint stays
+    # the backstop for two tenant-scoped creates racing past this check.
+    existing = db.scalar(
+        select(IntegrationConnection.id).where(
+            IntegrationConnection.scope == data.scope,
+            IntegrationConnection.tenant_id.is_(None)
+            if resolved_tenant_id is None
+            else IntegrationConnection.tenant_id == resolved_tenant_id,
+            IntegrationConnection.provider_id == provider.id,
+            IntegrationConnection.environment == data.environment,
+        )
+    )
+    if existing is not None:
+        raise _duplicate_connection(data, provider.provider_code, resolved_tenant_id)
 
     connection = IntegrationConnection(
         provider_id=provider.id,
@@ -221,8 +245,15 @@ def create_connection(
         created_by=actor_id,
         updated_by=actor_id,
     )
-    db.add(connection)
-    db.flush()
+    try:
+        with db.begin_nested():
+            db.add(connection)
+            db.flush()
+    except IntegrityError as exc:
+        # Only the duplicate is a 409; any other integrity failure stays loud.
+        if getattr(getattr(exc.orig, "diag", None), "constraint_name", None) != _UNIQUE_CONNECTION_CONSTRAINT:
+            raise
+        raise _duplicate_connection(data, provider.provider_code, resolved_tenant_id) from exc
     record_audit_event(
         db,
         entity_type=_ENTITY_TYPE,
