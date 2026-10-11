@@ -306,6 +306,21 @@ export function ConfiguratorOverlay({
     setPhase('configure')
   }
 
+  // KAN-261 — Back from phase 2 starts a genuinely new configuration. Once
+  // the first save has happened, `configurationId` would otherwise turn the
+  // next car's save into a PATCH of the configuration already saved (one
+  // record describing two cars, FR-C-11). The saved one stays as it is;
+  // only this overlay session lets go of it.
+  const backToFind = () => {
+    setConfigurationId(null)
+    setCurrentVersion(0)
+    setDraft(null)
+    setResyncOpen(false)
+    setSection('specification')
+    setError(null)
+    setPhase('find')
+  }
+
   const startFromIdentification = (start: IdentifiedStart) => {
     setDraft(withObserved(draftFromVariant(start.variant), start))
     setPhase('configure')
@@ -628,7 +643,7 @@ export function ConfiguratorOverlay({
             </Button>
           )}
           {!existing && (
-            <Button variant="subtle" size="xs" onClick={() => setPhase('find')}>
+            <Button variant="subtle" size="xs" onClick={backToFind}>
               {t('configurator.configure.back')}
             </Button>
           )}
