@@ -23,6 +23,9 @@
       "catalogue": "Katalog"
     },
     "signOut": "Abmelden",
+    "environmentNotice": {
+      "outboxWorkerAbsent": "Diese Umgebung betreibt keinen Hintergrund-Worker: Ereignisse werden hier nicht zugestellt und nächtliche Jobs laufen nicht."
+    },
     "sidebar": {
       "mainNavigation": "Hauptnavigation",
       "expandSidebar": "Seitenleiste ausklappen",
@@ -974,7 +977,8 @@
         "staleVersion": "Dieser Vertrag hat sich seit dem Laden der Seite geändert. Er wurde neu geladen — bitte prüfen und erneut versuchen.",
         "badStatus": "Dieser Vertrag kann aus seinem aktuellen Status nicht mehr bestätigt werden.",
         "generic": "Der Vertrag konnte nicht bestätigt werden.",
-        "tradeInValuationExpired": "Die Eintauschbewertung dieses Vertrags ist abgelaufen, daher kann der Vertrag nicht bestätigt werden. Stornieren Sie ihn und erstellen Sie einen neuen Vertrag aus einer Offerte mit einer aktuellen Bewertung."
+        "tradeInValuationExpired": "Die Eintauschbewertung dieses Vertrags ist abgelaufen, daher kann der Vertrag nicht bestätigt werden. Stornieren Sie ihn und erstellen Sie einen neuen Vertrag aus einer Offerte mit einer aktuellen Bewertung.",
+        "vehicleLeftStock": "Dieses Fahrzeug hat den Bestand bereits verlassen (verkauft). Es kann nicht erneut reserviert werden — der Vertrag kann nicht bestätigt werden."
       },
       "editRefused": {
         "staleVersion": "Der Vertrag wurde inzwischen geändert. Die aktuelle Fassung ist geladen – bitte die Änderung erneut vornehmen.",
@@ -987,6 +991,7 @@
       "confirmDisabledReason": "Nur im Status Offen bestätigbar.",
       "cancel": "Stornieren …",
       "cancelDisabledReason": "Bereits storniert oder fakturiert.",
+      "cancelDisabledReasonLegacy": "Aus dem Altsystem übernommener Verkauf — dort bereits fakturiert, kann nicht storniert werden.",
       "confirmDisabledReasonEmpty": "Fahrzeug und Preis fehlen noch.",
       "confirmDisabledReasonSaving": "Änderungen werden noch gespeichert."
     },

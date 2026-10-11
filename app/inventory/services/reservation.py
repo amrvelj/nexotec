@@ -96,6 +96,7 @@ def _reserve(
     )
     if item is None:
         raise NotFoundError(f"Stock item {stock_item_id} was not found.")
+    _refuse_if_left_stock(item)
     if item.reservation_state == ReservationState.RESERVED:
         raise ConflictError(
             f"Stock item {stock_item_id} already carries an active reservation.",
@@ -155,6 +156,7 @@ def reserve_for_contract(
     if item.reservation_state == ReservationState.RESERVED and item.reserved_by_contract_id == contract_id:
         db.commit()
         return {"reservationId": str(item.active_reservation_id), "stockItemId": str(item.id)}
+    _refuse_if_left_stock(item)
     if item.reservation_state == ReservationState.RESERVED:
         raise ConflictError(
             f"Stock item {stock_item_id} already carries an active reservation.",
@@ -214,6 +216,19 @@ def _release(db: Session, *, tenant_id: uuid.UUID, reservation_id: uuid.UUID, id
         )
     db.commit()
     return response_body
+
+
+def _refuse_if_left_stock(item: StockItem) -> None:
+    """A car that has left stock (invoiced, or sold in the legacy system —
+    ADR-054, FR-I-12) cannot be reserved for a new contract (KAN-147): it
+    would be sold a second time. Checked under the row lock, after a
+    reserve_for_contract replay for the contract that already holds it."""
+
+    if item.left_stock_at is not None:
+        raise ConflictError(
+            f"Stock item {item.stock_number} has left stock — it cannot be reserved.",
+            details={"reason": "vehicle_left_stock", "stockItemId": str(item.id)},
+        )
 
 
 def reserve_and_flush(db: Session, *, item: StockItem, contract_id: uuid.UUID) -> uuid.UUID:

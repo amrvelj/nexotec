@@ -76,9 +76,16 @@ services:
     type: web
     runtime: python
     plan: free
+    # VITE_OUTBOX_WORKER_ABSENT=true: the SPA tells every signed-in user that
+    # this environment runs no outbox worker — no event consumer, no daily
+    # job (app/worker.py::register_handlers and register_daily_jobs are the
+    # lists; ADR-081 option D, KAN-275, ADR-084). Build-time like
+    # VITE_API_BASE_URL: Vite inlines it. Remove it the day the worker is
+    # provisioned here.
     buildCommand: >-
       pip install -e . &&
-      cd frontend && npm ci && VITE_API_BASE_URL=/v1 npm run build
+      cd frontend && npm ci &&
+      VITE_API_BASE_URL=/v1 VITE_OUTBOX_WORKER_ABSENT=true npm run build
     # `heads` (plural), never `head` — PR-3 (ADR-015) split the Alembic
     # chain into one branch per bounded context, so there are multiple
     # independent heads now. The singular form either fails outright or
