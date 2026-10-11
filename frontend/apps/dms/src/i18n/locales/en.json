@@ -1380,9 +1380,14 @@
       "brandPlaceholder": "All brands",
       "modelGroup": "Model group",
       "modelGroupPlaceholder": "All model groups",
-      "modelGroupNeedsBrand": "Pick a brand first"
+      "modelGroupNeedsBrand": "Pick a brand first",
+      "brandsLoadError": "Brands could not be loaded"
     },
     "searchPlaceholder": "Search by variant, model or brand…",
+    "labelsLoadError": {
+      "title": "Labels unavailable",
+      "body": "The labels for the catalogue's values could not be loaded. Values marked ⚠ show their code instead."
+    },
     "unavailable": {
       "title": "Catalogue unavailable",
       "body": "No auto-i-dat connection is active for this dealership. Connect auto-i-dat to browse the catalogue."

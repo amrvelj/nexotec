@@ -1380,9 +1380,14 @@
       "brandPlaceholder": "Alle Marken",
       "modelGroup": "Modellgruppe",
       "modelGroupPlaceholder": "Alle Modellgruppen",
-      "modelGroupNeedsBrand": "Zuerst eine Marke wählen"
+      "modelGroupNeedsBrand": "Zuerst eine Marke wählen",
+      "brandsLoadError": "Marken konnten nicht geladen werden"
     },
     "searchPlaceholder": "Nach Variante, Modell oder Marke suchen…",
+    "labelsLoadError": {
+      "title": "Bezeichnungen nicht verfügbar",
+      "body": "Die Bezeichnungen der Katalogwerte konnten nicht geladen werden. Mit ⚠ markierte Werte zeigen ihren Code."
+    },
     "unavailable": {
       "title": "Katalog nicht verfügbar",
       "body": "Für diesen Betrieb ist keine auto-i-dat-Verbindung aktiv. Verbinden Sie auto-i-dat, um den Katalog zu durchsuchen."

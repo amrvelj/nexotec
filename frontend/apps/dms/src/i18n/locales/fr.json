@@ -1380,9 +1380,14 @@
       "brandPlaceholder": "Toutes les marques",
       "modelGroup": "Groupe de modèles",
       "modelGroupPlaceholder": "Tous les groupes de modèles",
-      "modelGroupNeedsBrand": "Choisir d'abord une marque"
+      "modelGroupNeedsBrand": "Choisir d'abord une marque",
+      "brandsLoadError": "Les marques n'ont pas pu être chargées"
     },
     "searchPlaceholder": "Rechercher par variante, modèle ou marque…",
+    "labelsLoadError": {
+      "title": "Libellés indisponibles",
+      "body": "Les libellés des valeurs du catalogue n'ont pas pu être chargés. Les valeurs marquées ⚠ affichent leur code."
+    },
     "unavailable": {
       "title": "Catalogue indisponible",
       "body": "Aucune connexion auto-i-dat active pour cet établissement. Connectez auto-i-dat pour parcourir le catalogue."

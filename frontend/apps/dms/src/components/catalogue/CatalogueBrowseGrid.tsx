@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Alert, Group, Select, Stack } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
-import { Copy, Database, Plug } from 'lucide-react'
+import { CircleAlert, Copy, Database, Plug } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { formatCurrencyChf, formatNumber } from '../../utils/format'
 import {
@@ -24,15 +24,15 @@ import { useGridPreferences } from '../../hooks/useGridPreferences'
 import { useSavedViews } from '../../hooks/useSavedViews'
 import { api } from '../../api/client'
 import { applyCatalogueFilters, buildCatalogueFilterFields, FACET_LIST_CODE } from '../../catalogueOptions'
-import type { SupportedLanguage } from '../../i18n'
+import { fetchAllReferenceValues, LABEL_FIELD, resolveLanguage } from '../../hooks/useReferenceValueOptions'
 import type {
   BrandPage,
+  BrandRead,
   CatalogueBrowseMode,
   CatalogueFacetsRead,
   CatalogueModelGroupPage,
   CatalogueVariantPage,
   CatalogueVariantRead,
-  ReferenceValuePage,
   ReferenceValueRead,
 } from '../../api/types'
 
@@ -63,35 +63,64 @@ function parseFiltersParam(raw: string): FilterPredicate[] {
 }
 
 /** Every faceted reference list, fetched once and merged into a
- * `(listCode, valueCode) -> label` lookup in the current UI language. */
-function useReferenceLabels(): (listCode: string, valueCode: string) => string {
+ * `(listCode, valueCode) -> label` lookup in the current UI language.
+ *
+ * KAN-239 — each list is paged within the API's cap (it once asked
+ * `limit=200`, which the API answers 422) and retired values are included,
+ * because a variant can still carry one. A list that failed to load is
+ * `null`: its codes render as `⚠ <code>` and `labelsFailed` drives an alert.
+ * A code missing from its list, or with no label in this language, renders
+ * `⚠ <code>` too — never the raw code as if it were a label. */
+function useReferenceLabels(): {
+  labelFor: (listCode: string, valueCode: string) => string
+  labelsFailed: boolean
+} {
   const { i18n } = useTranslation()
-  const lang = (i18n.language as SupportedLanguage) ?? 'de'
+  const field = LABEL_FIELD[resolveLanguage(i18n.language)]
   const listCodes = useMemo(() => Array.from(new Set(Object.values(FACET_LIST_CODE))), [])
 
   const results = useQuery({
     queryKey: ['catalogue-facet-labels', listCodes],
-    queryFn: async (): Promise<Record<string, ReferenceValuePage>> => {
-      const empty: ReferenceValuePage = { items: [], nextCursor: null }
-      const pages = await Promise.all(
+    queryFn: async (): Promise<Record<string, ReferenceValueRead[] | null>> => {
+      const lists = await Promise.all(
         listCodes.map((code) =>
-          api
-            .get<ReferenceValuePage>(`/reference-data/${code}?limit=200`)
-            .then((page) => [code, page] as const)
-            .catch(() => [code, empty] as const),
+          fetchAllReferenceValues(code)
+            .then((rows) => [code, rows] as const)
+            .catch(() => [code, null] as const),
         ),
       )
-      return Object.fromEntries(pages)
+      return Object.fromEntries(lists)
     },
   })
 
-  return (listCode: string, valueCode: string): string => {
-    const page = results.data?.[listCode]
-    const row = page?.items.find((v: ReferenceValueRead) => v.valueCode === valueCode)
-    if (!row) return valueCode
-    const key = `label${lang.charAt(0).toUpperCase()}${lang.slice(1)}` as 'labelDe' | 'labelFr' | 'labelIt' | 'labelEn'
-    return row[key] || valueCode
+  const labelFor = useCallback(
+    (listCode: string, valueCode: string): string => {
+      // Still loading: the code stands in until the labels arrive.
+      if (!results.data) return valueCode
+      const label = results.data[listCode]?.find((v) => v.valueCode === valueCode)?.[field]
+      return typeof label === 'string' && label.trim() !== '' ? label : `⚠ ${valueCode}`
+    },
+    [results.data, field],
+  )
+
+  return {
+    labelFor,
+    labelsFailed: results.data ? Object.values(results.data).some((rows) => rows === null) : false,
   }
+}
+
+// The brands endpoint caps a page at 100 like every list — walk the cursor.
+async function fetchAllBrands(): Promise<BrandRead[]> {
+  const brands: BrandRead[] = []
+  let cursor: string | null = null
+  do {
+    const params = new URLSearchParams({ limit: '100' })
+    if (cursor) params.set('cursor', cursor)
+    const page = await api.get<BrandPage>(`/vehicle-mdm/brands?${params.toString()}`)
+    brands.push(...page.items)
+    cursor = page.nextCursor
+  } while (cursor)
+  return brands
 }
 
 export interface CatalogueBrowseGridProps {
@@ -114,7 +143,7 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
   const gridPrefs = useGridPreferences(GRID_KEY, { sort: DEFAULT_SORT })
   const savedViews = useSavedViews(GRID_KEY)
   const [searchParams, setSearchParams] = useSearchParams()
-  const labelFor = useReferenceLabels()
+  const { labelFor, labelsFailed } = useReferenceLabels()
 
   const brandId = searchParams.get('brand') || null
   const modelGroupId = searchParams.get('modelGroup') || null
@@ -155,7 +184,7 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
 
   const brandsQuery = useQuery({
     queryKey: ['catalogue-brands'],
-    queryFn: () => api.get<BrandPage>('/vehicle-mdm/brands?limit=200'),
+    queryFn: fetchAllBrands,
   })
   const modelGroupsQuery = useQuery({
     queryKey: ['catalogue-model-groups', brandId],
@@ -334,7 +363,7 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
     if (view.snapshot.filters) setPredicates(view.snapshot.filters)
   }
 
-  const brandOptions = (brandsQuery.data?.items ?? []).map((b) => ({ value: b.id, label: b.displayName }))
+  const brandOptions = (brandsQuery.data ?? []).map((b) => ({ value: b.id, label: b.displayName }))
   const modelGroupOptions = (modelGroupsQuery.data?.items ?? []).map((g) => ({ value: g.id, label: g.name }))
 
   return (
@@ -346,6 +375,7 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
           data={brandOptions}
           value={brandId}
           onChange={(value) => updateUrl({ brand: value, modelGroup: null })}
+          error={brandsQuery.isError ? t('catalogueBrowse.drilldown.brandsLoadError') : undefined}
           clearable
           searchable
           w={220}
@@ -366,6 +396,12 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
           w={240}
         />
       </Group>
+
+      {labelsFailed && (
+        <Alert icon={<CircleAlert size={16} />} color="red" title={t('catalogueBrowse.labelsLoadError.title')}>
+          {t('catalogueBrowse.labelsLoadError.body')}
+        </Alert>
+      )}
 
       {!browseAvailable && (
         <Alert icon={<Plug size={16} />} color="yellow" title={t('catalogueBrowse.unavailable.title')}>

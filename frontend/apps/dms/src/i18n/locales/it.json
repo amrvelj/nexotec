@@ -1380,9 +1380,14 @@
       "brandPlaceholder": "Tutte le marche",
       "modelGroup": "Gruppo di modelli",
       "modelGroupPlaceholder": "Tutti i gruppi di modelli",
-      "modelGroupNeedsBrand": "Scegliere prima una marca"
+      "modelGroupNeedsBrand": "Scegliere prima una marca",
+      "brandsLoadError": "Impossibile caricare le marche"
     },
     "searchPlaceholder": "Cerca per variante, modello o marca…",
+    "labelsLoadError": {
+      "title": "Etichette non disponibili",
+      "body": "Non è stato possibile caricare le etichette dei valori del catalogo. I valori contrassegnati con ⚠ mostrano il loro codice."
+    },
     "unavailable": {
       "title": "Catalogo non disponibile",
       "body": "Nessuna connessione auto-i-dat attiva per questa sede. Collega auto-i-dat per sfogliare il catalogo."
