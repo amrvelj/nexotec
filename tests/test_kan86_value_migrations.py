@@ -10,7 +10,8 @@ row in every table that has an enum column, put every column into NAME
 form with raw SQL (the ORM writes values since step 2), and run the real
 migrations on Postgres: `_rewrite` for every member of every column, the
 full `upgrade()`/`downgrade()` against main's names-only CHECK, and the
-endpoints afterwards.
+endpoints afterwards. Each runs on a schema without KAN-175's enum CHECKs, as
+the database these migrations ran on had none (tests/enum_test_support.py).
 """
 
 import datetime as dt
@@ -32,7 +33,15 @@ import app.model_registry  # noqa: F401  registers every model on Base.metadata
 from app.core.auth import AccessRole
 from app.core.enum_type import StoredEnum
 from app.db import Base
-from tests.test_kan86_enum_both_forms import _bearer, _create_customer, _create_dealership, _to_name_form, _token
+from tests.enum_test_support import (
+    _bearer,
+    _create_customer,
+    _create_dealership,
+    _to_name_form,
+    _token,
+    drop_enum_checks,
+    widen_connection_scope_check,
+)
 
 pytestmark = pytest.mark.skipif(not os.environ.get("DMS_TEST_DATABASE_URL"), reason="Postgres-only (ADR-011)")
 
@@ -217,6 +226,8 @@ def seeded(engine):
     columns = _frozen_columns_still_mapped()
     tables = [Base.metadata.tables[name] for name in sorted({table for table, _ in columns})]
     with engine.begin() as conn:
+        drop_enum_checks(conn)
+        widen_connection_scope_check(conn)
         rows = _seed_one_row_each(conn, tables)
     assert {table for table, _ in columns} <= set(rows)
     return columns
@@ -331,7 +342,9 @@ def test_upgrade_widens_the_check_then_rewrites_and_downgrade_undoes_both(engine
         assert "'platform'" in _check_definition(conn) and "'PLATFORM'" in _check_definition(conn)
         # A step-1 instance still serving writes the name: the widened CHECK takes it.
         _set_raw(conn, "integration_connection", "scope", "TENANT")
-    assert _decoded(engine, seeded)[("integration_connection", "scope")].name == "TENANT"
+        # (Stored; since KAN-175 the code no longer reads a name — step 3's
+        # sweep rewrites it first, tests/test_kan175_enum_values_only.py.)
+        assert _raw(conn, "integration_connection", "scope") == "TENANT"
 
     with engine.begin() as conn:
         for module in reversed(list(_MIGRATIONS.values())):

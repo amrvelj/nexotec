@@ -36,15 +36,14 @@ class OutboxMessage(PrimaryKeyMixin, Base):
         # already filters status, so indexing status again inside would be
         # redundant — this indexes exactly what the query still has to
         # search on once status is fixed.
-        # Both stored forms while KAN-86 moves enum columns from the member
-        # NAME to .value (app/core/enum_type.py): the poller's
-        # `status == PENDING` compiles to `status IN ('PENDING', 'pending')`,
-        # and Postgres only uses a partial index whose predicate that
-        # filter implies. Same order as StoredEnum.stored_forms.
+        # The stored value only since KAN-175 (KAN-86 step 3): the poller's
+        # `status == PENDING` compiles to `status = 'pending'`, and Postgres
+        # only uses a partial index whose predicate that filter implies
+        # (app/core/enum_type.py).
         Index(
             "ix_outbox_message_pending_next_attempt_at",
             "next_attempt_at",
-            postgresql_where=text("status IN ('PENDING', 'pending')"),
+            postgresql_where=text("status = 'pending'"),
         ),
     )
 

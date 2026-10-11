@@ -28,6 +28,7 @@ from app.core.pagination import SortPageParams
 from app.core.sorting import SortField
 from app.customer.models.customer import Customer, CustomerType, Language
 from app.customer.services import customer as customer_service
+from tests.enum_test_support import drop_enum_checks
 
 _MIG_PATH = (
     pathlib.Path(__file__).resolve().parents[1] / "alembic/versions/customer/a3f8d2c91b64_fix_d21_case_mismatch.py"
@@ -49,6 +50,9 @@ def _insert_raw_customer(db_session, *, customer_number: str, preferred_channel:
 
     customer_id = uuid.uuid4()
     now = dt.datetime.now(dt.UTC)
+    # A database from before KAN-175: ck_customer_preferred_channel_enum
+    # would refuse a legacy string today (tests/enum_test_support.py).
+    drop_enum_checks(db_session.connection())
     db_session.execute(
         text(
             "INSERT INTO customer "
@@ -143,6 +147,9 @@ def test_list_customers_omits_the_bad_row_but_returns_everyone_else_in_the_same_
     db_session.add(good)
     db_session.commit()
 
+    # Since KAN-175 the CHECK refuses such a row; the guard stays for a
+    # database from before it (tests/enum_test_support.py).
+    drop_enum_checks(db_session.connection())
     bad_id = uuid.uuid4()
     now = dt.datetime.now(dt.UTC)
     db_session.execute(
