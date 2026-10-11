@@ -59,8 +59,10 @@ COPY --from=frontend-build /build/frontend/apps/dms/dist frontend/apps/dms/dist
 
 EXPOSE 8000
 
-# Same two commands render.yaml's web service runs, so `docker compose up`
-# and the real deploy target behave identically rather than diverging into
-# two things that happen to both be called "the app". The worker service
-# in docker-compose.yml overrides this with its own command.
+# The migrate-then-serve part of render.yaml's web startCommand, without
+# its demo seed: the default for a bare `docker run`, so the image and the
+# real deploy target behave alike rather than diverging into two things that
+# happen to both be called "the app". docker-compose.yml overrides it in
+# both services built from this image: `app` with render.yaml's three
+# steps (migrate, seed, serve), `worker` with migrate + `python -m app.worker`.
 CMD ["sh", "-c", "alembic upgrade heads && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
