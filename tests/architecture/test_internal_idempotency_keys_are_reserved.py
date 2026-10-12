@@ -41,9 +41,14 @@ _KEY_KEYWORD_ON = {"find_cached_response": "key", "store_response": "key"}
 
 
 def _names_bound_without_a_target(node: ast.AST) -> set[str]:
-    """Names an `except … as`, an `import … as` or a match capture binds."""
+    """Names an `except … as`, an `import … as`, a nested `def` / `class` or a
+    match capture (`case k`, `case [*k]`, `case {**k}`) binds."""
 
     if isinstance(node, (ast.ExceptHandler, ast.MatchAs, ast.MatchStar)) and node.name:
+        return {node.name}
+    if isinstance(node, ast.MatchMapping) and node.rest:
+        return {node.rest}
+    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
         return {node.name}
     if isinstance(node, (ast.Import, ast.ImportFrom)):
         return {alias.asname or alias.name.split(".")[0] for alias in node.names}
@@ -210,11 +215,22 @@ def test_a_rebound_or_local_idempotency_key_is_not_taken_as_forwarded():
         "    release(idempotency_key=idempotency_key)\n"
     )
     imported = first_call("def f(idempotency_key):\n    import k as idempotency_key\n    release(idempotency_key=idempotency_key)\n")
+    def matched(pattern: str):
+        return first_call(
+            f"def f(idempotency_key):\n    match x:\n        case {pattern}:\n            pass\n"
+            "    release(idempotency_key=idempotency_key)\n"
+        )
+
+    captured, starred, mapped = matched("idempotency_key"), matched("[*idempotency_key]"), matched("{**idempotency_key}")
+    nested = first_call(
+        "def f(idempotency_key):\n    def idempotency_key():\n        pass\n    release(idempotency_key=idempotency_key)\n"
+    )
     subscripted = first_call("def f(idempotency_key):\n    d[idempotency_key] = 1\n    release(idempotency_key=idempotency_key)\n")
     passed = first_call("def f(*, idempotency_key):\n    release(idempotency_key=idempotency_key)\n")
     cases = (
         (local, False), (rebound, False), (unpacked, False), (looped, False), (withed, False),
-        (excepted, False), (imported, False), (subscripted, True), (passed, True),
+        (excepted, False), (imported, False), (captured, False), (starred, False), (mapped, False),
+        (nested, False), (subscripted, True), (passed, True),
     )
     for (call, function), expected in cases:
         assert _forwarded(here, call.keywords[0].value, function) is expected
