@@ -50,14 +50,14 @@
     }
   },
   "userRole": {
-    "sales": "Verkaufsberater/in",
-    "service_advisor": "Serviceberater/in",
-    "finance_manager": "Finanzverantwortliche/r",
-    "gm": "Geschäftsführer/in",
-    "admin": "Administrator/in",
-    "technician": "Techniker/in",
-    "parts": "Teileberater/in",
-    "other": "Mitarbeiter/in"
+    "sales": "Verkaufsberater",
+    "service_advisor": "Serviceberater",
+    "finance_manager": "Finanzverantwortlicher",
+    "gm": "Geschäftsführer",
+    "admin": "Administrator",
+    "technician": "Techniker",
+    "parts": "Teileberater",
+    "other": "Mitarbeiter"
   },
   "common": {
     "filter": "Filter",
@@ -522,7 +522,7 @@
   },
   "signInError": {
     "title": "Anmeldung fehlgeschlagen",
-    "message": "Die Anmeldung ist fehlgeschlagen. Bitte versuchen Sie es erneut oder wenden Sie sich an Ihre Administratorin bzw. Ihren Administrator.",
+    "message": "Die Anmeldung ist fehlgeschlagen. Bitte versuchen Sie es erneut oder wenden Sie sich an Ihren Administrator.",
     "retry": "Erneut versuchen"
   },
   "login": {

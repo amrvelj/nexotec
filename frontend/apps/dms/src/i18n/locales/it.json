@@ -53,11 +53,11 @@
     "sales": "Consulente di vendita",
     "service_advisor": "Consulente di servizio",
     "finance_manager": "Responsabile finanze",
-    "gm": "Direttore/trice generale",
-    "admin": "Amministratore/trice",
-    "technician": "Tecnico/a",
+    "gm": "Direttore generale",
+    "admin": "Amministratore",
+    "technician": "Tecnico",
     "parts": "Consulente ricambi",
-    "other": "Collaboratore/trice"
+    "other": "Collaboratore"
   },
   "common": {
     "filter": "Filtro",

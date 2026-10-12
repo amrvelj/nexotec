@@ -50,14 +50,14 @@
     }
   },
   "userRole": {
-    "sales": "Conseiller/ère de vente",
-    "service_advisor": "Conseiller/ère de service",
-    "finance_manager": "Responsable financier/ère",
-    "gm": "Directeur/trice général/e",
-    "admin": "Administrateur/trice",
-    "technician": "Technicien/ne",
-    "parts": "Conseiller/ère pièces",
-    "other": "Collaborateur/trice"
+    "sales": "Conseiller de vente",
+    "service_advisor": "Conseiller de service",
+    "finance_manager": "Responsable financier",
+    "gm": "Directeur général",
+    "admin": "Administrateur",
+    "technician": "Technicien",
+    "parts": "Conseiller pièces",
+    "other": "Collaborateur"
   },
   "common": {
     "filter": "Filtrer",
@@ -522,7 +522,7 @@
   },
   "signInError": {
     "title": "Échec de la connexion",
-    "message": "La connexion a échoué. Veuillez réessayer ou contacter votre administrateur·rice.",
+    "message": "La connexion a échoué. Veuillez réessayer ou contacter votre administrateur.",
     "retry": "Réessayer"
   },
   "login": {

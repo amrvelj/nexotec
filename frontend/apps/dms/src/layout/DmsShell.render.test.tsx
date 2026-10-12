@@ -126,14 +126,14 @@ describe('DmsShell sidebar — the account card shows a translated job title (KA
   it('shows the German job title, not the enum code', async () => {
     renderShell('de', { role: 'gm' })
     const nav = await screen.findByRole('navigation', { name: i18n.getFixedT('de')('shell.sidebar.mainNavigation') })
-    expect(await within(nav).findByText('Geschäftsführer/in')).toBeInTheDocument()
+    expect(await within(nav).findByText('Geschäftsführer')).toBeInTheDocument()
     expect(within(nav).queryByText('gm')).not.toBeInTheDocument()
   })
 
   it('shows the French job title, not the enum code', async () => {
     renderShell('fr', { role: 'service_advisor' })
     const nav = await screen.findByRole('navigation', { name: 'Navigation principale' })
-    expect(await within(nav).findByText('Conseiller/ère de service')).toBeInTheDocument()
+    expect(await within(nav).findByText('Conseiller de service')).toBeInTheDocument()
     expect(within(nav).queryByText('service_advisor')).not.toBeInTheDocument()
   })
 
