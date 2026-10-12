@@ -33,6 +33,13 @@ export interface paths {
          * @description Lets a browser client restore "logged in as X" state after a page
          *     reload — the httpOnly cookie survives, but the login response body's
          *     `user` object doesn't (nothing else holds it client-side).
+         *
+         *     The memberships are read from the database (KAN-237) — the home
+         *     dealership plus `dealership_membership`, the rule `_mint_session`
+         *     authorises a switch with — never from the token's `memberships` claim,
+         *     which goes stale the moment a membership is granted or revoked. The
+         *     switcher offers exactly what this lists, so it never offers a
+         *     dealership the switch would refuse.
          */
         get: operations["get_current_session_user_v1_auth_me_get"];
         put?: never;
