@@ -827,7 +827,8 @@
       "notionalInputTax": "Fiktiver Vorsteuerabzug",
       "notionalInputTaxNotApplicable": "Nicht anwendbar",
       "notionalInputTaxRateNotConfigured": "MWST-Satz noch nicht konfiguriert",
-      "isInvoiceable": "Fakturierbar"
+      "isInvoiceable": "Fakturierbar",
+      "error": "Der Einkauf konnte nicht erfasst werden. Bitte erneut versuchen."
     },
     "wagenbuch": {
       "result": "Ergebnis",
@@ -881,7 +882,10 @@
         "moveRight": "Nach rechts verschieben",
         "remove": "Entfernen",
         "addPhoto": "Foto hinzufügen",
-        "countOf": "{{count, number}} / {{max, number}}"
+        "countOf": "{{count, number}} / {{max, number}}",
+        "addError": "Das Foto konnte nicht hinzugefügt werden. Bitte erneut versuchen.",
+        "removeError": "Das Foto konnte nicht entfernt werden. Bitte erneut versuchen.",
+        "reorderError": "Die neue Reihenfolge der Fotos konnte nicht gespeichert werden. Bitte erneut versuchen."
       },
       "equipment": {
         "title": "Ausstattung",
@@ -889,7 +893,9 @@
         "extras": "Extras",
         "eigenschaften": "Eigenschaften",
         "hint": "AutoScout24 kennt drei getrennte Begriffe: Ausstattung (suchbare Codes), Extras (Merkmale) und Eigenschaften (Zustände wie Unfallwagen)."
-      }
+      },
+      "publishError": "Das Inserat konnte nicht publiziert werden. Bitte erneut versuchen.",
+      "unpublishError": "Das Inserat konnte nicht depubliziert werden. Bitte erneut versuchen."
     },
     "evaluation": {
       "title": "Bewertung",

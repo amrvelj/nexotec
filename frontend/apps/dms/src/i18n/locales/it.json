@@ -827,7 +827,8 @@
       "notionalInputTax": "Deduzione fittizia dell'imposta precedente",
       "notionalInputTaxNotApplicable": "Non applicabile",
       "notionalInputTaxRateNotConfigured": "Aliquota IVA non ancora configurata",
-      "isInvoiceable": "Fatturabile"
+      "isInvoiceable": "Fatturabile",
+      "error": "Non è stato possibile registrare l’acquisto. Riprovare."
     },
     "wagenbuch": {
       "result": "Risultato",
@@ -881,7 +882,10 @@
         "moveRight": "Sposta a destra",
         "remove": "Rimuovi",
         "addPhoto": "Aggiungi foto",
-        "countOf": "{{count, number}} / {{max, number}}"
+        "countOf": "{{count, number}} / {{max, number}}",
+        "addError": "Non è stato possibile aggiungere la foto. Riprovare.",
+        "removeError": "Non è stato possibile rimuovere la foto. Riprovare.",
+        "reorderError": "Non è stato possibile salvare il nuovo ordine delle foto. Riprovare."
       },
       "equipment": {
         "title": "Dotazione",
@@ -889,7 +893,9 @@
         "extras": "Extra",
         "eigenschaften": "Caratteristiche",
         "hint": "AutoScout24 distingue tre concetti: dotazione (codici ricercabili), extra (caratteristiche) e particolarità (stati come veicolo incidentato)."
-      }
+      },
+      "publishError": "Non è stato possibile pubblicare l’annuncio. Riprovare.",
+      "unpublishError": "Non è stato possibile ritirare l’annuncio. Riprovare."
     },
     "evaluation": {
       "title": "Valutazione",

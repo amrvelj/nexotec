@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { SegmentedControl } from '@mantine/core'
+import { Alert, SegmentedControl } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 import { CounterTextarea, MediaGallery, OverviewCard, semantic, slate, spacing } from '@nexotec/ui-kit'
-import { api } from '../../api/client'
+import { api, ApiError } from '../../api/client'
 import { BlockingConditionBanner } from './BlockingConditionBanner'
 import { ChannelPublishCard } from './ChannelPublishCard'
 import type { EquipmentRead, MarketplaceChannel, MediaRead, PublishingRead } from '../../api/types'
@@ -126,26 +126,43 @@ export function PublishingTab({ stockItemId, locale }: PublishingTabProps) {
 
   const mediaItems = (mediaQuery.data ?? []).map((m) => ({ id: m.id, url: m.url, position: m.position }))
 
+  // KAN-272 (ADR-035): a failed photo add, removal or reorder says so above
+  // the gallery. A failed add keeps its URL: the next "add" offers it again,
+  // and sent unchanged it is the same request under the same key.
+  const [mediaError, setMediaError] = useState<string | null>(null)
+  const [unsavedMediaUrl, setUnsavedMediaUrl] = useState<string | null>(null)
+  const saveMedia = async (write: () => Promise<void>, fallbackKey: string) => {
+    setMediaError(null)
+    try {
+      await write()
+      mediaKey.renew()
+      void invalidateMedia()
+    } catch (err) {
+      setMediaError(err instanceof ApiError ? err.message : t(fallbackKey))
+    }
+  }
+
   const addMedia = async () => {
-    const url = window.prompt(t('stockDetail.publishing.media.addPrompt'))
+    const url = window.prompt(t('stockDetail.publishing.media.addPrompt'), unsavedMediaUrl ?? undefined)
     if (!url) return
     const path = `/inventory/stock-items/${stockItemId}/media`
     const body = { url }
-    await api.post(path, body, mediaKey.headers([path, body]))
-    mediaKey.renew()
-    void invalidateMedia()
+    setUnsavedMediaUrl(url)
+    await saveMedia(async () => {
+      await api.post(path, body, mediaKey.headers([path, body]))
+      setUnsavedMediaUrl(null)
+    }, 'stockDetail.publishing.media.addError')
   }
-  const removeMedia = async (mediaId: string) => {
-    await api.delete(`/inventory/stock-items/${stockItemId}/media/${mediaId}`)
-    mediaKey.renew()
-    void invalidateMedia()
-  }
-  const reorderMedia = async (orderedIds: string[]) => {
+  const removeMedia = (mediaId: string) =>
+    saveMedia(async () => {
+      await api.delete(`/inventory/stock-items/${stockItemId}/media/${mediaId}`)
+    }, 'stockDetail.publishing.media.removeError')
+  const reorderMedia = (orderedIds: string[]) => {
     const path = `/inventory/stock-items/${stockItemId}/media/reorder`
     const body = { orderedMediaIds: orderedIds }
-    await api.post(path, body, mediaKey.headers([path, body]))
-    mediaKey.renew()
-    void invalidateMedia()
+    return saveMedia(async () => {
+      await api.post(path, body, mediaKey.headers([path, body]))
+    }, 'stockDetail.publishing.media.reorderError')
   }
 
   const equipment = equipmentQuery.data
@@ -213,6 +230,11 @@ export function PublishingTab({ stockItemId, locale }: PublishingTabProps) {
       </OverviewCard>
 
       <OverviewCard title={t('stockDetail.publishing.media.title')}>
+        {mediaError && (
+          <Alert color="red" role="alert" mb="sm">
+            {mediaError}
+          </Alert>
+        )}
         <MediaGallery
           items={mediaItems}
           maxItems={16}

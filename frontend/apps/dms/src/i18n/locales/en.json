@@ -827,7 +827,8 @@
       "notionalInputTax": "Notional input tax deduction",
       "notionalInputTaxNotApplicable": "Not applicable",
       "notionalInputTaxRateNotConfigured": "VAT rate not yet configured",
-      "isInvoiceable": "Invoiceable"
+      "isInvoiceable": "Invoiceable",
+      "error": "The purchase could not be recorded. Please try again."
     },
     "wagenbuch": {
       "result": "Result",
@@ -881,7 +882,10 @@
         "moveRight": "Move right",
         "remove": "Remove",
         "addPhoto": "Add photo",
-        "countOf": "{{count, number}} / {{max, number}}"
+        "countOf": "{{count, number}} / {{max, number}}",
+        "addError": "The photo could not be added. Please try again.",
+        "removeError": "The photo could not be removed. Please try again.",
+        "reorderError": "The new photo order could not be saved. Please try again."
       },
       "equipment": {
         "title": "Equipment",
@@ -889,7 +893,9 @@
         "extras": "Extras",
         "eigenschaften": "Properties",
         "hint": "AutoScout24 knows three separate concepts: equipment (searchable codes), extras (features) and properties (condition flags such as accident vehicle)."
-      }
+      },
+      "publishError": "The listing could not be published. Please try again.",
+      "unpublishError": "The listing could not be withdrawn. Please try again."
     },
     "evaluation": {
       "title": "Evaluation",

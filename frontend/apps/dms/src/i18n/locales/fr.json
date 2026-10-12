@@ -827,7 +827,8 @@
       "notionalInputTax": "Déduction fictive de l'impôt préalable",
       "notionalInputTaxNotApplicable": "Non applicable",
       "notionalInputTaxRateNotConfigured": "Taux de TVA pas encore configuré",
-      "isInvoiceable": "Facturable"
+      "isInvoiceable": "Facturable",
+      "error": "L’achat n’a pas pu être enregistré. Veuillez réessayer."
     },
     "wagenbuch": {
       "result": "Résultat",
@@ -881,7 +882,10 @@
         "moveRight": "Déplacer à droite",
         "remove": "Supprimer",
         "addPhoto": "Ajouter une photo",
-        "countOf": "{{count, number}} / {{max, number}}"
+        "countOf": "{{count, number}} / {{max, number}}",
+        "addError": "La photo n’a pas pu être ajoutée. Veuillez réessayer.",
+        "removeError": "La photo n’a pas pu être supprimée. Veuillez réessayer.",
+        "reorderError": "Le nouvel ordre des photos n’a pas pu être enregistré. Veuillez réessayer."
       },
       "equipment": {
         "title": "Équipement",
@@ -889,7 +893,9 @@
         "extras": "Extras",
         "eigenschaften": "Caractéristiques",
         "hint": "AutoScout24 distingue trois notions : équipement (codes recherchables), extras (caractéristiques) et particularités (états comme véhicule accidenté)."
-      }
+      },
+      "publishError": "L’annonce n’a pas pu être publiée. Veuillez réessayer.",
+      "unpublishError": "L’annonce n’a pas pu être dépubliée. Veuillez réessayer."
     },
     "evaluation": {
       "title": "Évaluation",

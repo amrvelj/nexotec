@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { Button } from '@mantine/core'
+import { Alert, Button } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 import { FormDialog, OverviewCard, semantic, slate } from '@nexotec/ui-kit'
+import { ApiError } from '../../api/client'
 import { formatDateTime } from '../../utils/format'
 import type { MarketplaceChannel, PublishingRead } from '../../api/types'
 
@@ -35,19 +36,46 @@ interface ChannelPublishCardProps {
  * (Publish vs. the confirmed-destructive Unpublish) — that is the
  * dealer's intent, unaffected by whether a delivery attempt succeeded —
  * but the STATUS LINE and its colour now come from `transmissionStatus`.
+ *
+ * KAN-272 (ADR-035): a refused publish or unpublish says so — on the card
+ * for a publish, inside the still-open confirmation for an unpublish — so
+ * the retry, under the same Idempotency-Key, is one click away.
  */
 export function ChannelPublishCard({ channel, publishing, locale, blocked, onPublish, onUnpublish }: ChannelPublishCardProps) {
   const { t } = useTranslation()
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [publishPending, setPublishPending] = useState(false)
+  const [publishError, setPublishError] = useState<string | null>(null)
+  const [unpublishError, setUnpublishError] = useState<string | null>(null)
   const isPublished = publishing?.state === 'published'
   const transmissionStatus = publishing?.transmissionStatus
 
+  const publish = async () => {
+    setPublishPending(true)
+    setPublishError(null)
+    try {
+      await onPublish()
+    } catch (err) {
+      setPublishError(err instanceof ApiError ? err.message : t('stockDetail.publishing.publishError'))
+    } finally {
+      setPublishPending(false)
+    }
+  }
+
+  const openUnpublish = () => {
+    setUnpublishError(null)
+    setConfirmOpen(true)
+  }
+
   const confirmUnpublish = async () => {
     setSubmitting(true)
+    setUnpublishError(null)
     try {
       await onUnpublish()
       setConfirmOpen(false)
+    } catch (err) {
+      setUnpublishError(err instanceof ApiError ? err.message : t('stockDetail.publishing.unpublishError'))
     } finally {
       setSubmitting(false)
     }
@@ -81,13 +109,18 @@ export function ChannelPublishCard({ channel, publishing, locale, blocked, onPub
             : t('stockDetail.publishing.neverPublished')}
         </span>
         {isPublished ? (
-          <Button variant="default" color="red" onClick={() => setConfirmOpen(true)}>
+          <Button variant="default" color="red" onClick={openUnpublish}>
             {t('stockDetail.publishing.unpublish', { channel: CHANNEL_LABEL_KEY[channel] })}
           </Button>
         ) : (
-          <Button onClick={onPublish} disabled={blocked}>
+          <Button onClick={() => void publish()} disabled={blocked} loading={publishPending}>
             {t('stockDetail.publishing.publishTo', { channel: CHANNEL_LABEL_KEY[channel] })}
           </Button>
+        )}
+        {publishError && !isPublished && (
+          <Alert color="red" role="alert">
+            {publishError}
+          </Alert>
         )}
       </div>
 
@@ -101,6 +134,11 @@ export function ChannelPublishCard({ channel, publishing, locale, blocked, onPub
         submitting={submitting}
       >
         <p>{t('stockDetail.publishing.unpublishConfirmBody', { channel: CHANNEL_LABEL_KEY[channel] })}</p>
+        {unpublishError && (
+          <Alert color="red" role="alert">
+            {unpublishError}
+          </Alert>
+        )}
       </FormDialog>
     </OverviewCard>
   )
