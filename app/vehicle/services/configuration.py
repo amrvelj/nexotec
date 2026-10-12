@@ -7,7 +7,9 @@ FR-C-11: a configuration referenced by a host is evidence.
 `get_vehicle_mdm_by_vin` — only to set the three-column `vehicle_id` link
 when a VIN resolves to an *existing* MDM row.
 `tests/architecture/test_configuration_never_writes_vehicle_mdm.py` proves
-it (source scan + runtime guard).
+it (source scan + runtime guard). The link follows the VIN — one VIN, one
+car (KAN-326): it is set, re-pointed or cleared whenever the VIN is
+written, and left alone when a PATCH does not carry `vin` (KAN-247).
 
 Every field edit — spec block, coded fields and the top-level observed
 fields (VIN, mileage, colours, …; KAN-319) — and every
@@ -210,14 +212,21 @@ def _check_coded_field_patch(configuration: VehicleConfiguration, data: Configur
 
 
 def _link_vehicle_if_vin_resolves(db: Session, config: VehicleConfiguration) -> None:
-    """A VIN that resolves to an existing `vehicle_mdm` row links the
-    configuration to it (three-column pattern). **A miss does nothing** —
-    it never creates an MDM record (ADR-070)."""
+    """The vehicle link follows the VIN (Anto, 2026-10-12, KAN-326, option A):
+    a VIN that resolves to an existing `vehicle_mdm` row links the
+    configuration to that car (three-column pattern); no VIN, or a VIN that
+    resolves to nothing, leaves **no** link — a configuration never claims a
+    car its VIN does not name. **A miss never creates an MDM record**
+    (ADR-070). Called only when the VIN is written: on create, and on a
+    PATCH that carries `vin` (an absent `vin` leaves the link alone,
+    KAN-247). The link is derived from the VIN, so the audit records the VIN
+    change and not the link (KAN-319)."""
 
-    if not config.vin:
-        return
-    vehicle = get_vehicle_mdm_by_vin(db, config.vin)
+    vehicle = get_vehicle_mdm_by_vin(db, config.vin) if config.vin else None
     if vehicle is None:
+        config.vehicle_id = None
+        config.vehicle_label = None
+        config.vehicle_label_refreshed_at = None
         return
     config.vehicle_id = vehicle.id
     config.vehicle_label = vehicle.vehicle_number
@@ -396,7 +405,11 @@ def update_configuration(
         spec_after[field] = _audit_value(new)
         setattr(configuration, field, new)
 
-    _link_vehicle_if_vin_resolves(db, configuration)
+    # KAN-326 — the link is re-derived whenever the VIN is written (cleared,
+    # changed, or sent back the same: a car that arrived in vehicle-mdm
+    # since the last save links now); a PATCH without `vin` leaves it alone.
+    if "vin" in data.model_fields_set:
+        _link_vehicle_if_vin_resolves(db, configuration)
 
     configuration.updated_by = actor_id
     configuration.version += 1
