@@ -10,7 +10,8 @@ and none is run here. aftersales, parts, finance, reporting and compliance
 still need to add their own once they're built out. So platform's own
 created_by / updated_by columns are not reconciled (KAN-243), unlike every
 other context's: tests/architecture/test_actor_columns_reconciled.py names
-platform as the one open exception and why.
+platform and core (daily_job_run) as the two open exceptions and why
+(platform: KAN-318).
 
 WP-6 PR-1 also registers `app.valuation`'s own reconciliation module here
 — it existed since WP-8 PR-5 but was never added to this list, a real,

@@ -15,8 +15,9 @@ flushed, so a later row sees what an earlier one wrote — two trade-ins of
 one VIN, or two sales, report `vehicle_already_in_stock` on the second row
 in the dry run exactly as in the --commit run. Only the end differs: a dry
 run rolls the transaction back. So that it can never write anything, a dry
-run also refuses every commit of its session while it runs — a function
-on the path that committed on its own would abort the dry run (reported,
+run also refuses every commit in the process while it runs — any
+Session's and any Connection's — so a function on the path that committed
+on its own would abort the dry run (reported,
 exit 1) instead of writing (nothing on the path commits today: the stock,
 offer and contract number allocators use a savepoint, which is not a
 commit). A dry run takes the same row locks a real run takes (the number

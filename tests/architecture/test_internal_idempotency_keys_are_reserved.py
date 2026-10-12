@@ -51,12 +51,16 @@ def _handed_through(function: ast.AST | None, name: str) -> bool:
     if name not in params:
         return False
     for node in ast.walk(function):
-        targets = []
+        targets: list[ast.AST] = []
         if isinstance(node, ast.Assign):
-            targets = node.targets
-        elif isinstance(node, (ast.AnnAssign, ast.AugAssign, ast.NamedExpr)):
+            targets = list(node.targets)
+        elif isinstance(node, (ast.AnnAssign, ast.AugAssign, ast.NamedExpr, ast.For, ast.AsyncFor, ast.comprehension)):
             targets = [node.target]
-        if any(isinstance(t, ast.Name) and t.id == name for t in targets):
+        elif isinstance(node, (ast.With, ast.AsyncWith)):
+            targets = [item.optional_vars for item in node.items if item.optional_vars is not None]
+        # A tuple or list target (`idempotency_key, x = …`) binds every name in it.
+        bound = {n.id for t in targets for n in ast.walk(t) if isinstance(n, ast.Name)}
+        if name in bound:
             return False
     return True
 
@@ -177,11 +181,18 @@ def test_a_rebound_or_local_idempotency_key_is_not_taken_as_forwarded():
     """KAN-264 review: a local named `idempotency_key` is a key built here, not the caller's."""
 
     def first_call(source: str):
-        return next(iter(_calls_with_their_function(ast.parse(source))))
+        return next(
+            (call, function) for call, function in _calls_with_their_function(ast.parse(source))
+            if _callee(call) == "release"
+        )
 
     here = _REPO_ROOT / "app" / "sales" / "services" / "contract.py"
     local = first_call("def f(x):\n    idempotency_key = 'contract-cancel:' + x\n    release(idempotency_key=idempotency_key)\n")
     rebound = first_call("def f(idempotency_key):\n    idempotency_key = 'x'\n    release(idempotency_key=idempotency_key)\n")
+    unpacked = first_call("def f(idempotency_key):\n    idempotency_key, y = 'x', 1\n    release(idempotency_key=idempotency_key)\n")
+    looped = first_call("def f(idempotency_key):\n    for idempotency_key in ('x',):\n        release(idempotency_key=idempotency_key)\n")
+    withed = first_call("def f(idempotency_key):\n    with g() as idempotency_key:\n        release(idempotency_key=idempotency_key)\n")
     passed = first_call("def f(*, idempotency_key):\n    release(idempotency_key=idempotency_key)\n")
-    for (call, function), expected in ((local, False), (rebound, False), (passed, True)):
+    cases = ((local, False), (rebound, False), (unpacked, False), (looped, False), (withed, False), (passed, True))
+    for (call, function), expected in cases:
         assert _forwarded(here, call.keywords[0].value, function) is expected

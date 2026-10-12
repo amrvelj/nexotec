@@ -4,8 +4,8 @@ clear and must record, under Anto's rulings of 2026-10-12.
 R1 — the five coded fields (`vehicleKind`, `fuelType`, `bodyStyle`,
 `drivetrain`, `transmission`):
 
-* on a provider configuration (one with a catalogue variant) they are the
-  catalogue's and locked: a PATCH that *changes* one is a 422
+* on a provider configuration (`source = provider`, as the overlay decides
+  it) they are the catalogue's and locked: a PATCH that *changes* one is a 422
   `coded_field_locked` naming each field; the same value sent back is a
   no-op. FR-C-16's re-sync still updates them (not this endpoint).
 * on a manual configuration all five are required at create (422
@@ -204,6 +204,26 @@ def test_clearing_a_coded_field_on_a_manual_configuration_is_refused_and_changes
     assert (after["fuelType"], after["bodyStyle"], after["mileageKm"], after["version"]) == (
         "petrol", "sedan", None, created["version"]
     )
+
+
+def test_a_manual_configuration_linked_to_a_variant_keeps_its_coded_fields_editable(client, db_session):
+    """The lock follows `source`, as the overlay decides it — a manual
+    configuration that carries a catalogue variant (linked over the API) is
+    still the advisor's to change (KAN-246 review)."""
+
+    from app.vehicle.models.configuration import VehicleConfiguration
+
+    _seed_coded_lists(db_session)
+    tenant_id = uuid.uuid4()
+    created = _manual(client, tenant_id)
+    row = db_session.get(VehicleConfiguration, uuid.UUID(created["id"]))
+    row.catalogue_variant_id = _variant(db_session).id
+    db_session.commit()
+
+    r = _patch(client, tenant_id, created["id"], created["version"], {"fuelType": "diesel"})
+
+    assert r.status_code == 200, r.text
+    assert _get(client, tenant_id, created["id"])["fuelType"] == "diesel"
 
 
 # --- R3: coded-field changes are audited like a spec field --------------

@@ -42,7 +42,7 @@ _NOT_RECONCILED: dict[str, str] = {
         "No app.platform.reconciliation exists: platform's references are intra-context. "
         "scripts/seed_staging_demo.py writes a random uuid4 as created_by/updated_by on the "
         "dealer_group, dealership and user rows it creates, which such a job would report; "
-        "adding one is open (KAN-243 report)."
+        "adding one is open (KAN-318)."
     ),
     "core": "daily_job_run: app.core has no reconciliation module, and nothing writes its actor columns.",
 }
