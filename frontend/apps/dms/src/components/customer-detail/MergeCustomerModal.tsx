@@ -254,17 +254,19 @@ export function MergeCustomerModal({ opened, onClose, customer, phones, emails, 
             </UnstyledButton>
             <button
               type="button"
-              disabled={!confirmed || submitting}
+              // KAN-299 — the merge is irreversible: it waits until the
+              // survivor's contacts are on screen to be compared.
+              disabled={!confirmed || submitting || loadingSurvivorContacts || survivorContactsFailed}
               onClick={() => void submit()}
               style={{
                 fontSize: 14,
                 fontWeight: 600,
                 color: white,
-                backgroundColor: confirmed ? semantic.destructive.text : slate[3],
+                backgroundColor: confirmed && !loadingSurvivorContacts && !survivorContactsFailed ? semantic.destructive.text : slate[3],
                 border: 'none',
                 borderRadius: 8,
                 padding: '8px 16px',
-                cursor: confirmed && !submitting ? 'pointer' : 'not-allowed',
+                cursor: confirmed && !submitting && !loadingSurvivorContacts && !survivorContactsFailed ? 'pointer' : 'not-allowed',
               }}
             >
               {submitting ? t('customerDetail.merge.submitting') : t('customerDetail.merge.submit')}

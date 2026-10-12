@@ -1631,13 +1631,15 @@ def _has_usable_primary(db: Session, model: type, *, customer_id: uuid.UUID, typ
     demoted by a create that does not say `isPrimary: true`."""
 
     type_column = _CONTACT_TYPE_COLUMN[model]
-    primaries = db.scalars(
-        select(model).where(
-            model.customer_id == customer_id,  # type: ignore[attr-defined]
-            getattr(model, type_column) == type_value,
-            model.is_primary.is_(True),  # type: ignore[attr-defined]
-        )
-    ).all()
+    primaries: list[Any] = list(
+        db.scalars(
+            select(model).where(
+                model.customer_id == customer_id,  # type: ignore[attr-defined]
+                getattr(model, type_column) == type_value,
+                model.is_primary.is_(True),  # type: ignore[attr-defined]
+            )
+        ).all()
+    )
     return any(_is_usable_row(row) for row in primaries)
 
 

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { Button } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 import { radius, semantic, slate, spacing } from '@nexotec/ui-kit'
@@ -27,6 +27,7 @@ interface WagenbuchTabProps {
 export function WagenbuchTab({ entries, locale, onRecordCost, leftStockDate = null }: WagenbuchTabProps) {
   const { t } = useTranslation()
   const [dialogOpen, setDialogOpen] = useState(false)
+  const closedReasonId = useId()
 
   const total = entries.reduce(
     (sum, e) => sum + (e.direction === 'revenue' ? Number(e.amount) : -Number(e.amount)),
@@ -55,12 +56,12 @@ export function WagenbuchTab({ entries, locale, onRecordCost, leftStockDate = nu
           variant="default"
           onClick={() => setDialogOpen(true)}
           disabled={Boolean(leftStockDate)}
-          aria-describedby={leftStockDate ? 'wagenbuch-closed-reason' : undefined}
+          aria-describedby={leftStockDate ? closedReasonId : undefined}
         >
           {t('stockDetail.wagenbuch.recordButton')}
         </Button>
         {leftStockDate && (
-          <span id="wagenbuch-closed-reason" style={{ color: slate[5], fontSize: 13 }}>
+          <span id={closedReasonId} style={{ color: slate[5], fontSize: 13 }}>
             {t('stockDetail.wagenbuch.closed', { date: leftStockDate })}
           </span>
         )}

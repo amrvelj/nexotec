@@ -262,6 +262,11 @@ describe('MergeCustomerModal — failed loads are said, never mixed up (KAN-299)
     expect(screen.queryByText('+41791112233')).toBeNull()
     expect(screen.queryByText('hans@example.ch')).toBeNull()
     expect(screen.getByRole('dialog').textContent).not.toMatch(MARKER)
+
+    // The merge is irreversible: it waits until the survivor's contacts can
+    // be compared, even once the user has ticked the confirmation.
+    await user.click(screen.getByLabelText(i18n.t('customerDetail.merge.confirm')))
+    expect(screen.getByRole('button', { name: i18n.t('customerDetail.merge.submit') })).toBeDisabled()
   })
 
   it('a failed search says so instead of "No matches"', async () => {

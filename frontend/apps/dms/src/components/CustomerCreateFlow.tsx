@@ -463,7 +463,7 @@ function ContactRowGroup({
   handlers: RowGroupHandlers
   renderValueEditor: (value: string, onChange: (v: string) => void, autoFocus: boolean) => ReactNode
   valueEditorMinWidth?: number
-  t: (key: string) => string
+  t: (key: string, options?: Record<string, unknown>) => string
 }) {
   return (
     <Stack gap="xs">

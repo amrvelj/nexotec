@@ -1,4 +1,4 @@
-import { slate, spacing } from "../tokens";
+import { slate, spacing, zIndex } from "../tokens";
 import { GlobalSearch, type GlobalSearchProps } from "./GlobalSearch";
 
 export interface TopbarProps {
@@ -25,7 +25,7 @@ export function Topbar({ breadcrumb, search }: TopbarProps) {
         flexShrink: 0,
         position: "sticky",
         top: 0,
-        zIndex: 10,
+        zIndex: zIndex.stickyBar,
         display: "grid",
         // Equal outer columns keep the centre column (the search box)
         // visually centred on the bar regardless of breadcrumb length,
