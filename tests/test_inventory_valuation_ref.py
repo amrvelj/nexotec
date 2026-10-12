@@ -6,7 +6,10 @@ B (ADR-047): own commit, idempotency-key required.
 import uuid
 from decimal import Decimal
 
+import pytest
+
 from app.core.base import utcnow
+from app.core.errors import ConflictError
 from app.inventory.models.stock_item import StockItemCondition
 from app.inventory.public import get_stock_item_or_404, set_valuation_ref
 from app.inventory.schemas.stock_item import StockItemCreate
@@ -56,3 +59,45 @@ def test_set_valuation_ref_is_idempotent(db_session):
         amount=Decimal("11950.00"), valued_at=utcnow(), source="manual", idempotency_key=key,
     )
     assert first.amount == second.amount
+
+
+# KAN-280: the key is bound to the request it was first used with. The
+# same key on the same item with another valuation is a 409 for the key,
+# and the pointer keeps the first valuation. `valued_at` is not part of the
+# request's identity (it is a property of the valuation `valuation_id`
+# names), which is why the replay test above may send two timestamps.
+@pytest.mark.parametrize(
+    "changed",
+    [
+        pytest.param({"valuation_id": uuid.uuid4()}, id="another_valuation"),
+        pytest.param({"amount": Decimal("12950.00")}, id="another_amount"),
+        pytest.param({"source": "auto_i_dat"}, id="another_source"),
+    ],
+)
+def test_set_valuation_ref_refuses_a_reused_key_with_another_request(db_session, changed):
+    tenant_id = uuid.uuid4()
+    item = create_stock_item(
+        db_session, tenant_id=tenant_id,
+        data=StockItemCreate(vehicle_label="Fiat 500", condition=StockItemCondition.USED),
+        actor_id=uuid.uuid4(),
+    )
+    key = f"test:{uuid.uuid4()}"
+    first_request = {
+        "valuation_id": uuid.uuid4(), "amount": Decimal("11950.00"), "valued_at": utcnow(), "source": "manual",
+    }
+    set_valuation_ref(
+        db_session, tenant_id=tenant_id, stock_item_id=item.id, idempotency_key=key, **first_request,
+    )
+
+    with pytest.raises(ConflictError) as refused:
+        set_valuation_ref(
+            db_session, tenant_id=tenant_id, stock_item_id=item.id, idempotency_key=key,
+            **{**first_request, **changed},
+        )
+    assert refused.value.details == {"idempotencyKey": key}
+
+    db_session.rollback()
+    refetched = get_stock_item_or_404(db_session, tenant_id, item.id)
+    assert refetched.valuation_ref_id == first_request["valuation_id"]
+    assert refetched.valuation_ref_amount == Decimal("11950.00")
+    assert refetched.valuation_ref_source == "manual"
