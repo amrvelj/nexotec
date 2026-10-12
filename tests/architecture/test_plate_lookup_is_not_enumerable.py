@@ -202,11 +202,12 @@ def test_the_plate_lookup_cache_guard_catches_a_route_exposing_the_cache():
 # how `GET /v1/vehicle-mdm/lookup` handed out the current plate unaudited. So
 # the guard now flags, anywhere in `app/` outside the two plate modules:
 #   - any use of `list_plates_for_vehicle` (by name, attribute or alias),
-#   - any use of the `VehiclePlate` model as a value (`select(VehiclePlate)`,
+#   - any use of the `VehiclePlate` or `VehiclePlateConflict` model (it
+#     stores plate and canton too) as a value (`select(VehiclePlate)`,
 #     `db.query(VehiclePlate)`, `db.get(plate.VehiclePlate, …)`,
 #     `VehiclePlate.vehicle_id`, passing the class to a helper), followed
 #     through `import … as …`,
-#   - raw SQL text that reads `vehicle_plate` (FROM / JOIN).
+#   - raw SQL text that reads `vehicle_plate` or `vehicle_plate_conflict` (FROM / JOIN).
 # Type annotations and the import line itself are not reads. The few
 # legitimate uses that hand out no plate are named below per enclosing
 # function, so a new read added beside them in the same file still fails.
@@ -223,7 +224,7 @@ _PLATE_TABLE_USES_THAT_HAND_OUT_NO_PLATE = {
     # dealership table and reports dangling row ids, never a plate value.
     ("app/vehicle/reconciliation.py", "<module>"),
 }
-_RAW_PLATE_SQL = re.compile(r"\b(from|join)\s+vehicle_plate\b", re.IGNORECASE)
+_RAW_PLATE_SQL = re.compile(r"\b(from|join)\s+vehicle_plate(_conflict)?\b", re.IGNORECASE)
 
 
 def _plate_reads_outside_the_guard(sources: dict[str, str]) -> list[str]:
@@ -237,7 +238,7 @@ def _plate_reads_outside_the_guard(sources: dict[str, str]) -> list[str]:
         if relative in _PLATE_HISTORY_READERS:
             continue
         tree = ast.parse(source)
-        model_names, reader_names = {"VehiclePlate"}, {"list_plates_for_vehicle"}
+        model_names, reader_names = {"VehiclePlate", "VehiclePlateConflict"}, {"list_plates_for_vehicle"}
         annotation_nodes: set[int] = set()
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom):
@@ -348,6 +349,16 @@ def test_the_plate_read_guard_catches_every_shape_of_a_direct_read():
             "def read(db, vid):\n"
             "    return db.scalars(select(VehiclePlate).where(VehiclePlate.vehicle_id == vid))\n"
         ),
+        "app/customer/services/conflicts.py": (
+            "from app.vehicle.models.plate import VehiclePlateConflict\n"
+            "def open_ones(db):\n"
+            "    return db.scalars(select(VehiclePlateConflict))\n"
+        ),
+        "app/vehicle/services/raw_conflict.py": (
+            "from sqlalchemy import text\n"
+            "def raw(db):\n"
+            "    return db.execute(text('SELECT * FROM vehicle_plate_conflict'))\n"
+        ),
         "app/vehicle/api/typed.py": (
             "from app.vehicle.models.plate import VehiclePlate\n"
             "def show(rows: list[VehiclePlate]) -> VehiclePlate | None:\n"
@@ -366,6 +377,8 @@ def test_the_plate_read_guard_catches_every_shape_of_a_direct_read():
         "app/vehicle/api/history.py",
         "app/vehicle/api/reader_alias.py",
         "app/vehicle/services/merge.py",
+        "app/customer/services/conflicts.py",
+        "app/vehicle/services/raw_conflict.py",
     }, offenders
     merge_entries = [entry for entry in offenders if entry.startswith("app/vehicle/services/merge.py")]
     assert merge_entries and all("(sneaky)" in entry for entry in merge_entries), merge_entries

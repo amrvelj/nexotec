@@ -40,14 +40,35 @@ _NOT_A_CONTEXT = {"core", "api"}
 _KEY_KEYWORD_ON = {"find_cached_response": "key", "store_response": "key"}
 
 
-def _forwarded(file: Path, value: ast.expr) -> bool:
+def _handed_through(function: ast.AST | None, name: str) -> bool:
+    """`name` is a parameter of the enclosing function that the function never
+    rebinds — so the key is the caller's, checked where the caller builds it."""
+
+    if not isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        return False
+    args = function.args
+    params = {a.arg for a in (*args.posonlyargs, *args.args, *args.kwonlyargs)}
+    if name not in params:
+        return False
+    for node in ast.walk(function):
+        targets = []
+        if isinstance(node, ast.Assign):
+            targets = node.targets
+        elif isinstance(node, (ast.AnnAssign, ast.AugAssign, ast.NamedExpr)):
+            targets = [node.target]
+        if any(isinstance(t, ast.Name) and t.id == name for t in targets):
+            return False
+    return True
+
+
+def _forwarded(file: Path, value: ast.expr, function: ast.AST | None = None) -> bool:
     """A value that is not a key literal, but passes a key through: the
-    caller's parameter, no key at all, or the client's header value in the
-    route class (which the route refuses when it is reserved-shaped)."""
+    caller's parameter (never rebound), no key at all, or the client's header
+    value in the route class (which the route refuses when it is reserved-shaped)."""
 
     if isinstance(value, ast.Constant) and value.value is None:
         return True
-    if isinstance(value, ast.Name) and value.id == "idempotency_key":
+    if isinstance(value, ast.Name) and value.id == "idempotency_key" and _handed_through(function, value.id):
         return True
     if file == _REPO_ROOT / "app" / "core" / "idempotency.py" and isinstance(value, ast.Name) and value.id == "key":
         return True  # store_response writing the row under the key it was given
@@ -81,26 +102,38 @@ def _callee(call: ast.Call) -> str | None:
     return None
 
 
-def _key_arguments() -> list[tuple[Path, int, ast.expr]]:
+def _calls_with_their_function(tree: ast.AST):
+    """Every call in `tree`, with the innermost function that contains it (or None)."""
+
+    def visit(node: ast.AST, function: ast.AST | None):
+        for child in ast.iter_child_nodes(node):
+            inner = child if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)) else function
+            if isinstance(child, ast.Call):
+                yield child, function
+            yield from visit(child, inner)
+
+    yield from visit(tree, None)
+
+
+def _key_arguments() -> list[tuple[Path, int, ast.expr, ast.AST | None]]:
     found = []
     for root in _SCANNED:
         for file in sorted(root.rglob("*.py")):
-            for node in ast.walk(ast.parse(file.read_text(), filename=str(file))):
-                if not isinstance(node, ast.Call):
-                    continue
+            tree = ast.parse(file.read_text(), filename=str(file))
+            for node, function in _calls_with_their_function(tree):
                 key_keyword = _KEY_KEYWORD_ON.get(_callee(node) or "")
                 for keyword in node.keywords:
                     if keyword.arg == "idempotency_key" or (key_keyword and keyword.arg == key_keyword):
-                        found.append((file, node.lineno, keyword.value))
+                        found.append((file, node.lineno, keyword.value, function))
     return found
 
 
 def test_every_internal_key_has_the_reserved_shape():
     literal_prefixes = []
     refused = []
-    for file, line, value in _key_arguments():
+    for file, line, value, function in _key_arguments():
         where = f"{file.relative_to(_REPO_ROOT)}:{line}"
-        if _forwarded(file, value):
+        if _forwarded(file, value, function):
             continue
         prefix = _literal_prefix(value)
         if prefix is None:
@@ -138,3 +171,17 @@ def test_the_grammar_names_exactly_the_contexts_under_app():
 
     assert set(RESERVED_KEY_CONTEXTS) == packages - _NOT_A_CONTEXT
     assert len(RESERVED_KEY_CONTEXTS) == 12
+
+
+def test_a_rebound_or_local_idempotency_key_is_not_taken_as_forwarded():
+    """KAN-264 review: a local named `idempotency_key` is a key built here, not the caller's."""
+
+    def first_call(source: str):
+        return next(iter(_calls_with_their_function(ast.parse(source))))
+
+    here = _REPO_ROOT / "app" / "sales" / "services" / "contract.py"
+    local = first_call("def f(x):\n    idempotency_key = 'contract-cancel:' + x\n    release(idempotency_key=idempotency_key)\n")
+    rebound = first_call("def f(idempotency_key):\n    idempotency_key = 'x'\n    release(idempotency_key=idempotency_key)\n")
+    passed = first_call("def f(*, idempotency_key):\n    release(idempotency_key=idempotency_key)\n")
+    for (call, function), expected in ((local, False), (rebound, False), (passed, True)):
+        assert _forwarded(here, call.keywords[0].value, function) is expected
