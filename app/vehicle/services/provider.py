@@ -42,18 +42,25 @@ def resolve_provider_code(
         raise ValueError(
             f"code_group must be a semantic code group (a reference list code), not the CodeGrpNr {code_group!r}."
         )
-    mapping = db.scalar(
-        select(ProviderCodeMap).where(
-            ProviderCodeMap.provider == provider,
-            ProviderCodeMap.vehicle_kind == vehicle_kind,
-            ProviderCodeMap.code_group == code_group,
-            ProviderCodeMap.provider_code == provider_code,
-        )
+    lookup = select(ProviderCodeMap).where(
+        ProviderCodeMap.provider == provider,
+        ProviderCodeMap.vehicle_kind == vehicle_kind,
+        ProviderCodeMap.code_group == code_group,
+        ProviderCodeMap.provider_code == provider_code,
     )
+    mapping = db.scalar(lookup)
     if mapping is not None:
         return CanonicalValue(list_code=mapping.canonical_list_code, value_code=mapping.canonical_value_code)
 
     _record_mapping_gap(db, provider=provider, vehicle_kind=vehicle_kind, code_group=code_group, provider_code=provider_code)
+    # Bumping the gap waits for an admin's resolve that holds the gap row
+    # (`resolve_mapping_gap`, FOR UPDATE) and has written the mapping in the
+    # same transaction. Once it has committed, read again: a sync visit must
+    # not record the code as unmapped — and drop the feature or field the
+    # resolve just added (KAN-250 review) — for a mapping that now exists.
+    mapping = db.scalar(lookup)
+    if mapping is not None:
+        return CanonicalValue(list_code=mapping.canonical_list_code, value_code=mapping.canonical_value_code)
     return None
 
 

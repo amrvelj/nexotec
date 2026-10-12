@@ -263,7 +263,7 @@ def test_resolve_rejects_a_target_outside_the_gaps_own_active_list(db_session, l
 def test_a_gap_whose_code_group_has_no_reference_list_is_refused_not_a_crash(db_session):
     # Gaps recorded before the semantic keys carry a numeric CodeGrpNr. The
     # code can no longer record one (KAN-194), so the stored row is inserted
-    # as it was left — one migration `ff5b97c11665` had no mapping for.
+    # as a database that never ran migration `ff5b97c11665` would hold it.
     gap = MappingGap(provider="auto_i_dat", vehicle_kind="01", code_group="011", provider_code="7")
     db_session.add(gap)
     db_session.flush()
@@ -383,3 +383,52 @@ def test_two_overlapping_resolves_of_the_same_gap_write_one_resolve(db_session, 
     assert gap.resolved_by == actor_a
     events = list_audit_events(db_session, entity_type="vehicle_mapping_gap", entity_id=gap_id, tenant_id=None)
     assert len(events) == 1
+
+
+@pytest.mark.skipif(not os.environ.get("DMS_TEST_DATABASE_URL"), reason="row locks and concurrent sessions: Postgres only")
+def test_a_sync_lookup_racing_a_resolve_sees_the_mapping_the_resolve_wrote(db_session, engine):
+    """KAN-250 review: a sync visit that misses the code map while an admin's
+    resolve is in flight waits on the gap row the resolve holds, and must then
+    answer with the mapping the resolve committed — not report the code as
+    still unmapped (which made the sync drop the feature the resolve had just
+    added to the options)."""
+
+    _seed_list(db_session, "fuel_type", FUEL_TYPES)
+    gap_id = _open_gap(db_session, "13").id
+    db_session.commit()
+
+    factory = sessionmaker(bind=engine, expire_on_commit=False)
+    session_admin, session_sync = factory(), factory()
+    answers: list[object] = []
+    errors: list[BaseException] = []
+    try:
+        gap = catalogue_admin.get_mapping_gap_or_404(session_admin, gap_id)
+        assert resolve_mapping_gap(
+            session_admin, gap=gap, canonical_list_code="fuel_type", canonical_value_code="hydrogen",
+            actor_id=uuid.uuid4(),
+        )
+
+        def _sync_visit() -> None:
+            try:
+                answers.append(resolve_provider_code(
+                    session_sync, provider="auto_i_dat", vehicle_kind="01", code_group="fuel_type", provider_code="13"
+                ))
+                session_sync.commit()
+            except BaseException as exc:  # noqa: BLE001 — collected and asserted empty below, never swallowed
+                errors.append(exc)
+
+        sync = threading.Thread(target=_sync_visit)
+        sync.start()
+        sync.join(timeout=1.0)
+        assert sync.is_alive(), "the sync's gap bump must wait for the resolve holding the gap row"
+
+        session_admin.commit()
+        sync.join(timeout=10.0)
+        assert not sync.is_alive()
+        assert not errors, errors
+    finally:
+        session_admin.close()
+        session_sync.close()
+
+    (answer,) = answers
+    assert answer is not None and answer.value_code == "hydrogen"
