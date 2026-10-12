@@ -69,7 +69,11 @@ code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. -->
   options, colours, tyres or images, or adding another provider's master data, is a new
   decision — never a side effect.
 - A sync visit fills a variant's NULL fields and never overwrites a set one; resolving a
-  mapping gap fills the variants it left NULL at once (KAN-83).
+  mapping gap fills the variants it left NULL at once (KAN-83), the NULL spec and coded fields
+  of the provider configurations built from them — never an advisor's value or an overridden
+  field, never a host's frozen snapshot (Anto, 2026-10-12, KAN-240) — and adds an
+  `equipment_feature` to every option whose raw `SuchCode` list carried it, per tenant
+  (`VariantOptionProviderCode`, KAN-250).
 - Every auto-i-dat call goes through the gateway (architecture test). Provider codes never
   appear in application code: canonical taxonomy + `ProviderCodeMap` (`vehicle_provider_code_map`).
   **Not yet true (KAN-75):** the SOAP adapter decodes `FarbArt`, `AchsenCode` and `PneuTyp`
@@ -143,7 +147,8 @@ code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. -->
   go-live check); never route it on a guess.
 - **`ProviderCodeMap` is keyed `(provider, vehicle_kind, code_group, provider_code)`** —
   `vehicle_kind` is the raw FzArt, `code_group` the semantic list code, `provider_code` the raw
-  code; never a numeric CodeGrpNr. An unmapped code of a code-mapped field (the variant's
+  code; never a numeric CodeGrpNr (`resolve_provider_code` refuses one; migration
+  `ff5b97c11665` re-keyed the legacy gaps, KAN-194). An unmapped code of a code-mapped field (the variant's
   `vehicle_kind`, `fuel_type`, `body_style`, `drivetrain`, `transmission`; an option's
   `equipment_feature`) becomes a `mapping_gap` (FR-C-10), never a silent default. **Not yet true
   for the adapter's inline decodes (KAN-75):** an unknown `FarbArt` becomes `exterior`, a
