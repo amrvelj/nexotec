@@ -138,9 +138,18 @@ can hide bugs (unchecked lengths, row locks, isolation differences) that
 only show up against Postgres.
 
 ```bash
-docker compose up -d db
-DMS_TEST_DATABASE_URL=postgresql+psycopg://dms:dms@localhost:5432/dms_platform pytest
+scripts/dev/bootstrap   # once per checkout: starts the database, creates dms_test_<checkout>
+DMS_TEST_DATABASE_URL=postgresql+psycopg://dms:dms@localhost:5432/dms_test_root pytest
 ```
+
+`dms_test_root` is the main checkout's test database; a worktree's is
+`dms_test_<worktree name>` (bootstrap prints it). A Claude Code session
+already exports `DMS_TEST_DATABASE_URL` for its checkout, so plain `pytest`
+runs this lane there. **Never point `DMS_TEST_DATABASE_URL` at
+`dms_platform`** (or a worktree's `dms_dev_*`): those are the dev databases
+`make up` and the desktop preview run on, and `tests/conftest.py` drops and
+recreates every table in the database it is given — your dev data, the
+preview's log-in users included, would be gone.
 
 **SQLite is a fast, optional, local-only convenience** (ADR-011) — not a
 CI lane at all as of WP-2 PR-4, only a `pre-commit` hook you can opt into:
@@ -150,7 +159,8 @@ pip install pre-commit
 pre-commit install
 ```
 
-That's `pytest` with no `DMS_TEST_DATABASE_URL` set — same test suite
+That's `pytest` with no `DMS_TEST_DATABASE_URL` set (outside a Claude Code
+session, which sets it) — same test suite
 either way (`tests/conftest.py` picks the backend from that env var), just
 faster and with no Docker required. Add the Postgres lane locally too
 before pushing anything with a new FK/constraint — pre-commit running
