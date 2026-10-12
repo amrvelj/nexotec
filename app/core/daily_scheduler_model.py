@@ -12,9 +12,10 @@ class DailyJobRun(PrimaryKeyMixin, TimestampMixin, Base):
     written only AFTER the job body returns without raising (see
     app/core/daily_scheduler.py::run_due_daily_jobs). This table's whole
     job is answering "has this run today, successfully", not recording
-    every attempt: a failed attempt leaves no row, so the next poll cycle
-    (1s later, app/worker.py's own interval) tries again, same as the
-    outbox worker's own at-least-once posture for a claimed message.
+    every attempt: a failed attempt leaves no row, so the job is tried again
+    the same day once its backoff has passed (KAN-303, see
+    app/core/daily_scheduler.py), same as the outbox worker's own
+    at-least-once posture for a claimed message.
     """
 
     __tablename__ = "daily_job_run"

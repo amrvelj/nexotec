@@ -780,6 +780,9 @@
     "header": {
       "stockFallback": "Stock item"
     },
+    "leftStock": {
+      "badge": "Left stock on {{date}}"
+    },
     "tabs": {
       "details": "Details",
       "wagenbuch": "Wagenbuch",
@@ -789,7 +792,8 @@
     "actions": {
       "createOffer": "Create offer",
       "createContract": "Create contract",
-      "salesNotYetBuilt": "Sales is not available yet."
+      "salesNotYetBuilt": "Sales is not available yet.",
+      "leftStock": "This vehicle left stock on {{date}} (sold)."
     },
     "spec": {
       "firstRegistrationDate": "First registration",
