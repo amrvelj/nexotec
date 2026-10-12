@@ -42,9 +42,13 @@ ADR-057, ADR-063, ADR-065, ADR-083 and KAN-66/68/71. Verified against main@7a90a
   naming no stock item, on a stock item Stock holds as purchased, last changed over an hour ago,
   with no replica row in its own dealership, and on a replica row whose item Stock does not hold
   as purchased for that dealership — both match on tenant, as `is_invoiceable` does (KAN-145).
-  Every cross-context id on `sales_offer` and `sales_contract` (`created_by`/`updated_by`
-  included) is reconciled too, on id alone, not on the row's dealership (KAN-259); a contract's
-  `reservation_id` only while it is confirmed, since a released hold is cleared on the stock item.
+  Every cross-context id on every Sales table is reconciled (KAN-145, KAN-243): an id naming
+  nothing is an orphan (ReferenceCheck); a stock item, configuration or valuation of another
+  dealership, and a customer outside the dealership's group, is a mismatch (StateCheck, KAN-259);
+  a contract's `reservation_id` only while it is confirmed, since a released hold is cleared on
+  the stock item. `created_by`/`updated_by` name a `user.id` or are null in every reconciled
+  context (Anto, 2026-10-12, KAN-243: `platform.public.actor_reference_checks`, enforced by
+  `tests/architecture/test_actor_columns_reconciled.py`).
 - **ADR-050** — `sales_contract` supersedes the legacy `transaction` table. Legacy rows move via
   `scripts/migrate_transaction_rows.py`: dry-run by default, idempotent, written directly
   through the ORM and **publishing no outbox events** (a years-old sale must not look like
@@ -161,7 +165,7 @@ ADR-057, ADR-063, ADR-065, ADR-083 and KAN-66/68/71. Verified against main@7a90a
   `.claude/rules/valuation.md`. Contracts before KAN-101 were confirmed without marking their
   valuation used; nightly reconciliation reports every signed contract whose trade-in valuation
   of its own dealership is not used, and «Als verwendet markieren» repairs it, expired or not
-  (KAN-115). One naming another dealership's valuation is reported by nothing yet (KAN-259).
+  (KAN-115). One naming another dealership's valuation is a reconciliation mismatch (KAN-259).
 - **A car that has left stock cannot be signed again** (KAN-147): confirming a stock-car
   contract whose item has `left_stock_at` set is refused by Stock's `reserve_for_contract`
   (409 `vehicle_left_stock`), and the compensation reverts the trade-in valuation's "used"
