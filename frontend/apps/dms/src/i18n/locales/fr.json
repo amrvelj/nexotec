@@ -62,6 +62,7 @@
     "loadingMore": "Chargement…",
     "rowActionsLabel": "Actions de la ligne",
     "selectAllLabel": "Tout sélectionner",
+    "selectRowLabel": "Sélectionner la ligne : {{label}}",
     "moreActions": "Plus d'actions",
     "showing": "{{count, number}} affiché(s)",
     "showingOfTotal": "{{count, number}} sur {{total}} affiché(s)",

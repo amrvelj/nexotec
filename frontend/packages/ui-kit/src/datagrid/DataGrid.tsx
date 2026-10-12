@@ -82,6 +82,11 @@ export interface DataGridProps<T> {
     rowActionsLabel?: string;
     /** KAN-291 — the selection header checkbox's accessible name. */
     selectAllLabel?: string;
+    /** KAN-313 — each row's selection checkbox's accessible name, built
+     * from the row so it names the record ("Zeile auswählen: Müller
+     * Hans"). Never the row menu's name: two controls on one row must not
+     * share one. */
+    selectRowLabel?: (row: T) => string;
   };
 }
 
@@ -92,6 +97,7 @@ const DEFAULT_GRID_LABELS = {
   retry: "Retry",
   rowActionsLabel: "Row actions",
   selectAllLabel: "Select all",
+  selectRowLabel: (): string => "Select row",
 };
 
 /**
@@ -346,7 +352,7 @@ export function DataGrid<T>({
                             <Cell key={cell.id} pinned="left" width={SELECTION_COLUMN_WIDTH}>
                               <SelectRowCheckbox
                                 checked={isSelected}
-                                label={L.rowActionsLabel}
+                                label={L.selectRowLabel(row.original)}
                                 onChange={() => toggleOne(rowId)}
                               />
                             </Cell>

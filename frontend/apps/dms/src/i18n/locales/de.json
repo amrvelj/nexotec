@@ -62,6 +62,7 @@
     "loadingMore": "Wird geladen…",
     "rowActionsLabel": "Zeilenaktionen",
     "selectAllLabel": "Alle auswählen",
+    "selectRowLabel": "Zeile auswählen: {{label}}",
     "moreActions": "Weitere Aktionen",
     "showing": "{{count, number}} angezeigt",
     "showingOfTotal": "{{count, number}} von {{total}} angezeigt",

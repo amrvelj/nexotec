@@ -256,6 +256,7 @@ export function VehiclesListPage() {
           retry: t('common.retry'),
           rowActionsLabel: t('common.rowActionsLabel'),
           selectAllLabel: t('common.selectAllLabel'),
+          selectRowLabel: (row) => t('common.selectRowLabel', { label: `${row.vehicleNumber} · ${row.vin}` }),
         }}
         emptyState={{
           icon: <Car size={24} />,

@@ -62,6 +62,7 @@
     "loadingMore": "Caricamento…",
     "rowActionsLabel": "Azioni riga",
     "selectAllLabel": "Seleziona tutto",
+    "selectRowLabel": "Seleziona riga: {{label}}",
     "moreActions": "Altre azioni",
     "showing": "{{count, number}} visualizzati",
     "showingOfTotal": "{{count, number}} di {{total}} visualizzati",

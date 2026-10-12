@@ -62,6 +62,7 @@
     "loadingMore": "Loading…",
     "rowActionsLabel": "Row actions",
     "selectAllLabel": "Select all",
+    "selectRowLabel": "Select row: {{label}}",
     "moreActions": "More actions",
     "showing": "Showing {{count, number}}",
     "showingOfTotal": "Showing {{count, number}} of {{total}}",
