@@ -2,10 +2,12 @@
 amended, FR-V-09/FR-V-17)."""
 
 import datetime as dt
+import os
 import uuid
 from decimal import Decimal
 
 import pytest
+from sqlalchemy import func, select
 
 from app.core.auth import AccessRole, create_access_token
 from app.core.base import utcnow
@@ -24,6 +26,14 @@ from app.valuation.services.valuation import (
     list_valuations,
     mark_used,
     mark_used_by_hand,
+)
+from app.vehicle.models.vehicle_mdm import VehicleMdm
+from app.vehicle.services import vehicle_mdm as vehicle_mdm_service
+from tests.test_inventory_vin_resolution import _lose_the_first_lookup
+
+_postgres_only = pytest.mark.skipif(
+    not os.environ.get("DMS_TEST_DATABASE_URL"),
+    reason="the insert race needs a second connection that sees the first one's commit — Postgres lane",
 )
 
 
@@ -84,6 +94,71 @@ def test_creating_with_a_vin_resolves_or_creates_the_real_vehicle_mdm(db_session
         actor_id=uuid.uuid4(),
     )
     assert second.vehicle_id == valuation.vehicle_id
+
+
+def test_the_vehicle_a_valuation_creates_names_the_user_who_created_it(db_session):
+    """KAN-328 / KAN-243: a null created_by means a system write; a user's valuation is not one."""
+
+    actor_id = uuid.uuid4()
+    valuation = create_valuation(
+        db_session, tenant_id=uuid.uuid4(), group_id=uuid.uuid4(),
+        data=ValuationCreate(vin="WBA4Y9F55LCE89GLB", source=ValuationSource.MANUAL, final_offer=Decimal(16350)),
+        actor_id=actor_id,
+    )
+
+    vehicle = db_session.get(VehicleMdm, valuation.vehicle_id)
+    assert vehicle is not None
+    assert (vehicle.created_by, vehicle.updated_by) == (actor_id, actor_id)
+
+
+@_postgres_only
+def test_a_valuation_that_loses_the_insert_race_references_the_winners_vehicle(db_session, engine, monkeypatch):
+    """KAN-328: two writers resolving a VIN vehicle-mdm has never seen both
+    insert; the loser resolves to the winner's record (FR-V-15: same VIN,
+    same car) instead of answering 409 — as Stock does since KAN-257."""
+
+    vin = "WBA4Y9F55LCE89GLC"
+    winners: list[uuid.UUID] = []
+
+    def another_dealership_takes_the_car(other, raced_vin):
+        winners.append(vehicle_mdm_service.create_vehicle_mdm(other, vin=raced_vin, catalogue_variant_id=None).id)
+
+    misses = _lose_the_first_lookup(monkeypatch, engine, winner=another_dealership_takes_the_car)
+
+    valuation = create_valuation(
+        db_session, tenant_id=uuid.uuid4(), group_id=uuid.uuid4(),
+        data=ValuationCreate(vin=vin, source=ValuationSource.MANUAL, final_offer=Decimal(16350)),
+        actor_id=uuid.uuid4(),
+    )
+
+    assert misses == [vin]  # the race really happened
+    assert valuation.vehicle_id == winners[0]
+    assert db_session.scalar(select(func.count()).select_from(VehicleMdm)) == 1
+
+
+@_postgres_only
+def test_losing_the_race_never_discards_the_valuations_own_pending_work(db_session, engine, monkeypatch):
+    """KAN-328: vehicle-mdm's guard rolls back the session it is handed. The
+    valuation hands it a session of its own, so what the request had
+    pending — here the valuation counter already moved once — survives the
+    lost race and lands with the valuation's own commit."""
+
+    vin = "WBA4Y9F55LCE89GLD"
+    tenant_id = uuid.uuid4()
+    assert allocate_valuation_number(db_session, tenant_id) == "B-000001"  # pending, not committed
+
+    def another_dealership_takes_the_car(other, raced_vin):
+        vehicle_mdm_service.create_vehicle_mdm(other, vin=raced_vin, catalogue_variant_id=None)
+
+    _lose_the_first_lookup(monkeypatch, engine, winner=another_dealership_takes_the_car)
+
+    valuation = create_valuation(
+        db_session, tenant_id=tenant_id, group_id=uuid.uuid4(),
+        data=ValuationCreate(vin=vin, source=ValuationSource.MANUAL, final_offer=Decimal(16350)),
+        actor_id=uuid.uuid4(),
+    )
+
+    assert valuation.valuation_number == "B-000002"
 
 
 def test_deductions_are_stored_as_child_rows(db_session):

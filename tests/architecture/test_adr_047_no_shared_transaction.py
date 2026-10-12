@@ -190,11 +190,16 @@ _OWN_COMMIT_WRITES = {
         "sales: confirm_contract's compensation",
     ),
     # A VIN resolves to (or creates) the vehicle master record (FR-V-04).
+    # Every caller hands it a session of its own — never the request's,
+    # whose pending work its commit would land and its race guard's
+    # rollback discard — and resolves a lost insert race to the winner's
+    # record (FR-V-15).
     "app.vehicle.public.create_or_get_vehicle_mdm": (
         "app.vehicle.services.vehicle_mdm.create_vehicle_mdm",
         (
             "inventory: vehicle_resolution (stock create with a VIN, KAN-244; promotion), on its own session "
-            "(KAN-257); sales: trade-in; valuation: create"
+            "(KAN-257); sales: trade-in, on its own session (KAN-328); valuation: create, on its own session "
+            "(KAN-328)"
         ),
     ),
     # The daily job composition root runs the catalogue delta per tenant.
