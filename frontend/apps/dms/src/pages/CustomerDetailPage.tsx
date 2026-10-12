@@ -104,6 +104,7 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
   const [creditBlockOpen, setCreditBlockOpen] = useState(false)
   const [creatingOffer, setCreatingOffer] = useState(false)
   const [creatingContract, setCreatingContract] = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
   // KAN-266: one Idempotency-Key per submission of each create — a retry
   // after a failed save reuses it, so the server replays instead of
   // creating the row twice; a different request (another value, another
@@ -254,6 +255,7 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
   const createOfferForCustomer = async () => {
     if (!id) return
     setCreatingOffer(true)
+    setCreateError(null)
     try {
       // A retry after a failed POST replays the offer the first POST
       // created instead of making a second one, then sets its customer. If
@@ -268,6 +270,9 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
       )
       offerCreateKey.renew()
       navigate(`/sales/offers/${updated.id}`)
+    } catch (err) {
+      // KAN-273 (ADR-035): said, not dropped; the retry carries the key.
+      setCreateError(err instanceof ApiError ? err.message : t('customerDetail.errors.createOfferFailed'))
     } finally {
       setCreatingOffer(false)
     }
@@ -279,11 +284,14 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
   const createContractForCustomer = async () => {
     if (!id) return
     setCreatingContract(true)
+    setCreateError(null)
     try {
       const body = { customerId: id }
       const created = await api.post<SalesContractRead>('/sales/contracts', body, contractCreateKey.headers(body))
       contractCreateKey.renew()
       navigate(`/sales/contracts/${created.id}`)
+    } catch (err) {
+      setCreateError(err instanceof ApiError ? err.message : t('customerDetail.errors.createContractFailed'))
     } finally {
       setCreatingContract(false)
     }
@@ -480,6 +488,12 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
         }}
         overflowActions={overflowActions}
       />
+
+      {createError && (
+        <Alert color="red" role="alert" withCloseButton onClose={() => setCreateError(null)}>
+          {createError}
+        </Alert>
+      )}
 
       <DetailTabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
 

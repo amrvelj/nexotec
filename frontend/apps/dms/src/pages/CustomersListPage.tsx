@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Button, Group, Stack, Title } from '@mantine/core'
+import { Alert, Button, Group, Stack, Title } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
 import { Download, ExternalLink, Printer, Users } from 'lucide-react'
@@ -33,7 +33,7 @@ import { useGridPreferences } from '../hooks/useGridPreferences'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { useSavedViews } from '../hooks/useSavedViews'
 import { useCountryOptions } from '../hooks/useCountryOptions'
-import { api } from '../api/client'
+import { api, ApiError } from '../api/client'
 import { buildCustomerRowMenu } from '../components/customerRowMenu'
 import { CreditBlockDialog } from '../components/customer-detail/CreditBlockDialog'
 import { CustomerCreateDialog } from '../components/CustomerCreateDialog'
@@ -198,6 +198,7 @@ export function CustomersListPage() {
   // list, not a navigation. `/customers/new` renders the same dialog for a
   // pasted link (App.tsx → CustomerCreatePage).
   const [createOpen, setCreateOpen] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
   const queryClient = useQueryClient()
   const offerCreateKey = useIdempotencyKey()
   const contractCreateKey = useIdempotencyKey()
@@ -588,25 +589,38 @@ export function CustomersListPage() {
   // customer keeps its key and replays the first create, another customer
   // gets a new key. As on the customer screen, a retry after a PATCH that
   // landed with its response lost is a version conflict, not a second offer.
+  //
+  // KAN-273 (ADR-035): a failed create is said above the grid; the retry
+  // from the same row carries the same key.
   const createOfferForCustomer = async (customerId: string) => {
-    const created = await api.post<SalesOfferRead>('/sales/offers', undefined, offerCreateKey.headers([customerId]))
-    const updated = await api.patch<SalesOfferRead>(
-      `/sales/offers/${created.id}`,
-      { customerId },
-      { 'If-Match': String(created.version) },
-    )
-    offerCreateKey.renew()
-    navigate(`/sales/offers/${updated.id}`)
+    setActionError(null)
+    try {
+      const created = await api.post<SalesOfferRead>('/sales/offers', undefined, offerCreateKey.headers([customerId]))
+      const updated = await api.patch<SalesOfferRead>(
+        `/sales/offers/${created.id}`,
+        { customerId },
+        { 'If-Match': String(created.version) },
+      )
+      offerCreateKey.renew()
+      navigate(`/sales/offers/${updated.id}`)
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : t('customersList.createOfferError'))
+    }
   }
 
   // KAN-58 — "New contract", the customer→contract entry point. Simpler
   // than the offer flow above: ContractCreate accepts customerId directly,
   // so this is one POST, not POST-then-PATCH.
   const createContractForCustomer = async (customerId: string) => {
-    const body = { customerId }
-    const created = await api.post<SalesContractRead>('/sales/contracts', body, contractCreateKey.headers(body))
-    contractCreateKey.renew()
-    navigate(`/sales/contracts/${created.id}`)
+    setActionError(null)
+    try {
+      const body = { customerId }
+      const created = await api.post<SalesContractRead>('/sales/contracts', body, contractCreateKey.headers(body))
+      contractCreateKey.renew()
+      navigate(`/sales/contracts/${created.id}`)
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : t('customersList.createContractError'))
+    }
   }
 
   const toggleDoNotContact = async (row: CustomerRead) => {
@@ -634,6 +648,12 @@ export function CustomersListPage() {
         <Title order={2}>{t('customersList.title')}</Title>
         <Button onClick={() => setCreateOpen(true)}>{t('customersList.newCustomer')}</Button>
       </Group>
+
+      {actionError && (
+        <Alert color="red" role="alert" withCloseButton onClose={() => setActionError(null)}>
+          {actionError}
+        </Alert>
+      )}
 
       <OverviewShellRegion
         header={<div />}

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, Group, Loader, Stack, Text } from '@mantine/core'
@@ -44,6 +45,7 @@ export function ValuationDetailContent({ valuationId: id, embedded = false }: Va
   // instead of a version conflict; another valuation shown by the same
   // mounted screen (/valuations/:id changing under it) gets a new key.
   const markUsedKey = useIdempotencyKey()
+  const [markUsedError, setMarkUsedError] = useState<string | null>(null)
 
   const valuationQuery = useQuery({
     queryKey: ['valuation', id],
@@ -53,16 +55,22 @@ export function ValuationDetailContent({ valuationId: id, embedded = false }: Va
 
   useSetBreadcrumb(embedded ? null : [t('shell.nav.valuations'), valuationQuery.data?.valuationNumber ?? id])
 
+  // KAN-273 (ADR-035): a refused stamp says so; the retry carries its key.
   const markUsed = async () => {
     const valuation = valuationQuery.data
     if (!valuation) return
-    const path = `/valuations/${id}/mark-used`
-    const updated = await api.post<ValuationRead>(path, undefined, {
-      'If-Match': String(valuation.version),
-      ...markUsedKey.headers([path]),
-    })
-    markUsedKey.renew()
-    queryClient.setQueryData(['valuation', id], updated)
+    setMarkUsedError(null)
+    try {
+      const path = `/valuations/${id}/mark-used`
+      const updated = await api.post<ValuationRead>(path, undefined, {
+        'If-Match': String(valuation.version),
+        ...markUsedKey.headers([path]),
+      })
+      markUsedKey.renew()
+      queryClient.setQueryData(['valuation', id], updated)
+    } catch (err) {
+      setMarkUsedError(err instanceof ApiError ? err.message : t('valuationDetail.errors.markUsedFailed'))
+    }
   }
 
   // § ADR-059 — the customer behind this valuation opens as an overlay,
@@ -111,6 +119,12 @@ export function ValuationDetailContent({ valuationId: id, embedded = false }: Va
         primaryAction={menu.primary}
         overflowActions={menu.overflow}
       />
+
+      {markUsedError && (
+        <Alert color="red" role="alert" withCloseButton onClose={() => setMarkUsedError(null)}>
+          {markUsedError}
+        </Alert>
+      )}
 
       {valuation.status === 'expired' && (
         // Confirmed live, verbatim.

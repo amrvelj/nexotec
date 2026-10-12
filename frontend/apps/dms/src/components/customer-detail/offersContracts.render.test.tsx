@@ -5,7 +5,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from '../../i18n'
 import { renderWithProviders } from '../../test/renderWithProviders'
-import { installFakeBackend, type FakeBackend } from '../../test/fakeBackend'
+import { installFakeBackend, status, type FakeBackend } from '../../test/fakeBackend'
 import { customer } from '../../test/fixtures'
 import { CustomerDetailPage } from '../../pages/CustomerDetailPage'
 import { toCustomerDealRows } from './OffersContractsTab'
@@ -72,7 +72,13 @@ describe('toCustomerDealRows (KAN-45)', () => {
 
 // --- the embedded grid ---------------------------------------------------
 
-function install(offers: SalesOfferRead[], contracts: SalesContractRead[]): FakeBackend {
+function install(
+  offers: SalesOfferRead[],
+  contracts: SalesContractRead[],
+  { failFirstOffer = false, failFirstContract = false } = {},
+): FakeBackend {
+  let offerPosts = 0
+  let contractPosts = 0
   return installFakeBackend([
     { match: /^\/customers\/c1$/, handler: () => customer({ id: 'c1' }) },
     { match: /^\/customers\/c1\/phones$/, handler: () => ({ items: [] }) },
@@ -93,7 +99,13 @@ function install(offers: SalesOfferRead[], contracts: SalesContractRead[]): Fake
     {
       method: 'POST',
       match: /^\/sales\/offers$/,
-      handler: () => ({ id: 'new-offer', offerNumber: 'O-000009', version: 1 }),
+      handler: () => {
+        offerPosts += 1
+        if (failFirstOffer && offerPosts === 1) {
+          return status(503, { error: { code: 'unavailable', message: 'Number range unavailable', details: null } })
+        }
+        return { id: 'new-offer', offerNumber: 'O-000009', version: 1 }
+      },
     },
     { method: 'PATCH', match: /^\/sales\/offers\/new-offer$/, handler: (req) => ({ id: 'new-offer', ...(req.body as object) }) },
     // KAN-58 — one POST is the whole flow (ContractCreate takes customerId
@@ -101,7 +113,11 @@ function install(offers: SalesOfferRead[], contracts: SalesContractRead[]): Fake
     {
       method: 'POST',
       match: /^\/sales\/contracts$/,
-      handler: () => ({ id: 'new-contract', contractNumber: 'C-000009', version: 1 }),
+      handler: () => {
+        contractPosts += 1
+        if (failFirstContract && contractPosts === 1) throw new TypeError('Failed to fetch')
+        return { id: 'new-contract', contractNumber: 'C-000009', version: 1 }
+      },
     },
   ])
 }
@@ -184,5 +200,60 @@ describe('customer 360 — offers & contracts tab (KAN-45)', () => {
     renderDetail()
     await screen.findByRole('columnheader', { name: i18n.t('salesList.columns.number') })
     expect(backend.callsTo(/\/transactions/)).toHaveLength(0)
+  })
+})
+
+// KAN-273 — a failed create from the customer says so; the retry carries
+// the failed request's Idempotency-Key.
+describe('customer 360 — a failed new offer or contract says so (KAN-273)', () => {
+  const emptyState = async () =>
+    (await screen.findByText(i18n.t('customerDetail.offersContracts.emptyState.title'))).parentElement as HTMLElement
+  const keys = (backend: FakeBackend, pattern: RegExp) =>
+    backend.callsTo(pattern, 'POST').map((call) => call.headers.get('Idempotency-Key'))
+
+  it('a refused new offer shows the server message, and the retry reuses the key', async () => {
+    const backend = install([], [], { failFirstOffer: true })
+    renderDetail()
+    const user = userEvent.setup()
+    const newOffer = async () =>
+      user.click(within(await emptyState()).getByRole('button', { name: i18n.t('salesList.newOffer') }))
+
+    await newOffer()
+    expect((await screen.findByRole('alert')).textContent).toBe('Number range unavailable')
+
+    await newOffer()
+    await waitFor(() => expect(keys(backend, /^\/sales\/offers$/)).toHaveLength(2))
+    await waitFor(() => expect(backend.callsTo(/^\/sales\/offers\/new-offer$/, 'PATCH')).toHaveLength(1))
+
+    const [failedKey, retryKey] = keys(backend, /^\/sales\/offers$/)
+    expect(failedKey).toBeTruthy()
+    expect(retryKey).toBe(failedKey)
+  })
+
+  it('a dropped new contract shows a translated message, and the retry reuses the key', async () => {
+    await i18n.changeLanguage('fr')
+    try {
+      const backend = install([], [], { failFirstContract: true })
+      renderDetail()
+      const user = userEvent.setup()
+      const newContract = async () =>
+        user.click(within(await emptyState()).getByRole('button', { name: i18n.t('customerRowMenu.newContract') }))
+
+      await newContract()
+      expect((await screen.findByRole('alert')).textContent).toBe(i18n.t('customerDetail.errors.createContractFailed'))
+
+      await waitFor(() =>
+        expect(within(screen.getByText(i18n.t('customerDetail.offersContracts.emptyState.title')).parentElement as HTMLElement)
+          .getByRole('button', { name: i18n.t('customerRowMenu.newContract') })).toBeEnabled(),
+      )
+      await newContract()
+      await waitFor(() => expect(keys(backend, /^\/sales\/contracts$/)).toHaveLength(2))
+
+      const [failedKey, retryKey] = keys(backend, /^\/sales\/contracts$/)
+      expect(failedKey).toBeTruthy()
+      expect(retryKey).toBe(failedKey)
+    } finally {
+      await i18n.changeLanguage('de')
+    }
   })
 })

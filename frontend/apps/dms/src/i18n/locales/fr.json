@@ -304,7 +304,9 @@
       "clear": "Effacer la sélection",
       "export": "Exporter",
       "print": "Imprimer"
-    }
+    },
+    "createOfferError": "L’offre n’a pas pu être créée. Veuillez réessayer.",
+    "createContractError": "Le contrat n’a pas pu être créé. Veuillez réessayer."
   },
   "customerDetail": {
     "tabs": {
@@ -325,7 +327,9 @@
       "failedToLoadVehicles": "Échec du chargement des véhicules.",
       "failedToLoadOffersContracts": "Échec du chargement des offres et contrats.",
       "failedToLoadHistory": "Échec du chargement de l'historique.",
-      "failedToLoadExternalIds": "Échec du chargement des ID externes."
+      "failedToLoadExternalIds": "Échec du chargement des ID externes.",
+      "createOfferFailed": "L’offre n’a pas pu être créée. Veuillez réessayer.",
+      "createContractFailed": "Le contrat n’a pas pu être créé. Veuillez réessayer."
     },
     "overview": {
       "cards": {
@@ -985,7 +989,9 @@
     "untitled": "Nouvelle offre",
     "errors": {
       "failedToLoad": "L'offre n'a pas pu être chargée.",
-      "somethingWentWrong": "Un problème est survenu."
+      "somethingWentWrong": "Un problème est survenu.",
+      "copyFailed": "L’offre n’a pas pu être copiée. Veuillez réessayer.",
+      "createFailed": "La nouvelle offre n’a pas pu être créée."
     },
     "actions": {
       "copy": "Copier l'offre"
@@ -1013,6 +1019,11 @@
         "staleVersion": "Le contrat a été modifié entre-temps. La version actuelle est chargée – veuillez refaire votre modification.",
         "notPending": "Le contrat n'est plus ouvert et ne peut plus être modifié.",
         "generic": "La modification n'a pas pu être enregistrée."
+      },
+      "cancelRefused": {
+        "title": "Contrat non annulé",
+        "staleVersion": "Ce contrat a changé depuis le chargement de la page. Il a été rechargé — vérifiez-le et annulez-le à nouveau.",
+        "generic": "Le contrat n’a pas pu être annulé. Veuillez réessayer."
       }
     },
     "actions": {
@@ -1183,13 +1194,15 @@
     },
     "rowActions": {
       "open": "Ouvrir"
-    }
+    },
+    "markUsedError": "L’évaluation n’a pas pu être marquée comme utilisée. Veuillez réessayer."
   },
   "valuationDetail": {
     "untitled": "Aucun véhicule indiqué",
     "errors": {
       "failedToLoad": "L’évaluation n’a pas pu être chargée.",
-      "somethingWentWrong": "Une erreur est survenue."
+      "somethingWentWrong": "Une erreur est survenue.",
+      "markUsedFailed": "L’évaluation n’a pas pu être marquée comme utilisée. Veuillez réessayer."
     },
     "actions": {
       "revalue": "Réévaluer",

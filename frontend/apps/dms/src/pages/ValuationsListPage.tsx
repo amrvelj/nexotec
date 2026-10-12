@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Button, Group, Stack, Title } from '@mantine/core'
+import { Alert, Button, Group, Stack, Title } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
 import { CarFront, ExternalLink } from 'lucide-react'
@@ -18,7 +18,7 @@ import {
   type GridColumnDef,
   type SortSpec,
 } from '@nexotec/ui-kit'
-import { api } from '../api/client'
+import { api, ApiError } from '../api/client'
 import { buildValuationRowMenu } from '../components/valuationRowMenu'
 import { NewValuationButton } from '../components/NewValuationButton'
 import { useGridPreferences } from '../hooks/useGridPreferences'
@@ -96,6 +96,7 @@ export function ValuationsListPage() {
   }, [debouncedQuery])
 
   const [appliedViewId, setAppliedViewId] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
   const sortParam = sort.length > 0 ? sort.map((s) => `${s.field}:${s.direction}`).join(',') : undefined
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isError, refetch, isRefetching } =
@@ -187,11 +188,17 @@ export function ValuationsListPage() {
 
   // KAN-266 — passes its valuation as the request: a retry for the same row
   // keeps its key and replays the first stamp, another row gets a new key.
+  // KAN-273 (ADR-035): a refused stamp says so above the grid.
   const markUsed = async (valuation: ValuationRead) => {
-    const path = `/valuations/${valuation.id}/mark-used`
-    await api.post(path, undefined, { 'If-Match': String(valuation.version), ...markUsedKey.headers([path]) })
-    markUsedKey.renew()
-    await queryClient.invalidateQueries({ queryKey: ['valuations'] })
+    setActionError(null)
+    try {
+      const path = `/valuations/${valuation.id}/mark-used`
+      await api.post(path, undefined, { 'If-Match': String(valuation.version), ...markUsedKey.headers([path]) })
+      markUsedKey.renew()
+      await queryClient.invalidateQueries({ queryKey: ['valuations'] })
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : t('valuationsList.markUsedError'))
+    }
   }
 
   return (
@@ -200,6 +207,12 @@ export function ValuationsListPage() {
         <Title order={2}>{t('valuationsList.title')}</Title>
         <NewValuationButton />
       </Group>
+
+      {actionError && (
+        <Alert color="red" role="alert" withCloseButton onClose={() => setActionError(null)}>
+          {actionError}
+        </Alert>
+      )}
 
       <Group gap="xs">
         {(['all', 'valid', 'expiring_soon', 'expired', 'unattached', 'mine'] as Chip[]).map((c) => (

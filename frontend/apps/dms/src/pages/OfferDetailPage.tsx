@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Alert, Loader } from '@mantine/core'
+import { Alert, Button, Loader, Stack } from '@mantine/core'
 import { Copy, Handshake } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { DetailHeader, useSetBreadcrumb } from '@nexotec/ui-kit'
@@ -20,6 +20,7 @@ import type { SalesOfferRead } from '../api/types'
  * viewable at all.
  */
 export function OfferCreateRedirectPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   // KAN-266 — the create carries the mount's key, and the mount sends it
   // once: StrictMode runs this effect twice in development, and a second
@@ -27,16 +28,46 @@ export function OfferCreateRedirectPage() {
   // while the first is in flight, leaving this page on its loader).
   const idempotency = useIdempotencyKey()
   const created = useRef<Promise<SalesOfferRead> | null>(null)
+  // KAN-273 (ADR-035) — a failed create says so instead of leaving the page
+  // on its loader for good. "Retry" sends the create again under the same
+  // key, so a create whose response was lost replays that offer.
+  const [error, setError] = useState<string | null>(null)
+  const [attempt, setAttempt] = useState(0)
   useEffect(() => {
     let cancelled = false
     created.current ??= api.post<SalesOfferRead>('/sales/offers', undefined, idempotency.headers())
-    void created.current.then((offer) => {
-      if (!cancelled) navigate(`/sales/offers/${offer.id}`, { replace: true })
-    })
+    created.current.then(
+      (offer) => {
+        if (!cancelled) navigate(`/sales/offers/${offer.id}`, { replace: true })
+      },
+      (err: unknown) => {
+        if (cancelled) return
+        created.current = null
+        setError(err instanceof ApiError ? err.message : t('offerDetail.errors.createFailed'))
+      },
+    )
     return () => {
       cancelled = true
     }
-  }, [navigate, idempotency])
+  }, [navigate, idempotency, attempt, t])
+
+  if (error) {
+    return (
+      <Stack gap="sm" align="flex-start">
+        <Alert color="red" role="alert" title={t('offerDetail.errors.createFailed')}>
+          {error}
+        </Alert>
+        <Button
+          onClick={() => {
+            setError(null)
+            setAttempt((n) => n + 1)
+          }}
+        >
+          {t('common.retry')}
+        </Button>
+      </Stack>
+    )
+  }
   return <Loader />
 }
 
@@ -61,6 +92,7 @@ export function OfferDetailContent({ offerId: id, embedded = false }: OfferDetai
   const { t } = useTranslation()
   const navigate = useNavigate()
   const [copying, setCopying] = useState(false)
+  const [copyError, setCopyError] = useState<string | null>(null)
   // KAN-266 — a copy retried after a lost response replays the first copy;
   // a successful copy renews the key (this screen stays mounted when it
   // navigates to the copy).
@@ -77,13 +109,17 @@ export function OfferDetailContent({ offerId: id, embedded = false }: OfferDetai
   // actions at all before this fix — Copy Offer is the one this ticket
   // asked for; Generate Contract/Cancel Offer (the same lifecycle row)
   // are a separate, unticketed gap, not built here.
+  // KAN-273 (ADR-035): a failed copy says so; the retry carries its key.
   const copyOffer = async () => {
     setCopying(true)
+    setCopyError(null)
     try {
       const path = `/sales/offers/${id}/copy`
       const copy = await api.post<SalesOfferRead>(path, undefined, copyKey.headers([path]))
       copyKey.renew()
       navigate(`/sales/offers/${copy.id}`)
+    } catch (err) {
+      setCopyError(err instanceof ApiError ? err.message : t('offerDetail.errors.copyFailed'))
     } finally {
       setCopying(false)
     }
@@ -125,6 +161,12 @@ export function OfferDetailContent({ offerId: id, embedded = false }: OfferDetai
           disabled: copying,
         }}
       />
+
+      {copyError && (
+        <Alert color="red" role="alert" withCloseButton onClose={() => setCopyError(null)}>
+          {copyError}
+        </Alert>
+      )}
 
       <SalesDocumentsSection ownerType="offer" ownerId={id} />
     </div>

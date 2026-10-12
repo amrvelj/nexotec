@@ -304,7 +304,9 @@
       "clear": "Clear selection",
       "export": "Export",
       "print": "Print"
-    }
+    },
+    "createOfferError": "The offer could not be created. Please try again.",
+    "createContractError": "The contract could not be created. Please try again."
   },
   "customerDetail": {
     "tabs": {
@@ -325,7 +327,9 @@
       "failedToLoadVehicles": "Failed to load vehicles.",
       "failedToLoadOffersContracts": "Failed to load offers and contracts.",
       "failedToLoadHistory": "Failed to load history.",
-      "failedToLoadExternalIds": "Failed to load external IDs."
+      "failedToLoadExternalIds": "Failed to load external IDs.",
+      "createOfferFailed": "The offer could not be created. Please try again.",
+      "createContractFailed": "The contract could not be created. Please try again."
     },
     "overview": {
       "cards": {
@@ -985,7 +989,9 @@
     "untitled": "New offer",
     "errors": {
       "failedToLoad": "The offer could not be loaded.",
-      "somethingWentWrong": "Something went wrong."
+      "somethingWentWrong": "Something went wrong.",
+      "copyFailed": "The offer could not be copied. Please try again.",
+      "createFailed": "The new offer could not be created."
     },
     "actions": {
       "copy": "Copy offer"
@@ -1013,6 +1019,11 @@
         "staleVersion": "The contract was changed in the meantime. The current version is loaded – please make your change again.",
         "notPending": "The contract is no longer open and can no longer be changed.",
         "generic": "The change could not be saved."
+      },
+      "cancelRefused": {
+        "title": "Contract not cancelled",
+        "staleVersion": "This contract changed since the page was loaded. It has been reloaded — review it and cancel again.",
+        "generic": "The contract could not be cancelled. Please try again."
       }
     },
     "actions": {
@@ -1183,13 +1194,15 @@
     },
     "rowActions": {
       "open": "Open"
-    }
+    },
+    "markUsedError": "The valuation could not be marked as used. Please try again."
   },
   "valuationDetail": {
     "untitled": "No vehicle given",
     "errors": {
       "failedToLoad": "The valuation could not be loaded.",
-      "somethingWentWrong": "Something went wrong."
+      "somethingWentWrong": "Something went wrong.",
+      "markUsedFailed": "The valuation could not be marked as used. Please try again."
     },
     "actions": {
       "revalue": "Revalue",
