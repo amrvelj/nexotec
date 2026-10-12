@@ -9,6 +9,19 @@ report below and writes NOTHING. Nothing commits until a human has read
 that report and re-runs with --commit, same convention as
 migrate_legacy_vehicles.py.
 
+THE DRY RUN IS THE REAL RUN, ROLLED BACK (KAN-263). Both modes run the
+same code, row by row, in one transaction: every row is written and
+flushed, so a later row sees what an earlier one wrote — two trade-ins of
+one VIN, or two sales, report `vehicle_already_in_stock` on the second row
+in the dry run exactly as in the --commit run. Only the end differs: a dry
+run rolls the transaction back. So that it can never write anything, a dry
+run also refuses every commit of its session while it runs — a function
+on the path that committed on its own would abort the dry run (reported,
+exit 1) instead of writing (nothing on the path commits today: the stock,
+offer and contract number allocators use a savepoint, which is not a
+commit). A dry run takes the same row locks a real run takes (the number
+counters), for as long as it runs.
+
 SCOPE — only `status = completed` rows migrate. A `draft` or `cancelled`
 transaction never became a real sale; migrating one into a confirmed
 contract would fabricate a deal that never closed. Reported as
@@ -134,11 +147,9 @@ Per-row outcome, in the report:
 - `migrated`                — sale: a sales_contract + synthesised
   sales_offer were created, against a StockItem (new, or the one an
   earlier trade-in opened). trade_in: a new StockItem was created
-  carrying the acquisition. (Or would be, in dry-run — dry-run does not
-  flush, so it cannot detect a same-pass vehicle_already_in_stock/reuse
-  interaction between two rows that would only become visible to each
-  other on a real commit; a real --commit run is always the
-  authoritative report for that specific interaction.)
+  carrying the acquisition. In a dry run the same rows are written and
+  then rolled back; the note says so, and the ids it names do not survive
+  (a --commit run allocates new ones).
 - `supplier_vat_status_unconfirmed` — a trade-in whose customer is not
   VAT-registered and whose VAT status nobody has confirmed
   (`Customer.vat_status_confirmed` false). Held, nothing written (Anto,
@@ -177,12 +188,14 @@ Usage:
 """
 
 import argparse
+import contextlib
 import dataclasses
 import sys
 import uuid
+from collections.abc import Iterator
 from decimal import ROUND_HALF_UP, Decimal
 
-from sqlalchemy import select
+from sqlalchemy import event, select
 from sqlalchemy.orm import Session
 
 from app.customer.models.customer import Customer, CustomerType
@@ -436,7 +449,7 @@ def _compute_notional_input_tax(*, purchase_price: Decimal, rate: Decimal | None
     return (purchase_price * rate / (Decimal(100) + rate)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
-def _migrate_sale(db: Session, txn: Transaction, *, commit: bool, held: _HeldVins) -> RowOutcome:
+def _migrate_sale(db: Session, txn: Transaction, *, held: _HeldVins) -> RowOutcome:
     legacy_vehicle = db.get(LegacyVehicle, txn.vehicle_id)
     if legacy_vehicle is None:
         return RowOutcome(txn.id, "sale", "vehicle_unresolved", f"legacy vehicle {txn.vehicle_id} does not exist")
@@ -477,10 +490,6 @@ def _migrate_sale(db: Session, txn: Transaction, *, commit: bool, held: _HeldVin
         )
 
     flags = ["condition_lossy"] if lossy_note else []
-
-    if not commit:
-        note = f"would resolve/create a stock item + confirmed contract for vehicle {vehicle_mdm.id}"
-        return RowOutcome(txn.id, "sale", "migrated", (lossy_note + "; " if lossy_note else "") + note, flags=flags)
 
     # run_migration already rejected amount_missing/transaction_date_missing
     # before ever dispatching here — narrows the type for mypy and doubles
@@ -559,7 +568,7 @@ def _migrate_sale(db: Session, txn: Transaction, *, commit: bool, held: _HeldVin
     )
     db.add(contract)
     # Sessions do not autoflush: this flush is what lets a later row in the
-    # same --commit run see legacy_transaction_id and recognise the item as
+    # same run see legacy_transaction_id and recognise the item as
     # this import's (`_live_stock_item_for_vin`).
     db.flush()
 
@@ -570,7 +579,7 @@ def _migrate_sale(db: Session, txn: Transaction, *, commit: bool, held: _HeldVin
     )
 
 
-def _migrate_trade_in(db: Session, txn: Transaction, *, commit: bool, held: _HeldVins) -> RowOutcome:
+def _migrate_trade_in(db: Session, txn: Transaction, *, held: _HeldVins) -> RowOutcome:
     legacy_vehicle = db.get(LegacyVehicle, txn.vehicle_id)
     if legacy_vehicle is None:
         return RowOutcome(txn.id, "trade_in", "vehicle_unresolved", f"legacy vehicle {txn.vehicle_id} does not exist")
@@ -640,10 +649,6 @@ def _migrate_trade_in(db: Session, txn: Transaction, *, commit: bool, held: _Hel
             "status in Customers (tick «VAT status confirmed», and «VAT registered» if it is), then re-run",
         )
 
-    if not commit:
-        notes.append(f"would create a Stock acquisition (in_stock) for vehicle {vehicle_mdm.id}")
-        return RowOutcome(txn.id, "trade_in", "migrated", "; ".join(notes), flags=flags)
-
     # run_migration already rejected amount_missing/transaction_date_missing
     # before ever dispatching here — narrows the type for mypy and doubles
     # as a defensive invariant check against a future direct caller.
@@ -708,7 +713,62 @@ def _migrate_trade_in(db: Session, txn: Transaction, *, commit: bool, held: _Hel
     )
 
 
+class DryRunCommitRefused(RuntimeError):
+    """Something on the migration path committed during a dry run."""
+
+
+def _refuse_commit(session: Session) -> None:
+    # A savepoint's release fires before_commit too; it writes nothing that
+    # outlives the enclosing transaction, which the dry run rolls back.
+    if session.in_nested_transaction():
+        return
+    raise DryRunCommitRefused(
+        "a dry run never commits — a function on the migration path tried to; the run is aborted and rolled back"
+    )
+
+
+@contextlib.contextmanager
+def _commits_refused() -> Iterator[None]:
+    """For the length of a dry run, every Session commit in this process
+    raises instead of committing — the dry run's own session, and any
+    session a called service might open and commit on its own. The script
+    runs alone, so nothing else is refused (module docstring, KAN-263)."""
+
+    event.listen(Session, "before_commit", _refuse_commit)
+    try:
+        yield
+    finally:
+        event.remove(Session, "before_commit", _refuse_commit)
+
+
+_DRY_RUN_NOTE = " — dry run: written and rolled back, nothing kept; a --commit run allocates new ids"
+
+
+def _as_dry_run(outcome: RowOutcome) -> RowOutcome:
+    """A dry run's `migrated` row says what it wrote, then that it was
+    rolled back: the ids in its note, and none on the row, survive."""
+
+    if outcome.outcome != "migrated":
+        return outcome
+    return dataclasses.replace(
+        outcome, notes=outcome.notes + _DRY_RUN_NOTE, new_contract_id=None, new_stock_item_id=None
+    )
+
+
 def run_migration(db: Session, *, commit: bool) -> MigrationReport:
+    """One code path for both modes (KAN-263): every row is written and
+    flushed in one transaction, so later rows see earlier ones; --commit
+    commits it, a dry run rolls it back, refusing any commit meanwhile."""
+
+    if commit:
+        return _run_rows(db, commit=True)
+    with _commits_refused():
+        report = _run_rows(db, commit=False)
+    report.outcomes = [_as_dry_run(outcome) for outcome in report.outcomes]
+    return report
+
+
+def _run_rows(db: Session, *, commit: bool) -> MigrationReport:
     # Ordered by transaction_date, with id as a tiebreak for determinism
     # across two rows sharing a date — so a trade-in is always seen
     # before its own later resale (you cannot resell a vehicle before
@@ -757,9 +817,9 @@ def run_migration(db: Session, *, commit: bool) -> MigrationReport:
                 )
                 continue
             if txn.transaction_type == TransactionType.TRADE_IN:
-                outcomes.append(_migrate_trade_in(db, txn, commit=commit, held=held))
+                outcomes.append(_migrate_trade_in(db, txn, held=held))
                 continue
-            outcomes.append(_migrate_sale(db, txn, commit=commit, held=held))
+            outcomes.append(_migrate_sale(db, txn, held=held))
         except Exception as exc:  # noqa: BLE001 — a migration tool reports, it does not crash
             db.rollback()
             outcomes.append(

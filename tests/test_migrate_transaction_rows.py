@@ -1081,7 +1081,9 @@ def test_the_printed_report_shows_every_migrated_row(db_session):
 
     text = run_migration(db_session, commit=False).summary()
 
-    assert f"    MIGRATED sale {txn.id}: would resolve/create a stock item" in text
+    # KAN-263: the dry run wrote the rows and rolled them back, and says so.
+    assert f"    MIGRATED sale {txn.id}: stock_item=" in text
+    assert "dry run: written and rolled back, nothing kept" in text
     assert "flagged" not in text
 
 
@@ -1276,3 +1278,166 @@ def test_a_completed_run_exits_zero(db_session, monkeypatch, capsys):
 
     assert main([]) == 0
     assert "migrate_transaction_rows: DRY RUN (nothing written)" in capsys.readouterr().out
+
+
+# --- KAN-263: the dry run reports exactly what the real run would write ------
+
+
+def _what_the_report_says(report) -> list[tuple]:
+    return [(o.transaction_id, o.transaction_type, o.outcome, o.flags) for o in report.outcomes]
+
+
+def _nothing_written(db_session) -> None:
+    db_session.expire_all()
+    assert db_session.query(StockItem).count() == 0
+    assert db_session.query(SalesOffer).count() == 0
+    assert db_session.query(SalesContract).count() == 0
+    assert db_session.query(SalesStockItemPurchase).count() == 0
+
+
+def test_a_dry_run_sees_a_second_trade_in_of_the_same_car_as_the_real_run_does(db_session):
+    _dealership(db_session)
+    legacy = _legacy_vehicle(db_session)
+    _migrated_vehicle_mdm(db_session, legacy)
+    first = _trade_in_transaction(
+        db_session, customer_id=_customer(db_session).id, vehicle_id=legacy.id,
+        transaction_date=dt.datetime(2024, 1, 10, tzinfo=dt.UTC),
+    )
+    second = _trade_in_transaction(
+        db_session, customer_id=_customer(db_session).id, vehicle_id=legacy.id,
+        transaction_date=dt.datetime(2024, 2, 20, tzinfo=dt.UTC),
+    )
+    db_session.commit()
+
+    dry = run_migration(db_session, commit=False)
+    _nothing_written(db_session)
+    real = run_migration(db_session, commit=True)
+
+    assert _what_the_report_says(dry) == _what_the_report_says(real)
+    assert [(o.transaction_id, o.outcome) for o in dry.outcomes] == [
+        (first.id, "migrated"),
+        (second.id, "vehicle_already_in_stock"),
+    ]
+
+
+def test_a_dry_run_sees_a_second_sale_of_the_same_car_as_the_real_run_does(db_session):
+    _dealership(db_session)
+    legacy = _legacy_vehicle(db_session)
+    _migrated_vehicle_mdm(db_session, legacy)
+    first = _sale_transaction(
+        db_session, customer_id=_customer(db_session).id, vehicle_id=legacy.id,
+        transaction_date=dt.datetime(2024, 1, 10, tzinfo=dt.UTC),
+    )
+    second = _sale_transaction(
+        db_session, customer_id=_customer(db_session).id, vehicle_id=legacy.id,
+        transaction_date=dt.datetime(2024, 2, 20, tzinfo=dt.UTC),
+    )
+    db_session.commit()
+
+    dry = run_migration(db_session, commit=False)
+    _nothing_written(db_session)
+    real = run_migration(db_session, commit=True)
+
+    assert _what_the_report_says(dry) == _what_the_report_says(real)
+    assert [(o.transaction_id, o.outcome) for o in dry.outcomes] == [
+        (first.id, "migrated"),
+        (second.id, "vehicle_already_in_stock"),
+    ]
+
+
+def test_a_dry_run_matches_the_real_run_over_full_cycles_and_a_reused_item(db_session):
+    """Trade-in, resale, trade-in again, resale again: the dry run sees the
+    sale reuse the item its trade-in opened, as the real run does."""
+
+    _dealership(db_session)
+    customer = _customer(db_session, vat_registered=True)
+    legacy = _legacy_vehicle(db_session)
+    _migrated_vehicle_mdm(db_session, legacy)
+    for month, make in ((1, _trade_in_transaction), (3, _sale_transaction), (6, _trade_in_transaction),
+                        (9, _sale_transaction)):
+        make(db_session, customer_id=customer.id, vehicle_id=legacy.id,
+             transaction_date=dt.datetime(2024, month, 1, tzinfo=dt.UTC))
+    db_session.commit()
+
+    dry = run_migration(db_session, commit=False)
+    _nothing_written(db_session)
+    real = run_migration(db_session, commit=True)
+
+    assert _what_the_report_says(dry) == _what_the_report_says(real)
+    assert [o.outcome for o in dry.outcomes] == ["migrated"] * 4
+    assert sum("(reused)" in o.notes for o in dry.outcomes) == 2
+    assert sum("(reused)" in o.notes for o in real.outcomes) == 2
+
+
+def test_a_dry_run_names_no_id_that_survives_it(db_session):
+    _dealership(db_session)
+    legacy = _legacy_vehicle(db_session)
+    _migrated_vehicle_mdm(db_session, legacy)
+    _sale_transaction(db_session, customer_id=_customer(db_session).id, vehicle_id=legacy.id)
+    db_session.commit()
+
+    (row,) = run_migration(db_session, commit=False).outcomes
+
+    assert row.outcome == "migrated"
+    assert row.new_contract_id is None and row.new_stock_item_id is None
+    assert row.notes.endswith("dry run: written and rolled back, nothing kept; a --commit run allocates new ids")
+
+
+def test_a_dry_run_refuses_a_commit_anything_on_its_path_attempts(db_session, monkeypatch):
+    """Nothing on the path commits today; should something start to, the
+    dry run aborts and writes nothing rather than commit half a migration."""
+
+    _dealership(db_session)
+    customer = _customer(db_session, vat_registered=True)
+    legacy = _legacy_vehicle(db_session)
+    _migrated_vehicle_mdm(db_session, legacy)
+    _trade_in_transaction(db_session, customer_id=customer.id, vehicle_id=legacy.id)
+    db_session.commit()
+    real_record = migrate_transaction_rows.record_stock_item_purchased
+
+    def record_and_commit(db, **kwargs):
+        real_record(db, **kwargs)
+        db.commit()
+
+    monkeypatch.setattr(migrate_transaction_rows, "record_stock_item_purchased", record_and_commit)
+
+    report = run_migration(db_session, commit=False)
+
+    assert report.aborted is True
+    assert [o.outcome for o in report.outcomes] == ["error"]
+    assert "DryRunCommitRefused" in report.outcomes[0].notes
+    _nothing_written(db_session)
+
+
+def test_a_dry_run_refuses_a_commit_on_a_session_of_its_own_too(db_session, engine, monkeypatch):
+    from sqlalchemy.orm import Session
+
+    _dealership(db_session)
+    legacy = _legacy_vehicle(db_session)
+    _migrated_vehicle_mdm(db_session, legacy)
+    _sale_transaction(db_session, customer_id=_customer(db_session).id, vehicle_id=legacy.id)
+    db_session.commit()
+    real_freeze = migrate_transaction_rows.freeze_vehicle_snapshot
+
+    def freeze_and_commit_elsewhere(db, **kwargs):
+        with Session(bind=engine) as own:
+            own.add(DealerGroup(name="written behind the dry run's back"))
+            own.commit()
+        return real_freeze(db, **kwargs)
+
+    monkeypatch.setattr(migrate_transaction_rows, "freeze_vehicle_snapshot", freeze_and_commit_elsewhere)
+
+    report = run_migration(db_session, commit=False)
+
+    assert report.aborted is True
+    _nothing_written(db_session)
+    assert db_session.query(DealerGroup).filter_by(name="written behind the dry run's back").count() == 0
+
+
+def test_the_commit_guard_is_lifted_once_the_dry_run_ends(db_session):
+    run_migration(db_session, commit=False)
+
+    db_session.add(DealerGroup(name="after the dry run"))
+    db_session.commit()  # would raise if the dry run's guard outlived it
+
+    assert db_session.query(DealerGroup).filter_by(name="after the dry run").count() == 1
