@@ -405,7 +405,7 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
               {editError}
             </Alert>
           )}
-          <DealCustomerContainer deal={contract} patch={patchContract} onOpenCustomer={openCustomerOverlay} />
+          <DealCustomerContainer ownerType="contract" deal={contract} patch={patchContract} onOpenCustomer={openCustomerOverlay} />
           <DealVehicleContainer {...containerProps} />
           <DealPricingContainer {...containerProps} onOpenStockItem={openStockItemOverlay} onUnsavedChange={setPricingUnsaved} />
           <DealTradeInContainer {...containerProps} />

@@ -1058,7 +1058,7 @@
     "cancelReasonPrompt": "Grund für die Stornierung:",
     "edit": {
       "title": "Vertrag vervollständigen",
-      "hint": "Solange der Vertrag nicht bestätigt ist, lassen sich Fahrzeug, Preisaufbau und Eintauschfahrzeug hier ergänzen oder anpassen. Mit der Bestätigung wird er eingefroren.",
+      "hint": "Solange der Vertrag nicht bestätigt ist, lassen sich Kunde, Fahrzeug, Preisaufbau und Eintauschfahrzeug hier ergänzen oder anpassen. Mit der Bestätigung wird er eingefroren.",
       "pricedWithoutInputs": "Dieser Vertrag wurde bepreist, bevor Verträge ihre Preisgrundlagen speicherten. Er kann so bestätigt oder storniert, aber nicht mehr angepasst werden."
     }
   },
@@ -1077,6 +1077,7 @@
     },
     "customer": {
       "emptyHint": "Kein Kunde ist vorausgewählt — eine Offerte trägt den Namen, der unterschrieben wird.",
+      "emptyHintContract": "Noch kein Käufer — ein Vertrag wird erst mit dem Kunden bestätigt, der unterschreibt.",
       "search": "Kunde suchen",
       "createNew": "Neu anlegen",
       "creditBlockTitle": "Kreditsperre",

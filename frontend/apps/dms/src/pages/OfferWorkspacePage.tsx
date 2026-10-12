@@ -134,7 +134,7 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
         <Text c="dimmed">{offer.offerNumber} · {t(`salesEnums.dealStatus.${offer.status}`)}</Text>
       </Group>
 
-      <DealCustomerContainer deal={offer} patch={patchOffer} onOpenCustomer={openCustomerOverlay} />
+      <DealCustomerContainer ownerType="offer" deal={offer} patch={patchOffer} onOpenCustomer={openCustomerOverlay} />
       <DealVehicleContainer {...containerProps} />
       <DealPricingContainer {...containerProps} onOpenStockItem={openStockItemOverlay} />
       <DealTradeInContainer {...containerProps} />

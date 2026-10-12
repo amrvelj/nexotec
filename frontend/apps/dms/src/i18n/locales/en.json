@@ -1058,7 +1058,7 @@
     "cancelReasonPrompt": "Reason for cancellation:",
     "edit": {
       "title": "Complete the contract",
-      "hint": "Until the contract is confirmed, its vehicle, price build-up and trade-in can be added or adjusted here. Confirming freezes it.",
+      "hint": "Until the contract is confirmed, its customer, vehicle, price build-up and trade-in can be added or adjusted here. Confirming freezes it.",
       "pricedWithoutInputs": "This contract was priced before contracts kept their pricing inputs. It can be confirmed or cancelled as it stands, but no longer adjusted."
     }
   },
@@ -1077,6 +1077,7 @@
     },
     "customer": {
       "emptyHint": "No customer preselected — an offer carries the name that gets signed.",
+      "emptyHintContract": "No buyer yet — a contract is confirmed only with the customer who signs it.",
       "search": "Search customer",
       "createNew": "Create new",
       "creditBlockTitle": "Credit block",

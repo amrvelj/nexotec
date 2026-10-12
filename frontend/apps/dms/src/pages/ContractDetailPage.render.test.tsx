@@ -272,6 +272,9 @@ describe('ContractDetailPage — the buyer is picked in the contract (KAN-307)',
     expect(await screen.findByRole('button', { name: i18n.t('contractDetail.actions.confirm') })).toBeDisabled()
     expect(screen.getByRole('button', { name: i18n.t('offerWorkspace.customer.search') })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: i18n.t('offerWorkspace.customer.createNew') })).toBeInTheDocument()
+    // The contract's own hint, never the offer's ("eine Offerte trägt den Namen …").
+    expect(screen.getByText(i18n.t('offerWorkspace.customer.emptyHintContract'))).toBeInTheDocument()
+    expect(screen.queryByText(i18n.t('offerWorkspace.customer.emptyHint'))).toBeNull()
   })
 
   it('picking a customer sets the contract\'s buyer with its If-Match', async () => {

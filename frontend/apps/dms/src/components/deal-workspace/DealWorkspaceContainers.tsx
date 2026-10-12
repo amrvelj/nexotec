@@ -91,10 +91,11 @@ export function useDealCustomer(customerId: string | null | undefined) {
  * same way, and cannot be signed without one. `onOpenCustomer` opens the
  * record over the deal (ADR-059), never instead of it. */
 export function DealCustomerContainer<D extends SalesPricedDealRead>({
+  ownerType,
   deal,
   patch,
   onOpenCustomer,
-}: Pick<DealContainerProps<D>, 'deal' | 'patch'> & { onOpenCustomer: () => void }) {
+}: Pick<DealContainerProps<D>, 'ownerType' | 'deal' | 'patch'> & { onOpenCustomer: () => void }) {
   const { t } = useTranslation()
   const selectedCustomer = useDealCustomer(deal.customerId).data ?? null
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -130,7 +131,9 @@ export function DealCustomerContainer<D extends SalesPricedDealRead>({
         </Stack>
       ) : (
         <Stack gap="xs">
-          <Text size="sm" c="dimmed">{t('offerWorkspace.customer.emptyHint')}</Text>
+          <Text size="sm" c="dimmed">
+            {ownerType === 'contract' ? t('offerWorkspace.customer.emptyHintContract') : t('offerWorkspace.customer.emptyHint')}
+          </Text>
           <Group gap="xs">
             <Button variant="default" size="xs" onClick={() => setPickerOpen(true)}>
               {t('offerWorkspace.customer.search')}

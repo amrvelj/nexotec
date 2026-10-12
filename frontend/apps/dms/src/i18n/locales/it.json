@@ -1058,7 +1058,7 @@
     "cancelReasonPrompt": "Motivo dell'annullamento:",
     "edit": {
       "title": "Completare il contratto",
-      "hint": "Finché il contratto non è confermato, il veicolo, la composizione del prezzo e la permuta possono essere completati o modificati qui. La conferma lo congela.",
+      "hint": "Finché il contratto non è confermato, il cliente, il veicolo, la composizione del prezzo e la permuta possono essere completati o modificati qui. La conferma lo congela.",
       "pricedWithoutInputs": "Questo contratto è stato prezzato prima che i contratti conservassero le basi di prezzo. Può essere confermato o annullato così com'è, ma non più modificato."
     }
   },
@@ -1077,6 +1077,7 @@
     },
     "customer": {
       "emptyHint": "Nessun cliente preselezionato — un'offerta porta il nome che verrà firmato.",
+      "emptyHintContract": "Ancora nessun acquirente — un contratto si conferma solo con il cliente che lo firma.",
       "search": "Cerca cliente",
       "createNew": "Crea nuovo",
       "creditBlockTitle": "Blocco creditizio",
