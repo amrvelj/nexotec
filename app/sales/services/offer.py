@@ -36,8 +36,22 @@ def resolve_customer_label(customer: Customer) -> str:
     return " ".join(part for part in [customer.first_name, customer.last_name] if part) or customer.customer_number
 
 
-def get_offer_or_404(db: Session, tenant_id: uuid.UUID, offer_id: uuid.UUID) -> SalesOffer:
-    offer = db.scalar(select(SalesOffer).where(SalesOffer.id == offer_id, SalesOffer.tenant_id == tenant_id))
+def get_offer_or_404(
+    db: Session, tenant_id: uuid.UUID, offer_id: uuid.UUID, *, for_update: bool = False
+) -> SalesOffer:
+    """`for_update` (KAN-311) locks the row until the caller commits, as
+    `get_contract_or_404` does since KAN-288: every route that changes an
+    offer loads it this way, so two saves of one offer run one after the
+    other and the second is refused as stale. Without it both passed the
+    If-Match check against their own read and the later one overwrote the
+    first (a lost update), and an edit could land on an offer finalised or
+    cancelled in between. The offer is the first row in the offer ->
+    contract -> deal lock order (KAN-147)."""
+
+    stmt = select(SalesOffer).where(SalesOffer.id == offer_id, SalesOffer.tenant_id == tenant_id)
+    if for_update:
+        stmt = stmt.with_for_update()
+    offer = db.scalar(stmt)
     if offer is None:
         raise NotFoundError(f"Offer {offer_id} was not found.")
     return offer

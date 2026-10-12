@@ -125,7 +125,10 @@ against the code). "Open" lines cite a ticket; /drift-audit re-checks them weekl
   (vehicle-mdm and the vehicle parties are their own transactions, ADR-047), which releases
   that lock, so `set_trade_in` locks the deal again after its last foreign write and re-checks
   that it is editable and still at the version the caller sent (KAN-309; the offer's trade-in
-  and line-item saves do the same, the other offer routes lock nothing yet: KAN-311). A failed
+  and line-item saves do the same). **Offers lock like contracts** (KAN-311): every offer route
+  that changes the row (PATCH, line items, trade-in, trade-in valuation, finalize, cancel) loads
+  it `for_update` (`get_offer_or_404`), so two saves of one offer run one after the other and
+  the second is a stale-version 409, never a lost update. A failed
   confirmation compensates (releases its reservation, reverts "used") under the contract's row
   lock on a session of its own, and undoes nothing once the contract is signed — a concurrent
   confirmation of the same contract may have committed with the same reservation — or when it
