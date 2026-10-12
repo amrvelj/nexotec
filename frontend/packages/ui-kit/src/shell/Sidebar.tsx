@@ -57,10 +57,14 @@ export interface SidebarProps {
   labels: SidebarLabels;
   /** The dealership the current session is acting as. */
   activeDealership?: DealershipSummary;
-  /** Every dealership this user may switch to, including activeDealership
-   * itself (WP-3 PR-3). The switcher renders only when this holds more
-   * than one entry — the common case is a single membership, where a
-   * permanent switcher control would be clutter for no function. */
+  /** Every dealership this user may switch to, normally including
+   * activeDealership itself (WP-3 PR-3). The switcher renders only when it
+   * offers a dealership other than the active one — the common case is a
+   * single membership, where a permanent switcher control would be clutter
+   * for no function. A session still acting in a dealership whose
+   * membership was revoked (the list is read from the database, KAN-237)
+   * keeps the switcher, the active one shown first as the current entry,
+   * so the user can switch back without signing out. */
   memberships?: DealershipSummary[];
   onSwitchDealership?: (dealershipId: string) => void;
   /** Defaults to a plain `<a>`. Pass your router's Link (e.g. react-router's
@@ -103,7 +107,12 @@ export function Sidebar({
 }: SidebarProps) {
   const Link = linkComponent ?? DefaultLink;
   const width = collapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED;
-  const canSwitchDealership = Boolean(memberships && memberships.length > 1 && onSwitchDealership);
+  const switchTargets = (memberships ?? []).filter((dealership) => dealership.id !== activeDealership?.id);
+  const canSwitchDealership = Boolean(activeDealership && switchTargets.length > 0 && onSwitchDealership);
+  const switcherEntries =
+    activeDealership && !(memberships ?? []).some((dealership) => dealership.id === activeDealership.id)
+      ? [activeDealership, ...switchTargets]
+      : (memberships ?? []);
 
   return (
     <nav
@@ -345,7 +354,7 @@ export function Sidebar({
                 <>
                   <Menu.Divider />
                   <Menu.Label>{labels.switchDealership}</Menu.Label>
-                  {memberships!.map((dealership) => (
+                  {switcherEntries.map((dealership) => (
                     <Menu.Item
                       key={dealership.id}
                       leftSection={<Building2 size={16} />}

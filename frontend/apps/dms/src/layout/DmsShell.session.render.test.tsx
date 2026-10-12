@@ -31,7 +31,12 @@ function setViewportWidth(width: number) {
   Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: width })
 }
 
-function install(uiLanguage: string, routes: FakeRoute[], meResponses: Array<{ memberships: typeof NORD[] }>) {
+function install(
+  uiLanguage: string,
+  routes: FakeRoute[],
+  meResponses: Array<{ memberships: typeof NORD[] }>,
+  activeDealership: typeof NORD = NORD,
+) {
   // AppShell auto-collapses the sidebar below its breakpoint.
   setViewportWidth(1920)
   let meCalls = 0
@@ -48,7 +53,7 @@ function install(uiLanguage: string, routes: FakeRoute[], meResponses: Array<{ m
       handler: () => {
         const response = meResponses[Math.min(meCalls, meResponses.length - 1)]
         meCalls += 1
-        return { user: USER, activeDealership: NORD, memberships: response.memberships }
+        return { user: USER, activeDealership, memberships: response.memberships }
       },
     },
   ])
@@ -112,6 +117,38 @@ describe('DmsShell — a refused dealership switch is said (KAN-237)', () => {
       expect(screen.getByLabelText('active-dealership')).toHaveTextContent(NORD.legalName)
     },
   )
+
+  it('a session still acting in a sister dealership whose membership was revoked can switch back home', async () => {
+    // KAN-237 review: /auth/me reads memberships from the database, so the
+    // revoked active dealership is no longer in the list — the switcher must
+    // still offer the home dealership instead of vanishing.
+    const user = userEvent.setup()
+    const tr = i18n.getFixedT('de')
+    const backend = install(
+      'de',
+      [
+        {
+          method: 'POST',
+          match: /\/auth\/switch-dealership$/,
+          handler: () => ({ user: USER, activeDealership: NORD, memberships: [NORD] }),
+        },
+      ],
+      [{ memberships: [NORD] }],
+      SUED,
+    )
+    renderWithProviders(
+      <DmsShell>
+        <ActiveDealershipProbe />
+      </DmsShell>,
+    )
+
+    const nav = await screen.findByRole('navigation', { name: tr('shell.sidebar.mainNavigation') })
+    await user.click(within(nav).getByRole('button', { name: tr('shell.sidebar.accountMenu') }))
+    expect(await screen.findByRole('menuitem', { name: SUED.legalName })).toHaveAttribute('data-disabled', 'true')
+    await user.click(screen.getByRole('menuitem', { name: NORD.legalName }))
+
+    await waitFor(() => expect(backend.callsTo(/\/auth\/switch-dealership$/, 'POST')).toHaveLength(1))
+  })
 
   it('a switch that fails for another reason says so too, and the alert can be dismissed', async () => {
     const user = userEvent.setup()
