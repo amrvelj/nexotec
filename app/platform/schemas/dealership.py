@@ -2,11 +2,12 @@ import datetime as dt
 import uuid
 from decimal import Decimal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from app.core.schemas import CamelModel
 from app.core.validators import CantonCode, E164Phone, SwissPostalCode
 from app.platform.models.dealership import DealershipStatus, FranchiseType
+from app.platform.schemas.patch import refuse_null_on_not_null_fields
 
 
 class DealershipAddress(CamelModel):
@@ -57,6 +58,14 @@ class DealershipUpdate(CamelModel):
     # WP-7 PR-7 (FR-I-14) — a notification-only consumer, never the grid's
     # own fixed ageingBucket colour cue.
     ageing_alert_thresholds: list[int] | None = None
+
+    @model_validator(mode="after")
+    def _not_null_fields_are_not_cleared(self) -> "DealershipUpdate":
+        # KAN-312: null clears only the four nullable columns.
+        refuse_null_on_not_null_fields(
+            self, nullable={"dba_name", "oem_affiliations", "vat_rate", "ageing_alert_thresholds"}
+        )
+        return self
 
 
 class DealershipRead(CamelModel):

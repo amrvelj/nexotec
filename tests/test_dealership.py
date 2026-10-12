@@ -434,3 +434,46 @@ def test_get_dealership_default_correspondence_language_returns_each_dealerships
 
     assert get_dealership_default_correspondence_language(db_session, de_dealership.id) == SwissLanguage.DE
     assert get_dealership_default_correspondence_language(db_session, fr_dealership.id) == SwissLanguage.FR
+
+
+# --- KAN-312: an explicit null on a NOT NULL field is a 422 -----------------
+
+
+@pytest.mark.parametrize(
+    "field",
+    ["legalName", "dealerLicenseNumber", "licenseState", "franchiseType", "address", "phone", "taxId", "status"],
+)
+def test_patching_a_not_null_field_to_null_is_a_422_and_changes_nothing(client, field):
+    body = _create_dealership(client)
+    token = _token(AccessRole.PLATFORM_ADMIN)
+
+    response = client.patch(
+        f"/v1/dealerships/{body['id']}", json={field: None}, headers={**_bearer(token), "If-Match": "1"}
+    )
+
+    assert response.status_code == 422, response.text
+    error = response.json()["error"]
+    assert error["code"] == "unprocessable_entity"
+    assert field in error["details"]["errors"][0]["msg"]
+    assert client.get(f"/v1/dealerships/{body['id']}", headers=_bearer(token)).json() == body
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [("dbaName", "Garage Muster"), ("oemAffiliations", ["VW"]), ("vatRate", "8.10"), ("ageingAlertThresholds", [60])],
+)
+def test_patching_a_nullable_field_to_null_still_clears_it(client, field, value):
+    body = _create_dealership(client)
+    token = _token(AccessRole.PLATFORM_ADMIN)
+    set_response = client.patch(
+        f"/v1/dealerships/{body['id']}", json={field: value}, headers={**_bearer(token), "If-Match": "1"}
+    )
+    assert set_response.status_code == 200, set_response.text
+    assert set_response.json()[field] is not None
+
+    response = client.patch(
+        f"/v1/dealerships/{body['id']}", json={field: None}, headers={**_bearer(token), "If-Match": "2"}
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()[field] is None

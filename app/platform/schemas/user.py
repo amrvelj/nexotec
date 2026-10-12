@@ -7,6 +7,7 @@ from app.core.auth import AccessRole
 from app.core.schemas import CamelModel
 from app.core.validators import E164Phone
 from app.platform.models.user import EmploymentStatus, UserRole, UserStatus
+from app.platform.schemas.patch import refuse_null_on_not_null_fields
 
 
 class UserCreate(CamelModel):
@@ -49,13 +50,7 @@ class UserUpdate(CamelModel):
 
     @model_validator(mode="after")
     def _not_null_fields_are_not_cleared(self) -> "UserUpdate":
-        cleared = [
-            field.alias or name
-            for name, field in type(self).model_fields.items()
-            if name != "phone" and name in self.model_fields_set and getattr(self, name) is None
-        ]
-        if cleared:
-            raise ValueError(f"{', '.join(cleared)} cannot be null — leave the field out to keep its value.")
+        refuse_null_on_not_null_fields(self, nullable={"phone"})
         return self
 
 
