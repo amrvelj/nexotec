@@ -177,6 +177,12 @@ describe('CustomerCreateFlow — every string is translated (KAN-48, FR-13)', ()
     expect(container.textContent).not.toMatch(MARKER)
     expect(screen.queryByText('Open instead')).toBeNull()
     expect(screen.queryByText('Exact match')).toBeNull()
+    // KAN-302 — the candidate's lifecycle badge is translated too, never the
+    // ui-kit's English default nor the English bundle's label.
+    const candidate = screen.getByText('Hans Muster').closest('button') as HTMLElement
+    expect(within(candidate).getByText(i18n.t('customerEnums.lifecycleStatus.active'))).toBeInTheDocument()
+    expect(i18n.t('customerEnums.lifecycleStatus.active')).not.toBe(en.customerEnums.lifecycleStatus.active)
+    expect(within(candidate).queryByText(en.customerEnums.lifecycleStatus.active)).toBeNull()
   })
 
   it('correspondence language pre-fills from the acting user\'s UI language (FR-03)', async () => {

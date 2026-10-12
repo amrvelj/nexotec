@@ -3,6 +3,7 @@ import { Group, Stack, Text, UnstyledButton } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 import { Badge, LifecycleStatusBadge, purple, semantic, white } from '@nexotec/ui-kit'
 import type { CustomerDuplicateCandidate } from '../api/types'
+import { translatedLifecycleLabel } from '../customerOptions'
 
 function candidateName(c: CustomerDuplicateCandidate): string {
   return c.customerType === 'business' ? (c.companyName ?? '') : `${c.firstName ?? ''} ${c.lastName ?? ''}`.trim()
@@ -71,7 +72,7 @@ export function DuplicateWarningPanel({
               </Stack>
             </Group>
             <Group gap={8} wrap="nowrap">
-              <LifecycleStatusBadge status={c.lifecycleStatus} />
+              <LifecycleStatusBadge status={c.lifecycleStatus} label={translatedLifecycleLabel(t, c.lifecycleStatus)} />
               <Text size="xs" fw={600} c={purple[6]}>
                 {t('customerCreate.duplicates.openInstead')}
               </Text>
