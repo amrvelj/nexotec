@@ -69,14 +69,19 @@ def schema_differences(connection) -> list[str]:
     return sorted(describe(diff) for diff in flatten(compare_metadata(context, Base.metadata)))
 
 
-def main(url: str) -> None:
+def main(url: str, *, fail: bool = False) -> int:
+    """Prints the differences as a JSON list. With ``fail`` (CI's migration
+    smoke test, KAN-251) the exit status is 1 when there is any."""
+
     engine = create_engine(url)
     try:
         with engine.connect() as conn:
-            print(json.dumps(schema_differences(conn)))
+            found = schema_differences(conn)
     finally:
         engine.dispose()
+    print(json.dumps(found))
+    return 1 if (fail and found) else 0
 
 
 if __name__ == "__main__":
-    main(sys.argv[1])
+    sys.exit(main(sys.argv[1], fail="--fail" in sys.argv[2:]))

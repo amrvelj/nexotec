@@ -116,7 +116,10 @@ def test_a_drifted_database_is_reported(migrated_url):
             found = schema_differences(migrated_url)
         finally:
             with engine.begin() as conn:
-                conn.execute(text("COMMENT ON COLUMN stock_item.vehicle_id IS NULL"))
+                conn.execute(text(
+                    "COMMENT ON COLUMN stock_item.vehicle_id IS "
+                    "'Owned by the vehicle context (VehicleMdm.id). No DB-level FK.'"
+                ))
                 conn.execute(text('ALTER TABLE "user" DROP CONSTRAINT uq_user_phone_drift'))
                 conn.execute(text("CREATE INDEX ix_customer_group_id_last_name ON customer (group_id, last_name)"))
     finally:

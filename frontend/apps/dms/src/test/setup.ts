@@ -86,6 +86,8 @@ if (typeof window !== 'undefined') {
   // patch goes there, never on the window-facing prototype alone.
   try {
     const require = createRequire(import.meta.url)
+    // Written against jsdom 30.0.1 (package.json allows ^30.0.1): a minor bump that
+    // moves these private modules lands in the catch below, slower but never wrong.
     const labelImpl = require('jsdom/lib/jsdom/living/nodes/HTMLLabelElement-impl.js').implementation
     const { isLabelable } = require('jsdom/lib/jsdom/living/helpers/form-controls.js')
     const original = Object.getOwnPropertyDescriptor(labelImpl.prototype, 'control')
