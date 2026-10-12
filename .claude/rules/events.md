@@ -14,10 +14,11 @@ paths:
   - "app/*/daily_jobs.py"
   - "app/core/observability.py"
   - "scripts/*outbox*.py"
+  - "app/core/idempotent_route.py"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises rules 4–6, 10 and 12, ADR-006,
-ADR-046, ADR-047. Verified against main@7805816 on 2026-10-10 (every present-tense claim
-checked against the code). Fix this file in the same PR as any change to what it states. -->
+ADR-046, ADR-047, ADR-081. Verified against main@7a90ae4 on 2026-10-12 (every present-tense
+claim checked against the code). Fix this file in the same PR as any change to what it states. -->
 
 # Events, outbox, consumers and reconciliation
 
@@ -42,7 +43,16 @@ checked against the code). Fix this file in the same PR as any change to what it
   (ADR-047, CLAUDE.md rule 12) — each side commits its own work. Two contract events, never
   one (ADR-046).
 - Consumers are registered in `app/worker.py::register_handlers` (event type + `consumer_name`);
-  daily jobs in `register_daily_jobs` (e.g. `integration.daily_jobs`, `reconciliation.run_all`).
+  daily jobs in `register_daily_jobs` (e.g. `integration.daily_jobs`, `reconciliation.run_all`),
+  run in registration order by `app/core/daily_scheduler.py`. Both run only where
+  `python -m app.worker` runs — docker-compose (and CI's worker smoke test); **staging runs no
+  worker** (ADR-081 option D; the SPA says so, ADR-084), so "works on staging" proves nothing
+  about a consumer or a daily job. A daily job that raises is retried the same day on a backoff
+  (1 min doubling to 1 h): the first failure of an episode logs ERROR, retries WARNING, a
+  still-failing episode re-alarms after 24 h, and the first success logs "daily job recovered"
+  (KAN-303; the episode lives in process memory). The worker reports ERROR lines to Sentry and
+  exports the heartbeat's gauges over OTLP, each inert while its `DMS_*` variable is unset
+  (KAN-248).
 - **Reconciliation monitors; it does not repair.** Derived state (such as a valuation's status)
   is derived on read, never "fixed" by a nightly job. Dead letters alert. A job that re-reads a
   three-column-pattern **label** from its owner (`customer.vehicle_party_labels`, KAN-84) is not

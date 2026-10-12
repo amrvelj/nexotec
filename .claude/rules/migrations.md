@@ -7,12 +7,14 @@ paths:
   - "app/model_registry.py"
   - "scripts/migrate_*.py"
   - "scripts/repoint_*.py"
+  - "scripts/backfill_*.py"
+  - "app/core/enum_type.py"
   - "scripts/*migration_smoke_test*.py"
   - "app/db.py"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises ADR-015 (PR-3 chains),
 ADR-011, ADR-021, rule 2 and the verification lessons from the WP audits. Verified against
-main@7805816 on 2026-10-10 (every present-tense claim checked against the code). Fix this file
+main@7a90ae4 on 2026-10-12 (every present-tense claim checked against the code). Fix this file
 in the same PR as any change to what it states. -->
 
 # Schema, migrations and data migrations
@@ -47,13 +49,17 @@ in the same PR as any change to what it states. -->
 - **Backfills run for real, on Postgres, and are verified by query**: count rows, count nulls,
   count values identical to the column they were derived from. An offline `--sql` render is not
   a run. A downgrade that is deliberately a no-op says so in a comment.
-- **Data-migration scripts** (`scripts/migrate_*.py`) are dry-run by default (`--commit`
-  writes), idempotent, and reuse the production computations instead of re-implementing them —
-  but a historical backfill **publishes no outbox events**: live consumers would act on old
-  history as if it happened today (see the `migrate_transaction_rows.py` docstring). The dry
-  run reports what the real run would write, including rows it cannot migrate and why — but a
-  dry run that does not flush cannot see conflicts between rows of the same pass
-  (`migrate_transaction_rows.py`'s cannot; the `--commit` report is authoritative there).
+- **Data-migration scripts** (`scripts/migrate_*.py`, `scripts/repoint_*.py`,
+  `scripts/backfill_*.py`) are dry-run by default (`--commit` writes), idempotent, and reuse the
+  production computations instead of re-implementing them. A historical import **publishes no
+  outbox events**: live consumers would act on old history as if it happened today (see the
+  `migrate_transaction_rows.py` docstring). A backfill that repairs current state through the
+  production write path publishes what that path publishes
+  (`backfill_manual_configuration_reservations.py`, KAN-166: `inventory.stock_item.reserved` /
+  `released`). The dry run reports what the real run would write, including rows it cannot
+  migrate and why — but a dry run that does not flush cannot see conflicts between rows of the
+  same pass (`migrate_transaction_rows.py`'s cannot; the `--commit` report is authoritative
+  there).
 - **Enum columns** are `StoredEnum` (`app/core/enum_type.py`), never a bare `sqlalchemy.Enum`
   (an architecture test enforces it), and hold the member's **`.value`** and nothing else
   (KAN-86, finished by KAN-175 on 2026-10-11: one `*_kan175_<context>_enum_values_only.py`

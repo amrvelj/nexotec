@@ -10,11 +10,14 @@ paths:
   - "frontend/packages/ui-kit/src/components/DocumentPreview.tsx"
   - "tests/architecture/test_margin_never_in_rendered_document.py"
   - "tests/architecture/test_no_vat_treatment_field.py"
+  - "frontend/apps/dms/src/components/deal-workspace/**"
+  - "frontend/apps/dms/src/hooks/useDebouncedNumberField.ts"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises PRD-Sales v2 (S-D10),
-ADR-041, ADR-046, ADR-047, ADR-049, ADR-050, ADR-051, ADR-052, ADR-057, ADR-063, ADR-065 and
-KAN-66/68/71. Verified against main@7805816 on 2026-10-10 (every present-tense claim checked
-against the code). "Open" lines cite a ticket; /drift-audit re-checks them weekly. -->
+ADR-041, ADR-046, ADR-047, ADR-049, ADR-050 (addendum 2026-10-11), ADR-051, ADR-052,
+ADR-057, ADR-063, ADR-065, ADR-083 and KAN-66/68/71. Verified against main@7a90ae4 on
+2026-10-12 (every present-tense claim checked against the code). "Open" lines cite a ticket;
+/drift-audit re-checks them weekly. -->
 
 # Sales: offers, contracts, pricing, documents
 
@@ -50,8 +53,8 @@ against the code). "Open" lines cite a ticket; /drift-audit re-checks them weekl
   A migrated sale stays `CONFIRMED` and `request_invoice` refuses any contract with
   `legacy_transaction_id` set (409, reason `legacy_sale`) — the old system invoiced it (Anto,
   2026-10-10, option 2 of KAN-147). `cancel_contract` refuses it too (same reason; `isLegacy`
-  on the read model), so its offer never frees for a second contract — KAN-147's own design
-  under Anto's "solve it all here" (KAN-277 folded in), pending the ADR-050 amendment.
+  on the read model), so its offer never frees for a second contract (ADR-050 addendum,
+  2026-10-11; KAN-147, KAN-277 folded in).
   A legacy trade-in whose customer is not VAT-registered and not `vatStatusConfirmed` is held
   (`supplier_vat_status_unconfirmed`, nothing written), and so is every later row for the same
   car (`held_behind_unconfirmed_trade_in`) — Anto, 2026-10-11, KAN-295.
@@ -116,7 +119,8 @@ against the code). "Open" lines cite a ticket; /drift-audit re-checks them weekl
   Stock creates that item already reserved for the contract and releases it when it consumes
   `sales.contract.cancelled`; Sales makes no reservation call for it and its
   `reservation_id` stays empty (KAN-158). Contracts confirmed before KAN-158 have an
-  unreserved item (backfill: KAN-166).
+  unreserved item until `scripts/backfill_manual_configuration_reservations.py` (KAN-166, dry
+  run by default) is run with `--commit` and reserves it — see `.claude/rules/inventory.md`.
   PRD-Sales S-D10 was corrected to match on 2026-10-04.
 - A contract needs a vehicle and a price before it can be confirmed — and before its document
   can be generated (`services/contract_completeness.py`, one rule for both; KAN-67).
@@ -156,6 +160,12 @@ against the code). "Open" lines cite a ticket; /drift-audit re-checks them weekl
   valuation used; nightly reconciliation reports every signed contract whose trade-in valuation
   of its own dealership is not used, and «Als verwendet markieren» repairs it, expired or not
   (KAN-115). One naming another dealership's valuation is reported by nothing yet (KAN-259).
+- **A car that has left stock cannot be signed again** (KAN-147): confirming a stock-car
+  contract whose item has `left_stock_at` set is refused by Stock's `reserve_for_contract`
+  (409 `vehicle_left_stock`), and the compensation reverts the trade-in valuation's "used"
+  stamp as for any refused reservation. The contract page keeps «Vertrag bestätigen» disabled
+  while a price edit is unsaved or any deal save is in flight (`useDebouncedNumberField`,
+  `trackSave`; KAN-288).
 - **ADR-065** — a credit block stops contract confirmation, not the offer. An address-less
   customer is likewise gated at confirmation (D-20). Do-not-contact refuses the offer, a
   contract created straight from the customer, and every confirmation.
@@ -172,11 +182,13 @@ against the code). "Open" lines cite a ticket; /drift-audit re-checks them weekl
 - **ADR-041** — the offer freezes a `vehicle_snapshot` (`services/snapshot.py`); a pending
   contract freezes its own through the same function (KAN-67).
 - **FR-C-12 (KAN-10)** — Path B is the configurator, `build` only: `configurationId` on the
-  offer prefills `manualBasePrice`, freezes the spec block and turns the configuration's price
-  lines into factory-option lines (re-frozen on a new configuration version while a draft).
-  It travels to the contract and, as `manualConfiguration.configurationId`, onto the pipeline
-  item. A trade-in captured through the valuation path carries `tradeInConfigurationId` and
-  has no vehicle-mdm record. The offer document itemises the factory-option lines.
+  offer — or on a pending contract (`ContractUpdate`, KAN-67; the same `deal_editing` code) —
+  prefills `manualBasePrice`, freezes the spec block and turns the configuration's price lines
+  into factory-option lines (re-frozen on a new configuration version while the offer is a
+  draft or the contract pending). It travels from the offer to the contract and, as
+  `manualConfiguration.configurationId`, onto the pipeline item. A trade-in captured through the
+  valuation path carries `tradeInConfigurationId` and has no vehicle-mdm record. The offer
+  document itemises the factory-option lines; the contract document does not.
 
 ## Visibility and numbers
 

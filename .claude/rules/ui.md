@@ -3,9 +3,9 @@ paths:
   - "frontend/**"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises Notion "UI/UX Specification —
-the one UI page", UI/UX Core Principles, ADR-044, ADR-056…ADR-063 and KAN-35. Verified against
-main@7805816 on 2026-10-10. Fix this file in the same PR as any change to what it states;
-/drift-audit re-checks it weekly. -->
+the one UI page", UI/UX Core Principles, ADR-044, ADR-056…ADR-063, ADR-084 and KAN-35.
+Verified against main@7a90ae4 on 2026-10-12. Fix this file in the same PR as any change to what
+it states; /drift-audit re-checks it weekly. -->
 
 # Anything a user can see
 
@@ -69,6 +69,14 @@ change plus an ADR — never a local component. No colour outside the tokens.
 - The dashboard is the landing page (FR-UI-07) and should be the breadcrumb root — not built:
   breadcrumbs start at the nav group and are not links (KAN-104). Account chrome lives only in
   the sidebar footer; the top bar carries the breadcrumb.
+- **ADR-084 — one environment-notice slot in the shell.** `AppShell`'s optional `notice` strip
+  (ui-kit `shell/EnvironmentNotice.tsx`, between the top bar and the content region,
+  `role="status"`, no dismiss control) is the only place for a persistent deployment-level
+  notice — D-A-05's support-access banner uses it when built, never a second banner. A
+  build-time setting switches it on (`VITE_OUTBOX_WORKER_ABSENT=true` in `render.yaml`,
+  `src/config/deployment.ts`), never the environment's name; its text is an i18n key in all
+  four bundles. The top bar stays breadcrumb + search only. The UI/UX Specification's
+  Application Shell section does not show the strip yet (ADR-084's consequence; KAN-316).
 
 ## i18n
 
@@ -92,8 +100,10 @@ change plus an ADR — never a local component. No colour outside the tokens.
   `git grep -l <Component> -- '*.render.test.tsx'` (they are not always siblings) before
   assuming it can only be checked by eye; a change to a component that has one updates it in
   the same PR.
-- Every visible change ends with a screenshot of the changed screen, taken in the desktop
-  preview after the last code change. The hand-over gate checks for it.
+- Every visible change ends with a screenshot of the changed screen, taken after the last code
+  change — in the desktop preview, or in a cloud session a Playwright capture of localhost; any
+  other capture is registered with `scripts/dev/gate evidence screenshot <file>`. The hand-over
+  gate checks for one of this exact tree.
 
 ## API types (KAN-35)
 
