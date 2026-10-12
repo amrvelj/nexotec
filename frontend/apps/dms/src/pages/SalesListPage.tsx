@@ -325,7 +325,7 @@ export function SalesListPage() {
           fetchingNextPage={isFetchingNextPage}
           hasNextPage={Boolean(hasNextPage)}
           onLoadMore={() => fetchNextPage()}
-          error={isError ? 'Failed to load deals.' : null}
+          error={isError ? t('salesList.loadError') : null}
           onRetry={() => refetch()}
           total={total}
           totalIsEstimate={totalIsEstimate}

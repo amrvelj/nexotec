@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { Center, Loader, Stack, Text } from '@mantine/core'
+import { useTranslation } from 'react-i18next'
 import { API_BASE_URL } from '../api/client'
 
 /**
@@ -11,6 +12,7 @@ import { API_BASE_URL } from '../api/client'
  * round trip either way.
  */
 export function LoginPage() {
+  const { t } = useTranslation()
   useEffect(() => {
     window.location.href = `${API_BASE_URL}/auth/oidc/login`
   }, [])
@@ -19,7 +21,7 @@ export function LoginPage() {
     <Center h="100vh">
       <Stack align="center" gap="sm">
         <Loader />
-        <Text c="dimmed">Redirecting to sign-in…</Text>
+        <Text c="dimmed">{t('login.redirecting')}</Text>
       </Stack>
     </Center>
   )
