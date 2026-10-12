@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { radius, shadow, slate, spacing, typography, white } from "../tokens";
+import { radius, shadow, slate, spacing, typography, white, zIndex } from "../tokens";
 
 export interface StickyActionFooterProps {
   /** e.g. "Es fehlt noch: Kunde, Fahrzeug" — confirmed live on the
@@ -16,6 +16,11 @@ export interface StickyActionFooterProps {
  * `Wizard`'s own footer, which is step-indexed (Back/Next per step) — this
  * is a single persistent summary across a non-linear set of containers,
  * not a step sequence.
+ *
+ * KAN-305 — it carries its own stacking level (`zIndex.stickyBar`): the
+ * content scrolling under it includes positioned controls (NumberInput's
+ * spinners in the configurator), which would otherwise paint over the bar
+ * and its primary action.
  */
 export function StickyActionFooter({ missingLabel, primaryAction }: StickyActionFooterProps) {
   return (
@@ -23,6 +28,7 @@ export function StickyActionFooter({ missingLabel, primaryAction }: StickyAction
       style={{
         position: "sticky",
         bottom: 0,
+        zIndex: zIndex.stickyBar,
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
