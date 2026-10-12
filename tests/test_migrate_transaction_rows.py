@@ -1467,6 +1467,32 @@ def test_a_dry_run_refuses_a_commit_on_a_session_of_its_own_too(db_session, engi
     assert db_session.query(DealerGroup).filter_by(name="written behind the dry run's back").count() == 0
 
 
+def test_a_dry_run_refuses_a_connection_level_commit_too(db_session, engine, monkeypatch):
+    """`engine.begin()` and `connection.commit()` never pass through
+    Session.before_commit; the dry run refuses them all the same (KAN-263 review)."""
+    from sqlalchemy import insert
+
+    _dealership(db_session)
+    legacy = _legacy_vehicle(db_session)
+    _migrated_vehicle_mdm(db_session, legacy)
+    _sale_transaction(db_session, customer_id=_customer(db_session).id, vehicle_id=legacy.id)
+    db_session.commit()
+    real_freeze = migrate_transaction_rows.freeze_vehicle_snapshot
+
+    def freeze_and_commit_a_connection(db, **kwargs):
+        with engine.begin() as connection:
+            connection.execute(insert(DealerGroup).values(id=uuid.uuid4(), name="written on a bare connection"))
+        return real_freeze(db, **kwargs)
+
+    monkeypatch.setattr(migrate_transaction_rows, "freeze_vehicle_snapshot", freeze_and_commit_a_connection)
+
+    report = run_migration(db_session, commit=False)
+
+    assert report.aborted is True
+    _nothing_written(db_session)
+    assert db_session.query(DealerGroup).filter_by(name="written on a bare connection").count() == 0
+
+
 def test_the_commit_guard_is_lifted_once_the_dry_run_ends(db_session):
     run_migration(db_session, commit=False)
 

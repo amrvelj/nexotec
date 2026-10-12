@@ -199,6 +199,7 @@ from collections.abc import Iterator
 from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy import event, select
+from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.orm import Session
 
 from app.customer.models.customer import Customer, CustomerType
@@ -735,17 +736,28 @@ def _refuse_commit(session: Session) -> None:
     )
 
 
+def _refuse_connection_commit(_connection: Connection) -> None:
+    # A Connection-level commit (`session.connection().commit()`,
+    # `engine.begin()`) never passes through Session.before_commit.
+    raise DryRunCommitRefused(
+        "a dry run never commits — a connection on the migration path tried to; the run is aborted and rolled back"
+    )
+
+
 @contextlib.contextmanager
 def _commits_refused() -> Iterator[None]:
-    """For the length of a dry run, every Session commit in this process
-    raises instead of committing — the dry run's own session, and any
-    session a called service might open and commit on its own. The script
-    runs alone, so nothing else is refused (module docstring, KAN-263)."""
+    """For the length of a dry run, every commit in this process raises
+    instead of committing — a Session commit (the dry run's own session, and
+    any session a called service might open and commit on its own) and a
+    Connection commit alike. The script runs alone, so nothing else is
+    refused (module docstring, KAN-263)."""
 
     event.listen(Session, "before_commit", _refuse_commit)
+    event.listen(Engine, "commit", _refuse_connection_commit)
     try:
         yield
     finally:
+        event.remove(Engine, "commit", _refuse_connection_commit)
         event.remove(Session, "before_commit", _refuse_commit)
 
 
