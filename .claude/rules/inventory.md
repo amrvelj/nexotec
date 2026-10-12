@@ -7,10 +7,12 @@ paths:
   - "frontend/packages/ui-kit/src/components/Stock*"
   - "app/integration/adapters/autoscout24.py"
   - "app/integration/adapters/marketplace_base.py"
+  - "scripts/backfill_manual_configuration_reservations.py"
+  - "scripts/migrate_transaction_rows.py"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises PRD-Stock, ADR-045, ADR-049,
 ADR-052, ADR-054, ADR-055, ADR-062, ADR-074 and the VAT reasoning of ADR-057. Verified against
-main@7805816 on 2026-10-10 (every present-tense claim checked against the code). "Not built"
+main@7a90ae4 on 2026-10-12 (every present-tense claim checked against the code). "Not built"
 lines cite a ticket; /drift-audit re-checks them weekly. -->
 
 # Stock and inventory

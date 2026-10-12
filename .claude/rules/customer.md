@@ -8,10 +8,15 @@ paths:
   - "app/core/postal_codes.py"
   - "frontend/apps/dms/src/hooks/useAdvisorOptions.ts"
   - "tests/test_customer*.py"
+  - "scripts/*vehicle_party*.py"
+  - "tests/test_*vehicle_party*.py"
+  - "tests/test_legal_basis.py"
+  - "tests/test_*preferred_channel*.py"
+  - "alembic/versions/customer/**"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises PRD-Customers v2.2 (incl. its
 §Conformance review, rulings D-03…D-26), ADR-014, ADR-030, ADR-064, ADR-065, ADR-067.
-Verified against main@7805816 on 2026-10-10 (every present-tense claim checked against the
+Verified against main@7a90ae4 on 2026-10-12 (every present-tense claim checked against the
 code). Fix this file in the same PR as any change to what it states; /drift-audit re-checks it
 weekly. -->
 
@@ -100,8 +105,9 @@ weekly. -->
   KAN-74).
 - Allocation resolves the vehicle against `vehicle_mdm` (global, ADR-022), never the frozen
   legacy `vehicle` table — `allocate_vehicle_party` does not look it up, so its callers resolve
-  it first (the allocate routes 404 an unknown one; the offer trade-in creates or gets it) — and
-  resolves the customer in the caller's group (404, never a cross-group link).
+  it first (the allocate routes 404 an unknown one; the trade-in on an offer or a pending
+  contract, `set_trade_in`, creates or gets it) — and resolves the customer in the caller's
+  group (404, never a cross-group link).
 - **Holders are per dealer group** (Anto's ruling on KAN-99, 2026-10-04): the VIN is global
   (`vehicle_mdm`), but each group keeps its own owner/keeper/driver history for it.
   `allocate_vehicle_party` resolves the customer in the caller's group (404 otherwise — this
@@ -120,7 +126,8 @@ weekly. -->
   and re-read nightly by `refresh_vehicle_party_labels` (`customer.vehicle_party_labels`), so a
   later catalogue match or VIN correction shows within a day (Anto's ruling, option A). A row
   without a label yet is filled for a read in memory only, and labelled by its next PATCH,
-  DELETE or re-confirm, or by the nightly job.
+  re-confirm or Disconnect of an open row, or by the nightly job (a Disconnect of an
+  already-closed row returns before committing and drops it).
   `tests/architecture/test_no_cross_context_mapping.py` forbids a relationship or FK back.
 - **Cross-group closes written before KAN-99 are detected, not repaired** (KAN-139):
   `app.customer.reconciliation.find_cross_group_vehicle_party_closes` (run by

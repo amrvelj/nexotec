@@ -126,8 +126,8 @@ delete them, and do not treat a stub as a licence to put its concerns somewhere 
    `labelRefreshedAt` timestamp — the three-column pattern.
 3. **No cross-context imports** — `<context>.public` is the only door (what makes ADR-015 safe).
    import-linter gates CI with **no suppression mechanism**, but covers only `models`/`services`/
-   `api` (+ integration `adapters`); `schemas`, `consumers`, `reconciliation` rest on this rule
-   alone. Moving a boundary is an ADR, not an ignore entry.
+   `api` (+ integration `adapters`); every other module (`schemas`, `consumers`, `daily_jobs`,
+   `reconciliation`, …) rests on this rule alone. Moving a boundary is an ADR, not an ignore entry.
 4. **Every state change others care about goes through the transactional outbox** — business
    row and outbox row in *one local transaction*. Never a dual write.
 5. **Events are facts in the past tense, never commands.** `vehicle.odometer.recorded`, not

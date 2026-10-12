@@ -19,11 +19,14 @@ paths:
   - "tests/test_auth.py"
   - "tests/test_user.py"
   - "tests/test_tenancy.py"
+  - "tests/test_login.py"
+  - "alembic/versions/platform/**"
+  - "WORKSHOP_TERMINAL_AUTH_DESIGN.md"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises ADR-014, ADR-051, the Dealer
 Administration PRD and Authentication & Identity (rulings D-A-01…D-A-09, 2026-09-20; they
-absorb Roles & Permissions v0.2 and supersede ADR-027). Verified against main@7805816 on
-2026-10-10 (every present-tense claim checked against the code). "Not built" lines are
+absorb Roles & Permissions v0.2 and supersede ADR-027). Verified against main@7a90ae4 on
+2026-10-12 (every present-tense claim checked against the code). "Not built" lines are
 re-checked weekly by /drift-audit. -->
 
 # Platform: organisation, access, administration, authentication
@@ -70,7 +73,7 @@ except `audit_logs`, which the manager cannot write.
 or deactivated user (401) and authorises the target dealership from the home dealership plus
 `dealership_membership` rows, never the token's `memberships` claim (403). Auth & Identity
 risk 4 puts such checks where every minting path passes, so KAN-196's `POST /v1/auth/login`
-mints through it. **Open, not settled here (KAN-254):** the ADR-028 terminal path
+(not built) must mint through it. **Open, not settled here (KAN-254):** the ADR-028 terminal path
 (`WORKSHOP_TERMINAL_AUTH_DESIGN.md`) is designed to call `create_access_token` directly with
 fixed `{TECHNICIAN}` roles, which `_mint_session` cannot mint — how it gets the status check
 needs an ADR. Not yet true: `get_current_principal` does not check `status`, so an issued
