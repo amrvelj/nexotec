@@ -194,8 +194,7 @@ def test_a_signed_contract_naming_another_dealerships_valuation_is_not_this_chec
     signed contracts in the valuation's own dealership, so this check asks
     only about a valuation of the contract's own dealership: a finding here
     could never be cleared. Another dealership's id on a contract is a
-    reference problem, but KAN-145's reference check matches on id alone,
-    so nothing reports it yet (KAN-259)."""
+    reference problem, which KAN-259's tenant check reports instead."""
 
     dealership, other = _dealership(db_session), _dealership(db_session)
     foreign = _valuation(db_session, other.id, uuid.uuid4())
@@ -288,18 +287,18 @@ def test_a_completed_confirmation_with_a_trade_in_leaves_all_three_jobs_clean(db
     """No false positive from the real flow: confirm the contract (valuation
     stamped, contract signed), let Stock create the trade-in item with its
     pointer, then run the three jobs whole, past the grace period. A real
-    user writes the deal, as the signed-in seller always does (KAN-145
-    checks the actor columns)."""
+    user writes the deal and the valuation, as the signed-in seller always
+    does (KAN-145 and KAN-243 check the actor columns)."""
 
     dealership = _dealership(db_session)
-    group_id = uuid.uuid4()
+    group_id = dealership.dealer_group_id  # the buyer is of the dealership's own group (KAN-259)
     seller = User(
         tenant_id=dealership.id, first_name="Sam", last_name="Sales", email=f"sam-{uuid.uuid4().hex[:8]}@example.ch",
         role=UserRole.SALES, access_roles=["sales"], status=UserStatus.ACTIVE, auth_identity_id=str(uuid.uuid4()),
     )
     db_session.add(seller)
     db_session.commit()
-    valuation = _valuation(db_session, dealership.id, group_id)
+    valuation = _valuation(db_session, dealership.id, group_id, actor_id=seller.id)
     contract, _item = _trade_in_contract(db_session, dealership.id, group_id, valuation, actor_id=seller.id)
     _confirm(db_session, engine, contract, group_id, actor_id=seller.id)
     message = db_session.query(OutboxMessage).filter_by(

@@ -11,12 +11,17 @@ from sqlalchemy.orm import Session
 from app.core.base import utcnow
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
 from app.customer.public import Customer
-from app.platform.public import Dealership
+from app.platform.public import Dealership, actor_reference_checks
 from app.sales.public import SalesContract
-from app.valuation.models.valuation import Valuation
+from app.valuation.models.valuation import Valuation, ValuationDeduction
 from app.vehicle.public import VehicleConfiguration, VehicleMdm
 
 CONTEXT = "valuation"
+
+# Every Valuation table with created_by / updated_by: each must name a
+# platform user, or be null (KAN-243; see
+# app.platform.public.actor_reference_checks).
+ACTOR_TABLES = (Valuation, ValuationDeduction)
 
 # A confirmation stamps its trade-in valuation on its own commit, before the
 # contract is signed in the next (KAN-101, ADR-047); a stamp still without a
@@ -89,6 +94,7 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         & (Valuation.used_at < utcnow() - _CONFIRMATION_GRACE)
         & ~_carried_by_a_signed_contract(),
     ),
+    *actor_reference_checks(*ACTOR_TABLES),
 ]
 
 

@@ -7,7 +7,10 @@ about "run this context's own checks" for another context to call).
 platform has no outbound cross-context references (its only FK,
 user.tenant_id, is intra-context), so there is no app.platform.reconciliation
 and none is run here. aftersales, parts, finance, reporting and compliance
-still need to add their own once they're built out.
+still need to add their own once they're built out. So platform's own
+created_by / updated_by columns are not reconciled (KAN-243), unlike every
+other context's: tests/architecture/test_actor_columns_reconciled.py names
+platform as the one open exception and why.
 
 WP-6 PR-1 also registers `app.valuation`'s own reconciliation module here
 — it existed since WP-8 PR-5 but was never added to this list, a real,

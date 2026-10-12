@@ -16,12 +16,19 @@ from sqlalchemy.orm import Session
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
 from app.inventory.models.cancelled_contract import InventoryCancelledContract
 from app.inventory.models.stock_item import StockItem
-from app.platform.public import Dealership, Location
+from app.inventory.models.stock_item_ledger import StockItemLedger
+from app.inventory.models.stock_item_publishing import StockItemPublishing
+from app.platform.public import Dealership, Location, actor_reference_checks
 from app.sales.public import SalesContract
 from app.valuation.public import Valuation
 from app.vehicle.public import VehicleConfiguration, VehicleMdm
 
 CONTEXT = "inventory"
+
+# Every Inventory table with created_by / updated_by: each must name a
+# platform user, or be null (KAN-243; see
+# app.platform.public.actor_reference_checks). The ledger has created_by only.
+ACTOR_TABLES = (StockItem, StockItemLedger, StockItemPublishing)
 
 CHECKS: list[ReferenceCheck | StateCheck] = [
     ReferenceCheck(
@@ -109,6 +116,7 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         )
         .exists(),
     ),
+    *actor_reference_checks(*ACTOR_TABLES),
 ]
 
 

@@ -225,6 +225,8 @@ _SHARED_TRANSACTION_EXCEPTIONS = {
 # Reviewed: read only, no commit reachable.
 _READS = {
     "app.customer.public.customer_display_name",
+    # KAN-259: builds the EXISTS Sales' nightly reconciliation runs; reads nothing itself.
+    "app.customer.public.customer_in_group",
     "app.customer.public.get_customer_or_404",
     "app.customer.public.has_any_basis_for_group",
     "app.customer.public.has_usable_domicile_address",
@@ -236,6 +238,9 @@ _READS = {
     "app.integration.public.vin_decode_granted",
     "app.inventory.public.get_stock_item_pricing",
     "app.inventory.public.get_stock_items_for_vehicles",
+    # KAN-243: builds the actor ReferenceChecks every context's nightly
+    # reconciliation runs; reads nothing itself.
+    "app.platform.public.actor_reference_checks",
     "app.platform.public.get_active_reference_value_codes",
     "app.platform.public.get_dealership_or_404",
     "app.platform.public.get_user_or_404",

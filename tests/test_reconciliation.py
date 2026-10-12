@@ -19,6 +19,9 @@ from app.core.reconciliation_model import ReconciliationRun
 from app.customer import reconciliation as customer_reconciliation
 from app.customer.models.customer import Customer
 from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
+from app.integration import reconciliation as integration_reconciliation
+from app.integration.models.provider import IntegrationProvider
+from app.inventory import reconciliation as inventory_reconciliation
 from app.inventory.models.stock_item import StockItem, StockItemCondition
 from app.inventory.public import reserve_for_contract
 from app.inventory.schemas.stock_item import StockItemCreate
@@ -26,15 +29,23 @@ from app.inventory.services.stock_item import create_stock_item
 from app.reconciliation_runner import MultiContextReconciliationAlarm, run_all
 from app.sales import reconciliation as sales_reconciliation
 from app.sales.models.contract import ContractStatus, SalesContract
+from app.sales.models.deal import SalesDeal, SalesNumberSequence
+from app.sales.models.document import DocumentOwnerType, SalesDocument
+from app.sales.models.line_item import LineItemKind, SalesLineItem
 from app.sales.models.offer import SalesOffer
 from app.sales.models.stock_item_purchase import SalesStockItemPurchase
 from app.sales.models.transaction import Transaction, TransactionStatus, TransactionType
-from app.valuation.models.valuation import ValuationSource
+from app.valuation import reconciliation as valuation_reconciliation
+from app.valuation.models.valuation import Valuation, ValuationSource
 from app.valuation.public import consume_valuation_for_contract
 from app.valuation.schemas.valuation import ValuationCreate
 from app.valuation.services.valuation import create_valuation
 from app.vehicle import reconciliation as vehicle_reconciliation
+from app.vehicle.models.catalogue import Brand
+from app.vehicle.models.configuration import ConfigurationMatchMethod, ConfigurationMode, ConfigurationSource
 from app.vehicle.models.vehicle import CustodyEventType, VehicleCustodyEvent
+from app.vehicle.schemas.configuration import ConfigurationCreate
+from app.vehicle.services.configuration import create_configuration
 
 VALID_ADDRESS = {
     "street": "Bahnhofstrasse",
@@ -112,8 +123,15 @@ def _create_user(client, dealer_id: str, **overrides) -> dict:
     return response.json()
 
 
+def _real_actor(client, dealer_id: str) -> uuid.UUID:
+    """KAN-243 — every created_by/updated_by is reconciled against user.id,
+    so a row written through the API must be written by a user that exists."""
+
+    return uuid.UUID(_create_user(client, dealer_id)["id"])
+
+
 def _create_customer(client, dealer_id: str, **overrides) -> dict:
-    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id), user_id=_real_actor(client, dealer_id))
     payload = {
         "firstName": "Anna",
         "lastName": "Muster",
@@ -134,7 +152,7 @@ def _random_vin() -> str:
 
 
 def _create_vehicle(client, dealer_id: str, **overrides) -> dict:
-    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id), user_id=_real_actor(client, dealer_id))
     payload = {"vin": _random_vin(), "make": "Honda", "model": "Accord", "modelYear": 2020, "condition": "used"}
     payload.update(overrides)
     response = client.post("/v1/vehicles", json=payload, headers=_bearer(token))
@@ -483,6 +501,40 @@ def _contract(db_session, dealer_id, **columns):
     return contract
 
 
+def _deal(db_session, dealer_id, **columns):
+    deal = SalesDeal(tenant_id=uuid.UUID(dealer_id), entity_type="offer", number=f"O-{uuid.uuid4().hex[:6]}", status="draft")
+    for name, value in columns.items():
+        setattr(deal, name, value)
+    db_session.add(deal)
+    db_session.commit()
+    return deal
+
+
+def _line_item(db_session, dealer_id, **columns):
+    # offer_id is Sales' own id (out of KAN-243's scope), so any value does.
+    line = SalesLineItem(
+        tenant_id=uuid.UUID(dealer_id), offer_id=uuid.uuid4(), kind=LineItemKind.ACCESSORY, code="ACC",
+        label="Winterräder", unit_price=Decimal("1200.00"),
+    )
+    for name, value in columns.items():
+        setattr(line, name, value)
+    db_session.add(line)
+    db_session.commit()
+    return line
+
+
+def _document(db_session, dealer_id, **columns):
+    document = SalesDocument(
+        tenant_id=uuid.UUID(dealer_id), owner_type=DocumentOwnerType.OFFER, owner_id=uuid.uuid4(), version=1,
+        correspondence_language="de", content_definition={}, rendered_at=dt.datetime.now(dt.UTC),
+    )
+    for name, value in columns.items():
+        setattr(document, name, value)
+    db_session.add(document)
+    db_session.commit()
+    return document
+
+
 @pytest.mark.parametrize(
     ("seed", "column", "label", "extra"),
     [
@@ -513,6 +565,18 @@ def _contract(db_session, dealer_id, **columns):
             _contract, "reservation_id", "sales_contract.reservation_id -> stock_item.active_reservation_id",
             {"status": ContractStatus.CONFIRMED, "signed_at": dt.datetime.now(dt.UTC)},
         ),
+        # --- KAN-243: the other Sales tables ---
+        (_deal, "tenant_id", "sales_deal.tenant_id -> dealership.id", {}),
+        (_deal, "customer_id", "sales_deal.customer_id -> customer.id", {}),
+        (_deal, "created_by", "sales_deal.created_by -> user.id", {}),
+        (_deal, "updated_by", "sales_deal.updated_by -> user.id", {}),
+        (_line_item, "tenant_id", "sales_line_item.tenant_id -> dealership.id", {}),
+        (_line_item, "created_by", "sales_line_item.created_by -> user.id", {}),
+        (_line_item, "updated_by", "sales_line_item.updated_by -> user.id", {}),
+        (_document, "tenant_id", "sales_document.tenant_id -> dealership.id", {}),
+        (_document, "rendered_by", "sales_document.rendered_by -> user.id", {}),
+        (_document, "created_by", "sales_document.created_by -> user.id", {}),
+        (_document, "updated_by", "sales_document.updated_by -> user.id", {}),
     ],
 )
 def test_sales_reconciliation_detects_each_dangling_offer_and_contract_reference(
@@ -575,10 +639,286 @@ def test_sales_reconciliation_accepts_offers_and_contracts_whose_references_reso
         db_session, dealer_id, status=ContractStatus.CANCELLED, vehicle_source="stock",
         stock_item_id=released_item.id, reservation_id=uuid.uuid4(),
     )
+    # KAN-243's tables, with every cross-context id real or absent.
+    actors = {"created_by": user_id, "updated_by": user_id}
+    _deal(db_session, dealer_id, customer_id=customer_id, **actors)
+    _deal(db_session, dealer_id)
+    _line_item(db_session, dealer_id, **actors)
+    _document(db_session, dealer_id, rendered_by=user_id, **actors)
+    _document(db_session, dealer_id)
+    db_session.add(SalesNumberSequence(tenant_id=uuid.UUID(dealer_id), series="offer", next_value=2))
+    db_session.commit()
 
     run = sales_reconciliation.run(db_session)
 
     assert run.orphans_found == 0
+
+
+def test_sales_reconciliation_detects_a_number_sequence_of_no_dealership(client, db_session):
+    """KAN-243 — sales_number_sequence is keyed by (tenant_id, series); the
+    finding names the row by its tenant_id, the one id column it has."""
+
+    dangling = uuid.uuid4()
+    db_session.add(SalesNumberSequence(tenant_id=dangling, series="offer", next_value=1))
+    db_session.commit()
+
+    with pytest.raises(ReconciliationAlarm) as exc_info:
+        sales_reconciliation.run(db_session)
+
+    assert [(o.check_label, o.source_row_id, o.dangling_value) for o in exc_info.value.orphans] == [
+        ("sales_number_sequence.tenant_id -> dealership.id", dangling, dangling)
+    ]
+
+
+def test_sales_reconciliation_detects_a_purchase_replica_of_no_dealership(client, db_session):
+    """KAN-243 — a replica filed under a dealership that does not exist. Its
+    item is purchased in Stock for a real dealership, so KAN-145's tenant
+    match reports it as well: two defects, two findings."""
+
+    dealer_id = _create_dealer(client)
+    item = _invoiceable_stock_item(db_session, dealer_id, hours_ago=0)
+    dangling = uuid.uuid4()
+    replica = SalesStockItemPurchase(tenant_id=dangling, stock_item_id=item.id, source_event_id=None)
+    db_session.add(replica)
+    db_session.commit()
+
+    with pytest.raises(ReconciliationAlarm) as exc_info:
+        sales_reconciliation.run(db_session)
+
+    assert sorted((o.check_label, o.source_row_id, o.dangling_value) for o in exc_info.value.orphans) == [
+        ("purchase replica whose stock item is not purchased in Stock for its dealership", replica.id, replica.id),
+        ("sales_stock_item_purchase.tenant_id -> dealership.id", replica.id, dangling),
+    ]
+
+
+# --- KAN-243: created_by / updated_by name a real user, in every context ----------
+
+
+def _customer_row(client, db_session, dealer_id):
+    customer = _create_customer(client, dealer_id)
+    return customer_reconciliation, Customer, uuid.UUID(customer["id"])
+
+
+def _stock_item_row(client, db_session, dealer_id):
+    return inventory_reconciliation, StockItem, _stock_item(db_session, dealer_id).id
+
+
+def _valuation_row(client, db_session, dealer_id):
+    valuation = create_valuation(
+        db_session, tenant_id=uuid.UUID(dealer_id), group_id=uuid.UUID(_REAL_GROUP_IDS[dealer_id]), actor_id=None,
+        data=ValuationCreate(source=ValuationSource.MANUAL, final_offer=Decimal("2500.00")),
+    )
+    db_session.commit()
+    return valuation_reconciliation, Valuation, valuation.id
+
+
+def _brand_row(client, db_session, dealer_id):
+    brand = Brand(code=f"b-{uuid.uuid4().hex[:8]}", display_name="Subaru")
+    db_session.add(brand)
+    db_session.commit()
+    return vehicle_reconciliation, Brand, brand.id
+
+
+def _provider_row(client, db_session, dealer_id):
+    provider = IntegrationProvider(
+        provider_code=f"p-{uuid.uuid4().hex[:8]}", category="vehicle_data", display_name="Test", auth_type="none",
+    )
+    db_session.add(provider)
+    db_session.commit()
+    return integration_reconciliation, IntegrationProvider, provider.id
+
+
+def _sales_deal_row(client, db_session, dealer_id):
+    return sales_reconciliation, SalesDeal, _deal(db_session, dealer_id).id
+
+
+_ACTOR_ROW_SEEDS = [_customer_row, _stock_item_row, _valuation_row, _brand_row, _provider_row, _sales_deal_row]
+
+
+@pytest.mark.parametrize("seed", _ACTOR_ROW_SEEDS, ids=lambda seed: seed.__name__)
+def test_reconciliation_detects_a_created_by_or_updated_by_naming_no_user(client, db_session, seed):
+    """KAN-243 (Anto, 2026-10-12: check created_by/updated_by everywhere) — the
+    user who wrote the row is a plain GUID into platform (rule 2)."""
+
+    dealer_id = _create_dealer(client)
+    job, model, row_id = seed(client, db_session, dealer_id)
+    created_by, updated_by = uuid.uuid4(), uuid.uuid4()
+    db_session.execute(update(model).where(model.id == row_id).values(created_by=created_by, updated_by=updated_by))
+    db_session.commit()
+
+    with pytest.raises(ReconciliationAlarm) as exc_info:
+        job.run(db_session)
+
+    table = model.__tablename__
+    assert sorted((o.check_label, o.source_row_id, o.dangling_value) for o in exc_info.value.orphans) == sorted([
+        (f"{table}.created_by -> user.id", row_id, created_by),
+        (f"{table}.updated_by -> user.id", row_id, updated_by),
+    ])
+
+
+@pytest.mark.parametrize("seed", _ACTOR_ROW_SEEDS, ids=lambda seed: seed.__name__)
+def test_reconciliation_accepts_a_real_user_and_a_null_actor(client, db_session, seed):
+    """The clean side: a real user, and null — a system write or a legacy
+    row — which names nobody and is never an orphan."""
+
+    dealer_id = _create_dealer(client)
+    user_id = _real_actor(client, dealer_id)
+    job, model, row_id = seed(client, db_session, dealer_id)
+    _, _, null_row_id = seed(client, db_session, dealer_id)
+    db_session.execute(update(model).where(model.id == row_id).values(created_by=user_id, updated_by=user_id))
+    db_session.execute(update(model).where(model.id == null_row_id).values(created_by=None, updated_by=None))
+    db_session.commit()
+
+    assert job.run(db_session).orphans_found == 0
+
+
+# --- KAN-259: a reference resolves in the offer's or contract's own dealership --
+
+
+def _sister_dealer(client, dealer_id: str) -> str:
+    """Another dealership of the same group (ADR-014)."""
+
+    token = _token(AccessRole.PLATFORM_ADMIN)
+    payload = {
+        "legalName": "Garage Schwesterbetrieb AG",
+        "dealerLicenseNumber": "ZH-54321",
+        "licenseState": "ZH",
+        "franchiseType": "independent",
+        "address": VALID_ADDRESS,
+        "phone": "+41441234568",
+        "taxId": "CHE-123.456.788",
+        "dealerGroupId": _REAL_GROUP_IDS[dealer_id],
+    }
+    response = client.post("/v1/dealerships", json=payload, headers=_bearer(token))
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["dealerGroupId"] == _REAL_GROUP_IDS[dealer_id]
+    _REAL_GROUP_IDS[body["id"]] = body["dealerGroupId"]
+    return body["id"]
+
+
+def _configuration(db_session, dealer_id):
+    config = create_configuration(
+        db_session, tenant_id=uuid.UUID(dealer_id), actor_id=None,
+        data=ConfigurationCreate(
+            source=ConfigurationSource.MANUAL, mode=ConfigurationMode.RECORD,
+            match_method=ConfigurationMatchMethod.MANUAL, brand_display_name="Subaru", model_group_name="Justy",
+            variant_name="G3X Limousine",
+        ),
+    )
+    db_session.commit()
+    return config.id
+
+
+def _valuation_of(db_session, dealer_id):
+    valuation = create_valuation(
+        db_session, tenant_id=uuid.UUID(dealer_id), group_id=uuid.UUID(_REAL_GROUP_IDS[dealer_id]), actor_id=None,
+        data=ValuationCreate(source=ValuationSource.MANUAL, final_offer=Decimal("2500.00")),
+    )
+    db_session.commit()
+    return valuation.id
+
+
+_TENANT_SCOPED_REFERENCES = [
+    ("stock_item_id", "stock item", lambda db, dealer_id: _stock_item(db, dealer_id).id),
+    ("configuration_id", "configuration", _configuration),
+    ("trade_in_configuration_id", "configuration", _configuration),
+    ("trade_in_valuation_id", "valuation", _valuation_of),
+]
+
+
+@pytest.mark.parametrize(("seed", "table"), [(_offer, "sales_offer"), (_contract, "sales_contract")], ids=["offer", "contract"])
+@pytest.mark.parametrize(
+    ("column", "noun", "make"), _TENANT_SCOPED_REFERENCES, ids=[column for column, *_ in _TENANT_SCOPED_REFERENCES]
+)
+def test_sales_reconciliation_detects_a_reference_to_a_sister_dealerships_record(
+    client, db_session, seed, table, column, noun, make
+):
+    """KAN-259 — stock items, configurations and valuations are dealership-
+    owned (valuations tenant-private, ADR-029), and Sales reads each only in
+    the deal's own dealership (is_invoiceable, reserve_for_contract,
+    get_configuration_for_host, the valuation stamp). One of a sister
+    dealership resolves on id alone and passed KAN-145's check."""
+
+    dealer_id = _create_dealer(client)
+    sister_id = _sister_dealer(client, dealer_id)
+    row = seed(db_session, dealer_id, **{column: make(db_session, sister_id)})
+
+    with pytest.raises(ReconciliationAlarm) as exc_info:
+        sales_reconciliation.run(db_session)
+
+    assert [(o.check_label, o.source_row_id, o.dangling_value) for o in exc_info.value.orphans] == [
+        (f"{table}.{column} names another dealership's {noun}", row.id, row.id)
+    ]
+
+
+@pytest.mark.parametrize(("seed", "table"), [(_offer, "sales_offer"), (_contract, "sales_contract")], ids=["offer", "contract"])
+def test_sales_reconciliation_detects_a_customer_of_another_group(client, db_session, seed, table):
+    """KAN-259 — customers are group-scoped (ADR-014): one of the deal's own
+    group is right whichever dealership created it, one of another group is
+    not, though it resolves on id."""
+
+    dealer_id = _create_dealer(client)
+    other_group_dealer_id = _create_dealer(client)
+    foreign = seed(db_session, dealer_id, customer_id=uuid.UUID(_create_customer(client, other_group_dealer_id)["id"]))
+
+    with pytest.raises(ReconciliationAlarm) as exc_info:
+        sales_reconciliation.run(db_session)
+
+    assert [(o.check_label, o.source_row_id, o.dangling_value) for o in exc_info.value.orphans] == [
+        (f"{table}.customer_id names a customer outside its dealership's group", foreign.id, foreign.id)
+    ]
+
+
+def test_sales_reconciliation_detects_a_hold_on_a_sister_dealerships_stock_item(client, db_session):
+    """KAN-259 — a confirmed contract's reservation is a hold on a stock item
+    of its own dealership; reserve_for_contract filters by the contract's
+    tenant, so a hold found only on a sister's item is not this contract's."""
+
+    dealer_id = _create_dealer(client)
+    sister_id = _sister_dealer(client, dealer_id)
+    sister_item = _stock_item(db_session, sister_id)
+    contract = _contract(db_session, dealer_id, status=ContractStatus.CONFIRMED, signed_at=dt.datetime.now(dt.UTC))
+    held = reserve_for_contract(
+        db_session, tenant_id=uuid.UUID(sister_id), stock_item_id=sister_item.id, contract_id=contract.id,
+        idempotency_key=f"test:{contract.id}",
+    )
+    contract.reservation_id = uuid.UUID(held["reservationId"])
+    db_session.commit()
+
+    with pytest.raises(ReconciliationAlarm) as exc_info:
+        sales_reconciliation.run(db_session)
+
+    assert [(o.check_label, o.source_row_id, o.dangling_value) for o in exc_info.value.orphans] == [
+        ("sales_contract.reservation_id names a hold on another dealership's stock item", contract.id, contract.id)
+    ]
+
+
+def test_sales_reconciliation_accepts_references_in_the_deals_own_dealership_and_group(client, db_session):
+    """The clean side of KAN-259: every tenant-scoped reference in the deal's
+    own dealership, and a customer created by a sister dealership of the
+    same group, on an offer and on a confirmed contract holding its car."""
+
+    dealer_id = _create_dealer(client)
+    sister_id = _sister_dealer(client, dealer_id)
+    item = _stock_item(db_session, dealer_id)
+    references = {
+        "customer_id": uuid.UUID(_create_customer(client, sister_id)["id"]),
+        "configuration_id": _configuration(db_session, dealer_id),
+        "trade_in_configuration_id": _configuration(db_session, dealer_id),
+        "trade_in_valuation_id": _valuation_of(db_session, dealer_id),
+        "stock_item_id": item.id,
+    }
+    _offer(db_session, dealer_id, **references)
+    contract = _contract(db_session, dealer_id, status=ContractStatus.CONFIRMED, vehicle_source="stock", **references)
+    held = reserve_for_contract(
+        db_session, tenant_id=uuid.UUID(dealer_id), stock_item_id=item.id, contract_id=contract.id,
+        idempotency_key=f"test:{contract.id}",
+    )
+    contract.reservation_id = uuid.UUID(held["reservationId"])
+    db_session.commit()
+
+    assert sales_reconciliation.run(db_session).orphans_found == 0
 
 
 # --- top-level runner: every context runs even when an earlier one alarms --------

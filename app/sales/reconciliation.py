@@ -2,13 +2,32 @@
 read-only — see app.core.reconciliation for the mechanism.
 
 Every cross-context id on sales_offer and sales_contract must resolve
-(KAN-145): the dealership, the users who created and last changed it, the
-customer, stock item, trade-in vehicle, trade-in valuation and configurations.
-They are matched on id alone, not on the row's dealership (KAN-259). A
-contract's reservation_id names no row of its own — it is the stock item's
-active_reservation_id, cleared when the hold is released — so it is checked
-only while the contract is confirmed: a signed contract whose car is no
-longer held for it could be sold twice.
+(KAN-145): the dealership, the customer, stock item, trade-in vehicle,
+trade-in valuation and configurations. A contract's reservation_id names no
+row of its own — it is the stock item's active_reservation_id, cleared when
+the hold is released — so it is checked only while the contract is
+confirmed: a signed contract whose car is no longer held for it could be
+sold twice. So must every one on Sales' other tables (KAN-243): each row's
+dealership, the deal projection's customer and the user who rendered a
+document. Offer, contract and owner ids inside Sales are Sales' own.
+
+Who wrote each row — created_by / updated_by on every table that has them —
+must name a platform user, or be null for a system or legacy write
+(KAN-243; Anto, 2026-10-12: everywhere). Those checks come from
+app.platform.public.actor_reference_checks, one per column, for every
+table in ACTOR_TABLES; tests/architecture/test_actor_columns_reconciled.py
+fails when a table with those columns is missing from it.
+
+Resolving on id is not enough where the target belongs to one dealership
+(KAN-259): Sales reads a stock item, a configuration and a valuation only in
+the deal's own dealership (is_invoiceable, reserve_for_contract,
+get_configuration_for_host, the valuation stamp — valuations are
+tenant-private, ADR-029), and a customer only in the dealership's group
+(customers are group-scoped, ADR-014). Each such reference is checked twice,
+for two different defects: the ReferenceCheck reports an id that resolves to
+nothing at all (orphan), the StateCheck one that resolves only outside the
+deal's dealership or group (mismatch). The StateCheck asks for the target to
+exist first, so a row is never reported by both.
 
 The replica of Stock's purchase fact (KAN-100) is checked against Stock both
 ways round, per dealership (KAN-145): each stock item Stock holds as purchased
@@ -24,16 +43,21 @@ stamped «Verwendet» (KAN-115).
 """
 
 import datetime as dt
+from collections.abc import Callable
+from typing import Any
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy import ColumnElement, select
+from sqlalchemy.orm import InstrumentedAttribute, Session
 
 from app.core.base import utcnow
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
-from app.customer.public import Customer
+from app.customer.public import Customer, customer_in_group
 from app.inventory.public import StockItem
-from app.platform.public import Dealership, User
+from app.platform.public import Dealership, User, actor_reference_checks
 from app.sales.models.contract import ContractStatus, SalesContract
+from app.sales.models.deal import SalesDeal, SalesNumberSequence
+from app.sales.models.document import SalesDocument
+from app.sales.models.line_item import SalesLineItem
 from app.sales.models.offer import SalesOffer
 from app.sales.models.stock_item_purchase import SalesStockItemPurchase
 from app.sales.models.transaction import Transaction
@@ -45,6 +69,79 @@ CONTEXT = "sales"
 # A fact is published in the same commit that makes it true and reaches Sales
 # within outbox lag; only what is still missing after this long alarms.
 _OUTBOX_LAG_GRACE = dt.timedelta(hours=1)
+
+# Every Sales table with created_by / updated_by (KAN-243).
+ACTOR_TABLES = (Transaction, SalesOffer, SalesContract, SalesDeal, SalesLineItem, SalesDocument)
+
+_Deal = type[SalesOffer] | type[SalesContract]
+
+
+def _in_another_dealership(
+    label: str,
+    deal: _Deal,
+    column: InstrumentedAttribute[Any],
+    target_id: InstrumentedAttribute[Any],
+    target_tenant_id: InstrumentedAttribute[Any],
+    *,
+    only_where: Callable[[], ColumnElement[bool]] | None = None,
+) -> StateCheck:
+    """KAN-259 — the deal's `column` names a target that exists, but none in
+    the deal's own dealership. A target that does not exist at all is the
+    id-only ReferenceCheck's finding, not this one's."""
+
+    def where() -> ColumnElement[bool]:
+        exists_anywhere = select(target_id).where(target_id == column).correlate(deal).exists()
+        exists_in_own_dealership = (
+            select(target_id)
+            .where(target_id == column, target_tenant_id == deal.tenant_id)
+            .correlate(deal)
+            .exists()
+        )
+        condition = exists_anywhere & ~exists_in_own_dealership
+        return condition if only_where is None else only_where() & condition
+
+    return StateCheck(label=label, source_model=deal, source_row_id_column=deal.id, where=where)
+
+
+def _customer_outside_the_group(label: str, deal: _Deal) -> StateCheck:
+    """KAN-259 — customers are group-scoped (ADR-014): the deal's customer
+    exists, but not in the group of the deal's dealership. A deal whose
+    dealership is itself missing is the tenant_id ReferenceCheck's finding."""
+
+    def where() -> ColumnElement[bool]:
+        customer_exists = select(Customer.id).where(Customer.id == deal.customer_id).correlate(deal).exists()
+        dealership_exists = select(Dealership.id).where(Dealership.id == deal.tenant_id).correlate(deal).exists()
+        dealerships_group = (
+            select(Dealership.dealer_group_id).where(Dealership.id == deal.tenant_id).correlate(deal).scalar_subquery()
+        )
+        in_group = customer_in_group(deal.customer_id, dealerships_group).correlate(deal)
+        return customer_exists & dealership_exists & ~in_group
+
+    return StateCheck(label=label, source_model=deal, source_row_id_column=deal.id, where=where)
+
+
+def _same_dealership_checks(deal: _Deal) -> list[StateCheck]:
+    table = deal.__tablename__
+    return [
+        _customer_outside_the_group(f"{table}.customer_id names a customer outside its dealership's group", deal),
+        _in_another_dealership(
+            f"{table}.stock_item_id names another dealership's stock item",
+            deal, deal.stock_item_id, StockItem.id, StockItem.tenant_id,
+        ),
+        _in_another_dealership(
+            f"{table}.configuration_id names another dealership's configuration",
+            deal, deal.configuration_id, VehicleConfiguration.id, VehicleConfiguration.tenant_id,
+        ),
+        _in_another_dealership(
+            f"{table}.trade_in_configuration_id names another dealership's configuration",
+            deal, deal.trade_in_configuration_id, VehicleConfiguration.id, VehicleConfiguration.tenant_id,
+        ),
+        _in_another_dealership(
+            f"{table}.trade_in_valuation_id names another dealership's valuation",
+            deal, deal.trade_in_valuation_id, Valuation.id, Valuation.tenant_id,
+        ),
+    ]
+
 
 CHECKS: list[ReferenceCheck | StateCheck] = [
     ReferenceCheck(
@@ -87,26 +184,6 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         source_fk_column=SalesOffer.tenant_id,
         target_model=Dealership,
         target_id_column=Dealership.id,
-    ),
-    # Who wrote it: the signed-in user (the token's subject), or null for a
-    # legacy-migrated row.
-    ReferenceCheck(
-        label="sales_offer.created_by -> user.id",
-        source_model=SalesOffer,
-        source_row_id_column=SalesOffer.id,
-        source_fk_column=SalesOffer.created_by,
-        target_model=User,
-        target_id_column=User.id,
-        nullable=True,
-    ),
-    ReferenceCheck(
-        label="sales_offer.updated_by -> user.id",
-        source_model=SalesOffer,
-        source_row_id_column=SalesOffer.id,
-        source_fk_column=SalesOffer.updated_by,
-        target_model=User,
-        target_id_column=User.id,
-        nullable=True,
     ),
     ReferenceCheck(
         label="sales_offer.customer_id -> customer.id",
@@ -172,24 +249,6 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         source_fk_column=SalesContract.tenant_id,
         target_model=Dealership,
         target_id_column=Dealership.id,
-    ),
-    ReferenceCheck(
-        label="sales_contract.created_by -> user.id",
-        source_model=SalesContract,
-        source_row_id_column=SalesContract.id,
-        source_fk_column=SalesContract.created_by,
-        target_model=User,
-        target_id_column=User.id,
-        nullable=True,
-    ),
-    ReferenceCheck(
-        label="sales_contract.updated_by -> user.id",
-        source_model=SalesContract,
-        source_row_id_column=SalesContract.id,
-        source_fk_column=SalesContract.updated_by,
-        target_model=User,
-        target_id_column=User.id,
-        nullable=True,
     ),
     ReferenceCheck(
         label="sales_contract.customer_id -> customer.id",
@@ -261,6 +320,14 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         nullable=True,
         source_where=lambda: SalesContract.status == ContractStatus.CONFIRMED,
     ),
+    # KAN-259 — reserve_for_contract holds a car of the contract's own
+    # dealership; a hold found only on another dealership's item is not
+    # this contract's.
+    _in_another_dealership(
+        "sales_contract.reservation_id names a hold on another dealership's stock item",
+        SalesContract, SalesContract.reservation_id, StockItem.active_reservation_id, StockItem.tenant_id,
+        only_where=lambda: SalesContract.status == ContractStatus.CONFIRMED,
+    ),
     StateCheck(
         # KAN-144 — Stock names the contract on inventory.stock_item.added
         # within outbox lag of the confirmation. A confirmed manual
@@ -273,6 +340,68 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         & (SalesContract.status == ContractStatus.CONFIRMED)
         & SalesContract.stock_item_id.is_(None)
         & (SalesContract.signed_at < utcnow() - _OUTBOX_LAG_GRACE),
+    ),
+    # --- Sales' other tables (KAN-243) ---
+    ReferenceCheck(
+        label="sales_deal.tenant_id -> dealership.id",
+        source_model=SalesDeal,
+        source_row_id_column=SalesDeal.id,
+        source_fk_column=SalesDeal.tenant_id,
+        target_model=Dealership,
+        target_id_column=Dealership.id,
+    ),
+    ReferenceCheck(
+        label="sales_deal.customer_id -> customer.id",
+        source_model=SalesDeal,
+        source_row_id_column=SalesDeal.id,
+        source_fk_column=SalesDeal.customer_id,
+        target_model=Customer,
+        target_id_column=Customer.id,
+        nullable=True,
+    ),
+    ReferenceCheck(
+        label="sales_line_item.tenant_id -> dealership.id",
+        source_model=SalesLineItem,
+        source_row_id_column=SalesLineItem.id,
+        source_fk_column=SalesLineItem.tenant_id,
+        target_model=Dealership,
+        target_id_column=Dealership.id,
+    ),
+    ReferenceCheck(
+        label="sales_document.tenant_id -> dealership.id",
+        source_model=SalesDocument,
+        source_row_id_column=SalesDocument.id,
+        source_fk_column=SalesDocument.tenant_id,
+        target_model=Dealership,
+        target_id_column=Dealership.id,
+    ),
+    ReferenceCheck(
+        # The signed-in user who generated it; null for a system render.
+        label="sales_document.rendered_by -> user.id",
+        source_model=SalesDocument,
+        source_row_id_column=SalesDocument.id,
+        source_fk_column=SalesDocument.rendered_by,
+        target_model=User,
+        target_id_column=User.id,
+        nullable=True,
+    ),
+    ReferenceCheck(
+        label="sales_stock_item_purchase.tenant_id -> dealership.id",
+        source_model=SalesStockItemPurchase,
+        source_row_id_column=SalesStockItemPurchase.id,
+        source_fk_column=SalesStockItemPurchase.tenant_id,
+        target_model=Dealership,
+        target_id_column=Dealership.id,
+    ),
+    ReferenceCheck(
+        # Keyed by (tenant_id, series): the finding names the row by its
+        # tenant_id, the only id it has.
+        label="sales_number_sequence.tenant_id -> dealership.id",
+        source_model=SalesNumberSequence,
+        source_row_id_column=SalesNumberSequence.tenant_id,
+        source_fk_column=SalesNumberSequence.tenant_id,
+        target_model=Dealership,
+        target_id_column=Dealership.id,
     ),
     # --- the purchase replica against Stock's fact (KAN-100, KAN-145) ---
     ReferenceCheck(
@@ -330,7 +459,7 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         # valuation of the contract's own dealership counts (tenant-private,
         # ADR-029; the hand stamp looks for contracts there too): one that
         # does not exist at all is KAN-145's reference check; one of another
-        # dealership passes that check, which matches on id alone (KAN-259).
+        # dealership is KAN-259's tenant check below.
         label="signed contract whose trade-in valuation is not used",
         source_model=SalesContract,
         source_row_id_column=SalesContract.id,
@@ -343,6 +472,11 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         )
         .exists(),
     ),
+    # --- each reference in the deal's own dealership or group (KAN-259) ---
+    *_same_dealership_checks(SalesOffer),
+    *_same_dealership_checks(SalesContract),
+    # --- who wrote each row (KAN-243) ---
+    *actor_reference_checks(*ACTOR_TABLES),
 ]
 
 
