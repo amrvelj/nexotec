@@ -107,6 +107,13 @@ def test_a_key_that_is_not_of_the_reserved_shape_still_works(client, db_session,
     assert [r.idempotency_key for r in _records(db_session)] == [client_key]
 
 
+def test_authentication_still_answers_first(client, db_session):
+    refused = client.post("/v1/sales/offers", headers={"Idempotency-Key": "sales.contract.confirm:x"})
+
+    assert refused.status_code == 401, refused.text
+    assert _records(db_session) == []
+
+
 def test_no_key_at_all_is_still_fine(client):
     assert client.post("/v1/sales/offers", headers=_headers(_token())).status_code == 201
 
