@@ -195,7 +195,7 @@ def register_daily_jobs() -> None:
        the entire compensating control. Registered after the sync so it
        reconciles the state the catalogue delta just refreshed, not a
        half-synced one; a finding is logged and swallowed (see
-       app.reconciliation_runner.run_all_daily), never re-run every cycle.
+       app.reconciliation_runner.run_all_daily), never re-run the same day.
     4. ``inventory.orphaned_reservations.release`` — KAN-122: Stock frees a
        car whose reservation no longer has a signed contract behind it
        (app.inventory.daily_jobs). A repair, so not part of the read-only

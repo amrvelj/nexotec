@@ -121,6 +121,101 @@ describe('Stock list — add to pipeline (FR-C-13)', () => {
     expect(await within(overlay).findByText(i18n.t('stockList.addToPipelineError'))).toBeInTheDocument()
   })
 
+  it('Back after a saved configuration starts a new one: the next save is a POST, never a PATCH of the first (KAN-261)', async () => {
+    // The configuration is saved, the host's own commit fails and the
+    // overlay stays open. Back → another car → Save must create a second
+    // configuration; PATCHing the first with the other car's draft would
+    // leave one configuration describing two cars (FR-C-11).
+    const user = userEvent.setup()
+    let created = 0
+    const backend = installFakeBackend([
+      {
+        method: 'POST',
+        match: /^\/configurations$/,
+        handler: () => {
+          created += 1
+          return { __status: 201, body: configurationRead({ id: `cfg-${created}`, source: 'manual', catalogueVariantId: null }) }
+        },
+      },
+      { method: 'PATCH', match: /^\/configurations\/[^/]+$/, handler: () => configurationRead({ id: 'cfg-1' }) },
+      { method: 'PATCH', match: /^\/configurations\/[^/]+\/options$/, handler: () => configurationRead({ id: 'cfg-1' }) },
+      { method: 'POST', match: /^\/inventory\/stock-items$/, handler: () => status(500, { error: { code: 'x', message: 'x' } }) },
+      ...CATALOGUE,
+    ])
+    renderWithProviders(<StockListPage />, { route: '/stock' })
+
+    await user.click(await screen.findByRole('button', { name: i18n.t('stockList.addToPipeline') }))
+    const overlay = await screen.findByRole('dialog')
+    await user.click(within(overlay).getByRole('button', { name: i18n.t('configurator.find.manual') }))
+    await user.click(await within(overlay).findByRole('button', { name: i18n.t('configurator.saveNew') }))
+    expect(await within(overlay).findByText(i18n.t('stockList.addToPipelineError'))).toBeInTheDocument()
+
+    await user.click(within(overlay).getByRole('button', { name: i18n.t('configurator.configure.back') }))
+    await user.click(await within(overlay).findByRole('button', { name: i18n.t('configurator.find.manual') }))
+    expect(within(overlay).queryByText(i18n.t('stockList.addToPipelineError'))).not.toBeInTheDocument()
+    await user.click(await within(overlay).findByRole('button', { name: i18n.t('configurator.saveNew') }))
+
+    await waitFor(() => expect(backend.callsTo(/^\/configurations$/, 'POST')).toHaveLength(2))
+    expect(backend.callsTo(/^\/configurations\/cfg-1$/, 'PATCH')).toHaveLength(0)
+    const [first, second] = backend.callsTo(/^\/configurations$/, 'POST').map((call) => call.headers.get('Idempotency-Key'))
+    expect(second).not.toBe(first)
+  })
+
+  it('Back is not offered while the first save is in flight, so its result cannot be PATCHed by the next car (KAN-261)', async () => {
+    const user = userEvent.setup()
+    let release: () => void = () => {}
+    const backend = installFakeBackend([
+      {
+        method: 'POST',
+        match: /^\/configurations$/,
+        handler: () =>
+          new Promise((resolve) => {
+            release = () => resolve({ __status: 201, body: configurationRead({ id: 'cfg-1', source: 'manual', catalogueVariantId: null }) })
+          }),
+      },
+      { method: 'POST', match: /^\/inventory\/stock-items$/, handler: () => status(500, { error: { code: 'x', message: 'x' } }) },
+      ...CATALOGUE,
+    ])
+    renderWithProviders(<StockListPage />, { route: '/stock' })
+
+    await user.click(await screen.findByRole('button', { name: i18n.t('stockList.addToPipeline') }))
+    const overlay = await screen.findByRole('dialog')
+    await user.click(within(overlay).getByRole('button', { name: i18n.t('configurator.find.manual') }))
+    await user.click(await within(overlay).findByRole('button', { name: i18n.t('configurator.saveNew') }))
+
+    await waitFor(() => expect(backend.callsTo(/^\/configurations$/, 'POST')).toHaveLength(1))
+    expect(within(overlay).getByRole('button', { name: i18n.t('configurator.configure.back') })).toBeDisabled()
+    release()
+    expect(await within(overlay).findByText(i18n.t('stockList.addToPipelineError'))).toBeInTheDocument()
+    expect(within(overlay).getByRole('button', { name: i18n.t('configurator.configure.back') })).toBeEnabled()
+  })
+
+  it('Back forgets the VIN typed for the first car: the next configuration does not carry it (KAN-261)', async () => {
+    const user = userEvent.setup()
+    const backend = installFakeBackend([
+      {
+        method: 'POST',
+        match: /^\/configurations$/,
+        handler: () => ({ __status: 201, body: configurationRead({ id: 'cfg-1', source: 'manual', catalogueVariantId: null }) }),
+      },
+      { method: 'GET', match: /\/vehicle-identification/, handler: () => ({ matches: [], notes: [] }) },
+      ...CATALOGUE,
+    ])
+    renderWithProviders(<StockListPage />, { route: '/stock' })
+
+    await user.click(await screen.findByRole('button', { name: i18n.t('stockList.addToPipeline') }))
+    const overlay = await screen.findByRole('dialog')
+    await user.type(within(overlay).getByRole('textbox', { name: i18n.t('configurator.find.idLabel') }), 'WVWZZZ1KZAW000001')
+    await user.click(within(overlay).getByRole('button', { name: i18n.t('configurator.find.manual') }))
+    await user.click(await within(overlay).findByRole('button', { name: i18n.t('configurator.configure.back') }))
+    await user.click(await within(overlay).findByRole('button', { name: i18n.t('configurator.find.manual') }))
+    await user.click(await within(overlay).findByRole('button', { name: i18n.t('configurator.saveNew') }))
+
+    await waitFor(() => expect(backend.callsTo(/^\/configurations$/, 'POST')).toHaveLength(1))
+    const [created] = backend.callsTo(/^\/configurations$/, 'POST')
+    expect((created.body as { vin: string | null }).vin).toBeNull()
+  })
+
   it('a pipeline item retried after a failure carries the same Idempotency-Key (KAN-266)', async () => {
     // The first create fails (had its response been lost, the server would
     // hold the item): saving again re-sends the same request under the same

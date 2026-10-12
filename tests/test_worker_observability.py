@@ -29,7 +29,13 @@ from sentry_sdk.transport import Transport
 from app import worker
 from app.core import observability
 from app.core.config import get_settings
-from app.core.daily_scheduler import _REGISTRY, register_daily_job, run_due_daily_jobs
+from app.core.daily_scheduler import (
+    _REGISTRY,
+    RETRY_BACKOFF_CAP,
+    register_daily_job,
+    reset_failure_episodes,
+    run_due_daily_jobs,
+)
 
 _FAKE_DSN = "https://public@sentry.example.invalid/1"
 
@@ -54,8 +60,10 @@ def _isolated_process_state():
     root = logging.getLogger()
     handlers, level = root.handlers[:], root.level
     _REGISTRY.clear()
+    reset_failure_episodes()
     yield
     _REGISTRY.clear()
+    reset_failure_episodes()
     sentry_sdk.get_client().close()
     sentry_sdk.get_global_scope().set_client(None)
     root.handlers, root.level = handlers, level
@@ -92,6 +100,32 @@ def test_an_error_logged_by_a_failing_daily_job_in_the_worker_becomes_a_sentry_e
     [exception] = event["exception"]["values"]
     assert exception["type"] == "RuntimeError"
     assert exception["value"] == "kan-248 induced fault"
+
+
+def test_a_daily_job_that_keeps_failing_sends_one_sentry_event_not_one_per_poll_cycle(db_session, monkeypatch):
+    """KAN-303: with Sentry on, a job that raises on every attempt for an
+    hour of poll cycles is one event; the retries log at WARNING, which
+    Sentry keeps as breadcrumbs only (event_level=ERROR)."""
+
+    _settings(monkeypatch, sentry_dsn=_FAKE_DSN, otel_exporter_otlp_endpoint=None)
+    transport = _capture_sentry(monkeypatch)
+    worker.configure_observability()
+
+    attempts = []
+
+    def _failing_job(db):
+        attempts.append(1)
+        raise RuntimeError("kan-303 provider outage")
+
+    register_daily_job("kan303.failing", _failing_job)
+    start = dt.datetime(2026, 10, 11, 6, 0, tzinfo=dt.UTC)
+    for second in range(0, int(RETRY_BACKOFF_CAP.total_seconds() * 2), 1):
+        run_due_daily_jobs(db_session, today=start.date(), now=start + dt.timedelta(seconds=second))
+
+    assert len(attempts) > 1  # retried, on the backoff
+    [event] = transport.events
+    assert event["level"] == "error"
+    assert event["exception"]["values"][0]["value"] == "kan-303 provider outage"
 
 
 def test_the_worker_writes_json_log_lines_with_extra_fields(monkeypatch, capsys):
