@@ -38,7 +38,7 @@ import enum
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import DECIMAL, Boolean, Date, ForeignKey, Integer, String, Text, UniqueConstraint, false
+from sqlalchemy import DECIMAL, Boolean, Date, ForeignKey, Index, Integer, String, Text, UniqueConstraint, false
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TimestampMixin, VersionedMixin, utcnow
@@ -247,6 +247,10 @@ class Customer(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     __tablename__ = "customer"
     __table_args__ = (
         UniqueConstraint("group_id", "customer_number", name="uq_customer_group_id_customer_number"),
+        # The customer-list sort keys within a group (d4a1f6c8e3b7, ADR-014).
+        Index("ix_customer_group_id_last_name", "group_id", "last_name"),
+        Index("ix_customer_group_id_updated_at", "group_id", "updated_at"),
+        Index("ix_customer_group_id_created_at", "group_id", "created_at"),
     )
 
     # No DB-level FK to dealer_group.id (PR-2, ADR-015). Owned by the

@@ -80,6 +80,13 @@ in the same PR as any change to what it states. -->
   constraint by hand with `enum_check_name` / `enum_check_condition`'s exact name and wording.
   `tests/test_migrated_enum_checks.py` runs `alembic upgrade heads` on a throwaway database and
   fails on any `ck_*_enum` that differs from the models' (KAN-296).
+- **The migrated schema is the models' schema, exactly** (KAN-170/KAN-251, no allowlist):
+  `tests/test_migrated_schema_matches_models.py` runs `alembic upgrade heads` on a throwaway
+  database and fails on anything `alembic check` would report — a migration-only index, a
+  constraint the model names differently, a comment one side lacks. Declare every index and
+  constraint on the model with the migration's exact name and shape; a column comment the
+  model declares and the migration omitted is fixed by a comment-only migration in that
+  context's chain (`*_column_comments_match_the_models_kan_170.py` is the pattern).
 - The legacy `vehicle` table is write-frozen (ADR-021, `legacy_vehicle_write_frozen`); new code
   never writes it.
 - `scripts/dev/check` mirrors both CI migration jobs whenever migrations, models or anything a

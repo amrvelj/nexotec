@@ -10,7 +10,7 @@ import datetime as dt
 import enum
 import uuid
 
-from sqlalchemy import Boolean, ForeignKey, String, UniqueConstraint
+from sqlalchemy import Boolean, ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TimestampMixin
@@ -27,7 +27,8 @@ class EntitlementSource(str, enum.Enum):
 class IntegrationEntitlement(PrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "integration_entitlement"
     __table_args__ = (
-        UniqueConstraint("connection_id", "capability_code", name="uq_integration_entitlement_connection_capability"),
+        # A unique index, as the migration created it (ae20d82b02f4; KAN-170).
+        Index("uq_integration_entitlement_connection_capability", "connection_id", "capability_code", unique=True),
     )
 
     connection_id: Mapped[uuid.UUID] = mapped_column(

@@ -180,5 +180,5 @@ class SalesOffer(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMi
     # another row in this SAME table/context, so rule 2's "no cross-context
     # FK" doesn't apply. Nullable: most offers are not copies.
     copied_from_offer_id: Mapped[uuid.UUID | None] = mapped_column(
-        GUID(), ForeignKey("sales_offer.id"), nullable=True
+        GUID(), ForeignKey("sales_offer.id"), nullable=True, index=True
     )

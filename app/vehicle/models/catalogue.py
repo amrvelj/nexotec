@@ -21,7 +21,7 @@ import datetime as dt
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import DECIMAL, Boolean, Date, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import DECIMAL, Boolean, Date, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
@@ -41,8 +41,11 @@ class Brand(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     """
 
     __tablename__ = "vehicle_brand"
+    # The migrated shape (74b6c2794698): a unique constraint under Postgres's
+    # default name plus a plain index (KAN-170).
+    __table_args__ = (UniqueConstraint("code", name="vehicle_brand_code_key"),)
 
-    code: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    code: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     display_name: Mapped[str] = mapped_column(String(120), nullable=False)
 
     model_groups: Mapped[list["ModelGroup"]] = relationship(back_populates="brand")
@@ -85,6 +88,16 @@ class ModelVariant(VehicleSpecBlock, PrimaryKeyMixin, VersionedMixin, TimestampM
     """
 
     __tablename__ = "vehicle_model_variant"
+    # The catalogue-browse sort keys (d7b3e1c94a02, KAN-161 / U-03).
+    __table_args__ = (
+        Index("ix_vehicle_model_variant_name", "name"),
+        Index("ix_vehicle_model_variant_ps", "ps"),
+        Index("ix_vehicle_model_variant_kw", "kw"),
+        Index("ix_vehicle_model_variant_displacement_ccm", "displacement_ccm"),
+        Index("ix_vehicle_model_variant_base_price", "base_price"),
+        Index("ix_vehicle_model_variant_model_year_from", "model_year_from"),
+        Index("ix_vehicle_model_variant_updated_at", "updated_at"),
+    )
 
     model_group_id: Mapped[uuid.UUID] = mapped_column(
         GUID(), ForeignKey("vehicle_model_group.id"), nullable=False, index=True

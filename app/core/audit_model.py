@@ -16,6 +16,9 @@ class AuditEvent(PrimaryKeyMixin, Base):
 
     __tablename__ = "audit_event"
     __table_args__ = (
+        # The composite entity lookup the initial migration created
+        # (c0a737bad71f), next to the single-column indexes below (KAN-170).
+        Index("ix_audit_event_entity_type_entity_id", "entity_type", "entity_id"),
         # KAN-231: the per-user plate-read limit counts this user's recent
         # plate reads on every plate read. Partial, so it covers only those
         # rows and costs nothing on every other audit write.

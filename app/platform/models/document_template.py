@@ -15,7 +15,7 @@ can render documents on day one before anyone has customized anything.
 
 import uuid
 
-from sqlalchemy import ForeignKey, Text
+from sqlalchemy import ForeignKey, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TimestampMixin, VersionedMixin
@@ -25,9 +25,13 @@ from app.db import Base
 
 class DocumentTemplate(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     __tablename__ = "document_template"
+    # The migrated shape (eb38e2956aee): a unique constraint under Postgres's
+    # default name plus a plain index — declared as such so the models and
+    # the migrations agree (KAN-170).
+    __table_args__ = (UniqueConstraint("dealership_id", name="document_template_dealership_id_key"),)
 
     dealership_id: Mapped[uuid.UUID] = mapped_column(
-        GUID(), ForeignKey("dealership.id"), nullable=False, unique=True, index=True
+        GUID(), ForeignKey("dealership.id"), nullable=False, index=True
     )
 
     header_note_de: Mapped[str | None] = mapped_column(Text, nullable=True)

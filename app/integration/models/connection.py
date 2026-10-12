@@ -16,7 +16,7 @@ import datetime as dt
 import enum
 import uuid
 
-from sqlalchemy import JSON, Boolean, CheckConstraint, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import JSON, Boolean, CheckConstraint, ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TimestampMixin, VersionedMixin
@@ -60,8 +60,11 @@ class IntegrationConnection(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Bas
         # fully enforce the common, dealer-authored case: one tenant can
         # never hold two connections to the same provider in the same
         # environment.
-        UniqueConstraint(
-            "tenant_id", "provider_id", "environment", name="uq_integration_connection_tenant_provider_env"
+        # A unique index, as the migration created it (ae20d82b02f4): Postgres
+        # reports a violation under the index name, which
+        # services/connections.py maps to the 409 (KAN-170).
+        Index(
+            "uq_integration_connection_tenant_provider_env", "tenant_id", "provider_id", "environment", unique=True
         ),
     )
 

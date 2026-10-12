@@ -11,8 +11,9 @@ databases lack the guard, or keep refusing the new member.
 So this test runs `alembic upgrade heads` on a throwaway database next to the
 test database, and compares every `ck_*_enum` there — table, name and the
 definition as Postgres stores it — with the test database's, which
-`create_all` built from the models. KAN-251 (the general schema-drift gate,
-in Backlog) would subsume it.
+`create_all` built from the models. KAN-251's general schema-drift gate
+(tests/test_migrated_schema_matches_models.py) runs beside it, not instead
+of it: Alembic's comparison does not see CHECK constraints.
 """
 
 import os
