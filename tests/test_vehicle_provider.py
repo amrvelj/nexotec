@@ -261,8 +261,12 @@ def test_resolve_rejects_a_target_outside_the_gaps_own_active_list(db_session, l
 
 
 def test_a_gap_whose_code_group_has_no_reference_list_is_refused_not_a_crash(db_session):
-    # Gaps recorded before the semantic keys carry a numeric CodeGrpNr.
-    gap = _open_gap(db_session, "7", code_group="011")
+    # Gaps recorded before the semantic keys carry a numeric CodeGrpNr. The
+    # code can no longer record one (KAN-194), so the stored row is inserted
+    # as it was left — one migration `ff5b97c11665` had no mapping for.
+    gap = MappingGap(provider="auto_i_dat", vehicle_kind="01", code_group="011", provider_code="7")
+    db_session.add(gap)
+    db_session.flush()
 
     with pytest.raises(ConflictError) as exc:
         resolve_mapping_gap(

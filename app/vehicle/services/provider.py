@@ -31,8 +31,17 @@ def resolve_provider_code(
     already been written (created on first miss, occurrences/last_seen_at
     bumped on every later miss of the exact same code), never silently
     dropped.
+
+    `code_group` is the semantic list code (`fuel_type`, …), never a numeric
+    auto-i-dat CodeGrpNr (`ProviderCodeMap`'s keying): a numeric one is a
+    programming error, refused before anything is read or written, because a
+    gap recorded under it could never be resolved (KAN-194, KAN-77).
     """
 
+    if code_group.isdigit():
+        raise ValueError(
+            f"code_group must be a semantic code group (a reference list code), not the CodeGrpNr {code_group!r}."
+        )
     mapping = db.scalar(
         select(ProviderCodeMap).where(
             ProviderCodeMap.provider == provider,
