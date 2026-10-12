@@ -53,7 +53,7 @@ def _lost_the_insert_race(exc: ConflictError, vin: str) -> bool:
 
 
 def resolve_vehicle_mdm_by_vin(
-    db: Session, *, vin: str, catalogue_variant_id: uuid.UUID | None = None
+    db: Session, *, vin: str, catalogue_variant_id: uuid.UUID | None = None, actor_id: uuid.UUID | None = None
 ) -> ResolvedVehicle:
     """The vehicle-mdm record for `vin`, created if vehicle-mdm has never
     seen it — committed before this returns, on a session of its own
@@ -61,10 +61,14 @@ def resolve_vehicle_mdm_by_vin(
 
     with Session(bind=db.get_bind(), autoflush=False, expire_on_commit=False) as own:
         try:
-            vehicle, _created = create_or_get_vehicle_mdm(own, vin=vin, catalogue_variant_id=catalogue_variant_id)
+            vehicle, _created = create_or_get_vehicle_mdm(
+                own, vin=vin, catalogue_variant_id=catalogue_variant_id, actor_id=actor_id
+            )
         except ConflictError as exc:
             if not _lost_the_insert_race(exc, vin):
                 raise
             # The guard rolled `own` back; the winner's row is committed.
-            vehicle, _created = create_or_get_vehicle_mdm(own, vin=vin, catalogue_variant_id=catalogue_variant_id)
+            vehicle, _created = create_or_get_vehicle_mdm(
+                own, vin=vin, catalogue_variant_id=catalogue_variant_id, actor_id=actor_id
+            )
         return ResolvedVehicle(id=vehicle.id, vin=vehicle.vin)

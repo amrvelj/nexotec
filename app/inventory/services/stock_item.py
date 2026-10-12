@@ -238,7 +238,7 @@ def create_stock_item(
         # its commit (or its rollback on a lost race, KAN-257) never touches
         # this transaction. A refusal below leaves the vehicle-mdm record in
         # place: it is the car's global record (FR-V-15), whoever holds it.
-        vehicle = resolve_vehicle_mdm_by_vin(db, vin=data.vin)
+        vehicle = resolve_vehicle_mdm_by_vin(db, vin=data.vin, actor_id=actor_id)
         data = data.model_copy(update={"vehicle_id": vehicle.id, "vin": vehicle.vin})
     try:
         item = _build_and_flush_stock_item(

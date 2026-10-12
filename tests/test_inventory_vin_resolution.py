@@ -41,10 +41,10 @@ _postgres_only = pytest.mark.skipif(
 )
 
 
-def _bearer(tenant_id: uuid.UUID | None = None) -> dict[str, str]:
+def _bearer(tenant_id: uuid.UUID | None = None, user_id: uuid.UUID | None = None) -> dict[str, str]:
     tid = tenant_id or uuid.uuid4()
     token = create_access_token(
-        user_id=uuid.uuid4(), tenant_id=tid, group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tid)),
+        user_id=user_id or uuid.uuid4(), tenant_id=tid, group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tid)),
         roles=frozenset({AccessRole.INVENTORY}), is_dealer_manager=False,
     )
     return {"Authorization": f"Bearer {token}"}
@@ -138,6 +138,16 @@ def test_a_create_with_a_vin_ignores_the_clients_vehicle_id_and_creates_the_vehi
     assert vehicle is not None
     assert created.json()["vehicleId"] == str(vehicle.id)
     assert created.json()["vehicleId"] != str(someone_elses)
+
+
+def test_the_vehicle_a_create_resolves_names_the_user_who_created_it(client, db_session):
+    """KAN-243: a null created_by means a system write; a user's stock create is not one."""
+    user_id = uuid.uuid4()
+
+    created = _post(client, _bearer(user_id=user_id), vin=VIN)
+
+    assert created.status_code == 201, created.text
+    assert _vehicle_by_vin(db_session, VIN).created_by == user_id
 
 
 def test_a_create_with_a_vin_vehicle_mdm_knows_uses_that_record(client, db_session):
