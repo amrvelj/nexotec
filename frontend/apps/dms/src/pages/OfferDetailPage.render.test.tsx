@@ -111,6 +111,24 @@ describe('OfferDetailPage — a failed create or copy says so and keeps its key 
     expect(retryKey).toBe(failedKey)
   })
 
+  it('a dropped create names what failed and that the request did not get through', async () => {
+    await i18n.changeLanguage('it')
+    installFakeBackend([
+      {
+        method: 'POST',
+        match: /^\/sales\/offers$/,
+        handler: () => {
+          throw new TypeError('Failed to fetch')
+        },
+      },
+    ])
+    renderWithProviders(<OfferCreateRedirectPage />, { route: '/sales/offers/new' })
+
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain(i18n.t('offerDetail.errors.createFailed'))
+    expect(alert.textContent).toContain(i18n.t('common.requestFailed'))
+  })
+
   it('a dropped copy shows a translated message, and the retry reuses the key', async () => {
     await i18n.changeLanguage('fr')
     const user = userEvent.setup()

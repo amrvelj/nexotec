@@ -43,7 +43,9 @@ export function OfferCreateRedirectPage() {
       (err: unknown) => {
         if (cancelled) return
         created.current = null
-        setError(err instanceof ApiError ? err.message : t('offerDetail.errors.createFailed'))
+        // The title says what failed; the body says why, or that the request
+        // itself did not get through.
+        setError(err instanceof ApiError ? err.message : t('common.requestFailed'))
       },
     )
     return () => {
