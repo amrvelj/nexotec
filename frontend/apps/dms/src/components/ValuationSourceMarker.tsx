@@ -11,8 +11,9 @@ function isValuationSource(value: string): value is ValuationSourceValue {
 /**
  * KAN-101 (ADR-048 as amended) — "a manual figure is marked manual
  * everywhere it renders". The one marking, with its label translated, for
- * the screens that show a valuation's figure outside the valuation module:
- * Stock's Evaluation tab and the offer's trade-in card. Stock stores the
+ * every screen that shows a valuation's source: the valuation list and
+ * detail (KAN-110), Stock's Evaluation tab and the offer's trade-in card.
+ * The kit badge carries tones only and takes no default label. Stock stores the
  * source as a plain string, so an unknown value renders as a dash rather
  * than as a raw enum.
  */

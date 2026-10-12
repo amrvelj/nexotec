@@ -86,7 +86,8 @@
     "save": "Speichern",
     "remove": "Entfernen",
     "loading": "Lädt…",
-    "requestFailed": "Die Anfrage ist fehlgeschlagen. Bitte versuchen Sie es erneut."
+    "requestFailed": "Die Anfrage ist fehlgeschlagen. Bitte versuchen Sie es erneut.",
+    "dismiss": "Meldung schliessen"
   },
   "customerCreate": {
     "title": "Neuer Kunde",
@@ -233,6 +234,7 @@
     "title": "Kunden",
     "newCustomer": "Neuer Kunde",
     "searchPlaceholder": "Suche nach Name, E-Mail, Telefon…",
+    "loadError": "Kunden konnten nicht geladen werden.",
     "columns": {
       "customerNumber": "Kundennr.",
       "name": "Name",
@@ -522,6 +524,9 @@
     "title": "Anmeldung fehlgeschlagen",
     "message": "Die Anmeldung ist fehlgeschlagen. Bitte versuchen Sie es erneut oder wenden Sie sich an Ihre Administratorin bzw. Ihren Administrator.",
     "retry": "Erneut versuchen"
+  },
+  "login": {
+    "redirecting": "Weiterleitung zur Anmeldung…"
   },
   "mappingGaps": {
     "title": "Zuordnungslücken",
@@ -924,7 +929,7 @@
       "amount": "Betrag",
       "valuedAt": "Bewertet am",
       "source": "Quelle",
-      "hint": "Bewertungen werden im Modul Verkauf erstellt und verwaltet — dieser Bereich zeigt nur den aktuellen Stand."
+      "hint": "Bewertungen werden im Modul Bewertungen erstellt und verwaltet — dieser Bereich zeigt nur den aktuellen Stand."
     },
     "configuration": {
       "title": "Konfiguration"
@@ -949,6 +954,7 @@
     "title": "Offerten & Verträge",
     "newOffer": "Neue Offerte",
     "searchPlaceholder": "Kontrollschild, VIN, Kunde, Offerte …",
+    "loadError": "Offerten und Verträge konnten nicht geladen werden.",
     "allDealsView": "Alle Offerten und Verträge",
     "columns": {
       "number": "Nummer",
@@ -1384,6 +1390,13 @@
     "environment": {
       "sandbox": "Sandbox",
       "production": "Produktion"
+    },
+    "connectionStatus": {
+      "connected": "Verbunden",
+      "not_configured": "Nicht konfiguriert",
+      "error": "Fehler",
+      "expired": "Abgelaufen",
+      "disabled": "Deaktiviert"
     },
     "secretSlot": {
       "password": "Passwort",

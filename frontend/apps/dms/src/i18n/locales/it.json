@@ -86,7 +86,8 @@
     "save": "Salva",
     "remove": "Rimuovi",
     "loading": "Caricamento…",
-    "requestFailed": "La richiesta non è riuscita. Riprova."
+    "requestFailed": "La richiesta non è riuscita. Riprova.",
+    "dismiss": "Chiudi messaggio"
   },
   "customerCreate": {
     "title": "Nuovo cliente",
@@ -233,6 +234,7 @@
     "title": "Clienti",
     "newCustomer": "Nuovo cliente",
     "searchPlaceholder": "Cerca per nome, e-mail, telefono…",
+    "loadError": "Impossibile caricare i clienti.",
     "columns": {
       "customerNumber": "N. cliente",
       "name": "Nome",
@@ -522,6 +524,9 @@
     "title": "Accesso non riuscito",
     "message": "Accesso non riuscito. Riprova oppure contatta il tuo amministratore.",
     "retry": "Riprova"
+  },
+  "login": {
+    "redirecting": "Reindirizzamento all'accesso…"
   },
   "mappingGaps": {
     "title": "Lacune di mappatura",
@@ -924,7 +929,7 @@
       "amount": "Importo",
       "valuedAt": "Valutato il",
       "source": "Fonte",
-      "hint": "Le valutazioni vengono create e gestite nel modulo Vendite — quest'area mostra solo lo stato attuale."
+      "hint": "Le valutazioni vengono create e gestite nel modulo Valutazioni — quest'area mostra solo lo stato attuale."
     },
     "configuration": {
       "title": "Configurazione"
@@ -949,6 +954,7 @@
     "title": "Offerte e contratti",
     "newOffer": "Nuova offerta",
     "searchPlaceholder": "Targa, VIN, cliente, offerta …",
+    "loadError": "Impossibile caricare offerte e contratti.",
     "allDealsView": "Tutte le offerte e i contratti",
     "columns": {
       "number": "Numero",
@@ -1384,6 +1390,13 @@
     "environment": {
       "sandbox": "Sandbox",
       "production": "Produzione"
+    },
+    "connectionStatus": {
+      "connected": "Connessa",
+      "not_configured": "Non configurata",
+      "error": "Errore",
+      "expired": "Scaduta",
+      "disabled": "Disattivata"
     },
     "secretSlot": {
       "password": "Password",
