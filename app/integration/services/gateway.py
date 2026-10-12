@@ -69,23 +69,20 @@ class UnknownProviderError(ProviderGatewayError):
 # below ignores all three. Mock and real are separate provider_codes /
 # separate connections, never a runtime flag on one (rule 7's own
 # reasoning, applied to more than just sandbox/prod).
-_ADAPTER_FACTORIES: dict[str, Callable[[Session, IntegrationConnection, uuid.UUID | None, str], ProviderAdapter]] = {
+_AdapterFactory = Callable[[Session, IntegrationConnection, uuid.UUID | None, str], ProviderAdapter]
+
+_ADAPTER_FACTORIES: dict[str, _AdapterFactory] = {
     "auto_i_dat_mock": lambda db, connection, actor_id, purpose: MockAutoIDatAdapter(),
 }
 
 
-def register_adapter_factory(
-    provider_code: str, factory: Callable[[Session, IntegrationConnection, uuid.UUID | None, str], ProviderAdapter]
-) -> None:
+def register_adapter_factory(provider_code: str, factory: _AdapterFactory) -> None:
     """PR-3 registers the real SOAP adapter here rather than editing this
     module's own dict in place — keeps the two adapters' modules
     independent of each other (neither imports the other).
     """
 
     _ADAPTER_FACTORIES[provider_code] = factory
-
-
-_AdapterFactory = Callable[[Session, IntegrationConnection, uuid.UUID | None, str], ProviderAdapter]
 
 
 def _adapter_factory(db: Session, connection: IntegrationConnection) -> _AdapterFactory:

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from 'vitest'
 import { Route, Routes } from 'react-router-dom'
-import { cleanup, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from '../i18n'
 import { renderWithProviders } from '../test/renderWithProviders'
@@ -113,7 +113,7 @@ describe('OfferDetailPage — a failed create or copy says so and keeps its key 
 
   it('a dropped create names what failed and that the request did not get through', async () => {
     await i18n.changeLanguage('it')
-    installFakeBackend([
+    const backend = installFakeBackend([
       {
         method: 'POST',
         match: /^\/sales\/offers$/,
@@ -127,6 +127,13 @@ describe('OfferDetailPage — a failed create or copy says so and keeps its key 
     const alert = await screen.findByRole('alert')
     expect(alert.textContent).toContain(i18n.t('offerDetail.errors.createFailed'))
     expect(alert.textContent).toContain(i18n.t('common.requestFailed'))
+
+    // Switching the UI language rewords the failure; only Retry sends again.
+    await act(async () => {
+      await i18n.changeLanguage('fr')
+    })
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toContain(i18n.t('common.requestFailed')))
+    expect(backend.callsTo(/^\/sales\/offers$/, 'POST')).toHaveLength(1)
   })
 
   it('a dropped copy shows a translated message, and the retry reuses the key', async () => {

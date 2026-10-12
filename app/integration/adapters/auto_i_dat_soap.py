@@ -44,6 +44,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from decimal import Decimal
 from typing import Any, Protocol
+from urllib.parse import urlsplit
 
 from sqlalchemy.orm import Session
 
@@ -165,16 +166,34 @@ def build_zeep_client(wsdl_url: str, *, timeout: float = DEFAULT_TIMEOUT_SECONDS
 def _transport_error(message: str, exc: BaseException) -> ProviderTransportError:
     """KAN-108 — a timeout becomes `ProviderTimeoutError`, which the gateway
     logs as `CallStatus.TIMEOUT`; every other failure stays a plain transport
-    error. `requests` raises `Timeout` (connect or read) for both the WSDL load
-    and a `Suchen` call; the builtin `TimeoutError` covers a socket timeout
-    that reaches us unwrapped. `requests` is zeep's own transport (it arrives
-    with zeep), imported lazily for the same reason zeep is."""
+    error."""
+
+    return ProviderTimeoutError(message) if _is_timeout(exc) else ProviderTransportError(message)
+
+
+def _is_timeout(exc: BaseException) -> bool:
+    """Walks the exception and what it wraps. `requests` (zeep's transport)
+    raises `Timeout` when nothing arrives at all, but a provider that sends
+    its headers and then stalls the body surfaces as `ConnectionError`
+    wrapping urllib3's `ReadTimeoutError` — the same hang, one level down.
+    Deliberately not urllib3's `TimeoutError` base: its `NewConnectionError`
+    (a refused connection) subclasses it for backward compatibility.
+    `requests` and urllib3 arrive with zeep and are imported lazily for the
+    same reason zeep is."""
 
     import requests
+    import urllib3
 
-    if isinstance(exc, requests.exceptions.Timeout | TimeoutError):
-        return ProviderTimeoutError(message)
-    return ProviderTransportError(message)
+    timeouts = (requests.exceptions.Timeout, urllib3.exceptions.ReadTimeoutError, TimeoutError)
+    seen: set[int] = set()
+    current: BaseException | None = exc
+    while current is not None and id(current) not in seen:
+        if isinstance(current, timeouts):
+            return True
+        seen.add(id(current))
+        wrapped = current.args[0] if current.args and isinstance(current.args[0], BaseException) else None
+        current = current.__cause__ or wrapped or current.__context__
+    return False
 
 
 class AutoIDatSoapAdapter:
@@ -778,6 +797,13 @@ def _build_real_adapter(
     wsdl_url = connection.config.get("wsdlUrl")
     if not wsdl_url:
         raise ProviderConfigurationError(f"Connection {connection.id} has no config.wsdlUrl set.")
+    # KAN-108: zeep opens anything that is not http(s) as a local file — a
+    # mistyped scheme never reaches the provider, so it is the dealer's to fix
+    # and must not be charged to the circuit breaker as a provider failure.
+    if urlsplit(str(wsdl_url)).scheme.lower() not in ("http", "https"):
+        raise ProviderConfigurationError(
+            f"Connection {connection.id} has a config.wsdlUrl that is not an http(s) URL."
+        )
     return AutoIDatSoapAdapter(
         db=db, connection=connection, soap_client=build_zeep_client(wsdl_url), actor_id=actor_id, purpose=purpose
     )

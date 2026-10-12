@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from '../../i18n'
@@ -310,6 +310,7 @@ describe('PublishingTab — a failed save says so and keeps its key (KAN-272)', 
     const prompt = vi
       .spyOn(window, 'prompt')
       .mockImplementation((_message?: string, offered?: string) => offered ?? 'https://cdn.example.ch/1.jpg')
+    onTestFinished(() => prompt.mockRestore())
     renderWithProviders(<PublishingTab stockItemId="st-1" locale="de-CH" />)
     const addPhoto = async () =>
       user.click(await screen.findByRole('button', { name: i18n.t('stockDetail.publishing.media.addPhoto') }))
@@ -322,7 +323,6 @@ describe('PublishingTab — a failed save says so and keeps its key (KAN-272)', 
     await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
 
     expect(prompt.mock.calls[1][1]).toBe('https://cdn.example.ch/1.jpg')
-    prompt.mockRestore()
     const [failedKey, retryKey] = keys(backend, /\/media$/)
     expect(failedKey).toBeTruthy()
     expect(retryKey).toBe(failedKey)

@@ -14,6 +14,7 @@ Every blocking call runs in a worker thread with its own deadline, so a
 regression fails the test instead of hanging the test process.
 """
 
+import http.server
 import socket
 import threading
 import time
@@ -123,6 +124,38 @@ class _SilentServer:
         self._sock.close()
 
 
+class _WsdlServer:
+    """Serves one WSDL document over HTTP and nothing else. KAN-108: the real
+    adapter factory refuses a `wsdlUrl` that is not http(s), so a test that
+    goes through it cannot load the WSDL from a file."""
+
+    def __init__(self, wsdl: str) -> None:
+        body = wsdl.encode("utf-8")
+
+        class _Handler(http.server.BaseHTTPRequestHandler):
+            def do_GET(self) -> None:
+                self.send_response(200)
+                self.send_header("Content-Type", "text/xml; charset=utf-8")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *args: object) -> None:
+                pass
+
+        self._server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
+        self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
+        self.url = f"http://127.0.0.1:{self._server.server_address[1]}/Fahrzeuge.asmx?wsdl"
+
+    def __enter__(self) -> Self:
+        self._thread.start()
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self._server.shutdown()
+        self._server.server_close()
+
+
 def _run_with_watchdog(fn):
     """Runs ``fn`` in a worker thread and returns ``(exception, elapsed)``. A
     call still blocked after the watchdog fails the test instead of hanging
@@ -148,18 +181,16 @@ def _run_with_watchdog(fn):
     return exc, time.monotonic() - started
 
 
-def test_the_real_adapter_factory_bounds_its_transport_with_the_default_timeout(db_session, tmp_path):
+def test_the_real_adapter_factory_bounds_its_transport_with_the_default_timeout(db_session):
     """The path production takes — ``_build_real_adapter``, no timeout
     argument anywhere — ends in a zeep transport bounded by
     ``DEFAULT_TIMEOUT_SECONDS`` for both the WSDL load and every operation.
     G-47 was exactly a timeout constant that existed and reached nothing."""
 
-    wsdl = tmp_path / "fahrzeuge.wsdl"
-    wsdl.write_text(_WSDL.format(address="http://127.0.0.1:9/Fahrzeuge.asmx"), encoding="utf-8")
     connection = _make_connection(db_session, _make_provider(db_session))
-    connection.config = {**connection.config, "wsdlUrl": wsdl.as_uri()}
-
-    adapter = _build_real_adapter(db_session, connection, None, "vehicle_data")
+    with _WsdlServer(_WSDL.format(address="http://127.0.0.1:9/Fahrzeuge.asmx")) as wsdl_server:
+        connection.config = {**connection.config, "wsdlUrl": wsdl_server.url}
+        adapter = _build_real_adapter(db_session, connection, None, "vehicle_data")
 
     transport = adapter._client._client.transport  # AutoIDatSoapAdapter -> zeep ServiceProxy -> zeep Client
     assert resilience.DEFAULT_TIMEOUT_SECONDS == 10.0

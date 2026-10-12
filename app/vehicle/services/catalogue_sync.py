@@ -701,10 +701,11 @@ def _sync_one_key(
 
     A `ProviderGatewayError` raised before the block is entered comes from
     the gateway resolving the adapter (`CircuitOpenError`,
-    `ConnectionDisabledError`, a WSDL that will not load). The gateway
-    neither logs nor charges those, and they are about the connection, not
-    this key — so they are raised as `_ConnectionFailed` for the caller to
-    stop on.
+    `ConnectionDisabledError`, a WSDL that will not load). They are about the
+    connection, not this key — so they are raised as `_ConnectionFailed` for
+    the caller to stop on. The gateway writes nothing for a refusal; a WSDL
+    that will not load is logged and charged to the breaker like any other
+    provider failure (KAN-108).
     """
 
     progress = _KeyProgress()

@@ -31,7 +31,9 @@ export function OfferCreateRedirectPage() {
   // KAN-273 (ADR-035) — a failed create says so instead of leaving the page
   // on its loader for good. "Retry" sends the create again under the same
   // key, so a create whose response was lost replays that offer.
-  const [error, setError] = useState<string | null>(null)
+  // The failure itself, not its text: worded at render, so switching the UI
+  // language rewords it without running the create again.
+  const [failure, setFailure] = useState<{ error: unknown } | null>(null)
   const [attempt, setAttempt] = useState(0)
   useEffect(() => {
     let cancelled = false
@@ -43,25 +45,25 @@ export function OfferCreateRedirectPage() {
       (err: unknown) => {
         if (cancelled) return
         created.current = null
-        // The title says what failed; the body says why, or that the request
-        // itself did not get through.
-        setError(err instanceof ApiError ? err.message : t('common.requestFailed'))
+        setFailure({ error: err })
       },
     )
     return () => {
       cancelled = true
     }
-  }, [navigate, idempotency, attempt, t])
+  }, [navigate, idempotency, attempt])
 
-  if (error) {
+  if (failure) {
     return (
       <Stack gap="sm" align="flex-start">
+        {/* The title says what failed; the body says why, or that the request
+            itself did not get through. */}
         <Alert color="red" role="alert" title={t('offerDetail.errors.createFailed')}>
-          {error}
+          {failure.error instanceof ApiError ? failure.error.message : t('common.requestFailed')}
         </Alert>
         <Button
           onClick={() => {
-            setError(null)
+            setFailure(null)
             setAttempt((n) => n + 1)
           }}
         >

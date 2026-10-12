@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { useState } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { Route, Routes } from 'react-router-dom'
 import { cleanup, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -151,8 +151,12 @@ describe('ContractDetailPage — one Idempotency-Key per submission (KAN-266)', 
 
   it('a failed cancel says so in the user\'s language, offers its reason again, and the retry reuses the key (KAN-273)', async () => {
     await i18n.changeLanguage('it')
+    onTestFinished(async () => {
+      await i18n.changeLanguage('de')
+    })
     const user = userEvent.setup()
     // The user accepts whatever the prompt offers; the first time, they type the reason.
+    // (The file's afterEach restores this spy, pass or fail.)
     const prompt = vi
       .spyOn(window, 'prompt')
       .mockImplementation((_message?: string, offered?: string) => offered ?? 'Kunde storniert.')
@@ -178,6 +182,5 @@ describe('ContractDetailPage — one Idempotency-Key per submission (KAN-266)', 
     expect(failed.headers.get('Idempotency-Key')).toBeTruthy()
     expect(retry.headers.get('Idempotency-Key')).toBe(failed.headers.get('Idempotency-Key'))
     expect(retry.body).toEqual({ reason: 'Kunde storniert.' })
-    await i18n.changeLanguage('de')
   })
 })
