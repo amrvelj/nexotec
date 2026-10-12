@@ -51,6 +51,7 @@ from app.vehicle.schemas.configuration import ConfigurationCreate, Configuration
 from app.vehicle.schemas.spec_block import VehicleSpecBlockInput
 from app.vehicle.services import configuration as configuration_service
 from app.vehicle.services import configuration_host
+from tests.configuration_test_support import MANUAL_CODED, seed_manual_coded_lists
 from tests.route_walk import api_routes
 from tests.test_sales_lifecycle_reservation import _with_buyer
 
@@ -119,10 +120,12 @@ def _build_configuration(db_session, tenant_id, variant=None) -> VehicleConfigur
 
 
 def _record_configuration(db_session, tenant_id, *, vin=None, plate="ZH123456") -> VehicleConfiguration:
+    # a manual configuration needs all five coded fields (Anto, 2026-10-12)
+    seed_manual_coded_lists(db_session)
     config = configuration_service.create_configuration(
         db_session, tenant_id=tenant_id, actor_id=uuid.uuid4(),
         data=ConfigurationCreate(
-            source=ConfigurationSource.MANUAL, mode=ConfigurationMode.RECORD,
+            source=ConfigurationSource.MANUAL, mode=ConfigurationMode.RECORD, **MANUAL_CODED,
             match_method=ConfigurationMatchMethod.KONTROLLSCHILD,
             brand_display_name="Subaru", model_group_name="Justy", variant_name="G3X Limousine",
             licence_plate=plate, vin=vin, first_registration_date=dt.date(2003, 10, 3), mileage_km=148000,

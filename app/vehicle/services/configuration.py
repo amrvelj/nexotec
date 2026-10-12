@@ -21,6 +21,7 @@ import uuid
 from decimal import Decimal
 from typing import Any
 
+from pydantic.alias_generators import to_camel
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
@@ -56,6 +57,33 @@ _MATCHED_STATUSES = {ConfigurationMatchStatus.MATCHED, ConfigurationMatchStatus.
 # name; a value a client sends is checked against it (KAN-96).
 _CODED_SPEC_FIELDS = ("vehicle_kind", "fuel_type", "body_style", "drivetrain", "transmission")
 _ALL_SPEC_FIELDS = (*SPEC_BLOCK_FIELDS, *_CODED_SPEC_FIELDS)
+# KAN-245 — the spec block's own reference fields. Each holds a value of the
+# reference list of the same name (migrations a3d9c1e58f27: engine_cycle,
+# valuation_classification; 6ba0a99ed5c4: vehicle_class, emission_standard,
+# consumption_norm) and is checked exactly like a coded field.
+_SPEC_REFERENCE_FIELDS = ("engine_cycle", "vehicle_class", "valuation_classification", "emission_standard", "consumption_norm")
+
+# The top-level fields a PATCH writes (R2, Anto 2026-10-12): absent leaves a
+# field alone, an explicit null clears it. The coded fields are handled on
+# their own (locked on a provider configuration, required on a manual one).
+_PATCHABLE_NULLABLE_FIELDS = (
+    "vin",
+    "stammnummer",
+    "type_approval_number",
+    "first_registration_date",
+    "licence_plate",
+    "mileage_km",
+    "exterior_colour",
+    "interior_colour",
+    "exterior_colour_surcharge",
+    "interior_colour_surcharge",
+    "wheels",
+    "wheels_surcharge",
+    "notes",
+    "brand_display_name",
+    "model_group_name",
+    "variant_name",
+)
 
 
 def _audit_value(value: Any) -> Any:
@@ -108,18 +136,74 @@ def _apply_spec_payload(config: VehicleConfiguration, spec: Any) -> None:
 
 
 def _validate_coded_spec_fields(db: Session, data: ConfigurationCreate | ConfigurationUpdate) -> None:
-    """Every coded spec value the client sent must be an active value of
-    its reference list — 422 otherwise, 500 if a list is missing
-    (`validate_reference_codes`, the rule KAN-57 set for `/v1/vehicles`).
+    """Every coded value the client sent — the five coded fields (KAN-96)
+    and the spec block's five reference fields (KAN-245) — must be an active
+    value of its reference list: otherwise one 422 naming every offending
+    field; 500 if a list is missing (`validate_reference_codes`, the rule
+    KAN-57 set for `/v1/vehicles`).
 
     A PATCH checks every value it carries, one sent back unchanged included:
-    a value retired from its list refuses the save (Anto, 2026-10-07).
-    Codes a provider configuration copies from its variant at capture are
-    not checked here — their integrity belongs to catalogue sync (KAN-75 /
-    KAN-77).
+    a value retired from its list refuses the save (Anto, 2026-10-07; for
+    the spec block, 2026-10-12). Codes a provider configuration copies from
+    its variant at capture are not checked here — their integrity belongs
+    to catalogue sync (KAN-75 / KAN-77).
     """
 
-    validate_reference_codes(db, {field: getattr(data, field) for field in _CODED_SPEC_FIELDS}, _CODED_SPEC_FIELDS)
+    values: dict[str, Any] = {field: getattr(data, field) for field in _CODED_SPEC_FIELDS}
+    if data.spec is not None:
+        spec = data.spec.model_dump(exclude_unset=True)
+        values.update({field: spec[field] for field in _SPEC_REFERENCE_FIELDS if field in spec})
+    validate_reference_codes(db, values, (*_CODED_SPEC_FIELDS, *_SPEC_REFERENCE_FIELDS))
+
+
+def _require_coded_fields_on_create(data: ConfigurationCreate) -> None:
+    """R1 (Anto, 2026-10-12) — a manual configuration names all five coded
+    fields: there is no catalogue to supply them. One 422 naming each
+    missing field."""
+
+    missing = [to_camel(field) for field in _CODED_SPEC_FIELDS if getattr(data, field) is None]
+    if missing:
+        raise UnprocessableEntityError(
+            f"A manual configuration needs all five coded fields; missing: {', '.join(missing)}.",
+            details={"reason": "coded_fields_required", "missing": missing},
+        )
+
+
+def _check_coded_field_patch(configuration: VehicleConfiguration, data: ConfigurationUpdate) -> dict[str, Any]:
+    """R1 (Anto, 2026-10-12) — which coded fields this PATCH may write.
+
+    On a provider configuration (one with a catalogue variant, or one this
+    PATCH links to a variant) the five coded fields are the catalogue's: a
+    PATCH that changes one is a 422 `coded_field_locked` naming each field —
+    the same 422-with-a-reason shape as `configuration_mode_fixed`, the
+    other state-based refusal of this endpoint. Sending the value it already
+    has is a no-op. FR-C-16's re-sync (`configuration_host.apply_resync`)
+    still copies them from the catalogue; it does not come through here.
+
+    On a manual configuration none of the five can be cleared: an explicit
+    null is a 422 `coded_field_required`.
+
+    Returns the coded fields that actually change, new value by field.
+    """
+
+    sent = {field: getattr(data, field) for field in _CODED_SPEC_FIELDS if field in data.model_fields_set}
+    changed = {field: value for field, value in sent.items() if value != getattr(configuration, field)}
+    if configuration.catalogue_variant_id is not None or data.catalogue_variant_id is not None:
+        if changed:
+            fields = [to_camel(field) for field in changed]
+            raise UnprocessableEntityError(
+                "A provider configuration's coded fields come from the catalogue and cannot be changed: "
+                f"{', '.join(fields)}.",
+                details={"reason": "coded_field_locked", "fields": fields},
+            )
+        return {}
+    cleared = [to_camel(field) for field, value in sent.items() if value is None]
+    if cleared:
+        raise UnprocessableEntityError(
+            f"A manual configuration's coded fields cannot be cleared: {', '.join(cleared)}.",
+            details={"reason": "coded_field_required", "fields": cleared},
+        )
+    return changed
 
 
 def _link_vehicle_if_vin_resolves(db: Session, config: VehicleConfiguration) -> None:
@@ -181,6 +265,7 @@ def create_configuration(
     else:
         if data.confirmed_best_match_code is not None:
             raise UnprocessableEntityError("A confirmed best match needs a provider configuration.")
+        _require_coded_fields_on_create(data)
         _validate_coded_spec_fields(db, data)
         config.catalogue_match_status = ConfigurationMatchStatus.UNVERIFIED
         if data.spec is not None:
@@ -237,9 +322,18 @@ def update_configuration(
         )
     # Before anything on the row changes: a refused PATCH leaves it as it was.
     _validate_coded_spec_fields(db, data)
+    coded_changes = _check_coded_field_patch(configuration, data)
 
     spec_before: dict[str, Any] = {}
     spec_after: dict[str, Any] = {}
+
+    # R3 — a coded-field change is audited exactly like a spec-block field;
+    # an unchanged value records nothing. (A provider configuration's coded
+    # fields cannot change here, so none is ever marked overridden.)
+    for field, new in coded_changes.items():
+        spec_before[field] = _audit_value(getattr(configuration, field))
+        spec_after[field] = _audit_value(new)
+        setattr(configuration, field, new)
 
     if data.spec is not None:
         # exclude_unset — a PATCH sends only the fields it wants changed;
@@ -273,30 +367,16 @@ def update_configuration(
         configuration.catalogue_variant_label_refreshed_at = utcnow()
         status_transition = True
 
-    for field in (
-        "mode",
-        "match_method",
-        "vin",
-        "stammnummer",
-        "type_approval_number",
-        "first_registration_date",
-        "licence_plate",
-        "mileage_km",
-        "exterior_colour",
-        "interior_colour",
-        "exterior_colour_surcharge",
-        "interior_colour_surcharge",
-        "wheels",
-        "wheels_surcharge",
-        "notes",
-        "brand_display_name",
-        "model_group_name",
-        "variant_name",
-        *_CODED_SPEC_FIELDS,
-    ):
+    # `mode` and `match_method` are never null on the row: a null leaves them.
+    for field in ("mode", "match_method"):
         value = getattr(data, field)
         if value is not None:
             setattr(configuration, field, value)
+    # R2 (KAN-247) — absent is "leave alone", an explicit null clears, the
+    # way the spec block already reads `exclude_unset`.
+    for field in _PATCHABLE_NULLABLE_FIELDS:
+        if field in data.model_fields_set:
+            setattr(configuration, field, getattr(data, field))
 
     _link_vehicle_if_vin_resolves(db, configuration)
 

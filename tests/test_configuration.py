@@ -29,6 +29,18 @@ from app.vehicle.schemas.configuration import (
 )
 from app.vehicle.schemas.spec_block import VehicleSpecBlockInput
 from app.vehicle.services import configuration as svc
+from tests.configuration_test_support import MANUAL_CODED, MANUAL_CODED_JSON, seed_manual_coded_lists
+
+
+@pytest.fixture(autouse=True)
+def _coded_lists(db_session):
+    """A manual configuration needs all five coded fields, each an active
+    value of its list (Anto, 2026-10-12; KAN-96). Every manual create in this
+    file passes `MANUAL_CODED`; the lists behind it are seeded here. The
+    rules themselves are tested in `test_configuration_field_rules.py` and
+    `test_configuration_reference_codes.py`."""
+
+    seed_manual_coded_lists(db_session)
 
 
 def _variant(db, *, name="Golf GTI", **spec) -> ModelVariant:
@@ -77,7 +89,7 @@ def test_manual_create_is_unverified_with_hand_entered_spec(db_session):
     config = svc.create_configuration(
         db_session, tenant_id=tenant_id, actor_id=actor_id,
         data=ConfigurationCreate(
-            source=ConfigurationSource.MANUAL, mode=ConfigurationMode.RECORD,
+            source=ConfigurationSource.MANUAL, mode=ConfigurationMode.RECORD, **MANUAL_CODED,
             match_method=ConfigurationMatchMethod.MANUAL,
             spec=VehicleSpecBlockInput(ps=54, displacement_ccm=1300),
             brand_display_name="Citroën", variant_name="2CV6",
@@ -101,7 +113,7 @@ def test_vin_hit_links_to_the_existing_vehicle_mdm(db_session):
     config = svc.create_configuration(
         db_session, tenant_id=uuid.uuid4(), actor_id=uuid.uuid4(),
         data=ConfigurationCreate(
-            source=ConfigurationSource.MANUAL, mode=ConfigurationMode.RECORD,
+            source=ConfigurationSource.MANUAL, mode=ConfigurationMode.RECORD, **MANUAL_CODED,
             match_method=ConfigurationMatchMethod.VIN, vin="WVWZZZ1KZAW111222",
         ),
     )
@@ -141,7 +153,7 @@ def test_match_status_transition_audits_and_fires_configuration_matched(db_sessi
     config = svc.create_configuration(
         db_session, tenant_id=tenant_id, actor_id=actor_id,
         data=ConfigurationCreate(
-            source=ConfigurationSource.MANUAL, mode=ConfigurationMode.RECORD,
+            source=ConfigurationSource.MANUAL, mode=ConfigurationMode.RECORD, **MANUAL_CODED,
             match_method=ConfigurationMatchMethod.MANUAL, spec=VehicleSpecBlockInput(ps=90),
         ),
     )
@@ -168,7 +180,7 @@ def test_audit_survives_a_first_registration_date_in_the_payload(db_session):
     config = svc.create_configuration(
         db_session, tenant_id=uuid.uuid4(), actor_id=uuid.uuid4(),
         data=ConfigurationCreate(
-            source=ConfigurationSource.MANUAL, mode=ConfigurationMode.RECORD,
+            source=ConfigurationSource.MANUAL, mode=ConfigurationMode.RECORD, **MANUAL_CODED,
             match_method=ConfigurationMatchMethod.MANUAL,
             first_registration_date=dt.date(2015, 6, 1),
             spec=VehicleSpecBlockInput(),
@@ -194,7 +206,7 @@ def test_wheels_field_pair_creates_updates_and_survives_a_copy(db_session):
     config = svc.create_configuration(
         db_session, tenant_id=tenant_id, actor_id=actor_id,
         data=ConfigurationCreate(
-            source=ConfigurationSource.MANUAL, mode=ConfigurationMode.RECORD,
+            source=ConfigurationSource.MANUAL, mode=ConfigurationMode.RECORD, **MANUAL_CODED,
             match_method=ConfigurationMatchMethod.MANUAL,
             wheels="18\" alloy \"Dijon\"", wheels_surcharge=Decimal("890.00"),
             spec=VehicleSpecBlockInput(),
@@ -242,7 +254,7 @@ def test_tenant_isolation_is_a_404(db_session):
     config = svc.create_configuration(
         db_session, tenant_id=uuid.uuid4(), actor_id=uuid.uuid4(),
         data=ConfigurationCreate(
-            source=ConfigurationSource.MANUAL, mode=ConfigurationMode.RECORD,
+            source=ConfigurationSource.MANUAL, mode=ConfigurationMode.RECORD, **MANUAL_CODED,
             match_method=ConfigurationMatchMethod.MANUAL, spec=VehicleSpecBlockInput(),
         ),
     )
@@ -334,7 +346,7 @@ def test_api_manual_create_needs_no_variant(client, db_session):
     r = client.post(
         "/v1/configurations",
         json={"source": "manual", "mode": "record", "matchMethod": "manual",
-              "spec": {"ps": 54}, "brandDisplayName": "Citroën", "variantName": "2CV"},
+              "spec": {"ps": 54}, "brandDisplayName": "Citroën", "variantName": "2CV", **MANUAL_CODED_JSON},
         headers={**_bearer(tenant_id), "Idempotency-Key": str(uuid.uuid4())},
     )
     assert r.status_code == 201, r.text
