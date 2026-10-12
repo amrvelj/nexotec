@@ -12,10 +12,11 @@ paths:
   - "app/inventory/schemas/valuation.py"
   - "frontend/packages/ui-kit/src/components/Valuation*Badge.tsx"
   - "alembic/versions/valuation/**"
+  - "frontend/apps/dms/src/components/deal-workspace/**"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises PRD-Vehicles (FR-V-09,
 FR-V-17), ADR-029, ADR-048 as amended, ADR-066, ADR-070, ADR-074. Verified against
-main@7805816 on 2026-10-10 (every present-tense claim checked against the code). Fix this
+main@7a90ae4 on 2026-10-12 (every present-tense claim checked against the code). Fix this
 file in the same PR as any change to what it states. -->
 
 # Valuations
@@ -30,7 +31,9 @@ file in the same PR as any change to what it states. -->
 - **Tenant-private even within a group** (ADR-029): a sister dealership never sees another's
   valuations.
 - **A vehicle carries a LIST of valuations** (ADR-048 as amended, ADR-066). The newest is
-  current; older ones stay readable as superseded and are never edited or deleted. A manual
+  current; older ones stay readable and are never edited or deleted (only the `used_at` stamp
+  changes). «Neu bewerten» creates a new row whose `supersedesValuationId` names the old one;
+  no read marks the old row superseded yet. A manual
   figure is **marked manual everywhere it renders**.
 - **A valuation is a standalone application**: creatable with no customer, no offer and no
   vehicle in the register. It carries a **validity period**.
@@ -71,13 +74,16 @@ file in the same PR as any change to what it states. -->
   `sales.contract.confirmed` consumer creates the pipeline item (`inventory/services/pipeline.py`,
   from `tradeIn.valuationId`, read through `valuation.public` in the same transaction) — the
   item does not exist when Sales confirms, so Sales never calls
-  `inventory.public.set_valuation_ref` (which still has no production caller). The event
-  carries only the id, never the figure.
+  `inventory.public.set_valuation_ref` (which still has no production caller). The event's
+  `tradeIn` block names the valuation by id, never its figure; Stock takes the figure from the
+  valuation, never from the event (`pricingSnapshot.tradeInValue` is the deal's trade-in
+  credit, which Stock's consumer ignores).
 - **ADR-070** (amending FR-V-17): a *configuration* never writes vehicle-mdm; it attaches to a
   valuation. A valuation created **with** a `configurationId` (`record` mode only, KAN-10)
   takes its vehicle fields from it and creates no vehicle-mdm record; created **without** one,
   `create_valuation` still creates or gets the vehicle-mdm record when a VIN is given
-  (`services/valuation.py`), and the offer's VIN trade-in (`sales/services/trade_in.py`) still
-  creates the vehicle. Ending those two is Anto's call — read ADR-070 and ask; never change it
-  in passing. The offer's record-mode trade-in path (configurator → valuation → the offer
-  references it) is built (KAN-10).
+  (`services/valuation.py`), and the VIN trade-in of an offer or a pending contract
+  (`sales/services/trade_in.py::set_trade_in`, KAN-67) still creates the vehicle. Ending those
+  two is Anto's call — read ADR-070 and ask; never change it in passing. The record-mode
+  trade-in path (configurator → valuation → the offer or pending contract references it,
+  `.../trade-in/valuation`) is built (KAN-10, KAN-67).

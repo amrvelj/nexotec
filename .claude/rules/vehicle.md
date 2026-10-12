@@ -15,12 +15,20 @@ paths:
   - "alembic/versions/vehicle/**"
   - "alembic/versions/integration/**"
   - "app/sales/services/snapshot.py"
+  - "tests/architecture/test_plate_lookup_is_not_enumerable.py"
+  - "tests/architecture/test_spec_block_carriers_do_not_drift.py"
+  - "tests/architecture/test_auto_i_dat_calls_go_through_the_gateway.py"
+  - "tests/architecture/test_catalogue_browse_makes_no_provider_call.py"
+  - "tests/architecture/test_configuration_never_writes_vehicle_mdm.py"
+  - "tests/architecture/test_shared_identity_lookup_response_shape.py"
+  - "tests/test_provider_code_map_seed.py"
+  - "frontend/apps/dms/src/pages/stock/AddToPipelineButton.tsx"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises PRD-Vehicles, PRD-Configurator
 v1.4 (ADR-068…ADR-072, host/mode matrix), Integrations & API Credentials, ADR-013 as amended
-by ADR-075, ADR-041, ADR-044, ADR-045, KAN-36/38/43. Verified against main@7805816 on
-2026-10-10 (every present-tense claim checked against the code). "Not built" lines cite a
-ticket; /drift-audit re-checks them weekly. -->
+by ADR-075, ADR-041, ADR-044, ADR-045, ADR-083, ADR-085, KAN-36/38/43.
+Verified against main@7a90ae4 on 2026-10-12 (every present-tense claim checked against the
+code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. -->
 
 # Vehicles, catalogue, configurator and the provider gateway
 
@@ -34,11 +42,13 @@ ticket; /drift-audit re-checks them weekly. -->
   reassignment, cantonal changes. `vehicle_plate` is a child table with validity dates and a
   `plate_group_id`; an ambiguous lookup shows a picker and never guesses. Plate lookup must
   not be enumerable (architecture test).
-- **Plate-history reads (Plates tab, resolved search hit) are audited and limited per user** (KAN-231):
-  only through `services/plate_read_guard.py::read_plate_history`, never
-  `plate.list_plates_for_vehicle` directly (architecture test). Past `plate_read_limit`
-  distinct vehicles per `plate_read_window_seconds` (platform settings, 60 per hour) the Plates
-  tab gets 403 `plate_read_limit_reached` and a search hit `currentPlateWithheld`. **Not yet
+- **Plate-history reads (Plates tab, resolved search hit) are audited and limited per user**
+  (ADR-085, KAN-231): only through `services/plate_read_guard.py::read_plate_history`, never
+  `plate.list_plates_for_vehicle` directly (architecture test); every read and every refusal
+  writes an `audit_event`, never the plate values. Past `plate_read_limit` distinct vehicles per
+  `plate_read_window_seconds` (`app/core/config.py`, platform-wide by design — never a
+  dealership setting; default 60 per hour) the Plates tab gets 403 `plate_read_limit_reached`
+  and a search hit `currentPlateWithheld`; the car page still opens. **Not yet
   covered:** `GET /v1/vehicle-mdm/lookup` (ADR-043, `services/lookup.py::_current_plate`) still
   returns a vehicle's current plate unaudited and unlimited — KAN-231 left it out of scope; the
   export through it stays open until KAN-279 lands.
@@ -61,6 +71,8 @@ ticket; /drift-audit re-checks them weekly. -->
   mapping gap fills the variants it left NULL at once (KAN-83).
 - Every auto-i-dat call goes through the gateway (architecture test). Provider codes never
   appear in application code: canonical taxonomy + `ProviderCodeMap` (`vehicle_provider_code_map`).
+  **Not yet true (KAN-75):** the SOAP adapter decodes `FarbArt`, `AchsenCode` and `PneuTyp`
+  inline (`auto_i_dat_soap.py`: `_FARB_ART`, `_ACHSEN_CODE`, `_PNEU_TYP`).
 - **One registry, many gateways.** `integration` owns connections, write-only secret refs
   (`integration_secret_ref`, one row per secret slot; values live in the secrets manager,
   never in the app database), entitlements, call log and retention. The auto-i-dat adapters
@@ -130,13 +142,17 @@ ticket; /drift-audit re-checks them weekly. -->
   go-live check); never route it on a guess.
 - **`ProviderCodeMap` is keyed `(provider, vehicle_kind, code_group, provider_code)`** —
   `vehicle_kind` is the raw FzArt, `code_group` the semantic list code, `provider_code` the raw
-  code; never a numeric CodeGrpNr. Unmapped codes become a `mapping_gap` (FR-C-10), never a
-  silent default.
+  code; never a numeric CodeGrpNr. An unmapped code of a code-mapped field (the variant's
+  `vehicle_kind`, `fuel_type`, `body_style`, `drivetrain`, `transmission`; an option's
+  `equipment_feature`) becomes a `mapping_gap` (FR-C-10), never a silent default. **Not yet true
+  for the adapter's inline decodes (KAN-75):** an unknown `FarbArt` becomes `exterior`, a
+  missing `AchsenCode` `front`, an unknown `PneuTyp` no season.
 - **Keep the provider's full image URL** (`ImageRef.image_url`); the provider returns a
   directly fetchable URL per image — no proxy, no base-URL reconstruction.
 - Stammnummer resolves only against our own data (vehicle-mdm, then the plate-lookup cache);
   auto-i-dat accepts no Stammnummer search. The catalogue sync links each variant to its
-  Typenscheine (`vehicle_variant_type_approval`, KAN-42).
+  Typenscheine (`vehicle_model_variant_type_approval`, model `VariantTypeApproval`,
+  KAN-42).
 
 ## Catalogue administration
 

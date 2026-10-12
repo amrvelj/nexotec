@@ -5,8 +5,8 @@ paths:
   - "frontend/**/*.test.tsx"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises ADR-011 and the recurring
-failure modes from the WP audits (wp-verification). Verified against main@7805816 on
-2026-10-10 (every present-tense claim checked against the code). Fix this file in the same PR
+failure modes from the WP audits (wp-verification). Verified against main@7a90ae4 on
+2026-10-12 (every present-tense claim checked against the code). Fix this file in the same PR
 as any change to what it states. -->
 
 # Tests
@@ -50,5 +50,7 @@ as any change to what it states. -->
   question for Anto, not an edit.
 - Frontend: render tests opt into jsdom per file (`// @vitest-environment jsdom`) and are named
   `*.render.test.tsx` — not always beside the component: find them with
-  `git grep -l <Component> -- '*.render.test.tsx'`. i18n keys are checked by
-  `localeKeyParity.test.ts`.
+  `git grep -l <Component> -- '*.render.test.tsx'`. In `frontend/apps/dms` a jsdom test never
+  reaches the network: its default `fetch` is a stand-in that never settles, and the test fails
+  naming the request unless it calls `installFakeBackend` (`src/test/fakeBackend.ts`; KAN-172).
+  i18n keys are checked by `localeKeyParity.test.ts`.
