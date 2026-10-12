@@ -132,9 +132,10 @@ def consumer_lag_seconds(db: Session, *, consumer_name: str) -> float | None:
     which event types a consumer even cares about without asking the
     transport's own handler registry, which is runtime state, not
     something this module has visibility into. Good enough to alarm "this
-    consumer has gone quiet" once a real one exists; PR-4 shipped zero
-    real consumers, so today this is exercised only by tests and the
-    machinery is ready, not yet observing anything in production.
+    consumer has gone quiet": the worker's heartbeat (`app/worker.py::
+    _heartbeat`) calls it every cycle for every consumer registered in
+    `app/worker.py::register_handlers`, and the per-consumer alert in
+    README's Observability table relies on it.
     """
 
     newest_processed_at = db.scalar(
