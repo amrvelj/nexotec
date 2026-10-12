@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { ConnectionStatusBadge, KeyValueRow, OverviewCard, RowMenu } from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
 import { buildConnectionRowMenu } from '../components/connectionRowMenu'
+import { translatedConnectionStatusLabel } from '../integrationOptions'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
 import { formatDate, formatNumber } from '../utils/format'
@@ -119,7 +120,7 @@ export function IntegrationDealerView() {
                 <OverviewCard
                   key={provider.id}
                   title={connection.displayName}
-                  badge={<ConnectionStatusBadge status={connection.status} />}
+                  badge={<ConnectionStatusBadge status={connection.status} label={translatedConnectionStatusLabel(t, connection.status)} />}
                 >
                   <KeyValueRow label={t('integrationsList.fields.provider')}>{provider.displayName}</KeyValueRow>
                   <KeyValueRow label={t('integrationsList.fields.environment')}>

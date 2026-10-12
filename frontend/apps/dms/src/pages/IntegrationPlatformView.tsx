@@ -16,6 +16,7 @@ import {
 } from '@nexotec/ui-kit'
 import { api } from '../api/client'
 import { buildConnectionRowMenu } from '../components/connectionRowMenu'
+import { translatedConnectionStatusLabel } from '../integrationOptions'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { useSavedViews } from '../hooks/useSavedViews'
 import { useUiPreferencesContext } from '../hooks/UiPreferencesContext'
@@ -129,7 +130,7 @@ export function IntegrationPlatformView() {
         header: t('integrationsList.columns.environment'),
         cell: ({ row }) => t(`integrationEnums.environment.${row.original.environment}`, row.original.environment),
       },
-      { id: 'status', header: t('integrationsList.columns.status'), cell: ({ row }) => <ConnectionStatusBadge status={row.original.status} /> },
+      { id: 'status', header: t('integrationsList.columns.status'), cell: ({ row }) => <ConnectionStatusBadge status={row.original.status} label={translatedConnectionStatusLabel(t, row.original.status)} /> },
       {
         id: 'lastVerifiedAt',
         header: t('integrationsList.columns.lastVerified'),
