@@ -52,17 +52,24 @@ def _alembic(args: list[str], url: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-def schema_differences(url: str) -> list[str]:
-    """tests/schema_diff_support.py's comparison, run in a fresh interpreter."""
+def _compare_cli(url: str, *flags: str) -> subprocess.CompletedProcess[str]:
+    """tests/schema_diff_support.py's command line, in a fresh interpreter —
+    the same invocation CI's migration smoke test runs with `--fail`."""
 
-    probe = subprocess.run(
-        [sys.executable, "-m", "tests.schema_diff_support", url],
+    return subprocess.run(
+        [sys.executable, "-m", "tests.schema_diff_support", url, *flags],
         cwd=_REPO_ROOT,
         capture_output=True,
         text=True,
         timeout=UPGRADE_TIMEOUT_S,
         check=False,
     )
+
+
+def schema_differences(url: str) -> list[str]:
+    """tests/schema_diff_support.py's comparison, run in a fresh interpreter."""
+
+    probe = _compare_cli(url)
     assert probe.returncode == 0, probe.stderr[-3000:]
     return json.loads(probe.stdout.strip().splitlines()[-1])
 
@@ -114,6 +121,11 @@ def test_a_drifted_database_is_reported(migrated_url):
             conn.execute(text("COMMENT ON COLUMN stock_item.vehicle_id IS 'drifted'"))
         try:
             found = schema_differences(migrated_url)
+            # CI's step (`--fail`, KAN-251) goes red on the same drift: exit 1,
+            # the differences still on stdout for the job log.
+            failing = _compare_cli(migrated_url, "--fail")
+            assert failing.returncode == 1, failing.stderr[-3000:]
+            assert json.loads(failing.stdout.strip().splitlines()[-1]) == found
         finally:
             with engine.begin() as conn:
                 conn.execute(text(
@@ -124,6 +136,11 @@ def test_a_drifted_database_is_reported(migrated_url):
                 conn.execute(text("CREATE INDEX ix_customer_group_id_last_name ON customer (group_id, last_name)"))
     finally:
         engine.dispose()
+
+    # Back in step, `--fail` is quiet: exit 0 and an empty list.
+    restored = _compare_cli(migrated_url, "--fail")
+    assert restored.returncode == 0, restored.stderr[-3000:]
+    assert json.loads(restored.stdout.strip().splitlines()[-1]) == []
 
     assert found == [
         "add_index: index ix_customer_group_id_last_name on customer (customer.group_id, customer.last_name)",
