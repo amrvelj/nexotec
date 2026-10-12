@@ -4,14 +4,16 @@ like app.model_registry and app.api.v1: it needs each context's specific
 check list directly, not through a public.py (there's nothing generic
 about "run this context's own checks" for another context to call).
 
-platform has no outbound cross-context references (its only FK,
-user.tenant_id, is intra-context), so there is no app.platform.reconciliation
-and none is run here. aftersales, parts, finance, reporting and compliance
-still need to add their own once they're built out. So platform's own
-created_by / updated_by columns are not reconciled (KAN-243), unlike every
-other context's: tests/architecture/test_actor_columns_reconciled.py names
-platform and core (daily_job_run) as the two open exceptions and why
-(platform: KAN-318).
+platform has no outbound cross-context reference (user.tenant_id ->
+dealership and dealership.dealer_group_id -> dealer_group are its own), so
+app.platform.reconciliation carries only the created_by / updated_by checks
+every context runs (KAN-243; added by KAN-318, once
+scripts/seed_staging_demo.py stopped stamping a random actor on the rows it
+creates). aftersales, parts, finance, reporting and compliance still need to
+add their own once they're built out. The one table with actor columns and
+no job is core's daily_job_run, which nothing writes an actor to:
+tests/architecture/test_actor_columns_reconciled.py names it as the open
+exception and why.
 
 WP-6 PR-1 also registers `app.valuation`'s own reconciliation module here
 — it existed since WP-8 PR-5 but was never added to this list, a real,
@@ -27,6 +29,7 @@ from app.core.reconciliation import ReconciliationAlarm, ReconciliationRun
 from app.customer import reconciliation as customer_reconciliation
 from app.integration import reconciliation as integration_reconciliation
 from app.inventory import reconciliation as inventory_reconciliation
+from app.platform import reconciliation as platform_reconciliation
 from app.sales import reconciliation as sales_reconciliation
 from app.valuation import reconciliation as valuation_reconciliation
 from app.vehicle import reconciliation as vehicle_reconciliation
@@ -34,6 +37,7 @@ from app.vehicle import reconciliation as vehicle_reconciliation
 logger = logging.getLogger("app.reconciliation_runner")
 
 _JOBS = [
+    platform_reconciliation,
     customer_reconciliation,
     inventory_reconciliation,
     sales_reconciliation,

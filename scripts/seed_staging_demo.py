@@ -34,10 +34,11 @@ import sys
 import uuid
 
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from app.core.auth import AccessRole
 from app.db import SessionLocal
-from app.platform.models.dealership import Dealership, FranchiseType
+from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
 from app.platform.models.user import User, UserRole
 from app.platform.schemas.dealership import DealershipAddress, DealershipCreate
 from app.platform.schemas.user import UserCreate, UserUpdate
@@ -46,6 +47,38 @@ from app.platform.services import user as user_service
 
 DEMO_LEGAL_NAME = "Demo Garage AG"
 DEMO_EMAIL = "demo@nexotec-staging.example"
+
+_ACTOR_COLUMNS = ("created_by", "updated_by")
+
+
+def _stamp_actor(db: Session, *, actor: User, rows: tuple[DealerGroup, Dealership, User]) -> list[str]:
+    """KAN-318: the demo manager is the actor of its own group, dealership
+    and user row. The services stamp whatever actor_id they are given, and
+    the only user this environment has cannot exist before its dealership
+    does (create_user needs the dealership's id), so the creates above run
+    with a placeholder and the rows are stamped afterwards — created_by has
+    no service path at all, so this is a direct write. Every value that
+    names no `user` row is replaced, on every run: an environment seeded
+    before KAN-318 still holds the random uuid4 the seed used to write, and
+    the nightly platform reconciliation (app.platform.reconciliation) would
+    report it each night. A value that does name a user — another user's
+    later edit — is left alone; so is null, which names nobody on purpose
+    (app.platform.services.actor_reference). Returns what changed."""
+
+    named = {
+        value for row in rows for column in _ACTOR_COLUMNS if (value := getattr(row, column)) is not None
+    }
+    existing = set(db.scalars(select(User.id).where(User.id.in_(named))).all()) if named else set()
+    changed: list[str] = []
+    for row in rows:
+        for column in _ACTOR_COLUMNS:
+            value = getattr(row, column)
+            if value is not None and value not in existing:
+                setattr(row, column, actor.id)
+                changed.append(f"{row.__tablename__}.{column}")
+    if changed:
+        db.commit()
+    return changed
 
 
 def main() -> None:
@@ -56,11 +89,13 @@ def main() -> None:
 
     db = SessionLocal()
     try:
-        # This seed acts as the platform: a synthetic actor id stands in for
-        # it on the seed's own audit trail (same as the acceptance tests do
-        # for platform_admin-attributed actions), and it calls the user
-        # service with platform_admin authority — the service refuses
-        # platform_admin-only changes to anyone else (KAN-97).
+        # This seed acts as the platform, and calls the user service with
+        # platform_admin authority — the service refuses platform_admin-only
+        # changes to anyone else (KAN-97). The services require an actor id
+        # and the demo manager does not exist yet, so the creates run with a
+        # placeholder that _stamp_actor replaces on the rows once the
+        # manager exists (KAN-318). The two `create` audit rows keep it:
+        # the audit log is append-only.
         seed_actor_id = uuid.uuid4()
         seed_actor_roles = frozenset({AccessRole.PLATFORM_ADMIN})
 
@@ -125,6 +160,12 @@ def main() -> None:
             print(f"Updated demo user {DEMO_EMAIL}'s auth_identity_id to {auth_identity_id}.")
         else:
             print(f"Demo user {DEMO_EMAIL} already mapped to auth_identity_id={auth_identity_id} — nothing to do.")
+
+        group = db.get(DealerGroup, dealership.dealer_group_id)
+        assert group is not None, "create_dealership always creates or names a dealer group"
+        stamped = _stamp_actor(db, actor=user, rows=(group, dealership, user))
+        if stamped:
+            print(f"Stamped {DEMO_EMAIL} (id={user.id}) as the actor on {', '.join(stamped)}.")
 
         print(f"Sign in via Zitadel as {DEMO_EMAIL} using the pre-provisioned demo account.")
     finally:

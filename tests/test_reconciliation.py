@@ -26,6 +26,11 @@ from app.inventory.models.stock_item import StockItem, StockItemCondition
 from app.inventory.public import reserve_for_contract
 from app.inventory.schemas.stock_item import StockItemCreate
 from app.inventory.services.stock_item import create_stock_item
+from app.platform import reconciliation as platform_reconciliation
+from app.platform.models.dealership import DealerGroup, Dealership, Location
+from app.platform.models.document_template import DocumentTemplate
+from app.platform.models.reference_data import ReferenceList, ReferenceValue
+from app.platform.models.user import User
 from app.reconciliation_runner import MultiContextReconciliationAlarm, run_all
 from app.sales import reconciliation as sales_reconciliation
 from app.sales.models.contract import ContractStatus, SalesContract
@@ -129,6 +134,24 @@ def _real_actor(client, dealer_id: str) -> uuid.UUID:
     so a row written through the API must be written by a user that exists."""
 
     return uuid.UUID(_create_user(client, dealer_id)["id"])
+
+
+_PLATFORM_ACTOR_TABLES = (DealerGroup, Dealership, Location, User, ReferenceList, ReferenceValue, DocumentTemplate)
+
+
+def _make_platform_actors_real(db_session, user_id: uuid.UUID) -> None:
+    """KAN-318 — platform's own actor columns are reconciled too. The
+    platform_admin tokens this file mints carry a random subject (there is
+    no staff User row to mint one for), so every dealership and user
+    _create_dealer / _create_user write through the API names no user —
+    which production never does: every token there is minted for a User
+    row. Stamping a real user gives the test data the shape production
+    data has, before a test runs the platform job."""
+
+    for model in _PLATFORM_ACTOR_TABLES:
+        for column in (model.created_by, model.updated_by):
+            db_session.execute(update(model).where(column.is_not(None)).values({column.key: user_id}))
+    db_session.commit()
 
 
 def _create_customer(client, dealer_id: str, **overrides) -> dict:
@@ -733,7 +756,19 @@ def _sales_deal_row(client, db_session, dealer_id):
     return sales_reconciliation, SalesDeal, _deal(db_session, dealer_id).id
 
 
-_ACTOR_ROW_SEEDS = [_customer_row, _stock_item_row, _valuation_row, _brand_row, _provider_row, _sales_deal_row]
+def _dealership_row(client, db_session, dealer_id):
+    # KAN-318: a dealership of its own, so the row under test is not the one
+    # every other platform row hangs off; every platform row written so far
+    # (by a random-subject token, see _make_platform_actors_real) then
+    # names a real user, so the only findings are the ones the test plants.
+    new_dealer_id = _create_dealer(client)
+    _make_platform_actors_real(db_session, _real_actor(client, new_dealer_id))
+    return platform_reconciliation, Dealership, uuid.UUID(new_dealer_id)
+
+
+_ACTOR_ROW_SEEDS = [
+    _customer_row, _stock_item_row, _valuation_row, _brand_row, _provider_row, _sales_deal_row, _dealership_row,
+]
 
 
 @pytest.mark.parametrize("seed", _ACTOR_ROW_SEEDS, ids=lambda seed: seed.__name__)
@@ -940,6 +975,8 @@ def test_run_all_runs_every_context_and_aggregates_alarms(client, db_session):
     txn_row = db_session.get(Transaction, uuid.UUID(txn["id"]))
     txn_row.vehicle_id = uuid.uuid4()
     db_session.commit()
+    # Platform runs too (KAN-318) and must stay clean, like vehicle.
+    _make_platform_actors_real(db_session, uuid.UUID(user["id"]))
     db_session.expire_all()
 
     with pytest.raises(MultiContextReconciliationAlarm) as exc_info:
