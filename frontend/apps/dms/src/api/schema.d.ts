@@ -5894,11 +5894,17 @@ export interface components {
             locationId?: string | null;
             /** Odometerkm */
             odometerKm?: number | null;
-            /** Vehicleid */
+            /**
+             * Vehicleid
+             * @description Ignored when `vin` is sent: the item's vehicle is then the vehicle-mdm record that VIN resolves to (found, or created). Without a `vin` it is stored as sent.
+             */
             vehicleId?: string | null;
             /** Vehiclelabel */
             vehicleLabel: string;
-            /** Vin */
+            /**
+             * Vin
+             * @description A car with a known VIN, taken straight into stock. Normalised first (upper-cased, all whitespace removed), then validated as vehicle-mdm validates a VIN: 17 characters, uppercase letters and digits, never I, O or Q — otherwise 422. A VIN already in this dealership's stock is 409 `vin_already_in_stock`.
+             */
             vin?: string | null;
         };
         /**

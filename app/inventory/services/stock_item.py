@@ -19,6 +19,7 @@ from app.inventory.models.stock_item import (
     StockNumberSequence,
 )
 from app.inventory.schemas.stock_item import StockItemCreate, StockItemUpdate
+from app.inventory.services.vehicle_resolution import resolve_vehicle_mdm_by_vin
 from app.vehicle.public import CONFIGURATION_MODE_BUILD, CONFIGURATION_MODE_RECORD, get_configuration_for_host
 
 _EVENT_PRODUCER = "inventory"
@@ -231,6 +232,14 @@ def create_stock_item(
         configuration_label = configuration.label
     if data.vin is not None:
         _check_vin_not_in_stock(db, tenant_id=tenant_id, vin=data.vin)
+        # KAN-244 (Anto, option C): the item's vehicle is the one its VIN
+        # resolves to, as on promotion — a client's vehicleId is ignored.
+        # Resolved on vehicle-mdm's own session, before any write of ours, so
+        # its commit (or its rollback on a lost race, KAN-257) never touches
+        # this transaction. A refusal below leaves the vehicle-mdm record in
+        # place: it is the car's global record (FR-V-15), whoever holds it.
+        vehicle = resolve_vehicle_mdm_by_vin(db, vin=data.vin)
+        data = data.model_copy(update={"vehicle_id": vehicle.id, "vin": vehicle.vin})
     try:
         item = _build_and_flush_stock_item(
             db, tenant_id=tenant_id, data=data, actor_id=actor_id, pipeline_ref=None,
