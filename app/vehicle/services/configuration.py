@@ -497,3 +497,81 @@ def _publish(db: Session, config: VehicleConfiguration, event_type: str) -> None
             },
         ),
     )
+
+
+def fill_null_spec_fields_from_variants(db: Session, *, variant_ids: list[uuid.UUID], reason: str) -> int:
+    """KAN-240 (Anto, 2026-10-12): when resolving a mapping gap has filled
+    catalogue variants (`catalogue_sync.fill_variants_for_resolved_code`),
+    every provider configuration built from one of them gets that variant's
+    value in each spec-block or coded field it still holds as `NULL` — the
+    `NULL`s `_copy_spec_block_from_variant` copied before the gap was
+    resolved. Returns how many configurations changed.
+
+    - **Which configurations:** every `source = provider` configuration whose
+      `catalogue_variant_id` is one of `variant_ids`, in every tenant (each
+      row stays in its own tenant; the variant is global, ADR-075). A
+      configuration has no lifecycle state of its own and "stays editable
+      after a host references it" (module docstring); what a host has
+      committed lives in the host's frozen `vehicle_snapshot` (ADR-041), which
+      this never touches. So "open" is every such configuration.
+    - **Which fields:** `_ALL_SPEC_FIELDS` that are `NULL` here and set on the
+      variant. A value already set — the advisor's or the catalogue's — is
+      never overwritten, and a field in `overridden_fields` is skipped even
+      when `NULL`: the advisor cleared it on purpose (FR-C-03).
+    - Each changed configuration's `version` moves once, an audit record is
+      written with no actor (the system) and `reason`, and
+      `configuration.updated` is published, like every other configuration
+      write. Nothing is committed here (the caller's transaction), and
+      vehicle-mdm is never written (ADR-070).
+    """
+
+    if not variant_ids:
+        return 0
+    variants = {
+        variant.id: variant
+        for variant in db.scalars(
+            select(ModelVariant)
+            .where(ModelVariant.id.in_(variant_ids))
+            .execution_options(populate_existing=True)
+        )
+    }
+    configurations = db.scalars(
+        select(VehicleConfiguration)
+        .where(
+            VehicleConfiguration.catalogue_variant_id.in_(variant_ids),
+            VehicleConfiguration.source == ConfigurationSource.PROVIDER,
+        )
+        .order_by(VehicleConfiguration.id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    ).all()
+
+    changed = 0
+    for configuration in configurations:
+        variant = variants[configuration.catalogue_variant_id]  # type: ignore[index]
+        overridden = set(configuration.overridden_fields or [])
+        after: dict[str, Any] = {}
+        for field in _ALL_SPEC_FIELDS:
+            value = getattr(variant, field)
+            if field in overridden or value is None or getattr(configuration, field) is not None:
+                continue
+            setattr(configuration, field, value)
+            after[field] = _audit_value(value)
+        if not after:
+            continue
+        configuration.version += 1
+        db.flush()
+        record_audit_event(
+            db,
+            entity_type=_ENTITY_TYPE,
+            entity_id=configuration.id,
+            tenant_id=configuration.tenant_id,
+            action="catalogue_fill",
+            actor_id=None,
+            before=dict.fromkeys(after),
+            after=after,
+            reason=reason,
+        )
+        _publish(db, configuration, "configuration.updated")
+        changed += 1
+    return changed

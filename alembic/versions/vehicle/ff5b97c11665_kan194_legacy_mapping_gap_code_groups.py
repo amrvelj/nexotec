@@ -45,9 +45,10 @@ from collections.abc import Sequence
 from typing import NamedTuple
 
 import sqlalchemy as sa
-from alembic import op
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.engine import Connection
+
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "ff5b97c11665"

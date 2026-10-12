@@ -472,8 +472,22 @@ def apply_resolved_code_to_variants(
     and each filled variant's version moves exactly once.
     """
 
+    return len(
+        fill_variants_for_resolved_code(
+            db, provider=provider, vehicle_kind=vehicle_kind, code_group=code_group, provider_code=provider_code,
+            value_code=value_code,
+        )
+    )
+
+
+def fill_variants_for_resolved_code(
+    db: Session, *, provider: str, vehicle_kind: str, code_group: str, provider_code: str, value_code: str,
+) -> list[uuid.UUID]:
+    """`apply_resolved_code_to_variants`, returning the ids of the variants
+    it filled — what the configuration heal (KAN-240) starts from."""
+
     if code_group not in _CODED_FIELDS:
-        return 0
+        return []
     field_column = getattr(ModelVariant, code_group)
     blocked = select(VariantProviderCode.model_variant_id).where(
         VariantProviderCode.provider == provider,
@@ -481,14 +495,15 @@ def apply_resolved_code_to_variants(
         VariantProviderCode.code_group == code_group,
         VariantProviderCode.provider_code == provider_code,
     )
-    result = db.execute(
+    filled = db.scalars(
         update(ModelVariant)
         .where(ModelVariant.id.in_(blocked), field_column.is_(None))
         .values({code_group: value_code, "version": ModelVariant.version + 1})
+        .returning(ModelVariant.id)
         .execution_options(synchronize_session="fetch")
-    )
+    ).all()
     db.flush()
-    return result.rowcount  # type: ignore[attr-defined]
+    return list(filled)
 
 
 def apply_resolved_code_to_options(
