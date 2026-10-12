@@ -3,7 +3,7 @@ import { History } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { slate } from '@nexotec/ui-kit'
 import { useAuth } from '../../auth/AuthContext'
-import { formatCurrencyChf, formatDateTime, formatNumber } from '../../utils/format'
+import { formatCurrencyChf, formatDateOnly, formatDateTime, formatNumber } from '../../utils/format'
 import type { AuditEventRead } from '../../api/types'
 
 // Customer-level audit events snapshot snake_case model attributes
@@ -24,7 +24,13 @@ function prettifyKey(key: string): string {
 // (`"12500.00"`), while customer_number, postal codes and IDs are figures that
 // must never be grouped. Formatting is therefore opt-in per field of the
 // customer entity; any other key or entity renders as recorded.
-type FieldKind = 'amountChf' | 'quantity'
+// KAN-180 — dates likewise: `_plain` writes a `date` as `1980-05-01` and a
+// `datetime` as an offset-bearing ISO string, so the kind says which is a
+// calendar day (`date`) and which an instant (`timestamp`).
+type FieldKind = 'amountChf' | 'quantity' | 'date' | 'timestamp'
+
+// A calendar day as the backend's `date.isoformat()` writes it.
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/
 
 function camelKey(key: string): string {
   return key.replace(/_([a-z0-9])/g, (_, c: string) => c.toUpperCase())
@@ -36,14 +42,25 @@ function fieldKind(entityType: string, key: string): FieldKind | null {
   if (k === 'creditLimit') return 'amountChf'
   // The merge event's counts (vehiclePartiesRepointed, tagsDropped, …).
   if (/(Repointed|Dropped)$/.test(k)) return 'quantity'
+  // Customer-level `Date` columns (snake_case in the snapshot).
+  if (k === 'birthDate' || k === 'customerSince' || k === 'nextFollowUp') return 'date'
+  // Contact-channel consent and vehicle-party events write their own
+  // camelCase dicts with `datetime` columns.
+  if (k === 'consentTimestamp' || k === 'effectiveFrom' || k === 'effectiveTo') return 'timestamp'
   return null
 }
 
-function formatValue(entityType: string, key: string, v: unknown, t: (key: string) => string): string {
+function formatValue(entityType: string, key: string, v: unknown, t: (key: string) => string, locale: string): string {
   if (v === null || v === undefined) return '—'
   if (typeof v === 'boolean') return v ? t('common.yes') : t('common.no')
   if (typeof v === 'object') return JSON.stringify(v)
   const kind = fieldKind(entityType, key)
+  // Anything that is not the date the kind promises (a redaction marker,
+  // say) is shown as recorded, as the amount path does.
+  if (kind === 'date') return typeof v === 'string' && DATE_ONLY.test(v) ? formatDateOnly(v, locale) : String(v)
+  if (kind === 'timestamp') {
+    return typeof v === 'string' && !Number.isNaN(new Date(v).getTime()) ? formatDateTime(v, locale) : String(v)
+  }
   if (kind !== null && (typeof v === 'number' || typeof v === 'string') && v !== '' && Number.isFinite(Number(v))) {
     return kind === 'amountChf' ? formatCurrencyChf(Number(v)) : formatNumber(Number(v))
   }
@@ -53,12 +70,15 @@ function formatValue(entityType: string, key: string, v: unknown, t: (key: strin
 // before/after are raw entity snapshots (not a pre-computed diff), per
 // AuditEventRead — only the keys that actually changed are worth showing,
 // per "a human-readable before → after".
+// KAN-180 — a key absent from one side (`undefined`) and null on the other
+// is the same empty field, not a change: a create event's `before` is null,
+// and a field that was never set must not read as `— → —`.
 function diff(before: Record<string, unknown> | null, after: Record<string, unknown> | null) {
   const keys = new Set([...Object.keys(before ?? {}), ...Object.keys(after ?? {})])
   const changes: { key: string; before: unknown; after: unknown }[] = []
   for (const key of keys) {
-    const b = before?.[key]
-    const a = after?.[key]
+    const b = before?.[key] ?? null
+    const a = after?.[key] ?? null
     if (JSON.stringify(b) !== JSON.stringify(a)) changes.push({ key, before: b, after: a })
   }
   return changes
@@ -96,7 +116,7 @@ function HistoryEvent({ event, isYou, locale }: { event: AuditEventRead; isYou: 
                 <Text component="span" fw={500} c={slate[7]}>
                   {prettifyKey(c.key)}
                 </Text>
-                : {formatValue(event.entityType, c.key, c.before, t)} → {formatValue(event.entityType, c.key, c.after, t)}
+                : {formatValue(event.entityType, c.key, c.before, t, locale)} → {formatValue(event.entityType, c.key, c.after, t, locale)}
               </Text>
             ))}
           </Stack>

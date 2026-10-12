@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { formatCurrencyChf, formatDate, formatDateTime, formatNumber } from './format'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { formatCurrencyChf, formatDate, formatDateOnly, formatDateTime, formatNumber } from './format'
 
 // First real test in this workspace — establishes the vitest lane (WP-1,
 // Gap G-14b). Exercises FR-13's fixed Swiss dd.MM.yyyy convention, which is
@@ -17,6 +17,29 @@ describe('formatDate', () => {
 
   it('respects an explicit locale tag', () => {
     expect(formatDate(NOON_UTC, 'en-CH')).toBe('05.03.2026')
+  })
+})
+
+// KAN-180 — a date-only value ('1980-05-01', what the backend's
+// date.isoformat() writes) names a calendar day, not an instant.
+// `new Date('1980-05-01')` is UTC midnight, which formatDate renders as the
+// day before anywhere west of Greenwich.
+describe('formatDateOnly', () => {
+  let tz: string | undefined
+  beforeAll(() => {
+    tz = process.env.TZ
+    process.env.TZ = 'Pacific/Honolulu'
+  })
+  afterAll(() => {
+    if (tz === undefined) delete process.env.TZ
+    else process.env.TZ = tz
+  })
+
+  it('renders the recorded day as dd.MM.yyyy in a zone west of Greenwich', () => {
+    expect(formatDateOnly('1980-05-01')).toBe('01.05.1980')
+    expect(formatDateOnly('1980-05-01', 'fr-CH')).toBe('01.05.1980')
+    // The naive path shifts the day: that is what this helper exists to avoid.
+    expect(formatDate('1980-05-01')).toBe('30.04.1980')
   })
 })
 
