@@ -208,10 +208,8 @@ def test_clearing_a_coded_field_on_a_manual_configuration_is_refused_and_changes
 
 def test_a_manual_configuration_linked_to_a_variant_keeps_its_coded_fields_editable(client, db_session):
     """The lock follows `source`, as the overlay decides it — a manual
-    configuration that carries a catalogue variant (linked over the API) is
-    still the advisor's to change (KAN-246 review)."""
-
-    from app.vehicle.models.configuration import VehicleConfiguration
+    configuration that carries a catalogue variant is still the advisor's to
+    change (KAN-246 review). The variant is set on the row directly here."""
 
     _seed_coded_lists(db_session)
     tenant_id = uuid.uuid4()
@@ -221,6 +219,22 @@ def test_a_manual_configuration_linked_to_a_variant_keeps_its_coded_fields_edita
     db_session.commit()
 
     r = _patch(client, tenant_id, created["id"], created["version"], {"fuelType": "diesel"})
+
+    assert r.status_code == 200, r.text
+    assert _get(client, tenant_id, created["id"])["fuelType"] == "diesel"
+
+
+def test_a_patch_linking_a_manual_configuration_to_a_variant_may_change_a_coded_field_too(client, db_session):
+    """The other half of the old condition: a PATCH that links a variant and
+    changes a coded field in one request is not refused on a manual one."""
+
+    _seed_coded_lists(db_session)
+    tenant_id = uuid.uuid4()
+    created = _manual(client, tenant_id)
+    variant_id = str(_variant(db_session).id)
+
+    r = _patch(client, tenant_id, created["id"], created["version"],
+               {"catalogueVariantId": variant_id, "fuelType": "diesel"})
 
     assert r.status_code == 200, r.text
     assert _get(client, tenant_id, created["id"])["fuelType"] == "diesel"

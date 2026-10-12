@@ -38,8 +38,9 @@ export interface paths {
          *     dealership plus `dealership_membership`, the rule `_mint_session`
          *     authorises a switch with — never from the token's `memberships` claim,
          *     which goes stale the moment a membership is granted or revoked. The
-         *     switcher offers exactly what this lists, so it never offers a
-         *     dealership the switch would refuse.
+         *     switcher offers what this lists, so it never offers a dealership the
+         *     switch would refuse; a session still acting in a dealership this no
+         *     longer lists sees that one as its current, disabled entry (KAN-237).
          */
         get: operations["get_current_session_user_v1_auth_me_get"];
         put?: never;

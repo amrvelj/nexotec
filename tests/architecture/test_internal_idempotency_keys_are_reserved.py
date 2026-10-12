@@ -40,6 +40,16 @@ _NOT_A_CONTEXT = {"core", "api"}
 _KEY_KEYWORD_ON = {"find_cached_response": "key", "store_response": "key"}
 
 
+def _names_bound_without_a_target(node: ast.AST) -> set[str]:
+    """Names an `except … as`, an `import … as` or a match capture binds."""
+
+    if isinstance(node, (ast.ExceptHandler, ast.MatchAs, ast.MatchStar)) and node.name:
+        return {node.name}
+    if isinstance(node, (ast.Import, ast.ImportFrom)):
+        return {alias.asname or alias.name.split(".")[0] for alias in node.names}
+    return set()
+
+
 def _handed_through(function: ast.AST | None, name: str) -> bool:
     """`name` is a parameter of the enclosing function that the function never
     rebinds — so the key is the caller's, checked where the caller builds it."""
@@ -58,8 +68,11 @@ def _handed_through(function: ast.AST | None, name: str) -> bool:
             targets = [node.target]
         elif isinstance(node, (ast.With, ast.AsyncWith)):
             targets = [item.optional_vars for item in node.items if item.optional_vars is not None]
-        # A tuple or list target (`idempotency_key, x = …`) binds every name in it.
-        bound = {n.id for t in targets for n in ast.walk(t) if isinstance(n, ast.Name)}
+        if name in _names_bound_without_a_target(node):
+            return False
+        # A tuple or list target (`idempotency_key, x = …`) binds each name it stores to;
+        # a subscript or attribute target (`d[idempotency_key] = …`) binds none of them.
+        bound = {n.id for t in targets for n in ast.walk(t) if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Store)}
         if name in bound:
             return False
     return True
@@ -192,7 +205,16 @@ def test_a_rebound_or_local_idempotency_key_is_not_taken_as_forwarded():
     unpacked = first_call("def f(idempotency_key):\n    idempotency_key, y = 'x', 1\n    release(idempotency_key=idempotency_key)\n")
     looped = first_call("def f(idempotency_key):\n    for idempotency_key in ('x',):\n        release(idempotency_key=idempotency_key)\n")
     withed = first_call("def f(idempotency_key):\n    with g() as idempotency_key:\n        release(idempotency_key=idempotency_key)\n")
+    excepted = first_call(
+        "def f(idempotency_key):\n    try:\n        pass\n    except E as idempotency_key:\n        pass\n"
+        "    release(idempotency_key=idempotency_key)\n"
+    )
+    imported = first_call("def f(idempotency_key):\n    import k as idempotency_key\n    release(idempotency_key=idempotency_key)\n")
+    subscripted = first_call("def f(idempotency_key):\n    d[idempotency_key] = 1\n    release(idempotency_key=idempotency_key)\n")
     passed = first_call("def f(*, idempotency_key):\n    release(idempotency_key=idempotency_key)\n")
-    cases = ((local, False), (rebound, False), (unpacked, False), (looped, False), (withed, False), (passed, True))
+    cases = (
+        (local, False), (rebound, False), (unpacked, False), (looped, False), (withed, False),
+        (excepted, False), (imported, False), (subscripted, True), (passed, True),
+    )
     for (call, function), expected in cases:
         assert _forwarded(here, call.keywords[0].value, function) is expected
