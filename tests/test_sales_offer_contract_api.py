@@ -86,14 +86,14 @@ def test_cancel_offer(client):
 
 def test_a_contract_with_neither_an_offer_nor_a_customer_is_refused(client, db_session):
     """KAN-276 (Anto, 2026-10-11: "no empty contracts"): a contract is created
-    from an offer or for a customer, never from nothing."""
+    from an offer, for a customer or (KAN-307) for a car, never from nothing."""
 
     token = _token(role=AccessRole.SALES)
 
-    for body in ({}, {"offerId": None, "customerId": None}):
+    for body in ({}, {"offerId": None, "customerId": None, "stockItemId": None}):
         response = client.post("/v1/sales/contracts", json=body, headers=_bearer(token))
         assert response.status_code == 422, response.text
-        assert "offerId or customerId" in response.text
+        assert "offerId, customerId or stockItemId" in response.text
 
     assert db_session.query(SalesContract).count() == 0
 
@@ -325,3 +325,55 @@ def test_an_offer_has_one_live_contract_until_that_one_is_cancelled(client):
     assert cancelled.status_code == 200, cancelled.text
     again = client.post("/v1/sales/contracts", json={"offerId": offer["id"]}, headers=_bearer(token))
     assert again.status_code == 201, again.text
+
+
+# --- KAN-307: POST /sales/contracts { stockItemId } — "Vertrag erstellen" on a
+# stock car starts the contract with that car, like "Offerte erstellen". ------
+
+
+def test_create_contract_for_a_stock_car(client, db_session):
+    from tests.test_sales_lifecycle_reservation import _dealership
+    from tests.test_sales_offer_refinements import _stock_item
+
+    tenant_id = _dealership(db_session).id
+    item = _stock_item(db_session, tenant_id)
+    token = _token(role=AccessRole.SALES, tenant_id=tenant_id)
+
+    created = client.post(
+        "/v1/sales/contracts",
+        json={"stockItemId": str(item.id), "vehicleLabel": item.vehicle_label},
+        headers=_bearer(token),
+    )
+
+    assert created.status_code == 201, created.text
+    body = created.json()
+    assert (body["status"], body["customerId"], body["offerId"]) == ("pending", None, None)
+    assert (body["vehicleSource"], body["stockItemId"], body["vehicleLabel"]) == ("stock", str(item.id), item.vehicle_label)
+    # Priced through the contract's own Path A edit, as its PATCH would.
+    assert body["grossPrice"] is not None
+    vehicle = next(c for c in body["containers"] if c["id"] == "vehicle")
+    assert vehicle["status"] == "complete"
+
+
+def test_a_contract_for_an_unknown_stock_car_is_404_and_leaves_no_contract(client, db_session):
+    token = _token(role=AccessRole.SALES)
+
+    response = client.post(
+        "/v1/sales/contracts", json={"stockItemId": str(uuid.uuid4())}, headers=_bearer(token)
+    )
+
+    assert response.status_code == 404, response.text
+    assert db_session.query(SalesContract).count() == 0
+
+
+def test_a_stock_car_cannot_be_combined_with_an_offer_or_a_customer(client, db_session):
+    token = _token(role=AccessRole.SALES)
+    car = str(uuid.uuid4())
+
+    for other in ({"offerId": str(uuid.uuid4())}, {"customerId": str(uuid.uuid4())}):
+        response = client.post("/v1/sales/contracts", json={"stockItemId": car, **other}, headers=_bearer(token))
+        assert response.status_code == 422, response.text
+    label_alone = client.post("/v1/sales/contracts", json={"customerId": car, "vehicleLabel": "Golf"}, headers=_bearer(token))
+    assert label_alone.status_code == 422, label_alone.text
+
+    assert db_session.query(SalesContract).count() == 0

@@ -55,10 +55,15 @@ against the code). "Open" lines cite a ticket; /drift-audit re-checks them weekl
   A legacy trade-in whose customer is not VAT-registered and not `vatStatusConfirmed` is held
   (`supplier_vat_status_unconfirmed`, nothing written), and so is every later row for the same
   car (`held_behind_unconfirmed_trade_in`) — Anto, 2026-10-11, KAN-295.
-- **No empty contracts** (Anto, 2026-10-11, KAN-276): `POST /sales/contracts` needs `offerId`
-  or `customerId` (`ContractCreate` refuses neither, 422). A contract from an offer with no
-  customer can still be confirmed — signing without a buyer was not ruled out (KAN-276
-  option 1 not chosen).
+- **No empty contracts** (Anto, 2026-10-11, KAN-276): `POST /sales/contracts` needs exactly one
+  of `offerId`, `customerId` or `stockItemId` (`ContractCreate` refuses none or two, 422). A
+  contract from an offer with no customer can still be confirmed — signing without a buyer was
+  not ruled out (KAN-276 option 1 not chosen).
+- **A contract can start from a car** (Anto, 2026-10-12, KAN-307: "the same as offer
+  generation"): `stockItemId` (with the optional display `vehicleLabel`) creates a pending
+  contract with that car through the contract's own Path A edit, in the creating transaction;
+  the buyer is picked inside the contract. The stock detail's "Vertrag erstellen" uses it,
+  and "Offerte erstellen" creates an offer and sets the same car (POST, then PATCH).
 - **One live contract per offer** (KAN-147): `create_contract` refuses an offer that already
   has a non-cancelled contract (409 `offer_already_contracted`, with its `contractNumber`),
   under the offer's row lock; a cancelled contract frees the offer. That refusal is what keeps

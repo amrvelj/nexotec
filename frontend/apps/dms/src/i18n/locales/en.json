@@ -796,7 +796,6 @@
     "actions": {
       "createOffer": "Create offer",
       "createContract": "Create contract",
-      "salesNotYetBuilt": "Sales is not available yet.",
       "leftStock": "This vehicle left stock on {{date}} (sold)."
     },
     "spec": {
@@ -818,7 +817,9 @@
     },
     "errors": {
       "failedToLoad": "Failed to load",
-      "somethingWentWrong": "Something went wrong."
+      "somethingWentWrong": "Something went wrong.",
+      "createOfferFailed": "The offer could not be created. Please try again.",
+      "createContractFailed": "The contract could not be created. Please try again."
     },
     "purchase": {
       "title": "Purchase",

@@ -3383,6 +3383,10 @@ export interface components {
             customerId?: string | null;
             /** Offerid */
             offerId?: string | null;
+            /** Stockitemid */
+            stockItemId?: string | null;
+            /** Vehiclelabel */
+            vehicleLabel?: string | null;
         };
         /** ContractPage */
         ContractPage: {

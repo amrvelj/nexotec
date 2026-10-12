@@ -71,6 +71,8 @@ def create_contract(
         actor_id=principal.user_id,
         customer_id=body.customer_id,
         group_id=principal.group_id,
+        stock_item_id=body.stock_item_id,
+        vehicle_label=body.vehicle_label,
     )
     return _contract_read(contract)
 

@@ -796,7 +796,6 @@
     "actions": {
       "createOffer": "Offerte erstellen",
       "createContract": "Vertrag erstellen",
-      "salesNotYetBuilt": "Verkauf ist noch nicht verfügbar.",
       "leftStock": "Dieses Fahrzeug hat den Bestand am {{date}} verlassen (verkauft)."
     },
     "spec": {
@@ -818,7 +817,9 @@
     },
     "errors": {
       "failedToLoad": "Laden fehlgeschlagen",
-      "somethingWentWrong": "Etwas ist schiefgelaufen."
+      "somethingWentWrong": "Etwas ist schiefgelaufen.",
+      "createOfferFailed": "Die Offerte konnte nicht angelegt werden. Bitte erneut versuchen.",
+      "createContractFailed": "Der Vertrag konnte nicht angelegt werden. Bitte erneut versuchen."
     },
     "purchase": {
       "title": "Einkauf",

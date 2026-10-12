@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useParams, useSearchParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, Loader } from '@mantine/core'
 import { FileSignature, Handshake, Warehouse } from 'lucide-react'
@@ -12,7 +12,7 @@ import { DetailsTab } from '../components/stock-detail/DetailsTab'
 import { EvaluationTab } from '../components/stock-detail/EvaluationTab'
 import { PublishingTab } from '../components/stock-detail/PublishingTab'
 import { WagenbuchTab } from '../components/stock-detail/WagenbuchTab'
-import type { LedgerCategory, LedgerEntryPage, StockItemRead } from '../api/types'
+import type { LedgerCategory, LedgerEntryPage, SalesContractRead, SalesOfferRead, StockItemRead } from '../api/types'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { formatDate } from '../utils/format'
 
@@ -39,8 +39,12 @@ export interface StockDetailContentProps {
  * FR-I-07 Stock item detail — the same DetailHeader/DetailTabs shell every
  * other 360 screen uses. ADR-061: primary = "Vertrag erstellen" (Contract),
  * alternative = "Offerte erstellen" (Offer) — confirmed against the live
- * reference prototype. Both are disabled-with-reason for now: Sales (WP-8)
- * doesn't exist yet, so there is genuinely nowhere for either action to go.
+ * reference prototype. KAN-307 (Anto, 2026-10-12: contract generation is
+ * "the same as offer generation"): both start a deal for this car and open
+ * it; the buyer is picked there. The offer is POST then PATCH (the same
+ * Path A choice the offer workspace's vehicle picker makes); the contract
+ * takes the car in its POST (`stockItemId`), since a contract is never
+ * created empty (KAN-276).
  *
  * KAN-262 — a car that has left stock (`leftStockAt`, FR-I-12) keeps
  * `lifecycleStatus: in_stock` (ADR-054: `sold` is not a lifecycle value),
@@ -109,6 +113,54 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
   // after a successful one.
   const purchaseKey = useIdempotencyKey()
   const costKey = useIdempotencyKey()
+  const offerCreateKey = useIdempotencyKey()
+  const contractCreateKey = useIdempotencyKey()
+  const navigate = useNavigate()
+  const [creating, setCreating] = useState<'offer' | 'contract' | null>(null)
+  const [createError, setCreateError] = useState<string | null>(null)
+
+  // KAN-307 — "Offerte erstellen": a bare offer, then the same PATCH the
+  // workspace's stock picker sends. A retry after a failed POST replays the
+  // offer the first POST created (the key), so no second offer appears.
+  const createOfferForCar = async () => {
+    const item = itemQuery.data
+    if (!item) return
+    setCreating('offer')
+    setCreateError(null)
+    try {
+      const created = await api.post<SalesOfferRead>('/sales/offers', undefined, offerCreateKey.headers([id]))
+      const updated = await api.patch<SalesOfferRead>(
+        `/sales/offers/${created.id}`,
+        { vehicleSource: 'stock', stockItemId: id, vehicleLabel: item.vehicleLabel },
+        { 'If-Match': String(created.version) }
+      )
+      offerCreateKey.renew()
+      navigate(`/sales/offers/${updated.id}`)
+    } catch (err) {
+      // ADR-035: said, not dropped; the retry carries the key.
+      setCreateError(err instanceof ApiError ? err.message : t('stockDetail.errors.createOfferFailed'))
+    } finally {
+      setCreating(null)
+    }
+  }
+
+  // KAN-307 — "Vertrag erstellen": one POST that carries the car.
+  const createContractForCar = async () => {
+    const item = itemQuery.data
+    if (!item) return
+    setCreating('contract')
+    setCreateError(null)
+    try {
+      const body = { stockItemId: id, vehicleLabel: item.vehicleLabel }
+      const created = await api.post<SalesContractRead>('/sales/contracts', body, contractCreateKey.headers(body))
+      contractCreateKey.renew()
+      navigate(`/sales/contracts/${created.id}`)
+    } catch (err) {
+      setCreateError(err instanceof ApiError ? err.message : t('stockDetail.errors.createContractFailed'))
+    } finally {
+      setCreating(null)
+    }
+  }
 
   const recordPurchase = async (data: {
     supplierName: string
@@ -154,9 +206,8 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
 
   const item = itemQuery.data
   const leftStockDate = item.leftStockAt ? formatDate(item.leftStockAt, locale) : null
-  const notYetAvailableReason = leftStockDate
-    ? t('stockDetail.actions.leftStock', { date: leftStockDate })
-    : t('stockDetail.actions.salesNotYetBuilt')
+  // KAN-262 — a car that has left stock can start neither, and says why.
+  const leftStockReason = leftStockDate ? t('stockDetail.actions.leftStock', { date: leftStockDate }) : undefined
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -183,18 +234,24 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
         alternativeAction={{
           label: t('stockDetail.actions.createOffer'),
           icon: <Handshake size={16} />,
-          onClick: () => {},
-          disabled: true,
-          disabledReason: notYetAvailableReason,
+          onClick: () => void createOfferForCar(),
+          disabled: Boolean(leftStockReason) || creating !== null,
+          disabledReason: leftStockReason,
         }}
         primaryAction={{
           label: t('stockDetail.actions.createContract'),
           icon: <FileSignature size={16} />,
-          onClick: () => {},
-          disabled: true,
-          disabledReason: notYetAvailableReason,
+          onClick: () => void createContractForCar(),
+          disabled: Boolean(leftStockReason) || creating !== null,
+          disabledReason: leftStockReason,
         }}
       />
+
+      {createError && (
+        <Alert color="red" withCloseButton onClose={() => setCreateError(null)}>
+          {createError}
+        </Alert>
+      )}
 
       <DetailTabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
 

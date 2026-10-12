@@ -75,7 +75,6 @@ describe('StockDetailPage — a car that has left stock (KAN-262)', () => {
 
     await user.hover(contract.parentElement as HTMLElement)
     expect(await screen.findByText(new RegExp(LEFT_STOCK.de.reason))).toBeInTheDocument()
-    expect(screen.queryByText(i18n.t('stockDetail.actions.salesNotYetBuilt'))).not.toBeInTheDocument()
   })
 
   it('a car still in stock keeps its lifecycle and reservation badges', async () => {

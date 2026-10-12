@@ -796,7 +796,6 @@
     "actions": {
       "createOffer": "Crea offerta",
       "createContract": "Crea contratto",
-      "salesNotYetBuilt": "Il modulo Vendite non è ancora disponibile.",
       "leftStock": "Questo veicolo è uscito dallo stock il {{date}} (venduto)."
     },
     "spec": {
@@ -818,7 +817,9 @@
     },
     "errors": {
       "failedToLoad": "Caricamento non riuscito",
-      "somethingWentWrong": "Qualcosa è andato storto."
+      "somethingWentWrong": "Qualcosa è andato storto.",
+      "createOfferFailed": "Non è stato possibile creare l’offerta. Riprovare.",
+      "createContractFailed": "Non è stato possibile creare il contratto. Riprovare."
     },
     "purchase": {
       "title": "Acquisto",

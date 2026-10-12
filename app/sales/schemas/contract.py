@@ -13,28 +13,44 @@ from app.sales.schemas.offer import OfferContainerState
 
 
 class ContractCreate(CamelModel):
-    # Exactly one of offer_id and customer_id (KAN-276, Anto 2026-10-11: "no
-    # empty contracts"). A contract with neither had no buyer, no vehicle and
-    # no price, and could still be completed and signed (KAN-67).
+    # Exactly one of offer_id, customer_id and stock_item_id (KAN-276, Anto
+    # 2026-10-11: "no empty contracts"; KAN-307, Anto 2026-10-12: a contract
+    # can start from a car like an offer does). A contract with none had no
+    # buyer, no vehicle and no price, and could still be completed and
+    # signed (KAN-67).
     offer_id: uuid.UUID | None = None
     # KAN-58 — the customer→contract entry point (FR-22 "New contract" on
     # the customer row menu / 360 overflow / offers-and-contracts tab). An
     # offer already carries its own customer, so this and offer_id are
     # mutually exclusive — see the validator below.
     customer_id: uuid.UUID | None = None
+    # KAN-307 — "Vertrag erstellen" on a stock car: the contract starts with
+    # that car (FR-S-05 Path A, priced as the contract's own PATCH prices
+    # it) and the buyer is picked inside the contract, as on an offer.
+    # `vehicle_label` is the display label the offer workspace sends with
+    # the same Path A choice; allowed only with stock_item_id.
+    stock_item_id: uuid.UUID | None = None
+    vehicle_label: str | None = Field(default=None, max_length=200)
 
     @model_validator(mode="after")
-    def _offer_xor_customer(self) -> "ContractCreate":
+    def _exactly_one_source(self) -> "ContractCreate":
+        sources = [s for s in (self.offer_id, self.customer_id, self.stock_item_id) if s is not None]
         if self.offer_id is not None and self.customer_id is not None:
             raise ValueError(
                 "offerId and customerId cannot both be set — a contract born from an offer already has that "
                 "offer's customer."
             )
-        if self.offer_id is None and self.customer_id is None:
+        if len(sources) > 1:
             raise ValueError(
-                "A contract needs offerId or customerId — it is created from an offer or for a customer, never "
-                "from nothing."
+                "stockItemId cannot be combined with offerId or customerId — a contract starts from one of the three."
             )
+        if not sources:
+            raise ValueError(
+                "A contract needs offerId, customerId or stockItemId — it is created from an offer, for a customer "
+                "or for a car, never from nothing."
+            )
+        if self.vehicle_label is not None and self.stock_item_id is None:
+            raise ValueError("vehicleLabel is only accepted with stockItemId.")
         return self
 
 

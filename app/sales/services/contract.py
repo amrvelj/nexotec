@@ -68,6 +68,8 @@ def create_contract(
     actor_id: uuid.UUID | None,
     customer_id: uuid.UUID | None = None,
     group_id: uuid.UUID | None = None,
+    stock_item_id: uuid.UUID | None = None,
+    vehicle_label: str | None = None,
 ) -> SalesContract:
     """`offer=None, customer_id=None` — a contract with neither — is refused
     at the API since KAN-276 (Anto, 2026-10-11: "no empty contracts";
@@ -88,6 +90,13 @@ def create_contract(
     offers); a credit block and D-20's missing-address gate stay
     confirm-time-only refusals (KAN-55), because creating, like quoting,
     commits nobody.
+
+    `stock_item_id` set (KAN-307, Anto 2026-10-12) is "Vertrag erstellen"
+    on a stock car: the contract starts with that car, applied through the
+    same Path A edit as the contract's own PATCH (`deal_editing`), in this
+    transaction, so a car that cannot be read (404) leaves no contract
+    behind. The buyer is picked inside the contract, as on an offer.
+    Mutually exclusive with `offer` and `customer_id` (`ContractCreate`).
     """
 
     customer = None
@@ -199,6 +208,14 @@ def create_contract(
     db.flush()
     if offer is not None:
         _copy_line_items(db, offer=offer, contract=contract)
+    if stock_item_id is not None:
+        apply_vehicle_and_pricing_changes(
+            db,
+            deal=contract,
+            changes={"vehicle_source": "stock", "stock_item_id": stock_item_id, "vehicle_label": vehicle_label},
+            actor_id=actor_id,
+            host="contract",
+        )
 
     publish(
         db,
