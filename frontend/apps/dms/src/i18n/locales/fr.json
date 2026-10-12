@@ -1164,6 +1164,13 @@
       "suppressedReasonHint": "Une remise par ligne est bloquée par défaut sur les véhicules d’occasion — un motif lève le blocage.",
       "error": "La modification n’a pas pu être enregistrée.",
       "noPackagesCapability": "Affichées en liste simple — le regroupement par forfaits n'est pas disponible pour ce garage."
+    },
+    "errors": {
+      "saveRefused": {
+        "staleVersion": "L'offre a été modifiée entre-temps. La version actuelle est chargée – veuillez refaire votre modification.",
+        "generic": "La modification n'a pas pu être enregistrée.",
+        "dismiss": "Fermer le message"
+      }
     }
   },
   "salesDocuments": {

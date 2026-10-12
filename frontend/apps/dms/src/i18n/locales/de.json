@@ -1164,6 +1164,13 @@
       "suppressedReasonHint": "Bei Gebrauchtfahrzeugen ist ein Zeilenrabatt standardmässig gesperrt — eine Begründung hebt die Sperre auf.",
       "error": "Änderung konnte nicht gespeichert werden.",
       "noPackagesCapability": "Als flache Liste angezeigt — die Paketgruppierung ist für diesen Betrieb nicht verfügbar."
+    },
+    "errors": {
+      "saveRefused": {
+        "staleVersion": "Die Offerte wurde inzwischen geändert. Die aktuelle Fassung ist geladen – bitte die Änderung erneut vornehmen.",
+        "generic": "Die Änderung konnte nicht gespeichert werden.",
+        "dismiss": "Meldung schliessen"
+      }
     }
   },
   "salesDocuments": {

@@ -5,6 +5,7 @@ import { Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { api, ApiError } from '../api/client'
 import { formatCurrencyChf } from '../utils/format'
+import type { DealSaveQueue } from '../hooks/useDealSaveQueue'
 import type {
   CapabilityCheckRead,
   SalesDealOwnerType,
@@ -18,9 +19,8 @@ export interface OfferAccessoriesAndOptionsProps<D extends SalesPricedDealRead> 
    * route (`/sales/offers/…` or `/sales/contracts/…`), same request body. */
   ownerType: SalesDealOwnerType
   deal: D
-  onDealUpdated: (deal: D) => void
-  /** KAN-288 — the host's save tracker (see DealContainerProps.trackSave). */
-  trackSave?: <T>(work: Promise<T>) => Promise<T>
+  /** KAN-314 — the host's save queue (see DealContainerProps.save). */
+  save: DealSaveQueue<D>['save']
 }
 
 /**
@@ -42,8 +42,7 @@ export interface OfferAccessoriesAndOptionsProps<D extends SalesPricedDealRead> 
 export function OfferAccessoriesAndOptions<D extends SalesPricedDealRead>({
   ownerType,
   deal,
-  onDealUpdated,
-  trackSave = (work) => work,
+  save,
 }: OfferAccessoriesAndOptionsProps<D>) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -79,14 +78,26 @@ export function OfferAccessoriesAndOptions<D extends SalesPricedDealRead>({
   const factoryOptions = items.filter((i) => i.kind === 'factory_option')
   const accessories = items.filter((i) => i.kind === 'accessory')
 
-  const submit = async (body: {
-    accessories: Array<Record<string, unknown>>
-    factoryOptions?: Array<Record<string, unknown>>
-  }) => {
+  const submit = async (
+    build: (lines: SalesLineItemRead[]) => {
+      accessories: Array<Record<string, unknown>>
+      factoryOptions?: Array<Record<string, unknown>>
+    }
+  ) => {
     setError(null)
     try {
-      const updated = await trackSave(api.put<D>(lineItemsPath, body, { 'If-Match': String(deal.version) }))
-      onDealUpdated(updated)
+      await save(async (current) => {
+        // KAN-314 — the body is built from the lines as the server holds
+        // them when this save is sent, not as the render that queued it
+        // showed them. Accessories are a full replace: a save queued
+        // behind another line-item save would otherwise resend a list
+        // without the line the first one just added.
+        const lines = await queryClient.fetchQuery({
+          queryKey: lineItemsKey,
+          queryFn: () => api.get<SalesLineItemPage>(lineItemsPath),
+        })
+        return api.put<D>(lineItemsPath, build(lines.items), { 'If-Match': String(current.version) })
+      })
       await queryClient.invalidateQueries({ queryKey: lineItemsKey })
     } catch (err) {
       // KAN-67 — a contract that is no longer editable is said in the
@@ -102,7 +113,7 @@ export function OfferAccessoriesAndOptions<D extends SalesPricedDealRead>({
         setError(
           ownerType === 'contract'
             ? t('contractDetail.errors.editRefused.staleVersion')
-            : err.message
+            : t('offerWorkspace.errors.saveRefused.staleVersion')
         )
       } else if (details?.reason === 'contract_not_pending') setError(t('contractDetail.errors.editRefused.notPending'))
       else if (details?.reason === 'contract_priced_without_inputs') setError(t('contractDetail.edit.pricedWithoutInputs'))
@@ -122,34 +133,32 @@ export function OfferAccessoriesAndOptions<D extends SalesPricedDealRead>({
       discountSuppressedReason: r.discountSuppressedReason,
     }))
 
+  const accessoriesOf = (lines: SalesLineItemRead[]) => lines.filter((i) => i.kind === 'accessory')
+
   const toggleOption = (option: SalesLineItemRead, included: boolean) => {
-    void submit({
-      accessories: accessoryPayload(accessories),
+    void submit((lines) => ({
+      accessories: accessoryPayload(accessoriesOf(lines)),
       factoryOptions: [{ id: option.id, included }],
-    })
+    }))
   }
 
   const removeAccessory = (id: string) => {
-    void submit({ accessories: accessoryPayload(accessories.filter((a) => a.id !== id)) })
+    void submit((lines) => ({ accessories: accessoryPayload(accessoriesOf(lines).filter((a) => a.id !== id)) }))
   }
 
   const addAccessory = () => {
     if (!newLabel || newPrice === '') return
     const wantsDiscount = newDiscount !== '' && Number(newDiscount) > 0
-    void submit({
-      accessories: [
-        ...accessoryPayload(accessories),
-        {
-          code: newCode || newLabel.slice(0, 16).toUpperCase(),
-          label: newLabel,
-          unitPrice: String(newPrice),
-          quantity: Number(newQuantity || 1),
-          discountType: wantsDiscount ? 'amount' : null,
-          discountValue: wantsDiscount ? String(newDiscount) : null,
-          discountSuppressedReason: wantsDiscount && isUsed ? newReason || null : null,
-        },
-      ],
-    }).then(() => {
+    const newLine = {
+      code: newCode || newLabel.slice(0, 16).toUpperCase(),
+      label: newLabel,
+      unitPrice: String(newPrice),
+      quantity: Number(newQuantity || 1),
+      discountType: wantsDiscount ? 'amount' : null,
+      discountValue: wantsDiscount ? String(newDiscount) : null,
+      discountSuppressedReason: wantsDiscount && isUsed ? newReason || null : null,
+    }
+    void submit((lines) => ({ accessories: [...accessoryPayload(accessoriesOf(lines)), newLine] })).then(() => {
       setNewCode('')
       setNewLabel('')
       setNewPrice('')

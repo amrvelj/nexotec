@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, Group, Loader, Stack, Text, Title } from '@mantine/core'
@@ -25,6 +25,7 @@ import { SalesDocumentsSection } from '../components/SalesDocumentsSection'
 import { CustomerDetailContent } from './CustomerDetailPage'
 import { StockDetailContent } from './StockDetailPage'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
+import { useDealSaveQueue } from '../hooks/useDealSaveQueue'
 import { ValuationSourceMarker } from '../components/ValuationSourceMarker'
 import { translatedSalesDealStatusLabel } from '../salesOptions'
 import { formatCurrencyChf } from '../utils/format'
@@ -76,7 +77,6 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
   // and drop the typed one (the edit section unmounts on confirm), so the
   // primary action waits for both.
   const [pricingUnsaved, setPricingUnsaved] = useState(false)
-  const [savesInFlight, setSavesInFlight] = useState(0)
   const overlay = useOverlay()
 
   const contractQuery = useQuery({
@@ -99,15 +99,19 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
   // refuses that confirmation; the button says so first).
   const buyer = useDealCustomer(contractQuery.data?.customerId).data ?? null
 
-  // The configurator overlay calls `patchContract` from a closure; reading
-  // the contract through a ref keeps its If-Match current (same reason as
-  // the offer workspace's own latestOffer ref).
-  const latestContract = useRef<SalesContractRead | undefined>(undefined)
-  latestContract.current = contractQuery.data
-  const onContractUpdated = (updated: SalesContractRead) => {
-    setEditError(null)
-    queryClient.setQueryData(['sales-contract', id], updated)
-  }
+  // KAN-288 / KAN-314 — every save (autosave PATCH, line items, trade-in)
+  // runs through one queue: one after the other, each with the version the
+  // previous one returned (the server locks the contract row on each), and
+  // Confirm waits while any is queued or on its way. The queue reads the
+  // contract from the query cache when a save is sent, so the configurator
+  // overlay's closure sends the current version too.
+  const saves = useDealSaveQueue<SalesContractRead>(
+    () => queryClient.getQueryData<SalesContractRead>(['sales-contract', id]),
+    (updated) => {
+      setEditError(null)
+      queryClient.setQueryData(['sales-contract', id], updated)
+    }
+  )
 
   // A refused edit is said in the user's language, keyed off the 409's
   // shape (never the backend's English message), and the page refetches so
@@ -122,25 +126,11 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
     return t('contractDetail.errors.editRefused.generic')
   }
 
-  // KAN-288 — every save (autosave PATCH, line items, trade-in) runs
-  // through here, so Confirm waits for whichever is still on its way.
-  const trackSave = async <T,>(work: Promise<T>): Promise<T> => {
-    setSavesInFlight((n) => n + 1)
-    try {
-      return await work
-    } finally {
-      setSavesInFlight((n) => n - 1)
-    }
-  }
-
   const patchContract = async (patch: Record<string, unknown>) => {
-    const contract = latestContract.current
-    if (!contract) return
     try {
-      const updated = await trackSave(
-        api.patch<SalesContractRead>(`/sales/contracts/${id}`, patch, { 'If-Match': String(contract.version) })
+      await saves.save((current) =>
+        api.patch<SalesContractRead>(`/sales/contracts/${id}`, patch, { 'If-Match': String(current.version) })
       )
-      onContractUpdated(updated)
     } catch (err) {
       setEditError(editRefusalMessage(err))
       void contractQuery.refetch()
@@ -194,7 +184,7 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
 
   const confirm = async () => {
     const contract = contractQuery.data
-    if (!contract || pricingUnsaved || savesInFlight > 0) return
+    if (!contract || pricingUnsaved || saves.pending > 0) return
     setConfirmError(null)
     try {
       const path = `/sales/contracts/${id}/confirm`
@@ -273,7 +263,7 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
   // contract_priced_without_inputs) — say so instead of offering editors;
   // only its buyer can still be picked, when it has none (KAN-315).
   const pricedWithoutInputs = contract.vehicleSnapshotFrozenAt == null && contract.grossPrice != null
-  const isSaving = pricingUnsaved || savesInFlight > 0
+  const isSaving = pricingUnsaved || saves.pending > 0
   const confirmDisabledReason = !isPending
     ? t('contractDetail.actions.confirmDisabledReason')
     : hasNoBuyer
@@ -289,10 +279,8 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
   const containerProps = {
     ownerType: 'contract' as const,
     deal: contract,
-    getDeal: () => latestContract.current,
     patch: patchContract,
-    onDealUpdated: onContractUpdated,
-    trackSave,
+    save: saves.save,
   }
   // ADR-059 — the buyer's and the stock record open over the contract, never
   // instead of it.

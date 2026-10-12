@@ -1164,6 +1164,13 @@
       "suppressedReasonHint": "A per-line discount is suppressed by default on used vehicles — a reason overrides the suppression.",
       "error": "The change could not be saved.",
       "noPackagesCapability": "Shown as a flat list — package grouping is not available for this dealership."
+    },
+    "errors": {
+      "saveRefused": {
+        "staleVersion": "The offer was changed in the meantime. The current version is loaded – please make your change again.",
+        "generic": "The change could not be saved.",
+        "dismiss": "Dismiss message"
+      }
     }
   },
   "salesDocuments": {
