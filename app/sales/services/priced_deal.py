@@ -66,11 +66,7 @@ def require_editable(deal: PricedDeal) -> None:
     (contract_completeness.is_priced_without_inputs)."""
 
     if isinstance(deal, SalesContract):
-        if deal.status != ContractStatus.PENDING:
-            raise ConflictError(
-                f"Contract {deal.contract_number} can no longer be edited (status '{deal.status.value}').",
-                details={"reason": "contract_not_pending", "status": deal.status.value},
-            )
+        require_pending(deal)
         if is_priced_without_inputs(deal):
             # Rebuilding its price would start from nothing (no snapshot, no
             # lines) and rewrite a figure the customer may already have
@@ -83,6 +79,18 @@ def require_editable(deal: PricedDeal) -> None:
         return
     if deal.status != OfferStatus.DRAFT:
         raise ConflictError(f"Offer {deal.offer_number} can no longer be edited (status '{deal.status.value}').")
+
+
+def require_pending(contract: SalesContract) -> None:
+    """The half of `require_editable` that holds for every contract write,
+    including the one write a contract priced without inputs still takes —
+    being given a buyer (KAN-315)."""
+
+    if contract.status != ContractStatus.PENDING:
+        raise ConflictError(
+            f"Contract {contract.contract_number} can no longer be edited (status '{contract.status.value}').",
+            details={"reason": "contract_not_pending", "status": contract.status.value},
+        )
 
 
 def line_item_owner(deal: PricedDeal) -> dict[str, uuid.UUID]:

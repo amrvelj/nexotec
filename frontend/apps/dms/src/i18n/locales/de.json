@@ -1059,7 +1059,8 @@
     "edit": {
       "title": "Vertrag vervollständigen",
       "hint": "Solange der Vertrag nicht bestätigt ist, lassen sich Kunde, Fahrzeug, Preisaufbau und Eintauschfahrzeug hier ergänzen oder anpassen. Mit der Bestätigung wird er eingefroren.",
-      "pricedWithoutInputs": "Dieser Vertrag wurde bepreist, bevor Verträge ihre Preisgrundlagen speicherten. Er kann so bestätigt oder storniert, aber nicht mehr angepasst werden."
+      "pricedWithoutInputs": "Dieser Vertrag wurde bepreist, bevor Verträge ihre Preisgrundlagen speicherten. Er kann so bestätigt oder storniert, aber nicht mehr angepasst werden.",
+      "pricedWithoutInputsNoBuyer": "Dieser Vertrag wurde bepreist, bevor Verträge ihre Preisgrundlagen speicherten. Sein Preis kann nicht mehr angepasst werden. Wählen Sie unten den Käufer, dann kann er so bestätigt werden – oder stornieren Sie ihn."
     }
   },
   "offerWorkspace": {

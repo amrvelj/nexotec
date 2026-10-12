@@ -1059,7 +1059,8 @@
     "edit": {
       "title": "Compléter le contrat",
       "hint": "Tant que le contrat n'est pas confirmé, le client, le véhicule, la composition du prix et la reprise peuvent être complétés ou ajustés ici. La confirmation le fige.",
-      "pricedWithoutInputs": "Ce contrat a été chiffré avant que les contrats ne conservent leurs bases de prix. Il peut être confirmé ou annulé tel quel, mais plus ajusté."
+      "pricedWithoutInputs": "Ce contrat a été chiffré avant que les contrats ne conservent leurs bases de prix. Il peut être confirmé ou annulé tel quel, mais plus ajusté.",
+      "pricedWithoutInputsNoBuyer": "Ce contrat a été chiffré avant que les contrats ne conservent leurs bases de prix. Son prix ne peut plus être ajusté. Choisissez l'acheteur ci-dessous, puis il pourra être confirmé tel quel — ou annulez-le."
     }
   },
   "offerWorkspace": {

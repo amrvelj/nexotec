@@ -720,6 +720,152 @@ def test_the_trade_in_routes_refuse_a_contract_priced_without_inputs(client, db_
         assert response.json()["error"]["details"]["reason"] == "contract_priced_without_inputs"
 
 
+# --- KAN-315: a contract priced without inputs and without a buyer gets one ---------
+
+_PRICE_FIGURES = (
+    "basePrice", "optionsTotal", "listPrice", "accessoriesTotal", "totalBeforeDiscount", "discountType",
+    "discountValue", "discountAmount", "grossPrice", "costBasis", "margin", "tradeInValue", "payable",
+    "manualBasePrice", "vehicleSnapshotFrozenAt", "vehicleSource", "stockItemId", "vehicleLabel",
+)
+
+
+def _buyerless_contract_priced_without_inputs(db_session, dealership_id: uuid.UUID, group_id: uuid.UUID):
+    """What KAN-315 found stuck: an offer with a stock car and no buyer was
+    contracted before contracts kept their inputs (KAN-67) and the backfill
+    skipped it — figures, no snapshot, no lines, no customer."""
+
+    item = _stock_item(db_session, dealership_id)
+    offer = _offer_with_vehicle(db_session, dealership_id, item, group_id=group_id)
+    offer = update_offer(
+        db_session, offer=offer, group_id=group_id, data=OfferUpdate(customer_id=None), actor_id=uuid.uuid4()
+    )
+    assert offer.customer_id is None
+    contract = create_contract(db_session, tenant_id=dealership_id, offer=offer, actor_id=uuid.uuid4())
+    _as_before_the_migration(db_session, contract)
+    db_session.expire_all()
+    contract = db_session.get(SalesContract, contract.id)
+    assert contract.customer_id is None and contract.vehicle_snapshot is None and contract.gross_price is not None
+    return contract, item
+
+
+@pytest.mark.usefixtures("app_sessions_on_the_test_engine")
+def test_api_a_buyerless_contract_priced_without_inputs_is_given_a_buyer_and_confirmed(client, db_session):
+    """Anto's ruling (2026-10-12): the buyer only, never a price rebuild."""
+
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    headers = _token(dealership.id, group_id)
+    contract, item = _buyerless_contract_priced_without_inputs(db_session, dealership.id, group_id)
+    customer = _customer(db_session, group_id)
+    before = client.get(f"/v1/sales/contracts/{contract.id}", headers=headers).json()
+    assert before["grossPrice"] == "38800.00"
+
+    refused = client.post(
+        f"/v1/sales/contracts/{contract.id}/confirm", headers={**headers, "If-Match": str(before["version"])}
+    )
+    assert refused.status_code == 409 and refused.json()["error"]["details"]["reason"] == "missing_customer"
+
+    patched = client.patch(
+        f"/v1/sales/contracts/{contract.id}",
+        json={"customerId": str(customer.id)},
+        headers={**headers, "If-Match": str(before["version"])},
+    )
+
+    assert patched.status_code == 200, patched.text
+    body = patched.json()
+    assert body["customerId"] == str(customer.id) and body["customerLabel"] == "Didier Perrin"
+    assert body["version"] == before["version"] + 1
+    assert {k: body[k] for k in _PRICE_FIGURES} == {k: before[k] for k in _PRICE_FIGURES}
+    db_session.expire_all()
+    stored = db_session.get(SalesContract, contract.id)
+    assert stored.vehicle_snapshot is None  # nothing was rebuilt or frozen
+    assert db_session.scalar(select(func.count()).where(SalesLineItem.contract_id == contract.id)) == 0
+
+    confirmed = client.post(
+        f"/v1/sales/contracts/{contract.id}/confirm", headers={**headers, "If-Match": str(body["version"])}
+    )
+
+    assert confirmed.status_code == 200, confirmed.text
+    assert confirmed.json()["status"] == "confirmed"
+    assert confirmed.json()["grossPrice"] == "38800.00"
+    db_session.expire_all()
+    assert db_session.get(StockItem, item.id).reservation_state == ReservationState.RESERVED
+
+
+def test_api_a_buyer_with_any_other_field_is_still_refused_on_a_contract_priced_without_inputs(client, db_session):
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    headers = _token(dealership.id, group_id)
+    contract, _item = _buyerless_contract_priced_without_inputs(db_session, dealership.id, group_id)
+    customer = _customer(db_session, group_id)
+
+    for extra in (
+        {"discountType": "amount", "discountValue": "100.00"},
+        {"manualBasePrice": "1.00"},
+        {"vehicleLabel": "Anderes Auto"},
+        {"vehicleSource": "manual"},
+    ):
+        response = client.patch(
+            f"/v1/sales/contracts/{contract.id}",
+            json={"customerId": str(customer.id), **extra},
+            headers={**headers, "If-Match": str(contract.version)},
+        )
+        assert response.status_code == 409, (extra, response.text)
+        assert response.json()["error"]["details"]["reason"] == "contract_priced_without_inputs"
+
+    db_session.expire_all()
+    stored = db_session.get(SalesContract, contract.id)
+    assert stored.customer_id is None and stored.version == contract.version
+    assert stored.gross_price == Decimal("38800.00")
+
+
+def test_a_contract_priced_without_inputs_still_refuses_an_empty_patch_and_a_cleared_buyer(db_session):
+    """Only giving it a buyer is new; nothing else about the KAN-67 refusal
+    moves — an empty PATCH, and clearing or replacing a buyer it already
+    has, are refused as before (the narrowest reading of the ruling)."""
+
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    contract, _item = _buyerless_contract_priced_without_inputs(db_session, dealership.id, group_id)
+
+    with pytest.raises(ConflictError) as empty:
+        update_contract(db_session, contract=contract, group_id=group_id, data=ContractUpdate(), actor_id=uuid.uuid4())
+    assert empty.value.details["reason"] == "contract_priced_without_inputs"
+    with pytest.raises(ConflictError) as cleared:
+        update_contract(
+            db_session, contract=contract, group_id=group_id, data=ContractUpdate(customer_id=None),
+            actor_id=uuid.uuid4(),
+        )
+    assert cleared.value.details["reason"] == "contract_priced_without_inputs"
+
+    first, second = _customer(db_session, group_id), _customer(db_session, group_id)
+    contract = update_contract(
+        db_session, contract=contract, group_id=group_id, data=ContractUpdate(customer_id=first.id),
+        actor_id=uuid.uuid4(),
+    )
+    with pytest.raises(ConflictError) as replaced:
+        update_contract(
+            db_session, contract=contract, group_id=group_id, data=ContractUpdate(customer_id=second.id),
+            actor_id=uuid.uuid4(),
+        )
+    assert replaced.value.details["reason"] == "contract_priced_without_inputs"
+
+
+def test_a_confirmed_contract_priced_without_inputs_takes_no_buyer(db_session):
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    contract, _item = _buyerless_contract_priced_without_inputs(db_session, dealership.id, group_id)
+    contract.status = ContractStatus.CONFIRMED  # signed before KAN-307 refused a buyerless signature
+    db_session.commit()
+
+    with pytest.raises(ConflictError) as refused:
+        update_contract(
+            db_session, contract=contract, group_id=group_id,
+            data=ContractUpdate(customer_id=_customer(db_session, group_id).id), actor_id=uuid.uuid4(),
+        )
+    assert refused.value.details["reason"] == "contract_not_pending"
+
+
 # --- every changing route locks the contract row (KAN-288, KAN-289) ----------------
 
 

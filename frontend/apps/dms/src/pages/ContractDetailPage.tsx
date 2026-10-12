@@ -270,7 +270,8 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
   const buyerDoNotContact = buyer?.lifecycleStatus === 'do_not_contact'
   // A contract priced before contracts kept their pricing inputs: its
   // figures stand, but the server refuses to rebuild them (409
-  // contract_priced_without_inputs) — say so instead of offering editors.
+  // contract_priced_without_inputs) — say so instead of offering editors;
+  // only its buyer can still be picked, when it has none (KAN-315).
   const pricedWithoutInputs = contract.vehicleSnapshotFrozenAt == null && contract.grossPrice != null
   const isSaving = pricingUnsaved || savesInFlight > 0
   const confirmDisabledReason = !isPending
@@ -388,10 +389,22 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
 
       {contract.financing && <Text size="sm" c="dimmed">{t('contractDetail.financing')}: {t(`salesEnums.financing.${contract.financing}`)}</Text>}
 
+      {/* KAN-315 (Anto, 2026-10-12) — its price stays as it stands, but one
+          without a buyer may be given one: the customer container alone,
+          never the vehicle, price or trade-in. The server takes a PATCH of
+          the customer only, for a contract that has none. */}
       {isPending && pricedWithoutInputs && (
-        <Alert color="gray" data-testid="contract-priced-without-inputs">
-          {t('contractDetail.edit.pricedWithoutInputs')}
-        </Alert>
+        <Stack gap="md" data-testid="contract-priced-without-inputs">
+          <Alert color="gray">
+            {hasNoBuyer ? t('contractDetail.edit.pricedWithoutInputsNoBuyer') : t('contractDetail.edit.pricedWithoutInputs')}
+          </Alert>
+          {editError && (
+            <Alert color="red" withCloseButton onClose={() => setEditError(null)}>
+              {editError}
+            </Alert>
+          )}
+          <DealCustomerContainer ownerType="contract" deal={contract} patch={patchContract} onOpenCustomer={openCustomerOverlay} />
+        </Stack>
       )}
 
       {isPending && !pricedWithoutInputs && (

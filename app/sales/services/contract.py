@@ -25,12 +25,12 @@ from app.sales.models.contract import ContractStatus, FinancingKind, SalesContra
 from app.sales.models.line_item import SalesLineItem
 from app.sales.models.offer import SalesOffer
 from app.sales.schemas.contract import ContractUpdate
-from app.sales.services.contract_completeness import require_complete
+from app.sales.services.contract_completeness import is_priced_without_inputs, require_complete
 from app.sales.services.deal_editing import apply_vehicle_and_pricing_changes
 from app.sales.services.deal_projection import upsert_deal_projection
 from app.sales.services.numbering import allocate_contract_number
 from app.sales.services.offer import apply_customer_change, resolve_customer_label
-from app.sales.services.priced_deal import require_editable
+from app.sales.services.priced_deal import require_editable, require_pending
 from app.valuation.public import consume_valuation_for_contract, revert_valuation_use
 
 _EVENT_PRODUCER = "sales"
@@ -289,10 +289,29 @@ def update_contract(
     and the frozen figures travel in `sales.contract.confirmed`'s
     pricingSnapshot (ADR-046), exactly as an offer's autosave publishes
     none. The deal grid is re-projected in the same transaction.
+
+    KAN-315 (Anto, 2026-10-12): a contract priced without inputs (KAN-67)
+    is not editable, yet since KAN-307 it cannot be signed without a buyer —
+    so one that has none may be given one. Customer only: that PATCH sets
+    the buyer, bumps the version and touches no price figure; a buyer sent
+    with any other field, an empty PATCH, and clearing or replacing a buyer
+    it already has are still refused (`contract_priced_without_inputs`).
     """
 
-    require_editable(contract)
     changes = data.model_dump(exclude_unset=True)
+    if _gives_a_buyer_only(contract, changes):
+        require_pending(contract)
+        apply_customer_change(
+            db, deal=contract, group_id=group_id, customer_id=changes["customer_id"], host="a contract"
+        )
+        contract.updated_by = actor_id
+        contract.version += 1
+        upsert_deal_projection(db, contract=contract)
+        db.commit()
+        db.refresh(contract)
+        return contract
+
+    require_editable(contract)
     if "customer_id" in changes:
         # KAN-307 (ADR-083 amended): the buyer, as on the offer.
         apply_customer_change(
@@ -303,6 +322,18 @@ def update_contract(
     db.commit()
     db.refresh(contract)
     return contract
+
+
+def _gives_a_buyer_only(contract: SalesContract, changes: dict) -> bool:
+    """The one write KAN-315 allows a contract priced without inputs: a
+    buyer for a contract that has none, and nothing else in the request."""
+
+    return (
+        is_priced_without_inputs(contract)
+        and contract.customer_id is None
+        and changes.keys() == {"customer_id"}
+        and changes["customer_id"] is not None
+    )
 
 
 def _pricing_snapshot(contract: SalesContract) -> dict:

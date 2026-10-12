@@ -1059,7 +1059,8 @@
     "edit": {
       "title": "Complete the contract",
       "hint": "Until the contract is confirmed, its customer, vehicle, price build-up and trade-in can be added or adjusted here. Confirming freezes it.",
-      "pricedWithoutInputs": "This contract was priced before contracts kept their pricing inputs. It can be confirmed or cancelled as it stands, but no longer adjusted."
+      "pricedWithoutInputs": "This contract was priced before contracts kept their pricing inputs. It can be confirmed or cancelled as it stands, but no longer adjusted.",
+      "pricedWithoutInputsNoBuyer": "This contract was priced before contracts kept their pricing inputs. Its price can no longer be adjusted. Pick its buyer below, then it can be confirmed as it stands — or cancel it."
     }
   },
   "offerWorkspace": {

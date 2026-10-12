@@ -1059,7 +1059,8 @@
     "edit": {
       "title": "Completare il contratto",
       "hint": "Finché il contratto non è confermato, il cliente, il veicolo, la composizione del prezzo e la permuta possono essere completati o modificati qui. La conferma lo congela.",
-      "pricedWithoutInputs": "Questo contratto è stato prezzato prima che i contratti conservassero le basi di prezzo. Può essere confermato o annullato così com'è, ma non più modificato."
+      "pricedWithoutInputs": "Questo contratto è stato prezzato prima che i contratti conservassero le basi di prezzo. Può essere confermato o annullato così com'è, ma non più modificato.",
+      "pricedWithoutInputsNoBuyer": "Questo contratto è stato prezzato prima che i contratti conservassero le basi di prezzo. Il suo prezzo non può più essere modificato. Scegli l'acquirente qui sotto, poi potrà essere confermato così com'è — oppure annullalo."
     }
   },
   "offerWorkspace": {
