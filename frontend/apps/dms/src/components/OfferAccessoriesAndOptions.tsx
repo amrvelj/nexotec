@@ -78,12 +78,15 @@ export function OfferAccessoriesAndOptions<D extends SalesPricedDealRead>({
   const factoryOptions = items.filter((i) => i.kind === 'factory_option')
   const accessories = items.filter((i) => i.kind === 'accessory')
 
+  // Resolves true once the save landed, false when the server refused it
+  // (the refusal is on screen) — a caller that clears its input must not
+  // do so on a refusal (ADR-035, KAN-323).
   const submit = async (
     build: (lines: SalesLineItemRead[]) => {
       accessories: Array<Record<string, unknown>>
       factoryOptions?: Array<Record<string, unknown>>
     }
-  ) => {
+  ): Promise<boolean> => {
     setError(null)
     try {
       await save(async (current) => {
@@ -99,6 +102,7 @@ export function OfferAccessoriesAndOptions<D extends SalesPricedDealRead>({
         return api.put<D>(lineItemsPath, build(lines.items), { 'If-Match': String(current.version) })
       })
       await queryClient.invalidateQueries({ queryKey: lineItemsKey })
+      return true
     } catch (err) {
       // KAN-67 — a contract that is no longer editable is said in the
       // user's language; other refusals keep the server's explanation (a
@@ -118,6 +122,7 @@ export function OfferAccessoriesAndOptions<D extends SalesPricedDealRead>({
       } else if (details?.reason === 'contract_not_pending') setError(t('contractDetail.errors.editRefused.notPending'))
       else if (details?.reason === 'contract_priced_without_inputs') setError(t('contractDetail.edit.pricedWithoutInputs'))
       else setError(err instanceof ApiError ? err.message : t('offerWorkspace.lineItems.error'))
+      return false
     }
   }
 
@@ -158,7 +163,10 @@ export function OfferAccessoriesAndOptions<D extends SalesPricedDealRead>({
       discountValue: wantsDiscount ? String(newDiscount) : null,
       discountSuppressedReason: wantsDiscount && isUsed ? newReason || null : null,
     }
-    void submit((lines) => ({ accessories: [...accessoryPayload(accessoriesOf(lines)), newLine] })).then(() => {
+    // KAN-323 — the form keeps what was typed until the save has landed: a
+    // refused save must not look like one, nor discard the input.
+    void submit((lines) => ({ accessories: [...accessoryPayload(accessoriesOf(lines)), newLine] })).then((saved) => {
+      if (!saved) return
       setNewCode('')
       setNewLabel('')
       setNewPrice('')
