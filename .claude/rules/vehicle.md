@@ -42,16 +42,17 @@ code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. -->
   reassignment, cantonal changes. `vehicle_plate` is a child table with validity dates and a
   `plate_group_id`; an ambiguous lookup shows a picker and never guesses. Plate lookup must
   not be enumerable (architecture test).
-- **Plate-history reads (Plates tab, resolved search hit) are audited and limited per user**
+- **Plate-history reads (Plates tab, resolved search hit, shared identity lookup) are audited and limited per user**
   (ADR-085, KAN-231): only through `services/plate_read_guard.py::read_plate_history`, never
   `plate.list_plates_for_vehicle` directly (architecture test); every read and every refusal
   writes an `audit_event`, never the plate values. Past `plate_read_limit` distinct vehicles per
   `plate_read_window_seconds` (`app/core/config.py`, platform-wide by design — never a
   dealership setting; default 60 per hour) the Plates tab gets 403 `plate_read_limit_reached`
-  and a search hit `currentPlateWithheld`; the car page still opens. **Not yet
-  covered:** `GET /v1/vehicle-mdm/lookup` (ADR-043, `services/lookup.py::_current_plate`) still
-  returns a vehicle's current plate unaudited and unlimited — KAN-231 left it out of scope; the
-  export through it stays open until KAN-279 lands.
+  and a search hit `currentPlateWithheld`; the car page still opens. `GET /v1/vehicle-mdm/lookup`
+  (ADR-043) reads its `currentPlate` through the same guard (KAN-279) and, past the limit,
+  answers `currentPlate: null` — ADR-043's shape has no withheld flag, so withheld and no
+  plate look the same there. `tests/architecture/test_plate_lookup_is_not_enumerable.py`
+  refuses any `VehiclePlate` read outside `plate.py` / `plate_read_guard.py`.
 - Vehicle identity is global; everything licensed about it is not (next section).
 
 ## Licensed data and the gateway

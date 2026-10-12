@@ -63,8 +63,9 @@ ADR-057, ADR-063, ADR-065, ADR-083 and KAN-66/68/71. Verified against main@7a90a
 - **No contract is signed without a buyer** (Anto, 2026-10-12, KAN-307): `confirm_contract`
   refuses a contract with no customer (409 `missing_customer`), before the vehicle and price
   gates. The gap KAN-276 left open (a contract from an offer without a customer) is closed.
-  A contract priced without inputs and without a buyer can now be neither given one nor
-  confirmed (KAN-315).
+  A pending contract priced without inputs and without a buyer may be given one by a PATCH
+  carrying `customerId` alone (Anto, 2026-10-12, KAN-315) — price untouched — and then
+  confirmed; any other field on it is still `contract_priced_without_inputs`.
 - **A contract can start from a car** (Anto, 2026-10-12, KAN-307: "the same as offer
   generation"): `stockItemId` (with the optional display `vehicleLabel`) creates a pending
   contract with that car through the contract's own Path A edit, in the creating transaction.
@@ -133,7 +134,8 @@ ADR-057, ADR-063, ADR-065, ADR-083 and KAN-66/68/71. Verified against main@7a90a
   holds the same pricing inputs as `sales_offer`; a contract from an offer copies them and its
   line items (`contract_id`). Each of these writes refuses a contract that is not pending
   (`contract_not_pending`) and one priced before contracts kept their inputs
-  (`contract_priced_without_inputs`; it can still be confirmed or cancelled). Every contract
+  (`contract_priced_without_inputs`; it can still be confirmed or cancelled, and given a
+  buyer it lacks — KAN-315). Every contract
   route that changes the row loads it `for_update` (`get_contract_or_404`), so an edit and a
   confirmation of the same contract run one after the other — If-Match alone compares the
   version as read and would let an edit land after signing. A trade-in save commits part-way
