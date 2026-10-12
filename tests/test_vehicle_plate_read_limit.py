@@ -184,6 +184,71 @@ def test_a_resolved_search_hit_is_audited_and_withholds_its_plate_past_the_limit
     assert _plate_audit(db_session, user)[-1].action == ACTION_PLATE_READ_REFUSED
 
 
+def _page_all_vins(client, headers) -> list[str]:
+    """Walk the whole vehicle list by cursor and keep each row's VIN — the
+    first half of the export through the shared identity lookup (KAN-279)."""
+
+    vins, cursor = [], None
+    while True:
+        url = "/v1/vehicle-mdm/search?q=&limit=2" + (f"&cursor={cursor}" if cursor else "")
+        page = client.get(url, headers=headers).json()["filtered"]
+        vins += [item["vin"] for item in page["items"]]
+        cursor = page["nextCursor"]
+        if not cursor:
+            return vins
+
+
+def test_paging_the_vehicle_list_and_looking_up_each_vin_withholds_the_plate_past_the_limit(client, db_session):
+    """KAN-279: `GET /v1/vehicle-mdm/lookup` (ADR-043) hands out a vehicle's
+    current plate, so paging every VIN and looking each one up exported the
+    plate table around KAN-231's guard. Each answer is now one plate read of
+    one vehicle, counted by the same guard and limit; past it the plate is
+    withheld inside ADR-043's locked shape — `currentPlate` null, exactly as a
+    vehicle without a plate answers — and the refusal is audited."""
+
+    vehicles = _seed(db_session)
+    user, tenant = uuid.uuid4(), uuid.uuid4()
+    headers = _bearer(user, tenant)
+
+    vins = _page_all_vins(client, headers)
+    assert sorted(vins) == sorted(VINS)
+
+    responses = [client.get("/v1/vehicle-mdm/lookup", params={"vin": vin}, headers=headers) for vin in vins]
+
+    assert [r.status_code for r in responses] == [200] * len(vins)
+    plates = [r.json()["currentPlate"] for r in responses]
+    assert all(plate is not None for plate in plates[:LIMIT])
+    assert plates[LIMIT:] == [None] * (len(vins) - LIMIT)
+    assert [r.json()["vin"] for r in responses] == vins  # the identity still resolves
+
+    by_vin = {v.vin: v.id for v in vehicles}
+    audit = _plate_audit(db_session, user)
+    assert [e.action for e in audit] == [ACTION_PLATE_READ] * LIMIT + [ACTION_PLATE_READ_REFUSED] * (
+        len(vins) - LIMIT
+    )
+    assert [e.entity_id for e in audit] == [by_vin[vin] for vin in vins]
+    assert all(e.tenant_id == tenant for e in audit)
+    assert all((e.reason or "").startswith("shared_identity_lookup") for e in audit)
+    assert all("ZH" not in (e.reason or "") and e.before is None and e.after is None for e in audit)
+
+
+def test_a_lookup_shares_the_limit_with_the_plates_tab(client, db_session):
+    """One guard, one count: plate reads on the Plates tab use up the same
+    budget a lookup draws on, and a vehicle already read stays readable."""
+
+    vehicles = _seed(db_session)
+    user, tenant = uuid.uuid4(), uuid.uuid4()
+    headers = _bearer(user, tenant)
+    for vehicle in vehicles[:LIMIT]:
+        assert client.get(f"/v1/vehicle-mdm/{vehicle.id}/plates", headers=headers).status_code == 200
+
+    fresh = client.get("/v1/vehicle-mdm/lookup", params={"vin": VINS[LIMIT]}, headers=headers).json()
+    already_read = client.get("/v1/vehicle-mdm/lookup", params={"vin": VINS[0]}, headers=headers).json()
+
+    assert fresh["currentPlate"] is None
+    assert already_read["currentPlate"] == "ZH 10000"
+
+
 def test_concurrent_reads_by_one_user_cannot_both_slip_under_the_limit(engine, db_session, monkeypatch):
     """Limit 1, two different vehicles read at once by one user: the second
     read waits for the first's commit, then counts it and is refused.

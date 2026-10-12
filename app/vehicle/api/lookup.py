@@ -27,8 +27,13 @@ def lookup_shared_identity(
     principal: Principal = Depends(get_current_principal),  # authenticated only — deliberately no tenant scope
     db: Session = Depends(get_db),
 ):
+    # KAN-279: the current plate in the answer is a plate read, audited and
+    # limited per user through plate_read_guard — the caller from the token.
     result = resolve_shared_identity(
-        db, vin=vin, stammnummer=stammnummer, vehicle_number=vehicle_number, plate=plate, canton=canton
+        db,
+        actor_id=principal.user_id,
+        tenant_id=principal.tenant_id,
+        vin=vin, stammnummer=stammnummer, vehicle_number=vehicle_number, plate=plate, canton=canton
     )
     if result is None:
         raise NotFoundError("No vehicle was found for the given identifier.")
