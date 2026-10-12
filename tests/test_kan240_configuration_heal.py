@@ -21,6 +21,7 @@ from app.vehicle.models.configuration import (
 from app.vehicle.schemas.configuration import ConfigurationCreate
 from app.vehicle.services import catalogue_admin
 from app.vehicle.services import configuration as configuration_service
+from tests.configuration_test_support import MANUAL_CODED, seed_manual_coded_lists
 from tests.test_vehicle_catalogue_sync import (
     _fuel_gap,
     _make_connection,
@@ -80,6 +81,7 @@ def test_a_configuration_with_a_null_fuel_type_is_filled_when_the_gap_is_resolve
     filled = _reload(db_session, config)
     assert filled.fuel_type == "petrol"
     assert filled.version == version + 1
+    assert filled.updated_by is None  # a system write (KAN-243)
     (audit,) = _fills(db_session, filled)
     assert audit.actor_id is None  # the system, not the admin who resolved the gap
     assert audit.tenant_id == tenant_id
@@ -150,17 +152,26 @@ def test_each_tenant_s_configurations_follow_only_their_own_variant(db_session):
 
 def test_a_manual_configuration_pointing_at_the_variant_is_not_touched(db_session):
     tenant_id = _setup(db_session)
+    seed_manual_coded_lists(db_session)  # a manual configuration names its five coded fields (KAN-247)
     manual = configuration_service.create_configuration(
         db_session, tenant_id=tenant_id, actor_id=uuid.uuid4(),
         data=ConfigurationCreate(
             source=ConfigurationSource.MANUAL, mode=ConfigurationMode.RECORD,
-            match_method=ConfigurationMatchMethod.MANUAL,
+            match_method=ConfigurationMatchMethod.MANUAL, **MANUAL_CODED,
         ),
     )
+    # The precondition the fill would act on: a NULL fuel type on a
+    # configuration of the healed variant — set behind the API's back, since
+    # KAN-247 refuses to create a manual one without it.
     row = _reload(db_session, manual)
     row.catalogue_variant_id = _variant(db_session, "FZ100001").id
+    row.fuel_type = None
     db_session.commit()
+    version_before = _reload(db_session, manual).version
 
     _resolve_fuel_3_as_petrol(db_session)
 
-    assert _reload(db_session, manual).fuel_type is None
+    after = _reload(db_session, manual)
+    assert after.fuel_type is None
+    assert after.version == version_before
+    assert _fills(db_session, manual) == []

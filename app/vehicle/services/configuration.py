@@ -172,8 +172,9 @@ def _require_coded_fields_on_create(data: ConfigurationCreate) -> None:
 def _check_coded_field_patch(configuration: VehicleConfiguration, data: ConfigurationUpdate) -> dict[str, Any]:
     """R1 (Anto, 2026-10-12) — which coded fields this PATCH may write.
 
-    On a provider configuration (one with a catalogue variant, or one this
-    PATCH links to a variant) the five coded fields are the catalogue's: a
+    On a provider configuration (`source = provider`, built from Auto-i-DAT's
+    catalogue — the same test the configurator overlay applies, and the one
+    KAN-240's fill uses) the five coded fields are the catalogue's: a
     PATCH that changes one is a 422 `coded_field_locked` naming each field —
     the same 422-with-a-reason shape as `configuration_mode_fixed`, the
     other state-based refusal of this endpoint. Sending the value it already
@@ -188,7 +189,7 @@ def _check_coded_field_patch(configuration: VehicleConfiguration, data: Configur
 
     sent = {field: getattr(data, field) for field in _CODED_SPEC_FIELDS if field in data.model_fields_set}
     changed = {field: value for field, value in sent.items() if value != getattr(configuration, field)}
-    if configuration.catalogue_variant_id is not None or data.catalogue_variant_id is not None:
+    if configuration.source == ConfigurationSource.PROVIDER:
         if changed:
             fields = [to_camel(field) for field in changed]
             raise UnprocessableEntityError(
@@ -599,7 +600,8 @@ def fill_null_spec_fields_from_variants(db: Session, *, variant_ids: list[uuid.U
       never overwritten, and a field in `overridden_fields` is skipped even
       when `NULL`: the advisor cleared it on purpose (FR-C-03).
     - Each changed configuration's `version` moves once, an audit record is
-      written with no actor (the system) and `reason`, and
+      written with no actor (the system) and `reason` — `updated_by` is
+      cleared to match — and
       `configuration.updated` is published, like every other configuration
       write. Nothing is committed here (the caller's transaction), and
       vehicle-mdm is never written (ADR-070).
@@ -640,6 +642,7 @@ def fill_null_spec_fields_from_variants(db: Session, *, variant_ids: list[uuid.U
         if not after:
             continue
         configuration.version += 1
+        configuration.updated_by = None  # a system write (KAN-243: null actor), like its audit record
         db.flush()
         record_audit_event(
             db,
