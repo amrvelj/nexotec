@@ -619,3 +619,53 @@ def test_manager_can_still_edit_roles_of_ordinary_users(client):
 
     assert response.status_code == 200, response.text
     assert response.json()["accessRoles"] == ["inventory", "sales"]
+
+
+# --- KAN-136: an explicit null on a NOT NULL field is a 422, never a 500 -----
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "accessRoles", "firstName", "lastName", "email", "role", "isDealerManager",
+        "employmentStatus", "authIdentityId", "status",
+    ],
+)
+def test_patching_a_not_null_field_to_null_is_a_422_and_changes_nothing(client, field):
+    """`accessRoles: null` reached `sorted(... for role in None)` (500); the
+    other fields reached the NOT NULL constraint on commit, which update_user
+    reported as 409 "email already exists". Each is refused at the schema
+    with the standard 422 body, and the row and its version stay as they were."""
+
+    dealer_id = _create_dealer(client)
+    platform_admin_token = _token(AccessRole.PLATFORM_ADMIN)
+    user = _create_user(client, dealer_id, platform_admin_token)
+
+    response = client.patch(
+        f"/v1/dealerships/{dealer_id}/users/{user['id']}",
+        json={field: None},
+        headers={**_bearer(platform_admin_token), "If-Match": str(user["version"])},
+    )
+
+    assert response.status_code == 422, response.text
+    error = response.json()["error"]
+    assert error["code"] == "unprocessable_entity"
+    assert field in error["details"]["errors"][0]["msg"]
+    assert _get_user(client, dealer_id, user["id"]) == user
+
+
+def test_patching_phone_to_null_still_clears_it(client):
+    """phone is the one nullable column: null keeps meaning "clear it"."""
+
+    dealer_id = _create_dealer(client)
+    platform_admin_token = _token(AccessRole.PLATFORM_ADMIN)
+    user = _create_user(client, dealer_id, platform_admin_token, phone="+41791234567")
+
+    response = client.patch(
+        f"/v1/dealerships/{dealer_id}/users/{user['id']}",
+        json={"phone": None},
+        headers={**_bearer(platform_admin_token), "If-Match": str(user["version"])},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["phone"] is None

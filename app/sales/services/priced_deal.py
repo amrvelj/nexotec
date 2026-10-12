@@ -18,6 +18,7 @@ from typing import TypeVar
 from sqlalchemy import ColumnElement
 from sqlalchemy.orm import Session
 
+from app.core.concurrency import check_version
 from app.core.errors import ConflictError
 from app.sales.models.contract import ContractStatus, SalesContract
 from app.sales.models.line_item import SalesLineItem
@@ -37,6 +38,24 @@ DealT = TypeVar("DealT", SalesOffer, SalesContract)
 
 def number(deal: PricedDeal) -> str:
     return deal.contract_number if isinstance(deal, SalesContract) else deal.offer_number
+
+
+def lock_editable(db: Session, deal: PricedDeal, *, version_seen: int) -> None:
+    """Take the deal's row lock — again, for a contract, whose routes took it
+    already — and check, on the row as committed, that it is still editable
+    and still at `version_seen`, the version the caller's If-Match matched.
+
+    Two writers need it. `replace_line_items` takes it before touching a
+    line item, so every writer of a deal and its lines locks the deal first
+    and two saves cannot deadlock on the two rows (KAN-287). `set_trade_in`
+    takes it after its foreign writes, whose commits released the lock the
+    route took (KAN-309). Any change the caller has not flushed is reloaded
+    away, so call it before changing the deal.
+    """
+
+    db.refresh(deal, with_for_update=True)
+    require_editable(deal)
+    check_version(deal.version, version_seen, entity_name=type(deal).__name__)
 
 
 def require_editable(deal: PricedDeal) -> None:

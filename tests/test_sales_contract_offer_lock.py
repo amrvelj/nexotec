@@ -17,18 +17,22 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import sessionmaker
 
 import app.sales.services.contract as contract_module
+import app.sales.services.line_items as line_items_module
 from app.core.errors import ConflictError
 from app.customer.schemas.customer import CustomerCreate, CustomerEmailCreate
 from app.customer.services.customer import create_customer
 from app.sales.models.contract import SalesContract
 from app.sales.models.deal import SalesDeal
+from app.sales.models.line_item import LineItemKind, SalesLineItem
 from app.sales.models.offer import SalesOffer
-from app.sales.schemas.line_item import LineItemsReplaceRequest
+from app.sales.schemas.line_item import LineItemFactoryOptionPatch, LineItemsReplaceRequest
 from app.sales.schemas.offer import OfferUpdate
 from app.sales.services.contract import create_contract
 from app.sales.services.customer_merge import repoint_customer_sales_records
 from app.sales.services.line_items import replace_line_items
 from app.sales.services.offer import create_offer, update_offer
+from tests.test_sales_lifecycle_reservation import _dealership
+from tests.test_sales_offer_refinements import _offer_with_vehicle, _stock_item
 
 pytestmark = pytest.mark.skipif(
     not os.environ.get("DMS_TEST_DATABASE_URL"), reason="row-lock interleaving needs Postgres"
@@ -238,3 +242,68 @@ def test_create_contract_keeps_its_callers_pending_change_to_the_offer(db_sessio
     contract = create_contract(db_session, tenant_id=tenant_id, offer=offer, actor_id=uuid.uuid4())
 
     assert contract.vehicle_label == "Cupra Born 58 kWh"
+
+
+def test_a_line_item_save_and_a_vehicle_change_of_one_draft_offer_do_not_deadlock(db_session, engine):
+    """KAN-287: update_offer writes the offer, then re-freezes (deletes and
+    re-inserts) its factory-option lines when the vehicle changes;
+    replace_line_items used to write the lines first and the offer after.
+    The line-item save is paused once its lines are flushed while the
+    vehicle change runs: before KAN-287 the change took the offer and waited
+    on the lines, the save then waited on the offer, and Postgres aborted one
+    with DeadlockDetected. Now the save locks the offer first, so the change
+    waits for it and both complete."""
+
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    first_car = _stock_item(db_session, dealership.id)  # with a factory option, so the offer has a line to re-freeze
+    second_car = _stock_item(db_session, dealership.id)
+    offer = _offer_with_vehicle(db_session, dealership.id, first_car, group_id=group_id)
+    offer_id = offer.id
+    option_id = db_session.scalars(
+        select(SalesLineItem.id).where(SalesLineItem.offer_id == offer_id, SalesLineItem.kind == LineItemKind.FACTORY_OPTION)
+    ).one()
+    factory = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
+    errors: list[BaseException] = []
+
+    def change_the_vehicle():
+        session = factory()
+        try:
+            update_offer(
+                session, offer=session.get(SalesOffer, offer_id), group_id=group_id,
+                data=OfferUpdate(vehicle_source="stock", stock_item_id=second_car.id, vehicle_label=second_car.vehicle_label),
+                actor_id=uuid.uuid4(),
+            )
+        except BaseException as exc:  # noqa: BLE001 — asserted below, never swallowed
+            errors.append(exc)
+        finally:
+            session.close()
+
+    other = threading.Thread(target=change_the_vehicle)
+    blocked: list[bool] = []
+    real_build_up = line_items_module.apply_build_up
+
+    def build_up_after_letting_the_change_run(*args, **kwargs):
+        if other.ident is None:
+            other.start()
+            blocked.append(_wait_for_a_blocked_lock(engine))
+        return real_build_up(*args, **kwargs)
+
+    session = factory()
+    try:
+        with patch.object(line_items_module, "apply_build_up", side_effect=build_up_after_letting_the_change_run):
+            replace_line_items(
+                session, deal=session.get(SalesOffer, offer_id),
+                data=LineItemsReplaceRequest(factory_options=[LineItemFactoryOptionPatch(id=option_id, included=False)]),
+                actor_id=uuid.uuid4(),
+            )
+    finally:
+        session.close()
+        _join(other)
+
+    assert blocked == [True]  # the vehicle change really waited on the save
+    assert not other.is_alive()
+    assert errors == []
+    db_session.expire_all()
+    saved = db_session.get(SalesOffer, offer_id)
+    assert saved.stock_item_id == second_car.id
