@@ -45,8 +45,8 @@ What it proves:
    Every package under app/ is one of the twelve contexts or declared
    wiring (`core`, `api`).
 
-The one known exception — decided by Anto on 2026-10-07 (KAN-90, exit
-criterion 1): `app.sales.public.repoint_customer_transactions`, called by
+The one known debt, tracked here, not ruled — decided by Anto on 2026-10-07
+(KAN-90, exit criterion 1): `app.sales.public.repoint_customer_transactions`, called by
 `app.customer.services.customer._repoint_transactions` inside the customer
 merge, does NOT commit; its docstring says it "joins the caller's
 transaction". The caller's own comment already calls this "tracked
@@ -957,9 +957,9 @@ class _ScriptReach:
 
 # The exact internal modules the excepted script imports: the Inventory
 # internals, the legacy vehicle and the three resolution reads are what
-# ADR-091 names (its second, third and fourth items); the Sales and core
-# imports are recorded too, so the pinned shape is the whole shape, not a
-# selection of it.
+# ADR-091 names (its second, third and fourth items); the Sales imports are
+# recorded too, so the pinned shape is the whole shape, not a selection of
+# it.
 _ADR_091_IMPORTS = frozenset(
     {
         # ADR-091: Inventory's internals, used instead of inventory.public —
