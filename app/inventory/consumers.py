@@ -1,18 +1,18 @@
-"""The inventory context's outbox consumers (WP-7 PR-2) — the first real
-production consumer registration in the codebase. Every prior context
-(app.worker.py::register_handlers) ships this deliberately empty; only a
-test and a CI smoke probe exercise the mechanism so far.
+"""The inventory context's outbox consumers. They run wherever the outbox
+worker (`python -m app.worker`) is provisioned; `app/worker.py::
+register_handlers` is the list of what is registered, with the event type
+and `consumer_name` of each:
 
-Registered in app.worker.register_handlers as:
-
-    transport.register(
-        "sales.contract.confirmed",
-        consumer_name="inventory.sales_contract_confirmed",
-        handler=handle_sales_contract_confirmed_message,
-    )
-
-and, since KAN-158, `sales.contract.cancelled` as
-`inventory.sales_contract_cancelled` (handle_sales_contract_cancelled_message).
+- `sales.contract.confirmed` -> `inventory.sales_contract_confirmed`
+  (`handle_sales_contract_confirmed_message`, WP-7 PR-2): creates the
+  pipeline stock item, a trade-in's carrying its valuation pointer (KAN-101).
+- `sales.contract.cancelled` -> `inventory.sales_contract_cancelled`
+  (`handle_sales_contract_cancelled_message`, KAN-158): releases the
+  reservation a manual configuration's pipeline item holds.
+- `inventory.stock_item.published` / `.unpublished` -> the marketplace
+  transmission consumers `inventory.marketplace_transmission_on_publish` /
+  `_on_unpublish` (`handle_stock_item_published_message` /
+  `handle_stock_item_unpublished_message`, KAN-27, ADR-062).
 """
 
 from sqlalchemy.orm import Session

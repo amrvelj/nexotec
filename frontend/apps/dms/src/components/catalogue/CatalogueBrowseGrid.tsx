@@ -518,6 +518,7 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
             loadingMore: t('common.loadingMore'),
             retry: t('common.retry'),
             rowActionsLabel: t('common.rowActionsLabel'),
+            selectAllLabel: t('common.selectAllLabel'),
           }}
           emptyState={{
             icon: <Database size={24} />,

@@ -108,6 +108,7 @@ export function ContactPointsEditor<TType extends string>({
           confirm: t('customerDetail.contactPoints.confirm'),
           none: t('customerDetail.contactPoints.none'),
           labelFieldPlaceholder: t('customerDetail.contactPoints.labelPlaceholder'),
+          rowActions: (label) => t('customerDetail.contactPoints.rowActions', { label }),
         }}
       />
     </Stack>

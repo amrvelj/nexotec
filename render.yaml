@@ -64,9 +64,10 @@ databases:
     # Render. `0.1c-256mb` is the plan ID Render documents and the string
     # its error names; `basic-256mb` is the same plan's legacy name, still
     # accepted in Blueprints (render.com/docs/compute-plans, read
-    # 2026-10-07). This line is the one paid item on staging today; whether
-    # staging stays on Render, and on a paid database, is the hosting
-    # decision KAN-234 records as an ADR in the Target Architecture.
+    # 2026-10-07). This line is the one paid item on staging today. The
+    # hosting decision KAN-234 asked for was taken as ADR-081 (option D,
+    # 2026-10-10): staging stayed on Render, on this paid database plan.
+    # Only an amendment of ADR-081 reopens it.
     plan: 0.1c-256mb
     # Pinned to what the live database is in (Render dashboard, read by
     # Anto 2026-10-11): ADR-016's "Render, EU (Frankfurt)" — Swiss/EU data
@@ -152,8 +153,11 @@ services:
   # plan is 0.5c-512mb, the legacy `starter`, at USD 7/month. So this
   # service was never created. Declared, it would make the next successful
   # Blueprint sync create it on that paid plan; the goal is a free staging
-  # environment for as long as it is only staging, so the definition is
-  # kept below, commented out, until KAN-234's hosting ADR says otherwise.
+  # environment for as long as it is only staging. ADR-081 (option D,
+  # 2026-10-10, KAN-234) decided to keep it that way and document the gap
+  # rather than pay for a worker, so the definition is kept below, commented
+  # out. It is provisioned only if ADR-081 is amended, e.g. because staging
+  # has to rehearse the event-driven and nightly flows listed below.
   # (docker-compose.yml's `worker` service is the same split, provisioned.)
   #
   # Without `python -m app.worker` staging delivers NO outbox events and
@@ -172,7 +176,9 @@ services:
   #   - daily: integration.daily_jobs (auto-i-dat catalogue delta sync,
   #     sync-age alarm, retention purge, expiry warnings / support digest),
   #     customer.vehicle_party_labels (KAN-84), reconciliation.run_all
-  #     (CLAUDE.md rule 10), vehicle.plate_lookup_cache.purge (KAN-42),
+  #     (CLAUDE.md rule 10), inventory.orphaned_reservations.release (KAN-122,
+  #     the nightly orphaned-reservation sweep),
+  #     vehicle.plate_lookup_cache.purge (KAN-42),
   #     core.idempotency_records.purge (KAN-119 — without it, Idempotency-Key
   #     records are never purged and a claim left in flight answers 409
   #     indefinitely)

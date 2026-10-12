@@ -71,6 +71,8 @@ def create_contract(
         actor_id=principal.user_id,
         customer_id=body.customer_id,
         group_id=principal.group_id,
+        stock_item_id=body.stock_item_id,
+        vehicle_label=body.vehicle_label,
     )
     return _contract_read(contract)
 
@@ -119,7 +121,9 @@ def update_contract(
 ):
     contract = contract_service.get_contract_or_404(db, principal.tenant_id, contract_id, for_update=True)
     check_version(contract.version, if_match, entity_name="SalesContract")
-    contract = contract_service.update_contract(db, contract=contract, data=body, actor_id=principal.user_id)
+    contract = contract_service.update_contract(
+        db, contract=contract, group_id=principal.group_id, data=body, actor_id=principal.user_id
+    )
     return _contract_read(contract)
 
 

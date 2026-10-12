@@ -276,7 +276,7 @@ describe('CustomersListPage — bulk Export (D-25)', () => {
     // "Copy IDs" is gone.
     expect(screen.queryByText('Copy IDs')).not.toBeInTheDocument()
 
-    await user.click(screen.getByLabelText('Select all'))
+    await user.click(screen.getByLabelText(i18n.t('common.selectAllLabel')))
     await user.click(await screen.findByRole('button', { name: i18n.t('customersList.selection.export') }))
 
     expect(exportSpy).toHaveBeenCalledTimes(1)

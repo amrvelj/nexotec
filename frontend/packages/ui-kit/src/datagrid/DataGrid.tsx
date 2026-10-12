@@ -80,6 +80,8 @@ export interface DataGridProps<T> {
     loadingMore?: string;
     retry?: string;
     rowActionsLabel?: string;
+    /** KAN-291 — the selection header checkbox's accessible name. */
+    selectAllLabel?: string;
   };
 }
 
@@ -89,6 +91,7 @@ const DEFAULT_GRID_LABELS = {
   loadingMore: "Loading…",
   retry: "Retry",
   rowActionsLabel: "Row actions",
+  selectAllLabel: "Select all",
 };
 
 /**
@@ -281,6 +284,7 @@ export function DataGrid<T>({
                         key={header.id}
                         checked={allSelected}
                         indeterminate={someSelected && !allSelected}
+                        label={L.selectAllLabel}
                         onChange={toggleAll}
                       />
                     );
@@ -670,10 +674,12 @@ function Row({
 function SelectHeaderCell({
   checked,
   indeterminate,
+  label,
   onChange,
 }: {
   checked: boolean;
   indeterminate: boolean;
+  label: string;
   onChange: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -696,7 +702,7 @@ function SelectHeaderCell({
         borderBottom: `1px solid ${slate[2]}`,
       }}
     >
-      <input type="checkbox" checked={checked} ref={inputRef} onChange={onChange} aria-label="Select all" />
+      <input type="checkbox" checked={checked} ref={inputRef} onChange={onChange} aria-label={label} />
     </div>
   );
 }

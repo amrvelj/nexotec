@@ -59,7 +59,13 @@ def set_valuation_ref(
     """
 
     path = f"inventory.set_valuation_ref:{stock_item_id}"
-    cached = find_cached_response(db, tenant_id=tenant_id, key=idempotency_key, path=path, body=None)
+    # The key is bound to what it was first used with (KAN-280): the same
+    # key with another valuation, amount or source is a 409, never a replay
+    # of the old pointer. `valued_at` is left out: it is a property of the
+    # valuation `valuation_id` names, and a retry that re-reads a clock must
+    # still replay.
+    request = {"valuationId": str(valuation_id), "amount": f"{amount:.2f}", "source": source}
+    cached = find_cached_response(db, tenant_id=tenant_id, key=idempotency_key, path=path, body=request)
     if cached is not None:
         return ValuationRefRead.model_validate(cached.response_body)
 
@@ -69,7 +75,7 @@ def set_valuation_ref(
 
     result = ValuationRefRead(valuation_id=valuation_id, amount=amount, valued_at=valued_at, source=source)
     store_response(
-        db, tenant_id=tenant_id, key=idempotency_key, path=path, body=None,
+        db, tenant_id=tenant_id, key=idempotency_key, path=path, body=request,
         response_status=200, response_body=result.model_dump(mode="json"),
     )
     db.commit()

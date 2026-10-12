@@ -61,6 +61,7 @@
     "retry": "Riprova",
     "loadingMore": "Caricamento…",
     "rowActionsLabel": "Azioni riga",
+    "selectAllLabel": "Seleziona tutto",
     "moreActions": "Altre azioni",
     "showing": "{{count, number}} visualizzati",
     "showingOfTotal": "{{count, number}} di {{total}} visualizzati",
@@ -306,7 +307,8 @@
       "print": "Stampa"
     },
     "createOfferError": "Non è stato possibile creare l’offerta. Riprovare.",
-    "createContractError": "Non è stato possibile creare il contratto. Riprovare."
+    "createContractError": "Non è stato possibile creare il contratto. Riprovare.",
+    "doNotContactError": "Non è stato possibile salvare «non contattare». Riprovare."
   },
   "customerDetail": {
     "tabs": {
@@ -417,7 +419,8 @@
       "preferredMark": "Canale preferito",
       "noPreferred": "Nessun canale preferito",
       "consentScope": "Ambito",
-      "consentSource": "Fonte"
+      "consentSource": "Fonte",
+      "rowActions": "Azioni riga {{label}}"
     },
     "phoneInput": {
       "country": "Paese",
@@ -496,9 +499,11 @@
       "intro": "Cerca il cliente a cui unire <name/>. Quel record resta; questo viene contrassegnato come unito.",
       "searchPlaceholder": "Cerca per nome, e-mail, telefono, numero cliente…",
       "noMatches": "Nessun risultato.",
+      "searchFailed": "La ricerca non è riuscita. Riprovare.",
       "chooseDifferent": "← Scegli un altro cliente da mantenere",
       "duplicateColumn": "Questo cliente — verrà unito",
       "survivorColumn": "Cliente mantenuto — resterà",
+      "survivorContactsFailed": "Non è stato possibile caricare telefono ed e-mail del cliente che rimane. Sceglierlo di nuovo o sceglierne un altro.",
       "irreversibleTitle": "Questa operazione non può essere annullata",
       "irreversibleBody": "Veicoli, transazioni, numeri di telefono, e-mail e ID esterni passano al cliente mantenuto. Questo cliente diventa di sola lettura e non compare più nella ricerca.",
       "confirm": "Ho capito che l'operazione è definitiva",
@@ -796,7 +801,6 @@
     "actions": {
       "createOffer": "Crea offerta",
       "createContract": "Crea contratto",
-      "salesNotYetBuilt": "Il modulo Vendite non è ancora disponibile.",
       "leftStock": "Questo veicolo è uscito dallo stock il {{date}} (venduto)."
     },
     "spec": {
@@ -818,7 +822,9 @@
     },
     "errors": {
       "failedToLoad": "Caricamento non riuscito",
-      "somethingWentWrong": "Qualcosa è andato storto."
+      "somethingWentWrong": "Qualcosa è andato storto.",
+      "createOfferFailed": "Non è stato possibile creare l’offerta. Riprovare.",
+      "createContractFailed": "Non è stato possibile creare il contratto. Riprovare."
     },
     "purchase": {
       "title": "Acquisto",
@@ -857,7 +863,8 @@
       },
       "auto": "Automatico",
       "manual": "Manuale",
-      "error": "Non è stato possibile registrare i costi. Riprovare."
+      "error": "Non è stato possibile registrare i costi. Riprovare.",
+      "closed": "Registro veicolo chiuso dal {{date}}: il veicolo è uscito dallo stock."
     },
     "publishing": {
       "blockingBannerTitle": "{{count, number}} punto/i impediscono la pubblicazione",
@@ -1009,6 +1016,7 @@
       "confirmRefused": {
         "title": "Contratto non confermato",
         "missingAddress": "Per questo cliente non è registrato alcun indirizzo. Aggiungi un indirizzo di domicilio attuale alla scheda cliente prima di poter confermare il contratto.",
+        "missingCustomer": "Il contratto non ha ancora un cliente. Scegliere prima l’acquirente.",
         "missingVehicle": "Questo contratto non ha ancora un veicolo. Aggiungine uno prima di poter confermare il contratto.",
         "missingPrice": "Questo contratto non ha ancora un prezzo. Aggiungine uno prima di poter confermare il contratto.",
         "creditBlock": "Questo cliente ha un blocco creditizio ({{reason}}). Un'offerta è comunque possibile; il contratto richiede lo sblocco del conto da parte della contabilità.",
@@ -1037,6 +1045,7 @@
       "cancelDisabledReason": "Già annullato o fatturato.",
       "cancelDisabledReasonLegacy": "Vendita ripresa dal sistema precedente — già fatturata lì, non può essere annullata.",
       "confirmDisabledReasonEmpty": "Mancano ancora veicolo e prezzo.",
+      "confirmDisabledReasonNoBuyer": "Scegliere prima l’acquirente: un contratto non viene mai confermato senza cliente.",
       "confirmDisabledReasonSaving": "Le modifiche sono ancora in fase di salvataggio."
     },
     "stats": {
@@ -1049,7 +1058,7 @@
     "cancelReasonPrompt": "Motivo dell'annullamento:",
     "edit": {
       "title": "Completare il contratto",
-      "hint": "Finché il contratto non è confermato, il veicolo, la composizione del prezzo e la permuta possono essere completati o modificati qui. La conferma lo congela.",
+      "hint": "Finché il contratto non è confermato, il cliente, il veicolo, la composizione del prezzo e la permuta possono essere completati o modificati qui. La conferma lo congela.",
       "pricedWithoutInputs": "Questo contratto è stato prezzato prima che i contratti conservassero le basi di prezzo. Può essere confermato o annullato così com'è, ma non più modificato."
     }
   },
@@ -1068,6 +1077,7 @@
     },
     "customer": {
       "emptyHint": "Nessun cliente preselezionato — un'offerta porta il nome che verrà firmato.",
+      "emptyHintContract": "Ancora nessun acquirente — un contratto si conferma solo con il cliente che lo firma.",
       "search": "Cerca cliente",
       "createNew": "Crea nuovo",
       "creditBlockTitle": "Blocco creditizio",

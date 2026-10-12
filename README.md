@@ -108,8 +108,8 @@ genuinely inert until configured — see `.env.example`'s commented-out
 `DMS_OTEL_*`/`DMS_SENTRY_DSN` vars. Point `DMS_OTEL_EXPORTER_OTLP_ENDPOINT`
 at Grafana Cloud's OTLP gateway to get distributed traces (via
 `opentelemetry-instrumentation-fastapi`, auto-instrumented) and RED metrics
-per endpoint for free; `app.worker`'s heartbeat additionally emits three
-alarm gauges every 30s once metrics are configured:
+per endpoint for free; `app.worker`'s heartbeat (`app/worker.py::_heartbeat`)
+additionally emits five alarm gauges every 30s once metrics are configured:
 
 | Metric | What it means | Suggested alert |
 | --- | --- | --- |
@@ -117,6 +117,7 @@ alarm gauges every 30s once metrics are configured:
 | `dms.outbox.dead_letter_count` | Messages that exhausted all retry attempts | fires if > 0 |
 | `dms.consumer.lag_seconds{consumer_name=...}` | Time since a consumer last processed anything | fires if > 300s, per consumer |
 | `dms.label.age_seconds{label=...}` | Age of the stalest denormalised cross-context label, per label (KAN-84: `vehicle_party.vehicle`, refreshed by the nightly `customer.vehicle_party_labels` job) | fires if > 93600s (26h), per label |
+| `dms.reconciliation.age_seconds` | Seconds since the nightly reconciliation (`reconciliation.run_all`) last completed a run; unset until it has run once | fires if > 93600s (26h), or if absent once the worker has run a day |
 
 Consumers are registered in `app/worker.py::register_handlers` — that
 function is the current list, one `transport.register(...)` per consumer.

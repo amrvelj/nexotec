@@ -55,10 +55,21 @@ against the code). "Open" lines cite a ticket; /drift-audit re-checks them weekl
   A legacy trade-in whose customer is not VAT-registered and not `vatStatusConfirmed` is held
   (`supplier_vat_status_unconfirmed`, nothing written), and so is every later row for the same
   car (`held_behind_unconfirmed_trade_in`) — Anto, 2026-10-11, KAN-295.
-- **No empty contracts** (Anto, 2026-10-11, KAN-276): `POST /sales/contracts` needs `offerId`
-  or `customerId` (`ContractCreate` refuses neither, 422). A contract from an offer with no
-  customer can still be confirmed — signing without a buyer was not ruled out (KAN-276
-  option 1 not chosen).
+- **No empty contracts** (Anto, 2026-10-11, KAN-276): `POST /sales/contracts` needs exactly one
+  of `offerId`, `customerId` or `stockItemId` (`ContractCreate` refuses none or two, 422).
+- **No contract is signed without a buyer** (Anto, 2026-10-12, KAN-307): `confirm_contract`
+  refuses a contract with no customer (409 `missing_customer`), before the vehicle and price
+  gates. The gap KAN-276 left open (a contract from an offer without a customer) is closed.
+  A contract priced without inputs and without a buyer can now be neither given one nor
+  confirmed (KAN-315).
+- **A contract can start from a car** (Anto, 2026-10-12, KAN-307: "the same as offer
+  generation"): `stockItemId` (with the optional display `vehicleLabel`) creates a pending
+  contract with that car through the contract's own Path A edit, in the creating transaction.
+  The buyer is then picked inside the pending contract, as on the offer: `ContractUpdate` has
+  `customerId` (ADR-083 amended — before, a contract kept the customer it was created for),
+  applied by the one `offer.apply_customer_change` both hosts use (do-not-contact refused at
+  attach). The screens share `DealCustomerContainer`. The stock detail's "Vertrag erstellen"
+  uses it, and "Offerte erstellen" creates an offer and sets the same car (POST, then PATCH).
 - **One live contract per offer** (KAN-147): `create_contract` refuses an offer that already
   has a non-cancelled contract (409 `offer_already_contracted`, with its `contractNumber`),
   under the offer's row lock; a cancelled contract frees the offer. That refusal is what keeps
@@ -111,7 +122,7 @@ against the code). "Open" lines cite a ticket; /drift-audit re-checks them weekl
   can be generated (`services/contract_completeness.py`, one rule for both; KAN-67).
 - **A pending contract is editable, a confirmed one frozen** (ADR-083, Anto 2026-10-10,
   KAN-67): `PATCH /sales/contracts/{id}` (`ContractUpdate`: the vehicle-and-price subset of
-  `OfferUpdate`, no customer), and `POST .../trade-in`, `POST .../trade-in/valuation` and
+  `OfferUpdate`, plus the buyer since KAN-307), and `POST .../trade-in`, `POST .../trade-in/valuation` and
   `PUT .../line-items` with the offer's own request bodies. All run the offer's own code —
   snapshot, build-up, line items and trade-in take a `PricedDeal` (`services/priced_deal.py`),
   and `services/deal_editing.py` is the one vehicle-and-price edit for both. `sales_contract`
@@ -125,7 +136,10 @@ against the code). "Open" lines cite a ticket; /drift-audit re-checks them weekl
   (vehicle-mdm and the vehicle parties are their own transactions, ADR-047), which releases
   that lock, so `set_trade_in` locks the deal again after its last foreign write and re-checks
   that it is editable and still at the version the caller sent (KAN-309; the offer's trade-in
-  and line-item saves do the same, the other offer routes lock nothing yet: KAN-311). A failed
+  and line-item saves do the same). **Offers lock like contracts** (KAN-311): every offer route
+  that changes the row (PATCH, line items, trade-in, trade-in valuation, finalize, cancel) loads
+  it `for_update` (`get_offer_or_404`), so two saves of one offer run one after the other and
+  the second is a stale-version 409, never a lost update. A failed
   confirmation compensates (releases its reservation, reverts "used") under the contract's row
   lock on a session of its own, and undoes nothing once the contract is signed — a concurrent
   confirmation of the same contract may have committed with the same reservation — or when it
