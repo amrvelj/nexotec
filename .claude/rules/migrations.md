@@ -46,6 +46,14 @@ in the same PR as any change to what it states. -->
 - **A newly required column or request field is a breaking API contract change**: it needs an
   explicit decision (the D-03/D-04 precedent: one migration, breaking, decided up front), never
   a side effect of a fix.
+- **A data step in a migration is guarded for offline mode** (KAN-174). Under `alembic upgrade …
+  --sql` every `execute` on `op.get_bind()` returns `None`, so a migration that reads rows
+  (`conn.execute(…)` iterated, `.all()`, `.fetchall()`, `.scalar()`) crashes the render. A new
+  migration checks `context.is_offline_mode()` first and, when it is set, skips the data step and
+  emits a comment instead (`op.execute("-- <step> skipped: it reads rows and needs a live
+  database")`); DDL renders as usual. The trunk's `b7c1e4a92f10` and the data migrations after it
+  (every chain has at least one) predate this and are immutable, so an offline render crossing them
+  fails — README's "Database migrations" names what still renders.
 - **Backfills run for real, on Postgres, and are verified by query**: count rows, count nulls,
   count values identical to the column they were derived from. An offline `--sql` render is not
   a run. A downgrade that is deliberately a no-op says so in a comment.

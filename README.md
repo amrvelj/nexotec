@@ -196,8 +196,23 @@ commits and then finds nothing left to apply. CI proves it with
 alembic upgrade heads                                              # apply every context's head
 alembic heads                                                      # list current heads, one per context
 alembic revision --head customer@head -m "add loyalty tier"        # new migration, targets one context's chain
-alembic upgrade heads --sql                                        # preview SQL without a live DB
+alembic upgrade base:e9dd878c7836 --sql                            # offline SQL preview — only up to here, see below
 ```
+
+**Offline rendering (`--sql`) does not work across `b7c1e4a92f10`** (KAN-174):
+`alembic upgrade heads --sql` exits 1 with a `TypeError` partway, because
+that trunk revision reads rows through `op.get_bind()`, which has no
+connection in offline mode. The same holds for every data migration after
+it — each context's chain has at least one (`a7c4e91f6b2d` in platform,
+`65aa495aaa91` in core, …), so no chain renders end to end either. New
+migrations guard their data steps with `context.is_offline_mode()`
+(`.claude/rules/migrations.md`); the ones on `main` are immutable. What
+does render is a range of DDL-only revisions, `alembic upgrade <from>:<to>
+--sql` — `base:e9dd878c7836` (everything before `b7c1e4a92f10`) and
+`b7c1e4a92f10:f3a8c1d5e9b2` both exit 0, for example. To see the whole
+schema applied, run `alembic upgrade heads` against a throwaway database
+(`DMS_DATABASE_URL` pointed at one), as `scripts/dev/check`'s migration
+lane and `tests/test_migrated_enum_checks.py` do.
 
 `--head <context>@head` matters for new revisions: without it, Alembic
 doesn't know which chain (i.e. which `alembic/versions/<context>/`
