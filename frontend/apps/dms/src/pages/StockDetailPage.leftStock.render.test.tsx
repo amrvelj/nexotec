@@ -85,3 +85,48 @@ describe('StockDetailPage — a car that has left stock (KAN-262)', () => {
     expect(screen.queryByText(/Bestand verlassen am/)).not.toBeInTheDocument()
   })
 })
+
+// KAN-306 — the Wagenbuch of a car that has left stock is closed (FR-I-12;
+// the API refuses a manual entry with a 422), so "record cost" is shown
+// disabled with that reason (ADR-061), in every UI language.
+describe('StockDetailPage — the Wagenbuch of a car that has left stock (KAN-306)', () => {
+  const CLOSED = {
+    de: 'Wagenbuch seit 08.10.2026 geschlossen: Das Fahrzeug hat den Bestand verlassen.',
+    fr: 'Livre de bord clôturé depuis le 08.10.2026 : le véhicule a quitté le stock.',
+    it: 'Registro veicolo chiuso dal 08.10.2026: il veicolo è uscito dallo stock.',
+    en: 'Wagenbuch closed since 08.10.2026: the vehicle has left stock.',
+  } as const
+
+  function renderWagenbuch(item: StockItemRead) {
+    installFakeBackend([
+      { method: 'GET', match: new RegExp(`^/inventory/stock-items/${ID}$`), handler: () => item },
+      { method: 'GET', match: new RegExp(`^/inventory/stock-items/${ID}/ledger-entries$`), handler: () => ({ items: [] }) },
+    ])
+    renderWithProviders(
+      <Routes>
+        <Route path="/stock/:id" element={<StockDetailPage />} />
+      </Routes>,
+      { route: `/stock/${ID}?tab=wagenbuch` },
+    )
+  }
+
+  for (const lng of ['de', 'fr', 'it', 'en'] as const) {
+    it(`disables "record cost" and says the Wagenbuch is closed (${lng})`, async () => {
+      await i18n.changeLanguage(lng)
+      renderWagenbuch(ITEM)
+
+      const record = await screen.findByRole('button', { name: i18n.t('stockDetail.wagenbuch.recordButton') })
+      expect(record).toBeDisabled()
+      expect(screen.getByText(CLOSED[lng])).toBeInTheDocument()
+      expect(record).toHaveAccessibleDescription(CLOSED[lng])
+    })
+  }
+
+  it('a car still in stock can record a cost', async () => {
+    renderWagenbuch({ ...ITEM, leftStockAt: null })
+
+    const record = await screen.findByRole('button', { name: i18n.t('stockDetail.wagenbuch.recordButton') })
+    expect(record).toBeEnabled()
+    expect(screen.queryByText(CLOSED.de)).not.toBeInTheDocument()
+  })
+})

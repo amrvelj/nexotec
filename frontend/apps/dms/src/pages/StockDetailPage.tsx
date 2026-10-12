@@ -260,7 +260,7 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
       )}
       {activeTab === 'publishing' && <PublishingTab stockItemId={item.id} locale={locale} />}
       {activeTab === 'wagenbuch' && (
-        <WagenbuchTab entries={ledgerEntries} locale={locale} onRecordCost={recordCost} />
+        <WagenbuchTab entries={ledgerEntries} locale={locale} onRecordCost={recordCost} leftStockDate={leftStockDate} />
       )}
       {activeTab === 'evaluation' && <EvaluationTab stockItemId={item.id} locale={locale} />}
     </div>

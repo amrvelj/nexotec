@@ -858,7 +858,8 @@
       },
       "auto": "Automatisch",
       "manual": "Manuell",
-      "error": "Die Kosten konnten nicht erfasst werden. Bitte erneut versuchen."
+      "error": "Die Kosten konnten nicht erfasst werden. Bitte erneut versuchen.",
+      "closed": "Wagenbuch seit {{date}} geschlossen: Das Fahrzeug hat den Bestand verlassen."
     },
     "publishing": {
       "blockingBannerTitle": "{{count, number}} Punkt(e) verhindern die Publikation",

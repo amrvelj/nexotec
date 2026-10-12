@@ -858,7 +858,8 @@
       },
       "auto": "Automatico",
       "manual": "Manuale",
-      "error": "Non è stato possibile registrare i costi. Riprovare."
+      "error": "Non è stato possibile registrare i costi. Riprovare.",
+      "closed": "Registro veicolo chiuso dal {{date}}: il veicolo è uscito dallo stock."
     },
     "publishing": {
       "blockingBannerTitle": "{{count, number}} punto/i impediscono la pubblicazione",

@@ -858,7 +858,8 @@
       },
       "auto": "Automatic",
       "manual": "Manual",
-      "error": "The cost could not be recorded. Please try again."
+      "error": "The cost could not be recorded. Please try again.",
+      "closed": "Wagenbuch closed since {{date}}: the vehicle has left stock."
     },
     "publishing": {
       "blockingBannerTitle": "{{count, number}} item(s) are blocking publication",

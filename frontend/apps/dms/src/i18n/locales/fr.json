@@ -858,7 +858,8 @@
       },
       "auto": "Automatique",
       "manual": "Manuel",
-      "error": "Les frais n’ont pas pu être enregistrés. Veuillez réessayer."
+      "error": "Les frais n’ont pas pu être enregistrés. Veuillez réessayer.",
+      "closed": "Livre de bord clôturé depuis le {{date}} : le véhicule a quitté le stock."
     },
     "publishing": {
       "blockingBannerTitle": "{{count, number}} point(s) empêchent la publication",
