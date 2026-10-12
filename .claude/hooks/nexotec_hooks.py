@@ -909,6 +909,23 @@ def classify_write(root, abspath):
     return None, ""
 
 
+# Permission modes in which a hook's "ask" is put to the person at the keyboard. In every other mode -
+# auto, bypassPermissions, dontAsk, one added later, or none reported - an "ask" may be settled without
+# Anto ever seeing it (KAN-255: an edit to app/core/auth.py applied in an auto-mode session), so it is
+# denied instead. Anto's ruling (KAN-255, option A): unattended sessions never touch these files.
+ATTENDED_MODES = ("default", "acceptEdits", "plan")
+
+
+def settle_ask(data, decision, why):
+    """The decision a PreToolUse hook emits: an "ask" outside an attended mode becomes a "deny"."""
+    if decision != "ask" or data.get("permission_mode") in ATTENDED_MODES:
+        return decision, why
+    return "deny", (why + " This session runs in permission mode `{}`, where the approval prompt may never "
+                    "reach Anto, so the change is refused. Stop, ask Anto in chat, and leave the edit to an "
+                    "attended session (default, acceptEdits or plan mode)."
+                    .format(data.get("permission_mode") or "unknown"))
+
+
 INTERPRETERS = ("python", "python3", "node", "ruby", "perl")
 
 # --------------------------------------------------------------------------
@@ -1167,7 +1184,7 @@ def cmd_pre_bash(data):
     for words, redirects, where in located_commands(command, start):
         root = toplevel(where) or session_root
         for target in write_targets(words, redirects, where):
-            decision, why = classify_write(root, target)
+            decision, why = settle_ask(data, *classify_write(root, target))
             if decision == "deny":
                 denies.append(why)
             elif decision == "ask":
@@ -1243,7 +1260,7 @@ def cmd_pre_edit(data):
         return
     root = root_from(data)
     abspath = os.path.normpath(os.path.join(data.get("cwd") or root or os.getcwd(), os.path.expanduser(path)))
-    decision, why = classify_write(root, abspath)
+    decision, why = settle_ask(data, *classify_write(root, abspath))
     if decision:
         pre_decision(decision, why)
 
@@ -1858,6 +1875,14 @@ def selftest():
     assert write_targets(["cat", "x"], [(">", "y"), (">", "/dev/null")], "/r") == ["/r/y"]
     assert write_targets(["grep", "-rn", "x", "."], [], "/r") == []
     assert classify_write(None, "/r/.git/nexotec-gates/state.json")[0] == "deny"
+    # a preserved-file or gate-file "ask" reaches Anto only in an attended mode; elsewhere it is denied (KAN-255)
+    for mode in ("default", "acceptEdits", "plan"):
+        assert settle_ask({"permission_mode": mode}, "ask", "x") == ("ask", "x")
+    for mode in ("auto", "bypassPermissions", "dontAsk", "someFutureMode", None):
+        decision, why = settle_ask({"permission_mode": mode} if mode else {}, "ask", "x")
+        assert decision == "deny" and why.startswith("x") and "ask Anto in chat" in why, (mode, why)
+    assert settle_ask({"permission_mode": "auto"}, "deny", "y") == ("deny", "y")
+    assert settle_ask({"permission_mode": "auto"}, None, "") == (None, "")
     # --- gate CLI and hand-over
     assert gate_cli_command(["python3", ".claude/hooks/nexotec_hooks.py", "cli", "stamp-checks"]) == "stamp-checks"
     assert gate_cli_command(["scripts/dev/gate", "waive", "ci", "x"]) == "waive"
