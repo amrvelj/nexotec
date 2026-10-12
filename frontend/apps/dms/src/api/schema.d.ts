@@ -5934,7 +5934,7 @@ export interface components {
             odometerKm?: number | null;
             /**
              * Vehicleid
-             * @description Ignored when `vin` is sent: the item's vehicle is then the vehicle-mdm record that VIN resolves to (found, or created). Without a `vin` it is stored as sent.
+             * @description Ignored when `vin` is sent: the item's vehicle is then the vehicle-mdm record that VIN resolves to (found, or created). Without a `vin` it is refused (422 `vehicle_id_requires_vin`): a pipeline item has no vehicle until its VIN arrives.
              */
             vehicleId?: string | null;
             /** Vehiclelabel */

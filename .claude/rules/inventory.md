@@ -103,7 +103,9 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   `stockNumber`, checked before vehicle-mdm is touched; the index refuses a racing writer with the
   same 409. A direct create with a VIN upper-cases it and strips whitespace, then validates it
   as vehicle-mdm does (422 otherwise), and resolves `vehicle_id` from vehicle-mdm by that VIN —
-  a client `vehicleId` is ignored (Anto, 2026-10-12, KAN-244). Create and promotion resolve the
+  a client `vehicleId` is ignored (Anto, 2026-10-12, KAN-244), and without a VIN it is refused,
+  422 `vehicle_id_requires_vin` (Anto, 2026-10-12, KAN-324); promotion normalises its VIN the
+  same way before anything else. Create and promotion resolve the
   VIN through `services/vehicle_resolution.py` on a session of their own, so vehicle-mdm's commit
   or rollback never touches the caller's work; the loser of an insert race on a VIN vehicle-mdm
   has never seen takes the winner's record and carries on — then is stocked or refused

@@ -9,6 +9,8 @@ corrected only through VehicleMdmUpdate.
 On create the VIN is normalised and then validated exactly as vehicle-mdm
 validates it (KAN-244, Anto's option A), and the item's vehicle is resolved
 from it, never taken from the client (option C) — see `StockItemCreate`.
+Without a VIN there is no vehicle to name: a `vehicleId` sent without one is
+refused (KAN-324, Anto's option A), never stored unverified.
 """
 
 import datetime as dt
@@ -17,7 +19,8 @@ import uuid
 from decimal import Decimal
 from typing import Annotated, Any
 
-from pydantic import BeforeValidator, Field
+from pydantic import BeforeValidator, Field, model_validator
+from pydantic_core import PydanticCustomError
 
 from app.core.schemas import CamelModel
 from app.core.validators import Vin
@@ -52,12 +55,16 @@ class StockItemCreate(CamelModel):
     # record that VIN resolves to (found, or created — as promotion does);
     # a vehicleId the client sends is ignored, not refused, so a client that
     # sends one today keeps working. Without a VIN (a pipeline-style create)
-    # the vehicleId is stored as sent, as before KAN-244.
+    # a vehicleId is refused — 422 `vehicle_id_requires_vin`, the validator
+    # below (KAN-324, Anto's option A): a pipeline item has no vehicle until
+    # its VIN arrives, and one stored unverified named a record nobody had
+    # checked exists, or another car's, until a promotion replaced it.
     vehicle_id: uuid.UUID | None = Field(
         default=None,
         description=(
             "Ignored when `vin` is sent: the item's vehicle is then the vehicle-mdm record that VIN resolves "
-            "to (found, or created). Without a `vin` it is stored as sent."
+            "to (found, or created). Without a `vin` it is refused (422 `vehicle_id_requires_vin`): a pipeline "
+            "item has no vehicle until its VIN arrives."
         ),
     )
     vin: NormalisedVin | None = Field(
@@ -73,6 +80,20 @@ class StockItemCreate(CamelModel):
     # configuration the configurator just produced, `build` for a factory
     # order or `record` for a car being bought in (both modes allowed).
     configuration_id: uuid.UUID | None = None
+
+    @model_validator(mode="after")
+    def _vehicle_id_requires_vin(self) -> "StockItemCreate":
+        # On the schema, not in the service, so every writer that builds a
+        # StockItemCreate (the route, the contract-confirmation consumer, a
+        # script) meets the rule. A named type, as a VIN's own 422 carries
+        # the validator's text, so a client can tell the two apart.
+        if self.vehicle_id is not None and self.vin is None:
+            raise PydanticCustomError(
+                "vehicle_id_requires_vin",
+                "vehicleId is only accepted with a vin: a pipeline item has no vehicle until its VIN arrives, "
+                "and with a vin the vehicle is resolved from it.",
+            )
+        return self
 
 
 class StockItemUpdate(CamelModel):

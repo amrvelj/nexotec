@@ -139,6 +139,9 @@ def _build_and_flush_stock_item(
     item = StockItem(
         tenant_id=tenant_id,
         stock_number=allocate_stock_number(db, tenant_id),
+        # With a VIN, create_stock_item has resolved this from vehicle-mdm
+        # (KAN-244); without one StockItemCreate refuses it (KAN-324), so a
+        # pipeline item is created with no vehicle and promotion can give it one.
         vehicle_id=data.vehicle_id,
         vin=data.vin,
         vehicle_label=data.vehicle_label,
