@@ -167,7 +167,7 @@ export function OfferDetailContent({ offerId: id, embedded = false }: OfferDetai
       />
 
       {copyError && (
-        <Alert color="red" role="alert" withCloseButton onClose={() => setCopyError(null)}>
+        <Alert color="red" role="alert" withCloseButton closeButtonLabel={t('common.dismiss')} onClose={() => setCopyError(null)}>
           {copyError}
         </Alert>
       )}

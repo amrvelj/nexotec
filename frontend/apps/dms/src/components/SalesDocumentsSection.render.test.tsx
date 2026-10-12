@@ -68,6 +68,8 @@ describe('SalesDocumentsSection — a refused contract document says why (KAN-67
     await user.click(await screen.findByRole('button', { name: i18n.t('salesDocuments.generate') }))
 
     expect(await screen.findByText(i18n.t(key))).toBeInTheDocument()
+    // KAN-322 — the dismissable alert names its close button.
+    expect(screen.getByRole('button', { name: i18n.t('common.dismiss') })).toBeInTheDocument()
     expect(screen.getByText(i18n.t('salesDocuments.empty'))).toBeInTheDocument()
   })
 })
