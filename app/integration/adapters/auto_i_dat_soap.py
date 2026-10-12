@@ -84,7 +84,7 @@ from app.integration.adapters.base import (
     VehicleKindData,
     VehiclePriceData,
 )
-from app.integration.errors import ProviderConfigurationError, ProviderTransportError
+from app.integration.errors import ProviderConfigurationError, ProviderTimeoutError, ProviderTransportError
 from app.integration.models.connection import IntegrationConnection
 from app.integration.models.secret_ref import SecretSlot
 from app.integration.services import secrets_backend
@@ -157,9 +157,24 @@ def build_zeep_client(wsdl_url: str, *, timeout: float = DEFAULT_TIMEOUT_SECONDS
         # `zeep.Client` fetches and parses the WSDL over HTTP: this is the
         # first network call a real connection makes, and the one a mistyped
         # `wsdlUrl` fails on. Class name only — the message carries the URL.
-        raise ProviderTransportError(
-            f"The provider's WSDL could not be loaded from the configured wsdlUrl ({type(exc).__name__})."
+        raise _transport_error(
+            f"The provider's WSDL could not be loaded from the configured wsdlUrl ({type(exc).__name__}).", exc
         ) from exc
+
+
+def _transport_error(message: str, exc: BaseException) -> ProviderTransportError:
+    """KAN-108 — a timeout becomes `ProviderTimeoutError`, which the gateway
+    logs as `CallStatus.TIMEOUT`; every other failure stays a plain transport
+    error. `requests` raises `Timeout` (connect or read) for both the WSDL load
+    and a `Suchen` call; the builtin `TimeoutError` covers a socket timeout
+    that reaches us unwrapped. `requests` is zeep's own transport (it arrives
+    with zeep), imported lazily for the same reason zeep is."""
+
+    import requests
+
+    if isinstance(exc, requests.exceptions.Timeout | TimeoutError):
+        return ProviderTimeoutError(message)
+    return ProviderTransportError(message)
 
 
 class AutoIDatSoapAdapter:
@@ -272,7 +287,7 @@ class AutoIDatSoapAdapter:
             # ConnectionError/Timeout, zeep's TransportError/Fault, a plain
             # TimeoutError) become ours. Class name only, original chained:
             # the message ends up in `integration_connection.last_error`.
-            raise ProviderTransportError(f"{datenname}: the request to the provider failed ({type(exc).__name__}).") from exc
+            raise _transport_error(f"{datenname}: the request to the provider failed ({type(exc).__name__}).", exc) from exc
         if raw is None or not str(raw).strip():
             # p4: an empty string means invalid Benutzername / Passwort /
             # Sprache / Datenname. Caught here, before decrypt, so it
