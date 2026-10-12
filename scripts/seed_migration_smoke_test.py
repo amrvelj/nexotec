@@ -62,9 +62,9 @@ from app.customer.models.customer import (
 )
 from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.db import SessionLocal
-from app.vehicle.models.catalogue import Brand, ModelGroup, ModelVariant, TypeApproval, VariantTypeApproval
 from app.platform.models.dealership import DealerGroup, Dealership, DealershipStatus, FranchiseType
 from app.sales.models.transaction import Transaction, TransactionStatus, TransactionType
+from app.vehicle.models.catalogue import Brand, ModelGroup, ModelVariant, TypeApproval, VariantTypeApproval
 from app.vehicle.models.vehicle import (
     CustodyEventType,
     RegistrationStatus,
@@ -1008,7 +1008,7 @@ def main() -> None:
                 vehicle_id=vehicle.id,
                 partner_id=dealer_id,
                 event_type=CustodyEventType.ACQUIRED,
-                event_date=dt.datetime.now(dt.timezone.utc),
+                event_date=dt.datetime.now(dt.UTC),
                 transaction_id=transaction.id,
             )
         )

@@ -23,7 +23,13 @@ from typing import NoReturn
 
 from sqlalchemy import select
 
-from app.customer.models.customer import Customer, CustomerEmail, CustomerExternalId, CustomerNumberSequence, CustomerPhone
+from app.customer.models.customer import (
+    Customer,
+    CustomerEmail,
+    CustomerExternalId,
+    CustomerNumberSequence,
+    CustomerPhone,
+)
 from app.customer.models.vehicle_party import VehicleParty
 from app.db import SessionLocal
 from app.platform.models.dealership import Dealership
