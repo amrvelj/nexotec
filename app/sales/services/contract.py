@@ -475,6 +475,10 @@ def confirm_contract(
                 idempotency_key=f"sales.contract.confirm:{contract.id}",
             )
         except Exception:
+            # End this transaction first, as on the commit-failure path
+            # below: it holds the contract's row lock, which the
+            # compensation takes on its own session (KAN-192).
+            db.rollback()
             _compensate_confirmation(
                 ids, reservation_id=None, valuation_newly_used=valuation_newly_used,
                 actor_id=actor_id, session_factory=session_factory,
@@ -546,8 +550,51 @@ def _compensate_confirmation(
     with no signed contract carrying it" (KAN-115); a release that stays
     undone is freed by Stock's orphan sweep (KAN-122) on its first run once
     the reservation is an hour old.
+
+    KAN-192: by the time this runs, the confirmation's own transaction has
+    ended, and with it the contract's row lock. A second confirmation of the
+    same contract may have taken the lock meanwhile and committed — with
+    the very reservation this one made (reserve_for_contract is idempotent
+    by item and contract) and the valuation already stamped. So both
+    actions run under the contract's row lock, taken here on a session of
+    its own, and neither runs once the contract is signed: what a committed
+    confirmation points at is never undone.
     """
 
+    guard = session_factory()
+    try:
+        signed_at = guard.scalar(
+            select(SalesContract.signed_at)
+            .where(SalesContract.tenant_id == ids.tenant_id, SalesContract.id == ids.contract_id)
+            .with_for_update()
+        )
+        if signed_at is not None:
+            logger.warning(
+                "contract_confirm_compensation_skipped",
+                extra={"contractId": str(ids.contract_id), "reason": "confirmed_concurrently"},
+            )
+            return
+        _run_compensating_actions(
+            ids, reservation_id=reservation_id, valuation_newly_used=valuation_newly_used,
+            actor_id=actor_id, session_factory=session_factory,
+        )
+    except Exception:
+        logger.exception(
+            "contract_confirm_compensation_failed",
+            extra={"contractId": str(ids.contract_id), "action": "lock_contract"},
+        )
+    finally:
+        guard.close()
+
+
+def _run_compensating_actions(
+    ids: _ConfirmationIds,
+    *,
+    reservation_id: uuid.UUID | None,
+    valuation_newly_used: bool,
+    actor_id: uuid.UUID,
+    session_factory: Callable[[], Session],
+) -> None:
     if reservation_id is not None:
         compensating = session_factory()
         try:
