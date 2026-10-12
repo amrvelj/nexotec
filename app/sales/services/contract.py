@@ -563,26 +563,37 @@ def _compensate_confirmation(
 
     guard = session_factory()
     try:
-        signed_at = guard.scalar(
-            select(SalesContract.signed_at)
-            .where(SalesContract.tenant_id == ids.tenant_id, SalesContract.id == ids.contract_id)
-            .with_for_update()
-        )
+        try:
+            signed_at = guard.scalar(
+                select(SalesContract.signed_at)
+                .where(SalesContract.tenant_id == ids.tenant_id, SalesContract.id == ids.contract_id)
+                .with_for_update()
+            )
+        except Exception:
+            # Without the lock this cannot tell whether a concurrent
+            # confirmation committed, so it undoes nothing: the orphan sweep
+            # and the nightly report pick up what stays done (as above).
+            logger.exception(
+                "contract_confirm_compensation_failed",
+                extra={"contractId": str(ids.contract_id), "action": "lock_contract"},
+            )
+            return
         if signed_at is not None:
             logger.warning(
                 "contract_confirm_compensation_skipped",
                 extra={"contractId": str(ids.contract_id), "reason": "confirmed_concurrently"},
             )
             return
-        _run_compensating_actions(
-            ids, reservation_id=reservation_id, valuation_newly_used=valuation_newly_used,
-            actor_id=actor_id, session_factory=session_factory,
-        )
-    except Exception:
-        logger.exception(
-            "contract_confirm_compensation_failed",
-            extra={"contractId": str(ids.contract_id), "action": "lock_contract"},
-        )
+        try:
+            _run_compensating_actions(
+                ids, reservation_id=reservation_id, valuation_newly_used=valuation_newly_used,
+                actor_id=actor_id, session_factory=session_factory,
+            )
+        except Exception:
+            logger.exception(
+                "contract_confirm_compensation_failed",
+                extra={"contractId": str(ids.contract_id), "action": "compensate"},
+            )
     finally:
         guard.close()
 

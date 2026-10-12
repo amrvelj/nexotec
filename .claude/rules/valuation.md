@@ -46,6 +46,8 @@ file in the same PR as any change to what it states. -->
   (`trade_in_valuation_expired`); a draft does not. If the reservation or the contract's own
   commit fails, `revert_valuation_use` undoes "used" only when that confirmation set it and no
   other signed contract carries it; each compensating action runs even if the other fails.
+  Neither runs once the contract itself is signed — a concurrent confirmation committed — nor
+  when the compensation cannot lock the contract row (KAN-192; logged, left to the nightly run).
   **Cancelling a signed contract leaves it used** (ADR-066).
 - **Only a signed deal uses a valuation** (Anto, 2026-10-07, KAN-115). «Als verwendet
   markieren» (`POST /v1/valuations/{id}/mark-used`, `services/valuation.py::mark_used_by_hand`)

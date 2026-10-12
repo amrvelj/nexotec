@@ -66,10 +66,10 @@ against the code). "Open" lines cite a ticket; /drift-audit re-checks them weekl
 - **Sales writers take row locks offer → contract → deal** (KAN-147): `upsert_deal_projection`
   flushes its caller's offer/contract changes before it writes the deal, and the customer
   merge's repointing flushes offers, then contracts, then deals — so neither can deadlock a
-  contract creation holding the offer. A deal's row comes before its line items:
-  `update_offer`/`update_contract` write the deal before re-freezing its factory-option lines,
-  and `replace_line_items` locks the deal (`priced_deal.lock_editable`) before touching a line
-  (KAN-287).
+  contract creation holding the offer. An offer's or contract's row comes before its line
+  items: `update_offer`/`update_contract` write the offer or contract before re-freezing its
+  factory-option lines, and `replace_line_items` locks it (`priced_deal.lock_editable`) before
+  touching a line (KAN-287).
 
 ## Price and VAT (ADR-057)
 
@@ -124,8 +124,12 @@ against the code). "Open" lines cite a ticket; /drift-audit re-checks them weekl
   version as read and would let an edit land after signing. A trade-in save commits part-way
   (vehicle-mdm and the vehicle parties are their own transactions, ADR-047), which releases
   that lock, so `set_trade_in` locks the deal again after its last foreign write and re-checks
-  that it is editable and still at the version the caller sent (KAN-309). An edit publishes no
-  event. Never give the contract a second copy of a pricing rule.
+  that it is editable and still at the version the caller sent (KAN-309; the offer's trade-in
+  and line-item saves do the same, the other offer routes lock nothing yet: KAN-311). A failed
+  confirmation compensates (releases its reservation, reverts "used") under the contract's row
+  lock on a session of its own, and undoes nothing once the contract is signed — a concurrent
+  confirmation of the same contract may have committed with the same reservation (KAN-192).
+  An edit publishes no event. Never give the contract a second copy of a pricing rule.
 - **CHF 0.00 is a price** (Anto, 2026-10-10, KAN-67): a car whose base price was never entered
   builds to 0.00 and may be confirmed and printed; only an empty price is `missing_price`
   (`contract_completeness.has_price`). The pricing container still shows "in progress" for it.
