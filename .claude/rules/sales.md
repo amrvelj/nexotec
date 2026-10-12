@@ -172,8 +172,11 @@ ADR-057, ADR-063, ADR-065, ADR-083 and KAN-66/68/71. Verified against main@7a90a
   contract whose item has `left_stock_at` set is refused by Stock's `reserve_for_contract`
   (409 `vehicle_left_stock`), and the compensation reverts the trade-in valuation's "used"
   stamp as for any refused reservation. The contract page keeps «Vertrag bestätigen» disabled
-  while a price edit is unsaved or any deal save is in flight (`useDebouncedNumberField`,
-  `trackSave`; KAN-288).
+  while a price edit is unsaved or any deal save is in flight (`useDebouncedNumberField`;
+  KAN-288). Both deal workspaces send their saves through `hooks/useDealSaveQueue.ts`: one
+  after the other, each with the version the previous one returned, a refused save said and
+  never retried (KAN-314) — the server's offer/contract row lock refuses the second of two
+  saves sent with the same version (KAN-311).
 - **ADR-065** — a credit block stops contract confirmation, not the offer. An address-less
   customer is likewise gated at confirmation (D-20). Do-not-contact refuses the offer, a
   contract created straight from the customer, and every confirmation.
