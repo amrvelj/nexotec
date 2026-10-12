@@ -6387,7 +6387,13 @@ export interface components {
          * @enum {string}
          */
         UserStatus: "invited" | "active" | "suspended" | "deactivated";
-        /** UserUpdate */
+        /**
+         * UserUpdate
+         * @description PATCH semantics: a field left out is left unchanged. `None` on every
+         *     field means "not sent"; only `phone` may be sent as null (to clear it) —
+         *     every other field is a NOT NULL column, so an explicit null is refused
+         *     here as a 422 rather than reaching the service (KAN-136).
+         */
         UserUpdate: {
             /** Accessroles */
             accessRoles?: components["schemas"]["AccessRole"][] | null;
