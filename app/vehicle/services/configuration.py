@@ -9,10 +9,12 @@ when a VIN resolves to an *existing* MDM row.
 `tests/architecture/test_configuration_never_writes_vehicle_mdm.py` proves
 it (source scan + runtime guard).
 
-Every spec-field edit and every `catalogue_match_status` transition is
-audited (`app.core.audit`) — a configuration stays editable after a host
-references it, and `overridden_fields` records *that* a field changed but
-not who / when / from what. Dates in the audit payload are `.isoformat()`d
+Every field edit — spec block, coded fields and the top-level observed
+fields (VIN, mileage, colours, …; KAN-319) — and every
+`catalogue_match_status` transition is audited (`app.core.audit`) — a
+configuration stays editable after a host references it, and
+`overridden_fields` records *that* a field changed but not who / when /
+from what. Dates in the audit payload are `.isoformat()`d
 before they can reach `json.dumps` (the KAN-29 birth-date-500 shape).
 """
 
@@ -369,15 +371,30 @@ def update_configuration(
         status_transition = True
 
     # `mode` and `match_method` are never null on the row: a null leaves them.
+    # (`mode` cannot change — checked above — so only the match method can
+    # reach the audit here; it is kept permanently, a dispute turns on it.)
     for field in ("mode", "match_method"):
         value = getattr(data, field)
-        if value is not None:
+        if value is not None and value != getattr(configuration, field):
+            spec_before[field] = _audit_value(getattr(configuration, field))
+            spec_after[field] = _audit_value(value)
             setattr(configuration, field, value)
     # R2 (KAN-247) — absent is "leave alone", an explicit null clears, the
-    # way the spec block already reads `exclude_unset`.
+    # way the spec block already reads `exclude_unset`. KAN-319: a change
+    # or a clearing is in the audit before/after exactly like a spec field
+    # (FR-C-11: a referenced configuration is evidence); an unchanged value
+    # records nothing. These fields are not catalogue copies, so none is
+    # marked overridden.
     for field in _PATCHABLE_NULLABLE_FIELDS:
-        if field in data.model_fields_set:
-            setattr(configuration, field, getattr(data, field))
+        if field not in data.model_fields_set:
+            continue
+        current = getattr(configuration, field)
+        new = getattr(data, field)
+        if current == new:
+            continue
+        spec_before[field] = _audit_value(current)
+        spec_after[field] = _audit_value(new)
+        setattr(configuration, field, new)
 
     _link_vehicle_if_vin_resolves(db, configuration)
 

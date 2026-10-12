@@ -156,8 +156,10 @@ def test_a_provider_configurations_coded_values_sent_back_unchanged_are_accepted
     assert r.status_code == 200, r.text
     assert (r.json()["fuelType"], r.json()["mileageKm"]) == ("petrol", 12000)
     assert r.json()["overriddenFields"] == []
-    # nothing coded changed, so nothing coded is audited
-    assert _update_audits(db_session, created["id"]) == []
+    # nothing coded changed, so nothing coded is audited — only the mileage
+    # the PATCH set (KAN-319: a top-level change is recorded too)
+    (audit,) = _update_audits(db_session, created["id"])
+    assert (audit.before, audit.after) == ({"mileage_km": None}, {"mileage_km": 12000})
 
 
 # --- R1: manual configurations — all five required, none clearable ------
@@ -343,3 +345,95 @@ def test_omitting_a_field_changes_nothing(client, db_session):
         142000, "Rouge", 29, "Re-checked"
     )
     assert body["fuelType"] == "petrol"
+
+
+# --- KAN-319: a changed or cleared top-level field is audited too --------
+
+
+def test_a_changed_top_level_field_is_in_the_audit_before_and_after(client, db_session):
+    """FR-C-11 / FR-C-16: VIN, mileage, first registration — every field a
+    PATCH changes is in the one update audit record, exactly like a spec
+    field; a value sent back unchanged (the colour here) is not recorded."""
+
+    _seed_coded_lists(db_session)
+    tenant_id = uuid.uuid4()
+    created = _manual(
+        client, tenant_id, vin="VF7AAAAAAAA000001", firstRegistrationDate="1985-04-01", mileageKm=142000,
+        exteriorColour="Rouge",
+    )
+
+    r = _patch(client, tenant_id, created["id"], created["version"], {
+        "vin": "VF7AAAAAAAA000002", "firstRegistrationDate": "1986-05-02", "mileageKm": 150000,
+        "exteriorColour": "Rouge", "spec": {"ps": 29},
+    })
+
+    assert r.status_code == 200, r.text
+    (audit,) = _update_audits(db_session, created["id"])
+    assert audit.before == {
+        "vin": "VF7AAAAAAAA000001", "first_registration_date": "1985-04-01", "mileage_km": 142000, "ps": None,
+    }
+    assert audit.after == {
+        "vin": "VF7AAAAAAAA000002", "first_registration_date": "1986-05-02", "mileage_km": 150000, "ps": 29,
+    }
+
+
+def test_a_cleared_top_level_field_is_in_the_audit_with_a_null_after(client, db_session):
+    """KAN-247 made an explicit null clear a field; the removal is evidence
+    and recorded like a change."""
+
+    _seed_coded_lists(db_session)
+    tenant_id = uuid.uuid4()
+    created = _manual(client, tenant_id, mileageKm=142000, exteriorColour="Rouge", wheelsSurcharge="100.00")
+
+    r = _patch(client, tenant_id, created["id"], created["version"],
+               {"mileageKm": None, "exteriorColour": None, "wheelsSurcharge": None})
+
+    assert r.status_code == 200, r.text
+    (audit,) = _update_audits(db_session, created["id"])
+    assert audit.before == {"mileage_km": 142000, "exterior_colour": "Rouge", "wheels_surcharge": "100.00"}
+    assert audit.after == {"mileage_km": None, "exterior_colour": None, "wheels_surcharge": None}
+
+
+def test_an_unchanged_top_level_value_records_nothing(client, db_session):
+    _seed_coded_lists(db_session)
+    tenant_id = uuid.uuid4()
+    created = _manual(client, tenant_id, mileageKm=142000, exteriorColour="Rouge")
+
+    r = _patch(client, tenant_id, created["id"], created["version"], {"mileageKm": 142000, "exteriorColour": "Rouge"})
+
+    assert r.status_code == 200, r.text
+    assert _update_audits(db_session, created["id"]) == []
+
+
+def test_a_changed_match_method_is_in_the_audit(client, db_session):
+    """The match method is "kept permanently, because a later dispute turns
+    on it" (the model) — so a change to it is recorded like any other."""
+
+    _seed_coded_lists(db_session)
+    tenant_id = uuid.uuid4()
+    created = _manual(client, tenant_id)
+
+    r = _patch(client, tenant_id, created["id"], created["version"], {"matchMethod": "vin"})
+
+    assert r.status_code == 200, r.text
+    assert r.json()["matchMethod"] == "vin"
+    (audit,) = _update_audits(db_session, created["id"])
+    assert (audit.before, audit.after) == ({"match_method": "manual"}, {"match_method": "vin"})
+
+
+def test_clearing_a_top_level_field_on_a_provider_configuration_is_audited_too(client, db_session):
+    """The lock on a provider configuration covers the coded fields only;
+    its observed fields change and clear, and each of those is recorded."""
+
+    _seed_coded_lists(db_session)
+    tenant_id = uuid.uuid4()
+    created = _provider(client, db_session, tenant_id)
+    set_up = _patch(client, tenant_id, created["id"], created["version"], {"mileageKm": 30000})
+    assert set_up.status_code == 200, set_up.text
+
+    r = _patch(client, tenant_id, created["id"], set_up.json()["version"], {"mileageKm": None})
+
+    assert r.status_code == 200, r.text
+    first, second = _update_audits(db_session, created["id"])
+    assert (first.before, first.after) == ({"mileage_km": None}, {"mileage_km": 30000})
+    assert (second.before, second.after) == ({"mileage_km": 30000}, {"mileage_km": None})
