@@ -24,7 +24,7 @@ from app.integration.services import gateway, resilience
 from app.platform.models.reference_data import ReferenceList, ReferenceValue
 from app.vehicle.models.catalogue import Brand, ModelGroup, ModelVariant, VariantOption, VariantOptionEquipmentFeature
 from app.vehicle.models.catalogue_mirror import ColourCache, ImageRef, ProviderSyncState, TyreSpecCache
-from app.vehicle.models.provider import MappingGap, ProviderCodeMap, VariantProviderCode
+from app.vehicle.models.provider import MappingGap, ProviderCodeMap, VariantOptionProviderCode, VariantProviderCode
 from app.vehicle.services import catalogue_admin, catalogue_sync
 from app.vehicle.services.provider import resolve_provider_code
 
@@ -966,14 +966,17 @@ def test_resolving_a_gap_fills_only_variants_of_its_own_vehicle_kind_and_provide
 
 def test_resolving_a_gap_whose_code_group_is_not_a_variant_field_fills_nothing(db_session):
     """An equipment feature is an option attribute, not a variant column:
-    its resolve succeeds and fills no variant (never an AttributeError)."""
+    its resolve succeeds and fills no variant (never an AttributeError).
+    No option's SuchCode list carries "HS", so no option gains it either
+    (the option heal is KAN-250's tests below)."""
 
     _seeded_tenant(db_session)
     _seed_reference_list(db_session, "equipment_feature", ("heated_seats",))
     resolve_provider_code(
         db_session, provider="auto_i_dat_mock", vehicle_kind="1", code_group="equipment_feature", provider_code="HS",
     )
-    gap = db_session.scalar(select(MappingGap).where(MappingGap.code_group == "equipment_feature"))
+    # The seed records equipment-feature gaps of its own; this one is "HS".
+    gap = _feature_gap(db_session, "HS")
 
     catalogue_admin.resolve_gap(
         db_session, gap=gap, canonical_list_code="equipment_feature", canonical_value_code="heated_seats",
@@ -983,3 +986,142 @@ def test_resolving_a_gap_whose_code_group_is_not_a_variant_field_fills_nothing(d
     assert gap.resolved is True
     events = list_audit_events(db_session, entity_type="vehicle_mapping_gap", entity_id=gap.id, tenant_id=None)
     assert events[0].after["variantsFilled"] == 0
+    assert events[0].after["optionsFilled"] == 0
+
+
+# --- KAN-250: a resolved equipment_feature gap reaches the options it blocked ---------------
+
+
+def _option(db_session, tenant_id: uuid.UUID, fz_key: str, option_code: str) -> VariantOption:
+    return db_session.scalars(
+        select(VariantOption).where(
+            VariantOption.tenant_id == tenant_id, VariantOption.model_variant_id == _variant(db_session, fz_key).id,
+            VariantOption.option_code == option_code,
+        )
+    ).one()
+
+
+def _features(db_session, option: VariantOption) -> set[tuple[uuid.UUID, str]]:
+    db_session.expire_all()
+    return {
+        (row.tenant_id, row.feature_value_code)
+        for row in db_session.scalars(
+            select(VariantOptionEquipmentFeature).where(VariantOptionEquipmentFeature.variant_option_id == option.id)
+        )
+    }
+
+
+def _feature_gap(db_session, provider_code: str) -> MappingGap:
+    return db_session.scalars(
+        select(MappingGap).where(
+            MappingGap.code_group == "equipment_feature", MappingGap.provider_code == provider_code
+        )
+    ).one()
+
+
+def test_the_sync_records_each_options_raw_such_codes_in_its_tenant(db_session):
+    tenant_id = _seeded_tenant(db_session)
+
+    rows = db_session.scalars(
+        select(VariantOptionProviderCode).where(
+            VariantOptionProviderCode.variant_option_id == _option(db_session, tenant_id, "FZ100002", "NAV").id
+        )
+    ).all()
+
+    # Resolved or not, every raw code is kept — none is mapped in this test.
+    assert {(r.tenant_id, r.provider, r.vehicle_kind, r.code_group, r.provider_code) for r in rows} == {
+        (tenant_id, "auto_i_dat_mock", "1", "equipment_feature", "navigation"),
+        (tenant_id, "auto_i_dat_mock", "1", "equipment_feature", "APPLE_CARPLAY"),
+    }
+
+
+def test_resolving_an_equipment_feature_gap_adds_the_feature_to_every_tenants_options_at_once(db_session):
+    """No sync runs after the resolve: each tenant's option whose SuchCode
+    list carried the code gains the feature in that tenant's partition."""
+
+    tenant_a = _seeded_tenant(db_session)
+    tenant_b = uuid.uuid4()
+    _make_connection(db_session, db_session.scalars(select(IntegrationProvider)).one(), tenant_id=tenant_b)
+    catalogue_sync.seed_tenant_catalogue(db_session, tenant_id=tenant_b)
+    _seed_reference_list(db_session, "equipment_feature", ("apple_carplay", "navigation"))
+    nav_a, nav_b = _option(db_session, tenant_a, "FZ100002", "NAV"), _option(db_session, tenant_b, "FZ100002", "NAV")
+    led_a = _option(db_session, tenant_a, "FZ100002", "LED")
+    assert _features(db_session, nav_a) == set()
+    gap = _feature_gap(db_session, "APPLE_CARPLAY")
+
+    catalogue_admin.resolve_gap(
+        db_session, gap=gap, canonical_list_code="equipment_feature", canonical_value_code="apple_carplay",
+        actor_id=uuid.uuid4(),
+    )
+
+    assert _features(db_session, nav_a) == {(tenant_a, "apple_carplay")}
+    assert _features(db_session, nav_b) == {(tenant_b, "apple_carplay")}
+    assert _features(db_session, led_a) == set()  # its list never carried the code
+    events = list_audit_events(db_session, entity_type="vehicle_mapping_gap", entity_id=gap.id, tenant_id=None)
+    assert events[0].after["optionsFilled"] == 2
+
+
+def test_resolving_a_feature_an_option_already_carries_adds_no_second_row(db_session):
+    tenant_id = _seeded_tenant(db_session)
+    _seed_reference_list(db_session, "equipment_feature", ("navigation",))
+    nav = _option(db_session, tenant_id, "FZ100002", "NAV")
+    db_session.add(VariantOptionEquipmentFeature(tenant_id=tenant_id, variant_option_id=nav.id, feature_value_code="navigation"))
+    db_session.commit()
+
+    catalogue_admin.resolve_gap(
+        db_session, gap=_feature_gap(db_session, "navigation"), canonical_list_code="equipment_feature",
+        canonical_value_code="navigation", actor_id=uuid.uuid4(),
+    )
+
+    assert _features(db_session, nav) == {(tenant_id, "navigation")}
+
+
+def test_resolving_a_feature_gap_reaches_only_options_of_its_own_vehicle_kind_and_provider(db_session):
+    tenant_id = _seeded_tenant(db_session)
+    _seed_reference_list(db_session, "equipment_feature", ("apple_carplay",))
+    variant = _bare_variant(db_session)
+    others = []
+    for provider, kind in (("auto_i_dat_mock", "2"), ("auto_i_dat", "1")):
+        option = VariantOption(
+            tenant_id=tenant_id, model_variant_id=variant.id, option_code=f"X{provider}{kind}", description="x"
+        )
+        db_session.add(option)
+        db_session.flush()
+        db_session.add(
+            VariantOptionProviderCode(
+                tenant_id=tenant_id, variant_option_id=option.id, provider=provider, vehicle_kind=kind,
+                code_group="equipment_feature", provider_code="APPLE_CARPLAY",
+            )
+        )
+        others.append(option)
+    db_session.commit()
+
+    catalogue_admin.resolve_gap(
+        db_session, gap=_feature_gap(db_session, "APPLE_CARPLAY"), canonical_list_code="equipment_feature",
+        canonical_value_code="apple_carplay", actor_id=uuid.uuid4(),
+    )
+
+    assert _features(db_session, _option(db_session, tenant_id, "FZ100002", "NAV")) == {(tenant_id, "apple_carplay")}
+    assert all(_features(db_session, option) == set() for option in others)
+
+
+def test_a_such_code_the_provider_drops_is_removed_from_the_options_raw_codes(db_session):
+    tenant_id = uuid.uuid4()
+    variant = _bare_variant(db_session)
+    option = VariantOption(tenant_id=tenant_id, model_variant_id=variant.id, option_code="NAV", description="Nav")
+    db_session.add(option)
+    db_session.commit()
+
+    for codes in (["navigation", "APPLE_CARPLAY"], ["APPLE_CARPLAY"]):
+        catalogue_sync._sync_option_equipment_features(
+            db_session, tenant_id=tenant_id, provider_code="auto_i_dat_mock", vehicle_kind_code="1",
+            variant_option=option, feature_codes=codes,
+        )
+        db_session.commit()
+
+    assert {
+        r.provider_code
+        for r in db_session.scalars(
+            select(VariantOptionProviderCode).where(VariantOptionProviderCode.variant_option_id == option.id)
+        )
+    } == {"APPLE_CARPLAY"}

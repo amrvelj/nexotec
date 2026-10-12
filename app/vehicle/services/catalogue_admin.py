@@ -16,7 +16,7 @@ from app.core.pagination import PageParams, build_page, paginate_query
 from app.vehicle.models.catalogue import Brand
 from app.vehicle.models.provider import MappingGap
 from app.vehicle.schemas.catalogue import BrandCreate, BrandUpdate
-from app.vehicle.services.catalogue_sync import apply_resolved_code_to_variants
+from app.vehicle.services.catalogue_sync import apply_resolved_code_to_options, apply_resolved_code_to_variants
 from app.vehicle.services.provider import resolve_mapping_gap
 
 _AUDITED_BRAND_FIELDS = {"display_name"}
@@ -110,12 +110,19 @@ def resolve_gap(
         db, provider=gap.provider, vehicle_kind=gap.vehicle_kind, code_group=gap.code_group,
         provider_code=gap.provider_code, value_code=canonical_value_code,
     )
+    # KAN-250: likewise the options (every tenant's, each in its own
+    # partition) whose raw SuchCode list carried an equipment-feature code.
+    options_filled = apply_resolved_code_to_options(
+        db, provider=gap.provider, vehicle_kind=gap.vehicle_kind, code_group=gap.code_group,
+        provider_code=gap.provider_code, value_code=canonical_value_code,
+    )
     record_audit_event(
         db, entity_type="vehicle_mapping_gap", entity_id=gap.id, tenant_id=None, action="resolve", actor_id=actor_id,
         after={
             "provider": gap.provider, "providerCode": gap.provider_code,
             "canonicalListCode": canonical_list_code, "canonicalValueCode": canonical_value_code,
             "variantsFilled": variants_filled,
+            "optionsFilled": options_filled,
         },
     )
     db.commit()

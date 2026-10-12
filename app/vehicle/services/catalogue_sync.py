@@ -80,7 +80,7 @@ from app.vehicle.models.catalogue import (
     VariantTypeApproval,
 )
 from app.vehicle.models.catalogue_mirror import ColourCache, ImageRef, ProviderSyncState, TyreSpecCache
-from app.vehicle.models.provider import ProviderEntityRef, VariantProviderCode
+from app.vehicle.models.provider import ProviderEntityRef, VariantOptionProviderCode, VariantProviderCode
 from app.vehicle.services.provider import resolve_provider_code
 
 logger = logging.getLogger("app.vehicle.catalogue_sync")
@@ -110,6 +110,9 @@ _CODED_FIELDS: Final = {
     "drivetrain": "drivetrain_code",
     "transmission": "transmission_code",
 }
+# The option attribute resolved through `ProviderCodeMap` (`SuchCode`), many
+# codes per option; its raw codes are kept per option (KAN-250).
+_EQUIPMENT_FEATURE: Final = "equipment_feature"
 # Master-data fields a later visit fills while they are NULL (KAN-83).
 # `name` and `model_year_from` are NOT NULL, so there is never a gap to fill.
 _FILLABLE_MASTER_FIELDS: Final = ("model_year_to", "base_price", "werkscode")
@@ -487,6 +490,55 @@ def apply_resolved_code_to_variants(
     db.flush()
     return result.rowcount  # type: ignore[attr-defined]
 
+
+def apply_resolved_code_to_options(
+    db: Session, *, provider: str, vehicle_kind: str, code_group: str, provider_code: str, value_code: str,
+) -> int:
+    """Adds the `value_code` equipment feature to every option, in every
+    tenant, whose recorded raw `SuchCode` list contains exactly this
+    (provider, vehicle kind, code) — the options a just-resolved
+    `equipment_feature` gap had been blocking (KAN-250, FR-C-10). Each row
+    is written with its option's own `tenant_id` (ADR-013); an option that
+    already carries the feature is left as it is. Any other code group adds
+    nothing. Returns how many options gained the feature.
+
+    Runs in the resolve's transaction, after `resolve_mapping_gap` has
+    locked the gap. A sync visit of the same option resolves the code (and
+    so bumps the gap) before it reads the option's features, so it either
+    waits for this resolve and then sees the feature, or committed before it
+    and this resolve sees its raw codes — the feature is never written twice.
+    """
+
+    if code_group != _EQUIPMENT_FEATURE:
+        return 0
+    blocked = db.execute(
+        select(VariantOptionProviderCode.tenant_id, VariantOptionProviderCode.variant_option_id)
+        .where(
+            VariantOptionProviderCode.provider == provider,
+            VariantOptionProviderCode.vehicle_kind == vehicle_kind,
+            VariantOptionProviderCode.code_group == code_group,
+            VariantOptionProviderCode.provider_code == provider_code,
+        )
+        .where(
+            ~select(VariantOptionEquipmentFeature.id)
+            .where(
+                VariantOptionEquipmentFeature.variant_option_id == VariantOptionProviderCode.variant_option_id,
+                VariantOptionEquipmentFeature.feature_value_code == value_code,
+            )
+            .exists()
+        )
+        .order_by(VariantOptionProviderCode.variant_option_id)
+    ).all()
+    for tenant_id, variant_option_id in blocked:
+        db.add(
+            VariantOptionEquipmentFeature(
+                tenant_id=tenant_id, variant_option_id=variant_option_id, feature_value_code=value_code
+            )
+        )
+    db.flush()
+    return len(blocked)
+
+
 def _link_type_approvals(db: Session, *, variant: ModelVariant, type_approval_numbers: list[str]) -> None:
     """KAN-42 (C-D): records the variant's Typenscheine so FR-C-02 step 4's
     reverse lookup (`find_model_variants_by_type_approval`) can find a
@@ -529,12 +581,21 @@ def _sync_option_equipment_features(
     provider code that fails to resolve is skipped (and left to
     `resolve_provider_code`'s own MappingGap, PR-8's admin queue) rather
     than blocking the rest of this option's sync.
+
+    The raw code list itself is kept too (`VariantOptionProviderCode`,
+    replaced wholesale the same way), resolved or not, so resolving a gap
+    later adds the feature at once (`apply_resolved_code_to_options`,
+    KAN-250).
     """
 
+    _record_option_raw_codes(
+        db, tenant_id=tenant_id, provider_code=provider_code, vehicle_kind_code=vehicle_kind_code,
+        variant_option=variant_option, feature_codes=feature_codes,
+    )
     resolved_codes = set()
     for raw_code in feature_codes:
         canonical = resolve_provider_code(
-            db, provider=provider_code, vehicle_kind=vehicle_kind_code, code_group="equipment_feature",
+            db, provider=provider_code, vehicle_kind=vehicle_kind_code, code_group=_EQUIPMENT_FEATURE,
             provider_code=raw_code,
         )
         if canonical is not None:
@@ -557,6 +618,42 @@ def _sync_option_equipment_features(
                 tenant_id=tenant_id, variant_option_id=variant_option.id, feature_value_code=code
             )
         )
+
+
+def _record_option_raw_codes(
+    db: Session, *, tenant_id: uuid.UUID, provider_code: str, vehicle_kind_code: str,
+    variant_option: VariantOption, feature_codes: list[str],
+) -> None:
+    """Keeps the option's `VariantOptionProviderCode` rows equal to the raw
+    `SuchCode` list the provider sent this time: a new code is written, one
+    the provider no longer sends removed, and a changed vehicle kind
+    updated."""
+
+    wanted = dict.fromkeys(code for code in feature_codes if code)
+    rows = {
+        row.provider_code: row
+        for row in db.scalars(
+            select(VariantOptionProviderCode).where(
+                VariantOptionProviderCode.variant_option_id == variant_option.id,
+                VariantOptionProviderCode.provider == provider_code,
+                VariantOptionProviderCode.code_group == _EQUIPMENT_FEATURE,
+            )
+        )
+    }
+    for raw_code, row in rows.items():
+        if raw_code not in wanted:
+            db.delete(row)
+        elif row.vehicle_kind != vehicle_kind_code:
+            row.vehicle_kind = vehicle_kind_code
+    for raw_code in wanted:
+        if raw_code not in rows:
+            db.add(
+                VariantOptionProviderCode(
+                    tenant_id=tenant_id, variant_option_id=variant_option.id, provider=provider_code,
+                    vehicle_kind=vehicle_kind_code, code_group=_EQUIPMENT_FEATURE, provider_code=raw_code,
+                )
+            )
+    db.flush()
 
 
 def _sync_tenant_variant_content(
