@@ -71,3 +71,38 @@ describe('SalesDocumentsSection — a refused contract document says why (KAN-67
     expect(screen.getByText(i18n.t('salesDocuments.empty'))).toBeInTheDocument()
   })
 })
+
+// KAN-273 — fixed in code by KAN-67 (generate's catch); pinned here.
+describe('SalesDocumentsSection — a failed generate says so and keeps its key (KAN-273)', () => {
+  it('a dropped generate shows the translated message, and the retry reuses the key', async () => {
+    const user = userEvent.setup()
+    let attempts = 0
+    const backend = installFakeBackend([
+      { method: 'GET', match: /^\/sales\/offers\/o1\/documents$/, handler: () => ({ items: [], nextCursor: null }) },
+      {
+        method: 'POST',
+        match: /^\/sales\/offers\/o1\/documents$/,
+        handler: () => {
+          attempts += 1
+          if (attempts === 1) throw new TypeError('Failed to fetch')
+          return status(201, { id: 'd1', version: 1, correspondenceLanguage: 'de' })
+        },
+      },
+      { method: 'GET', match: /^\/sales\/documents\/d1\/pdf$/, handler: () => ({}) },
+    ])
+    renderWithProviders(<SalesDocumentsSection ownerType="offer" ownerId="o1" />)
+
+    const generate = await screen.findByRole('button', { name: i18n.t('salesDocuments.generate') })
+    await user.click(generate)
+    expect(await screen.findByText(i18n.t('salesDocuments.errors.generic'))).toBeInTheDocument()
+    await waitFor(() => expect(generate).toBeEnabled())
+
+    await user.click(generate)
+    await waitFor(() => expect(backend.callsTo(/\/documents$/, 'POST')).toHaveLength(2))
+    await waitFor(() => expect(screen.queryByText(i18n.t('salesDocuments.errors.generic'))).toBeNull())
+
+    const [failedKey, retryKey] = backend.callsTo(/\/documents$/, 'POST').map((call) => call.headers.get('Idempotency-Key'))
+    expect(failedKey).toBeTruthy()
+    expect(retryKey).toBe(failedKey)
+  })
+})

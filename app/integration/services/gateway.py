@@ -36,7 +36,7 @@ from app.core.base import utcnow
 from app.core.errors import ConflictError
 from app.integration.adapters.auto_i_dat_mock import MockAutoIDatAdapter
 from app.integration.adapters.base import ProviderAdapter
-from app.integration.errors import ProviderGatewayError
+from app.integration.errors import ProviderGatewayError, ProviderTimeoutError, ProviderTransportError
 from app.integration.models.call_log import CallStatus, IntegrationCallLog
 from app.integration.models.call_payload import PayloadKind
 from app.integration.models.connection import ConnectionStatus, IntegrationConnection
@@ -69,14 +69,14 @@ class UnknownProviderError(ProviderGatewayError):
 # below ignores all three. Mock and real are separate provider_codes /
 # separate connections, never a runtime flag on one (rule 7's own
 # reasoning, applied to more than just sandbox/prod).
-_ADAPTER_FACTORIES: dict[str, Callable[[Session, IntegrationConnection, uuid.UUID | None, str], ProviderAdapter]] = {
+_AdapterFactory = Callable[[Session, IntegrationConnection, uuid.UUID | None, str], ProviderAdapter]
+
+_ADAPTER_FACTORIES: dict[str, _AdapterFactory] = {
     "auto_i_dat_mock": lambda db, connection, actor_id, purpose: MockAutoIDatAdapter(),
 }
 
 
-def register_adapter_factory(
-    provider_code: str, factory: Callable[[Session, IntegrationConnection, uuid.UUID | None, str], ProviderAdapter]
-) -> None:
+def register_adapter_factory(provider_code: str, factory: _AdapterFactory) -> None:
     """PR-3 registers the real SOAP adapter here rather than editing this
     module's own dict in place — keeps the two adapters' modules
     independent of each other (neither imports the other).
@@ -85,9 +85,12 @@ def register_adapter_factory(
     _ADAPTER_FACTORIES[provider_code] = factory
 
 
-def _resolve_adapter(
-    db: Session, connection: IntegrationConnection, *, actor_id: uuid.UUID | None, purpose: str
-) -> ProviderAdapter:
+def _adapter_factory(db: Session, connection: IntegrationConnection) -> _AdapterFactory:
+    """Every refusal that comes before the provider is reached — a disabled
+    connection, an open circuit, a provider with no adapter. Reads only; no
+    provider I/O. Calling the factory it returns is where a real adapter
+    may make its first network call (the auto-i-dat WSDL fetch)."""
+
     if not connection.enabled:
         raise ConnectionDisabledError(connection.id)
     if resilience.is_circuit_open(connection.id):
@@ -96,7 +99,13 @@ def _resolve_adapter(
     factory = _ADAPTER_FACTORIES.get(provider.provider_code)
     if factory is None:
         raise UnknownProviderError(provider.provider_code)
-    return factory(db, connection, actor_id, purpose)
+    return factory
+
+
+def _resolve_adapter(
+    db: Session, connection: IntegrationConnection, *, actor_id: uuid.UUID | None, purpose: str
+) -> ProviderAdapter:
+    return _adapter_factory(db, connection)(db, connection, actor_id, purpose)
 
 
 def resolve_adapter(
@@ -159,7 +168,10 @@ def call_capability(
     A disabled connection or an open circuit breaker refuses BEFORE
     resolving an adapter or writing a log row at all — "no business data"
     extends to not logging a call that never reached the provider.
-    `actor_id`/`purpose` are threaded through to the adapter factory
+    Building the adapter is part of the call, not of the refusal: a provider
+    I/O failure while building it (the auto-i-dat WSDL fetch) is logged and
+    charged to the breaker like a failure in the caller's block (KAN-108),
+    and the logged duration includes it. `actor_id`/`purpose` are threaded through to the adapter factory
     purely so a real adapter (PR-3) can audit-log its own credential
     resolutions; the mock adapter ignores both.
 
@@ -193,24 +205,35 @@ def call_capability(
     """
 
     with Session(bind=db.get_bind(), autoflush=False, expire_on_commit=False) as gateway_db:
-        adapter = _resolve_adapter(gateway_db, connection, actor_id=actor_id, purpose=purpose or capability)
+        factory = _adapter_factory(gateway_db, connection)
         # The provider lookup was a read: end its transaction so the
         # connection goes back to the pool for the length of the caller's
-        # block (a full catalogue seed, say).
+        # block (a full catalogue seed, say) — and of the adapter's own
+        # construction, which may wait on the network.
         gateway_db.commit()
         started_at = time.monotonic()
         try:
-            yield adapter
-        except Exception:
-            duration_ms = int((time.monotonic() - started_at) * 1000)
-            resilience.record_failure(connection.id)
-            _bound_lock_wait(gateway_db)
-            log = record_call(
-                gateway_db, connection=connection, capability=capability, status=CallStatus.ERROR,
-                duration_ms=duration_ms, correlation_id=correlation_id,
+            # KAN-108: built INSIDE the accounted part of the call. For
+            # `auto_i_dat` this fetches the WSDL — the first thing to hang when
+            # the provider's host does — and before KAN-108 a failure here
+            # escaped both the breaker and the call log. Only a transport
+            # failure is accounted: a `ProviderConfigurationError` (no
+            # `wsdlUrl`) is the dealer's to fix, never reached the provider,
+            # and passes through uncounted and unlogged, like the refusals in
+            # `_adapter_factory`.
+            adapter = factory(gateway_db, connection, actor_id, purpose or capability)
+        except ProviderTransportError as exc:
+            _record_failed_call(
+                gateway_db, connection=connection, capability=capability, exc=exc, started_at=started_at,
+                correlation_id=correlation_id, capture_raw_payload=None,
             )
-            _maybe_capture_payload(
-                gateway_db, log=log, kind=PayloadKind.ERROR, capture_raw_payload=capture_raw_payload
+            raise
+        try:
+            yield adapter
+        except Exception as exc:
+            _record_failed_call(
+                gateway_db, connection=connection, capability=capability, exc=exc, started_at=started_at,
+                correlation_id=correlation_id, capture_raw_payload=capture_raw_payload,
             )
             raise
         else:
@@ -224,6 +247,31 @@ def call_capability(
             _maybe_capture_payload(
                 gateway_db, log=log, kind=PayloadKind.SUCCESS, capture_raw_payload=capture_raw_payload
             )
+
+
+def _record_failed_call(
+    gateway_db: Session,
+    *,
+    connection: IntegrationConnection,
+    capability: str,
+    exc: Exception,
+    started_at: float,
+    correlation_id: uuid.UUID | None,
+    capture_raw_payload: Callable[[], str | None] | None,
+) -> None:
+    """Charges the breaker and writes the call's one log row. A transport
+    timeout is logged as `TIMEOUT` (KAN-108), every other failure as
+    `ERROR`; both count toward the breaker alike."""
+
+    duration_ms = int((time.monotonic() - started_at) * 1000)
+    status = CallStatus.TIMEOUT if isinstance(exc, ProviderTimeoutError) else CallStatus.ERROR
+    resilience.record_failure(connection.id)
+    _bound_lock_wait(gateway_db)
+    log = record_call(
+        gateway_db, connection=connection, capability=capability, status=status,
+        duration_ms=duration_ms, correlation_id=correlation_id,
+    )
+    _maybe_capture_payload(gateway_db, log=log, kind=PayloadKind.ERROR, capture_raw_payload=capture_raw_payload)
 
 
 _LOG_LOCK_TIMEOUT = "5s"

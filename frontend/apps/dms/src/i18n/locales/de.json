@@ -304,7 +304,9 @@
       "clear": "Auswahl aufheben",
       "export": "Exportieren",
       "print": "Drucken"
-    }
+    },
+    "createOfferError": "Die Offerte konnte nicht angelegt werden. Bitte erneut versuchen.",
+    "createContractError": "Der Vertrag konnte nicht angelegt werden. Bitte erneut versuchen."
   },
   "customerDetail": {
     "tabs": {
@@ -325,7 +327,9 @@
       "failedToLoadVehicles": "Fahrzeuge konnten nicht geladen werden.",
       "failedToLoadOffersContracts": "Offerten und Verträge konnten nicht geladen werden.",
       "failedToLoadHistory": "Verlauf konnte nicht geladen werden.",
-      "failedToLoadExternalIds": "Externe IDs konnten nicht geladen werden."
+      "failedToLoadExternalIds": "Externe IDs konnten nicht geladen werden.",
+      "createOfferFailed": "Die Offerte konnte nicht angelegt werden. Bitte erneut versuchen.",
+      "createContractFailed": "Der Vertrag konnte nicht angelegt werden. Bitte erneut versuchen."
     },
     "overview": {
       "cards": {
@@ -831,7 +835,8 @@
       "notionalInputTax": "Fiktiver Vorsteuerabzug",
       "notionalInputTaxNotApplicable": "Nicht anwendbar",
       "notionalInputTaxRateNotConfigured": "MWST-Satz noch nicht konfiguriert",
-      "isInvoiceable": "Fakturierbar"
+      "isInvoiceable": "Fakturierbar",
+      "error": "Der Einkauf konnte nicht erfasst werden. Bitte erneut versuchen."
     },
     "wagenbuch": {
       "result": "Ergebnis",
@@ -885,7 +890,10 @@
         "moveRight": "Nach rechts verschieben",
         "remove": "Entfernen",
         "addPhoto": "Foto hinzufügen",
-        "countOf": "{{count, number}} / {{max, number}}"
+        "countOf": "{{count, number}} / {{max, number}}",
+        "addError": "Das Foto konnte nicht hinzugefügt werden. Bitte erneut versuchen.",
+        "removeError": "Das Foto konnte nicht entfernt werden. Bitte erneut versuchen.",
+        "reorderError": "Die neue Reihenfolge der Fotos konnte nicht gespeichert werden. Bitte erneut versuchen."
       },
       "equipment": {
         "title": "Ausstattung",
@@ -893,7 +901,9 @@
         "extras": "Extras",
         "eigenschaften": "Eigenschaften",
         "hint": "AutoScout24 kennt drei getrennte Begriffe: Ausstattung (suchbare Codes), Extras (Merkmale) und Eigenschaften (Zustände wie Unfallwagen)."
-      }
+      },
+      "publishError": "Das Inserat konnte nicht publiziert werden. Bitte erneut versuchen.",
+      "unpublishError": "Das Inserat konnte nicht depubliziert werden. Bitte erneut versuchen."
     },
     "evaluation": {
       "title": "Bewertung",
@@ -983,7 +993,9 @@
     "untitled": "Neue Offerte",
     "errors": {
       "failedToLoad": "Offerte konnte nicht geladen werden.",
-      "somethingWentWrong": "Etwas ist schiefgelaufen."
+      "somethingWentWrong": "Etwas ist schiefgelaufen.",
+      "copyFailed": "Die Offerte konnte nicht kopiert werden. Bitte erneut versuchen.",
+      "createFailed": "Die neue Offerte konnte nicht angelegt werden."
     },
     "actions": {
       "copy": "Offerte kopieren"
@@ -1011,6 +1023,11 @@
         "staleVersion": "Der Vertrag wurde inzwischen geändert. Die aktuelle Fassung ist geladen – bitte die Änderung erneut vornehmen.",
         "notPending": "Der Vertrag ist nicht mehr offen und kann nicht mehr geändert werden.",
         "generic": "Die Änderung konnte nicht gespeichert werden."
+      },
+      "cancelRefused": {
+        "title": "Vertrag nicht storniert",
+        "staleVersion": "Dieser Vertrag hat sich seit dem Laden der Seite geändert. Er wurde neu geladen — bitte prüfen und erneut stornieren.",
+        "generic": "Der Vertrag konnte nicht storniert werden. Bitte erneut versuchen."
       }
     },
     "actions": {
@@ -1181,13 +1198,15 @@
     },
     "rowActions": {
       "open": "Öffnen"
-    }
+    },
+    "markUsedError": "Die Bewertung konnte nicht als verwendet markiert werden. Bitte erneut versuchen."
   },
   "valuationDetail": {
     "untitled": "Ohne Fahrzeugangabe",
     "errors": {
       "failedToLoad": "Bewertung konnte nicht geladen werden.",
-      "somethingWentWrong": "Etwas ist schiefgelaufen."
+      "somethingWentWrong": "Etwas ist schiefgelaufen.",
+      "markUsedFailed": "Die Bewertung konnte nicht als verwendet markiert werden. Bitte erneut versuchen."
     },
     "actions": {
       "revalue": "Neu bewerten",

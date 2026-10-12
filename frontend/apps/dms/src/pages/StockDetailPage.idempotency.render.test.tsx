@@ -5,15 +5,15 @@ import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/re
 import userEvent from '@testing-library/user-event'
 import i18n from '../i18n'
 import { renderWithProviders } from '../test/renderWithProviders'
-import { installFakeBackend } from '../test/fakeBackend'
+import { installFakeBackend, status } from '../test/fakeBackend'
 import type { StockItemRead } from '../api/types'
 import { StockDetailPage } from './StockDetailPage'
 
 // KAN-266 — the stock detail page's POSTs (the purchase, a Wagenbuch cost)
 // carry one Idempotency-Key per submission, and a successful write retires
-// it. A retry after a failure keeping its key is pinned where a failed save
-// can be rendered: RecordCostDialog.render.test.tsx. The purchase dialog
-// does not catch a failed save yet (its own ticket).
+// it. A cost's retry keeping its key is pinned in
+// RecordCostDialog.render.test.tsx; the purchase's below (KAN-272: the
+// purchase dialog now shows a failed save instead of dropping it).
 
 const ID = 'st-1'
 const ITEM: StockItemRead = {
@@ -28,7 +28,8 @@ const ITEM: StockItemRead = {
   createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z',
 }
 
-function install() {
+function install({ failFirstPurchase = false }: { failFirstPurchase?: boolean } = {}) {
+  let purchaseFailed = !failFirstPurchase
   return installFakeBackend([
     { method: 'GET', match: new RegExp(`^/inventory/stock-items/${ID}$`), handler: () => ITEM },
     { method: 'GET', match: new RegExp(`^/inventory/stock-items/${ID}/ledger-entries$`), handler: () => ({ items: [] }) },
@@ -40,7 +41,13 @@ function install() {
     {
       method: 'POST',
       match: new RegExp(`^/inventory/stock-items/${ID}/purchase$`),
-      handler: (req) => ({ ...ITEM, ...(req.body as object), version: 2 }),
+      handler: (req) => {
+        if (!purchaseFailed) {
+          purchaseFailed = true
+          return status(503, { error: { code: 'unavailable', message: 'Purchase ledger unavailable', details: null } })
+        }
+        return { ...ITEM, ...(req.body as object), version: 2 }
+      },
     },
   ])
 }
@@ -104,5 +111,34 @@ describe('StockDetailPage — one Idempotency-Key per submission (KAN-266)', () 
     const [call] = backend.callsTo(/\/purchase$/, 'POST')
     expect(call.headers.get('If-Match')).toBe('1')
     expect(call.headers.get('Idempotency-Key')).toBeTruthy()
+  })
+
+  it('a failed purchase shows the server message, keeps the dialog filled, and the retry reuses the key (KAN-272)', async () => {
+    const user = userEvent.setup()
+    const backend = install({ failFirstPurchase: true })
+    renderTab('details')
+
+    await user.click(await screen.findByText(i18n.t('stockDetail.purchase.title')))
+    await user.click(await screen.findByRole('button', { name: i18n.t('stockDetail.purchase.recordButton') }))
+    const dialog = await screen.findByRole('dialog')
+    const field = (key: string) =>
+      within(dialog).getAllByLabelText<HTMLInputElement>(i18n.t(`stockDetail.purchase.fields.${key}`), { exact: false })[0]
+    await user.type(field('supplierName'), 'Garage Muster AG')
+    await user.type(field('purchasePrice'), '18500')
+    fireEvent.change(field('purchaseDate'), { target: { value: '2026-09-01' } })
+    const submit = within(dialog).getByRole('button', { name: i18n.t('stockDetail.purchase.submit') })
+    await user.click(submit)
+
+    expect((await within(dialog).findByRole('alert')).textContent).toBe('Purchase ledger unavailable')
+    expect(field('supplierName').value).toBe('Garage Muster AG')
+    await waitFor(() => expect(submit).not.toHaveAttribute('data-loading'))
+
+    await user.click(submit)
+    await waitFor(() => expect(backend.callsTo(/\/purchase$/, 'POST')).toHaveLength(2))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+
+    const [failedKey, retryKey] = backend.callsTo(/\/purchase$/, 'POST').map((call) => call.headers.get('Idempotency-Key'))
+    expect(failedKey).toBeTruthy()
+    expect(retryKey).toBe(failedKey)
   })
 })

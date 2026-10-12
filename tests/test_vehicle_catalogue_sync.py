@@ -686,8 +686,9 @@ def test_the_breaker_opening_on_the_last_key_still_ends_the_run_cleanly(db_sessi
 
 def test_an_adapter_that_fails_to_build_mid_run_stops_the_loop(db_session, monkeypatch):
     """A WSDL that will not load fails in the gateway's adapter resolution,
-    before any call: not about the key, never logged or charged by the
-    gateway. The loop must stop, not retry the build for every later key.
+    before the caller's block: not about the key (the gateway logs and
+    charges it as a provider failure, KAN-108). The loop must stop, not
+    retry the build for every later key.
     """
 
     provider = _make_mock_provider(db_session)

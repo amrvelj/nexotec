@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from 'vitest'
-import { screen, waitFor } from '@testing-library/react'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from '../../i18n'
 import { renderWithProviders } from '../../test/renderWithProviders'
-import { installFakeBackend } from '../../test/fakeBackend'
+import { installFakeBackend, status } from '../../test/fakeBackend'
 import type { EquipmentRead } from '../../api/types'
 import { PublishingTab } from './PublishingTab'
 
@@ -188,5 +188,184 @@ describe('PublishingTab — one Idempotency-Key per photo reorder (KAN-266)', ()
     expect(keys()[0]).toBeTruthy()
     expect(keys()[1]).toBeTruthy()
     expect(keys()[1]).not.toBe(keys()[0])
+  })
+})
+
+describe('PublishingTab — a failed save says so and keeps its key (KAN-272)', () => {
+  const refusal = (message: string) => status(503, { error: { code: 'unavailable', message, details: null } })
+  // A dropped connection: no API message, so the action's translated fallback.
+  const dropped = () => Promise.reject(new TypeError('Failed to fetch'))
+  const publishingRow = (state: 'not_published' | 'published') => ({
+    id: 'pub-1', stockItemId: 'st-1', channel: 'autoscout24', state, transmissionStatus: 'transmitted',
+    lastPublishedAt: null, lastAttemptedAt: null, lastTransmissionError: null, zusatztitel: null,
+    bemerkungen: null, zustandsbeschreibung: null, haendlerbemerkungen: null, youtubeUrl: null,
+    pdfDocumentRef: null, version: 1, blockingConditions: [],
+  })
+  const media = [
+    { id: 'm-1', url: 'https://cdn.example.ch/1.jpg', position: 1 },
+    { id: 'm-2', url: 'https://cdn.example.ch/2.jpg', position: 2 },
+  ]
+  /** The first request fails with `failure()`; every later one gets `ok()`. */
+  const failOnce = (failure: () => unknown, ok: () => unknown) => {
+    let failed = false
+    return () => {
+      if (failed) return ok()
+      failed = true
+      return failure()
+    }
+  }
+  const keys = (backend: ReturnType<typeof installFakeBackend>, pattern: RegExp) =>
+    backend.callsTo(pattern, 'POST').map((call) => call.headers.get('Idempotency-Key'))
+
+  afterEach(async () => {
+    await i18n.changeLanguage('de')
+  })
+
+  it('a refused publish shows the server message on the card, and the retry reuses the key', async () => {
+    const user = userEvent.setup()
+    let state: 'not_published' | 'published' = 'not_published'
+    const backend = installFakeBackend([
+      { match: /^\/inventory\/stock-items\/st-1\/equipment$/, handler: () => EQUIPMENT },
+      { match: /^\/inventory\/stock-items\/st-1\/media$/, handler: () => [] },
+      { method: 'GET', match: /\/publishing\/autoscout24$/, handler: () => publishingRow(state) },
+      {
+        method: 'POST',
+        match: /\/publishing\/autoscout24\/publish$/,
+        handler: failOnce(() => refusal('Marketplace unavailable'), () => {
+          state = 'published'
+          return publishingRow(state)
+        }),
+      },
+    ])
+    renderWithProviders(<PublishingTab stockItemId="st-1" locale="de-CH" />)
+    const publish = async () =>
+      user.click(await screen.findByRole('button', { name: i18n.t('stockDetail.publishing.publishTo', { channel: 'AutoScout24' }) }))
+
+    await publish()
+    expect((await screen.findByRole('alert')).textContent).toBe('Marketplace unavailable')
+
+    await publish()
+    await waitFor(() => expect(keys(backend, /\/publish$/)).toHaveLength(2))
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
+
+    const [failedKey, retryKey] = keys(backend, /\/publish$/)
+    expect(failedKey).toBeTruthy()
+    expect(retryKey).toBe(failedKey)
+  })
+
+  it('a failed unpublish keeps the confirmation open with a translated message, and the retry reuses the key', async () => {
+    await i18n.changeLanguage('fr')
+    const user = userEvent.setup()
+    let state: 'not_published' | 'published' = 'published'
+    const backend = installFakeBackend([
+      { match: /^\/inventory\/stock-items\/st-1\/equipment$/, handler: () => EQUIPMENT },
+      { match: /^\/inventory\/stock-items\/st-1\/media$/, handler: () => [] },
+      { method: 'GET', match: /\/publishing\/autoscout24$/, handler: () => publishingRow(state) },
+      {
+        method: 'POST',
+        match: /\/publishing\/autoscout24\/unpublish$/,
+        handler: failOnce(dropped, () => {
+          state = 'not_published'
+          return publishingRow(state)
+        }),
+      },
+    ])
+    renderWithProviders(<PublishingTab stockItemId="st-1" locale="fr-CH" />)
+
+    await user.click(
+      await screen.findByRole('button', { name: i18n.t('stockDetail.publishing.unpublish', { channel: 'AutoScout24' }) }),
+    )
+    const confirm = await screen.findByRole('button', { name: i18n.t('stockDetail.publishing.unpublishConfirmSubmit') })
+    await user.click(confirm)
+
+    const dialog = await screen.findByRole('dialog')
+    expect((await within(dialog).findByRole('alert')).textContent).toBe(i18n.t('stockDetail.publishing.unpublishError'))
+
+    await user.click(within(dialog).getByRole('button', { name: i18n.t('stockDetail.publishing.unpublishConfirmSubmit') }))
+    await waitFor(() => expect(keys(backend, /\/unpublish$/)).toHaveLength(2))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+
+    const [failedKey, retryKey] = keys(backend, /\/unpublish$/)
+    expect(failedKey).toBeTruthy()
+    expect(retryKey).toBe(failedKey)
+  })
+
+  it('a failed photo add says so, offers the same URL again, and the retry reuses the key', async () => {
+    const user = userEvent.setup()
+    const rows: { id: string; url: string; position: number }[] = []
+    const backend = installFakeBackend([
+      { match: /^\/inventory\/stock-items\/st-1\/equipment$/, handler: () => EQUIPMENT },
+      { method: 'GET', match: /^\/inventory\/stock-items\/st-1\/media$/, handler: () => rows },
+      {
+        method: 'POST',
+        match: /^\/inventory\/stock-items\/st-1\/media$/,
+        handler: failOnce(() => refusal('Photo store unavailable'), () => {
+          const row = { id: 'm-1', url: 'https://cdn.example.ch/1.jpg', position: 1 }
+          rows.push(row)
+          return status(201, row)
+        }),
+      },
+    ])
+    // The user accepts whatever the prompt offers; the first time, they type the URL.
+    const prompt = vi
+      .spyOn(window, 'prompt')
+      .mockImplementation((_message?: string, offered?: string) => offered ?? 'https://cdn.example.ch/1.jpg')
+    onTestFinished(() => prompt.mockRestore())
+    renderWithProviders(<PublishingTab stockItemId="st-1" locale="de-CH" />)
+    const addPhoto = async () =>
+      user.click(await screen.findByRole('button', { name: i18n.t('stockDetail.publishing.media.addPhoto') }))
+
+    await addPhoto()
+    expect((await screen.findByRole('alert')).textContent).toBe('Photo store unavailable')
+
+    await addPhoto()
+    await waitFor(() => expect(keys(backend, /\/media$/)).toHaveLength(2))
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
+
+    expect(prompt.mock.calls[1][1]).toBe('https://cdn.example.ch/1.jpg')
+    const [failedKey, retryKey] = keys(backend, /\/media$/)
+    expect(failedKey).toBeTruthy()
+    expect(retryKey).toBe(failedKey)
+  })
+
+  it('a failed photo removal shows a translated message', async () => {
+    await i18n.changeLanguage('it')
+    const user = userEvent.setup()
+    installFakeBackend([
+      { match: /^\/inventory\/stock-items\/st-1\/equipment$/, handler: () => EQUIPMENT },
+      { method: 'GET', match: /^\/inventory\/stock-items\/st-1\/media$/, handler: () => media },
+      { method: 'DELETE', match: /^\/inventory\/stock-items\/st-1\/media\/m-1$/, handler: dropped },
+    ])
+    renderWithProviders(<PublishingTab stockItemId="st-1" locale="it-CH" />)
+
+    await user.click((await screen.findAllByRole('button', { name: i18n.t('stockDetail.publishing.media.remove') }))[0])
+    expect((await screen.findByRole('alert')).textContent).toBe(i18n.t('stockDetail.publishing.media.removeError'))
+  })
+
+  it('a failed reorder says so, and the same move sent again reuses the key', async () => {
+    const user = userEvent.setup()
+    const backend = installFakeBackend([
+      { match: /^\/inventory\/stock-items\/st-1\/equipment$/, handler: () => EQUIPMENT },
+      { method: 'GET', match: /^\/inventory\/stock-items\/st-1\/media$/, handler: () => media },
+      {
+        method: 'POST',
+        match: /^\/inventory\/stock-items\/st-1\/media\/reorder$/,
+        handler: failOnce(dropped, () => media),
+      },
+    ])
+    renderWithProviders(<PublishingTab stockItemId="st-1" locale="de-CH" />)
+    const moveFirstRight = async () =>
+      user.click((await screen.findAllByRole('button', { name: i18n.t('stockDetail.publishing.media.moveRight') }))[0])
+
+    await moveFirstRight()
+    expect((await screen.findByRole('alert')).textContent).toBe(i18n.t('stockDetail.publishing.media.reorderError'))
+
+    await moveFirstRight()
+    await waitFor(() => expect(keys(backend, /\/media\/reorder$/)).toHaveLength(2))
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
+
+    const [failedKey, retryKey] = keys(backend, /\/media\/reorder$/)
+    expect(failedKey).toBeTruthy()
+    expect(retryKey).toBe(failedKey)
   })
 })

@@ -57,6 +57,10 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [confirmError, setConfirmError] = useState<string | null>(null)
+  const [cancelError, setCancelError] = useState<string | null>(null)
+  // A failed cancel keeps its reason: the next prompt offers it again, and
+  // sent unchanged it is the same request under the same key.
+  const [unsentCancelReason, setUnsentCancelReason] = useState<string | null>(null)
   // KAN-266 — one key per kind: a confirm retried after a lost response
   // gets its success replayed instead of a version conflict. Each success
   // renews its kind's key.
@@ -195,19 +199,37 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
     }
   }
 
+  // KAN-273 (ADR-035): a refused cancel says so, in the user's language like
+  // a refused confirm (the backend's English message is never shown); a
+  // stale page is refetched so the retry carries the current version.
+  const cancelRefusalMessage = (err: unknown): string => {
+    if (err instanceof ApiError && err.status === 409 && (err.details ?? {}).currentVersion != null) {
+      void contractQuery.refetch()
+      return t('contractDetail.errors.cancelRefused.staleVersion')
+    }
+    return t('contractDetail.errors.cancelRefused.generic')
+  }
+
   const cancel = async () => {
     const contract = contractQuery.data
     if (!contract) return
-    const reason = window.prompt(t('contractDetail.cancelReasonPrompt'))
+    const reason = window.prompt(t('contractDetail.cancelReasonPrompt'), unsentCancelReason ?? undefined)
     if (!reason) return
-    const path = `/sales/contracts/${id}/cancel`
-    const body = { reason }
-    const updated = await api.post<SalesContractRead>(path, body, {
-      'If-Match': String(contract.version),
-      ...cancelKey.headers([path, body]),
-    })
-    cancelKey.renew()
-    queryClient.setQueryData(['sales-contract', id], updated)
+    setCancelError(null)
+    setUnsentCancelReason(reason)
+    try {
+      const path = `/sales/contracts/${id}/cancel`
+      const body = { reason }
+      const updated = await api.post<SalesContractRead>(path, body, {
+        'If-Match': String(contract.version),
+        ...cancelKey.headers([path, body]),
+      })
+      cancelKey.renew()
+      setUnsentCancelReason(null)
+      queryClient.setQueryData(['sales-contract', id], updated)
+    } catch (err) {
+      setCancelError(cancelRefusalMessage(err))
+    }
   }
 
   if (contractQuery.isLoading) return <Loader />
@@ -286,6 +308,11 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
       {confirmError && (
         <Alert color="red" title={t('contractDetail.errors.confirmRefused.title')} withCloseButton onClose={() => setConfirmError(null)}>
           {confirmError}
+        </Alert>
+      )}
+      {cancelError && (
+        <Alert color="red" role="alert" title={t('contractDetail.errors.cancelRefused.title')} withCloseButton onClose={() => setCancelError(null)}>
+          {cancelError}
         </Alert>
       )}
 

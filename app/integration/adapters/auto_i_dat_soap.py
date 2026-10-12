@@ -44,6 +44,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from decimal import Decimal
 from typing import Any, Protocol
+from urllib.parse import urlsplit
 
 from sqlalchemy.orm import Session
 
@@ -84,7 +85,7 @@ from app.integration.adapters.base import (
     VehicleKindData,
     VehiclePriceData,
 )
-from app.integration.errors import ProviderConfigurationError, ProviderTransportError
+from app.integration.errors import ProviderConfigurationError, ProviderTimeoutError, ProviderTransportError
 from app.integration.models.connection import IntegrationConnection
 from app.integration.models.secret_ref import SecretSlot
 from app.integration.services import secrets_backend
@@ -157,9 +158,42 @@ def build_zeep_client(wsdl_url: str, *, timeout: float = DEFAULT_TIMEOUT_SECONDS
         # `zeep.Client` fetches and parses the WSDL over HTTP: this is the
         # first network call a real connection makes, and the one a mistyped
         # `wsdlUrl` fails on. Class name only — the message carries the URL.
-        raise ProviderTransportError(
-            f"The provider's WSDL could not be loaded from the configured wsdlUrl ({type(exc).__name__})."
+        raise _transport_error(
+            f"The provider's WSDL could not be loaded from the configured wsdlUrl ({type(exc).__name__}).", exc
         ) from exc
+
+
+def _transport_error(message: str, exc: BaseException) -> ProviderTransportError:
+    """KAN-108 — a timeout becomes `ProviderTimeoutError`, which the gateway
+    logs as `CallStatus.TIMEOUT`; every other failure stays a plain transport
+    error."""
+
+    return ProviderTimeoutError(message) if _is_timeout(exc) else ProviderTransportError(message)
+
+
+def _is_timeout(exc: BaseException) -> bool:
+    """Walks the exception and what it wraps. `requests` (zeep's transport)
+    raises `Timeout` when nothing arrives at all, but a provider that sends
+    its headers and then stalls the body surfaces as `ConnectionError`
+    wrapping urllib3's `ReadTimeoutError` — the same hang, one level down.
+    Deliberately not urllib3's `TimeoutError` base: its `NewConnectionError`
+    (a refused connection) subclasses it for backward compatibility.
+    `requests` and urllib3 arrive with zeep and are imported lazily for the
+    same reason zeep is."""
+
+    import requests
+    import urllib3
+
+    timeouts = (requests.exceptions.Timeout, urllib3.exceptions.ReadTimeoutError, TimeoutError)
+    seen: set[int] = set()
+    current: BaseException | None = exc
+    while current is not None and id(current) not in seen:
+        if isinstance(current, timeouts):
+            return True
+        seen.add(id(current))
+        wrapped = current.args[0] if current.args and isinstance(current.args[0], BaseException) else None
+        current = current.__cause__ or wrapped or current.__context__
+    return False
 
 
 class AutoIDatSoapAdapter:
@@ -272,7 +306,7 @@ class AutoIDatSoapAdapter:
             # ConnectionError/Timeout, zeep's TransportError/Fault, a plain
             # TimeoutError) become ours. Class name only, original chained:
             # the message ends up in `integration_connection.last_error`.
-            raise ProviderTransportError(f"{datenname}: the request to the provider failed ({type(exc).__name__}).") from exc
+            raise _transport_error(f"{datenname}: the request to the provider failed ({type(exc).__name__}).", exc) from exc
         if raw is None or not str(raw).strip():
             # p4: an empty string means invalid Benutzername / Passwort /
             # Sprache / Datenname. Caught here, before decrypt, so it
@@ -763,6 +797,13 @@ def _build_real_adapter(
     wsdl_url = connection.config.get("wsdlUrl")
     if not wsdl_url:
         raise ProviderConfigurationError(f"Connection {connection.id} has no config.wsdlUrl set.")
+    # KAN-108: zeep opens anything that is not http(s) as a local file — a
+    # mistyped scheme never reaches the provider, so it is the dealer's to fix
+    # and must not be charged to the circuit breaker as a provider failure.
+    if urlsplit(str(wsdl_url)).scheme.lower() not in ("http", "https"):
+        raise ProviderConfigurationError(
+            f"Connection {connection.id} has a config.wsdlUrl that is not an http(s) URL."
+        )
     return AutoIDatSoapAdapter(
         db=db, connection=connection, soap_client=build_zeep_client(wsdl_url), actor_id=actor_id, purpose=purpose
     )

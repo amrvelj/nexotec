@@ -40,6 +40,11 @@ dependencies = [
     # test or local dev path that never constructs a real adapter pays its
     # import cost or needs a live WSDL.
     "zeep>=4.2,<5",
+    # KAN-108: the adapter tells a provider timeout from other transport
+    # failures by the exception types of zeep's own HTTP stack. Both arrived
+    # only through zeep; declared because auto_i_dat_soap.py now imports them.
+    "requests>=2.31,<3",
+    "urllib3>=2,<3",
 ]
 
 [project.optional-dependencies]

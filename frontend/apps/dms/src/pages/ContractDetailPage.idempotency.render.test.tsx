@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { useState } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { Route, Routes } from 'react-router-dom'
 import { cleanup, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -30,8 +30,9 @@ const CONTRACT = {
   financing: null,
 } as unknown as SalesContractRead
 
-function install({ failFirstConfirm = false } = {}) {
+function install({ failFirstConfirm = false, failFirstCancel = false } = {}) {
   let confirms = 0
+  let cancels = 0
   return installFakeBackend([
     { method: 'GET', match: /^\/sales\/contracts\/k1$/, handler: () => CONTRACT },
     { match: /^\/sales\/contracts\/k1\/documents$/, handler: () => ({ items: [], nextCursor: null }) },
@@ -49,7 +50,13 @@ function install({ failFirstConfirm = false } = {}) {
     {
       method: 'POST',
       match: /^\/sales\/contracts\/k1\/cancel$/,
-      handler: () => ({ ...CONTRACT, status: 'cancelled', version: 4 }),
+      handler: () => {
+        cancels += 1
+        if (failFirstCancel && cancels === 1) {
+          return status(503, { error: { code: 'unavailable', message: 'Service unavailable', details: null } })
+        }
+        return { ...CONTRACT, status: 'cancelled', version: 4 }
+      },
     },
   ])
 }
@@ -140,5 +147,40 @@ describe('ContractDetailPage — one Idempotency-Key per submission (KAN-266)', 
     expect(cancel.headers.get('Idempotency-Key')).toBeTruthy()
     expect(cancel.headers.get('If-Match')).toBe('3')
     expect(cancel.body).toEqual({ reason: 'Kunde storniert.' })
+  })
+
+  it('a failed cancel says so in the user\'s language, offers its reason again, and the retry reuses the key (KAN-273)', async () => {
+    await i18n.changeLanguage('it')
+    onTestFinished(async () => {
+      await i18n.changeLanguage('de')
+    })
+    const user = userEvent.setup()
+    // The user accepts whatever the prompt offers; the first time, they type the reason.
+    // (The file's afterEach restores this spy, pass or fail.)
+    const prompt = vi
+      .spyOn(window, 'prompt')
+      .mockImplementation((_message?: string, offered?: string) => offered ?? 'Kunde storniert.')
+    const backend = install({ failFirstCancel: true })
+    renderPage()
+    const cancel = async () => {
+      await user.click(screen.getByRole('button', { name: i18n.t('common.moreActions') }))
+      await user.click(await screen.findByRole('menuitem', { name: new RegExp(i18n.t('contractDetail.actions.cancel')) }))
+    }
+
+    await screen.findByRole('button', { name: i18n.t('contractDetail.actions.confirm') })
+    await cancel()
+    // The backend's English message is never shown on this screen.
+    expect(await screen.findByText(i18n.t('contractDetail.errors.cancelRefused.generic'))).toBeInTheDocument()
+    expect(screen.queryByText(/Service unavailable/)).toBeNull()
+
+    await cancel()
+    await waitFor(() => expect(backend.callsTo(/\/cancel$/, 'POST')).toHaveLength(2))
+    await waitFor(() => expect(screen.queryByText(i18n.t('contractDetail.errors.cancelRefused.generic'))).toBeNull())
+
+    expect(prompt.mock.calls[1][1]).toBe('Kunde storniert.')
+    const [failed, retry] = backend.callsTo(/\/cancel$/, 'POST')
+    expect(failed.headers.get('Idempotency-Key')).toBeTruthy()
+    expect(retry.headers.get('Idempotency-Key')).toBe(failed.headers.get('Idempotency-Key'))
+    expect(retry.body).toEqual({ reason: 'Kunde storniert.' })
   })
 })

@@ -304,7 +304,9 @@
       "clear": "Clear selection",
       "export": "Export",
       "print": "Print"
-    }
+    },
+    "createOfferError": "The offer could not be created. Please try again.",
+    "createContractError": "The contract could not be created. Please try again."
   },
   "customerDetail": {
     "tabs": {
@@ -325,7 +327,9 @@
       "failedToLoadVehicles": "Failed to load vehicles.",
       "failedToLoadOffersContracts": "Failed to load offers and contracts.",
       "failedToLoadHistory": "Failed to load history.",
-      "failedToLoadExternalIds": "Failed to load external IDs."
+      "failedToLoadExternalIds": "Failed to load external IDs.",
+      "createOfferFailed": "The offer could not be created. Please try again.",
+      "createContractFailed": "The contract could not be created. Please try again."
     },
     "overview": {
       "cards": {
@@ -831,7 +835,8 @@
       "notionalInputTax": "Notional input tax deduction",
       "notionalInputTaxNotApplicable": "Not applicable",
       "notionalInputTaxRateNotConfigured": "VAT rate not yet configured",
-      "isInvoiceable": "Invoiceable"
+      "isInvoiceable": "Invoiceable",
+      "error": "The purchase could not be recorded. Please try again."
     },
     "wagenbuch": {
       "result": "Result",
@@ -885,7 +890,10 @@
         "moveRight": "Move right",
         "remove": "Remove",
         "addPhoto": "Add photo",
-        "countOf": "{{count, number}} / {{max, number}}"
+        "countOf": "{{count, number}} / {{max, number}}",
+        "addError": "The photo could not be added. Please try again.",
+        "removeError": "The photo could not be removed. Please try again.",
+        "reorderError": "The new photo order could not be saved. Please try again."
       },
       "equipment": {
         "title": "Equipment",
@@ -893,7 +901,9 @@
         "extras": "Extras",
         "eigenschaften": "Properties",
         "hint": "AutoScout24 knows three separate concepts: equipment (searchable codes), extras (features) and properties (condition flags such as accident vehicle)."
-      }
+      },
+      "publishError": "The listing could not be published. Please try again.",
+      "unpublishError": "The listing could not be withdrawn. Please try again."
     },
     "evaluation": {
       "title": "Evaluation",
@@ -983,7 +993,9 @@
     "untitled": "New offer",
     "errors": {
       "failedToLoad": "The offer could not be loaded.",
-      "somethingWentWrong": "Something went wrong."
+      "somethingWentWrong": "Something went wrong.",
+      "copyFailed": "The offer could not be copied. Please try again.",
+      "createFailed": "The new offer could not be created."
     },
     "actions": {
       "copy": "Copy offer"
@@ -1011,6 +1023,11 @@
         "staleVersion": "The contract was changed in the meantime. The current version is loaded – please make your change again.",
         "notPending": "The contract is no longer open and can no longer be changed.",
         "generic": "The change could not be saved."
+      },
+      "cancelRefused": {
+        "title": "Contract not cancelled",
+        "staleVersion": "This contract changed since the page was loaded. It has been reloaded — review it and cancel again.",
+        "generic": "The contract could not be cancelled. Please try again."
       }
     },
     "actions": {
@@ -1181,13 +1198,15 @@
     },
     "rowActions": {
       "open": "Open"
-    }
+    },
+    "markUsedError": "The valuation could not be marked as used. Please try again."
   },
   "valuationDetail": {
     "untitled": "No vehicle given",
     "errors": {
       "failedToLoad": "The valuation could not be loaded.",
-      "somethingWentWrong": "Something went wrong."
+      "somethingWentWrong": "Something went wrong.",
+      "markUsedFailed": "The valuation could not be marked as used. Please try again."
     },
     "actions": {
       "revalue": "Revalue",

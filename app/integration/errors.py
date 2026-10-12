@@ -36,6 +36,15 @@ class ProviderTransportError(ProviderGatewayError):
     """
 
 
+class ProviderTimeoutError(ProviderTransportError):
+    """The provider did not answer within the transport's timeout (KAN-108):
+    connected and then silent, or never connected at all. Still a transport
+    failure — it counts toward the circuit breaker like any other — but the
+    gateway logs it as `CallStatus.TIMEOUT`, so a hanging provider can be
+    told apart from one that refuses or faults.
+    """
+
+
 class ProviderConfigurationError(ProviderGatewayError):
     """The connection is not configured well enough to make the call — no
     `wsdlUrl`, a credential that cannot be read. Something the dealer manager
