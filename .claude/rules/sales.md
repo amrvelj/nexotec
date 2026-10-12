@@ -52,8 +52,10 @@ ADR-057, ADR-063, ADR-065, ADR-083 and KAN-66/68/71. Verified against main@7a90a
 - **ADR-050** — `sales_contract` supersedes the legacy `transaction` table. Legacy rows move via
   `scripts/migrate_transaction_rows.py`: dry-run by default, idempotent, written directly
   through the ORM and **publishing no outbox events** (a years-old sale must not look like
-  today's business to live consumers). Its dry run writes nothing but does not flush, so a
-  same-pass VIN reuse or `vehicle_already_in_stock` conflict shows only in the `--commit` report.
+  today's business to live consumers). Its dry run runs the real path and rolls it back (any
+  commit on the way is refused), so it reports exactly what `--commit` writes, same-pass VIN
+  reuse and `vehicle_already_in_stock` included (KAN-263); a sale or trade-in whose dealership
+  does not exist is `dealership_unresolved`, never written (KAN-265).
   A migrated sale stays `CONFIRMED` and `request_invoice` refuses any contract with
   `legacy_transaction_id` set (409, reason `legacy_sale`) — the old system invoiced it (Anto,
   2026-10-10, option 2 of KAN-147). `cancel_contract` refuses it too (same reason; `isLegacy`
