@@ -359,7 +359,7 @@ def test_the_daily_job_records_its_counts(db_session, engine, caplog):
 
 def test_a_failed_release_alarms_without_failing_the_job(db_session, caplog, monkeypatch):
     """Logged at ERROR (the alarm) and returned normally: a raised error
-    would re-run the whole sweep every poll cycle."""
+    would re-run the whole sweep on every scheduler retry."""
 
     tenant_id = uuid.uuid4()
     item = _item(db_session, tenant_id)

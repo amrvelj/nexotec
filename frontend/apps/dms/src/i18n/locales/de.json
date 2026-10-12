@@ -784,6 +784,9 @@
     "header": {
       "stockFallback": "Lagerfahrzeug"
     },
+    "leftStock": {
+      "badge": "Bestand verlassen am {{date}}"
+    },
     "tabs": {
       "details": "Details",
       "wagenbuch": "Wagenbuch",
@@ -793,7 +796,8 @@
     "actions": {
       "createOffer": "Offerte erstellen",
       "createContract": "Vertrag erstellen",
-      "salesNotYetBuilt": "Verkauf ist noch nicht verfügbar."
+      "salesNotYetBuilt": "Verkauf ist noch nicht verfügbar.",
+      "leftStock": "Dieses Fahrzeug hat den Bestand am {{date}} verlassen (verkauft)."
     },
     "spec": {
       "firstRegistrationDate": "Erstzulassung",

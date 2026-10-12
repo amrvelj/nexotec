@@ -117,6 +117,19 @@ def _legacy_vehicle_writes_open():
         settings.legacy_vehicle_write_frozen = original
 
 
+@pytest.fixture(autouse=True)
+def _daily_job_failure_episodes_reset():
+    """KAN-303: the daily scheduler keeps each job's failure episode in
+    module memory (its backoff and alarm state). Every test starts and ends
+    with none, whichever jobs it registers."""
+
+    from app.core.daily_scheduler import reset_failure_episodes
+
+    reset_failure_episodes()
+    yield
+    reset_failure_episodes()
+
+
 # The Postgres lane builds the schema once per session, not once per test.
 # create_all + drop_all of every table and index around every test cost about
 # a second per test on Postgres, most of the lane's CI time, none of it

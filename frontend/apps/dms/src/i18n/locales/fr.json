@@ -784,6 +784,9 @@
     "header": {
       "stockFallback": "Véhicule en stock"
     },
+    "leftStock": {
+      "badge": "A quitté le stock le {{date}}"
+    },
     "tabs": {
       "details": "Détails",
       "wagenbuch": "Livre de bord",
@@ -793,7 +796,8 @@
     "actions": {
       "createOffer": "Créer une offre",
       "createContract": "Créer un contrat",
-      "salesNotYetBuilt": "Le module Vente n'est pas encore disponible."
+      "salesNotYetBuilt": "Le module Vente n'est pas encore disponible.",
+      "leftStock": "Ce véhicule a quitté le stock le {{date}} (vendu)."
     },
     "spec": {
       "firstRegistrationDate": "1re mise en circulation",

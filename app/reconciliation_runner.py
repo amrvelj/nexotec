@@ -83,7 +83,8 @@ def run_all_daily(db: Session) -> None:
     every orphan it carries is already persisted in `reconciliation_orphan`,
     and `run_all` has already given every context its turn. Letting it
     propagate would leave the job unmarked, so the scheduler would re-run
-    six contexts' worth of full-table anti-joins every poll cycle (1s)
+    six contexts' worth of full-table anti-joins on every retry (minutes
+    apart, at most hourly on the KAN-303 backoff) and keep alarming
     until a human repairs a dangling id — the same trap
     `app/integration/daily_jobs.py` avoids for a stuck tenant. So it is
     logged at ERROR and swallowed here: the job is marked done for the
@@ -91,7 +92,8 @@ def run_all_daily(db: Session) -> None:
     `reconciliation_orphan` rows and `reconciliation_run.orphans_found`.
 
     Any **other** exception propagates — a transient database error should
-    be retried on the next poll cycle, a finding should not.
+    be retried later the same day (the scheduler's backoff), a finding
+    should not.
 
     A run that alarms on nothing but also ran zero checks is treated as
     not-clean and logged at ERROR: a green signal with nothing behind it

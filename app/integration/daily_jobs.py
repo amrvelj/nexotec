@@ -15,9 +15,9 @@ One tenant's provider outage never blocks another's: each tenant's own
 sync+alarm step runs inside its own try/except, so one failure is logged
 and skipped rather than aborting the whole daily job — `app.core.
 daily_scheduler.run_due_daily_jobs` only retries the WHOLE registered
-job on the next poll cycle if the job function itself raises, and a
-single stuck tenant re-running every 1s for the rest of the day would be
-worse than just letting the sync-age alarm (A-12) catch that tenant going
+job (on its backoff, KAN-303) if the job function itself raises, and a
+single stuck tenant re-running every tenant's sync for the rest of the
+day would be worse than just letting the sync-age alarm (A-12) catch that tenant going
 stale over the following days.
 """
 

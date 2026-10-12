@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, Loader } from '@mantine/core'
 import { FileSignature, Handshake, Warehouse } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { DetailHeader, DetailTabs, StockConditionBadge, StockLifecycleBadge, StockReservationBadge, useSetBreadcrumb, type DetailTab } from '@nexotec/ui-kit'
+import { Badge, DetailHeader, DetailTabs, StockConditionBadge, StockLifecycleBadge, StockReservationBadge, useSetBreadcrumb, type DetailTab } from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
 import { translatedStockConditionLabel, translatedStockLifecycleLabel, translatedStockReservationLabel } from '../stockOptions'
@@ -14,6 +14,7 @@ import { PublishingTab } from '../components/stock-detail/PublishingTab'
 import { WagenbuchTab } from '../components/stock-detail/WagenbuchTab'
 import type { LedgerCategory, LedgerEntryPage, StockItemRead } from '../api/types'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
+import { formatDate } from '../utils/format'
 
 const DEFAULT_TAB = 'details'
 
@@ -40,6 +41,13 @@ export interface StockDetailContentProps {
  * alternative = "Offerte erstellen" (Offer) — confirmed against the live
  * reference prototype. Both are disabled-with-reason for now: Sales (WP-8)
  * doesn't exist yet, so there is genuinely nowhere for either action to go.
+ *
+ * KAN-262 — a car that has left stock (`leftStockAt`, FR-I-12) keeps
+ * `lifecycleStatus: in_stock` (ADR-054: `sold` is not a lifecycle value),
+ * so the lifecycle and reservation badges would read "An Lager" / "Frei".
+ * Such an item is history: one badge says when it left, and both sales
+ * actions stay disabled with that as their reason (ADR-061: shown and
+ * explained, never hidden).
  */
 export function StockDetailContent({ stockItemId: id, embedded = false }: StockDetailContentProps) {
   const { t, i18n } = useTranslation()
@@ -145,7 +153,10 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
   }
 
   const item = itemQuery.data
-  const notYetAvailableReason = t('stockDetail.actions.salesNotYetBuilt')
+  const leftStockDate = item.leftStockAt ? formatDate(item.leftStockAt, locale) : null
+  const notYetAvailableReason = leftStockDate
+    ? t('stockDetail.actions.leftStock', { date: leftStockDate })
+    : t('stockDetail.actions.salesNotYetBuilt')
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -157,8 +168,16 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
         badges={
           <>
             <StockConditionBadge condition={item.condition} label={translatedStockConditionLabel(t, item.condition)} />
-            <StockLifecycleBadge status={item.lifecycleStatus} label={translatedStockLifecycleLabel(t, item.lifecycleStatus)} />
-            <StockReservationBadge state={item.reservationState} label={translatedStockReservationLabel(t, item.reservationState)} />
+            {leftStockDate ? (
+              <Badge tone="slate" dot>
+                {t('stockDetail.leftStock.badge', { date: leftStockDate })}
+              </Badge>
+            ) : (
+              <>
+                <StockLifecycleBadge status={item.lifecycleStatus} label={translatedStockLifecycleLabel(t, item.lifecycleStatus)} />
+                <StockReservationBadge state={item.reservationState} label={translatedStockReservationLabel(t, item.reservationState)} />
+              </>
+            )}
           </>
         }
         alternativeAction={{
