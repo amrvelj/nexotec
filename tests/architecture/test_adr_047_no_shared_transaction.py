@@ -77,8 +77,10 @@ the two KAN-90 tests on the caller's own rows). It does not follow a
 write made by assigning to another context's ORM object (rule 1's
 territory), and it scans the twelve contexts only: the composition roots
 directly under app/ (main, worker, reconciliation_runner) wire contexts
-together, and `scripts/migrate_transaction_rows.py`'s shared
-Sales+Inventory transaction is KAN-106.
+together. scripts/ is scanned separately, at the end of this file:
+`scripts/migrate_transaction_rows.py`'s shared Sales+Inventory
+transaction is the one bounded exception (ADR-091, KAN-106), and no
+other script may reach two contexts' internals.
 
 Same discipline as test_no_ambient_group_read.py: explicit names with a
 reason each, never a whole-module or whole-directory exemption.
@@ -88,6 +90,7 @@ from __future__ import annotations
 
 import ast
 from collections.abc import Callable
+from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
 
@@ -911,3 +914,392 @@ def test_self_test_a_partial_export_is_reported(tmp_path: Path) -> None:
     app = _write(tmp_path, files)
     problems = _fixture_problems(app, _FIXTURE_WRITES, set(), _FIXTURE_READS)
     assert len(problems) == 1 and "app.stock.public.hidden" in problems[0] and "by assignment" in problems[0]
+
+
+# --- scripts/ (KAN-106, ADR-091) ----------------------------------------
+#
+# The import-linter's root package is `app` and the scan above walks the
+# twelve contexts, so a script under scripts/ that reaches into two
+# contexts' internals is seen by neither. One does, by ruling (Anto,
+# 2026-10-12, option A of KAN-106; ADR-091 in the Target Architecture):
+# scripts/migrate_transaction_rows.py — the one-time, no-outbox historical
+# backfill of the legacy `transaction` table — may write Sales (sales_offer,
+# sales_contract, sales_stock_item_purchase) and Inventory (stock_item) in
+# one transaction, import `app.inventory.models.stock_item` and
+# `app.inventory.services.stock_item.allocate_stock_number` directly, and
+# read the frozen legacy `vehicle` row directly, because its dry run is the
+# real run rolled back (KAN-263) and a half-written history would have to
+# be undone by hand. The exception names exactly that script, publishes no
+# events, and expires once the script has run in production, when the
+# script is deleted. Nothing else may cite it. These tests are the
+# exception in executable form — the same discipline as above: exact
+# names, a reason each, never a whole-directory exemption.
+
+_SCRIPTS_ROOT = _REPO_ROOT / "scripts"
+_ADR_091_SCRIPT = "migrate_transaction_rows.py"
+# Either marker in a script's module docstring is a citation of the exception.
+_ADR_091_CITATIONS = ("ADR-091", "ADR-047 EXCEPTION")
+# A context's internals in the import-linter's sense (models/services/api);
+# a script has no `api` to import, so these two are what the scan looks for.
+_CONTEXT_INTERNALS = frozenset({"models", "services"})
+
+
+@dataclass(frozen=True)
+class _ScriptReach:
+    """What a script that reaches several contexts' internals imports, and
+    whether it commits — pinned exactly, so a widening is a visible edit."""
+
+    modules: frozenset[str]
+    commits: bool
+    reason: str
+
+
+# The exact internal modules the excepted script imports. The first three
+# are the ones ADR-091 names; the rest are recorded so the pinned shape is
+# the whole shape, not a selection of it.
+_ADR_091_IMPORTS = frozenset(
+    {
+        # ADR-091: Inventory's internals, used instead of inventory.public —
+        # LifecycleStatus, StockItem, StockItemCondition and allocate_stock_number.
+        "app.inventory.models.stock_item",
+        "app.inventory.services.stock_item",
+        # ADR-091: the frozen legacy `vehicle` row (LegacyVehicle, its condition),
+        # read with db.get rather than through vehicle.public.
+        "app.vehicle.models.vehicle",
+        # Sales' own rows and computations: the table the script migrates and the
+        # production code it reuses (ADR-050; the migrations rule asks for that).
+        "app.sales.models.contract",
+        "app.sales.models.offer",
+        "app.sales.models.transaction",
+        "app.sales.services.numbering",
+        "app.sales.services.pricing",
+        "app.sales.services.snapshot",
+        "app.sales.services.stock_item_purchase",
+        # Resolution reads made through the models rather than through
+        # `<context>.public` (the customer, the dealership and its vat_rate, the
+        # vehicle_mdm row a legacy vehicle migrated to). ADR-091's text names
+        # none of these three; they are recorded as they are (KAN-106 report).
+        "app.customer.models.customer",
+        "app.platform.models.dealership",
+        "app.vehicle.models.vehicle_mdm",
+    }
+)
+
+# Every script that imports the internals of two or more contexts, with
+# exactly what it imports and what it does with it. Only the first is under
+# ADR-091. The other three were found by KAN-106's scan and are named here
+# as they are, not excepted: none has a ruling yet, and the report asks for
+# one. A new script that reaches two contexts fails by name, and so does a
+# recorded one whose imports change.
+_SCRIPTS_REACHING_SEVERAL_CONTEXTS: dict[str, _ScriptReach] = {
+    _ADR_091_SCRIPT: _ScriptReach(
+        _ADR_091_IMPORTS,
+        commits=True,
+        reason="ADR-091 (KAN-106): the one bounded exception — see the section comment and the script's docstring",
+    ),
+    "repoint_legacy_vehicle_party_references.py": _ScriptReach(
+        frozenset({"app.customer.models.vehicle_party", "app.vehicle.models.vehicle_mdm"}),
+        commits=True,
+        reason=(
+            "writes one context (customer: VehicleParty.vehicle_id, in place, its own commit) and reads one "
+            "(vehicle: vehicle_mdm, to resolve the replacement id) — one writer, so not ADR-047's two-context "
+            "write; the read goes through the model rather than vehicle.public. KAN-31 safety net, expected to "
+            "report nothing. Not under ADR-091; found by KAN-106, no ruling yet"
+        ),
+    ),
+    "seed_migration_smoke_test.py": _ScriptReach(
+        frozenset(
+            {
+                "app.customer.models.customer",
+                "app.customer.models.vehicle_party",
+                "app.platform.models.dealership",
+                "app.sales.models.transaction",
+                "app.vehicle.models.catalogue",
+                "app.vehicle.models.vehicle",
+            }
+        ),
+        commits=True,
+        reason=(
+            "CI only: inserts one consistent row per table into customer, platform, sales and vehicle in one "
+            "commit, through the ORM and not the services on purpose (its docstring), so the migration round "
+            "trip runs over data. A test fixture, never run against a real database. Not under ADR-091; found "
+            "by KAN-106, no ruling yet"
+        ),
+    ),
+    "verify_migration_smoke_test_seed.py": _ScriptReach(
+        frozenset(
+            {
+                "app.customer.models.customer",
+                "app.customer.models.vehicle_party",
+                "app.platform.models.dealership",
+                "app.platform.models.user",
+                "app.sales.models.transaction",
+                "app.vehicle.models.catalogue",
+                "app.vehicle.models.provider",
+                "app.vehicle.models.vehicle",
+            }
+        ),
+        commits=False,
+        reason=(
+            "CI only, reads only (no commit): checks the rows seed_migration_smoke_test.py wrote survived the "
+            "upgrade, by their fixed values. Not under ADR-091; found by KAN-106, no ruling yet"
+        ),
+    ),
+}
+
+
+def _script_files(root: Path) -> list[Path]:
+    return sorted(path for path in root.rglob("*.py") if "__pycache__" not in path.parts)
+
+
+def _script_docstring(path: Path) -> str:
+    return ast.get_docstring(_parse(path)) or ""
+
+
+def _scripts_citing_adr_091(root: Path) -> list[str]:
+    return [
+        str(path.relative_to(root))
+        for path in _script_files(root)
+        if any(marker in _script_docstring(path) for marker in _ADR_091_CITATIONS)
+    ]
+
+
+def _context_internal_imports(path: Path, contexts: frozenset[str]) -> frozenset[str]:
+    """The `app.<context>.<models|services>.<module>` modules a file imports,
+    at module level or inside a function, by any of the three spellings
+    (`from app.x.models.y import Z`, `from app.x.models import y`,
+    `import app.x.models.y`)."""
+
+    found: set[str] = set()
+
+    def record(module: str) -> None:
+        parts = module.split(".")
+        if len(parts) >= 4 and parts[0] == "app" and parts[1] in contexts and parts[2] in _CONTEXT_INTERNALS:
+            found.add(".".join(parts[:4]))
+
+    for node in ast.walk(_parse(path)):
+        if isinstance(node, ast.ImportFrom):
+            if node.level != 0 or node.module is None:
+                continue
+            parts = node.module.split(".")
+            if len(parts) == 3 and parts[0] == "app" and parts[2] in _CONTEXT_INTERNALS:
+                for alias in node.names:
+                    record(f"{node.module}.{alias.name}")
+            else:
+                record(node.module)
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                record(alias.name)
+    return frozenset(found)
+
+
+def _script_commits(path: Path) -> bool:
+    """A `<session>.commit()` anywhere in the file, savepoints aside."""
+
+    tree = _parse(path)
+    savepoints = {
+        target.id
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Assign)
+        and isinstance(node.value, ast.Call)
+        and isinstance(node.value.func, ast.Attribute)
+        and node.value.func.attr == "begin_nested"
+        for target in node.targets
+        if isinstance(target, ast.Name)
+    }
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "commit"):
+            continue
+        receiver = node.func.value
+        if isinstance(receiver, ast.Call) or (isinstance(receiver, ast.Name) and receiver.id in savepoints):
+            continue
+        return True
+    return False
+
+
+def _scripts_reaching_several_contexts(root: Path, contexts: frozenset[str]) -> dict[str, tuple[frozenset[str], bool]]:
+    reaching: dict[str, tuple[frozenset[str], bool]] = {}
+    for path in _script_files(root):
+        modules = _context_internal_imports(path, contexts)
+        if len({module.split(".")[1] for module in modules}) >= 2:
+            reaching[str(path.relative_to(root))] = (modules, _script_commits(path))
+    return reaching
+
+
+def _script_reach_problems(root: Path, recorded: dict[str, _ScriptReach], contexts: frozenset[str]) -> list[str]:
+    problems: list[str] = []
+    found = _scripts_reaching_several_contexts(root, contexts)
+    for script in sorted(set(found) - set(recorded)):
+        modules, _ = found[script]
+        problems.append(
+            f"scripts/{script} imports the internals of several contexts ({', '.join(sorted(modules))}) and is "
+            "not recorded in _SCRIPTS_REACHING_SEVERAL_CONTEXTS. A script writes one context and reaches the "
+            "others through `<context>.public` (ADR-047, CLAUDE.md rules 3 and 12); only "
+            f"scripts/{_ADR_091_SCRIPT} is excepted (ADR-091), and nothing else may cite it."
+        )
+    for script in sorted(set(recorded) - set(found)):
+        problems.append(
+            f"scripts/{script} is recorded in _SCRIPTS_REACHING_SEVERAL_CONTEXTS but no longer imports the "
+            "internals of several contexts — remove the entry"
+            + (" (and ADR-091 with it, once the script has run in production)." if script == _ADR_091_SCRIPT else ".")
+        )
+    for script in sorted(set(recorded) & set(found)):
+        modules, commits = found[script]
+        entry = recorded[script]
+        if modules != entry.modules:
+            added = ", ".join(sorted(modules - entry.modules)) or "none"
+            gone = ", ".join(sorted(entry.modules - modules)) or "none"
+            problems.append(
+                f"scripts/{script} no longer imports exactly what _SCRIPTS_REACHING_SEVERAL_CONTEXTS records "
+                f"(added: {added}; gone: {gone}). A changed reach is a visible edit here, with its reason"
+                + (" — and ADR-091 names the imports it excepts." if script == _ADR_091_SCRIPT else ".")
+            )
+        if commits != entry.commits:
+            problems.append(
+                f"scripts/{script} {'now' if commits else 'no longer'} commits, but "
+                f"_SCRIPTS_REACHING_SEVERAL_CONTEXTS records it as {'not committing' if commits else 'committing'} "
+                "— classify it again."
+            )
+    return problems
+
+
+def test_adr_091_is_cited_by_the_transaction_migration_and_by_nothing_else() -> None:
+    """KAN-106, exit criterion 4: the exception is bounded to one script.
+    The script's docstring carries the paragraph "ADR-047 EXCEPTION
+    (ADR-091, KAN-106)"; no other script under scripts/ cites either."""
+
+    assert _scripts_citing_adr_091(_SCRIPTS_ROOT) == [_ADR_091_SCRIPT]
+
+
+def test_the_transaction_migration_commits_once_in_run_rows() -> None:
+    """ADR-091's shape: every row's Sales and Inventory rows in ONE
+    transaction, committed once at the end of `_run_rows` (a dry run rolls
+    it back, KAN-263). A second commit, or one elsewhere, is a different
+    shape from the one the ADR excepts."""
+
+    tree = _parse(_SCRIPTS_ROOT / _ADR_091_SCRIPT)
+    commits = [
+        (function.name, node.lineno)
+        for function in tree.body
+        if isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef))
+        for node in ast.walk(function)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "commit"
+        and not isinstance(node.func.value, ast.Call)
+        and not (isinstance(node.func.value, ast.Name) and node.func.value.id in _savepoint_names(function))
+    ]
+    assert [name for name, _ in commits] == ["_run_rows"], commits
+
+
+def test_no_other_script_reaches_the_internals_of_several_contexts() -> None:
+    """KAN-106: every script importing two or more contexts' `models` or
+    `services` is named here with exactly what it imports; the excepted one
+    imports exactly what ADR-091 (and this test) names."""
+
+    problems = _script_reach_problems(_SCRIPTS_ROOT, _SCRIPTS_REACHING_SEVERAL_CONTEXTS, _CONTEXTS)
+    assert not problems, "ADR-047 / ADR-091 in scripts/:\n" + "\n".join(problems)
+
+
+# --- self-tests for the scripts/ guard -----------------------------------
+
+_SCRIPT_FIXTURE_CONTEXTS = frozenset({"stock", "sales"})
+_SCRIPT_FIXTURE = {
+    "one.py": (
+        '"""A backfill. ADR-047 EXCEPTION (ADR-091, KAN-106): the one."""\n'
+        "from app.stock.models.item import Item\n"
+        "from app.sales.services import numbering\n\n"
+        "def run(db):\n    db.add(Item())\n    db.commit()\n"
+    ),
+    "two.py": '"""Reads only."""\nfrom app.sales.models.contract import Contract\n\ndef run(db):\n    return db.get(Contract, 1)\n',
+}
+_SCRIPT_FIXTURE_RECORDED = {
+    "one.py": _ScriptReach(
+        frozenset({"app.stock.models.item", "app.sales.services.numbering"}), commits=True, reason="fixture"
+    ),
+}
+
+
+def _write_scripts(root: Path, files: dict[str, str]) -> Path:
+    scripts = root / "scripts"
+    scripts.mkdir()
+    for name, source in files.items():
+        (scripts / name).write_text(source)
+    return scripts
+
+
+def test_self_test_a_well_formed_scripts_tree_passes(tmp_path: Path) -> None:
+    scripts = _write_scripts(tmp_path, _SCRIPT_FIXTURE)
+    assert _scripts_citing_adr_091(scripts) == ["one.py"]
+    assert _script_reach_problems(scripts, _SCRIPT_FIXTURE_RECORDED, _SCRIPT_FIXTURE_CONTEXTS) == []
+
+
+def test_self_test_a_second_script_citing_the_exception_is_seen(tmp_path: Path) -> None:
+    files = dict(_SCRIPT_FIXTURE)
+    files["two.py"] = _replace(files["two.py"], '"""Reads only."""', '"""Reads only, under ADR-091 too."""')
+    scripts = _write_scripts(tmp_path, files)
+    assert _scripts_citing_adr_091(scripts) == ["one.py", "two.py"]
+
+
+def test_self_test_a_citation_outside_the_docstring_is_not_a_citation(tmp_path: Path) -> None:
+    """A comment or a string in the body is not the module docstring; the
+    exception is cited where a reader starts, or not at all."""
+
+    files = dict(_SCRIPT_FIXTURE)
+    files["two.py"] += "# ADR-091\nNOTE = 'ADR-047 EXCEPTION'\n"
+    scripts = _write_scripts(tmp_path, files)
+    assert _scripts_citing_adr_091(scripts) == ["one.py"]
+
+
+def test_self_test_an_unrecorded_script_reaching_two_contexts_fails(tmp_path: Path) -> None:
+    files = dict(_SCRIPT_FIXTURE)
+    files["two.py"] = _replace(
+        files["two.py"], "from app.sales.models.contract import Contract\n",
+        "from app.sales.models.contract import Contract\nimport app.stock.services.item\n",
+    )
+    scripts = _write_scripts(tmp_path, files)
+    problems = _script_reach_problems(scripts, _SCRIPT_FIXTURE_RECORDED, _SCRIPT_FIXTURE_CONTEXTS)
+    assert len(problems) == 1 and "scripts/two.py" in problems[0] and "not recorded" in problems[0], problems
+
+
+def test_self_test_a_recorded_script_with_a_widened_reach_fails(tmp_path: Path) -> None:
+    files = dict(_SCRIPT_FIXTURE)
+    files["one.py"] += "from app.stock.services import pricing\n"
+    scripts = _write_scripts(tmp_path, files)
+    problems = _script_reach_problems(scripts, _SCRIPT_FIXTURE_RECORDED, _SCRIPT_FIXTURE_CONTEXTS)
+    assert len(problems) == 1 and "added: app.stock.services.pricing" in problems[0], problems
+
+
+def test_self_test_a_recorded_script_that_stops_reaching_two_contexts_fails(tmp_path: Path) -> None:
+    files = dict(_SCRIPT_FIXTURE)
+    files["one.py"] = _replace(files["one.py"], "from app.sales.services import numbering\n", "")
+    scripts = _write_scripts(tmp_path, files)
+    problems = _script_reach_problems(scripts, _SCRIPT_FIXTURE_RECORDED, _SCRIPT_FIXTURE_CONTEXTS)
+    assert len(problems) == 1 and "no longer imports the internals of several contexts" in problems[0], problems
+
+
+def test_self_test_a_recorded_script_whose_commit_changes_fails(tmp_path: Path) -> None:
+    files = dict(_SCRIPT_FIXTURE)
+    files["one.py"] = _replace(files["one.py"], "    db.commit()\n", "    db.flush()\n")
+    scripts = _write_scripts(tmp_path, files)
+    problems = _script_reach_problems(scripts, _SCRIPT_FIXTURE_RECORDED, _SCRIPT_FIXTURE_CONTEXTS)
+    assert len(problems) == 1 and "no longer commits" in problems[0], problems
+
+
+def test_self_test_a_savepoint_commit_in_a_script_is_not_a_commit(tmp_path: Path) -> None:
+    files = dict(_SCRIPT_FIXTURE)
+    files["one.py"] = _replace(files["one.py"], "    db.commit()\n", "    db.begin_nested().commit()\n")
+    scripts = _write_scripts(tmp_path, files)
+    assert not _script_commits(scripts / "one.py")
+
+
+def test_self_test_a_function_level_import_is_seen(tmp_path: Path) -> None:
+    files = dict(_SCRIPT_FIXTURE)
+    files["two.py"] = _replace(
+        files["two.py"], "def run(db):\n", "def run(db):\n    from app.stock.models import item\n"
+    )
+    scripts = _write_scripts(tmp_path, files)
+    assert _context_internal_imports(scripts / "two.py", _SCRIPT_FIXTURE_CONTEXTS) == {
+        "app.sales.models.contract",
+        "app.stock.models.item",
+    }

@@ -150,7 +150,8 @@ delete them, and do not treat a stub as a licence to put its concerns somewhere 
 12. **A write spanning two contexts is a call with a compensating action, never a shared
     transaction** (ADR-047) — each side commits its own work. It would work today because
     everything shares one database; that is why it is forbidden. The import-linter cannot
-    catch it, so it needs its own test.
+    catch it, so it needs its own test. One bounded exception, ADR-091: the legacy transaction
+    backfill script, which expires after its production run.
 
 ## Preserve verbatim — already correct, do not "improve"
 

@@ -69,6 +69,10 @@ in the same PR as any change to what it states. -->
   flushing, so a later row sees an earlier one — and refuses any commit while it runs
   (`migrate_transaction_rows.py`, KAN-263); a dry run that skips the writes cannot see
   conflicts between rows of the same pass.
+  That one transaction is the one place a script may write two contexts (Sales and Inventory)
+  together and import Inventory's internals directly — ADR-091 (KAN-106), bounded to
+  `migrate_transaction_rows.py` alone and pinned by the ADR-047 architecture test; every other
+  script writes one context and reaches the rest through `<context>.public`.
 - **Enum columns** are `StoredEnum` (`app/core/enum_type.py`), never a bare `sqlalchemy.Enum`
   (an architecture test enforces it), and hold the member's **`.value`** and nothing else
   (KAN-86, finished by KAN-175 on 2026-10-11: one `*_kan175_<context>_enum_values_only.py`

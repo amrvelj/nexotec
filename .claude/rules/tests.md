@@ -34,8 +34,9 @@ as any change to what it states. -->
   shared identity response shape, spec-block carriers that do not drift, enum columns only
   as `StoredEnum` (KAN-86), no foreign key or `relationship()` crossing a context (KAN-84),
   no shared cross-context transaction: every cross-context call classified, every cross-context
-  write committing its own transaction except the one named exception KAN-185 replaces
-  (ADR-047, KAN-90), every POST an `IdempotentRoute` declaring an optional
+  write committing its own transaction except the two named exceptions, the one KAN-185
+  replaces and `scripts/migrate_transaction_rows.py` under ADR-091 (KAN-106; the test scans
+  `scripts/` for that and records every other multi-context script by name) (ADR-047, KAN-90), every POST an `IdempotentRoute` declaring an optional
   `Idempotency-Key`, the two ratified exemptions aside (a new one is Anto's ruling by name),
   every internal idempotency key in the reserved `<context>.<action>:` grammar clients are
   refused (KAN-264), every `created_by`/`updated_by` column reconciled against `user.id`
