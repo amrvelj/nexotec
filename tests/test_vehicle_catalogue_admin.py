@@ -149,7 +149,12 @@ def test_resolving_into_anything_but_the_gaps_own_active_list_is_422(http, db_se
 
 
 def test_a_gap_with_no_reference_list_is_409_not_500(http, db_session):
-    gap_id = _open_gap_id(db_session, "7", code_group="011")
+    # A legacy gap stored under a numeric CodeGrpNr, which the code can no
+    # longer record (KAN-194): inserted as it was left.
+    legacy = MappingGap(provider="auto_i_dat", vehicle_kind="01", code_group="011", provider_code="7")
+    db_session.add(legacy)
+    db_session.commit()
+    gap_id = str(legacy.id)
 
     response = _resolve(http, gap_id, "011", "petrol")
     assert response.status_code == 409, response.text

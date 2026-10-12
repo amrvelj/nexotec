@@ -14,17 +14,79 @@ from sqlalchemy.orm import Session
 
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, run_reconciliation
 from app.customer.public import VehicleParty
-from app.platform.public import Dealership
+from app.platform.public import Dealership, actor_reference_checks
 from app.sales.public import Transaction
-from app.vehicle.models.catalogue import VariantOption
+from app.vehicle.models.catalogue import (
+    Brand,
+    ModelGroup,
+    ModelVariant,
+    TypeApproval,
+    VariantOption,
+    VariantOptionEquipmentFeature,
+    VariantOptionRelation,
+    VariantPrice,
+    VariantTypeApproval,
+)
 from app.vehicle.models.catalogue_mirror import ColourCache, ImageRef, ProviderSyncState, TyreSpecCache
+from app.vehicle.models.configuration import (
+    VehicleConfiguration,
+    VehicleConfigurationOption,
+    VehicleConfigurationOptionFeature,
+)
+from app.vehicle.models.energy_rating import ModelVariantEnergyRating
 from app.vehicle.models.plate import DealerPlate, DealerPlateAssignment, VehiclePlate
+from app.vehicle.models.provider import (
+    MappingGap,
+    ProviderCodeMap,
+    ProviderEntityRef,
+    VariantOptionProviderCode,
+    VariantProviderCode,
+)
 from app.vehicle.models.vehicle import Vehicle, VehicleCustodyEvent
 from app.vehicle.models.vehicle_history import VehicleAccessory, VehicleOdometerReading
 from app.vehicle.models.vehicle_history import VehicleCustodyEvent as VehicleMdmCustodyEvent
 from app.vehicle.models.vehicle_mdm import VehicleMdm
 
 CONTEXT = "vehicle"
+
+# Every Vehicle table with created_by / updated_by: each must name a platform
+# user, or be null — the catalogue sync and the provider mirror write null
+# (KAN-243; see app.platform.public.actor_reference_checks). The two custody
+# logs have created_by only. vehicle_model_variant_type_approval has a
+# composite key; its findings name the row by model_variant_id.
+ACTOR_TABLES = (
+    Vehicle,
+    VehicleCustodyEvent,
+    VehicleMdm,
+    VehicleMdmCustodyEvent,
+    VehicleOdometerReading,
+    VehicleAccessory,
+    VehiclePlate,
+    DealerPlate,
+    DealerPlateAssignment,
+    Brand,
+    ModelGroup,
+    ModelVariant,
+    TypeApproval,
+    VariantTypeApproval,
+    VariantOption,
+    VariantOptionEquipmentFeature,
+    VariantOptionRelation,
+    VariantPrice,
+    ModelVariantEnergyRating,
+    ColourCache,
+    TyreSpecCache,
+    ImageRef,
+    ProviderSyncState,
+    VehicleConfiguration,
+    VehicleConfigurationOption,
+    VehicleConfigurationOptionFeature,
+    ProviderCodeMap,
+    ProviderEntityRef,
+    VariantProviderCode,
+    VariantOptionProviderCode,
+    MappingGap,
+)
 
 CHECKS = [
     ReferenceCheck(
@@ -122,6 +184,15 @@ CHECKS = [
         target_model=Dealership,
         target_id_column=Dealership.id,
     ),
+    # KAN-250: an option's raw SuchCode list is tenant-scoped like the option itself.
+    ReferenceCheck(
+        label="vehicle_variant_option_provider_code.tenant_id -> dealership.id",
+        source_model=VariantOptionProviderCode,
+        source_row_id_column=VariantOptionProviderCode.id,
+        source_fk_column=VariantOptionProviderCode.tenant_id,
+        target_model=Dealership,
+        target_id_column=Dealership.id,
+    ),
     ReferenceCheck(
         label="vehicle_colour_cache.tenant_id -> dealership.id",
         source_model=ColourCache,
@@ -154,6 +225,7 @@ CHECKS = [
         target_model=Dealership,
         target_id_column=Dealership.id,
     ),
+    *actor_reference_checks(*ACTOR_TABLES),
 ]
 
 

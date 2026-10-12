@@ -33,6 +33,14 @@ export interface paths {
          * @description Lets a browser client restore "logged in as X" state after a page
          *     reload — the httpOnly cookie survives, but the login response body's
          *     `user` object doesn't (nothing else holds it client-side).
+         *
+         *     The memberships are read from the database (KAN-237) — the home
+         *     dealership plus `dealership_membership`, the rule `_mint_session`
+         *     authorises a switch with — never from the token's `memberships` claim,
+         *     which goes stale the moment a membership is granted or revoked. The
+         *     switcher offers what this lists, so it never offers a dealership the
+         *     switch would refuse; a session still acting in a dealership this no
+         *     longer lists sees that one as its current, disabled entry (KAN-237).
          */
         get: operations["get_current_session_user_v1_auth_me_get"];
         put?: never;
@@ -2955,7 +2963,10 @@ export interface components {
         };
         /** ConfigurationCreate */
         ConfigurationCreate: {
-            /** Bodystyle */
+            /**
+             * Bodystyle
+             * @description An active value of the reference list of the same name. Required when `source` is `manual` (422 `coded_fields_required`), and never cleared on such a configuration (422 `coded_field_required`); on a `provider` configuration it comes from the catalogue and a change is refused (422 `coded_field_locked`).
+             */
             bodyStyle?: string | null;
             /** Branddisplayname */
             brandDisplayName?: string | null;
@@ -2963,7 +2974,10 @@ export interface components {
             catalogueVariantId?: string | null;
             /** Confirmedbestmatchcode */
             confirmedBestMatchCode?: number | null;
-            /** Drivetrain */
+            /**
+             * Drivetrain
+             * @description An active value of the reference list of the same name. Required when `source` is `manual` (422 `coded_fields_required`), and never cleared on such a configuration (422 `coded_field_required`); on a `provider` configuration it comes from the catalogue and a change is refused (422 `coded_field_locked`).
+             */
             drivetrain?: string | null;
             /** Exteriorcolour */
             exteriorColour?: string | null;
@@ -2971,7 +2985,10 @@ export interface components {
             exteriorColourSurcharge?: number | string | null;
             /** Firstregistrationdate */
             firstRegistrationDate?: string | null;
-            /** Fueltype */
+            /**
+             * Fueltype
+             * @description An active value of the reference list of the same name. Required when `source` is `manual` (422 `coded_fields_required`), and never cleared on such a configuration (422 `coded_field_required`); on a `provider` configuration it comes from the catalogue and a change is refused (422 `coded_field_locked`).
+             */
             fuelType?: string | null;
             /** Interiorcolour */
             interiorColour?: string | null;
@@ -2991,13 +3008,19 @@ export interface components {
             spec?: components["schemas"]["VehicleSpecBlockInput"] | null;
             /** Stammnummer */
             stammnummer?: string | null;
-            /** Transmission */
+            /**
+             * Transmission
+             * @description An active value of the reference list of the same name. Required when `source` is `manual` (422 `coded_fields_required`), and never cleared on such a configuration (422 `coded_field_required`); on a `provider` configuration it comes from the catalogue and a change is refused (422 `coded_field_locked`).
+             */
             transmission?: string | null;
             /** Typeapprovalnumber */
             typeApprovalNumber?: string | null;
             /** Variantname */
             variantName?: string | null;
-            /** Vehiclekind */
+            /**
+             * Vehiclekind
+             * @description An active value of the reference list of the same name. Required when `source` is `manual` (422 `coded_fields_required`), and never cleared on such a configuration (422 `coded_field_required`); on a `provider` configuration it comes from the catalogue and a change is refused (422 `coded_field_locked`).
+             */
             vehicleKind?: string | null;
             /** Vin */
             vin?: string | null;
@@ -3194,14 +3217,20 @@ export interface components {
         ConfigurationSource: "provider" | "manual";
         /** ConfigurationUpdate */
         ConfigurationUpdate: {
-            /** Bodystyle */
+            /**
+             * Bodystyle
+             * @description An active value of the reference list of the same name. Required when `source` is `manual` (422 `coded_fields_required`), and never cleared on such a configuration (422 `coded_field_required`); on a `provider` configuration it comes from the catalogue and a change is refused (422 `coded_field_locked`).
+             */
             bodyStyle?: string | null;
             /** Branddisplayname */
             brandDisplayName?: string | null;
             catalogueMatchStatus?: components["schemas"]["ConfigurationMatchStatus"] | null;
             /** Cataloguevariantid */
             catalogueVariantId?: string | null;
-            /** Drivetrain */
+            /**
+             * Drivetrain
+             * @description An active value of the reference list of the same name. Required when `source` is `manual` (422 `coded_fields_required`), and never cleared on such a configuration (422 `coded_field_required`); on a `provider` configuration it comes from the catalogue and a change is refused (422 `coded_field_locked`).
+             */
             drivetrain?: string | null;
             /** Exteriorcolour */
             exteriorColour?: string | null;
@@ -3209,7 +3238,10 @@ export interface components {
             exteriorColourSurcharge?: number | string | null;
             /** Firstregistrationdate */
             firstRegistrationDate?: string | null;
-            /** Fueltype */
+            /**
+             * Fueltype
+             * @description An active value of the reference list of the same name. Required when `source` is `manual` (422 `coded_fields_required`), and never cleared on such a configuration (422 `coded_field_required`); on a `provider` configuration it comes from the catalogue and a change is refused (422 `coded_field_locked`).
+             */
             fuelType?: string | null;
             /** Interiorcolour */
             interiorColour?: string | null;
@@ -3228,13 +3260,19 @@ export interface components {
             spec?: components["schemas"]["VehicleSpecBlockInput"] | null;
             /** Stammnummer */
             stammnummer?: string | null;
-            /** Transmission */
+            /**
+             * Transmission
+             * @description An active value of the reference list of the same name. Required when `source` is `manual` (422 `coded_fields_required`), and never cleared on such a configuration (422 `coded_field_required`); on a `provider` configuration it comes from the catalogue and a change is refused (422 `coded_field_locked`).
+             */
             transmission?: string | null;
             /** Typeapprovalnumber */
             typeApprovalNumber?: string | null;
             /** Variantname */
             variantName?: string | null;
-            /** Vehiclekind */
+            /**
+             * Vehiclekind
+             * @description An active value of the reference list of the same name. Required when `source` is `manual` (422 `coded_fields_required`), and never cleared on such a configuration (422 `coded_field_required`); on a `provider` configuration it comes from the catalogue and a change is refused (422 `coded_field_locked`).
+             */
             vehicleKind?: string | null;
             /** Vin */
             vin?: string | null;
@@ -5894,11 +5932,17 @@ export interface components {
             locationId?: string | null;
             /** Odometerkm */
             odometerKm?: number | null;
-            /** Vehicleid */
+            /**
+             * Vehicleid
+             * @description Ignored when `vin` is sent: the item's vehicle is then the vehicle-mdm record that VIN resolves to (found, or created). Without a `vin` it is stored as sent.
+             */
             vehicleId?: string | null;
             /** Vehiclelabel */
             vehicleLabel: string;
-            /** Vin */
+            /**
+             * Vin
+             * @description A car with a known VIN, taken straight into stock. Normalised first (upper-cased, all whitespace removed), then validated as vehicle-mdm validates a VIN: 17 characters, uppercase letters and digits, never I, O or Q — otherwise 422. A VIN already in this dealership's stock is 409 `vin_already_in_stock`.
+             */
             vin?: string | null;
         };
         /**
@@ -7693,7 +7737,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path?: never;
@@ -7807,7 +7851,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path: {
@@ -8004,7 +8048,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path?: never;
@@ -8221,7 +8265,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path: {
@@ -8372,7 +8416,7 @@ export interface operations {
             header?: {
                 "If-Match"?: string | null;
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path: {
@@ -8448,7 +8492,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path: {
@@ -8598,7 +8642,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path: {
@@ -8713,7 +8757,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path: {
@@ -8755,7 +8799,7 @@ export interface operations {
             header?: {
                 "If-Match"?: string | null;
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path: {
@@ -8831,7 +8875,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path: {
@@ -8983,7 +9027,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path: {
@@ -9098,7 +9142,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path: {
@@ -9173,7 +9217,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path?: never;
@@ -9440,7 +9484,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path: {
@@ -9694,7 +9738,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path?: never;
@@ -9846,7 +9890,7 @@ export interface operations {
             header?: {
                 "If-Match"?: string | null;
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path: {
@@ -9884,7 +9928,7 @@ export interface operations {
             header?: {
                 "If-Match"?: string | null;
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path: {
@@ -9995,7 +10039,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path: {
@@ -10100,7 +10144,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path?: never;
@@ -10259,7 +10303,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path: {
@@ -10336,7 +10380,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path?: never;
@@ -10451,7 +10495,7 @@ export interface operations {
             header?: {
                 "If-Match"?: string | null;
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path: {
@@ -10562,7 +10606,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path: {
@@ -10638,7 +10682,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path: {
@@ -10679,7 +10723,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path: {
@@ -10904,7 +10948,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path: {
@@ -10942,7 +10986,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path: {
@@ -10985,7 +11029,7 @@ export interface operations {
             header?: {
                 "If-Match"?: string | null;
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path: {
@@ -11066,7 +11110,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path: {
@@ -11341,7 +11385,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path: {
@@ -11461,7 +11505,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path?: never;
@@ -11576,7 +11620,7 @@ export interface operations {
             header?: {
                 "If-Match"?: string | null;
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path: {
@@ -11618,7 +11662,7 @@ export interface operations {
             header?: {
                 "If-Match"?: string | null;
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path: {
@@ -11690,7 +11734,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path: {
@@ -11803,7 +11847,7 @@ export interface operations {
             header?: {
                 "If-Match"?: string | null;
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path: {
@@ -11841,7 +11885,7 @@ export interface operations {
             header?: {
                 "If-Match"?: string | null;
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path: {
@@ -11883,7 +11927,7 @@ export interface operations {
             header?: {
                 "If-Match"?: string | null;
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path: {
@@ -12037,7 +12081,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path?: never;
@@ -12148,7 +12192,7 @@ export interface operations {
             header?: {
                 "If-Match"?: string | null;
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path: {
@@ -12189,7 +12233,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path: {
@@ -12261,7 +12305,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path: {
@@ -12299,7 +12343,7 @@ export interface operations {
             header?: {
                 "If-Match"?: string | null;
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path: {
@@ -12412,7 +12456,7 @@ export interface operations {
             header?: {
                 "If-Match"?: string | null;
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path: {
@@ -12454,7 +12498,7 @@ export interface operations {
             header?: {
                 "If-Match"?: string | null;
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path: {
@@ -12536,7 +12580,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path?: never;
@@ -12686,7 +12730,7 @@ export interface operations {
             header?: {
                 "If-Match"?: string | null;
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path: {
@@ -12728,7 +12772,7 @@ export interface operations {
             header?: {
                 "If-Match"?: string | null;
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path: {
@@ -12805,7 +12849,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path?: never;
@@ -12880,7 +12924,7 @@ export interface operations {
             header?: {
                 "If-Match"?: string | null;
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path: {
@@ -12991,7 +13035,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path?: never;
@@ -13066,7 +13110,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path?: never;
@@ -13254,7 +13298,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path: {
@@ -13444,7 +13488,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path: {
@@ -13519,7 +13563,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path: {
@@ -13665,7 +13709,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path: {
@@ -13817,7 +13861,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path?: never;
@@ -14039,7 +14083,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
-                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. */
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
             path: {

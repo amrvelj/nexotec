@@ -7,6 +7,8 @@ import i18n from '../../i18n'
 import { renderWithProviders } from '../../test/renderWithProviders'
 import { installFakeBackend, status, type FakeBackend, type FakeRoute } from '../../test/fakeBackend'
 import { ConfiguratorOverlay } from './ConfiguratorOverlay'
+import { CODED_REFERENCE_ROUTES, PICKED_CODED_VALUES, pickCodedFields } from '../../test/configuratorFixtures'
+import { CODED_FIELDS } from '../../configurationOptions'
 
 // C-C (KAN-41) exit criteria 1/2/3/6. The identification waterfall is
 // C-D; here Phase 1 offers browse + "configure manually" + a VIN box.
@@ -161,6 +163,7 @@ function install(over: FakeRoute[] = []): Ctx {
         optionRelations: [],
       }),
     },
+    ...CODED_REFERENCE_ROUTES,
     { method: 'GET', match: /\/reference-data\//, handler: () => ({ items: [], nextCursor: null }) },
     {
       method: 'POST',
@@ -227,7 +230,9 @@ async function openOverlay(user: ReturnType<typeof userEvent.setup>) {
   return screen.findByText(i18n.t('configurator.find.title'))
 }
 
-describe('ConfiguratorOverlay', () => {
+// The manual-configuration tests pick five coded fields before saving (Anto,
+// 2026-10-12): past vitest's 5 s default on a loaded machine.
+describe('ConfiguratorOverlay', { timeout: 15_000 }, () => {
   it('opens on top of a host and keeps the host input mounted (ADR-059)', async () => {
     const user = userEvent.setup()
     install()
@@ -257,6 +262,19 @@ describe('ConfiguratorOverlay', () => {
     // Phase 2 — specification section
     await screen.findByText(i18n.t('configurator.spec.groups.powertrain'))
 
+    // Anto, 2026-10-12 — nothing is sent until all five coded fields are
+    // picked: the API refuses a manual create without them.
+    await user.click(screen.getByRole('button', { name: i18n.t('configurator.saveNew') }))
+    expect(
+      await screen.findByText(
+        i18n.t('configurator.spec.codedRequiredSaveError', {
+          fields: CODED_FIELDS.map((f) => i18n.t(f.labelKey)).join(', '),
+        }),
+      ),
+    ).toBeInTheDocument()
+    expect(ctx.posted()).toHaveLength(0)
+
+    await pickCodedFields()
     await user.click(screen.getByRole('button', { name: i18n.t('configurator.saveNew') }))
 
     await waitFor(() => expect(ctx.posted().length).toBe(1))
@@ -264,6 +282,7 @@ describe('ConfiguratorOverlay', () => {
     expect(body.source).toBe('manual')
     expect(body.matchMethod).toBe('manual')
     expect(body.catalogueVariantId).toBeNull()
+    expect(body).toMatchObject(PICKED_CODED_VALUES)
     await waitFor(() => expect(onCommitted).toHaveBeenCalled())
   })
 
@@ -539,6 +558,8 @@ describe('ConfiguratorOverlay', () => {
     await user.click(screen.getByText(i18n.t('configurator.sections.options')))
     expect(screen.getByTestId('options-no-catalogue-variant')).toBeInTheDocument()
 
+    await user.click(screen.getByText(i18n.t('configurator.sections.specification')))
+    await pickCodedFields()
     await user.click(screen.getByRole('button', { name: i18n.t('configurator.saveNew') }))
     await waitFor(() => expect(ctx.posted().length).toBe(1))
     expect(ctx.postedOptions().length).toBe(0)

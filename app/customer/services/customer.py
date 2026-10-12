@@ -19,9 +19,9 @@ import uuid
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import Select, func, or_, select, text, update
+from sqlalchemy import ColumnElement, Exists, Select, func, or_, select, text, update
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session, load_only
+from sqlalchemy.orm import InstrumentedAttribute, Session, load_only
 
 from app.core.audit import record_audit_event
 from app.core.base import utcnow
@@ -2345,6 +2345,18 @@ def _vehicle_parties_in_group_stmt(
     if not include_closed:
         stmt = stmt.where(or_(VehicleParty.effective_to.is_(None), VehicleParty.effective_to > utcnow()))
     return stmt
+
+
+def customer_in_group(
+    customer_id: ColumnElement[Any] | InstrumentedAttribute[Any], group_id: ColumnElement[Any]
+) -> Exists:
+    """KAN-259 — a SQL predicate, for another context's nightly
+    reconciliation (Sales'): the customer `customer_id` names belongs to
+    group `group_id`. Customers are group-scoped (ADR-014), so a deal's
+    customer is right only in the group of the deal's dealership, which the
+    caller passes as an expression. Builds an EXISTS; reads nothing itself."""
+
+    return select(Customer.id).where(Customer.id == customer_id, Customer.group_id == group_id).exists()
 
 
 def customer_display_name(customer: Customer) -> str:

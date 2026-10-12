@@ -42,14 +42,20 @@ ADR-057, ADR-063, ADR-065, ADR-083 and KAN-66/68/71. Verified against main@7a90a
   naming no stock item, on a stock item Stock holds as purchased, last changed over an hour ago,
   with no replica row in its own dealership, and on a replica row whose item Stock does not hold
   as purchased for that dealership — both match on tenant, as `is_invoiceable` does (KAN-145).
-  Every cross-context id on `sales_offer` and `sales_contract` (`created_by`/`updated_by`
-  included) is reconciled too, on id alone, not on the row's dealership (KAN-259); a contract's
-  `reservation_id` only while it is confirmed, since a released hold is cleared on the stock item.
+  Every cross-context id on every Sales table is reconciled (KAN-145, KAN-243): an id naming
+  nothing is an orphan (ReferenceCheck); a stock item, configuration or valuation of another
+  dealership, and a customer outside the dealership's group, is a mismatch (StateCheck, KAN-259);
+  a contract's `reservation_id` only while it is confirmed, since a released hold is cleared on
+  the stock item. `created_by`/`updated_by` name a `user.id` or are null in every reconciled
+  context (Anto, 2026-10-12, KAN-243: `platform.public.actor_reference_checks`, enforced by
+  `tests/architecture/test_actor_columns_reconciled.py`).
 - **ADR-050** — `sales_contract` supersedes the legacy `transaction` table. Legacy rows move via
   `scripts/migrate_transaction_rows.py`: dry-run by default, idempotent, written directly
   through the ORM and **publishing no outbox events** (a years-old sale must not look like
-  today's business to live consumers). Its dry run writes nothing but does not flush, so a
-  same-pass VIN reuse or `vehicle_already_in_stock` conflict shows only in the `--commit` report.
+  today's business to live consumers). Its dry run runs the real path and rolls it back (any
+  commit on the way is refused), so it reports exactly what `--commit` writes, same-pass VIN
+  reuse and `vehicle_already_in_stock` included (KAN-263); a sale or trade-in whose dealership
+  does not exist is `dealership_unresolved`, never written (KAN-265).
   A migrated sale stays `CONFIRMED` and `request_invoice` refuses any contract with
   `legacy_transaction_id` set (409, reason `legacy_sale`) — the old system invoiced it (Anto,
   2026-10-10, option 2 of KAN-147). `cancel_contract` refuses it too (same reason; `isLegacy`
@@ -63,8 +69,9 @@ ADR-057, ADR-063, ADR-065, ADR-083 and KAN-66/68/71. Verified against main@7a90a
 - **No contract is signed without a buyer** (Anto, 2026-10-12, KAN-307): `confirm_contract`
   refuses a contract with no customer (409 `missing_customer`), before the vehicle and price
   gates. The gap KAN-276 left open (a contract from an offer without a customer) is closed.
-  A contract priced without inputs and without a buyer can now be neither given one nor
-  confirmed (KAN-315).
+  A pending contract priced without inputs and without a buyer may be given one by a PATCH
+  carrying `customerId` alone (Anto, 2026-10-12, KAN-315) — price untouched — and then
+  confirmed; any other field on it is still `contract_priced_without_inputs`.
 - **A contract can start from a car** (Anto, 2026-10-12, KAN-307: "the same as offer
   generation"): `stockItemId` (with the optional display `vehicleLabel`) creates a pending
   contract with that car through the contract's own Path A edit, in the creating transaction.
@@ -133,7 +140,8 @@ ADR-057, ADR-063, ADR-065, ADR-083 and KAN-66/68/71. Verified against main@7a90a
   holds the same pricing inputs as `sales_offer`; a contract from an offer copies them and its
   line items (`contract_id`). Each of these writes refuses a contract that is not pending
   (`contract_not_pending`) and one priced before contracts kept their inputs
-  (`contract_priced_without_inputs`; it can still be confirmed or cancelled). Every contract
+  (`contract_priced_without_inputs`; it can still be confirmed or cancelled, and given a
+  buyer it lacks — KAN-315). Every contract
   route that changes the row loads it `for_update` (`get_contract_or_404`), so an edit and a
   confirmation of the same contract run one after the other — If-Match alone compares the
   version as read and would let an edit land after signing. A trade-in save commits part-way
@@ -159,13 +167,16 @@ ADR-057, ADR-063, ADR-065, ADR-083 and KAN-66/68/71. Verified against main@7a90a
   `.claude/rules/valuation.md`. Contracts before KAN-101 were confirmed without marking their
   valuation used; nightly reconciliation reports every signed contract whose trade-in valuation
   of its own dealership is not used, and «Als verwendet markieren» repairs it, expired or not
-  (KAN-115). One naming another dealership's valuation is reported by nothing yet (KAN-259).
+  (KAN-115). One naming another dealership's valuation is a reconciliation mismatch (KAN-259).
 - **A car that has left stock cannot be signed again** (KAN-147): confirming a stock-car
   contract whose item has `left_stock_at` set is refused by Stock's `reserve_for_contract`
   (409 `vehicle_left_stock`), and the compensation reverts the trade-in valuation's "used"
   stamp as for any refused reservation. The contract page keeps «Vertrag bestätigen» disabled
-  while a price edit is unsaved or any deal save is in flight (`useDebouncedNumberField`,
-  `trackSave`; KAN-288).
+  while a price edit is unsaved or any deal save is in flight (`useDebouncedNumberField`;
+  KAN-288). Both deal workspaces send their saves through `hooks/useDealSaveQueue.ts`: one
+  after the other, each with the version the previous one returned, a refused save said and
+  never retried (KAN-314) — the server's offer/contract row lock refuses the second of two
+  saves sent with the same version (KAN-311).
 - **ADR-065** — a credit block stops contract confirmation, not the offer. An address-less
   customer is likewise gated at confirmation (D-20). Do-not-contact refuses the offer, a
   contract created straight from the customer, and every confirmation.

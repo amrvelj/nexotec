@@ -1,15 +1,43 @@
-"""StockItem schemas (WP-7 PR-1). `vin` is never writable through these —
-it is set only by the promotion path (PR-2, ADR-045) and is read-only here
-by omission, matching app.vehicle.schemas.vehicle_mdm's own rule that vin
-is writable only through VehicleMdmUpdate.
+"""StockItem schemas (WP-7 PR-1).
+
+`vin` is writable only when an item is created (`StockItemCreate`, a car
+with a known VIN taken straight into stock) and by the promotion path
+(PR-2, ADR-045) — never by an update: `StockItemUpdate` omits it, matching
+app.vehicle.schemas.vehicle_mdm's own rule that a vehicle's VIN is
+corrected only through VehicleMdmUpdate.
+
+On create the VIN is normalised and then validated exactly as vehicle-mdm
+validates it (KAN-244, Anto's option A), and the item's vehicle is resolved
+from it, never taken from the client (option C) — see `StockItemCreate`.
 """
 
 import datetime as dt
+import re
 import uuid
 from decimal import Decimal
+from typing import Annotated, Any
+
+from pydantic import BeforeValidator, Field
 
 from app.core.schemas import CamelModel
+from app.core.validators import Vin
 from app.inventory.models.stock_item import AgeingBucket, LifecycleStatus, ReservationState, StockItemCondition
+
+
+def _normalise_vin(value: Any) -> Any:
+    """KAN-244 (Anto, option A): upper-cased, every whitespace character
+    removed — a VIN typed in lower case or pasted in groups is the same VIN.
+    Anything else wrong with it is left for `Vin` to refuse (422)."""
+
+    if isinstance(value, str):
+        return re.sub(r"\s", "", value).upper()
+    return value
+
+
+# Normalised first, then vehicle-mdm's own rule (17 characters, uppercase
+# letters and digits, never I, O or Q), so the KAN-111 duplicate check and
+# its index compare one spelling.
+NormalisedVin = Annotated[Vin, BeforeValidator(_normalise_vin)]
 
 
 class StockItemCreate(CamelModel):
@@ -20,12 +48,27 @@ class StockItemCreate(CamelModel):
     list_price: Decimal | None = None
     effective_price: Decimal | None = None
     first_registration_date: dt.date | None = None
-    # Only meaningful for a manually-created, already-in-stock item (e.g.
-    # a used car walked onto the lot with a known VIN already assigned in
-    # vehicle-mdm) — the ordinary pipeline path never sets this at create
-    # time, it arrives later via promotion (PR-2).
-    vehicle_id: uuid.UUID | None = None
-    vin: str | None = None
+    # KAN-244 (Anto, option C): with a VIN, the vehicle is the vehicle-mdm
+    # record that VIN resolves to (found, or created — as promotion does);
+    # a vehicleId the client sends is ignored, not refused, so a client that
+    # sends one today keeps working. Without a VIN (a pipeline-style create)
+    # the vehicleId is stored as sent, as before KAN-244.
+    vehicle_id: uuid.UUID | None = Field(
+        default=None,
+        description=(
+            "Ignored when `vin` is sent: the item's vehicle is then the vehicle-mdm record that VIN resolves "
+            "to (found, or created). Without a `vin` it is stored as sent."
+        ),
+    )
+    vin: NormalisedVin | None = Field(
+        default=None,
+        description=(
+            "A car with a known VIN, taken straight into stock. Normalised first (upper-cased, all whitespace "
+            "removed), then validated as vehicle-mdm validates a VIN: 17 characters, uppercase letters and "
+            "digits, never I, O or Q — otherwise 422. A VIN already in this dealership's stock is 409 "
+            "`vin_already_in_stock`."
+        ),
+    )
     # C-F (KAN-10, FR-C-13) — "add to pipeline" from the Stock list: the
     # configuration the configurator just produced, `build` for a factory
     # order or `record` for a car being bought in (both modes allowed).

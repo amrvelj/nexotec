@@ -42,16 +42,19 @@ code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. -->
   reassignment, cantonal changes. `vehicle_plate` is a child table with validity dates and a
   `plate_group_id`; an ambiguous lookup shows a picker and never guesses. Plate lookup must
   not be enumerable (architecture test).
-- **Plate-history reads (Plates tab, resolved search hit) are audited and limited per user**
+- **Plate-history reads (Plates tab, resolved search hit, shared identity lookup) are audited and limited per user**
   (ADR-085, KAN-231): only through `services/plate_read_guard.py::read_plate_history`, never
   `plate.list_plates_for_vehicle` directly (architecture test); every read and every refusal
   writes an `audit_event`, never the plate values. Past `plate_read_limit` distinct vehicles per
   `plate_read_window_seconds` (`app/core/config.py`, platform-wide by design — never a
   dealership setting; default 60 per hour) the Plates tab gets 403 `plate_read_limit_reached`
-  and a search hit `currentPlateWithheld`; the car page still opens. **Not yet
-  covered:** `GET /v1/vehicle-mdm/lookup` (ADR-043, `services/lookup.py::_current_plate`) still
-  returns a vehicle's current plate unaudited and unlimited — KAN-231 left it out of scope; the
-  export through it stays open until KAN-279 lands.
+  and a search hit `currentPlateWithheld`; the car page still opens. `GET /v1/vehicle-mdm/lookup`
+  (ADR-043) reads its `currentPlate` through the same guard (KAN-279) and, past the limit,
+  answers `currentPlate: null` — ADR-043's shape has no withheld flag, so withheld and no
+  plate look the same there. `tests/architecture/test_plate_lookup_is_not_enumerable.py`
+  refuses any read of `VehiclePlate` or `VehiclePlateConflict` outside `plate.py` /
+  `plate_read_guard.py`, except the uses it names that hand out no plate (the model registry,
+  the FR-V-12 merge, reconciliation).
 - Vehicle identity is global; everything licensed about it is not (next section).
 
 ## Licensed data and the gateway
@@ -68,7 +71,11 @@ code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. -->
   options, colours, tyres or images, or adding another provider's master data, is a new
   decision — never a side effect.
 - A sync visit fills a variant's NULL fields and never overwrites a set one; resolving a
-  mapping gap fills the variants it left NULL at once (KAN-83).
+  mapping gap fills the variants it left NULL at once (KAN-83), the NULL spec and coded fields
+  of the provider configurations built from them — never an advisor's value or an overridden
+  field, never a host's frozen snapshot (Anto, 2026-10-12, KAN-240) — and adds an
+  `equipment_feature` to every option whose raw `SuchCode` list carried it, per tenant
+  (`VariantOptionProviderCode`, KAN-250).
 - Every auto-i-dat call goes through the gateway (architecture test). Provider codes never
   appear in application code: canonical taxonomy + `ProviderCodeMap` (`vehicle_provider_code_map`).
   **Not yet true (KAN-75):** the SOAP adapter decodes `FarbArt`, `AchsenCode` and `PneuTyp`
@@ -117,6 +124,15 @@ code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. -->
   (30-day TTL, daily purge, never enumerable); Stammnummer → vehicle-mdm, then that cache;
   Typenschein and Werkscode → the mirror. Several hits are a picker, never a choice; a
   `FahrzeugeMatch` best match is a proposal, confirmed through `confirmedBestMatchCode`.
+- **The five coded fields** (`vehicleKind`, `fuelType`, `bodyStyle`, `drivetrain`,
+  `transmission`) are never empty by an advisor's hand (Anto, 2026-10-12, KAN-247/246): on a
+  provider configuration they are locked — read-only on screen, a PATCH that changes one is 422
+  `coded_field_locked` (the same value is accepted); a manual configuration needs all five to be
+  created (422 `coded_fields_required`) and cannot clear one (422 `coded_field_required`). They
+  and the spec-block reference fields take only an active value of their reference list
+  (KAN-96, KAN-245). Every other nullable observed or spec field clears with an explicit
+  `null` on PATCH; an absent field is left alone (KAN-247). `catalogueVariantId`,
+  `catalogueMatchStatus` and `spec: null` still mean "leave alone"; the lock follows `source`.
 - **Re-sync (FR-C-16)** is only ever the advisor's request (`/v1/configurations/{id}/resync`):
   disagreeing fields listed, overrides marked, only chosen fields applied.
 
@@ -142,7 +158,8 @@ code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. -->
   go-live check); never route it on a guess.
 - **`ProviderCodeMap` is keyed `(provider, vehicle_kind, code_group, provider_code)`** —
   `vehicle_kind` is the raw FzArt, `code_group` the semantic list code, `provider_code` the raw
-  code; never a numeric CodeGrpNr. An unmapped code of a code-mapped field (the variant's
+  code; never a numeric CodeGrpNr (`resolve_provider_code` refuses one; migration
+  `ff5b97c11665` re-keyed the open legacy gaps that `7c4e9a2b6d13`'s CodeGrpNr table maps, KAN-194). An unmapped code of a code-mapped field (the variant's
   `vehicle_kind`, `fuel_type`, `body_style`, `drivetrain`, `transmission`; an option's
   `equipment_feature`) becomes a `mapping_gap` (FR-C-10), never a silent default. **Not yet true
   for the adapter's inline decodes (KAN-75):** an unknown `FarbArt` becomes `exterior`, a

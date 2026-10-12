@@ -773,6 +773,7 @@ export function CustomersListPage() {
             retry: t('common.retry'),
             rowActionsLabel: t('common.rowActionsLabel'),
             selectAllLabel: t('common.selectAllLabel'),
+            selectRowLabel: (row) => t('common.selectRowLabel', { label: customerName(row) || row.customerNumber }),
           }}
           emptyState={{
             icon: <Users size={24} />,

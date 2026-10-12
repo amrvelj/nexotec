@@ -201,11 +201,20 @@ def get_current_session_user(
     """Lets a browser client restore "logged in as X" state after a page
     reload — the httpOnly cookie survives, but the login response body's
     `user` object doesn't (nothing else holds it client-side).
+
+    The memberships are read from the database (KAN-237) — the home
+    dealership plus `dealership_membership`, the rule `_mint_session`
+    authorises a switch with — never from the token's `memberships` claim,
+    which goes stale the moment a membership is granted or revoked. The
+    switcher offers what this lists, so it never offers a dealership the
+    switch would refuse; a session still acting in a dealership this no
+    longer lists sees that one as its current, disabled entry (KAN-237).
     """
 
     user = user_service.get_own_user_or_404(db, principal.user_id)
     dealership = dealership_service.get_dealership_or_404(db, principal.tenant_id)
-    return _login_response(db, user=user, active_dealership=dealership, membership_ids=principal.memberships)
+    membership_ids = _membership_ids(db, user_id=user.id, home_dealership_id=user.tenant_id)
+    return _login_response(db, user=user, active_dealership=dealership, membership_ids=membership_ids)
 
 
 @router.post("/auth/switch-dealership", response_model=LoginResponse)

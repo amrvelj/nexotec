@@ -35,6 +35,7 @@ from app.vehicle.schemas.configuration import (
 )
 from app.vehicle.schemas.spec_block import VehicleSpecBlockInput
 from app.vehicle.services import configuration as configuration_service
+from tests.configuration_test_support import MANUAL_CODED, seed_manual_coded_lists
 
 _REPO = Path(__file__).resolve().parent.parent.parent
 _SCANNED = [
@@ -112,7 +113,9 @@ def test_no_configuration_write_path_ever_adds_a_vehicle_mdm(db_session):
         ),
     )
 
-    # manual create with a VIN that does NOT resolve (must not create an MDM row)
+    # manual create with a VIN that does NOT resolve (must not create an MDM row);
+    # a manual configuration needs all five coded fields (Anto, 2026-10-12)
+    seed_manual_coded_lists(db_session)
     manual = configuration_service.create_configuration(
         db_session,
         tenant_id=tenant_id,
@@ -121,6 +124,7 @@ def test_no_configuration_write_path_ever_adds_a_vehicle_mdm(db_session):
             source=ConfigurationSource.MANUAL,
             mode=ConfigurationMode.RECORD,
             match_method=ConfigurationMatchMethod.MANUAL,
+            **MANUAL_CODED,
             vin="WVWZZZ1KZAW000001",
             first_registration_date=dt.date(2015, 6, 1),
             spec=VehicleSpecBlockInput(ps=90),

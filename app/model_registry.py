@@ -57,7 +57,13 @@ from app.vehicle.models.configuration import (
 from app.vehicle.models.energy_rating import ModelVariantEnergyRating
 from app.vehicle.models.plate import DealerPlate, DealerPlateAssignment, VehiclePlate, VehiclePlateConflict
 from app.vehicle.models.plate_lookup_cache import PlateLookupCacheEntry
-from app.vehicle.models.provider import MappingGap, ProviderCodeMap, ProviderEntityRef, VariantProviderCode
+from app.vehicle.models.provider import (
+    MappingGap,
+    ProviderCodeMap,
+    ProviderEntityRef,
+    VariantOptionProviderCode,
+    VariantProviderCode,
+)
 from app.vehicle.models.vehicle import Vehicle, VehicleCustodyEvent
 from app.vehicle.models.vehicle_history import VehicleAccessory, VehicleOdometerReading
 from app.vehicle.models.vehicle_history import VehicleCustodyEvent as VehicleMdmCustodyEvent
@@ -125,6 +131,7 @@ __all__ = [
     "ValuationNumberSequence",
     "VariantOption",
     "VariantOptionEquipmentFeature",
+    "VariantOptionProviderCode",
     "VariantPrice",
     "VariantProviderCode",
     "VariantTypeApproval",

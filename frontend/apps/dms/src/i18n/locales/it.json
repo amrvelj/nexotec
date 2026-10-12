@@ -42,6 +42,11 @@
       "recents": "Recenti",
       "noResults": "Nessun risultato",
       "error": "Ricerca non riuscita — riprova."
+    },
+    "switchDealershipError": {
+      "notAMember": "Cambio rifiutato: non è più associato/a a questa concessionaria. Rimane nella concessionaria attuale.",
+      "failed": "Impossibile cambiare concessionaria. Rimane nella concessionaria attuale. Riprovi.",
+      "dismiss": "Chiudi messaggio"
     }
   },
   "userRole": {
@@ -62,6 +67,7 @@
     "loadingMore": "Caricamento…",
     "rowActionsLabel": "Azioni riga",
     "selectAllLabel": "Seleziona tutto",
+    "selectRowLabel": "Seleziona riga: {{label}}",
     "moreActions": "Altre azioni",
     "showing": "{{count, number}} visualizzati",
     "showingOfTotal": "{{count, number}} di {{total}} visualizzati",
@@ -1059,7 +1065,8 @@
     "edit": {
       "title": "Completare il contratto",
       "hint": "Finché il contratto non è confermato, il cliente, il veicolo, la composizione del prezzo e la permuta possono essere completati o modificati qui. La conferma lo congela.",
-      "pricedWithoutInputs": "Questo contratto è stato prezzato prima che i contratti conservassero le basi di prezzo. Può essere confermato o annullato così com'è, ma non più modificato."
+      "pricedWithoutInputs": "Questo contratto è stato prezzato prima che i contratti conservassero le basi di prezzo. Può essere confermato o annullato così com'è, ma non più modificato.",
+      "pricedWithoutInputsNoBuyer": "Questo contratto è stato prezzato prima che i contratti conservassero le basi di prezzo. Il suo prezzo non può più essere modificato. Scegli l'acquirente qui sotto, poi potrà essere confermato così com'è — oppure annullalo."
     }
   },
   "offerWorkspace": {
@@ -1157,6 +1164,13 @@
       "suppressedReasonHint": "Su un veicolo usato uno sconto di riga è bloccato di default — un motivo annulla il blocco.",
       "error": "Impossibile salvare la modifica.",
       "noPackagesCapability": "Mostrate come elenco semplice — il raggruppamento in pacchetti non è disponibile per questa concessionaria."
+    },
+    "errors": {
+      "saveRefused": {
+        "staleVersion": "L'offerta è stata modificata nel frattempo. È stata caricata la versione attuale – ripetere la modifica.",
+        "generic": "Non è stato possibile salvare la modifica.",
+        "dismiss": "Chiudi messaggio"
+      }
     }
   },
   "salesDocuments": {
@@ -1576,6 +1590,8 @@
       },
       "retired": "Non più disponibile — scegli un valore attuale",
       "retiredSaveError": "Non più disponibile: {{fields}}. Scegli un valore attuale prima di salvare.",
+      "codedRequiredSaveError": "Da scegliere prima di salvare: {{fields}}.",
+      "codedLocked": "Ripreso dal catalogo — non modificabile.",
       "listUnavailable": "Impossibile caricare l'elenco"
     },
     "options": {

@@ -52,8 +52,8 @@ from app.inventory.services.stock_item import (
     mark_purchased_if_ready,
 )
 from app.inventory.services.valuation import apply_valuation_ref
+from app.inventory.services.vehicle_resolution import resolve_vehicle_mdm_by_vin
 from app.valuation.public import get_valuation_or_404
-from app.vehicle.public import create_or_get_vehicle_mdm
 
 _EVENT_PRODUCER = "inventory"
 
@@ -176,8 +176,11 @@ def promote_to_vehicle_mdm(
     the item already promoted is a no-op, not a second event.
     """
 
-    if item.vehicle_id is not None:
+    if item.vehicle_id is not None and item.vin == vin:
         return item  # already promoted — redelivery/retry, not a second event
+    # Anything else that is not pipeline is refused — including, since KAN-244
+    # gives a directly created in-stock item its vehicle, such an item asked
+    # to "promote" to another VIN (it used to fall through the line above).
     if item.lifecycle_status != LifecycleStatus.PIPELINE:
         raise ConflictError(
             f"Stock item {item.id} is not pipeline (lifecycle_status={item.lifecycle_status.value}) — nothing to promote.",
@@ -186,11 +189,15 @@ def promote_to_vehicle_mdm(
 
     # KAN-111: the same car may be in pipeline twice (two contracts can
     # carry one trade-in, KAN-101), never twice in stock. Checked before
-    # vehicle-mdm is touched, so a refused promotion writes nothing (a race
-    # on a VIN vehicle-mdm has never seen is refused there first: KAN-257).
+    # vehicle-mdm is touched, so a refused promotion writes nothing.
     _check_vin_not_in_stock(db, tenant_id=item.tenant_id, vin=vin)
 
-    vehicle, _created = create_or_get_vehicle_mdm(db, vin=vin, catalogue_variant_id=catalogue_variant_id)
+    # On vehicle-mdm's own session (vehicle_resolution's docstring): its
+    # commit never commits this transaction, and losing its insert race to
+    # another promotion of a VIN it had never seen (KAN-257) resolves to the
+    # winner's record instead of rolling this session back. A winner that
+    # took the car into this dealership's stock is refused by the index below.
+    vehicle = resolve_vehicle_mdm_by_vin(db, vin=vin, catalogue_variant_id=catalogue_variant_id)
 
     try:
         # A savepoint, so a racing promotion of the same VIN undoes only

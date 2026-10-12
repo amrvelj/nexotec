@@ -6,7 +6,7 @@ import userEvent from '@testing-library/user-event'
 import i18n from '../i18n'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { installFakeBackend, status, type FakeRoute } from '../test/fakeBackend'
-import { configurationRead } from '../test/configuratorFixtures'
+import { CODED_REFERENCE_ROUTES, configurationRead, pickCodedFields } from '../test/configuratorFixtures'
 import type { SalesContractRead } from '../api/types'
 import { ContractDetailPage } from './ContractDetailPage'
 
@@ -234,6 +234,79 @@ describe('ContractDetailPage — a pending contract can be completed (KAN-67)', 
     expect(screen.getByRole('button', { name: i18n.t('contractDetail.actions.confirm') })).toBeEnabled()
   })
 
+  // KAN-315 (Anto, 2026-10-12) — such a contract without a buyer could be
+  // neither given one (the edit section was hidden) nor confirmed
+  // (KAN-307). It now offers the customer container alone: the buyer, never
+  // the vehicle, price or trade-in.
+  const PRICED_WITHOUT_INPUTS_NO_BUYER: SalesContractRead = {
+    ...PRICED,
+    vehicleSnapshotFrozenAt: null,
+    manualBasePrice: null,
+    customerId: null,
+    customerLabel: null,
+    containers: PRICED.containers?.map((c) => (c.id === 'customer' ? { ...c, status: 'not_started' } : c)),
+  }
+
+  it('a contract priced before it kept its inputs and without a buyer offers the buyer picker, and nothing else', async () => {
+    installFakeBackend(baseRoutes(() => PRICED_WITHOUT_INPUTS_NO_BUYER))
+    renderPage()
+
+    const section = await screen.findByTestId('contract-priced-without-inputs')
+    expect(within(section).getByText(i18n.t('contractDetail.edit.pricedWithoutInputsNoBuyer'))).toBeInTheDocument()
+    expect(within(section).getByText(i18n.t('offerWorkspace.containers.customer'))).toBeInTheDocument()
+    expect(within(section).getByRole('button', { name: i18n.t('offerWorkspace.customer.search') })).toBeInTheDocument()
+    expect(within(section).getByText(i18n.t('offerWorkspace.customer.emptyHintContract'))).toBeInTheDocument()
+    expect(screen.queryByTestId('contract-edit')).not.toBeInTheDocument()
+    // No vehicle, price or trade-in editor anywhere (the hero stat row says
+    // "Eintauschfahrzeug" too, so the editors are asserted, not the titles).
+    for (const title of ['vehicle', 'pricing', 'tradeIn'] as const) {
+      expect(within(section).queryByText(i18n.t(`offerWorkspace.containers.${title}`))).not.toBeInTheDocument()
+    }
+    expect(screen.queryByRole('button', { name: i18n.t('offerWorkspace.vehicle.search') })).not.toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: i18n.t('offerWorkspace.pricing.discountType') })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: i18n.t('contractDetail.actions.confirm') })).toBeDisabled()
+  })
+
+  it('picking the buyer of such a contract sends the customer only, and Confirm turns on', async () => {
+    const user = userEvent.setup()
+    let current = PRICED_WITHOUT_INPUTS_NO_BUYER
+    const backend = installFakeBackend([
+      {
+        method: 'GET',
+        match: /^\/customers$/,
+        handler: () => ({
+          items: [{ id: 'cust-9', customerNumber: 'K-000009', firstName: 'Ursula', lastName: 'Vogt', companyName: null }],
+          nextCursor: null,
+        }),
+      },
+      { method: 'GET', match: /^\/customers\/cust-9$/, handler: () => ({ id: 'cust-9', lifecycleStatus: 'active' }) },
+      {
+        method: 'PATCH',
+        match: /^\/sales\/contracts\/k1$/,
+        handler: () => {
+          current = { ...current, customerId: 'cust-9', customerLabel: 'Ursula Vogt', version: current.version + 1 }
+          return current
+        },
+      },
+      ...baseRoutes(() => current),
+    ])
+    renderPage()
+
+    await user.click(await screen.findByRole('button', { name: i18n.t('offerWorkspace.customer.search') }))
+    await user.type(await screen.findByPlaceholderText(i18n.t('offerWorkspace.customer.search')), 'Vogt')
+    await user.click(await screen.findByText('Ursula Vogt'))
+
+    await waitFor(() => expect(backend.callsTo(/^\/sales\/contracts\/k1$/, 'PATCH')).toHaveLength(1))
+    const [patch] = backend.callsTo(/^\/sales\/contracts\/k1$/, 'PATCH')
+    expect(patch.body).toEqual({ customerId: 'cust-9' })
+    expect(patch.headers.get('If-Match')).toBe(String(PRICED_WITHOUT_INPUTS_NO_BUYER.version))
+    expect(await screen.findByRole('button', { name: i18n.t('contractDetail.actions.confirm') })).toBeEnabled()
+    const section = screen.getByTestId('contract-priced-without-inputs')
+    expect(within(section).getByText('Ursula Vogt')).toBeInTheDocument()
+    expect(within(section).getByText(i18n.t('contractDetail.edit.pricedWithoutInputs'))).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: i18n.t('offerWorkspace.customer.search') })).not.toBeInTheDocument()
+  })
+
   it('a discount typed just before Confirm is saved first, then signed with its version (review finding)', async () => {
     let current: SalesContractRead = { ...PRICED, discountType: 'amount' }
     const backend = installFakeBackend([
@@ -381,7 +454,8 @@ describe('ContractDetailPage — a pending contract can be completed (KAN-67)', 
     await waitFor(() => expect(screen.getByRole('button', { name: i18n.t('contractDetail.actions.confirm') })).toBeEnabled())
   })
 
-  it('a trade-in valuation attach still on its way holds Confirm until it lands (KAN-289 review)', async () => {
+  // picks the trade-in's five coded fields first (Anto, 2026-10-12)
+  it('a trade-in valuation attach still on its way holds Confirm until it lands (KAN-289 review)', { timeout: 15_000 }, async () => {
     const user = userEvent.setup()
     let release: (value: unknown) => void = () => {}
     const tradeIn = configurationRead({
@@ -396,6 +470,7 @@ describe('ContractDetailPage — a pending contract can be completed (KAN-67)', 
         match: /\/catalogue\/variants$/,
         handler: () => ({ items: [], nextCursor: null, total: 0, totalIsEstimate: false, browseAvailable: true }),
       },
+      ...CODED_REFERENCE_ROUTES,
       { method: 'GET', match: /\/reference-data\//, handler: () => ({ items: [], nextCursor: null }) },
       { method: 'GET', match: /^\/integrations\/capabilities\//, handler: () => ({ capabilityCode: 'x', granted: false }) },
     ]
@@ -417,6 +492,7 @@ describe('ContractDetailPage — a pending contract can be completed (KAN-67)', 
     await user.click(await screen.findByRole('button', { name: i18n.t('offerWorkspace.tradeIn.valueWithConfigurator') }))
     const overlay = await screen.findByRole('dialog')
     await user.click(within(overlay).getByRole('button', { name: i18n.t('configurator.find.manual') }))
+    await pickCodedFields()
     await user.click(await within(overlay).findByRole('button', { name: i18n.t('configurator.saveNew') }))
     const valuationDialog = await screen.findByRole('dialog', { name: i18n.t('valuationCreate.title') })
     await user.type(within(valuationDialog).getByLabelText(i18n.t('valuationCreate.finalOffer'), { exact: false }), '2500')

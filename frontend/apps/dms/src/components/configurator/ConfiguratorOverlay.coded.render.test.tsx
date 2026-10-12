@@ -5,7 +5,13 @@ import userEvent from '@testing-library/user-event'
 import i18n from '../../i18n'
 import { renderWithProviders } from '../../test/renderWithProviders'
 import { installFakeBackend, type FakeRoute } from '../../test/fakeBackend'
-import { catalogueVariant, configurationRead } from '../../test/configuratorFixtures'
+import {
+  CODED_REFERENCE_ROUTES,
+  PICKED_CODED_VALUES,
+  catalogueVariant,
+  configurationRead,
+  pickCodedFields,
+} from '../../test/configuratorFixtures'
 import { CODED_FIELDS, specFieldLabelKey } from '../../configurationOptions'
 import { ConfiguratorOverlay } from './ConfiguratorOverlay'
 
@@ -75,6 +81,7 @@ function install(over: FakeRoute[] = []): Ctx {
         return { items, nextCursor: null }
       },
     },
+    ...CODED_REFERENCE_ROUTES,
     { method: 'GET', match: /\/reference-data\//, handler: () => ({ items: [], nextCursor: null }) },
     {
       method: 'POST',
@@ -104,7 +111,9 @@ function install(over: FakeRoute[] = []): Ctx {
 
 const fuelLabel = () => i18n.t('catalogueBrowse.columns.fuelType')
 
-describe('ConfiguratorOverlay — coded fields on a manual configuration (KAN-96)', () => {
+// Several tests pick all five coded fields: past vitest's 5 s default on a
+// loaded machine.
+describe('ConfiguratorOverlay — coded fields on a manual configuration (KAN-96)', { timeout: 15_000 }, () => {
   it('offers all five as selection lists of active values only, never free text, and saves the pick', async () => {
     const user = userEvent.setup()
     const ctx = install()
@@ -116,9 +125,14 @@ describe('ConfiguratorOverlay — coded fields on a manual configuration (KAN-96
 
     for (const f of CODED_FIELDS) {
       // A Mantine Select that is not searchable: the input takes no typing.
-      expect(screen.getByRole('textbox', { name: i18n.t(f.labelKey) })).toHaveAttribute('readonly')
+      const field = screen.getByRole('textbox', { name: new RegExp(`^${i18n.t(f.labelKey)}`) })
+      expect(field).toHaveAttribute('readonly')
+      // Anto, 2026-10-12 — all five are required, none can be emptied.
+      expect(field).toBeRequired()
+      expect(within(field.parentElement!).queryByRole('button', { hidden: true })).not.toBeInTheDocument()
     }
 
+    await pickCodedFields()
     await user.click(screen.getByRole('textbox', { name: fuelLabel() }))
     expect(await screen.findByRole('option', { name: 'Diesel' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Benzin' })).toBeInTheDocument()
@@ -128,15 +142,23 @@ describe('ConfiguratorOverlay — coded fields on a manual configuration (KAN-96
     await user.click(screen.getByRole('button', { name: i18n.t('configurator.saveNew') }))
 
     await waitFor(() => expect(ctx.saved()).toHaveLength(1))
-    expect(ctx.saved()[0]).toMatchObject({
-      source: 'manual',
-      fuelType: 'diesel',
-      vehicleKind: null,
-      bodyStyle: null,
-      drivetrain: null,
-      transmission: null,
-    })
+    expect(ctx.saved()[0]).toMatchObject({ ...PICKED_CODED_VALUES, source: 'manual', fuelType: 'diesel' })
     await waitFor(() => expect(onCommitted).toHaveBeenCalled())
+  })
+
+  it('a manual configuration is not saved until all five are picked (Anto, 2026-10-12)', async () => {
+    const user = userEvent.setup()
+    const ctx = install()
+    renderWithProviders(<ConfiguratorOverlay allowedModes={['build']} onCommitted={vi.fn()} onClose={vi.fn()} />)
+
+    await user.click(await screen.findByRole('button', { name: i18n.t('configurator.find.manual') }))
+    await user.click(await screen.findByRole('textbox', { name: fuelLabel() }))
+    await user.click(await screen.findByRole('option', { name: 'Diesel' }))
+    await user.click(screen.getByRole('button', { name: i18n.t('configurator.saveNew') }))
+
+    const missing = CODED_FIELDS.filter((f) => f.key !== 'fuelType').map((f) => i18n.t(f.labelKey)).join(', ')
+    expect(await screen.findByText(i18n.t('configurator.spec.codedRequiredSaveError', { fields: missing }))).toBeInTheDocument()
+    expect(ctx.saved()).toHaveLength(0)
   })
 
   it('a retired value on a saved configuration is shown, flagged, and blocks the save until replaced', async () => {
@@ -145,7 +167,10 @@ describe('ConfiguratorOverlay — coded fields on a manual configuration (KAN-96
     renderWithProviders(
       <ConfiguratorOverlay
         allowedModes={['build']}
-        existing={configurationRead({ source: 'manual', catalogueVariantId: null, catalogueVariantLabel: null, fuelType: 'hydrogen' })}
+        existing={configurationRead({
+          source: 'manual', catalogueVariantId: null, catalogueVariantLabel: null, ...PICKED_CODED_VALUES,
+          fuelType: 'hydrogen',
+        })}
         onCommitted={vi.fn()}
         onClose={vi.fn()}
       />,
@@ -154,10 +179,10 @@ describe('ConfiguratorOverlay — coded fields on a manual configuration (KAN-96
     const fuel = await screen.findByRole('textbox', { name: fuelLabel() })
     await waitFor(() => expect(fuel).toHaveValue('hydrogen'))
     expect(screen.getByText(i18n.t('configurator.spec.retired'))).toBeInTheDocument()
-    // Emptying the field is no way round the guard: a saved configuration's
-    // coded field offers no clear button (a PATCH null keeps the old value,
-    // KAN-247), so the retired value stays until it is replaced. Mantine
-    // renders its clear button aria-hidden, hence `hidden: true`.
+    // Emptying the field is no way round the guard: a coded field offers no
+    // clear button (the API refuses a null, Anto 2026-10-12), so the retired
+    // value stays until it is replaced. Mantine renders its clear button
+    // aria-hidden, hence `hidden: true`.
     expect(within(fuel.parentElement!).queryByRole('button', { hidden: true })).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: i18n.t('configurator.save') }))
@@ -180,7 +205,7 @@ describe('ConfiguratorOverlay — coded fields on a manual configuration (KAN-96
     renderWithProviders(
       <ConfiguratorOverlay
         allowedModes={['build']}
-        existing={configurationRead({ source: 'manual', catalogueVariantId: null, catalogueVariantLabel: null, fuelType: 'petrol' })}
+        existing={configurationRead({ source: 'manual', catalogueVariantId: null, catalogueVariantLabel: null, ...PICKED_CODED_VALUES })}
         onCommitted={vi.fn()}
         onClose={vi.fn()}
       />,
@@ -206,25 +231,96 @@ describe('ConfiguratorOverlay — coded fields on a manual configuration (KAN-96
     expect(screen.getAllByText(i18n.t('configurator.spec.listUnavailable'))).toHaveLength(1)
   })
 
-  it('a provider configuration shows no coded selection lists and never sends its catalogue codes back', async () => {
+  it('a provider configuration shows its catalogue codes read-only, labelled, and never sends them back', async () => {
     const user = userEvent.setup()
     const ctx = install()
     renderWithProviders(
       <ConfiguratorOverlay
         allowedModes={['build']}
-        existing={configurationRead({ fuelType: 'hydrogen', drivetrain: 'fwd' })}
+        existing={configurationRead({ ...PICKED_CODED_VALUES, fuelType: 'hydrogen', bodyStyle: null })}
         onCommitted={vi.fn()}
         onClose={vi.fn()}
       />,
     )
 
-    await screen.findByText(i18n.t('configurator.spec.groups.powertrain'))
-    expect(screen.queryByText(i18n.t('configurator.spec.groups.vehicleType'))).not.toBeInTheDocument()
+    await screen.findByText(i18n.t('configurator.spec.groups.vehicleType'))
+    expect(screen.getByText(i18n.t('configurator.spec.codedLocked'))).toBeInTheDocument()
+    const fuel = screen.getByRole('textbox', { name: fuelLabel() })
+    // retired from its list, still shown by its label
+    await waitFor(() => expect(fuel).toHaveValue('Wasserstoff'))
+    expect(screen.getByRole('textbox', { name: i18n.t('configurator.spec.fields.drivetrain') })).toHaveValue('Frontantrieb')
+    expect(screen.getByRole('textbox', { name: i18n.t('catalogueBrowse.columns.bodyStyle') })).toHaveValue('—')
+    for (const f of CODED_FIELDS) {
+      const field = screen.getByRole('textbox', { name: i18n.t(f.labelKey) })
+      expect(field).toHaveAttribute('readonly')
+      await user.click(field)
+    }
+    // read-only: nothing to pick from, nothing to clear
+    expect(screen.queryByRole('option')).not.toBeInTheDocument()
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: i18n.t('configurator.save') }))
 
     await waitFor(() => expect(ctx.saved()).toHaveLength(1))
     for (const f of CODED_FIELDS) expect(ctx.saved()[0]).not.toHaveProperty(f.key)
+  })
+})
+
+// KAN-247 — a field emptied in the form goes out as null, which the API reads
+// as "clear it" (Anto, 2026-10-12, R2); a field the form does not carry is
+// left out, which leaves it alone.
+describe('ConfiguratorOverlay — clearing a saved field (KAN-247)', () => {
+  it('a manual configuration sends null for a cleared field and for a cleared spec field', async () => {
+    const user = userEvent.setup()
+    const ctx = install()
+    renderWithProviders(
+      <ConfiguratorOverlay
+        allowedModes={['record']}
+        existing={configurationRead({
+          source: 'manual', mode: 'record', catalogueVariantId: null, catalogueVariantLabel: null, ...PICKED_CODED_VALUES,
+          mileageKm: 142000, modelGroupName: '2CV', spec: { ps: 29, displacementCcm: 602 },
+        })}
+        onCommitted={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    )
+
+    await user.clear(await screen.findByLabelText(i18n.t('configurator.summary.mileage')))
+    await user.clear(screen.getByRole('textbox', { name: i18n.t('catalogueBrowse.columns.modelGroup') }))
+    await user.clear(screen.getByRole('textbox', { name: i18n.t(specFieldLabelKey('ps')) }))
+    await user.click(screen.getByRole('button', { name: i18n.t('configurator.save') }))
+
+    await waitFor(() => expect(ctx.saved()).toHaveLength(1))
+    const body = ctx.saved()[0] as { spec: Record<string, unknown> } & Record<string, unknown>
+    expect(body.mileageKm).toBeNull()
+    expect(body.modelGroupName).toBeNull()
+    expect(body.spec).toHaveProperty('ps', null)
+    expect(body.spec.displacementCcm).toBe(602)
+    // the coded fields go out as they are — never null
+    expect(body).toMatchObject(PICKED_CODED_VALUES)
+  })
+
+  it('a provider configuration sends null for a cleared field and a cleared spec field', async () => {
+    const user = userEvent.setup()
+    const ctx = install()
+    renderWithProviders(
+      <ConfiguratorOverlay
+        allowedModes={['record']}
+        existing={configurationRead({ mode: 'record', mileageKm: 30000, spec: { ps: 245, kw: 180 } })}
+        onCommitted={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    )
+
+    await user.clear(await screen.findByLabelText(i18n.t('configurator.summary.mileage')))
+    await user.clear(screen.getByRole('textbox', { name: i18n.t(specFieldLabelKey('ps')) }))
+    await user.click(screen.getByRole('button', { name: i18n.t('configurator.save') }))
+
+    await waitFor(() => expect(ctx.saved()).toHaveLength(1))
+    const body = ctx.saved()[0] as { spec: Record<string, unknown> } & Record<string, unknown>
+    expect(body.mileageKm).toBeNull()
+    // only the overridden spec field travels, cleared
+    expect(body.spec).toEqual({ ps: null })
   })
 })
 
@@ -287,5 +383,66 @@ describe('ConfiguratorOverlay — spec reference fields (KAN-239)', () => {
     await user.click(field)
     expect(await screen.findByRole('option', { name: 'Viertakt' })).not.toHaveAttribute('data-combobox-disabled')
     expect(screen.getByRole('option', { name: 'Zweitakt' })).toHaveAttribute('data-combobox-disabled')
+  })
+
+  // KAN-245 — the API refuses a save carrying a retired spec value, one sent
+  // back unchanged included (Anto, 2026-10-12, R5), so the form says so first.
+  it('a retired spec value a save would send is flagged and blocks the save until replaced or cleared', async () => {
+    const user = userEvent.setup()
+    const ctx = install([
+      {
+        method: 'GET',
+        match: /\/reference-data\/engine_cycle$/,
+        handler: () => ({ items: [value('four_stroke', 'Viertakt'), value('two_stroke', 'Zweitakt', false)], nextCursor: null }),
+      },
+    ])
+    renderWithProviders(
+      <ConfiguratorOverlay
+        allowedModes={['build']}
+        existing={configurationRead({
+          source: 'manual', catalogueVariantId: null, ...PICKED_CODED_VALUES, spec: { engineCycle: 'two_stroke' },
+        })}
+        onCommitted={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    )
+
+    const label = i18n.t(specFieldLabelKey('engineCycle'))
+    const field = await screen.findByRole('textbox', { name: label })
+    await waitFor(() => expect(field).toHaveAccessibleDescription(i18n.t('configurator.spec.retired')))
+    await user.click(screen.getByRole('button', { name: i18n.t('configurator.save') }))
+    expect(await screen.findByText(i18n.t('configurator.spec.retiredSaveError', { fields: label }))).toBeInTheDocument()
+    expect(ctx.saved()).toHaveLength(0)
+
+    await user.click(field)
+    await user.click(await screen.findByRole('option', { name: 'Viertakt' }))
+    await user.click(screen.getByRole('button', { name: i18n.t('configurator.save') }))
+    await waitFor(() => expect(ctx.saved()).toHaveLength(1))
+    expect((ctx.saved()[0] as { spec: Record<string, unknown> }).spec.engineCycle).toBe('four_stroke')
+  })
+
+  it('a provider configuration\'s retired spec value it does not send blocks nothing', async () => {
+    const user = userEvent.setup()
+    const ctx = install([
+      {
+        method: 'GET',
+        match: /\/reference-data\/engine_cycle$/,
+        handler: () => ({ items: [value('two_stroke', 'Zweitakt', false)], nextCursor: null }),
+      },
+    ])
+    renderWithProviders(
+      <ConfiguratorOverlay
+        allowedModes={['build']}
+        existing={configurationRead({ spec: { engineCycle: 'two_stroke' } })}
+        onCommitted={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    )
+
+    const field = await screen.findByRole('textbox', { name: i18n.t(specFieldLabelKey('engineCycle')) })
+    await waitFor(() => expect(field).toHaveValue('Zweitakt'))
+    await user.click(screen.getByRole('button', { name: i18n.t('configurator.save') }))
+    await waitFor(() => expect(ctx.saved()).toHaveLength(1))
+    expect((ctx.saved()[0] as { spec: Record<string, unknown> }).spec).not.toHaveProperty('engineCycle')
   })
 })

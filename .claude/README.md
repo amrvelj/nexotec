@@ -36,11 +36,12 @@ everything were committed — in `<git dir>/nexotec-gates/state.json`, per workt
 | Hand-over | Stop | after a push in this session: no PR, CI not green, no reviewer `VERDICT: PASS` for the final tree, no screenshot (or `no-visual` note) for it, or no Notion ticket update after the push |
 | Generated files | PreToolUse `Edit|Write` | editing `schema.d.ts` or the built prototype HTML |
 | Applied migrations | PreToolUse `Edit|Write` | editing a migration file that exists on `origin/main` |
+| Preserved files and the setup | PreToolUse `Edit|Write`, `Bash` | a write to a CLAUDE.md preserve-verbatim file, `.claude/hooks/`, `.claude/agents/`, `.claude/settings.json` or `scripts/dev/`: asks Anto in an attended permission mode (`default`, `acceptEdits`, `plan`); **denied** in every other mode (`auto`, `bypassPermissions`, `dontAsk`, an unknown or missing mode), with a message to ask Anto in chat and stop — an unattended session never changes these files (KAN-255) |
 | Commit | PreToolUse `Bash` | committing on `main`, or `--no-verify` |
 | Wrong environment | PreToolUse `Bash` | executing another checkout's `.venv` |
 | Notion writes | PreToolUse `mcp__…Notion…` | allows every Notion write without a prompt (Anto, 2026-10-11), except from the read-only `reviewer`, which is denied; a write to the active ticket is recorded as hand-over evidence. Claude says in one plain sentence which page changed and how (CLAUDE.md). Reads need no prompt either: `settings.json` allows the whole Notion server under both names it appears as (`mcp__claude_ai_Notion` on the Mac, `mcp__Notion` in a cloud session) |
 | Gate state | PreToolUse `Edit|Write`, `Bash` | writing `nexotec-gates/state.json`, recording a check result other than through `scripts/dev/check`, or waiving other than through `scripts/dev/gate waive` |
-| Protected files via the shell | PreToolUse `Bash` | `sed -i`, `cp`, `mv`, `rm`, `tee`, `git mv`/`rm`/`restore`, redirects onto an applied migration or a generated file (denied), or onto a preserved file or the setup itself (asks Anto) |
+| Protected files via the shell | PreToolUse `Bash` | `sed -i`, `cp`, `mv`, `rm`, `tee`, `git mv`/`rm`/`restore`, redirects onto an applied migration or a generated file (denied), or onto a preserved file or the setup itself (asks Anto in an attended mode, denied otherwise — the row above) |
 | Read-only reviewer | PreToolUse `Bash`, `Edit|Write`, `mcp__…Notion…` | the `reviewer` agent writing inside the checkout or to Notion, committing, fixing, updating snapshots or running `scripts/dev/check` |
 
 Commands are parsed, not pattern-matched: quotes, here-documents (commit messages), `$(…)`,
@@ -131,7 +132,9 @@ session. Several can run at once, each on its own machine, with the Mac closed.
 - Hooks run from the checkout the session started in (`$CLAUDE_PROJECT_DIR`), and settings come
   from its `.claude/settings.json`. The hook script is re-read on every call, so an edit to
   `.claude/hooks/` acts at once in the session that made it. Edits to `.claude/hooks/`, `.claude/settings.json`,
-  `.claude/agents/` and `scripts/dev/` therefore always ask Anto. Everyone else gets a change
+  `.claude/agents/` and `scripts/dev/` therefore always ask Anto, and only an attended session
+  (`default`, `acceptEdits` or `plan` mode) can make them: in `auto`, `bypassPermissions` or
+  `dontAsk` the hook denies the edit (KAN-255). Everyone else gets a change
   once it is merged and their checkout is up to date.
 - `scripts/dev/check` runs the `config` lane whenever `.claude/`, `CLAUDE.md` or `scripts/dev/`
   change: JSON validity, hook selftest, frontmatter, the CLAUDE.md line budget.

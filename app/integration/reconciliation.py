@@ -15,10 +15,24 @@ from app.integration.models.call_payload import IntegrationCallPayload
 from app.integration.models.connection import IntegrationConnection
 from app.integration.models.entitlement import IntegrationEntitlement
 from app.integration.models.notification import IntegrationNotification
+from app.integration.models.provider import IntegrationProvider
 from app.integration.models.secret_ref import IntegrationSecretRef
-from app.platform.public import Dealership
+from app.platform.public import Dealership, actor_reference_checks
 
 CONTEXT = "integration"
+
+# Every Integration table with created_by / updated_by: each must name a
+# platform user, or be null — the gateway and the daily jobs write null
+# (KAN-243; see app.platform.public.actor_reference_checks).
+ACTOR_TABLES = (
+    IntegrationProvider,
+    IntegrationConnection,
+    IntegrationSecretRef,
+    IntegrationEntitlement,
+    IntegrationCallLog,
+    IntegrationCallPayload,
+    IntegrationNotification,
+)
 
 CHECKS = [
     ReferenceCheck(
@@ -64,6 +78,7 @@ CHECKS = [
         target_id_column=IntegrationConnection.id,
         nullable=True,  # the daily support digest has no single connection
     ),
+    *actor_reference_checks(*ACTOR_TABLES),
 ]
 
 

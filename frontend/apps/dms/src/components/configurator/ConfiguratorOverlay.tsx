@@ -32,6 +32,7 @@ import {
   resolveLanguage,
 } from '../../hooks/useReferenceValueOptions'
 import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
+import { useReferenceLabelLookup } from '../../hooks/useReferenceLabelLookup'
 import {
   CODED_FIELDS,
   CODED_REF_LIST_CODES,
@@ -58,6 +59,9 @@ import type {
 // reference lists in the one label-lookup query this file already has;
 // nothing here needs its own fetch.
 const OPTION_REF_LIST_CODES = [...SPEC_REF_LIST_CODES, 'option_group', 'equipment_feature']
+// KAN-245 — the spec block's reference fields (engine cycle, vehicle class,
+// valuation classification, emission standard, consumption norm).
+const SPEC_REF_FIELDS = SPEC_FIELD_GROUPS.flatMap((g) => g.fields).filter((f) => f.kind === 'ref')
 
 type CodedValues = Record<CodedFieldKey, string | null>
 
@@ -74,8 +78,9 @@ interface Draft {
   /** spec keys the advisor changed after a catalogue copy */
   overridden: Set<string>
   /** KAN-96 — the five coded fields. Picked from their reference lists on a
-   * manual configuration; on a provider one they are the catalogue's, shown
-   * in the summary and never sent back. */
+   * manual configuration, all five required (Anto, 2026-10-12); on a
+   * provider one they are the catalogue's, shown read-only and never sent
+   * back (the API refuses a change, `coded_field_locked`). */
   coded: CodedValues
   vin: string
   firstRegistrationDate: string
@@ -287,6 +292,9 @@ export function ConfiguratorOverlay({
 
   const refLabels = useReferenceLabels()
   const codedValues = useCodedFieldValues()
+  // A provider configuration's coded values, shown read-only — the same
+  // shared lookup the summary card reads (KAN-260).
+  const codedLabels = useReferenceLabelLookup(CODED_REF_LIST_CODES)
 
   const startFromVariant = (variant: CatalogueVariantRead) => {
     const d = draftFromVariant(variant)
@@ -428,6 +436,16 @@ export function ConfiguratorOverlay({
     }
     return data
   }
+  // KAN-245 — the API refuses a save that carries a spec reference value
+  // that is not active (R5: one sent back unchanged included). A manual
+  // configuration sends its whole spec block; a provider one only the
+  // fields the advisor overrode. A list that failed to load flags nothing.
+  const specRefWillBeSent = (d: Draft, key: string) => d.source === 'manual' || d.overridden.has(key)
+  const specRefRetired = (listCode: string, current: string | null) => {
+    const rows = refLabels.data?.[listCode]
+    if (current == null || rows == null) return false
+    return !rows.some((r) => r.valueCode === current && r.active)
+  }
 
   // KAN-96 — a coded field offers the active values of its list, the same
   // set the API accepts. A stored value outside that set (retired by the
@@ -462,18 +480,35 @@ export function ConfiguratorOverlay({
   const save = async () => {
     if (!draft) return
     if (draft.source === 'manual') {
-      const retired = CODED_FIELDS.filter((f) => codedValueRetired(f.listCode, draft.coded[f.key]))
-      if (retired.length > 0) {
-        setError(t('configurator.spec.retiredSaveError', { fields: retired.map((f) => t(f.labelKey)).join(', ') }))
+      // Anto, 2026-10-12 — a manual configuration needs all five coded
+      // fields; the API refuses a create without them (422
+      // `coded_fields_required`), so nothing is sent until they are picked.
+      const missing = CODED_FIELDS.filter((f) => draft.coded[f.key] == null)
+      if (missing.length > 0) {
+        setError(t('configurator.spec.codedRequiredSaveError', { fields: missing.map((f) => t(f.labelKey)).join(', ') }))
         return
       }
+    }
+    const retired = [
+      ...(draft.source === 'manual'
+        ? CODED_FIELDS.filter((f) => codedValueRetired(f.listCode, draft.coded[f.key])).map((f) => t(f.labelKey))
+        : []),
+      ...SPEC_REF_FIELDS.filter(
+        (f) => specRefWillBeSent(draft, f.key as string) && specRefRetired(f.listCode!, (draft.spec[f.key] as string) ?? null),
+      ).map((f) => t(specFieldLabelKey(f.key as string))),
+    ]
+    if (retired.length > 0) {
+      setError(t('configurator.spec.retiredSaveError', { fields: retired.join(', ') }))
+      return
     }
     setSaving(true)
     setError(null)
     try {
+      // KAN-247 — a cleared field goes out as null, which the API reads as
+      // "clear it"; a field left out is left alone.
       const specPayload = draft.source === 'provider'
         ? pickSpec(draft.spec, draft.overridden)
-        : nonEmptySpec(draft.spec)
+        : fullSpec(draft.spec)
 
       const body: Record<string, unknown> = {
         mode,
@@ -519,7 +554,20 @@ export function ConfiguratorOverlay({
       } else {
         config = await api.patch<ConfigurationRead>(
           `/configurations/${configurationId}`,
-          { ...body, spec: specPayload },
+          {
+            ...body,
+            // The make / model / variant names are the advisor's only on a
+            // manual configuration (the only one that shows them) — and,
+            // like every other field, cleared when emptied (KAN-247).
+            ...(draft.source === 'manual'
+              ? {
+                  brandDisplayName: draft.brandDisplayName || null,
+                  modelGroupName: draft.modelGroupName || null,
+                  variantName: draft.variantName || null,
+                }
+              : {}),
+            spec: specPayload,
+          },
           { 'If-Match': String(currentVersion) },
         )
       }
@@ -738,19 +786,50 @@ export function ConfiguratorOverlay({
                     data={codedOptions(f.listCode, draft.coded[f.key])}
                     value={draft.coded[f.key]}
                     onChange={(v) =>
-                      setDraft((prev) => (prev ? { ...prev, coded: { ...prev.coded, [f.key]: v } } : prev))
+                      // `allowDeselect={false}`: a pick never comes back null
+                      setDraft((prev) => (prev && v != null ? { ...prev, coded: { ...prev.coded, [f.key]: v } } : prev))
                     }
                     error={codedFieldError(f.listCode, draft.coded[f.key])}
-                    // Once saved, a coded field can be changed but not
-                    // emptied: a PATCH reads null as "leave alone" (KAN-247),
-                    // so a cleared field would save while keeping the old
-                    // value — retired values included, which would slip past
-                    // the guard in save(). Lift this with KAN-247.
-                    clearable={configurationId === null}
-                    allowDeselect={configurationId === null}
+                    // Anto, 2026-10-12 — all five are required on a manual
+                    // configuration and none can be cleared (the API answers
+                    // an explicit null with 422 `coded_field_required`): a
+                    // field can be changed, never emptied.
+                    required
+                    clearable={false}
+                    allowDeselect={false}
                     w={200}
                   />
                 ))}
+              </Group>
+            </Stack>
+          )}
+
+          {draft.source === 'provider' && (
+            <Stack gap="xs">
+              <Text fw={600} size="sm">
+                {t('configurator.spec.groups.vehicleType')}
+              </Text>
+              <Text size="xs" c="dimmed">
+                {t('configurator.spec.codedLocked')}
+              </Text>
+              <Group grow align="flex-start" wrap="wrap">
+                {CODED_FIELDS.map((f) => {
+                  const code = draft.coded[f.key]
+                  return (
+                    // Anto, 2026-10-12 — a provider configuration's coded
+                    // fields are the catalogue's: shown, never editable (the
+                    // API refuses a change, `coded_field_locked`). FR-C-16's
+                    // re-sync is the one way they change.
+                    <TextInput
+                      key={f.key}
+                      label={t(f.labelKey)}
+                      value={code != null ? codedLabels.label(f.listCode, code) : '—'}
+                      readOnly
+                      variant="filled"
+                      w={200}
+                    />
+                  )
+                })}
               </Group>
             </Stack>
           )}
@@ -774,7 +853,14 @@ export function ConfiguratorOverlay({
                         data={specRefOptions(f.listCode!, (draft.spec[f.key] as string) ?? null)}
                         value={(draft.spec[f.key] as string) ?? null}
                         onChange={(v) => setSpecField(f.key, v)}
-                        error={refLabels.data?.[f.listCode!] === null ? t('configurator.spec.listUnavailable') : undefined}
+                        error={
+                          refLabels.data?.[f.listCode!] === null
+                            ? t('configurator.spec.listUnavailable')
+                            : specRefWillBeSent(draft, f.key as string) &&
+                                specRefRetired(f.listCode!, (draft.spec[f.key] as string) ?? null)
+                              ? t('configurator.spec.retired')
+                              : undefined
+                        }
                         clearable
                         w={200}
                       />
@@ -924,16 +1010,25 @@ function useCodedFieldValues() {
   })
 }
 
+/** The spec fields the advisor changed after a catalogue copy — a cleared
+ * one as `null`, which the API reads as "clear it" (KAN-247). */
 function pickSpec(spec: VehicleSpecBlockRead, keys: Set<string>): Record<string, unknown> {
   const out: Record<string, unknown> = {}
-  for (const k of keys) out[k] = (spec as Record<string, unknown>)[k]
+  for (const k of keys) out[k] = emptyToNull((spec as Record<string, unknown>)[k])
   return out
 }
 
-function nonEmptySpec(spec: VehicleSpecBlockRead): Record<string, unknown> {
+/** A manual configuration's whole spec block, every empty field as `null`:
+ * a field the advisor cleared is cleared on the server too (KAN-247); one
+ * that was never set is null on both sides, which changes nothing. */
+function fullSpec(spec: VehicleSpecBlockRead): Record<string, unknown> {
   const out: Record<string, unknown> = {}
-  for (const [k, v] of Object.entries(spec)) if (v !== null && v !== undefined && v !== '') out[k] = v
+  for (const [k, v] of Object.entries(spec)) out[k] = emptyToNull(v)
   return out
+}
+
+function emptyToNull(v: unknown): unknown {
+  return v === undefined || v === '' ? null : v
 }
 
 function toConfigurationOptionInput(option: CatalogueOptionRead): ConfigurationOptionInput {

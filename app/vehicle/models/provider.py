@@ -17,7 +17,7 @@ import uuid
 from sqlalchemy import Boolean, ForeignKey, Index, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.base import PrimaryKeyMixin, TimestampMixin, utcnow
+from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, utcnow
 from app.core.types import GUID, UTCDateTime
 from app.db import Base
 
@@ -124,6 +124,42 @@ class VariantProviderCode(PrimaryKeyMixin, TimestampMixin, Base):
 
     model_variant_id: Mapped[uuid.UUID] = mapped_column(
         GUID(), ForeignKey("vehicle_model_variant.id"), nullable=False
+    )
+    provider: Mapped[str] = mapped_column(String(32), nullable=False)
+    vehicle_kind: Mapped[str] = mapped_column(String(64), nullable=False)
+    code_group: Mapped[str] = mapped_column(String(32), nullable=False)
+    provider_code: Mapped[str] = mapped_column(String(32), nullable=False)
+
+
+class VariantOptionProviderCode(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):
+    """One raw code the provider most recently sent in a `VariantOption`'s
+    many-valued coded attribute — today only `SuchCode`, `code_group =
+    "equipment_feature"` (KAN-250, FR-C-10). One row per (option, provider,
+    code_group, provider_code), keyed exactly as `ProviderCodeMap` and
+    `MappingGap` key a code. The catalogue sync replaces an option's set on
+    every visit (`catalogue_sync._sync_option_equipment_features`), resolved
+    or not, so resolving a gap can add the feature to every option whose list
+    carried the code at once (`catalogue_sync.apply_resolved_code_to_options`).
+
+    Tenant-partitioned like the option it describes (ADR-013, as amended by
+    ADR-075: options and their features stay per tenant) — the variant-level
+    `VariantProviderCode` is global, this one is not.
+    """
+
+    __tablename__ = "vehicle_variant_option_provider_code"
+    __table_args__ = (
+        UniqueConstraint(
+            "variant_option_id", "provider", "code_group", "provider_code",
+            name="uq_vehicle_variant_option_provider_code_code",
+        ),
+        Index(
+            "ix_vehicle_variant_option_provider_code_code_key",
+            "provider", "vehicle_kind", "code_group", "provider_code",
+        ),
+    )
+
+    variant_option_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), ForeignKey("vehicle_variant_option.id"), nullable=False, index=True
     )
     provider: Mapped[str] = mapped_column(String(32), nullable=False)
     vehicle_kind: Mapped[str] = mapped_column(String(64), nullable=False)

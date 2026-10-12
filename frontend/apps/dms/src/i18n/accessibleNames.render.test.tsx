@@ -40,6 +40,28 @@ describe('ui-kit accessible names are translated (KAN-291)', () => {
     expect(screen.queryByRole('checkbox', { name: en.common.selectAllLabel })).toBeNull()
   })
 
+  // KAN-313 — every row's selection checkbox was named "Row actions", the
+  // same name as the row's three-dots menu: a screen-reader user heard two
+  // controls with one name, neither saying which record it acts on.
+  it('a row\'s selection checkbox names its record, not the row menu (fr)', async () => {
+    await i18n.changeLanguage('fr')
+    installFakeBackend([
+      {
+        method: 'GET',
+        match: /^\/customers$/,
+        handler: () => customerPage([customer({ id: 'c1', firstName: 'Hans', lastName: 'Müller' })]),
+      },
+    ])
+    renderWithProviders(<CustomersListPage />, { route: '/customers' })
+
+    const rowCheckbox = await screen.findByRole('checkbox', { name: 'Sélectionner la ligne : Hans Müller' })
+    const rowMenu = screen.getByRole('button', { name: 'Actions de la ligne' })
+    expect(rowCheckbox).toHaveAccessibleName('Sélectionner la ligne : Hans Müller')
+    expect(rowMenu).not.toHaveAccessibleName(rowCheckbox.getAttribute('aria-label') ?? '')
+    expect(screen.queryByRole('checkbox', { name: 'Actions de la ligne' })).toBeNull()
+    expect(screen.queryByRole('checkbox', { name: en.common.rowActionsLabel })).toBeNull()
+  })
+
   it('a contact row\'s menu trigger is named in the UI language (fr)', async () => {
     await i18n.changeLanguage('fr')
     installFakeBackend([])

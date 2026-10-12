@@ -16,7 +16,8 @@ from app.core.pagination import PageParams, build_page, paginate_query
 from app.vehicle.models.catalogue import Brand
 from app.vehicle.models.provider import MappingGap
 from app.vehicle.schemas.catalogue import BrandCreate, BrandUpdate
-from app.vehicle.services.catalogue_sync import apply_resolved_code_to_variants
+from app.vehicle.services.catalogue_sync import apply_resolved_code_to_options, fill_variants_for_resolved_code
+from app.vehicle.services.configuration import fill_null_spec_fields_from_variants
 from app.vehicle.services.provider import resolve_mapping_gap
 
 _AUDITED_BRAND_FIELDS = {"display_name"}
@@ -106,7 +107,20 @@ def resolve_gap(
         return gap  # a repeat of a resolve that already happened — no second audit row
     # KAN-83: the variants this gap left NULL are filled in the same
     # transaction, not on some later sync that may never revisit them.
-    variants_filled = apply_resolved_code_to_variants(
+    filled_variant_ids = fill_variants_for_resolved_code(
+        db, provider=gap.provider, vehicle_kind=gap.vehicle_kind, code_group=gap.code_group,
+        provider_code=gap.provider_code, value_code=canonical_value_code,
+    )
+    # KAN-240: and the provider configurations built from those variants
+    # while the field was still NULL — their NULLs only, never a set value,
+    # never a host's frozen snapshot.
+    configurations_filled = fill_null_spec_fields_from_variants(
+        db, variant_ids=filled_variant_ids,
+        reason=f"Mapping gap {gap.id} resolved: {gap.code_group} {gap.provider_code} -> {canonical_value_code}.",
+    )
+    # KAN-250: likewise the options (every tenant's, each in its own
+    # partition) whose raw SuchCode list carried an equipment-feature code.
+    options_filled = apply_resolved_code_to_options(
         db, provider=gap.provider, vehicle_kind=gap.vehicle_kind, code_group=gap.code_group,
         provider_code=gap.provider_code, value_code=canonical_value_code,
     )
@@ -115,7 +129,9 @@ def resolve_gap(
         after={
             "provider": gap.provider, "providerCode": gap.provider_code,
             "canonicalListCode": canonical_list_code, "canonicalValueCode": canonical_value_code,
-            "variantsFilled": variants_filled,
+            "variantsFilled": len(filled_variant_ids),
+            "optionsFilled": options_filled,
+            "configurationsFilled": configurations_filled,
         },
     )
     db.commit()

@@ -519,6 +519,8 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
             retry: t('common.retry'),
             rowActionsLabel: t('common.rowActionsLabel'),
             selectAllLabel: t('common.selectAllLabel'),
+            selectRowLabel: (row) =>
+              t('common.selectRowLabel', { label: `${row.brandDisplayName} ${row.modelGroupName} ${row.variantName}` }),
           }}
           emptyState={{
             icon: <Database size={24} />,

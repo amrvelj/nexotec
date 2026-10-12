@@ -8,6 +8,7 @@ history; a cancelled purchase (storno) still blocks the VIN.
 """
 
 import datetime as dt
+import os
 import uuid
 from decimal import Decimal
 
@@ -272,6 +273,12 @@ def test_a_racing_promotion_is_refused_by_the_index_with_the_same_reason(db_sess
     assert _vin_assigned_events(db_session, trade_in.id) == []
 
 
+# The vehicle-mdm get-or-create runs on a session of its own (KAN-257), which a single shared SQLite
+# connection cannot keep apart from the caller's; Postgres is the lane of record (ADR-011).
+@pytest.mark.skipif(
+    not os.environ.get("DMS_TEST_DATABASE_URL"),
+    reason="a second session on one shared SQLite connection ends the caller's transaction; Postgres is the lane of record",
+)
 def test_a_refused_racing_promotion_keeps_the_callers_own_work(db_session, monkeypatch):
     """The refusal undoes the promotion's savepoint, not the caller's
     transaction: a row the caller flushed before promoting survives it."""

@@ -44,6 +44,7 @@ from app.vehicle.services.identification import (
     IdentifierKind,
     NewPriceSource,
 )
+from tests.configuration_test_support import MANUAL_CODED, seed_manual_coded_lists
 
 # --- fixtures -----------------------------------------------------------
 
@@ -174,10 +175,11 @@ def test_one_input_resolves_all_four_kinds_without_saying_which(client, db_sessi
 def test_a_vin_held_in_mdm_is_decisive_and_offers_the_configuration_for_reuse(db_session):
     tenant_id = _connected_tenant(db_session, seed=False)
     vehicle = _mdm(db_session, vin="WVWZZZ1KZAW000002")
+    seed_manual_coded_lists(db_session)
     earlier = configuration_service.create_configuration(
         db_session, tenant_id=tenant_id, actor_id=uuid.uuid4(),
         data=ConfigurationCreate(
-            source=ConfigurationSource.MANUAL, mode=ConfigurationMode.RECORD,
+            source=ConfigurationSource.MANUAL, mode=ConfigurationMode.RECORD, **MANUAL_CODED,
             match_method=ConfigurationMatchMethod.VIN, vin="WVWZZZ1KZAW000002",
         ),
     )

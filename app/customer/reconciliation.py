@@ -18,16 +18,25 @@ from app.core.outbox_model import OutboxMessage
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, run_reconciliation
 from app.customer.models.customer import (
     Customer,
+    CustomerAddress,
     CustomerEmail,
     CustomerExternalId,
     CustomerNumberSequence,
     CustomerPhone,
+    CustomerTag,
 )
+from app.customer.models.legal_basis import LegalBasis
 from app.customer.models.vehicle_party import VehicleParty
-from app.platform.public import DealerGroup, Dealership
+from app.platform.public import DealerGroup, Dealership, actor_reference_checks
 from app.vehicle.public import VehicleMdm
 
 CONTEXT = "customer"
+
+# Every Customer table with created_by / updated_by: each must name a platform
+# user, or be null (KAN-243; see app.platform.public.actor_reference_checks).
+ACTOR_TABLES = (
+    Customer, CustomerPhone, CustomerEmail, CustomerAddress, CustomerExternalId, CustomerTag, LegalBasis, VehicleParty,
+)
 
 CHECKS = [
     ReferenceCheck(
@@ -86,6 +95,7 @@ CHECKS = [
         target_model=DealerGroup,
         target_id_column=DealerGroup.id,
     ),
+    *actor_reference_checks(*ACTOR_TABLES),
 ]
 
 

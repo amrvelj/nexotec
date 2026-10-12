@@ -16,6 +16,7 @@ from app.platform.schemas.document_content import (
     ParagraphBlock,
     SignatureBlock,
 )
+from app.platform.services.actor_reference import actor_reference_checks
 from app.platform.services.dealership import (
     get_dealership_default_correspondence_language,
     get_dealership_or_404,
@@ -45,6 +46,7 @@ __all__ = [
     "ParagraphBlock",
     "SignatureBlock",
     "User",
+    "actor_reference_checks",
     "get_active_reference_value_codes",
     "get_dealership_default_correspondence_language",
     "get_dealership_or_404",

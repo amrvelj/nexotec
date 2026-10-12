@@ -42,6 +42,11 @@
       "recents": "Kürzlich",
       "noResults": "Keine Treffer",
       "error": "Suche fehlgeschlagen — bitte erneut versuchen."
+    },
+    "switchDealershipError": {
+      "notAMember": "Wechsel nicht möglich: Sie sind diesem Betrieb nicht mehr zugeordnet. Sie bleiben im aktuellen Betrieb.",
+      "failed": "Der Betrieb konnte nicht gewechselt werden. Sie bleiben im aktuellen Betrieb. Bitte versuchen Sie es erneut.",
+      "dismiss": "Meldung schliessen"
     }
   },
   "userRole": {
@@ -62,6 +67,7 @@
     "loadingMore": "Wird geladen…",
     "rowActionsLabel": "Zeilenaktionen",
     "selectAllLabel": "Alle auswählen",
+    "selectRowLabel": "Zeile auswählen: {{label}}",
     "moreActions": "Weitere Aktionen",
     "showing": "{{count, number}} angezeigt",
     "showingOfTotal": "{{count, number}} von {{total}} angezeigt",
@@ -1059,7 +1065,8 @@
     "edit": {
       "title": "Vertrag vervollständigen",
       "hint": "Solange der Vertrag nicht bestätigt ist, lassen sich Kunde, Fahrzeug, Preisaufbau und Eintauschfahrzeug hier ergänzen oder anpassen. Mit der Bestätigung wird er eingefroren.",
-      "pricedWithoutInputs": "Dieser Vertrag wurde bepreist, bevor Verträge ihre Preisgrundlagen speicherten. Er kann so bestätigt oder storniert, aber nicht mehr angepasst werden."
+      "pricedWithoutInputs": "Dieser Vertrag wurde bepreist, bevor Verträge ihre Preisgrundlagen speicherten. Er kann so bestätigt oder storniert, aber nicht mehr angepasst werden.",
+      "pricedWithoutInputsNoBuyer": "Dieser Vertrag wurde bepreist, bevor Verträge ihre Preisgrundlagen speicherten. Sein Preis kann nicht mehr angepasst werden. Wählen Sie unten den Käufer, dann kann er so bestätigt werden – oder stornieren Sie ihn."
     }
   },
   "offerWorkspace": {
@@ -1157,6 +1164,13 @@
       "suppressedReasonHint": "Bei Gebrauchtfahrzeugen ist ein Zeilenrabatt standardmässig gesperrt — eine Begründung hebt die Sperre auf.",
       "error": "Änderung konnte nicht gespeichert werden.",
       "noPackagesCapability": "Als flache Liste angezeigt — die Paketgruppierung ist für diesen Betrieb nicht verfügbar."
+    },
+    "errors": {
+      "saveRefused": {
+        "staleVersion": "Die Offerte wurde inzwischen geändert. Die aktuelle Fassung ist geladen – bitte die Änderung erneut vornehmen.",
+        "generic": "Die Änderung konnte nicht gespeichert werden.",
+        "dismiss": "Meldung schliessen"
+      }
     }
   },
   "salesDocuments": {
@@ -1576,6 +1590,8 @@
       },
       "retired": "Nicht mehr verfügbar — bitte einen aktuellen Wert wählen",
       "retiredSaveError": "Nicht mehr verfügbar: {{fields}}. Bitte vor dem Speichern einen aktuellen Wert wählen.",
+      "codedRequiredSaveError": "Bitte vor dem Speichern wählen: {{fields}}.",
+      "codedLocked": "Aus dem Katalog übernommen — nicht änderbar.",
       "listUnavailable": "Die Liste konnte nicht geladen werden"
     },
     "options": {

@@ -42,6 +42,11 @@
       "recents": "Récents",
       "noResults": "Aucun résultat",
       "error": "La recherche a échoué — veuillez réessayer."
+    },
+    "switchDealershipError": {
+      "notAMember": "Changement refusé : vous n'êtes plus rattaché(e) à cette concession. Vous restez dans la concession actuelle.",
+      "failed": "Impossible de changer de concession. Vous restez dans la concession actuelle. Veuillez réessayer.",
+      "dismiss": "Fermer le message"
     }
   },
   "userRole": {
@@ -62,6 +67,7 @@
     "loadingMore": "Chargement…",
     "rowActionsLabel": "Actions de la ligne",
     "selectAllLabel": "Tout sélectionner",
+    "selectRowLabel": "Sélectionner la ligne : {{label}}",
     "moreActions": "Plus d'actions",
     "showing": "{{count, number}} affiché(s)",
     "showingOfTotal": "{{count, number}} sur {{total}} affiché(s)",
@@ -1059,7 +1065,8 @@
     "edit": {
       "title": "Compléter le contrat",
       "hint": "Tant que le contrat n'est pas confirmé, le client, le véhicule, la composition du prix et la reprise peuvent être complétés ou ajustés ici. La confirmation le fige.",
-      "pricedWithoutInputs": "Ce contrat a été chiffré avant que les contrats ne conservent leurs bases de prix. Il peut être confirmé ou annulé tel quel, mais plus ajusté."
+      "pricedWithoutInputs": "Ce contrat a été chiffré avant que les contrats ne conservent leurs bases de prix. Il peut être confirmé ou annulé tel quel, mais plus ajusté.",
+      "pricedWithoutInputsNoBuyer": "Ce contrat a été chiffré avant que les contrats ne conservent leurs bases de prix. Son prix ne peut plus être ajusté. Choisissez l'acheteur ci-dessous, puis il pourra être confirmé tel quel — ou annulez-le."
     }
   },
   "offerWorkspace": {
@@ -1157,6 +1164,13 @@
       "suppressedReasonHint": "Une remise par ligne est bloquée par défaut sur les véhicules d’occasion — un motif lève le blocage.",
       "error": "La modification n’a pas pu être enregistrée.",
       "noPackagesCapability": "Affichées en liste simple — le regroupement par forfaits n'est pas disponible pour ce garage."
+    },
+    "errors": {
+      "saveRefused": {
+        "staleVersion": "L'offre a été modifiée entre-temps. La version actuelle est chargée – veuillez refaire votre modification.",
+        "generic": "La modification n'a pas pu être enregistrée.",
+        "dismiss": "Fermer le message"
+      }
     }
   },
   "salesDocuments": {
@@ -1576,6 +1590,8 @@
       },
       "retired": "N'est plus disponible — choisissez une valeur actuelle",
       "retiredSaveError": "N'est plus disponible : {{fields}}. Choisissez une valeur actuelle avant d'enregistrer.",
+      "codedRequiredSaveError": "À choisir avant d'enregistrer : {{fields}}.",
+      "codedLocked": "Repris du catalogue — non modifiable.",
       "listUnavailable": "La liste n'a pas pu être chargée"
     },
     "options": {

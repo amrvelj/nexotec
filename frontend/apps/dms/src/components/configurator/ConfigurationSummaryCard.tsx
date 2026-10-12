@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next'
 import { formatCurrencyChf, formatNumber } from '../../utils/format'
 import { SpecGrid } from '@nexotec/ui-kit'
 import type { ConfigurationRead } from '../../api/types'
+import { CODED_FIELDS, CODED_REF_LIST_CODES } from '../../configurationOptions'
+import { useReferenceLabelLookup } from '../../hooks/useReferenceLabelLookup'
 
 export interface ConfigurationSummaryCardProps {
   configuration: ConfigurationRead
@@ -15,11 +17,16 @@ export interface ConfigurationSummaryCardProps {
 /**
  * The **one** read-only rendering of a configuration — the offer
  * workspace, the stock item, the valuation and Vehicle 360 (C-F) all
- * render this exact component, never a copy. Takes a `ConfigurationRead`;
- * fetches nothing.
+ * render this exact component, never a copy. Takes a `ConfigurationRead`
+ * and reads the labels of its five coded values (vehicle kind, fuel, body,
+ * drive, transmission — KAN-260) from the shared cached lookup
+ * (`useReferenceLabelLookup`), in the UI language: every card on a screen
+ * shares one request per list, and a code without a label in that language
+ * renders `⚠ <code>`, never the raw code silently. It fetches nothing else.
  */
 export function ConfigurationSummaryCard({ configuration, onOpenConfigurator }: ConfigurationSummaryCardProps) {
   const { t } = useTranslation()
+  const labels = useReferenceLabelLookup(CODED_REF_LIST_CODES)
   const c = configuration
   const s = c.spec
 
@@ -27,9 +34,10 @@ export function ConfigurationSummaryCard({ configuration, onOpenConfigurator }: 
   const isManual = c.source === 'manual'
 
   const specItems = [
-    { label: t('catalogueBrowse.columns.fuelType'), value: c.fuelType ?? '—' },
-    { label: t('catalogueBrowse.columns.drivetrain'), value: c.drivetrain ?? '—' },
-    { label: t('catalogueBrowse.columns.transmission'), value: c.transmission ?? '—' },
+    ...CODED_FIELDS.map((f) => {
+      const code = c[f.key]
+      return { label: t(f.labelKey), value: code != null ? labels.label(f.listCode, code) : '—' }
+    }),
     { label: t('catalogueBrowse.columns.ps'), value: s.ps != null ? formatNumber(s.ps) : '—' },
     { label: t('catalogueBrowse.columns.displacementCcm'), value: s.displacementCcm != null ? formatNumber(s.displacementCcm) : '—' },
     { label: t('configurator.summary.firstRegistration'), value: c.firstRegistrationDate ?? '—' },

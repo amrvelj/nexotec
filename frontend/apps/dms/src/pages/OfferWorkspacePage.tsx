@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, Button, Group, Loader, NumberInput, Stack, Text, Title } from '@mantine/core'
@@ -15,6 +15,7 @@ import {
   useDealCustomer,
 } from '../components/deal-workspace/DealWorkspaceContainers'
 import { useDebouncedNumberField } from '../hooks/useDebouncedNumberField'
+import { useDealSaveQueue } from '../hooks/useDealSaveQueue'
 import { CustomerDetailContent } from './CustomerDetailPage'
 import { StockDetailContent } from './StockDetailPage'
 import type { SalesOfferRead } from '../api/types'
@@ -67,17 +68,47 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
   const [generateOpen, setGenerateOpen] = useState(false)
 
 
-  // The configurator runs in an overlay pushed with a closure; reading the
-  // offer through a ref keeps its If-Match current even when the advisor
-  // autosaved another container while the overlay was open.
-  const latestOffer = useRef<SalesOfferRead | undefined>(undefined)
-  latestOffer.current = offerQuery.data
+  // KAN-314 — every container autosaves on its own, and since KAN-311 the
+  // server takes the offer's row lock and checks If-Match on each save, so
+  // two saves sent with one version cannot both land. The queue sends them
+  // one after the other, each with the version the previous one returned.
+  // It reads the offer from the query cache when a save is sent — never a
+  // render's copy — so the configurator overlay, which calls `patchOffer`
+  // from a closure, sends the current version too.
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const saves = useDealSaveQueue<SalesOfferRead>(
+    () => queryClient.getQueryData<SalesOfferRead>(['sales-offer', id]),
+    (updated) => {
+      setSaveError(null)
+      queryClient.setQueryData(['sales-offer', id], updated)
+    }
+  )
+
+  // A refused save is said in the user's language, keyed off the 409's
+  // shape (never the backend's English message), and the offer is reloaded
+  // so the screen shows what it now is.
+  const saveRefusalMessage = (err: unknown): string => {
+    if (err instanceof ApiError && err.status === 409 && (err.details ?? {}).currentVersion != null) {
+      return t('offerWorkspace.errors.saveRefused.staleVersion')
+    }
+    return t('offerWorkspace.errors.saveRefused.generic')
+  }
 
   const patchOffer = async (patch: Record<string, unknown>) => {
-    const offer = latestOffer.current
-    if (!offer) return
-    const updated = await api.patch<SalesOfferRead>(`/sales/offers/${id}`, patch, { 'If-Match': String(offer.version) })
-    queryClient.setQueryData(['sales-offer', id], updated)
+    try {
+      await saves.save((current) =>
+        api.patch<SalesOfferRead>(`/sales/offers/${id}`, patch, { 'If-Match': String(current.version) })
+      )
+    } catch (err) {
+      setSaveError(saveRefusalMessage(err))
+      void offerQuery.refetch()
+      throw err
+    }
+  }
+  // The leasing fields commit from an effect; the refusal is already on
+  // screen (above), so it only must not go unhandled.
+  const commitLeasing = (patch: Record<string, unknown>) => {
+    patchOffer(patch).catch(() => undefined)
   }
 
   // KAN-8 — same fix as PriceBuildUp.tsx's own fields, same root cause:
@@ -88,17 +119,17 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
   const [leasingDownPayment, setLeasingDownPayment] = useDebouncedNumberField(
     offerQuery.data?.leasingDownPayment != null ? Number(offerQuery.data.leasingDownPayment) : null,
     offerQuery.data?.id,
-    (value) => patchOffer({ leasingDownPayment: value })
+    (value) => commitLeasing({ leasingDownPayment: value })
   )
   const [leasingTermMonths, setLeasingTermMonths] = useDebouncedNumberField(
     offerQuery.data?.leasingTermMonths ?? null,
     offerQuery.data?.id,
-    (value) => patchOffer({ leasingTermMonths: value })
+    (value) => commitLeasing({ leasingTermMonths: value })
   )
   const [leasingKmPerYear, setLeasingKmPerYear] = useDebouncedNumberField(
     offerQuery.data?.leasingKmPerYear ?? null,
     offerQuery.data?.id,
-    (value) => patchOffer({ leasingKmPerYear: value })
+    (value) => commitLeasing({ leasingKmPerYear: value })
   )
 
   if (offerQuery.isLoading) return <Loader />
@@ -111,13 +142,11 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
   }
 
   const offer = offerQuery.data
-  const onOfferUpdated = (updated: SalesOfferRead) => queryClient.setQueryData(['sales-offer', id], updated)
   const containerProps = {
     ownerType: 'offer' as const,
     deal: offer,
-    getDeal: () => latestOffer.current,
     patch: patchOffer,
-    onDealUpdated: onOfferUpdated,
+    save: saves.save,
   }
   // KAN-64 — must match services/offer.py::confirm_offer's own gate
   // (status != "complete") exactly, or the button stays enabled for a
@@ -133,6 +162,18 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
         <Title order={2}>{t('offerWorkspace.title')}</Title>
         <Text c="dimmed">{offer.offerNumber} · {t(`salesEnums.dealStatus.${offer.status}`)}</Text>
       </Group>
+
+      {saveError && (
+        <Alert
+          color="red"
+          role="alert"
+          withCloseButton
+          closeButtonLabel={t('offerWorkspace.errors.saveRefused.dismiss')}
+          onClose={() => setSaveError(null)}
+        >
+          {saveError}
+        </Alert>
+      )}
 
       <DealCustomerContainer ownerType="offer" deal={offer} patch={patchOffer} onOpenCustomer={openCustomerOverlay} />
       <DealVehicleContainer {...containerProps} />
@@ -171,7 +212,9 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
         }
         primaryAction={
           <Button
-            disabled={missing.length > 0 || selectedCustomer?.lifecycleStatus === 'do_not_contact'}
+            disabled={
+              missing.length > 0 || selectedCustomer?.lifecycleStatus === 'do_not_contact' || saves.pending > 0
+            }
             onClick={() => setGenerateOpen(true)}
           >
             {t('offerWorkspace.continue')}

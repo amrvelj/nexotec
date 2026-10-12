@@ -42,6 +42,11 @@
       "recents": "Recent",
       "noResults": "No matches",
       "error": "Search failed — try again."
+    },
+    "switchDealershipError": {
+      "notAMember": "Switch refused: you are no longer a member of this dealership. You remain in the current dealership.",
+      "failed": "The dealership could not be switched. You remain in the current dealership. Please try again.",
+      "dismiss": "Dismiss message"
     }
   },
   "userRole": {
@@ -62,6 +67,7 @@
     "loadingMore": "Loading…",
     "rowActionsLabel": "Row actions",
     "selectAllLabel": "Select all",
+    "selectRowLabel": "Select row: {{label}}",
     "moreActions": "More actions",
     "showing": "Showing {{count, number}}",
     "showingOfTotal": "Showing {{count, number}} of {{total}}",
@@ -1059,7 +1065,8 @@
     "edit": {
       "title": "Complete the contract",
       "hint": "Until the contract is confirmed, its customer, vehicle, price build-up and trade-in can be added or adjusted here. Confirming freezes it.",
-      "pricedWithoutInputs": "This contract was priced before contracts kept their pricing inputs. It can be confirmed or cancelled as it stands, but no longer adjusted."
+      "pricedWithoutInputs": "This contract was priced before contracts kept their pricing inputs. It can be confirmed or cancelled as it stands, but no longer adjusted.",
+      "pricedWithoutInputsNoBuyer": "This contract was priced before contracts kept their pricing inputs. Its price can no longer be adjusted. Pick its buyer below, then it can be confirmed as it stands — or cancel it."
     }
   },
   "offerWorkspace": {
@@ -1157,6 +1164,13 @@
       "suppressedReasonHint": "A per-line discount is suppressed by default on used vehicles — a reason overrides the suppression.",
       "error": "The change could not be saved.",
       "noPackagesCapability": "Shown as a flat list — package grouping is not available for this dealership."
+    },
+    "errors": {
+      "saveRefused": {
+        "staleVersion": "The offer was changed in the meantime. The current version is loaded – please make your change again.",
+        "generic": "The change could not be saved.",
+        "dismiss": "Dismiss message"
+      }
     }
   },
   "salesDocuments": {
@@ -1576,6 +1590,8 @@
       },
       "retired": "No longer available — choose a current value",
       "retiredSaveError": "No longer available: {{fields}}. Choose a current value before saving.",
+      "codedRequiredSaveError": "Choose before saving: {{fields}}.",
+      "codedLocked": "From the catalogue — cannot be changed.",
       "listUnavailable": "The list could not be loaded"
     },
     "options": {

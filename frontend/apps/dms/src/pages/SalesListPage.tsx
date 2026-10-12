@@ -339,6 +339,8 @@ export function SalesListPage() {
             retry: t('common.retry'),
             rowActionsLabel: t('common.rowActionsLabel'),
             selectAllLabel: t('common.selectAllLabel'),
+            selectRowLabel: (row) =>
+              t('common.selectRowLabel', { label: [row.number, row.customerLabel].filter(Boolean).join(' · ') }),
           }}
           emptyState={{
             icon: <Handshake size={24} />,

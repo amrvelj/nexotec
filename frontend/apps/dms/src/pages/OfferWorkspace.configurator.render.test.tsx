@@ -6,7 +6,7 @@ import userEvent from '@testing-library/user-event'
 import i18n from '../i18n'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { installFakeBackend, type FakeRoute } from '../test/fakeBackend'
-import { configurationRead } from '../test/configuratorFixtures'
+import { CODED_REFERENCE_ROUTES, configurationRead, pickCodedFields } from '../test/configuratorFixtures'
 import type { SalesOfferRead } from '../api/types'
 import { OfferWorkspacePage } from './OfferWorkspacePage'
 
@@ -60,6 +60,7 @@ const CATALOGUE: FakeRoute[] = [
     match: /\/catalogue\/variants$/,
     handler: () => ({ items: [], nextCursor: null, total: 0, totalIsEstimate: false, browseAvailable: true }),
   },
+  ...CODED_REFERENCE_ROUTES,
   { method: 'GET', match: /\/reference-data\//, handler: () => ({ items: [], nextCursor: null }) },
   { method: 'GET', match: /^\/integrations\/capabilities\//, handler: () => ({ capabilityCode: 'x', granted: false }) },
   { method: 'GET', match: /^\/sales\/offers\/o1\/line-items$/, handler: () => ({ items: [] }) },
@@ -86,7 +87,9 @@ async function typeHalfBuiltTradeIn(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText(i18n.t('offerWorkspace.tradeIn.vinLabel')), 'ZFFSG17A0H0071234')
 }
 
-describe('OfferWorkspace — Path B through the configurator (FR-C-12)', () => {
+// Each manual configuration picks its five coded fields before saving (Anto,
+// 2026-10-12): past vitest's 5 s default on a loaded machine.
+describe('OfferWorkspace — Path B through the configurator (FR-C-12)', { timeout: 15_000 }, () => {
   it('opens build-only as an overlay, keeps the half-built offer, and renders the summary card', async () => {
     const user = userEvent.setup()
     let offer = draftOffer()
@@ -127,6 +130,7 @@ describe('OfferWorkspace — Path B through the configurator (FR-C-12)', () => {
     expect(screen.getByLabelText(i18n.t('offerWorkspace.tradeIn.vinLabel'))).toHaveValue('ZFFSG17A0H0071234')
 
     await user.click(within(overlay).getByRole('button', { name: i18n.t('configurator.find.manual') }))
+    await pickCodedFields()
     await user.click(await within(overlay).findByRole('button', { name: i18n.t('configurator.saveNew') }))
 
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
@@ -156,7 +160,7 @@ describe('OfferWorkspace — Path B through the configurator (FR-C-12)', () => {
   })
 })
 
-describe('OfferWorkspace — the trade-in through the valuation path (FR-C-12 carve-out)', () => {
+describe('OfferWorkspace — the trade-in through the valuation path (FR-C-12 carve-out)', { timeout: 15_000 }, () => {
   it('captures the trade-in in record mode, values it, and the offer references the valuation', async () => {
     const user = userEvent.setup()
     let offer = draftOffer()
@@ -202,6 +206,7 @@ describe('OfferWorkspace — the trade-in through the valuation path (FR-C-12 ca
     // Record only: the build mode is not reachable for the customer's car.
     expect(within(overlay).queryByText(i18n.t('configurator.mode.build'))).not.toBeInTheDocument()
     await user.click(within(overlay).getByRole('button', { name: i18n.t('configurator.find.manual') }))
+    await pickCodedFields()
     await user.click(await within(overlay).findByRole('button', { name: i18n.t('configurator.saveNew') }))
 
     // The valuation dialog opens on the workspace, prefilled from the configuration.

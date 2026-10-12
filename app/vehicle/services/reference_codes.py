@@ -3,7 +3,8 @@ must be an *active* value of the reference list of the same name.
 
 Two writers use it, each passing its own fields: the legacy `Vehicle`
 create / patch (KAN-57, seven fields) and the configuration's manual create
-and PATCH (KAN-96, the five coded spec fields). Each field name is also its
+and PATCH (KAN-96's five coded fields and, since KAN-245, the five
+reference-coded spec-block fields). Each field name is also its
 list code — `vehicle_kind` is the PRD's own list (migration 6ba0a99ed5c4),
 not the legacy `vehicle_type`. Keeping the check here, rather than a copy in
 each service, is what stops the two drifting apart.

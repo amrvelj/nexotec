@@ -44,14 +44,16 @@ from tests.test_sales_lifecycle_reservation import _customer, _dealership, _sess
 _TRADE_IN_VIN = "WVWZZZ1KZAW654321"
 
 
-def _valuation(db_session, tenant_id, group_id, *, source=ValuationSource.MANUAL, is_draft=False) -> Valuation:
+def _valuation(
+    db_session, tenant_id, group_id, *, source=ValuationSource.MANUAL, is_draft=False, actor_id=None
+) -> Valuation:
     return create_valuation(
         db_session, tenant_id=tenant_id, group_id=group_id,
         data=ValuationCreate(
             vin=_TRADE_IN_VIN, vehicle_make="VW", vehicle_model="Golf", source=source,
             final_offer=Decimal("12000.00"), is_draft=is_draft,
         ),
-        actor_id=uuid.uuid4(),
+        actor_id=actor_id or uuid.uuid4(),
     )
 
 

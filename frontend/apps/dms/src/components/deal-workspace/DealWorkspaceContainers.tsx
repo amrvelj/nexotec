@@ -14,6 +14,7 @@ import { ConfiguratorOverlay } from '../configurator/ConfiguratorOverlay'
 import { HostCommitError } from '../configurator/hostCommitError'
 import { HostConfigurationCard } from '../configurator/HostConfigurationCard'
 import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
+import type { DealSaveQueue } from '../../hooks/useDealSaveQueue'
 import { formatCurrencyChf } from '../../utils/format'
 import type {
   ConfigurationRead,
@@ -33,29 +34,27 @@ import type {
  * both (app/sales/services/deal_editing.py); these run one screen for both.
  * `ownerType` picks the route; every request body is the same.
  *
- * `patch` is the host's own autosave PATCH. It must read the deal's
- * current version itself (the hosts keep it in a ref), because the
- * configurator overlay calls it from a closure that can outlive the render
- * it was created in. It rejects when the server refuses the edit. The
- * contract page reports why (confirmed elsewhere, stale version); the offer
- * workspace shows nothing, as before this extraction, when its autosave
- * fails. The fire-and-forget callers here only stop the rejection going
- * unhandled; the configurator turns it into its own error.
+ * `patch` is the host's own autosave PATCH, sent through `save`. It rejects
+ * when the server refuses the edit, and the host says why in the UI
+ * language (confirmed elsewhere, stale version). The fire-and-forget
+ * callers here only stop the rejection going unhandled; the configurator
+ * turns it into its own error.
+ *
+ * `save` is the host's save queue (KAN-314, `useDealSaveQueue`): every
+ * write that bumps the deal's version — the PATCH, line items, trade-in,
+ * trade-in valuation — goes through it, so overlapping saves reach the
+ * server one after the other, each with the version the previous one
+ * returned, and a host that ends the edit (signing a contract) can wait for
+ * them (KAN-288). It reads the deal's current version when the save is
+ * sent, never from a render's closure, which is what lets the configurator
+ * overlay call it from a closure that outlives the render it was made in.
  */
 export interface DealContainerProps<D extends SalesPricedDealRead> {
   ownerType: SalesDealOwnerType
   deal: D
-  /** The newest copy of the deal, for requests sent from a closure. */
-  getDeal: () => D | undefined
   patch: (patch: Record<string, unknown>) => Promise<void>
-  onDealUpdated: (deal: D) => void
-  /** KAN-288 — every save that is not `patch` (line items, trade-in) runs
-   * through this, so a host that ends the edit (signing a contract) can wait
-   * for it. Optional: the offer workspace has nothing to wait for. */
-  trackSave?: <T>(work: Promise<T>) => Promise<T>
+  save: DealSaveQueue<D>['save']
 }
-
-const untracked = <T,>(work: Promise<T>) => work
 
 const routeSegment = (ownerType: SalesDealOwnerType) => (ownerType === 'offer' ? 'offers' : 'contracts')
 const reportedByHost = () => undefined
@@ -265,8 +264,7 @@ export function DealPricingContainer<D extends SalesPricedDealRead>({
   ownerType,
   deal,
   patch,
-  onDealUpdated,
-  trackSave,
+  save,
   onOpenStockItem,
   onUnsavedChange,
 }: DealContainerProps<D> & { onOpenStockItem?: () => void; onUnsavedChange?: (unsaved: boolean) => void }) {
@@ -297,7 +295,7 @@ export function DealPricingContainer<D extends SalesPricedDealRead>({
         onManualBasePriceChange={(value) => void patch({ manualBasePrice: value }).catch(reportedByHost)}
         onUnsavedChange={onUnsavedChange}
       />
-      <OfferAccessoriesAndOptions ownerType={ownerType} deal={deal} onDealUpdated={onDealUpdated} trackSave={trackSave} />
+      <OfferAccessoriesAndOptions ownerType={ownerType} deal={deal} save={save} />
     </OverviewCard>
   )
 }
@@ -308,9 +306,7 @@ export function DealPricingContainer<D extends SalesPricedDealRead>({
 export function DealTradeInContainer<D extends SalesPricedDealRead>({
   ownerType,
   deal,
-  getDeal,
-  onDealUpdated,
-  trackSave = untracked,
+  save,
 }: DealContainerProps<D>) {
   const { t } = useTranslation()
   const overlay = useOverlay()
@@ -350,20 +346,18 @@ export function DealTradeInContainer<D extends SalesPricedDealRead>({
     })
 
   const attachTradeInValuation = async (valuation: ValuationRead) => {
-    const current = getDeal()
-    if (!current) return
     setTradeInError(null)
     try {
       const path = `${basePath}/trade-in/valuation`
       const body = { valuationId: valuation.id }
-      const updated = await trackSave(
+      const updated = await save((current) =>
         api.post<D>(path, body, {
           'If-Match': String(current.version),
           ...valuationKey.headers([path, body]),
         })
       )
+      if (!updated) return
       valuationKey.renew()
-      onDealUpdated(updated)
       setTradeInConfiguration(null)
     } catch {
       setTradeInError(t('offerWorkspace.tradeIn.attachError'))
@@ -377,17 +371,14 @@ export function DealTradeInContainer<D extends SalesPricedDealRead>({
     vehicleLabel: string
     customerId: string | null
   }) => {
-    const current = getDeal()
-    if (!current) return
     const path = `${basePath}/trade-in`
-    const updated = await trackSave(
+    const updated = await save((current) =>
       api.post<D>(path, body, {
         'If-Match': String(current.version),
         ...tradeInKey.headers([path, body]),
       })
     )
-    tradeInKey.renew()
-    onDealUpdated(updated)
+    if (updated) tradeInKey.renew()
   }
 
   return (

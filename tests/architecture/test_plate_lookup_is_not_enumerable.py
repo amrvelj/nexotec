@@ -192,48 +192,210 @@ def test_the_plate_lookup_cache_guard_catches_a_route_exposing_the_cache():
 # KAN-231: `list_plates_for_vehicle` is targeted (one vehicle id), but the
 # vehicle list pages through every vehicle without an identifier, so the two
 # composed export the plate table in N+1 calls. The per-function guards above
-# cannot see that composition. This one makes the two routes that hand out a
-# vehicle's plate history (the Plates tab, a resolved search hit) read it only
-# through `plate_read_guard`, which audits it and enforces the per-user limit;
-# a new caller of the raw function anywhere else fails here. It matches the
-# function's name only: a direct `select(VehiclePlate)` by vehicle id passes
-# it — `services/lookup.py::_current_plate` behind `GET /v1/vehicle-mdm/lookup`
-# (ADR-043, out of KAN-231's scope) is exactly that, and still hands out the
-# current plate unaudited and unlimited until KAN-279 closes it.
+# cannot see that composition. This one makes every route that hands out a
+# vehicle's plates (the Plates tab, a resolved search hit and — KAN-279 — the
+# shared identity lookup) read them only through `plate_read_guard`, which
+# audits the read and enforces the per-user limit.
+#
+# KAN-279: matching the function's name alone let a direct
+# `select(VehiclePlate).where(VehiclePlate.vehicle_id == …)` through — that is
+# how `GET /v1/vehicle-mdm/lookup` handed out the current plate unaudited. So
+# the guard now flags, anywhere in `app/` outside the two plate modules:
+#   - any use of `list_plates_for_vehicle` (by name, attribute or alias),
+#   - any use of the `VehiclePlate` or `VehiclePlateConflict` model (it
+#     stores plate and canton too) as a value (`select(VehiclePlate)`,
+#     `db.query(VehiclePlate)`, `db.get(plate.VehiclePlate, …)`,
+#     `VehiclePlate.vehicle_id`, passing the class to a helper), followed
+#     through `import … as …`,
+#   - raw SQL text that reads `vehicle_plate` or `vehicle_plate_conflict` (FROM / JOIN).
+# Type annotations and the import line itself are not reads. The few
+# legitimate uses that hand out no plate are named below per enclosing
+# function, so a new read added beside them in the same file still fails.
 _PLATE_HISTORY_READERS = {"app/vehicle/services/plate.py", "app/vehicle/services/plate_read_guard.py"}
+_PLATE_TABLE_USES_THAT_HAND_OUT_NO_PLATE = {
+    # The model's own definition.
+    ("app/vehicle/models/plate.py", "<module>"),
+    # Registers every model for metadata; touches no row.
+    ("app/model_registry.py", "<module>"),
+    # FR-V-12 merge: re-points the duplicate's plate rows to the survivor in
+    # one local transaction and returns a count; no plate leaves the service.
+    ("app/vehicle/services/merge.py", "merge_vehicles"),
+    # Nightly reconciliation (rule 10): checks recording_tenant_id against the
+    # dealership table and reports dangling row ids, never a plate value.
+    ("app/vehicle/reconciliation.py", "<module>"),
+}
+_RAW_PLATE_SQL = re.compile(r"\b(from|join)\s+vehicle_plate(_conflict)?\b", re.IGNORECASE)
+
+
+def _plate_reads_outside_the_guard(sources: dict[str, str]) -> list[str]:
+    """`file:line (function) what` for every plate-table read outside the
+    guard, per the rule above. `sources` maps an `app/…` path to its text."""
+
+    import ast
+
+    offenders: list[str] = []
+    for relative, source in sorted(sources.items()):
+        if relative in _PLATE_HISTORY_READERS:
+            continue
+        tree = ast.parse(source)
+        model_names, reader_names = {"VehiclePlate", "VehiclePlateConflict"}, {"list_plates_for_vehicle"}
+        annotation_nodes: set[int] = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom):
+                for alias in node.names:
+                    if alias.name == "VehiclePlate":
+                        model_names.add(alias.asname or alias.name)
+                    elif alias.name == "list_plates_for_vehicle":
+                        reader_names.add(alias.asname or alias.name)
+            annotations: list[ast.expr | None] = []
+            if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+                every_arg = [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]
+                every_arg += [a for a in (node.args.vararg, node.args.kwarg) if a is not None]
+                annotations += [node.returns, *(a.annotation for a in every_arg)]
+            elif isinstance(node, ast.AnnAssign):
+                annotations.append(node.annotation)
+            for annotation in annotations:
+                if annotation is not None:
+                    annotation_nodes.update(id(n) for n in ast.walk(annotation))
+
+        offenders += _visit(tree, "<module>", relative, model_names | reader_names, annotation_nodes)
+    return offenders
+
+
+def _visit(node, function: str, relative: str, names: set[str], skipped: set[int]) -> list[str]:
+    """Walk `node` keeping the enclosing function's name, for the per-function
+    allowlist."""
+
+    import ast
+
+    found: list[str] = []
+    for child in ast.iter_child_nodes(node):
+        if id(child) in skipped:
+            continue
+        scope = child.name if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef) else function
+        what = None
+        if isinstance(child, ast.Name) and child.id in names:
+            what = f"uses {child.id}"
+        elif isinstance(child, ast.Attribute) and child.attr in names | {"VehiclePlate"}:
+            what = f"uses .{child.attr}"
+        elif isinstance(child, ast.Constant) and isinstance(child.value, str) and _RAW_PLATE_SQL.search(child.value):
+            what = "reads vehicle_plate in raw SQL"
+        if what and (relative, scope) not in _PLATE_TABLE_USES_THAT_HAND_OUT_NO_PLATE:
+            found.append(f"{relative}:{getattr(child, 'lineno', '?')} ({scope}) {what}")
+        found += _visit(child, scope, relative, names, skipped)
+    return found
 
 
 def test_plate_history_is_read_only_through_the_audited_guard():
-    import ast
     import pathlib
 
     root = pathlib.Path(__file__).resolve().parents[2]
-    offenders = []
-    for path in sorted((root / "app").rglob("*.py")):
-        relative = path.relative_to(root).as_posix()
-        if relative in _PLATE_HISTORY_READERS:
-            continue
-        tree = ast.parse(path.read_text(encoding="utf-8"))
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Name | ast.Attribute | ast.alias):
-                name = node.id if isinstance(node, ast.Name) else node.attr if isinstance(node, ast.Attribute) else node.name
-                if name == "list_plates_for_vehicle":
-                    offenders.append(f"{relative}:{getattr(node, 'lineno', '?')}")
+    sources = {
+        path.relative_to(root).as_posix(): path.read_text(encoding="utf-8") for path in (root / "app").rglob("*.py")
+    }
+    assert len(sources) > 100, "the guard read almost no source — it is not reaching app/"
+    offenders = _plate_reads_outside_the_guard(sources)
     assert not offenders, (
-        "plate history read outside plate_read_guard (unaudited, unlimited — KAN-231): " + ", ".join(offenders)
+        "plate table read outside plate_read_guard (unaudited, unlimited — KAN-231/KAN-279): " + ", ".join(offenders)
     )
 
 
+def test_the_plate_read_guard_catches_every_shape_of_a_direct_read():
+    """KAN-279: each shape the name-only guard missed, in a module of its
+    own, is caught; the guard's own modules and type annotations are not, and
+    an allowed use in one function does not excuse a read in another."""
+
+    sources = {
+        "app/vehicle/services/lookup_select.py": (
+            "from sqlalchemy import select\n"
+            "from app.vehicle.models.plate import VehiclePlate\n"
+            "def current(db, vid):\n"
+            "    return db.scalar(select(VehiclePlate).where(VehiclePlate.vehicle_id == vid))\n"
+        ),
+        "app/sales/services/aliased.py": (
+            "from app.vehicle.models.plate import VehiclePlate as Kontrollschild\n"
+            "def rows(db, vid):\n"
+            "    return db.query(Kontrollschild).filter_by(vehicle_id=vid).all()\n"
+        ),
+        "app/vehicle/services/by_get.py": (
+            "from app.vehicle.models import plate\n"
+            "def one(db, pid):\n"
+            "    return db.get(plate.VehiclePlate, pid)\n"
+        ),
+        "app/vehicle/services/raw.py": (
+            "from sqlalchemy import text\n"
+            "def raw(db, vid):\n"
+            "    return db.execute(text('SELECT plate FROM vehicle_plate WHERE vehicle_id = :v'), {'v': vid})\n"
+        ),
+        "app/vehicle/api/history.py": (
+            "from app.vehicle.services import plate\n"
+            "def tab(db, vid):\n"
+            "    return plate.list_plates_for_vehicle(db, vehicle_id=vid)\n"
+        ),
+        "app/vehicle/api/reader_alias.py": (
+            "from app.vehicle.services.plate import list_plates_for_vehicle as history\n"
+            "def tab(db, vid):\n"
+            "    return history(db, vehicle_id=vid)\n"
+        ),
+        "app/vehicle/services/merge.py": (
+            "from app.vehicle.models.plate import VehiclePlate\n"
+            "def merge_vehicles(db):\n"
+            "    return VehiclePlate.vehicle_id\n"
+            "def sneaky(db, vid):\n"
+            "    return db.scalars(select(VehiclePlate).where(VehiclePlate.vehicle_id == vid))\n"
+        ),
+        "app/vehicle/services/plate_read_guard.py": (
+            "from app.vehicle.models.plate import VehiclePlate\n"
+            "def read(db, vid):\n"
+            "    return db.scalars(select(VehiclePlate).where(VehiclePlate.vehicle_id == vid))\n"
+        ),
+        "app/customer/services/conflicts.py": (
+            "from app.vehicle.models.plate import VehiclePlateConflict\n"
+            "def open_ones(db):\n"
+            "    return db.scalars(select(VehiclePlateConflict))\n"
+        ),
+        "app/vehicle/services/raw_conflict.py": (
+            "from sqlalchemy import text\n"
+            "def raw(db):\n"
+            "    return db.execute(text('SELECT * FROM vehicle_plate_conflict'))\n"
+        ),
+        "app/vehicle/api/typed.py": (
+            "from app.vehicle.models.plate import VehiclePlate\n"
+            "def show(rows: list[VehiclePlate]) -> VehiclePlate | None:\n"
+            "    first: VehiclePlate | None = rows[0] if rows else None\n"
+            "    return first\n"
+        ),
+    }
+
+    offenders = _plate_reads_outside_the_guard(sources)
+
+    assert {entry.split(":")[0] for entry in offenders} == {
+        "app/vehicle/services/lookup_select.py",
+        "app/sales/services/aliased.py",
+        "app/vehicle/services/by_get.py",
+        "app/vehicle/services/raw.py",
+        "app/vehicle/api/history.py",
+        "app/vehicle/api/reader_alias.py",
+        "app/vehicle/services/merge.py",
+        "app/customer/services/conflicts.py",
+        "app/vehicle/services/raw_conflict.py",
+    }, offenders
+    merge_entries = [entry for entry in offenders if entry.startswith("app/vehicle/services/merge.py")]
+    assert merge_entries and all("(sneaky)" in entry for entry in merge_entries), merge_entries
+
+
 def test_every_plate_read_route_goes_through_the_guard():
-    """The two routes that hand out a vehicle's plates — the Plates tab and
-    the resolved search hit — both import the guard's reader, never the raw
-    function (the test above), and the guard itself still calls it."""
+    """The three routes that hand out a vehicle's plates — the Plates tab,
+    the resolved search hit and the shared identity lookup (KAN-279) — all
+    read through the guard's reader, never the raw function or the table
+    (the test above), and the guard itself still calls it."""
 
     import inspect as _inspect
 
     from app.vehicle.api import vehicle_mdm, vehicle_mdm_detail
-    from app.vehicle.services import plate_read_guard
+    from app.vehicle.services import lookup, plate_read_guard
 
     assert "read_plate_history" in _inspect.getsource(vehicle_mdm_detail.list_plates)
     assert "read_plate_history" in _inspect.getsource(vehicle_mdm._search_hit)
+    assert "read_plate_history" in _inspect.getsource(lookup._to_shared_identity)
     assert "list_plates_for_vehicle" in _inspect.getsource(plate_read_guard.read_plate_history)

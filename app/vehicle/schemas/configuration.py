@@ -40,6 +40,13 @@ class ConfigurationOptionRead(CamelModel):
     equipment_features: list[str]
 
 
+_CODED_FIELD_RULE = (
+    "An active value of the reference list of the same name. Required when `source` is `manual` "
+    "(422 `coded_fields_required`), and never cleared on such a configuration (422 `coded_field_required`); "
+    "on a `provider` configuration it comes from the catalogue and a change is refused (422 `coded_field_locked`)."
+)
+
+
 # The observed-at-capture fields and colours a host may set on create/update.
 class _ConfigurationObserved(CamelModel):
     vin: str | None = Field(default=None, max_length=17)
@@ -58,11 +65,14 @@ class _ConfigurationObserved(CamelModel):
     # The five coded spec fields (canonical value_code strings) — declared
     # directly on the carrier, not inside the `spec` block payload, exactly
     # like `CatalogueVariantRead`.
-    vehicle_kind: str | None = Field(default=None, max_length=64)
-    fuel_type: str | None = Field(default=None, max_length=64)
-    body_style: str | None = Field(default=None, max_length=64)
-    drivetrain: str | None = Field(default=None, max_length=64)
-    transmission: str | None = Field(default=None, max_length=64)
+    # KAN-247 (Anto, 2026-10-12): required on a manual configuration's create,
+    # never clearable there; locked on a provider configuration. Enforced in
+    # the service (the rule depends on `source`), stated here for the contract.
+    vehicle_kind: str | None = Field(default=None, max_length=64, description=_CODED_FIELD_RULE)
+    fuel_type: str | None = Field(default=None, max_length=64, description=_CODED_FIELD_RULE)
+    body_style: str | None = Field(default=None, max_length=64, description=_CODED_FIELD_RULE)
+    drivetrain: str | None = Field(default=None, max_length=64, description=_CODED_FIELD_RULE)
+    transmission: str | None = Field(default=None, max_length=64, description=_CODED_FIELD_RULE)
 
 
 class ConfigurationCreate(_ConfigurationObserved):
