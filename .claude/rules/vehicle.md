@@ -52,7 +52,9 @@ code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. -->
   (ADR-043) reads its `currentPlate` through the same guard (KAN-279) and, past the limit,
   answers `currentPlate: null` — ADR-043's shape has no withheld flag, so withheld and no
   plate look the same there. `tests/architecture/test_plate_lookup_is_not_enumerable.py`
-  refuses any `VehiclePlate` read outside `plate.py` / `plate_read_guard.py`.
+  refuses any read of `VehiclePlate` or `VehiclePlateConflict` outside `plate.py` /
+  `plate_read_guard.py`, except the uses it names that hand out no plate (the model registry,
+  the FR-V-12 merge, reconciliation).
 - Vehicle identity is global; everything licensed about it is not (next section).
 
 ## Licensed data and the gateway
@@ -122,6 +124,14 @@ code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. -->
   (30-day TTL, daily purge, never enumerable); Stammnummer → vehicle-mdm, then that cache;
   Typenschein and Werkscode → the mirror. Several hits are a picker, never a choice; a
   `FahrzeugeMatch` best match is a proposal, confirmed through `confirmedBestMatchCode`.
+- **The five coded fields** (`vehicleKind`, `fuelType`, `bodyStyle`, `drivetrain`,
+  `transmission`) are never empty by an advisor's hand (Anto, 2026-10-12, KAN-247/246): on a
+  provider configuration they are locked — read-only on screen, a PATCH that changes one is 422
+  `coded_field_locked` (the same value is accepted); a manual configuration needs all five to be
+  created (422 `coded_fields_required`) and cannot clear one (422 `coded_field_required`). They
+  and the spec-block reference fields take only an active value of their reference list
+  (KAN-96, KAN-245). Every other nullable field clears with an explicit `null` on PATCH; an
+  absent field is left alone (KAN-247).
 - **Re-sync (FR-C-16)** is only ever the advisor's request (`/v1/configurations/{id}/resync`):
   disagreeing fields listed, overrides marked, only chosen fields applied.
 
