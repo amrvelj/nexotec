@@ -103,7 +103,10 @@ def run(db: Session) -> ReconciliationRun:
     return run_reconciliation(db, context=CONTEXT, checks=CHECKS)
 
 
-class CloseCategory(str, enum.Enum):
+class StampCategory(str, enum.Enum):
+    """How the scope stamped on a vehicle-party audit row or outbox event
+    relates to the group of the customer it names (KAN-139, KAN-176)."""
+
     SAME_GROUP = "same_group"
     SAME_GROUP_DEALERSHIP_STAMP = "same_group_dealership_stamp"
     CROSS_GROUP = "cross_group"
@@ -111,7 +114,7 @@ class CloseCategory(str, enum.Enum):
 
 
 @dataclasses.dataclass(frozen=True)
-class VehiclePartyClose:
+class VehiclePartyStamp:
     source: str
     row_id: uuid.UUID
     at: dt.datetime
@@ -119,25 +122,26 @@ class VehiclePartyClose:
     customer_group_id: uuid.UUID | None
     stamped_tenant_id: uuid.UUID | None
     stamped_group_id: uuid.UUID | None
-    category: CloseCategory
+    category: StampCategory
 
 
 @dataclasses.dataclass(frozen=True)
-class VehiclePartyCloseReport:
-    rows: list[VehiclePartyClose]
+class VehiclePartyStampReport:
+    operation: str  # "close" (KAN-139) or "link" (KAN-176)
+    rows: list[VehiclePartyStamp]
 
     @property
-    def findings(self) -> list[VehiclePartyClose]:
-        return [row for row in self.rows if row.category is CloseCategory.CROSS_GROUP]
+    def findings(self) -> list[VehiclePartyStamp]:
+        return [row for row in self.rows if row.category is StampCategory.CROSS_GROUP]
 
     @property
-    def unresolved(self) -> list[VehiclePartyClose]:
-        return [row for row in self.rows if row.category is CloseCategory.UNRESOLVED]
+    def unresolved(self) -> list[VehiclePartyStamp]:
+        return [row for row in self.rows if row.category is StampCategory.UNRESOLVED]
 
-    def counts(self) -> dict[str, dict[CloseCategory, int]]:
-        counts: dict[str, dict[CloseCategory, int]] = {}
+    def counts(self) -> dict[str, dict[StampCategory, int]]:
+        counts: dict[str, dict[StampCategory, int]] = {}
         for row in self.rows:
-            per_source = counts.setdefault(row.source, dict.fromkeys(CloseCategory, 0))
+            per_source = counts.setdefault(row.source, dict.fromkeys(StampCategory, 0))
             per_source[row.category] += 1
         return counts
 
@@ -160,7 +164,7 @@ def _as_uuid(value: object) -> uuid.UUID | None:
         return None
 
 
-def find_cross_group_vehicle_party_closes(db: Session) -> VehiclePartyCloseReport:
+def find_cross_group_vehicle_party_closes(db: Session) -> VehiclePartyStampReport:
     """KAN-139 — read-only detection of vehicle-party closes one dealer group
     wrote into another group's history before KAN-99. Until then
     allocate_vehicle_party closed the open holder of (vehicle, role) with no
@@ -192,16 +196,58 @@ def find_cross_group_vehicle_party_closes(db: Session) -> VehiclePartyCloseRepor
     app.platform.public in their own queries, as the checks above do.
     """
 
+    return _classify_vehicle_party_stamps(
+        db, operation="close", audit_action="vehicle_party_remove", event_type="customer.vehicle_party.unlinked",
+    )
+
+
+def find_cross_group_vehicle_party_links(db: Session) -> VehiclePartyStampReport:
+    """KAN-176 — the same read-only detection for the links the trade-in
+    path wrote before KAN-99. Until then app.sales.services.trade_in passed
+    the request body's customerId straight to allocate_vehicle_party, which
+    did not resolve the customer in the caller's group: a trade-in in group
+    A could link group B's customer to the vehicle, stamping the
+    `vehicle_party_add` audit row and the `customer.vehicle_party.linked`
+    outbox event with group A while both name group B's customer. KAN-99
+    resolves the customer in the caller's group (404 otherwise); the rows
+    already written remain, and KAN-139's detection covers closes only.
+
+    Classified exactly as the closes are, against the linked customer's
+    group. SAME_GROUP_DEALERSHIP_STAMP is a link written while customers
+    were dealership-scoped (before WP-3 PR-2, 026d3bb, 2026-08-25) — unlike
+    a dealership-stamped close it has a VehicleParty row behind it. A
+    CROSS_GROUP link's VehicleParty row still exists (closed or open) and
+    its customer is in another group than the stamp: that row is the one a
+    repair would have to judge. The customer-side POST stamps the
+    customer's own group and can only ever be SAME_GROUP.
+
+    Read-only and not a nightly check, for the reasons given on
+    find_cross_group_vehicle_party_closes; a repair is Anto's decision.
+    """
+
+    return _classify_vehicle_party_stamps(
+        db, operation="link", audit_action="vehicle_party_add", event_type="customer.vehicle_party.linked",
+    )
+
+
+def _classify_vehicle_party_stamps(
+    db: Session, *, operation: str, audit_action: str, event_type: str
+) -> VehiclePartyStampReport:
+    """Classifies every customer audit row with `audit_action` and every
+    outbox event of `event_type` by how its stamped tenant relates to the
+    group of the customer it names — the one classification behind both
+    detections above. SELECTs only; no cross-context join."""
+
     raw: list[tuple[str, uuid.UUID, dt.datetime, uuid.UUID | None, uuid.UUID | None]] = []
     for row_id, customer_id, stamped, at in db.execute(
         select(AuditEvent.id, AuditEvent.entity_id, AuditEvent.tenant_id, AuditEvent.created_at)
-        .where(AuditEvent.entity_type == "customer", AuditEvent.action == "vehicle_party_remove")
+        .where(AuditEvent.entity_type == "customer", AuditEvent.action == audit_action)
         .order_by(AuditEvent.created_at, AuditEvent.id)
     ).all():
         raw.append(("audit_event", row_id, at, customer_id, stamped))
     for row_id, payload, stamped, at in db.execute(
         select(OutboxMessage.id, OutboxMessage.payload, OutboxMessage.tenant_id, OutboxMessage.occurred_at)
-        .where(OutboxMessage.event_type == "customer.vehicle_party.unlinked")
+        .where(OutboxMessage.event_type == event_type)
         .order_by(OutboxMessage.occurred_at, OutboxMessage.id)
     ).all():
         customer_ref = payload.get("customerId") if isinstance(payload, dict) else None
@@ -226,7 +272,7 @@ def find_cross_group_vehicle_party_closes(db: Session) -> VehiclePartyCloseRepor
             )
         )
 
-    rows: list[VehiclePartyClose] = []
+    rows: list[VehiclePartyStamp] = []
     for source, row_id, at, customer_id, stamped in raw:
         customer_group = customer_groups.get(customer_id) if customer_id is not None else None
         stamped_group: uuid.UUID | None = None
@@ -236,15 +282,15 @@ def find_cross_group_vehicle_party_closes(db: Session) -> VehiclePartyCloseRepor
             stamped_group = dealership_groups.get(stamped)
 
         if customer_group is None or stamped_group is None:
-            category = CloseCategory.UNRESOLVED
+            category = StampCategory.UNRESOLVED
         elif stamped_group != customer_group:
-            category = CloseCategory.CROSS_GROUP
+            category = StampCategory.CROSS_GROUP
         elif stamped == customer_group:
-            category = CloseCategory.SAME_GROUP
+            category = StampCategory.SAME_GROUP
         else:
-            category = CloseCategory.SAME_GROUP_DEALERSHIP_STAMP
-        rows.append(VehiclePartyClose(
+            category = StampCategory.SAME_GROUP_DEALERSHIP_STAMP
+        rows.append(VehiclePartyStamp(
             source=source, row_id=row_id, at=at, customer_id=customer_id, customer_group_id=customer_group,
             stamped_tenant_id=stamped, stamped_group_id=stamped_group, category=category,
         ))
-    return VehiclePartyCloseReport(rows=rows)
+    return VehiclePartyStampReport(operation=operation, rows=rows)

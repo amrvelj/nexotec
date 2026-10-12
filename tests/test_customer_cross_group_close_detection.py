@@ -20,7 +20,7 @@ from app.core.audit_model import AuditEvent
 from app.core.base import utcnow
 from app.core.outbox_model import OutboxMessage
 from app.customer.models.customer import Customer, CustomerType, Language
-from app.customer.reconciliation import CloseCategory, find_cross_group_vehicle_party_closes
+from app.customer.reconciliation import StampCategory, find_cross_group_vehicle_party_closes
 from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
 
 _POSTGRES_ONLY = pytest.mark.skipif(
@@ -78,7 +78,7 @@ def _unlinked_event(db_session, *, customer_id: object, stamped: uuid.UUID | Non
     return message
 
 
-def _categories(report) -> dict[uuid.UUID, CloseCategory]:
+def _categories(report) -> dict[uuid.UUID, StampCategory]:
     return {row.row_id: row.category for row in report.rows}
 
 
@@ -90,7 +90,7 @@ def test_a_close_stamped_with_another_group_is_a_finding(db_session):
 
     report = find_cross_group_vehicle_party_closes(db_session)
 
-    assert _categories(report) == {audit.id: CloseCategory.CROSS_GROUP, event.id: CloseCategory.CROSS_GROUP}
+    assert _categories(report) == {audit.id: StampCategory.CROSS_GROUP, event.id: StampCategory.CROSS_GROUP}
     assert {(f.source, f.customer_group_id, f.stamped_group_id) for f in report.findings} == {
         ("audit_event", group_b.id, group_a.id),
         ("outbox_message", group_b.id, group_a.id),
@@ -105,7 +105,7 @@ def test_a_close_stamped_with_the_holders_own_group_is_not(db_session):
 
     report = find_cross_group_vehicle_party_closes(db_session)
 
-    assert _categories(report) == {audit.id: CloseCategory.SAME_GROUP, event.id: CloseCategory.SAME_GROUP}
+    assert _categories(report) == {audit.id: StampCategory.SAME_GROUP, event.id: StampCategory.SAME_GROUP}
     assert report.findings == []
 
 
@@ -125,8 +125,8 @@ def test_a_dealership_stamp_counts_as_the_dealerships_group(db_session):
     report = find_cross_group_vehicle_party_closes(db_session)
 
     assert _categories(report) == {
-        same.id: CloseCategory.SAME_GROUP_DEALERSHIP_STAMP,
-        cross.id: CloseCategory.CROSS_GROUP,
+        same.id: StampCategory.SAME_GROUP_DEALERSHIP_STAMP,
+        cross.id: StampCategory.CROSS_GROUP,
     }
     [finding] = report.findings
     assert finding.stamped_group_id == group_a.id
@@ -143,10 +143,10 @@ def test_what_cannot_be_resolved_is_reported_never_guessed(db_session):
     report = find_cross_group_vehicle_party_closes(db_session)
 
     assert _categories(report) == {
-        missing_customer.id: CloseCategory.UNRESOLVED,
-        unknown_stamp.id: CloseCategory.UNRESOLVED,
-        no_stamp.id: CloseCategory.UNRESOLVED,
-        bad_payload.id: CloseCategory.UNRESOLVED,
+        missing_customer.id: StampCategory.UNRESOLVED,
+        unknown_stamp.id: StampCategory.UNRESOLVED,
+        no_stamp.id: StampCategory.UNRESOLVED,
+        bad_payload.id: StampCategory.UNRESOLVED,
     }
     assert report.findings == []
     assert len(report.unresolved) == 4
