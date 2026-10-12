@@ -141,7 +141,8 @@ class Principal:
     # at least tenant_id itself. There is no cross-dealership WRITE, ever:
     # to act on a sister dealership's data the user switches active
     # dealership (POST /v1/auth/switch-dealership), which re-issues the
-    # token with a different tenant_id from this same set.
+    # token with a different tenant_id — authorised against the memberships
+    # the database holds at that moment, never against this claim (KAN-141).
     memberships: frozenset[uuid.UUID]
     # The location (site within the active dealership) the user is working
     # from, if any. Scaffolding for Aftersales (WP-5) — no location-switching
