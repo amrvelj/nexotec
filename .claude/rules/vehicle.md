@@ -130,8 +130,9 @@ code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. -->
   `coded_field_locked` (the same value is accepted); a manual configuration needs all five to be
   created (422 `coded_fields_required`) and cannot clear one (422 `coded_field_required`). They
   and the spec-block reference fields take only an active value of their reference list
-  (KAN-96, KAN-245). Every other nullable field clears with an explicit `null` on PATCH; an
-  absent field is left alone (KAN-247).
+  (KAN-96, KAN-245). Every other nullable observed or spec field clears with an explicit
+  `null` on PATCH; an absent field is left alone (KAN-247). `catalogueVariantId`,
+  `catalogueMatchStatus` and `spec: null` still mean "leave alone"; the lock follows `source`.
 - **Re-sync (FR-C-16)** is only ever the advisor's request (`/v1/configurations/{id}/resync`):
   disagreeing fields listed, overrides marked, only chosen fields applied.
 
@@ -158,7 +159,7 @@ code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. -->
 - **`ProviderCodeMap` is keyed `(provider, vehicle_kind, code_group, provider_code)`** —
   `vehicle_kind` is the raw FzArt, `code_group` the semantic list code, `provider_code` the raw
   code; never a numeric CodeGrpNr (`resolve_provider_code` refuses one; migration
-  `ff5b97c11665` re-keyed the legacy gaps, KAN-194). An unmapped code of a code-mapped field (the variant's
+  `ff5b97c11665` re-keyed the open legacy gaps that `7c4e9a2b6d13`'s CodeGrpNr table maps, KAN-194). An unmapped code of a code-mapped field (the variant's
   `vehicle_kind`, `fuel_type`, `body_style`, `drivetrain`, `transmission`; an option's
   `equipment_feature`) becomes a `mapping_gap` (FR-C-10), never a silent default. **Not yet true
   for the adapter's inline decodes (KAN-75):** an unknown `FarbArt` becomes `exterior`, a

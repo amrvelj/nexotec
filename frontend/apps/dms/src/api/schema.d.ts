@@ -2962,7 +2962,10 @@ export interface components {
         };
         /** ConfigurationCreate */
         ConfigurationCreate: {
-            /** Bodystyle */
+            /**
+             * Bodystyle
+             * @description An active value of the reference list of the same name. Required when `source` is `manual` (422 `coded_fields_required`), and never cleared on such a configuration (422 `coded_field_required`); on a `provider` configuration it comes from the catalogue and a change is refused (422 `coded_field_locked`).
+             */
             bodyStyle?: string | null;
             /** Branddisplayname */
             brandDisplayName?: string | null;
@@ -2970,7 +2973,10 @@ export interface components {
             catalogueVariantId?: string | null;
             /** Confirmedbestmatchcode */
             confirmedBestMatchCode?: number | null;
-            /** Drivetrain */
+            /**
+             * Drivetrain
+             * @description An active value of the reference list of the same name. Required when `source` is `manual` (422 `coded_fields_required`), and never cleared on such a configuration (422 `coded_field_required`); on a `provider` configuration it comes from the catalogue and a change is refused (422 `coded_field_locked`).
+             */
             drivetrain?: string | null;
             /** Exteriorcolour */
             exteriorColour?: string | null;
@@ -2978,7 +2984,10 @@ export interface components {
             exteriorColourSurcharge?: number | string | null;
             /** Firstregistrationdate */
             firstRegistrationDate?: string | null;
-            /** Fueltype */
+            /**
+             * Fueltype
+             * @description An active value of the reference list of the same name. Required when `source` is `manual` (422 `coded_fields_required`), and never cleared on such a configuration (422 `coded_field_required`); on a `provider` configuration it comes from the catalogue and a change is refused (422 `coded_field_locked`).
+             */
             fuelType?: string | null;
             /** Interiorcolour */
             interiorColour?: string | null;
@@ -2998,13 +3007,19 @@ export interface components {
             spec?: components["schemas"]["VehicleSpecBlockInput"] | null;
             /** Stammnummer */
             stammnummer?: string | null;
-            /** Transmission */
+            /**
+             * Transmission
+             * @description An active value of the reference list of the same name. Required when `source` is `manual` (422 `coded_fields_required`), and never cleared on such a configuration (422 `coded_field_required`); on a `provider` configuration it comes from the catalogue and a change is refused (422 `coded_field_locked`).
+             */
             transmission?: string | null;
             /** Typeapprovalnumber */
             typeApprovalNumber?: string | null;
             /** Variantname */
             variantName?: string | null;
-            /** Vehiclekind */
+            /**
+             * Vehiclekind
+             * @description An active value of the reference list of the same name. Required when `source` is `manual` (422 `coded_fields_required`), and never cleared on such a configuration (422 `coded_field_required`); on a `provider` configuration it comes from the catalogue and a change is refused (422 `coded_field_locked`).
+             */
             vehicleKind?: string | null;
             /** Vin */
             vin?: string | null;
@@ -3201,14 +3216,20 @@ export interface components {
         ConfigurationSource: "provider" | "manual";
         /** ConfigurationUpdate */
         ConfigurationUpdate: {
-            /** Bodystyle */
+            /**
+             * Bodystyle
+             * @description An active value of the reference list of the same name. Required when `source` is `manual` (422 `coded_fields_required`), and never cleared on such a configuration (422 `coded_field_required`); on a `provider` configuration it comes from the catalogue and a change is refused (422 `coded_field_locked`).
+             */
             bodyStyle?: string | null;
             /** Branddisplayname */
             brandDisplayName?: string | null;
             catalogueMatchStatus?: components["schemas"]["ConfigurationMatchStatus"] | null;
             /** Cataloguevariantid */
             catalogueVariantId?: string | null;
-            /** Drivetrain */
+            /**
+             * Drivetrain
+             * @description An active value of the reference list of the same name. Required when `source` is `manual` (422 `coded_fields_required`), and never cleared on such a configuration (422 `coded_field_required`); on a `provider` configuration it comes from the catalogue and a change is refused (422 `coded_field_locked`).
+             */
             drivetrain?: string | null;
             /** Exteriorcolour */
             exteriorColour?: string | null;
@@ -3216,7 +3237,10 @@ export interface components {
             exteriorColourSurcharge?: number | string | null;
             /** Firstregistrationdate */
             firstRegistrationDate?: string | null;
-            /** Fueltype */
+            /**
+             * Fueltype
+             * @description An active value of the reference list of the same name. Required when `source` is `manual` (422 `coded_fields_required`), and never cleared on such a configuration (422 `coded_field_required`); on a `provider` configuration it comes from the catalogue and a change is refused (422 `coded_field_locked`).
+             */
             fuelType?: string | null;
             /** Interiorcolour */
             interiorColour?: string | null;
@@ -3235,13 +3259,19 @@ export interface components {
             spec?: components["schemas"]["VehicleSpecBlockInput"] | null;
             /** Stammnummer */
             stammnummer?: string | null;
-            /** Transmission */
+            /**
+             * Transmission
+             * @description An active value of the reference list of the same name. Required when `source` is `manual` (422 `coded_fields_required`), and never cleared on such a configuration (422 `coded_field_required`); on a `provider` configuration it comes from the catalogue and a change is refused (422 `coded_field_locked`).
+             */
             transmission?: string | null;
             /** Typeapprovalnumber */
             typeApprovalNumber?: string | null;
             /** Variantname */
             variantName?: string | null;
-            /** Vehiclekind */
+            /**
+             * Vehiclekind
+             * @description An active value of the reference list of the same name. Required when `source` is `manual` (422 `coded_fields_required`), and never cleared on such a configuration (422 `coded_field_required`); on a `provider` configuration it comes from the catalogue and a change is refused (422 `coded_field_locked`).
+             */
             vehicleKind?: string | null;
             /** Vin */
             vin?: string | null;

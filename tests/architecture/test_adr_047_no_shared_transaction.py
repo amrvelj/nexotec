@@ -192,8 +192,10 @@ _OWN_COMMIT_WRITES = {
     # A VIN resolves to (or creates) the vehicle master record (FR-V-04).
     "app.vehicle.public.create_or_get_vehicle_mdm": (
         "app.vehicle.services.vehicle_mdm.create_vehicle_mdm",
-        "inventory: vehicle_resolution (stock create with a VIN, KAN-244; promotion), on its own session (KAN-257); "
-        "sales: trade-in; valuation: create",
+        (
+            "inventory: vehicle_resolution (stock create with a VIN, KAN-244; promotion), on its own session "
+            "(KAN-257); sales: trade-in; valuation: create"
+        ),
     ),
     # The daily job composition root runs the catalogue delta per tenant.
     # Since KAN-78 the run's unconditional sync-state commit lives in
