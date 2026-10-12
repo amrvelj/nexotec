@@ -1590,6 +1590,8 @@
       },
       "retired": "N'est plus disponible — choisissez une valeur actuelle",
       "retiredSaveError": "N'est plus disponible : {{fields}}. Choisissez une valeur actuelle avant d'enregistrer.",
+      "codedRequiredSaveError": "À choisir avant d'enregistrer : {{fields}}.",
+      "codedLocked": "Repris du catalogue — non modifiable.",
       "listUnavailable": "La liste n'a pas pu être chargée"
     },
     "options": {

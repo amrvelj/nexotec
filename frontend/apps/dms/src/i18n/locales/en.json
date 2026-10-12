@@ -1590,6 +1590,8 @@
       },
       "retired": "No longer available — choose a current value",
       "retiredSaveError": "No longer available: {{fields}}. Choose a current value before saving.",
+      "codedRequiredSaveError": "Choose before saving: {{fields}}.",
+      "codedLocked": "From the catalogue — cannot be changed.",
       "listUnavailable": "The list could not be loaded"
     },
     "options": {

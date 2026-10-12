@@ -6,7 +6,7 @@ import userEvent from '@testing-library/user-event'
 import i18n from '../../i18n'
 import { renderWithProviders } from '../../test/renderWithProviders'
 import { installFakeBackend, status, type FakeRoute } from '../../test/fakeBackend'
-import { configurationRead } from '../../test/configuratorFixtures'
+import { CODED_REFERENCE_ROUTES, configurationRead, pickCodedFields } from '../../test/configuratorFixtures'
 import { toSwissLocale } from '../../i18n'
 import type { StockItemRead } from '../../api/types'
 import { DetailsTab } from '../../components/stock-detail/DetailsTab'
@@ -37,6 +37,7 @@ const CATALOGUE: FakeRoute[] = [
     match: /\/catalogue\/variants$/,
     handler: () => ({ items: [], nextCursor: null, total: 0, totalIsEstimate: false, browseAvailable: true }),
   },
+  ...CODED_REFERENCE_ROUTES,
   { method: 'GET', match: /\/reference-data\//, handler: () => ({ items: [], nextCursor: null }) },
   { method: 'GET', match: /^\/inventory\/stock-items$/, handler: () => ({ items: [], nextCursor: null, total: 0, totalIsEstimate: false }) },
 ]
@@ -45,7 +46,10 @@ function LocationProbe() {
   return <div data-testid="path">{useLocation().pathname}</div>
 }
 
-describe('Stock list — add to pipeline (FR-C-13)', () => {
+// A manual configuration's save now needs its five coded fields picked
+// (Anto, 2026-10-12), and several tests here build two cars: their user-event
+// flows run past vitest's 5 s default on a loaded machine.
+describe('Stock list — add to pipeline (FR-C-13)', { timeout: 15_000 }, () => {
   it('offers both modes and creates a pipeline item carrying the configuration', async () => {
     const user = userEvent.setup()
     const created: Record<string, unknown>[] = []
@@ -91,6 +95,7 @@ describe('Stock list — add to pipeline (FR-C-13)', () => {
 
     await user.click(within(overlay).getByText(i18n.t('configurator.mode.record')))
     await user.click(within(overlay).getByRole('button', { name: i18n.t('configurator.find.manual') }))
+    await pickCodedFields()
     await user.click(await within(overlay).findByRole('button', { name: i18n.t('configurator.saveNew') }))
 
     await waitFor(() => expect(created).toHaveLength(1))
@@ -116,6 +121,7 @@ describe('Stock list — add to pipeline (FR-C-13)', () => {
     await user.click(await screen.findByRole('button', { name: i18n.t('stockList.addToPipeline') }))
     const overlay = await screen.findByRole('dialog')
     await user.click(within(overlay).getByRole('button', { name: i18n.t('configurator.find.manual') }))
+    await pickCodedFields()
     await user.click(await within(overlay).findByRole('button', { name: i18n.t('configurator.saveNew') }))
 
     expect(await within(overlay).findByText(i18n.t('stockList.addToPipelineError'))).toBeInTheDocument()
@@ -147,12 +153,14 @@ describe('Stock list — add to pipeline (FR-C-13)', () => {
     await user.click(await screen.findByRole('button', { name: i18n.t('stockList.addToPipeline') }))
     const overlay = await screen.findByRole('dialog')
     await user.click(within(overlay).getByRole('button', { name: i18n.t('configurator.find.manual') }))
+    await pickCodedFields()
     await user.click(await within(overlay).findByRole('button', { name: i18n.t('configurator.saveNew') }))
     expect(await within(overlay).findByText(i18n.t('stockList.addToPipelineError'))).toBeInTheDocument()
 
     await user.click(within(overlay).getByRole('button', { name: i18n.t('configurator.configure.back') }))
     await user.click(await within(overlay).findByRole('button', { name: i18n.t('configurator.find.manual') }))
     expect(within(overlay).queryByText(i18n.t('stockList.addToPipelineError'))).not.toBeInTheDocument()
+    await pickCodedFields()
     await user.click(await within(overlay).findByRole('button', { name: i18n.t('configurator.saveNew') }))
 
     await waitFor(() => expect(backend.callsTo(/^\/configurations$/, 'POST')).toHaveLength(2))
@@ -181,6 +189,7 @@ describe('Stock list — add to pipeline (FR-C-13)', () => {
     await user.click(await screen.findByRole('button', { name: i18n.t('stockList.addToPipeline') }))
     const overlay = await screen.findByRole('dialog')
     await user.click(within(overlay).getByRole('button', { name: i18n.t('configurator.find.manual') }))
+    await pickCodedFields()
     await user.click(await within(overlay).findByRole('button', { name: i18n.t('configurator.saveNew') }))
 
     await waitFor(() => expect(backend.callsTo(/^\/configurations$/, 'POST')).toHaveLength(1))
@@ -209,6 +218,7 @@ describe('Stock list — add to pipeline (FR-C-13)', () => {
     await user.click(within(overlay).getByRole('button', { name: i18n.t('configurator.find.manual') }))
     await user.click(await within(overlay).findByRole('button', { name: i18n.t('configurator.configure.back') }))
     await user.click(await within(overlay).findByRole('button', { name: i18n.t('configurator.find.manual') }))
+    await pickCodedFields()
     await user.click(await within(overlay).findByRole('button', { name: i18n.t('configurator.saveNew') }))
 
     await waitFor(() => expect(backend.callsTo(/^\/configurations$/, 'POST')).toHaveLength(1))
@@ -249,6 +259,7 @@ describe('Stock list — add to pipeline (FR-C-13)', () => {
     await user.click(await screen.findByRole('button', { name: i18n.t('stockList.addToPipeline') }))
     const overlay = await screen.findByRole('dialog')
     await user.click(within(overlay).getByRole('button', { name: i18n.t('configurator.find.manual') }))
+    await pickCodedFields()
     await user.click(await within(overlay).findByRole('button', { name: i18n.t('configurator.saveNew') }))
     expect(await within(overlay).findByText(i18n.t('stockList.addToPipelineError'))).toBeInTheDocument()
     await user.click(within(overlay).getByRole('button', { name: i18n.t('configurator.save') }))
@@ -261,7 +272,7 @@ describe('Stock list — add to pipeline (FR-C-13)', () => {
   })
 })
 
-describe('Stock list — add to pipeline, one key per opening (KAN-266)', () => {
+describe('Stock list — add to pipeline, one key per opening (KAN-266)', { timeout: 15_000 }, () => {
   it('the same pipeline item sent after closing and reopening the configurator gets a new key', async () => {
     // Without the renew on opening, the key of a failed create would follow
     // the button to the next opening and replay whatever it was bound to.
@@ -292,6 +303,7 @@ describe('Stock list — add to pipeline, one key per opening (KAN-266)', () => 
       await user.click(await screen.findByRole('button', { name: i18n.t('stockList.addToPipeline') }))
       const overlay = await screen.findByRole('dialog')
       await user.click(within(overlay).getByRole('button', { name: i18n.t('configurator.find.manual') }))
+      await pickCodedFields()
       await user.click(await within(overlay).findByRole('button', { name: i18n.t('configurator.saveNew') }))
       return overlay
     }

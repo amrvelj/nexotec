@@ -6,7 +6,7 @@ import userEvent from '@testing-library/user-event'
 import i18n from '../i18n'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { installFakeBackend, status, type FakeRoute } from '../test/fakeBackend'
-import { configurationRead } from '../test/configuratorFixtures'
+import { CODED_REFERENCE_ROUTES, configurationRead, pickCodedFields } from '../test/configuratorFixtures'
 import type { SalesContractRead } from '../api/types'
 import { ContractDetailPage } from './ContractDetailPage'
 
@@ -454,7 +454,8 @@ describe('ContractDetailPage — a pending contract can be completed (KAN-67)', 
     await waitFor(() => expect(screen.getByRole('button', { name: i18n.t('contractDetail.actions.confirm') })).toBeEnabled())
   })
 
-  it('a trade-in valuation attach still on its way holds Confirm until it lands (KAN-289 review)', async () => {
+  // picks the trade-in's five coded fields first (Anto, 2026-10-12)
+  it('a trade-in valuation attach still on its way holds Confirm until it lands (KAN-289 review)', { timeout: 15_000 }, async () => {
     const user = userEvent.setup()
     let release: (value: unknown) => void = () => {}
     const tradeIn = configurationRead({
@@ -469,6 +470,7 @@ describe('ContractDetailPage — a pending contract can be completed (KAN-67)', 
         match: /\/catalogue\/variants$/,
         handler: () => ({ items: [], nextCursor: null, total: 0, totalIsEstimate: false, browseAvailable: true }),
       },
+      ...CODED_REFERENCE_ROUTES,
       { method: 'GET', match: /\/reference-data\//, handler: () => ({ items: [], nextCursor: null }) },
       { method: 'GET', match: /^\/integrations\/capabilities\//, handler: () => ({ capabilityCode: 'x', granted: false }) },
     ]
@@ -490,6 +492,7 @@ describe('ContractDetailPage — a pending contract can be completed (KAN-67)', 
     await user.click(await screen.findByRole('button', { name: i18n.t('offerWorkspace.tradeIn.valueWithConfigurator') }))
     const overlay = await screen.findByRole('dialog')
     await user.click(within(overlay).getByRole('button', { name: i18n.t('configurator.find.manual') }))
+    await pickCodedFields()
     await user.click(await within(overlay).findByRole('button', { name: i18n.t('configurator.saveNew') }))
     const valuationDialog = await screen.findByRole('dialog', { name: i18n.t('valuationCreate.title') })
     await user.type(within(valuationDialog).getByLabelText(i18n.t('valuationCreate.finalOffer'), { exact: false }), '2500')

@@ -6,7 +6,7 @@ import userEvent from '@testing-library/user-event'
 import i18n from '../i18n'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { installFakeBackend, status, type FakeRoute } from '../test/fakeBackend'
-import { configurationRead } from '../test/configuratorFixtures'
+import { CODED_REFERENCE_ROUTES, configurationRead, pickCodedFields } from '../test/configuratorFixtures'
 import type { CustomerVehicleRead } from '../api/types'
 import { ValuationCreatePage } from './ValuationCreatePage'
 import { ValuationsListPage } from './ValuationsListPage'
@@ -37,11 +37,14 @@ const CATALOGUE: FakeRoute[] = [
     match: /\/catalogue\/variants$/,
     handler: () => ({ items: [], nextCursor: null, total: 0, totalIsEstimate: false, browseAvailable: true }),
   },
+  ...CODED_REFERENCE_ROUTES,
   { method: 'GET', match: /\/reference-data\//, handler: () => ({ items: [], nextCursor: null }) },
   { method: 'GET', match: /^\/integrations\/capabilities\//, handler: () => ({ capabilityCode: 'valuation', granted: true }) },
 ]
 
-describe('Valuation → new valuation (FR-C-14)', () => {
+// Each manual configuration picks its five coded fields before saving (Anto,
+// 2026-10-12): past vitest's 5 s default on a loaded machine.
+describe('Valuation → new valuation (FR-C-14)', { timeout: 15_000 }, () => {
   it('captures the car in record mode first, then values it with the configuration', async () => {
     const user = userEvent.setup()
     const posted: Record<string, unknown>[] = []
@@ -74,6 +77,7 @@ describe('Valuation → new valuation (FR-C-14)', () => {
     // Record only: no mode switch, no build mode.
     expect(screen.queryByText(i18n.t('configurator.mode.build'))).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: i18n.t('configurator.find.manual') }))
+    await pickCodedFields()
     await user.click(await screen.findByRole('button', { name: i18n.t('configurator.saveNew') }))
 
     const dialog = await screen.findByRole('dialog', { name: i18n.t('valuationCreate.title') })
@@ -118,6 +122,7 @@ describe('Valuation → new valuation (FR-C-14)', () => {
     expect(screen.getByRole('heading', { name: i18n.t('valuationsList.title') })).toBeInTheDocument()
     expect(within(overlay).queryByText(i18n.t('configurator.mode.build'))).not.toBeInTheDocument()
     await user.click(within(overlay).getByRole('button', { name: i18n.t('configurator.find.manual') }))
+    await pickCodedFields()
     await user.click(await within(overlay).findByRole('button', { name: i18n.t('configurator.saveNew') }))
 
     const dialog = await screen.findByRole('dialog', { name: i18n.t('valuationCreate.title') })
