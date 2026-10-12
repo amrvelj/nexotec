@@ -455,7 +455,7 @@ describe('ContractDetailPage — a pending contract can be completed (KAN-67)', 
   })
 
   // picks the trade-in's five coded fields first (Anto, 2026-10-12)
-  it('a trade-in valuation attach still on its way holds Confirm until it lands (KAN-289 review)', { timeout: 15_000 }, async () => {
+  it('a trade-in valuation attach still on its way holds Confirm until it lands (KAN-289 review)', async () => {
     const user = userEvent.setup()
     let release: (value: unknown) => void = () => {}
     const tradeIn = configurationRead({

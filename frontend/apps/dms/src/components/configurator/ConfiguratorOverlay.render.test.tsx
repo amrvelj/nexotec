@@ -230,9 +230,7 @@ async function openOverlay(user: ReturnType<typeof userEvent.setup>) {
   return screen.findByText(i18n.t('configurator.find.title'))
 }
 
-// The manual-configuration tests pick five coded fields before saving (Anto,
-// 2026-10-12): past vitest's 5 s default on a loaded machine.
-describe('ConfiguratorOverlay', { timeout: 15_000 }, () => {
+describe('ConfiguratorOverlay', () => {
   it('opens on top of a host and keeps the host input mounted (ADR-059)', async () => {
     const user = userEvent.setup()
     install()

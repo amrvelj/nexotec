@@ -28,6 +28,13 @@ export interface RenderWithProvidersResult extends RenderResult {
  * scope, and the ADR-059 overlay stack. No screen is stubbed — a test
  * passes the real page (or a real `<Routes>`), and `installFakeBackend`
  * supplies the data.
+ *
+ * `withCssVariables={false}` (KAN-325): vitest loads no stylesheet, so the
+ * 11 KB of `--mantine-*` variables the provider would inject style nothing
+ * here — but jsdom parsed them on every mount (~0.25 s a render) and
+ * matched them on every `getComputedStyle`, which every `*ByRole` query
+ * makes per candidate for its visibility check. Nothing a test can observe
+ * changes: the variables are read by Mantine's CSS, never by its JS.
  */
 export function renderWithProviders(ui: ReactElement, options: RenderOptions = {}): RenderWithProvidersResult {
   const queryClient =
@@ -40,7 +47,7 @@ export function renderWithProviders(ui: ReactElement, options: RenderOptions = {
     })
 
   const tree = (
-    <MantineProvider theme={theme} env="test">
+    <MantineProvider theme={theme} env="test" withCssVariables={false} withGlobalClasses={false}>
       <QueryClientProvider client={queryClient}>
         <MemoryRouter initialEntries={[options.route ?? '/']}>
           <AuthProvider>

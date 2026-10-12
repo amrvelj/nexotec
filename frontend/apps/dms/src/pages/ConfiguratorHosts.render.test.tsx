@@ -42,9 +42,7 @@ const CATALOGUE: FakeRoute[] = [
   { method: 'GET', match: /^\/integrations\/capabilities\//, handler: () => ({ capabilityCode: 'valuation', granted: true }) },
 ]
 
-// Each manual configuration picks its five coded fields before saving (Anto,
-// 2026-10-12): past vitest's 5 s default on a loaded machine.
-describe('Valuation → new valuation (FR-C-14)', { timeout: 15_000 }, () => {
+describe('Valuation → new valuation (FR-C-14)', () => {
   it('captures the car in record mode first, then values it with the configuration', async () => {
     const user = userEvent.setup()
     const posted: Record<string, unknown>[] = []

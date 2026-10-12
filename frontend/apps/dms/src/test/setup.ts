@@ -3,8 +3,17 @@
 // harmless there: registering jest-dom's matchers is environment-free, and
 // the RTL cleanup + DOM shims are only wired when a DOM actually exists (a
 // render test that declared `// @vitest-environment jsdom`).
+import { createRequire } from 'node:module'
 import { afterEach, beforeEach, vi } from 'vitest'
+import { configure } from '@testing-library/dom'
 import '@testing-library/jest-dom/vitest'
+
+// KAN-325 — `findBy*` and `waitFor` give up after 1 s by default. Under load
+// a whole-page mount alone takes longer than that (the shell's first
+// `findByRole` failed at 1 s with a load average of 11), and a debounced
+// save is 1 s by design. A wait only lasts as long as the condition takes;
+// this is the ceiling, well inside the project's test timeout.
+configure({ asyncUtilTimeout: 10_000 })
 
 if (typeof window !== 'undefined') {
   // Node 26 exposes its own `--localstorage-file`-gated `localStorage`
@@ -63,6 +72,40 @@ if (typeof window !== 'undefined') {
   }
   if (!Element.prototype.scrollIntoView) {
     Element.prototype.scrollIntoView = () => {}
+  }
+
+  // KAN-325 — jsdom resolves a `<label for>` by walking the whole tree from
+  // the root for every label, although the document keeps an id index. Every
+  // `*ByRole({ name })` and `*ByLabelText` query reads `input.labels`, which
+  // jsdom recomputes after any DOM change by asking every label for its
+  // control: on a form the size of the configurator (55 inputs, 45 labels)
+  // that is ~0.5–0.7 s per query. Same answer (the first element with that
+  // id in tree order, as the spec says), through the index. Only a label
+  // in a detached subtree (no `getElementById` on its root) keeps the walk.
+  // jsdom's own `labels`/`control` callers reach the impl class, so the
+  // patch goes there, never on the window-facing prototype alone.
+  try {
+    const require = createRequire(import.meta.url)
+    const labelImpl = require('jsdom/lib/jsdom/living/nodes/HTMLLabelElement-impl.js').implementation
+    const { isLabelable } = require('jsdom/lib/jsdom/living/helpers/form-controls.js')
+    const original = Object.getOwnPropertyDescriptor(labelImpl.prototype, 'control')
+    if (original?.get && typeof isLabelable === 'function') {
+      const walk = original.get
+      Object.defineProperty(labelImpl.prototype, 'control', {
+        configurable: true,
+        get() {
+          if (!this.hasAttributeNS(null, 'for')) return walk.call(this)
+          const forValue = this.getAttributeNS(null, 'for')
+          if (forValue === '') return null
+          const root = this.getRootNode({})
+          if (typeof root.getElementById !== 'function') return walk.call(this)
+          const target = root.getElementById(forValue)
+          return target && isLabelable(target) ? target : null
+        },
+      })
+    }
+  } catch {
+    // jsdom's internals moved: the queries still work, only slower.
   }
 }
 

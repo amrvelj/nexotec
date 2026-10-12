@@ -87,9 +87,7 @@ async function typeHalfBuiltTradeIn(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText(i18n.t('offerWorkspace.tradeIn.vinLabel')), 'ZFFSG17A0H0071234')
 }
 
-// Each manual configuration picks its five coded fields before saving (Anto,
-// 2026-10-12): past vitest's 5 s default on a loaded machine.
-describe('OfferWorkspace — Path B through the configurator (FR-C-12)', { timeout: 15_000 }, () => {
+describe('OfferWorkspace — Path B through the configurator (FR-C-12)', () => {
   it('opens build-only as an overlay, keeps the half-built offer, and renders the summary card', async () => {
     const user = userEvent.setup()
     let offer = draftOffer()
@@ -160,7 +158,7 @@ describe('OfferWorkspace — Path B through the configurator (FR-C-12)', { timeo
   })
 })
 
-describe('OfferWorkspace — the trade-in through the valuation path (FR-C-12 carve-out)', { timeout: 15_000 }, () => {
+describe('OfferWorkspace — the trade-in through the valuation path (FR-C-12 carve-out)', () => {
   it('captures the trade-in in record mode, values it, and the offer references the valuation', async () => {
     const user = userEvent.setup()
     let offer = draftOffer()
