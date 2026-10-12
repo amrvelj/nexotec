@@ -42,6 +42,11 @@
       "recents": "Recent",
       "noResults": "No matches",
       "error": "Search failed — try again."
+    },
+    "switchDealershipError": {
+      "notAMember": "Switch refused: you are no longer a member of this dealership. You remain in the current dealership.",
+      "failed": "The dealership could not be switched. You remain in the current dealership. Please try again.",
+      "dismiss": "Dismiss message"
     }
   },
   "userRole": {

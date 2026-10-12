@@ -42,6 +42,11 @@
       "recents": "Recenti",
       "noResults": "Nessun risultato",
       "error": "Ricerca non riuscita — riprova."
+    },
+    "switchDealershipError": {
+      "notAMember": "Cambio rifiutato: non è più associato/a a questa concessionaria. Rimane nella concessionaria attuale.",
+      "failed": "Impossibile cambiare concessionaria. Rimane nella concessionaria attuale. Riprovi.",
+      "dismiss": "Chiudi messaggio"
     }
   },
   "userRole": {

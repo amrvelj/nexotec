@@ -42,6 +42,11 @@
       "recents": "Kürzlich",
       "noResults": "Keine Treffer",
       "error": "Suche fehlgeschlagen — bitte erneut versuchen."
+    },
+    "switchDealershipError": {
+      "notAMember": "Wechsel nicht möglich: Sie sind diesem Betrieb nicht mehr zugeordnet. Sie bleiben im aktuellen Betrieb.",
+      "failed": "Der Betrieb konnte nicht gewechselt werden. Sie bleiben im aktuellen Betrieb. Bitte versuchen Sie es erneut.",
+      "dismiss": "Meldung schliessen"
     }
   },
   "userRole": {

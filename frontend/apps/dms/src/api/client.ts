@@ -34,6 +34,30 @@ function toApiError(status: number, errorBody: ApiErrorBody | null): ApiError {
   )
 }
 
+// KAN-237 — a 401 from any call means the server no longer accepts this
+// browser's session (cookie expired, user deactivated, …). The client
+// session ends with it: AuthProvider subscribes here and clears its user,
+// and ProtectedRoute then routes to the login screen. Clearing a session
+// that is already gone changes nothing, so the 401 that `/auth/me` answers
+// a signed-out visitor (on /login or /sign-in-error) routes nowhere and
+// cannot loop. There is no token-refresh call to exempt: the session is one
+// httpOnly cookie, renewed only by signing in again.
+type UnauthorizedListener = () => void
+const unauthorizedListeners = new Set<UnauthorizedListener>()
+
+/** Subscribes to "the server answered 401"; returns the unsubscribe. */
+export function onUnauthorized(listener: UnauthorizedListener): () => void {
+  unauthorizedListeners.add(listener)
+  return () => {
+    unauthorizedListeners.delete(listener)
+  }
+}
+
+function reportUnauthorized(status: number) {
+  if (status !== 401) return
+  for (const listener of [...unauthorizedListeners]) listener()
+}
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
@@ -51,6 +75,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const body = await response.json().catch(() => null)
 
   if (!response.ok) {
+    reportUnauthorized(response.status)
     throw toApiError(response.status, body as ApiErrorBody | null)
   }
 
@@ -66,6 +91,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 async function getBlobUrl(path: string): Promise<string> {
   const response = await fetch(`${API_BASE_URL}${path}`, { credentials: 'include' })
   if (!response.ok) {
+    reportUnauthorized(response.status)
     throw toApiError(response.status, (await response.json().catch(() => null)) as ApiErrorBody | null)
   }
   const blob = await response.blob()

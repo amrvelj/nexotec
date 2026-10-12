@@ -1,4 +1,5 @@
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
+import { Alert } from '@mantine/core'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -22,7 +23,7 @@ import { AppShell, EnvironmentNotice, OverlayProvider, purple, white, type Globa
 import { useAuth } from '../auth/AuthContext'
 import { outboxWorkerAbsent } from '../config/deployment'
 import { UiPreferencesProvider, useUiPreferencesContext } from '../hooks/UiPreferencesContext'
-import { api } from '../api/client'
+import { api, ApiError } from '../api/client'
 import { customerName } from '../utils/customer'
 import type { CustomerPage, VehicleSearchResult } from '../api/types'
 
@@ -241,6 +242,7 @@ function DmsShellInner({ children }: { children: ReactNode }) {
   const location = useLocation()
   const { t, i18n } = useTranslation()
   const { sidebarCollapsed, uiLanguage, setSidebarCollapsed, setUiLanguage } = useUiPreferencesContext()
+  const [switchError, setSwitchError] = useState<string | null>(null)
 
   const navGroups = buildNavGroups(t)
 
@@ -299,7 +301,19 @@ function DmsShellInner({ children }: { children: ReactNode }) {
         activeDealership: activeDealership ?? undefined,
         memberships,
         onSwitchDealership: (dealershipId) => {
-          void switchDealership(dealershipId)
+          setSwitchError(null)
+          // KAN-237 — a refused switch is said, in the UI language, and
+          // the active dealership stays as it was. A 401 has already ended
+          // the session (AuthProvider) and routes to the login screen, so
+          // it gets no message here.
+          switchDealership(dealershipId).catch((err: unknown) => {
+            if (err instanceof ApiError && err.status === 401) return
+            setSwitchError(
+              err instanceof ApiError && err.status === 403
+                ? t('shell.switchDealershipError.notAMember')
+                : t('shell.switchDealershipError.failed')
+            )
+          })
         },
         linkComponent: Link,
       }}
@@ -321,7 +335,24 @@ function DmsShellInner({ children }: { children: ReactNode }) {
           content still renders within the same BreadcrumbProvider —
           useSetBreadcrumb(null) on the embedded side is what stops that
           from being a problem, not moving the provider around it. */}
-      <OverlayProvider>{children}</OverlayProvider>
+      <OverlayProvider>
+        {/* KAN-237 — the DMS's refused-action pattern: an inline red
+            alert above the content, dismissable, never the ADR-084
+            notice strip (that slot is for deployment-level notices). */}
+        {switchError && (
+          <Alert
+            color="red"
+            role="alert"
+            mb="md"
+            withCloseButton
+            closeButtonLabel={t('shell.switchDealershipError.dismiss')}
+            onClose={() => setSwitchError(null)}
+          >
+            {switchError}
+          </Alert>
+        )}
+        {children}
+      </OverlayProvider>
     </AppShell>
   )
 }

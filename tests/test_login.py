@@ -423,6 +423,70 @@ def test_switch_dealership_allows_a_membership_granted_after_login(client, oidc_
     assert {m["id"] for m in response.json()["memberships"]} == {dealer_a, dealer_b}
 
 
+# --- GET /v1/auth/me lists memberships from the database (KAN-237) ----------------
+
+
+def _me_with(client, token: str):
+    client.cookies.set("dms_session", token)
+    try:
+        return client.get("/v1/auth/me")
+    finally:
+        client.cookies.delete("dms_session")
+
+
+def test_auth_me_stops_listing_a_membership_revoked_after_login(client, oidc_fake, db_session):
+    """The switcher offers what /auth/me lists. Listed from the token's
+    memberships claim, a revoked membership stayed on offer until the token
+    expired, and choosing it was refused (403) — the same home +
+    dealership_membership rule switch-dealership mints from applies here.
+    """
+
+    from sqlalchemy import delete
+
+    from app.platform.models.dealership_membership import DealershipMembership
+
+    dealer_a, dealer_b, user = _user_with_a_sister_membership(client, db_session)
+    token = _login_via_oidc(client, oidc_fake, user).cookies.get("dms_session")
+    assert token
+    assert {m["id"] for m in _me_with(client, token).json()["memberships"]} == {dealer_a, dealer_b}
+
+    db_session.execute(
+        delete(DealershipMembership).where(
+            DealershipMembership.user_id == uuid.UUID(user["id"]),
+            DealershipMembership.dealership_id == uuid.UUID(dealer_b),
+        )
+    )
+    db_session.commit()
+    # The token still claims it; /auth/me must not.
+    assert uuid.UUID(dealer_b) in get_current_principal(token).memberships
+
+    response = _me_with(client, token)
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert set(body) == {"user", "activeDealership", "memberships"}
+    assert body["activeDealership"]["id"] == dealer_a
+    assert [m["id"] for m in body["memberships"]] == [dealer_a]
+    assert set(body["memberships"][0]) == {"id", "legalName"}
+
+
+def test_auth_me_lists_a_membership_granted_after_login(client, oidc_fake, db_session):
+    from app.platform.models.dealership_membership import DealershipMembership
+
+    dealer_a = _create_dealer(client)
+    dealer_b = _create_dealer(client, dealerLicenseNumber="ZH-99999")
+    user = _create_user(client, dealer_a)
+    token = _login_via_oidc(client, oidc_fake, user).cookies.get("dms_session")
+    assert token
+    assert uuid.UUID(dealer_b) not in get_current_principal(token).memberships
+
+    db_session.add(DealershipMembership(user_id=uuid.UUID(user["id"]), dealership_id=uuid.UUID(dealer_b)))
+    db_session.commit()
+
+    body = _me_with(client, token).json()
+    # Active dealership first, then the rest — unchanged ordering rule.
+    assert [m["id"] for m in body["memberships"]] == [dealer_a, dealer_b]
+
+
 # --- the manager flag is held per dealership (KAN-98, D-A-01) ----------------------
 
 

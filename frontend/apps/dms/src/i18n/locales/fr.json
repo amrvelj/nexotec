@@ -42,6 +42,11 @@
       "recents": "Récents",
       "noResults": "Aucun résultat",
       "error": "La recherche a échoué — veuillez réessayer."
+    },
+    "switchDealershipError": {
+      "notAMember": "Changement refusé : vous n'êtes plus rattaché(e) à cette concession. Vous restez dans la concession actuelle.",
+      "failed": "Impossible de changer de concession. Vous restez dans la concession actuelle. Veuillez réessayer.",
+      "dismiss": "Fermer le message"
     }
   },
   "userRole": {
