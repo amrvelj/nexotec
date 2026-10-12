@@ -1370,7 +1370,7 @@ def update_customer_phone(
     if becomes_unusable:
         _assert_not_last_contact_point(db, phone.customer_id, removing="phone number")
     groups_to_settle = _prepare_primary_change(
-        db, CustomerPhone, row=phone, changes=changes, becomes_unusable=becomes_unusable, noun="phone"
+        db, CustomerPhone, row=phone, changes=changes, noun="phone"
     )
 
     for field, value in changes.items():
@@ -1556,7 +1556,7 @@ def update_customer_email(
     if becomes_unusable:
         _assert_not_last_contact_point(db, email.customer_id, removing="email address")
     groups_to_settle = _prepare_primary_change(
-        db, CustomerEmail, row=email, changes=changes, becomes_unusable=becomes_unusable, noun="email"
+        db, CustomerEmail, row=email, changes=changes, noun="email"
     )
 
     for field, value in changes.items():
@@ -1659,7 +1659,7 @@ def _unset_other_primaries(db: Session, model: type, *, customer_id: uuid.UUID, 
 
 
 def _prepare_primary_change(
-    db: Session, model: type, *, row: Any, changes: dict[str, Any], becomes_unusable: bool, noun: str
+    db: Session, model: type, *, row: Any, changes: dict[str, Any], noun: str
 ) -> list[Any]:
     """The primary handling shared by the phone / email / address update
     paths (ADR-067: exactly one primary per type-group, on every update).
@@ -1675,8 +1675,17 @@ def _prepare_primary_change(
     KAN-102). A moved row joining a group with no primary is elected by the
     fixup, whether or not it was primary before.
 
-    A row the same PATCH closes or flags do_not_use cannot take the flag, so
-    `isPrimary: true` on it leaves the group's existing primary alone.
+    Usability is judged AFTER the PATCH, not by what the PATCH changes
+    (KAN-113): a row that is closed or do_not_use once the changes apply —
+    whether this PATCH makes it so or an earlier one did — cannot take the
+    flag, so `isPrimary: true` on it leaves the group's existing usable
+    primary alone and the fixup demotes it again.
+
+    Reopening a row (`validTo: null`, `doNotUse: false`) settles its group
+    too (KAN-113), the mirror of the KAN-46 re-election: a group that had
+    no usable primary elects the reopened row; one that has a usable
+    primary keeps it — a reopened row never takes the flag unless the same
+    PATCH says `isPrimary: true`.
     """
 
     type_column = _CONTACT_TYPE_COLUMN[model]
@@ -1684,8 +1693,11 @@ def _prepare_primary_change(
     new_type = changes.get(type_column, old_type)
     moves = new_type != old_type
 
+    usable_before = _is_usable_row(row)
+    usable_after = changes.get("valid_to", row.valid_to) is None and not changes.get("do_not_use", row.do_not_use)
+
     if changes.get("is_primary") is True:
-        if (not row.is_primary or moves) and not becomes_unusable:
+        if (not row.is_primary or moves) and usable_after:
             _unset_other_primaries(db, model, customer_id=row.customer_id, type_value=new_type)
     elif changes.get("is_primary") is False and row.is_primary:
         raise BadRequestError(
@@ -1706,11 +1718,19 @@ def _prepare_primary_change(
 
     if moves:
         return [old_type, new_type]
-    if becomes_unusable:
+    if usable_before != usable_after:
         # KAN-46: a closed / do_not_use row is never primary. If it was (or
         # this PATCH flags it), re-elect a usable survivor of the same type
         # so the Mobile/Landline/Work projection follows the working number
-        # instead of going null. A no-op when the row was not primary.
+        # instead of going null. KAN-113: the reverse — a reopened row in a
+        # group with no usable primary is elected by the same fixup. A no-op
+        # when the group already has its one usable primary.
+        return [new_type]
+    if "is_primary" in changes:
+        # KAN-113: `isPrimary: true` on a row that is not usable after the
+        # PATCH is applied to the row like any other field, so the fixup
+        # takes the flag back off it; the group's usable primary was never
+        # unset above. A no-op for a usable row, which took the flag.
         return [new_type]
     return []
 
@@ -1809,12 +1829,10 @@ def update_customer_address(
 
     # KAN-46: addresses carry no FR-03 "last contact point" floor, but the
     # `address` projection (primary domicile) still needs re-electing when
-    # the primary is closed or flagged do_not_use.
-    becomes_unusable = (changes.get("valid_to") is not None and address.valid_to is None) or (
-        changes.get("do_not_use") is True and not address.do_not_use
-    )
+    # the primary is closed or flagged do_not_use — and electing when a row
+    # is reopened (KAN-113); the shared helper decides both.
     groups_to_settle = _prepare_primary_change(
-        db, CustomerAddress, row=address, changes=changes, becomes_unusable=becomes_unusable, noun="address"
+        db, CustomerAddress, row=address, changes=changes, noun="address"
     )
 
     for field, value in changes.items():
