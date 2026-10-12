@@ -1,7 +1,7 @@
 import datetime as dt
 import uuid
 
-from pydantic import EmailStr, Field
+from pydantic import EmailStr, Field, model_validator
 
 from app.core.auth import AccessRole
 from app.core.schemas import CamelModel
@@ -31,6 +31,11 @@ class UserCreate(CamelModel):
 
 
 class UserUpdate(CamelModel):
+    """PATCH semantics: a field left out is left unchanged. `None` on every
+    field means "not sent"; only `phone` may be sent as null (to clear it) —
+    every other field is a NOT NULL column, so an explicit null is refused
+    here as a 422 rather than reaching the service (KAN-136)."""
+
     first_name: str | None = Field(default=None, max_length=100, min_length=1)
     last_name: str | None = Field(default=None, max_length=100, min_length=1)
     email: EmailStr | None = None
@@ -41,6 +46,17 @@ class UserUpdate(CamelModel):
     employment_status: EmploymentStatus | None = None
     auth_identity_id: str | None = Field(default=None, max_length=255, min_length=1)
     status: UserStatus | None = None
+
+    @model_validator(mode="after")
+    def _not_null_fields_are_not_cleared(self) -> "UserUpdate":
+        cleared = [
+            field.alias or name
+            for name, field in type(self).model_fields.items()
+            if name != "phone" and name in self.model_fields_set and getattr(self, name) is None
+        ]
+        if cleared:
+            raise ValueError(f"{', '.join(cleared)} cannot be null — leave the field out to keep its value.")
+        return self
 
 
 class UserRead(CamelModel):
