@@ -1303,15 +1303,9 @@ def _stamp_consent_timestamp_on_grant(row: Any, changes: dict[str, Any], *, was_
 def create_customer_phone(
     db: Session, *, customer: Customer, data: CustomerPhoneCreate, actor_id: uuid.UUID
 ) -> CustomerPhone:
-    is_first_of_type = (
-        db.scalar(
-            select(CustomerPhone).where(
-                CustomerPhone.customer_id == customer.id, CustomerPhone.phone_type == data.phone_type
-            )
-        )
-        is None
+    is_primary = data.is_primary or not _has_usable_primary(
+        db, CustomerPhone, customer_id=customer.id, type_value=data.phone_type
     )
-    is_primary = data.is_primary or is_first_of_type
 
     if is_primary:
         _unset_other_primaries(db, CustomerPhone, customer_id=customer.id, type_value=data.phone_type)
@@ -1496,15 +1490,9 @@ def get_customer_email_or_404(
 def create_customer_email(
     db: Session, *, customer: Customer, data: CustomerEmailCreate, actor_id: uuid.UUID
 ) -> CustomerEmail:
-    is_first_of_type = (
-        db.scalar(
-            select(CustomerEmail).where(
-                CustomerEmail.customer_id == customer.id, CustomerEmail.email_type == data.email_type
-            )
-        )
-        is None
+    is_primary = data.is_primary or not _has_usable_primary(
+        db, CustomerEmail, customer_id=customer.id, type_value=data.email_type
     )
-    is_primary = data.is_primary or is_first_of_type
 
     if is_primary:
         _unset_other_primaries(db, CustomerEmail, customer_id=customer.id, type_value=data.email_type)
@@ -1634,6 +1622,25 @@ def delete_customer_email(db: Session, *, email: CustomerEmail, actor_id: uuid.U
     db.commit()
 
 
+def _has_usable_primary(db: Session, model: type, *, customer_id: uuid.UUID, type_value: Any) -> bool:
+    """Whether the (customer, type) group already has a usable primary. A
+    create elects its new row (always usable) unless one does (KAN-151): a
+    group whose rows are all closed or do_not_use has no primary, since
+    `_fixup_single_primary` demoted them, so "no row of this type at all"
+    would leave the new row unflagged. An existing usable primary is never
+    demoted by a create that does not say `isPrimary: true`."""
+
+    type_column = _CONTACT_TYPE_COLUMN[model]
+    primaries = db.scalars(
+        select(model).where(
+            model.customer_id == customer_id,  # type: ignore[attr-defined]
+            getattr(model, type_column) == type_value,
+            model.is_primary.is_(True),  # type: ignore[attr-defined]
+        )
+    ).all()
+    return any(_is_usable_row(row) for row in primaries)
+
+
 def _unset_other_primaries(db: Session, model: type, *, customer_id: uuid.UUID, type_value: Any) -> None:
     type_column = _CONTACT_TYPE_COLUMN[model]
     rows: list[Any] = list(
@@ -1748,15 +1755,9 @@ def create_customer_address(
     db: Session, *, customer: Customer, data: CustomerAddressCreate, actor_id: uuid.UUID
 ) -> CustomerAddress:
     _validate_country_codes(db, {"addressCountry": data.address_country})
-    is_first_of_type = (
-        db.scalar(
-            select(CustomerAddress).where(
-                CustomerAddress.customer_id == customer.id, CustomerAddress.address_type == data.address_type
-            )
-        )
-        is None
+    is_primary = data.is_primary or not _has_usable_primary(
+        db, CustomerAddress, customer_id=customer.id, type_value=data.address_type
     )
-    is_primary = data.is_primary or is_first_of_type
 
     if is_primary:
         _unset_other_primaries(db, CustomerAddress, customer_id=customer.id, type_value=data.address_type)
