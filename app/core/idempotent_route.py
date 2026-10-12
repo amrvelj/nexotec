@@ -40,6 +40,18 @@ its own (inventory's ``inventory.reserve:<item>`` and the like, through
 ``app/core/idempotency.py`` directly): how long those guard against a late
 duplicate is that context's promise, not this module's.
 
+Client keys and the server's own keys share one table — its key is
+``(idempotency_key, tenant_id)`` — so a client key shaped like an internal
+one is refused with the standard 422 validation body (KAN-264, Anto
+2026-10-12): sent as ``Idempotency-Key: sales.contract.confirm:<id>`` on any
+POST, it would otherwise take the key Sales confirms that contract under and
+block the confirmation with a 409. The shape is ``RESERVED_KEY_PATTERN``:
+one of the twelve context names, a dot, an action (dotted segments of
+lowercase letters, digits, ``_`` and ``-``), a colon. A key that merely
+contains a dot or a colon (``abc:def``, ``my.key``) is the client's. Every
+internal key in ``app/`` must match the pattern
+(``tests/architecture/test_internal_idempotency_keys_are_reserved.py``).
+
 The stored request is the path and the JSON body, and the replay restores the
 status and JSON body only. Routes that would break either assumption are
 refused when they are built (``TypeError``): a POST with query parameters or a
@@ -53,15 +65,17 @@ import functools
 import inspect
 import json
 import logging
+import re
 import uuid
 from collections.abc import Callable, Iterator
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import Depends, Header, Request, Response, params
 from fastapi.concurrency import run_in_threadpool
 from fastapi.dependencies.models import Dependant
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
+from pydantic import AfterValidator
 from sqlalchemy import ColumnElement, and_, delete, update
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.exc import IntegrityError
@@ -81,6 +95,47 @@ logger = logging.getLogger("app.core.idempotent_route")
 
 IDEMPOTENCY_KEY_HEADER = "Idempotency-Key"
 IDEMPOTENCY_RECORD_TTL = dt.timedelta(hours=24)
+
+# The twelve bounded contexts (CLAUDE.md). Written out because app/core
+# imports no context (rule 8); the architecture test named in the module
+# docstring checks them against the packages under app/.
+RESERVED_KEY_CONTEXTS = (
+    "platform",
+    "customer",
+    "vehicle",
+    "sales",
+    "inventory",
+    "valuation",
+    "integration",
+    "aftersales",
+    "parts",
+    "finance",
+    "reporting",
+    "compliance",
+)
+# KAN-264 — the shape of every key the server writes itself, e.g.
+# `sales.contract.confirm:<contract id>` or
+# `inventory.reservation_sweep:<reservation id>`: `<context>.<action>:` and
+# then anything. A client's Idempotency-Key of this shape is refused (422).
+_ACTION_SEGMENT = r"[a-z][a-z0-9_-]*"
+RESERVED_KEY_PATTERN = re.compile(
+    rf"^(?:{'|'.join(RESERVED_KEY_CONTEXTS)})\.{_ACTION_SEGMENT}(?:\.{_ACTION_SEGMENT})*:"
+)
+
+
+def is_reserved_idempotency_key(key: str) -> bool:
+    """Whether `key` has the shape of a key the server writes itself."""
+
+    return RESERVED_KEY_PATTERN.match(key) is not None
+
+
+def _refuse_reserved_key(value: str | None) -> str | None:
+    if value is not None and is_reserved_idempotency_key(value):
+        raise ValueError(
+            "This Idempotency-Key has the shape the server reserves for its own keys "
+            "(<context>.<action>:...). Send a fresh UUID instead."
+        )
+    return value
 
 # The keyword the wrapped endpoint receives the key through. It never reaches
 # the original endpoint.
@@ -186,16 +241,23 @@ class _KeyedRequest:
 
 async def _keyed_request(
     request: Request,
-    idempotency_key: str | None = Header(
-        default=None,
-        alias=IDEMPOTENCY_KEY_HEADER,
-        max_length=255,
-        description=(
-            "Optional. A fresh value (a UUID) per form submission, reused only when retrying that same "
-            "submission. A retry gets the original response. The same key with a different request, or "
-            "while the first request is still being processed, is a 409. Keys are kept for at least 24 hours."
+    # The Header inside Annotated, so the AfterValidator runs: a reserved-shape
+    # key is the standard 422 validation error, before anything is claimed.
+    idempotency_key: Annotated[
+        str | None,
+        Header(
+            alias=IDEMPOTENCY_KEY_HEADER,
+            max_length=255,
+            description=(
+                "Optional. A fresh value (a UUID) per form submission, reused only when retrying that same "
+                "submission. A retry gets the original response. The same key with a different request, or "
+                "while the first request is still being processed, is a 409. Keys are kept for at least 24 "
+                "hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. "
+                "`sales.contract.confirm:…`) is a 422."
+            ),
         ),
-    ),
+        AfterValidator(_refuse_reserved_key),
+    ] = None,
     principal: Principal = Depends(get_current_principal),
     db: Session = Depends(get_db),
 ) -> _KeyedRequest | None:
