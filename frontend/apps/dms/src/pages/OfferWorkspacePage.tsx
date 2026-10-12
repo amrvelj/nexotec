@@ -212,7 +212,9 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
         }
         primaryAction={
           <Button
-            disabled={missing.length > 0 || selectedCustomer?.lifecycleStatus === 'do_not_contact'}
+            disabled={
+              missing.length > 0 || selectedCustomer?.lifecycleStatus === 'do_not_contact' || saves.pending > 0
+            }
             onClick={() => setGenerateOpen(true)}
           >
             {t('offerWorkspace.continue')}

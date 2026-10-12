@@ -138,6 +138,27 @@ describe('OfferWorkspace — overlapping autosaves are sent one after the other 
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
+  it('Continue waits until every queued save has landed (KAN-314 review)', async () => {
+    const user = userEvent.setup()
+    let releasePut: (value: unknown) => void = () => {}
+    installBackend([
+      {
+        method: 'PUT',
+        match: /^\/sales\/offers\/o1\/line-items$/,
+        handler: () => new Promise((resolve) => (releasePut = resolve)),
+      },
+    ])
+    renderWorkspace()
+
+    const continueButton = await screen.findByRole('button', { name: i18n.t('offerWorkspace.continue') })
+    expect(continueButton).toBeEnabled()
+    await user.click(await screen.findByRole('checkbox', { name: 'LED-Scheinwerfer' }))
+    await waitFor(() => expect(continueButton).toBeDisabled())
+
+    releasePut(offerAt(2, { optionsTotal: '0.00', grossPrice: '30000.00' }))
+    await waitFor(() => expect(continueButton).toBeEnabled())
+  })
+
   it('a line-item save queued behind another is built from the lines the first one left', async () => {
     // Accessories are a full replace. Removing two quickly: the second
     // removal must not resend the list the first one just shortened.
