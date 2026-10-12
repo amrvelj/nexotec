@@ -475,9 +475,14 @@ def confirm_contract(
                 idempotency_key=f"sales.contract.confirm:{contract.id}",
             )
         except Exception:
-            # End this transaction first, as on the commit-failure path
-            # below: it holds the contract's row lock, which the
-            # compensation takes on its own session (KAN-192).
+            # End both transactions first (KAN-192). The refused reservation
+            # may still hold the stock item's row lock, and this request
+            # holds the contract's, which the compensation takes on its own
+            # session: kept, either one could leave the compensation waiting
+            # on this request — directly, or through a second confirmation
+            # of the same contract queued on the contract and then on the
+            # item — and Postgres cannot see that wait to break it.
+            short_lived.close()
             db.rollback()
             _compensate_confirmation(
                 ids, reservation_id=None, valuation_newly_used=valuation_newly_used,

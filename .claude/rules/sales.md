@@ -128,7 +128,10 @@ against the code). "Open" lines cite a ticket; /drift-audit re-checks them weekl
   and line-item saves do the same, the other offer routes lock nothing yet: KAN-311). A failed
   confirmation compensates (releases its reservation, reverts "used") under the contract's row
   lock on a session of its own, and undoes nothing once the contract is signed — a concurrent
-  confirmation of the same contract may have committed with the same reservation (KAN-192).
+  confirmation of the same contract may have committed with the same reservation — or when it
+  cannot take that lock (logged, left to the nightly run). Before compensating, the
+  confirmation ends its own transactions (request and reservation), so the compensation never
+  waits on a lock its own request holds (KAN-192).
   An edit publishes no event. Never give the contract a second copy of a pricing rule.
 - **CHF 0.00 is a price** (Anto, 2026-10-10, KAN-67): a car whose base price was never entered
   builds to 0.00 and may be confirmed and printed; only an empty price is `missing_price`

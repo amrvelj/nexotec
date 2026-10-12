@@ -156,8 +156,20 @@ def test_a_confirmation_queued_behind_a_failing_one_commits_and_the_compensation
     dealership_id, group_id, contract, item_id = _stock_contract(db_session)
     contract_id = contract.id
     factory = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
+    second_holds_the_lock = threading.Event()
+    first_sessions: list[object] = []
 
     def session_factory():
+        return factory()
+
+    def first_session_factory():
+        # The first confirmation's sessions: its reservation, then the
+        # compensation's guard. The guard waits until the second
+        # confirmation holds the contract's lock, so the order the test is
+        # about never depends on which waiter Postgres wakes first.
+        first_sessions.append(None)
+        if len(first_sessions) >= 2:
+            assert second_holds_the_lock.wait(10), "the second confirmation never took the contract's lock"
         return factory()
 
     second: dict[str, object] = {}
@@ -166,6 +178,7 @@ def test_a_confirmation_queued_behind_a_failing_one_commits_and_the_compensation
         session = factory()
         try:
             held = get_contract_or_404(session, dealership_id, contract_id, for_update=True)
+            second_holds_the_lock.set()
             second["contract"] = confirm_contract(
                 session, contract=held, group_id=group_id, actor_id=uuid.uuid4(), session_factory=session_factory,
             )
@@ -200,10 +213,12 @@ def test_a_confirmation_queued_behind_a_failing_one_commits_and_the_compensation
             held = get_contract_or_404(first, dealership_id, contract_id, for_update=True)
             with pytest.raises(RuntimeError):
                 confirm_contract(
-                    first, contract=held, group_id=group_id, actor_id=uuid.uuid4(), session_factory=session_factory,
+                    first, contract=held, group_id=group_id, actor_id=uuid.uuid4(),
+                    session_factory=first_session_factory,
                 )
             other.join(10)
     finally:
+        second_holds_the_lock.set()
         first.close()
 
     assert seen == ["blocked"]  # the second confirmation was queued on the lock before the first failed
@@ -248,3 +263,57 @@ def test_a_refused_reservation_through_the_route_answers_at_once(client, db_sess
     assert response.json()["error"]["details"]["reason"] == "already_reserved"
     db_session.expire_all()
     assert db_session.get(SalesContract, contract.id).status == ContractStatus.PENDING
+
+
+@pytest.mark.usefixtures("app_sessions_on_the_test_engine")
+def test_two_confirmations_of_a_car_held_elsewhere_are_both_refused_promptly(client, db_session, engine):
+    """A double submit on a car another contract holds: the first request's
+    reservation is refused while the second is queued on the contract's
+    lock. The refused reservation still held the stock item's row lock, so
+    compensating before ending it left the first request's guard waiting on
+    the second (which held the contract and waited on the item) and the
+    second waiting on the first — a wait Postgres cannot see, so both hung
+    for ever. Both must answer 409."""
+
+    from tests.test_sales_lifecycle_reservation import _session_factory
+
+    dealership_id, group_id, contract, item_id = _stock_contract(db_session)
+    holder = _edit(
+        db_session, _customer_born_contract(db_session, dealership_id, group_id),
+        vehicle_source="stock", stock_item_id=item_id, vehicle_label="VW Golf GTI",
+    )
+    confirm_contract(
+        db_session, contract=holder, group_id=group_id, actor_id=uuid.uuid4(),
+        session_factory=_session_factory(engine),
+    )
+    headers = {**_token(dealership_id, group_id), "If-Match": str(contract.version)}
+    responses: dict[str, object] = {}
+
+    def confirm(name: str) -> None:
+        responses[name] = client.post(f"/v1/sales/contracts/{contract.id}/confirm", headers=headers)
+
+    second = threading.Thread(target=confirm, args=("second",), daemon=True)
+    seen: list[str] = []
+    real_reserve = contract_module.reserve_for_contract
+
+    def reserve_once_the_second_is_queued(*args, **kwargs):
+        if second.ident is None:
+            second.start()
+            seen.append(_blocked_on_a_lock_or_done(engine, second))
+        return real_reserve(*args, **kwargs)
+
+    with patch.object(contract_module, "reserve_for_contract", side_effect=reserve_once_the_second_is_queued):
+        first = threading.Thread(target=confirm, args=("first",), daemon=True)
+        first.start()
+        first.join(15)
+        if second.ident is not None:
+            second.join(15)
+
+    assert seen == ["blocked"]  # the second request was queued on the contract's lock
+    assert not first.is_alive() and not second.is_alive(), "the two confirmations hung on each other"
+    assert responses["first"].status_code == 409, responses["first"].text
+    assert responses["second"].status_code == 409, responses["second"].text
+    db_session.expire_all()
+    assert db_session.get(SalesContract, contract.id).status == ContractStatus.PENDING
+    car = db_session.get(StockItem, item_id)
+    assert car.active_reservation_id == db_session.get(SalesContract, holder.id).reservation_id
