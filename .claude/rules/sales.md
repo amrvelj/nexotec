@@ -66,7 +66,10 @@ against the code). "Open" lines cite a ticket; /drift-audit re-checks them weekl
 - **Sales writers take row locks offer → contract → deal** (KAN-147): `upsert_deal_projection`
   flushes its caller's offer/contract changes before it writes the deal, and the customer
   merge's repointing flushes offers, then contracts, then deals — so neither can deadlock a
-  contract creation holding the offer.
+  contract creation holding the offer. A deal's row comes before its line items:
+  `update_offer`/`update_contract` write the deal before re-freezing its factory-option lines,
+  and `replace_line_items` locks the deal (`priced_deal.lock_editable`) before touching a line
+  (KAN-287).
 
 ## Price and VAT (ADR-057)
 
@@ -118,8 +121,11 @@ against the code). "Open" lines cite a ticket; /drift-audit re-checks them weekl
   (`contract_priced_without_inputs`; it can still be confirmed or cancelled). Every contract
   route that changes the row loads it `for_update` (`get_contract_or_404`), so an edit and a
   confirmation of the same contract run one after the other — If-Match alone compares the
-  version as read and would let an edit land after signing. An edit publishes no event. Never
-  give the contract a second copy of a pricing rule.
+  version as read and would let an edit land after signing. A trade-in save commits part-way
+  (vehicle-mdm and the vehicle parties are their own transactions, ADR-047), which releases
+  that lock, so `set_trade_in` locks the deal again after its last foreign write and re-checks
+  that it is editable and still at the version the caller sent (KAN-309). An edit publishes no
+  event. Never give the contract a second copy of a pricing rule.
 - **CHF 0.00 is a price** (Anto, 2026-10-10, KAN-67): a car whose base price was never entered
   builds to 0.00 and may be confirmed and printed; only an empty price is `missing_price`
   (`contract_completeness.has_price`). The pricing container still shows "in progress" for it.

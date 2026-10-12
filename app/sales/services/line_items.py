@@ -32,8 +32,8 @@ from app.sales.services.priced_deal import (
     PricedDeal,
     line_item_owner,
     line_item_owner_clause,
+    lock_editable,
     project,
-    require_editable,
     vehicle_condition,
 )
 from app.sales.services.pricing import apply_build_up, resolve_discount
@@ -82,7 +82,11 @@ def _apply_discount(
 def replace_line_items(
     db: Session, *, deal: DealT, data: LineItemsReplaceRequest, actor_id: uuid.UUID | None
 ) -> DealT:
-    require_editable(deal)
+    # KAN-287: the deal's row before its line items, the order update_offer
+    # and update_contract take them in (they write the deal, then re-freeze
+    # its factory-option lines). The other way round, a line-item save and a
+    # vehicle change of one draft offer deadlocked.
+    lock_editable(db, deal, version_seen=deal.version)
 
     used_vehicle = _is_used_vehicle(deal)
     existing_by_id = {li.id: li for li in list_line_items(db, deal=deal)}

@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 from app.core.base import utcnow
 from app.core.errors import ConflictError
 from app.customer.public import VehiclePartyRole, allocate_vehicle_party, get_customer_or_404
-from app.sales.services.priced_deal import DealT, PricedDeal, project, require_editable
+from app.sales.services.priced_deal import DealT, PricedDeal, lock_editable, project, require_editable
 from app.valuation.public import list_valid_valuations_for_vehicle
 from app.vehicle.public import create_or_get_vehicle_mdm, match_vehicle
 
@@ -53,6 +53,7 @@ def set_trade_in(
     actor_id: uuid.UUID,
 ) -> DealT:
     require_editable(deal)
+    version_seen = deal.version
 
     # KAN-99: resolve the party customer in the caller's group BEFORE any
     # write — a customerId from another group is a 404 that must not leave
@@ -75,6 +76,13 @@ def set_trade_in(
             db, vehicle_id=vehicle.id, customer_id=party_customer_id, role=VehiclePartyRole.KEEPER,
             group_id=group_id, actor_id=actor_id,
         )
+
+    # KAN-309: the calls above commit the request session (each foreign
+    # write is its own transaction, ADR-047), which releases the row lock
+    # the route took. A confirmation (or any other edit) may have committed
+    # in between, so lock the deal again, re-read it, and check it is still
+    # editable and still the version the caller sent before writing it.
+    lock_editable(db, deal, version_seen=version_seen)
 
     deal.trade_in_vehicle_id = vehicle.id
     deal.trade_in_vin = vehicle.vin
