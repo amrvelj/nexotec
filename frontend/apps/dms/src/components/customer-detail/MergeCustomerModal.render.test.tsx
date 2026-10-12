@@ -231,3 +231,47 @@ describe('MergeCustomerModal — the merge POST (KAN-266, KAN-271)', () => {
     expect(second.headers.get('Idempotency-Key')).not.toBe(first.headers.get('Idempotency-Key'))
   })
 })
+
+// KAN-299 — the compare columns are the user's last check before an
+// irreversible merge: a failed survivor contact load is said, and never
+// leaves a previously picked survivor's phone and email beside the new one.
+// A failed search is an error, never "No matches".
+describe('MergeCustomerModal — failed loads are said, never mixed up (KAN-299)', () => {
+  const OTHER = customer({ id: 'surv-2', customerNumber: 'K-000003', firstName: 'Hans', lastName: 'Musterli' })
+  const unavailable = () => status(503, { error: { code: 'unavailable', message: 'Service unavailable', details: null } })
+
+  it('picking B after A, when B\'s phones fail to load, shows the error and none of A\'s contacts', async () => {
+    await i18n.changeLanguage('fr')
+    const user = userEvent.setup()
+    installFakeBackend([
+      { method: 'GET', match: /^\/customers$/, handler: () => ({ items: [DUPLICATE, SURVIVOR, OTHER], nextCursor: null }) },
+      { method: 'GET', match: /^\/customers\/surv-1\/phones$/, handler: () => ({ items: [phone({ customerId: 'surv-1', value: '+41791112233' })] }) },
+      { method: 'GET', match: /^\/customers\/surv-1\/emails$/, handler: () => ({ items: [email({ customerId: 'surv-1', value: 'hans@example.ch' })] }) },
+      { method: 'GET', match: /^\/customers\/surv-2\/phones$/, handler: unavailable },
+      { method: 'GET', match: /^\/customers\/surv-2\/emails$/, handler: () => ({ items: [] }) },
+    ])
+    renderModal()
+
+    await pickSurvivor(user)
+    expect(await screen.findByText('+41791112233')).toBeInTheDocument()
+
+    await user.click(screen.getByText(i18n.t('customerDetail.merge.chooseDifferent')))
+    await user.click(await screen.findByText('Hans Musterli'))
+
+    expect(await screen.findByText(i18n.t('customerDetail.merge.survivorContactsFailed'))).toBeInTheDocument()
+    expect(screen.queryByText('+41791112233')).toBeNull()
+    expect(screen.queryByText('hans@example.ch')).toBeNull()
+    expect(screen.getByRole('dialog').textContent).not.toMatch(MARKER)
+  })
+
+  it('a failed search says so instead of "No matches"', async () => {
+    const user = userEvent.setup()
+    installFakeBackend([{ method: 'GET', match: /^\/customers$/, handler: unavailable }])
+    renderModal()
+
+    await user.type(screen.getByPlaceholderText(i18n.t('customerDetail.merge.searchPlaceholder')), 'Muster')
+
+    expect(await screen.findByText(i18n.t('customerDetail.merge.searchFailed'))).toBeInTheDocument()
+    expect(screen.queryByText(i18n.t('customerDetail.merge.noMatches'))).toBeNull()
+  })
+})
