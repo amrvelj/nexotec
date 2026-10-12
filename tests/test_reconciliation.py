@@ -46,6 +46,7 @@ from app.vehicle.models.configuration import ConfigurationMatchMethod, Configura
 from app.vehicle.models.vehicle import CustodyEventType, VehicleCustodyEvent
 from app.vehicle.schemas.configuration import ConfigurationCreate
 from app.vehicle.services.configuration import create_configuration
+from tests.configuration_test_support import MANUAL_CODED, seed_manual_coded_lists
 
 VALID_ADDRESS = {
     "street": "Bahnhofstrasse",
@@ -798,12 +799,13 @@ def _sister_dealer(client, dealer_id: str) -> str:
 
 
 def _configuration(db_session, dealer_id):
+    seed_manual_coded_lists(db_session)  # a manual configuration names its five coded fields (KAN-247)
     config = create_configuration(
         db_session, tenant_id=uuid.UUID(dealer_id), actor_id=None,
         data=ConfigurationCreate(
             source=ConfigurationSource.MANUAL, mode=ConfigurationMode.RECORD,
             match_method=ConfigurationMatchMethod.MANUAL, brand_display_name="Subaru", model_group_name="Justy",
-            variant_name="G3X Limousine",
+            variant_name="G3X Limousine", **MANUAL_CODED,
         ),
     )
     db_session.commit()
