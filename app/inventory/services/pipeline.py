@@ -176,8 +176,11 @@ def promote_to_vehicle_mdm(
     the item already promoted is a no-op, not a second event.
     """
 
-    if item.vehicle_id is not None:
+    if item.vehicle_id is not None and item.vin == vin:
         return item  # already promoted — redelivery/retry, not a second event
+    # Anything else that is not pipeline is refused — including, since KAN-244
+    # gives a directly created in-stock item its vehicle, such an item asked
+    # to "promote" to another VIN (it used to fall through the line above).
     if item.lifecycle_status != LifecycleStatus.PIPELINE:
         raise ConflictError(
             f"Stock item {item.id} is not pipeline (lifecycle_status={item.lifecycle_status.value}) — nothing to promote.",
