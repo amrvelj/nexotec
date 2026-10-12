@@ -196,42 +196,115 @@ def test_merge_repoints_vehicle_party_to_survivor(client, db_session):
     assert remaining[0].customer_id == uuid.UUID(survivor["id"])
 
 
-def test_merge_drops_vehicle_party_already_on_survivor(client, db_session):
-    """Same vehicle/role/effective_from already exists on the survivor —
-    re-pointing would violate uq_vehicle_party_scope, so the duplicate's
-    copy is dropped instead of erroring.
+def test_merge_keeps_overlapping_vehicle_party_closed_and_marked_merged(client, db_session):
+    """KAN-177 (ADR-064, Anto's ruling 2026-10-12, option A): the same
+    vehicle/role/effective_from already exists on the survivor, so the
+    duplicate's copy cannot be re-pointed (uq_vehicle_party_scope spans
+    customer_id). It is KEPT — never deleted — closed at its own start and
+    marked with the survivor it was merged into, still on the duplicate's
+    customer_id; the survivor's own row is untouched; a non-overlapping row
+    re-points as before; and the merge's audit event names the kept rows.
     """
+
+    import datetime as dt
+
+    from sqlalchemy import select
+
+    from app.core.audit_model import AuditEvent
+    from app.core.outbox_model import OutboxMessage
 
     dealer_id = _create_dealer(client)
     survivor = _create_customer(client, dealer_id)
     duplicate = _create_customer(client, dealer_id)
-    vehicle = _create_vehicle(client, dealer_id)
+    # A vehicle_mdm row (KAN-31), not the legacy `vehicle` the other tests
+    # here seed transactions against: the timeline read below labels the
+    # rows from vehicle_mdm (KAN-84) and 500s on an id it cannot find.
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    created = client.post("/v1/vehicle-mdm", json={"vin": _random_vin()}, headers=_bearer(token))
+    assert created.status_code == 200, created.text
+    vehicle_id = uuid.UUID(created.json()["vehicle"]["id"])
 
-    shared_effective_from = __import__("datetime").datetime(2026, 1, 1, tzinfo=__import__("datetime").timezone.utc)
-    db_session.add(
-        VehicleParty(
-            vehicle_id=uuid.UUID(vehicle["id"]),
-            customer_id=uuid.UUID(survivor["id"]),
-            role=VehiclePartyRole.OWNER,
-            effective_from=shared_effective_from,
-        )
+    shared_effective_from = dt.datetime(2026, 1, 1, tzinfo=dt.UTC)
+    survivor_row = VehicleParty(
+        vehicle_id=vehicle_id,
+        customer_id=uuid.UUID(survivor["id"]),
+        role=VehiclePartyRole.OWNER,
+        effective_from=shared_effective_from,
     )
-    db_session.add(
-        VehicleParty(
-            vehicle_id=uuid.UUID(vehicle["id"]),
-            customer_id=uuid.UUID(duplicate["id"]),
-            role=VehiclePartyRole.OWNER,
-            effective_from=shared_effective_from,
-        )
+    overlapping = VehicleParty(
+        vehicle_id=vehicle_id,
+        customer_id=uuid.UUID(duplicate["id"]),
+        role=VehiclePartyRole.OWNER,
+        effective_from=shared_effective_from,
     )
+    non_overlapping = VehicleParty(
+        vehicle_id=vehicle_id,
+        customer_id=uuid.UUID(duplicate["id"]),
+        role=VehiclePartyRole.KEEPER,
+        effective_from=shared_effective_from,
+    )
+    db_session.add_all([survivor_row, overlapping, non_overlapping])
     db_session.commit()
+    survivor_row_id, overlapping_id, non_overlapping_id = survivor_row.id, overlapping.id, non_overlapping.id
+    survivor_row_updated_at = survivor_row.updated_at
 
     _merge(client, dealer_id, duplicate["id"], survivor["id"])
 
     db_session.expire_all()
-    remaining = db_session.query(VehicleParty).filter(VehicleParty.vehicle_id == uuid.UUID(vehicle["id"])).all()
-    assert len(remaining) == 1
-    assert remaining[0].customer_id == uuid.UUID(survivor["id"])
+    rows = {r.id: r for r in db_session.query(VehicleParty).filter(VehicleParty.vehicle_id == vehicle_id).all()}
+    # Nothing was deleted — party history is never deleted (ADR-064).
+    assert set(rows) == {survivor_row_id, overlapping_id, non_overlapping_id}
+
+    kept = rows[overlapping_id]
+    assert kept.customer_id == uuid.UUID(duplicate["id"])
+    assert kept.effective_to == shared_effective_from
+    assert kept.merged_into_customer_id == uuid.UUID(survivor["id"])
+
+    untouched = rows[survivor_row_id]
+    assert untouched.customer_id == uuid.UUID(survivor["id"])
+    assert untouched.effective_to is None
+    assert untouched.merged_into_customer_id is None
+    assert untouched.updated_at == survivor_row_updated_at
+
+    repointed = rows[non_overlapping_id]
+    assert repointed.customer_id == uuid.UUID(survivor["id"])
+    assert repointed.effective_to is None
+    assert repointed.merged_into_customer_id is None
+
+    # The merge's own audit event names the kept-and-closed rows, not "dropped".
+    log = client.get(f"/v1/customers/{duplicate['id']}/audit-log", headers=_bearer(token))
+    assert log.status_code == 200, log.text
+    merge_event = next(item for item in log.json()["items"] if item["action"] == "merge")
+    assert merge_event["after"]["vehiclePartiesRepointed"] == 1
+    assert merge_event["after"]["vehiclePartiesKeptClosed"] == 1
+    assert merge_event["after"]["vehiclePartiesKeptClosedIds"] == [str(overlapping_id)]
+    assert "vehiclePartiesDropped" not in merge_event["after"]
+
+    # The close itself is audited and published like every other close.
+    closes = db_session.scalars(
+        select(AuditEvent).where(
+            AuditEvent.action == "vehicle_party_remove", AuditEvent.entity_id == uuid.UUID(duplicate["id"])
+        )
+    ).all()
+    assert len(closes) == 1
+    assert closes[0].after["effectiveTo"] == shared_effective_from.isoformat()
+    assert closes[0].after["mergedIntoCustomerId"] == survivor["id"]
+    unlinked = db_session.scalars(
+        select(OutboxMessage).where(OutboxMessage.event_type == "customer.vehicle_party.unlinked")
+    ).all()
+    assert [m.aggregate_id for m in unlinked] == [overlapping_id]
+    assert unlinked[0].payload["mergedIntoCustomerId"] == survivor["id"]
+
+    # ADR-064 timeline reads: the kept row is history, not a current party.
+    current = client.get(f"/v1/customers/{duplicate['id']}/vehicles", headers=_bearer(token))
+    assert current.status_code == 200, current.text
+    assert current.json()["items"] == []
+    history = client.get(
+        f"/v1/customers/{duplicate['id']}/vehicles", params={"include_closed": "true"}, headers=_bearer(token)
+    )
+    assert [item["id"] for item in history.json()["items"]] == [str(overlapping_id)]
+    closed_at = history.json()["items"][0]["effectiveTo"]
+    assert dt.datetime.fromisoformat(closed_at) == shared_effective_from
 
 
 # --- transactions ----------------------------------------------------------------

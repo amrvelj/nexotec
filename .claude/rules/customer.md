@@ -103,8 +103,12 @@ weekly. -->
 - **ADR-064 — vehicle–customer links carry a role and are time-bounded.** Owner, keeper
   (Halter) and driver are different parties often enough that collapsing them loses what a
   seller needs. A new holder **closes** the previous row instead of overwriting it
-  (`allocate_vehicle_party`). **Not built:** the transfer on `finance.invoice.issued` (WP-9,
-  KAN-74).
+  (`allocate_vehicle_party`). A customer merge re-points the duplicate's rows at the survivor;
+  a row whose (vehicle, role, effective_from) the survivor already holds cannot be (the unique
+  key spans `customer_id`) and is **kept** on the duplicate, closed at its own start, with
+  `merged_into_customer_id` naming the survivor, audited as a `vehicle_party_remove` — never
+  deleted (KAN-177, Anto's ruling 2026-10-12, option A). **Not built:** the transfer on
+  `finance.invoice.issued` (WP-9, KAN-74).
 - Allocation resolves the vehicle against `vehicle_mdm` (global, ADR-022), never the frozen
   legacy `vehicle` table — `allocate_vehicle_party` does not look it up, so its callers resolve
   it first (the allocate routes 404 an unknown one; the trade-in on an offer or a pending

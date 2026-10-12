@@ -40,8 +40,8 @@ function fieldKind(entityType: string, key: string): FieldKind | null {
   if (entityType !== 'customer') return null
   const k = camelKey(key)
   if (k === 'creditLimit') return 'amountChf'
-  // The merge event's counts (vehiclePartiesRepointed, tagsDropped, …).
-  if (/(Repointed|Dropped)$/.test(k)) return 'quantity'
+  // The merge event's counts (vehiclePartiesRepointed, vehiclePartiesKeptClosed, tagsDropped, …).
+  if (/(Repointed|Dropped|KeptClosed)$/.test(k)) return 'quantity'
   // Customer-level `Date` columns (snake_case in the snapshot).
   if (k === 'birthDate' || k === 'customerSince' || k === 'nextFollowUp') return 'date'
   // Contact-channel consent and vehicle-party events write their own

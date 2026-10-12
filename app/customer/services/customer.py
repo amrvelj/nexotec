@@ -971,26 +971,54 @@ def _fixup_single_primary(db: Session, model: type, *, customer_id: uuid.UUID, t
         usable[0].is_primary = True
 
 
-def _repoint_vehicle_parties(db: Session, *, duplicate_id: uuid.UUID, target_id: uuid.UUID) -> tuple[int, int]:
+def _repoint_vehicle_parties(
+    db: Session, *, duplicate_id: uuid.UUID, target_id: uuid.UUID, actor_id: uuid.UUID, group_id: uuid.UUID
+) -> tuple[int, list[uuid.UUID]]:
+    """Re-points the duplicate's party rows at the survivor; returns how
+    many, and the ids of the rows it KEPT instead.
+
+    KAN-177 (ADR-064: party history is never deleted; Anto's ruling,
+    2026-10-12, option A). A row whose (vehicle, role, effective_from) the
+    survivor already holds cannot be re-pointed — uq_vehicle_party_scope is
+    (vehicle, customer, role, effective_from), so the survivor's own row
+    would collide — and before KAN-177 it was hard-deleted, unaudited. Now
+    it stays on the duplicate's customer_id (the one place it does not
+    collide), closed at its own start, and marked with the survivor it was
+    merged into (`merged_into_customer_id`). The close goes through
+    _close_vehicle_party, so it is audited (`vehicle_party_remove`, with
+    `mergedIntoCustomerId`) and published (`customer.vehicle_party.unlinked`)
+    like every other close; the merge's own audit event lists the ids.
+
+    A copy that was already closed in the past keeps its own effective_to —
+    that is recorded history — and only takes the mark; one that is open,
+    or closed at a future date, is closed at its start so it never reads as
+    a current party again. The survivor's row is not touched.
+    """
+
     target_keys = {
         (p.vehicle_id, p.role, p.effective_from)
         for p in db.scalars(select(VehicleParty).where(VehicleParty.customer_id == target_id)).all()
     }
-    repointed = dropped = 0
+    repointed = 0
+    kept_closed: list[uuid.UUID] = []
     for party in db.scalars(select(VehicleParty).where(VehicleParty.customer_id == duplicate_id)).all():
         key = (party.vehicle_id, party.role, party.effective_from)
         if key in target_keys:
-            # Survivor already holds this exact role/period on this vehicle
-            # — re-pointing would violate uq_vehicle_party_scope, and the
-            # duplicate's copy adds nothing history the survivor doesn't
-            # already have.
-            db.delete(party)
-            dropped += 1
+            already_closed = party.effective_to is not None and party.effective_to <= utcnow()
+            _close_vehicle_party(
+                db,
+                party=party,
+                actor_id=actor_id,
+                group_id=group_id,
+                effective_to=party.effective_to if already_closed else party.effective_from,
+                merged_into_customer_id=target_id,
+            )
+            kept_closed.append(party.id)
         else:
             party.customer_id = target_id
             target_keys.add(key)
             repointed += 1
-    return repointed, dropped
+    return repointed, kept_closed
 
 
 def _repoint_transactions(db: Session, *, duplicate_id: uuid.UUID, target_id: uuid.UUID) -> int:
@@ -1113,9 +1141,12 @@ def merge_customer(
     that only sets the flag silently orphans the survivor's 360 view from
     everything the duplicate used to carry, which the PRD's own Risks
     section calls "worse than no merge... a correctness bug, not an
-    enhancement." Conflicting child rows (the same phone, email, external-id
-    system, or vehicle role+period already present on both) are dropped
-    from the duplicate rather than erroring — the survivor's copy wins.
+    enhancement." Conflicting child rows (the same phone, email or
+    external-id system already present on both) are dropped from the
+    duplicate rather than erroring — the survivor's copy wins. A vehicle
+    role+period present on both is the exception (KAN-177, ADR-064): the
+    duplicate's copy is kept, closed and marked merged, never deleted — see
+    _repoint_vehicle_parties.
     """
 
     if duplicate_of_customer_id == customer.id:
@@ -1134,8 +1165,8 @@ def merge_customer(
 
     before = {"lifecycleStatus": customer.lifecycle_status.value, "duplicateOfCustomerId": None}
 
-    parties_repointed, parties_dropped = _repoint_vehicle_parties(
-        db, duplicate_id=customer.id, target_id=target.id
+    parties_repointed, parties_kept_closed = _repoint_vehicle_parties(
+        db, duplicate_id=customer.id, target_id=target.id, actor_id=actor_id, group_id=customer.group_id
     )
     transactions_repointed = _repoint_transactions(db, duplicate_id=customer.id, target_id=target.id)
     phones_repointed, phones_dropped = _repoint_contacts(
@@ -1173,7 +1204,9 @@ def merge_customer(
             "lifecycleStatus": "merged",
             "duplicateOfCustomerId": str(duplicate_of_customer_id),
             "vehiclePartiesRepointed": parties_repointed,
-            "vehiclePartiesDropped": parties_dropped,
+            # KAN-177: the overlapping rows are kept, closed and marked, not dropped.
+            "vehiclePartiesKeptClosed": len(parties_kept_closed),
+            "vehiclePartiesKeptClosedIds": [str(party_id) for party_id in parties_kept_closed],
             "transactionsRepointed": transactions_repointed,
             "phonesRepointed": phones_repointed,
             "phonesDropped": phones_dropped,
@@ -2623,13 +2656,25 @@ def delete_customer_vehicle(db: Session, *, party: VehicleParty, actor_id: uuid.
     db.commit()
 
 
-def _close_vehicle_party(db: Session, *, party: VehicleParty, actor_id: uuid.UUID, group_id: uuid.UUID) -> None:
+def _close_vehicle_party(
+    db: Session,
+    *,
+    party: VehicleParty,
+    actor_id: uuid.UUID,
+    group_id: uuid.UUID,
+    effective_to: dt.datetime | None = None,
+    merged_into_customer_id: uuid.UUID | None = None,
+) -> None:
     """Sets effective_to and writes the audit row and the unlinked outbox
     event — WITHOUT committing, so allocate_vehicle_party can close the
     incumbent and insert the new holder in one transaction (KAN-99). A
     commit between the two would leave the vehicle with no holder at all
     if the insert then failed. `group_id` must be the group of the
     customer on `party`: it stamps the audit row and the event.
+
+    `effective_to` defaults to now. A customer merge (KAN-177) passes the
+    row's own start and the survivor it merged into, which the audit row
+    and the event carry as `mergedIntoCustomerId`.
     """
 
     before = {
@@ -2638,7 +2683,11 @@ def _close_vehicle_party(db: Session, *, party: VehicleParty, actor_id: uuid.UUI
         "effectiveFrom": party.effective_from.isoformat(),
         "effectiveTo": party.effective_to.isoformat() if party.effective_to else None,
     }
-    party.effective_to = utcnow()
+    party.effective_to = effective_to or utcnow()
+    after: dict[str, Any] = {"effectiveTo": party.effective_to.isoformat()}
+    if merged_into_customer_id is not None:
+        party.merged_into_customer_id = merged_into_customer_id
+        after["mergedIntoCustomerId"] = str(merged_into_customer_id)
 
     record_audit_event(
         db,
@@ -2648,7 +2697,7 @@ def _close_vehicle_party(db: Session, *, party: VehicleParty, actor_id: uuid.UUI
         action="vehicle_party_remove",
         actor_id=actor_id,
         before=before,
-        after={"effectiveTo": party.effective_to.isoformat()},
+        after=after,
     )
     publish_event(
         db,
@@ -2791,6 +2840,8 @@ def _vehicle_party_payload(party: VehicleParty) -> dict[str, Any]:
         "role": party.role.value,
         "effectiveFrom": party.effective_from.isoformat(),
         "effectiveTo": party.effective_to.isoformat() if party.effective_to else None,
+        # KAN-177: set only on a copy a customer merge kept closed.
+        "mergedIntoCustomerId": str(party.merged_into_customer_id) if party.merged_into_customer_id else None,
     }
 
 
