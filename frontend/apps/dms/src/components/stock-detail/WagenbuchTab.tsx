@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { Button } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 import { radius, semantic, slate, spacing } from '@nexotec/ui-kit'
@@ -11,6 +11,10 @@ interface WagenbuchTabProps {
   entries: LedgerEntryRead[]
   locale: string
   onRecordCost: (data: { category: LedgerCategory; amount: number; occurredAt: string; sourceRef: string }) => Promise<void>
+  /** KAN-306 — the date the car left stock, formatted; set, the Wagenbuch
+   * is closed to new entries (FR-I-12, refused server-side with a 422), so
+   * "record cost" is shown disabled with that reason (ADR-061). */
+  leftStockDate?: string | null
 }
 
 /**
@@ -20,9 +24,10 @@ interface WagenbuchTabProps {
  * CustomerDetail's own HistoryTab, which uses the identical pattern
  * rather than the top-level overview grid machinery.
  */
-export function WagenbuchTab({ entries, locale, onRecordCost }: WagenbuchTabProps) {
+export function WagenbuchTab({ entries, locale, onRecordCost, leftStockDate = null }: WagenbuchTabProps) {
   const { t } = useTranslation()
   const [dialogOpen, setDialogOpen] = useState(false)
+  const closedReasonId = useId()
 
   const total = entries.reduce(
     (sum, e) => sum + (e.direction === 'revenue' ? Number(e.amount) : -Number(e.amount)),
@@ -46,9 +51,21 @@ export function WagenbuchTab({ entries, locale, onRecordCost }: WagenbuchTabProp
         <span style={{ fontWeight: 700, fontSize: 18 }}>{formatCurrencyChf(total)}</span>
       </div>
 
-      <Button variant="default" onClick={() => setDialogOpen(true)} style={{ alignSelf: 'flex-start' }}>
-        {t('stockDetail.wagenbuch.recordButton')}
-      </Button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' }}>
+        <Button
+          variant="default"
+          onClick={() => setDialogOpen(true)}
+          disabled={Boolean(leftStockDate)}
+          aria-describedby={leftStockDate ? closedReasonId : undefined}
+        >
+          {t('stockDetail.wagenbuch.recordButton')}
+        </Button>
+        {leftStockDate && (
+          <span id={closedReasonId} style={{ color: slate[5], fontSize: 13 }}>
+            {t('stockDetail.wagenbuch.closed', { date: leftStockDate })}
+          </span>
+        )}
+      </div>
 
       {entries.length === 0 ? (
         <span style={{ color: slate[5], fontSize: 14 }}>{t('stockDetail.wagenbuch.empty')}</span>

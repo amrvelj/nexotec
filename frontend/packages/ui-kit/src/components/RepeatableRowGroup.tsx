@@ -85,6 +85,9 @@ export interface RepeatableRowGroupProps {
     none?: string;
     genericError?: string;
     labelFieldPlaceholder?: string;
+    /** KAN-291 — the row menu trigger's accessible name, given the group's
+     * `label` ("Phone" → "Phone row actions"); translated by the caller. */
+    rowActions?: (label: string) => string;
   };
   /** FR-23 §1 — when consent is granted the advisor picks WHAT it covers
    * (scope) and HOW it was given (source). Pass translated option lists to
@@ -116,6 +119,7 @@ const DEFAULT_LABELS = {
   none: "None recorded",
   genericError: "Something went wrong.",
   labelFieldPlaceholder: "Label",
+  rowActions: (label: string) => `${label} row actions`,
 };
 
 // Wide enough for an e-mail address or a name in the kit's 13px type.
@@ -368,7 +372,7 @@ export function RepeatableRowGroup({
             </label>
 
             <RowMenu
-              ariaLabel={`${label} row actions`}
+              ariaLabel={L.rowActions(label)}
               groups={{
                 edit: [
                   { label: L.noLongerValid, icon: null, onClick: () => void closeNoLongerValid(row) },

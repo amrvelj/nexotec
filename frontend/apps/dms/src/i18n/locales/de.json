@@ -61,6 +61,7 @@
     "retry": "Erneut versuchen",
     "loadingMore": "Wird geladen…",
     "rowActionsLabel": "Zeilenaktionen",
+    "selectAllLabel": "Alle auswählen",
     "moreActions": "Weitere Aktionen",
     "showing": "{{count, number}} angezeigt",
     "showingOfTotal": "{{count, number}} von {{total}} angezeigt",
@@ -306,7 +307,8 @@
       "print": "Drucken"
     },
     "createOfferError": "Die Offerte konnte nicht angelegt werden. Bitte erneut versuchen.",
-    "createContractError": "Der Vertrag konnte nicht angelegt werden. Bitte erneut versuchen."
+    "createContractError": "Der Vertrag konnte nicht angelegt werden. Bitte erneut versuchen.",
+    "doNotContactError": "„Nicht kontaktieren“ konnte nicht gespeichert werden. Bitte erneut versuchen."
   },
   "customerDetail": {
     "tabs": {
@@ -417,7 +419,8 @@
       "preferredMark": "Bevorzugter Kanal",
       "noPreferred": "Kein bevorzugter Kanal",
       "consentScope": "Umfang",
-      "consentSource": "Quelle"
+      "consentSource": "Quelle",
+      "rowActions": "Aktionen für {{label}}"
     },
     "phoneInput": {
       "country": "Land",
@@ -496,9 +499,11 @@
       "intro": "Suchen Sie den Kunden, mit dem <name/> zusammengeführt werden soll. Jener Datensatz bleibt bestehen, dieser wird als zusammengeführt markiert.",
       "searchPlaceholder": "Nach Name, E-Mail, Telefon, Kundennummer suchen…",
       "noMatches": "Keine Treffer.",
+      "searchFailed": "Die Suche ist fehlgeschlagen. Bitte erneut versuchen.",
       "chooseDifferent": "← Anderen verbleibenden Kunden wählen",
       "duplicateColumn": "Dieser Kunde — wird zusammengeführt",
       "survivorColumn": "Verbleibender Kunde — bleibt bestehen",
+      "survivorContactsFailed": "Telefon und E-Mail des verbleibenden Kunden konnten nicht geladen werden. Bitte einen anderen wählen oder erneut versuchen.",
       "irreversibleTitle": "Dies kann nicht rückgängig gemacht werden",
       "irreversibleBody": "Fahrzeuge, Transaktionen, Telefonnummern, E-Mail-Adressen und externe IDs gehen auf den verbleibenden Kunden über. Dieser Kunde wird schreibgeschützt und in der Suche ausgeblendet.",
       "confirm": "Ich verstehe, dass dies endgültig ist",
@@ -796,7 +801,6 @@
     "actions": {
       "createOffer": "Offerte erstellen",
       "createContract": "Vertrag erstellen",
-      "salesNotYetBuilt": "Verkauf ist noch nicht verfügbar.",
       "leftStock": "Dieses Fahrzeug hat den Bestand am {{date}} verlassen (verkauft)."
     },
     "spec": {
@@ -818,7 +822,9 @@
     },
     "errors": {
       "failedToLoad": "Laden fehlgeschlagen",
-      "somethingWentWrong": "Etwas ist schiefgelaufen."
+      "somethingWentWrong": "Etwas ist schiefgelaufen.",
+      "createOfferFailed": "Die Offerte konnte nicht angelegt werden. Bitte erneut versuchen.",
+      "createContractFailed": "Der Vertrag konnte nicht angelegt werden. Bitte erneut versuchen."
     },
     "purchase": {
       "title": "Einkauf",
@@ -857,7 +863,8 @@
       },
       "auto": "Automatisch",
       "manual": "Manuell",
-      "error": "Die Kosten konnten nicht erfasst werden. Bitte erneut versuchen."
+      "error": "Die Kosten konnten nicht erfasst werden. Bitte erneut versuchen.",
+      "closed": "Wagenbuch seit {{date}} geschlossen: Das Fahrzeug hat den Bestand verlassen."
     },
     "publishing": {
       "blockingBannerTitle": "{{count, number}} Punkt(e) verhindern die Publikation",
@@ -1009,6 +1016,7 @@
       "confirmRefused": {
         "title": "Vertrag nicht bestätigt",
         "missingAddress": "Für diesen Kunden ist keine Adresse hinterlegt. Erfassen Sie eine aktuelle Wohnadresse im Kundendatensatz, bevor der Vertrag bestätigt werden kann.",
+        "missingCustomer": "Der Vertrag hat noch keinen Kunden. Wählen Sie zuerst den Käufer.",
         "missingVehicle": "Dieser Vertrag hat noch kein Fahrzeug. Fügen Sie ein Fahrzeug hinzu, bevor der Vertrag bestätigt werden kann.",
         "missingPrice": "Für diesen Vertrag ist noch kein Preis hinterlegt. Erfassen Sie einen Preis, bevor der Vertrag bestätigt werden kann.",
         "creditBlock": "Dieser Kunde ist kreditgesperrt ({{reason}}). Eine Offerte ist weiterhin möglich; der Vertrag erfordert die Kontofreigabe durch die Buchhaltung.",
@@ -1037,6 +1045,7 @@
       "cancelDisabledReason": "Bereits storniert oder fakturiert.",
       "cancelDisabledReasonLegacy": "Aus dem Altsystem übernommener Verkauf — dort bereits fakturiert, kann nicht storniert werden.",
       "confirmDisabledReasonEmpty": "Fahrzeug und Preis fehlen noch.",
+      "confirmDisabledReasonNoBuyer": "Zuerst den Käufer wählen: Ein Vertrag wird nie ohne Kunden bestätigt.",
       "confirmDisabledReasonSaving": "Änderungen werden noch gespeichert."
     },
     "stats": {
@@ -1049,7 +1058,7 @@
     "cancelReasonPrompt": "Grund für die Stornierung:",
     "edit": {
       "title": "Vertrag vervollständigen",
-      "hint": "Solange der Vertrag nicht bestätigt ist, lassen sich Fahrzeug, Preisaufbau und Eintauschfahrzeug hier ergänzen oder anpassen. Mit der Bestätigung wird er eingefroren.",
+      "hint": "Solange der Vertrag nicht bestätigt ist, lassen sich Kunde, Fahrzeug, Preisaufbau und Eintauschfahrzeug hier ergänzen oder anpassen. Mit der Bestätigung wird er eingefroren.",
       "pricedWithoutInputs": "Dieser Vertrag wurde bepreist, bevor Verträge ihre Preisgrundlagen speicherten. Er kann so bestätigt oder storniert, aber nicht mehr angepasst werden."
     }
   },
@@ -1068,6 +1077,7 @@
     },
     "customer": {
       "emptyHint": "Kein Kunde ist vorausgewählt — eine Offerte trägt den Namen, der unterschrieben wird.",
+      "emptyHintContract": "Noch kein Käufer — ein Vertrag wird erst mit dem Kunden bestätigt, der unterschreibt.",
       "search": "Kunde suchen",
       "createNew": "Neu anlegen",
       "creditBlockTitle": "Kreditsperre",

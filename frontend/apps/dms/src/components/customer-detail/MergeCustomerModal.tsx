@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Building2, Search, TriangleAlert, User } from 'lucide-react'
 import { Checkbox, Group, Loader, Modal, Stack, Text, TextInput, UnstyledButton } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
@@ -46,11 +46,16 @@ export function MergeCustomerModal({ opened, onClose, customer, phones, emails, 
   const [debouncedQuery] = useDebouncedValue(query, 300)
   const [results, setResults] = useState<CustomerRead[]>([])
   const [searching, setSearching] = useState(false)
+  const [searchFailed, setSearchFailed] = useState(false)
 
   const [survivor, setSurvivor] = useState<CustomerRead | null>(null)
   const [survivorPhones, setSurvivorPhones] = useState<CustomerPhoneRead[]>([])
   const [survivorEmails, setSurvivorEmails] = useState<CustomerEmailRead[]>([])
   const [loadingSurvivorContacts, setLoadingSurvivorContacts] = useState(false)
+  const [survivorContactsFailed, setSurvivorContactsFailed] = useState(false)
+  // The survivor whose contacts the latest load is for: an answer for an
+  // earlier pick never lands beside a later one (KAN-299).
+  const survivorRequest = useRef<string | null>(null)
 
   const [confirmed, setConfirmed] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -63,7 +68,12 @@ export function MergeCustomerModal({ opened, onClose, customer, phones, emails, 
     idempotency.renew()
     setQuery('')
     setResults([])
+    setSearchFailed(false)
     setSurvivor(null)
+    setSurvivorPhones([])
+    setSurvivorEmails([])
+    setSurvivorContactsFailed(false)
+    survivorRequest.current = null
     setConfirmed(false)
     setError(null)
   }, [opened, idempotency])
@@ -71,17 +81,22 @@ export function MergeCustomerModal({ opened, onClose, customer, phones, emails, 
   useEffect(() => {
     if (debouncedQuery.trim().length < 2) {
       setResults([])
+      setSearchFailed(false)
       return
     }
     let cancelled = false
     setSearching(true)
+    setSearchFailed(false)
     api
       .get<CustomerPage>(`/customers?q=${encodeURIComponent(debouncedQuery)}&limit=8`)
       .then((res) => {
         if (!cancelled) setResults(res.items.filter((c) => c.id !== customer.id))
       })
       .catch(() => {
-        if (!cancelled) setResults([])
+        // KAN-299 (ADR-035): a failed search is an error, never "No matches".
+        if (cancelled) return
+        setResults([])
+        setSearchFailed(true)
       })
       .finally(() => {
         if (!cancelled) setSearching(false)
@@ -91,8 +106,16 @@ export function MergeCustomerModal({ opened, onClose, customer, phones, emails, 
     }
   }, [debouncedQuery, customer.id])
 
+  // KAN-299 — the compare columns are what the user checks before an
+  // irreversible merge: a new pick starts with no contacts (never the
+  // previous survivor's), and a failed load says so instead of rejecting
+  // unhandled.
   const selectSurvivor = async (candidate: CustomerRead) => {
+    survivorRequest.current = candidate.id
     setSurvivor(candidate)
+    setSurvivorPhones([])
+    setSurvivorEmails([])
+    setSurvivorContactsFailed(false)
     setError(null)
     setLoadingSurvivorContacts(true)
     try {
@@ -100,10 +123,13 @@ export function MergeCustomerModal({ opened, onClose, customer, phones, emails, 
         api.get<CustomerPhonePage>(`/customers/${candidate.id}/phones`),
         api.get<CustomerEmailPage>(`/customers/${candidate.id}/emails`),
       ])
+      if (survivorRequest.current !== candidate.id) return
       setSurvivorPhones(phonesPage.items)
       setSurvivorEmails(emailsPage.items)
+    } catch {
+      if (survivorRequest.current === candidate.id) setSurvivorContactsFailed(true)
     } finally {
-      setLoadingSurvivorContacts(false)
+      if (survivorRequest.current === candidate.id) setLoadingSurvivorContacts(false)
     }
   }
 
@@ -167,7 +193,12 @@ export function MergeCustomerModal({ opened, onClose, customer, phones, emails, 
                 <LifecycleStatusBadge status={c.lifecycleStatus} label={translatedLifecycleLabel(t, c.lifecycleStatus)} />
               </UnstyledButton>
             ))}
-            {!searching && debouncedQuery.trim().length >= 2 && results.length === 0 && (
+            {!searching && searchFailed && (
+              <Text size="sm" c={semantic.destructive.text} ta="center" py="sm" role="alert">
+                {t('customerDetail.merge.searchFailed')}
+              </Text>
+            )}
+            {!searching && !searchFailed && debouncedQuery.trim().length >= 2 && results.length === 0 && (
               <Text size="sm" c="dimmed" ta="center" py="sm">
                 {t('customerDetail.merge.noMatches')}
               </Text>
@@ -182,6 +213,10 @@ export function MergeCustomerModal({ opened, onClose, customer, phones, emails, 
 
           {loadingSurvivorContacts ? (
             <Loader size="sm" mx="auto" />
+          ) : survivorContactsFailed ? (
+            <Text size="sm" c={semantic.destructive.text} role="alert">
+              {t('customerDetail.merge.survivorContactsFailed')}
+            </Text>
           ) : (
             <Group grow align="stretch">
               <CompareColumn title={t('customerDetail.merge.duplicateColumn')} customer={customer} phones={phones} emails={emails} tone="destructive" />
@@ -219,17 +254,19 @@ export function MergeCustomerModal({ opened, onClose, customer, phones, emails, 
             </UnstyledButton>
             <button
               type="button"
-              disabled={!confirmed || submitting}
+              // KAN-299 — the merge is irreversible: it waits until the
+              // survivor's contacts are on screen to be compared.
+              disabled={!confirmed || submitting || loadingSurvivorContacts || survivorContactsFailed}
               onClick={() => void submit()}
               style={{
                 fontSize: 14,
                 fontWeight: 600,
                 color: white,
-                backgroundColor: confirmed ? semantic.destructive.text : slate[3],
+                backgroundColor: confirmed && !loadingSurvivorContacts && !survivorContactsFailed ? semantic.destructive.text : slate[3],
                 border: 'none',
                 borderRadius: 8,
                 padding: '8px 16px',
-                cursor: confirmed && !submitting ? 'pointer' : 'not-allowed',
+                cursor: confirmed && !submitting && !loadingSurvivorContacts && !survivorContactsFailed ? 'pointer' : 'not-allowed',
               }}
             >
               {submitting ? t('customerDetail.merge.submitting') : t('customerDetail.merge.submit')}

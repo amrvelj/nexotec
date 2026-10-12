@@ -463,7 +463,7 @@ function ContactRowGroup({
   handlers: RowGroupHandlers
   renderValueEditor: (value: string, onChange: (v: string) => void, autoFocus: boolean) => ReactNode
   valueEditorMinWidth?: number
-  t: (key: string) => string
+  t: (key: string, options?: Record<string, unknown>) => string
 }) {
   return (
     <Stack gap="xs">
@@ -495,6 +495,7 @@ function ContactRowGroup({
           confirm: t('customerDetail.contactPoints.confirm'),
           none: t('customerDetail.contactPoints.none'),
           labelFieldPlaceholder: t('customerDetail.contactPoints.labelPlaceholder'),
+          rowActions: (label) => t('customerDetail.contactPoints.rowActions', { label }),
         }}
       />
     </Stack>

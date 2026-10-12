@@ -110,6 +110,50 @@ describe('CustomersListPage — a failed create from the row menu says so (KAN-2
   })
 })
 
+// KAN-308 — "Nicht kontaktieren" from the row menu: a refused PATCH is said
+// above the grid (the server's message, or the translated fallback when the
+// request never reached it), and a version conflict refetches the grid.
+describe('CustomersListPage — a failed do-not-contact toggle says so (KAN-308)', () => {
+  const install = (patch: () => unknown) =>
+    installFakeBackend([
+      { method: 'GET', match: /^\/customers$/, handler: () => customerPage([customer({ id: 'c1', lastName: 'Aebi' })]) },
+      { method: 'PATCH', match: /^\/customers\/c1$/, handler: patch },
+    ])
+
+  const toggle = async (user: ReturnType<typeof userEvent.setup>) => {
+    await openRowMenu(user)
+    await user.click(await screen.findByRole('menuitem', { name: new RegExp(i18n.t('customerRowMenu.setDoNotContact')) }))
+  }
+
+  it('a version conflict shows the server message and refetches the grid', async () => {
+    const user = userEvent.setup()
+    const backend = install(() =>
+      status(409, { error: { code: 'conflict', message: 'Customer was changed by someone else.', details: { currentVersion: 2 } } }),
+    )
+    renderWithProviders(<CustomersListPage />, { route: '/customers' })
+    await screen.findAllByRole('button', { name: i18n.t('common.rowActionsLabel') })
+    const listCallsBefore = backend.callsTo(/^\/customers$/, 'GET').length
+
+    await toggle(user)
+
+    expect((await screen.findByRole('alert')).textContent).toBe('Customer was changed by someone else.')
+    await waitFor(() => expect(backend.callsTo(/^\/customers$/, 'GET').length).toBeGreaterThan(listCallsBefore))
+  })
+
+  it('a request that never reached the server shows the translated fallback', async () => {
+    await i18n.changeLanguage('fr')
+    const user = userEvent.setup()
+    install(() => {
+      throw new TypeError('Failed to fetch')
+    })
+    renderWithProviders(<CustomersListPage />, { route: '/customers' })
+
+    await toggle(user)
+
+    expect((await screen.findByRole('alert')).textContent).toBe(i18n.t('customersList.doNotContactError'))
+  })
+})
+
 describe('ValuationsListPage — a failed «Als verwendet markieren» says so (KAN-273)', () => {
   const VALUATION = {
     id: 'val-1', valuationNumber: 'B-000001', status: 'valid', source: 'manual', hasSignedContract: true,

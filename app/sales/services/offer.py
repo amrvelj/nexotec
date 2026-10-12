@@ -19,7 +19,7 @@ from app.sales.schemas.offer import OfferUpdate
 from app.sales.services.deal_editing import apply_vehicle_and_pricing_changes
 from app.sales.services.deal_projection import upsert_deal_projection
 from app.sales.services.numbering import allocate_offer_number
-from app.sales.services.priced_deal import compute_containers, require_editable
+from app.sales.services.priced_deal import PricedDeal, compute_containers, require_editable
 from app.sales.services.pricing import apply_build_up
 from app.sales.services.snapshot import freeze_vehicle_snapshot
 
@@ -36,8 +36,61 @@ def resolve_customer_label(customer: Customer) -> str:
     return " ".join(part for part in [customer.first_name, customer.last_name] if part) or customer.customer_number
 
 
-def get_offer_or_404(db: Session, tenant_id: uuid.UUID, offer_id: uuid.UUID) -> SalesOffer:
-    offer = db.scalar(select(SalesOffer).where(SalesOffer.id == offer_id, SalesOffer.tenant_id == tenant_id))
+def apply_customer_change(
+    db: Session, *, deal: PricedDeal, group_id: uuid.UUID, customer_id: uuid.UUID | None, host: str
+) -> None:
+    """Sets or clears the buyer of an offer draft or a pending contract —
+    one rule for both (the contract's since KAN-307, Anto 2026-10-12:
+    "the same as offer generation"; ADR-083 amended). `customer_id` is
+    resolved server-side into the denormalized label and correspondence
+    language on every change (never trusted from the client). `host` ends
+    the do-not-contact refusal ("an offer", "a contract"). The caller has
+    checked the deal is editable and owns the transaction."""
+
+    if customer_id is None:
+        deal.customer_id = None
+        deal.customer_label = None
+        deal.customer_language = None
+        deal.customer_denorm_refreshed_at = None
+        return
+    customer = get_customer_or_404(db, group_id, customer_id)
+    # ADR-065/S-D19 — do-not-contact stops BOTH the offer and the
+    # contract (it's about contact, not credit); a credit block is
+    # the opposite case and deliberately does NOT stop here — it
+    # only stops confirm_contract (S-D19: "quoting a blocked
+    # customer is often how the block gets resolved").
+    if customer.lifecycle_status == CustomerLifecycleStatus.DO_NOT_CONTACT:
+        raise ConflictError(f"Customer {customer.customer_number} is do-not-contact — cannot be attached to {host}.")
+    deal.customer_id = customer.id
+    deal.customer_label = resolve_customer_label(customer)
+    # CLAUDE.md's own rule: "the customer's correspondence language
+    # is not the user's UI language" — denormalized here so
+    # services/document.py never has to reach back into customer
+    # at generation time.
+    deal.customer_language = customer.language.value
+    # customer_locality needs an address lookup app.customer.public
+    # doesn't expose yet — left None here rather than guessed;
+    # picked up once that surface exists (flagged, not silently
+    # dropped).
+    deal.customer_denorm_refreshed_at = utcnow()
+
+
+def get_offer_or_404(
+    db: Session, tenant_id: uuid.UUID, offer_id: uuid.UUID, *, for_update: bool = False
+) -> SalesOffer:
+    """`for_update` (KAN-311) locks the row until the caller commits, as
+    `get_contract_or_404` does since KAN-288: every route that changes an
+    offer loads it this way, so two saves of one offer run one after the
+    other and the second is refused as stale. Without it both passed the
+    If-Match check against their own read and the later one overwrote the
+    first (a lost update), and an edit could land on an offer finalised or
+    cancelled in between. The offer is the first row in the offer ->
+    contract -> deal lock order (KAN-147)."""
+
+    stmt = select(SalesOffer).where(SalesOffer.id == offer_id, SalesOffer.tenant_id == tenant_id)
+    if for_update:
+        stmt = stmt.with_for_update()
+    offer = db.scalar(stmt)
     if offer is None:
         raise NotFoundError(f"Offer {offer_id} was not found.")
     return offer
@@ -84,35 +137,7 @@ def update_offer(
     changes = data.model_dump(exclude_unset=True)
 
     if "customer_id" in changes:
-        customer_id = changes.pop("customer_id")
-        if customer_id is None:
-            offer.customer_id = None
-            offer.customer_label = None
-            offer.customer_language = None
-            offer.customer_denorm_refreshed_at = None
-        else:
-            customer = get_customer_or_404(db, group_id, customer_id)
-            # ADR-065/S-D19 — do-not-contact stops BOTH the offer and the
-            # contract (it's about contact, not credit); a credit block is
-            # the opposite case and deliberately does NOT stop here — it
-            # only stops confirm_contract (S-D19: "quoting a blocked
-            # customer is often how the block gets resolved").
-            if customer.lifecycle_status == CustomerLifecycleStatus.DO_NOT_CONTACT:
-                raise ConflictError(
-                    f"Customer {customer.customer_number} is do-not-contact — cannot be attached to an offer."
-                )
-            offer.customer_id = customer.id
-            offer.customer_label = resolve_customer_label(customer)
-            # CLAUDE.md's own rule: "the customer's correspondence language
-            # is not the user's UI language" — denormalized here so
-            # services/document.py never has to reach back into customer
-            # at generation time.
-            offer.customer_language = customer.language.value
-            # customer_locality needs an address lookup app.customer.public
-            # doesn't expose yet — left None here rather than guessed;
-            # picked up once that surface exists (flagged, not silently
-            # dropped).
-            offer.customer_denorm_refreshed_at = utcnow()
+        apply_customer_change(db, deal=offer, group_id=group_id, customer_id=changes.pop("customer_id"), host="an offer")
 
     apply_vehicle_and_pricing_changes(db, deal=offer, changes=changes, actor_id=actor_id, host="offer workspace")
 

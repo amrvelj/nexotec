@@ -29,7 +29,7 @@ from app.sales.services.contract_completeness import require_complete
 from app.sales.services.deal_editing import apply_vehicle_and_pricing_changes
 from app.sales.services.deal_projection import upsert_deal_projection
 from app.sales.services.numbering import allocate_contract_number
-from app.sales.services.offer import resolve_customer_label
+from app.sales.services.offer import apply_customer_change, resolve_customer_label
 from app.sales.services.priced_deal import require_editable
 from app.valuation.public import consume_valuation_for_contract, revert_valuation_use
 
@@ -68,6 +68,8 @@ def create_contract(
     actor_id: uuid.UUID | None,
     customer_id: uuid.UUID | None = None,
     group_id: uuid.UUID | None = None,
+    stock_item_id: uuid.UUID | None = None,
+    vehicle_label: str | None = None,
 ) -> SalesContract:
     """`offer=None, customer_id=None` — a contract with neither — is refused
     at the API since KAN-276 (Anto, 2026-10-11: "no empty contracts";
@@ -88,6 +90,15 @@ def create_contract(
     offers); a credit block and D-20's missing-address gate stay
     confirm-time-only refusals (KAN-55), because creating, like quoting,
     commits nobody.
+
+    `stock_item_id` set (KAN-307, Anto 2026-10-12) is "Vertrag erstellen"
+    on a stock car: the contract starts with that car, applied through the
+    same Path A edit as the contract's own PATCH (`deal_editing`), in this
+    transaction, so a car that cannot be read (404) leaves no contract
+    behind. The buyer is then picked inside the pending contract
+    (`ContractUpdate.customer_id`), as on an offer; confirmation refuses a
+    contract without one.
+    Mutually exclusive with `offer` and `customer_id` (`ContractCreate`).
     """
 
     customer = None
@@ -199,6 +210,14 @@ def create_contract(
     db.flush()
     if offer is not None:
         _copy_line_items(db, offer=offer, contract=contract)
+    if stock_item_id is not None:
+        apply_vehicle_and_pricing_changes(
+            db,
+            deal=contract,
+            changes={"vehicle_source": "stock", "stock_item_id": stock_item_id, "vehicle_label": vehicle_label},
+            actor_id=actor_id,
+            host="contract",
+        )
 
     publish(
         db,
@@ -252,7 +271,12 @@ def _copy_line_items(db: Session, *, offer: SalesOffer, contract: SalesContract)
 
 
 def update_contract(
-    db: Session, *, contract: SalesContract, data: ContractUpdate, actor_id: uuid.UUID | None
+    db: Session,
+    *,
+    contract: SalesContract,
+    group_id: uuid.UUID,
+    data: ContractUpdate,
+    actor_id: uuid.UUID | None,
 ) -> SalesContract:
     """KAN-67 (ADR-083) — completes or adjusts a PENDING contract's vehicle
     and price, through the offer's own edit code (deal_editing), so the two
@@ -269,6 +293,11 @@ def update_contract(
 
     require_editable(contract)
     changes = data.model_dump(exclude_unset=True)
+    if "customer_id" in changes:
+        # KAN-307 (ADR-083 amended): the buyer, as on the offer.
+        apply_customer_change(
+            db, deal=contract, group_id=group_id, customer_id=changes.pop("customer_id"), host="a contract"
+        )
     apply_vehicle_and_pricing_changes(db, deal=contract, changes=changes, actor_id=actor_id, host="contract")
     upsert_deal_projection(db, contract=contract)
     db.commit()
@@ -416,6 +445,14 @@ def confirm_contract(
                 f"confirmed. Add a current domicile address to the customer record first.",
                 details={"reason": "missing_address"},
             )
+    else:
+        # KAN-307 (Anto, 2026-10-12): a contract is never signed without a
+        # buyer. A contract started from a car, or from an offer that had
+        # no customer, gets one in its own PATCH first.
+        raise ConflictError(
+            f"Contract {contract.contract_number} has no customer — cannot be confirmed. Choose the buyer first.",
+            details={"reason": "missing_customer"},
+        )
 
     # KAN-66 (G-67) — the customer->contract entry point (KAN-58) creates a
     # contract with no offer and therefore no vehicle or price at all; until

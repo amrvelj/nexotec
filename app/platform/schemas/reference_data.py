@@ -1,9 +1,10 @@
 import datetime as dt
 import uuid
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from app.core.schemas import CamelModel
+from app.platform.schemas.patch import refuse_null_on_not_null_fields
 
 
 class ReferenceValueCreate(CamelModel):
@@ -32,6 +33,12 @@ class ReferenceValueUpdate(CamelModel):
     label_en: str | None = Field(default=None, max_length=200, min_length=1)
     sort_order: int | None = None
     active: bool | None = None
+
+    @model_validator(mode="after")
+    def _not_null_fields_are_not_cleared(self) -> "ReferenceValueUpdate":
+        # KAN-312: every column here is NOT NULL.
+        refuse_null_on_not_null_fields(self)
+        return self
 
 
 class ReferenceValueRead(CamelModel):

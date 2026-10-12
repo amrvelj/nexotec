@@ -105,7 +105,7 @@ def update_offer(
     principal: Principal = Depends(require_write("sales_offers")),
     db: Session = Depends(get_db),
 ):
-    offer = offer_service.get_offer_or_404(db, principal.tenant_id, offer_id)
+    offer = offer_service.get_offer_or_404(db, principal.tenant_id, offer_id, for_update=True)
     check_version(offer.version, if_match, entity_name="SalesOffer")
     offer = offer_service.update_offer(
         db, offer=offer, group_id=principal.group_id, data=body, actor_id=principal.user_id
@@ -121,7 +121,7 @@ def set_trade_in(
     principal: Principal = Depends(require_write("sales_offers")),
     db: Session = Depends(get_db),
 ):
-    offer = offer_service.get_offer_or_404(db, principal.tenant_id, offer_id)
+    offer = offer_service.get_offer_or_404(db, principal.tenant_id, offer_id, for_update=True)
     check_version(offer.version, if_match, entity_name="SalesOffer")
     offer = trade_in_service.set_trade_in(
         db,
@@ -145,7 +145,7 @@ def attach_trade_in_valuation(
     principal: Principal = Depends(require_write("sales_offers")),
     db: Session = Depends(get_db),
 ):
-    offer = offer_service.get_offer_or_404(db, principal.tenant_id, offer_id)
+    offer = offer_service.get_offer_or_404(db, principal.tenant_id, offer_id, for_update=True)
     check_version(offer.version, if_match, entity_name="SalesOffer")
     offer = trade_in_service.attach_trade_in_valuation(
         db, deal=offer, valuation_id=body.valuation_id, actor_id=principal.user_id
@@ -160,7 +160,7 @@ def finalize_offer(
     principal: Principal = Depends(require_write("sales_offers")),
     db: Session = Depends(get_db),
 ):
-    offer = offer_service.get_offer_or_404(db, principal.tenant_id, offer_id)
+    offer = offer_service.get_offer_or_404(db, principal.tenant_id, offer_id, for_update=True)
     check_version(offer.version, if_match, entity_name="SalesOffer")
     offer = offer_service.finalize_offer(db, offer=offer, actor_id=principal.user_id)
     return _offer_read(offer)
@@ -191,7 +191,7 @@ def cancel_offer(
     principal: Principal = Depends(require_write("sales_offers")),
     db: Session = Depends(get_db),
 ):
-    offer = offer_service.get_offer_or_404(db, principal.tenant_id, offer_id)
+    offer = offer_service.get_offer_or_404(db, principal.tenant_id, offer_id, for_update=True)
     check_version(offer.version, if_match, entity_name="SalesOffer")
     offer = offer_service.cancel_offer(db, offer=offer, reason=body.reason, actor_id=principal.user_id)
     return _offer_read(offer)
@@ -222,7 +222,7 @@ def replace_offer_line_items(
     caller re-fetches GET .../line-items for the itemised list.
     """
 
-    offer = offer_service.get_offer_or_404(db, principal.tenant_id, offer_id)
+    offer = offer_service.get_offer_or_404(db, principal.tenant_id, offer_id, for_update=True)
     check_version(offer.version, if_match, entity_name="SalesOffer")
     offer = line_items_service.replace_line_items(db, deal=offer, data=body, actor_id=principal.user_id)
     return _offer_read(offer)

@@ -95,6 +95,16 @@ def _customer(db_session, group_id, *, with_address=True):
     )
 
 
+def _with_buyer(db_session, offer, group_id):
+    """KAN-307 (Anto, 2026-10-12): a contract is never confirmed without a
+    buyer, so a test confirming a contract from this offer gives it one."""
+
+    return update_offer(
+        db_session, offer=offer, group_id=group_id,
+        data=OfferUpdate(customer_id=_customer(db_session, group_id).id), actor_id=uuid.uuid4(),
+    )
+
+
 def _stock_contract(db_session, dealership_id, group_id, *, with_address=True):
     item = create_stock_item(
         db_session, tenant_id=dealership_id,
@@ -169,6 +179,7 @@ def test_confirm_contract_pricing_snapshot_equals_the_record(db_session, engine)
         ),
         actor_id=uuid.uuid4(),
     )
+    offer = _with_buyer(db_session, offer, group_id)
     contract = create_contract(db_session, tenant_id=dealership.id, offer=offer, actor_id=uuid.uuid4())
     confirm_contract(db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=_session_factory(engine))
     db_session.refresh(contract)
@@ -211,6 +222,7 @@ def test_confirm_contract_event_never_leaks_entity_private_figures(db_session, e
         ),
         actor_id=uuid.uuid4(),
     )
+    offer = _with_buyer(db_session, offer, group_id)
     contract = create_contract(db_session, tenant_id=dealership.id, offer=offer, actor_id=uuid.uuid4())
     confirm_contract(db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=_session_factory(engine))
 
@@ -231,6 +243,7 @@ def test_confirm_contract_manual_configuration_payload(db_session, engine):
         data=OfferUpdate(vehicle_source="manual", vehicle_label="Volkswagen Käfer", manual_vehicle_condition="used", manual_base_price=Decimal(18000)),
         actor_id=uuid.uuid4(),
     )
+    offer = _with_buyer(db_session, offer, group_id)
     contract = create_contract(db_session, tenant_id=dealership.id, offer=offer, actor_id=uuid.uuid4())
 
     confirmed = confirm_contract(db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=_session_factory(engine))
@@ -457,19 +470,31 @@ def test_a_prohibition_is_named_before_the_missing_address(db_session, engine):
     assert exc.value.details["reason"] == "credit_block"
 
 
-def test_confirm_contract_with_no_customer_still_confirms(db_session, engine):
-    """The address gate lives inside `if contract.customer_id is not None`,
-    so a contract with no customer (a shell contract, or the reconciliation
-    path) is unaffected."""
+def test_confirm_contract_with_no_customer_is_refused(db_session, engine):
+    """KAN-307 (Anto, 2026-10-12): a contract is never signed without a
+    buyer. Before, the customer gates lived inside `if contract.customer_id
+    is not None`, so a contract with none (from an offer without a customer,
+    or started from a stock car) was confirmed as it stood — the gap KAN-276
+    left open. Now it is a 409 `missing_customer`, and nothing is reserved."""
 
     dealership = _dealership(db_session)
     group_id = uuid.uuid4()
-    contract, _item, _customer = _stock_contract(db_session, dealership.id, group_id, with_address=False)
+    contract, item, _customer = _stock_contract(db_session, dealership.id, group_id, with_address=False)
     contract.customer_id = None
     db_session.flush()
 
-    confirmed = confirm_contract(db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=_session_factory(engine))
-    assert confirmed.status == ContractStatus.CONFIRMED
+    with pytest.raises(ConflictError) as refused:
+        confirm_contract(
+            db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(),
+            session_factory=_session_factory(engine),
+        )
+
+    assert refused.value.details == {"reason": "missing_customer"}
+    db_session.rollback()
+    db_session.refresh(contract)
+    db_session.refresh(item)
+    assert contract.status == ContractStatus.PENDING
+    assert item.reservation_state == ReservationState.NONE
 
 
 def test_offer_for_a_customer_with_no_usable_address_still_succeeds(db_session):

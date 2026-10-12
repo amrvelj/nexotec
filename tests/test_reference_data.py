@@ -312,3 +312,25 @@ def test_list_reference_values_paginates(client, db_session):
     second_body = second_page.json()
     assert len(second_body["items"]) == 1
     assert second_body["nextCursor"] is None
+
+
+# --- KAN-312: an explicit null on a NOT NULL field is a 422 -----------------
+
+
+@pytest.mark.parametrize("field", ["labelDe", "labelFr", "labelIt", "labelEn", "sortOrder", "active"])
+def test_patching_a_not_null_field_to_null_is_a_422_and_changes_nothing(client, db_session, field):
+    _seed_list(db_session, "fuel_type")
+    token = _token(AccessRole.PLATFORM_ADMIN)
+    headers = _bearer(token)
+    created = client.post("/v1/reference-data/fuel_type", json=_value_payload(), headers=headers).json()
+
+    response = client.patch(
+        "/v1/reference-data/fuel_type/diesel", json={field: None}, headers={**headers, "If-Match": "1"}
+    )
+
+    assert response.status_code == 422, response.text
+    error = response.json()["error"]
+    assert error["code"] == "unprocessable_entity"
+    assert field in error["details"]["errors"][0]["msg"]
+    items = client.get("/v1/reference-data/fuel_type", headers=headers).json()["items"]
+    assert [item for item in items if item["valueCode"] == "diesel"] == [created]

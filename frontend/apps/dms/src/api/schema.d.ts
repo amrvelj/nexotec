@@ -3383,6 +3383,10 @@ export interface components {
             customerId?: string | null;
             /** Offerid */
             offerId?: string | null;
+            /** Stockitemid */
+            stockItemId?: string | null;
+            /** Vehiclelabel */
+            vehicleLabel?: string | null;
         };
         /** ContractPage */
         ContractPage: {
@@ -3513,13 +3517,20 @@ export interface components {
          *     or a manually described car) and the seller's own pricing inputs. Every
          *     field is optional and applied incrementally, like the offer's autosave
          *     PATCH (OfferUpdate) and with the same meaning; every derived figure is
-         *     recomputed server-side, never taken from the client. The customer is
-         *     not editable here — a contract keeps the customer it was created for.
-         *     The trade-in and the line items have their own routes, as on the offer.
+         *     recomputed server-side, never taken from the client. The trade-in and
+         *     the line items have their own routes, as on the offer.
+         *
+         *     `customer_id` (KAN-307, Anto 2026-10-12, amending ADR-083): the buyer is
+         *     set, changed or cleared while the contract is pending, exactly as the
+         *     offer workspace does it — a contract started from a stock car gets its
+         *     buyer here. Confirmation refuses a contract without one
+         *     (`missing_customer`).
          */
         ContractUpdate: {
             /** Configurationid */
             configurationId?: string | null;
+            /** Customerid */
+            customerId?: string | null;
             /** Discounttype */
             discountType?: ("percent" | "amount") | null;
             /** Discountvalue */

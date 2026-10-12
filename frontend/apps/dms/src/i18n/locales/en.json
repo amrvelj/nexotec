@@ -61,6 +61,7 @@
     "retry": "Retry",
     "loadingMore": "Loading…",
     "rowActionsLabel": "Row actions",
+    "selectAllLabel": "Select all",
     "moreActions": "More actions",
     "showing": "Showing {{count, number}}",
     "showingOfTotal": "Showing {{count, number}} of {{total}}",
@@ -306,7 +307,8 @@
       "print": "Print"
     },
     "createOfferError": "The offer could not be created. Please try again.",
-    "createContractError": "The contract could not be created. Please try again."
+    "createContractError": "The contract could not be created. Please try again.",
+    "doNotContactError": "Do-not-contact could not be saved. Please try again."
   },
   "customerDetail": {
     "tabs": {
@@ -417,7 +419,8 @@
       "preferredMark": "Preferred channel",
       "noPreferred": "No preferred channel",
       "consentScope": "Scope",
-      "consentSource": "Source"
+      "consentSource": "Source",
+      "rowActions": "{{label}} row actions"
     },
     "phoneInput": {
       "country": "Country",
@@ -496,9 +499,11 @@
       "intro": "Search for the customer that <name/> should be merged into. That record survives; this one is marked merged.",
       "searchPlaceholder": "Search by name, email, phone, customer number…",
       "noMatches": "No matches.",
+      "searchFailed": "The search failed. Please try again.",
       "chooseDifferent": "← Choose a different survivor",
       "duplicateColumn": "This customer — will be merged",
       "survivorColumn": "Survivor — will remain",
+      "survivorContactsFailed": "The surviving customer's phone and email could not be loaded. Choose again or try another survivor.",
       "irreversibleTitle": "This cannot be undone",
       "irreversibleBody": "Vehicles, transactions, phones, emails and external IDs move to the survivor. This customer becomes read-only and is hidden from search.",
       "confirm": "I understand this is permanent",
@@ -796,7 +801,6 @@
     "actions": {
       "createOffer": "Create offer",
       "createContract": "Create contract",
-      "salesNotYetBuilt": "Sales is not available yet.",
       "leftStock": "This vehicle left stock on {{date}} (sold)."
     },
     "spec": {
@@ -818,7 +822,9 @@
     },
     "errors": {
       "failedToLoad": "Failed to load",
-      "somethingWentWrong": "Something went wrong."
+      "somethingWentWrong": "Something went wrong.",
+      "createOfferFailed": "The offer could not be created. Please try again.",
+      "createContractFailed": "The contract could not be created. Please try again."
     },
     "purchase": {
       "title": "Purchase",
@@ -857,7 +863,8 @@
       },
       "auto": "Automatic",
       "manual": "Manual",
-      "error": "The cost could not be recorded. Please try again."
+      "error": "The cost could not be recorded. Please try again.",
+      "closed": "Wagenbuch closed since {{date}}: the vehicle has left stock."
     },
     "publishing": {
       "blockingBannerTitle": "{{count, number}} item(s) are blocking publication",
@@ -1009,6 +1016,7 @@
       "confirmRefused": {
         "title": "Contract not confirmed",
         "missingAddress": "This customer has no address on file. Add a current domicile address to the customer record before the contract can be confirmed.",
+        "missingCustomer": "The contract has no customer yet. Choose the buyer first.",
         "missingVehicle": "This contract has no vehicle yet. Add one before the contract can be confirmed.",
         "missingPrice": "This contract has no price yet. Add one before the contract can be confirmed.",
         "creditBlock": "This customer has a credit block ({{reason}}). An offer is still possible; the contract needs the block cleared by accounting.",
@@ -1037,6 +1045,7 @@
       "cancelDisabledReason": "Already cancelled or invoiced.",
       "cancelDisabledReasonLegacy": "Sale migrated from the legacy system — already invoiced there, so it cannot be cancelled.",
       "confirmDisabledReasonEmpty": "Still missing a vehicle and a price.",
+      "confirmDisabledReasonNoBuyer": "Choose the buyer first: a contract is never confirmed without a customer.",
       "confirmDisabledReasonSaving": "Changes are still being saved."
     },
     "stats": {
@@ -1049,7 +1058,7 @@
     "cancelReasonPrompt": "Reason for cancellation:",
     "edit": {
       "title": "Complete the contract",
-      "hint": "Until the contract is confirmed, its vehicle, price build-up and trade-in can be added or adjusted here. Confirming freezes it.",
+      "hint": "Until the contract is confirmed, its customer, vehicle, price build-up and trade-in can be added or adjusted here. Confirming freezes it.",
       "pricedWithoutInputs": "This contract was priced before contracts kept their pricing inputs. It can be confirmed or cancelled as it stands, but no longer adjusted."
     }
   },
@@ -1068,6 +1077,7 @@
     },
     "customer": {
       "emptyHint": "No customer preselected — an offer carries the name that gets signed.",
+      "emptyHintContract": "No buyer yet — a contract is confirmed only with the customer who signs it.",
       "search": "Search customer",
       "createNew": "Create new",
       "creditBlockTitle": "Credit block",

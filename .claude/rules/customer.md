@@ -46,10 +46,11 @@ weekly. -->
   row primary; otherwise that group's existing primary stays and the moved row is demoted — a
   type change never silently demotes another row. Joining a group with no primary elects it.
   A row the same PATCH closes or flags `doNotUse` never takes the flag, `isPrimary: true` or not.
-- **Not yet enforced:** two paths leave a type-group with usable rows and no primary — reopening
-  a row (`validTo: null`, `doNotUse: false`) in a group with no usable row (KAN-113), and
-  creating a row without `isPrimary: true` in a group whose rows are all closed or `doNotUse`
-  (create elects only the first row of a type ever written; KAN-151). The projection's
+- A create elects its new row when the group has no **usable** primary (KAN-151), so a row
+  added beside closed or `doNotUse` rows becomes primary without `isPrimary: true`; an existing
+  usable primary is never demoted by a create that does not ask for it.
+- **Not yet enforced:** reopening a row (`validTo: null`, `doNotUse: false`) in a group with no
+  usable row leaves the group with a usable row and no primary (KAN-113). The projection's
   oldest-usable fallback covers the grid.
 - The six contact projections — `phoneMobile`, `phoneLandline`, `phoneWork`, `email`,
   `emailSecondary`, `address` (primary domicile) — are **read-model projections**, computed and

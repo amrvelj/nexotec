@@ -113,6 +113,15 @@ export const focusRing = {
   border: `1px solid var(--focus-bd)`,
 } as const;
 
+/** Stacking order for elements that stay on screen while content scrolls
+ * under them (KAN-305). Above in-flow positioned content — Mantine's
+ * NumberInput spinners are positioned, so without a stacking level of its
+ * own a sticky bar is painted under them — and below Mantine's own layers
+ * (app shell, overlays, popovers, modals start at 100). */
+export const zIndex = {
+  stickyBar: 10,
+} as const;
+
 /** Layout dimensions (§ Layout dimensions) — the shell's own constants. */
 export const layout = {
   sidebarWidth: "var(--sidebar-w)",

@@ -255,6 +255,7 @@ export function VehiclesListPage() {
           loadingMore: t('common.loadingMore'),
           retry: t('common.retry'),
           rowActionsLabel: t('common.rowActionsLabel'),
+          selectAllLabel: t('common.selectAllLabel'),
         }}
         emptyState={{
           icon: <Car size={24} />,

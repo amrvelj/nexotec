@@ -42,6 +42,7 @@ from app.sales.services.offer import create_offer, update_offer
 
 _CONFIRMED_CONSUMER = "inventory.sales_contract_confirmed"
 _CANCELLED_CONSUMER = "inventory.sales_contract_cancelled"
+from tests.test_sales_lifecycle_reservation import _customer
 
 
 def _session_factory(engine):
@@ -67,13 +68,18 @@ def _dealership(db_session) -> Dealership:
 def _confirmed_contract(db_session, engine, dealership, *, stock_item: StockItem | None = None):
     group_id = uuid.uuid4()
     offer = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())
+    # KAN-307: a contract is never confirmed without a buyer.
+    buyer = _customer(db_session, group_id).id
     if stock_item is None:
         data = OfferUpdate(
-            vehicle_source="manual", vehicle_label="Volkswagen ID.4 Pro", manual_vehicle_condition="new",
+            customer_id=buyer, vehicle_source="manual", vehicle_label="Volkswagen ID.4 Pro", manual_vehicle_condition="new",
             manual_base_price=Decimal("52000.00"),
         )
     else:
-        data = OfferUpdate(vehicle_source="stock", stock_item_id=stock_item.id, vehicle_label=stock_item.vehicle_label)
+        data = OfferUpdate(
+            customer_id=buyer, vehicle_source="stock", stock_item_id=stock_item.id,
+            vehicle_label=stock_item.vehicle_label,
+        )
     offer = update_offer(db_session, offer=offer, group_id=group_id, data=data, actor_id=uuid.uuid4())
     contract = create_contract(db_session, tenant_id=dealership.id, offer=offer, actor_id=uuid.uuid4())
     return confirm_contract(

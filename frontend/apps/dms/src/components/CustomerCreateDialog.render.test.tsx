@@ -177,6 +177,12 @@ describe('CustomerCreateFlow — every string is translated (KAN-48, FR-13)', ()
     expect(container.textContent).not.toMatch(MARKER)
     expect(screen.queryByText('Open instead')).toBeNull()
     expect(screen.queryByText('Exact match')).toBeNull()
+    // KAN-302 — the candidate's lifecycle badge is translated too, never the
+    // ui-kit's English default nor the English bundle's label.
+    const candidate = screen.getByText('Hans Muster').closest('button') as HTMLElement
+    expect(within(candidate).getByText(i18n.t('customerEnums.lifecycleStatus.active'))).toBeInTheDocument()
+    expect(i18n.t('customerEnums.lifecycleStatus.active')).not.toBe(en.customerEnums.lifecycleStatus.active)
+    expect(within(candidate).queryByText(en.customerEnums.lifecycleStatus.active)).toBeNull()
   })
 
   it('correspondence language pre-fills from the acting user\'s UI language (FR-03)', async () => {
@@ -332,7 +338,9 @@ describe('the create surface is a dialog (KAN-48, FR-05 / FR-20)', () => {
 
   it('CustomerCreateDialog is the single create surface — Sales and Valuation open it, not a thinner copy (FR-20)', () => {
     const read = (rel: string) => readFileSync(new URL(rel, import.meta.url), 'utf8')
-    for (const rel of ['../pages/OfferWorkspacePage.tsx', './ValuationCreateDialog.tsx', '../pages/CustomersListPage.tsx']) {
+    // Sales mounts it in the deal's customer container, shared by the offer
+    // workspace and a pending contract since KAN-307.
+    for (const rel of ['./deal-workspace/DealWorkspaceContainers.tsx', './ValuationCreateDialog.tsx', '../pages/CustomersListPage.tsx']) {
       const src = read(rel)
       expect(src, `${rel} should mount CustomerCreateDialog`).toContain('CustomerCreateDialog')
       expect(src, `${rel} should not wrap CustomerCreateFlow itself`).not.toMatch(/<CustomerCreateFlow[\s/>]/)

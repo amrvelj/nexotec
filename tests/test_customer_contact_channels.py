@@ -8,6 +8,8 @@ this file is scoped to what's new in PR-5.
 
 import uuid
 
+import pytest
+
 from app.core.auth import AccessRole, create_access_token
 
 
@@ -926,3 +928,90 @@ def test_moving_flagging_and_closing_a_phone_in_one_patch_keeps_the_target_prima
     assert _primaries(client, token, customer["id"], "phones", "phoneType", "phoneE164") == {
         "mobile": ["+41792222222"],
     }
+
+
+# --- KAN-151: a create in a type-group with no usable primary elects it ----
+# The group's only row was closed or flagged doNotUse, which demoted it
+# (_fixup_single_primary). A new row of that type, sent without isPrimary,
+# must become the group's one primary; before KAN-151 create elected only
+# the first row of a type ever written.
+
+_DEAD_ROW_PATCHES = [
+    pytest.param({"validTo": "2020-01-01T00:00:00Z"}, id="closed"),
+    pytest.param({"doNotUse": True, "doNotUseReason": "no longer valid"}, id="do_not_use"),
+]
+
+
+def _kill(client, token, customer_id, channel, row_id, patch):
+    response = client.patch(
+        f"/v1/customers/{customer_id}/{channel}/{row_id}", json=patch, headers=_bearer(token)
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["isPrimary"] is False
+
+
+@pytest.mark.parametrize("patch", _DEAD_ROW_PATCHES)
+def test_new_phone_in_a_group_with_only_dead_rows_becomes_primary(client, patch):
+    dealer_id = _create_dealer(client)
+    customer = _create_customer(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    dead = _add_phone(client, token, customer["id"], "+41791111111")
+    _kill(client, token, customer["id"], "phones", dead["id"], patch)
+
+    new = _add_phone(client, token, customer["id"], "+41792222222")
+
+    assert new["isPrimary"] is True
+    assert _primaries(client, token, customer["id"], "phones", "phoneType", "phoneE164")["mobile"] == [
+        "+41792222222"
+    ]
+
+
+@pytest.mark.parametrize("patch", _DEAD_ROW_PATCHES)
+def test_new_email_in_a_group_with_only_dead_rows_becomes_primary(client, patch):
+    dealer_id = _create_dealer(client)
+    customer = _create_customer(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    # The fixture's customer already has a usable personal email, so the
+    # dead-row group under test is `work`.
+    dead = _add_email(client, token, customer["id"], "old@example.ch", email_type="work")
+    _kill(client, token, customer["id"], "emails", dead["id"], patch)
+
+    new = _add_email(client, token, customer["id"], "new@example.ch", email_type="work")
+
+    assert new["isPrimary"] is True
+    assert _primaries(client, token, customer["id"], "emails", "emailType", "emailAddress")["work"] == [
+        "new@example.ch"
+    ]
+
+
+@pytest.mark.parametrize("patch", _DEAD_ROW_PATCHES)
+def test_new_address_in_a_group_with_only_dead_rows_becomes_primary(client, patch):
+    dealer_id = _create_dealer(client)
+    customer = _create_customer(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    dead = _add_address(client, token, customer["id"], "Altweg")
+    _kill(client, token, customer["id"], "addresses", dead["id"], patch)
+
+    new = _add_address(client, token, customer["id"], "Neuweg")
+
+    assert new["isPrimary"] is True
+    assert _primaries(client, token, customer["id"], "addresses", "addressType", "addressStreet")["domicile"] == [
+        "Neuweg"
+    ]
+
+
+def test_new_phone_never_takes_the_flag_from_a_usable_primary(client):
+    dealer_id = _create_dealer(client)
+    customer = _create_customer(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    dead = _add_phone(client, token, customer["id"], "+41791111111")
+    _add_phone(client, token, customer["id"], "+41792222222")
+    _kill(client, token, customer["id"], "phones", dead["id"], {"doNotUse": True, "doNotUseReason": "x"})
+    # +41792222222 was re-elected when the first went doNotUse.
+
+    new = _add_phone(client, token, customer["id"], "+41793333333")
+
+    assert new["isPrimary"] is False
+    assert _primaries(client, token, customer["id"], "phones", "phoneType", "phoneE164")["mobile"] == [
+        "+41792222222"
+    ]
