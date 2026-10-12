@@ -61,6 +61,7 @@
     "retry": "Riprova",
     "loadingMore": "Caricamento…",
     "rowActionsLabel": "Azioni riga",
+    "selectAllLabel": "Seleziona tutto",
     "moreActions": "Altre azioni",
     "showing": "{{count, number}} visualizzati",
     "showingOfTotal": "{{count, number}} di {{total}} visualizzati",
@@ -418,7 +419,8 @@
       "preferredMark": "Canale preferito",
       "noPreferred": "Nessun canale preferito",
       "consentScope": "Ambito",
-      "consentSource": "Fonte"
+      "consentSource": "Fonte",
+      "rowActions": "Azioni riga {{label}}"
     },
     "phoneInput": {
       "country": "Paese",

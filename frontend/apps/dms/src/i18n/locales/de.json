@@ -61,6 +61,7 @@
     "retry": "Erneut versuchen",
     "loadingMore": "Wird geladen…",
     "rowActionsLabel": "Zeilenaktionen",
+    "selectAllLabel": "Alle auswählen",
     "moreActions": "Weitere Aktionen",
     "showing": "{{count, number}} angezeigt",
     "showingOfTotal": "{{count, number}} von {{total}} angezeigt",
@@ -418,7 +419,8 @@
       "preferredMark": "Bevorzugter Kanal",
       "noPreferred": "Kein bevorzugter Kanal",
       "consentScope": "Umfang",
-      "consentSource": "Quelle"
+      "consentSource": "Quelle",
+      "rowActions": "Aktionen für {{label}}"
     },
     "phoneInput": {
       "country": "Land",

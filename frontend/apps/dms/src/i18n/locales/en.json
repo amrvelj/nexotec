@@ -61,6 +61,7 @@
     "retry": "Retry",
     "loadingMore": "Loading…",
     "rowActionsLabel": "Row actions",
+    "selectAllLabel": "Select all",
     "moreActions": "More actions",
     "showing": "Showing {{count, number}}",
     "showingOfTotal": "Showing {{count, number}} of {{total}}",
@@ -418,7 +419,8 @@
       "preferredMark": "Preferred channel",
       "noPreferred": "No preferred channel",
       "consentScope": "Scope",
-      "consentSource": "Source"
+      "consentSource": "Source",
+      "rowActions": "{{label}} row actions"
     },
     "phoneInput": {
       "country": "Country",
