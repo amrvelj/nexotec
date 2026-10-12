@@ -247,7 +247,11 @@ function ConnectDialog({
             key={key}
             label={t(`integrationEnums.configKey.${key}`, key)}
             value={configValues[key] ?? ''}
-            onChange={(e) => setConfigValues((prev) => ({ ...prev, [key]: e.currentTarget.value }))}
+            onChange={(e) => {
+              // KAN-249 — read before the updater: it may run after the event, when currentTarget is null.
+              const value = e.currentTarget.value
+              setConfigValues((prev) => ({ ...prev, [key]: value }))
+            }}
           />
         ))}
         {provider.requiredSecretSlots.map((slot) => (
@@ -256,7 +260,10 @@ function ConnectDialog({
             label={t(`integrationEnums.secretSlot.${slot}`, slot)}
             type="password"
             value={secrets[slot] ?? ''}
-            onChange={(e) => setSecrets((prev) => ({ ...prev, [slot]: e.currentTarget.value }))}
+            onChange={(e) => {
+              const value = e.currentTarget.value
+              setSecrets((prev) => ({ ...prev, [slot]: value }))
+            }}
           />
         ))}
         <Group justify="flex-end">
@@ -348,7 +355,11 @@ function RotateSecretModal({
             label={t(`integrationEnums.secretSlot.${slot.slot}`, slot.slot)}
             type="password"
             value={values[slot.slot] ?? ''}
-            onChange={(e) => setValues((prev) => ({ ...prev, [slot.slot]: e.currentTarget.value }))}
+            onChange={(e) => {
+              // KAN-249 — read before the updater (see ConnectDialog).
+              const value = e.currentTarget.value
+              setValues((prev) => ({ ...prev, [slot.slot]: value }))
+            }}
           />
         ))}
         <Group justify="flex-end">
