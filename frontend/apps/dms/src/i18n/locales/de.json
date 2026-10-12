@@ -306,7 +306,8 @@
       "print": "Drucken"
     },
     "createOfferError": "Die Offerte konnte nicht angelegt werden. Bitte erneut versuchen.",
-    "createContractError": "Der Vertrag konnte nicht angelegt werden. Bitte erneut versuchen."
+    "createContractError": "Der Vertrag konnte nicht angelegt werden. Bitte erneut versuchen.",
+    "doNotContactError": "„Nicht kontaktieren“ konnte nicht gespeichert werden. Bitte erneut versuchen."
   },
   "customerDetail": {
     "tabs": {

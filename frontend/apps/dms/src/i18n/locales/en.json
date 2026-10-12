@@ -306,7 +306,8 @@
       "print": "Print"
     },
     "createOfferError": "The offer could not be created. Please try again.",
-    "createContractError": "The contract could not be created. Please try again."
+    "createContractError": "The contract could not be created. Please try again.",
+    "doNotContactError": "Do-not-contact could not be saved. Please try again."
   },
   "customerDetail": {
     "tabs": {

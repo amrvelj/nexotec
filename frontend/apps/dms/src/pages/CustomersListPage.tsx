@@ -623,13 +623,24 @@ export function CustomersListPage() {
     }
   }
 
+  // KAN-308 (ADR-035): a refused toggle is said above the grid like a
+  // failed create — a user who believes they flagged a customer
+  // do-not-contact (ADR-065) must not be left thinking so. A version
+  // conflict means the row changed elsewhere: the grid is refetched so the
+  // next click carries the current version.
   const toggleDoNotContact = async (row: CustomerRead) => {
-    await api.patch<CustomerRead>(
-      `/customers/${row.id}`,
-      { lifecycleStatus: row.lifecycleStatus === 'do_not_contact' ? 'active' : 'do_not_contact' },
-      { 'If-Match': String(row.version) },
-    )
-    void queryClient.invalidateQueries({ queryKey: ['customers'] })
+    setActionError(null)
+    try {
+      await api.patch<CustomerRead>(
+        `/customers/${row.id}`,
+        { lifecycleStatus: row.lifecycleStatus === 'do_not_contact' ? 'active' : 'do_not_contact' },
+        { 'If-Match': String(row.version) },
+      )
+      void queryClient.invalidateQueries({ queryKey: ['customers'] })
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : t('customersList.doNotContactError'))
+      if (err instanceof ApiError && err.status === 409) void queryClient.invalidateQueries({ queryKey: ['customers'] })
+    }
   }
 
   const isFiltered = debouncedQuery.length > 0 || predicates.length > 0

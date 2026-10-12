@@ -306,7 +306,8 @@
       "print": "Stampa"
     },
     "createOfferError": "Non è stato possibile creare l’offerta. Riprovare.",
-    "createContractError": "Non è stato possibile creare il contratto. Riprovare."
+    "createContractError": "Non è stato possibile creare il contratto. Riprovare.",
+    "doNotContactError": "Non è stato possibile salvare «non contattare». Riprovare."
   },
   "customerDetail": {
     "tabs": {

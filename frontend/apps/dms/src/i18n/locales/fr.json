@@ -306,7 +306,8 @@
       "print": "Imprimer"
     },
     "createOfferError": "L’offre n’a pas pu être créée. Veuillez réessayer.",
-    "createContractError": "Le contrat n’a pas pu être créé. Veuillez réessayer."
+    "createContractError": "Le contrat n’a pas pu être créé. Veuillez réessayer.",
+    "doNotContactError": "« Ne pas contacter » n’a pas pu être enregistré. Veuillez réessayer."
   },
   "customerDetail": {
     "tabs": {
