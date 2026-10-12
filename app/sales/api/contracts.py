@@ -121,7 +121,9 @@ def update_contract(
 ):
     contract = contract_service.get_contract_or_404(db, principal.tenant_id, contract_id, for_update=True)
     check_version(contract.version, if_match, entity_name="SalesContract")
-    contract = contract_service.update_contract(db, contract=contract, data=body, actor_id=principal.user_id)
+    contract = contract_service.update_contract(
+        db, contract=contract, group_id=principal.group_id, data=body, actor_id=principal.user_id
+    )
     return _contract_read(contract)
 
 

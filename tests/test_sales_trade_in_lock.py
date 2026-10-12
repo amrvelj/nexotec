@@ -155,7 +155,7 @@ def test_an_edit_between_a_trade_in_saves_commits_makes_the_trade_in_stale(clien
             try:
                 held = get_contract_or_404(editing, dealership.id, contract.id, for_update=True)
                 update_contract(
-                    editing, contract=held,
+                    editing, contract=held, group_id=uuid.uuid4(),
                     data=ContractUpdate(discount_type="amount", discount_value=Decimal("1000.00")),
                     actor_id=uuid.uuid4(),
                 )

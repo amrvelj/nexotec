@@ -31,6 +31,7 @@ from app.sales.services.contract import cancel_contract, confirm_contract, creat
 from app.sales.services.offer import create_offer, update_offer
 
 pytestmark = pytest.mark.usefixtures("db_session")
+from tests.test_sales_lifecycle_reservation import _customer
 
 
 def _session_factory(engine):
@@ -57,6 +58,7 @@ def _confirmed_manual_contract(db_session, engine, dealership):
     group_id = uuid.uuid4()
     offer = create_offer(db_session, tenant_id=dealership.id, actor_id=uuid.uuid4())
     data = OfferUpdate(
+        customer_id=_customer(db_session, group_id).id,  # KAN-307: never confirmed without a buyer
         vehicle_source="manual", vehicle_label="Volkswagen ID.4 Pro", manual_vehicle_condition="new",
         manual_base_price=Decimal("52000.00"),
     )

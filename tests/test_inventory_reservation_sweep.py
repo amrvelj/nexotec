@@ -33,6 +33,7 @@ from app.sales.services.contract import confirm_contract, create_contract
 from app.sales.services.offer import create_offer, update_offer
 
 _JOB_NAME = "inventory.orphaned_reservations.release"
+from tests.test_sales_lifecycle_reservation import _customer
 
 
 def _session_factory(engine):
@@ -48,20 +49,26 @@ def _item(db_session, tenant_id, label="Cupra Formentor"):
     )
 
 
-def _contract_for(db_session, tenant_id, item):
+def _contract_for(db_session, tenant_id, item, group_id=None):
+    group_id = group_id or uuid.uuid4()
     offer = create_offer(db_session, tenant_id=tenant_id, actor_id=uuid.uuid4())
     offer = update_offer(
-        db_session, offer=offer, group_id=uuid.uuid4(),
-        data=OfferUpdate(vehicle_source="stock", stock_item_id=item.id, vehicle_label=item.vehicle_label),
+        db_session, offer=offer, group_id=group_id,
+        data=OfferUpdate(
+            # KAN-307: a contract is never confirmed without a buyer.
+            customer_id=_customer(db_session, group_id).id,
+            vehicle_source="stock", stock_item_id=item.id, vehicle_label=item.vehicle_label,
+        ),
         actor_id=uuid.uuid4(),
     )
     return create_contract(db_session, tenant_id=tenant_id, offer=offer, actor_id=uuid.uuid4())
 
 
 def _confirmed(db_session, engine, tenant_id, item):
-    contract = _contract_for(db_session, tenant_id, item)
+    group_id = uuid.uuid4()
+    contract = _contract_for(db_session, tenant_id, item, group_id)
     return confirm_contract(
-        db_session, contract=contract, group_id=uuid.uuid4(), actor_id=uuid.uuid4(),
+        db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(),
         session_factory=_session_factory(engine),
     )
 

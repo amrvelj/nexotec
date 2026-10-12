@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Alert, Button, Group, Stack, Text, TextInput, UnstyledButton } from '@mantine/core'
+import { Alert, Button, Group, Modal, Stack, Text, TextInput, UnstyledButton } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
 import { useTranslation } from 'react-i18next'
 import { OverviewCard, Picker, SalesStatusBadge, useOverlay, type PickerRow } from '@nexotec/ui-kit'
 import { api } from '../../api/client'
+import { CustomerCreateDialog } from '../CustomerCreateDialog'
 import { OfferAccessoriesAndOptions } from '../OfferAccessoriesAndOptions'
 import { PriceBuildUp } from '../PriceBuildUp'
 import { ValuationSourceMarker } from '../ValuationSourceMarker'
@@ -16,6 +17,8 @@ import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
 import { formatCurrencyChf } from '../../utils/format'
 import type {
   ConfigurationRead,
+  CustomerPage,
+  CustomerRead,
   SalesDealOwnerType,
   SalesPricedDealRead,
   StockItemPage,
@@ -69,6 +72,106 @@ export function RequirementBadge({ requirement }: { requirement: string }) {
 
 function requirementOf(deal: SalesPricedDealRead, id: string, fallback: string) {
   return (deal.containers ?? []).find((c) => c.id === id)?.requirement ?? fallback
+}
+
+/** The buyer a deal's customer container shows: the customer record, for its
+ * credit-block and do-not-contact warnings. One query key with the hosts,
+ * which read the same record to gate their primary action. */
+export function useDealCustomer(customerId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['customer', customerId],
+    queryFn: () => api.get<CustomerRead>(`/customers/${customerId}`),
+    enabled: customerId != null,
+  })
+}
+
+/** Kunde — the buyer, picked from the customers or created on the spot.
+ * The offer workspace's own container, shared since KAN-307 (Anto,
+ * 2026-10-12, amending ADR-083): a pending contract picks its buyer the
+ * same way, and cannot be signed without one. `onOpenCustomer` opens the
+ * record over the deal (ADR-059), never instead of it. */
+export function DealCustomerContainer<D extends SalesPricedDealRead>({
+  deal,
+  patch,
+  onOpenCustomer,
+}: Pick<DealContainerProps<D>, 'deal' | 'patch'> & { onOpenCustomer: () => void }) {
+  const { t } = useTranslation()
+  const selectedCustomer = useDealCustomer(deal.customerId).data ?? null
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [createOpen, setCreateOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const [debouncedQuery] = useDebouncedValue(query, 250)
+  const search = useQuery({
+    queryKey: ['customer-search', debouncedQuery],
+    queryFn: () => api.get<CustomerPage>(`/customers?q=${encodeURIComponent(debouncedQuery)}&limit=10`),
+    enabled: pickerOpen && debouncedQuery.length > 0,
+  })
+  const choose = (customerId: string) => {
+    patch({ customerId }).catch(reportedByHost)
+  }
+
+  return (
+    <OverviewCard title={t('offerWorkspace.containers.customer')} badge={<RequirementBadge requirement={requirementOf(deal, 'customer', 'required')} />}>
+      {deal.customerId ? (
+        <Stack gap={4}>
+          <UnstyledButton onClick={onOpenCustomer}>
+            <Text fw={600} c="purple">{deal.customerLabel}</Text>
+          </UnstyledButton>
+          {selectedCustomer?.creditBlock && (
+            <Alert color="orange" title={t('offerWorkspace.customer.creditBlockTitle')} py="xs">
+              {t('offerWorkspace.customer.creditBlockBody', { reason: selectedCustomer.creditBlockReason ?? '—' })}
+            </Alert>
+          )}
+          {selectedCustomer?.lifecycleStatus === 'do_not_contact' && (
+            <Alert color="red" title={t('offerWorkspace.customer.doNotContactTitle')} py="xs">
+              {t('offerWorkspace.customer.doNotContactBody')}
+            </Alert>
+          )}
+        </Stack>
+      ) : (
+        <Stack gap="xs">
+          <Text size="sm" c="dimmed">{t('offerWorkspace.customer.emptyHint')}</Text>
+          <Group gap="xs">
+            <Button variant="default" size="xs" onClick={() => setPickerOpen(true)}>
+              {t('offerWorkspace.customer.search')}
+            </Button>
+            <Button variant="subtle" size="xs" onClick={() => setCreateOpen(true)}>
+              {t('offerWorkspace.customer.createNew')}
+            </Button>
+          </Group>
+        </Stack>
+      )}
+
+      <Modal opened={pickerOpen} onClose={() => setPickerOpen(false)} title={t('offerWorkspace.customer.search')}>
+        <Picker
+          rows={(search.data?.items ?? []).map(
+            (c: CustomerRead): PickerRow => ({
+              id: c.id,
+              identifier: c.customerNumber,
+              label: c.companyName ?? [c.firstName, c.lastName].filter(Boolean).join(' '),
+            })
+          )}
+          query={query}
+          onQueryChange={setQuery}
+          onSelect={(row) => {
+            choose(row.id)
+            setPickerOpen(false)
+          }}
+          loading={search.isFetching}
+          placeholder={t('offerWorkspace.customer.search')}
+        />
+      </Modal>
+
+      <CustomerCreateDialog
+        opened={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={(customer) => {
+          choose(customer.id)
+          setCreateOpen(false)
+        }}
+      />
+    </OverviewCard>
+  )
 }
 
 /** Fahrzeug — FR-S-05 Path A (stock search) or Path B (the configurator,

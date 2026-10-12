@@ -1,23 +1,23 @@
 import { useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Alert, Button, Group, Loader, Modal, NumberInput, Stack, Text, Title, UnstyledButton } from '@mantine/core'
-import { useDebouncedValue } from '@mantine/hooks'
+import { Alert, Button, Group, Loader, NumberInput, Stack, Text, Title } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
-import { OverviewCard, Picker, StickyActionFooter, useOverlay, useSetBreadcrumb, type PickerRow } from '@nexotec/ui-kit'
+import { OverviewCard, StickyActionFooter, useOverlay, useSetBreadcrumb } from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
-import { CustomerCreateDialog } from '../components/CustomerCreateDialog'
 import { OfferGenerateReviewModal } from '../components/OfferGenerateReviewModal'
 import {
+  DealCustomerContainer,
   DealPricingContainer,
   DealTradeInContainer,
   DealVehicleContainer,
   RequirementBadge,
+  useDealCustomer,
 } from '../components/deal-workspace/DealWorkspaceContainers'
 import { useDebouncedNumberField } from '../hooks/useDebouncedNumberField'
 import { CustomerDetailContent } from './CustomerDetailPage'
 import { StockDetailContent } from './StockDetailPage'
-import type { CustomerPage, CustomerRead, SalesOfferRead } from '../api/types'
+import type { SalesOfferRead } from '../api/types'
 
 /**
  * `/sales/offers/:id` while status=draft — the container-based generation
@@ -48,12 +48,7 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
 
   const overlay = useOverlay()
   const customerId = offerQuery.data?.customerId ?? null
-  const selectedCustomerQuery = useQuery({
-    queryKey: ['customer', customerId],
-    queryFn: () => api.get<CustomerRead>(`/customers/${customerId}`),
-    enabled: customerId != null,
-  })
-  const selectedCustomer = selectedCustomerQuery.data ?? null
+  const selectedCustomer = useDealCustomer(customerId).data ?? null
   // § ADR-059 — opening the selected customer's own record from inside
   // the offer-generation process is an overlay, never a navigation (the
   // half-built offer must survive it intact).
@@ -71,15 +66,6 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
 
   const [generateOpen, setGenerateOpen] = useState(false)
 
-  const [customerPickerOpen, setCustomerPickerOpen] = useState(false)
-  const [customerCreateOpen, setCustomerCreateOpen] = useState(false)
-  const [customerQuery, setCustomerQuery] = useState('')
-  const [debouncedCustomerQuery] = useDebouncedValue(customerQuery, 250)
-  const customerSearch = useQuery({
-    queryKey: ['customer-search', debouncedCustomerQuery],
-    queryFn: () => api.get<CustomerPage>(`/customers?q=${encodeURIComponent(debouncedCustomerQuery)}&limit=10`),
-    enabled: customerPickerOpen && debouncedCustomerQuery.length > 0,
-  })
 
   // The configurator runs in an overlay pushed with a closure; reading the
   // offer through a ref keeps its If-Match current even when the advisor
@@ -125,7 +111,6 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
   }
 
   const offer = offerQuery.data
-  const containerById = Object.fromEntries((offer.containers ?? []).map((c) => [c.id, c]))
   const onOfferUpdated = (updated: SalesOfferRead) => queryClient.setQueryData(['sales-offer', id], updated)
   const containerProps = {
     ownerType: 'offer' as const,
@@ -149,39 +134,7 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
         <Text c="dimmed">{offer.offerNumber} · {t(`salesEnums.dealStatus.${offer.status}`)}</Text>
       </Group>
 
-      {/* Kunde */}
-      <OverviewCard title={t('offerWorkspace.containers.customer')} badge={<RequirementBadge requirement={containerById.customer?.requirement ?? 'required'} />}>
-        {offer.customerId ? (
-          <Stack gap={4}>
-            <UnstyledButton onClick={openCustomerOverlay}>
-              <Text fw={600} c="purple">{offer.customerLabel}</Text>
-            </UnstyledButton>
-            {selectedCustomer?.creditBlock && (
-              <Alert color="orange" title={t('offerWorkspace.customer.creditBlockTitle')} py="xs">
-                {t('offerWorkspace.customer.creditBlockBody', { reason: selectedCustomer.creditBlockReason ?? '—' })}
-              </Alert>
-            )}
-            {selectedCustomer?.lifecycleStatus === 'do_not_contact' && (
-              <Alert color="red" title={t('offerWorkspace.customer.doNotContactTitle')} py="xs">
-                {t('offerWorkspace.customer.doNotContactBody')}
-              </Alert>
-            )}
-          </Stack>
-        ) : (
-          <Stack gap="xs">
-            <Text size="sm" c="dimmed">{t('offerWorkspace.customer.emptyHint')}</Text>
-            <Group gap="xs">
-              <Button variant="default" size="xs" onClick={() => setCustomerPickerOpen(true)}>
-                {t('offerWorkspace.customer.search')}
-              </Button>
-              <Button variant="subtle" size="xs" onClick={() => setCustomerCreateOpen(true)}>
-                {t('offerWorkspace.customer.createNew')}
-              </Button>
-            </Group>
-          </Stack>
-        )}
-      </OverviewCard>
-
+      <DealCustomerContainer deal={offer} patch={patchOffer} onOpenCustomer={openCustomerOverlay} />
       <DealVehicleContainer {...containerProps} />
       <DealPricingContainer {...containerProps} onOpenStockItem={openStockItemOverlay} />
       <DealTradeInContainer {...containerProps} />
@@ -237,34 +190,6 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
         }}
       />
 
-      <Modal opened={customerPickerOpen} onClose={() => setCustomerPickerOpen(false)} title={t('offerWorkspace.customer.search')}>
-        <Picker
-          rows={(customerSearch.data?.items ?? []).map(
-            (c: CustomerRead): PickerRow => ({
-              id: c.id,
-              identifier: c.customerNumber,
-              label: c.companyName ?? [c.firstName, c.lastName].filter(Boolean).join(' '),
-            })
-          )}
-          query={customerQuery}
-          onQueryChange={setCustomerQuery}
-          onSelect={(row) => {
-            patchOffer({ customerId: row.id })
-            setCustomerPickerOpen(false)
-          }}
-          loading={customerSearch.isFetching}
-          placeholder={t('offerWorkspace.customer.search')}
-        />
-      </Modal>
-
-      <CustomerCreateDialog
-        opened={customerCreateOpen}
-        onClose={() => setCustomerCreateOpen(false)}
-        onCreated={(customer) => {
-          patchOffer({ customerId: customer.id })
-          setCustomerCreateOpen(false)
-        }}
-      />
     </Stack>
   )
 }

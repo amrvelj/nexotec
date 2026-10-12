@@ -61,7 +61,9 @@ def _customer_born_contract(db_session, dealership_id: uuid.UUID, group_id: uuid
 
 
 def _edit(db_session, contract: SalesContract, **fields) -> SalesContract:
-    return update_contract(db_session, contract=contract, data=ContractUpdate(**fields), actor_id=uuid.uuid4())
+    return update_contract(
+        db_session, contract=contract, group_id=uuid.uuid4(), data=ContractUpdate(**fields), actor_id=uuid.uuid4()
+    )
 
 
 # --- a customer-born contract can be completed and confirmed ----------------------
@@ -681,7 +683,7 @@ def test_an_edit_waits_for_a_confirmation_in_progress_and_is_then_refused(db_ses
         assert seen.status == ContractStatus.CONFIRMED
         with pytest.raises(ConflictError) as refused:
             update_contract(
-                editing, contract=seen, data=ContractUpdate(discount_type="amount", discount_value=Decimal("5000.00")),
+                editing, contract=seen, group_id=uuid.uuid4(), data=ContractUpdate(discount_type="amount", discount_value=Decimal("5000.00")),
                 actor_id=uuid.uuid4(),
             )
         assert refused.value.details["reason"] == "contract_not_pending"

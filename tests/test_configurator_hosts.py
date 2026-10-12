@@ -52,6 +52,7 @@ from app.vehicle.schemas.spec_block import VehicleSpecBlockInput
 from app.vehicle.services import configuration as configuration_service
 from app.vehicle.services import configuration_host
 from tests.route_walk import api_routes
+from tests.test_sales_lifecycle_reservation import _with_buyer
 
 # --- fixtures -----------------------------------------------------------
 
@@ -342,6 +343,7 @@ def test_confirming_a_configured_contract_creates_the_pipeline_item_with_its_con
         offer = update_offer(
             db_session, offer=offer, group_id=group_id, data=OfferUpdate(configuration_id=config.id), actor_id=None
         )
+        offer = _with_buyer(db_session, offer, group_id)
         contract = create_contract(db_session, tenant_id=dealership.id, offer=offer, actor_id=uuid.uuid4())
         assert contract.configuration_id == config.id
         contract = confirm_contract(
@@ -427,6 +429,7 @@ def test_a_used_car_bought_in_reaches_a_contract_without_ever_being_configured_i
         actor_id=None,
     )
     assert offer.configuration_id is None
+    offer = _with_buyer(db_session, offer, group_id)
     contract = create_contract(db_session, tenant_id=dealership.id, offer=offer, actor_id=uuid.uuid4())
     contract = confirm_contract(
         db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=_session_factory(engine)
@@ -546,6 +549,7 @@ def test_a_trade_in_identified_from_its_plate_reaches_the_offer_as_a_valuation_r
         assert offer.trade_in_vehicle_id is None
         assert offer.trade_in_value == Decimal("31500.00")
 
+        offer = _with_buyer(db_session, offer, group_id)
         contract = create_contract(db_session, tenant_id=tenant_id, offer=offer, actor_id=uuid.uuid4())
         contract = confirm_contract(
             db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(),
@@ -773,6 +777,7 @@ def test_copying_a_configured_offer_keeps_the_configuration_and_its_lines(db_ses
     assert copy.list_price == source.list_price
 
     group_id = uuid.uuid4()
+    copy = _with_buyer(db_session, copy, group_id)
     contract = create_contract(db_session, tenant_id=dealership.id, offer=copy, actor_id=uuid.uuid4())
     contract = confirm_contract(
         db_session, contract=contract, group_id=group_id, actor_id=uuid.uuid4(), session_factory=_session_factory(engine)

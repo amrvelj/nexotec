@@ -21,6 +21,8 @@ const CONTRACT = {
   offerNumber: 'O-000001',
   status: 'pending',
   version: 3,
+  customerId: 'cust-1',
+  customerLabel: 'Ursula Vogt',
   vehicleSource: 'stock',
   vehicleLabel: 'Seat Leon',
   grossPrice: '32000.00',

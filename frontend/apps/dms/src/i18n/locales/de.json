@@ -1016,6 +1016,7 @@
       "confirmRefused": {
         "title": "Vertrag nicht bestätigt",
         "missingAddress": "Für diesen Kunden ist keine Adresse hinterlegt. Erfassen Sie eine aktuelle Wohnadresse im Kundendatensatz, bevor der Vertrag bestätigt werden kann.",
+        "missingCustomer": "Der Vertrag hat noch keinen Kunden. Wählen Sie zuerst den Käufer.",
         "missingVehicle": "Dieser Vertrag hat noch kein Fahrzeug. Fügen Sie ein Fahrzeug hinzu, bevor der Vertrag bestätigt werden kann.",
         "missingPrice": "Für diesen Vertrag ist noch kein Preis hinterlegt. Erfassen Sie einen Preis, bevor der Vertrag bestätigt werden kann.",
         "creditBlock": "Dieser Kunde ist kreditgesperrt ({{reason}}). Eine Offerte ist weiterhin möglich; der Vertrag erfordert die Kontofreigabe durch die Buchhaltung.",
@@ -1044,6 +1045,7 @@
       "cancelDisabledReason": "Bereits storniert oder fakturiert.",
       "cancelDisabledReasonLegacy": "Aus dem Altsystem übernommener Verkauf — dort bereits fakturiert, kann nicht storniert werden.",
       "confirmDisabledReasonEmpty": "Fahrzeug und Preis fehlen noch.",
+      "confirmDisabledReasonNoBuyer": "Zuerst den Käufer wählen: Ein Vertrag wird nie ohne Kunden bestätigt.",
       "confirmDisabledReasonSaving": "Änderungen werden noch gespeichert."
     },
     "stats": {

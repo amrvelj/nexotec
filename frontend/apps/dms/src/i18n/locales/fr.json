@@ -1016,6 +1016,7 @@
       "confirmRefused": {
         "title": "Contrat non confirmé",
         "missingAddress": "Aucune adresse n'est enregistrée pour ce client. Ajoutez une adresse de domicile actuelle à la fiche client avant de pouvoir confirmer le contrat.",
+        "missingCustomer": "Le contrat n’a pas encore de client. Choisissez d’abord l’acheteur.",
         "missingVehicle": "Ce contrat n'a pas encore de véhicule. Ajoutez-en un avant de pouvoir confirmer le contrat.",
         "missingPrice": "Ce contrat n'a pas encore de prix. Ajoutez-en un avant de pouvoir confirmer le contrat.",
         "creditBlock": "Ce client fait l'objet d'un blocage de crédit ({{reason}}). Une offre reste possible ; le contrat requiert la libération du compte par la comptabilité.",
@@ -1044,6 +1045,7 @@
       "cancelDisabledReason": "Déjà annulé ou facturé.",
       "cancelDisabledReasonLegacy": "Vente reprise de l'ancien système — déjà facturée là-bas, elle ne peut pas être annulée.",
       "confirmDisabledReasonEmpty": "Véhicule et prix manquants.",
+      "confirmDisabledReasonNoBuyer": "Choisissez d’abord l’acheteur : un contrat n’est jamais confirmé sans client.",
       "confirmDisabledReasonSaving": "Les modifications sont encore en cours d'enregistrement."
     },
     "stats": {

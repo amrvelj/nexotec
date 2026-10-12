@@ -15,11 +15,14 @@ import {
 } from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
 import {
+  DealCustomerContainer,
   DealPricingContainer,
   DealTradeInContainer,
   DealVehicleContainer,
+  useDealCustomer,
 } from '../components/deal-workspace/DealWorkspaceContainers'
 import { SalesDocumentsSection } from '../components/SalesDocumentsSection'
+import { CustomerDetailContent } from './CustomerDetailPage'
 import { StockDetailContent } from './StockDetailPage'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { ValuationSourceMarker } from '../components/ValuationSourceMarker'
@@ -49,9 +52,10 @@ export interface ContractDetailContentProps {
  * this same shell in PR-7/8.
  *
  * KAN-67 (ADR-083) — while the contract is pending, the offer workspace's
- * own vehicle, price build-up and trade-in containers complete or adjust
- * it in place (the customer is fixed). Confirming freezes it: the
- * containers are gone and the server refuses any edit.
+ * own customer (since KAN-307, ADR-083 amended), vehicle, price build-up
+ * and trade-in containers complete or adjust it in place. Confirming
+ * freezes it: the containers are gone and the server refuses any edit. A
+ * contract without a buyer cannot be confirmed (KAN-307).
  */
 export function ContractDetailContent({ contractId: id, embedded = false }: ContractDetailContentProps) {
   const { t } = useTranslation()
@@ -90,6 +94,10 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
   })
 
   useSetBreadcrumb(embedded ? null : [t('shell.nav.sales'), contractQuery.data?.contractNumber ?? id])
+
+  // KAN-307 — the buyer's record, for its do-not-contact state (the server
+  // refuses that confirmation; the button says so first).
+  const buyer = useDealCustomer(contractQuery.data?.customerId).data ?? null
 
   // The configurator overlay calls `patchContract` from a closure; reading
   // the contract through a ref keeps its If-Match current (same reason as
@@ -159,6 +167,8 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
       return t('contractDetail.errors.confirmRefused.staleVersion')
     }
     switch (details.reason) {
+      case 'missing_customer':
+        return t('contractDetail.errors.confirmRefused.missingCustomer')
       case 'missing_address':
         return t('contractDetail.errors.confirmRefused.missingAddress')
       case 'missing_vehicle':
@@ -254,6 +264,10 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
   // CHF 0.00 counts as a price (Anto, 2026-10-10, KAN-67) — only an empty
   // one is refused, as on the server.
   const isEmpty = contract.vehicleSource == null || contract.grossPrice == null
+  // KAN-307 (Anto, 2026-10-12) — never signed without a buyer; mirrors the
+  // server's `missing_customer` refusal.
+  const hasNoBuyer = contract.customerId == null
+  const buyerDoNotContact = buyer?.lifecycleStatus === 'do_not_contact'
   // A contract priced before contracts kept their pricing inputs: its
   // figures stand, but the server refuses to rebuild them (409
   // contract_priced_without_inputs) — say so instead of offering editors.
@@ -261,11 +275,15 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
   const isSaving = pricingUnsaved || savesInFlight > 0
   const confirmDisabledReason = !isPending
     ? t('contractDetail.actions.confirmDisabledReason')
-    : isEmpty
-      ? t('contractDetail.actions.confirmDisabledReasonEmpty')
-      : isSaving
-        ? t('contractDetail.actions.confirmDisabledReasonSaving')
-        : undefined
+    : hasNoBuyer
+      ? t('contractDetail.actions.confirmDisabledReasonNoBuyer')
+      : buyerDoNotContact
+        ? t('contractDetail.errors.confirmRefused.doNotContact')
+        : isEmpty
+          ? t('contractDetail.actions.confirmDisabledReasonEmpty')
+          : isSaving
+            ? t('contractDetail.actions.confirmDisabledReasonSaving')
+            : undefined
 
   const containerProps = {
     ownerType: 'contract' as const,
@@ -275,7 +293,15 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
     onDealUpdated: onContractUpdated,
     trackSave,
   }
-  // ADR-059 — the stock record opens over the contract, never instead of it.
+  // ADR-059 — the buyer's and the stock record open over the contract, never
+  // instead of it.
+  const openCustomerOverlay = () => {
+    if (!contract.customerId) return
+    overlay.push({
+      key: `customer-overlay-${contract.customerId}`,
+      content: <CustomerDetailContent customerId={contract.customerId} embedded />,
+    })
+  }
   const openStockItemOverlay = () => {
     if (!contract.stockItemId) return
     overlay.push({
@@ -330,7 +356,7 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
         primaryAction={{
           label: t('contractDetail.actions.confirm'),
           onClick: confirm,
-          disabled: !isPending || isEmpty || isSaving,
+          disabled: !isPending || hasNoBuyer || buyerDoNotContact || isEmpty || isSaving,
           disabledReason: confirmDisabledReason,
         }}
         overflowActions={overflowActions}
@@ -379,6 +405,7 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
               {editError}
             </Alert>
           )}
+          <DealCustomerContainer deal={contract} patch={patchContract} onOpenCustomer={openCustomerOverlay} />
           <DealVehicleContainer {...containerProps} />
           <DealPricingContainer {...containerProps} onOpenStockItem={openStockItemOverlay} onUnsavedChange={setPricingUnsaved} />
           <DealTradeInContainer {...containerProps} />

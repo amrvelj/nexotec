@@ -2,8 +2,11 @@
 
 import uuid
 
+import pytest
+
 from app.core.auth import AccessRole, create_access_token
 from app.sales.models.contract import SalesContract
+from tests.test_sales_contract_edit import app_sessions_on_the_test_engine  # noqa: F401 - used by name
 
 
 def _token(role: AccessRole | None = None, is_dealer_manager: bool = False, tenant_id: uuid.UUID | None = None) -> str:
@@ -33,6 +36,25 @@ def _create_dealership(client) -> str:
     response = client.post("/v1/dealerships", json=payload, headers=_bearer(token))
     assert response.status_code == 201, response.text
     return response.json()["id"]
+
+
+def _buyer(client, token: str, **overrides) -> dict:
+    """A customer with a usable domicile address — what a contract needs to
+    be confirmed (D-20; a buyer at all since KAN-307). The token's dealership
+    must exist (_create_dealership)."""
+
+    payload = {
+        "firstName": "Ursula", "lastName": "Vogt", "language": "de",
+        "emails": [{"emailType": "personal", "emailAddress": f"ursula-{uuid.uuid4().hex[:6]}@example.ch"}],
+        "addresses": [{
+            "addressType": "domicile", "addressStreet": "Bahnhofstrasse", "addressHouseNumber": "1",
+            "addressPostalCode": "8001", "addressLocality": "Zürich", "addressCountry": "CH", "isPrimary": True,
+        }],
+        **overrides,
+    }
+    response = client.post("/v1/customers", json=payload, headers=_bearer(token))
+    assert response.status_code == 201, response.text
+    return response.json()
 
 
 def test_create_offer_requires_write_capability(client):
@@ -278,11 +300,16 @@ def test_request_invoice_for_a_vehicle_not_purchased_is_409_with_its_reason(clie
     purchase; invoicing is not. A manually configured vehicle is the case
     Sales can never see purchased today, so it refuses over HTTP too."""
 
-    token = _token(role=AccessRole.SALES)
+    token = _token(role=AccessRole.SALES, tenant_id=uuid.UUID(_create_dealership(client)))
+    buyer = _buyer(client, token)
     offer = client.post("/v1/sales/offers", headers=_bearer(token)).json()
     offer = client.patch(
         f"/v1/sales/offers/{offer['id']}",
-        json={"vehicleSource": "manual", "vehicleLabel": "Volkswagen ID.4 Pro", "manualVehicleCondition": "new", "manualBasePrice": "52000.00"},
+        json={
+            "customerId": buyer["id"],
+            "vehicleSource": "manual", "vehicleLabel": "Volkswagen ID.4 Pro", "manualVehicleCondition": "new",
+            "manualBasePrice": "52000.00",
+        },
         headers={**_bearer(token), "If-Match": str(offer["version"])},
     ).json()
     contract = client.post("/v1/sales/contracts", json={"offerId": offer["id"]}, headers=_bearer(token)).json()
@@ -351,8 +378,78 @@ def test_create_contract_for_a_stock_car(client, db_session):
     assert (body["vehicleSource"], body["stockItemId"], body["vehicleLabel"]) == ("stock", str(item.id), item.vehicle_label)
     # Priced through the contract's own Path A edit, as its PATCH would.
     assert body["grossPrice"] is not None
-    vehicle = next(c for c in body["containers"] if c["id"] == "vehicle")
-    assert vehicle["status"] == "complete"
+    containers = {c["id"]: c["status"] for c in body["containers"]}
+    assert (containers["vehicle"], containers["customer"]) == ("complete", "not_started")
+
+
+@pytest.mark.usefixtures("app_sessions_on_the_test_engine")
+def test_a_contract_started_from_a_car_gets_its_buyer_in_the_contract_and_is_then_confirmed(client, db_session):
+    """KAN-307 (Anto, 2026-10-12, amending ADR-083): as on the offer, the
+    buyer is picked inside the pending contract. Without one the contract
+    cannot be confirmed (409 missing_customer); with one it can."""
+
+    from tests.test_sales_lifecycle_reservation import _dealership
+    from tests.test_sales_offer_refinements import _stock_item
+
+    dealership = _dealership(db_session)
+    item = _stock_item(db_session, dealership.id)
+    token = _token(role=AccessRole.SALES, tenant_id=dealership.id)
+    buyer = _buyer(client, token)
+    contract = client.post(
+        "/v1/sales/contracts", json={"stockItemId": str(item.id), "vehicleLabel": item.vehicle_label},
+        headers=_bearer(token),
+    ).json()
+
+    unsigned = client.post(
+        f"/v1/sales/contracts/{contract['id']}/confirm", headers={**_bearer(token), "If-Match": str(contract["version"])}
+    )
+    assert unsigned.status_code == 409, unsigned.text
+    assert unsigned.json()["error"]["details"] == {"reason": "missing_customer"}
+
+    with_buyer = client.patch(
+        f"/v1/sales/contracts/{contract['id']}", json={"customerId": buyer["id"]},
+        headers={**_bearer(token), "If-Match": str(contract["version"])},
+    )
+    assert with_buyer.status_code == 200, with_buyer.text
+    body = with_buyer.json()
+    assert (body["customerId"], body["customerLabel"], body["version"]) == (buyer["id"], "Ursula Vogt", contract["version"] + 1)
+    assert {c["id"]: c["status"] for c in body["containers"]}["customer"] == "complete"
+
+    confirmed = client.post(
+        f"/v1/sales/contracts/{contract['id']}/confirm", headers={**_bearer(token), "If-Match": str(body["version"])}
+    )
+    assert confirmed.status_code == 200, confirmed.text
+    assert confirmed.json()["status"] == "confirmed"
+
+    # A signed contract's buyer is frozen with the rest of it.
+    frozen = client.patch(
+        f"/v1/sales/contracts/{contract['id']}", json={"customerId": None},
+        headers={**_bearer(token), "If-Match": str(confirmed.json()["version"])},
+    )
+    assert frozen.status_code == 409, frozen.text
+    assert frozen.json()["error"]["details"]["reason"] == "contract_not_pending"
+
+
+def test_a_do_not_contact_customer_cannot_become_a_contracts_buyer(client, db_session):
+    from tests.test_sales_lifecycle_reservation import _dealership
+    from tests.test_sales_offer_refinements import _stock_item
+
+    dealership = _dealership(db_session)
+    item = _stock_item(db_session, dealership.id)
+    token = _token(role=AccessRole.SALES, tenant_id=dealership.id)
+    blocked = _buyer(client, token, lifecycleStatus="do_not_contact")
+    contract = client.post(
+        "/v1/sales/contracts", json={"stockItemId": str(item.id)}, headers=_bearer(token),
+    ).json()
+
+    response = client.patch(
+        f"/v1/sales/contracts/{contract['id']}", json={"customerId": blocked["id"]},
+        headers={**_bearer(token), "If-Match": str(contract["version"])},
+    )
+
+    assert response.status_code == 409, response.text
+    assert "do-not-contact" in response.json()["error"]["message"]
+    assert client.get(f"/v1/sales/contracts/{contract['id']}", headers=_bearer(token)).json()["customerId"] is None
 
 
 def test_a_contract_for_an_unknown_stock_car_is_404_and_leaves_no_contract(client, db_session):

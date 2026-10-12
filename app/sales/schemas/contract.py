@@ -28,7 +28,8 @@ class ContractCreate(CamelModel):
     # that car (FR-S-05 Path A, priced as the contract's own PATCH prices
     # it) and the buyer is picked inside the contract, as on an offer.
     # `vehicle_label` is the display label the offer workspace sends with
-    # the same Path A choice; allowed only with stock_item_id.
+    # the same Path A choice; allowed only with stock_item_id. The buyer is
+    # set afterwards through ContractUpdate.customer_id.
     stock_item_id: uuid.UUID | None = None
     vehicle_label: str | None = Field(default=None, max_length=200)
 
@@ -60,11 +61,17 @@ class ContractUpdate(CamelModel):
     or a manually described car) and the seller's own pricing inputs. Every
     field is optional and applied incrementally, like the offer's autosave
     PATCH (OfferUpdate) and with the same meaning; every derived figure is
-    recomputed server-side, never taken from the client. The customer is
-    not editable here — a contract keeps the customer it was created for.
-    The trade-in and the line items have their own routes, as on the offer.
+    recomputed server-side, never taken from the client. The trade-in and
+    the line items have their own routes, as on the offer.
+
+    `customer_id` (KAN-307, Anto 2026-10-12, amending ADR-083): the buyer is
+    set, changed or cleared while the contract is pending, exactly as the
+    offer workspace does it — a contract started from a stock car gets its
+    buyer here. Confirmation refuses a contract without one
+    (`missing_customer`).
     """
 
+    customer_id: uuid.UUID | None = None
     vehicle_source: Literal["stock", "manual"] | None = None
     stock_item_id: uuid.UUID | None = None
     vehicle_label: str | None = Field(default=None, max_length=200)
