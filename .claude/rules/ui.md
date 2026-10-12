@@ -76,7 +76,7 @@ change plus an ADR — never a local component. No colour outside the tokens.
   build-time setting switches it on (`VITE_OUTBOX_WORKER_ABSENT=true` in `render.yaml`,
   `src/config/deployment.ts`), never the environment's name; its text is an i18n key in all
   four bundles. The top bar stays breadcrumb + search only. The UI/UX Specification's
-  Application Shell section does not show the strip yet (ADR-084's consequence, not applied).
+  Application Shell section does not show the strip yet (ADR-084's consequence; KAN-316).
 
 ## i18n
 

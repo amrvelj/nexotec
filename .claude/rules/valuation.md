@@ -75,9 +75,9 @@ file in the same PR as any change to what it states. -->
   from `tradeIn.valuationId`, read through `valuation.public` in the same transaction) — the
   item does not exist when Sales confirms, so Sales never calls
   `inventory.public.set_valuation_ref` (which still has no production caller). The event's
-  `tradeIn` block carries only the valuation id; Stock takes the figure from the valuation,
-  never from the event (`pricingSnapshot.tradeInValue` is the deal's trade-in credit, which
-  Stock's consumer ignores).
+  `tradeIn` block names the valuation by id, never its figure; Stock takes the figure from the
+  valuation, never from the event (`pricingSnapshot.tradeInValue` is the deal's trade-in
+  credit, which Stock's consumer ignores).
 - **ADR-070** (amending FR-V-17): a *configuration* never writes vehicle-mdm; it attaches to a
   valuation. A valuation created **with** a `configurationId` (`record` mode only, KAN-10)
   takes its vehicle fields from it and creates no vehicle-mdm record; created **without** one,

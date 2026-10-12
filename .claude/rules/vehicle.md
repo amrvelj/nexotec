@@ -26,9 +26,9 @@ paths:
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises PRD-Vehicles, PRD-Configurator
 v1.4 (ADR-068…ADR-072, host/mode matrix), Integrations & API Credentials, ADR-013 as amended
-by ADR-075, ADR-041, ADR-044, ADR-045, KAN-36/38/43. Verified against main@7a90ae4 on
-2026-10-12 (every present-tense claim checked against the code). "Not built" lines cite a
-ticket; /drift-audit re-checks them weekly. -->
+by ADR-075, ADR-041, ADR-044, ADR-045, ADR-083, ADR-085, KAN-36/38/43.
+Verified against main@7a90ae4 on 2026-10-12 (every present-tense claim checked against the
+code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. -->
 
 # Vehicles, catalogue, configurator and the provider gateway
 

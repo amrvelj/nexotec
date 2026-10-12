@@ -107,9 +107,9 @@ ADR-057, ADR-063, ADR-065, ADR-083 and KAN-66/68/71. Verified against main@7a90a
   label; `vehicle_source` stays `manual`), so the same purchase gate applies (KAN-144).
   Stock creates that item already reserved for the contract and releases it when it consumes
   `sales.contract.cancelled`; Sales makes no reservation call for it and its
-  `reservation_id` stays empty (KAN-158). Contracts confirmed before KAN-158 had an
-  unreserved item; `scripts/backfill_manual_configuration_reservations.py` (KAN-166, dry run
-  unless `--commit`) reserves it — see `.claude/rules/inventory.md`.
+  `reservation_id` stays empty (KAN-158). Contracts confirmed before KAN-158 have an
+  unreserved item until `scripts/backfill_manual_configuration_reservations.py` (KAN-166, dry
+  run by default) is run with `--commit` and reserves it — see `.claude/rules/inventory.md`.
   PRD-Sales S-D10 was corrected to match on 2026-10-04.
 - A contract needs a vehicle and a price before it can be confirmed — and before its document
   can be generated (`services/contract_completeness.py`, one rule for both; KAN-67).

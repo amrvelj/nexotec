@@ -7,9 +7,9 @@ paths:
   - "app/sales/consumers.py"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises ADR-032, ADR-037, ADR-052,
-ADR-064 and the WP-9 page of the Build Sequence; KAN-74 tracks WP-9. Verified against
-main@7a90ae4 on 2026-10-12 (every present-tense claim checked against the code). /drift-audit
-re-checks the "not built" line weekly. -->
+ADR-064, the ADR-050 addendum (2026-10-11) and the WP-9 page of the Build Sequence; KAN-74
+tracks WP-9. Verified against main@7a90ae4 on 2026-10-12 (every present-tense claim checked
+against the code). /drift-audit re-checks the "not built" line weekly. -->
 
 # Finance, numbering and invoicing
 

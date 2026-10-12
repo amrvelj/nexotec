@@ -52,5 +52,5 @@ as any change to what it states. -->
   `*.render.test.tsx` — not always beside the component: find them with
   `git grep -l <Component> -- '*.render.test.tsx'`. In `frontend/apps/dms` a jsdom test never
   reaches the network: its default `fetch` is a stand-in that never settles, and the test fails
-  naming the request unless it calls `installFakeBackend` (`src/test/fakeBackend.ts`) (KAN-172).
+  naming the request unless it calls `installFakeBackend` (`src/test/fakeBackend.ts`; KAN-172).
   i18n keys are checked by `localeKeyParity.test.ts`.
