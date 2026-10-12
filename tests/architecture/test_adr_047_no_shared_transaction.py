@@ -926,9 +926,10 @@ def test_self_test_a_partial_export_is_reported(tmp_path: Path) -> None:
 # backfill of the legacy `transaction` table — may write Sales (sales_offer,
 # sales_contract, sales_stock_item_purchase) and Inventory (stock_item) in
 # one transaction, import `app.inventory.models.stock_item` and
-# `app.inventory.services.stock_item.allocate_stock_number` directly, and
-# read the frozen legacy `vehicle` row directly, because its dry run is the
-# real run rolled back (KAN-263) and a half-written history would have to
+# `app.inventory.services.stock_item.allocate_stock_number` directly, read
+# the frozen legacy `vehicle` row directly, and read the customer, dealership
+# and vehicle_mdm rows it resolves against through their models, because its
+# dry run is the real run rolled back (KAN-263) and a half-written history would have to
 # be undone by hand. The exception names exactly that script, publishes no
 # events, and expires once the script has run in production, when the
 # script is deleted. Nothing else may cite it. These tests are the
@@ -954,9 +955,11 @@ class _ScriptReach:
     reason: str
 
 
-# The exact internal modules the excepted script imports. The first three
-# are the ones ADR-091 names; the rest are recorded so the pinned shape is
-# the whole shape, not a selection of it.
+# The exact internal modules the excepted script imports: the Inventory
+# internals, the legacy vehicle and the three resolution reads are what
+# ADR-091 names (its second, third and fourth items); the Sales and core
+# imports are recorded too, so the pinned shape is the whole shape, not a
+# selection of it.
 _ADR_091_IMPORTS = frozenset(
     {
         # ADR-091: Inventory's internals, used instead of inventory.public —
