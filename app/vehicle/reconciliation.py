@@ -35,7 +35,13 @@ from app.vehicle.models.configuration import (
 )
 from app.vehicle.models.energy_rating import ModelVariantEnergyRating
 from app.vehicle.models.plate import DealerPlate, DealerPlateAssignment, VehiclePlate
-from app.vehicle.models.provider import MappingGap, ProviderCodeMap, ProviderEntityRef, VariantProviderCode
+from app.vehicle.models.provider import (
+    MappingGap,
+    ProviderCodeMap,
+    ProviderEntityRef,
+    VariantOptionProviderCode,
+    VariantProviderCode,
+)
 from app.vehicle.models.vehicle import Vehicle, VehicleCustodyEvent
 from app.vehicle.models.vehicle_history import VehicleAccessory, VehicleOdometerReading
 from app.vehicle.models.vehicle_history import VehicleCustodyEvent as VehicleMdmCustodyEvent
@@ -78,6 +84,7 @@ ACTOR_TABLES = (
     ProviderCodeMap,
     ProviderEntityRef,
     VariantProviderCode,
+    VariantOptionProviderCode,
     MappingGap,
 )
 
@@ -174,6 +181,15 @@ CHECKS = [
         source_model=VariantOption,
         source_row_id_column=VariantOption.id,
         source_fk_column=VariantOption.tenant_id,
+        target_model=Dealership,
+        target_id_column=Dealership.id,
+    ),
+    # KAN-250: an option's raw SuchCode list is tenant-scoped like the option itself.
+    ReferenceCheck(
+        label="vehicle_variant_option_provider_code.tenant_id -> dealership.id",
+        source_model=VariantOptionProviderCode,
+        source_row_id_column=VariantOptionProviderCode.id,
+        source_fk_column=VariantOptionProviderCode.tenant_id,
         target_model=Dealership,
         target_id_column=Dealership.id,
     ),
