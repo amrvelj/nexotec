@@ -134,10 +134,13 @@ Per-row outcome, in the report:
   rejected there). REPORTED, never guessed at.
 - `customer_unresolved`    — Transaction.customer_id does not resolve to an
   existing Customer row.
-- `dealership_unresolved`  — Transaction.tenant_id (a trade-in only needs
-  this, to read the dealer's vat_rate) has no Dealership row — plausible
-  for old/decommissioned legacy tenant data, since there is no DB-level
-  FK enforcing it (see Dealership's own comment on TenantScopedMixin).
+- `dealership_unresolved`  — Transaction.tenant_id has no Dealership row —
+  plausible for old/decommissioned legacy tenant data, since there is no
+  DB-level FK enforcing it (see Dealership's own comment on
+  TenantScopedMixin). Both row types check it before writing anything: a
+  trade-in reads the dealer's vat_rate, and a sale would otherwise create a
+  stock item, an offer and a contract for a dealership that does not exist
+  (KAN-265).
 - `vehicle_already_in_stock` — a genuine anomaly: two rows of the SAME
   type for one VIN with no intervening row of the other type between
   them (see above). Reported, not overwritten.
@@ -466,6 +469,11 @@ def _migrate_sale(db: Session, txn: Transaction, *, held: _HeldVins) -> RowOutco
     customer = db.get(Customer, txn.customer_id)
     if customer is None:
         return RowOutcome(txn.id, "sale", "customer_unresolved", f"customer {txn.customer_id} does not exist")
+    # KAN-265: the sale writes a stock item, an offer and a contract — and
+    # their numbers — for this dealership; one that does not exist is
+    # reported, as for a trade-in, before anything is written.
+    if db.get(Dealership, txn.tenant_id) is None:
+        return RowOutcome(txn.id, "sale", "dealership_unresolved", f"dealership {txn.tenant_id} does not exist")
 
     live_item = _live_stock_item_for_vin(db, txn.tenant_id, vehicle_mdm.vin)
     if live_item is not None:

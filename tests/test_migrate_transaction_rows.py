@@ -120,6 +120,7 @@ def _trade_in_transaction(
 
 
 def test_dry_run_writes_nothing(db_session):
+    _dealership(db_session)  # KAN-265: a sale needs its dealership too
     customer = _customer(db_session)
     legacy = _legacy_vehicle(db_session)
     _migrated_vehicle_mdm(db_session, legacy)
@@ -135,6 +136,7 @@ def test_dry_run_writes_nothing(db_session):
 
 
 def test_commit_migrates_a_completed_sale_with_a_real_stock_link(db_session):
+    _dealership(db_session)  # KAN-265: a sale needs its dealership too
     customer = _customer(db_session)
     legacy = _legacy_vehicle(db_session)
     mdm = _migrated_vehicle_mdm(db_session, legacy)
@@ -171,6 +173,7 @@ def test_commit_migrates_a_completed_sale_with_a_real_stock_link(db_session):
 
 
 def test_rerunning_after_commit_is_idempotent(db_session):
+    _dealership(db_session)  # KAN-265: a sale needs its dealership too
     customer = _customer(db_session)
     legacy = _legacy_vehicle(db_session)
     _migrated_vehicle_mdm(db_session, legacy)
@@ -225,6 +228,7 @@ def test_an_unresolvable_customer_is_reported_never_guessed(db_session):
 
 
 def test_certified_pre_owned_condition_is_approximated_and_flagged(db_session):
+    _dealership(db_session)  # KAN-265: a sale needs its dealership too
     customer = _customer(db_session)
     legacy = _legacy_vehicle(db_session, condition=VehicleCondition.CERTIFIED_PRE_OWNED)
     _migrated_vehicle_mdm(db_session, legacy)
@@ -419,6 +423,31 @@ def test_a_trade_in_with_no_dealership_is_reported_never_guessed(db_session):
 
     assert [o.outcome for o in report.outcomes] == ["dealership_unresolved"]
     assert db_session.query(StockItem).count() == 0
+
+
+@pytest.mark.parametrize("commit", [False, True], ids=["dry_run", "commit"])
+def test_a_sale_with_no_dealership_is_reported_never_guessed(db_session, commit):
+    """KAN-265: a sale would create a stock item, an offer and a contract —
+    with stock and contract numbers — for the dealership its tenant_id
+    names, so a tenant with no Dealership row is reported, as for a
+    trade-in, before anything is written."""
+
+    customer = _customer(db_session)
+    legacy = _legacy_vehicle(db_session)
+    _migrated_vehicle_mdm(db_session, legacy)
+    # Deliberately no _dealership(db_session) call.
+    txn = _sale_transaction(db_session, customer_id=customer.id, vehicle_id=legacy.id)
+    db_session.commit()
+
+    report = run_migration(db_session, commit=commit)
+
+    assert report.aborted is False
+    assert [(o.transaction_id, o.outcome) for o in report.outcomes] == [(txn.id, "dealership_unresolved")]
+    assert report.outcomes[0].notes == f"dealership {TENANT_ID} does not exist"
+    db_session.expire_all()
+    assert db_session.query(StockItem).count() == 0
+    assert db_session.query(SalesOffer).count() == 0
+    assert db_session.query(SalesContract).count() == 0
 
 
 def test_a_trade_in_with_missing_amount_is_reported_never_defaulted_to_zero(db_session):
@@ -954,6 +983,7 @@ def test_two_sales_with_no_intervening_trade_in_report_the_second_as_a_conflict(
     twice with no reacquisition in between. Reported, not overwritten.
     """
 
+    _dealership(db_session)  # KAN-265: a sale needs its dealership too
     customer_a = _customer(db_session)
     customer_b = _customer(db_session)
     legacy = _legacy_vehicle(db_session)
@@ -1000,6 +1030,7 @@ def test_transaction_table_itself_is_never_written_to(db_session):
 def test_a_migrated_sale_carries_the_customers_correspondence_language(db_session):
     """KAN-73 (2): without customer_language the document falls back to German."""
 
+    _dealership(db_session)  # KAN-265: a sale needs its dealership too
     customer = _customer(db_session, language=Language.FR)
     legacy = _legacy_vehicle(db_session)
     _migrated_vehicle_mdm(db_session, legacy)
@@ -1058,6 +1089,7 @@ def test_the_printed_report_shows_a_condition_lossy_approximation(db_session):
     """KAN-73 (4): the approximation reaches the printed dry-run report, not
     only the in-memory RowOutcome."""
 
+    _dealership(db_session)  # KAN-265: a sale needs its dealership too
     customer = _customer(db_session)
     legacy = _legacy_vehicle(db_session, condition=VehicleCondition.CERTIFIED_PRE_OWNED)
     _migrated_vehicle_mdm(db_session, legacy)
@@ -1073,6 +1105,7 @@ def test_the_printed_report_shows_a_condition_lossy_approximation(db_session):
 
 
 def test_the_printed_report_shows_every_migrated_row(db_session):
+    _dealership(db_session)  # KAN-265: a sale needs its dealership too
     customer = _customer(db_session)
     legacy = _legacy_vehicle(db_session)
     _migrated_vehicle_mdm(db_session, legacy)
