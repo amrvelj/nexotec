@@ -13,7 +13,8 @@ What it proves:
    - `_OWN_COMMIT_WRITES` — a cross-context write that commits its own
      transaction (the convention the code calls "Pattern B");
    - `_SHARED_TRANSACTION_EXCEPTIONS` — a write that joins the caller's
-     transaction (ADR-047's forbidden shape). One entry, see below;
+     transaction (ADR-047's forbidden shape). One entry, the tracked debt,
+     see below;
    - `_READS` — reviewed as reading only.
    A new cross-context call nobody has classified fails by name, and so
    does an entry no context calls any more. Classes, enums, exceptions and
@@ -34,9 +35,9 @@ What it proves:
    record, SQLAlchemy DML or raw DML text, or an assignment to an
    attribute (the ORM write idiom) — and no
    `_SHARED_TRANSACTION_EXCEPTIONS` function reaches a `.commit()`: a read
-   that starts writing has to be classified again, and an exception that
-   starts committing must move to `_OWN_COMMIT_WRITES` (and its follow-up
-   ticket be closed).
+   that starts writing has to be classified again, and the tracked debt,
+   once it commits on its own, must move to `_OWN_COMMIT_WRITES` (and its
+   follow-up ticket be closed).
 4. One context reaches another only as `from app.<ctx>.public import
    <name>` — a whole public module, another context's non-public module
    (import-linter forbids only models/services/api) or a public function

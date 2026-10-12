@@ -73,8 +73,8 @@ in the same PR as any change to what it states. -->
   together, import Inventory's internals directly, and read the legacy `vehicle` row and the
   customer, dealership and `vehicle_mdm` rows it resolves against through their models — the four
   things ADR-091 (KAN-106) names, bounded to `migrate_transaction_rows.py` alone and pinned by the
-  ADR-047 architecture test; every other script writes one context and reaches the rest through
-  `<context>.public`.
+  ADR-047 architecture test, which also names the three other scripts that reach two contexts'
+  internals (no ruling yet); a new one fails by name.
 - **Enum columns** are `StoredEnum` (`app/core/enum_type.py`), never a bare `sqlalchemy.Enum`
   (an architecture test enforces it), and hold the member's **`.value`** and nothing else
   (KAN-86, finished by KAN-175 on 2026-10-11: one `*_kan175_<context>_enum_values_only.py`
