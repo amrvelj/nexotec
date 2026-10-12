@@ -57,6 +57,20 @@ describe('HistoryTab — values are formatted by field (KAN-164)', () => {
     expect(screen.getByText(/80000 → 80001/)).toBeInTheDocument()
   })
 
+  // KAN-177: the merge now reports the kept-and-closed vehicle-party rows as a
+  // count (grouped like the other counts) and their ids (not a number, left as is).
+  it('groups the kept-and-closed vehicle-party count of a merge', () => {
+    renderHistory([
+      event({
+        action: 'merge',
+        before: null,
+        after: { vehiclePartiesKeptClosed: 1500, vehiclePartiesKeptClosedIds: ['01a1'] },
+      }),
+    ])
+    expect(screen.getByText(/— → 1'500/)).toBeInTheDocument()
+    expect(screen.getByText(/\["01a1"\]/)).toBeInTheDocument()
+  })
+
   // KAN-160 split this out because "a number there may be a year": a
   // number under a key that is not an amount or a count stays ungrouped,
   // and so does any key of an entity other than the customer.

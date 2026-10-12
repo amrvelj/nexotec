@@ -990,9 +990,11 @@ def _repoint_vehicle_parties(
     like every other close; the merge's own audit event lists the ids.
 
     A copy that was already closed in the past keeps its own effective_to —
-    that is recorded history — and only takes the mark; one that is open,
-    or closed at a future date, is closed at its start so it never reads as
-    a current party again. The survivor's row is not touched.
+    that is recorded history, its unlink already a published fact — and only
+    takes the mark, with no second close, audit row or event: the merge's own
+    audit event lists its id. One that is open, or closed at a future date,
+    is closed at its start so it never reads as a current party again. The
+    survivor's row is not touched.
     """
 
     target_keys = {
@@ -1005,14 +1007,17 @@ def _repoint_vehicle_parties(
         key = (party.vehicle_id, party.role, party.effective_from)
         if key in target_keys:
             already_closed = party.effective_to is not None and party.effective_to <= utcnow()
-            _close_vehicle_party(
-                db,
-                party=party,
-                actor_id=actor_id,
-                group_id=group_id,
-                effective_to=party.effective_to if already_closed else party.effective_from,
-                merged_into_customer_id=target_id,
-            )
+            if already_closed:
+                party.merged_into_customer_id = target_id
+            else:
+                _close_vehicle_party(
+                    db,
+                    party=party,
+                    actor_id=actor_id,
+                    group_id=group_id,
+                    effective_to=party.effective_from,
+                    merged_into_customer_id=target_id,
+                )
             kept_closed.append(party.id)
         else:
             party.customer_id = target_id
@@ -2164,8 +2169,15 @@ def delete_customer_external_id(db: Session, *, row: CustomerExternalId, actor_i
 
 
 def _validate_effective_range(effective_from, effective_to) -> None:
+    # A client never writes a zero-length period. The one such row is the
+    # copy a customer merge keeps (KAN-177: effective_to = effective_from),
+    # written by the merge itself, so a PATCH of that row's dates is refused
+    # here like any other empty period.
     if effective_to is not None and effective_to <= effective_from:
-        raise BadRequestError("effective_to must be after effective_from.")
+        raise BadRequestError(
+            "effective_to must be after effective_from (a zero-length period is only ever the copy a "
+            "customer merge keeps, written by the merge itself)."
+        )
 
 
 def list_customer_vehicles(

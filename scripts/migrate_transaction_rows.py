@@ -53,7 +53,7 @@ two contexts is a call with a compensating action, never a shared
 transaction, and rule 3 says one context reaches another only through
 its `public` module. This script is the one bounded exception to both,
 ruled by Anto on 2026-10-12 (option A of KAN-106) and recorded as
-ADR-091 in the Target Architecture. Three things are excepted, nothing
+ADR-091 in the Target Architecture. Four things are excepted, nothing
 more:
   - THE SHARED TRANSACTION: every row's Sales rows (sales_offer,
     sales_contract, sales_stock_item_purchase) and Inventory row
@@ -66,6 +66,11 @@ more:
   - THE DIRECT LEGACY-VEHICLE READ: the frozen legacy `vehicle` row is
     read as `db.get(LegacyVehicle, txn.vehicle_id)` for its condition
     and label, not through `app.vehicle.public`.
+  - THE DIRECT RESOLUTION READS: the customer, the dealership (and its
+    vat_rate) and the vehicle_mdm row a legacy vehicle migrated to are
+    read through their models (`app.customer.models.customer`,
+    `app.platform.models.dealership`, `app.vehicle.models.vehicle_mdm`)
+    rather than through each context's `public` module.
 Why: the dry run is the real run rolled back (KAN-263), which only works
 when every row of a pass lives in one transaction; and a half-written
 history — a contract committed with no stock item, or the reverse —

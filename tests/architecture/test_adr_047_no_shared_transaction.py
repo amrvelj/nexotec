@@ -977,8 +977,8 @@ _ADR_091_IMPORTS = frozenset(
         "app.sales.services.stock_item_purchase",
         # Resolution reads made through the models rather than through
         # `<context>.public` (the customer, the dealership and its vat_rate, the
-        # vehicle_mdm row a legacy vehicle migrated to). ADR-091's text names
-        # none of these three; they are recorded as they are (KAN-106 report).
+        # vehicle_mdm row a legacy vehicle migrated to): ADR-091's fourth item,
+        # named there and in the script's docstring since the KAN-106 review.
         "app.customer.models.customer",
         "app.platform.models.dealership",
         "app.vehicle.models.vehicle_mdm",
