@@ -7,6 +7,7 @@ from decimal import Decimal
 from pydantic import Field
 
 from app.core.schemas import CamelModel
+from app.core.validators import NormalisedVin
 from app.valuation.models.valuation import ValuationSource
 
 # Q-11 (default validity) — confirmed live on the reference prototype's
@@ -25,8 +26,9 @@ class ValuationCreate(CamelModel):
     # Vehicle — all optional; a valuation may be created with no vehicle
     # in the register at all (confirmed live). Providing `vin` resolves
     # or creates the real vehicle-mdm record in the same step (FR-V's own
-    # "one step, not two").
-    vin: str | None = None
+    # "one step, not two"). Normalised and validated as Stock's VIN is
+    # (KAN-331, FR-V-15): one spelling, one vehicle-mdm record.
+    vin: NormalisedVin | None = None
     vehicle_make: str | None = None
     vehicle_model: str | None = None
     vehicle_trim: str | None = None

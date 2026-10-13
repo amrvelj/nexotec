@@ -5,6 +5,7 @@ from decimal import Decimal
 from pydantic import Field
 
 from app.core.schemas import CamelModel
+from app.core.validators import NormalisedVin
 from app.vehicle.models.configuration import (
     ConfigurationMatchMethod,
     ConfigurationMatchStatus,
@@ -49,7 +50,10 @@ _CODED_FIELD_RULE = (
 
 # The observed-at-capture fields and colours a host may set on create/update.
 class _ConfigurationObserved(CamelModel):
-    vin: str | None = Field(default=None, max_length=17)
+    # KAN-338: normalised and validated as Stock's VIN is (FR-V-15) — the
+    # vehicle link follows the VIN (KAN-326), so a lower-cased spelling of a
+    # known car's VIN must find that car, never unlink it.
+    vin: NormalisedVin | None = None
     stammnummer: str | None = Field(default=None, max_length=9)
     type_approval_number: str | None = Field(default=None, max_length=6)
     first_registration_date: dt.date | None = None

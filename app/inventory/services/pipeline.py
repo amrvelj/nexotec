@@ -42,8 +42,9 @@ from sqlalchemy.orm import Session
 from app.core.base import utcnow
 from app.core.errors import ConflictError, UnprocessableEntityError
 from app.core.outbox import OutboxEvent, publish
+from app.core.validators import NormalisedVin
 from app.inventory.models.stock_item import LifecycleStatus, StockItem, StockItemCondition
-from app.inventory.schemas.stock_item import NormalisedVin, StockItemCreate
+from app.inventory.schemas.stock_item import StockItemCreate
 from app.inventory.services.reservation import contract_is_cancelled, lock_contract, reserve_and_flush
 from app.inventory.services.stock_item import (
     _build_and_flush_stock_item,

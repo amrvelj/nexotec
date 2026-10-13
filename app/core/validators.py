@@ -3,9 +3,9 @@ Customer/Vehicle reuse the same Swiss address/phone shape per the addendum).
 """
 
 import re
-from typing import Annotated
+from typing import Annotated, Any
 
-from pydantic import AfterValidator
+from pydantic import AfterValidator, BeforeValidator
 
 from app.core.constants import CANTON_CODES
 
@@ -169,3 +169,23 @@ HouseNumber = Annotated[str, AfterValidator(_validate_house_number)]
 SwissPostalCode = Annotated[str, AfterValidator(_validate_postal_code)]
 SwissUid = Annotated[str, AfterValidator(_validate_swiss_uid)]
 Vin = Annotated[str, AfterValidator(_validate_vin)]
+
+
+def _normalise_vin(value: Any) -> Any:
+    """KAN-244 (Anto, option A): upper-cased, every whitespace character
+    removed — a VIN typed in lower case or pasted in groups is the same VIN.
+    Anything else wrong with it is left for `Vin` to refuse (422)."""
+
+    if isinstance(value, str):
+        return re.sub(r"\s", "", value).upper()
+    return value
+
+
+# A VIN a person typed: normalised first, then vehicle-mdm's own rule (17
+# characters, uppercase letters and digits, never I, O or Q), so every
+# lookup and every vehicle-mdm write compares one spelling (FR-V-15: one
+# VIN, one car). The one type for every request field that carries a typed
+# VIN — stock create (KAN-244), trade-in and valuation (KAN-331), the
+# configuration (KAN-338). `Vin` itself still refuses an unnormalised
+# value: it guards vehicle-mdm's own fields, which are never normalised.
+NormalisedVin = Annotated[Vin, BeforeValidator(_normalise_vin)]
