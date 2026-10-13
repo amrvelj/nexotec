@@ -69,6 +69,10 @@ change plus an ADR — never a local component. No colour outside the tokens.
 - The dashboard is the landing page (FR-UI-07) and should be the breadcrumb root — not built:
   breadcrumbs start at the nav group and are not links (KAN-104). Account chrome lives only in
   the sidebar footer; the top bar carries the breadcrumb.
+- **ADR-076 — every CHF amount reads `CHF 12'500.00`, inputs included** (KAN-168): a CHF input
+  is the kit's `ChfInput` (or `chfInlineEditor()` inside an `InlineEditField`), never a bare
+  `NumberInput` or `<input type="number">`; `no-bare-money-number-input.test.ts` names every
+  NumberInput that is not money (quantity, months, km, days, a percentage, spec figures).
 - **ADR-084 — one environment-notice slot in the shell.** `AppShell`'s optional `notice` strip
   (ui-kit `shell/EnvironmentNotice.tsx`, between the top bar and the content region,
   `role="status"`, no dismiss control) is the only place for a persistent deployment-level

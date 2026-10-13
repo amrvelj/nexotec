@@ -127,6 +127,13 @@ weekly. -->
   `list_vehicle_party_holders`, which also returns each holder's name for the Identity tab,
   KAN-140) are filtered the same way, through one shared statement: a name can only come from
   a holder the group filter already admits.
+- **No path bypasses the close rule** (Anto, option A, KAN-148): a create whose `effectiveTo`
+  is still to come is a holder now and goes through `allocate_vehicle_party` (it keeps its end
+  date); one already past is history and closes nobody. A PATCH whose `effectiveTo` leaves the
+  row holding its role (`null` or still to come) takes the same advisory lock and closes every
+  other open holder in the group; a reopen publishes `customer.vehicle_party.linked`. Disconnect
+  locks and re-reads its row, so a race closes it once (one `unlinked`). Lock order is advisory,
+  then row.
 - **A party row carries the vehicle's label, never a join** (KAN-84, rule 2):
   `vehicle_vin`, `vehicle_number`, `vehicle_make`, `vehicle_model`, `vehicle_model_year`,
   `vehicle_trim` and `vehicle_label_refreshed_at`, copied from
@@ -137,6 +144,8 @@ weekly. -->
   re-confirm or Disconnect of an open row, or by the nightly job (a Disconnect of an
   already-closed row returns before committing and drops it).
   `tests/architecture/test_no_cross_context_mapping.py` forbids a relationship or FK back.
+  A row whose `vehicle_id` names no vehicle-mdm record still renders — `vehicle.vin` and
+  `vehicleNumber` are nullable in the read — and reconciliation reports it (KAN-339).
 - **Cross-group closes and links written before KAN-99 are detected, not repaired** (KAN-139,
   KAN-176): `app.customer.reconciliation.find_cross_group_vehicle_party_closes` classifies every
   `vehicle_party_remove` audit row and `unlinked` outbox event, and
