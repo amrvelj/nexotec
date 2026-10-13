@@ -129,3 +129,25 @@ describe('ConfiguratorOverlay — the vehicle link follows the VIN (KAN-326)', (
     expect(within(cleared).queryByText(/veh-1/)).not.toBeInTheDocument()
   })
 })
+
+// KAN-338 — the API refuses a malformed VIN (422). A configuration saved
+// before that rule may hold one, and the configure phase has no VIN input to
+// fix it (KAN-340): a save leaves such a VIN out, so the advisor's work still
+// saves. A well-formed VIN, and an empty one (KAN-326's clear), still go out.
+describe('ConfiguratorOverlay — a stored VIN the API now refuses never blocks a save (KAN-338)', () => {
+  it.each([
+    ['a malformed stored VIN is left out of the PATCH', 'WVWZZZ1KZAO331338', false],
+    ['a well-formed stored VIN is sent as before', 'WVWZZZ1KZAW331338', true],
+  ])('%s', async (_name, vin, sent) => {
+    const user = userEvent.setup()
+    const ctx = install()
+    renderWithProviders(<Host existing={configurationRead({ ...LINKED_NO_VIN, vin })} />)
+
+    await screen.findByLabelText(i18n.t('configurator.summary.mileage'))
+    await user.click(screen.getByRole('button', { name: i18n.t('configurator.save') }))
+
+    await waitFor(() => expect(ctx.saved()).toHaveLength(1))
+    if (sent) expect(ctx.saved()[0]).toHaveProperty('vin', vin)
+    else expect(ctx.saved()[0]).not.toHaveProperty('vin')
+  })
+})

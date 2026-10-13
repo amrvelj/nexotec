@@ -33,6 +33,7 @@ import {
 } from '../../hooks/useReferenceValueOptions'
 import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
 import { useReferenceLabelLookup } from '../../hooks/useReferenceLabelLookup'
+import { normalisedVin } from '../../utils/vin'
 import {
   CODED_FIELDS,
   CODED_REF_LIST_CODES,
@@ -298,18 +299,19 @@ export function ConfiguratorOverlay({
 
   const startFromVariant = (variant: CatalogueVariantRead) => {
     const d = draftFromVariant(variant)
-    // A 17-character input that matched nothing is kept as the VIN.
-    const typed = vinInput.trim().toUpperCase()
-    if (typed.length === 17) d.vin = typed
+    // An input that matched nothing is kept as the VIN when it is one — by
+    // the API's own rule (KAN-338), so a save never sends a VIN it refuses.
+    const typed = normalisedVin(vinInput)
+    if (typed) d.vin = typed
     setDraft(d)
     setPhase('configure')
   }
 
   const startManual = () => {
     const d = emptyManualDraft()
-    // A 17-character input that matched nothing is kept as the VIN.
-    const typed = vinInput.trim().toUpperCase()
-    if (typed.length === 17) d.vin = typed
+    // As above: kept only when the API would accept it (KAN-338).
+    const typed = normalisedVin(vinInput)
+    if (typed) d.vin = typed
     setDraft(d)
     setPhase('configure')
   }
@@ -510,9 +512,17 @@ export function ConfiguratorOverlay({
         ? pickSpec(draft.spec, draft.overridden)
         : fullSpec(draft.spec)
 
+      // KAN-338: the API refuses a malformed VIN (422). A configuration saved
+      // before that rule may hold one, and the configure phase has no VIN
+      // input to correct it (KAN-340) — so an unchanged, malformed stored VIN
+      // is left out of the PATCH (left as stored) instead of blocking every
+      // save. An empty VIN still goes out as null, which clears it and the
+      // vehicle link (KAN-247, KAN-326).
+      const keepStoredVin =
+        configurationId !== null && draft.vin !== '' && draft.vin === savedVin && normalisedVin(draft.vin) === null
       const body: Record<string, unknown> = {
         mode,
-        vin: draft.vin || null,
+        ...(keepStoredVin ? {} : { vin: draft.vin || null }),
         firstRegistrationDate: draft.firstRegistrationDate || null,
         mileageKm: draft.mileageKm ? Number(draft.mileageKm) : null,
         exteriorColour: draft.exteriorColour || null,
@@ -578,6 +588,7 @@ export function ConfiguratorOverlay({
       // the server on a partial failure, and the very next save would send
       // a stale If-Match and 409 forever.
       setCurrentVersion(config.version)
+      setSavedVin(config.vin)
 
       // Options ride a separate PATCH (C-C's own endpoint, unchanged by
       // this ticket) — skipped on a brand-new configuration that never had
@@ -615,6 +626,8 @@ export function ConfiguratorOverlay({
   }
 
   const [currentVersion, setCurrentVersion] = useState(existing?.version ?? 0)
+  // The VIN the server holds for this configuration (KAN-338, see save()).
+  const [savedVin, setSavedVin] = useState<string | null>(existing?.vin ?? null)
 
   const readModel: ConfigurationRead | null = useMemo(() => {
     if (!draft) return null
