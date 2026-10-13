@@ -4,7 +4,8 @@ import { useState } from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MantineProvider } from "@mantine/core";
-import { ChfInput } from "./ChfInput";
+import { ChfInput, chfInlineEditor } from "./ChfInput";
+import { InlineEditField } from "../detail/InlineEditField";
 
 // KAN-168 / ADR-076: a CHF input reads like every other CHF amount —
 // `CHF 12'500.00` — and still emits the plain number.
@@ -55,7 +56,7 @@ describe("ChfInput (KAN-168)", () => {
     expect(input.value).toBe("CHF 42'500.00");
   });
 
-  it("a number with cents keeps them, rounded to two decimals", async () => {
+  it("a number with cents keeps them; a third decimal cannot be typed", async () => {
     const user = userEvent.setup();
     const { input, onChange } = renderInput();
 
@@ -77,5 +78,40 @@ describe("ChfInput (KAN-168)", () => {
 
     expect(input.value).toBe("");
     expect(onChange).toHaveBeenLastCalledWith("");
+  });
+});
+
+describe("chfInlineEditor (KAN-168)", () => {
+  function renderField(editValue: string) {
+    const onSave = vi.fn(async (_raw: string) => {});
+    render(
+      <MantineProvider>
+        <InlineEditField value="shown" editValue={editValue} onSave={onSave} renderEditor={chfInlineEditor()} />
+      </MantineProvider>,
+    );
+    return { onSave };
+  }
+
+  it("opens on the grouped CHF amount, never the API's raw 42500.00", async () => {
+    const user = userEvent.setup();
+    renderField("42500.00");
+
+    await user.click(screen.getByText("shown"));
+
+    const input = screen.getByRole("textbox") as HTMLInputElement;
+    expect(input.value).toMatch(/^CHF 42'500/);
+    expect(input.value).not.toContain("42500");
+  });
+
+  it("saves what was typed as a plain decimal string", async () => {
+    const user = userEvent.setup();
+    const { onSave } = renderField("42500.00");
+
+    await user.click(screen.getByText("shown"));
+    const input = screen.getByRole("textbox");
+    await user.clear(input);
+    await user.type(input, "12500.5{Enter}");
+
+    expect(onSave).toHaveBeenCalledWith("12500.5");
   });
 });

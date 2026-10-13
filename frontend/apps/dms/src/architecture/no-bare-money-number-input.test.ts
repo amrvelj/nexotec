@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { ALL_SPEC_FIELDS } from '../configurationOptions'
 
 // KAN-168 / ADR-076: every CHF amount reads `CHF 12'500.00`, inputs included.
 // A CHF input is the kit's ChfInput (or `chfInlineEditor` inside an
@@ -28,10 +29,12 @@ const NOT_MONEY_LABELS = new Set([
   "t('configurator.summary.mileage')", // kilometres
   "t('vehicleDetail.odometer.value')", // kilometres
   // PriceBuildUp: the discount value as a percentage (or disabled with no
-  // discount type); an amount discount renders a ChfInput instead.
+  // discount type); an amount discount renders a ChfInput instead — the label
+  // is shared, so the last test below pins the ChfInput branch.
   "t('offerWorkspace.pricing.discountValue')",
   // ConfiguratorOverlay: the spec block's `int` and `decimal` figures (power,
-  // weights, consumption, years); a `chf` field renders a ChfInput instead.
+  // weights, consumption, years); a `chf` field renders a ChfInput instead —
+  // the last test below pins which fields are `chf`.
   'withMark',
 ])
 
@@ -102,5 +105,23 @@ describe('a CHF amount is never typed into a bare NumberInput (KAN-168)', () => 
         'pages/OfferWorkspacePage.tsx',
       ].sort(),
     )
+  })
+
+  it('the two shared-label exemptions cannot hide a CHF amount', () => {
+    // The discount label covers a percentage (NumberInput) and an amount
+    // (ChfInput): exactly one of each, so the amount cannot turn back into
+    // a NumberInput unnoticed.
+    const priceBuildUp = readFileSync(join(APP_ROOT, 'components/PriceBuildUp.tsx'), 'utf8')
+    const discountLabel = /label=\{t\('offerWorkspace\.pricing\.discountValue'\)\}/
+    const elements = [...priceBuildUp.matchAll(/<(ChfInput|NumberInput)\b/g)].map((m) =>
+      priceBuildUp.slice(m.index ?? 0, priceBuildUp.indexOf('/>', m.index ?? 0)),
+    )
+    const discount = elements.filter((element) => discountLabel.test(element)).map((element) => element.split(/\s/)[0])
+    expect(discount.sort()).toEqual(['<ChfInput', '<NumberInput'])
+
+    // Every spec-block field that holds a price is a `chf` field (ChfInput).
+    const priced = ALL_SPEC_FIELDS.filter((f) => /price|surcharge|amount|cost/i.test(String(f.key)))
+    expect(priced.length).toBeGreaterThan(0)
+    expect(priced.filter((f) => f.kind !== 'chf' && !/year/i.test(String(f.key))).map((f) => f.key)).toEqual([])
   })
 })

@@ -18,7 +18,7 @@ import time
 import uuid
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.auth import AccessRole, create_access_token
@@ -136,6 +136,37 @@ def test_a_create_with_a_future_end_date_for_the_current_holder_replaces_the_ope
         if r.effective_to is None or r.effective_to > utcnow()
     ]
     assert [r.id for r in open_rows] == [second.id]
+
+
+def test_a_create_repeating_a_rows_exact_start_is_a_409_and_changes_nothing(db_session):
+    """uq_vehicle_party_scope: the same customer, role and effectiveFrom twice.
+    Now that a future end date takes the allocation path, its insert turns
+    the violation into the 409 the raw path gave — never a 500 — and the
+    incumbent's close rolls back with it."""
+
+    from app.core.errors import ConflictError
+
+    group_id = uuid.uuid4()
+    vehicle = _vehicle(db_session, "WVWZZZ1KZAW148015")
+    alice = _customer(db_session, group_id, "Alice")
+    start = utcnow() - dt.timedelta(days=3)
+    first = allocate_vehicle_party(
+        db_session, vehicle_id=vehicle.id, customer_id=alice.id, role=OWNER, group_id=group_id,
+        actor_id=uuid.uuid4(), effective_from=start,
+    )
+
+    with pytest.raises(ConflictError):
+        create_customer_vehicle(
+            db_session, customer=alice,
+            data=CustomerVehicleCreate(
+                vehicle_id=vehicle.id, role=OWNER, effective_from=start, effective_to=utcnow() + dt.timedelta(days=9),
+            ),
+            actor_id=uuid.uuid4(),
+        )
+
+    db_session.expire_all()
+    assert db_session.get(VehicleParty, first.id).effective_to is None
+    assert _events(db_session, "customer.vehicle_party.unlinked") == []
 
 
 def test_a_create_with_a_past_end_date_is_history_and_closes_nobody(db_session):
@@ -355,6 +386,21 @@ def _pause_thread_after_closing(monkeypatch, thread_name: str):
     return reached, release
 
 
+def _wait_until_a_backend_waits_on_a_lock(engine, timeout: float = 10.0) -> None:
+    """Returns once some session is blocked on a lock (pg_locks, not
+    granted) — so a race test really exercises the contended path instead
+    of hoping a sleep was long enough."""
+
+    deadline = time.monotonic() + timeout
+    with engine.connect() as conn:
+        while time.monotonic() < deadline:
+            if conn.execute(text("SELECT count(*) FROM pg_locks WHERE NOT granted")).scalar():
+                return
+            conn.rollback()
+            time.sleep(0.02)
+    raise AssertionError("no session ever waited on a lock — the race was not exercised")
+
+
 def _run(name: str, errors: list[Exception], target) -> threading.Thread:
     def _body():
         try:
@@ -399,7 +445,7 @@ def test_a_disconnect_racing_an_allocation_closes_the_row_once(engine, db_sessio
             disconnect_session.rollback()
 
         disconnect = _run("disconnect", errors, _disconnect)
-        time.sleep(0.5)  # let the Disconnect reach the row lock the allocation holds
+        _wait_until_a_backend_waits_on_a_lock(engine)  # the Disconnect waits on the allocation's row lock
         release.set()
         allocation.join(timeout=10)
         disconnect.join(timeout=10)
@@ -407,6 +453,7 @@ def test_a_disconnect_racing_an_allocation_closes_the_row_once(engine, db_sessio
         release.set()
         disconnect_session.close()
 
+    assert not allocation.is_alive() and not disconnect.is_alive()
     assert errors == []
     assert _open_holders(db_session, vehicle.id) == {bruno.id}
     assert len(_events(db_session, "customer.vehicle_party.unlinked", alice_party.id)) == 1
@@ -442,12 +489,13 @@ def test_a_reopen_racing_an_allocation_leaves_one_open_holder(engine, db_session
     try:
         assert reached.wait(timeout=10), "the allocation never reached its insert"
         reopen = _run("reopen", errors, _reopen)
-        time.sleep(0.5)  # let the reopen reach the advisory lock the allocation holds
+        _wait_until_a_backend_waits_on_a_lock(engine)  # the reopen waits on the allocation's advisory lock
         release.set()
         allocation.join(timeout=10)
         reopen.join(timeout=10)
     finally:
         release.set()
 
+    assert not allocation.is_alive() and not reopen.is_alive()
     assert errors == []
     assert _open_holders(db_session, vehicle.id) == {alice.id}

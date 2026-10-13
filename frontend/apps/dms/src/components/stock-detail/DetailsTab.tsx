@@ -29,7 +29,7 @@ interface DetailsTabProps {
  * caption), equipment summary and marketplace summary all arrive with
  * PR-8; the evaluation/valuation reader arrives with PR-9.
  */
-// KAN-168: the price editors open on CHF 42'500.00, never the raw 42500.00.
+// KAN-168: the price editors open grouped, with CHF (CHF 42'500), never on the raw 42500.00.
 const chfEditor = chfInlineEditor({ min: 0 })
 
 export function DetailsTab({ item, locale, onSaveField, onReload, onRecordPurchase }: DetailsTabProps) {

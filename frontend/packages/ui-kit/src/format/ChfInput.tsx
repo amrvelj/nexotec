@@ -60,10 +60,13 @@ export function ChfInput({ value, defaultValue, onFocus, onBlur, ...props }: Chf
 }
 
 /**
- * The `renderEditor` for an InlineEditField holding a CHF amount: the field
- * opens on `CHF 42'500.00`, never on the API's raw `42500.00`. The editor's
- * draft stays a decimal string (`"42500"` after typing 42500), so `onSave`
- * receives what it received from a plain text editor.
+ * The `renderEditor` for an InlineEditField holding a CHF amount. The editor
+ * exists only while it has focus, so it shows the grouping, never the API's
+ * raw `42500.00` (`CHF 42'500` as it opens; `CHF 41'900.5` for 41900.50) —
+ * the two fixed decimals are the display value's, `formatCurrencyChf`, once
+ * the edit ends. The draft stays a decimal string (`"12500"` after typing
+ * 12500; untouched, the API's own `"42500.00"`), so `onSave` receives what it
+ * received from a plain text editor.
  */
 export function chfInlineEditor(props: Partial<ChfInputProps> = {}): (editor: EditorRenderProps) => ReactNode {
   return function ChfInlineEditor({ value, onChange, onKeyDown, onBlur, autoFocus }: EditorRenderProps) {
