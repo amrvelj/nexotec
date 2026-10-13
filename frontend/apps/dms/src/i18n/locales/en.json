@@ -476,7 +476,8 @@
       },
       "addAction": "Link vehicle",
       "inStockTitle": "In the group's own stock — {{stockNumber}}",
-      "specification": "Specification"
+      "specification": "Specification",
+      "unknownVehicle": "Vehicle not in the register"
     },
     "offersContracts": {
       "emptyState": {

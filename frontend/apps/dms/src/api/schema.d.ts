@@ -6131,6 +6131,10 @@ export interface components {
          *     plain PATCH field set: it calls into vehicle-mdm and customer, so it
          *     is its own endpoint (POST /v1/sales/offers/{id}/trade-in), same
          *     reasoning as reservation being its own endpoint rather than a PATCH.
+         *
+         *     KAN-331: the VIN is normalised and validated as Stock's is (FR-V-15),
+         *     so a lower-cased or spaced spelling resolves to the car vehicle-mdm
+         *     already holds, and a malformed one is a 422 that writes nothing.
          */
         TradeInRequest: {
             /** Canton */
@@ -6957,9 +6961,9 @@ export interface components {
             /** Trim */
             trim: string | null;
             /** Vehiclenumber */
-            vehicleNumber: string;
+            vehicleNumber: string | null;
             /** Vin */
-            vin: string;
+            vin: string | null;
         };
         /**
          * VehiclePickerCandidate

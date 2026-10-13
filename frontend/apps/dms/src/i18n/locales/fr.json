@@ -476,7 +476,8 @@
       },
       "addAction": "Lier un véhicule",
       "inStockTitle": "Dans le stock du groupe — {{stockNumber}}",
-      "specification": "Spécification"
+      "specification": "Spécification",
+      "unknownVehicle": "Véhicule absent du registre"
     },
     "offersContracts": {
       "emptyState": {

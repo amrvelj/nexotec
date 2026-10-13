@@ -476,7 +476,8 @@
       },
       "addAction": "Fahrzeug verknüpfen",
       "inStockTitle": "Im eigenen Lager der Gruppe — {{stockNumber}}",
-      "specification": "Spezifikation"
+      "specification": "Spezifikation",
+      "unknownVehicle": "Fahrzeug nicht im Register"
     },
     "offersContracts": {
       "emptyState": {
