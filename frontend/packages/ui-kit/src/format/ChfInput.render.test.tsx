@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from "vitest";
-import { useState } from "react";
+import { StrictMode, useState } from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MantineProvider } from "@mantine/core";
@@ -113,5 +113,53 @@ describe("chfInlineEditor (KAN-168)", () => {
     await user.type(input, "12500.5{Enter}");
 
     expect(onSave).toHaveBeenCalledWith("12500.5");
+  });
+});
+
+// The app mounts under <StrictMode> (main.tsx), and the desktop preview runs
+// the dev build: react-number-format delays its focus callback, and
+// StrictMode's mount cleanup cancels it, so an autofocused editor must not
+// depend on that callback to know it has focus (found in the review of PR 213).
+describe("chfInlineEditor under StrictMode (KAN-168)", () => {
+  it("opens grouped and takes a digit typed at the end", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn(async (_raw: string) => {});
+    render(
+      <StrictMode>
+        <MantineProvider>
+          <InlineEditField value="shown" editValue="42500.00" onSave={onSave} renderEditor={chfInlineEditor()} />
+        </MantineProvider>
+      </StrictMode>,
+    );
+
+    await user.click(screen.getByText("shown"));
+    const input = screen.getByRole("textbox") as HTMLInputElement;
+    expect(input.value).toBe("CHF 42'500");
+
+    await user.type(input, "7{Enter}");
+
+    expect(onSave).toHaveBeenCalledWith("425007");
+  });
+
+  it("a ChfInput clicked into under StrictMode shows the grouping and fixes the decimals on blur", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(
+      <StrictMode>
+        <MantineProvider>
+          <Controlled initial="" onChange={onChange} />
+          <button type="button">elsewhere</button>
+        </MantineProvider>
+      </StrictMode>,
+    );
+    const input = screen.getByLabelText("Price") as HTMLInputElement;
+
+    await user.click(input);
+    await user.keyboard("12500");
+    expect(input.value).toBe("CHF 12'500");
+    await user.click(screen.getByRole("button", { name: "elsewhere" }));
+
+    expect(input.value).toBe("CHF 12'500.00");
+    expect(onChange).toHaveBeenLastCalledWith(12500);
   });
 });

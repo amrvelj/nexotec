@@ -387,14 +387,19 @@ def _pause_thread_after_closing(monkeypatch, thread_name: str):
 
 
 def _wait_until_a_backend_waits_on_a_lock(engine, timeout: float = 10.0) -> None:
-    """Returns once some session is blocked on a lock (pg_locks, not
-    granted) — so a race test really exercises the contended path instead
-    of hoping a sleep was long enough."""
+    """Returns once a session of this test database is blocked on a lock
+    (pg_locks, not granted) — so a race test really exercises the contended
+    path instead of hoping a sleep was long enough."""
 
     deadline = time.monotonic() + timeout
     with engine.connect() as conn:
         while time.monotonic() < deadline:
-            if conn.execute(text("SELECT count(*) FROM pg_locks WHERE NOT granted")).scalar():
+            if conn.execute(text(
+                # This database only: worktrees share the cluster, and a row-lock
+                # wait (a transactionid lock) has no database of its own in pg_locks.
+                "SELECT count(*) FROM pg_locks l JOIN pg_stat_activity a ON a.pid = l.pid "
+                "WHERE NOT l.granted AND a.datname = current_database()"
+            )).scalar():
                 return
             conn.rollback()
             time.sleep(0.02)

@@ -214,11 +214,11 @@ function WebsiteField({
   )
 }
 
-/** FR-18 region 4 `creditLimit` — advisory only. Shown as CHF; edited as a
- * plain number. */
 // KAN-168: a CHF field edits grouped with CHF (CHF 12'500), never as a raw number (ADR-076).
 const chfEditor = chfInlineEditor({ min: 0 })
 
+/** FR-18 region 4 `creditLimit` — advisory only. Shown as CHF, and edited
+ * as CHF through the kit's CHF editor (KAN-168). */
 function MoneyField({
   label,
   value,

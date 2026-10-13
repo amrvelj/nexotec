@@ -35,8 +35,13 @@ function asNumber(value: NumberInputProps["value"]): NumberInputProps["value"] {
   return Number.isNaN(parsed) ? value : parsed;
 }
 
-export function ChfInput({ value, defaultValue, onFocus, onBlur, ...props }: ChfInputProps) {
-  const [focused, setFocused] = useState(false);
+export function ChfInput({ value, defaultValue, onFocusCapture, onBlur, ...props }: ChfInputProps) {
+  // Focus is tracked in the capture phase and seeded from autoFocus:
+  // react-number-format delays its own onFocus with a timer that React
+  // StrictMode's mount cleanup cancels, so an autofocused field (the inline
+  // editor) would otherwise never learn it has focus — it then kept the
+  // fixed decimals and dropped a digit typed at the end (found in the review of PR 213).
+  const [focused, setFocused] = useState(Boolean(props.autoFocus));
   return (
     <NumberInput
       {...props}
@@ -47,9 +52,9 @@ export function ChfInput({ value, defaultValue, onFocus, onBlur, ...props }: Chf
       decimalSeparator="."
       decimalScale={2}
       fixedDecimalScale={!focused}
-      onFocus={(event) => {
+      onFocusCapture={(event) => {
         setFocused(true);
-        onFocus?.(event);
+        onFocusCapture?.(event);
       }}
       onBlur={(event) => {
         setFocused(false);
