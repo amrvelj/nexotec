@@ -1,7 +1,8 @@
 """KAN-309: a contract trade-in save commits the request session part-way
-(create_or_get_vehicle_mdm for a new VIN, allocate_vehicle_party for the
-owner and the keeper — each foreign write its own transaction, ADR-047), and
-that commit releases the contract's row lock the route took. A confirmation
+(allocate_vehicle_party for the owner and the keeper — each foreign write
+its own transaction, ADR-047; since KAN-328 the vehicle-mdm resolution
+commits a session of its own instead), and that commit releases the
+contract's row lock the route took. A confirmation
 that lands in that gap must not be followed by the trade-in being written
 onto the signed contract: set_trade_in locks the contract again after its
 last foreign write and re-checks it before writing.

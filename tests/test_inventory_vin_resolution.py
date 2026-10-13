@@ -4,8 +4,13 @@ KAN-244 (Anto ticked A + C): a VIN sent to `POST /v1/inventory/stock-items`
 is normalised (upper-cased, every whitespace character removed) and then
 validated as vehicle-mdm validates it; one still malformed is a 422. A
 create with a VIN finds or creates the vehicle-mdm record from the VIN, as
-promotion does, and ignores a `vehicleId` the client sent. A create without
-a VIN (pipeline-style) keeps what it did before.
+promotion does, and ignores a `vehicleId` the client sent.
+
+KAN-324 (Anto, 2026-10-12, option A): a create WITHOUT a VIN refuses a
+`vehicleId` with 422 `vehicle_id_requires_vin` — before KAN-324 it was
+stored — a vehicle nobody had checked exists, or another car's — until a
+promotion replaced it. The promotion's own `vin` argument is normalised and
+validated as the create's is.
 
 KAN-257: two writers resolving a VIN vehicle-mdm has never seen both miss
 the lookup and both insert; vehicle-mdm's own unique index refuses the
@@ -19,11 +24,13 @@ import os
 import uuid
 
 import pytest
+from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.auth import AccessRole, create_access_token
-from app.core.errors import ConflictError
+from app.core.errors import ConflictError, UnprocessableEntityError
+from app.core.outbox_model import OutboxMessage
 from app.inventory.models.stock_item import LifecycleStatus, StockItem, StockItemCondition
 from app.inventory.schemas.stock_item import StockItemCreate
 from app.inventory.services import stock_item as stock_item_service
@@ -161,25 +168,152 @@ def test_a_create_with_a_vin_vehicle_mdm_knows_uses_that_record(client, db_sessi
     assert db_session.scalar(select(func.count()).select_from(VehicleMdm)) == 2
 
 
-def test_a_create_without_a_vin_keeps_todays_behaviour_for_vehicle_id(client):
-    """Unchanged by KAN-244 (Anto: "keep today's behaviour"): a pipeline-style
-    create stores the vehicleId it was sent, unverified, and stays pipeline."""
+# --- KAN-324 A: without a VIN there is no vehicle to name -----------------------
 
-    sent = uuid.uuid4()
 
-    created = _post(client, _bearer(), vehicleId=str(sent))
+def test_a_create_without_a_vin_refuses_a_vehicle_id_and_writes_nothing(client, db_session):
+    """KAN-324 (Anto, option A): a pipeline item has no vehicle until its VIN
+    arrives — a vehicleId sent without a VIN is refused, never stored
+    unverified. Before KAN-324 this create answered 201 with the vehicleId as
+    sent — a vehicle-mdm record nobody had checked exists, or another car's —
+    and the item carried it until a promotion replaced it."""
+
+    refused = _post(client, _bearer(), vehicleId=str(uuid.uuid4()))
+
+    assert refused.status_code == 422, refused.text
+    body = refused.json()["error"]
+    assert body["code"] == "unprocessable_entity"
+    errors = body["details"]["errors"]
+    assert [e["type"] for e in errors] == ["vehicle_id_requires_vin"]
+    assert [e["loc"] for e in errors] == [["body"]]
+    assert _stock_item_count(db_session) == 0
+    assert db_session.scalar(select(func.count()).select_from(OutboxMessage)) == 0
+
+
+def test_a_create_without_a_vin_and_without_a_vehicle_id_is_still_a_pipeline_item(client):
+    created = _post(client, _bearer())
 
     assert created.status_code == 201, created.text
-    assert created.json()["vehicleId"] == str(sent)
+    assert created.json()["vehicleId"] is None
     assert created.json()["vin"] is None
     assert created.json()["lifecycleStatus"] == "pipeline"
 
 
-def test_the_openapi_says_vehicle_id_is_ignored_when_a_vin_is_sent(client):
+def test_the_schema_itself_refuses_a_vehicle_id_without_a_vin():
+    """The rule lives on `StockItemCreate`, so every caller — the HTTP route,
+    the contract-confirmation consumer, a script — meets it, not only the
+    route."""
+
+    with pytest.raises(ValidationError) as refused:
+        StockItemCreate(vehicle_label="Volkswagen Golf", condition=StockItemCondition.USED, vehicle_id=uuid.uuid4())
+
+    assert [e["type"] for e in refused.value.errors()] == ["vehicle_id_requires_vin"]
+    # With a VIN the pair is accepted (the service then ignores the vehicleId, KAN-244 C).
+    StockItemCreate(vehicle_label="Volkswagen Golf", condition=StockItemCondition.USED, vehicle_id=uuid.uuid4(), vin=VIN)
+
+
+def test_the_openapi_says_vehicle_id_is_ignored_with_a_vin_and_refused_without(client):
     schema = client.get("/openapi.json").json()["components"]["schemas"]["StockItemCreate"]["properties"]
 
     assert "Ignored when `vin` is sent" in schema["vehicleId"]["description"]
+    assert "refused" in schema["vehicleId"]["description"]
+    assert "vehicle_id_requires_vin" in schema["vehicleId"]["description"]
+    assert "stored as sent" not in schema["vehicleId"]["description"]
     assert "normalised" in schema["vin"]["description"].lower()
+
+
+# --- KAN-324: the promotion's VIN is normalised and validated as the create's is ---
+
+
+@pytest.mark.parametrize(
+    "spelling",
+    [VIN.lower(), "WVW ZZZ 1KZ AW0 00001", " wvwzzz1kzaw000001 ", "WVWZZZ1KZ\tAW000001\n"],
+)
+def test_a_promotion_normalises_its_vin_before_anything_else(db_session, spelling):
+    tenant_id = uuid.uuid4()
+    trade_in = _pipeline(db_session, tenant_id)
+
+    promoted = promote_to_vehicle_mdm(db_session, item=trade_in, vin=spelling)
+
+    assert promoted.lifecycle_status == LifecycleStatus.IN_STOCK
+    assert promoted.vin == VIN
+    vehicle = _vehicle_by_vin(db_session, VIN)
+    assert vehicle is not None
+    assert promoted.vehicle_id == vehicle.id
+    assert db_session.scalar(select(func.count()).select_from(VehicleMdm)) == 1
+    event = db_session.scalar(
+        select(OutboxMessage).where(
+            OutboxMessage.event_type == "inventory.pipeline_vehicle.vin_assigned",
+            OutboxMessage.aggregate_id == trade_in.id,
+        )
+    )
+    assert event is not None
+    assert event.payload["vin"] == VIN
+
+
+def test_a_promotion_retried_with_another_spelling_of_the_same_vin_is_the_idempotent_no_op(db_session):
+    tenant_id = uuid.uuid4()
+    trade_in = _pipeline(db_session, tenant_id)
+    promote_to_vehicle_mdm(db_session, item=trade_in, vin=VIN)
+
+    again = promote_to_vehicle_mdm(db_session, item=trade_in, vin=" " + VIN.lower() + " ")
+
+    assert again.vin == VIN
+    events = db_session.scalar(
+        select(func.count()).select_from(OutboxMessage).where(
+            OutboxMessage.event_type == "inventory.pipeline_vehicle.vin_assigned",
+            OutboxMessage.aggregate_id == trade_in.id,
+        )
+    )
+    assert events == 1
+
+
+def test_a_differently_spelled_vin_of_a_car_in_stock_is_a_duplicate_on_promotion_too(db_session):
+    tenant_id = uuid.uuid4()
+    held = create_stock_item(
+        db_session, tenant_id=tenant_id,
+        data=StockItemCreate(vehicle_label="Volkswagen Golf", condition=StockItemCondition.USED, vin=VIN),
+        actor_id=None,
+    )
+    trade_in = _pipeline(db_session, tenant_id)
+
+    with pytest.raises(ConflictError) as refused:
+        promote_to_vehicle_mdm(db_session, item=trade_in, vin=VIN.lower())
+
+    assert refused.value.details == {
+        "reason": "vin_already_in_stock", "stockItemId": str(held.id), "stockNumber": held.stock_number,
+    }
+
+
+@pytest.mark.parametrize(
+    "malformed",
+    [
+        "WVWZZZ1KZAW00000",  # 16 characters
+        "WVWZZZ1KZAW0000011",  # 18 characters
+        "wvwzzz1kzai000001",  # I is never in a VIN, whatever the case
+        "WVWZZZ1KZAO000001",  # nor O
+        "WVWZZZ1KZAQ000001",  # nor Q
+        "WVWZZZ1KZAW00000-",
+        "",
+        "   ",
+    ],
+)
+def test_a_promotion_with_a_vin_still_malformed_after_normalising_is_422_and_writes_nothing(db_session, malformed):
+    tenant_id = uuid.uuid4()
+    trade_in = _pipeline(db_session, tenant_id)
+    events_before = db_session.scalar(select(func.count()).select_from(OutboxMessage))
+
+    with pytest.raises(UnprocessableEntityError) as refused:
+        promote_to_vehicle_mdm(db_session, item=trade_in, vin=malformed)
+
+    assert refused.value.details == {"reason": "invalid_vin"}
+    db_session.rollback()
+    db_session.refresh(trade_in)
+    assert trade_in.lifecycle_status == LifecycleStatus.PIPELINE
+    assert trade_in.vin is None
+    assert trade_in.vehicle_id is None
+    assert db_session.scalar(select(func.count()).select_from(VehicleMdm)) == 0
+    assert db_session.scalar(select(func.count()).select_from(OutboxMessage)) == events_before
 
 
 def test_the_schema_docstring_no_longer_claims_vin_is_never_writable():

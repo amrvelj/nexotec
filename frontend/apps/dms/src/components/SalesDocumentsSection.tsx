@@ -120,7 +120,7 @@ export function SalesDocumentsSection({ ownerType, ownerId }: SalesDocumentsSect
       </Group>
 
       {generateError && (
-        <Alert color="red" py="xs" withCloseButton onClose={() => setGenerateError(null)}>
+        <Alert color="red" py="xs" withCloseButton closeButtonLabel={t('common.dismiss')} onClose={() => setGenerateError(null)}>
           {generateError}
         </Alert>
       )}

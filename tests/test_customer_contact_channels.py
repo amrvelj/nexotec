@@ -1015,3 +1015,151 @@ def test_new_phone_never_takes_the_flag_from_a_usable_primary(client):
     assert _primaries(client, token, customer["id"], "phones", "phoneType", "phoneE164")["mobile"] == [
         "+41792222222"
     ]
+
+
+# --- KAN-113: reopening a row settles its type-group -------------------------
+# A closed or doNotUse row is demoted when it dies (KAN-46). Reopening it
+# (`validTo: null`, `doNotUse: false`) in a group with no usable row must
+# elect it, the mirror of the KAN-46 re-election; before KAN-113 the group
+# came back with a usable row and no primary. A reopened row never takes the
+# flag from an existing usable primary, and `isPrimary: true` on a row that
+# is unusable after the PATCH leaves the group's usable primary alone.
+
+_REOPEN_PATCHES = [
+    pytest.param({"validTo": "2020-01-01T00:00:00Z"}, {"validTo": None}, id="closed-then-reopened"),
+    pytest.param({"doNotUse": True, "doNotUseReason": "no longer valid"}, {"doNotUse": False}, id="do_not_use-then-cleared"),
+]
+
+
+def _patch(client, token, customer_id, channel, row_id, body):
+    response = client.patch(
+        f"/v1/customers/{customer_id}/{channel}/{row_id}", json=body, headers=_bearer(token)
+    )
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+@pytest.mark.parametrize(("kill", "reopen"), _REOPEN_PATCHES)
+def test_reopening_the_only_phone_of_a_type_makes_it_primary(client, kill, reopen):
+    dealer_id = _create_dealer(client)
+    customer = _create_customer(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    only = _add_phone(client, token, customer["id"], "+41791111111")
+    _kill(client, token, customer["id"], "phones", only["id"], kill)
+
+    reopened = _patch(client, token, customer["id"], "phones", only["id"], reopen)
+
+    assert reopened["isPrimary"] is True
+    assert _primaries(client, token, customer["id"], "phones", "phoneType", "phoneE164") == {
+        "mobile": ["+41791111111"],
+    }
+    assert _projections(client, token, customer["id"])["phoneMobile"] == "+41791111111"
+
+
+@pytest.mark.parametrize(("kill", "reopen"), _REOPEN_PATCHES)
+def test_reopening_the_only_email_of_a_type_makes_it_primary(client, kill, reopen):
+    dealer_id = _create_dealer(client)
+    customer = _create_customer(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    # The fixture's customer already has a usable personal email, so the
+    # group under test is `work`.
+    only = _add_email(client, token, customer["id"], "work@example.ch", email_type="work")
+    _kill(client, token, customer["id"], "emails", only["id"], kill)
+
+    reopened = _patch(client, token, customer["id"], "emails", only["id"], reopen)
+
+    assert reopened["isPrimary"] is True
+    assert _primaries(client, token, customer["id"], "emails", "emailType", "emailAddress")["work"] == [
+        "work@example.ch"
+    ]
+
+
+@pytest.mark.parametrize(("kill", "reopen"), _REOPEN_PATCHES)
+def test_reopening_the_only_address_of_a_type_makes_it_primary(client, kill, reopen):
+    dealer_id = _create_dealer(client)
+    customer = _create_customer(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    only = _add_address(client, token, customer["id"], "Altweg")
+    _kill(client, token, customer["id"], "addresses", only["id"], kill)
+
+    reopened = _patch(client, token, customer["id"], "addresses", only["id"], reopen)
+
+    assert reopened["isPrimary"] is True
+    assert _primaries(client, token, customer["id"], "addresses", "addressType", "addressStreet")["domicile"] == [
+        "Altweg"
+    ]
+    assert _projections(client, token, customer["id"])["address"] is not None
+
+
+@pytest.mark.parametrize(("kill", "reopen"), _REOPEN_PATCHES)
+def test_a_reopened_phone_never_takes_the_flag_from_a_usable_primary(client, kill, reopen):
+    dealer_id = _create_dealer(client)
+    customer = _create_customer(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    first = _add_phone(client, token, customer["id"], "+41791111111")
+    _add_phone(client, token, customer["id"], "+41792222222")
+    _kill(client, token, customer["id"], "phones", first["id"], kill)
+    # +41792222222 was re-elected when the first died (KAN-46).
+
+    reopened = _patch(client, token, customer["id"], "phones", first["id"], reopen)
+
+    assert reopened["isPrimary"] is False
+    assert _primaries(client, token, customer["id"], "phones", "phoneType", "phoneE164") == {
+        "mobile": ["+41792222222"],
+    }
+
+
+@pytest.mark.parametrize("kill", _DEAD_ROW_PATCHES)
+def test_is_primary_on_an_already_dead_phone_keeps_the_usable_primary(client, kill):
+    """The UI cannot send this; the API can. Usability is judged after the
+    PATCH, not by what this PATCH changes: a row an earlier PATCH closed or
+    flagged doNotUse cannot take the flag either."""
+
+    dealer_id = _create_dealer(client)
+    customer = _create_customer(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    dead = _add_phone(client, token, customer["id"], "+41791111111")
+    _add_phone(client, token, customer["id"], "+41792222222")
+    _kill(client, token, customer["id"], "phones", dead["id"], kill)
+
+    body = _patch(client, token, customer["id"], "phones", dead["id"], {"isPrimary": True})
+
+    assert body["isPrimary"] is False
+    assert _primaries(client, token, customer["id"], "phones", "phoneType", "phoneE164") == {
+        "mobile": ["+41792222222"],
+    }
+    assert _projections(client, token, customer["id"])["phoneMobile"] == "+41792222222"
+
+
+@pytest.mark.parametrize("kill", _DEAD_ROW_PATCHES)
+def test_is_primary_on_an_already_dead_email_keeps_the_usable_primary(client, kill):
+    dealer_id = _create_dealer(client)
+    customer = _create_customer(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    dead = _add_email(client, token, customer["id"], "old@example.ch", email_type="work")
+    _add_email(client, token, customer["id"], "new@example.ch", email_type="work")
+    _kill(client, token, customer["id"], "emails", dead["id"], kill)
+
+    body = _patch(client, token, customer["id"], "emails", dead["id"], {"isPrimary": True})
+
+    assert body["isPrimary"] is False
+    assert _primaries(client, token, customer["id"], "emails", "emailType", "emailAddress")["work"] == [
+        "new@example.ch"
+    ]
+
+
+@pytest.mark.parametrize("kill", _DEAD_ROW_PATCHES)
+def test_is_primary_on_an_already_dead_address_keeps_the_usable_primary(client, kill):
+    dealer_id = _create_dealer(client)
+    customer = _create_customer(client, dealer_id)
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    dead = _add_address(client, token, customer["id"], "Altweg")
+    _add_address(client, token, customer["id"], "Neuweg")
+    _kill(client, token, customer["id"], "addresses", dead["id"], kill)
+
+    body = _patch(client, token, customer["id"], "addresses", dead["id"], {"isPrimary": True})
+
+    assert body["isPrimary"] is False
+    assert _primaries(client, token, customer["id"], "addresses", "addressType", "addressStreet")["domicile"] == [
+        "Neuweg"
+    ]

@@ -7,6 +7,17 @@ export function formatDate(iso: string, locale = 'de-CH'): string {
   return new Intl.DateTimeFormat(locale, { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(iso))
 }
 
+// KAN-180 — a date-only value (`1980-05-01`, what the backend's
+// `date.isoformat()` writes into an audit snapshot) names a calendar day,
+// not an instant. `new Date('1980-05-01')` parses it as UTC midnight, which
+// formatDate would render as the day before anywhere west of Greenwich; the
+// day is read back in the zone it was parsed in.
+export function formatDateOnly(isoDate: string, locale = 'de-CH'): string {
+  return new Intl.DateTimeFormat(locale, { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' }).format(
+    new Date(isoDate)
+  )
+}
+
 export function formatDateTime(iso: string, locale = 'de-CH'): string {
   return new Intl.DateTimeFormat(locale, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(
     new Date(iso)

@@ -193,6 +193,12 @@ jobs:
         run: alembic downgrade d2f7b0e9c453
       - name: alembic upgrade heads (again)
         run: alembic upgrade heads
+      # KAN-251: the migrated schema and the models are identical, with no
+      # allowlist. The same comparison tests/test_migrated_schema_matches_models.py
+      # runs on a throwaway database; here it runs on this job's freshly
+      # migrated one and fails the job on any difference.
+      - name: the migrated schema matches the models (KAN-251)
+        run: python -m tests.schema_diff_support "$DMS_DATABASE_URL" --fail
       # KAN-92: the web service, the outbox worker and every web replica all
       # migrate on start. Two overlapping `alembic upgrade heads` runs (empty
       # database, and one with migrations pending from d2f7b0e9c453) must both

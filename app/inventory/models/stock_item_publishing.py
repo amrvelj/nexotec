@@ -74,6 +74,11 @@ class StockItemMedia(PrimaryKeyMixin, TenantScopedMixin, Base):
         # never deferrable, on either Postgres or SQLite) would forbid.
     )
 
+    # Overrides TenantScopedMixin's bare column with the owner comment rule 2
+    # asks for, as the migration that created the table wrote it (KAN-170).
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), nullable=False, index=True, comment="Owned by the platform context (Dealership.id). No DB-level FK."
+    )
     stock_item_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("stock_item.id"), nullable=False, index=True)
     position: Mapped[int] = mapped_column(Integer, nullable=False)
     # No upload/hosting mechanism built here (same posture as
@@ -88,6 +93,11 @@ class StockItemPublishing(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, Ti
         UniqueConstraint("stock_item_id", "channel", name="uq_stock_item_publishing_stock_item_id_channel"),
     )
 
+    # Overrides TenantScopedMixin's bare column with the owner comment rule 2
+    # asks for, as the migration that created the table wrote it (KAN-170).
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), nullable=False, index=True, comment="Owned by the platform context (Dealership.id). No DB-level FK."
+    )
     stock_item_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("stock_item.id"), nullable=False, index=True)
     channel: Mapped[MarketplaceChannel] = mapped_column(StoredEnum(MarketplaceChannel, length=16), nullable=False)
     state: Mapped[PublishingState] = mapped_column(

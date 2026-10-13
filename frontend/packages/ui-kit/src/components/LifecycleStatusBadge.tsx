@@ -9,20 +9,25 @@ export type LifecycleStatus = "prospect" | "active" | "inactive" | "merged" | "d
  * "The status vocabulary is shared" — this is that vocabulary for
  * Customer.lifecycleStatus specifically; other entities reuse the same
  * tones for their own equivalent states rather than inventing new colours.
+ *
+ * KAN-181 — the kit maps a status to a tone only. `label` is required: a
+ * kit badge never carries a user-visible default string; the app passes the
+ * translated label (`customerEnums.lifecycleStatus.*` via
+ * translatedLifecycleLabel).
  */
-const CONFIG: Record<LifecycleStatus, { tone: BadgeTone; label: string; strikethrough?: boolean }> = {
-  active: { tone: "success", label: "Active" },
-  prospect: { tone: "warning", label: "Prospect" },
-  inactive: { tone: "slate", label: "Inactive" },
-  merged: { tone: "slate", label: "Merged", strikethrough: true },
-  do_not_contact: { tone: "destructive", label: "Do not contact" },
+const CONFIG: Record<LifecycleStatus, { tone: BadgeTone; strikethrough?: boolean }> = {
+  active: { tone: "success" },
+  prospect: { tone: "warning" },
+  inactive: { tone: "slate" },
+  merged: { tone: "slate", strikethrough: true },
+  do_not_contact: { tone: "destructive" },
 };
 
-export function LifecycleStatusBadge({ status, label }: { status: LifecycleStatus; label?: string }) {
+export function LifecycleStatusBadge({ status, label }: { status: LifecycleStatus; label: string }) {
   const config = CONFIG[status];
   return (
     <Badge tone={config.tone} dot strikethrough={config.strikethrough}>
-      {label ?? config.label}
+      {label}
     </Badge>
   );
 }

@@ -490,7 +490,7 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
       />
 
       {createError && (
-        <Alert color="red" role="alert" withCloseButton onClose={() => setCreateError(null)}>
+        <Alert color="red" role="alert" withCloseButton closeButtonLabel={t('common.dismiss')} onClose={() => setCreateError(null)}>
           {createError}
         </Alert>
       )}

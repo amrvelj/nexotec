@@ -248,7 +248,7 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
       />
 
       {createError && (
-        <Alert color="red" withCloseButton onClose={() => setCreateError(null)}>
+        <Alert color="red" withCloseButton closeButtonLabel={t('common.dismiss')} onClose={() => setCreateError(null)}>
           {createError}
         </Alert>
       )}

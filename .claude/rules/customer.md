@@ -49,9 +49,10 @@ weekly. -->
 - A create elects its new row when the group has no **usable** primary (KAN-151), so a row
   added beside closed or `doNotUse` rows becomes primary without `isPrimary: true`; an existing
   usable primary is never demoted by a create that does not ask for it.
-- **Not yet enforced:** reopening a row (`validTo: null`, `doNotUse: false`) in a group with no
-  usable row leaves the group with a usable row and no primary (KAN-113). The projection's
-  oldest-usable fallback covers the grid.
+- Reopening a row (`validTo: null`, `doNotUse: false`) settles its type-group too (KAN-113): a
+  group with no usable primary elects the reopened row; an existing usable primary keeps the
+  flag. Usability is judged after the PATCH, so `isPrimary: true` on a row that is closed or
+  `doNotUse` — by this PATCH or an earlier one — never unsets the group's usable primary.
 - The six contact projections — `phoneMobile`, `phoneLandline`, `phoneWork`, `email`,
   `emailSecondary`, `address` (primary domicile) — are **read-model projections**, computed and
   never stored. Per type: the flagged primary among usable rows, else the oldest usable row,
@@ -102,8 +103,14 @@ weekly. -->
 - **ADR-064 — vehicle–customer links carry a role and are time-bounded.** Owner, keeper
   (Halter) and driver are different parties often enough that collapsing them loses what a
   seller needs. A new holder **closes** the previous row instead of overwriting it
-  (`allocate_vehicle_party`). **Not built:** the transfer on `finance.invoice.issued` (WP-9,
-  KAN-74).
+  (`allocate_vehicle_party`). A customer merge re-points the duplicate's rows at the survivor;
+  a row whose (vehicle, role, effective_from) the survivor already holds cannot be (the unique
+  key spans `customer_id`) and is **kept** on the duplicate with `merged_into_customer_id`
+  naming the survivor — never deleted (KAN-177, Anto's ruling 2026-10-12, option A): an open or
+  future-closed copy is closed at its own start, audited as a `vehicle_party_remove` and
+  published as `unlinked`; a copy already closed in the past keeps its `effective_to` and takes
+  only the mark, listed by the merge's own audit event. **Not built:** the transfer on
+  `finance.invoice.issued` (WP-9, KAN-74).
 - Allocation resolves the vehicle against `vehicle_mdm` (global, ADR-022), never the frozen
   legacy `vehicle` table — `allocate_vehicle_party` does not look it up, so its callers resolve
   it first (the allocate routes 404 an unknown one; the trade-in on an offer or a pending
@@ -130,13 +137,15 @@ weekly. -->
   re-confirm or Disconnect of an open row, or by the nightly job (a Disconnect of an
   already-closed row returns before committing and drops it).
   `tests/architecture/test_no_cross_context_mapping.py` forbids a relationship or FK back.
-- **Cross-group closes written before KAN-99 are detected, not repaired** (KAN-139):
-  `app.customer.reconciliation.find_cross_group_vehicle_party_closes` (run by
-  `scripts/detect_cross_group_vehicle_party_closes.py`) classifies every
-  `vehicle_party_remove` audit row and `unlinked` outbox event against the closed customer's
-  group. A stamp of a dealership in that group is same-group: before WP-3 PR-2 (2026-08-25)
-  the action was the D-12 hard-delete, stamped with the dealership. Close-then-open dates from
-  WP-5 PR-9 (2026-08-28), so a genuine finding falls between then and KAN-99. Read-only (a
+- **Cross-group closes and links written before KAN-99 are detected, not repaired** (KAN-139,
+  KAN-176): `app.customer.reconciliation.find_cross_group_vehicle_party_closes` classifies every
+  `vehicle_party_remove` audit row and `unlinked` outbox event, and
+  `find_cross_group_vehicle_party_links` every `vehicle_party_add` row and `linked` event (the
+  trade-in path passed a body `customerId` through unresolved), against the named customer's
+  group; `scripts/detect_cross_group_vehicle_party_closes.py` runs both. A stamp of a
+  dealership in that group is same-group: before WP-3 PR-2 (2026-08-25) customers were
+  dealership-scoped, and the close was the D-12 hard-delete. Close-then-open dates from WP-5
+  PR-9 (2026-08-28), so a genuine close finding falls between then and KAN-99. Read-only (a
   `READ ONLY` transaction) and not a nightly check (the audit log is append-only, so a finding
   never clears); a repair is Anto's decision.
 - Group-wide customer history must be served from an event-built projection keyed by

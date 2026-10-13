@@ -321,12 +321,12 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       {confirmError && (
-        <Alert color="red" title={t('contractDetail.errors.confirmRefused.title')} withCloseButton onClose={() => setConfirmError(null)}>
+        <Alert color="red" title={t('contractDetail.errors.confirmRefused.title')} withCloseButton closeButtonLabel={t('common.dismiss')} onClose={() => setConfirmError(null)}>
           {confirmError}
         </Alert>
       )}
       {cancelError && (
-        <Alert color="red" role="alert" title={t('contractDetail.errors.cancelRefused.title')} withCloseButton onClose={() => setCancelError(null)}>
+        <Alert color="red" role="alert" title={t('contractDetail.errors.cancelRefused.title')} withCloseButton closeButtonLabel={t('common.dismiss')} onClose={() => setCancelError(null)}>
           {cancelError}
         </Alert>
       )}
@@ -387,7 +387,7 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
             {hasNoBuyer ? t('contractDetail.edit.pricedWithoutInputsNoBuyer') : t('contractDetail.edit.pricedWithoutInputs')}
           </Alert>
           {editError && (
-            <Alert color="red" withCloseButton onClose={() => setEditError(null)}>
+            <Alert color="red" withCloseButton closeButtonLabel={t('common.dismiss')} onClose={() => setEditError(null)}>
               {editError}
             </Alert>
           )}
@@ -402,7 +402,7 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
             <Text size="sm" c="dimmed">{t('contractDetail.edit.hint')}</Text>
           </div>
           {editError && (
-            <Alert color="red" withCloseButton onClose={() => setEditError(null)}>
+            <Alert color="red" withCloseButton closeButtonLabel={t('common.dismiss')} onClose={() => setEditError(null)}>
               {editError}
             </Alert>
           )}

@@ -14,7 +14,7 @@ import datetime as dt
 import enum
 import uuid
 
-from sqlalchemy import Boolean, Date, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Date, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.base import PrimaryKeyMixin, TimestampMixin, utcnow
@@ -98,10 +98,13 @@ class VehicleCustodyEvent(PrimaryKeyMixin, Base):
     """
 
     __tablename__ = "vehicle_mdm_custody_event"
+    # One composite index, as the migration created it (903b69527f0b), like
+    # the shipped table's ix_vehicle_custody_event_vehicle_id_partner_id.
+    __table_args__ = (Index("ix_vehicle_mdm_custody_event_vehicle_id_partner_id", "vehicle_id", "partner_id"),)
 
-    vehicle_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("vehicle_mdm.id"), nullable=False, index=True)
+    vehicle_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("vehicle_mdm.id"), nullable=False)
     partner_id: Mapped[uuid.UUID] = mapped_column(
-        GUID(), nullable=False, index=True,
+        GUID(), nullable=False,
         comment="Owned by the platform context (Dealership). No DB-level FK — reconciled nightly.",
     )
     event_type: Mapped[CustodyEventType] = mapped_column(StoredEnum(CustodyEventType, length=16), nullable=False)

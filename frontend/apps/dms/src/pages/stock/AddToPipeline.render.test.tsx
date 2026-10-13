@@ -46,10 +46,7 @@ function LocationProbe() {
   return <div data-testid="path">{useLocation().pathname}</div>
 }
 
-// A manual configuration's save now needs its five coded fields picked
-// (Anto, 2026-10-12), and several tests here build two cars: their user-event
-// flows run past vitest's 5 s default on a loaded machine.
-describe('Stock list — add to pipeline (FR-C-13)', { timeout: 15_000 }, () => {
+describe('Stock list — add to pipeline (FR-C-13)', () => {
   it('offers both modes and creates a pipeline item carrying the configuration', async () => {
     const user = userEvent.setup()
     const created: Record<string, unknown>[] = []
@@ -272,7 +269,7 @@ describe('Stock list — add to pipeline (FR-C-13)', { timeout: 15_000 }, () => 
   })
 })
 
-describe('Stock list — add to pipeline, one key per opening (KAN-266)', { timeout: 15_000 }, () => {
+describe('Stock list — add to pipeline, one key per opening (KAN-266)', () => {
   it('the same pipeline item sent after closing and reopening the configurator gets a new key', async () => {
     // Without the renew on opening, the key of a failed create would follow
     // the button to the next opening and replay whatever it was bound to.

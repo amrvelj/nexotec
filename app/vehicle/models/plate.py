@@ -21,7 +21,7 @@ to app.vehicle.models.provider.MappingGap).
 import datetime as dt
 import uuid
 
-from sqlalchemy import Boolean, Date, ForeignKey, String
+from sqlalchemy import Boolean, Date, ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, utcnow
@@ -39,9 +39,12 @@ class VehiclePlate(PrimaryKeyMixin, TimestampMixin, Base):
     """
 
     __tablename__ = "vehicle_plate"
+    # The (plate, canton) lookup index the migration created (285daaedfb85);
+    # a plate alone is served by its leading column.
+    __table_args__ = (Index("ix_vehicle_plate_plate_canton", "plate", "canton"),)
 
     vehicle_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("vehicle_mdm.id"), nullable=False, index=True)
-    plate: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
+    plate: Mapped[str] = mapped_column(String(16), nullable=False)
     canton: Mapped[str] = mapped_column(String(2), nullable=False)
     valid_from: Mapped[dt.date] = mapped_column(Date, nullable=False)
     valid_to: Mapped[dt.date | None] = mapped_column(Date, nullable=True)

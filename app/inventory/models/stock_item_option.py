@@ -21,6 +21,11 @@ from app.db import Base
 class StockItemOption(PrimaryKeyMixin, TenantScopedMixin, Base):
     __tablename__ = "stock_item_option"
 
+    # Overrides TenantScopedMixin's bare column with the owner comment rule 2
+    # asks for, as the migration that created the table wrote it (KAN-170).
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), nullable=False, index=True, comment="Owned by the platform context (Dealership.id). No DB-level FK."
+    )
     stock_item_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("stock_item.id"), nullable=False, index=True)
     code: Mapped[str] = mapped_column(String(64), nullable=False)
     label: Mapped[str] = mapped_column(String(200), nullable=False)

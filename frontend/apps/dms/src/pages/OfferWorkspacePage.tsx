@@ -66,7 +66,12 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
   }
 
   const [generateOpen, setGenerateOpen] = useState(false)
-
+  // KAN-327 — a price typed inside useDebouncedNumberField's 500 ms window is
+  // not yet a save (the field does not flush on blur), so `saves.pending`
+  // alone would let Continue open Generate on the offer without it — and
+  // the reviewed document must be what was entered (ADR-063). The contract
+  // page waits for the same state (pricingUnsaved, KAN-288).
+  const [pricingUnsaved, setPricingUnsaved] = useState(false)
 
   // KAN-314 — every container autosaves on its own, and since KAN-311 the
   // server takes the offer's row lock and checks If-Match on each save, so
@@ -177,7 +182,7 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
 
       <DealCustomerContainer ownerType="offer" deal={offer} patch={patchOffer} onOpenCustomer={openCustomerOverlay} />
       <DealVehicleContainer {...containerProps} />
-      <DealPricingContainer {...containerProps} onOpenStockItem={openStockItemOverlay} />
+      <DealPricingContainer {...containerProps} onOpenStockItem={openStockItemOverlay} onUnsavedChange={setPricingUnsaved} />
       <DealTradeInContainer {...containerProps} />
 
       {/* Leasing — S-D03: a refused calculator, free-text only */}
@@ -213,7 +218,10 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
         primaryAction={
           <Button
             disabled={
-              missing.length > 0 || selectedCustomer?.lifecycleStatus === 'do_not_contact' || saves.pending > 0
+              missing.length > 0 ||
+              selectedCustomer?.lifecycleStatus === 'do_not_contact' ||
+              pricingUnsaved ||
+              saves.pending > 0
             }
             onClick={() => setGenerateOpen(true)}
           >

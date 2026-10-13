@@ -62,9 +62,9 @@ from app.customer.models.customer import (
 )
 from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
 from app.db import SessionLocal
-from app.vehicle.models.catalogue import Brand, ModelGroup, ModelVariant, TypeApproval, VariantTypeApproval
 from app.platform.models.dealership import DealerGroup, Dealership, DealershipStatus, FranchiseType
 from app.sales.models.transaction import Transaction, TransactionStatus, TransactionType
+from app.vehicle.models.catalogue import Brand, ModelGroup, ModelVariant, TypeApproval, VariantTypeApproval
 from app.vehicle.models.vehicle import (
     CustodyEventType,
     RegistrationStatus,
@@ -402,6 +402,16 @@ def _vehicle_party_has_vehicle_label(db: Session) -> bool:
 
     columns = {col["name"] for col in inspect(db.get_bind()).get_columns("vehicle_party")}
     return "vehicle_vin" in columns
+
+
+def _vehicle_party_has_merged_mark(db: Session) -> bool:
+    """KAN-177 added the nullable `merged_into_customer_id` to vehicle_party.
+    The ORM class always emits it, so main's schema (one migration behind)
+    needs the explicit-values insert below, which names only the columns it
+    is given."""
+
+    columns = {col["name"] for col in inspect(db.get_bind()).get_columns("vehicle_party")}
+    return "merged_into_customer_id" in columns
 
 
 def _contact_channel_has_consent_scope(db: Session) -> bool:
@@ -978,12 +988,12 @@ def main() -> None:
         db.add(vehicle)
         db.flush()
 
-        if _vehicle_party_has_vehicle_label(db):
+        if _vehicle_party_has_vehicle_label(db) and _vehicle_party_has_merged_mark(db):
             db.add(VehicleParty(vehicle_id=vehicle.id, customer_id=customer_id, role=VehiclePartyRole.OWNER))
         else:
-            # KAN-84's label columns aren't live yet — an insert with explicit
-            # values names only the columns given (plus Python-side
-            # defaults), so it fits the pre-KAN-84 shape.
+            # KAN-84's label columns or KAN-177's merged mark aren't live yet —
+            # an insert with explicit values names only the columns given
+            # (plus Python-side defaults), so it fits the older shape.
             db.execute(
                 sa.insert(VehicleParty).values(
                     vehicle_id=vehicle.id, customer_id=customer_id, role=VehiclePartyRole.OWNER
@@ -1008,7 +1018,7 @@ def main() -> None:
                 vehicle_id=vehicle.id,
                 partner_id=dealer_id,
                 event_type=CustodyEventType.ACQUIRED,
-                event_date=dt.datetime.now(dt.timezone.utc),
+                event_date=dt.datetime.now(dt.UTC),
                 transaction_id=transaction.id,
             )
         )

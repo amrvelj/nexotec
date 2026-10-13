@@ -88,6 +88,9 @@ change plus an ADR — never a local component. No colour outside the tokens.
   including labels in dialogs and wizards.
 - The customer's **correspondence language** is not the user's **UI language** — never the
   same control, never the same stored field.
+- **DE, FR and IT person nouns use the generic masculine** (Anto, 2026-10-12, KAN-171; the
+  UI/UX Specification's i18n row): "Verkaufsberater", "Conseiller de vente", "Amministratore" —
+  no slash, pair, parenthesis or point-médian form in the bundles.
 - Canonical reference data is translated by us; provider option text is stored and rendered
   **as delivered**, never translated (ADR-044).
 - New users should default to the dealership's language — not built: `useUiPreferences.ts`

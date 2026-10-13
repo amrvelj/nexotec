@@ -85,7 +85,11 @@ class StockNumberSequence(Base):
 class StockItem(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMixin, Base):
     __tablename__ = "stock_item"
     __table_args__ = (
-        UniqueConstraint("tenant_id", "stock_number", name="uq_stock_item_tenant_id_stock_number"),
+        UniqueConstraint("tenant_id", "stock_number", name="uq_stock_item_tenant_stock_number"),
+        Index("ix_stock_item_tenant_lifecycle", "tenant_id", "lifecycle_status"),
+        # WP-7 PR-4: at most one live reservation per item — a unique index,
+        # as the migration created it (8b267a737fc8).
+        Index("uq_stock_item_active_reservation_id", "active_reservation_id", unique=True),
         # KAN-111: a VIN is in a dealership's stock at most once, but only
         # among items that have not left stock — a car invoiced years ago
         # (left_stock_at set, FR-I-12) may come back, as a trade-in say, as
@@ -117,6 +121,11 @@ class StockItem(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMix
         ),
     )
 
+    # Overrides TenantScopedMixin's bare column with the owner comment rule 2
+    # asks for, as the migration that created the table wrote it (KAN-170).
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), nullable=False, index=True, comment="Owned by the platform context (Dealership.id). No DB-level FK."
+    )
     stock_number: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
 
     # Null while lifecycle_status='pipeline' and no VIN has arrived yet
@@ -154,7 +163,7 @@ class StockItem(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMix
     reserved_by_contract_id: Mapped[uuid.UUID | None] = mapped_column(
         GUID(), nullable=True, comment="Owned by the sales context (a future Contract.id). No DB-level FK."
     )
-    active_reservation_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True, index=True, unique=True)
+    active_reservation_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True)
     condition: Mapped[StockItemCondition] = mapped_column(
         StoredEnum(StockItemCondition, length=16), nullable=False
     )

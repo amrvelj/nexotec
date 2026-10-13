@@ -189,7 +189,7 @@ def _report_code_map_diff(adapter: Any) -> None:
         if got is None:
             print(f"{group:<18} {'MISSING':<8} the seed maps this group; the live call returned none of it")
             continue
-        by_code = lambda c: (len(c), c)  # noqa: E731 - numeric-looking codes, sort short before long
+        by_code = lambda c: (len(c), c)  # numeric-looking codes, sort short before long
         unmapped, stale = sorted(got - codes, key=by_code), sorted(codes - got, key=by_code)
         print(
             f"{group:<18} {'STALE' if stale else 'ok':<8} live codes the seed does not map (gaps): {unmapped or '-'}; "

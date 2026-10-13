@@ -34,15 +34,16 @@ paid for partly by a trade-in is the ordinary case, not an edge case).
 import uuid
 from typing import Any
 
+from pydantic import TypeAdapter, ValidationError
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.base import utcnow
-from app.core.errors import ConflictError
+from app.core.errors import ConflictError, UnprocessableEntityError
 from app.core.outbox import OutboxEvent, publish
 from app.inventory.models.stock_item import LifecycleStatus, StockItem, StockItemCondition
-from app.inventory.schemas.stock_item import StockItemCreate
+from app.inventory.schemas.stock_item import NormalisedVin, StockItemCreate
 from app.inventory.services.reservation import contract_is_cancelled, lock_contract, reserve_and_flush
 from app.inventory.services.stock_item import (
     _build_and_flush_stock_item,
@@ -56,6 +57,23 @@ from app.inventory.services.vehicle_resolution import resolve_vehicle_mdm_by_vin
 from app.valuation.public import get_valuation_or_404
 
 _EVENT_PRODUCER = "inventory"
+
+# KAN-324: the create's own normalisation and rule (KAN-244, option A) — one
+# spelling for the KAN-111 duplicate check, its index and vehicle-mdm.
+_VIN = TypeAdapter(NormalisedVin)
+
+
+def _normalised_vin(value: str) -> str:
+    """Upper-cased, whitespace removed, then validated as vehicle-mdm
+    validates a VIN — 422 `invalid_vin` otherwise, before anything is read
+    or written."""
+
+    try:
+        return _VIN.validate_python(value)
+    except ValidationError as exc:
+        raise UnprocessableEntityError(
+            "; ".join(str(error["msg"]) for error in exc.errors()), details={"reason": "invalid_vin"}
+        ) from None
 
 
 def _create_pipeline_item_idempotent(
@@ -174,8 +192,14 @@ def promote_to_vehicle_mdm(
     """FR-V-04: VIN arrival on a pipeline item. Idempotent by
     `pipeline_vehicle_id` (= the stock item's own id) — a second call with
     the item already promoted is a no-op, not a second event.
+
+    `vin` is normalised and validated first (KAN-324), as a create's is, so
+    a retry spelling the same VIN differently is the same no-op, and a VIN
+    still malformed after normalising is refused (422) before any read or
+    write.
     """
 
+    vin = _normalised_vin(vin)
     if item.vehicle_id is not None and item.vin == vin:
         return item  # already promoted — redelivery/retry, not a second event
     # Anything else that is not pipeline is refused — including, since KAN-244

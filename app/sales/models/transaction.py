@@ -37,8 +37,18 @@ class TransactionStatus(str, enum.Enum):
     CANCELLED = "cancelled"
 
 
+_RETIRED_COMMENT = (
+    "RETIRED (WP-8 PR-7, ADR-050/S-D12): superseded by sales_offer/sales_contract. "
+    "Read-only from this point on — new writes are refused at the service layer "
+    "(app.sales.services.transaction). Never dropped."
+)
+
+
 class Transaction(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMixin, Base):
     __tablename__ = "transaction"
+    # The table comment the retire migration wrote (6aa677b9a9cb); the
+    # table is never dropped.
+    __table_args__ = ({"comment": _RETIRED_COMMENT},)
 
     # Overrides TenantScopedMixin's bare column — no DB-level FK to dealer.id
     # (PR-2, ADR-015). Owned by the platform context; reconciled nightly.

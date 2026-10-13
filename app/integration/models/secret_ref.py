@@ -13,7 +13,7 @@ import datetime as dt
 import enum
 import uuid
 
-from sqlalchemy import ForeignKey, String, UniqueConstraint
+from sqlalchemy import ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TimestampMixin
@@ -32,7 +32,8 @@ class SecretSlot(str, enum.Enum):
 
 class IntegrationSecretRef(PrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "integration_secret_ref"
-    __table_args__ = (UniqueConstraint("connection_id", "slot", name="uq_integration_secret_ref_connection_slot"),)
+    # A unique index, as the migration created it (ae20d82b02f4; KAN-170).
+    __table_args__ = (Index("uq_integration_secret_ref_connection_slot", "connection_id", "slot", unique=True),)
 
     connection_id: Mapped[uuid.UUID] = mapped_column(
         GUID(), ForeignKey("integration_connection.id"), nullable=False, index=True

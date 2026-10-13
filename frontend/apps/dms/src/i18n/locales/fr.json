@@ -44,20 +44,20 @@
       "error": "La recherche a échoué — veuillez réessayer."
     },
     "switchDealershipError": {
-      "notAMember": "Changement refusé : vous n'êtes plus rattaché(e) à cette concession. Vous restez dans la concession actuelle.",
+      "notAMember": "Changement refusé : vous n'êtes plus rattaché à cette concession. Vous restez dans la concession actuelle.",
       "failed": "Impossible de changer de concession. Vous restez dans la concession actuelle. Veuillez réessayer.",
       "dismiss": "Fermer le message"
     }
   },
   "userRole": {
-    "sales": "Conseiller/ère de vente",
-    "service_advisor": "Conseiller/ère de service",
-    "finance_manager": "Responsable financier/ère",
-    "gm": "Directeur/trice général/e",
-    "admin": "Administrateur/trice",
-    "technician": "Technicien/ne",
-    "parts": "Conseiller/ère pièces",
-    "other": "Collaborateur/trice"
+    "sales": "Conseiller de vente",
+    "service_advisor": "Conseiller de service",
+    "finance_manager": "Responsable financier",
+    "gm": "Directeur général",
+    "admin": "Administrateur",
+    "technician": "Technicien",
+    "parts": "Conseiller pièces",
+    "other": "Collaborateur"
   },
   "common": {
     "filter": "Filtrer",
@@ -86,7 +86,8 @@
     "save": "Enregistrer",
     "remove": "Supprimer",
     "loading": "Chargement…",
-    "requestFailed": "La requête a échoué. Veuillez réessayer."
+    "requestFailed": "La requête a échoué. Veuillez réessayer.",
+    "dismiss": "Fermer le message"
   },
   "customerCreate": {
     "title": "Nouveau client",
@@ -233,6 +234,7 @@
     "title": "Clients",
     "newCustomer": "Nouveau client",
     "searchPlaceholder": "Rechercher par nom, e-mail, téléphone…",
+    "loadError": "Impossible de charger les clients.",
     "columns": {
       "customerNumber": "N° client",
       "name": "Nom",
@@ -520,8 +522,11 @@
   },
   "signInError": {
     "title": "Échec de la connexion",
-    "message": "La connexion a échoué. Veuillez réessayer ou contacter votre administrateur·rice.",
+    "message": "La connexion a échoué. Veuillez réessayer ou contacter votre administrateur.",
     "retry": "Réessayer"
+  },
+  "login": {
+    "redirecting": "Redirection vers la connexion…"
   },
   "mappingGaps": {
     "title": "Écarts de correspondance",
@@ -924,7 +929,7 @@
       "amount": "Montant",
       "valuedAt": "Évalué le",
       "source": "Source",
-      "hint": "Les évaluations sont créées et gérées dans le module Vente — cette zone affiche uniquement l'état actuel."
+      "hint": "Les évaluations sont créées et gérées dans le module Évaluations — cette zone affiche uniquement l'état actuel."
     },
     "configuration": {
       "title": "Configuration"
@@ -949,6 +954,7 @@
     "title": "Offres & contrats",
     "newOffer": "Nouvelle offre",
     "searchPlaceholder": "Plaque, VIN, client, offre …",
+    "loadError": "Impossible de charger les offres et contrats.",
     "allDealsView": "Toutes les offres et contrats",
     "columns": {
       "number": "Numéro",
@@ -1384,6 +1390,13 @@
     "environment": {
       "sandbox": "Bac à sable",
       "production": "Production"
+    },
+    "connectionStatus": {
+      "connected": "Connectée",
+      "not_configured": "Non configurée",
+      "error": "Erreur",
+      "expired": "Expirée",
+      "disabled": "Désactivée"
     },
     "secretSlot": {
       "password": "Mot de passe",

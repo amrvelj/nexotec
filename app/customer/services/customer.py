@@ -971,26 +971,59 @@ def _fixup_single_primary(db: Session, model: type, *, customer_id: uuid.UUID, t
         usable[0].is_primary = True
 
 
-def _repoint_vehicle_parties(db: Session, *, duplicate_id: uuid.UUID, target_id: uuid.UUID) -> tuple[int, int]:
+def _repoint_vehicle_parties(
+    db: Session, *, duplicate_id: uuid.UUID, target_id: uuid.UUID, actor_id: uuid.UUID, group_id: uuid.UUID
+) -> tuple[int, list[uuid.UUID]]:
+    """Re-points the duplicate's party rows at the survivor; returns how
+    many, and the ids of the rows it KEPT instead.
+
+    KAN-177 (ADR-064: party history is never deleted; Anto's ruling,
+    2026-10-12, option A). A row whose (vehicle, role, effective_from) the
+    survivor already holds cannot be re-pointed — uq_vehicle_party_scope is
+    (vehicle, customer, role, effective_from), so the survivor's own row
+    would collide — and before KAN-177 it was hard-deleted, unaudited. Now
+    it stays on the duplicate's customer_id (the one place it does not
+    collide), closed at its own start, and marked with the survivor it was
+    merged into (`merged_into_customer_id`). The close goes through
+    _close_vehicle_party, so it is audited (`vehicle_party_remove`, with
+    `mergedIntoCustomerId`) and published (`customer.vehicle_party.unlinked`)
+    like every other close; the merge's own audit event lists the ids.
+
+    A copy that was already closed in the past keeps its own effective_to —
+    that is recorded history, its unlink already a published fact — and only
+    takes the mark, with no second close, audit row or event: the merge's own
+    audit event lists its id. One that is open, or closed at a future date,
+    is closed at its start so it never reads as a current party again. The
+    survivor's row is not touched.
+    """
+
     target_keys = {
         (p.vehicle_id, p.role, p.effective_from)
         for p in db.scalars(select(VehicleParty).where(VehicleParty.customer_id == target_id)).all()
     }
-    repointed = dropped = 0
+    repointed = 0
+    kept_closed: list[uuid.UUID] = []
     for party in db.scalars(select(VehicleParty).where(VehicleParty.customer_id == duplicate_id)).all():
         key = (party.vehicle_id, party.role, party.effective_from)
         if key in target_keys:
-            # Survivor already holds this exact role/period on this vehicle
-            # — re-pointing would violate uq_vehicle_party_scope, and the
-            # duplicate's copy adds nothing history the survivor doesn't
-            # already have.
-            db.delete(party)
-            dropped += 1
+            already_closed = party.effective_to is not None and party.effective_to <= utcnow()
+            if already_closed:
+                party.merged_into_customer_id = target_id
+            else:
+                _close_vehicle_party(
+                    db,
+                    party=party,
+                    actor_id=actor_id,
+                    group_id=group_id,
+                    effective_to=party.effective_from,
+                    merged_into_customer_id=target_id,
+                )
+            kept_closed.append(party.id)
         else:
             party.customer_id = target_id
             target_keys.add(key)
             repointed += 1
-    return repointed, dropped
+    return repointed, kept_closed
 
 
 def _repoint_transactions(db: Session, *, duplicate_id: uuid.UUID, target_id: uuid.UUID) -> int:
@@ -1113,9 +1146,12 @@ def merge_customer(
     that only sets the flag silently orphans the survivor's 360 view from
     everything the duplicate used to carry, which the PRD's own Risks
     section calls "worse than no merge... a correctness bug, not an
-    enhancement." Conflicting child rows (the same phone, email, external-id
-    system, or vehicle role+period already present on both) are dropped
-    from the duplicate rather than erroring — the survivor's copy wins.
+    enhancement." Conflicting child rows (the same phone, email or
+    external-id system already present on both) are dropped from the
+    duplicate rather than erroring — the survivor's copy wins. A vehicle
+    role+period present on both is the exception (KAN-177, ADR-064): the
+    duplicate's copy is kept, closed and marked merged, never deleted — see
+    _repoint_vehicle_parties.
     """
 
     if duplicate_of_customer_id == customer.id:
@@ -1134,8 +1170,8 @@ def merge_customer(
 
     before = {"lifecycleStatus": customer.lifecycle_status.value, "duplicateOfCustomerId": None}
 
-    parties_repointed, parties_dropped = _repoint_vehicle_parties(
-        db, duplicate_id=customer.id, target_id=target.id
+    parties_repointed, parties_kept_closed = _repoint_vehicle_parties(
+        db, duplicate_id=customer.id, target_id=target.id, actor_id=actor_id, group_id=customer.group_id
     )
     transactions_repointed = _repoint_transactions(db, duplicate_id=customer.id, target_id=target.id)
     phones_repointed, phones_dropped = _repoint_contacts(
@@ -1173,7 +1209,9 @@ def merge_customer(
             "lifecycleStatus": "merged",
             "duplicateOfCustomerId": str(duplicate_of_customer_id),
             "vehiclePartiesRepointed": parties_repointed,
-            "vehiclePartiesDropped": parties_dropped,
+            # KAN-177: the overlapping rows are kept, closed and marked, not dropped.
+            "vehiclePartiesKeptClosed": len(parties_kept_closed),
+            "vehiclePartiesKeptClosedIds": [str(party_id) for party_id in parties_kept_closed],
             "transactionsRepointed": transactions_repointed,
             "phonesRepointed": phones_repointed,
             "phonesDropped": phones_dropped,
@@ -1370,7 +1408,7 @@ def update_customer_phone(
     if becomes_unusable:
         _assert_not_last_contact_point(db, phone.customer_id, removing="phone number")
     groups_to_settle = _prepare_primary_change(
-        db, CustomerPhone, row=phone, changes=changes, becomes_unusable=becomes_unusable, noun="phone"
+        db, CustomerPhone, row=phone, changes=changes, noun="phone"
     )
 
     for field, value in changes.items():
@@ -1556,7 +1594,7 @@ def update_customer_email(
     if becomes_unusable:
         _assert_not_last_contact_point(db, email.customer_id, removing="email address")
     groups_to_settle = _prepare_primary_change(
-        db, CustomerEmail, row=email, changes=changes, becomes_unusable=becomes_unusable, noun="email"
+        db, CustomerEmail, row=email, changes=changes, noun="email"
     )
 
     for field, value in changes.items():
@@ -1659,7 +1697,7 @@ def _unset_other_primaries(db: Session, model: type, *, customer_id: uuid.UUID, 
 
 
 def _prepare_primary_change(
-    db: Session, model: type, *, row: Any, changes: dict[str, Any], becomes_unusable: bool, noun: str
+    db: Session, model: type, *, row: Any, changes: dict[str, Any], noun: str
 ) -> list[Any]:
     """The primary handling shared by the phone / email / address update
     paths (ADR-067: exactly one primary per type-group, on every update).
@@ -1675,8 +1713,17 @@ def _prepare_primary_change(
     KAN-102). A moved row joining a group with no primary is elected by the
     fixup, whether or not it was primary before.
 
-    A row the same PATCH closes or flags do_not_use cannot take the flag, so
-    `isPrimary: true` on it leaves the group's existing primary alone.
+    Usability is judged AFTER the PATCH, not by what the PATCH changes
+    (KAN-113): a row that is closed or do_not_use once the changes apply —
+    whether this PATCH makes it so or an earlier one did — cannot take the
+    flag, so `isPrimary: true` on it leaves the group's existing usable
+    primary alone and the fixup demotes it again.
+
+    Reopening a row (`validTo: null`, `doNotUse: false`) settles its group
+    too (KAN-113), the mirror of the KAN-46 re-election: a group that had
+    no usable primary elects the reopened row; one that has a usable
+    primary keeps it — a reopened row never takes the flag unless the same
+    PATCH says `isPrimary: true`.
     """
 
     type_column = _CONTACT_TYPE_COLUMN[model]
@@ -1684,8 +1731,11 @@ def _prepare_primary_change(
     new_type = changes.get(type_column, old_type)
     moves = new_type != old_type
 
+    usable_before = _is_usable_row(row)
+    usable_after = changes.get("valid_to", row.valid_to) is None and not changes.get("do_not_use", row.do_not_use)
+
     if changes.get("is_primary") is True:
-        if (not row.is_primary or moves) and not becomes_unusable:
+        if (not row.is_primary or moves) and usable_after:
             _unset_other_primaries(db, model, customer_id=row.customer_id, type_value=new_type)
     elif changes.get("is_primary") is False and row.is_primary:
         raise BadRequestError(
@@ -1706,11 +1756,19 @@ def _prepare_primary_change(
 
     if moves:
         return [old_type, new_type]
-    if becomes_unusable:
+    if usable_before != usable_after:
         # KAN-46: a closed / do_not_use row is never primary. If it was (or
         # this PATCH flags it), re-elect a usable survivor of the same type
         # so the Mobile/Landline/Work projection follows the working number
-        # instead of going null. A no-op when the row was not primary.
+        # instead of going null. KAN-113: the reverse — a reopened row in a
+        # group with no usable primary is elected by the same fixup. A no-op
+        # when the group already has its one usable primary.
+        return [new_type]
+    if "is_primary" in changes:
+        # KAN-113: `isPrimary: true` on a row that is not usable after the
+        # PATCH is applied to the row like any other field, so the fixup
+        # takes the flag back off it; the group's usable primary was never
+        # unset above. A no-op for a usable row, which took the flag.
         return [new_type]
     return []
 
@@ -1809,12 +1867,10 @@ def update_customer_address(
 
     # KAN-46: addresses carry no FR-03 "last contact point" floor, but the
     # `address` projection (primary domicile) still needs re-electing when
-    # the primary is closed or flagged do_not_use.
-    becomes_unusable = (changes.get("valid_to") is not None and address.valid_to is None) or (
-        changes.get("do_not_use") is True and not address.do_not_use
-    )
+    # the primary is closed or flagged do_not_use — and electing when a row
+    # is reopened (KAN-113); the shared helper decides both.
     groups_to_settle = _prepare_primary_change(
-        db, CustomerAddress, row=address, changes=changes, becomes_unusable=becomes_unusable, noun="address"
+        db, CustomerAddress, row=address, changes=changes, noun="address"
     )
 
     for field, value in changes.items():
@@ -2113,8 +2169,15 @@ def delete_customer_external_id(db: Session, *, row: CustomerExternalId, actor_i
 
 
 def _validate_effective_range(effective_from, effective_to) -> None:
+    # A client never writes a zero-length period. The one such row is the
+    # copy a customer merge keeps (KAN-177: effective_to = effective_from),
+    # written by the merge itself, so a PATCH of that row's dates is refused
+    # here like any other empty period.
     if effective_to is not None and effective_to <= effective_from:
-        raise BadRequestError("effective_to must be after effective_from.")
+        raise BadRequestError(
+            "effective_to must be after effective_from (a zero-length period is only ever the copy a "
+            "customer merge keeps, written by the merge itself)."
+        )
 
 
 def list_customer_vehicles(
@@ -2605,13 +2668,25 @@ def delete_customer_vehicle(db: Session, *, party: VehicleParty, actor_id: uuid.
     db.commit()
 
 
-def _close_vehicle_party(db: Session, *, party: VehicleParty, actor_id: uuid.UUID, group_id: uuid.UUID) -> None:
+def _close_vehicle_party(
+    db: Session,
+    *,
+    party: VehicleParty,
+    actor_id: uuid.UUID,
+    group_id: uuid.UUID,
+    effective_to: dt.datetime | None = None,
+    merged_into_customer_id: uuid.UUID | None = None,
+) -> None:
     """Sets effective_to and writes the audit row and the unlinked outbox
     event — WITHOUT committing, so allocate_vehicle_party can close the
     incumbent and insert the new holder in one transaction (KAN-99). A
     commit between the two would leave the vehicle with no holder at all
     if the insert then failed. `group_id` must be the group of the
     customer on `party`: it stamps the audit row and the event.
+
+    `effective_to` defaults to now. A customer merge (KAN-177) passes the
+    row's own start and the survivor it merged into, which the audit row
+    and the event carry as `mergedIntoCustomerId`.
     """
 
     before = {
@@ -2620,7 +2695,11 @@ def _close_vehicle_party(db: Session, *, party: VehicleParty, actor_id: uuid.UUI
         "effectiveFrom": party.effective_from.isoformat(),
         "effectiveTo": party.effective_to.isoformat() if party.effective_to else None,
     }
-    party.effective_to = utcnow()
+    party.effective_to = effective_to or utcnow()
+    after: dict[str, Any] = {"effectiveTo": party.effective_to.isoformat()}
+    if merged_into_customer_id is not None:
+        party.merged_into_customer_id = merged_into_customer_id
+        after["mergedIntoCustomerId"] = str(merged_into_customer_id)
 
     record_audit_event(
         db,
@@ -2630,7 +2709,7 @@ def _close_vehicle_party(db: Session, *, party: VehicleParty, actor_id: uuid.UUI
         action="vehicle_party_remove",
         actor_id=actor_id,
         before=before,
-        after={"effectiveTo": party.effective_to.isoformat()},
+        after=after,
     )
     publish_event(
         db,
@@ -2773,6 +2852,8 @@ def _vehicle_party_payload(party: VehicleParty) -> dict[str, Any]:
         "role": party.role.value,
         "effectiveFrom": party.effective_from.isoformat(),
         "effectiveTo": party.effective_to.isoformat() if party.effective_to else None,
+        # KAN-177: set only on a copy a customer merge kept closed.
+        "mergedIntoCustomerId": str(party.merged_into_customer_id) if party.merged_into_customer_id else None,
     }
 
 

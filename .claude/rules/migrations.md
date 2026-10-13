@@ -46,6 +46,14 @@ in the same PR as any change to what it states. -->
 - **A newly required column or request field is a breaking API contract change**: it needs an
   explicit decision (the D-03/D-04 precedent: one migration, breaking, decided up front), never
   a side effect of a fix.
+- **A data step in a migration is guarded for offline mode** (KAN-174). Under `alembic upgrade …
+  --sql` every `execute` on `op.get_bind()` returns `None`, so a migration that reads rows
+  (`conn.execute(…)` iterated, `.all()`, `.fetchall()`, `.scalar()`) crashes the render. A new
+  migration checks `context.is_offline_mode()` first and, when it is set, skips the data step and
+  emits a comment instead (`op.execute("-- <step> skipped: it reads rows and needs a live
+  database")`); DDL renders as usual. The trunk's `b7c1e4a92f10` and the data migrations after it
+  (every chain has at least one) predate this and are immutable, so an offline render crossing them
+  fails — README's "Database migrations" names what still renders.
 - **Backfills run for real, on Postgres, and are verified by query**: count rows, count nulls,
   count values identical to the column they were derived from. An offline `--sql` render is not
   a run. A downgrade that is deliberately a no-op says so in a comment.
@@ -61,6 +69,12 @@ in the same PR as any change to what it states. -->
   flushing, so a later row sees an earlier one — and refuses any commit while it runs
   (`migrate_transaction_rows.py`, KAN-263); a dry run that skips the writes cannot see
   conflicts between rows of the same pass.
+  That one transaction is the one place a script may write two contexts (Sales and Inventory)
+  together, import Inventory's internals directly, and read the legacy `vehicle` row and the
+  customer, dealership and `vehicle_mdm` rows it resolves against through their models — the four
+  things ADR-091 (KAN-106) names, bounded to `migrate_transaction_rows.py` alone and pinned by the
+  ADR-047 architecture test, which also names the three other scripts that reach two contexts'
+  internals (no ruling yet); a new one fails by name.
 - **Enum columns** are `StoredEnum` (`app/core/enum_type.py`), never a bare `sqlalchemy.Enum`
   (an architecture test enforces it), and hold the member's **`.value`** and nothing else
   (KAN-86, finished by KAN-175 on 2026-10-11: one `*_kan175_<context>_enum_values_only.py`
@@ -72,6 +86,13 @@ in the same PR as any change to what it states. -->
   constraint by hand with `enum_check_name` / `enum_check_condition`'s exact name and wording.
   `tests/test_migrated_enum_checks.py` runs `alembic upgrade heads` on a throwaway database and
   fails on any `ck_*_enum` that differs from the models' (KAN-296).
+- **The migrated schema is the models' schema, exactly** (KAN-170/KAN-251, no allowlist):
+  `tests/test_migrated_schema_matches_models.py` runs `alembic upgrade heads` on a throwaway
+  database and fails on anything `alembic check` would report — a migration-only index, a
+  constraint the model names differently, a comment one side lacks. Declare every index and
+  constraint on the model with the migration's exact name and shape; a column comment the
+  model declares and the migration omitted is fixed by a comment-only migration in that
+  context's chain (`*_column_comments_match_the_models_kan_170.py` is the pattern).
 - The legacy `vehicle` table is write-frozen (ADR-021, `legacy_vehicle_write_frozen`); new code
   never writes it.
 - `scripts/dev/check` mirrors both CI migration jobs whenever migrations, models or anything a

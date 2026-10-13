@@ -31,8 +31,11 @@ from app.db import Base
 
 class ReferenceList(PrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "reference_list"
+    # The migrated shape (c9654d846ac9): a named unique constraint plus a
+    # plain index (KAN-170).
+    __table_args__ = (UniqueConstraint("list_code", name="uq_reference_list_list_code"),)
 
-    list_code: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    list_code: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
 
 
 class ReferenceValue(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):

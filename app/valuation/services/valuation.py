@@ -1,4 +1,19 @@
-"""Valuation service layer (WP-8 PR-5)."""
+"""Valuation service layer (WP-8 PR-5).
+
+**The vehicle a VIN valuation creates is resolved on a session of its own**
+(KAN-328, as Stock's `inventory/services/vehicle_resolution.py` does since
+KAN-257). `create_or_get_vehicle_mdm` commits its own transaction (ADR-047)
+and, on a lost insert race, its guard rolls back the session it is handed —
+handed the request session, the first would commit whatever the request had
+pending (the valuation counter, for one) and the second would silently
+discard it. So `_resolve_vehicle_id` gives vehicle-mdm a short-lived
+session bound to the same database and takes back the id. A lost race (two
+writers resolving a VIN vehicle-mdm has never seen) is vehicle-mdm's 409
+naming the VIN; the loser looks again and goes on with the winner's record
+— FR-V-15: same VIN, same car — instead of answering 409. The record names
+the user whose valuation created it (KAN-243: a null `created_by` means a
+system write).
+"""
 
 import datetime as dt
 import uuid
@@ -43,6 +58,30 @@ def allocate_valuation_number(db: Session, tenant_id: uuid.UUID) -> str:
     row.next_value += 1
     db.flush()
     return f"B-{value:06d}"
+
+
+def _lost_the_insert_race(exc: ConflictError, vin: str) -> bool:
+    """vehicle-mdm's own refusal of a second row for this VIN — and nothing
+    else, so any other conflict still reaches the caller."""
+
+    details = exc.details or {}
+    return "reason" not in details and details.get("vin") == vin
+
+
+def _resolve_vehicle_id(db: Session, *, vin: str, actor_id: uuid.UUID | None) -> uuid.UUID:
+    """The id of the vehicle-mdm record for `vin`, created if vehicle-mdm
+    has never seen it — committed before this returns, on a session of its
+    own (module docstring)."""
+
+    with Session(bind=db.get_bind(), autoflush=False, expire_on_commit=False) as own:
+        try:
+            vehicle, _created = create_or_get_vehicle_mdm(own, vin=vin, actor_id=actor_id)
+        except ConflictError as exc:
+            if not _lost_the_insert_race(exc, vin):
+                raise
+            # The guard rolled `own` back; the winner's row is committed.
+            vehicle, _created = create_or_get_vehicle_mdm(own, vin=vin, actor_id=actor_id)
+        return vehicle.id
 
 
 def derive_status(valuation: Valuation) -> str:
@@ -107,8 +146,7 @@ def create_valuation(
     if configuration is not None:
         vehicle_id = configuration.vehicle_id
     elif data.vin:
-        vehicle, _created = create_or_get_vehicle_mdm(db, vin=data.vin)
-        vehicle_id = vehicle.id
+        vehicle_id = _resolve_vehicle_id(db, vin=data.vin, actor_id=actor_id)
 
     def _from_configuration(value, attribute: str):
         if value is not None or configuration is None:

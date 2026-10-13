@@ -111,9 +111,7 @@ function install(over: FakeRoute[] = []): Ctx {
 
 const fuelLabel = () => i18n.t('catalogueBrowse.columns.fuelType')
 
-// Several tests pick all five coded fields: past vitest's 5 s default on a
-// loaded machine.
-describe('ConfiguratorOverlay — coded fields on a manual configuration (KAN-96)', { timeout: 15_000 }, () => {
+describe('ConfiguratorOverlay — coded fields on a manual configuration (KAN-96)', () => {
   it('offers all five as selection lists of active values only, never free text, and saves the pick', async () => {
     const user = userEvent.setup()
     const ctx = install()

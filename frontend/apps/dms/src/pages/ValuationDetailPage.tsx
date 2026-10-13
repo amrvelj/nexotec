@@ -4,9 +4,10 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, Group, Loader, Stack, Text } from '@mantine/core'
 import { CarFront } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { DetailHeader, OverviewCard, SpecGrid, ValuationSourceBadge, ValuationStatusBadge, useOverlay, useSetBreadcrumb } from '@nexotec/ui-kit'
+import { DetailHeader, OverviewCard, SpecGrid, ValuationStatusBadge, useOverlay, useSetBreadcrumb } from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
 import { buildValuationRowMenu } from '../components/valuationRowMenu'
+import { ValuationSourceMarker } from '../components/ValuationSourceMarker'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
 import { formatCurrencyChf, formatDate, formatNumber } from '../utils/format'
@@ -113,7 +114,7 @@ export function ValuationDetailContent({ valuationId: id, embedded = false }: Va
         badges={
           <>
             <ValuationStatusBadge status={valuation.status} />
-            <ValuationSourceBadge source={valuation.source} />
+            <ValuationSourceMarker source={valuation.source} />
           </>
         }
         primaryAction={menu.primary}
@@ -121,7 +122,7 @@ export function ValuationDetailContent({ valuationId: id, embedded = false }: Va
       />
 
       {markUsedError && (
-        <Alert color="red" role="alert" withCloseButton onClose={() => setMarkUsedError(null)}>
+        <Alert color="red" role="alert" withCloseButton closeButtonLabel={t('common.dismiss')} onClose={() => setMarkUsedError(null)}>
           {markUsedError}
         </Alert>
       )}

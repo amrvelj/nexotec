@@ -18,12 +18,23 @@ the same ReferenceCheck by hand for every table.
 from typing import Any
 
 from sqlalchemy import inspect
-from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.orm import DeclarativeBase, aliased
 
 from app.core.reconciliation import ReferenceCheck
 from app.platform.models.user import User
 
 ACTOR_COLUMNS = ("created_by", "updated_by")
+
+# The target of every actor check is `user`, under an alias: platform's own
+# job (KAN-318) checks user.created_by -> user.id, a self-join the core
+# helper's plain outer join cannot compile (`"user"` named twice). An
+# AliasedClass proxies __tablename__ and the mapped columns, which is all
+# app.core.reconciliation reads from a check's target, and
+# `sqlalchemy.inspect(_ACTOR).class_` is User, which is how
+# tests/architecture/test_actor_columns_reconciled.py recognises it.
+# Typed Any because ReferenceCheck.target_model is declared as a mapped
+# class; the alias stands in for one here.
+_ACTOR: Any = aliased(User, name="actor")
 
 
 def actor_reference_checks(*models: type[DeclarativeBase]) -> list[ReferenceCheck]:
@@ -45,8 +56,8 @@ def actor_reference_checks(*models: type[DeclarativeBase]) -> list[ReferenceChec
                     source_model=model,
                     source_row_id_column=row_id,
                     source_fk_column=getattr(model, name),
-                    target_model=User,
-                    target_id_column=User.id,
+                    target_model=_ACTOR,
+                    target_id_column=_ACTOR.id,
                     nullable=True,
                 )
             )

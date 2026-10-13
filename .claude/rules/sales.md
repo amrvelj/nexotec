@@ -27,7 +27,13 @@ ADR-057, ADR-063, ADR-065, ADR-083 and KAN-66/68/71. Verified against main@7a90a
   pricing snapshot) and `sales.contract.invoice_requested` at hand-off. Never one name for both
   moments.
 - **ADR-047** — a write spanning two contexts is a call with a compensating action, never a
-  shared transaction (CLAUDE.md rule 12).
+  shared transaction (CLAUDE.md rule 12). The one bounded exception is
+  `scripts/migrate_transaction_rows.py` (ADR-091, Anto 2026-10-12, KAN-106): it writes Sales and
+  Inventory in one transaction, imports Inventory's `models`/`services` directly, reads the frozen
+  legacy `vehicle` row directly and reads the customer, dealership and `vehicle_mdm` rows it resolves
+  against through their models, all four named in its docstring and pinned by
+  `tests/architecture/test_adr_047_no_shared_transaction.py`; it expires when the script is deleted
+  after its production run, and nothing else may cite it.
 - **ADR-052** — `is_invoiceable` is Stock's fact; Sales keeps a local replica and never queries
   Stock synchronously. Stock publishes `inventory.stock_item.purchased` once, so the replica is
   kept **per stock item** (`sales_stock_item_purchase`, written by

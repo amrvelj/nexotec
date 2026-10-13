@@ -10,7 +10,6 @@ import {
   ColumnConfigPanel,
   DataGrid,
   OverviewShellRegion,
-  ValuationSourceBadge,
   ValuationStatusBadge,
   ViewsAndFilters,
   useSetBreadcrumb,
@@ -20,6 +19,7 @@ import {
 } from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
 import { buildValuationRowMenu } from '../components/valuationRowMenu'
+import { ValuationSourceMarker } from '../components/ValuationSourceMarker'
 import { NewValuationButton } from '../components/NewValuationButton'
 import { useGridPreferences } from '../hooks/useGridPreferences'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
@@ -152,7 +152,7 @@ export function ValuationsListPage() {
       {
         id: 'source',
         header: t('valuationsList.columns.source'),
-        cell: ({ row }) => <ValuationSourceBadge source={row.original.source} />,
+        cell: ({ row }) => <ValuationSourceMarker source={row.original.source} />,
       },
       {
         id: 'status',
@@ -209,7 +209,7 @@ export function ValuationsListPage() {
       </Group>
 
       {actionError && (
-        <Alert color="red" role="alert" withCloseButton onClose={() => setActionError(null)}>
+        <Alert color="red" role="alert" withCloseButton closeButtonLabel={t('common.dismiss')} onClose={() => setActionError(null)}>
           {actionError}
         </Alert>
       )}

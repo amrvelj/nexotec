@@ -10,8 +10,22 @@ a separate, later moment: contract confirmation (PR-6), not here.
 
 KAN-67 (ADR-083): a pending contract records its trade-in through the same
 two functions — `deal` is an offer or a contract.
+
+**The vehicle is resolved on a session of its own** (KAN-328, as Stock's
+`inventory/services/vehicle_resolution.py` does since KAN-257).
+`create_or_get_vehicle_mdm` commits its own transaction (ADR-047) and, on a
+lost insert race, its guard rolls back the session it is handed — handed
+the request session, the first would commit whatever the request had
+pending and the second would silently discard it. So `_resolve_vehicle`
+gives vehicle-mdm a short-lived session bound to the same database and
+takes back plain values. A lost race (two writers resolving a VIN
+vehicle-mdm has never seen) is vehicle-mdm's 409 naming the VIN; the loser
+looks again and goes on with the winner's record — FR-V-15: same VIN, same
+car — instead of answering 409. The record names the user whose trade-in
+created it (KAN-243: a null `created_by` means a system write).
 """
 
+import dataclasses
 import uuid
 from decimal import Decimal
 
@@ -23,6 +37,38 @@ from app.customer.public import VehiclePartyRole, allocate_vehicle_party, get_cu
 from app.sales.services.priced_deal import DealT, PricedDeal, lock_editable, project, require_editable
 from app.valuation.public import list_valid_valuations_for_vehicle
 from app.vehicle.public import create_or_get_vehicle_mdm, match_vehicle
+
+
+@dataclasses.dataclass(frozen=True)
+class _ResolvedVehicle:
+    """The vehicle-mdm record a VIN resolved to — plain data, never the row."""
+
+    id: uuid.UUID
+    vin: str
+
+
+def _lost_the_insert_race(exc: ConflictError, vin: str) -> bool:
+    """vehicle-mdm's own refusal of a second row for this VIN — and nothing
+    else, so any other conflict still reaches the caller."""
+
+    details = exc.details or {}
+    return "reason" not in details and details.get("vin") == vin
+
+
+def _resolve_vehicle(db: Session, *, vin: str, actor_id: uuid.UUID) -> _ResolvedVehicle:
+    """The vehicle-mdm record for `vin`, created if vehicle-mdm has never
+    seen it — committed before this returns, on a session of its own
+    (module docstring)."""
+
+    with Session(bind=db.get_bind(), autoflush=False, expire_on_commit=False) as own:
+        try:
+            vehicle, _created = create_or_get_vehicle_mdm(own, vin=vin, actor_id=actor_id)
+        except ConflictError as exc:
+            if not _lost_the_insert_race(exc, vin):
+                raise
+            # The guard rolled `own` back; the winner's row is committed.
+            vehicle, _created = create_or_get_vehicle_mdm(own, vin=vin, actor_id=actor_id)
+        return _ResolvedVehicle(id=vehicle.id, vin=vehicle.vin)
 
 
 def _resolve_trade_in_vin(db: Session, *, vin: str | None, plate: str | None, canton: str | None) -> str:
@@ -57,13 +103,13 @@ def set_trade_in(
 
     # KAN-99: resolve the party customer in the caller's group BEFORE any
     # write — a customerId from another group is a 404 that must not leave
-    # a committed vehicle_mdm row behind (create_or_get_vehicle_mdm commits).
+    # a committed vehicle_mdm row behind (_resolve_vehicle commits).
     party_customer_id = customer_id or deal.customer_id
     if party_customer_id is not None:
         get_customer_or_404(db, group_id, party_customer_id)
 
     resolved_vin = _resolve_trade_in_vin(db, vin=vin, plate=plate, canton=canton)
-    vehicle, _created = create_or_get_vehicle_mdm(db, vin=resolved_vin)
+    vehicle = _resolve_vehicle(db, vin=resolved_vin, actor_id=actor_id)
 
     # FR-S-08: the customer's own vehicles are offered first by party role
     # — allocate as BOTH owner and keeper (one role per call, ADR-064).
@@ -77,11 +123,13 @@ def set_trade_in(
             group_id=group_id, actor_id=actor_id,
         )
 
-    # KAN-309: the calls above commit the request session (each foreign
-    # write is its own transaction, ADR-047), which releases the row lock
-    # the route took. A confirmation (or any other edit) may have committed
-    # in between, so lock the deal again, re-read it, and check it is still
-    # editable and still the version the caller sent before writing it.
+    # KAN-309: the party allocations above commit the request session (each
+    # foreign write is its own transaction, ADR-047; the vehicle resolution
+    # commits a session of its own since KAN-328), which releases the row
+    # lock the route took. A confirmation (or any other edit) may have
+    # committed in between, so lock the deal again, re-read it, and check
+    # it is still editable and still the version the caller sent before
+    # writing it.
     lock_editable(db, deal, version_seen=version_seen)
 
     deal.trade_in_vehicle_id = vehicle.id

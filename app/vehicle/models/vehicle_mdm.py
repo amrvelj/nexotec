@@ -18,7 +18,7 @@ import datetime as dt
 import enum
 import uuid
 
-from sqlalchemy import JSON, Date, ForeignKey, Integer, String
+from sqlalchemy import JSON, Date, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.base import PrimaryKeyMixin, TimestampMixin, VersionedMixin
@@ -72,10 +72,17 @@ class VehicleMdm(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     """
 
     __tablename__ = "vehicle_mdm"
+    # The migrated shape (5c7e33d9cc78): unique constraints under Postgres's
+    # default names plus plain indexes (KAN-170).
+    __table_args__ = (
+        UniqueConstraint("vin", name="vehicle_mdm_vin_key"),
+        UniqueConstraint("vehicle_number", name="vehicle_mdm_vehicle_number_key"),
+        UniqueConstraint("stammnummer", name="vehicle_mdm_stammnummer_key"),
+    )
 
-    vin: Mapped[str] = mapped_column(String(17), nullable=False, unique=True, index=True)
-    vehicle_number: Mapped[str] = mapped_column(String(16), nullable=False, unique=True, index=True)
-    stammnummer: Mapped[str | None] = mapped_column(String(9), nullable=True, unique=True, index=True)
+    vin: Mapped[str] = mapped_column(String(17), nullable=False, index=True)
+    vehicle_number: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
+    stammnummer: Mapped[str | None] = mapped_column(String(9), nullable=True, index=True)
     type_approval_number: Mapped[str | None] = mapped_column(String(6), nullable=True, index=True)
     first_registration_date: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
 
@@ -100,14 +107,23 @@ class VehicleMdm(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     # FR-V-04's own "MDM permanently stores pipeline_vehicle_id as
     # provenance" precedent, applied here to the OLD vehicle table's id
     # instead. Never used for lookups; purely an audit trail.
-    migrated_from_legacy_vehicle_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True, index=True)
+    migrated_from_legacy_vehicle_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(),
+        nullable=True,
+        index=True,
+        comment="PR-7 provenance only — the old vehicle table's id this row was split from, if any.",
+    )
 
     # PR-6 merge (FR-V-12): one-way, no unmerge. Set exactly once, on the
     # duplicate, when it loses a merge — never cleared, never repointed
     # again. A non-null value here means "this id is retired; resolve
     # merged_into_vehicle_id instead," everywhere this id is still held.
     merged_into_vehicle_id: Mapped[uuid.UUID | None] = mapped_column(
-        GUID(), ForeignKey("vehicle_mdm.id"), nullable=True, index=True
+        GUID(),
+        ForeignKey("vehicle_mdm.id"),
+        nullable=True,
+        index=True,
+        comment="PR-6 merge (FR-V-12): set once, on the duplicate, never cleared. One-way, no unmerge.",
     )
 
     catalogue_variant: Mapped[ModelVariant | None] = relationship()

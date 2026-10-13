@@ -81,6 +81,11 @@ class StockItemLedger(PrimaryKeyMixin, TenantScopedMixin, Base):
     __tablename__ = "stock_item_ledger"
     __table_args__ = (UniqueConstraint("tenant_id", "source_ref", name="uq_stock_item_ledger_tenant_id_source_ref"),)
 
+    # Overrides TenantScopedMixin's bare column with the owner comment rule 2
+    # asks for, as the migration that created the table wrote it (KAN-170).
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(), nullable=False, index=True, comment="Owned by the platform context (Dealership.id). No DB-level FK."
+    )
     stock_item_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("stock_item.id"), nullable=False, index=True)
     category: Mapped[LedgerCategory] = mapped_column(StoredEnum(LedgerCategory, length=32), nullable=False)
     direction: Mapped[LedgerDirection] = mapped_column(StoredEnum(LedgerDirection, length=8), nullable=False)

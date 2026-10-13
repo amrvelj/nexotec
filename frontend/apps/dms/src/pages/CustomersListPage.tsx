@@ -661,7 +661,7 @@ export function CustomersListPage() {
       </Group>
 
       {actionError && (
-        <Alert color="red" role="alert" withCloseButton onClose={() => setActionError(null)}>
+        <Alert color="red" role="alert" withCloseButton closeButtonLabel={t('common.dismiss')} onClose={() => setActionError(null)}>
           {actionError}
         </Alert>
       )}
@@ -758,7 +758,7 @@ export function CustomersListPage() {
           fetchingNextPage={isFetchingNextPage}
           hasNextPage={Boolean(hasNextPage)}
           onLoadMore={() => fetchNextPage()}
-          error={isError ? 'Failed to load customers.' : null}
+          error={isError ? t('customersList.loadError') : null}
           onRetry={() => refetch()}
           total={total}
           totalIsEstimate={totalIsEstimate}

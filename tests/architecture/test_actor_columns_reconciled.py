@@ -7,9 +7,11 @@ as `app.platform.public.actor_reference_checks` builds it.
 A new table picks the check up by being added to its context's
 `ACTOR_TABLES` in `app/<context>/reconciliation.py`; this test fails until it
 is. A context with such columns but no reconciliation module registered in
-`app.reconciliation_runner` fails too — except the two named below, whose
-tables are not reconciled yet, each for a stated reason. A new entry there
-is a decision for Anto, not a convenience.
+`app.reconciliation_runner` fails too — except the one named below, whose
+table is not reconciled yet, for a stated reason. A new entry there is a
+decision for Anto, not a convenience. (platform was the other one until
+KAN-318 gave it a job and stopped scripts/seed_staging_demo.py stamping a
+random actor on the rows it creates.)
 
 Every model module is imported first (as in test_no_cross_context_mapping),
 so the gate never depends on `app.model_registry` listing it.
@@ -19,6 +21,7 @@ import importlib
 from pathlib import Path
 from types import ModuleType
 
+from sqlalchemy import inspect
 from sqlalchemy.orm import Mapper
 
 import app.model_registry  # noqa: F401  (registers every mapped class on Base)
@@ -38,12 +41,6 @@ _ACTOR_COLUMNS = ("created_by", "updated_by")
 
 # context -> why its actor columns are not reconciled.
 _NOT_RECONCILED: dict[str, str] = {
-    "platform": (
-        "No app.platform.reconciliation exists: platform's references are intra-context. "
-        "scripts/seed_staging_demo.py writes a random uuid4 as created_by/updated_by on the "
-        "dealer_group, dealership and user rows it creates, which such a job would report; "
-        "adding one is open (KAN-318)."
-    ),
     "core": "daily_job_run: app.core has no reconciliation module, and nothing writes its actor columns.",
 }
 
@@ -58,12 +55,20 @@ def _actor_columns(mapper: Mapper) -> list[str]:
     return [name for name in _ACTOR_COLUMNS if name in mapper.columns]
 
 
+def _targets_user(check: ReferenceCheck) -> bool:
+    """User itself, or an alias of it: actor_reference_checks targets an
+    alias so that platform's user.created_by -> user.id self-join compiles
+    (KAN-318). Anything else — another table, a subquery — is not User."""
+
+    return inspect(check.target_model).class_ is User
+
+
 def _covers(check: ReferenceCheck | StateCheck, cls: type, column: str) -> bool:
     return (
         isinstance(check, ReferenceCheck)
         and check.source_model is cls
         and check.source_fk_column.key == column
-        and check.target_model is User
+        and _targets_user(check)
         and check.target_id_column.key == "id"
         and check.nullable
     )

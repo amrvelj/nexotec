@@ -86,7 +86,8 @@
     "save": "Save",
     "remove": "Remove",
     "loading": "Loading…",
-    "requestFailed": "The request failed. Please try again."
+    "requestFailed": "The request failed. Please try again.",
+    "dismiss": "Dismiss message"
   },
   "customerCreate": {
     "title": "New customer",
@@ -233,6 +234,7 @@
     "title": "Customers",
     "newCustomer": "New customer",
     "searchPlaceholder": "Search by name, email, phone…",
+    "loadError": "Customers could not be loaded.",
     "columns": {
       "customerNumber": "Customer #",
       "name": "Name",
@@ -522,6 +524,9 @@
     "title": "Sign-in failed",
     "message": "Sign-in failed. Please try again or contact your administrator.",
     "retry": "Try again"
+  },
+  "login": {
+    "redirecting": "Redirecting to sign-in…"
   },
   "mappingGaps": {
     "title": "Mapping gaps",
@@ -924,7 +929,7 @@
       "amount": "Amount",
       "valuedAt": "Valued at",
       "source": "Source",
-      "hint": "Valuations are created and managed in the Sales module — this area only shows the current pointer."
+      "hint": "Valuations are created and managed in the Valuations module — this area only shows the current pointer."
     },
     "configuration": {
       "title": "Configuration"
@@ -949,6 +954,7 @@
     "title": "Offers & Contracts",
     "newOffer": "New offer",
     "searchPlaceholder": "Plate, VIN, customer, offer …",
+    "loadError": "Offers and contracts could not be loaded.",
     "allDealsView": "All offers and contracts",
     "columns": {
       "number": "Number",
@@ -1384,6 +1390,13 @@
     "environment": {
       "sandbox": "Sandbox",
       "production": "Production"
+    },
+    "connectionStatus": {
+      "connected": "Connected",
+      "not_configured": "Not configured",
+      "error": "Error",
+      "expired": "Expired",
+      "disabled": "Disabled"
     },
     "secretSlot": {
       "password": "Password",

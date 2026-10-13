@@ -48,6 +48,41 @@ precedent (that script publishes nothing either). Because Sales learns a
 purchase only from inventory.stock_item.purchased, a trade-in's booked
 purchase is also written straight into Sales' replica (KAN-100).
 
+ADR-047 EXCEPTION (ADR-091, KAN-106). ADR-047 says a write that spans
+two contexts is a call with a compensating action, never a shared
+transaction, and rule 3 says one context reaches another only through
+its `public` module. This script is the one bounded exception to both,
+ruled by Anto on 2026-10-12 (option A of KAN-106) and recorded as
+ADR-091 in the Target Architecture. Four things are excepted, nothing
+more:
+  - THE SHARED TRANSACTION: every row's Sales rows (sales_offer,
+    sales_contract, sales_stock_item_purchase) and Inventory row
+    (stock_item) are written in ONE transaction, `_run_rows`, with one
+    commit at its end (and none in a dry run, see above).
+  - THE DIRECT INVENTORY IMPORTS: `app.inventory.models.stock_item`
+    (LifecycleStatus, StockItem, StockItemCondition) and
+    `app.inventory.services.stock_item.allocate_stock_number`, used
+    instead of `app.inventory.public`.
+  - THE DIRECT LEGACY-VEHICLE READ: the frozen legacy `vehicle` row is
+    read as `db.get(LegacyVehicle, txn.vehicle_id)` for its condition
+    and label, not through `app.vehicle.public`.
+  - THE DIRECT RESOLUTION READS: the customer, the dealership (and its
+    vat_rate) and the vehicle_mdm row a legacy vehicle migrated to are
+    read through their models (`app.customer.models.customer`,
+    `app.platform.models.dealership`, `app.vehicle.models.vehicle_mdm`)
+    rather than through each context's `public` module.
+Why: the dry run is the real run rolled back (KAN-263), which only works
+when every row of a pass lives in one transaction; and a half-written
+history — a contract committed with no stock item, or the reverse —
+would have to be undone by hand, with no consumer to repair it, since
+this script publishes no events. The exception names exactly this
+script and expires once it has run in production, when the script is
+deleted. Nothing else may cite ADR-091:
+tests/architecture/test_adr_047_no_shared_transaction.py pins that this
+docstring is the only one under scripts/ that does, that the script's
+direct context imports are exactly the set recorded there, and that its
+one commit is `_run_rows`'s.
+
 `sale` -> a confirmed sales_contract with a SYNTHESISED offer (ADR-050's
 own word) AND a StockItem for the sold vehicle — NOT a plain-text
 vehicle_label. The product owner was explicit that a migrated contract

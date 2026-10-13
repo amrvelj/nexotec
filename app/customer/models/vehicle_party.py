@@ -89,6 +89,21 @@ class VehicleParty(PrimaryKeyMixin, TimestampMixin, Base):
     )
     effective_from: Mapped[dt.datetime] = mapped_column(UTCDateTime(), nullable=False, default=utcnow)
     effective_to: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    # KAN-177 (ADR-064, Anto's ruling 2026-10-12, option A): a customer merge
+    # re-points the duplicate's rows at the survivor — except a row whose
+    # (vehicle, role, effective_from) the survivor already holds, which
+    # uq_vehicle_party_scope (it spans customer_id) would refuse. That row is
+    # never deleted: it stays on the duplicate's customer_id, closed at its
+    # own start, and this column names the survivor it was merged into. NULL
+    # on every row a merge did not keep this way.
+    merged_into_customer_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(),
+        nullable=True,
+        comment=(
+            "Same context (customer): the survivor this row's customer was merged into, set only on a copy "
+            "the merge kept closed because the survivor already held its (vehicle, role, effective_from). KAN-177."
+        ),
+    )
 
     # KAN-84 — the vehicle's label, denormalised (rule 2). Owned by the
     # vehicle context; copied from app.vehicle.public.get_vehicle_summaries.

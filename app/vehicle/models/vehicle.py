@@ -21,7 +21,7 @@ import datetime as dt
 import enum
 import uuid
 
-from sqlalchemy import ForeignKey, Index, Integer, String
+from sqlalchemy import ForeignKey, Index, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TimestampMixin, VersionedMixin, utcnow
@@ -68,8 +68,11 @@ class CustodyEventType(str, enum.Enum):
 
 class Vehicle(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     __tablename__ = "vehicle"
+    # The migrated shape (1f209e4b5393): a named unique constraint plus a
+    # plain index (KAN-170).
+    __table_args__ = (UniqueConstraint("vin", name="uq_vehicle_vin"),)
 
-    vin: Mapped[str] = mapped_column(String(17), nullable=False, unique=True, index=True)
+    vin: Mapped[str] = mapped_column(String(17), nullable=False, index=True)
     make: Mapped[str] = mapped_column(String(100), nullable=False)
     model: Mapped[str] = mapped_column(String(100), nullable=False)
     model_year: Mapped[int] = mapped_column(Integer, nullable=False)
