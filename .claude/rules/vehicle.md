@@ -38,6 +38,12 @@ code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. -->
   `inventory` (ADR-045), to be promoted on VIN arrival by
   `inventory/services/pipeline.py::promote_to_vehicle_mdm`, idempotent per stock item (FR-V-04)
   — no production caller yet.
+- **A typed VIN is one spelling in every write** (FR-V-15): every request-body field carrying a
+  VIN a person typed — stock create, trade-in, valuation, configuration create/PATCH — is
+  `app.core.validators.NormalisedVin` (upper-cased, whitespace removed, then ISO 3779; 422
+  otherwise; KAN-244, KAN-331, KAN-338); the configurator mirrors it (`utils/vin.ts`). vehicle-mdm's
+  own fields keep `Vin`, which refuses an unnormalised value rather than fixing it. **Not yet
+  true for reads:** `GET /v1/vehicle-mdm/lookup?vin=` matches as typed (KAN-355).
 - **A licence plate is never an identifier** — Wechselschild (one plate, two vehicles),
   reassignment, cantonal changes. `vehicle_plate` is a child table with validity dates and a
   `plate_group_id`; an ambiguous lookup shows a picker and never guesses. Plate lookup must

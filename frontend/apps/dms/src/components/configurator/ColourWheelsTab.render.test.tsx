@@ -116,7 +116,7 @@ describe('ColourWheelsTab', () => {
     })
     const surchargeInputs = screen.getAllByLabelText(i18n.t('configurator.colour.surcharge'))
     expect(surchargeInputs).toHaveLength(3)
-    expect(surchargeInputs.map((input) => (input as HTMLInputElement).value)).toEqual(['10.00', '20.00', '30.00'])
+    expect(surchargeInputs.map((input) => (input as HTMLInputElement).value)).toEqual(['CHF 10.00', 'CHF 20.00', 'CHF 30.00']) // KAN-168
   })
 
   it('renders the tyre-spec reference table with the BemDe remark shown inline', () => {

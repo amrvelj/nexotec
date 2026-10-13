@@ -11,6 +11,7 @@ from decimal import Decimal
 from pydantic import Field
 
 from app.core.schemas import CamelModel
+from app.core.validators import NormalisedVin
 from app.sales.models.offer import OfferStatus
 
 
@@ -30,9 +31,13 @@ class TradeInRequest(CamelModel):
     plain PATCH field set: it calls into vehicle-mdm and customer, so it
     is its own endpoint (POST /v1/sales/offers/{id}/trade-in), same
     reasoning as reservation being its own endpoint rather than a PATCH.
+
+    KAN-331: the VIN is normalised and validated as Stock's is (FR-V-15),
+    so a lower-cased or spaced spelling resolves to the car vehicle-mdm
+    already holds, and a malformed one is a 422 that writes nothing.
     """
 
-    vin: str | None = None
+    vin: NormalisedVin | None = None
     plate: str | None = None
     canton: str | None = None
     vehicle_label: str

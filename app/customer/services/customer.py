@@ -2504,7 +2504,9 @@ def list_other_vehicle_parties_batch(
 def get_customer_vehicle_or_404(db: Session, *, customer_id: uuid.UUID, party_id: uuid.UUID) -> VehicleParty:
     """Only the write routes (PATCH, DELETE) load a single party, so a row
     written before KAN-84 gets its vehicle label written here, committed by
-    that write — the response is built after the caller's commit/refresh."""
+    that write — the response is built after the caller's commit/refresh.
+    The row is read unlocked; each write then locks and re-reads it
+    (`_lock_party`, KAN-148), which labels it again after the re-read."""
 
     party = db.scalar(
         select(VehicleParty).where(VehicleParty.id == party_id, VehicleParty.customer_id == customer_id)
@@ -2514,6 +2516,33 @@ def get_customer_vehicle_or_404(db: Session, *, customer_id: uuid.UUID, party_id
     if party.vehicle_label_refreshed_at is None:
         _write_vehicle_labels(db, [party])
     return party
+
+
+def _lock_party(db: Session, party: VehicleParty) -> VehicleParty:
+    """KAN-148: the party row, locked FOR UPDATE and re-read, so a write
+    decides on the committed row and not on what this session read before a
+    concurrent Disconnect or allocation committed. The re-read discards any
+    unflushed change on the row, so a row written before KAN-84 is labelled
+    again here (see get_customer_vehicle_or_404)."""
+
+    locked = db.scalar(
+        select(VehicleParty)
+        .where(VehicleParty.id == party.id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if locked is None:  # pragma: no cover - party rows are never deleted (ADR-064)
+        raise NotFoundError(f"VehicleParty {party.id} was not found.")
+    if locked.vehicle_label_refreshed_at is None:
+        _write_vehicle_labels(db, [locked])
+    return locked
+
+
+def _is_open(effective_to: dt.datetime | None) -> bool:
+    """A row holds its role now when it has no end, or an end still to come
+    — the same test every read and the incumbent lookup apply."""
+
+    return effective_to is None or effective_to > utcnow()
 
 
 def create_customer_vehicle(
@@ -2529,7 +2558,7 @@ def create_customer_vehicle(
     effective_from = data.effective_from or utcnow()
     _validate_effective_range(effective_from, data.effective_to)
 
-    if data.effective_to is None:
+    if _is_open(data.effective_to):
         # The ordinary path — every real caller (LinkVehicleModal never
         # sends effectiveTo on create). Delegates to the SAME function the
         # vehicle-side POST /vehicle-mdm/{id}/allocate calls, so both
@@ -2538,6 +2567,9 @@ def create_customer_vehicle(
         # never a second silent open row. Before this fix, this endpoint
         # inserted a raw VehicleParty and never closed the incumbent —
         # exactly what ADR-064 exists to prevent.
+        # KAN-148 (Anto, option A): an end date still to come is a holder
+        # NOW, so it takes the same path — locked, closing the others —
+        # and keeps its end date.
         return allocate_vehicle_party(
             db,
             vehicle_id=vehicle.id,
@@ -2546,13 +2578,13 @@ def create_customer_vehicle(
             group_id=customer.group_id,
             actor_id=actor_id,
             effective_from=effective_from,
+            effective_to=data.effective_to,
         )
 
-    # An explicit effectiveTo on CREATE is a backdated, already-closed row
-    # — allocate_vehicle_party has no such parameter (what it allocates is
-    # always open), and closing some OTHER open holder to make room for a
-    # row that is itself already closed would misrepresent the timeline.
-    # No real caller sends this today (kept for the documented API
+    # An effectiveTo already past on CREATE is a backdated, already-closed
+    # row — history, not a holder: closing some OTHER open holder to make
+    # room for a row that is itself already closed would misrepresent the
+    # timeline. No real caller sends this today (kept for the documented API
     # contract this schema field is part of — see
     # test_create_rejects_effective_to_before_effective_from).
     party = VehicleParty(
@@ -2606,7 +2638,35 @@ def create_customer_vehicle(
 def update_customer_vehicle(
     db: Session, *, party: VehicleParty, data: CustomerVehicleUpdate, actor_id: uuid.UUID, group_id: uuid.UUID
 ) -> VehicleParty:
+    """KAN-148 (Anto, option A): a PATCH whose `effectiveTo` leaves the row
+    holding its role — `null`, or an end still to come — may reopen a closed
+    row (say, to undo a Disconnect clicked by mistake), and goes through the
+    allocation's own close rule: under the same advisory lock on (vehicle,
+    role, group), every OTHER open holder of the role in the group is closed
+    in the same transaction, so the group never shows two current holders.
+    A reopen publishes `customer.vehicle_party.linked`, as an allocation
+    does. The advisory lock is taken before the row lock, in the order the
+    allocation takes them, so the two never deadlock. The copy a customer
+    merge kept (KAN-177, `merged_into_customer_id`) is never reopened: 409
+    `merged_party_row`."""
+
     changes = data.model_dump(exclude_unset=True)
+    holds_after = "effective_to" in changes and _is_open(changes["effective_to"])
+    if holds_after:
+        _lock_vehicle_role_in_group(db, vehicle_id=party.vehicle_id, role=party.role, group_id=group_id)
+    party = _lock_party(db, party)
+    held_before = _is_open(party.effective_to)
+    if holds_after and party.merged_into_customer_id is not None:
+        # KAN-177 keeps the duplicate's copy closed at its start so it never
+        # reads as a current party again; reopening it would also close the
+        # survivor's holder of the same role.
+        raise ConflictError(
+            "This row is the copy a customer merge kept; it cannot hold its role again.",
+            details={
+                "reason": "merged_party_row",
+                "mergedIntoCustomerId": str(party.merged_into_customer_id),
+            },
+        )
     before = {
         "effectiveFrom": party.effective_from.isoformat(),
         "effectiveTo": party.effective_to.isoformat() if party.effective_to else None,
@@ -2619,6 +2679,12 @@ def update_customer_vehicle(
     for field, value in changes.items():
         setattr(party, field, value)
 
+    if holds_after:
+        for other in _open_holders_in_group(
+            db, vehicle_id=party.vehicle_id, role=party.role, group_id=group_id, excluding=party.id
+        ):
+            _close_vehicle_party(db, party=other, actor_id=actor_id, group_id=group_id)
+
     try:
         db.flush()
     except IntegrityError as exc:
@@ -2628,6 +2694,18 @@ def update_customer_vehicle(
             details={"vehicleId": str(party.vehicle_id), "role": party.role.value},
         ) from exc
 
+    if holds_after and not held_before:
+        publish_event(
+            db,
+            OutboxEvent(
+                event_type="customer.vehicle_party.linked",
+                tenant_id=group_id,
+                producer=_EVENT_PRODUCER,
+                aggregate_type="vehicle_party",
+                aggregate_id=party.id,
+                payload=_vehicle_party_payload(party),
+            ),
+        )
     record_audit_event(
         db,
         entity_type="customer",
@@ -2659,9 +2737,13 @@ def delete_customer_vehicle(db: Session, *, party: VehicleParty, actor_id: uuid.
 
     Idempotent against a second call on an already-closed row — the
     closing timestamp isn't allowed to drift forward on a repeat request.
+    KAN-148: the row is locked and re-read first, so a Disconnect racing
+    another Disconnect, or an allocation closing this row, waits for it and
+    then finds the row closed — one close, one `unlinked` event.
     """
 
-    if party.effective_to is not None and party.effective_to <= utcnow():
+    party = _lock_party(db, party)
+    if not _is_open(party.effective_to):
         return
 
     _close_vehicle_party(db, party=party, actor_id=actor_id, group_id=group_id)
@@ -2727,6 +2809,7 @@ def _close_vehicle_party(
 def allocate_vehicle_party(
     db: Session, *, vehicle_id: uuid.UUID, customer_id: uuid.UUID, role: VehiclePartyRole,
     group_id: uuid.UUID, actor_id: uuid.UUID, effective_from: dt.datetime | None = None,
+    effective_to: dt.datetime | None = None,
 ) -> VehicleParty:
     """The actual ADR-064 allocation: setting a new holder for a role
     CLOSES whichever OTHER open holder of that same (vehicle, role)
@@ -2756,28 +2839,22 @@ def allocate_vehicle_party(
     (vehicle, role, group) is taken before the incumbent lookup. A second
     allocation waits for the first to commit, then sees its row and
     closes it. The incumbents are also locked FOR UPDATE, so an allocation
-    never re-closes a row a concurrent Disconnect has just closed (the
-    reverse — Disconnect takes no lock — predates KAN-99).
+    never re-closes a row a concurrent Disconnect has just closed, and a
+    Disconnect locks its row too (KAN-148), so it never re-closes one an
+    allocation has just closed.
+
+    KAN-148 (Anto, option A): `effective_to` is an end still to come (a
+    create with a future end date) — the row holds the role now, so the
+    incumbents are closed exactly as for an open-ended holder. The
+    same-customer no-op applies only to an open-ended request: an end date
+    the incumbent lacks is a new statement, so it is a new row.
     """
 
     get_customer_or_404(db, group_id, customer_id)
     _lock_vehicle_role_in_group(db, vehicle_id=vehicle_id, role=role, group_id=group_id)
     effective_from = effective_from or utcnow()
-    incumbents = list(
-        db.scalars(
-            select(VehicleParty)
-            .join(Customer, Customer.id == VehicleParty.customer_id)
-            .where(
-                VehicleParty.vehicle_id == vehicle_id,
-                VehicleParty.role == role,
-                Customer.group_id == group_id,
-                or_(VehicleParty.effective_to.is_(None), VehicleParty.effective_to > utcnow()),
-            )
-            .order_by(VehicleParty.effective_from)
-            .with_for_update(of=VehicleParty)
-        ).all()
-    )
-    if len(incumbents) == 1 and incumbents[0].customer_id == customer_id:
+    incumbents = _open_holders_in_group(db, vehicle_id=vehicle_id, role=role, group_id=group_id)
+    if effective_to is None and len(incumbents) == 1 and incumbents[0].customer_id == customer_id:
         incumbent = incumbents[0]
         # KAN-84: a re-confirmed row written before KAN-84 has no label yet;
         # the response is built from it, so label it now.
@@ -2788,11 +2865,38 @@ def allocate_vehicle_party(
 
     party = _open_vehicle_party(
         db, vehicle_id=vehicle_id, customer_id=customer_id, role=role, group_id=group_id,
-        actor_id=actor_id, effective_from=effective_from, incumbents=incumbents,
+        actor_id=actor_id, effective_from=effective_from, effective_to=effective_to, incumbents=incumbents,
     )
     db.commit()
     db.refresh(party)
     return party
+
+
+def _open_holders_in_group(
+    db: Session, *, vehicle_id: uuid.UUID, role: VehiclePartyRole, group_id: uuid.UUID,
+    excluding: uuid.UUID | None = None,
+) -> list[VehicleParty]:
+    """Every row holding (vehicle, role) now in `group_id`, oldest first,
+    locked FOR UPDATE — found through Customer.group_id (KAN-99), never
+    another group's. The caller holds the (vehicle, role, group) advisory
+    lock, so no holder can be inserted behind its back. `excluding` leaves
+    out the row a reopen is about to make the holder (KAN-148)."""
+
+    stmt = (
+        select(VehicleParty)
+        .join(Customer, Customer.id == VehicleParty.customer_id)
+        .where(
+            VehicleParty.vehicle_id == vehicle_id,
+            VehicleParty.role == role,
+            Customer.group_id == group_id,
+            or_(VehicleParty.effective_to.is_(None), VehicleParty.effective_to > utcnow()),
+        )
+        .order_by(VehicleParty.effective_from)
+        .with_for_update(of=VehicleParty)
+    )
+    if excluding is not None:
+        stmt = stmt.where(VehicleParty.id != excluding)
+    return list(db.scalars(stmt).all())
 
 
 def _lock_vehicle_role_in_group(
@@ -2813,22 +2917,35 @@ def _lock_vehicle_role_in_group(
 
 def _open_vehicle_party(
     db: Session, *, vehicle_id: uuid.UUID, customer_id: uuid.UUID, role: VehiclePartyRole, group_id: uuid.UUID,
-    actor_id: uuid.UUID, effective_from: dt.datetime, incumbents: list[VehicleParty],
+    actor_id: uuid.UUID, effective_from: dt.datetime, effective_to: dt.datetime | None,
+    incumbents: list[VehicleParty],
 ) -> VehicleParty:
     for incumbent in incumbents:
         _close_vehicle_party(db, party=incumbent, actor_id=actor_id, group_id=group_id)
 
     party = VehicleParty(
-        vehicle_id=vehicle_id, customer_id=customer_id, role=role, effective_from=effective_from, effective_to=None,
+        vehicle_id=vehicle_id, customer_id=customer_id, role=role, effective_from=effective_from,
+        effective_to=effective_to,
     )
     _write_vehicle_labels(db, [party])
     db.add(party)
-    db.flush()
+    try:
+        db.flush()
+    except IntegrityError as exc:
+        # uq_vehicle_party_scope: this customer already has a row for this
+        # role starting at exactly this effectiveFrom (a client-sent date).
+        db.rollback()
+        raise ConflictError(
+            "This customer already has this role on this vehicle as of this date.",
+            details={"vehicleId": str(vehicle_id), "role": role.value, "effectiveFrom": effective_from.isoformat()},
+        ) from exc
 
+    after: dict[str, Any] = {"vehicleId": str(vehicle_id), "role": role.value, "effectiveFrom": effective_from.isoformat()}
+    if effective_to is not None:
+        after["effectiveTo"] = effective_to.isoformat()
     record_audit_event(
         db, entity_type="customer", entity_id=customer_id, tenant_id=group_id, action="vehicle_party_add",
-        actor_id=actor_id,
-        after={"vehicleId": str(vehicle_id), "role": role.value, "effectiveFrom": effective_from.isoformat()},
+        actor_id=actor_id, after=after,
     )
     publish_event(
         db,

@@ -129,6 +129,22 @@ describe('VehiclesTab (KAN-49 / FR-19)', () => {
     expect(stockLink).toHaveAttribute('href', '/stock/stock-1')
   })
 
+  it('KAN-339: a party whose vehicle is not in the register renders, saying so — no "null"', async () => {
+    install([
+      vehicleParty({
+        vehicle: { id: 'v-gone', vin: null, vehicleNumber: null, make: null, model: null, modelYear: null, trim: null },
+      }),
+    ])
+    renderDetail()
+
+    const label = await screen.findByText(i18n.t('customerDetail.vehicles.unknownVehicle'))
+    const row = label.closest('[role="row"]') as HTMLElement
+    const vinHeader = screen.getByRole('columnheader', { name: i18n.t('customerDetail.vehicles.columns.vin') })
+    const columnIndex = Array.from(vinHeader.parentElement?.children ?? []).indexOf(vinHeader)
+    expect(within(row).getAllByRole('cell')[columnIndex]).toHaveTextContent('—')
+    expect(within(row).queryByText(/null/i)).not.toBeInTheDocument()
+  })
+
   it('no stock item -> no stock link, and no crash', async () => {
     install([vehicleParty({ stockItem: null })])
     renderDetail()

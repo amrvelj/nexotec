@@ -4,7 +4,7 @@ import { useDebouncedValue } from '@mantine/hooks'
 import { useQuery } from '@tanstack/react-query'
 import { Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { FormDialog, Picker, type PickerRow } from '@nexotec/ui-kit'
+import { ChfInput, FormDialog, Picker, type PickerRow } from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { CustomerCreateDialog } from './CustomerCreateDialog'
@@ -199,7 +199,7 @@ export function ValuationCreateDialog({ opened, onClose, onCreated, supersedes, 
               value={bewertungUnavailable ? 'manual' : source}
               onChange={(v) => setSource((v as ValuationSourceValue) ?? 'manual')}
             />
-            <NumberInput
+            <ChfInput
               label={t('valuationCreate.providerValue')}
               value={providerValue}
               onChange={(v) => setProviderValue(v === '' ? '' : Number(v))}
@@ -228,7 +228,7 @@ export function ValuationCreateDialog({ opened, onClose, onCreated, supersedes, 
                 onChange={(e) => setNewDeductionLabel(e.currentTarget.value)}
                 style={{ flex: 1 }}
               />
-              <NumberInput
+              <ChfInput
                 size="xs"
                 label={t('valuationCreate.deductionAmount')}
                 value={newDeductionAmount}
@@ -242,7 +242,7 @@ export function ValuationCreateDialog({ opened, onClose, onCreated, supersedes, 
           </Stack>
 
           <Stack gap={2}>
-            <NumberInput label={t('valuationCreate.finalOffer')} value={finalOffer} onChange={(v) => setFinalOffer(v === '' ? '' : Number(v))} required />
+            <ChfInput label={t('valuationCreate.finalOffer')} value={finalOffer} onChange={(v) => setFinalOffer(v === '' ? '' : Number(v))} required />
             <Text size="xs" c="dimmed">{t('valuationCreate.finalOfferHint')}</Text>
           </Stack>
 

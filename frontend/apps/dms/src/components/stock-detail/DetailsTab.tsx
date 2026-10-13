@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Button } from '@mantine/core'
-import { InlineEditField, KeyValueRow, OverviewCard, ProgressiveDisclosure, SpecGrid, slate } from '@nexotec/ui-kit'
+import { InlineEditField, KeyValueRow, OverviewCard, ProgressiveDisclosure, SpecGrid, chfInlineEditor, slate } from '@nexotec/ui-kit'
 import { HostConfigurationCard } from '../configurator/HostConfigurationCard'
 import { useTranslation } from 'react-i18next'
 import { ApiError } from '../../api/client'
@@ -29,6 +29,9 @@ interface DetailsTabProps {
  * caption), equipment summary and marketplace summary all arrive with
  * PR-8; the evaluation/valuation reader arrives with PR-9.
  */
+// KAN-168: the price editors open grouped, with CHF (CHF 42'500), never on the raw 42500.00.
+const chfEditor = chfInlineEditor({ min: 0 })
+
 export function DetailsTab({ item, locale, onSaveField, onReload, onRecordPurchase }: DetailsTabProps) {
   const { t } = useTranslation()
   const isConflict = (err: unknown) => err instanceof ApiError && err.status === 409
@@ -75,6 +78,7 @@ export function DetailsTab({ item, locale, onSaveField, onReload, onRecordPurcha
               isEmpty={item.listPrice == null}
               emptyLabel={t('common.notSet')}
               onSave={(v) => onSaveField({ listPrice: v || null })}
+              renderEditor={chfEditor}
               isConflict={isConflict}
               onReload={onReload}
             />
@@ -86,6 +90,7 @@ export function DetailsTab({ item, locale, onSaveField, onReload, onRecordPurcha
               isEmpty={item.effectivePrice == null}
               emptyLabel={t('common.notSet')}
               onSave={(v) => onSaveField({ effectivePrice: v || null })}
+              renderEditor={chfEditor}
               isConflict={isConflict}
               onReload={onReload}
             />

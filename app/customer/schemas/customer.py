@@ -709,11 +709,17 @@ class VehiclePartySummary(CamelModel):
     """
 
     id: uuid.UUID
-    vin: str
-    # Always present (VehicleMdm.vehicle_number is non-nullable) — the
-    # fallback label when make/model are null, same convention the global
-    # vehicle search already uses (DmsShell.tsx).
-    vehicle_number: str
+    # KAN-339: nullable — the label is the party row's own copy (KAN-84),
+    # and a row whose vehicle_id names no vehicle_mdm record (a legacy
+    # `vehicle` id, or a row written outside the production path) has no
+    # copy until the vehicle exists. Such a row still renders, with these
+    # null, and customer reconciliation reports it
+    # ("vehicle_party.vehicle_id -> vehicle_mdm.id"); a 500 would blank the
+    # whole Vehicles tab for one stale row. When present, vehicle_number is
+    # the fallback label when make/model are null, same convention the
+    # global vehicle search already uses (DmsShell.tsx).
+    vin: str | None
+    vehicle_number: str | None
     make: str | None
     model: str | None
     model_year: int | None

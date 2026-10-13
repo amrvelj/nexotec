@@ -476,7 +476,8 @@
       },
       "addAction": "Collega veicolo",
       "inStockTitle": "Nel magazzino del gruppo — {{stockNumber}}",
-      "specification": "Specifica"
+      "specification": "Specifica",
+      "unknownVehicle": "Veicolo non presente nel registro"
     },
     "offersContracts": {
       "emptyState": {

@@ -14,33 +14,15 @@ refused (KAN-324, Anto's option A), never stored unverified.
 """
 
 import datetime as dt
-import re
 import uuid
 from decimal import Decimal
-from typing import Annotated, Any
 
-from pydantic import BeforeValidator, Field, model_validator
+from pydantic import Field, model_validator
 from pydantic_core import PydanticCustomError
 
 from app.core.schemas import CamelModel
-from app.core.validators import Vin
+from app.core.validators import NormalisedVin
 from app.inventory.models.stock_item import AgeingBucket, LifecycleStatus, ReservationState, StockItemCondition
-
-
-def _normalise_vin(value: Any) -> Any:
-    """KAN-244 (Anto, option A): upper-cased, every whitespace character
-    removed — a VIN typed in lower case or pasted in groups is the same VIN.
-    Anything else wrong with it is left for `Vin` to refuse (422)."""
-
-    if isinstance(value, str):
-        return re.sub(r"\s", "", value).upper()
-    return value
-
-
-# Normalised first, then vehicle-mdm's own rule (17 characters, uppercase
-# letters and digits, never I, O or Q), so the KAN-111 duplicate check and
-# its index compare one spelling.
-NormalisedVin = Annotated[Vin, BeforeValidator(_normalise_vin)]
 
 
 class StockItemCreate(CamelModel):

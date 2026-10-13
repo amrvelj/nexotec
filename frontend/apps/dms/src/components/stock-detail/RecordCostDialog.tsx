@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Alert, NumberInput, Select, Stack, TextInput } from '@mantine/core'
+import { Alert, Select, Stack, TextInput } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
-import { FormDialog } from '@nexotec/ui-kit'
+import { ChfInput, FormDialog } from '@nexotec/ui-kit'
 import { ApiError } from '../../api/client'
 import { translatedLedgerCategoryOptions } from '../../stockOptions'
 import type { LedgerCategory } from '../../api/types'
@@ -79,7 +79,7 @@ export function RecordCostDialog({ opened, onClose, onSubmit }: RecordCostDialog
           onChange={(v) => setCategory((v as LedgerCategory) ?? '')}
           required
         />
-        <NumberInput
+        <ChfInput
           label={t('stockDetail.wagenbuch.fields.amount')}
           value={amount}
           onChange={(v) => setAmount(typeof v === 'number' ? v : '')}

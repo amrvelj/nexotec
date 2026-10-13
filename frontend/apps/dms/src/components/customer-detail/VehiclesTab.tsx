@@ -13,12 +13,14 @@ import type { CustomerVehicleRead } from '../../api/types'
 // KAN-31: falls back to the vehicle number when the vehicle has no
 // catalogue match — make/model/modelYear are null in that case (the
 // common one today, not an edge case; see VehiclePartySummary's own
-// doc). Never renders "null null (null)".
-function vehicleLabel(vehicle: CustomerVehicleRead['vehicle']): string {
+// doc). Never renders "null null (null)". KAN-339: a party whose vehicle
+// is not in vehicle-mdm has no stored label at all, so the last fallback
+// says so (`notInRegister`) rather than rendering an empty cell.
+function vehicleLabel(vehicle: CustomerVehicleRead['vehicle'], notInRegister: string): string {
   if (vehicle.make && vehicle.model) {
     return vehicle.modelYear ? `${vehicle.make} ${vehicle.model} (${vehicle.modelYear})` : `${vehicle.make} ${vehicle.model}`
   }
-  return vehicle.vehicleNumber
+  return vehicle.vehicleNumber ?? notInRegister
 }
 
 // FR-06 Vehicles tab: "use the same data grid component as the overview
@@ -48,7 +50,7 @@ export function VehiclesTab({
 
   const columns: GridColumnDef<CustomerVehicleRead>[] = useMemo(
     () => [
-      { id: 'vin', header: t('customerDetail.vehicles.columns.vin'), cell: ({ row }) => row.original.vehicle.vin, meta: { mono: true } },
+      { id: 'vin', header: t('customerDetail.vehicles.columns.vin'), cell: ({ row }) => row.original.vehicle.vin ?? '—', meta: { mono: true } },
       {
         id: 'vehicle',
         header: t('customerDetail.vehicles.columns.vehicle'),
@@ -60,7 +62,7 @@ export function VehiclesTab({
           const { stockItem } = row.original
           return (
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              {vehicleLabel(row.original.vehicle)}
+              {vehicleLabel(row.original.vehicle, t('customerDetail.vehicles.unknownVehicle'))}
               {/* C-F (KAN-10, FR-C-15) — Customer 360 reaches a configuration
                   THROUGH THE VEHICLE: its Specification tab. A configuration
                   has no customer; a customer-keyed route would be a second

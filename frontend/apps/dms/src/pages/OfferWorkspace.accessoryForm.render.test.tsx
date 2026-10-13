@@ -121,8 +121,8 @@ describe('OfferWorkspace — the accessory form keeps its values until the save 
     expect(await screen.findByText(i18n.t('offerWorkspace.errors.saveRefused.staleVersion'))).toBeInTheDocument()
 
     expect(screen.getByLabelText(i18n.t('offerWorkspace.lineItems.accessoryLabel'))).toHaveValue('Fussmatten')
-    expect(screen.getByLabelText(i18n.t('offerWorkspace.lineItems.accessoryPrice'))).toHaveValue('120')
-    expect(screen.getByLabelText(i18n.t('offerWorkspace.lineItems.accessoryDiscount'))).toHaveValue('10')
+    expect(screen.getByLabelText(i18n.t('offerWorkspace.lineItems.accessoryPrice'))).toHaveValue("CHF 120.00") // KAN-168: CHF inputs read CHF 12'500.00
+    expect(screen.getByLabelText(i18n.t('offerWorkspace.lineItems.accessoryDiscount'))).toHaveValue('CHF 10.00')
     expect(screen.getByRole('button', { name: i18n.t('offerWorkspace.lineItems.add') })).toBeEnabled()
   })
 

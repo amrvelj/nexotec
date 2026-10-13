@@ -483,7 +483,11 @@ def test_api_another_dealerships_contract_is_404_on_every_edit_route(client, db_
 
     responses = [
         client.patch(f"/v1/sales/contracts/{contract.id}", json={"vehicleLabel": "x"}, headers=other),
-        client.post(f"/v1/sales/contracts/{contract.id}/trade-in", json={"vehicleLabel": "x", "vin": "X"}, headers=other),
+        client.post(
+            f"/v1/sales/contracts/{contract.id}/trade-in",
+            json={"vehicleLabel": "x", "vin": "WVWZZZ1KZAW000486"},  # well-formed: KAN-331 refuses a malformed one first
+            headers=other,
+        ),
         client.post(
             f"/v1/sales/contracts/{contract.id}/trade-in/valuation",
             json={"valuationId": str(uuid.uuid4())},
