@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Group, NumberInput, Select, Stack, Text } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
+import { ChfInput } from '@nexotec/ui-kit'
 import { useDebouncedNumberField } from '../hooks/useDebouncedNumberField'
 import { formatCurrencyChf } from '../utils/format'
 import type { SalesPricedDealRead } from '../api/types'
@@ -73,7 +74,7 @@ export function PriceBuildUp({ deal, onDiscountChange, onManualBasePriceChange, 
   return (
     <Stack gap="xs">
       {deal.vehicleSource === 'manual' ? (
-        <NumberInput
+        <ChfInput
           label={t('offerWorkspace.pricing.manualBasePrice')}
           value={manualBasePrice}
           onChange={(v) => setManualBasePrice(v === '' ? '' : Number(v))}
@@ -98,12 +99,23 @@ export function PriceBuildUp({ deal, onDiscountChange, onManualBasePriceChange, 
           value={deal.discountType ?? ''}
           onChange={(v) => onDiscountChange({ discountType: v || null, discountValue: discountValue === '' ? null : discountValue })}
         />
-        <NumberInput
-          label={t('offerWorkspace.pricing.discountValue')}
-          disabled={!deal.discountType}
-          value={discountValue}
-          onChange={(v) => setDiscountValue(v === '' ? '' : Number(v))}
-        />
+        {/* KAN-168: an amount discount is CHF and reads like every CHF
+            amount; a percentage is not, so it stays a plain number. */}
+        {deal.discountType === 'amount' ? (
+          <ChfInput
+            label={t('offerWorkspace.pricing.discountValue')}
+            value={discountValue}
+            onChange={(v) => setDiscountValue(v === '' ? '' : Number(v))}
+          />
+        ) : (
+          <NumberInput
+            label={t('offerWorkspace.pricing.discountValue')}
+            disabled={!deal.discountType}
+            suffix={deal.discountType === 'percent' ? ' %' : undefined}
+            value={discountValue}
+            onChange={(v) => setDiscountValue(v === '' ? '' : Number(v))}
+          />
+        )}
       </Group>
       {deal.discountAmount != null &&
         Number(deal.discountAmount) > 0 &&

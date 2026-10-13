@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button, Checkbox, Group, NumberInput, Stack, Text, TextInput, UnstyledButton } from '@mantine/core'
 import { Trash2 } from 'lucide-react'
+import { ChfInput } from '@nexotec/ui-kit'
 import { useTranslation } from 'react-i18next'
 import { api, ApiError } from '../api/client'
 import { formatCurrencyChf } from '../utils/format'
@@ -225,7 +226,7 @@ export function OfferAccessoriesAndOptions<D extends SalesPricedDealRead>({
             onChange={(e) => setNewLabel(e.currentTarget.value)}
             style={{ flex: 1, minWidth: 140 }}
           />
-          <NumberInput
+          <ChfInput
             size="xs"
             label={t('offerWorkspace.lineItems.accessoryPrice')}
             value={newPrice}
@@ -239,7 +240,7 @@ export function OfferAccessoriesAndOptions<D extends SalesPricedDealRead>({
             onChange={(v) => setNewQuantity(v === '' ? '' : Number(v))}
             style={{ width: 80 }}
           />
-          <NumberInput
+          <ChfInput
             size="xs"
             label={t('offerWorkspace.lineItems.accessoryDiscount')}
             value={newDiscount}

@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { Alert, Button, Group, NumberInput, Select, Stack, Table, Text, TextInput } from '@mantine/core'
+import { Alert, Button, Group, Select, Stack, Table, Text, TextInput } from '@mantine/core'
 import { AlertTriangle, Info, ScanSearch } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { Picker, type PickerRow } from '@nexotec/ui-kit'
+import { ChfInput, Picker, type PickerRow } from '@nexotec/ui-kit'
 import { api, ApiError } from '../../api/client'
 import { formatCurrencyChf } from '../../utils/format'
 import type { ConfiguratorMode } from '../../configurationOptions'
@@ -334,7 +334,7 @@ function BestMatch({ typeApprovalNumber, firstRegistrationDate, onConfirm }: Bes
         {t('configurator.bestMatch.hint')}
       </Text>
       <Group align="flex-end" gap="xs">
-        <NumberInput
+        <ChfInput
           label={t('configurator.bestMatch.newPrice')}
           value={newPrice}
           onChange={(v) => setNewPrice(v === '' ? '' : Number(v))}

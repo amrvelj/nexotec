@@ -3,7 +3,7 @@ import { Checkbox, Group, Select, SimpleGrid, Stack, TagsInput, Text, Textarea, 
 import { Info } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
-import { InlineEditField, KeyValueRow, OverviewCard, purple, radius, slate, white } from '@nexotec/ui-kit'
+import { InlineEditField, KeyValueRow, OverviewCard, chfInlineEditor, purple, radius, slate, white } from '@nexotec/ui-kit'
 import { BlockingFactsStrip } from './BlockingFactsStrip'
 import {
   LEGAL_FORM_OPTIONS,
@@ -216,6 +216,9 @@ function WebsiteField({
 
 /** FR-18 region 4 `creditLimit` — advisory only. Shown as CHF; edited as a
  * plain number. */
+// KAN-168: a CHF field edits as CHF 12'500.00, like every CHF amount (ADR-076).
+const chfEditor = chfInlineEditor({ min: 0 })
+
 function MoneyField({
   label,
   value,
@@ -236,19 +239,7 @@ function MoneyField({
         onSave={(raw) => onSaveField({ [patchKey]: raw.trim() || null } as Partial<CustomerUpdateInput>)}
         isConflict={isConflict}
         onReload={onReload}
-        renderEditor={({ value: v, onChange, onKeyDown, onBlur, autoFocus }) => (
-          <input
-            type="number"
-            step="0.01"
-            min="0"
-            value={v}
-            autoFocus={autoFocus}
-            onChange={(e) => onChange(e.currentTarget.value)}
-            onKeyDown={onKeyDown}
-            onBlur={onBlur}
-            style={{ font: 'inherit', border: `1px solid ${slate[3]}`, borderRadius: radius.sm, padding: '2px 6px', width: 120 }}
-          />
-        )}
+        renderEditor={chfEditor}
       />
     </KeyValueRow>
   )

@@ -15,7 +15,7 @@ import {
 import { useQuery } from '@tanstack/react-query'
 import { Info, PencilRuler } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { DetailTabs, StickyActionFooter } from '@nexotec/ui-kit'
+import { ChfInput, DetailTabs, StickyActionFooter } from '@nexotec/ui-kit'
 import { api } from '../../api/client'
 import { CatalogueBrowseGrid } from '../catalogue/CatalogueBrowseGrid'
 import { ConfigurationSummaryCard } from './ConfigurationSummaryCard'
@@ -873,6 +873,17 @@ export function ConfiguratorOverlay({
                         label={withMark}
                         value={value as string}
                         onChange={(e) => setSpecField(f.key, e.currentTarget.value)}
+                        w={200}
+                      />
+                    )
+                  }
+                  if (f.kind === 'chf') {
+                    return (
+                      <ChfInput
+                        key={f.key as string}
+                        label={withMark}
+                        value={value === '' ? '' : Number(value)}
+                        onChange={(v) => setSpecField(f.key, v === '' ? null : Number(v))}
                         w={200}
                       />
                     )

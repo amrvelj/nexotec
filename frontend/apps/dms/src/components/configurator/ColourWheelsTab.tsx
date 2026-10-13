@@ -1,4 +1,5 @@
-import { Badge, Group, NumberInput, Select, Stack, Table, Text, TextInput } from '@mantine/core'
+import { Badge, Group, Select, Stack, Table, Text, TextInput } from '@mantine/core'
+import { ChfInput } from '@nexotec/ui-kit'
 import { useTranslation } from 'react-i18next'
 import type { CatalogueSpecificationRead } from '../../api/types'
 import type { ConfiguratorMode } from '../../configurationOptions'
@@ -100,12 +101,10 @@ export function ColourWheelsTab({
             />
           )}
           {mode === 'build' && (
-            <NumberInput
+            <ChfInput
               label={t('configurator.colour.surcharge')}
               value={exteriorColourSurcharge}
               onChange={(v) => onChange({ exteriorColourSurcharge: v === '' ? '' : String(v) })}
-              decimalScale={2}
-              fixedDecimalScale
               min={0}
             />
           )}
@@ -131,12 +130,10 @@ export function ColourWheelsTab({
             />
           )}
           {mode === 'build' && (
-            <NumberInput
+            <ChfInput
               label={t('configurator.colour.surcharge')}
               value={interiorColourSurcharge}
               onChange={(v) => onChange({ interiorColourSurcharge: v === '' ? '' : String(v) })}
-              decimalScale={2}
-              fixedDecimalScale
               min={0}
             />
           )}
@@ -190,12 +187,10 @@ export function ColourWheelsTab({
             onChange={(e) => onChange({ wheels: e.currentTarget.value })}
           />
           {mode === 'build' && (
-            <NumberInput
+            <ChfInput
               label={t('configurator.colour.surcharge')}
               value={wheelsSurcharge}
               onChange={(v) => onChange({ wheelsSurcharge: v === '' ? '' : String(v) })}
-              decimalScale={2}
-              fixedDecimalScale
               min={0}
             />
           )}

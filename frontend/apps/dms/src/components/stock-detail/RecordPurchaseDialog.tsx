@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Alert, Checkbox, NumberInput, Stack, TextInput } from '@mantine/core'
+import { Alert, Checkbox, Stack, TextInput } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
-import { FormDialog } from '@nexotec/ui-kit'
+import { ChfInput, FormDialog } from '@nexotec/ui-kit'
 import { ApiError } from '../../api/client'
 
 interface RecordPurchaseDialogProps {
@@ -82,7 +82,7 @@ export function RecordPurchaseDialog({ opened, onClose, onSubmit }: RecordPurcha
           checked={supplierIsVatRegistered}
           onChange={(e) => setSupplierIsVatRegistered(e.currentTarget.checked)}
         />
-        <NumberInput
+        <ChfInput
           label={t('stockDetail.purchase.fields.purchasePrice')}
           value={purchasePrice}
           onChange={(v) => setPurchasePrice(typeof v === 'number' ? v : '')}

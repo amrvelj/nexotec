@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, Button, Group, Loader, NumberInput, Stack, Text, Title } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
-import { OverviewCard, StickyActionFooter, useOverlay, useSetBreadcrumb } from '@nexotec/ui-kit'
+import { ChfInput, OverviewCard, StickyActionFooter, useOverlay, useSetBreadcrumb } from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
 import { OfferGenerateReviewModal } from '../components/OfferGenerateReviewModal'
 import {
@@ -190,7 +190,7 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
         <Stack gap="xs">
           <Text size="sm" c="dimmed">{t('offerWorkspace.leasing.hint')}</Text>
           <Group grow>
-            <NumberInput
+            <ChfInput
               label={t('offerWorkspace.leasing.downPayment')}
               value={leasingDownPayment}
               onChange={(v) => setLeasingDownPayment(v === '' ? '' : Number(v))}

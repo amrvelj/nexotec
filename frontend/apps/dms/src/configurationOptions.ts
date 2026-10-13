@@ -9,7 +9,8 @@ export function configuratorModeOptions(t: (k: string) => string): { value: Conf
   ]
 }
 
-export type SpecFieldKind = 'int' | 'decimal' | 'text' | 'ref'
+// `chf` is a CHF amount: it renders through the kit's ChfInput (KAN-168).
+export type SpecFieldKind = 'int' | 'decimal' | 'chf' | 'text' | 'ref'
 
 export interface SpecFieldDef {
   /** key on `VehicleSpecBlockRead` (camelCase) */
@@ -95,7 +96,7 @@ export const SPEC_FIELD_GROUPS: { titleKey: string; fields: SpecFieldDef[] }[] =
   {
     titleKey: 'configurator.spec.groups.price',
     fields: [
-      { key: 'basePrice', kind: 'decimal' },
+      { key: 'basePrice', kind: 'chf' },
       { key: 'basePriceYear', kind: 'int' },
     ],
   },
