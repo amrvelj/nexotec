@@ -133,7 +133,7 @@ weekly. -->
   row holding its role (`null` or still to come) takes the same advisory lock and closes every
   other open holder in the group; a reopen publishes `customer.vehicle_party.linked`. Disconnect
   locks and re-reads its row, so a race closes it once (one `unlinked`). Lock order is advisory,
-  then row.
+  then row. The copy a customer merge kept (KAN-177) is never reopened (409 `merged_party_row`).
 - **A party row carries the vehicle's label, never a join** (KAN-84, rule 2):
   `vehicle_vin`, `vehicle_number`, `vehicle_make`, `vehicle_model`, `vehicle_model_year`,
   `vehicle_trim` and `vehicle_label_refreshed_at`, copied from

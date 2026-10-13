@@ -2646,7 +2646,9 @@ def update_customer_vehicle(
     in the same transaction, so the group never shows two current holders.
     A reopen publishes `customer.vehicle_party.linked`, as an allocation
     does. The advisory lock is taken before the row lock, in the order the
-    allocation takes them, so the two never deadlock."""
+    allocation takes them, so the two never deadlock. The copy a customer
+    merge kept (KAN-177, `merged_into_customer_id`) is never reopened: 409
+    `merged_party_row`."""
 
     changes = data.model_dump(exclude_unset=True)
     holds_after = "effective_to" in changes and _is_open(changes["effective_to"])
@@ -2654,6 +2656,17 @@ def update_customer_vehicle(
         _lock_vehicle_role_in_group(db, vehicle_id=party.vehicle_id, role=party.role, group_id=group_id)
     party = _lock_party(db, party)
     held_before = _is_open(party.effective_to)
+    if holds_after and party.merged_into_customer_id is not None:
+        # KAN-177 keeps the duplicate's copy closed at its start so it never
+        # reads as a current party again; reopening it would also close the
+        # survivor's holder of the same role.
+        raise ConflictError(
+            "This row is the copy a customer merge kept; it cannot hold its role again.",
+            details={
+                "reason": "merged_party_row",
+                "mergedIntoCustomerId": str(party.merged_into_customer_id),
+            },
+        )
     before = {
         "effectiveFrom": party.effective_from.isoformat(),
         "effectiveTo": party.effective_to.isoformat() if party.effective_to else None,

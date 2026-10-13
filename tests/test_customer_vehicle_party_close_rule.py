@@ -239,6 +239,35 @@ def test_reopening_never_closes_another_groups_holder(db_session):
     assert _open_holders(db_session, vehicle.id) == {alice.id, bruno.id}
 
 
+@pytest.mark.parametrize("reopen_to", [None, "future"], ids=["open-ended", "future-end"])
+def test_the_copy_a_customer_merge_kept_is_never_reopened(db_session, reopen_to):
+    """KAN-177 keeps the duplicate's overlapping row closed at its start and
+    marked merged; a reopen would revive it and close the survivor's row."""
+
+    from app.core.errors import ConflictError
+
+    group_id = uuid.uuid4()
+    vehicle = _vehicle(db_session, "WVWZZZ1KZAW148014")
+    duplicate, survivor = _customer(db_session, group_id, "Dupli"), _customer(db_session, group_id, "Survi")
+    survivor_party = _allocate(db_session, vehicle.id, survivor, group_id)
+    kept = VehicleParty(
+        vehicle_id=vehicle.id, customer_id=duplicate.id, role=OWNER,
+        effective_from=utcnow() - dt.timedelta(days=10), merged_into_customer_id=survivor.id,
+    )
+    kept.effective_to = kept.effective_from
+    db_session.add(kept)
+    db_session.commit()
+    effective_to = None if reopen_to is None else utcnow() + dt.timedelta(days=5)
+
+    with pytest.raises(ConflictError) as refused:
+        _patch(db_session, (duplicate.id, kept.id), group_id, effective_to=effective_to)
+
+    assert refused.value.details["reason"] == "merged_party_row"
+    db_session.rollback()
+    assert _open_holders(db_session, vehicle.id) == {survivor.id}
+    assert _events(db_session, "customer.vehicle_party.unlinked", survivor_party.id) == []
+
+
 def _sales_headers(group_id: uuid.UUID) -> dict[str, str]:
     token = create_access_token(
         user_id=uuid.uuid4(), tenant_id=uuid.uuid4(), group_id=group_id, roles=frozenset({AccessRole.SALES}),
