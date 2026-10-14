@@ -1406,7 +1406,7 @@ def update_customer_phone(
         changes.get("do_not_use") is True and not phone.do_not_use
     )
     if becomes_unusable:
-        _assert_not_last_contact_point(db, phone.customer_id, removing="phone number")
+        _assert_not_last_contact_point(db, phone, removing="phone number")
     groups_to_settle = _prepare_primary_change(
         db, CustomerPhone, row=phone, changes=changes, noun="phone"
     )
@@ -1451,7 +1451,7 @@ def update_customer_phone(
     return phone
 
 
-def _assert_not_last_contact_point(db: Session, customer_id: uuid.UUID, *, removing: str) -> None:
+def _assert_not_last_contact_point(db: Session, row: CustomerPhone | CustomerEmail, *, removing: str) -> None:
     """FR-03's "at least one contact point" is an invariant of the customer,
     not just of the create request — so deleting (or closing / marking
     do-not-use) the final one is rejected. Without this the rule would hold
@@ -1462,7 +1462,15 @@ def _assert_not_last_contact_point(db: Session, customer_id: uuid.UUID, *, remov
     (valid_to set) or a do-not-use row no longer satisfies FR-03 even though
     it still exists, because staff cannot actually reach the customer
     through it.
+
+    KAN-330: the guard is about the row being removed. A row that is already
+    closed or do-not-use changes no usable count, so tidying it (closing,
+    flagging or deleting it) is never refused; a usable row is refused only
+    when no OTHER usable phone or email would remain.
     """
+
+    if row.valid_to is not None or row.do_not_use:
+        return
 
     def _usable_count(model: type) -> int:
         return (
@@ -1470,7 +1478,8 @@ def _assert_not_last_contact_point(db: Session, customer_id: uuid.UUID, *, remov
                 select(func.count())
                 .select_from(model)
                 .where(
-                    model.customer_id == customer_id,  # type: ignore[attr-defined]
+                    model.customer_id == row.customer_id,  # type: ignore[attr-defined]
+                    model.id != row.id,  # type: ignore[attr-defined]
                     model.valid_to.is_(None),  # type: ignore[attr-defined]
                     model.do_not_use.is_(False),  # type: ignore[attr-defined]
                 )
@@ -1478,7 +1487,7 @@ def _assert_not_last_contact_point(db: Session, customer_id: uuid.UUID, *, remov
             or 0
         )
 
-    if _usable_count(CustomerPhone) + _usable_count(CustomerEmail) <= 1:
+    if _usable_count(CustomerPhone) + _usable_count(CustomerEmail) == 0:
         raise BadRequestError(
             f"Cannot remove the last usable {removing} — a customer must keep at least one usable phone number or"
             " email address."
@@ -1486,7 +1495,7 @@ def _assert_not_last_contact_point(db: Session, customer_id: uuid.UUID, *, remov
 
 
 def delete_customer_phone(db: Session, *, phone: CustomerPhone, actor_id: uuid.UUID) -> None:
-    _assert_not_last_contact_point(db, phone.customer_id, removing="phone number")
+    _assert_not_last_contact_point(db, phone, removing="phone number")
     record_audit_event(
         db,
         entity_type="customer",
@@ -1592,7 +1601,7 @@ def update_customer_email(
         changes.get("do_not_use") is True and not email.do_not_use
     )
     if becomes_unusable:
-        _assert_not_last_contact_point(db, email.customer_id, removing="email address")
+        _assert_not_last_contact_point(db, email, removing="email address")
     groups_to_settle = _prepare_primary_change(
         db, CustomerEmail, row=email, changes=changes, noun="email"
     )
@@ -1637,7 +1646,7 @@ def update_customer_email(
 
 
 def delete_customer_email(db: Session, *, email: CustomerEmail, actor_id: uuid.UUID) -> None:
-    _assert_not_last_contact_point(db, email.customer_id, removing="email address")
+    _assert_not_last_contact_point(db, email, removing="email address")
     record_audit_event(
         db,
         entity_type="customer",

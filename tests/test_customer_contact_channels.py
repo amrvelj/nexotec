@@ -350,6 +350,85 @@ def test_closing_an_email_is_allowed_when_a_usable_phone_remains(client):
     assert response.status_code == 200, response.text
 
 
+# KAN-330: the guard counts the OTHER usable rows, and only a usable row can
+# be "the last usable" one. Each case: one usable email, plus one dead phone.
+
+
+def _customer_with_one_usable_email_and_a_phone(client):
+    dealer_id = _create_dealer(client)
+    customer = _create_customer(
+        client, dealer_id, phones=[{"phoneType": "mobile", "phoneE164": "+41791234567"}]
+    )
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    base = f"/v1/customers/{customer['id']}"
+    phone = client.get(f"{base}/phones", headers=_bearer(token)).json()["items"][0]
+    email = client.get(f"{base}/emails", headers=_bearer(token)).json()["items"][0]
+    return token, base, phone, email
+
+
+def test_closing_a_do_not_use_phone_beside_one_usable_email_is_allowed(client):
+    token, base, phone, _ = _customer_with_one_usable_email_and_a_phone(client)
+    flagged = client.patch(
+        f"{base}/phones/{phone['id']}", json={"doNotUse": True, "doNotUseReason": "bounced"}, headers=_bearer(token)
+    )
+    assert flagged.status_code == 200, flagged.text
+
+    closed = client.patch(f"{base}/phones/{phone['id']}", json={"validTo": "2020-01-01T00:00:00Z"}, headers=_bearer(token))
+    assert closed.status_code == 200, closed.text
+
+
+def test_flagging_a_closed_phone_do_not_use_beside_one_usable_email_is_allowed(client):
+    token, base, phone, _ = _customer_with_one_usable_email_and_a_phone(client)
+    closed = client.patch(f"{base}/phones/{phone['id']}", json={"validTo": "2020-01-01T00:00:00Z"}, headers=_bearer(token))
+    assert closed.status_code == 200, closed.text
+
+    flagged = client.patch(
+        f"{base}/phones/{phone['id']}", json={"doNotUse": True, "doNotUseReason": "number given up"},
+        headers=_bearer(token),
+    )
+    assert flagged.status_code == 200, flagged.text
+
+
+def test_deleting_a_dead_phone_beside_one_usable_email_is_allowed(client):
+    token, base, phone, _ = _customer_with_one_usable_email_and_a_phone(client)
+    closed = client.patch(f"{base}/phones/{phone['id']}", json={"validTo": "2020-01-01T00:00:00Z"}, headers=_bearer(token))
+    assert closed.status_code == 200, closed.text
+
+    deleted = client.delete(f"{base}/phones/{phone['id']}", headers=_bearer(token))
+    assert deleted.status_code == 204, deleted.text
+    assert client.get(f"{base}/phones", headers=_bearer(token)).json()["items"] == []
+
+
+def test_deleting_a_dead_email_beside_one_usable_phone_is_allowed(client):
+    token, base, _, email = _customer_with_one_usable_email_and_a_phone(client)
+    flagged = client.patch(
+        f"{base}/emails/{email['id']}", json={"doNotUse": True, "doNotUseReason": "bounced"}, headers=_bearer(token)
+    )
+    assert flagged.status_code == 200, flagged.text
+
+    deleted = client.delete(f"{base}/emails/{email['id']}", headers=_bearer(token))
+    assert deleted.status_code == 204, deleted.text
+
+
+def test_removing_the_one_usable_row_beside_a_dead_one_is_still_rejected(client):
+    """The other half of KAN-330: with the phone dead, the email is the one
+    usable contact point — closing, flagging or deleting it stays a 400."""
+
+    token, base, phone, email = _customer_with_one_usable_email_and_a_phone(client)
+    flagged = client.patch(
+        f"{base}/phones/{phone['id']}", json={"doNotUse": True, "doNotUseReason": "bounced"}, headers=_bearer(token)
+    )
+    assert flagged.status_code == 200, flagged.text
+
+    closing = client.patch(f"{base}/emails/{email['id']}", json={"validTo": "2020-01-01T00:00:00Z"}, headers=_bearer(token))
+    flagging = client.patch(
+        f"{base}/emails/{email['id']}", json={"doNotUse": True, "doNotUseReason": "bounced"}, headers=_bearer(token)
+    )
+    deleting = client.delete(f"{base}/emails/{email['id']}", headers=_bearer(token))
+    assert [closing.status_code, flagging.status_code, deleting.status_code] == [400, 400, 400]
+    assert "last usable email address" in deleting.json()["error"]["message"]
+
+
 # --- consent + do-not-use round trip ------------------------------------------
 
 
