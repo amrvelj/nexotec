@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MantineProvider } from '@mantine/core'
@@ -46,5 +46,41 @@ describe('DetailsTab commercial card', () => {
 
     await user.click(screen.getByText("12'500"))
     expect(screen.getByDisplayValue('12500')).toBeInTheDocument()
+  })
+})
+
+// KAN-333 — the first registration and purchase dates are date-only values;
+// formatDate rendered them a day early anywhere west of Greenwich.
+describe('DetailsTab — date-only fields keep their day west of Greenwich (KAN-333)', () => {
+  let tz: string | undefined
+  beforeAll(() => {
+    tz = process.env.TZ
+    process.env.TZ = 'Pacific/Honolulu'
+  })
+  afterAll(() => {
+    if (tz === undefined) delete process.env.TZ
+    else process.env.TZ = tz
+  })
+
+  it('renders the first registration and purchase dates as the recorded day', async () => {
+    const user = userEvent.setup()
+    render(
+      <MantineProvider theme={theme} env="test">
+        <DetailsTab
+          item={{ ...ITEM, firstRegistrationDate: '2021-04-01', purchaseDate: '2026-09-15', purchasePrice: '20000.00' }}
+          locale="de-CH"
+          onSaveField={vi.fn()}
+          onReload={vi.fn()}
+          onRecordPurchase={vi.fn()}
+        />
+      </MantineProvider>,
+    )
+
+    expect(screen.getByText('01.04.2021')).toBeInTheDocument()
+    // The purchase card sits behind the commercial-data disclosure.
+    await user.click(screen.getByRole('button', { name: i18n.t('stockDetail.purchase.title') }))
+    expect(screen.getByText('15.09.2026')).toBeInTheDocument()
+    expect(screen.queryByText('31.03.2021')).not.toBeInTheDocument()
+    expect(screen.queryByText('14.09.2026')).not.toBeInTheDocument()
   })
 })

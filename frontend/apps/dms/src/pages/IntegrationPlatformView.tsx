@@ -21,7 +21,7 @@ import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { useSavedViews } from '../hooks/useSavedViews'
 import { useUiPreferencesContext } from '../hooks/UiPreferencesContext'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
-import { formatDate, formatDateTime } from '../utils/format'
+import { formatDate, formatDateOnly, formatDateTime } from '../utils/format'
 import type {
   CatalogueSyncStatusRead,
   DealershipPage,
@@ -265,7 +265,7 @@ function FleetHealthBoard({
       {
         id: 'lastSystemWatermarkDate',
         header: t('integrationsList.healthBoard.providerWatermark'),
-        cell: ({ row }) => (row.original.lastSystemWatermarkDate ? formatDate(row.original.lastSystemWatermarkDate, locale) : '—'),
+        cell: ({ row }) => (row.original.lastSystemWatermarkDate ? formatDateOnly(row.original.lastSystemWatermarkDate, locale) : '—'),
       },
       {
         // KAN-78: variants the last sync run could not sync in full; the next delta retries them.

@@ -52,7 +52,7 @@ import {
   translatedSalutationLabel,
   translatedSourceLabel,
 } from '../customerOptions'
-import { formatCurrencyChf, formatDate } from '../utils/format'
+import { formatCurrencyChf, formatDate, formatDateOnly } from '../utils/format'
 import { customerName } from '../utils/customer'
 import { exportRowsToCsv, printRows, type ExportColumn } from '../utils/gridExport'
 import type { CustomerPage, CustomerRead, SalesContractRead, SalesOfferRead } from '../api/types'
@@ -222,19 +222,22 @@ export function CustomersListPage() {
       id: string,
       header: string,
       pick: (row: CustomerRead) => string | null | undefined,
+      // KAN-333: a date-only field names a calendar day and renders through
+      // formatDateOnly; timestamps keep formatDate.
+      format: (value: string, locale: string) => string = formatDate,
     ): GridColumnDef<CustomerRead> => ({
       id,
       header,
       cell: ({ row }) => {
         const value = pick(row.original)
-        return value ? formatDate(value, locale) : '—'
+        return value ? format(value, locale) : '—'
       },
       meta: {
         defaultVisible: false,
         align: 'right',
         exportValue: (row) => {
           const value = pick(row)
-          return value ? formatDate(value, locale) : ''
+          return value ? format(value, locale) : ''
         },
       },
     })
@@ -361,7 +364,7 @@ export function CustomersListPage() {
       text('companyName', t('customersList.columns.companyName'), (row) => row.companyName),
       text('legalForm', t('customersList.columns.legalForm'), (row) => (row.legalForm ? legalFormLabel(row.legalForm) : null)),
       text('website', t('customersList.columns.website'), (row) => row.website),
-      date('birthDate', t('customersList.columns.birthDate'), (row) => row.birthDate),
+      date('birthDate', t('customersList.columns.birthDate'), (row) => row.birthDate, formatDateOnly),
       text('nationality', t('customersList.columns.nationality'), (row) => countryLabel(row.nationality)),
 
       text('phoneMobile', t('customersList.columns.phoneMobile'), (row) => row.phoneMobile, { mono: true }),
@@ -469,8 +472,8 @@ export function CustomersListPage() {
       },
       text('creditBlockReason', t('customersList.columns.creditBlockReason'), (row) => row.creditBlockReason),
       date('creditBlockedAt', t('customersList.columns.creditBlockedAt'), (row) => row.creditBlockedAt),
-      date('customerSince', t('customersList.columns.customerSince'), (row) => row.customerSince),
-      date('nextFollowUp', t('customersList.columns.nextFollowUp'), (row) => row.nextFollowUp),
+      date('customerSince', t('customersList.columns.customerSince'), (row) => row.customerSince, formatDateOnly),
+      date('nextFollowUp', t('customersList.columns.nextFollowUp'), (row) => row.nextFollowUp, formatDateOnly),
       date('createdAt', t('customersList.columns.created'), (row) => row.createdAt),
       {
         id: 'updatedAt',

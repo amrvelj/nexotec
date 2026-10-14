@@ -4,7 +4,7 @@ import { InlineEditField, KeyValueRow, OverviewCard, ProgressiveDisclosure, Spec
 import { HostConfigurationCard } from '../configurator/HostConfigurationCard'
 import { useTranslation } from 'react-i18next'
 import { ApiError } from '../../api/client'
-import { formatCurrencyChf, formatDate, formatNumber } from '../../utils/format'
+import { formatCurrencyChf, formatDateOnly, formatNumber } from '../../utils/format'
 import { RecordPurchaseDialog } from './RecordPurchaseDialog'
 import type { StockItemRead } from '../../api/types'
 
@@ -51,7 +51,7 @@ export function DetailsTab({ item, locale, onSaveField, onReload, onRecordPurcha
       <SpecGrid
         columns={4}
         items={[
-          { label: t('stockDetail.spec.firstRegistrationDate'), value: item.firstRegistrationDate ? formatDate(item.firstRegistrationDate, locale) : '—' },
+          { label: t('stockDetail.spec.firstRegistrationDate'), value: item.firstRegistrationDate ? formatDateOnly(item.firstRegistrationDate, locale) : '—' },
           { label: t('stockDetail.spec.odometerKm'), value: item.odometerKm != null ? `${formatNumber(item.odometerKm)} km` : '—' },
           { label: t('stockDetail.spec.stockNumber'), value: item.stockNumber },
           { label: t('stockDetail.spec.vin'), value: item.vin ?? t('common.notSet') },
@@ -132,7 +132,7 @@ export function DetailsTab({ item, locale, onSaveField, onReload, onRecordPurcha
                 {formatCurrencyChf(Number(item.purchasePrice))}
               </KeyValueRow>
               <KeyValueRow label={t('stockDetail.purchase.fields.purchaseDate')}>
-                {item.purchaseDate ? formatDate(item.purchaseDate, locale) : '—'}
+                {item.purchaseDate ? formatDateOnly(item.purchaseDate, locale) : '—'}
               </KeyValueRow>
               <KeyValueRow label={t('stockDetail.purchase.notionalInputTax')}>
                 {item.notionalInputTaxApplicable

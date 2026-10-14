@@ -17,7 +17,7 @@ import {
   translatedSalutationOptions,
   translatedSourceOptions,
 } from '../../customerOptions'
-import { formatCurrencyChf, formatDate } from '../../utils/format'
+import { formatCurrencyChf, formatDate, formatDateOnly } from '../../utils/format'
 import type { CountryOption } from '../../hooks/useCountryOptions'
 import { useAdvisorOptions } from '../../hooks/useAdvisorOptions'
 import { ContactPointsEditor, type ContactPointUpdatePatch } from './ContactPointsEditor'
@@ -106,7 +106,7 @@ function DateField({
   return (
     <KeyValueRow label={label}>
       <InlineEditField
-        value={value ? formatDate(value, locale) : ''}
+        value={value ? formatDateOnly(value, locale) : ''}
         isEmpty={!value}
         emptyLabel={emptyLabel}
         editValue={value ?? ''}
