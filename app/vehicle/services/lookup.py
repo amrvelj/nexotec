@@ -20,6 +20,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.base import utcnow
+from app.core.validators import is_valid_vin, normalise_vin
 from app.vehicle.models.plate import VehiclePlate
 from app.vehicle.models.vehicle_mdm import VehicleMdm
 from app.vehicle.schemas.lookup import SharedVehicleIdentity
@@ -46,7 +47,12 @@ def resolve_shared_identity(
     vehicle: VehicleMdm | None = None
 
     if vin:
-        vehicle = db.scalar(select(VehicleMdm).where(VehicleMdm.vin == vin))
+        # KAN-355: the spelling every write stores (`NormalisedVin`). A value
+        # that is no VIN once normalised finds nothing — a read answers 404,
+        # never 422 — and does not fall through to another identifier.
+        typed_vin = normalise_vin(vin)
+        if is_valid_vin(typed_vin):
+            vehicle = db.scalar(select(VehicleMdm).where(VehicleMdm.vin == typed_vin))
     elif stammnummer:
         vehicle = db.scalar(select(VehicleMdm).where(VehicleMdm.stammnummer == stammnummer))
     elif vehicle_number:
