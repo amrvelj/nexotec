@@ -1,5 +1,7 @@
 import { Alert, Badge, Loader, Table } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
+import { toSwissLocale, type SupportedLanguage } from '../../i18n'
+import { formatDateOnly } from '../../utils/format'
 import type { VehiclePlateRead } from '../../api/types'
 
 interface PlatesTabProps {
@@ -15,7 +17,8 @@ interface PlatesTabProps {
  * rows, not flagged — the overlap is expected (ADR-039).
  */
 export function PlatesTab({ plates, loading, limitReached = false }: PlatesTabProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = toSwissLocale(i18n.language as SupportedLanguage)
   if (loading) return <Loader size="sm" />
   if (limitReached) return <Alert color="yellow">{t('vehicleDetail.plates.limitReached')}</Alert>
 
@@ -42,8 +45,8 @@ export function PlatesTab({ plates, loading, limitReached = false }: PlatesTabPr
           <Table.Tr key={p.id}>
             <Table.Td style={{ fontFamily: 'monospace' }}>{p.plate}</Table.Td>
             <Table.Td>{p.canton}</Table.Td>
-            <Table.Td>{p.validFrom}</Table.Td>
-            <Table.Td>{p.validTo ?? <em>{t('vehicleDetail.plates.current')}</em>}</Table.Td>
+            <Table.Td>{formatDateOnly(p.validFrom, locale)}</Table.Td>
+            <Table.Td>{p.validTo ? formatDateOnly(p.validTo, locale) : <em>{t('vehicleDetail.plates.current')}</em>}</Table.Td>
             <Table.Td>
               {p.isInterchangeable && <Badge variant="light" color="grape">{t('vehicleDetail.plates.wechselschild')}</Badge>}
             </Table.Td>

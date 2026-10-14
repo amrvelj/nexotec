@@ -171,13 +171,21 @@ SwissUid = Annotated[str, AfterValidator(_validate_swiss_uid)]
 Vin = Annotated[str, AfterValidator(_validate_vin)]
 
 
-def _normalise_vin(value: Any) -> Any:
+def normalise_vin(value: str) -> str:
     """KAN-244 (Anto, option A): upper-cased, every whitespace character
     removed — a VIN typed in lower case or pasted in groups is the same VIN.
-    Anything else wrong with it is left for `Vin` to refuse (422)."""
+    The one spelling rule: request bodies apply it through `NormalisedVin`,
+    a read that takes a VIN as a query parameter calls it directly (KAN-355)."""
+
+    return re.sub(r"\s", "", value).upper()
+
+
+def _normalise_vin(value: Any) -> Any:
+    """`NormalisedVin`'s before-validator: anything still wrong with the
+    normalised value is left for `Vin` to refuse (422)."""
 
     if isinstance(value, str):
-        return re.sub(r"\s", "", value).upper()
+        return normalise_vin(value)
     return value
 
 

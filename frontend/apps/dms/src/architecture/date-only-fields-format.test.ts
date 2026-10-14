@@ -1,0 +1,85 @@
+/// <reference types="node" />
+// Node-only file in a browser-typed project — see no-hardcoded-colour.test.ts
+// for why this one reference is the right opt-in.
+import { describe, expect, it } from 'vitest'
+import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+// KAN-333: a date-only value (`1980-05-01`, a backend `dt.date`) names a
+// calendar day. formatDate renders it in the browser's zone from UTC
+// midnight, so anywhere west of Greenwich it shows the day before; it goes
+// through formatDateOnly (KAN-180). formatDate/formatDateTime stay for
+// timestamps. This scan refuses either of them on a date-only field.
+//
+// A date-only field: the backend's `dt.date` response fields as the frontend
+// names them. Every one ending in Date, Since or FollowUp is caught by name;
+// the two that do not end that way are listed.
+const DATE_ONLY_SUFFIX = /(?:Date|Since|FollowUp)$/
+const DATE_ONLY_NAMES = new Set(['expectedDelivery', 'vehicleFirstRegistration'])
+
+const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
+const SKIP_DIR_NAMES = new Set(['node_modules', 'dist', 'build', '.git'])
+
+function collectFiles(dir: string, out: string[] = []): string[] {
+  for (const entry of readdirSync(dir)) {
+    if (SKIP_DIR_NAMES.has(entry)) continue
+    const full = join(dir, entry)
+    if (statSync(full).isDirectory()) collectFiles(full, out)
+    else if (/\.tsx?$/.test(entry) && !/\.test\.tsx?$/.test(entry)) out.push(full)
+  }
+  return out
+}
+
+// `formatDate(row.original.purchaseDate, locale)` → the argument's last
+// identifier, `purchaseDate`; `date('birthDate', …, (row) => row.birthDate)`
+// in CustomersListPage passes its formatter as a fourth argument instead,
+// which the second pattern checks.
+const TIMESTAMP_CALL = /\bformatDate(?:Time)?\(\s*([\w.?!]+)/g
+const CUSTOMER_DATE_COLUMN = /\bdate\('(\w+)',[^\n]*\)\s*,?\s*$/
+
+function isDateOnly(name: string): boolean {
+  return DATE_ONLY_SUFFIX.test(name) || DATE_ONLY_NAMES.has(name)
+}
+
+function offendingLines(source: string): string[] {
+  const out: string[] = []
+  source.split('\n').forEach((line, index) => {
+    for (const match of line.matchAll(TIMESTAMP_CALL)) {
+      const field = match[1].split(/[.?!]+/).filter(Boolean).pop() ?? ''
+      if (isDateOnly(field)) out.push(`${index + 1}: ${line.trim()}`)
+    }
+    const column = CUSTOMER_DATE_COLUMN.exec(line)
+    if (column && isDateOnly(column[1]) && !line.includes('formatDateOnly')) out.push(`${index + 1}: ${line.trim()}`)
+  })
+  return out
+}
+
+describe('date-only fields render through formatDateOnly (KAN-333)', () => {
+  it('no formatDate / formatDateTime call in apps/dms/src takes a date-only field', () => {
+    const files = collectFiles(SRC_ROOT)
+    // An empty walk would pass vacuously.
+    expect(files.some((file) => file.endsWith('/pages/StockListPage.tsx'))).toBe(true)
+
+    const offenders = files.flatMap((file) =>
+      offendingLines(readFileSync(file, 'utf-8')).map((line) => `${file.slice(SRC_ROOT.length + 1)}:${line}`)
+    )
+    expect(offenders).toEqual([])
+  })
+
+  // The scan passes on an empty result as easily as on a clean tree — this
+  // proves it fires on the shapes KAN-333 removed and spares timestamps.
+  it('matches the shapes it exists to stop', () => {
+    expect(offendingLines("{item.purchaseDate ? formatDate(item.purchaseDate, locale) : '—'}")).toHaveLength(1)
+    expect(offendingLines('formatDate(row.original.expectedDelivery, locale)')).toHaveLength(1)
+    expect(offendingLines('formatDate(valuation.vehicleFirstRegistration, locale)')).toHaveLength(1)
+    expect(offendingLines('formatDateTime(customer.nextFollowUp)')).toHaveLength(1)
+    expect(offendingLines("      date('birthDate', t('x'), (row) => row.birthDate),")).toHaveLength(1)
+
+    expect(offendingLines('formatDateOnly(row.original.purchaseDate, locale)')).toEqual([])
+    expect(offendingLines("      date('birthDate', t('x'), (row) => row.birthDate, formatDateOnly),")).toEqual([])
+    expect(offendingLines("      date('createdAt', t('x'), (row) => row.createdAt),")).toEqual([])
+    expect(offendingLines('formatDate(row.original.updatedAt, locale)')).toEqual([])
+    expect(offendingLines('formatDate(valuation.validUntil, locale)')).toEqual([])
+  })
+})

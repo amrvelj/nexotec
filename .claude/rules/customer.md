@@ -53,6 +53,10 @@ weekly. -->
   group with no usable primary elects the reopened row; an existing usable primary keeps the
   flag. Usability is judged after the PATCH, so `isPrimary: true` on a row that is closed or
   `doNotUse` — by this PATCH or an earlier one — never unsets the group's usable primary.
+- **A customer keeps at least one usable phone or email** (FR-03, ADR-067):
+  `_assert_not_last_contact_point` refuses closing, flagging `doNotUse` or deleting a usable row
+  when no other usable phone or email remains; a row already closed or `doNotUse` changes no
+  usable count and is never refused (KAN-330).
 - The six contact projections — `phoneMobile`, `phoneLandline`, `phoneWork`, `email`,
   `emailSecondary`, `address` (primary domicile) — are **read-model projections**, computed and
   never stored. Per type: the flagged primary among usable rows, else the oldest usable row,
@@ -131,7 +135,8 @@ weekly. -->
   is still to come is a holder now and goes through `allocate_vehicle_party` (it keeps its end
   date); one already past is history and closes nobody. A PATCH whose `effectiveTo` leaves the
   row holding its role (`null` or still to come) takes the same advisory lock and closes every
-  other open holder in the group; a reopen publishes `customer.vehicle_party.linked`. Disconnect
+  other open holder in the group; a reopen publishes `customer.vehicle_party.linked`, and a PATCH
+  that ends a holding row (`effectiveTo` now or past) publishes `unlinked` (KAN-352). Disconnect
   locks and re-reads its row, so a race closes it once (one `unlinked`). Lock order is advisory,
   then row. The copy a customer merge kept (KAN-177) is never reopened (409 `merged_party_row`).
 - **A party row carries the vehicle's label, never a join** (KAN-84, rule 2):

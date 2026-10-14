@@ -3,6 +3,8 @@ import { ActionIcon, Alert, Button, Group, Loader, Stack, Table, TextInput } fro
 import { Plus, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { ApiError } from '../../api/client'
+import { toSwissLocale, type SupportedLanguage } from '../../i18n'
+import { formatDateOnly } from '../../utils/format'
 import type { VehicleAccessoryRead } from '../../api/types'
 
 interface AccessoriesTabProps {
@@ -16,7 +18,8 @@ interface AccessoriesTabProps {
  * deleted, and stays visible (struck through) rather than disappearing.
  */
 export function AccessoriesTab({ accessories, loading, onAdd, onRemove }: AccessoriesTabProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = toSwissLocale(i18n.language as SupportedLanguage)
   const [type, setType] = useState('')
   const [description, setDescription] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -92,8 +95,8 @@ export function AccessoriesTab({ accessories, loading, onAdd, onRemove }: Access
                 <Table.Tr key={a.id} style={closed ? { opacity: 0.5, textDecoration: 'line-through' } : undefined}>
                   <Table.Td>{a.accessoryType}</Table.Td>
                   <Table.Td>{a.description ?? ''}</Table.Td>
-                  <Table.Td>{a.validFrom}</Table.Td>
-                  <Table.Td>{a.validTo ?? ''}</Table.Td>
+                  <Table.Td>{formatDateOnly(a.validFrom, locale)}</Table.Td>
+                  <Table.Td>{a.validTo ? formatDateOnly(a.validTo, locale) : ''}</Table.Td>
                   <Table.Td>
                     {!closed && (
                       <ActionIcon variant="subtle" color="red" size="sm" onClick={() => void remove(a.id)} aria-label={t('vehicleDetail.accessories.remove')}>

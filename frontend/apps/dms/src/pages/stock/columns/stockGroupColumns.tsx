@@ -9,7 +9,7 @@ import {
   translatedStockLifecycleLabel,
   translatedStockReservationLabel,
 } from '../../../stockOptions'
-import { formatCurrencyChf, formatDate, formatNumber } from '../../../utils/format'
+import { formatCurrencyChf, formatDate, formatDateOnly, formatNumber } from '../../../utils/format'
 import type { StockItemGroupRead } from '../../../api/types'
 
 type Translate = (key: string) => string
@@ -93,7 +93,7 @@ export function buildStockGroupColumns(t: Translate, locale: string): GridColumn
     {
       id: 'firstRegistrationDate',
       header: t('stockDetail.spec.firstRegistrationDate'),
-      cell: ({ row }) => (row.original.firstRegistrationDate ? formatDate(row.original.firstRegistrationDate, locale) : '—'),
+      cell: ({ row }) => (row.original.firstRegistrationDate ? formatDateOnly(row.original.firstRegistrationDate, locale) : '—'),
       meta: { defaultVisible: false },
     },
     {

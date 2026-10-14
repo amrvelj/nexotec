@@ -3,7 +3,8 @@ import { Alert, Badge, Button, Group, Loader, NumberInput, Select, Stack, Table,
 import { AlertTriangle, Plus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { ApiError } from '../../api/client'
-import { formatNumber } from '../../utils/format'
+import { toSwissLocale, type SupportedLanguage } from '../../i18n'
+import { formatDateOnly, formatNumber } from '../../utils/format'
 import type { OdometerSource, VehicleOdometerReadingRead } from '../../api/types'
 
 interface OdometerTabProps {
@@ -22,7 +23,8 @@ const SOURCES: OdometerSource[] = ['service_visit', 'sale', 'valuation', 'manual
  * that could exclude one).
  */
 export function OdometerTab({ readings, loading, onAdd }: OdometerTabProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = toSwissLocale(i18n.language as SupportedLanguage)
   const [value, setValue] = useState<number | ''>('')
   const [date, setDate] = useState('')
   const [source, setSource] = useState<OdometerSource>('manual')
@@ -91,7 +93,7 @@ export function OdometerTab({ readings, loading, onAdd }: OdometerTabProps) {
             {readings.map((r) => (
               <Table.Tr key={r.id}>
                 <Table.Td>{formatNumber(r.value)}</Table.Td>
-                <Table.Td>{r.readingDate}</Table.Td>
+                <Table.Td>{formatDateOnly(r.readingDate, locale)}</Table.Td>
                 <Table.Td>{t(`vehicleDetail.odometer.sourceLabel.${r.source}`)}</Table.Td>
                 <Table.Td>
                   {r.implausible && (

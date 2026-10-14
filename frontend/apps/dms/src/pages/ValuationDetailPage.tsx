@@ -10,7 +10,7 @@ import { buildValuationRowMenu } from '../components/valuationRowMenu'
 import { ValuationSourceMarker } from '../components/ValuationSourceMarker'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
-import { formatCurrencyChf, formatDate, formatNumber } from '../utils/format'
+import { formatCurrencyChf, formatDate, formatDateOnly, formatNumber } from '../utils/format'
 import { CustomerDetailContent } from './CustomerDetailPage'
 import { HostConfigurationCard } from '../components/configurator/HostConfigurationCard'
 import type { ValuationRead } from '../api/types'
@@ -169,7 +169,7 @@ export function ValuationDetailContent({ valuationId: id, embedded = false }: Va
             { label: t('valuationDetail.vehicleCard.vin'), value: valuation.vehicleVin ?? '—' },
             { label: t('valuationDetail.vehicleCard.plate'), value: valuation.vehiclePlate ?? '—' },
             { label: t('valuationDetail.vehicleCard.mileage'), value: valuation.mileage != null ? `${formatNumber(valuation.mileage)} km` : '—' },
-            { label: t('valuationDetail.vehicleCard.firstRegistration'), value: valuation.vehicleFirstRegistration ? formatDate(valuation.vehicleFirstRegistration, locale) : '—' },
+            { label: t('valuationDetail.vehicleCard.firstRegistration'), value: valuation.vehicleFirstRegistration ? formatDateOnly(valuation.vehicleFirstRegistration, locale) : '—' },
             { label: t('valuationDetail.vehicleCard.customer'), value: valuation.customerLabel ?? t('valuationsList.noCustomer') },
           ]}
         />

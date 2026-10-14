@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from '../../i18n'
@@ -269,5 +269,30 @@ describe('IdentificationPanel', () => {
 
     await waitFor(() => expect(onStart).toHaveBeenCalledTimes(1))
     expect(onStart.mock.calls[0][0].matchMethod).toBe('stammnummer')
+  })
+})
+
+// KAN-333 — a plate record's first registration date is date-only: the
+// picker's sublabel showed raw ISO; now dd.MM.yyyy, the recorded day even
+// west of Greenwich.
+describe('IdentificationPanel plate-record first registration (KAN-333)', () => {
+  let tz: string | undefined
+  beforeAll(() => {
+    tz = process.env.TZ
+    process.env.TZ = 'Pacific/Honolulu'
+  })
+  afterAll(() => {
+    if (tz === undefined) delete process.env.TZ
+    else process.env.TZ = tz
+  })
+
+  it('renders each sublabel date as dd.MM.yyyy', async () => {
+    const user = userEvent.setup()
+    setup([{ method: 'GET', match: /^\/vehicle-identification$/, handler: () => WECHSELSCHILD }])
+
+    await identify(user, 'ZH999999')
+    expect(await screen.findByText('111222333 · 12.05.2011')).toBeInTheDocument()
+    expect(screen.getByText('444555666 · 01.03.2022')).toBeInTheDocument()
+    expect(screen.queryByText(/2011-05-12/)).not.toBeInTheDocument()
   })
 })

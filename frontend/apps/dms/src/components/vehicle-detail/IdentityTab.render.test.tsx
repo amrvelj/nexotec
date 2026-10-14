@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, screen } from '@testing-library/react'
 import i18n from '../../i18n'
 import { renderWithProviders } from '../../test/renderWithProviders'
@@ -103,5 +103,44 @@ describe('IdentityTab party rows show the holder, never the customer id (KAN-140
     expect(onClose).not.toHaveBeenCalled()
     fireEvent.keyDown(window, { key: 'Escape' })
     expect(onClose).toHaveBeenCalledTimes(1)
+  })
+})
+
+// KAN-333 — the first registration date is date-only: it showed raw ISO
+// (`2021-04-01`); now dd.MM.yyyy, the recorded day even west of Greenwich,
+// while the editor still opens on the ISO value the API takes.
+describe('IdentityTab first registration date (KAN-333)', () => {
+  let tz: string | undefined
+  beforeAll(() => {
+    tz = process.env.TZ
+    process.env.TZ = 'Pacific/Honolulu'
+  })
+  afterAll(() => {
+    if (tz === undefined) delete process.env.TZ
+    else process.env.TZ = tz
+  })
+
+  it('renders dd.MM.yyyy as the recorded day', () => {
+    installFakeBackend([])
+    renderWithProviders(
+      <IdentityTab
+        vehicle={{ ...vehicle, firstRegistrationDate: '2021-04-01' }}
+        parties={[]}
+        formerParties={[]}
+        onSaveField={async () => {}}
+        onReload={() => {}}
+        onAllocate={async () => {}}
+        customerCandidates={[]}
+        customerSearch=""
+        onCustomerSearchChange={() => {}}
+        onCustomerOverlayClose={() => {}}
+      />,
+    )
+    expect(screen.getByText('01.04.2021')).toBeInTheDocument()
+    expect(screen.queryByText('2021-04-01')).not.toBeInTheDocument()
+    expect(screen.queryByText('31.03.2021')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('01.04.2021'))
+    expect(screen.getByDisplayValue('2021-04-01')).toBeInTheDocument()
   })
 })

@@ -1,7 +1,8 @@
 import { Badge, Card, Group, Stack, Text } from '@mantine/core'
 import { AlertTriangle, PencilRuler } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { formatCurrencyChf, formatNumber } from '../../utils/format'
+import { toSwissLocale, type SupportedLanguage } from '../../i18n'
+import { formatCurrencyChf, formatDateOnly, formatNumber } from '../../utils/format'
 import { SpecGrid } from '@nexotec/ui-kit'
 import type { ConfigurationRead } from '../../api/types'
 import { CODED_FIELDS, CODED_REF_LIST_CODES } from '../../configurationOptions'
@@ -25,7 +26,8 @@ export interface ConfigurationSummaryCardProps {
  * renders `⚠ <code>`, never the raw code silently. It fetches nothing else.
  */
 export function ConfigurationSummaryCard({ configuration, onOpenConfigurator }: ConfigurationSummaryCardProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = toSwissLocale(i18n.language as SupportedLanguage)
   const labels = useReferenceLabelLookup(CODED_REF_LIST_CODES)
   const c = configuration
   const s = c.spec
@@ -40,7 +42,7 @@ export function ConfigurationSummaryCard({ configuration, onOpenConfigurator }: 
     }),
     { label: t('catalogueBrowse.columns.ps'), value: s.ps != null ? formatNumber(s.ps) : '—' },
     { label: t('catalogueBrowse.columns.displacementCcm'), value: s.displacementCcm != null ? formatNumber(s.displacementCcm) : '—' },
-    { label: t('configurator.summary.firstRegistration'), value: c.firstRegistrationDate ?? '—' },
+    { label: t('configurator.summary.firstRegistration'), value: c.firstRegistrationDate ? formatDateOnly(c.firstRegistrationDate, locale) : '—' },
     { label: t('configurator.summary.mileage'), value: c.mileageKm != null ? `${formatNumber(c.mileageKm)} km` : '—' },
     { label: t('configurator.summary.colour'), value: c.exteriorColour ?? '—' },
   ]

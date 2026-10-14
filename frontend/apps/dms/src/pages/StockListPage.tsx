@@ -35,7 +35,7 @@ import {
   translatedStockLifecycleOptions,
   translatedStockReservationLabel,
 } from '../stockOptions'
-import { formatDate, formatCurrencyChf, formatNumber } from '../utils/format'
+import { formatCurrencyChf, formatDate, formatDateOnly, formatNumber } from '../utils/format'
 import { parseSortParam, serializeSort } from '../utils/sortParam'
 import { GroupStockGrid } from './stock/GroupStockGrid'
 import { AddToPipelineButton } from './stock/AddToPipelineButton'
@@ -305,19 +305,19 @@ export function StockListPage() {
       {
         id: 'purchaseDate',
         header: t('stockList.columns.purchaseDate'),
-        cell: ({ row }) => (row.original.purchaseDate ? formatDate(row.original.purchaseDate, locale) : '—'),
+        cell: ({ row }) => (row.original.purchaseDate ? formatDateOnly(row.original.purchaseDate, locale) : '—'),
         meta: { defaultVisible: false },
       },
       {
         id: 'orderDate',
         header: t('stockList.columns.orderDate'),
-        cell: ({ row }) => (row.original.orderDate ? formatDate(row.original.orderDate, locale) : '—'),
+        cell: ({ row }) => (row.original.orderDate ? formatDateOnly(row.original.orderDate, locale) : '—'),
         meta: { defaultVisible: false },
       },
       {
         id: 'expectedDelivery',
         header: t('stockList.columns.expectedDelivery'),
-        cell: ({ row }) => (row.original.expectedDelivery ? formatDate(row.original.expectedDelivery, locale) : '—'),
+        cell: ({ row }) => (row.original.expectedDelivery ? formatDateOnly(row.original.expectedDelivery, locale) : '—'),
         meta: { defaultVisible: false },
       },
       {
