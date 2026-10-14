@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '../test/renderWithProviders'
@@ -66,5 +66,27 @@ describe('IntegrationPlatformView fleet health board — pending variants (KAN-7
     await waitFor(() => expect(screen.getByText('auto_i_dat')).toBeInTheDocument())
     expect(screen.queryByText(/\d+ ausstehend/)).not.toBeInTheDocument()
     expect(screen.getAllByText('—').length).toBeGreaterThan(0)
+  })
+})
+
+// KAN-333 — the catalogue sync's system watermark is a date-only value;
+// formatDate rendered it a day early anywhere west of Greenwich.
+describe('IntegrationPlatformView fleet health board — the watermark date (KAN-333)', () => {
+  let tz: string | undefined
+  beforeAll(() => {
+    tz = process.env.TZ
+    process.env.TZ = 'Pacific/Honolulu'
+  })
+  afterAll(() => {
+    if (tz === undefined) delete process.env.TZ
+    else process.env.TZ = tz
+  })
+
+  it('renders the system watermark as the recorded day', async () => {
+    install(syncRow([]))
+    renderWithProviders(<IntegrationPlatformView />)
+    await waitFor(() => expect(screen.getByText('auto_i_dat')).toBeInTheDocument())
+    expect(screen.getByText('07.10.2026')).toBeInTheDocument()
+    expect(screen.queryByText('06.10.2026')).not.toBeInTheDocument()
   })
 })

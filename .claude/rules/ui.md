@@ -112,6 +112,16 @@ change plus an ADR — never a local component. No colour outside the tokens.
   other capture is registered with `scripts/dev/gate evidence screenshot <file>`. The hand-over
   gate checks for one of this exact tree.
 
+## Dates
+
+A date-only value (a backend `dt.date`: birth date, purchase date, first registration, a
+plate's validity, …) names a calendar day and renders through `formatDateOnly`; `formatDate`
+and `formatDateTime` are for timestamps, which they render in the browser's zone (KAN-180,
+KAN-333). `src/architecture/date-only-fields-format.test.ts` refuses `formatDate` on a field
+named `…Date`, `…Since`, `…FollowUp`, `expectedDelivery` or `vehicleFirstRegistration`; a
+field whose name it cannot judge (`validFrom` is a date on a plate, a timestamp on a contact
+channel) is checked by the screen's render test under `TZ=Pacific/Honolulu`.
+
 ## API types (KAN-35)
 
 `src/api/schema.d.ts` is generated from the backend's own `app.openapi()` and diffed in CI

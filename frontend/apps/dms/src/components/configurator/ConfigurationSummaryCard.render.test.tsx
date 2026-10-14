@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -219,5 +219,28 @@ describe('ConfigurationSummaryCard', () => {
     } finally {
       await i18n.changeLanguage('de')
     }
+  })
+})
+
+// KAN-333 — the first registration date is date-only: it showed raw ISO;
+// now dd.MM.yyyy, the recorded day even west of Greenwich.
+describe('ConfigurationSummaryCard first registration date (KAN-333)', () => {
+  let tz: string | undefined
+  beforeAll(() => {
+    tz = process.env.TZ
+    process.env.TZ = 'Pacific/Honolulu'
+  })
+  afterAll(() => {
+    if (tz === undefined) delete process.env.TZ
+    else process.env.TZ = tz
+  })
+
+  it('renders dd.MM.yyyy as the recorded day', async () => {
+    installFakeBackend(listRoutes())
+    renderIn('h', config({ ...coded, firstRegistrationDate: '1975-06-01' }))
+    const card = screen.getByTestId('configuration-summary-card')
+    await waitFor(() => expect(card).toHaveTextContent('01.06.1975'))
+    expect(card).not.toHaveTextContent('1975-06-01')
+    expect(card).not.toHaveTextContent('31.05.1975')
   })
 })

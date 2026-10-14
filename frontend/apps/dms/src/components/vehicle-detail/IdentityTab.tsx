@@ -4,6 +4,8 @@ import { UserPlus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { InlineEditField, KeyValueRow, OverviewCard, Picker, purple, useOverlay } from '@nexotec/ui-kit'
 import { ApiError } from '../../api/client'
+import { toSwissLocale, type SupportedLanguage } from '../../i18n'
+import { formatDateOnly } from '../../utils/format'
 import { CustomerDetailContent } from '../../pages/CustomerDetailPage'
 import type { VehicleMdmRead, VehiclePartyAllocationRead, VehiclePartyRole } from '../../api/types'
 
@@ -45,7 +47,8 @@ export function IdentityTab({
   onCustomerSearchChange,
   onCustomerOverlayClose,
 }: IdentityTabProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = toSwissLocale(i18n.language as SupportedLanguage)
   const [allocating, setAllocating] = useState(false)
   const [allocationSaving, setAllocationSaving] = useState(false)
   const [allocationError, setAllocationError] = useState<string | null>(null)
@@ -133,7 +136,8 @@ export function IdentityTab({
         </KeyValueRow>
         <KeyValueRow label={t('vehicleDetail.identity.firstRegistrationDate')}>
           <InlineEditField
-            value={vehicle.firstRegistrationDate ?? ''}
+            value={vehicle.firstRegistrationDate ? formatDateOnly(vehicle.firstRegistrationDate, locale) : ''}
+            editValue={vehicle.firstRegistrationDate ?? ''}
             isEmpty={!vehicle.firstRegistrationDate}
             emptyLabel={t('common.notSet')}
             onSave={(v) => onSaveField({ firstRegistrationDate: v || null })}

@@ -61,5 +61,5 @@ describe('CustomersListPage — date-only columns keep their day west of Greenwi
     expect(screen.queryByText('30.04.1980')).not.toBeInTheDocument()
     expect(screen.queryByText('14.01.2020')).not.toBeInTheDocument()
     expect(screen.queryByText('31.10.2026')).not.toBeInTheDocument()
-  }, 20000)
+  })
 })

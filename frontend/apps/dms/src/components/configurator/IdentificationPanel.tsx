@@ -4,7 +4,8 @@ import { AlertTriangle, Info, ScanSearch } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { ChfInput, Picker, type PickerRow } from '@nexotec/ui-kit'
 import { api, ApiError } from '../../api/client'
-import { formatCurrencyChf } from '../../utils/format'
+import { toSwissLocale, type SupportedLanguage } from '../../i18n'
+import { formatCurrencyChf, formatDateOnly } from '../../utils/format'
 import type { ConfiguratorMode } from '../../configurationOptions'
 import type {
   BestMatchProposalRead,
@@ -52,7 +53,8 @@ const SILENT_NOTES = new Set(['vin_decode_not_entitled'])
  * proposal they confirm, never applied.
  */
 export function IdentificationPanel({ allowedModes, onStart, onReuse, onQueryChange }: IdentificationPanelProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = toSwissLocale(i18n.language as SupportedLanguage)
   const [query, setQuery] = useState('')
   const [result, setResult] = useState<IdentificationRead | null>(null)
   // A plate record the advisor picked: its observed facts ride along when
@@ -217,7 +219,9 @@ export function IdentificationPanel({ allowedModes, onStart, onReuse, onQueryCha
                     id: String(index),
                     identifier: r.typeApprovalNumber,
                     label: `${r.brandName} ${r.modelDescription}`,
-                    sublabel: [r.stammnummer, r.firstRegistrationDate].filter(Boolean).join(' · '),
+                    sublabel: [r.stammnummer, r.firstRegistrationDate ? formatDateOnly(r.firstRegistrationDate, locale) : null]
+                      .filter(Boolean)
+                      .join(' · '),
                   }),
                 )}
                 query=""

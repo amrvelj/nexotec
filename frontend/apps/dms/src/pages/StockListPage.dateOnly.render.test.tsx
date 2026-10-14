@@ -76,7 +76,7 @@ describe('StockListPage — date-only columns keep their day west of Greenwich (
     for (const shifted of ['14.09.2026', '02.08.2026', '30.11.2026']) {
       expect(screen.queryByText(shifted)).not.toBeInTheDocument()
     }
-  }, 20000)
+  })
 
   // The group grid offers no column chooser today (filed as a follow-up), so
   // its hidden first-registration column is checked through its own cell.
