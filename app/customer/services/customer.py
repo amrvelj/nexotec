@@ -2657,7 +2657,9 @@ def update_customer_vehicle(
     does. The advisory lock is taken before the row lock, in the order the
     allocation takes them, so the two never deadlock. The copy a customer
     merge kept (KAN-177, `merged_into_customer_id`) is never reopened: 409
-    `merged_party_row`."""
+    `merged_party_row`. KAN-352: a PATCH that ends a holding row (an
+    `effectiveTo` now or past) publishes `customer.vehicle_party.unlinked`,
+    as Disconnect does."""
 
     changes = data.model_dump(exclude_unset=True)
     holds_after = "effective_to" in changes and _is_open(changes["effective_to"])
@@ -2703,11 +2705,16 @@ def update_customer_vehicle(
             details={"vehicleId": str(party.vehicle_id), "role": party.role.value},
         ) from exc
 
-    if holds_after and not held_before:
+    # KAN-352: the holder changes in either direction, so the event does
+    # too — a reopen is `linked`, an end now or in the past is `unlinked`, as
+    # Disconnect publishes it. A PATCH that leaves the row holding (or not)
+    # publishes nothing new.
+    ends_now = held_before and "effective_to" in changes and not holds_after
+    if (holds_after and not held_before) or ends_now:
         publish_event(
             db,
             OutboxEvent(
-                event_type="customer.vehicle_party.linked",
+                event_type="customer.vehicle_party.linked" if holds_after else "customer.vehicle_party.unlinked",
                 tenant_id=group_id,
                 producer=_EVENT_PRODUCER,
                 aggregate_type="vehicle_party",

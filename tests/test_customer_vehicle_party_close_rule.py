@@ -256,6 +256,64 @@ def test_a_patch_that_ends_a_row_closes_nobody_else(db_session):
     assert _open_holders(db_session, vehicle.id, VehiclePartyRole.KEEPER) == {bruno.id}
 
 
+# --- KAN-352: a PATCH that ends a holding row publishes `unlinked` -------------
+
+
+@pytest.mark.parametrize("end", ["now", "past"])
+def test_a_patch_that_ends_a_holding_row_publishes_one_unlinked_event(db_session, end):
+    """CLAUDE.md rule 4: ending a holder by PATCH is the same fact as a
+    Disconnect, so it publishes `customer.vehicle_party.unlinked` in the same
+    transaction, carrying the new end."""
+
+    group_id = uuid.uuid4()
+    vehicle = _vehicle(db_session, "WVWZZZ1KZAW352001")
+    alice = _customer(db_session, group_id, "Alice")
+    party = allocate_vehicle_party(
+        db_session, vehicle_id=vehicle.id, customer_id=alice.id, role=OWNER, group_id=group_id,
+        actor_id=uuid.uuid4(), effective_from=utcnow() - dt.timedelta(days=30),
+    )
+    effective_to = utcnow() if end == "now" else utcnow() - dt.timedelta(days=3)
+
+    _patch(db_session, (party.customer_id, party.id), group_id, effective_to=effective_to)
+
+    unlinked = _events(db_session, "customer.vehicle_party.unlinked", party.id)
+    assert len(unlinked) == 1
+    assert unlinked[0].tenant_id == group_id
+    assert dt.datetime.fromisoformat(unlinked[0].payload["effectiveTo"]) == effective_to
+    assert len(_events(db_session, "customer.vehicle_party.linked", party.id)) == 1  # the allocation's only
+
+
+def test_a_patch_that_ends_a_row_with_a_future_end_publishes_nothing_new(db_session):
+    """An end still to come leaves the row holding its role: no `unlinked`."""
+
+    group_id = uuid.uuid4()
+    vehicle = _vehicle(db_session, "WVWZZZ1KZAW352002")
+    party = _allocate(db_session, vehicle.id, _customer(db_session, group_id, "Alice"), group_id)
+
+    _patch(db_session, (party.customer_id, party.id), group_id, effective_to=utcnow() + dt.timedelta(days=10))
+
+    assert _events(db_session, "customer.vehicle_party.unlinked", party.id) == []
+
+
+def test_a_patch_to_an_already_closed_row_publishes_no_second_unlinked_event(db_session):
+    """Moving the end of a row that is already history changes no holder:
+    the Disconnect's one `unlinked` stays the only one."""
+
+    group_id = uuid.uuid4()
+    vehicle = _vehicle(db_session, "WVWZZZ1KZAW352003")
+    party = allocate_vehicle_party(
+        db_session, vehicle_id=vehicle.id, customer_id=_customer(db_session, group_id, "Alice").id, role=OWNER,
+        group_id=group_id, actor_id=uuid.uuid4(), effective_from=utcnow() - dt.timedelta(days=30),
+    )
+    delete_customer_vehicle(db_session, party=party, actor_id=uuid.uuid4(), group_id=group_id)
+    assert len(_events(db_session, "customer.vehicle_party.unlinked", party.id)) == 1
+
+    _patch(db_session, (party.customer_id, party.id), group_id, effective_to=utcnow() - dt.timedelta(days=2))
+    _patch(db_session, (party.customer_id, party.id), group_id, effective_from=utcnow() - dt.timedelta(days=20))
+
+    assert len(_events(db_session, "customer.vehicle_party.unlinked", party.id)) == 1
+
+
 def test_reopening_never_closes_another_groups_holder(db_session):
     group_a, group_b = uuid.uuid4(), uuid.uuid4()
     vehicle = _vehicle(db_session, "WVWZZZ1KZAW148008")
