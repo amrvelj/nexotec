@@ -71,7 +71,8 @@ describe('StockListPage — the group grid has a column chooser (KAN-357)', () =
       expect(screen.queryByRole('columnheader', { name: new RegExp(`^${escape(column.header())}`, 'i') })).toBeNull()
     }
 
-    await user.click(screen.getByRole('button', { name: 'Columns' }))
+    await user.click(screen.getByRole('button', { name: i18n.t('common.columnPanel.trigger') }))
+    expect(screen.getByPlaceholderText(i18n.t('common.columnPanel.search'))).toBeInTheDocument()
     for (const column of HIDDEN) {
       await user.click(screen.getByRole('checkbox', { name: new RegExp(`^${escape(column.header())}$`, 'i') }))
     }
@@ -86,5 +87,5 @@ describe('StockListPage — the group grid has a column chooser (KAN-357)', () =
 
     await waitFor(() => expect(backend.callsTo(/\/me\/preferences\/grid:inventory\.stock\.group$/, 'PUT').length).toBeGreaterThan(0))
     expect(backend.callsTo(/\/me\/preferences\/grid:inventory\.stock\.list$/, 'PUT')).toHaveLength(0)
-  }, 20000)
+  })
 })

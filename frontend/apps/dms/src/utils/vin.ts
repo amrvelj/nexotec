@@ -15,13 +15,15 @@ export function normalisedVin(input: string): string | null {
 }
 
 /**
- * KAN-351: a 17-character input the API would refuse as a VIN — O typed for
+ * KAN-351: 17 letters and digits the API would refuse as a VIN — O typed for
  * 0, say. The configurator's find phase does not keep it as the VIN
  * (`normalisedVin`), so the screen says why instead of dropping it silently.
+ * An input with `.`, `/` or `-` is a Werkscode shape
+ * (`app/vehicle/services/identification.py`), never flagged.
  */
 export function isMalformedVin(input: string): boolean {
   const compact = input.replace(/\s/g, '').toUpperCase()
-  return compact.length === 17 && !VIN_PATTERN.test(compact)
+  return /^[A-Z0-9]{17}$/.test(compact) && !VIN_PATTERN.test(compact)
 }
 
 /**

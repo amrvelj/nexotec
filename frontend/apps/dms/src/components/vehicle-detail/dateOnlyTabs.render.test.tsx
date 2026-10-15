@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import i18n from '../../i18n'
 import { MantineProvider } from '@mantine/core'
 import { theme } from '@nexotec/ui-kit'
 import { AccessoriesTab } from './AccessoriesTab'
@@ -52,5 +53,36 @@ describe('Vehicle detail tabs — date-only values read dd.MM.yyyy west of Green
     expect(screen.getByText('01.01.2022')).toBeInTheDocument()
     expect(screen.getByText('31.12.2025')).toBeInTheDocument()
     expect(screen.queryByText('31.12.2021')).not.toBeInTheDocument()
+  })
+})
+
+// KAN-358 — a new accessory is valid from today: the local calendar day, not
+// the UTC day (yesterday between midnight and 01:00/02:00 Swiss time).
+describe('Accessories — a new accessory is valid from the local day (KAN-358)', () => {
+  let tz: string | undefined
+  beforeAll(() => {
+    tz = process.env.TZ
+    process.env.TZ = 'Europe/Zurich'
+  })
+  afterAll(() => {
+    if (tz === undefined) delete process.env.TZ
+    else process.env.TZ = tz
+  })
+  afterEach(() => vi.useRealTimers())
+
+  it('at 00:30 Zurich time it is added with today, not yesterday', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    // 2026-10-14T22:30Z is 00:30 on 15 October in Zurich (CEST, UTC+2).
+    vi.setSystemTime(new Date('2026-10-14T22:30:00Z'))
+    const onAdd = vi.fn(async () => {})
+    render(
+      <MantineProvider theme={theme} env="test">
+        <AccessoriesTab accessories={[]} loading={false} onAdd={onAdd} onRemove={vi.fn()} />
+      </MantineProvider>,
+    )
+    fireEvent.change(screen.getByLabelText(i18n.t('vehicleDetail.accessories.type')), { target: { value: 'Dachträger' } })
+    fireEvent.click(screen.getByRole('button', { name: i18n.t('vehicleDetail.accessories.add') }))
+
+    await waitFor(() => expect(onAdd).toHaveBeenCalledWith('Dachträger', '', '2026-10-15'))
   })
 })

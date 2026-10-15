@@ -21,11 +21,11 @@ describe('normalisedVin — the API rule, mirrored (KAN-338)', () => {
 })
 
 describe('isMalformedVin — a 17-character input the API refuses (KAN-351)', () => {
-  it.each(['WVWZZZ1KZAO331338', 'wvwzzz1kzai331338', 'WVW ZZZ 1KZ AQ3 31338', 'WVWZZZ1KZAW33133-'])('%j is malformed', (input) => {
+  it.each(['WVWZZZ1KZAO331338', 'wvwzzz1kzai331338', 'WVW ZZZ 1KZ AQ3 31338'])('%j is malformed', (input) => {
     expect(isMalformedVin(input)).toBe(true)
   })
 
-  it.each(['WVWZZZ1KZAW331338', 'wvw zzz 1kz aw3 31338', 'ZH 12345', '123456789', 'WVWZZZ1KZAO', ''])('%j is not', (input) => {
+  it.each(['WVWZZZ1KZAW331338', 'wvw zzz 1kz aw3 31338', 'ZH 12345', '123456789', 'WVWZZZ1KZAO', 'AB-1234.5678/9012', ''])('%j is not', (input) => {
     expect(isMalformedVin(input)).toBe(false)
   })
 })

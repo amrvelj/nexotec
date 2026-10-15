@@ -88,7 +88,14 @@
     "loading": "Caricamento…",
     "requestFailed": "La richiesta non è riuscita. Riprova.",
     "dismiss": "Chiudi messaggio",
-    "invalidVin": "VIN non valido: 17 caratteri, solo lettere e cifre, senza I, O e Q."
+    "invalidVin": "VIN non valido: 17 caratteri, solo lettere e cifre, senza I, O e Q.",
+    "columnPanel": {
+      "trigger": "Colonne",
+      "search": "Cerca una colonna…",
+      "reset": "Ripristina predefinito",
+      "presets": "Modelli",
+      "lockedTooltip": "Sempre visibile"
+    }
   },
   "customerCreate": {
     "title": "Nuovo cliente",
@@ -1552,8 +1559,7 @@
       "idHint": "VIN, targa, numero di matricola, approvazione del tipo o codice di fabbrica — un solo campo, il sistema riconosce quale.",
       "manual": "Configura manualmente",
       "browse": "Sfoglia il catalogo",
-      "unverifiedNote": "Configurazione manuale — contrassegnata come «non verificata» finché non è associata a una voce di catalogo. Nessuna valutazione, nessuna pubblicazione fino ad allora.",
-      "vinNotKept": "VIN non valido (17 caratteri, solo lettere e cifre, senza I, O e Q): non verrà ripreso come VIN del veicolo."
+      "unverifiedNote": "Configurazione manuale — contrassegnata come «non verificata» finché non è associata a una voce di catalogo. Nessuna valutazione, nessuna pubblicazione fino ad allora."
     },
     "configure": {
       "title": "Configura",

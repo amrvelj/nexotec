@@ -20,7 +20,8 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   vi.useRealTimers()
-  process.env.TZ = ORIGINAL_TZ
+  if (ORIGINAL_TZ === undefined) delete process.env.TZ
+  else process.env.TZ = ORIGINAL_TZ
 })
 
 function purchaseDateField(): HTMLInputElement {

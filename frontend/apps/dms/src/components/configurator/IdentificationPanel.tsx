@@ -141,8 +141,8 @@ export function IdentificationPanel({ allowedModes, onStart, onReuse, onQueryCha
           description={t('configurator.find.idHint')}
           // KAN-351 — a 17-character input that is no VIN by the API's rule
           // is not kept as the car's VIN (ConfiguratorOverlay, KAN-338); the
-          // input says so instead of the VIN vanishing in phase 2.
-          error={isMalformedVin(query) ? t('configurator.find.vinNotKept') : undefined}
+          // input names the VIN rule instead of the VIN vanishing in phase 2.
+          error={isMalformedVin(query) ? t('common.invalidVin') : undefined}
           value={query}
           onChange={(e) => {
             setQuery(e.currentTarget.value)

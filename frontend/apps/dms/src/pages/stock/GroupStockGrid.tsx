@@ -30,9 +30,10 @@ interface GroupStockGridProps {
 }
 
 /** A stable grid key: renaming it discards every user's layout (UI/UX
- * Specification, User-Level Preference Persistence). Its own key, never the
- * own-stock grid's — the group roster is another grid (ADR-055: "per grid"). */
-export const GROUP_GRID_KEY = 'inventory.stock.group'
+ * Specification, User-Level Preference Persistence: "one per user per
+ * grid"). Its own key, never the own-stock grid's: ADR-055 treats the group
+ * roster as a different artefact, whose rules bind per grid. */
+const GROUP_GRID_KEY = 'inventory.stock.group'
 
 /**
  * § ADR-055 — "a different artefact, dressed differently, not a greyed-
@@ -110,6 +111,13 @@ export function GroupStockGrid({ query, debouncedQuery, onQueryChange, sort, onS
               registry={columnRegistry}
               layout={columnLayout}
               onLayoutChange={gridPrefs.setColumnLayout}
+              labels={{
+                trigger: t('common.columnPanel.trigger'),
+                search: t('common.columnPanel.search'),
+                reset: t('common.columnPanel.reset'),
+                presets: t('common.columnPanel.presets'),
+                lockedTooltip: t('common.columnPanel.lockedTooltip'),
+              }}
             />
           }
           labels={{

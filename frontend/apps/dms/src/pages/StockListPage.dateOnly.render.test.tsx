@@ -78,8 +78,9 @@ describe('StockListPage — date-only columns keep their day west of Greenwich (
     }
   })
 
-  // The group grid offers no column chooser today (filed as a follow-up), so
-  // its hidden first-registration column is checked through its own cell.
+  // The group grid's first-registration column is hidden by default; its
+  // cell is checked directly here, and shown through the column chooser in
+  // StockListPage.groupColumns.render.test.tsx (KAN-357).
   it('group stock: the first registration date cell renders the recorded day', () => {
     const column = buildStockGroupColumns(i18n.t, 'de-CH').find((c) => c.id === 'firstRegistrationDate')!
     const cell = column.cell as (ctx: { row: { original: StockItemGroupRead } }) => string
