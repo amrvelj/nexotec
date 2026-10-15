@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { formatCurrencyChf, formatDate, formatDateOnly, formatDateTime, formatNumber } from './format'
+import { formatCurrencyChf, formatDate, formatDateOnly, formatDateTime, formatNumber, todayLocalIsoDate } from './format'
 
 // First real test in this workspace — establishes the vitest lane (WP-1,
 // Gap G-14b). Exercises FR-13's fixed Swiss dd.MM.yyyy convention, which is
@@ -103,5 +103,12 @@ describe('formatCurrencyChf', () => {
     const result = formatCurrencyChf(-42.5)
     expect(result).toBe('− CHF 42.50')
     expect(result.startsWith('-')).toBe(false)
+  })
+})
+
+describe('todayLocalIsoDate (KAN-358)', () => {
+  it('names the local calendar day, zero-padded', () => {
+    expect(todayLocalIsoDate(new Date(2027, 0, 1, 0, 30))).toBe('2027-01-01')
+    expect(todayLocalIsoDate(new Date(2026, 9, 5, 23, 59))).toBe('2026-10-05')
   })
 })

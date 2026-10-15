@@ -120,7 +120,10 @@ and `formatDateTime` are for timestamps, which they render in the browser's zone
 KAN-333). `src/architecture/date-only-fields-format.test.ts` refuses `formatDate` on a field
 named `…Date`, `…Since`, `…FollowUp`, `expectedDelivery` or `vehicleFirstRegistration`; a
 field whose name it cannot judge (`validFrom` is a date on a plate, a timestamp on a contact
-channel) is checked by the screen's render test under `TZ=Pacific/Honolulu`.
+channel) is checked by the screen's render test under `TZ=Pacific/Honolulu`. Today's date as a pre-fill is
+`todayLocalIsoDate()` (`utils/format.ts`), the user's calendar day — never
+`toISOString().slice(0, 10)`, the UTC day, which is yesterday between midnight and 01:00/02:00
+Swiss time (KAN-358; `src/architecture/no-utc-calendar-day.test.ts` refuses it).
 
 ## API types (KAN-35)
 

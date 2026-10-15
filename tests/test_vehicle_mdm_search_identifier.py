@@ -135,3 +135,41 @@ def test_a_half_typed_vehicle_number_or_vin_prefix_still_filters(client, db_sess
     by_vin_prefix = client.get("/v1/vehicle-mdm/search?q=VF1", headers=_bearer()).json()
     assert by_vin_prefix["resolved"] is None
     assert [v["vin"] for v in by_vin_prefix["filtered"]["items"]] == ["VF1RFB00X57123456"]
+
+
+def test_a_lower_cased_or_spaced_vin_resolves_the_car(client, db_session):
+    """KAN-360: the search box normalises a VIN as `NormalisedVin` does
+    for every write (KAN-244) — lower case and groups are the same VIN."""
+
+    target = _seed(db_session)
+    db_session.commit()
+
+    for q in [TARGET_VIN.lower(), "ZAR94 00000 7123456", " zar 940 000 071 234 56 "]:
+        body = client.get("/v1/vehicle-mdm/search", params={"q": q}, headers=_bearer()).json()
+
+        assert body["resolved"]["id"] == str(target.id), q
+        assert body["pickerCandidates"] == []
+        _assert_empty_page(body["filtered"])
+
+
+def test_a_non_vin_still_resolves_through_its_own_shape(client, db_session):
+    """KAN-360: normalising the VIN branch leaves the other identifier
+    shapes and the filter path as they were."""
+
+    target = _seed(db_session)
+    _plate(db_session, target.id, "ZH 12345")
+    db_session.commit()
+
+    by_plate = client.get("/v1/vehicle-mdm/search", params={"q": "ZH 12345"}, headers=_bearer()).json()
+    assert by_plate["resolved"]["id"] == str(target.id)
+
+    by_number = client.get(
+        "/v1/vehicle-mdm/search", params={"q": target.vehicle_number.lower()}, headers=_bearer()
+    ).json()
+    assert by_number["resolved"]["id"] == str(target.id)
+
+    # One character short of a VIN once normalised: no identifier, so the
+    # grid filter answers.
+    fragment = client.get("/v1/vehicle-mdm/search", params={"q": "wba3a5c51cf25698"}, headers=_bearer()).json()
+    assert fragment["resolved"] is None
+    assert [v["vin"] for v in fragment["filtered"]["items"]] == ["WBA3A5C51CF256985"]

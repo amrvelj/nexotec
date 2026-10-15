@@ -6,6 +6,7 @@ import { ChfInput, Picker, type PickerRow } from '@nexotec/ui-kit'
 import { api, ApiError } from '../../api/client'
 import { toSwissLocale, type SupportedLanguage } from '../../i18n'
 import { formatCurrencyChf, formatDateOnly } from '../../utils/format'
+import { isMalformedVin } from '../../utils/vin'
 import type { ConfiguratorMode } from '../../configurationOptions'
 import type {
   BestMatchProposalRead,
@@ -138,6 +139,10 @@ export function IdentificationPanel({ allowedModes, onStart, onReuse, onQueryCha
         <TextInput
           label={t('configurator.find.idLabel')}
           description={t('configurator.find.idHint')}
+          // KAN-351 — a 17-character input that is no VIN by the API's rule
+          // is not kept as the car's VIN (ConfiguratorOverlay, KAN-338); the
+          // input names the VIN rule instead of the VIN vanishing in phase 2.
+          error={isMalformedVin(query) ? t('common.invalidVin') : undefined}
           value={query}
           onChange={(e) => {
             setQuery(e.currentTarget.value)

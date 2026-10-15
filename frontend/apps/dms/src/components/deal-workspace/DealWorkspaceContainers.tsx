@@ -16,6 +16,7 @@ import { HostConfigurationCard } from '../configurator/HostConfigurationCard'
 import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
 import type { DealSaveQueue } from '../../hooks/useDealSaveQueue'
 import { formatCurrencyChf } from '../../utils/format'
+import { isVinRefusal } from '../../utils/vin'
 import type {
   ConfigurationRead,
   CustomerPage,
@@ -316,6 +317,9 @@ export function DealTradeInContainer<D extends SalesPricedDealRead>({
   const [tradeInLabel, setTradeInLabel] = useState('')
   const [tradeInConfiguration, setTradeInConfiguration] = useState<ConfigurationRead | null>(null)
   const [tradeInError, setTradeInError] = useState<string | null>(null)
+  // KAN-351 — a VIN the API refuses (422 on `vin`) is said at the VIN input,
+  // in the user's language; any other failure keeps the generic save error.
+  const [tradeInVinError, setTradeInVinError] = useState<string | null>(null)
   // KAN-266 — one key per kind, passed the request: a retry keeps its key
   // and replays its success; another VIN or valuation gets a new one. Each
   // success renews its kind's key.
@@ -407,7 +411,11 @@ export function DealTradeInContainer<D extends SalesPricedDealRead>({
             label={t('offerWorkspace.tradeIn.vinLabel')}
             placeholder={t('offerWorkspace.tradeIn.vinPlaceholder')}
             value={tradeInVin}
-            onChange={(e) => setTradeInVin(e.currentTarget.value)}
+            onChange={(e) => {
+              setTradeInVin(e.currentTarget.value)
+              setTradeInVinError(null)
+            }}
+            error={tradeInVinError}
           />
           <TextInput
             label={t('offerWorkspace.tradeIn.labelLabel')}
@@ -421,9 +429,14 @@ export function DealTradeInContainer<D extends SalesPricedDealRead>({
               disabled={!tradeInVin || !tradeInLabel}
               onClick={() => {
                 setTradeInError(null)
+                setTradeInVinError(null)
                 submitTradeIn({ vin: tradeInVin, plate: null, canton: null, vehicleLabel: tradeInLabel, customerId: null })
                   .then(() => setTradeInMode(false))
-                  .catch(() => setTradeInError(t('offerWorkspace.tradeIn.saveError')))
+                  .catch((err: unknown) =>
+                    isVinRefusal(err)
+                      ? setTradeInVinError(t('common.invalidVin'))
+                      : setTradeInError(t('offerWorkspace.tradeIn.saveError')),
+                  )
               }}
             >
               {t('common.save')}

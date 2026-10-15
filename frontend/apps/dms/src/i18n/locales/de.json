@@ -87,7 +87,15 @@
     "remove": "Entfernen",
     "loading": "Lädt…",
     "requestFailed": "Die Anfrage ist fehlgeschlagen. Bitte versuchen Sie es erneut.",
-    "dismiss": "Meldung schliessen"
+    "dismiss": "Meldung schliessen",
+    "invalidVin": "Keine gültige VIN: 17 Zeichen, nur Buchstaben und Ziffern, ohne I, O und Q.",
+    "columnPanel": {
+      "trigger": "Spalten",
+      "search": "Spalte suchen…",
+      "reset": "Standard wiederherstellen",
+      "presets": "Vorlagen",
+      "lockedTooltip": "Immer sichtbar"
+    }
   },
   "customerCreate": {
     "title": "Neuer Kunde",

@@ -124,8 +124,9 @@ export function StockListPage() {
     if (next === 'group') setAppliedViewId(null)
   }
 
-  // The group grid sorts on the same indexed columns but has no per-user
-  // grid preferences (§ ADR-055), so its sort lives in the URL alone.
+  // The group grid sorts on the same indexed columns; its sort lives in the
+  // URL alone (its column layout is persisted under its own grid key,
+  // GroupStockGrid, KAN-357).
   const groupSort = searchParams.get('sort') ? parseSortParam(searchParams.get('sort')!) : DEFAULT_SORT
   const setGroupSort = (next: SortSpec[]) => {
     updateUrl({ sort: next.length > 0 ? serializeSort(next) : null })

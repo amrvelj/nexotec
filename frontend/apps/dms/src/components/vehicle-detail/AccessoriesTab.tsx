@@ -4,7 +4,7 @@ import { Plus, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { ApiError } from '../../api/client'
 import { toSwissLocale, type SupportedLanguage } from '../../i18n'
-import { formatDateOnly } from '../../utils/format'
+import { formatDateOnly, todayLocalIsoDate } from '../../utils/format'
 import type { VehicleAccessoryRead } from '../../api/types'
 
 interface AccessoriesTabProps {
@@ -33,7 +33,7 @@ export function AccessoriesTab({ accessories, loading, onAdd, onRemove }: Access
     setSubmitting(true)
     setError(null)
     try {
-      await onAdd(type, description, new Date().toISOString().slice(0, 10))
+      await onAdd(type, description, todayLocalIsoDate())
       setType('')
       setDescription('')
     } catch (err) {

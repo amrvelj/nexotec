@@ -78,3 +78,24 @@ describe('RecordCostDialog — one sourceRef per request (KAN-266)', () => {
     expect(submitted[1].sourceRef).not.toBe(submitted[0].sourceRef)
   })
 })
+
+// KAN-358 — the cost date is pre-filled with the local calendar day, not the
+// UTC day (yesterday between midnight and 01:00/02:00 Swiss time).
+describe('RecordCostDialog — the default date is the local day (KAN-358)', () => {
+  it('at 00:30 Zurich time it proposes today, not yesterday', () => {
+    const tz = process.env.TZ
+    process.env.TZ = 'Europe/Zurich'
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      // 2026-10-14T22:30Z is 00:30 on 15 October in Zurich (CEST, UTC+2).
+      vi.setSystemTime(new Date('2026-10-14T22:30:00Z'))
+      renderWithProviders(<RecordCostDialog opened onClose={() => {}} onSubmit={async () => {}} />)
+      const field = screen.getByLabelText(i18n.t('stockDetail.wagenbuch.fields.occurredAt'), { exact: false }) as HTMLInputElement
+      expect(field.value).toBe('2026-10-15')
+    } finally {
+      vi.useRealTimers()
+      if (tz === undefined) delete process.env.TZ
+      else process.env.TZ = tz
+    }
+  })
+})

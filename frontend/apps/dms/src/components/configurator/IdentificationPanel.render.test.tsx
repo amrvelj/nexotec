@@ -296,3 +296,36 @@ describe('IdentificationPanel plate-record first registration (KAN-333)', () => 
     expect(screen.queryByText(/2011-05-12/)).not.toBeInTheDocument()
   })
 })
+
+// KAN-351 — a 17-character input that is no VIN by the API's rule (O typed
+// for 0) is not kept as the car's VIN, so the input names the VIN rule — the
+// same translated message the trade-in and valuation inputs show.
+describe('IdentificationPanel — a malformed VIN is named, not dropped silently (KAN-351)', () => {
+  beforeAll(async () => {
+    await i18n.changeLanguage('fr')
+  })
+  afterAll(async () => {
+    await i18n.changeLanguage('de')
+  })
+
+  const input = () => screen.getByLabelText(i18n.t('configurator.find.idLabel'), { exact: false })
+
+  it('says a 17-character input with an O is not kept as the VIN', async () => {
+    const user = userEvent.setup()
+    setup([])
+    await user.type(input(), 'wvwzzz1kzao331338')
+
+    expect(screen.getByText(i18n.t('common.invalidVin'))).toBeInTheDocument()
+    expect(i18n.t('common.invalidVin')).toMatch(/^VIN non valide/)
+  })
+
+  it('says nothing for a valid VIN, a plate, a half-typed VIN or a Werkscode', async () => {
+    const user = userEvent.setup()
+    setup([])
+    for (const text of ['WVW ZZZ 1KZ AW3 31338', 'ZH 12345', 'WVWZZZ1KZAO', 'AB-1234.5678/9012']) {
+      await user.clear(input())
+      await user.type(input(), text)
+      expect(screen.queryByText(i18n.t('common.invalidVin'))).toBeNull()
+    }
+  })
+})

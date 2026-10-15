@@ -121,3 +121,39 @@ describe('ValuationCreateDialog — one Idempotency-Key per submission (KAN-266)
     expect(reopened).not.toBe(first)
   })
 })
+
+// KAN-351 — a VIN the API refuses (422 on `vin`, KAN-331) is named at the VIN
+// input in the user's language; the dialog showed the API's English text.
+describe('ValuationCreateDialog — a refused VIN is named at the VIN input (KAN-351)', () => {
+  it('a 422 on vin shows the translated VIN rule under the VIN input', async () => {
+    await i18n.changeLanguage('fr')
+    try {
+      const user = userEvent.setup()
+      installFakeBackend([
+        { method: 'GET', match: /^\/integrations\/capabilities\/valuation$/, handler: () => ({ capabilityCode: 'valuation', granted: true }) },
+        {
+          method: 'POST',
+          match: /^\/valuations$/,
+          handler: () =>
+            status(422, {
+              error: {
+                code: 'unprocessable_entity',
+                message: 'Request validation failed.',
+                details: { errors: [{ loc: ['body', 'vin'], msg: 'Value error, invalid VIN', type: 'value_error' }] },
+              },
+            }),
+        },
+      ])
+      renderWithProviders(<ValuationCreateDialog opened onClose={() => {}} onCreated={() => {}} />)
+      const dialog = await screen.findByRole('dialog', { name: i18n.t('valuationCreate.title') })
+      await user.type(within(dialog).getByLabelText(i18n.t('valuationCreate.vin')), 'WVWZZZ1KZAO331338')
+      await submit(user, '12000')
+
+      expect(await within(dialog).findByText(i18n.t('common.invalidVin'))).toBeInTheDocument()
+      expect(within(dialog).getByLabelText(i18n.t('valuationCreate.vin'))).toHaveAttribute('aria-invalid', 'true')
+      expect(within(dialog).queryByText('Request validation failed.')).toBeNull()
+    } finally {
+      await i18n.changeLanguage('de')
+    }
+  })
+})

@@ -87,7 +87,15 @@
     "remove": "Supprimer",
     "loading": "Chargement…",
     "requestFailed": "La requête a échoué. Veuillez réessayer.",
-    "dismiss": "Fermer le message"
+    "dismiss": "Fermer le message",
+    "invalidVin": "VIN non valide : 17 caractères, uniquement des lettres et des chiffres, sans I, O ni Q.",
+    "columnPanel": {
+      "trigger": "Colonnes",
+      "search": "Rechercher une colonne…",
+      "reset": "Rétablir par défaut",
+      "presets": "Modèles",
+      "lockedTooltip": "Toujours affichée"
+    }
   },
   "customerCreate": {
     "title": "Nouveau client",
