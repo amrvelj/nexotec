@@ -12,11 +12,11 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.pagination import SortPageParams, build_sorted_page, count_capped, paginate_query_sorted
+from app.core.validators import is_valid_vin, normalise_vin
 from app.vehicle.models.vehicle_mdm import VehicleMdm
 from app.vehicle.schemas.vehicle_mdm import VehiclePickerCandidate
 from app.vehicle.services.plate import resolve_plate
 
-_VIN_RE = re.compile(r"^[A-HJ-NPR-Z0-9]{17}$")
 _VEHICLE_NUMBER_RE = re.compile(r"^F-\d{6}$", re.IGNORECASE)
 _STAMMNUMMER_RE = re.compile(r"^\d{9}$")
 # Swiss plate shape: 1-2 letters (canton) + space + digits. Deliberately
@@ -45,8 +45,11 @@ def resolve_identifier(db: Session, query: str) -> SearchResolution | None:
 
     q = query.strip()
 
-    if _VIN_RE.match(q):
-        vehicle = db.scalar(select(VehicleMdm).where(VehicleMdm.vin == q))
+    # KAN-360: the spelling every write stores (`NormalisedVin`, KAN-244) —
+    # a VIN typed in lower case or pasted in groups is the same car.
+    typed_vin = normalise_vin(q)
+    if is_valid_vin(typed_vin):
+        vehicle = db.scalar(select(VehicleMdm).where(VehicleMdm.vin == typed_vin))
         return SearchResolution(resolved=vehicle, picker_candidates=[])
 
     if _VEHICLE_NUMBER_RE.match(q):
