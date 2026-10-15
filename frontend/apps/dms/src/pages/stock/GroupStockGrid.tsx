@@ -29,10 +29,10 @@ interface GroupStockGridProps {
   onSortChange: (sort: SortSpec[]) => void
 }
 
-/** A stable grid key: renaming it discards every user's layout (UI/UX
- * Specification, User-Level Preference Persistence: "one per user per
- * grid"). Its own key, never the own-stock grid's: ADR-055 treats the group
- * roster as a different artefact, whose rules bind per grid. */
+/** A stable grid key: renaming it discards every user's layout. Column
+ * layout is stored "one per user per grid" (UI/UX Specification,
+ * User-Level Preference Persistence), and the group roster is its own grid,
+ * so it has its own key, never the own-stock grid's. */
 const GROUP_GRID_KEY = 'inventory.stock.group'
 
 /**

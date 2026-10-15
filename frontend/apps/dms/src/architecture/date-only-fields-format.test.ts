@@ -38,16 +38,23 @@ function collectFiles(dir: string, out: string[] = []): string[] {
 const TIMESTAMP_CALL = /\bformatDate(?:Time)?\(\s*([\w.?!]+)/g
 const CUSTOMER_DATE_COLUMN = /\bdate\('(\w+)',[^\n]*\)\s*,?\s*$/
 // KAN-358 — a date-only field rendered raw shows `2021-04-01`, not
-// `01.04.2021` (KAN-333 fixed two such renders by hand). Caught: a JSX child
-// `{vehicle.firstRegistrationDate}` (optionally `?? '—'`), never an attribute
-// value `value={…}` (an editor keeps the ISO value), and a cell or accessor
-// arrow returning the bare field. Not caught, because a static scan cannot
-// tell them from a correct use: a field joined into a string
-// (`[a, r.firstRegistrationDate].join(' · ')`), and an `InlineEditField`
-// whose `value=` is both the editor's ISO value and its display (the
-// Identity-tab shape KAN-333 fixed). The screen's render test covers those.
-const RAW_JSX_CHILD = /(?<![=\w$])\{\s*([\w.?!]+)\s*(?:\?\?\s*(?:'[^']*'|"[^"]*"|t\([^)]*\)))?\s*\}/g
-const RAW_ARROW_RETURN = /=>\s*([\w.?!]+)\s*(?:\?\?\s*(?:'[^']*'|"[^"]*"))?\s*,?\s*$/
+// `01.04.2021`; KAN-333 fixed six such fields by hand. Caught, and only in
+// these positions so that code rendering nothing is never flagged:
+// - a JSX child: `>{r.readingDate}` or a line that is only
+//   `{vehicle.firstRegistrationDate ?? '—'}`; an attribute value
+//   (`value={…}`, an editor keeps the ISO value), a destructuring or an
+//   object literal is never a JSX child;
+// - a grid column's `cell:` renderer returning the bare field.
+// Not caught, because a static scan cannot tell them from a correct use:
+// a field joined into a string (`[a, r.firstRegistrationDate].join(' · ')`),
+// a field passed as a value to a row or card helper
+// (`value: c.firstRegistrationDate ?? '—'`, ConfigurationSummaryCard's
+// shape), and an `InlineEditField` whose `value=` is both the editor's ISO
+// value and its display (the Identity-tab shape). Those screens' render
+// tests cover them.
+const FALLBACK = String.raw`(?:\s*(?:\?\?|\|\|)\s*(?:'[^']*'|"[^"]*"|t\([^)]*\)))?`
+const RAW_JSX_CHILD = new RegExp(String.raw`(?:>\s*|^\s*)\{\s*([\w.?!]+)` + FALLBACK + String.raw`\s*\}(?=\s*(?:<|$))`, 'g')
+const RAW_CELL_RETURN = new RegExp(String.raw`\bcell:\s*\([^)]*\)\s*=>\s*([\w.?!]+)` + FALLBACK + String.raw`\s*,?\s*$`)
 
 function isDateOnly(name: string): boolean {
   return DATE_ONLY_SUFFIX.test(name) || DATE_ONLY_NAMES.has(name)
@@ -61,7 +68,7 @@ function offendingLines(source: string): string[] {
     for (const match of line.matchAll(RAW_JSX_CHILD)) {
       if (isDateOnly(lastName(match[1]))) out.push(`${index + 1}: ${line.trim()}`)
     }
-    const arrow = RAW_ARROW_RETURN.exec(line)
+    const arrow = RAW_CELL_RETURN.exec(line)
     if (arrow && isDateOnly(lastName(arrow[1]))) out.push(`${index + 1}: ${line.trim()}`)
     for (const match of line.matchAll(TIMESTAMP_CALL)) {
       const field = match[1].split(/[.?!]+/).filter(Boolean).pop() ?? ''
@@ -105,7 +112,17 @@ describe('date-only fields render through formatDateOnly (KAN-333)', () => {
     expect(offendingLines("<Text>{item.purchaseDate ?? '—'}</Text>")).toHaveLength(1)
     expect(offendingLines('      cell: ({ row }) => row.original.firstRegistrationDate,')).toHaveLength(1)
 
+    expect(offendingLines("            {r.purchaseDate || '—'}")).toHaveLength(1)
+    // The OdometerTab line KAN-333 fixed, as it stood before (46b7d35).
+    expect(offendingLines('                <Table.Td>{r.readingDate}</Table.Td>')).toHaveLength(1)
+
     expect(offendingLines('<TextInput type="date" value={draft.firstRegistrationDate} />')).toEqual([])
+    // Code that renders nothing is never a raw render.
+    expect(offendingLines('  const { purchaseDate } = draft')).toEqual([])
+    expect(offendingLines('export function Row({ purchaseDate }: Props) {')).toEqual([])
+    expect(offendingLines('    await patch({ purchaseDate })')).toEqual([])
+    expect(offendingLines('      sortValue: (row) => row.purchaseDate,')).toEqual([])
+    expect(offendingLines('      accessorFn: (row) => row.purchaseDate,')).toEqual([])
     expect(offendingLines("import { formatDate } from '../utils/format'")).toEqual([])
     expect(offendingLines('<Text>{vehicle.vin}</Text>')).toEqual([])
   })
