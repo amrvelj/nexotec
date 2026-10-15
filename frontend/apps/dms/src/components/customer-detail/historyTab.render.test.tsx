@@ -140,6 +140,24 @@ describe('HistoryTab — empty fields are not listed and dates are formatted (KA
     expect(screen.queryByText('Website')).not.toBeInTheDocument()
   })
 
+  // KAN-348 — an empty collection is an empty field too: a create event's
+  // `after` carries `tags: []`, which read `Tags: — → []`.
+  it('a create event does not list an empty collection', () => {
+    renderHistory([event({ action: 'create', before: null, after: { first_name: 'Hans', tags: [] } })])
+    expect(screen.getByText(/— → Hans/)).toBeInTheDocument()
+    expect(screen.queryByText('Tags')).not.toBeInTheDocument()
+    expect(screen.queryByText(/\[\]/)).not.toBeInTheDocument()
+  })
+
+  it('a collection filled or emptied is still listed', () => {
+    renderHistory([
+      event({ before: { tags: [] }, after: { tags: ['vip'] } }),
+      event({ id: 'ev-2', before: { tags: ['vip'] }, after: { tags: [] } }),
+    ])
+    expect(screen.getByText(/— → \["vip"\]/)).toBeInTheDocument()
+    expect(screen.getByText(/\["vip"\] → —/)).toBeInTheDocument()
+  })
+
   it('a field cleared to empty is still listed', () => {
     renderHistory([event({ before: { website: 'https://muster.ch', next_follow_up: '2026-03-05' }, after: { website: null, next_follow_up: null } })])
     expect(screen.getByText(/https:\/\/muster\.ch → —/)).toBeInTheDocument()

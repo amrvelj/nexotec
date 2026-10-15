@@ -73,12 +73,19 @@ function formatValue(entityType: string, key: string, v: unknown, t: (key: strin
 // KAN-180 — a key absent from one side (`undefined`) and null on the other
 // is the same empty field, not a change: a create event's `before` is null,
 // and a field that was never set must not read as `— → —`.
+// KAN-348 — an empty collection is the same empty field: a create event's
+// `after` carries `tags: []`, which must not read as `— → []`.
+function emptyAsNull(value: unknown): unknown {
+  if (value === undefined || (Array.isArray(value) && value.length === 0)) return null
+  return value
+}
+
 function diff(before: Record<string, unknown> | null, after: Record<string, unknown> | null) {
   const keys = new Set([...Object.keys(before ?? {}), ...Object.keys(after ?? {})])
   const changes: { key: string; before: unknown; after: unknown }[] = []
   for (const key of keys) {
-    const b = before?.[key] ?? null
-    const a = after?.[key] ?? null
+    const b = emptyAsNull(before?.[key])
+    const a = emptyAsNull(after?.[key])
     if (JSON.stringify(b) !== JSON.stringify(a)) changes.push({ key, before: b, after: a })
   }
   return changes
