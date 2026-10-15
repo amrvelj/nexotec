@@ -45,8 +45,10 @@ code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. -->
   own fields keep `Vin`, which refuses an unnormalised value rather than fixing it. The shared
   identity lookup (`GET /v1/vehicle-mdm/lookup?vin=`) normalises its query parameter with the
   same `normalise_vin` and answers 404 for a value that is no VIN — a read, never 422 (KAN-355).
-  **Not yet true for search:** `services/search.py::resolve_identifier` tests the typed `q`
-  against the upper-case VIN shape, so a lower-cased VIN is no identifier hit (KAN-360).
+  The list's one search box (`services/search.py::resolve_identifier`) normalises the typed `q`
+  the same way before testing the VIN shape, so a lower-cased or spaced VIN is a direct hit
+  (KAN-360). A refused VIN is named on screen in the user's language (`common.invalidVin`,
+  `utils/vin.ts::isVinRefusal`, KAN-351).
 - **A licence plate is never an identifier** — Wechselschild (one plate, two vehicles),
   reassignment, cantonal changes. `vehicle_plate` is a child table with validity dates and a
   `plate_group_id`; an ambiguous lookup shows a picker and never guesses. Plate lookup must
