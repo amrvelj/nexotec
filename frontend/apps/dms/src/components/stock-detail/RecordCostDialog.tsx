@@ -6,6 +6,7 @@ import { ApiError } from '../../api/client'
 import { translatedLedgerCategoryOptions } from '../../stockOptions'
 import type { LedgerCategory } from '../../api/types'
 import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
+import { todayLocalIsoDate } from '../../utils/format'
 
 interface RecordCostDialogProps {
   opened: boolean
@@ -29,7 +30,7 @@ export function RecordCostDialog({ opened, onClose, onSubmit }: RecordCostDialog
   const { t } = useTranslation()
   const [category, setCategory] = useState<LedgerCategory | ''>('')
   const [amount, setAmount] = useState<number | ''>('')
-  const [occurredAt, setOccurredAt] = useState(() => new Date().toISOString().slice(0, 10))
+  const [occurredAt, setOccurredAt] = useState(() => todayLocalIsoDate())
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 

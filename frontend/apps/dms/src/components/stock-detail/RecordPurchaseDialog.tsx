@@ -3,6 +3,7 @@ import { Alert, Checkbox, Stack, TextInput } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 import { ChfInput, FormDialog } from '@nexotec/ui-kit'
 import { ApiError } from '../../api/client'
+import { todayLocalIsoDate } from '../../utils/format'
 
 interface RecordPurchaseDialogProps {
   opened: boolean
@@ -30,7 +31,7 @@ export function RecordPurchaseDialog({ opened, onClose, onSubmit }: RecordPurcha
   const [supplierName, setSupplierName] = useState('')
   const [supplierIsVatRegistered, setSupplierIsVatRegistered] = useState(false)
   const [purchasePrice, setPurchasePrice] = useState<number | ''>('')
-  const [purchaseDate, setPurchaseDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [purchaseDate, setPurchaseDate] = useState(() => todayLocalIsoDate())
   const [purchaseInvoiceRef, setPurchaseInvoiceRef] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)

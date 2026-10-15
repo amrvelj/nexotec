@@ -18,6 +18,17 @@ export function formatDateOnly(isoDate: string, locale = 'de-CH'): string {
   )
 }
 
+// KAN-358 — today's calendar day where the user sits, as the ISO date a
+// date-only field stores. `new Date().toISOString().slice(0, 10)` is the UTC
+// day: between midnight and 01:00 (02:00 in summer) Swiss time it is
+// yesterday, so a purchase or cost recorded then would be booked a day early.
+export function todayLocalIsoDate(now: Date = new Date()): string {
+  const yyyy = String(now.getFullYear()).padStart(4, '0')
+  const mm = String(now.getMonth() + 1).padStart(2, '0')
+  const dd = String(now.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
+
 export function formatDateTime(iso: string, locale = 'de-CH'): string {
   return new Intl.DateTimeFormat(locale, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(
     new Date(iso)

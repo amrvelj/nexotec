@@ -52,7 +52,7 @@ import {
   translatedSalutationLabel,
   translatedSourceLabel,
 } from '../customerOptions'
-import { formatCurrencyChf, formatDate, formatDateOnly } from '../utils/format'
+import { formatCurrencyChf, formatDate, formatDateOnly, todayLocalIsoDate } from '../utils/format'
 import { customerName } from '../utils/customer'
 import { exportRowsToCsv, printRows, type ExportColumn } from '../utils/gridExport'
 import type { CustomerPage, CustomerRead, SalesContractRead, SalesOfferRead } from '../api/types'
@@ -576,7 +576,7 @@ export function CustomersListPage() {
   const selectedRows = useMemo(() => rows.filter((row) => selectedIds.has(row.id)), [rows, selectedIds])
 
   const exportSelection = () => {
-    const stamp = new Date().toISOString().slice(0, 10)
+    const stamp = todayLocalIsoDate()
     exportRowsToCsv(`customers_${stamp}.csv`, exportColumns, selectedRows)
   }
   const printSelection = () => {
