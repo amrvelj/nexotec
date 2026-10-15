@@ -2,8 +2,17 @@ import { useMemo } from 'react'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { Building2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { ActionBar, DataGrid, OverviewShellRegion, type SortSpec } from '@nexotec/ui-kit'
+import {
+  ActionBar,
+  ColumnConfigPanel,
+  DataGrid,
+  OverviewShellRegion,
+  defaultColumnLayout,
+  type ColumnRegistryEntry,
+  type SortSpec,
+} from '@nexotec/ui-kit'
 import { useUiPreferencesContext } from '../../hooks/UiPreferencesContext'
+import { useGridPreferences } from '../../hooks/useGridPreferences'
 import { api } from '../../api/client'
 import { toSwissLocale, type SupportedLanguage } from '../../i18n'
 import { buildStockGroupColumns } from './columns/stockGroupColumns'
@@ -20,13 +29,19 @@ interface GroupStockGridProps {
   onSortChange: (sort: SortSpec[]) => void
 }
 
+/** A stable grid key: renaming it discards every user's layout (UI/UX
+ * Specification, User-Level Preference Persistence). Its own key, never the
+ * own-stock grid's — the group roster is another grid (ADR-055: "per grid"). */
+export const GROUP_GRID_KEY = 'inventory.stock.group'
+
 /**
  * § ADR-055 — "a different artefact, dressed differently, not a greyed-
- * out version of your own grid." Deliberately simpler chrome than the
- * own-stock grid: no saved views, no column config panel, no filters —
- * the group projection doesn't carry the fields those would operate on
- * anyway, and there is no per-user preference worth persisting for a
- * read-only cross-dealership roster.
+ * out version of your own grid." Simpler chrome than the own-stock grid:
+ * no saved views and no filters. KAN-357: it does have the action bar's
+ * Columns control (FR-UI-02, the right cluster "identical in all nine
+ * modules"), so every column of the group projection can be put on screen
+ * (ADR-060) — its layout persisted per user under its own grid key. Its
+ * sort stays in the URL alone (StockListPage).
  *
  * Sort, search and paging are server-side, like the own-stock grid (UI/UX
  * Core Principles; KAN-152) — the group roster can be the whole group's
@@ -36,6 +51,8 @@ export function GroupStockGrid({ query, debouncedQuery, onQueryChange, sort, onS
   const { t, i18n } = useTranslation()
   const locale = toSwissLocale(i18n.language as SupportedLanguage)
   const { density, setDensity } = useUiPreferencesContext()
+  // Only the column layout is read from here; the sort is the URL's.
+  const gridPrefs = useGridPreferences(GROUP_GRID_KEY, { sort: [] })
 
   const sortParam = sort.length > 0 ? serializeSort(sort) : undefined
 
@@ -58,6 +75,23 @@ export function GroupStockGrid({ query, debouncedQuery, onQueryChange, sort, onS
   const totalIsEstimate = groupQuery.data?.pages[0]?.totalIsEstimate ?? false
 
   const columns = useMemo(() => buildStockGroupColumns(t, locale), [t, locale])
+  const columnRegistry: ColumnRegistryEntry[] = useMemo(
+    () =>
+      columns.map((c) => ({
+        id: String(c.id),
+        label: typeof c.header === 'string' ? c.header : String(c.id),
+        defaultVisible: c.meta?.defaultVisible ?? true,
+        locked: c.meta?.locked,
+      })),
+    [columns]
+  )
+  // A user with no saved layout sees the documented default subset, the
+  // rest one click away (ADR-060) — as on Customers. DataGrid without a
+  // layout would render every column, defaultVisible ignored.
+  const columnLayout = useMemo(
+    () => gridPrefs.columnLayout ?? defaultColumnLayout(columnRegistry),
+    [gridPrefs.columnLayout, columnRegistry]
+  )
 
   return (
     <OverviewShellRegion
@@ -71,6 +105,13 @@ export function GroupStockGrid({ query, debouncedQuery, onQueryChange, sort, onS
           onDensityChange={setDensity}
           onRefresh={() => groupQuery.refetch()}
           refreshing={groupQuery.isRefetching}
+          columnsSlot={
+            <ColumnConfigPanel
+              registry={columnRegistry}
+              layout={columnLayout}
+              onLayoutChange={gridPrefs.setColumnLayout}
+            />
+          }
           labels={{
             density: {
               compact: t('common.density.compact'),
@@ -101,6 +142,8 @@ export function GroupStockGrid({ query, debouncedQuery, onQueryChange, sort, onS
         total={total}
         totalIsEstimate={totalIsEstimate}
         isFiltered={debouncedQuery.length > 0}
+        columnLayout={columnLayout}
+        onColumnLayoutChange={gridPrefs.setColumnLayout}
         labels={{
           showing: (count) => t('common.showing', { count }),
           showingOfTotal: (count, totalStr) => t('common.showingOfTotal', { count, total: totalStr }),
