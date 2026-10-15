@@ -87,7 +87,8 @@
     "remove": "Entfernen",
     "loading": "Lädt…",
     "requestFailed": "Die Anfrage ist fehlgeschlagen. Bitte versuchen Sie es erneut.",
-    "dismiss": "Meldung schliessen"
+    "dismiss": "Meldung schliessen",
+    "invalidVin": "Keine gültige VIN: 17 Zeichen, nur Buchstaben und Ziffern, ohne I, O und Q."
   },
   "customerCreate": {
     "title": "Neuer Kunde",
@@ -1551,7 +1552,8 @@
       "idHint": "VIN, Kontrollschild, Stammnummer, Typenschein oder Werkscode — ein Feld, das System erkennt die Art selbst.",
       "manual": "Manuell konfigurieren",
       "browse": "Katalog durchsuchen",
-      "unverifiedNote": "Manuelle Konfiguration — als «nicht verifiziert» markiert, bis sie einem Katalogeintrag zugeordnet ist. Keine Bewertung, keine Publikation, bis dahin."
+      "unverifiedNote": "Manuelle Konfiguration — als «nicht verifiziert» markiert, bis sie einem Katalogeintrag zugeordnet ist. Keine Bewertung, keine Publikation, bis dahin.",
+      "vinNotKept": "Keine gültige VIN (17 Zeichen, nur Buchstaben und Ziffern, ohne I, O und Q) – sie wird nicht als VIN des Fahrzeugs übernommen."
     },
     "configure": {
       "title": "Konfigurieren",

@@ -635,3 +635,41 @@ describe('ConfiguratorOverlay — one Idempotency-Key per first save (KAN-266)',
     expect(keys()[1]).not.toBe(keys()[0])
   })
 })
+
+// KAN-351 — the configure phase has no VIN input (KAN-340): a VIN the API
+// refuses (422 on `vin`) is said in the overlay's error, translated, never
+// as the generic save error or the API's English text.
+describe('ConfiguratorOverlay — a refused VIN is said in the user language (KAN-351)', () => {
+  it('a 422 on vin shows the translated VIN rule', async () => {
+    await i18n.changeLanguage('fr')
+    try {
+      const user = userEvent.setup()
+      install([
+        {
+          method: 'POST',
+          match: /\/configurations$/,
+          handler: () =>
+            status(422, {
+              error: {
+                code: 'unprocessable_entity',
+                message: 'Request validation failed.',
+                details: { errors: [{ loc: ['body', 'vin'], msg: 'Value error, invalid VIN', type: 'value_error' }] },
+              },
+            }),
+        },
+      ])
+      renderWithProviders(<Host onCommitted={vi.fn()} />)
+      await openOverlay(user)
+      await user.click(await within(screen.getByRole('dialog')).findByText('Golf GTI'))
+      await screen.findByText(i18n.t('configurator.spec.groups.powertrain'))
+
+      await user.click(screen.getByRole('button', { name: i18n.t('configurator.saveNew') }))
+
+      expect(await screen.findByText(i18n.t('common.invalidVin'))).toBeInTheDocument()
+      expect(screen.queryByText(i18n.t('configurator.saveError'))).toBeNull()
+      expect(screen.queryByText('Request validation failed.')).toBeNull()
+    } finally {
+      await i18n.changeLanguage('de')
+    }
+  })
+})

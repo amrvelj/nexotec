@@ -87,7 +87,8 @@
     "remove": "Remove",
     "loading": "Loading…",
     "requestFailed": "The request failed. Please try again.",
-    "dismiss": "Dismiss message"
+    "dismiss": "Dismiss message",
+    "invalidVin": "Not a valid VIN: 17 characters, letters and digits only, never I, O or Q."
   },
   "customerCreate": {
     "title": "New customer",
@@ -1551,7 +1552,8 @@
       "idHint": "VIN, licence plate, Stammnummer, Typenschein or factory code — one field, the system recognises which.",
       "manual": "Configure manually",
       "browse": "Browse the catalogue",
-      "unverifiedNote": "Manual configuration — marked “unverified” until it is matched to a catalogue entry. No valuation, no publishing until then."
+      "unverifiedNote": "Manual configuration — marked “unverified” until it is matched to a catalogue entry. No valuation, no publishing until then.",
+      "vinNotKept": "Not a valid VIN (17 characters, letters and digits only, never I, O or Q), so it will not be kept as the car's VIN."
     },
     "configure": {
       "title": "Configure",

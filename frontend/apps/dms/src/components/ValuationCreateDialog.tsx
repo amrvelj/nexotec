@@ -11,6 +11,7 @@ import { CustomerCreateDialog } from './CustomerCreateDialog'
 import { ConfigurationSummaryCard } from './configurator/ConfigurationSummaryCard'
 import type { CapabilityCheckRead, ConfigurationRead, CustomerPage, CustomerRead, ValuationCreate, ValuationRead, ValuationSourceValue } from '../api/types'
 import { formatCurrencyChf } from '../utils/format'
+import { isVinRefusal } from '../utils/vin'
 
 export interface ValuationCreateDialogProps {
   opened: boolean
@@ -84,6 +85,9 @@ export function ValuationCreateDialog({ opened, onClose, onCreated, supersedes, 
 
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // KAN-351 — a VIN the API refuses (422 on `vin`) is said at the VIN input,
+  // in the user's language, not as the API's English message.
+  const [vinError, setVinError] = useState<string | null>(null)
 
   // WP-6 PR-5 — a tenant with no auto-i-dat Bewertung capability (no
   // contract at all, or a declared restriction) still gets a fully usable
@@ -107,6 +111,7 @@ export function ValuationCreateDialog({ opened, onClose, onCreated, supersedes, 
     if (finalOffer === '') return
     setSubmitting(true)
     setError(null)
+    setVinError(null)
     try {
       const body: ValuationCreate = {
         vin: vin || null,
@@ -129,7 +134,8 @@ export function ValuationCreateDialog({ opened, onClose, onCreated, supersedes, 
       const created = await api.post<ValuationRead>('/valuations', body, idempotency.headers(body))
       onCreated(created)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t('valuationCreate.error'))
+      if (isVinRefusal(err)) setVinError(t('common.invalidVin'))
+      else setError(err instanceof ApiError ? err.message : t('valuationCreate.error'))
     } finally {
       setSubmitting(false)
     }
@@ -157,7 +163,15 @@ export function ValuationCreateDialog({ opened, onClose, onCreated, supersedes, 
             <Text size="sm" fw={600}>{t('valuationCreate.vehicleSection')}</Text>
             {configuration && <ConfigurationSummaryCard configuration={configuration} />}
             <Group grow>
-              <TextInput label={t('valuationCreate.vin')} value={vin} onChange={(e) => setVin(e.currentTarget.value.toUpperCase())} />
+              <TextInput
+                label={t('valuationCreate.vin')}
+                value={vin}
+                onChange={(e) => {
+                  setVin(e.currentTarget.value.toUpperCase())
+                  setVinError(null)
+                }}
+                error={vinError}
+              />
               <NumberInput label={t('valuationCreate.mileage')} value={mileage} onChange={(v) => setMileage(v === '' ? '' : Number(v))} />
             </Group>
             <Group grow>
