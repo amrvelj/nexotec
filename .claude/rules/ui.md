@@ -43,10 +43,11 @@ come from WP-6c, `frontend/packages/ui-kit` (`datagrid/`, `detail/`, `shell/`, `
 `components/`, tokens in `tokens.css`/`tokens.ts`). If you are writing one inside a module
 package you are in the wrong package. If the kit cannot do what you need, that is a ui-kit
 change plus an ADR — never a local component. No colour outside the tokens.
-A kit component never ships a user-visible string of its own: a badge maps a value to a tone
-and takes a required `label`; `ColumnConfigPanel` takes required `labels` (the app passes
-`useColumnPanelLabels()`), so `tsc` refuses a caller without translations (KAN-110, KAN-181,
-KAN-334, KAN-362).
+A kit badge maps a value to a tone and takes a required `label`, and `ColumnConfigPanel` takes
+required `labels` (the app passes `useColumnPanelLabels()`), so `tsc` refuses a caller without
+translations (KAN-110, KAN-181, KAN-334, KAN-362). **Not yet true for every kit component
+(KAN-364):** `FilterBuilder`, `ViewsAndFilters` and `RepeatableRowGroup` still merge English
+`DEFAULT_LABELS`, and `Overlay`'s close button is `aria-label="Close"` — pass every label.
 
 ## The rulings that bite most often
 
@@ -61,7 +62,8 @@ KAN-334, KAN-362).
 - **ADR-060** — every persisted field is available as a grid column; a documented subset is
   visible by default. A stored field that cannot be put on screen is a defect. A grid with a
   Columns panel passes `gridPrefs.columnLayout ?? defaultColumnLayout(columnRegistry)` to both
-  `DataGrid` and the panel: without a layout `DataGrid` renders every column (KAN-361).
+  `DataGrid` and the panel: without a layout `DataGrid` renders every column (KAN-361;
+  `src/architecture/grid-default-column-layout.test.ts` refuses a panel without it).
 - **ADR-061** — every detail screen: **one primary action, one alternative, and an overflow
   carrying the entity's full row menu** — same items, same order, same
   disabled-with-explanation entries. The row menu is the single definition of what can be done

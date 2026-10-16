@@ -36,6 +36,9 @@ describe('DetailHeader overflow label (KAN-232)', () => {
     )
 
     await screen.findByText('B-000001')
+    // KAN-334: the status badge is translated too, never the German kit default.
+    expect(screen.getByText('Valide')).toBeInTheDocument()
+    expect(screen.queryByText('Gültig')).not.toBeInTheDocument()
     const overflow = screen.getByRole('button', { name: "Plus d'actions" })
     expect(screen.queryByRole('button', { name: 'More actions' })).not.toBeInTheDocument()
 

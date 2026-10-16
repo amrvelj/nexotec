@@ -199,7 +199,11 @@ def test_every_configuration_audit_names_a_field_by_its_camel_case_api_name(db_s
             spec=VehicleSpecBlockInput(displacement_ccm=1998),
         ),
     )
-    apply_resync(db_session, configuration=config, actor_id=actor_id, fields=["displacement_ccm"])
+    config = apply_resync(db_session, configuration=config, actor_id=actor_id, fields=["displacement_ccm"])
+    svc.update_configuration(
+        db_session, configuration=config, actor_id=actor_id,
+        data=ConfigurationUpdate(catalogue_match_status=ConfigurationMatchStatus.BEST_MATCH_CONFIRMED),
+    )
 
     rows = {
         row.action: row
@@ -207,7 +211,7 @@ def test_every_configuration_audit_names_a_field_by_its_camel_case_api_name(db_s
             select(AuditEvent).where(AuditEvent.entity_type == "vehicle_configuration", AuditEvent.entity_id == config.id)
         )
     }
-    assert set(rows) == {"create", "update", "resync"}
+    assert set(rows) == {"create", "update", "resync", "match_status_change"}
     assert rows["create"].after["firstRegistrationDate"] == "2021-03-01"
     assert rows["update"].before == {
         "firstRegistrationDate": "2021-03-01", "mileageKm": None, "matchMethod": "catalogue_browse",
@@ -217,6 +221,10 @@ def test_every_configuration_audit_names_a_field_by_its_camel_case_api_name(db_s
         "firstRegistrationDate": "2021-04-01", "mileageKm": 12000, "matchMethod": "vin", "displacementCcm": 1998,
     }
     assert (rows["resync"].before, rows["resync"].after) == ({"displacementCcm": 1998}, {"displacementCcm": 1984})
+    assert rows["match_status_change"].before == {"catalogueMatchStatus": "matched"}
+    assert rows["match_status_change"].after == {
+        "catalogueMatchStatus": "best_match_confirmed", "catalogueVariantId": str(variant.id),
+    }
     for row in rows.values():
         for key in [*(row.before or {}), *(row.after or {})]:
             assert "_" not in key, (row.action, key)

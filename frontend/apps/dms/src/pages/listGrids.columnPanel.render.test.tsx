@@ -13,8 +13,8 @@ import { CatalogueBrowsePage } from './CatalogueBrowsePage'
 
 // KAN-361 — Stock, Sales, Valuations and Catalogue passed
 // `gridPrefs.columnLayout ?? undefined` to DataGrid, so a user who never
-// opened the Columns panel saw every column (about 60 on Stock), each
-// column's `defaultVisible: false` ignored. They now pass
+// opened the Columns panel saw every column (all 21 on Stock, 13 of them
+// `defaultVisible: false`). They now pass
 // `defaultColumnLayout(columnRegistry)` when no layout is saved, to the grid
 // and to the panel alike (ADR-060: a documented subset visible by default,
 // the rest one click away).

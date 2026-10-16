@@ -2,9 +2,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { screen, within } from '@testing-library/react'
 import i18n from '../i18n'
+import { Route, Routes } from 'react-router-dom'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { installFakeBackend } from '../test/fakeBackend'
-import type { SalesDealRead, ValuationRead } from '../api/types'
+import { customer } from '../test/fixtures'
+import { CustomerDetailPage } from './CustomerDetailPage'
+import type { SalesContractRead, SalesDealRead, SalesOfferRead, ValuationRead } from '../api/types'
 import { SalesListPage } from './SalesListPage'
 import { ValuationsListPage } from './ValuationsListPage'
 
@@ -75,6 +78,36 @@ describe('Kit status badges speak the UI language (KAN-334)', () => {
 
     expect(within(await screen.findByRole('row', { name: /O-000001/ })).getByText('Offre')).toBeInTheDocument()
     expect(within(screen.getByRole('row', { name: /V-000001/ })).getByText('Contrat')).toBeInTheDocument()
+    expect(screen.queryByText('Offerte')).toBeNull()
+    expect(screen.queryByText('Vertrag')).toBeNull()
+  })
+
+  it("SalesTypeBadge on the customer's Offers & contracts tab: French entity type", async () => {
+    await i18n.changeLanguage('fr')
+    const offer = {
+      id: 'o1', offerNumber: 'O-000334', status: 'open', customerId: 'c1', customerLabel: 'Anna Muster',
+      vehicleLabel: 'VW Golf', grossPrice: null, createdAt: NOW, updatedAt: NOW,
+    } as unknown as SalesOfferRead
+    const contract = {
+      id: 'k1', contractNumber: 'V-000334', status: 'confirmed', offerId: null, customerId: 'c1',
+      customerLabel: 'Anna Muster', vehicleLabel: 'Audi A3', grossPrice: null, createdAt: NOW, updatedAt: NOW,
+    } as unknown as SalesContractRead
+    installFakeBackend([
+      { match: /^\/customers\/c1$/, handler: () => customer({ id: 'c1' }) },
+      { match: /^\/customers\/c1\/(phones|emails)$/, handler: () => ({ items: [] }) },
+      { match: /^\/customers\/c1\/(vehicles|external-ids|audit-log)$/, handler: () => ({ items: [], nextCursor: null }) },
+      { method: 'GET', match: /^\/sales\/offers$/, handler: () => page([offer]) },
+      { method: 'GET', match: /^\/sales\/contracts$/, handler: () => page([contract]) },
+    ])
+    renderWithProviders(
+      <Routes>
+        <Route path="/customers/:id" element={<CustomerDetailPage />} />
+      </Routes>,
+      { route: '/customers/c1?tab=offersContracts' },
+    )
+
+    expect(within(await screen.findByRole('row', { name: /O-000334/ })).getByText('Offre')).toBeInTheDocument()
+    expect(within(screen.getByRole('row', { name: /V-000334/ })).getByText('Contrat')).toBeInTheDocument()
     expect(screen.queryByText('Offerte')).toBeNull()
     expect(screen.queryByText('Vertrag')).toBeNull()
   })
