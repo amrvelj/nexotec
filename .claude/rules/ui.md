@@ -46,7 +46,7 @@ change plus an ADR — never a local component. No colour outside the tokens.
 A kit badge maps a value to a tone and takes a required `label`, and `ColumnConfigPanel` takes
 required `labels` (the app passes `useColumnPanelLabels()`), so `tsc` refuses a caller without
 translations (KAN-110, KAN-181, KAN-334, KAN-362). **Not yet true for the rest of the kit
-(KAN-364):** most other components with text (`FilterBuilder`, `ViewsAndFilters`,
+(KAN-364):** most other components with text (`DataGrid`, `FilterBuilder`, `ViewsAndFilters`,
 `RepeatableRowGroup`, `Wizard`, `GlobalSearch`, `ActionBar`, `FilterChips`, `SelectionBar`,
 `Picker`, `InlineEditField`, `DocumentPreview`, `PresentMode`) still merge English defaults, and
 some aria-labels cannot be overridden at all (`Overlay`'s "Close", `FilterBuilder`'s and
@@ -66,7 +66,8 @@ some aria-labels cannot be overridden at all (`Overlay`'s "Close", `FilterBuilde
   visible by default. A stored field that cannot be put on screen is a defect. A grid with a
   Columns panel passes `gridPrefs.columnLayout ?? defaultColumnLayout(columnRegistry)` to both
   `DataGrid` and the panel: without a layout `DataGrid` renders every column (KAN-361;
-  `src/architecture/grid-default-column-layout.test.ts` refuses a panel without it). `DataGrid`
+  `src/architecture/grid-default-column-layout.test.ts` catches the inline `?? undefined` and a
+  panel without a `defaultColumnLayout` fallback — not one hidden behind a variable). `DataGrid`
   itself stays layout-agnostic: a grid without a panel shows every column (ADR-092).
 - **ADR-061** — every detail screen: **one primary action, one alternative, and an overflow
   carrying the entity's full row menu** — same items, same order, same
