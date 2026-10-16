@@ -33,6 +33,7 @@ function problems(source: string): string[] {
   if (!/<ColumnConfigPanel\b/.test(source)) return []
   const out: string[] = []
   if (!/\bdefaultColumnLayout\(/.test(source)) out.push('renders ColumnConfigPanel without defaultColumnLayout(...)')
+  if (!/<DataGrid\b[\s\S]*?\bcolumnLayout=\{/.test(source)) out.push('renders ColumnConfigPanel but gives DataGrid no columnLayout')
   source.split('\n').forEach((line, index) => {
     if (NO_LAYOUT_PROP.test(line)) out.push(`${index + 1}: ${line.trim()}`)
   })
@@ -54,11 +55,13 @@ describe('a grid with a Columns panel shows its default subset to a user with no
 
   it('matches the shapes it exists to stop', () => {
     const panel = '<ColumnConfigPanel registry={r} layout={columnLayout} />\n'
-    const good = `const columnLayout = gridPrefs.columnLayout ?? defaultColumnLayout(columnRegistry)\n${panel}`
+    const grid = '<DataGrid\n  rows={rows}\n  columnLayout={columnLayout}\n/>\n'
+    const good = `const columnLayout = gridPrefs.columnLayout ?? defaultColumnLayout(columnRegistry)\n${panel}${grid}`
     expect(problems(good)).toEqual([])
     expect(problems(`${good}<DataGrid columnLayout={gridPrefs.columnLayout ?? undefined} />`)).toHaveLength(1)
     expect(problems(`${good}<ColumnConfigPanel layout={gridPrefs.columnLayout ?? {`)).toHaveLength(1)
-    expect(problems(panel)).toHaveLength(1)
+    expect(problems(panel)).toHaveLength(2)
+    expect(problems(good.replace('  columnLayout={columnLayout}\n', ''))).toHaveLength(1)
     expect(problems('<DataGrid columnLayout={gridPrefs.columnLayout ?? undefined} />')).toEqual([])
   })
 })

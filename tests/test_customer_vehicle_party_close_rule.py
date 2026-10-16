@@ -627,8 +627,9 @@ def test_a_merge_racing_an_allocation_waits_for_it_and_closes_nothing_twice(engi
 
 
 def test_a_merge_locks_every_vehicle_role_it_touches_in_sorted_order(db_session, monkeypatch):
-    """Two merges touching the same pairs never deadlock each other: the
-    locks are taken in one fixed order, each pair once."""
+    """The locks are taken in one fixed order (sorted), each pair once — the
+    order that keeps two merges over the same pairs from deadlocking each
+    other. This pins the order; it does not race two merges."""
 
     group_id = uuid.uuid4()
     duplicate, survivor = _customer(db_session, group_id, "Dora"), _customer(db_session, group_id, "Sven")
@@ -678,6 +679,9 @@ def test_a_merge_never_waits_for_a_late_pair_out_of_order(engine, db_session, mo
     monkeypatch.setattr(customer_service, "_lock_vehicle_role_in_group", _lock_then_a_row_arrives)
     try:
         with factory() as session:
+            # A regression that waited for the late pair would block on `holder`;
+            # fail within seconds instead of hanging the run.
+            session.execute(text("SET LOCAL lock_timeout = '5s'"))
             loaded = customer_service.get_customer_or_404(session, group_id, duplicate.id)
             with pytest.raises(ConflictError) as refused:
                 customer_service.merge_customer(
