@@ -141,6 +141,10 @@ describe('CatalogueBrowseGrid reference labels (KAN-239)', () => {
     renderWithProviders(<CatalogueBrowseGrid mode="build" />)
 
     expect(await screen.findByText('Essence')).toBeInTheDocument()
+    // Body style is hidden by default (KAN-361): show it from the Columns panel.
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: i18n.t('common.columnPanel.trigger') }))
+    await user.click(screen.getByRole('checkbox', { name: i18n.t('catalogueBrowse.columns.bodyStyle') }))
     expect(screen.getByText('Compacte')).toBeInTheDocument()
     expect(screen.queryByText('petrol')).not.toBeInTheDocument()
     expect(screen.queryByText(i18n.t('catalogueBrowse.labelsLoadError.title'))).not.toBeInTheDocument()
@@ -149,7 +153,6 @@ describe('CatalogueBrowseGrid reference labels (KAN-239)', () => {
     }
 
     // The brand drill-down walks the same cap: a brand on the second page is offered.
-    const user = userEvent.setup()
     await user.click(screen.getByRole('textbox', { name: i18n.t('catalogueBrowse.drilldown.brand') }))
     expect(await screen.findByRole('option', { name: 'Volkswagen' })).toBeInTheDocument()
   })
