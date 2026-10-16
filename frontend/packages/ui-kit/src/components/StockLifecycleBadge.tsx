@@ -7,20 +7,23 @@ import { Badge, type BadgeTone } from "./Badge";
  * StockReservationState — every combination is legal, including
  * pipeline+reserved (a factory order already sold), so this badge never
  * tries to express reservation on its own.
+ *
+ * KAN-334 — the kit maps a value to a tone only. `label` is required: a kit
+ * badge never carries a user-visible default string (KAN-110/KAN-181); the
+ * app passes the translated label.
  */
 export type StockLifecycleStatus = "pipeline" | "in_stock" | "storno_pending";
 
-const CONFIG: Record<StockLifecycleStatus, { tone: BadgeTone; label: string }> = {
-  pipeline: { tone: "warning", label: "Pipeline" },
-  in_stock: { tone: "success", label: "In stock" },
-  storno_pending: { tone: "destructive", label: "Storno pending" },
+const TONE: Record<StockLifecycleStatus, BadgeTone> = {
+  pipeline: "warning",
+  in_stock: "success",
+  storno_pending: "destructive",
 };
 
-export function StockLifecycleBadge({ status, label }: { status: StockLifecycleStatus; label?: string }) {
-  const config = CONFIG[status];
+export function StockLifecycleBadge({ status, label }: { status: StockLifecycleStatus; label: string }) {
   return (
-    <Badge tone={config.tone} dot>
-      {label ?? config.label}
+    <Badge tone={TONE[status]} dot>
+      {label}
     </Badge>
   );
 }

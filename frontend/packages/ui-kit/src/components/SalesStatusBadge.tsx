@@ -8,28 +8,31 @@ import { Badge, type BadgeTone } from "./Badge";
  * this reason). This badge is the single place both vocabularies map to a
  * tone, so the two surfaces (grid + detail headers, once built) can never
  * render a status with two different colours.
+ *
+ * KAN-334 — the kit maps a value to a tone only. `label` is required: a kit
+ * badge never carries a user-visible default string (KAN-110/KAN-181); the
+ * app passes the translated label.
  */
 export type SalesDealStatus = "draft" | "open" | "pending" | "confirmed" | "cancelled" | "invoiced";
 
-const CONFIG: Record<SalesDealStatus, { tone: BadgeTone; label: string }> = {
-  draft: { tone: "slate", label: "Entwurf" },
+const TONE: Record<SalesDealStatus, BadgeTone> = {
+  draft: "slate",
   // "open" is deliberately shared: an OFFER's "Offen" and a CONTRACT's
   // "Offen" (pending) are the confirmed reference prototype's own two
   // distinct meanings for the identical German word — the grid renders
   // them with the same tone since a reader disambiguates via the ART
   // column right next to it, not via colour.
-  open: { tone: "informational", label: "Offen" },
-  pending: { tone: "informational", label: "Offen" },
-  confirmed: { tone: "success", label: "Bestätigt" },
-  cancelled: { tone: "destructive", label: "Storniert" },
-  invoiced: { tone: "purple", label: "Fakturiert" },
+  open: "informational",
+  pending: "informational",
+  confirmed: "success",
+  cancelled: "destructive",
+  invoiced: "purple",
 };
 
-export function SalesStatusBadge({ status, label }: { status: SalesDealStatus; label?: string }) {
-  const config = CONFIG[status];
+export function SalesStatusBadge({ status, label }: { status: SalesDealStatus; label: string }) {
   return (
-    <Badge tone={config.tone} dot>
-      {label ?? config.label}
+    <Badge tone={TONE[status]} dot>
+      {label}
     </Badge>
   );
 }

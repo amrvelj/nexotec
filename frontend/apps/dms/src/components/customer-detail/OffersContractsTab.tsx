@@ -12,7 +12,7 @@ import {
 } from '@nexotec/ui-kit'
 import { useUiPreferencesContext } from '../../hooks/UiPreferencesContext'
 import { formatDate, formatCurrencyChf } from '../../utils/format'
-import { translatedSalesDealStatusLabel } from '../../salesOptions'
+import { translatedSalesDealStatusLabel, translatedSalesEntityTypeLabel } from '../../salesOptions'
 import { dataGridLabels } from '../../utils/dataGridI18n'
 import type { SalesContractRead, SalesOfferRead } from '../../api/types'
 
@@ -131,7 +131,7 @@ export function OffersContractsTab({
       {
         id: 'entityType',
         header: t('salesList.columns.type'),
-        cell: ({ row }) => <SalesTypeBadge entityType={row.original.entityType} />,
+        cell: ({ row }) => <SalesTypeBadge entityType={row.original.entityType} label={translatedSalesEntityTypeLabel(t, row.original.entityType)} />,
       },
       {
         id: 'customerLabel',
