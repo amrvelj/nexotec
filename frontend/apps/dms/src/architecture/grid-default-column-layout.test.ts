@@ -9,10 +9,10 @@ import { fileURLToPath } from 'node:url'
 // KAN-361: DataGrid without a `columnLayout` renders every column and
 // ignores `defaultVisible`, so a grid that passed
 // `gridPrefs.columnLayout ?? undefined` showed a user with no saved layout
-// every column (ADR-060: a documented subset is visible by default). A file
-// that renders the Columns panel builds its fallback with
-// `defaultColumnLayout(...)` and never hands `undefined` to the grid or the
-// panel in place of a layout.
+// every column (ADR-060: a documented subset is visible by default; ADR-092:
+// DataGrid itself stays layout-agnostic). In a file that renders the Columns
+// panel, the panel's `layout` and DataGrid's `columnLayout` must each be a
+// plain variable whose declaration falls back to `defaultColumnLayout(...)`.
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const SKIP_DIR_NAMES = new Set(['node_modules', 'dist', 'build', '.git'])
@@ -27,21 +27,67 @@ function collectFiles(dir: string, out: string[] = []): string[] {
   return out
 }
 
-const NO_LAYOUT_PROP = /\b(?:columnLayout|layout)=\{\s*gridPrefs\.columnLayout\s*\?\?\s*(?:undefined|null|\{)/
+/** The text of a prop's `{…}` value on each `<Tag …>` in `source`. */
+function propValues(source: string, tag: string, prop: string): (string | null)[] {
+  const values: (string | null)[] = []
+  const opening = new RegExp(`<${tag}\\b`, 'g')
+  for (let match = opening.exec(source); match; match = opening.exec(source)) {
+    // The tag's attributes run to its first `/>` or `>` at brace depth 0,
+    // after a type argument (`<DataGrid<StockItemRead>`) if there is one.
+    let depth = 0
+    let end = match.index + match[0].length
+    if (source[end] === '<') end = source.indexOf('>', end) + 1
+    for (; end < source.length; end += 1) {
+      const ch = source[end]
+      if (ch === '{') depth += 1
+      else if (ch === '}') depth -= 1
+      else if (depth === 0 && ch === '>') break
+    }
+    const attributes = source.slice(match.index, end)
+    const prop_ = new RegExp(`\\b${prop}=\\{`).exec(attributes)
+    if (!prop_) {
+      values.push(null)
+      continue
+    }
+    let valueDepth = 1
+    let i = prop_.index + prop_[0].length
+    const start = i
+    for (; i < attributes.length && valueDepth > 0; i += 1) {
+      if (attributes[i] === '{') valueDepth += 1
+      else if (attributes[i] === '}') valueDepth -= 1
+    }
+    values.push(attributes.slice(start, i - 1).trim())
+  }
+  return values
+}
+
+/** True when `name` is declared (`const name = …`) as a value that falls back to `defaultColumnLayout(...)`. */
+function fallsBackToDefault(source: string, name: string): boolean {
+  const declaration = new RegExp(`\\bconst\\s+${name}\\b[^=]*=([\\s\\S]{0,240})`).exec(source)
+  return Boolean(declaration && /\?\?\s*defaultColumnLayout\(/.test(declaration[1]))
+}
 
 function problems(source: string): string[] {
   if (!/<ColumnConfigPanel\b/.test(source)) return []
+  const checks: [string, string, string][] = [
+    ['ColumnConfigPanel', 'layout', 'the Columns panel'],
+    ['DataGrid', 'columnLayout', 'DataGrid'],
+  ]
   const out: string[] = []
-  if (!/\bdefaultColumnLayout\(/.test(source)) out.push('renders ColumnConfigPanel without defaultColumnLayout(...)')
-  if (!/<DataGrid\b[\s\S]*?\bcolumnLayout=\{/.test(source)) out.push('renders ColumnConfigPanel but gives DataGrid no columnLayout')
-  source.split('\n').forEach((line, index) => {
-    if (NO_LAYOUT_PROP.test(line)) out.push(`${index + 1}: ${line.trim()}`)
-  })
+  for (const [tag, prop, what] of checks) {
+    const values = propValues(source, tag, prop)
+    if (values.length === 0) out.push(`renders ColumnConfigPanel but no ${tag}`)
+    for (const value of values) {
+      if (value === null) out.push(`${what} gets no ${prop}`)
+      else if (!/^[A-Za-z_$][\w$]*$/.test(value) || !fallsBackToDefault(source, value))
+        out.push(`${what}'s ${prop}={${value}} does not fall back to defaultColumnLayout(...)`)
+    }
+  }
   return out
 }
 
 describe('a grid with a Columns panel shows its default subset to a user with no saved layout (KAN-361)', () => {
-  it('every file in apps/dms/src that renders ColumnConfigPanel falls back to defaultColumnLayout', () => {
+  it('every file in apps/dms/src that renders ColumnConfigPanel gives it and DataGrid the defaultColumnLayout fallback', () => {
     const files = collectFiles(SRC_ROOT)
     const withPanel = files.filter((file) => /<ColumnConfigPanel\b/.test(readFileSync(file, 'utf-8')))
     // An empty walk would pass vacuously: the six grids with a panel today.
@@ -54,14 +100,24 @@ describe('a grid with a Columns panel shows its default subset to a user with no
   })
 
   it('matches the shapes it exists to stop', () => {
-    const panel = '<ColumnConfigPanel registry={r} layout={columnLayout} />\n'
-    const grid = '<DataGrid\n  rows={rows}\n  columnLayout={columnLayout}\n/>\n'
-    const good = `const columnLayout = gridPrefs.columnLayout ?? defaultColumnLayout(columnRegistry)\n${panel}${grid}`
+    const decl = 'const columnLayout = useMemo(\n  () => gridPrefs.columnLayout ?? defaultColumnLayout(columnRegistry),\n  [x]\n)\n'
+    const panel = (layout: string) => `<ColumnConfigPanel registry={r} layout={${layout}} labels={l} />\n`
+    const grid = (layout: string) => `<DataGrid<Row>\n  rows={rows}\n  columnLayout={${layout}}\n  labels={{ a: t('x') }}\n/>\n`
+    const good = `${decl}${panel('columnLayout')}${grid('columnLayout')}`
     expect(problems(good)).toEqual([])
-    expect(problems(`${good}<DataGrid columnLayout={gridPrefs.columnLayout ?? undefined} />`)).toHaveLength(1)
-    expect(problems(`${good}<ColumnConfigPanel layout={gridPrefs.columnLayout ?? {`)).toHaveLength(1)
-    expect(problems(panel)).toHaveLength(2)
-    expect(problems(good.replace('  columnLayout={columnLayout}\n', ''))).toHaveLength(1)
+
+    // The KAN-361 defect, inline or split over lines.
+    expect(problems(`${decl}${panel('columnLayout')}${grid('gridPrefs.columnLayout ?? undefined')}`)).toHaveLength(1)
+    expect(problems(`${decl}${panel('columnLayout')}${grid('gridPrefs.columnLayout\n    ?? undefined')}`)).toHaveLength(1)
+    // A bare saved layout to either side.
+    expect(problems(`${decl}${panel('gridPrefs.columnLayout')}${grid('columnLayout')}`)).toHaveLength(1)
+    expect(problems(`${decl}${panel('columnLayout')}${grid('gridPrefs.columnLayout')}`)).toHaveLength(1)
+    // The same behind a variable.
+    const hidden = 'const savedLayout = gridPrefs.columnLayout ?? undefined\n'
+    expect(problems(`${hidden}${panel('savedLayout')}${grid('savedLayout')}`)).toHaveLength(2)
+    // No layout on the grid at all.
+    expect(problems(`${decl}${panel('columnLayout')}<DataGrid rows={rows} />\n`)).toHaveLength(1)
+    // A file without a Columns panel is not this rule's business.
     expect(problems('<DataGrid columnLayout={gridPrefs.columnLayout ?? undefined} />')).toEqual([])
   })
 })

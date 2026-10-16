@@ -65,10 +65,11 @@ some aria-labels cannot be overridden at all (`Overlay`'s "Close", `FilterBuilde
 - **ADR-060** — every persisted field is available as a grid column; a documented subset is
   visible by default. A stored field that cannot be put on screen is a defect. A grid with a
   Columns panel passes `gridPrefs.columnLayout ?? defaultColumnLayout(columnRegistry)` to both
-  `DataGrid` and the panel: without a layout `DataGrid` renders every column (KAN-361;
-  `src/architecture/grid-default-column-layout.test.ts` catches the inline `?? undefined` and a
-  panel without a `defaultColumnLayout` fallback — not one hidden behind a variable). `DataGrid`
-  itself stays layout-agnostic: a grid without a panel shows every column (ADR-092).
+  `DataGrid` and the panel: without a layout `DataGrid` renders every column (KAN-361).
+  `src/architecture/grid-default-column-layout.test.ts` requires, in every file that renders the
+  panel, that the panel's `layout` and each `DataGrid`'s `columnLayout` be a variable declared
+  with a `?? defaultColumnLayout(...)` fallback. `DataGrid` itself stays layout-agnostic: a grid
+  without a panel shows every column (ADR-092).
 - **ADR-061** — every detail screen: **one primary action, one alternative, and an overflow
   carrying the entity's full row menu** — same items, same order, same
   disabled-with-explanation entries. The row menu is the single definition of what can be done
