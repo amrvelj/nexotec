@@ -142,7 +142,9 @@ weekly. -->
 - **A customer merge takes the same lock** (KAN-356): before it reads or re-points a party row,
   `_repoint_vehicle_parties` takes the (vehicle, role, group) advisory lock for every pair the
   duplicate has a row in, in sorted order, then locks the rows — so it never interleaves with an
-  allocation or a reopen, and two merges never deadlock each other.
+  allocation or a reopen. A pair that appears while it waits is only tried, never waited for (out
+  of order, it could deadlock another merge): if it is held, the merge is refused, 409
+  `merge_vehicle_party_busy`, and can be sent again.
 - **A party row carries the vehicle's label, never a join** (KAN-84, rule 2):
   `vehicle_vin`, `vehicle_number`, `vehicle_make`, `vehicle_model`, `vehicle_model_year`,
   `vehicle_trim` and `vehicle_label_refreshed_at`, copied from

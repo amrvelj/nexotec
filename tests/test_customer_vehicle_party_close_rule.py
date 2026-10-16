@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.auth import AccessRole, create_access_token
 from app.core.base import utcnow
+from app.core.errors import ConflictError
 from app.core.outbox_model import OutboxMessage
 from app.customer.models.customer import Customer, CustomerType, Language
 from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
@@ -144,7 +145,6 @@ def test_a_create_repeating_a_rows_exact_start_is_a_409_and_changes_nothing(db_s
     the violation into the 409 the raw path gave — never a 500 — and the
     incumbent's close rolls back with it."""
 
-    from app.core.errors import ConflictError
 
     group_id = uuid.uuid4()
     vehicle = _vehicle(db_session, "WVWZZZ1KZAW148015")
@@ -648,3 +648,47 @@ def test_a_merge_locks_every_vehicle_role_it_touches_in_sorted_order(db_session,
     )
 
     assert taken == sorted({(str(v.id), r.value) for v in vehicles for r in (OWNER, VehiclePartyRole.DRIVER)})
+
+
+def test_a_merge_never_waits_for_a_late_pair_out_of_order(engine, db_session, monkeypatch):
+    """A row for the duplicate on a new (vehicle, role) commits while the
+    merge waits for its first locks. That late pair is out of the sorted
+    order, so waiting for it could deadlock another merge; the merge tries
+    the lock instead and, while another writer holds it, is refused with a
+    409 and writes nothing."""
+
+    _postgres_only(engine)
+    group_id = uuid.uuid4()
+    first, late = _vehicle(db_session, "WVWZZZ1KZAW356201"), _vehicle(db_session, "WVWZZZ1KZAW356202")
+    duplicate, survivor = _customer(db_session, group_id, "Dora"), _customer(db_session, group_id, "Sven")
+    party = VehicleParty(vehicle_id=first.id, customer_id=duplicate.id, role=OWNER, effective_from=utcnow())
+    db_session.add(party)
+    db_session.commit()
+    factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+    holder = factory()
+    real_lock = customer_service._lock_vehicle_role_in_group
+
+    def _lock_then_a_row_arrives(db, *, vehicle_id, role, group_id):
+        real_lock(db, vehicle_id=vehicle_id, role=role, group_id=group_id)
+        with factory() as other:
+            other.add(VehicleParty(vehicle_id=late.id, customer_id=duplicate.id, role=OWNER, effective_from=utcnow()))
+            other.commit()
+        real_lock(holder, vehicle_id=late.id, role=OWNER, group_id=group_id)  # another writer holds the late pair
+
+    monkeypatch.setattr(customer_service, "_lock_vehicle_role_in_group", _lock_then_a_row_arrives)
+    try:
+        with factory() as session:
+            loaded = customer_service.get_customer_or_404(session, group_id, duplicate.id)
+            with pytest.raises(ConflictError) as refused:
+                customer_service.merge_customer(
+                    session, customer=loaded, duplicate_of_customer_id=survivor.id, actor_id=uuid.uuid4()
+                )
+            session.rollback()
+    finally:
+        holder.rollback()
+        holder.close()
+
+    assert refused.value.details["reason"] == "merge_vehicle_party_busy"
+    db_session.expire_all()
+    assert db_session.get(VehicleParty, party.id).customer_id == duplicate.id
+    assert db_session.get(Customer, duplicate.id).duplicate_of_customer_id is None

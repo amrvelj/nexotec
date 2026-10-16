@@ -1003,7 +1003,10 @@ def _repoint_vehicle_parties(
     then locks the rows it writes (advisory, then row: KAN-148's order). A
     row an allocation added for the duplicate while the merge waited can name
     a pair not locked yet, so the pairs are read again until every one is
-    held.
+    held. Such a late pair is out of the sorted order, so the merge never
+    waits for it: it tries the lock, and if another writer holds it the merge
+    is refused (409 `merge_vehicle_party_busy`, nothing written) and can
+    simply be sent again.
     """
 
     held: set[tuple[uuid.UUID, VehiclePartyRole]] = set()
@@ -1019,8 +1022,15 @@ def _repoint_vehicle_parties(
         missing = sorted(pairs - held, key=lambda pair: (str(pair[0]), pair[1].value))
         if not missing:
             break
+        late = bool(held)
         for vehicle_id, role in missing:
-            _lock_vehicle_role_in_group(db, vehicle_id=vehicle_id, role=role, group_id=group_id)
+            if not late:
+                _lock_vehicle_role_in_group(db, vehicle_id=vehicle_id, role=role, group_id=group_id)
+            elif not _try_lock_vehicle_role_in_group(db, vehicle_id=vehicle_id, role=role, group_id=group_id):
+                raise ConflictError(
+                    "A vehicle of this customer is being changed right now; send the merge again.",
+                    details={"reason": "merge_vehicle_party_busy", "vehicleId": str(vehicle_id), "role": role.value},
+                )
             held.add((vehicle_id, role))
 
     target_keys = {
@@ -2959,9 +2969,28 @@ def _lock_vehicle_role_in_group(
 
     if db.get_bind().dialect.name != "postgresql":
         return
+    db.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": _vehicle_role_lock_key(vehicle_id, role, group_id)})
+
+
+def _try_lock_vehicle_role_in_group(
+    db: Session, *, vehicle_id: uuid.UUID, role: VehiclePartyRole, group_id: uuid.UUID
+) -> bool:
+    """The same lock, without waiting: True once held, False if another
+    transaction holds it (KAN-356: a merge's out-of-order late pair). Always
+    True on SQLite, as above."""
+
+    if db.get_bind().dialect.name != "postgresql":
+        return True
+    return bool(
+        db.execute(
+            text("SELECT pg_try_advisory_xact_lock(:key)"), {"key": _vehicle_role_lock_key(vehicle_id, role, group_id)}
+        ).scalar()
+    )
+
+
+def _vehicle_role_lock_key(vehicle_id: uuid.UUID, role: VehiclePartyRole, group_id: uuid.UUID) -> int:
     digest = hashlib.sha256(f"vehicle_party:{vehicle_id}:{role.value}:{group_id}".encode()).digest()
-    key = int.from_bytes(digest[:8], "big", signed=True)
-    db.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": key})
+    return int.from_bytes(digest[:8], "big", signed=True)
 
 
 def _open_vehicle_party(
