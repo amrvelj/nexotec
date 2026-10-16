@@ -94,7 +94,11 @@
       "search": "Find a column…",
       "reset": "Reset to default",
       "presets": "Presets",
-      "lockedTooltip": "Always shown"
+      "lockedTooltip": "Always shown",
+      "pin": "Pin column",
+      "unpin": "Unpin column",
+      "moveUp": "Move {{label}} up",
+      "moveDown": "Move {{label}} down"
     }
   },
   "customerCreate": {
@@ -1819,5 +1823,13 @@
   "valuationSource": {
     "manual": "Manual",
     "auto_i_dat": "auto-i-dat"
+  },
+  "valuationEnums": {
+    "status": {
+      "draft": "Draft",
+      "valid": "Valid",
+      "expired": "Expired",
+      "used": "Used"
+    }
   }
 }

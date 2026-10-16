@@ -94,7 +94,11 @@
       "search": "Rechercher une colonne…",
       "reset": "Rétablir par défaut",
       "presets": "Modèles",
-      "lockedTooltip": "Toujours affichée"
+      "lockedTooltip": "Toujours affichée",
+      "pin": "Épingler la colonne",
+      "unpin": "Désépingler la colonne",
+      "moveUp": "Monter {{label}}",
+      "moveDown": "Descendre {{label}}"
     }
   },
   "customerCreate": {
@@ -1819,5 +1823,13 @@
   "valuationSource": {
     "manual": "Manuel",
     "auto_i_dat": "auto-i-dat"
+  },
+  "valuationEnums": {
+    "status": {
+      "draft": "Brouillon",
+      "valid": "Valide",
+      "expired": "Expirée",
+      "used": "Utilisée"
+    }
   }
 }

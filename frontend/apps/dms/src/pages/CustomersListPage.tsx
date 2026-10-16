@@ -30,6 +30,7 @@ import {
 } from '@nexotec/ui-kit'
 import { useUiPreferencesContext } from '../hooks/UiPreferencesContext'
 import { useGridPreferences } from '../hooks/useGridPreferences'
+import { useColumnPanelLabels } from '../hooks/useColumnPanelLabels'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { useSavedViews } from '../hooks/useSavedViews'
 import { useCountryOptions } from '../hooks/useCountryOptions'
@@ -527,6 +528,7 @@ export function CustomersListPage() {
     () => gridPrefs.columnLayout ?? defaultColumnLayout(columnRegistry),
     [gridPrefs.columnLayout, columnRegistry]
   )
+  const columnPanelLabels = useColumnPanelLabels()
 
   const sortParam = sort.length > 0 ? sort.map((s) => `${s.field}:${s.direction}`).join(',') : undefined
 
@@ -708,6 +710,7 @@ export function CustomersListPage() {
                   registry={columnRegistry}
                   layout={columnLayout}
                   onLayoutChange={gridPrefs.setColumnLayout}
+                  labels={columnPanelLabels}
                 />
               }
               labels={{

@@ -198,7 +198,7 @@ describe('CatalogueBrowsePage — FR-C-01', () => {
     const first = renderWithProviders(<CatalogueBrowsePage />, { route: '/catalogue' })
     expect(await screen.findByRole('columnheader', { name: psHeader() })).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'Columns' }))
+    await user.click(screen.getByRole('button', { name: i18n.t('common.columnPanel.trigger') }))
     await user.click(await screen.findByRole('checkbox', { name: psHeader() }))
 
     await waitFor(() => expect(screen.queryByRole('columnheader', { name: psHeader() })).not.toBeInTheDocument())

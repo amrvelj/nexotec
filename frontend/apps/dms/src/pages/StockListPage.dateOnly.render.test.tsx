@@ -42,7 +42,7 @@ const GROUP_ROW: StockItemGroupRead = {
 const page = <T,>(items: T[]) => ({ items, nextCursor: null, total: items.length, totalIsEstimate: false })
 
 async function showColumns(keys: string[]) {
-  await userEvent.click(screen.getByRole('button', { name: 'Columns' }))
+  await userEvent.click(screen.getByRole('button', { name: i18n.t('common.columnPanel.trigger') }))
   for (const key of keys) {
     const label = i18n.t(`stockList.columns.${key}`)
     await userEvent.click(screen.getByRole('checkbox', { name: new RegExp(`^${label}$`, 'i') }))

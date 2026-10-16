@@ -23,22 +23,24 @@ export interface ColumnConfigPanelProps {
   layout: ColumnLayoutState;
   onLayoutChange: (layout: ColumnLayoutState) => void;
   presets?: ColumnPreset[];
-  labels?: {
-    trigger?: string;
-    search?: string;
-    reset?: string;
-    presets?: string;
-    lockedTooltip?: string;
-  };
+  /** Every visible and accessible string of the panel. Required, with no
+   * defaults: a ui-kit component never ships a user-visible string of its
+   * own (KAN-110/KAN-181), so a caller without translations does not
+   * compile (KAN-362). */
+  labels: ColumnConfigPanelLabels;
 }
 
-const DEFAULT_LABELS = {
-  trigger: "Columns",
-  search: "Find a column…",
-  reset: "Reset to default",
-  presets: "Presets",
-  lockedTooltip: "Always shown",
-};
+export interface ColumnConfigPanelLabels {
+  trigger: string;
+  search: string;
+  reset: string;
+  presets: string;
+  lockedTooltip: string;
+  pin: string;
+  unpin: string;
+  moveUp: (columnLabel: string) => string;
+  moveDown: (columnLabel: string) => string;
+}
 
 /**
  * § Columns — the 320px non-modal side panel: search, show/hide, drag-
@@ -49,7 +51,7 @@ const DEFAULT_LABELS = {
  * see `HeaderCell`'s resize handle in DataGrid.tsx.
  */
 export function ColumnConfigPanel({ registry, layout, onLayoutChange, presets, labels }: ColumnConfigPanelProps) {
-  const L = { ...DEFAULT_LABELS, ...labels };
+  const L = labels;
   const [opened, setOpened] = useState(false);
   const [query, setQuery] = useState("");
   const [draggedId, setDraggedId] = useState<string | null>(null);
@@ -187,7 +189,7 @@ export function ColumnConfigPanel({ registry, layout, onLayoutChange, presets, l
                 <button
                   type="button"
                   onClick={() => onLayoutChange(togglePinned(layout, entry.id))}
-                  aria-label={isPinned ? "Unpin column" : "Pin column"}
+                  aria-label={isPinned ? L.unpin : L.pin}
                   aria-pressed={isPinned}
                   disabled={entry.locked}
                   style={{
@@ -209,7 +211,7 @@ export function ColumnConfigPanel({ registry, layout, onLayoutChange, presets, l
                     type="button"
                     onClick={() => move(entry.id, -1)}
                     disabled={index === 0}
-                    aria-label={`Move ${entry.label} up`}
+                    aria-label={L.moveUp(entry.label)}
                     style={{ border: "none", background: "none", cursor: "pointer", color: slate[4], lineHeight: 0.6, fontSize: 10 }}
                   >
                     ▲
@@ -218,7 +220,7 @@ export function ColumnConfigPanel({ registry, layout, onLayoutChange, presets, l
                     type="button"
                     onClick={() => move(entry.id, 1)}
                     disabled={index === orderedEntries.length - 1}
-                    aria-label={`Move ${entry.label} down`}
+                    aria-label={L.moveDown(entry.label)}
                     style={{ border: "none", background: "none", cursor: "pointer", color: slate[4], lineHeight: 0.6, fontSize: 10 }}
                   >
                     ▼
