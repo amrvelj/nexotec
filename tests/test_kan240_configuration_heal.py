@@ -85,8 +85,8 @@ def test_a_configuration_with_a_null_fuel_type_is_filled_when_the_gap_is_resolve
     (audit,) = _fills(db_session, filled)
     assert audit.actor_id is None  # the system, not the admin who resolved the gap
     assert audit.tenant_id == tenant_id
-    assert audit.before == {"fuel_type": None}
-    assert audit.after == {"fuel_type": "petrol"}
+    assert audit.before == {"fuelType": None}
+    assert audit.after == {"fuelType": "petrol"}
     assert "resolved" in (audit.reason or "")
     events = db_session.scalars(
         select(OutboxMessage.event_type).where(

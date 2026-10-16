@@ -146,6 +146,9 @@ code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. -->
   `catalogueMatchStatus` and `spec: null` still mean "leave alone"; the lock follows `source`.
 - **Re-sync (FR-C-16)** is only ever the advisor's request (`/v1/configurations/{id}/resync`):
   disagreeing fields listed, overrides marked, only chosen fields applied.
+- **Configuration audit rows name a field by its camelCase API name** (`firstRegistrationDate`,
+  `mileageKm`) in every event — create, update, match-status change, re-sync, catalogue fill
+  (KAN-346); rows written before keep their snake_case keys (the log is append-only).
 
 ## auto-i-dat facts that are easy to get wrong
 

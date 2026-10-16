@@ -167,7 +167,7 @@ def test_a_provider_configurations_coded_values_sent_back_unchanged_are_accepted
     # nothing coded changed, so nothing coded is audited — only the mileage
     # the PATCH set (KAN-319: a top-level change is recorded too)
     (audit,) = _update_audits(db_session, created["id"])
-    assert (audit.before, audit.after) == ({"mileage_km": None}, {"mileage_km": 12000})
+    assert (audit.before, audit.after) == ({"mileageKm": None}, {"mileageKm": 12000})
 
 
 # --- R1: manual configurations — all five required, none clearable ------
@@ -266,8 +266,8 @@ def test_a_coded_field_change_on_a_manual_configuration_is_in_the_audit_before_a
     assert r.json()["fuelType"] == "diesel"
     (audit,) = _update_audits(db_session, created["id"])
     # drivetrain was sent unchanged: not recorded
-    assert audit.before == {"fuel_type": "petrol", "ps": None}
-    assert audit.after == {"fuel_type": "diesel", "ps": 29}
+    assert audit.before == {"fuelType": "petrol", "ps": None}
+    assert audit.after == {"fuelType": "diesel", "ps": 29}
 
 
 def test_an_unchanged_coded_value_on_a_manual_configuration_records_nothing(client, db_session):
@@ -378,10 +378,10 @@ def test_a_changed_top_level_field_is_in_the_audit_before_and_after(client, db_s
     assert r.status_code == 200, r.text
     (audit,) = _update_audits(db_session, created["id"])
     assert audit.before == {
-        "vin": "VF7AAAAAAAA000001", "first_registration_date": "1985-04-01", "mileage_km": 142000, "ps": None,
+        "vin": "VF7AAAAAAAA000001", "firstRegistrationDate": "1985-04-01", "mileageKm": 142000, "ps": None,
     }
     assert audit.after == {
-        "vin": "VF7AAAAAAAA000002", "first_registration_date": "1986-05-02", "mileage_km": 150000, "ps": 29,
+        "vin": "VF7AAAAAAAA000002", "firstRegistrationDate": "1986-05-02", "mileageKm": 150000, "ps": 29,
     }
 
 
@@ -398,8 +398,8 @@ def test_a_cleared_top_level_field_is_in_the_audit_with_a_null_after(client, db_
 
     assert r.status_code == 200, r.text
     (audit,) = _update_audits(db_session, created["id"])
-    assert audit.before == {"mileage_km": 142000, "exterior_colour": "Rouge", "wheels_surcharge": "100.00"}
-    assert audit.after == {"mileage_km": None, "exterior_colour": None, "wheels_surcharge": None}
+    assert audit.before == {"mileageKm": 142000, "exteriorColour": "Rouge", "wheelsSurcharge": "100.00"}
+    assert audit.after == {"mileageKm": None, "exteriorColour": None, "wheelsSurcharge": None}
 
 
 def test_an_unchanged_top_level_value_records_nothing(client, db_session):
@@ -426,7 +426,7 @@ def test_a_changed_match_method_is_in_the_audit(client, db_session):
     assert r.status_code == 200, r.text
     assert r.json()["matchMethod"] == "vin"
     (audit,) = _update_audits(db_session, created["id"])
-    assert (audit.before, audit.after) == ({"match_method": "manual"}, {"match_method": "vin"})
+    assert (audit.before, audit.after) == ({"matchMethod": "manual"}, {"matchMethod": "vin"})
 
 
 def test_clearing_a_top_level_field_on_a_provider_configuration_is_audited_too(client, db_session):
@@ -443,8 +443,8 @@ def test_clearing_a_top_level_field_on_a_provider_configuration_is_audited_too(c
 
     assert r.status_code == 200, r.text
     first, second = _update_audits(db_session, created["id"])
-    assert (first.before, first.after) == ({"mileage_km": None}, {"mileage_km": 30000})
-    assert (second.before, second.after) == ({"mileage_km": 30000}, {"mileage_km": None})
+    assert (first.before, first.after) == ({"mileageKm": None}, {"mileageKm": 30000})
+    assert (second.before, second.after) == ({"mileageKm": 30000}, {"mileageKm": None})
 
 
 # --- R4 (KAN-326): the vehicle link follows the VIN ----------------------

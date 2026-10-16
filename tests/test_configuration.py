@@ -173,6 +173,55 @@ def test_match_status_transition_audits_and_fires_configuration_matched(db_sessi
     ).all()
 
 
+def test_every_configuration_audit_names_a_field_by_its_camel_case_api_name(db_session):
+    """KAN-346 — the create event said `firstRegistrationDate`, the update
+    event `first_registration_date`: two names for one field in the audit
+    log. Create, update, match-status change and re-sync now all key a field
+    by its API name, so the same field reads the same across its life."""
+
+    from app.vehicle.services.configuration_host import apply_resync
+
+    variant = _variant(db_session, displacement_ccm=1984)
+    tenant_id, actor_id = uuid.uuid4(), uuid.uuid4()
+    config = svc.create_configuration(
+        db_session, tenant_id=tenant_id, actor_id=actor_id,
+        data=ConfigurationCreate(
+            source=ConfigurationSource.PROVIDER, mode=ConfigurationMode.BUILD,
+            match_method=ConfigurationMatchMethod.CATALOGUE_BROWSE, catalogue_variant_id=variant.id,
+            first_registration_date=dt.date(2021, 3, 1),
+        ),
+    )
+    config = svc.update_configuration(
+        db_session, configuration=config, actor_id=actor_id,
+        data=ConfigurationUpdate(
+            first_registration_date=dt.date(2021, 4, 1), mileage_km=12000,
+            match_method=ConfigurationMatchMethod.VIN,
+            spec=VehicleSpecBlockInput(displacement_ccm=1998),
+        ),
+    )
+    apply_resync(db_session, configuration=config, actor_id=actor_id, fields=["displacement_ccm"])
+
+    rows = {
+        row.action: row
+        for row in db_session.scalars(
+            select(AuditEvent).where(AuditEvent.entity_type == "vehicle_configuration", AuditEvent.entity_id == config.id)
+        )
+    }
+    assert set(rows) == {"create", "update", "resync"}
+    assert rows["create"].after["firstRegistrationDate"] == "2021-03-01"
+    assert rows["update"].before == {
+        "firstRegistrationDate": "2021-03-01", "mileageKm": None, "matchMethod": "catalogue_browse",
+        "displacementCcm": 1984,
+    }
+    assert rows["update"].after == {
+        "firstRegistrationDate": "2021-04-01", "mileageKm": 12000, "matchMethod": "vin", "displacementCcm": 1998,
+    }
+    assert (rows["resync"].before, rows["resync"].after) == ({"displacementCcm": 1998}, {"displacementCcm": 1984})
+    for row in rows.values():
+        for key in [*(row.before or {}), *(row.after or {})]:
+            assert "_" not in key, (row.action, key)
+
+
 def test_audit_survives_a_first_registration_date_in_the_payload(db_session):
     """KAN-29 regression — a dt.date reaching the audit payload must be
     isoformat'd, not passed raw to json.dumps."""
