@@ -562,3 +562,89 @@ def test_a_reopen_racing_an_allocation_leaves_one_open_holder(engine, db_session
     assert not allocation.is_alive() and not reopen.is_alive()
     assert errors == []
     assert _open_holders(db_session, vehicle.id) == {alice.id}
+
+
+# --- KAN-356: a customer merge takes the (vehicle, role, group) lock ------------
+
+
+def test_a_merge_racing_an_allocation_waits_for_it_and_closes_nothing_twice(engine, db_session, monkeypatch):
+    """The duplicate holds the car; the survivor has a row with the same
+    (vehicle, role, start), so the merge would close the duplicate's copy
+    (KAN-177). An allocation to a third customer closes that row first and
+    is paused before committing. The merge waits on the allocation's
+    advisory lock, then finds the row closed: it only marks it — one close,
+    one `unlinked` event, the allocation's end date kept. Without the lock
+    the merge read the row open and closed it a second time, rewriting its
+    end and publishing a second `unlinked`."""
+
+    _postgres_only(engine)
+    group_id = uuid.uuid4()
+    vehicle = _vehicle(db_session, "WVWZZZ1KZAW356001")
+    duplicate, survivor, carla = (_customer(db_session, group_id, n) for n in ("Dora", "Sven", "Carla"))
+    start = utcnow() - dt.timedelta(days=30)
+    db_session.add(VehicleParty(
+        vehicle_id=vehicle.id, customer_id=survivor.id, role=OWNER, effective_from=start,
+        effective_to=start + dt.timedelta(days=1),
+    ))
+    duplicate_party = VehicleParty(vehicle_id=vehicle.id, customer_id=duplicate.id, role=OWNER, effective_from=start)
+    db_session.add(duplicate_party)
+    db_session.commit()
+    vehicle_id, party_id = vehicle.id, duplicate_party.id  # plain values: the threads never touch db_session
+    duplicate_id, survivor_id, carla_id = duplicate.id, survivor.id, carla.id
+    reached, release = _pause_thread_after_closing(monkeypatch, "allocation")
+    factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+    errors: list[Exception] = []
+
+    def _allocation():
+        with factory() as session:
+            _allocate(session, vehicle_id, carla_id, group_id)
+
+    def _merge():
+        with factory() as session:
+            loaded = customer_service.get_customer_or_404(session, group_id, duplicate_id)
+            customer_service.merge_customer(
+                session, customer=loaded, duplicate_of_customer_id=survivor_id, actor_id=uuid.uuid4()
+            )
+
+    allocation = _run("allocation", errors, _allocation)
+    try:
+        assert reached.wait(timeout=10), "the allocation never reached its insert"
+        merge = _run("merge", errors, _merge)
+        _wait_until_a_backend_waits_on_a_lock(engine)  # the merge waits on the allocation's advisory lock
+        release.set()
+        allocation.join(timeout=10)
+        merge.join(timeout=10)
+    finally:
+        release.set()
+
+    assert not allocation.is_alive() and not merge.is_alive()
+    assert errors == []
+    assert _open_holders(db_session, vehicle_id) == {carla_id}
+    kept = db_session.get(VehicleParty, party_id)
+    assert (kept.customer_id, kept.merged_into_customer_id) == (duplicate_id, survivor_id)
+    assert kept.effective_to > start + dt.timedelta(days=1)  # the allocation's close, not the merge's
+    assert len(_events(db_session, "customer.vehicle_party.unlinked", party_id)) == 1
+
+
+def test_a_merge_locks_every_vehicle_role_it_touches_in_sorted_order(db_session, monkeypatch):
+    """Two merges touching the same pairs never deadlock each other: the
+    locks are taken in one fixed order, each pair once."""
+
+    group_id = uuid.uuid4()
+    duplicate, survivor = _customer(db_session, group_id, "Dora"), _customer(db_session, group_id, "Sven")
+    vehicles = [_vehicle(db_session, f"WVWZZZ1KZAW35610{i}") for i in range(3)]
+    for vehicle in vehicles:
+        for role in (OWNER, VehiclePartyRole.DRIVER):
+            db_session.add(VehicleParty(vehicle_id=vehicle.id, customer_id=duplicate.id, role=role, effective_from=utcnow()))
+    db_session.commit()
+    taken: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        customer_service, "_lock_vehicle_role_in_group",
+        lambda db, *, vehicle_id, role, group_id: taken.append((str(vehicle_id), role.value)),
+    )
+
+    customer_service.merge_customer(
+        db_session, customer=duplicate, duplicate_of_customer_id=survivor.id, actor_id=uuid.uuid4()
+    )
+
+    assert taken == sorted({(str(v.id), r.value) for v in vehicles for r in (OWNER, VehiclePartyRole.DRIVER)})

@@ -995,7 +995,33 @@ def _repoint_vehicle_parties(
     audit event lists its id. One that is open, or closed at a future date,
     is closed at its start so it never reads as a current party again. The
     survivor's row is not touched.
+
+    KAN-356: every allocation and reopen serialises on the (vehicle, role,
+    group) advisory lock, and the merge writes the same rows, so it takes that
+    lock for every (vehicle, role) the duplicate has a row in — in sorted
+    order, so two merges never deadlock each other — before it reads a row,
+    then locks the rows it writes (advisory, then row: KAN-148's order). A
+    row an allocation added for the duplicate while the merge waited can name
+    a pair not locked yet, so the pairs are read again until every one is
+    held.
     """
+
+    held: set[tuple[uuid.UUID, VehiclePartyRole]] = set()
+    while True:
+        pairs = {
+            (vehicle_id, role)
+            for vehicle_id, role in db.execute(
+                select(VehicleParty.vehicle_id, VehicleParty.role)
+                .where(VehicleParty.customer_id == duplicate_id)
+                .distinct()
+            ).all()
+        }
+        missing = sorted(pairs - held, key=lambda pair: (str(pair[0]), pair[1].value))
+        if not missing:
+            break
+        for vehicle_id, role in missing:
+            _lock_vehicle_role_in_group(db, vehicle_id=vehicle_id, role=role, group_id=group_id)
+            held.add((vehicle_id, role))
 
     target_keys = {
         (p.vehicle_id, p.role, p.effective_from)
@@ -1003,7 +1029,14 @@ def _repoint_vehicle_parties(
     }
     repointed = 0
     kept_closed: list[uuid.UUID] = []
-    for party in db.scalars(select(VehicleParty).where(VehicleParty.customer_id == duplicate_id)).all():
+    duplicate_rows = (
+        select(VehicleParty)
+        .where(VehicleParty.customer_id == duplicate_id)
+        .order_by(VehicleParty.id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    for party in db.scalars(duplicate_rows).all():
         key = (party.vehicle_id, party.role, party.effective_from)
         if key in target_keys:
             already_closed = party.effective_to is not None and party.effective_to <= utcnow()
