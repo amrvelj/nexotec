@@ -4,10 +4,11 @@
 
 Run as a program (`python -m tests.schema_diff_support <sqlalchemy url>`) it
 prints that list as JSON. The gate test runs it that way, in a fresh
-interpreter, because inside the pytest process Base.metadata also carries
-the models tests define for themselves (tests/demo_models.py) and whatever
-app.main pulled in — the comparison must see app.model_registry's metadata
-and nothing else, exactly as alembic/env.py does.
+interpreter, because inside the pytest process Base.metadata carries
+whatever app.main and the other test modules pulled in — the comparison must
+see app.model_registry's metadata and nothing else, exactly as alembic/env.py
+does. (The test-only demo_widget is no longer a reason: since KAN-332 it sits
+on tests/demo_models.py's own base, never on Base.metadata.)
 """
 
 import json

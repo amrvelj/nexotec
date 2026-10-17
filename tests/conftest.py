@@ -43,7 +43,7 @@ import app.model_registry  # noqa: F401  ensures all tables are registered on Ba
 from app.db import Base, get_db
 from app.main import app as fastapi_app
 from app.platform.services.oidc import get_oidc_client
-from tests.demo_models import DemoWidget  # noqa: F401  registers the test-only tenant-scoped model
+from tests.demo_models import DemoBase
 from tests.fake_oidc import FakeOidcClient
 
 # Two test lanes: Postgres when DMS_TEST_DATABASE_URL is set (the lane of
@@ -201,6 +201,21 @@ _LOCK_HOLDERS = text(
 )
 
 
+# KAN-332: the test schema is the production metadata plus the test-only
+# models' own (tests/demo_models.py), which never sit on Base.metadata.
+TEST_METADATA = (Base.metadata, DemoBase.metadata)
+
+
+def _create_all(bind) -> None:
+    for metadata in TEST_METADATA:
+        metadata.create_all(bind)
+
+
+def _drop_all(bind) -> None:
+    for metadata in reversed(TEST_METADATA):
+        metadata.drop_all(bind)
+
+
 class _PostgresSchema:
     """Builds, resets and finally drops the session's schema, over a
     connection of its own that lives for the session: its catalog caches stay
@@ -209,7 +224,7 @@ class _PostgresSchema:
 
     def __init__(self) -> None:
         self._engine = _make_engine()
-        self._names = [table.name for table in Base.metadata.sorted_tables]
+        self._names = [table.name for metadata in TEST_METADATA for table in metadata.sorted_tables]
         self._ddl_count: int | None = None
 
     def build(self) -> None:
@@ -261,14 +276,14 @@ class _PostgresSchema:
             conn.execute(text("SET LOCAL lock_timeout = '10s'"))
             for statement in _STOP_COUNTING_DDL:
                 conn.execute(text(statement))
-            Base.metadata.drop_all(conn)
+            _drop_all(conn)
         self._engine.dispose()
 
     def _build(self, conn) -> None:
-        Base.metadata.drop_all(conn)
-        Base.metadata.create_all(conn)
+        _drop_all(conn)
+        _create_all(conn)
         preparer = conn.dialect.identifier_preparer
-        for table in Base.metadata.sorted_tables:
+        for table in (table for metadata in TEST_METADATA for table in metadata.sorted_tables):
             # A table now lives for the whole session, not for one test. With
             # autovacuum off it never holds a lock TRUNCATE has to wait for,
             # and never gathers statistics a newly created table would not have.
@@ -304,9 +319,9 @@ def _postgres_schema():
 def engine(_postgres_schema, request):
     eng = _make_engine()
     if _postgres_schema is None:
-        Base.metadata.create_all(eng)
+        _create_all(eng)
         yield eng
-        Base.metadata.drop_all(eng)
+        _drop_all(eng)
         eng.dispose()
         return
     _postgres_schema.reset()

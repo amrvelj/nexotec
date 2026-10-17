@@ -123,9 +123,9 @@ def find_cross_context_mappings(mappers: list[Mapper]) -> list[str]:
 
 
 def _app_mappers() -> list[Mapper]:
-    # tests/demo_models.py maps throwaway fixture classes on the same Base
-    # for the core-mechanism tests; they belong to no context.
-    mappers = [m for m in Base.registry.mappers if not m.class_.__module__.startswith("tests.")]
+    # Every mapper on Base is a production model: tests/demo_models.py maps
+    # its fixture class on a base of its own (KAN-332).
+    mappers = list(Base.registry.mappers)
     for mapper in mappers:
         # Resolves every string target and primaryjoin now, so a broken one
         # fails here rather than silently looking "unmapped".
