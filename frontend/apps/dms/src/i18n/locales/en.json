@@ -1908,7 +1908,8 @@
       "useAuthenticator": "Use the authenticator app",
       "usePasskey": "Sign in with a passkey",
       "passkeyFailed": "The passkey could not be verified.",
-      "backToLogin": "Back to sign-in"
+      "backToLogin": "Back to sign-in",
+      "stepExpired": "This sign-in step has expired — start the sign-in again."
     },
     "reset": {
       "title": "Reset password",

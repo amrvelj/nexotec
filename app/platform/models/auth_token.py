@@ -11,7 +11,7 @@ import datetime as dt
 import enum
 import uuid
 
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, utcnow
@@ -38,6 +38,10 @@ class AuthToken(PrimaryKeyMixin, Base):
     created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
     expires_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), nullable=False)
     consumed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    # The MFA step's attempt counter, claimed by one guarded UPDATE per
+    # answer (auth_tokens.claim_attempt), so parallel guesses cannot read
+    # the same count (FR-AU-08).
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     # Who issued it: the inviting manager, platform staff on a recovery, or
     # NULL for a self-service reset request. An actor column (KAN-243).
     created_by: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True)

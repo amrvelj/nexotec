@@ -21,6 +21,7 @@ from tests.identity_support import (
     cookie_headers,
     create_dealership,
     create_user,
+    platform_admin_headers,
 )
 
 SESSION_ENDED = "Your session has ended — sign in again."
@@ -183,17 +184,22 @@ def test_a_user_lists_and_ends_their_own_sessions(client, login, db_session):
     assert len(client.get("/v1/auth/sessions", headers=cookie_headers(first)).json()["items"]) == 1
 
 
-def test_a_manager_ends_every_session_of_a_user(client, login, db_session):
+def test_platform_staff_end_every_session_of_a_user(client, login, db_session):
+    """D-A-16: account recovery is platform staff's alone — a Betrieb's
+    manager suspends or deactivates the user instead (which ends the
+    sessions the same way, below)."""
+
     dealership = create_dealership(client)
     manager = create_user(client, dealership)
     beat = create_user(client, dealership, isDealerManager=False)
     managers = login.session_cookie(manager)
     one = login.session_cookie(beat)
     two = login.session_cookie(beat)
+    staff_id = uuid.uuid4()
 
-    response = client.delete(
-        f"/v1/dealerships/{dealership}/users/{beat['id']}/sessions", headers=cookie_headers(managers)
-    )
+    path = f"/v1/dealerships/{dealership}/users/{beat['id']}/sessions"
+    assert client.delete(path, headers=cookie_headers(managers)).status_code == 403
+    response = client.delete(path, headers=platform_admin_headers(user_id=staff_id))
     assert response.status_code == 204, response.text
 
     assert client.get("/v1/auth/me", headers=cookie_headers(one)).status_code == 401
@@ -202,24 +208,86 @@ def test_a_manager_ends_every_session_of_a_user(client, login, db_session):
     events = db_session.scalars(select(AuthEvent).where(AuthEvent.kind == AuthEventKind.SESSION_REVOKED)).all()
     (event,) = [e for e in events if e.details["reason"] == "manager"]
     assert str(event.user_id) == beat["id"]
-    assert str(event.actor_id) == manager["id"]
+    assert event.actor_id == staff_id
     assert event.details == {"count": 2, "reason": "manager"}
-
-    # Not a manager: 403. Another tenant's user: 404.
-    assert (
-        client.delete(
-            f"/v1/dealerships/{dealership}/users/{manager['id']}/sessions",
-            headers=cookie_headers(login.session_cookie(beat)),
-        ).status_code
-        == 403
-    )
+    # Another tenant's user: 404, never 403.
     other = create_dealership(client)
-    assert (
-        client.delete(
-            f"/v1/dealerships/{other}/users/{beat['id']}/sessions", headers=cookie_headers(managers)
-        ).status_code
-        == 404
+    assert client.delete(f"/v1/dealerships/{other}/users/{beat['id']}/sessions", headers=platform_admin_headers()).status_code == 404
+
+
+def test_a_status_change_ends_the_sessions_and_records_it(client, login, db_session):
+    dealership = create_dealership(client)
+    manager = create_user(client, dealership)
+    beat = create_user(client, dealership, isDealerManager=False)
+    managers = login.session_cookie(manager)
+    beats = login.session_cookie(beat)
+
+    response = client.patch(
+        f"/v1/dealerships/{dealership}/users/{beat['id']}",
+        json={"status": "suspended"},
+        headers={**cookie_headers(managers), "If-Match": "2"},
     )
+    assert response.status_code == 200, response.text
+    assert client.get("/v1/auth/me", headers=cookie_headers(beats)).status_code == 401
+    events = db_session.scalars(select(AuthEvent).where(AuthEvent.kind == AuthEventKind.SESSION_REVOKED)).all()
+    (event,) = [e for e in events if e.details["reason"] == "suspended"]
+    assert str(event.user_id) == beat["id"]
+    assert str(event.actor_id) == manager["id"]
+
+
+def test_a_session_owing_a_second_factor_is_confined_to_enrolment(client, login, db_session):
+    """D-A-36 / FR-AU-11 at the API, not only in the SPA: a password-only
+    session in an enforcing Betrieb (or any staff session without a factor)
+    reaches its own identity, the enrolment, its sessions, the preferences
+    and the way out — nothing else, until a factor is enrolled and the user
+    signs in with it."""
+
+    import pyotp
+
+    from app.platform.models.mfa import MfaTotp
+    from tests.identity_support import set_mfa_enforced
+
+    dealership = create_dealership(client, mfa_enforced=True)
+    manager = create_user(client, dealership)
+    anna = create_user(client, dealership, isDealerManager=False)
+    annas = login.session_cookie(anna)
+
+    refused = client.get(f"/v1/dealerships/{dealership}", headers=cookie_headers(annas))
+    assert refused.status_code == 403, refused.text
+    assert refused.json()["error"]["details"] == {"mfaEnrolmentRequired": True}
+    assert client.get("/v1/customers", headers=cookie_headers(annas)).status_code == 403
+    assert client.get("/v1/auth/me", headers=cookie_headers(annas)).status_code == 200
+    assert client.get("/v1/auth/mfa", headers=cookie_headers(annas)).status_code == 200
+    assert client.get("/v1/auth/sessions", headers=cookie_headers(annas)).status_code == 200
+    assert client.get("/v1/me/preferences/ui", headers=cookie_headers(annas)).status_code in (200, 404)
+
+    # Enrolling and signing in with the factor opens the door.
+    begun = client.post("/v1/auth/mfa/totp/enrol", headers=cookie_headers(annas)).json()
+    confirmed = client.post(
+        "/v1/auth/mfa/totp/confirm", json={"code": pyotp.TOTP(begun["secret"]).now()}, headers=cookie_headers(annas)
+    )
+    assert confirmed.status_code == 200, confirmed.text
+    assert client.get(f"/v1/dealerships/{dealership}", headers=cookie_headers(annas)).status_code == 403, "no factor yet"
+    totp = db_session.scalars(select(MfaTotp)).one()
+    totp.last_used_step = None
+    db_session.commit()
+    challenge = login.login(anna).json()["challengeId"]
+    verified = client.post("/v1/auth/mfa/verify", json={"challengeId": challenge, "code": pyotp.TOTP(begun["secret"]).now()})
+    assert verified.status_code == 200, verified.text
+    opened = client.get(f"/v1/dealerships/{dealership}", headers=cookie_headers(verified.cookies.get("dms_session")))
+    assert opened.status_code == 200
+
+    # The manager may still switch the Betrieb's enforcement off instead of enrolling.
+    managers = login.session_cookie(manager)
+    assert client.get("/v1/customers", headers=cookie_headers(managers)).status_code == 403
+    set_mfa_enforced(client, dealership, False)
+    assert client.get("/v1/customers", headers=cookie_headers(managers)).status_code == 200
+
+    # Platform staff are confined whatever the Betrieb says.
+    staff = create_user(client, dealership, accessRoles=["platform_admin"], isDealerManager=False)
+    staffs = login.session_cookie(staff)
+    assert client.get(f"/v1/dealerships/{dealership}", headers=cookie_headers(staffs)).status_code == 403
+    assert client.get("/v1/auth/mfa", headers=cookie_headers(staffs)).status_code == 200
 
 
 def test_a_role_or_flag_change_ends_the_users_sessions(client, login, db_session):

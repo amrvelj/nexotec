@@ -179,7 +179,10 @@ One shared template layer (`app/platform/models/document_template.py`). WeasyPri
   account) — `tests/test_identity_login_policy.py` asserts body and timing; never add a
   reason-specific message. Per-account backoff from the third failure and soft lockout after
   `auth_lockout_failures` (cleared by a reset); per-IP backoff on the **last** X-Forwarded-For
-  entry (the proxy's), never the first. `credential` holds the hash (+ the last five) and
+  entry (the proxy's), never the first — wrong second-factor answers are counted per
+  challenge, not on that axis. The address is resolved case-insensitively and stored
+  lower-cased (`ck_user_email_lower`; the migration lower-cases existing rows and aborts with a
+  `KAN-196 REPORT` on two spellings of one mailbox). `credential` holds the hash (+ the last five) and
   **nothing else in the schema may grow a password-shaped column**
   (`test_no_password_credential_storage.py`, inverted as D-A-07 ruled). Nobody sets another
   person's password (FR-AU-10): only an invitation or a reset token does, single-use, stored as
@@ -197,8 +200,9 @@ One shared template layer (`app/platform/models/document_template.py`). WeasyPri
   row and is the one route the guard lets a dead session reach. A status change to suspended
   or deactivated, a change of roles, manager flag or membership (the claims live for the
   session's day), a password reset, an accepted invitation and the manager's
-  `DELETE …/users/{id}/sessions` revoke every row of the user; the reset request's mail is
-  sent after the response (a background task) so its timing says nothing. Per-Betrieb idle/absolute policy (D-A-37) is **not built**: one
+  `DELETE …/users/{id}/sessions` revoke every row of the user — each revocation is a
+  `session_revoked` event; the reset request's mail is sent after the response (a background
+  task) so its timing says nothing; the `logging` mail sender is refused at startup in production. Per-Betrieb idle/absolute policy (D-A-37) is **not built**: one
   platform setting.
 - **MFA** (`mfa.py`): TOTP (`pyotp`, a code is good once, ±1 step) with ten hashed single-use
   recovery codes, passkeys (`webauthn`, resident keys; the challenge is derived from a
@@ -207,8 +211,14 @@ One shared template layer (`app/platform/models/document_template.py`). WeasyPri
   decides for a Betrieb; **platform staff are always enforced** (D-A-36): `LoginResponse.
   mfaEnrolmentRequired` sends the SPA to `/account/security` before any other screen, and
   `require_mfa_session()` in `app/core/auth.py` refuses a staff principal whose session carries
-  no factor — on the four recovery routes below (re-issue invitation, login status, revoke
-  sessions, remove MFA) and proven on a probe route; the impersonation endpoints will carry it.
+  no factor — on the four recovery routes below and proven on a probe route; the impersonation
+  endpoints will carry it. **And at the API as a whole:** the session guard confines a session
+  that still owes a factor (every staff session without one; a dealer session in an enforcing
+  Betrieb) to `/auth/me`, `/auth/mfa/*`, `/auth/sessions`, `/auth/logout`, `/me/preferences`
+  and the Betrieb's own `auth-config` switch — everything else is 403 with
+  `details.mfaEnrolmentRequired`. The MFA step allows five answers per challenge (a guarded
+  counter on the `auth_token` row); the sixth ends the challenge and counts one failure on the
+  account. A challenge is spent on success only, where it is spent.
   A manager's `DELETE …/users/{id}/mfa` removes every factor and always writes `mfa_removed`
   naming the actor (FR-AU-12). **Passkey registration and assertion are verified by the library;
   no automated test completes a real ceremony** (options and refusals are tested).
@@ -232,14 +242,17 @@ One shared template layer (`app/platform/models/document_template.py`). WeasyPri
 - **Connected accounts are grants, not identities (FR-AU-23):** `user_connected_account` is
   never used to sign in and never appears in the token.
 - **D-A-16** — a `platform_admin` recovers accounts alone (re-issue invitation, reset MFA,
-  clear lockout, revoke sessions, grant manager flag). **What KAN-196 built differs, and the
-  difference is put to Anto in PR #218, not settled here:** the recovery routes
-  (`POST …/users/{id}/invitations`, `DELETE …/mfa`, `DELETE …/sessions`, `GET …/login-status`)
-  are open to the Betrieb's manager as well (`require_write("dealership_users")`, the reading
-  of FR-AU-10/12/17), never on a staff account (KAN-97); clearing a lock is the user's own
-  reset; the manager flag is KAN-199's. **Not built:** FR-AU-25's mandatory stated reason on a
-  recovery action, FR-AU-26's `security` notification to the user, FR-AU-27's
-  platform_admin-only restriction. No step-up re-authentication (A-12: no).
+  clear lockout, revoke sessions, grant manager flag). **Built as Notion says (KAN-196):**
+  `DELETE …/users/{id}/mfa` and `DELETE …/users/{id}/sessions` are `platform_admin`-only;
+  `POST …/users/{id}/invitations` is the manager's only while the user is still `invited`
+  (onboarding, FR-AU-13) and `platform_admin`'s once the account is active; a manager reads
+  `GET …/login-status` (FR-AU-10) and never touches a staff account (KAN-97); clearing a lock is
+  the user's own reset; the manager flag is KAN-199's. **A change of the e-mail address is a
+  credential change** (`identity.email_changed`): every open invitation and reset token ends,
+  every session ends, `email_changed` names the actor, and the old address is mailed.
+  **Not built:** FR-AU-25's mandatory stated reason on a recovery action, FR-AU-26's `security`
+  notification family (the e-mail-change notice is the one notice sent). No step-up
+  re-authentication (A-12: no).
 - argon2id parameters are settings (`DMS_ARGON2_*`, default t=3 / 64 MiB / p=4, 48–80 ms a
   verify on the build machine, `scripts/benchmark_argon2.py`); a stored hash below them is rehashed on
   the next login. The Render instance is re-tuned in a follow-up ticket.

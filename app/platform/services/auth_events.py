@@ -45,7 +45,7 @@ def recent_failures_from_ip(db: Session, *, ip_address: str, window: dt.timedelt
     row = db.execute(
         select(func.count(AuthEvent.id), func.max(AuthEvent.occurred_at)).where(
             AuthEvent.ip_address == ip_address,
-            AuthEvent.kind.in_((AuthEventKind.LOGIN_FAILED, AuthEventKind.MFA_FAILED)),
+            AuthEvent.kind == AuthEventKind.LOGIN_FAILED,
             AuthEvent.occurred_at >= since,
         )
     ).one()

@@ -50,6 +50,9 @@ def _create_dealership(client) -> dict:
         headers=_platform_admin(),
     )
     assert response.status_code == 201, response.text
+    from tests.identity_support import set_mfa_enforced
+
+    set_mfa_enforced(client, response.json()["id"], False)  # KAN-196: password-only sessions below
     return response.json()
 
 

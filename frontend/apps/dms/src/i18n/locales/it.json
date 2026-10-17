@@ -1908,7 +1908,8 @@
       "useAuthenticator": "Usa l’app di autenticazione",
       "usePasskey": "Accedi con una passkey",
       "passkeyFailed": "La passkey non ha potuto essere verificata.",
-      "backToLogin": "Torna all’accesso"
+      "backToLogin": "Torna all’accesso",
+      "stepExpired": "Questo passaggio di accesso è scaduto: ricomincia l’accesso."
     },
     "reset": {
       "title": "Reimposta la password",

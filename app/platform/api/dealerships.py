@@ -20,8 +20,9 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import list_tenant_audit_events, record_audit_event
 from app.core.audit_schemas import AuditEventPage, AuditEventRead
-from app.core.auth import Principal, get_current_principal, require_access_role, require_mfa_session
+from app.core.auth import AccessRole, Principal, get_current_principal, require_access_role, require_mfa_session
 from app.core.concurrency import check_version, require_if_match
+from app.core.errors import ForbiddenError
 from app.core.idempotent_route import IdempotentRoute
 from app.core.pagination import PageParams, page_params
 from app.core.permissions import ModuleCode, require_read, require_write
@@ -209,14 +210,24 @@ def update_user(
     dealership_id: uuid.UUID,
     user_id: uuid.UUID,
     body: UserUpdate,
+    request: Request,
     if_match: int = Depends(require_if_match),
     principal: Principal = Depends(require_write("dealership_users")),
     db: Session = Depends(get_db),
+    mailer: PlatformMailer = Depends(get_mailer),
 ):
     require_tenant_match(dealership_id, principal)
     user = user_service.get_user_or_404(db, dealership_id, user_id)
     check_version(user.version, if_match, entity_name="User")
+    old_email = user.email
     user = user_service.update_user(db, user=user, data=body, actor_id=principal.user_id, actor_roles=principal.roles)
+    if user.email != old_email:
+        # KAN-196: the address is the sign-in and recovery channel — the
+        # change ends tokens and sessions and tells the old address.
+        identity.email_changed(
+            db, mailer, user=user, old_email=old_email, actor_id=principal.user_id, ip_address=client_ip(request)
+        )
+        db.commit()
     return UserRead.model_validate(user, from_attributes=True)
 
 
@@ -405,15 +416,21 @@ def reissue_invitation(
     mailer: PlatformMailer = Depends(get_mailer),
 ):
     """FR-AU-13 / FR-AU-25: a fresh single-use invitation (the previous one
-    is consumed). The manager's answer to a lost mail or a lockout — never
-    a password. Like the other recovery routes below, platform staff reach
-    it only from a session with a second factor (D-A-36,
-    `require_mfa_session`); a dealer manager's MFA is the Betrieb's policy."""
+    is consumed) — never a password. For a user still `invited` the manager
+    may re-send it (onboarding); for an active user it is account recovery,
+    a platform_admin's alone (D-A-16), like the session and MFA resets
+    below. Platform staff reach every recovery route only from a session
+    with a second factor (D-A-36, `require_mfa_session`)."""
 
     require_tenant_match(dealership_id, principal)
     user = user_service.get_user_or_404(db, dealership_id, user_id)
     user_service.assert_may_touch(user=user, actor_roles=principal.roles)
     user_service.assert_user_is_not_deactivated(user)
+    if user.status != UserStatus.INVITED and AccessRole.PLATFORM_ADMIN not in principal.roles:
+        # D-A-16: once the account is active, a new invitation is a recovery
+        # — a platform_admin's alone. Re-sending one to a user who never
+        # accepted theirs is onboarding, the manager's own business.
+        raise ForbiddenError("Re-inviting an active user is account recovery, which platform staff handle.")
     identity.issue_invitation(db, mailer, user=user, actor_id=principal.user_id, ip_address=client_ip(request))
     db.commit()
 
@@ -425,14 +442,20 @@ def get_login_status(
     principal: Principal = Depends(require_read("dealership_users")),
     db: Session = Depends(get_db),
 ):
-    """FR-AU-10: the manager sees that a user is locked out; nothing more."""
+    """FR-AU-10: the manager sees that a user is locked out; nothing more —
+    and never a staff account's (KAN-97)."""
 
     require_tenant_match(dealership_id, principal)
     user = user_service.get_user_or_404(db, dealership_id, user_id)
+    user_service.assert_may_touch(user=user, actor_roles=principal.roles)
     return LoginStatusRead(**identity.login_status(db, user))
 
 
-@router.delete("/dealerships/{dealership_id}/users/{user_id}/sessions", status_code=204, dependencies=[Depends(require_mfa_session())])
+@router.delete(
+    "/dealerships/{dealership_id}/users/{user_id}/sessions",
+    status_code=204,
+    dependencies=[Depends(require_access_role(AccessRole.PLATFORM_ADMIN)), Depends(require_mfa_session())],
+)
 def revoke_user_sessions(
     dealership_id: uuid.UUID,
     user_id: uuid.UUID,
@@ -440,7 +463,9 @@ def revoke_user_sessions(
     principal: Principal = Depends(require_write("dealership_users")),
     db: Session = Depends(get_db),
 ):
-    """FR-AU-17: a manager ends every session of a user of his Betrieb."""
+    """FR-AU-17 / D-A-16: platform staff end every session of a user —
+    account recovery is theirs alone; a Betrieb's manager deactivates or
+    suspends the user instead, which ends the sessions the same way."""
 
     require_tenant_match(dealership_id, principal)
     user = user_service.get_user_or_404(db, dealership_id, user_id)
@@ -458,7 +483,11 @@ def revoke_user_sessions(
     db.commit()
 
 
-@router.delete("/dealerships/{dealership_id}/users/{user_id}/mfa", status_code=204, dependencies=[Depends(require_mfa_session())])
+@router.delete(
+    "/dealerships/{dealership_id}/users/{user_id}/mfa",
+    status_code=204,
+    dependencies=[Depends(require_access_role(AccessRole.PLATFORM_ADMIN)), Depends(require_mfa_session())],
+)
 def remove_user_mfa(
     dealership_id: uuid.UUID,
     user_id: uuid.UUID,

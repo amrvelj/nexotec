@@ -8,6 +8,7 @@ switch, a manager's removal naming the actor, the auth-event stream.
 import base64
 import hashlib
 import json
+import os
 import uuid
 
 import pyotp
@@ -72,7 +73,7 @@ def _b64url(raw: bytes) -> str:
 
 
 def test_totp_enrolment_confirms_with_a_valid_code_and_hands_out_ten_recovery_codes(client, login, db_session):
-    dealership = create_dealership(client)
+    dealership = create_dealership(client, mfa_enforced=True)
     anna = create_user(client, dealership)
     cookie = login.session_cookie(anna)
     before = client.get("/v1/auth/mfa", headers=cookie_headers(cookie)).json()
@@ -184,7 +185,7 @@ def test_a_recovery_code_signs_in_once_and_the_set_can_be_regenerated(client, lo
 
 
 def test_removing_the_authenticator_drops_the_recovery_codes_and_the_second_step(client, login, db_session):
-    dealership = create_dealership(client)
+    dealership = create_dealership(client, mfa_enforced=True)
     anna = create_user(client, dealership)
     cookie = login.session_cookie(anna)
     _enrol_totp(client, cookie)
@@ -208,8 +209,8 @@ def test_five_wrong_answers_end_the_challenge(client, login, db_session):
     secret, _ = _enrol_totp(client, login.session_cookie(anna))
     challenge = login.login(anna).json()["challengeId"]
     for i in range(5):
-        # Each guess from another address: the per-IP backoff (which counts
-        # these too) must not be what stops the sixth attempt here.
+        # Each guess from another address, so the test shows the challenge's
+        # own counter at work, not any per-address rule.
         wrong = client.post(
             "/v1/auth/mfa/verify",
             json={"challengeId": challenge, "code": "000000"},
@@ -283,7 +284,7 @@ def test_a_passkey_registration_challenge_is_not_a_login_challenge(client, login
 
 
 def test_the_betrieb_decides_enforcement_and_platform_staff_are_always_enforced(client, login, db_session):
-    dealership = create_dealership(client)
+    dealership = create_dealership(client, mfa_enforced=True)
     anna = create_user(client, dealership)
     cookie = login.session_cookie(anna)
     assert login.login(anna).json()["session"]["mfaEnrolmentRequired"] is True
@@ -297,6 +298,8 @@ def test_the_betrieb_decides_enforcement_and_platform_staff_are_always_enforced(
         headers={**cookie_headers(cookie), "If-Match": "7"},
     )
     assert stale.status_code == 409
+    # A password-only manager session is confined to enrolment — and to this switch.
+    assert client.get(f"/v1/dealerships/{dealership}", headers=cookie_headers(cookie)).status_code == 403
     updated = client.put(
         f"/v1/dealerships/{dealership}/auth-config",
         json={"mfaEnforced": False},
@@ -304,6 +307,7 @@ def test_the_betrieb_decides_enforcement_and_platform_staff_are_always_enforced(
     )
     assert updated.status_code == 200, updated.text
     assert updated.json() == {"authMethod": "local", "mfaEnforced": False, "version": 2}
+    assert client.get(f"/v1/dealerships/{dealership}", headers=cookie_headers(cookie)).status_code == 200
     audit = db_session.scalars(select(AuditEvent).where(AuditEvent.action == "auth_config_set")).one()
     assert (audit.before, audit.after) == ({"mfa_enforced": True}, {"mfa_enforced": False})
     assert str(audit.actor_id) == anna["id"]
@@ -396,36 +400,97 @@ def test_platform_staff_reach_the_recovery_endpoints_only_with_a_second_factor_i
     managers = login.session_cookie(manager)
     assert client.get(base + "/login-status", headers=cookie_headers(managers)).status_code == 200
     staff = create_user(client, dealership, accessRoles=["platform_admin"], isDealerManager=False)
+    assert client.get(f"/v1/dealerships/{dealership}/users/{staff['id']}/login-status", headers=cookie_headers(managers)).status_code == 403
     assert client.post(f"/v1/dealerships/{dealership}/users/{staff['id']}/invitations", headers=cookie_headers(managers)).status_code == 403
 
 
-def test_a_manager_removes_a_users_factors_and_the_event_names_the_actor(client, login, db_session):
+def test_platform_staff_remove_a_users_factors_and_the_event_names_the_actor(client, login, db_session):
+    """D-A-16: resetting a second factor is account recovery — platform
+    staff's alone, never a Betrieb manager's (the takeover chain a manager
+    could otherwise run: change the address, drop the factor, re-invite)."""
+
     dealership = create_dealership(client)
     manager = create_user(client, dealership)
     anna = create_user(client, dealership, isDealerManager=False)
     _enrol_totp(client, login.session_cookie(anna))
     assert login.login(anna).json()["mfaRequired"] is True
+    staff_id = uuid.uuid4()
+    path = f"/v1/dealerships/{dealership}/users/{anna['id']}/mfa"
 
-    response = client.delete(
-        f"/v1/dealerships/{dealership}/users/{anna['id']}/mfa", headers=cookie_headers(login.session_cookie(manager))
-    )
+    assert client.delete(path, headers=cookie_headers(login.session_cookie(manager))).status_code == 403
+    response = client.delete(path, headers=platform_admin_headers(user_id=staff_id))
     assert response.status_code == 204, response.text
 
     removed = _events(db_session, AuthEventKind.MFA_REMOVED)
     assert len(removed) == 1
-    assert str(removed[0].actor_id) == manager["id"]
+    assert removed[0].actor_id == staff_id
     assert removed[0].details == {"factors": ["totp"], "by_self": False, "all": True}
     assert db_session.scalars(select(MfaTotp)).all() == []
     assert db_session.scalars(select(MfaRecoveryCode)).all() == []
     assert login.login(anna).json()["mfaRequired"] is False
-    # Not a manager: 403.
+
+
+def test_a_manager_re_sends_an_invitation_only_while_the_user_never_accepted_it(client, login, mailbox):
+    """D-A-16 drawn where onboarding ends: re-sending an invitation to a user
+    who never accepted theirs is the manager's; a fresh invitation to an
+    active user is account recovery, platform staff's alone."""
+
+    dealership = create_dealership(client)
+    manager = create_user(client, dealership)
+    managers = login.session_cookie(manager)
     beat = create_user(client, dealership, isDealerManager=False)
-    assert (
-        client.delete(
-            f"/v1/dealerships/{dealership}/users/{anna['id']}/mfa", headers=cookie_headers(login.session_cookie(beat))
+    base = f"/v1/dealerships/{dealership}/users/{beat['id']}"
+
+    assert client.post(base + "/invitations", headers=cookie_headers(managers)).status_code == 202
+    login.accept_invitation(beat)
+    assert client.post(base + "/invitations", headers=cookie_headers(managers)).status_code == 403
+    assert client.post(base + "/invitations", headers=platform_admin_headers()).status_code == 202
+
+
+def test_the_expired_step_is_told_apart_from_a_wrong_code(client, login, db_session):
+    dealership = create_dealership(client)
+    anna = create_user(client, dealership)
+    _enrol_totp(client, login.session_cookie(anna))
+    wrong = client.post("/v1/auth/mfa/verify", json={"challengeId": "made-up", "code": "123456"})
+    assert wrong.status_code == 401
+    assert wrong.json()["error"]["details"] == {"step": "expired"}
+    challenge = login.login(anna).json()["challengeId"]
+    typo = client.post("/v1/auth/mfa/verify", json={"challengeId": challenge, "code": "000000"})
+    assert typo.status_code == 401
+    assert typo.json()["error"]["details"] is None
+
+
+@pytest.mark.skipif(not os.environ.get("DMS_TEST_DATABASE_URL"), reason="row-level UPDATE race: Postgres only")
+def test_parallel_wrong_answers_never_exceed_the_attempt_limit(client, login, db_session):
+    """The attempt counter is a guarded UPDATE on the challenge row: thirty
+    guesses at once see thirty different counts, and at most five are ever
+    checked against the secret."""
+
+    from concurrent.futures import ThreadPoolExecutor
+
+    from app.platform.api.auth import MFA_MAX_ATTEMPTS
+    from app.platform.models.credential import Credential
+
+    dealership = create_dealership(client)
+    anna = create_user(client, dealership)
+    _enrol_totp(client, login.session_cookie(anna))
+    challenge = login.login(anna).json()["challengeId"]
+
+    def guess(i: int) -> int:
+        return client.post(
+            "/v1/auth/mfa/verify",
+            json={"challengeId": challenge, "code": f"{i:06d}"},
+            headers={"X-Forwarded-For": f"203.0.113.{i + 1}"},
         ).status_code
-        == 403
-    )
+
+    with ThreadPoolExecutor(max_workers=10) as pool:
+        statuses = list(pool.map(guess, range(30)))
+    assert set(statuses) == {401}
+    assert len(_events(db_session, AuthEventKind.MFA_FAILED)) <= MFA_MAX_ATTEMPTS
+    assert len(_events(db_session, AuthEventKind.LOGIN_THROTTLED)) >= 1
+    # One failure on the account axis for the exhausted challenge.
+    credential = db_session.scalar(select(Credential).where(Credential.user_id == anna["id"]))
+    assert credential.failed_login_attempts == 1
 
 
 # --- passkeys ------------------------------------------------------------------------------

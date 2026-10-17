@@ -44,6 +44,9 @@ class AuthEventKind(str, enum.Enum):
     CREDENTIAL_REHASHED = "credential_rehashed"
     BREACH_CHECK_UNAVAILABLE = "breach_check_unavailable"
     MAIL_DELIVERY_FAILED = "mail_delivery_failed"
+    # The address a user signs in and recovers with was changed by a manager
+    # or staff: the old address is told, tokens and sessions end (KAN-196).
+    EMAIL_CHANGED = "email_changed"
 
 
 class AuthEvent(PrimaryKeyMixin, Base):

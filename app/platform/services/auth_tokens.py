@@ -85,6 +85,32 @@ def consume(db: Session, *, raw: str, kind: AuthTokenKind) -> AuthToken | None:
     return db.get(AuthToken, token_id)
 
 
+def claim_attempt(db: Session, token: AuthToken, *, limit: int) -> bool:
+    """One answer at the MFA step: counted by a guarded UPDATE, so thirty
+    parallel guesses see thirty different counts and at most `limit` of
+    them are ever checked against the secret (FR-AU-08)."""
+
+    claimed = db.execute(
+        update(AuthToken)
+        .where(AuthToken.id == token.id, AuthToken.consumed_at.is_(None), AuthToken.attempts < limit)
+        .values(attempts=AuthToken.attempts + 1)
+    )
+    db.expire(token, ["attempts"])
+    return int(claimed.rowcount or 0) == 1  # type: ignore[attr-defined]
+
+
+def consume_all_for_user(db: Session, *, user_id: uuid.UUID, kinds: tuple[AuthTokenKind, ...]) -> int:
+    """Ends every live token of these kinds — when the address changes, or
+    when one recovery path succeeds and the others must not stay open."""
+
+    result = db.execute(
+        update(AuthToken)
+        .where(AuthToken.user_id == user_id, AuthToken.kind.in_(kinds), AuthToken.consumed_at.is_(None))
+        .values(consumed_at=utcnow())
+    )
+    return int(result.rowcount or 0)  # type: ignore[attr-defined]
+
+
 def peek(db: Session, *, raw: str, kind: AuthTokenKind) -> AuthToken | None:
     """The live token without consuming it — for the MFA step, which
     verifies a code against the challenge and consumes it only on success."""

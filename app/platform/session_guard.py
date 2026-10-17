@@ -11,15 +11,44 @@ unauthenticated route stays reachable with a stale cookie in the jar."""
 import uuid
 
 from fastapi import Depends, Request
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.auth import SESSION_COOKIE_NAME, decode_token_claims
+from app.core.auth import SESSION_COOKIE_NAME, AccessRole, decode_token_claims
 from app.core.base import utcnow
-from app.core.errors import UnauthorizedError
+from app.core.errors import ForbiddenError, UnauthorizedError
 from app.db import get_db
+from app.platform.models.dealership_auth_config import DealershipAuthConfig
 from app.platform.services import auth_sessions
 
 _SESSION_ENDED = "Your session has ended — sign in again."
+_ENROL_FIRST = "Enrol a second factor before anything else — your Betrieb requires one."
+# What a session minted without a required second factor may still reach
+# (D-A-36, FR-AU-11): its own identity, the enrolment itself, its sessions,
+# the UI preferences the shell loads, and the way out.
+_ENROLMENT_PATHS = ("/v1/auth/me", "/v1/auth/mfa", "/v1/auth/logout", "/v1/auth/sessions", "/v1/me/preferences")
+
+
+def _enrolment_path(path: str) -> bool:
+    # The Betrieb's own enforcement switch stays reachable: a manager who
+    # decides against a second factor turns it off instead of enrolling
+    # (a staff session is enforced whatever the switch says).
+    return path.startswith(_ENROLMENT_PATHS) or (path.startswith("/v1/dealerships/") and path.endswith("/auth-config"))
+
+
+def _enrolment_owed(db: Session, claims: dict) -> bool:
+    """A session with no second factor while one is required: every platform
+    staff account (D-A-36); a dealer user when the Betrieb enforces it
+    (default on — a Betrieb without a config row yet enforces)."""
+
+    if claims.get("mfa"):
+        return False
+    if AccessRole.PLATFORM_ADMIN.value in (claims.get("roles") or ()):
+        return True
+    enforced = db.scalar(
+        select(DealershipAuthConfig.mfa_enforced).where(DealershipAuthConfig.dealership_id == uuid.UUID(claims["tenant_id"]))
+    )
+    return True if enforced is None else bool(enforced)
 
 
 def _token_from(request: Request) -> str | None:
@@ -53,3 +82,6 @@ def enforce_live_session(request: Request, db: Session = Depends(get_db)) -> Non
         raise UnauthorizedError(_SESSION_ENDED)
     if auth_sessions.touch(db, row):
         db.commit()
+    path = request.url.path
+    if not _enrolment_path(path) and _enrolment_owed(db, claims):
+        raise ForbiddenError(_ENROL_FIRST, details={"mfaEnrolmentRequired": True})

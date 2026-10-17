@@ -1908,7 +1908,8 @@
       "useAuthenticator": "Authenticator-App verwenden",
       "usePasskey": "Mit Passkey anmelden",
       "passkeyFailed": "Der Passkey konnte nicht geprüft werden.",
-      "backToLogin": "Zurück zur Anmeldung"
+      "backToLogin": "Zurück zur Anmeldung",
+      "stepExpired": "Dieser Anmeldeschritt ist abgelaufen – beginnen Sie die Anmeldung neu."
     },
     "reset": {
       "title": "Passwort zurücksetzen",

@@ -23,7 +23,7 @@ Python over an already-small, already-paginated result set.
 import enum
 import uuid
 
-from sqlalchemy import JSON, Boolean, String
+from sqlalchemy import JSON, Boolean, CheckConstraint, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
@@ -62,6 +62,10 @@ class UserStatus(str, enum.Enum):
 
 class User(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMixin, Base):
     __tablename__ = "user"
+    # KAN-196: the address is the sign-in and recovery channel, resolved
+    # case-insensitively — stored lower-cased, so the unique index above
+    # cannot admit a second spelling of one mailbox.
+    __table_args__ = (CheckConstraint("email = lower(email)", name="ck_user_email_lower"),)
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         GUID(), nullable=False, index=True, comment="Owned by the platform context (Dealership). No DB-level FK."

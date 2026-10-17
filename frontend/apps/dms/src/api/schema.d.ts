@@ -1112,10 +1112,11 @@ export interface paths {
         /**
          * Reissue Invitation
          * @description FR-AU-13 / FR-AU-25: a fresh single-use invitation (the previous one
-         *     is consumed). The manager's answer to a lost mail or a lockout — never
-         *     a password. Like the other recovery routes below, platform staff reach
-         *     it only from a session with a second factor (D-A-36,
-         *     `require_mfa_session`); a dealer manager's MFA is the Betrieb's policy.
+         *     is consumed) — never a password. For a user still `invited` the manager
+         *     may re-send it (onboarding); for an active user it is account recovery,
+         *     a platform_admin's alone (D-A-16), like the session and MFA resets
+         *     below. Platform staff reach every recovery route only from a session
+         *     with a second factor (D-A-36, `require_mfa_session`).
          */
         post: operations["reissue_invitation_v1_dealerships__dealership_id__users__user_id__invitations_post"];
         delete?: never;
@@ -1133,7 +1134,8 @@ export interface paths {
         };
         /**
          * Get Login Status
-         * @description FR-AU-10: the manager sees that a user is locked out; nothing more.
+         * @description FR-AU-10: the manager sees that a user is locked out; nothing more —
+         *     and never a staff account's (KAN-97).
          */
         get: operations["get_login_status_v1_dealerships__dealership_id__users__user_id__login_status_get"];
         put?: never;
@@ -1247,7 +1249,9 @@ export interface paths {
         post?: never;
         /**
          * Revoke User Sessions
-         * @description FR-AU-17: a manager ends every session of a user of his Betrieb.
+         * @description FR-AU-17 / D-A-16: platform staff end every session of a user —
+         *     account recovery is theirs alone; a Betrieb's manager deactivates or
+         *     suspends the user instead, which ends the sessions the same way.
          */
         delete: operations["revoke_user_sessions_v1_dealerships__dealership_id__users__user_id__sessions_delete"];
         options?: never;

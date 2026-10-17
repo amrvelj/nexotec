@@ -1908,7 +1908,8 @@
       "useAuthenticator": "Utiliser l’application d’authentification",
       "usePasskey": "Se connecter avec une clé d’accès",
       "passkeyFailed": "La clé d’accès n’a pas pu être vérifiée.",
-      "backToLogin": "Retour à la connexion"
+      "backToLogin": "Retour à la connexion",
+      "stepExpired": "Cette étape de connexion a expiré – recommencez la connexion."
     },
     "reset": {
       "title": "Réinitialiser le mot de passe",

@@ -332,6 +332,27 @@ def create_user(
     return user
 
 
+def end_sessions(db: Session, *, user: User, reason: str, actor_id: uuid.UUID) -> int:
+    """KAN-196: ends every live session of the user and records it — a
+    status change, a change of roles, flag or membership, a manager's
+    revoke. Returns how many ended."""
+
+    from app.platform.models.auth_event import AuthEventKind
+    from app.platform.services import auth_events, auth_sessions
+
+    ended = auth_sessions.revoke_all_for_user(db, user_id=user.id, reason=reason)
+    if ended:
+        auth_events.record(
+            db,
+            AuthEventKind.SESSION_REVOKED,
+            user_id=user.id,
+            dealership_id=user.tenant_id,
+            actor_id=actor_id,
+            details={"count": ended, "reason": reason},
+        )
+    return ended
+
+
 def update_user(
     db: Session, *, user: User, data: UserUpdate, actor_id: uuid.UUID, actor_roles: frozenset[AccessRole]
 ) -> User:
@@ -450,17 +471,13 @@ def update_user(
     if "status" in after and user.status in (UserStatus.DEACTIVATED, UserStatus.SUSPENDED):
         # FR-AU-17 (KAN-196): a user who may no longer hold a session loses
         # every live one now, not when the cookie expires.
-        from app.platform.services import auth_sessions
-
-        auth_sessions.revoke_all_for_user(db, user_id=user.id, reason=str(_plain(user.status)))
+        end_sessions(db, user=user, reason=str(_plain(user.status)), actor_id=actor_id)
     elif "access_roles" in after or "is_dealer_manager" in after:
         # The roles and the manager flag are claims baked into the token for
         # the session's whole day (KAN-196): a change ends the sessions, so
         # the next sign-in carries the new set — the KAN-198 precedent for
         # entitlements.
-        from app.platform.services import auth_sessions
-
-        auth_sessions.revoke_all_for_user(db, user_id=user.id, reason="access_changed")
+        end_sessions(db, user=user, reason="access_changed", actor_id=actor_id)
 
     try:
         db.commit()

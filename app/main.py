@@ -15,6 +15,7 @@ from app.core.observability import (
     configure_sentry,
     configure_tracing,
 )
+from app.platform.services.mailer import get_mailer
 from app.platform.session_guard import enforce_live_session
 
 configure_logging()
@@ -29,6 +30,9 @@ app = FastAPI(title="DMS Platform", version="0.1.0", dependencies=[Depends(enfor
 
 configure_tracing(app)
 register_error_handlers(app)
+# KAN-196: resolved here, not on the first invitation — a production deploy
+# with the `logging` mail sender must fail its start, not its first reset.
+get_mailer()
 app.add_middleware(ObservabilityMiddleware)
 app.include_router(api_v1_router)
 

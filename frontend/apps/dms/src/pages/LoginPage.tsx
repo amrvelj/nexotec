@@ -37,6 +37,7 @@ export function LoginPage() {
   const land = (session: LoginResponse) => completeLogin(session)
 
   const failure = (err: unknown, uniform: string) => {
+    if (err instanceof ApiError && err.status === 401 && err.details?.step === 'expired') return t('auth.login.stepExpired')
     if (err instanceof ApiError && err.status === 401) return uniform
     if (err instanceof ApiError) return err.message
     return t('common.requestFailed')

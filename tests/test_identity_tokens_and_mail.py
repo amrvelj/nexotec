@@ -381,6 +381,98 @@ def test_the_logging_sender_is_refused_in_production(monkeypatch):
     assert isinstance(mailer.get_mailer(), mailer.SmtpMailer)
 
 
+def test_changing_the_address_ends_tokens_and_sessions_and_tells_the_old_address(client, login, mailbox, db_session):
+    """The address is the sign-in and recovery channel, so a change is a
+    credential change: an invitation or reset mailed to the old address is
+    dead, every session ends, the event names the actor, the old address
+    hears of it."""
+
+    dealership = create_dealership(client)
+    manager = create_user(client, dealership)
+    managers = login.session_cookie(manager)
+    beat = create_user(client, dealership, isDealerManager=False)
+    beats = login.session_cookie(beat)
+    client.post("/v1/auth/password-reset/request", json={"email": beat["email"]})
+    reset_raw = token_in(last_mail_to(mailbox, beat["email"]))
+    old_email = beat["email"]
+
+    response = client.patch(
+        f"/v1/dealerships/{dealership}/users/{beat['id']}",
+        json={"email": "Beat.Neu@example.ch"},
+        headers={**cookie_headers(managers), "If-Match": "2"},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["email"] == "beat.neu@example.ch"
+
+    assert client.get("/v1/auth/me", headers=cookie_headers(beats)).status_code == 401
+    dead = client.post("/v1/auth/password-reset/confirm", json={"token": reset_raw, "password": "a-brand-new-password-2026"})
+    assert dead.status_code == 400
+    notice = last_mail_to(mailbox, old_email)
+    assert notice.subject == mail_texts.email_changed(language=None, first_name="", new_email="").subject
+    assert "beat.neu@example.ch" in notice.text
+    (event,) = _events(db_session, AuthEventKind.EMAIL_CHANGED)
+    assert str(event.actor_id) == manager["id"]
+    assert event.details == {"from": old_email, "to": "beat.neu@example.ch"}
+    # The password did not change: the user signs in again at the new address.
+    assert client.post("/v1/auth/login", json={"email": "beat.neu@example.ch", "password": STRONG_PASSWORD}).status_code == 200
+
+    # An invitation mailed to the old address dies the same way.
+    dora = create_user(client, dealership, isDealerManager=False, firstName="Dora")
+    invite_raw = token_in(last_mail_to(mailbox, dora["email"]))
+    corrected = client.patch(
+        f"/v1/dealerships/{dealership}/users/{dora['id']}",
+        json={"email": "dora.richtig@example.ch"},
+        headers={**cookie_headers(managers), "If-Match": "1"},
+    )
+    assert corrected.status_code == 200, corrected.text
+    assert client.post("/v1/auth/invitations/accept", json={"token": invite_raw, "password": STRONG_PASSWORD}).status_code == 400
+
+
+def test_one_recovery_path_succeeding_closes_the_other(client, login, mailbox):
+    dealership = create_dealership(client)
+    anna = create_user(client, dealership)
+    invite_raw = token_in(last_mail_to(mailbox, anna["email"]))
+    client.post("/v1/auth/password-reset/request", json={"email": anna["email"]})
+    reset_raw = token_in(last_mail_to(mailbox, anna["email"]))
+
+    assert client.post("/v1/auth/password-reset/confirm", json={"token": reset_raw, "password": STRONG_PASSWORD}).status_code == 204
+    assert client.post("/v1/auth/invitations/accept", json={"token": invite_raw, "password": "another-strong-one-2026"}).status_code == 400
+
+    beat = create_user(client, dealership, isDealerManager=False)
+    invite_raw = token_in(last_mail_to(mailbox, beat["email"]))
+    client.post("/v1/auth/password-reset/request", json={"email": beat["email"]})
+    reset_raw = token_in(last_mail_to(mailbox, beat["email"]))
+    assert client.post("/v1/auth/invitations/accept", json={"token": invite_raw, "password": STRONG_PASSWORD}).status_code == 200
+    assert client.post("/v1/auth/password-reset/confirm", json={"token": reset_raw, "password": "another-strong-one-2026"}).status_code == 400
+
+
+def test_the_stored_address_is_lower_case_by_constraint(client, db_session):
+    """`ck_user_email_lower`: the unique index on `user.email` cannot admit a
+    second spelling of one mailbox once every row is lower-cased."""
+
+    from sqlalchemy.exc import IntegrityError
+
+    from app.core.uuid7 import uuid7
+    from app.platform.models.user import UserRole
+
+    dealership = create_dealership(client)
+    db_session.add(
+        User(
+            id=uuid7(),
+            tenant_id=uuid.UUID(dealership),
+            first_name="Max",
+            last_name="Muster",
+            email="Max.Muster@Example.CH",
+            role=UserRole.SALES,
+            access_roles=["sales"],
+            auth_identity_id="local:mixed-case",
+        )
+    )
+    with pytest.raises(IntegrityError):
+        db_session.flush()
+    db_session.rollback()
+
+
 # --- tokens --------------------------------------------------------------------------------
 
 

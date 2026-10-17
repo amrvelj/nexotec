@@ -98,6 +98,51 @@ def invitation(*, language: str | None, first_name: str, dealership: str, link: 
     return MailText(text.subject, text.body.format(first_name=first_name, dealership=dealership, link=link))
 
 
+_EMAIL_CHANGED = {
+    "de": MailText(
+        subject="Nexotec DMS: Ihre Anmeldeadresse wurde geändert",
+        body=(
+            "Guten Tag {first_name}\n\n"
+            "Die E-Mail-Adresse Ihres Nexotec-Zugangs wurde auf {new_email} geändert. Ihre Sitzungen wurden "
+            "beendet; Anmeldung und Passwort-Links laufen ab jetzt über die neue Adresse.\n\n"
+            "Falls Sie diese Änderung nicht erwartet haben, wenden Sie sich sofort an Ihren Betrieb.\n"
+        ),
+    ),
+    "fr": MailText(
+        subject="Nexotec DMS : votre adresse de connexion a été modifiée",
+        body=(
+            "Bonjour {first_name}\n\n"
+            "L’adresse e-mail de votre accès Nexotec a été remplacée par {new_email}. Vos sessions ont été "
+            "terminées ; la connexion et les liens de mot de passe passent désormais par la nouvelle adresse.\n\n"
+            "Si vous n’attendiez pas ce changement, contactez immédiatement votre entreprise.\n"
+        ),
+    ),
+    "it": MailText(
+        subject="Nexotec DMS: il tuo indirizzo di accesso è stato modificato",
+        body=(
+            "Buongiorno {first_name}\n\n"
+            "L’indirizzo e-mail del tuo accesso Nexotec è stato cambiato in {new_email}. Le tue sessioni sono "
+            "state terminate; l’accesso e i link per la password passano d’ora in poi dal nuovo indirizzo.\n\n"
+            "Se non ti aspettavi questa modifica, contatta subito la tua azienda.\n"
+        ),
+    ),
+    "en": MailText(
+        subject="Nexotec DMS: your sign-in address was changed",
+        body=(
+            "Hello {first_name}\n\n"
+            "The e-mail address of your Nexotec account was changed to {new_email}. Your sessions were ended; "
+            "sign-in and password links now go through the new address.\n\n"
+            "If you did not expect this change, contact your Betrieb at once.\n"
+        ),
+    ),
+}
+
+
+def email_changed(*, language: str | None, first_name: str, new_email: str) -> MailText:
+    text = _pick(_EMAIL_CHANGED, language)
+    return MailText(text.subject, text.body.format(first_name=first_name, new_email=new_email))
+
+
 def password_reset(*, language: str | None, first_name: str, link: str) -> MailText:
     text = _pick(_RESET, language)
     return MailText(text.subject, text.body.format(first_name=first_name, link=link))

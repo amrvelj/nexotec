@@ -426,8 +426,10 @@ def confirm_password_reset(db: Session, *, raw_token: str, password: str, ip_add
         db, user=user, password=password, actor_id=user.id, ip_address=ip_address, event=AuthEventKind.PASSWORD_RESET
     )
     # A reset reaches the mailbox the invitation did: an invited user who
-    # sets a password this way is active from here on.
+    # sets a password this way is active from here on — and an invitation
+    # still open must not stay a second way in.
     _activate(user)
+    auth_tokens.consume_all_for_user(db, user_id=user.id, kinds=(AuthTokenKind.INVITATION,))
     _revoke_all(db, user=user, reason="password_reset", ip_address=ip_address)
     return user
 
@@ -447,12 +449,60 @@ def accept_invitation(db: Session, *, raw_token: str, password: str, ip_address:
     )
     _activate(user)
     # A re-issued invitation is a reset by another name: every session the
-    # user still holds ends with it (FR-AU-14).
+    # user still holds ends with it (FR-AU-14), and an open reset link too.
     _revoke_all(db, user=user, reason="invitation", ip_address=ip_address)
+    auth_tokens.consume_all_for_user(db, user_id=user.id, kinds=(AuthTokenKind.PASSWORD_RESET,))
     auth_events.record(
         db, AuthEventKind.INVITATION_ACCEPTED, user_id=user.id, dealership_id=user.tenant_id, ip_address=ip_address
     )
     return user
+
+
+def second_step_exhausted(db: Session, *, user: User) -> None:
+    """Five wrong answers at the MFA step count as one failure on the
+    account axis, so a holder of the password who keeps starting fresh
+    challenges runs into the same backoff and lockout as a password guesser."""
+
+    credential = _credential_of(db, user.id)
+    if credential is None:
+        return
+    credential.failed_login_attempts += 1
+    credential.last_failed_at = utcnow()
+    if credential.failed_login_attempts >= _settings.auth_lockout_failures:
+        credential.locked_until = utcnow() + dt.timedelta(minutes=_settings.auth_lockout_minutes)
+
+
+def email_changed(
+    db: Session, mailer: PlatformMailer, *, user: User, old_email: str, actor_id: uuid.UUID, ip_address: str
+) -> None:
+    """The address is the sign-in and the recovery channel, so changing it is
+    a credential change: every open invitation and reset token ends (a link
+    mailed to the old address must not activate the account), every
+    session ends, the event names the actor, and the OLD address is told
+    (FR-AU-26's spirit: the person whose account changed hears of it)."""
+
+    auth_tokens.consume_all_for_user(
+        db, user_id=user.id, kinds=(AuthTokenKind.INVITATION, AuthTokenKind.PASSWORD_RESET)
+    )
+    _revoke_all(db, user=user, reason="email_changed", ip_address=ip_address)
+    auth_events.record(
+        db,
+        AuthEventKind.EMAIL_CHANGED,
+        user_id=user.id,
+        dealership_id=user.tenant_id,
+        actor_id=actor_id,
+        ip_address=ip_address,
+        details={"from": old_email, "to": user.email},
+    )
+    text = mail_texts.email_changed(language=_language_of(db, user), first_name=user.first_name, new_email=user.email)
+    _deliver(
+        db,
+        mailer,
+        user=user,
+        mail=Mail(to=old_email, subject=text.subject, text=text.body),
+        actor_id=actor_id,
+        ip_address=ip_address,
+    )
 
 
 def _activate(user: User) -> None:

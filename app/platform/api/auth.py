@@ -277,23 +277,36 @@ MFA_MAX_ATTEMPTS = 5
 _STEP_EXPIRED = "The sign-in step has expired — start again."
 
 
-def _challenged_user(db: Session, challenge_id: str, *, ip_address: str = "") -> User:
+def _step_expired() -> UnauthorizedError:
+    # `details.step` lets the screen say "start again" instead of "wrong code".
+    return UnauthorizedError(_STEP_EXPIRED, details={"step": "expired"})
+
+
+def _challenged_user(db: Session, challenge_id: str, *, ip_address: str = "", answer: bool = True) -> User:
+    """The user behind a live challenge. With `answer`, one attempt is
+    claimed on the challenge first (a guarded counter, see
+    auth_tokens.claim_attempt): the sixth answer ends the challenge, counts
+    one failure on the account and sends the user back to the password."""
+
     token = auth_tokens.peek(db, raw=challenge_id, kind=AuthTokenKind.MFA_CHALLENGE)
     user = db.get(User, token.user_id) if token is not None else None
     if token is None or user is None:
-        raise UnauthorizedError(_STEP_EXPIRED)
-    if auth_events.mfa_failures_since(db, user_id=user.id, since=token.created_at) >= MFA_MAX_ATTEMPTS:
-        auth_tokens.consume(db, raw=challenge_id, kind=AuthTokenKind.MFA_CHALLENGE)
-        auth_events.record(
-            db,
-            AuthEventKind.LOGIN_THROTTLED,
-            user_id=user.id,
-            dealership_id=user.tenant_id,
-            ip_address=ip_address,
-            details={"step": "mfa"},
-        )
-        db.commit()
-        raise UnauthorizedError(_STEP_EXPIRED)
+        raise _step_expired()
+    if answer and not auth_tokens.claim_attempt(db, token, limit=MFA_MAX_ATTEMPTS):
+        # Whichever of the parallel requests ends the challenge counts the
+        # one failure on the account; the others just see it ended.
+        if auth_tokens.consume(db, raw=challenge_id, kind=AuthTokenKind.MFA_CHALLENGE) is not None:
+            identity.second_step_exhausted(db, user=user)
+            auth_events.record(
+                db,
+                AuthEventKind.LOGIN_THROTTLED,
+                user_id=user.id,
+                dealership_id=user.tenant_id,
+                ip_address=ip_address,
+                details={"step": "mfa"},
+            )
+            db.commit()
+        raise _step_expired()
     return user
 
 
@@ -302,7 +315,7 @@ def _spend_challenge(db: Session, challenge_id: str) -> None:
     challenge first leaves this one with nothing to mint from."""
 
     if auth_tokens.consume(db, raw=challenge_id, kind=AuthTokenKind.MFA_CHALLENGE) is None:
-        raise UnauthorizedError(_STEP_EXPIRED)
+        raise _step_expired()
 
 
 @router.post("/auth/mfa/verify", response_model=LoginStepResponse)
@@ -328,7 +341,7 @@ def verify_mfa(body: MfaVerifyRequest, request: Request, response: Response, db:
 
 @router.post("/auth/mfa/passkey/options", response_model=PasskeyOptionsResponse)
 def passkey_login_options(body: PasskeyChallengeRequest, db: Session = Depends(get_db)):
-    user = _challenged_user(db, body.challenge_id)
+    user = _challenged_user(db, body.challenge_id, answer=False)
     options = mfa.passkey_authentication_options(db, user=user, challenge=mfa.challenge_for(body.challenge_id, "authn"))
     return PasskeyOptionsResponse(challenge_id=body.challenge_id, options=options)
 

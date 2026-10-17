@@ -26,7 +26,7 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
-from alembic import op
+from alembic import context, op
 
 # revision identifiers, used by Alembic.
 revision: str = "c4d8e1f2a6b7"
@@ -57,6 +57,7 @@ _EVENT_KINDS = (
     "credential_rehashed",
     "breach_check_unavailable",
     "mail_delivery_failed",
+    "email_changed",
 )
 
 
@@ -71,6 +72,7 @@ def _uuid():
 
 
 def upgrade() -> None:
+    _lower_case_user_emails()
     op.create_table(
         "credential",
         sa.Column("id", _uuid(), primary_key=True),
@@ -98,6 +100,7 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("consumed_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("attempts", sa.Integer(), nullable=False),
         sa.Column("created_by", _uuid(), nullable=True),
         sa.CheckConstraint(_check("kind", _TOKEN_KINDS), name="ck_auth_token_kind_enum"),
         sa.UniqueConstraint("token_hash", name="uq_auth_token_token_hash"),
@@ -192,7 +195,38 @@ def upgrade() -> None:
     op.create_index("ix_mfa_passkey_user_id", "mfa_passkey", ["user_id"])
 
 
+def _lower_case_user_emails() -> None:
+    """The address becomes the sign-in and recovery channel, resolved
+    case-insensitively: every stored address is lower-cased and a CHECK keeps
+    it so. Two rows that differ only in case are one mailbox twice — that
+    cannot be decided here: the migration prints every collision as a
+    `KAN-196 REPORT:` line and aborts before any DDL, for a hand fix.
+    Skipped under `--sql` (the offline render has no rows to read)."""
+
+    if context.is_offline_mode():
+        op.create_check_constraint("ck_user_email_lower", "user", "email = lower(email)")
+        return
+    conn = op.get_bind()
+    collisions = conn.execute(
+        sa.text(
+            'SELECT lower(email) AS mailbox, string_agg(email, \', \' ORDER BY email) AS spellings, count(*) AS n '
+            'FROM "user" GROUP BY lower(email) HAVING count(*) > 1 ORDER BY lower(email)'
+        )
+    ).all()
+    for mailbox, spellings, n in collisions:
+        print(f"KAN-196 REPORT: user e-mail {mailbox!r} is stored {n} times as {spellings} — one mailbox, two users")
+    if collisions:
+        raise RuntimeError(
+            f"KAN-196: {len(collisions)} e-mail address(es) are stored in more than one spelling; "
+            "merge or rename those users by hand, then run the upgrade again."
+        )
+    lowered = conn.execute(sa.text('UPDATE "user" SET email = lower(email) WHERE email <> lower(email)')).rowcount
+    print(f"KAN-196: {lowered} user e-mail address(es) lower-cased")
+    op.create_check_constraint("ck_user_email_lower", "user", "email = lower(email)")
+
+
 def downgrade() -> None:
+    op.drop_constraint("ck_user_email_lower", "user", type_="check")
     op.drop_index("ix_mfa_passkey_user_id", table_name="mfa_passkey")
     op.drop_table("mfa_passkey")
     op.drop_index("ix_mfa_recovery_code_user_id", table_name="mfa_recovery_code")

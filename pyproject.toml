@@ -60,9 +60,9 @@ dependencies = [
 dev = [
     "pytest>=9.1,<10.0",
     "pytest-asyncio>=1.4,<2.0",
-    # httpx is a runtime dependency now (WP-4, app.platform.services.oidc's
-    # token exchange) — kept out of this list to avoid a duplicate pin;
-    # dev installs still get it transitively via [project.dependencies].
+    # httpx is a runtime dependency (the Have I Been Pwned range check,
+    # KAN-196) — kept out of this list to avoid a duplicate pin; dev installs
+    # still get it transitively via [project.dependencies].
     "import-linter>=2.5,<3.0",
     "ruff>=0.16,<0.17",
     "mypy>=1.19,<2.0",

@@ -106,7 +106,26 @@ def platform_admin_headers(
     return {"Authorization": f"Bearer {token}"}
 
 
-def create_dealership(client: TestClient, **overrides) -> str:
+def set_mfa_enforced(client: TestClient, dealership_id: str, enforced: bool) -> None:
+    """The Betrieb's switch (D-A-09). A password-only session in an
+    enforcing Betrieb is confined to enrolment by the session guard, so the
+    tests that are not about enrolment switch it off."""
+
+    current = client.get(f"/v1/dealerships/{dealership_id}/auth-config", headers=platform_admin_headers())
+    assert current.status_code == 200, current.text
+    if current.json()["mfaEnforced"] == enforced:
+        return
+    response = client.put(
+        f"/v1/dealerships/{dealership_id}/auth-config",
+        json={"mfaEnforced": enforced},
+        headers={**platform_admin_headers(), "If-Match": str(current.json()["version"])},
+    )
+    assert response.status_code == 200, response.text
+
+
+def create_dealership(client: TestClient, *, mfa_enforced: bool = False, **overrides) -> str:
+    """A Betrieb with MFA enforcement OFF unless asked — see set_mfa_enforced."""
+
     payload = {
         "legalName": "Garage Musterbetrieb AG",
         "franchiseType": "independent",
@@ -123,6 +142,8 @@ def create_dealership(client: TestClient, **overrides) -> str:
     payload.update(overrides)
     response = client.post("/v1/dealerships", json=payload, headers=platform_admin_headers())
     assert response.status_code == 201, response.text
+    if not mfa_enforced:
+        set_mfa_enforced(client, response.json()["id"], False)
     return response.json()["id"]
 
 

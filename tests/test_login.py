@@ -14,7 +14,7 @@ import pytest
 from app.core.auth import AccessRole, create_access_token, get_current_principal
 from app.platform.services.identity import INVALID_CREDENTIALS
 from tests.dealership_support import valid_uid
-from tests.identity_support import PasswordLogin, new_email
+from tests.identity_support import PasswordLogin, new_email, set_mfa_enforced
 
 VALID_ADDRESS = {
     "street": "Bahnhofstrasse",
@@ -58,6 +58,9 @@ def _create_dealer(client, **overrides) -> str:
     payload.update(overrides)
     response = client.post("/v1/dealerships", json=payload, headers=_bearer(token))
     assert response.status_code == 201, response.text
+    # KAN-196: these tests sign in with a password alone; a Betrieb that
+    # enforces a second factor confines such a session to enrolment.
+    set_mfa_enforced(client, response.json()["id"], False)
     return response.json()["id"]
 
 

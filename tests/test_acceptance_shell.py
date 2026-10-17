@@ -68,6 +68,9 @@ def _create_dealer(client, **overrides) -> str:
     payload.update(overrides)
     response = client.post("/v1/dealerships", json=payload, headers=_bearer(token))
     assert response.status_code == 201, response.text
+    from tests.identity_support import set_mfa_enforced
+
+    set_mfa_enforced(client, response.json()["id"], False)  # KAN-196: the walkthrough signs in with a password alone
     return response.json()["id"]
 
 

@@ -139,8 +139,6 @@ def mailbox(client):
         fastapi_app.dependency_overrides.pop(get_mailer, None)
 
 
-
-
 @pytest.fixture(autouse=True)
 def _daily_job_failure_episodes_reset():
     """KAN-303: the daily scheduler keeps each job's failure episode in
