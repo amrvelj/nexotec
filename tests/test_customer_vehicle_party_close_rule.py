@@ -844,3 +844,27 @@ def test_an_allocation_to_the_duplicate_after_its_merge_locked_it_is_refused(eng
     assert errors == []
     assert [r.details["reason"] for r in refusals] == ["customer_merged"]
     assert _open_holders(db_session, vehicle_id) == set()
+
+
+def test_the_copy_a_real_merge_kept_still_answers_merged_party_row(db_session):
+    """KAN-177's row-level refusal comes before KAN-365's customer check: the
+    copy a real merge kept sits on the merged duplicate, and reopening it
+    answers `merged_party_row`, naming the survivor, not `customer_merged`."""
+
+    group_id = uuid.uuid4()
+    vehicle = _vehicle(db_session, "WVWZZZ1KZAW365005")
+    duplicate, survivor = _customer(db_session, group_id, "Dora"), _customer(db_session, group_id, "Sven")
+    start = utcnow() - dt.timedelta(days=30)
+    db_session.add(VehicleParty(vehicle_id=vehicle.id, customer_id=survivor.id, role=OWNER, effective_from=start))
+    kept = VehicleParty(vehicle_id=vehicle.id, customer_id=duplicate.id, role=OWNER, effective_from=start)
+    db_session.add(kept)
+    db_session.commit()
+    _merge(db_session, duplicate, survivor.id, group_id)
+    db_session.refresh(kept)
+    assert (kept.customer_id, kept.merged_into_customer_id) == (duplicate.id, survivor.id)
+
+    with pytest.raises(ConflictError) as refused:
+        _patch(db_session, (duplicate.id, kept.id), group_id, effective_to=None)
+    db_session.rollback()
+
+    assert refused.value.details["reason"] == "merged_party_row"

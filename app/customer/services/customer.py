@@ -2727,8 +2727,6 @@ def update_customer_vehicle(
         _lock_vehicle_role_in_group(db, vehicle_id=party.vehicle_id, role=party.role, group_id=group_id)
     party = _lock_party(db, party)
     held_before = _is_open(party.effective_to)
-    if holds_after:
-        _refuse_merged_customer(db, party.customer_id)
     if holds_after and party.merged_into_customer_id is not None:
         # KAN-177 keeps the duplicate's copy closed at its start so it never
         # reads as a current party again; reopening it would also close the
@@ -2740,6 +2738,10 @@ def update_customer_vehicle(
                 "mergedIntoCustomerId": str(party.merged_into_customer_id),
             },
         )
+    if holds_after:
+        # KAN-365: checked after KAN-177's row-level refusal, so the copy a
+        # merge kept still answers `merged_party_row`.
+        _refuse_merged_customer(db, party.customer_id)
     before = {
         "effectiveFrom": party.effective_from.isoformat(),
         "effectiveTo": party.effective_to.isoformat() if party.effective_to else None,
