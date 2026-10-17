@@ -2981,9 +2981,10 @@ def _open_holders_in_group(
 
 
 def _refuse_merged_customer(db: Session, customer_id: uuid.UUID) -> None:
-    """KAN-365: a merged customer never holds a vehicle role again — the
+    """KAN-365: allocation and a reopen refuse a merged customer — the
     survivor carries its vehicle history (ADR-064, KAN-177), and an open row
-    left on the merged record is invisible on the survivor's 360. The caller
+    left on the merged record is invisible on the survivor's 360. (Two other
+    paths can still leave a row there: KAN-370 and KAN-372.) The caller
     holds the (vehicle, role, group) advisory lock; the customer row is read
     FOR SHARE under it, so an allocation racing the merge of this customer
     either commits before the merge reads the duplicate's pairs (the merge

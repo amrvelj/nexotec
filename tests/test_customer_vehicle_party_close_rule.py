@@ -698,7 +698,7 @@ def test_a_merge_never_waits_for_a_late_pair_out_of_order(engine, db_session, mo
     assert db_session.get(Customer, duplicate.id).duplicate_of_customer_id is None
 
 
-# --- KAN-365: a merged customer never holds a vehicle role again -------------
+# --- KAN-365: allocation and a reopen refuse a merged customer ---------------
 
 
 def _merge(db, duplicate: Customer | uuid.UUID, survivor_id: uuid.UUID, group_id: uuid.UUID) -> None:
