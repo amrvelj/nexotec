@@ -33,10 +33,21 @@ const ADVISOR_ID = '0192f0a0-0000-7000-8000-00000000a001'
 const VEHICLE_ID = '0192f0a0-0000-7000-8000-00000000b001'
 const DEALERSHIP_ID = '0192f0a0-0000-7000-8000-00000000c001'
 
-function renderHistory(events: AuditEventRead[], idLabels: Record<string, string> = {}) {
+function renderHistory(
+  events: AuditEventRead[],
+  idLabels: Record<string, string> = {},
+  countryLabels: Record<string, string> = {},
+) {
   installFakeBackend([])
   return renderWithProviders(
-    <HistoryTab events={events} loading={false} error={null} locale="fr-CH" idLabels={idLabels} />,
+    <HistoryTab
+      events={events}
+      loading={false}
+      error={null}
+      locale="fr-CH"
+      idLabels={idLabels}
+      countryLabels={countryLabels}
+    />,
   )
 }
 
@@ -117,6 +128,23 @@ describe('HistoryTab in French (KAN-336)', () => {
 
     expect(screen.queryByText('Vat registered')).not.toBeInTheDocument()
     expect(screen.queryByText(/net_30/)).not.toBeInTheDocument()
+  })
+
+  it('nationality and an address country render the country name, as on the Overview', async () => {
+    await i18n.changeLanguage('fr')
+    renderHistory(
+      [
+        event({ action: 'update', before: { nationality: 'CH' }, after: { nationality: 'FR' } }),
+        event({ id: 'ev-2', action: 'address_add', after: { addressType: 'domicile', addressCountry: 'CH' } }),
+      ],
+      {},
+      { CH: 'Suisse', FR: 'France' },
+    )
+
+    expect(screen.getByText('Nationalité')).toBeInTheDocument()
+    expect(screen.getByText(/Suisse → France/)).toBeInTheDocument()
+    expect(screen.getByText(/— → Suisse/)).toBeInTheDocument()
+    expect(screen.queryByText(/CH → FR|— → CH/)).not.toBeInTheDocument()
   })
 
   it('a vehicle-party event names the vehicle and translates the role', async () => {

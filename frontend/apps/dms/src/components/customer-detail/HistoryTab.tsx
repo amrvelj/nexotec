@@ -191,9 +191,18 @@ interface ValueContext {
   exists: (key: string) => boolean
   locale: string
   idLabels: Record<string, string>
+  countryLabels: Record<string, string>
 }
 
-function formatValue(entityType: string, key: string, v: unknown, { t, exists, locale, idLabels }: ValueContext): string {
+// Fields that hold an ISO country code from the `country` reference list.
+const COUNTRY_KEYS = new Set(['nationality', 'addressCountry'])
+
+function formatValue(
+  entityType: string,
+  key: string,
+  v: unknown,
+  { t, exists, locale, idLabels, countryLabels }: ValueContext,
+): string {
   if (v === null || v === undefined) return '—'
   if (typeof v === 'boolean') return v ? t('common.yes') : t('common.no')
   if (typeof v === 'object') return JSON.stringify(v)
@@ -202,6 +211,8 @@ function formatValue(entityType: string, key: string, v: unknown, { t, exists, l
     // for it (the advisor's name, a linked vehicle's make and model); one the
     // record carries no label for is shown as recorded.
     if (/Id$/.test(camelKey(key)) && idLabels[v] !== undefined) return idLabels[v]
+    // A country code renders its name in the UI language, as on the Overview.
+    if (COUNTRY_KEYS.has(camelKey(key)) && countryLabels[v] !== undefined) return countryLabels[v]
     const label = enumLabel(key, v, t, exists)
     if (label !== null) return label
   }
@@ -247,15 +258,17 @@ function HistoryEvent({
   isYou,
   locale,
   idLabels,
+  countryLabels,
 }: {
   event: AuditEventRead
   isYou: boolean
   locale: string
   idLabels: Record<string, string>
+  countryLabels: Record<string, string>
 }) {
   const { t, i18n } = useTranslation()
   const changes = diff(event.before, event.after)
-  const ctx: ValueContext = { t, exists: (key) => i18n.exists(key), locale, idLabels }
+  const ctx: ValueContext = { t, exists: (key) => i18n.exists(key), locale, idLabels, countryLabels }
   const actor = isYou ? t('customerDetail.history.you') : event.actorId ? t('customerDetail.history.user', { id: event.actorId.slice(0, 8) }) : t('customerDetail.history.system')
   return (
     <div style={{ display: 'flex', gap: 12 }}>
@@ -297,6 +310,7 @@ export function HistoryTab({
   error,
   locale,
   idLabels = {},
+  countryLabels = {},
 }: {
   events: AuditEventRead[]
   loading: boolean
@@ -305,6 +319,9 @@ export function HistoryTab({
   // KAN-336 — id → display label for the ids the customer record carries a
   // label for (advisor, linked vehicles); CustomerDetailPage builds it.
   idLabels?: Record<string, string>
+  // ISO country code → its name in the UI language (the `country` reference
+  // list, as the Overview renders nationality and address country).
+  countryLabels?: Record<string, string>
 }) {
   const { t } = useTranslation()
   const { user } = useAuth()
@@ -337,7 +354,7 @@ export function HistoryTab({
   return (
     <div>
       {sorted.map((event) => (
-        <HistoryEvent key={event.id} event={event} isYou={event.actorId === user?.id} locale={locale} idLabels={idLabels} />
+        <HistoryEvent key={event.id} event={event} isYou={event.actorId === user?.id} locale={locale} idLabels={idLabels} countryLabels={countryLabels} />
       ))}
     </div>
   )
