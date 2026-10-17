@@ -165,8 +165,8 @@ Edits to these files (all in `app/core/`) ask Anto first, whichever tool makes t
 - The error taxonomy (`errors.py`) — 400/401/403/404/409/422, one body shape · `CamelModel`,
   camelCase JSON over snake_case Python (`schemas.py`) · the append-only audit log (`audit.py`)
 - The outbox and consumer harness (`outbox*.py`, `consumer.py`, `processed_event_model.py`)
-- `EncryptedString` for `tax_id` (`types.py`), and config that refuses to start without the key
-  (`config.py`)
+- `EncryptedString` (`types.py`) + config that refuses to start without the key (`config.py`). Used by
+  `customer.tax_id` and the integration call payload; D-A-22 (KAN-197) moved `dealership.tax_id` off it to a plain `uid`
 
 ## API conventions
 
@@ -178,10 +178,10 @@ contract change: it needs an explicit decision, never a side effect of a fix.
 ## Domain rules that apply everywhere
 
 - **Organisation** (ADR-014): group → dealership → location. The **dealership** is the tenant.
-  Customers are group-scoped (`group_id`); stock and customer history are dealership-owned
-  but readable group-wide. Cost, margin, commission, discount, trade-in purchase price and
-  valuations stay private to the legal entity. All writes require switching the active
-  dealership.
+  The UI word for the tenant is **Betrieb**; `dealership` stays the table and code name (D-A-10).
+  Customers are group-scoped (`group_id`); stock and customer history are dealership-owned but
+  readable group-wide. Cost, margin, commission, discount, trade-in purchase price and valuations
+  stay private to the legal entity. All writes require switching the active dealership.
 - **One administration surface (A-RULE-0):** every setting a dealership owns is configured in
   Dealer Administration. No module ships its own settings screen.
 - **Vehicle identity:** VIN is mandatory in vehicle-mdm; a licence plate is never an

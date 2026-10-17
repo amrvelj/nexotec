@@ -6,6 +6,7 @@ import pytest
 
 from app.core.auth import AccessRole, create_access_token
 from app.sales.models.contract import SalesContract
+from tests.dealership_support import valid_uid
 from tests.test_sales_contract_edit import app_sessions_on_the_test_engine  # noqa: F401 - used by name
 
 
@@ -28,10 +29,10 @@ def _create_dealership(client) -> str:
 
     token = _token(AccessRole.PLATFORM_ADMIN)
     payload = {
-        "legalName": "Garage Musterbetrieb AG", "dealerLicenseNumber": "ZH-12345", "licenseState": "ZH",
+        "legalName": "Garage Musterbetrieb AG",
         "franchiseType": "independent",
         "address": {"street": "Bahnhofstrasse", "houseNumber": "1", "postalCode": "8001", "locality": "Zürich", "canton": "ZH"},
-        "phone": "+41441234567", "taxId": "CHE-123.456.789",
+        "phone": "+41441234567", "uid": valid_uid(),
     }
     response = client.post("/v1/dealerships", json=payload, headers=_bearer(token))
     assert response.status_code == 201, response.text

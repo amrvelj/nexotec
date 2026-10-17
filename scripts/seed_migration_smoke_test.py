@@ -166,32 +166,127 @@ def _dealership_has_wp7_columns(db: Session) -> bool:
     return "vat_rate" in columns
 
 
+def _dealership_has_kan197_columns(db: Session) -> bool:
+    """KAN-197 (D-A-22) replaced the encrypted `tax_id` with a plain `uid`
+    and dropped the US licence columns. Same trap, one PR later: the
+    upgrade-from-previous CI job seeds against main's schema before this
+    PR's migration applies, so a column-level check decides which shape to
+    write."""
+
+    columns = {col["name"] for col in inspect(db.get_bind()).get_columns("dealership")}
+    return "uid" in columns
+
+
+# The two dealerships the KAN-197 migration is proven against: one whose old
+# tax_id is a valid UID (converted) and one whose old tax_id fails the check
+# digit (reported, uid left NULL). scripts/verify_migration_smoke_test_seed.py
+# asserts both outcomes after the upgrade.
+SMOKE_TEST_UID = "CHE-987.654.326"
+SMOKE_TEST_INVALID_TAX_ID = "CHE-999.999.999"
+SMOKE_TEST_INVALID_UID_LEGAL_NAME = "Migration Smoke Test Invalid UID GmbH"
+
+
 def _seed_dealer_and_group_new_schema(db: Session) -> tuple[uuid.UUID, uuid.UUID]:
     """This PR's own heads already applied — dealer_group/dealership exist,
     so the current ORM classes address the real schema directly. Except
-    WP-6b's and WP-7's own new dealership columns specifically — see
-    _dealership_has_wp6b_columns / _dealership_has_wp7_columns.
+    the dealership columns a later PR added — see _dealership_has_wp6b_columns
+    / _dealership_has_wp7_columns / _dealership_has_kan197_columns.
     """
 
     group = DealerGroup(name="Migration Smoke Test Group")
     db.add(group)
     db.flush()
 
-    if _dealership_has_wp7_columns(db):
+    if _dealership_has_kan197_columns(db):
         dealership = Dealership(
             dealer_group_id=group.id,
             legal_name="Migration Smoke Test AG",
-            dealer_license_number="ZH-99999",
-            license_state="ZH",
             franchise_type=FranchiseType.INDEPENDENT,
             status=DealershipStatus.ACTIVE,
             phone="+41441234567",
-            tax_id="CHE-999.999.999",
+            uid=SMOKE_TEST_UID,
             **_DEALER_ADDRESS,
         )
-        db.add(dealership)
+        # On the new schema the invalid value cannot be stored at all: the
+        # row is written the way the migration leaves it, uid NULL. In its own
+        # group of one: the trunk's customer migrations resolve a tenant from
+        # the group ("one dealership per group") on downgrade, and they are
+        # immutable.
+        invalid_group = DealerGroup(name="Migration Smoke Test Invalid UID Group")
+        db.add(invalid_group)
+        db.flush()
+        invalid = Dealership(
+            dealer_group_id=invalid_group.id,
+            legal_name=SMOKE_TEST_INVALID_UID_LEGAL_NAME,
+            franchise_type=FranchiseType.INDEPENDENT,
+            status=DealershipStatus.ACTIVE,
+            phone="+41441234567",
+            uid=None,
+            **_DEALER_ADDRESS,
+        )
+        db.add_all([dealership, invalid])
         db.flush()
         return dealership.id, group.id
+
+    if _dealership_has_wp7_columns(db):
+        # main's current shape (before KAN-197): encrypted tax_id, the US
+        # licence columns, dba_name, postal code 4. The ORM class no longer
+        # has these columns, so this is a raw insert naming them; enum
+        # columns hold the member's value (KAN-175).
+        pre_kan197 = sa.table(
+            "dealership",
+            sa.column("id", GUID()),
+            sa.column("dealer_group_id", GUID()),
+            sa.column("legal_name", sa.String()),
+            sa.column("dealer_license_number", sa.String()),
+            sa.column("license_state", sa.String()),
+            sa.column("franchise_type", sa.String()),
+            sa.column("address_street", sa.String()),
+            sa.column("address_house_number", sa.String()),
+            sa.column("address_postal_code", sa.String()),
+            sa.column("address_locality", sa.String()),
+            sa.column("address_canton", sa.String()),
+            sa.column("address_country", sa.String()),
+            sa.column("phone", sa.String()),
+            sa.column("tax_id", EncryptedString()),
+            sa.column("status", sa.String()),
+            sa.column("logo_url", sa.String()),
+            sa.column("brand_primary_color", sa.String()),
+            sa.column("default_correspondence_language", sa.String()),
+            sa.column("version", sa.Integer()),
+            sa.column("created_at", sa.DateTime(timezone=True)),
+            sa.column("updated_at", sa.DateTime(timezone=True)),
+        )
+        invalid_group = DealerGroup(name="Migration Smoke Test Invalid UID Group")
+        db.add(invalid_group)
+        db.flush()
+        dealership_id = uuid7()
+        for row_id, group_id, legal_name, tax_id in (
+            (dealership_id, group.id, "Migration Smoke Test AG", SMOKE_TEST_UID),
+            (uuid7(), invalid_group.id, SMOKE_TEST_INVALID_UID_LEGAL_NAME, SMOKE_TEST_INVALID_TAX_ID),
+        ):
+            db.execute(
+                pre_kan197.insert().values(
+                    id=row_id,
+                    dealer_group_id=group_id,
+                    legal_name=legal_name,
+                    dealer_license_number="ZH-99999",
+                    license_state="ZH",
+                    franchise_type="independent",
+                    **_DEALER_ADDRESS,
+                    phone="+41441234567",
+                    tax_id=tax_id,
+                    status="active",
+                    logo_url=None,
+                    brand_primary_color="#7C3AED",
+                    default_correspondence_language="de",
+                    version=1,
+                    created_at=utcnow(),
+                    updated_at=utcnow(),
+                )
+            )
+        db.flush()
+        return dealership_id, group.id
 
     if _dealership_has_wp6b_columns(db):
         # WP-6b's columns are live but WP-7's (vat_rate/

@@ -21,6 +21,7 @@ from app.vehicle.models.vehicle import Vehicle, VehicleCustodyEvent
 from app.vehicle.models.vehicle_history import VehicleAccessory, VehicleOdometerReading
 from app.vehicle.models.vehicle_mdm import VehicleMdm
 from app.vehicle.services.provider import resolve_provider_code
+from tests.dealership_support import valid_uid
 
 VALID_ADDRESS = {
     "street": "Bahnhofstrasse",
@@ -57,12 +58,10 @@ def _setup(client) -> str:
 
     payload = {
         "legalName": "Garage Musterbetrieb AG",
-        "dealerLicenseNumber": "ZH-12345",
-        "licenseState": "ZH",
         "franchiseType": "independent",
         "address": VALID_ADDRESS,
         "phone": "+41441234567",
-        "taxId": "CHE-123.456.789",
+        "uid": valid_uid(),
     }
     response = client.post("/v1/dealerships", json=payload, headers=_headers(_admin()))
     assert response.status_code == 201, response.text

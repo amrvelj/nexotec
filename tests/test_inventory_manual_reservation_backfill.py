@@ -31,6 +31,7 @@ from app.sales.services.contract import cancel_contract, confirm_contract, creat
 from app.sales.services.offer import create_offer, update_offer
 
 pytestmark = pytest.mark.usefixtures("db_session")
+from tests.dealership_support import valid_uid
 from tests.test_sales_lifecycle_reservation import _customer
 
 
@@ -44,10 +45,10 @@ def _dealership(db_session) -> Dealership:
     db_session.add(group)
     db_session.flush()
     dealership = Dealership(
-        id=uuid.uuid4(), dealer_group_id=group.id, legal_name="Garage AG", dealer_license_number=f"ZH-{uuid.uuid4().hex[:6]}",
-        license_state="ZH", franchise_type=FranchiseType.INDEPENDENT, address_street="Bahnhofstrasse",
+        id=uuid.uuid4(), dealer_group_id=group.id, legal_name="Garage AG",
+        franchise_type=FranchiseType.INDEPENDENT, address_street="Bahnhofstrasse",
         address_house_number="1", address_postal_code="8001", address_locality="Zürich", address_canton="ZH",
-        phone="+41441234567", tax_id="CHE-123.456.789",
+        phone="+41441234567", uid=valid_uid(),
     )
     db_session.add(dealership)
     db_session.commit()

@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './auth/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
+import { RequireEntitlement } from './components/RequireEntitlement'
 import { DmsShell } from './layout/DmsShell'
 import { LoginPage } from './pages/LoginPage'
 import { SignInErrorPage } from './pages/SignInErrorPage'
@@ -56,16 +57,20 @@ export default function App() {
             <Route path="/integrations" element={<IntegrationsPage />} />
             <Route path="/vehicles" element={<VehiclesListPage />} />
             <Route path="/vehicles/:id" element={<VehicleDetailPage />} />
-            <Route path="/stock" element={<StockListPage />} />
-            <Route path="/stock/new" element={<StockCreatePage />} />
-            <Route path="/stock/:id" element={<StockDetailPage />} />
-            <Route path="/sales" element={<SalesListPage />} />
-            <Route path="/sales/offers/new" element={<OfferCreateRedirectPage />} />
-            <Route path="/sales/offers/:id" element={<OfferDetailPage />} />
-            <Route path="/sales/contracts/:id" element={<ContractDetailPage />} />
-            <Route path="/valuations" element={<ValuationsListPage />} />
-            <Route path="/valuations/new" element={<ValuationCreatePage />} />
-            <Route path="/valuations/:id" element={<ValuationDetailPage />} />
+            {/* KAN-198 (D-A-04, D-A-10): stock, sales and valuations belong to the
+                `sales` entitlement — a workshop without it never reaches them. */}
+            <Route element={<RequireEntitlement module="sales" />}>
+              <Route path="/stock" element={<StockListPage />} />
+              <Route path="/stock/new" element={<StockCreatePage />} />
+              <Route path="/stock/:id" element={<StockDetailPage />} />
+              <Route path="/sales" element={<SalesListPage />} />
+              <Route path="/sales/offers/new" element={<OfferCreateRedirectPage />} />
+              <Route path="/sales/offers/:id" element={<OfferDetailPage />} />
+              <Route path="/sales/contracts/:id" element={<ContractDetailPage />} />
+              <Route path="/valuations" element={<ValuationsListPage />} />
+              <Route path="/valuations/new" element={<ValuationCreatePage />} />
+              <Route path="/valuations/:id" element={<ValuationDetailPage />} />
+            </Route>
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

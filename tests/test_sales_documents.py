@@ -22,6 +22,7 @@ from app.sales.services.document import (
     generate_offer_document,
     list_documents,
 )
+from tests.dealership_support import valid_uid
 
 # Sentinel figures that must NEVER surface on a customer-facing document —
 # the seller-only margin panel is a separate surface entirely (ADR-063).
@@ -77,10 +78,10 @@ def _make_dealership(db_session, *, tenant_id: uuid.UUID | None = None, vat_rate
     db_session.add(group)
     db_session.flush()
     dealership = Dealership(
-        id=tenant_id or uuid.uuid4(), dealer_group_id=group.id, legal_name="Garage AG", dealer_license_number="ZH-1",
-        license_state="ZH", franchise_type=FranchiseType.INDEPENDENT, address_street="Bahnhofstrasse",
+        id=tenant_id or uuid.uuid4(), dealer_group_id=group.id, legal_name="Garage AG",
+        franchise_type=FranchiseType.INDEPENDENT, address_street="Bahnhofstrasse",
         address_house_number="1", address_postal_code="8001", address_locality="Zürich", address_canton="ZH",
-        phone="+41441234567", tax_id="CHE-123.456.789", vat_rate=vat_rate,
+        phone="+41441234567", uid=valid_uid(), vat_rate=vat_rate,
     )
     db_session.add(dealership)
     db_session.commit()
@@ -401,12 +402,10 @@ def _create_dealer(client) -> str:
     admin_token = _token(AccessRole.PLATFORM_ADMIN)
     payload = {
         "legalName": "Garage Musterbetrieb AG",
-        "dealerLicenseNumber": "ZH-12345",
-        "licenseState": "ZH",
         "franchiseType": "independent",
         "address": _VALID_ADDRESS,
         "phone": "+41441234567",
-        "taxId": "CHE-123.456.789",
+        "uid": valid_uid(),
     }
     response = client.post("/v1/dealerships", json=payload, headers=_bearer(admin_token))
     assert response.status_code == 201, response.text

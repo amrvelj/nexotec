@@ -42,6 +42,7 @@ from app.sales.schemas.offer import OfferUpdate
 from app.sales.services.contract import cancel_contract, confirm_contract, create_contract, request_invoice
 from app.sales.services.offer import create_offer, update_offer
 from app.sales.services.stock_item_purchase import record_stock_item_purchased
+from tests.dealership_support import valid_uid
 
 _CONSUMER = "sales.stock_item_purchased"
 
@@ -56,10 +57,10 @@ def _dealership(db_session) -> Dealership:
     db_session.add(group)
     db_session.flush()
     dealership = Dealership(
-        id=uuid.uuid4(), dealer_group_id=group.id, legal_name="Garage AG", dealer_license_number="ZH-1",
-        license_state="ZH", franchise_type=FranchiseType.INDEPENDENT, address_street="Bahnhofstrasse",
+        id=uuid.uuid4(), dealer_group_id=group.id, legal_name="Garage AG",
+        franchise_type=FranchiseType.INDEPENDENT, address_street="Bahnhofstrasse",
         address_house_number="1", address_postal_code="8001", address_locality="Zürich", address_canton="ZH",
-        phone="+41441234567", tax_id="CHE-123.456.789",
+        phone="+41441234567", uid=valid_uid(),
     )
     db_session.add(dealership)
     db_session.commit()

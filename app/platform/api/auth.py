@@ -33,6 +33,7 @@ from app.core.auth import (
 )
 from app.core.config import get_settings
 from app.core.errors import ForbiddenError, UnauthorizedError
+from app.core.permissions import ModuleCode
 from app.db import get_db
 from app.platform.models.dealership import Dealership
 from app.platform.models.user import User, UserStatus
@@ -44,6 +45,7 @@ from app.platform.schemas.auth import (
 )
 from app.platform.schemas.user import UserRead
 from app.platform.services import dealership as dealership_service
+from app.platform.services import entitlement as entitlement_service
 from app.platform.services import user as user_service
 from app.platform.services.oidc import OidcClient, OidcError, get_oidc_client
 
@@ -58,9 +60,7 @@ _COOKIE_KWARGS: dict[str, Any] = {"httponly": True, "secure": True, "samesite": 
 
 
 def _set_session_cookie(response: Response, token: str) -> None:
-    response.set_cookie(
-        SESSION_COOKIE_NAME, token, max_age=settings.jwt_access_token_ttl_seconds, **_COOKIE_KWARGS
-    )
+    response.set_cookie(SESSION_COOKIE_NAME, token, max_age=settings.jwt_access_token_ttl_seconds, **_COOKIE_KWARGS)
 
 
 def _membership_ids(db: Session, *, user_id: uuid.UUID, home_dealership_id: uuid.UUID) -> frozenset[uuid.UUID]:
@@ -78,6 +78,7 @@ class _MintedSession:
     token: str
     dealership: Dealership
     membership_ids: frozenset[uuid.UUID]
+    entitlements: frozenset[str]
 
 
 def _mint_session(db: Session, *, user: User, dealership_id: uuid.UUID) -> _MintedSession:
@@ -97,6 +98,10 @@ def _mint_session(db: Session, *, user: User, dealership_id: uuid.UUID) -> _Mint
     if dealership_id not in membership_ids:
         raise ForbiddenError("This dealership is not one of your memberships.")
     dealership = dealership_service.get_dealership_or_404(db, dealership_id)
+    # KAN-198 (D-A-04): the TARGET dealership's licensed modules, and the
+    # version they were read at — require_entitlement refuses the token once
+    # the set changes, so the user signs in again and gets the new one.
+    entitlements = entitlement_service.list_active_modules(db, dealership.id)
     token = create_access_token(
         user_id=user.id,
         tenant_id=dealership.id,
@@ -106,11 +111,15 @@ def _mint_session(db: Session, *, user: User, dealership_id: uuid.UUID) -> _Mint
         # The TARGET dealership's flag, never the home one carried across
         # (KAN-98, D-A-01: the manager flag is held per dealership).
         is_dealer_manager=user_service.is_dealer_manager_in(db, user=user, dealership_id=dealership.id),
+        entitlements=entitlements,
+        entitlements_version=dealership.entitlements_version,
     )
-    return _MintedSession(token=token, dealership=dealership, membership_ids=membership_ids)
+    return _MintedSession(token=token, dealership=dealership, membership_ids=membership_ids, entitlements=entitlements)
 
 
-def _login_response(db: Session, *, user, active_dealership: Dealership, membership_ids) -> LoginResponse:
+def _login_response(
+    db: Session, *, user, active_dealership: Dealership, membership_ids, entitlements: frozenset[str]
+) -> LoginResponse:
     rows = dealership_service.list_dealerships_by_ids(db, membership_ids)
     # Active dealership first, then the rest — same list every time for a
     # given membership set rather than whatever order the IN(...) returned.
@@ -119,6 +128,7 @@ def _login_response(db: Session, *, user, active_dealership: Dealership, members
         user=UserRead.model_validate(user, from_attributes=True),
         active_dealership=DealershipMembershipSummary.model_validate(active_dealership, from_attributes=True),
         memberships=[DealershipMembershipSummary.model_validate(d, from_attributes=True) for d in rows],
+        entitlements=sorted(ModuleCode(code) for code in entitlements),
     )
 
 
@@ -195,9 +205,7 @@ def logout(response: Response):
 
 
 @router.get("/auth/me", response_model=LoginResponse)
-def get_current_session_user(
-    principal: Principal = Depends(get_current_principal), db: Session = Depends(get_db)
-):
+def get_current_session_user(principal: Principal = Depends(get_current_principal), db: Session = Depends(get_db)):
     """Lets a browser client restore "logged in as X" state after a page
     reload — the httpOnly cookie survives, but the login response body's
     `user` object doesn't (nothing else holds it client-side).
@@ -214,7 +222,13 @@ def get_current_session_user(
     user = user_service.get_own_user_or_404(db, principal.user_id)
     dealership = dealership_service.get_dealership_or_404(db, principal.tenant_id)
     membership_ids = _membership_ids(db, user_id=user.id, home_dealership_id=user.tenant_id)
-    return _login_response(db, user=user, active_dealership=dealership, membership_ids=membership_ids)
+    return _login_response(
+        db,
+        user=user,
+        active_dealership=dealership,
+        membership_ids=membership_ids,
+        entitlements=entitlement_service.list_active_modules(db, dealership.id),
+    )
 
 
 @router.post("/auth/switch-dealership", response_model=LoginResponse)
@@ -242,5 +256,9 @@ def switch_dealership(
     minted = _mint_session(db, user=user, dealership_id=body.dealership_id)
     _set_session_cookie(response, minted.token)
     return _login_response(
-        db, user=user, active_dealership=minted.dealership, membership_ids=minted.membership_ids
+        db,
+        user=user,
+        active_dealership=minted.dealership,
+        membership_ids=minted.membership_ids,
+        entitlements=minted.entitlements,
     )

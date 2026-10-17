@@ -24,6 +24,7 @@ import app.model_registry
 from app.core.auth import AccessRole, create_access_token
 from app.db import Base
 from app.sales.models.transaction import Transaction, TransactionStatus, TransactionType
+from tests.dealership_support import valid_uid
 
 VALID_ADDRESS = {
     "street": "Bahnhofstrasse",
@@ -59,17 +60,24 @@ def _create_dealer(client, **overrides) -> str:
     token = _token(AccessRole.PLATFORM_ADMIN)
     payload = {
         "legalName": "Garage Musterbetrieb AG",
-        "dealerLicenseNumber": "ZH-12345",
-        "licenseState": "ZH",
         "franchiseType": "independent",
         "address": VALID_ADDRESS,
         "phone": "+41441234567",
-        "taxId": "CHE-123.456.789",
+        "uid": valid_uid(),
     }
     payload.update(overrides)
     response = client.post("/v1/dealerships", json=payload, headers=_bearer(token))
     assert response.status_code == 201, response.text
     return response.json()["id"]
+
+
+def _grant_sales_module(client, dealer_id: str) -> None:
+    response = client.put(
+        f"/v1/dealerships/{dealer_id}/entitlements",
+        json={"modules": ["sales"]},
+        headers={**_bearer(_token(AccessRole.PLATFORM_ADMIN)), "If-Match": "1"},
+    )
+    assert response.status_code == 200, response.text
 
 
 def _create_user(client, dealer_id: str, **overrides) -> dict:
@@ -205,6 +213,10 @@ def test_ac2_to_4_full_shell_walkthrough_sale(client, oidc_fake):
     """
 
     dealer_id = _create_dealer(client)
+    # KAN-198: a freshly created Betrieb holds no module licence; without the
+    # sales module the transactions route is 404 for everyone, so license it
+    # the way platform_admin does before the user signs in.
+    _grant_sales_module(client, dealer_id)
     user = _create_user(client, dealer_id, email="walkthrough@example.ch")
     session_token = _login_and_get_session_cookie(client, oidc_fake, user)
     headers = {"Cookie": f"dms_session={session_token}"}
@@ -432,15 +444,15 @@ def test_ac5_audit_trail_covers_all_four_entities(client):
     customer = _create_customer(client, dealer_token)
     vehicle = _create_vehicle(client, dealer_id, dealer_token)
 
-    # Dealer: license field change.
+    # Dealer: legal-identity change (KAN-197: legal name, UID, VAT are the audited fields).
     client.patch(
         f"/v1/dealerships/{dealer_id}",
-        json={"dealerLicenseNumber": "ZH-99999"},
+        json={"legalName": "Garage Umbenannt AG"},
         headers={**admin_token, "If-Match": "1"},
     )
     dealer_log = client.get(f"/v1/dealerships/{dealer_id}/audit-log", headers=admin_token).json()["items"]
     assert any(
-        e["action"] == "update" and e["after"].get("dealer_license_number") == "ZH-99999" for e in dealer_log
+        e["action"] == "update" and e["after"].get("legal_name") == "Garage Umbenannt AG" for e in dealer_log
     )
 
     # Customer: PII change.
@@ -543,10 +555,8 @@ _FORBIDDEN_COLUMN_SUBSTRINGS = (
 def test_ac6_schema_has_no_payment_card_ssn_or_drivers_license_columns():
     """Automated schema review, not just code review — introspects every
     mapped table's column names directly from SQLAlchemy metadata.
-    `dealer_license_number` (a business operating license, not a personal
-    driver's license) and `tax_id` (encrypted at rest, a business VAT-style
-    identifier, not a personal SSN) are legitimate and don't match any of
-    these patterns.
+    `uid` and `vat_number` (public business identifiers, KAN-197) are
+    legitimate and don't match any of these patterns.
     """
 
     assert app.model_registry  # ensures all model modules are imported, metadata populated

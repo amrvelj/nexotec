@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from app.core.auth import AccessRole, Principal, get_current_principal
 from app.core.config import get_settings
 from app.core.pagination import SortPageParams, decode_sort_cursor
+from app.core.permissions import ModuleCode, require_entitlement
 from app.core.sorting import SortField, parse_sort
 from app.db import get_db
 from app.inventory.api.stock_items import STOCK_ITEM_SORT_FIELDS
@@ -24,7 +25,9 @@ from app.inventory.schemas.group_listing import StockItemGroupPage, StockItemGro
 from app.inventory.services.group_listing import list_group_stock_items
 from app.platform.public import Dealership
 
-router = APIRouter(tags=["inventory"])
+# KAN-198 (D-A-04): the entitlement gate runs before any role check; an
+# unlicensed module is 404 for everyone (router-level, so every route).
+router = APIRouter(tags=["inventory"], dependencies=[Depends(require_entitlement(ModuleCode.SALES))])
 settings = get_settings()
 
 # KAN-152: the tenant grid's indexed sort columns, and its default order.

@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { Route, Routes, useParams } from 'react-router-dom'
 import i18n from '../i18n'
 import { renderWithProviders } from '../test/renderWithProviders'
-import { installFakeBackend, type FakeBackend } from '../test/fakeBackend'
+import { ALL_ENTITLEMENTS, installFakeBackend, type FakeBackend } from '../test/fakeBackend'
 import type { VehicleMdmRead, VehicleSearchResult } from '../api/types'
 import { DmsShell } from './DmsShell'
 
@@ -84,7 +84,7 @@ function renderShell(customers: { items: unknown[] } = { items: [] }): FakeBacke
           createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z',
         },
         activeDealership: { id: 'd-1', legalName: 'Garage Nord AG' },
-        memberships: [{ id: 'd-1', legalName: 'Garage Nord AG' }],
+        memberships: [{ id: 'd-1', legalName: 'Garage Nord AG' }], entitlements: ALL_ENTITLEMENTS
       }),
     },
     { method: 'GET', match: /\/customers$/, handler: () => ({ ...customers, nextCursor: null }) },

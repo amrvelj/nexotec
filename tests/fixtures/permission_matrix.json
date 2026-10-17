@@ -1,0 +1,405 @@
+{
+  "_source": "Dealer Administration PRD v1.2, section 'Roles, permissions and limits' > 'Permission matrix', transcribed 2026-10-17 (KAN-198). Each row: the matrix label -> registry key(s), read roles (null = 'Any role'; [] = manager only unless manager_can_read is false), write roles ([] = manager / platform staff only), flags. Anto's rulings of 2026-10-17: 'Stock and pipeline vehicles' write = inventory + sales (the matrix; enforced as inventory-only until KAN-376 — see that row's enforced_write/deviation, which the test asserts), 'Valuation' read = any role (the code; the matrix row is corrected in Notion). A new Notion row without an entry here, or a registry key without a row, fails tests/test_permission_matrix_mirrors_prd.py.",
+  "rows": [
+    {
+      "label": "Customers",
+      "key": "customers",
+      "read": null,
+      "write": [
+        "sales",
+        "aftersales"
+      ]
+    },
+    {
+      "label": "Vehicle MDM",
+      "key": "vehicle_mdm",
+      "read": null,
+      "write": [
+        "sales",
+        "aftersales",
+        "inventory"
+      ]
+    },
+    {
+      "label": "Customer to vehicle links",
+      "key": "customer_vehicle_links",
+      "read": null,
+      "write": [
+        "sales",
+        "aftersales"
+      ]
+    },
+    {
+      "label": "Stock and pipeline vehicles",
+      "key": "stock_items",
+      "read": null,
+      "write": [
+        "inventory",
+        "sales"
+      ],
+      "enforced_write": [
+        "inventory"
+      ],
+      "deviation": "KAN-376: the stock_items key guards every inventory write endpoint (purchase, Wagenbuch cost, publishing, reservation), so the matrix's sales write is enforced only once those endpoints are rewired to their own rows"
+    },
+    {
+      "label": "Stock acquisition, landed cost, storno",
+      "key": "stock_acquisition",
+      "read": null,
+      "write": [
+        "inventory"
+      ]
+    },
+    {
+      "label": "Stock condition change",
+      "key": "stock_condition",
+      "read": null,
+      "write": [
+        "inventory",
+        "sales"
+      ]
+    },
+    {
+      "label": "Per-vehicle balance sheet (Wagenbuch)",
+      "key": "wagenbuch",
+      "read": null,
+      "write": [],
+      "manager_can_write": false
+    },
+    {
+      "label": "Marketplace publishing",
+      "key": "marketplace_publishing",
+      "read": null,
+      "write": [
+        "inventory"
+      ]
+    },
+    {
+      "label": "Offers and contracts",
+      "key": [
+        "sales_offers",
+        "sales_contracts"
+      ],
+      "read": null,
+      "write": [
+        "sales"
+      ]
+    },
+    {
+      "label": "Contract confirmation and cancellation",
+      "key": "contract_lifecycle",
+      "read": null,
+      "write": [
+        "sales"
+      ]
+    },
+    {
+      "label": "Stock reservation",
+      "key": "stock_reservation",
+      "read": null,
+      "write": [],
+      "manager_can_write": false
+    },
+    {
+      "label": "Margin, discount granted, trade-in price",
+      "key": "commercial_figures",
+      "read": null,
+      "write": [
+        "sales"
+      ]
+    },
+    {
+      "label": "Service orders",
+      "key": "service_orders",
+      "read": [
+        "aftersales",
+        "parts",
+        "finance",
+        "auditor"
+      ],
+      "write": [
+        "aftersales"
+      ]
+    },
+    {
+      "label": "Parts",
+      "key": "parts",
+      "read": [
+        "parts",
+        "aftersales",
+        "auditor"
+      ],
+      "write": [
+        "parts"
+      ]
+    },
+    {
+      "label": "Invoices and payments",
+      "key": "invoices",
+      "read": [
+        "finance",
+        "auditor"
+      ],
+      "write": [
+        "finance"
+      ]
+    },
+    {
+      "label": "Valuation",
+      "key": "valuations",
+      "read": null,
+      "write": [
+        "sales",
+        "inventory"
+      ]
+    },
+    {
+      "label": "Audit logs",
+      "key": "audit_logs",
+      "read": [
+        "auditor"
+      ],
+      "write": [],
+      "manager_can_write": false
+    },
+    {
+      "label": "Dealership master data",
+      "key": "dealership_settings",
+      "read": null,
+      "write": []
+    },
+    {
+      "label": "Dealership legal identity — UID, VAT, legal name",
+      "key": "dealership_legal_identity",
+      "read": null,
+      "write": []
+    },
+    {
+      "label": "Banking details",
+      "key": "banking_details",
+      "read": [
+        "finance",
+        "auditor"
+      ],
+      "write": []
+    },
+    {
+      "label": "Locations",
+      "key": "locations",
+      "read": null,
+      "write": []
+    },
+    {
+      "label": "Publishing profile",
+      "key": "publishing_profile",
+      "read": null,
+      "write": [
+        "inventory"
+      ]
+    },
+    {
+      "label": "Branding assets and logo",
+      "key": "branding",
+      "read": null,
+      "write": []
+    },
+    {
+      "label": "Document templates",
+      "key": "document_templates",
+      "read": null,
+      "write": []
+    },
+    {
+      "label": "Number ranges",
+      "key": "number_ranges",
+      "read": null,
+      "write": []
+    },
+    {
+      "label": "Standard texts",
+      "key": "standard_texts",
+      "read": null,
+      "write": []
+    },
+    {
+      "label": "Labour rates, categories and agreements",
+      "key": "labour_rates",
+      "read": [
+        "aftersales",
+        "parts",
+        "finance"
+      ],
+      "write": []
+    },
+    {
+      "label": "Connected accounts of a user",
+      "key": "connected_accounts",
+      "read": [],
+      "write": []
+    },
+    {
+      "label": "Standard-text delegations",
+      "key": "standard_text_delegations",
+      "read": [],
+      "write": []
+    },
+    {
+      "label": "UI translations and seed library",
+      "key": "ui_translations",
+      "read": null,
+      "write": [],
+      "manager_can_write": false
+    },
+    {
+      "label": "Account recovery actions",
+      "key": "recovery_actions",
+      "read": [],
+      "manager_can_read": false,
+      "write": [],
+      "manager_can_write": false
+    },
+    {
+      "label": "Notification preferences",
+      "key": "notification_preferences",
+      "read": [],
+      "manager_can_read": false,
+      "write": [],
+      "manager_can_write": false
+    },
+    {
+      "label": "Customer send dialog and delivery records",
+      "key": "customer_send_dialog",
+      "read": null,
+      "write": [
+        "sales",
+        "aftersales",
+        "inventory",
+        "parts",
+        "finance"
+      ]
+    },
+    {
+      "label": "Sending identities and policy",
+      "key": "sending_identities",
+      "read": [
+        "finance"
+      ],
+      "write": []
+    },
+    {
+      "label": "AI provider connection and prompts",
+      "key": "ai_prompts",
+      "read": [
+        "inventory",
+        "sales"
+      ],
+      "write": []
+    },
+    {
+      "label": "Legal acceptance",
+      "key": "legal_acceptance",
+      "read": [],
+      "write": []
+    },
+    {
+      "label": "Data export",
+      "key": "data_export",
+      "read": [],
+      "write": []
+    },
+    {
+      "label": "Status page",
+      "key": "status_page",
+      "read": null,
+      "write": [],
+      "manager_can_write": false
+    },
+    {
+      "label": "Configuration restore",
+      "key": "configuration_restore",
+      "read": [],
+      "write": []
+    },
+    {
+      "label": "Users of the dealership",
+      "key": "dealership_users",
+      "read": [],
+      "write": []
+    },
+    {
+      "label": "Granting is_dealer_manager",
+      "key": "manager_flag",
+      "read": [],
+      "write": []
+    },
+    {
+      "label": "Integrations and credentials",
+      "key": "integration_connections",
+      "read": [],
+      "write": []
+    },
+    {
+      "label": "Integration usage and cost",
+      "key": "integration_usage",
+      "read": [
+        "finance"
+      ],
+      "write": [],
+      "manager_can_write": false
+    },
+    {
+      "label": "Module entitlements",
+      "key": "module_entitlements",
+      "read": [],
+      "write": [],
+      "manager_can_write": false
+    },
+    {
+      "label": "Setup checklist",
+      "key": "setup_checklist",
+      "read": [],
+      "write": [],
+      "manager_can_write": false
+    },
+    {
+      "label": "Support-session log",
+      "key": "support_session_log",
+      "read": [],
+      "write": [],
+      "manager_can_write": false
+    },
+    {
+      "label": "Dealer groups, dealership creation",
+      "key": "dealer_groups",
+      "read": [],
+      "manager_can_read": false,
+      "write": [],
+      "manager_can_write": false
+    },
+    {
+      "label": "Canonical taxonomy, provider catalogue",
+      "key": "canonical_taxonomy",
+      "read": [],
+      "manager_can_read": false,
+      "write": [],
+      "manager_can_write": false
+    },
+    {
+      "label": "Configurations (Configurator PRD, KAN-41; row added to the Notion matrix 2026-10-17)",
+      "key": "configurations",
+      "read": null,
+      "write": [
+        "sales",
+        "inventory"
+      ]
+    },
+    {
+      "label": "Transactions (retired, ADR-050 — GET endpoints only until they go; noted under the Notion matrix 2026-10-17)",
+      "key": "transactions",
+      "read": null,
+      "write": [
+        "sales"
+      ]
+    }
+  ]
+}

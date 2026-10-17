@@ -749,6 +749,24 @@ export interface paths {
         patch: operations["update_document_template_v1_dealerships__dealership_id__document_template_patch"];
         trace?: never;
     };
+    "/v1/dealerships/{dealership_id}/entitlements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Entitlements */
+        get: operations["get_entitlements_v1_dealerships__dealership_id__entitlements_get"];
+        /** Set Entitlements */
+        put: operations["set_entitlements_v1_dealerships__dealership_id__entitlements_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/dealerships/{dealership_id}/users": {
         parameters: {
             query?: never;
@@ -783,6 +801,94 @@ export interface paths {
         head?: never;
         /** Update User */
         patch: operations["update_user_v1_dealerships__dealership_id__users__user_id__patch"];
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/users/{user_id}/manager-flag": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set Home Manager Flag */
+        put: operations["set_home_manager_flag_v1_dealerships__dealership_id__users__user_id__manager_flag_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/users/{user_id}/memberships": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Memberships */
+        get: operations["list_memberships_v1_dealerships__dealership_id__users__user_id__memberships_get"];
+        put?: never;
+        /** Grant Membership */
+        post: operations["grant_membership_v1_dealerships__dealership_id__users__user_id__memberships_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/users/{user_id}/memberships/{member_dealership_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** End Membership */
+        delete: operations["end_membership_v1_dealerships__dealership_id__users__user_id__memberships__member_dealership_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/users/{user_id}/memberships/{member_dealership_id}/manager-flag": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set Membership Manager Flag */
+        put: operations["set_membership_manager_flag_v1_dealerships__dealership_id__users__user_id__memberships__member_dealership_id__manager_flag_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/users/{user_id}/text-delegations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Text Delegations */
+        get: operations["get_text_delegations_v1_dealerships__dealership_id__users__user_id__text_delegations_get"];
+        /** Set Text Delegations */
+        put: operations["set_text_delegations_v1_dealerships__dealership_id__users__user_id__text_delegations_put"];
+        post?: never;
+        /** End Text Delegations */
+        delete: operations["end_text_delegations_v1_dealerships__dealership_id__users__user_id__text_delegations_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/healthz": {
@@ -4521,7 +4627,14 @@ export interface components {
             /** Version */
             version: number;
         };
-        /** DealershipAddress */
+        /**
+         * DealershipAddress
+         * @description The registered seat (D-A-25). The postal code is validated for the
+         *     country — four digits for CH, a plausible code of up to 12 characters
+         *     elsewhere (the same rule the customer address applies, D-11). No minimum
+         *     lengths: the model is also the read shape, and a row the old API
+         *     accepted must still read.
+         */
         DealershipAddress: {
             /** Canton */
             canton: string;
@@ -4544,29 +4657,42 @@ export interface components {
          * @description dealer_group_id is optional: omitting it creates a new group of one
          *     for this dealership (the common case — onboarding a standalone dealer).
          *     Pass an existing group's id to add a second dealership to it instead.
+         *
+         *     KAN-197 (D-A-22, D-A-25 — a breaking contract change, decided up front):
+         *     `uid` replaces the write-only `taxId`; `dealerLicenseNumber` and
+         *     `licenseState` are gone; `dbaName` is `tradeName`; `vatNumber`,
+         *     `vatLiable`, `correspondenceAddress` and `billingAddress` are new.
          */
         DealershipCreate: {
             address: components["schemas"]["DealershipAddress"];
-            /** Dbaname */
-            dbaName?: string | null;
+            billingAddress?: components["schemas"]["DealershipOverrideAddress"] | null;
+            correspondenceAddress?: components["schemas"]["DealershipOverrideAddress"] | null;
             /** Dealergroupid */
             dealerGroupId?: string | null;
-            /** Dealerlicensenumber */
-            dealerLicenseNumber: string;
             franchiseType: components["schemas"]["FranchiseType"];
             /** Legalname */
             legalName: string;
-            /** Licensestate */
-            licenseState: string;
             /** Oemaffiliations */
             oemAffiliations?: string[] | null;
             /** Phone */
             phone: string;
+            /** Tradename */
+            tradeName?: string | null;
             /**
-             * Taxid
-             * @description Write-only; never returned by read endpoints.
+             * Uid
+             * @description Swiss UID, CHE-123.456.789; public, unique per dealership.
              */
-            taxId: string;
+            uid: string;
+            /**
+             * Vatliable
+             * @default false
+             */
+            vatLiable?: boolean;
+            /**
+             * Vatnumber
+             * @description CHE-123.456.789 MWST (or TVA / IVA)
+             */
+            vatNumber?: string | null;
         };
         /**
          * DealershipMembershipSummary
@@ -4583,6 +4709,29 @@ export interface components {
             /** Legalname */
             legalName: string;
         };
+        /**
+         * DealershipOverrideAddress
+         * @description A correspondence or billing override (D-A-25). Unlike the seat it may
+         *     lie abroad, so the canton is required for a Swiss address and must be
+         *     absent for any other country.
+         */
+        DealershipOverrideAddress: {
+            /** Canton */
+            canton?: string | null;
+            /**
+             * Country
+             * @default CH
+             */
+            country?: string;
+            /** Housenumber */
+            houseNumber: string;
+            /** Locality */
+            locality: string;
+            /** Postalcode */
+            postalCode: string;
+            /** Street */
+            street: string;
+        };
         /** DealershipPage */
         DealershipPage: {
             /** Items */
@@ -4595,6 +4744,8 @@ export interface components {
             address: components["schemas"]["DealershipAddress"];
             /** Ageingalertthresholds */
             ageingAlertThresholds: number[] | null;
+            billingAddress: components["schemas"]["DealershipOverrideAddress"] | null;
+            correspondenceAddress: components["schemas"]["DealershipOverrideAddress"] | null;
             /**
              * Createdat
              * Format: date-time
@@ -4602,15 +4753,11 @@ export interface components {
             createdAt: string;
             /** Createdby */
             createdBy: string | null;
-            /** Dbaname */
-            dbaName: string | null;
             /**
              * Dealergroupid
              * Format: uuid
              */
             dealerGroupId: string;
-            /** Dealerlicensenumber */
-            dealerLicenseNumber: string;
             franchiseType: components["schemas"]["FranchiseType"];
             /**
              * Id
@@ -4619,13 +4766,15 @@ export interface components {
             id: string;
             /** Legalname */
             legalName: string;
-            /** Licensestate */
-            licenseState: string;
             /** Oemaffiliations */
             oemAffiliations: string[] | null;
             /** Phone */
             phone: string;
             status: components["schemas"]["DealershipStatus"];
+            /** Tradename */
+            tradeName: string | null;
+            /** Uid */
+            uid: string | null;
             /**
              * Updatedat
              * Format: date-time
@@ -4633,6 +4782,10 @@ export interface components {
             updatedAt: string;
             /** Updatedby */
             updatedBy: string | null;
+            /** Vatliable */
+            vatLiable: boolean;
+            /** Vatnumber */
+            vatNumber: string | null;
             /** Vatrate */
             vatRate: string | null;
             /** Version */
@@ -4645,29 +4798,32 @@ export interface components {
         DealershipStatus: "pending_onboarding" | "active" | "suspended" | "offboarded";
         /**
          * DealershipUpdate
-         * @description All fields optional — PATCH semantics, partial update. `status` and
-         *     `tax_id` changes are audit-logged by the service layer.
+         * @description All fields optional — PATCH semantics, partial update. `status`,
+         *     `legal_name`, `uid`, `vat_number` and `vat_liable` changes are
+         *     audit-logged by the service layer.
          */
         DealershipUpdate: {
             address?: components["schemas"]["DealershipAddress"] | null;
             /** Ageingalertthresholds */
             ageingAlertThresholds?: number[] | null;
-            /** Dbaname */
-            dbaName?: string | null;
-            /** Dealerlicensenumber */
-            dealerLicenseNumber?: string | null;
+            billingAddress?: components["schemas"]["DealershipOverrideAddress"] | null;
+            correspondenceAddress?: components["schemas"]["DealershipOverrideAddress"] | null;
             franchiseType?: components["schemas"]["FranchiseType"] | null;
             /** Legalname */
             legalName?: string | null;
-            /** Licensestate */
-            licenseState?: string | null;
             /** Oemaffiliations */
             oemAffiliations?: string[] | null;
             /** Phone */
             phone?: string | null;
             status?: components["schemas"]["DealershipStatus"] | null;
-            /** Taxid */
-            taxId?: string | null;
+            /** Tradename */
+            tradeName?: string | null;
+            /** Uid */
+            uid?: string | null;
+            /** Vatliable */
+            vatLiable?: boolean | null;
+            /** Vatnumber */
+            vatNumber?: string | null;
             /** Vatrate */
             vatRate?: number | string | null;
         };
@@ -4823,6 +4979,29 @@ export interface components {
             granted: boolean;
             /** Source */
             source: string;
+        };
+        /**
+         * EntitlementsRead
+         * @description The modules the Betrieb is licensed for (D-A-04): the manager reads
+         *     "what we bought", platform_admin writes. `entitlements_version` is the
+         *     value sessions are minted against; `dealership_version` is the If-Match
+         *     value for a PUT.
+         */
+        EntitlementsRead: {
+            /** Dealershipversion */
+            dealershipVersion: number;
+            /** Entitlementsversion */
+            entitlementsVersion: number;
+            /** Modules */
+            modules: components["schemas"]["ModuleCode"][];
+        };
+        /**
+         * EntitlementsUpdate
+         * @description Full replacement of the set — the modules not listed are withdrawn.
+         */
+        EntitlementsUpdate: {
+            /** Modules */
+            modules: components["schemas"]["ModuleCode"][];
         };
         /**
          * EquipmentRead
@@ -5146,6 +5325,8 @@ export interface components {
          */
         LoginResponse: {
             activeDealership: components["schemas"]["DealershipMembershipSummary"];
+            /** Entitlements */
+            entitlements: components["schemas"]["ModuleCode"][];
             /** Memberships */
             memberships: components["schemas"]["DealershipMembershipSummary"][];
             user: components["schemas"]["UserRead"];
@@ -5157,6 +5338,11 @@ export interface components {
              * @default true
              */
             ok?: boolean;
+        };
+        /** ManagerFlagUpdate */
+        ManagerFlagUpdate: {
+            /** Isdealermanager */
+            isDealerManager: boolean;
         };
         /** MappingGapPage */
         MappingGapPage: {
@@ -5223,6 +5409,70 @@ export interface components {
             /** Url */
             url: string;
         };
+        /**
+         * MembershipCreate
+         * @description Grant the user access to a sister dealership. The target is the body,
+         *     the user's home dealership the path — a manager of both sides, or
+         *     platform staff, may grant (D-A-01).
+         */
+        MembershipCreate: {
+            /**
+             * Dealershipid
+             * Format: uuid
+             */
+            dealershipId: string;
+            /**
+             * Isdealermanager
+             * @default false
+             */
+            isDealerManager?: boolean;
+        };
+        /**
+         * MembershipList
+         * @description Every membership the user ever held, ended ones included (they keep
+         *     their row with `valid_to`); `user_version` is the If-Match value for the
+         *     writes.
+         */
+        MembershipList: {
+            /** Items */
+            items: components["schemas"]["MembershipRead"][];
+            /** Userversion */
+            userVersion: number;
+        };
+        /** MembershipRead */
+        MembershipRead: {
+            /** Active */
+            active: boolean;
+            /**
+             * Dealershipid
+             * Format: uuid
+             */
+            dealershipId: string;
+            /** Dealershiplabel */
+            dealershipLabel: string;
+            /**
+             * Grantedat
+             * Format: date-time
+             */
+            grantedAt: string;
+            /** Grantedby */
+            grantedBy: string | null;
+            /** Isdealermanager */
+            isDealerManager: boolean;
+            /** Validto */
+            validTo: string | null;
+        };
+        /**
+         * ModuleCode
+         * @description The module entitlements a Betrieb can hold (D-A-04, D-A-10): what
+         *     Nexotec has licensed to it, set by platform_admin. `sales` is one of them
+         *     since D-A-10 — a service-only garage is created without it and is a normal
+         *     configuration, not a degraded one. The vocabulary lives here because the
+         *     gate (`require_entitlement`) is core code; the rows live in platform's
+         *     `module_entitlement` table.
+         * @enum {string}
+         */
+        ModuleCode: "sales" | "aftersales" | "parts" | "finance" | "reporting";
         /**
          * NewPriceSource
          * @description Where a best-match Neupreis came from (FR-C-02 step 5) — shown with
@@ -5909,6 +6159,14 @@ export interface components {
             vin: string;
         };
         /**
+         * StandardTextCategory
+         * @description The PRD's standard-text categories (Dealer Administration, "Standard
+         *     texts" data model): document texts · e-mail bodies · SMS · internal note
+         *     templates · workshop job texts.
+         * @enum {string}
+         */
+        StandardTextCategory: "document" | "email" | "sms" | "internal_note" | "workshop";
+        /**
          * StockItemCondition
          * @enum {string}
          */
@@ -6124,6 +6382,22 @@ export interface components {
              * Format: uuid
              */
             dealershipId: string;
+        };
+        /** TextDelegationsRead */
+        TextDelegationsRead: {
+            /** Categories */
+            categories: components["schemas"]["StandardTextCategory"][];
+            /** Userversion */
+            userVersion: number;
+        };
+        /**
+         * TextDelegationsUpdate
+         * @description Full replacement of the user's delegated categories — the categories
+         *     not listed are withdrawn.
+         */
+        TextDelegationsUpdate: {
+            /** Categories */
+            categories: components["schemas"]["StandardTextCategory"][];
         };
         /**
          * TradeInRequest
@@ -7814,8 +8088,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "If-Match"?: string | null;
                 authorization?: string | null;
+                "If-Match"?: string | null;
             };
             path: {
                 configuration_id: string;
@@ -7891,8 +8165,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "If-Match"?: string | null;
                 authorization?: string | null;
+                "If-Match"?: string | null;
             };
             path: {
                 configuration_id: string;
@@ -7966,8 +8240,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "If-Match"?: string | null;
                 authorization?: string | null;
+                "If-Match"?: string | null;
             };
             path: {
                 configuration_id: string;
@@ -9443,6 +9717,81 @@ export interface operations {
             };
         };
     };
+    get_entitlements_v1_dealerships__dealership_id__entitlements_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntitlementsRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_entitlements_v1_dealerships__dealership_id__entitlements_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EntitlementsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntitlementsRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_users_v1_dealerships__dealership_id__users_get: {
         parameters: {
             query?: {
@@ -9589,6 +9938,315 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["UserRead"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_home_manager_flag_v1_dealerships__dealership_id__users__user_id__manager_flag_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                user_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManagerFlagUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_memberships_v1_dealerships__dealership_id__users__user_id__memberships_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                user_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MembershipList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    grant_membership_v1_dealerships__dealership_id__users__user_id__memberships_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                user_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MembershipCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MembershipRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    end_membership_v1_dealerships__dealership_id__users__user_id__memberships__member_dealership_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                user_id: string;
+                member_dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_membership_manager_flag_v1_dealerships__dealership_id__users__user_id__memberships__member_dealership_id__manager_flag_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                user_id: string;
+                member_dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManagerFlagUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MembershipRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_text_delegations_v1_dealerships__dealership_id__users__user_id__text_delegations_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                user_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TextDelegationsRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_text_delegations_v1_dealerships__dealership_id__users__user_id__text_delegations_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                user_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TextDelegationsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TextDelegationsRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    end_text_delegations_v1_dealerships__dealership_id__users__user_id__text_delegations_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                user_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -10457,8 +11115,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "If-Match"?: string | null;
                 authorization?: string | null;
+                "If-Match"?: string | null;
             };
             path: {
                 stock_item_id: string;
@@ -10497,8 +11155,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "If-Match"?: string | null;
                 authorization?: string | null;
+                "If-Match"?: string | null;
                 /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
@@ -11031,8 +11689,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "If-Match"?: string | null;
                 authorization?: string | null;
+                "If-Match"?: string | null;
                 /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
@@ -11073,8 +11731,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "If-Match"?: string | null;
                 authorization?: string | null;
+                "If-Match"?: string | null;
             };
             path: {
                 stock_item_id: string;
@@ -11582,8 +12240,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "If-Match"?: string | null;
                 authorization?: string | null;
+                "If-Match"?: string | null;
             };
             path: {
                 contract_id: string;
@@ -11622,8 +12280,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "If-Match"?: string | null;
                 authorization?: string | null;
+                "If-Match"?: string | null;
                 /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
@@ -11664,8 +12322,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "If-Match"?: string | null;
                 authorization?: string | null;
+                "If-Match"?: string | null;
                 /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
@@ -11809,8 +12467,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "If-Match"?: string | null;
                 authorization?: string | null;
+                "If-Match"?: string | null;
             };
             path: {
                 contract_id: string;
@@ -11849,8 +12507,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "If-Match"?: string | null;
                 authorization?: string | null;
+                "If-Match"?: string | null;
                 /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
@@ -11887,8 +12545,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "If-Match"?: string | null;
                 authorization?: string | null;
+                "If-Match"?: string | null;
                 /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
@@ -11929,8 +12587,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "If-Match"?: string | null;
                 authorization?: string | null;
+                "If-Match"?: string | null;
                 /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
@@ -12154,8 +12812,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "If-Match"?: string | null;
                 authorization?: string | null;
+                "If-Match"?: string | null;
             };
             path: {
                 offer_id: string;
@@ -12194,8 +12852,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "If-Match"?: string | null;
                 authorization?: string | null;
+                "If-Match"?: string | null;
                 /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
@@ -12345,8 +13003,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "If-Match"?: string | null;
                 authorization?: string | null;
+                "If-Match"?: string | null;
                 /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
@@ -12418,8 +13076,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "If-Match"?: string | null;
                 authorization?: string | null;
+                "If-Match"?: string | null;
             };
             path: {
                 offer_id: string;
@@ -12458,8 +13116,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "If-Match"?: string | null;
                 authorization?: string | null;
+                "If-Match"?: string | null;
                 /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
@@ -12500,8 +13158,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "If-Match"?: string | null;
                 authorization?: string | null;
+                "If-Match"?: string | null;
                 /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
@@ -12657,8 +13315,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "If-Match"?: string | null;
                 authorization?: string | null;
+                "If-Match"?: string | null;
             };
             path: {
                 transaction_id: string;
@@ -12732,8 +13390,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "If-Match"?: string | null;
                 authorization?: string | null;
+                "If-Match"?: string | null;
                 /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
@@ -12774,8 +13432,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "If-Match"?: string | null;
                 authorization?: string | null;
+                "If-Match"?: string | null;
                 /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
@@ -12926,8 +13584,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "If-Match"?: string | null;
                 authorization?: string | null;
+                "If-Match"?: string | null;
                 /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };

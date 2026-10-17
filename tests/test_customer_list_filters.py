@@ -8,6 +8,7 @@ one clause individually.
 import uuid
 
 from app.core.auth import AccessRole, create_access_token
+from tests.dealership_support import valid_uid
 
 ZH_ADDRESS = {"street": "Bahnhofstrasse", "houseNumber": "1", "postalCode": "8001", "locality": "Zürich", "canton": "ZH"}
 VD_ADDRESS = {"street": "Rue de Bourg", "houseNumber": "1", "postalCode": "1000", "locality": "Lausanne", "canton": "VD"}
@@ -49,9 +50,9 @@ def _bearer(token: str) -> dict[str, str]:
 def _create_dealer(client) -> str:
     token = _token(AccessRole.PLATFORM_ADMIN)
     payload = {
-        "legalName": "Garage Musterbetrieb AG", "dealerLicenseNumber": "ZH-12345", "licenseState": "ZH",
+        "legalName": "Garage Musterbetrieb AG",
         "franchiseType": "independent", "address": ZH_ADDRESS, "phone": "+41441234567",
-        "taxId": "CHE-123.456.789",
+        "uid": valid_uid(),
     }
     response = client.post("/v1/dealerships", json=payload, headers=_bearer(token))
     assert response.status_code == 201, response.text

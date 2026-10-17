@@ -12,6 +12,7 @@ from app.core.auth import AccessRole, create_access_token
 from app.core.errors import UnprocessableEntityError
 from app.core.sorting import parse_sort
 from app.customer.models.customer import Customer
+from tests.dealership_support import valid_uid
 
 VALID_ADDRESS = {
     "street": "Bahnhofstrasse", "houseNumber": "1", "postalCode": "8001", "locality": "Zürich", "canton": "ZH",
@@ -36,9 +37,9 @@ def _bearer(token: str) -> dict[str, str]:
 def _create_dealer(client) -> str:
     token = _token(AccessRole.PLATFORM_ADMIN)
     payload = {
-        "legalName": "Garage Musterbetrieb AG", "dealerLicenseNumber": "ZH-12345", "licenseState": "ZH",
+        "legalName": "Garage Musterbetrieb AG",
         "franchiseType": "independent", "address": VALID_ADDRESS, "phone": "+41441234567",
-        "taxId": "CHE-123.456.789",
+        "uid": valid_uid(),
     }
     response = client.post("/v1/dealerships", json=payload, headers=_bearer(token))
     assert response.status_code == 201, response.text
