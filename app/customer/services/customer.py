@@ -1010,6 +1010,7 @@ def _repoint_vehicle_parties(
     """
 
     held: set[tuple[uuid.UUID, VehiclePartyRole]] = set()
+    duplicate_locked = False
     while True:
         pairs = {
             (vehicle_id, role)
@@ -1021,8 +1022,17 @@ def _repoint_vehicle_parties(
         }
         missing = sorted(pairs - held, key=lambda pair: (str(pair[0]), pair[1].value))
         if not missing:
-            break
-        late = bool(held)
+            if duplicate_locked:
+                break
+            # KAN-365: an allocation to the duplicate reads its customer row
+            # FOR SHARE under its own advisory lock before it inserts. Once
+            # this lock is granted, every such allocation has either committed
+            # (its pair is read again below) or waits for the merge and then
+            # finds the customer merged.
+            db.execute(select(Customer.id).where(Customer.id == duplicate_id).with_for_update(key_share=True))
+            duplicate_locked = True
+            continue
+        late = bool(held) or duplicate_locked
         for vehicle_id, role in missing:
             if not late:
                 _lock_vehicle_role_in_group(db, vehicle_id=vehicle_id, role=role, group_id=group_id)
@@ -2710,6 +2720,8 @@ def update_customer_vehicle(
         _lock_vehicle_role_in_group(db, vehicle_id=party.vehicle_id, role=party.role, group_id=group_id)
     party = _lock_party(db, party)
     held_before = _is_open(party.effective_to)
+    if holds_after:
+        _refuse_merged_customer(db, party.customer_id)
     if holds_after and party.merged_into_customer_id is not None:
         # KAN-177 keeps the duplicate's copy closed at its start so it never
         # reads as a current party again; reopening it would also close the
@@ -2911,6 +2923,7 @@ def allocate_vehicle_party(
 
     get_customer_or_404(db, group_id, customer_id)
     _lock_vehicle_role_in_group(db, vehicle_id=vehicle_id, role=role, group_id=group_id)
+    _refuse_merged_customer(db, customer_id)
     effective_from = effective_from or utcnow()
     incumbents = _open_holders_in_group(db, vehicle_id=vehicle_id, role=role, group_id=group_id)
     if effective_to is None and len(incumbents) == 1 and incumbents[0].customer_id == customer_id:
@@ -2956,6 +2969,31 @@ def _open_holders_in_group(
     if excluding is not None:
         stmt = stmt.where(VehicleParty.id != excluding)
     return list(db.scalars(stmt).all())
+
+
+def _refuse_merged_customer(db: Session, customer_id: uuid.UUID) -> None:
+    """KAN-365: a merged customer never holds a vehicle role again — the
+    survivor carries its vehicle history (ADR-064, KAN-177), and an open row
+    left on the merged record is invisible on the survivor's 360. The caller
+    holds the (vehicle, role, group) advisory lock; the customer row is read
+    FOR SHARE under it, so an allocation racing the merge of this customer
+    either commits before the merge reads the duplicate's pairs (the merge
+    locks the row FOR NO KEY UPDATE first, see _repoint_vehicle_parties) or
+    waits for the merge and reads the committed `merged` status here."""
+
+    status, merged_into = db.execute(
+        select(Customer.lifecycle_status, Customer.duplicate_of_customer_id)
+        .where(Customer.id == customer_id)
+        .with_for_update(read=True)
+    ).one()
+    if status == CustomerLifecycleStatus.MERGED:
+        raise ConflictError(
+            "This customer has been merged into another; give the vehicle role to the customer it was merged into.",
+            details={
+                "reason": "customer_merged",
+                "mergedIntoCustomerId": str(merged_into) if merged_into else None,
+            },
+        )
 
 
 def _lock_vehicle_role_in_group(

@@ -142,9 +142,12 @@ weekly. -->
 - **A customer merge takes the same lock** (KAN-356): before it reads or re-points a party row,
   `_repoint_vehicle_parties` takes the (vehicle, role, group) advisory lock for every pair the
   duplicate has a row in, in sorted order, then locks the rows — so it never interleaves with an
-  allocation or a reopen of a pair it has seen. (An allocation *to the duplicate* on a pair new to
-  it, still uncommitted at the merge's last read, can land after the merge: allocation does not
-  refuse a merged customer yet — KAN-365.) A pair that appears while it waits is only tried,
+  allocation or a reopen of a pair it has seen. Then it locks the duplicate's customer row
+  (`FOR NO KEY UPDATE`) and reads the pairs again. **A merged customer never holds a role again**
+  (KAN-365): allocation and a reopen read the customer row `FOR SHARE` under their advisory lock
+  and refuse a merged one (409 `customer_merged`, with `mergedIntoCustomerId`), so an allocation
+  to the duplicate on a pair new to it either commits before that re-read (and is re-pointed) or
+  waits for the merge and is refused. A pair that appears while it waits is only tried,
   never waited for (out of order, it could deadlock another merge): if it is held, the merge is
   refused, 409 `merge_vehicle_party_busy`, and can be sent again.
 - **A party row carries the vehicle's label, never a join** (KAN-84, rule 2):
