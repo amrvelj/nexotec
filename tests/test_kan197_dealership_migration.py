@@ -53,6 +53,7 @@ def test_frozen_uid_rule_accepts_what_the_live_validator_accepts(migration, plai
         ("CHE-123.456.789", "fails the UID check digit"),
         ("123.456.788", "is not in the format CHE-123.456.789"),
         ("", "is not in the format CHE-123.456.789"),
+        ("CHE-\uff11\uff12\uff13.456.788", "is not in the format CHE-123.456.789"),
     ],
 )
 def test_frozen_uid_rule_rejects_what_the_live_validator_rejects(migration, plaintext, reason):
@@ -93,3 +94,27 @@ def test_conversion_writes_valid_first_seen_uids_and_reports_the_rest(migration)
     assert all(line.startswith("KAN-197 REPORT: dealership ") and line.endswith("uid left NULL") for line in report)
     # The UID is public (D-A-22): the report names the value so the operator can act.
     assert "'CHE-999.999.999'" in by_id["id-bad-check"]
+
+
+def test_conversion_aborts_when_nothing_decrypts_because_the_key_is_wrong(migration):
+    right = Fernet(Fernet.generate_key())
+    wrong = Fernet(Fernet.generate_key())
+    rows = [
+        ("id-1", "Garage Eins AG", right.encrypt(b"CHE-987.654.326").decode("ascii")),
+        ("id-2", "Garage Zwei AG", right.encrypt(b"CHE-123.456.788").decode("ascii")),
+        ("id-null", "Garage Null AG", None),
+    ]
+    with pytest.raises(RuntimeError, match="none of the 2 encrypted tax_id value"):
+        migration.convert_rows(rows, lambda c: wrong.decrypt(c.encode("ascii")).decode("utf-8"))
+
+
+def test_conversion_does_not_abort_when_only_some_rows_fail_to_decrypt(migration):
+    right = Fernet(Fernet.generate_key())
+    wrong = Fernet(Fernet.generate_key())
+    rows = [
+        ("id-1", "Garage Eins AG", right.encrypt(b"CHE-987.654.326").decode("ascii")),
+        ("id-2", "Garage Zwei AG", wrong.encrypt(b"CHE-123.456.788").decode("ascii")),
+    ]
+    updates, report = migration.convert_rows(rows, lambda c: right.decrypt(c.encode("ascii")).decode("utf-8"))
+    assert updates == [("id-1", "CHE-987.654.326")]
+    assert len(report) == 1 and "does not decrypt" in report[0]

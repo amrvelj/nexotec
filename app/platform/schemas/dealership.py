@@ -17,20 +17,45 @@ from app.platform.schemas.patch import refuse_null_on_not_null_fields
 
 
 class DealershipAddress(CamelModel):
-    """One address block (D-A-25): the registered seat, or a correspondence
-    or billing override. The postal code is validated for the country — four
-    digits for CH, a plausible code of up to 12 characters elsewhere (the
-    same rule the customer address applies, D-11)."""
+    """The registered seat (D-A-25). The postal code is validated for the
+    country — four digits for CH, a plausible code of up to 12 characters
+    elsewhere (the same rule the customer address applies, D-11). No minimum
+    lengths: the model is also the read shape, and a row the old API
+    accepted must still read."""
 
-    street: str = Field(max_length=200, min_length=1)
-    house_number: str = Field(max_length=20, min_length=1)
-    postal_code: str = Field(max_length=12, min_length=1)
-    locality: str = Field(max_length=100, min_length=1)
+    street: str = Field(max_length=200)
+    house_number: str = Field(max_length=20)
+    postal_code: str = Field(max_length=12)
+    locality: str = Field(max_length=100)
     canton: CantonCode
-    country: str = Field(default="CH", max_length=2, min_length=2)
+    country: str = Field(default="CH", max_length=2)
 
     @model_validator(mode="after")
     def _postal_code_fits_country(self) -> "DealershipAddress":
+        self.country = self.country.upper()
+        self.postal_code = validate_postal_code_for_country(self.postal_code, self.country)
+        return self
+
+
+class DealershipOverrideAddress(CamelModel):
+    """A correspondence or billing override (D-A-25). Unlike the seat it may
+    lie abroad, so the canton is required for a Swiss address and must be
+    absent for any other country."""
+
+    street: str = Field(max_length=200)
+    house_number: str = Field(max_length=20)
+    postal_code: str = Field(max_length=12)
+    locality: str = Field(max_length=100)
+    canton: CantonCode | None = None
+    country: str = Field(default="CH", max_length=2)
+
+    @model_validator(mode="after")
+    def _canton_and_postal_code_fit_country(self) -> "DealershipOverrideAddress":
+        self.country = self.country.upper()
+        if self.country == "CH" and self.canton is None:
+            raise ValueError("canton is required for a Swiss address.")
+        if self.country != "CH" and self.canton is not None:
+            raise ValueError("canton applies to Swiss addresses only — leave it out for another country.")
         self.postal_code = validate_postal_code_for_country(self.postal_code, self.country)
         return self
 
@@ -52,11 +77,11 @@ class DealershipCreate(CamelModel):
     franchise_type: FranchiseType
     oem_affiliations: list[str] | None = None
     address: DealershipAddress
-    correspondence_address: DealershipAddress | None = None
-    billing_address: DealershipAddress | None = None
+    correspondence_address: DealershipOverrideAddress | None = None
+    billing_address: DealershipOverrideAddress | None = None
     phone: E164Phone
     uid: SwissUid = Field(description="Swiss UID, CHE-123.456.789; public, unique per dealership.")
-    vat_number: SwissVatNumber | None = Field(default=None, description="CHE-123.456.789 MWST")
+    vat_number: SwissVatNumber | None = Field(default=None, description="CHE-123.456.789 MWST (or TVA / IVA)")
     vat_liable: bool = False
 
 
@@ -71,8 +96,8 @@ class DealershipUpdate(CamelModel):
     franchise_type: FranchiseType | None = None
     oem_affiliations: list[str] | None = None
     address: DealershipAddress | None = None
-    correspondence_address: DealershipAddress | None = None
-    billing_address: DealershipAddress | None = None
+    correspondence_address: DealershipOverrideAddress | None = None
+    billing_address: DealershipOverrideAddress | None = None
     phone: E164Phone | None = None
     uid: SwissUid | None = None
     vat_number: SwissVatNumber | None = None
@@ -113,8 +138,8 @@ class DealershipRead(CamelModel):
     franchise_type: FranchiseType
     oem_affiliations: list[str] | None
     address: DealershipAddress
-    correspondence_address: DealershipAddress | None
-    billing_address: DealershipAddress | None
+    correspondence_address: DealershipOverrideAddress | None
+    billing_address: DealershipOverrideAddress | None
     phone: str
     # None only on a row KAN-197's migration could not convert (reported).
     uid: str | None

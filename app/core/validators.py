@@ -30,7 +30,9 @@ _VIN_RE = re.compile(r"^[A-HJ-NPR-Z0-9]{17}$")
 # The 9th digit is a mod-11 check digit over the first 8 (Customer PRD D-16):
 # weighted sum, remainder from 11; a computed check digit of 10 is never
 # issued, and 11 maps to 0.
-_UID_RE = re.compile(r"^CHE-\d{3}\.\d{3}\.\d{3}$")
+# [0-9], not \d: \d also matches other scripts' digits (full-width "１"), which
+# would store a second spelling of the same UID past the unique index (KAN-197).
+_UID_RE = re.compile(r"^CHE-[0-9]{3}\.[0-9]{3}\.[0-9]{3}$")
 _UID_WEIGHTS = (5, 4, 3, 2, 7, 6, 5, 4)
 
 # IBAN (ISO 13616): 2-letter country code, 2 check digits, up to 30 more
@@ -171,18 +173,20 @@ def validate_swiss_uid(value: str) -> str:
     return _validate_swiss_uid(value)
 
 
-# The VAT number is the UID with the MWST suffix (D-A-22): "CHE-123.456.789
-# MWST". The space is optional on input and always present after
-# normalisation.
-_VAT_NUMBER_RE = re.compile(r"^CHE-\d{3}\.\d{3}\.\d{3} ?MWST$")
+# The VAT number is the UID with the official suffix in one of the three
+# languages (D-A-22; Anto, 2026-10-17): "CHE-123.456.789 MWST" · "… TVA" ·
+# "… IVA", stored as entered. The space is optional on input and always
+# present after normalisation.
+_VAT_NUMBER_RE = re.compile(r"^CHE-[0-9]{3}\.[0-9]{3}\.[0-9]{3} ?(MWST|TVA|IVA)$")
 
 
 def _validate_swiss_vat_number(value: str) -> str:
     normalised = " ".join(value.strip().upper().split())
-    if not _VAT_NUMBER_RE.match(normalised):
-        raise ValueError("VAT number must be in the format 'CHE-123.456.789 MWST'.")
+    match = _VAT_NUMBER_RE.match(normalised)
+    if not match:
+        raise ValueError("VAT number must be in the format 'CHE-123.456.789 MWST' (or TVA / IVA).")
     uid = _validate_swiss_uid(normalised[:15])
-    return f"{uid} MWST"
+    return f"{uid} {match.group(1)}"
 
 
 CantonCode = Annotated[str, AfterValidator(_validate_canton)]

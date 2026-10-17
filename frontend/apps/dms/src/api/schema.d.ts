@@ -4523,10 +4523,11 @@ export interface components {
         };
         /**
          * DealershipAddress
-         * @description One address block (D-A-25): the registered seat, or a correspondence
-         *     or billing override. The postal code is validated for the country — four
-         *     digits for CH, a plausible code of up to 12 characters elsewhere (the
-         *     same rule the customer address applies, D-11).
+         * @description The registered seat (D-A-25). The postal code is validated for the
+         *     country — four digits for CH, a plausible code of up to 12 characters
+         *     elsewhere (the same rule the customer address applies, D-11). No minimum
+         *     lengths: the model is also the read shape, and a row the old API
+         *     accepted must still read.
          */
         DealershipAddress: {
             /** Canton */
@@ -4558,8 +4559,8 @@ export interface components {
          */
         DealershipCreate: {
             address: components["schemas"]["DealershipAddress"];
-            billingAddress?: components["schemas"]["DealershipAddress"] | null;
-            correspondenceAddress?: components["schemas"]["DealershipAddress"] | null;
+            billingAddress?: components["schemas"]["DealershipOverrideAddress"] | null;
+            correspondenceAddress?: components["schemas"]["DealershipOverrideAddress"] | null;
             /** Dealergroupid */
             dealerGroupId?: string | null;
             franchiseType: components["schemas"]["FranchiseType"];
@@ -4583,7 +4584,7 @@ export interface components {
             vatLiable?: boolean;
             /**
              * Vatnumber
-             * @description CHE-123.456.789 MWST
+             * @description CHE-123.456.789 MWST (or TVA / IVA)
              */
             vatNumber?: string | null;
         };
@@ -4602,6 +4603,29 @@ export interface components {
             /** Legalname */
             legalName: string;
         };
+        /**
+         * DealershipOverrideAddress
+         * @description A correspondence or billing override (D-A-25). Unlike the seat it may
+         *     lie abroad, so the canton is required for a Swiss address and must be
+         *     absent for any other country.
+         */
+        DealershipOverrideAddress: {
+            /** Canton */
+            canton?: string | null;
+            /**
+             * Country
+             * @default CH
+             */
+            country?: string;
+            /** Housenumber */
+            houseNumber: string;
+            /** Locality */
+            locality: string;
+            /** Postalcode */
+            postalCode: string;
+            /** Street */
+            street: string;
+        };
         /** DealershipPage */
         DealershipPage: {
             /** Items */
@@ -4614,8 +4638,8 @@ export interface components {
             address: components["schemas"]["DealershipAddress"];
             /** Ageingalertthresholds */
             ageingAlertThresholds: number[] | null;
-            billingAddress: components["schemas"]["DealershipAddress"] | null;
-            correspondenceAddress: components["schemas"]["DealershipAddress"] | null;
+            billingAddress: components["schemas"]["DealershipOverrideAddress"] | null;
+            correspondenceAddress: components["schemas"]["DealershipOverrideAddress"] | null;
             /**
              * Createdat
              * Format: date-time
@@ -4676,8 +4700,8 @@ export interface components {
             address?: components["schemas"]["DealershipAddress"] | null;
             /** Ageingalertthresholds */
             ageingAlertThresholds?: number[] | null;
-            billingAddress?: components["schemas"]["DealershipAddress"] | null;
-            correspondenceAddress?: components["schemas"]["DealershipAddress"] | null;
+            billingAddress?: components["schemas"]["DealershipOverrideAddress"] | null;
+            correspondenceAddress?: components["schemas"]["DealershipOverrideAddress"] | null;
             franchiseType?: components["schemas"]["FranchiseType"] | null;
             /** Legalname */
             legalName?: string | null;

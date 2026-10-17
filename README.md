@@ -26,8 +26,9 @@ in the CTO workspace.
 **Issue #2: Dealership + User bootstrap** — the first business entities:
 
 - `Dealership` (`app/platform/models/dealership.py`, renamed from `Dealer` in
-  WP-3): the tenant root, Swiss address, canton validation, `tax_id`
-  encrypted at rest (`app/core/types.py::EncryptedString`). WP-3 adds
+  WP-3): the tenant root, Swiss address, canton validation, the public,
+  checksum-validated, unique `uid` (KAN-197, D-A-22 — it replaced the
+  encrypted `tax_id`). WP-3 adds
   `DealerGroup` and `Location` in the same module — the three-level
   organisation model (group → dealership → location, ADR-014); the
   dealership stays the tenant, `tenant_id` unchanged.
@@ -35,8 +36,9 @@ in the CTO workspace.
   in the schema (`user.tenant_id → dealership.id`), globally-unique email
 - `POST /v1/dealerships` (platform-admin only), `POST /v1/dealerships/{id}/users`,
   full CRUD + audit-log endpoints — see `app/platform/api/dealerships.py`
-- License/tax_id/status (Dealership) and role/access_role/status (User)
-  changes are audit-logged; `offboarded` and `terminated` are terminal states
+- Legal identity (legal name, uid, VAT) and status (Dealership) and
+  role/access_role/status (User) changes are audit-logged; `offboarded` and
+  `terminated` are terminal states
 - Postgres CI test lane (see "Running tests") — CTO's merge condition, since
   this is the first PR with a real FK to verify against Postgres, not just
   SQLite's more permissive constraint enforcement

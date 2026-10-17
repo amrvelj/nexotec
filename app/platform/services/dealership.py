@@ -12,11 +12,16 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
-from app.core.errors import BadRequestError, ConflictError, NotFoundError
+from app.core.errors import BadRequestError, ConflictError, NotFoundError, UnprocessableEntityError
 from app.core.i18n import SwissLanguage
 from app.core.pagination import PageParams, build_page, paginate_query
 from app.platform.models.dealership import DealerGroup, Dealership, DealershipStatus, Location
-from app.platform.schemas.dealership import DealershipAddress, DealershipCreate, DealershipUpdate
+from app.platform.schemas.dealership import (
+    DealershipAddress,
+    DealershipCreate,
+    DealershipOverrideAddress,
+    DealershipUpdate,
+)
 
 # The UID is public (D-A-22), so none of these is redacted.
 _AUDITED_FIELDS = {"legal_name", "uid", "vat_number", "vat_liable", "status"}
@@ -29,7 +34,9 @@ def _plain(value: Any) -> Any:
     return value.value if hasattr(value, "value") else value
 
 
-def _apply_address(dealership: Dealership, prefix: str, address: DealershipAddress | None) -> None:
+def _apply_address(
+    dealership: Dealership, prefix: str, address: DealershipAddress | DealershipOverrideAddress | None
+) -> None:
     """Write one address block's six columns, or clear all six (D-A-25: an
     override is whole or absent). The registered seat (`address`) is never
     cleared — its schema field is not nullable."""
@@ -38,8 +45,19 @@ def _apply_address(dealership: Dealership, prefix: str, address: DealershipAddre
         setattr(dealership, f"{prefix}_{field}", getattr(address, field) if address is not None else None)
 
 
-def _uid_conflict(exc: IntegrityError, uid: str | None) -> ConflictError:
+def _uid_conflict(uid: str | None) -> ConflictError:
     return ConflictError("A dealership with this UID already exists.", details={"uid": uid})
+
+
+def _assert_vat_number_matches_uid(uid: str | None, vat_number: str | None) -> None:
+    """The VAT number is the UID with the MWST suffix (D-A-22): a VAT number
+    naming another UID is a typo, refused as 422 before it reaches a document."""
+
+    if uid is not None and vat_number is not None and vat_number[:15] != uid:
+        raise UnprocessableEntityError(
+            "vatNumber must be this dealership's own UID followed by MWST.",
+            details={"uid": uid, "vatNumber": vat_number},
+        )
 
 
 def get_dealer_group_or_404(db: Session, dealer_group_id: uuid.UUID) -> DealerGroup:
@@ -148,6 +166,7 @@ def create_dealership(db: Session, *, data: DealershipCreate, actor_id: uuid.UUI
         db.flush()
         dealer_group_id = group.id
 
+    _assert_vat_number_matches_uid(data.uid, data.vat_number)
     dealership = Dealership(
         dealer_group_id=dealer_group_id,
         legal_name=data.legal_name,
@@ -170,7 +189,7 @@ def create_dealership(db: Session, *, data: DealershipCreate, actor_id: uuid.UUI
     except IntegrityError as exc:
         # uq_dealership_uid — the duplicate-tenant check D-A-06 asks for.
         db.rollback()
-        raise _uid_conflict(exc, data.uid) from exc
+        raise _uid_conflict(data.uid) from exc
 
     record_audit_event(
         db,
@@ -205,6 +224,11 @@ def update_dealership(
                 details={"currentStatus": dealership.status.value},
             )
 
+    _assert_vat_number_matches_uid(
+        changes.get("uid", dealership.uid),
+        changes.get("vat_number", dealership.vat_number),
+    )
+
     before: dict[str, Any] = {}
     after: dict[str, Any] = {}
 
@@ -234,7 +258,7 @@ def update_dealership(
         db.flush()
     except IntegrityError as exc:
         db.rollback()
-        raise _uid_conflict(exc, changes.get("uid")) from exc
+        raise _uid_conflict(changes.get("uid")) from exc
 
     if before or after:
         record_audit_event(

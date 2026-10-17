@@ -70,7 +70,6 @@ def _dealership(db_session) -> Dealership:
     db_session.flush()
     dealership = Dealership(
         id=uuid.uuid4(), dealer_group_id=group.id, legal_name="Garage AG",
-
         franchise_type=FranchiseType.INDEPENDENT, address_street="Bahnhofstrasse", address_house_number="1",
         address_postal_code="8001", address_locality="Zürich", address_canton="ZH", phone="+41441234567",
         uid=valid_uid(), vat_rate=Decimal("8.10"),

@@ -173,7 +173,7 @@ def test_patching_uid_to_another_dealerships_uid_is_a_409(client):
 
 def test_vat_number_trade_name_and_vat_liable_round_trip(client):
     body = _create_dealership(
-        client, vatNumber="che-123.456.788 mwst", vatLiable=True, tradeName="Garage Muster"
+        client, uid=VALID_UID, vatNumber="che-123.456.788 mwst", vatLiable=True, tradeName="Garage Muster"
     )
     assert body["vatNumber"] == "CHE-123.456.788 MWST"
     assert body["vatLiable"] is True
@@ -226,13 +226,67 @@ def test_correspondence_and_billing_overrides_are_set_and_cleared(client):
     assert clear_response.json()["correspondenceAddress"] is None
 
 
-def test_foreign_postal_code_fits_now_that_the_column_is_twelve_wide(client):
-    body = _create_dealership(
-        client,
-        billingAddress={**VALID_ADDRESS, "postalCode": "80331", "locality": "München", "country": "DE"},
-    )
+FOREIGN_OVERRIDE = {
+    "street": "Marienplatz",
+    "houseNumber": "8",
+    "postalCode": "80331",
+    "locality": "München",
+    "country": "de",
+}
+
+
+def test_foreign_override_address_has_no_canton_and_fits_twelve_characters(client):
+    body = _create_dealership(client, billingAddress=FOREIGN_OVERRIDE)
     assert body["billingAddress"]["postalCode"] == "80331"
-    assert body["billingAddress"]["country"] == "DE"
+    assert body["billingAddress"]["country"] == "DE"  # upper-cased
+    assert body["billingAddress"]["canton"] is None
+
+
+def test_foreign_override_address_with_a_swiss_canton_is_rejected(client):
+    token = _token(AccessRole.PLATFORM_ADMIN)
+    payload = _dealership_payload(billingAddress={**FOREIGN_OVERRIDE, "canton": "ZH"})
+    response = client.post("/v1/dealerships", json=payload, headers=_bearer(token))
+    assert response.status_code == 422
+
+
+def test_swiss_override_address_without_a_canton_is_rejected(client):
+    token = _token(AccessRole.PLATFORM_ADMIN)
+    override = {k: v for k, v in VALID_ADDRESS.items() if k != "canton"}
+    response = client.post(
+        "/v1/dealerships", json=_dealership_payload(correspondenceAddress=override), headers=_bearer(token)
+    )
+    assert response.status_code == 422
+
+
+def test_vat_number_must_carry_the_dealerships_own_uid(client):
+    token = _token(AccessRole.PLATFORM_ADMIN)
+    response = client.post(
+        "/v1/dealerships",
+        json=_dealership_payload(uid=VALID_UID, vatNumber="CHE-987.654.326 MWST"),
+        headers=_bearer(token),
+    )
+    assert response.status_code == 422, response.text
+    assert response.json()["error"]["code"] == "unprocessable_entity"
+
+    body = _create_dealership(client, uid=VALID_UID)
+    response = client.patch(
+        f"/v1/dealerships/{body['id']}",
+        json={"vatNumber": "CHE-987.654.326 MWST"},
+        headers={**_bearer(token), "If-Match": "1"},
+    )
+    assert response.status_code == 422, response.text
+
+
+def test_a_row_the_old_api_accepted_with_an_empty_house_number_still_reads(client, db_session):
+    from sqlalchemy import text
+
+    body = _create_dealership(client)
+    db_session.execute(text("update dealership set address_house_number = '' where id = :id"), {"id": body["id"]})
+    db_session.commit()
+    token = _token(AccessRole.PLATFORM_ADMIN)
+    response = client.get(f"/v1/dealerships/{body['id']}", headers=_bearer(token))
+    assert response.status_code == 200, response.text
+    assert response.json()["address"]["houseNumber"] == ""
 
 
 def test_swiss_postal_code_still_has_to_be_four_digits(client):
@@ -543,7 +597,7 @@ def test_patching_a_not_null_field_to_null_is_a_422_and_changes_nothing(client, 
     ],
 )
 def test_patching_a_nullable_field_to_null_still_clears_it(client, field, value):
-    body = _create_dealership(client)
+    body = _create_dealership(client, uid=VALID_UID)
     token = _token(AccessRole.PLATFORM_ADMIN)
     set_response = client.patch(
         f"/v1/dealerships/{body['id']}", json={field: value}, headers={**_bearer(token), "If-Match": "1"}

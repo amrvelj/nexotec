@@ -17,8 +17,11 @@ app.core.validators.validate_swiss_uid; tests/test_kan197_dealership_migration.p
 checks the two agree). A valid, first-seen UID is written to `uid`. A value
 that does not decrypt, is not a UID, fails its check digit or repeats another
 row's UID is printed as a `KAN-197 REPORT:` line and the row keeps `uid` NULL
-— never garbage in an indexed column. Counts are printed and verified by
-query; the UID is public, so the report may name it.
+— never garbage in an indexed column. Rows are visited oldest first, so the
+first-seen holder of a duplicated UID is deterministic. If not one encrypted
+value decrypts, the key is wrong, not the data, and the upgrade aborts before
+anything is dropped. Counts are printed and verified by query; the UID is
+public, so the report may name it.
 
 Downgrade reverses the DDL. `uid` is re-encrypted into `tax_id`; a row with
 `uid` NULL gets an encrypted empty string (the old column was NOT NULL).
@@ -48,7 +51,7 @@ depends_on: str | Sequence[str] | None = None
 
 # Frozen copy of the UID rule (app.core.validators): a migration must keep
 # meaning what it meant when it ran.
-_UID_RE = re.compile(r"^CHE-\d{3}\.\d{3}\.\d{3}$")
+_UID_RE = re.compile(r"^CHE-[0-9]{3}\.[0-9]{3}\.[0-9]{3}$")
 _UID_WEIGHTS = (5, 4, 3, 2, 7, 6, 5, 4)
 
 # (suffix, length) of one address block — the six columns of the registered
@@ -69,6 +72,7 @@ _dealership = sa.table(
     sa.column("legal_name", sa.String()),
     sa.column("tax_id", sa.Text()),
     sa.column("uid", sa.String()),
+    sa.column("created_at", sa.DateTime(timezone=True)),
 )
 
 
@@ -103,14 +107,18 @@ def convert_rows(
     seen: dict[str, object] = {}
     updates: list[tuple[object, str]] = []
     report: list[str] = []
+    undecryptable = 0
+    encrypted = 0
     for row_id, legal_name, ciphertext in rows:
         prefix = f"KAN-197 REPORT: dealership {row_id} ({legal_name}):"
         if ciphertext is None:
             report.append(f"{prefix} tax_id is NULL — uid left NULL")
             continue
+        encrypted += 1
         try:
             plaintext = decrypt(ciphertext)
         except Exception:  # noqa: BLE001 — any failure to decrypt is the same outcome
+            undecryptable += 1
             report.append(f"{prefix} tax_id does not decrypt with the configured key — uid left NULL")
             continue
         uid, reason = uid_from_tax_id(plaintext)
@@ -122,6 +130,13 @@ def convert_rows(
             continue
         seen[uid] = row_id
         updates.append((row_id, uid))
+    if encrypted and undecryptable == encrypted:
+        # Not one row decrypts: that is the wrong key, not bad data. Dropping
+        # tax_id now would lose every UID, so the upgrade stops here instead.
+        raise RuntimeError(
+            f"KAN-197: none of the {encrypted} encrypted tax_id value(s) decrypts with the configured "
+            "DMS_TAX_ID_ENCRYPTION_KEY — refusing to continue (the key is wrong, not the data)"
+        )
     return updates, report
 
 
@@ -136,11 +151,20 @@ def _fernet() -> Fernet:
 
 def _convert_tax_ids() -> None:
     if context.is_offline_mode():
-        op.execute("-- KAN-197 tax_id -> uid conversion skipped: it reads rows and needs a live database")
+        op.execute(
+            "-- KAN-197 tax_id -> uid conversion skipped: it reads rows and needs a live database. "
+            "WARNING: the DROP COLUMN tax_id below would then discard every UID — run this migration online."
+        )
         return
     conn = op.get_bind()
     fernet = _fernet()
-    rows = conn.execute(sa.select(_dealership.c.id, _dealership.c.legal_name, _dealership.c.tax_id)).all()
+    # Ordered, so "first-seen" for a duplicated UID is the oldest row, not
+    # whatever physical order the table happens to have.
+    rows = conn.execute(
+        sa.select(_dealership.c.id, _dealership.c.legal_name, _dealership.c.tax_id).order_by(
+            _dealership.c.created_at, _dealership.c.id
+        )
+    ).all()
     updates, report = convert_rows(
         [(row_id, legal_name, ciphertext) for row_id, legal_name, ciphertext in rows],
         lambda ciphertext: fernet.decrypt(ciphertext.encode("ascii")).decode("utf-8"),
@@ -176,6 +200,9 @@ def upgrade() -> None:
     op.add_column(
         "dealership", sa.Column("vat_liable", sa.Boolean(), nullable=False, server_default=sa.false())
     )
+    # The default only backfilled the existing rows; the model declares a Python
+    # default, not a server one (the project's precedent, e.g. credit_block).
+    op.alter_column("dealership", "vat_liable", server_default=None)
     for prefix in _OVERRIDE_PREFIXES:
         for suffix, length in _ADDRESS_COLUMNS:
             op.add_column("dealership", sa.Column(f"{prefix}_{suffix}", sa.String(length=length), nullable=True))
@@ -211,6 +238,9 @@ def downgrade() -> None:
     )
     _reencrypt_uids()
     op.alter_column("dealership", "tax_id", existing_type=sa.Text(), nullable=False)
+    # 61f21e3f6b90's shape has no server defaults on these two columns.
+    op.alter_column("dealership", "dealer_license_number", server_default=None)
+    op.alter_column("dealership", "license_state", server_default=None)
     op.drop_index("uq_dealership_uid", table_name="dealership")
     op.drop_column("dealership", "uid")
     op.drop_column("dealership", "vat_number")
