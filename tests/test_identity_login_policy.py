@@ -238,6 +238,21 @@ def test_a_login_rehashes_a_credential_stored_below_the_current_policy(client, l
     assert len(_events(db_session, AuthEventKind.CREDENTIAL_REHASHED)) == 1
 
 
+def test_an_address_signs_in_whatever_its_case(client, login, mailbox):
+    """Stored lower-cased, resolved case-insensitively: the address a user
+    types in any case is the one the invitation went to."""
+
+    dealership = create_dealership(client)
+    anna = create_user(client, dealership, email="Max.Muster@Example.CH")
+    assert anna["email"] == "max.muster@example.ch"
+    login.accept_invitation(anna)
+
+    assert _attempt(client, "MAX.MUSTER@example.ch", STRONG_PASSWORD).status_code == 200
+    sent_before = len(mailbox)
+    assert client.post("/v1/auth/password-reset/request", json={"email": "Max.Muster@Example.CH"}).status_code == 202
+    assert len(mailbox) == sent_before + 1
+
+
 def test_no_password_in_clear_is_ever_stored(client, login, db_session):
     dealership = create_dealership(client)
     anna = create_user(client, dealership)

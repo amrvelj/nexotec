@@ -12,7 +12,7 @@ import secrets
 import uuid
 
 import pyotp
-from sqlalchemy import select
+from sqlalchemy import or_, select, update
 from sqlalchemy.orm import Session
 from webauthn import (
     generate_authentication_options,
@@ -120,7 +120,7 @@ def confirm_totp(db: Session, *, user: User, code: str, ip_address: str) -> list
     totp = totp_of(db, user.id)
     if totp is None or totp.confirmed_at is not None:
         raise ConflictError("No authenticator enrolment is waiting for confirmation.")
-    if not _verify_totp_code(totp, code):
+    if not _verify_totp_code(db, totp, code):
         raise UnprocessableEntityError("The code is not valid.", details={"factor": "totp"})
     totp.confirmed_at = utcnow()
     codes = _new_recovery_codes(db, user_id=user.id)
@@ -135,7 +135,7 @@ def confirm_totp(db: Session, *, user: User, code: str, ip_address: str) -> list
     return codes
 
 
-def _verify_totp_code(totp: MfaTotp, code: str) -> bool:
+def _verify_totp_code(db: Session, totp: MfaTotp, code: str) -> bool:
     clean = code.strip().replace(" ", "")
     if not clean.isdigit() or len(clean) != 6:
         return False
@@ -146,7 +146,19 @@ def _verify_totp_code(totp: MfaTotp, code: str) -> bool:
         if totp.last_used_step is not None and step <= totp.last_used_step:
             continue  # RFC 6238: a code is good once
         if hmac.compare_digest(verifier.at(step * 30), clean):
-            totp.last_used_step = step
+            # The claim of the step is one guarded UPDATE, so two requests
+            # presenting the same code at once cannot both win.
+            claimed = db.execute(
+                update(MfaTotp)
+                .where(
+                    MfaTotp.id == totp.id,
+                    or_(MfaTotp.last_used_step.is_(None), MfaTotp.last_used_step < step),
+                )
+                .values(last_used_step=step)
+            )
+            if int(claimed.rowcount or 0) != 1:  # type: ignore[attr-defined]
+                return False
+            db.expire(totp, ["last_used_step"])
             return True
     return False
 
@@ -155,7 +167,7 @@ def verify_totp(db: Session, *, user: User, code: str) -> bool:
     totp = totp_of(db, user.id)
     if totp is None or totp.confirmed_at is None:
         return False
-    return _verify_totp_code(totp, code)
+    return _verify_totp_code(db, totp, code)
 
 
 def use_recovery_code(db: Session, *, user: User, code: str, ip_address: str) -> bool:
@@ -297,8 +309,9 @@ def register_passkey(
     )
     db.add(row)
     db.flush()
-    if unused_recovery_codes(db, user.id) == 0 and totp_of(db, user.id) is None:
-        _new_recovery_codes(db, user_id=user.id)
+    # No recovery codes are minted here: they are shown once, and this
+    # response carries the passkey, not codes. The security screen offers
+    # "generate new codes" as soon as a factor exists.
     auth_events.record(
         db,
         AuthEventKind.MFA_ENROLLED,

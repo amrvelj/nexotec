@@ -1,5 +1,5 @@
 """Sessions (FR-AU-17…19, KAN-196): one `session` row per login, the local
-revocation check that replaced Zitadel's live userinfo call. Idle timeout and
+revocation check (no live call to an identity provider). Idle timeout and
 absolute end from settings (Anto, 2026-10-17: two hours idle; absolute at the
 next midnight Europe/Zurich, so nobody is cut off mid-configuration by a
 fixed 24 h). `touch` extends the idle end on activity, at most once a minute

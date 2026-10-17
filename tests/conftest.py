@@ -103,6 +103,8 @@ def _legacy_vehicle_writes_open():
         yield
     finally:
         settings.legacy_vehicle_write_frozen = original
+
+
 @pytest.fixture(autouse=True)
 def _breach_check_off():
     """KAN-196: setting a password asks Have I Been Pwned (FR-AU-05). The

@@ -29,8 +29,8 @@ import logging
 import uuid
 from typing import Protocol
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.base import utcnow
 from app.core.config import get_settings
@@ -103,13 +103,21 @@ def _credential_of(db: Session, user_id: uuid.UUID) -> Credential | None:
     return db.scalar(select(Credential).where(Credential.user_id == user_id))
 
 
+def find_user_by_email(db: Session, email: str) -> User | None:
+    """Case-insensitive: an address is typed in any case, and rows written
+    before KAN-196 may keep the local part's case (new rows are stored
+    lower-cased by the user service)."""
+
+    normalised = email.strip().lower()
+    return db.scalar(select(User).where(func.lower(User.email) == normalised).order_by(User.created_at).limit(1))
+
+
 class LocalPasswordProvider:
     """FR-AU-01's live implementation: e-mail + argon2id password."""
 
     def resolve(self, db: Session, presented: PresentedCredentials) -> User:
         now = utcnow()
-        email = presented.email.strip().lower()
-        user = db.scalar(select(User).where(User.email == email))
+        user = find_user_by_email(db, presented.email)
         credential = _credential_of(db, user.id) if user is not None else None
 
         # Every refusal below records, commits and raises the same thing.
@@ -225,7 +233,7 @@ def set_password(
     previous = [credential.password_hash, *credential.password_history] if credential is not None else []
     for old_hash in previous[:PASSWORD_HISTORY_DEPTH]:
         if password_hashing.verify_password(old_hash, password):
-            raise BadRequestError("This password was used recently — choose a new one.")
+            raise BadRequestError("This password was used recently — choose a new one.", details={"rule": "reused"})
     new_hash = password_hashing.hash_password(password)
     now = utcnow()
     if credential is None:
@@ -333,12 +341,24 @@ def issue_invitation(
     )
 
 
-def request_password_reset(db: Session, mailer: PlatformMailer, *, email: str, ip_address: str) -> None:
-    """FR-AU-14/16: the same outcome whether or not the address exists — the
-    caller answers 202 either way, and the work done is the same shape (a
-    token hash and a mail text are built in both cases)."""
+@dataclasses.dataclass(frozen=True)
+class PendingMail:
+    """A mail the route hands to a background task after the response has
+    gone out — the reset request's timing must not say whether a mail is
+    being sent (FR-AU-16)."""
 
-    user = db.scalar(select(User).where(User.email == email.strip().lower()))
+    mail: Mail
+    user_id: uuid.UUID
+    dealership_id: uuid.UUID
+
+
+def request_password_reset(db: Session, *, email: str, ip_address: str) -> PendingMail | None:
+    """FR-AU-14/16: the same outcome whether or not the address exists — the
+    caller answers 202 either way, the work done in the request is the same
+    shape (a token hash and a mail text are built in both cases), and the
+    mail itself leaves after the response through `send_pending_mail`."""
+
+    user = find_user_by_email(db, email)
     if user is None or user.status in _INACTIVE:
         # Same work, nowhere to send: the hash and the text a real request
         # builds, and the same single event.
@@ -347,7 +367,7 @@ def request_password_reset(db: Session, mailer: PlatformMailer, *, email: str, i
         auth_events.record(
             db, AuthEventKind.PASSWORD_RESET_REQUESTED, ip_address=ip_address, details={"matched": False}
         )
-        return
+        return None
     raw = auth_tokens.issue(db, user_id=user.id, kind=AuthTokenKind.PASSWORD_RESET, actor_id=None)
     link = f"{_settings.app_base_url}/password-reset/confirm?token={raw}"
     text = mail_texts.password_reset(language=_language_of(db, user), first_name=user.first_name, link=link)
@@ -359,14 +379,37 @@ def request_password_reset(db: Session, mailer: PlatformMailer, *, email: str, i
         ip_address=ip_address,
         details={"matched": True},
     )
-    _deliver(
-        db,
-        mailer,
-        user=user,
+    return PendingMail(
         mail=Mail(to=user.email, subject=text.subject, text=text.body),
-        actor_id=None,
-        ip_address=ip_address,
+        user_id=user.id,
+        dealership_id=user.tenant_id,
     )
+
+
+def send_pending_mail(mailer: PlatformMailer, pending: PendingMail | None, *, bind, ip_address: str) -> None:
+    """The background half of `request_password_reset`: sends, and on a
+    delivery failure records the `mail_delivery_failed` event in a session
+    of its own (the request's is closed by now)."""
+
+    if pending is None:
+        return
+    try:
+        mailer.send(pending.mail)
+    except MailDeliveryError as exc:
+        logger.error("platform_mail_delivery_failed", extra={"user_id": str(pending.user_id), "reason": str(exc)})
+        db = sessionmaker(bind=bind)()
+        try:
+            auth_events.record(
+                db,
+                AuthEventKind.MAIL_DELIVERY_FAILED,
+                user_id=pending.user_id,
+                dealership_id=pending.dealership_id,
+                ip_address=ip_address,
+                details={"subject": pending.mail.subject},
+            )
+            db.commit()
+        finally:
+            db.close()
 
 
 def confirm_password_reset(db: Session, *, raw_token: str, password: str, ip_address: str) -> User:
@@ -375,23 +418,17 @@ def confirm_password_reset(db: Session, *, raw_token: str, password: str, ip_add
 
     token = auth_tokens.consume(db, raw=raw_token, kind=AuthTokenKind.PASSWORD_RESET)
     if token is None:
-        raise BadRequestError("This link is no longer valid — request a new one.")
+        raise BadRequestError("This link is no longer valid — request a new one.", details={"rule": "link"})
     user = db.get(User, token.user_id)
     if user is None or user.status in _INACTIVE:
-        raise BadRequestError("This link is no longer valid — request a new one.")
+        raise BadRequestError("This link is no longer valid — request a new one.", details={"rule": "link"})
     set_password(
         db, user=user, password=password, actor_id=user.id, ip_address=ip_address, event=AuthEventKind.PASSWORD_RESET
     )
-    ended = auth_sessions.revoke_all_for_user(db, user_id=user.id, reason="password_reset")
-    if ended:
-        auth_events.record(
-            db,
-            AuthEventKind.SESSION_REVOKED,
-            user_id=user.id,
-            dealership_id=user.tenant_id,
-            ip_address=ip_address,
-            details={"count": ended, "reason": "password_reset"},
-        )
+    # A reset reaches the mailbox the invitation did: an invited user who
+    # sets a password this way is active from here on.
+    _activate(user)
+    _revoke_all(db, user=user, reason="password_reset", ip_address=ip_address)
     return user
 
 
@@ -401,18 +438,38 @@ def accept_invitation(db: Session, *, raw_token: str, password: str, ip_address:
 
     token = auth_tokens.consume(db, raw=raw_token, kind=AuthTokenKind.INVITATION)
     if token is None:
-        raise BadRequestError("This invitation is no longer valid — ask your Betrieb for a new one.")
+        raise BadRequestError("This invitation is no longer valid — ask your Betrieb for a new one.", details={"rule": "link"})
     user = db.get(User, token.user_id)
     if user is None or user.status in _INACTIVE:
-        raise BadRequestError("This invitation is no longer valid — ask your Betrieb for a new one.")
+        raise BadRequestError("This invitation is no longer valid — ask your Betrieb for a new one.", details={"rule": "link"})
     set_password(
         db, user=user, password=password, actor_id=user.id, ip_address=ip_address, event=AuthEventKind.PASSWORD_SET
     )
-    if user.status == UserStatus.INVITED:
-        user.status = UserStatus.ACTIVE
-        user.updated_by = user.id
-        user.version += 1
+    _activate(user)
+    # A re-issued invitation is a reset by another name: every session the
+    # user still holds ends with it (FR-AU-14).
+    _revoke_all(db, user=user, reason="invitation", ip_address=ip_address)
     auth_events.record(
         db, AuthEventKind.INVITATION_ACCEPTED, user_id=user.id, dealership_id=user.tenant_id, ip_address=ip_address
     )
     return user
+
+
+def _activate(user: User) -> None:
+    if user.status == UserStatus.INVITED:
+        user.status = UserStatus.ACTIVE
+        user.updated_by = user.id
+        user.version += 1
+
+
+def _revoke_all(db: Session, *, user: User, reason: str, ip_address: str) -> None:
+    ended = auth_sessions.revoke_all_for_user(db, user_id=user.id, reason=reason)
+    if ended:
+        auth_events.record(
+            db,
+            AuthEventKind.SESSION_REVOKED,
+            user_id=user.id,
+            dealership_id=user.tenant_id,
+            ip_address=ip_address,
+            details={"count": ended, "reason": reason},
+        )

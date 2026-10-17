@@ -36,7 +36,7 @@ depends_on: str | Sequence[str] | None = None
 
 # Frozen at this revision, in enum order (the CHECK's wording is
 # enum_check_condition's, tests/test_migrated_enum_checks.py).
-_TOKEN_KINDS = ("invitation", "password_reset", "mfa_challenge")
+_TOKEN_KINDS = ("invitation", "password_reset", "mfa_challenge", "passkey_registration")
 _AUTH_METHODS = ("local",)
 _EVENT_KINDS = (
     "login_succeeded",

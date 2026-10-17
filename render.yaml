@@ -37,8 +37,10 @@
 #      stakeholder can sign in with the password alone.
 #   4. DMS_PLATFORM_MAIL_SMTP_PASSWORD — only once DMS_PLATFORM_MAIL_SENDER is
 #      switched from "logging" to "smtp" (FR-AU-15: invitations and resets
-#      leave through Nexotec's own mailbox; the host, port and username are
-#      plain values below).
+#      leave through Nexotec's own mailbox; set DMS_PLATFORM_MAIL_FROM, _SMTP_HOST,
+#      _SMTP_PORT and _SMTP_USERNAME as plain values with it — none is set yet,
+#      staging runs the logging sender and reset/invitation links are read
+#      out of the Render log).
 
 databases:
   - name: dms-staging-db

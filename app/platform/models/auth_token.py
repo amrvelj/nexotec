@@ -24,6 +24,9 @@ class AuthTokenKind(str, enum.Enum):
     INVITATION = "invitation"
     PASSWORD_RESET = "password_reset"
     MFA_CHALLENGE = "mfa_challenge"
+    # A passkey registration from My account (its own kind, so a login
+    # challenge never doubles as a registration challenge or vice versa).
+    PASSKEY_REGISTRATION = "passkey_registration"
 
 
 class AuthToken(PrimaryKeyMixin, Base):

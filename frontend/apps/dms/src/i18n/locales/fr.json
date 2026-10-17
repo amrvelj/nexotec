@@ -1928,7 +1928,8 @@
       "hint": "Définissez votre mot de passe pour activer votre compte.",
       "newPassword": "Mot de passe",
       "submit": "Activer le compte",
-      "invalidLink": "Cette invitation n’est plus valable. Demandez-en une nouvelle à votre entreprise."
+      "invalidLink": "Cette invitation n’est plus valable. Demandez-en une nouvelle à votre entreprise.",
+      "mfaNext": "Votre mot de passe est défini. Connectez-vous maintenant avec votre deuxième facteur."
     },
     "password": {
       "rules": "Au moins 12 caractères. Ni votre nom, ni votre adresse e-mail, ni le nom de votre entreprise.",

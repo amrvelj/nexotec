@@ -70,5 +70,10 @@ def get_mailer() -> PlatformMailer:
 
     global _mailer
     if _mailer is None:
+        if _settings.platform_mail_sender != "smtp" and _settings.environment == "production":
+            # The logging sender writes live reset and invitation links to
+            # the application log — a dev and staging convenience, never
+            # production's sender (CLAUDE.md: secrets are never logged).
+            raise RuntimeError("DMS_PLATFORM_MAIL_SENDER must be 'smtp' in production.")
         _mailer = SmtpMailer() if _settings.platform_mail_sender == "smtp" else LoggingMailer()
     return _mailer

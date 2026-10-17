@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Alert, Anchor, Button, PasswordInput, Stack, Text } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 import { api } from '../api/client'
-import type { LoginResponse } from '../api/types'
+import type { LoginStepResponse } from '../api/types'
 import { useAuth } from '../auth/AuthContext'
 import { ACCOUNT_SECURITY_PATH } from '../components/ProtectedRoute'
 import { AuthScreen } from './auth/AuthScreen'
@@ -21,20 +21,41 @@ export function InvitationAcceptPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [mfaNext, setMfaNext] = useState(false)
 
   const submit = async (event: FormEvent) => {
     event.preventDefault()
     setBusy(true)
     setError(null)
     try {
-      const session = await api.post<LoginResponse>('/auth/invitations/accept', { token, password })
-      completeLogin(session)
-      navigate(session.mfaEnrolmentRequired ? ACCOUNT_SECURITY_PATH : '/', { replace: true })
+      const step = await api.post<LoginStepResponse>('/auth/invitations/accept', { token, password })
+      if (step.session) {
+        completeLogin(step.session)
+        navigate(step.session.mfaEnrolmentRequired ? ACCOUNT_SECURITY_PATH : '/', { replace: true })
+      } else {
+        // A re-issued invitation to a user who already holds a second factor:
+        // the password is set; the sign-in itself goes through the login
+        // screen's MFA step, like every other sign-in.
+        setMfaNext(true)
+      }
     } catch (err) {
-      setError(passwordErrorMessage(err))
+      setError(passwordErrorMessage(err, 'auth.invitation.invalidLink'))
     } finally {
       setBusy(false)
     }
+  }
+
+  if (mfaNext) {
+    return (
+      <AuthScreen title={t('auth.invitation.title')}>
+        <Alert color="green">{t('auth.invitation.mfaNext')}</Alert>
+        <Text ta="center" fz="sm">
+          <Anchor component={Link} to="/login">
+            {t('auth.reset.backToLogin')}
+          </Anchor>
+        </Text>
+      </AuthScreen>
+    )
   }
 
   if (!token) {

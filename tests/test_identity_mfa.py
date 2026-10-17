@@ -199,6 +199,86 @@ def test_removing_the_authenticator_drops_the_recovery_codes_and_the_second_step
     assert login.login(anna).json()["mfaRequired"] is False
 
 
+def test_five_wrong_answers_end_the_challenge(client, login, db_session):
+    """FR-AU-08 on the second step: the password alone must not buy
+    unlimited guesses at a six-digit code."""
+
+    dealership = create_dealership(client)
+    anna = create_user(client, dealership)
+    secret, _ = _enrol_totp(client, login.session_cookie(anna))
+    challenge = login.login(anna).json()["challengeId"]
+    for i in range(5):
+        # Each guess from another address: the per-IP backoff (which counts
+        # these too) must not be what stops the sixth attempt here.
+        wrong = client.post(
+            "/v1/auth/mfa/verify",
+            json={"challengeId": challenge, "code": "000000"},
+            headers={"X-Forwarded-For": f"198.51.100.{i + 1}"},
+        )
+        assert wrong.status_code == 401
+
+    right = client.post("/v1/auth/mfa/verify", json={"challengeId": challenge, "code": _fresh_code(db_session, secret)})
+    assert right.status_code == 401
+    assert "start again" in right.json()["error"]["message"]
+    assert len(_events(db_session, AuthEventKind.LOGIN_THROTTLED)) == 1
+    # The password step is where the backoff now applies; a fresh challenge works.
+    fresh = login.login(anna).json()["challengeId"]
+    assert client.post("/v1/auth/mfa/verify", json={"challengeId": fresh, "code": _fresh_code(db_session, secret)}).status_code == 200
+
+
+def test_a_challenge_spent_by_a_twin_request_mints_nothing(client, login, db_session):
+    from app.platform.models.auth_token import AuthTokenKind
+    from app.platform.services import auth_tokens
+
+    dealership = create_dealership(client)
+    anna = create_user(client, dealership)
+    secret, _ = _enrol_totp(client, login.session_cookie(anna))
+    challenge = login.login(anna).json()["challengeId"]
+    assert auth_tokens.consume(db_session, raw=challenge, kind=AuthTokenKind.MFA_CHALLENGE) is not None
+    db_session.commit()
+
+    response = client.post("/v1/auth/mfa/verify", json={"challengeId": challenge, "code": _fresh_code(db_session, secret)})
+    assert response.status_code == 401
+    assert "dms_session=" not in response.headers.get("set-cookie", "")
+
+
+def test_a_reissued_invitation_to_an_enrolled_user_still_needs_the_second_factor(client, login, mailbox, db_session):
+    """Auth & Identity risk 4: no new endpoint forgets the factor. Accepting
+    the invitation sets the password, ends the old sessions and hands over
+    to the MFA step like a login."""
+
+    from tests.identity_support import last_mail_to, token_in
+
+    dealership = create_dealership(client)
+    anna = create_user(client, dealership)
+    cookie = login.session_cookie(anna)
+    secret, _ = _enrol_totp(client, cookie)
+    assert client.post(f"/v1/dealerships/{dealership}/users/{anna['id']}/invitations", headers=platform_admin_headers()).status_code == 202
+    raw = token_in(last_mail_to(mailbox, anna["email"]))
+
+    response = client.post("/v1/auth/invitations/accept", json={"token": raw, "password": "a-brand-new-password-2026"})
+    assert response.status_code == 200, response.text
+    assert response.json()["mfaRequired"] is True
+    assert response.json()["session"] is None
+    assert "dms_session=" not in response.headers.get("set-cookie", "")
+    assert client.get("/v1/auth/me", headers=cookie_headers(cookie)).status_code == 401, "old sessions ended"
+    verified = client.post(
+        "/v1/auth/mfa/verify", json={"challengeId": response.json()["challengeId"], "code": _fresh_code(db_session, secret)}
+    )
+    assert verified.status_code == 200, verified.text
+    assert decode_token_claims(verified.cookies.get("dms_session"))["mfa"] is True
+
+
+def test_a_passkey_registration_challenge_is_not_a_login_challenge(client, login):
+    dealership = create_dealership(client)
+    anna = create_user(client, dealership)
+    cookie = login.session_cookie(anna)
+    registration = client.post("/v1/auth/mfa/passkeys/options", headers=cookie_headers(cookie)).json()["challengeId"]
+
+    assert client.post("/v1/auth/mfa/verify", json={"challengeId": registration, "code": "123456"}).status_code == 401
+    assert client.post("/v1/auth/mfa/passkey/options", json={"challengeId": registration}).status_code == 401
+
+
 # --- enforcement ------------------------------------------------------------------------
 
 
@@ -292,6 +372,31 @@ def test_platform_staff_reach_a_gated_route_only_from_a_session_with_a_second_fa
     assert probe_client.get("/probe/staff-only", headers=bearer(AccessRole.PLATFORM_ADMIN, mfa=True)).status_code == 200
     # A dealer user's MFA is the Betrieb's policy, not this gate's.
     assert probe_client.get("/probe/staff-only", headers=bearer(AccessRole.SALES, mfa=False)).status_code == 200
+
+
+def test_platform_staff_reach_the_recovery_endpoints_only_with_a_second_factor_in_the_session(client, login):
+    """D-A-36: the recovery endpoints refuse a staff session that was not
+    minted with a second factor; a dealer manager's MFA is the Betrieb's
+    policy, and a manager never touches a staff account (KAN-97)."""
+
+    dealership = create_dealership(client)
+    manager = create_user(client, dealership)
+    anna = create_user(client, dealership, isDealerManager=False)
+    base = f"/v1/dealerships/{dealership}/users/{anna['id']}"
+    password_only = platform_admin_headers(mfa=False)
+    with_factor = platform_admin_headers(mfa=True)
+
+    for method, path in (("post", "/invitations"), ("get", "/login-status"), ("delete", "/sessions"), ("delete", "/mfa")):
+        refused = getattr(client, method)(base + path, headers=password_only)
+        assert refused.status_code == 403, (path, refused.text)
+        assert "second factor" in refused.json()["error"]["message"]
+        allowed = getattr(client, method)(base + path, headers=with_factor)
+        assert allowed.status_code in (200, 202, 204), (path, allowed.text)
+
+    managers = login.session_cookie(manager)
+    assert client.get(base + "/login-status", headers=cookie_headers(managers)).status_code == 200
+    staff = create_user(client, dealership, accessRoles=["platform_admin"], isDealerManager=False)
+    assert client.post(f"/v1/dealerships/{dealership}/users/{staff['id']}/invitations", headers=cookie_headers(managers)).status_code == 403
 
 
 def test_a_manager_removes_a_users_factors_and_the_event_names_the_actor(client, login, db_session):

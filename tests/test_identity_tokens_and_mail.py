@@ -66,7 +66,8 @@ def test_creating_a_user_mails_an_invitation_that_sets_the_first_password_and_ac
     response = client.post("/v1/auth/invitations/accept", json={"token": raw, "password": STRONG_PASSWORD})
     assert response.status_code == 200, response.text
     assert "dms_session=" in response.headers.get("set-cookie", "")
-    assert response.json()["user"]["status"] == "active"
+    assert response.json()["mfaRequired"] is False
+    assert response.json()["session"]["user"]["status"] == "active"
     db_session.expire_all()
     assert db_session.get(User, uuid.UUID(anna["id"])).status == UserStatus.ACTIVE
     assert len(_events(db_session, AuthEventKind.INVITATION_ACCEPTED)) == 1
@@ -76,6 +77,7 @@ def test_creating_a_user_mails_an_invitation_that_sets_the_first_password_and_ac
     again = client.post("/v1/auth/invitations/accept", json={"token": raw, "password": "another-strong-one-2026"})
     assert again.status_code == 400, again.text
     assert "no longer valid" in again.json()["error"]["message"]
+    assert again.json()["error"]["details"] == {"rule": "link"}
 
 
 def test_a_reissued_invitation_consumes_the_previous_one(client, mailbox):
@@ -176,7 +178,8 @@ def test_a_reset_sets_the_password_ends_every_session_and_is_single_use(client, 
     assert again.status_code == 400
     assert len(_events(db_session, AuthEventKind.PASSWORD_RESET)) == 1
     revoked = _events(db_session, AuthEventKind.SESSION_REVOKED)
-    assert [e.details["reason"] for e in revoked] == ["password_reset"]
+    assert [e.details for e in revoked if e.details["reason"] == "password_reset"] == [{"count": 1, "reason": "password_reset"}]
+    assert again.json()["error"]["details"] == {"rule": "link"}
 
 
 def test_the_mail_is_written_in_the_users_ui_language(client, mailbox, login):
@@ -235,7 +238,9 @@ def test_the_last_five_passwords_are_refused(client, mailbox, login, db_session)
         raw = token_in(last_mail_to(mailbox, anna["email"]))
         return client.post("/v1/auth/password-reset/confirm", json={"token": raw, "password": password})
 
-    assert reset_to(STRONG_PASSWORD).status_code == 400
+    refused = reset_to(STRONG_PASSWORD)
+    assert refused.status_code == 400
+    assert refused.json()["error"]["details"] == {"rule": "reused"}
     for i in range(4):
         assert reset_to(f"rotation-number-{i}-of-the-year-2026").status_code == 204, i
     # Five hashes are remembered: the original is still refused …
@@ -317,6 +322,63 @@ def test_a_delivery_failure_is_recorded_and_the_user_still_exists(client, db_ses
     assert len(_events(db_session, AuthEventKind.INVITATION_ISSUED)) == 1
     # The token exists; a manager re-issues once the mailbox is back.
     assert db_session.scalar(select(AuthToken).where(AuthToken.user_id == uuid.UUID(anna["id"]))) is not None
+
+
+def test_a_reset_activates_an_invited_user_who_never_accepted(client, mailbox, db_session):
+    """The reset link reaches the same mailbox the invitation did: a user who
+    sets a password this way is active, never a working login in `invited`."""
+
+    dealership = create_dealership(client)
+    anna = create_user(client, dealership)
+    client.post("/v1/auth/password-reset/request", json={"email": anna["email"]})
+    raw = token_in(last_mail_to(mailbox, anna["email"]))
+    assert client.post("/v1/auth/password-reset/confirm", json={"token": raw, "password": STRONG_PASSWORD}).status_code == 204
+
+    response = client.post("/v1/auth/login", json={"email": anna["email"], "password": STRONG_PASSWORD})
+    assert response.status_code == 200, response.text
+    assert response.json()["session"]["user"]["status"] == "active"
+
+
+def test_the_reset_mail_leaves_after_the_response_and_a_failure_is_still_recorded(client, mailbox, login, db_session):
+    """FR-AU-16: the request itself sends nothing — the mail is a background
+    task, so a slow mailbox cannot say whether the address exists. The
+    background half records a delivery failure in a session of its own."""
+
+    from app.platform.services import identity
+
+    dealership = create_dealership(client)
+    anna = create_user(client, dealership)
+    login.accept_invitation(anna)
+    sent_before = len(mailbox)
+
+    pending = identity.request_password_reset(db_session, email=anna["email"], ip_address="203.0.113.9")
+    db_session.commit()
+    assert pending is not None and pending.mail.to == anna["email"]
+    assert len(mailbox) == sent_before  # nothing sent inside the request
+    assert identity.request_password_reset(db_session, email="nobody@example.ch", ip_address="203.0.113.9") is None
+
+    class _Broken:
+        def send(self, mail):
+            raise MailDeliveryError("connection refused")
+
+    identity.send_pending_mail(_Broken(), pending, bind=db_session.get_bind(), ip_address="203.0.113.9")
+    failed = _events(db_session, AuthEventKind.MAIL_DELIVERY_FAILED)
+    assert [str(e.user_id) for e in failed] == [anna["id"]]
+    assert failed[0].ip_address == "203.0.113.9"
+    identity.send_pending_mail(_Broken(), None, bind=db_session.get_bind(), ip_address="")  # nothing to send
+
+
+def test_the_logging_sender_is_refused_in_production(monkeypatch):
+    from app.platform.services import mailer
+
+    settings = get_settings()
+    monkeypatch.setattr(settings, "environment", "production")
+    monkeypatch.setattr(settings, "platform_mail_sender", "logging")
+    monkeypatch.setattr(mailer, "_mailer", None)
+    with pytest.raises(RuntimeError, match="smtp"):
+        mailer.get_mailer()
+    monkeypatch.setattr(settings, "platform_mail_sender", "smtp")
+    assert isinstance(mailer.get_mailer(), mailer.SmtpMailer)
 
 
 # --- tokens --------------------------------------------------------------------------------

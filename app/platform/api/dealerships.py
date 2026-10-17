@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import list_tenant_audit_events, record_audit_event
 from app.core.audit_schemas import AuditEventPage, AuditEventRead
-from app.core.auth import Principal, get_current_principal, require_access_role
+from app.core.auth import Principal, get_current_principal, require_access_role, require_mfa_session
 from app.core.concurrency import check_version, require_if_match
 from app.core.idempotent_route import IdempotentRoute
 from app.core.pagination import PageParams, page_params
@@ -395,7 +395,7 @@ def end_text_delegations(
 # --- Identity administration (KAN-196: FR-AU-10/11/12/17/21/25) -------------------------
 
 
-@router.post("/dealerships/{dealership_id}/users/{user_id}/invitations", status_code=202)
+@router.post("/dealerships/{dealership_id}/users/{user_id}/invitations", status_code=202, dependencies=[Depends(require_mfa_session())])
 def reissue_invitation(
     dealership_id: uuid.UUID,
     user_id: uuid.UUID,
@@ -406,16 +406,19 @@ def reissue_invitation(
 ):
     """FR-AU-13 / FR-AU-25: a fresh single-use invitation (the previous one
     is consumed). The manager's answer to a lost mail or a lockout — never
-    a password."""
+    a password. Like the other recovery routes below, platform staff reach
+    it only from a session with a second factor (D-A-36,
+    `require_mfa_session`); a dealer manager's MFA is the Betrieb's policy."""
 
     require_tenant_match(dealership_id, principal)
     user = user_service.get_user_or_404(db, dealership_id, user_id)
+    user_service.assert_may_touch(user=user, actor_roles=principal.roles)
     user_service.assert_user_is_not_deactivated(user)
     identity.issue_invitation(db, mailer, user=user, actor_id=principal.user_id, ip_address=client_ip(request))
     db.commit()
 
 
-@router.get("/dealerships/{dealership_id}/users/{user_id}/login-status", response_model=LoginStatusRead)
+@router.get("/dealerships/{dealership_id}/users/{user_id}/login-status", response_model=LoginStatusRead, dependencies=[Depends(require_mfa_session())])
 def get_login_status(
     dealership_id: uuid.UUID,
     user_id: uuid.UUID,
@@ -429,7 +432,7 @@ def get_login_status(
     return LoginStatusRead(**identity.login_status(db, user))
 
 
-@router.delete("/dealerships/{dealership_id}/users/{user_id}/sessions", status_code=204)
+@router.delete("/dealerships/{dealership_id}/users/{user_id}/sessions", status_code=204, dependencies=[Depends(require_mfa_session())])
 def revoke_user_sessions(
     dealership_id: uuid.UUID,
     user_id: uuid.UUID,
@@ -455,7 +458,7 @@ def revoke_user_sessions(
     db.commit()
 
 
-@router.delete("/dealerships/{dealership_id}/users/{user_id}/mfa", status_code=204)
+@router.delete("/dealerships/{dealership_id}/users/{user_id}/mfa", status_code=204, dependencies=[Depends(require_mfa_session())])
 def remove_user_mfa(
     dealership_id: uuid.UUID,
     user_id: uuid.UUID,

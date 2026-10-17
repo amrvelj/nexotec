@@ -290,7 +290,10 @@ def create_user(
         tenant_id=dealership_id,
         first_name=data.first_name,
         last_name=data.last_name,
-        email=data.email,
+        # KAN-196: stored lower-cased — the login resolves the address
+        # case-insensitively, and the unique index must not admit a second
+        # spelling of one mailbox.
+        email=data.email.lower(),
         phone=data.phone,
         role=data.role,
         access_roles=_role_values(data.access_roles),
@@ -333,6 +336,8 @@ def update_user(
     db: Session, *, user: User, data: UserUpdate, actor_id: uuid.UUID, actor_roles: frozenset[AccessRole]
 ) -> User:
     changes = data.model_dump(exclude_unset=True)
+    if isinstance(changes.get("email"), str):
+        changes["email"] = changes["email"].lower()
     _assert_may_update(user=user, changes=changes, actor_roles=actor_roles)
     _assert_platform_admin_holds_no_membership(db, user=user, changes=changes)
 
@@ -448,6 +453,14 @@ def update_user(
         from app.platform.services import auth_sessions
 
         auth_sessions.revoke_all_for_user(db, user_id=user.id, reason=str(_plain(user.status)))
+    elif "access_roles" in after or "is_dealer_manager" in after:
+        # The roles and the manager flag are claims baked into the token for
+        # the session's whole day (KAN-196): a change ends the sessions, so
+        # the next sign-in carries the new set — the KAN-198 precedent for
+        # entitlements.
+        from app.platform.services import auth_sessions
+
+        auth_sessions.revoke_all_for_user(db, user_id=user.id, reason="access_changed")
 
     try:
         db.commit()

@@ -38,7 +38,7 @@ function toApiError(status: number, errorBody: ApiErrorBody | null): ApiError {
 // session ends with it: AuthProvider subscribes here and clears its user,
 // and ProtectedRoute then routes to the login screen. Clearing a session
 // that is already gone changes nothing, so the 401 that `/auth/me` answers
-// a signed-out visitor (on /login or /sign-in-error) routes nowhere and
+// a signed-out visitor (on /login or a reset/invitation screen) routes nowhere and
 // cannot loop. There is no token-refresh call to exempt: the session is one
 // httpOnly cookie, renewed only by signing in again.
 type UnauthorizedListener = () => void

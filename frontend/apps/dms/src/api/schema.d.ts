@@ -17,7 +17,8 @@ export interface paths {
          * Invitation Accept
          * @description FR-AU-13: the invited person sets their password and is signed in,
          *     so they can enrol a factor in the same flow where the Betrieb enforces
-         *     one (the response says so).
+         *     one (the response says so). A user who already holds a factor — a
+         *     re-issued invitation — gets the MFA step, like a login.
          */
         post: operations["invitation_accept_v1_auth_invitations_accept_post"];
         delete?: never;
@@ -311,7 +312,8 @@ export interface paths {
         /**
          * Password Reset Request
          * @description FR-AU-14/16: 202 whether or not the address exists; the mail goes
-         *     only where there is someone to send it to.
+         *     only where there is someone to send it to — and after the response, so
+         *     a mailbox's latency never says which of the two happened.
          */
         post: operations["password_reset_request_v1_auth_password_reset_request_post"];
         delete?: never;
@@ -1111,7 +1113,9 @@ export interface paths {
          * Reissue Invitation
          * @description FR-AU-13 / FR-AU-25: a fresh single-use invitation (the previous one
          *     is consumed). The manager's answer to a lost mail or a lockout — never
-         *     a password.
+         *     a password. Like the other recovery routes below, platform staff reach
+         *     it only from a session with a second factor (D-A-36,
+         *     `require_mfa_session`); a dealer manager's MFA is the Betrieb's policy.
          */
         post: operations["reissue_invitation_v1_dealerships__dealership_id__users__user_id__invitations_post"];
         delete?: never;
@@ -8299,7 +8303,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LoginResponse"];
+                    "application/json": components["schemas"]["LoginStepResponse"];
                 };
             };
             /** @description Validation Error */

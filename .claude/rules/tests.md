@@ -39,7 +39,8 @@ as any change to what it states. -->
   (tracked, not ruled) and `scripts/migrate_transaction_rows.py` under ADR-091, the one
   exception ruled by ADR (KAN-106; the test scans `scripts/` for that and records every other
   multi-context script by name) (ADR-047, KAN-90), every POST an `IdempotentRoute` declaring an optional
-  `Idempotency-Key`, the two ratified exemptions aside (a new one is Anto's ruling by name),
+  `Idempotency-Key`, the nine ratified exemptions aside — logout, switch-dealership and the seven
+  unauthenticated front-door POSTs (KAN-196); a new one is Anto's ruling by name —
   every route of a sales, inventory, valuation or configurator router behind the `sales`
   entitlement gate and no other route (KAN-198), every production token minted with an explicit
   entitlement set (KAN-198),

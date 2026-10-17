@@ -58,7 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // KAN-237 — a 401 from any API call ends the client session; with no
   // user, ProtectedRoute routes to the login screen. See api/client.ts for
-  // why this cannot loop on /login or /sign-in-error.
+  // why this cannot loop on /login or the reset/invitation screens.
   useEffect(() => onUnauthorized(clearSession), [clearSession])
 
   useEffect(() => {

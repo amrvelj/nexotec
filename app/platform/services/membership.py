@@ -34,6 +34,7 @@ from app.platform.models.dealership import Dealership
 from app.platform.models.dealership_membership import DealershipMembership
 from app.platform.models.user import User
 from app.platform.schemas.membership import MembershipCreate, MembershipRead
+from app.platform.services import auth_sessions
 from app.platform.services import user as user_service
 
 _ACTOR_HOLDS_NO_FLAG = "Dealership {dealership_id} was not found."
@@ -137,6 +138,14 @@ def _membership_state(row: DealershipMembership) -> dict[str, Any]:
     }
 
 
+def _end_sessions(db: Session, user: User) -> None:
+    """KAN-196: memberships and the per-dealership manager flag are token
+    claims for the session's whole day — a change ends the user's sessions
+    so the next sign-in carries the new set (the KAN-198 precedent)."""
+
+    auth_sessions.revoke_all_for_user(db, user_id=user.id, reason="access_changed")
+
+
 def _touch(user: User, actor_id: uuid.UUID) -> None:
     user.updated_by = actor_id
     user.version += 1
@@ -189,6 +198,7 @@ def grant_membership(
         user_service.record_manager_flag_event(
             db, user=user, dealership_id=data.dealership_id, before=False, after=True, actor_id=actor_id
         )
+    _end_sessions(db, user)
     db.commit()
     db.refresh(row)
     return row
@@ -223,6 +233,7 @@ def end_membership(
         after=_membership_state(row),
     )
     _touch(user, actor_id)
+    _end_sessions(db, user)
     db.commit()
 
 
@@ -256,6 +267,7 @@ def set_membership_manager_flag(
         actor_id=actor_id,
     )
     _touch(user, actor_id)
+    _end_sessions(db, user)
     db.commit()
     db.refresh(row)
     return row
@@ -291,6 +303,7 @@ def set_home_manager_flag(
         db, user=user, dealership_id=user.tenant_id, before=before, after=is_dealer_manager, actor_id=actor_id
     )
     _touch(user, actor_id)
+    _end_sessions(db, user)
     db.commit()
     db.refresh(user)
     return user

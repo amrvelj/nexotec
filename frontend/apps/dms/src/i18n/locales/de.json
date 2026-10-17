@@ -1928,7 +1928,8 @@
       "hint": "Setzen Sie Ihr Passwort, um Ihr Konto zu aktivieren.",
       "newPassword": "Passwort",
       "submit": "Konto aktivieren",
-      "invalidLink": "Diese Einladung ist nicht mehr gültig. Bitten Sie Ihren Betrieb um eine neue."
+      "invalidLink": "Diese Einladung ist nicht mehr gültig. Bitten Sie Ihren Betrieb um eine neue.",
+      "mfaNext": "Ihr Passwort ist gesetzt. Melden Sie sich jetzt mit Ihrem zweiten Faktor an."
     },
     "password": {
       "rules": "Mindestens 12 Zeichen. Nicht Ihr Name, Ihre E-Mail-Adresse oder der Name Ihres Betriebs.",

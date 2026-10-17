@@ -100,10 +100,10 @@ crashes never blocks (fail-open with a message); a missing hook script exits 0.
   Postgres. Only one session can run the desktop preview at a time: CORS and the frontend's API
   base URL are fixed to ports 5173 and 8000 — stop Docker's `app` container
   (`docker compose stop app worker`) before starting the preview. Logged-in screens need a user
-  in `dms_platform` and a working local log-in. Today's log-in is WP-4's Zitadel front door,
-  which the in-house log-in replaces (D-A-07, `.claude/rules/platform.md`), so no dev tooling
-  is built around Zitadel. A worktree's dev database is copied from `dms_platform`, so it has
-  whatever users that has.
+  in `dms_platform` and a working local log-in: Nexotec's own (D-A-07, KAN-196) — seed one with
+  `DMS_SEED_DEMO_PASSWORD=… python scripts/seed_staging_demo.py`, or read an invitation link out
+  of the API log (the `logging` mail sender). A worktree's dev database is copied from
+  `dms_platform`, so it has whatever users that has.
 
 ## Cloud sessions
 

@@ -1,5 +1,5 @@
 """AuthSession — the `session` table (FR-AU-17…19, KAN-196): one row per
-login, the local revocation check that replaced Zitadel's live userinfo call
+login — the local revocation check (no live call to an identity provider)
 (FR-AU-18). The token's `sid` names the row; the platform session guard
 refuses a request whose row is revoked, idle beyond `idle_expires_at` or past
 `absolute_expires_at` (Anto, 2026-10-17: two hours idle, absolute at the next

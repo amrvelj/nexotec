@@ -166,7 +166,7 @@ Edits to these files (all in `app/core/`) ask Anto first, whichever tool makes t
   camelCase JSON over snake_case Python (`schemas.py`) · the append-only audit log (`audit.py`)
 - The outbox and consumer harness (`outbox*.py`, `consumer.py`, `processed_event_model.py`)
 - `EncryptedString` (`types.py`) + config that refuses to start without the key (`config.py`). Used by
-  `customer.tax_id` and the integration call payload; D-A-22 (KAN-197) moved `dealership.tax_id` off it to a plain `uid`
+  `customer.tax_id`, the integration call payload and `mfa_totp.secret` (KAN-196); D-A-22 (KAN-197) moved `dealership.tax_id` off it to a plain `uid`
 
 ## API conventions
 

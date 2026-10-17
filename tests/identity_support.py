@@ -87,13 +87,21 @@ def new_email(prefix: str = "user") -> str:
     return f"{prefix}-{uuid.uuid4().hex[:8]}@example.ch"
 
 
-def platform_admin_headers(*, tenant_id: uuid.UUID | None = None, user_id: uuid.UUID | None = None) -> dict[str, str]:
+def platform_admin_headers(
+    *, tenant_id: uuid.UUID | None = None, user_id: uuid.UUID | None = None, mfa: bool = True
+) -> dict[str, str]:
+    """A platform staff token. Minted with a second factor by default — the
+    shape every real staff session has (D-A-36); `mfa=False` is the
+    password-only session the recovery endpoints refuse."""
+
     tid = tenant_id or uuid.uuid4()
     token = create_access_token(
         user_id=user_id or uuid.uuid4(),
         tenant_id=tid,
         group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tid)),
         roles=frozenset({AccessRole.PLATFORM_ADMIN}),
+        amr=("pwd", "otp", "mfa") if mfa else ("pwd",),
+        mfa=mfa,
     )
     return {"Authorization": f"Bearer {token}"}
 

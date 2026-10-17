@@ -96,7 +96,8 @@ def test_an_idle_session_expires_and_activity_extends_it(client, login, db_sessi
     assert client.get("/v1/auth/me", headers=cookie_headers(token)).status_code == 200
     row = _row(db_session, token)
     assert row.last_seen_at > now - dt.timedelta(seconds=5)
-    assert row.idle_expires_at > now + dt.timedelta(minutes=115)
+    # Extended by the idle timeout, but never past the absolute end.
+    assert row.idle_expires_at >= min(now + dt.timedelta(minutes=115), row.absolute_expires_at - dt.timedelta(seconds=5))
 
     row.idle_expires_at = now - dt.timedelta(seconds=1)
     db_session.commit()
@@ -198,7 +199,8 @@ def test_a_manager_ends_every_session_of_a_user(client, login, db_session):
     assert client.get("/v1/auth/me", headers=cookie_headers(one)).status_code == 401
     assert client.get("/v1/auth/me", headers=cookie_headers(two)).status_code == 401
     assert client.get("/v1/auth/me", headers=cookie_headers(managers)).status_code == 200
-    event = db_session.scalars(select(AuthEvent).where(AuthEvent.kind == AuthEventKind.SESSION_REVOKED)).one()
+    events = db_session.scalars(select(AuthEvent).where(AuthEvent.kind == AuthEventKind.SESSION_REVOKED)).all()
+    (event,) = [e for e in events if e.details["reason"] == "manager"]
     assert str(event.user_id) == beat["id"]
     assert str(event.actor_id) == manager["id"]
     assert event.details == {"count": 2, "reason": "manager"}
@@ -218,6 +220,47 @@ def test_a_manager_ends_every_session_of_a_user(client, login, db_session):
         ).status_code
         == 404
     )
+
+
+def test_a_role_or_flag_change_ends_the_users_sessions(client, login, db_session):
+    """Roles, the manager flag and memberships are claims the token carries
+    for the session's day; a change ends the sessions so the next sign-in
+    carries the new set (the KAN-198 precedent for entitlements)."""
+
+    dealership = create_dealership(client)
+    manager = create_user(client, dealership)
+    anna = create_user(client, dealership, isDealerManager=False)
+    managers = login.session_cookie(manager)
+    annas = login.session_cookie(anna)
+
+    response = client.patch(
+        f"/v1/dealerships/{dealership}/users/{anna['id']}",
+        json={"accessRoles": ["sales", "aftersales"]},
+        headers={**cookie_headers(managers), "If-Match": "2"},
+    )
+    assert response.status_code == 200, response.text
+    assert client.get("/v1/auth/me", headers=cookie_headers(annas)).status_code == 401
+    assert client.get("/v1/auth/me", headers=cookie_headers(managers)).status_code == 200
+
+    annas = login.session_cookie(anna)
+    response = client.patch(
+        f"/v1/dealerships/{dealership}/users/{anna['id']}",
+        json={"phone": "+41791234567"},
+        headers={**cookie_headers(managers), "If-Match": "3"},
+    )
+    assert response.status_code == 200, response.text
+    assert client.get("/v1/auth/me", headers=cookie_headers(annas)).status_code == 200, "a phone is not a claim"
+
+    sister = create_dealership(client)
+    db_session.add(DealershipMembership(user_id=uuid.UUID(manager["id"]), dealership_id=uuid.UUID(sister), is_dealer_manager=True))
+    db_session.commit()
+    response = client.post(
+        f"/v1/dealerships/{dealership}/users/{anna['id']}/memberships",
+        json={"dealershipId": sister, "isDealerManager": False},
+        headers={**cookie_headers(managers), "Idempotency-Key": str(uuid.uuid4())},
+    )
+    assert response.status_code == 201, response.text
+    assert client.get("/v1/auth/me", headers=cookie_headers(annas)).status_code == 401
 
 
 def test_a_token_without_a_session_row_is_left_to_the_route(client):

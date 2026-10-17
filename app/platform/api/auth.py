@@ -17,7 +17,7 @@ import uuid
 from dataclasses import dataclass
 from typing import Any
 
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, Request, Response
 from sqlalchemy.orm import Session
 
 from app.core.auth import (
@@ -253,23 +253,56 @@ def login(body: LoginRequest, request: Request, response: Response, db: Session 
     presented = identity.PresentedCredentials(email=body.email, password=body.password, ip_address=client_ip(request))
     user = identity.local_password_provider.resolve(db, presented)
     if mfa.has_factor(db, user.id):
-        challenge = auth_tokens.issue(db, user_id=user.id, kind=AuthTokenKind.MFA_CHALLENGE, actor_id=None)
-        db.commit()
-        totp = mfa.totp_of(db, user.id)
-        factors = ["totp"] if totp is not None and totp.confirmed_at is not None else []
-        if mfa.passkeys_of(db, user.id):
-            factors.append("passkey")
-        return LoginStepResponse(mfa_required=True, challenge_id=challenge, factors=factors + ["recovery_code"])
+        return _begin_mfa_step(db, user)
     session = _finish_login(db, request, response, user=user, amr=("pwd",), mfa_used=False)
     return LoginStepResponse(session=session)
 
 
-def _challenged_user(db: Session, challenge_id: str) -> User:
+def _begin_mfa_step(db: Session, user: User) -> LoginStepResponse:
+    """The password is right and the user holds a factor: a 5-minute
+    single-use challenge instead of a session."""
+
+    challenge = auth_tokens.issue(db, user_id=user.id, kind=AuthTokenKind.MFA_CHALLENGE, actor_id=None)
+    db.commit()
+    totp = mfa.totp_of(db, user.id)
+    factors = ["totp"] if totp is not None and totp.confirmed_at is not None else []
+    if mfa.passkeys_of(db, user.id):
+        factors.append("passkey")
+    return LoginStepResponse(mfa_required=True, challenge_id=challenge, factors=factors + ["recovery_code"])
+
+
+# FR-AU-08 on the second step: this many wrong answers end the challenge; the
+# user starts over with the password, where the account and IP backoff apply.
+MFA_MAX_ATTEMPTS = 5
+_STEP_EXPIRED = "The sign-in step has expired — start again."
+
+
+def _challenged_user(db: Session, challenge_id: str, *, ip_address: str = "") -> User:
     token = auth_tokens.peek(db, raw=challenge_id, kind=AuthTokenKind.MFA_CHALLENGE)
     user = db.get(User, token.user_id) if token is not None else None
-    if user is None:
-        raise UnauthorizedError("The sign-in step has expired — start again.")
+    if token is None or user is None:
+        raise UnauthorizedError(_STEP_EXPIRED)
+    if auth_events.mfa_failures_since(db, user_id=user.id, since=token.created_at) >= MFA_MAX_ATTEMPTS:
+        auth_tokens.consume(db, raw=challenge_id, kind=AuthTokenKind.MFA_CHALLENGE)
+        auth_events.record(
+            db,
+            AuthEventKind.LOGIN_THROTTLED,
+            user_id=user.id,
+            dealership_id=user.tenant_id,
+            ip_address=ip_address,
+            details={"step": "mfa"},
+        )
+        db.commit()
+        raise UnauthorizedError(_STEP_EXPIRED)
     return user
+
+
+def _spend_challenge(db: Session, challenge_id: str) -> None:
+    """Single use, enforced where it matters: a twin request that spent the
+    challenge first leaves this one with nothing to mint from."""
+
+    if auth_tokens.consume(db, raw=challenge_id, kind=AuthTokenKind.MFA_CHALLENGE) is None:
+        raise UnauthorizedError(_STEP_EXPIRED)
 
 
 @router.post("/auth/mfa/verify", response_model=LoginStepResponse)
@@ -278,8 +311,8 @@ def verify_mfa(body: MfaVerifyRequest, request: Request, response: Response, db:
     the 5-minute challenge the first step issued. A wrong code is a
     `mfa_failed` event and the same 401 for every reason."""
 
-    user = _challenged_user(db, body.challenge_id)
     ip = client_ip(request)
+    user = _challenged_user(db, body.challenge_id, ip_address=ip)
     if mfa.verify_totp(db, user=user, code=body.code):
         amr: tuple[str, ...] = ("pwd", "otp", "mfa")
     elif mfa.use_recovery_code(db, user=user, code=body.code, ip_address=ip):
@@ -288,7 +321,7 @@ def verify_mfa(body: MfaVerifyRequest, request: Request, response: Response, db:
         auth_events.record(db, AuthEventKind.MFA_FAILED, user_id=user.id, dealership_id=user.tenant_id, ip_address=ip)
         db.commit()
         raise UnauthorizedError("The code is not valid.")
-    auth_tokens.consume(db, raw=body.challenge_id, kind=AuthTokenKind.MFA_CHALLENGE)
+    _spend_challenge(db, body.challenge_id)
     session = _finish_login(db, request, response, user=user, amr=amr, mfa_used=True)
     return LoginStepResponse(session=session)
 
@@ -304,15 +337,15 @@ def passkey_login_options(body: PasskeyChallengeRequest, db: Session = Depends(g
 def passkey_login_verify(
     body: PasskeyAssertionRequest, request: Request, response: Response, db: Session = Depends(get_db)
 ):
-    user = _challenged_user(db, body.challenge_id)
     ip = client_ip(request)
+    user = _challenged_user(db, body.challenge_id, ip_address=ip)
     if not mfa.verify_passkey(
         db, user=user, credential=body.credential, challenge=mfa.challenge_for(body.challenge_id, "authn")
     ):
         auth_events.record(db, AuthEventKind.MFA_FAILED, user_id=user.id, dealership_id=user.tenant_id, ip_address=ip)
         db.commit()
         raise UnauthorizedError("The passkey could not be verified.")
-    auth_tokens.consume(db, raw=body.challenge_id, kind=AuthTokenKind.MFA_CHALLENGE)
+    _spend_challenge(db, body.challenge_id)
     session = _finish_login(db, request, response, user=user, amr=("pwd", "hwk", "mfa"), mfa_used=True)
     return LoginStepResponse(session=session)
 
@@ -324,14 +357,18 @@ def passkey_login_verify(
 def password_reset_request(
     body: PasswordResetRequest,
     request: Request,
+    background: BackgroundTasks,
     db: Session = Depends(get_db),
     mailer: PlatformMailer = Depends(get_mailer),
 ):
     """FR-AU-14/16: 202 whether or not the address exists; the mail goes
-    only where there is someone to send it to."""
+    only where there is someone to send it to — and after the response, so
+    a mailbox's latency never says which of the two happened."""
 
-    identity.request_password_reset(db, mailer, email=body.email, ip_address=client_ip(request))
+    ip = client_ip(request)
+    pending = identity.request_password_reset(db, email=body.email, ip_address=ip)
     db.commit()
+    background.add_task(identity.send_pending_mail, mailer, pending, bind=db.get_bind(), ip_address=ip)
 
 
 @router.post("/auth/password-reset/confirm", status_code=204)
@@ -340,14 +377,18 @@ def password_reset_confirm(body: PasswordResetConfirm, request: Request, db: Ses
     db.commit()
 
 
-@router.post("/auth/invitations/accept", response_model=LoginResponse)
+@router.post("/auth/invitations/accept", response_model=LoginStepResponse)
 def invitation_accept(body: InvitationAccept, request: Request, response: Response, db: Session = Depends(get_db)):
     """FR-AU-13: the invited person sets their password and is signed in,
     so they can enrol a factor in the same flow where the Betrieb enforces
-    one (the response says so)."""
+    one (the response says so). A user who already holds a factor — a
+    re-issued invitation — gets the MFA step, like a login."""
 
     user = identity.accept_invitation(db, raw_token=body.token, password=body.password, ip_address=client_ip(request))
-    return _finish_login(db, request, response, user=user, amr=("pwd",), mfa_used=False)
+    if mfa.has_factor(db, user.id):
+        return _begin_mfa_step(db, user)
+    session = _finish_login(db, request, response, user=user, amr=("pwd",), mfa_used=False)
+    return LoginStepResponse(session=session)
 
 
 # --- session ---------------------------------------------------------------------------
@@ -366,8 +407,16 @@ def logout(request: Request, response: Response, db: Session = Depends(get_db)):
             principal = None
         if principal is not None and principal.session_id is not None:
             row = auth_sessions.get(db, principal.session_id)
-            if row is not None:
+            if row is not None and row.revoked_at is None:
                 auth_sessions.revoke(db, row, reason="logout")
+                auth_events.record(
+                    db,
+                    AuthEventKind.SESSION_REVOKED,
+                    user_id=principal.user_id,
+                    dealership_id=principal.tenant_id,
+                    ip_address=client_ip(request),
+                    details={"count": 1, "reason": "logout"},
+                )
                 db.commit()
     response.delete_cookie(SESSION_COOKIE_NAME, **_COOKIE_KWARGS)
     return LogoutResponse()
@@ -544,7 +593,7 @@ def recovery_codes_regenerate(
 @account_router.post("/auth/mfa/passkeys/options", response_model=PasskeyOptionsResponse)
 def passkey_register_options(principal: Principal = Depends(get_current_principal), db: Session = Depends(get_db)):
     user = user_service.get_own_user_or_404(db, principal.user_id)
-    challenge_id = auth_tokens.issue(db, user_id=user.id, kind=AuthTokenKind.MFA_CHALLENGE, actor_id=user.id)
+    challenge_id = auth_tokens.issue(db, user_id=user.id, kind=AuthTokenKind.PASSKEY_REGISTRATION, actor_id=user.id)
     options = mfa.passkey_registration_options(db, user=user, challenge=mfa.challenge_for(challenge_id, "register"))
     db.commit()
     return PasskeyOptionsResponse(challenge_id=challenge_id, options=options)
@@ -558,7 +607,7 @@ def passkey_register(
     db: Session = Depends(get_db),
 ):
     user = user_service.get_own_user_or_404(db, principal.user_id)
-    token = auth_tokens.peek(db, raw=body.challenge_id, kind=AuthTokenKind.MFA_CHALLENGE)
+    token = auth_tokens.peek(db, raw=body.challenge_id, kind=AuthTokenKind.PASSKEY_REGISTRATION)
     if token is None or token.user_id != user.id:
         raise UnauthorizedError("The passkey step has expired — start again.")
     row = mfa.register_passkey(
@@ -571,7 +620,8 @@ def passkey_register(
     )
     # Spent on success only, like the login step's challenge: a cancelled
     # browser dialog may be retried while the five minutes last.
-    auth_tokens.consume(db, raw=body.challenge_id, kind=AuthTokenKind.MFA_CHALLENGE)
+    if auth_tokens.consume(db, raw=body.challenge_id, kind=AuthTokenKind.PASSKEY_REGISTRATION) is None:
+        raise UnauthorizedError("The passkey step has expired — start again.")
     db.commit()
     return PasskeyRead(id=row.id, label=row.label, created_at=row.created_at, last_used_at=row.last_used_at)
 

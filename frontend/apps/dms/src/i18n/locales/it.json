@@ -1928,7 +1928,8 @@
       "hint": "Imposta la tua password per attivare il tuo account.",
       "newPassword": "Password",
       "submit": "Attiva l’account",
-      "invalidLink": "Questo invito non è più valido. Chiedine uno nuovo alla tua azienda."
+      "invalidLink": "Questo invito non è più valido. Chiedine uno nuovo alla tua azienda.",
+      "mfaNext": "La password è impostata. Accedi ora con il tuo secondo fattore."
     },
     "password": {
       "rules": "Almeno 12 caratteri. Non il tuo nome, il tuo indirizzo e-mail o il nome della tua azienda.",

@@ -45,11 +45,27 @@ def recent_failures_from_ip(db: Session, *, ip_address: str, window: dt.timedelt
     row = db.execute(
         select(func.count(AuthEvent.id), func.max(AuthEvent.occurred_at)).where(
             AuthEvent.ip_address == ip_address,
-            AuthEvent.kind == AuthEventKind.LOGIN_FAILED,
+            AuthEvent.kind.in_((AuthEventKind.LOGIN_FAILED, AuthEventKind.MFA_FAILED)),
             AuthEvent.occurred_at >= since,
         )
     ).one()
     return int(row[0] or 0), row[1]
+
+
+def mfa_failures_since(db: Session, *, user_id: uuid.UUID, since: dt.datetime) -> int:
+    """Wrong second-factor answers of the user since the challenge was
+    issued — the attempt limit on the second step (FR-AU-08)."""
+
+    return int(
+        db.scalar(
+            select(func.count(AuthEvent.id)).where(
+                AuthEvent.user_id == user_id,
+                AuthEvent.kind == AuthEventKind.MFA_FAILED,
+                AuthEvent.occurred_at >= since,
+            )
+        )
+        or 0
+    )
 
 
 def list_for_dealership(db: Session, *, dealership_id: uuid.UUID, limit: int = 200) -> list[AuthEvent]:

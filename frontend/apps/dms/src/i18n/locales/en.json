@@ -1928,7 +1928,8 @@
       "hint": "Set your password to activate your account.",
       "newPassword": "Password",
       "submit": "Activate account",
-      "invalidLink": "This invitation is no longer valid. Ask your Betrieb for a new one."
+      "invalidLink": "This invitation is no longer valid. Ask your Betrieb for a new one.",
+      "mfaNext": "Your password is set. Sign in now with your second factor."
     },
     "password": {
       "rules": "At least 12 characters. Not your name, your e-mail address or the name of your Betrieb.",
