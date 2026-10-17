@@ -4,7 +4,10 @@ import { ProtectedRoute } from './components/ProtectedRoute'
 import { RequireEntitlement } from './components/RequireEntitlement'
 import { DmsShell } from './layout/DmsShell'
 import { LoginPage } from './pages/LoginPage'
-import { SignInErrorPage } from './pages/SignInErrorPage'
+import { PasswordResetRequestPage } from './pages/PasswordResetRequestPage'
+import { PasswordResetConfirmPage } from './pages/PasswordResetConfirmPage'
+import { InvitationAcceptPage } from './pages/InvitationAcceptPage'
+import { AccountSecurityPage } from './pages/AccountSecurityPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { CustomersListPage } from './pages/CustomersListPage'
 import { CustomerCreatePage } from './pages/CustomerCreatePage'
@@ -40,9 +43,13 @@ export default function App() {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/sign-in-error" element={<SignInErrorPage />} />
+          {/* KAN-196: the e-mail links (reset, invitation) land here, outside the shell. */}
+          <Route path="/password-reset" element={<PasswordResetRequestPage />} />
+          <Route path="/password-reset/confirm" element={<PasswordResetConfirmPage />} />
+          <Route path="/invitations/accept" element={<InvitationAcceptPage />} />
           <Route element={<ProtectedLayout />}>
             <Route path="/" element={<DashboardPage />} />
+            <Route path="/account/security" element={<AccountSecurityPage />} />
             <Route path="/customers" element={<CustomersListPage />} />
             <Route path="/customers/new" element={<CustomerCreatePage />} />
             <Route path="/customers/:id" element={<CustomerDetailPage />} />

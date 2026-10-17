@@ -35,7 +35,8 @@
       "notificationsSoon": "Notifiche (presto)",
       "accountMenu": "Menu account",
       "language": "Lingua",
-      "switchDealership": "Cambia concessionaria"
+      "switchDealership": "Cambia concessionaria",
+      "accountSecurity": "Il mio account – Sicurezza"
     },
     "globalSearch": {
       "placeholder": "Cerca…",
@@ -596,14 +597,6 @@
       "vehiclePartyBusy": "Un veicolo di questo cliente è in fase di modifica. Invia di nuovo l'unione.",
       "staleVersion": "Questo cliente è stato modificato nel frattempo. Ricarica la pagina e riprova."
     }
-  },
-  "signInError": {
-    "title": "Accesso non riuscito",
-    "message": "Accesso non riuscito. Riprova oppure contatta il tuo amministratore.",
-    "retry": "Riprova"
-  },
-  "login": {
-    "redirecting": "Reindirizzamento all'accesso…"
   },
   "mappingGaps": {
     "title": "Lacune di mappatura",
@@ -1894,6 +1887,98 @@
       "valid": "Valida",
       "expired": "Scaduta",
       "used": "Utilizzata"
+    }
+  },
+  "auth": {
+    "login": {
+      "title": "Accedi",
+      "subtitle": "Con il tuo indirizzo e-mail e la tua password.",
+      "email": "Indirizzo e-mail",
+      "password": "Password",
+      "submit": "Accedi",
+      "forgotPassword": "Password dimenticata?",
+      "failed": "Indirizzo e-mail o password non validi.",
+      "mfaTitle": "Secondo fattore",
+      "mfaHint": "Conferma l’accesso con la tua app di autenticazione, un codice di recupero o una passkey.",
+      "code": "Codice dell’app di autenticazione",
+      "recoveryCode": "Codice di recupero",
+      "verify": "Conferma",
+      "codeInvalid": "Il codice non è valido.",
+      "useRecoveryCode": "Usa un codice di recupero",
+      "useAuthenticator": "Usa l’app di autenticazione",
+      "usePasskey": "Accedi con una passkey",
+      "passkeyFailed": "La passkey non ha potuto essere verificata.",
+      "backToLogin": "Torna all’accesso"
+    },
+    "reset": {
+      "title": "Reimposta la password",
+      "hint": "Inserisci il tuo indirizzo e-mail. Se esiste un account, riceverai un link.",
+      "email": "Indirizzo e-mail",
+      "submit": "Invia il link",
+      "sent": "Se esiste un account per questo indirizzo, abbiamo inviato un link di reimpostazione. È valido per un’ora.",
+      "confirmTitle": "Imposta una nuova password",
+      "newPassword": "Nuova password",
+      "confirmSubmit": "Imposta la password",
+      "done": "La password è stata impostata. Tutte le altre sessioni sono state terminate: accedi di nuovo.",
+      "invalidLink": "Questo link non è più valido. Richiedine uno nuovo.",
+      "backToLogin": "Vai all’accesso"
+    },
+    "invitation": {
+      "title": "Benvenuto in Nexotec",
+      "hint": "Imposta la tua password per attivare il tuo account.",
+      "newPassword": "Password",
+      "submit": "Attiva l’account",
+      "invalidLink": "Questo invito non è più valido. Chiedine uno nuovo alla tua azienda."
+    },
+    "password": {
+      "rules": "Almeno 12 caratteri. Non il tuo nome, il tuo indirizzo e-mail o il nome della tua azienda.",
+      "minLength": "La password deve avere almeno {{count, number}} caratteri.",
+      "denyList": "La password non deve contenere il tuo nome, il tuo indirizzo e-mail o il nome della tua azienda.",
+      "breached": "Questa password compare in una violazione di dati nota: scegline un’altra.",
+      "reused": "Questa password è stata usata di recente: scegline una nuova."
+    },
+    "security": {
+      "breadcrumb": "Il mio account",
+      "title": "Sicurezza",
+      "enrolmentRequired": "La tua azienda richiede un secondo fattore. Configura un’app di autenticazione o una passkey prima di continuare.",
+      "totp": {
+        "title": "App di autenticazione",
+        "enrolled": "Configurata: a ogni accesso viene richiesto un codice.",
+        "notEnrolled": "Non configurata.",
+        "enrol": "Configura",
+        "remove": "Rimuovi",
+        "step1": "1. Inserisci questa chiave nella tua app di autenticazione (oppure apri il link qui sotto sul dispositivo).",
+        "step2": "2. Inserisci il codice che l’app mostra ora.",
+        "code": "Codice",
+        "confirm": "Conferma"
+      },
+      "recovery": {
+        "title": "Codici di recupero",
+        "remaining": "{{count, number}} codici di recupero rimasti.",
+        "regenerate": "Genera nuovi codici",
+        "saveHint": "Conserva questi codici in un luogo sicuro. Ogni codice vale una sola volta; non verranno mostrati di nuovo.",
+        "done": "Li ho salvati"
+      },
+      "passkeys": {
+        "title": "Passkey",
+        "none": "Nessuna passkey.",
+        "add": "Aggiungi passkey",
+        "label": "Denominazione",
+        "labelPlaceholder": "ad es. portatile officina",
+        "unnamed": "Passkey",
+        "lastUsed": "Ultimo utilizzo {{when}}",
+        "never": "Mai utilizzata",
+        "unsupported": "Questo browser non supporta le passkey.",
+        "failed": "Non è stato possibile aggiungere la passkey."
+      },
+      "sessions": {
+        "title": "Sessioni",
+        "device": "Dispositivo",
+        "lastSeen": "Ultima attività",
+        "expires": "Termina",
+        "current": "Questa sessione",
+        "end": "Termina"
+      }
     }
   }
 }

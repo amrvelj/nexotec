@@ -83,16 +83,17 @@ platform_admin, then the roles, then the manager flag (if `manager_can_read` / `
 or the manager — except the "Nobody" rows (`audit_logs`, `wagenbuch`, `stock_reservation`, the
 derived views, `module_entitlements`, `ui_translations`), which the manager cannot write.
 
-**Session minting (KAN-141).** Today every session token is minted through `_mint_session` in
-`app/platform/api/auth.py` — the OIDC callback and switch-dealership. It refuses a suspended
-or deactivated user (401) and authorises the target dealership from the home dealership plus
-`dealership_membership` rows, never the token's `memberships` claim (403). Auth & Identity
-risk 4 puts such checks where every minting path passes, so KAN-196's `POST /v1/auth/login`
-(not built) must mint through it. **Open, not settled here (KAN-254):** the ADR-028 terminal
-path (`WORKSHOP_TERMINAL_AUTH_DESIGN.md`) is designed to call `create_access_token` directly
-with fixed `{TECHNICIAN}` roles, which `_mint_session` cannot mint — how it gets the status
-check needs an ADR. Not yet true: `get_current_principal` does not check `status`, so an
-issued token works until it expires (FR-A-10; KAN-196's sessions step).
+**Session minting (KAN-141, KAN-196).** Every session token is minted through `_mint_session` in
+`app/platform/api/auth.py` — login, the MFA step, invitation acceptance and switch-dealership.
+It refuses a suspended or deactivated user (401), authorises the target dealership from the
+home dealership plus `dealership_membership` rows, never the token's `memberships` claim (403),
+and writes the `session` row the guard checks (a switch keeps the row and its `sid`). Auth &
+Identity risk 4 puts such checks where every minting path passes. **Open, not settled here
+(KAN-254):** the ADR-028 terminal path (`WORKSHOP_TERMINAL_AUTH_DESIGN.md`) is designed to call
+`create_access_token` directly with fixed `{TECHNICIAN}` roles, which `_mint_session` cannot
+mint — how it gets the status check needs an ADR. `get_current_principal` still does not check
+`status`; what ends a deactivated user's session is the `session` row the status change revokes
+(FR-A-10) — a token without `sid` is not covered.
 
 ## Dealer Administration — decided; built only where a bullet says so (check the code)
 
@@ -165,34 +166,75 @@ One shared template layer (`app/platform/models/document_template.py`). WeasyPri
 `<style`, `<html`) elsewhere in `app/` (`test_no_layout_code_outside_document_render.py`). One template, two consumers: the ui-kit
 `DocumentPreview` only displays the PDF the renderer produced — never a second renderer.
 
-## Authentication (D-A-07…D-A-12, D-A-16, D-A-36, D-A-37) — decided, NOT built
+## Authentication (D-A-07…D-A-12, D-A-16, D-A-36, D-A-37) — built by KAN-196, except where a bullet says so
 
-- **Zitadel is out; Nexotec owns authentication (D-A-07).** The code still runs WP-4's front
-  door (`zitadel_*` and `session_secret_key` in `app/core/config.py`, `/v1/auth/oidc/*`,
-  `SessionMiddleware` in `app/main.py`, live `userinfo` in `app/platform/services/oidc.py`).
-  Do not extend it. **WP-4 is reverted, then upgraded** (D-A-12): `credential` returns, bcrypt is
-  replaced by **argon2id** in the same package, `POST /v1/auth/login`, lockout.
-  `test_no_password_credential_storage.py` (today: no `credential` table, no password-shaped
-  column anywhere) is **inverted** (password columns in `credential` and nowhere else), never
-  deleted. The session layer (`create_access_token` with claims `sub, tenant_id, group_id,
-  memberships, active_location_id, roles, is_dealer_manager, entitlements, ent_v`, the `dms_session` cookie,
-  `Principal`, `get_current_principal`, switch-dealership) stays as it is. None of the
-  replacement exists yet: no argon2 / pyotp / webauthn dependency, no `IdentityProvider`,
-  no `dealership_auth_config` (KAN-196).
-- **D-A-08 / D-A-11** (target, none of it built) — one `IdentityProvider` interface;
-  `LocalPasswordProvider` is the live one; `EntraOidcProvider` is **built and
-  integration-tested but enabled for no dealership**. Federation
-  is per dealership, never per user; `User.auth_identity_id` (unique, exists today) is the join.
+- **Nexotec owns authentication (D-A-07); Zitadel is gone.** `POST /v1/auth/login` (e-mail +
+  argon2id password, `app/platform/services/identity.py::LocalPasswordProvider`) answers the
+  session cookie or an MFA step; `/auth/mfa/verify` (TOTP or recovery code), `/auth/mfa/passkey/
+  options` + `/verify`; `/auth/password-reset/request` (202 whether or not the address exists) +
+  `/confirm`; `/auth/invitations/accept`. The session layer stayed (`create_access_token`, the
+  `dms_session` cookie, `Principal`, `get_current_principal`, switch-dealership) and gained the
+  claims `sid`, `amr`, `mfa`; `exp` is the session's absolute end. **Every refusal is the same
+  401 body with the same argon2 work behind it** (a dummy verify when the address names no
+  account) — `tests/test_identity_login_policy.py` asserts body and timing; never add a
+  reason-specific message. Per-account backoff from the third failure and soft lockout after
+  `auth_lockout_failures` (cleared by a reset); per-IP backoff on the **last** X-Forwarded-For
+  entry (the proxy's), never the first. `credential` holds the hash (+ the last five) and
+  **nothing else in the schema may grow a password-shaped column**
+  (`test_no_password_credential_storage.py`, inverted as D-A-07 ruled). Nobody sets another
+  person's password (FR-AU-10): only an invitation or a reset token does, single-use, stored as
+  SHA-256 (`auth_tokens.py`); the seed script is the one bootstrap exception.
+- **Password policy** (`password_policy.py`): ≥ 12 characters, no composition rules, the
+  dealership's names, the user's names and the e-mail local part refused, Have I Been Pwned
+  range check at set-time that **fails open and flags** (`credential.breach_check_pending`,
+  `breach_check_unavailable` event). The test suite turns HIBP off (autouse fixture) and
+  patches `password_policy.hibp_breach_count` where it tests it.
+- **Sessions** (`auth_sessions.py`, `app/platform/session_guard.py`): one `session` row per
+  login; `enforce_live_session` is an **app-level dependency** in `app/main.py` that 401s a
+  token whose row is revoked, idle (`session_idle_minutes`, 120) or past its absolute end
+  (**next midnight Europe/Zurich** — Anto, 2026-10-17), and touches the row at most once a
+  minute. A token without `sid` (tests, bootstrap) is left to the route. Logout revokes the
+  row and is the one route the guard lets a dead session reach. A status change to suspended
+  or deactivated, a password reset and the manager's `DELETE …/users/{id}/sessions` revoke
+  every row of the user. Per-Betrieb idle/absolute policy (D-A-37) is **not built**: one
+  platform setting.
+- **MFA** (`mfa.py`): TOTP (`pyotp`, a code is good once, ±1 step) with ten hashed single-use
+  recovery codes, passkeys (`webauthn`, resident keys; the challenge is derived from a
+  single-use `auth_token` via `challenge_for`, never stored). `dealership_auth_config.mfa_enforced`
+  (default **on**, the manager's `PUT /v1/dealerships/{id}/auth-config`, audit `auth_config_set`)
+  decides for a Betrieb; **platform staff are always enforced** (D-A-36): `LoginResponse.
+  mfaEnrolmentRequired` sends the SPA to `/account/security` before any other screen, and
+  `require_mfa_session()` in `app/core/auth.py` refuses a staff principal whose session carries
+  no factor — proven on a probe route; the impersonation and recovery endpoints will carry it.
+  A manager's `DELETE …/users/{id}/mfa` removes every factor and always writes `mfa_removed`
+  naming the actor (FR-AU-12). **Passkey registration and assertion are verified by the library;
+  no automated test completes a real ceremony** (options and refusals are tested).
+- **Platform mail** (`mailer.py`, D-A-28; Anto, 2026-10-17): invitations and resets leave
+  through the Nexotec mailbox behind `PlatformMailer` — `logging` (default: the link goes to the
+  application log; **staging runs this today**) or `smtp` (`DMS_PLATFORM_MAIL_*`). Delivery is
+  not fire-and-forget: a failure is a `mail_delivery_failed` auth event and an ERROR line. Texts
+  in DE/FR/IT/EN from the user's `uiLanguage` preference (`mail_texts.py`). Tests override
+  `get_mailer` with the `mailbox` fixture.
+- **Auth events** (`auth_event`, FR-AU-21): every login outcome, lock, token, factor and
+  session change, readable by the manager at `GET /v1/dealerships/{id}/auth-events`
+  (`audit_logs` read). Never a password, hash or token in `details`.
+- **D-A-08 / D-A-11:** `IdentityProvider` is the seam; `LocalPasswordProvider` is the only
+  implementation; `provider_for` reads `dealership_auth_config.auth_method` (only `local`).
+  `EntraOidcProvider` is **not built** ([P3]). `User.auth_identity_id` stays unique and non-null:
+  a local user carries `local:<user id>`.
 - **Identity realms (D-A-13, D-A-14):** staff (this), terminal (ADR-028,
   `WORKSHOP_TERMINAL_AUTH_DESIGN.md`), customer (reserved, `aud=portal`, never a row in
-  `user`), machine (not in v1). Never share a credential store.
+  `user`), machine (not in v1). Never share a credential store — `_CREDENTIAL_TABLES` in the
+  architecture test names the two allowed (`credential`, `terminal_device`).
 - **Connected accounts are grants, not identities (FR-AU-23):** `user_connected_account` is
   never used to sign in and never appears in the token.
-- **D-A-09 / D-A-36** — MFA optional per dealership, default on; TOTP and passkeys both in v1;
-  **mandatory for every platform staff account**. No step-up re-authentication (A-12: no).
-- **D-A-16** — a `platform_admin` recovers accounts alone (re-issue invitation, reset MFA,
-  clear lockout, revoke sessions, grant manager flag); nobody ever sets a password (FR-AU-10).
-- **D-A-37** — per-Betrieb session idle/absolute policy within a platform floor and ceiling.
+- **D-A-16** — a `platform_admin` or the Betrieb's manager recovers accounts: re-issue the
+  invitation (`POST …/users/{id}/invitations`), reset MFA, revoke sessions, see the lock
+  (`GET …/login-status`); clearing a lock is the user's own reset, never a manager action.
+  No step-up re-authentication (A-12: no).
+- argon2id parameters are settings (`DMS_ARGON2_*`, default t=3 / 64 MiB / p=4, 48 ms a verify
+  on the build machine, `scripts/benchmark_argon2.py`); a stored hash below them is rehashed on
+  the next login. The Render instance is re-tuned in a follow-up ticket.
 
 ## Open questions — ask Anto, never decide in code
 

@@ -2,7 +2,7 @@
 
 Deliberately NOT a reuse of `app/core/secrets.py::resolve_secret_env` —
 that module is read-once-at-startup for a small, fixed set of static
-deploy-time secrets (tax_id key, JWT key, Zitadel secret, session key),
+deploy-time secrets (tax_id key, JWT key, the platform mailbox password),
 lazily caching one client for the process's whole lifetime. This module
 does live, per-connection CRUD at request time: a dealer connecting a new
 account creates a secret; rotating replaces one; disabling/deleting a

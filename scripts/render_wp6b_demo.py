@@ -43,11 +43,6 @@ os.environ.setdefault(
     )
     .decode("ascii"),
 )
-os.environ.setdefault("DMS_ZITADEL_ISSUER", "https://example.zitadel.cloud")
-os.environ.setdefault("DMS_ZITADEL_CLIENT_ID", "demo-client-id")
-os.environ.setdefault("DMS_ZITADEL_CLIENT_SECRET", "demo-client-secret")
-os.environ.setdefault("DMS_ZITADEL_REDIRECT_URI", "http://localhost/v1/auth/oidc/callback")
-os.environ.setdefault("DMS_SESSION_SECRET_KEY", Fernet.generate_key().decode())
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session

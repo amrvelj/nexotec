@@ -4,6 +4,50 @@
  */
 
 export interface paths {
+    "/v1/auth/invitations/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Invitation Accept
+         * @description FR-AU-13: the invited person sets their password and is signed in,
+         *     so they can enrol a factor in the same flow where the Betrieb enforces
+         *     one (the response says so).
+         */
+        post: operations["invitation_accept_v1_auth_invitations_accept_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Login
+         * @description FR-AU-07: e-mail and password in, the session cookie out — or the MFA
+         *     step when the user holds a factor. Every refusal is the same 401, with
+         *     the same work behind it (identity.LocalPasswordProvider).
+         */
+        post: operations["login_v1_auth_login_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/auth/logout": {
         parameters: {
             query?: never;
@@ -13,7 +57,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Logout */
+        /**
+         * Logout
+         * @description Ends the session row too (FR-AU-18): the cookie going away is not
+         *     enough once a copy of the token could be elsewhere.
+         */
         post: operations["logout_v1_auth_logout_post"];
         delete?: never;
         options?: never;
@@ -30,17 +78,8 @@ export interface paths {
         };
         /**
          * Get Current Session User
-         * @description Lets a browser client restore "logged in as X" state after a page
-         *     reload — the httpOnly cookie survives, but the login response body's
-         *     `user` object doesn't (nothing else holds it client-side).
-         *
-         *     The memberships are read from the database (KAN-237) — the home
-         *     dealership plus `dealership_membership`, the rule `_mint_session`
-         *     authorises a switch with — never from the token's `memberships` claim,
-         *     which goes stale the moment a membership is granted or revoked. The
-         *     switcher offers what this lists, so it never offers a dealership the
-         *     switch would refuse; a session still acting in a dealership this no
-         *     longer lists sees that one as its current, disabled entry (KAN-237).
+         * @description Restores "logged in as X" after a page reload. The memberships are
+         *     read from the database (KAN-237), never the token's claim.
          */
         get: operations["get_current_session_user_v1_auth_me_get"];
         put?: never;
@@ -51,28 +90,15 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/auth/oidc/callback": {
+    "/v1/auth/mfa": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /**
-         * Oidc Callback
-         * @description Zitadel proves WHO; this endpoint decides WHETHER that person may
-         *     have a Nexotec session and, if so, WHAT they may do here — the second
-         *     and third parts are entirely ours, resolved the same way the retired
-         *     password login resolved them: from the matching User row, never from
-         *     anything Zitadel's token/userinfo response carries.
-         *
-         *     On any rejection (denied at Zitadel, no matching User, wrong status)
-         *     there is no User row to hang an audit event on in the "no match" case,
-         *     and no behavior change from today's password login in the "wrong
-         *     status" case (that never audited either) — logged via the structured
-         *     application logger instead, sub only, never any other claim.
-         */
-        get: operations["oidc_callback_v1_auth_oidc_callback_get"];
+        /** Mfa Status */
+        get: operations["mfa_status_v1_auth_mfa_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -81,24 +107,248 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/auth/oidc/login": {
+    "/v1/auth/mfa/passkey/options": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
+        get?: never;
+        put?: never;
+        /** Passkey Login Options */
+        post: operations["passkey_login_options_v1_auth_mfa_passkey_options_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/mfa/passkey/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Passkey Login Verify */
+        post: operations["passkey_login_verify_v1_auth_mfa_passkey_verify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/mfa/passkeys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Passkey Register */
+        post: operations["passkey_register_v1_auth_mfa_passkeys_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/mfa/passkeys/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Passkey Register Options */
+        post: operations["passkey_register_options_v1_auth_mfa_passkeys_options_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/mfa/passkeys/{passkey_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Passkey Remove */
+        delete: operations["passkey_remove_v1_auth_mfa_passkeys__passkey_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/mfa/recovery-codes/regenerate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Recovery Codes Regenerate */
+        post: operations["recovery_codes_regenerate_v1_auth_mfa_recovery_codes_regenerate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/mfa/totp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Totp Remove */
+        delete: operations["totp_remove_v1_auth_mfa_totp_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/mfa/totp/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Totp Confirm */
+        post: operations["totp_confirm_v1_auth_mfa_totp_confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/mfa/totp/enrol": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Totp Enrol */
+        post: operations["totp_enrol_v1_auth_mfa_totp_enrol_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/mfa/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
         /**
-         * Oidc Login
-         * @description A full-page browser navigation to Zitadel's hosted login, never an
-         *     XHR/fetch target — this package builds no Nexotec login screen at all
-         *     (see the WP-4 brief). GET, not POST: there is no body, and this has to
-         *     be something a plain <a href> / window.location.href can trigger.
+         * Verify Mfa
+         * @description The second step of a login: a TOTP code or a recovery code against
+         *     the 5-minute challenge the first step issued. A wrong code is a
+         *     `mfa_failed` event and the same 401 for every reason.
          */
-        get: operations["oidc_login_v1_auth_oidc_login_get"];
+        post: operations["verify_mfa_v1_auth_mfa_verify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/password-reset/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Password Reset Confirm */
+        post: operations["password_reset_confirm_v1_auth_password_reset_confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/password-reset/request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Password Reset Request
+         * @description FR-AU-14/16: 202 whether or not the address exists; the mail goes
+         *     only where there is someone to send it to.
+         */
+        post: operations["password_reset_request_v1_auth_password_reset_request_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List My Sessions */
+        get: operations["list_my_sessions_v1_auth_sessions_get"];
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/sessions/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke My Session */
+        delete: operations["revoke_my_session_v1_auth_sessions__session_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -126,7 +376,8 @@ export interface paths {
          *     A fresh token is a renewed session, so it is minted like a login
          *     (KAN-141): the user's status and memberships are re-read from the
          *     database, never trusted from the token the caller already holds — a
-         *     user deactivated or a membership revoked since login is refused.
+         *     user deactivated or a membership revoked since login is refused. The
+         *     `session` row stays the same one (the guard already checked it).
          */
         post: operations["switch_dealership_v1_auth_switch_dealership_post"];
         delete?: never;
@@ -731,6 +982,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/dealerships/{dealership_id}/auth-config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Auth Config */
+        get: operations["get_auth_config_v1_dealerships__dealership_id__auth_config_get"];
+        /**
+         * Set Auth Config
+         * @description D-A-09 / FR-AU-11: the manager decides whether his Betrieb enforces a
+         *     second factor. Platform staff are always enforced (D-A-36), whatever
+         *     this says.
+         */
+        put: operations["set_auth_config_v1_dealerships__dealership_id__auth_config_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/auth-events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Auth Events
+         * @description FR-AU-21: the manager reads the authentication stream of his own
+         *     Betrieb — the newest 200 events.
+         */
+        get: operations["list_auth_events_v1_dealerships__dealership_id__auth_events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/dealerships/{dealership_id}/document-template": {
         parameters: {
             query?: never;
@@ -803,6 +1098,48 @@ export interface paths {
         patch: operations["update_user_v1_dealerships__dealership_id__users__user_id__patch"];
         trace?: never;
     };
+    "/v1/dealerships/{dealership_id}/users/{user_id}/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reissue Invitation
+         * @description FR-AU-13 / FR-AU-25: a fresh single-use invitation (the previous one
+         *     is consumed). The manager's answer to a lost mail or a lockout — never
+         *     a password.
+         */
+        post: operations["reissue_invitation_v1_dealerships__dealership_id__users__user_id__invitations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/users/{user_id}/login-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Login Status
+         * @description FR-AU-10: the manager sees that a user is locked out; nothing more.
+         */
+        get: operations["get_login_status_v1_dealerships__dealership_id__users__user_id__login_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/dealerships/{dealership_id}/users/{user_id}/manager-flag": {
         parameters: {
             query?: never;
@@ -867,6 +1204,48 @@ export interface paths {
         put: operations["set_membership_manager_flag_v1_dealerships__dealership_id__users__user_id__memberships__member_dealership_id__manager_flag_put"];
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/users/{user_id}/mfa": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove User Mfa
+         * @description FR-AU-12 / FR-AU-25: removes every factor and recovery code. Always a
+         *     `mfa_removed` auth event naming the actor — the user's `security`
+         *     notification hangs off it; it is otherwise an account-takeover path.
+         */
+        delete: operations["remove_user_mfa_v1_dealerships__dealership_id__users__user_id__mfa_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/users/{user_id}/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke User Sessions
+         * @description FR-AU-17: a manager ends every session of a user of his Betrieb.
+         */
+        delete: operations["revoke_user_sessions_v1_dealerships__dealership_id__users__user_id__sessions_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2677,6 +3056,50 @@ export interface components {
             reason: string | null;
             /** Tenantid */
             tenantId: string | null;
+        };
+        /** AuthConfigRead */
+        AuthConfigRead: {
+            /** Authmethod */
+            authMethod: string;
+            /** Mfaenforced */
+            mfaEnforced: boolean;
+            /** Version */
+            version: number;
+        };
+        /** AuthConfigUpdate */
+        AuthConfigUpdate: {
+            /** Mfaenforced */
+            mfaEnforced: boolean;
+        };
+        /** AuthEventList */
+        AuthEventList: {
+            /** Items */
+            items: components["schemas"]["AuthEventRead"][];
+        };
+        /** AuthEventRead */
+        AuthEventRead: {
+            /** Actorid */
+            actorId: string | null;
+            /** Details */
+            details: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Ipaddress */
+            ipAddress: string;
+            /** Kind */
+            kind: string;
+            /**
+             * Occurredat
+             * Format: date-time
+             */
+            occurredAt: string;
+            /** Userid */
+            userId: string | null;
         };
         /** BestMatchFieldRead */
         BestMatchFieldRead: {
@@ -5101,6 +5524,13 @@ export interface components {
          * @enum {string}
          */
         IdentifierKind: "vin" | "kontrollschild" | "stammnummer" | "typenschein" | "werkscode";
+        /** InvitationAccept */
+        InvitationAccept: {
+            /** Password */
+            password: string;
+            /** Token */
+            token: string;
+        };
         /**
          * Language
          * @description The customer's correspondence language (Customer PRD D-01/FR-13).
@@ -5313,6 +5743,13 @@ export interface components {
             /** Zustandsbeschreibung */
             zustandsbeschreibung?: string | null;
         };
+        /** LoginRequest */
+        LoginRequest: {
+            /** Email */
+            email: string;
+            /** Password */
+            password: string;
+        };
         /**
          * LoginResponse
          * @description The JWT itself never appears in this body — it's delivered only as
@@ -5329,7 +5766,44 @@ export interface components {
             entitlements: components["schemas"]["ModuleCode"][];
             /** Memberships */
             memberships: components["schemas"]["DealershipMembershipSummary"][];
+            /**
+             * Mfaenrolmentrequired
+             * @default false
+             */
+            mfaEnrolmentRequired?: boolean;
             user: components["schemas"]["UserRead"];
+        };
+        /**
+         * LoginStatusRead
+         * @description FR-AU-10: what a manager may see — never a password or its hash.
+         */
+        LoginStatusRead: {
+            /** Failedloginattempts */
+            failedLoginAttempts: number;
+            /** Haspassword */
+            hasPassword: boolean;
+            /** Lockeduntil */
+            lockedUntil: string | null;
+        };
+        /**
+         * LoginStepResponse
+         * @description What `POST /v1/auth/login` answers. Either the session is minted
+         *     (`session` carries the login response, the cookie is set) or a second
+         *     factor is due: `mfaRequired` with the `challengeId` the MFA step
+         *     presents (5 minutes, single use). Never anything about why a login
+         *     failed — a failure is the uniform 401.
+         */
+        LoginStepResponse: {
+            /** Challengeid */
+            challengeId?: string | null;
+            /** Factors */
+            factors?: string[];
+            /**
+             * Mfarequired
+             * @default false
+             */
+            mfaRequired?: boolean;
+            session?: components["schemas"]["LoginResponse"] | null;
         };
         /** LogoutResponse */
         LogoutResponse: {
@@ -5461,6 +5935,26 @@ export interface components {
             isDealerManager: boolean;
             /** Validto */
             validTo: string | null;
+        };
+        /** MfaStatusRead */
+        MfaStatusRead: {
+            /** Enforced */
+            enforced: boolean;
+            /** Enrolmentrequired */
+            enrolmentRequired: boolean;
+            /** Passkeys */
+            passkeys: components["schemas"]["PasskeyRead"][];
+            /** Recoverycodesremaining */
+            recoveryCodesRemaining: number;
+            /** Totpenrolled */
+            totpEnrolled: boolean;
+        };
+        /** MfaVerifyRequest */
+        MfaVerifyRequest: {
+            /** Challengeid */
+            challengeId: string;
+            /** Code */
+            code: string;
         };
         /**
          * ModuleCode
@@ -5728,6 +6222,70 @@ export interface components {
             displayName: string;
             role: components["schemas"]["VehiclePartyRole"];
         };
+        /** PasskeyAssertionRequest */
+        PasskeyAssertionRequest: {
+            /** Challengeid */
+            challengeId: string;
+            /** Credential */
+            credential: {
+                [key: string]: unknown;
+            };
+        };
+        /** PasskeyChallengeRequest */
+        PasskeyChallengeRequest: {
+            /** Challengeid */
+            challengeId: string;
+        };
+        /** PasskeyOptionsResponse */
+        PasskeyOptionsResponse: {
+            /** Challengeid */
+            challengeId: string;
+            /** Options */
+            options: string;
+        };
+        /** PasskeyRead */
+        PasskeyRead: {
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Label */
+            label: string;
+            /** Lastusedat */
+            lastUsedAt: string | null;
+        };
+        /** PasskeyRegisterRequest */
+        PasskeyRegisterRequest: {
+            /** Challengeid */
+            challengeId: string;
+            /** Credential */
+            credential: {
+                [key: string]: unknown;
+            };
+            /**
+             * Label
+             * @default
+             */
+            label?: string;
+        };
+        /** PasswordResetConfirm */
+        PasswordResetConfirm: {
+            /** Password */
+            password: string;
+            /** Token */
+            token: string;
+        };
+        /** PasswordResetRequest */
+        PasswordResetRequest: {
+            /** Email */
+            email: string;
+        };
         /**
          * PayloadKind
          * @enum {string}
@@ -5954,6 +6512,11 @@ export interface components {
             /** Suppliername */
             supplierName: string;
         };
+        /** RecoveryCodesRead */
+        RecoveryCodesRead: {
+            /** Codes */
+            codes: string[];
+        };
         /**
          * ReferenceValueCreate
          * @description list_code is not part of the body — it comes from the
@@ -6129,6 +6692,40 @@ export interface components {
         SecretWriteRequest: {
             /** Secretvalue */
             secretValue: string;
+        };
+        /** SessionList */
+        SessionList: {
+            /** Items */
+            items: components["schemas"]["SessionRead"][];
+        };
+        /** SessionRead */
+        SessionRead: {
+            /**
+             * Absoluteexpiresat
+             * Format: date-time
+             */
+            absoluteExpiresAt: string;
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            /** Current */
+            current: boolean;
+            /** Devicesummary */
+            deviceSummary: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Ipaddress */
+            ipAddress: string;
+            /**
+             * Lastseenat
+             * Format: date-time
+             */
+            lastSeenAt: string;
         };
         /** SetOptionsRequest */
         SetOptionsRequest: {
@@ -6399,6 +6996,18 @@ export interface components {
             /** Categories */
             categories: components["schemas"]["StandardTextCategory"][];
         };
+        /** TotpConfirmRequest */
+        TotpConfirmRequest: {
+            /** Code */
+            code: string;
+        };
+        /** TotpEnrolmentRead */
+        TotpEnrolmentRead: {
+            /** Provisioninguri */
+            provisioningUri: string;
+            /** Secret */
+            secret: string;
+        };
         /**
          * TradeInRequest
          * @description WP-8 PR-5 (S-D18/ADR-064) — the one-step trade-in action. Not a
@@ -6602,7 +7211,7 @@ export interface components {
             /** Accessroles */
             accessRoles: components["schemas"]["AccessRole"][];
             /** Authidentityid */
-            authIdentityId: string;
+            authIdentityId?: string | null;
             /**
              * Email
              * Format: email
@@ -7671,6 +8280,72 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    invitation_accept_v1_auth_invitations_accept_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvitationAccept"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    login_v1_auth_login_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginStepResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     logout_v1_auth_logout_post: {
         parameters: {
             query?: never;
@@ -7724,17 +8399,431 @@ export interface operations {
             };
         };
     };
-    oidc_callback_v1_auth_oidc_callback_get: {
+    mfa_status_v1_auth_mfa_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MfaStatusRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    passkey_login_options_v1_auth_mfa_passkey_options_post: {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasskeyChallengeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasskeyOptionsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    passkey_login_verify_v1_auth_mfa_passkey_verify_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasskeyAssertionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginStepResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    passkey_register_v1_auth_mfa_passkeys_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasskeyRegisterRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasskeyRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    passkey_register_options_v1_auth_mfa_passkeys_options_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
         requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasskeyOptionsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    passkey_remove_v1_auth_mfa_passkeys__passkey_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                passkey_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recovery_codes_regenerate_v1_auth_mfa_recovery_codes_regenerate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecoveryCodesRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    totp_remove_v1_auth_mfa_totp_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    totp_confirm_v1_auth_mfa_totp_confirm_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TotpConfirmRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecoveryCodesRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    totp_enrol_v1_auth_mfa_totp_enrol_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TotpEnrolmentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    verify_mfa_v1_auth_mfa_verify_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MfaVerifyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginStepResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    password_reset_confirm_v1_auth_password_reset_confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordResetConfirm"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    password_reset_request_v1_auth_password_reset_request_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordResetRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7742,14 +8831,27 @@ export interface operations {
                     "application/json": unknown;
                 };
             };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
         };
     };
-    oidc_login_v1_auth_oidc_login_get: {
+    list_my_sessions_v1_auth_sessions_get: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
-            cookie?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
         };
         requestBody?: never;
         responses: {
@@ -7759,7 +8861,49 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SessionList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_my_session_v1_auth_sessions__session_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -9642,6 +10786,116 @@ export interface operations {
             };
         };
     };
+    get_auth_config_v1_dealerships__dealership_id__auth_config_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthConfigRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_auth_config_v1_dealerships__dealership_id__auth_config_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuthConfigUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthConfigRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_auth_events_v1_dealerships__dealership_id__auth_events_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthEventList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_document_template_v1_dealerships__dealership_id__document_template_get: {
         parameters: {
             query?: never;
@@ -9950,6 +11204,80 @@ export interface operations {
             };
         };
     };
+    reissue_invitation_v1_dealerships__dealership_id__users__user_id__invitations_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                user_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_login_status_v1_dealerships__dealership_id__users__user_id__login_status_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                user_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginStatusRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     set_home_manager_flag_v1_dealerships__dealership_id__users__user_id__manager_flag_put: {
         parameters: {
             query?: never;
@@ -10135,6 +11463,74 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["MembershipRead"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_user_mfa_v1_dealerships__dealership_id__users__user_id__mfa_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                user_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_user_sessions_v1_dealerships__dealership_id__users__user_id__sessions_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                user_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

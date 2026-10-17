@@ -23,7 +23,7 @@ from sqlalchemy.orm import DeclarativeBase, aliased
 from app.core.reconciliation import ReferenceCheck
 from app.platform.models.user import User
 
-ACTOR_COLUMNS = ("created_by", "updated_by", "granted_by")
+ACTOR_COLUMNS = ("created_by", "updated_by", "granted_by", "actor_id")
 
 # The target of every actor check is `user`, under an alias: platform's own
 # job (KAN-318) checks user.created_by -> user.id, a self-join the core

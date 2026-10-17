@@ -198,8 +198,8 @@ describe('DmsShell — a 401 from any API call ends the client session (KAN-237)
     )
     renderWithProviders(
       <Routes>
-        {/* The real LoginPage navigates the window to the identity
-            provider, which jsdom cannot do; this stands in for its route. */}
+        {/* The login screen itself has its own render test
+            (pages/LoginPage.render.test.tsx); this stands in for its route. */}
         <Route path="/login" element={<p>login screen</p>} />
         <Route
           path="/customers"

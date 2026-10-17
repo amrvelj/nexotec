@@ -212,8 +212,8 @@ def test_routes_outside_the_sales_entitlement_are_not_gated(client):
 # --- the session carries the set -------------------------------------------------------
 
 
-def test_the_login_response_and_token_carry_the_dealerships_entitlements(client, oidc_fake, db_session):
-    from tests.fake_oidc import ZitadelIdentity
+def test_the_login_response_and_token_carry_the_dealerships_entitlements(client, mailbox, db_session):
+    from tests.identity_support import session_cookie_for
 
     body = _create_dealership(client)
     _set(client, body["id"], ["sales", "parts"], if_match=1)
@@ -226,15 +226,11 @@ def test_the_login_response_and_token_carry_the_dealerships_entitlements(client,
             "role": "sales",
             "accessRoles": ["sales"],
             "isDealerManager": True,
-            "authIdentityId": f"stub-sub-{uuid.uuid4()}",
         },
         headers=_platform_admin(),
     )
     assert user.status_code == 201, user.text
-    oidc_fake.enqueue_identity(ZitadelIdentity(sub=user.json()["authIdentityId"], email=user.json()["email"], name=None))
-    callback = client.get("/v1/auth/oidc/callback", follow_redirects=False)
-    cookie = callback.cookies.get("dms_session")
-    assert cookie
+    cookie = session_cookie_for(client, mailbox, user.json())
     client.cookies.set("dms_session", cookie)
     me = client.get("/v1/auth/me")
     assert me.status_code == 200, me.text

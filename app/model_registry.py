@@ -25,9 +25,15 @@ from app.inventory.models.stock_item import StockItem, StockNumberSequence
 from app.inventory.models.stock_item_ledger import StockItemLedger
 from app.inventory.models.stock_item_option import StockItemOption
 from app.inventory.models.stock_item_publishing import StockItemMedia, StockItemPublishing
+from app.platform.models.auth_event import AuthEvent
+from app.platform.models.auth_session import AuthSession
+from app.platform.models.auth_token import AuthToken
+from app.platform.models.credential import Credential
 from app.platform.models.dealership import DealerGroup, Dealership, Location
+from app.platform.models.dealership_auth_config import DealershipAuthConfig
 from app.platform.models.dealership_membership import DealershipMembership
 from app.platform.models.document_template import DocumentTemplate
+from app.platform.models.mfa import MfaPasskey, MfaRecoveryCode, MfaTotp
 from app.platform.models.module_entitlement import ModuleEntitlement
 from app.platform.models.reference_data import ReferenceList, ReferenceValue
 from app.platform.models.standard_text_delegation import StandardTextDelegation
@@ -74,8 +80,12 @@ from app.vehicle.models.vehicle_mdm import VehicleMdm, VehicleNumberSequence
 
 __all__ = [
     "AuditEvent",
+    "AuthEvent",
+    "AuthSession",
+    "AuthToken",
     "Brand",
     "ColourCache",
+    "Credential",
     "Customer",
     "CustomerAddress",
     "CustomerTag",
@@ -84,6 +94,7 @@ __all__ = [
     "DealerPlate",
     "DealerPlateAssignment",
     "Dealership",
+    "DealershipAuthConfig",
     "DealershipMembership",
     "DocumentTemplate",
     "IdempotencyRecord",
@@ -99,6 +110,9 @@ __all__ = [
     "LegalBasis",
     "Location",
     "MappingGap",
+    "MfaPasskey",
+    "MfaRecoveryCode",
+    "MfaTotp",
     "ModelGroup",
     "ModelVariant",
     "ModelVariantEnergyRating",

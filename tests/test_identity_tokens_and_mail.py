@@ -1,0 +1,358 @@
+"""KAN-196 — invitations, password resets, the password policy and the
+platform sender (FR-AU-04…06, FR-AU-13…16, D-A-28): single-use hashed
+tokens, uniform 202 on a reset request, the policy's three rules and the
+breach check that fails open and flags, a delivery failure that is recorded
+rather than swallowed.
+"""
+
+import datetime as dt
+import hashlib
+import os
+import uuid
+from concurrent.futures import ThreadPoolExecutor
+
+import pytest
+from sqlalchemy import select
+from sqlalchemy.orm import sessionmaker
+
+from app.core.config import get_settings
+from app.platform.models.auth_event import AuthEvent, AuthEventKind
+from app.platform.models.auth_token import AuthToken, AuthTokenKind
+from app.platform.models.credential import Credential
+from app.platform.models.user import User, UserStatus
+from app.platform.services import auth_tokens, mail_texts, password_policy
+from app.platform.services.mailer import MailDeliveryError, get_mailer
+from tests.conftest import fastapi_app
+from tests.identity_support import (
+    STRONG_PASSWORD,
+    PasswordLogin,
+    cookie_headers,
+    create_dealership,
+    create_user,
+    last_mail_to,
+    platform_admin_headers,
+    token_in,
+)
+
+
+@pytest.fixture()
+def login(client, mailbox) -> PasswordLogin:
+    return PasswordLogin(client, mailbox)
+
+
+def _events(db_session, kind: AuthEventKind) -> list[AuthEvent]:
+    return list(db_session.scalars(select(AuthEvent).where(AuthEvent.kind == kind)).all())
+
+
+# --- invitations ---------------------------------------------------------------------
+
+
+def test_creating_a_user_mails_an_invitation_that_sets_the_first_password_and_activates(client, mailbox, db_session):
+    dealership = create_dealership(client, legalName="Garage Nord AG")
+    anna = create_user(client, dealership)
+    assert anna["status"] == "invited"
+
+    mail = last_mail_to(mailbox, anna["email"])
+    assert mail.subject == mail_texts.invitation(language=None, first_name="", dealership="", link="").subject
+    assert "Garage Nord AG" in mail.text
+    assert f"{get_settings().app_base_url}/invitations/accept?token=" in mail.text
+    raw = token_in(mail)
+    # Stored hashed, never in clear.
+    stored = db_session.scalars(select(AuthToken)).all()
+    assert [t.kind for t in stored] == [AuthTokenKind.INVITATION]
+    assert stored[0].token_hash == hashlib.sha256(raw.encode()).hexdigest()
+    assert raw not in stored[0].token_hash
+
+    response = client.post("/v1/auth/invitations/accept", json={"token": raw, "password": STRONG_PASSWORD})
+    assert response.status_code == 200, response.text
+    assert "dms_session=" in response.headers.get("set-cookie", "")
+    assert response.json()["user"]["status"] == "active"
+    db_session.expire_all()
+    assert db_session.get(User, uuid.UUID(anna["id"])).status == UserStatus.ACTIVE
+    assert len(_events(db_session, AuthEventKind.INVITATION_ACCEPTED)) == 1
+    assert len(_events(db_session, AuthEventKind.PASSWORD_SET)) == 1
+
+    # Single use.
+    again = client.post("/v1/auth/invitations/accept", json={"token": raw, "password": "another-strong-one-2026"})
+    assert again.status_code == 400, again.text
+    assert "no longer valid" in again.json()["error"]["message"]
+
+
+def test_a_reissued_invitation_consumes_the_previous_one(client, mailbox):
+    dealership = create_dealership(client)
+    anna = create_user(client, dealership)
+    first = token_in(last_mail_to(mailbox, anna["email"]))
+
+    response = client.post(
+        f"/v1/dealerships/{dealership}/users/{anna['id']}/invitations", headers=platform_admin_headers()
+    )
+    assert response.status_code == 202, response.text
+    second = token_in(last_mail_to(mailbox, anna["email"]))
+    assert second != first
+
+    assert (
+        client.post("/v1/auth/invitations/accept", json={"token": first, "password": STRONG_PASSWORD}).status_code
+        == 400
+    )
+    assert (
+        client.post("/v1/auth/invitations/accept", json={"token": second, "password": STRONG_PASSWORD}).status_code
+        == 200
+    )
+
+
+def test_an_expired_invitation_is_refused(client, mailbox, db_session):
+    dealership = create_dealership(client)
+    anna = create_user(client, dealership)
+    raw = token_in(last_mail_to(mailbox, anna["email"]))
+    token = db_session.scalars(select(AuthToken)).one()
+    token.expires_at = dt.datetime.now(dt.UTC) - dt.timedelta(seconds=1)
+    db_session.commit()
+
+    response = client.post("/v1/auth/invitations/accept", json={"token": raw, "password": STRONG_PASSWORD})
+    assert response.status_code == 400
+
+
+def test_no_invitation_goes_to_a_deactivated_user(client, mailbox, login):
+    dealership = create_dealership(client)
+    beat = create_user(client, dealership, isDealerManager=False)
+    login.accept_invitation(beat)
+    response = client.patch(
+        f"/v1/dealerships/{dealership}/users/{beat['id']}",
+        json={"status": "deactivated"},
+        headers={**platform_admin_headers(), "If-Match": "2"},
+    )
+    assert response.status_code == 200, response.text
+    sent_before = len(mailbox)
+
+    response = client.post(
+        f"/v1/dealerships/{dealership}/users/{beat['id']}/invitations", headers=platform_admin_headers()
+    )
+    assert response.status_code == 409, response.text
+    assert len(mailbox) == sent_before
+
+
+# --- resets --------------------------------------------------------------------------
+
+
+def test_a_reset_request_answers_202_either_way_and_mails_only_a_live_account(client, mailbox, login, db_session):
+    dealership = create_dealership(client)
+    anna = create_user(client, dealership)
+    login.accept_invitation(anna)
+    beat = create_user(client, dealership, isDealerManager=False)
+    login.accept_invitation(beat)
+    client.patch(
+        f"/v1/dealerships/{dealership}/users/{beat['id']}",
+        json={"status": "suspended"},
+        headers={**platform_admin_headers(), "If-Match": "2"},
+    )
+    sent_before = len(mailbox)
+
+    assert client.post("/v1/auth/password-reset/request", json={"email": "nobody@example.ch"}).status_code == 202
+    assert client.post("/v1/auth/password-reset/request", json={"email": beat["email"]}).status_code == 202
+    assert len(mailbox) == sent_before
+    assert client.post("/v1/auth/password-reset/request", json={"email": anna["email"].upper()}).status_code == 202
+    assert len(mailbox) == sent_before + 1
+    assert mailbox[-1].to == anna["email"]
+    requested = _events(db_session, AuthEventKind.PASSWORD_RESET_REQUESTED)
+    assert sorted(bool(e.details["matched"]) for e in requested) == [False, False, True]
+
+
+def test_a_reset_sets_the_password_ends_every_session_and_is_single_use(client, mailbox, login, db_session):
+    dealership = create_dealership(client)
+    anna = create_user(client, dealership)
+    cookie = login.session_cookie(anna)
+    assert client.get("/v1/auth/me", headers=cookie_headers(cookie)).status_code == 200
+
+    client.post("/v1/auth/password-reset/request", json={"email": anna["email"]})
+    raw = token_in(last_mail_to(mailbox, anna["email"]))
+    new_password = "a-brand-new-password-2026"
+    response = client.post("/v1/auth/password-reset/confirm", json={"token": raw, "password": new_password})
+    assert response.status_code == 204, response.text
+
+    assert client.get("/v1/auth/me", headers=cookie_headers(cookie)).status_code == 401
+    assert login.login(anna, STRONG_PASSWORD).status_code == 401
+    assert login.login(anna, new_password).status_code == 200
+    again = client.post("/v1/auth/password-reset/confirm", json={"token": raw, "password": "yet-another-one-2026"})
+    assert again.status_code == 400
+    assert len(_events(db_session, AuthEventKind.PASSWORD_RESET)) == 1
+    revoked = _events(db_session, AuthEventKind.SESSION_REVOKED)
+    assert [e.details["reason"] for e in revoked] == ["password_reset"]
+
+
+def test_the_mail_is_written_in_the_users_ui_language(client, mailbox, login):
+    dealership = create_dealership(client)
+    anna = create_user(client, dealership)
+    cookie = login.session_cookie(anna)
+    response = client.put(
+        "/v1/me/preferences/ui",
+        json={"schemaVersion": 1, "uiLanguage": "fr"},
+        headers=cookie_headers(cookie),
+    )
+    assert response.status_code in (200, 201), response.text
+
+    client.post("/v1/auth/password-reset/request", json={"email": anna["email"]})
+
+    mail = last_mail_to(mailbox, anna["email"])
+    assert mail.subject == mail_texts.password_reset(language="fr", first_name="", link="").subject
+    assert mail.subject != mail_texts.password_reset(language="de", first_name="", link="").subject
+
+
+# --- the password policy -----------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("password", "rule"),
+    [
+        ("Short-pw-1!", "min_length"),
+        ("anna-is-my-first-name-2026", "deny_list"),
+        ("Musterbetrieb-forever-2026", "deny_list"),
+        ("x" * 11 + "muster", "deny_list"),
+    ],
+)
+def test_the_policy_refuses_short_passwords_and_names(client, mailbox, password, rule):
+    dealership = create_dealership(client)  # "Garage Musterbetrieb AG"
+    anna = create_user(client, dealership)
+    raw = token_in(last_mail_to(mailbox, anna["email"]))
+
+    response = client.post("/v1/auth/invitations/accept", json={"token": raw, "password": password})
+
+    assert response.status_code == 422, response.text
+    assert response.json()["error"]["details"]["rule"] == rule
+    assert password not in response.text
+    # A refused password leaves the invitation usable.
+    assert (
+        client.post("/v1/auth/invitations/accept", json={"token": raw, "password": STRONG_PASSWORD}).status_code == 200
+    )
+
+
+def test_the_last_five_passwords_are_refused(client, mailbox, login, db_session):
+    dealership = create_dealership(client)
+    anna = create_user(client, dealership)
+    login.accept_invitation(anna)
+
+    def reset_to(password: str):
+        client.post("/v1/auth/password-reset/request", json={"email": anna["email"]})
+        raw = token_in(last_mail_to(mailbox, anna["email"]))
+        return client.post("/v1/auth/password-reset/confirm", json={"token": raw, "password": password})
+
+    assert reset_to(STRONG_PASSWORD).status_code == 400
+    for i in range(4):
+        assert reset_to(f"rotation-number-{i}-of-the-year-2026").status_code == 204, i
+    # Five hashes are remembered: the original is still refused …
+    assert reset_to(STRONG_PASSWORD).status_code == 400
+    assert reset_to("rotation-number-4-of-the-year-2026").status_code == 204
+    # … until it falls out of the window of five.
+    assert reset_to(STRONG_PASSWORD).status_code == 204
+    credential = db_session.scalar(select(Credential).where(Credential.user_id == anna["id"]))
+    assert len(credential.password_history) == 4
+
+
+def test_a_breached_password_is_refused_and_an_unavailable_check_is_flagged(client, mailbox, db_session, monkeypatch):
+    settings = get_settings()
+    monkeypatch.setattr(settings, "hibp_enabled", True)
+    asked: list[str] = []
+
+    def breached(password: str, *, timeout: float) -> int | None:
+        asked.append(password)
+        return 12345
+
+    monkeypatch.setattr(password_policy, "hibp_breach_count", breached)
+    dealership = create_dealership(client)
+    anna = create_user(client, dealership)
+    raw = token_in(last_mail_to(mailbox, anna["email"]))
+
+    response = client.post("/v1/auth/invitations/accept", json={"token": raw, "password": STRONG_PASSWORD})
+    assert response.status_code == 422, response.text
+    assert response.json()["error"]["details"]["rule"] == "breached"
+    assert asked == [STRONG_PASSWORD]
+
+    # FR-AU-05: the service does not answer — the set succeeds and is flagged.
+    monkeypatch.setattr(password_policy, "hibp_breach_count", lambda password, *, timeout: None)
+    response = client.post("/v1/auth/invitations/accept", json={"token": raw, "password": STRONG_PASSWORD})
+    assert response.status_code == 200, response.text
+    credential = db_session.scalar(select(Credential).where(Credential.user_id == anna["id"]))
+    assert credential.breach_check_pending is True
+    assert len(_events(db_session, AuthEventKind.BREACH_CHECK_UNAVAILABLE)) == 1
+
+
+def test_the_breach_check_sends_five_hash_characters_never_the_password(monkeypatch):
+    seen: dict = {}
+
+    digest = hashlib.sha1(b"password").hexdigest().upper()
+
+    class _Response:
+        status_code = 200
+        text = f"0018A45C4D1DEF81644B54AB7F969B88D65:3\n{digest[5:]}:1\n"
+
+    def fake_get(url, **kwargs):
+        seen["url"] = url
+        seen["headers"] = kwargs.get("headers")
+        return _Response()
+
+    monkeypatch.setattr(password_policy.httpx, "get", fake_get)
+    count = password_policy.hibp_breach_count("password", timeout=1.0)
+    assert seen["url"].endswith("/range/" + digest[:5])
+    assert digest[5:] not in seen["url"]
+    assert seen["headers"]["Add-Padding"] == "true"
+    assert count == 1
+
+
+# --- the platform sender -------------------------------------------------------------------
+
+
+def test_a_delivery_failure_is_recorded_and_the_user_still_exists(client, db_session):
+    class _Broken:
+        def send(self, mail):
+            raise MailDeliveryError("connection refused")
+
+    fastapi_app.dependency_overrides[get_mailer] = lambda: _Broken()
+    try:
+        dealership = create_dealership(client)
+        anna = create_user(client, dealership)
+    finally:
+        fastapi_app.dependency_overrides.pop(get_mailer, None)
+
+    failed = _events(db_session, AuthEventKind.MAIL_DELIVERY_FAILED)
+    assert [str(e.user_id) for e in failed] == [anna["id"]]
+    assert len(_events(db_session, AuthEventKind.INVITATION_ISSUED)) == 1
+    # The token exists; a manager re-issues once the mailbox is back.
+    assert db_session.scalar(select(AuthToken).where(AuthToken.user_id == uuid.UUID(anna["id"]))) is not None
+
+
+# --- tokens --------------------------------------------------------------------------------
+
+
+def test_a_token_is_consumed_exactly_once(client, db_session):
+    user_id = uuid.UUID(create_user(client, create_dealership(client))["id"])
+    raw = auth_tokens.issue(db_session, user_id=user_id, kind=AuthTokenKind.PASSWORD_RESET, actor_id=None)
+    db_session.commit()
+
+    assert auth_tokens.consume(db_session, raw=raw, kind=AuthTokenKind.INVITATION) is None, "another kind"
+    first = auth_tokens.consume(db_session, raw=raw, kind=AuthTokenKind.PASSWORD_RESET)
+    db_session.commit()
+    assert first is not None
+    assert auth_tokens.consume(db_session, raw=raw, kind=AuthTokenKind.PASSWORD_RESET) is None
+    assert auth_tokens.peek(db_session, raw=raw, kind=AuthTokenKind.PASSWORD_RESET) is None
+
+
+@pytest.mark.skipif(not os.environ.get("DMS_TEST_DATABASE_URL"), reason="row-level UPDATE race: Postgres only")
+def test_two_concurrent_presentations_of_one_token_cannot_both_win(client, engine):
+    user_id = uuid.UUID(create_user(client, create_dealership(client))["id"])
+    factory = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
+    setup = factory()
+    raw = auth_tokens.issue(setup, user_id=user_id, kind=AuthTokenKind.INVITATION, actor_id=None)
+    setup.commit()
+    setup.close()
+
+    def consume() -> bool:
+        session = factory()
+        try:
+            token = auth_tokens.consume(session, raw=raw, kind=AuthTokenKind.INVITATION)
+            session.commit()
+            return token is not None
+        finally:
+            session.close()
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        outcomes = list(pool.map(lambda _: consume(), range(4)))
+    assert outcomes.count(True) == 1, outcomes

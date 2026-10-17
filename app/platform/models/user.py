@@ -92,12 +92,13 @@ class User(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMixin, B
         default=EmploymentStatus.ACTIVE,
     )
 
-    # The Zitadel `sub` claim (WP-4, ADR-016) — no credentials stored here,
-    # ever (spec cross-cutting #10). Unique: one external identity maps to
-    # exactly one internal User, checked at login
-    # (app.platform.api.auth::oidc_callback). Provisioning stays entirely
-    # ours — an admin sets this from the person's real Zitadel subject when
-    # creating their User row; Zitadel never auto-provisions one.
+    # The identity-provider subject (D-A-08 / D-A-11, KAN-196): the join a
+    # federated provider (`EntraOidcProvider`, [P3]) resolves a user by. A
+    # local-password user (every user today) is resolved by e-mail and
+    # carries `local:<user id>` here, so the column stays unique and
+    # non-null for the federation seam. No credential is stored on this row,
+    # ever: the password hash lives in `credential` and nowhere else
+    # (tests/architecture/test_no_password_credential_storage.py).
     auth_identity_id: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
 
     status: Mapped[UserStatus] = mapped_column(

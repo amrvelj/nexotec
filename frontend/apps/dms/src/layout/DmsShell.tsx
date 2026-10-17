@@ -287,6 +287,7 @@ function DmsShellInner({ children }: { children: ReactNode }) {
         onSignOut: () => {
           logout().then(() => navigate('/login'))
         },
+        onAccountSecurity: () => navigate('/account/security'),
         labels: {
           mainNavigation: t('shell.sidebar.mainNavigation'),
           expandSidebar: t('shell.sidebar.expandSidebar'),
@@ -298,6 +299,7 @@ function DmsShellInner({ children }: { children: ReactNode }) {
           language: t('shell.sidebar.language'),
           switchDealership: t('shell.sidebar.switchDealership'),
           signOut: t('shell.signOut'),
+          accountSecurity: t('shell.sidebar.accountSecurity'),
         },
         activeDealership: activeDealership ?? undefined,
         memberships,

@@ -17,6 +17,7 @@ from app.core.base import utcnow
 from app.core.errors import BadRequestError, ConflictError, ForbiddenError, NotFoundError, UnprocessableEntityError
 from app.core.pagination import PageParams, build_page, paginate_query
 from app.core.tenancy import get_or_404
+from app.core.uuid7 import uuid7
 from app.platform.models.dealership_membership import DealershipMembership
 from app.platform.models.user import EmploymentStatus, User, UserStatus
 from app.platform.schemas.user import UserCreate, UserUpdate
@@ -283,7 +284,9 @@ def create_user(
     actor_roles: frozenset[AccessRole],
 ) -> User:
     _assert_may_create_with_roles(roles=data.access_roles, actor_roles=actor_roles)
+    user_id = uuid7()
     user = User(
+        id=user_id,
         tenant_id=dealership_id,
         first_name=data.first_name,
         last_name=data.last_name,
@@ -293,7 +296,9 @@ def create_user(
         access_roles=_role_values(data.access_roles),
         is_dealer_manager=data.is_dealer_manager,
         employment_status=data.employment_status,
-        auth_identity_id=data.auth_identity_id,
+        # KAN-196: a local-password user is resolved by e-mail; the subject
+        # column stays unique and non-null for the federation seam (D-A-11).
+        auth_identity_id=data.auth_identity_id or f"local:{user_id}",
         created_by=actor_id,
         updated_by=actor_id,
     )
@@ -437,6 +442,12 @@ def update_user(
         # FR-A-28: delegations end with deactivation — the terminal status,
         # not a suspension, which keeps them for the user's return.
         text_delegation.end_all(db, user=user, actor_id=actor_id, reason="deactivated")
+    if "status" in after and user.status in (UserStatus.DEACTIVATED, UserStatus.SUSPENDED):
+        # FR-AU-17 (KAN-196): a user who may no longer hold a session loses
+        # every live one now, not when the cookie expires.
+        from app.platform.services import auth_sessions
+
+        auth_sessions.revoke_all_for_user(db, user_id=user.id, reason=str(_plain(user.status)))
 
     try:
         db.commit()

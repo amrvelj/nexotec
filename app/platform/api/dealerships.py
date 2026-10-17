@@ -15,10 +15,10 @@ used to read _WRITE_ROLES.
 
 import uuid
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
-from app.core.audit import list_tenant_audit_events
+from app.core.audit import list_tenant_audit_events, record_audit_event
 from app.core.audit_schemas import AuditEventPage, AuditEventRead
 from app.core.auth import Principal, get_current_principal, require_access_role
 from app.core.concurrency import check_version, require_if_match
@@ -27,8 +27,16 @@ from app.core.pagination import PageParams, page_params
 from app.core.permissions import ModuleCode, require_read, require_write
 from app.core.tenancy import require_tenant_match
 from app.db import get_db
+from app.platform.api.auth import client_ip
 from app.platform.models.dealership import DealershipStatus
 from app.platform.models.user import UserStatus
+from app.platform.schemas.auth import (
+    AuthConfigRead,
+    AuthConfigUpdate,
+    AuthEventList,
+    AuthEventRead,
+    LoginStatusRead,
+)
 from app.platform.schemas.dealership import DealershipCreate, DealershipPage, DealershipRead, DealershipUpdate
 from app.platform.schemas.entitlement import EntitlementsRead, EntitlementsUpdate
 from app.platform.schemas.membership import (
@@ -40,11 +48,13 @@ from app.platform.schemas.membership import (
     TextDelegationsUpdate,
 )
 from app.platform.schemas.user import UserCreate, UserPage, UserRead, UserUpdate
+from app.platform.services import auth_events, auth_sessions, identity, mfa
 from app.platform.services import dealership as dealership_service
 from app.platform.services import entitlement as entitlement_service
 from app.platform.services import membership as membership_service
 from app.platform.services import text_delegation as text_delegation_service
 from app.platform.services import user as user_service
+from app.platform.services.mailer import PlatformMailer, get_mailer
 
 router = APIRouter(tags=["dealerships"], route_class=IdempotentRoute)
 
@@ -164,8 +174,10 @@ def set_entitlements(
 def create_user(
     dealership_id: uuid.UUID,
     body: UserCreate,
+    request: Request,
     principal: Principal = Depends(require_write("dealership_users")),
     db: Session = Depends(get_db),
+    mailer: PlatformMailer = Depends(get_mailer),
 ):
     require_tenant_match(dealership_id, principal)
     dealership_service.get_dealership_or_404(db, dealership_id)  # 404s a well-formed but nonexistent dealership_id
@@ -173,6 +185,10 @@ def create_user(
     user = user_service.create_user(
         db, dealership_id=dealership_id, data=body, actor_id=principal.user_id, actor_roles=principal.roles
     )
+    # KAN-196 (FR-AU-13): the invitation goes out with the user — the person
+    # sets their own password through its link; nobody sets it for them.
+    identity.issue_invitation(db, mailer, user=user, actor_id=principal.user_id, ip_address=client_ip(request))
+    db.commit()
     return UserRead.model_validate(user, from_attributes=True)
 
 
@@ -374,3 +390,163 @@ def end_text_delegations(
         user.updated_by = principal.user_id
         user.version += 1
         db.commit()
+
+
+# --- Identity administration (KAN-196: FR-AU-10/11/12/17/21/25) -------------------------
+
+
+@router.post("/dealerships/{dealership_id}/users/{user_id}/invitations", status_code=202)
+def reissue_invitation(
+    dealership_id: uuid.UUID,
+    user_id: uuid.UUID,
+    request: Request,
+    principal: Principal = Depends(require_write("dealership_users")),
+    db: Session = Depends(get_db),
+    mailer: PlatformMailer = Depends(get_mailer),
+):
+    """FR-AU-13 / FR-AU-25: a fresh single-use invitation (the previous one
+    is consumed). The manager's answer to a lost mail or a lockout — never
+    a password."""
+
+    require_tenant_match(dealership_id, principal)
+    user = user_service.get_user_or_404(db, dealership_id, user_id)
+    user_service.assert_user_is_not_deactivated(user)
+    identity.issue_invitation(db, mailer, user=user, actor_id=principal.user_id, ip_address=client_ip(request))
+    db.commit()
+
+
+@router.get("/dealerships/{dealership_id}/users/{user_id}/login-status", response_model=LoginStatusRead)
+def get_login_status(
+    dealership_id: uuid.UUID,
+    user_id: uuid.UUID,
+    principal: Principal = Depends(require_read("dealership_users")),
+    db: Session = Depends(get_db),
+):
+    """FR-AU-10: the manager sees that a user is locked out; nothing more."""
+
+    require_tenant_match(dealership_id, principal)
+    user = user_service.get_user_or_404(db, dealership_id, user_id)
+    return LoginStatusRead(**identity.login_status(db, user))
+
+
+@router.delete("/dealerships/{dealership_id}/users/{user_id}/sessions", status_code=204)
+def revoke_user_sessions(
+    dealership_id: uuid.UUID,
+    user_id: uuid.UUID,
+    request: Request,
+    principal: Principal = Depends(require_write("dealership_users")),
+    db: Session = Depends(get_db),
+):
+    """FR-AU-17: a manager ends every session of a user of his Betrieb."""
+
+    require_tenant_match(dealership_id, principal)
+    user = user_service.get_user_or_404(db, dealership_id, user_id)
+    user_service.assert_may_touch(user=user, actor_roles=principal.roles)
+    ended = auth_sessions.revoke_all_for_user(db, user_id=user.id, reason="manager")
+    auth_events.record(
+        db,
+        auth_events.AuthEventKind.SESSION_REVOKED,
+        user_id=user.id,
+        dealership_id=user.tenant_id,
+        actor_id=principal.user_id,
+        ip_address=client_ip(request),
+        details={"count": ended, "reason": "manager"},
+    )
+    db.commit()
+
+
+@router.delete("/dealerships/{dealership_id}/users/{user_id}/mfa", status_code=204)
+def remove_user_mfa(
+    dealership_id: uuid.UUID,
+    user_id: uuid.UUID,
+    request: Request,
+    principal: Principal = Depends(require_write("dealership_users")),
+    db: Session = Depends(get_db),
+):
+    """FR-AU-12 / FR-AU-25: removes every factor and recovery code. Always a
+    `mfa_removed` auth event naming the actor — the user's `security`
+    notification hangs off it; it is otherwise an account-takeover path."""
+
+    require_tenant_match(dealership_id, principal)
+    user = user_service.get_user_or_404(db, dealership_id, user_id)
+    user_service.assert_may_touch(user=user, actor_roles=principal.roles)
+    mfa.remove_all_factors(db, user=user, actor_id=principal.user_id, ip_address=client_ip(request))
+    db.commit()
+
+
+@router.get("/dealerships/{dealership_id}/auth-events", response_model=AuthEventList)
+def list_auth_events(
+    dealership_id: uuid.UUID,
+    principal: Principal = Depends(require_read("audit_logs")),
+    db: Session = Depends(get_db),
+):
+    """FR-AU-21: the manager reads the authentication stream of his own
+    Betrieb — the newest 200 events."""
+
+    require_tenant_match(dealership_id, principal)
+    rows = auth_events.list_for_dealership(db, dealership_id=dealership_id)
+    return AuthEventList(
+        items=[
+            AuthEventRead(
+                id=row.id,
+                kind=row.kind.value,
+                user_id=row.user_id,
+                actor_id=row.actor_id,
+                ip_address=row.ip_address,
+                occurred_at=row.occurred_at,
+                details=row.details,
+            )
+            for row in rows
+        ]
+    )
+
+
+@router.get("/dealerships/{dealership_id}/auth-config", response_model=AuthConfigRead)
+def get_auth_config(
+    dealership_id: uuid.UUID,
+    principal: Principal = Depends(require_read("dealership_settings")),
+    db: Session = Depends(get_db),
+):
+    require_tenant_match(dealership_id, principal)
+    dealership_service.get_dealership_or_404(db, dealership_id)
+    config = identity.auth_config_for(db, dealership_id)
+    db.commit()
+    return AuthConfigRead(
+        auth_method=config.auth_method.value, mfa_enforced=config.mfa_enforced, version=config.version
+    )
+
+
+@router.put("/dealerships/{dealership_id}/auth-config", response_model=AuthConfigRead)
+def set_auth_config(
+    dealership_id: uuid.UUID,
+    body: AuthConfigUpdate,
+    if_match: int = Depends(require_if_match),
+    principal: Principal = Depends(require_write("dealership_settings")),
+    db: Session = Depends(get_db),
+):
+    """D-A-09 / FR-AU-11: the manager decides whether his Betrieb enforces a
+    second factor. Platform staff are always enforced (D-A-36), whatever
+    this says."""
+
+    require_tenant_match(dealership_id, principal)
+    dealership_service.get_dealership_or_404(db, dealership_id)
+    config = identity.auth_config_for(db, dealership_id)
+    check_version(config.version, if_match, entity_name="DealershipAuthConfig")
+    if config.mfa_enforced != body.mfa_enforced:
+        record_audit_event(
+            db,
+            entity_type="dealership",
+            entity_id=dealership_id,
+            tenant_id=dealership_id,
+            action="auth_config_set",
+            actor_id=principal.user_id,
+            before={"mfa_enforced": config.mfa_enforced},
+            after={"mfa_enforced": body.mfa_enforced},
+        )
+        config.mfa_enforced = body.mfa_enforced
+        config.updated_by = principal.user_id
+        config.version += 1
+    db.commit()
+    return AuthConfigRead(
+        auth_method=config.auth_method.value, mfa_enforced=config.mfa_enforced, version=config.version
+    )

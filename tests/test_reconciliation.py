@@ -27,10 +27,9 @@ from app.inventory.public import reserve_for_contract
 from app.inventory.schemas.stock_item import StockItemCreate
 from app.inventory.services.stock_item import create_stock_item
 from app.platform import reconciliation as platform_reconciliation
-from app.platform.models.dealership import DealerGroup, Dealership, Location
-from app.platform.models.document_template import DocumentTemplate
-from app.platform.models.reference_data import ReferenceList, ReferenceValue
-from app.platform.models.user import User
+from app.platform.models.dealership import Dealership
+from app.platform.reconciliation import ACTOR_TABLES
+from app.platform.services.actor_reference import ACTOR_COLUMNS
 from app.reconciliation_runner import MultiContextReconciliationAlarm, run_all
 from app.sales import reconciliation as sales_reconciliation
 from app.sales.models.contract import ContractStatus, SalesContract
@@ -135,9 +134,6 @@ def _real_actor(client, dealer_id: str) -> uuid.UUID:
     return uuid.UUID(_create_user(client, dealer_id)["id"])
 
 
-_PLATFORM_ACTOR_TABLES = (DealerGroup, Dealership, Location, User, ReferenceList, ReferenceValue, DocumentTemplate)
-
-
 def _make_platform_actors_real(db_session, user_id: uuid.UUID) -> None:
     """KAN-318 — platform's own actor columns are reconciled too. The
     platform_admin tokens this file mints carry a random subject (there is
@@ -147,8 +143,12 @@ def _make_platform_actors_real(db_session, user_id: uuid.UUID) -> None:
     row. Stamping a real user gives the test data the shape production
     data has, before a test runs the platform job."""
 
-    for model in _PLATFORM_ACTOR_TABLES:
-        for column in (model.created_by, model.updated_by):
+    for model in ACTOR_TABLES:
+        # Every actor column the platform job checks (KAN-196 added
+        # auth_event.actor_id: creating a user through the API records the
+        # invitation with the token's subject as its actor).
+        columns = [getattr(model, name) for name in ACTOR_COLUMNS if hasattr(model, name)]
+        for column in columns:
             db_session.execute(update(model).where(column.is_not(None)).values({column.key: user_id}))
     db_session.commit()
 
@@ -1013,6 +1013,16 @@ def test_no_hard_delete_endpoint_exists_for_fk_target_entities(client):
         # removed sister-Betrieb access keeps its record (Anto, 2026-10-17).
         "/v1/dealerships/{dealership_id}/users/{user_id}/memberships/{member_dealership_id}",
         "/v1/dealerships/{dealership_id}/users/{user_id}/text-delegations",
+        # KAN-196: sessions are revoked (`revoked_at`), never deleted — the
+        # user's own and a manager's revoke-all. The second factors are real
+        # deletes of the user's own secret material (a TOTP secret, a passkey
+        # public key, the recovery-code hashes); every removal leaves an
+        # `mfa_removed` auth event naming the actor (FR-AU-12).
+        "/v1/auth/sessions/{session_id}",
+        "/v1/auth/mfa/totp",
+        "/v1/auth/mfa/passkeys/{passkey_id}",
+        "/v1/dealerships/{dealership_id}/users/{user_id}/sessions",
+        "/v1/dealerships/{dealership_id}/users/{user_id}/mfa",
         "/v1/customers/{customer_id}/phones/{phone_id}",
         "/v1/customers/{customer_id}/emails/{email_id}",
         "/v1/customers/{customer_id}/addresses/{address_id}",

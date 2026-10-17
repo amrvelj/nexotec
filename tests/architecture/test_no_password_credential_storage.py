@@ -1,17 +1,15 @@
-"""Architecture test (WP-4, closes Gap Analysis G-09): "no password hash
-remains anywhere in the database," verified with a query against the live
-mapped schema — not by inspecting that app/platform/models/credential.py
-was deleted, which proves the file is gone but not that nothing replaced
-it. Same idiom as tests/test_acceptance_shell.py's own
-test_ac6_schema_has_no_payment_card_ssn_or_drivers_license_columns:
-introspect SQLAlchemy metadata directly, across every mapped table, not
-just the ones this change touched.
+"""Architecture test (WP-4, inverted by D-A-07 / KAN-196): password-shaped
+columns exist in `credential` and NOWHERE else, and no table other than
+`credential` (and, later, `terminal_device` — ADR-028) holds a credential.
 
-Two checks, deliberately broader than the literal ask: the credential
-table itself is gone, AND no column anywhere matches a password-shaped
-name pattern — a standing regression guard against a future PR
-reintroducing one elsewhere, not just a check that this one table stays
-dropped.
+WP-4 wrote the first version of this guard the other way round — "no
+password hash remains anywhere in the database" — when Zitadel owned the
+front door. Nexotec owns authentication again (D-A-07), so the same guard
+now points the other way: the one credential table must exist, its
+password column must exist, and nothing else may grow one. A customer
+credential (D-A-13, reserved) can only ever be a second table named here,
+never new columns on `credential`. Verified with a query against the live
+mapped schema, across every mapped table.
 """
 
 import re
@@ -19,20 +17,38 @@ import re
 import app.model_registry
 from app.db import Base
 
-_PASSWORD_LIKE_COLUMN_PATTERN = re.compile(r"password|pwd|bcrypt", re.IGNORECASE)
+_PASSWORD_LIKE_COLUMN_PATTERN = re.compile(r"password|pwd|bcrypt|argon", re.IGNORECASE)
+# The tables allowed to hold a credential: the staff realm's today; the
+# terminal realm's when ADR-028 ships. A third name here is a ruling.
+_CREDENTIAL_TABLES = {"credential", "terminal_device"}
 
 
-def test_credential_table_does_not_exist():
-    assert app.model_registry  # ensures all model modules are imported, metadata populated
-    assert "credential" not in Base.metadata.tables
-
-
-def test_no_password_hash_shaped_column_exists_anywhere():
+def test_the_credential_table_exists_with_its_password_column():
     assert app.model_registry
-    violations = [
+    table = Base.metadata.tables["credential"]
+    assert "password_hash" in table.columns
+    assert table.columns["user_id"].unique, "one credential set per user"
+
+
+def test_password_shaped_columns_live_in_credential_and_nowhere_else():
+    assert app.model_registry
+    elsewhere = [
         f"{table.name}.{column.name}"
         for table in Base.metadata.tables.values()
         for column in table.columns
-        if _PASSWORD_LIKE_COLUMN_PATTERN.search(column.name)
+        if _PASSWORD_LIKE_COLUMN_PATTERN.search(column.name) and table.name not in _CREDENTIAL_TABLES
     ]
-    assert violations == []
+    assert elsewhere == []
+
+
+def test_no_second_credential_table_appears_unannounced():
+    """A table named like a credential store that is not in the allowlist
+    is a new realm — an ADR, not a migration."""
+
+    assert app.model_registry
+    suspicious = [
+        name
+        for name in Base.metadata.tables
+        if re.search(r"credential|password", name, re.IGNORECASE) and name not in _CREDENTIAL_TABLES
+    ]
+    assert suspicious == []

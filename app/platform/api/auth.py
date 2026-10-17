@@ -1,17 +1,15 @@
-"""Login/logout via Zitadel (WP-4, ADR-016/ADR-007, closes Gap Analysis
-G-09 — the interim password store is gone as of this module: no
-Credential model, no bcrypt, no `POST .../credential` endpoint. See
-tests/architecture/test_no_password_credential_storage.py for the
-query-against-the-live-schema proof, not just this file's own absence.
+"""The identity front door (KAN-196; Authentication & Identity, D-A-07):
+Nexotec owns login. `POST /v1/auth/login` takes e-mail and password and
+answers either the session (the same httpOnly + Secure + SameSite=strict
+cookie holding OUR OWN RS256 JWT as before — the session layer is unchanged,
+A-RULE-AU-1) or an MFA step; the MFA step mints the session once a code, a
+recovery code or a passkey is verified. Reset and invitation set a password
+through a single-use token and never say whether an address exists.
 
-Zitadel authenticates; it never authorises — access_roles/is_dealer_manager
-live on User and are resolved here from the User row matched by
-auth_identity_id, never from anything Zitadel's ID token or userinfo
-response carries. The session itself is unchanged from before this
-package: an httpOnly + Secure + SameSite=strict cookie holding OUR OWN
-RS256 JWT (app.core.auth.create_access_token), never the JSON response
-body and never a Zitadel-issued token — the browser never holds a service
-token either way.
+`_mint_session` stays the one path every session token is minted through
+(KAN-141): login, the MFA step, invitation acceptance and switch-dealership.
+It now also writes the `session` row the platform session guard checks every
+request against (FR-AU-17/18), and refuses a suspended or deactivated user.
 """
 
 import logging
@@ -20,8 +18,6 @@ from dataclasses import dataclass
 from typing import Any
 
 from fastapi import APIRouter, Depends, Request, Response
-from fastapi.responses import RedirectResponse
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.auth import (
@@ -32,45 +28,80 @@ from app.core.auth import (
     get_current_principal,
 )
 from app.core.config import get_settings
-from app.core.errors import ForbiddenError, UnauthorizedError
+from app.core.errors import ForbiddenError, NotFoundError, UnauthorizedError
+from app.core.idempotent_route import IdempotentRoute
 from app.core.permissions import ModuleCode
 from app.db import get_db
+from app.platform.models.auth_event import AuthEventKind
+from app.platform.models.auth_session import AuthSession
+from app.platform.models.auth_token import AuthTokenKind
 from app.platform.models.dealership import Dealership
-from app.platform.models.user import User, UserStatus
+from app.platform.models.user import User
 from app.platform.schemas.auth import (
     DealershipMembershipSummary,
+    InvitationAccept,
+    LoginRequest,
     LoginResponse,
+    LoginStepResponse,
     LogoutResponse,
+    MfaStatusRead,
+    MfaVerifyRequest,
+    PasskeyAssertionRequest,
+    PasskeyChallengeRequest,
+    PasskeyOptionsResponse,
+    PasskeyRead,
+    PasskeyRegisterRequest,
+    PasswordResetConfirm,
+    PasswordResetRequest,
+    RecoveryCodesRead,
+    SessionList,
+    SessionRead,
     SwitchDealershipRequest,
+    TotpConfirmRequest,
+    TotpEnrolmentRead,
 )
 from app.platform.schemas.user import UserRead
+from app.platform.services import auth_events, auth_sessions, auth_tokens, identity, mfa
 from app.platform.services import dealership as dealership_service
 from app.platform.services import entitlement as entitlement_service
 from app.platform.services import user as user_service
-from app.platform.services.oidc import OidcClient, OidcError, get_oidc_client
+from app.platform.services.mailer import PlatformMailer, get_mailer
 
+# The front door sets or clears the session cookie on `Response`, which the
+# idempotency route class cannot replay; its POSTs are the exemptions Anto
+# ratified by name (tests/architecture/test_every_post_accepts_idempotency_key.py).
 router = APIRouter(tags=["auth"])
+# The authenticated account routes set no cookie and take the route class.
+account_router = APIRouter(tags=["auth"], route_class=IdempotentRoute)
 settings = get_settings()
 logger = logging.getLogger(__name__)
 
-# Typed dict[str, Any], not inferred — mypy can't distribute a spread of an
-# untyped dict literal across set_cookie/delete_cookie's differently-typed
-# keyword parameters (bool for httponly/secure, str for samesite/path).
 _COOKIE_KWARGS: dict[str, Any] = {"httponly": True, "secure": True, "samesite": "strict", "path": "/"}
 
 
-def _set_session_cookie(response: Response, token: str) -> None:
-    response.set_cookie(SESSION_COOKIE_NAME, token, max_age=settings.jwt_access_token_ttl_seconds, **_COOKIE_KWARGS)
+def _set_session_cookie(response: Response, token: str, *, max_age: int) -> None:
+    response.set_cookie(SESSION_COOKIE_NAME, token, max_age=max_age, **_COOKIE_KWARGS)
 
 
 def _membership_ids(db: Session, *, user_id: uuid.UUID, home_dealership_id: uuid.UUID) -> frozenset[uuid.UUID]:
     return frozenset({home_dealership_id}) | user_service.list_membership_dealership_ids(db, user_id=user_id)
 
 
-# Auth & Identity risk 4: whether a user may hold a session at all is checked
-# where every minting path passes, never in each route (KAN-141). Same rule
-# as login has always applied.
-_INACTIVE_STATUSES = frozenset({UserStatus.SUSPENDED, UserStatus.DEACTIVATED})
+def client_ip(request: Request) -> str:
+    """The source address the throttle and the auth events use. Behind the
+    platform's proxy (Render) the socket peer is the proxy, which appends
+    the real client to X-Forwarded-For — so the LAST entry is trusted, never
+    the first, which the client itself may have written to dodge the per-IP
+    backoff (FR-AU-08). The per-account axis does not depend on it."""
+
+    forwarded = request.headers.get("x-forwarded-for", "")
+    if forwarded:
+        return forwarded.rsplit(",", 1)[-1].strip()[:45]
+    return (request.client.host if request.client else "")[:45]
+
+
+def _device_summary(request: Request) -> str:
+    return request.headers.get("user-agent", "")[:255]
 
 
 @dataclass(frozen=True)
@@ -79,145 +110,273 @@ class _MintedSession:
     dealership: Dealership
     membership_ids: frozenset[uuid.UUID]
     entitlements: frozenset[str]
+    session: AuthSession | None
+    max_age: int
 
 
-def _mint_session(db: Session, *, user: User, dealership_id: uuid.UUID) -> _MintedSession:
-    """The one path every session token is minted through — login and
-    switch-dealership alike (KAN-141). Everything is read from the database
-    at the moment of minting, never from a token the caller already holds:
-    a suspended or deactivated user is refused with 401 (the only
-    UnauthorizedError raised here), and the target must be the home
-    dealership or a current dealership_membership row — 403 otherwise,
-    checked before the dealership is looked up, so an unknown id reveals
-    nothing.
+def _mint_session(
+    db: Session,
+    *,
+    user: User,
+    dealership_id: uuid.UUID,
+    session: AuthSession | None,
+    request: Request | None = None,
+    amr: tuple[str, ...] = (),
+    mfa_used: bool = False,
+) -> _MintedSession:
+    """The one path every session token is minted through — login, the MFA
+    step, invitation acceptance and switch-dealership alike (KAN-141).
+    Everything is read from the database at the moment of minting, never
+    from a token the caller already holds: a suspended or deactivated user
+    is refused with 401, and the target must be the home dealership or a
+    current dealership_membership row — 403 otherwise, checked before the
+    dealership is looked up, so an unknown id reveals nothing.
+
+    `session` is the row of the session being (re)issued: None creates one
+    (a login; `request` supplies the device and IP) — a switch passes the
+    caller's row and the token keeps its `sid`.
     """
 
-    if user.status in _INACTIVE_STATUSES:
+    if user.status in identity._INACTIVE:
         raise UnauthorizedError("This user account is not active.")
     membership_ids = _membership_ids(db, user_id=user.id, home_dealership_id=user.tenant_id)
     if dealership_id not in membership_ids:
         raise ForbiddenError("This dealership is not one of your memberships.")
     dealership = dealership_service.get_dealership_or_404(db, dealership_id)
-    # KAN-198 (D-A-04): the TARGET dealership's licensed modules, and the
-    # version they were read at — require_entitlement refuses the token once
-    # the set changes, so the user signs in again and gets the new one.
     entitlements = entitlement_service.list_active_modules(db, dealership.id)
+    if session is None and request is not None:
+        session = auth_sessions.create(
+            db,
+            user_id=user.id,
+            dealership_id=dealership.id,
+            device_summary=_device_summary(request),
+            ip_address=client_ip(request),
+            amr=amr,
+        )
     token = create_access_token(
         user_id=user.id,
         tenant_id=dealership.id,
         group_id=dealership.dealer_group_id,
         memberships=membership_ids,
         roles=frozenset(AccessRole(role) for role in user.access_roles),
-        # The TARGET dealership's flag, never the home one carried across
-        # (KAN-98, D-A-01: the manager flag is held per dealership).
         is_dealer_manager=user_service.is_dealer_manager_in(db, user=user, dealership_id=dealership.id),
         entitlements=entitlements,
         entitlements_version=dealership.entitlements_version,
+        session_id=session.id if session is not None else None,
+        amr=tuple(session.amr) if session is not None else amr,
+        mfa=("mfa" in session.amr) if session is not None else mfa_used,
+        expires_at=session.absolute_expires_at if session is not None else None,
     )
-    return _MintedSession(token=token, dealership=dealership, membership_ids=membership_ids, entitlements=entitlements)
+    max_age = (
+        int((session.absolute_expires_at - auth_sessions.utcnow()).total_seconds())
+        if session is not None
+        else settings.jwt_access_token_ttl_seconds
+    )
+    return _MintedSession(
+        token=token,
+        dealership=dealership,
+        membership_ids=membership_ids,
+        entitlements=entitlements,
+        session=session,
+        max_age=max(max_age, 1),
+    )
+
+
+def _enrolment_required(db: Session, *, user: User, dealership_id: uuid.UUID, mfa_used: bool) -> bool:
+    """D-A-36 / FR-AU-11: platform staff always; a dealer user when the
+    Betrieb enforces a factor — and only while no factor is enrolled."""
+
+    if mfa_used or mfa.has_factor(db, user.id):
+        return False
+    if AccessRole.PLATFORM_ADMIN.value in user.access_roles:
+        return True
+    return identity.auth_config_for(db, dealership_id).mfa_enforced
 
 
 def _login_response(
-    db: Session, *, user, active_dealership: Dealership, membership_ids, entitlements: frozenset[str]
+    db: Session,
+    *,
+    user: User,
+    active_dealership: Dealership,
+    membership_ids: frozenset[uuid.UUID],
+    entitlements: frozenset[str],
+    mfa_used: bool,
 ) -> LoginResponse:
     rows = dealership_service.list_dealerships_by_ids(db, membership_ids)
-    # Active dealership first, then the rest — same list every time for a
-    # given membership set rather than whatever order the IN(...) returned.
     rows.sort(key=lambda d: (d.id != active_dealership.id, d.legal_name))
     return LoginResponse(
         user=UserRead.model_validate(user, from_attributes=True),
         active_dealership=DealershipMembershipSummary.model_validate(active_dealership, from_attributes=True),
         memberships=[DealershipMembershipSummary.model_validate(d, from_attributes=True) for d in rows],
         entitlements=sorted(ModuleCode(code) for code in entitlements),
+        mfa_enrolment_required=_enrolment_required(
+            db, user=user, dealership_id=active_dealership.id, mfa_used=mfa_used
+        ),
     )
 
 
-def _success_redirect_url() -> str:
-    return f"{settings.post_login_redirect_base_url}/"
+def _finish_login(
+    db: Session, request: Request, response: Response, *, user: User, amr: tuple[str, ...], mfa_used: bool
+) -> LoginResponse:
+    minted = _mint_session(
+        db, user=user, dealership_id=user.tenant_id, session=None, request=request, amr=amr, mfa_used=mfa_used
+    )
+    auth_events.record(
+        db,
+        AuthEventKind.LOGIN_SUCCEEDED,
+        user_id=user.id,
+        dealership_id=user.tenant_id,
+        ip_address=client_ip(request),
+        details={"amr": list(amr)},
+    )
+    db.commit()
+    _set_session_cookie(response, minted.token, max_age=minted.max_age)
+    return _login_response(
+        db,
+        user=user,
+        active_dealership=minted.dealership,
+        membership_ids=minted.membership_ids,
+        entitlements=minted.entitlements,
+        mfa_used=mfa_used,
+    )
 
 
-def _error_redirect_url() -> str:
-    return f"{settings.post_login_redirect_base_url}/sign-in-error"
+# --- login --------------------------------------------------------------------------------
 
 
-@router.get("/auth/oidc/login")
-async def oidc_login(request: Request, oidc: OidcClient = Depends(get_oidc_client)):
-    """A full-page browser navigation to Zitadel's hosted login, never an
-    XHR/fetch target — this package builds no Nexotec login screen at all
-    (see the WP-4 brief). GET, not POST: there is no body, and this has to
-    be something a plain <a href> / window.location.href can trigger.
-    """
+@router.post("/auth/login", response_model=LoginStepResponse)
+def login(body: LoginRequest, request: Request, response: Response, db: Session = Depends(get_db)):
+    """FR-AU-07: e-mail and password in, the session cookie out — or the MFA
+    step when the user holds a factor. Every refusal is the same 401, with
+    the same work behind it (identity.LocalPasswordProvider)."""
 
-    return await oidc.begin_login(request)
+    presented = identity.PresentedCredentials(email=body.email, password=body.password, ip_address=client_ip(request))
+    user = identity.local_password_provider.resolve(db, presented)
+    if mfa.has_factor(db, user.id):
+        challenge = auth_tokens.issue(db, user_id=user.id, kind=AuthTokenKind.MFA_CHALLENGE, actor_id=None)
+        db.commit()
+        totp = mfa.totp_of(db, user.id)
+        factors = ["totp"] if totp is not None and totp.confirmed_at is not None else []
+        if mfa.passkeys_of(db, user.id):
+            factors.append("passkey")
+        return LoginStepResponse(mfa_required=True, challenge_id=challenge, factors=factors + ["recovery_code"])
+    session = _finish_login(db, request, response, user=user, amr=("pwd",), mfa_used=False)
+    return LoginStepResponse(session=session)
 
 
-@router.get("/auth/oidc/callback")
-async def oidc_callback(
-    request: Request,
-    oidc: OidcClient = Depends(get_oidc_client),
-    db: Session = Depends(get_db),
-):
-    """Zitadel proves WHO; this endpoint decides WHETHER that person may
-    have a Nexotec session and, if so, WHAT they may do here — the second
-    and third parts are entirely ours, resolved the same way the retired
-    password login resolved them: from the matching User row, never from
-    anything Zitadel's token/userinfo response carries.
-
-    On any rejection (denied at Zitadel, no matching User, wrong status)
-    there is no User row to hang an audit event on in the "no match" case,
-    and no behavior change from today's password login in the "wrong
-    status" case (that never audited either) — logged via the structured
-    application logger instead, sub only, never any other claim.
-    """
-
-    try:
-        identity = await oidc.complete_login(request)
-    except OidcError as exc:
-        logger.warning("oidc_login_failed", extra={"reason": str(exc)})
-        return RedirectResponse(_error_redirect_url())
-
-    user = db.scalar(select(User).where(User.auth_identity_id == identity.sub))
+def _challenged_user(db: Session, challenge_id: str) -> User:
+    token = auth_tokens.peek(db, raw=challenge_id, kind=AuthTokenKind.MFA_CHALLENGE)
+    user = db.get(User, token.user_id) if token is not None else None
     if user is None:
-        logger.warning("oidc_login_rejected_not_provisioned", extra={"sub": identity.sub})
-        return RedirectResponse(_error_redirect_url())
-    try:
-        # The home dealership is always a membership, so the only refusal
-        # possible here is an inactive user.
-        minted = _mint_session(db, user=user, dealership_id=user.tenant_id)
-    except UnauthorizedError:
-        logger.warning("oidc_login_rejected_inactive_user", extra={"sub": identity.sub, "user_id": str(user.id)})
-        return RedirectResponse(_error_redirect_url())
+        raise UnauthorizedError("The sign-in step has expired — start again.")
+    return user
 
-    # The cookie must be set directly on the Response object this endpoint
-    # actually returns — FastAPI only merges an injected `response: Response`
-    # dependency's headers/cookies into the final response when the route
-    # returns a plain value it wraps itself, not when the route returns its
-    # own Response (RedirectResponse here) explicitly.
-    redirect = RedirectResponse(_success_redirect_url())
-    _set_session_cookie(redirect, minted.token)
-    return redirect
+
+@router.post("/auth/mfa/verify", response_model=LoginStepResponse)
+def verify_mfa(body: MfaVerifyRequest, request: Request, response: Response, db: Session = Depends(get_db)):
+    """The second step of a login: a TOTP code or a recovery code against
+    the 5-minute challenge the first step issued. A wrong code is a
+    `mfa_failed` event and the same 401 for every reason."""
+
+    user = _challenged_user(db, body.challenge_id)
+    ip = client_ip(request)
+    if mfa.verify_totp(db, user=user, code=body.code):
+        amr: tuple[str, ...] = ("pwd", "otp", "mfa")
+    elif mfa.use_recovery_code(db, user=user, code=body.code, ip_address=ip):
+        amr = ("pwd", "mfa")
+    else:
+        auth_events.record(db, AuthEventKind.MFA_FAILED, user_id=user.id, dealership_id=user.tenant_id, ip_address=ip)
+        db.commit()
+        raise UnauthorizedError("The code is not valid.")
+    auth_tokens.consume(db, raw=body.challenge_id, kind=AuthTokenKind.MFA_CHALLENGE)
+    session = _finish_login(db, request, response, user=user, amr=amr, mfa_used=True)
+    return LoginStepResponse(session=session)
+
+
+@router.post("/auth/mfa/passkey/options", response_model=PasskeyOptionsResponse)
+def passkey_login_options(body: PasskeyChallengeRequest, db: Session = Depends(get_db)):
+    user = _challenged_user(db, body.challenge_id)
+    options = mfa.passkey_authentication_options(db, user=user, challenge=mfa.challenge_for(body.challenge_id, "authn"))
+    return PasskeyOptionsResponse(challenge_id=body.challenge_id, options=options)
+
+
+@router.post("/auth/mfa/passkey/verify", response_model=LoginStepResponse)
+def passkey_login_verify(
+    body: PasskeyAssertionRequest, request: Request, response: Response, db: Session = Depends(get_db)
+):
+    user = _challenged_user(db, body.challenge_id)
+    ip = client_ip(request)
+    if not mfa.verify_passkey(
+        db, user=user, credential=body.credential, challenge=mfa.challenge_for(body.challenge_id, "authn")
+    ):
+        auth_events.record(db, AuthEventKind.MFA_FAILED, user_id=user.id, dealership_id=user.tenant_id, ip_address=ip)
+        db.commit()
+        raise UnauthorizedError("The passkey could not be verified.")
+    auth_tokens.consume(db, raw=body.challenge_id, kind=AuthTokenKind.MFA_CHALLENGE)
+    session = _finish_login(db, request, response, user=user, amr=("pwd", "hwk", "mfa"), mfa_used=True)
+    return LoginStepResponse(session=session)
+
+
+# --- reset and invitation ---------------------------------------------------------------
+
+
+@router.post("/auth/password-reset/request", status_code=202)
+def password_reset_request(
+    body: PasswordResetRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    mailer: PlatformMailer = Depends(get_mailer),
+):
+    """FR-AU-14/16: 202 whether or not the address exists; the mail goes
+    only where there is someone to send it to."""
+
+    identity.request_password_reset(db, mailer, email=body.email, ip_address=client_ip(request))
+    db.commit()
+
+
+@router.post("/auth/password-reset/confirm", status_code=204)
+def password_reset_confirm(body: PasswordResetConfirm, request: Request, db: Session = Depends(get_db)):
+    identity.confirm_password_reset(db, raw_token=body.token, password=body.password, ip_address=client_ip(request))
+    db.commit()
+
+
+@router.post("/auth/invitations/accept", response_model=LoginResponse)
+def invitation_accept(body: InvitationAccept, request: Request, response: Response, db: Session = Depends(get_db)):
+    """FR-AU-13: the invited person sets their password and is signed in,
+    so they can enrol a factor in the same flow where the Betrieb enforces
+    one (the response says so)."""
+
+    user = identity.accept_invitation(db, raw_token=body.token, password=body.password, ip_address=client_ip(request))
+    return _finish_login(db, request, response, user=user, amr=("pwd",), mfa_used=False)
+
+
+# --- session ---------------------------------------------------------------------------
 
 
 @router.post("/auth/logout", response_model=LogoutResponse)
-def logout(response: Response):
+def logout(request: Request, response: Response, db: Session = Depends(get_db)):
+    """Ends the session row too (FR-AU-18): the cookie going away is not
+    enough once a copy of the token could be elsewhere."""
+
+    token = request.cookies.get(SESSION_COOKIE_NAME)
+    if token:
+        try:
+            principal = get_current_principal(token)
+        except UnauthorizedError:
+            principal = None
+        if principal is not None and principal.session_id is not None:
+            row = auth_sessions.get(db, principal.session_id)
+            if row is not None:
+                auth_sessions.revoke(db, row, reason="logout")
+                db.commit()
     response.delete_cookie(SESSION_COOKIE_NAME, **_COOKIE_KWARGS)
     return LogoutResponse()
 
 
 @router.get("/auth/me", response_model=LoginResponse)
 def get_current_session_user(principal: Principal = Depends(get_current_principal), db: Session = Depends(get_db)):
-    """Lets a browser client restore "logged in as X" state after a page
-    reload — the httpOnly cookie survives, but the login response body's
-    `user` object doesn't (nothing else holds it client-side).
-
-    The memberships are read from the database (KAN-237) — the home
-    dealership plus `dealership_membership`, the rule `_mint_session`
-    authorises a switch with — never from the token's `memberships` claim,
-    which goes stale the moment a membership is granted or revoked. The
-    switcher offers what this lists, so it never offers a dealership the
-    switch would refuse; a session still acting in a dealership this no
-    longer lists sees that one as its current, disabled entry (KAN-237).
-    """
+    """Restores "logged in as X" after a page reload. The memberships are
+    read from the database (KAN-237), never the token's claim."""
 
     user = user_service.get_own_user_or_404(db, principal.user_id)
     dealership = dealership_service.get_dealership_or_404(db, principal.tenant_id)
@@ -228,6 +387,7 @@ def get_current_session_user(principal: Principal = Depends(get_current_principa
         active_dealership=dealership,
         membership_ids=membership_ids,
         entitlements=entitlement_service.list_active_modules(db, dealership.id),
+        mfa_used=principal.mfa,
     )
 
 
@@ -249,16 +409,183 @@ def switch_dealership(
     A fresh token is a renewed session, so it is minted like a login
     (KAN-141): the user's status and memberships are re-read from the
     database, never trusted from the token the caller already holds — a
-    user deactivated or a membership revoked since login is refused.
+    user deactivated or a membership revoked since login is refused. The
+    `session` row stays the same one (the guard already checked it).
     """
 
     user = user_service.get_own_user_or_404(db, principal.user_id)
-    minted = _mint_session(db, user=user, dealership_id=body.dealership_id)
-    _set_session_cookie(response, minted.token)
+    row = auth_sessions.get(db, principal.session_id) if principal.session_id is not None else None
+    minted = _mint_session(
+        db, user=user, dealership_id=body.dealership_id, session=row, amr=tuple(principal.amr), mfa_used=principal.mfa
+    )
+    _set_session_cookie(response, minted.token, max_age=minted.max_age)
     return _login_response(
         db,
         user=user,
         active_dealership=minted.dealership,
         membership_ids=minted.membership_ids,
         entitlements=minted.entitlements,
+        mfa_used=principal.mfa,
     )
+
+
+# --- My account: sessions (FR-AU-17) --------------------------------------------------------
+
+
+@account_router.get("/auth/sessions", response_model=SessionList)
+def list_my_sessions(principal: Principal = Depends(get_current_principal), db: Session = Depends(get_db)):
+    now = auth_sessions.utcnow()
+    rows = [row for row in auth_sessions.list_for_user(db, user_id=principal.user_id) if row.is_live(now)]
+    return SessionList(
+        items=[
+            SessionRead(
+                id=row.id,
+                device_summary=row.device_summary,
+                ip_address=row.ip_address,
+                created_at=row.created_at,
+                last_seen_at=row.last_seen_at,
+                absolute_expires_at=row.absolute_expires_at,
+                current=row.id == principal.session_id,
+            )
+            for row in rows
+        ]
+    )
+
+
+@account_router.delete("/auth/sessions/{session_id}", status_code=204)
+def revoke_my_session(
+    session_id: uuid.UUID,
+    request: Request,
+    principal: Principal = Depends(get_current_principal),
+    db: Session = Depends(get_db),
+):
+    row = auth_sessions.get(db, session_id)
+    if row is None or row.user_id != principal.user_id:
+        raise NotFoundError("Session not found.")
+    auth_sessions.revoke(db, row, reason="user")
+    auth_events.record(
+        db,
+        AuthEventKind.SESSION_REVOKED,
+        user_id=principal.user_id,
+        dealership_id=principal.tenant_id,
+        ip_address=client_ip(request),
+        details={"count": 1, "reason": "user"},
+    )
+    db.commit()
+
+
+# --- My account: second factors (D-A-09, A-13) -------------------------------------------------
+
+
+def _mfa_status(db: Session, *, user: User, principal: Principal) -> MfaStatusRead:
+    totp = mfa.totp_of(db, user.id)
+    enforced = (
+        AccessRole.PLATFORM_ADMIN.value in user.access_roles
+        or identity.auth_config_for(db, principal.tenant_id).mfa_enforced
+    )
+    return MfaStatusRead(
+        totp_enrolled=totp is not None and totp.confirmed_at is not None,
+        passkeys=[
+            PasskeyRead(id=p.id, label=p.label, created_at=p.created_at, last_used_at=p.last_used_at)
+            for p in mfa.passkeys_of(db, user.id)
+        ],
+        recovery_codes_remaining=mfa.unused_recovery_codes(db, user.id),
+        enforced=enforced,
+        enrolment_required=_enrolment_required(
+            db, user=user, dealership_id=principal.tenant_id, mfa_used=principal.mfa
+        ),
+    )
+
+
+@account_router.get("/auth/mfa", response_model=MfaStatusRead)
+def mfa_status(principal: Principal = Depends(get_current_principal), db: Session = Depends(get_db)):
+    user = user_service.get_own_user_or_404(db, principal.user_id)
+    return _mfa_status(db, user=user, principal=principal)
+
+
+@account_router.post("/auth/mfa/totp/enrol", response_model=TotpEnrolmentRead)
+def totp_enrol(principal: Principal = Depends(get_current_principal), db: Session = Depends(get_db)):
+    user = user_service.get_own_user_or_404(db, principal.user_id)
+    enrolment = mfa.begin_totp(db, user=user)
+    db.commit()
+    return TotpEnrolmentRead(secret=enrolment.secret, provisioning_uri=enrolment.provisioning_uri)
+
+
+@account_router.post("/auth/mfa/totp/confirm", response_model=RecoveryCodesRead)
+def totp_confirm(
+    body: TotpConfirmRequest,
+    request: Request,
+    principal: Principal = Depends(get_current_principal),
+    db: Session = Depends(get_db),
+):
+    user = user_service.get_own_user_or_404(db, principal.user_id)
+    codes = mfa.confirm_totp(db, user=user, code=body.code, ip_address=client_ip(request))
+    db.commit()
+    return RecoveryCodesRead(codes=codes)
+
+
+@account_router.delete("/auth/mfa/totp", status_code=204)
+def totp_remove(request: Request, principal: Principal = Depends(get_current_principal), db: Session = Depends(get_db)):
+    user = user_service.get_own_user_or_404(db, principal.user_id)
+    mfa.remove_totp(db, user=user, actor_id=principal.user_id, ip_address=client_ip(request))
+    db.commit()
+
+
+@account_router.post("/auth/mfa/recovery-codes/regenerate", response_model=RecoveryCodesRead)
+def recovery_codes_regenerate(
+    request: Request, principal: Principal = Depends(get_current_principal), db: Session = Depends(get_db)
+):
+    user = user_service.get_own_user_or_404(db, principal.user_id)
+    codes = mfa.regenerate_recovery_codes(db, user=user, ip_address=client_ip(request))
+    db.commit()
+    return RecoveryCodesRead(codes=codes)
+
+
+@account_router.post("/auth/mfa/passkeys/options", response_model=PasskeyOptionsResponse)
+def passkey_register_options(principal: Principal = Depends(get_current_principal), db: Session = Depends(get_db)):
+    user = user_service.get_own_user_or_404(db, principal.user_id)
+    challenge_id = auth_tokens.issue(db, user_id=user.id, kind=AuthTokenKind.MFA_CHALLENGE, actor_id=user.id)
+    options = mfa.passkey_registration_options(db, user=user, challenge=mfa.challenge_for(challenge_id, "register"))
+    db.commit()
+    return PasskeyOptionsResponse(challenge_id=challenge_id, options=options)
+
+
+@account_router.post("/auth/mfa/passkeys", response_model=PasskeyRead, status_code=201)
+def passkey_register(
+    body: PasskeyRegisterRequest,
+    request: Request,
+    principal: Principal = Depends(get_current_principal),
+    db: Session = Depends(get_db),
+):
+    user = user_service.get_own_user_or_404(db, principal.user_id)
+    token = auth_tokens.peek(db, raw=body.challenge_id, kind=AuthTokenKind.MFA_CHALLENGE)
+    if token is None or token.user_id != user.id:
+        raise UnauthorizedError("The passkey step has expired — start again.")
+    row = mfa.register_passkey(
+        db,
+        user=user,
+        credential=body.credential,
+        challenge=mfa.challenge_for(body.challenge_id, "register"),
+        label=body.label,
+        ip_address=client_ip(request),
+    )
+    # Spent on success only, like the login step's challenge: a cancelled
+    # browser dialog may be retried while the five minutes last.
+    auth_tokens.consume(db, raw=body.challenge_id, kind=AuthTokenKind.MFA_CHALLENGE)
+    db.commit()
+    return PasskeyRead(id=row.id, label=row.label, created_at=row.created_at, last_used_at=row.last_used_at)
+
+
+@account_router.delete("/auth/mfa/passkeys/{passkey_id}", status_code=204)
+def passkey_remove(
+    passkey_id: uuid.UUID,
+    request: Request,
+    principal: Principal = Depends(get_current_principal),
+    db: Session = Depends(get_db),
+):
+    user = user_service.get_own_user_or_404(db, principal.user_id)
+    if not mfa.remove_passkey(
+        db, user=user, passkey_id=passkey_id, actor_id=principal.user_id, ip_address=client_ip(request)
+    ):
+        raise NotFoundError("Passkey not found.")
+    db.commit()

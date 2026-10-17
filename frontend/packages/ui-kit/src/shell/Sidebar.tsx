@@ -1,5 +1,5 @@
 import type { ComponentType, CSSProperties, ReactNode } from "react";
-import { Bell, Building2, Check, LogOut, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Bell, Building2, Check, LogOut, PanelLeftClose, PanelLeftOpen, ShieldCheck } from "lucide-react";
 import { Menu, SegmentedControl, Tooltip, UnstyledButton } from "@mantine/core";
 import { purple, radius, slate, spacing, white } from "../tokens";
 import type { NavGroupConfig, NavItemConfig } from "./types";
@@ -40,6 +40,8 @@ export interface SidebarLabels {
   language: string;
   switchDealership: string;
   signOut: string;
+  /** The My account › Security entry (KAN-196); shown when `onAccountSecurity` is given. */
+  accountSecurity?: string;
 }
 
 export interface SidebarProps {
@@ -54,6 +56,8 @@ export interface SidebarProps {
   uiLanguage: UiLanguage;
   onLanguageChange: (language: UiLanguage) => void;
   onSignOut: () => void;
+  /** Opens My account › Security (passwords, second factors, sessions). */
+  onAccountSecurity?: () => void;
   labels: SidebarLabels;
   /** The dealership the current session is acting as. */
   activeDealership?: DealershipSummary;
@@ -99,6 +103,7 @@ export function Sidebar({
   uiLanguage,
   onLanguageChange,
   onSignOut,
+  onAccountSecurity,
   labels,
   activeDealership,
   memberships,
@@ -369,6 +374,11 @@ export function Sidebar({
               )}
 
               <Menu.Divider />
+              {onAccountSecurity && labels.accountSecurity && (
+                <Menu.Item leftSection={<ShieldCheck size={16} />} onClick={onAccountSecurity}>
+                  {labels.accountSecurity}
+                </Menu.Item>
+              )}
               <Menu.Item leftSection={<LogOut size={16} />} onClick={onSignOut}>
                 {labels.signOut}
               </Menu.Item>

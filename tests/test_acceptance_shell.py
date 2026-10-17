@@ -89,7 +89,6 @@ def _create_user(client, dealer_id: str, **overrides) -> dict:
         "role": "admin",
         "accessRoles": ["sales"],
         "isDealerManager": True,
-        "authIdentityId": f"stub-sub-{uuid.uuid4()}",
     }
     payload.update(overrides)
     response = client.post(f"/v1/dealerships/{dealer_id}/users", json=payload, headers=_bearer(admin_token))
@@ -97,22 +96,17 @@ def _create_user(client, dealer_id: str, **overrides) -> dict:
     return response.json()
 
 
-def _login_and_get_session_cookie(client, oidc_fake, user: dict) -> str:
-    """Bootstraps a real session the way a real browser would — through the
-    actual GET /v1/auth/oidc/callback route and its full user-lookup/status-
-    check/token-mint logic, with only the Zitadel exchange itself faked
-    (tests/fake_oidc.py) — proves the login system actually integrates with
-    the rest of the API's auth boundary, not a manually-minted bearer token.
+def _login_and_get_session_cookie(client, mailbox, user: dict) -> str:
+    """Bootstraps a real session the way a real browser would — the invited
+    user accepts the recorded invitation mail, sets a password and signs in
+    through POST /v1/auth/login (KAN-196) — proves the login system actually
+    integrates with the rest of the API's auth boundary, not a manually-
+    minted bearer token.
     """
 
-    from app.platform.services.oidc import ZitadelIdentity
+    from tests.identity_support import session_cookie_for
 
-    oidc_fake.enqueue_identity(ZitadelIdentity(sub=user["authIdentityId"], email=user["email"], name=None))
-    response = client.get("/v1/auth/oidc/callback", follow_redirects=False)
-    assert response.status_code in (302, 307), response.text
-    token = response.cookies.get("dms_session")
-    assert token is not None
-    return token
+    return session_cookie_for(client, mailbox, user)
 
 
 def _random_vin() -> str:
@@ -194,7 +188,7 @@ def test_ac1_platform_admin_bootstraps_dealer_and_admin_user(client):
 # --- AC2-4: full connected walkthrough, sale ------------------------------------
 
 
-def test_ac2_to_4_full_shell_walkthrough_sale(client, oidc_fake):
+def test_ac2_to_4_full_shell_walkthrough_sale(client, mailbox):
     """Bootstraps a Dealer, logs in as its admin over a real session cookie
     (not a manually-minted bearer token — proves the login system actually
     integrates with the rest of the API's auth boundary), creates a
@@ -218,7 +212,7 @@ def test_ac2_to_4_full_shell_walkthrough_sale(client, oidc_fake):
     # the way platform_admin does before the user signs in.
     _grant_sales_module(client, dealer_id)
     user = _create_user(client, dealer_id, email="walkthrough@example.ch")
-    session_token = _login_and_get_session_cookie(client, oidc_fake, user)
+    session_token = _login_and_get_session_cookie(client, mailbox, user)
     headers = {"Cookie": f"dms_session={session_token}"}
 
     # AC2: Customer with at least one contact method. Post-Phase-B the

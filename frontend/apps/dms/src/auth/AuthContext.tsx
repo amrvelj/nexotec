@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { api, ApiError, onUnauthorized } from '../api/client'
-import type { DealershipMembershipSummary, LoginResponse, UserRead } from '../api/types'
+import type { DealershipMembershipSummary, LoginResponse, LoginStepResponse, UserRead } from '../api/types'
 
 interface AuthContextValue {
   user: UserRead | null
@@ -10,7 +10,18 @@ interface AuthContextValue {
    * shell shows and `RequireEntitlement` honours. Presentation only — the
    * API answers 404 for an unlicensed module whatever the SPA renders. */
   entitlements: string[]
+  /** KAN-196 (D-A-36): this session was minted without a second factor
+   * while one is required — `ProtectedRoute` sends the user to enrolment. */
+  mfaEnrolmentRequired: boolean
   loading: boolean
+  /** KAN-196: the first step of a sign-in. Resolves with either the session
+   * (already applied here) or the MFA step the caller has to complete. */
+  login: (email: string, password: string) => Promise<LoginStepResponse>
+  /** Applies a session another call minted (the MFA step, an accepted
+   * invitation) — the same thing `login` does on its own success. */
+  completeLogin: (session: LoginResponse) => void
+  /** Re-reads the session from the server (after enrolling a factor, say). */
+  refresh: () => Promise<void>
   logout: () => Promise<void>
   /** Re-issues the session against a different dealership from
    * `memberships` (WP-3 PR-3) — the sidebar switcher's only action.
@@ -26,6 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [activeDealership, setActiveDealership] = useState<DealershipMembershipSummary | null>(null)
   const [memberships, setMemberships] = useState<DealershipMembershipSummary[]>([])
   const [entitlements, setEntitlements] = useState<string[]>([])
+  const [mfaEnrolmentRequired, setMfaEnrolmentRequired] = useState(false)
   const [loading, setLoading] = useState(true)
 
   const applySession = useCallback((res: LoginResponse) => {
@@ -33,6 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setActiveDealership(res.activeDealership)
     setMemberships(res.memberships)
     setEntitlements(res.entitlements ?? [])
+    setMfaEnrolmentRequired(res.mfaEnrolmentRequired ?? false)
   }, [])
 
   const clearSession = useCallback(() => {
@@ -40,6 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setActiveDealership(null)
     setMemberships([])
     setEntitlements([])
+    setMfaEnrolmentRequired(false)
   }, [])
 
   // KAN-237 — a 401 from any API call ends the client session; with no
@@ -56,6 +70,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .catch(clearSession)
       .finally(() => setLoading(false))
   }, [applySession, clearSession])
+
+  const login = useCallback(
+    async (email: string, password: string) => {
+      const step = await api.post<LoginStepResponse>('/auth/login', { email, password })
+      if (step.session) applySession(step.session)
+      return step
+    },
+    [applySession]
+  )
+
+  const refresh = useCallback(async () => {
+    applySession(await api.get<LoginResponse>('/auth/me'))
+  }, [applySession])
 
   const logout = useCallback(async () => {
     try {
@@ -87,7 +114,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, activeDealership, memberships, entitlements, loading, logout, switchDealership }}
+      value={{
+        user,
+        activeDealership,
+        memberships,
+        entitlements,
+        mfaEnrolmentRequired,
+        loading,
+        login,
+        completeLogin: applySession,
+        refresh,
+        logout,
+        switchDealership,
+      }}
     >
       {children}
     </AuthContext.Provider>

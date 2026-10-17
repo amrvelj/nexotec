@@ -35,7 +35,8 @@
       "notificationsSoon": "Notifications (soon)",
       "accountMenu": "Account menu",
       "language": "Language",
-      "switchDealership": "Switch dealership"
+      "switchDealership": "Switch dealership",
+      "accountSecurity": "My account – Security"
     },
     "globalSearch": {
       "placeholder": "Search…",
@@ -596,14 +597,6 @@
       "vehiclePartyBusy": "A vehicle of this customer is being changed right now. Send the merge again.",
       "staleVersion": "This customer was changed in the meantime. Reload the page and try again."
     }
-  },
-  "signInError": {
-    "title": "Sign-in failed",
-    "message": "Sign-in failed. Please try again or contact your administrator.",
-    "retry": "Try again"
-  },
-  "login": {
-    "redirecting": "Redirecting to sign-in…"
   },
   "mappingGaps": {
     "title": "Mapping gaps",
@@ -1894,6 +1887,98 @@
       "valid": "Valid",
       "expired": "Expired",
       "used": "Used"
+    }
+  },
+  "auth": {
+    "login": {
+      "title": "Sign in",
+      "subtitle": "With your e-mail address and password.",
+      "email": "E-mail address",
+      "password": "Password",
+      "submit": "Sign in",
+      "forgotPassword": "Forgot your password?",
+      "failed": "Invalid e-mail address or password.",
+      "mfaTitle": "Second factor",
+      "mfaHint": "Confirm the sign-in with your authenticator app, a recovery code or a passkey.",
+      "code": "Code from your authenticator app",
+      "recoveryCode": "Recovery code",
+      "verify": "Confirm",
+      "codeInvalid": "The code is not valid.",
+      "useRecoveryCode": "Use a recovery code",
+      "useAuthenticator": "Use the authenticator app",
+      "usePasskey": "Sign in with a passkey",
+      "passkeyFailed": "The passkey could not be verified.",
+      "backToLogin": "Back to sign-in"
+    },
+    "reset": {
+      "title": "Reset password",
+      "hint": "Enter your e-mail address. If an account exists, you will receive a link.",
+      "email": "E-mail address",
+      "submit": "Send link",
+      "sent": "If an account exists for this address, we have sent a reset link. It is valid for one hour.",
+      "confirmTitle": "Set a new password",
+      "newPassword": "New password",
+      "confirmSubmit": "Set password",
+      "done": "Your password has been set. Every other session was ended — sign in again.",
+      "invalidLink": "This link is no longer valid. Request a new one.",
+      "backToLogin": "Go to sign-in"
+    },
+    "invitation": {
+      "title": "Welcome to Nexotec",
+      "hint": "Set your password to activate your account.",
+      "newPassword": "Password",
+      "submit": "Activate account",
+      "invalidLink": "This invitation is no longer valid. Ask your Betrieb for a new one."
+    },
+    "password": {
+      "rules": "At least 12 characters. Not your name, your e-mail address or the name of your Betrieb.",
+      "minLength": "The password must have at least {{count, number}} characters.",
+      "denyList": "The password must not contain your name, your e-mail address or the name of your Betrieb.",
+      "breached": "This password appears in a known data breach — choose another one.",
+      "reused": "This password was used recently — choose a new one."
+    },
+    "security": {
+      "breadcrumb": "My account",
+      "title": "Security",
+      "enrolmentRequired": "Your Betrieb requires a second factor. Set up an authenticator app or a passkey before you continue.",
+      "totp": {
+        "title": "Authenticator app",
+        "enrolled": "Set up — a code is asked for at every sign-in.",
+        "notEnrolled": "Not set up.",
+        "enrol": "Set up",
+        "remove": "Remove",
+        "step1": "1. Enter this key in your authenticator app (or open the link below on the device).",
+        "step2": "2. Enter the code the app shows now.",
+        "code": "Code",
+        "confirm": "Confirm"
+      },
+      "recovery": {
+        "title": "Recovery codes",
+        "remaining": "{{count, number}} recovery codes left.",
+        "regenerate": "Generate new codes",
+        "saveHint": "Keep these codes somewhere safe. Each one works once; they are not shown again.",
+        "done": "I have saved them"
+      },
+      "passkeys": {
+        "title": "Passkeys",
+        "none": "No passkeys.",
+        "add": "Add passkey",
+        "label": "Label",
+        "labelPlaceholder": "e.g. workshop laptop",
+        "unnamed": "Passkey",
+        "lastUsed": "Last used {{when}}",
+        "never": "Never used",
+        "unsupported": "This browser does not support passkeys.",
+        "failed": "The passkey could not be added."
+      },
+      "sessions": {
+        "title": "Sessions",
+        "device": "Device",
+        "lastSeen": "Last active",
+        "expires": "Ends",
+        "current": "This session",
+        "end": "End"
+      }
     }
   }
 }

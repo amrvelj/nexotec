@@ -28,23 +28,11 @@ os.environ.setdefault(
     )
     .decode("ascii"),
 )
-# Zitadel OIDC settings (WP-4) — also required with no default. Never
-# actually dialed: app.platform.services.oidc.get_oidc_client is overridden
-# below (see the `client` fixture) with a fake that never makes a network
-# call, so these values only need to be syntactically present for
-# Settings()/authlib's OAuth.register() to construct without error.
-os.environ.setdefault("DMS_ZITADEL_ISSUER", "https://example.zitadel.cloud")
-os.environ.setdefault("DMS_ZITADEL_CLIENT_ID", "test-client-id")
-os.environ.setdefault("DMS_ZITADEL_CLIENT_SECRET", "test-client-secret")
-os.environ.setdefault("DMS_ZITADEL_REDIRECT_URI", "http://testserver/v1/auth/oidc/callback")
-os.environ.setdefault("DMS_SESSION_SECRET_KEY", Fernet.generate_key().decode())
 
 import app.model_registry  # noqa: F401  ensures all tables are registered on Base.metadata
 from app.db import Base, get_db
 from app.main import app as fastapi_app
-from app.platform.services.oidc import get_oidc_client
 from tests.demo_models import DemoBase
-from tests.fake_oidc import FakeOidcClient
 
 # Two test lanes: Postgres when DMS_TEST_DATABASE_URL is set (the lane of
 # record, and the only one CI runs: .github/workflows/test.yml's `postgres`
@@ -115,6 +103,40 @@ def _legacy_vehicle_writes_open():
         yield
     finally:
         settings.legacy_vehicle_write_frozen = original
+@pytest.fixture(autouse=True)
+def _breach_check_off():
+    """KAN-196: setting a password asks Have I Been Pwned (FR-AU-05). The
+    suite never reaches the network: the check is off unless a test turns it
+    on and patches `password_policy.hibp_breach_count` itself."""
+
+    from app.core.config import get_settings
+
+    settings = get_settings()
+    original = settings.hibp_enabled
+    settings.hibp_enabled = False
+    try:
+        yield
+    finally:
+        settings.hibp_enabled = original
+
+
+@pytest.fixture()
+def mailbox(client):
+    """KAN-196: the platform sender, recording instead of sending. Yields
+    the list every mail lands in (tests/identity_support.py reads the
+    invitation and reset links out of it)."""
+
+    from app.platform.services.mailer import get_mailer
+    from tests.identity_support import RecordingMailer
+
+    recorder = RecordingMailer()
+    fastapi_app.dependency_overrides[get_mailer] = lambda: recorder
+    try:
+        yield recorder.sent
+    finally:
+        fastapi_app.dependency_overrides.pop(get_mailer, None)
+
+
 
 
 @pytest.fixture(autouse=True)
@@ -400,18 +422,7 @@ def db_session(engine) -> Session:
 
 
 @pytest.fixture()
-def oidc_fake() -> FakeOidcClient:
-    """The OIDC test double behind the `client` fixture's dependency
-    override below — a test that needs to script a login outcome depends
-    on both fixtures and calls oidc_fake.enqueue_identity(...)/
-    enqueue_error(...) before hitting GET /v1/auth/oidc/callback.
-    """
-
-    return FakeOidcClient()
-
-
-@pytest.fixture()
-def client(engine, oidc_fake) -> TestClient:
+def client(engine) -> TestClient:
     session_factory = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
 
     def _override_get_db():
@@ -422,9 +433,7 @@ def client(engine, oidc_fake) -> TestClient:
             db.close()
 
     fastapi_app.dependency_overrides[get_db] = _override_get_db
-    fastapi_app.dependency_overrides[get_oidc_client] = lambda: oidc_fake
     try:
         yield TestClient(fastapi_app)
     finally:
         fastapi_app.dependency_overrides.pop(get_db, None)
-        fastapi_app.dependency_overrides.pop(get_oidc_client, None)

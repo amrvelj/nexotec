@@ -18,10 +18,13 @@ from app.core.permissions import ModuleCode
 from app.platform import reconciliation as platform_reconciliation
 from app.platform.models.dealership import DealerGroup, Dealership
 from app.platform.models.module_entitlement import ModuleEntitlement
-from app.platform.models.user import User, UserRole
+from app.platform.models.user import User, UserRole, UserStatus
 from app.platform.schemas.user import UserCreate
 from app.platform.services import user as user_service
 from scripts import seed_staging_demo
+
+PASSWORD = "staging-horse-secret-2026"
+OTHER_PASSWORD = "rotated-horse-secret-2026"
 
 
 @pytest.fixture()
@@ -33,11 +36,15 @@ def seed(engine, monkeypatch):
         sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False),
     )
 
-    def run(auth_identity_id: str) -> None:
-        monkeypatch.setenv("DMS_SEED_DEMO_AUTH_IDENTITY_ID", auth_identity_id)
+    def run(password: str = PASSWORD) -> None:
+        monkeypatch.setenv("DMS_SEED_DEMO_PASSWORD", password)
         seed_staging_demo.main()
 
     return run
+
+
+def _login(client, password: str):
+    return client.post("/v1/auth/login", json={"email": seed_staging_demo.DEMO_EMAIL, "password": password})
 
 
 def _counts(db_session) -> tuple[int, int, int, int]:
@@ -49,15 +56,23 @@ def _counts(db_session) -> tuple[int, int, int, int]:
     )
 
 
-def test_first_run_creates_the_demo_dealership_and_user(seed, db_session):
-    seed("zitadel-sub-1")
+def test_first_run_creates_the_demo_dealership_and_user_who_can_sign_in(seed, db_session, client):
+    seed()
 
     dealership = db_session.scalar(select(Dealership).where(Dealership.legal_name == seed_staging_demo.DEMO_LEGAL_NAME))
     assert dealership is not None
     user = db_session.scalar(select(User).where(User.email == seed_staging_demo.DEMO_EMAIL))
     assert user is not None
     assert user.tenant_id == dealership.id
-    assert user.auth_identity_id == "zitadel-sub-1"
+    assert user.status == UserStatus.ACTIVE
+    assert user.auth_identity_id == f"local:{user.id}"
+    # KAN-196: a real local-password login, and no MFA enrolment demanded of
+    # the shared demo account.
+    response = _login(client, PASSWORD)
+    assert response.status_code == 200, response.text
+    assert response.json()["mfaRequired"] is False
+    assert response.json()["session"]["mfaEnrolmentRequired"] is False
+    assert _login(client, OTHER_PASSWORD).status_code == 401
 
 
 def _demo_user(db_session) -> User:
@@ -66,14 +81,14 @@ def _demo_user(db_session) -> User:
     return user
 
 
-def test_second_run_with_the_same_identity_writes_nothing(seed, db_session):
-    seed("zitadel-sub-1")
+def test_second_run_with_the_same_password_writes_nothing(seed, db_session):
+    seed()
     before = _counts(db_session)
     user = _demo_user(db_session)
     user_before = (user.version, user.updated_at)
     db_session.rollback()
 
-    seed("zitadel-sub-1")
+    seed()
 
     assert _counts(db_session) == before
     # Not just no new rows: the existing user is not rewritten either.
@@ -82,27 +97,44 @@ def test_second_run_with_the_same_identity_writes_nothing(seed, db_session):
     assert (user.version, user.updated_at) == user_before
 
 
-def test_a_changed_identity_is_reconciled_onto_the_existing_user(seed, db_session):
-    seed("placeholder-sub")
+def test_a_rotated_password_is_reconciled_onto_the_existing_user(seed, db_session, client):
+    seed(PASSWORD)
     dealerships_before, users_before, _, _ = _counts(db_session)
     db_session.rollback()
 
-    seed("zitadel-sub-real")
+    seed(OTHER_PASSWORD)
 
     dealerships_after, users_after, _, _ = _counts(db_session)
     assert (dealerships_after, users_after) == (dealerships_before, users_before)
-    assert _demo_user(db_session).auth_identity_id == "zitadel-sub-real"
+    assert _login(client, OTHER_PASSWORD).status_code == 200
+    assert _login(client, PASSWORD).status_code == 401
 
 
-def test_without_the_identity_it_exits_1_and_writes_nothing(seed, monkeypatch, db_session):
+def test_without_the_password_it_exits_1_and_writes_nothing(seed, monkeypatch, db_session):
     # Through the seed fixture, so a write before the check would land in the
     # test database and be counted, not in app.db's own database.
-    monkeypatch.delenv("DMS_SEED_DEMO_AUTH_IDENTITY_ID", raising=False)
+    monkeypatch.delenv("DMS_SEED_DEMO_PASSWORD", raising=False)
     before = _counts(db_session)
     db_session.rollback()
 
     with pytest.raises(SystemExit) as exited:
         seed_staging_demo.main()
+
+    assert exited.value.code == 1
+    assert _counts(db_session) == before
+
+
+@pytest.mark.parametrize("password", ["short-1234", "demo-garage-is-the-best-2026", "the-admin-password-2026"])
+def test_a_password_the_policy_refuses_exits_1_before_anything_is_written(seed, db_session, password):
+    """FR-AU-04/06 apply to the demo account too: too short, or carrying the
+    Betrieb's or the user's name. Checked before the first write, so a wrong
+    env var leaves no half-seeded environment."""
+
+    before = _counts(db_session)
+    db_session.rollback()
+
+    with pytest.raises(SystemExit) as exited:
+        seed(password)
 
     assert exited.value.code == 1
     assert _counts(db_session) == before
@@ -124,7 +156,7 @@ def test_the_seed_stamps_the_demo_user_as_the_actor_on_everything_it_created(see
     which named no user. The demo manager is the only user a fresh
     environment has, so it is the actor of its own group, dealership and row."""
 
-    seed("zitadel-sub-1")
+    seed()
 
     group, dealership, user = _seeded_rows(db_session)
     for row in (group, dealership, user):
@@ -137,7 +169,7 @@ def test_the_seed_licenses_the_demo_dealership_for_every_module_as_the_demo_user
     lose sales, stock and valuations without this step. The granter names the
     demo manager (KAN-318), and a second run grants nothing again."""
 
-    seed("zitadel-sub-1")
+    seed()
     _, dealership, user = _seeded_rows(db_session)
     rows = db_session.scalars(select(ModuleEntitlement).where(ModuleEntitlement.dealership_id == dealership.id)).all()
     assert sorted(row.module.value for row in rows) == sorted(m.value for m in ModuleCode)
@@ -145,7 +177,7 @@ def test_the_seed_licenses_the_demo_dealership_for_every_module_as_the_demo_user
     assert all(row.valid_to is None for row in rows)
     assert dealership.entitlements_version == 1
 
-    seed("zitadel-sub-1")
+    seed()
     db_session.expire_all()
     assert dealership.entitlements_version == 1
 
@@ -154,7 +186,7 @@ def test_the_seeded_rows_pass_platform_reconciliation(seed, db_session):
     """The nightly job KAN-318 adds must find nothing on a freshly seeded
     environment — otherwise it alarms from its first night."""
 
-    seed("zitadel-sub-1")
+    seed()
 
     assert platform_reconciliation.run(db_session).orphans_found == 0
 
@@ -164,7 +196,7 @@ def test_a_rerun_restamps_an_actor_that_names_no_user_and_leaves_a_real_one_alon
     runs on every deploy, so the next run replaces it. A value that names a
     real user — another user's later edit — is not the seed's to overwrite."""
 
-    seed("zitadel-sub-1")
+    seed()
     group, dealership, user = _seeded_rows(db_session)
     other = user_service.create_user(
         db_session,
@@ -176,7 +208,6 @@ def test_a_rerun_restamps_an_actor_that_names_no_user_and_leaves_a_real_one_alon
             role=UserRole.GM,
             access_roles=[AccessRole.SALES],
             is_dealer_manager=True,
-            auth_identity_id="zitadel-sub-other",
         ),
         actor_id=user.id,
         actor_roles=frozenset({AccessRole.PLATFORM_ADMIN}),
@@ -187,7 +218,7 @@ def test_a_rerun_restamps_an_actor_that_names_no_user_and_leaves_a_real_one_alon
     db_session.commit()
     db_session.expire_all()
 
-    seed("zitadel-sub-1")
+    seed()
 
     group, dealership, user = _seeded_rows(db_session)
     assert (dealership.created_by, dealership.updated_by) == (user.id, user.id)
