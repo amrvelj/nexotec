@@ -165,8 +165,8 @@ Edits to these files (all in `app/core/`) ask Anto first, whichever tool makes t
 - The error taxonomy (`errors.py`) — 400/401/403/404/409/422, one body shape · `CamelModel`,
   camelCase JSON over snake_case Python (`schemas.py`) · the append-only audit log (`audit.py`)
 - The outbox and consumer harness (`outbox*.py`, `consumer.py`, `processed_event_model.py`)
-- `EncryptedString` (`types.py`) + config that refuses to start without the key (`config.py`).
-  D-A-22 takes `dealership.tax_id` off it; `customer.tax_id` and the integration call payload stay
+- `EncryptedString` (`types.py`) + config that refuses to start without the key (`config.py`). Used by
+  `customer.tax_id` and the integration call payload; D-A-22 (KAN-197, not built) moves `dealership.tax_id` off it
 
 ## API conventions
 

@@ -37,8 +37,9 @@ main@046634d on 2026-10-17 (KAN-195: every present-tense claim checked against t
   entity with its own stock, sales, accounting and VAT → `location` is a physical site: an
   attribute, **never a scoping boundary** (owned by platform, not inventory).
 - **The UI word for the tenant is "Betrieb"** (D-A-10): service-only garages are customers from
-  day one, so `sales` is a module entitlement like `aftersales`, and a Betrieb without it is a
-  normal configuration. `dealership` stays the table and code name.
+  day one, so `sales` becomes a module entitlement like `aftersales` (target; no entitlement
+  exists yet, KAN-198), and a Betrieb without it is a normal configuration. `dealership` stays
+  the table and code name.
 - Tenant scope comes from the token. Group-scoped reads exist only in the files that
   `tests/architecture/test_no_ambient_group_read.py` allow-lists — `core/tenancy.py`
   (`get_group_read_or_404`), `customer/services/customer.py`, `customer/services/legal_basis.py`,
@@ -62,7 +63,8 @@ it is an ordinary `AccessRole` value, so `app/platform/services/user.py` (`creat
 `update_user`, required `actor_roles`) guards it (KAN-97): only a `platform_admin` principal may
 grant or remove it, or edit a user who holds it — anyone else gets 403. **Not yet true:** a
 `platform_admin` can still be homed in a dealership; platform staff have no storage of their
-own until the Platform users panel exists (KAN-199 rejects new such memberships with 422).
+own until the Platform users panel exists (KAN-199, not built, is to reject such memberships
+with 422).
 
 Permissions are capability-based: `Capability(read_roles, write_roles, manager_can_write=True)`
 in `app/core/permissions.py`; `require_read` / `require_write` check platform_admin, then the
@@ -95,6 +97,8 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   `dealer_policy_limit`, no screen, no matrix row.
 - **Copy configuration from a sister dealership** (D-A-01, FR-A-01): a one-shot, audit-logged
   copy — never inheritance.
+- **Onboarding (D-A-06):** platform staff enter group, legal entity (UID uniqueness checked),
+  entitlements and one manager; **Nexotec sets nothing commercial** — no VAT rate, no bank details.
 - **Standard texts are delegable per category** (`standard_text_delegation`, FR-A-28); the seed
   library and the UI strings (`ui_translation`, served at runtime) are edited by
   `platform_admin` through the UI (D-A-23). Dealers never override UI strings.
@@ -129,8 +133,8 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
 ## Document templates (ADR-051)
 
 One shared template layer (`app/platform/models/document_template.py`). WeasyPrint only in
-`app/platform/services/document_render.py`; no HTML-tag string literal elsewhere in `app/`
-(`test_no_layout_code_outside_document_render.py`). One template, two consumers: the ui-kit
+`app/platform/services/document_render.py`; no HTML-tag string literal (`<table`, `<div`,
+`<style`, `<html`) elsewhere in `app/` (`test_no_layout_code_outside_document_render.py`). One template, two consumers: the ui-kit
 `DocumentPreview` only displays the PDF the renderer produced — never a second renderer.
 
 ## Authentication (D-A-07…D-A-12, D-A-16, D-A-36, D-A-37) — decided, NOT built
@@ -147,8 +151,9 @@ One shared template layer (`app/platform/models/document_template.py`). WeasyPri
   `Principal`, `get_current_principal`, switch-dealership) stays as it is. None of the
   replacement exists yet: no argon2 / pyotp / webauthn dependency, no `IdentityProvider`,
   no `dealership_auth_config` (KAN-196).
-- **D-A-08 / D-A-11** — one `IdentityProvider` interface; `LocalPasswordProvider` live;
-  `EntraOidcProvider` **built and integration-tested, enabled for no dealership**. Federation
+- **D-A-08 / D-A-11** (target, none of it built) — one `IdentityProvider` interface;
+  `LocalPasswordProvider` is the live one; `EntraOidcProvider` is **built and
+  integration-tested but enabled for no dealership**. Federation
   is per dealership, never per user; `User.auth_identity_id` (unique, exists today) is the join.
 - **Identity realms (D-A-13, D-A-14):** staff (this), terminal (ADR-028,
   `WORKSHOP_TERMINAL_AUTH_DESIGN.md`), customer (reserved, `aud=portal`, never a row in
