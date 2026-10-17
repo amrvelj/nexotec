@@ -23,6 +23,7 @@ import { useCountryOptions } from '../hooks/useCountryOptions'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import type { ContactPointUpdatePatch } from '../components/customer-detail/ContactPointsEditor'
 import { VehiclesTab } from '../components/customer-detail/VehiclesTab'
+import { vehicleLabel } from '../components/customer-detail/vehicleLabel'
 import { OffersContractsTab, toCustomerDealRows } from '../components/customer-detail/OffersContractsTab'
 import { HistoryTab } from '../components/customer-detail/HistoryTab'
 import { ExternalIdsTab } from '../components/customer-detail/ExternalIdsTab'
@@ -405,6 +406,23 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
     [offersQuery.data, contractsQuery.data]
   )
 
+  // KAN-336 — the History tab renders a country code as its name, from the
+  // same reference list the Overview uses.
+  const historyCountryLabels = useMemo(
+    () => Object.fromEntries(countryOptions.map((option) => [option.value, option.label])),
+    [countryOptions],
+  )
+  // KAN-336 — the History tab renders an id as the label the customer record
+  // carries for it: the advisor's stored name, a linked vehicle's make and model.
+  const historyIdLabels = useMemo(() => {
+    const labels: Record<string, string> = {}
+    for (const party of vehiclesQuery.data?.items ?? []) {
+      labels[party.vehicleId] = vehicleLabel(party.vehicle, t('customerDetail.vehicles.unknownVehicle'))
+    }
+    if (customer?.advisorId && customer.advisorLabel) labels[customer.advisorId] = customer.advisorLabel
+    return labels
+  }, [vehiclesQuery.data, customer?.advisorId, customer?.advisorLabel, t])
+
   const tabs: DetailTab[] = useMemo(
     () => [
       { id: 'overview', label: t('customerDetail.tabs.overview') },
@@ -576,6 +594,8 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
               : null
           }
           locale={locale}
+          idLabels={historyIdLabels}
+          countryLabels={historyCountryLabels}
         />
       )}
       {activeTab === 'external-ids' && (

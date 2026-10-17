@@ -22,6 +22,10 @@ from sqlalchemy.orm import sessionmaker
 
 from app.db import Base
 from app.platform.models.dealership import DealerGroup
+from tests.demo_models import DemoBase
+
+# Every table the test schema holds: production plus the test-only models (KAN-332).
+_TEST_TABLES = [table for metadata in (Base.metadata, DemoBase.metadata) for table in metadata.sorted_tables]
 
 pytestmark = pytest.mark.skipif(
     not os.environ.get("DMS_TEST_DATABASE_URL"),
@@ -35,7 +39,7 @@ def _row_counts(engine) -> dict[str, int]:
     with engine.connect() as conn:
         return {
             table.name: conn.execute(select(func.count()).select_from(table)).scalar_one()
-            for table in Base.metadata.sorted_tables
+            for table in _TEST_TABLES
         }
 
 
@@ -52,7 +56,7 @@ def _planner_state(engine) -> set[tuple[float, int]]:
                 "SELECT c.reltuples, (SELECT count(*) FROM pg_statistic s WHERE s.starelid = c.oid) FROM pg_class c "
                 "WHERE c.relnamespace = current_schema()::regnamespace AND c.relkind = 'r' AND c.relname = ANY(:names)"
             ),
-            {"names": [table.name for table in Base.metadata.sorted_tables]},
+            {"names": [table.name for table in _TEST_TABLES]},
         )
         return {(reltuples, stats) for reltuples, stats in rows}
 

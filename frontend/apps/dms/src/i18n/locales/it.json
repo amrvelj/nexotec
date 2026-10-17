@@ -204,6 +204,11 @@
       "marketplace": "Marketplace",
       "other": "Altro"
     },
+    "addressType": {
+      "domicile": "Domicilio",
+      "billing": "Fatturazione",
+      "delivery": "Consegna"
+    },
     "vehiclePartyRole": {
       "owner": "Proprietario",
       "keeper": "Detentore",
@@ -505,7 +510,58 @@
       "you": "Tu",
       "system": "Sistema",
       "user": "Utente {{id}}",
-      "actionSuffix": "questo cliente"
+      "actions": {
+        "create": "Cliente creato",
+        "update": "Cliente modificato",
+        "merge": "Cliente unito",
+        "phone_add": "Telefono aggiunto",
+        "phone_update": "Telefono modificato",
+        "phone_remove": "Telefono rimosso",
+        "email_add": "Indirizzo e-mail aggiunto",
+        "email_update": "Indirizzo e-mail modificato",
+        "email_remove": "Indirizzo e-mail rimosso",
+        "address_add": "Indirizzo aggiunto",
+        "address_update": "Indirizzo modificato",
+        "address_remove": "Indirizzo rimosso",
+        "external_id_add": "ID esterno aggiunto",
+        "external_id_update": "ID esterno modificato",
+        "external_id_remove": "ID esterno rimosso",
+        "vehicle_party_add": "Veicolo collegato",
+        "vehicle_party_update": "Collegamento al veicolo modificato",
+        "vehicle_party_remove": "Collegamento al veicolo terminato",
+        "credit_block_changed": "Blocco creditizio modificato"
+      },
+      "otherAction": "Modifica registrata",
+      "fields": {
+        "dealershipId": "Concessionaria",
+        "phoneType": "Tipo di telefono",
+        "emailType": "Tipo di e-mail",
+        "addressType": "Tipo di indirizzo",
+        "phoneE164": "Numero di telefono",
+        "emailAddress": "Indirizzo e-mail",
+        "consentGranted": "Consenso dato",
+        "consentScope": "Ambito del consenso",
+        "consentSource": "Fonte del consenso",
+        "consentTimestamp": "Consenso dato il",
+        "mergedIntoCustomerId": "Unito nel cliente",
+        "duplicateOfCustomerId": "Duplicato del cliente",
+        "creditBlock": "Blocco creditizio",
+        "creditBlockReason": "Motivo del blocco creditizio",
+        "vehiclePartiesRepointed": "Collegamenti veicolo trasferiti",
+        "vehiclePartiesKeptClosed": "Collegamenti veicolo mantenuti chiusi",
+        "vehiclePartiesKeptClosedIds": "Collegamenti veicolo mantenuti chiusi (ID)",
+        "transactionsRepointed": "Transazioni trasferite",
+        "phonesRepointed": "Numeri di telefono trasferiti",
+        "phonesDropped": "Numeri di telefono scartati",
+        "emailsRepointed": "Indirizzi e-mail trasferiti",
+        "emailsDropped": "Indirizzi e-mail scartati",
+        "addressesRepointed": "Indirizzi trasferiti",
+        "addressesDropped": "Indirizzi scartati",
+        "externalIdsRepointed": "ID esterni trasferiti",
+        "externalIdsDropped": "ID esterni scartati",
+        "tagsRepointed": "Tag trasferiti",
+        "tagsDropped": "Tag scartati"
+      }
     },
     "linkVehicle": {
       "title": "Collega veicolo",
@@ -531,6 +587,14 @@
       "submitting": "Unione in corso…",
       "submit": "Unisci clienti",
       "error": "Impossibile unire i clienti."
+    },
+    "mergeRefused": {
+      "intoSelf": "Un cliente non può essere unito a sé stesso.",
+      "targetMerged": "Il cliente scelto è già stato unito a un altro. Scegli il cliente in cui è stato unito.",
+      "alreadyMerged": "Questo cliente è già stato unito.",
+      "survivorConflict": "L'unione è in conflitto con un record del cliente che resta. Ricarica entrambi i clienti e riprova.",
+      "vehiclePartyBusy": "Un veicolo di questo cliente è in fase di modifica. Invia di nuovo l'unione.",
+      "staleVersion": "Questo cliente è stato modificato nel frattempo. Ricarica la pagina e riprova."
     }
   },
   "signInError": {

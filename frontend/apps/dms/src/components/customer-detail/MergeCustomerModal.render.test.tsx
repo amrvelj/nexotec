@@ -280,3 +280,66 @@ describe('MergeCustomerModal — failed loads are said, never mixed up (KAN-299)
     expect(screen.queryByText(i18n.t('customerDetail.merge.noMatches'))).toBeNull()
   })
 })
+
+// KAN-366 — a refused merge is said in the user's language, keyed by the
+// 409's `details.reason`; the API's English message is never shown.
+describe('MergeCustomerModal — a refused merge is translated (KAN-366)', () => {
+  function installRefusal(httpStatus: number, message: string, details: Record<string, unknown> | null) {
+    return installFakeBackend([
+      { method: 'GET', match: /^\/customers$/, handler: () => ({ items: [DUPLICATE, SURVIVOR], nextCursor: null }) },
+      { method: 'GET', match: /^\/customers\/surv-1\/(phones|emails)$/, handler: () => ({ items: [] }) },
+      {
+        method: 'POST',
+        match: /^\/customers\/dup-1\/merge$/,
+        handler: () => status(httpStatus, { error: { code: 'conflict', message, details } }),
+      },
+    ])
+  }
+
+  const cases = [
+    {
+      name: 'merge_vehicle_party_busy',
+      httpStatus: 409,
+      message: 'A vehicle of this customer is being changed right now; send the merge again.',
+      details: { reason: 'merge_vehicle_party_busy', vehicleId: 'v-1', role: 'owner' },
+      key: 'customerDetail.mergeRefused.vehiclePartyBusy',
+    },
+    {
+      name: 'merge_target_merged',
+      httpStatus: 409,
+      message: 'Cannot merge into a customer that has itself been merged.',
+      details: { reason: 'merge_target_merged', duplicateOfCustomerId: 'surv-1' },
+      key: 'customerDetail.mergeRefused.targetMerged',
+    },
+    {
+      name: 'a stale If-Match version',
+      httpStatus: 409,
+      message: 'Customer has been modified.',
+      details: { currentVersion: 5, ifMatchVersion: 4 },
+      key: 'customerDetail.mergeRefused.staleVersion',
+    },
+    {
+      name: 'an unknown refusal',
+      httpStatus: 409,
+      message: 'Something the dialog does not know.',
+      details: { reason: 'not_a_known_reason' },
+      key: 'customerDetail.merge.error',
+    },
+  ]
+
+  for (const c of cases) {
+    it(`shows ${c.name} in fr, never the API's English message`, async () => {
+      await i18n.changeLanguage('fr')
+      const user = userEvent.setup()
+      installRefusal(c.httpStatus, c.message, c.details)
+      renderModal()
+
+      await pickSurvivor(user)
+      await confirmAndSubmit(user)
+
+      expect(await screen.findByText(i18n.t(c.key))).toBeInTheDocument()
+      expect(screen.queryByText(c.message)).toBeNull()
+      expect(screen.getByRole('dialog').textContent).not.toMatch(MARKER)
+    })
+  }
+})

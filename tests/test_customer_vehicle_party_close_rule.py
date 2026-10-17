@@ -696,3 +696,175 @@ def test_a_merge_never_waits_for_a_late_pair_out_of_order(engine, db_session, mo
     db_session.expire_all()
     assert db_session.get(VehicleParty, party.id).customer_id == duplicate.id
     assert db_session.get(Customer, duplicate.id).duplicate_of_customer_id is None
+
+
+# --- KAN-365: allocation and a reopen refuse a merged customer ---------------
+
+
+def _merge(db, duplicate: Customer | uuid.UUID, survivor_id: uuid.UUID, group_id: uuid.UUID) -> None:
+    duplicate_id = duplicate if isinstance(duplicate, uuid.UUID) else duplicate.id
+    loaded = customer_service.get_customer_or_404(db, group_id, duplicate_id)
+    customer_service.merge_customer(db, customer=loaded, duplicate_of_customer_id=survivor_id, actor_id=uuid.uuid4())
+
+
+def test_an_allocation_to_a_merged_customer_is_refused(db_session):
+    group_id = uuid.uuid4()
+    vehicle = _vehicle(db_session, "WVWZZZ1KZAW365001")
+    duplicate, survivor = _customer(db_session, group_id, "Dora"), _customer(db_session, group_id, "Sven")
+    db_session.commit()
+    _merge(db_session, duplicate, survivor.id, group_id)
+
+    with pytest.raises(ConflictError) as refused:
+        _allocate(db_session, vehicle.id, duplicate, group_id)
+    db_session.rollback()
+
+    assert refused.value.details == {"reason": "customer_merged", "mergedIntoCustomerId": str(survivor.id)}
+    assert _open_holders(db_session, vehicle.id) == set()
+
+
+def test_a_reopen_on_a_merged_customer_is_refused(db_session):
+    """A closed row left on a merged customer (written before KAN-365) is
+    never made a holder again by a PATCH: the survivor carries the history."""
+
+    group_id = uuid.uuid4()
+    vehicle = _vehicle(db_session, "WVWZZZ1KZAW365002")
+    duplicate, survivor = _customer(db_session, group_id, "Dora"), _customer(db_session, group_id, "Sven")
+    db_session.commit()
+    _merge(db_session, duplicate, survivor.id, group_id)
+    start = utcnow() - dt.timedelta(days=30)
+    stray = VehicleParty(
+        vehicle_id=vehicle.id, customer_id=duplicate.id, role=OWNER, effective_from=start,
+        effective_to=start + dt.timedelta(days=1),
+    )
+    db_session.add(stray)
+    db_session.commit()
+
+    with pytest.raises(ConflictError) as refused:
+        _patch(db_session, (duplicate.id, stray.id), group_id, effective_to=None)
+    db_session.rollback()
+
+    assert refused.value.details["reason"] == "customer_merged"
+    assert _open_holders(db_session, vehicle.id) == set()
+    assert _events(db_session, "customer.vehicle_party.linked", stray.id) == []
+
+
+def test_an_allocation_to_the_duplicate_racing_its_merge_lands_on_the_survivor(engine, db_session, monkeypatch):
+    """The allocation gives the duplicate a (vehicle, role) it had no row in
+    and is paused before committing — the row the merge's read of the
+    duplicate's pairs cannot see. The merge waits for the duplicate's
+    customer row, which the allocation holds FOR SHARE, then reads the pairs
+    again and re-points the new row. Before KAN-365 the merge did not wait:
+    it committed first and left the allocation's open row on a merged
+    customer."""
+
+    _postgres_only(engine)
+    group_id = uuid.uuid4()
+    vehicle = _vehicle(db_session, "WVWZZZ1KZAW365003")
+    duplicate, survivor = _customer(db_session, group_id, "Dora"), _customer(db_session, group_id, "Sven")
+    db_session.commit()
+    vehicle_id, duplicate_id, survivor_id = vehicle.id, duplicate.id, survivor.id
+    reached, release = _pause_thread_after_closing(monkeypatch, "allocation")
+    factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+    errors: list[Exception] = []
+
+    def _allocation():
+        with factory() as session:
+            _allocate(session, vehicle_id, duplicate_id, group_id)
+
+    def _merging():
+        with factory() as session:
+            _merge(session, duplicate_id, survivor_id, group_id)
+
+    allocation = _run("allocation", errors, _allocation)
+    try:
+        assert reached.wait(timeout=10), "the allocation never reached its insert"
+        merge = _run("merge", errors, _merging)
+        _wait_until_a_backend_waits_on_a_lock(engine)  # the merge waits on the duplicate's customer row
+        release.set()
+        allocation.join(timeout=10)
+        merge.join(timeout=10)
+    finally:
+        release.set()
+
+    assert not allocation.is_alive() and not merge.is_alive()
+    assert errors == []
+    assert _open_holders(db_session, vehicle_id) == {survivor_id}
+    assert db_session.get(Customer, duplicate_id).duplicate_of_customer_id == survivor_id
+
+
+def test_an_allocation_to_the_duplicate_after_its_merge_locked_it_is_refused(engine, db_session, monkeypatch):
+    """The merge holds the duplicate's customer row and is paused before
+    committing. An allocation to the duplicate on a new (vehicle, role)
+    waits for that row, then reads it merged and is refused — no open row on
+    a merged customer."""
+
+    _postgres_only(engine)
+    group_id = uuid.uuid4()
+    vehicle = _vehicle(db_session, "WVWZZZ1KZAW365004")
+    duplicate, survivor = _customer(db_session, group_id, "Dora"), _customer(db_session, group_id, "Sven")
+    db_session.commit()
+    vehicle_id, duplicate_id, survivor_id = vehicle.id, duplicate.id, survivor.id
+    reached, release = threading.Event(), threading.Event()
+    real_repoint = customer_service._repoint_transactions
+
+    def _pause_after_the_parties(db, **kwargs):
+        if threading.current_thread().name == "merge":
+            reached.set()
+            release.wait(timeout=10)
+        return real_repoint(db, **kwargs)
+
+    monkeypatch.setattr(customer_service, "_repoint_transactions", _pause_after_the_parties)
+    factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+    errors: list[Exception] = []
+    refusals: list[ConflictError] = []
+
+    def _allocation():
+        with factory() as session:
+            try:
+                _allocate(session, vehicle_id, duplicate_id, group_id)
+            except ConflictError as exc:
+                refusals.append(exc)
+
+    def _merging():
+        with factory() as session:
+            _merge(session, duplicate_id, survivor_id, group_id)
+
+    merge = _run("merge", errors, _merging)
+    try:
+        assert reached.wait(timeout=10), "the merge never re-pointed the parties"
+        allocation = _run("allocation", errors, _allocation)
+        _wait_until_a_backend_waits_on_a_lock(engine)  # the allocation waits on the duplicate's customer row
+        release.set()
+        merge.join(timeout=10)
+        allocation.join(timeout=10)
+    finally:
+        release.set()
+
+    assert not allocation.is_alive() and not merge.is_alive()
+    assert errors == []
+    assert [r.details["reason"] for r in refusals] == ["customer_merged"]
+    assert _open_holders(db_session, vehicle_id) == set()
+
+
+def test_the_copy_a_real_merge_kept_still_answers_merged_party_row(db_session):
+    """KAN-177's row-level refusal comes before KAN-365's customer check: the
+    copy a real merge kept sits on the merged duplicate, and reopening it
+    answers `merged_party_row`, naming the survivor, not `customer_merged`."""
+
+    group_id = uuid.uuid4()
+    vehicle = _vehicle(db_session, "WVWZZZ1KZAW365005")
+    duplicate, survivor = _customer(db_session, group_id, "Dora"), _customer(db_session, group_id, "Sven")
+    start = utcnow() - dt.timedelta(days=30)
+    db_session.add(VehicleParty(vehicle_id=vehicle.id, customer_id=survivor.id, role=OWNER, effective_from=start))
+    kept = VehicleParty(vehicle_id=vehicle.id, customer_id=duplicate.id, role=OWNER, effective_from=start)
+    db_session.add(kept)
+    db_session.commit()
+    _merge(db_session, duplicate, survivor.id, group_id)
+    db_session.refresh(kept)
+    assert (kept.customer_id, kept.merged_into_customer_id) == (duplicate.id, survivor.id)
+
+    with pytest.raises(ConflictError) as refused:
+        _patch(db_session, (duplicate.id, kept.id), group_id, effective_to=None)
+    db_session.rollback()
+
+    assert refused.value.details["reason"] == "merged_party_row"

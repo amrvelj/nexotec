@@ -121,21 +121,24 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
   // itself and drops digits. Called unconditionally (rules of hooks),
   // safe during the loading state below since `offerQuery.data` is
   // simply undefined until it resolves — see the hook's own docstring.
-  const [leasingDownPayment, setLeasingDownPayment] = useDebouncedNumberField(
+  const [leasingDownPayment, setLeasingDownPayment, leasingDownPaymentUnsaved] = useDebouncedNumberField(
     offerQuery.data?.leasingDownPayment != null ? Number(offerQuery.data.leasingDownPayment) : null,
     offerQuery.data?.id,
     (value) => commitLeasing({ leasingDownPayment: value })
   )
-  const [leasingTermMonths, setLeasingTermMonths] = useDebouncedNumberField(
+  const [leasingTermMonths, setLeasingTermMonths, leasingTermMonthsUnsaved] = useDebouncedNumberField(
     offerQuery.data?.leasingTermMonths ?? null,
     offerQuery.data?.id,
     (value) => commitLeasing({ leasingTermMonths: value })
   )
-  const [leasingKmPerYear, setLeasingKmPerYear] = useDebouncedNumberField(
+  const [leasingKmPerYear, setLeasingKmPerYear, leasingKmPerYearUnsaved] = useDebouncedNumberField(
     offerQuery.data?.leasingKmPerYear ?? null,
     offerQuery.data?.id,
     (value) => commitLeasing({ leasingKmPerYear: value })
   )
+  // KAN-344 — a leasing value inside its debounce is not yet a save either,
+  // so Continue waits for it as it does for a price (KAN-327).
+  const leasingUnsaved = leasingDownPaymentUnsaved || leasingTermMonthsUnsaved || leasingKmPerYearUnsaved
 
   if (offerQuery.isLoading) return <Loader />
   if (offerQuery.isError || !offerQuery.data) {
@@ -221,6 +224,7 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
               missing.length > 0 ||
               selectedCustomer?.lifecycleStatus === 'do_not_contact' ||
               pricingUnsaved ||
+              leasingUnsaved ||
               saves.pending > 0
             }
             onClick={() => setGenerateOpen(true)}
