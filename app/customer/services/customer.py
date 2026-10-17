@@ -1205,20 +1205,24 @@ def merge_customer(
     role+period present on both is the exception (KAN-177, ADR-064): the
     duplicate's copy is kept, closed and marked merged, never deleted — see
     _repoint_vehicle_parties.
+
+    KAN-366: every refusal names a `details.reason`, so the merge dialog
+    says it in the user's language instead of showing this English message.
     """
 
     if duplicate_of_customer_id == customer.id:
-        raise BadRequestError("A customer cannot be merged into itself.")
+        raise BadRequestError("A customer cannot be merged into itself.", details={"reason": "merge_into_self"})
 
     target = _group_scoped_or_404(db, Customer, duplicate_of_customer_id, customer.group_id)
     if target.lifecycle_status == CustomerLifecycleStatus.MERGED:
         raise ConflictError(
             "Cannot merge into a customer that has itself been merged.",
-            details={"duplicateOfCustomerId": str(duplicate_of_customer_id)},
+            details={"reason": "merge_target_merged", "duplicateOfCustomerId": str(duplicate_of_customer_id)},
         )
     if customer.lifecycle_status == CustomerLifecycleStatus.MERGED:
         raise ConflictError(
-            "Customer has already been merged.", details={"currentLifecycleStatus": "merged"}
+            "Customer has already been merged.",
+            details={"reason": "customer_already_merged", "currentLifecycleStatus": "merged"},
         )
 
     before = {"lifecycleStatus": customer.lifecycle_status.value, "duplicateOfCustomerId": None}
@@ -1301,7 +1305,10 @@ def merge_customer(
         db.commit()
     except IntegrityError as exc:
         db.rollback()
-        raise ConflictError("Merge conflicts with an existing record on the survivor.") from exc
+        raise ConflictError(
+            "Merge conflicts with an existing record on the survivor.",
+            details={"reason": "merge_conflict_on_survivor"},
+        ) from exc
     db.refresh(customer)
 
     # WP-8 PR-7 — Pattern B (ADR-047, own commit), called AFTER the merge

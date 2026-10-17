@@ -436,6 +436,64 @@ def test_merge_into_already_merged_target_is_rejected(client):
         headers={**_bearer(token), "If-Match": "1"},
     )
     assert response.status_code == 409
+    assert response.json()["error"]["details"]["reason"] == "merge_target_merged"
+
+
+def test_merge_refusals_name_a_reason(client):
+    """KAN-366: the merge dialog says a refusal in the user's language,
+    keyed by `details.reason` — so every refusal names one."""
+
+    dealer_id = _create_dealer(client)
+    survivor = _create_customer(client, dealer_id, email="survivor366@example.ch")
+    duplicate = _create_customer(client, dealer_id, email="dup366@example.ch")
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+
+    into_self = client.post(
+        f"/v1/customers/{duplicate['id']}/merge",
+        json={"duplicateOfCustomerId": duplicate["id"]},
+        headers={**_bearer(token), "If-Match": "1"},
+    )
+    assert into_self.status_code == 400
+    assert into_self.json()["error"]["details"]["reason"] == "merge_into_self"
+
+    merged = client.post(
+        f"/v1/customers/{duplicate['id']}/merge",
+        json={"duplicateOfCustomerId": survivor["id"]},
+        headers={**_bearer(token), "If-Match": "1"},
+    )
+    assert merged.status_code == 200, merged.text
+    again = client.post(
+        f"/v1/customers/{duplicate['id']}/merge",
+        json={"duplicateOfCustomerId": survivor["id"]},
+        headers={**_bearer(token), "If-Match": "2"},
+    )
+    assert again.status_code == 409
+    assert again.json()["error"]["details"]["reason"] == "customer_already_merged"
+
+
+def test_merge_conflict_on_the_survivor_names_a_reason(client, db_session, monkeypatch):
+    """KAN-366: the commit's integrity conflict is refused with a reason too."""
+
+    from sqlalchemy.exc import IntegrityError
+
+    from app.core.errors import ConflictError
+    from app.customer.models.customer import Customer
+    from app.customer.services import customer as customer_service
+
+    dealer_id = _create_dealer(client)
+    survivor = _create_customer(client, dealer_id, email="survivor366b@example.ch")
+    duplicate = _create_customer(client, dealer_id, email="dup366b@example.ch")
+    row = db_session.get(Customer, uuid.UUID(duplicate["id"]))
+
+    def conflicting_commit():
+        raise IntegrityError("COMMIT", {}, Exception("uq violated"))
+
+    monkeypatch.setattr(db_session, "commit", conflicting_commit)
+    with pytest.raises(ConflictError) as refused:
+        customer_service.merge_customer(
+            db_session, customer=row, duplicate_of_customer_id=uuid.UUID(survivor["id"]), actor_id=uuid.uuid4()
+        )
+    assert refused.value.details["reason"] == "merge_conflict_on_survivor"
 
 
 def test_merged_customer_cannot_be_patched_further(client):

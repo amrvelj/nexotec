@@ -531,6 +531,14 @@
       "submitting": "Merging…",
       "submit": "Merge customers",
       "error": "The customers could not be merged."
+    },
+    "mergeRefused": {
+      "intoSelf": "A customer cannot be merged into itself.",
+      "targetMerged": "The chosen survivor has itself been merged. Choose the customer it was merged into.",
+      "alreadyMerged": "This customer has already been merged.",
+      "survivorConflict": "The merge conflicts with a record on the survivor. Reload both customers and try again.",
+      "vehiclePartyBusy": "A vehicle of this customer is being changed right now. Send the merge again.",
+      "staleVersion": "This customer was changed in the meantime. Reload the page and try again."
     }
   },
   "signInError": {

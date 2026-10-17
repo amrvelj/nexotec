@@ -531,6 +531,14 @@
       "submitting": "Wird zusammengeführt…",
       "submit": "Kunden zusammenführen",
       "error": "Die Kunden konnten nicht zusammengeführt werden."
+    },
+    "mergeRefused": {
+      "intoSelf": "Ein Kunde kann nicht mit sich selbst zusammengeführt werden.",
+      "targetMerged": "Der gewählte Kunde wurde selbst bereits zusammengeführt. Wählen Sie den Kunden, in den er zusammengeführt wurde.",
+      "alreadyMerged": "Dieser Kunde wurde bereits zusammengeführt.",
+      "survivorConflict": "Die Zusammenführung kollidiert mit einem Datensatz beim verbleibenden Kunden. Laden Sie beide Kunden neu und versuchen Sie es erneut.",
+      "vehiclePartyBusy": "Ein Fahrzeug dieses Kunden wird gerade geändert. Senden Sie die Zusammenführung erneut.",
+      "staleVersion": "Dieser Kunde wurde inzwischen geändert. Laden Sie die Seite neu und versuchen Sie es erneut."
     }
   },
   "signInError": {

@@ -531,6 +531,14 @@
       "submitting": "Unione in corso…",
       "submit": "Unisci clienti",
       "error": "Impossibile unire i clienti."
+    },
+    "mergeRefused": {
+      "intoSelf": "Un cliente non può essere unito a sé stesso.",
+      "targetMerged": "Il cliente scelto è già stato unito a un altro. Scegli il cliente in cui è stato unito.",
+      "alreadyMerged": "Questo cliente è già stato unito.",
+      "survivorConflict": "L'unione è in conflitto con un record del cliente che resta. Ricarica entrambi i clienti e riprova.",
+      "vehiclePartyBusy": "Un veicolo di questo cliente è in fase di modifica. Invia di nuovo l'unione.",
+      "staleVersion": "Questo cliente è stato modificato nel frattempo. Ricarica la pagina e riprova."
     }
   },
   "signInError": {

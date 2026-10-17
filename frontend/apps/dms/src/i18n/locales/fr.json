@@ -531,6 +531,14 @@
       "submitting": "Fusion en cours…",
       "submit": "Fusionner les clients",
       "error": "Les clients n'ont pas pu être fusionnés."
+    },
+    "mergeRefused": {
+      "intoSelf": "Un client ne peut pas être fusionné avec lui-même.",
+      "targetMerged": "Le client choisi a lui-même déjà été fusionné. Choisissez le client dans lequel il a été fusionné.",
+      "alreadyMerged": "Ce client a déjà été fusionné.",
+      "survivorConflict": "La fusion entre en conflit avec un enregistrement du client conservé. Rechargez les deux clients et réessayez.",
+      "vehiclePartyBusy": "Un véhicule de ce client est en cours de modification. Relancez la fusion.",
+      "staleVersion": "Ce client a été modifié entre-temps. Rechargez la page et réessayez."
     }
   },
   "signInError": {
