@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next'
 import {
   ActionBar,
   ColumnConfigPanel,
+  defaultColumnLayout,
   DataGrid,
   OverviewShellRegion,
   SalesStatusBadge,
@@ -21,10 +22,11 @@ import {
 } from '@nexotec/ui-kit'
 import { useUiPreferencesContext } from '../hooks/UiPreferencesContext'
 import { useGridPreferences } from '../hooks/useGridPreferences'
+import { useColumnPanelLabels } from '../hooks/useColumnPanelLabels'
 import { useSavedViews } from '../hooks/useSavedViews'
 import { api } from '../api/client'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
-import { translatedSalesDealStatusLabel } from '../salesOptions'
+import { translatedSalesDealStatusLabel, translatedSalesEntityTypeLabel } from '../salesOptions'
 import { formatDate, formatCurrencyChf } from '../utils/format'
 import type { SalesDealPage, SalesDealRead } from '../api/types'
 
@@ -143,7 +145,7 @@ export function SalesListPage() {
       {
         id: 'entityType',
         header: t('salesList.columns.type'),
-        cell: ({ row }) => <SalesTypeBadge entityType={row.original.entityType} />,
+        cell: ({ row }) => <SalesTypeBadge entityType={row.original.entityType} label={translatedSalesEntityTypeLabel(t, row.original.entityType)} />,
         meta: { locked: true },
       },
       {
@@ -199,6 +201,15 @@ export function SalesListPage() {
       })),
     [columns]
   )
+  // A user with no saved layout sees the documented default subset, the
+  // rest one click away (ADR-060): DataGrid without a layout would render
+  // every column, defaultVisible ignored (KAN-361). Panel and grid read
+  // this one value.
+  const columnLayout = useMemo(
+    () => gridPrefs.columnLayout ?? defaultColumnLayout(columnRegistry),
+    [gridPrefs.columnLayout, columnRegistry]
+  )
+  const columnPanelLabels = useColumnPanelLabels()
 
   const isFiltered = debouncedQuery.length > 0
   const currentViewName = (appliedViewId && savedViews.views.find((v) => v.id === appliedViewId)?.name) || t('salesList.allDealsView')
@@ -270,15 +281,9 @@ export function SalesListPage() {
               columnsSlot={
                 <ColumnConfigPanel
                   registry={columnRegistry}
-                  layout={
-                    gridPrefs.columnLayout ?? {
-                      order: columnRegistry.map((c) => c.id),
-                      hidden: [],
-                      widths: {},
-                      pinnedLeft: [],
-                    }
-                  }
+                  layout={columnLayout}
                   onLayoutChange={gridPrefs.setColumnLayout}
+                  labels={columnPanelLabels}
                 />
               }
               labels={{
@@ -330,7 +335,7 @@ export function SalesListPage() {
           total={total}
           totalIsEstimate={totalIsEstimate}
           isFiltered={isFiltered}
-          columnLayout={gridPrefs.columnLayout ?? undefined}
+          columnLayout={columnLayout}
           onColumnLayoutChange={gridPrefs.setColumnLayout}
           labels={{
             showing: (count) => t('common.showing', { count }),

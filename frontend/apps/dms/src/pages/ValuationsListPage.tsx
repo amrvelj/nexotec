@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next'
 import {
   ActionBar,
   ColumnConfigPanel,
+  defaultColumnLayout,
   DataGrid,
   OverviewShellRegion,
   ValuationStatusBadge,
@@ -22,11 +23,13 @@ import { buildValuationRowMenu } from '../components/valuationRowMenu'
 import { ValuationSourceMarker } from '../components/ValuationSourceMarker'
 import { NewValuationButton } from '../components/NewValuationButton'
 import { useGridPreferences } from '../hooks/useGridPreferences'
+import { useColumnPanelLabels } from '../hooks/useColumnPanelLabels'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { useSavedViews } from '../hooks/useSavedViews'
 import { useUiPreferencesContext } from '../hooks/UiPreferencesContext'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
 import { formatCurrencyChf, formatDate, formatNumber } from '../utils/format'
+import { translatedValuationStatusLabel } from '../valuationOptions'
 import type { ValuationPage, ValuationRead } from '../api/types'
 
 const GRID_KEY = 'valuations.list'
@@ -157,7 +160,7 @@ export function ValuationsListPage() {
       {
         id: 'status',
         header: t('valuationsList.columns.status'),
-        cell: ({ row }) => <ValuationStatusBadge status={row.original.status} />,
+        cell: ({ row }) => <ValuationStatusBadge status={row.original.status} label={translatedValuationStatusLabel(t, row.original.status)} />,
       },
       {
         id: 'validUntil',
@@ -179,6 +182,15 @@ export function ValuationsListPage() {
       })),
     [columns]
   )
+  // A user with no saved layout sees the documented default subset, the
+  // rest one click away (ADR-060): DataGrid without a layout would render
+  // every column, defaultVisible ignored (KAN-361). Panel and grid read
+  // this one value.
+  const columnLayout = useMemo(
+    () => gridPrefs.columnLayout ?? defaultColumnLayout(columnRegistry),
+    [gridPrefs.columnLayout, columnRegistry]
+  )
+  const columnPanelLabels = useColumnPanelLabels()
 
   const isFiltered = debouncedQuery.length > 0
   const currentViewName =
@@ -261,15 +273,9 @@ export function ValuationsListPage() {
             columnsSlot={
               <ColumnConfigPanel
                 registry={columnRegistry}
-                layout={
-                  gridPrefs.columnLayout ?? {
-                    order: columnRegistry.map((c) => c.id),
-                    hidden: [],
-                    widths: {},
-                    pinnedLeft: [],
-                  }
-                }
+                layout={columnLayout}
                 onLayoutChange={gridPrefs.setColumnLayout}
+                labels={columnPanelLabels}
               />
             }
             labels={{
@@ -304,7 +310,7 @@ export function ValuationsListPage() {
           total={total}
           totalIsEstimate={totalIsEstimate}
           isFiltered={isFiltered}
-          columnLayout={gridPrefs.columnLayout ?? undefined}
+          columnLayout={columnLayout}
           onColumnLayoutChange={gridPrefs.setColumnLayout}
           labels={{
             showing: (count) => t('common.showing', { count }),

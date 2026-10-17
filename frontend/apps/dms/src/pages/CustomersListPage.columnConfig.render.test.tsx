@@ -46,7 +46,7 @@ describe('CustomersListPage — column configuration survives a reload', () => {
     expect(await screen.findByRole('columnheader', { name: languageColumn() })).toBeInTheDocument()
 
     // Open the column panel and hide it.
-    await user.click(screen.getByRole('button', { name: 'Columns' }))
+    await user.click(screen.getByRole('button', { name: i18n.t('common.columnPanel.trigger') }))
     const panelCheckbox = await screen.findByRole('checkbox', { name: languageColumn() })
     expect(panelCheckbox).toBeChecked()
     await user.click(panelCheckbox)

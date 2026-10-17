@@ -18,6 +18,10 @@ configuration stays editable after a host references it, and
 `overridden_fields` records *that* a field changed but not who / when /
 from what. Dates in the audit payload are `.isoformat()`d
 before they can reach `json.dumps` (the KAN-29 birth-date-500 shape).
+Every audit payload names a field by its camelCase API name
+(`firstRegistrationDate`, `mileageKm`), as the create event always did —
+one name per field across a configuration's life (KAN-346); rows written
+before KAN-346 keep their snake_case keys (the log is append-only).
 """
 
 import datetime as dt
@@ -343,8 +347,8 @@ def update_configuration(
     # an unchanged value records nothing. (A provider configuration's coded
     # fields cannot change here, so none is ever marked overridden.)
     for field, new in coded_changes.items():
-        spec_before[field] = _audit_value(getattr(configuration, field))
-        spec_after[field] = _audit_value(new)
+        spec_before[to_camel(field)] = _audit_value(getattr(configuration, field))
+        spec_after[to_camel(field)] = _audit_value(new)
         setattr(configuration, field, new)
 
     if data.spec is not None:
@@ -358,8 +362,8 @@ def update_configuration(
             new = payload[field]
             if current == new:
                 continue
-            spec_before[field] = _audit_value(current)
-            spec_after[field] = _audit_value(new)
+            spec_before[to_camel(field)] = _audit_value(current)
+            spec_after[to_camel(field)] = _audit_value(new)
             setattr(configuration, field, new)
             # A field edited after a catalogue copy is now overridden.
             if configuration.catalogue_variant_id is not None and field not in configuration.overridden_fields:
@@ -385,8 +389,8 @@ def update_configuration(
     for field in ("mode", "match_method"):
         value = getattr(data, field)
         if value is not None and value != getattr(configuration, field):
-            spec_before[field] = _audit_value(getattr(configuration, field))
-            spec_after[field] = _audit_value(value)
+            spec_before[to_camel(field)] = _audit_value(getattr(configuration, field))
+            spec_after[to_camel(field)] = _audit_value(value)
             setattr(configuration, field, value)
     # R2 (KAN-247) — absent is "leave alone", an explicit null clears, the
     # way the spec block already reads `exclude_unset`. KAN-319: a change
@@ -401,8 +405,8 @@ def update_configuration(
         new = getattr(data, field)
         if current == new:
             continue
-        spec_before[field] = _audit_value(current)
-        spec_after[field] = _audit_value(new)
+        spec_before[to_camel(field)] = _audit_value(current)
+        spec_after[to_camel(field)] = _audit_value(new)
         setattr(configuration, field, new)
 
     # KAN-326 — the link is re-derived whenever the VIN is written (cleared,
@@ -668,7 +672,7 @@ def fill_null_spec_fields_from_variants(db: Session, *, variant_ids: list[uuid.U
             if field in overridden or value is None or getattr(configuration, field) is not None:
                 continue
             setattr(configuration, field, value)
-            after[field] = _audit_value(value)
+            after[to_camel(field)] = _audit_value(value)
         if not after:
             continue
         configuration.version += 1

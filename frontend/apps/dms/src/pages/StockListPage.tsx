@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next'
 import {
   ActionBar,
   ColumnConfigPanel,
+  defaultColumnLayout,
   DataGrid,
   OverviewShellRegion,
   StockConditionBadge,
@@ -25,6 +26,7 @@ import {
 } from '@nexotec/ui-kit'
 import { useUiPreferencesContext } from '../hooks/UiPreferencesContext'
 import { useGridPreferences } from '../hooks/useGridPreferences'
+import { useColumnPanelLabels } from '../hooks/useColumnPanelLabels'
 import { useSavedViews } from '../hooks/useSavedViews'
 import { api } from '../api/client'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
@@ -341,6 +343,15 @@ export function StockListPage() {
       })),
     [columns]
   )
+  // A user with no saved layout sees the documented default subset, the
+  // rest one click away (ADR-060): DataGrid without a layout would render
+  // every column, defaultVisible ignored (KAN-361). Panel and grid read
+  // this one value.
+  const columnLayout = useMemo(
+    () => gridPrefs.columnLayout ?? defaultColumnLayout(columnRegistry),
+    [gridPrefs.columnLayout, columnRegistry]
+  )
+  const columnPanelLabels = useColumnPanelLabels()
 
   const isFiltered = debouncedQuery.length > 0 || predicates.length > 0
   const currentViewName = (appliedViewId && savedViews.views.find((v) => v.id === appliedViewId)?.name) || t('stockList.allStockView')
@@ -410,15 +421,9 @@ export function StockListPage() {
             columnsSlot={
               <ColumnConfigPanel
                 registry={columnRegistry}
-                layout={
-                  gridPrefs.columnLayout ?? {
-                    order: columnRegistry.map((c) => c.id),
-                    hidden: columnRegistry.filter((c) => !c.defaultVisible).map((c) => c.id),
-                    widths: {},
-                    pinnedLeft: [],
-                  }
-                }
+                layout={columnLayout}
                 onLayoutChange={gridPrefs.setColumnLayout}
+                labels={columnPanelLabels}
               />
             }
             labels={{
@@ -453,7 +458,7 @@ export function StockListPage() {
           total={total}
           totalIsEstimate={totalIsEstimate}
           isFiltered={isFiltered}
-          columnLayout={gridPrefs.columnLayout ?? undefined}
+          columnLayout={columnLayout}
           onColumnLayoutChange={gridPrefs.setColumnLayout}
           labels={{
             showing: (count) => t('common.showing', { count }),

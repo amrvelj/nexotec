@@ -49,7 +49,7 @@ describe('CustomersListPage — date-only columns keep their day west of Greenwi
     renderWithProviders(<CustomersListPage />, { route: '/customers' })
     await screen.findByText('K-3001')
 
-    await userEvent.click(screen.getByRole('button', { name: 'Columns' }))
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('common.columnPanel.trigger') }))
     for (const key of ['birthDate', 'customerSince', 'nextFollowUp']) {
       const label = i18n.t(`customersList.columns.${key}`)
       await userEvent.click(screen.getByRole('checkbox', { name: new RegExp(`^${label}$`, 'i') }))

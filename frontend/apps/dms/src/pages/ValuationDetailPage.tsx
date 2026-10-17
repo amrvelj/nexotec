@@ -11,6 +11,7 @@ import { ValuationSourceMarker } from '../components/ValuationSourceMarker'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
 import { formatCurrencyChf, formatDate, formatDateOnly, formatNumber } from '../utils/format'
+import { translatedValuationStatusLabel } from '../valuationOptions'
 import { CustomerDetailContent } from './CustomerDetailPage'
 import { HostConfigurationCard } from '../components/configurator/HostConfigurationCard'
 import type { ValuationRead } from '../api/types'
@@ -113,7 +114,7 @@ export function ValuationDetailContent({ valuationId: id, embedded = false }: Va
         businessKey={valuation.valuationNumber}
         badges={
           <>
-            <ValuationStatusBadge status={valuation.status} />
+            <ValuationStatusBadge status={valuation.status} label={translatedValuationStatusLabel(t, valuation.status)} />
             <ValuationSourceMarker source={valuation.source} />
           </>
         }

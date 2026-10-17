@@ -27,7 +27,7 @@ import { StockDetailContent } from './StockDetailPage'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { useDealSaveQueue } from '../hooks/useDealSaveQueue'
 import { ValuationSourceMarker } from '../components/ValuationSourceMarker'
-import { translatedSalesDealStatusLabel } from '../salesOptions'
+import { translatedSalesDealStatusLabel, translatedSalesEntityTypeLabel } from '../salesOptions'
 import { formatCurrencyChf } from '../utils/format'
 import type { SalesContractRead, ValuationRead } from '../api/types'
 
@@ -338,7 +338,7 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
         businessKey={businessKey}
         badges={
           <>
-            <SalesTypeBadge entityType="contract" />
+            <SalesTypeBadge entityType="contract" label={translatedSalesEntityTypeLabel(t, 'contract')} />
             <SalesStatusBadge status={contract.status as never} label={translatedSalesDealStatusLabel(t, contract.status as never)} />
           </>
         }

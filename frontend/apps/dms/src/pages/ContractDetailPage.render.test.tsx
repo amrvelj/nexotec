@@ -91,6 +91,9 @@ describe('ContractDetailPage — the confirm refusal is surfaced and localised (
     renderPage()
 
     await user.click(await screen.findByRole('button', { name: i18n.t('contractDetail.actions.confirm') }))
+    // KAN-334: the type badge reads French, never the German kit default.
+    expect(screen.getAllByText('Contrat').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Vertrag')).not.toBeInTheDocument()
 
     const fr = i18n.t('contractDetail.errors.confirmRefused.missingAddress')
     expect(fr).not.toBe('No address on file — needed before a contract can be confirmed.')

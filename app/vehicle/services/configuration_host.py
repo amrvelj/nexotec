@@ -21,6 +21,7 @@ import dataclasses
 import uuid
 from typing import Any
 
+from pydantic.alias_generators import to_camel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -184,8 +185,8 @@ def apply_resync(
         current, catalogue = getattr(configuration, field), getattr(variant, field)
         if current == catalogue:
             continue
-        before[field] = _audit_value(current)
-        after[field] = _audit_value(catalogue)
+        before[to_camel(field)] = _audit_value(current)
+        after[to_camel(field)] = _audit_value(catalogue)
         setattr(configuration, field, catalogue)
     chosen = set(fields)
     configuration.overridden_fields = [f for f in (configuration.overridden_fields or []) if f not in chosen]

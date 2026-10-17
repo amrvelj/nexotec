@@ -116,7 +116,7 @@ describe('CustomersListPage — the column set (KAN-51 half 1 + partial half 2)'
     }
 
     // … but every one is a real, toggleable column in the panel.
-    await userEvent.click(screen.getByRole('button', { name: 'Columns' }))
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('common.columnPanel.trigger') }))
     for (const key of newFieldKeys) {
       expect(screen.getByRole('checkbox', { name: new RegExp(`^${columnHeader(key)}$`, 'i') })).toBeInTheDocument()
     }
@@ -135,7 +135,7 @@ describe('CustomersListPage — the column set (KAN-51 half 1 + partial half 2)'
     renderWithProviders(<CustomersListPage />, { route: '/customers' })
     await screen.findByText('K-2001')
 
-    await userEvent.click(screen.getByRole('button', { name: 'Columns' }))
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('common.columnPanel.trigger') }))
     for (const key of [
       'customerTitle', 'gender', 'website', 'newsletter', 'paymentTerms', 'creditLimit', 'iban',
       'vatRegistered', 'creditBlockReason', 'creditBlockedAt', 'customerSince', 'nextFollowUp', 'notes',
@@ -166,7 +166,7 @@ describe('CustomersListPage — the column set (KAN-51 half 1 + partial half 2)'
     const header = new RegExp(`^${columnHeader('vatStatusConfirmed')}$`, 'i')
     expect(screen.queryByRole('columnheader', { name: header })).not.toBeInTheDocument()
 
-    await userEvent.click(screen.getByRole('button', { name: 'Columns' }))
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('common.columnPanel.trigger') }))
     await userEvent.click(screen.getByRole('checkbox', { name: header }))
 
     const index = screen.getAllByRole('columnheader').findIndex((th) => header.test(th.textContent ?? ''))
@@ -180,7 +180,7 @@ describe('CustomersListPage — the column set (KAN-51 half 1 + partial half 2)'
     renderWithProviders(<CustomersListPage />, { route: '/customers' })
 
     await screen.findByText('K-1001')
-    await userEvent.click(screen.getByRole('button', { name: 'Columns' }))
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('common.columnPanel.trigger') }))
 
     // The panel's checkboxes are the ones wrapped in a <label>; the grid's
     // own select-all / row checkboxes carry an aria-label instead.

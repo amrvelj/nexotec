@@ -13,6 +13,7 @@ import {
 } from '@nexotec/ui-kit'
 import { useUiPreferencesContext } from '../../hooks/UiPreferencesContext'
 import { useGridPreferences } from '../../hooks/useGridPreferences'
+import { useColumnPanelLabels } from '../../hooks/useColumnPanelLabels'
 import { api } from '../../api/client'
 import { toSwissLocale, type SupportedLanguage } from '../../i18n'
 import { buildStockGroupColumns } from './columns/stockGroupColumns'
@@ -93,6 +94,7 @@ export function GroupStockGrid({ query, debouncedQuery, onQueryChange, sort, onS
     () => gridPrefs.columnLayout ?? defaultColumnLayout(columnRegistry),
     [gridPrefs.columnLayout, columnRegistry]
   )
+  const columnPanelLabels = useColumnPanelLabels()
 
   return (
     <OverviewShellRegion
@@ -111,13 +113,7 @@ export function GroupStockGrid({ query, debouncedQuery, onQueryChange, sort, onS
               registry={columnRegistry}
               layout={columnLayout}
               onLayoutChange={gridPrefs.setColumnLayout}
-              labels={{
-                trigger: t('common.columnPanel.trigger'),
-                search: t('common.columnPanel.search'),
-                reset: t('common.columnPanel.reset'),
-                presets: t('common.columnPanel.presets'),
-                lockedTooltip: t('common.columnPanel.lockedTooltip'),
-              }}
+              labels={columnPanelLabels}
             />
           }
           labels={{

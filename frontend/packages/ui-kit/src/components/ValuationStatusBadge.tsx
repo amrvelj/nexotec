@@ -6,21 +6,24 @@ import { Badge, type BadgeTone } from "./Badge";
  * never its own derived status — a valuation is never simultaneously
  * "valid" and "expiring_soon" as far as this badge is concerned, since
  * the backend's own derive_status has exactly four values.
+ *
+ * KAN-334 — the kit maps a value to a tone only. `label` is required: a kit
+ * badge never carries a user-visible default string (KAN-110/KAN-181); the
+ * app passes the translated label.
  */
 export type ValuationStatus = "draft" | "valid" | "expired" | "used";
 
-const CONFIG: Record<ValuationStatus, { tone: BadgeTone; label: string }> = {
-  draft: { tone: "slate", label: "Entwurf" },
-  valid: { tone: "success", label: "Gültig" },
-  expired: { tone: "destructive", label: "Abgelaufen" },
-  used: { tone: "purple", label: "Verwendet" },
+const TONE: Record<ValuationStatus, BadgeTone> = {
+  draft: "slate",
+  valid: "success",
+  expired: "destructive",
+  used: "purple",
 };
 
-export function ValuationStatusBadge({ status, label }: { status: ValuationStatus; label?: string }) {
-  const config = CONFIG[status];
+export function ValuationStatusBadge({ status, label }: { status: ValuationStatus; label: string }) {
   return (
-    <Badge tone={config.tone} dot>
-      {label ?? config.label}
+    <Badge tone={TONE[status]} dot>
+      {label}
     </Badge>
   );
 }

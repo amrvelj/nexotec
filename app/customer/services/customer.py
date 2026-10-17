@@ -995,7 +995,43 @@ def _repoint_vehicle_parties(
     audit event lists its id. One that is open, or closed at a future date,
     is closed at its start so it never reads as a current party again. The
     survivor's row is not touched.
+
+    KAN-356: every allocation and reopen serialises on the (vehicle, role,
+    group) advisory lock, and the merge writes the same rows, so it takes that
+    lock for every (vehicle, role) the duplicate has a row in — in sorted
+    order, so two merges never deadlock each other — before it reads a row,
+    then locks the rows it writes (advisory, then row: KAN-148's order). A
+    row an allocation added for the duplicate while the merge waited can name
+    a pair not locked yet, so the pairs are read again until every one is
+    held. Such a late pair is out of the sorted order, so the merge never
+    waits for it: it tries the lock, and if another writer holds it the merge
+    is refused (409 `merge_vehicle_party_busy`, nothing written) and can
+    simply be sent again.
     """
+
+    held: set[tuple[uuid.UUID, VehiclePartyRole]] = set()
+    while True:
+        pairs = {
+            (vehicle_id, role)
+            for vehicle_id, role in db.execute(
+                select(VehicleParty.vehicle_id, VehicleParty.role)
+                .where(VehicleParty.customer_id == duplicate_id)
+                .distinct()
+            ).all()
+        }
+        missing = sorted(pairs - held, key=lambda pair: (str(pair[0]), pair[1].value))
+        if not missing:
+            break
+        late = bool(held)
+        for vehicle_id, role in missing:
+            if not late:
+                _lock_vehicle_role_in_group(db, vehicle_id=vehicle_id, role=role, group_id=group_id)
+            elif not _try_lock_vehicle_role_in_group(db, vehicle_id=vehicle_id, role=role, group_id=group_id):
+                raise ConflictError(
+                    "A vehicle of this customer is being changed right now; send the merge again.",
+                    details={"reason": "merge_vehicle_party_busy", "vehicleId": str(vehicle_id), "role": role.value},
+                )
+            held.add((vehicle_id, role))
 
     target_keys = {
         (p.vehicle_id, p.role, p.effective_from)
@@ -1003,7 +1039,14 @@ def _repoint_vehicle_parties(
     }
     repointed = 0
     kept_closed: list[uuid.UUID] = []
-    for party in db.scalars(select(VehicleParty).where(VehicleParty.customer_id == duplicate_id)).all():
+    duplicate_rows = (
+        select(VehicleParty)
+        .where(VehicleParty.customer_id == duplicate_id)
+        .order_by(VehicleParty.id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    for party in db.scalars(duplicate_rows).all():
         key = (party.vehicle_id, party.role, party.effective_from)
         if key in target_keys:
             already_closed = party.effective_to is not None and party.effective_to <= utcnow()
@@ -2926,9 +2969,28 @@ def _lock_vehicle_role_in_group(
 
     if db.get_bind().dialect.name != "postgresql":
         return
+    db.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": _vehicle_role_lock_key(vehicle_id, role, group_id)})
+
+
+def _try_lock_vehicle_role_in_group(
+    db: Session, *, vehicle_id: uuid.UUID, role: VehiclePartyRole, group_id: uuid.UUID
+) -> bool:
+    """The same lock, without waiting: True once held, False if another
+    transaction holds it (KAN-356: a merge's out-of-order late pair). Always
+    True on SQLite, as above."""
+
+    if db.get_bind().dialect.name != "postgresql":
+        return True
+    return bool(
+        db.execute(
+            text("SELECT pg_try_advisory_xact_lock(:key)"), {"key": _vehicle_role_lock_key(vehicle_id, role, group_id)}
+        ).scalar()
+    )
+
+
+def _vehicle_role_lock_key(vehicle_id: uuid.UUID, role: VehiclePartyRole, group_id: uuid.UUID) -> int:
     digest = hashlib.sha256(f"vehicle_party:{vehicle_id}:{role.value}:{group_id}".encode()).digest()
-    key = int.from_bytes(digest[:8], "big", signed=True)
-    db.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": key})
+    return int.from_bytes(digest[:8], "big", signed=True)
 
 
 def _open_vehicle_party(

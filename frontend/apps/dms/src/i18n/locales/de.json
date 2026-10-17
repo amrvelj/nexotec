@@ -94,7 +94,11 @@
       "search": "Spalte suchen…",
       "reset": "Standard wiederherstellen",
       "presets": "Vorlagen",
-      "lockedTooltip": "Immer sichtbar"
+      "lockedTooltip": "Immer sichtbar",
+      "pin": "Spalte fixieren",
+      "unpin": "Fixierung aufheben",
+      "moveUp": "{{label}} nach oben verschieben",
+      "moveDown": "{{label}} nach unten verschieben"
     }
   },
   "customerCreate": {
@@ -1819,5 +1823,13 @@
   "valuationSource": {
     "manual": "Manuell",
     "auto_i_dat": "auto-i-dat"
+  },
+  "valuationEnums": {
+    "status": {
+      "draft": "Entwurf",
+      "valid": "Gültig",
+      "expired": "Abgelaufen",
+      "used": "Verwendet"
+    }
   }
 }
