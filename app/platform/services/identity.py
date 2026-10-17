@@ -186,7 +186,7 @@ def provider_for(db: Session, dealership_id: uuid.UUID) -> IdentityProvider:
     """FR-AU-02/03: the provider is the dealership's, never the user's. Only
     `local` exists in v1, so the lookup is the seam, not a choice yet."""
 
-    auth_config_for(db, dealership_id)
+    read_auth_config(db, dealership_id)
     return local_password_provider
 
 
@@ -205,8 +205,9 @@ def read_auth_config(db: Session, dealership_id: uuid.UUID) -> DealershipAuthCon
 
 
 def auth_config_for(db: Session, dealership_id: uuid.UUID) -> DealershipAuthConfig:
-    """Created on first read with the defaults: local sign-in, MFA enforced
-    (FR-AU-11)."""
+    """The row to WRITE: created with the defaults (local sign-in, MFA
+    enforced, FR-AU-11) by the first PUT. Every read path uses
+    `read_auth_config`, which never inserts."""
 
     row = db.scalar(select(DealershipAuthConfig).where(DealershipAuthConfig.dealership_id == dealership_id))
     if row is None:
@@ -480,13 +481,13 @@ def login_completed(db: Session, *, user: User) -> None:
     credential.locked_until = None
 
 
-def second_step_exhausted(db: Session, *, user: User) -> None:
-    """Five wrong answers at the MFA step count as one failure on the
-    account axis — and the password step no longer clears that axis, only
-    a completed login does — so a holder of the password who keeps starting
-    fresh challenges runs into the same backoff (third failure) and lockout
-    (fifth) as a password guesser: at most about twenty-five guesses, then
-    fifteen minutes."""
+def second_step_failed(db: Session, *, user: User) -> None:
+    """EVERY wrong answer at the MFA step is a failure on the account axis,
+    like a wrong password — and the password step does not clear that axis,
+    only a completed login does. So a holder of the password gets the same
+    backoff (from the third failure) and lockout (at the fifth) as a
+    password guesser, however many challenges they start (the fourth review
+    showed seventy-five guesses with per-challenge counting alone)."""
 
     credential = _credential_of(db, user.id)
     if credential is None:
@@ -495,6 +496,14 @@ def second_step_exhausted(db: Session, *, user: User) -> None:
     credential.last_failed_at = utcnow()
     if credential.failed_login_attempts >= _settings.auth_lockout_failures:
         credential.locked_until = utcnow() + dt.timedelta(minutes=_settings.auth_lockout_minutes)
+
+
+def account_throttled(db: Session, *, user: User) -> bool:
+    """The account axis as the MFA step sees it: locked, or inside the
+    backoff after recent failures — a challenge opened before the lock must
+    not complete through it."""
+
+    return _account_throttled(_credential_of(db, user.id), utcnow())
 
 
 def email_changed(

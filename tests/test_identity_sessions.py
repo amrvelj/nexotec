@@ -277,6 +277,14 @@ def test_a_session_owing_a_second_factor_is_confined_to_enrolment(client, login,
     assert client.get("/v1/auth/me", headers=cookie_headers(annas)).json()["mfaEnrolmentRequired"] is False
     row = _row(db_session, annas)
     assert "mfa" in row.amr and "otp" in row.amr
+    # Platform staff removing the factors ends the sessions that proved them.
+    assert client.delete(f"/v1/dealerships/{dealership}/users/{anna['id']}/mfa", headers=platform_admin_headers()).status_code == 204
+    assert client.get("/v1/auth/me", headers=cookie_headers(annas)).status_code == 401
+    annas = login.session_cookie(anna)
+    begun = client.post("/v1/auth/mfa/totp/enrol", headers=cookie_headers(annas)).json()
+    assert client.post(
+        "/v1/auth/mfa/totp/confirm", json={"code": pyotp.TOTP(begun["secret"]).now()}, headers=cookie_headers(annas)
+    ).status_code == 200
     # A fresh sign-in carries the factor in the token itself.
     totp = db_session.scalars(select(MfaTotp)).one()
     totp.last_used_step = None

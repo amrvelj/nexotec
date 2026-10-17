@@ -56,6 +56,19 @@ def _enrol_totp(client, cookie: str) -> tuple[str, list[str]]:
     return secret, confirmed.json()["codes"]
 
 
+def _wait_out_backoff(db_session, user: dict) -> None:
+    """Moves the account's last failure an hour back, as a patient guesser
+    would wait — so a test about another limit is not stopped by this one."""
+
+    from app.platform.models.credential import Credential
+
+    row = db_session.scalar(select(Credential).where(Credential.user_id == user["id"]))
+    db_session.refresh(row)
+    if row.last_failed_at is not None:
+        row.last_failed_at = row.last_failed_at - dt.timedelta(hours=1)
+        db_session.commit()
+
+
 def _fresh_code(db_session, secret: str) -> str:
     """The current code, with the replay guard rewound as if a step had
     passed since the last use — the tests cannot wait thirty seconds."""
@@ -201,17 +214,23 @@ def test_removing_the_authenticator_drops_the_recovery_codes_and_the_second_step
     assert login.login(anna).json()["mfaRequired"] is False
 
 
-def test_five_wrong_answers_end_the_challenge(client, login, db_session):
-    """FR-AU-08 on the second step: the password alone must not buy
-    unlimited guesses at a six-digit code."""
+def test_five_wrong_answers_end_the_challenge(client, login, db_session, monkeypatch):
+    """FR-AU-08 on the second step: a challenge takes five answers, then
+    ends. (The account lockout, which the same five answers would also
+    trigger, is lifted here so the challenge's own limit is what shows.)"""
 
+    from app.core.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "auth_lockout_failures", 50)
     dealership = create_dealership(client)
     anna = create_user(client, dealership)
     secret, _ = _enrol_totp(client, login.session_cookie(anna))
     challenge = login.login(anna).json()["challengeId"]
     for i in range(5):
         # Each guess from another address, so the test shows the challenge's
-        # own counter at work, not any per-address rule.
+        # own counter at work, not any per-address rule; the account backoff
+        # (from the third failure) is waited out below.
+        _wait_out_backoff(db_session, anna)
         wrong = client.post(
             "/v1/auth/mfa/verify",
             json={"challengeId": challenge, "code": "000000"},
@@ -219,11 +238,13 @@ def test_five_wrong_answers_end_the_challenge(client, login, db_session):
         )
         assert wrong.status_code == 401
 
+    _wait_out_backoff(db_session, anna)
     right = client.post("/v1/auth/mfa/verify", json={"challengeId": challenge, "code": _fresh_code(db_session, secret)})
     assert right.status_code == 401
     assert "start again" in right.json()["error"]["message"]
     assert len(_events(db_session, AuthEventKind.LOGIN_THROTTLED)) == 1
-    # The password step is where the backoff now applies; a fresh challenge works.
+    # A fresh challenge works once the backoff has passed.
+    _wait_out_backoff(db_session, anna)
     fresh = login.login(anna).json()["challengeId"]
     assert client.post("/v1/auth/mfa/verify", json={"challengeId": fresh, "code": _fresh_code(db_session, secret)}).status_code == 200
 
@@ -484,41 +505,51 @@ def test_the_expired_step_is_told_apart_from_a_wrong_code(client, login, db_sess
     assert typo.json()["error"]["details"] is None
 
 
-def test_exhausted_challenges_add_up_to_the_account_lockout(client, login, db_session):
-    """Across challenges: a password holder cannot buy five fresh guesses
-    per login forever — each exhausted challenge is one failure on the
-    account, the password step no longer clears them, and the fifth locks
-    the account like five wrong passwords would."""
+def test_every_wrong_second_step_answer_counts_on_the_account(client, login, db_session):
+    """Across challenges: a password holder cannot buy fresh guesses per
+    login — every wrong answer at the MFA step is a failure on the account
+    (the password step does not clear them), the backoff applies from the
+    third and the fifth locks the account, whether the challenges were
+    exhausted or abandoned (the fourth review's seventy-five-guess probe)."""
 
     from app.platform.models.credential import Credential
 
     dealership = create_dealership(client)
     anna = create_user(client, dealership)
-    _enrol_totp(client, login.session_cookie(anna))
+    secret, _ = _enrol_totp(client, login.session_cookie(anna))
 
-    def exhaust(challenge: str) -> None:
-        for i in range(6):
-            client.post(
-                "/v1/auth/mfa/verify",
-                json={"challengeId": challenge, "code": "000000"},
-                headers={"X-Forwarded-For": f"203.0.113.{i + 1}"},
-            )
+    def credential():
+        row = db_session.scalar(select(Credential).where(Credential.user_id == anna["id"]))
+        db_session.refresh(row)
+        return row
 
-    exhausted = 0
-    for n in range(6):
-        attempt = login.login(anna, STRONG_PASSWORD)
-        if attempt.status_code != 200:
-            break
-        exhaust(attempt.json()["challengeId"])
-        exhausted += 1
-        credential = db_session.scalar(select(Credential).where(Credential.user_id == anna["id"]))
-        db_session.refresh(credential)
-        credential.last_failed_at = credential.last_failed_at - dt.timedelta(hours=1)  # wait out the backoff
+    def rewind():
+        row = credential()
+        row.last_failed_at = row.last_failed_at - dt.timedelta(hours=1)
         db_session.commit()
-    assert exhausted == 5
-    db_session.refresh(credential)
-    assert credential.failed_login_attempts == 5
-    assert credential.locked_until is not None
+
+    # Two guesses on one challenge, abandoned; two on the next — each wrong
+    # answer waited out patiently: four failures on the account.
+    for _ in range(2):
+        challenge = login.login(anna, STRONG_PASSWORD).json()["challengeId"]
+        for _ in range(2):
+            assert client.post("/v1/auth/mfa/verify", json={"challengeId": challenge, "code": "000000"}).status_code == 401
+            rewind()
+    assert credential().failed_login_attempts == 4
+    # The backoff holds at the MFA step too: a right code inside it is refused
+    # and the challenge ends.
+    challenge = login.login(anna, STRONG_PASSWORD).json()["challengeId"]
+    row = credential()
+    row.last_failed_at = dt.datetime.now(dt.UTC)
+    db_session.commit()
+    inside = client.post("/v1/auth/mfa/verify", json={"challengeId": challenge, "code": _fresh_code(db_session, secret)})
+    assert inside.status_code == 401
+    assert inside.json()["error"]["details"] == {"step": "expired"}
+    rewind()
+    # The fifth wrong answer locks the account: the password step refuses.
+    challenge = login.login(anna, STRONG_PASSWORD).json()["challengeId"]
+    assert client.post("/v1/auth/mfa/verify", json={"challengeId": challenge, "code": "000000"}).status_code == 401
+    assert credential().locked_until is not None
     assert login.login(anna, STRONG_PASSWORD).status_code == 401
 
 
@@ -550,9 +581,42 @@ def test_parallel_wrong_answers_never_exceed_the_attempt_limit(client, login, db
     assert set(statuses) == {401}
     assert len(_events(db_session, AuthEventKind.MFA_FAILED)) <= MFA_MAX_ATTEMPTS
     assert len(_events(db_session, AuthEventKind.LOGIN_THROTTLED)) >= 1
-    # One failure on the account axis for the exhausted challenge.
+    # Every answer that reached the secret is a failure on the account axis.
     credential = db_session.scalar(select(Credential).where(Credential.user_id == anna["id"]))
-    assert credential.failed_login_attempts == 1
+    assert 1 <= credential.failed_login_attempts <= MFA_MAX_ATTEMPTS
+
+
+def test_removing_the_last_factor_makes_the_session_owe_enrolment_again(client, login, db_session):
+    """The guard and /auth/me judge the same row: a session that removes its
+    user's last factor proved nothing any more."""
+
+    dealership = create_dealership(client, mfa_enforced=True)
+    anna = create_user(client, dealership)
+    cookie = login.session_cookie(anna)
+    _enrol_totp(client, cookie)
+    assert client.get("/v1/customers", headers=cookie_headers(cookie)).status_code == 200
+
+    assert client.delete("/v1/auth/mfa/totp", headers=cookie_headers(cookie)).status_code == 204
+    assert client.get("/v1/auth/me", headers=cookie_headers(cookie)).json()["mfaEnrolmentRequired"] is True
+    assert client.get("/v1/customers", headers=cookie_headers(cookie)).status_code == 403
+
+
+def test_a_session_that_never_proved_a_factor_ends_once_the_user_holds_one(client, login, db_session):
+    """Enrolled on device B, device A's password-only session is not left
+    confined in limbo (nor able to mint recovery codes): it ends, and the
+    SPA goes to sign-in on the 401."""
+
+    dealership = create_dealership(client, mfa_enforced=True)
+    anna = create_user(client, dealership)
+    device_a = login.session_cookie(anna)
+    device_b = login.session_cookie(anna)
+    _enrol_totp(client, device_b)
+
+    assert client.get("/v1/auth/me", headers=cookie_headers(device_b)).json()["mfaEnrolmentRequired"] is False
+    ended = client.post("/v1/auth/mfa/recovery-codes/regenerate", headers=cookie_headers(device_a))
+    assert ended.status_code == 401
+    assert ended.json()["error"]["message"] == "Your session has ended — sign in again."
+    assert client.get("/v1/auth/me", headers=cookie_headers(device_a)).status_code == 401
 
 
 # --- passkeys ------------------------------------------------------------------------------
@@ -617,6 +681,14 @@ def test_a_passkey_holder_gets_the_passkey_step_and_a_bad_assertion_is_refused(c
         )
     )
     db_session.commit()
+    # The password-only session never proved the passkey and has ended (the
+    # guard); a session that did is stood in for by a bare token with the
+    # factor, as a passkey ceremony cannot run here.
+    assert client.get("/v1/auth/mfa", headers=cookie_headers(cookie)).status_code == 401
+    tid = uuid.UUID(dealership)
+    cookie = create_access_token(
+        user_id=uuid.UUID(anna["id"]), tenant_id=tid, group_id=uuid.uuid4(), roles={AccessRole.SALES}, amr=("pwd", "hwk", "mfa"), mfa=True
+    )
 
     status = client.get("/v1/auth/mfa", headers=cookie_headers(cookie)).json()
     assert [p["label"] for p in status["passkeys"]] == ["Laptop"]

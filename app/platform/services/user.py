@@ -501,6 +501,13 @@ def update_user(
             actor_id=actor_id,
         )
     if user.email != old_email and on_email_change is not None:
+        try:
+            db.flush()  # a taken address fails here, as a 409 — not inside the consequences
+        except IntegrityError as exc:
+            db.rollback()
+            raise ConflictError(
+                "A user with this email address already exists.", details={"email": changes.get("email")}
+            ) from exc
         on_email_change(user, old_email)
     if "status" in after and user.status == UserStatus.DEACTIVATED:
         # FR-A-28: delegations end with deactivation — the terminal status,

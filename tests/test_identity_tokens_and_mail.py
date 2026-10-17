@@ -438,6 +438,42 @@ def test_changing_the_address_ends_tokens_and_sessions_and_tells_the_old_address
     assert client.post("/v1/auth/invitations/accept", json={"token": invite_raw, "password": STRONG_PASSWORD}).status_code == 400
 
 
+def test_an_address_already_in_use_is_a_409_not_a_500(client, login, mailbox):
+    dealership = create_dealership(client)
+    manager = create_user(client, dealership)
+    managers = login.session_cookie(manager)
+    anna = create_user(client, dealership)
+    login.accept_invitation(anna)
+    beat = create_user(client, dealership, isDealerManager=False)
+
+    taken = client.patch(
+        f"/v1/dealerships/{dealership}/users/{beat['id']}",
+        json={"email": anna["email"].upper()},
+        headers={**cookie_headers(managers), "If-Match": "1"},
+    )
+    assert taken.status_code == 409, taken.text
+    taken = client.patch(
+        f"/v1/dealerships/{dealership}/users/{anna['id']}",
+        json={"email": beat["email"]},
+        headers={**platform_admin_headers(), "If-Match": "2"},
+    )
+    assert taken.status_code == 409, taken.text
+
+
+def test_staff_move_an_active_users_address_only_with_a_factor_in_the_session(client, login):
+    dealership = create_dealership(client)
+    anna = create_user(client, dealership)
+    login.accept_invitation(anna)
+    path = f"/v1/dealerships/{dealership}/users/{anna['id']}"
+
+    refused = client.patch(path, json={"email": "anna.neu@example.ch"}, headers={**platform_admin_headers(mfa=False), "If-Match": "2"})
+    assert refused.status_code == 403, refused.text
+    assert "second factor" in refused.json()["error"]["message"]
+    # Other fields are not recovery: the same session edits them.
+    assert client.patch(path, json={"phone": "+41791234567"}, headers={**platform_admin_headers(mfa=False), "If-Match": "2"}).status_code == 200
+    assert client.patch(path, json={"email": "anna.neu@example.ch"}, headers={**platform_admin_headers(), "If-Match": "3"}).status_code == 200
+
+
 def test_one_recovery_path_succeeding_closes_the_other(client, login, mailbox):
     dealership = create_dealership(client)
     anna = create_user(client, dealership)

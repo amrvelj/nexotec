@@ -183,14 +183,24 @@ def _mint_session(
 
 
 def _enrolment_required(db: Session, *, user: User, dealership_id: uuid.UUID, mfa_used: bool) -> bool:
-    """D-A-36 / FR-AU-11: platform staff always; a dealer user when the
-    Betrieb enforces a factor — and only while no factor is enrolled."""
+    """D-A-36 / FR-AU-11: a session that proved no factor owes one when the
+    user is platform staff, or when the Betrieb enforces it. Judged on
+    the SESSION (what it proved), the same way the guard judges it — a
+    factor the user enrolled from another session frees nothing here."""
 
-    if mfa_used or mfa.has_factor(db, user.id):
+    if mfa_used:
         return False
     if AccessRole.PLATFORM_ADMIN.value in user.access_roles:
         return True
-    return identity.auth_config_for(db, dealership_id).mfa_enforced
+    return identity.read_auth_config(db, dealership_id).mfa_enforced
+
+
+def _session_proved_factor(db: Session, principal: Principal) -> bool:
+    """What this session proved — the row's `amr` (a factor confirmed from
+    the session joins it), or the token's claim for a session without a row."""
+
+    row = auth_sessions.get(db, principal.session_id) if principal.session_id is not None else None
+    return ("mfa" in (row.amr or [])) if row is not None else principal.mfa
 
 
 def _login_response(
@@ -295,11 +305,15 @@ def _challenged_user(db: Session, challenge_id: str, *, ip_address: str = "", an
     user = db.get(User, token.user_id) if token is not None else None
     if token is None or user is None:
         raise _step_expired()
-    if answer and not auth_tokens.claim_attempt(db, token, limit=MFA_MAX_ATTEMPTS):
-        # Whichever of the parallel requests ends the challenge counts the
-        # one failure on the account; the others just see it ended.
+    if answer and (
+        identity.account_throttled(db, user=user)
+        or not auth_tokens.claim_attempt(db, token, limit=MFA_MAX_ATTEMPTS)
+    ):
+        # The account is locked or backing off (every wrong answer here
+        # counts on it, like a wrong password), or this challenge's five
+        # answers are spent: the challenge ends — whichever of the parallel
+        # requests ends it records that — and the user starts over.
         if auth_tokens.consume(db, raw=challenge_id, kind=AuthTokenKind.MFA_CHALLENGE) is not None:
-            identity.second_step_exhausted(db, user=user)
             auth_events.record(
                 db,
                 AuthEventKind.LOGIN_THROTTLED,
@@ -334,6 +348,7 @@ def verify_mfa(body: MfaVerifyRequest, request: Request, response: Response, db:
     elif mfa.use_recovery_code(db, user=user, code=body.code, ip_address=ip):
         amr = ("pwd", "mfa")
     else:
+        identity.second_step_failed(db, user=user)
         auth_events.record(db, AuthEventKind.MFA_FAILED, user_id=user.id, dealership_id=user.tenant_id, ip_address=ip)
         db.commit()
         raise UnauthorizedError("The code is not valid.")
@@ -358,6 +373,7 @@ def passkey_login_verify(
     if not mfa.verify_passkey(
         db, user=user, credential=body.credential, challenge=mfa.challenge_for(body.challenge_id, "authn")
     ):
+        identity.second_step_failed(db, user=user)
         auth_events.record(db, AuthEventKind.MFA_FAILED, user_id=user.id, dealership_id=user.tenant_id, ip_address=ip)
         db.commit()
         raise UnauthorizedError("The passkey could not be verified.")
@@ -452,7 +468,7 @@ def get_current_session_user(principal: Principal = Depends(get_current_principa
         active_dealership=dealership,
         membership_ids=membership_ids,
         entitlements=entitlement_service.list_active_modules(db, dealership.id),
-        mfa_used=principal.mfa,
+        mfa_used=_session_proved_factor(db, principal),
     )
 
 
@@ -546,7 +562,7 @@ def _mfa_status(db: Session, *, user: User, principal: Principal) -> MfaStatusRe
     totp = mfa.totp_of(db, user.id)
     enforced = (
         AccessRole.PLATFORM_ADMIN.value in user.access_roles
-        or identity.auth_config_for(db, principal.tenant_id).mfa_enforced
+        or identity.read_auth_config(db, principal.tenant_id).mfa_enforced
     )
     return MfaStatusRead(
         totp_enrolled=totp is not None and totp.confirmed_at is not None,
@@ -557,7 +573,7 @@ def _mfa_status(db: Session, *, user: User, principal: Principal) -> MfaStatusRe
         recovery_codes_remaining=mfa.unused_recovery_codes(db, user.id),
         enforced=enforced,
         enrolment_required=_enrolment_required(
-            db, user=user, dealership_id=principal.tenant_id, mfa_used=principal.mfa
+            db, user=user, dealership_id=principal.tenant_id, mfa_used=_session_proved_factor(db, principal)
         ),
     )
 
@@ -615,7 +631,22 @@ def _record_factor_on_session(db: Session, *, principal: Principal, method: str)
 def totp_remove(request: Request, principal: Principal = Depends(get_current_principal), db: Session = Depends(get_db)):
     user = user_service.get_own_user_or_404(db, principal.user_id)
     mfa.remove_totp(db, user=user, actor_id=principal.user_id, ip_address=client_ip(request))
+    _drop_factor_from_session_if_none_left(db, principal=principal, user=user)
     db.commit()
+
+
+def _drop_factor_from_session_if_none_left(db: Session, *, principal: Principal, user: User) -> None:
+    """The inverse of `_record_factor_on_session`: a session whose user just
+    removed their last factor proved nothing any more — it owes enrolment
+    again (the guard and /auth/me agree on the row)."""
+
+    if mfa.has_factor(db, user.id):
+        return
+    row = auth_sessions.get(db, principal.session_id) if principal.session_id is not None else None
+    if row is None:
+        return
+    row.amr = sorted(set(row.amr) - {"mfa", "otp", "hwk"})
+    db.flush()
 
 
 @account_router.post("/auth/mfa/recovery-codes/regenerate", response_model=RecoveryCodesRead)
@@ -677,4 +708,5 @@ def passkey_remove(
         db, user=user, passkey_id=passkey_id, actor_id=principal.user_id, ip_address=client_ip(request)
     ):
         raise NotFoundError("Passkey not found.")
+    _drop_factor_from_session_if_none_left(db, principal=principal, user=user)
     db.commit()

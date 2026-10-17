@@ -219,6 +219,17 @@ def update_user(
     require_tenant_match(dealership_id, principal)
     user = user_service.get_user_or_404(db, dealership_id, user_id)
     check_version(user.version, if_match, entity_name="User")
+    if (
+        body.email is not None
+        and body.email.lower() != user.email
+        and user.status != UserStatus.INVITED
+        and AccessRole.PLATFORM_ADMIN in principal.roles
+        and not principal.mfa
+    ):
+        # D-A-16 / D-A-36: moving an active user's address is account
+        # recovery, and a staff session does it only with a factor in it —
+        # the same rule the dedicated recovery routes carry.
+        raise ForbiddenError("This action needs a staff session signed in with a second factor.")
     ip = client_ip(request)
 
     def on_email_change(changed: User, old_email: str) -> None:
@@ -510,6 +521,9 @@ def remove_user_mfa(
     user = user_service.get_user_or_404(db, dealership_id, user_id)
     user_service.assert_may_touch(user=user, actor_roles=principal.roles)
     mfa.remove_all_factors(db, user=user, actor_id=principal.user_id, ip_address=client_ip(request))
+    # The user's sessions proved a factor that no longer exists; they end,
+    # and the next sign-in enrols anew.
+    user_service.end_sessions(db, user=user, reason="mfa_removed", actor_id=principal.user_id)
     db.commit()
 
 
