@@ -135,8 +135,9 @@ describe('HistoryTab — empty fields are not listed and dates are formatted (KA
     ])
     expect(screen.getByText(/— → Hans/)).toBeInTheDocument()
     expect(screen.queryByText(/— → —/)).not.toBeInTheDocument()
-    expect(screen.queryByText('Customer since')).not.toBeInTheDocument()
-    expect(screen.queryByText('Next follow up')).not.toBeInTheDocument()
+    // The field names are the German UI labels since KAN-336 (the tests run in DE).
+    expect(screen.queryByText('Kunde seit')).not.toBeInTheDocument()
+    expect(screen.queryByText('Nächster Kontakt')).not.toBeInTheDocument()
     expect(screen.queryByText('Website')).not.toBeInTheDocument()
   })
 
@@ -198,7 +199,7 @@ describe('HistoryTab — empty fields are not listed and dates are formatted (KA
     expect(screen.queryByText(/2026-10-01T/)).not.toBeInTheDocument()
     expect(screen.queryByText(/2026-03-06T/)).not.toBeInTheDocument()
     // effectiveFrom did not change: not listed.
-    expect(screen.queryByText('Effective from')).not.toBeInTheDocument()
+    expect(screen.queryByText('Seit')).not.toBeInTheDocument()
   })
 
   it('a date field holding something other than a date is shown as recorded', () => {

@@ -4,18 +4,154 @@ import { useTranslation } from 'react-i18next'
 import { slate } from '@nexotec/ui-kit'
 import { useAuth } from '../../auth/AuthContext'
 import { formatCurrencyChf, formatDateOnly, formatDateTime, formatNumber } from '../../utils/format'
-import type { AuditEventRead } from '../../api/types'
+import { legalFormLabel } from '../../customerOptions'
+import type { AuditEventRead, LegalForm } from '../../api/types'
 
-// Customer-level audit events snapshot snake_case model attributes
-// (address_street); phone/email events build their own camelCase dicts
-// (phoneE164) — both need to read as "Address street" / "Phone e164",
-// not the raw key.
-function prettifyKey(key: string): string {
-  const spaced = key
-    .replace(/_/g, ' ')
-    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-    .toLowerCase()
-  return spaced.charAt(0).toUpperCase() + spaced.slice(1)
+type Translate = (key: string, options?: Record<string, unknown>) => string
+
+// KAN-336 — every audit action the customer service writes (`record_audit_event`
+// with entity_type "customer", app/customer/services/customer.py) has its own
+// headline key; any other action reads as the generic `otherAction`, never as
+// the raw verb.
+const KNOWN_ACTIONS = new Set([
+  'create',
+  'update',
+  'merge',
+  'phone_add',
+  'phone_update',
+  'phone_remove',
+  'email_add',
+  'email_update',
+  'email_remove',
+  'address_add',
+  'address_update',
+  'address_remove',
+  'external_id_add',
+  'external_id_update',
+  'external_id_remove',
+  'vehicle_party_add',
+  'vehicle_party_update',
+  'vehicle_party_remove',
+  'credit_block_changed',
+])
+
+function actionLabel(action: string, t: Translate): string {
+  return KNOWN_ACTIONS.has(action) ? t(`customerDetail.history.actions.${action}`) : t('customerDetail.history.otherAction')
+}
+
+// KAN-336 — customer-level events snapshot snake_case model attributes
+// (address_street); contact-channel, vehicle-party and merge events write
+// their own camelCase dicts (phoneE164). Both are looked up by the camelCase
+// name. A field the Overview tab shows takes the Overview's label; the rest
+// have their own key under customerDetail.history.fields.
+const OVERVIEW_FIELD_LABEL: Record<string, string> = {
+  salutation: 'customerDetail.overview.fields.salutation',
+  firstName: 'customerDetail.overview.fields.firstName',
+  lastName: 'customerDetail.overview.fields.lastName',
+  title: 'customerDetail.overview.fields.title',
+  birthDate: 'customerDetail.overview.fields.dateOfBirth',
+  nationality: 'customerDetail.overview.fields.nationality',
+  gender: 'customerDetail.overview.fields.gender',
+  companyName: 'customerDetail.overview.fields.companyName',
+  legalForm: 'customerDetail.overview.fields.legalForm',
+  taxId: 'customerCreate.fields.uid',
+  language: 'customerDetail.overview.fields.correspondenceLanguage',
+  lifecycleStatus: 'customerDetail.overview.fields.lifecycleStatus',
+  preferredChannel: 'customerDetail.overview.fields.preferredChannel',
+  paymentTerms: 'customerDetail.overview.fields.paymentTerms',
+  creditLimit: 'customerDetail.overview.fields.creditLimit',
+  iban: 'customerDetail.overview.fields.iban',
+  vatRegistered: 'customerDetail.overview.fields.vatRegistered',
+  vatStatusConfirmed: 'customerDetail.overview.fields.vatStatusConfirmed',
+  advisorId: 'customerDetail.overview.fields.advisor',
+  customerSince: 'customerDetail.overview.fields.customerSince',
+  nextFollowUp: 'customerDetail.overview.fields.nextFollowUp',
+  website: 'customerDetail.overview.fields.website',
+  newsletter: 'customerDetail.overview.fields.newsletter',
+  tags: 'customerDetail.overview.fields.tags',
+  notes: 'customerDetail.overview.fields.notes',
+  customerNumber: 'customerDetail.overview.fields.customerNumber',
+  addressStreet: 'customerDetail.overview.addressForm.street',
+  addressLine2: 'customerDetail.overview.addressForm.line2',
+  addressHouseNumber: 'customerDetail.overview.addressForm.houseNumber',
+  addressPostalCode: 'customerDetail.overview.addressForm.postalCode',
+  addressLocality: 'customerDetail.overview.addressForm.locality',
+  addressCountry: 'customerDetail.overview.addressForm.country',
+  addressCanton: 'customerDetail.overview.fields.canton',
+  label: 'customerDetail.contactPoints.labelPlaceholder',
+  isPrimary: 'customerDetail.contactPoints.primary',
+  systemName: 'customerDetail.externalIds.systemLabel',
+  externalId: 'customerDetail.externalIds.externalIdLabel',
+  vehicleId: 'customerDetail.vehicles.columns.vehicle',
+  role: 'customerDetail.vehicles.columns.role',
+  effectiveFrom: 'customerDetail.vehicles.columns.since',
+  effectiveTo: 'customerDetail.vehicles.columns.until',
+}
+
+const HISTORY_FIELDS = new Set([
+  'dealershipId',
+  'phoneType',
+  'emailType',
+  'addressType',
+  'phoneE164',
+  'emailAddress',
+  'consentGranted',
+  'consentScope',
+  'consentSource',
+  'consentTimestamp',
+  'mergedIntoCustomerId',
+  'duplicateOfCustomerId',
+  'creditBlock',
+  'creditBlockReason',
+  'vehiclePartiesRepointed',
+  'vehiclePartiesKeptClosed',
+  'vehiclePartiesKeptClosedIds',
+  'transactionsRepointed',
+  'phonesRepointed',
+  'phonesDropped',
+  'emailsRepointed',
+  'emailsDropped',
+  'addressesRepointed',
+  'addressesDropped',
+  'externalIdsRepointed',
+  'externalIdsDropped',
+  'tagsRepointed',
+  'tagsDropped',
+])
+
+// A field this tab does not know yet is shown under its key exactly as
+// recorded — data, not an invented English label.
+function fieldLabel(key: string, t: Translate): string {
+  const k = camelKey(key)
+  if (k in OVERVIEW_FIELD_LABEL) return t(OVERVIEW_FIELD_LABEL[k])
+  if (HISTORY_FIELDS.has(k)) return t(`customerDetail.history.fields.${k}`)
+  return key
+}
+
+// The stored enum values of the customer entity, translated through the same
+// customerEnums.* keys the Overview tab's selects use.
+const ENUM_KEY: Record<string, string> = {
+  salutation: 'customerEnums.salutation',
+  gender: 'customerEnums.gender',
+  language: 'customerEnums.language',
+  lifecycleStatus: 'customerEnums.lifecycleStatus',
+  preferredChannel: 'customerEnums.preferredChannel',
+  paymentTerms: 'customerEnums.paymentTerms',
+  consentScope: 'customerEnums.consentScope',
+  consentSource: 'customerEnums.consentSource',
+  role: 'customerEnums.vehiclePartyRole',
+  phoneType: 'customerEnums.contactType',
+  emailType: 'customerEnums.contactType',
+  addressType: 'customerEnums.addressType',
+}
+
+function enumLabel(key: string, value: string, t: Translate, exists: (key: string) => boolean): string | null {
+  const k = camelKey(key)
+  if (k === 'legalForm') return legalFormLabel(value as LegalForm)
+  const base = ENUM_KEY[k]
+  // A value with no key (one retired since it was recorded) is shown as stored.
+  if (base === undefined || !exists(`${base}.${value}`)) return null
+  return t(`${base}.${value}`)
 }
 
 // Every event on this tab is entity_type "customer" (app/customer/services/
@@ -50,10 +186,25 @@ function fieldKind(entityType: string, key: string): FieldKind | null {
   return null
 }
 
-function formatValue(entityType: string, key: string, v: unknown, t: (key: string) => string, locale: string): string {
+interface ValueContext {
+  t: Translate
+  exists: (key: string) => boolean
+  locale: string
+  idLabels: Record<string, string>
+}
+
+function formatValue(entityType: string, key: string, v: unknown, { t, exists, locale, idLabels }: ValueContext): string {
   if (v === null || v === undefined) return '—'
   if (typeof v === 'boolean') return v ? t('common.yes') : t('common.no')
   if (typeof v === 'object') return JSON.stringify(v)
+  if (entityType === 'customer' && typeof v === 'string') {
+    // KAN-336 — an id renders the display label the customer record carries
+    // for it (the advisor's name, a linked vehicle's make and model); one the
+    // record carries no label for is shown as recorded.
+    if (/Id$/.test(camelKey(key)) && idLabels[v] !== undefined) return idLabels[v]
+    const label = enumLabel(key, v, t, exists)
+    if (label !== null) return label
+  }
   const kind = fieldKind(entityType, key)
   // Anything that is not the date the kind promises (a redaction marker,
   // say) is shown as recorded, as the amount path does.
@@ -91,14 +242,20 @@ function diff(before: Record<string, unknown> | null, after: Record<string, unkn
   return changes
 }
 
-function HistoryEvent({ event, isYou, locale }: { event: AuditEventRead; isYou: boolean; locale: string }) {
-  const { t } = useTranslation()
+function HistoryEvent({
+  event,
+  isYou,
+  locale,
+  idLabels,
+}: {
+  event: AuditEventRead
+  isYou: boolean
+  locale: string
+  idLabels: Record<string, string>
+}) {
+  const { t, i18n } = useTranslation()
   const changes = diff(event.before, event.after)
-  // event.action and the diffed field names/values below are raw backend
-  // vocabulary (audit action verbs, arbitrary entity field names) — not
-  // translated. Enumerating every possible action/field across the audit
-  // log in 4 languages is a materially larger, open-ended effort than this
-  // tab's chrome; scoped out deliberately, same as canton/legal-form names.
+  const ctx: ValueContext = { t, exists: (key) => i18n.exists(key), locale, idLabels }
   const actor = isYou ? t('customerDetail.history.you') : event.actorId ? t('customerDetail.history.user', { id: event.actorId.slice(0, 8) }) : t('customerDetail.history.system')
   return (
     <div style={{ display: 'flex', gap: 12 }}>
@@ -110,8 +267,9 @@ function HistoryEvent({ event, isYou, locale }: { event: AuditEventRead; isYou: 
         <Text size="sm">
           <Text component="span" fw={600}>
             {actor}
-          </Text>{' '}
-          {event.action} {t('customerDetail.history.actionSuffix')}
+          </Text>
+          {' · '}
+          {actionLabel(event.action, t)}
         </Text>
         <Text size="xs" c="dimmed">
           {formatDateTime(event.createdAt, locale)}
@@ -121,9 +279,9 @@ function HistoryEvent({ event, isYou, locale }: { event: AuditEventRead; isYou: 
             {changes.map((c) => (
               <Text key={c.key} size="xs" c="dimmed">
                 <Text component="span" fw={500} c={slate[7]}>
-                  {prettifyKey(c.key)}
+                  {fieldLabel(c.key, t)}
                 </Text>
-                : {formatValue(event.entityType, c.key, c.before, t, locale)} → {formatValue(event.entityType, c.key, c.after, t, locale)}
+                : {formatValue(event.entityType, c.key, c.before, ctx)} → {formatValue(event.entityType, c.key, c.after, ctx)}
               </Text>
             ))}
           </Stack>
@@ -138,11 +296,15 @@ export function HistoryTab({
   loading,
   error,
   locale,
+  idLabels = {},
 }: {
   events: AuditEventRead[]
   loading: boolean
   error: string | null
   locale: string
+  // KAN-336 — id → display label for the ids the customer record carries a
+  // label for (advisor, linked vehicles); CustomerDetailPage builds it.
+  idLabels?: Record<string, string>
 }) {
   const { t } = useTranslation()
   const { user } = useAuth()
@@ -175,7 +337,7 @@ export function HistoryTab({
   return (
     <div>
       {sorted.map((event) => (
-        <HistoryEvent key={event.id} event={event} isYou={event.actorId === user?.id} locale={locale} />
+        <HistoryEvent key={event.id} event={event} isYou={event.actorId === user?.id} locale={locale} idLabels={idLabels} />
       ))}
     </div>
   )
