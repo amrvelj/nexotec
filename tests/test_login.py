@@ -462,7 +462,7 @@ def test_auth_me_stops_listing_a_membership_revoked_after_login(client, oidc_fak
     response = _me_with(client, token)
     assert response.status_code == 200, response.text
     body = response.json()
-    assert set(body) == {"user", "activeDealership", "memberships"}
+    assert set(body) == {"user", "activeDealership", "memberships", "entitlements"}
     assert body["activeDealership"]["id"] == dealer_a
     assert [m["id"] for m in body["memberships"]] == [dealer_a]
     assert set(body["memberships"][0]) == {"id", "legalName"}

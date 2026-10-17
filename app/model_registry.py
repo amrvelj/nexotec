@@ -28,6 +28,7 @@ from app.inventory.models.stock_item_publishing import StockItemMedia, StockItem
 from app.platform.models.dealership import DealerGroup, Dealership, Location
 from app.platform.models.dealership_membership import DealershipMembership
 from app.platform.models.document_template import DocumentTemplate
+from app.platform.models.module_entitlement import ModuleEntitlement
 from app.platform.models.reference_data import ReferenceList, ReferenceValue
 from app.platform.models.user import User
 from app.platform.models.user_preference import UserPreference
@@ -100,6 +101,7 @@ __all__ = [
     "ModelGroup",
     "ModelVariant",
     "ModelVariantEnergyRating",
+    "ModuleEntitlement",
     "OutboxMessage",
     "PlateLookupCacheEntry",
     "ProcessedEvent",

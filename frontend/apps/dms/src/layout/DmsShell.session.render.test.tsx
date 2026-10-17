@@ -9,7 +9,7 @@ import { api } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { ProtectedRoute } from '../components/ProtectedRoute'
 import { renderWithProviders } from '../test/renderWithProviders'
-import { installFakeBackend, status, type FakeRoute } from '../test/fakeBackend'
+import { ALL_ENTITLEMENTS, installFakeBackend, status, type FakeRoute } from '../test/fakeBackend'
 import { DmsShell } from './DmsShell'
 
 // KAN-237 — a refused dealership switch did nothing visible (the shell
@@ -34,7 +34,7 @@ function setViewportWidth(width: number) {
 function install(
   uiLanguage: string,
   routes: FakeRoute[],
-  meResponses: Array<{ memberships: typeof NORD[] }>,
+  meResponses: Array<{ memberships: typeof NORD[]; entitlements: string[] }>,
   activeDealership: typeof NORD = NORD,
 ) {
   // AppShell auto-collapses the sidebar below its breakpoint.
@@ -53,7 +53,7 @@ function install(
       handler: () => {
         const response = meResponses[Math.min(meCalls, meResponses.length - 1)]
         meCalls += 1
-        return { user: USER, activeDealership, memberships: response.memberships }
+        return { user: USER, activeDealership, memberships: response.memberships, entitlements: response.entitlements }
       },
     },
   ])
@@ -91,7 +91,7 @@ describe('DmsShell — a refused dealership switch is said (KAN-237)', () => {
         ],
         // The membership was revoked after login: the re-read list no
         // longer carries it.
-        [{ memberships: [NORD, SUED] }, { memberships: [NORD] }],
+        [{ memberships: [NORD, SUED], entitlements: ALL_ENTITLEMENTS }, { memberships: [NORD], entitlements: ALL_ENTITLEMENTS }],
       )
       renderWithProviders(
         <DmsShell>
@@ -130,10 +130,10 @@ describe('DmsShell — a refused dealership switch is said (KAN-237)', () => {
         {
           method: 'POST',
           match: /\/auth\/switch-dealership$/,
-          handler: () => ({ user: USER, activeDealership: NORD, memberships: [NORD] }),
+          handler: () => ({ user: USER, activeDealership: NORD, memberships: [NORD], entitlements: ALL_ENTITLEMENTS }),
         },
       ],
-      [{ memberships: [NORD] }],
+      [{ memberships: [NORD], entitlements: ALL_ENTITLEMENTS }],
       SUED,
     )
     renderWithProviders(
@@ -155,7 +155,7 @@ describe('DmsShell — a refused dealership switch is said (KAN-237)', () => {
     install(
       'de',
       [{ method: 'POST', match: /\/auth\/switch-dealership$/, handler: () => status(503, null) }],
-      [{ memberships: [NORD, SUED] }],
+      [{ memberships: [NORD, SUED], entitlements: ALL_ENTITLEMENTS }],
     )
     renderWithProviders(
       <DmsShell>
@@ -194,7 +194,7 @@ describe('DmsShell — a 401 from any API call ends the client session (KAN-237)
           handler: () => status(401, { error: { code: 'unauthorized', message: 'Not authenticated', details: null } }),
         },
       ],
-      [{ memberships: [NORD] }],
+      [{ memberships: [NORD], entitlements: ALL_ENTITLEMENTS }],
     )
     renderWithProviders(
       <Routes>

@@ -24,14 +24,16 @@ from app.core.auth import Principal, get_current_principal, require_access_role
 from app.core.concurrency import check_version, require_if_match
 from app.core.idempotent_route import IdempotentRoute
 from app.core.pagination import PageParams, page_params
-from app.core.permissions import require_read, require_write
+from app.core.permissions import ModuleCode, require_read, require_write
 from app.core.tenancy import require_tenant_match
 from app.db import get_db
 from app.platform.models.dealership import DealershipStatus
 from app.platform.models.user import UserStatus
 from app.platform.schemas.dealership import DealershipCreate, DealershipPage, DealershipRead, DealershipUpdate
+from app.platform.schemas.entitlement import EntitlementsRead, EntitlementsUpdate
 from app.platform.schemas.user import UserCreate, UserPage, UserRead, UserUpdate
 from app.platform.services import dealership as dealership_service
+from app.platform.services import entitlement as entitlement_service
 from app.platform.services import user as user_service
 
 router = APIRouter(tags=["dealerships"], route_class=IdempotentRoute)
@@ -106,6 +108,45 @@ def get_dealership_audit_log(
     )
 
 
+# --- Module entitlements (KAN-198, D-A-04) ----------------------------------
+
+
+def _entitlements_read(db: Session, dealership) -> EntitlementsRead:
+    modules = entitlement_service.list_active_modules(db, dealership.id)
+    return EntitlementsRead(
+        modules=sorted((ModuleCode(m) for m in modules), key=lambda m: m.value),
+        entitlements_version=dealership.entitlements_version,
+        dealership_version=dealership.version,
+    )
+
+
+@router.get("/dealerships/{dealership_id}/entitlements", response_model=EntitlementsRead)
+def get_entitlements(
+    dealership_id: uuid.UUID,
+    principal: Principal = Depends(require_read("module_entitlements")),  # manager reads "what we bought"
+    db: Session = Depends(get_db),
+):
+    require_tenant_match(dealership_id, principal)
+    dealership = dealership_service.get_dealership_or_404(db, dealership_id)
+    return _entitlements_read(db, dealership)
+
+
+@router.put("/dealerships/{dealership_id}/entitlements", response_model=EntitlementsRead)
+def set_entitlements(
+    dealership_id: uuid.UUID,
+    body: EntitlementsUpdate,
+    if_match: int = Depends(require_if_match),
+    principal: Principal = Depends(require_write("module_entitlements")),  # platform_admin only (D-A-04)
+    db: Session = Depends(get_db),
+):
+    dealership = dealership_service.get_dealership_for_update_or_404(db, dealership_id)
+    check_version(dealership.version, if_match, entity_name="Dealership")
+    entitlement_service.set_entitlements(
+        db, dealership=dealership, modules=set(body.modules), actor_id=principal.user_id
+    )
+    return _entitlements_read(db, dealership)
+
+
 # --- User ----------------------------------------------------------------
 
 
@@ -149,9 +190,7 @@ def update_user(
     require_tenant_match(dealership_id, principal)
     user = user_service.get_user_or_404(db, dealership_id, user_id)
     check_version(user.version, if_match, entity_name="User")
-    user = user_service.update_user(
-        db, user=user, data=body, actor_id=principal.user_id, actor_roles=principal.roles
-    )
+    user = user_service.update_user(db, user=user, data=body, actor_id=principal.user_id, actor_roles=principal.roles)
     return UserRead.model_validate(user, from_attributes=True)
 
 
@@ -168,6 +207,4 @@ def list_users(
     rows, next_cursor = user_service.list_users(
         db, dealership_id=dealership_id, role=role, status=status, params=params
     )
-    return UserPage(
-        items=[UserRead.model_validate(u, from_attributes=True) for u in rows], next_cursor=next_cursor
-    )
+    return UserPage(items=[UserRead.model_validate(u, from_attributes=True) for u in rows], next_cursor=next_cursor)

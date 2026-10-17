@@ -50,12 +50,13 @@ def _uid_conflict(uid: str | None) -> ConflictError:
 
 
 def _assert_vat_number_matches_uid(uid: str | None, vat_number: str | None) -> None:
-    """The VAT number is the UID with the MWST suffix (D-A-22): a VAT number
-    naming another UID is a typo, refused as 422 before it reaches a document."""
+    """The VAT number is the UID with the MWST / TVA / IVA suffix (D-A-22): a
+    VAT number naming another UID is a typo, refused as 422 before it reaches
+    a document."""
 
     if uid is not None and vat_number is not None and vat_number[:15] != uid:
         raise UnprocessableEntityError(
-            "vatNumber must be this dealership's own UID followed by MWST.",
+            "vatNumber must be this dealership's own UID followed by MWST, TVA or IVA.",
             details={"uid": uid, "vatNumber": vat_number},
         )
 
@@ -102,6 +103,18 @@ def enable_group_read(db: Session, *, dealer_group: DealerGroup, actor_id: uuid.
 
 def get_dealership_or_404(db: Session, dealership_id: uuid.UUID) -> Dealership:
     dealership = db.get(Dealership, dealership_id)
+    if dealership is None:
+        raise NotFoundError(f"Dealership {dealership_id} was not found.")
+    return dealership
+
+
+def get_dealership_for_update_or_404(db: Session, dealership_id: uuid.UUID) -> Dealership:
+    """The row locked for the rest of the transaction — for a write whose
+    If-Match check and version bump must not race another writer (two PUTs of
+    the entitlement set would otherwise both pass the check, both write the
+    same `entitlements_version`, and leave a merged set neither sent)."""
+
+    dealership = db.scalar(select(Dealership).where(Dealership.id == dealership_id).with_for_update())
     if dealership is None:
         raise NotFoundError(f"Dealership {dealership_id} was not found.")
     return dealership

@@ -37,9 +37,8 @@ main@046634d on 2026-10-17 (KAN-195: every present-tense claim checked against t
   entity with its own stock, sales, accounting and VAT → `location` is a physical site: an
   attribute, **never a scoping boundary** (owned by platform, not inventory).
 - **The UI word for the tenant is "Betrieb"** (D-A-10): service-only garages are customers from
-  day one, so `sales` becomes a module entitlement like `aftersales` (target; no entitlement
-  exists yet, KAN-198), and a Betrieb without it is a normal configuration. `dealership` stays
-  the table and code name.
+  day one, so `sales` is a module entitlement like `aftersales` (`module_entitlement`, KAN-198),
+  and a Betrieb without it is a normal configuration. `dealership` stays the table and code name.
 - Tenant scope comes from the token. Group-scoped reads exist only in the files that
   `tests/architecture/test_no_ambient_group_read.py` allow-lists — `core/tenancy.py`
   (`get_group_read_or_404`), `customer/services/customer.py`, `customer/services/legal_basis.py`,
@@ -66,11 +65,12 @@ grant or remove it, or edit a user who holds it — anyone else gets 403. **Not 
 own until the Platform users panel exists (KAN-199, not built, is to reject such memberships
 with 422).
 
-Permissions are capability-based: `Capability(read_roles, write_roles, manager_can_write=True)`
-in `app/core/permissions.py`; `require_read` / `require_write` check platform_admin, then the
-roles, then the manager flag (on writes only if `manager_can_write`). `read_roles=None` = any
-role; an empty set = manager only. An empty `write_roles` = platform staff or the manager —
-except `audit_logs`, which the manager cannot write.
+Permissions are capability-based: `Capability(read_roles, write_roles, manager_can_write=True,
+manager_can_read=True)` in `app/core/permissions.py`; `require_read` / `require_write` check
+platform_admin, then the roles, then the manager flag (if `manager_can_read` / `manager_can_write`).
+`read_roles=None` = any role; an empty set = manager only. An empty `write_roles` = platform staff
+or the manager — except the "Nobody" rows (`audit_logs`, `wagenbuch`, `stock_reservation`, the
+derived views, `module_entitlements`, `ui_translations`), which the manager cannot write.
 
 **Session minting (KAN-141).** Today every session token is minted through `_mint_session` in
 `app/platform/api/auth.py` — the OIDC callback and switch-dealership. It refuses a suspended
@@ -83,16 +83,25 @@ with fixed `{TECHNICIAN}` roles, which `_mint_session` cannot mint — how it ge
 check needs an ADR. Not yet true: `get_current_principal` does not check `status`, so an
 issued token works until it expires (FR-A-10; KAN-196's sessions step).
 
-## Dealer Administration — decided, NOT built (check the code before relying on this list)
+## Dealer Administration — decided; built only where a bullet says so (check the code)
 
 Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to get wrong:
 
 - **One administration surface (A-RULE-0).** Modules read configuration, never own it. The
   same rule applies to mail (A-RULE-9) and customer messaging (A-RULE-10): no module composes
   a sender or calls a messaging provider; it registers a document type with the platform.
-- **Access = entitlement × role (D-A-04).** `module_entitlement` per dealership, written by
-  `platform_admin`, checked **before** the role check, a JWT claim. Unlicensed = 404 for all.
-  No such table, claim or check exists today (KAN-198).
+- **Access = entitlement × role (D-A-04) — built (KAN-198).** `module_entitlement` per
+  dealership (`sales` · `aftersales` · `parts` · `finance` · `reporting`), written only by
+  `platform_admin` (`PUT /v1/dealerships/{id}/entitlements`), read by the manager; token claims
+  `entitlements` + `ent_v`; `require_entitlement(ModuleCode.X)` in `app/core/permissions.py` is a
+  **router-level** dependency on every sales, inventory, valuation and configurator router, runs
+  before any role check and returns **404** for everyone, platform staff included. A changed set
+  bumps `dealership.entitlements_version`; a token with another `ent_v` gets 401 on its next
+  gated request and signs in again. `CAPABILITY_MATRIX` carries every PRD matrix row; `tests/fixtures/permission_matrix.json`
+  mirrors the Notion table and `test_permission_matrix_mirrors_prd.py` fails on any difference —
+  except a row that declares `enforced_write` + a `deviation` ticket (today only `stock_items`,
+  KAN-376), where the code deliberately enforces less than the matrix grants.
+  `Capability.manager_can_read=False` marks the platform-only and self-only rows.
 - **Permissions are platform-defined (D-A-03). Policy limits are NOT in v1 (D-A-18)** — no
   `dealer_policy_limit`, no screen, no matrix row.
 - **Copy configuration from a sister dealership** (D-A-01, FR-A-01): a one-shot, audit-logged
@@ -149,7 +158,7 @@ One shared template layer (`app/platform/models/document_template.py`). WeasyPri
   `test_no_password_credential_storage.py` (today: no `credential` table, no password-shaped
   column anywhere) is **inverted** (password columns in `credential` and nowhere else), never
   deleted. The session layer (`create_access_token` with claims `sub, tenant_id, group_id,
-  memberships, active_location_id, roles, is_dealer_manager`, the `dms_session` cookie,
+  memberships, active_location_id, roles, is_dealer_manager, entitlements, ent_v`, the `dms_session` cookie,
   `Principal`, `get_current_principal`, switch-dealership) stays as it is. None of the
   replacement exists yet: no argon2 / pyotp / webauthn dependency, no `IdentityProvider`,
   no `dealership_auth_config` (KAN-196).

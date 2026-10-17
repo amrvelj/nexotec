@@ -67,6 +67,10 @@ const DEFAULT_USER = {
 
 const DEFAULT_DEALERSHIP = { id: 'dealership-1', legalName: 'Test Motors AG' }
 
+// KAN-198: the default session is licensed for every module, so existing
+// screen tests see every nav entry; a test about a workshop shadows /auth/me.
+export const ALL_ENTITLEMENTS = ['sales', 'aftersales', 'parts', 'finance', 'reporting']
+
 // The `country` reference list (KAN-32) — a small stand-in for the ~250-row
 // seed. Backs `useCountryOptions`, which every customer screen now hits.
 // A test that cares about a specific country can shadow this route.
@@ -100,7 +104,12 @@ const INFRA_ROUTES: FakeRoute[] = [
   {
     method: 'GET',
     match: /\/auth\/me$/,
-    handler: () => ({ user: DEFAULT_USER, activeDealership: DEFAULT_DEALERSHIP, memberships: [DEFAULT_DEALERSHIP] }),
+    handler: () => ({
+      user: DEFAULT_USER,
+      activeDealership: DEFAULT_DEALERSHIP,
+      memberships: [DEFAULT_DEALERSHIP],
+      entitlements: ALL_ENTITLEMENTS,
+    }),
   },
   { method: 'GET', match: /\/me\/preferences\//, handler: () => ({ payload: {} }) },
   { method: 'PUT', match: /\/me\/preferences\//, handler: () => ({ ok: true }) },

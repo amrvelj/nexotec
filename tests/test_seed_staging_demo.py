@@ -14,8 +14,10 @@ from sqlalchemy.orm import sessionmaker
 from app.core.audit_model import AuditEvent
 from app.core.auth import AccessRole
 from app.core.outbox_model import OutboxMessage
+from app.core.permissions import ModuleCode
 from app.platform import reconciliation as platform_reconciliation
 from app.platform.models.dealership import DealerGroup, Dealership
+from app.platform.models.module_entitlement import ModuleEntitlement
 from app.platform.models.user import User, UserRole
 from app.platform.schemas.user import UserCreate
 from app.platform.services import user as user_service
@@ -127,6 +129,25 @@ def test_the_seed_stamps_the_demo_user_as_the_actor_on_everything_it_created(see
     group, dealership, user = _seeded_rows(db_session)
     for row in (group, dealership, user):
         assert (row.created_by, row.updated_by) == (user.id, user.id), row
+
+
+def test_the_seed_licenses_the_demo_dealership_for_every_module_as_the_demo_user(seed, db_session):
+    """KAN-198 — a new Betrieb starts unlicensed and the migration backfill
+    only reaches dealerships that already exist, so a fresh environment would
+    lose sales, stock and valuations without this step. The granter names the
+    demo manager (KAN-318), and a second run grants nothing again."""
+
+    seed("zitadel-sub-1")
+    _, dealership, user = _seeded_rows(db_session)
+    rows = db_session.scalars(select(ModuleEntitlement).where(ModuleEntitlement.dealership_id == dealership.id)).all()
+    assert sorted(row.module.value for row in rows) == sorted(m.value for m in ModuleCode)
+    assert {row.granted_by for row in rows} == {user.id}
+    assert all(row.valid_to is None for row in rows)
+    assert dealership.entitlements_version == 1
+
+    seed("zitadel-sub-1")
+    db_session.expire_all()
+    assert dealership.entitlements_version == 1
 
 
 def test_the_seeded_rows_pass_platform_reconciliation(seed, db_session):

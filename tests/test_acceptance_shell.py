@@ -71,6 +71,15 @@ def _create_dealer(client, **overrides) -> str:
     return response.json()["id"]
 
 
+def _grant_sales_module(client, dealer_id: str) -> None:
+    response = client.put(
+        f"/v1/dealerships/{dealer_id}/entitlements",
+        json={"modules": ["sales"]},
+        headers={**_bearer(_token(AccessRole.PLATFORM_ADMIN)), "If-Match": "1"},
+    )
+    assert response.status_code == 200, response.text
+
+
 def _create_user(client, dealer_id: str, **overrides) -> dict:
     admin_token = _token(AccessRole.PLATFORM_ADMIN)
     payload = {
@@ -204,6 +213,10 @@ def test_ac2_to_4_full_shell_walkthrough_sale(client, oidc_fake):
     """
 
     dealer_id = _create_dealer(client)
+    # KAN-198: a freshly created Betrieb holds no module licence; without the
+    # sales module the transactions route is 404 for everyone, so license it
+    # the way platform_admin does before the user signs in.
+    _grant_sales_module(client, dealer_id)
     user = _create_user(client, dealer_id, email="walkthrough@example.ch")
     session_token = _login_and_get_session_cookie(client, oidc_fake, user)
     headers = {"Cookie": f"dms_session={session_token}"}

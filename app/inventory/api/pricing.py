@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.core.auth import Principal, get_current_principal
-from app.core.permissions import require_write
+from app.core.permissions import ModuleCode, require_entitlement, require_write
 from app.db import get_db
 from app.inventory.schemas.pricing import OptionRead, SetOptionsRequest
 from app.inventory.schemas.stock_item import StockItemRead
@@ -15,7 +15,9 @@ from app.inventory.services import pricing as pricing_service
 from app.inventory.services import stock_item as stock_item_service
 from app.inventory.services import valuation as valuation_service
 
-router = APIRouter(tags=["inventory"])
+# KAN-198 (D-A-04): the entitlement gate runs before any role check; an
+# unlicensed module is 404 for everyone (router-level, so every route).
+router = APIRouter(tags=["inventory"], dependencies=[Depends(require_entitlement(ModuleCode.SALES))])
 
 
 @router.get("/inventory/stock-items/{stock_item_id}/options", response_model=list[OptionRead])

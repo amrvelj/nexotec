@@ -22,7 +22,7 @@ import enum
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import DECIMAL, JSON, Boolean, ForeignKey, Index, String
+from sqlalchemy import DECIMAL, JSON, Boolean, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
@@ -167,6 +167,12 @@ class Dealership(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     # only consumer of the same "days in stock" number. None means "use
     # the default (30/60/90)," resolved by the caller, not baked in here.
     ageing_alert_thresholds: Mapped[list[int] | None] = mapped_column(JSON, nullable=True)
+
+    # KAN-198 (D-A-04): bumped by every change to this dealership's module
+    # entitlements and minted into the token as `ent_v`; a token whose value
+    # differs is out of date and is refused by require_entitlement (401), so
+    # a changed entitlement set forces a fresh sign-in (Anto, 2026-10-17).
+    entitlements_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     @property
     def address(self) -> dict[str, str]:

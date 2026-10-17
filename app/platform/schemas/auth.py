@@ -1,5 +1,6 @@
 import uuid
 
+from app.core.permissions import ModuleCode
 from app.core.schemas import CamelModel
 from app.platform.schemas.user import UserRead
 
@@ -27,6 +28,10 @@ class LoginResponse(CamelModel):
     user: UserRead
     active_dealership: DealershipMembershipSummary
     memberships: list[DealershipMembershipSummary]
+    # KAN-198 (D-A-04): the active dealership's licensed modules — what the
+    # shell shows and the route guard honours (presentation only; the 404 the
+    # API returns for an unlicensed module is the boundary).
+    entitlements: list[ModuleCode]
 
 
 class SwitchDealershipRequest(CamelModel):

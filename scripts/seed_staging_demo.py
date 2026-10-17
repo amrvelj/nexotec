@@ -37,12 +37,14 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.auth import AccessRole
+from app.core.permissions import ModuleCode
 from app.db import SessionLocal
 from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
 from app.platform.models.user import User, UserRole
 from app.platform.schemas.dealership import DealershipAddress, DealershipCreate
 from app.platform.schemas.user import UserCreate, UserUpdate
 from app.platform.services import dealership as dealership_service
+from app.platform.services import entitlement as entitlement_service
 from app.platform.services import user as user_service
 
 DEMO_LEGAL_NAME = "Demo Garage AG"
@@ -65,9 +67,7 @@ def _stamp_actor(db: Session, *, actor: User, rows: tuple[DealerGroup, Dealershi
     later edit — is left alone; so is null, which names nobody on purpose
     (app.platform.services.actor_reference). Returns what changed."""
 
-    named = {
-        value for row in rows for column in _ACTOR_COLUMNS if (value := getattr(row, column)) is not None
-    }
+    named = {value for row in rows for column in _ACTOR_COLUMNS if (value := getattr(row, column)) is not None}
     existing = set(db.scalars(select(User.id).where(User.id.in_(named))).all()) if named else set()
     changed: list[str] = []
     for row in rows:
@@ -121,10 +121,7 @@ def main() -> None:
             print(f"Created demo dealership '{DEMO_LEGAL_NAME}' (id={dealership.id}).")
         else:
             print(f"Demo dealership already exists (id={dealership.id}).")
-
-        user = db.scalar(
-            select(User).where(User.tenant_id == dealership.id, User.email == DEMO_EMAIL)
-        )
+        user = db.scalar(select(User).where(User.tenant_id == dealership.id, User.email == DEMO_EMAIL))
         if user is None:
             user = user_service.create_user(
                 db,
@@ -158,6 +155,16 @@ def main() -> None:
             print(f"Updated demo user {DEMO_EMAIL}'s auth_identity_id to {auth_identity_id}.")
         else:
             print(f"Demo user {DEMO_EMAIL} already mapped to auth_identity_id={auth_identity_id} — nothing to do.")
+
+        # KAN-198 (D-A-04): a new Betrieb starts unlicensed; the demo one
+        # holds every module so nothing disappears on a fresh environment
+        # (the migration backfill only reaches dealerships that already
+        # exist). Granted once the demo manager exists, as that manager —
+        # `granted_by` names a real user (KAN-318). Idempotent: an
+        # already-licensed Betrieb is left alone.
+        if not entitlement_service.list_active_modules(db, dealership.id):
+            entitlement_service.set_entitlements(db, dealership=dealership, modules=set(ModuleCode), actor_id=user.id)
+            print(f"Licensed demo dealership for every module: {sorted(m.value for m in ModuleCode)}.")
 
         group = db.get(DealerGroup, dealership.dealer_group_id)
         assert group is not None, "create_dealership always creates or names a dealer group"

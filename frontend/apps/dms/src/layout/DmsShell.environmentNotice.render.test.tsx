@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { screen } from '@testing-library/react'
 import i18n from '../i18n'
 import { renderWithProviders } from '../test/renderWithProviders'
-import { installFakeBackend } from '../test/fakeBackend'
+import { ALL_ENTITLEMENTS, installFakeBackend } from '../test/fakeBackend'
 import { DmsShell } from './DmsShell'
 
 // KAN-275 — ADR-081 (option D): Render's staging runs no outbox worker, so
@@ -36,7 +36,7 @@ function renderShell(uiLanguage: (typeof LANGUAGES)[number]) {
           createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z',
         },
         activeDealership: { id: 'd-1', legalName: 'Garage Nord AG' },
-        memberships: [{ id: 'd-1', legalName: 'Garage Nord AG' }],
+        memberships: [{ id: 'd-1', legalName: 'Garage Nord AG' }], entitlements: ALL_ENTITLEMENTS
       }),
     },
   ])

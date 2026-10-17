@@ -39,6 +39,9 @@ as any change to what it states. -->
   exception ruled by ADR (KAN-106; the test scans `scripts/` for that and records every other
   multi-context script by name) (ADR-047, KAN-90), every POST an `IdempotentRoute` declaring an optional
   `Idempotency-Key`, the two ratified exemptions aside (a new one is Anto's ruling by name),
+  every route of a sales, inventory, valuation or configurator router behind the `sales`
+  entitlement gate and no other route (KAN-198), every production token minted with an explicit
+  entitlement set (KAN-198),
   every internal idempotency key in the reserved `<context>.<action>:` grammar clients are
   refused (KAN-264), every `created_by`/`updated_by` column reconciled against `user.id`
   (KAN-243), and the customer-group predicate used only by reconciliation (KAN-259).

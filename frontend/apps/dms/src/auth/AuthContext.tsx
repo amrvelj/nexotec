@@ -6,6 +6,10 @@ interface AuthContextValue {
   user: UserRead | null
   activeDealership: DealershipMembershipSummary | null
   memberships: DealershipMembershipSummary[]
+  /** The active dealership's licensed modules (KAN-198, D-A-04): what the
+   * shell shows and `RequireEntitlement` honours. Presentation only — the
+   * API answers 404 for an unlicensed module whatever the SPA renders. */
+  entitlements: string[]
   loading: boolean
   logout: () => Promise<void>
   /** Re-issues the session against a different dealership from
@@ -21,18 +25,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserRead | null>(null)
   const [activeDealership, setActiveDealership] = useState<DealershipMembershipSummary | null>(null)
   const [memberships, setMemberships] = useState<DealershipMembershipSummary[]>([])
+  const [entitlements, setEntitlements] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
 
   const applySession = useCallback((res: LoginResponse) => {
     setUser(res.user)
     setActiveDealership(res.activeDealership)
     setMemberships(res.memberships)
+    setEntitlements(res.entitlements ?? [])
   }, [])
 
   const clearSession = useCallback(() => {
     setUser(null)
     setActiveDealership(null)
     setMemberships([])
+    setEntitlements([])
   }, [])
 
   // KAN-237 — a 401 from any API call ends the client session; with no
@@ -80,7 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, activeDealership, memberships, loading, logout, switchDealership }}
+      value={{ user, activeDealership, memberships, entitlements, loading, logout, switchDealership }}
     >
       {children}
     </AuthContext.Provider>

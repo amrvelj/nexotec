@@ -9,13 +9,16 @@ from sqlalchemy.orm import Session
 from app.core.auth import Principal, get_current_principal
 from app.core.config import get_settings
 from app.core.pagination import SortPageParams, decode_sort_cursor
+from app.core.permissions import ModuleCode, require_entitlement
 from app.core.sorting import SortField, parse_sort
 from app.db import get_db
 from app.sales.models.deal import SalesDeal
 from app.sales.schemas.deal import DealPage, DealRead
 from app.sales.services import deal as deal_service
 
-router = APIRouter(tags=["sales"])
+# KAN-198 (D-A-04): the entitlement gate runs before any role check; an
+# unlicensed module is 404 for everyone (router-level, so every route).
+router = APIRouter(tags=["sales"], dependencies=[Depends(require_entitlement(ModuleCode.SALES))])
 settings = get_settings()
 
 # U-03: only indexed columns are sortable — see the sales_offer_contract_deal
