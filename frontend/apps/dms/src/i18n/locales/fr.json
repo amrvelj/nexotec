@@ -204,6 +204,11 @@
       "marketplace": "Marketplace",
       "other": "Autre"
     },
+    "addressType": {
+      "domicile": "Domicile",
+      "billing": "Facturation",
+      "delivery": "Livraison"
+    },
     "vehiclePartyRole": {
       "owner": "Propriétaire",
       "keeper": "Détenteur",
@@ -505,7 +510,58 @@
       "you": "Vous",
       "system": "Système",
       "user": "Utilisateur {{id}}",
-      "actionSuffix": "ce client"
+      "actions": {
+        "create": "Client créé",
+        "update": "Client modifié",
+        "merge": "Client fusionné",
+        "phone_add": "Téléphone ajouté",
+        "phone_update": "Téléphone modifié",
+        "phone_remove": "Téléphone supprimé",
+        "email_add": "Adresse e-mail ajoutée",
+        "email_update": "Adresse e-mail modifiée",
+        "email_remove": "Adresse e-mail supprimée",
+        "address_add": "Adresse ajoutée",
+        "address_update": "Adresse modifiée",
+        "address_remove": "Adresse supprimée",
+        "external_id_add": "ID externe ajouté",
+        "external_id_update": "ID externe modifié",
+        "external_id_remove": "ID externe supprimé",
+        "vehicle_party_add": "Véhicule lié",
+        "vehicle_party_update": "Lien au véhicule modifié",
+        "vehicle_party_remove": "Lien au véhicule terminé",
+        "credit_block_changed": "Blocage de crédit modifié"
+      },
+      "otherAction": "Modification enregistrée",
+      "fields": {
+        "dealershipId": "Concession",
+        "phoneType": "Type de téléphone",
+        "emailType": "Type d'e-mail",
+        "addressType": "Type d'adresse",
+        "phoneE164": "Numéro de téléphone",
+        "emailAddress": "Adresse e-mail",
+        "consentGranted": "Consentement donné",
+        "consentScope": "Portée du consentement",
+        "consentSource": "Source du consentement",
+        "consentTimestamp": "Consentement donné le",
+        "mergedIntoCustomerId": "Fusionné dans le client",
+        "duplicateOfCustomerId": "Doublon du client",
+        "creditBlock": "Blocage de crédit",
+        "creditBlockReason": "Motif du blocage de crédit",
+        "vehiclePartiesRepointed": "Liens véhicule transférés",
+        "vehiclePartiesKeptClosed": "Liens véhicule conservés clôturés",
+        "vehiclePartiesKeptClosedIds": "Liens véhicule conservés clôturés (ID)",
+        "transactionsRepointed": "Transactions transférées",
+        "phonesRepointed": "Numéros de téléphone transférés",
+        "phonesDropped": "Numéros de téléphone écartés",
+        "emailsRepointed": "Adresses e-mail transférées",
+        "emailsDropped": "Adresses e-mail écartées",
+        "addressesRepointed": "Adresses transférées",
+        "addressesDropped": "Adresses écartées",
+        "externalIdsRepointed": "ID externes transférés",
+        "externalIdsDropped": "ID externes écartés",
+        "tagsRepointed": "Étiquettes transférées",
+        "tagsDropped": "Étiquettes écartées"
+      }
     },
     "linkVehicle": {
       "title": "Lier un véhicule",
@@ -531,6 +587,14 @@
       "submitting": "Fusion en cours…",
       "submit": "Fusionner les clients",
       "error": "Les clients n'ont pas pu être fusionnés."
+    },
+    "mergeRefused": {
+      "intoSelf": "Un client ne peut pas être fusionné avec lui-même.",
+      "targetMerged": "Le client choisi a lui-même déjà été fusionné. Choisissez le client dans lequel il a été fusionné.",
+      "alreadyMerged": "Ce client a déjà été fusionné.",
+      "survivorConflict": "La fusion entre en conflit avec un enregistrement du client conservé. Rechargez les deux clients et réessayez.",
+      "vehiclePartyBusy": "Un véhicule de ce client est en cours de modification. Relancez la fusion.",
+      "staleVersion": "Ce client a été modifié entre-temps. Rechargez la page et réessayez."
     }
   },
   "signInError": {

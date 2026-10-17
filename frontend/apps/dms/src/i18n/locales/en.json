@@ -204,6 +204,11 @@
       "marketplace": "Marketplace",
       "other": "Other"
     },
+    "addressType": {
+      "domicile": "Domicile",
+      "billing": "Billing",
+      "delivery": "Delivery"
+    },
     "vehiclePartyRole": {
       "owner": "Owner",
       "keeper": "Keeper",
@@ -505,7 +510,58 @@
       "you": "You",
       "system": "System",
       "user": "User {{id}}",
-      "actionSuffix": "this customer"
+      "actions": {
+        "create": "Customer created",
+        "update": "Customer updated",
+        "merge": "Customer merged",
+        "phone_add": "Phone number added",
+        "phone_update": "Phone number updated",
+        "phone_remove": "Phone number removed",
+        "email_add": "Email address added",
+        "email_update": "Email address updated",
+        "email_remove": "Email address removed",
+        "address_add": "Address added",
+        "address_update": "Address updated",
+        "address_remove": "Address removed",
+        "external_id_add": "External ID added",
+        "external_id_update": "External ID updated",
+        "external_id_remove": "External ID removed",
+        "vehicle_party_add": "Vehicle linked",
+        "vehicle_party_update": "Vehicle link updated",
+        "vehicle_party_remove": "Vehicle link ended",
+        "credit_block_changed": "Credit block changed"
+      },
+      "otherAction": "Change recorded",
+      "fields": {
+        "dealershipId": "Dealership",
+        "phoneType": "Phone type",
+        "emailType": "Email type",
+        "addressType": "Address type",
+        "phoneE164": "Phone number",
+        "emailAddress": "Email address",
+        "consentGranted": "Consent given",
+        "consentScope": "Consent scope",
+        "consentSource": "Consent source",
+        "consentTimestamp": "Consent given on",
+        "mergedIntoCustomerId": "Merged into customer",
+        "duplicateOfCustomerId": "Duplicate of customer",
+        "creditBlock": "Credit block",
+        "creditBlockReason": "Credit block reason",
+        "vehiclePartiesRepointed": "Vehicle links moved",
+        "vehiclePartiesKeptClosed": "Vehicle links kept closed",
+        "vehiclePartiesKeptClosedIds": "Vehicle links kept closed (IDs)",
+        "transactionsRepointed": "Transactions moved",
+        "phonesRepointed": "Phone numbers moved",
+        "phonesDropped": "Phone numbers dropped",
+        "emailsRepointed": "Email addresses moved",
+        "emailsDropped": "Email addresses dropped",
+        "addressesRepointed": "Addresses moved",
+        "addressesDropped": "Addresses dropped",
+        "externalIdsRepointed": "External IDs moved",
+        "externalIdsDropped": "External IDs dropped",
+        "tagsRepointed": "Tags moved",
+        "tagsDropped": "Tags dropped"
+      }
     },
     "linkVehicle": {
       "title": "Link vehicle",
@@ -531,6 +587,14 @@
       "submitting": "Merging…",
       "submit": "Merge customers",
       "error": "The customers could not be merged."
+    },
+    "mergeRefused": {
+      "intoSelf": "A customer cannot be merged into itself.",
+      "targetMerged": "The chosen survivor has itself been merged. Choose the customer it was merged into.",
+      "alreadyMerged": "This customer has already been merged.",
+      "survivorConflict": "The merge conflicts with a record on the survivor. Reload both customers and try again.",
+      "vehiclePartyBusy": "A vehicle of this customer is being changed right now. Send the merge again.",
+      "staleVersion": "This customer was changed in the meantime. Reload the page and try again."
     }
   },
   "signInError": {

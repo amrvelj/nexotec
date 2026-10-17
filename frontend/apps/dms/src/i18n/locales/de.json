@@ -204,6 +204,11 @@
       "marketplace": "Marktplatz",
       "other": "Sonstiges"
     },
+    "addressType": {
+      "domicile": "Wohnsitz",
+      "billing": "Rechnung",
+      "delivery": "Lieferung"
+    },
     "vehiclePartyRole": {
       "owner": "Eigentümer",
       "keeper": "Halter",
@@ -505,7 +510,58 @@
       "you": "Sie",
       "system": "System",
       "user": "Benutzer {{id}}",
-      "actionSuffix": "diesen Kunden"
+      "actions": {
+        "create": "Kunde angelegt",
+        "update": "Kunde geändert",
+        "merge": "Kunde zusammengeführt",
+        "phone_add": "Telefonnummer hinzugefügt",
+        "phone_update": "Telefonnummer geändert",
+        "phone_remove": "Telefonnummer entfernt",
+        "email_add": "E-Mail-Adresse hinzugefügt",
+        "email_update": "E-Mail-Adresse geändert",
+        "email_remove": "E-Mail-Adresse entfernt",
+        "address_add": "Adresse hinzugefügt",
+        "address_update": "Adresse geändert",
+        "address_remove": "Adresse entfernt",
+        "external_id_add": "Externe ID hinzugefügt",
+        "external_id_update": "Externe ID geändert",
+        "external_id_remove": "Externe ID entfernt",
+        "vehicle_party_add": "Fahrzeug verknüpft",
+        "vehicle_party_update": "Fahrzeugverknüpfung geändert",
+        "vehicle_party_remove": "Fahrzeugverknüpfung beendet",
+        "credit_block_changed": "Kreditsperre geändert"
+      },
+      "otherAction": "Änderung erfasst",
+      "fields": {
+        "dealershipId": "Betrieb",
+        "phoneType": "Telefontyp",
+        "emailType": "E-Mail-Typ",
+        "addressType": "Adresstyp",
+        "phoneE164": "Telefonnummer",
+        "emailAddress": "E-Mail-Adresse",
+        "consentGranted": "Einwilligung erteilt",
+        "consentScope": "Einwilligungsumfang",
+        "consentSource": "Einwilligungsquelle",
+        "consentTimestamp": "Einwilligung erteilt am",
+        "mergedIntoCustomerId": "Zusammengeführt in Kunde",
+        "duplicateOfCustomerId": "Duplikat von Kunde",
+        "creditBlock": "Kreditsperre",
+        "creditBlockReason": "Grund der Kreditsperre",
+        "vehiclePartiesRepointed": "Fahrzeugverknüpfungen übertragen",
+        "vehiclePartiesKeptClosed": "Fahrzeugverknüpfungen geschlossen behalten",
+        "vehiclePartiesKeptClosedIds": "Fahrzeugverknüpfungen geschlossen behalten (IDs)",
+        "transactionsRepointed": "Transaktionen übertragen",
+        "phonesRepointed": "Telefonnummern übertragen",
+        "phonesDropped": "Telefonnummern verworfen",
+        "emailsRepointed": "E-Mail-Adressen übertragen",
+        "emailsDropped": "E-Mail-Adressen verworfen",
+        "addressesRepointed": "Adressen übertragen",
+        "addressesDropped": "Adressen verworfen",
+        "externalIdsRepointed": "Externe IDs übertragen",
+        "externalIdsDropped": "Externe IDs verworfen",
+        "tagsRepointed": "Tags übertragen",
+        "tagsDropped": "Tags verworfen"
+      }
     },
     "linkVehicle": {
       "title": "Fahrzeug verknüpfen",
@@ -531,6 +587,14 @@
       "submitting": "Wird zusammengeführt…",
       "submit": "Kunden zusammenführen",
       "error": "Die Kunden konnten nicht zusammengeführt werden."
+    },
+    "mergeRefused": {
+      "intoSelf": "Ein Kunde kann nicht mit sich selbst zusammengeführt werden.",
+      "targetMerged": "Der gewählte Kunde wurde selbst bereits zusammengeführt. Wählen Sie den Kunden, in den er zusammengeführt wurde.",
+      "alreadyMerged": "Dieser Kunde wurde bereits zusammengeführt.",
+      "survivorConflict": "Die Zusammenführung kollidiert mit einem Datensatz beim verbleibenden Kunden. Laden Sie beide Kunden neu und versuchen Sie es erneut.",
+      "vehiclePartyBusy": "Ein Fahrzeug dieses Kunden wird gerade geändert. Senden Sie die Zusammenführung erneut.",
+      "staleVersion": "Dieser Kunde wurde inzwischen geändert. Laden Sie die Seite neu und versuchen Sie es erneut."
     }
   },
   "signInError": {

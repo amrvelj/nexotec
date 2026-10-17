@@ -133,6 +133,32 @@ export function MergeCustomerModal({ opened, onClose, customer, phones, emails, 
     }
   }
 
+  // KAN-366: a refused merge is said in the user's language, keyed off
+  // `details.reason` (or the If-Match conflict's `currentVersion`) — never
+  // the API's English message. A response without the API's error body
+  // (a gateway's 504, KAN-271) is a failed request, not a refusal; anything
+  // else falls back to the translated generic.
+  const mergeRefusalMessage = (err: unknown): string => {
+    if (!(err instanceof ApiError)) return t('customerDetail.merge.error')
+    if (err.code === 'unknown_error') return t('common.requestFailed')
+    const details = err.details ?? {}
+    if (err.status === 409 && details.currentVersion != null) return t('customerDetail.mergeRefused.staleVersion')
+    switch (details.reason) {
+      case 'merge_into_self':
+        return t('customerDetail.mergeRefused.intoSelf')
+      case 'merge_target_merged':
+        return t('customerDetail.mergeRefused.targetMerged')
+      case 'customer_already_merged':
+        return t('customerDetail.mergeRefused.alreadyMerged')
+      case 'merge_conflict_on_survivor':
+        return t('customerDetail.mergeRefused.survivorConflict')
+      case 'merge_vehicle_party_busy':
+        return t('customerDetail.mergeRefused.vehiclePartyBusy')
+      default:
+        return t('customerDetail.merge.error')
+    }
+  }
+
   const submit = async () => {
     if (!survivor) return
     setSubmitting(true)
@@ -146,7 +172,7 @@ export function MergeCustomerModal({ opened, onClose, customer, phones, emails, 
       idempotency.renew()
       onMerged(survivor.id)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t('customerDetail.merge.error'))
+      setError(mergeRefusalMessage(err))
     } finally {
       setSubmitting(false)
     }
