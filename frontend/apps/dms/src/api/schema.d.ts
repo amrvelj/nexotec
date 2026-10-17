@@ -803,6 +803,94 @@ export interface paths {
         patch: operations["update_user_v1_dealerships__dealership_id__users__user_id__patch"];
         trace?: never;
     };
+    "/v1/dealerships/{dealership_id}/users/{user_id}/manager-flag": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set Home Manager Flag */
+        put: operations["set_home_manager_flag_v1_dealerships__dealership_id__users__user_id__manager_flag_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/users/{user_id}/memberships": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Memberships */
+        get: operations["list_memberships_v1_dealerships__dealership_id__users__user_id__memberships_get"];
+        put?: never;
+        /** Grant Membership */
+        post: operations["grant_membership_v1_dealerships__dealership_id__users__user_id__memberships_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/users/{user_id}/memberships/{member_dealership_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** End Membership */
+        delete: operations["end_membership_v1_dealerships__dealership_id__users__user_id__memberships__member_dealership_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/users/{user_id}/memberships/{member_dealership_id}/manager-flag": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set Membership Manager Flag */
+        put: operations["set_membership_manager_flag_v1_dealerships__dealership_id__users__user_id__memberships__member_dealership_id__manager_flag_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/users/{user_id}/text-delegations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Text Delegations */
+        get: operations["get_text_delegations_v1_dealerships__dealership_id__users__user_id__text_delegations_get"];
+        /** Set Text Delegations */
+        put: operations["set_text_delegations_v1_dealerships__dealership_id__users__user_id__text_delegations_put"];
+        post?: never;
+        /** End Text Delegations */
+        delete: operations["end_text_delegations_v1_dealerships__dealership_id__users__user_id__text_delegations_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/healthz": {
         parameters: {
             query?: never;
@@ -5251,6 +5339,11 @@ export interface components {
              */
             ok?: boolean;
         };
+        /** ManagerFlagUpdate */
+        ManagerFlagUpdate: {
+            /** Isdealermanager */
+            isDealerManager: boolean;
+        };
         /** MappingGapPage */
         MappingGapPage: {
             /** Items */
@@ -5315,6 +5408,59 @@ export interface components {
             position: number;
             /** Url */
             url: string;
+        };
+        /**
+         * MembershipCreate
+         * @description Grant the user access to a sister dealership. The target is the body,
+         *     the user's home dealership the path — a manager of both sides, or
+         *     platform staff, may grant (D-A-01).
+         */
+        MembershipCreate: {
+            /**
+             * Dealershipid
+             * Format: uuid
+             */
+            dealershipId: string;
+            /**
+             * Isdealermanager
+             * @default false
+             */
+            isDealerManager?: boolean;
+        };
+        /**
+         * MembershipList
+         * @description Every membership the user ever held, ended ones included (they keep
+         *     their row with `valid_to`); `user_version` is the If-Match value for the
+         *     writes.
+         */
+        MembershipList: {
+            /** Items */
+            items: components["schemas"]["MembershipRead"][];
+            /** Userversion */
+            userVersion: number;
+        };
+        /** MembershipRead */
+        MembershipRead: {
+            /** Active */
+            active: boolean;
+            /**
+             * Dealershipid
+             * Format: uuid
+             */
+            dealershipId: string;
+            /** Dealershiplabel */
+            dealershipLabel: string;
+            /**
+             * Grantedat
+             * Format: date-time
+             */
+            grantedAt: string;
+            /** Grantedby */
+            grantedBy: string | null;
+            /** Isdealermanager */
+            isDealerManager: boolean;
+            /** Validto */
+            validTo: string | null;
         };
         /**
          * ModuleCode
@@ -6013,6 +6159,14 @@ export interface components {
             vin: string;
         };
         /**
+         * StandardTextCategory
+         * @description The PRD's standard-text categories (Dealer Administration, "Standard
+         *     texts" data model): document texts · e-mail bodies · SMS · internal note
+         *     templates · workshop job texts.
+         * @enum {string}
+         */
+        StandardTextCategory: "document" | "email" | "sms" | "internal_note" | "workshop";
+        /**
          * StockItemCondition
          * @enum {string}
          */
@@ -6228,6 +6382,22 @@ export interface components {
              * Format: uuid
              */
             dealershipId: string;
+        };
+        /** TextDelegationsRead */
+        TextDelegationsRead: {
+            /** Categories */
+            categories: components["schemas"]["StandardTextCategory"][];
+            /** Userversion */
+            userVersion: number;
+        };
+        /**
+         * TextDelegationsUpdate
+         * @description Full replacement of the user's delegated categories — the categories
+         *     not listed are withdrawn.
+         */
+        TextDelegationsUpdate: {
+            /** Categories */
+            categories: components["schemas"]["StandardTextCategory"][];
         };
         /**
          * TradeInRequest
@@ -9768,6 +9938,315 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["UserRead"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_home_manager_flag_v1_dealerships__dealership_id__users__user_id__manager_flag_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                user_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManagerFlagUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_memberships_v1_dealerships__dealership_id__users__user_id__memberships_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                user_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MembershipList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    grant_membership_v1_dealerships__dealership_id__users__user_id__memberships_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                user_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MembershipCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MembershipRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    end_membership_v1_dealerships__dealership_id__users__user_id__memberships__member_dealership_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                user_id: string;
+                member_dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_membership_manager_flag_v1_dealerships__dealership_id__users__user_id__memberships__member_dealership_id__manager_flag_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                user_id: string;
+                member_dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManagerFlagUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MembershipRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_text_delegations_v1_dealerships__dealership_id__users__user_id__text_delegations_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                user_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TextDelegationsRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_text_delegations_v1_dealerships__dealership_id__users__user_id__text_delegations_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                user_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TextDelegationsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TextDelegationsRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    end_text_delegations_v1_dealerships__dealership_id__users__user_id__text_delegations_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                user_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

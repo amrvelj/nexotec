@@ -1009,6 +1009,10 @@ def test_no_hard_delete_endpoint_exists_for_fk_target_entities(client):
     # The only DELETE endpoints that do exist are for genuine child rows
     # that were never a target of any of the nine dropped FKs.
     assert delete_paths == {
+        # KAN-199: both end a grant (`valid_to`), never delete a row — a
+        # removed sister-Betrieb access keeps its record (Anto, 2026-10-17).
+        "/v1/dealerships/{dealership_id}/users/{user_id}/memberships/{member_dealership_id}",
+        "/v1/dealerships/{dealership_id}/users/{user_id}/text-delegations",
         "/v1/customers/{customer_id}/phones/{phone_id}",
         "/v1/customers/{customer_id}/emails/{email_id}",
         "/v1/customers/{customer_id}/addresses/{address_id}",

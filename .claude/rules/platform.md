@@ -51,7 +51,16 @@ main@046634d on 2026-10-17 (KAN-195: every present-tense claim checked against t
   per sister dealership (default false, never copied from the home flag).
   `POST /v1/auth/switch-dealership` mints the target's flag via `user_service.is_dealer_manager_in`.
   The last-active-manager rule (FR-A-13, `_assert_not_last_manager`) and the manager e-mail list
-  count managers by membership too. No endpoint grants a membership or its flag yet (KAN-199).
+  count managers by membership too — active memberships only (`valid_to` NULL or future).
+  **Built (KAN-199):** `POST/GET /v1/dealerships/{id}/users/{user_id}/memberships`,
+  `DELETE …/memberships/{dealership_id}` (ends with `valid_to`, the row stays — Anto,
+  2026-10-17), `PUT …/memberships/{dealership_id}/manager-flag` and `PUT …/users/{user_id}/manager-flag`
+  (`app/platform/services/membership.py`): platform staff, or a manager of the home who also
+  manages the target — a manager of one side gets 404 for the target; the home itself and a
+  `platform_admin` user are 422. Every write audits with before/after and the granter: `membership_grant` /
+  `membership_end` on the home tenant and mirrored into the target's, `manager_flag_set` in the
+  dealership the flag is held in (the home for the user row, the target for a membership). The
+  listing shows a dealer manager only the sister dealerships they manage themselves.
   `LoginResponse.user.isDealerManager` is the home flag, not the active dealership's — never
   gate a screen on it; the session's own flag is the token claim.
 
@@ -60,10 +69,12 @@ main@046634d on 2026-10-17 (KAN-195: every present-tense claim checked against t
 `User.access_roles` (a list) plus `is_dealer_manager`. `platform_admin` is Nexotec staff only;
 it is an ordinary `AccessRole` value, so `app/platform/services/user.py` (`create_user` /
 `update_user`, required `actor_roles`) guards it (KAN-97): only a `platform_admin` principal may
-grant or remove it, or edit a user who holds it — anyone else gets 403. **Not yet true:** a
-`platform_admin` can still be homed in a dealership; platform staff have no storage of their
-own until the Platform users panel exists (KAN-199, not built, is to reject such memberships
-with 422).
+grant or remove it, or edit a user who holds it — anyone else gets 403. **Still true:** a
+`platform_admin` can be homed in a dealership; platform staff have no storage of their own
+until the Platform users panel exists. KAN-199 stops it spreading: a `platform_admin` user gets
+no sister membership (422), a user with an active membership cannot be given the role (422),
+and `scripts/report_platform_admins_homed_in_dealerships.py` reports the existing rows (exit 1
+when any) — never fixes them.
 
 Permissions are capability-based: `Capability(read_roles, write_roles, manager_can_write=True,
 manager_can_read=True)` in `app/core/permissions.py`; `require_read` / `require_write` check
@@ -108,8 +119,14 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   copy — never inheritance.
 - **Onboarding (D-A-06):** platform staff enter group, legal entity (UID uniqueness checked),
   entitlements and one manager; **Nexotec sets nothing commercial** — no VAT rate, no bank details.
-- **Standard texts are delegable per category** (`standard_text_delegation`, FR-A-28); the seed
-  library and the UI strings (`ui_translation`, served at runtime) are edited by
+- **Standard texts are delegable per category** (`standard_text_delegation`, FR-A-28) — built
+  (KAN-199): `PUT/GET/DELETE /v1/dealerships/{id}/users/{user_id}/text-delegations` (manager
+  or platform staff; full replacement; audit `text_delegation_set`; ended by deactivation);
+  categories `document · email · sms · internal_note · workshop`. The gate is
+  `require_write_or_delegated("standard_texts")` in `app/core/permissions.py`, which asks the
+  checker platform registers (`app/platform/services/text_delegation.py`) for the route's
+  `{category}` — proven on a probe route; no standard-text endpoint exists yet. The seed
+  library and the UI strings (`ui_translation`, served at runtime, not built) are edited by
   `platform_admin` through the UI (D-A-23). Dealers never override UI strings.
 - **Number ranges are gapless per legal entity**, one sequence across all sites (D-A-17);
   `{location_code}` is a label. Frozen at activation (A-RULE-3).

@@ -42,6 +42,8 @@ as any change to what it states. -->
   every route of a sales, inventory, valuation or configurator router behind the `sales`
   entitlement gate and no other route (KAN-198), every production token minted with an explicit
   entitlement set (KAN-198),
+  no standard-text write behind the plain `require_write` gate instead of the delegation-aware one,
+  and that gate only on a route whose path carries `{category}` (KAN-199),
   every internal idempotency key in the reserved `<context>.<action>:` grammar clients are
   refused (KAN-264), every `created_by`/`updated_by` column reconciled against `user.id`
   (KAN-243), and the customer-group predicate used only by reconciliation (KAN-259).

@@ -29,7 +29,7 @@ import enum
 import uuid
 from collections.abc import Callable
 
-from fastapi import Depends
+from fastapi import Depends, Request
 from sqlalchemy.orm import Session
 
 from app.core.auth import AccessRole, Principal, get_current_principal
@@ -272,5 +272,62 @@ def require_entitlement(module: ModuleCode):
         if module.value not in principal.entitlements:
             raise NotFoundError("Not found.")
         return principal
+
+    return _check
+
+
+# --- Standard-text delegations (FR-A-28, D-A-23, KAN-199) ---------------------------------
+
+# Whether the principal holds a delegation for `category` of `capability`
+# (today only "standard_texts") in their active dealership. Registered by
+# platform at import time (app.platform.services.text_delegation); core never
+# imports a bounded context, so the one lookup the gate needs arrives as a
+# callback, like the entitlement version reader above.
+DelegationChecker = Callable[[Session, Principal, str, str], bool]
+_delegation_checker: DelegationChecker | None = None
+
+
+def set_delegation_checker(checker: DelegationChecker) -> None:
+    global _delegation_checker
+    _delegation_checker = checker
+
+
+def require_write_or_delegated(capability: str, category_param: str = "category"):
+    """Dependency factory: `Depends(require_write_or_delegated("standard_texts"))`.
+
+    The matrix's "Standard texts" write row: the manager (and platform staff,
+    and any listed write role), PLUS a user holding a per-category delegation
+    for that category only (FR-A-28) — the one contained exception to "no
+    per-dealership roles". The category is read from the route's PATH
+    parameter `category_param` only — never from the query string or the
+    body; a route without that path parameter behaves exactly like
+    require_write (a delegation opens nothing there). The caller chooses the
+    path too, so the endpoint behind this gate must bind what it writes to
+    the path's category (look the text up BY category, never by id alone) —
+    otherwise a delegate of `email` could save a document text under
+    `/…/email/{id}`. 403 when neither holds.
+    """
+
+    cap = CAPABILITY_MATRIX[capability]
+
+    def _check(
+        request: Request,
+        principal: Principal = Depends(get_current_principal),
+        db: Session = Depends(get_db),
+    ) -> Principal:
+        if AccessRole.PLATFORM_ADMIN in principal.roles:
+            return principal
+        if principal.roles & cap.write_roles:
+            return principal
+        if cap.manager_can_write and principal.is_dealer_manager:
+            return principal
+        category = request.path_params.get(category_param)
+        if (
+            category is not None
+            and _delegation_checker is not None
+            and _delegation_checker(db, principal, capability, str(category))
+        ):
+            return principal
+        raise ForbiddenError(f"Not permitted to write '{capability}'.")
 
     return _check

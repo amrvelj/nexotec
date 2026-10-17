@@ -12,9 +12,11 @@ from sqlalchemy.orm import Session
 
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
 from app.platform.models.dealership import DealerGroup, Dealership, Location
+from app.platform.models.dealership_membership import DealershipMembership
 from app.platform.models.document_template import DocumentTemplate
 from app.platform.models.module_entitlement import ModuleEntitlement
 from app.platform.models.reference_data import ReferenceList, ReferenceValue
+from app.platform.models.standard_text_delegation import StandardTextDelegation
 from app.platform.models.user import User
 from app.platform.services.actor_reference import actor_reference_checks
 
@@ -34,6 +36,8 @@ ACTOR_TABLES = (
     ReferenceValue,
     DocumentTemplate,
     ModuleEntitlement,  # granted_by (KAN-198): an actor column under another name
+    DealershipMembership,  # granted_by (KAN-199)
+    StandardTextDelegation,  # granted_by (KAN-199)
 )
 
 CHECKS: list[ReferenceCheck | StateCheck] = [*actor_reference_checks(*ACTOR_TABLES)]

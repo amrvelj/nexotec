@@ -30,6 +30,7 @@ from app.platform.models.dealership_membership import DealershipMembership
 from app.platform.models.document_template import DocumentTemplate
 from app.platform.models.module_entitlement import ModuleEntitlement
 from app.platform.models.reference_data import ReferenceList, ReferenceValue
+from app.platform.models.standard_text_delegation import StandardTextDelegation
 from app.platform.models.user import User
 from app.platform.models.user_preference import UserPreference
 from app.sales.models.contract import SalesContract
@@ -119,6 +120,7 @@ __all__ = [
     "SalesNumberSequence",
     "SalesOffer",
     "SalesStockItemPurchase",
+    "StandardTextDelegation",
     "StockItem",
     "StockItemLedger",
     "StockItemMedia",

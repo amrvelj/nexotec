@@ -12,6 +12,13 @@ is_dealer_manager (KAN-98, D-A-01): the manager flag is held per
 dealership. This row's flag is the user's manager flag in THIS dealership
 only; their home dealership's flag stays on User.is_dealer_manager. See
 app.platform.services.user.is_dealer_manager_in.
+
+granted_by / valid_to (KAN-199): who granted the access, and when it ended.
+A removed sister-Betrieb access keeps its row with `valid_to` set, never
+deleted (Anto, 2026-10-17); a re-grant reopens the row. Everything that
+counts memberships — the manager guard, switch-dealership, manager e-mails —
+counts only rows active now (`is_active`). `granted_by` is an actor column
+under another name and is covered by the nightly actor reference check.
 """
 
 import datetime as dt
@@ -36,4 +43,9 @@ class DealershipMembership(PrimaryKeyMixin, Base):
         GUID(), ForeignKey("dealership.id"), nullable=False, index=True
     )
     granted_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
+    granted_by: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True)
     is_dealer_manager: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    valid_to: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+
+    def is_active(self, at: dt.datetime) -> bool:
+        return self.valid_to is None or self.valid_to > at
