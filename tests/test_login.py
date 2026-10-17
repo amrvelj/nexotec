@@ -12,6 +12,7 @@ import pytest
 
 from app.core.auth import AccessRole, create_access_token, get_current_principal
 from app.platform.services.oidc import OidcError, ZitadelIdentity
+from tests.dealership_support import valid_uid
 
 VALID_ADDRESS = {
     "street": "Bahnhofstrasse",
@@ -47,12 +48,10 @@ def _create_dealer(client, **overrides) -> str:
     token = _token(AccessRole.PLATFORM_ADMIN)
     payload = {
         "legalName": "Garage Musterbetrieb AG",
-        "dealerLicenseNumber": "ZH-12345",
-        "licenseState": "ZH",
         "franchiseType": "independent",
         "address": VALID_ADDRESS,
         "phone": "+41441234567",
-        "taxId": "CHE-123.456.789",
+        "uid": valid_uid(),
     }
     payload.update(overrides)
     response = client.post("/v1/dealerships", json=payload, headers=_bearer(token))
@@ -258,7 +257,7 @@ def test_a_user_with_two_memberships_can_switch_active_dealership(client, oidc_f
 
     dealer_a = _create_dealer(client)
     user = _create_user(client, dealer_a)
-    dealer_b = _create_dealer(client, dealerLicenseNumber="ZH-99999")
+    dealer_b = _create_dealer(client)
 
     db_session.add(DealershipMembership(user_id=uuid.UUID(user["id"]), dealership_id=uuid.UUID(dealer_b)))
     db_session.commit()
@@ -307,7 +306,7 @@ def test_a_user_with_two_memberships_can_switch_active_dealership(client, oidc_f
 def test_switching_to_a_dealership_outside_your_memberships_is_forbidden(client, oidc_fake):
     dealer_a = _create_dealer(client)
     user = _create_user(client, dealer_a)
-    other_dealer = _create_dealer(client, dealerLicenseNumber="ZH-77777")
+    other_dealer = _create_dealer(client)
 
     callback_response = _login_via_oidc(client, oidc_fake, user)
     token = callback_response.cookies.get("dms_session")
@@ -340,7 +339,7 @@ def _user_with_a_sister_membership(client, db_session) -> tuple[str, str, dict]:
     from app.platform.models.dealership_membership import DealershipMembership
 
     dealer_a = _create_dealer(client)
-    dealer_b = _create_dealer(client, dealerLicenseNumber="ZH-99999")
+    dealer_b = _create_dealer(client)
     # Not a manager — otherwise the "always at least one manager" guard
     # would correctly reject the status change some of these tests make.
     user = _create_user(client, dealer_a, isDealerManager=False)
@@ -409,7 +408,7 @@ def test_switch_dealership_allows_a_membership_granted_after_login(client, oidc_
     from app.platform.models.dealership_membership import DealershipMembership
 
     dealer_a = _create_dealer(client)
-    dealer_b = _create_dealer(client, dealerLicenseNumber="ZH-99999")
+    dealer_b = _create_dealer(client)
     user = _create_user(client, dealer_a)
     token = _login_via_oidc(client, oidc_fake, user).cookies.get("dms_session")
     assert uuid.UUID(dealer_b) not in get_current_principal(token).memberships
@@ -473,7 +472,7 @@ def test_auth_me_lists_a_membership_granted_after_login(client, oidc_fake, db_se
     from app.platform.models.dealership_membership import DealershipMembership
 
     dealer_a = _create_dealer(client)
-    dealer_b = _create_dealer(client, dealerLicenseNumber="ZH-99999")
+    dealer_b = _create_dealer(client)
     user = _create_user(client, dealer_a)
     token = _login_via_oidc(client, oidc_fake, user).cookies.get("dms_session")
     assert token
@@ -530,7 +529,7 @@ def test_a_home_manager_with_a_plain_membership_is_not_a_manager_in_the_sister_d
     from app.platform.models.dealership_membership import DealershipMembership
 
     dealer_a = _create_dealer(client)
-    dealer_b = _create_dealer(client, dealerLicenseNumber="ZH-99999")
+    dealer_b = _create_dealer(client)
     manager_of_a = _create_user(client, dealer_a)  # isDealerManager=True on the home dealership
     db_session.add(DealershipMembership(user_id=uuid.UUID(manager_of_a["id"]), dealership_id=uuid.UUID(dealer_b)))
     db_session.commit()
@@ -546,7 +545,7 @@ def test_a_membership_that_holds_the_manager_flag_is_a_manager_in_that_dealershi
     from app.platform.models.dealership_membership import DealershipMembership
 
     dealer_a = _create_dealer(client)
-    dealer_b = _create_dealer(client, dealerLicenseNumber="ZH-99999")
+    dealer_b = _create_dealer(client)
     user = _create_user(client, dealer_a, isDealerManager=False, email="nomgr@example.ch")
     # dealer_a keeps a manager of its own; this user is a manager in B only.
     _create_user(client, dealer_a, email="home.mgr@example.ch")
@@ -568,7 +567,7 @@ def test_switching_back_to_the_home_dealership_restores_the_home_manager_flag(cl
     from app.platform.models.dealership_membership import DealershipMembership
 
     dealer_a = _create_dealer(client)
-    dealer_b = _create_dealer(client, dealerLicenseNumber="ZH-99999")
+    dealer_b = _create_dealer(client)
     manager_of_a = _create_user(client, dealer_a)
     db_session.add(DealershipMembership(user_id=uuid.UUID(manager_of_a["id"]), dealership_id=uuid.UUID(dealer_b)))
     db_session.commit()

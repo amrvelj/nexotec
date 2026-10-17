@@ -14,6 +14,7 @@ from app.core.auth import AccessRole, create_access_token
 from app.customer.models.customer import Customer, CustomerAddress, CustomerEmail, CustomerExternalId, CustomerPhone
 from app.customer.models.legal_basis import LegalBasis
 from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
+from tests.dealership_support import valid_uid
 
 VALID_ADDRESS = {
     "street": "Bahnhofstrasse",
@@ -44,12 +45,10 @@ def _headers(token: str, key: str | None = None, **extra: str) -> dict[str, str]
 def _dealership(client) -> dict:
     payload = {
         "legalName": "Garage Musterbetrieb AG",
-        "dealerLicenseNumber": "ZH-12345",
-        "licenseState": "ZH",
         "franchiseType": "independent",
         "address": VALID_ADDRESS,
         "phone": "+41441234567",
-        "taxId": "CHE-123.456.789",
+        "uid": valid_uid(),
     }
     response = client.post(
         "/v1/dealerships", json=payload, headers=_headers(_token(uuid.uuid4(), role=AccessRole.PLATFORM_ADMIN))

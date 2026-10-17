@@ -162,12 +162,36 @@ def _validate_swiss_uid(value: str) -> str:
     return normalised
 
 
+def validate_swiss_uid(value: str) -> str:
+    """The pure UID rule (format CHE-123.456.789, mod-11 check digit): the
+    normalised value, or ValueError. Public for KAN-197: the dealership's UID
+    is validated with the same function as a customer's, and the migration
+    tooling's frozen copy is checked against it."""
+
+    return _validate_swiss_uid(value)
+
+
+# The VAT number is the UID with the MWST suffix (D-A-22): "CHE-123.456.789
+# MWST". The space is optional on input and always present after
+# normalisation.
+_VAT_NUMBER_RE = re.compile(r"^CHE-\d{3}\.\d{3}\.\d{3} ?MWST$")
+
+
+def _validate_swiss_vat_number(value: str) -> str:
+    normalised = " ".join(value.strip().upper().split())
+    if not _VAT_NUMBER_RE.match(normalised):
+        raise ValueError("VAT number must be in the format 'CHE-123.456.789 MWST'.")
+    uid = _validate_swiss_uid(normalised[:15])
+    return f"{uid} MWST"
+
+
 CantonCode = Annotated[str, AfterValidator(_validate_canton)]
 E164Phone = Annotated[str, AfterValidator(_validate_e164_phone)]
 Iban = Annotated[str, AfterValidator(_validate_iban)]
 HouseNumber = Annotated[str, AfterValidator(_validate_house_number)]
 SwissPostalCode = Annotated[str, AfterValidator(_validate_postal_code)]
 SwissUid = Annotated[str, AfterValidator(_validate_swiss_uid)]
+SwissVatNumber = Annotated[str, AfterValidator(_validate_swiss_vat_number)]
 Vin = Annotated[str, AfterValidator(_validate_vin)]
 
 

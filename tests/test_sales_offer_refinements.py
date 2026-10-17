@@ -25,6 +25,7 @@ from app.sales.schemas.line_item import LineItemAccessoryInput, LineItemFactoryO
 from app.sales.schemas.offer import OfferUpdate
 from app.sales.services.line_items import replace_line_items
 from app.sales.services.offer import create_offer, finalize_offer, update_offer
+from tests.dealership_support import valid_uid
 
 
 def _make_dealership(db_session) -> Dealership:
@@ -35,8 +36,6 @@ def _make_dealership(db_session) -> Dealership:
         id=uuid.uuid4(),
         dealer_group_id=group.id,
         legal_name="Garage AG",
-        dealer_license_number="ZH-1",
-        license_state="ZH",
         franchise_type=FranchiseType.INDEPENDENT,
         address_street="Bahnhofstrasse",
         address_house_number="1",
@@ -44,7 +43,7 @@ def _make_dealership(db_session) -> Dealership:
         address_locality="Zürich",
         address_canton="ZH",
         phone="+41441234567",
-        tax_id="CHE-123.456.789",
+        uid=valid_uid(),
     )
     db_session.add(dealership)
     db_session.commit()

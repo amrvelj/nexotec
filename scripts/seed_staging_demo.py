@@ -105,8 +105,6 @@ def main() -> None:
                 db,
                 data=DealershipCreate(
                     legal_name=DEMO_LEGAL_NAME,
-                    dealer_license_number="DEMO-0001",
-                    license_state="ZH",
                     franchise_type=FranchiseType.INDEPENDENT,
                     address=DealershipAddress(
                         street="Bahnhofstrasse",
@@ -116,7 +114,7 @@ def main() -> None:
                         canton="ZH",
                     ),
                     phone="+41441234567",
-                    tax_id="CHE-000.000.000",
+                    uid="CHE-000.000.000",
                 ),
                 actor_id=seed_actor_id,
             )

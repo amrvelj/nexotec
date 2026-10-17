@@ -52,6 +52,7 @@ from app.vehicle.models.vehicle import CustodyEventType, VehicleCustodyEvent
 from app.vehicle.schemas.configuration import ConfigurationCreate
 from app.vehicle.services.configuration import create_configuration
 from tests.configuration_test_support import MANUAL_CODED, seed_manual_coded_lists
+from tests.dealership_support import valid_uid
 
 VALID_ADDRESS = {
     "street": "Bahnhofstrasse",
@@ -98,12 +99,10 @@ def _create_dealer(client) -> str:
     token = _token(AccessRole.PLATFORM_ADMIN)
     payload = {
         "legalName": "Garage Musterbetrieb AG",
-        "dealerLicenseNumber": "ZH-12345",
-        "licenseState": "ZH",
         "franchiseType": "independent",
         "address": VALID_ADDRESS,
         "phone": "+41441234567",
-        "taxId": "CHE-123.456.789",
+        "uid": valid_uid(),
     }
     response = client.post("/v1/dealerships", json=payload, headers=_bearer(token))
     assert response.status_code == 201, response.text
@@ -817,12 +816,10 @@ def _sister_dealer(client, dealer_id: str) -> str:
     token = _token(AccessRole.PLATFORM_ADMIN)
     payload = {
         "legalName": "Garage Schwesterbetrieb AG",
-        "dealerLicenseNumber": "ZH-54321",
-        "licenseState": "ZH",
         "franchiseType": "independent",
         "address": VALID_ADDRESS,
         "phone": "+41441234568",
-        "taxId": "CHE-123.456.788",
+        "uid": valid_uid(),
         "dealerGroupId": _REAL_GROUP_IDS[dealer_id],
     }
     response = client.post("/v1/dealerships", json=payload, headers=_bearer(token))

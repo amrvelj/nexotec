@@ -4,6 +4,7 @@ import pytest
 from sqlalchemy import text
 
 from app.core.auth import AccessRole, create_access_token
+from tests.dealership_support import valid_uid
 
 VALID_ADDRESS = {
     "street": "Bahnhofstrasse",
@@ -57,12 +58,10 @@ def _create_dealer(client, **overrides) -> str:
     token = _token(AccessRole.PLATFORM_ADMIN)
     payload = {
         "legalName": "Garage Musterbetrieb AG",
-        "dealerLicenseNumber": "ZH-12345",
-        "licenseState": "ZH",
         "franchiseType": "independent",
         "address": VALID_ADDRESS,
         "phone": "+41441234567",
-        "taxId": "CHE-123.456.789",
+        "uid": valid_uid(),
     }
     payload.update(overrides)
     response = client.post("/v1/dealerships", json=payload, headers=_bearer(token))
@@ -78,12 +77,10 @@ def _create_dealer_full(client, **overrides) -> dict:
     token = _token(AccessRole.PLATFORM_ADMIN)
     payload = {
         "legalName": "Garage Musterbetrieb AG",
-        "dealerLicenseNumber": "ZH-12345",
-        "licenseState": "ZH",
         "franchiseType": "independent",
         "address": VALID_ADDRESS,
         "phone": "+41441234567",
-        "taxId": "CHE-123.456.789",
+        "uid": valid_uid(),
     }
     payload.update(overrides)
     response = client.post("/v1/dealerships", json=payload, headers=_bearer(token))
@@ -1529,7 +1526,7 @@ def test_create_is_rolled_back_entirely_when_a_nested_contact_is_invalid(client)
 def test_customer_created_by_one_dealership_is_visible_from_a_sister_dealership(client):
     dealer_a = _create_dealer_full(client)
     dealer_b = _create_dealer_full(
-        client, dealerGroupId=dealer_a["dealerGroupId"], dealerLicenseNumber="ZH-99999"
+        client, dealerGroupId=dealer_a["dealerGroupId"]
     )
     assert dealer_a["dealerGroupId"] == dealer_b["dealerGroupId"]
 
@@ -1549,7 +1546,7 @@ def test_customer_created_by_one_dealership_is_visible_from_a_sister_dealership(
 def test_duplicate_check_is_group_wide(client):
     dealer_a = _create_dealer_full(client)
     dealer_b = _create_dealer_full(
-        client, dealerGroupId=dealer_a["dealerGroupId"], dealerLicenseNumber="ZH-99999"
+        client, dealerGroupId=dealer_a["dealerGroupId"]
     )
     token_a = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_a["id"]), group_id=uuid.UUID(dealer_a["dealerGroupId"]))
     token_b = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_b["id"]), group_id=uuid.UUID(dealer_a["dealerGroupId"]))
@@ -1570,7 +1567,7 @@ def test_duplicate_check_is_group_wide(client):
 def test_customer_number_sequence_is_shared_group_wide(client):
     dealer_a = _create_dealer_full(client)
     dealer_b = _create_dealer_full(
-        client, dealerGroupId=dealer_a["dealerGroupId"], dealerLicenseNumber="ZH-99999"
+        client, dealerGroupId=dealer_a["dealerGroupId"]
     )
     token_a = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_a["id"]), group_id=uuid.UUID(dealer_a["dealerGroupId"]))
     token_b = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_b["id"]), group_id=uuid.UUID(dealer_a["dealerGroupId"]))
@@ -1587,7 +1584,7 @@ def test_customer_is_not_visible_across_different_groups(client):
     """
 
     dealer_a = _create_dealer(client)
-    dealer_b = _create_dealer(client, dealerLicenseNumber="ZH-88888")
+    dealer_b = _create_dealer(client)
     token_a = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_a))
     token_b = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_b))
 

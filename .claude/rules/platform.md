@@ -108,10 +108,12 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   checklist item is complete and the manager accepts the current ToS and DPA (D-A-34); until
   then only Dealer Administration and My account are reachable. Today only the status value
   exists (`DealershipStatus.PENDING_ONBOARDING`); nothing enforces the gate.
-- **Column corrections (D-A-22, D-A-25):** `tax_id` → plain indexed `uid` + `vat_number`;
-  `dealer_license_number` and `license_state` dropped; postal code 12; `dba_name` →
-  `trade_name`; one address plus nullable correspondence/billing overrides. The `dealership`
-  table still carries the old columns today (KAN-197).
+- **Column corrections (D-A-22, D-A-25) — built (KAN-197):** `dealership.uid` is plain,
+  public, checksum-validated (`validate_swiss_uid`) and unique (`uq_dealership_uid`; NULL only
+  on a row the migration reported), plus `vat_number`, `vat_liable`, `trade_name`, postal code
+  12 and nullable `correspondence_address_*` / `billing_address_*` blocks. `tax_id`,
+  `dealer_license_number` and `license_state` are gone; `uid` is required on create and a
+  duplicate is 409.
 - **Support access (D-A-05, D-A-24):** a Nexotec employee steps into the user's session with
   **full write from the start**; token carries `sub` = staff and `actingFor` = the user; audit
   shows both, never the dealer as actor; 60-minute box, mandatory reason, persistent banner;

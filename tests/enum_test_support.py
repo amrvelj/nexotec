@@ -13,6 +13,7 @@ import uuid
 from sqlalchemy import text
 
 from app.core.auth import AccessRole, create_access_token
+from tests.dealership_support import valid_uid
 
 # The current schema's constraints only: a test database may hold a second
 # copy of the tables in another schema, with the same names (KAN-298).
@@ -80,9 +81,9 @@ def _bearer(token: str) -> dict[str, str]:
 
 def _create_dealership(client) -> uuid.UUID:
     payload = {
-        "legalName": "Garage Musterbetrieb AG", "dealerLicenseNumber": f"ZH-{uuid.uuid4().hex[:6]}",
-        "licenseState": "ZH", "franchiseType": "independent", "phone": "+41441234567",
-        "taxId": "CHE-123.456.789",
+        "legalName": "Garage Musterbetrieb AG",
+        "franchiseType": "independent", "phone": "+41441234567",
+        "uid": valid_uid(),
         "address": {
             "street": "Bahnhofstrasse", "houseNumber": "1", "postalCode": "8001", "locality": "Zürich", "canton": "ZH"
         },

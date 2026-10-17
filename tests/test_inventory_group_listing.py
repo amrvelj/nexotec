@@ -13,6 +13,7 @@ from app.inventory.schemas.stock_item import StockItemCreate, StockItemRead
 from app.inventory.services.group_listing import list_group_stock_items as _list_group_stock_items
 from app.inventory.services.stock_item import create_stock_item
 from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
+from tests.dealership_support import valid_uid
 
 _DEFAULT_SORT = [SortField(api_name="updatedAt", column=StockItem.updated_at, direction="desc", nullable=False)]
 
@@ -36,8 +37,6 @@ def _make_dealership(db_session, group: DealerGroup, *, license_number: str) -> 
     dealership = Dealership(
         dealer_group_id=group.id,
         legal_name=f"Garage {license_number}",
-        dealer_license_number=license_number,
-        license_state="ZH",
         franchise_type=FranchiseType.INDEPENDENT,
         address_street="Bahnhofstrasse",
         address_house_number="1",
@@ -45,7 +44,7 @@ def _make_dealership(db_session, group: DealerGroup, *, license_number: str) -> 
         address_locality="Zürich",
         address_canton="ZH",
         phone="+41441234567",
-        tax_id=f"CHE-{license_number}.789",
+        uid=valid_uid(),
     )
     db_session.add(dealership)
     db_session.commit()

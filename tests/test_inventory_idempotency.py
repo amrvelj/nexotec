@@ -17,6 +17,7 @@ from app.core.auth import AccessRole, create_access_token
 from app.inventory.models.stock_item import LifecycleStatus, ReservationState, StockItem
 from app.inventory.models.stock_item_ledger import StockItemLedger
 from app.inventory.models.stock_item_publishing import StockItemMedia
+from tests.dealership_support import valid_uid
 
 
 def _token(tenant_id: uuid.UUID | None = None) -> str:
@@ -34,12 +35,10 @@ def _dealership_token(client) -> str:
 
     payload = {
         "legalName": "Garage Musterbetrieb AG",
-        "dealerLicenseNumber": "ZH-12345",
-        "licenseState": "ZH",
         "franchiseType": "independent",
         "address": {"street": "Bahnhofstrasse", "houseNumber": "1", "postalCode": "8001", "locality": "Zürich", "canton": "ZH"},
         "phone": "+41441234567",
-        "taxId": "CHE-123.456.789",
+        "uid": valid_uid(),
     }
     admin = create_access_token(
         user_id=uuid.uuid4(), tenant_id=uuid.uuid4(), group_id=uuid.uuid4(), roles=frozenset({AccessRole.PLATFORM_ADMIN})

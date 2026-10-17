@@ -52,6 +52,7 @@ from app.vehicle.schemas.spec_block import VehicleSpecBlockInput
 from app.vehicle.services import configuration as configuration_service
 from app.vehicle.services import configuration_host
 from tests.configuration_test_support import MANUAL_CODED, seed_manual_coded_lists
+from tests.dealership_support import valid_uid
 from tests.route_walk import api_routes
 from tests.test_sales_lifecycle_reservation import _with_buyer
 
@@ -69,10 +70,10 @@ def _dealership(db_session) -> Dealership:
     db_session.flush()
     dealership = Dealership(
         id=uuid.uuid4(), dealer_group_id=group.id, legal_name="Garage AG",
-        dealer_license_number=f"ZH-{uuid.uuid4().hex[:6]}", license_state="ZH",
+
         franchise_type=FranchiseType.INDEPENDENT, address_street="Bahnhofstrasse", address_house_number="1",
         address_postal_code="8001", address_locality="Zürich", address_canton="ZH", phone="+41441234567",
-        tax_id="CHE-123.456.789", vat_rate=Decimal("8.10"),
+        uid=valid_uid(), vat_rate=Decimal("8.10"),
     )
     db_session.add(dealership)
     db_session.commit()
@@ -509,10 +510,10 @@ def test_a_trade_in_identified_from_its_plate_reaches_the_offer_as_a_valuation_r
     db_session.add(group)
     db_session.flush()
     dealership = Dealership(
-        id=tenant_id, dealer_group_id=group.id, legal_name="Garage AG", dealer_license_number="ZH-9",
-        license_state="ZH", franchise_type=FranchiseType.INDEPENDENT, address_street="B", address_house_number="1",
+        id=tenant_id, dealer_group_id=group.id, legal_name="Garage AG",
+        franchise_type=FranchiseType.INDEPENDENT, address_street="B", address_house_number="1",
         address_postal_code="8001", address_locality="Zürich", address_canton="ZH", phone="+41441234567",
-        tax_id="CHE-123.456.789", vat_rate=Decimal("8.10"),
+        uid=valid_uid(), vat_rate=Decimal("8.10"),
     )
     db_session.add(dealership)
     db_session.commit()

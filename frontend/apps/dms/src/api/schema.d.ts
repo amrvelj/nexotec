@@ -4521,7 +4521,13 @@ export interface components {
             /** Version */
             version: number;
         };
-        /** DealershipAddress */
+        /**
+         * DealershipAddress
+         * @description One address block (D-A-25): the registered seat, or a correspondence
+         *     or billing override. The postal code is validated for the country — four
+         *     digits for CH, a plausible code of up to 12 characters elsewhere (the
+         *     same rule the customer address applies, D-11).
+         */
         DealershipAddress: {
             /** Canton */
             canton: string;
@@ -4544,29 +4550,42 @@ export interface components {
          * @description dealer_group_id is optional: omitting it creates a new group of one
          *     for this dealership (the common case — onboarding a standalone dealer).
          *     Pass an existing group's id to add a second dealership to it instead.
+         *
+         *     KAN-197 (D-A-22, D-A-25 — a breaking contract change, decided up front):
+         *     `uid` replaces the write-only `taxId`; `dealerLicenseNumber` and
+         *     `licenseState` are gone; `dbaName` is `tradeName`; `vatNumber`,
+         *     `vatLiable`, `correspondenceAddress` and `billingAddress` are new.
          */
         DealershipCreate: {
             address: components["schemas"]["DealershipAddress"];
-            /** Dbaname */
-            dbaName?: string | null;
+            billingAddress?: components["schemas"]["DealershipAddress"] | null;
+            correspondenceAddress?: components["schemas"]["DealershipAddress"] | null;
             /** Dealergroupid */
             dealerGroupId?: string | null;
-            /** Dealerlicensenumber */
-            dealerLicenseNumber: string;
             franchiseType: components["schemas"]["FranchiseType"];
             /** Legalname */
             legalName: string;
-            /** Licensestate */
-            licenseState: string;
             /** Oemaffiliations */
             oemAffiliations?: string[] | null;
             /** Phone */
             phone: string;
+            /** Tradename */
+            tradeName?: string | null;
             /**
-             * Taxid
-             * @description Write-only; never returned by read endpoints.
+             * Uid
+             * @description Swiss UID, CHE-123.456.789; public, unique per dealership.
              */
-            taxId: string;
+            uid: string;
+            /**
+             * Vatliable
+             * @default false
+             */
+            vatLiable?: boolean;
+            /**
+             * Vatnumber
+             * @description CHE-123.456.789 MWST
+             */
+            vatNumber?: string | null;
         };
         /**
          * DealershipMembershipSummary
@@ -4595,6 +4614,8 @@ export interface components {
             address: components["schemas"]["DealershipAddress"];
             /** Ageingalertthresholds */
             ageingAlertThresholds: number[] | null;
+            billingAddress: components["schemas"]["DealershipAddress"] | null;
+            correspondenceAddress: components["schemas"]["DealershipAddress"] | null;
             /**
              * Createdat
              * Format: date-time
@@ -4602,15 +4623,11 @@ export interface components {
             createdAt: string;
             /** Createdby */
             createdBy: string | null;
-            /** Dbaname */
-            dbaName: string | null;
             /**
              * Dealergroupid
              * Format: uuid
              */
             dealerGroupId: string;
-            /** Dealerlicensenumber */
-            dealerLicenseNumber: string;
             franchiseType: components["schemas"]["FranchiseType"];
             /**
              * Id
@@ -4619,13 +4636,15 @@ export interface components {
             id: string;
             /** Legalname */
             legalName: string;
-            /** Licensestate */
-            licenseState: string;
             /** Oemaffiliations */
             oemAffiliations: string[] | null;
             /** Phone */
             phone: string;
             status: components["schemas"]["DealershipStatus"];
+            /** Tradename */
+            tradeName: string | null;
+            /** Uid */
+            uid: string | null;
             /**
              * Updatedat
              * Format: date-time
@@ -4633,6 +4652,10 @@ export interface components {
             updatedAt: string;
             /** Updatedby */
             updatedBy: string | null;
+            /** Vatliable */
+            vatLiable: boolean;
+            /** Vatnumber */
+            vatNumber: string | null;
             /** Vatrate */
             vatRate: string | null;
             /** Version */
@@ -4645,29 +4668,32 @@ export interface components {
         DealershipStatus: "pending_onboarding" | "active" | "suspended" | "offboarded";
         /**
          * DealershipUpdate
-         * @description All fields optional — PATCH semantics, partial update. `status` and
-         *     `tax_id` changes are audit-logged by the service layer.
+         * @description All fields optional — PATCH semantics, partial update. `status`,
+         *     `legal_name`, `uid`, `vat_number` and `vat_liable` changes are
+         *     audit-logged by the service layer.
          */
         DealershipUpdate: {
             address?: components["schemas"]["DealershipAddress"] | null;
             /** Ageingalertthresholds */
             ageingAlertThresholds?: number[] | null;
-            /** Dbaname */
-            dbaName?: string | null;
-            /** Dealerlicensenumber */
-            dealerLicenseNumber?: string | null;
+            billingAddress?: components["schemas"]["DealershipAddress"] | null;
+            correspondenceAddress?: components["schemas"]["DealershipAddress"] | null;
             franchiseType?: components["schemas"]["FranchiseType"] | null;
             /** Legalname */
             legalName?: string | null;
-            /** Licensestate */
-            licenseState?: string | null;
             /** Oemaffiliations */
             oemAffiliations?: string[] | null;
             /** Phone */
             phone?: string | null;
             status?: components["schemas"]["DealershipStatus"] | null;
-            /** Taxid */
-            taxId?: string | null;
+            /** Tradename */
+            tradeName?: string | null;
+            /** Uid */
+            uid?: string | null;
+            /** Vatliable */
+            vatLiable?: boolean | null;
+            /** Vatnumber */
+            vatNumber?: string | null;
             /** Vatrate */
             vatRate?: number | string | null;
         };
