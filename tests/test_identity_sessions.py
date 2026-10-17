@@ -261,13 +261,23 @@ def test_a_session_owing_a_second_factor_is_confined_to_enrolment(client, login,
     assert client.get("/v1/auth/sessions", headers=cookie_headers(annas)).status_code == 200
     assert client.get("/v1/me/preferences/ui", headers=cookie_headers(annas)).status_code in (200, 404)
 
-    # Enrolling and signing in with the factor opens the door.
+    # The front door and anything outside the API stay reachable with the confined cookie in the jar.
+    assert client.post("/v1/auth/login", json={"email": "x@example.ch", "password": "whatever-it-is-12"}, headers=cookie_headers(annas)).status_code == 401
+    assert client.post("/v1/auth/password-reset/request", json={"email": "x@example.ch"}, headers=cookie_headers(annas)).status_code == 202
+    assert client.get("/.well-known/jwks.json", headers=cookie_headers(annas)).status_code == 200
+
+    # Enrolling records the factor on THIS session: the code just proved
+    # possession, so the user is not stranded until they sign out.
     begun = client.post("/v1/auth/mfa/totp/enrol", headers=cookie_headers(annas)).json()
     confirmed = client.post(
         "/v1/auth/mfa/totp/confirm", json={"code": pyotp.TOTP(begun["secret"]).now()}, headers=cookie_headers(annas)
     )
     assert confirmed.status_code == 200, confirmed.text
-    assert client.get(f"/v1/dealerships/{dealership}", headers=cookie_headers(annas)).status_code == 403, "no factor yet"
+    assert client.get(f"/v1/dealerships/{dealership}", headers=cookie_headers(annas)).status_code == 200
+    assert client.get("/v1/auth/me", headers=cookie_headers(annas)).json()["mfaEnrolmentRequired"] is False
+    row = _row(db_session, annas)
+    assert "mfa" in row.amr and "otp" in row.amr
+    # A fresh sign-in carries the factor in the token itself.
     totp = db_session.scalars(select(MfaTotp)).one()
     totp.last_used_step = None
     db_session.commit()
@@ -283,11 +293,56 @@ def test_a_session_owing_a_second_factor_is_confined_to_enrolment(client, login,
     set_mfa_enforced(client, dealership, False)
     assert client.get("/v1/customers", headers=cookie_headers(managers)).status_code == 200
 
-    # Platform staff are confined whatever the Betrieb says.
+    # Platform staff are confined whatever the Betrieb says — and cannot
+    # reach any Betrieb's enforcement switch from such a session.
     staff = create_user(client, dealership, accessRoles=["platform_admin"], isDealerManager=False)
     staffs = login.session_cookie(staff)
     assert client.get(f"/v1/dealerships/{dealership}", headers=cookie_headers(staffs)).status_code == 403
     assert client.get("/v1/auth/mfa", headers=cookie_headers(staffs)).status_code == 200
+    other = create_dealership(client, mfa_enforced=True)
+    assert client.get(f"/v1/dealerships/{other}/auth-config", headers=cookie_headers(staffs)).status_code == 403
+    switched = client.put(
+        f"/v1/dealerships/{other}/auth-config",
+        json={"mfaEnforced": False},
+        headers={**cookie_headers(staffs), "If-Match": "1"},
+    )
+    assert switched.status_code == 403, switched.text
+    # Even a bare staff token without a factor is refused by the switch itself.
+    assert client.put(
+        f"/v1/dealerships/{other}/auth-config",
+        json={"mfaEnforced": False},
+        headers={**platform_admin_headers(mfa=False), "If-Match": "1"},
+    ).status_code == 403
+    assert client.get(f"/v1/dealerships/{other}/auth-config", headers=platform_admin_headers()).json()["mfaEnforced"] is True
+    # The manager's own switch from a confined session is not another Betrieb's.
+    managers = login.session_cookie(manager)
+    assert client.get(f"/v1/dealerships/{other}/auth-config", headers=cookie_headers(managers)).status_code in (403, 404)
+
+
+def test_a_new_betriebs_first_user_signs_in_enrols_and_works(client, login, mailbox):
+    """The walkthrough the third review asked for: a Betrieb created with the
+    defaults (enforcement on), its first user accepts the invitation, is
+    sent to enrolment, enrols — and works, without signing out."""
+
+    import pyotp
+
+    from tests.identity_support import last_mail_to, token_in
+
+    dealership = create_dealership(client, mfa_enforced=True)
+    anna = create_user(client, dealership)
+    raw = token_in(last_mail_to(mailbox, anna["email"]))
+    accepted = client.post("/v1/auth/invitations/accept", json={"token": raw, "password": "a-first-password-2026"})
+    assert accepted.status_code == 200, accepted.text
+    assert accepted.json()["session"]["mfaEnrolmentRequired"] is True
+    cookie = accepted.cookies.get("dms_session")
+    assert client.get("/v1/customers", headers=cookie_headers(cookie)).status_code == 403
+
+    begun = client.post("/v1/auth/mfa/totp/enrol", headers=cookie_headers(cookie)).json()
+    confirmed = client.post("/v1/auth/mfa/totp/confirm", json={"code": pyotp.TOTP(begun["secret"]).now()}, headers=cookie_headers(cookie))
+    assert confirmed.status_code == 200, confirmed.text
+    assert client.get("/v1/customers", headers=cookie_headers(cookie)).status_code == 200
+    assert client.get("/v1/auth/me", headers=cookie_headers(cookie)).json()["mfaEnrolmentRequired"] is False
+    assert client.get("/v1/auth/mfa", headers=cookie_headers(cookie)).json()["enrolmentRequired"] is False
 
 
 def test_a_role_or_flag_change_ends_the_users_sessions(client, login, db_session):

@@ -396,10 +396,19 @@ def test_changing_the_address_ends_tokens_and_sessions_and_tells_the_old_address
     reset_raw = token_in(last_mail_to(mailbox, beat["email"]))
     old_email = beat["email"]
 
-    response = client.patch(
+    # D-A-16: once the account is active, changing its address is recovery —
+    # platform staff's (with a factor in the session), never the manager's.
+    refused = client.patch(
         f"/v1/dealerships/{dealership}/users/{beat['id']}",
         json={"email": "Beat.Neu@example.ch"},
         headers={**cookie_headers(managers), "If-Match": "2"},
+    )
+    assert refused.status_code == 403, refused.text
+    staff_id = uuid.uuid4()
+    response = client.patch(
+        f"/v1/dealerships/{dealership}/users/{beat['id']}",
+        json={"email": "Beat.Neu@example.ch"},
+        headers={**platform_admin_headers(user_id=staff_id), "If-Match": "2"},
     )
     assert response.status_code == 200, response.text
     assert response.json()["email"] == "beat.neu@example.ch"
@@ -411,12 +420,13 @@ def test_changing_the_address_ends_tokens_and_sessions_and_tells_the_old_address
     assert notice.subject == mail_texts.email_changed(language=None, first_name="", new_email="").subject
     assert "beat.neu@example.ch" in notice.text
     (event,) = _events(db_session, AuthEventKind.EMAIL_CHANGED)
-    assert str(event.actor_id) == manager["id"]
+    assert event.actor_id == staff_id
     assert event.details == {"from": old_email, "to": "beat.neu@example.ch"}
     # The password did not change: the user signs in again at the new address.
     assert client.post("/v1/auth/login", json={"email": "beat.neu@example.ch", "password": STRONG_PASSWORD}).status_code == 200
 
-    # An invitation mailed to the old address dies the same way.
+    # An invitation mailed to the old address dies the same way — and while
+    # the user never accepted it, correcting the address is the manager's.
     dora = create_user(client, dealership, isDealerManager=False, firstName="Dora")
     invite_raw = token_in(last_mail_to(mailbox, dora["email"]))
     corrected = client.patch(

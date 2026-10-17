@@ -39,7 +39,7 @@ from app.platform.models.auth_event import AuthEventKind
 from app.platform.models.auth_token import AuthTokenKind
 from app.platform.models.credential import Credential
 from app.platform.models.dealership import Dealership
-from app.platform.models.dealership_auth_config import DealershipAuthConfig
+from app.platform.models.dealership_auth_config import AuthMethod, DealershipAuthConfig
 from app.platform.models.user import User, UserStatus
 from app.platform.services import auth_events, auth_sessions, auth_tokens, mail_texts, password_hashing
 from app.platform.services import user_preference as preference_service
@@ -172,9 +172,9 @@ class LocalPasswordProvider:
                 dealership_id=user.tenant_id,
                 ip_address=presented.ip_address,
             )
-        credential.failed_login_attempts = 0
-        credential.last_failed_at = None
-        credential.locked_until = None
+        # Not cleared here: the counter is cleared by a completed login
+        # (`login_completed`), so exhausted MFA challenges — one failure
+        # each — accumulate on the account like wrong passwords do.
         db.flush()
         return user
 
@@ -191,6 +191,17 @@ def provider_for(db: Session, dealership_id: uuid.UUID) -> IdentityProvider:
 
 
 # --- dealership auth config -----------------------------------------------------------------
+
+
+def read_auth_config(db: Session, dealership_id: uuid.UUID) -> DealershipAuthConfig:
+    """The config as it stands, without writing: a Betrieb that never set
+    one reads as the defaults (local, enforced, version 1) — the row is
+    created by the first PUT (`auth_config_for`)."""
+
+    row = db.scalar(select(DealershipAuthConfig).where(DealershipAuthConfig.dealership_id == dealership_id))
+    if row is not None:
+        return row
+    return DealershipAuthConfig(dealership_id=dealership_id, auth_method=AuthMethod.LOCAL, mfa_enforced=True, version=1)
 
 
 def auth_config_for(db: Session, dealership_id: uuid.UUID) -> DealershipAuthConfig:
@@ -458,10 +469,24 @@ def accept_invitation(db: Session, *, raw_token: str, password: str, ip_address:
     return user
 
 
+def login_completed(db: Session, *, user: User) -> None:
+    """A session was minted: the account's failure counter and lock clear."""
+
+    credential = _credential_of(db, user.id)
+    if credential is None:
+        return
+    credential.failed_login_attempts = 0
+    credential.last_failed_at = None
+    credential.locked_until = None
+
+
 def second_step_exhausted(db: Session, *, user: User) -> None:
     """Five wrong answers at the MFA step count as one failure on the
-    account axis, so a holder of the password who keeps starting fresh
-    challenges runs into the same backoff and lockout as a password guesser."""
+    account axis — and the password step no longer clears that axis, only
+    a completed login does — so a holder of the password who keeps starting
+    fresh challenges runs into the same backoff (third failure) and lockout
+    (fifth) as a password guesser: at most about twenty-five guesses, then
+    fifteen minutes."""
 
     credential = _credential_of(db, user.id)
     if credential is None:

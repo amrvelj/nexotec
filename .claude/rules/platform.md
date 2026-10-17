@@ -214,13 +214,19 @@ One shared template layer (`app/platform/models/document_template.py`). WeasyPri
   no factor — on the four recovery routes below and proven on a probe route; the impersonation
   endpoints will carry it. **And at the API as a whole:** the session guard confines a session
   that still owes a factor (every staff session without one; a dealer session in an enforcing
-  Betrieb) to `/auth/me`, `/auth/mfa/*`, `/auth/sessions`, `/auth/logout`, `/me/preferences`
-  and the Betrieb's own `auth-config` switch — everything else is 403 with
-  `details.mfaEnrolmentRequired`. The MFA step allows five answers per challenge (a guarded
-  counter on the `auth_token` row); the sixth ends the challenge and counts one failure on the
-  account. A challenge is spent on success only, where it is spent.
-  A manager's `DELETE …/users/{id}/mfa` removes every factor and always writes `mfa_removed`
-  naming the actor (FR-AU-12). **Passkey registration and assertion are verified by the library;
+  Betrieb) to `/v1/auth/*`, `/v1/me/preferences` and the Betrieb's **own** `auth-config` switch
+  (a dealer manager's lever — never a staff session, never another Betrieb's; the PUT itself
+  carries `require_mfa_session`) — everything else under `/v1/` is 403 with
+  `details.mfaEnrolmentRequired`; nothing outside the API is judged. The guard reads the factor
+  from the **session row**: confirming a factor (TOTP confirm, passkey registration) records it
+  on the row's `amr`, so the session that enrolled is free at once; the token's own `mfa` claim
+  stays as minted until the next sign-in (the account routes are idempotent routes and cannot
+  re-issue the cookie). The MFA step allows five answers per challenge (a guarded counter on the
+  `auth_token` row); the sixth ends the challenge and counts one failure on the account, and the
+  password step does not clear that counter — only a completed login does — so exhausted
+  challenges run into the account backoff and lockout. A challenge is spent on success only,
+  where it is spent. Platform staff's `DELETE …/users/{id}/mfa` removes every factor and always
+  writes `mfa_removed` naming the actor (FR-AU-12). **Passkey registration and assertion are verified by the library;
   no automated test completes a real ceremony** (options and refusals are tested).
 - **Platform mail** (`mailer.py`, D-A-28; Anto, 2026-10-17): invitations and resets leave
   through the Nexotec mailbox behind `PlatformMailer` — `logging` (default: the link goes to the
@@ -247,10 +253,14 @@ One shared template layer (`app/platform/models/document_template.py`). WeasyPri
   `POST …/users/{id}/invitations` is the manager's only while the user is still `invited`
   (onboarding, FR-AU-13) and `platform_admin`'s once the account is active; a manager reads
   `GET …/login-status` (FR-AU-10) and never touches a staff account (KAN-97); clearing a lock is
-  the user's own reset; the manager flag is KAN-199's. **A change of the e-mail address is a
-  credential change** (`identity.email_changed`): every open invitation and reset token ends,
-  every session ends, `email_changed` names the actor, and the old address is mailed.
-  **Not built:** FR-AU-25's mandatory stated reason on a recovery action, FR-AU-26's `security`
+  the user's own reset; the manager flag is KAN-199's. **The e-mail address is the sign-in and
+  recovery channel:** a manager corrects it only while the user is still `invited`; for an
+  active user the change is recovery (platform staff, with a factor in the session), and a
+  change ends every open invitation and reset token and every session, records `email_changed`
+  with the actor and mails the old address — in the PATCH's own transaction
+  (`update_user(on_email_change=…)`). An account never returns to `invited` (409), so the
+  onboarding path cannot be re-opened on an active user. **Open with Anto:** the new address is
+  not confirmed before it takes over the channel. **Not built:** FR-AU-25's mandatory stated reason on a recovery action, FR-AU-26's `security`
   notification family (the e-mail-change notice is the one notice sent). No step-up
   re-authentication (A-12: no).
 - argon2id parameters are settings (`DMS_ARGON2_*`, default t=3 / 64 MiB / p=4, 48–80 ms a

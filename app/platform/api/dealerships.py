@@ -30,7 +30,7 @@ from app.core.tenancy import require_tenant_match
 from app.db import get_db
 from app.platform.api.auth import client_ip
 from app.platform.models.dealership import DealershipStatus
-from app.platform.models.user import UserStatus
+from app.platform.models.user import User, UserStatus
 from app.platform.schemas.auth import (
     AuthConfigRead,
     AuthConfigUpdate,
@@ -219,15 +219,22 @@ def update_user(
     require_tenant_match(dealership_id, principal)
     user = user_service.get_user_or_404(db, dealership_id, user_id)
     check_version(user.version, if_match, entity_name="User")
-    old_email = user.email
-    user = user_service.update_user(db, user=user, data=body, actor_id=principal.user_id, actor_roles=principal.roles)
-    if user.email != old_email:
+    ip = client_ip(request)
+
+    def on_email_change(changed: User, old_email: str) -> None:
         # KAN-196: the address is the sign-in and recovery channel — the
-        # change ends tokens and sessions and tells the old address.
-        identity.email_changed(
-            db, mailer, user=user, old_email=old_email, actor_id=principal.user_id, ip_address=client_ip(request)
-        )
-        db.commit()
+        # change ends tokens and sessions and tells the old address, in the
+        # same transaction as the new address.
+        identity.email_changed(db, mailer, user=changed, old_email=old_email, actor_id=principal.user_id, ip_address=ip)
+
+    user = user_service.update_user(
+        db,
+        user=user,
+        data=body,
+        actor_id=principal.user_id,
+        actor_roles=principal.roles,
+        on_email_change=on_email_change,
+    )
     return UserRead.model_validate(user, from_attributes=True)
 
 
@@ -541,14 +548,15 @@ def get_auth_config(
 ):
     require_tenant_match(dealership_id, principal)
     dealership_service.get_dealership_or_404(db, dealership_id)
-    config = identity.auth_config_for(db, dealership_id)
-    db.commit()
-    return AuthConfigRead(
-        auth_method=config.auth_method.value, mfa_enforced=config.mfa_enforced, version=config.version
-    )
+    config = identity.read_auth_config(db, dealership_id)
+    return AuthConfigRead(auth_method=config.auth_method.value, mfa_enforced=config.mfa_enforced, version=config.version)
 
 
-@router.put("/dealerships/{dealership_id}/auth-config", response_model=AuthConfigRead)
+@router.put(
+    "/dealerships/{dealership_id}/auth-config",
+    response_model=AuthConfigRead,
+    dependencies=[Depends(require_mfa_session())],
+)
 def set_auth_config(
     dealership_id: uuid.UUID,
     body: AuthConfigUpdate,

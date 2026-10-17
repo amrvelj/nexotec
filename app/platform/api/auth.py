@@ -221,6 +221,9 @@ def _finish_login(
     minted = _mint_session(
         db, user=user, dealership_id=user.tenant_id, session=None, request=request, amr=amr, mfa_used=mfa_used
     )
+    # The account's failure counter is cleared by a COMPLETED login, never by
+    # the password step alone: exhausted MFA challenges count on it (FR-AU-08).
+    identity.login_completed(db, user=user)
     auth_events.record(
         db,
         AuthEventKind.LOGIN_SUCCEEDED,
@@ -580,10 +583,32 @@ def totp_confirm(
     principal: Principal = Depends(get_current_principal),
     db: Session = Depends(get_db),
 ):
+    """Confirms the enrolment and records the factor on this session: the
+    code just proved possession, so the session that enrolled it is no
+    longer one that owes a factor (the guard would otherwise confine the
+    user until they signed out)."""
+
     user = user_service.get_own_user_or_404(db, principal.user_id)
     codes = mfa.confirm_totp(db, user=user, code=body.code, ip_address=client_ip(request))
+    _record_factor_on_session(db, principal=principal, method="otp")
     db.commit()
     return RecoveryCodesRead(codes=codes)
+
+
+def _record_factor_on_session(db: Session, *, principal: Principal, method: str) -> None:
+    """The session row gains the factor (`amr` + "mfa"). The guard judges
+    the row, not the token, so the session that enrolled is no longer
+    confined; the token's own `mfa` claim stays as minted — a staff member
+    reaches the recovery routes with their next sign-in. The account routes
+    are idempotent routes, which cannot re-issue the cookie; a switch of
+    dealership re-mints from the row and carries the factor from then on.
+    A session minted by a test token (no row) is left alone."""
+
+    row = auth_sessions.get(db, principal.session_id) if principal.session_id is not None else None
+    if row is None:
+        return
+    row.amr = sorted(set(row.amr) | {method, "mfa"})
+    db.flush()
 
 
 @account_router.delete("/auth/mfa/totp", status_code=204)
@@ -635,6 +660,7 @@ def passkey_register(
     # browser dialog may be retried while the five minutes last.
     if auth_tokens.consume(db, raw=body.challenge_id, kind=AuthTokenKind.PASSKEY_REGISTRATION) is None:
         raise UnauthorizedError("The passkey step has expired — start again.")
+    _record_factor_on_session(db, principal=principal, method="hwk")
     db.commit()
     return PasskeyRead(id=row.id, label=row.label, created_at=row.created_at, last_used_at=row.last_used_at)
 

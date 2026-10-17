@@ -236,7 +236,13 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Totp Confirm */
+        /**
+         * Totp Confirm
+         * @description Confirms the enrolment and records the factor on this session: the
+         *     code just proved possession, so the session that enrolled it is no
+         *     longer one that owes a factor (the guard would otherwise confine the
+         *     user until they signed out).
+         */
         post: operations["totp_confirm_v1_auth_mfa_totp_confirm_post"];
         delete?: never;
         options?: never;
@@ -10833,8 +10839,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "If-Match"?: string | null;
                 authorization?: string | null;
+                "If-Match"?: string | null;
             };
             path: {
                 dealership_id: string;

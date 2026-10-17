@@ -18,6 +18,7 @@ from app.core.auth import SESSION_COOKIE_NAME, AccessRole, decode_token_claims
 from app.core.base import utcnow
 from app.core.errors import ForbiddenError, UnauthorizedError
 from app.db import get_db
+from app.platform.models.auth_session import AuthSession
 from app.platform.models.dealership_auth_config import DealershipAuthConfig
 from app.platform.services import auth_sessions
 
@@ -26,22 +27,32 @@ _ENROL_FIRST = "Enrol a second factor before anything else — your Betrieb requ
 # What a session minted without a required second factor may still reach
 # (D-A-36, FR-AU-11): its own identity, the enrolment itself, its sessions,
 # the UI preferences the shell loads, and the way out.
-_ENROLMENT_PATHS = ("/v1/auth/me", "/v1/auth/mfa", "/v1/auth/logout", "/v1/auth/sessions", "/v1/me/preferences")
+# Everything under /v1/auth (the front door is unauthenticated anyway; the
+# enrolment, the sessions, logout) and the preferences the shell loads.
+_ENROLMENT_PATHS = ("/v1/auth/", "/v1/me/preferences")
 
 
-def _enrolment_path(path: str) -> bool:
-    # The Betrieb's own enforcement switch stays reachable: a manager who
-    # decides against a second factor turns it off instead of enrolling
-    # (a staff session is enforced whatever the switch says).
-    return path.startswith(_ENROLMENT_PATHS) or (path.startswith("/v1/dealerships/") and path.endswith("/auth-config"))
+def _enrolment_path(path: str, claims: dict) -> bool:
+    if not path.startswith("/v1/"):
+        return True  # health, the SPA's own files — not the API's business
+    if path.startswith(_ENROLMENT_PATHS):
+        return True
+    # The Betrieb's OWN enforcement switch stays reachable to its manager: a
+    # manager who decides against a second factor turns it off instead of
+    # enrolling. Never for a staff session (enforced whatever the switch
+    # says) and never another Betrieb's.
+    own_switch = f"/v1/dealerships/{claims.get('tenant_id')}/auth-config"
+    return path == own_switch and AccessRole.PLATFORM_ADMIN.value not in (claims.get("roles") or ())
 
 
-def _enrolment_owed(db: Session, claims: dict) -> bool:
+def _enrolment_owed(db: Session, claims: dict, row: AuthSession) -> bool:
     """A session with no second factor while one is required: every platform
     staff account (D-A-36); a dealer user when the Betrieb enforces it
-    (default on — a Betrieb without a config row yet enforces)."""
+    (default on — a Betrieb without a config row yet enforces). Judged on
+    the session ROW's `amr`, which a factor confirmed from this session
+    joins at once — the token's claim is what it was minted with."""
 
-    if claims.get("mfa"):
+    if "mfa" in (row.amr or []):
         return False
     if AccessRole.PLATFORM_ADMIN.value in (claims.get("roles") or ()):
         return True
@@ -83,5 +94,5 @@ def enforce_live_session(request: Request, db: Session = Depends(get_db)) -> Non
     if auth_sessions.touch(db, row):
         db.commit()
     path = request.url.path
-    if not _enrolment_path(path) and _enrolment_owed(db, claims):
+    if not _enrolment_path(path, claims) and _enrolment_owed(db, claims, row):
         raise ForbiddenError(_ENROL_FIRST, details={"mfaEnrolmentRequired": True})

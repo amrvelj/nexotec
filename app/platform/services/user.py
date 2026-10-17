@@ -5,6 +5,7 @@ accountability).
 """
 
 import uuid
+from collections.abc import Callable
 from typing import Any
 
 from sqlalchemy import select, union
@@ -18,10 +19,11 @@ from app.core.errors import BadRequestError, ConflictError, ForbiddenError, NotF
 from app.core.pagination import PageParams, build_page, paginate_query
 from app.core.tenancy import get_or_404
 from app.core.uuid7 import uuid7
+from app.platform.models.auth_event import AuthEventKind
 from app.platform.models.dealership_membership import DealershipMembership
 from app.platform.models.user import EmploymentStatus, User, UserStatus
 from app.platform.schemas.user import UserCreate, UserUpdate
-from app.platform.services import text_delegation
+from app.platform.services import auth_events, auth_sessions, text_delegation
 
 # access_roles/is_dealer_manager are audited alongside role/status even
 # though the spec text only says "role and status" — they gate
@@ -161,6 +163,30 @@ def _assert_may_create_with_roles(*, roles: list[AccessRole], actor_roles: froze
         return
     if AccessRole.PLATFORM_ADMIN.value in _role_values(roles):
         raise ForbiddenError("Only platform staff can grant the platform_admin role.")
+
+
+def _assert_credential_channel_rules(*, user: User, changes: dict[str, Any], actor_roles: frozenset[AccessRole]) -> None:
+    """KAN-196 (D-A-16): the status `invited` is where an account starts,
+    never where it returns to — otherwise a manager could re-open the
+    onboarding path (re-invite) on an active colleague. And the e-mail
+    address is the sign-in and recovery channel: while the user is
+    `invited` the manager corrects it (onboarding); once the account is
+    active, changing it is account recovery — a platform_admin's alone."""
+
+    if changes.get("status") == UserStatus.INVITED and user.status != UserStatus.INVITED:
+        raise ConflictError(
+            "An account is invited once, when it is created; it cannot return to 'invited'.",
+            details={"currentStatus": user.status.value},
+        )
+    if (
+        isinstance(changes.get("email"), str)
+        and changes["email"] != user.email
+        and user.status != UserStatus.INVITED
+        and AccessRole.PLATFORM_ADMIN not in actor_roles
+    ):
+        raise ForbiddenError(
+            "Changing an active user's e-mail address is account recovery, which platform staff handle."
+        )
 
 
 def _assert_may_update(*, user: User, changes: dict[str, Any], actor_roles: frozenset[AccessRole]) -> None:
@@ -337,9 +363,6 @@ def end_sessions(db: Session, *, user: User, reason: str, actor_id: uuid.UUID) -
     status change, a change of roles, flag or membership, a manager's
     revoke. Returns how many ended."""
 
-    from app.platform.models.auth_event import AuthEventKind
-    from app.platform.services import auth_events, auth_sessions
-
     ended = auth_sessions.revoke_all_for_user(db, user_id=user.id, reason=reason)
     if ended:
         auth_events.record(
@@ -354,13 +377,26 @@ def end_sessions(db: Session, *, user: User, reason: str, actor_id: uuid.UUID) -
 
 
 def update_user(
-    db: Session, *, user: User, data: UserUpdate, actor_id: uuid.UUID, actor_roles: frozenset[AccessRole]
+    db: Session,
+    *,
+    user: User,
+    data: UserUpdate,
+    actor_id: uuid.UUID,
+    actor_roles: frozenset[AccessRole],
+    on_email_change: Callable[[User, str], None] | None = None,
 ) -> User:
+    """`on_email_change(user, old_email)` runs inside this transaction when
+    the address changes (KAN-196: the route hands in `identity.email_changed`,
+    so the new address, the ended tokens and sessions and the notice to the
+    old address commit together, or not at all)."""
+
     changes = data.model_dump(exclude_unset=True)
     if isinstance(changes.get("email"), str):
         changes["email"] = changes["email"].lower()
     _assert_may_update(user=user, changes=changes, actor_roles=actor_roles)
     _assert_platform_admin_holds_no_membership(db, user=user, changes=changes)
+    _assert_credential_channel_rules(user=user, changes=changes, actor_roles=actor_roles)
+    old_email = user.email
 
     if "employment_status" in changes and changes["employment_status"] is not None:
         new_employment_status = changes["employment_status"]
@@ -464,6 +500,8 @@ def update_user(
             after=after["is_dealer_manager"],
             actor_id=actor_id,
         )
+    if user.email != old_email and on_email_change is not None:
+        on_email_change(user, old_email)
     if "status" in after and user.status == UserStatus.DEACTIVATED:
         # FR-A-28: delegations end with deactivation — the terminal status,
         # not a suspension, which keeps them for the user's return.

@@ -226,7 +226,9 @@ def _lower_case_user_emails() -> None:
 
 
 def downgrade() -> None:
-    op.drop_constraint("ck_user_email_lower", "user", type_="check")
+    # IF EXISTS: a database that applied an earlier cut of this (unreleased)
+    # revision has no such constraint; the downgrade must still run through.
+    op.execute('ALTER TABLE "user" DROP CONSTRAINT IF EXISTS ck_user_email_lower')
     op.drop_index("ix_mfa_passkey_user_id", table_name="mfa_passkey")
     op.drop_table("mfa_passkey")
     op.drop_index("ix_mfa_recovery_code_user_id", table_name="mfa_recovery_code")

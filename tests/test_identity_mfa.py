@@ -6,6 +6,7 @@ switch, a manager's removal naming the actor, the auth-event stream.
 """
 
 import base64
+import datetime as dt
 import hashlib
 import json
 import os
@@ -430,6 +431,29 @@ def test_platform_staff_remove_a_users_factors_and_the_event_names_the_actor(cli
     assert login.login(anna).json()["mfaRequired"] is False
 
 
+def test_an_account_cannot_be_sent_back_to_invited(client, login):
+    """D-A-16 cannot be bypassed by flipping an active colleague back to
+    `invited` and re-inviting them: `invited` is where an account starts."""
+
+    dealership = create_dealership(client)
+    manager = create_user(client, dealership)
+    managers = login.session_cookie(manager)
+    beat = create_user(client, dealership, isDealerManager=False)
+    login.accept_invitation(beat)
+
+    response = client.patch(
+        f"/v1/dealerships/{dealership}/users/{beat['id']}",
+        json={"status": "invited"},
+        headers={**cookie_headers(managers), "If-Match": "2"},
+    )
+    assert response.status_code == 409, response.text
+    assert client.patch(
+        f"/v1/dealerships/{dealership}/users/{beat['id']}",
+        json={"status": "invited"},
+        headers={**platform_admin_headers(), "If-Match": "2"},
+    ).status_code == 409
+
+
 def test_a_manager_re_sends_an_invitation_only_while_the_user_never_accepted_it(client, login, mailbox):
     """D-A-16 drawn where onboarding ends: re-sending an invitation to a user
     who never accepted theirs is the manager's; a fresh invitation to an
@@ -458,6 +482,44 @@ def test_the_expired_step_is_told_apart_from_a_wrong_code(client, login, db_sess
     typo = client.post("/v1/auth/mfa/verify", json={"challengeId": challenge, "code": "000000"})
     assert typo.status_code == 401
     assert typo.json()["error"]["details"] is None
+
+
+def test_exhausted_challenges_add_up_to_the_account_lockout(client, login, db_session):
+    """Across challenges: a password holder cannot buy five fresh guesses
+    per login forever — each exhausted challenge is one failure on the
+    account, the password step no longer clears them, and the fifth locks
+    the account like five wrong passwords would."""
+
+    from app.platform.models.credential import Credential
+
+    dealership = create_dealership(client)
+    anna = create_user(client, dealership)
+    _enrol_totp(client, login.session_cookie(anna))
+
+    def exhaust(challenge: str) -> None:
+        for i in range(6):
+            client.post(
+                "/v1/auth/mfa/verify",
+                json={"challengeId": challenge, "code": "000000"},
+                headers={"X-Forwarded-For": f"203.0.113.{i + 1}"},
+            )
+
+    exhausted = 0
+    for n in range(6):
+        attempt = login.login(anna, STRONG_PASSWORD)
+        if attempt.status_code != 200:
+            break
+        exhaust(attempt.json()["challengeId"])
+        exhausted += 1
+        credential = db_session.scalar(select(Credential).where(Credential.user_id == anna["id"]))
+        db_session.refresh(credential)
+        credential.last_failed_at = credential.last_failed_at - dt.timedelta(hours=1)  # wait out the backoff
+        db_session.commit()
+    assert exhausted == 5
+    db_session.refresh(credential)
+    assert credential.failed_login_attempts == 5
+    assert credential.locked_until is not None
+    assert login.login(anna, STRONG_PASSWORD).status_code == 401
 
 
 @pytest.mark.skipif(not os.environ.get("DMS_TEST_DATABASE_URL"), reason="row-level UPDATE race: Postgres only")

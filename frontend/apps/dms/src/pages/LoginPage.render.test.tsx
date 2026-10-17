@@ -75,6 +75,29 @@ describe('LoginPage (KAN-196)', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Adresse e-mail ou mot de passe non valide.')
   })
 
+  it('says "start again" when the step has expired, not "wrong code"', async () => {
+    const user = userEvent.setup()
+    installFakeBackend([
+      SIGNED_OUT,
+      { method: 'POST', match: /\/auth\/login$/, handler: () => ({ mfaRequired: true, challengeId: 'ch-1', factors: ['totp', 'recovery_code'], session: null }) },
+      {
+        method: 'POST',
+        match: /\/auth\/mfa\/verify$/,
+        handler: () => status(401, { error: { code: 'unauthorized', message: 'The sign-in step has expired — start again.', details: { step: 'expired' } } }),
+      },
+    ])
+    renderLogin()
+
+    await user.type(await screen.findByLabelText(/E-Mail-Adresse/), 'anna@example.ch')
+    await user.type(screen.getByLabelText(/^Passwort/), 'correct-horse-battery-staple')
+    await user.click(screen.getByRole('button', { name: 'Anmelden' }))
+    await user.type(await screen.findByLabelText(/Code aus der Authenticator-App/), '123456')
+    await user.click(screen.getByRole('button', { name: 'Bestätigen' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Dieser Anmeldeschritt ist abgelaufen – beginnen Sie die Anmeldung neu.')
+    expect(screen.getByRole('button', { name: 'Zurück zur Anmeldung' })).toBeInTheDocument()
+  })
+
   it('asks for the second factor and lands on enrolment when the session says so', async () => {
     const user = userEvent.setup()
     const backend = installFakeBackend([
