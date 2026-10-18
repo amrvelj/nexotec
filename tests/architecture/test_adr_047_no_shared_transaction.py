@@ -255,6 +255,8 @@ _READS = {
     "app.platform.public.actor_reference_checks",
     "app.platform.public.get_active_reference_value_codes",
     "app.platform.public.get_dealership_or_404",
+    # KAN-371: the History tab's Betrieb and user names, group-scoped; a SELECT only.
+    "app.platform.public.get_group_display_labels",
     "app.platform.public.get_user_or_404",
     "app.platform.public.list_active_users",
     "app.platform.public.list_dealer_manager_emails",
