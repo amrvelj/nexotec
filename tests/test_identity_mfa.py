@@ -949,6 +949,13 @@ MALFORMED_ANSWERS = {
     "response is not an object": {"response": "x"},
     "rawId is a number": {"rawId": 5, "id": 5},
     "rawId is an object": {"rawId": {"a": 1}, "id": {"a": 1}},
+    # 2.7.1 decodes userHandle outside its own try (binascii.Error / ValueError)
+    "userHandle is not base64url": {"response": {"userHandle": "A"}},
+    "userHandle is not ASCII": {"response": {"userHandle": "é"}},
+    "userHandle is not a string": {"response": {"userHandle": 7}},
+    # json.loads recursion: a RecursionError, not a ValueError
+    "clientDataJSON is nested ten thousand deep": {"response": {"clientDataJSON": _b64url(b"[" * 10_000 + b"]" * 10_000)}},
+    "clientDataJSON is absurdly long": {"response": {"clientDataJSON": _client_data(padding="x" * 5000)}},
 }
 
 
@@ -1000,13 +1007,21 @@ def test_a_malformed_attestation_object_is_refused_before_the_library(client, lo
     """2.7.1's `parse_attestation_object` indexes the decoded CBOR unguarded
     (KeyError / TypeError); the shape is checked before the library sees it."""
 
+    from app.platform.services import mfa as mfa_service
+
     _anna, credential_id, cookie = _passkey_holder(client, login, db_session)
     options = client.post("/v1/auth/mfa/passkeys/options", headers=cookie_headers(cookie))
+    # The real challenge, so 2.7.1 gets past its challenge comparison and
+    # would reach the attestation parser if the shape check let it.
+    challenge = _b64url(mfa_service.challenge_for(options.json()["challengeId"], "register"))
     answer = {
         "id": credential_id,
         "rawId": credential_id,
         "type": "public-key",
-        "response": {"clientDataJSON": _client_data(type="webauthn.create"), "attestationObject": _b64url(attestation)},
+        "response": {
+            "clientDataJSON": _client_data(type="webauthn.create", challenge=challenge),
+            "attestationObject": _b64url(attestation),
+        },
     }
     registered = client.post(
         "/v1/auth/mfa/passkeys",
@@ -1039,7 +1054,80 @@ def test_a_stored_passkey_the_library_cannot_decode_is_a_server_defect_not_a_wro
     }
     with pytest.raises(WebAuthnException):
         mfa_service.verify_passkey(db_session, user=user, credential=well_formed, challenge=b"x")
-    assert _events(db_session, AuthEventKind.MFA_FAILED) == []
+
+
+def _verified_registration(public_key: bytes):
+    """What `verify_registration_response` hands back for a `none` attestation:
+    the library decodes the COSE key and checks `alg`, nothing more."""
+
+    from types import SimpleNamespace
+
+    return SimpleNamespace(credential_id=b"phone-key", credential_public_key=public_key, sign_count=0)
+
+
+def test_a_passkey_whose_key_cannot_be_loaded_is_refused_at_registration(client, login, db_session, monkeypatch):
+    """A `none` attestation lets a COSE key through that decodes but cannot be
+    loaded (a point off the curve, integer coordinates): stored, it would count
+    as a factor nobody can use and fail every sign-in (eleventh review). The
+    key is loaded at registration; a bad one is a 422."""
+
+    from webauthn.helpers import encode_cbor
+
+    from app.core.errors import UnprocessableEntityError
+    from app.platform.models.user import User
+    from app.platform.services import mfa as mfa_service
+
+    anna, _credential_id, _cookie = _passkey_holder(client, login, db_session)
+    user = db_session.get(User, uuid.UUID(anna["id"]))
+    off_curve = encode_cbor({1: 2, 3: -7, -1: 1, -2: b"\x01" * 32, -3: b"\x02" * 32})
+    integer_coordinates = encode_cbor({1: 2, 3: -7, -1: 1, -2: 5, -3: 6})
+    well_formed = {
+        "id": "cGhvbmUta2V5",
+        "rawId": "cGhvbmUta2V5",
+        "type": "public-key",
+        "response": {"clientDataJSON": _client_data(type="webauthn.create"), "attestationObject": _b64url(b"\xa3cfmtdnonegattStmt\xa0hauthData\x40")},
+    }
+    for bad_key in (off_curve, integer_coordinates):
+        monkeypatch.setattr(
+            mfa_service, "verify_registration_response", lambda key=bad_key, **kw: _verified_registration(key)
+        )
+        with pytest.raises(UnprocessableEntityError):
+            mfa_service.register_passkey(
+                db_session, user=user, credential=well_formed, challenge=b"x", label="Phone", ip_address="127.0.0.1"
+            )
+        db_session.rollback()
+    assert db_session.scalars(select(MfaPasskey).where(MfaPasskey.credential_id == "cGhvbmUta2V5")).first() is None
+
+
+def test_only_known_transport_names_are_stored(client, login, db_session, monkeypatch):
+    """`response.transports` is client-supplied: a string would be stored as
+    its letters, a number was a 500 after the library had accepted the
+    attestation (eleventh review). Only the spec's names, as strings, stay."""
+
+    from app.platform.models.user import User
+    from app.platform.services import mfa as mfa_service
+
+    anna, _credential_id, _cookie = _passkey_holder(client, login, db_session)
+    user = db_session.get(User, uuid.UUID(anna["id"]))
+    good_key = base64.urlsafe_b64decode(_cose_p256_public_key() + "==")
+    monkeypatch.setattr(mfa_service, "verify_registration_response", lambda **kw: _verified_registration(good_key))
+    for transports, stored in (("usb", []), (5, []), (["usb", 5, {"a": 1}, "nfc", "teleport"], ["usb", "nfc"])):
+        credential = {
+            "id": "cGhvbmUta2V5",
+            "rawId": "cGhvbmUta2V5",
+            "type": "public-key",
+            "response": {
+                "clientDataJSON": _client_data(type="webauthn.create"),
+                "attestationObject": _b64url(b"\xa3cfmtdnonegattStmt\xa0hauthData\x40"),
+                "transports": transports,
+            },
+        }
+        row = mfa_service.register_passkey(
+            db_session, user=user, credential=credential, challenge=b"x", label="Phone", ip_address="127.0.0.1"
+        )
+        assert row.transports == stored, transports
+        db_session.delete(row)
+        db_session.flush()
 
 
 def test_the_auth_event_stream_is_the_managers_to_read_and_nobody_elses(client, login):

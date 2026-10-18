@@ -22,10 +22,17 @@ from webauthn import (
     verify_authentication_response,
     verify_registration_response,
 )
-from webauthn.helpers import base64url_to_bytes, bytes_to_base64url, decode_credential_public_key, parse_cbor
+from webauthn.helpers import (
+    base64url_to_bytes,
+    bytes_to_base64url,
+    decode_credential_public_key,
+    decoded_public_key_to_cryptography,
+    parse_cbor,
+)
 from webauthn.helpers.exceptions import WebAuthnException
 from webauthn.helpers.structs import (
     AuthenticatorSelectionCriteria,
+    AuthenticatorTransport,
     PublicKeyCredentialDescriptor,
     ResidentKeyRequirement,
     UserVerificationRequirement,
@@ -296,15 +303,24 @@ def passkey_registration_options(db: Session, *, user: User, challenge: bytes) -
     return options_to_json(options)
 
 
+# A browser's clientDataJSON is a few hundred bytes (type, challenge, origin,
+# crossOrigin, tokenBinding); anything past this is not one.
+CLIENT_DATA_MAX_BYTES = 4096
+
+
 def _well_formed_client_answer(credential: object, *, response_fields: tuple[str, ...]) -> bool:
     """The shape check `webauthn` 2.7.1 does not do. That is the version the
     `cryptography<46` pin installs (CI, the image, Render; 3.x wraps every
     parser): its `parse_client_data_json` runs `json.loads` on the raw bytes
-    and indexes the result as a dict, so a non-UTF-8, non-JSON or non-object
-    `clientDataJSON`, a non-string `type`/`challenge`/`origin` or a non-string
-    id raise builtin exceptions, not `WebAuthnException` — a 500 that would
-    also escape the wrong-answer counting. Nothing here judges the answer; it
-    only guarantees the library sees a shape it can judge."""
+    and indexes the result as a dict, and it decodes `userHandle` outside its
+    own `try`, so a non-UTF-8, non-JSON, non-object or absurdly nested
+    `clientDataJSON`, a non-string `type`/`challenge`/`origin`, a non-string
+    id or a `userHandle` that is not base64url raise builtin exceptions, not
+    `WebAuthnException` — a 500 that would also escape the wrong-answer
+    counting. Nothing here judges the answer; it makes sure the library sees
+    the shapes it handles. (The inner CBOR structures of an attestation are
+    not walked here — a hand-crafted `attStmt` can still raise inside 2.7.1 on
+    the registration route, where nothing is counted; KAN-386.)"""
 
     if not isinstance(credential, dict):
         return False
@@ -323,9 +339,19 @@ def _well_formed_client_answer(credential: object, *, response_fields: tuple[str
             decoded[field] = base64url_to_bytes(value)
         except ValueError:  # binascii.Error is a ValueError
             return False
+    user_handle = response.get("userHandle")
+    if user_handle is not None:
+        if not isinstance(user_handle, str):
+            return False
+        try:
+            base64url_to_bytes(user_handle)
+        except ValueError:
+            return False
+    if len(decoded["clientDataJSON"]) > CLIENT_DATA_MAX_BYTES:
+        return False
     try:
         client_data = json.loads(decoded["clientDataJSON"].decode("utf-8"))
-    except ValueError:  # UnicodeDecodeError and JSONDecodeError both are
+    except (ValueError, RecursionError):  # UnicodeDecodeError and JSONDecodeError are ValueErrors
         return False
     if not isinstance(client_data, dict):
         return False
@@ -376,12 +402,24 @@ def register_passkey(
         # forged or malformed one is a 422, never a 500, whichever of the
         # library's exceptions names the defect.
         raise refusal from exc
+    # A `none` attestation only decodes the key and checks `alg`: a COSE key
+    # that decodes but cannot be loaded (a point off the curve, integer
+    # coordinates, an unsupported curve) would be stored as a factor nobody can
+    # use and fail at sign-in. Load it here, so a bad key is refused now.
+    try:
+        decoded_public_key_to_cryptography(decode_credential_public_key(verified.credential_public_key))
+    except (WebAuthnException, ValueError, TypeError) as exc:
+        raise refusal from exc
+    transports = credential["response"].get("transports")
+    known = {transport.value for transport in AuthenticatorTransport}
     row = MfaPasskey(
         user_id=user.id,
         credential_id=bytes_to_base64url(verified.credential_id),
         public_key=bytes_to_base64url(verified.credential_public_key),
         sign_count=verified.sign_count,
-        transports=list(credential.get("response", {}).get("transports") or []),
+        # Only the transport names the spec knows, as strings; the rest of a
+        # client-supplied list is dropped (the column is informational).
+        transports=[t for t in transports if isinstance(t, str) and t in known] if isinstance(transports, list) else [],
         label=label[:100],
     )
     db.add(row)
@@ -419,12 +457,12 @@ def verify_passkey(db: Session, *, user: User, credential: dict, challenge: byte
     row = db.scalar(select(MfaPasskey).where(MfaPasskey.user_id == user.id, MfaPasskey.credential_id == raw_id))
     if row is None:
         return False
-    # The stored key is ours, not the client's: a row the library can no
-    # longer decode is a server defect that must surface (500, ERROR log),
-    # never be counted as the user's wrong answer — so it is decoded before
-    # the `except` below.
+    # The stored key was loaded when it was registered: a row the library can
+    # no longer decode or load is a server defect (a library change, a corrupt
+    # write) that must surface (500, ERROR log), never be counted as the
+    # user's wrong answer — so it is decoded and loaded before the `except`.
     public_key = base64url_to_bytes(row.public_key)
-    decode_credential_public_key(public_key)
+    decoded_public_key_to_cryptography(decode_credential_public_key(public_key))
     try:
         verified = verify_authentication_response(
             credential=credential,
@@ -438,7 +476,8 @@ def verify_passkey(db: Session, *, user: User, credential: dict, challenge: byte
         # A malformed or forged assertion is a wrong answer like any other,
         # whichever of the library's exceptions names the defect (2.7.1 raises
         # `InvalidJSONStructure` unwrapped where 3.x wraps it; the shape check
-        # above keeps 2.7.1's builtin exceptions out).
+        # above keeps the builtin exceptions 2.7.1's assertion parsing can
+        # raise out of this path).
         return False
     row.sign_count = verified.new_sign_count
     row.last_used_at = utcnow()
