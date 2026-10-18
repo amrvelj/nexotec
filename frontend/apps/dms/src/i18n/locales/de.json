@@ -515,6 +515,7 @@
         "create": "Kunde angelegt",
         "update": "Kunde geändert",
         "merge": "Kunde zusammengeführt",
+        "merge_survivor_repointed": "Zielkunde der Zusammenführung aktualisiert",
         "phone_add": "Telefonnummer hinzugefügt",
         "phone_update": "Telefonnummer geändert",
         "phone_remove": "Telefonnummer entfernt",

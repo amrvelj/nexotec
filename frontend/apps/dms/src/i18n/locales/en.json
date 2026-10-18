@@ -515,6 +515,7 @@
         "create": "Customer created",
         "update": "Customer updated",
         "merge": "Customer merged",
+        "merge_survivor_repointed": "Merge target updated",
         "phone_add": "Phone number added",
         "phone_update": "Phone number updated",
         "phone_remove": "Phone number removed",

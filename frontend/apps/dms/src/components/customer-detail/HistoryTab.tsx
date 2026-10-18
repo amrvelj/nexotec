@@ -17,6 +17,8 @@ const KNOWN_ACTIONS = new Set([
   'create',
   'update',
   'merge',
+  // KAN-383: written on a customer merged earlier into one that is now merged itself.
+  'merge_survivor_repointed',
   'phone_add',
   'phone_update',
   'phone_remove',

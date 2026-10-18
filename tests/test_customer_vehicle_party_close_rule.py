@@ -21,6 +21,7 @@ import pytest
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.core.audit_model import AuditEvent
 from app.core.auth import AccessRole, create_access_token
 from app.core.base import utcnow
 from app.core.errors import ConflictError
@@ -1118,3 +1119,98 @@ def test_two_merges_in_opposite_directions_never_both_commit(engine, db_session,
     db_session.expire_all()
     assert db_session.get(Customer, a_id).duplicate_of_customer_id == b_id
     assert db_session.get(Customer, b_id).duplicate_of_customer_id is None
+
+
+# --- KAN-383: a merge re-points the customers merged into its duplicate earlier ----
+
+
+def test_merging_d_into_t_repoints_a_customer_merged_into_d_earlier(db_session):
+    """Anto's ruling (option A): X merged into D last week, D merged into T
+    today — X now names T, with an audit event on X, and its vehicle rows are
+    on T. "Merged into" always names a live customer."""
+
+    group_id = uuid.uuid4()
+    car = _vehicle(db_session, "WVWZZZ1KZAW383001")
+    x, d, t = (_customer(db_session, group_id, name) for name in ("Xaver", "Dora", "Tina"))
+    db_session.commit()
+    x_party = _allocate(db_session, car.id, x, group_id)
+    x_id, d_id, t_id = x.id, d.id, t.id
+    _merge(db_session, x_id, d_id, group_id)
+    x_version = db_session.get(Customer, x_id).version
+
+    _merge(db_session, d_id, t_id, group_id)
+
+    db_session.expire_all()
+    merged_x = db_session.get(Customer, x_id)
+    assert merged_x.duplicate_of_customer_id == t_id
+    assert merged_x.version == x_version + 1
+    assert db_session.get(Customer, d_id).duplicate_of_customer_id == t_id
+    assert db_session.get(VehicleParty, x_party.id).customer_id == t_id
+    repointed = db_session.scalars(
+        select(AuditEvent).where(AuditEvent.entity_id == x_id, AuditEvent.action == "merge_survivor_repointed")
+    ).all()
+    assert [(e.before, e.after) for e in repointed] == [
+        ({"duplicateOfCustomerId": str(d_id)}, {"duplicateOfCustomerId": str(t_id)})
+    ]
+    d_merge = db_session.scalars(
+        select(AuditEvent).where(AuditEvent.entity_id == d_id, AuditEvent.action == "merge")
+    ).one()
+    assert d_merge.after["earlierMergesRepointedIds"] == [str(x_id)]
+
+
+def test_a_merge_x_into_d_holding_d_first_ends_with_x_naming_t(engine, db_session, monkeypatch):
+    """The race order KAN-372 does not refuse: X→D locks D first and is paused
+    before committing; D→T waits for D's row, then commits after it. D→T reads
+    the customers merged into D only after it holds D, so it finds X and
+    re-points it: nobody names a merged customer."""
+
+    _postgres_only(engine)
+    group_id = uuid.uuid4()
+    x_car, d_car = _vehicle(db_session, "WVWZZZ1KZAW383002"), _vehicle(db_session, "WVWZZZ1KZAW383003")
+    x, d, t = (_customer(db_session, group_id, name) for name in ("Xaver", "Dora", "Tina"))
+    db_session.commit()
+    x_party = _allocate(db_session, x_car.id, x, group_id)
+    _allocate(db_session, d_car.id, d, group_id)
+    x_id, d_id, t_id = x.id, d.id, t.id
+    reached, release = threading.Event(), threading.Event()
+    real_repoint = customer_service._repoint_transactions
+
+    def _pause_after_the_parties(db, **kwargs):
+        if threading.current_thread().name == "merge-x-into-d":
+            reached.set()
+            release.wait(timeout=10)
+        return real_repoint(db, **kwargs)
+
+    monkeypatch.setattr(customer_service, "_repoint_transactions", _pause_after_the_parties)
+    factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+    errors: list[Exception] = []
+
+    def _merge_x_into_d():
+        with factory() as session:
+            _merge(session, x_id, d_id, group_id)
+
+    def _merge_d_into_t():
+        with factory() as session:
+            _merge(session, d_id, t_id, group_id)
+
+    first = _run("merge-x-into-d", errors, _merge_x_into_d)
+    try:
+        assert reached.wait(timeout=10), "merge X→D never re-pointed the parties"
+        second = _run("merge-d-into-t", errors, _merge_d_into_t)
+        _wait_until_a_backend_waits_on_a_lock(engine)  # D→T waits on D's customer row
+        release.set()
+        first.join(timeout=10)
+        second.join(timeout=10)
+    finally:
+        release.set()
+
+    assert not first.is_alive() and not second.is_alive()
+    assert errors == []
+    db_session.expire_all()
+    assert db_session.get(Customer, x_id).duplicate_of_customer_id == t_id
+    assert db_session.get(Customer, d_id).duplicate_of_customer_id == t_id
+    assert db_session.get(VehicleParty, x_party.id).customer_id == t_id
+    merged_ids = {x_id, d_id}
+    assert db_session.scalars(
+        select(Customer.id).where(Customer.duplicate_of_customer_id.in_(merged_ids))
+    ).all() == []

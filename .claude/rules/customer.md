@@ -160,10 +160,16 @@ weekly. -->
   (sorted) → customer rows (id order) → party rows. Two merges in opposite directions ask for the
   two rows in the same order, so the second waits and is refused; allocation and a reopen take
   one customer row `FOR SHARE` after their advisory lock, which a merge's survivor lock never
-  blocks. A merge X→D racing D→T is refused only when D→T locked D first. When X→D locks D
-  first, D→T waits, then commits after it: X's vehicle rows follow D's to T, but X's
-  `duplicateOfCustomerId` names merged D, the same chain two merges run one after the other
-  leave. **Not covered:** that chain, in either form (KAN-383, a decision for Anto).
+  blocks. A merge X→D racing D→T is refused only when D→T locked D first; when X→D locks D
+  first, D→T waits and commits after it.
+- **A merge re-points the earlier merges into its duplicate** (KAN-383, Anto 2026-10-18,
+  option A, `_repoint_earlier_merges`): merging D into T sets every customer whose
+  `duplicateOfCustomerId` names D to T, in the same transaction, bumps its version and audits
+  it on that customer (`merge_survivor_repointed`); the merge's own audit lists them
+  (`earlierMergesRepointedIds`). It reads them after holding D's row, so a merge X→D that held D
+  first has committed and X is found — "merged into" always names a live customer, after
+  sequential merges and after the race alike. No event is published: X's rows moved to D with
+  its own merge and move on with D's.
 - **A party row carries the vehicle's label, never a join** (KAN-84, rule 2):
   `vehicle_vin`, `vehicle_number`, `vehicle_make`, `vehicle_model`, `vehicle_model_year`,
   `vehicle_trim` and `vehicle_label_refreshed_at`, copied from

@@ -1125,6 +1125,51 @@ def _repoint_vehicle_parties(
     return repointed, kept_closed
 
 
+def _repoint_earlier_merges(
+    db: Session, *, duplicate_id: uuid.UUID, target_id: uuid.UUID, actor_id: uuid.UUID, group_id: uuid.UUID
+) -> list[uuid.UUID]:
+    """KAN-383 (Anto, 2026-10-18, option A): a customer X merged into this
+    duplicate D earlier names D in `duplicate_of_customer_id`; once D is
+    merged into T, X would name a merged customer. Every such X is re-pointed
+    to T in the merge's own transaction, its version bumped and the change
+    audited on X (`merge_survivor_repointed`), so "merged into" always names a
+    live customer. No event is published: X's rows already moved to D with its
+    own merge and move on to T with this one (the `customer.merged` event for
+    D carries them).
+
+    Read after the merge holds D's row FOR NO KEY UPDATE (KAN-372): a merge
+    X→D still in flight holds D FOR SHARE, so this merge waits for it to
+    commit and then finds X here — the race order KAN-372 could not refuse
+    ends with X naming T as well. The X rows are locked in id order; a merged
+    X takes no other writer's lock (allocation, a reopen and a merge into X
+    all refuse a merged customer)."""
+
+    earlier = list(
+        db.scalars(
+            select(Customer)
+            .where(Customer.duplicate_of_customer_id == duplicate_id, Customer.group_id == group_id)
+            .order_by(Customer.id)
+            .with_for_update(key_share=True)
+            .execution_options(populate_existing=True)
+        ).all()
+    )
+    for merged in earlier:
+        merged.duplicate_of_customer_id = target_id
+        merged.updated_by = actor_id
+        merged.version += 1
+        record_audit_event(
+            db,
+            entity_type="customer",
+            entity_id=merged.id,
+            tenant_id=group_id,
+            action="merge_survivor_repointed",
+            actor_id=actor_id,
+            before={"duplicateOfCustomerId": str(duplicate_id)},
+            after={"duplicateOfCustomerId": str(target_id)},
+        )
+    return [merged.id for merged in earlier]
+
+
 def _repoint_transactions(db: Session, *, duplicate_id: uuid.UUID, target_id: uuid.UUID) -> int:
     # Sales owns Transaction (one writer per fact) — customer only knows the
     # duplicate/target IDs from its own merge flow, so the actual row
@@ -1296,6 +1341,9 @@ def merge_customer(
         db, duplicate_id=customer.id, target_id=target.id
     )
     tags_repointed, tags_dropped = _repoint_customer_tags(db, duplicate_id=customer.id, target_id=target.id)
+    earlier_merges_repointed = _repoint_earlier_merges(
+        db, duplicate_id=customer.id, target_id=target.id, actor_id=actor_id, group_id=customer.group_id
+    )
 
     customer.lifecycle_status = CustomerLifecycleStatus.MERGED
     customer.duplicate_of_customer_id = duplicate_of_customer_id
@@ -1328,6 +1376,8 @@ def merge_customer(
             "externalIdsDropped": external_ids_dropped,
             "tagsRepointed": tags_repointed,
             "tagsDropped": tags_dropped,
+            # KAN-383: customers merged into this duplicate earlier now name the survivor.
+            "earlierMergesRepointedIds": [str(customer_id) for customer_id in earlier_merges_repointed],
         },
     )
     publish_event(

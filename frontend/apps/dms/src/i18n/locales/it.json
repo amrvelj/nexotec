@@ -515,6 +515,7 @@
         "create": "Cliente creato",
         "update": "Cliente modificato",
         "merge": "Cliente unito",
+        "merge_survivor_repointed": "Cliente di destinazione dell’unione aggiornato",
         "phone_add": "Telefono aggiunto",
         "phone_update": "Telefono modificato",
         "phone_remove": "Telefono rimosso",
