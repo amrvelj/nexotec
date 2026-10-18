@@ -1230,6 +1230,10 @@
     },
     "missing": "Il manque encore",
     "continue": "Générer l’offre",
+    "continueDisabled": {
+      "doNotContact": "Ce client est marqué « ne pas contacter » : aucune offre ne peut être générée.",
+      "saving": "Vos dernières modifications sont en cours d’enregistrement. « Générer l’offre » sera disponible dès qu’elles seront enregistrées."
+    },
     "generate": {
       "title": "Générer l’offre",
       "buildHint": "Génère un aperçu du document dans la langue de correspondance du client.",

@@ -1230,6 +1230,10 @@
     },
     "missing": "Manca ancora",
     "continue": "Genera offerta",
+    "continueDisabled": {
+      "doNotContact": "Questo cliente è contrassegnato come «non contattare»: non è possibile generare un’offerta.",
+      "saving": "Le ultime modifiche sono ancora in fase di salvataggio. «Genera offerta» sarà disponibile non appena saranno salvate."
+    },
     "generate": {
       "title": "Genera offerta",
       "buildHint": "Genera un’anteprima del documento nella lingua di corrispondenza del cliente.",

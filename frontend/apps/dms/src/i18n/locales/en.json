@@ -1230,6 +1230,10 @@
     },
     "missing": "Still missing",
     "continue": "Generate offer",
+    "continueDisabled": {
+      "doNotContact": "This customer is marked do-not-contact: no offer can be generated.",
+      "saving": "Your last changes are still being saved. “Generate offer” becomes available once they are saved."
+    },
     "generate": {
       "title": "Generate offer",
       "buildHint": "Generates a preview of the document in the customer's correspondence language.",

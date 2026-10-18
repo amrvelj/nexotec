@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Tooltip } from "@mantine/core";
 import { radius, shadow, slate, spacing, typography, white, zIndex } from "../tokens";
 
 export interface StickyActionFooterProps {
@@ -7,6 +8,11 @@ export interface StickyActionFooterProps {
    * nothing is missing. */
   missingLabel?: ReactNode;
   primaryAction: ReactNode;
+  /** KAN-368 (ADR-061: a disabled action says why) — the reason the
+   * primary action is disabled when `missingLabel` does not name it, shown
+   * on hover as `DetailHeader`'s disabled actions show theirs; `null` while
+   * there is none. */
+  primaryDisabledReason?: string | null;
 }
 
 /**
@@ -22,7 +28,7 @@ export interface StickyActionFooterProps {
  * spinners in the configurator), which would otherwise paint over the bar
  * and its primary action.
  */
-export function StickyActionFooter({ missingLabel, primaryAction }: StickyActionFooterProps) {
+export function StickyActionFooter({ missingLabel, primaryAction, primaryDisabledReason }: StickyActionFooterProps) {
   return (
     <div
       style={{
@@ -41,7 +47,16 @@ export function StickyActionFooter({ missingLabel, primaryAction }: StickyAction
       }}
     >
       <span style={{ fontSize: typography.body.size, color: slate[5] }}>{missingLabel}</span>
-      {primaryAction}
+      {primaryDisabledReason === undefined ? (
+        primaryAction
+      ) : (
+        // A disabled button fires no pointer events, so the tooltip anchors
+        // on a wrapper that does (as in DetailHeader). The wrapper stays while
+        // the reason comes and goes, so the action is never re-mounted.
+        <Tooltip label={primaryDisabledReason} disabled={!primaryDisabledReason}>
+          <span style={{ display: "inline-block" }}>{primaryAction}</span>
+        </Tooltip>
+      )}
     </div>
   );
 }

@@ -1230,6 +1230,10 @@
     },
     "missing": "Es fehlt noch",
     "continue": "Offerte generieren",
+    "continueDisabled": {
+      "doNotContact": "Dieser Kunde ist als „nicht kontaktieren“ markiert: Es kann keine Offerte generiert werden.",
+      "saving": "Ihre letzten Änderungen werden noch gespeichert. „Offerte generieren“ ist verfügbar, sobald sie gespeichert sind."
+    },
     "generate": {
       "title": "Offerte generieren",
       "buildHint": "Erzeugt eine Vorschau des Dokuments in der Korrespondenzsprache des Kunden.",

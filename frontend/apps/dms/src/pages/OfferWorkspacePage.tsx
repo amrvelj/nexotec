@@ -163,6 +163,15 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
   // usable price exists yet), used to slip through here because this
   // only checked for "not_started".
   const missing = (offer.containers ?? []).filter((c) => c.requirement === 'required' && c.status !== 'complete')
+  // KAN-368 (ADR-061): Continue says why it is disabled when the footer's
+  // missing-sections label does not — a do-not-contact customer, or an edit
+  // not saved yet (a price or leasing value in its debounce, a queued save).
+  const continueDisabledReason =
+    selectedCustomer?.lifecycleStatus === 'do_not_contact'
+      ? t('offerWorkspace.continueDisabled.doNotContact')
+      : pricingUnsaved || leasingUnsaved || saves.pending > 0
+        ? t('offerWorkspace.continueDisabled.saving')
+        : null
 
   return (
     <Stack gap="lg">
@@ -213,6 +222,7 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
       </OverviewCard>
 
       <StickyActionFooter
+        primaryDisabledReason={continueDisabledReason}
         missingLabel={
           missing.length > 0
             ? `${t('offerWorkspace.missing')}: ${missing.map((m) => t(`offerWorkspace.containers.${m.id === 'trade_in' ? 'tradeIn' : m.id}`)).join(', ')}`
