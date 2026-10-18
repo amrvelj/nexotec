@@ -55,7 +55,8 @@ code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. -->
   (I, O, Q allowed) — and `require_vin_or_pre_1981_chassis_number` accepts the latter only with
   a first registration before 1981-01-01 (on a configuration PATCH, the stored date counts);
   otherwise 422 `chassis_number_requires_pre_1981_registration` (`common.chassisNumberNeedsPre1981`).
-  Such a number is stored normalised, as a VIN is, and **never** finds, creates or links a
+  Such a number is stored normalised, as a VIN is (upper case, no spaces; punctuation refused) —
+  the ruling said "stored and printed as entered", which is open for Anto (KAN-391) — and **never** finds, creates or links a
   vehicle-mdm record (`is_chassis_number`) — a valuation is judged on the VIN and date it stores
   (its own, else its configuration's) and links no car when that VIN is a chassis number. Stock and the trade-in keep `NormalisedVin`. The
   configurator cannot enter one yet: its configure phase has no VIN input (KAN-340).

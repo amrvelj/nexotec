@@ -37,7 +37,8 @@ main@046634d on 2026-10-17 (KAN-195: every present-tense claim checked against t
   entity with its own stock, sales, accounting and VAT → `location` is a physical site: an
   attribute, **never a scoping boundary** (owned by platform, not inventory).
 - **The UI word for the tenant is "Betrieb"** in German (D-A-10) — *entreprise* in French, *azienda*
-  in Italian, *business* in English (KAN-381, Anto 2026-10-18), backend texts included: service-only garages are customers from
+  in Italian, *business* in English (KAN-381, Anto 2026-10-18), in the bundles and in the backend's
+  sign-in and mail texts (API error `message`s still say "dealership"): service-only garages are customers from
   day one, so `sales` is a module entitlement like `aftersales` (`module_entitlement`, KAN-198),
   and a Betrieb without it is a normal configuration. `dealership` stays the table and code name.
 - Tenant scope comes from the token. Group-scoped reads exist only in the files that

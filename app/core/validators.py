@@ -235,7 +235,8 @@ NormalisedVin = Annotated[Vin, BeforeValidator(_normalise_vin)]
 # — 1 to 17 letters and digits, I, O and Q included — only together with a
 # first registration before this date. It is normalised as a VIN is
 # (upper-cased, whitespace removed; other punctuation is refused), stored and
-# printed that way, and never finds, creates or links a vehicle-mdm record
+# printed that way — the ruling said "as entered"; KAN-391 asks Anto whether
+# to keep it so — and never finds, creates or links a vehicle-mdm record
 # (ADR-045: one VIN, one car). Every other value is a VIN and keeps the
 # strict rule.
 PRE_ISO_VIN_CUTOFF = dt.date(1981, 1, 1)

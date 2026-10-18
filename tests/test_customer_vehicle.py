@@ -29,6 +29,7 @@ def _token(
     *,
     is_dealer_manager: bool = False,
     entitlements: frozenset[str] | None = None,
+    entitlements_version: int = 0,
 ) -> str:
     _tid = tenant_id or uuid.uuid4()
     return create_access_token(
@@ -38,6 +39,7 @@ def _token(
         roles=frozenset({role}) if role is not None else frozenset(),
         is_dealer_manager=is_dealer_manager,
         entitlements=entitlements,
+        entitlements_version=entitlements_version,
     )
 
 
@@ -689,6 +691,16 @@ def test_a_betrieb_without_the_sales_module_gets_no_stock_link(client, db_sessio
     ]
     licensed_items = client.get(f"/v1/customers/{customer['id']}/vehicles", headers=_bearer(licensed)).json()["items"]
     assert licensed_items[0]["stockItem"] is not None
+
+    # The Betrieb's entitlements change: a token minted before carries `sales`
+    # still, but no longer sees stock here, as /v1/stock-items refuses it.
+    db_session.get(Dealership, uuid.UUID(dealer_id)).entitlements_version += 1
+    db_session.commit()
+    stale_items = client.get(f"/v1/customers/{customer['id']}/vehicles", headers=_bearer(licensed)).json()["items"]
+    assert stale_items[0]["stockItem"] is None
+    current = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id), entitlements_version=1)
+    current_items = client.get(f"/v1/customers/{customer['id']}/vehicles", headers=_bearer(current)).json()["items"]
+    assert current_items[0]["stockItem"] is not None
 
 
 def test_no_stock_link_when_group_read_is_not_enabled(client, db_session):

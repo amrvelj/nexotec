@@ -1210,6 +1210,12 @@ def test_a_merge_x_into_d_holding_d_first_ends_with_x_naming_t(engine, db_sessio
     assert db_session.get(Customer, x_id).duplicate_of_customer_id == t_id
     assert db_session.get(Customer, d_id).duplicate_of_customer_id == t_id
     assert db_session.get(VehicleParty, x_party.id).customer_id == t_id
+    repointed = db_session.scalars(
+        select(AuditEvent).where(AuditEvent.entity_id == x_id, AuditEvent.action == "merge_survivor_repointed")
+    ).all()
+    assert [(e.before, e.after) for e in repointed] == [
+        ({"duplicateOfCustomerId": str(d_id)}, {"duplicateOfCustomerId": str(t_id)})
+    ]
     merged_ids = {x_id, d_id}
     assert db_session.scalars(
         select(Customer.id).where(Customer.duplicate_of_customer_id.in_(merged_ids))

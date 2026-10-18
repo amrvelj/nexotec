@@ -24,7 +24,7 @@ from app.core.concurrency import check_version, require_if_match
 from app.core.config import get_settings
 from app.core.idempotent_route import IdempotentRoute
 from app.core.pagination import SortPageParams, decode_sort_cursor
-from app.core.permissions import ModuleCode, require_read, require_write
+from app.core.permissions import ModuleCode, holds_entitlement, require_read, require_write
 from app.core.sorting import SortField, parse_sort
 from app.customer.models.customer import Customer, CustomerLifecycleStatus, CustomerType, Language
 from app.customer.schemas.customer import (
@@ -548,10 +548,11 @@ def list_customer_vehicles(
     )
     # KAN-378 (Anto, option A): the stock summary is inventory data, licensed
     # with the sales module (D-A-04) — a Betrieb without it gets no stock
-    # fields here, as it gets no /v1/stock-items.
+    # fields here, as it gets no /v1/stock-items — nor does a token minted
+    # before the module was taken away.
     stock_by_vehicle = (
         get_stock_items_for_vehicles(db, group_id=principal.group_id, vehicle_ids=vehicle_ids)
-        if ModuleCode.SALES.value in principal.entitlements
+        if holds_entitlement(db, principal, ModuleCode.SALES)
         else {}
     )
     items = [
