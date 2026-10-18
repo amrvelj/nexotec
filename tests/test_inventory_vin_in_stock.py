@@ -29,6 +29,7 @@ from app.inventory.services.purchase import record_purchase
 from app.inventory.services.stock_item import create_stock_item
 from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
 from app.vehicle.public import create_or_get_vehicle_mdm
+from tests.dealership_support import valid_uid
 
 VIN = "WVWZZZ1KZAW000001"
 
@@ -40,8 +41,6 @@ def _make_dealership(db_session) -> Dealership:
     dealership = Dealership(
         dealer_group_id=group.id,
         legal_name="Garage AG",
-        dealer_license_number="ZH-1",
-        license_state="ZH",
         franchise_type=FranchiseType.INDEPENDENT,
         address_street="Bahnhofstrasse",
         address_house_number="1",
@@ -49,7 +48,7 @@ def _make_dealership(db_session) -> Dealership:
         address_locality="Zürich",
         address_canton="ZH",
         phone="+41441234567",
-        tax_id="CHE-123.456.789",
+        uid=valid_uid(),
         vat_rate=Decimal("8.10"),
     )
     db_session.add(dealership)

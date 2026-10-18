@@ -18,6 +18,7 @@ from app.valuation.schemas.valuation import ValuationCreate
 from app.valuation.services.valuation import create_valuation
 from app.vehicle.models.vehicle_mdm import VehicleMdm
 from app.vehicle.services import vehicle_mdm as vehicle_mdm_service
+from tests.dealership_support import valid_uid
 from tests.test_inventory_vin_resolution import _lose_the_first_lookup
 
 _postgres_only = pytest.mark.skipif(
@@ -179,10 +180,10 @@ def test_payable_is_gross_price_minus_trade_in_value(db_session):
     db_session.add(group)
     db_session.flush()
     dealership = Dealership(
-        id=uuid.uuid4(), dealer_group_id=group.id, legal_name="Garage AG", dealer_license_number="ZH-1",
-        license_state="ZH", franchise_type=FranchiseType.INDEPENDENT, address_street="Bahnhofstrasse",
+        id=uuid.uuid4(), dealer_group_id=group.id, legal_name="Garage AG",
+        franchise_type=FranchiseType.INDEPENDENT, address_street="Bahnhofstrasse",
         address_house_number="1", address_postal_code="8001", address_locality="Zürich", address_canton="ZH",
-        phone="+41441234567", tax_id="CHE-123.456.789",
+        phone="+41441234567", uid=valid_uid(),
     )
     db_session.add(dealership)
     db_session.commit()

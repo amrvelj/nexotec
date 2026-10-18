@@ -1,10 +1,9 @@
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from starlette.middleware.sessions import SessionMiddleware
 
 from app.api.v1 import api_v1_router
 from app.core.auth import get_jwks
@@ -16,31 +15,25 @@ from app.core.observability import (
     configure_sentry,
     configure_tracing,
 )
+from app.platform.services.mailer import get_mailer
+from app.platform.session_guard import enforce_live_session
 
 configure_logging()
 configure_sentry()
 
-app = FastAPI(title="DMS Platform", version="0.1.0")
+# KAN-196 (FR-AU-17/18): every request carrying a session token is checked
+# against its `session` row — revoked, idle or past its absolute end is 401
+# before any route runs. An app-level dependency, not middleware: it resolves
+# the database through get_db like every route, so the tests' override
+# reaches it, and it runs before the route's own dependencies.
+app = FastAPI(title="DMS Platform", version="0.1.0", dependencies=[Depends(enforce_live_session)])
 
 configure_tracing(app)
 register_error_handlers(app)
+# KAN-196: resolved here, not on the first invitation — a production deploy
+# with the `logging` mail sender must fail its start, not its first reset.
+get_mailer()
 app.add_middleware(ObservabilityMiddleware)
-# Holds the OIDC login transaction only — state/nonce/PKCE verifier across
-# the redirect round trip to Zitadel and back (WP-4, app.platform.services.
-# oidc). A DIFFERENT cookie from the dms_session one app.core.auth.py sets
-# (name below, not SESSION_COOKIE_NAME) and deliberately SameSite=lax, not
-# strict: this cookie must survive a top-level navigation *from*
-# accounts.zitadel.cloud *back to* our own /auth/oidc/callback, which is
-# exactly the cross-site top-level request a Strict cookie is dropped on —
-# get this wrong and every login "fails" with a confusing state mismatch.
-# dms_session itself stays Strict; it's never needed cross-site.
-app.add_middleware(
-    SessionMiddleware,
-    secret_key=get_settings().session_secret_key,
-    session_cookie="dms_oidc_txn",
-    same_site="lax",
-    max_age=600,
-)
 app.include_router(api_v1_router)
 
 

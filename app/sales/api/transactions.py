@@ -23,7 +23,7 @@ from app.core.auth import Principal, get_current_principal
 from app.core.concurrency import check_version, require_if_match
 from app.core.idempotent_route import IdempotentRoute
 from app.core.pagination import PageParams, page_params
-from app.core.permissions import require_read, require_write
+from app.core.permissions import ModuleCode, require_entitlement, require_read, require_write
 from app.db import get_db
 from app.platform.public import get_dealership_or_404
 from app.sales.models.transaction import TransactionStatus, TransactionType
@@ -36,7 +36,9 @@ from app.sales.schemas.transaction import (
 )
 from app.sales.services import transaction as transaction_service
 
-router = APIRouter(tags=["transactions"], route_class=IdempotentRoute)
+# KAN-198 (D-A-04): the entitlement gate runs before any role check; an
+# unlicensed module is 404 for everyone (router-level, so every route).
+router = APIRouter(tags=["transactions"], route_class=IdempotentRoute, dependencies=[Depends(require_entitlement(ModuleCode.SALES))])
 
 
 @router.post("/transactions", response_model=TransactionRead, status_code=201, deprecated=True)

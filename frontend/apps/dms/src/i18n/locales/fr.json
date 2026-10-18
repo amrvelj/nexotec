@@ -35,7 +35,8 @@
       "notificationsSoon": "Notifications (bientôt)",
       "accountMenu": "Menu du compte",
       "language": "Langue",
-      "switchDealership": "Changer de concession"
+      "switchDealership": "Changer de concession",
+      "accountSecurity": "Mon compte – Sécurité"
     },
     "globalSearch": {
       "placeholder": "Rechercher…",
@@ -601,14 +602,6 @@
       "vehiclePartyBusy": "Un véhicule de ce client est en cours de modification. Relancez la fusion.",
       "staleVersion": "Ce client a été modifié entre-temps. Rechargez la page et réessayez."
     }
-  },
-  "signInError": {
-    "title": "Échec de la connexion",
-    "message": "La connexion a échoué. Veuillez réessayer ou contacter votre administrateur.",
-    "retry": "Réessayer"
-  },
-  "login": {
-    "redirecting": "Redirection vers la connexion…"
   },
   "mappingGaps": {
     "title": "Écarts de correspondance",
@@ -1903,6 +1896,100 @@
       "valid": "Valide",
       "expired": "Expirée",
       "used": "Utilisée"
+    }
+  },
+  "auth": {
+    "login": {
+      "title": "Se connecter",
+      "subtitle": "Avec votre adresse e-mail et votre mot de passe.",
+      "email": "Adresse e-mail",
+      "password": "Mot de passe",
+      "submit": "Se connecter",
+      "forgotPassword": "Mot de passe oublié ?",
+      "failed": "Adresse e-mail ou mot de passe non valide.",
+      "mfaTitle": "Deuxième facteur",
+      "mfaHint": "Confirmez la connexion avec votre application d’authentification, un code de récupération ou une clé d’accès.",
+      "code": "Code de l’application d’authentification",
+      "recoveryCode": "Code de récupération",
+      "verify": "Confirmer",
+      "codeInvalid": "Le code n’est pas valide.",
+      "useRecoveryCode": "Utiliser un code de récupération",
+      "useAuthenticator": "Utiliser l’application d’authentification",
+      "usePasskey": "Se connecter avec une clé d’accès",
+      "passkeyFailed": "La clé d’accès n’a pas pu être vérifiée.",
+      "backToLogin": "Retour à la connexion",
+      "stepExpired": "Cette étape de connexion a expiré – recommencez la connexion."
+    },
+    "reset": {
+      "title": "Réinitialiser le mot de passe",
+      "hint": "Saisissez votre adresse e-mail. Si un compte existe, vous recevrez un lien.",
+      "email": "Adresse e-mail",
+      "submit": "Envoyer le lien",
+      "sent": "Si un compte existe pour cette adresse, nous avons envoyé un lien de réinitialisation. Il est valable une heure.",
+      "confirmTitle": "Définir un nouveau mot de passe",
+      "newPassword": "Nouveau mot de passe",
+      "confirmSubmit": "Définir le mot de passe",
+      "done": "Votre mot de passe a été défini. Toutes les autres sessions ont été terminées – reconnectez-vous.",
+      "invalidLink": "Ce lien n’est plus valable. Demandez-en un nouveau.",
+      "backToLogin": "Vers la connexion"
+    },
+    "invitation": {
+      "title": "Bienvenue chez Nexotec",
+      "hint": "Définissez votre mot de passe pour activer votre compte.",
+      "newPassword": "Mot de passe",
+      "submit": "Activer le compte",
+      "invalidLink": "Cette invitation n’est plus valable. Demandez-en une nouvelle à votre entreprise.",
+      "mfaNext": "Votre mot de passe est défini. Connectez-vous maintenant avec votre deuxième facteur."
+    },
+    "password": {
+      "rules": "Au moins 12 caractères. Ni votre nom, ni votre adresse e-mail, ni le nom de votre entreprise.",
+      "minLength": "Le mot de passe doit comporter au moins {{count, number}} caractères.",
+      "denyList": "Le mot de passe ne doit contenir ni votre nom, ni votre adresse e-mail, ni le nom de votre entreprise.",
+      "breached": "Ce mot de passe figure dans une fuite de données connue – choisissez-en un autre.",
+      "reused": "Ce mot de passe a été utilisé récemment – choisissez-en un nouveau."
+    },
+    "security": {
+      "breadcrumb": "Mon compte",
+      "title": "Sécurité",
+      "enrolmentRequired": "Votre entreprise exige un deuxième facteur. Configurez une application d’authentification ou une clé d’accès avant de continuer.",
+      "totp": {
+        "title": "Application d’authentification",
+        "enrolled": "Configurée – un code est demandé à chaque connexion.",
+        "notEnrolled": "Non configurée.",
+        "enrol": "Configurer",
+        "remove": "Supprimer",
+        "step1": "1. Saisissez cette clé dans votre application d’authentification (ou ouvrez le lien ci-dessous sur l’appareil).",
+        "step2": "2. Saisissez le code que l’application affiche maintenant.",
+        "code": "Code",
+        "confirm": "Confirmer"
+      },
+      "recovery": {
+        "title": "Codes de récupération",
+        "remaining": "{{count, number}} codes de récupération restants.",
+        "regenerate": "Générer de nouveaux codes",
+        "saveHint": "Conservez ces codes en lieu sûr. Chaque code ne fonctionne qu’une fois ; ils ne seront plus affichés.",
+        "done": "Je les ai enregistrés"
+      },
+      "passkeys": {
+        "title": "Clés d’accès",
+        "none": "Aucune clé d’accès.",
+        "add": "Ajouter une clé d’accès",
+        "label": "Désignation",
+        "labelPlaceholder": "p. ex. ordinateur de l’atelier",
+        "unnamed": "Clé d’accès",
+        "lastUsed": "Dernière utilisation {{when}}",
+        "never": "Jamais utilisée",
+        "unsupported": "Ce navigateur ne prend pas en charge les clés d’accès.",
+        "failed": "La clé d’accès n’a pas pu être ajoutée."
+      },
+      "sessions": {
+        "title": "Sessions",
+        "device": "Appareil",
+        "lastSeen": "Dernière activité",
+        "expires": "Fin",
+        "current": "Cette session",
+        "end": "Terminer"
+      }
     }
   }
 }

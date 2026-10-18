@@ -24,6 +24,7 @@ from app.platform.schemas.document_content import (
     SignatureBlock,
 )
 from app.platform.services.document_render import _compose_html, render_document
+from tests.dealership_support import valid_uid
 
 
 def _make_dealership(db_session, **overrides) -> Dealership:
@@ -33,8 +34,6 @@ def _make_dealership(db_session, **overrides) -> Dealership:
     defaults = {
         "dealer_group_id": group.id,
         "legal_name": "Garage Muster AG",
-        "dealer_license_number": "ZH-1",
-        "license_state": "ZH",
         "franchise_type": FranchiseType.INDEPENDENT,
         "address_street": "Bahnhofstrasse",
         "address_house_number": "1",
@@ -42,7 +41,7 @@ def _make_dealership(db_session, **overrides) -> Dealership:
         "address_locality": "Zürich",
         "address_canton": "ZH",
         "phone": "+41441234567",
-        "tax_id": "CHE-123.456.789",
+        "uid": valid_uid(),
     }
     defaults.update(overrides)
     dealership = Dealership(**defaults)
@@ -242,7 +241,7 @@ def test_letterhead_logo_uses_the_dealerships_own_brand_colour(db_session):
     beforehand.
     """
     zurich = _make_dealership(db_session, brand_primary_color="#7C3AED")
-    geneva = _make_dealership(db_session, dealer_license_number="GE-1", brand_primary_color="#0F766E")
+    geneva = _make_dealership(db_session, brand_primary_color="#0F766E")
 
     html_zurich = _compose_html(
         dealership=zurich, template=None, location=None,

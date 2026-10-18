@@ -4,7 +4,7 @@ import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from '../i18n'
 import { renderWithProviders } from '../test/renderWithProviders'
-import { installFakeBackend } from '../test/fakeBackend'
+import { ALL_ENTITLEMENTS, installFakeBackend } from '../test/fakeBackend'
 import type { UserRead } from '../api/types'
 import { DmsShell } from './DmsShell'
 
@@ -63,7 +63,7 @@ function renderShell(
         memberships: [
           { id: 'd-1', legalName: 'Garage Nord AG' },
           { id: 'd-2', legalName: 'Garage Süd AG' },
-        ],
+        ], entitlements: ALL_ENTITLEMENTS
       }),
     },
   ])

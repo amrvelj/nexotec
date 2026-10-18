@@ -26,6 +26,19 @@ EXEMPT = {
     "/v1/auth/logout": "deletes the session cookie; no tenant to key on, and a second logout changes nothing",
     "/v1/auth/switch-dealership": "its result is the new session cookie; switching to the same dealership again "
     "yields the same session",
+    # KAN-196 (Anto, 2026-10-17): the seven unauthenticated POSTs of the
+    # identity front door, ratified as the front door. No tenant to key on
+    # before a session exists; login, the MFA step (code or passkey) and
+    # invitation acceptance set the session cookie on `Response`; the reset
+    # request and confirm are made safe by their single-use token; the
+    # passkey options call is a read with no side effect.
+    "/v1/auth/login": "mints the session cookie; a retry with the same credentials simply signs in again",
+    "/v1/auth/mfa/verify": "mints the session cookie; the challenge is single-use, so a replay is refused anyway",
+    "/v1/auth/mfa/passkey/options": "the passkey leg of the MFA step: no side effect",
+    "/v1/auth/mfa/passkey/verify": "the passkey leg of the MFA step: mints the session cookie, challenge single-use",
+    "/v1/auth/password-reset/request": "no session, no tenant; the token issued consumes the previous one",
+    "/v1/auth/password-reset/confirm": "the reset token is single-use, so a replay is refused by construction",
+    "/v1/auth/invitations/accept": "the invitation token is single-use and the response sets the session cookie",
 }
 
 

@@ -23,7 +23,7 @@ from sqlalchemy.orm import DeclarativeBase, aliased
 from app.core.reconciliation import ReferenceCheck
 from app.platform.models.user import User
 
-ACTOR_COLUMNS = ("created_by", "updated_by")
+ACTOR_COLUMNS = ("created_by", "updated_by", "granted_by", "actor_id")
 
 # The target of every actor check is `user`, under an alias: platform's own
 # job (KAN-318) checks user.created_by -> user.id, a self-join the core
@@ -47,7 +47,7 @@ def actor_reference_checks(*models: type[DeclarativeBase]) -> list[ReferenceChec
         mapper: Any = inspect(model)
         columns = [name for name in ACTOR_COLUMNS if name in mapper.columns]
         if not columns:
-            raise ValueError(f"{model.__name__} has no created_by / updated_by column to check.")
+            raise ValueError(f"{model.__name__} has no actor column ({', '.join(ACTOR_COLUMNS)}) to check.")
         row_id = getattr(model, mapper.get_property_by_column(mapper.primary_key[0]).key)
         for name in columns:
             checks.append(

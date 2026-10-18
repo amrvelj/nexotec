@@ -3,9 +3,8 @@ import type { ApiErrorBody } from './types'
 
 // Session auth is an httpOnly cookie (issue #8) — this app never reads or
 // stores the JWT itself, so there's nothing here but `credentials: 'include'`
-// on every request. Exported: LoginPage (WP-4) needs it too, for the full
-// browser navigation to Zitadel's hosted login — that's not something this
-// module's own fetch-based `request()` can do.
+// on every request. The login itself is an ordinary POST through this client
+// (KAN-196, `/auth/login`): the cookie comes back on the response.
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000/v1'
 
 export class ApiError extends Error {
@@ -39,7 +38,7 @@ function toApiError(status: number, errorBody: ApiErrorBody | null): ApiError {
 // session ends with it: AuthProvider subscribes here and clears its user,
 // and ProtectedRoute then routes to the login screen. Clearing a session
 // that is already gone changes nothing, so the 401 that `/auth/me` answers
-// a signed-out visitor (on /login or /sign-in-error) routes nowhere and
+// a signed-out visitor (on /login or a reset/invitation screen) routes nowhere and
 // cannot loop. There is no token-refresh call to exempt: the session is one
 // httpOnly cookie, renewed only by signing in again.
 type UnauthorizedListener = () => void

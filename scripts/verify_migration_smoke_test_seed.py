@@ -40,7 +40,7 @@ from app.vehicle.models.provider import ProviderCodeMap
 from app.vehicle.models.vehicle import Vehicle, VehicleCustodyEvent
 
 _EXPECTED_ROW_COUNTS = {
-    Dealership: 1,
+    Dealership: 2,
     User: 1,
     Customer: 1,
     CustomerNumberSequence: 1,
@@ -99,7 +99,20 @@ def _verify_auto_i_dat_code_map(db) -> None:
         fail(f"auto_i_dat code map: {len(missing)} seeded mapping(s) missing or re-pointed after the upgrade, e.g. {missing[:3]}")
 
 
+def _load_smoke_seed_script():
+    """scripts/seed_migration_smoke_test.py, loaded by path (scripts/ is not a
+    package): the UID constants both scripts agree on live there."""
+
+    path = Path(__file__).with_name("seed_migration_smoke_test.py")
+    spec = importlib.util.spec_from_file_location("seed_migration_smoke_test", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def main() -> None:
+    smoke_seed = _load_smoke_seed_script()
     db = SessionLocal()
     try:
         for model, expected in _EXPECTED_ROW_COUNTS.items():
@@ -110,8 +123,18 @@ def main() -> None:
         dealership = db.scalar(select(Dealership).where(Dealership.legal_name == "Migration Smoke Test AG"))
         if dealership is None:
             fail("seeded dealership not found")
-        if dealership.tax_id != "CHE-999.999.999":
-            fail(f"dealership.tax_id round-tripped wrong: {dealership.tax_id!r}")
+        # KAN-197: the valid old tax_id was converted into the public uid; the
+        # one that fails the check digit was reported and left NULL (seeded
+        # that way on the new schema, converted that way from main's).
+        if dealership.uid != smoke_seed.SMOKE_TEST_UID:
+            fail(f"dealership.uid round-tripped wrong: {dealership.uid!r} (expected {smoke_seed.SMOKE_TEST_UID})")
+        invalid = db.scalar(
+            select(Dealership).where(Dealership.legal_name == smoke_seed.SMOKE_TEST_INVALID_UID_LEGAL_NAME)
+        )
+        if invalid is None:
+            fail("seeded invalid-UID dealership not found")
+        if invalid.uid is not None:
+            fail(f"dealership with an invalid old tax_id should have uid NULL, found {invalid.uid!r}")
 
         customer = db.scalar(select(Customer).where(Customer.customer_number == "K-000001"))
         if customer is None:

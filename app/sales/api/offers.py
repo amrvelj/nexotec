@@ -10,7 +10,7 @@ from app.core.concurrency import check_version, require_if_match
 from app.core.config import get_settings
 from app.core.idempotent_route import IdempotentRoute
 from app.core.pagination import SortPageParams, decode_sort_cursor
-from app.core.permissions import require_write
+from app.core.permissions import ModuleCode, require_entitlement, require_write
 from app.core.sorting import SortField, parse_sort
 from app.db import get_db
 from app.sales.models.offer import SalesOffer
@@ -28,7 +28,9 @@ from app.sales.services import offer as offer_service
 from app.sales.services import trade_in as trade_in_service
 from app.sales.services.priced_deal import compute_containers, vehicle_condition
 
-router = APIRouter(tags=["sales"], route_class=IdempotentRoute)
+# KAN-198 (D-A-04): the entitlement gate runs before any role check; an
+# unlicensed module is 404 for everyone (router-level, so every route).
+router = APIRouter(tags=["sales"], route_class=IdempotentRoute, dependencies=[Depends(require_entitlement(ModuleCode.SALES))])
 settings = get_settings()
 
 OFFER_SORT_FIELDS: dict[str, object] = {

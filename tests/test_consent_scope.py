@@ -9,6 +9,7 @@ import pytest
 from app.core.auth import AccessRole, create_access_token
 from app.customer.models.customer import ConsentScope
 from app.customer.public import channel_authorises_marketing
+from tests.dealership_support import valid_uid
 
 
 def _row(*, granted, scope):
@@ -45,10 +46,10 @@ def _dealer_and_token(client):
     dealer = client.post(
         "/v1/dealerships",
         json={
-            "legalName": "Consent AG", "dealerLicenseNumber": f"ZH-{uuid.uuid4().hex[:5]}", "licenseState": "ZH",
+            "legalName": "Consent AG",
             "franchiseType": "independent",
             "address": {"street": "Bahnhofstrasse", "houseNumber": "1", "postalCode": "8001", "locality": "Zürich", "canton": "ZH"},
-            "phone": "+41441234567", "taxId": "CHE-123.456.789",
+            "phone": "+41441234567", "uid": valid_uid(),
         },
         headers=_bearer(admin),
     )

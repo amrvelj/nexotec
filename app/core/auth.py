@@ -107,6 +107,13 @@ def get_jwks() -> dict:
 # can't drift on the cookie name.
 SESSION_COOKIE_NAME = "dms_session"
 
+# The module codes a Betrieb can be entitled to (D-A-04, KAN-198). The enum
+# itself is app.core.permissions.ModuleCode, which imports this module, so the
+# values are repeated here for the "every module" default of
+# create_access_token; tests/test_permission_matrix_mirrors_prd.py asserts
+# the two agree.
+_ALL_MODULE_CODES: frozenset[str] = frozenset({"sales", "aftersales", "parts", "finance", "reporting"})
+
 
 class AccessRole(str, enum.Enum):
     """Functional roles (WP-2 PR-2, Roles & Permissions RP-3). `dealer_admin`
@@ -156,6 +163,24 @@ class Principal:
     # else. app.core.permissions is where this flag actually grants write
     # access to a capability; this dataclass only carries the claim.
     is_dealer_manager: bool
+    # KAN-198 (D-A-04): the module codes the active dealership is licensed
+    # for, and the dealership's entitlements_version the token was minted
+    # against. app.core.permissions.require_entitlement is the gate; a token
+    # minted before the entitlements last changed is refused there (401) so
+    # the client signs in again. Defaults keep every Principal constructed
+    # by hand (tests) valid.
+    entitlements: frozenset[str] = frozenset()
+    entitlements_version: int = 0
+    # KAN-196 (FR-AU-17/18, D-A-36): the `session` row this token was minted
+    # for — every authenticated request is checked against it (revoked,
+    # idle, absolute end) by the platform session guard; None for a token
+    # minted without a session (tests, bootstrap). `amr` is how the user
+    # proved who they are (RFC 8176 values: "pwd", "otp", "hwk" for a
+    # passkey, "mfa" when a second factor was used); `mfa` is the
+    # convenience flag `require_mfa_session` reads.
+    session_id: uuid.UUID | None = None
+    amr: frozenset[str] = frozenset()
+    mfa: bool = False
 
 
 def create_access_token(
@@ -168,12 +193,25 @@ def create_access_token(
     memberships: frozenset[uuid.UUID] | set[uuid.UUID] | None = None,
     active_location_id: uuid.UUID | None = None,
     ttl_seconds: int | None = None,
+    entitlements: frozenset[str] | set[str] | None = None,
+    entitlements_version: int = 0,
+    session_id: uuid.UUID | None = None,
+    amr: frozenset[str] | set[str] | tuple[str, ...] = (),
+    mfa: bool = False,
+    expires_at: dt.datetime | None = None,
 ) -> str:
     now = dt.datetime.now(dt.UTC)
     ttl = ttl_seconds if ttl_seconds is not None else settings.jwt_access_token_ttl_seconds
     # Every principal can always act as their own active dealership, even
     # with no dealership_membership rows at all — the common case.
     resolved_memberships = memberships if memberships is not None else {tenant_id}
+    # KAN-198: `entitlements=None` means "every module" — a token minted
+    # without a dealership behind it (tests, bootstrap). Every production
+    # minting path passes the dealership's real set explicitly;
+    # tests/architecture/test_token_minting_passes_entitlements.py holds it to that.
+    resolved_entitlements = (
+        sorted(entitlements) if entitlements is not None else sorted(_ALL_MODULE_CODES)
+    )
     payload = {
         "sub": str(user_id),
         "tenant_id": str(tenant_id),
@@ -182,9 +220,17 @@ def create_access_token(
         "active_location_id": str(active_location_id) if active_location_id is not None else None,
         "roles": sorted(role.value for role in roles),
         "is_dealer_manager": is_dealer_manager,
+        "entitlements": resolved_entitlements,
+        "ent_v": entitlements_version,
+        # KAN-196: the session row and the authentication method. A login
+        # mints `exp` at the session's absolute end (FR-AU-19), so the cookie
+        # and the row expire together; the idle timeout is the row's.
+        "sid": str(session_id) if session_id is not None else None,
+        "amr": sorted(amr),
+        "mfa": bool(mfa),
         "iss": settings.jwt_issuer,
         "iat": int(now.timestamp()),
-        "exp": int((now + dt.timedelta(seconds=ttl)).timestamp()),
+        "exp": int((expires_at if expires_at is not None else now + dt.timedelta(seconds=ttl)).timestamp()),
     }
     return jwt.encode(payload, _PRIVATE_KEY, algorithm=_ALGORITHM, headers={"kid": _KEY_ID})
 
@@ -204,6 +250,8 @@ def _decode_token(token: str) -> dict:
                     "memberships",
                     "roles",
                     "is_dealer_manager",
+                    "entitlements",
+                    "ent_v",
                     "exp",
                     "iat",
                 ]
@@ -226,10 +274,19 @@ def get_bearer_token(
     raise UnauthorizedError("Missing or malformed Authorization header.")
 
 
+def decode_token_claims(token: str) -> dict:
+    """The verified claims of a token this process issued — for the platform
+    session guard (KAN-196), which needs `sid` before any route runs. Raises
+    UnauthorizedError like get_current_principal does."""
+
+    return _decode_token(token)
+
+
 def get_current_principal(token: str = Depends(get_bearer_token)) -> Principal:
     claims = _decode_token(token)
     try:
         active_location_id = claims.get("active_location_id")
+        session_id = claims.get("sid")
         return Principal(
             user_id=uuid.UUID(claims["sub"]),
             tenant_id=uuid.UUID(claims["tenant_id"]),
@@ -238,9 +295,29 @@ def get_current_principal(token: str = Depends(get_bearer_token)) -> Principal:
             active_location_id=uuid.UUID(active_location_id) if active_location_id else None,
             roles=frozenset(AccessRole(role) for role in claims["roles"]),
             is_dealer_manager=bool(claims["is_dealer_manager"]),
+            entitlements=frozenset(str(module) for module in claims["entitlements"]),
+            entitlements_version=int(claims["ent_v"]),
+            session_id=uuid.UUID(session_id) if session_id else None,
+            amr=frozenset(str(method) for method in claims.get("amr") or ()),
+            mfa=bool(claims.get("mfa", False)),
         )
     except (ValueError, KeyError, TypeError) as exc:
         raise UnauthorizedError("Access token claims are malformed.") from exc
+
+
+def require_mfa_session():
+    """Dependency factory (D-A-36, KAN-196): a platform staff principal may
+    call this route only from a session minted with a second factor. Dealer
+    users pass — MFA is their Betrieb's policy (D-A-09), not a gate on a
+    route. Ready for the impersonation and recovery endpoints, which come
+    later; proven on a probe route until then."""
+
+    def _check(principal: Principal = Depends(get_current_principal)) -> Principal:
+        if AccessRole.PLATFORM_ADMIN in principal.roles and not principal.mfa:
+            raise ForbiddenError("This action needs a staff session signed in with a second factor.")
+        return principal
+
+    return _check
 
 
 def require_access_role(*allowed: AccessRole):

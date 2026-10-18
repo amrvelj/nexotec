@@ -43,11 +43,6 @@ os.environ.setdefault(
     )
     .decode("ascii"),
 )
-os.environ.setdefault("DMS_ZITADEL_ISSUER", "https://example.zitadel.cloud")
-os.environ.setdefault("DMS_ZITADEL_CLIENT_ID", "demo-client-id")
-os.environ.setdefault("DMS_ZITADEL_CLIENT_SECRET", "demo-client-secret")
-os.environ.setdefault("DMS_ZITADEL_REDIRECT_URI", "http://localhost/v1/auth/oidc/callback")
-os.environ.setdefault("DMS_SESSION_SECRET_KEY", Fernet.generate_key().decode())
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
@@ -214,8 +209,6 @@ def _seed_two_dealerships_in_one_group(db: Session) -> list[Dealership]:
     zurich = Dealership(
         dealer_group_id=group.id,
         legal_name="Garage Muster AG",
-        dealer_license_number="ZH-1",
-        license_state="ZH",
         franchise_type=FranchiseType.INDEPENDENT,
         address_street="Bahnhofstrasse",
         address_house_number="1",
@@ -223,14 +216,12 @@ def _seed_two_dealerships_in_one_group(db: Session) -> list[Dealership]:
         address_locality="Zürich",
         address_canton="ZH",
         phone="+41 44 123 45 67",
-        tax_id="CHE-111.111.111",
+        uid="CHE-111.111.118",
         default_correspondence_language=SwissLanguage.DE,
     )
     geneva = Dealership(
         dealer_group_id=group.id,
         legal_name="Garage Muster Genève SA",
-        dealer_license_number="GE-1",
-        license_state="GE",
         franchise_type=FranchiseType.INDEPENDENT,
         address_street="Rue du Rhône",
         address_house_number="10",
@@ -238,7 +229,7 @@ def _seed_two_dealerships_in_one_group(db: Session) -> list[Dealership]:
         address_locality="Genève",
         address_canton="GE",
         phone="+41 22 123 45 67",
-        tax_id="CHE-222.222.222",
+        uid="CHE-222.222.225",
         brand_primary_color="#0F766E",
         default_correspondence_language=SwissLanguage.FR,
     )

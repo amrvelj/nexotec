@@ -11,12 +11,14 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import Principal
 from app.core.idempotent_route import IdempotentRoute
-from app.core.permissions import require_write
+from app.core.permissions import ModuleCode, require_entitlement, require_write
 from app.db import get_db
 from app.inventory.schemas.reservation import ReservationRead, ReserveRequest
 from app.inventory.services import reservation as reservation_service
 
-router = APIRouter(tags=["inventory"], route_class=IdempotentRoute)
+# KAN-198 (D-A-04): the entitlement gate runs before any role check; an
+# unlicensed module is 404 for everyone (router-level, so every route).
+router = APIRouter(tags=["inventory"], route_class=IdempotentRoute, dependencies=[Depends(require_entitlement(ModuleCode.SALES))])
 
 
 @router.post("/inventory/stock-items/{stock_item_id}/reservations", response_model=ReservationRead, status_code=201)
