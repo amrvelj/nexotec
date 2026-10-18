@@ -499,7 +499,7 @@
     "offersContracts": {
       "emptyState": {
         "title": "Aucune offre ni contrat",
-        "description": "Ce client n'a encore aucune offre ni contrat dans cette concession."
+        "description": "Ce client n'a encore aucune offre ni contrat dans cette entreprise."
       }
     },
     "history": {

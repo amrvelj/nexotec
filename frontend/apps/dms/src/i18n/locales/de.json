@@ -499,7 +499,7 @@
     "offersContracts": {
       "emptyState": {
         "title": "Noch keine Offerten oder Verträge",
-        "description": "Für diesen Kunden gibt es bei dieser Filiale noch keine Offerten oder Verträge."
+        "description": "Für diesen Kunden gibt es bei diesem Betrieb noch keine Offerten oder Verträge."
       }
     },
     "history": {

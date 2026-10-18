@@ -499,7 +499,7 @@
     "offersContracts": {
       "emptyState": {
         "title": "No offers or contracts yet",
-        "description": "This customer has no offers or contracts at this dealership yet."
+        "description": "This customer has no offers or contracts at this business yet."
       }
     },
     "history": {

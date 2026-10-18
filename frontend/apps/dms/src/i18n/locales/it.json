@@ -499,7 +499,7 @@
     "offersContracts": {
       "emptyState": {
         "title": "Nessuna offerta o contratto",
-        "description": "Questo cliente non ha ancora offerte o contratti presso questa concessionaria."
+        "description": "Questo cliente non ha ancora offerte o contratti presso questa azienda."
       }
     },
     "history": {
