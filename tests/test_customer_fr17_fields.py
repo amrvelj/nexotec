@@ -18,6 +18,7 @@ from app.core.validators import iban_is_valid
 from app.customer.models.customer import Customer, CustomerTag, Gender
 from app.customer.schemas.customer import CustomerCreate, CustomerEmailCreate, CustomerUpdate
 from app.customer.services.customer import create_customer, update_customer
+from tests.dealership_support import valid_uid
 
 # A real, mod-97-valid Swiss IBAN (the canonical example from the spec).
 VALID_IBAN = "CH93 0076 2011 6238 5295 7"
@@ -49,12 +50,10 @@ def _create_dealer(client) -> str:
         "/v1/dealerships",
         json={
             "legalName": "Garage Musterbetrieb AG",
-            "dealerLicenseNumber": f"ZH-{uuid.uuid4().hex[:5]}",
-            "licenseState": "ZH",
             "franchiseType": "independent",
             "address": {"street": "Bahnhofstrasse", "houseNumber": "1", "postalCode": "8001", "locality": "Zürich", "canton": "ZH"},
             "phone": "+41441234567",
-            "taxId": "CHE-123.456.789",
+            "uid": valid_uid(),
         },
         headers=_bearer(token),
     )

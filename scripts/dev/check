@@ -349,9 +349,6 @@ DMS_ENV_DEFAULTS = (
     "d('DMS_TAX_ID_ENCRYPTION_KEY', Fernet.generate_key().decode())\n"
     "d('DMS_JWT_PRIVATE_KEY', rsa.generate_private_key(public_exponent=65537, key_size=2048).private_bytes("
     "serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()).decode())\n"
-    "d('DMS_ZITADEL_ISSUER', 'https://example.zitadel.cloud'); d('DMS_ZITADEL_CLIENT_ID', 'check')\n"
-    "d('DMS_ZITADEL_CLIENT_SECRET', 'check'); d('DMS_ZITADEL_REDIRECT_URI', 'http://localhost/cb')\n"
-    "d('DMS_SESSION_SECRET_KEY', 'check-session-secret-not-used')\n"
 )
 GEN_SNIPPET = DMS_ENV_DEFAULTS + "import runpy\nrunpy.run_path('scripts/generate_openapi_schema.py', run_name='__main__')\n"
 # Imports the modules named on the command line, then prints every loaded file under app/, and

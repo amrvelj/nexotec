@@ -18,13 +18,15 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.auth import Principal
-from app.core.permissions import require_write
+from app.core.permissions import ModuleCode, require_entitlement, require_write
 from app.db import get_db
 from app.vehicle.schemas.identification import BestMatchProposalRead, IdentificationRead
 from app.vehicle.services import identification as identification_service
 from app.vehicle.services.identification import NewPriceSource
 
-router = APIRouter(tags=["configuration"])
+# KAN-198 (D-A-04): the entitlement gate runs before any role check; an
+# unlicensed module is 404 for everyone (router-level, so every route).
+router = APIRouter(tags=["configuration"], dependencies=[Depends(require_entitlement(ModuleCode.SALES))])
 
 
 @router.get("/vehicle-identification", response_model=IdentificationRead)

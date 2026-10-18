@@ -5,6 +5,7 @@ accountability).
 """
 
 import uuid
+from collections.abc import Callable
 from typing import Any
 
 from sqlalchemy import select, union
@@ -13,12 +14,16 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
 from app.core.auth import AccessRole
-from app.core.errors import BadRequestError, ConflictError, ForbiddenError, NotFoundError
+from app.core.base import utcnow
+from app.core.errors import BadRequestError, ConflictError, ForbiddenError, NotFoundError, UnprocessableEntityError
 from app.core.pagination import PageParams, build_page, paginate_query
 from app.core.tenancy import get_or_404
+from app.core.uuid7 import uuid7
+from app.platform.models.auth_event import AuthEventKind
 from app.platform.models.dealership_membership import DealershipMembership
 from app.platform.models.user import EmploymentStatus, User, UserStatus
 from app.platform.schemas.user import UserCreate, UserUpdate
+from app.platform.services import auth_events, auth_sessions, text_delegation
 
 # access_roles/is_dealer_manager are audited alongside role/status even
 # though the spec text only says "role and status" — they gate
@@ -29,6 +34,45 @@ _AUDITED_FIELDS = {"role", "access_roles", "is_dealer_manager", "status", "emplo
 _TERMINAL_EMPLOYMENT_STATUSES = {EmploymentStatus.TERMINATED}
 _TERMINAL_USER_STATUSES = {UserStatus.DEACTIVATED}
 _ACTIVE_USER_STATUSES = {UserStatus.INVITED, UserStatus.ACTIVE}
+
+
+def assert_user_is_not_deactivated(user: User) -> None:
+    """Nothing is granted to a deactivated user and no flag of theirs changes
+    (its status is terminal): a membership or delegation grant and every
+    manager-flag change — the dedicated endpoints and PATCH alike — refuse
+    with 409, like a status change on such a row. Ending a deactivated
+    user's membership stays possible: cutting access is the safe direction."""
+
+    if user.status in _TERMINAL_USER_STATUSES:
+        raise ConflictError(
+            f"User status '{user.status.value}' is terminal — this user's access can no longer be changed.",
+            details={"currentStatus": user.status.value},
+        )
+
+
+def is_active_user(user: User) -> bool:
+    return user.status in _ACTIVE_USER_STATUSES
+
+
+def assert_may_touch(*, user: User, actor_roles: frozenset[AccessRole]) -> None:
+    """KAN-97 for the sibling services: a dealer manager never touches a
+    user who holds platform_admin (403)."""
+
+    _assert_may_update(user=user, changes={}, actor_roles=actor_roles)
+
+
+def assert_not_last_manager(
+    db: Session, *, dealership_id: uuid.UUID, excluding_user_id: uuid.UUID, message: str | None = None
+) -> None:
+    _assert_not_last_manager(db, dealership_id=dealership_id, excluding_user_id=excluding_user_id, message=message)
+
+
+def membership_is_active():
+    """KAN-199: a membership counts only while it has no end date, or one
+    still in the future — an ended sister-Betrieb access keeps its row."""
+
+    now = utcnow()
+    return (DealershipMembership.valid_to.is_(None)) | (DealershipMembership.valid_to > now)
 
 
 def _plain(value: Any) -> Any:
@@ -74,6 +118,7 @@ def _assert_not_last_manager(
         .where(
             DealershipMembership.dealership_id == dealership_id,
             DealershipMembership.is_dealer_manager.is_(True),
+            membership_is_active(),
             User.id != excluding_user_id,
             User.status.in_(_ACTIVE_USER_STATUSES),
         )
@@ -98,7 +143,9 @@ def is_dealer_manager_in(db: Session, *, user: User, dealership_id: uuid.UUID) -
         return user.is_dealer_manager
     flag = db.scalar(
         select(DealershipMembership.is_dealer_manager).where(
-            DealershipMembership.user_id == user.id, DealershipMembership.dealership_id == dealership_id
+            DealershipMembership.user_id == user.id,
+            DealershipMembership.dealership_id == dealership_id,
+            membership_is_active(),
         )
     )
     return bool(flag)
@@ -118,6 +165,30 @@ def _assert_may_create_with_roles(*, roles: list[AccessRole], actor_roles: froze
         raise ForbiddenError("Only platform staff can grant the platform_admin role.")
 
 
+def _assert_credential_channel_rules(*, user: User, changes: dict[str, Any], actor_roles: frozenset[AccessRole]) -> None:
+    """KAN-196 (D-A-16): the status `invited` is where an account starts,
+    never where it returns to — otherwise a manager could re-open the
+    onboarding path (re-invite) on an active colleague. And the e-mail
+    address is the sign-in and recovery channel: while the user is
+    `invited` the manager corrects it (onboarding); once the account is
+    active, changing it is account recovery — a platform_admin's alone."""
+
+    if changes.get("status") == UserStatus.INVITED and user.status != UserStatus.INVITED:
+        raise ConflictError(
+            "An account is invited once, when it is created; it cannot return to 'invited'.",
+            details={"currentStatus": user.status.value},
+        )
+    if (
+        isinstance(changes.get("email"), str)
+        and changes["email"] != user.email
+        and user.status != UserStatus.INVITED
+        and AccessRole.PLATFORM_ADMIN not in actor_roles
+    ):
+        raise ForbiddenError(
+            "Changing an active user's e-mail address is account recovery, which platform staff handle."
+        )
+
+
 def _assert_may_update(*, user: User, changes: dict[str, Any], actor_roles: frozenset[AccessRole]) -> None:
     """KAN-97: a non-platform_admin may neither grant platform_admin nor
     touch a user who already holds it — any field, not only the roles:
@@ -132,6 +203,22 @@ def _assert_may_update(*, user: User, changes: dict[str, Any], actor_roles: froz
         raise ForbiddenError("Only platform staff can change a user who holds the platform_admin role.")
     if changes.get("access_roles") is not None:
         _assert_may_create_with_roles(roles=changes["access_roles"], actor_roles=actor_roles)
+
+
+def _assert_platform_admin_holds_no_membership(db: Session, *, user: User, changes: dict[str, Any]) -> None:
+    """KAN-199: platform_admin is Nexotec staff, never a member of a
+    dealership beyond the row that homes it today (KAN-97's open debt). A
+    user who holds an active sister-Betrieb membership cannot be given the
+    role — 422, the body is wrong for this user — and the membership service
+    refuses the mirror case."""
+
+    roles = changes.get("access_roles")
+    if roles is None or AccessRole.PLATFORM_ADMIN.value not in _role_values(roles):
+        return
+    if list_membership_dealership_ids(db, user_id=user.id):
+        raise UnprocessableEntityError(
+            "platform_admin is never a member of a dealership — end this user's memberships first."
+        )
 
 
 def get_user_or_404(db: Session, dealership_id: uuid.UUID, user_id: uuid.UUID) -> User:
@@ -190,6 +277,7 @@ def list_dealer_manager_emails(db: Session, *, dealership_id: uuid.UUID) -> list
         .where(
             DealershipMembership.dealership_id == dealership_id,
             DealershipMembership.is_dealer_manager.is_(True),
+            membership_is_active(),
             User.status == UserStatus.ACTIVE,
         )
     )
@@ -222,17 +310,24 @@ def create_user(
     actor_roles: frozenset[AccessRole],
 ) -> User:
     _assert_may_create_with_roles(roles=data.access_roles, actor_roles=actor_roles)
+    user_id = uuid7()
     user = User(
+        id=user_id,
         tenant_id=dealership_id,
         first_name=data.first_name,
         last_name=data.last_name,
-        email=data.email,
+        # KAN-196: stored lower-cased — the login resolves the address
+        # case-insensitively, and the unique index must not admit a second
+        # spelling of one mailbox.
+        email=data.email.lower(),
         phone=data.phone,
         role=data.role,
         access_roles=_role_values(data.access_roles),
         is_dealer_manager=data.is_dealer_manager,
         employment_status=data.employment_status,
-        auth_identity_id=data.auth_identity_id,
+        # KAN-196: a local-password user is resolved by e-mail; the subject
+        # column stays unique and non-null for the federation seam (D-A-11).
+        auth_identity_id=data.auth_identity_id or f"local:{user_id}",
         created_by=actor_id,
         updated_by=actor_id,
     )
@@ -241,9 +336,7 @@ def create_user(
         db.flush()
     except IntegrityError as exc:
         db.rollback()
-        raise ConflictError(
-            "A user with this email address already exists.", details={"email": data.email}
-        ) from exc
+        raise ConflictError("A user with this email address already exists.", details={"email": data.email}) from exc
 
     record_audit_event(
         db,
@@ -265,18 +358,49 @@ def create_user(
     return user
 
 
+def end_sessions(db: Session, *, user: User, reason: str, actor_id: uuid.UUID) -> int:
+    """KAN-196: ends every live session of the user and records it — a
+    status change, a change of roles, flag or membership, platform staff's
+    MFA reset. Returns how many ended."""
+
+    ended = auth_sessions.revoke_all_for_user(db, user_id=user.id, reason=reason)
+    if ended:
+        auth_events.record(
+            db,
+            AuthEventKind.SESSION_REVOKED,
+            user_id=user.id,
+            dealership_id=user.tenant_id,
+            actor_id=actor_id,
+            details={"count": ended, "reason": reason},
+        )
+    return ended
+
+
 def update_user(
-    db: Session, *, user: User, data: UserUpdate, actor_id: uuid.UUID, actor_roles: frozenset[AccessRole]
+    db: Session,
+    *,
+    user: User,
+    data: UserUpdate,
+    actor_id: uuid.UUID,
+    actor_roles: frozenset[AccessRole],
+    on_email_change: Callable[[User, str], None] | None = None,
 ) -> User:
+    """`on_email_change(user, old_email)` runs inside this transaction when
+    the address changes (KAN-196: the route hands in `identity.email_changed`,
+    so the new address, the ended tokens and sessions and the notice to the
+    old address commit together, or not at all)."""
+
     changes = data.model_dump(exclude_unset=True)
+    if isinstance(changes.get("email"), str):
+        changes["email"] = changes["email"].lower()
     _assert_may_update(user=user, changes=changes, actor_roles=actor_roles)
+    _assert_platform_admin_holds_no_membership(db, user=user, changes=changes)
+    _assert_credential_channel_rules(user=user, changes=changes, actor_roles=actor_roles)
+    old_email = user.email
 
     if "employment_status" in changes and changes["employment_status"] is not None:
         new_employment_status = changes["employment_status"]
-        if (
-            user.employment_status in _TERMINAL_EMPLOYMENT_STATUSES
-            and new_employment_status != user.employment_status
-        ):
+        if user.employment_status in _TERMINAL_EMPLOYMENT_STATUSES and new_employment_status != user.employment_status:
             raise ConflictError(
                 f"Employment status '{user.employment_status.value}' is terminal and cannot be changed.",
                 details={"currentEmploymentStatus": user.employment_status.value},
@@ -304,6 +428,14 @@ def update_user(
     # slip past this the way it could slip past a check on `changes` only.
     resulting_is_manager = changes.get("is_dealer_manager", user.is_dealer_manager)
     resulting_status = changes.get("status", user.status)
+    if resulting_is_manager != user.is_dealer_manager and resulting_status in _TERMINAL_USER_STATUSES:
+        # KAN-199: the flag never changes on a deactivated row — the row as
+        # it will be after this write, like the last-manager check below —
+        # same answer as the dedicated manager-flag endpoints.
+        raise ConflictError(
+            f"User status '{resulting_status.value}' is terminal — this user's access can no longer be changed.",
+            details={"currentStatus": user.status.value},
+        )
     was_active_manager = user.is_dealer_manager and user.status in _ACTIVE_USER_STATUSES
     will_be_active_manager = resulting_is_manager and resulting_status in _ACTIVE_USER_STATUSES
     if was_active_manager and not will_be_active_manager:
@@ -313,7 +445,9 @@ def update_user(
     if user.status in _ACTIVE_USER_STATUSES and resulting_status not in _ACTIVE_USER_STATUSES:
         for managed_dealership_id in db.scalars(
             select(DealershipMembership.dealership_id).where(
-                DealershipMembership.user_id == user.id, DealershipMembership.is_dealer_manager.is_(True)
+                DealershipMembership.user_id == user.id,
+                DealershipMembership.is_dealer_manager.is_(True),
+                membership_is_active(),
             )
         ).all():
             # No dealership id in the error: the caller administers the
@@ -354,6 +488,41 @@ def update_user(
             before=before or None,
             after=after or None,
         )
+    if "is_dealer_manager" in after:
+        # KAN-199: the manager flag is the privilege-escalation path of the
+        # product; its grant or removal is its own audit row naming the
+        # granter, the same action the dedicated manager-flag endpoint writes.
+        record_manager_flag_event(
+            db,
+            user=user,
+            dealership_id=user.tenant_id,
+            before=before["is_dealer_manager"],
+            after=after["is_dealer_manager"],
+            actor_id=actor_id,
+        )
+    if user.email != old_email and on_email_change is not None:
+        try:
+            db.flush()  # a taken address fails here, as a 409 — not inside the consequences
+        except IntegrityError as exc:
+            db.rollback()
+            raise ConflictError(
+                "A user with this email address already exists.", details={"email": changes.get("email")}
+            ) from exc
+        on_email_change(user, old_email)
+    if "status" in after and user.status == UserStatus.DEACTIVATED:
+        # FR-A-28: delegations end with deactivation — the terminal status,
+        # not a suspension, which keeps them for the user's return.
+        text_delegation.end_all(db, user=user, actor_id=actor_id, reason="deactivated")
+    if "status" in after and user.status in (UserStatus.DEACTIVATED, UserStatus.SUSPENDED):
+        # FR-AU-17 (KAN-196): a user who may no longer hold a session loses
+        # every live one now, not when the cookie expires.
+        end_sessions(db, user=user, reason=str(_plain(user.status)), actor_id=actor_id)
+    elif "access_roles" in after or "is_dealer_manager" in after:
+        # The roles and the manager flag are claims baked into the token for
+        # the session's whole day (KAN-196): a change ends the sessions, so
+        # the next sign-in carries the new set — the KAN-198 precedent for
+        # entitlements.
+        end_sessions(db, user=user, reason="access_changed", actor_id=actor_id)
 
     try:
         db.commit()
@@ -366,6 +535,31 @@ def update_user(
     return user
 
 
+def record_manager_flag_event(
+    db: Session,
+    *,
+    user: User,
+    dealership_id: uuid.UUID,
+    before: bool,
+    after: bool,
+    actor_id: uuid.UUID,
+) -> None:
+    """One `manager_flag_set` audit row per flag change (KAN-199, matrix row
+    "Granting is_dealer_manager"): the user entity, the dealership the flag
+    is held in, before/after and the granter as actor."""
+
+    record_audit_event(
+        db,
+        entity_type="user",
+        entity_id=user.id,
+        tenant_id=dealership_id,
+        action="manager_flag_set",
+        actor_id=actor_id,
+        before={"dealership_id": str(dealership_id), "is_dealer_manager": before},
+        after={"dealership_id": str(dealership_id), "is_dealer_manager": after},
+    )
+
+
 def list_membership_dealership_ids(db: Session, *, user_id: uuid.UUID) -> frozenset[uuid.UUID]:
     """Every dealership_id a dealership_membership row grants this user,
     beyond their home tenant_id (WP-3 PR-3) — the caller adds the home
@@ -373,6 +567,8 @@ def list_membership_dealership_ids(db: Session, *, user_id: uuid.UUID) -> frozen
     """
 
     rows = db.scalars(
-        select(DealershipMembership.dealership_id).where(DealershipMembership.user_id == user_id)
+        select(DealershipMembership.dealership_id).where(
+            DealershipMembership.user_id == user_id, membership_is_active()
+        )
     ).all()
     return frozenset(rows)

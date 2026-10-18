@@ -28,7 +28,10 @@ class UserCreate(CamelModel):
     access_roles: list[AccessRole] = Field(min_length=1)
     is_dealer_manager: bool = False
     employment_status: EmploymentStatus = EmploymentStatus.ACTIVE
-    auth_identity_id: str = Field(max_length=255, min_length=1)
+    # KAN-196: the subject the identity provider resolves the user by. A
+    # local-password user needs none — it is generated (`local:<user id>`);
+    # a federated one ([P3], D-A-11) carries the provider's subject.
+    auth_identity_id: str | None = Field(default=None, max_length=255, min_length=1)
 
 
 class UserUpdate(CamelModel):

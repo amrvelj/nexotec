@@ -10,7 +10,7 @@ from app.core.concurrency import check_version, require_if_match
 from app.core.config import get_settings
 from app.core.idempotent_route import IdempotentRoute
 from app.core.pagination import SortPageParams, decode_sort_cursor
-from app.core.permissions import require_write
+from app.core.permissions import ModuleCode, require_entitlement, require_write
 from app.core.sorting import SortField, parse_sort
 from app.db import get_db
 from app.sales.public import valuations_carried_by_signed_contracts
@@ -18,7 +18,9 @@ from app.valuation.models.valuation import Valuation
 from app.valuation.schemas.valuation import DeductionRead, ValuationCreate, ValuationPage, ValuationRead
 from app.valuation.services import valuation as valuation_service
 
-router = APIRouter(tags=["valuation"], route_class=IdempotentRoute)
+# KAN-198 (D-A-04): the entitlement gate runs before any role check; an
+# unlicensed module is 404 for everyone (router-level, so every route).
+router = APIRouter(tags=["valuation"], route_class=IdempotentRoute, dependencies=[Depends(require_entitlement(ModuleCode.SALES))])
 settings = get_settings()
 
 # U-03 — status is deliberately ABSENT from this allow-list: it is derived

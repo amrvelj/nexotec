@@ -182,13 +182,13 @@ def _render_logo(dealership: Dealership) -> str:
     color = dealership.brand_primary_color
     if not color or not _HEX_COLOR.match(color):
         color = _DEFAULT_BRAND_COLOR
-    name = dealership.dba_name or dealership.legal_name
+    name = dealership.trade_name or dealership.legal_name
     initial = _esc(name[:1].upper()) if name else ""
     return f'<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:{color}">{initial}</div>'
 
 
 def _letterhead_lines(dealership: Dealership) -> str:
-    name = dealership.dba_name or dealership.legal_name
+    name = dealership.trade_name or dealership.legal_name
     address = dealership.address
     return (
         f"<b>{_esc(name)}</b><br>"
@@ -206,7 +206,7 @@ def _footer_address_lines(dealership: Dealership, location: Location | None) -> 
         parts = [p for p in (name, street, locality) if p]
     else:
         address = dealership.address
-        name = dealership.dba_name or dealership.legal_name
+        name = dealership.trade_name or dealership.legal_name
         street = f"{address['street']} {address['house_number']}"
         locality = f"{address['postal_code']} {address['locality']}"
         parts = [name, street, locality]

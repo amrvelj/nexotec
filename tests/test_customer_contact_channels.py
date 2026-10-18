@@ -11,6 +11,7 @@ import uuid
 import pytest
 
 from app.core.auth import AccessRole, create_access_token
+from tests.dealership_support import valid_uid
 
 
 def _token(
@@ -37,15 +38,13 @@ def _create_dealer(client) -> str:
     token = _token(AccessRole.PLATFORM_ADMIN)
     payload = {
         "legalName": "Garage Musterbetrieb AG",
-        "dealerLicenseNumber": "ZH-12345",
-        "licenseState": "ZH",
         "franchiseType": "independent",
         "address": {
             "street": "Bahnhofstrasse", "houseNumber": "1", "postalCode": "8001",
             "locality": "Zürich", "canton": "ZH",
         },
         "phone": "+41441234567",
-        "taxId": "CHE-123.456.789",
+        "uid": valid_uid(),
     }
     response = client.post("/v1/dealerships", json=payload, headers=_bearer(token))
     assert response.status_code == 201, response.text

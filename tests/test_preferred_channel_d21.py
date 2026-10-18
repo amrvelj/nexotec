@@ -8,6 +8,7 @@ import pytest
 
 from app.customer.models.customer import PreferredChannel
 from app.customer.schemas.customer import CustomerCreate, CustomerEmailCreate, CustomerUpdate
+from tests.dealership_support import valid_uid
 
 
 def _base(**over):
@@ -57,10 +58,10 @@ def test_preferred_channel_round_trips_through_the_api(client):
     dealer = client.post(
         "/v1/dealerships",
         json={
-            "legalName": "D21 AG", "dealerLicenseNumber": f"ZH-{uuid.uuid4().hex[:5]}", "licenseState": "ZH",
+            "legalName": "D21 AG",
             "franchiseType": "independent",
             "address": {"street": "Bahnhofstrasse", "houseNumber": "1", "postalCode": "8001", "locality": "Zürich", "canton": "ZH"},
-            "phone": "+41441234567", "taxId": "CHE-123.456.789",
+            "phone": "+41441234567", "uid": valid_uid(),
         },
         headers={"Authorization": f"Bearer {admin}"},
     )

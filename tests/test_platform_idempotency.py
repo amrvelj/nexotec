@@ -15,6 +15,7 @@ from app.core.auth import AccessRole, create_access_token
 from app.platform.models.dealership import DealerGroup, Dealership
 from app.platform.models.reference_data import ReferenceList, ReferenceValue
 from app.platform.models.user import User
+from tests.dealership_support import valid_uid
 
 VALID_ADDRESS = {
     "street": "Bahnhofstrasse",
@@ -48,12 +49,10 @@ def _headers(
 def _dealership_payload(**overrides) -> dict:
     payload = {
         "legalName": "Garage Musterbetrieb AG",
-        "dealerLicenseNumber": "ZH-12345",
-        "licenseState": "ZH",
         "franchiseType": "independent",
         "address": VALID_ADDRESS,
         "phone": "+41441234567",
-        "taxId": "CHE-123.456.789",
+        "uid": valid_uid(),
     }
     payload.update(overrides)
     return payload
@@ -69,8 +68,9 @@ def _count(db_session, model, *where) -> int:
 
 def test_create_dealership_twice_under_one_key_makes_one_dealership(client, db_session):
     headers = _headers(key=str(uuid.uuid4()))
-    first = client.post("/v1/dealerships", json=_dealership_payload(), headers=headers)
-    second = client.post("/v1/dealerships", json=_dealership_payload(), headers=headers)
+    payload = _dealership_payload()  # one body: a fresh uid per call would be "another body" (409)
+    first = client.post("/v1/dealerships", json=payload, headers=headers)
+    second = client.post("/v1/dealerships", json=payload, headers=headers)
 
     assert first.status_code == 201, first.text
     assert second.status_code == 201

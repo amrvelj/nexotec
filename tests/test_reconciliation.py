@@ -27,10 +27,9 @@ from app.inventory.public import reserve_for_contract
 from app.inventory.schemas.stock_item import StockItemCreate
 from app.inventory.services.stock_item import create_stock_item
 from app.platform import reconciliation as platform_reconciliation
-from app.platform.models.dealership import DealerGroup, Dealership, Location
-from app.platform.models.document_template import DocumentTemplate
-from app.platform.models.reference_data import ReferenceList, ReferenceValue
-from app.platform.models.user import User
+from app.platform.models.dealership import Dealership
+from app.platform.reconciliation import ACTOR_TABLES
+from app.platform.services.actor_reference import ACTOR_COLUMNS
 from app.reconciliation_runner import MultiContextReconciliationAlarm, run_all
 from app.sales import reconciliation as sales_reconciliation
 from app.sales.models.contract import ContractStatus, SalesContract
@@ -52,6 +51,7 @@ from app.vehicle.models.vehicle import CustodyEventType, VehicleCustodyEvent
 from app.vehicle.schemas.configuration import ConfigurationCreate
 from app.vehicle.services.configuration import create_configuration
 from tests.configuration_test_support import MANUAL_CODED, seed_manual_coded_lists
+from tests.dealership_support import valid_uid
 
 VALID_ADDRESS = {
     "street": "Bahnhofstrasse",
@@ -98,12 +98,10 @@ def _create_dealer(client) -> str:
     token = _token(AccessRole.PLATFORM_ADMIN)
     payload = {
         "legalName": "Garage Musterbetrieb AG",
-        "dealerLicenseNumber": "ZH-12345",
-        "licenseState": "ZH",
         "franchiseType": "independent",
         "address": VALID_ADDRESS,
         "phone": "+41441234567",
-        "taxId": "CHE-123.456.789",
+        "uid": valid_uid(),
     }
     response = client.post("/v1/dealerships", json=payload, headers=_bearer(token))
     assert response.status_code == 201, response.text
@@ -136,9 +134,6 @@ def _real_actor(client, dealer_id: str) -> uuid.UUID:
     return uuid.UUID(_create_user(client, dealer_id)["id"])
 
 
-_PLATFORM_ACTOR_TABLES = (DealerGroup, Dealership, Location, User, ReferenceList, ReferenceValue, DocumentTemplate)
-
-
 def _make_platform_actors_real(db_session, user_id: uuid.UUID) -> None:
     """KAN-318 — platform's own actor columns are reconciled too. The
     platform_admin tokens this file mints carry a random subject (there is
@@ -148,8 +143,12 @@ def _make_platform_actors_real(db_session, user_id: uuid.UUID) -> None:
     row. Stamping a real user gives the test data the shape production
     data has, before a test runs the platform job."""
 
-    for model in _PLATFORM_ACTOR_TABLES:
-        for column in (model.created_by, model.updated_by):
+    for model in ACTOR_TABLES:
+        # Every actor column the platform job checks (KAN-196 added
+        # auth_event.actor_id: creating a user through the API records the
+        # invitation with the token's subject as its actor).
+        columns = [getattr(model, name) for name in ACTOR_COLUMNS if hasattr(model, name)]
+        for column in columns:
             db_session.execute(update(model).where(column.is_not(None)).values({column.key: user_id}))
     db_session.commit()
 
@@ -817,12 +816,10 @@ def _sister_dealer(client, dealer_id: str) -> str:
     token = _token(AccessRole.PLATFORM_ADMIN)
     payload = {
         "legalName": "Garage Schwesterbetrieb AG",
-        "dealerLicenseNumber": "ZH-54321",
-        "licenseState": "ZH",
         "franchiseType": "independent",
         "address": VALID_ADDRESS,
         "phone": "+41441234568",
-        "taxId": "CHE-123.456.788",
+        "uid": valid_uid(),
         "dealerGroupId": _REAL_GROUP_IDS[dealer_id],
     }
     response = client.post("/v1/dealerships", json=payload, headers=_bearer(token))
@@ -1012,6 +1009,23 @@ def test_no_hard_delete_endpoint_exists_for_fk_target_entities(client):
     # The only DELETE endpoints that do exist are for genuine child rows
     # that were never a target of any of the nine dropped FKs.
     assert delete_paths == {
+        # KAN-199: both end a grant (`valid_to`), never delete a row — a
+        # removed sister-Betrieb access keeps its record (Anto, 2026-10-17).
+        "/v1/dealerships/{dealership_id}/users/{user_id}/memberships/{member_dealership_id}",
+        "/v1/dealerships/{dealership_id}/users/{user_id}/text-delegations",
+        # KAN-196: sessions are revoked (`revoked_at`), never deleted — the
+        # user's own and platform staff's revoke-all (D-A-16). The second
+        # factors are real deletes of the user's own secret material (a TOTP
+        # secret, a passkey public key, the recovery-code hashes); removing a
+        # confirmed factor leaves an `mfa_removed` auth event naming the actor
+        # (FR-AU-12); on the user's own TOTP route an enrolment begun and
+        # abandoned was never a factor and goes quietly, platform staff's reset
+        # always records what it deleted.
+        "/v1/auth/sessions/{session_id}",
+        "/v1/auth/mfa/totp",
+        "/v1/auth/mfa/passkeys/{passkey_id}",
+        "/v1/dealerships/{dealership_id}/users/{user_id}/sessions",
+        "/v1/dealerships/{dealership_id}/users/{user_id}/mfa",
         "/v1/customers/{customer_id}/phones/{phone_id}",
         "/v1/customers/{customer_id}/emails/{email_id}",
         "/v1/customers/{customer_id}/addresses/{address_id}",

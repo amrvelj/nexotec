@@ -22,6 +22,7 @@ from app.core.outbox_model import OutboxMessage
 from app.customer.models.customer import Customer, CustomerType, Language
 from app.customer.reconciliation import StampCategory, find_cross_group_vehicle_party_closes
 from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
+from tests.dealership_support import valid_uid
 
 _POSTGRES_ONLY = pytest.mark.skipif(
     not os.environ.get("DMS_TEST_DATABASE_URL"), reason="READ ONLY transactions need Postgres (ADR-011)"
@@ -37,10 +38,10 @@ def _group(db_session, name: str) -> DealerGroup:
 
 def _dealership(db_session, group: DealerGroup, license_number: str) -> Dealership:
     dealership = Dealership(
-        dealer_group_id=group.id, legal_name=f"Garage {license_number}", dealer_license_number=license_number,
-        license_state="ZH", franchise_type=FranchiseType.INDEPENDENT, address_street="Bahnhofstrasse",
+        dealer_group_id=group.id, legal_name=f"Garage {license_number}",
+        franchise_type=FranchiseType.INDEPENDENT, address_street="Bahnhofstrasse",
         address_house_number="1", address_postal_code="8001", address_locality="Zürich", address_canton="ZH",
-        phone="+41441234567", tax_id=f"CHE-{license_number}.789",
+        phone="+41441234567", uid=valid_uid(),
     )
     db_session.add(dealership)
     db_session.flush()

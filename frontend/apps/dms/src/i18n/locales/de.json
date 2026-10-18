@@ -35,7 +35,8 @@
       "notificationsSoon": "Benachrichtigungen (bald)",
       "accountMenu": "Kontomenü",
       "language": "Sprache",
-      "switchDealership": "Betrieb wechseln"
+      "switchDealership": "Betrieb wechseln",
+      "accountSecurity": "Mein Konto – Sicherheit"
     },
     "globalSearch": {
       "placeholder": "Suchen…",
@@ -596,14 +597,6 @@
       "vehiclePartyBusy": "Ein Fahrzeug dieses Kunden wird gerade geändert. Senden Sie die Zusammenführung erneut.",
       "staleVersion": "Dieser Kunde wurde inzwischen geändert. Laden Sie die Seite neu und versuchen Sie es erneut."
     }
-  },
-  "signInError": {
-    "title": "Anmeldung fehlgeschlagen",
-    "message": "Die Anmeldung ist fehlgeschlagen. Bitte versuchen Sie es erneut oder wenden Sie sich an Ihren Administrator.",
-    "retry": "Erneut versuchen"
-  },
-  "login": {
-    "redirecting": "Weiterleitung zur Anmeldung…"
   },
   "mappingGaps": {
     "title": "Zuordnungslücken",
@@ -1894,6 +1887,100 @@
       "valid": "Gültig",
       "expired": "Abgelaufen",
       "used": "Verwendet"
+    }
+  },
+  "auth": {
+    "login": {
+      "title": "Anmelden",
+      "subtitle": "Mit Ihrer E-Mail-Adresse und Ihrem Passwort.",
+      "email": "E-Mail-Adresse",
+      "password": "Passwort",
+      "submit": "Anmelden",
+      "forgotPassword": "Passwort vergessen?",
+      "failed": "E-Mail-Adresse oder Passwort ist ungültig.",
+      "mfaTitle": "Zweiter Faktor",
+      "mfaHint": "Bestätigen Sie die Anmeldung mit Ihrer Authenticator-App, einem Wiederherstellungscode oder einem Passkey.",
+      "code": "Code aus der Authenticator-App",
+      "recoveryCode": "Wiederherstellungscode",
+      "verify": "Bestätigen",
+      "codeInvalid": "Der Code ist ungültig.",
+      "useRecoveryCode": "Wiederherstellungscode verwenden",
+      "useAuthenticator": "Authenticator-App verwenden",
+      "usePasskey": "Mit Passkey anmelden",
+      "passkeyFailed": "Der Passkey konnte nicht geprüft werden.",
+      "backToLogin": "Zurück zur Anmeldung",
+      "stepExpired": "Dieser Anmeldeschritt ist abgelaufen – beginnen Sie die Anmeldung neu."
+    },
+    "reset": {
+      "title": "Passwort zurücksetzen",
+      "hint": "Geben Sie Ihre E-Mail-Adresse ein. Wenn ein Konto besteht, erhalten Sie einen Link.",
+      "email": "E-Mail-Adresse",
+      "submit": "Link senden",
+      "sent": "Wenn zu dieser Adresse ein Konto besteht, haben wir einen Link zum Zurücksetzen gesendet. Er ist eine Stunde gültig.",
+      "confirmTitle": "Neues Passwort setzen",
+      "newPassword": "Neues Passwort",
+      "confirmSubmit": "Passwort setzen",
+      "done": "Ihr Passwort wurde gesetzt. Alle anderen Sitzungen wurden beendet – melden Sie sich neu an.",
+      "invalidLink": "Dieser Link ist nicht mehr gültig. Fordern Sie einen neuen an.",
+      "backToLogin": "Zur Anmeldung"
+    },
+    "invitation": {
+      "title": "Willkommen bei Nexotec",
+      "hint": "Setzen Sie Ihr Passwort, um Ihr Konto zu aktivieren.",
+      "newPassword": "Passwort",
+      "submit": "Konto aktivieren",
+      "invalidLink": "Diese Einladung ist nicht mehr gültig. Bitten Sie Ihren Betrieb um eine neue.",
+      "mfaNext": "Ihr Passwort ist gesetzt. Melden Sie sich jetzt mit Ihrem zweiten Faktor an."
+    },
+    "password": {
+      "rules": "Mindestens 12 Zeichen. Nicht Ihr Name, Ihre E-Mail-Adresse oder der Name Ihres Betriebs.",
+      "minLength": "Das Passwort muss mindestens {{count, number}} Zeichen haben.",
+      "denyList": "Das Passwort darf weder Ihren Namen noch Ihre E-Mail-Adresse noch den Namen Ihres Betriebs enthalten.",
+      "breached": "Dieses Passwort ist aus einem bekannten Datenleck – wählen Sie ein anderes.",
+      "reused": "Dieses Passwort wurde kürzlich verwendet – wählen Sie ein neues."
+    },
+    "security": {
+      "breadcrumb": "Mein Konto",
+      "title": "Sicherheit",
+      "enrolmentRequired": "Ihr Betrieb verlangt einen zweiten Faktor. Richten Sie eine Authenticator-App oder einen Passkey ein, bevor Sie weiterarbeiten.",
+      "totp": {
+        "title": "Authenticator-App",
+        "enrolled": "Eingerichtet – bei jeder Anmeldung wird ein Code verlangt.",
+        "notEnrolled": "Nicht eingerichtet.",
+        "enrol": "Einrichten",
+        "remove": "Entfernen",
+        "step1": "1. Geben Sie diesen Schlüssel in Ihre Authenticator-App ein (oder öffnen Sie den Link darunter auf dem Gerät).",
+        "step2": "2. Geben Sie den Code ein, den die App jetzt anzeigt.",
+        "code": "Code",
+        "confirm": "Bestätigen"
+      },
+      "recovery": {
+        "title": "Wiederherstellungscodes",
+        "remaining": "{{count, number}} Wiederherstellungscodes übrig.",
+        "regenerate": "Neue Codes erzeugen",
+        "saveHint": "Bewahren Sie diese Codes sicher auf. Jeder Code gilt einmal; sie werden nicht noch einmal angezeigt.",
+        "done": "Ich habe sie gespeichert"
+      },
+      "passkeys": {
+        "title": "Passkeys",
+        "none": "Keine Passkeys.",
+        "add": "Passkey hinzufügen",
+        "label": "Bezeichnung",
+        "labelPlaceholder": "z. B. Laptop Werkstatt",
+        "unnamed": "Passkey",
+        "lastUsed": "Zuletzt verwendet {{when}}",
+        "never": "Noch nie verwendet",
+        "unsupported": "Dieser Browser unterstützt keine Passkeys.",
+        "failed": "Der Passkey konnte nicht hinzugefügt werden."
+      },
+      "sessions": {
+        "title": "Sitzungen",
+        "device": "Gerät",
+        "lastSeen": "Zuletzt aktiv",
+        "expires": "Endet",
+        "current": "Diese Sitzung",
+        "end": "Beenden"
+      }
     }
   }
 }

@@ -26,6 +26,7 @@ import { UiPreferencesProvider, useUiPreferencesContext } from '../hooks/UiPrefe
 import { api, ApiError } from '../api/client'
 import { customerName } from '../utils/customer'
 import type { CustomerPage, VehicleSearchResult } from '../api/types'
+import { filterNavGroupsByEntitlements } from './navEntitlements'
 
 // Translated at render time (not a module-level constant) — labels must
 // re-render when the user switches UI language via the top bar.
@@ -237,14 +238,14 @@ export function DmsShell({ children }: { children: ReactNode }) {
 }
 
 function DmsShellInner({ children }: { children: ReactNode }) {
-  const { user, activeDealership, memberships, logout, switchDealership } = useAuth()
+  const { user, activeDealership, memberships, entitlements, logout, switchDealership } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const { t, i18n } = useTranslation()
   const { sidebarCollapsed, uiLanguage, setSidebarCollapsed, setUiLanguage } = useUiPreferencesContext()
   const [switchError, setSwitchError] = useState<string | null>(null)
 
-  const navGroups = buildNavGroups(t)
+  const navGroups = filterNavGroupsByEntitlements(buildNavGroups(t), entitlements)
 
   // The sidebar matches `item.href` exactly. Most nav routes are a single
   // segment (`/customers`, `/stock`), but a couple are two
@@ -286,6 +287,7 @@ function DmsShellInner({ children }: { children: ReactNode }) {
         onSignOut: () => {
           logout().then(() => navigate('/login'))
         },
+        onAccountSecurity: () => navigate('/account/security'),
         labels: {
           mainNavigation: t('shell.sidebar.mainNavigation'),
           expandSidebar: t('shell.sidebar.expandSidebar'),
@@ -297,6 +299,7 @@ function DmsShellInner({ children }: { children: ReactNode }) {
           language: t('shell.sidebar.language'),
           switchDealership: t('shell.sidebar.switchDealership'),
           signOut: t('shell.signOut'),
+          accountSecurity: t('shell.sidebar.accountSecurity'),
         },
         activeDealership: activeDealership ?? undefined,
         memberships,

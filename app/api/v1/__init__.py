@@ -16,6 +16,7 @@ from app.inventory.api.pricing import router as inventory_pricing_router
 from app.inventory.api.publishing import router as inventory_publishing_router
 from app.inventory.api.reservations import router as inventory_reservations_router
 from app.inventory.api.stock_items import router as stock_items_router
+from app.platform.api.auth import account_router as auth_account_router
 from app.platform.api.auth import router as auth_router
 from app.platform.api.dealer_groups import router as dealer_groups_router
 from app.platform.api.dealerships import router as dealerships_router
@@ -72,3 +73,4 @@ api_v1_router.include_router(integration_connections_router)
 api_v1_router.include_router(integration_call_payloads_router)
 api_v1_router.include_router(auth_router)
 api_v1_router.include_router(user_preferences_router)
+api_v1_router.include_router(auth_account_router)

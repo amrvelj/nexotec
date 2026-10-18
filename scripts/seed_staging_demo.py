@@ -2,30 +2,31 @@
 so there's a login to hand a non-technical stakeholder directly. No
 self-serve signup exists (or should exist) for a demo environment.
 Idempotent — safe to run on every deploy: creates the demo dealership/user
-once, and on every later run reconciles the existing user's
-auth_identity_id against whatever DMS_SEED_DEMO_AUTH_IDENTITY_ID currently
-holds. That reconciliation matters in practice — correcting a wrong value
-in the Zitadel `sub` env var (a typo, or the placeholder used before the
-real demo account existed) must not require a manual DB fix to take
-effect on the next deploy.
+once, and on every later run reconciles the demo user's password against
+whatever DMS_SEED_DEMO_PASSWORD currently holds. That reconciliation matters
+in practice — rotating the demo password must not require a manual DB fix
+to take effect on the next deploy.
 
 render.yaml's startCommand runs this automatically on every deploy (piped
-through `|| true` so a missing DMS_SEED_DEMO_AUTH_IDENTITY_ID never blocks
-app startup — Render's free tier has no Shell to run this by hand, see the
+through `|| true` so a missing DMS_SEED_DEMO_PASSWORD never blocks app
+startup — Render's free tier has no Shell to run this by hand, see the
 render.yaml header comment). It exits 1 with no side effects if that var
-isn't set yet; once it is, the next deploy actually seeds.
+isn't set, or if the password fails the platform policy (FR-AU-04…06: at
+least 12 characters, not the user's or the Betrieb's name); once it is
+right, the next deploy actually seeds.
 
-WP-4 (Zitadel replaces the interim password store): there is no local
-password to hand out anymore. DMS_SEED_DEMO_AUTH_IDENTITY_ID must be the
-real Zitadel `sub` for a demo account pre-provisioned once, by hand, in the
-Zitadel console — this script only maps that already-real external
-identity to a Nexotec User, the same manual bootstrap every real user
-goes through (see app.platform.models.user::User.auth_identity_id's own
-docstring). It cannot provision the Zitadel side itself.
+KAN-196 (D-A-07: Nexotec owns authentication): the demo account is a local
+password user like every other, with one exception — the demo Betrieb's
+auth config is created with MFA **not** enforced, because a shared demo
+account cannot carry a stakeholder's authenticator. The demo manager may
+switch it on in Dealer Administration; this seed never switches it back.
+Nobody else ever sets a password for a user (FR-AU-10); the seed is the
+environment's bootstrap, not a user, and writes the credential directly
+through the same policy-checked service.
 
 Can also be run directly, e.g. against local dev for testing:
 
-    DMS_SEED_DEMO_AUTH_IDENTITY_ID='<a-real-or-throwaway-sub-for-this-run>' \\
+    DMS_SEED_DEMO_PASSWORD='<a-throwaway-password-for-this-run>' \\
         python scripts/seed_staging_demo.py
 """
 
@@ -37,16 +38,26 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.auth import AccessRole
+from app.core.errors import BadRequestError, UnprocessableEntityError
+from app.core.permissions import ModuleCode
 from app.db import SessionLocal
+from app.platform.models.auth_event import AuthEventKind
+from app.platform.models.credential import Credential
 from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
-from app.platform.models.user import User, UserRole
+from app.platform.models.dealership_auth_config import DealershipAuthConfig
+from app.platform.models.user import User, UserRole, UserStatus
 from app.platform.schemas.dealership import DealershipAddress, DealershipCreate
 from app.platform.schemas.user import UserCreate, UserUpdate
 from app.platform.services import dealership as dealership_service
+from app.platform.services import entitlement as entitlement_service
+from app.platform.services import identity, password_hashing
 from app.platform.services import user as user_service
+from app.platform.services.password_policy import validate_new_password
 
 DEMO_LEGAL_NAME = "Demo Garage AG"
 DEMO_EMAIL = "demo@nexotec-staging.example"
+DEMO_FIRST_NAME = "Demo"
+DEMO_LAST_NAME = "Admin"
 
 _ACTOR_COLUMNS = ("created_by", "updated_by")
 
@@ -65,9 +76,7 @@ def _stamp_actor(db: Session, *, actor: User, rows: tuple[DealerGroup, Dealershi
     later edit — is left alone; so is null, which names nobody on purpose
     (app.platform.services.actor_reference). Returns what changed."""
 
-    named = {
-        value for row in rows for column in _ACTOR_COLUMNS if (value := getattr(row, column)) is not None
-    }
+    named = {value for row in rows for column in _ACTOR_COLUMNS if (value := getattr(row, column)) is not None}
     existing = set(db.scalars(select(User.id).where(User.id.in_(named))).all()) if named else set()
     changed: list[str] = []
     for row in rows:
@@ -81,10 +90,33 @@ def _stamp_actor(db: Session, *, actor: User, rows: tuple[DealerGroup, Dealershi
     return changed
 
 
+def _policy_refusal(password: str) -> str | None:
+    """The platform password policy, checked before anything is written so a
+    refused password leaves no half-seeded environment behind."""
+
+    try:
+        validate_new_password(
+            password,
+            dealership_names=(DEMO_LEGAL_NAME,),
+            first_name=DEMO_FIRST_NAME,
+            last_name=DEMO_LAST_NAME,
+            email=DEMO_EMAIL,
+        )
+    except UnprocessableEntityError as exc:
+        return exc.message
+    return None
+
+
 def main() -> None:
-    auth_identity_id = os.environ.get("DMS_SEED_DEMO_AUTH_IDENTITY_ID")
-    if not auth_identity_id:
-        print("DMS_SEED_DEMO_AUTH_IDENTITY_ID is required — the demo account's real Zitadel sub.")
+    password = os.environ.get("DMS_SEED_DEMO_PASSWORD")
+    if not password:
+        print(
+            "DMS_SEED_DEMO_PASSWORD is required — the demo account's password (never printed, never stored in clear)."
+        )
+        sys.exit(1)
+    refusal = _policy_refusal(password)
+    if refusal is not None:
+        print(f"DMS_SEED_DEMO_PASSWORD fails the password policy: {refusal}")
         sys.exit(1)
 
     db = SessionLocal()
@@ -105,8 +137,6 @@ def main() -> None:
                 db,
                 data=DealershipCreate(
                     legal_name=DEMO_LEGAL_NAME,
-                    dealer_license_number="DEMO-0001",
-                    license_state="ZH",
                     franchise_type=FranchiseType.INDEPENDENT,
                     address=DealershipAddress(
                         street="Bahnhofstrasse",
@@ -116,7 +146,7 @@ def main() -> None:
                         canton="ZH",
                     ),
                     phone="+41441234567",
-                    tax_id="CHE-000.000.000",
+                    uid="CHE-000.000.000",
                 ),
                 actor_id=seed_actor_id,
             )
@@ -124,42 +154,75 @@ def main() -> None:
         else:
             print(f"Demo dealership already exists (id={dealership.id}).")
 
-        user = db.scalar(
-            select(User).where(User.tenant_id == dealership.id, User.email == DEMO_EMAIL)
-        )
+        # KAN-196: the demo Betrieb starts with MFA not enforced (see the
+        # module docstring). Only when no auth config exists yet — a later
+        # choice by the demo manager is theirs.
+        if db.scalar(select(DealershipAuthConfig).where(DealershipAuthConfig.dealership_id == dealership.id)) is None:
+            db.add(DealershipAuthConfig(dealership_id=dealership.id, mfa_enforced=False))
+            db.commit()
+            print("Created the demo dealership's auth config with MFA not enforced.")
+
+        user = db.scalar(select(User).where(User.tenant_id == dealership.id, User.email == DEMO_EMAIL))
         if user is None:
             user = user_service.create_user(
                 db,
                 dealership_id=dealership.id,
                 data=UserCreate(
-                    first_name="Demo",
-                    last_name="Admin",
+                    first_name=DEMO_FIRST_NAME,
+                    last_name=DEMO_LAST_NAME,
                     email=DEMO_EMAIL,
                     role=UserRole.GM,
                     access_roles=[AccessRole.SALES],
                     is_dealer_manager=True,
-                    auth_identity_id=auth_identity_id,
                 ),
                 actor_id=seed_actor_id,
                 actor_roles=seed_actor_roles,
             )
-            print(f"Created demo user {DEMO_EMAIL} with auth_identity_id={auth_identity_id}.")
-        elif user.auth_identity_id != auth_identity_id:
-            # The env var is the source of truth. A stale mapping here isn't
-            # a hypothetical — it's exactly what happens if this script's
-            # first successful run ever used a placeholder/wrong sub before
-            # the real Zitadel demo account existed, and would otherwise
-            # require a manual DB fix to correct on every later redeploy.
-            user_service.update_user(
+            # No invitation is mailed for the demo account (there is nobody to
+            # mail); the seed activates it in the invitation's place.
+            user = user_service.update_user(
                 db,
                 user=user,
-                data=UserUpdate(auth_identity_id=auth_identity_id),
+                data=UserUpdate(status=UserStatus.ACTIVE),
                 actor_id=seed_actor_id,
                 actor_roles=seed_actor_roles,
             )
-            print(f"Updated demo user {DEMO_EMAIL}'s auth_identity_id to {auth_identity_id}.")
+            print(f"Created demo user {DEMO_EMAIL}.")
         else:
-            print(f"Demo user {DEMO_EMAIL} already mapped to auth_identity_id={auth_identity_id} — nothing to do.")
+            print(f"Demo user {DEMO_EMAIL} already exists.")
+
+        credential = db.scalar(select(Credential).where(Credential.user_id == user.id))
+        if credential is not None and password_hashing.verify_password(credential.password_hash, password):
+            print(f"Demo user {DEMO_EMAIL}'s password already matches DMS_SEED_DEMO_PASSWORD — nothing to do.")
+        else:
+            # The env var is the source of truth: a rotated demo password takes
+            # effect on the next deploy. The same policy-checked path a user's
+            # own reset takes; the last five passwords are refused like theirs.
+            try:
+                identity.set_password(
+                    db,
+                    user=user,
+                    password=password,
+                    actor_id=user.id,
+                    ip_address="",
+                    event=AuthEventKind.PASSWORD_SET,
+                )
+            except BadRequestError as exc:
+                db.rollback()
+                print(f"DMS_SEED_DEMO_PASSWORD was not applied: {exc.message}")
+                sys.exit(1)
+            db.commit()
+            print(f"Set demo user {DEMO_EMAIL}'s password from DMS_SEED_DEMO_PASSWORD.")
+
+        # KAN-198 (D-A-04): a new Betrieb starts unlicensed; the demo one
+        # holds every module so nothing disappears on a fresh environment
+        # (the migration backfill only reaches dealerships that already
+        # exist). Granted once the demo manager exists, as that manager —
+        # `granted_by` names a real user (KAN-318). Idempotent: an
+        # already-licensed Betrieb is left alone.
+        if not entitlement_service.list_active_modules(db, dealership.id):
+            entitlement_service.set_entitlements(db, dealership=dealership, modules=set(ModuleCode), actor_id=user.id)
+            print(f"Licensed demo dealership for every module: {sorted(m.value for m in ModuleCode)}.")
 
         group = db.get(DealerGroup, dealership.dealer_group_id)
         assert group is not None, "create_dealership always creates or names a dealer group"
@@ -167,7 +230,7 @@ def main() -> None:
         if stamped:
             print(f"Stamped {DEMO_EMAIL} (id={user.id}) as the actor on {', '.join(stamped)}.")
 
-        print(f"Sign in via Zitadel as {DEMO_EMAIL} using the pre-provisioned demo account.")
+        print(f"Sign in as {DEMO_EMAIL} with the password in DMS_SEED_DEMO_PASSWORD.")
     finally:
         db.close()
 

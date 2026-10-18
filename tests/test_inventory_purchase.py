@@ -15,6 +15,7 @@ from app.inventory.services.pipeline import promote_to_vehicle_mdm
 from app.inventory.services.purchase import override_notional_input_tax, record_purchase
 from app.inventory.services.stock_item import create_stock_item
 from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
+from tests.dealership_support import valid_uid
 
 
 def _make_dealership(db_session, *, vat_rate: Decimal | None = Decimal("8.10")) -> Dealership:
@@ -25,8 +26,6 @@ def _make_dealership(db_session, *, vat_rate: Decimal | None = Decimal("8.10")) 
         id=uuid.uuid4(),
         dealer_group_id=group.id,
         legal_name="Garage AG",
-        dealer_license_number="ZH-1",
-        license_state="ZH",
         franchise_type=FranchiseType.INDEPENDENT,
         address_street="Bahnhofstrasse",
         address_house_number="1",
@@ -34,7 +33,7 @@ def _make_dealership(db_session, *, vat_rate: Decimal | None = Decimal("8.10")) 
         address_locality="Zürich",
         address_canton="ZH",
         phone="+41441234567",
-        tax_id="CHE-123.456.789",
+        uid=valid_uid(),
         vat_rate=vat_rate,
     )
     db_session.add(dealership)
