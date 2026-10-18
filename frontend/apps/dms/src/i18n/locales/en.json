@@ -889,6 +889,9 @@
       "createContract": "Create contract",
       "leftStock": "This vehicle left stock on {{date}} (sold)."
     },
+    "headline": {
+      "listPriceCaption": "List price – selling price not built yet"
+    },
     "spec": {
       "firstRegistrationDate": "First registration",
       "odometerKm": "Odometer",

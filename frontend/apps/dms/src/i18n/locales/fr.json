@@ -889,6 +889,9 @@
       "createContract": "Créer un contrat",
       "leftStock": "Ce véhicule a quitté le stock le {{date}} (vendu)."
     },
+    "headline": {
+      "listPriceCaption": "Prix catalogue – prix de vente pas encore établi"
+    },
     "spec": {
       "firstRegistrationDate": "1re mise en circulation",
       "odometerKm": "Kilométrage",

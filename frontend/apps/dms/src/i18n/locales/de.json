@@ -889,6 +889,9 @@
       "createContract": "Vertrag erstellen",
       "leftStock": "Dieses Fahrzeug hat den Bestand am {{date}} verlassen (verkauft)."
     },
+    "headline": {
+      "listPriceCaption": "Listenpreis – Verkaufspreis noch nicht aufgebaut"
+    },
     "spec": {
       "firstRegistrationDate": "Erstzulassung",
       "odometerKm": "Kilometerstand",

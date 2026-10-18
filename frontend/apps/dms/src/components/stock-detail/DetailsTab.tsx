@@ -40,11 +40,20 @@ export function DetailsTab({ item, locale, onSaveField, onReload, onRecordPurcha
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ fontSize: 28, fontWeight: 700 }}>
-        {item.effectivePrice != null ? formatCurrencyChf(Number(item.effectivePrice)) : t('common.notSet')}
+        {/* KAN-359 (Anto, option A): until a selling price is built, the
+            headline is the list price, captioned as such, never "not set". */}
+        {item.effectivePrice != null
+          ? formatCurrencyChf(Number(item.effectivePrice))
+          : item.listPrice != null
+            ? formatCurrencyChf(Number(item.listPrice))
+            : t('common.notSet')}
         {item.listPrice != null && item.effectivePrice != null && item.listPrice !== item.effectivePrice && (
           <span style={{ marginLeft: 10, fontSize: 16, color: slate[4], textDecoration: 'line-through' }}>
             {formatCurrencyChf(Number(item.listPrice))}
           </span>
+        )}
+        {item.effectivePrice == null && item.listPrice != null && (
+          <div style={{ fontSize: 13, fontWeight: 400, color: slate[5] }}>{t('stockDetail.headline.listPriceCaption')}</div>
         )}
       </div>
 
