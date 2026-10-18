@@ -200,6 +200,20 @@ interface ValueContext {
 // Fields that hold an ISO country code from the `country` reference list.
 const COUNTRY_KEYS = new Set(['nationality', 'addressCountry'])
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+// KAN-371: the keys whose values reference another record — the ones the
+// History endpoint names (`history_labels`). Any other key ending in `Id` is
+// data (`externalId` is another system's own identifier) and is shown as
+// recorded, UUID-shaped or not.
+const REFERENCE_KEYS = new Set([
+  'dealershipId',
+  'advisorId',
+  'customerId',
+  'mergedIntoCustomerId',
+  'duplicateOfCustomerId',
+  'vehicleId',
+  'earlierMergesRepointedIds',
+  'vehiclePartiesKeptClosedIds',
+])
 
 function formatValue(
   entityType: string,
@@ -211,7 +225,7 @@ function formatValue(
   if (typeof v === 'boolean') return v ? t('common.yes') : t('common.no')
   // KAN-371: a list of ids (the customers or party rows a merge moved) reads
   // as their names, an id nothing names as the translated marker.
-  if (Array.isArray(v) && /Ids$/.test(camelKey(key)) && v.every((item) => typeof item === 'string')) {
+  if (Array.isArray(v) && REFERENCE_KEYS.has(camelKey(key)) && v.every((item) => typeof item === 'string')) {
     if (v.length === 0) return '—'
     return v.map((item: string) => idLabels[item] ?? (UUID.test(item) ? t('customerDetail.history.unknownReference') : item)).join(', ')
   }
@@ -223,7 +237,7 @@ function formatValue(
     if (/Id$/.test(camelKey(key)) && idLabels[v] !== undefined) return idLabels[v]
     // KAN-371: an id nothing names (another group's record, one since deleted)
     // reads as a translated marker, never as a bare UUID.
-    if (/Id$/.test(camelKey(key)) && UUID.test(v)) return t('customerDetail.history.unknownReference')
+    if (REFERENCE_KEYS.has(camelKey(key)) && UUID.test(v)) return t('customerDetail.history.unknownReference')
     // A country code renders its name in the UI language, as on the Overview.
     if (COUNTRY_KEYS.has(camelKey(key)) && countryLabels[v] !== undefined) return countryLabels[v]
     const label = enumLabel(key, v, t, exists)

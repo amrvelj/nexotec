@@ -286,3 +286,14 @@ describe('HistoryTab — id lists, the merged-into customer, a replaced advisor 
     }
   })
 })
+
+describe('HistoryTab — an id that is data, not a reference (KAN-371)', () => {
+  it('shows a UUID-shaped external ID as recorded, never as an unknown record, in fr', async () => {
+    await i18n.changeLanguage('fr')
+    const EXTERNAL = '5f0c2b1e-9a7d-4c3e-8b21-0d4e6f7a8b9c'
+    renderHistory([event({ action: 'external_id_add', before: null, after: { externalId: EXTERNAL } })])
+
+    expect(screen.getByText(new RegExp(`— → ${EXTERNAL}`))).toBeInTheDocument()
+    expect(screen.queryByText(/enregistrement inconnu/)).not.toBeInTheDocument()
+  })
+})

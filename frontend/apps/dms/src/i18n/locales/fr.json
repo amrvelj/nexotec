@@ -553,7 +553,7 @@
         "creditBlockReason": "Motif du blocage de crédit",
         "vehiclePartiesRepointed": "Liens véhicule transférés",
         "vehiclePartiesKeptClosed": "Liens véhicule conservés clôturés",
-        "vehiclePartiesKeptClosedIds": "Liens véhicule conservés clôturés (ID)",
+        "vehiclePartiesKeptClosedIds": "Liens véhicule conservés clôturés (véhicules)",
         "earlierMergesRepointedIds": "Fusions antérieures redirigées",
         "transactionsRepointed": "Transactions transférées",
         "phonesRepointed": "Numéros de téléphone transférés",

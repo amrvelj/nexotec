@@ -90,7 +90,7 @@ describe('DetailsTab — date-only fields keep their day west of Greenwich (KAN-
 // captioned as such, and the selling price once one is built.
 describe('DetailsTab — the headline before a selling price is built (KAN-359)', () => {
   function renderItem(item: StockItemRead) {
-    render(
+    return render(
       <MantineProvider theme={theme} env="test">
         <DetailsTab item={item} locale="fr-CH" onSaveField={vi.fn()} onReload={vi.fn()} onRecordPurchase={vi.fn()} />
       </MantineProvider>,
@@ -109,8 +109,12 @@ describe('DetailsTab — the headline before a selling price is built (KAN-359)'
 
   it('shows the selling price without the caption once one is built', async () => {
     await i18n.changeLanguage('fr')
-    renderItem(ITEM)
+    const { container } = renderItem(ITEM)
 
     expect(screen.queryByText(i18n.t('stockDetail.headline.listPriceCaption'))).toBeNull()
+    // The headline leads with the built selling price; the list price
+    // follows it struck through.
+    const headline = container.querySelector('div > div') as HTMLElement
+    expect(headline.textContent?.startsWith("CHF 41'900.50")).toBe(true)
   })
 })

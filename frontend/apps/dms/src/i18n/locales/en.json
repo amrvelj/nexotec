@@ -553,7 +553,7 @@
         "creditBlockReason": "Credit block reason",
         "vehiclePartiesRepointed": "Vehicle links moved",
         "vehiclePartiesKeptClosed": "Vehicle links kept closed",
-        "vehiclePartiesKeptClosedIds": "Vehicle links kept closed (IDs)",
+        "vehiclePartiesKeptClosedIds": "Vehicle links kept closed (vehicles)",
         "earlierMergesRepointedIds": "Earlier merges re-pointed",
         "transactionsRepointed": "Transactions moved",
         "phonesRepointed": "Phone numbers moved",

@@ -233,9 +233,11 @@ NormalisedVin = Annotated[Vin, BeforeValidator(_normalise_vin)]
 # can carry a chassis number that is not a 17-character VIN (ISO 3779 dates
 # from 1981). The VIN field of a valuation and of a configuration accepts one
 # — 1 to 17 letters and digits, I, O and Q included — only together with a
-# first registration before this date; it is stored and printed as entered
-# and never finds, creates or links a vehicle-mdm record (ADR-045: one VIN,
-# one car). Every other value is a VIN and keeps the strict rule.
+# first registration before this date. It is normalised as a VIN is
+# (upper-cased, whitespace removed; other punctuation is refused), stored and
+# printed that way, and never finds, creates or links a vehicle-mdm record
+# (ADR-045: one VIN, one car). Every other value is a VIN and keeps the
+# strict rule.
 PRE_ISO_VIN_CUTOFF = dt.date(1981, 1, 1)
 _CHASSIS_NUMBER_RE = re.compile(r"^[A-Z0-9]{1,17}$")
 

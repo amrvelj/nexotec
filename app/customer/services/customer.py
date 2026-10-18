@@ -1149,13 +1149,17 @@ def _repoint_earlier_merges(
     Read after the merge holds D's row FOR NO KEY UPDATE (KAN-372): a merge
     X→D still in flight holds D FOR SHARE, so this merge waits for it to
     commit and then finds X here — the race order KAN-372 could not refuse
-    ends with X naming T as well. The X rows are locked in id order, then
-    those party copies: the one place a merge locks customer and party rows
-    outside "advisory → customer rows → party rows" for its own pairs. No
-    writer that waits on this merge holds them: allocation, a reopen and a
-    merge into or of X refuse a merged customer before they lock anything of
-    X's; a credit-block change on X takes only X's row, and waits for nothing
-    this merge holds."""
+    ends with X naming T as well. The X rows are locked in id order, after
+    the merge's own party rows: the one place a merge locks a customer row
+    outside "advisory → customer rows → party rows". No writer holding an X
+    row waits on this merge: allocation, a reopen and a merge into or of X
+    refuse a merged customer (a reopen of a kept copy locks that copy first,
+    but after its advisory lock, and waits for nothing after it); a
+    credit-block change on X takes only X's row. The copies are only tried,
+    never waited for: the nightly label refresh locks party rows in id order
+    and could hold a copy while it waits for one of D's rows, so a copy held
+    by another writer refuses the merge (409 `merge_vehicle_party_busy`,
+    nothing written), which can simply be sent again."""
 
     earlier = list(
         db.scalars(
@@ -1166,15 +1170,21 @@ def _repoint_earlier_merges(
             .execution_options(populate_existing=True)
         ).all()
     )
-    kept_copies = list(
-        db.scalars(
-            select(VehicleParty)
-            .join(Customer, Customer.id == VehicleParty.customer_id)
-            .where(VehicleParty.merged_into_customer_id == duplicate_id, Customer.group_id == group_id)
-            .order_by(VehicleParty.id)
-            .with_for_update(of=VehicleParty)
-        ).all()
+    copies_naming_d = (
+        select(VehicleParty)
+        .join(Customer, Customer.id == VehicleParty.customer_id)
+        .where(VehicleParty.merged_into_customer_id == duplicate_id, Customer.group_id == group_id)
+        .order_by(VehicleParty.id)
     )
+    # A merge into D is what writes such a copy, and it needs D's row, which
+    # this merge holds: the set cannot grow between these two reads.
+    copy_count = len(db.scalars(copies_naming_d.with_only_columns(VehicleParty.id)).all())
+    kept_copies = list(db.scalars(copies_naming_d.with_for_update(of=VehicleParty, skip_locked=True)).all())
+    if len(kept_copies) < copy_count:
+        raise ConflictError(
+            "A vehicle of this customer is being changed right now; send the merge again.",
+            details={"reason": "merge_vehicle_party_busy"},
+        )
     for copy in kept_copies:
         copy.merged_into_customer_id = target_id
     for merged in earlier:

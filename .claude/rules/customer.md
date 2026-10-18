@@ -170,10 +170,11 @@ weekly. -->
   (`earlierMergesRepointedIds`). The KAN-177 copies whose `merged_into_customer_id` names D are
   re-pointed to T too. It reads them after holding D's row, so a merge X→D that held D first has
   committed and X is found — "merged into" always names a live customer, after sequential
-  merges and after the race alike. It locks those merged rows, then the copies, after its own
-  party rows; nothing that waits on the merge holds them (allocation, a reopen and a merge into
-  or of X refuse a merged customer before locking anything of X's; a credit-block change takes
-  only X's row). No event is published: X's rows moved to D with its own merge and move on with
+  merges and after the race alike. It locks those merged rows after its own party rows; no writer
+  holding one waits on the merge (allocation, a reopen and a merge into or of X refuse a merged
+  customer; a credit-block change takes only X's row). The copies are only tried, never waited
+  for — the nightly label refresh locks party rows in id order and could hold one while it waits
+  for D's — so a copy another writer holds refuses the merge, 409 `merge_vehicle_party_busy`. No event is published: X's rows moved to D with its own merge and move on with
   D's. Chains written before KAN-383 are not repaired.
 - **A party row carries the vehicle's label, never a join** (KAN-84, rule 2):
   `vehicle_vin`, `vehicle_number`, `vehicle_make`, `vehicle_model`, `vehicle_model_year`,

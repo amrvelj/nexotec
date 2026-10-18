@@ -553,7 +553,7 @@
         "creditBlockReason": "Grund der Kreditsperre",
         "vehiclePartiesRepointed": "Fahrzeugverknüpfungen übertragen",
         "vehiclePartiesKeptClosed": "Fahrzeugverknüpfungen geschlossen behalten",
-        "vehiclePartiesKeptClosedIds": "Fahrzeugverknüpfungen geschlossen behalten (IDs)",
+        "vehiclePartiesKeptClosedIds": "Fahrzeugverknüpfungen geschlossen behalten (Fahrzeuge)",
         "earlierMergesRepointedIds": "Frühere Zusammenführungen umgeleitet",
         "transactionsRepointed": "Transaktionen übertragen",
         "phonesRepointed": "Telefonnummern übertragen",

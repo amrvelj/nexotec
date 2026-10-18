@@ -288,4 +288,3 @@ def update_dealership(
     db.commit()
     db.refresh(dealership)
     return dealership
-

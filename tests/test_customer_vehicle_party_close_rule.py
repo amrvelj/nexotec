@@ -1238,3 +1238,72 @@ def test_merging_d_into_t_repoints_the_copies_an_earlier_merge_kept(db_session):
 
     db_session.expire_all()
     assert db_session.get(VehicleParty, kept_id).merged_into_customer_id == t_id
+
+
+def test_a_merge_never_waits_for_a_kept_copy_another_writer_holds(engine, db_session):
+    """KAN-383: the copies an earlier merge kept are locked after D's own
+    party rows, out of the id order the nightly label refresh takes, so
+    waiting for one could deadlock. A copy another writer holds refuses the
+    merge with a 409 and writes nothing; sent again, it goes through."""
+
+    _postgres_only(engine)
+    group_id = uuid.uuid4()
+    car = _vehicle(db_session, "WVWZZZ1KZAW383005")
+    x, d, t = (_customer(db_session, group_id, name) for name in ("Xaver", "Dora", "Tina"))
+    start = utcnow() - dt.timedelta(days=30)
+    kept = VehicleParty(vehicle_id=car.id, customer_id=x.id, role=OWNER, effective_from=start)
+    db_session.add_all([kept, VehicleParty(vehicle_id=car.id, customer_id=d.id, role=OWNER, effective_from=start)])
+    db_session.commit()
+    x_id, d_id, t_id, kept_id = x.id, d.id, t.id, kept.id
+    _merge(db_session, x_id, d_id, group_id)
+    factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+    holder = factory()
+    holder.execute(select(VehicleParty).where(VehicleParty.id == kept_id).with_for_update()).all()
+    try:
+        with factory() as session:
+            # A regression that waited for the copy would block on `holder`;
+            # fail within seconds instead of hanging the run.
+            session.execute(text("SET LOCAL lock_timeout = '5s'"))
+            loaded = customer_service.get_customer_or_404(session, group_id, d_id)
+            with pytest.raises(ConflictError) as refused:
+                customer_service.merge_customer(
+                    session, customer=loaded, duplicate_of_customer_id=t_id, actor_id=uuid.uuid4()
+                )
+            session.rollback()
+    finally:
+        holder.rollback()
+        holder.close()
+
+    assert refused.value.details["reason"] == "merge_vehicle_party_busy"
+    db_session.expire_all()
+    assert db_session.get(Customer, d_id).duplicate_of_customer_id is None
+    assert db_session.get(VehicleParty, kept_id).merged_into_customer_id == d_id
+
+    _merge(db_session, d_id, t_id, group_id)
+    db_session.expire_all()
+    assert db_session.get(VehicleParty, kept_id).merged_into_customer_id == t_id
+    assert db_session.get(Customer, x_id).duplicate_of_customer_id == t_id
+
+
+def test_the_history_names_a_kept_copy_by_its_vehicle_within_the_group(db_session):
+    """KAN-371: a merge's `vehiclePartiesKeptClosedIds` lists party rows; the
+    History names each by its vehicle, from the row's own label (KAN-84).
+    Another group's row with the same shape is never named."""
+
+    from types import SimpleNamespace
+
+    group_id, other_group_id = uuid.uuid4(), uuid.uuid4()
+    car = _vehicle(db_session, "WVWZZZ1KZAW383006")
+    ours, theirs = _customer(db_session, group_id, "Xaver"), _customer(db_session, other_group_id, "Fritz")
+    label = {"vehicle_make": "VW", "vehicle_model": "Golf", "vehicle_model_year": 1975}
+    own_copy = VehicleParty(vehicle_id=car.id, customer_id=ours.id, role=OWNER, effective_from=utcnow(), **label)
+    their_copy = VehicleParty(vehicle_id=car.id, customer_id=theirs.id, role=OWNER, effective_from=utcnow(), **label)
+    db_session.add_all([own_copy, their_copy])
+    db_session.commit()
+    event = SimpleNamespace(
+        actor_id=None, before=None, after={"vehiclePartiesKeptClosedIds": [str(own_copy.id), str(their_copy.id)]}
+    )
+
+    labels = customer_service.history_labels(db_session, group_id=group_id, dealership_id=uuid.uuid4(), events=[event])
+
+    assert labels == {str(own_copy.id): "VW Golf (1975)"}
