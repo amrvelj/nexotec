@@ -781,8 +781,8 @@ def test_a_passkey_holder_gets_the_passkey_step_and_a_bad_assertion_is_refused(c
     db_session.commit()
     # The password-only session never proved the passkey and has ended (the
     # guard). A session that did is stood in for by a session ROW carrying
-    # the factor and a token naming it — a passkey ceremony cannot run here,
-    # but the guard and the removal below see a real row.
+    # the factor and a token naming it (the real ceremony has its own test
+    # below), so the guard and the removal below see a real row.
     assert client.get("/v1/auth/mfa", headers=cookie_headers(cookie)).status_code == 401
     from app.platform.services import auth_sessions
 
@@ -1230,7 +1230,10 @@ def _sign_in_through_the_library(client, login, anna: dict, private_key, credent
             "userHandle": None,
         },
     }
-    return client.post("/v1/auth/mfa/passkey/verify", json={"challengeId": first["challengeId"], "credential": answer})
+    payload = {"challengeId": first["challengeId"], "credential": answer}
+    response = client.post("/v1/auth/mfa/passkey/verify", json=payload)
+    response.replay = lambda: client.post("/v1/auth/mfa/passkey/verify", json=payload)  # type: ignore[attr-defined]
+    return response
 
 
 def test_a_real_passkey_ceremony_registers_and_signs_in(client, login, db_session):
@@ -1261,6 +1264,8 @@ def test_a_real_passkey_ceremony_registers_and_signs_in(client, login, db_sessio
     db_session.expire_all()
     assert stored.sign_count == 7 and stored.last_used_at is not None
     assert _events(db_session, AuthEventKind.MFA_FAILED) == []
+    replayed = signed_in.replay()  # the same signed answer on the spent challenge
+    assert replayed.status_code == 401 and replayed.json()["error"]["details"] == {"step": "expired"}, replayed.text
 
     stale = _sign_in_through_the_library(client, login, anna, private_key, credential_id, sign_count=7)
     assert stale.status_code == 401, stale.text
@@ -1269,22 +1274,39 @@ def test_a_real_passkey_ceremony_registers_and_signs_in(client, login, db_sessio
 
 def test_a_key_that_can_never_verify_a_signature_is_refused_at_registration(client, login, db_session):
     """Through the real library: a `none` attestation accepts any key that
-    decodes, so a 1024-bit RSA key with PS512 (its digest does not fit — a 500
-    at every sign-in, twelfth review), an EC2 key with an RSA algorithm or an
-    RSA key with ECDSA (never verifiable — a wrong answer at every sign-in)
-    are refused with 422; a 2048-bit RS256 key registers."""
+    decodes, so a key the sign-in step could never use would be stored as a
+    factor (twelfth and thirteenth reviews): an RSA key under the 2048-bit
+    floor, an EC2 key with an RSA algorithm, an RSA key with ECDSA, an even
+    RSA modulus, an RSA exponent past 64 bits, an Ed25519 encoding that is not
+    a curve point — all 422; a 2048-bit RS256 key registers. A credential id
+    past the spec's 1023 bytes is refused the same way."""
 
     from cryptography.hazmat.primitives.asymmetric import ec, rsa
 
     dealership = create_dealership(client, mfa_enforced=True)
     anna = create_user(client, dealership)
     cookie = login.session_cookie(anna)
-    small_rsa = rsa.generate_private_key(public_exponent=65537, key_size=1024)  # PS512 needs 1040 bits
+    from webauthn.helpers import encode_cbor
+
+    small_rsa = rsa.generate_private_key(public_exponent=65537, key_size=1024)
     big_rsa = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     p256 = ec.generate_private_key(ec.SECP256R1())
-    for cose_key in (_cose_rsa(small_rsa, alg=-39), _cose_ec2(p256, alg=-257), _cose_rsa(big_rsa, alg=-7)):
+    big = big_rsa.public_key().public_numbers()
+    even_modulus = encode_cbor({1: 3, 3: -257, -1: (big.n - 1).to_bytes(256, "big"), -2: b"\x01\x00\x01"})
+    huge_exponent = encode_cbor({1: 3, 3: -257, -1: big.n.to_bytes(256, "big"), -2: (2**64 + 1).to_bytes(9, "big")})
+    not_a_point = encode_cbor({1: 1, 3: -8, -1: 6, -2: (2).to_bytes(32, "little")})
+    for cose_key in (
+        _cose_rsa(small_rsa, alg=-39),
+        _cose_ec2(p256, alg=-257),
+        _cose_rsa(big_rsa, alg=-7),
+        even_modulus,
+        huge_exponent,
+        not_a_point,
+    ):
         refused = _register_through_the_library(client, cookie, b"key-" + uuid.uuid4().bytes, cose_key)
         assert refused.status_code == 422, refused.text
+    too_long = _register_through_the_library(client, cookie, bytes(1024), _cose_ec2(p256))
+    assert too_long.status_code == 422, too_long.text
     assert db_session.scalars(select(MfaPasskey)).all() == []
     accepted = _register_through_the_library(client, cookie, b"key-" + uuid.uuid4().bytes, _cose_rsa(big_rsa, alg=-257))
     assert accepted.status_code == 201, accepted.text

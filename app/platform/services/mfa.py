@@ -385,9 +385,17 @@ def _well_formed_attestation(response: dict) -> bool:
     )
 
 
-# The smallest RSA modulus that fits every PSS digest the library accepts
-# (PS512 needs 2 * 64 + 2 bytes) and the floor every authenticator meets.
+# The policy floor for an RSA passkey (NIST SP 800-131A; every RSA
+# authenticator uses 2048): well above the ~528 bits under which cryptography
+# refuses a PSS digest with a ValueError the library does not catch.
 RSA_MIN_BITS = 2048
+# OpenSSL's ceilings: a modulus past OPENSSL_RSA_MAX_MODULUS_BITS, an even
+# modulus, or a public exponent past 64 bits never verifies.
+RSA_MAX_BITS = 16384
+RSA_MAX_EXPONENT_BITS = 64
+# A credential id is at most 1023 bytes (WebAuthn L2 §5.8.3); the column holds
+# exactly that, base64url.
+CREDENTIAL_ID_MAX_BYTES = 1023
 _EC2_ALGS = {COSEAlgorithmIdentifier.ECDSA_SHA_256, COSEAlgorithmIdentifier.ECDSA_SHA_512}
 _RSA_ALGS = {
     COSEAlgorithmIdentifier.RSASSA_PKCS1_v1_5_SHA_256,
@@ -412,10 +420,38 @@ def _key_can_sign_in(key: object, alg: int) -> bool:
     if isinstance(key, EllipticCurvePublicKey):
         return algorithm in _EC2_ALGS
     if isinstance(key, RSAPublicKey):
-        return algorithm in _RSA_ALGS and key.key_size >= RSA_MIN_BITS
+        numbers = key.public_numbers()
+        return (
+            algorithm in _RSA_ALGS
+            and RSA_MIN_BITS <= key.key_size <= RSA_MAX_BITS
+            and numbers.n % 2 == 1
+            and numbers.e.bit_length() <= RSA_MAX_EXPONENT_BITS
+        )
     if isinstance(key, Ed25519PublicKey):
-        return algorithm == COSEAlgorithmIdentifier.EDDSA
+        return algorithm == COSEAlgorithmIdentifier.EDDSA and _is_ed25519_point(key.public_bytes_raw())
     return False
+
+
+_ED25519_P = 2**255 - 19
+_ED25519_D = (-121665 * pow(121666, -1, _ED25519_P)) % _ED25519_P
+
+
+def _is_ed25519_point(encoded: bytes) -> bool:
+    """Whether the 32 bytes decode to a point on the curve. `from_public_bytes`
+    accepts any 32 bytes; a y with no matching x (y = 2, say) only fails inside
+    the verify, so a key like that would register and never sign in. This is
+    the decompression step of RFC 8032 §5.1.3 as a yes/no — no crypto is done."""
+
+    y = int.from_bytes(encoded, "little") & ((1 << 255) - 1)
+    if y >= _ED25519_P:
+        return False
+    y2 = y * y % _ED25519_P
+    u = (y2 - 1) % _ED25519_P
+    v = (_ED25519_D * y2 + 1) % _ED25519_P
+    x2 = u * pow(v, -1, _ED25519_P) % _ED25519_P
+    if x2 == 0:
+        return not (encoded[31] >> 7)  # x = 0 exists only with the sign bit clear
+    return pow(x2, (_ED25519_P - 1) // 2, _ED25519_P) == 1
 
 
 def register_passkey(
@@ -451,6 +487,8 @@ def register_passkey(
     except (WebAuthnException, ValueError, TypeError) as exc:
         raise refusal from exc
     if not _key_can_sign_in(key, decoded.alg):
+        raise refusal
+    if len(verified.credential_id) > CREDENTIAL_ID_MAX_BYTES:
         raise refusal
     transports = credential["response"].get("transports")
     known = {transport.value for transport in AuthenticatorTransport}
