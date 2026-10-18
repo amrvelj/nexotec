@@ -1014,10 +1014,12 @@ def test_no_hard_delete_endpoint_exists_for_fk_target_entities(client):
         "/v1/dealerships/{dealership_id}/users/{user_id}/memberships/{member_dealership_id}",
         "/v1/dealerships/{dealership_id}/users/{user_id}/text-delegations",
         # KAN-196: sessions are revoked (`revoked_at`), never deleted — the
-        # user's own and a manager's revoke-all. The second factors are real
-        # deletes of the user's own secret material (a TOTP secret, a passkey
-        # public key, the recovery-code hashes); every removal leaves an
-        # `mfa_removed` auth event naming the actor (FR-AU-12).
+        # user's own and platform staff's revoke-all (D-A-16). The second
+        # factors are real deletes of the user's own secret material (a TOTP
+        # secret, a passkey public key, the recovery-code hashes); removing a
+        # confirmed factor leaves an `mfa_removed` auth event naming the actor
+        # (FR-AU-12); an enrolment begun and abandoned was never a factor and
+        # goes quietly.
         "/v1/auth/sessions/{session_id}",
         "/v1/auth/mfa/totp",
         "/v1/auth/mfa/passkeys/{passkey_id}",

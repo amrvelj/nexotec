@@ -222,8 +222,9 @@ One shared template layer (`app/platform/models/document_template.py`). WeasyPri
   from the **session row**: confirming a factor (TOTP confirm, passkey registration) records it
   on the row's `amr`, so the session that enrolled is free at once; the token's own `mfa` claim
   stays as minted until the next sign-in or dealership switch, which re-mint it from the row (the
-  account routes are idempotent routes and cannot re-issue the cookie). Removing a factor that was
-  never confirmed changes no session and writes no `mfa_removed`. The MFA step allows five answers per challenge (a guarded counter on the
+  account routes are idempotent routes and cannot re-issue the cookie). A user removing their own
+  never-confirmed enrolment changes no session and writes no `mfa_removed` (staff's reset above
+  always writes it). The MFA step allows five answers per challenge (a guarded counter on the
   `auth_token` row); **every wrong answer counts on the account axis** like a wrong password, the
   password step does not clear that counter (only a completed login does) and the MFA step
   honours the account lock and backoff — so starting fresh challenges buys nothing. A challenge

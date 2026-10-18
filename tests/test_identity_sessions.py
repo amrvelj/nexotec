@@ -206,10 +206,10 @@ def test_platform_staff_end_every_session_of_a_user(client, login, db_session):
     assert client.get("/v1/auth/me", headers=cookie_headers(two)).status_code == 401
     assert client.get("/v1/auth/me", headers=cookie_headers(managers)).status_code == 200
     events = db_session.scalars(select(AuthEvent).where(AuthEvent.kind == AuthEventKind.SESSION_REVOKED)).all()
-    (event,) = [e for e in events if e.details["reason"] == "manager"]
+    (event,) = [e for e in events if e.details["reason"] == "platform_staff"]
     assert str(event.user_id) == beat["id"]
     assert event.actor_id == staff_id
-    assert event.details == {"count": 2, "reason": "manager"}
+    assert event.details == {"count": 2, "reason": "platform_staff"}
     # Another tenant's user: 404, never 403.
     other = create_dealership(client)
     assert client.delete(f"/v1/dealerships/{other}/users/{beat['id']}/sessions", headers=platform_admin_headers()).status_code == 404

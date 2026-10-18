@@ -635,7 +635,6 @@ def test_a_session_that_never_proved_a_factor_ends_once_the_user_holds_one(clien
     assert len(revoked) == 1 and str(revoked[0].user_id) == anna["id"]
 
 
-
 def test_removing_a_factor_the_user_never_held_touches_no_other_session(client, login, db_session):
     """DELETE /auth/mfa/totp with nothing confirmed removes no factor — so it
     must neither sign the user's other devices out nor write a removal that
@@ -704,6 +703,7 @@ def test_the_guard_re_reads_the_row_before_ending_the_session_that_is_confirming
     assert response.status_code == 200, response.text
     assert [e for e in _events(db_session, AuthEventKind.SESSION_REVOKED) if e.details["reason"] == "factor_enrolled"] == []
     assert client.get("/v1/auth/me", headers=cookie_headers(cookie)).json()["mfaEnrolmentRequired"] is False
+
 
 # --- passkeys ------------------------------------------------------------------------------
 

@@ -1,9 +1,9 @@
 """Second factors (D-A-09, D-A-36, A-13, FR-AU-11/12, KAN-196): TOTP with
 `pyotp`, ten hashed single-use recovery codes, passkeys with the `webauthn`
-library (resident credentials). A factor counts once confirmed. A manager
-removing another user's factors is a `mfa_removed` auth event with the actor
-named — the `security` notification the user sees (D-A-40) hangs off that
-stream."""
+library (resident credentials). A factor counts once confirmed. Platform
+staff removing another user's factors (D-A-16) is a `mfa_removed` auth event
+with the actor named — the `security` notification the user sees (D-A-40)
+hangs off that stream."""
 
 import dataclasses
 import hashlib
@@ -240,8 +240,9 @@ def _drop_recovery_codes_if_no_factor(db: Session, user: User) -> None:
 
 
 def remove_all_factors(db: Session, *, user: User, actor_id: uuid.UUID, ip_address: str) -> None:
-    """A manager's or platform staff's reset (FR-AU-12, FR-AU-25): every
-    factor and recovery code goes; the event names the actor."""
+    """Platform staff's reset (D-A-16, FR-AU-12, FR-AU-25): every factor and
+    recovery code goes, an unconfirmed enrolment included; the event names
+    the actor."""
 
     removed = []
     totp = totp_of(db, user.id)

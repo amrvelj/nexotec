@@ -44,8 +44,9 @@ class AuthEventKind(str, enum.Enum):
     CREDENTIAL_REHASHED = "credential_rehashed"
     BREACH_CHECK_UNAVAILABLE = "breach_check_unavailable"
     MAIL_DELIVERY_FAILED = "mail_delivery_failed"
-    # The address a user signs in and recovers with was changed by a manager
-    # or staff: the old address is told, tokens and sessions end (KAN-196).
+    # The address a user signs in and recovers with was changed (a manager
+    # while the user is invited, platform staff afterwards): the old address
+    # is told, tokens and sessions end (KAN-196).
     EMAIL_CHANGED = "email_changed"
 
 
@@ -59,8 +60,8 @@ class AuthEvent(PrimaryKeyMixin, Base):
     # the address exists either; the attempt is what it says).
     user_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True, index=True)
     dealership_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True, index=True)
-    # Who did it when it was not the user themselves (a manager removing a
-    # factor, platform staff re-issuing an invitation). An actor column.
+    # Who did it when it was not the user themselves (platform staff removing
+    # a factor or re-issuing an invitation, a manager suspending). An actor column.
     actor_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True)
     ip_address: Mapped[str] = mapped_column(String(45), nullable=False, default="")
     occurred_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False, index=True)

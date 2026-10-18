@@ -488,7 +488,7 @@ def revoke_user_sessions(
     require_tenant_match(dealership_id, principal)
     user = user_service.get_user_or_404(db, dealership_id, user_id)
     user_service.assert_may_touch(user=user, actor_roles=principal.roles)
-    ended = auth_sessions.revoke_all_for_user(db, user_id=user.id, reason="manager")
+    ended = auth_sessions.revoke_all_for_user(db, user_id=user.id, reason="platform_staff")
     auth_events.record(
         db,
         auth_events.AuthEventKind.SESSION_REVOKED,
@@ -496,7 +496,7 @@ def revoke_user_sessions(
         dealership_id=user.tenant_id,
         actor_id=principal.user_id,
         ip_address=client_ip(request),
-        details={"count": ended, "reason": "manager"},
+        details={"count": ended, "reason": "platform_staff"},
     )
     db.commit()
 

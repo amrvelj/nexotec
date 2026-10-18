@@ -4,7 +4,8 @@ login — the local revocation check (no live call to an identity provider)
 refuses a request whose row is revoked, idle beyond `idle_expires_at` or past
 `absolute_expires_at` (Anto, 2026-10-17: two hours idle, absolute at the next
 midnight Europe/Zurich). A user sees and revokes their own rows in My
-account; a manager revokes a user's; deactivation revokes them all.
+account; platform staff revoke a user's (D-A-16); deactivation, suspension
+and a change of roles or memberships revoke them all.
 """
 
 import datetime as dt
