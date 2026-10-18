@@ -571,6 +571,11 @@
       "confirm": "Verknüpfen",
       "error": "Das Fahrzeug konnte nicht verknüpft werden."
     },
+    "linkVehicleRefused": {
+      "customerMerged": "Dieser Kunde wurde mit einem anderen zusammengeführt. Verknüpfen Sie das Fahrzeug mit dem Kunden, in den er zusammengeführt wurde.",
+      "roleAlreadyHeld": "Dieser Kunde hat diese Rolle für dieses Fahrzeug ab diesem Datum bereits.",
+      "notFound": "Das Fahrzeug oder der Kunde existiert nicht mehr. Laden Sie die Seite neu und suchen Sie erneut."
+    },
     "merge": {
       "title": "Doppelten Kunden zusammenführen",
       "intro": "Suchen Sie den Kunden, mit dem <name/> zusammengeführt werden soll. Jener Datensatz bleibt bestehen, dieser wird als zusammengeführt markiert.",

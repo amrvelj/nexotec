@@ -571,6 +571,11 @@
       "confirm": "Link",
       "error": "The vehicle could not be linked."
     },
+    "linkVehicleRefused": {
+      "customerMerged": "This customer has been merged into another. Link the vehicle to the customer it was merged into.",
+      "roleAlreadyHeld": "This customer already holds this role on this vehicle from this date.",
+      "notFound": "The vehicle or the customer no longer exists. Reload the page and search again."
+    },
     "merge": {
       "title": "Merge duplicate customer",
       "intro": "Search for the customer that <name/> should be merged into. That record survives; this one is marked merged.",

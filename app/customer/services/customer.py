@@ -2671,7 +2671,12 @@ def create_customer_vehicle(
         db.rollback()
         raise ConflictError(
             "This customer already has this role on this vehicle as of this date.",
-            details={"vehicleId": str(vehicle.id), "role": data.role.value, "effectiveFrom": effective_from.isoformat()},
+            details={
+                "reason": "vehicle_party_exists",
+                "vehicleId": str(vehicle.id),
+                "role": data.role.value,
+                "effectiveFrom": effective_from.isoformat(),
+            },
         ) from exc
 
     record_audit_event(
@@ -2766,7 +2771,7 @@ def update_customer_vehicle(
         db.rollback()
         raise ConflictError(
             "This customer already has this role on this vehicle as of this date.",
-            details={"vehicleId": str(party.vehicle_id), "role": party.role.value},
+            details={"reason": "vehicle_party_exists", "vehicleId": str(party.vehicle_id), "role": party.role.value},
         ) from exc
 
     # KAN-352: the holder changes in either direction, so the event does
@@ -3063,7 +3068,12 @@ def _open_vehicle_party(
         db.rollback()
         raise ConflictError(
             "This customer already has this role on this vehicle as of this date.",
-            details={"vehicleId": str(vehicle_id), "role": role.value, "effectiveFrom": effective_from.isoformat()},
+            details={
+                "reason": "vehicle_party_exists",
+                "vehicleId": str(vehicle_id),
+                "role": role.value,
+                "effectiveFrom": effective_from.isoformat(),
+            },
         ) from exc
 
     after: dict[str, Any] = {"vehicleId": str(vehicle_id), "role": role.value, "effectiveFrom": effective_from.isoformat()}

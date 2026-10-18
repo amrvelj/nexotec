@@ -155,7 +155,7 @@ def test_a_create_repeating_a_rows_exact_start_is_a_409_and_changes_nothing(db_s
         actor_id=uuid.uuid4(), effective_from=start,
     )
 
-    with pytest.raises(ConflictError):
+    with pytest.raises(ConflictError) as refused:
         create_customer_vehicle(
             db_session, customer=alice,
             data=CustomerVehicleCreate(
@@ -164,6 +164,8 @@ def test_a_create_repeating_a_rows_exact_start_is_a_409_and_changes_nothing(db_s
             actor_id=uuid.uuid4(),
         )
 
+    # KAN-369: the reason the link dialog translates.
+    assert refused.value.details["reason"] == "vehicle_party_exists"
     db_session.expire_all()
     assert db_session.get(VehicleParty, first.id).effective_to is None
     assert _events(db_session, "customer.vehicle_party.unlinked") == []

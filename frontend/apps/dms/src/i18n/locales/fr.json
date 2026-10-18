@@ -571,6 +571,11 @@
       "confirm": "Lier",
       "error": "Le véhicule n'a pas pu être lié."
     },
+    "linkVehicleRefused": {
+      "customerMerged": "Ce client a été fusionné avec un autre. Liez le véhicule au client dans lequel il a été fusionné.",
+      "roleAlreadyHeld": "Ce client a déjà ce rôle sur ce véhicule à partir de cette date.",
+      "notFound": "Le véhicule ou le client n'existe plus. Rechargez la page et recherchez à nouveau."
+    },
     "merge": {
       "title": "Fusionner un client en double",
       "intro": "Recherchez le client avec lequel <name/> doit être fusionné. Cet enregistrement est conservé ; celui-ci est marqué comme fusionné.",

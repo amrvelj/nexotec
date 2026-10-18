@@ -71,6 +71,23 @@ export function LinkVehicleModal({ opened, onClose, onLinked, customerId }: Link
     setError(null)
   }
 
+  // KAN-369: a refused link is said in the user's language, keyed by the
+  // 409's `details.reason` (or the status where the API gives none); the
+  // API's English message is never shown (KAN-366's pattern).
+  const linkRefusalMessage = (err: unknown): string => {
+    if (!(err instanceof ApiError)) return t('customerDetail.linkVehicle.error')
+    if (err.code === 'unknown_error') return t('common.requestFailed')
+    if (err.status === 404) return t('customerDetail.linkVehicleRefused.notFound')
+    switch (err.details?.reason) {
+      case 'customer_merged':
+        return t('customerDetail.linkVehicleRefused.customerMerged')
+      case 'vehicle_party_exists':
+        return t('customerDetail.linkVehicleRefused.roleAlreadyHeld')
+      default:
+        return t('customerDetail.linkVehicle.error')
+    }
+  }
+
   const submit = async () => {
     if (!selectedVehicle) return
     setSubmitting(true)
@@ -84,7 +101,7 @@ export function LinkVehicleModal({ opened, onClose, onLinked, customerId }: Link
       onLinked()
       onClose()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t('customerDetail.linkVehicle.error'))
+      setError(linkRefusalMessage(err))
     } finally {
       setSubmitting(false)
     }

@@ -131,7 +131,7 @@ describe('LinkVehicleModal — one Idempotency-Key per link submission (KAN-266)
   it('a link retried after a failure keeps its key', async () => {
     const { keys } = renderReopenable()
     await linkTarget()
-    expect(await screen.findByText('Try again.')).toBeInTheDocument()
+    expect(await screen.findByText(i18n.t('customerDetail.linkVehicle.error'))).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: i18n.t('customerDetail.linkVehicle.confirm') }))
 
@@ -143,10 +143,10 @@ describe('LinkVehicleModal — one Idempotency-Key per link submission (KAN-266)
   it('the same link sent after closing and reopening the dialog gets a new key', async () => {
     const { keys } = renderReopenable()
     await linkTarget()
-    expect(await screen.findByText('Try again.')).toBeInTheDocument()
+    expect(await screen.findByText(i18n.t('customerDetail.linkVehicle.error'))).toBeInTheDocument()
 
     await userEvent.keyboard('{Escape}')
-    await waitFor(() => expect(screen.queryByText('Try again.')).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByText(i18n.t('customerDetail.linkVehicle.error'))).not.toBeInTheDocument())
     await userEvent.click(screen.getByRole('button', { name: 'reopen' }))
     await linkTarget()
 
@@ -154,4 +154,72 @@ describe('LinkVehicleModal — one Idempotency-Key per link submission (KAN-266)
     expect(keys()[1]).toBeTruthy()
     expect(keys()[1]).not.toBe(keys()[0])
   })
+})
+
+// KAN-369 — a refused link is said in the user's language, keyed by the
+// 409's `details.reason` (or the 404); the API's English message is never shown.
+describe('LinkVehicleModal — a refused link is translated (KAN-369)', () => {
+  const MARKER = /MISSING I18N KEY/
+
+  function installRefusal(httpStatus: number, message: string, details: Record<string, unknown> | null) {
+    installFakeBackend([
+      { method: 'GET', match: /^\/vehicle-mdm\/search$/, handler: (req) => SEARCH[req.params.get('q') ?? ''] },
+      {
+        method: 'POST',
+        match: /^\/customers\/cust-1\/vehicles$/,
+        handler: () => status(httpStatus, { error: { code: httpStatus === 404 ? 'not_found' : 'conflict', message, details } }),
+      },
+    ])
+    renderWithProviders(<LinkVehicleModal opened onClose={() => {}} onLinked={() => {}} customerId="cust-1" />)
+  }
+
+  const cases = [
+    {
+      name: 'customer_merged',
+      httpStatus: 409,
+      message: 'This customer has been merged into another; give the vehicle role to the customer it was merged into.',
+      details: { reason: 'customer_merged', mergedIntoCustomerId: 'cust-2' },
+      key: 'customerDetail.linkVehicleRefused.customerMerged',
+    },
+    {
+      name: 'vehicle_party_exists',
+      httpStatus: 409,
+      message: 'This customer already has this role on this vehicle as of this date.',
+      details: { reason: 'vehicle_party_exists', vehicleId: TARGET.id, role: 'owner' },
+      key: 'customerDetail.linkVehicleRefused.roleAlreadyHeld',
+    },
+    {
+      name: 'a vehicle that no longer exists',
+      httpStatus: 404,
+      message: 'VehicleMdm veh-target was not found.',
+      details: null,
+      key: 'customerDetail.linkVehicleRefused.notFound',
+    },
+    {
+      name: 'an unknown refusal',
+      httpStatus: 409,
+      message: 'Something the dialog does not know.',
+      details: { reason: 'not_a_known_reason' },
+      key: 'customerDetail.linkVehicle.error',
+    },
+  ]
+
+  afterEach(async () => {
+    await i18n.changeLanguage('de')
+  })
+
+  for (const c of cases) {
+    it(`shows ${c.name} in fr, never the API's English message`, async () => {
+      await i18n.changeLanguage('fr')
+      installRefusal(c.httpStatus, c.message, c.details)
+
+      await type('ZH 12345')
+      await userEvent.click(await screen.findByRole('button', { name: /F-000001 — ZAR94000007123456 — ZH 12345/ }))
+      await userEvent.click(screen.getByRole('button', { name: i18n.t('customerDetail.linkVehicle.confirm') }))
+
+      expect(await screen.findByText(i18n.t(c.key))).toBeInTheDocument()
+      expect(screen.queryByText(c.message)).toBeNull()
+      expect(screen.getByRole('dialog').textContent).not.toMatch(MARKER)
+    })
+  }
 })

@@ -571,6 +571,11 @@
       "confirm": "Collega",
       "error": "Non è stato possibile collegare il veicolo."
     },
+    "linkVehicleRefused": {
+      "customerMerged": "Questo cliente è stato unito a un altro. Collega il veicolo al cliente in cui è stato unito.",
+      "roleAlreadyHeld": "Questo cliente ha già questo ruolo su questo veicolo a partire da questa data.",
+      "notFound": "Il veicolo o il cliente non esiste più. Ricarica la pagina e cerca di nuovo."
+    },
     "merge": {
       "title": "Unisci cliente duplicato",
       "intro": "Cerca il cliente a cui unire <name/>. Quel record resta; questo viene contrassegnato come unito.",
