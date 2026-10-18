@@ -416,8 +416,8 @@ def _key_can_sign_in(key: object, alg: int) -> bool:
     verifies — and an RSA key or an Ed25519 encoding must be one a sign-in can
     use: RSA within the policy bounds above, Ed25519 a point on the curve.
     Part of this is stricter than what the library could verify (the 2048-bit
-    floor, the exponent bound on moduli of 3072 bits or less); that is policy,
-    not capability."""
+    floor, the exponent bound on moduli of 3072 bits or less, the canonical-
+    encoding half of the Ed25519 check); that is policy, not capability."""
 
     try:
         algorithm = COSEAlgorithmIdentifier(int(alg))
@@ -443,10 +443,12 @@ _ED25519_D = (-121665 * pow(121666, -1, _ED25519_P)) % _ED25519_P
 
 
 def _is_ed25519_point(encoded: bytes) -> bool:
-    """Whether the 32 bytes decode to a point on the curve. `from_public_bytes`
-    accepts any 32 bytes; a y with no matching x (y = 2, say) only fails inside
-    the verify, so a key like that would register and never sign in. This is
-    the decompression step of RFC 8032 §5.1.3 as a yes/no — no crypto is done."""
+    """Whether the 32 bytes are a canonical encoding of a point on the curve.
+    `from_public_bytes` accepts any 32 bytes; a y with no matching x (y = 2,
+    say) only fails inside the verify, so a key like that would register and
+    never sign in. Non-canonical encodings (y >= p, x = 0 with the sign bit
+    set) are refused too, as RFC 8032 §5.1.3 reads, although OpenSSL would
+    verify under them — that half is policy. No crypto is done here."""
 
     y = int.from_bytes(encoded, "little") & ((1 << 255) - 1)
     if y >= _ED25519_P:
@@ -483,12 +485,14 @@ def register_passkey(
         raise refusal from exc
     # A `none` attestation only decodes the key and checks `alg`. A COSE key
     # that decodes but cannot be loaded (a point off the curve, integer
-    # coordinates, an unsupported curve), or that can never verify (an
-    # algorithm the key type cannot use, an even modulus or one past 16384
-    # bits, an Ed25519 encoding that is no point), would be stored as a factor
-    # nobody can use — a 500 or a lockout at every sign-in. The 2048-bit floor
-    # and the exponent bound are policy on top of that: such keys would
-    # verify, and are refused anyway. Load and judge the key here.
+    # coordinates, an unsupported curve), or that no signature could ever
+    # verify (an algorithm the key type cannot use; an even modulus or one
+    # past 16384 bits; an exponent past 64 bits on a modulus over 3072 bits;
+    # an Ed25519 y with no x), would be stored as a factor nobody can use — a
+    # 500 or a lockout at every sign-in. The rest of the policy — the 2048-bit
+    # floor, the exponent bound on 3072 bits or less, canonical Ed25519
+    # encodings — refuses keys that can verify (a 1024-bit RSA key does); they
+    # are refused anyway. Load and judge the key here.
     try:
         decoded = decode_credential_public_key(verified.credential_public_key)
         key = decoded_public_key_to_cryptography(decoded)

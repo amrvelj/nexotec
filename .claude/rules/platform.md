@@ -234,11 +234,12 @@ One shared template layer (`app/platform/models/document_template.py`). WeasyPri
   MFA reset ends the user's sessions. A lock reached through wrong MFA answers is a `locked_out`
   event like one reached through wrong passwords. Platform staff's `DELETE …/users/{id}/mfa` removes every factor and always
   writes `mfa_removed` naming the actor (FR-AU-12). **Passkey registration and assertion are verified by the library** (`webauthn` 2.7.1, the
-  version the `cryptography<46` pin installs; the shape checks it lacks sit in `mfa.py`, and the **key policy** refuses at registration: a key
-  whose type does not match its algorithm family (the library could never verify it); an even RSA
-  modulus or one past 16384 bits and an Ed25519 encoding that is no curve point (OpenSSL's limits);
-  an RSA key under 2048 bits or with an exponent past 64 bits (policy, SP 800-131A — the library
-  would verify them); a credential id past 1023 bytes (the spec's limit));
+  version the `cryptography<46` pin installs; the shape checks it lacks sit in `mfa.py`, and the **key policy** refuses at registration a key
+  whose type does not match its algorithm family, an RSA key under 2048 bits (SP 800-131A), with an
+  even modulus, past 16384 bits or with an exponent past 64 bits, an Ed25519 encoding that is not a
+  canonical point on the curve (RFC 8032 §5.1.3), and a credential id past 1023 bytes (the spec's
+  limit) — partly keys no signature could ever verify, partly Nexotec's own policy; the comments in
+  `mfa.py` say which for each check);
   the suite completes a **software** ceremony — real keys and signatures through the library —
   and none against a hardware authenticator or a browser.
 - **Platform mail** (`mailer.py`, D-A-28; Anto, 2026-10-17): invitations and resets leave
