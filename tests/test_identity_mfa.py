@@ -1130,6 +1130,214 @@ def test_only_known_transport_names_are_stored(client, login, db_session, monkey
         db_session.flush()
 
 
+# --- real ceremonies through the library -----------------------------------------------------
+
+
+def _settings():
+    from app.core.config import get_settings
+
+    return get_settings()
+
+
+def _auth_data(*, flags: int, sign_count: int, credential_id: bytes | None = None, cose_key: bytes | None = None) -> bytes:
+    data = hashlib.sha256(_settings().webauthn_rp_id.encode()).digest() + bytes([flags]) + sign_count.to_bytes(4, "big")
+    if credential_id is not None and cose_key is not None:
+        data += b"\x00" * 16 + len(credential_id).to_bytes(2, "big") + credential_id + cose_key
+    return data
+
+
+def _cose_ec2(private_key, alg: int = -7) -> bytes:
+    from webauthn.helpers import encode_cbor
+
+    numbers = private_key.public_key().public_numbers()
+    return encode_cbor({1: 2, 3: alg, -1: 1, -2: numbers.x.to_bytes(32, "big"), -3: numbers.y.to_bytes(32, "big")})
+
+
+def _cose_rsa(private_key, alg: int) -> bytes:
+    from webauthn.helpers import encode_cbor
+
+    numbers = private_key.public_key().public_numbers()
+    n = numbers.n.to_bytes((numbers.n.bit_length() + 7) // 8, "big")
+    return encode_cbor({1: 3, 3: alg, -1: n, -2: numbers.e.to_bytes(3, "big")})
+
+
+def _register_through_the_library(client, cookie: str, credential_id: bytes, cose_key: bytes, *, sign_count: int = 0):
+    """A `none` attestation exactly as a platform authenticator would answer the
+    registration options, through the real `webauthn` library."""
+
+    from webauthn.helpers import encode_cbor
+
+    options = client.post("/v1/auth/mfa/passkeys/options", headers=cookie_headers(cookie))
+    assert options.status_code == 200, options.text
+    parsed = json.loads(options.json()["options"])
+    client_data = json.dumps(
+        {"type": "webauthn.create", "challenge": parsed["challenge"], "origin": _settings().webauthn_origin}
+    ).encode()
+    attestation = encode_cbor(
+        {
+            "fmt": "none",
+            "attStmt": {},
+            "authData": _auth_data(flags=0x41, sign_count=sign_count, credential_id=credential_id, cose_key=cose_key),
+        }
+    )
+    cred_id = _b64url(credential_id)
+    return client.post(
+        "/v1/auth/mfa/passkeys",
+        json={
+            "challengeId": options.json()["challengeId"],
+            "label": "Laptop",
+            "credential": {
+                "id": cred_id,
+                "rawId": cred_id,
+                "type": "public-key",
+                "response": {
+                    "clientDataJSON": _b64url(client_data),
+                    "attestationObject": _b64url(attestation),
+                    "transports": ["internal"],
+                },
+            },
+        },
+        headers=cookie_headers(cookie),
+    )
+
+
+def _sign_in_through_the_library(client, login, anna: dict, private_key, credential_id: bytes, *, sign_count: int):
+    """The second step answered with a real ECDSA signature over the
+    authenticator data and the client-data hash."""
+
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.asymmetric import ec
+
+    first = login.login(anna).json()
+    assert "passkey" in first["factors"], first
+    options = client.post("/v1/auth/mfa/passkey/options", json={"challengeId": first["challengeId"]})
+    assert options.status_code == 200, options.text
+    parsed = json.loads(options.json()["options"])
+    client_data = json.dumps(
+        {"type": "webauthn.get", "challenge": parsed["challenge"], "origin": _settings().webauthn_origin}
+    ).encode()
+    auth_data = _auth_data(flags=0x01, sign_count=sign_count)
+    signature = private_key.sign(auth_data + hashlib.sha256(client_data).digest(), ec.ECDSA(hashes.SHA256()))
+    cred_id = _b64url(credential_id)
+    answer = {
+        "id": cred_id,
+        "rawId": cred_id,
+        "type": "public-key",
+        "response": {
+            "clientDataJSON": _b64url(client_data),
+            "authenticatorData": _b64url(auth_data),
+            "signature": _b64url(signature),
+            "userHandle": None,
+        },
+    }
+    return client.post("/v1/auth/mfa/passkey/verify", json={"challengeId": first["challengeId"], "credential": answer})
+
+
+def test_a_real_passkey_ceremony_registers_and_signs_in(client, login, db_session):
+    """Registration and sign-in through the real library with a real P-256 key
+    and signature: the committed suite completes a WebAuthn ceremony. A replay
+    of the spent challenge and a stale signature counter are refused."""
+
+    from cryptography.hazmat.primitives.asymmetric import ec
+
+    dealership = create_dealership(client, mfa_enforced=True)
+    anna = create_user(client, dealership)
+    cookie = login.session_cookie(anna)
+    assert client.get("/v1/customers", headers=cookie_headers(cookie)).status_code == 403  # owes a factor
+    private_key = ec.generate_private_key(ec.SECP256R1())
+    credential_id = b"laptop-" + uuid.uuid4().bytes
+
+    registered = _register_through_the_library(client, cookie, credential_id, _cose_ec2(private_key))
+    assert registered.status_code == 201, registered.text
+    assert registered.json()["label"] == "Laptop"
+    assert client.get("/v1/customers", headers=cookie_headers(cookie)).status_code == 200  # the row proved it
+    stored = db_session.scalars(select(MfaPasskey).where(MfaPasskey.credential_id == _b64url(credential_id))).one()
+    assert stored.transports == ["internal"] and stored.sign_count == 0
+
+    signed_in = _sign_in_through_the_library(client, login, anna, private_key, credential_id, sign_count=7)
+    assert signed_in.status_code == 200, signed_in.text
+    assert signed_in.json()["session"]["mfaEnrolmentRequired"] is False
+    assert sorted(decode_token_claims(signed_in.cookies.get("dms_session"))["amr"]) == ["hwk", "mfa", "pwd"]
+    db_session.expire_all()
+    assert stored.sign_count == 7 and stored.last_used_at is not None
+    assert _events(db_session, AuthEventKind.MFA_FAILED) == []
+
+    stale = _sign_in_through_the_library(client, login, anna, private_key, credential_id, sign_count=7)
+    assert stale.status_code == 401, stale.text
+    assert len(_events(db_session, AuthEventKind.MFA_FAILED)) == 1
+
+
+def test_a_key_that_can_never_verify_a_signature_is_refused_at_registration(client, login, db_session):
+    """Through the real library: a `none` attestation accepts any key that
+    decodes, so a 1024-bit RSA key with PS512 (its digest does not fit — a 500
+    at every sign-in, twelfth review), an EC2 key with an RSA algorithm or an
+    RSA key with ECDSA (never verifiable — a wrong answer at every sign-in)
+    are refused with 422; a 2048-bit RS256 key registers."""
+
+    from cryptography.hazmat.primitives.asymmetric import ec, rsa
+
+    dealership = create_dealership(client, mfa_enforced=True)
+    anna = create_user(client, dealership)
+    cookie = login.session_cookie(anna)
+    small_rsa = rsa.generate_private_key(public_exponent=65537, key_size=1024)  # PS512 needs 1040 bits
+    big_rsa = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    p256 = ec.generate_private_key(ec.SECP256R1())
+    for cose_key in (_cose_rsa(small_rsa, alg=-39), _cose_ec2(p256, alg=-257), _cose_rsa(big_rsa, alg=-7)):
+        refused = _register_through_the_library(client, cookie, b"key-" + uuid.uuid4().bytes, cose_key)
+        assert refused.status_code == 422, refused.text
+    assert db_session.scalars(select(MfaPasskey)).all() == []
+    accepted = _register_through_the_library(client, cookie, b"key-" + uuid.uuid4().bytes, _cose_rsa(big_rsa, alg=-257))
+    assert accepted.status_code == 201, accepted.text
+
+
+def test_the_counter_and_credential_id_take_every_value_the_spec_allows(client, login, db_session):
+    """signCount is an unsigned 32-bit counter and a credential id is up to
+    1023 bytes (1364 characters base64url); a signed 32-bit column and a
+    1024-character column refused both with a 500 (twelfth review)."""
+
+    from cryptography.hazmat.primitives.asymmetric import ec
+
+    dealership = create_dealership(client, mfa_enforced=True)
+    anna = create_user(client, dealership)
+    cookie = login.session_cookie(anna)
+    private_key = ec.generate_private_key(ec.SECP256R1())
+    credential_id = bytes(range(256)) * 3 + bytes(255)  # 1023 bytes
+    registered = _register_through_the_library(client, cookie, credential_id, _cose_ec2(private_key), sign_count=2**31)
+    assert registered.status_code == 201, registered.text
+    stored = db_session.scalars(select(MfaPasskey).where(MfaPasskey.credential_id == _b64url(credential_id))).one()
+    assert stored.sign_count == 2**31 and len(stored.credential_id) == 1364
+
+    signed_in = _sign_in_through_the_library(client, login, anna, private_key, credential_id, sign_count=2**32 - 1)
+    assert signed_in.status_code == 200, signed_in.text
+    db_session.expire_all()
+    assert stored.sign_count == 2**32 - 1
+
+
+def test_client_data_past_the_cap_is_a_wrong_answer_before_any_parsing():
+    """`CLIENT_DATA_MAX_BYTES` is what keeps a pathological `clientDataJSON`
+    away from `json.loads`: one byte over is refused, the cap itself passes."""
+
+    from app.platform.services import mfa as mfa_service
+
+    def answer(padding: int) -> dict:
+        data = {"type": "webauthn.get", "challenge": "AA", "origin": "http://localhost:5173", "pad": ""}
+        data["pad"] = "x" * (padding - len(json.dumps(data).encode()))
+        raw = json.dumps(data).encode()
+        assert len(raw) == padding
+        return {
+            "id": "AQID",
+            "rawId": "AQID",
+            "type": "public-key",
+            "response": {"clientDataJSON": _b64url(raw), "authenticatorData": "AA", "signature": "AA"},
+        }
+
+    fields = ("authenticatorData", "signature")
+    assert mfa_service._well_formed_client_answer(answer(mfa_service.CLIENT_DATA_MAX_BYTES), response_fields=fields)
+    assert not mfa_service._well_formed_client_answer(
+        answer(mfa_service.CLIENT_DATA_MAX_BYTES + 1), response_fields=fields
+    )
+
+
 def test_the_auth_event_stream_is_the_managers_to_read_and_nobody_elses(client, login):
     dealership = create_dealership(client)
     manager = create_user(client, dealership)

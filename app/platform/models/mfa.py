@@ -8,7 +8,7 @@ TOTP enrolment; a factor counts only once confirmed.
 import datetime as dt
 import uuid
 
-from sqlalchemy import JSON, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, BigInteger, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, utcnow
@@ -41,9 +41,12 @@ class MfaPasskey(PrimaryKeyMixin, Base):
 
     user_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("user.id"), nullable=False, index=True)
     # base64url of the authenticator's credential id; unique across users.
-    credential_id: Mapped[str] = mapped_column(String(1024), nullable=False, unique=True)
+    # A credential id is up to 1023 bytes (WebAuthn L2 §5.8.3): 1364 characters base64url.
+    credential_id: Mapped[str] = mapped_column(String(1364), nullable=False, unique=True)
     public_key: Mapped[str] = mapped_column(Text, nullable=False)  # base64url COSE key
-    sign_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # The authenticator's signature counter is unsigned 32-bit; a signed Integer
+    # would refuse a valid counter past 2^31 (twelfth review).
+    sign_count: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
     transports: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     label: Mapped[str] = mapped_column(String(100), nullable=False, default="")
     created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)

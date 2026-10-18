@@ -13,6 +13,9 @@ import secrets
 import uuid
 
 import pyotp
+from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePublicKey
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
 from sqlalchemy import or_, select, update
 from sqlalchemy.orm import Session
 from webauthn import (
@@ -29,6 +32,7 @@ from webauthn.helpers import (
     decoded_public_key_to_cryptography,
     parse_cbor,
 )
+from webauthn.helpers.cose import COSEAlgorithmIdentifier
 from webauthn.helpers.exceptions import WebAuthnException
 from webauthn.helpers.structs import (
     AuthenticatorSelectionCriteria,
@@ -381,6 +385,39 @@ def _well_formed_attestation(response: dict) -> bool:
     )
 
 
+# The smallest RSA modulus that fits every PSS digest the library accepts
+# (PS512 needs 2 * 64 + 2 bytes) and the floor every authenticator meets.
+RSA_MIN_BITS = 2048
+_EC2_ALGS = {COSEAlgorithmIdentifier.ECDSA_SHA_256, COSEAlgorithmIdentifier.ECDSA_SHA_512}
+_RSA_ALGS = {
+    COSEAlgorithmIdentifier.RSASSA_PKCS1_v1_5_SHA_256,
+    COSEAlgorithmIdentifier.RSASSA_PKCS1_v1_5_SHA_384,
+    COSEAlgorithmIdentifier.RSASSA_PKCS1_v1_5_SHA_512,
+    COSEAlgorithmIdentifier.RSASSA_PKCS1_v1_5_SHA_1,
+    COSEAlgorithmIdentifier.RSASSA_PSS_SHA_256,
+    COSEAlgorithmIdentifier.RSASSA_PSS_SHA_384,
+    COSEAlgorithmIdentifier.RSASSA_PSS_SHA_512,
+}
+
+
+def _key_can_sign_in(key: object, alg: int) -> bool:
+    """Whether `verify_signature` (webauthn 2.7.1) can ever accept a signature
+    from this key with this algorithm: the key type and the algorithm family
+    must match, and an RSA modulus must hold the PSS digest."""
+
+    try:
+        algorithm = COSEAlgorithmIdentifier(int(alg))
+    except (ValueError, TypeError):
+        return False
+    if isinstance(key, EllipticCurvePublicKey):
+        return algorithm in _EC2_ALGS
+    if isinstance(key, RSAPublicKey):
+        return algorithm in _RSA_ALGS and key.key_size >= RSA_MIN_BITS
+    if isinstance(key, Ed25519PublicKey):
+        return algorithm == COSEAlgorithmIdentifier.EDDSA
+    return False
+
+
 def register_passkey(
     db: Session, *, user: User, credential: dict, challenge: bytes, label: str, ip_address: str
 ) -> MfaPasskey:
@@ -404,12 +441,17 @@ def register_passkey(
         raise refusal from exc
     # A `none` attestation only decodes the key and checks `alg`: a COSE key
     # that decodes but cannot be loaded (a point off the curve, integer
-    # coordinates, an unsupported curve) would be stored as a factor nobody can
-    # use and fail at sign-in. Load it here, so a bad key is refused now.
+    # coordinates, an unsupported curve), or loads but can never verify a
+    # signature (an RSA modulus too small for its PSS digest, an algorithm the
+    # key type cannot use), would be stored as a factor nobody can use — a 500
+    # or a lockout at every sign-in. Load and judge it here instead.
     try:
-        decoded_public_key_to_cryptography(decode_credential_public_key(verified.credential_public_key))
+        decoded = decode_credential_public_key(verified.credential_public_key)
+        key = decoded_public_key_to_cryptography(decoded)
     except (WebAuthnException, ValueError, TypeError) as exc:
         raise refusal from exc
+    if not _key_can_sign_in(key, decoded.alg):
+        raise refusal
     transports = credential["response"].get("transports")
     known = {transport.value for transport in AuthenticatorTransport}
     row = MfaPasskey(

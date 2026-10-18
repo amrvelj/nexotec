@@ -183,9 +183,9 @@ def upgrade() -> None:
         "mfa_passkey",
         sa.Column("id", _uuid(), primary_key=True),
         sa.Column("user_id", _uuid(), sa.ForeignKey("user.id"), nullable=False),
-        sa.Column("credential_id", sa.String(length=1024), nullable=False),
+        sa.Column("credential_id", sa.String(length=1364), nullable=False),  # 1023 bytes base64url
         sa.Column("public_key", sa.Text(), nullable=False),
-        sa.Column("sign_count", sa.Integer(), nullable=False),
+        sa.Column("sign_count", sa.BigInteger(), nullable=False),  # unsigned 32-bit counter
         sa.Column("transports", sa.JSON(), nullable=False),
         sa.Column("label", sa.String(length=100), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
