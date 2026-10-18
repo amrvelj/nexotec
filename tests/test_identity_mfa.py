@@ -550,6 +550,7 @@ def test_every_wrong_second_step_answer_counts_on_the_account(client, login, db_
     challenge = login.login(anna, STRONG_PASSWORD).json()["challengeId"]
     assert client.post("/v1/auth/mfa/verify", json={"challengeId": challenge, "code": "000000"}).status_code == 401
     assert credential().locked_until is not None
+    assert [e.details.get("step") for e in _events(db_session, AuthEventKind.LOCKED_OUT)] == ["mfa"]
     assert login.login(anna, STRONG_PASSWORD).status_code == 401
 
 
@@ -583,22 +584,35 @@ def test_parallel_wrong_answers_never_exceed_the_attempt_limit(client, login, db
     assert len(_events(db_session, AuthEventKind.LOGIN_THROTTLED)) >= 1
     # Every answer that reached the secret is a failure on the account axis.
     credential = db_session.scalar(select(Credential).where(Credential.user_id == anna["id"]))
-    assert 1 <= credential.failed_login_attempts <= MFA_MAX_ATTEMPTS
+    assert credential.failed_login_attempts == len(_events(db_session, AuthEventKind.MFA_FAILED))
 
 
 def test_removing_the_last_factor_makes_the_session_owe_enrolment_again(client, login, db_session):
     """The guard and /auth/me judge the same row: a session that removes its
-    user's last factor proved nothing any more."""
+    user's last factor proved nothing any more — and the user's other
+    sessions, which proved it at sign-in, end (recorded)."""
+
+    from app.platform.models.mfa import MfaTotp
 
     dealership = create_dealership(client, mfa_enforced=True)
     anna = create_user(client, dealership)
     cookie = login.session_cookie(anna)
-    _enrol_totp(client, cookie)
+    secret, _ = _enrol_totp(client, cookie)
     assert client.get("/v1/customers", headers=cookie_headers(cookie)).status_code == 200
+    # A sibling that proved the factor at sign-in.
+    challenge = login.login(anna).json()["challengeId"]
+    sibling = client.post("/v1/auth/mfa/verify", json={"challengeId": challenge, "code": _fresh_code(db_session, secret)})
+    assert sibling.status_code == 200, sibling.text
+    sibling_cookie = sibling.cookies.get("dms_session")
+    assert client.get("/v1/customers", headers=cookie_headers(sibling_cookie)).status_code == 200
 
     assert client.delete("/v1/auth/mfa/totp", headers=cookie_headers(cookie)).status_code == 204
     assert client.get("/v1/auth/me", headers=cookie_headers(cookie)).json()["mfaEnrolmentRequired"] is True
     assert client.get("/v1/customers", headers=cookie_headers(cookie)).status_code == 403
+    assert client.get("/v1/auth/me", headers=cookie_headers(sibling_cookie)).status_code == 401
+    ended = [e for e in _events(db_session, AuthEventKind.SESSION_REVOKED) if e.details["reason"] == "mfa_removed"]
+    assert len(ended) == 1 and ended[0].details["count"] == 1
+    assert db_session.scalars(select(MfaTotp)).all() == []
 
 
 def test_a_session_that_never_proved_a_factor_ends_once_the_user_holds_one(client, login, db_session):
@@ -617,6 +631,8 @@ def test_a_session_that_never_proved_a_factor_ends_once_the_user_holds_one(clien
     assert ended.status_code == 401
     assert ended.json()["error"]["message"] == "Your session has ended — sign in again."
     assert client.get("/v1/auth/me", headers=cookie_headers(device_a)).status_code == 401
+    revoked = [e for e in _events(db_session, AuthEventKind.SESSION_REVOKED) if e.details["reason"] == "factor_enrolled"]
+    assert len(revoked) == 1 and str(revoked[0].user_id) == anna["id"]
 
 
 # --- passkeys ------------------------------------------------------------------------------
@@ -682,12 +698,26 @@ def test_a_passkey_holder_gets_the_passkey_step_and_a_bad_assertion_is_refused(c
     )
     db_session.commit()
     # The password-only session never proved the passkey and has ended (the
-    # guard); a session that did is stood in for by a bare token with the
-    # factor, as a passkey ceremony cannot run here.
+    # guard). A session that did is stood in for by a session ROW carrying
+    # the factor and a token naming it — a passkey ceremony cannot run here,
+    # but the guard and the removal below see a real row.
     assert client.get("/v1/auth/mfa", headers=cookie_headers(cookie)).status_code == 401
+    from app.platform.services import auth_sessions
+
     tid = uuid.UUID(dealership)
+    row = auth_sessions.create(
+        db_session, user_id=uuid.UUID(anna["id"]), dealership_id=tid, device_summary="test", ip_address="", amr=("pwd", "hwk", "mfa")
+    )
+    db_session.commit()
     cookie = create_access_token(
-        user_id=uuid.UUID(anna["id"]), tenant_id=tid, group_id=uuid.uuid4(), roles={AccessRole.SALES}, amr=("pwd", "hwk", "mfa"), mfa=True
+        user_id=uuid.UUID(anna["id"]),
+        tenant_id=tid,
+        group_id=uuid.uuid4(),
+        roles={AccessRole.SALES},
+        amr=("pwd", "hwk", "mfa"),
+        mfa=True,
+        session_id=row.id,
+        expires_at=row.absolute_expires_at,
     )
 
     status = client.get("/v1/auth/mfa", headers=cookie_headers(cookie)).json()
@@ -725,6 +755,8 @@ def test_a_passkey_holder_gets_the_passkey_step_and_a_bad_assertion_is_refused(c
     passkey_id = status["passkeys"][0]["id"]
     assert client.delete(f"/v1/auth/mfa/passkeys/{uuid.uuid4()}", headers=cookie_headers(cookie)).status_code == 404
     assert client.delete(f"/v1/auth/mfa/passkeys/{passkey_id}", headers=cookie_headers(cookie)).status_code == 204
+    db_session.refresh(row)
+    assert "mfa" not in row.amr and "hwk" not in row.amr, "the last factor left the session row"
     assert login.login(anna).json()["mfaRequired"] is False
 
 

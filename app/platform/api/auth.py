@@ -232,7 +232,7 @@ def _finish_login(
         db, user=user, dealership_id=user.tenant_id, session=None, request=request, amr=amr, mfa_used=mfa_used
     )
     # The account's failure counter is cleared by a COMPLETED login, never by
-    # the password step alone: exhausted MFA challenges count on it (FR-AU-08).
+    # the password step alone: wrong MFA answers count on it (FR-AU-08).
     identity.login_completed(db, user=user)
     auth_events.record(
         db,
@@ -296,10 +296,12 @@ def _step_expired() -> UnauthorizedError:
 
 
 def _challenged_user(db: Session, challenge_id: str, *, ip_address: str = "", answer: bool = True) -> User:
-    """The user behind a live challenge. With `answer`, one attempt is
-    claimed on the challenge first (a guarded counter, see
-    auth_tokens.claim_attempt): the sixth answer ends the challenge, counts
-    one failure on the account and sends the user back to the password."""
+    """The user behind a live challenge. With `answer`, the account's lock
+    and backoff are honoured and one attempt is claimed on the challenge (a
+    guarded counter, see auth_tokens.claim_attempt): the sixth answer, or
+    an account that is throttled, ends the challenge and sends the user
+    back to the password. Every wrong answer itself counts on the account
+    (`identity.second_step_failed`, in the verify routes)."""
 
     token = auth_tokens.peek(db, raw=challenge_id, kind=AuthTokenKind.MFA_CHALLENGE)
     user = db.get(User, token.user_id) if token is not None else None
@@ -348,7 +350,7 @@ def verify_mfa(body: MfaVerifyRequest, request: Request, response: Response, db:
     elif mfa.use_recovery_code(db, user=user, code=body.code, ip_address=ip):
         amr = ("pwd", "mfa")
     else:
-        identity.second_step_failed(db, user=user)
+        identity.second_step_failed(db, user=user, ip_address=ip)
         auth_events.record(db, AuthEventKind.MFA_FAILED, user_id=user.id, dealership_id=user.tenant_id, ip_address=ip)
         db.commit()
         raise UnauthorizedError("The code is not valid.")
@@ -373,7 +375,7 @@ def passkey_login_verify(
     if not mfa.verify_passkey(
         db, user=user, credential=body.credential, challenge=mfa.challenge_for(body.challenge_id, "authn")
     ):
-        identity.second_step_failed(db, user=user)
+        identity.second_step_failed(db, user=user, ip_address=ip)
         auth_events.record(db, AuthEventKind.MFA_FAILED, user_id=user.id, dealership_id=user.tenant_id, ip_address=ip)
         db.commit()
         raise UnauthorizedError("The passkey could not be verified.")
@@ -496,8 +498,11 @@ def switch_dealership(
 
     user = user_service.get_own_user_or_404(db, principal.user_id)
     row = auth_sessions.get(db, principal.session_id) if principal.session_id is not None else None
+    # What the session proved is the row's (a factor confirmed from this
+    # session joined it) — the token's claim is what it was minted with.
+    proved = ("mfa" in (row.amr or [])) if row is not None else principal.mfa
     minted = _mint_session(
-        db, user=user, dealership_id=body.dealership_id, session=row, amr=tuple(principal.amr), mfa_used=principal.mfa
+        db, user=user, dealership_id=body.dealership_id, session=row, amr=tuple(principal.amr), mfa_used=proved
     )
     _set_session_cookie(response, minted.token, max_age=minted.max_age)
     return _login_response(
@@ -506,7 +511,7 @@ def switch_dealership(
         active_dealership=minted.dealership,
         membership_ids=minted.membership_ids,
         entitlements=minted.entitlements,
-        mfa_used=principal.mfa,
+        mfa_used=proved,
     )
 
 
@@ -643,10 +648,23 @@ def _drop_factor_from_session_if_none_left(db: Session, *, principal: Principal,
     if mfa.has_factor(db, user.id):
         return
     row = auth_sessions.get(db, principal.session_id) if principal.session_id is not None else None
-    if row is None:
-        return
-    row.amr = sorted(set(row.amr) - {"mfa", "otp", "hwk"})
-    db.flush()
+    if row is not None:
+        row.amr = sorted(set(row.amr) - {"mfa", "otp", "hwk"})
+        db.flush()
+    # The user's OTHER sessions proved a factor that no longer exists: they
+    # end (recorded), and their next sign-in owes enrolment like this one.
+    ended = auth_sessions.revoke_all_for_user(
+        db, user_id=user.id, reason="mfa_removed", except_session_id=row.id if row is not None else None
+    )
+    if ended:
+        auth_events.record(
+            db,
+            AuthEventKind.SESSION_REVOKED,
+            user_id=user.id,
+            dealership_id=user.tenant_id,
+            actor_id=user.id,
+            details={"count": ended, "reason": "mfa_removed"},
+        )
 
 
 @account_router.post("/auth/mfa/recovery-codes/regenerate", response_model=RecoveryCodesRead)

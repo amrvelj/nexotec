@@ -18,9 +18,10 @@ from app.core.auth import SESSION_COOKIE_NAME, AccessRole, decode_token_claims
 from app.core.base import utcnow
 from app.core.errors import ForbiddenError, UnauthorizedError
 from app.db import get_db
+from app.platform.models.auth_event import AuthEventKind
 from app.platform.models.auth_session import AuthSession
 from app.platform.models.dealership_auth_config import DealershipAuthConfig
-from app.platform.services import auth_sessions, mfa
+from app.platform.services import auth_events, auth_sessions, mfa
 
 _SESSION_ENDED = "Your session has ended — sign in again."
 _ENROL_FIRST = "Enrol a second factor before anything else — your Betrieb requires one."
@@ -98,8 +99,19 @@ def enforce_live_session(request: Request, db: Session = Depends(get_db)) -> Non
         # The user enrolled a factor from another session: this one never
         # proved it and must not keep working on the password alone — nor
         # mint recovery codes. It ends; the SPA goes to sign-in on the 401.
-        auth_sessions.revoke(db, row, reason="factor_enrolled")
-        db.commit()
-        raise UnauthorizedError(_SESSION_ENDED)
+        # Re-read first: the session that is confirming its own factor right
+        # now has just written "mfa" onto this row.
+        db.refresh(row)
+        if "mfa" not in (row.amr or []):
+            auth_sessions.revoke(db, row, reason="factor_enrolled")
+            auth_events.record(
+                db,
+                AuthEventKind.SESSION_REVOKED,
+                user_id=row.user_id,
+                dealership_id=row.dealership_id,
+                details={"count": 1, "reason": "factor_enrolled"},
+            )
+            db.commit()
+            raise UnauthorizedError(_SESSION_ENDED)
     if not _enrolment_path(path, claims) and _enrolment_owed(db, claims, row):
         raise ForbiddenError(_ENROL_FIRST, details={"mfaEnrolmentRequired": True})

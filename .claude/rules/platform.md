@@ -179,8 +179,8 @@ One shared template layer (`app/platform/models/document_template.py`). WeasyPri
   account) — `tests/test_identity_login_policy.py` asserts body and timing; never add a
   reason-specific message. Per-account backoff from the third failure and soft lockout after
   `auth_lockout_failures` (cleared by a reset); per-IP backoff on the **last** X-Forwarded-For
-  entry (the proxy's), never the first — wrong second-factor answers are counted per
-  challenge, not on that axis. The address is resolved case-insensitively and stored
+  entry (the proxy's), never the first — wrong second-factor answers count on the account axis
+  and per challenge, not on the IP axis. The address is resolved case-insensitively and stored
   lower-cased (`ck_user_email_lower`; the migration lower-cases existing rows and aborts with a
   `KAN-196 REPORT` on two spellings of one mailbox). `credential` holds the hash (+ the last five) and
   **nothing else in the schema may grow a password-shaped column**
@@ -226,8 +226,10 @@ One shared template layer (`app/platform/models/document_template.py`). WeasyPri
   password step does not clear that counter (only a completed login does) and the MFA step
   honours the account lock and backoff — so starting fresh challenges buys nothing. A challenge
   is spent on success only, where it is spent. A session that never proved a factor ends (401)
-  once its user holds one (enrolled elsewhere); a session whose user removes their last factor
-  owes enrolment again; platform staff's MFA reset ends the user's sessions. Platform staff's `DELETE …/users/{id}/mfa` removes every factor and always
+  once its user holds one (enrolled elsewhere; recorded as `session_revoked`); removing the last
+  factor strips the session that removed it and ends the user's other sessions; platform staff's
+  MFA reset ends the user's sessions. A lock reached through wrong MFA answers is a `locked_out`
+  event like one reached through wrong passwords. Platform staff's `DELETE …/users/{id}/mfa` removes every factor and always
   writes `mfa_removed` naming the actor (FR-AU-12). **Passkey registration and assertion are verified by the library;
   no automated test completes a real ceremony** (options and refusals are tested).
 - **Platform mail** (`mailer.py`, D-A-28; Anto, 2026-10-17): invitations and resets leave

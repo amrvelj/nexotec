@@ -173,8 +173,8 @@ class LocalPasswordProvider:
                 ip_address=presented.ip_address,
             )
         # Not cleared here: the counter is cleared by a completed login
-        # (`login_completed`), so exhausted MFA challenges — one failure
-        # each — accumulate on the account like wrong passwords do.
+        # (`login_completed`), so wrong MFA answers accumulate on the
+        # account like wrong passwords do.
         db.flush()
         return user
 
@@ -481,7 +481,7 @@ def login_completed(db: Session, *, user: User) -> None:
     credential.locked_until = None
 
 
-def second_step_failed(db: Session, *, user: User) -> None:
+def second_step_failed(db: Session, *, user: User, ip_address: str = "") -> None:
     """EVERY wrong answer at the MFA step is a failure on the account axis,
     like a wrong password — and the password step does not clear that axis,
     only a completed login does. So a holder of the password gets the same
@@ -496,6 +496,14 @@ def second_step_failed(db: Session, *, user: User) -> None:
     credential.last_failed_at = utcnow()
     if credential.failed_login_attempts >= _settings.auth_lockout_failures:
         credential.locked_until = utcnow() + dt.timedelta(minutes=_settings.auth_lockout_minutes)
+        auth_events.record(
+            db,
+            AuthEventKind.LOCKED_OUT,
+            user_id=user.id,
+            dealership_id=user.tenant_id,
+            ip_address=ip_address,
+            details={"until": credential.locked_until.isoformat(), "step": "mfa"},
+        )
 
 
 def account_throttled(db: Session, *, user: User) -> bool:

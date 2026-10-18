@@ -327,6 +327,31 @@ def test_a_session_owing_a_second_factor_is_confined_to_enrolment(client, login,
     assert client.get(f"/v1/dealerships/{other}/auth-config", headers=cookie_headers(managers)).status_code in (403, 404)
 
 
+def test_switching_dealership_after_enrolling_in_session_carries_the_factor(client, login, db_session):
+    """The fifth review's regression: the switch must read what the session
+    proved from the row, not from the token it was given — otherwise the
+    first switch after an in-session enrolment says enrolment is required
+    while its own token carries the factor."""
+
+    import pyotp
+
+    dealer_a = create_dealership(client, mfa_enforced=True)
+    dealer_b = create_dealership(client, mfa_enforced=True)
+    anna = create_user(client, dealer_a)
+    db_session.add(DealershipMembership(user_id=uuid.UUID(anna["id"]), dealership_id=uuid.UUID(dealer_b)))
+    db_session.commit()
+    cookie = login.session_cookie(anna)
+    begun = client.post("/v1/auth/mfa/totp/enrol", headers=cookie_headers(cookie)).json()
+    assert client.post("/v1/auth/mfa/totp/confirm", json={"code": pyotp.TOTP(begun["secret"]).now()}, headers=cookie_headers(cookie)).status_code == 200
+
+    switched = client.post("/v1/auth/switch-dealership", json={"dealershipId": dealer_b}, headers=cookie_headers(cookie))
+    assert switched.status_code == 200, switched.text
+    assert switched.json()["mfaEnrolmentRequired"] is False
+    token = switched.cookies.get("dms_session")
+    assert decode_token_claims(token)["mfa"] is True
+    assert client.get(f"/v1/dealerships/{dealer_b}", headers=cookie_headers(token)).status_code == 200
+
+
 def test_a_new_betriebs_first_user_signs_in_enrols_and_works(client, login, mailbox):
     """The walkthrough the third review asked for: a Betrieb created with the
     defaults (enforcement on), its first user accepts the invitation, is
