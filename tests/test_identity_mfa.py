@@ -1202,8 +1202,8 @@ def _register_through_the_library(client, cookie: str, credential_id: bytes, cos
 
 
 def _sign_in_through_the_library(client, login, anna: dict, private_key, credential_id: bytes, *, sign_count: int):
-    """The second step answered with a real ECDSA signature over the
-    authenticator data and the client-data hash."""
+    """The second step answered with a real signature (ECDSA, or Ed25519 for an
+    `Ed25519PrivateKey`) over the authenticator data and the client-data hash."""
 
     from cryptography.hazmat.primitives import hashes
     from cryptography.hazmat.primitives.asymmetric import ec

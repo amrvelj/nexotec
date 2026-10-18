@@ -416,7 +416,8 @@ def _key_can_sign_in(key: object, alg: int) -> bool:
     verifies — and an RSA key or an Ed25519 encoding must be one a sign-in can
     use: RSA within the policy bounds above, Ed25519 a point on the curve.
     Part of this is stricter than what the library could verify (the 2048-bit
-    floor, the exponent bound under 3072 bits); that is policy, not capability."""
+    floor, the exponent bound on moduli of 3072 bits or less); that is policy,
+    not capability."""
 
     try:
         algorithm = COSEAlgorithmIdentifier(int(alg))
@@ -480,13 +481,14 @@ def register_passkey(
         # forged or malformed one is a 422, never a 500, whichever of the
         # library's exceptions names the defect.
         raise refusal from exc
-    # A `none` attestation only decodes the key and checks `alg`: a COSE key
+    # A `none` attestation only decodes the key and checks `alg`. A COSE key
     # that decodes but cannot be loaded (a point off the curve, integer
-    # coordinates, an unsupported curve), or loads but is outside the key
-    # policy (an algorithm the key type cannot use, an RSA key outside the
-    # bounds, an Ed25519 encoding that is no point), would be stored as a
-    # factor nobody can use — a 500 or a lockout at every sign-in. Load and
-    # judge it here instead.
+    # coordinates, an unsupported curve), or that can never verify (an
+    # algorithm the key type cannot use, an even modulus or one past 16384
+    # bits, an Ed25519 encoding that is no point), would be stored as a factor
+    # nobody can use — a 500 or a lockout at every sign-in. The 2048-bit floor
+    # and the exponent bound are policy on top of that: such keys would
+    # verify, and are refused anyway. Load and judge the key here.
     try:
         decoded = decode_credential_public_key(verified.credential_public_key)
         key = decoded_public_key_to_cryptography(decoded)
