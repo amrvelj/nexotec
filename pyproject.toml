@@ -29,7 +29,11 @@ dependencies = [
     # hand-rolled crypto anywhere (Authentication & Identity, risks).
     "argon2-cffi>=23.1,<26.0",
     "pyotp>=2.9,<3.0",
-    "webauthn>=2.0,<4.0",
+    # webauthn 2.8 needs cryptography>=46 and 3.x >=49, above the cryptography pin:
+    # 2.7.1 is what every install gets, so the pin says so (KAN-196). Raising both
+    # together is a dependency decision; app/platform/services/mfa.py carries the
+    # shape checks 2.7.1 lacks.
+    "webauthn>=2.7.1,<2.8",
     "opentelemetry-api>=1.27,<2.0",
     "opentelemetry-sdk>=1.27,<2.0",
     "opentelemetry-exporter-otlp-proto-http>=1.27,<2.0",

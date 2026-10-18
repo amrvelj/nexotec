@@ -82,6 +82,18 @@ def _fresh_code(db_session, secret: str) -> str:
 def _b64url(raw: bytes) -> str:
     return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
 
+def _cose_p256_public_key() -> str:
+    """A real COSE EC2/P-256 key, base64url — what a registration stores. The
+    verify path decodes the stored key before judging the answer, so a stored
+    key has to be decodable even where the answer is bogus."""
+
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from webauthn.helpers import encode_cbor
+
+    numbers = ec.generate_private_key(ec.SECP256R1()).public_key().public_numbers()
+    cose = {1: 2, 3: -7, -1: 1, -2: numbers.x.to_bytes(32, "big"), -3: numbers.y.to_bytes(32, "big")}
+    return _b64url(encode_cbor(cose))
+
 
 # --- TOTP ---------------------------------------------------------------------------------
 
@@ -762,7 +774,7 @@ def test_a_passkey_holder_gets_the_passkey_step_and_a_bad_assertion_is_refused(c
         MfaPasskey(
             user_id=uuid.UUID(anna["id"]),
             credential_id=credential_id,
-            public_key=_b64url(b"not-a-real-cose-key"),
+            public_key=_cose_p256_public_key(),
             label="Laptop",
         )
     )
@@ -857,7 +869,7 @@ def test_a_malformed_passkey_answer_is_a_refusal_whichever_exception_the_library
         MfaPasskey(
             user_id=uuid.UUID(anna["id"]),
             credential_id=credential_id,
-            public_key=_b64url(b"pk"),
+            public_key=_cose_p256_public_key(),
             sign_count=0,
             label="Laptop",
             transports=[],
@@ -891,6 +903,143 @@ def test_a_malformed_passkey_answer_is_a_refusal_whichever_exception_the_library
         headers=cookie_headers(cookie),
     )
     assert registered.status_code == 422, registered.text
+
+
+def _passkey_holder(client, login, db_session) -> tuple[dict, str, str]:
+    """Anna with one passkey on file and a factor-backed session: returns her,
+    the stored credential id and her session cookie."""
+
+    from app.platform.models.auth_session import AuthSession
+
+    dealership = create_dealership(client, mfa_enforced=True)
+    anna = create_user(client, dealership)
+    cookie = login.session_cookie(anna)
+    row = db_session.scalars(
+        select(AuthSession).where(AuthSession.user_id == uuid.UUID(anna["id"]), AuthSession.revoked_at.is_(None))
+    ).one()
+    credential_id = _b64url(b"laptop-key")
+    db_session.add(
+        MfaPasskey(
+            user_id=uuid.UUID(anna["id"]),
+            credential_id=credential_id,
+            public_key=_cose_p256_public_key(),
+            sign_count=0,
+            label="Laptop",
+            transports=[],
+        )
+    )
+    row.amr = ["pwd", "hwk", "mfa"]
+    db_session.commit()
+    return anna, credential_id, cookie
+
+
+def _client_data(**overrides) -> str:
+    data = {"type": "webauthn.get", "challenge": "AA", "origin": "http://localhost:5173", **overrides}
+    return _b64url(json.dumps(data).encode())
+
+
+MALFORMED_ANSWERS = {
+    "clientDataJSON is a JSON number": {"response": {"clientDataJSON": _b64url(b"123")}},
+    "clientDataJSON is JSON null": {"response": {"clientDataJSON": _b64url(b"null")}},
+    "clientDataJSON is not UTF-8": {"response": {"clientDataJSON": _b64url(b"\xff\xfe{}")}},
+    "clientDataJSON is not JSON": {"response": {"clientDataJSON": _b64url(b"{not json")}},
+    "challenge is not a string": {"response": {"clientDataJSON": _client_data(challenge=5)}},
+    "type is not a string": {"response": {"clientDataJSON": _client_data(type=None)}},
+    "authenticatorData is not a string": {"response": {"authenticatorData": 7}},
+    "response is not an object": {"response": "x"},
+    "rawId is a number": {"rawId": 5, "id": 5},
+    "rawId is an object": {"rawId": {"a": 1}, "id": {"a": 1}},
+}
+
+
+@pytest.mark.parametrize("defect", list(MALFORMED_ANSWERS))
+def test_a_malformed_passkey_answer_through_the_real_library_is_a_wrong_answer(client, login, db_session, defect):
+    """`webauthn` 2.7.1 — the version the `cryptography<46` pin installs — lets
+    these shapes reach `json.loads` and dict indexing unguarded (builtin
+    exceptions, not `WebAuthnException`); the tenth review found the verify
+    route answering 500 to them, outside the wrong-answer counting. Every one
+    is a 401 that counts (login) and a 422 (registration)."""
+
+    anna, credential_id, cookie = _passkey_holder(client, login, db_session)
+    override = MALFORMED_ANSWERS[defect]
+
+    def shaped(response: dict) -> dict:
+        credential = {"id": credential_id, "rawId": credential_id, "type": "public-key", "response": response}
+        if isinstance(override.get("response"), dict):
+            credential["response"] = {**response, **override["response"]}
+        else:
+            credential.update(override)
+        return credential
+
+    answer = shaped(
+        {"clientDataJSON": _client_data(), "authenticatorData": _b64url(b"\x00" * 37), "signature": "AA"}
+    )
+
+    first = login.login(anna).json()
+    refused = client.post("/v1/auth/mfa/passkey/verify", json={"challengeId": first["challengeId"], "credential": answer})
+    assert refused.status_code == 401, refused.text
+    assert len(_events(db_session, AuthEventKind.MFA_FAILED)) == 1
+
+    options = client.post("/v1/auth/mfa/passkeys/options", headers=cookie_headers(cookie))
+    assert options.status_code == 200, options.text
+    registration = shaped({"clientDataJSON": _client_data(type="webauthn.create"), "attestationObject": _b64url(b"\xa0")})
+    registered = client.post(
+        "/v1/auth/mfa/passkeys",
+        json={"challengeId": options.json()["challengeId"], "label": "Phone", "credential": registration},
+        headers=cookie_headers(cookie),
+    )
+    assert registered.status_code == 422, registered.text
+
+
+@pytest.mark.parametrize(
+    "attestation",
+    [b"\x01", b"\xa1\x63fmt\x64none", b"\xa2\x63fmt\x05\x68authData\x40", b"\xa2\x63fmt\x64none\x68authData\x05"],
+    ids=["not a map", "no authData", "fmt not a string", "authData not bytes"],
+)
+def test_a_malformed_attestation_object_is_refused_before_the_library(client, login, db_session, attestation):
+    """2.7.1's `parse_attestation_object` indexes the decoded CBOR unguarded
+    (KeyError / TypeError); the shape is checked before the library sees it."""
+
+    _anna, credential_id, cookie = _passkey_holder(client, login, db_session)
+    options = client.post("/v1/auth/mfa/passkeys/options", headers=cookie_headers(cookie))
+    answer = {
+        "id": credential_id,
+        "rawId": credential_id,
+        "type": "public-key",
+        "response": {"clientDataJSON": _client_data(type="webauthn.create"), "attestationObject": _b64url(attestation)},
+    }
+    registered = client.post(
+        "/v1/auth/mfa/passkeys",
+        json={"challengeId": options.json()["challengeId"], "label": "Phone", "credential": answer},
+        headers=cookie_headers(cookie),
+    )
+    assert registered.status_code == 422, registered.text
+
+
+def test_a_stored_passkey_the_library_cannot_decode_is_a_server_defect_not_a_wrong_answer(client, login, db_session):
+    """The stored key is ours: a row the library can no longer decode (a
+    library change, a corrupt write) surfaces as an exception — never as the
+    user's `mfa_failed` counting towards lockout (tenth review)."""
+
+    from webauthn.helpers.exceptions import WebAuthnException
+
+    from app.platform.models.user import User
+    from app.platform.services import mfa as mfa_service
+
+    anna, credential_id, _cookie = _passkey_holder(client, login, db_session)
+    stored = db_session.scalars(select(MfaPasskey).where(MfaPasskey.credential_id == credential_id)).one()
+    stored.public_key = _b64url(b"not-a-cose-key")
+    db_session.commit()
+    user = db_session.get(User, uuid.UUID(anna["id"]))
+    well_formed = {
+        "id": credential_id,
+        "rawId": credential_id,
+        "type": "public-key",
+        "response": {"clientDataJSON": _client_data(), "authenticatorData": _b64url(b"\x00" * 37), "signature": "AA"},
+    }
+    with pytest.raises(WebAuthnException):
+        mfa_service.verify_passkey(db_session, user=user, credential=well_formed, challenge=b"x")
+    assert _events(db_session, AuthEventKind.MFA_FAILED) == []
 
 
 def test_the_auth_event_stream_is_the_managers_to_read_and_nobody_elses(client, login):

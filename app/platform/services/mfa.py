@@ -8,6 +8,7 @@ hangs off that stream."""
 import dataclasses
 import hashlib
 import hmac
+import json
 import secrets
 import uuid
 
@@ -21,7 +22,7 @@ from webauthn import (
     verify_authentication_response,
     verify_registration_response,
 )
-from webauthn.helpers import base64url_to_bytes, bytes_to_base64url
+from webauthn.helpers import base64url_to_bytes, bytes_to_base64url, decode_credential_public_key, parse_cbor
 from webauthn.helpers.exceptions import WebAuthnException
 from webauthn.helpers.structs import (
     AuthenticatorSelectionCriteria,
@@ -295,9 +296,73 @@ def passkey_registration_options(db: Session, *, user: User, challenge: bytes) -
     return options_to_json(options)
 
 
+def _well_formed_client_answer(credential: object, *, response_fields: tuple[str, ...]) -> bool:
+    """The shape check `webauthn` 2.7.1 does not do. That is the version the
+    `cryptography<46` pin installs (CI, the image, Render; 3.x wraps every
+    parser): its `parse_client_data_json` runs `json.loads` on the raw bytes
+    and indexes the result as a dict, so a non-UTF-8, non-JSON or non-object
+    `clientDataJSON`, a non-string `type`/`challenge`/`origin` or a non-string
+    id raise builtin exceptions, not `WebAuthnException` — a 500 that would
+    also escape the wrong-answer counting. Nothing here judges the answer; it
+    only guarantees the library sees a shape it can judge."""
+
+    if not isinstance(credential, dict):
+        return False
+    raw_id = credential.get("rawId") or credential.get("id")
+    if not isinstance(raw_id, str) or not raw_id:
+        return False
+    response = credential.get("response")
+    if not isinstance(response, dict):
+        return False
+    decoded: dict[str, bytes] = {}
+    for field in ("clientDataJSON", *response_fields):
+        value = response.get(field)
+        if not isinstance(value, str):
+            return False
+        try:
+            decoded[field] = base64url_to_bytes(value)
+        except ValueError:  # binascii.Error is a ValueError
+            return False
+    try:
+        client_data = json.loads(decoded["clientDataJSON"].decode("utf-8"))
+    except ValueError:  # UnicodeDecodeError and JSONDecodeError both are
+        return False
+    if not isinstance(client_data, dict):
+        return False
+    if not all(isinstance(client_data.get(key), str) for key in ("type", "challenge", "origin")):
+        return False
+    try:
+        base64url_to_bytes(client_data["challenge"])
+    except ValueError:
+        return False
+    return True
+
+
+def _well_formed_attestation(response: dict) -> bool:
+    """2.7.1's `parse_attestation_object` indexes the decoded CBOR as a dict
+    with `fmt`, `authData` and `attStmt` without checking; refuse anything
+    else before the library sees it (its own CBOR decoder is wrapped)."""
+
+    try:
+        attestation = parse_cbor(base64url_to_bytes(response["attestationObject"]))
+    except (WebAuthnException, ValueError):
+        return False
+    return (
+        isinstance(attestation, dict)
+        and isinstance(attestation.get("fmt"), str)
+        and isinstance(attestation.get("authData"), bytes)
+        and isinstance(attestation.get("attStmt", {}), dict)
+    )
+
+
 def register_passkey(
     db: Session, *, user: User, credential: dict, challenge: bytes, label: str, ip_address: str
 ) -> MfaPasskey:
+    refusal = UnprocessableEntityError("The passkey could not be verified.", details={"factor": "passkey"})
+    if not _well_formed_client_answer(credential, response_fields=("attestationObject",)):
+        raise refusal
+    if not _well_formed_attestation(credential["response"]):
+        raise refusal
     try:
         verified = verify_registration_response(
             credential=credential,
@@ -306,11 +371,11 @@ def register_passkey(
             expected_origin=_settings.webauthn_origin,
         )
     except WebAuthnException as exc:
-        # Every library refusal is one answer: a forged or malformed attestation
-        # is a 422, never a 500. `webauthn` 2.7.1 (what CI's resolver picked)
-        # raises the structure errors unwrapped, 3.0.1 wraps them — the base
-        # class covers both.
-        raise UnprocessableEntityError("The passkey could not be verified.", details={"factor": "passkey"}) from exc
+        # Every library refusal describes the client's attestation (no root
+        # certificates are passed, so nothing server-side is judged here): a
+        # forged or malformed one is a 422, never a 500, whichever of the
+        # library's exceptions names the defect.
+        raise refusal from exc
     row = MfaPasskey(
         user_id=user.id,
         credential_id=bytes_to_base64url(verified.credential_id),
@@ -348,25 +413,32 @@ def passkey_authentication_options(db: Session, *, user: User, challenge: bytes)
 
 
 def verify_passkey(db: Session, *, user: User, credential: dict, challenge: bytes) -> bool:
-    raw_id = credential.get("rawId") or credential.get("id")
-    if not raw_id:
+    if not _well_formed_client_answer(credential, response_fields=("authenticatorData", "signature")):
         return False
+    raw_id = credential.get("rawId") or credential.get("id")
     row = db.scalar(select(MfaPasskey).where(MfaPasskey.user_id == user.id, MfaPasskey.credential_id == raw_id))
     if row is None:
         return False
+    # The stored key is ours, not the client's: a row the library can no
+    # longer decode is a server defect that must surface (500, ERROR log),
+    # never be counted as the user's wrong answer — so it is decoded before
+    # the `except` below.
+    public_key = base64url_to_bytes(row.public_key)
+    decode_credential_public_key(public_key)
     try:
         verified = verify_authentication_response(
             credential=credential,
             expected_challenge=challenge,
             expected_rp_id=_settings.webauthn_rp_id,
             expected_origin=_settings.webauthn_origin,
-            credential_public_key=base64url_to_bytes(row.public_key),
+            credential_public_key=public_key,
             credential_current_sign_count=row.sign_count,
         )
     except WebAuthnException:
-        # A malformed assertion is a wrong answer like any other, whichever of
-        # the library's exceptions names the defect (`webauthn` 2.7.1 raised
-        # `InvalidJSONStructure` unwrapped where 3.0.1 wraps it).
+        # A malformed or forged assertion is a wrong answer like any other,
+        # whichever of the library's exceptions names the defect (2.7.1 raises
+        # `InvalidJSONStructure` unwrapped where 3.x wraps it; the shape check
+        # above keeps 2.7.1's builtin exceptions out).
         return False
     row.sign_count = verified.new_sign_count
     row.last_used_at = utcnow()
