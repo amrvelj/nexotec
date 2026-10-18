@@ -178,8 +178,7 @@ contract change: it needs an explicit decision, never a side effect of a fix.
 ## Domain rules that apply everywhere
 
 - **Organisation** (ADR-014): group → dealership → location. The **dealership** is the tenant.
-  The UI word for the tenant is **Betrieb** in German — *entreprise* (FR), *azienda* (IT), *business*
-  (EN) (KAN-381); `dealership` stays the table and code name (D-A-10).
+  The tenant is **Betrieb** in the UI (FR *entreprise*, IT *azienda*, EN *business*; KAN-381); `dealership` stays the table and code name (D-A-10).
   Customers are group-scoped (`group_id`); stock and customer history are dealership-owned but
   readable group-wide. Cost, margin, commission, discount, trade-in purchase price and valuations
   stay private to the legal entity. All writes require switching the active dealership.
