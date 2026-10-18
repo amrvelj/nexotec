@@ -95,7 +95,7 @@ describe('HistoryTab in French (KAN-336)', () => {
     expect(screen.queryByText(new RegExp(ADVISOR_ID))).not.toBeInTheDocument()
     // No label for the dealership on the record: the id is shown as recorded,
     // under a translated field name.
-    expect(screen.getByText('Concession')).toBeInTheDocument()
+    expect(screen.getByText('Entreprise')).toBeInTheDocument()
     expect(screen.getByText(new RegExp(DEALERSHIP_ID))).toBeInTheDocument()
 
     for (const english of ['First name', 'Salutation', 'Lifecycle status', 'Advisor id', 'Dealership id']) {

@@ -35,7 +35,7 @@
       "notificationsSoon": "Notifiche (presto)",
       "accountMenu": "Menu account",
       "language": "Lingua",
-      "switchDealership": "Cambia concessionaria",
+      "switchDealership": "Cambia azienda",
       "accountSecurity": "Il mio account – Sicurezza"
     },
     "globalSearch": {
@@ -45,8 +45,8 @@
       "error": "Ricerca non riuscita — riprova."
     },
     "switchDealershipError": {
-      "notAMember": "Cambio rifiutato: non è più associato a questa concessionaria. Rimane nella concessionaria attuale.",
-      "failed": "Impossibile cambiare concessionaria. Rimane nella concessionaria attuale. Riprovi.",
+      "notAMember": "Cambio rifiutato: non è più associato a questa azienda. Rimane nell’azienda attuale.",
+      "failed": "Impossibile cambiare azienda. Rimane nell’azienda attuale. Riprovi.",
       "dismiss": "Chiudi messaggio"
     }
   },
@@ -534,7 +534,7 @@
       },
       "otherAction": "Modifica registrata",
       "fields": {
-        "dealershipId": "Concessionaria",
+        "dealershipId": "Azienda",
         "phoneType": "Tipo di telefono",
         "emailType": "Tipo di e-mail",
         "addressType": "Tipo di indirizzo",
@@ -839,7 +839,7 @@
       "changed": "Modificato",
       "vin": "VIN",
       "listPrice": "Prezzo di listino",
-      "dealership": "Concessionaria",
+      "dealership": "Azienda",
       "ageingBucket": "Indicatore di anzianità",
       "basePrice": "Prezzo base",
       "purchasePrice": "Prezzo di acquisto",
@@ -1251,7 +1251,7 @@
       "suppressedReason": "Motivo",
       "suppressedReasonHint": "Su un veicolo usato uno sconto di riga è bloccato di default — un motivo annulla il blocco.",
       "error": "Impossibile salvare la modifica.",
-      "noPackagesCapability": "Mostrate come elenco semplice — il raggruppamento in pacchetti non è disponibile per questa concessionaria."
+      "noPackagesCapability": "Mostrate come elenco semplice — il raggruppamento in pacchetti non è disponibile per questa azienda."
     },
     "errors": {
       "saveRefused": {
@@ -1382,7 +1382,7 @@
     "finalOffer": "Offerta di permuta",
     "finalOfferHint": "Può differire dal valore netto — è la trattativa.",
     "note": "Nota",
-    "noProviderCapability": "La valutazione auto-i-dat non è disponibile per questa concessionaria — inserire manualmente il valore di permuta qui sotto.",
+    "noProviderCapability": "La valutazione auto-i-dat non è disponibile per questa azienda — inserire manualmente il valore di permuta qui sotto.",
     "configurator": {
       "skip": "Rilevare a mano senza configuratore"
     }
@@ -1429,7 +1429,7 @@
       "hint": "Inserire un nuovo valore solo per i campi da sostituire — il rinnovo sostituisce, non legge mai il valore attuale."
     },
     "columns": {
-      "dealership": "Concessionaria",
+      "dealership": "Azienda",
       "displayName": "Connessione",
       "provider": "Fornitore",
       "environment": "Ambiente",
@@ -1438,7 +1438,7 @@
     },
     "emptyState": {
       "title": "Nessuna connessione",
-      "description": "Nessuna concessionaria ha ancora collegato un fornitore."
+      "description": "Nessuna azienda ha ancora collegato un fornitore."
     },
     "emptyFilteredState": {
       "title": "Nessuna connessione corrispondente",
@@ -1464,7 +1464,7 @@
       },
       "emptyState": {
         "title": "Nessuna sincronizzazione del catalogo",
-        "description": "Nessun concessionario ha ancora sincronizzato un mirror del catalogo."
+        "description": "Nessuna azienda ha ancora sincronizzato un mirror del catalogo."
       }
     }
   },
@@ -1554,7 +1554,7 @@
     },
     "unavailable": {
       "title": "Catalogo non disponibile",
-      "body": "Nessuna connessione auto-i-dat attiva per questa sede. Collega auto-i-dat per sfogliare il catalogo."
+      "body": "Nessuna connessione auto-i-dat attiva per questa azienda. Collega auto-i-dat per sfogliare il catalogo."
     },
     "columns": {
       "brand": "Marca",
@@ -1607,7 +1607,7 @@
     "loadError": "Impossibile caricare il catalogo.",
     "emptyState": {
       "title": "Nessuna variante",
-      "description": "Nessun dato di catalogo ancora sincronizzato per questa sede."
+      "description": "Nessun dato di catalogo ancora sincronizzato per questa azienda."
     },
     "emptyFilteredState": {
       "title": "Nessun risultato",
@@ -1749,7 +1749,7 @@
       "unavailable": {
         "title": "Immagini non disponibili",
         "body": "Le immagini non sono disponibili per questo account.",
-        "uploadNote": "La vostra sede potrà aggiungere qui le proprie foto non appena il caricamento manuale sarà disponibile."
+        "uploadNote": "La vostra azienda potrà aggiungere qui le proprie foto non appena il caricamento manuale sarà disponibile."
       },
       "empty": "Questa variante non ha immagini nello specchio del catalogo.",
       "bildArt": {
