@@ -500,7 +500,7 @@
     "offersContracts": {
       "emptyState": {
         "title": "Aucune offre ni contrat",
-        "description": "Ce client n'a encore aucune offre ni contrat dans cette concession."
+        "description": "Ce client n'a encore aucune offre ni contrat dans cette entreprise."
       }
     },
     "history": {
@@ -571,6 +571,11 @@
       "role": "Rôle",
       "confirm": "Lier",
       "error": "Le véhicule n'a pas pu être lié."
+    },
+    "linkVehicleRefused": {
+      "customerMerged": "Ce client a été fusionné avec un autre. Liez le véhicule au client dans lequel il a été fusionné.",
+      "roleAlreadyHeld": "Ce client a déjà ce rôle sur ce véhicule à partir de cette date.",
+      "notFound": "Le véhicule ou le client n'existe plus. Rechargez la page et recherchez à nouveau."
     },
     "merge": {
       "title": "Fusionner un client en double",
@@ -1218,6 +1223,10 @@
     },
     "missing": "Il manque encore",
     "continue": "Générer l’offre",
+    "continueDisabled": {
+      "doNotContact": "Ce client est marqué « ne pas contacter » : aucune offre ne peut être générée.",
+      "saving": "Vos dernières modifications sont en cours d’enregistrement. « Générer l’offre » sera disponible dès qu’elles seront enregistrées."
+    },
     "generate": {
       "title": "Générer l’offre",
       "buildHint": "Génère un aperçu du document dans la langue de correspondance du client.",

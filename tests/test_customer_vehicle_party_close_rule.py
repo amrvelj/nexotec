@@ -155,7 +155,7 @@ def test_a_create_repeating_a_rows_exact_start_is_a_409_and_changes_nothing(db_s
         actor_id=uuid.uuid4(), effective_from=start,
     )
 
-    with pytest.raises(ConflictError):
+    with pytest.raises(ConflictError) as refused:
         create_customer_vehicle(
             db_session, customer=alice,
             data=CustomerVehicleCreate(
@@ -164,6 +164,8 @@ def test_a_create_repeating_a_rows_exact_start_is_a_409_and_changes_nothing(db_s
             actor_id=uuid.uuid4(),
         )
 
+    # KAN-369: the reason the link dialog translates.
+    assert refused.value.details["reason"] == "vehicle_party_exists"
     db_session.expire_all()
     assert db_session.get(VehicleParty, first.id).effective_to is None
     assert _events(db_session, "customer.vehicle_party.unlinked") == []
@@ -868,3 +870,251 @@ def test_the_copy_a_real_merge_kept_still_answers_merged_party_row(db_session):
     db_session.rollback()
 
     assert refused.value.details["reason"] == "merged_party_row"
+
+
+# --- KAN-370: a backdated history create refuses a merged customer ----------------
+
+
+def _create_history(db, customer: Customer, vehicle_id: uuid.UUID, start: dt.datetime | None = None) -> VehicleParty:
+    start = start or utcnow() - dt.timedelta(days=400)
+    return create_customer_vehicle(
+        db, customer=customer,
+        data=CustomerVehicleCreate(
+            vehicle_id=vehicle_id, role=OWNER, effective_from=start, effective_to=start + dt.timedelta(days=100),
+        ),
+        actor_id=uuid.uuid4(),
+    )
+
+
+def test_a_history_create_on_a_merged_customer_is_refused(db_session):
+    group_id = uuid.uuid4()
+    vehicle = _vehicle(db_session, "WVWZZZ1KZAW370001")
+    duplicate, survivor = _customer(db_session, group_id, "Dora"), _customer(db_session, group_id, "Sven")
+    db_session.commit()
+    _merge(db_session, duplicate, survivor.id, group_id)
+    merged = customer_service.get_customer_or_404(db_session, group_id, duplicate.id)
+
+    with pytest.raises(ConflictError) as refused:
+        _create_history(db_session, merged, vehicle.id)
+    db_session.rollback()
+
+    assert refused.value.details == {"reason": "customer_merged", "mergedIntoCustomerId": str(survivor.id)}
+    assert db_session.scalars(select(VehicleParty).where(VehicleParty.vehicle_id == vehicle.id)).all() == []
+
+
+def test_a_history_create_repeating_a_rows_start_names_its_reason(db_session):
+    """KAN-369: the history path's 409 carries the same reason as the
+    allocation's, so the link dialog can translate it."""
+
+    group_id = uuid.uuid4()
+    vehicle = _vehicle(db_session, "WVWZZZ1KZAW370002")
+    alice = _customer(db_session, group_id, "Alice")
+    db_session.commit()
+    start = utcnow() - dt.timedelta(days=400)
+    _create_history(db_session, alice, vehicle.id, start)
+
+    with pytest.raises(ConflictError) as refused:
+        _create_history(db_session, alice, vehicle.id, start)
+    db_session.rollback()
+
+    assert refused.value.details["reason"] == "vehicle_party_exists"
+
+
+def test_a_patch_onto_another_rows_start_names_its_reason(db_session):
+    """KAN-369: a PATCH whose effectiveFrom lands on another row of the same
+    customer, vehicle and role answers the same reason as a create."""
+
+    group_id = uuid.uuid4()
+    vehicle = _vehicle(db_session, "WVWZZZ1KZAW370004")
+    alice = _customer(db_session, group_id, "Alice")
+    db_session.commit()
+    first_start = utcnow() - dt.timedelta(days=400)
+    _create_history(db_session, alice, vehicle.id, first_start)
+    second = _create_history(db_session, alice, vehicle.id, first_start + dt.timedelta(days=200))
+
+    with pytest.raises(ConflictError) as refused:
+        _patch(db_session, (alice.id, second.id), group_id, effective_from=first_start)
+    db_session.rollback()
+
+    assert refused.value.details["reason"] == "vehicle_party_exists"
+
+
+def test_a_history_create_racing_its_customers_merge_is_refused(engine, db_session, monkeypatch):
+    """The merge holds the duplicate's customer row and is paused before
+    committing. A history row for the duplicate on a new (vehicle, role)
+    waits for that row, then reads it merged and is refused. Before KAN-370
+    it took no lock and committed a row on a merged customer."""
+
+    _postgres_only(engine)
+    group_id = uuid.uuid4()
+    vehicle = _vehicle(db_session, "WVWZZZ1KZAW370003")
+    duplicate, survivor = _customer(db_session, group_id, "Dora"), _customer(db_session, group_id, "Sven")
+    db_session.commit()
+    vehicle_id, duplicate_id, survivor_id = vehicle.id, duplicate.id, survivor.id
+    reached, release = threading.Event(), threading.Event()
+    real_repoint = customer_service._repoint_transactions
+
+    def _pause_after_the_parties(db, **kwargs):
+        if threading.current_thread().name == "merge":
+            reached.set()
+            release.wait(timeout=10)
+        return real_repoint(db, **kwargs)
+
+    monkeypatch.setattr(customer_service, "_repoint_transactions", _pause_after_the_parties)
+    factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+    errors: list[Exception] = []
+    refusals: list[ConflictError] = []
+
+    def _history():
+        with factory() as session:
+            try:
+                _create_history(session, customer_service.get_customer_or_404(session, group_id, duplicate_id), vehicle_id)
+            except ConflictError as exc:
+                refusals.append(exc)
+
+    def _merging():
+        with factory() as session:
+            _merge(session, duplicate_id, survivor_id, group_id)
+
+    merge = _run("merge", errors, _merging)
+    try:
+        assert reached.wait(timeout=10), "the merge never re-pointed the parties"
+        history = _run("history", errors, _history)
+        _wait_until_a_backend_waits_on_a_lock(engine)  # the create waits on the duplicate's customer row
+        release.set()
+        merge.join(timeout=10)
+        history.join(timeout=10)
+    finally:
+        release.set()
+
+    assert not history.is_alive() and not merge.is_alive()
+    assert errors == []
+    assert [r.details["reason"] for r in refusals] == ["customer_merged"]
+    db_session.expire_all()
+    assert db_session.scalars(select(VehicleParty).where(VehicleParty.customer_id == duplicate_id)).all() == []
+
+
+# --- KAN-372: a merge locks its survivor and re-checks it -------------------------
+
+
+def test_a_merge_into_a_customer_whose_own_merge_is_in_flight_is_refused(engine, db_session, monkeypatch):
+    """Merge D→T is paused before committing (it holds D's customer row).
+    Merge X→D read D as active without a lock; it now waits for D's row FOR
+    SHARE, then reads D merged and is refused. Before KAN-372 it committed:
+    X's open owner row ended up on merged D and X's duplicateOfCustomerId
+    named D — a chain X→D→T."""
+
+    _postgres_only(engine)
+    group_id = uuid.uuid4()
+    x_car, d_car = _vehicle(db_session, "WVWZZZ1KZAW372001"), _vehicle(db_session, "WVWZZZ1KZAW372002")
+    x, d, t = (_customer(db_session, group_id, name) for name in ("Xaver", "Dora", "Tina"))
+    db_session.commit()
+    x_party = _allocate(db_session, x_car.id, x, group_id)
+    _allocate(db_session, d_car.id, d, group_id)
+    x_id, d_id, t_id = x.id, d.id, t.id
+    reached, release = threading.Event(), threading.Event()
+    real_repoint = customer_service._repoint_transactions
+
+    def _pause_after_the_parties(db, **kwargs):
+        if threading.current_thread().name == "merge-d-into-t":
+            reached.set()
+            release.wait(timeout=10)
+        return real_repoint(db, **kwargs)
+
+    monkeypatch.setattr(customer_service, "_repoint_transactions", _pause_after_the_parties)
+    factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+    errors: list[Exception] = []
+    refusals: list[ConflictError] = []
+
+    def _merge_d_into_t():
+        with factory() as session:
+            _merge(session, d_id, t_id, group_id)
+
+    def _merge_x_into_d():
+        with factory() as session:
+            try:
+                _merge(session, x_id, d_id, group_id)
+            except ConflictError as exc:
+                refusals.append(exc)
+
+    first = _run("merge-d-into-t", errors, _merge_d_into_t)
+    try:
+        assert reached.wait(timeout=10), "merge D→T never re-pointed the parties"
+        second = _run("merge-x-into-d", errors, _merge_x_into_d)
+        _wait_until_a_backend_waits_on_a_lock(engine)  # X→D waits on D's customer row
+        release.set()
+        first.join(timeout=10)
+        second.join(timeout=10)
+    finally:
+        release.set()
+
+    assert not first.is_alive() and not second.is_alive()
+    assert errors == []
+    assert [r.details["reason"] for r in refusals] == ["merge_target_merged"]
+    db_session.expire_all()
+    assert db_session.get(VehicleParty, x_party.id).customer_id == x_id
+    assert db_session.get(Customer, x_id).duplicate_of_customer_id is None
+    merged_ids = set(db_session.scalars(select(Customer.id).where(Customer.duplicate_of_customer_id.is_not(None))).all())
+    assert merged_ids == {d_id}
+    # No open party row on a merged customer, and nobody's survivor is merged.
+    assert db_session.scalars(
+        select(VehicleParty).where(VehicleParty.customer_id.in_(merged_ids), VehicleParty.effective_to.is_(None))
+    ).all() == []
+    assert db_session.get(Customer, d_id).duplicate_of_customer_id == t_id
+
+
+def test_two_merges_in_opposite_directions_never_both_commit(engine, db_session, monkeypatch):
+    """A→B is paused before committing; B→A waits for the customer rows A→B
+    holds, then finds A merged and is refused. Before KAN-372 B→A did not
+    wait and both committed: A merged into B and B merged into A."""
+
+    _postgres_only(engine)
+    group_id = uuid.uuid4()
+    a_car, b_car = _vehicle(db_session, "WVWZZZ1KZAW372003"), _vehicle(db_session, "WVWZZZ1KZAW372004")
+    a, b = _customer(db_session, group_id, "Anna"), _customer(db_session, group_id, "Bea")
+    db_session.commit()
+    _allocate(db_session, a_car.id, a, group_id)
+    _allocate(db_session, b_car.id, b, group_id)
+    a_id, b_id = a.id, b.id
+    reached, release = threading.Event(), threading.Event()
+    real_repoint = customer_service._repoint_transactions
+
+    def _pause_after_the_parties(db, **kwargs):
+        if threading.current_thread().name == "merge-a-into-b":
+            reached.set()
+            release.wait(timeout=10)
+        return real_repoint(db, **kwargs)
+
+    monkeypatch.setattr(customer_service, "_repoint_transactions", _pause_after_the_parties)
+    factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+    errors: list[Exception] = []
+    refusals: list[ConflictError] = []
+
+    def _merge_a_into_b():
+        with factory() as session:
+            _merge(session, a_id, b_id, group_id)
+
+    def _merge_b_into_a():
+        with factory() as session:
+            try:
+                _merge(session, b_id, a_id, group_id)
+            except ConflictError as exc:
+                refusals.append(exc)
+
+    first = _run("merge-a-into-b", errors, _merge_a_into_b)
+    try:
+        assert reached.wait(timeout=10), "merge A→B never re-pointed the parties"
+        second = _run("merge-b-into-a", errors, _merge_b_into_a)
+        _wait_until_a_backend_waits_on_a_lock(engine)
+        release.set()
+        first.join(timeout=10)
+        second.join(timeout=10)
+    finally:
+        release.set()
+
+    assert not first.is_alive() and not second.is_alive()
+    assert errors == []
+    assert [r.details["reason"] for r in refusals] == ["merge_target_merged"]
+    db_session.expire_all()
+    assert db_session.get(Customer, a_id).duplicate_of_customer_id == b_id
+    assert db_session.get(Customer, b_id).duplicate_of_customer_id is None

@@ -500,7 +500,7 @@
     "offersContracts": {
       "emptyState": {
         "title": "Nessuna offerta o contratto",
-        "description": "Questo cliente non ha ancora offerte o contratti presso questa concessionaria."
+        "description": "Questo cliente non ha ancora offerte o contratti presso questa azienda."
       }
     },
     "history": {
@@ -571,6 +571,11 @@
       "role": "Ruolo",
       "confirm": "Collega",
       "error": "Non è stato possibile collegare il veicolo."
+    },
+    "linkVehicleRefused": {
+      "customerMerged": "Questo cliente è stato unito a un altro. Collega il veicolo al cliente in cui è stato unito.",
+      "roleAlreadyHeld": "Questo cliente ha già questo ruolo su questo veicolo a partire da questa data.",
+      "notFound": "Il veicolo o il cliente non esiste più. Ricarica la pagina e cerca di nuovo."
     },
     "merge": {
       "title": "Unisci cliente duplicato",
@@ -1218,6 +1223,10 @@
     },
     "missing": "Manca ancora",
     "continue": "Genera offerta",
+    "continueDisabled": {
+      "doNotContact": "Questo cliente è contrassegnato come «non contattare»: non è possibile generare un’offerta.",
+      "saving": "Le ultime modifiche sono ancora in fase di salvataggio. «Genera offerta» sarà disponibile non appena saranno salvate."
+    },
     "generate": {
       "title": "Genera offerta",
       "buildHint": "Genera un’anteprima del documento nella lingua di corrispondenza del cliente.",

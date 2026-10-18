@@ -500,7 +500,7 @@
     "offersContracts": {
       "emptyState": {
         "title": "No offers or contracts yet",
-        "description": "This customer has no offers or contracts at this dealership yet."
+        "description": "This customer has no offers or contracts at this business yet."
       }
     },
     "history": {
@@ -571,6 +571,11 @@
       "role": "Role",
       "confirm": "Link",
       "error": "The vehicle could not be linked."
+    },
+    "linkVehicleRefused": {
+      "customerMerged": "This customer has been merged into another. Link the vehicle to the customer it was merged into.",
+      "roleAlreadyHeld": "This customer already holds this role on this vehicle from this date.",
+      "notFound": "The vehicle or the customer no longer exists. Reload the page and search again."
     },
     "merge": {
       "title": "Merge duplicate customer",
@@ -1218,6 +1223,10 @@
     },
     "missing": "Still missing",
     "continue": "Generate offer",
+    "continueDisabled": {
+      "doNotContact": "This customer is marked do-not-contact: no offer can be generated.",
+      "saving": "Your last changes are still being saved. “Generate offer” becomes available once they are saved."
+    },
     "generate": {
       "title": "Generate offer",
       "buildHint": "Generates a preview of the document in the customer's correspondence language.",

@@ -133,7 +133,8 @@ weekly. -->
   a holder the group filter already admits.
 - **No path bypasses the close rule** (Anto, option A, KAN-148): a create whose `effectiveTo`
   is still to come is a holder now and goes through `allocate_vehicle_party` (it keeps its end
-  date); one already past is history and closes nobody. A PATCH whose `effectiveTo` leaves the
+  date); one already past is history and closes nobody, but takes the allocation's locks and
+  refuses a merged customer the same way (KAN-370). A PATCH whose `effectiveTo` leaves the
   row holding its role (`null` or still to come) takes the same advisory lock and closes every
   other open holder in the group; a reopen publishes `customer.vehicle_party.linked`, and a PATCH
   that ends a holding row (`effectiveTo` now or past) publishes `unlinked` (KAN-352). Disconnect
@@ -148,11 +149,21 @@ weekly. -->
   409 `customer_merged` (with `mergedIntoCustomerId`) — after KAN-177's row-level
   `merged_party_row` check, which the kept copy still answers — so an allocation to the duplicate
   on a pair new to it either commits before that re-read (and is re-pointed) or waits for the
-  merge and is refused. Two paths can still leave a row on a merged customer: a create with a past
-  `effectiveTo` (no lock, KAN-370), and a merge *into* a customer whose own merge is in flight
-  (the target's status is read without a lock, KAN-372). A pair that appears while it waits is only tried,
-  never waited for (out of order, it could deadlock another merge): if it is held, the merge is
-  refused, 409 `merge_vehicle_party_busy`, and can be sent again.
+  merge and is refused. A pair that appears while it waits is only tried, never waited for (out of
+  order, it could deadlock another merge): if it is held, the merge is refused, 409
+  `merge_vehicle_party_busy`, and can be sent again.
+- **A merge locks its survivor too** (KAN-372, `_lock_merge_customers`): after its advisory locks
+  it locks both customer rows **in id order** — the duplicate `FOR NO KEY UPDATE`, the survivor
+  `FOR SHARE` — and re-reads both statuses under them: a survivor that is merged (or whose own
+  merge was in flight and committed) is refused, 409 `merge_target_merged`; a duplicate a
+  concurrent merge already merged, 409 `customer_already_merged`. Lock order everywhere: advisory
+  (sorted) → customer rows (id order) → party rows. Two merges in opposite directions ask for the
+  two rows in the same order, so the second waits and is refused; allocation and a reopen take
+  one customer row `FOR SHARE` after their advisory lock, which a merge's survivor lock never
+  blocks. A merge X→D racing D→T is refused only when D→T locked D first. When X→D locks D
+  first, D→T waits, then commits after it: X's vehicle rows follow D's to T, but X's
+  `duplicateOfCustomerId` names merged D, the same chain two merges run one after the other
+  leave. **Not covered:** that chain, in either form (KAN-383, a decision for Anto).
 - **A party row carries the vehicle's label, never a join** (KAN-84, rule 2):
   `vehicle_vin`, `vehicle_number`, `vehicle_make`, `vehicle_model`, `vehicle_model_year`,
   `vehicle_trim` and `vehicle_label_refreshed_at`, copied from
