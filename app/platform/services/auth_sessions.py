@@ -84,7 +84,7 @@ def revoke_all_for_user(
     db: Session, *, user_id: uuid.UUID, reason: str, except_session_id: uuid.UUID | None = None
 ) -> int:
     """Ends every live session of the user — a reset (FR-AU-14), a
-    deactivation (FR-AU-17), a manager's revoke. Returns how many ended."""
+    deactivation (FR-AU-17), platform staff's revoke (D-A-16). Returns how many ended."""
 
     now = utcnow()
     stmt = (

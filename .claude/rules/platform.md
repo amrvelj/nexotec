@@ -199,8 +199,9 @@ One shared template layer (`app/platform/models/document_template.py`). WeasyPri
   minute. A token without `sid` (tests, bootstrap) is left to the route. Logout revokes the
   row and is the one route the guard lets a dead session reach. A status change to suspended
   or deactivated, a change of roles, manager flag or membership (the claims live for the
-  session's day), a password reset, an accepted invitation and the manager's
-  `DELETE …/users/{id}/sessions` revoke every row of the user — each revocation is a
+  session's day), a password reset, an accepted invitation and platform staff's
+  `DELETE …/users/{id}/sessions` (D-A-16; a manager's lever is to suspend or deactivate the
+  user) revoke every row of the user — each revocation is a
   `session_revoked` event; the reset request's mail is sent after the response (a background
   task) so its timing says nothing; the `logging` mail sender is refused at startup in production. Per-Betrieb idle/absolute policy (D-A-37) is **not built**: one
   platform setting.
@@ -220,8 +221,9 @@ One shared template layer (`app/platform/models/document_template.py`). WeasyPri
   `details.mfaEnrolmentRequired`; nothing outside the API is judged. The guard reads the factor
   from the **session row**: confirming a factor (TOTP confirm, passkey registration) records it
   on the row's `amr`, so the session that enrolled is free at once; the token's own `mfa` claim
-  stays as minted until the next sign-in (the account routes are idempotent routes and cannot
-  re-issue the cookie). The MFA step allows five answers per challenge (a guarded counter on the
+  stays as minted until the next sign-in or dealership switch, which re-mint it from the row (the
+  account routes are idempotent routes and cannot re-issue the cookie). Removing a factor that was
+  never confirmed changes no session and writes no `mfa_removed`. The MFA step allows five answers per challenge (a guarded counter on the
   `auth_token` row); **every wrong answer counts on the account axis** like a wrong password, the
   password step does not clear that counter (only a completed login does) and the MFA step
   honours the account lock and backoff — so starting fresh challenges buys nothing. A challenge

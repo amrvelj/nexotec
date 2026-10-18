@@ -635,6 +635,76 @@ def test_a_session_that_never_proved_a_factor_ends_once_the_user_holds_one(clien
     assert len(revoked) == 1 and str(revoked[0].user_id) == anna["id"]
 
 
+
+def test_removing_a_factor_the_user_never_held_touches_no_other_session(client, login, db_session):
+    """DELETE /auth/mfa/totp with nothing confirmed removes no factor — so it
+    must neither sign the user's other devices out nor write a removal that
+    never happened (the sixth review found the sign-out running
+    unconditionally, in a Betrieb that does not even enforce a factor)."""
+
+    from app.platform.models.mfa import MfaTotp
+
+    dealership = create_dealership(client, mfa_enforced=False)
+    anna = create_user(client, dealership)
+    laptop = login.session_cookie(anna)
+    phone = login.session_cookie(anna)
+
+    # Nothing enrolled at all.
+    assert client.delete("/v1/auth/mfa/totp", headers=cookie_headers(laptop)).status_code == 204
+    assert client.get("/v1/auth/me", headers=cookie_headers(phone)).status_code == 200
+    # An enrolment begun and abandoned was never a factor either.
+    assert client.post("/v1/auth/mfa/totp/enrol", headers=cookie_headers(laptop)).status_code == 200
+    assert client.delete("/v1/auth/mfa/totp", headers=cookie_headers(laptop)).status_code == 204
+    assert client.get("/v1/auth/me", headers=cookie_headers(phone)).status_code == 200
+    assert client.get("/v1/auth/me", headers=cookie_headers(laptop)).status_code == 200
+    assert db_session.scalars(select(MfaTotp)).all() == []
+    assert _events(db_session, AuthEventKind.MFA_REMOVED) == []
+    assert [e for e in _events(db_session, AuthEventKind.SESSION_REVOKED) if e.details["reason"] == "mfa_removed"] == []
+
+
+def test_the_guard_re_reads_the_row_before_ending_the_session_that_is_confirming_its_factor(
+    client, login, db_session, monkeypatch
+):
+    """The race the fifth review named: the guard loaded the row (no factor
+    proved) while the same session's TOTP confirm committed — the factor now
+    exists and the stale row says this session never proved it. The commit is
+    injected at exactly that point; without the re-read the enrolling session
+    is revoked as `factor_enrolled`, with it the request goes through."""
+
+    from app.core.base import utcnow
+    from app.platform.models.auth_session import AuthSession
+    from app.platform.models.mfa import MfaTotp
+    from app.platform.services import mfa as mfa_service
+
+    dealership = create_dealership(client, mfa_enforced=True)
+    anna = create_user(client, dealership)
+    cookie = login.session_cookie(anna)
+    assert client.post("/v1/auth/mfa/totp/enrol", headers=cookie_headers(cookie)).status_code == 200
+    user_id = uuid.UUID(anna["id"])
+    real_has_factor = mfa_service.has_factor
+    fired = []
+
+    def confirm_commits_now(db, uid):
+        # Runs inside the guard, after it loaded the row and before it judges
+        # the factor: another connection commits what the confirm would.
+        if uid == user_id and not fired:
+            fired.append(True)
+            totp = db_session.scalars(select(MfaTotp).where(MfaTotp.user_id == user_id)).one()
+            totp.confirmed_at = utcnow()
+            row = db_session.scalars(
+                select(AuthSession).where(AuthSession.user_id == user_id, AuthSession.revoked_at.is_(None))
+            ).one()
+            row.amr = sorted(set(row.amr) | {"otp", "mfa"})
+            db_session.commit()
+        return real_has_factor(db, uid)
+
+    monkeypatch.setattr(mfa_service, "has_factor", confirm_commits_now)
+    response = client.get("/v1/customers", headers=cookie_headers(cookie))
+    assert fired, "the guard never asked for the factor"
+    assert response.status_code == 200, response.text
+    assert [e for e in _events(db_session, AuthEventKind.SESSION_REVOKED) if e.details["reason"] == "factor_enrolled"] == []
+    assert client.get("/v1/auth/me", headers=cookie_headers(cookie)).json()["mfaEnrolmentRequired"] is False
+
 # --- passkeys ------------------------------------------------------------------------------
 
 

@@ -207,22 +207,29 @@ def regenerate_recovery_codes(db: Session, *, user: User, ip_address: str) -> li
     return codes
 
 
-def remove_totp(db: Session, *, user: User, actor_id: uuid.UUID, ip_address: str) -> None:
+def remove_totp(db: Session, *, user: User, actor_id: uuid.UUID, ip_address: str) -> bool:
+    """Deletes the user's authenticator. Returns whether a *confirmed* factor
+    went: an enrolment begun and abandoned (never confirmed) was never a
+    factor, so dropping it is no `mfa_removed` and changes no session."""
+
     totp = totp_of(db, user.id)
     if totp is None:
-        return
+        return False
+    confirmed = totp.confirmed_at is not None
     db.delete(totp)
     db.flush()
-    auth_events.record(
-        db,
-        AuthEventKind.MFA_REMOVED,
-        user_id=user.id,
-        dealership_id=user.tenant_id,
-        actor_id=actor_id,
-        ip_address=ip_address,
-        details={"factor": "totp", "by_self": actor_id == user.id},
-    )
+    if confirmed:
+        auth_events.record(
+            db,
+            AuthEventKind.MFA_REMOVED,
+            user_id=user.id,
+            dealership_id=user.tenant_id,
+            actor_id=actor_id,
+            ip_address=ip_address,
+            details={"factor": "totp", "by_self": actor_id == user.id},
+        )
     _drop_recovery_codes_if_no_factor(db, user)
+    return confirmed
 
 
 def _drop_recovery_codes_if_no_factor(db: Session, user: User) -> None:

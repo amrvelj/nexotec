@@ -635,15 +635,18 @@ def _record_factor_on_session(db: Session, *, principal: Principal, method: str)
 @account_router.delete("/auth/mfa/totp", status_code=204)
 def totp_remove(request: Request, principal: Principal = Depends(get_current_principal), db: Session = Depends(get_db)):
     user = user_service.get_own_user_or_404(db, principal.user_id)
-    mfa.remove_totp(db, user=user, actor_id=principal.user_id, ip_address=client_ip(request))
-    _drop_factor_from_session_if_none_left(db, principal=principal, user=user)
+    if mfa.remove_totp(db, user=user, actor_id=principal.user_id, ip_address=client_ip(request)):
+        _drop_factor_from_session_if_none_left(db, principal=principal, user=user)
     db.commit()
 
 
 def _drop_factor_from_session_if_none_left(db: Session, *, principal: Principal, user: User) -> None:
     """The inverse of `_record_factor_on_session`: a session whose user just
     removed their last factor proved nothing any more — it owes enrolment
-    again (the guard and /auth/me agree on the row)."""
+    again (the guard and /auth/me agree on the row). Called only after a
+    confirmed factor was actually removed in this request: with nothing
+    removed there is nothing to end, and no event to write (the sixth review
+    found a factorless user's other devices signed out by this call)."""
 
     if mfa.has_factor(db, user.id):
         return
