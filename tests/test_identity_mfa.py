@@ -1207,6 +1207,7 @@ def _sign_in_through_the_library(client, login, anna: dict, private_key, credent
 
     from cryptography.hazmat.primitives import hashes
     from cryptography.hazmat.primitives.asymmetric import ec
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
     first = login.login(anna).json()
     assert "passkey" in first["factors"], first
@@ -1217,7 +1218,10 @@ def _sign_in_through_the_library(client, login, anna: dict, private_key, credent
         {"type": "webauthn.get", "challenge": parsed["challenge"], "origin": _settings().webauthn_origin}
     ).encode()
     auth_data = _auth_data(flags=0x01, sign_count=sign_count)
-    signature = private_key.sign(auth_data + hashlib.sha256(client_data).digest(), ec.ECDSA(hashes.SHA256()))
+    signed = auth_data + hashlib.sha256(client_data).digest()
+    signature = private_key.sign(signed) if isinstance(private_key, Ed25519PrivateKey) else private_key.sign(
+        signed, ec.ECDSA(hashes.SHA256())
+    )
     cred_id = _b64url(credential_id)
     answer = {
         "id": cred_id,
@@ -1231,9 +1235,7 @@ def _sign_in_through_the_library(client, login, anna: dict, private_key, credent
         },
     }
     payload = {"challengeId": first["challengeId"], "credential": answer}
-    response = client.post("/v1/auth/mfa/passkey/verify", json=payload)
-    response.replay = lambda: client.post("/v1/auth/mfa/passkey/verify", json=payload)  # type: ignore[attr-defined]
-    return response
+    return client.post("/v1/auth/mfa/passkey/verify", json=payload), payload
 
 
 def test_a_real_passkey_ceremony_registers_and_signs_in(client, login, db_session):
@@ -1257,36 +1259,39 @@ def test_a_real_passkey_ceremony_registers_and_signs_in(client, login, db_sessio
     stored = db_session.scalars(select(MfaPasskey).where(MfaPasskey.credential_id == _b64url(credential_id))).one()
     assert stored.transports == ["internal"] and stored.sign_count == 0
 
-    signed_in = _sign_in_through_the_library(client, login, anna, private_key, credential_id, sign_count=7)
+    signed_in, payload = _sign_in_through_the_library(client, login, anna, private_key, credential_id, sign_count=7)
     assert signed_in.status_code == 200, signed_in.text
     assert signed_in.json()["session"]["mfaEnrolmentRequired"] is False
     assert sorted(decode_token_claims(signed_in.cookies.get("dms_session"))["amr"]) == ["hwk", "mfa", "pwd"]
     db_session.expire_all()
     assert stored.sign_count == 7 and stored.last_used_at is not None
     assert _events(db_session, AuthEventKind.MFA_FAILED) == []
-    replayed = signed_in.replay()  # the same signed answer on the spent challenge
+    replayed = client.post("/v1/auth/mfa/passkey/verify", json=payload)  # the same signed answer, spent challenge
     assert replayed.status_code == 401 and replayed.json()["error"]["details"] == {"step": "expired"}, replayed.text
 
-    stale = _sign_in_through_the_library(client, login, anna, private_key, credential_id, sign_count=7)
+    stale, _payload = _sign_in_through_the_library(client, login, anna, private_key, credential_id, sign_count=7)
     assert stale.status_code == 401, stale.text
     assert len(_events(db_session, AuthEventKind.MFA_FAILED)) == 1
 
 
-def test_a_key_that_can_never_verify_a_signature_is_refused_at_registration(client, login, db_session):
+def test_a_key_outside_the_passkey_key_policy_is_refused_at_registration(client, login, db_session):
     """Through the real library: a `none` attestation accepts any key that
-    decodes, so a key the sign-in step could never use would be stored as a
-    factor (twelfth and thirteenth reviews): an RSA key under the 2048-bit
-    floor, an EC2 key with an RSA algorithm, an RSA key with ECDSA, an even
-    RSA modulus, an RSA exponent past 64 bits, an Ed25519 encoding that is not
-    a curve point — all 422; a 2048-bit RS256 key registers. A credential id
-    past the spec's 1023 bytes is refused the same way."""
+    decodes, so the key policy judges it (twelfth to fourteenth reviews). Refused
+    with 422: an RSA key under the 2048-bit floor (policy — the library would
+    verify it), an EC2 key with an RSA algorithm and an RSA key with ECDSA (no
+    signature ever verifies), an even RSA modulus and one past 16384 bits
+    (OpenSSL never verifies them), an exponent past 64 bits (policy), an
+    Ed25519 encoding that is not a curve point, a credential id past the
+    spec's 1023 bytes. Accepted: a 2048-bit RS256 key and a real Ed25519 key,
+    which then signs in."""
 
     from cryptography.hazmat.primitives.asymmetric import ec, rsa
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    from webauthn.helpers import encode_cbor
 
     dealership = create_dealership(client, mfa_enforced=True)
     anna = create_user(client, dealership)
     cookie = login.session_cookie(anna)
-    from webauthn.helpers import encode_cbor
 
     small_rsa = rsa.generate_private_key(public_exponent=65537, key_size=1024)
     big_rsa = rsa.generate_private_key(public_exponent=65537, key_size=2048)
@@ -1295,6 +1300,7 @@ def test_a_key_that_can_never_verify_a_signature_is_refused_at_registration(clie
     even_modulus = encode_cbor({1: 3, 3: -257, -1: (big.n - 1).to_bytes(256, "big"), -2: b"\x01\x00\x01"})
     huge_exponent = encode_cbor({1: 3, 3: -257, -1: big.n.to_bytes(256, "big"), -2: (2**64 + 1).to_bytes(9, "big")})
     not_a_point = encode_cbor({1: 1, 3: -8, -1: 6, -2: (2).to_bytes(32, "little")})
+    past_the_ceiling = encode_cbor({1: 3, 3: -257, -1: ((1 << 16384) | 1).to_bytes(2049, "big"), -2: b"\x01\x00\x01"})
     for cose_key in (
         _cose_rsa(small_rsa, alg=-39),
         _cose_ec2(p256, alg=-257),
@@ -1302,6 +1308,7 @@ def test_a_key_that_can_never_verify_a_signature_is_refused_at_registration(clie
         even_modulus,
         huge_exponent,
         not_a_point,
+        past_the_ceiling,
     ):
         refused = _register_through_the_library(client, cookie, b"key-" + uuid.uuid4().bytes, cose_key)
         assert refused.status_code == 422, refused.text
@@ -1310,6 +1317,13 @@ def test_a_key_that_can_never_verify_a_signature_is_refused_at_registration(clie
     assert db_session.scalars(select(MfaPasskey)).all() == []
     accepted = _register_through_the_library(client, cookie, b"key-" + uuid.uuid4().bytes, _cose_rsa(big_rsa, alg=-257))
     assert accepted.status_code == 201, accepted.text
+
+    ed25519 = Ed25519PrivateKey.generate()
+    ed_credential = b"ed-" + uuid.uuid4().bytes
+    real_point = encode_cbor({1: 1, 3: -8, -1: 6, -2: ed25519.public_key().public_bytes_raw()})
+    assert _register_through_the_library(client, cookie, ed_credential, real_point).status_code == 201
+    signed_in, _payload = _sign_in_through_the_library(client, login, anna, ed25519, ed_credential, sign_count=1)
+    assert signed_in.status_code == 200, signed_in.text
 
 
 def test_the_counter_and_credential_id_take_every_value_the_spec_allows(client, login, db_session):
@@ -1329,7 +1343,7 @@ def test_the_counter_and_credential_id_take_every_value_the_spec_allows(client, 
     stored = db_session.scalars(select(MfaPasskey).where(MfaPasskey.credential_id == _b64url(credential_id))).one()
     assert stored.sign_count == 2**31 and len(stored.credential_id) == 1364
 
-    signed_in = _sign_in_through_the_library(client, login, anna, private_key, credential_id, sign_count=2**32 - 1)
+    signed_in, _payload = _sign_in_through_the_library(client, login, anna, private_key, credential_id, sign_count=2**32 - 1)
     assert signed_in.status_code == 200, signed_in.text
     db_session.expire_all()
     assert stored.sign_count == 2**32 - 1

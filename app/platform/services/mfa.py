@@ -389,8 +389,10 @@ def _well_formed_attestation(response: dict) -> bool:
 # authenticator uses 2048): well above the ~528 bits under which cryptography
 # refuses a PSS digest with a ValueError the library does not catch.
 RSA_MIN_BITS = 2048
-# OpenSSL's ceilings: a modulus past OPENSSL_RSA_MAX_MODULUS_BITS, an even
-# modulus, or a public exponent past 64 bits never verifies.
+# OpenSSL never verifies a modulus past OPENSSL_RSA_MAX_MODULUS_BITS or an
+# even modulus, and refuses an exponent past 64 bits on a modulus over 3072
+# bits; the exponent bound is applied to every size here as policy (every
+# authenticator uses 65537).
 RSA_MAX_BITS = 16384
 RSA_MAX_EXPONENT_BITS = 64
 # A credential id is at most 1023 bytes (WebAuthn L2 §5.8.3); the column holds
@@ -409,9 +411,12 @@ _RSA_ALGS = {
 
 
 def _key_can_sign_in(key: object, alg: int) -> bool:
-    """Whether `verify_signature` (webauthn 2.7.1) can ever accept a signature
-    from this key with this algorithm: the key type and the algorithm family
-    must match, and an RSA modulus must hold the PSS digest."""
+    """The passkey key policy: the key type must match the algorithm family
+    `verify_signature` (webauthn 2.7.1) knows — otherwise no signature ever
+    verifies — and an RSA key or an Ed25519 encoding must be one a sign-in can
+    use: RSA within the policy bounds above, Ed25519 a point on the curve.
+    Part of this is stricter than what the library could verify (the 2048-bit
+    floor, the exponent bound under 3072 bits); that is policy, not capability."""
 
     try:
         algorithm = COSEAlgorithmIdentifier(int(alg))
@@ -477,10 +482,11 @@ def register_passkey(
         raise refusal from exc
     # A `none` attestation only decodes the key and checks `alg`: a COSE key
     # that decodes but cannot be loaded (a point off the curve, integer
-    # coordinates, an unsupported curve), or loads but can never verify a
-    # signature (an RSA modulus too small for its PSS digest, an algorithm the
-    # key type cannot use), would be stored as a factor nobody can use — a 500
-    # or a lockout at every sign-in. Load and judge it here instead.
+    # coordinates, an unsupported curve), or loads but is outside the key
+    # policy (an algorithm the key type cannot use, an RSA key outside the
+    # bounds, an Ed25519 encoding that is no point), would be stored as a
+    # factor nobody can use — a 500 or a lockout at every sign-in. Load and
+    # judge it here instead.
     try:
         decoded = decode_credential_public_key(verified.credential_public_key)
         key = decoded_public_key_to_cryptography(decoded)
