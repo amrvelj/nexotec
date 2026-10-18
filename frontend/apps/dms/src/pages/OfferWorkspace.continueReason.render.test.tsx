@@ -102,12 +102,7 @@ describe('OfferWorkspace — a disabled Continue says why (KAN-368)', () => {
   it('names a do-not-contact customer, in fr', async () => {
     await i18n.changeLanguage('fr')
     installBackend({ lifecycleStatus: 'do_not_contact' })
-    renderWithProviders(
-      <Routes>
-        <Route path="/sales/offers/:id" element={<OfferWorkspacePage />} />
-      </Routes>,
-      { route: '/sales/offers/o1' },
-    )
+    renderWorkspace()
 
     await waitFor(async () => expect(await screen.findByRole('button', { name: i18n.t('offerWorkspace.continue') })).toBeDisabled())
     await hoverContinue()
@@ -120,12 +115,7 @@ describe('OfferWorkspace — a disabled Continue says why (KAN-368)', () => {
     await i18n.changeLanguage('fr')
     let releasePatch: (value: unknown) => void = () => {}
     const backend = installBackend({}, () => new Promise((resolve) => (releasePatch = resolve)))
-    renderWithProviders(
-      <Routes>
-        <Route path="/sales/offers/:id" element={<OfferWorkspacePage />} />
-      </Routes>,
-      { route: '/sales/offers/o1' },
-    )
+    renderWorkspace()
 
     const continueButton = () => screen.getByRole('button', { name: i18n.t('offerWorkspace.continue') })
     await waitFor(() => expect(continueButton()).toBeEnabled())

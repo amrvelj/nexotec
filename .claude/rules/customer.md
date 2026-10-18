@@ -162,7 +162,7 @@ weekly. -->
   for D's row and is refused; allocation and a reopen take one customer row `FOR SHARE` after
   their advisory lock, which a merge's survivor lock never blocks. **Not covered:** a merge D→T
   run *after* X→D has committed leaves X's `duplicateOfCustomerId` naming merged D (the
-  sequential chain — see the follow-up ticket filed with KAN-372).
+  sequential chain — KAN-383, a decision for Anto).
 - **A party row carries the vehicle's label, never a join** (KAN-84, rule 2):
   `vehicle_vin`, `vehicle_number`, `vehicle_make`, `vehicle_model`, `vehicle_model_year`,
   `vehicle_trim` and `vehicle_label_refreshed_at`, copied from

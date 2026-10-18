@@ -999,11 +999,12 @@ def _lock_merge_customers(db: Session, *, duplicate_id: uuid.UUID, target_id: uu
             db.execute(stmt.with_for_update(key_share=True))
         else:
             db.execute(stmt.with_for_update(read=True))
-    status = dict(
-        db.execute(
+    status: dict[uuid.UUID, CustomerLifecycleStatus] = {
+        row.id: row.lifecycle_status
+        for row in db.execute(
             select(Customer.id, Customer.lifecycle_status).where(Customer.id.in_((duplicate_id, target_id)))
-        ).all()
-    )
+        )
+    }
     if status[target_id] == CustomerLifecycleStatus.MERGED:
         raise ConflictError(
             "Cannot merge into a customer that has itself been merged.",
