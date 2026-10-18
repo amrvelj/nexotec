@@ -920,6 +920,25 @@ def test_a_history_create_repeating_a_rows_start_names_its_reason(db_session):
     assert refused.value.details["reason"] == "vehicle_party_exists"
 
 
+def test_a_patch_onto_another_rows_start_names_its_reason(db_session):
+    """KAN-369: a PATCH whose effectiveFrom lands on another row of the same
+    customer, vehicle and role answers the same reason as a create."""
+
+    group_id = uuid.uuid4()
+    vehicle = _vehicle(db_session, "WVWZZZ1KZAW370004")
+    alice = _customer(db_session, group_id, "Alice")
+    db_session.commit()
+    first_start = utcnow() - dt.timedelta(days=400)
+    _create_history(db_session, alice, vehicle.id, first_start)
+    second = _create_history(db_session, alice, vehicle.id, first_start + dt.timedelta(days=200))
+
+    with pytest.raises(ConflictError) as refused:
+        _patch(db_session, (alice.id, second.id), group_id, effective_from=first_start)
+    db_session.rollback()
+
+    assert refused.value.details["reason"] == "vehicle_party_exists"
+
+
 def test_a_history_create_racing_its_customers_merge_is_refused(engine, db_session, monkeypatch):
     """The merge holds the duplicate's customer row and is paused before
     committing. A history row for the duplicate on a new (vehicle, role)

@@ -158,11 +158,12 @@ weekly. -->
   merge was in flight and committed) is refused, 409 `merge_target_merged`; a duplicate a
   concurrent merge already merged, 409 `customer_already_merged`. Lock order everywhere: advisory
   (sorted) → customer rows (id order) → party rows. Two merges in opposite directions ask for the
-  two rows in the same order, so the second waits and is refused; a merge X→D racing D→T waits
-  for D's row and is refused; allocation and a reopen take one customer row `FOR SHARE` after
-  their advisory lock, which a merge's survivor lock never blocks. **Not covered:** a merge D→T
-  run *after* X→D has committed leaves X's `duplicateOfCustomerId` naming merged D (the
-  sequential chain — KAN-383, a decision for Anto).
+  two rows in the same order, so the second waits and is refused; allocation and a reopen take
+  one customer row `FOR SHARE` after their advisory lock, which a merge's survivor lock never
+  blocks. A merge X→D racing D→T is refused only when D→T locked D first. When X→D locks D
+  first, D→T waits, then commits after it: X's vehicle rows follow D's to T, but X's
+  `duplicateOfCustomerId` names merged D, the same chain two merges run one after the other
+  leave. **Not covered:** that chain, in either form (KAN-383, a decision for Anto).
 - **A party row carries the vehicle's label, never a join** (KAN-84, rule 2):
   `vehicle_vin`, `vehicle_number`, `vehicle_make`, `vehicle_model`, `vehicle_model_year`,
   `vehicle_trim` and `vehicle_label_refreshed_at`, copied from
