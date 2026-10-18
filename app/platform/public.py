@@ -20,10 +20,10 @@ from app.platform.services.actor_reference import actor_reference_checks
 from app.platform.services.dealership import (
     get_dealership_default_correspondence_language,
     get_dealership_or_404,
-    get_group_display_labels,
     get_location_or_404,
 )
 from app.platform.services.document_render import render_document
+from app.platform.services.group_labels import get_group_display_labels
 from app.platform.services.reference_data import get_active_reference_value_codes
 from app.platform.services.user import get_user_or_404, list_active_users, list_dealer_manager_emails
 

@@ -1214,3 +1214,27 @@ def test_a_merge_x_into_d_holding_d_first_ends_with_x_naming_t(engine, db_sessio
     assert db_session.scalars(
         select(Customer.id).where(Customer.duplicate_of_customer_id.in_(merged_ids))
     ).all() == []
+
+
+def test_merging_d_into_t_repoints_the_copies_an_earlier_merge_kept(db_session):
+    """KAN-383: X and D both owned a car from the same day; merging X into D
+    kept X's row as a closed copy marked "merged into D" (KAN-177). Merging D
+    into T re-points that mark too, so a merged_party_row refusal never names
+    a merged customer."""
+
+    group_id = uuid.uuid4()
+    car = _vehicle(db_session, "WVWZZZ1KZAW383004")
+    x, d, t = (_customer(db_session, group_id, name) for name in ("Xaver", "Dora", "Tina"))
+    start = utcnow() - dt.timedelta(days=30)
+    kept = VehicleParty(vehicle_id=car.id, customer_id=x.id, role=OWNER, effective_from=start)
+    db_session.add_all([kept, VehicleParty(vehicle_id=car.id, customer_id=d.id, role=OWNER, effective_from=start)])
+    db_session.commit()
+    x_id, d_id, t_id, kept_id = x.id, d.id, t.id, kept.id
+    _merge(db_session, x_id, d_id, group_id)
+    db_session.expire_all()
+    assert db_session.get(VehicleParty, kept_id).merged_into_customer_id == d_id
+
+    _merge(db_session, d_id, t_id, group_id)
+
+    db_session.expire_all()
+    assert db_session.get(VehicleParty, kept_id).merged_into_customer_id == t_id

@@ -1142,12 +1142,20 @@ def _repoint_earlier_merges(
     own merge and move on to T with this one (the `customer.merged` event for
     D carries them).
 
+    The vehicle-party copies an earlier merge kept on X (KAN-177) name D in
+    `merged_into_customer_id`; they are re-pointed to T the same way, so a
+    `merged_party_row` refusal never names a merged customer.
+
     Read after the merge holds D's row FOR NO KEY UPDATE (KAN-372): a merge
     X→D still in flight holds D FOR SHARE, so this merge waits for it to
     commit and then finds X here — the race order KAN-372 could not refuse
-    ends with X naming T as well. The X rows are locked in id order; a merged
-    X takes no other writer's lock (allocation, a reopen and a merge into X
-    all refuse a merged customer)."""
+    ends with X naming T as well. The X rows are locked in id order, then
+    those party copies: the one place a merge locks customer and party rows
+    outside "advisory → customer rows → party rows" for its own pairs. No
+    writer that waits on this merge holds them: allocation, a reopen and a
+    merge into or of X refuse a merged customer before they lock anything of
+    X's; a credit-block change on X takes only X's row, and waits for nothing
+    this merge holds."""
 
     earlier = list(
         db.scalars(
@@ -1158,6 +1166,17 @@ def _repoint_earlier_merges(
             .execution_options(populate_existing=True)
         ).all()
     )
+    kept_copies = list(
+        db.scalars(
+            select(VehicleParty)
+            .join(Customer, Customer.id == VehicleParty.customer_id)
+            .where(VehicleParty.merged_into_customer_id == duplicate_id, Customer.group_id == group_id)
+            .order_by(VehicleParty.id)
+            .with_for_update(of=VehicleParty)
+        ).all()
+    )
+    for copy in kept_copies:
+        copy.merged_into_customer_id = target_id
     for merged in earlier:
         merged.duplicate_of_customer_id = target_id
         merged.updated_by = actor_id
@@ -3280,13 +3299,17 @@ def set_credit_block(
     return customer
 
 
-# KAN-371 (Anto, 2026-10-18, option A): the History tab's ids are named on
-# read — the audit log is append-only and keeps only the ids. The keys whose
-# values are ids of each kind, as the customer service records them.
+# KAN-371 (Anto, 2026-10-18, option A; ADR-093): the History tab's ids are
+# named on read — the audit log is append-only and keeps only the ids. The
+# keys whose values are ids (or lists of ids) of each kind, as the customer
+# service records them; snake_case keys are read as their camelCase name.
 _HISTORY_DEALERSHIP_KEYS = frozenset({"dealershipId"})
 _HISTORY_USER_KEYS = frozenset({"advisorId"})
-_HISTORY_CUSTOMER_KEYS = frozenset({"mergedIntoCustomerId", "duplicateOfCustomerId", "customerId"})
+_HISTORY_CUSTOMER_KEYS = frozenset(
+    {"mergedIntoCustomerId", "duplicateOfCustomerId", "customerId", "earlierMergesRepointedIds"}
+)
 _HISTORY_VEHICLE_KEYS = frozenset({"vehicleId"})
+_HISTORY_PARTY_KEYS = frozenset({"vehiclePartiesKeptClosedIds"})
 
 
 def _uuid_or_none(value: Any) -> uuid.UUID | None:
@@ -3296,64 +3319,79 @@ def _uuid_or_none(value: Any) -> uuid.UUID | None:
         return None
 
 
-def history_labels(db: Session, *, group_id: uuid.UUID, events: list[Any]) -> dict[str, str]:
-    """Id → display label for every id the customer's audit events carry
-    under a known key, and for each event's actor: a Betrieb's and a user's
-    name from platform (group-scoped, `get_group_display_labels`), another
-    customer's name and number, a vehicle's make and model from the party
-    rows' own labels (KAN-84). Only this group's records are named; an id
-    that resolves to nothing is left out and the screen renders it as
-    unknown. One query per kind, whatever the number of events."""
+def _vehicle_label(make: str | None, model: str | None, model_year: int | None, number: str | None) -> str | None:
+    if make and model:
+        return f"{make} {model} ({model_year})" if model_year else f"{make} {model}"
+    return number
 
-    dealership_ids: set[uuid.UUID] = set()
-    user_ids: set[uuid.UUID] = set()
-    customer_ids: set[uuid.UUID] = set()
-    vehicle_ids: set[uuid.UUID] = set()
+
+def history_labels(
+    db: Session, *, group_id: uuid.UUID, dealership_id: uuid.UUID, events: list[Any]
+) -> dict[str, str]:
+    """Id → display label for every id the customer's audit events carry
+    under a known key (one value or a list of them), and for each event's
+    actor: a Betrieb's and a user's name from platform
+    (`get_group_display_labels`, ADR-093 — the caller's own Betrieb, a sister
+    Betrieb only while the group's read is enabled), another customer's name
+    and number, a vehicle's make and model, and a party row by its vehicle,
+    both from the party rows' own labels (KAN-84). Only this group's records
+    are named; an id that resolves to nothing is left out and the screen
+    renders it as unknown. One query per kind, whatever the number of events."""
+
+    ids: dict[str, set[uuid.UUID]] = {kind: set() for kind in ("dealership", "user", "customer", "vehicle", "party")}
+    kinds = (
+        (_HISTORY_DEALERSHIP_KEYS, "dealership"),
+        (_HISTORY_USER_KEYS, "user"),
+        (_HISTORY_CUSTOMER_KEYS, "customer"),
+        (_HISTORY_VEHICLE_KEYS, "vehicle"),
+        (_HISTORY_PARTY_KEYS, "party"),
+    )
     for event in events:
         if event.actor_id is not None:
-            user_ids.add(event.actor_id)
+            ids["user"].add(event.actor_id)
         for snapshot in (event.before, event.after):
             for raw_key, value in (snapshot or {}).items():
-                parsed = _uuid_or_none(value) if isinstance(value, str) else None
-                if parsed is None:
-                    continue
-                # The customer's own snapshots use the column names
-                # (`dealership_id`); child-row events use camelCase.
                 head, *rest = raw_key.split("_")
                 key = head + "".join(part.title() for part in rest)
-                if key in _HISTORY_DEALERSHIP_KEYS:
-                    dealership_ids.add(parsed)
-                elif key in _HISTORY_USER_KEYS:
-                    user_ids.add(parsed)
-                elif key in _HISTORY_CUSTOMER_KEYS:
-                    customer_ids.add(parsed)
-                elif key in _HISTORY_VEHICLE_KEYS:
-                    vehicle_ids.add(parsed)
+                kind = next((name for keys, name in kinds if key in keys), None)
+                if kind is None:
+                    continue
+                for item in value if isinstance(value, list) else [value]:
+                    parsed = _uuid_or_none(item) if isinstance(item, str) else None
+                    if parsed is not None:
+                        ids[kind].add(parsed)
 
     dealerships, users = get_group_display_labels(
-        db, group_id=group_id, dealership_ids=dealership_ids, user_ids=user_ids
+        db, group_id=group_id, dealership_id=dealership_id, dealership_ids=ids["dealership"], user_ids=ids["user"]
     )
     labels: dict[str, str] = {str(k): v for k, v in {**dealerships, **users}.items()}
-    if customer_ids:
+    if ids["customer"]:
         for customer in db.scalars(
-            select(Customer).where(Customer.id.in_(customer_ids), Customer.group_id == group_id)
+            select(Customer).where(Customer.id.in_(ids["customer"]), Customer.group_id == group_id)
         ):
             labels[str(customer.id)] = f"{customer_display_name(customer)} ({customer.customer_number})"
-    if vehicle_ids:
-        rows = db.execute(
-            select(
-                VehicleParty.vehicle_id,
-                VehicleParty.vehicle_make,
-                VehicleParty.vehicle_model,
-                VehicleParty.vehicle_model_year,
-                VehicleParty.vehicle_number,
-            )
+    party_columns = (
+        VehicleParty.vehicle_make,
+        VehicleParty.vehicle_model,
+        VehicleParty.vehicle_model_year,
+        VehicleParty.vehicle_number,
+    )
+    if ids["vehicle"]:
+        for vehicle_id, *label_parts in db.execute(
+            select(VehicleParty.vehicle_id, *party_columns)
             .join(Customer, Customer.id == VehicleParty.customer_id)
-            .where(VehicleParty.vehicle_id.in_(vehicle_ids), Customer.group_id == group_id)
-        )
-        for vehicle_id, make, model, model_year, number in rows:
-            if make and model:
-                labels[str(vehicle_id)] = f"{make} {model} ({model_year})" if model_year else f"{make} {model}"
-            elif number and str(vehicle_id) not in labels:
-                labels[str(vehicle_id)] = number
+            .where(VehicleParty.vehicle_id.in_(ids["vehicle"]), Customer.group_id == group_id)
+        ):
+            label = _vehicle_label(*label_parts)
+            if label and (label_parts[0] or str(vehicle_id) not in labels):
+                labels[str(vehicle_id)] = label
+    if ids["party"]:
+        for party_id, *label_parts in db.execute(
+            select(VehicleParty.id, *party_columns)
+            .join(Customer, Customer.id == VehicleParty.customer_id)
+            .where(VehicleParty.id.in_(ids["party"]), Customer.group_id == group_id)
+        ):
+            label = _vehicle_label(*label_parts)
+            if label:
+                labels[str(party_id)] = label
     return labels

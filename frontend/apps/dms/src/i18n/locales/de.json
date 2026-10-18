@@ -512,7 +512,7 @@
       "you": "Sie",
       "system": "System",
       "unknownReference": "unbekannter Eintrag",
-      "user": "Benutzer {{id}}",
+      "unknownUser": "Unbekannter Benutzer",
       "actions": {
         "create": "Kunde angelegt",
         "update": "Kunde geändert",
@@ -554,6 +554,7 @@
         "vehiclePartiesRepointed": "Fahrzeugverknüpfungen übertragen",
         "vehiclePartiesKeptClosed": "Fahrzeugverknüpfungen geschlossen behalten",
         "vehiclePartiesKeptClosedIds": "Fahrzeugverknüpfungen geschlossen behalten (IDs)",
+        "earlierMergesRepointedIds": "Frühere Zusammenführungen umgeleitet",
         "transactionsRepointed": "Transaktionen übertragen",
         "phonesRepointed": "Telefonnummern übertragen",
         "phonesDropped": "Telefonnummern verworfen",

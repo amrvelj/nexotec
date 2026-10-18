@@ -157,7 +157,8 @@ weekly. -->
   `FOR SHARE` — and re-reads both statuses under them: a survivor that is merged (or whose own
   merge was in flight and committed) is refused, 409 `merge_target_merged`; a duplicate a
   concurrent merge already merged, 409 `customer_already_merged`. Lock order everywhere: advisory
-  (sorted) → customer rows (id order) → party rows. Two merges in opposite directions ask for the
+  (sorted) → customer rows (id order) → party rows — with one exception, KAN-383's re-point of
+  earlier merges (next bullet), which locks merged customers' rows and their kept copies after. Two merges in opposite directions ask for the
   two rows in the same order, so the second waits and is refused; allocation and a reopen take
   one customer row `FOR SHARE` after their advisory lock, which a merge's survivor lock never
   blocks. A merge X→D racing D→T is refused only when D→T locked D first; when X→D locks D
@@ -166,10 +167,14 @@ weekly. -->
   option A, `_repoint_earlier_merges`): merging D into T sets every customer whose
   `duplicateOfCustomerId` names D to T, in the same transaction, bumps its version and audits
   it on that customer (`merge_survivor_repointed`); the merge's own audit lists them
-  (`earlierMergesRepointedIds`). It reads them after holding D's row, so a merge X→D that held D
-  first has committed and X is found — "merged into" always names a live customer, after
-  sequential merges and after the race alike. No event is published: X's rows moved to D with
-  its own merge and move on with D's.
+  (`earlierMergesRepointedIds`). The KAN-177 copies whose `merged_into_customer_id` names D are
+  re-pointed to T too. It reads them after holding D's row, so a merge X→D that held D first has
+  committed and X is found — "merged into" always names a live customer, after sequential
+  merges and after the race alike. It locks those merged rows, then the copies, after its own
+  party rows; nothing that waits on the merge holds them (allocation, a reopen and a merge into
+  or of X refuse a merged customer before locking anything of X's; a credit-block change takes
+  only X's row). No event is published: X's rows moved to D with its own merge and move on with
+  D's. Chains written before KAN-383 are not repaired.
 - **A party row carries the vehicle's label, never a join** (KAN-84, rule 2):
   `vehicle_vin`, `vehicle_number`, `vehicle_make`, `vehicle_model`, `vehicle_model_year`,
   `vehicle_trim` and `vehicle_label_refreshed_at`, copied from
@@ -195,7 +200,12 @@ weekly. -->
   never clears); a repair is Anto's decision.
 - Group-wide customer history must be served from an event-built projection keyed by
   `group_id` (reporting), never by fan-out across dealerships × services (rule 11, two hops).
-  **Not built:** `app/reporting` is a stub, and the History tab shows the audit log.
+  **Not built:** `app/reporting` is a stub, and the History tab shows the audit log. Its ids
+  are named on read (KAN-371, ADR-093): `GET …/audit-log` returns `labels` from
+  `customer_service.history_labels` — customers and vehicles from this context, a Betrieb's and
+  a user's name from `platform.public.get_group_display_labels` (the caller's own Betrieb
+  always; a sister Betrieb and its users only while the group's read is enabled, ADR-030). An
+  id nothing names renders as a translated marker, never a bare UUID.
 
 ## Screens
 

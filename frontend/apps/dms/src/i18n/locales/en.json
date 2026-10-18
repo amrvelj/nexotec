@@ -512,7 +512,7 @@
       "you": "You",
       "system": "System",
       "unknownReference": "unknown record",
-      "user": "User {{id}}",
+      "unknownUser": "Unknown user",
       "actions": {
         "create": "Customer created",
         "update": "Customer updated",
@@ -554,6 +554,7 @@
         "vehiclePartiesRepointed": "Vehicle links moved",
         "vehiclePartiesKeptClosed": "Vehicle links kept closed",
         "vehiclePartiesKeptClosedIds": "Vehicle links kept closed (IDs)",
+        "earlierMergesRepointedIds": "Earlier merges re-pointed",
         "transactionsRepointed": "Transactions moved",
         "phonesRepointed": "Phone numbers moved",
         "phonesDropped": "Phone numbers dropped",

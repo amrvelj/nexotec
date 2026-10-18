@@ -725,52 +725,90 @@ def test_no_stock_link_for_a_vehicle_with_no_stock_item(client, db_session):
 
 
 def test_the_history_names_the_ids_its_events_carry(client, db_session):
-    """KAN-371 (Anto, option A): the audit log keeps only ids, so the History
-    endpoint names them on read — the Betrieb, the advisor and the acting
-    user, the customer a duplicate was merged into, a linked vehicle — for
-    this group only. An id of another group's record is never named."""
+    """KAN-371 (Anto, option A; ADR-093): the audit log keeps only ids, so the
+    History endpoint names them on read — the Betrieb, the advisor before and
+    after a change, the acting user, the customer a duplicate was merged into
+    and the customers a merge re-pointed, a linked vehicle."""
 
     from tests.identity_support import create_user
 
     dealer_id, customer, vehicle = _setup(client)
     _enable_group_read(db_session, dealer_id)
-    advisor = create_user(client, dealer_id, firstName="Bea", lastName="Berater")
-    stranger_dealer = _create_dealer(client)
-    stranger = create_user(client, stranger_dealer, firstName="Fremd", lastName="Person")
-    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id), user_id=uuid.UUID(advisor["id"]))
+    first_advisor = create_user(client, dealer_id, firstName="Bea", lastName="Berater")
+    second_advisor = create_user(client, dealer_id, firstName="Carl", lastName="Coach")
+    actor = create_user(client, dealer_id, firstName="Ida", lastName="Innendienst")
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id), user_id=uuid.UUID(actor["id"]))
+    headers = _bearer(token)
+    for advisor in (first_advisor, second_advisor):
+        current = client.get(f"/v1/customers/{customer['id']}", headers=headers).json()
+        changed = client.patch(
+            f"/v1/customers/{customer['id']}",
+            json={"advisorId": advisor["id"]},
+            headers={**headers, "If-Match": str(current["version"])},
+        )
+        assert changed.status_code == 200, changed.text
+    client.post(f"/v1/customers/{customer['id']}/vehicles", json={"vehicleId": vehicle["id"], "role": "owner"}, headers=headers)
+    earlier = _create_customer(client, dealer_id, firstName="Xaver", lastName="Früher")
     duplicate = _create_customer(client, dealer_id, firstName="Dora", lastName="Doppelt")
-    client.patch(
-        f"/v1/customers/{customer['id']}",
-        json={"advisorId": advisor["id"]},
-        headers={**_bearer(token), "If-Match": str(customer["version"])},
-    )
-    client.post(
-        f"/v1/customers/{customer['id']}/vehicles", json={"vehicleId": vehicle["id"], "role": "owner"}, headers=_bearer(token)
-    )
-    merged = client.post(
-        f"/v1/customers/{duplicate['id']}/merge",
-        json={"duplicateOfCustomerId": customer["id"]},
-        headers={**_bearer(token), "If-Match": str(duplicate["version"]), "Idempotency-Key": str(uuid.uuid4())},
-    )
-    assert merged.status_code == 200, merged.text
+    for source, target in ((earlier, duplicate), (duplicate, customer)):
+        current = client.get(f"/v1/customers/{source['id']}", headers=headers).json()
+        merged = client.post(
+            f"/v1/customers/{source['id']}/merge",
+            json={"duplicateOfCustomerId": target["id"]},
+            headers={**headers, "If-Match": str(current["version"]), "Idempotency-Key": str(uuid.uuid4())},
+        )
+        assert merged.status_code == 200, merged.text
 
-    history = client.get(f"/v1/customers/{customer['id']}/audit-log", headers=_bearer(token)).json()
-    labels = history["labels"]
+    labels = client.get(f"/v1/customers/{customer['id']}/audit-log", headers=headers).json()["labels"]
     assert labels[dealer_id] == "Garage Musterbetrieb AG"
-    assert labels[advisor["id"]] == "Bea Berater"
+    assert labels[first_advisor["id"]] == "Bea Berater"  # the advisor before the change, never the actor
+    assert labels[second_advisor["id"]] == "Carl Coach"
+    assert labels[actor["id"]] == "Ida Innendienst"
     assert labels[vehicle["id"]]
-    duplicate_history = client.get(f"/v1/customers/{duplicate['id']}/audit-log", headers=_bearer(token)).json()
-    assert duplicate_history["labels"][customer["id"]] == f"Anna Muster ({customer['customerNumber']})"
-    # The lookup itself never names another group's Betrieb, user or customer,
-    # whatever ids an event carries (the group filter, not the history's content).
-    from types import SimpleNamespace
+    duplicate_labels = client.get(f"/v1/customers/{duplicate['id']}/audit-log", headers=headers).json()["labels"]
+    assert duplicate_labels[customer["id"]] == f"Anna Muster ({customer['customerNumber']})"
+    assert duplicate_labels[earlier["id"]] == f"Xaver Früher ({earlier['customerNumber']})"  # earlierMergesRepointedIds
+
+
+def test_the_history_names_a_sister_betrieb_only_while_the_group_read_is_enabled(client, db_session):
+    """ADR-093 / ADR-030: the caller's own Betrieb and users are always named;
+    a sister Betrieb of the group and its users only once the group's read is
+    enabled (the joint-controller flag). Another group's are never named."""
 
     from app.customer.services import customer as customer_service
+    from tests.identity_support import create_user
 
-    foreign = SimpleNamespace(
-        actor_id=uuid.UUID(stranger["id"]),
-        before=None,
-        after={"dealership_id": stranger_dealer, "advisor_id": stranger["id"]},
+    own_id = _create_dealer(client)
+    sister_id = _create_dealer(client)
+    stranger_id = _create_dealer(client)
+    own_user = create_user(client, own_id, firstName="Olga", lastName="Own")
+    sister_user = create_user(client, sister_id, firstName="Sina", lastName="Sister")
+    stranger_user = create_user(client, stranger_id, firstName="Fritz", lastName="Fremd")
+    group_id = uuid.uuid5(uuid.NAMESPACE_OID, own_id)
+    db_session.add(DealerGroup(id=group_id, name="Group", group_read_enabled=False))
+    for dealership_id in (own_id, sister_id):
+        db_session.get(Dealership, uuid.UUID(dealership_id)).dealer_group_id = group_id
+    db_session.commit()
+
+    from types import SimpleNamespace
+
+    event = SimpleNamespace(
+        actor_id=uuid.UUID(own_user["id"]),
+        before={"dealership_id": sister_id, "advisor_id": sister_user["id"]},
+        after={"dealership_id": own_id, "advisor_id": stranger_user["id"], "duplicateOfCustomerId": stranger_id},
     )
-    own_group = uuid.uuid5(uuid.NAMESPACE_OID, dealer_id)
-    assert customer_service.history_labels(db_session, group_id=own_group, events=[foreign]) == {}
+
+    def labels():
+        return customer_service.history_labels(
+            db_session, group_id=group_id, dealership_id=uuid.UUID(own_id), events=[event]
+        )
+
+    assert labels() == {own_id: "Garage Musterbetrieb AG", own_user["id"]: "Olga Own"}
+    db_session.get(DealerGroup, group_id).group_read_enabled = True
+    db_session.commit()
+    assert labels() == {
+        own_id: "Garage Musterbetrieb AG",
+        own_user["id"]: "Olga Own",
+        sister_id: "Garage Musterbetrieb AG",
+        sister_user["id"]: "Sina Sister",
+    }

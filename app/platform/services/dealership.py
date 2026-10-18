@@ -16,7 +16,6 @@ from app.core.errors import BadRequestError, ConflictError, NotFoundError, Unpro
 from app.core.i18n import SwissLanguage
 from app.core.pagination import PageParams, build_page, paginate_query
 from app.platform.models.dealership import DealerGroup, Dealership, DealershipStatus, Location
-from app.platform.models.user import User
 from app.platform.schemas.dealership import (
     DealershipAddress,
     DealershipCreate,
@@ -290,31 +289,3 @@ def update_dealership(
     db.refresh(dealership)
     return dealership
 
-
-def get_group_display_labels(
-    db: Session, *, group_id: uuid.UUID, dealership_ids: set[uuid.UUID], user_ids: set[uuid.UUID]
-) -> tuple[dict[uuid.UUID, str], dict[uuid.UUID, str]]:
-    """KAN-371 (Anto, 2026-10-18, option A): display labels for ids another
-    context recorded — a Betrieb's name (trade name, else legal name) and a
-    user's `First Last` — resolved on read, for the Betriebe of `group_id`
-    only. An id outside the group, or one that names nothing, is simply
-    absent from the result: the caller renders it as unknown, so nothing here
-    confirms a record of another group exists."""
-
-    dealerships: dict[uuid.UUID, str] = {}
-    if dealership_ids:
-        for dealership_id, trade_name, legal_name in db.execute(
-            select(Dealership.id, Dealership.trade_name, Dealership.legal_name).where(
-                Dealership.id.in_(dealership_ids), Dealership.dealer_group_id == group_id
-            )
-        ):
-            dealerships[dealership_id] = trade_name or legal_name
-    users: dict[uuid.UUID, str] = {}
-    if user_ids:
-        for user_id, first_name, last_name in db.execute(
-            select(User.id, User.first_name, User.last_name)
-            .join(Dealership, Dealership.id == User.tenant_id)
-            .where(User.id.in_(user_ids), Dealership.dealer_group_id == group_id)
-        ):
-            users[user_id] = f"{first_name} {last_name}".strip()
-    return dealerships, users

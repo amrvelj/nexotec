@@ -239,3 +239,50 @@ describe('HistoryTab — ids read as names (KAN-371)', () => {
     }
   })
 })
+
+describe('HistoryTab — id lists, the merged-into customer, a replaced advisor and an unnamed actor (KAN-371)', () => {
+  it('names each id the endpoint named and marks the rest, in fr', async () => {
+    await i18n.changeLanguage('fr')
+    const NAMED = '01a1487e-0000-7000-8000-000000000011'
+    const UNNAMED = '01a1487e-0000-7000-8000-000000000012'
+    const OLD_ADVISOR = '01a1487e-0000-7000-8000-000000000013'
+    const SURVIVOR = '01a1487e-0000-7000-8000-000000000014'
+    const STRANGER = '01a1487e-0000-7000-8000-000000000015'
+    renderHistory(
+      [
+        event({
+          action: 'merge',
+          after: { earlierMergesRepointedIds: [NAMED, UNNAMED] },
+        }),
+        event({
+          action: 'update',
+          actorId: STRANGER,
+          before: { advisor_id: OLD_ADVISOR },
+          after: { advisor_id: ADVISOR_ID },
+        }),
+        event({
+          action: 'vehicle_party_update',
+          entityType: 'customer',
+          before: { mergedIntoCustomerId: null },
+          after: { mergedIntoCustomerId: SURVIVOR },
+        }),
+      ],
+      {
+        [NAMED]: 'Xaver Früher (K-000009)',
+        [OLD_ADVISOR]: 'Bruno Berater',
+        [ADVISOR_ID]: 'Anna Muster',
+        [SURVIVOR]: 'Tina Treu (K-000011)',
+      },
+    )
+
+    expect(screen.getByText(i18n.t('customerDetail.history.fields.earlierMergesRepointedIds'))).toBeInTheDocument()
+    expect(screen.getByText(/— → Xaver Früher \(K-000009\), enregistrement inconnu/)).toBeInTheDocument()
+    expect(screen.getByText(/Bruno Berater → Anna Muster/)).toBeInTheDocument()
+    expect(screen.getByText(/— → Tina Treu \(K-000011\)/)).toBeInTheDocument()
+    expect(screen.getByText(i18n.t('customerDetail.history.unknownUser'))).toBeInTheDocument()
+    for (const id of [NAMED, UNNAMED, OLD_ADVISOR, SURVIVOR, STRANGER]) {
+      expect(screen.queryByText(new RegExp(id))).not.toBeInTheDocument()
+      expect(screen.queryByText(new RegExp(id.slice(0, 8)))).not.toBeInTheDocument()
+    }
+  })
+})

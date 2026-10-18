@@ -108,6 +108,7 @@ const HISTORY_FIELDS = new Set([
   'vehiclePartiesRepointed',
   'vehiclePartiesKeptClosed',
   'vehiclePartiesKeptClosedIds',
+  'earlierMergesRepointedIds',
   'transactionsRepointed',
   'phonesRepointed',
   'phonesDropped',
@@ -208,6 +209,12 @@ function formatValue(
 ): string {
   if (v === null || v === undefined) return '—'
   if (typeof v === 'boolean') return v ? t('common.yes') : t('common.no')
+  // KAN-371: a list of ids (the customers or party rows a merge moved) reads
+  // as their names, an id nothing names as the translated marker.
+  if (Array.isArray(v) && /Ids$/.test(camelKey(key)) && v.every((item) => typeof item === 'string')) {
+    if (v.length === 0) return '—'
+    return v.map((item: string) => idLabels[item] ?? (UUID.test(item) ? t('customerDetail.history.unknownReference') : item)).join(', ')
+  }
   if (typeof v === 'object') return JSON.stringify(v)
   if (entityType === 'customer' && typeof v === 'string') {
     // KAN-336 — an id renders the display label the customer record carries
@@ -279,7 +286,7 @@ function HistoryEvent({
   const actor = isYou
     ? t('customerDetail.history.you')
     : event.actorId
-      ? (idLabels[event.actorId] ?? t('customerDetail.history.user', { id: event.actorId.slice(0, 8) }))
+      ? (idLabels[event.actorId] ?? t('customerDetail.history.unknownUser'))
       : t('customerDetail.history.system')
   return (
     <div style={{ display: 'flex', gap: 12 }}>

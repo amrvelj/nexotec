@@ -331,14 +331,91 @@ def test_a_configuration_of_a_pre_1981_car_keeps_its_chassis_number_and_links_no
     assert _vehicle_count(db_session) == 0
 
 
+@pytest.mark.parametrize("first_registration", [None, "1990-01-01"])
 @pytest.mark.parametrize("not_a_vin", [CHASSIS, *NOT_A_VIN])
-def test_a_configuration_chassis_number_without_a_pre_1981_registration_is_422(client, db_session, not_a_vin):
+def test_a_configuration_chassis_number_without_a_pre_1981_registration_is_422(
+    client, db_session, not_a_vin, first_registration
+):
     seed_manual_coded_lists(db_session)
+    fields = {"vin": not_a_vin}
+    if first_registration is not None:
+        fields["firstRegistrationDate"] = first_registration
 
-    response = _create_configuration(client, uuid.uuid4(), vin=not_a_vin, firstRegistrationDate="1990-01-01")
+    response = _create_configuration(client, uuid.uuid4(), **fields)
 
     _chassis_refused(response)
     assert db_session.scalar(select(func.count()).select_from(VehicleConfiguration)) == 0
+
+
+@pytest.mark.parametrize("not_a_vin", NOT_A_VIN)
+def test_a_configuration_patched_to_a_non_vin_without_a_pre_1981_registration_changes_nothing(
+    client, db_session, not_a_vin
+):
+    """The PATCH case the KAN-331/338 tests covered before KAN-353: still a
+    422 that leaves the VIN, the vehicle link and the version as they were."""
+
+    seed_manual_coded_lists(db_session)
+    vehicle = _known_car(db_session)
+    tenant_id = uuid.uuid4()
+    created = _create_configuration(client, tenant_id, vin=VIN).json()
+
+    response = client.patch(
+        f"/v1/configurations/{created['id']}",
+        json={"vin": not_a_vin},
+        headers=_headers(tenant_id, **{"If-Match": str(created["version"])}),
+    )
+
+    _chassis_refused(response)
+    db_session.expire_all()
+    stored = db_session.get(VehicleConfiguration, uuid.UUID(created["id"]))
+    assert (stored.vin, stored.vehicle_id, stored.version) == (VIN, vehicle.id, created["version"])
+
+
+def _record_configuration(client, tenant_id: uuid.UUID, **fields) -> dict:
+    response = _create_configuration(client, tenant_id, **fields)
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def _post_valuation_on(client, tenant_id: uuid.UUID, configuration_id: str, **fields):
+    return client.post(
+        "/v1/valuations",
+        json={"configurationId": configuration_id, "finalOffer": "60000.00", "source": "manual", **fields},
+        headers=_headers(tenant_id, **{"Idempotency-Key": str(uuid.uuid4())}),
+    )
+
+
+def test_a_valuation_on_a_chassis_configuration_is_judged_on_the_date_it_stores(client, db_session):
+    """The reviewer's probe 1: the configuration holds a chassis number and
+    1972; the valuation sends no VIN but a 1990 first registration. It would
+    store the chassis number with 1990 — refused."""
+
+    seed_manual_coded_lists(db_session)
+    tenant_id = uuid.uuid4()
+    configuration = _record_configuration(client, tenant_id, vin=CHASSIS, firstRegistrationDate="1972-05-01")
+
+    refused = _post_valuation_on(client, tenant_id, configuration["id"], vehicleFirstRegistration="1990-01-01")
+    _chassis_refused(refused)
+    accepted = _post_valuation_on(client, tenant_id, configuration["id"])
+    assert accepted.status_code == 201, accepted.text
+    assert (accepted.json()["vehicleVin"], accepted.json()["vehicleId"]) == (CHASSIS_STORED, None)
+
+
+def test_a_valuation_with_a_chassis_number_never_links_its_configurations_car(client, db_session):
+    """The reviewer's probe 2: the configuration links a real car by its VIN;
+    the valuation sends a chassis number (and 1975). The valuation keeps the
+    chassis number and links no vehicle-mdm record."""
+
+    seed_manual_coded_lists(db_session)
+    vehicle = _known_car(db_session)
+    tenant_id = uuid.uuid4()
+    configuration = _record_configuration(client, tenant_id, vin=VIN, firstRegistrationDate="1975-03-01")
+    assert configuration["vehicleId"] == str(vehicle.id)
+
+    response = _post_valuation_on(client, tenant_id, configuration["id"], vin=CHASSIS)
+
+    assert response.status_code == 201, response.text
+    assert (response.json()["vehicleVin"], response.json()["vehicleId"]) == (CHASSIS_STORED, None)
 
 
 def test_a_configuration_patch_judges_the_chassis_number_against_the_stored_registration(client, db_session):

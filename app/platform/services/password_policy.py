@@ -83,7 +83,7 @@ def validate_new_password(
     for term in _deny_terms(dealership_names=dealership_names, first_name=first_name, last_name=last_name, email=email):
         if term in lowered:
             raise UnprocessableEntityError(
-                "The password must not contain your name, your e-mail address or the name of your Betrieb.",
+                "The password must not contain your name, your e-mail address or the name of your business.",
                 details={"rule": "deny_list"},
             )
     if not _settings.hibp_enabled:

@@ -277,7 +277,9 @@ def get_customer_audit_log(
     return CustomerHistoryPage(
         items=[AuditEventRead.model_validate(e, from_attributes=True) for e in events],
         next_cursor=None,
-        labels=customer_service.history_labels(db, group_id=principal.group_id, events=events),
+        labels=customer_service.history_labels(
+            db, group_id=principal.group_id, dealership_id=principal.tenant_id, events=events
+        ),
     )
 
 

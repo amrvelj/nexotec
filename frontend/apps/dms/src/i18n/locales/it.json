@@ -512,7 +512,7 @@
       "you": "Tu",
       "system": "Sistema",
       "unknownReference": "record sconosciuto",
-      "user": "Utente {{id}}",
+      "unknownUser": "Utente sconosciuto",
       "actions": {
         "create": "Cliente creato",
         "update": "Cliente modificato",
@@ -554,6 +554,7 @@
         "vehiclePartiesRepointed": "Collegamenti veicolo trasferiti",
         "vehiclePartiesKeptClosed": "Collegamenti veicolo mantenuti chiusi",
         "vehiclePartiesKeptClosedIds": "Collegamenti veicolo mantenuti chiusi (ID)",
+        "earlierMergesRepointedIds": "Unioni precedenti reindirizzate",
         "transactionsRepointed": "Transazioni trasferite",
         "phonesRepointed": "Numeri di telefono trasferiti",
         "phonesDropped": "Numeri di telefono scartati",
