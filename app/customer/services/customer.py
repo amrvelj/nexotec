@@ -971,6 +971,51 @@ def _fixup_single_primary(db: Session, model: type, *, customer_id: uuid.UUID, t
         usable[0].is_primary = True
 
 
+def _lock_merge_customers(db: Session, *, duplicate_id: uuid.UUID, target_id: uuid.UUID) -> None:
+    """KAN-372: a merge locks both customer rows — the duplicate FOR NO KEY
+    UPDATE (KAN-365), the survivor FOR SHARE — and decides on their committed
+    status under those locks. The survivor's status was read without a lock,
+    and re-pointing rows onto it takes only the foreign key's KEY SHARE, which
+    does not wait for the survivor's own merge: so a merge X→D could commit
+    while D→T was in flight and leave X's rows, and X's
+    `duplicateOfCustomerId`, on a merged customer. FOR SHARE waits for that
+    merge's FOR NO KEY UPDATE; the re-read then finds D merged (409
+    `merge_target_merged`). The duplicate is re-read too, so a second merge of
+    the same customer that waited for the first is refused
+    (`customer_already_merged`) instead of overwriting its survivor.
+
+    Lock order: every merge takes its advisory locks first (KAN-356, sorted),
+    then these two rows in id order. Two merges in opposite directions (A→B,
+    B→A) therefore ask for the two rows in the same order and the second
+    waits; without the order each would hold its duplicate and wait for the
+    other's. Allocation and a reopen take one customer row FOR SHARE after
+    their advisory lock, compatible with a merge's FOR SHARE on its survivor
+    and waiting, as KAN-365 intends, for its FOR NO KEY UPDATE on the
+    duplicate."""
+
+    for customer_id in sorted((duplicate_id, target_id)):
+        stmt = select(Customer.id).where(Customer.id == customer_id)
+        if customer_id == duplicate_id:
+            db.execute(stmt.with_for_update(key_share=True))
+        else:
+            db.execute(stmt.with_for_update(read=True))
+    status = dict(
+        db.execute(
+            select(Customer.id, Customer.lifecycle_status).where(Customer.id.in_((duplicate_id, target_id)))
+        ).all()
+    )
+    if status[target_id] == CustomerLifecycleStatus.MERGED:
+        raise ConflictError(
+            "Cannot merge into a customer that has itself been merged.",
+            details={"reason": "merge_target_merged", "duplicateOfCustomerId": str(target_id)},
+        )
+    if status[duplicate_id] == CustomerLifecycleStatus.MERGED:
+        raise ConflictError(
+            "Customer has already been merged.",
+            details={"reason": "customer_already_merged", "currentLifecycleStatus": "merged"},
+        )
+
+
 def _repoint_vehicle_parties(
     db: Session, *, duplicate_id: uuid.UUID, target_id: uuid.UUID, actor_id: uuid.UUID, group_id: uuid.UUID
 ) -> tuple[int, list[uuid.UUID]]:
@@ -1029,7 +1074,7 @@ def _repoint_vehicle_parties(
             # this lock is granted, every such allocation has either committed
             # (its pair is read again below) or waits for the merge and then
             # finds the customer merged.
-            db.execute(select(Customer.id).where(Customer.id == duplicate_id).with_for_update(key_share=True))
+            _lock_merge_customers(db, duplicate_id=duplicate_id, target_id=target_id)
             duplicate_locked = True
             continue
         late = bool(held) or duplicate_locked
@@ -1214,6 +1259,8 @@ def merge_customer(
         raise BadRequestError("A customer cannot be merged into itself.", details={"reason": "merge_into_self"})
 
     target = _group_scoped_or_404(db, Customer, duplicate_of_customer_id, customer.group_id)
+    # Read without a lock here; both statuses are checked again under the
+    # customer-row locks the merge takes (KAN-372, _lock_merge_customers).
     if target.lifecycle_status == CustomerLifecycleStatus.MERGED:
         raise ConflictError(
             "Cannot merge into a customer that has itself been merged.",
@@ -2656,6 +2703,14 @@ def create_customer_vehicle(
     # timeline. No real caller sends this today (kept for the documented API
     # contract this schema field is part of — see
     # test_create_rejects_effective_to_before_effective_from).
+    # KAN-370: under the allocation's locks — the (vehicle, role, group)
+    # advisory lock, then the customer row FOR SHARE — and refused for a
+    # merged customer (409 `customer_merged`), so a history row never lands
+    # on a merged record, and one written while a merge of this customer runs
+    # either commits before the merge locks the customer (and is re-pointed
+    # with the rest) or waits for it and is refused.
+    _lock_vehicle_role_in_group(db, vehicle_id=vehicle.id, role=data.role, group_id=customer.group_id)
+    _refuse_merged_customer(db, customer.id)
     party = VehicleParty(
         vehicle_id=vehicle.id,
         customer_id=customer.id,
@@ -2988,8 +3043,8 @@ def _open_holders_in_group(
 def _refuse_merged_customer(db: Session, customer_id: uuid.UUID) -> None:
     """KAN-365: allocation and a reopen refuse a merged customer — the
     survivor carries its vehicle history (ADR-064, KAN-177), and an open row
-    left on the merged record is invisible on the survivor's 360. (Two other
-    paths can still leave a row there: KAN-370 and KAN-372.) The caller
+    left on the merged record is invisible on the survivor's 360. A create
+    with a past `effectiveTo` refuses it the same way (KAN-370). The caller
     holds the (vehicle, role, group) advisory lock; the customer row is read
     FOR SHARE under it, so an allocation racing the merge of this customer
     either commits before the merge reads the duplicate's pairs (the merge
