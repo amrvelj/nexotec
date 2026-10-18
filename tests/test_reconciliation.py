@@ -1018,8 +1018,9 @@ def test_no_hard_delete_endpoint_exists_for_fk_target_entities(client):
         # factors are real deletes of the user's own secret material (a TOTP
         # secret, a passkey public key, the recovery-code hashes); removing a
         # confirmed factor leaves an `mfa_removed` auth event naming the actor
-        # (FR-AU-12); an enrolment begun and abandoned was never a factor and
-        # goes quietly.
+        # (FR-AU-12); on the user's own TOTP route an enrolment begun and
+        # abandoned was never a factor and goes quietly, platform staff's reset
+        # always records what it deleted.
         "/v1/auth/sessions/{session_id}",
         "/v1/auth/mfa/totp",
         "/v1/auth/mfa/passkeys/{passkey_id}",

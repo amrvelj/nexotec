@@ -360,8 +360,8 @@ def create_user(
 
 def end_sessions(db: Session, *, user: User, reason: str, actor_id: uuid.UUID) -> int:
     """KAN-196: ends every live session of the user and records it — a
-    status change, a change of roles, flag or membership, a manager's
-    revoke. Returns how many ended."""
+    status change, a change of roles, flag or membership, platform staff's
+    MFA reset. Returns how many ended."""
 
     ended = auth_sessions.revoke_all_for_user(db, user_id=user.id, reason=reason)
     if ended:
