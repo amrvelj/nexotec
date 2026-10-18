@@ -37,6 +37,7 @@ from app.core.audit import record_audit_event
 from app.core.base import utcnow
 from app.core.errors import NotFoundError, UnprocessableEntityError
 from app.core.outbox import OutboxEvent, publish
+from app.core.validators import is_chassis_number, require_vin_or_pre_1981_chassis_number
 from app.vehicle.models.catalogue import ModelVariant
 from app.vehicle.models.configuration import (
     ConfigurationMatchStatus,
@@ -226,7 +227,8 @@ def _link_vehicle_if_vin_resolves(db: Session, config: VehicleConfiguration) -> 
     KAN-247). The link is derived from the VIN, so the audit records the VIN
     change and not the link (KAN-319)."""
 
-    vehicle = get_vehicle_mdm_by_vin(db, config.vin) if config.vin else None
+    # KAN-353: a pre-1981 chassis number never finds a vehicle-mdm record.
+    vehicle = get_vehicle_mdm_by_vin(db, config.vin) if config.vin and not is_chassis_number(config.vin) else None
     if vehicle is None:
         config.vehicle_id = None
         config.vehicle_label = None
@@ -240,6 +242,7 @@ def _link_vehicle_if_vin_resolves(db: Session, config: VehicleConfiguration) -> 
 def create_configuration(
     db: Session, *, tenant_id: uuid.UUID, actor_id: uuid.UUID, data: ConfigurationCreate
 ) -> VehicleConfiguration:
+    require_vin_or_pre_1981_chassis_number(data.vin, data.first_registration_date)
     config = VehicleConfiguration(
         tenant_id=tenant_id,
         source=data.source,
@@ -337,6 +340,14 @@ def update_configuration(
             details={"reason": "configuration_mode_fixed"},
         )
     # Before anything on the row changes: a refused PATCH leaves it as it was.
+    # KAN-353: a chassis number needs a pre-1981 first registration, the
+    # PATCH's or the stored one.
+    require_vin_or_pre_1981_chassis_number(
+        data.vin if "vin" in data.model_fields_set else configuration.vin,
+        data.first_registration_date
+        if "first_registration_date" in data.model_fields_set
+        else configuration.first_registration_date,
+    )
     _validate_coded_spec_fields(db, data)
     coded_changes = _check_coded_field_patch(configuration, data)
 

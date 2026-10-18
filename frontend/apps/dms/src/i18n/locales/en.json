@@ -90,6 +90,7 @@
     "requestFailed": "The request failed. Please try again.",
     "dismiss": "Dismiss message",
     "invalidVin": "Not a valid VIN: 17 characters, letters and digits only, never I, O or Q.",
+    "chassisNumberNeedsPre1981": "Not a VIN. A chassis number that is not a 17-character VIN is accepted only for a car first registered before 1981 – enter that first registration.",
     "columnPanel": {
       "trigger": "Columns",
       "search": "Find a column…",
@@ -1365,6 +1366,7 @@
     "banner": "No customer, no offer, no registered vehicle required — any combination works.",
     "vehicleSection": "Vehicle",
     "vin": "VIN",
+    "firstRegistration": "First registration",
     "mileage": "Mileage",
     "make": "Make",
     "model": "Model",

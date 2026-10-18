@@ -90,6 +90,7 @@
     "requestFailed": "La richiesta non è riuscita. Riprova.",
     "dismiss": "Chiudi messaggio",
     "invalidVin": "VIN non valido: 17 caratteri, solo lettere e cifre, senza I, O e Q.",
+    "chassisNumberNeedsPre1981": "Non è un VIN valido. Un numero di telaio che non è un VIN di 17 caratteri è accettato solo per un veicolo immatricolato per la prima volta prima del 1981 – inserisci questa prima immatricolazione.",
     "columnPanel": {
       "trigger": "Colonne",
       "search": "Cerca una colonna…",
@@ -1365,6 +1366,7 @@
     "banner": "Senza cliente, senza offerta, senza veicolo registrato richiesto — ogni combinazione funziona.",
     "vehicleSection": "Veicolo",
     "vin": "VIN",
+    "firstRegistration": "Prima immatricolazione",
     "mileage": "Chilometraggio",
     "make": "Marca",
     "model": "Modello",

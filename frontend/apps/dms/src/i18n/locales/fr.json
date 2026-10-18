@@ -90,6 +90,7 @@
     "requestFailed": "La requête a échoué. Veuillez réessayer.",
     "dismiss": "Fermer le message",
     "invalidVin": "VIN non valide : 17 caractères, uniquement des lettres et des chiffres, sans I, O ni Q.",
+    "chassisNumberNeedsPre1981": "Pas un VIN valide. Un numéro de châssis qui n’est pas un VIN à 17 caractères n’est accepté que pour un véhicule mis en circulation avant 1981 – saisissez cette première mise en circulation.",
     "columnPanel": {
       "trigger": "Colonnes",
       "search": "Rechercher une colonne…",
@@ -1365,6 +1366,7 @@
     "banner": "Sans client, sans offre, sans véhicule enregistré requis — toute combinaison fonctionne.",
     "vehicleSection": "Véhicule",
     "vin": "VIN",
+    "firstRegistration": "Première mise en circulation",
     "mileage": "Kilométrage",
     "make": "Marque",
     "model": "Modèle",

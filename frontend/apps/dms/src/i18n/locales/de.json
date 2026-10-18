@@ -90,6 +90,7 @@
     "requestFailed": "Die Anfrage ist fehlgeschlagen. Bitte versuchen Sie es erneut.",
     "dismiss": "Meldung schliessen",
     "invalidVin": "Keine gültige VIN: 17 Zeichen, nur Buchstaben und Ziffern, ohne I, O und Q.",
+    "chassisNumberNeedsPre1981": "Keine gültige VIN. Eine Fahrgestellnummer, die keine 17-stellige VIN ist, wird nur für ein Fahrzeug mit erster Inverkehrsetzung vor 1981 akzeptiert – erfassen Sie diese erste Inverkehrsetzung.",
     "columnPanel": {
       "trigger": "Spalten",
       "search": "Spalte suchen…",
@@ -1365,6 +1366,7 @@
     "banner": "Ohne Kunde, ohne Offerte, ohne Fahrzeug im Bestand — jede Kombination ist möglich.",
     "vehicleSection": "Fahrzeug",
     "vin": "VIN",
+    "firstRegistration": "Erstinverkehrsetzung",
     "mileage": "Kilometerstand",
     "make": "Marke",
     "model": "Modell",
