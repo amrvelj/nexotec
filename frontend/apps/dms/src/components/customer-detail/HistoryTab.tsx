@@ -198,6 +198,7 @@ interface ValueContext {
 
 // Fields that hold an ISO country code from the `country` reference list.
 const COUNTRY_KEYS = new Set(['nationality', 'addressCountry'])
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 function formatValue(
   entityType: string,
@@ -213,6 +214,9 @@ function formatValue(
     // for it (the advisor's name, a linked vehicle's make and model); one the
     // record carries no label for is shown as recorded.
     if (/Id$/.test(camelKey(key)) && idLabels[v] !== undefined) return idLabels[v]
+    // KAN-371: an id nothing names (another group's record, one since deleted)
+    // reads as a translated marker, never as a bare UUID.
+    if (/Id$/.test(camelKey(key)) && UUID.test(v)) return t('customerDetail.history.unknownReference')
     // A country code renders its name in the UI language, as on the Overview.
     if (COUNTRY_KEYS.has(camelKey(key)) && countryLabels[v] !== undefined) return countryLabels[v]
     const label = enumLabel(key, v, t, exists)
@@ -271,7 +275,12 @@ function HistoryEvent({
   const { t, i18n } = useTranslation()
   const changes = diff(event.before, event.after)
   const ctx: ValueContext = { t, exists: (key) => i18n.exists(key), locale, idLabels, countryLabels }
-  const actor = isYou ? t('customerDetail.history.you') : event.actorId ? t('customerDetail.history.user', { id: event.actorId.slice(0, 8) }) : t('customerDetail.history.system')
+  // KAN-371: the acting user by name where the History endpoint could name them.
+  const actor = isYou
+    ? t('customerDetail.history.you')
+    : event.actorId
+      ? (idLabels[event.actorId] ?? t('customerDetail.history.user', { id: event.actorId.slice(0, 8) }))
+      : t('customerDetail.history.system')
   return (
     <div style={{ display: 'flex', gap: 12 }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>

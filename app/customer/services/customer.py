@@ -66,7 +66,12 @@ from app.customer.schemas.customer import (
     CustomerVehicleUpdate,
     OtherVehiclePartySummary,
 )
-from app.platform.public import get_active_reference_value_codes, get_user_or_404, list_active_users
+from app.platform.public import (
+    get_active_reference_value_codes,
+    get_group_display_labels,
+    get_user_or_404,
+    list_active_users,
+)
 from app.vehicle.public import VehicleSummary, get_vehicle_mdm_or_404, get_vehicle_summaries
 
 logger = logging.getLogger("app.customer")
@@ -3273,3 +3278,82 @@ def set_credit_block(
     db.commit()
     db.refresh(customer)
     return customer
+
+
+# KAN-371 (Anto, 2026-10-18, option A): the History tab's ids are named on
+# read — the audit log is append-only and keeps only the ids. The keys whose
+# values are ids of each kind, as the customer service records them.
+_HISTORY_DEALERSHIP_KEYS = frozenset({"dealershipId"})
+_HISTORY_USER_KEYS = frozenset({"advisorId"})
+_HISTORY_CUSTOMER_KEYS = frozenset({"mergedIntoCustomerId", "duplicateOfCustomerId", "customerId"})
+_HISTORY_VEHICLE_KEYS = frozenset({"vehicleId"})
+
+
+def _uuid_or_none(value: Any) -> uuid.UUID | None:
+    try:
+        return uuid.UUID(str(value)) if value is not None else None
+    except ValueError:
+        return None
+
+
+def history_labels(db: Session, *, group_id: uuid.UUID, events: list[Any]) -> dict[str, str]:
+    """Id → display label for every id the customer's audit events carry
+    under a known key, and for each event's actor: a Betrieb's and a user's
+    name from platform (group-scoped, `get_group_display_labels`), another
+    customer's name and number, a vehicle's make and model from the party
+    rows' own labels (KAN-84). Only this group's records are named; an id
+    that resolves to nothing is left out and the screen renders it as
+    unknown. One query per kind, whatever the number of events."""
+
+    dealership_ids: set[uuid.UUID] = set()
+    user_ids: set[uuid.UUID] = set()
+    customer_ids: set[uuid.UUID] = set()
+    vehicle_ids: set[uuid.UUID] = set()
+    for event in events:
+        if event.actor_id is not None:
+            user_ids.add(event.actor_id)
+        for snapshot in (event.before, event.after):
+            for raw_key, value in (snapshot or {}).items():
+                parsed = _uuid_or_none(value) if isinstance(value, str) else None
+                if parsed is None:
+                    continue
+                # The customer's own snapshots use the column names
+                # (`dealership_id`); child-row events use camelCase.
+                head, *rest = raw_key.split("_")
+                key = head + "".join(part.title() for part in rest)
+                if key in _HISTORY_DEALERSHIP_KEYS:
+                    dealership_ids.add(parsed)
+                elif key in _HISTORY_USER_KEYS:
+                    user_ids.add(parsed)
+                elif key in _HISTORY_CUSTOMER_KEYS:
+                    customer_ids.add(parsed)
+                elif key in _HISTORY_VEHICLE_KEYS:
+                    vehicle_ids.add(parsed)
+
+    dealerships, users = get_group_display_labels(
+        db, group_id=group_id, dealership_ids=dealership_ids, user_ids=user_ids
+    )
+    labels: dict[str, str] = {str(k): v for k, v in {**dealerships, **users}.items()}
+    if customer_ids:
+        for customer in db.scalars(
+            select(Customer).where(Customer.id.in_(customer_ids), Customer.group_id == group_id)
+        ):
+            labels[str(customer.id)] = f"{customer_display_name(customer)} ({customer.customer_number})"
+    if vehicle_ids:
+        rows = db.execute(
+            select(
+                VehicleParty.vehicle_id,
+                VehicleParty.vehicle_make,
+                VehicleParty.vehicle_model,
+                VehicleParty.vehicle_model_year,
+                VehicleParty.vehicle_number,
+            )
+            .join(Customer, Customer.id == VehicleParty.customer_id)
+            .where(VehicleParty.vehicle_id.in_(vehicle_ids), Customer.group_id == group_id)
+        )
+        for vehicle_id, make, model, model_year, number in rows:
+            if make and model:
+                labels[str(vehicle_id)] = f"{make} {model} ({model_year})" if model_year else f"{make} {model}"
+            elif number and str(vehicle_id) not in labels:
+                labels[str(vehicle_id)] = number
+    return labels

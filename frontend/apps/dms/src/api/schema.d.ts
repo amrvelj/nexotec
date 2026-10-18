@@ -4610,6 +4610,23 @@ export interface components {
             systemName?: string | null;
         };
         /**
+         * CustomerHistoryPage
+         * @description KAN-371: the customer's audit events plus `labels`, id → display label
+         *     for the ids they carry (a Betrieb, a user, another customer, a vehicle)
+         *     and their actors, resolved on read. An id absent from `labels` names
+         *     nothing this group can see.
+         */
+        CustomerHistoryPage: {
+            /** Items */
+            items: components["schemas"]["AuditEventRead"][];
+            /** Labels */
+            labels?: {
+                [key: string]: string;
+            };
+            /** Nextcursor */
+            nextCursor: string | null;
+        };
+        /**
          * CustomerLifecycleStatus
          * @enum {string}
          */
@@ -9832,7 +9849,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AuditEventPage"];
+                    "application/json": components["schemas"]["CustomerHistoryPage"];
                 };
             };
             /** @description Validation Error */

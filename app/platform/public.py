@@ -20,6 +20,7 @@ from app.platform.services.actor_reference import actor_reference_checks
 from app.platform.services.dealership import (
     get_dealership_default_correspondence_language,
     get_dealership_or_404,
+    get_group_display_labels,
     get_location_or_404,
 )
 from app.platform.services.document_render import render_document
@@ -50,6 +51,7 @@ __all__ = [
     "get_active_reference_value_codes",
     "get_dealership_default_correspondence_language",
     "get_dealership_or_404",
+    "get_group_display_labels",
     "get_location_or_404",
     "get_user_or_404",
     "list_active_users",

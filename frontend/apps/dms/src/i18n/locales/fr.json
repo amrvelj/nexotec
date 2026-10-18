@@ -510,6 +510,7 @@
       },
       "you": "Vous",
       "system": "Système",
+      "unknownReference": "enregistrement inconnu",
       "user": "Utilisateur {{id}}",
       "actions": {
         "create": "Client créé",

@@ -510,6 +510,7 @@
       },
       "you": "You",
       "system": "System",
+      "unknownReference": "unknown record",
       "user": "User {{id}}",
       "actions": {
         "create": "Customer created",

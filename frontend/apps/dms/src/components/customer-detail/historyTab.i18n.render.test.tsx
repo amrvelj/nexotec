@@ -93,10 +93,11 @@ describe('HistoryTab in French (KAN-336)', () => {
     expect(screen.getByText('Conseiller')).toBeInTheDocument()
     expect(screen.getByText(/— → Anna Muster/)).toBeInTheDocument()
     expect(screen.queryByText(new RegExp(ADVISOR_ID))).not.toBeInTheDocument()
-    // No label for the dealership on the record: the id is shown as recorded,
-    // under a translated field name.
+    // KAN-371: an id nothing names reads as a translated marker under a
+    // translated field name, never as a bare UUID.
     expect(screen.getByText('Entreprise')).toBeInTheDocument()
-    expect(screen.getByText(new RegExp(DEALERSHIP_ID))).toBeInTheDocument()
+    expect(screen.getByText(/— → enregistrement inconnu/)).toBeInTheDocument()
+    expect(screen.queryByText(new RegExp(DEALERSHIP_ID))).not.toBeInTheDocument()
 
     for (const english of ['First name', 'Salutation', 'Lifecycle status', 'Advisor id', 'Dealership id']) {
       expect(screen.queryByText(english)).not.toBeInTheDocument()
@@ -206,5 +207,35 @@ describe('HistoryTab in French (KAN-336)', () => {
     renderHistory([event({ before: { some_new_field: 'a' }, after: { some_new_field: 'b' } })])
     expect(screen.getByText('some_new_field')).toBeInTheDocument()
     expect(screen.queryByText(/MISSING I18N KEY/)).not.toBeInTheDocument()
+  })
+})
+
+// KAN-371 (Anto, option A) — the History endpoint names the ids its events
+// carry; the tab shows the Betrieb, the customer a record was merged into and
+// the acting user by name, in the UI language's frame.
+describe('HistoryTab — ids read as names (KAN-371)', () => {
+  it('renders the Betrieb, the merged-into customer and the actor by name, in fr', async () => {
+    await i18n.changeLanguage('fr')
+    const SURVIVOR_ID = '01a1487e-0000-7000-8000-000000000099'
+    const ACTOR_ID = '01a1487e-0000-7000-8000-000000000077'
+    renderHistory(
+      [
+        event({ action: 'create', after: { first_name: 'Hans', dealership_id: DEALERSHIP_ID } }),
+        event({
+          action: 'merge',
+          actorId: ACTOR_ID,
+          before: { lifecycleStatus: 'prospect', duplicateOfCustomerId: null },
+          after: { lifecycleStatus: 'merged', duplicateOfCustomerId: SURVIVOR_ID },
+        }),
+      ],
+      { [DEALERSHIP_ID]: 'Garage Muster AG', [SURVIVOR_ID]: 'Tina Treu (K-000042)', [ACTOR_ID]: 'Bea Berater' },
+    )
+
+    expect(screen.getByText(/— → Garage Muster AG/)).toBeInTheDocument()
+    expect(screen.getByText(/— → Tina Treu \(K-000042\)/)).toBeInTheDocument()
+    expect(screen.getByText('Bea Berater')).toBeInTheDocument()
+    for (const id of [DEALERSHIP_ID, SURVIVOR_ID, ACTOR_ID]) {
+      expect(screen.queryByText(new RegExp(id))).not.toBeInTheDocument()
+    }
   })
 })

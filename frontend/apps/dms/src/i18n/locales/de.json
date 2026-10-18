@@ -510,6 +510,7 @@
       },
       "you": "Sie",
       "system": "System",
+      "unknownReference": "unbekannter Eintrag",
       "user": "Benutzer {{id}}",
       "actions": {
         "create": "Kunde angelegt",

@@ -722,3 +722,55 @@ def test_no_stock_link_for_a_vehicle_with_no_stock_item(client, db_session):
 
     items = client.get(f"/v1/customers/{customer['id']}/vehicles", headers=_bearer(token)).json()["items"]
     assert items[0]["stockItem"] is None
+
+
+def test_the_history_names_the_ids_its_events_carry(client, db_session):
+    """KAN-371 (Anto, option A): the audit log keeps only ids, so the History
+    endpoint names them on read — the Betrieb, the advisor and the acting
+    user, the customer a duplicate was merged into, a linked vehicle — for
+    this group only. An id of another group's record is never named."""
+
+    from tests.identity_support import create_user
+
+    dealer_id, customer, vehicle = _setup(client)
+    _enable_group_read(db_session, dealer_id)
+    advisor = create_user(client, dealer_id, firstName="Bea", lastName="Berater")
+    stranger_dealer = _create_dealer(client)
+    stranger = create_user(client, stranger_dealer, firstName="Fremd", lastName="Person")
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id), user_id=uuid.UUID(advisor["id"]))
+    duplicate = _create_customer(client, dealer_id, firstName="Dora", lastName="Doppelt")
+    client.patch(
+        f"/v1/customers/{customer['id']}",
+        json={"advisorId": advisor["id"]},
+        headers={**_bearer(token), "If-Match": str(customer["version"])},
+    )
+    client.post(
+        f"/v1/customers/{customer['id']}/vehicles", json={"vehicleId": vehicle["id"], "role": "owner"}, headers=_bearer(token)
+    )
+    merged = client.post(
+        f"/v1/customers/{duplicate['id']}/merge",
+        json={"duplicateOfCustomerId": customer["id"]},
+        headers={**_bearer(token), "If-Match": str(duplicate["version"]), "Idempotency-Key": str(uuid.uuid4())},
+    )
+    assert merged.status_code == 200, merged.text
+
+    history = client.get(f"/v1/customers/{customer['id']}/audit-log", headers=_bearer(token)).json()
+    labels = history["labels"]
+    assert labels[dealer_id] == "Garage Musterbetrieb AG"
+    assert labels[advisor["id"]] == "Bea Berater"
+    assert labels[vehicle["id"]]
+    duplicate_history = client.get(f"/v1/customers/{duplicate['id']}/audit-log", headers=_bearer(token)).json()
+    assert duplicate_history["labels"][customer["id"]] == f"Anna Muster ({customer['customerNumber']})"
+    # The lookup itself never names another group's Betrieb, user or customer,
+    # whatever ids an event carries (the group filter, not the history's content).
+    from types import SimpleNamespace
+
+    from app.customer.services import customer as customer_service
+
+    foreign = SimpleNamespace(
+        actor_id=uuid.UUID(stranger["id"]),
+        before=None,
+        after={"dealership_id": stranger_dealer, "advisor_id": stranger["id"]},
+    )
+    own_group = uuid.uuid5(uuid.NAMESPACE_OID, dealer_id)
+    assert customer_service.history_labels(db_session, group_id=own_group, events=[foreign]) == {}

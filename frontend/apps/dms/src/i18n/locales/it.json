@@ -510,6 +510,7 @@
       },
       "you": "Tu",
       "system": "Sistema",
+      "unknownReference": "record sconosciuto",
       "user": "Utente {{id}}",
       "actions": {
         "create": "Cliente creato",

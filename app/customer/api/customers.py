@@ -18,7 +18,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.audit import list_audit_events
-from app.core.audit_schemas import AuditEventPage, AuditEventRead
+from app.core.audit_schemas import AuditEventRead
 from app.core.auth import Principal, get_current_principal, require_access_role
 from app.core.concurrency import check_version, require_if_match
 from app.core.config import get_settings
@@ -46,6 +46,7 @@ from app.customer.schemas.customer import (
     CustomerExternalIdPage,
     CustomerExternalIdRead,
     CustomerExternalIdUpdate,
+    CustomerHistoryPage,
     CustomerMergeRequest,
     CustomerPage,
     CustomerPhoneCreate,
@@ -262,7 +263,7 @@ def list_customers(
     )
 
 
-@router.get("/customers/{customer_id}/audit-log", response_model=AuditEventPage)
+@router.get("/customers/{customer_id}/audit-log", response_model=CustomerHistoryPage)
 def get_customer_audit_log(
     customer_id: uuid.UUID,
     principal: Principal = Depends(require_read("audit_logs")),
@@ -272,8 +273,11 @@ def get_customer_audit_log(
     events = list_audit_events(
         db, entity_type="customer", entity_id=customer_id, tenant_id=principal.group_id
     )
-    return AuditEventPage(
-        items=[AuditEventRead.model_validate(e, from_attributes=True) for e in events], next_cursor=None
+    # KAN-371: the ids the events carry are named on read, group-scoped.
+    return CustomerHistoryPage(
+        items=[AuditEventRead.model_validate(e, from_attributes=True) for e in events],
+        next_cursor=None,
+        labels=customer_service.history_labels(db, group_id=principal.group_id, events=events),
     )
 
 
