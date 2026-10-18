@@ -28,6 +28,7 @@ def _token(
     user_id: uuid.UUID | None = None,
     *,
     is_dealer_manager: bool = False,
+    entitlements: frozenset[str] | None = None,
 ) -> str:
     _tid = tenant_id or uuid.uuid4()
     return create_access_token(
@@ -36,6 +37,7 @@ def _token(
         group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(_tid)),
         roles=frozenset({role}) if role is not None else frozenset(),
         is_dealer_manager=is_dealer_manager,
+        entitlements=entitlements,
     )
 
 
@@ -657,6 +659,36 @@ def test_a_vehicle_in_the_groups_own_stock_links_to_its_stock_item(client, db_se
 
     items = client.get(f"/v1/customers/{customer['id']}/vehicles", headers=_bearer(token)).json()["items"]
     assert items[0]["stockItem"] == {"id": str(stock_item.id), "stockNumber": stock_item.stock_number}
+
+
+def test_a_betrieb_without_the_sales_module_gets_no_stock_link(client, db_session):
+    """KAN-378 (Anto, option A): the stock summary is inventory data, licensed
+    with `sales` (D-A-04). A workshop's token without it reads the customer's
+    vehicles and roles, but no stock item, while a licensed one does."""
+
+    dealer_id, customer, vehicle = _setup(client)
+    _enable_group_read(db_session, dealer_id)
+    licensed = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    workshop = _token(
+        is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id), entitlements=frozenset({"aftersales", "parts"})
+    )
+    client.post(
+        f"/v1/customers/{customer['id']}/vehicles", json={"vehicleId": vehicle["id"], "role": "owner"}, headers=_bearer(licensed)
+    )
+    create_stock_item(
+        db_session,
+        tenant_id=uuid.UUID(dealer_id),
+        data=StockItemCreate(vehicle_label="Trade-in candidate", condition=StockItemCondition.USED, vehicle_id=uuid.UUID(vehicle["id"]), vin=vehicle["vin"]),
+        actor_id=None,
+    )
+
+    unlicensed = client.get(f"/v1/customers/{customer['id']}/vehicles", headers=_bearer(workshop))
+    assert unlicensed.status_code == 200
+    assert [(item["vehicleId"], item["role"], item["stockItem"]) for item in unlicensed.json()["items"]] == [
+        (vehicle["id"], "owner", None)
+    ]
+    licensed_items = client.get(f"/v1/customers/{customer['id']}/vehicles", headers=_bearer(licensed)).json()["items"]
+    assert licensed_items[0]["stockItem"] is not None
 
 
 def test_no_stock_link_when_group_read_is_not_enabled(client, db_session):
