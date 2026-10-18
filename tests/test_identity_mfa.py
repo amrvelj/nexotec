@@ -833,6 +833,66 @@ def test_a_passkey_holder_gets_the_passkey_step_and_a_bad_assertion_is_refused(c
 # --- the manager's view ---------------------------------------------------------------------
 
 
+def test_a_malformed_passkey_answer_is_a_refusal_whichever_exception_the_library_raises(
+    client, login, db_session, monkeypatch
+):
+    """CI's resolver picked `webauthn` 2.7.1, which raises `InvalidJSONStructure`
+    unwrapped for a bogus `clientDataJSON` where 3.0.1 wraps it in
+    `InvalidAuthenticationResponse` — and the verify route answered 500. Every
+    library refusal is a wrong answer (401 at sign-in, 422 at registration)."""
+
+    from webauthn.helpers.exceptions import InvalidJSONStructure
+
+    from app.platform.models.auth_session import AuthSession
+    from app.platform.services import mfa as mfa_service
+
+    dealership = create_dealership(client, mfa_enforced=True)
+    anna = create_user(client, dealership)
+    cookie = login.session_cookie(anna)
+    row = db_session.scalars(
+        select(AuthSession).where(AuthSession.user_id == uuid.UUID(anna["id"]), AuthSession.revoked_at.is_(None))
+    ).one()
+    credential_id = _b64url(b"laptop-key")
+    db_session.add(
+        MfaPasskey(
+            user_id=uuid.UUID(anna["id"]),
+            credential_id=credential_id,
+            public_key=_b64url(b"pk"),
+            sign_count=0,
+            label="Laptop",
+            transports=[],
+        )
+    )
+    row.amr = ["pwd", "hwk", "mfa"]
+    db_session.commit()
+
+    def unwrapped(**kwargs):
+        raise InvalidJSONStructure('client_data_json missing required property "type"')
+
+    monkeypatch.setattr(mfa_service, "verify_authentication_response", unwrapped)
+    monkeypatch.setattr(mfa_service, "verify_registration_response", unwrapped)
+
+    first = login.login(anna).json()
+    bogus = {
+        "id": credential_id,
+        "rawId": credential_id,
+        "type": "public-key",
+        "response": {"clientDataJSON": "e30", "authenticatorData": "AA", "signature": "AA"},
+    }
+    refused = client.post("/v1/auth/mfa/passkey/verify", json={"challengeId": first["challengeId"], "credential": bogus})
+    assert refused.status_code == 401, refused.text
+    assert len(_events(db_session, AuthEventKind.MFA_FAILED)) == 1
+
+    options = client.post("/v1/auth/mfa/passkeys/options", headers=cookie_headers(cookie))
+    assert options.status_code == 200, options.text
+    registered = client.post(
+        "/v1/auth/mfa/passkeys",
+        json={"challengeId": options.json()["challengeId"], "label": "Phone", "credential": bogus},
+        headers=cookie_headers(cookie),
+    )
+    assert registered.status_code == 422, registered.text
+
+
 def test_the_auth_event_stream_is_the_managers_to_read_and_nobody_elses(client, login):
     dealership = create_dealership(client)
     manager = create_user(client, dealership)

@@ -22,7 +22,7 @@ from webauthn import (
     verify_registration_response,
 )
 from webauthn.helpers import base64url_to_bytes, bytes_to_base64url
-from webauthn.helpers.exceptions import InvalidAuthenticationResponse, InvalidRegistrationResponse
+from webauthn.helpers.exceptions import WebAuthnException
 from webauthn.helpers.structs import (
     AuthenticatorSelectionCriteria,
     PublicKeyCredentialDescriptor,
@@ -305,7 +305,11 @@ def register_passkey(
             expected_rp_id=_settings.webauthn_rp_id,
             expected_origin=_settings.webauthn_origin,
         )
-    except InvalidRegistrationResponse as exc:
+    except WebAuthnException as exc:
+        # Every library refusal is one answer: a forged or malformed attestation
+        # is a 422, never a 500. `webauthn` 2.7.1 (what CI's resolver picked)
+        # raises the structure errors unwrapped, 3.0.1 wraps them — the base
+        # class covers both.
         raise UnprocessableEntityError("The passkey could not be verified.", details={"factor": "passkey"}) from exc
     row = MfaPasskey(
         user_id=user.id,
@@ -359,7 +363,10 @@ def verify_passkey(db: Session, *, user: User, credential: dict, challenge: byte
             credential_public_key=base64url_to_bytes(row.public_key),
             credential_current_sign_count=row.sign_count,
         )
-    except InvalidAuthenticationResponse:
+    except WebAuthnException:
+        # A malformed assertion is a wrong answer like any other, whichever of
+        # the library's exceptions names the defect (`webauthn` 2.7.1 raised
+        # `InvalidJSONStructure` unwrapped where 3.0.1 wraps it).
         return False
     row.sign_count = verified.new_sign_count
     row.last_used_at = utcnow()
