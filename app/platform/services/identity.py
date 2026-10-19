@@ -28,6 +28,7 @@ import datetime as dt
 import logging
 import uuid
 from typing import Protocol
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
@@ -159,7 +160,7 @@ class LocalPasswordProvider:
                 )
             raise refuse(AuthEventKind.LOGIN_FAILED, {"reason": "password"})
 
-        if user.status in _INACTIVE:
+        if user.status in _INACTIVE or not access_window_open(user):
             raise refuse(AuthEventKind.LOGIN_FAILED, {"reason": "inactive"})
 
         if password_hashing.needs_rehash(credential.password_hash):
@@ -327,6 +328,7 @@ def issue_invitation(
     The raw token lives in the mail only."""
 
     raw = auth_tokens.issue(db, user_id=user.id, kind=AuthTokenKind.INVITATION, actor_id=actor_id)
+    user.invited_at = utcnow()  # KAN-200: when the (latest) invitation went out
     dealership = db.get(Dealership, user.tenant_id)
     link = f"{_settings.app_base_url}/invitations/accept?token={raw}"
     text = mail_texts.invitation(
@@ -471,14 +473,28 @@ def accept_invitation(db: Session, *, raw_token: str, password: str, ip_address:
 
 
 def login_completed(db: Session, *, user: User) -> None:
-    """A session was minted: the account's failure counter and lock clear."""
+    """A session was minted: the account's failure counter and lock clear,
+    and the user's last login is stamped (KAN-200, Users → Lifecycle)."""
 
+    user.last_login_at = utcnow()
     credential = _credential_of(db, user.id)
     if credential is None:
         return
     credential.failed_login_attempts = 0
     credential.last_failed_at = None
     credential.locked_until = None
+
+
+def access_window_open(user: User, *, today: dt.date | None = None) -> bool:
+    """KAN-200 (FR-A-12): a user whose `valid_from` is still to come, or
+    whose `valid_to` has passed (the nightly job deactivates them; until it
+    runs, the window itself refuses), cannot sign in. Calendar days in the
+    platform zone, like the session's absolute end."""
+
+    day = today if today is not None else dt.datetime.now(ZoneInfo(_settings.session_timezone)).date()
+    if user.valid_from is not None and day < user.valid_from:
+        return False
+    return not (user.valid_to is not None and day > user.valid_to)
 
 
 def second_step_failed(db: Session, *, user: User, ip_address: str = "") -> None:

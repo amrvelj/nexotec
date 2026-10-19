@@ -30,7 +30,7 @@ os.environ.setdefault(
 )
 
 import app.model_registry  # noqa: F401  ensures all tables are registered on Base.metadata
-from app.db import Base, get_db
+from app.db import Base, get_db, get_session_factory
 from app.main import app as fastapi_app
 from tests.demo_models import DemoBase
 
@@ -433,7 +433,11 @@ def client(engine) -> TestClient:
             db.close()
 
     fastapi_app.dependency_overrides[get_db] = _override_get_db
+    # KAN-200: a route's own-commit cross-context writes open their sessions
+    # on this engine too, never on app.db's configured database.
+    fastapi_app.dependency_overrides[get_session_factory] = lambda: session_factory
     try:
         yield TestClient(fastapi_app)
     finally:
         fastapi_app.dependency_overrides.pop(get_db, None)
+        fastapi_app.dependency_overrides.pop(get_session_factory, None)

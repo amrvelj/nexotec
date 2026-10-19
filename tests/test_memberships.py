@@ -12,6 +12,7 @@ from tests.membership_support import (
     bearer,
     create_dealership,
     create_user,
+    deactivate,
     grant,
     if_match,
     manager_of,
@@ -333,14 +334,7 @@ def test_nothing_is_granted_to_a_deactivated_user(client):
     home, sister = _two_dealerships(client)
     create_user(client, home)
     user = create_user(client, home, is_dealer_manager=False)
-    assert (
-        client.patch(
-            f"/v1/dealerships/{home}/users/{user['id']}",
-            json={"status": "deactivated"},
-            headers={**platform_admin(), "If-Match": "1"},
-        ).status_code
-        == 200
-    )
+    assert deactivate(client, home, user).status_code == 200
     assert grant(client, home, user, sister).status_code == 409
 
 
@@ -384,14 +378,7 @@ def test_no_flag_is_granted_to_a_deactivated_user(client):
     create_user(client, home)
     user = create_user(client, home, is_dealer_manager=False)
     assert grant(client, home, user, sister).status_code == 201
-    assert (
-        client.patch(
-            f"/v1/dealerships/{home}/users/{user['id']}",
-            json={"status": "deactivated"},
-            headers={**platform_admin(), "If-Match": "1"},
-        ).status_code
-        == 200
-    )
+    assert deactivate(client, home, user).status_code == 200
     headers = {**platform_admin(), "If-Match": "2"}
     assert (
         client.put(
@@ -413,14 +400,7 @@ def test_patching_the_flag_of_a_deactivated_user_is_refused_like_the_dedicated_e
     home, _ = _two_dealerships(client)
     create_user(client, home)
     user = create_user(client, home, is_dealer_manager=False)
-    assert (
-        client.patch(
-            f"/v1/dealerships/{home}/users/{user['id']}",
-            json={"status": "deactivated"},
-            headers={**platform_admin(), "If-Match": "1"},
-        ).status_code
-        == 200
-    )
+    assert deactivate(client, home, user).status_code == 200
     response = client.patch(
         f"/v1/dealerships/{home}/users/{user['id']}",
         json={"isDealerManager": True},
@@ -429,14 +409,7 @@ def test_patching_the_flag_of_a_deactivated_user_is_refused_like_the_dedicated_e
     assert response.status_code == 409, response.text
     # The removal direction, and the flag set in the same write as the deactivation.
     manager = create_user(client, home)
-    assert (
-        client.patch(
-            f"/v1/dealerships/{home}/users/{manager['id']}",
-            json={"status": "deactivated"},
-            headers={**platform_admin(), "If-Match": "1"},
-        ).status_code
-        == 200
-    )
+    assert deactivate(client, home, manager).status_code == 200
     assert (
         client.patch(
             f"/v1/dealerships/{home}/users/{manager['id']}",
@@ -445,6 +418,8 @@ def test_patching_the_flag_of_a_deactivated_user_is_refused_like_the_dedicated_e
         ).status_code
         == 409
     )
+    # KAN-200: a deactivation carries no flag — the PATCH is sent to the
+    # deactivation step (409), which takes a reason and the hand-over only.
     other = create_user(client, home, is_dealer_manager=False)
     assert (
         client.patch(

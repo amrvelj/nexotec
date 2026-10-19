@@ -157,8 +157,24 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   shows both, never the dealer as actor; 60-minute box, mandatory reason, persistent banner;
   **the user ends it from the banner; no manager notification, no manager "View as."** It can
   never touch credentials, MFA, the manager flag or integration secrets (FR-A-17).
-- **Deactivation includes a reassignment step** (D-A-35): each module registers an ownership
-  provider; open records are transferred or listed, never left silently with the user.
+- **Deactivation includes a reassignment step** (D-A-35) — built (KAN-200): `OwnershipProvider`
+  in `app/core/ownership.py`, one implementation per context registered by the composition root
+  `app/ownership_registry.py` (customer: the customers a user advises; sales: open offers and
+  pending contracts, which carry a responsible seller `owner_user_id` since KAN-200, Anto
+  2026-10-19; inventory, aftersales, parts: nothing per user). `GET …/users/{id}/ownership`
+  lists the groups; `POST …/users/{id}/deactivate` needs a decision for every group (a colleague
+  or null = the module's own unassigned queue, e.g. `GET /sales/deals?unassigned=true`), cuts
+  access first in platform's own commit, then each module hands over on a session of its own
+  (ADR-047) with one `ownership_transferred` audit row per group; `POST …/ownership/transfers`
+  is the retry and the plain hand-over. A PATCH `status: deactivated` (or an employment
+  `terminated` on an active user) is 409 `use_deactivate_endpoint`. **Reactivation is
+  allowed** (Users → Lifecycle): PATCH `status: active`, with `employmentStatus` when the
+  employment ended with the user; any other edit of a deactivated user stays 409. The nightly
+  `platform.user_expiry` job (FR-A-12, worker only — not on staging) deactivates a user whose
+  `valid_to` has passed and releases their records to the queues; `valid_from`/`valid_to`
+  also refuse a sign-in outside the window. `user_location` (primary + additional, FR-A-02)
+  and `GET …/locations` (read-only: no Locations screen yet). The Users screen is
+  `/administration/users` (one shared invite/edit dialog, the deactivation dialog; no delete).
 - **Mail (D-A-28):** platform mail (invites, resets, alerts) is always Nexotec's own sender;
   customer-facing mail resolves per document type through `sending_policy` to
   `user_mailbox` · `business_mailbox` · `verified_domain` · `nexotec_on_behalf`.
@@ -169,6 +185,13 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
 - **Not in v1, by ruling:** policy limits (D-A-18), external users (D-A-20), custom fields and
   tags (D-A-29), Saldosteuersatz (D-A-27), customer logins (D-A-13), API clients (D-A-14),
   Zefix auto-fill, AI translations, training mode.
+
+- **Signature image (KAN-200; Anto, 2026-10-19: the manager sets it too):** `PUT/GET/DELETE
+  …/users/{id}/signature`, the image as the raw body (PNG or JPEG ≤ 1 MiB, judged by its
+  bytes), stored under `dealerships/<id>/users/<id>/signature` in the object store
+  (`app/core/object_store.py`; `DMS_OBJECT_STORE_BACKEND=local` under
+  `DMS_OBJECT_STORE_LOCAL_DIR`, the only store built; a bucket is a follow-up); the row holds
+  the key (`signature_image_ref`), never bytes or base64.
 
 ## Document templates (ADR-051)
 

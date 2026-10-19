@@ -15,11 +15,15 @@ from app.core.observability import (
     configure_sentry,
     configure_tracing,
 )
+from app.ownership_registry import register_ownership_providers
 from app.platform.services.mailer import get_mailer
 from app.platform.session_guard import enforce_live_session
 
 configure_logging()
 configure_sentry()
+# KAN-200: every context's ownership provider, so the deactivation step can
+# ask the registry (app.core.ownership) and import no context itself.
+register_ownership_providers()
 
 # KAN-196 (FR-AU-17/18): every request carrying a session token is checked
 # against its `session` row — revoked, idle or past its absolute end is 401

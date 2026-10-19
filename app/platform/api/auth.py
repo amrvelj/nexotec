@@ -137,7 +137,7 @@ def _mint_session(
     caller's row and the token keeps its `sid`.
     """
 
-    if user.status in identity._INACTIVE:
+    if user.status in identity._INACTIVE or not identity.access_window_open(user):
         raise UnauthorizedError("This user account is not active.")
     membership_ids = _membership_ids(db, user_id=user.id, home_dealership_id=user.tenant_id)
     if dealership_id not in membership_ids:

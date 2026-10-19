@@ -5,6 +5,7 @@ contract allows `app.<other-context>` to import `app.customer.public`, never
 
 from app.customer.models.customer import Customer, CustomerLifecycleStatus
 from app.customer.models.vehicle_party import VehicleParty, VehiclePartyRole
+from app.customer.ownership import CustomerOwnershipProvider
 from app.customer.services.customer import (
     allocate_vehicle_party,
     channel_authorises_marketing,
@@ -25,6 +26,7 @@ from app.customer.services.legal_basis import has_any_basis_for_group
 __all__ = [
     "Customer",
     "CustomerLifecycleStatus",
+    "CustomerOwnershipProvider",
     "VehicleParty",
     "VehiclePartyRole",
     "allocate_vehicle_party",

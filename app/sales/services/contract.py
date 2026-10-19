@@ -25,6 +25,7 @@ from app.sales.models.contract import ContractStatus, FinancingKind, SalesContra
 from app.sales.models.line_item import SalesLineItem
 from app.sales.models.offer import SalesOffer
 from app.sales.schemas.contract import ContractUpdate
+from app.sales.services import ownership
 from app.sales.services.contract_completeness import is_priced_without_inputs, require_complete
 from app.sales.services.deal_editing import apply_vehicle_and_pricing_changes
 from app.sales.services.deal_projection import upsert_deal_projection
@@ -205,6 +206,17 @@ def create_contract(
         ),
         created_by=actor_id,
         updated_by=actor_id,
+        # KAN-200: the responsible seller travels from the offer; a contract
+        # started directly belongs to whoever started it.
+        **(
+            {
+                "owner_user_id": offer.owner_user_id,
+                "owner_label": offer.owner_label,
+                "owner_label_refreshed_at": offer.owner_label_refreshed_at,
+            }
+            if offer is not None
+            else ownership.default_owner(db, tenant_id=tenant_id, actor_id=actor_id)
+        ),
     )
     db.add(contract)
     db.flush()
@@ -316,6 +328,12 @@ def update_contract(
         # KAN-307 (ADR-083 amended): the buyer, as on the offer.
         apply_customer_change(
             db, deal=contract, group_id=group_id, customer_id=changes.pop("customer_id"), host="a contract"
+        )
+    if "owner_user_id" in changes:
+        # KAN-200: the responsible seller, as on the offer.
+        ownership.apply_owner(
+            contract,
+            ownership.resolve_owner_change(db, tenant_id=contract.tenant_id, owner_user_id=changes.pop("owner_user_id")),
         )
     apply_vehicle_and_pricing_changes(db, deal=contract, changes=changes, actor_id=actor_id, host="contract")
     upsert_deal_projection(db, contract=contract)

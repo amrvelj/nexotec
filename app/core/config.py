@@ -76,6 +76,13 @@ class Settings(BaseSettings):
     webauthn_rp_name: str = "Nexotec DMS"
     webauthn_origin: str = "http://localhost:5173"
 
+    # KAN-200 (Anto, 2026-10-19): the object store behind
+    # app.core.object_store — signature images today. "local" keeps files
+    # under `object_store_local_dir` (dev, test, staging); an S3-compatible
+    # bucket is a follow-up with its own dependency decision.
+    object_store_backend: str = "local"
+    object_store_local_dir: str = "var/objects"
+
     pagination_default_limit: int = 50
     pagination_max_limit: int = 100
 

@@ -27,8 +27,19 @@ _EXCLUDED_ENTITY_TYPE = "offer"
 
 
 def list_deals(
-    db: Session, *, tenant_id: uuid.UUID, q: str | None, entity_type: str | None, params: SortPageParams
+    db: Session,
+    *,
+    tenant_id: uuid.UUID,
+    q: str | None,
+    entity_type: str | None,
+    params: SortPageParams,
+    owner_user_id: uuid.UUID | None = None,
+    unassigned: bool = False,
 ) -> tuple[list[SalesDeal], str | None, int, bool]:
+    """`owner_user_id` narrows to one seller's deals; `unassigned` to the
+    queue FR-A-37 names — deals whose seller left and were handed to nobody
+    (KAN-200). Both together is an empty page, not an error."""
+
     stmt = select(SalesDeal).where(
         SalesDeal.tenant_id == tenant_id,
         ~and_(SalesDeal.entity_type == _EXCLUDED_ENTITY_TYPE, SalesDeal.status == _EXCLUDED_STATUS),
@@ -44,6 +55,10 @@ def list_deals(
         )
     if entity_type is not None:
         stmt = stmt.where(SalesDeal.entity_type == entity_type)
+    if owner_user_id is not None:
+        stmt = stmt.where(SalesDeal.owner_user_id == owner_user_id)
+    if unassigned:
+        stmt = stmt.where(SalesDeal.owner_user_id.is_(None))
 
     total, total_is_estimate = count_capped(db, stmt, threshold=get_settings().count_exact_threshold)
     stmt = paginate_query_sorted(stmt, model=SalesDeal, params=params)

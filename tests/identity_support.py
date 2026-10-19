@@ -164,3 +164,16 @@ def create_user(client: TestClient, dealership_id: str, **overrides) -> dict:
 
 def cookie_headers(token: str) -> dict[str, str]:
     return {"Cookie": f"dms_session={token}"}
+
+
+def deactivate(client: TestClient, dealership_id: str, user: dict, *, headers: dict | None = None, if_match: int = 1, **body):
+    """KAN-200 (FR-A-37): deactivation goes through its own endpoint with
+    the reassignment step — a PATCH `status: deactivated` is refused. A user
+    created by these helpers owns nothing, so no transfer is needed."""
+
+    payload = {"reason": "test", "transfers": [], **body}
+    return client.post(
+        f"/v1/dealerships/{dealership_id}/users/{user['id']}/deactivate",
+        json=payload,
+        headers={**(headers or platform_admin_headers()), "If-Match": str(if_match), "Idempotency-Key": str(uuid.uuid4())},
+    )

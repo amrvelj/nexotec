@@ -114,3 +114,14 @@ def user_version(client, dealership_id: str, user: dict) -> int:
 
 def if_match(client, dealership_id: str, user: dict, **headers: str) -> dict[str, str]:
     return {**platform_admin(), **headers, "If-Match": str(user_version(client, dealership_id, user))}
+
+
+def deactivate(client, dealership_id: str, user: dict, *, headers: dict | None = None, if_match: int = 1):
+    """KAN-200 (FR-A-37): deactivation goes through its own endpoint with
+    the reassignment step; a PATCH `status: deactivated` is refused (409)."""
+
+    return client.post(
+        f"/v1/dealerships/{dealership_id}/users/{user['id']}/deactivate",
+        json={"reason": "test", "transfers": []},
+        headers={**(headers or platform_admin()), "If-Match": str(if_match), "Idempotency-Key": str(uuid.uuid4())},
+    )

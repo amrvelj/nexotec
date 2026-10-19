@@ -38,6 +38,7 @@ from app.platform.models.module_entitlement import ModuleEntitlement
 from app.platform.models.reference_data import ReferenceList, ReferenceValue
 from app.platform.models.standard_text_delegation import StandardTextDelegation
 from app.platform.models.user import User
+from app.platform.models.user_location import UserLocation
 from app.platform.models.user_preference import UserPreference
 from app.sales.models.contract import SalesContract
 from app.sales.models.deal import SalesDeal, SalesNumberSequence
@@ -145,6 +146,7 @@ __all__ = [
     "TypeApproval",
     "TyreSpecCache",
     "User",
+    "UserLocation",
     "UserPreference",
     "Valuation",
     "ValuationDeduction",

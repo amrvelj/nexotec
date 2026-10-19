@@ -1026,6 +1026,9 @@ def test_no_hard_delete_endpoint_exists_for_fk_target_entities(client):
         "/v1/auth/mfa/passkeys/{passkey_id}",
         "/v1/dealerships/{dealership_id}/users/{user_id}/sessions",
         "/v1/dealerships/{dealership_id}/users/{user_id}/mfa",
+        # KAN-200: the signature image is a file in the object store, a child
+        # of the user row (which keeps its key column and is never deleted).
+        "/v1/dealerships/{dealership_id}/users/{user_id}/signature",
         "/v1/customers/{customer_id}/phones/{phone_id}",
         "/v1/customers/{customer_id}/emails/{email_id}",
         "/v1/customers/{customer_id}/addresses/{address_id}",

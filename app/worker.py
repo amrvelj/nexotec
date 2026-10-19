@@ -46,6 +46,8 @@ from app.inventory.consumers import (
     handle_stock_item_unpublished_message,
 )
 from app.inventory.daily_jobs import run_daily_reservation_sweep
+from app.ownership_registry import register_ownership_providers
+from app.platform.daily_jobs import run_daily_user_expiry
 from app.reconciliation_runner import run_all_daily
 from app.sales.consumers import handle_stock_item_added_message, handle_stock_item_purchased_message
 from app.vehicle.public import run_daily_plate_lookup_purge
@@ -175,8 +177,15 @@ def _refresh_vehicle_party_labels(db: Session) -> None:
     logger.info("customer.vehicle_party_labels: %d party row(s) relabelled", changed)
 
 
+def register_ownership() -> None:
+    """KAN-200: the expiry job hands a leaver's records over through the
+    ownership registry, which the composition root fills."""
+
+    register_ownership_providers()
+
+
 def register_daily_jobs() -> None:
-    """Six daily jobs, run in registration order once per day on this
+    """Seven daily jobs, run in registration order once per day on this
     process (app.core.daily_scheduler):
 
     1. ``integration.daily_jobs`` — WP-6's per-tenant catalogue delta sync
@@ -217,11 +226,15 @@ def register_daily_jobs() -> None:
     register_daily_job("inventory.orphaned_reservations.release", run_daily_reservation_sweep)
     register_daily_job("vehicle.plate_lookup_cache.purge", run_daily_plate_lookup_purge)
     register_daily_job("core.idempotency_records.purge", run_daily_idempotency_record_purge)
+    # 7. KAN-200 (FR-A-12): a user whose `valid_to` has passed is deactivated
+    #    and their open records released to the modules' queues.
+    register_daily_job("platform.user_expiry", run_daily_user_expiry)
 
 
 def run(*, max_iterations: int | None = None) -> None:
     transport = InProcessTransport(SessionLocal)
     register_handlers(transport)
+    register_ownership()
     register_daily_jobs()
 
     iterations = 0

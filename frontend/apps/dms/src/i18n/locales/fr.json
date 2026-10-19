@@ -20,7 +20,8 @@
       "integrations": "Intégrations",
       "administration": "Administration",
       "referenceData": "Données de référence",
-      "catalogue": "Catalogue"
+      "catalogue": "Catalogue",
+      "users": "Utilisateurs"
     },
     "signOut": "Se déconnecter",
     "environmentNotice": {
@@ -2000,6 +2001,172 @@
         "current": "Cette session",
         "end": "Terminer"
       }
+    }
+  },
+  "usersAdmin": {
+    "title": "Utilisateurs",
+    "invite": "Inviter un utilisateur",
+    "allView": "Tous les utilisateurs",
+    "searchPlaceholder": "Nom ou e-mail …",
+    "loadError": "Les utilisateurs n'ont pas pu être chargés.",
+    "managerBadge": "Manager",
+    "chips": {
+      "all": "Tous"
+    },
+    "forbidden": {
+      "title": "Réservé aux managers",
+      "body": "Seul un manager de cette entreprise administre ses utilisateurs. Adressez-vous à votre manager si vous avez besoin d'un changement."
+    },
+    "status": {
+      "invited": "Invité",
+      "invitation_expired": "Invitation expirée",
+      "active": "Actif",
+      "suspended": "Suspendu",
+      "deactivated": "Désactivé"
+    },
+    "accessRole": {
+      "sales": "Vente",
+      "aftersales": "Après-vente",
+      "parts": "Pièces",
+      "inventory": "Stock",
+      "finance": "Finances",
+      "technician": "Atelier",
+      "auditor": "Réviseur (lecture seule)",
+      "platform_admin": "Collaborateur Nexotec"
+    },
+    "employmentStatus": {
+      "active": "Employé",
+      "on_leave": "Absent",
+      "terminated": "Parti"
+    },
+    "textCategory": {
+      "document": "Documents",
+      "email": "E-mail",
+      "sms": "SMS",
+      "internal_note": "Notes internes",
+      "workshop": "Atelier"
+    },
+    "ownedGroup": {
+      "customer": {
+        "customers": "Clients suivis"
+      },
+      "sales": {
+        "offers": "Offres ouvertes",
+        "contracts": "Contrats en attente"
+      }
+    },
+    "columns": {
+      "name": "Nom",
+      "status": "Statut",
+      "jobTitle": "Fonction",
+      "access": "Accès",
+      "manager": "Manager",
+      "primaryLocation": "Site",
+      "lastLogin": "Dernière connexion",
+      "validTo": "Accès jusqu'au",
+      "validFrom": "Accès dès le",
+      "email": "E-mail",
+      "mobile": "Mobile",
+      "directDial": "Ligne directe",
+      "department": "Département",
+      "employeeNumber": "N° de collaborateur",
+      "lineManager": "Supérieur",
+      "additionalLocations": "Autres sites",
+      "employmentStatus": "Emploi",
+      "salesAdvisorCode": "Code conseiller",
+      "commissionRelevant": "Commission",
+      "invitedAt": "Invité le",
+      "deactivatedAt": "Désactivé le",
+      "deactivationReason": "Motif de la désactivation",
+      "signature": "Image de signature"
+    },
+    "emptyState": {
+      "title": "Pas encore d'utilisateurs",
+      "description": "Invitez le premier collègue — il choisit lui-même son mot de passe via l'invitation."
+    },
+    "emptyFilteredState": {
+      "title": "Aucun résultat",
+      "description": "Aucun utilisateur ne correspond à la recherche ou au statut actuels.",
+      "action": "Réinitialiser"
+    },
+    "rowMenu": {
+      "edit": "Modifier",
+      "resendInvitation": "Renvoyer l'invitation",
+      "resendInvitationDisabled": "Uniquement pour un utilisateur qui n'a pas encore accepté son invitation",
+      "suspend": "Suspendre",
+      "reactivate": "Réactiver",
+      "deactivate": "Désactiver",
+      "deactivateDisabledAlready": "Déjà désactivé",
+      "selfDisabled": "Pas pour votre propre compte"
+    },
+    "actions": {
+      "resendFailed": "L'invitation n'a pas pu être envoyée.",
+      "statusFailed": "Le statut n'a pas pu être modifié."
+    },
+    "form": {
+      "inviteTitle": "Inviter un utilisateur",
+      "editTitle": "Modifier {{name}}",
+      "invite": "Envoyer l'invitation",
+      "conflict": "Cet utilisateur a été modifié entre-temps. Fermez la fenêtre et rouvrez-la.",
+      "sections": {
+        "identity": "Identité",
+        "organisation": "Organisation",
+        "access": "Accès",
+        "validity": "Validité",
+        "commercial": "Commercial",
+        "signature": "Signature"
+      }
+    },
+    "fields": {
+      "firstName": "Prénom",
+      "lastName": "Nom",
+      "email": "E-mail (connexion)",
+      "emailLocked": "L'adresse d'un utilisateur actif est modifiée par le support Nexotec (récupération de compte).",
+      "mobile": "Mobile",
+      "directDial": "Ligne directe",
+      "employeeNumber": "Numéro de collaborateur",
+      "jobTitle": "Fonction",
+      "department": "Département",
+      "lineManager": "Supérieur",
+      "none": "Aucun",
+      "primaryLocation": "Site principal",
+      "additionalLocations": "Autres sites",
+      "noLocationsYet": "Aucun site configuré pour l'instant",
+      "primaryRole": "Rôle principal",
+      "primaryRoleHint": "Donne l'accès standard du module.",
+      "alsoHasAccessTo": "A aussi accès à",
+      "isDealerManager": "Manager de cette entreprise",
+      "managerHint": "Administre les utilisateurs, les paramètres et les intégrations. L'entreprise garde toujours au moins un manager actif.",
+      "managerSelfHint": "Votre propre indicateur de manager est modifié par un autre manager.",
+      "delegations": "Peut modifier les textes standard pour",
+      "delegationsHint": "Délégation par catégorie ; le manager peut toujours les modifier.",
+      "validFrom": "Accès dès le",
+      "validTo": "Accès jusqu'au",
+      "validToHint": "Après ce jour, l'accès prend fin automatiquement et les dossiers ouverts vont dans la file d'attente.",
+      "salesAdvisorCode": "Code conseiller (places de marché)",
+      "commissionRelevant": "Participe à la commission",
+      "signatureImage": "Image de signature",
+      "signatureHint": "PNG ou JPEG, jusqu'à 1 Mo — imprimée sur les documents que l'utilisateur signe.",
+      "signatureCurrent": "Signature actuelle",
+      "signatureRemove": "Retirer"
+    },
+    "deactivate": {
+      "title": "Désactiver {{name}}",
+      "intro": "L'accès prend fin maintenant. Tout ce que cette personne suit encore est transmis ci-dessous — à un collègue ou dans la file d'attente du module. Rien n'est supprimé ; l'historique garde l'auteur d'origine.",
+      "reassignTitle": "Transmettre les dossiers ouverts",
+      "nothingOpen": "Rien d'ouvert dans aucun des {{modules}} modules.",
+      "ownershipLoadError": "Ce que cet utilisateur suit n'a pas pu être chargé.",
+      "columns": {
+        "what": "Quoi",
+        "count": "Nombre",
+        "transferTo": "Transmettre à"
+      },
+      "leaveUnassigned": "Ne pas attribuer (file d'attente du module)",
+      "choose": "Choisir …",
+      "transferLabel": "Transmettre : {{what}}",
+      "reason": "Motif",
+      "endEmployment": "L'emploi a pris fin",
+      "confirm": "Désactiver"
     }
   }
 }

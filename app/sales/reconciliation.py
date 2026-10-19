@@ -477,6 +477,19 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
     *_same_dealership_checks(SalesContract),
     # --- who wrote each row (KAN-243) ---
     *actor_reference_checks(*ACTOR_TABLES),
+    # --- the responsible seller (KAN-200): a platform User id on three tables ---
+    *(
+        ReferenceCheck(
+            label=f"{model.__tablename__}.owner_user_id -> user.id",
+            source_model=model,
+            source_row_id_column=model.id,
+            source_fk_column=model.owner_user_id,
+            target_model=User,
+            target_id_column=User.id,
+            nullable=True,  # unassigned is a state, not a dangling reference
+        )
+        for model in (SalesOffer, SalesContract, SalesDeal)
+    ),
 ]
 
 

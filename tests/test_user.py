@@ -182,46 +182,79 @@ def test_get_user_cross_tenant_is_404(client):
     assert response.status_code == 404
 
 
-# --- lifecycle: terminated employment is terminal + revokes access -----------
+# --- lifecycle (KAN-200, Users → Lifecycle): deactivation is its own step ----
 
 
-def test_terminating_employment_auto_deactivates_status(client):
-    platform_admin_token = _token(AccessRole.PLATFORM_ADMIN)
-    dealer_id = _create_dealer(client)
-    # Not a manager — otherwise this would be the dealership's last active
-    # manager, and the WP-2 PR-2 "always at least one manager" guard would
-    # correctly reject deactivating them, which isn't what this test is
-    # about.
-    user = _create_user(client, dealer_id, platform_admin_token, isDealerManager=False)
-
-    response = client.patch(
-        f"/v1/dealerships/{dealer_id}/users/{user['id']}",
-        json={"employmentStatus": "terminated"},
-        headers={**_bearer(platform_admin_token), "If-Match": "1"},
+def _deactivate(client, dealer_id: str, user: dict, token: str, *, if_match: int = 1, **body):
+    return client.post(
+        f"/v1/dealerships/{dealer_id}/users/{user['id']}/deactivate",
+        json={"reason": "left the company", "transfers": [], **body},
+        headers={**_bearer(token), "If-Match": str(if_match), "Idempotency-Key": str(uuid.uuid4())},
     )
-    assert response.status_code == 200
-    body = response.json()
-    assert body["employmentStatus"] == "terminated"
-    assert body["status"] == "deactivated"
 
 
-def test_terminated_employment_status_is_terminal(client):
+def test_terminating_employment_through_patch_is_sent_to_the_deactivation_step(client):
+    """FR-A-37: revoking access is the deactivation step (reassignment
+    included), so a PATCH that would deactivate — by status or by a
+    termination — is refused and points there."""
+
     platform_admin_token = _token(AccessRole.PLATFORM_ADMIN)
     dealer_id = _create_dealer(client)
     user = _create_user(client, dealer_id, platform_admin_token, isDealerManager=False)
+
+    for body in ({"employmentStatus": "terminated"}, {"status": "deactivated"}):
+        response = client.patch(
+            f"/v1/dealerships/{dealer_id}/users/{user['id']}",
+            json=body,
+            headers={**_bearer(platform_admin_token), "If-Match": "1"},
+        )
+        assert response.status_code == 409, response.text
+        assert response.json()["error"]["details"] == {"reason": "use_deactivate_endpoint"}
+    unchanged = client.get(f"/v1/dealerships/{dealer_id}/users/{user['id']}", headers=_bearer(platform_admin_token)).json()
+    assert unchanged["status"] == "invited" and unchanged["employmentStatus"] == "active" and unchanged["version"] == 1
+
+
+def test_deactivation_can_end_the_employment_and_reactivation_brings_both_back(client):
+    """Users → Lifecycle: `Deactivated → Active` (reactivation allowed). A
+    terminated employment returns with the user, in the same PATCH; alone it
+    is refused, as is any other edit of a deactivated user."""
+
+    platform_admin_token = _token(AccessRole.PLATFORM_ADMIN)
+    dealer_id = _create_dealer(client)
+    user = _create_user(client, dealer_id, platform_admin_token, isDealerManager=False)
+
+    response = _deactivate(client, dealer_id, user, platform_admin_token, employmentStatus="terminated")
+    assert response.status_code == 200, response.text
+    body = response.json()["user"]
+    assert body["status"] == "deactivated"
+    assert body["employmentStatus"] == "terminated"
+    assert body["deactivatedAt"] is not None
+    assert body["deactivationReason"] == "left the company"
+    assert response.json()["transfers"] == []
 
     headers = _bearer(platform_admin_token)
-    client.patch(
-        f"/v1/dealerships/{dealer_id}/users/{user['id']}",
-        json={"employmentStatus": "terminated"},
-        headers={**headers, "If-Match": "1"},
+    # Any edit but a reactivation is refused while deactivated.
+    for change in ({"employmentStatus": "active"}, {"firstName": "Annina"}, {"status": "suspended"}):
+        refused = client.patch(
+            f"/v1/dealerships/{dealer_id}/users/{user['id']}", json=change, headers={**headers, "If-Match": "2"}
+        )
+        assert refused.status_code == 409, (change, refused.text)
+    # Reactivating as terminated is a contradiction (422).
+    contradiction = client.patch(
+        f"/v1/dealerships/{dealer_id}/users/{user['id']}", json={"status": "active"}, headers={**headers, "If-Match": "2"}
     )
-    response = client.patch(
+    assert contradiction.status_code == 422, contradiction.text
+
+    back = client.patch(
         f"/v1/dealerships/{dealer_id}/users/{user['id']}",
-        json={"employmentStatus": "active"},
+        json={"status": "active", "employmentStatus": "active"},
         headers={**headers, "If-Match": "2"},
     )
-    assert response.status_code == 409
+    assert back.status_code == 200, back.text
+    assert back.json()["status"] == "active"
+    assert back.json()["employmentStatus"] == "active"
+    assert back.json()["deactivatedAt"] is None
+    assert back.json()["deactivationReason"] is None
 
 
 # --- audit logging -----------------------------------------------------------
@@ -232,11 +265,7 @@ def test_role_and_status_changes_are_audit_logged(client):
     dealer_id = _create_dealer(client)
     user = _create_user(client, dealer_id, platform_admin_token, isDealerManager=False)
 
-    client.patch(
-        f"/v1/dealerships/{dealer_id}/users/{user['id']}",
-        json={"employmentStatus": "terminated"},
-        headers={**_bearer(platform_admin_token), "If-Match": "1"},
-    )
+    assert _deactivate(client, dealer_id, user, platform_admin_token, employmentStatus="terminated").status_code == 200
 
     log = client.get(f"/v1/dealerships/{dealer_id}/audit-log", headers=_bearer(platform_admin_token))
     items = log.json()["items"]
@@ -245,6 +274,7 @@ def test_role_and_status_changes_are_audit_logged(client):
     update_event = next(e for e in user_events if e["action"] == "update")
     assert update_event["after"]["employment_status"] == "terminated"
     assert update_event["after"]["status"] == "deactivated"
+    assert update_event["reason"] == "left the company"
 
 
 # --- pagination + filtering ---------------------------------------------------
@@ -313,11 +343,7 @@ def test_deactivating_the_dealerships_only_manager_is_rejected(client):
     dealer_id = _create_dealer(client)
     user = _create_user(client, dealer_id, platform_admin_token)
 
-    response = client.patch(
-        f"/v1/dealerships/{dealer_id}/users/{user['id']}",
-        json={"status": "deactivated"},
-        headers={**_bearer(platform_admin_token), "If-Match": "1"},
-    )
+    response = _deactivate(client, dealer_id, user, platform_admin_token)
     assert response.status_code == 400
 
 
@@ -389,7 +415,9 @@ def test_a_plain_or_inactive_membership_does_not_count_as_another_manager(
     )
     # dealer_a needs a manager of its own before `member` can be deactivated there.
     _create_user(client, dealer_a, platform_admin_token, email="a.mgr@example.ch")
-    if member_status != "active":
+    if member_status == "deactivated":
+        assert _deactivate(client, dealer_a, member, platform_admin_token).status_code == 200
+    elif member_status != "active":
         response = client.patch(
             f"/v1/dealerships/{dealer_a}/users/{member['id']}",
             json={"status": member_status},
@@ -451,11 +479,7 @@ def test_deactivating_a_sister_dealerships_last_manager_by_membership_is_rejecte
     )
     assert demoted.status_code == 200
 
-    response = client.patch(
-        f"/v1/dealerships/{dealer_a}/users/{sister_manager['id']}",
-        json={"status": "deactivated"},
-        headers={**_bearer(platform_admin_token), "If-Match": "1"},
-    )
+    response = _deactivate(client, dealer_a, sister_manager, platform_admin_token)
     assert response.status_code == 400
     assert response.json()["error"]["details"] is None  # never names the sister dealership
 

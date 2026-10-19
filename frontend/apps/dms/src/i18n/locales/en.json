@@ -20,7 +20,8 @@
       "integrations": "Integrations",
       "administration": "Administration",
       "referenceData": "Reference data",
-      "catalogue": "Catalogue"
+      "catalogue": "Catalogue",
+      "users": "Users"
     },
     "signOut": "Sign out",
     "environmentNotice": {
@@ -2000,6 +2001,172 @@
         "current": "This session",
         "end": "End"
       }
+    }
+  },
+  "usersAdmin": {
+    "title": "Users",
+    "invite": "Invite user",
+    "allView": "All users",
+    "searchPlaceholder": "Name or e-mail …",
+    "loadError": "Users could not be loaded.",
+    "managerBadge": "Manager",
+    "chips": {
+      "all": "All"
+    },
+    "forbidden": {
+      "title": "Managers only",
+      "body": "Only a manager of this business administers its users. Ask your manager if you need a change."
+    },
+    "status": {
+      "invited": "Invited",
+      "invitation_expired": "Invitation expired",
+      "active": "Active",
+      "suspended": "Suspended",
+      "deactivated": "Deactivated"
+    },
+    "accessRole": {
+      "sales": "Sales",
+      "aftersales": "Aftersales",
+      "parts": "Parts",
+      "inventory": "Stock",
+      "finance": "Finance",
+      "technician": "Workshop",
+      "auditor": "Auditor (read-only)",
+      "platform_admin": "Nexotec staff"
+    },
+    "employmentStatus": {
+      "active": "Employed",
+      "on_leave": "On leave",
+      "terminated": "Left"
+    },
+    "textCategory": {
+      "document": "Documents",
+      "email": "E-mail",
+      "sms": "SMS",
+      "internal_note": "Internal notes",
+      "workshop": "Workshop"
+    },
+    "ownedGroup": {
+      "customer": {
+        "customers": "Customers they advise"
+      },
+      "sales": {
+        "offers": "Open offers",
+        "contracts": "Pending contracts"
+      }
+    },
+    "columns": {
+      "name": "Name",
+      "status": "Status",
+      "jobTitle": "Job title",
+      "access": "Access",
+      "manager": "Manager",
+      "primaryLocation": "Location",
+      "lastLogin": "Last login",
+      "validTo": "Access until",
+      "validFrom": "Access from",
+      "email": "E-mail",
+      "mobile": "Mobile",
+      "directDial": "Direct dial",
+      "department": "Department",
+      "employeeNumber": "Employee no.",
+      "lineManager": "Reports to",
+      "additionalLocations": "Other locations",
+      "employmentStatus": "Employment",
+      "salesAdvisorCode": "Advisor code",
+      "commissionRelevant": "Commission",
+      "invitedAt": "Invited",
+      "deactivatedAt": "Deactivated",
+      "deactivationReason": "Deactivation reason",
+      "signature": "Signature image"
+    },
+    "emptyState": {
+      "title": "No users yet",
+      "description": "Invite the first colleague — they choose their own password through the invitation."
+    },
+    "emptyFilteredState": {
+      "title": "No matches",
+      "description": "No user matches the current search or status.",
+      "action": "Reset"
+    },
+    "rowMenu": {
+      "edit": "Edit",
+      "resendInvitation": "Resend invitation",
+      "resendInvitationDisabled": "Only a user who has not accepted their invitation yet",
+      "suspend": "Suspend",
+      "reactivate": "Reactivate",
+      "deactivate": "Deactivate",
+      "deactivateDisabledAlready": "Already deactivated",
+      "selfDisabled": "Not for your own account"
+    },
+    "actions": {
+      "resendFailed": "The invitation could not be sent.",
+      "statusFailed": "The status could not be changed."
+    },
+    "form": {
+      "inviteTitle": "Invite user",
+      "editTitle": "Edit {{name}}",
+      "invite": "Send invitation",
+      "conflict": "This user was changed in the meantime. Close the dialog and open it again.",
+      "sections": {
+        "identity": "Identity",
+        "organisation": "Organisation",
+        "access": "Access",
+        "validity": "Validity",
+        "commercial": "Commercial",
+        "signature": "Signature"
+      }
+    },
+    "fields": {
+      "firstName": "First name",
+      "lastName": "Last name",
+      "email": "E-mail (sign-in)",
+      "emailLocked": "An active user's address is changed by Nexotec support (account recovery).",
+      "mobile": "Mobile",
+      "directDial": "Direct dial",
+      "employeeNumber": "Employee number",
+      "jobTitle": "Job title",
+      "department": "Department",
+      "lineManager": "Reports to",
+      "none": "None",
+      "primaryLocation": "Primary location",
+      "additionalLocations": "Other locations",
+      "noLocationsYet": "No locations set up yet",
+      "primaryRole": "Primary role",
+      "primaryRoleHint": "Grants the module's standard access.",
+      "alsoHasAccessTo": "Also has access to",
+      "isDealerManager": "Manager of this business",
+      "managerHint": "Administers users, settings and integrations. The business always keeps at least one active manager.",
+      "managerSelfHint": "Your own manager flag is changed by another manager.",
+      "delegations": "May edit standard texts for",
+      "delegationsHint": "Delegation per category; the manager can always edit them.",
+      "validFrom": "Access from",
+      "validTo": "Access until",
+      "validToHint": "After this day the access ends automatically and open records go to the queue.",
+      "salesAdvisorCode": "Advisor code (marketplaces)",
+      "commissionRelevant": "Takes part in commission",
+      "signatureImage": "Signature image",
+      "signatureHint": "PNG or JPEG, up to 1 MB — printed on documents the user signs.",
+      "signatureCurrent": "Current signature",
+      "signatureRemove": "Remove"
+    },
+    "deactivate": {
+      "title": "Deactivate {{name}}",
+      "intro": "The access ends now. Everything this person still owns is handed over below — to a colleague, or to the module's own queue. Nothing is deleted; history keeps the original author.",
+      "reassignTitle": "Hand over open records",
+      "nothingOpen": "Nothing open in any of the {{modules}} modules.",
+      "ownershipLoadError": "What this user owns could not be loaded.",
+      "columns": {
+        "what": "What",
+        "count": "Count",
+        "transferTo": "Hand over to"
+      },
+      "leaveUnassigned": "Leave unassigned (module queue)",
+      "choose": "Choose …",
+      "transferLabel": "Hand over: {{what}}",
+      "reason": "Reason",
+      "endEmployment": "Employment has ended",
+      "confirm": "Deactivate"
     }
   }
 }

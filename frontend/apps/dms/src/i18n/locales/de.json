@@ -20,7 +20,8 @@
       "integrations": "Integrationen",
       "administration": "Verwaltung",
       "referenceData": "Referenzdaten",
-      "catalogue": "Katalog"
+      "catalogue": "Katalog",
+      "users": "Benutzer"
     },
     "signOut": "Abmelden",
     "environmentNotice": {
@@ -2000,6 +2001,172 @@
         "current": "Diese Sitzung",
         "end": "Beenden"
       }
+    }
+  },
+  "usersAdmin": {
+    "title": "Benutzer",
+    "invite": "Benutzer einladen",
+    "allView": "Alle Benutzer",
+    "searchPlaceholder": "Name oder E-Mail …",
+    "loadError": "Benutzer konnten nicht geladen werden.",
+    "managerBadge": "Manager",
+    "chips": {
+      "all": "Alle"
+    },
+    "forbidden": {
+      "title": "Nur für Manager",
+      "body": "Nur ein Manager dieses Betriebs verwaltet dessen Benutzer. Wenden Sie sich an Ihren Manager, wenn Sie eine Änderung brauchen."
+    },
+    "status": {
+      "invited": "Eingeladen",
+      "invitation_expired": "Einladung abgelaufen",
+      "active": "Aktiv",
+      "suspended": "Gesperrt",
+      "deactivated": "Deaktiviert"
+    },
+    "accessRole": {
+      "sales": "Verkauf",
+      "aftersales": "Aftersales",
+      "parts": "Teile",
+      "inventory": "Lager",
+      "finance": "Finanzen",
+      "technician": "Werkstatt",
+      "auditor": "Revisor (nur lesen)",
+      "platform_admin": "Nexotec-Mitarbeiter"
+    },
+    "employmentStatus": {
+      "active": "Angestellt",
+      "on_leave": "Abwesend",
+      "terminated": "Ausgetreten"
+    },
+    "textCategory": {
+      "document": "Dokumente",
+      "email": "E-Mail",
+      "sms": "SMS",
+      "internal_note": "Interne Notizen",
+      "workshop": "Werkstatt"
+    },
+    "ownedGroup": {
+      "customer": {
+        "customers": "Betreute Kunden"
+      },
+      "sales": {
+        "offers": "Offene Offerten",
+        "contracts": "Pendente Verträge"
+      }
+    },
+    "columns": {
+      "name": "Name",
+      "status": "Status",
+      "jobTitle": "Funktion",
+      "access": "Zugriff",
+      "manager": "Manager",
+      "primaryLocation": "Standort",
+      "lastLogin": "Letzte Anmeldung",
+      "validTo": "Zugang bis",
+      "validFrom": "Zugang ab",
+      "email": "E-Mail",
+      "mobile": "Mobile",
+      "directDial": "Direktwahl",
+      "department": "Abteilung",
+      "employeeNumber": "Personalnummer",
+      "lineManager": "Vorgesetzter",
+      "additionalLocations": "Weitere Standorte",
+      "employmentStatus": "Anstellung",
+      "salesAdvisorCode": "Beraterkürzel",
+      "commissionRelevant": "Provision",
+      "invitedAt": "Eingeladen am",
+      "deactivatedAt": "Deaktiviert am",
+      "deactivationReason": "Grund der Deaktivierung",
+      "signature": "Unterschriftsbild"
+    },
+    "emptyState": {
+      "title": "Noch keine Benutzer",
+      "description": "Laden Sie den ersten Kollegen ein — das Passwort wählt er selbst über die Einladung."
+    },
+    "emptyFilteredState": {
+      "title": "Keine Treffer",
+      "description": "Kein Benutzer entspricht der aktuellen Suche oder dem Status.",
+      "action": "Zurücksetzen"
+    },
+    "rowMenu": {
+      "edit": "Bearbeiten",
+      "resendInvitation": "Einladung erneut senden",
+      "resendInvitationDisabled": "Nur für Benutzer, die ihre Einladung noch nicht angenommen haben",
+      "suspend": "Sperren",
+      "reactivate": "Reaktivieren",
+      "deactivate": "Deaktivieren",
+      "deactivateDisabledAlready": "Bereits deaktiviert",
+      "selfDisabled": "Nicht für das eigene Konto"
+    },
+    "actions": {
+      "resendFailed": "Die Einladung konnte nicht gesendet werden.",
+      "statusFailed": "Der Status konnte nicht geändert werden."
+    },
+    "form": {
+      "inviteTitle": "Benutzer einladen",
+      "editTitle": "{{name}} bearbeiten",
+      "invite": "Einladung senden",
+      "conflict": "Dieser Benutzer wurde inzwischen geändert. Schliessen Sie den Dialog und öffnen Sie ihn erneut.",
+      "sections": {
+        "identity": "Identität",
+        "organisation": "Organisation",
+        "access": "Zugriff",
+        "validity": "Gültigkeit",
+        "commercial": "Kommerziell",
+        "signature": "Unterschrift"
+      }
+    },
+    "fields": {
+      "firstName": "Vorname",
+      "lastName": "Nachname",
+      "email": "E-Mail (Anmeldung)",
+      "emailLocked": "Die Adresse eines aktiven Benutzers ändert der Nexotec-Support (Kontowiederherstellung).",
+      "mobile": "Mobile",
+      "directDial": "Direktwahl",
+      "employeeNumber": "Personalnummer",
+      "jobTitle": "Funktion",
+      "department": "Abteilung",
+      "lineManager": "Vorgesetzter",
+      "none": "Keiner",
+      "primaryLocation": "Hauptstandort",
+      "additionalLocations": "Weitere Standorte",
+      "noLocationsYet": "Noch keine Standorte erfasst",
+      "primaryRole": "Hauptrolle",
+      "primaryRoleHint": "Gibt den Standardzugriff des Moduls.",
+      "alsoHasAccessTo": "Hat zusätzlich Zugriff auf",
+      "isDealerManager": "Manager dieses Betriebs",
+      "managerHint": "Verwaltet Benutzer, Einstellungen und Integrationen. Der Betrieb behält immer mindestens einen aktiven Manager.",
+      "managerSelfHint": "Ihr eigenes Manager-Kennzeichen ändert ein anderer Manager.",
+      "delegations": "Darf Textbausteine bearbeiten für",
+      "delegationsHint": "Delegation pro Kategorie; der Manager darf sie immer bearbeiten.",
+      "validFrom": "Zugang ab",
+      "validTo": "Zugang bis",
+      "validToHint": "Nach diesem Tag endet der Zugang automatisch, offene Vorgänge gehen in die Warteschlange.",
+      "salesAdvisorCode": "Beraterkürzel (Marktplätze)",
+      "commissionRelevant": "Nimmt an der Provision teil",
+      "signatureImage": "Unterschriftsbild",
+      "signatureHint": "PNG oder JPEG, bis 1 MB — wird auf Dokumenten gedruckt, die der Benutzer unterzeichnet.",
+      "signatureCurrent": "Aktuelle Unterschrift",
+      "signatureRemove": "Entfernen"
+    },
+    "deactivate": {
+      "title": "{{name}} deaktivieren",
+      "intro": "Der Zugang endet jetzt. Alles, was diese Person noch betreut, wird unten übergeben — an einen Kollegen oder in die Warteschlange des Moduls. Nichts wird gelöscht; die Historie behält den ursprünglichen Verfasser.",
+      "reassignTitle": "Offene Vorgänge übergeben",
+      "nothingOpen": "Nichts offen in keinem der {{modules}} Module.",
+      "ownershipLoadError": "Was dieser Benutzer betreut, konnte nicht geladen werden.",
+      "columns": {
+        "what": "Was",
+        "count": "Anzahl",
+        "transferTo": "Übergeben an"
+      },
+      "leaveUnassigned": "Nicht zuweisen (Warteschlange des Moduls)",
+      "choose": "Wählen …",
+      "transferLabel": "Übergeben: {{what}}",
+      "reason": "Grund",
+      "endEmployment": "Anstellung ist beendet",
+      "confirm": "Deaktivieren"
     }
   }
 }

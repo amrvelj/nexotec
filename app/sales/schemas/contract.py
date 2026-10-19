@@ -82,6 +82,8 @@ class ContractUpdate(CamelModel):
     configuration_id: uuid.UUID | None = None
     discount_type: Literal["percent", "amount"] | None = None
     discount_value: Decimal | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
+    # KAN-200 (FR-A-37): the responsible seller, as on the offer.
+    owner_user_id: uuid.UUID | None = None
 
 
 class ContractRead(CamelModel):
@@ -93,6 +95,8 @@ class ContractRead(CamelModel):
     customer_id: uuid.UUID | None
     customer_label: str | None
     customer_locality: str | None
+    owner_user_id: uuid.UUID | None = None
+    owner_label: str | None = None
     vehicle_source: str | None
     stock_item_id: uuid.UUID | None
     vehicle_label: str | None

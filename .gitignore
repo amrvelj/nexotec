@@ -12,3 +12,6 @@ __pycache__/
 .claude/settings.local.json
 .claude/evidence/
 CLAUDE.local.md
+
+# KAN-200: the local object store (DMS_OBJECT_STORE_LOCAL_DIR)
+var/

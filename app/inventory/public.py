@@ -21,6 +21,7 @@ boundary.
 """
 
 from app.inventory.models.stock_item import LifecycleStatus, ReservationState, StockItem, StockItemCondition
+from app.inventory.ownership import InventoryOwnershipProvider
 from app.inventory.services.group_listing import get_stock_items_for_vehicles
 from app.inventory.services.pricing import get_stock_item_pricing
 from app.inventory.services.reservation import release, reserve, reserve_for_contract
@@ -28,6 +29,7 @@ from app.inventory.services.stock_item import get_stock_item_or_404
 from app.inventory.services.valuation import set_valuation_ref
 
 __all__ = [
+    "InventoryOwnershipProvider",
     "LifecycleStatus",
     "ReservationState",
     "StockItem",

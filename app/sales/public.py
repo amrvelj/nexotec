@@ -2,6 +2,10 @@
 contract allows `app.<other-context>` to import `app.sales.public`, never
 `app.sales.models` / `app.sales.services` / `app.sales.api` directly.
 
+`SalesOwnershipProvider` (KAN-200) is the ownership provider the composition
+root `app.ownership_registry` registers with `app.core.ownership`; platform
+reaches it only through that registry.
+
 `get_contract_statuses` (KAN-122) is Stock's read for its nightly
 reservation sweep: plain statuses, never an ORM row, and the caller runs it
 on a session of its own (ADR-047).
@@ -12,6 +16,7 @@ from app.sales.models.offer import SalesOffer
 from app.sales.models.transaction import Transaction
 from app.sales.services.contract_status import get_contract_statuses
 from app.sales.services.customer_merge import repoint_customer_sales_records
+from app.sales.services.ownership import SalesOwnershipProvider
 from app.sales.services.signed_trade_ins import valuations_carried_by_signed_contracts
 from app.sales.services.transaction import repoint_customer_transactions
 
@@ -19,6 +24,7 @@ __all__ = [
     "ContractStatus",
     "SalesContract",
     "SalesOffer",
+    "SalesOwnershipProvider",
     "Transaction",
     "get_contract_statuses",
     "repoint_customer_sales_records",

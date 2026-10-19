@@ -20,15 +20,16 @@ place that filters by role (services/user.py::list_users) does it in
 Python over an already-small, already-paginated result set.
 """
 
+import datetime as dt
 import enum
 import uuid
 
-from sqlalchemy import JSON, Boolean, CheckConstraint, String
+from sqlalchemy import JSON, Boolean, CheckConstraint, Date, String, false
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
 from app.core.enum_type import StoredEnum
-from app.core.types import GUID
+from app.core.types import GUID, UTCDateTime
 from app.db import Base
 
 
@@ -108,6 +109,34 @@ class User(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMixin, B
     status: Mapped[UserStatus] = mapped_column(
         StoredEnum(UserStatus, length=32), nullable=False, default=UserStatus.INVITED
     )
+
+    # --- KAN-200 (Dealer Administration, Users → Fields) -------------------
+    # `phone` above is the mobile number (the PRD's "mobile"); this is the
+    # desk extension.
+    direct_dial: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    employee_number: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    department: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # The person this user reports to — another user of the same dealership
+    # (checked in the service). Platform-owned, so a plain reference without
+    # a FK is a choice, not rule 2: a line manager who is deactivated keeps
+    # being named, and a FK would make reactivation order matter.
+    line_manager_user_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True)
+    # Commercial: the marketplace lead-attribution code and whether the user
+    # takes part in commission (the figure itself is Finance's, not built).
+    sales_advisor_code: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    commission_relevant: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
+    # Lifecycle (FR-A-12): calendar days in the platform zone. A user whose
+    # `valid_from` is still to come cannot sign in; one whose `valid_to` has
+    # passed is deactivated by the nightly job, open records released.
+    valid_from: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
+    valid_to: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
+    invited_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    last_login_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    deactivated_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    deactivation_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # The signature image's key in the object store (app.core.object_store),
+    # never the image: `dealerships/<dealership>/users/<user>/signature`.
+    signature_image_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     @property
     def dealership_id(self) -> uuid.UUID:

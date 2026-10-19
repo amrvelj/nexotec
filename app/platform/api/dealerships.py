@@ -14,8 +14,9 @@ used to read _WRITE_ROLES.
 """
 
 import uuid
+from collections.abc import Callable
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy.orm import Session
 
 from app.core.audit import list_tenant_audit_events, record_audit_event
@@ -24,10 +25,11 @@ from app.core.auth import AccessRole, Principal, get_current_principal, require_
 from app.core.concurrency import check_version, require_if_match
 from app.core.errors import ForbiddenError
 from app.core.idempotent_route import IdempotentRoute
+from app.core.object_store import ObjectStore, get_object_store
 from app.core.pagination import PageParams, page_params
 from app.core.permissions import ModuleCode, require_read, require_write
 from app.core.tenancy import require_tenant_match
-from app.db import get_db
+from app.db import get_db, get_session_factory
 from app.platform.api.auth import client_ip
 from app.platform.models.dealership import DealershipStatus
 from app.platform.models.user import User, UserStatus
@@ -48,11 +50,25 @@ from app.platform.schemas.membership import (
     TextDelegationsRead,
     TextDelegationsUpdate,
 )
-from app.platform.schemas.user import UserCreate, UserPage, UserRead, UserUpdate
-from app.platform.services import auth_events, auth_sessions, identity, mfa
+from app.platform.schemas.user import (
+    LocationList,
+    LocationRead,
+    OwnedGroupRead,
+    OwnershipRead,
+    OwnershipTransfersRead,
+    OwnershipTransfersRequest,
+    UserCreate,
+    UserDeactivatedRead,
+    UserDeactivateRequest,
+    UserPage,
+    UserRead,
+    UserUpdate,
+)
+from app.platform.services import auth_events, auth_sessions, identity, mfa, signature, user_location
 from app.platform.services import dealership as dealership_service
 from app.platform.services import entitlement as entitlement_service
 from app.platform.services import membership as membership_service
+from app.platform.services import ownership as ownership_service
 from app.platform.services import text_delegation as text_delegation_service
 from app.platform.services import user as user_service
 from app.platform.services.mailer import PlatformMailer, get_mailer
@@ -190,7 +206,7 @@ def create_user(
     # sets their own password through its link; nobody sets it for them.
     identity.issue_invitation(db, mailer, user=user, actor_id=principal.user_id, ip_address=client_ip(request))
     db.commit()
-    return UserRead.model_validate(user, from_attributes=True)
+    return user_service.user_read(db, user)
 
 
 @router.get("/dealerships/{dealership_id}/users/{user_id}", response_model=UserRead)
@@ -202,7 +218,7 @@ def get_user(
 ):
     require_tenant_match(dealership_id, principal)
     user = user_service.get_user_or_404(db, dealership_id, user_id)
-    return UserRead.model_validate(user, from_attributes=True)
+    return user_service.user_read(db, user)
 
 
 @router.patch("/dealerships/{dealership_id}/users/{user_id}", response_model=UserRead)
@@ -246,7 +262,7 @@ def update_user(
         actor_roles=principal.roles,
         on_email_change=on_email_change,
     )
-    return UserRead.model_validate(user, from_attributes=True)
+    return user_service.user_read(db, user)
 
 
 @router.get("/dealerships/{dealership_id}/users", response_model=UserPage)
@@ -254,15 +270,182 @@ def list_users(
     dealership_id: uuid.UUID,
     role: str | None = None,
     status: UserStatus | None = None,
+    q: str | None = None,
     params: PageParams = Depends(page_params),
     principal: Principal = Depends(require_read("dealership_users")),
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealership_id, principal)
     rows, next_cursor = user_service.list_users(
-        db, dealership_id=dealership_id, role=role, status=status, params=params
+        db, dealership_id=dealership_id, role=role, status=status, params=params, q=q
     )
-    return UserPage(items=[UserRead.model_validate(u, from_attributes=True) for u in rows], next_cursor=next_cursor)
+    return UserPage(items=user_service.user_reads(db, rows), next_cursor=next_cursor)
+
+
+# --- Locations, the deactivation step, the signature image (KAN-200) ----------
+
+
+@router.get("/dealerships/{dealership_id}/locations", response_model=LocationList)
+def list_locations(
+    dealership_id: uuid.UUID,
+    principal: Principal = Depends(require_read("locations")),
+    db: Session = Depends(get_db),
+):
+    """The Betrieb's sites, for the Users screen's location picker (FR-A-02).
+    Read-only here: the Locations screen (Phase 2) is where they are made."""
+
+    require_tenant_match(dealership_id, principal)
+    dealership_service.get_dealership_or_404(db, dealership_id)
+    return LocationList(
+        items=[
+            LocationRead(id=row.id, name=row.name, address_locality=row.address_locality)
+            for row in user_location.list_locations(db, dealership_id=dealership_id)
+        ]
+    )
+
+
+@router.get("/dealerships/{dealership_id}/users/{user_id}/ownership", response_model=OwnershipRead)
+def get_user_ownership(
+    dealership_id: uuid.UUID,
+    user_id: uuid.UUID,
+    principal: Principal = Depends(require_read("dealership_users")),
+    db: Session = Depends(get_db),
+):
+    """FR-A-37: what this user still owns that is open, grouped by module —
+    the deactivation dialog's list, and the retry's."""
+
+    require_tenant_match(dealership_id, principal)
+    user = user_service.get_user_or_404(db, dealership_id, user_id)
+    user_service.assert_may_touch(user=user, actor_roles=principal.roles)
+    return OwnershipRead(
+        groups=[
+            OwnedGroupRead(module=g.module, group=g.group, count=g.count)
+            for g in ownership_service.list_open(db, user=user)
+        ],
+        modules=ownership_service.registered_modules(),
+    )
+
+
+@router.post(
+    "/dealerships/{dealership_id}/users/{user_id}/ownership/transfers", response_model=OwnershipTransfersRead
+)
+def transfer_user_ownership(
+    dealership_id: uuid.UUID,
+    user_id: uuid.UUID,
+    body: OwnershipTransfersRequest,
+    principal: Principal = Depends(require_write("dealership_users")),
+    db: Session = Depends(get_db),
+    session_factory: Callable[[], Session] = Depends(get_session_factory),
+):
+    """Hands the named groups to a colleague or to nobody — the retry after
+    a deactivation whose hand-over failed part-way, and a plain hand-over
+    for a user who stays. Each group is the owning module's own commit
+    (ADR-047), audited here per group."""
+
+    require_tenant_match(dealership_id, principal)
+    user = user_service.get_user_for_update_or_404(db, dealership_id, user_id)  # KAN-380
+    user_service.assert_may_touch(user=user, actor_roles=principal.roles)
+    transfers = ownership_service.resolve_transfers(db, user=user, requested=body.transfers, require_every_group=False)
+    db.commit()  # releases the user-row lock before the modules take their own
+    results = ownership_service.apply_transfers(
+        db, session_factory, user=user, transfers=transfers, actor_id=principal.user_id, reason=None
+    )
+    return OwnershipTransfersRead(transfers=results)
+
+
+@router.post("/dealerships/{dealership_id}/users/{user_id}/deactivate", response_model=UserDeactivatedRead)
+def deactivate_user(
+    dealership_id: uuid.UUID,
+    user_id: uuid.UUID,
+    body: UserDeactivateRequest,
+    if_match: int = Depends(require_if_match),
+    principal: Principal = Depends(require_write("dealership_users")),
+    db: Session = Depends(get_db),
+    session_factory: Callable[[], Session] = Depends(get_session_factory),
+):
+    """FR-A-37 / D-A-35: deactivation with the reassignment step. Every
+    open group needs a decision (422 names the missing ones); the last
+    active manager cannot be deactivated (FR-A-13); access is cut first
+    (sessions, delegations, the stamps), then each module hands its records
+    over in its own transaction. There is no delete (A-RULE-5)."""
+
+    require_tenant_match(dealership_id, principal)
+    user = user_service.get_user_for_update_or_404(db, dealership_id, user_id)  # KAN-380
+    check_version(user.version, if_match, entity_name="User")
+    updated, results = ownership_service.deactivate_user(
+        db,
+        session_factory,
+        user=user,
+        reason=body.reason,
+        requested=body.transfers,
+        actor_id=principal.user_id,
+        actor_roles=principal.roles,
+        employment_status=body.employment_status,
+    )
+    return UserDeactivatedRead(user=user_service.user_read(db, updated), transfers=results)
+
+
+@router.put("/dealerships/{dealership_id}/users/{user_id}/signature", response_model=UserRead)
+async def put_user_signature(
+    dealership_id: uuid.UUID,
+    user_id: uuid.UUID,
+    request: Request,
+    if_match: int = Depends(require_if_match),
+    principal: Principal = Depends(require_write("dealership_users")),
+    db: Session = Depends(get_db),
+    store: ObjectStore = Depends(get_object_store),
+):
+    """The user's signature image (Users → Personal settings; Anto,
+    2026-10-19: the manager sets it here too). The body is the image itself
+    (PNG or JPEG, up to 1 MiB) with its Content-Type — never base64, never
+    multipart; the row keeps the object-store key only."""
+
+    require_tenant_match(dealership_id, principal)
+    user = user_service.get_user_for_update_or_404(db, dealership_id, user_id)  # KAN-380
+    check_version(user.version, if_match, entity_name="User")
+    user_service.assert_may_touch(user=user, actor_roles=principal.roles)
+    user_service.assert_user_is_not_deactivated(user)
+    data = await request.body()
+    signature.set_signature(
+        db,
+        store,
+        user=user,
+        data=data,
+        content_type=request.headers.get("content-type", ""),
+        actor_id=principal.user_id,
+    )
+    return user_service.user_read(db, user)
+
+
+@router.get("/dealerships/{dealership_id}/users/{user_id}/signature")
+def get_user_signature(
+    dealership_id: uuid.UUID,
+    user_id: uuid.UUID,
+    principal: Principal = Depends(require_read("dealership_users")),
+    db: Session = Depends(get_db),
+    store: ObjectStore = Depends(get_object_store),
+) -> Response:
+    require_tenant_match(dealership_id, principal)
+    user = user_service.get_user_or_404(db, dealership_id, user_id)
+    stored = signature.get_signature(store, user=user)
+    return Response(content=stored.data, media_type=stored.content_type, headers={"Cache-Control": "private, no-store"})
+
+
+@router.delete("/dealerships/{dealership_id}/users/{user_id}/signature", response_model=UserRead)
+def delete_user_signature(
+    dealership_id: uuid.UUID,
+    user_id: uuid.UUID,
+    if_match: int = Depends(require_if_match),
+    principal: Principal = Depends(require_write("dealership_users")),
+    db: Session = Depends(get_db),
+    store: ObjectStore = Depends(get_object_store),
+):
+    require_tenant_match(dealership_id, principal)
+    user = user_service.get_user_for_update_or_404(db, dealership_id, user_id)  # KAN-380
+    check_version(user.version, if_match, entity_name="User")
+    user_service.assert_may_touch(user=user, actor_roles=principal.roles)
+    signature.remove_signature(db, store, user=user, actor_id=principal.user_id)
+    return user_service.user_read(db, user)
 
 
 # --- Memberships, manager flag, text delegations (KAN-199) ------------------
@@ -360,7 +543,7 @@ def set_home_manager_flag(
     user = membership_service.set_home_manager_flag(
         db, user=user, is_dealer_manager=body.is_dealer_manager, actor_id=principal.user_id, actor_roles=principal.roles
     )
-    return UserRead.model_validate(user, from_attributes=True)
+    return user_service.user_read(db, user)
 
 
 @router.get("/dealerships/{dealership_id}/users/{user_id}/text-delegations", response_model=TextDelegationsRead)

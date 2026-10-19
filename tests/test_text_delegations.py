@@ -20,6 +20,7 @@ from tests.membership_support import (
     bearer,
     create_dealership,
     create_user,
+    deactivate,
     manager_of,
     platform_admin,
     token,
@@ -117,14 +118,7 @@ def test_a_suspension_keeps_the_delegations_and_a_deactivated_user_gets_none(cli
     )
     listed = client.get(f"/v1/dealerships/{dealership}/users/{user['id']}/text-delegations", headers=platform_admin())
     assert listed.json()["categories"] == ["email"]
-    assert (
-        client.patch(
-            f"/v1/dealerships/{dealership}/users/{user['id']}",
-            json={"status": "deactivated"},
-            headers={**platform_admin(), "If-Match": "3"},
-        ).status_code
-        == 200
-    )
+    assert deactivate(client, dealership, user, if_match=3).status_code == 200
     assert _put(client, dealership, user, ["email"], if_match=4).status_code == 409
 
 
@@ -133,11 +127,7 @@ def test_deactivation_ends_every_delegation(client):
     create_user(client, dealership)
     user = create_user(client, dealership, is_dealer_manager=False)
     assert _put(client, dealership, user, ["email", "sms"], if_match=1).status_code == 200
-    response = client.patch(
-        f"/v1/dealerships/{dealership}/users/{user['id']}",
-        json={"status": "deactivated"},
-        headers={**platform_admin(), "If-Match": "2"},
-    )
+    response = deactivate(client, dealership, user, if_match=2)
     assert response.status_code == 200, response.text
     listed = client.get(f"/v1/dealerships/{dealership}/users/{user['id']}/text-delegations", headers=platform_admin())
     assert listed.json()["categories"] == []
