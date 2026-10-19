@@ -8,18 +8,23 @@ entitlement PUT locks the dealership row), so the second waits for the first
 and is then refused like any later grant: 409, never a 500.
 """
 
+import inspect
 import threading
 import uuid
 
+import pytest
 from sqlalchemy import func, select
+
+from app.platform.api import dealerships as dealerships_api
 
 from app.platform.models.dealership_membership import DealershipMembership
 from app.platform.models.module_entitlement import ModuleEntitlement
 from app.platform.models.standard_text_delegation import StandardTextDelegation
+from app.platform.services import auth_sessions
 from app.platform.services import entitlement as entitlement_service
 from app.platform.services import membership as membership_service
 from app.platform.services import text_delegation as text_delegation_service
-from tests.membership_support import create_dealership, create_user, grant, platform_admin
+from tests.membership_support import create_dealership, create_user, grant, if_match, platform_admin
 from tests.test_customer_vehicle_party_close_rule import _postgres_only, _run, _wait_until_a_backend_waits_on_a_lock
 
 
@@ -151,3 +156,56 @@ def test_a_delegation_put_racing_a_delegation_delete_is_a_409_never_a_deadlock(e
     assert codes == [204, 409]
     listed = client.get(path, headers=platform_admin()).json()
     assert listed == {"categories": [], "userVersion": 3}
+
+
+def test_a_membership_grant_racing_a_membership_end_is_a_201_and_a_204_never_a_deadlock(
+    engine, client, db_session, monkeypatch
+):
+    """The grant holds the user row and waits to revoke the user's sessions;
+    an end that locked the session rows first and the user row last (its
+    version bump) deadlocked against it: a 500. Both take the user row first
+    now, so the end waits and then succeeds."""
+
+    _postgres_only(engine)
+    home = create_dealership(client, "Garage Nord AG")
+    sister_a = create_dealership(client, "Garage Süd AG", group_of=home)
+    sister_b = create_dealership(client, "Garage West AG", group_of=home)
+    user = create_user(client, home, is_dealer_manager=False)
+    assert grant(client, home, user, sister_a).status_code == 201
+    auth_sessions.create(
+        db_session, user_id=uuid.UUID(user["id"]), dealership_id=uuid.UUID(home), device_summary="test",
+        ip_address="127.0.0.1", amr=["pwd"],
+    )
+    db_session.commit()
+    headers = if_match(client, home, user)
+
+    def _end():
+        return client.delete(f"/v1/dealerships/{home}/users/{user['id']}/memberships/{sister_a}", headers=headers)
+
+    codes = _race(engine, monkeypatch, membership_service, lambda: grant(client, home, user, sister_b), then=_end)
+
+    assert codes == [201, 204]
+
+
+@pytest.mark.parametrize(
+    "route",
+    [
+        "update_user",
+        "grant_membership",
+        "end_membership",
+        "set_membership_manager_flag",
+        "set_home_manager_flag",
+        "set_text_delegations",
+        "end_text_delegations",
+    ],
+)
+def test_every_user_administration_write_takes_the_user_row_lock_first(route):
+    """One lock order for every route that writes a user's memberships,
+    delegations or the user row (KAN-380): the user row, then the child rows.
+    A route on the plain read locks them the other way round and deadlocks
+    against the others — only a few of those pairs have a race test."""
+
+    source = inspect.getsource(getattr(dealerships_api, route))
+    assert "get_user_for_update_or_404(" in source
+    assert "get_user_or_404(" not in source
+
