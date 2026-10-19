@@ -191,11 +191,10 @@ def deactivate_user(
     updated = user_service.update_user(
         db,
         user=user,
-        data=UserUpdate(
-            **(
-                {"status": UserStatus.DEACTIVATED}
-                | ({} if employment_status is None else {"employment_status": employment_status})
-            )
+        data=(
+            UserUpdate(status=UserStatus.DEACTIVATED)
+            if employment_status is None  # the field is omitted, not null: a null is refused
+            else UserUpdate(status=UserStatus.DEACTIVATED, employment_status=employment_status)
         ),
         actor_id=actor_id,
         actor_roles=actor_roles,
