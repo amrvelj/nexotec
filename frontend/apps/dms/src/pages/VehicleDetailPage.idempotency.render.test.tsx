@@ -252,7 +252,9 @@ describe('VehicleDetailPage — a failed save says so and keeps its key (KAN-269
     expect((await screen.findByRole('alert')).textContent).toBe(i18n.t('common.requestFailed'))
   })
 
-  it('a failed allocation shows the server message, leaves the picker usable, and the retry reuses the key', async () => {
+  // KAN-389: a refusal the tab does not know is its translated message, never
+  // the API's English one.
+  it('a failed allocation says so, leaves the picker usable, and the retry reuses the key', async () => {
     const user = userEvent.setup()
     const backend = install({ failFirst: 'allocate' })
     renderTab('identity')
@@ -261,7 +263,7 @@ describe('VehicleDetailPage — a failed save says so and keeps its key (KAN-269
     await user.type(screen.getByPlaceholderText(i18n.t('vehicleDetail.parties.searchCustomer')), 'Muster')
     await user.click(await screen.findByText('Anna Muster'))
 
-    expect((await screen.findByRole('alert')).textContent).toBe('Allocation refused')
+    expect((await screen.findByRole('alert')).textContent).toBe(i18n.t('vehicleDetail.parties.allocateError'))
     // Not busy any more: the picker lists the customer again and can be retried.
     await user.click(await screen.findByText('Anna Muster'))
     await waitFor(() => expect(keysOf(backend, 'allocate')).toHaveLength(2))

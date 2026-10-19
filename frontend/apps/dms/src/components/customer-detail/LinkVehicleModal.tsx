@@ -3,9 +3,10 @@ import { useDebouncedValue } from '@mantine/hooks'
 import { useQuery } from '@tanstack/react-query'
 import { Button, Group, Modal, Select, Stack, Text, TextInput } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
-import { api, ApiError } from '../../api/client'
+import { api } from '../../api/client'
 import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
 import { translatedVehiclePartyRoleLabel } from '../../customerOptions'
+import { vehiclePartyRefusalMessage } from '../../utils/vehiclePartyRefusal'
 import type { VehicleMdmRead, VehiclePartyRole, VehicleSearchResult } from '../../api/types'
 
 export interface LinkVehicleModalProps {
@@ -71,23 +72,6 @@ export function LinkVehicleModal({ opened, onClose, onLinked, customerId }: Link
     setError(null)
   }
 
-  // KAN-369: a refused link is said in the user's language, keyed by the
-  // 409's `details.reason` (or the status where the API gives none); the
-  // API's English message is never shown (KAN-366's pattern).
-  const linkRefusalMessage = (err: unknown): string => {
-    if (!(err instanceof ApiError)) return t('customerDetail.linkVehicle.error')
-    if (err.code === 'unknown_error') return t('common.requestFailed')
-    if (err.status === 404) return t('customerDetail.linkVehicleRefused.notFound')
-    switch (err.details?.reason) {
-      case 'customer_merged':
-        return t('customerDetail.linkVehicleRefused.customerMerged')
-      case 'vehicle_party_exists':
-        return t('customerDetail.linkVehicleRefused.roleAlreadyHeld')
-      default:
-        return t('customerDetail.linkVehicle.error')
-    }
-  }
-
   const submit = async () => {
     if (!selectedVehicle) return
     setSubmitting(true)
@@ -101,7 +85,7 @@ export function LinkVehicleModal({ opened, onClose, onLinked, customerId }: Link
       onLinked()
       onClose()
     } catch (err) {
-      setError(linkRefusalMessage(err))
+      setError(vehiclePartyRefusalMessage(t, err, 'customerDetail.linkVehicle.error'))
     } finally {
       setSubmitting(false)
     }
