@@ -1214,8 +1214,8 @@
       "valueWithConfigurator": "Identifizieren und bewerten",
       "attachError": "Die Bewertung konnte nicht übernommen werden.",
       "saveError": "Das Eintauschfahrzeug konnte nicht gespeichert werden.",
-      "customerMerged": "Der Kunde dieses Geschäfts wurde in einen anderen Kunden zusammengeführt. Wählen Sie den Kunden, in den er zusammengeführt wurde, und erfassen Sie das Eintauschfahrzeug erneut.",
-      "customerMergedInto": "Der Kunde dieses Geschäfts wurde in {{name}} ({{customerNumber}}) zusammengeführt. Wählen Sie {{name}} als Kunden und erfassen Sie das Eintauschfahrzeug erneut."
+      "customerMerged": "Der Kunde wurde in einen anderen Kunden zusammengeführt. Wählen Sie den Kunden, in den er zusammengeführt wurde, und erfassen Sie das Eintauschfahrzeug erneut.",
+      "customerMergedInto": "Der Kunde wurde in {{name}} ({{customerNumber}}) zusammengeführt. Wählen Sie {{name}} als Kunden und erfassen Sie das Eintauschfahrzeug erneut."
     },
     "leasing": {
       "hint": "Kein Leasingrechner in v1 (S-D03). Freie Eingaben, damit ein späterer Rechner ohne Umbau eingesetzt werden kann.",

@@ -103,7 +103,10 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
   const [searchParams, setSearchParams] = useSearchParams()
   const [embeddedTab, setEmbeddedTab] = useState(DEFAULT_TAB)
   const queryClient = useQueryClient()
-  const activeTab = embedded ? embeddedTab : (searchParams.get('tab') ?? DEFAULT_TAB)
+  const requestedTab = embedded ? embeddedTab : (searchParams.get('tab') ?? DEFAULT_TAB)
+  // KAN-377: a pasted ?tab=offersContracts on a Betrieb without sales opens
+  // the default tab, not an empty pane.
+  const activeTab = requestedTab === 'offersContracts' && !salesEntitled ? DEFAULT_TAB : requestedTab
   const [mergeModalOpen, setMergeModalOpen] = useState(false)
   const [linkVehicleOpen, setLinkVehicleOpen] = useState(false)
   const [creditBlockOpen, setCreditBlockOpen] = useState(false)
@@ -553,7 +556,7 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
           onAdd={() => setLinkVehicleOpen(true)}
         />
       )}
-      {activeTab === 'offersContracts' && salesEntitled && (
+      {activeTab === 'offersContracts' && (
         <OffersContractsTab
           offers={offersQuery.data?.items ?? []}
           contracts={contractsQuery.data?.items ?? []}

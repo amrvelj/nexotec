@@ -93,13 +93,17 @@ describe('Customer detail for a Betrieb without sales (KAN-377)', () => {
     expect(backend.calls.filter((call) => call.pathname.includes('/sales/'))).toEqual([])
   })
 
-  it('a pasted ?tab=offersContracts renders no deals tab and still calls no sales endpoint', async () => {
+  it('a pasted ?tab=offersContracts opens the default tab and still calls no sales endpoint', async () => {
     const backend = installDetail(WORKSHOP_ENTITLEMENTS)
     renderDetail('/customers/c1?tab=offersContracts')
 
     expect(await screen.findByRole('button', { name: i18n.t('customerRowMenu.linkVehicle') })).toBeInTheDocument()
     await waitFor(() => expect(backend.callsTo(/\/customers\/c1\/audit-log$/)).not.toHaveLength(0))
     expect(screen.queryByText(i18n.t('customerDetail.offersContracts.emptyState.title'))).toBeNull()
+    expect(screen.getByRole('tab', { name: new RegExp(i18n.t('customerDetail.tabs.overview')) })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
     expect(backend.calls.filter((call) => call.pathname.includes('/sales/'))).toEqual([])
   })
 

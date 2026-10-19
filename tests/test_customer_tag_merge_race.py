@@ -144,3 +144,24 @@ def test_a_tag_patch_without_a_race_still_replaces_the_tags(db_session):
     _set_tags(db_session, t.id, group_id, ["fleet", "vip"])
 
     assert _tags(db_session, t.id) == ["fleet", "vip"]
+
+
+def test_an_integrity_failure_that_is_not_the_tag_constraint_is_not_called_a_tag_collision(engine, db_session):
+    """The KAN-390 guard names `customer_tag_exists` only for
+    uq_customer_tag_customer_id_tag; any other constraint the flush trips
+    (here a NOT NULL column the PATCH clears) keeps the generic 409."""
+
+    _postgres_only(engine)
+    group_id = uuid.uuid4()
+    t = _customer(db_session, group_id, "Tina")
+    db_session.commit()
+
+    with pytest.raises(ConflictError) as refused:
+        loaded = customer_service.get_customer_or_404(db_session, group_id, t.id)
+        customer_service.update_customer(
+            db_session, customer=loaded, data=CustomerUpdate(newsletter=None), actor_id=uuid.uuid4(),
+            dealership_id=uuid.uuid4(),
+        )
+
+    assert (refused.value.details or {}).get("reason") != "customer_tag_exists"
+

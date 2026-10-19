@@ -217,7 +217,7 @@ def update_user(
     mailer: PlatformMailer = Depends(get_mailer),
 ):
     require_tenant_match(dealership_id, principal)
-    user = user_service.get_user_or_404(db, dealership_id, user_id)
+    user = user_service.get_user_for_update_or_404(db, dealership_id, user_id)  # KAN-380
     check_version(user.version, if_match, entity_name="User")
     if (
         body.email is not None
@@ -311,7 +311,7 @@ def end_membership(
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealership_id, principal)
-    user = user_service.get_user_or_404(db, dealership_id, user_id)
+    user = user_service.get_user_for_update_or_404(db, dealership_id, user_id)  # KAN-380
     check_version(user.version, if_match, entity_name="User")
     membership_service.end_membership(
         db, user=user, dealership_id=member_dealership_id, actor_id=principal.user_id, actor_roles=principal.roles
@@ -332,7 +332,7 @@ def set_membership_manager_flag(
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealership_id, principal)
-    user = user_service.get_user_or_404(db, dealership_id, user_id)
+    user = user_service.get_user_for_update_or_404(db, dealership_id, user_id)  # KAN-380
     check_version(user.version, if_match, entity_name="User")
     row = membership_service.set_membership_manager_flag(
         db,
@@ -355,7 +355,7 @@ def set_home_manager_flag(
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealership_id, principal)
-    user = user_service.get_user_or_404(db, dealership_id, user_id)
+    user = user_service.get_user_for_update_or_404(db, dealership_id, user_id)  # KAN-380
     check_version(user.version, if_match, entity_name="User")
     user = membership_service.set_home_manager_flag(
         db, user=user, is_dealer_manager=body.is_dealer_manager, actor_id=principal.user_id, actor_roles=principal.roles
@@ -411,7 +411,7 @@ def end_text_delegations(
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealership_id, principal)
-    user = user_service.get_user_or_404(db, dealership_id, user_id)
+    user = user_service.get_user_for_update_or_404(db, dealership_id, user_id)  # KAN-380
     check_version(user.version, if_match, entity_name="User")
     user_service.assert_may_touch(user=user, actor_roles=principal.roles)  # KAN-97: never a staff account
     _, changed = text_delegation_service.set_delegations(db, user=user, categories=set(), actor_id=principal.user_id)

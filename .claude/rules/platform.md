@@ -61,6 +61,10 @@ main@046634d on 2026-10-17 (KAN-195: every present-tense claim checked against t
   `membership_end` on the home tenant and mirrored into the target's, `manager_flag_set` in the
   dealership the flag is held in (the home for the user row, the target for a membership). The
   listing shows a dealer manager only the sister dealerships they manage themselves.
+  Every route that writes a user's memberships, text delegations or the user row itself loads
+  the user with `user_service.get_user_for_update_or_404` (FOR NO KEY UPDATE) **before** it
+  touches a child row (KAN-380): two first grants are then a 201 and a 409, and a route that
+  locked child rows first would deadlock against one that locked the user first.
   `LoginResponse.user.isDealerManager` is the home flag, not the active dealership's — never
   gate a screen on it; the session's own flag is the token claim.
 

@@ -42,17 +42,19 @@ def _pause_the_first_audit_row(monkeypatch, module):
     return reached, release
 
 
-def _race(engine, monkeypatch, module, send):
-    """Runs `send` twice at once: the first is paused holding its new row,
-    the second starts and must wait on a lock. Returns both status codes."""
+def _race(engine, monkeypatch, module, send, then=None):
+    """Runs `send` and then `then` (default: `send` again) at once: the first
+    is paused holding the rows it wrote, the second starts and must wait on a
+    lock. Returns both status codes."""
 
     reached, release = _pause_the_first_audit_row(monkeypatch, module)
     errors: list[Exception] = []
     codes: list[int] = []
+    second_send = then or send
     first = _run("first-grant", errors, lambda: codes.append(send().status_code))
     try:
         assert reached.wait(timeout=10), "the first grant never reached its audit row"
-        second = _run("second-grant", errors, lambda: codes.append(send().status_code))
+        second = _run("second-grant", errors, lambda: codes.append(second_send().status_code))
         _wait_until_a_backend_waits_on_a_lock(engine)
         release.set()
         first.join(timeout=10)
@@ -123,3 +125,29 @@ def test_two_first_entitlement_puts_at_once_are_a_200_and_a_409(engine, client, 
 
     assert codes == [200, 409]
     assert _count(db_session, ModuleEntitlement, ModuleEntitlement.dealership_id == uuid.UUID(dealership)) == 1
+
+
+def test_a_delegation_put_racing_a_delegation_delete_is_a_409_never_a_deadlock(engine, client, db_session, monkeypatch):
+    """Every route that writes a user's delegations or memberships takes the
+    user row lock first. A DELETE that locked the delegation rows first and
+    the user row last (at its version bump) deadlocked against a PUT holding
+    the user row and waiting for a delegation row: a 500."""
+
+    _postgres_only(engine)
+    dealership = create_dealership(client)
+    user = create_user(client, dealership, is_dealer_manager=False)
+    path = f"/v1/dealerships/{dealership}/users/{user['id']}/text-delegations"
+    granted = client.put(path, json={"categories": ["email"]}, headers={**platform_admin(), "If-Match": "1"})
+    assert granted.status_code == 200, granted.text
+
+    def _delete():
+        return client.delete(path, headers={**platform_admin(), "If-Match": "2"})
+
+    def _put():
+        return client.put(path, json={"categories": ["document"]}, headers={**platform_admin(), "If-Match": "2"})
+
+    codes = _race(engine, monkeypatch, text_delegation_service, _delete, then=_put)
+
+    assert codes == [204, 409]
+    listed = client.get(path, headers=platform_admin()).json()
+    assert listed == {"categories": [], "userVersion": 3}
