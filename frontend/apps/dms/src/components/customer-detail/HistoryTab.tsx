@@ -17,6 +17,8 @@ const KNOWN_ACTIONS = new Set([
   'create',
   'update',
   'merge',
+  // KAN-383: written on a customer merged earlier into one that is now merged itself.
+  'merge_survivor_repointed',
   'phone_add',
   'phone_update',
   'phone_remove',
@@ -106,6 +108,7 @@ const HISTORY_FIELDS = new Set([
   'vehiclePartiesRepointed',
   'vehiclePartiesKeptClosed',
   'vehiclePartiesKeptClosedIds',
+  'earlierMergesRepointedIds',
   'transactionsRepointed',
   'phonesRepointed',
   'phonesDropped',
@@ -196,6 +199,21 @@ interface ValueContext {
 
 // Fields that hold an ISO country code from the `country` reference list.
 const COUNTRY_KEYS = new Set(['nationality', 'addressCountry'])
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+// KAN-371: the keys whose values reference another record — the ones the
+// History endpoint names (`history_labels`). Any other key ending in `Id` is
+// data (`externalId` is another system's own identifier) and is shown as
+// recorded, UUID-shaped or not.
+const REFERENCE_KEYS = new Set([
+  'dealershipId',
+  'advisorId',
+  'customerId',
+  'mergedIntoCustomerId',
+  'duplicateOfCustomerId',
+  'vehicleId',
+  'earlierMergesRepointedIds',
+  'vehiclePartiesKeptClosedIds',
+])
 
 function formatValue(
   entityType: string,
@@ -205,12 +223,21 @@ function formatValue(
 ): string {
   if (v === null || v === undefined) return '—'
   if (typeof v === 'boolean') return v ? t('common.yes') : t('common.no')
+  // KAN-371: a list of ids (the customers or party rows a merge moved) reads
+  // as their names, an id nothing names as the translated marker.
+  if (Array.isArray(v) && REFERENCE_KEYS.has(camelKey(key)) && v.every((item) => typeof item === 'string')) {
+    if (v.length === 0) return '—'
+    return v.map((item: string) => idLabels[item] ?? (UUID.test(item) ? t('customerDetail.history.unknownReference') : item)).join(', ')
+  }
   if (typeof v === 'object') return JSON.stringify(v)
   if (entityType === 'customer' && typeof v === 'string') {
     // KAN-336 — an id renders the display label the customer record carries
     // for it (the advisor's name, a linked vehicle's make and model); one the
     // record carries no label for is shown as recorded.
     if (/Id$/.test(camelKey(key)) && idLabels[v] !== undefined) return idLabels[v]
+    // KAN-371: an id nothing names (another group's record, one since deleted)
+    // reads as a translated marker, never as a bare UUID.
+    if (REFERENCE_KEYS.has(camelKey(key)) && UUID.test(v)) return t('customerDetail.history.unknownReference')
     // A country code renders its name in the UI language, as on the Overview.
     if (COUNTRY_KEYS.has(camelKey(key)) && countryLabels[v] !== undefined) return countryLabels[v]
     const label = enumLabel(key, v, t, exists)
@@ -269,7 +296,12 @@ function HistoryEvent({
   const { t, i18n } = useTranslation()
   const changes = diff(event.before, event.after)
   const ctx: ValueContext = { t, exists: (key) => i18n.exists(key), locale, idLabels, countryLabels }
-  const actor = isYou ? t('customerDetail.history.you') : event.actorId ? t('customerDetail.history.user', { id: event.actorId.slice(0, 8) }) : t('customerDetail.history.system')
+  // KAN-371: the acting user by name where the History endpoint could name them.
+  const actor = isYou
+    ? t('customerDetail.history.you')
+    : event.actorId
+      ? (idLabels[event.actorId] ?? t('customerDetail.history.unknownUser'))
+      : t('customerDetail.history.system')
   return (
     <div style={{ display: 'flex', gap: 12 }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>

@@ -90,6 +90,7 @@
     "requestFailed": "Die Anfrage ist fehlgeschlagen. Bitte versuchen Sie es erneut.",
     "dismiss": "Meldung schliessen",
     "invalidVin": "Keine gültige VIN: 17 Zeichen, nur Buchstaben und Ziffern, ohne I, O und Q.",
+    "chassisNumberNeedsPre1981": "Keine gültige VIN. Eine Fahrgestellnummer, die keine 17-stellige VIN ist, wird nur für ein Fahrzeug mit erster Inverkehrsetzung vor 1981 akzeptiert – erfassen Sie diese erste Inverkehrsetzung.",
     "columnPanel": {
       "trigger": "Spalten",
       "search": "Spalte suchen…",
@@ -510,11 +511,13 @@
       },
       "you": "Sie",
       "system": "System",
-      "user": "Benutzer {{id}}",
+      "unknownReference": "unbekannter Eintrag",
+      "unknownUser": "Unbekannter Benutzer",
       "actions": {
         "create": "Kunde angelegt",
         "update": "Kunde geändert",
         "merge": "Kunde zusammengeführt",
+        "merge_survivor_repointed": "Zielkunde der Zusammenführung aktualisiert",
         "phone_add": "Telefonnummer hinzugefügt",
         "phone_update": "Telefonnummer geändert",
         "phone_remove": "Telefonnummer entfernt",
@@ -550,7 +553,8 @@
         "creditBlockReason": "Grund der Kreditsperre",
         "vehiclePartiesRepointed": "Fahrzeugverknüpfungen übertragen",
         "vehiclePartiesKeptClosed": "Fahrzeugverknüpfungen geschlossen behalten",
-        "vehiclePartiesKeptClosedIds": "Fahrzeugverknüpfungen geschlossen behalten (IDs)",
+        "vehiclePartiesKeptClosedIds": "Fahrzeugverknüpfungen geschlossen behalten (Fahrzeuge)",
+        "earlierMergesRepointedIds": "Frühere Zusammenführungen umgeleitet",
         "transactionsRepointed": "Transaktionen übertragen",
         "phonesRepointed": "Telefonnummern übertragen",
         "phonesDropped": "Telefonnummern verworfen",
@@ -888,6 +892,9 @@
       "createOffer": "Offerte erstellen",
       "createContract": "Vertrag erstellen",
       "leftStock": "Dieses Fahrzeug hat den Bestand am {{date}} verlassen (verkauft)."
+    },
+    "headline": {
+      "listPriceCaption": "Listenpreis – Verkaufspreis noch nicht aufgebaut"
     },
     "spec": {
       "firstRegistrationDate": "Erstzulassung",
@@ -1362,6 +1369,7 @@
     "banner": "Ohne Kunde, ohne Offerte, ohne Fahrzeug im Bestand — jede Kombination ist möglich.",
     "vehicleSection": "Fahrzeug",
     "vin": "VIN",
+    "firstRegistration": "Erstinverkehrsetzung",
     "mileage": "Kilometerstand",
     "make": "Marke",
     "model": "Modell",
@@ -1463,7 +1471,7 @@
       },
       "emptyState": {
         "title": "Noch keine Katalogsynchronisation",
-        "description": "Noch kein Mandant hat einen Katalog-Spiegel synchronisiert."
+        "description": "Noch kein Betrieb hat einen Katalog-Spiegel synchronisiert."
       }
     }
   },

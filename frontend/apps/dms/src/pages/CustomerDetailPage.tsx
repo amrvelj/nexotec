@@ -31,7 +31,7 @@ import { MergeCustomerModal } from '../components/customer-detail/MergeCustomerM
 import { CreditBlockDialog } from '../components/customer-detail/CreditBlockDialog'
 import { LinkVehicleModal } from '../components/customer-detail/LinkVehicleModal'
 import type {
-  AuditEventPage,
+  CustomerHistoryPage,
   CustomerAddressRead,
   CustomerEmailPage,
   CustomerEmailRead,
@@ -188,7 +188,7 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
   })
   const historyQuery = useQuery({
     queryKey: ['customer', id, 'history'],
-    queryFn: () => api.get<AuditEventPage>(`/customers/${id}/audit-log`),
+    queryFn: () => api.get<CustomerHistoryPage>(`/customers/${id}/audit-log`),
     enabled: Boolean(id),
   })
 
@@ -422,13 +422,15 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
   // KAN-336 — the History tab renders an id as the label the customer record
   // carries for it: the advisor's stored name, a linked vehicle's make and model.
   const historyIdLabels = useMemo(() => {
-    const labels: Record<string, string> = {}
+    // KAN-371: the History endpoint names the ids its events carry (a Betrieb,
+    // a user, another customer, a vehicle); the record's own labels follow.
+    const labels: Record<string, string> = { ...(historyQuery.data?.labels ?? {}) }
     for (const party of vehiclesQuery.data?.items ?? []) {
       labels[party.vehicleId] = vehicleLabel(party.vehicle, t('customerDetail.vehicles.unknownVehicle'))
     }
     if (customer?.advisorId && customer.advisorLabel) labels[customer.advisorId] = customer.advisorLabel
     return labels
-  }, [vehiclesQuery.data, customer?.advisorId, customer?.advisorLabel, t])
+  }, [historyQuery.data?.labels, vehiclesQuery.data, customer?.advisorId, customer?.advisorLabel, t])
 
   const tabs: DetailTab[] = useMemo(
     () => [

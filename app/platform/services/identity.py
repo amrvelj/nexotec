@@ -452,10 +452,10 @@ def accept_invitation(db: Session, *, raw_token: str, password: str, ip_address:
 
     token = auth_tokens.consume(db, raw=raw_token, kind=AuthTokenKind.INVITATION)
     if token is None:
-        raise BadRequestError("This invitation is no longer valid — ask your Betrieb for a new one.", details={"rule": "link"})
+        raise BadRequestError("This invitation is no longer valid — ask your business for a new one.", details={"rule": "link"})
     user = db.get(User, token.user_id)
     if user is None or user.status in _INACTIVE:
-        raise BadRequestError("This invitation is no longer valid — ask your Betrieb for a new one.", details={"rule": "link"})
+        raise BadRequestError("This invitation is no longer valid — ask your business for a new one.", details={"rule": "link"})
     set_password(
         db, user=user, password=password, actor_id=user.id, ip_address=ip_address, event=AuthEventKind.PASSWORD_SET
     )

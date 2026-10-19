@@ -35,7 +35,7 @@
       "notificationsSoon": "Notifications (bientôt)",
       "accountMenu": "Menu du compte",
       "language": "Langue",
-      "switchDealership": "Changer de concession",
+      "switchDealership": "Changer d'entreprise",
       "accountSecurity": "Mon compte – Sécurité"
     },
     "globalSearch": {
@@ -45,8 +45,8 @@
       "error": "La recherche a échoué — veuillez réessayer."
     },
     "switchDealershipError": {
-      "notAMember": "Changement refusé : vous n'êtes plus rattaché à cette concession. Vous restez dans la concession actuelle.",
-      "failed": "Impossible de changer de concession. Vous restez dans la concession actuelle. Veuillez réessayer.",
+      "notAMember": "Changement refusé : vous n'êtes plus rattaché à cette entreprise. Vous restez dans l'entreprise actuelle.",
+      "failed": "Impossible de changer d'entreprise. Vous restez dans l'entreprise actuelle. Veuillez réessayer.",
       "dismiss": "Fermer le message"
     }
   },
@@ -90,6 +90,7 @@
     "requestFailed": "La requête a échoué. Veuillez réessayer.",
     "dismiss": "Fermer le message",
     "invalidVin": "VIN non valide : 17 caractères, uniquement des lettres et des chiffres, sans I, O ni Q.",
+    "chassisNumberNeedsPre1981": "Pas un VIN valide. Un numéro de châssis qui n’est pas un VIN à 17 caractères n’est accepté que pour un véhicule mis en circulation avant 1981 – saisissez cette première mise en circulation.",
     "columnPanel": {
       "trigger": "Colonnes",
       "search": "Rechercher une colonne…",
@@ -510,11 +511,13 @@
       },
       "you": "Vous",
       "system": "Système",
-      "user": "Utilisateur {{id}}",
+      "unknownReference": "enregistrement inconnu",
+      "unknownUser": "Utilisateur inconnu",
       "actions": {
         "create": "Client créé",
         "update": "Client modifié",
         "merge": "Client fusionné",
+        "merge_survivor_repointed": "Client cible de la fusion mis à jour",
         "phone_add": "Téléphone ajouté",
         "phone_update": "Téléphone modifié",
         "phone_remove": "Téléphone supprimé",
@@ -534,7 +537,7 @@
       },
       "otherAction": "Modification enregistrée",
       "fields": {
-        "dealershipId": "Concession",
+        "dealershipId": "Entreprise",
         "phoneType": "Type de téléphone",
         "emailType": "Type d'e-mail",
         "addressType": "Type d'adresse",
@@ -550,7 +553,8 @@
         "creditBlockReason": "Motif du blocage de crédit",
         "vehiclePartiesRepointed": "Liens véhicule transférés",
         "vehiclePartiesKeptClosed": "Liens véhicule conservés clôturés",
-        "vehiclePartiesKeptClosedIds": "Liens véhicule conservés clôturés (ID)",
+        "vehiclePartiesKeptClosedIds": "Liens véhicule conservés clôturés (véhicules)",
+        "earlierMergesRepointedIds": "Fusions antérieures redirigées",
         "transactionsRepointed": "Transactions transférées",
         "phonesRepointed": "Numéros de téléphone transférés",
         "phonesDropped": "Numéros de téléphone écartés",
@@ -839,7 +843,7 @@
       "changed": "Modifié",
       "vin": "VIN",
       "listPrice": "Prix catalogue",
-      "dealership": "Concession",
+      "dealership": "Entreprise",
       "ageingBucket": "Voyant d'ancienneté",
       "basePrice": "Prix de base",
       "purchasePrice": "Prix d'achat",
@@ -888,6 +892,9 @@
       "createOffer": "Créer une offre",
       "createContract": "Créer un contrat",
       "leftStock": "Ce véhicule a quitté le stock le {{date}} (vendu)."
+    },
+    "headline": {
+      "listPriceCaption": "Prix catalogue – prix de vente pas encore établi"
     },
     "spec": {
       "firstRegistrationDate": "1re mise en circulation",
@@ -1250,7 +1257,7 @@
       "suppressedReason": "Motif",
       "suppressedReasonHint": "Une remise par ligne est bloquée par défaut sur les véhicules d’occasion — un motif lève le blocage.",
       "error": "La modification n’a pas pu être enregistrée.",
-      "noPackagesCapability": "Affichées en liste simple — le regroupement par forfaits n'est pas disponible pour ce garage."
+      "noPackagesCapability": "Affichées en liste simple — le regroupement par forfaits n'est pas disponible pour cette entreprise."
     },
     "errors": {
       "saveRefused": {
@@ -1362,6 +1369,7 @@
     "banner": "Sans client, sans offre, sans véhicule enregistré requis — toute combinaison fonctionne.",
     "vehicleSection": "Véhicule",
     "vin": "VIN",
+    "firstRegistration": "Première mise en circulation",
     "mileage": "Kilométrage",
     "make": "Marque",
     "model": "Modèle",
@@ -1381,7 +1389,7 @@
     "finalOffer": "Offre de reprise",
     "finalOfferHint": "Peut différer de la valeur nette — c’est la négociation.",
     "note": "Note",
-    "noProviderCapability": "L'évaluation auto-i-dat n'est pas disponible pour ce garage — saisir la valeur de reprise manuellement ci-dessous.",
+    "noProviderCapability": "L'évaluation auto-i-dat n'est pas disponible pour cette entreprise — saisir la valeur de reprise manuellement ci-dessous.",
     "configurator": {
       "skip": "Saisir à la main sans configurateur"
     }
@@ -1428,7 +1436,7 @@
       "hint": "Saisissez une nouvelle valeur uniquement pour le(s) champ(s) à remplacer — le renouvellement remplace, il ne lit jamais la valeur actuelle."
     },
     "columns": {
-      "dealership": "Concession",
+      "dealership": "Entreprise",
       "displayName": "Connexion",
       "provider": "Fournisseur",
       "environment": "Environnement",
@@ -1437,7 +1445,7 @@
     },
     "emptyState": {
       "title": "Aucune connexion pour l'instant",
-      "description": "Aucune concession n'a encore connecté de fournisseur."
+      "description": "Aucune entreprise n'a encore connecté de fournisseur."
     },
     "emptyFilteredState": {
       "title": "Aucune connexion correspondante",
@@ -1463,7 +1471,7 @@
       },
       "emptyState": {
         "title": "Aucune synchronisation du catalogue",
-        "description": "Aucun garage n'a encore synchronisé de miroir de catalogue."
+        "description": "Aucune entreprise n'a encore synchronisé de miroir de catalogue."
       }
     }
   },
@@ -1553,7 +1561,7 @@
     },
     "unavailable": {
       "title": "Catalogue indisponible",
-      "body": "Aucune connexion auto-i-dat active pour cet établissement. Connectez auto-i-dat pour parcourir le catalogue."
+      "body": "Aucune connexion auto-i-dat active pour cette entreprise. Connectez auto-i-dat pour parcourir le catalogue."
     },
     "columns": {
       "brand": "Marque",
@@ -1606,7 +1614,7 @@
     "loadError": "Le catalogue n'a pas pu être chargé.",
     "emptyState": {
       "title": "Aucune variante",
-      "description": "Aucune donnée de catalogue n'est encore synchronisée pour cet établissement."
+      "description": "Aucune donnée de catalogue n'est encore synchronisée pour cette entreprise."
     },
     "emptyFilteredState": {
       "title": "Aucun résultat",
@@ -1748,7 +1756,7 @@
       "unavailable": {
         "title": "Images indisponibles",
         "body": "Les images ne sont pas disponibles pour ce compte.",
-        "uploadNote": "Votre établissement pourra ajouter ses propres photos ici dès que le téléversement manuel sera disponible."
+        "uploadNote": "Votre entreprise pourra ajouter ses propres photos ici dès que le téléversement manuel sera disponible."
       },
       "empty": "Cette variante n'a aucune image dans le miroir du catalogue.",
       "bildArt": {

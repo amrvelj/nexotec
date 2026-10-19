@@ -42,3 +42,15 @@ export function isVinRefusal(err: unknown): boolean {
     })
   )
 }
+
+/**
+ * KAN-353: the translation key for a refused `vin`, or null when the API
+ * refused something else — the strict VIN rule (`isVinRefusal`), or a chassis
+ * number sent without a first registration before 1981.
+ */
+export function vinRefusalKey(err: unknown): string | null {
+  if (err instanceof ApiError && err.status === 422 && err.details?.reason === 'chassis_number_requires_pre_1981_registration') {
+    return 'common.chassisNumberNeedsPre1981'
+  }
+  return isVinRefusal(err) ? 'common.invalidVin' : null
+}

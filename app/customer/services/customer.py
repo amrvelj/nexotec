@@ -66,7 +66,12 @@ from app.customer.schemas.customer import (
     CustomerVehicleUpdate,
     OtherVehiclePartySummary,
 )
-from app.platform.public import get_active_reference_value_codes, get_user_or_404, list_active_users
+from app.platform.public import (
+    get_active_reference_value_codes,
+    get_group_display_labels,
+    get_user_or_404,
+    list_active_users,
+)
 from app.vehicle.public import VehicleSummary, get_vehicle_mdm_or_404, get_vehicle_summaries
 
 logger = logging.getLogger("app.customer")
@@ -1154,6 +1159,80 @@ def _repoint_vehicle_parties(
     return repointed, kept_closed
 
 
+def _repoint_earlier_merges(
+    db: Session, *, duplicate_id: uuid.UUID, target_id: uuid.UUID, actor_id: uuid.UUID, group_id: uuid.UUID
+) -> list[uuid.UUID]:
+    """KAN-383 (Anto, 2026-10-18, option A): a customer X merged into this
+    duplicate D earlier names D in `duplicate_of_customer_id`; once D is
+    merged into T, X would name a merged customer. Every such X is re-pointed
+    to T in the merge's own transaction, its version bumped and the change
+    audited on X (`merge_survivor_repointed`), so "merged into" always names a
+    live customer. No event is published: X's rows already moved to D with its
+    own merge and move on to T with this one (the `customer.merged` event for
+    D carries them).
+
+    The vehicle-party copies an earlier merge kept on X (KAN-177) name D in
+    `merged_into_customer_id`; they are re-pointed to T the same way, so a
+    `merged_party_row` refusal never names a merged customer.
+
+    Read after the merge holds D's row FOR NO KEY UPDATE (KAN-372): a merge
+    X→D still in flight holds D FOR SHARE, so this merge waits for it to
+    commit and then finds X here — the race order KAN-372 could not refuse
+    ends with X naming T as well. The X rows are locked in id order, after
+    the merge's own party rows: the one place a merge locks a customer row
+    outside "advisory → customer rows → party rows". No writer holding an X
+    row waits on this merge: allocation, a reopen and a merge into or of X
+    refuse a merged customer (a reopen of a kept copy locks that copy first,
+    but after its advisory lock, and waits for nothing after it); a
+    credit-block change on X takes only X's row. The copies are only tried,
+    never waited for: the nightly label refresh locks party rows in id order
+    and could hold a copy while it waits for one of D's rows, so a copy held
+    by another writer refuses the merge (409 `merge_vehicle_party_busy`,
+    nothing written), which can simply be sent again."""
+
+    earlier = list(
+        db.scalars(
+            select(Customer)
+            .where(Customer.duplicate_of_customer_id == duplicate_id, Customer.group_id == group_id)
+            .order_by(Customer.id)
+            .with_for_update(key_share=True)
+            .execution_options(populate_existing=True)
+        ).all()
+    )
+    copies_naming_d = (
+        select(VehicleParty)
+        .join(Customer, Customer.id == VehicleParty.customer_id)
+        .where(VehicleParty.merged_into_customer_id == duplicate_id, Customer.group_id == group_id)
+        .order_by(VehicleParty.id)
+    )
+    # A merge into D is what writes such a copy, and it needs D's row, which
+    # this merge holds: the set cannot grow between these two reads.
+    copy_count = len(db.scalars(copies_naming_d.with_only_columns(VehicleParty.id)).all())
+    kept_copies = list(db.scalars(copies_naming_d.with_for_update(of=VehicleParty, skip_locked=True)).all())
+    if len(kept_copies) < copy_count:
+        raise ConflictError(
+            "A vehicle of this customer is being changed right now; send the merge again.",
+            details={"reason": "merge_vehicle_party_busy"},
+        )
+    for copy in kept_copies:
+        copy.merged_into_customer_id = target_id
+    for merged in earlier:
+        merged.duplicate_of_customer_id = target_id
+        merged.updated_by = actor_id
+        merged.version += 1
+        record_audit_event(
+            db,
+            entity_type="customer",
+            entity_id=merged.id,
+            tenant_id=group_id,
+            action="merge_survivor_repointed",
+            actor_id=actor_id,
+            before={"duplicateOfCustomerId": str(duplicate_id)},
+            after={"duplicateOfCustomerId": str(target_id)},
+        )
+    return [merged.id for merged in earlier]
+
+
 def _repoint_transactions(db: Session, *, duplicate_id: uuid.UUID, target_id: uuid.UUID) -> int:
     # Sales owns Transaction (one writer per fact) — customer only knows the
     # duplicate/target IDs from its own merge flow, so the actual row
@@ -1325,6 +1404,9 @@ def merge_customer(
         db, duplicate_id=customer.id, target_id=target.id
     )
     tags_repointed, tags_dropped = _repoint_customer_tags(db, duplicate_id=customer.id, target_id=target.id)
+    earlier_merges_repointed = _repoint_earlier_merges(
+        db, duplicate_id=customer.id, target_id=target.id, actor_id=actor_id, group_id=customer.group_id
+    )
 
     customer.lifecycle_status = CustomerLifecycleStatus.MERGED
     customer.duplicate_of_customer_id = duplicate_of_customer_id
@@ -1357,6 +1439,8 @@ def merge_customer(
             "externalIdsDropped": external_ids_dropped,
             "tagsRepointed": tags_repointed,
             "tagsDropped": tags_dropped,
+            # KAN-383: customers merged into this duplicate earlier now name the survivor.
+            "earlierMergesRepointedIds": [str(customer_id) for customer_id in earlier_merges_repointed],
         },
     )
     publish_event(
@@ -3252,3 +3336,101 @@ def set_credit_block(
     db.commit()
     db.refresh(customer)
     return customer
+
+
+# KAN-371 (Anto, 2026-10-18, option A; ADR-093): the History tab's ids are
+# named on read — the audit log is append-only and keeps only the ids. The
+# keys whose values are ids (or lists of ids) of each kind, as the customer
+# service records them; snake_case keys are read as their camelCase name.
+_HISTORY_DEALERSHIP_KEYS = frozenset({"dealershipId"})
+_HISTORY_USER_KEYS = frozenset({"advisorId"})
+_HISTORY_CUSTOMER_KEYS = frozenset(
+    {"mergedIntoCustomerId", "duplicateOfCustomerId", "customerId", "earlierMergesRepointedIds"}
+)
+_HISTORY_VEHICLE_KEYS = frozenset({"vehicleId"})
+_HISTORY_PARTY_KEYS = frozenset({"vehiclePartiesKeptClosedIds"})
+
+
+def _uuid_or_none(value: Any) -> uuid.UUID | None:
+    try:
+        return uuid.UUID(str(value)) if value is not None else None
+    except ValueError:
+        return None
+
+
+def _vehicle_label(make: str | None, model: str | None, model_year: int | None, number: str | None) -> str | None:
+    if make and model:
+        return f"{make} {model} ({model_year})" if model_year else f"{make} {model}"
+    return number
+
+
+def history_labels(
+    db: Session, *, group_id: uuid.UUID, dealership_id: uuid.UUID, events: list[Any]
+) -> dict[str, str]:
+    """Id → display label for every id the customer's audit events carry
+    under a known key (one value or a list of them), and for each event's
+    actor: a Betrieb's and a user's name from platform
+    (`get_group_display_labels`, ADR-093 — the caller's own Betrieb, a sister
+    Betrieb only while the group's read is enabled), another customer's name
+    and number, a vehicle's make and model, and a party row by its vehicle,
+    both from the party rows' own labels (KAN-84). Only this group's records
+    are named; an id that resolves to nothing is left out and the screen
+    renders it as unknown. One query per kind, whatever the number of events."""
+
+    ids: dict[str, set[uuid.UUID]] = {kind: set() for kind in ("dealership", "user", "customer", "vehicle", "party")}
+    kinds = (
+        (_HISTORY_DEALERSHIP_KEYS, "dealership"),
+        (_HISTORY_USER_KEYS, "user"),
+        (_HISTORY_CUSTOMER_KEYS, "customer"),
+        (_HISTORY_VEHICLE_KEYS, "vehicle"),
+        (_HISTORY_PARTY_KEYS, "party"),
+    )
+    for event in events:
+        if event.actor_id is not None:
+            ids["user"].add(event.actor_id)
+        for snapshot in (event.before, event.after):
+            for raw_key, value in (snapshot or {}).items():
+                head, *rest = raw_key.split("_")
+                key = head + "".join(part.title() for part in rest)
+                kind = next((name for keys, name in kinds if key in keys), None)
+                if kind is None:
+                    continue
+                for item in value if isinstance(value, list) else [value]:
+                    parsed = _uuid_or_none(item) if isinstance(item, str) else None
+                    if parsed is not None:
+                        ids[kind].add(parsed)
+
+    dealerships, users = get_group_display_labels(
+        db, group_id=group_id, dealership_id=dealership_id, dealership_ids=ids["dealership"], user_ids=ids["user"]
+    )
+    labels: dict[str, str] = {str(k): v for k, v in {**dealerships, **users}.items()}
+    if ids["customer"]:
+        for customer in db.scalars(
+            select(Customer).where(Customer.id.in_(ids["customer"]), Customer.group_id == group_id)
+        ):
+            labels[str(customer.id)] = f"{customer_display_name(customer)} ({customer.customer_number})"
+    party_columns = (
+        VehicleParty.vehicle_make,
+        VehicleParty.vehicle_model,
+        VehicleParty.vehicle_model_year,
+        VehicleParty.vehicle_number,
+    )
+    if ids["vehicle"]:
+        for vehicle_id, *label_parts in db.execute(
+            select(VehicleParty.vehicle_id, *party_columns)
+            .join(Customer, Customer.id == VehicleParty.customer_id)
+            .where(VehicleParty.vehicle_id.in_(ids["vehicle"]), Customer.group_id == group_id)
+        ):
+            label = _vehicle_label(*label_parts)
+            if label and (label_parts[0] or str(vehicle_id) not in labels):
+                labels[str(vehicle_id)] = label
+    if ids["party"]:
+        for party_id, *label_parts in db.execute(
+            select(VehicleParty.id, *party_columns)
+            .join(Customer, Customer.id == VehicleParty.customer_id)
+            .where(VehicleParty.id.in_(ids["party"]), Customer.group_id == group_id)
+        ):
+            label = _vehicle_label(*label_parts)
+            if label:
+                labels[str(party_id)] = label
+    return labels

@@ -276,6 +276,20 @@ def require_entitlement(module: ModuleCode):
     return _check
 
 
+def holds_entitlement(db: Session, principal: Principal, module: ModuleCode) -> bool:
+    """Whether `principal` may see `module`'s data embedded in another
+    module's response (KAN-378): the token carries the module and was minted
+    under the Betrieb's current entitlements — `require_entitlement`'s test,
+    answered as a yes/no for a field instead of a 404/401 for the route."""
+
+    if _entitlement_version_reader is None:
+        raise RuntimeError("holds_entitlement: no entitlement version reader registered (platform not loaded)")
+    current = _entitlement_version_reader(db, principal.tenant_id)
+    if current is not None and current != principal.entitlements_version:
+        return False
+    return module.value in principal.entitlements
+
+
 # --- Standard-text delegations (FR-A-28, D-A-23, KAN-199) ---------------------------------
 
 # Whether the principal holds a delegation for `category` of `capability`

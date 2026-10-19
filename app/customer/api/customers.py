@@ -18,13 +18,13 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.audit import list_audit_events
-from app.core.audit_schemas import AuditEventPage, AuditEventRead
+from app.core.audit_schemas import AuditEventRead
 from app.core.auth import Principal, get_current_principal, require_access_role
 from app.core.concurrency import check_version, require_if_match
 from app.core.config import get_settings
 from app.core.idempotent_route import IdempotentRoute
 from app.core.pagination import SortPageParams, decode_sort_cursor
-from app.core.permissions import require_read, require_write
+from app.core.permissions import ModuleCode, holds_entitlement, require_read, require_write
 from app.core.sorting import SortField, parse_sort
 from app.customer.models.customer import Customer, CustomerLifecycleStatus, CustomerType, Language
 from app.customer.schemas.customer import (
@@ -46,6 +46,7 @@ from app.customer.schemas.customer import (
     CustomerExternalIdPage,
     CustomerExternalIdRead,
     CustomerExternalIdUpdate,
+    CustomerHistoryPage,
     CustomerMergeRequest,
     CustomerPage,
     CustomerPhoneCreate,
@@ -262,7 +263,7 @@ def list_customers(
     )
 
 
-@router.get("/customers/{customer_id}/audit-log", response_model=AuditEventPage)
+@router.get("/customers/{customer_id}/audit-log", response_model=CustomerHistoryPage)
 def get_customer_audit_log(
     customer_id: uuid.UUID,
     principal: Principal = Depends(require_read("audit_logs")),
@@ -272,8 +273,13 @@ def get_customer_audit_log(
     events = list_audit_events(
         db, entity_type="customer", entity_id=customer_id, tenant_id=principal.group_id
     )
-    return AuditEventPage(
-        items=[AuditEventRead.model_validate(e, from_attributes=True) for e in events], next_cursor=None
+    # KAN-371: the ids the events carry are named on read, group-scoped.
+    return CustomerHistoryPage(
+        items=[AuditEventRead.model_validate(e, from_attributes=True) for e in events],
+        next_cursor=None,
+        labels=customer_service.history_labels(
+            db, group_id=principal.group_id, dealership_id=principal.tenant_id, events=events
+        ),
     )
 
 
@@ -540,7 +546,15 @@ def list_customer_vehicles(
     other_parties_by_vehicle = customer_service.list_other_vehicle_parties_batch(
         db, vehicle_ids=vehicle_ids, exclude_customer_id=customer_id, group_id=principal.group_id
     )
-    stock_by_vehicle = get_stock_items_for_vehicles(db, group_id=principal.group_id, vehicle_ids=vehicle_ids)
+    # KAN-378 (Anto, option A): the stock summary is inventory data, licensed
+    # with the sales module (D-A-04) — a Betrieb without it gets no stock
+    # fields here, as it gets no /v1/stock-items — nor does a token minted
+    # before the module was taken away.
+    stock_by_vehicle = (
+        get_stock_items_for_vehicles(db, group_id=principal.group_id, vehicle_ids=vehicle_ids)
+        if holds_entitlement(db, principal, ModuleCode.SALES)
+        else {}
+    )
     items = [
         CustomerVehicleRead.model_validate(r, from_attributes=True).model_copy(
             update={

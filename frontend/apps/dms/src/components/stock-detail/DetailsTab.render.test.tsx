@@ -84,3 +84,37 @@ describe('DetailsTab — date-only fields keep their day west of Greenwich (KAN-
     expect(screen.queryByText('14.09.2026')).not.toBeInTheDocument()
   })
 })
+
+// KAN-359 (Anto, option A) — a car with a list price but no selling price
+// yet showed a 28-px "not set" headline; it now shows the list price,
+// captioned as such, and the selling price once one is built.
+describe('DetailsTab — the headline before a selling price is built (KAN-359)', () => {
+  function renderItem(item: StockItemRead) {
+    return render(
+      <MantineProvider theme={theme} env="test">
+        <DetailsTab item={item} locale="fr-CH" onSaveField={vi.fn()} onReload={vi.fn()} onRecordPurchase={vi.fn()} />
+      </MantineProvider>,
+    )
+  }
+
+  it('shows the list price with its caption, never "not set", in fr', async () => {
+    await i18n.changeLanguage('fr')
+    renderItem({ ...ITEM, listPrice: '24900.00', effectivePrice: null })
+
+    const caption = screen.getByText(i18n.t('stockDetail.headline.listPriceCaption'))
+    const headline = caption.parentElement as HTMLElement
+    expect(headline).toHaveTextContent("CHF 24'900.00")
+    expect(headline).not.toHaveTextContent(i18n.t('common.notSet'))
+  })
+
+  it('shows the selling price without the caption once one is built', async () => {
+    await i18n.changeLanguage('fr')
+    const { container } = renderItem(ITEM)
+
+    expect(screen.queryByText(i18n.t('stockDetail.headline.listPriceCaption'))).toBeNull()
+    // The headline leads with the built selling price; the list price
+    // follows it struck through.
+    const headline = container.querySelector('div > div') as HTMLElement
+    expect(headline.textContent?.startsWith("CHF 41'900.50")).toBe(true)
+  })
+})

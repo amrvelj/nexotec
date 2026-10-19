@@ -36,13 +36,16 @@ main@046634d on 2026-10-17 (KAN-195: every present-tense claim checked against t
 - `dealer_group` gives visibility and owns nothing → `dealership` is **the tenant**, a legal
   entity with its own stock, sales, accounting and VAT → `location` is a physical site: an
   attribute, **never a scoping boundary** (owned by platform, not inventory).
-- **The UI word for the tenant is "Betrieb"** (D-A-10): service-only garages are customers from
+- **The UI word for the tenant is "Betrieb"** in German (D-A-10) — *entreprise* in French, *azienda*
+  in Italian, *business* in English (KAN-381, Anto 2026-10-18), in the bundles and in the backend's
+  sign-in and mail texts (API error `message`s still say "dealership"): service-only garages are customers from
   day one, so `sales` is a module entitlement like `aftersales` (`module_entitlement`, KAN-198),
   and a Betrieb without it is a normal configuration. `dealership` stays the table and code name.
 - Tenant scope comes from the token. Group-scoped reads exist only in the files that
   `tests/architecture/test_no_ambient_group_read.py` allow-lists — `core/tenancy.py`
   (`get_group_read_or_404`), `customer/services/customer.py`, `customer/services/legal_basis.py`,
-  `inventory/services/group_listing.py`, `platform/services/dealership.py`. The test catches
+  `inventory/services/group_listing.py`, `platform/services/dealership.py` (staff-only listing),
+  `platform/services/group_labels.py` (KAN-371, ADR-093: the History tab's names). The test catches
   `group_id` / `dealer_group_id` in `==`, `.in_(`, `filter_by(…=)` and single-line `text(…)`
   (a multi-line `text()` escapes it). A new group read is an ADR plus an allowlist entry.
   Cross-tenant reads return 404, never 403.

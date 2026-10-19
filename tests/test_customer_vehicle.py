@@ -28,6 +28,8 @@ def _token(
     user_id: uuid.UUID | None = None,
     *,
     is_dealer_manager: bool = False,
+    entitlements: frozenset[str] | None = None,
+    entitlements_version: int = 0,
 ) -> str:
     _tid = tenant_id or uuid.uuid4()
     return create_access_token(
@@ -36,6 +38,8 @@ def _token(
         group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(_tid)),
         roles=frozenset({role}) if role is not None else frozenset(),
         is_dealer_manager=is_dealer_manager,
+        entitlements=entitlements,
+        entitlements_version=entitlements_version,
     )
 
 
@@ -659,6 +663,46 @@ def test_a_vehicle_in_the_groups_own_stock_links_to_its_stock_item(client, db_se
     assert items[0]["stockItem"] == {"id": str(stock_item.id), "stockNumber": stock_item.stock_number}
 
 
+def test_a_betrieb_without_the_sales_module_gets_no_stock_link(client, db_session):
+    """KAN-378 (Anto, option A): the stock summary is inventory data, licensed
+    with `sales` (D-A-04). A workshop's token without it reads the customer's
+    vehicles and roles, but no stock item, while a licensed one does."""
+
+    dealer_id, customer, vehicle = _setup(client)
+    _enable_group_read(db_session, dealer_id)
+    licensed = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id))
+    workshop = _token(
+        is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id), entitlements=frozenset({"aftersales", "parts"})
+    )
+    client.post(
+        f"/v1/customers/{customer['id']}/vehicles", json={"vehicleId": vehicle["id"], "role": "owner"}, headers=_bearer(licensed)
+    )
+    create_stock_item(
+        db_session,
+        tenant_id=uuid.UUID(dealer_id),
+        data=StockItemCreate(vehicle_label="Trade-in candidate", condition=StockItemCondition.USED, vehicle_id=uuid.UUID(vehicle["id"]), vin=vehicle["vin"]),
+        actor_id=None,
+    )
+
+    unlicensed = client.get(f"/v1/customers/{customer['id']}/vehicles", headers=_bearer(workshop))
+    assert unlicensed.status_code == 200
+    assert [(item["vehicleId"], item["role"], item["stockItem"]) for item in unlicensed.json()["items"]] == [
+        (vehicle["id"], "owner", None)
+    ]
+    licensed_items = client.get(f"/v1/customers/{customer['id']}/vehicles", headers=_bearer(licensed)).json()["items"]
+    assert licensed_items[0]["stockItem"] is not None
+
+    # The Betrieb's entitlements change: a token minted before carries `sales`
+    # still, but no longer sees stock here, as /v1/stock-items refuses it.
+    db_session.get(Dealership, uuid.UUID(dealer_id)).entitlements_version += 1
+    db_session.commit()
+    stale_items = client.get(f"/v1/customers/{customer['id']}/vehicles", headers=_bearer(licensed)).json()["items"]
+    assert stale_items[0]["stockItem"] is None
+    current = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id), entitlements_version=1)
+    current_items = client.get(f"/v1/customers/{customer['id']}/vehicles", headers=_bearer(current)).json()["items"]
+    assert current_items[0]["stockItem"] is not None
+
+
 def test_no_stock_link_when_group_read_is_not_enabled(client, db_session):
     """group_read_enabled defaults to False (the fixture never calls
     _enable_group_read) — the link is a nicety, not something that should
@@ -690,3 +734,93 @@ def test_no_stock_link_for_a_vehicle_with_no_stock_item(client, db_session):
 
     items = client.get(f"/v1/customers/{customer['id']}/vehicles", headers=_bearer(token)).json()["items"]
     assert items[0]["stockItem"] is None
+
+
+def test_the_history_names_the_ids_its_events_carry(client, db_session):
+    """KAN-371 (Anto, option A; ADR-093): the audit log keeps only ids, so the
+    History endpoint names them on read — the Betrieb, the advisor before and
+    after a change, the acting user, the customer a duplicate was merged into
+    and the customers a merge re-pointed, a linked vehicle."""
+
+    from tests.identity_support import create_user
+
+    dealer_id, customer, vehicle = _setup(client)
+    _enable_group_read(db_session, dealer_id)
+    first_advisor = create_user(client, dealer_id, firstName="Bea", lastName="Berater")
+    second_advisor = create_user(client, dealer_id, firstName="Carl", lastName="Coach")
+    actor = create_user(client, dealer_id, firstName="Ida", lastName="Innendienst")
+    token = _token(is_dealer_manager=True, tenant_id=uuid.UUID(dealer_id), user_id=uuid.UUID(actor["id"]))
+    headers = _bearer(token)
+    for advisor in (first_advisor, second_advisor):
+        current = client.get(f"/v1/customers/{customer['id']}", headers=headers).json()
+        changed = client.patch(
+            f"/v1/customers/{customer['id']}",
+            json={"advisorId": advisor["id"]},
+            headers={**headers, "If-Match": str(current["version"])},
+        )
+        assert changed.status_code == 200, changed.text
+    client.post(f"/v1/customers/{customer['id']}/vehicles", json={"vehicleId": vehicle["id"], "role": "owner"}, headers=headers)
+    earlier = _create_customer(client, dealer_id, firstName="Xaver", lastName="Früher")
+    duplicate = _create_customer(client, dealer_id, firstName="Dora", lastName="Doppelt")
+    for source, target in ((earlier, duplicate), (duplicate, customer)):
+        current = client.get(f"/v1/customers/{source['id']}", headers=headers).json()
+        merged = client.post(
+            f"/v1/customers/{source['id']}/merge",
+            json={"duplicateOfCustomerId": target["id"]},
+            headers={**headers, "If-Match": str(current["version"]), "Idempotency-Key": str(uuid.uuid4())},
+        )
+        assert merged.status_code == 200, merged.text
+
+    labels = client.get(f"/v1/customers/{customer['id']}/audit-log", headers=headers).json()["labels"]
+    assert labels[dealer_id] == "Garage Musterbetrieb AG"
+    assert labels[first_advisor["id"]] == "Bea Berater"  # the advisor before the change, never the actor
+    assert labels[second_advisor["id"]] == "Carl Coach"
+    assert labels[actor["id"]] == "Ida Innendienst"
+    assert labels[vehicle["id"]]
+    duplicate_labels = client.get(f"/v1/customers/{duplicate['id']}/audit-log", headers=headers).json()["labels"]
+    assert duplicate_labels[customer["id"]] == f"Anna Muster ({customer['customerNumber']})"
+    assert duplicate_labels[earlier["id"]] == f"Xaver Früher ({earlier['customerNumber']})"  # earlierMergesRepointedIds
+
+
+def test_the_history_names_a_sister_betrieb_only_while_the_group_read_is_enabled(client, db_session):
+    """ADR-093 / ADR-030: the caller's own Betrieb and users are always named;
+    a sister Betrieb of the group and its users only once the group's read is
+    enabled (the joint-controller flag). Another group's are never named."""
+
+    from app.customer.services import customer as customer_service
+    from tests.identity_support import create_user
+
+    own_id = _create_dealer(client)
+    sister_id = _create_dealer(client)
+    stranger_id = _create_dealer(client)
+    own_user = create_user(client, own_id, firstName="Olga", lastName="Own")
+    sister_user = create_user(client, sister_id, firstName="Sina", lastName="Sister")
+    stranger_user = create_user(client, stranger_id, firstName="Fritz", lastName="Fremd")
+    group_id = uuid.uuid5(uuid.NAMESPACE_OID, own_id)
+    db_session.add(DealerGroup(id=group_id, name="Group", group_read_enabled=False))
+    for dealership_id in (own_id, sister_id):
+        db_session.get(Dealership, uuid.UUID(dealership_id)).dealer_group_id = group_id
+    db_session.commit()
+
+    from types import SimpleNamespace
+
+    event = SimpleNamespace(
+        actor_id=uuid.UUID(own_user["id"]),
+        before={"dealership_id": sister_id, "advisor_id": sister_user["id"]},
+        after={"dealership_id": own_id, "advisor_id": stranger_user["id"], "duplicateOfCustomerId": stranger_id},
+    )
+
+    def labels():
+        return customer_service.history_labels(
+            db_session, group_id=group_id, dealership_id=uuid.UUID(own_id), events=[event]
+        )
+
+    assert labels() == {own_id: "Garage Musterbetrieb AG", own_user["id"]: "Olga Own"}
+    db_session.get(DealerGroup, group_id).group_read_enabled = True
+    db_session.commit()
+    assert labels() == {
+        own_id: "Garage Musterbetrieb AG",
+        own_user["id"]: "Olga Own",
+        sister_id: "Garage Musterbetrieb AG",
+        sister_user["id"]: "Sina Sister",
+    }
