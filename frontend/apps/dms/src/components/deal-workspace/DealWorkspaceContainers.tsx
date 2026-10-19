@@ -4,7 +4,7 @@ import { Alert, Button, Group, Modal, Stack, Text, TextInput, UnstyledButton } f
 import { useDebouncedValue } from '@mantine/hooks'
 import { useTranslation } from 'react-i18next'
 import { OverviewCard, Picker, SalesStatusBadge, useOverlay, type PickerRow } from '@nexotec/ui-kit'
-import { api } from '../../api/client'
+import { api, ApiError } from '../../api/client'
 import { CustomerCreateDialog } from '../CustomerCreateDialog'
 import { OfferAccessoriesAndOptions } from '../OfferAccessoriesAndOptions'
 import { PriceBuildUp } from '../PriceBuildUp'
@@ -15,6 +15,7 @@ import { HostCommitError } from '../configurator/hostCommitError'
 import { HostConfigurationCard } from '../configurator/HostConfigurationCard'
 import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
 import type { DealSaveQueue } from '../../hooks/useDealSaveQueue'
+import { customerName } from '../../utils/customer'
 import { formatCurrencyChf } from '../../utils/format'
 import { isVinRefusal } from '../../utils/vin'
 import type {
@@ -385,6 +386,30 @@ export function DealTradeInContainer<D extends SalesPricedDealRead>({
     if (updated) tradeInKey.renew()
   }
 
+  // KAN-382 — since KAN-365 a trade-in on a deal that still points at a
+  // merged customer is refused 409 `customer_merged`. The seller cannot fix
+  // it by retrying: the deal's customer must become the one it was merged
+  // into, so the message says that and names the survivor when the API
+  // names one. Any other failure keeps the generic save error.
+  const tradeInRefusalMessage = async (err: unknown): Promise<string> => {
+    if (!(err instanceof ApiError) || err.details?.reason !== 'customer_merged') {
+      return t('offerWorkspace.tradeIn.saveError')
+    }
+    const survivorId = err.details.mergedIntoCustomerId
+    if (typeof survivorId === 'string') {
+      try {
+        const survivor = await api.get<CustomerRead>(`/customers/${survivorId}`)
+        const name = customerName(survivor)
+        if (name) {
+          return t('offerWorkspace.tradeIn.customerMergedInto', { name, customerNumber: survivor.customerNumber })
+        }
+      } catch {
+        // Unreadable survivor: the message below still says what to do.
+      }
+    }
+    return t('offerWorkspace.tradeIn.customerMerged')
+  }
+
   return (
     <OverviewCard title={t('offerWorkspace.containers.tradeIn')} badge={<RequirementBadge requirement="optional" />}>
       {deal.tradeInVehicleId || deal.tradeInConfigurationId ? (
@@ -432,10 +457,10 @@ export function DealTradeInContainer<D extends SalesPricedDealRead>({
                 setTradeInVinError(null)
                 submitTradeIn({ vin: tradeInVin, plate: null, canton: null, vehicleLabel: tradeInLabel, customerId: null })
                   .then(() => setTradeInMode(false))
-                  .catch((err: unknown) =>
+                  .catch(async (err: unknown) =>
                     isVinRefusal(err)
                       ? setTradeInVinError(t('common.invalidVin'))
-                      : setTradeInError(t('offerWorkspace.tradeIn.saveError')),
+                      : setTradeInError(await tradeInRefusalMessage(err)),
                   )
               }}
             >

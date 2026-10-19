@@ -1213,7 +1213,9 @@
       "add": "Add trade-in vehicle",
       "valueWithConfigurator": "Identify and value",
       "attachError": "The valuation could not be attached.",
-      "saveError": "The trade-in could not be saved."
+      "saveError": "The trade-in could not be saved.",
+      "customerMerged": "This deal's customer has been merged into another customer. Choose the customer it was merged into, then add the trade-in again.",
+      "customerMergedInto": "This deal's customer has been merged into {{name}} ({{customerNumber}}). Choose {{name}} as the customer, then add the trade-in again."
     },
     "leasing": {
       "hint": "No leasing calculator in v1 (S-D03). Free-text inputs, so a later calculator can be dropped in without a schema change.",

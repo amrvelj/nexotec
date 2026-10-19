@@ -1213,7 +1213,9 @@
       "add": "Ajouter un véhicule de reprise",
       "valueWithConfigurator": "Identifier et évaluer",
       "attachError": "L'évaluation n'a pas pu être reprise.",
-      "saveError": "Le véhicule de reprise n'a pas pu être enregistré."
+      "saveError": "Le véhicule de reprise n'a pas pu être enregistré.",
+      "customerMerged": "Le client de cette affaire a été fusionné avec un autre client. Choisissez le client avec lequel il a été fusionné, puis saisissez à nouveau le véhicule de reprise.",
+      "customerMergedInto": "Le client de cette affaire a été fusionné avec {{name}} ({{customerNumber}}). Choisissez {{name}} comme client, puis saisissez à nouveau le véhicule de reprise."
     },
     "leasing": {
       "hint": "Pas de calculateur de leasing en v1 (S-D03). Saisies libres, pour qu'un futur calculateur puisse être intégré sans changement de schéma.",
