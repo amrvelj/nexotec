@@ -157,3 +157,68 @@ describe('ValuationCreateDialog — a refused VIN is named at the VIN input (KAN
     }
   })
 })
+
+// KAN-353 (Anto, option C) — a car first registered before 1981 may carry a
+// chassis number in the VIN field: the dialog sends the first registration
+// with it, and a chassis number the API refuses for want of that date is
+// said in the user's language.
+describe('ValuationCreateDialog — a pre-1981 chassis number (KAN-353)', () => {
+  afterEach(async () => {
+    await i18n.changeLanguage('de')
+  })
+
+  function installChassis() {
+    return installFakeBackend([
+      { method: 'GET', match: /^\/integrations\/capabilities\/valuation$/, handler: () => ({ capabilityCode: 'valuation', granted: true }) },
+      {
+        method: 'POST',
+        match: /^\/valuations$/,
+        handler: (req) => {
+          const body = req.body as { vehicleFirstRegistration?: string | null }
+          if (!body.vehicleFirstRegistration || body.vehicleFirstRegistration >= '1981-01-01') {
+            return status(422, {
+              error: {
+                code: 'unprocessable_entity',
+                message: 'Not a valid VIN. A chassis number ...',
+                details: { field: 'vin', reason: 'chassis_number_requires_pre_1981_registration' },
+              },
+            })
+          }
+          return { __status: 201, body: { id: 'val-1' } }
+        },
+      },
+    ])
+  }
+
+  it('sends the first registration with the chassis number, in fr', async () => {
+    await i18n.changeLanguage('fr')
+    const user = userEvent.setup()
+    const backend = installChassis()
+    renderWithProviders(<ValuationCreateDialog opened onClose={() => {}} onCreated={() => {}} />)
+
+    const dialog = await screen.findByRole('dialog', { name: i18n.t('valuationCreate.title') })
+    await user.type(within(dialog).getByLabelText(i18n.t('valuationCreate.vin')), '9112300123')
+    await user.type(within(dialog).getByLabelText(i18n.t('valuationCreate.firstRegistration')), '1972-05-01')
+    await submit(user, '85000')
+
+    await waitFor(() => expect(backend.callsTo(/^\/valuations$/, 'POST')).toHaveLength(1))
+    expect(backend.callsTo(/^\/valuations$/, 'POST')[0].body).toMatchObject({
+      vin: '9112300123',
+      vehicleFirstRegistration: '1972-05-01',
+    })
+  })
+
+  it('names the missing pre-1981 first registration at the VIN field, in fr', async () => {
+    await i18n.changeLanguage('fr')
+    const user = userEvent.setup()
+    installChassis()
+    renderWithProviders(<ValuationCreateDialog opened onClose={() => {}} onCreated={() => {}} />)
+
+    const dialog = await screen.findByRole('dialog', { name: i18n.t('valuationCreate.title') })
+    await user.type(within(dialog).getByLabelText(i18n.t('valuationCreate.vin')), '9112300123')
+    await submit(user, '85000')
+
+    expect(await screen.findByText(i18n.t('common.chassisNumberNeedsPre1981'))).toBeInTheDocument()
+    expect(screen.queryByText('Not a valid VIN. A chassis number ...')).toBeNull()
+  })
+})

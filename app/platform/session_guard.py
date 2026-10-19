@@ -24,7 +24,7 @@ from app.platform.models.dealership_auth_config import DealershipAuthConfig
 from app.platform.services import auth_events, auth_sessions, mfa
 
 _SESSION_ENDED = "Your session has ended — sign in again."
-_ENROL_FIRST = "Enrol a second factor before anything else — your Betrieb requires one."
+_ENROL_FIRST = "Enrol a second factor before anything else — your business requires one."
 # What a session minted without a required second factor may still reach
 # (D-A-36, FR-AU-11): its own identity, the enrolment itself, its sessions,
 # the UI preferences the shell loads, and the way out.

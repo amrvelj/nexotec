@@ -93,10 +93,11 @@ describe('HistoryTab in French (KAN-336)', () => {
     expect(screen.getByText('Conseiller')).toBeInTheDocument()
     expect(screen.getByText(/— → Anna Muster/)).toBeInTheDocument()
     expect(screen.queryByText(new RegExp(ADVISOR_ID))).not.toBeInTheDocument()
-    // No label for the dealership on the record: the id is shown as recorded,
-    // under a translated field name.
-    expect(screen.getByText('Concession')).toBeInTheDocument()
-    expect(screen.getByText(new RegExp(DEALERSHIP_ID))).toBeInTheDocument()
+    // KAN-371: an id nothing names reads as a translated marker under a
+    // translated field name, never as a bare UUID.
+    expect(screen.getByText('Entreprise')).toBeInTheDocument()
+    expect(screen.getByText(/— → enregistrement inconnu/)).toBeInTheDocument()
+    expect(screen.queryByText(new RegExp(DEALERSHIP_ID))).not.toBeInTheDocument()
 
     for (const english of ['First name', 'Salutation', 'Lifecycle status', 'Advisor id', 'Dealership id']) {
       expect(screen.queryByText(english)).not.toBeInTheDocument()
@@ -206,5 +207,93 @@ describe('HistoryTab in French (KAN-336)', () => {
     renderHistory([event({ before: { some_new_field: 'a' }, after: { some_new_field: 'b' } })])
     expect(screen.getByText('some_new_field')).toBeInTheDocument()
     expect(screen.queryByText(/MISSING I18N KEY/)).not.toBeInTheDocument()
+  })
+})
+
+// KAN-371 (Anto, option A) — the History endpoint names the ids its events
+// carry; the tab shows the Betrieb, the customer a record was merged into and
+// the acting user by name, in the UI language's frame.
+describe('HistoryTab — ids read as names (KAN-371)', () => {
+  it('renders the Betrieb, the merged-into customer and the actor by name, in fr', async () => {
+    await i18n.changeLanguage('fr')
+    const SURVIVOR_ID = '01a1487e-0000-7000-8000-000000000099'
+    const ACTOR_ID = '01a1487e-0000-7000-8000-000000000077'
+    renderHistory(
+      [
+        event({ action: 'create', after: { first_name: 'Hans', dealership_id: DEALERSHIP_ID } }),
+        event({
+          action: 'merge',
+          actorId: ACTOR_ID,
+          before: { lifecycleStatus: 'prospect', duplicateOfCustomerId: null },
+          after: { lifecycleStatus: 'merged', duplicateOfCustomerId: SURVIVOR_ID },
+        }),
+      ],
+      { [DEALERSHIP_ID]: 'Garage Muster AG', [SURVIVOR_ID]: 'Tina Treu (K-000042)', [ACTOR_ID]: 'Bea Berater' },
+    )
+
+    expect(screen.getByText(/— → Garage Muster AG/)).toBeInTheDocument()
+    expect(screen.getByText(/— → Tina Treu \(K-000042\)/)).toBeInTheDocument()
+    expect(screen.getByText('Bea Berater')).toBeInTheDocument()
+    for (const id of [DEALERSHIP_ID, SURVIVOR_ID, ACTOR_ID]) {
+      expect(screen.queryByText(new RegExp(id))).not.toBeInTheDocument()
+    }
+  })
+})
+
+describe('HistoryTab — id lists, the merged-into customer, a replaced advisor and an unnamed actor (KAN-371)', () => {
+  it('names each id the endpoint named and marks the rest, in fr', async () => {
+    await i18n.changeLanguage('fr')
+    const NAMED = '01a1487e-0000-7000-8000-000000000011'
+    const UNNAMED = '01a1487e-0000-7000-8000-000000000012'
+    const OLD_ADVISOR = '01a1487e-0000-7000-8000-000000000013'
+    const SURVIVOR = '01a1487e-0000-7000-8000-000000000014'
+    const STRANGER = '01a1487e-0000-7000-8000-000000000015'
+    renderHistory(
+      [
+        event({
+          action: 'merge',
+          after: { earlierMergesRepointedIds: [NAMED, UNNAMED] },
+        }),
+        event({
+          action: 'update',
+          actorId: STRANGER,
+          before: { advisor_id: OLD_ADVISOR },
+          after: { advisor_id: ADVISOR_ID },
+        }),
+        event({
+          action: 'vehicle_party_update',
+          entityType: 'customer',
+          before: { mergedIntoCustomerId: null },
+          after: { mergedIntoCustomerId: SURVIVOR },
+        }),
+      ],
+      {
+        [NAMED]: 'Xaver Früher (K-000009)',
+        [OLD_ADVISOR]: 'Bruno Berater',
+        [ADVISOR_ID]: 'Anna Muster',
+        [SURVIVOR]: 'Tina Treu (K-000011)',
+      },
+    )
+
+    expect(screen.getByText(i18n.t('customerDetail.history.fields.earlierMergesRepointedIds'))).toBeInTheDocument()
+    expect(screen.getByText(/— → Xaver Früher \(K-000009\), enregistrement inconnu/)).toBeInTheDocument()
+    expect(screen.getByText(/Bruno Berater → Anna Muster/)).toBeInTheDocument()
+    expect(screen.getByText(/— → Tina Treu \(K-000011\)/)).toBeInTheDocument()
+    expect(screen.getByText(i18n.t('customerDetail.history.unknownUser'))).toBeInTheDocument()
+    for (const id of [NAMED, UNNAMED, OLD_ADVISOR, SURVIVOR, STRANGER]) {
+      expect(screen.queryByText(new RegExp(id))).not.toBeInTheDocument()
+      expect(screen.queryByText(new RegExp(id.slice(0, 8)))).not.toBeInTheDocument()
+    }
+  })
+})
+
+describe('HistoryTab — an id that is data, not a reference (KAN-371)', () => {
+  it('shows a UUID-shaped external ID as recorded, never as an unknown record, in fr', async () => {
+    await i18n.changeLanguage('fr')
+    const EXTERNAL = '5f0c2b1e-9a7d-4c3e-8b21-0d4e6f7a8b9c'
+    renderHistory([event({ action: 'external_id_add', before: null, after: { externalId: EXTERNAL } })])
+
+    expect(screen.getByText(new RegExp(`— → ${EXTERNAL}`))).toBeInTheDocument()
+    expect(screen.queryByText(/enregistrement inconnu/)).not.toBeInTheDocument()
   })
 })

@@ -132,7 +132,7 @@ _EMAIL_CHANGED = {
             "Hello {first_name}\n\n"
             "The e-mail address of your Nexotec account was changed to {new_email}. Your sessions were ended; "
             "sign-in and password links now go through the new address.\n\n"
-            "If you did not expect this change, contact your Betrieb at once.\n"
+            "If you did not expect this change, contact your business at once.\n"
         ),
     ),
 }

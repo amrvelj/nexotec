@@ -35,7 +35,7 @@
       "notificationsSoon": "Notifications (soon)",
       "accountMenu": "Account menu",
       "language": "Language",
-      "switchDealership": "Switch dealership",
+      "switchDealership": "Switch business",
       "accountSecurity": "My account – Security"
     },
     "globalSearch": {
@@ -45,8 +45,8 @@
       "error": "Search failed — try again."
     },
     "switchDealershipError": {
-      "notAMember": "Switch refused: you are no longer a member of this dealership. You remain in the current dealership.",
-      "failed": "The dealership could not be switched. You remain in the current dealership. Please try again.",
+      "notAMember": "Switch refused: you are no longer a member of this business. You remain in the current business.",
+      "failed": "The business could not be switched. You remain in the current business. Please try again.",
       "dismiss": "Dismiss message"
     }
   },
@@ -90,6 +90,7 @@
     "requestFailed": "The request failed. Please try again.",
     "dismiss": "Dismiss message",
     "invalidVin": "Not a valid VIN: 17 characters, letters and digits only, never I, O or Q.",
+    "chassisNumberNeedsPre1981": "Not a VIN. A chassis number that is not a 17-character VIN is accepted only for a car first registered before 1981 – enter that first registration.",
     "columnPanel": {
       "trigger": "Columns",
       "search": "Find a column…",
@@ -510,11 +511,13 @@
       },
       "you": "You",
       "system": "System",
-      "user": "User {{id}}",
+      "unknownReference": "unknown record",
+      "unknownUser": "Unknown user",
       "actions": {
         "create": "Customer created",
         "update": "Customer updated",
         "merge": "Customer merged",
+        "merge_survivor_repointed": "Merge target updated",
         "phone_add": "Phone number added",
         "phone_update": "Phone number updated",
         "phone_remove": "Phone number removed",
@@ -534,7 +537,7 @@
       },
       "otherAction": "Change recorded",
       "fields": {
-        "dealershipId": "Dealership",
+        "dealershipId": "Business",
         "phoneType": "Phone type",
         "emailType": "Email type",
         "addressType": "Address type",
@@ -550,7 +553,8 @@
         "creditBlockReason": "Credit block reason",
         "vehiclePartiesRepointed": "Vehicle links moved",
         "vehiclePartiesKeptClosed": "Vehicle links kept closed",
-        "vehiclePartiesKeptClosedIds": "Vehicle links kept closed (IDs)",
+        "vehiclePartiesKeptClosedIds": "Vehicle links kept closed (vehicles)",
+        "earlierMergesRepointedIds": "Earlier merges re-pointed",
         "transactionsRepointed": "Transactions moved",
         "phonesRepointed": "Phone numbers moved",
         "phonesDropped": "Phone numbers dropped",
@@ -776,7 +780,7 @@
       "removeError": "The accessory could not be removed."
     },
     "specification": {
-      "empty": "This dealership holds no configuration of this vehicle.",
+      "empty": "This business holds no configuration of this vehicle.",
       "loadError": "The specification could not be loaded."
     }
   },
@@ -839,7 +843,7 @@
       "changed": "Changed",
       "vin": "VIN",
       "listPrice": "List price",
-      "dealership": "Dealership",
+      "dealership": "Business",
       "ageingBucket": "Ageing indicator",
       "basePrice": "Base price",
       "purchasePrice": "Purchase price",
@@ -888,6 +892,9 @@
       "createOffer": "Create offer",
       "createContract": "Create contract",
       "leftStock": "This vehicle left stock on {{date}} (sold)."
+    },
+    "headline": {
+      "listPriceCaption": "List price – selling price not built yet"
     },
     "spec": {
       "firstRegistrationDate": "First registration",
@@ -1248,7 +1255,7 @@
       "suppressedReason": "Reason",
       "suppressedReasonHint": "A per-line discount is suppressed by default on used vehicles — a reason overrides the suppression.",
       "error": "The change could not be saved.",
-      "noPackagesCapability": "Shown as a flat list — package grouping is not available for this dealership."
+      "noPackagesCapability": "Shown as a flat list — package grouping is not available for this business."
     },
     "errors": {
       "saveRefused": {
@@ -1360,6 +1367,7 @@
     "banner": "No customer, no offer, no registered vehicle required — any combination works.",
     "vehicleSection": "Vehicle",
     "vin": "VIN",
+    "firstRegistration": "First registration",
     "mileage": "Mileage",
     "make": "Make",
     "model": "Model",
@@ -1379,7 +1387,7 @@
     "finalOffer": "Trade-in offer",
     "finalOfferHint": "May differ from the net value — that's the negotiation.",
     "note": "Note",
-    "noProviderCapability": "auto-i-dat valuation is not available for this dealership — enter the trade-in value manually below.",
+    "noProviderCapability": "auto-i-dat valuation is not available for this business — enter the trade-in value manually below.",
     "configurator": {
       "skip": "Enter by hand instead"
     }
@@ -1426,7 +1434,7 @@
       "hint": "Enter a new value only for the slot(s) you want to replace — rotation replaces, it never reads the current value."
     },
     "columns": {
-      "dealership": "Dealership",
+      "dealership": "Business",
       "displayName": "Connection",
       "provider": "Provider",
       "environment": "Environment",
@@ -1435,7 +1443,7 @@
     },
     "emptyState": {
       "title": "No connections yet",
-      "description": "No dealership has connected a provider yet."
+      "description": "No business has connected a provider yet."
     },
     "emptyFilteredState": {
       "title": "No matching connections",
@@ -1461,7 +1469,7 @@
       },
       "emptyState": {
         "title": "No catalogue sync yet",
-        "description": "No tenant has synced a catalogue mirror yet."
+        "description": "No business has synced a catalogue mirror yet."
       }
     }
   },
@@ -1551,7 +1559,7 @@
     },
     "unavailable": {
       "title": "Catalogue unavailable",
-      "body": "No auto-i-dat connection is active for this dealership. Connect auto-i-dat to browse the catalogue."
+      "body": "No auto-i-dat connection is active for this business. Connect auto-i-dat to browse the catalogue."
     },
     "columns": {
       "brand": "Brand",
@@ -1604,7 +1612,7 @@
     "loadError": "The catalogue could not be loaded.",
     "emptyState": {
       "title": "No variants",
-      "description": "No catalogue data has been synced for this dealership yet."
+      "description": "No catalogue data has been synced for this business yet."
     },
     "emptyFilteredState": {
       "title": "No results",
@@ -1746,7 +1754,7 @@
       "unavailable": {
         "title": "Images unavailable",
         "body": "Images are not available on this account.",
-        "uploadNote": "Your dealership can add its own photos here once manual upload is available."
+        "uploadNote": "Your business can add its own photos here once manual upload is available."
       },
       "empty": "This variant has no images in the catalogue mirror.",
       "bildArt": {
@@ -1938,20 +1946,20 @@
       "hint": "Set your password to activate your account.",
       "newPassword": "Password",
       "submit": "Activate account",
-      "invalidLink": "This invitation is no longer valid. Ask your Betrieb for a new one.",
+      "invalidLink": "This invitation is no longer valid. Ask your business for a new one.",
       "mfaNext": "Your password is set. Sign in now with your second factor."
     },
     "password": {
-      "rules": "At least 12 characters. Not your name, your e-mail address or the name of your Betrieb.",
+      "rules": "At least 12 characters. Not your name, your e-mail address or the name of your business.",
       "minLength": "The password must have at least {{count, number}} characters.",
-      "denyList": "The password must not contain your name, your e-mail address or the name of your Betrieb.",
+      "denyList": "The password must not contain your name, your e-mail address or the name of your business.",
       "breached": "This password appears in a known data breach — choose another one.",
       "reused": "This password was used recently — choose a new one."
     },
     "security": {
       "breadcrumb": "My account",
       "title": "Security",
-      "enrolmentRequired": "Your Betrieb requires a second factor. Set up an authenticator app or a passkey before you continue.",
+      "enrolmentRequired": "Your business requires a second factor. Set up an authenticator app or a passkey before you continue.",
       "totp": {
         "title": "Authenticator app",
         "enrolled": "Set up — a code is asked for at every sign-in.",

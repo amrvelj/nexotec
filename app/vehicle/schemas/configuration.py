@@ -5,7 +5,7 @@ from decimal import Decimal
 from pydantic import Field
 
 from app.core.schemas import CamelModel
-from app.core.validators import NormalisedVin
+from app.core.validators import NormalisedVinOrChassisNumber
 from app.vehicle.models.configuration import (
     ConfigurationMatchMethod,
     ConfigurationMatchStatus,
@@ -53,7 +53,10 @@ class _ConfigurationObserved(CamelModel):
     # KAN-338: normalised and validated as Stock's VIN is (FR-V-15) — the
     # vehicle link follows the VIN (KAN-326), so a lower-cased spelling of a
     # known car's VIN must find that car, never unlink it.
-    vin: NormalisedVin | None = None
+    # KAN-353: for a car first registered before 1981, a chassis number
+    # (1-17 letters and digits) instead, which never links a car (the
+    # service decides).
+    vin: NormalisedVinOrChassisNumber | None = None
     stammnummer: str | None = Field(default=None, max_length=9)
     type_approval_number: str | None = Field(default=None, max_length=6)
     first_registration_date: dt.date | None = None

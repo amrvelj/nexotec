@@ -27,6 +27,7 @@ from app.core.config import get_settings
 from app.core.errors import ConflictError, NotFoundError
 from app.core.outbox import OutboxEvent, publish
 from app.core.pagination import SortPageParams, build_sorted_page, count_capped, paginate_query_sorted
+from app.core.validators import is_chassis_number, require_vin_or_pre_1981_chassis_number
 from app.customer.public import get_customer_or_404
 from app.sales.public import valuations_carried_by_signed_contracts
 from app.valuation.models.valuation import Valuation, ValuationDeduction, ValuationNumberSequence
@@ -142,11 +143,24 @@ def create_valuation(
         configuration = get_configuration_for_host(db, tenant_id=tenant_id, configuration_id=data.configuration_id)
         configuration.require_mode(host="valuation", allowed=(CONFIGURATION_MODE_RECORD,))
 
+    # KAN-353: judged on what the valuation will store — the VIN and first
+    # registration sent, else the configuration's. A chassis number is
+    # accepted only with a first registration before 1981, and never resolves,
+    # creates or links a vehicle-mdm record, not even the one a configuration
+    # links.
+    stored_vin = data.vin if data.vin is not None or configuration is None else configuration.vin
+    require_vin_or_pre_1981_chassis_number(
+        stored_vin,
+        data.vehicle_first_registration
+        if data.vehicle_first_registration is not None or configuration is None
+        else configuration.first_registration_date,
+    )
     vehicle_id = None
-    if configuration is not None:
-        vehicle_id = configuration.vehicle_id
-    elif data.vin:
-        vehicle_id = _resolve_vehicle_id(db, vin=data.vin, actor_id=actor_id)
+    if not is_chassis_number(stored_vin):
+        if configuration is not None:
+            vehicle_id = configuration.vehicle_id
+        elif data.vin:
+            vehicle_id = _resolve_vehicle_id(db, vin=data.vin, actor_id=actor_id)
 
     def _from_configuration(value, attribute: str):
         if value is not None or configuration is None:

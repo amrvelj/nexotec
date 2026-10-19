@@ -68,7 +68,10 @@ describe('HistoryTab — values are formatted by field (KAN-164)', () => {
       }),
     ])
     expect(screen.getByText(/— → 1'500/)).toBeInTheDocument()
-    expect(screen.getByText(/\["01a1"\]/)).toBeInTheDocument()
+    // KAN-371: an id list reads item by item (a value no label and no UUID
+    // shape is shown as recorded), never as the raw JSON array.
+    expect(screen.getByText(/— → 01a1$/)).toBeInTheDocument()
+    expect(screen.queryByText(/\["01a1"\]/)).toBeNull()
   })
 
   // KAN-160 split this out because "a number there may be a year": a

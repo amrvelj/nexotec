@@ -34,16 +34,23 @@ SPELLINGS = [
     "wVw ZZZ1KZAW331338",  # a no-break space pasted from a document
 ]
 
-MALFORMED = [
+# Not a VIN, but shaped like a pre-1981 chassis number (1-17 letters and
+# digits): KAN-353 lets a valuation and a configuration hold one, only with a
+# first registration before 1981 — without it, still a 422 that writes nothing.
+NOT_A_VIN = [
     "WVWZZZ1KZAW33133",  # 16 characters
-    "WVWZZZ1KZAW3313388",  # 18 characters
     "WVWZZZ1KZAI331338",  # I is never in a VIN
     "WVWZZZ1KZAO331338",  # nor O
     "WVWZZZ1KZAQ331338",  # nor Q
+]
+# Neither a VIN nor a chassis number: refused by the type everywhere.
+MALFORMED_SHAPE = [
+    "WVWZZZ1KZAW3313388",  # 18 characters
     "WVWZZZ1KZAW33133-",
     "",
     "   ",
 ]
+MALFORMED = NOT_A_VIN + MALFORMED_SHAPE
 
 
 def _headers(tenant_id: uuid.UUID, group_id: uuid.UUID | None = None, **extra: str) -> dict[str, str]:
@@ -139,7 +146,7 @@ def test_a_valuation_spelling_of_a_known_vin_is_the_known_car(client, db_session
     assert _vehicle_count(db_session) == 1
 
 
-@pytest.mark.parametrize("malformed", MALFORMED)
+@pytest.mark.parametrize("malformed", MALFORMED_SHAPE)
 def test_a_malformed_valuation_vin_is_422_and_writes_nothing(client, db_session, malformed):
     response = _post_valuation(client, uuid.uuid4(), malformed)
 
@@ -204,7 +211,7 @@ def test_a_configuration_patched_to_a_spelling_of_a_known_vin_links_the_car(clie
     assert response.json()["vehicleId"] == str(vehicle.id)
 
 
-@pytest.mark.parametrize("malformed", MALFORMED)
+@pytest.mark.parametrize("malformed", MALFORMED_SHAPE)
 def test_a_malformed_configuration_vin_is_422_on_create_and_writes_nothing(client, db_session, malformed):
     seed_manual_coded_lists(db_session)
 
@@ -214,7 +221,7 @@ def test_a_malformed_configuration_vin_is_422_on_create_and_writes_nothing(clien
     assert db_session.scalar(select(func.count()).select_from(VehicleConfiguration)) == 0
 
 
-@pytest.mark.parametrize("malformed", MALFORMED)
+@pytest.mark.parametrize("malformed", MALFORMED_SHAPE)
 def test_a_malformed_configuration_vin_is_422_on_patch_and_changes_nothing(client, db_session, malformed):
     seed_manual_coded_lists(db_session)
     vehicle = _known_car(db_session)
@@ -257,11 +264,183 @@ def test_a_configuration_vin_can_still_be_cleared(client, db_session):
 
 
 def test_every_typed_vin_field_uses_the_one_shared_type():
-    from app.core.validators import NormalisedVin
+    """Stock and the trade-in take a VIN only. The valuation and the
+    configuration take a VIN or, before 1981, a chassis number (KAN-353) —
+    one shared type each, never a local copy."""
+
+    from app.core.validators import NormalisedVin, NormalisedVinOrChassisNumber
     from app.inventory.schemas.stock_item import StockItemCreate
     from app.sales.schemas.offer import TradeInRequest
     from app.valuation.schemas.valuation import ValuationCreate
     from app.vehicle.schemas.configuration import ConfigurationCreate, ConfigurationUpdate
 
-    for model in (StockItemCreate, TradeInRequest, ValuationCreate, ConfigurationCreate, ConfigurationUpdate):
+    for model in (StockItemCreate, TradeInRequest):
         assert model.model_fields["vin"].annotation == NormalisedVin | None, model.__name__
+    for model in (ValuationCreate, ConfigurationCreate, ConfigurationUpdate):
+        assert model.model_fields["vin"].annotation == NormalisedVinOrChassisNumber | None, model.__name__
+
+
+# --- KAN-353: a pre-1981 chassis number on a valuation and a configuration -------
+
+CHASSIS = "911 230 0123"  # a 1972 Porsche's chassis number, as typed
+CHASSIS_STORED = "9112300123"
+
+
+def _chassis_refused(response) -> None:
+    assert response.status_code == 422, response.text
+    assert response.json()["error"]["details"]["reason"] == "chassis_number_requires_pre_1981_registration"
+
+
+def test_a_valuation_of_a_pre_1981_car_keeps_its_chassis_number_and_creates_no_vehicle(client, db_session):
+    response = client.post(
+        "/v1/valuations",
+        json={"vin": CHASSIS, "vehicleFirstRegistration": "1972-05-01", "finalOffer": "85000.00", "source": "manual"},
+        headers=_headers(uuid.uuid4(), **{"Idempotency-Key": str(uuid.uuid4())}),
+    )
+
+    assert response.status_code == 201, response.text
+    assert response.json()["vehicleVin"] == CHASSIS_STORED
+    assert response.json()["vehicleId"] is None
+    assert _vehicle_count(db_session) == 0
+
+
+@pytest.mark.parametrize("first_registration", [None, "1981-01-01", "1985-06-30"])
+@pytest.mark.parametrize("not_a_vin", [CHASSIS, *NOT_A_VIN])
+def test_a_valuation_chassis_number_without_a_pre_1981_registration_is_422(client, db_session, not_a_vin, first_registration):
+    body = {"vin": not_a_vin, "finalOffer": "12500.00", "source": "manual"}
+    if first_registration is not None:
+        body["vehicleFirstRegistration"] = first_registration
+
+    response = client.post(
+        "/v1/valuations", json=body, headers=_headers(uuid.uuid4(), **{"Idempotency-Key": str(uuid.uuid4())})
+    )
+
+    _chassis_refused(response)
+    assert _vehicle_count(db_session) == 0
+    assert db_session.scalar(select(func.count()).select_from(Valuation)) == 0
+
+
+def test_a_configuration_of_a_pre_1981_car_keeps_its_chassis_number_and_links_no_car(client, db_session):
+    seed_manual_coded_lists(db_session)
+
+    response = _create_configuration(client, uuid.uuid4(), vin=CHASSIS, firstRegistrationDate="1972-05-01")
+
+    assert response.status_code == 201, response.text
+    assert response.json()["vin"] == CHASSIS_STORED
+    assert response.json()["vehicleId"] is None
+    assert _vehicle_count(db_session) == 0
+
+
+@pytest.mark.parametrize("first_registration", [None, "1990-01-01"])
+@pytest.mark.parametrize("not_a_vin", [CHASSIS, *NOT_A_VIN])
+def test_a_configuration_chassis_number_without_a_pre_1981_registration_is_422(
+    client, db_session, not_a_vin, first_registration
+):
+    seed_manual_coded_lists(db_session)
+    fields = {"vin": not_a_vin}
+    if first_registration is not None:
+        fields["firstRegistrationDate"] = first_registration
+
+    response = _create_configuration(client, uuid.uuid4(), **fields)
+
+    _chassis_refused(response)
+    assert db_session.scalar(select(func.count()).select_from(VehicleConfiguration)) == 0
+
+
+@pytest.mark.parametrize("not_a_vin", NOT_A_VIN)
+def test_a_configuration_patched_to_a_non_vin_without_a_pre_1981_registration_changes_nothing(
+    client, db_session, not_a_vin
+):
+    """The PATCH case the KAN-331/338 tests covered before KAN-353: still a
+    422 that leaves the VIN, the vehicle link and the version as they were."""
+
+    seed_manual_coded_lists(db_session)
+    vehicle = _known_car(db_session)
+    tenant_id = uuid.uuid4()
+    created = _create_configuration(client, tenant_id, vin=VIN).json()
+
+    response = client.patch(
+        f"/v1/configurations/{created['id']}",
+        json={"vin": not_a_vin},
+        headers=_headers(tenant_id, **{"If-Match": str(created["version"])}),
+    )
+
+    _chassis_refused(response)
+    db_session.expire_all()
+    stored = db_session.get(VehicleConfiguration, uuid.UUID(created["id"]))
+    assert (stored.vin, stored.vehicle_id, stored.version) == (VIN, vehicle.id, created["version"])
+
+
+def _record_configuration(client, tenant_id: uuid.UUID, **fields) -> dict:
+    response = _create_configuration(client, tenant_id, **fields)
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def _post_valuation_on(client, tenant_id: uuid.UUID, configuration_id: str, **fields):
+    return client.post(
+        "/v1/valuations",
+        json={"configurationId": configuration_id, "finalOffer": "60000.00", "source": "manual", **fields},
+        headers=_headers(tenant_id, **{"Idempotency-Key": str(uuid.uuid4())}),
+    )
+
+
+def test_a_valuation_on_a_chassis_configuration_is_judged_on_the_date_it_stores(client, db_session):
+    """The reviewer's probe 1: the configuration holds a chassis number and
+    1972; the valuation sends no VIN but a 1990 first registration. It would
+    store the chassis number with 1990 — refused."""
+
+    seed_manual_coded_lists(db_session)
+    tenant_id = uuid.uuid4()
+    configuration = _record_configuration(client, tenant_id, vin=CHASSIS, firstRegistrationDate="1972-05-01")
+
+    refused = _post_valuation_on(client, tenant_id, configuration["id"], vehicleFirstRegistration="1990-01-01")
+    _chassis_refused(refused)
+    accepted = _post_valuation_on(client, tenant_id, configuration["id"])
+    assert accepted.status_code == 201, accepted.text
+    assert (accepted.json()["vehicleVin"], accepted.json()["vehicleId"]) == (CHASSIS_STORED, None)
+
+
+def test_a_valuation_with_a_chassis_number_never_links_its_configurations_car(client, db_session):
+    """The reviewer's probe 2: the configuration links a real car by its VIN;
+    the valuation sends a chassis number (and 1975). The valuation keeps the
+    chassis number and links no vehicle-mdm record."""
+
+    seed_manual_coded_lists(db_session)
+    vehicle = _known_car(db_session)
+    tenant_id = uuid.uuid4()
+    configuration = _record_configuration(client, tenant_id, vin=VIN, firstRegistrationDate="1975-03-01")
+    assert configuration["vehicleId"] == str(vehicle.id)
+
+    response = _post_valuation_on(client, tenant_id, configuration["id"], vin=CHASSIS)
+
+    assert response.status_code == 201, response.text
+    assert (response.json()["vehicleVin"], response.json()["vehicleId"]) == (CHASSIS_STORED, None)
+
+
+def test_a_configuration_patch_judges_the_chassis_number_against_the_stored_registration(client, db_session):
+    """On a PATCH the stored first registration counts: a chassis number is
+    accepted onto a 1972 car, and moving that car's first registration to
+    1990 while it holds the chassis number is refused, changing nothing."""
+
+    seed_manual_coded_lists(db_session)
+    tenant_id = uuid.uuid4()
+    created = _create_configuration(client, tenant_id, firstRegistrationDate="1972-05-01").json()
+
+    with_chassis = client.patch(
+        f"/v1/configurations/{created['id']}",
+        json={"vin": CHASSIS},
+        headers=_headers(tenant_id, **{"If-Match": str(created["version"])}),
+    )
+    assert with_chassis.status_code == 200, with_chassis.text
+    assert with_chassis.json()["vin"] == CHASSIS_STORED
+
+    moved = client.patch(
+        f"/v1/configurations/{created['id']}",
+        json={"firstRegistrationDate": "1990-01-01"},
+        headers=_headers(tenant_id, **{"If-Match": str(with_chassis.json()["version"])}),
+    )
+    _chassis_refused(moved)
+    db_session.expire_all()
+    stored = db_session.get(VehicleConfiguration, uuid.UUID(created["id"]))
+    assert (stored.vin, stored.first_registration_date.isoformat()) == (CHASSIS_STORED, "1972-05-01")

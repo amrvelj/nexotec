@@ -68,6 +68,12 @@ _ALLOWED_FILES = {
     # up (a superuser role bypassing tenant scope entirely, not an
     # ambient relaxation of it for an ordinary dealer-facing read).
     _APP_ROOT / "platform" / "services" / "dealership.py",
+    # KAN-371, ADR-093: the History tab's names for a group-owned customer —
+    # a Betrieb's and a user's name, never more. The caller's own Betrieb
+    # always; a sister Betrieb and its users only while the group's read is
+    # enabled (ADR-030's joint-controller flag). A dealer-facing read, so it
+    # sits in its own module rather than beside the staff-only listing above.
+    _APP_ROOT / "platform" / "services" / "group_labels.py",
 }
 
 # Whole-word only — \b keeps this from matching plate_group_id (a

@@ -2,12 +2,14 @@
 Customer/Vehicle reuse the same Swiss address/phone shape per the addendum).
 """
 
+import datetime as dt
 import re
 from typing import Annotated, Any
 
 from pydantic import AfterValidator, BeforeValidator
 
 from app.core.constants import CANTON_CODES
+from app.core.errors import UnprocessableEntityError
 
 _E164_RE = re.compile(r"^\+[1-9]\d{6,14}$")
 _POSTAL_CODE_RE = re.compile(r"^\d{4}$")
@@ -225,3 +227,58 @@ def _normalise_vin(value: Any) -> Any:
 # configuration (KAN-338). `Vin` itself still refuses an unnormalised
 # value: it guards vehicle-mdm's own fields, which are never normalised.
 NormalisedVin = Annotated[Vin, BeforeValidator(_normalise_vin)]
+
+
+# KAN-353 (Anto, 2026-10-18, option C): a car first registered before 1981
+# can carry a chassis number that is not a 17-character VIN (ISO 3779 dates
+# from 1981). The VIN field of a valuation and of a configuration accepts one
+# — 1 to 17 letters and digits, I, O and Q included — only together with a
+# first registration before this date. It is normalised as a VIN is
+# (upper-cased, whitespace removed; other punctuation is refused), stored and
+# printed that way — the ruling said "as entered"; KAN-391 asks Anto whether
+# to keep it so — and never finds, creates or links a vehicle-mdm record
+# (ADR-045: one VIN, one car). Every other value is a VIN and keeps the
+# strict rule.
+PRE_ISO_VIN_CUTOFF = dt.date(1981, 1, 1)
+_CHASSIS_NUMBER_RE = re.compile(r"^[A-Z0-9]{1,17}$")
+
+
+def _validate_vin_or_chassis_number(value: str) -> str:
+    if not _CHASSIS_NUMBER_RE.match(value):
+        raise ValueError(
+            "VIN must be exactly 17 uppercase alphanumeric characters (excluding I, O, Q); for a car first "
+            "registered before 1981, a chassis number of 1 to 17 letters and digits."
+        )
+    return value
+
+
+# The request type of a VIN field that may hold such a chassis number:
+# normalised as `NormalisedVin` is, shape-checked here, and judged against the
+# first registration by `require_vin_or_pre_1981_chassis_number` once the
+# date is known (on an update, the stored one counts).
+NormalisedVinOrChassisNumber = Annotated[
+    str, BeforeValidator(_normalise_vin), AfterValidator(_validate_vin_or_chassis_number)
+]
+
+
+def is_chassis_number(value: str | None) -> bool:
+    """A non-empty value that is not a valid VIN: a pre-1981 chassis number.
+    Such a value is never looked up in, written to or linked from vehicle-mdm."""
+
+    return bool(value) and not is_valid_vin(value)
+
+
+def require_vin_or_pre_1981_chassis_number(vin: str | None, first_registration: dt.date | None) -> None:
+    """422 `chassis_number_requires_pre_1981_registration` unless `vin` is
+    empty, a valid VIN, or a chassis number with a first registration before
+    1981-01-01 (KAN-353)."""
+
+    if not is_chassis_number(vin):
+        return
+    if first_registration is not None and first_registration < PRE_ISO_VIN_CUTOFF:
+        return
+    raise UnprocessableEntityError(
+        "Not a valid VIN. A chassis number that is not a 17-character VIN is accepted only for a car first "
+        "registered before 1981 - enter that first registration.",
+        details={"field": "vin", "reason": "chassis_number_requires_pre_1981_registration"},
+    )

@@ -21,6 +21,7 @@ from decimal import Decimal
 
 from pydantic import EmailStr, Field, field_validator, model_validator
 
+from app.core.audit_schemas import AuditEventPage
 from app.core.schemas import CamelModel
 from app.core.validators import (
     E164Phone,
@@ -770,3 +771,12 @@ class CustomerVehicleRead(CamelModel):
 
 class CustomerVehiclePage(CamelModel):
     items: list[CustomerVehicleRead]
+
+
+class CustomerHistoryPage(AuditEventPage):
+    """KAN-371: the customer's audit events plus `labels`, id → display label
+    for the ids they carry (a Betrieb, a user, another customer, a vehicle)
+    and their actors, resolved on read. An id absent from `labels` names
+    nothing this group can see."""
+
+    labels: dict[str, str] = Field(default_factory=dict)

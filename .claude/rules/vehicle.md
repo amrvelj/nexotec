@@ -39,9 +39,10 @@ code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. -->
   `inventory/services/pipeline.py::promote_to_vehicle_mdm`, idempotent per stock item (FR-V-04)
   — no production caller yet.
 - **A typed VIN is one spelling in every write** (FR-V-15): every request-body field carrying a
-  VIN a person typed — stock create, trade-in, valuation, configuration create/PATCH — is
-  `app.core.validators.NormalisedVin` (upper-cased, whitespace removed, then ISO 3779; 422
-  otherwise; KAN-244, KAN-331, KAN-338); the configurator mirrors it (`utils/vin.ts`). vehicle-mdm's
+  VIN a person typed is normalised (upper-cased, whitespace removed): stock create and the
+  trade-in through `app.core.validators.NormalisedVin` (then ISO 3779; 422 otherwise; KAN-244,
+  KAN-331), the valuation and configuration create/PATCH through `NormalisedVinOrChassisNumber`
+  (a VIN, or a pre-1981 chassis number — next bullet; KAN-338, KAN-353); the configurator mirrors it (`utils/vin.ts`). vehicle-mdm's
   own fields keep `Vin`, which refuses an unnormalised value rather than fixing it. The shared
   identity lookup (`GET /v1/vehicle-mdm/lookup?vin=`) normalises its query parameter with the
   same `normalise_vin` and answers 404 for a value that is no VIN — a read, never 422 (KAN-355).
@@ -49,6 +50,16 @@ code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. -->
   the same way before testing the VIN shape, so a lower-cased or spaced VIN is a direct hit
   (KAN-360). A refused VIN is named on screen in the user's language (`common.invalidVin`,
   `utils/vin.ts::isVinRefusal`, KAN-351).
+- **A pre-1981 chassis number** (KAN-353, Anto 2026-10-18, option C): the valuation's and the
+  configuration's `vin` are `NormalisedVinOrChassisNumber` — a VIN, or 1-17 letters and digits
+  (I, O, Q allowed) — and `require_vin_or_pre_1981_chassis_number` accepts the latter only with
+  a first registration before 1981-01-01 (on a configuration PATCH, the stored date counts);
+  otherwise 422 `chassis_number_requires_pre_1981_registration` (`common.chassisNumberNeedsPre1981`).
+  Such a number is stored normalised, as a VIN is (upper case, no spaces; punctuation refused) —
+  the ruling said "stored and printed as entered", which is open for Anto (KAN-391) — and **never** finds, creates or links a
+  vehicle-mdm record (`is_chassis_number`) — a valuation is judged on the VIN and date it stores
+  (its own, else its configuration's) and links no car when that VIN is a chassis number. Stock and the trade-in keep `NormalisedVin`. The
+  configurator cannot enter one yet: its configure phase has no VIN input (KAN-340).
 - **A licence plate is never an identifier** — Wechselschild (one plate, two vehicles),
   reassignment, cantonal changes. `vehicle_plate` is a child table with validity dates and a
   `plate_group_id`; an ambiguous lookup shows a picker and never guesses. Plate lookup must

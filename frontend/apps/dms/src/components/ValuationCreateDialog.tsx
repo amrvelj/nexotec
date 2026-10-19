@@ -11,7 +11,7 @@ import { CustomerCreateDialog } from './CustomerCreateDialog'
 import { ConfigurationSummaryCard } from './configurator/ConfigurationSummaryCard'
 import type { CapabilityCheckRead, ConfigurationRead, CustomerPage, CustomerRead, ValuationCreate, ValuationRead, ValuationSourceValue } from '../api/types'
 import { formatCurrencyChf } from '../utils/format'
-import { isVinRefusal } from '../utils/vin'
+import { vinRefusalKey } from '../utils/vin'
 
 export interface ValuationCreateDialogProps {
   opened: boolean
@@ -61,6 +61,11 @@ export function ValuationCreateDialog({ opened, onClose, onCreated, supersedes, 
   const [trim, setTrim] = useState(c?.variantName ?? supersedes?.vehicleTrim ?? '')
   const [plate, setPlate] = useState(c?.licencePlate ?? supersedes?.vehiclePlate ?? '')
   const [mileage, setMileage] = useState<number | ''>(c?.mileageKm ?? supersedes?.mileage ?? '')
+  // KAN-353: a car first registered before 1981 may carry a chassis number in
+  // the VIN field; the API accepts it only with that first registration.
+  const [firstRegistration, setFirstRegistration] = useState(
+    c?.firstRegistrationDate ?? supersedes?.vehicleFirstRegistration ?? '',
+  )
 
   const [customerId, setCustomerId] = useState<string | null>(supersedes?.customerId ?? null)
   const [customerLabel, setCustomerLabel] = useState<string | null>(supersedes?.customerLabel ?? null)
@@ -129,12 +134,13 @@ export function ValuationCreateDialog({ opened, onClose, onCreated, supersedes, 
         validForDays,
         supersedesValuationId: supersedes?.id ?? null,
         configurationId: configuration?.id ?? null,
-        vehicleFirstRegistration: configuration?.firstRegistrationDate ?? null,
+        vehicleFirstRegistration: firstRegistration || null,
       }
       const created = await api.post<ValuationRead>('/valuations', body, idempotency.headers(body))
       onCreated(created)
     } catch (err) {
-      if (isVinRefusal(err)) setVinError(t('common.invalidVin'))
+      const vinRefusal = vinRefusalKey(err)
+      if (vinRefusal) setVinError(t(vinRefusal))
       else setError(err instanceof ApiError ? err.message : t('valuationCreate.error'))
     } finally {
       setSubmitting(false)
@@ -171,6 +177,15 @@ export function ValuationCreateDialog({ opened, onClose, onCreated, supersedes, 
                   setVinError(null)
                 }}
                 error={vinError}
+              />
+              <TextInput
+                label={t('valuationCreate.firstRegistration')}
+                type="date"
+                value={firstRegistration}
+                onChange={(e) => {
+                  setFirstRegistration(e.currentTarget.value)
+                  setVinError(null)
+                }}
               />
               <NumberInput label={t('valuationCreate.mileage')} value={mileage} onChange={(v) => setMileage(v === '' ? '' : Number(v))} />
             </Group>

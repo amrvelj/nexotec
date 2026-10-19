@@ -33,7 +33,7 @@ import {
 } from '../../hooks/useReferenceValueOptions'
 import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
 import { useReferenceLabelLookup } from '../../hooks/useReferenceLabelLookup'
-import { isVinRefusal, normalisedVin } from '../../utils/vin'
+import { normalisedVin, vinRefusalKey } from '../../utils/vin'
 import {
   CODED_FIELDS,
   CODED_REF_LIST_CODES,
@@ -621,7 +621,8 @@ export function ConfiguratorOverlay({
     } catch (err) {
       // KAN-351 — the configure phase has no VIN input (KAN-340), so a VIN
       // the API refuses is said in the overlay's error, in the user's language.
-      if (isVinRefusal(err)) setError(t('common.invalidVin'))
+      const vinRefusal = vinRefusalKey(err)
+      if (vinRefusal) setError(t(vinRefusal))
       else setError(err instanceof HostCommitError ? err.message : t('configurator.saveError'))
     } finally {
       setSaving(false)
