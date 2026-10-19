@@ -319,6 +319,14 @@ def _replace_customer_tags(db: Session, customer: Customer, tags: list[str], *, 
             db.delete(row)
 
 
+def _violated_constraint(exc: IntegrityError) -> str | None:
+    """The name of the constraint a Postgres IntegrityError violated (None on
+    SQLite, whose driver does not report it)."""
+
+    diag = getattr(exc.orig, "diag", None)
+    return getattr(diag, "constraint_name", None)
+
+
 def _customer_tags(db: Session, customer_id: uuid.UUID) -> list[str]:
     return sorted(db.scalars(select(CustomerTag.tag).where(CustomerTag.customer_id == customer_id)).all())
 
@@ -851,6 +859,27 @@ def update_customer(
 
     customer.updated_by = actor_id
     customer.version += 1
+
+    # KAN-390: the customer row and its new tag rows reach the database here,
+    # inside the guard — not at the audit row's flush below, outside it. A
+    # merge into this customer (KAN-372 holds it FOR SHARE) can move a
+    # duplicate's tag of the same name onto it while this PATCH waits; the
+    # insert then hits uq_customer_tag_customer_id_tag, a conflict (409), not
+    # a 500. Tags are this function's only child rows. The PATCH waits before
+    # inserting any tag because the flush writes `customer` before
+    # `customer_tag` — SQLAlchemy orders the two unrelated mappers by name,
+    # not by a relationship — so it never holds a tag row the merge needs.
+    try:
+        db.flush()
+    except IntegrityError as exc:
+        db.rollback()
+        if _violated_constraint(exc) != "uq_customer_tag_customer_id_tag":
+            raise ConflictError("This change conflicts with an existing record.") from exc
+        raise ConflictError(
+            "A tag in this change is already on the customer: it changed in the meantime (a customer may have"
+            " been merged into it). Reload it and try again.",
+            details={"reason": "customer_tag_exists"},
+        ) from exc
 
     if before or after:
         record_audit_event(

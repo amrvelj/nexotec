@@ -93,7 +93,7 @@ describe('buildCustomerRowMenu (KAN-44 / ADR-061 anti-drift, FR-21/FR-22)', () =
     const menu = buildCustomerRowMenu(t, cust(), handlers({ onMergeInto: vi.fn(), onLinkVehicle: vi.fn() }))
     const allLabels = [
       menu.primary.label,
-      menu.alternative.label,
+      menu.alternative?.label,
       ...Object.values(menu.overflow).flatMap((g: RowMenuAction[] | undefined) => (g ?? []).map((a) => a.label)),
     ].join(' ')
     expect(/delete|anonymi|löschen|supprim|elimin/i.test(allLabels)).toBe(false)
@@ -116,5 +116,19 @@ describe('buildCustomerRowMenu (KAN-44 / ADR-061 anti-drift, FR-21/FR-22)', () =
 
     const clearMenu = buildCustomerRowMenu(t, cust({ creditBlock: true, creditBlockReason: 'x' }), handlers())
     expect((clearMenu.overflow.edit ?? []).some((a) => a.label === 'customerRowMenu.removeCreditBlock')).toBe(true)
+  })
+
+  it('KAN-377 — without the sales handlers (a Betrieb without sales) neither sales action is built', () => {
+    const detailMenu = buildCustomerRowMenu(
+      t,
+      cust(),
+      handlers({ onNewOffer: undefined, onNewContract: undefined, onMergeInto: vi.fn(), onLinkVehicle: vi.fn() }),
+    )
+    expect(createFrom(detailMenu).map((a) => a.label)).toEqual(['customerRowMenu.mergeInto'])
+    expect(detailMenu.alternative?.label).toBe('customerRowMenu.linkVehicle')
+
+    const listMenu = buildCustomerRowMenu(t, cust(), handlers({ onNewOffer: undefined, onNewContract: undefined }))
+    expect(createFrom(listMenu)).toEqual([])
+    expect(listMenu.alternative).toBeUndefined()
   })
 })

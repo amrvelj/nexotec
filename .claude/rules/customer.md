@@ -162,7 +162,9 @@ weekly. -->
   two rows in the same order, so the second waits and is refused; allocation and a reopen take
   one customer row `FOR SHARE` after their advisory lock, which a merge's survivor lock never
   blocks. A merge X→D racing D→T is refused only when D→T locked D first; when X→D locks D
-  first, D→T waits and commits after it.
+  first, D→T waits and commits after it. A tag PATCH on the survivor waits for that lock and
+  then collides with a tag the merge moved onto it: `update_customer` flushes inside its guard,
+  so that is 409 `customer_tag_exists`, never a 500 (KAN-390).
 - **A merge re-points the earlier merges into its duplicate** (KAN-383, Anto 2026-10-18,
   option A, `_repoint_earlier_merges`): merging D into T sets every customer whose
   `duplicateOfCustomerId` names D to T, in the same transaction, bumps its version and audits

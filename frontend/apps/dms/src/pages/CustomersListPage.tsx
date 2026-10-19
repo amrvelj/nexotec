@@ -35,6 +35,7 @@ import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { useSavedViews } from '../hooks/useSavedViews'
 import { useCountryOptions } from '../hooks/useCountryOptions'
 import { api, ApiError } from '../api/client'
+import { useAuth } from '../auth/AuthContext'
 import { buildCustomerRowMenu } from '../components/customerRowMenu'
 import { CreditBlockDialog } from '../components/customer-detail/CreditBlockDialog'
 import { CustomerCreateDialog } from '../components/CustomerCreateDialog'
@@ -135,6 +136,10 @@ export function CustomersListPage() {
   const locale = toSwissLocale(i18n.language as SupportedLanguage)
   useSetBreadcrumb([t('shell.nav.masterData'), t('shell.nav.customers')])
   const navigate = useNavigate()
+  // KAN-377 (D-A-04): "New offer" / "New contract" only for a Betrieb that
+  // holds the sales module — a workshop's API answers 404 on `/sales/*`.
+  const { entitlements } = useAuth()
+  const salesEntitled = entitlements.includes('sales')
   const { density, setDensity } = useUiPreferencesContext()
   const gridPrefs = useGridPreferences(GRID_KEY, { sort: DEFAULT_SORT })
   const savedViews = useSavedViews(GRID_KEY)
@@ -811,8 +816,8 @@ export function CustomersListPage() {
             // modal-heavy and stay on the detail screen.
             const menu = buildCustomerRowMenu(t, row, {
               onEdit: () => navigate(`/customers/${row.id}`),
-              onNewOffer: () => void createOfferForCustomer(row.id),
-              onNewContract: () => void createContractForCustomer(row.id),
+              onNewOffer: salesEntitled ? () => void createOfferForCustomer(row.id) : undefined,
+              onNewContract: salesEntitled ? () => void createContractForCustomer(row.id) : undefined,
               onCopyCustomerNumber: () => void navigator.clipboard.writeText(row.customerNumber),
               onToggleDoNotContact: () => void toggleDoNotContact(row),
               onManageCreditBlock: () => setBlockDialogCustomer(row),

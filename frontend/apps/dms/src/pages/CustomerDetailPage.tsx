@@ -94,12 +94,19 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
   const { t, i18n } = useTranslation()
   const locale = toSwissLocale(i18n.language as SupportedLanguage)
   const { options: countryOptions } = useCountryOptions()
-  const { user } = useAuth()
+  const { user, entitlements } = useAuth()
+  // KAN-377 (D-A-04): a Betrieb without the sales module gets 404 from every
+  // `/sales/*` route, so its customer screen neither reads offers/contracts
+  // nor offers to create one. Presentation only — the 404 is the boundary.
+  const salesEntitled = entitlements.includes('sales')
   const canWriteExternalIds = user?.accessRoles.includes('platform_admin') ?? false
   const [searchParams, setSearchParams] = useSearchParams()
   const [embeddedTab, setEmbeddedTab] = useState(DEFAULT_TAB)
   const queryClient = useQueryClient()
-  const activeTab = embedded ? embeddedTab : (searchParams.get('tab') ?? DEFAULT_TAB)
+  const requestedTab = embedded ? embeddedTab : (searchParams.get('tab') ?? DEFAULT_TAB)
+  // KAN-377: a pasted ?tab=offersContracts on a Betrieb without sales opens
+  // the default tab, not an empty pane.
+  const activeTab = requestedTab === 'offersContracts' && !salesEntitled ? DEFAULT_TAB : requestedTab
   const [mergeModalOpen, setMergeModalOpen] = useState(false)
   const [linkVehicleOpen, setLinkVehicleOpen] = useState(false)
   const [creditBlockOpen, setCreditBlockOpen] = useState(false)
@@ -167,12 +174,12 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
   const offersQuery = useQuery({
     queryKey: ['customer', id, 'offers'],
     queryFn: () => api.get<SalesOfferPage>(`/sales/offers?customer_id=${id}&limit=100`),
-    enabled: Boolean(id),
+    enabled: Boolean(id) && salesEntitled,
   })
   const contractsQuery = useQuery({
     queryKey: ['customer', id, 'contracts'],
     queryFn: () => api.get<SalesContractPage>(`/sales/contracts?customer_id=${id}&limit=100`),
-    enabled: Boolean(id),
+    enabled: Boolean(id) && salesEntitled,
   })
   const externalIdsQuery = useQuery({
     queryKey: ['customer', id, 'external-ids'],
@@ -437,15 +444,19 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
         label: t('customerDetail.tabs.vehicles'),
         count: vehiclesQuery.data?.items.filter((v) => v.effectiveTo == null).length,
       },
-      {
-        id: 'offersContracts',
-        label: t('customerDetail.tabs.offersContracts'),
-        count: offersQuery.data && contractsQuery.data ? dealRows.length : undefined,
-      },
+      ...(salesEntitled
+        ? [
+            {
+              id: 'offersContracts',
+              label: t('customerDetail.tabs.offersContracts'),
+              count: offersQuery.data && contractsQuery.data ? dealRows.length : undefined,
+            },
+          ]
+        : []),
       { id: 'history', label: t('customerDetail.tabs.history'), count: historyQuery.data?.items.length },
       { id: 'external-ids', label: t('customerDetail.tabs.externalIds'), count: externalIdsQuery.data?.items.length },
     ],
-    [t, vehiclesQuery.data, offersQuery.data, contractsQuery.data, dealRows.length, historyQuery.data, externalIdsQuery.data]
+    [t, vehiclesQuery.data, salesEntitled, offersQuery.data, contractsQuery.data, dealRows.length, historyQuery.data, externalIdsQuery.data]
   )
 
   if (customerQuery.isLoading) return <Loader />
@@ -464,8 +475,8 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
   // built). KAN-58 wires "New contract" for real, on both surfaces.
   const rowMenu = buildCustomerRowMenu(t, customer, {
     onEdit: () => setActiveTab('overview'),
-    onNewOffer: () => void createOfferForCustomer(),
-    onNewContract: () => void createContractForCustomer(),
+    onNewOffer: salesEntitled ? () => void createOfferForCustomer() : undefined,
+    onNewContract: salesEntitled ? () => void createContractForCustomer() : undefined,
     onCopyCustomerNumber: () => void navigator.clipboard.writeText(customer.customerNumber),
     onToggleDoNotContact: toggleDoNotContact,
     onManageCreditBlock: () => setCreditBlockOpen(true),
@@ -502,10 +513,12 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
           </>
         }
         primaryAction={rowMenu.primary}
-        alternativeAction={{
-          ...rowMenu.alternative,
-          disabled: rowMenu.alternative.disabled || creatingOffer,
-        }}
+        alternativeAction={
+          rowMenu.alternative && {
+            ...rowMenu.alternative,
+            disabled: rowMenu.alternative.disabled || creatingOffer,
+          }
+        }
         overflowActions={overflowActions}
       />
 

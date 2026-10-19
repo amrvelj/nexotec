@@ -225,6 +225,31 @@ def get_user_or_404(db: Session, dealership_id: uuid.UUID, user_id: uuid.UUID) -
     return get_or_404(db, User, user_id, dealership_id)
 
 
+def get_user_for_update_or_404(db: Session, dealership_id: uuid.UUID, user_id: uuid.UUID) -> User:
+    """The user row locked (FOR NO KEY UPDATE) for the rest of the transaction
+    — for every user-administration route that writes the user's memberships,
+    text delegations or the user row itself (KAN-380; the front door's
+    invitation and reset routes write it under their token's lock instead). Two first grants at once both found no row
+    and both inserted; the second hit the unique constraint at an unguarded
+    flush, a 500. Locked, the second waits for the first, then reads its
+    committed row and the user's new version, and is refused like any later
+    grant (409). Every such route takes this lock before it touches a child
+    row: one that locked child rows first and the user row last (at its
+    version bump) would deadlock against one that did the opposite. NO KEY:
+    a row that only references the user (a login's session, a token) is not
+    held up. The same pattern as `get_dealership_for_update_or_404`."""
+
+    user = db.scalar(
+        select(User)
+        .where(User.id == user_id, User.tenant_id == dealership_id)
+        .with_for_update(key_share=True)
+        .execution_options(populate_existing=True)
+    )
+    if user is None:
+        raise NotFoundError(f"User {user_id} was not found.")
+    return user
+
+
 def get_own_user_or_404(db: Session, user_id: uuid.UUID) -> User:
     """Dealership-agnostic — for a principal fetching THEIR OWN row by the
     user_id a signed token's `sub` claim already vouches for (WP-3 PR-3:

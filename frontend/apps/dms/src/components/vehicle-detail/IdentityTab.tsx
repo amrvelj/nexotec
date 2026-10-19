@@ -6,6 +6,7 @@ import { InlineEditField, KeyValueRow, OverviewCard, Picker, purple, useOverlay 
 import { ApiError } from '../../api/client'
 import { toSwissLocale, type SupportedLanguage } from '../../i18n'
 import { formatDateOnly } from '../../utils/format'
+import { vehiclePartyRefusalMessage } from '../../utils/vehiclePartyRefusal'
 import { CustomerDetailContent } from '../../pages/CustomerDetailPage'
 import type { VehicleMdmRead, VehiclePartyAllocationRead, VehiclePartyRole } from '../../api/types'
 
@@ -68,7 +69,9 @@ export function IdentityTab({
       await onAllocate(customerId, role)
       setAllocating(false)
     } catch (err) {
-      setAllocationError(err instanceof ApiError ? err.message : t('vehicleDetail.parties.allocateError'))
+      // KAN-389: said in the user's language, as the customer's Link vehicle
+      // dialog says it (KAN-369) — never the API's English message.
+      setAllocationError(vehiclePartyRefusalMessage(t, err, 'vehicleDetail.parties.allocateError'))
     } finally {
       setAllocationSaving(false)
     }
