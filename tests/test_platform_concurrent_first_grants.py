@@ -16,7 +16,6 @@ import pytest
 from sqlalchemy import func, select
 
 from app.platform.api import dealerships as dealerships_api
-
 from app.platform.models.dealership_membership import DealershipMembership
 from app.platform.models.module_entitlement import ModuleEntitlement
 from app.platform.models.standard_text_delegation import StandardTextDelegation
