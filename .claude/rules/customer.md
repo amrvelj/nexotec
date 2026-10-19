@@ -164,6 +164,9 @@ weekly. -->
   first, D→T waits, then commits after it: X's vehicle rows follow D's to T, but X's
   `duplicateOfCustomerId` names merged D, the same chain two merges run one after the other
   leave. **Not covered:** that chain, in either form (KAN-383, a decision for Anto).
+  A tag PATCH on the survivor waits for that lock and then collides with a tag the merge moved
+  onto it: `update_customer` flushes inside its guard, so that is 409 `customer_tag_exists`,
+  never a 500 (KAN-390).
 - **A party row carries the vehicle's label, never a join** (KAN-84, rule 2):
   `vehicle_vin`, `vehicle_number`, `vehicle_make`, `vehicle_model`, `vehicle_model_year`,
   `vehicle_trim` and `vehicle_label_refreshed_at`, copied from

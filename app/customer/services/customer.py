@@ -847,6 +847,22 @@ def update_customer(
     customer.updated_by = actor_id
     customer.version += 1
 
+    # KAN-390: the customer row and its new tag rows reach the database here,
+    # inside the guard — not at the audit row's flush below, outside it. A
+    # merge into this customer (KAN-372 holds it FOR SHARE) can move a
+    # duplicate's tag of the same name onto it while this PATCH waits; the
+    # insert then hits uq_customer_tag_customer_id_tag, a conflict (409), not
+    # a 500. Tags are this function's only child rows.
+    try:
+        db.flush()
+    except IntegrityError as exc:
+        db.rollback()
+        raise ConflictError(
+            "A tag in this change is already on the customer: it changed in the meantime (a customer may have"
+            " been merged into it). Reload it and try again.",
+            details={"reason": "customer_tag_exists"},
+        ) from exc
+
     if before or after:
         record_audit_event(
             db,
