@@ -294,7 +294,7 @@ def grant_membership(
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealership_id, principal)
-    user = user_service.get_user_or_404(db, dealership_id, user_id)
+    user = user_service.get_user_for_update_or_404(db, dealership_id, user_id)  # KAN-380
     row = membership_service.grant_membership(
         db, user=user, data=body, actor_id=principal.user_id, actor_roles=principal.roles
     )
@@ -387,7 +387,7 @@ def set_text_delegations(
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealership_id, principal)
-    user = user_service.get_user_or_404(db, dealership_id, user_id)
+    user = user_service.get_user_for_update_or_404(db, dealership_id, user_id)  # KAN-380
     check_version(user.version, if_match, entity_name="User")
     user_service.assert_may_touch(user=user, actor_roles=principal.roles)  # KAN-97: never a staff account
     user_service.assert_user_is_not_deactivated(user)
