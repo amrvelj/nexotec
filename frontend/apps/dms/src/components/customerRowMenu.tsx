@@ -19,7 +19,6 @@ import type { CustomerRead } from '../api/types'
 export interface CustomerRowMenuHandlers {
   /** Present on both surfaces. */
   onEdit: () => void
-  onNewOffer: () => void
   onCopyCustomerNumber: () => void
   onToggleDoNotContact: () => void
   onManageCreditBlock: () => void
@@ -31,15 +30,23 @@ export interface CustomerRowMenuHandlers {
   onLinkVehicle?: () => void
   /**
    * KAN-58 — `POST /sales/contracts` now accepts `customerId` directly, so
-   * this is wired on both surfaces (list row menu and 360 header/overflow),
-   * same as `onNewOffer` above.
+   * "New contract" is wired on both surfaces (list row menu and 360
+   * header/overflow), the same as "New offer".
+   *
+   * KAN-377 (D-A-04): both are passed only when the active Betrieb holds the
+   * `sales` entitlement. A workshop's API answers 404 on `/sales/*`, so the
+   * two actions are left out rather than offered and refused — presentation
+   * only, the 404 stays the boundary.
    */
-  onNewContract: () => void
+  onNewOffer?: () => void
+  onNewContract?: () => void
 }
 
 export interface CustomerRowMenu {
   primary: DetailHeaderAction
-  alternative: DetailHeaderAction
+  /** "New offer"; for a Betrieb without sales, "Link vehicle" where the
+   * surface offers it (KAN-377), else none. */
+  alternative?: DetailHeaderAction
   overflow: RowMenuGroups
 }
 
@@ -66,7 +73,7 @@ export function buildCustomerRowMenu(
       ? t('customerRowMenu.newContractDisabledBlocked', { reason: customer.creditBlockReason ?? '—' })
       : undefined
 
-  const newOffer = {
+  const newOffer = handlers.onNewOffer && {
     label: t('customerRowMenu.newOffer'),
     icon: <Handshake size={16} />,
     onClick: handlers.onNewOffer,
@@ -81,7 +88,7 @@ export function buildCustomerRowMenu(
   // KAN-58 (see the ticket's own exit criterion 3): don't let the advisor
   // start a contract that finance hasn't released yet, even though nothing
   // downstream would reject the create call itself.
-  const newContract = {
+  const newContract = handlers.onNewContract && {
     label: t('customerRowMenu.newContract'),
     icon: <FileSignature size={16} />,
     onClick: handlers.onNewContract,
@@ -89,11 +96,15 @@ export function buildCustomerRowMenu(
     disabledReason: newContractDisabledReason,
   }
 
+  const linkVehicle = handlers.onLinkVehicle && {
+    label: t('customerRowMenu.linkVehicle'),
+    icon: <Car size={16} />,
+    onClick: handlers.onLinkVehicle,
+  }
+
   const edit: RowMenuGroups['edit'] = [
     { label: t('customerRowMenu.edit'), icon: <Pencil size={16} />, onClick: handlers.onEdit },
-    ...(handlers.onLinkVehicle
-      ? [{ label: t('customerRowMenu.linkVehicle'), icon: <Car size={16} />, onClick: handlers.onLinkVehicle }]
-      : []),
+    ...(linkVehicle ? [linkVehicle] : []),
     {
       label: isDoNotContact ? t('customerRowMenu.removeDoNotContact') : t('customerRowMenu.setDoNotContact'),
       icon: <Ban size={16} />,
@@ -107,8 +118,8 @@ export function buildCustomerRowMenu(
   ]
 
   const createFrom: RowMenuGroups['createFrom'] = [
-    newOffer,
-    newContract,
+    ...(newOffer ? [newOffer] : []),
+    ...(newContract ? [newContract] : []),
     ...(handlers.onMergeInto
       ? [
           {
@@ -128,7 +139,7 @@ export function buildCustomerRowMenu(
 
   return {
     primary: { label: t('customerRowMenu.edit'), icon: <Pencil size={16} />, onClick: handlers.onEdit },
-    alternative: newOffer,
+    alternative: newOffer ?? linkVehicle,
     overflow: { edit, createFrom, exportPrint },
   }
 }
