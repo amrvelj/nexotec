@@ -4,6 +4,7 @@ import pytest
 
 from app.core.auth import AccessRole, create_access_token
 from tests.dealership_support import valid_uid
+from tests.identity_support import PasswordLogin
 
 VALID_ADDRESS = {
     "street": "Bahnhofstrasse",
@@ -131,9 +132,7 @@ def test_non_admin_roles_cannot_create_users(client, role):
 
 def test_creating_user_under_nonexistent_dealer_is_404(client):
     token = _token(AccessRole.PLATFORM_ADMIN)
-    response = client.post(
-        f"/v1/dealerships/{uuid.uuid4()}/users", json=_user_payload(), headers=_bearer(token)
-    )
+    response = client.post(f"/v1/dealerships/{uuid.uuid4()}/users", json=_user_payload(), headers=_bearer(token))
     assert response.status_code == 404
 
 
@@ -210,11 +209,13 @@ def test_terminating_employment_through_patch_is_sent_to_the_deactivation_step(c
         )
         assert response.status_code == 409, response.text
         assert response.json()["error"]["details"] == {"reason": "use_deactivate_endpoint"}
-    unchanged = client.get(f"/v1/dealerships/{dealer_id}/users/{user['id']}", headers=_bearer(platform_admin_token)).json()
+    unchanged = client.get(
+        f"/v1/dealerships/{dealer_id}/users/{user['id']}", headers=_bearer(platform_admin_token)
+    ).json()
     assert unchanged["status"] == "invited" and unchanged["employmentStatus"] == "active" and unchanged["version"] == 1
 
 
-def test_deactivation_can_end_the_employment_and_reactivation_brings_both_back(client):
+def test_deactivation_can_end_the_employment_and_reactivation_brings_both_back(client, mailbox):
     """Users → Lifecycle: `Deactivated → Active` (reactivation allowed). A
     terminated employment returns with the user, in the same PATCH; alone it
     is refused, as is any other edit of a deactivated user."""
@@ -222,8 +223,12 @@ def test_deactivation_can_end_the_employment_and_reactivation_brings_both_back(c
     platform_admin_token = _token(AccessRole.PLATFORM_ADMIN)
     dealer_id = _create_dealer(client)
     user = _create_user(client, dealer_id, platform_admin_token, isDealerManager=False)
+    PasswordLogin(client, mailbox).accept_invitation(user)  # an active user: reactivation returns them to active
+    user["version"] += 1
 
-    response = _deactivate(client, dealer_id, user, platform_admin_token, employmentStatus="terminated")
+    response = _deactivate(
+        client, dealer_id, user, platform_admin_token, if_match=user["version"], employmentStatus="terminated"
+    )
     assert response.status_code == 200, response.text
     body = response.json()["user"]
     assert body["status"] == "deactivated"
@@ -236,19 +241,21 @@ def test_deactivation_can_end_the_employment_and_reactivation_brings_both_back(c
     # Any edit but a reactivation is refused while deactivated.
     for change in ({"employmentStatus": "active"}, {"firstName": "Annina"}, {"status": "suspended"}):
         refused = client.patch(
-            f"/v1/dealerships/{dealer_id}/users/{user['id']}", json=change, headers={**headers, "If-Match": "2"}
+            f"/v1/dealerships/{dealer_id}/users/{user['id']}", json=change, headers={**headers, "If-Match": "3"}
         )
         assert refused.status_code == 409, (change, refused.text)
     # Reactivating as terminated is a contradiction (422).
     contradiction = client.patch(
-        f"/v1/dealerships/{dealer_id}/users/{user['id']}", json={"status": "active"}, headers={**headers, "If-Match": "2"}
+        f"/v1/dealerships/{dealer_id}/users/{user['id']}",
+        json={"status": "active"},
+        headers={**headers, "If-Match": "3"},
     )
     assert contradiction.status_code == 422, contradiction.text
 
     back = client.patch(
         f"/v1/dealerships/{dealer_id}/users/{user['id']}",
         json={"status": "active", "employmentStatus": "active"},
-        headers={**headers, "If-Match": "2"},
+        headers={**headers, "If-Match": "3"},
     )
     assert back.status_code == 200, back.text
     assert back.json()["status"] == "active"
@@ -283,9 +290,7 @@ def test_role_and_status_changes_are_audit_logged(client):
 def test_list_users_filters_by_role_and_status(client):
     platform_admin_token = _token(AccessRole.PLATFORM_ADMIN)
     dealer_id = _create_dealer(client)
-    _create_user(
-        client, dealer_id, platform_admin_token, email="a@example.ch", role="sales", accessRoles=["sales"]
-    )
+    _create_user(client, dealer_id, platform_admin_token, email="a@example.ch", role="sales", accessRoles=["sales"])
     _create_user(
         client,
         dealer_id,
@@ -309,13 +314,9 @@ def test_list_users_with_an_unknown_role_is_an_empty_page_not_a_500(client):
 
     platform_admin_token = _token(AccessRole.PLATFORM_ADMIN)
     dealer_id = _create_dealer(client)
-    _create_user(
-        client, dealer_id, platform_admin_token, email="a@example.ch", role="sales", accessRoles=["sales"]
-    )
+    _create_user(client, dealer_id, platform_admin_token, email="a@example.ch", role="sales", accessRoles=["sales"])
 
-    response = client.get(
-        f"/v1/dealerships/{dealer_id}/users?role=no-such-role", headers=_bearer(platform_admin_token)
-    )
+    response = client.get(f"/v1/dealerships/{dealer_id}/users?role=no-such-role", headers=_bearer(platform_admin_token))
 
     assert response.status_code == 200, response.text
     assert response.json()["items"] == []
@@ -424,9 +425,7 @@ def test_a_plain_or_inactive_membership_does_not_count_as_another_manager(
             headers={**_bearer(platform_admin_token), "If-Match": "1"},
         )
         assert response.status_code == 200, response.text
-    _grant_membership(
-        db_session, user_id=member["id"], dealership_id=dealer_b, is_dealer_manager=membership_is_manager
-    )
+    _grant_membership(db_session, user_id=member["id"], dealership_id=dealer_b, is_dealer_manager=membership_is_manager)
 
     response = client.patch(
         f"/v1/dealerships/{dealer_b}/users/{home_manager_of_b['id']}",
@@ -495,9 +494,7 @@ def _manager_token(dealer_id: str) -> str:
 
 
 def _list_user_emails(client, dealer_id: str) -> list[str]:
-    response = client.get(
-        f"/v1/dealerships/{dealer_id}/users", headers=_bearer(_token(AccessRole.PLATFORM_ADMIN))
-    )
+    response = client.get(f"/v1/dealerships/{dealer_id}/users", headers=_bearer(_token(AccessRole.PLATFORM_ADMIN)))
     assert response.status_code == 200, response.text
     return [u["email"] for u in response.json()["items"]]
 
@@ -650,8 +647,15 @@ def test_manager_can_still_edit_roles_of_ordinary_users(client):
 @pytest.mark.parametrize(
     "field",
     [
-        "accessRoles", "firstName", "lastName", "email", "role", "isDealerManager",
-        "employmentStatus", "authIdentityId", "status",
+        "accessRoles",
+        "firstName",
+        "lastName",
+        "email",
+        "role",
+        "isDealerManager",
+        "employmentStatus",
+        "authIdentityId",
+        "status",
     ],
 )
 def test_patching_a_not_null_field_to_null_is_a_422_and_changes_nothing(client, field):

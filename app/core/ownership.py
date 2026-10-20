@@ -64,9 +64,20 @@ class OwnershipProvider(Protocol):
     module: str
 
     def list_open(self, db: Session, *, dealership_id: uuid.UUID, user_id: uuid.UUID) -> list[OwnedGroup]:
-        """The groups of open records this user owns in this dealership —
-        only groups with at least one record. A read on the caller's
-        session."""
+        """The groups of open records this user owns — only groups with at
+        least one record. A read on the caller's session. A user id names
+        one person platform-wide, so a provider counts what the user owns
+        anywhere (an offer a sister-Betrieb member created there is theirs
+        too); `dealership_id` is the user's home, for a provider whose
+        records are per Betrieb and whose colleague check needs it."""
+        ...
+
+    def refuses(self, db: Session, *, from_user_id: uuid.UUID, transfer: OwnershipTransfer) -> str | None:
+        """Why this module would refuse the colleague for this group — the
+        text of the problem — or None. A read on the caller's session, asked
+        before the deactivation changes anything, so a wrong choice is a 422
+        with the user still active; `transfer` checks the same thing again
+        under its locks (the records may have moved meanwhile)."""
         ...
 
     def transfer(
@@ -77,11 +88,16 @@ class OwnershipProvider(Protocol):
         from_user_id: uuid.UUID,
         transfer: OwnershipTransfer,
         actor_id: uuid.UUID | None,
+        reason: str | None,
     ) -> int:
         """Moves every open record of `transfer.group` from the user to the
         colleague (or to nobody), on a session of its own that this method
         commits (ADR-047). Returns how many records moved. An unknown group
-        for this module is a `ValueError`."""
+        for this module is a `ValueError`. A colleague who cannot act in a
+        Betrieb some of the records belong to is refused as a whole — a 422
+        naming it, nothing moved — so the manager chooses the queue for that
+        group instead. `reason` is the manager's text (or the job's code)
+        for the module's own audit rows."""
         ...
 
 

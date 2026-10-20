@@ -5,9 +5,10 @@ user, enforced by a partial unique index — a location is an attribute,
 never a scoping boundary (ADR-014), so this carries no permission.
 
 Both ends are platform-owned, so these are real foreign keys, not rule 2's
-three-column pattern. The rows are replaced as a set by
-`PUT /v1/dealerships/{id}/users/{user_id}/locations`; a location of another
-dealership is refused there, never admitted here.
+three-column pattern. The rows are replaced as a set through the user's
+own create and PATCH (`primaryLocationId`, `additionalLocationIds`, in
+`services/user_location.set_locations`); a location of another dealership
+is refused there, never admitted here.
 """
 
 import uuid

@@ -23,9 +23,9 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.base import utcnow
-from app.core.errors import NotFoundError, UnprocessableEntityError
+from app.core.errors import UnprocessableEntityError
 from app.core.ownership import OwnedGroup, OwnershipTransfer
-from app.platform.public import get_user_or_404
+from app.platform.public import get_user_acting_in, list_user_dealership_ids
 from app.sales.models.contract import ContractStatus, SalesContract
 from app.sales.models.deal import SalesDeal
 from app.sales.models.offer import OfferStatus, SalesOffer
@@ -40,42 +40,51 @@ _OPEN_OFFER_STATUSES = (OfferStatus.DRAFT, OfferStatus.OPEN)
 _OPEN_CONTRACT_STATUSES = (ContractStatus.PENDING,)
 
 
-def owner_label_of(db: Session, *, tenant_id: uuid.UUID, user_id: uuid.UUID | None) -> str | None:
-    """The display label for a seller of this dealership, or None when the
-    id names no user of it — a platform staff member creating an offer in a
-    Betrieb they are not homed in owns nothing there."""
+_NO_OWNER: dict[str, Any] = {"owner_user_id": None, "owner_label": None, "owner_label_refreshed_at": None}
+_SELLER_STATUSES = ("active", "invited")
+
+
+def _seller_in(db: Session, *, tenant_id: uuid.UUID, user_id: uuid.UUID | None) -> Any | None:
+    """The user when they act in this dealership — homed there or an active
+    member (a sister-Betrieb member sells there too) — and still hold or
+    await access: a suspended or deactivated user cannot be responsible for
+    an open deal. None otherwise, a platform staff member creating an offer
+    in a Betrieb they are not a member of included."""
 
     if user_id is None:
         return None
-    try:
-        user = get_user_or_404(db, tenant_id, user_id)
-    except NotFoundError:
+    user = get_user_acting_in(db, dealership_id=tenant_id, user_id=user_id)
+    if user is None or user.status.value not in _SELLER_STATUSES:
         return None
+    return user
+
+
+def _label(user: Any) -> str:
     return f"{user.first_name} {user.last_name}".strip()
 
 
 def default_owner(db: Session, *, tenant_id: uuid.UUID, actor_id: uuid.UUID | None) -> dict[str, Any]:
     """The columns a new offer or contract starts with: the creator as the
-    responsible seller when they are a user of the dealership."""
+    responsible seller when they act in the dealership."""
 
-    label = owner_label_of(db, tenant_id=tenant_id, user_id=actor_id)
-    if label is None:
-        return {"owner_user_id": None, "owner_label": None, "owner_label_refreshed_at": None}
-    return {"owner_user_id": actor_id, "owner_label": label, "owner_label_refreshed_at": utcnow()}
+    user = _seller_in(db, tenant_id=tenant_id, user_id=actor_id)
+    if user is None:
+        return dict(_NO_OWNER)
+    return {"owner_user_id": actor_id, "owner_label": _label(user), "owner_label_refreshed_at": utcnow()}
 
 
 def resolve_owner_change(db: Session, *, tenant_id: uuid.UUID, owner_user_id: uuid.UUID | None) -> dict[str, Any]:
-    """A seller set through the workspace: must be a user of this dealership
-    (422 otherwise); null clears the seller."""
+    """A seller set through the workspace: must act in this dealership and
+    hold or await access (422 otherwise); null clears the seller."""
 
     if owner_user_id is None:
-        return {"owner_user_id": None, "owner_label": None, "owner_label_refreshed_at": None}
-    label = owner_label_of(db, tenant_id=tenant_id, user_id=owner_user_id)
-    if label is None:
+        return dict(_NO_OWNER)
+    user = _seller_in(db, tenant_id=tenant_id, user_id=owner_user_id)
+    if user is None:
         raise UnprocessableEntityError(
-            "ownerUserId is not a user of your dealership.", details={"ownerUserId": str(owner_user_id)}
+            "ownerUserId is not an active user of your dealership.", details={"ownerUserId": str(owner_user_id)}
         )
-    return {"owner_user_id": owner_user_id, "owner_label": label, "owner_label_refreshed_at": utcnow()}
+    return {"owner_user_id": owner_user_id, "owner_label": _label(user), "owner_label_refreshed_at": utcnow()}
 
 
 def apply_owner(deal: SalesOffer | SalesContract, owner: dict[str, Any]) -> None:
@@ -88,18 +97,16 @@ class SalesOwnershipProvider:
     module = MODULE
 
     def list_open(self, db: Session, *, dealership_id: uuid.UUID, user_id: uuid.UUID) -> list[OwnedGroup]:
+        # Everywhere the user owns them, not only their home: a member of a
+        # sister Betrieb sells there and those deals are theirs too.
         offers = db.scalar(
             select(func.count(SalesOffer.id)).where(
-                SalesOffer.tenant_id == dealership_id,
-                SalesOffer.owner_user_id == user_id,
-                SalesOffer.status.in_(_OPEN_OFFER_STATUSES),
+                SalesOffer.owner_user_id == user_id, SalesOffer.status.in_(_OPEN_OFFER_STATUSES)
             )
         )
         contracts = db.scalar(
             select(func.count(SalesContract.id)).where(
-                SalesContract.tenant_id == dealership_id,
-                SalesContract.owner_user_id == user_id,
-                SalesContract.status.in_(_OPEN_CONTRACT_STATUSES),
+                SalesContract.owner_user_id == user_id, SalesContract.status.in_(_OPEN_CONTRACT_STATUSES)
             )
         )
         groups: list[OwnedGroup] = []
@@ -109,6 +116,16 @@ class SalesOwnershipProvider:
             groups.append(OwnedGroup(module=MODULE, group=GROUP_CONTRACTS, count=int(contracts)))
         return groups
 
+    def refuses(self, db: Session, *, from_user_id: uuid.UUID, transfer: OwnershipTransfer) -> str | None:
+        if transfer.to_user_id is None or transfer.group not in (GROUP_OFFERS, GROUP_CONTRACTS):
+            return None
+        rows = _open_rows(db, from_user_id=from_user_id, group=transfer.group, lock=False)
+        try:
+            _assert_colleague_acts_everywhere(db, to_user_id=transfer.to_user_id, rows=rows, group=transfer.group)
+        except UnprocessableEntityError as exc:
+            return exc.message
+        return None
+
     def transfer(
         self,
         session_factory: Callable[[], Session],
@@ -117,6 +134,7 @@ class SalesOwnershipProvider:
         from_user_id: uuid.UUID,
         transfer: OwnershipTransfer,
         actor_id: uuid.UUID | None,
+        reason: str | None,
     ) -> int:
         if transfer.group not in (GROUP_OFFERS, GROUP_CONTRACTS):
             raise ValueError(f"sales owns no group '{transfer.group}'")
@@ -124,7 +142,6 @@ class SalesOwnershipProvider:
         try:
             moved = _transfer_group(
                 db,
-                dealership_id=dealership_id,
                 from_user_id=from_user_id,
                 group=transfer.group,
                 to_user_id=transfer.to_user_id,
@@ -148,10 +165,53 @@ class SalesOwnershipProvider:
         return moved
 
 
+def _open_rows(db: Session, *, from_user_id: uuid.UUID, group: str, lock: bool) -> list[Any]:
+    """The user's open offers or pending contracts in every Betrieb, in id
+    order; `lock` takes the row locks a transfer needs (KAN-147's order:
+    offer → contract → deal)."""
+
+    stmt: Any
+    if group == GROUP_OFFERS:
+        stmt = (
+            select(SalesOffer)
+            .where(SalesOffer.owner_user_id == from_user_id, SalesOffer.status.in_(_OPEN_OFFER_STATUSES))
+            .order_by(SalesOffer.id)
+        )
+    else:
+        stmt = (
+            select(SalesContract)
+            .where(SalesContract.owner_user_id == from_user_id, SalesContract.status.in_(_OPEN_CONTRACT_STATUSES))
+            .order_by(SalesContract.id)
+        )
+    if lock:
+        stmt = stmt.with_for_update()
+    return list(db.scalars(stmt).all())
+
+
+def _assert_colleague_acts_everywhere(
+    db: Session, *, to_user_id: uuid.UUID | None, rows: list[Any], group: str
+) -> None:
+    """A hand-over to a colleague moves records of every Betrieb the leaver
+    owned them in; the colleague must be able to act in each (home or
+    active membership), or a sister Betrieb's deals would be owned by
+    someone who cannot open them. Refused as a whole, before any write."""
+
+    if to_user_id is None:
+        return
+    allowed = list_user_dealership_ids(db, user_id=to_user_id)
+    outside = sorted({str(row.tenant_id) for row in rows if row.tenant_id not in allowed})
+    if outside:
+        raise UnprocessableEntityError(
+            f"sales/{group}: the colleague cannot act in every business these records belong to "
+            f"(business {', '.join(outside)}) — leave the group unassigned (null) or choose a colleague who is a "
+            "member there.",
+            details={"module": MODULE, "group": group, "toUserId": str(to_user_id), "dealershipIds": outside},
+        )
+
+
 def _transfer_group(
     db: Session,
     *,
-    dealership_id: uuid.UUID,
     from_user_id: uuid.UUID,
     group: str,
     to_user_id: uuid.UUID | None,
@@ -168,18 +228,8 @@ def _transfer_group(
     }
     moved = 0
     if group == GROUP_OFFERS:
-        rows = list(
-            db.scalars(
-                select(SalesOffer)
-                .where(
-                    SalesOffer.tenant_id == dealership_id,
-                    SalesOffer.owner_user_id == from_user_id,
-                    SalesOffer.status.in_(_OPEN_OFFER_STATUSES),
-                )
-                .order_by(SalesOffer.id)
-                .with_for_update()
-            ).all()
-        )
+        rows = _open_rows(db, from_user_id=from_user_id, group=group, lock=True)
+        _assert_colleague_acts_everywhere(db, to_user_id=to_user_id, rows=rows, group=group)
         for offer in rows:
             apply_owner(offer, owner)
             offer.updated_by = actor_id
@@ -189,18 +239,8 @@ def _transfer_group(
             # a contract is not open, so it is not in `rows`.
             upsert_deal_projection(db, offer=offer)
         return moved
-    rows_c = list(
-        db.scalars(
-            select(SalesContract)
-            .where(
-                SalesContract.tenant_id == dealership_id,
-                SalesContract.owner_user_id == from_user_id,
-                SalesContract.status.in_(_OPEN_CONTRACT_STATUSES),
-            )
-            .order_by(SalesContract.id)
-            .with_for_update()
-        ).all()
-    )
+    rows_c = _open_rows(db, from_user_id=from_user_id, group=group, lock=True)
+    _assert_colleague_acts_everywhere(db, to_user_id=to_user_id, rows=rows_c, group=group)
     for contract in rows_c:
         apply_owner(contract, owner)
         contract.updated_by = actor_id
@@ -213,3 +253,4 @@ def _transfer_group(
 def deal_owner_columns(deal: SalesDeal, source: SalesOffer | SalesContract) -> None:
     deal.owner_user_id = source.owner_user_id
     deal.owner_label = source.owner_label
+    deal.owner_label_refreshed_at = source.owner_label_refreshed_at

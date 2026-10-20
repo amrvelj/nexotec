@@ -16,18 +16,20 @@ used to read _WRITE_ROLES.
 import uuid
 from collections.abc import Callable
 
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Body, Depends, Query, Request, Response
 from sqlalchemy.orm import Session
 
 from app.core.audit import list_tenant_audit_events, record_audit_event
 from app.core.audit_schemas import AuditEventPage, AuditEventRead
 from app.core.auth import AccessRole, Principal, get_current_principal, require_access_role, require_mfa_session
 from app.core.concurrency import check_version, require_if_match
+from app.core.config import get_settings
 from app.core.errors import ForbiddenError
 from app.core.idempotent_route import IdempotentRoute
 from app.core.object_store import ObjectStore, get_object_store
-from app.core.pagination import PageParams, page_params
+from app.core.pagination import PageParams, SortPageParams, decode_sort_cursor, page_params
 from app.core.permissions import ModuleCode, require_read, require_write
+from app.core.sorting import SortField, parse_sort
 from app.core.tenancy import require_tenant_match
 from app.db import get_db, get_session_factory
 from app.platform.api.auth import client_ip
@@ -73,6 +75,7 @@ from app.platform.services import text_delegation as text_delegation_service
 from app.platform.services import user as user_service
 from app.platform.services.mailer import PlatformMailer, get_mailer
 
+settings = get_settings()
 router = APIRouter(tags=["dealerships"], route_class=IdempotentRoute)
 
 
@@ -199,8 +202,17 @@ def create_user(
     require_tenant_match(dealership_id, principal)
     dealership_service.get_dealership_or_404(db, dealership_id)  # 404s a well-formed but nonexistent dealership_id
 
+    # FR-A-09: the user record and the invitation token are written in ONE
+    # transaction — `create_user` flushes, `issue_invitation` adds the token,
+    # and the commit below is the only one; a failure anywhere leaves no
+    # half-created user (KAN-200 closed the two-commit gap KAN-196 left).
     user = user_service.create_user(
-        db, dealership_id=dealership_id, data=body, actor_id=principal.user_id, actor_roles=principal.roles
+        db,
+        dealership_id=dealership_id,
+        data=body,
+        actor_id=principal.user_id,
+        actor_roles=principal.roles,
+        commit=False,
     )
     # KAN-196 (FR-AU-13): the invitation goes out with the user — the person
     # sets their own password through its link; nobody sets it for them.
@@ -265,17 +277,50 @@ def update_user(
     return user_service.user_read(db, user)
 
 
+# U-03: only indexed or small-table columns are sortable; `user` is a few
+# hundred rows per Betrieb at most, so every grid column with a stored value
+# is on the list (ADR-060 + "every column sortable").
+USER_SORT_FIELDS: dict[str, object] = {
+    "lastName": User.last_name,
+    "firstName": User.first_name,
+    "email": User.email,
+    "status": User.status,
+    "role": User.role,
+    "isDealerManager": User.is_dealer_manager,
+    "department": User.department,
+    "employeeNumber": User.employee_number,
+    "employmentStatus": User.employment_status,
+    "salesAdvisorCode": User.sales_advisor_code,
+    "commissionRelevant": User.commission_relevant,
+    "validFrom": User.valid_from,
+    "validTo": User.valid_to,
+    "invitedAt": User.invited_at,
+    "lastLoginAt": User.last_login_at,
+    "deactivatedAt": User.deactivated_at,
+    "createdAt": User.created_at,
+    "updatedAt": User.updated_at,
+}
+_DEFAULT_USER_SORT = [
+    SortField(api_name="lastName", column=User.last_name, direction="asc", nullable=False),
+    SortField(api_name="firstName", column=User.first_name, direction="asc", nullable=False),
+]
+
+
 @router.get("/dealerships/{dealership_id}/users", response_model=UserPage)
 def list_users(
     dealership_id: uuid.UUID,
     role: str | None = None,
     status: UserStatus | None = None,
     q: str | None = None,
-    params: PageParams = Depends(page_params),
+    sort: str | None = Query(default=None, description="e.g. 'lastName:asc,lastLoginAt:desc'"),
+    limit: int = Query(default=settings.pagination_default_limit, ge=1, le=settings.pagination_max_limit),
+    cursor: str | None = Query(default=None),
     principal: Principal = Depends(require_read("dealership_users")),
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealership_id, principal)
+    sort_fields = parse_sort(sort, allowed=USER_SORT_FIELDS) or _DEFAULT_USER_SORT
+    params = SortPageParams(limit=limit, cursor=decode_sort_cursor(cursor) if cursor else None, sort_fields=sort_fields)
     rows, next_cursor = user_service.list_users(
         db, dealership_id=dealership_id, role=role, status=status, params=params, q=q
     )
@@ -326,9 +371,7 @@ def get_user_ownership(
     )
 
 
-@router.post(
-    "/dealerships/{dealership_id}/users/{user_id}/ownership/transfers", response_model=OwnershipTransfersRead
-)
+@router.post("/dealerships/{dealership_id}/users/{user_id}/ownership/transfers", response_model=OwnershipTransfersRead)
 def transfer_user_ownership(
     dealership_id: uuid.UUID,
     user_id: uuid.UUID,
@@ -348,7 +391,7 @@ def transfer_user_ownership(
     transfers = ownership_service.resolve_transfers(db, user=user, requested=body.transfers, require_every_group=False)
     db.commit()  # releases the user-row lock before the modules take their own
     results = ownership_service.apply_transfers(
-        db, session_factory, user=user, transfers=transfers, actor_id=principal.user_id, reason=None
+        db, session_factory, user=user, transfers=transfers, actor_id=principal.user_id, reason=body.reason
     )
     return OwnershipTransfersRead(transfers=results)
 
@@ -386,10 +429,11 @@ def deactivate_user(
 
 
 @router.put("/dealerships/{dealership_id}/users/{user_id}/signature", response_model=UserRead)
-async def put_user_signature(
+def put_user_signature(
     dealership_id: uuid.UUID,
     user_id: uuid.UUID,
     request: Request,
+    image: bytes = Body(media_type="image/png", description="The image itself: PNG or JPEG, at most 1 MiB."),
     if_match: int = Depends(require_if_match),
     principal: Principal = Depends(require_write("dealership_users")),
     db: Session = Depends(get_db),
@@ -398,19 +442,20 @@ async def put_user_signature(
     """The user's signature image (Users → Personal settings; Anto,
     2026-10-19: the manager sets it here too). The body is the image itself
     (PNG or JPEG, up to 1 MiB) with its Content-Type — never base64, never
-    multipart; the row keeps the object-store key only."""
+    multipart; the row keeps the object-store key only. A plain `def` like
+    every other route: the bytes arrive as a Body parameter, so the store
+    write and the row lock run in the threadpool, not on the event loop."""
 
     require_tenant_match(dealership_id, principal)
     user = user_service.get_user_for_update_or_404(db, dealership_id, user_id)  # KAN-380
     check_version(user.version, if_match, entity_name="User")
     user_service.assert_may_touch(user=user, actor_roles=principal.roles)
     user_service.assert_user_is_not_deactivated(user)
-    data = await request.body()
     signature.set_signature(
         db,
         store,
         user=user,
-        data=data,
+        data=image,
         content_type=request.headers.get("content-type", ""),
         actor_id=principal.user_id,
     )
@@ -607,7 +652,11 @@ def end_text_delegations(
 # --- Identity administration (KAN-196: FR-AU-10/11/12/17/21/25) -------------------------
 
 
-@router.post("/dealerships/{dealership_id}/users/{user_id}/invitations", status_code=202, dependencies=[Depends(require_mfa_session())])
+@router.post(
+    "/dealerships/{dealership_id}/users/{user_id}/invitations",
+    status_code=202,
+    dependencies=[Depends(require_mfa_session())],
+)
 def reissue_invitation(
     dealership_id: uuid.UUID,
     user_id: uuid.UUID,
@@ -636,7 +685,11 @@ def reissue_invitation(
     db.commit()
 
 
-@router.get("/dealerships/{dealership_id}/users/{user_id}/login-status", response_model=LoginStatusRead, dependencies=[Depends(require_mfa_session())])
+@router.get(
+    "/dealerships/{dealership_id}/users/{user_id}/login-status",
+    response_model=LoginStatusRead,
+    dependencies=[Depends(require_mfa_session())],
+)
 def get_login_status(
     dealership_id: uuid.UUID,
     user_id: uuid.UUID,
@@ -746,7 +799,9 @@ def get_auth_config(
     require_tenant_match(dealership_id, principal)
     dealership_service.get_dealership_or_404(db, dealership_id)
     config = identity.read_auth_config(db, dealership_id)
-    return AuthConfigRead(auth_method=config.auth_method.value, mfa_enforced=config.mfa_enforced, version=config.version)
+    return AuthConfigRead(
+        auth_method=config.auth_method.value, mfa_enforced=config.mfa_enforced, version=config.version
+    )
 
 
 @router.put(

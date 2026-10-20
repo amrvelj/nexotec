@@ -34,6 +34,7 @@ import { useColumnPanelLabels } from '../hooks/useColumnPanelLabels'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { useSavedViews } from '../hooks/useSavedViews'
 import { useCountryOptions } from '../hooks/useCountryOptions'
+import { useAdvisorOptions } from '../hooks/useAdvisorOptions'
 import { api, ApiError } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { buildCustomerRowMenu } from '../components/customerRowMenu'
@@ -126,10 +127,16 @@ function applyPredicatesToParams(
     }
 
     if (predicate.condition === 'is' && typeof predicate.value === 'string') {
-      params.set(paramName, predicate.value)
+      // KAN-200 (FR-A-37): "advisor is unassigned" is the queue a leaver's
+      // hand-over to nobody fills — the API's own flag, not an id.
+      if (paramName === 'advisorUserId' && predicate.value === UNASSIGNED_ADVISOR) params.set('unassigned', 'true')
+      else params.set(paramName, predicate.value)
     }
   }
 }
+
+const UNASSIGNED_ADVISOR = '__unassigned__'
+
 
 export function CustomersListPage() {
   const { t, i18n } = useTranslation()
@@ -145,6 +152,7 @@ export function CustomersListPage() {
   const savedViews = useSavedViews(GRID_KEY)
   const [searchParams, setSearchParams] = useSearchParams()
   const { options: countryOptions } = useCountryOptions()
+  const { options: advisorOptions } = useAdvisorOptions()
 
   // ISO 3166-1 alpha-2 -> localised country name, for the `nationality`
   // and `addressCountry` columns. Falls back to the raw code while the
@@ -344,7 +352,16 @@ export function CustomersListPage() {
         id: 'advisor',
         header: t('customersList.columns.advisor'),
         cell: ({ row }) => row.original.advisorLabel ?? '—',
-        meta: { exportValue: (row) => row.advisorLabel ?? '' },
+        meta: {
+          // KAN-200: one advisor, or the unassigned queue (FR-A-37).
+          filter: {
+            type: 'select',
+            param: 'advisorUserId',
+            options: [{ value: UNASSIGNED_ADVISOR, label: t('customersList.advisorFilter.unassigned') }, ...advisorOptions],
+            conditions: ['is'],
+          },
+          exportValue: (row) => row.advisorLabel ?? '',
+        },
       },
       {
         id: 'tags',
@@ -501,7 +518,7 @@ export function CustomersListPage() {
       },
       text('duplicateOfCustomerId', t('customersList.columns.duplicateOf'), (row) => row.duplicateOfCustomerId, { mono: true }),
     ]
-  }, [t, locale, countryLabel])
+  }, [t, locale, countryLabel, advisorOptions])
 
   const columnRegistry: ColumnRegistryEntry[] = useMemo(
     () =>

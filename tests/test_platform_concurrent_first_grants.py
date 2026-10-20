@@ -196,6 +196,11 @@ def test_a_membership_grant_racing_a_membership_end_is_a_201_and_a_204_never_a_d
         "set_home_manager_flag",
         "set_text_delegations",
         "end_text_delegations",
+        # KAN-200: the deactivation step, the hand-over and the signature image.
+        "deactivate_user",
+        "transfer_user_ownership",
+        "put_user_signature",
+        "delete_user_signature",
     ],
 )
 def test_every_user_administration_write_takes_the_user_row_lock_first(route):

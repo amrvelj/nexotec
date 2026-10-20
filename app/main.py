@@ -9,6 +9,7 @@ from app.api.v1 import api_v1_router
 from app.core.auth import get_jwks
 from app.core.config import get_settings
 from app.core.errors import NotFoundError, register_error_handlers
+from app.core.object_store import get_object_store
 from app.core.observability import (
     ObservabilityMiddleware,
     configure_logging,
@@ -37,6 +38,9 @@ register_error_handlers(app)
 # KAN-196: resolved here, not on the first invitation — a production deploy
 # with the `logging` mail sender must fail its start, not its first reset.
 get_mailer()
+# KAN-200: the same for the object store — the local directory store is not
+# a production store (KAN-402); the start fails, not the first signature.
+get_object_store()
 app.add_middleware(ObservabilityMiddleware)
 app.include_router(api_v1_router)
 

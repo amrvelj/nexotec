@@ -5,7 +5,7 @@ from pydantic import Field
 
 from app.core.permissions import ModuleCode
 from app.core.schemas import CamelModel
-from app.platform.schemas.user import UserRead
+from app.platform.schemas.user import SessionUserRead
 
 
 class DealershipMembershipSummary(CamelModel):
@@ -28,7 +28,9 @@ class LoginResponse(CamelModel):
     itself.
     """
 
-    user: UserRead
+    # KAN-200: the session's user keeps the shape it had — the administration
+    # screen's fields are UserRead's, never minted into a login response.
+    user: SessionUserRead
     active_dealership: DealershipMembershipSummary
     memberships: list[DealershipMembershipSummary]
     # KAN-198 (D-A-04): the active dealership's licensed modules — what the

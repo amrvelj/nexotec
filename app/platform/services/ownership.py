@@ -47,8 +47,12 @@ def resolve_transfers(
     """Checks the manager's decisions against what the user owns now: every
     (module, group) must be one the user holds, decided at most once, and a
     colleague must be an active user of the same dealership who is not the
-    leaver. With `require_every_group`, every open group needs a decision —
-    the deactivation's rule: never silently with the leaver."""
+    leaver — and one the module admits (`refuses`: Sales says no to a
+    colleague who cannot act in a sister Betrieb some of the records belong
+    to). All of it before anything changes, so a wrong choice is a 422 with
+    the user still active. With `require_every_group`, every open group
+    needs a decision — the deactivation's rule: never silently with the
+    leaver."""
 
     open_groups = {(g.module, g.group): g for g in list_open(db, user=user)}
     seen: set[tuple[str, str]] = set()
@@ -69,14 +73,20 @@ def resolve_transfers(
                 problems.append(f"{item.module}/{item.group}: the user cannot receive their own records")
                 continue
             colleague = db.get(User, item.to_user_id)
-            if (
-                colleague is None
-                or colleague.tenant_id != user.tenant_id
-                or colleague.status not in (UserStatus.ACTIVE, UserStatus.INVITED)
-            ):
+            # FR-A-37: "another active user" — an invited colleague has no
+            # password yet and a suspended one cannot sign in.
+            if colleague is None or colleague.tenant_id != user.tenant_id or colleague.status != UserStatus.ACTIVE:
                 problems.append(f"{item.module}/{item.group}: toUserId is not an active user of this dealership")
                 continue
             to_label = f"{colleague.first_name} {colleague.last_name}".strip()
+        candidate = OwnershipTransfer(
+            module=item.module, group=item.group, to_user_id=item.to_user_id, to_label=to_label
+        )
+        provider = ownership_provider(item.module)
+        refusal = provider.refuses(db, from_user_id=user.id, transfer=candidate) if provider is not None else None
+        if refusal is not None:
+            problems.append(refusal)
+            continue
         resolved.append(
             OwnershipTransfer(module=item.module, group=item.group, to_user_id=item.to_user_id, to_label=to_label)
         )
@@ -120,6 +130,7 @@ def apply_transfers(
                 from_user_id=user.id,
                 transfer=transfer,
                 actor_id=actor_id,
+                reason=reason,
             )
         except Exception:
             logger.exception(

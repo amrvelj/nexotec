@@ -1368,7 +1368,9 @@ export interface paths {
          * @description The user's signature image (Users → Personal settings; Anto,
          *     2026-10-19: the manager sets it here too). The body is the image itself
          *     (PNG or JPEG, up to 1 MiB) with its Content-Type — never base64, never
-         *     multipart; the row keeps the object-store key only.
+         *     multipart; the row keeps the object-store key only. A plain `def` like
+         *     every other route: the bytes arrive as a Body parameter, so the store
+         *     write and the row lock run in the threadpool, not on the event loop.
          */
         put: operations["put_user_signature_v1_dealerships__dealership_id__users__user_id__signature_put"];
         post?: never;
@@ -5947,7 +5949,7 @@ export interface components {
              * @default false
              */
             mfaEnrolmentRequired?: boolean;
-            user: components["schemas"]["UserRead"];
+            user: components["schemas"]["SessionUserRead"];
         };
         /**
          * LoginStatusRead
@@ -6458,8 +6460,15 @@ export interface components {
             /** Transfers */
             transfers: components["schemas"]["OwnershipTransferResult"][];
         };
-        /** OwnershipTransfersRequest */
+        /**
+         * OwnershipTransfersRequest
+         * @description A hand-over outside the deactivation: the retry after a module failed,
+         *     or a plain hand-over for a user who stays. `reason` lands on platform's
+         *     audit row and on the modules' own (a customer's advisor change, say).
+         */
         OwnershipTransfersRequest: {
+            /** Reason */
+            reason?: string | null;
             /** Transfers */
             transfers: components["schemas"]["OwnershipTransferRequest"][];
         };
@@ -6967,6 +6976,60 @@ export interface components {
              * Format: date-time
              */
             lastSeenAt: string;
+        };
+        /**
+         * SessionUserRead
+         * @description `LoginResponse.user` and `GET /auth/me` — exactly the fields they
+         *     carried before KAN-200 (the ticket's do-not-touch). The administration
+         *     fields and the derived ones (`hasSignatureImage`, the sites, the
+         *     invitation expiry) are `UserRead`'s, read through `user_read`; a plain
+         *     `model_validate` of the row cannot fill them, so the session never
+         *     pretends to.
+         */
+        SessionUserRead: {
+            /** Accessroles */
+            accessRoles: components["schemas"]["AccessRole"][];
+            /** Authidentityid */
+            authIdentityId: string;
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            /** Createdby */
+            createdBy: string | null;
+            /**
+             * Dealershipid
+             * Format: uuid
+             */
+            dealershipId: string;
+            /** Email */
+            email: string;
+            employmentStatus: components["schemas"]["EmploymentStatus"];
+            /** Firstname */
+            firstName: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Isdealermanager */
+            isDealerManager: boolean;
+            /** Lastname */
+            lastName: string;
+            /** Phone */
+            phone: string | null;
+            role: components["schemas"]["UserRole"];
+            status: components["schemas"]["UserStatus"];
+            /**
+             * Updatedat
+             * Format: date-time
+             */
+            updatedAt: string;
+            /** Updatedby */
+            updatedBy: string | null;
+            /** Version */
+            version: number;
         };
         /** SetOptionsRequest */
         SetOptionsRequest: {
@@ -9781,6 +9844,9 @@ export interface operations {
                 canton?: string | null;
                 updated_since?: string | null;
                 include_merged?: boolean;
+                advisorUserId?: string | null;
+                /** @description KAN-200: customers with no advisor — the queue a leaver's hand-over fills. */
+                unassigned?: boolean;
                 /** @description e.g. 'lastName:asc,updatedAt:desc' */
                 sort?: string | null;
                 limit?: number;
@@ -11438,6 +11504,8 @@ export interface operations {
                 role?: string | null;
                 status?: components["schemas"]["UserStatus"] | null;
                 q?: string | null;
+                /** @description e.g. 'lastName:asc,lastLoginAt:desc' */
+                sort?: string | null;
                 limit?: number;
                 cursor?: string | null;
             };
@@ -12102,7 +12170,11 @@ export interface operations {
                 dms_session?: string | null;
             };
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "image/png": string;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

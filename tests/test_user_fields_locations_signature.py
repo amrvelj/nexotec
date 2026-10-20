@@ -247,3 +247,38 @@ def test_the_local_store_refuses_a_key_that_escapes_its_root(tmp_path):
     assert store.get("dealerships/d/users/u/signature").data == b"x"
     assert store.delete("dealerships/d/users/u/signature") is True
     assert store.delete("dealerships/d/users/u/signature") is False
+
+
+def test_the_list_sorts_server_side_and_refuses_an_unknown_field(client):
+    """UI/UX Core Principles: every column sortable server-side; an unknown
+    field is a 422, never a silent ignore (app/core/sorting.py)."""
+
+    dealership = create_dealership(client)
+    create_user(client, dealership, firstName="Zoe", lastName="Zimmer")
+    create_user(client, dealership, isDealerManager=False, firstName="Adam", lastName="Abt")
+    create_user(client, dealership, isDealerManager=False, firstName="Mia", lastName="Meier")
+    url = f"/v1/dealerships/{dealership}/users"
+    default = client.get(url, headers=platform_admin_headers()).json()
+    assert [u["lastName"] for u in default["items"]] == ["Abt", "Meier", "Zimmer"]
+    desc = client.get(f"{url}?sort=lastName:desc", headers=platform_admin_headers()).json()
+    assert [u["lastName"] for u in desc["items"]] == ["Zimmer", "Meier", "Abt"]
+    paged = client.get(f"{url}?sort=firstName:asc&limit=2", headers=platform_admin_headers()).json()
+    assert [u["firstName"] for u in paged["items"]] == ["Adam", "Mia"] and paged["nextCursor"]
+    rest = client.get(f"{url}?sort=firstName:asc&limit=2&cursor={paged['nextCursor']}", headers=platform_admin_headers())
+    assert [u["firstName"] for u in rest.json()["items"]] == ["Zoe"]
+    assert client.get(f"{url}?sort=hairColour:asc", headers=platform_admin_headers()).status_code == 422
+
+
+def test_the_local_object_store_is_refused_in_production(monkeypatch):
+    """KAN-402: a directory on the web service's disk is emptied by every
+    deploy while the rows keep their keys — production refuses to start
+    with it, like the mailer refuses its `logging` sender."""
+
+    from app.core import object_store
+    from app.core.config import get_settings
+
+    settings = get_settings()
+    monkeypatch.setattr(settings, "environment", "production")
+    monkeypatch.setattr(object_store, "_store", None)
+    with pytest.raises(RuntimeError, match="not a production store"):
+        object_store.get_object_store()

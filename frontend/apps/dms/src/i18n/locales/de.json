@@ -336,7 +336,10 @@
     },
     "createOfferError": "Die Offerte konnte nicht angelegt werden. Bitte erneut versuchen.",
     "createContractError": "Der Vertrag konnte nicht angelegt werden. Bitte erneut versuchen.",
-    "doNotContactError": "„Nicht kontaktieren“ konnte nicht gespeichert werden. Bitte erneut versuchen."
+    "doNotContactError": "„Nicht kontaktieren“ konnte nicht gespeichert werden. Bitte erneut versuchen.",
+    "advisorFilter": {
+      "unassigned": "Nicht zugewiesen"
+    }
   },
   "customerDetail": {
     "tabs": {
@@ -1047,12 +1050,14 @@
       "grossPrice": "Verkaufspreis",
       "status": "Status",
       "margin": "Marge",
-      "changed": "Geändert"
+      "changed": "Geändert",
+      "owner": "Verantwortlich"
     },
     "chips": {
       "all": "Alle",
       "offers": "Offerten",
-      "contracts": "Verträge"
+      "contracts": "Verträge",
+      "unassigned": "Nicht zugewiesen"
     },
     "emptyState": {
       "title": "Keine Offerten oder Verträge",
@@ -2097,7 +2102,9 @@
       "reactivate": "Reaktivieren",
       "deactivate": "Deaktivieren",
       "deactivateDisabledAlready": "Bereits deaktiviert",
-      "selfDisabled": "Nicht für das eigene Konto"
+      "selfDisabled": "Nicht für das eigene Konto",
+      "handOver": "Offene Vorgänge übergeben",
+      "suspendDisabledNotActive": "Nur ein aktiver Benutzer kann gesperrt werden"
     },
     "actions": {
       "resendFailed": "Die Einladung konnte nicht gesendet werden.",
@@ -2154,7 +2161,7 @@
       "title": "{{name}} deaktivieren",
       "intro": "Der Zugang endet jetzt. Alles, was diese Person noch betreut, wird unten übergeben — an einen Kollegen oder in die Warteschlange des Moduls. Nichts wird gelöscht; die Historie behält den ursprünglichen Verfasser.",
       "reassignTitle": "Offene Vorgänge übergeben",
-      "nothingOpen": "Nichts offen in keinem der {{modules}} Module.",
+      "nothingOpen": "In keinem der {{modules}} Module ist etwas offen.",
       "ownershipLoadError": "Was dieser Benutzer betreut, konnte nicht geladen werden.",
       "columns": {
         "what": "Was",
@@ -2167,6 +2174,11 @@
       "reason": "Grund",
       "endEmployment": "Anstellung ist beendet",
       "confirm": "Deaktivieren"
+    },
+    "handOver": {
+      "title": "Offene Vorgänge von {{name}} übergeben",
+      "intro": "Was diese Person noch betreut, wird an einen Kollegen oder in die Warteschlange des Moduls übergeben — auch nach einer Deaktivierung, bei der ein Modul die Übergabe nicht abschliessen konnte.",
+      "confirm": "Übergeben"
     }
   }
 }

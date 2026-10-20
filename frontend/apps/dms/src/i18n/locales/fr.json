@@ -336,7 +336,10 @@
     },
     "createOfferError": "L’offre n’a pas pu être créée. Veuillez réessayer.",
     "createContractError": "Le contrat n’a pas pu être créé. Veuillez réessayer.",
-    "doNotContactError": "« Ne pas contacter » n’a pas pu être enregistré. Veuillez réessayer."
+    "doNotContactError": "« Ne pas contacter » n’a pas pu être enregistré. Veuillez réessayer.",
+    "advisorFilter": {
+      "unassigned": "Non attribué"
+    }
   },
   "customerDetail": {
     "tabs": {
@@ -1047,12 +1050,14 @@
       "grossPrice": "Prix de vente",
       "status": "Statut",
       "margin": "Marge",
-      "changed": "Modifié"
+      "changed": "Modifié",
+      "owner": "Responsable"
     },
     "chips": {
       "all": "Tous",
       "offers": "Offres",
-      "contracts": "Contrats"
+      "contracts": "Contrats",
+      "unassigned": "Non attribué"
     },
     "emptyState": {
       "title": "Aucune offre ou contrat",
@@ -2097,7 +2102,9 @@
       "reactivate": "Réactiver",
       "deactivate": "Désactiver",
       "deactivateDisabledAlready": "Déjà désactivé",
-      "selfDisabled": "Pas pour votre propre compte"
+      "selfDisabled": "Pas pour votre propre compte",
+      "handOver": "Transmettre les dossiers ouverts",
+      "suspendDisabledNotActive": "Seul un utilisateur actif peut être suspendu"
     },
     "actions": {
       "resendFailed": "L'invitation n'a pas pu être envoyée.",
@@ -2167,6 +2174,11 @@
       "reason": "Motif",
       "endEmployment": "L'emploi a pris fin",
       "confirm": "Désactiver"
+    },
+    "handOver": {
+      "title": "Transmettre les dossiers ouverts de {{name}}",
+      "intro": "Ce que cette personne suit encore est transmis à un collègue ou dans la file d'attente du module — aussi après une désactivation lors de laquelle un module n'a pas pu terminer la transmission.",
+      "confirm": "Transmettre"
     }
   }
 }

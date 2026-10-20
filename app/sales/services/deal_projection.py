@@ -49,6 +49,7 @@ def upsert_deal_projection(
         # KAN-200: the responsible seller of the live entity.
         deal.owner_user_id = contract.owner_user_id
         deal.owner_label = contract.owner_label
+        deal.owner_label_refreshed_at = contract.owner_label_refreshed_at
         deal.gross_price = contract.gross_price
         deal.margin = contract.margin
         offer_docs = (
@@ -87,6 +88,7 @@ def upsert_deal_projection(
     deal.vehicle_label = offer.vehicle_label
     deal.owner_user_id = offer.owner_user_id
     deal.owner_label = offer.owner_label
+    deal.owner_label_refreshed_at = offer.owner_label_refreshed_at
     deal.documents_count = count_documents(
         db, tenant_id=offer.tenant_id, owner_type=DocumentOwnerType.OFFER, owner_id=offer.id
     )

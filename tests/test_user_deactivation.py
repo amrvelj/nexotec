@@ -15,6 +15,7 @@ from sqlalchemy.orm import sessionmaker
 from app.core.audit_model import AuditEvent
 from app.core.auth import AccessRole, create_access_token
 from app.core.ownership import ownership_provider, registered_ownership_modules
+from app.core.reconciliation import ReconciliationAlarm
 from app.platform import daily_jobs
 from app.platform.daily_jobs import run_daily_user_expiry
 from app.platform.models.user import User
@@ -64,7 +65,9 @@ def _contract_for(client, user: dict, customer: dict) -> dict:
 
 
 def _ownership(client, dealership: str, user: dict) -> dict:
-    response = client.get(f"/v1/dealerships/{dealership}/users/{user['id']}/ownership", headers=platform_admin_headers())
+    response = client.get(
+        f"/v1/dealerships/{dealership}/users/{user['id']}/ownership", headers=platform_admin_headers()
+    )
     assert response.status_code == 200, response.text
     return response.json()
 
@@ -131,11 +134,16 @@ def test_deactivation_needs_a_decision_for_every_open_group(client):
     _customer_for(client, leaver)
     _offer_for(client, leaver)
 
-    response = deactivate(client, dealership, leaver, transfers=[{"module": "sales", "group": "offers", "toUserId": None}])
+    response = deactivate(
+        client, dealership, leaver, transfers=[{"module": "sales", "group": "offers", "toUserId": None}]
+    )
     assert response.status_code == 422, response.text
     details = response.json()["error"]["details"]
     assert details["problems"] == ["customer/customers needs a decision: a colleague, or null to leave it unassigned"]
-    assert {(g["module"], g["group"]) for g in details["openGroups"]} == {("customer", "customers"), ("sales", "offers")}
+    assert {(g["module"], g["group"]) for g in details["openGroups"]} == {
+        ("customer", "customers"),
+        ("sales", "offers"),
+    }
     # Nothing changed: the user is still invited, the offer still theirs.
     still = client.get(f"/v1/dealerships/{dealership}/users/{leaver['id']}", headers=platform_admin_headers()).json()
     assert still["status"] == "invited" and still["version"] == 1
@@ -175,6 +183,7 @@ def test_deactivation_hands_each_group_over_and_audits_every_step(client, db_ses
     offer = _offer_for(client, leaver)
     contract = _contract_for(client, leaver, customer)
     login.accept_invitation(leaver)
+    login.accept_invitation(heir)  # FR-A-37: records go to an ACTIVE colleague
     assert login.login(leaver).status_code == 200
 
     response = deactivate(
@@ -235,10 +244,13 @@ def test_deactivation_hands_each_group_over_and_audits_every_step(client, db_ses
             select(AuditEvent).where(AuditEvent.entity_id == uuid.UUID(customer["id"]), AuditEvent.action == "update")
         ).all()
     )
-    assert any(r.after == {"advisor_id": heir["id"]} and r.reason == "advisor_deactivated" for r in customer_rows)
+    # … carrying the manager's reason, as platform's rows do (never a code).
+    assert any(r.after == {"advisor_id": heir["id"]} and r.reason == "left on 30 September" for r in customer_rows)
 
 
-def test_a_failed_module_leaves_its_records_for_the_retry_and_the_user_deactivated(client, db_session, monkeypatch):
+def test_a_failed_module_leaves_its_records_for_the_retry_and_the_user_deactivated(
+    client, db_session, monkeypatch, login
+):
     """ADR-047: no shared transaction across the seam. The customer module's
     hand-over commits; sales fails; the user is deactivated (access cut
     first), the customer transfer is recorded, and the offers are still
@@ -247,6 +259,7 @@ def test_a_failed_module_leaves_its_records_for_the_retry_and_the_user_deactivat
     dealership = create_dealership(client)
     leaver = create_user(client, dealership, isDealerManager=False)
     heir = create_user(client, dealership, isDealerManager=False)
+    login.accept_invitation(heir)
     create_user(client, dealership)
     customer = _customer_for(client, leaver)
     _offer_for(client, leaver)
@@ -286,10 +299,11 @@ def test_a_failed_module_leaves_its_records_for_the_retry_and_the_user_deactivat
     assert _ownership(client, dealership, leaver)["groups"] == []
 
 
-def test_the_hand_over_endpoint_also_serves_a_user_who_stays(client):
+def test_the_hand_over_endpoint_also_serves_a_user_who_stays(client, login):
     dealership = create_dealership(client)
     seller = create_user(client, dealership, isDealerManager=False)
     heir = create_user(client, dealership, isDealerManager=False)
+    login.accept_invitation(heir)
     offer = _offer_for(client, seller)
     response = client.post(
         f"/v1/dealerships/{dealership}/users/{seller['id']}/ownership/transfers",
@@ -298,7 +312,12 @@ def test_the_hand_over_endpoint_also_serves_a_user_who_stays(client):
     )
     assert response.status_code == 200, response.text
     assert client.get(f"/v1/sales/offers/{offer['id']}", headers=_as(heir)).json()["ownerUserId"] == heir["id"]
-    assert client.get(f"/v1/dealerships/{dealership}/users/{seller['id']}", headers=platform_admin_headers()).json()["status"] == "invited"
+    assert (
+        client.get(f"/v1/dealerships/{dealership}/users/{seller['id']}", headers=platform_admin_headers()).json()[
+            "status"
+        ]
+        == "invited"
+    )
 
 
 def test_a_manager_may_deactivate_but_never_a_staff_account_and_never_across_tenants(client):
@@ -312,7 +331,9 @@ def test_a_manager_may_deactivate_but_never_a_staff_account_and_never_across_ten
     assert deactivate(client, dealership, staff, headers=_as(manager, manager=True)).status_code == 403
     assert deactivate(client, other, foreign, headers=_as(manager, manager=True)).status_code == 404
     assert deactivate(client, dealership, foreign, headers=_as(manager, manager=True)).status_code == 404
-    assert deactivate(client, dealership, manager, headers=_as(manager, manager=True)).status_code == 400  # last manager
+    assert (
+        deactivate(client, dealership, manager, headers=_as(manager, manager=True)).status_code == 400
+    )  # last manager
 
 
 def test_a_deactivated_user_cannot_be_deactivated_again(client):
@@ -336,7 +357,9 @@ def test_invited_at_last_login_at_and_the_invitation_expiry_are_stamped(client, 
     assert row["lastLoginAt"] is None
 
     first_invited_at = row["invitedAt"]
-    reissued = client.post(f"/v1/dealerships/{dealership}/users/{user['id']}/invitations", headers=platform_admin_headers())
+    reissued = client.post(
+        f"/v1/dealerships/{dealership}/users/{user['id']}/invitations", headers=platform_admin_headers()
+    )
     assert reissued.status_code == 202, reissued.text
     again = client.get(f"/v1/dealerships/{dealership}/users/{user['id']}", headers=platform_admin_headers()).json()
     assert again["invitedAt"] >= first_invited_at
@@ -371,9 +394,18 @@ def test_a_user_outside_their_validity_window_cannot_sign_in(client, login):
     assert opened.status_code == 200, opened.text
     assert login.login(user).status_code == 200
 
-    closed = client.patch(
+    # The end before the stored start is refused (the window is judged as it
+    # will be after the PATCH, not only when a body carries both dates) …
+    inverted = client.patch(
         f"/v1/dealerships/{dealership}/users/{user['id']}",
         json={"validTo": str(today - dt.timedelta(days=1))},
+        headers={**platform_admin_headers(), "If-Match": "4"},
+    )
+    assert inverted.status_code == 422, inverted.text
+    # … and a window that lies in the past closes the door.
+    closed = client.patch(
+        f"/v1/dealerships/{dealership}/users/{user['id']}",
+        json={"validFrom": str(today - dt.timedelta(days=2)), "validTo": str(today - dt.timedelta(days=1))},
         headers={**platform_admin_headers(), "If-Match": "4"},
     )
     assert closed.status_code == 200, closed.text
@@ -438,3 +470,397 @@ def test_the_expiry_job_keeps_the_last_manager_and_alarms(client, db_session, en
     assert db_session.get(User, uuid.UUID(only_manager["id"])).status.value == "invited"
     errors = [r for r in caplog.records if r.name == daily_jobs.__name__ and r.levelno == logging.ERROR]
     assert errors and "skipped_last_manager=1" in errors[-1].getMessage()
+
+
+# --- the review's findings (2026-10-19): one transaction, the lifecycle, the window ----
+
+
+def test_the_user_and_the_invitation_are_one_transaction(client, db_session, monkeypatch):
+    """FR-A-09: the user record and the invitation token are written in one
+    transaction — a failure issuing the token leaves no half-created user."""
+
+    from app.platform.services import identity
+
+    dealership = create_dealership(client)
+    email = f"one-tx-{uuid.uuid4().hex[:6]}@example.ch"
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("token store is down")
+
+    monkeypatch.setattr(identity.auth_tokens, "issue", boom)
+    with pytest.raises(RuntimeError):
+        client.post(
+            f"/v1/dealerships/{dealership}/users",
+            json={"firstName": "Half", "lastName": "Made", "email": email, "role": "sales", "accessRoles": ["sales"]},
+            headers=platform_admin_headers(),
+        )
+    monkeypatch.undo()
+    assert db_session.scalar(select(User).where(User.email == email)) is None
+
+
+def test_an_invited_user_is_activated_only_by_accepting_and_never_suspended(client):
+    """Users → Lifecycle: `Invited → Active` is the acceptance (the person
+    sets their own password); a PATCH cannot skip it, and only an active
+    user can be suspended."""
+
+    dealership = create_dealership(client)
+    user = create_user(client, dealership, isDealerManager=False)
+    create_user(client, dealership)
+    url = f"/v1/dealerships/{dealership}/users/{user['id']}"
+    activated = client.patch(url, json={"status": "active"}, headers={**platform_admin_headers(), "If-Match": "1"})
+    assert activated.status_code == 409, activated.text
+    assert activated.json()["error"]["details"]["reason"] == "accept_invitation_required"
+    suspended = client.patch(url, json={"status": "suspended"}, headers={**platform_admin_headers(), "If-Match": "1"})
+    assert suspended.status_code == 409, suspended.text
+    assert suspended.json()["error"]["details"]["reason"] == "not_active"
+    # The invitation is still the manager's to resend.
+    resent = client.post(
+        f"{url}/invitations", headers={**platform_admin_headers(), "Idempotency-Key": str(uuid.uuid4())}
+    )
+    assert resent.status_code == 202, resent.text
+
+
+def test_reactivating_a_user_who_never_accepted_returns_them_to_invited(client, login):
+    """A user deactivated while `invited` holds no password: reactivation
+    makes them `invited` again — the manager resends the invitation and the
+    person sets their password — never `active` with no way in."""
+
+    dealership = create_dealership(client)
+    manager = create_user(client, dealership)
+    user = create_user(client, dealership, isDealerManager=False)
+    assert deactivate(client, dealership, user).status_code == 200
+    url = f"/v1/dealerships/{dealership}/users/{user['id']}"
+    back = client.patch(url, json={"status": "active"}, headers={**platform_admin_headers(), "If-Match": "2"})
+    assert back.status_code == 200, back.text
+    assert back.json()["status"] == "invited"
+    resent = client.post(
+        f"{url}/invitations", headers={**_as(manager, manager=True), "Idempotency-Key": str(uuid.uuid4())}
+    )
+    assert resent.status_code == 202, resent.text
+    login.accept_invitation(user)
+    assert login.login(user).status_code == 200
+
+
+def test_an_invitation_can_be_accepted_before_the_window_opens_but_no_session_is_minted(client, mailbox):
+    """FR-A-12: a hire with a future `valid_from` sets their password when
+    the invitation arrives (its 14 days may run out before the first day);
+    the acceptance says when access starts instead of a session, and the
+    login keeps its uniform 401 until then."""
+
+    from tests.identity_support import last_mail_to, token_in
+
+    dealership = create_dealership(client)
+    today = dt.datetime.now(ZoneInfo("Europe/Zurich")).date()
+    start = today + dt.timedelta(days=3)
+    user = create_user(client, dealership, isDealerManager=False, validFrom=str(start))
+    token = token_in(last_mail_to(mailbox, user["email"]))
+    accepted = client.post(
+        "/v1/auth/invitations/accept", json={"token": token, "password": "correct horse battery staple!"}
+    )
+    assert accepted.status_code == 403, accepted.text
+    assert accepted.json()["error"]["details"] == {
+        "reason": "access_window_closed",
+        "validFrom": str(start),
+        "validTo": None,
+    }
+    row = client.get(f"/v1/dealerships/{dealership}/users/{user['id']}", headers=platform_admin_headers()).json()
+    assert row["status"] == "active"  # the password is set, the account is theirs
+    login = PasswordLogin(client, mailbox)
+    assert login.login(user, password="correct horse battery staple!").status_code == 401
+    opened = client.patch(
+        f"/v1/dealerships/{dealership}/users/{user['id']}",
+        json={"validFrom": str(today)},
+        headers={**platform_admin_headers(), "If-Match": str(row["version"])},
+    )
+    assert opened.status_code == 200, opened.text
+    assert login.login(user, password="correct horse battery staple!").status_code == 200
+
+
+def test_the_session_user_keeps_its_pre_kan_200_shape(client, login):
+    """The ticket's do-not-touch: `LoginResponse.user` (and `GET /auth/me`)
+    carries the fields it did before — the administration fields, the sites
+    and the derived `hasSignatureImage` are `UserRead`'s alone."""
+
+    dealership = create_dealership(client)
+    user = create_user(client, dealership)
+    login.accept_invitation(user)
+    body = login.login(user).json()["session"]["user"]
+    assert set(body) == {
+        "id",
+        "dealershipId",
+        "firstName",
+        "lastName",
+        "email",
+        "phone",
+        "role",
+        "accessRoles",
+        "isDealerManager",
+        "employmentStatus",
+        "authIdentityId",
+        "status",
+        "version",
+        "createdAt",
+        "updatedAt",
+        "createdBy",
+        "updatedBy",
+    }
+
+
+def test_the_customer_list_filters_the_unassigned_queue_and_one_advisor(client, login):
+    """FR-A-37: "unassigned items appear in the module's own queue" — for
+    Customers, `GET /customers?unassigned=true`; `advisorUserId` is the
+    colleague's view after a hand-over."""
+
+    dealership = create_dealership(client)
+    leaver = create_user(client, dealership, isDealerManager=False)
+    heir = create_user(client, dealership, isDealerManager=False)
+    login.accept_invitation(heir)
+    create_user(client, dealership)
+    kept = _customer_for(client, leaver, lastName="Kept")
+    queued = _customer_for(client, leaver, lastName="Queued")
+    handed = client.post(
+        f"/v1/dealerships/{dealership}/users/{leaver['id']}/ownership/transfers",
+        json={"transfers": [{"module": "customer", "group": "customers", "toUserId": heir["id"]}]},
+        headers={**platform_admin_headers(), "Idempotency-Key": str(uuid.uuid4())},
+    )
+    assert handed.status_code == 200, handed.text
+    cleared = client.patch(
+        f"/v1/customers/{queued['id']}", json={"advisorId": None}, headers={**_as(heir), "If-Match": "2"}
+    )
+    assert cleared.status_code == 200, cleared.text
+
+    unassigned = client.get("/v1/customers?unassigned=true", headers=_as(heir)).json()
+    assert [c["id"] for c in unassigned["items"]] == [queued["id"]]
+    mine = client.get(f"/v1/customers?advisorUserId={heir['id']}", headers=_as(heir)).json()
+    assert [c["id"] for c in mine["items"]] == [kept["id"]]
+
+
+# --- the review's findings: sister Betriebe, the job's failure modes, reconciliation -----
+
+
+def _acting_in(user: dict, dealership: str) -> dict[str, str]:
+    """A session of this user switched to a sister Betrieb (a membership)."""
+
+    tid = uuid.UUID(dealership)
+    token = create_access_token(
+        user_id=uuid.UUID(user["id"]),
+        tenant_id=tid,
+        group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tid)),
+        roles=frozenset({AccessRole.SALES}),
+    )
+    return {"Authorization": f"Bearer {token}"}
+
+
+def test_a_sister_betrieb_members_deals_are_theirs_and_go_to_a_colleague_who_acts_there_or_to_the_queue(client, login):
+    """FR-A-37 across the group: a member creates offers in the sister
+    Betrieb and owns them there; the deactivation counts them; a colleague
+    who cannot act in that Betrieb is refused before anything changes
+    (422), a member there receives them, and null sends them to that
+    Betrieb's own queue."""
+
+    from tests.membership_support import create_dealership as create_sister
+    from tests.membership_support import grant
+
+    home = create_dealership(client)
+    sister = create_sister(client, "Garage Süd AG", group_of=home)
+    manager = create_user(client, home)
+    leaver = create_user(client, home, isDealerManager=False, firstName="Lea", lastName="Ver")
+    home_only = create_user(client, home, isDealerManager=False, firstName="Home", lastName="Only")
+    member_too = create_user(client, home, isDealerManager=False, firstName="Mem", lastName="Ber")
+    for person in (leaver, home_only, member_too):
+        login.accept_invitation(person)
+    assert grant(client, home, leaver, sister).status_code == 201
+    assert grant(client, home, member_too, sister).status_code == 201
+
+    there = client.post("/v1/sales/offers", headers=_acting_in(leaver, sister))
+    assert there.status_code == 201, there.text
+    assert there.json()["ownerUserId"] == leaver["id"] and there.json()["ownerLabel"] == "Lea Ver"
+    at_home = _offer_for(client, leaver)
+    assert _ownership(client, home, leaver)["groups"] == [{"module": "sales", "group": "offers", "count": 2}]
+
+    version = client.get(f"/v1/dealerships/{home}/users/{leaver['id']}", headers=platform_admin_headers()).json()[
+        "version"
+    ]
+    refused = deactivate(
+        client,
+        home,
+        leaver,
+        headers=_as(manager, manager=True),
+        if_match=version,
+        transfers=[{"module": "sales", "group": "offers", "toUserId": home_only["id"]}],
+    )
+    assert refused.status_code == 422, refused.text
+    assert sister in refused.json()["error"]["details"]["problems"][0]
+    still = client.get(f"/v1/dealerships/{home}/users/{leaver['id']}", headers=platform_admin_headers()).json()
+    assert still["status"] == "active"  # nothing changed: the manager chooses again
+
+    accepted = deactivate(
+        client,
+        home,
+        leaver,
+        headers=_as(manager, manager=True),
+        if_match=version,
+        transfers=[{"module": "sales", "group": "offers", "toUserId": member_too["id"]}],
+    )
+    assert accepted.status_code == 200, accepted.text
+    assert accepted.json()["transfers"] == [
+        {"module": "sales", "group": "offers", "toUserId": member_too["id"], "count": 2}
+    ]
+    assert (
+        client.get(f"/v1/sales/offers/{there.json()['id']}", headers=_acting_in(member_too, sister)).json()[
+            "ownerUserId"
+        ]
+        == member_too["id"]
+    )
+    assert (
+        client.get(f"/v1/sales/offers/{at_home['id']}", headers=_as(member_too)).json()["ownerUserId"]
+        == member_too["id"]
+    )
+
+    # The queue is per Betrieb: handed to nobody, the sister's offer shows in
+    # the sister's own unassigned list, not the home's.
+    second = create_user(client, home, isDealerManager=False, firstName="Sec", lastName="Ond")
+    login.accept_invitation(second)
+    assert grant(client, home, second, sister).status_code == 201
+    # A pending contract: the deal grid lists contracts and open offers, never drafts.
+    buyer = client.post(
+        "/v1/customers",
+        json={
+            "firstName": "Sis",
+            "lastName": "Ter",
+            "language": "de",
+            "emails": [{"emailType": "personal", "emailAddress": f"sis-{uuid.uuid4().hex[:6]}@example.ch"}],
+        },
+        headers=_acting_in(second, sister),
+    ).json()
+    theirs = client.post("/v1/sales/contracts", json={"customerId": buyer["id"]}, headers=_acting_in(second, sister))
+    assert theirs.status_code == 201, theirs.text
+    assert theirs.json()["ownerUserId"] == second["id"]
+    version = client.get(f"/v1/dealerships/{home}/users/{second['id']}", headers=platform_admin_headers()).json()[
+        "version"
+    ]
+    released = deactivate(
+        client,
+        home,
+        second,
+        headers=_as(manager, manager=True),
+        if_match=version,
+        transfers=[{"module": "sales", "group": "contracts", "toUserId": None}],
+    )
+    assert released.status_code == 200, released.text
+    queue_there = client.get("/v1/sales/deals?unassigned=true", headers=_acting_in(member_too, sister)).json()
+    assert [d["contractId"] for d in queue_there["items"]] == [theirs.json()["id"]]
+    assert client.get("/v1/sales/deals?unassigned=true", headers=_as(member_too)).json()["total"] == 0
+
+
+def test_a_seller_set_in_the_workspace_must_hold_or_await_access(client, login):
+    """`ownerUserId` refuses a suspended or deactivated user (422), admits
+    an invited one and a sister-Betrieb member."""
+
+    dealership = create_dealership(client)
+    seller = create_user(client, dealership)
+    login.accept_invitation(seller)
+    gone = create_user(client, dealership, isDealerManager=False)
+    assert deactivate(client, dealership, gone).status_code == 200
+    invited = create_user(client, dealership, isDealerManager=False)
+    offer = client.post("/v1/sales/offers", headers=_as(seller)).json()
+
+    refused = client.patch(
+        f"/v1/sales/offers/{offer['id']}",
+        json={"ownerUserId": gone["id"]},
+        headers={**_as(seller), "If-Match": str(offer["version"])},
+    )
+    assert refused.status_code == 422, refused.text
+    admitted = client.patch(
+        f"/v1/sales/offers/{offer['id']}",
+        json={"ownerUserId": invited["id"]},
+        headers={**_as(seller), "If-Match": str(offer["version"])},
+    )
+    assert admitted.status_code == 200, admitted.text
+
+
+def test_the_expiry_job_expires_a_staff_account_and_one_failure_does_not_stop_the_others(
+    client, db_session, engine, caplog, monkeypatch
+):
+    """The job acts with platform's own authority: a `platform_admin` whose
+    `valid_to` passed expires like anyone (KAN-97's guard is for a manager,
+    not for the system), and a user whose status change fails is logged and
+    skipped — the next user is still deactivated."""
+
+    dealership = create_dealership(client)
+    yesterday = str(dt.datetime.now(ZoneInfo("Europe/Zurich")).date() - dt.timedelta(days=1))
+    create_user(client, dealership)  # stays the manager
+    staff = create_user(client, dealership, isDealerManager=False, accessRoles=["platform_admin"], validTo=yesterday)
+    broken = create_user(client, dealership, isDealerManager=False, validTo=yesterday)
+    after = create_user(client, dealership, isDealerManager=False, validTo=yesterday)
+
+    from app.platform.services import user as user_service
+
+    real_update = user_service.update_user
+
+    def flaky(db, *, user, **kwargs):
+        if user.id == uuid.UUID(broken["id"]):
+            raise RuntimeError("audit store is down")
+        return real_update(db, user=user, **kwargs)
+
+    monkeypatch.setattr(user_service, "update_user", flaky)
+    with caplog.at_level(logging.INFO, logger=daily_jobs.__name__):
+        run_daily_user_expiry(db_session, session_factory=sessionmaker(bind=engine))
+    monkeypatch.undo()
+
+    db_session.expire_all()
+    assert db_session.get(User, uuid.UUID(staff["id"])).status.value == "deactivated"
+    assert db_session.get(User, uuid.UUID(after["id"])).status.value == "deactivated"
+    assert db_session.get(User, uuid.UUID(broken["id"])).status.value == "invited"
+    summary = [r for r in caplog.records if r.name == daily_jobs.__name__ and "due=" in r.getMessage()]
+    assert summary and summary[-1].levelno == logging.ERROR
+    assert "deactivated=2" in summary[-1].getMessage() and "failed=1" in summary[-1].getMessage()
+
+
+def test_the_expiry_job_retries_a_failed_hand_over_and_reconciliation_reports_it_meanwhile(
+    client, db_session, engine, caplog, monkeypatch
+):
+    """A module that fails after the status change leaves its records with
+    the (now deactivated) user: the next run retries the release, and until
+    it succeeds the module's nightly reconciliation names the record."""
+
+    from app.sales import reconciliation as sales_reconciliation
+
+    dealership = create_dealership(client)
+    yesterday = str(dt.datetime.now(ZoneInfo("Europe/Zurich")).date() - dt.timedelta(days=1))
+    create_user(client, dealership)
+    expired = create_user(client, dealership, isDealerManager=False, validTo=yesterday)
+    witness = create_user(client, dealership, isDealerManager=False)
+    offer = _offer_for(client, expired)
+
+    sales = ownership_provider("sales")
+    assert sales is not None
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("sales is down")
+
+    monkeypatch.setattr(sales, "transfer", boom)
+    with caplog.at_level(logging.INFO, logger=daily_jobs.__name__):
+        run_daily_user_expiry(db_session, session_factory=sessionmaker(bind=engine))
+    monkeypatch.undo()
+    db_session.expire_all()
+    assert db_session.get(User, uuid.UUID(expired["id"])).status.value == "deactivated"
+    assert client.get(f"/v1/sales/offers/{offer['id']}", headers=_as(witness)).json()["ownerUserId"] == expired["id"]
+    first = [r for r in caplog.records if r.name == daily_jobs.__name__ and "due=" in r.getMessage()][-1]
+    assert first.levelno == logging.ERROR and "handover_failed=1" in first.getMessage()
+
+    with pytest.raises(ReconciliationAlarm) as alarm:
+        sales_reconciliation.run(db_session)
+    labels = {o.check_label for o in alarm.value.orphans}
+    assert "sales_offer.owner_user_id names a deactivated user while the offer is open" in labels
+
+    caplog.clear()
+    with caplog.at_level(logging.INFO, logger=daily_jobs.__name__):
+        run_daily_user_expiry(db_session, session_factory=sessionmaker(bind=engine))
+    db_session.expire_all()
+    assert client.get(f"/v1/sales/offers/{offer['id']}", headers=_as(witness)).json()["ownerUserId"] is None
+    late = [r for r in caplog.records if r.name == daily_jobs.__name__ and "late hand-over" in r.getMessage()]
+    assert late and "sales/offers=1" in late[0].getMessage()
+    second = [r for r in caplog.records if r.name == daily_jobs.__name__ and "due=" in r.getMessage()][-1]
+    assert second.levelno == logging.INFO and "retried=1" in second.getMessage()
+    assert sales_reconciliation.run(db_session).orphans_found == 0

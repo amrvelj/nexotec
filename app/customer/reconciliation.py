@@ -15,19 +15,20 @@ from sqlalchemy.orm import Session
 
 from app.core.audit_model import AuditEvent
 from app.core.outbox_model import OutboxMessage
-from app.core.reconciliation import ReconciliationRun, ReferenceCheck, run_reconciliation
+from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
 from app.customer.models.customer import (
     Customer,
     CustomerAddress,
     CustomerEmail,
     CustomerExternalId,
+    CustomerLifecycleStatus,
     CustomerNumberSequence,
     CustomerPhone,
     CustomerTag,
 )
 from app.customer.models.legal_basis import LegalBasis
 from app.customer.models.vehicle_party import VehicleParty
-from app.platform.public import DealerGroup, Dealership, actor_reference_checks
+from app.platform.public import DealerGroup, Dealership, User, actor_reference_checks
 from app.vehicle.public import VehicleMdm
 
 CONTEXT = "customer"
@@ -35,10 +36,17 @@ CONTEXT = "customer"
 # Every Customer table with created_by / updated_by: each must name a platform
 # user, or be null (KAN-243; see app.platform.public.actor_reference_checks).
 ACTOR_TABLES = (
-    Customer, CustomerPhone, CustomerEmail, CustomerAddress, CustomerExternalId, CustomerTag, LegalBasis, VehicleParty,
+    Customer,
+    CustomerPhone,
+    CustomerEmail,
+    CustomerAddress,
+    CustomerExternalId,
+    CustomerTag,
+    LegalBasis,
+    VehicleParty,
 )
 
-CHECKS = [
+CHECKS: list[ReferenceCheck | StateCheck] = [
     ReferenceCheck(
         # WP-5 PR-2 (ADR-021): a VehicleParty links a customer to the
         # physical vehicle, which in the three-layer model is VehicleMdm,
@@ -96,6 +104,21 @@ CHECKS = [
         target_id_column=DealerGroup.id,
     ),
     *actor_reference_checks(*ACTOR_TABLES),
+    StateCheck(
+        # KAN-200 (FR-A-37, rule 10): a customer whose advisor is deactivated —
+        # the deactivation step hands every advised customer over; this says
+        # when it did not (a hand-over that failed after the status change).
+        label="customer.advisor_id names a deactivated user",
+        source_model=Customer,
+        source_row_id_column=Customer.id,
+        where=lambda: (
+            (Customer.lifecycle_status != CustomerLifecycleStatus.MERGED)
+            & select(User.id)
+            .where(User.id == Customer.advisor_id, User.status == "deactivated")
+            .correlate(Customer)
+            .exists()
+        ),
+    ),
 ]
 
 
@@ -152,7 +175,7 @@ _CHUNK = 1000
 def _chunks(ids: Iterable[uuid.UUID]) -> Iterable[list[uuid.UUID]]:
     batch = list(ids)
     for start in range(0, len(batch), _CHUNK):
-        yield batch[start:start + _CHUNK]
+        yield batch[start : start + _CHUNK]
 
 
 def _as_uuid(value: object) -> uuid.UUID | None:
@@ -197,7 +220,10 @@ def find_cross_group_vehicle_party_closes(db: Session) -> VehiclePartyStampRepor
     """
 
     return _classify_vehicle_party_stamps(
-        db, operation="close", audit_action="vehicle_party_remove", event_type="customer.vehicle_party.unlinked",
+        db,
+        operation="close",
+        audit_action="vehicle_party_remove",
+        event_type="customer.vehicle_party.unlinked",
     )
 
 
@@ -226,7 +252,10 @@ def find_cross_group_vehicle_party_links(db: Session) -> VehiclePartyStampReport
     """
 
     return _classify_vehicle_party_stamps(
-        db, operation="link", audit_action="vehicle_party_add", event_type="customer.vehicle_party.linked",
+        db,
+        operation="link",
+        audit_action="vehicle_party_add",
+        event_type="customer.vehicle_party.linked",
     )
 
 
@@ -257,7 +286,9 @@ def _classify_vehicle_party_stamps(
     for batch in _chunks({customer_id for *_, customer_id, _ in raw if customer_id is not None}):
         customer_groups.update(
             (customer_id, group_id)
-            for customer_id, group_id in db.execute(select(Customer.id, Customer.group_id).where(Customer.id.in_(batch)))
+            for customer_id, group_id in db.execute(
+                select(Customer.id, Customer.group_id).where(Customer.id.in_(batch))
+            )
         )
 
     stamps = {stamped for *_, stamped in raw if stamped is not None}
@@ -289,8 +320,16 @@ def _classify_vehicle_party_stamps(
             category = StampCategory.SAME_GROUP
         else:
             category = StampCategory.SAME_GROUP_DEALERSHIP_STAMP
-        rows.append(VehiclePartyStamp(
-            source=source, row_id=row_id, at=at, customer_id=customer_id, customer_group_id=customer_group,
-            stamped_tenant_id=stamped, stamped_group_id=stamped_group, category=category,
-        ))
+        rows.append(
+            VehiclePartyStamp(
+                source=source,
+                row_id=row_id,
+                at=at,
+                customer_id=customer_id,
+                customer_group_id=customer_group,
+                stamped_tenant_id=stamped,
+                stamped_group_id=stamped_group,
+                category=category,
+            )
+        )
     return VehiclePartyStampReport(operation=operation, rows=rows)

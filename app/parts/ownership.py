@@ -19,6 +19,9 @@ class PartsOwnershipProvider:
     def list_open(self, db: Session, *, dealership_id: uuid.UUID, user_id: uuid.UUID) -> list[OwnedGroup]:
         return []
 
+    def refuses(self, db: Session, *, from_user_id: uuid.UUID, transfer: OwnershipTransfer) -> str | None:
+        return None
+
     def transfer(
         self,
         session_factory: Callable[[], Session],
@@ -27,5 +30,6 @@ class PartsOwnershipProvider:
         from_user_id: uuid.UUID,
         transfer: OwnershipTransfer,
         actor_id: uuid.UUID | None,
+        reason: str | None,
     ) -> int:
         raise ValueError(f"parts owns no group '{transfer.group}' yet")

@@ -66,10 +66,11 @@ main@046634d on 2026-10-17 (KAN-195: every present-tense claim checked against t
   listing shows a dealer manager only the sister dealerships they manage themselves.
   Every user-administration route in `app/platform/api/dealerships.py` that writes a user's
   memberships, text delegations or the user row (PATCH user, membership grant/end, both
-  manager-flag PUTs, delegation PUT/DELETE) loads the user with
+  manager-flag PUTs, delegation PUT/DELETE, and since KAN-200 the deactivation step, the
+  hand-over and the signature PUT/DELETE) loads the user with
   `user_service.get_user_for_update_or_404` (FOR NO KEY UPDATE) **before** it touches a child row
   (KAN-380): two first grants are then a 201 and a 409, and a route that locked child rows first
-  would deadlock against one that locked the user first (a source test pins the seven). The
+  would deadlock against one that locked the user first (a source test pins the eleven). The
   front door (invitation acceptance, password-reset confirm) writes the user row under its
   single-use token's lock instead and touches no membership or delegation.
   `LoginResponse.user.isDealerManager` is the home flag, not the active dealership's — never
@@ -161,20 +162,39 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   in `app/core/ownership.py`, one implementation per context registered by the composition root
   `app/ownership_registry.py` (customer: the customers a user advises; sales: open offers and
   pending contracts, which carry a responsible seller `owner_user_id` since KAN-200, Anto
-  2026-10-19; inventory, aftersales, parts: nothing per user). `GET …/users/{id}/ownership`
-  lists the groups; `POST …/users/{id}/deactivate` needs a decision for every group (a colleague
-  or null = the module's own unassigned queue, e.g. `GET /sales/deals?unassigned=true`), cuts
+  2026-10-19; inventory, aftersales, parts: nothing per user). A user id names one person
+  platform-wide, so a provider counts what the user owns **everywhere** — a sister-Betrieb
+  member's offers there included (`platform.public.get_user_acting_in` is how Sales admits a
+  seller: homed or an active member, status active or invited) — and a hand-over to a colleague
+  who cannot act in one of those Betriebe is refused as a whole (422 naming it): the manager
+  picks the queue for that group. `GET …/users/{id}/ownership`
+  lists the groups; `POST …/users/{id}/deactivate` needs a decision for every group (an
+  **active** colleague, or null = the module's own unassigned queue: `GET /sales/deals?unassigned=true`,
+  `GET /customers?unassigned=true`, both filterable on screen), cuts
   access first in platform's own commit, then each module hands over on a session of its own
-  (ADR-047) with one `ownership_transferred` audit row per group; `POST …/ownership/transfers`
-  is the retry and the plain hand-over. A PATCH `status: deactivated` (or an employment
-  `terminated` on an active user) is 409 `use_deactivate_endpoint`. **Reactivation is
-  allowed** (Users → Lifecycle): PATCH `status: active`, with `employmentStatus` when the
-  employment ended with the user; any other edit of a deactivated user stays 409. The nightly
+  (ADR-047) with one `ownership_transferred` audit row per group, the manager's reason on the
+  module's own audit rows too; `POST …/ownership/transfers` (`reason` optional)
+  is the retry and the plain hand-over — the row menu's "hand over" entry. A PATCH `status: deactivated` (or an employment
+  `terminated` on an active user) is 409 `use_deactivate_endpoint`. **The lifecycle is
+  enforced** (Users → Lifecycle): `invited → active` happens only by accepting the invitation
+  (PATCH `status: active` on an invited user is 409 `accept_invitation_required`), only an
+  active user can be suspended (409 `not_active`), and **reactivation is allowed**: PATCH
+  `status: active`, with `employmentStatus` when the employment ended with the user — a
+  deactivated user who holds no credential (deactivated while invited, or after a staff MFA/
+  credential reset) comes back as `invited`, not `active`, and the manager resends the
+  invitation; any other edit of a deactivated user stays 409. The nightly
   `platform.user_expiry` job (FR-A-12, worker only — not on staging) deactivates a user whose
-  `valid_to` has passed and releases their records to the queues; `valid_from`/`valid_to`
-  also refuse a sign-in outside the window. `user_location` (primary + additional, FR-A-02)
-  and `GET …/locations` (read-only: no Locations screen yet). The Users screen is
-  `/administration/users` (one shared invite/edit dialog, the deactivation dialog; no delete).
+  `valid_to` has passed with platform's own authority (a staff account expires too), one user
+  at a time (a failure on one is logged, the rest go on), releases their records to the queues,
+  and retries a failed release for 30 days; each module's nightly reconciliation reports an open
+  record whose owner is deactivated (rule 10). `valid_from`/`valid_to` refuse a sign-in outside
+  the window (the validity is checked as it will be after a PATCH); an invitation can be
+  accepted before `valid_from` (password set, account active), the acceptance answering 403
+  `access_window_closed` with the dates instead of a session. `user_location` (primary +
+  additional, FR-A-02) and `GET …/locations` (read-only: no Locations screen yet). The Users
+  screen is `/administration/users` (one shared invite/edit dialog, the deactivation dialog;
+  server-side sort; no delete). `LoginResponse.user` and `GET /auth/me` keep their pre-KAN-200
+  shape (`SessionUserRead`); the administration fields are `UserRead`'s alone.
 - **Mail (D-A-28):** platform mail (invites, resets, alerts) is always Nexotec's own sender;
   customer-facing mail resolves per document type through `sending_policy` to
   `user_mailbox` · `business_mailbox` · `verified_domain` · `nexotec_on_behalf`.
@@ -191,7 +211,9 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   bytes), stored under `dealerships/<id>/users/<id>/signature` in the object store
   (`app/core/object_store.py`; `DMS_OBJECT_STORE_BACKEND=local` under
   `DMS_OBJECT_STORE_LOCAL_DIR`, the only store built; a bucket is a follow-up); the row holds
-  the key (`signature_image_ref`), never bytes or base64.
+  the key (`signature_image_ref`), never bytes or base64. The local store is dev, test and
+  staging only: `get_object_store` refuses it in production at startup (KAN-402 brings the
+  bucket), as the mailer refuses its `logging` sender.
 
 ## Document templates (ADR-051)
 

@@ -336,7 +336,10 @@
     },
     "createOfferError": "Non è stato possibile creare l’offerta. Riprovare.",
     "createContractError": "Non è stato possibile creare il contratto. Riprovare.",
-    "doNotContactError": "Non è stato possibile salvare «non contattare». Riprovare."
+    "doNotContactError": "Non è stato possibile salvare «non contattare». Riprovare.",
+    "advisorFilter": {
+      "unassigned": "Non assegnato"
+    }
   },
   "customerDetail": {
     "tabs": {
@@ -1047,12 +1050,14 @@
       "grossPrice": "Prezzo di vendita",
       "status": "Stato",
       "margin": "Margine",
-      "changed": "Modificato"
+      "changed": "Modificato",
+      "owner": "Responsabile"
     },
     "chips": {
       "all": "Tutti",
       "offers": "Offerte",
-      "contracts": "Contratti"
+      "contracts": "Contratti",
+      "unassigned": "Non assegnato"
     },
     "emptyState": {
       "title": "Nessuna offerta o contratto",
@@ -2097,7 +2102,9 @@
       "reactivate": "Riattiva",
       "deactivate": "Disattiva",
       "deactivateDisabledAlready": "Già disattivato",
-      "selfDisabled": "Non per il proprio account"
+      "selfDisabled": "Non per il proprio account",
+      "handOver": "Trasferire le pratiche aperte",
+      "suspendDisabledNotActive": "Solo un utente attivo può essere sospeso"
     },
     "actions": {
       "resendFailed": "Impossibile inviare l'invito.",
@@ -2154,7 +2161,7 @@
       "title": "Disattiva {{name}}",
       "intro": "L'accesso termina ora. Tutto ciò che questa persona segue ancora viene passato qui sotto: a un collega o nella coda del modulo. Nulla viene cancellato; la cronologia conserva l'autore originale.",
       "reassignTitle": "Passare le pratiche aperte",
-      "nothingOpen": "Nulla di aperto in nessuno dei {{modules}} moduli.",
+      "nothingOpen": "Niente di aperto in nessuno dei {{modules}} moduli.",
       "ownershipLoadError": "Impossibile caricare ciò che segue questo utente.",
       "columns": {
         "what": "Cosa",
@@ -2167,6 +2174,11 @@
       "reason": "Motivo",
       "endEmployment": "L'impiego è terminato",
       "confirm": "Disattiva"
+    },
+    "handOver": {
+      "title": "Trasferire le pratiche aperte di {{name}}",
+      "intro": "Ciò che questa persona segue ancora viene trasferito a un collega o nella coda del modulo — anche dopo una disattivazione in cui un modulo non ha potuto completare il trasferimento.",
+      "confirm": "Trasferire"
     }
   }
 }

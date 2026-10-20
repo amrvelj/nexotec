@@ -104,6 +104,14 @@ def get_object_store() -> ObjectStore:
             raise RuntimeError(
                 f"DMS_OBJECT_STORE_BACKEND={settings.object_store_backend!r} is not built — only 'local' is (KAN-200)."
             )
+        if settings.environment == "production":
+            # A directory on the web service's disk is emptied by every deploy
+            # (Render), while the rows keep their keys: a signature image would
+            # vanish silently. Production refuses to start until a durable
+            # store exists (KAN-402) — like the mailer's `logging` sender.
+            raise RuntimeError(
+                "DMS_OBJECT_STORE_BACKEND=local is not a production store: the directory does not survive a deploy (KAN-402)."
+            )
         _store = LocalDirectoryObjectStore(Path(settings.object_store_local_dir))
     return _store
 

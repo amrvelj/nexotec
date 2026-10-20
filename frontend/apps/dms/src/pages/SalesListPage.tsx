@@ -66,6 +66,9 @@ export function SalesListPage() {
   // equality predicate, not a general filter expression, so they live
   // directly in the URL rather than through ViewsAndFilters' predicate list.
   const dealType = (searchParams.get('type') as DealTypeFilter | null) ?? 'all'
+  // KAN-200 (FR-A-37): the unassigned queue — deals whose seller left and
+  // were handed to nobody — is one more equality predicate in the URL.
+  const unassigned = searchParams.get('owner') === 'unassigned'
 
   const updateUrl = (patch: Record<string, string | null>) => {
     setSearchParams(
@@ -105,12 +108,13 @@ export function SalesListPage() {
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isError, refetch, isRefetching } =
     useInfiniteQuery({
-      queryKey: ['sales-deals', GRID_KEY, debouncedQuery, sortParam, dealType],
+      queryKey: ['sales-deals', GRID_KEY, debouncedQuery, sortParam, dealType, unassigned],
       queryFn: async ({ pageParam }: { pageParam: string | null }) => {
         const params = new URLSearchParams()
         if (debouncedQuery) params.set('q', debouncedQuery)
         if (sortParam) params.set('sort', sortParam)
         if (dealType !== 'all') params.set('entityType', dealType)
+        if (unassigned) params.set('unassigned', 'true')
         params.set('limit', '50')
         if (pageParam) params.set('cursor', pageParam)
         return api.get<SalesDealPage>(`/sales/deals?${params.toString()}`)
@@ -164,6 +168,13 @@ export function SalesListPage() {
         cell: ({ row }) =>
           row.original.grossPrice != null ? formatCurrencyChf(Number(row.original.grossPrice)) : '—',
         meta: { sortField: 'grossPrice', align: 'right' },
+      },
+      {
+        // KAN-200: the responsible seller (rule 2's label; ADR-060: a stored
+        // field is a column). "—" is the unassigned queue.
+        id: 'ownerLabel',
+        header: t('salesList.columns.owner'),
+        cell: ({ row }) => row.original.ownerLabel ?? '—',
       },
       {
         id: 'status',
@@ -243,6 +254,13 @@ export function SalesListPage() {
           onClick={() => updateUrl({ type: 'contract' })}
         >
           {t('salesList.chips.contracts')}
+        </Button>
+        <Button
+          variant={unassigned ? 'filled' : 'default'}
+          size="xs"
+          onClick={() => updateUrl({ owner: unassigned ? null : 'unassigned' })}
+        >
+          {t('salesList.chips.unassigned')}
         </Button>
       </Group>
 

@@ -1,10 +1,11 @@
 """Customer's ownership provider for the deactivation step (KAN-200;
 FR-A-37, D-A-35). What a user "owns" here is the customers they are the
 responsible advisor of (`Customer.advisor_id`, D-24). A hand-over sets the
-advisor on each of them — to a colleague, or to nobody ("unassigned", which
-the customer list filters) — with the same audit row per customer an
-advisor change through PATCH writes, and the same `customer.updated` event,
-so a label elsewhere refreshes the same way.
+advisor on each of them — to a colleague, or to nobody ("unassigned": the
+customer list's `unassigned=true` filter is that queue) — with the same
+audit row per customer an advisor change through PATCH writes, carrying the
+manager's reason, and the same `customer.updated` event, so a label
+elsewhere refreshes the same way.
 
 Registered with `app.core.ownership` by the composition root
 (`app.ownership_registry`); platform never imports this module. `transfer`
@@ -49,6 +50,9 @@ class CustomerOwnershipProvider:
             return []
         return [OwnedGroup(module=MODULE, group=GROUP_CUSTOMERS, count=int(count))]
 
+    def refuses(self, db: Session, *, from_user_id: uuid.UUID, transfer: OwnershipTransfer) -> str | None:
+        return None
+
     def transfer(
         self,
         session_factory: Callable[[], Session],
@@ -57,6 +61,7 @@ class CustomerOwnershipProvider:
         from_user_id: uuid.UUID,
         transfer: OwnershipTransfer,
         actor_id: uuid.UUID | None,
+        reason: str | None,
     ) -> int:
         if transfer.group != GROUP_CUSTOMERS:
             raise ValueError(f"customer owns no group '{transfer.group}'")
@@ -68,6 +73,7 @@ class CustomerOwnershipProvider:
                 to_user_id=transfer.to_user_id,
                 to_label=transfer.to_label,
                 actor_id=actor_id,
+                reason=reason,
             )
             db.commit()
         except Exception:
@@ -92,6 +98,7 @@ def _transfer_customers(
     to_user_id: uuid.UUID | None,
     to_label: str | None,
     actor_id: uuid.UUID | None,
+    reason: str | None,
 ) -> int:
     rows = list(
         db.scalars(select(Customer).where(*_open_customers(from_user_id)).order_by(Customer.id).with_for_update()).all()
@@ -113,7 +120,7 @@ def _transfer_customers(
             actor_id=actor_id,
             before=before,
             after={"advisor_id": str(to_user_id) if to_user_id is not None else None},
-            reason="advisor_deactivated",
+            reason=reason or "ownership_transferred",
         )
         publish(
             db,

@@ -60,7 +60,7 @@ from app.platform.schemas.auth import (
     TotpConfirmRequest,
     TotpEnrolmentRead,
 )
-from app.platform.schemas.user import UserRead
+from app.platform.schemas.user import SessionUserRead
 from app.platform.services import auth_events, auth_sessions, auth_tokens, identity, mfa
 from app.platform.services import dealership as dealership_service
 from app.platform.services import entitlement as entitlement_service
@@ -215,7 +215,7 @@ def _login_response(
     rows = dealership_service.list_dealerships_by_ids(db, membership_ids)
     rows.sort(key=lambda d: (d.id != active_dealership.id, d.legal_name))
     return LoginResponse(
-        user=UserRead.model_validate(user, from_attributes=True),
+        user=SessionUserRead.model_validate(user, from_attributes=True),
         active_dealership=DealershipMembershipSummary.model_validate(active_dealership, from_attributes=True),
         memberships=[DealershipMembershipSummary.model_validate(d, from_attributes=True) for d in rows],
         entitlements=sorted(ModuleCode(code) for code in entitlements),
@@ -419,6 +419,20 @@ def invitation_accept(body: InvitationAccept, request: Request, response: Respon
     re-issued invitation — gets the MFA step, like a login."""
 
     user = identity.accept_invitation(db, raw_token=body.token, password=body.password, ip_address=client_ip(request))
+    if not identity.access_window_open(user):
+        # KAN-200 (FR-A-12): the invitation can be accepted before `valid_from`
+        # — the password is set and the account is active — but no session
+        # is minted until the day comes; the answer says when, so the link
+        # is not taken for a broken one (the login keeps its uniform 401).
+        db.commit()
+        raise ForbiddenError(
+            "Your access to this business has not started yet.",
+            details={
+                "reason": "access_window_closed",
+                "validFrom": user.valid_from.isoformat() if user.valid_from is not None else None,
+                "validTo": user.valid_to.isoformat() if user.valid_to is not None else None,
+            },
+        )
     if mfa.has_factor(db, user.id):
         return _begin_mfa_step(db, user)
     session = _finish_login(db, request, response, user=user, amr=("pwd",), mfa_used=False)

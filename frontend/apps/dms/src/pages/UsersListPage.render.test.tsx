@@ -66,10 +66,13 @@ function user(overrides: Record<string, unknown>) {
   }
 }
 
+const user3 = (overrides: Record<string, unknown>) =>
+  user({ id: 'u-3', firstName: 'Carla', lastName: 'Gross', email: 'carla@example.ch', isDealerManager: false, status: 'deactivated', deactivatedAt: '2026-09-30T10:00:00Z', deactivationReason: 'left', accessRoles: ['sales'], ...overrides })
+
 const USERS = [
   user({}),
   user({ id: 'u-2', firstName: 'Beat', lastName: 'Frei', email: 'beat@example.ch', isDealerManager: false, status: 'invited', invitationExpiresAt: '2020-01-01T00:00:00Z', lastLoginAt: null, accessRoles: ['aftersales'] }),
-  user({ id: 'u-3', firstName: 'Carla', lastName: 'Gross', email: 'carla@example.ch', isDealerManager: false, status: 'deactivated', deactivatedAt: '2026-09-30T10:00:00Z', deactivationReason: 'left', accessRoles: ['sales'] }),
+  user3({}),
 ]
 
 function routes() {
@@ -110,10 +113,52 @@ describe('UsersListPage (KAN-200)', () => {
     const menu = await screen.findByRole('menu')
     expect(within(menu).getByText('Bearbeiten')).toBeInTheDocument()
     expect(within(menu).getByText('Einladung erneut senden')).toBeInTheDocument()
+    // The lifecycle (Users → Lifecycle): an invited user is never activated
+    // or suspended by hand — the entry stays, disabled, and says why.
     expect(within(menu).getByText('Sperren')).toBeInTheDocument()
+    expect(within(menu).getByText('Nur ein aktiver Benutzer kann gesperrt werden')).toBeInTheDocument()
+    expect(within(menu).queryByText('Reaktivieren')).not.toBeInTheDocument()
+    expect(within(menu).getByText('Offene Vorgänge übergeben')).toBeInTheDocument()
     expect(within(menu).getByText('Deaktivieren')).toBeInTheDocument()
     expect(within(menu).queryByText(/löschen/i)).not.toBeInTheDocument()
     expect(within(menu).queryByText(/delete/i)).not.toBeInTheDocument()
+  })
+
+  it('reactivates a deactivated user and opens the hand-over for what they still own', async () => {
+    const user = userEvent.setup()
+    const backend = installFakeBackend([
+      ...routes(),
+      { method: 'PATCH', match: /\/users\/u-3$/, handler: () => user3({}) },
+      { method: 'GET', match: /\/users\/u-3\/ownership$/, handler: () => ({ groups: [], modules: ['customer', 'sales'] }) },
+    ])
+    renderWithProviders(<UsersListPage />, { route: '/administration/users' })
+    await screen.findByText('Carla Gross')
+
+    await user.click(screen.getAllByRole('button', { name: 'Zeilenaktionen' })[2]) // Carla, deactivated
+    const menu = await screen.findByRole('menu')
+    expect(within(menu).queryByText('Sperren')).not.toBeInTheDocument()
+    await user.click(within(menu).getByText('Reaktivieren'))
+    await waitFor(() => expect(backend.callsTo(/\/users\/u-3$/, 'PATCH')).toHaveLength(1))
+    expect(backend.callsTo(/\/users\/u-3$/, 'PATCH')[0].body).toEqual({ status: 'active' })
+
+    await user.click(screen.getAllByRole('button', { name: 'Zeilenaktionen' })[2])
+    await user.click(await screen.findByText('Offene Vorgänge übergeben'))
+    const dialog = within(await screen.findByRole('dialog'))
+    expect(dialog.getByText('Offene Vorgänge von Carla Gross übergeben')).toBeInTheDocument()
+  })
+
+  it('sorts server-side from the URL and the column header', async () => {
+    const user = userEvent.setup()
+    const backend = installFakeBackend(routes())
+    renderWithProviders(<UsersListPage />, { route: '/administration/users?sort=lastLoginAt:desc' })
+    await screen.findByText('Anna Keller')
+    expect(backend.callsTo(/\/dealerships\/dealership-1\/users$/)[0].params.get('sort')).toBe('lastLoginAt:desc')
+
+    await user.click(screen.getByRole('columnheader', { name: /Name/ }))
+    await waitFor(() => {
+      const calls = backend.callsTo(/\/dealerships\/dealership-1\/users$/)
+      expect(calls[calls.length - 1].params.get('sort')).toBe('lastName:asc')
+    })
   })
 
   it('resends an invitation from the row menu with an Idempotency-Key', async () => {

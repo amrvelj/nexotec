@@ -6,7 +6,6 @@ import {
   FileInput,
   Group,
   Image,
-  Modal,
   MultiSelect,
   Select,
   SimpleGrid,
@@ -16,6 +15,7 @@ import {
   TextInput,
 } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
+import { FormDialog } from '@nexotec/ui-kit'
 import { useTranslation } from 'react-i18next'
 import { api, ApiError } from '../../api/client'
 import type {
@@ -123,6 +123,7 @@ function fromUser(user: UserRead): FormValues {
 }
 
 const orNull = (value: string) => (value.trim() === '' ? null : value.trim())
+const FORM_ID = 'user-form'
 
 /**
  * KAN-200 — the one user form, for inviting and for editing (UI/UX
@@ -267,14 +268,23 @@ export function UserFormDialog({ opened, onClose, dealershipId, user, locations,
     }
   }
 
+  // The kit's one form dialog (ui.md: components come from the kit; UI/UX
+  // Specification § Forms): its footer submits the form below, so Enter in
+  // a field and the button do the same thing.
   return (
-    <Modal
+    <FormDialog
       opened={opened}
       onClose={onClose}
       title={editing ? t('usersAdmin.form.editTitle', { name: userDisplayName(user) }) : t('usersAdmin.form.inviteTitle')}
       size="lg"
+      formId={FORM_ID}
+      onSubmit={submit}
+      submitLabel={editing ? t('common.save') : t('usersAdmin.form.invite')}
+      cancelLabel={t('common.cancel')}
+      submitting={submitting}
     >
       <form
+        id={FORM_ID}
         onSubmit={(event) => {
           event.preventDefault()
           void submit()
@@ -429,17 +439,8 @@ export function UserFormDialog({ opened, onClose, dealershipId, user, locations,
             }}
             clearable
           />
-
-          <Group justify="flex-end" mt="sm">
-            <Button variant="default" onClick={onClose} disabled={submitting}>
-              {t('common.cancel')}
-            </Button>
-            <Button type="submit" loading={submitting}>
-              {editing ? t('common.save') : t('usersAdmin.form.invite')}
-            </Button>
-          </Group>
         </Stack>
       </form>
-    </Modal>
+    </FormDialog>
   )
 }

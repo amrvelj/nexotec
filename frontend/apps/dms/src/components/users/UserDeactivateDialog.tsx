@@ -1,10 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Alert, Button, Checkbox, Group, Modal, Select, Stack, Table, Text, Textarea } from '@mantine/core'
+import { Alert, Button, Checkbox, Select, Stack, Table, Text, Textarea } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
-import { UserX } from 'lucide-react'
+import { FormDialog } from '@nexotec/ui-kit'
 import { useTranslation } from 'react-i18next'
 import { api, ApiError } from '../../api/client'
-import type { OwnershipRead, OwnershipTransferRequest, UserDeactivateRequest, UserDeactivatedRead, UserRead } from '../../api/types'
+import type {
+  OwnershipRead,
+  OwnershipTransferRequest,
+  OwnershipTransfersRead,
+  OwnershipTransfersRequest,
+  UserDeactivateRequest,
+  UserDeactivatedRead,
+  UserRead,
+} from '../../api/types'
 import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
 import { ownedGroupLabel, userDisplayName } from '../../userOptions'
 
@@ -13,9 +21,15 @@ export interface UserDeactivateDialogProps {
   onClose: () => void
   dealershipId: string
   user: UserRead | null
-  /** Active colleagues who can receive the leaver's records. */
+  /** The Betrieb's people; only active colleagues can receive records (FR-A-37). */
   colleagues: UserRead[]
-  onDeactivated: (result: UserDeactivatedRead) => void
+  /**
+   * `deactivate` (the default): the deactivation with its reassignment step.
+   * `transfer`: the hand-over alone — the retry after a module failed during
+   * a deactivation, or a plain hand-over for a user who stays.
+   */
+  mode?: 'deactivate' | 'transfer'
+  onDone: (result: UserDeactivatedRead | OwnershipTransfersRead) => void
 }
 
 const UNASSIGNED = '__unassigned__'
@@ -23,13 +37,15 @@ const UNASSIGNED = '__unassigned__'
 /**
  * KAN-200 — deactivation with the reassignment step (FR-A-37, D-A-35).
  * What the person still owns is listed by module; the manager hands each
- * group to a colleague or leaves it unassigned (the module's own queue).
- * Every group needs a decision before the button works — nothing is left
- * silently with the leaver. A confirmation modal, as the UI spec reserves
- * for an irreversible action; there is no delete (A-RULE-5).
+ * group to a colleague or leaves it unassigned (the module's own queue:
+ * Sales' "Nicht zugewiesen" chip, Customers' advisor filter). Every group
+ * needs a decision before the button works — nothing is left silently with
+ * the leaver. The kit's form dialog in its destructive tone, as the UI spec
+ * reserves for an irreversible action; there is no delete (A-RULE-5).
  */
-export function UserDeactivateDialog({ opened, onClose, dealershipId, user, colleagues, onDeactivated }: UserDeactivateDialogProps) {
+export function UserDeactivateDialog({ opened, onClose, dealershipId, user, colleagues, mode = 'deactivate', onDone }: UserDeactivateDialogProps) {
   const { t } = useTranslation()
+  const deactivating = mode === 'deactivate'
   const [reason, setReason] = useState('')
   const [endEmployment, setEndEmployment] = useState(true)
   const [choices, setChoices] = useState<Record<string, string | null>>({})
@@ -51,14 +67,12 @@ export function UserDeactivateDialog({ opened, onClose, dealershipId, user, coll
     setError(null)
     idempotency.renew()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [opened, user?.id])
+  }, [opened, user?.id, mode])
 
   const colleagueOptions = useMemo(
     () => [
       { value: UNASSIGNED, label: t('usersAdmin.deactivate.leaveUnassigned') },
-      ...colleagues
-        .filter((c) => c.id !== user?.id && (c.status === 'active' || c.status === 'invited'))
-        .map((c) => ({ value: c.id, label: userDisplayName(c) })),
+      ...colleagues.filter((c) => c.id !== user?.id && c.status === 'active').map((c) => ({ value: c.id, label: userDisplayName(c) })),
     ],
     [colleagues, user?.id, t],
   )
@@ -66,7 +80,8 @@ export function UserDeactivateDialog({ opened, onClose, dealershipId, user, coll
   const groups = ownership.data?.groups ?? []
   const key = (module: string, group: string) => `${module}/${group}`
   const undecided = groups.filter((g) => choices[key(g.module, g.group)] === undefined)
-  const canSubmit = reason.trim().length > 0 && undecided.length === 0 && ownership.isSuccess && !submitting
+  const canSubmit =
+    (deactivating ? reason.trim().length > 0 : groups.length > 0) && undecided.length === 0 && ownership.isSuccess && !submitting
 
   const submit = async () => {
     if (!user) return
@@ -76,18 +91,29 @@ export function UserDeactivateDialog({ opened, onClose, dealershipId, user, coll
       const choice = choices[key(g.module, g.group)]
       return { module: g.module, group: g.group, toUserId: choice === UNASSIGNED || !choice ? null : choice }
     })
-    const body: UserDeactivateRequest = {
-      reason: reason.trim(),
-      transfers,
-      ...(endEmployment ? { employmentStatus: 'terminated' as const } : {}),
-    }
     try {
-      const result = await api.post<UserDeactivatedRead>(`/dealerships/${dealershipId}/users/${user.id}/deactivate`, body, {
-        ...idempotency.headers(body),
-        'If-Match': String(user.version),
-      })
-      idempotency.renew()
-      onDeactivated(result)
+      if (deactivating) {
+        const body: UserDeactivateRequest = {
+          reason: reason.trim(),
+          transfers,
+          ...(endEmployment ? { employmentStatus: 'terminated' as const } : {}),
+        }
+        const result = await api.post<UserDeactivatedRead>(`/dealerships/${dealershipId}/users/${user.id}/deactivate`, body, {
+          ...idempotency.headers(body),
+          'If-Match': String(user.version),
+        })
+        idempotency.renew()
+        onDone(result)
+      } else {
+        const body: OwnershipTransfersRequest = { transfers, reason: reason.trim() || null }
+        const result = await api.post<OwnershipTransfersRead>(
+          `/dealerships/${dealershipId}/users/${user.id}/ownership/transfers`,
+          body,
+          idempotency.headers(body),
+        )
+        idempotency.renew()
+        onDone(result)
+      }
     } catch (err) {
       if (err instanceof ApiError && err.status === 400) setError(err.message) // the last-manager rule, said as the API says it
       else if (err instanceof ApiError && err.status === 409) setError(t('usersAdmin.form.conflict'))
@@ -99,10 +125,22 @@ export function UserDeactivateDialog({ opened, onClose, dealershipId, user, coll
     }
   }
 
+  const name = user ? userDisplayName(user) : ''
   return (
-    <Modal opened={opened} onClose={onClose} title={user ? t('usersAdmin.deactivate.title', { name: userDisplayName(user) }) : ''} size="lg">
+    <FormDialog
+      opened={opened}
+      onClose={onClose}
+      title={deactivating ? t('usersAdmin.deactivate.title', { name }) : t('usersAdmin.handOver.title', { name })}
+      size="lg"
+      destructive={deactivating}
+      onSubmit={submit}
+      submitLabel={deactivating ? t('usersAdmin.deactivate.confirm') : t('usersAdmin.handOver.confirm')}
+      cancelLabel={t('common.cancel')}
+      submitting={submitting}
+      submitDisabled={!canSubmit}
+    >
       <Stack gap="md">
-        <Text size="sm">{t('usersAdmin.deactivate.intro')}</Text>
+        <Text size="sm">{deactivating ? t('usersAdmin.deactivate.intro') : t('usersAdmin.handOver.intro')}</Text>
         {error && (
           <Alert color="red" role="alert">
             {error}
@@ -159,22 +197,15 @@ export function UserDeactivateDialog({ opened, onClose, dealershipId, user, coll
           label={t('usersAdmin.deactivate.reason')}
           value={reason}
           onChange={(e) => setReason(e.currentTarget.value)}
-          required
+          required={deactivating}
           autosize
           minRows={2}
           maxLength={500}
         />
-        <Checkbox label={t('usersAdmin.deactivate.endEmployment')} checked={endEmployment} onChange={(e) => setEndEmployment(e.currentTarget.checked)} />
-
-        <Group justify="flex-end" mt="sm">
-          <Button variant="default" onClick={onClose} disabled={submitting}>
-            {t('common.cancel')}
-          </Button>
-          <Button color="red" leftSection={<UserX size={16} />} onClick={() => void submit()} disabled={!canSubmit} loading={submitting}>
-            {t('usersAdmin.deactivate.confirm')}
-          </Button>
-        </Group>
+        {deactivating && (
+          <Checkbox label={t('usersAdmin.deactivate.endEmployment')} checked={endEmployment} onChange={(e) => setEndEmployment(e.currentTarget.checked)} />
+        )}
       </Stack>
-    </Modal>
+    </FormDialog>
   )
 }

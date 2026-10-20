@@ -9,15 +9,19 @@ seller now, filled from the creator for existing records.
 Three columns per table (rule 2, the three-column pattern — a platform
 User id, its display label, when the label was read; no FK), indexed on
 the id for the ownership and queue queries. `sales_deal` carries the live
-entity's pair so the list filters without a join.
+entity's three so the list shows and filters without a join.
 
-Backfill: `owner_user_id = created_by`, the label from the user row
-(`first_name last_name`); a creator that names no user (a system write,
-KAN-243) leaves the owner NULL. The deal row takes its contract's seller
-when it has one, else its offer's. Guarded for offline mode (KAN-174):
-the backfill reads rows.
+Backfill: `owner_user_id = created_by` where the creator is a user who
+acts in the row's Betrieb — homed there, or holding an active membership
+(a sister-Betrieb member creates offers there and owns them, as at
+runtime); the label from the user row (`first_name last_name`). A creator
+that names no user (a system write, KAN-243) or a platform staff member
+who is not a member leaves the owner NULL — the unassigned queue, as
+`default_owner` would. The deal row takes its contract's seller when it
+has one, else its offer's. Guarded for offline mode (KAN-174): the
+backfill reads rows.
 
-Downgrade drops the six columns; who was responsible is then lost (the
+Downgrade drops the nine columns; who was responsible is then lost (the
 creator stays), so it is for a failed deploy only.
 
 Revision ID: a4c9e2d7f1b3
@@ -42,14 +46,16 @@ depends_on: str | Sequence[str] | None = None
 _OWNER_COMMENT = "Owned by the platform context (User). No DB-level FK."
 
 
-def _add_owner_columns(table: str, *, refreshed_at: bool) -> None:
+_TABLES = ("sales_offer", "sales_contract", "sales_deal")
+
+
+def _add_owner_columns(table: str) -> None:
     op.add_column(
         table,
         sa.Column("owner_user_id", postgresql.UUID(as_uuid=True), nullable=True, comment=_OWNER_COMMENT),
     )
     op.add_column(table, sa.Column("owner_label", sa.String(length=200), nullable=True))
-    if refreshed_at:
-        op.add_column(table, sa.Column("owner_label_refreshed_at", sa.DateTime(timezone=True), nullable=True))
+    op.add_column(table, sa.Column("owner_label_refreshed_at", sa.DateTime(timezone=True), nullable=True))
     op.create_index(f"ix_{table}_owner_user_id", table, ["owner_user_id"])
 
 
@@ -57,7 +63,7 @@ def _backfill() -> None:
     if context.is_offline_mode():
         op.execute(
             "-- KAN-200 owner backfill skipped: it reads rows and needs a live database. "
-            "Existing offers and contracts then have no responsible seller until one is set by hand."
+            "Existing offers and contracts then have no responsible seller until one is set in the workspace."
         )
         return
     conn = op.get_bind()
@@ -66,7 +72,10 @@ def _backfill() -> None:
             sa.text(
                 f'UPDATE "{table}" t SET owner_user_id = u.id, '
                 "owner_label = trim(u.first_name || ' ' || u.last_name), owner_label_refreshed_at = now() "
-                'FROM "user" u WHERE t.created_by = u.id AND t.owner_user_id IS NULL'
+                'FROM "user" u WHERE t.created_by = u.id AND t.owner_user_id IS NULL '
+                "AND (u.tenant_id = t.tenant_id OR EXISTS ("
+                "SELECT 1 FROM dealership_membership m WHERE m.user_id = u.id AND m.dealership_id = t.tenant_id "
+                "AND (m.valid_to IS NULL OR m.valid_to > now())))"
             )
         )
         filled = conn.execute(sa.text(f'SELECT count(*) FROM "{table}" WHERE owner_user_id IS NOT NULL')).scalar()
@@ -74,29 +83,28 @@ def _backfill() -> None:
         print(f"KAN-200 backfill: {table}: {filled} of {total} row(s) given their creator as responsible seller")
     conn.execute(
         sa.text(
-            "UPDATE sales_deal d SET owner_user_id = c.owner_user_id, owner_label = c.owner_label "
-            "FROM sales_contract c WHERE d.contract_id = c.id"
+            "UPDATE sales_deal d SET owner_user_id = c.owner_user_id, owner_label = c.owner_label, "
+            "owner_label_refreshed_at = c.owner_label_refreshed_at FROM sales_contract c WHERE d.contract_id = c.id"
         )
     )
     conn.execute(
         sa.text(
-            "UPDATE sales_deal d SET owner_user_id = o.owner_user_id, owner_label = o.owner_label "
+            "UPDATE sales_deal d SET owner_user_id = o.owner_user_id, owner_label = o.owner_label, "
+            "owner_label_refreshed_at = o.owner_label_refreshed_at "
             "FROM sales_offer o WHERE d.contract_id IS NULL AND d.offer_id = o.id"
         )
     )
 
 
 def upgrade() -> None:
-    _add_owner_columns("sales_offer", refreshed_at=True)
-    _add_owner_columns("sales_contract", refreshed_at=True)
-    _add_owner_columns("sales_deal", refreshed_at=False)
+    for table in _TABLES:
+        _add_owner_columns(table)
     _backfill()
 
 
 def downgrade() -> None:
-    for table, refreshed_at in (("sales_deal", False), ("sales_contract", True), ("sales_offer", True)):
+    for table in reversed(_TABLES):
         op.drop_index(f"ix_{table}_owner_user_id", table_name=table)
-        if refreshed_at:
-            op.drop_column(table, "owner_label_refreshed_at")
+        op.drop_column(table, "owner_label_refreshed_at")
         op.drop_column(table, "owner_label")
         op.drop_column(table, "owner_user_id")

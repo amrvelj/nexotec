@@ -155,6 +155,33 @@ class UserRead(CamelModel):
     additional_location_ids: list[uuid.UUID] = Field(default_factory=list)
 
 
+class SessionUserRead(CamelModel):
+    """`LoginResponse.user` and `GET /auth/me` — exactly the fields they
+    carried before KAN-200 (the ticket's do-not-touch). The administration
+    fields and the derived ones (`hasSignatureImage`, the sites, the
+    invitation expiry) are `UserRead`'s, read through `user_read`; a plain
+    `model_validate` of the row cannot fill them, so the session never
+    pretends to."""
+
+    id: uuid.UUID
+    dealership_id: uuid.UUID
+    first_name: str
+    last_name: str
+    email: str
+    phone: str | None
+    role: UserRole
+    access_roles: list[AccessRole]
+    is_dealer_manager: bool
+    employment_status: EmploymentStatus
+    auth_identity_id: str
+    status: UserStatus
+    version: int
+    created_at: dt.datetime
+    updated_at: dt.datetime
+    created_by: uuid.UUID | None
+    updated_by: uuid.UUID | None
+
+
 class UserPage(CamelModel):
     items: list[UserRead]
     next_cursor: str | None
@@ -204,7 +231,12 @@ class OwnershipTransferRequest(CamelModel):
 
 
 class OwnershipTransfersRequest(CamelModel):
+    """A hand-over outside the deactivation: the retry after a module failed,
+    or a plain hand-over for a user who stays. `reason` lands on platform's
+    audit row and on the modules' own (a customer's advisor change, say)."""
+
     transfers: list[OwnershipTransferRequest]
+    reason: str | None = Field(default=None, max_length=500)
 
 
 class OwnershipTransferResult(CamelModel):

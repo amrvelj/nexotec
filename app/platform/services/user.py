@@ -17,11 +17,12 @@ from app.core.audit import record_audit_event
 from app.core.auth import AccessRole
 from app.core.base import utcnow
 from app.core.errors import BadRequestError, ConflictError, ForbiddenError, NotFoundError, UnprocessableEntityError
-from app.core.pagination import PageParams, build_page, paginate_query
+from app.core.pagination import SortPageParams, build_sorted_page, paginate_query_sorted
 from app.core.tenancy import get_or_404
 from app.core.uuid7 import uuid7
 from app.platform.models.auth_event import AuthEventKind
 from app.platform.models.auth_token import AuthToken, AuthTokenKind
+from app.platform.models.credential import Credential
 from app.platform.models.dealership_membership import DealershipMembership
 from app.platform.models.user import EmploymentStatus, User, UserStatus
 from app.platform.schemas.user import UserCreate, UserRead, UserUpdate
@@ -194,7 +195,9 @@ def _assert_may_create_with_roles(*, roles: list[AccessRole], actor_roles: froze
         raise ForbiddenError("Only platform staff can grant the platform_admin role.")
 
 
-def _assert_credential_channel_rules(*, user: User, changes: dict[str, Any], actor_roles: frozenset[AccessRole]) -> None:
+def _assert_credential_channel_rules(
+    *, user: User, changes: dict[str, Any], actor_roles: frozenset[AccessRole]
+) -> None:
     """KAN-196 (D-A-16): the status `invited` is where an account starts,
     never where it returns to — otherwise a manager could re-open the
     onboarding path (re-invite) on an active colleague. And the e-mail
@@ -300,9 +303,13 @@ def list_users(
     dealership_id: uuid.UUID,
     role: str | None,
     status: UserStatus | None,
-    params: PageParams,
+    params: SortPageParams,
     q: str | None = None,
 ) -> tuple[list[User], str | None]:
+    """The Users screen's list (KAN-200): filtered by role, status and the
+    search box, sorted server-side by the route's allow-list (UI/UX Core
+    Principles: every column sortable), cursor-paginated."""
+
     stmt = select(User).where(User.tenant_id == dealership_id)
     if role is not None:
         stmt = stmt.where(User.role == role)
@@ -312,9 +319,9 @@ def list_users(
         # KAN-200: the Users screen's search box — name or address.
         like = f"%{q.strip()}%"
         stmt = stmt.where(or_(User.first_name.ilike(like), User.last_name.ilike(like), User.email.ilike(like)))
-    stmt = paginate_query(stmt, model=User, params=params)
+    stmt = paginate_query_sorted(stmt, model=User, params=params)
     rows = list(db.scalars(stmt).all())
-    return build_page(rows, params)
+    return build_sorted_page(rows, params)
 
 
 def list_dealer_manager_emails(db: Session, *, dealership_id: uuid.UUID) -> list[str]:
@@ -367,7 +374,12 @@ def create_user(
     data: UserCreate,
     actor_id: uuid.UUID,
     actor_roles: frozenset[AccessRole],
+    commit: bool = True,
 ) -> User:
+    """With `commit=False` the user is flushed, not committed: the create
+    route issues the invitation on the same session and commits once, so
+    the user and the invitation exist together or not at all (FR-A-09)."""
+
     _assert_may_create_with_roles(roles=data.access_roles, actor_roles=actor_roles)
     user_id = uuid7()
     user = User(
@@ -407,7 +419,10 @@ def create_user(
         db.rollback()
         raise ConflictError("A user with this email address already exists.", details={"email": data.email}) from exc
     user_location.set_locations(
-        db, user=user, primary_location_id=data.primary_location_id, additional_location_ids=data.additional_location_ids
+        db,
+        user=user,
+        primary_location_id=data.primary_location_id,
+        additional_location_ids=data.additional_location_ids,
     )
 
     record_audit_event(
@@ -425,6 +440,9 @@ def create_user(
             "employment_status": _plain(user.employment_status),
         },
     )
+    if not commit:
+        db.flush()
+        return user
     db.commit()
     db.refresh(user)
     return user
@@ -486,7 +504,11 @@ def update_user(
     # status or by a termination, is sent there instead (409).
     if changes.get("employment_status") == EmploymentStatus.TERMINATED and user.status != UserStatus.DEACTIVATED:
         changes.setdefault("status", UserStatus.DEACTIVATED)
-    if changes.get("status") == UserStatus.DEACTIVATED and user.status != UserStatus.DEACTIVATED and not allow_deactivation:
+    if (
+        changes.get("status") == UserStatus.DEACTIVATED
+        and user.status != UserStatus.DEACTIVATED
+        and not allow_deactivation
+    ):
         raise ConflictError(
             "Deactivating a user goes through the deactivation step, which reassigns what they still own.",
             details={"reason": "use_deactivate_endpoint"},
@@ -506,6 +528,39 @@ def update_user(
                 "A terminated employment cannot be reactivated as terminated — send employmentStatus with the status.",
                 details={"currentEmploymentStatus": user.employment_status.value},
             )
+
+    # The lifecycle (Users → Lifecycle): `Invited → Active` happens only by
+    # accepting the invitation (the person sets their own password, FR-AU-10)
+    # and only an active user can be suspended — a PATCH cannot skip a step.
+    if changes.get("status") == UserStatus.ACTIVE and user.status == UserStatus.INVITED:
+        raise ConflictError(
+            "An invited user becomes active by accepting the invitation — resend it instead.",
+            details={"reason": "accept_invitation_required", "currentStatus": user.status.value},
+        )
+    if changes.get("status") == UserStatus.SUSPENDED and user.status != UserStatus.ACTIVE:
+        raise ConflictError(
+            "Only an active user can be suspended.",
+            details={"reason": "not_active", "currentStatus": user.status.value},
+        )
+    # Reactivating a user who never accepted their invitation (deactivated
+    # while `invited`, or whose credential a staff reset removed) makes them
+    # `invited` again, not `active`: nobody holds a password for them, and
+    # the manager re-sends the invitation from the row menu.
+    if (
+        changes.get("status") == UserStatus.ACTIVE
+        and user.status == UserStatus.DEACTIVATED
+        and not _has_credential(db, user)
+    ):
+        changes["status"] = UserStatus.INVITED
+    # The validity window as it will be after this write (the schema checks
+    # a body that carries both dates; a PATCH may carry one).
+    resulting_from = changes.get("valid_from", user.valid_from)
+    resulting_to = changes.get("valid_to", user.valid_to)
+    if resulting_from is not None and resulting_to is not None and resulting_from > resulting_to:
+        raise UnprocessableEntityError(
+            "validTo must not be before validFrom.",
+            details={"validFrom": resulting_from.isoformat(), "validTo": resulting_to.isoformat()},
+        )
 
     # Roles & Permissions rule 7 / RP-1: a dealership must always have at
     # least one active manager. Checked against the FINAL resulting state
@@ -703,6 +758,32 @@ def list_membership_dealership_ids(db: Session, *, user_id: uuid.UUID) -> frozen
     return frozenset(rows)
 
 
+def list_user_dealership_ids(db: Session, *, user_id: uuid.UUID) -> frozenset[uuid.UUID]:
+    """Every dealership this user may act in: the home plus the active
+    memberships (what `_mint_session` authorises a switch to). Empty for an
+    id that names no user."""
+
+    home = db.scalar(select(User.tenant_id).where(User.id == user_id))
+    if home is None:
+        return frozenset()
+    return frozenset({home}) | list_membership_dealership_ids(db, user_id=user_id)
+
+
+def get_user_acting_in(db: Session, *, dealership_id: uuid.UUID, user_id: uuid.UUID) -> User | None:
+    """The user when they may act in this dealership — homed there, or
+    holding an active membership — else None, whatever their status (the
+    caller judges the status: a seller must be active, a label may name a
+    suspended one). KAN-200: how Sales resolves a responsible seller, so a
+    sister-Betrieb member owns the offers they create there."""
+
+    user = db.get(User, user_id)
+    if user is None:
+        return None
+    if user.tenant_id == dealership_id or dealership_id in list_membership_dealership_ids(db, user_id=user_id):
+        return user
+    return None
+
+
 def _assert_line_manager(db: Session, *, user: User, changes: dict[str, Any]) -> None:
     """KAN-200: the line manager is another user of the same dealership —
     never the user themselves, never another Betrieb's (422; a 404 would
@@ -771,6 +852,29 @@ def user_read(db: Session, user: User) -> UserRead:
     return user_reads(db, [user])[0]
 
 
+def _has_credential(db: Session, user: User) -> bool:
+    return db.scalar(select(Credential.id).where(Credential.user_id == user.id)) is not None
+
+
+def list_users_deactivated_for(db: Session, *, reason: str, since: dt.datetime) -> list[User]:
+    """Users the automatic expiry (FR-A-12) deactivated since `since` — the
+    nightly job's retry window for a hand-over that failed after the status
+    change; reconciliation reports the long tail (rule 10)."""
+
+    return list(
+        db.scalars(
+            select(User)
+            .where(
+                User.status == UserStatus.DEACTIVATED,
+                User.deactivation_reason == reason,
+                User.deactivated_at.is_not(None),
+                User.deactivated_at >= since,
+            )
+            .order_by(User.id)
+        ).all()
+    )
+
+
 def list_users_due_for_expiry(db: Session, *, today: dt.date) -> list[User]:
     """FR-A-12: users whose `valid_to` has passed and who still hold access
     (invited, active or suspended) — the nightly job deactivates them."""
@@ -781,7 +885,11 @@ def list_users_due_for_expiry(db: Session, *, today: dt.date) -> list[User]:
             .where(
                 User.valid_to.is_not(None),
                 User.valid_to < today,
-                or_(User.status == UserStatus.INVITED, User.status == UserStatus.ACTIVE, User.status == UserStatus.SUSPENDED),
+                or_(
+                    User.status == UserStatus.INVITED,
+                    User.status == UserStatus.ACTIVE,
+                    User.status == UserStatus.SUSPENDED,
+                ),
             )
             .order_by(User.tenant_id, User.id)
         ).all()

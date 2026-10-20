@@ -19,7 +19,7 @@ import {
   type SortSpec,
 } from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
-import type { LocationList, UserDeactivatedRead, UserPage, UserRead, UserStatus } from '../api/types'
+import type { LocationList, UserPage, UserRead, UserStatus } from '../api/types'
 import { useAuth } from '../auth/AuthContext'
 import { UserDeactivateDialog } from '../components/users/UserDeactivateDialog'
 import { UserFormDialog } from '../components/users/UserFormDialog'
@@ -43,7 +43,24 @@ import {
 import { formatDateOnly, formatDateTime } from '../utils/format'
 
 const GRID_KEY = 'administration.users.list'
-const DEFAULT_SORT: SortSpec[] = []
+const DEFAULT_SORT: SortSpec[] = [
+  { field: 'lastName', direction: 'asc' },
+  { field: 'firstName', direction: 'asc' },
+]
+
+function serializeSort(sort: SortSpec[]): string {
+  return sort.map((s) => `${s.field}:${s.direction}`).join(',')
+}
+
+function parseSortParam(raw: string): SortSpec[] {
+  return raw
+    .split(',')
+    .filter(Boolean)
+    .map((part) => {
+      const [field, direction] = part.split(':')
+      return { field, direction: direction === 'desc' ? 'desc' : 'asc' } as SortSpec
+    })
+}
 
 type Chip = 'all' | UserStatus
 
@@ -69,6 +86,10 @@ export function UsersListPage() {
   const queryClient = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
   const chip = (searchParams.get('status') as Chip | null) ?? 'all'
+  // ADR-056: the sort is part of the shareable URL; the grid preference is
+  // the fallback when the URL carries none.
+  const sort = searchParams.get('sort') ? parseSortParam(searchParams.get('sort')!) : gridPrefs.sort
+  const sortParam = sort.length > 0 ? serializeSort(sort) : undefined
 
   const updateUrl = (patch: Record<string, string | null>) => {
     setSearchParams(
@@ -84,6 +105,11 @@ export function UsersListPage() {
     )
   }
 
+  const setSort = (next: SortSpec[]) => {
+    gridPrefs.setSort(next)
+    updateUrl({ sort: next.length > 0 ? serializeSort(next) : null })
+  }
+
   const [query, setQuery] = useState(() => searchParams.get('q') ?? '')
   const [debouncedQuery] = useDebouncedValue(query, 250)
   useEffect(() => {
@@ -94,17 +120,20 @@ export function UsersListPage() {
   const [appliedViewId, setAppliedViewId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [formUser, setFormUser] = useState<UserRead | null | undefined>(undefined) // undefined = closed, null = invite
-  const [deactivating, setDeactivating] = useState<UserRead | null>(null)
+  // The reassignment dialog: deactivating a user, or handing over what a
+  // (deactivated) user still owns — the retry after a module failed.
+  const [reassigning, setReassigning] = useState<{ user: UserRead; mode: 'deactivate' | 'transfer' } | null>(null)
   const resendKey = useIdempotencyKey()
 
   const usersKey = ['users', dealershipId] as const
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isError, error, refetch, isRefetching } =
     useInfiniteQuery({
-      queryKey: [...usersKey, 'list', debouncedQuery, chip],
+      queryKey: [...usersKey, 'list', debouncedQuery, chip, sortParam],
       queryFn: async ({ pageParam }: { pageParam: string | null }) => {
         const params = new URLSearchParams()
         if (debouncedQuery) params.set('q', debouncedQuery)
         if (chip !== 'all') params.set('status', chip)
+        if (sortParam) params.set('sort', sortParam)
         params.set('limit', '50')
         if (pageParam) params.set('cursor', pageParam)
         return api.get<UserPage>(`/dealerships/${dealershipId}/users?${params.toString()}`)
@@ -173,11 +202,17 @@ export function UsersListPage() {
   }
 
   const columns: GridColumnDef<UserRead>[] = useMemo(() => {
-    const text = (id: string, header: string, pick: (row: UserRead) => string | null | undefined, defaultVisible = false): GridColumnDef<UserRead> => ({
+    const text = (
+      id: string,
+      header: string,
+      pick: (row: UserRead) => string | null | undefined,
+      defaultVisible = false,
+      sortField?: string,
+    ): GridColumnDef<UserRead> => ({
       id,
       header,
       cell: ({ row }) => pick(row.original) || '—',
-      meta: { defaultVisible, exportValue: (row) => pick(row) ?? '' },
+      meta: { defaultVisible, sortField, exportValue: (row) => pick(row) ?? '' },
     })
     return [
       {
@@ -186,7 +221,7 @@ export function UsersListPage() {
         cell: ({ row }) => userDisplayName(row.original),
         // Wide enough for a name beside its address at default density: the
         // pinned column's own minimum (120 px) squeezed the name out.
-        meta: { pinned: 'left', locked: true, width: 300, secondary: (row) => row.email },
+        meta: { pinned: 'left', locked: true, width: 300, sortField: 'lastName', secondary: (row) => row.email },
       },
       {
         id: 'status',
@@ -199,9 +234,9 @@ export function UsersListPage() {
             </Badge>
           )
         },
-        meta: { exportValue: (row) => userStatusLabel(t, displayUserStatus(row.status, row.invitationExpiresAt)) },
+        meta: { sortField: 'status', exportValue: (row) => userStatusLabel(t, displayUserStatus(row.status, row.invitationExpiresAt)) },
       },
-      text('jobTitle', t('usersAdmin.columns.jobTitle'), (row) => userRoleLabel(t, row.role), true),
+      text('jobTitle', t('usersAdmin.columns.jobTitle'), (row) => userRoleLabel(t, row.role), true, 'role'),
       {
         id: 'access',
         header: t('usersAdmin.columns.access'),
@@ -216,50 +251,50 @@ export function UsersListPage() {
         id: 'manager',
         header: t('usersAdmin.columns.manager'),
         cell: ({ row }) => (row.original.isDealerManager ? <Badge tone="purple">{t('usersAdmin.managerBadge')}</Badge> : '—'),
-        meta: { exportValue: (row) => (row.isDealerManager ? t('common.yes') : t('common.no')) },
+        meta: { sortField: 'isDealerManager', exportValue: (row) => (row.isDealerManager ? t('common.yes') : t('common.no')) },
       },
       text('primaryLocation', t('usersAdmin.columns.primaryLocation'), (row) => (row.primaryLocationId ? locationName(row.primaryLocationId) : null), true),
       {
         id: 'lastLogin',
         header: t('usersAdmin.columns.lastLogin'),
         cell: ({ row }) => (row.original.lastLoginAt ? formatDateTime(row.original.lastLoginAt, locale) : '—'),
-        meta: { align: 'right', exportValue: (row) => (row.lastLoginAt ? formatDateTime(row.lastLoginAt, locale) : '') },
+        meta: { align: 'right', sortField: 'lastLoginAt', exportValue: (row) => (row.lastLoginAt ? formatDateTime(row.lastLoginAt, locale) : '') },
       },
       {
         id: 'validTo',
         header: t('usersAdmin.columns.validTo'),
         cell: ({ row }) => (row.original.validTo ? formatDateOnly(row.original.validTo, locale) : '—'),
-        meta: { align: 'right', defaultVisible: false, exportValue: (row) => (row.validTo ? formatDateOnly(row.validTo, locale) : '') },
+        meta: { align: 'right', defaultVisible: false, sortField: 'validTo', exportValue: (row) => (row.validTo ? formatDateOnly(row.validTo, locale) : '') },
       },
       {
         id: 'validFrom',
         header: t('usersAdmin.columns.validFrom'),
         cell: ({ row }) => (row.original.validFrom ? formatDateOnly(row.original.validFrom, locale) : '—'),
-        meta: { align: 'right', defaultVisible: false, exportValue: (row) => (row.validFrom ? formatDateOnly(row.validFrom, locale) : '') },
+        meta: { align: 'right', defaultVisible: false, sortField: 'validFrom', exportValue: (row) => (row.validFrom ? formatDateOnly(row.validFrom, locale) : '') },
       },
-      text('email', t('usersAdmin.columns.email'), (row) => row.email),
+      text('email', t('usersAdmin.columns.email'), (row) => row.email, false, 'email'),
       text('mobile', t('usersAdmin.columns.mobile'), (row) => row.phone),
       text('directDial', t('usersAdmin.columns.directDial'), (row) => row.directDial),
-      text('department', t('usersAdmin.columns.department'), (row) => row.department),
-      text('employeeNumber', t('usersAdmin.columns.employeeNumber'), (row) => row.employeeNumber),
+      text('department', t('usersAdmin.columns.department'), (row) => row.department, false, 'department'),
+      text('employeeNumber', t('usersAdmin.columns.employeeNumber'), (row) => row.employeeNumber, false, 'employeeNumber'),
       text('lineManager', t('usersAdmin.columns.lineManager'), (row) => (row.lineManagerUserId ? colleagueName(row.lineManagerUserId) : null)),
       text('additionalLocations', t('usersAdmin.columns.additionalLocations'), (row) =>
         (row.additionalLocationIds ?? []).map(locationName).join(', '),
       ),
-      text('employmentStatus', t('usersAdmin.columns.employmentStatus'), (row) => employmentStatusLabel(t, row.employmentStatus)),
-      text('salesAdvisorCode', t('usersAdmin.columns.salesAdvisorCode'), (row) => row.salesAdvisorCode),
-      text('commissionRelevant', t('usersAdmin.columns.commissionRelevant'), (row) => (row.commissionRelevant ? t('common.yes') : t('common.no'))),
+      text('employmentStatus', t('usersAdmin.columns.employmentStatus'), (row) => employmentStatusLabel(t, row.employmentStatus), false, 'employmentStatus'),
+      text('salesAdvisorCode', t('usersAdmin.columns.salesAdvisorCode'), (row) => row.salesAdvisorCode, false, 'salesAdvisorCode'),
+      text('commissionRelevant', t('usersAdmin.columns.commissionRelevant'), (row) => (row.commissionRelevant ? t('common.yes') : t('common.no')), false, 'commissionRelevant'),
       {
         id: 'invitedAt',
         header: t('usersAdmin.columns.invitedAt'),
         cell: ({ row }) => (row.original.invitedAt ? formatDateTime(row.original.invitedAt, locale) : '—'),
-        meta: { align: 'right', defaultVisible: false, exportValue: (row) => (row.invitedAt ? formatDateTime(row.invitedAt, locale) : '') },
+        meta: { align: 'right', defaultVisible: false, sortField: 'invitedAt', exportValue: (row) => (row.invitedAt ? formatDateTime(row.invitedAt, locale) : '') },
       },
       {
         id: 'deactivatedAt',
         header: t('usersAdmin.columns.deactivatedAt'),
         cell: ({ row }) => (row.original.deactivatedAt ? formatDateTime(row.original.deactivatedAt, locale) : '—'),
-        meta: { align: 'right', defaultVisible: false, exportValue: (row) => (row.deactivatedAt ? formatDateTime(row.deactivatedAt, locale) : '') },
+        meta: { align: 'right', defaultVisible: false, sortField: 'deactivatedAt', exportValue: (row) => (row.deactivatedAt ? formatDateTime(row.deactivatedAt, locale) : '') },
       },
       text('deactivationReason', t('usersAdmin.columns.deactivationReason'), (row) => row.deactivationReason),
       text('signature', t('usersAdmin.columns.signature'), (row) => (row.hasSignatureImage ? t('common.yes') : t('common.no'))),
@@ -285,8 +320,8 @@ export function UsersListPage() {
     setFormUser(undefined)
     await invalidate()
   }
-  const onDeactivated = async (_result: UserDeactivatedRead) => {
-    setDeactivating(null)
+  const onReassigned = async () => {
+    setReassigning(null)
     await invalidate()
   }
 
@@ -337,7 +372,7 @@ export function UsersListPage() {
                   setAppliedViewId(view.id)
                   if (view.snapshot.columnLayout) gridPrefs.setColumnLayout(view.snapshot.columnLayout)
                 }}
-                onSaveCurrentAsView={(name) => savedViews.saveView(name, { sort: [], columnLayout: gridPrefs.columnLayout ?? undefined, filters: [] })}
+                onSaveCurrentAsView={(name) => savedViews.saveView(name, { sort, columnLayout: gridPrefs.columnLayout ?? undefined, filters: [] })}
                 onDeleteView={savedViews.deleteView}
                 onSetDefaultView={savedViews.setDefaultView}
                 fields={[]}
@@ -364,8 +399,8 @@ export function UsersListPage() {
           columns={columns}
           rows={rows}
           getRowId={(row) => row.id}
-          sort={[]}
-          onSortChange={() => {}}
+          sort={sort}
+          onSortChange={setSort}
           density={density}
           onRowActivate={(row) => setFormUser(row)}
           loading={isLoading}
@@ -389,7 +424,8 @@ export function UsersListPage() {
                 onResendInvitation: () => void resendInvitation(row),
                 onSuspend: () => void setStatus(row, 'suspended'),
                 onReactivate: () => void setStatus(row, 'active'),
-                onDeactivate: () => setDeactivating(row),
+                onHandOver: () => setReassigning({ user: row, mode: 'transfer' }),
+                onDeactivate: () => setReassigning({ user: row, mode: 'deactivate' }),
               },
               { isSelf: row.id === me?.id },
             )
@@ -441,12 +477,13 @@ export function UsersListPage() {
         onSaved={() => void onSaved()}
       />
       <UserDeactivateDialog
-        opened={deactivating !== null}
-        onClose={() => setDeactivating(null)}
+        opened={reassigning !== null}
+        onClose={() => setReassigning(null)}
         dealershipId={dealershipId}
-        user={deactivating}
+        user={reassigning?.user ?? null}
+        mode={reassigning?.mode ?? 'deactivate'}
         colleagues={colleagues.data?.items ?? []}
-        onDeactivated={(result) => void onDeactivated(result)}
+        onDone={() => void onReassigned()}
       />
     </Stack>
   )

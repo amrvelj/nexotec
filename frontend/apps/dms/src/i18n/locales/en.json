@@ -336,7 +336,10 @@
     },
     "createOfferError": "The offer could not be created. Please try again.",
     "createContractError": "The contract could not be created. Please try again.",
-    "doNotContactError": "Do-not-contact could not be saved. Please try again."
+    "doNotContactError": "Do-not-contact could not be saved. Please try again.",
+    "advisorFilter": {
+      "unassigned": "Unassigned"
+    }
   },
   "customerDetail": {
     "tabs": {
@@ -1047,12 +1050,14 @@
       "grossPrice": "Sale price",
       "status": "Status",
       "margin": "Margin",
-      "changed": "Changed"
+      "changed": "Changed",
+      "owner": "Responsible"
     },
     "chips": {
       "all": "All",
       "offers": "Offers",
-      "contracts": "Contracts"
+      "contracts": "Contracts",
+      "unassigned": "Unassigned"
     },
     "emptyState": {
       "title": "No offers or contracts",
@@ -2097,7 +2102,9 @@
       "reactivate": "Reactivate",
       "deactivate": "Deactivate",
       "deactivateDisabledAlready": "Already deactivated",
-      "selfDisabled": "Not for your own account"
+      "selfDisabled": "Not for your own account",
+      "handOver": "Hand over open records",
+      "suspendDisabledNotActive": "Only an active user can be suspended"
     },
     "actions": {
       "resendFailed": "The invitation could not be sent.",
@@ -2167,6 +2174,11 @@
       "reason": "Reason",
       "endEmployment": "Employment has ended",
       "confirm": "Deactivate"
+    },
+    "handOver": {
+      "title": "Hand over {{name}}'s open records",
+      "intro": "What this person still looks after is handed to a colleague or to the module's queue — also after a deactivation in which a module could not complete the hand-over.",
+      "confirm": "Hand over"
     }
   }
 }

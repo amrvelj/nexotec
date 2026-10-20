@@ -1,9 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { api, ApiError, onUnauthorized } from '../api/client'
-import type { DealershipMembershipSummary, LoginResponse, LoginStepResponse, UserRead } from '../api/types'
+import type { DealershipMembershipSummary, LoginResponse, LoginStepResponse } from '../api/types'
+
+/** The signed-in user as the login response carries it (KAN-200: the
+ * administration screen's fields are `UserRead`'s, never the session's). */
+export type SessionUser = LoginResponse['user']
 
 interface AuthContextValue {
-  user: UserRead | null
+  user: SessionUser | null
   activeDealership: DealershipMembershipSummary | null
   memberships: DealershipMembershipSummary[]
   /** The active dealership's licensed modules (KAN-198, D-A-04): what the
@@ -33,7 +37,7 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<UserRead | null>(null)
+  const [user, setUser] = useState<SessionUser | null>(null)
   const [activeDealership, setActiveDealership] = useState<DealershipMembershipSummary | null>(null)
   const [memberships, setMemberships] = useState<DealershipMembershipSummary[]>([])
   const [entitlements, setEntitlements] = useState<string[]>([])

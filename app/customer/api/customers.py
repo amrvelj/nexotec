@@ -86,9 +86,7 @@ CUSTOMER_SORT_FIELDS: dict[str, object] = {
 }
 # "Default sort: Declared per grid... For most grids: updatedAt:desc"
 # (UI/UX Core Principles FR-UI-01) — used when the client sends no `sort`.
-_DEFAULT_CUSTOMER_SORT = [
-    SortField(api_name="updatedAt", column=Customer.updated_at, direction="desc", nullable=False)
-]
+_DEFAULT_CUSTOMER_SORT = [SortField(api_name="updatedAt", column=Customer.updated_at, direction="desc", nullable=False)]
 
 
 def _customer_read(db: Session, customer: Customer) -> CustomerRead:
@@ -135,9 +133,7 @@ def duplicate_check(
     rows = customer_service.duplicate_check(db, group_id=principal.group_id, q=q)
     # Plain dicts, not ORM rows — see services.customer.duplicate_check for
     # why a candidate is not simply a Customer.
-    return CustomerDuplicateCandidateList(
-        items=[CustomerDuplicateCandidate.model_validate(row) for row in rows]
-    )
+    return CustomerDuplicateCandidateList(items=[CustomerDuplicateCandidate.model_validate(row) for row in rows])
 
 
 @router.get("/customers/advisor-options", response_model=CustomerAdvisorOptionList)
@@ -228,6 +224,10 @@ def list_customers(
     canton: str | None = None,
     updated_since: dt.datetime | None = None,
     include_merged: bool = False,
+    advisor_user_id: uuid.UUID | None = Query(default=None, alias="advisorUserId"),
+    unassigned: bool = Query(
+        default=False, description="KAN-200: customers with no advisor — the queue a leaver's hand-over fills."
+    ),
     sort: str | None = Query(default=None, description="e.g. 'lastName:asc,updatedAt:desc'"),
     limit: int = Query(default=settings.pagination_default_limit, ge=1, le=settings.pagination_max_limit),
     cursor: str | None = Query(default=None),
@@ -235,9 +235,7 @@ def list_customers(
     db: Session = Depends(get_db),
 ):
     sort_fields = parse_sort(sort, allowed=CUSTOMER_SORT_FIELDS) or _DEFAULT_CUSTOMER_SORT
-    params = SortPageParams(
-        limit=limit, cursor=decode_sort_cursor(cursor) if cursor else None, sort_fields=sort_fields
-    )
+    params = SortPageParams(limit=limit, cursor=decode_sort_cursor(cursor) if cursor else None, sort_fields=sort_fields)
     rows, next_cursor, total, total_is_estimate = customer_service.list_customers(
         db,
         group_id=principal.group_id,
@@ -249,6 +247,8 @@ def list_customers(
         updated_since=updated_since,
         params=params,
         include_merged=include_merged,
+        advisor_user_id=advisor_user_id,
+        unassigned=unassigned,
     )
     projections_by_id = customer_service.compute_customer_projections_batch(db, [c.id for c in rows])
     items = [
@@ -270,9 +270,7 @@ def get_customer_audit_log(
     db: Session = Depends(get_db),
 ):
     customer_service.get_customer_or_404(db, principal.group_id, customer_id)
-    events = list_audit_events(
-        db, entity_type="customer", entity_id=customer_id, tenant_id=principal.group_id
-    )
+    events = list_audit_events(db, entity_type="customer", entity_id=customer_id, tenant_id=principal.group_id)
     # KAN-371: the ids the events carry are named on read, group-scoped.
     return CustomerHistoryPage(
         items=[AuditEventRead.model_validate(e, from_attributes=True) for e in events],
@@ -464,9 +462,7 @@ def list_customer_external_ids(
 ):
     customer_service.get_customer_or_404(db, principal.group_id, customer_id)
     rows = customer_service.list_customer_external_ids(db, customer_id=customer_id)
-    return CustomerExternalIdPage(
-        items=[CustomerExternalIdRead.model_validate(r, from_attributes=True) for r in rows]
-    )
+    return CustomerExternalIdPage(items=[CustomerExternalIdRead.model_validate(r, from_attributes=True) for r in rows])
 
 
 @router.post("/customers/{customer_id}/external-ids", response_model=CustomerExternalIdRead, status_code=201)
@@ -560,7 +556,9 @@ def list_customer_vehicles(
             update={
                 "other_parties": other_parties_by_vehicle.get(r.vehicle_id, []),
                 "stock_item": (
-                    VehicleStockLinkSummary(**stock_by_vehicle[r.vehicle_id]) if r.vehicle_id in stock_by_vehicle else None
+                    VehicleStockLinkSummary(**stock_by_vehicle[r.vehicle_id])
+                    if r.vehicle_id in stock_by_vehicle
+                    else None
                 ),
             }
         )
@@ -606,9 +604,7 @@ def delete_customer_vehicle(
 ):
     customer_service.get_customer_or_404(db, principal.group_id, customer_id)
     party = customer_service.get_customer_vehicle_or_404(db, customer_id=customer_id, party_id=party_id)
-    customer_service.delete_customer_vehicle(
-        db, party=party, actor_id=principal.user_id, group_id=principal.group_id
-    )
+    customer_service.delete_customer_vehicle(db, party=party, actor_id=principal.user_id, group_id=principal.group_id)
 
 
 # --- LegalBasis: revDSG joint-controllership evidence (WP-3 PR-4, ADR-030).

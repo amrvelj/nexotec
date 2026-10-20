@@ -15,6 +15,7 @@ from app.core.auth import AccessRole, Principal
 from app.core.errors import register_error_handlers
 from app.core.permissions import require_write_or_delegated
 from app.db import get_db
+from tests.identity_support import PasswordLogin
 from tests.membership_support import (
     audit_actions,
     bearer,
@@ -103,23 +104,30 @@ def test_a_dealer_manager_cannot_write_delegations_on_a_staff_account(client):
     )
 
 
-def test_a_suspension_keeps_the_delegations_and_a_deactivated_user_gets_none(client):
+def test_a_suspension_keeps_the_delegations_and_a_deactivated_user_gets_none(client, mailbox):
     dealership = create_dealership(client)
     create_user(client, dealership)
     user = create_user(client, dealership, is_dealer_manager=False)
     assert _put(client, dealership, user, ["email"], if_match=1).status_code == 200
+    PasswordLogin(client, mailbox).accept_invitation(user)  # KAN-200: only an active user can be suspended
+
+    def version() -> int:
+        return client.get(f"/v1/dealerships/{dealership}/users/{user['id']}", headers=platform_admin()).json()[
+            "version"
+        ]
+
     assert (
         client.patch(
             f"/v1/dealerships/{dealership}/users/{user['id']}",
             json={"status": "suspended"},
-            headers={**platform_admin(), "If-Match": "2"},
+            headers={**platform_admin(), "If-Match": str(version())},
         ).status_code
         == 200
     )
     listed = client.get(f"/v1/dealerships/{dealership}/users/{user['id']}/text-delegations", headers=platform_admin())
     assert listed.json()["categories"] == ["email"]
-    assert deactivate(client, dealership, user, if_match=3).status_code == 200
-    assert _put(client, dealership, user, ["email"], if_match=4).status_code == 409
+    assert deactivate(client, dealership, user, if_match=version()).status_code == 200
+    assert _put(client, dealership, user, ["email"], if_match=version()).status_code == 409
 
 
 def test_deactivation_ends_every_delegation(client):

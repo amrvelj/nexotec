@@ -89,6 +89,7 @@ class SalesDeal(PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, Base):
         GUID(), nullable=True, index=True, comment="Owned by the platform context (User). No DB-level FK."
     )
     owner_label: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    owner_label_refreshed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
 
     gross_price: Mapped[Decimal | None] = mapped_column(DECIMAL(12, 2), nullable=True)
     # Entity-private (ADR-029/ADR-049) — never exposed via any group-scoped
