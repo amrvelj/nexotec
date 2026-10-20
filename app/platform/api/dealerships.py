@@ -674,7 +674,10 @@ def reissue_invitation(
     with a second factor (D-A-36, `require_mfa_session`)."""
 
     require_tenant_match(dealership_id, principal)
-    user = user_service.get_user_or_404(db, dealership_id, user_id)
+    # The user row before the tokens (KAN-380/KAN-400): the invitation stamps
+    # `invited_at` (KAN-200) after ending the live invitations, and an
+    # acceptance holds the user row before it consumes its token.
+    user = user_service.get_user_for_update_or_404(db, dealership_id, user_id)
     user_service.assert_may_touch(user=user, actor_roles=principal.roles)
     user_service.assert_user_is_not_deactivated(user)
     if user.status != UserStatus.INVITED and AccessRole.PLATFORM_ADMIN not in principal.roles:

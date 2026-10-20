@@ -310,6 +310,14 @@ def _challenged_user(db: Session, challenge_id: str, *, ip_address: str = "", an
     user = db.get(User, token.user_id) if token is not None else None
     if token is None or user is None:
         raise _step_expired()
+    if answer:
+        # User row first (`identity.lock_user_for_login`), before the
+        # challenge, the factor and the credential: the password step and an
+        # invitation acceptance hold the user row while they issue a
+        # challenge, so a step that locked its challenge first and the user
+        # row at the mint deadlocked against them. The throttle below is
+        # judged under the lock.
+        user = identity.lock_user_for_login(db, user)
     if answer and (
         identity.account_throttled(db, user=user)
         or not auth_tokens.claim_attempt(db, token, limit=MFA_MAX_ATTEMPTS)

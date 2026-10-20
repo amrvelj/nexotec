@@ -201,6 +201,8 @@ def test_a_membership_grant_racing_a_membership_end_is_a_201_and_a_204_never_a_d
         "transfer_user_ownership",
         "put_user_signature",
         "delete_user_signature",
+        # KAN-200: the re-sent invitation stamps `invited_at` on the user row.
+        "reissue_invitation",
     ],
 )
 def test_every_user_administration_write_takes_the_user_row_lock_first(route):

@@ -156,6 +156,11 @@ class LocalPasswordProvider:
         if credential is None:
             password_hashing.burn_verify()
             raise refuse(AuthEventKind.LOGIN_FAILED, {"reason": "no_credential"})
+        if _account_throttled(credential, utcnow()):
+            # Judged again under the lock: a burst of attempts queued behind
+            # the first sees the failures and the lock the earlier ones wrote.
+            password_hashing.burn_verify()
+            raise refuse(AuthEventKind.LOGIN_THROTTLED)
 
         if not password_hashing.verify_password(credential.password_hash, presented.password):
             credential.failed_login_attempts += 1
