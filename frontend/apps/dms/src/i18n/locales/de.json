@@ -37,7 +37,7 @@
       "accountMenu": "Kontomenü",
       "language": "Sprache",
       "switchDealership": "Betrieb wechseln",
-      "accountSecurity": "Mein Konto – Sicherheit"
+      "accountSecurity": "Mein Konto"
     },
     "globalSearch": {
       "placeholder": "Suchen…",
@@ -1965,8 +1965,6 @@
       "reused": "Dieses Passwort wurde kürzlich verwendet – wählen Sie ein neues."
     },
     "security": {
-      "breadcrumb": "Mein Konto",
-      "title": "Sicherheit",
       "enrolmentRequired": "Ihr Betrieb verlangt einen zweiten Faktor. Richten Sie eine Authenticator-App oder einen Passkey ein, bevor Sie weiterarbeiten.",
       "totp": {
         "title": "Authenticator-App",
@@ -2127,7 +2125,8 @@
         "access": "Zugriff",
         "validity": "Gültigkeit",
         "commercial": "Kommerziell",
-        "signature": "Unterschrift"
+        "signature": "Unterschrift",
+        "connectedAccounts": "Verbundene Konten"
       }
     },
     "fields": {
@@ -2161,7 +2160,8 @@
       "signatureImage": "Unterschriftsbild",
       "signatureHint": "PNG oder JPEG, bis 1 MB — wird auf Dokumenten gedruckt, die der Benutzer unterzeichnet.",
       "signatureCurrent": "Aktuelle Unterschrift",
-      "signatureRemove": "Entfernen"
+      "signatureRemove": "Entfernen",
+      "connectedAccountsNone": "Keine verbundenen Konten."
     },
     "deactivate": {
       "title": "{{name}} deaktivieren",
@@ -2202,6 +2202,76 @@
     "failureReason": {
       "module_failed": "Modul konnte die Übergabe nicht abschliessen; Details im Protokoll",
       "colleague_cannot_act_there": "Kollege arbeitet nicht in jedem betroffenen Betrieb"
+    }
+  },
+  "account": {
+    "title": "Mein Konto",
+    "tabs": {
+      "profile": "Profil",
+      "security": "Sicherheit",
+      "connectedAccounts": "Verbundene Konten",
+      "signature": "Unterschrift"
+    },
+    "languages": {
+      "de": "Deutsch",
+      "fr": "Französisch",
+      "it": "Italienisch",
+      "en": "Englisch"
+    },
+    "profile": {
+      "firstName": "Vorname",
+      "lastName": "Nachname",
+      "email": "E-Mail-Adresse",
+      "emailHint": "Ihre Anmeldung. Eine neue Adresse richtet Ihr Manager ein.",
+      "phone": "Mobile",
+      "directDial": "Direktwahl",
+      "uiLanguage": "Sprache der Anwendung",
+      "uiLanguageHint": "Gilt sofort, auf allen Ihren Geräten.",
+      "correspondenceLanguage": "Sprache meiner Dokumente",
+      "correspondenceLanguageHint": "Für Dokumente, die Sie erstellen und die keine Kundensprache haben.",
+      "betriebDefault": "Wie der Betrieb ({{language}})",
+      "saved": "Gespeichert.",
+      "conflict": "Ihr Konto wurde inzwischen geändert. Laden Sie die Seite neu und versuchen Sie es erneut.",
+      "invalid": "Bitte prüfen Sie die Eingaben: Telefonnummern im Format +41 79 123 45 67.",
+      "notificationsTitle": "Benachrichtigungen",
+      "notificationsSoon": "Hier legen Sie bald fest, welche Benachrichtigungen Sie erhalten. Sicherheitsmeldungen erhalten Sie immer."
+    },
+    "connected": {
+      "emptyTitle": "Noch keine verbundenen Konten",
+      "emptyBody": "Hier erscheinen Ihr Microsoft-365-Postfach und Ihr Kalender, sobald Sie sie verbinden. So versenden Sie Offerten aus Ihrem eigenen Postfach und Termine landen in Ihrem Kalender. Die Verbindung wird mit der Outlook-Anbindung verfügbar.",
+      "privacy": "Ein verbundenes Konto dient nur dazu, in Ihrem Namen zu senden und Termine einzutragen – nie zur Anmeldung. Ihr Manager sieht, dass eine Verbindung besteht, nie deren Inhalt.",
+      "columns": {
+        "provider": "Anbieter",
+        "account": "Konto",
+        "scopes": "Berechtigungen",
+        "status": "Status",
+        "linkedAt": "Verbunden am",
+        "lastUsed": "Zuletzt verwendet"
+      },
+      "provider": {
+        "microsoft_365": "Microsoft 365"
+      },
+      "status": {
+        "active": "Aktiv",
+        "error": "Fehler",
+        "revoked": "Getrennt"
+      },
+      "neverUsed": "Noch nie",
+      "revoke": "Trennen",
+      "conflict": "Diese Verbindung wurde inzwischen geändert oder ist bereits getrennt."
+    },
+    "signature": {
+      "block": "Unterschriftsblock",
+      "blockHint": "Die Zeilen unter Ihrem Namen, z. B. Funktion, Abteilung, Telefon.",
+      "image": "Unterschrift als Bild",
+      "current": "Aktuelle Unterschrift",
+      "noImage": "Noch kein Bild hinterlegt.",
+      "upload": "Bild auswählen",
+      "imageHint": "PNG oder JPEG, höchstens 1 MB.",
+      "uploadButton": "Hochladen",
+      "remove": "Entfernen",
+      "saved": "Gespeichert.",
+      "invalid": "Das Bild muss ein PNG oder JPEG von höchstens 1 MB sein."
     }
   }
 }

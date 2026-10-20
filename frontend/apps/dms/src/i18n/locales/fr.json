@@ -37,7 +37,7 @@
       "accountMenu": "Menu du compte",
       "language": "Langue",
       "switchDealership": "Changer d'entreprise",
-      "accountSecurity": "Mon compte – Sécurité"
+      "accountSecurity": "Mon compte"
     },
     "globalSearch": {
       "placeholder": "Rechercher…",
@@ -1965,8 +1965,6 @@
       "reused": "Ce mot de passe a été utilisé récemment – choisissez-en un nouveau."
     },
     "security": {
-      "breadcrumb": "Mon compte",
-      "title": "Sécurité",
       "enrolmentRequired": "Votre entreprise exige un deuxième facteur. Configurez une application d’authentification ou une clé d’accès avant de continuer.",
       "totp": {
         "title": "Application d’authentification",
@@ -2127,7 +2125,8 @@
         "access": "Accès",
         "validity": "Validité",
         "commercial": "Commercial",
-        "signature": "Signature"
+        "signature": "Signature",
+        "connectedAccounts": "Comptes connectés"
       }
     },
     "fields": {
@@ -2161,7 +2160,8 @@
       "signatureImage": "Image de signature",
       "signatureHint": "PNG ou JPEG, jusqu'à 1 Mo — imprimée sur les documents que l'utilisateur signe.",
       "signatureCurrent": "Signature actuelle",
-      "signatureRemove": "Retirer"
+      "signatureRemove": "Retirer",
+      "connectedAccountsNone": "Aucun compte connecté."
     },
     "deactivate": {
       "title": "Désactiver {{name}}",
@@ -2202,6 +2202,76 @@
     "failureReason": {
       "module_failed": "le module n'a pas pu terminer la transmission ; détails dans le journal",
       "colleague_cannot_act_there": "le collègue ne travaille pas dans chaque entreprise concernée"
+    }
+  },
+  "account": {
+    "title": "Mon compte",
+    "tabs": {
+      "profile": "Profil",
+      "security": "Sécurité",
+      "connectedAccounts": "Comptes connectés",
+      "signature": "Signature"
+    },
+    "languages": {
+      "de": "Allemand",
+      "fr": "Français",
+      "it": "Italien",
+      "en": "Anglais"
+    },
+    "profile": {
+      "firstName": "Prénom",
+      "lastName": "Nom",
+      "email": "Adresse e-mail",
+      "emailHint": "Votre identifiant. Votre manager configure une nouvelle adresse.",
+      "phone": "Mobile",
+      "directDial": "Ligne directe",
+      "uiLanguage": "Langue de l'application",
+      "uiLanguageHint": "Prend effet immédiatement, sur tous vos appareils.",
+      "correspondenceLanguage": "Langue de mes documents",
+      "correspondenceLanguageHint": "Pour les documents que vous créez et qui n'ont pas de langue client.",
+      "betriebDefault": "Comme l'entreprise ({{language}})",
+      "saved": "Enregistré.",
+      "conflict": "Votre compte a été modifié entre-temps. Rechargez la page et réessayez.",
+      "invalid": "Veuillez vérifier les saisies : numéros au format +41 79 123 45 67.",
+      "notificationsTitle": "Notifications",
+      "notificationsSoon": "Vous choisirez bientôt ici les notifications que vous recevez. Les alertes de sécurité vous sont toujours envoyées."
+    },
+    "connected": {
+      "emptyTitle": "Aucun compte connecté",
+      "emptyBody": "Votre boîte Microsoft 365 et votre calendrier apparaîtront ici dès que vous les connecterez : vous enverrez les offres depuis votre propre boîte et les rendez-vous arriveront dans votre calendrier. La connexion sera disponible avec l'intégration Outlook.",
+      "privacy": "Un compte connecté sert uniquement à envoyer et à planifier en votre nom – jamais à se connecter. Votre manager voit qu'une connexion existe, jamais son contenu.",
+      "columns": {
+        "provider": "Fournisseur",
+        "account": "Compte",
+        "scopes": "Autorisations",
+        "status": "Statut",
+        "linkedAt": "Connecté le",
+        "lastUsed": "Dernière utilisation"
+      },
+      "provider": {
+        "microsoft_365": "Microsoft 365"
+      },
+      "status": {
+        "active": "Actif",
+        "error": "Erreur",
+        "revoked": "Déconnecté"
+      },
+      "neverUsed": "Jamais",
+      "revoke": "Déconnecter",
+      "conflict": "Cette connexion a été modifiée entre-temps ou est déjà déconnectée."
+    },
+    "signature": {
+      "block": "Bloc de signature",
+      "blockHint": "Les lignes sous votre nom, p. ex. fonction, service, téléphone.",
+      "image": "Signature en image",
+      "current": "Signature actuelle",
+      "noImage": "Aucune image enregistrée.",
+      "upload": "Choisir une image",
+      "imageHint": "PNG ou JPEG, 1 Mo au maximum.",
+      "uploadButton": "Téléverser",
+      "remove": "Supprimer",
+      "saved": "Enregistré.",
+      "invalid": "L'image doit être un PNG ou un JPEG d'au plus 1 Mo."
     }
   }
 }

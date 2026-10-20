@@ -291,7 +291,7 @@ function DmsShellInner({ children }: { children: ReactNode }) {
         onSignOut: () => {
           logout().then(() => navigate('/login'))
         },
-        onAccountSecurity: () => navigate('/account/security'),
+        onAccountSecurity: () => navigate('/account/profile'),
         labels: {
           mainNavigation: t('shell.sidebar.mainNavigation'),
           expandSidebar: t('shell.sidebar.expandSidebar'),

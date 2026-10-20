@@ -19,7 +19,7 @@ class MeRead(CamelModel):
     """The caller's own record as My account shows it. The e-mail address is
     read-only here: it is the sign-in and recovery channel, changed by a
     manager while the user is invited and by platform staff afterwards
-    (KAN-196) — never by the user themselves (open with Anto since PR #218).
+    (KAN-196) — never by the user themselves (an open question with Anto since KAN-196).
     The UI language is a preference (`/v1/me/preferences/ui`), not a field."""
 
     id: uuid.UUID
