@@ -79,8 +79,12 @@ main@046634d on 2026-10-17 (KAN-195: every present-tense claim checked against t
   before it checks the password and issues a challenge (the credential re-read under the lock, so a
   reset that committed meanwhile is the one it meets; the throttle judged again), the MFA and
   passkey steps before they claim the challenge or touch a factor, and the mint (`_finish_login`)
-  re-locks — so the order is user row → token → factor → credential on every path, and the status
-  is judged under the lock: a login racing a deactivation is refused. The first auth-config PUT, the first TOTP enrolment and the first preference save
+  re-locks — so every login path and every path that writes the user row or the credential takes
+  user row → token → factor → credential, and a login's status is judged under the lock: a login
+  racing a deactivation is refused. **Not yet one order (KAN-411):** the paths that take no
+  user-row lock — the reset request, self-service MFA (`/auth/mfa/*`), staff's MFA and session
+  resets — still deadlock against each other or a revoke-all in three known pairs. The nightly
+  `platform.user_expiry` re-reads each due user under the lock and judges it again. The first auth-config PUT, the first TOTP enrolment and the first preference save
   insert in a savepoint and carry on with a concurrent winner's committed row (KAN-393).
   `LoginResponse.user.isDealerManager` is the home flag, not the active dealership's — never
   gate a screen on it; the session's own flag is the token claim.

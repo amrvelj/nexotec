@@ -82,7 +82,15 @@ def run_daily_user_expiry(db: Session, *, session_factory: Callable[[], Session]
     skipped: list[str] = []
     failed: list[str] = []
     handover_failed: list[str] = []
-    for user in due:
+    for stale in due:
+        # Re-read under the user-row lock (KAN-380's order) and judged again:
+        # a PATCH that extended `validTo` or deactivated the user after the
+        # list was read wins, and the version is bumped from the row as it
+        # stands, never from the list's copy.
+        user = user_service.get_user_for_update_or_404(db, stale.tenant_id, stale.id)
+        if not user_service.is_due_for_expiry(user, today=today):
+            db.rollback()
+            continue
         try:
             user_service.update_user(
                 db,

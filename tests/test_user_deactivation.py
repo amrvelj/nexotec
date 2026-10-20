@@ -493,6 +493,39 @@ def test_the_expiry_job_deactivates_expired_users_and_releases_their_records(cli
     assert record.levelno == logging.INFO and "deactivated=1" in record.getMessage()
 
 
+def test_the_expiry_job_judges_each_user_again_under_the_lock(client, db_session, engine, monkeypatch):
+    """A manager extends `validTo` after the night's list was read: the job
+    re-reads the row under its lock, finds the user no longer due and leaves
+    them — no deactivation, no version bump over the manager's."""
+
+    dealership = create_dealership(client)
+    yesterday = dt.datetime.now(ZoneInfo("Europe/Zurich")).date() - dt.timedelta(days=1)
+    create_user(client, dealership)  # stays the manager
+    extended = create_user(client, dealership, isDealerManager=False, validTo=str(yesterday))
+    real_list = daily_jobs.user_service.list_users_due_for_expiry
+
+    def _list_then_extend(db, *, today):
+        due = real_list(db, today=today)
+        other = sessionmaker(bind=engine)()
+        try:
+            row = other.get(User, uuid.UUID(extended["id"]))
+            row.valid_to = yesterday + dt.timedelta(days=365)
+            row.version += 1
+            other.commit()
+        finally:
+            other.close()
+        return due
+
+    monkeypatch.setattr(daily_jobs.user_service, "list_users_due_for_expiry", _list_then_extend)
+
+    run_daily_user_expiry(db_session, session_factory=sessionmaker(bind=engine))
+
+    db_session.expire_all()
+    row = db_session.get(User, uuid.UUID(extended["id"]))
+    assert row.status.value == "invited"
+    assert row.version == extended["version"] + 1  # the manager's bump only
+
+
 @pytest.fixture
 def _clean_registry():
     _REGISTRY.clear()

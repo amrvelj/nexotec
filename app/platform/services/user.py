@@ -282,7 +282,9 @@ def get_user_for_update_or_404(db: Session, dealership_id: uuid.UUID, user_id: u
     grant (409). Every such route takes this lock before it touches a child
     row: one that locked child rows first and the user row last (at its
     version bump) would deadlock against one that did the opposite. NO KEY:
-    a row that only references the user (a session, a token) is not held up;
+    a row that only references the user (a session, a token) is not held up —
+    except while an e-mail change holds it (an update of a unique column takes
+    the full lock; KAN-411);
     a login itself takes this lock before it writes the credential and
     `last_login_at` (`identity.lock_user_for_login`, KAN-200). The same pattern as `get_dealership_for_update_or_404`."""
 
@@ -919,6 +921,16 @@ def list_users_deactivated_for(db: Session, *, reason: str, since: dt.datetime) 
     )
 
 
+_EXPIRY_STATUSES = (UserStatus.INVITED, UserStatus.ACTIVE, UserStatus.SUSPENDED)
+
+
+def is_due_for_expiry(user: User, *, today: dt.date) -> bool:
+    """`list_users_due_for_expiry`'s predicate for one row, as the nightly
+    job re-judges it under the user-row lock."""
+
+    return user.valid_to is not None and user.valid_to < today and user.status in _EXPIRY_STATUSES
+
+
 def list_users_due_for_expiry(db: Session, *, today: dt.date) -> list[User]:
     """FR-A-12: users whose `valid_to` has passed and who still hold access
     (invited, active or suspended) — the nightly job deactivates them."""
@@ -929,11 +941,7 @@ def list_users_due_for_expiry(db: Session, *, today: dt.date) -> list[User]:
             .where(
                 User.valid_to.is_not(None),
                 User.valid_to < today,
-                or_(
-                    User.status == UserStatus.INVITED,
-                    User.status == UserStatus.ACTIVE,
-                    User.status == UserStatus.SUSPENDED,
-                ),
+                User.status.in_(_EXPIRY_STATUSES),
             )
             .order_by(User.tenant_id, User.id)
         ).all()
