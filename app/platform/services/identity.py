@@ -145,6 +145,18 @@ class LocalPasswordProvider:
             password_hashing.burn_verify()
             raise refuse(AuthEventKind.LOGIN_FAILED, {"reason": "no_credential"})
 
+        # User row, then credential — the order of every path that writes
+        # both (`lock_user_for_login`); the password is checked against the
+        # credential as it stands under that lock, so a reset that committed
+        # meanwhile is the one the attempt meets.
+        user = lock_user_for_login(db, user)
+        credential = db.scalar(
+            select(Credential).where(Credential.user_id == user.id).execution_options(populate_existing=True)
+        )
+        if credential is None:
+            password_hashing.burn_verify()
+            raise refuse(AuthEventKind.LOGIN_FAILED, {"reason": "no_credential"})
+
         if not password_hashing.verify_password(credential.password_hash, presented.password):
             credential.failed_login_attempts += 1
             credential.last_failed_at = now
@@ -488,6 +500,26 @@ def accept_invitation(db: Session, *, raw_token: str, password: str, ip_address:
         db, AuthEventKind.INVITATION_ACCEPTED, user_id=user.id, dealership_id=user.tenant_id, ip_address=ip_address
     )
     return user
+
+
+def lock_user_for_login(db: Session, user: User) -> User:
+    """The user row locked FOR NO KEY UPDATE and re-read, before a login
+    writes the credential or the user row. KAN-200 made a completed login
+    write the user row (`last_login_at`) beside the credential's counters;
+    the front door (KAN-400) and every user-administration route (KAN-380)
+    lock the user row first and write the credential after, so a login that
+    wrote the credential first deadlocked against a reset confirm of the
+    same user (a 500). Re-read under the lock, the status and the validity
+    window a deactivation or a PATCH committed meanwhile are the ones the
+    login is judged by. Pending changes are flushed first, so the re-read
+    discards none."""
+
+    db.flush()
+    locked = db.scalar(
+        select(User).where(User.id == user.id).with_for_update(key_share=True).execution_options(populate_existing=True)
+    )
+    assert locked is not None  # the row is never deleted (A-RULE-5)
+    return locked
 
 
 def login_completed(db: Session, *, user: User) -> None:

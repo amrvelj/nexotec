@@ -228,6 +228,9 @@ def _login_response(
 def _finish_login(
     db: Session, request: Request, response: Response, *, user: User, amr: tuple[str, ...], mfa_used: bool
 ) -> LoginResponse:
+    # User row first, then the credential and the session (KAN-400's order):
+    # `_mint_session` judges the status as it stands under the lock.
+    user = identity.lock_user_for_login(db, user)
     minted = _mint_session(
         db, user=user, dealership_id=user.tenant_id, session=None, request=request, amr=amr, mfa_used=mfa_used
     )

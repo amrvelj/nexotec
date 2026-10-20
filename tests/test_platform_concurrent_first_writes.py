@@ -29,9 +29,9 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.platform.models.credential import Credential
 from app.platform.models.dealership_auth_config import DealershipAuthConfig
 from app.platform.models.mfa import MfaTotp
-from app.platform.models.user import User
+from app.platform.models.user import User, UserStatus
 from app.platform.models.user_preference import UserPreference
-from app.platform.services import auth_tokens
+from app.platform.services import auth_tokens, identity
 from tests.identity_support import (
     STRONG_PASSWORD,
     PasswordLogin,
@@ -44,6 +44,7 @@ from tests.identity_support import (
 )
 from tests.test_customer_vehicle import _create_dealer
 from tests.test_customer_vehicle_party_close_rule import _postgres_only, _run, _wait_until_a_backend_waits_on_a_lock
+from tests.test_identity_mfa import _enrol_totp
 
 
 def _held(engine) -> Session:
@@ -278,3 +279,116 @@ def test_an_acceptance_racing_an_email_change_is_refused_never_a_deadlock(engine
     db_session.expire_all()
     user = db_session.get(User, uuid.UUID(anna["id"]))
     assert (user.email, user.status.value) == ("anna.richtig@example.ch", "invited")
+
+
+# --- KAN-200: a login takes the user row before the credential ----------------------------
+
+
+def _password_login(client, user: dict, password: str = STRONG_PASSWORD):
+    return client.post("/v1/auth/login", json={"email": user["email"], "password": password})
+
+
+def test_a_login_racing_a_reset_confirm_waits_for_it_and_meets_the_new_password(
+    engine, client, mailbox, db_session, monkeypatch
+):
+    """KAN-200 made a completed login write the user row (`last_login_at`);
+    it wrote the credential first, while the reset confirm (KAN-400) holds
+    the user row and then writes the credential: a deadlock, the login a
+    500. The login now locks the user row first, so it waits for the reset,
+    and the password the reset replaced no longer signs in."""
+
+    _postgres_only(engine)
+    dealership = create_dealership(client)
+    anna = create_user(client, dealership)
+    PasswordLogin(client, mailbox).accept_invitation(anna)
+    # One typo: the credential carries a failure counter a login clears.
+    assert _password_login(client, anna, "wrong-wrong-wrong-1").status_code == 401
+    assert client.post("/v1/auth/password-reset/request", json={"email": anna["email"]}).status_code == 202
+    raw = token_in(last_mail_to(mailbox, anna["email"]))
+
+    reached, release = threading.Event(), threading.Event()
+    real_set_password = identity.set_password
+
+    def _paused_set_password(db, **kwargs):
+        reached.set()  # the reset holds the user row here
+        release.wait(timeout=15)
+        return real_set_password(db, **kwargs)
+
+    monkeypatch.setattr(identity, "set_password", _paused_set_password)
+    errors: list[Exception] = []
+    codes: dict[str, int] = {}
+
+    def _reset():
+        codes["reset"] = client.post(
+            "/v1/auth/password-reset/confirm", json={"token": raw, "password": "another-strong-passphrase-2026"}
+        ).status_code
+
+    def _login():
+        codes["login"] = _password_login(client, anna).status_code
+
+    reset = _run("reset", errors, _reset)
+    login = None
+    try:
+        assert reached.wait(timeout=10)
+        login = _run("login", errors, _login)
+        _wait_until_a_backend_waits_on_a_lock(engine)
+        release.set()
+        reset.join(timeout=20)
+        login.join(timeout=20)
+    finally:
+        release.set()
+    assert login is not None and not login.is_alive() and not reset.is_alive()
+    assert errors == []
+    assert codes == {"reset": 204, "login": 401}
+    assert _password_login(client, anna, "another-strong-passphrase-2026").status_code == 200
+
+
+def test_a_login_racing_a_deactivation_is_judged_by_the_committed_status(engine, client, mailbox, db_session):
+    """The password step reads the user, then waits for the row a
+    deactivation holds; under the lock it reads `deactivated` and refuses —
+    it never mints a session after the deactivation revoked them all."""
+
+    _postgres_only(engine)
+    dealership = create_dealership(client)
+    anna = create_user(client, dealership)
+    PasswordLogin(client, mailbox).accept_invitation(anna)
+    held = _held(engine)
+    held.execute(
+        text("SELECT id FROM \"user\" WHERE id = :id FOR NO KEY UPDATE"), {"id": uuid.UUID(anna["id"])}
+    )
+    held.get(User, uuid.UUID(anna["id"])).status = UserStatus.DEACTIVATED
+    held.flush()
+
+    response = _while_held(engine, held, lambda: _password_login(client, anna))
+
+    assert response.status_code == 401, response.text
+
+
+def test_the_mfa_step_racing_a_deactivation_is_judged_by_the_committed_status(engine, client, mailbox, db_session):
+    """The second step reads the user from its challenge; the lock it takes
+    before minting (`_finish_login`) waits for the deactivation, and the
+    session is refused."""
+
+    _postgres_only(engine)
+    dealership = create_dealership(client)
+    anna = create_user(client, dealership)
+    cookie = PasswordLogin(client, mailbox).session_cookie(anna)
+    _secret, recovery_codes = _enrol_totp(client, cookie)
+    first = _password_login(client, anna)
+    assert first.status_code == 200 and first.json()["mfaRequired"] is True, first.text
+    held = _held(engine)
+    held.execute(
+        text("SELECT id FROM \"user\" WHERE id = :id FOR NO KEY UPDATE"), {"id": uuid.UUID(anna["id"])}
+    )
+    held.get(User, uuid.UUID(anna["id"])).status = UserStatus.DEACTIVATED
+    held.flush()
+
+    response = _while_held(
+        engine,
+        held,
+        lambda: client.post(
+            "/v1/auth/mfa/verify", json={"challengeId": first.json()["challengeId"], "code": recovery_codes[0]}
+        ),
+    )
+
+    assert response.status_code == 401, response.text

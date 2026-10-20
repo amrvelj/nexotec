@@ -12,8 +12,10 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
+from app import worker
 from app.core.audit_model import AuditEvent
 from app.core.auth import AccessRole, create_access_token
+from app.core.daily_scheduler import _REGISTRY, registered_job_names
 from app.core.ownership import ownership_provider, registered_ownership_modules
 from app.core.reconciliation import ReconciliationAlarm
 from app.platform import daily_jobs
@@ -489,6 +491,25 @@ def test_the_expiry_job_deactivates_expired_users_and_releases_their_records(cli
     assert {r.after["module"] for r in rows} == {"customer", "sales"} and all(r.actor_id is None for r in rows)
     [record] = [r for r in caplog.records if r.name == daily_jobs.__name__]
     assert record.levelno == logging.INFO and "deactivated=1" in record.getMessage()
+
+
+@pytest.fixture
+def _clean_registry():
+    _REGISTRY.clear()
+    yield
+    _REGISTRY.clear()
+
+
+def test_the_worker_registers_the_expiry_job_after_reconciliation(_clean_registry):
+    """By name, so deleting the registration fails the build. After
+    reconciliation: the night's report names a record still with a
+    deactivated owner before the job retries its hand-over (events.md)."""
+
+    worker.register_daily_jobs()
+    names = registered_job_names()
+
+    assert "platform.user_expiry" in names
+    assert names.index("reconciliation.run_all") < names.index("platform.user_expiry")
 
 
 def test_the_expiry_job_keeps_the_last_manager_and_alarms(client, db_session, engine, caplog):

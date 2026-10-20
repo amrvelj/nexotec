@@ -74,7 +74,11 @@ main@046634d on 2026-10-17 (KAN-195: every present-tense claim checked against t
   front door (invitation acceptance, password-reset confirm) locks the user row **before** it
   consumes its single-use token (KAN-400: an e-mail change holds the user row, then ends the
   tokens), so every path that writes a user row takes user row → token → credential in that
-  order; it touches no membership or delegation. The first auth-config PUT, the first TOTP enrolment and the first preference save
+  order; it touches no membership or delegation. A login takes the user row before it writes the
+  credential too (`identity.lock_user_for_login`, since KAN-200 stamps `last_login_at`): the password
+  step before it checks the password (a reset that committed meanwhile is the one it meets), the
+  session mint again (the MFA step, whose challenge token is its own row) — and judges the status
+  under that lock, so a login racing a deactivation is refused. The first auth-config PUT, the first TOTP enrolment and the first preference save
   insert in a savepoint and carry on with a concurrent winner's committed row (KAN-393).
   `LoginResponse.user.isDealerManager` is the home flag, not the active dealership's — never
   gate a screen on it; the session's own flag is the token claim.

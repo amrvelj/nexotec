@@ -122,9 +122,11 @@ def test_a_deactivated_advisor_keeps_the_label_they_had(client, db_session):
     then = _backdate(db_session, customer["id"], hours=30)
 
     _patch_user(client, dealer_id, advisor, {"lastName": "Graf"})
-    # Since KAN-200 the deactivation step hands the customers over, so a
-    # deactivated user still advises one only after a hand-over a module
-    # refused, or from a deactivation before KAN-200: set on the row.
+    # Since KAN-200 the deactivation step hands the customers over; a
+    # deactivated user still advises one after a hand-over that failed once
+    # access was cut (`module_failed`, retried by the expiry job), after a
+    # deactivation before KAN-200, or when a customer PATCH names them
+    # (KAN-410). The status is set on the row, as those paths leave it.
     db_session.get(User, uuid.UUID(advisor["id"])).status = UserStatus.DEACTIVATED
     db_session.commit()
 

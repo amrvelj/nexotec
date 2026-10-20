@@ -282,8 +282,9 @@ def get_user_for_update_or_404(db: Session, dealership_id: uuid.UUID, user_id: u
     grant (409). Every such route takes this lock before it touches a child
     row: one that locked child rows first and the user row last (at its
     version bump) would deadlock against one that did the opposite. NO KEY:
-    a row that only references the user (a login's session, a token) is not
-    held up. The same pattern as `get_dealership_for_update_or_404`."""
+    a row that only references the user (a session, a token) is not held up;
+    a login itself takes this lock before it writes the credential and
+    `last_login_at` (`identity.lock_user_for_login`, KAN-200). The same pattern as `get_dealership_for_update_or_404`."""
 
     user = db.scalar(
         select(User)

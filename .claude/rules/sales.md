@@ -118,7 +118,7 @@ ADR-057, ADR-063, ADR-065, ADR-083 and KAN-66/68/71. Verified against main@7a90a
   it counts the user's open offers and pending contracts in every Betrieb and refuses a colleague
   who cannot act in one of them. Nightly reconciliation reports an open deal whose owner is a
   deactivated user and an owner id naming no user. The label is written once and not refreshed
-  on a rename yet (KAN-403).
+  on a rename yet (KAN-404; KAN-403 refreshes the customer's advisor label only).
 
 ## Price and VAT (ADR-057)
 

@@ -171,7 +171,9 @@ services:
   #     vehicle.plate_lookup_cache.purge (KAN-42),
   #     core.idempotency_records.purge (KAN-119 — without it, Idempotency-Key
   #     records are never purged and a claim left in flight answers 409
-  #     indefinitely)
+  #     indefinitely), platform.user_expiry (KAN-200, FR-A-12 — without it,
+  #     a user whose valid_to has passed is refused at sign-in by the window
+  #     but never deactivated, and their open records stay with them)
   #   - the worker's 30 s heartbeat (app/worker.py::_heartbeat): the
   #     dms.outbox.lag_seconds, dead-letter, consumer-lag, reconciliation-age
   #     and label-age gauges — the alarms that would show events piling up

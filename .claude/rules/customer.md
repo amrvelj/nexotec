@@ -220,8 +220,7 @@ weekly. -->
   The job reads each batch `FOR NO KEY UPDATE SKIP LOCKED`: a customer another writer holds waits for
   the next night, never for the writer — waiting could deadlock against a merge re-pointing earlier
   merges (KAN-383), which locks X after D. **Not built:** the same refresh for Sales'
-  responsible-seller label (`owner_label`, KAN-404) — the columns arrive with KAN-200, which is not
-  on `main`.
+  responsible-seller label (`owner_label`, KAN-200's columns) — KAN-404.
 
 ## Screens
 
