@@ -230,7 +230,7 @@ def get_user_for_update_or_404(db: Session, dealership_id: uuid.UUID, user_id: u
     """The user row locked (FOR NO KEY UPDATE) for the rest of the transaction
     — for every user-administration route that writes the user's memberships,
     text delegations or the user row itself (KAN-380; the front door's
-    invitation and reset routes write it under their token's lock instead). Two first grants at once both found no row
+    invitation and reset routes take the same lock before their token, KAN-400). Two first grants at once both found no row
     and both inserted; the second hit the unique constraint at an unguarded
     flush, a 500. Locked, the second waits for the first, then reads its
     committed row and the user's new version, and is refused like any later

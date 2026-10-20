@@ -17,6 +17,7 @@ from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePublicKey
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
 from sqlalchemy import or_, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from webauthn import (
     generate_authentication_options,
@@ -93,17 +94,30 @@ def begin_totp(db: Session, *, user: User) -> TotpEnrolment:
     """A fresh secret (replacing an unconfirmed one; a confirmed enrolment
     must be removed first). Shown once, as the key and the otpauth URI."""
 
-    existing = totp_of(db, user.id)
-    if existing is not None and existing.confirmed_at is not None:
-        raise ConflictError("An authenticator app is already enrolled — remove it before enrolling another.")
     secret = pyotp.random_base32()
+    existing = totp_of(db, user.id)
     if existing is None:
-        existing = MfaTotp(user_id=user.id, secret=secret)
-        db.add(existing)
-    else:
+        # KAN-393: two first enrolments at once both found no row; the second
+        # insert hit the unique user_id at an unguarded flush, a 500. In a
+        # savepoint the loser waits for the winner's commit, its insert
+        # fails, and it goes on as a later enrolment would: the winner's
+        # unconfirmed secret is replaced (last one wins, as on a re-enrol).
+        db.flush()  # so the except below can only see this row's INSERT
+        try:
+            with db.begin_nested():
+                db.add(MfaTotp(user_id=user.id, secret=secret))
+            existing = None
+        except IntegrityError:
+            existing = db.scalar(
+                select(MfaTotp).where(MfaTotp.user_id == user.id).execution_options(populate_existing=True)
+            )
+            assert existing is not None, "MfaTotp row missing after the concurrent winner's INSERT"
+    if existing is not None:
+        if existing.confirmed_at is not None:
+            raise ConflictError("An authenticator app is already enrolled — remove it before enrolling another.")
         existing.secret = secret
         existing.created_at = utcnow()
-    db.flush()
+        db.flush()
     uri = pyotp.TOTP(secret).provisioning_uri(name=user.email, issuer_name=_settings.webauthn_rp_name)
     return TotpEnrolment(secret=secret, provisioning_uri=uri)
 
