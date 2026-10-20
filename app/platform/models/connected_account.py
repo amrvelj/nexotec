@@ -12,6 +12,9 @@ builds the model, the user's and the manager's read and the revoke. A
 manager sees provider, scopes and status and may revoke — never mail or
 calendar content. Deactivating a user revokes every connected account.
 A row is never deleted: a revoked grant keeps its row and stamps.
+The manager's read is narrower than the user's: provider, scopes and
+status (D-A-15, the ticket) — never the account's address or its usage
+stamps, which say what an employee does with their mailbox.
 """
 
 import datetime as dt
@@ -37,6 +40,12 @@ class ConnectedAccountStatus(str, enum.Enum):
     # provider): it stays listed so the user re-links it.
     ERROR = "error"
     REVOKED = "revoked"
+
+
+class ConnectedAccountRevokedReason(str, enum.Enum):
+    USER = "user"  # the user themselves, in My account
+    MANAGER = "manager"  # a manager, on the Users screen
+    DEACTIVATED = "deactivated"  # the user was deactivated (FR-AU-24)
 
 
 class UserConnectedAccount(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
@@ -70,5 +79,6 @@ class UserConnectedAccount(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base
     last_used_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     revoked_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     revoked_by: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True)
-    # `user` (the user themselves), `manager`, `deactivated`.
-    revoked_reason: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    revoked_reason: Mapped[ConnectedAccountRevokedReason | None] = mapped_column(
+        StoredEnum(ConnectedAccountRevokedReason, length=16), nullable=True
+    )

@@ -753,13 +753,16 @@ def update_user(
                 "A user with this email address already exists.", details={"email": changes.get("email")}
             ) from exc
         on_email_change(user, old_email)
+    revoked_grants: connected_account.RevokedGrants = []
     if "status" in after and user.status == UserStatus.DEACTIVATED:
         # FR-A-28: delegations end with deactivation — the terminal status,
         # not a suspension, which keeps them for the user's return.
         text_delegation.end_all(db, user=user, actor_id=actor_id, reason="deactivated")
         # FR-AU-24 (KAN-201): deactivating a user revokes every connected
         # account — a leaver's mailbox grant must not outlive the access.
-        connected_account.revoke_all(db, user=user, actor_id=actor_id, reason=connected_account.REASON_DEACTIVATED)
+        revoked_grants = connected_account.revoke_all(
+            db, user=user, actor_id=actor_id, reason=connected_account.REASON_DEACTIVATED
+        )
     if "status" in after and user.status in (UserStatus.DEACTIVATED, UserStatus.SUSPENDED):
         # FR-AU-17 (KAN-196): a user who may no longer hold a session loses
         # every live one now, not when the cookie expires.
@@ -778,6 +781,9 @@ def update_user(
         raise ConflictError(
             "A user with this email address already exists.", details={"email": changes.get("email")}
         ) from exc
+    # FR-AU-24: the grants are ended in Nexotec with the status; the
+    # providers end them after the commit, never undoing it.
+    connected_account.end_at_providers(revoked_grants)
     db.refresh(user)
     return user
 

@@ -8,8 +8,8 @@ import { api, ApiError } from '../../api/client'
 import type { MeRead, MeUpdate } from '../../api/types'
 import { useAuth } from '../../auth/AuthContext'
 import { useUiPreferencesContext } from '../../hooks/UiPreferencesContext'
+import { ME_KEY, phoneForApi } from './accountKeys'
 
-export const ME_KEY = ['me'] as const
 const LANGUAGES = ['de', 'fr', 'it', 'en'] as const
 type Language = (typeof LANGUAGES)[number]
 // The select's value for "the Betrieb's default" — the API's null.
@@ -38,8 +38,8 @@ function changesOf(me: MeRead, form: ProfileForm): MeUpdate {
   const changes: MeUpdate = {}
   if (form.firstName.trim() !== me.firstName) changes.firstName = form.firstName.trim()
   if (form.lastName.trim() !== me.lastName) changes.lastName = form.lastName.trim()
-  if (form.phone.trim() !== (me.phone ?? '')) changes.phone = form.phone.trim() || null
-  if (form.directDial.trim() !== (me.directDial ?? '')) changes.directDial = form.directDial.trim() || null
+  if (phoneForApi(form.phone) !== (me.phone ?? null)) changes.phone = phoneForApi(form.phone)
+  if (phoneForApi(form.directDial) !== (me.directDial ?? null)) changes.directDial = phoneForApi(form.directDial)
   const language = form.correspondenceLanguage === BETRIEB_DEFAULT ? null : (form.correspondenceLanguage as Language)
   if (language !== (me.correspondenceLanguage ?? null)) changes.correspondenceLanguage = language
   return changes
@@ -59,19 +59,30 @@ export function AccountProfilePage() {
   const { uiLanguage, setUiLanguage } = useUiPreferencesContext()
   const queryClient = useQueryClient()
   const me = useQuery({ queryKey: ME_KEY, queryFn: () => api.get<MeRead>('/me') })
+  // The record the form was loaded from: its changes and its If-Match come
+  // from here, never from a later refetch — a change made elsewhere in the
+  // meantime is a 409, not silently overwritten with this form's old values.
+  const [loaded, setLoaded] = useState<MeRead | null>(null)
   const [form, setForm] = useState<ProfileForm | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
 
   useEffect(() => {
-    if (me.data && form === null) setForm(formOf(me.data))
-  }, [me.data, form])
+    if (!me.data) return
+    // First load, or a newer version arrived while the form is untouched:
+    // show it. An edited form keeps what it was loaded from.
+    if (loaded === null || form === null || (me.data.version !== loaded.version && Object.keys(changesOf(loaded, form)).length === 0)) {
+      setLoaded(me.data)
+      setForm(formOf(me.data))
+    }
+  }, [me.data, loaded, form])
 
   const save = useMutation({
     mutationFn: ({ current, changes }: { current: MeRead; changes: MeUpdate }) =>
       api.patch<MeRead>('/me', changes, { 'If-Match': String(current.version) }),
     onSuccess: async (data) => {
       queryClient.setQueryData(ME_KEY, data)
+      setLoaded(data)
       setForm(formOf(data))
       setError(null)
       setSaved(true)
@@ -79,7 +90,10 @@ export function AccountProfilePage() {
     },
     onError: (err) => {
       setSaved(false)
-      if (err instanceof ApiError && err.status === 409) setError(t('account.profile.conflict'))
+      if (err instanceof ApiError && err.status === 409) {
+        setError(t('account.profile.conflict'))
+        void queryClient.invalidateQueries({ queryKey: ME_KEY })
+      }
       else if (err instanceof ApiError && err.status === 422) setError(t('account.profile.invalid'))
       else setError(t('common.requestFailed'))
     },
@@ -88,8 +102,8 @@ export function AccountProfilePage() {
   if (me.isError) {
     return <Alert color="red" role="alert">{t('common.requestFailed')}</Alert>
   }
-  if (!me.data || !form) return null
-  const changes = changesOf(me.data, form)
+  if (!loaded || !form) return null
+  const changes = changesOf(loaded, form)
   const dirty = Object.keys(changes).length > 0
   const set = (field: keyof ProfileForm, value: string) => {
     setForm({ ...form, [field]: value })
@@ -114,7 +128,7 @@ export function AccountProfilePage() {
           id="account-profile"
           onSubmit={(event) => {
             event.preventDefault()
-            if (dirty && !save.isPending) save.mutate({ current: me.data, changes })
+            if (dirty && !save.isPending) save.mutate({ current: loaded, changes })
           }}
         >
           <Stack gap="md">
@@ -136,7 +150,7 @@ export function AccountProfilePage() {
               <TextInput
                 label={t('account.profile.email')}
                 description={t('account.profile.emailHint')}
-                value={me.data.email}
+                value={loaded.email}
                 readOnly
                 disabled
               />
@@ -168,7 +182,7 @@ export function AccountProfilePage() {
                   {
                     value: BETRIEB_DEFAULT,
                     label: t('account.profile.betriebDefault', {
-                      language: languageLabel(me.data.defaultCorrespondenceLanguage),
+                      language: languageLabel(loaded.defaultCorrespondenceLanguage),
                     }),
                   },
                   ...LANGUAGES.map((code) => ({ value: code, label: languageLabel(code) })),
@@ -183,7 +197,10 @@ export function AccountProfilePage() {
                 variant="default"
                 disabled={!dirty || save.isPending}
                 onClick={() => {
-                  setForm(formOf(me.data))
+                  // Back to the latest record: discarding the edit also takes in a newer version.
+                  const latest = me.data ?? loaded
+                  setLoaded(latest)
+                  setForm(formOf(latest))
                   setError(null)
                 }}
               >

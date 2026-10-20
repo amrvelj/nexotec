@@ -70,7 +70,7 @@ main@046634d on 2026-10-17 (KAN-195: every present-tense claim checked against t
   hand-over, the signature PUT/DELETE and the invitation re-send) loads the user with
   `user_service.get_user_for_update_or_404` (FOR NO KEY UPDATE) **before** it touches a child row
   (KAN-380): two first grants are then a 201 and a 409, and a route that locked child rows first
-  would deadlock against one that locked the user first (a source test pins the twelve). The
+  would deadlock against one that locked the user first (a source test pins the thirteen, the connected-account revoke included). The
   front door (invitation acceptance, password-reset confirm) locks the user row **before** it
   consumes its single-use token (KAN-400: an e-mail change holds the user row, then ends the
   tokens), so every path that writes a user row takes user row → token → credential in that
@@ -361,13 +361,16 @@ One shared template layer (`app/platform/models/document_template.py`). WeasyPri
 - **Connected accounts are grants, not identities (FR-AU-23):** `user_connected_account` is
   never used to sign in and never appears in the token. **Built (KAN-201):** the table
   (provider, external account id and label, scopes, `secret_ref` — a secrets-manager reference,
-  never a token, never returned — status, linked/last-used/revoked stamps), read and written only
-  by `app/platform/services/connected_account.py`; `tests/architecture/test_connected_account_is_never_an_identity.py`
+  never a token, never returned — status, linked/last-used/revoked stamps, a closed revoke reason),
+  written and read only by `app/platform/services/connected_account.py` (nightly reconciliation
+  reads its actor ids); `tests/architecture/test_connected_account_is_never_an_identity.py`
   keeps the identity and session layer from naming it. The user lists and revokes their own
   (`GET/DELETE /v1/me/connected-accounts`), the manager a user's (`GET/DELETE /v1/dealerships/{id}/users/{user_id}/connected-accounts`,
-  capability `connected_accounts`), deactivation revokes every one (FR-AU-24). A revoke keeps the
-  row, records `connected_account_revoked` and an audit row, and calls the provider's registered
-  revoker (`register_grant_revoker`) — **none is registered**: linking ships with the Outlook
+  capability `connected_accounts`; the manager's read is provider, scopes and status only —
+  never the address or the usage stamps), deactivation revokes every one (FR-AU-24). A revoke keeps
+  the row, records `connected_account_revoked` and an audit row; **after the commit** the caller
+  runs the provider's registered revoker (`end_at_providers`; a provider failure is logged, never
+  undoes the revoke or the deactivation) — **none is registered**: linking ships with the Outlook
   integration, so no row exists yet and a revoke ends the grant in Nexotec only, keeping the
   reference so the secret can still be removed.
 - **D-A-16** — a `platform_admin` recovers accounts alone (re-issue invitation, reset MFA,

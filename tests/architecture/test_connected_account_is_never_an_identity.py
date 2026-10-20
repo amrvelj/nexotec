@@ -87,7 +87,7 @@ def test_the_checks_see_a_violation():
     assert _MENTION.search("from app.platform.models.connected_account import UserConnectedAccount")
     assert _MENTION.search("from app.platform.services import connected_account")
     assert _MENTION.search("connected_account.list_for_user(db, user_id=user.id)")
-    assert _MODEL_OR_TABLE.search('select(UserConnectedAccount).where(...)')
+    assert _MODEL_OR_TABLE.search("select(UserConnectedAccount).where(...)")
     assert _MODEL_OR_TABLE.search('text("SELECT * FROM user_connected_account")')
     assert not _MENTION.search('"connected_accounts": Capability(...)')
     assert not _MODEL_OR_TABLE.search("def list_user_connected_accounts(")

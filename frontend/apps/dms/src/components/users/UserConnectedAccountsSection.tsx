@@ -3,13 +3,12 @@ import { Alert, Stack, Text } from '@mantine/core'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { api, ApiError } from '../../api/client'
-import type { ConnectedAccountListRead, ConnectedAccountRead } from '../../api/types'
+import type { ConnectedAccountManagerListRead, ConnectedAccountManagerRead } from '../../api/types'
 import { ConnectedAccountsTable } from '../account/ConnectedAccountsTable'
 
 /**
  * The Users screen's view of a user's connected accounts (KAN-201; FR-AU-24,
- * D-A-15): the manager sees provider, account, permissions and status and
- * may revoke — linking is the user's own, in My account, and no content is
+ * D-A-15): the manager sees provider, permissions and status and may revoke — linking is the user's own, in My account, and no content is
  * ever shown. A revoke stands on its own: it changes the grant, not the
  * user being edited.
  */
@@ -19,10 +18,10 @@ export function UserConnectedAccountsSection({ dealershipId, userId }: { dealers
   const [error, setError] = useState<string | null>(null)
   const key = ['users', dealershipId, userId, 'connected-accounts']
   const path = `/dealerships/${dealershipId}/users/${userId}/connected-accounts`
-  const accounts = useQuery({ queryKey: key, queryFn: () => api.get<ConnectedAccountListRead>(path) })
+  const accounts = useQuery({ queryKey: key, queryFn: () => api.get<ConnectedAccountManagerListRead>(path) })
   const revoke = useMutation({
-    mutationFn: (account: ConnectedAccountRead) =>
-      api.delete<ConnectedAccountRead>(`${path}/${account.id}`, { 'If-Match': String(account.version) }),
+    mutationFn: (account: ConnectedAccountManagerRead) =>
+      api.delete<ConnectedAccountManagerRead>(`${path}/${account.id}`, { 'If-Match': String(account.version) }),
     onSuccess: async () => {
       setError(null)
       await queryClient.invalidateQueries({ queryKey: key })
@@ -46,6 +45,7 @@ export function UserConnectedAccountsSection({ dealershipId, userId }: { dealers
         </Text>
       ) : (
         <ConnectedAccountsTable
+          view="manager"
           accounts={accounts.data.items}
           revoking={revoke.isPending ? revoke.variables?.id : undefined}
           onRevoke={(account) => revoke.mutate(account)}

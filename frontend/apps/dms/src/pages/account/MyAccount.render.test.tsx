@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
-import { screen, waitFor, within } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { renderWithProviders } from '../../test/renderWithProviders'
@@ -44,7 +44,7 @@ const GRANT = {
 
 function renderAccount(route: string, routes: FakeRoute[]) {
   const backend = installFakeBackend(routes)
-  renderWithProviders(
+  const { queryClient } = renderWithProviders(
     <Routes>
       <Route path="/account" element={<AccountLayout />}>
         <Route index element={<Navigate to="/account/profile" replace />} />
@@ -56,7 +56,7 @@ function renderAccount(route: string, routes: FakeRoute[]) {
     </Routes>,
     { route },
   )
-  return backend
+  return Object.assign(backend, { queryClient })
 }
 
 describe('My account (KAN-201)', () => {
@@ -190,5 +190,69 @@ describe('My account (KAN-201)', () => {
 
     expect(await screen.findByText('security tab')).toBeInTheDocument()
     await waitFor(() => expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Sicherheit']))
+  })
+
+  it('an untouched profile takes in a newer version; an edited one saves against the version it was loaded from', async () => {
+    const user = userEvent.setup()
+    let server = { ...ME }
+    const backend = renderAccount('/account/profile', [
+      { method: 'GET', match: /\/me$/, handler: () => server },
+      { method: 'PATCH', match: /\/me$/, handler: () => ({ __status: 409, error: { code: 'conflict', message: 'stale', details: {} } }) },
+    ])
+    expect(await screen.findByDisplayValue('+41791234567')).toBeInTheDocument()
+
+    // Someone else changes the phone; the untouched form shows it, Save stays off.
+    server = { ...ME, phone: '+41790000000', version: 5 }
+    await act(() => backend.queryClient.invalidateQueries({ queryKey: ['me'] }))
+    expect(await screen.findByDisplayValue('+41790000000')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Speichern' })).toBeDisabled()
+
+    // An edit, then another change elsewhere: the save carries version 5 and
+    // only the field edited — never the stale phone, never the newer version.
+    const first = screen.getByLabelText(/^Vorname/)
+    await user.clear(first)
+    await user.type(first, 'Anja')
+    server = { ...server, phone: '+41791111111', version: 6 }
+    await act(() => backend.queryClient.invalidateQueries({ queryKey: ['me'] }))
+    await user.click(screen.getByRole('button', { name: 'Speichern' }))
+
+    await waitFor(() => expect(backend.callsTo(/\/me$/, 'PATCH')).toHaveLength(1))
+    const [call] = backend.callsTo(/\/me$/, 'PATCH')
+    expect(call.headers.get('If-Match')).toBe('5')
+    expect(call.body).toEqual({ firstName: 'Anja' })
+    expect(await screen.findByText(/anderswo geändert/)).toBeInTheDocument()
+  })
+
+  it('sends a phone number typed with spaces as the API takes it', async () => {
+    const user = userEvent.setup()
+    const backend = renderAccount('/account/profile', [
+      { method: 'GET', match: /\/me$/, handler: () => ME },
+      { method: 'PATCH', match: /\/me$/, handler: (req) => ({ ...ME, ...(req.body as object), version: 5 }) },
+    ])
+    const dial = await screen.findByLabelText(/^Direktwahl/)
+    await user.type(dial, '+41 44 123 45 00')
+    await user.click(screen.getByRole('button', { name: 'Speichern' }))
+
+    await waitFor(() => expect(backend.callsTo(/\/me$/, 'PATCH')).toHaveLength(1))
+    expect(backend.callsTo(/\/me$/, 'PATCH')[0].body).toEqual({ directDial: '+41441234500' })
+  })
+
+  it('the signature block saves against the version it was loaded from', async () => {
+    const user = userEvent.setup()
+    let server = { ...ME, signatureBlock: 'Alte Zeile' }
+    const backend = renderAccount('/account/signature', [
+      { method: 'GET', match: /\/me$/, handler: () => server },
+      { method: 'PATCH', match: /\/me$/, handler: () => ({ __status: 409, error: { code: 'conflict', message: 'stale', details: {} } }) },
+    ])
+    const block = await screen.findByLabelText(/^Unterschriftsblock/)
+    await user.type(block, ' – neu')
+    server = { ...server, signatureBlock: 'Von anderswo', version: 5 }
+    await act(() => backend.queryClient.invalidateQueries({ queryKey: ['me'] }))
+    await user.click(screen.getByRole('button', { name: 'Speichern' }))
+
+    await waitFor(() => expect(backend.callsTo(/\/me$/, 'PATCH')).toHaveLength(1))
+    const [call] = backend.callsTo(/\/me$/, 'PATCH')
+    expect(call.headers.get('If-Match')).toBe('4')
+    expect(call.body).toEqual({ signatureBlock: 'Alte Zeile – neu' })
   })
 })

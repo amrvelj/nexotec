@@ -2002,7 +2002,8 @@
         "lastSeen": "Last active",
         "expires": "Ends",
         "current": "This session",
-        "end": "End"
+        "end": "End",
+        "ip": "IP address"
       }
     }
   },
@@ -2222,7 +2223,7 @@
       "firstName": "First name",
       "lastName": "Last name",
       "email": "E-mail address",
-      "emailHint": "Your sign-in. Your manager sets up a new address.",
+      "emailHint": "Your sign-in and your way back into the account. Nexotec support changes it.",
       "phone": "Mobile",
       "directDial": "Direct dial",
       "uiLanguage": "Application language",
@@ -2231,10 +2232,10 @@
       "correspondenceLanguageHint": "For documents you create that have no customer language.",
       "betriebDefault": "Same as the business ({{language}})",
       "saved": "Saved.",
-      "conflict": "Your account was changed in the meantime. Reload the page and try again.",
-      "invalid": "Please check your entries: phone numbers as +41 79 123 45 67.",
+      "conflict": "Your account was changed elsewhere in the meantime. Cancel shows the new version; your entries are lost.",
+      "invalid": "Please check your entries: phone numbers with the country code, e.g. +41 79 123 45 67.",
       "notificationsTitle": "Notifications",
-      "notificationsSoon": "Soon you will choose here which notifications you receive. Security alerts always reach you."
+      "notificationsSoon": "Soon you will choose here which notifications you receive in the app and as push."
     },
     "connected": {
       "emptyTitle": "No connected accounts yet",

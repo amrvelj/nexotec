@@ -2002,7 +2002,8 @@
         "lastSeen": "Ultima attività",
         "expires": "Termina",
         "current": "Questa sessione",
-        "end": "Termina"
+        "end": "Termina",
+        "ip": "Indirizzo IP"
       }
     }
   },
@@ -2222,7 +2223,7 @@
       "firstName": "Nome",
       "lastName": "Cognome",
       "email": "Indirizzo e-mail",
-      "emailHint": "Il suo accesso. Un nuovo indirizzo lo imposta il suo manager.",
+      "emailHint": "Il suo accesso e la via per recuperare l'account. La modifica la esegue il supporto Nexotec.",
       "phone": "Cellulare",
       "directDial": "Linea diretta",
       "uiLanguage": "Lingua dell'applicazione",
@@ -2231,10 +2232,10 @@
       "correspondenceLanguageHint": "Per i documenti che crea e che non hanno una lingua del cliente.",
       "betriebDefault": "Come l'azienda ({{language}})",
       "saved": "Salvato.",
-      "conflict": "Il suo account è stato modificato nel frattempo. Ricarichi la pagina e riprovi.",
-      "invalid": "Controlli i dati: numeri nel formato +41 79 123 45 67.",
+      "conflict": "Il suo account è stato modificato altrove nel frattempo. Con «Annulla» vede la nuova versione; i dati inseriti vanno persi.",
+      "invalid": "Controlli i dati: numeri con prefisso internazionale, p. es. +41 79 123 45 67.",
       "notificationsTitle": "Notifiche",
-      "notificationsSoon": "Presto potrà scegliere qui quali notifiche ricevere. Gli avvisi di sicurezza le arrivano sempre."
+      "notificationsSoon": "Presto potrà scegliere qui quali notifiche ricevere nell'app e come push."
     },
     "connected": {
       "emptyTitle": "Nessun account collegato",

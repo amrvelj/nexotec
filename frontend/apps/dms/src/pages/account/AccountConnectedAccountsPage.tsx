@@ -7,8 +7,7 @@ import { useSetBreadcrumb } from '@nexotec/ui-kit'
 import { api, ApiError } from '../../api/client'
 import type { ConnectedAccountListRead, ConnectedAccountRead } from '../../api/types'
 import { ConnectedAccountsTable } from '../../components/account/ConnectedAccountsTable'
-
-const CONNECTED_KEY = ['me', 'connected-accounts'] as const
+import { CONNECTED_KEY } from './accountKeys'
 
 /**
  * My account › Connected accounts (KAN-201; FR-AU-23/24, D-A-15): the
@@ -66,6 +65,7 @@ export function AccountConnectedAccountsPage() {
               {t('account.connected.privacy')}
             </Text>
             <ConnectedAccountsTable
+              view="self"
               accounts={items}
               revoking={revoke.isPending ? revoke.variables?.id : undefined}
               onRevoke={(account) => revoke.mutate(account)}

@@ -1,26 +1,29 @@
 """Connected accounts (KAN-201; FR-AU-23/24, D-A-15): the one module that
-reads or writes `user_connected_account`
-(tests/architecture/test_connected_account_is_never_an_identity.py).
+writes `user_connected_account`, and the only reader of its grants
+(tests/architecture/test_connected_account_is_never_an_identity.py; nightly
+reconciliation reads its actor ids).
 
 A connected account is a grant to act on the user's behalf, never an
 identity. The user lists and revokes their own (`/v1/me/connected-accounts`);
-a manager lists a user's — provider, scopes, status, never content — and may
-revoke (`/v1/dealerships/{id}/users/{user_id}/connected-accounts`);
-deactivating a user revokes every one (FR-AU-24). Linking is the Outlook
-integration's, not built yet: until then no row exists anywhere.
+a manager lists a user's — provider, scopes and status, never the account's
+address, its usage or any content — and may revoke
+(`/v1/dealerships/{id}/users/{user_id}/connected-accounts`); deactivating a
+user revokes every one (FR-AU-24). Linking is the Outlook integration's, not
+built yet: until then no row exists anywhere.
 
-Revoking marks the row (it is never deleted) and asks the provider's
-registered revoker to end the grant at the provider and drop its secret
-from the secrets manager. No provider is registered yet — the linking flow
-registers Microsoft's with the Outlook integration; until then a revoke
-ends the grant in Nexotec only, and the row keeps its `secret_ref` so the
-secret can still be found and removed (a dropped reference would orphan
-it).
+Revoking marks the row in Nexotec's own transaction (it is never deleted).
+Ending the grant at the provider — and dropping its secret from the secrets
+manager — is the provider's registered revoker's job, run by the caller
+**after** the commit (`end_at_providers`): a provider that is down never
+undoes a revoke or a leaver's deactivation; its failure is logged at ERROR
+and the row keeps its `secret_ref`, so the secret can still be found and
+removed. No revoker is registered yet — the Outlook integration registers
+Microsoft's when it links the first account.
 """
 
 import logging
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -31,6 +34,7 @@ from app.core.errors import ConflictError, NotFoundError
 from app.platform.models.auth_event import AuthEventKind
 from app.platform.models.connected_account import (
     ConnectedAccountProvider,
+    ConnectedAccountRevokedReason,
     ConnectedAccountStatus,
     UserConnectedAccount,
 )
@@ -39,19 +43,27 @@ from app.platform.services import auth_events
 
 logger = logging.getLogger(__name__)
 
-REASON_USER = "user"
-REASON_MANAGER = "manager"
-REASON_DEACTIVATED = "deactivated"
+REASON_USER = ConnectedAccountRevokedReason.USER
+REASON_MANAGER = ConnectedAccountRevokedReason.MANAGER
+REASON_DEACTIVATED = ConnectedAccountRevokedReason.DEACTIVATED
 
 # provider -> ends the grant at the provider and drops its secret; called
-# with the row being revoked. Registered by the integration that links the
-# provider's accounts (the Outlook integration, not built).
+# after the revoke committed, with the revoked row. Registered by the
+# integration that links the provider's accounts (the Outlook integration,
+# not built).
 GrantRevoker = Callable[[UserConnectedAccount], None]
+# What a revoke hands back for `end_at_providers` — named so callers need
+# not name the model (the architecture test keeps it in this module).
+RevokedGrants = list[UserConnectedAccount]
 _REVOKERS: dict[ConnectedAccountProvider, GrantRevoker] = {}
 
 
 def register_grant_revoker(provider: ConnectedAccountProvider, revoker: GrantRevoker) -> None:
     _REVOKERS[provider] = revoker
+
+
+def unregister_grant_revoker(provider: ConnectedAccountProvider) -> None:
+    _REVOKERS.pop(provider, None)
 
 
 def list_for_user(db: Session, *, user_id: uuid.UUID) -> list[UserConnectedAccount]:
@@ -82,12 +94,17 @@ def get_for_update_or_404(db: Session, *, user_id: uuid.UUID, account_id: uuid.U
 
 
 def revoke(
-    db: Session, *, account: UserConnectedAccount, user: User, actor_id: uuid.UUID | None, reason: str
+    db: Session,
+    *,
+    account: UserConnectedAccount,
+    user: User,
+    actor_id: uuid.UUID | None,
+    reason: ConnectedAccountRevokedReason,
 ) -> UserConnectedAccount:
-    """Ends one grant: the row is marked revoked (never deleted), the
-    provider's revoker runs, and the revocation is an auth event and an
-    audit row naming the actor — the `security` notification to the user
-    is KAN-216's. Does not commit."""
+    """Ends one grant in Nexotec: the row is marked revoked (never deleted),
+    and the revocation is an auth event and an audit row naming the actor —
+    the `security` notification to the user is KAN-216's. Does not commit;
+    the caller runs `end_at_providers` after its commit."""
 
     if account.status == ConnectedAccountStatus.REVOKED:
         raise ConflictError(
@@ -95,23 +112,13 @@ def revoke(
             details={"reason": "already_revoked", "currentStatus": account.status.value},
         )
     before = account.status.value
-    revoker = _REVOKERS.get(account.provider)
-    if revoker is not None:
-        revoker(account)
-    else:
-        logger.warning(
-            "platform.connected_account: no revoker for provider %s; grant %s ended in Nexotec only",
-            account.provider.value,
-            account.id,
-            extra={"connectedAccountId": str(account.id), "userId": str(user.id)},
-        )
     account.status = ConnectedAccountStatus.REVOKED
     account.revoked_at = utcnow()
     account.revoked_by = actor_id
     account.revoked_reason = reason
     account.updated_by = actor_id
     account.version += 1
-    details = {"connectedAccountId": str(account.id), "provider": account.provider.value, "reason": reason}
+    details = {"connectedAccountId": str(account.id), "provider": account.provider.value, "reason": reason.value}
     auth_events.record(
         db,
         AuthEventKind.CONNECTED_ACCOUNT_REVOKED,
@@ -129,14 +136,16 @@ def revoke(
         actor_id=actor_id,
         before={"connected_account_id": str(account.id), "status": before},
         after={"connected_account_id": str(account.id), "status": account.status.value},
-        reason=reason,
+        reason=reason.value,
     )
     return account
 
 
-def revoke_all(db: Session, *, user: User, actor_id: uuid.UUID | None, reason: str) -> int:
+def revoke_all(
+    db: Session, *, user: User, actor_id: uuid.UUID | None, reason: ConnectedAccountRevokedReason
+) -> RevokedGrants:
     """FR-AU-24: every live grant of the user ends (the deactivation). Does
-    not commit; returns how many were revoked."""
+    not commit; returns the revoked rows for `end_at_providers`."""
 
     live = db.scalars(
         select(UserConnectedAccount)
@@ -149,4 +158,31 @@ def revoke_all(db: Session, *, user: User, actor_id: uuid.UUID | None, reason: s
     ).all()
     for account in live:
         revoke(db, account=account, user=user, actor_id=actor_id, reason=reason)
-    return len(live)
+    return list(live)
+
+
+def end_at_providers(accounts: Sequence[UserConnectedAccount]) -> None:
+    """After the revoke committed: each provider's revoker ends the grant at
+    the provider and drops its secret. A failure is logged at ERROR and
+    never raised — the grant is already ended in Nexotec, and the row keeps
+    its `secret_ref` for the clean-up."""
+
+    for account in accounts:
+        revoker = _REVOKERS.get(account.provider)
+        context = {"connectedAccountId": str(account.id), "userId": str(account.user_id)}
+        if revoker is None:
+            logger.warning(
+                "platform.connected_account: no revoker for provider %s; grant %s ended in Nexotec only",
+                account.provider.value,
+                account.id,
+                extra=context,
+            )
+            continue
+        try:
+            revoker(account)
+        except Exception:  # the provider's failure never undoes the revoke
+            logger.exception(
+                "platform.connected_account: the provider did not end grant %s; its secret_ref is kept",
+                account.id,
+                extra=context,
+            )

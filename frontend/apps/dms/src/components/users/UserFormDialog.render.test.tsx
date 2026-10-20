@@ -176,18 +176,8 @@ describe('UserFormDialog (KAN-200)', () => {
 
   it("shows a user's connected accounts to the manager and revokes one (KAN-201)", async () => {
     const user = userEvent.setup()
-    const grant = {
-      id: 'grant-1',
-      provider: 'microsoft_365',
-      externalAccountLabel: 'anna@garage.ch',
-      scopes: ['Mail.Send'],
-      status: 'active',
-      linkedAt: '2026-10-01T08:00:00Z',
-      lastUsedAt: null,
-      revokedAt: null,
-      revokedReason: null,
-      version: 1,
-    }
+    // The manager's read: provider, scopes and status only (D-A-15).
+    const grant = { id: 'grant-1', provider: 'microsoft_365', scopes: ['Mail.Send'], status: 'active', version: 1 }
     let revoked = false
     const backend = installFakeBackend([
       { method: 'GET', match: /\/users\/u-1\/text-delegations$/, handler: () => ({ categories: [], userVersion: 3 }) },
@@ -211,6 +201,8 @@ describe('UserFormDialog (KAN-200)', () => {
     const dialog = within(await screen.findByRole('dialog'))
     expect(dialog.getByText('Verbundene Konten')).toBeInTheDocument()
     const row = (await dialog.findByText('Microsoft 365')).closest('tr') as HTMLElement
+    expect(dialog.queryByText('Konto')).not.toBeInTheDocument() // no address column for the manager
+    expect(dialog.queryByText('Zuletzt verwendet')).not.toBeInTheDocument()
     await user.click(within(row).getByRole('button', { name: 'Trennen' }))
 
     await waitFor(() => expect(backend.callsTo(/\/connected-accounts\/grant-1$/, 'DELETE')).toHaveLength(1))

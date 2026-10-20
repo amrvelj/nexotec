@@ -44,7 +44,7 @@ from app.platform.schemas.auth import (
 )
 from app.platform.schemas.dealership import DealershipCreate, DealershipPage, DealershipRead, DealershipUpdate
 from app.platform.schemas.entitlement import EntitlementsRead, EntitlementsUpdate
-from app.platform.schemas.me import ConnectedAccountListRead, ConnectedAccountRead
+from app.platform.schemas.me import ConnectedAccountManagerListRead, ConnectedAccountManagerRead
 from app.platform.schemas.membership import (
     ManagerFlagUpdate,
     MembershipCreate,
@@ -699,7 +699,7 @@ def reissue_invitation(
 
 
 @router.get(
-    "/dealerships/{dealership_id}/users/{user_id}/connected-accounts", response_model=ConnectedAccountListRead
+    "/dealerships/{dealership_id}/users/{user_id}/connected-accounts", response_model=ConnectedAccountManagerListRead
 )
 def list_user_connected_accounts(
     dealership_id: uuid.UUID,
@@ -708,20 +708,22 @@ def list_user_connected_accounts(
     db: Session = Depends(get_db),
 ):
     """FR-AU-24 / D-A-15: the manager sees that a user's grant exists — its
-    provider, account, scopes and status — and never mail or calendar
-    content (nothing here can reach it). Linking is the user's own, in My
-    account."""
+    provider, scopes and status, never the account's address or its usage,
+    and never mail or calendar content (nothing here can reach it). Linking
+    is the user's own, in My account."""
 
     require_tenant_match(dealership_id, principal)
     user = user_service.get_user_or_404(db, dealership_id, user_id)
     user_service.assert_may_touch(user=user, actor_roles=principal.roles)
     rows = connected_account.list_for_user(db, user_id=user.id)
-    return ConnectedAccountListRead(items=[ConnectedAccountRead.model_validate(r, from_attributes=True) for r in rows])
+    return ConnectedAccountManagerListRead(
+        items=[ConnectedAccountManagerRead.model_validate(r, from_attributes=True) for r in rows]
+    )
 
 
 @router.delete(
     "/dealerships/{dealership_id}/users/{user_id}/connected-accounts/{account_id}",
-    response_model=ConnectedAccountRead,
+    response_model=ConnectedAccountManagerRead,
 )
 def revoke_user_connected_account(
     dealership_id: uuid.UUID,
@@ -744,8 +746,9 @@ def revoke_user_connected_account(
         db, account=account, user=user, actor_id=principal.user_id, reason=connected_account.REASON_MANAGER
     )
     db.commit()
+    connected_account.end_at_providers([account])
     db.refresh(account)
-    return ConnectedAccountRead.model_validate(account, from_attributes=True)
+    return ConnectedAccountManagerRead.model_validate(account, from_attributes=True)
 
 
 @router.get("/dealerships/{dealership_id}/users/{user_id}/login-status", response_model=LoginStatusRead, dependencies=[Depends(require_mfa_session())])

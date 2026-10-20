@@ -1137,9 +1137,9 @@ export interface paths {
         /**
          * List User Connected Accounts
          * @description FR-AU-24 / D-A-15: the manager sees that a user's grant exists — its
-         *     provider, account, scopes and status — and never mail or calendar
-         *     content (nothing here can reach it). Linking is the user's own, in My
-         *     account.
+         *     provider, scopes and status, never the account's address or its usage,
+         *     and never mail or calendar content (nothing here can reach it). Linking
+         *     is the user's own, in My account.
          */
         get: operations["list_user_connected_accounts_v1_dealerships__dealership_id__users__user_id__connected_accounts_get"];
         put?: never;
@@ -4073,6 +4073,31 @@ export interface components {
             /** Items */
             items: components["schemas"]["ConnectedAccountRead"][];
         };
+        /** ConnectedAccountManagerListRead */
+        ConnectedAccountManagerListRead: {
+            /** Items */
+            items: components["schemas"]["ConnectedAccountManagerRead"][];
+        };
+        /**
+         * ConnectedAccountManagerRead
+         * @description What a manager sees of a user's grant (D-A-15, KAN-201): provider,
+         *     scopes and status — not the account's address, not when it was linked
+         *     or last used (what an employee does with their mailbox is theirs), never
+         *     content. `version` is for the revoke's If-Match.
+         */
+        ConnectedAccountManagerRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            provider: components["schemas"]["ConnectedAccountProvider"];
+            /** Scopes */
+            scopes: string[];
+            status: components["schemas"]["ConnectedAccountStatus"];
+            /** Version */
+            version: number;
+        };
         /**
          * ConnectedAccountProvider
          * @enum {string}
@@ -4080,8 +4105,8 @@ export interface components {
         ConnectedAccountProvider: "microsoft_365";
         /**
          * ConnectedAccountRead
-         * @description What the user and the manager see of a grant: provider, account,
-         *     scopes, status and stamps — never the secret reference, never content.
+         * @description What the user sees of their own grant: provider, account, scopes,
+         *     status and stamps — never the secret reference, never content.
          */
         ConnectedAccountRead: {
             /** Externalaccountlabel */
@@ -4101,14 +4126,18 @@ export interface components {
             provider: components["schemas"]["ConnectedAccountProvider"];
             /** Revokedat */
             revokedAt: string | null;
-            /** Revokedreason */
-            revokedReason: string | null;
+            revokedReason: components["schemas"]["ConnectedAccountRevokedReason"] | null;
             /** Scopes */
             scopes: string[];
             status: components["schemas"]["ConnectedAccountStatus"];
             /** Version */
             version: number;
         };
+        /**
+         * ConnectedAccountRevokedReason
+         * @enum {string}
+         */
+        ConnectedAccountRevokedReason: "user" | "manager" | "deactivated";
         /**
          * ConnectedAccountStatus
          * @enum {string}
@@ -11947,7 +11976,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ConnectedAccountListRead"];
+                    "application/json": components["schemas"]["ConnectedAccountManagerListRead"];
                 };
             };
             /** @description Validation Error */
@@ -11985,7 +12014,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ConnectedAccountRead"];
+                    "application/json": components["schemas"]["ConnectedAccountManagerRead"];
                 };
             };
             /** @description Validation Error */

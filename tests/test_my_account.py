@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from app.core.audit_model import AuditEvent
 from app.core.auth import AccessRole, create_access_token
@@ -20,6 +21,7 @@ from app.platform.models.connected_account import (
     ConnectedAccountStatus,
     UserConnectedAccount,
 )
+from app.platform.services import connected_account
 from tests.identity_support import (
     PasswordLogin,
     cookie_headers,
@@ -318,14 +320,18 @@ def test_the_manager_sees_a_users_connected_accounts_and_may_revoke_one(client, 
     listed = client.get(path, headers=_as(boss, manager=True))
     assert listed.status_code == 200, listed.text
     [item] = listed.json()["items"]
-    assert item["provider"] == "microsoft_365" and "secretRef" not in item
+    # D-A-15: provider, scopes and status — not the address, not the usage stamps, never the reference.
+    assert set(item) == {"id", "provider", "scopes", "status", "version"}
+    assert "anna@garage.ch" not in listed.text and "infisical://" not in listed.text
 
     revoked = client.delete(f"{path}/{grant.id}", headers={**_as(boss, manager=True), "If-Match": "1"})
     assert revoked.status_code == 200, revoked.text
-    assert revoked.json()["revokedReason"] == "manager"
+    assert set(revoked.json()) == {"id", "provider", "scopes", "status", "version"}
+    assert revoked.json()["status"] == "revoked"
     db_session.expire_all()
     row = db_session.get(UserConnectedAccount, grant.id)
-    assert row.revoked_by == uuid.UUID(boss["id"]) and row.secret_ref is not None  # the reference is kept
+    assert row.revoked_by == uuid.UUID(boss["id"]) and row.revoked_reason.value == "manager"
+    assert row.secret_ref is not None  # the reference is kept
 
 
 def test_a_colleague_cannot_read_or_revoke_another_users_connected_accounts(client, db_session):
@@ -372,3 +378,62 @@ def test_deactivating_a_user_revokes_every_connected_account(client, db_session)
         select(AuthEvent).where(AuthEvent.kind == AuthEventKind.CONNECTED_ACCOUNT_REVOKED)
     ).all()
     assert len(events) == 2
+
+
+# --- the provider's revoker -----------------------------------------------------------
+
+
+@pytest.fixture()
+def provider_revoker(engine):
+    """A registered revoker that reads the row from a session of its own —
+    what it sees is what was committed."""
+
+    seen: list[tuple[str, str]] = []
+
+    def _revoker(account: UserConnectedAccount) -> None:
+        with Session(engine) as other:
+            committed = other.get(UserConnectedAccount, account.id)
+            seen.append((str(account.id), committed.status.value))
+
+    connected_account.register_grant_revoker(ConnectedAccountProvider.MICROSOFT_365, _revoker)
+    try:
+        yield seen
+    finally:
+        connected_account.unregister_grant_revoker(ConnectedAccountProvider.MICROSOFT_365)
+
+
+def test_the_providers_revoker_runs_after_the_revoke_committed(client, db_session, provider_revoker):
+    dealership = create_dealership(client)
+    anna = create_user(client, dealership)
+    grant = _grant(db_session, anna)
+
+    response = client.delete(f"/v1/me/connected-accounts/{grant.id}", headers={**_as(anna), "If-Match": "1"})
+
+    assert response.status_code == 200, response.text
+    assert provider_revoker == [(str(grant.id), "revoked")]
+
+
+def test_a_failing_provider_never_undoes_a_revoke_or_a_deactivation(client, db_session, caplog):
+    dealership = create_dealership(client)
+    create_user(client, dealership)
+    anna = create_user(client, dealership, isDealerManager=False)
+    first = _grant(db_session, anna)
+    second = _grant(db_session, anna, label="kalender@garage.ch")
+
+    def _down(account: UserConnectedAccount) -> None:
+        raise RuntimeError("graph.microsoft.com is down")
+
+    connected_account.register_grant_revoker(ConnectedAccountProvider.MICROSOFT_365, _down)
+    try:
+        revoked = client.delete(f"/v1/me/connected-accounts/{first.id}", headers={**_as(anna), "If-Match": "1"})
+        deactivated = deactivate(client, dealership, anna, if_match=anna["version"])
+    finally:
+        connected_account.unregister_grant_revoker(ConnectedAccountProvider.MICROSOFT_365)
+
+    assert revoked.status_code == 200, revoked.text
+    assert deactivated.status_code == 200, deactivated.text
+    db_session.expire_all()
+    for grant in (first, second):
+        row = db_session.get(UserConnectedAccount, grant.id)
+        assert row.status == ConnectedAccountStatus.REVOKED and row.secret_ref is not None
+    assert sum("did not end grant" in r.getMessage() for r in caplog.records) == 2

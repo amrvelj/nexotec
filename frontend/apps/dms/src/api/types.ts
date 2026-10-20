@@ -25,6 +25,9 @@ export type MeRead = Schemas['MeRead']
 export type MeUpdate = Schemas['MeUpdate']
 export type ConnectedAccountRead = Schemas['ConnectedAccountRead']
 export type ConnectedAccountListRead = Schemas['ConnectedAccountListRead']
+// The manager's narrower read: provider, scopes, status (D-A-15).
+export type ConnectedAccountManagerRead = Schemas['ConnectedAccountManagerRead']
+export type ConnectedAccountManagerListRead = Schemas['ConnectedAccountManagerListRead']
 export type DealershipMembershipSummary = Schemas['DealershipMembershipSummary']
 export type LoginResponse = Schemas['LoginResponse']
 // KAN-196 — the identity front door and My account › Security

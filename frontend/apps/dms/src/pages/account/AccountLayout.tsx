@@ -3,10 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { DetailTabs } from '@nexotec/ui-kit'
 import { useAuth } from '../../auth/AuthContext'
-
-/** The tabs of My account, in order; each is its own route under /account. */
-export const ACCOUNT_TABS = ['profile', 'security', 'connected-accounts', 'signature'] as const
-export type AccountTab = (typeof ACCOUNT_TABS)[number]
+import { ACCOUNT_TABS, type AccountTab } from './accountKeys'
 
 const TAB_LABEL_KEY: Record<AccountTab, string> = {
   profile: 'account.tabs.profile',

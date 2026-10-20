@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { useSetBreadcrumb } from '@nexotec/ui-kit'
 import { api, ApiError } from '../../api/client'
 import type { MeRead } from '../../api/types'
-import { ME_KEY } from './AccountProfilePage'
+import { ME_KEY } from './accountKeys'
 
 const MAX_BLOCK = 1000
 
@@ -26,23 +26,37 @@ export function AccountSignaturePage() {
     queryFn: () => api.getBlobUrl('/me/signature'),
     enabled: me.data?.hasSignatureImage === true,
   })
+  // The record the block was loaded from: its change and its If-Match come
+  // from here, never from a later refetch (see the Profile tab).
+  const [loaded, setLoaded] = useState<MeRead | null>(null)
   const [block, setBlock] = useState<string | null>(null)
   const [file, setFile] = useState<File | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
+  const blockChanged = (base: MeRead, text: string) => (text.trim() || null) !== (base.signatureBlock ?? null)
 
   useEffect(() => {
-    if (me.data && block === null) setBlock(me.data.signatureBlock ?? '')
-  }, [me.data, block])
+    if (!me.data) return
+    if (loaded === null || block === null || (me.data.version !== loaded.version && !blockChanged(loaded, block))) {
+      setLoaded(me.data)
+      setBlock(me.data.signatureBlock ?? '')
+    }
+  }, [me.data, loaded, block])
 
   const say = (err: unknown) => {
     setSaved(false)
-    if (err instanceof ApiError && err.status === 409) setError(t('account.profile.conflict'))
+    if (err instanceof ApiError && err.status === 409) {
+      setError(t('account.profile.conflict'))
+      void queryClient.invalidateQueries({ queryKey: ME_KEY })
+    }
     else if (err instanceof ApiError && err.status === 422) setError(t('account.signature.invalid'))
     else setError(t('common.requestFailed'))
   }
-  const done = (data: MeRead) => {
+  // After our own write: the block's baseline moves to what we saved; an
+  // image change moves only the version, so an open block edit stays valid.
+  const done = (data: MeRead, blockSaved: boolean) => {
     queryClient.setQueryData(ME_KEY, data)
+    setLoaded((base) => (blockSaved || base === null ? data : { ...base, version: data.version, hasSignatureImage: data.hasSignatureImage }))
     setError(null)
     setSaved(true)
   }
@@ -50,7 +64,7 @@ export function AccountSignaturePage() {
     mutationFn: (current: MeRead) =>
       api.patch<MeRead>('/me', { signatureBlock: (block ?? '').trim() || null }, { 'If-Match': String(current.version) }),
     onSuccess: (data) => {
-      done(data)
+      done(data, true)
       setBlock(data.signatureBlock ?? '')
     },
     onError: say,
@@ -59,21 +73,21 @@ export function AccountSignaturePage() {
     mutationFn: ({ current, image: chosen }: { current: MeRead; image: File }) =>
       api.putBinary<MeRead>('/me/signature', chosen, chosen.type, { 'If-Match': String(current.version) }),
     onSuccess: (data) => {
-      done(data)
+      done(data, false)
       setFile(null)
     },
     onError: say,
   })
   const remove = useMutation({
     mutationFn: (current: MeRead) => api.delete<MeRead>('/me/signature', { 'If-Match': String(current.version) }),
-    onSuccess: done,
+    onSuccess: (data) => done(data, false),
     onError: say,
   })
 
   if (me.isError) return <Alert color="red" role="alert">{t('common.requestFailed')}</Alert>
-  if (!me.data || block === null) return null
-  const current = me.data
-  const blockDirty = (block.trim() || null) !== (current.signatureBlock ?? null)
+  if (!loaded || block === null) return null
+  const current = loaded
+  const blockDirty = blockChanged(loaded, block)
 
   return (
     <Stack gap="lg">

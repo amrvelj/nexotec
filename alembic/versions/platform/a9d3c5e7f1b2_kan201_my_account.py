@@ -18,7 +18,8 @@ My account (Dealer Administration, Users → Personal settings; Authentication
 
 Downgrade drops the table and the two columns and restores the CHECK; a
 `connected_account_revoked` row would violate it, so those rows are
-deleted first — for a failed deploy only.
+deleted first — for a failed deploy only (before the Outlook integration
+links any account: dropping the table would drop secret references).
 
 Revision ID: a9d3c5e7f1b2
 Revises: d8e2f4a6c9b1
@@ -43,6 +44,7 @@ depends_on: str | Sequence[str] | None = None
 _LANGUAGES = ("de", "fr", "it", "en")
 _PROVIDERS = ("microsoft_365",)
 _STATUSES = ("active", "error", "revoked")
+_REVOKED_REASONS = ("user", "manager", "deactivated")
 _EVENT_KINDS_BEFORE = (
     "login_succeeded",
     "login_failed",
@@ -92,7 +94,7 @@ def upgrade() -> None:
         sa.Column("last_used_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("revoked_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("revoked_by", postgresql.UUID(as_uuid=True), nullable=True),
-        sa.Column("revoked_reason", sa.String(length=32), nullable=True),
+        sa.Column("revoked_reason", sa.String(length=16), nullable=True),
         sa.Column("version", sa.Integer(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
@@ -103,6 +105,9 @@ def upgrade() -> None:
         ),
         sa.CheckConstraint(_check("provider", _PROVIDERS), name="ck_user_connected_account_provider_enum"),
         sa.CheckConstraint(_check("status", _STATUSES), name="ck_user_connected_account_status_enum"),
+        sa.CheckConstraint(
+            _check("revoked_reason", _REVOKED_REASONS), name="ck_user_connected_account_revoked_reason_enum"
+        ),
     )
     op.create_index("ix_user_connected_account_user_id", "user_connected_account", ["user_id"])
 

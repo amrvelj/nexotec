@@ -286,6 +286,7 @@ export function AccountSecurityPage() {
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>{t('auth.security.sessions.device')}</Table.Th>
+                <Table.Th>{t('auth.security.sessions.ip')}</Table.Th>
                 <Table.Th>{t('auth.security.sessions.lastSeen')}</Table.Th>
                 <Table.Th>{t('auth.security.sessions.expires')}</Table.Th>
                 <Table.Th />
@@ -297,11 +298,12 @@ export function AccountSecurityPage() {
                   <Table.Td>
                     <Group gap="xs">
                       <Text fz="sm" lineClamp={1} style={{ maxWidth: 320 }}>
-                        {session.deviceSummary || session.ipAddress}
+                        {session.deviceSummary || '—'}
                       </Text>
                       {session.current && <Badge size="sm">{t('auth.security.sessions.current')}</Badge>}
                     </Group>
                   </Table.Td>
+                  <Table.Td>{session.ipAddress || '—'}</Table.Td>
                   <Table.Td>{formatDateTime(session.lastSeenAt)}</Table.Td>
                   <Table.Td>{formatDateTime(session.absoluteExpiresAt)}</Table.Td>
                   <Table.Td align="right">

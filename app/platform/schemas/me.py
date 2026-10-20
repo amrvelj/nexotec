@@ -11,7 +11,11 @@ from pydantic import ConfigDict, Field, model_validator
 from app.core.i18n import SwissLanguage
 from app.core.schemas import CamelModel
 from app.core.validators import E164Phone
-from app.platform.models.connected_account import ConnectedAccountProvider, ConnectedAccountStatus
+from app.platform.models.connected_account import (
+    ConnectedAccountProvider,
+    ConnectedAccountRevokedReason,
+    ConnectedAccountStatus,
+)
 from app.platform.schemas.patch import refuse_null_on_not_null_fields
 
 
@@ -62,8 +66,8 @@ class MeUpdate(CamelModel):
 
 
 class ConnectedAccountRead(CamelModel):
-    """What the user and the manager see of a grant: provider, account,
-    scopes, status and stamps — never the secret reference, never content."""
+    """What the user sees of their own grant: provider, account, scopes,
+    status and stamps — never the secret reference, never content."""
 
     id: uuid.UUID
     provider: ConnectedAccountProvider
@@ -73,9 +77,26 @@ class ConnectedAccountRead(CamelModel):
     linked_at: dt.datetime
     last_used_at: dt.datetime | None
     revoked_at: dt.datetime | None
-    revoked_reason: str | None
+    revoked_reason: ConnectedAccountRevokedReason | None
     version: int
 
 
 class ConnectedAccountListRead(CamelModel):
     items: list[ConnectedAccountRead]
+
+
+class ConnectedAccountManagerRead(CamelModel):
+    """What a manager sees of a user's grant (D-A-15, KAN-201): provider,
+    scopes and status — not the account's address, not when it was linked
+    or last used (what an employee does with their mailbox is theirs), never
+    content. `version` is for the revoke's If-Match."""
+
+    id: uuid.UUID
+    provider: ConnectedAccountProvider
+    scopes: list[str]
+    status: ConnectedAccountStatus
+    version: int
+
+
+class ConnectedAccountManagerListRead(CamelModel):
+    items: list[ConnectedAccountManagerRead]
