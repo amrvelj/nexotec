@@ -59,7 +59,7 @@ describe('SalesListPage — the responsible seller and the unassigned queue (KAN
     const grid = within(await screen.findByRole('table'))
     expect(grid.getByRole('columnheader', { name: /Verantwortlich/ })).toBeInTheDocument()
     expect(await grid.findByText('Sara Seller')).toBeInTheDocument()
-    const second = grid.getByText('V-2026-0002').closest('[role="row"]')!
+    const second = grid.getByText('V-2026-0002').closest('[role="row"]') as HTMLElement
     expect(within(second).getAllByText('—').length).toBeGreaterThan(0)
   })
 
