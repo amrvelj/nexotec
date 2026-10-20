@@ -128,6 +128,7 @@ def run_daily_user_expiry(db: Session, *, session_factory: Callable[[], Session]
     # run (ADR-047), as after the main loop's status change.
     just_done = {str(user.id) for user in due}
     retried = 0
+    retry_reactivated = 0
     for listed in user_service.list_users_deactivated_for(db, reason=EXPIRY_REASON, since=utcnow() - RETRY_WINDOW):
         if str(listed.id) in just_done:
             continue
@@ -141,7 +142,7 @@ def run_daily_user_expiry(db: Session, *, session_factory: Callable[[], Session]
         still_expired = user.status == UserStatus.DEACTIVATED and user.deactivation_reason == EXPIRY_REASON
         db.rollback()
         if not still_expired:
-            no_longer_due += 1
+            retry_reactivated += 1
             continue
         retried += 1
         if not _release(db, session_factory, user, late=True):
@@ -149,7 +150,8 @@ def run_daily_user_expiry(db: Session, *, session_factory: Callable[[], Session]
 
     summary = (
         f"due={len(due)} deactivated={deactivated} skipped_last_manager={len(skipped)} failed={len(failed)} "
-        f"retried={retried} handover_failed={len(handover_failed)} no_longer_due={no_longer_due}"
+        f"retried={retried} handover_failed={len(handover_failed)} no_longer_due={no_longer_due} "
+        f"retry_reactivated={retry_reactivated}"
     )
     if skipped or failed or handover_failed:
         logger.error(

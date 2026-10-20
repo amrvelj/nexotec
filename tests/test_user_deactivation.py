@@ -23,7 +23,7 @@ from app.platform import daily_jobs
 from app.platform.daily_jobs import run_daily_user_expiry
 from app.platform.models.user import User
 from tests.identity_support import PasswordLogin, create_dealership, create_user, deactivate, platform_admin_headers
-from tests.test_customer_vehicle_party_close_rule import _run, _wait_until_a_backend_waits_on_a_lock
+from tests.test_customer_vehicle_party_close_rule import _postgres_only, _run, _wait_until_a_backend_waits_on_a_lock
 
 
 @pytest.fixture()
@@ -529,16 +529,21 @@ def test_the_expiry_job_judges_each_user_again_under_the_lock(client, db_session
     assert row.version == extended["version"] + 1  # the manager's bump only
 
 
-def test_a_patch_during_the_expiry_jobs_write_waits_for_it_and_is_refused(client, db_session, engine, monkeypatch):
+def test_a_patch_between_the_expiry_jobs_re_read_and_its_write_waits_and_is_refused(
+    client, db_session, engine, monkeypatch
+):
     """The job holds the user row from its re-read to its commit: a manager's
-    PATCH extending `validTo` meanwhile waits (pg_locks) and then meets the
-    job's version (409) — never a lost update on a deactivated row."""
+    PATCH extending `validTo` after the re-read, before the job's first
+    write, waits for it (pg_locks) and then meets the job's version (409) —
+    never two writes on one version. Unlocked, the PATCH would land in that
+    gap and the job deactivate the user over it."""
 
+    _postgres_only(engine)
     dealership = create_dealership(client)
     yesterday = dt.datetime.now(ZoneInfo("Europe/Zurich")).date() - dt.timedelta(days=1)
     create_user(client, dealership)  # stays the manager
     expiring = create_user(client, dealership, isDealerManager=False, validTo=str(yesterday))
-    real_end_sessions = daily_jobs.user_service.end_sessions
+    real_is_due = daily_jobs.user_service.is_due_for_expiry
     responses: list = []
     errors: list[Exception] = []
     started: list[threading.Thread] = []
@@ -552,13 +557,14 @@ def test_a_patch_during_the_expiry_jobs_write_waits_for_it_and_is_refused(client
             )
         )
 
-    def _paused_end_sessions(db, **kwargs):
-        if not started:  # mid-write: the job holds the user row here
+    def _paused_is_due(user, *, today):
+        due = real_is_due(user, today=today)
+        if not started:  # after the re-read, before the job writes anything
             started.append(_run("patch", errors, _patch))
             _wait_until_a_backend_waits_on_a_lock(engine)
-        return real_end_sessions(db, **kwargs)
+        return due
 
-    monkeypatch.setattr(daily_jobs.user_service, "end_sessions", _paused_end_sessions)
+    monkeypatch.setattr(daily_jobs.user_service, "is_due_for_expiry", _paused_is_due)
     run_daily_user_expiry(db_session, session_factory=sessionmaker(bind=engine))
     started[0].join(timeout=15)
 
