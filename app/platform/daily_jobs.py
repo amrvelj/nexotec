@@ -82,16 +82,19 @@ def run_daily_user_expiry(db: Session, *, session_factory: Callable[[], Session]
     skipped: list[str] = []
     failed: list[str] = []
     handover_failed: list[str] = []
+    no_longer_due = 0
     for stale in due:
-        # Re-read under the user-row lock (KAN-380's order) and judged again:
-        # a PATCH that extended `validTo` or deactivated the user after the
-        # list was read wins, and the version is bumped from the row as it
-        # stands, never from the list's copy.
-        user = user_service.get_user_for_update_or_404(db, stale.tenant_id, stale.id)
-        if not user_service.is_due_for_expiry(user, today=today):
-            db.rollback()
-            continue
+        user = stale
         try:
+            # Re-read under the user-row lock (KAN-380's order) and judged
+            # again: a PATCH that extended `validTo` or deactivated the user
+            # after the list was read wins, and the version is bumped from the
+            # row as it stands, never from the list's copy.
+            user = user_service.get_user_for_update_or_404(db, stale.tenant_id, stale.id)
+            if not user_service.is_due_for_expiry(user, today=today):
+                db.rollback()
+                no_longer_due += 1
+                continue
             user_service.update_user(
                 db,
                 user=user,
@@ -119,10 +122,26 @@ def run_daily_user_expiry(db: Session, *, session_factory: Callable[[], Session]
 
     # The retry: users this job deactivated recently whose hand-over may have
     # failed — `release_everything` is a no-op for one with nothing open.
+    # Each is re-read under the lock and must still be deactivated by this
+    # job: a manager who reactivated them after the list was read keeps
+    # their records. The lock is released before the modules' own sessions
+    # run (ADR-047), as after the main loop's status change.
     just_done = {str(user.id) for user in due}
     retried = 0
-    for user in user_service.list_users_deactivated_for(db, reason=EXPIRY_REASON, since=utcnow() - RETRY_WINDOW):
-        if str(user.id) in just_done:
+    for listed in user_service.list_users_deactivated_for(db, reason=EXPIRY_REASON, since=utcnow() - RETRY_WINDOW):
+        if str(listed.id) in just_done:
+            continue
+        try:
+            user = user_service.get_user_for_update_or_404(db, listed.tenant_id, listed.id)
+        except Exception:
+            db.rollback()
+            handover_failed.append(str(listed.id))
+            logger.exception("platform.user_expiry: user %s not re-read", listed.id, extra={"userId": str(listed.id)})
+            continue
+        still_expired = user.status == UserStatus.DEACTIVATED and user.deactivation_reason == EXPIRY_REASON
+        db.rollback()
+        if not still_expired:
+            no_longer_due += 1
             continue
         retried += 1
         if not _release(db, session_factory, user, late=True):
@@ -130,7 +149,7 @@ def run_daily_user_expiry(db: Session, *, session_factory: Callable[[], Session]
 
     summary = (
         f"due={len(due)} deactivated={deactivated} skipped_last_manager={len(skipped)} failed={len(failed)} "
-        f"retried={retried} handover_failed={len(handover_failed)}"
+        f"retried={retried} handover_failed={len(handover_failed)} no_longer_due={no_longer_due}"
     )
     if skipped or failed or handover_failed:
         logger.error(

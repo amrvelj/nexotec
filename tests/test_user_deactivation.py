@@ -5,6 +5,7 @@ and the nightly expiry job.
 
 import datetime as dt
 import logging
+import threading
 import uuid
 from zoneinfo import ZoneInfo
 
@@ -22,6 +23,7 @@ from app.platform import daily_jobs
 from app.platform.daily_jobs import run_daily_user_expiry
 from app.platform.models.user import User
 from tests.identity_support import PasswordLogin, create_dealership, create_user, deactivate, platform_admin_headers
+from tests.test_customer_vehicle_party_close_rule import _run, _wait_until_a_backend_waits_on_a_lock
 
 
 @pytest.fixture()
@@ -506,6 +508,7 @@ def test_the_expiry_job_judges_each_user_again_under_the_lock(client, db_session
 
     def _list_then_extend(db, *, today):
         due = real_list(db, today=today)
+        assert [str(u.id) for u in due] == [extended["id"]]
         other = sessionmaker(bind=engine)()
         try:
             row = other.get(User, uuid.UUID(extended["id"]))
@@ -524,6 +527,96 @@ def test_the_expiry_job_judges_each_user_again_under_the_lock(client, db_session
     row = db_session.get(User, uuid.UUID(extended["id"]))
     assert row.status.value == "invited"
     assert row.version == extended["version"] + 1  # the manager's bump only
+
+
+def test_a_patch_during_the_expiry_jobs_write_waits_for_it_and_is_refused(client, db_session, engine, monkeypatch):
+    """The job holds the user row from its re-read to its commit: a manager's
+    PATCH extending `validTo` meanwhile waits (pg_locks) and then meets the
+    job's version (409) — never a lost update on a deactivated row."""
+
+    dealership = create_dealership(client)
+    yesterday = dt.datetime.now(ZoneInfo("Europe/Zurich")).date() - dt.timedelta(days=1)
+    create_user(client, dealership)  # stays the manager
+    expiring = create_user(client, dealership, isDealerManager=False, validTo=str(yesterday))
+    real_end_sessions = daily_jobs.user_service.end_sessions
+    responses: list = []
+    errors: list[Exception] = []
+    started: list[threading.Thread] = []
+
+    def _patch():
+        responses.append(
+            client.patch(
+                f"/v1/dealerships/{dealership}/users/{expiring['id']}",
+                json={"validTo": str(yesterday + dt.timedelta(days=365))},
+                headers={**platform_admin_headers(), "If-Match": str(expiring["version"])},
+            )
+        )
+
+    def _paused_end_sessions(db, **kwargs):
+        if not started:  # mid-write: the job holds the user row here
+            started.append(_run("patch", errors, _patch))
+            _wait_until_a_backend_waits_on_a_lock(engine)
+        return real_end_sessions(db, **kwargs)
+
+    monkeypatch.setattr(daily_jobs.user_service, "end_sessions", _paused_end_sessions)
+    run_daily_user_expiry(db_session, session_factory=sessionmaker(bind=engine))
+    started[0].join(timeout=15)
+
+    assert errors == []
+    assert [r.status_code for r in responses] == [409]
+    db_session.expire_all()
+    row = db_session.get(User, uuid.UUID(expiring["id"]))
+    assert row.status.value == "deactivated" and row.valid_to == yesterday
+    assert row.version == expiring["version"] + 1
+
+
+def test_the_expiry_retry_leaves_a_user_reactivated_after_its_list_was_read(client, db_session, engine, monkeypatch):
+    """The retry re-reads each user under the lock: one a manager reactivated
+    after the list was read keeps their open records."""
+
+    dealership = create_dealership(client)
+    yesterday = dt.datetime.now(ZoneInfo("Europe/Zurich")).date() - dt.timedelta(days=1)
+    create_user(client, dealership)  # stays the manager
+    expired = create_user(client, dealership, isDealerManager=False, validTo=str(yesterday))
+    colleague = create_user(client, dealership, isDealerManager=False)
+    offer = _offer_for(client, expired)
+    sales = ownership_provider("sales")
+
+    def _sales_down(*args, **kwargs):
+        raise RuntimeError("sales is down")
+
+    monkeypatch.setattr(sales, "transfer", _sales_down)
+    run_daily_user_expiry(db_session, session_factory=sessionmaker(bind=engine))
+    monkeypatch.undo()
+    db_session.expire_all()
+    assert db_session.get(User, uuid.UUID(expired["id"])).status.value == "deactivated"
+
+    real_list = daily_jobs.user_service.list_users_deactivated_for
+    reactivations: list = []
+
+    def _list_then_reactivate(db, *, reason, since):
+        listed = real_list(db, reason=reason, since=since)
+        assert [str(u.id) for u in listed] == [expired["id"]]
+        other = sessionmaker(bind=engine)()
+        try:
+            version = other.get(User, uuid.UUID(expired["id"])).version
+        finally:
+            other.close()
+        reactivations.append(
+            client.patch(
+                f"/v1/dealerships/{dealership}/users/{expired['id']}",
+                json={"status": "active", "validTo": str(yesterday + dt.timedelta(days=365))},
+                headers={**platform_admin_headers(), "If-Match": str(version)},
+            )
+        )
+        return listed
+
+    monkeypatch.setattr(daily_jobs.user_service, "list_users_deactivated_for", _list_then_reactivate)
+    run_daily_user_expiry(db_session, session_factory=sessionmaker(bind=engine))
+
+    assert [r.status_code for r in reactivations] == [200]
+    owner = client.get(f"/v1/sales/offers/{offer['id']}", headers=_as(colleague)).json()["ownerUserId"]
+    assert owner == expired["id"]
 
 
 @pytest.fixture
