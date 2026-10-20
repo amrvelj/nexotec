@@ -48,6 +48,9 @@ class AuthEventKind(str, enum.Enum):
     # while the user is invited, platform staff afterwards): the old address
     # is told, tokens and sessions end (KAN-196).
     EMAIL_CHANGED = "email_changed"
+    # A connected account (FR-AU-23/24, KAN-201) was revoked — by the user,
+    # a manager or the deactivation; `details` names provider and reason.
+    CONNECTED_ACCOUNT_REVOKED = "connected_account_revoked"
 
 
 class AuthEvent(PrimaryKeyMixin, Base):

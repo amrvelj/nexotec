@@ -1127,6 +1127,51 @@ export interface paths {
         patch: operations["update_user_v1_dealerships__dealership_id__users__user_id__patch"];
         trace?: never;
     };
+    "/v1/dealerships/{dealership_id}/users/{user_id}/connected-accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List User Connected Accounts
+         * @description FR-AU-24 / D-A-15: the manager sees that a user's grant exists — its
+         *     provider, account, scopes and status — and never mail or calendar
+         *     content (nothing here can reach it). Linking is the user's own, in My
+         *     account.
+         */
+        get: operations["list_user_connected_accounts_v1_dealerships__dealership_id__users__user_id__connected_accounts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/users/{user_id}/connected-accounts/{account_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke User Connected Account
+         * @description The manager may revoke a user's grant (D-A-15: "may revoke only");
+         *     the row stays, revoked, and the user sees who did it in their auth
+         *     events.
+         */
+        delete: operations["revoke_user_connected_account_v1_dealerships__dealership_id__users__user_id__connected_accounts__account_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/dealerships/{dealership_id}/users/{user_id}/deactivate": {
         parameters: {
             query?: never;
@@ -1970,6 +2015,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Me */
+        get: operations["get_me_v1_me_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Me */
+        patch: operations["update_me_v1_me_patch"];
+        trace?: never;
+    };
+    "/v1/me/connected-accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List My Connected Accounts
+         * @description FR-AU-24: the user's own grants. Linking ships with the Outlook
+         *     integration; until then the list is empty.
+         */
+        get: operations["list_my_connected_accounts_v1_me_connected_accounts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/connected-accounts/{account_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke My Connected Account
+         * @description The user ends one of their own grants; another user's id is a 404.
+         *     The row stays, revoked.
+         */
+        delete: operations["revoke_my_connected_account_v1_me_connected_accounts__account_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/preferences": {
         parameters: {
             query?: never;
@@ -2001,6 +2106,29 @@ export interface paths {
         post?: never;
         /** Delete My Preference */
         delete: operations["delete_my_preference_v1_me_preferences__scope__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/signature": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get My Signature */
+        get: operations["get_my_signature_v1_me_signature_get"];
+        /**
+         * Put My Signature
+         * @description The caller's own signature image — the same store, key and rules as
+         *     the manager's route on the Users screen (KAN-200).
+         */
+        put: operations["put_my_signature_v1_me_signature_put"];
+        post?: never;
+        /** Delete My Signature */
+        delete: operations["delete_my_signature_v1_me_signature_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -3940,6 +4068,52 @@ export interface components {
             /** Wheelssurcharge */
             wheelsSurcharge?: number | string | null;
         };
+        /** ConnectedAccountListRead */
+        ConnectedAccountListRead: {
+            /** Items */
+            items: components["schemas"]["ConnectedAccountRead"][];
+        };
+        /**
+         * ConnectedAccountProvider
+         * @enum {string}
+         */
+        ConnectedAccountProvider: "microsoft_365";
+        /**
+         * ConnectedAccountRead
+         * @description What the user and the manager see of a grant: provider, account,
+         *     scopes, status and stamps — never the secret reference, never content.
+         */
+        ConnectedAccountRead: {
+            /** Externalaccountlabel */
+            externalAccountLabel: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Lastusedat */
+            lastUsedAt: string | null;
+            /**
+             * Linkedat
+             * Format: date-time
+             */
+            linkedAt: string;
+            provider: components["schemas"]["ConnectedAccountProvider"];
+            /** Revokedat */
+            revokedAt: string | null;
+            /** Revokedreason */
+            revokedReason: string | null;
+            /** Scopes */
+            scopes: string[];
+            status: components["schemas"]["ConnectedAccountStatus"];
+            /** Version */
+            version: number;
+        };
+        /**
+         * ConnectedAccountStatus
+         * @enum {string}
+         */
+        ConnectedAccountStatus: "active" | "error" | "revoked";
         /** ConnectionCreate */
         ConnectionCreate: {
             /** Config */
@@ -6049,6 +6223,65 @@ export interface components {
          * @enum {string}
          */
         MarketplaceChannel: "autoscout24" | "carmarket" | "autolina";
+        /**
+         * MeRead
+         * @description The caller's own record as My account shows it. The e-mail address is
+         *     read-only here: it is the sign-in and recovery channel, changed by a
+         *     manager while the user is invited and by platform staff afterwards
+         *     (KAN-196) — never by the user themselves (open with Anto since PR #218).
+         *     The UI language is a preference (`/v1/me/preferences/ui`), not a field.
+         */
+        MeRead: {
+            correspondenceLanguage: components["schemas"]["SwissLanguage"] | null;
+            /**
+             * Dealershipid
+             * Format: uuid
+             */
+            dealershipId: string;
+            defaultCorrespondenceLanguage: components["schemas"]["SwissLanguage"];
+            /** Directdial */
+            directDial: string | null;
+            /** Email */
+            email: string;
+            /** Firstname */
+            firstName: string;
+            /** Hassignatureimage */
+            hasSignatureImage: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Lastname */
+            lastName: string;
+            /** Phone */
+            phone: string | null;
+            /** Signatureblock */
+            signatureBlock: string | null;
+            /** Version */
+            version: number;
+        };
+        /**
+         * MeUpdate
+         * @description PATCH semantics: a field left out is left unchanged. Names are NOT
+         *     NULL (an explicit null is a 422); the others may be cleared with null.
+         *     Everything else on the user — roles, status, sites, the validity window,
+         *     the e-mail address — is the manager's (the Users screen), so a field this
+         *     model does not name is a 422, never silently dropped.
+         */
+        MeUpdate: {
+            correspondenceLanguage?: components["schemas"]["SwissLanguage"] | null;
+            /** Directdial */
+            directDial?: string | null;
+            /** Firstname */
+            firstName?: string | null;
+            /** Lastname */
+            lastName?: string | null;
+            /** Phone */
+            phone?: string | null;
+            /** Signatureblock */
+            signatureBlock?: string | null;
+        };
         /** MediaRead */
         MediaRead: {
             /**
@@ -7243,6 +7476,15 @@ export interface components {
             /** Vehiclelabel */
             vehicleLabel?: string | null;
         };
+        /**
+         * SwissLanguage
+         * @description DE/FR/IT/EN — the four languages the application ships translations
+         *     for. See this module's own docstring for why this is a second
+         *     definition of the same four values as app.customer's Language, not a
+         *     shared import.
+         * @enum {string}
+         */
+        SwissLanguage: "de" | "fr" | "it" | "en";
         /** SwitchDealershipRequest */
         SwitchDealershipRequest: {
             /**
@@ -11683,6 +11925,80 @@ export interface operations {
             };
         };
     };
+    list_user_connected_accounts_v1_dealerships__dealership_id__users__user_id__connected_accounts_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                user_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectedAccountListRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_user_connected_account_v1_dealerships__dealership_id__users__user_id__connected_accounts__account_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                user_id: string;
+                account_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectedAccountRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     deactivate_user_v1_dealerships__dealership_id__users__user_id__deactivate_post: {
         parameters: {
             query?: never;
@@ -13953,6 +14269,146 @@ export interface operations {
             };
         };
     };
+    get_me_v1_me_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_me_v1_me_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MeUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_my_connected_accounts_v1_me_connected_accounts_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectedAccountListRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_my_connected_account_v1_me_connected_accounts__account_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                account_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectedAccountRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_my_preferences_v1_me_preferences_get: {
         parameters: {
             query?: never;
@@ -14081,6 +14537,111 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_my_signature_v1_me_signature_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_my_signature_v1_me_signature_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "image/png": string;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_my_signature_v1_me_signature_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeRead"];
+                };
             };
             /** @description Validation Error */
             422: {
