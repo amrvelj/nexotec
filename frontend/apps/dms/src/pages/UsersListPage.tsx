@@ -19,7 +19,7 @@ import {
   type SortSpec,
 } from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
-import type { LocationList, UserPage, UserRead, UserStatus } from '../api/types'
+import type { LocationList, OwnershipTransfersRead, UserAdminRead, UserDeactivatedRead, UserPage, UserStatus, UserUpdate } from '../api/types'
 import { useAuth } from '../auth/AuthContext'
 import { UserDeactivateDialog } from '../components/users/UserDeactivateDialog'
 import { UserFormDialog } from '../components/users/UserFormDialog'
@@ -35,12 +35,13 @@ import {
   accessRoleLabel,
   displayUserStatus,
   employmentStatusLabel,
+  ownedGroupLabel,
   userDisplayName,
   userRoleLabel,
   userStatusLabel,
   userStatusTone,
 } from '../userOptions'
-import { formatDateOnly, formatDateTime } from '../utils/format'
+import { formatDateOnly, formatDateTime, todayLocalIsoDate } from '../utils/format'
 
 const GRID_KEY = 'administration.users.list'
 const DEFAULT_SORT: SortSpec[] = [
@@ -119,10 +120,10 @@ export function UsersListPage() {
 
   const [appliedViewId, setAppliedViewId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
-  const [formUser, setFormUser] = useState<UserRead | null | undefined>(undefined) // undefined = closed, null = invite
+  const [formUser, setFormUser] = useState<UserAdminRead | null | undefined>(undefined) // undefined = closed, null = invite
   // The reassignment dialog: deactivating a user, or handing over what a
   // (deactivated) user still owns — the retry after a module failed.
-  const [reassigning, setReassigning] = useState<{ user: UserRead; mode: 'deactivate' | 'transfer' } | null>(null)
+  const [reassigning, setReassigning] = useState<{ user: UserAdminRead; mode: 'deactivate' | 'transfer' } | null>(null)
   const resendKey = useIdempotencyKey()
 
   const usersKey = ['users', dealershipId] as const
@@ -153,7 +154,20 @@ export function UsersListPage() {
   })
   const colleagues = useQuery({
     queryKey: [...usersKey, 'colleagues'],
-    queryFn: () => api.get<UserPage>(`/dealerships/${dealershipId}/users?limit=100`),
+    // Every person of the Betrieb, page by page: the line-manager picker and
+    // the receivers of a leaver's records must not stop at the first page.
+    queryFn: async () => {
+      const items: UserAdminRead[] = []
+      let cursor: string | null = null
+      do {
+        const page: UserPage = await api.get<UserPage>(
+          `/dealerships/${dealershipId}/users?limit=100${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`,
+        )
+        items.push(...page.items)
+        cursor = page.nextCursor ?? null
+      } while (cursor)
+      return { items }
+    },
     enabled: dealershipId !== '' && !forbidden,
   })
 
@@ -174,7 +188,7 @@ export function UsersListPage() {
     if (err instanceof ApiError && err.status === 409) void invalidate()
   }
 
-  const resendInvitation = async (user: UserRead) => {
+  const resendInvitation = async (user: UserAdminRead) => {
     setActionError(null)
     try {
       const path = `/dealerships/${dealershipId}/users/${user.id}/invitations`
@@ -186,29 +200,36 @@ export function UsersListPage() {
     }
   }
 
-  const setStatus = async (user: UserRead, status: 'active' | 'suspended') => {
+  const setStatus = async (user: UserAdminRead, status: 'active' | 'suspended') => {
     setActionError(null)
     try {
-      // A reactivation after a termination brings the employment back too (KAN-200 lifecycle).
-      const body =
-        status === 'active' && user.employmentStatus === 'terminated'
-          ? { status, employmentStatus: 'active' as const }
+      // A reactivation after a termination brings the employment back too, and
+      // one after an expired window clears it — the nightly job would otherwise
+      // deactivate the person again that night (KAN-200 lifecycle).
+      const expired = user.validTo !== null && user.validTo !== undefined && user.validTo < todayLocalIsoDate()
+      const body: UserUpdate =
+        status === 'active'
+          ? {
+              status,
+              ...(user.employmentStatus === 'terminated' ? { employmentStatus: 'active' as const } : {}),
+              ...(expired ? { validTo: null } : {}),
+            }
           : { status }
-      await api.patch<UserRead>(`/dealerships/${dealershipId}/users/${user.id}`, body, { 'If-Match': String(user.version) })
+      await api.patch<UserAdminRead>(`/dealerships/${dealershipId}/users/${user.id}`, body, { 'If-Match': String(user.version) })
       await invalidate()
     } catch (err) {
       say(err, t('usersAdmin.actions.statusFailed'))
     }
   }
 
-  const columns: GridColumnDef<UserRead>[] = useMemo(() => {
+  const columns: GridColumnDef<UserAdminRead>[] = useMemo(() => {
     const text = (
       id: string,
       header: string,
-      pick: (row: UserRead) => string | null | undefined,
+      pick: (row: UserAdminRead) => string | null | undefined,
       defaultVisible = false,
       sortField?: string,
-    ): GridColumnDef<UserRead> => ({
+    ): GridColumnDef<UserAdminRead> => ({
       id,
       header,
       cell: ({ row }) => pick(row.original) || '—',
@@ -320,8 +341,17 @@ export function UsersListPage() {
     setFormUser(undefined)
     await invalidate()
   }
-  const onReassigned = async () => {
+  const onReassigned = async (result: UserDeactivatedRead | OwnershipTransfersRead) => {
     setReassigning(null)
+    // A module that failed leaves its records with the person: said here, with
+    // the retry at hand (the row menu's hand-over).
+    if (result.failed && result.failed.length > 0) {
+      setActionError(
+        t('usersAdmin.actions.handOverFailed', {
+          groups: result.failed.map((f) => `${ownedGroupLabel(t, f.module, f.group)} (${f.error})`).join('; '),
+        }),
+      )
+    }
     await invalidate()
   }
 
@@ -395,7 +425,7 @@ export function UsersListPage() {
           />
         }
       >
-        <DataGrid<UserRead>
+        <DataGrid<UserAdminRead>
           columns={columns}
           rows={rows}
           getRowId={(row) => row.id}
@@ -483,7 +513,7 @@ export function UsersListPage() {
         user={reassigning?.user ?? null}
         mode={reassigning?.mode ?? 'deactivate'}
         colleagues={colleagues.data?.items ?? []}
-        onDone={() => void onReassigned()}
+        onDone={(result) => void onReassigned(result)}
       />
     </Stack>
   )

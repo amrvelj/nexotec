@@ -24,7 +24,7 @@ import type {
   StandardTextCategory,
   TextDelegationsRead,
   UserCreate,
-  UserRead,
+  UserAdminRead,
   UserRole,
   UserUpdate,
 } from '../../api/types'
@@ -44,13 +44,13 @@ export interface UserFormDialogProps {
   onClose: () => void
   dealershipId: string
   /** `null` invites a new person; a user edits that person. */
-  user: UserRead | null
+  user: UserAdminRead | null
   locations: LocationRead[]
   /** The Betrieb's people, for the line-manager picker. */
-  colleagues: UserRead[]
+  colleagues: UserAdminRead[]
   /** The signed-in user: their own manager flag cannot be edited here. */
   selfId: string
-  onSaved: (user: UserRead) => void
+  onSaved: (user: UserAdminRead) => void
 }
 
 interface FormValues {
@@ -97,7 +97,7 @@ const EMPTY: FormValues = {
   delegations: [],
 }
 
-function fromUser(user: UserRead): FormValues {
+function fromUser(user: UserAdminRead): FormValues {
   const [primary, ...rest] = user.accessRoles.filter((r) => r !== 'platform_admin')
   return {
     firstName: user.firstName,
@@ -190,7 +190,7 @@ export function UserFormDialog({ opened, onClose, dealershipId, user, locations,
     setError(null)
     const accessRoles: AccessRole[] = [form.primaryAccessRole, ...form.additionalAccessRoles.filter((r) => r !== form.primaryAccessRole)]
     try {
-      let saved: UserRead
+      let saved: UserAdminRead
       if (!editing) {
         const body: UserCreate = {
           firstName: form.firstName.trim(),
@@ -211,7 +211,7 @@ export function UserFormDialog({ opened, onClose, dealershipId, user, locations,
           validFrom: orNull(form.validFrom),
           validTo: orNull(form.validTo),
         }
-        saved = await api.post<UserRead>(`/dealerships/${dealershipId}/users`, body, idempotency.headers(body))
+        saved = await api.post<UserAdminRead>(`/dealerships/${dealershipId}/users`, body, idempotency.headers(body))
       } else {
         const before = fromUser(user)
         const patch: UserUpdate = {}
@@ -236,7 +236,7 @@ export function UserFormDialog({ opened, onClose, dealershipId, user, locations,
         if (orNull(form.validTo) !== orNull(before.validTo)) patch.validTo = orNull(form.validTo)
         saved =
           Object.keys(patch).length > 0
-            ? await api.patch<UserRead>(`/dealerships/${dealershipId}/users/${user.id}`, patch, { 'If-Match': String(user.version) })
+            ? await api.patch<UserAdminRead>(`/dealerships/${dealershipId}/users/${user.id}`, patch, { 'If-Match': String(user.version) })
             : user
       }
       // Delegations are a child collection with their own full-replacement PUT (KAN-199).
@@ -250,14 +250,14 @@ export function UserFormDialog({ opened, onClose, dealershipId, user, locations,
         saved = { ...saved, version: result.userVersion }
       }
       if (signatureFile) {
-        saved = await api.putBinary<UserRead>(
+        saved = await api.putBinary<UserAdminRead>(
           `/dealerships/${dealershipId}/users/${saved.id}/signature`,
           signatureFile,
           signatureFile.type,
           { 'If-Match': String(saved.version) },
         )
       } else if (removeSignature && saved.hasSignatureImage) {
-        saved = await api.delete<UserRead>(`/dealerships/${dealershipId}/users/${saved.id}/signature`, { 'If-Match': String(saved.version) })
+        saved = await api.delete<UserAdminRead>(`/dealerships/${dealershipId}/users/${saved.id}/signature`, { 'If-Match': String(saved.version) })
       }
       idempotency.renew()
       onSaved(saved)

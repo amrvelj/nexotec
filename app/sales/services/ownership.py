@@ -201,11 +201,13 @@ def _assert_colleague_acts_everywhere(
     allowed = list_user_dealership_ids(db, user_id=to_user_id)
     outside = sorted({str(row.tenant_id) for row in rows if row.tenant_id not in allowed})
     if outside:
+        # Never the other Betrieb's id (a 404-not-403 world: an id is a fact
+        # the caller may not hold); the count says how much is elsewhere.
         raise UnprocessableEntityError(
-            f"sales/{group}: the colleague cannot act in every business these records belong to "
-            f"(business {', '.join(outside)}) — leave the group unassigned (null) or choose a colleague who is a "
-            "member there.",
-            details={"module": MODULE, "group": group, "toUserId": str(to_user_id), "dealershipIds": outside},
+            f"sales/{group}: {sum(1 for row in rows if row.tenant_id not in allowed)} of these records belong to "
+            "another business the colleague cannot act in — leave the group unassigned (null), and that business "
+            "hands them over from its own queue, or choose a colleague who is a member there.",
+            details={"module": MODULE, "group": group, "toUserId": str(to_user_id)},
         )
 
 

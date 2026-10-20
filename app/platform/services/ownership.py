@@ -9,9 +9,10 @@ is the owning module's own write on a session of its own, committed there
 with the actor, on its own session, after the module's commit. A module
 that fails leaves its records with the user: the step raises after the
 rows already moved are recorded, the user stays deactivated (access is cut
-first — the safe direction), and `GET …/ownership` lists what is still
-theirs for `POST …/ownership/transfers`, the retry. Nothing is rolled back
-across the seam, which is the point.
+first — the safe direction), the answer names the failed group, and
+`GET …/ownership` lists what is still theirs for
+`POST …/ownership/transfers`, the retry. Nothing is rolled back across the
+seam, which is the point.
 """
 
 import logging
@@ -24,7 +25,7 @@ from app.core.audit import record_audit_event
 from app.core.errors import UnprocessableEntityError
 from app.core.ownership import OwnedGroup, OwnershipTransfer, ownership_provider, ownership_providers
 from app.platform.models.user import EmploymentStatus, User, UserStatus
-from app.platform.schemas.user import OwnershipTransferRequest, OwnershipTransferResult
+from app.platform.schemas.user import OwnershipTransferFailure, OwnershipTransferRequest, OwnershipTransferResult
 from app.platform.services import user as user_service
 
 logger = logging.getLogger(__name__)
@@ -113,12 +114,17 @@ def apply_transfers(
     transfers: list[OwnershipTransfer],
     actor_id: uuid.UUID | None,
     reason: str | None,
-) -> list[OwnershipTransferResult]:
+) -> tuple[list[OwnershipTransferResult], list[OwnershipTransferFailure]]:
     """Runs each transfer in its module (own session, own commit) and
     records it on platform's audit log, committed per group — so what has
-    moved is recorded even when a later module fails."""
+    moved is recorded even when a later module fails. A module that raises
+    is logged (the alarm) and reported in the second list; the next groups
+    still run, and the failed group's records stay with the user for the
+    retry — never a 500 after the status already changed (ADR-047: no
+    shared transaction to undo, so the answer says what happened)."""
 
     results: list[OwnershipTransferResult] = []
+    failed: list[OwnershipTransferFailure] = []
     for transfer in transfers:
         provider = ownership_provider(transfer.module)
         if provider is None:  # resolve_transfers admitted only registered modules
@@ -132,7 +138,7 @@ def apply_transfers(
                 actor_id=actor_id,
                 reason=reason,
             )
-        except Exception:
+        except Exception as exc:
             logger.exception(
                 "platform.ownership.transfer_failed module=%s group=%s user=%s",
                 transfer.module,
@@ -140,7 +146,9 @@ def apply_transfers(
                 user.id,
                 extra={"ownershipModule": transfer.module, "group": transfer.group, "userId": str(user.id)},
             )
-            raise
+            db.rollback()
+            failed.append(OwnershipTransferFailure(module=transfer.module, group=transfer.group, error=str(exc)))
+            continue
         record_audit_event(
             db,
             entity_type="user",
@@ -163,12 +171,12 @@ def apply_transfers(
                 module=transfer.module, group=transfer.group, to_user_id=transfer.to_user_id, count=count
             )
         )
-    return results
+    return results, failed
 
 
 def release_everything(
     db: Session, session_factory: Callable[[], Session], *, user: User, actor_id: uuid.UUID | None, reason: str
-) -> list[OwnershipTransferResult]:
+) -> tuple[list[OwnershipTransferResult], list[OwnershipTransferFailure]]:
     """The automatic deactivation's hand-over (FR-A-12): nobody is there
     to choose, so every open group goes to the module's own queue."""
 
@@ -189,7 +197,7 @@ def deactivate_user(
     actor_id: uuid.UUID,
     actor_roles: frozenset,
     employment_status: EmploymentStatus | None = None,
-) -> tuple[User, list[OwnershipTransferResult]]:
+) -> tuple[User, list[OwnershipTransferResult], list[OwnershipTransferFailure]]:
     """Validates the whole step first (the last-manager rule, every group
     decided), then cuts access (platform's own commit: status, sessions,
     delegations, the stamps), then hands the records over module by module."""
@@ -212,5 +220,5 @@ def deactivate_user(
         reason=reason,
         allow_deactivation=True,
     )
-    results = apply_transfers(db, session_factory, user=updated, transfers=transfers, actor_id=actor_id, reason=reason)
-    return updated, results
+    results, failed = apply_transfers(db, session_factory, user=updated, transfers=transfers, actor_id=actor_id, reason=reason)
+    return updated, results, failed

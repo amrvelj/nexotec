@@ -14,10 +14,14 @@ entity's three so the list shows and filters without a join.
 Backfill: `owner_user_id = created_by` where the creator is a user who
 acts in the row's Betrieb — homed there, or holding an active membership
 (a sister-Betrieb member creates offers there and owns them, as at
-runtime); the label from the user row (`first_name last_name`). A creator
-that names no user (a system write, KAN-243) or a platform staff member
-who is not a member leaves the owner NULL — the unassigned queue, as
-`default_owner` would. The deal row takes its contract's seller when it
+runtime) — and still holds or awaits access (`active` or `invited`, the
+statuses `default_owner` admits); the label from the user row
+(`first_name last_name`). A creator that names no user (a system write,
+KAN-243), a platform staff member who is not a member, or a suspended or
+deactivated creator leaves the owner NULL — the unassigned queue; nightly
+reconciliation would otherwise report every open deal of a long-gone
+seller on the first run. `sales_deal.owner_label` is indexed: the grid
+sorts on it. The deal row takes its contract's seller when it
 has one, else its offer's. Guarded for offline mode (KAN-174): the
 backfill reads rows.
 
@@ -41,7 +45,8 @@ from alembic import context, op
 revision: str = "a4c9e2d7f1b3"
 down_revision: str | Sequence[str] | None = "1fe7be00026d"
 branch_labels: str | Sequence[str] | None = None
-depends_on: str | Sequence[str] | None = None
+# The backfill reads platform's `user` and `dealership_membership` (e7c3a48f1d92).
+depends_on: str | Sequence[str] | None = ("e7c3a48f1d92",)
 
 _OWNER_COMMENT = "Owned by the platform context (User). No DB-level FK."
 
@@ -73,6 +78,7 @@ def _backfill() -> None:
                 f'UPDATE "{table}" t SET owner_user_id = u.id, '
                 "owner_label = trim(u.first_name || ' ' || u.last_name), owner_label_refreshed_at = now() "
                 'FROM "user" u WHERE t.created_by = u.id AND t.owner_user_id IS NULL '
+                "AND u.status IN ('active', 'invited') "
                 "AND (u.tenant_id = t.tenant_id OR EXISTS ("
                 "SELECT 1 FROM dealership_membership m WHERE m.user_id = u.id AND m.dealership_id = t.tenant_id "
                 "AND (m.valid_to IS NULL OR m.valid_to > now())))"
@@ -99,10 +105,12 @@ def _backfill() -> None:
 def upgrade() -> None:
     for table in _TABLES:
         _add_owner_columns(table)
+    op.create_index("ix_sales_deal_owner_label", "sales_deal", ["owner_label"])
     _backfill()
 
 
 def downgrade() -> None:
+    op.drop_index("ix_sales_deal_owner_label", table_name="sales_deal")
     for table in reversed(_TABLES):
         op.drop_index(f"ix_{table}_owner_user_id", table_name=table)
         op.drop_column(table, "owner_label_refreshed_at")

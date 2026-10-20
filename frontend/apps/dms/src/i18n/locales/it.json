@@ -2108,7 +2108,8 @@
     },
     "actions": {
       "resendFailed": "Impossibile inviare l'invito.",
-      "statusFailed": "Impossibile modificare lo stato."
+      "statusFailed": "Impossibile modificare lo stato.",
+      "handOverFailed": "Disattivato, ma non tutto è stato trasferito — {{groups}}. Queste pratiche restano per ora a questa persona; «Trasferire le pratiche aperte» nel menu di riga riprova."
     },
     "form": {
       "inviteTitle": "Invita utente",

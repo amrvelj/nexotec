@@ -29,6 +29,7 @@ DEAL_SORT_FIELDS: dict[str, object] = {
     "number": SalesDeal.number,
     "customerLabel": SalesDeal.customer_label,
     "vehicleLabel": SalesDeal.vehicle_label,
+    "ownerLabel": SalesDeal.owner_label,  # KAN-200; ix_sales_deal_owner_label
     "grossPrice": SalesDeal.gross_price,
     "updatedAt": SalesDeal.updated_at,
     "createdAt": SalesDeal.created_at,

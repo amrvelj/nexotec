@@ -5949,7 +5949,7 @@ export interface components {
              * @default false
              */
             mfaEnrolmentRequired?: boolean;
-            user: components["schemas"]["SessionUserRead"];
+            user: components["schemas"]["UserRead"];
         };
         /**
          * LoginStatusRead
@@ -6432,6 +6432,20 @@ export interface components {
             modules: string[];
         };
         /**
+         * OwnershipTransferFailure
+         * @description A group whose module refused or failed the hand-over: its records
+         *     are still the user's, listed by `GET …/ownership` for the retry
+         *     (`POST …/ownership/transfers`). `error` is the module's message.
+         */
+        OwnershipTransferFailure: {
+            /** Error */
+            error: string;
+            /** Group */
+            group: string;
+            /** Module */
+            module: string;
+        };
+        /**
          * OwnershipTransferRequest
          * @description The manager's decision for one group: a colleague (`to_user_id`), or
          *     null — the records go to the module's own unassigned queue.
@@ -6457,6 +6471,8 @@ export interface components {
         };
         /** OwnershipTransfersRead */
         OwnershipTransfersRead: {
+            /** Failed */
+            failed?: components["schemas"]["OwnershipTransferFailure"][];
             /** Transfers */
             transfers: components["schemas"]["OwnershipTransferResult"][];
         };
@@ -6977,60 +6993,6 @@ export interface components {
              */
             lastSeenAt: string;
         };
-        /**
-         * SessionUserRead
-         * @description `LoginResponse.user` and `GET /auth/me` — exactly the fields they
-         *     carried before KAN-200 (the ticket's do-not-touch). The administration
-         *     fields and the derived ones (`hasSignatureImage`, the sites, the
-         *     invitation expiry) are `UserRead`'s, read through `user_read`; a plain
-         *     `model_validate` of the row cannot fill them, so the session never
-         *     pretends to.
-         */
-        SessionUserRead: {
-            /** Accessroles */
-            accessRoles: components["schemas"]["AccessRole"][];
-            /** Authidentityid */
-            authIdentityId: string;
-            /**
-             * Createdat
-             * Format: date-time
-             */
-            createdAt: string;
-            /** Createdby */
-            createdBy: string | null;
-            /**
-             * Dealershipid
-             * Format: uuid
-             */
-            dealershipId: string;
-            /** Email */
-            email: string;
-            employmentStatus: components["schemas"]["EmploymentStatus"];
-            /** Firstname */
-            firstName: string;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Isdealermanager */
-            isDealerManager: boolean;
-            /** Lastname */
-            lastName: string;
-            /** Phone */
-            phone: string | null;
-            role: components["schemas"]["UserRole"];
-            status: components["schemas"]["UserStatus"];
-            /**
-             * Updatedat
-             * Format: date-time
-             */
-            updatedAt: string;
-            /** Updatedby */
-            updatedBy: string | null;
-            /** Version */
-            version: number;
-        };
         /** SetOptionsRequest */
         SetOptionsRequest: {
             /** Baseprice */
@@ -7501,129 +7463,8 @@ export interface components {
              */
             indicative?: boolean;
         };
-        /**
-         * UserCreate
-         * @description dealership_id is not part of the body — it comes from the
-         *     POST /v1/dealerships/{id}/users path, per the spec's endpoint shape.
-         *
-         *     access_roles/is_dealer_manager (WP-2 PR-2) replace the old scalar
-         *     access_role — at least one functional role is required even for a
-         *     manager, same as every other user (RP-3: "primary role grants a preset;
-         *     the dealer manager additively enables further modules").
-         *
-         *     KAN-200 (Users → Fields): the organisation, commercial and lifecycle
-         *     fields the Users screen edits, every one optional — nothing newly
-         *     required (a required field would be a breaking contract change).
-         *     `phone` is the mobile number; `direct_dial` the desk extension.
-         */
-        UserCreate: {
-            /** Accessroles */
-            accessRoles: components["schemas"]["AccessRole"][];
-            /** Additionallocationids */
-            additionalLocationIds?: string[];
-            /** Authidentityid */
-            authIdentityId?: string | null;
-            /**
-             * Commissionrelevant
-             * @default false
-             */
-            commissionRelevant?: boolean;
-            /** Department */
-            department?: string | null;
-            /** Directdial */
-            directDial?: string | null;
-            /**
-             * Email
-             * Format: email
-             */
-            email: string;
-            /** Employeenumber */
-            employeeNumber?: string | null;
-            /** @default active */
-            employmentStatus?: components["schemas"]["EmploymentStatus"];
-            /** Firstname */
-            firstName: string;
-            /**
-             * Isdealermanager
-             * @default false
-             */
-            isDealerManager?: boolean;
-            /** Lastname */
-            lastName: string;
-            /** Linemanageruserid */
-            lineManagerUserId?: string | null;
-            /** Phone */
-            phone?: string | null;
-            /** Primarylocationid */
-            primaryLocationId?: string | null;
-            role: components["schemas"]["UserRole"];
-            /** Salesadvisorcode */
-            salesAdvisorCode?: string | null;
-            /** Validfrom */
-            validFrom?: string | null;
-            /** Validto */
-            validTo?: string | null;
-        };
-        /**
-         * UserDeactivateRequest
-         * @description `reason` is stored on the user and on the audit row; `transfers`
-         *     must decide every group the user still owns (422 names the missing
-         *     ones) — never silently with the leaver.
-         */
-        UserDeactivateRequest: {
-            employmentStatus?: components["schemas"]["EmploymentStatus"] | null;
-            /** Reason */
-            reason: string;
-            /** Transfers */
-            transfers?: components["schemas"]["OwnershipTransferRequest"][];
-        };
-        /** UserDeactivatedRead */
-        UserDeactivatedRead: {
-            /** Transfers */
-            transfers: components["schemas"]["OwnershipTransferResult"][];
-            user: components["schemas"]["UserRead"];
-        };
-        /** UserPage */
-        UserPage: {
-            /** Items */
-            items: components["schemas"]["UserRead"][];
-            /** Nextcursor */
-            nextCursor: string | null;
-        };
-        /** UserPreferenceListRead */
-        UserPreferenceListRead: {
-            /** Items */
-            items: components["schemas"]["UserPreferenceRead"][];
-        };
-        /** UserPreferenceRead */
-        UserPreferenceRead: {
-            /** Payload */
-            payload: {
-                [key: string]: unknown;
-            };
-            /** Scope */
-            scope: string;
-            /** Updatedat */
-            updatedAt: string | null;
-        };
-        /**
-         * UserPreferenceWrite
-         * @description PUT body. `extra="allow"` because the module-specific preference
-         *     fields (sort, density, columns, ...) are not known to the platform
-         *     layer — see module docstring. model_config here merges with (does not
-         *     replace) CamelModel's, per Pydantic v2 subclass config inheritance.
-         */
-        UserPreferenceWrite: {
-            /**
-             * Schemaversion
-             * @default 1
-             */
-            schemaVersion?: number;
-        } & {
-            [key: string]: unknown;
-        };
-        /** UserRead */
-        UserRead: {
+        /** UserAdminRead */
+        UserAdminRead: {
             /** Accessroles */
             accessRoles: components["schemas"]["AccessRole"][];
             /** Additionallocationids */
@@ -7703,6 +7544,184 @@ export interface components {
             validFrom?: string | null;
             /** Validto */
             validTo?: string | null;
+            /** Version */
+            version: number;
+        };
+        /**
+         * UserCreate
+         * @description dealership_id is not part of the body — it comes from the
+         *     POST /v1/dealerships/{id}/users path, per the spec's endpoint shape.
+         *
+         *     access_roles/is_dealer_manager (WP-2 PR-2) replace the old scalar
+         *     access_role — at least one functional role is required even for a
+         *     manager, same as every other user (RP-3: "primary role grants a preset;
+         *     the dealer manager additively enables further modules").
+         *
+         *     KAN-200 (Users → Fields): the organisation, commercial and lifecycle
+         *     fields the Users screen edits, every one optional — nothing newly
+         *     required (a required field would be a breaking contract change).
+         *     `phone` is the mobile number; `direct_dial` the desk extension.
+         */
+        UserCreate: {
+            /** Accessroles */
+            accessRoles: components["schemas"]["AccessRole"][];
+            /** Additionallocationids */
+            additionalLocationIds?: string[];
+            /** Authidentityid */
+            authIdentityId?: string | null;
+            /**
+             * Commissionrelevant
+             * @default false
+             */
+            commissionRelevant?: boolean;
+            /** Department */
+            department?: string | null;
+            /** Directdial */
+            directDial?: string | null;
+            /**
+             * Email
+             * Format: email
+             */
+            email: string;
+            /** Employeenumber */
+            employeeNumber?: string | null;
+            /** @default active */
+            employmentStatus?: components["schemas"]["EmploymentStatus"];
+            /** Firstname */
+            firstName: string;
+            /**
+             * Isdealermanager
+             * @default false
+             */
+            isDealerManager?: boolean;
+            /** Lastname */
+            lastName: string;
+            /** Linemanageruserid */
+            lineManagerUserId?: string | null;
+            /** Phone */
+            phone?: string | null;
+            /** Primarylocationid */
+            primaryLocationId?: string | null;
+            role: components["schemas"]["UserRole"];
+            /** Salesadvisorcode */
+            salesAdvisorCode?: string | null;
+            /** Validfrom */
+            validFrom?: string | null;
+            /** Validto */
+            validTo?: string | null;
+        };
+        /**
+         * UserDeactivateRequest
+         * @description `reason` is stored on the user and on the audit row; `transfers`
+         *     must decide every group the user still owns (422 names the missing
+         *     ones) — never silently with the leaver.
+         */
+        UserDeactivateRequest: {
+            employmentStatus?: components["schemas"]["EmploymentStatus"] | null;
+            /** Reason */
+            reason: string;
+            /** Transfers */
+            transfers?: components["schemas"]["OwnershipTransferRequest"][];
+        };
+        /** UserDeactivatedRead */
+        UserDeactivatedRead: {
+            /** Failed */
+            failed?: components["schemas"]["OwnershipTransferFailure"][];
+            /** Transfers */
+            transfers: components["schemas"]["OwnershipTransferResult"][];
+            user: components["schemas"]["UserAdminRead"];
+        };
+        /** UserPage */
+        UserPage: {
+            /** Items */
+            items: components["schemas"]["UserAdminRead"][];
+            /** Nextcursor */
+            nextCursor: string | null;
+        };
+        /** UserPreferenceListRead */
+        UserPreferenceListRead: {
+            /** Items */
+            items: components["schemas"]["UserPreferenceRead"][];
+        };
+        /** UserPreferenceRead */
+        UserPreferenceRead: {
+            /** Payload */
+            payload: {
+                [key: string]: unknown;
+            };
+            /** Scope */
+            scope: string;
+            /** Updatedat */
+            updatedAt: string | null;
+        };
+        /**
+         * UserPreferenceWrite
+         * @description PUT body. `extra="allow"` because the module-specific preference
+         *     fields (sort, density, columns, ...) are not known to the platform
+         *     layer — see module docstring. model_config here merges with (does not
+         *     replace) CamelModel's, per Pydantic v2 subclass config inheritance.
+         */
+        UserPreferenceWrite: {
+            /**
+             * Schemaversion
+             * @default 1
+             */
+            schemaVersion?: number;
+        } & {
+            [key: string]: unknown;
+        };
+        /**
+         * UserRead
+         * @description The session's user: `LoginResponse.user` and `GET /auth/me` — exactly
+         *     the fields and the schema name they carried before KAN-200 (the
+         *     ticket's do-not-touch: the OpenAPI component and the SPA's `AuthContext`
+         *     stay as they were). The administration fields and the derived ones
+         *     (`hasSignatureImage`, the sites, the invitation expiry) are
+         *     `UserAdminRead`'s, read through `user_read`; a plain `model_validate` of
+         *     the row cannot fill them, so the session never pretends to.
+         */
+        UserRead: {
+            /** Accessroles */
+            accessRoles: components["schemas"]["AccessRole"][];
+            /** Authidentityid */
+            authIdentityId: string;
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            /** Createdby */
+            createdBy: string | null;
+            /**
+             * Dealershipid
+             * Format: uuid
+             */
+            dealershipId: string;
+            /** Email */
+            email: string;
+            employmentStatus: components["schemas"]["EmploymentStatus"];
+            /** Firstname */
+            firstName: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Isdealermanager */
+            isDealerManager: boolean;
+            /** Lastname */
+            lastName: string;
+            /** Phone */
+            phone: string | null;
+            role: components["schemas"]["UserRole"];
+            status: components["schemas"]["UserStatus"];
+            /**
+             * Updatedat
+             * Format: date-time
+             */
+            updatedAt: string;
+            /** Updatedby */
+            updatedBy: string | null;
             /** Version */
             version: number;
         };
@@ -11568,7 +11587,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["UserRead"];
+                    "application/json": components["schemas"]["UserAdminRead"];
                 };
             };
             /** @description Validation Error */
@@ -11604,7 +11623,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["UserRead"];
+                    "application/json": components["schemas"]["UserAdminRead"];
                 };
             };
             /** @description Validation Error */
@@ -11645,7 +11664,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["UserRead"];
+                    "application/json": components["schemas"]["UserAdminRead"];
                 };
             };
             /** @description Validation Error */
@@ -11803,7 +11822,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["UserRead"];
+                    "application/json": components["schemas"]["UserAdminRead"];
                 };
             };
             /** @description Validation Error */
@@ -12182,7 +12201,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["UserRead"];
+                    "application/json": components["schemas"]["UserAdminRead"];
                 };
             };
             /** @description Validation Error */
@@ -12219,7 +12238,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["UserRead"];
+                    "application/json": components["schemas"]["UserAdminRead"];
                 };
             };
             /** @description Validation Error */

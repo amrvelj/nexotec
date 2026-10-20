@@ -18,6 +18,8 @@ type Schemas = components['schemas']
 export type AccessRole = Schemas['AccessRole']
 export type UserStatus = Schemas['UserStatus']
 export type UserRead = Schemas['UserRead']
+// KAN-200: the Users screen's read — the session's `UserRead` keeps its pre-KAN-200 shape.
+export type UserAdminRead = Schemas['UserAdminRead']
 export type DealershipMembershipSummary = Schemas['DealershipMembershipSummary']
 export type LoginResponse = Schemas['LoginResponse']
 // KAN-196 — the identity front door and My account › Security

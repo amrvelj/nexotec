@@ -166,8 +166,11 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   platform-wide, so a provider counts what the user owns **everywhere** — a sister-Betrieb
   member's offers there included (`platform.public.get_user_acting_in` is how Sales admits a
   seller: homed or an active member, status active or invited) — and a hand-over to a colleague
-  who cannot act in one of those Betriebe is refused as a whole (422 naming it): the manager
-  picks the queue for that group. `GET …/users/{id}/ownership`
+  who cannot act in one of those Betriebe is refused as a whole (422 saying how many records
+  are elsewhere, never which Betrieb — an id is a fact the caller may not hold): the manager
+  picks the queue for that group, and that Betrieb hands them over from its own queue. **Open
+  with Anto:** whether the home manager may hand a sister Betrieb's records to a colleague at
+  all (KAN-199's rule is "a manager of the home who also manages the target"). `GET …/users/{id}/ownership`
   lists the groups; `POST …/users/{id}/deactivate` needs a decision for every group (an
   **active** colleague, or null = the module's own unassigned queue: `GET /sales/deals?unassigned=true`,
   `GET /customers?unassigned=true`, both filterable on screen), cuts
@@ -179,10 +182,16 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   enforced** (Users → Lifecycle): `invited → active` happens only by accepting the invitation
   (PATCH `status: active` on an invited user is 409 `accept_invitation_required`), only an
   active user can be suspended (409 `not_active`), and **reactivation is allowed**: PATCH
-  `status: active`, with `employmentStatus` when the employment ended with the user — a
+  `status: active`, with `employmentStatus` when the employment ended with the user and a new
+  `validFrom`/`validTo` when the old window expired — a
   deactivated user who holds no credential (deactivated while invited, or after a staff MFA/
   credential reset) comes back as `invited`, not `active`, and the manager resends the
-  invitation; any other edit of a deactivated user stays 409. The nightly
+  invitation; any other edit of a deactivated user stays 409. The one exception to "only by
+  accepting" is `scripts/seed_staging_demo.py`, which activates its demo user on the row (nobody
+  to mail), audited with reason `seed_staging_demo` — the same bootstrap exception as its
+  password. A module that fails during a hand-over is answered, not raised: `failed` on the
+  deactivation's and the transfer's response names the group and the module's error; the
+  records stay with the user for the retry. The nightly
   `platform.user_expiry` job (FR-A-12, worker only — not on staging) deactivates a user whose
   `valid_to` has passed with platform's own authority (a staff account expires too), one user
   at a time (a failure on one is logged, the rest go on), releases their records to the queues,

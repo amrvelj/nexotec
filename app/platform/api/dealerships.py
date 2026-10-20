@@ -59,11 +59,11 @@ from app.platform.schemas.user import (
     OwnershipRead,
     OwnershipTransfersRead,
     OwnershipTransfersRequest,
+    UserAdminRead,
     UserCreate,
     UserDeactivatedRead,
     UserDeactivateRequest,
     UserPage,
-    UserRead,
     UserUpdate,
 )
 from app.platform.services import auth_events, auth_sessions, identity, mfa, signature, user_location
@@ -190,7 +190,7 @@ def set_entitlements(
 # --- User ----------------------------------------------------------------
 
 
-@router.post("/dealerships/{dealership_id}/users", response_model=UserRead, status_code=201)
+@router.post("/dealerships/{dealership_id}/users", response_model=UserAdminRead, status_code=201)
 def create_user(
     dealership_id: uuid.UUID,
     body: UserCreate,
@@ -221,7 +221,7 @@ def create_user(
     return user_service.user_read(db, user)
 
 
-@router.get("/dealerships/{dealership_id}/users/{user_id}", response_model=UserRead)
+@router.get("/dealerships/{dealership_id}/users/{user_id}", response_model=UserAdminRead)
 def get_user(
     dealership_id: uuid.UUID,
     user_id: uuid.UUID,
@@ -233,7 +233,7 @@ def get_user(
     return user_service.user_read(db, user)
 
 
-@router.patch("/dealerships/{dealership_id}/users/{user_id}", response_model=UserRead)
+@router.patch("/dealerships/{dealership_id}/users/{user_id}", response_model=UserAdminRead)
 def update_user(
     dealership_id: uuid.UUID,
     user_id: uuid.UUID,
@@ -390,10 +390,10 @@ def transfer_user_ownership(
     user_service.assert_may_touch(user=user, actor_roles=principal.roles)
     transfers = ownership_service.resolve_transfers(db, user=user, requested=body.transfers, require_every_group=False)
     db.commit()  # releases the user-row lock before the modules take their own
-    results = ownership_service.apply_transfers(
+    results, failed = ownership_service.apply_transfers(
         db, session_factory, user=user, transfers=transfers, actor_id=principal.user_id, reason=body.reason
     )
-    return OwnershipTransfersRead(transfers=results)
+    return OwnershipTransfersRead(transfers=results, failed=failed)
 
 
 @router.post("/dealerships/{dealership_id}/users/{user_id}/deactivate", response_model=UserDeactivatedRead)
@@ -415,7 +415,7 @@ def deactivate_user(
     require_tenant_match(dealership_id, principal)
     user = user_service.get_user_for_update_or_404(db, dealership_id, user_id)  # KAN-380
     check_version(user.version, if_match, entity_name="User")
-    updated, results = ownership_service.deactivate_user(
+    updated, results, failed = ownership_service.deactivate_user(
         db,
         session_factory,
         user=user,
@@ -425,10 +425,10 @@ def deactivate_user(
         actor_roles=principal.roles,
         employment_status=body.employment_status,
     )
-    return UserDeactivatedRead(user=user_service.user_read(db, updated), transfers=results)
+    return UserDeactivatedRead(user=user_service.user_read(db, updated), transfers=results, failed=failed)
 
 
-@router.put("/dealerships/{dealership_id}/users/{user_id}/signature", response_model=UserRead)
+@router.put("/dealerships/{dealership_id}/users/{user_id}/signature", response_model=UserAdminRead)
 def put_user_signature(
     dealership_id: uuid.UUID,
     user_id: uuid.UUID,
@@ -476,7 +476,7 @@ def get_user_signature(
     return Response(content=stored.data, media_type=stored.content_type, headers={"Cache-Control": "private, no-store"})
 
 
-@router.delete("/dealerships/{dealership_id}/users/{user_id}/signature", response_model=UserRead)
+@router.delete("/dealerships/{dealership_id}/users/{user_id}/signature", response_model=UserAdminRead)
 def delete_user_signature(
     dealership_id: uuid.UUID,
     user_id: uuid.UUID,
@@ -573,7 +573,7 @@ def set_membership_manager_flag(
     return membership_service.read_membership(db, row)
 
 
-@router.put("/dealerships/{dealership_id}/users/{user_id}/manager-flag", response_model=UserRead)
+@router.put("/dealerships/{dealership_id}/users/{user_id}/manager-flag", response_model=UserAdminRead)
 def set_home_manager_flag(
     dealership_id: uuid.UUID,
     user_id: uuid.UUID,
@@ -652,11 +652,7 @@ def end_text_delegations(
 # --- Identity administration (KAN-196: FR-AU-10/11/12/17/21/25) -------------------------
 
 
-@router.post(
-    "/dealerships/{dealership_id}/users/{user_id}/invitations",
-    status_code=202,
-    dependencies=[Depends(require_mfa_session())],
-)
+@router.post("/dealerships/{dealership_id}/users/{user_id}/invitations", status_code=202, dependencies=[Depends(require_mfa_session())])
 def reissue_invitation(
     dealership_id: uuid.UUID,
     user_id: uuid.UUID,
@@ -685,11 +681,7 @@ def reissue_invitation(
     db.commit()
 
 
-@router.get(
-    "/dealerships/{dealership_id}/users/{user_id}/login-status",
-    response_model=LoginStatusRead,
-    dependencies=[Depends(require_mfa_session())],
-)
+@router.get("/dealerships/{dealership_id}/users/{user_id}/login-status", response_model=LoginStatusRead, dependencies=[Depends(require_mfa_session())])
 def get_login_status(
     dealership_id: uuid.UUID,
     user_id: uuid.UUID,
@@ -799,9 +791,7 @@ def get_auth_config(
     require_tenant_match(dealership_id, principal)
     dealership_service.get_dealership_or_404(db, dealership_id)
     config = identity.read_auth_config(db, dealership_id)
-    return AuthConfigRead(
-        auth_method=config.auth_method.value, mfa_enforced=config.mfa_enforced, version=config.version
-    )
+    return AuthConfigRead(auth_method=config.auth_method.value, mfa_enforced=config.mfa_enforced, version=config.version)
 
 
 @router.put(

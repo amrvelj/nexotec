@@ -60,7 +60,7 @@ from app.platform.schemas.auth import (
     TotpConfirmRequest,
     TotpEnrolmentRead,
 )
-from app.platform.schemas.user import SessionUserRead
+from app.platform.schemas.user import UserRead
 from app.platform.services import auth_events, auth_sessions, auth_tokens, identity, mfa
 from app.platform.services import dealership as dealership_service
 from app.platform.services import entitlement as entitlement_service
@@ -215,7 +215,7 @@ def _login_response(
     rows = dealership_service.list_dealerships_by_ids(db, membership_ids)
     rows.sort(key=lambda d: (d.id != active_dealership.id, d.legal_name))
     return LoginResponse(
-        user=SessionUserRead.model_validate(user, from_attributes=True),
+        user=UserRead.model_validate(user, from_attributes=True),
         active_dealership=DealershipMembershipSummary.model_validate(active_dealership, from_attributes=True),
         memberships=[DealershipMembershipSummary.model_validate(d, from_attributes=True) for d in rows],
         entitlements=sorted(ModuleCode(code) for code in entitlements),

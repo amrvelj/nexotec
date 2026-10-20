@@ -1,6 +1,6 @@
 import { ArrowRightLeft, MailPlus, Pencil, PlayCircle, PauseCircle, UserX } from 'lucide-react'
 import type { RowMenuGroups } from '@nexotec/ui-kit'
-import type { UserRead } from '../../api/types'
+import type { UserAdminRead } from '../../api/types'
 
 type T = (key: string, options?: Record<string, unknown>) => string
 
@@ -27,7 +27,7 @@ export interface UserRowMenuHandlers {
  */
 export function buildUserRowMenu(
   t: T,
-  user: Pick<UserRead, 'status'>,
+  user: Pick<UserAdminRead, 'status'>,
   handlers: UserRowMenuHandlers,
   options: { isSelf: boolean },
 ): RowMenuGroups {

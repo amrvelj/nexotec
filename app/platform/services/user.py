@@ -25,7 +25,7 @@ from app.platform.models.auth_token import AuthToken, AuthTokenKind
 from app.platform.models.credential import Credential
 from app.platform.models.dealership_membership import DealershipMembership
 from app.platform.models.user import EmploymentStatus, User, UserStatus
-from app.platform.schemas.user import UserCreate, UserRead, UserUpdate
+from app.platform.schemas.user import UserAdminRead, UserCreate, UserUpdate
 from app.platform.services import auth_events, auth_sessions, text_delegation, user_location
 
 # access_roles/is_dealer_manager are audited alongside role/status even
@@ -54,7 +54,9 @@ _TERMINAL_USER_STATUSES = {UserStatus.DEACTIVATED}
 _ACTIVE_USER_STATUSES = {UserStatus.INVITED, UserStatus.ACTIVE}
 # The one PATCH a deactivated user accepts: reactivation (with, when the
 # employment ended with them, its return in the same request).
-_REACTIVATION_FIELDS = {"status", "employment_status"}
+# KAN-200: a reactivation may bring the employment back and set a new validity
+# window — an expired user would otherwise be deactivated again that night.
+_REACTIVATION_FIELDS = {"status", "employment_status", "valid_from", "valid_to"}
 
 
 def assert_user_is_not_deactivated(user: User) -> None:
@@ -195,9 +197,7 @@ def _assert_may_create_with_roles(*, roles: list[AccessRole], actor_roles: froze
         raise ForbiddenError("Only platform staff can grant the platform_admin role.")
 
 
-def _assert_credential_channel_rules(
-    *, user: User, changes: dict[str, Any], actor_roles: frozenset[AccessRole]
-) -> None:
+def _assert_credential_channel_rules(*, user: User, changes: dict[str, Any], actor_roles: frozenset[AccessRole]) -> None:
     """KAN-196 (D-A-16): the status `invited` is where an account starts,
     never where it returns to — otherwise a manager could re-open the
     onboarding path (re-invite) on an active colleague. And the e-mail
@@ -824,7 +824,7 @@ def invitation_expiries(db: Session, *, user_ids: Iterable[uuid.UUID]) -> dict[u
     return result
 
 
-def user_reads(db: Session, users: list[User]) -> list[UserRead]:
+def user_reads(db: Session, users: list[User]) -> list[UserAdminRead]:
     """The Users screen's read shape: the row plus its sites and, for an
     invited user, when the invitation runs out — read in two queries for the
     whole page, never one per row."""
@@ -832,11 +832,11 @@ def user_reads(db: Session, users: list[User]) -> list[UserRead]:
     ids = [user.id for user in users]
     locations = user_location.locations_of(db, user_ids=ids)
     expiries = invitation_expiries(db, user_ids=[user.id for user in users if user.status == UserStatus.INVITED])
-    reads: list[UserRead] = []
+    reads: list[UserAdminRead] = []
     for user in users:
         primary, additional = locations[user.id]
         reads.append(
-            UserRead.model_validate(user, from_attributes=True).model_copy(
+            UserAdminRead.model_validate(user, from_attributes=True).model_copy(
                 update={
                     "has_signature_image": user.signature_image_ref is not None,
                     "invitation_expires_at": expiries.get(user.id),
@@ -848,7 +848,7 @@ def user_reads(db: Session, users: list[User]) -> list[UserRead]:
     return reads
 
 
-def user_read(db: Session, user: User) -> UserRead:
+def user_read(db: Session, user: User) -> UserAdminRead:
     return user_reads(db, [user])[0]
 
 

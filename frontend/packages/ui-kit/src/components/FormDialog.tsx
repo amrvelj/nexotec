@@ -32,8 +32,10 @@ export interface FormDialogProps {
    * renders its primary action in the destructive tone — the same chrome,
    * the same footer, the colour saying what the label says. */
   destructive?: boolean;
-  /** An element id a `<form>` among the children carries, so the submit
-   * button submits it (Enter in a field submits too). */
+  /** An element id a `<form>` among the children carries: the submit button
+   * becomes that form's submit control (Enter in a field submits too) and
+   * the form's own `onSubmit` is the one path to `onSubmit` — the dialog
+   * does not call it itself then. */
   formId?: string;
 }
 
@@ -89,7 +91,9 @@ export function FormDialog({
             {cancelLabel}
           </Button>
           <Button
-            onClick={() => void onSubmit()}
+            // With a form, the button is that form's submit control and the
+            // form's own onSubmit runs — never both paths (one click, one save).
+            onClick={formId ? undefined : () => void onSubmit()}
             loading={submitting}
             disabled={submitDisabled}
             color={destructive ? "red" : undefined}

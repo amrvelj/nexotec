@@ -29,6 +29,7 @@ from app.core.base import utcnow
 from app.core.outbox import OutboxEvent, publish
 from app.core.ownership import OwnedGroup, OwnershipTransfer
 from app.customer.models.customer import Customer, CustomerLifecycleStatus
+from app.customer.services.customer import _customer_label_payload
 
 logger = logging.getLogger(__name__)
 
@@ -130,14 +131,7 @@ def _transfer_customers(
                 producer=_EVENT_PRODUCER,
                 aggregate_type="customer",
                 aggregate_id=customer.id,
-                payload={
-                    "customerId": str(customer.id),
-                    "customerNumber": customer.customer_number,
-                    "customerType": customer.customer_type.value,
-                    "firstName": customer.first_name,
-                    "lastName": customer.last_name,
-                    "companyName": customer.company_name,
-                },
+                payload=_customer_label_payload(customer),
             ),
         )
     db.flush()

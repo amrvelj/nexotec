@@ -218,6 +218,11 @@ def register_daily_jobs() -> None:
        within minutes, and a stored response can carry personal data. The
        records a context keeps under its own path (inventory's
        ``inventory.reserve:<item>``) are left alone.
+    7. ``platform.user_expiry`` — KAN-200 (FR-A-12): a user whose
+       ``valid_to`` has passed is deactivated and their open records released
+       to the modules' queues; a release a module refused is retried for 30
+       days (a repair of the owning step, after reconciliation like Stock's
+       sweep, so the night's report still names the record first).
     """
 
     register_daily_job("integration.daily_jobs", run_daily_integration_jobs)

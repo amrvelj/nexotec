@@ -271,17 +271,22 @@ def test_a_failed_module_leaves_its_records_for_the_retry_and_the_user_deactivat
         raise RuntimeError("sales is down")
 
     monkeypatch.setattr(sales, "transfer", boom)
-    with pytest.raises(RuntimeError):
-        deactivate(
-            client,
-            dealership,
-            leaver,
-            transfers=[
-                {"module": "customer", "group": "customers", "toUserId": heir["id"]},
-                {"module": "sales", "group": "offers", "toUserId": heir["id"]},
-            ],
-        )
+    response = deactivate(
+        client,
+        dealership,
+        leaver,
+        transfers=[
+            {"module": "customer", "group": "customers", "toUserId": heir["id"]},
+            {"module": "sales", "group": "offers", "toUserId": heir["id"]},
+        ],
+    )
     monkeypatch.undo()
+    # Answered, never a 500 after the status changed: what moved, what did not.
+    assert response.status_code == 200, response.text
+    assert response.json()["transfers"] == [
+        {"module": "customer", "group": "customers", "toUserId": heir["id"], "count": 1}
+    ]
+    assert response.json()["failed"] == [{"module": "sales", "group": "offers", "error": "sales is down"}]
 
     user = client.get(f"/v1/dealerships/{dealership}/users/{leaver['id']}", headers=platform_admin_headers()).json()
     assert user["status"] == "deactivated"
@@ -690,7 +695,9 @@ def test_a_sister_betrieb_members_deals_are_theirs_and_go_to_a_colleague_who_act
         transfers=[{"module": "sales", "group": "offers", "toUserId": home_only["id"]}],
     )
     assert refused.status_code == 422, refused.text
-    assert sister in refused.json()["error"]["details"]["problems"][0]
+    [problem] = refused.json()["error"]["details"]["problems"]
+    assert problem.startswith("sales/offers: 1 of these records belong to another business")
+    assert sister not in refused.text  # never names the other Betrieb (tests/test_user.py's rule)
     still = client.get(f"/v1/dealerships/{home}/users/{leaver['id']}", headers=platform_admin_headers()).json()
     assert still["status"] == "active"  # nothing changed: the manager chooses again
 
@@ -757,26 +764,45 @@ def test_a_seller_set_in_the_workspace_must_hold_or_await_access(client, login):
     """`ownerUserId` refuses a suspended or deactivated user (422), admits
     an invited one and a sister-Betrieb member."""
 
+    from tests.membership_support import create_dealership as create_sister
+    from tests.membership_support import grant
+
     dealership = create_dealership(client)
+    sister = create_sister(client, "Garage Ost AG", group_of=dealership)
     seller = create_user(client, dealership)
     login.accept_invitation(seller)
     gone = create_user(client, dealership, isDealerManager=False)
     assert deactivate(client, dealership, gone).status_code == 200
+    paused = create_user(client, dealership, isDealerManager=False)
+    login.accept_invitation(paused)
+    suspended = client.patch(
+        f"/v1/dealerships/{dealership}/users/{paused['id']}",
+        json={"status": "suspended"},
+        headers={**platform_admin_headers(), "If-Match": "2"},
+    )
+    assert suspended.status_code == 200, suspended.text
     invited = create_user(client, dealership, isDealerManager=False)
+    member = create_user(client, sister, isDealerManager=False)  # homed in the sister, a member of this one
+    assert grant(client, sister, member, dealership).status_code == 201
     offer = client.post("/v1/sales/offers", headers=_as(seller)).json()
 
-    refused = client.patch(
-        f"/v1/sales/offers/{offer['id']}",
-        json={"ownerUserId": gone["id"]},
-        headers={**_as(seller), "If-Match": str(offer["version"])},
-    )
-    assert refused.status_code == 422, refused.text
-    admitted = client.patch(
-        f"/v1/sales/offers/{offer['id']}",
-        json={"ownerUserId": invited["id"]},
-        headers={**_as(seller), "If-Match": str(offer["version"])},
-    )
-    assert admitted.status_code == 200, admitted.text
+    for refused_user in (gone, paused):
+        refused = client.patch(
+            f"/v1/sales/offers/{offer['id']}",
+            json={"ownerUserId": refused_user["id"]},
+            headers={**_as(seller), "If-Match": str(offer["version"])},
+        )
+        assert refused.status_code == 422, refused.text
+    version = offer["version"]
+    for admitted_user in (invited, member):
+        admitted = client.patch(
+            f"/v1/sales/offers/{offer['id']}",
+            json={"ownerUserId": admitted_user["id"]},
+            headers={**_as(seller), "If-Match": str(version)},
+        )
+        assert admitted.status_code == 200, admitted.text
+        assert admitted.json()["ownerUserId"] == admitted_user["id"]
+        version = admitted.json()["version"]
 
 
 def test_the_expiry_job_expires_a_staff_account_and_one_failure_does_not_stop_the_others(

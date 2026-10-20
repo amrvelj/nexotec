@@ -175,6 +175,7 @@ export function SalesListPage() {
         id: 'ownerLabel',
         header: t('salesList.columns.owner'),
         cell: ({ row }) => row.original.ownerLabel ?? '—',
+        meta: { sortField: 'ownerLabel' },
       },
       {
         id: 'status',

@@ -2108,7 +2108,8 @@
     },
     "actions": {
       "resendFailed": "The invitation could not be sent.",
-      "statusFailed": "The status could not be changed."
+      "statusFailed": "The status could not be changed.",
+      "handOverFailed": "Deactivated, but not everything could be handed over — {{groups}}. Those records stay with this person for now; \"Hand over open records\" in the row menu tries again."
     },
     "form": {
       "inviteTitle": "Invite user",

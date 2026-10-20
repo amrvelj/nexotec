@@ -113,7 +113,7 @@ def _assert_window(valid_from: dt.date | None, valid_to: dt.date | None) -> None
         raise ValueError("validTo must not be before validFrom.")
 
 
-class UserRead(CamelModel):
+class UserAdminRead(CamelModel):
     id: uuid.UUID
     dealership_id: uuid.UUID
     first_name: str
@@ -155,13 +155,14 @@ class UserRead(CamelModel):
     additional_location_ids: list[uuid.UUID] = Field(default_factory=list)
 
 
-class SessionUserRead(CamelModel):
-    """`LoginResponse.user` and `GET /auth/me` — exactly the fields they
-    carried before KAN-200 (the ticket's do-not-touch). The administration
-    fields and the derived ones (`hasSignatureImage`, the sites, the
-    invitation expiry) are `UserRead`'s, read through `user_read`; a plain
-    `model_validate` of the row cannot fill them, so the session never
-    pretends to."""
+class UserRead(CamelModel):
+    """The session's user: `LoginResponse.user` and `GET /auth/me` — exactly
+    the fields and the schema name they carried before KAN-200 (the
+    ticket's do-not-touch: the OpenAPI component and the SPA's `AuthContext`
+    stay as they were). The administration fields and the derived ones
+    (`hasSignatureImage`, the sites, the invitation expiry) are
+    `UserAdminRead`'s, read through `user_read`; a plain `model_validate` of
+    the row cannot fill them, so the session never pretends to."""
 
     id: uuid.UUID
     dealership_id: uuid.UUID
@@ -183,7 +184,7 @@ class SessionUserRead(CamelModel):
 
 
 class UserPage(CamelModel):
-    items: list[UserRead]
+    items: list[UserAdminRead]
     next_cursor: str | None
 
 
@@ -246,8 +247,19 @@ class OwnershipTransferResult(CamelModel):
     count: int
 
 
+class OwnershipTransferFailure(CamelModel):
+    """A group whose module refused or failed the hand-over: its records
+    are still the user's, listed by `GET …/ownership` for the retry
+    (`POST …/ownership/transfers`). `error` is the module's message."""
+
+    module: str
+    group: str
+    error: str
+
+
 class OwnershipTransfersRead(CamelModel):
     transfers: list[OwnershipTransferResult]
+    failed: list[OwnershipTransferFailure] = Field(default_factory=list)
 
 
 class UserDeactivateRequest(CamelModel):
@@ -264,5 +276,8 @@ class UserDeactivateRequest(CamelModel):
 
 
 class UserDeactivatedRead(CamelModel):
-    user: UserRead
+    user: UserAdminRead
     transfers: list[OwnershipTransferResult]
+    # KAN-200: a module that failed leaves its records with the (deactivated)
+    # user — said here, never a 500 after the status already changed.
+    failed: list[OwnershipTransferFailure] = Field(default_factory=list)

@@ -4,7 +4,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '../../test/renderWithProviders'
 import { installFakeBackend, status } from '../../test/fakeBackend'
-import type { LocationRead, UserRead } from '../../api/types'
+import type { LocationRead, UserAdminRead } from '../../api/types'
 import { UserFormDialog } from './UserFormDialog'
 
 // KAN-200 — the one user form: an invitation sends every field the PRD
@@ -18,7 +18,7 @@ const LOCATIONS: LocationRead[] = [
   { id: 'loc-2', name: 'Zürich Süd', addressLocality: 'Zürich' },
 ]
 
-function existing(overrides: Partial<UserRead> = {}): UserRead {
+function existing(overrides: Partial<UserAdminRead> = {}): UserAdminRead {
   return {
     id: 'u-1',
     dealershipId: DEALERSHIP,
@@ -62,7 +62,7 @@ const COLLEAGUE = existing({ id: 'u-9', firstName: 'Boss', lastName: 'Meier', em
 describe('UserFormDialog (KAN-200)', () => {
   it('invites a colleague with the organisation, access and validity fields', async () => {
     const user = userEvent.setup()
-    let saved: UserRead | null = null
+    let saved: UserAdminRead | null = null
     const backend = installFakeBackend([
       {
         method: 'POST',
@@ -96,6 +96,8 @@ describe('UserFormDialog (KAN-200)', () => {
     await user.click(dialog.getByRole('button', { name: 'Einladung senden' }))
 
     await waitFor(() => expect(saved).not.toBeNull())
+    // One click, one request: the kit dialog's submit is the form's own.
+    expect(backend.callsTo(/\/dealerships\/dealership-1\/users$/, 'POST')).toHaveLength(1)
     const [post] = backend.callsTo(/\/dealerships\/dealership-1\/users$/, 'POST')
     expect(post.headers.get('Idempotency-Key')).toBeTruthy()
     expect(post.body).toMatchObject({
@@ -138,6 +140,7 @@ describe('UserFormDialog (KAN-200)', () => {
     await user.click(dialog.getByRole('button', { name: 'Speichern' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('at least one active manager')
+    expect(backend.callsTo(/\/users\/u-1$/, 'PATCH')).toHaveLength(1)
     const [patch] = backend.callsTo(/\/users\/u-1$/, 'PATCH')
     expect(patch.headers.get('If-Match')).toBe('3')
     expect(patch.body).toEqual({ department: 'Verkauf', isDealerManager: false })

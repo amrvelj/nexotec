@@ -2108,7 +2108,8 @@
     },
     "actions": {
       "resendFailed": "L'invitation n'a pas pu être envoyée.",
-      "statusFailed": "Le statut n'a pas pu être modifié."
+      "statusFailed": "Le statut n'a pas pu être modifié.",
+      "handOverFailed": "Désactivé, mais tout n'a pas pu être transmis — {{groups}}. Ces dossiers restent pour l'instant chez cette personne ; « Transmettre les dossiers ouverts » dans le menu de ligne réessaie."
     },
     "form": {
       "inviteTitle": "Inviter un utilisateur",

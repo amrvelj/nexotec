@@ -2108,7 +2108,8 @@
     },
     "actions": {
       "resendFailed": "Die Einladung konnte nicht gesendet werden.",
-      "statusFailed": "Der Status konnte nicht geändert werden."
+      "statusFailed": "Der Status konnte nicht geändert werden.",
+      "handOverFailed": "Deaktiviert, aber nicht alles konnte übergeben werden — {{groups}}. Die Vorgänge bleiben vorerst bei dieser Person; «Offene Vorgänge übergeben» im Zeilenmenü versucht es erneut."
     },
     "form": {
       "inviteTitle": "Benutzer einladen",

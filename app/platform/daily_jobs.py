@@ -48,13 +48,19 @@ def _release(db: Session, session_factory: Callable[[], Session], user: User, *,
     """One user's hand-over to the queues; False when a module failed (logged)."""
 
     try:
-        results = ownership.release_everything(db, session_factory, user=user, actor_id=None, reason=EXPIRY_REASON)
+        results, failed = ownership.release_everything(
+            db, session_factory, user=user, actor_id=None, reason=EXPIRY_REASON
+        )
     except Exception:
         db.rollback()
-        logger.exception(
-            "platform.user_expiry: hand-over failed for user %s; retried by the next runs for %d days, "
+        logger.exception("platform.user_expiry: hand-over of user %s could not run", user.id, extra={"userId": str(user.id)})
+        failed, results = None, []
+    if failed is None or failed:
+        logger.error(
+            "platform.user_expiry: hand-over failed for user %s (%s); retried by the next runs for %d days, "
             "reported by reconciliation meanwhile",
             user.id,
+            ", ".join(f"{f.module}/{f.group}: {f.error}" for f in failed or []) or "not run",
             RETRY_WINDOW.days,
             extra={"userId": str(user.id)},
         )

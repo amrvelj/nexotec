@@ -36,14 +36,7 @@ CONTEXT = "customer"
 # Every Customer table with created_by / updated_by: each must name a platform
 # user, or be null (KAN-243; see app.platform.public.actor_reference_checks).
 ACTOR_TABLES = (
-    Customer,
-    CustomerPhone,
-    CustomerEmail,
-    CustomerAddress,
-    CustomerExternalId,
-    CustomerTag,
-    LegalBasis,
-    VehicleParty,
+    Customer, CustomerPhone, CustomerEmail, CustomerAddress, CustomerExternalId, CustomerTag, LegalBasis, VehicleParty,
 )
 
 CHECKS: list[ReferenceCheck | StateCheck] = [
@@ -175,7 +168,7 @@ _CHUNK = 1000
 def _chunks(ids: Iterable[uuid.UUID]) -> Iterable[list[uuid.UUID]]:
     batch = list(ids)
     for start in range(0, len(batch), _CHUNK):
-        yield batch[start : start + _CHUNK]
+        yield batch[start:start + _CHUNK]
 
 
 def _as_uuid(value: object) -> uuid.UUID | None:
@@ -220,10 +213,7 @@ def find_cross_group_vehicle_party_closes(db: Session) -> VehiclePartyStampRepor
     """
 
     return _classify_vehicle_party_stamps(
-        db,
-        operation="close",
-        audit_action="vehicle_party_remove",
-        event_type="customer.vehicle_party.unlinked",
+        db, operation="close", audit_action="vehicle_party_remove", event_type="customer.vehicle_party.unlinked",
     )
 
 
@@ -252,10 +242,7 @@ def find_cross_group_vehicle_party_links(db: Session) -> VehiclePartyStampReport
     """
 
     return _classify_vehicle_party_stamps(
-        db,
-        operation="link",
-        audit_action="vehicle_party_add",
-        event_type="customer.vehicle_party.linked",
+        db, operation="link", audit_action="vehicle_party_add", event_type="customer.vehicle_party.linked",
     )
 
 
@@ -286,9 +273,7 @@ def _classify_vehicle_party_stamps(
     for batch in _chunks({customer_id for *_, customer_id, _ in raw if customer_id is not None}):
         customer_groups.update(
             (customer_id, group_id)
-            for customer_id, group_id in db.execute(
-                select(Customer.id, Customer.group_id).where(Customer.id.in_(batch))
-            )
+            for customer_id, group_id in db.execute(select(Customer.id, Customer.group_id).where(Customer.id.in_(batch)))
         )
 
     stamps = {stamped for *_, stamped in raw if stamped is not None}
@@ -320,16 +305,8 @@ def _classify_vehicle_party_stamps(
             category = StampCategory.SAME_GROUP
         else:
             category = StampCategory.SAME_GROUP_DEALERSHIP_STAMP
-        rows.append(
-            VehiclePartyStamp(
-                source=source,
-                row_id=row_id,
-                at=at,
-                customer_id=customer_id,
-                customer_group_id=customer_group,
-                stamped_tenant_id=stamped,
-                stamped_group_id=stamped_group,
-                category=category,
-            )
-        )
+        rows.append(VehiclePartyStamp(
+            source=source, row_id=row_id, at=at, customer_id=customer_id, customer_group_id=customer_group,
+            stamped_tenant_id=stamped, stamped_group_id=stamped_group, category=category,
+        ))
     return VehiclePartyStampReport(operation=operation, rows=rows)

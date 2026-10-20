@@ -11,7 +11,7 @@ import type {
   OwnershipTransfersRequest,
   UserDeactivateRequest,
   UserDeactivatedRead,
-  UserRead,
+  UserAdminRead,
 } from '../../api/types'
 import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
 import { ownedGroupLabel, userDisplayName } from '../../userOptions'
@@ -20,9 +20,9 @@ export interface UserDeactivateDialogProps {
   opened: boolean
   onClose: () => void
   dealershipId: string
-  user: UserRead | null
+  user: UserAdminRead | null
   /** The Betrieb's people; only active colleagues can receive records (FR-A-37). */
-  colleagues: UserRead[]
+  colleagues: UserAdminRead[]
   /**
    * `deactivate` (the default): the deactivation with its reassignment step.
    * `transfer`: the hand-over alone — the retry after a module failed during
@@ -51,6 +51,9 @@ export function UserDeactivateDialog({ opened, onClose, dealershipId, user, coll
   const [choices, setChoices] = useState<Record<string, string | null>>({})
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // The 422's `details.problems`: which group, and why — the API's own words
+  // (the rule for refusal texts is KAN-398's), never only the generic line.
+  const [problems, setProblems] = useState<string[]>([])
   const idempotency = useIdempotencyKey()
 
   const ownership = useQuery({
@@ -65,6 +68,7 @@ export function UserDeactivateDialog({ opened, onClose, dealershipId, user, coll
     setEndEmployment(true)
     setChoices({})
     setError(null)
+    setProblems([])
     idempotency.renew()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opened, user?.id, mode])
@@ -87,6 +91,7 @@ export function UserDeactivateDialog({ opened, onClose, dealershipId, user, coll
     if (!user) return
     setSubmitting(true)
     setError(null)
+    setProblems([])
     const transfers: OwnershipTransferRequest[] = groups.map((g) => {
       const choice = choices[key(g.module, g.group)]
       return { module: g.module, group: g.group, toUserId: choice === UNASSIGNED || !choice ? null : choice }
@@ -117,8 +122,11 @@ export function UserDeactivateDialog({ opened, onClose, dealershipId, user, coll
     } catch (err) {
       if (err instanceof ApiError && err.status === 400) setError(err.message) // the last-manager rule, said as the API says it
       else if (err instanceof ApiError && err.status === 409) setError(t('usersAdmin.form.conflict'))
-      else if (err instanceof ApiError) setError(err.message)
-      else setError(t('common.requestFailed'))
+      else if (err instanceof ApiError) {
+        setError(err.message)
+        const details = err.details as { problems?: unknown } | null | undefined
+        if (Array.isArray(details?.problems)) setProblems(details.problems.filter((p): p is string => typeof p === 'string'))
+      } else setError(t('common.requestFailed'))
       void ownership.refetch()
     } finally {
       setSubmitting(false)
@@ -144,6 +152,13 @@ export function UserDeactivateDialog({ opened, onClose, dealershipId, user, coll
         {error && (
           <Alert color="red" role="alert">
             {error}
+            {problems.length > 0 && (
+              <ul style={{ margin: '8px 0 0', paddingLeft: 18 }}>
+                {problems.map((problem) => (
+                  <li key={problem}>{problem}</li>
+                ))}
+              </ul>
+            )}
           </Alert>
         )}
         {ownership.isError && (

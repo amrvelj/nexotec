@@ -147,6 +147,53 @@ describe('UsersListPage (KAN-200)', () => {
     expect(dialog.getByText('Offene Vorgänge von Carla Gross übergeben')).toBeInTheDocument()
   })
 
+  it('says which hand-over a module failed after a deactivation, with the retry at hand', async () => {
+    const user = userEvent.setup()
+    installFakeBackend([
+      ...routes(),
+      { method: 'GET', match: /\/users\/u-2\/ownership$/, handler: () => ({ groups: [{ module: 'sales', group: 'offers', count: 1 }], modules: ['sales'] }) },
+      {
+        method: 'POST',
+        match: /\/users\/u-2\/deactivate$/,
+        handler: () => ({
+          user: { ...USERS[1], status: 'deactivated', version: 2 },
+          transfers: [],
+          failed: [{ module: 'sales', group: 'offers', error: 'sales is down' }],
+        }),
+      },
+    ])
+    renderWithProviders(<UsersListPage />, { route: '/administration/users' })
+    await screen.findByText('Beat Frei')
+    await user.click(screen.getAllByRole('button', { name: 'Zeilenaktionen' })[1])
+    await user.click(await screen.findByText('Deaktivieren'))
+    const dialog = within(await screen.findByRole('dialog'))
+    await user.type(dialog.getByLabelText(/^Grund/), 'weg')
+    await user.click(await dialog.findByRole('textbox', { name: 'Übergeben: Offene Offerten' }))
+    await user.click(await screen.findByRole('option', { name: 'Nicht zuweisen (Warteschlange des Moduls)' }))
+    await user.click(dialog.getByRole('button', { name: 'Deaktivieren' }))
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('nicht alles konnte übergeben werden')
+    expect(alert).toHaveTextContent('Offene Offerten (sales is down)')
+    expect(alert).toHaveTextContent('Offene Vorgänge übergeben')
+  })
+
+  it('loads every colleague, page by page, for the pickers', async () => {
+    const backend = installFakeBackend([
+      {
+        method: 'GET',
+        match: /\/dealerships\/dealership-1\/users$/,
+        handler: (req) => (req.params.get('cursor') === 'page-2' ? { items: [USERS[2]], nextCursor: null } : { items: [USERS[0], USERS[1]], nextCursor: 'page-2' }),
+      },
+      { method: 'GET', match: /\/dealerships\/dealership-1\/locations$/, handler: () => ({ items: [] }) },
+    ])
+    renderWithProviders(<UsersListPage />, { route: '/administration/users' })
+    await screen.findByText('Anna Keller')
+    await waitFor(() => {
+      const pages = backend.callsTo(/\/dealerships\/dealership-1\/users$/).filter((c) => c.params.get('limit') === '100')
+      expect(pages.map((c) => c.params.get('cursor'))).toEqual([null, 'page-2'])
+    })
+  })
+
   it('sorts server-side from the URL and the column header', async () => {
     const user = userEvent.setup()
     const backend = installFakeBackend(routes())

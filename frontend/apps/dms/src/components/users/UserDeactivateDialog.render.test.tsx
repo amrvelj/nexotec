@@ -4,7 +4,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '../../test/renderWithProviders'
 import { installFakeBackend, status } from '../../test/fakeBackend'
-import type { UserRead } from '../../api/types'
+import type { UserAdminRead } from '../../api/types'
 import { UserDeactivateDialog } from './UserDeactivateDialog'
 
 // KAN-200 — the reassignment step (FR-A-37): every open group needs a
@@ -12,7 +12,7 @@ import { UserDeactivateDialog } from './UserDeactivateDialog'
 // reason, one transfer per group (a colleague or null), If-Match and an
 // Idempotency-Key.
 
-function person(id: string, firstName: string, lastName: string, overrides: Partial<UserRead> = {}): UserRead {
+function person(id: string, firstName: string, lastName: string, overrides: Partial<UserAdminRead> = {}): UserAdminRead {
   return {
     id,
     dealershipId: 'dealership-1',
@@ -173,6 +173,39 @@ describe('UserDeactivateDialog (KAN-200)', () => {
     await user.click(await dialog.findByRole('textbox', { name: 'Übergeben: Offene Offerten' }))
     const options = (await screen.findAllByRole('option')).map((o) => o.textContent)
     expect(options).toEqual(['Nicht zuweisen (Warteschlange des Moduls)', 'Hans Erbe'])
+  })
+
+  it('lists the problems a 422 names, so the manager knows which group to change', async () => {
+    const user = userEvent.setup()
+    installFakeBackend([
+      {
+        method: 'GET',
+        match: /\/users\/u-1\/ownership$/,
+        handler: () => ({ groups: [{ module: 'sales', group: 'offers', count: 2 }], modules: ['sales'] }),
+      },
+      {
+        method: 'POST',
+        match: /\/users\/u-1\/deactivate$/,
+        handler: () =>
+          status(422, {
+            error: {
+              code: 'unprocessable_entity',
+              message: 'The reassignment step is incomplete.',
+              details: { problems: ['sales/offers: 1 of these records belong to another business the colleague cannot act in'], openGroups: [] },
+            },
+          }),
+      },
+    ])
+    renderWithProviders(<UserDeactivateDialog opened onClose={() => {}} dealershipId="dealership-1" user={LEAVER} colleagues={[LEAVER, HEIR]} onDone={() => {}} />)
+    const dialog = within(await screen.findByRole('dialog'))
+    await user.type(dialog.getByLabelText(/^Grund/), 'weg')
+    await user.click(await dialog.findByRole('textbox', { name: 'Übergeben: Offene Offerten' }))
+    await user.click(await screen.findByRole('option', { name: 'Hans Erbe' }))
+    await user.click(dialog.getByRole('button', { name: 'Deaktivieren' }))
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('The reassignment step is incomplete.')
+    expect(alert).toHaveTextContent('sales/offers: 1 of these records belong to another business')
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
 
   it('says a last-manager refusal and keeps the dialog open', async () => {
