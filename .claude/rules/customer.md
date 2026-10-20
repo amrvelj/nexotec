@@ -174,7 +174,8 @@ weekly. -->
   committed and X is found — "merged into" always names a live customer, after sequential
   merges and after the race alike. It locks those merged rows after its own party rows; no writer
   holding one waits on the merge (allocation, a reopen and a merge into or of X refuse a merged
-  customer; a credit-block change takes only X's row). The copies are only tried, never waited
+  customer; a credit-block change takes only X's row; the nightly advisor-label refresh skips a
+  customer it cannot lock, KAN-403). The copies are only tried, never waited
   for — the nightly label refresh locks party rows in id order and could hold one while it waits
   for D's — so a copy another writer holds refuses the merge, 409 `merge_vehicle_party_busy`. No event is published: X's rows moved to D with its own merge and move on with
   D's. Chains written before KAN-383 are not repaired.
@@ -216,9 +217,11 @@ weekly. -->
   `platform.public.get_user_display_labels` — never a join. A changed label moves `updated_at`, not
   `version`; a deactivated user's label is kept as it was (only restamped); an advisor id that names
   no user is left alone, and its stale stamp shows in `dms.label.age_seconds{label="customer.advisor"}`.
-  The job reads each batch `FOR NO KEY UPDATE` in id order, the order a merge locks customers in.
-  **Not built:** the same refresh for Sales' responsible-seller label (`owner_label`) — the
-  columns arrive with KAN-200, which is not on `main`.
+  The job reads each batch `FOR NO KEY UPDATE SKIP LOCKED`: a customer another writer holds waits for
+  the next night, never for the writer — waiting could deadlock against a merge re-pointing earlier
+  merges (KAN-383), which locks X after D. **Not built:** the same refresh for Sales'
+  responsible-seller label (`owner_label`, KAN-404) — the columns arrive with KAN-200, which is not
+  on `main`.
 
 ## Screens
 

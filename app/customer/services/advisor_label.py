@@ -33,9 +33,12 @@ def refresh_advisor_labels(db: Session) -> int:
     updated_at held. An advisor id that names no user is left untouched; the
     stale stamp is what the sync-age alarm then shows.
 
-    Each batch is read FOR NO KEY UPDATE in id order, so the job takes customer
-    rows in the same order a merge does (`_lock_merge_customers`) and never
-    deadlocks against one.
+    Each batch is read FOR NO KEY UPDATE SKIP LOCKED: a customer another
+    writer holds is left for the next night, never waited for. Waiting could
+    deadlock — a merge D→T holds D and T and then locks the customers merged
+    into D earlier (`_repoint_earlier_merges`, KAN-383), while the job, holding
+    one of those, would wait for D. The job holds rows only while it rewrites
+    them and waits on nothing, so no writer can be caught in a cycle with it.
     """
 
     changed = 0
@@ -46,7 +49,7 @@ def refresh_advisor_labels(db: Session) -> int:
             .where(Customer.advisor_id.is_not(None))
             .order_by(Customer.id)
             .limit(_BATCH)
-            .with_for_update(key_share=True)
+            .with_for_update(key_share=True, skip_locked=True)
         )
         if last_id is not None:
             stmt = stmt.where(Customer.id > last_id)

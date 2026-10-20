@@ -71,8 +71,9 @@ export function PhoneInput({ label, value, onChange }: PhoneInputProps) {
   // customer for edit, or the value a keystroke just emitted coming back) —
   // value is the source of truth, not local state. Adjusted during render,
   // not in an effect (KAN-167): React re-runs this function before it renders
-  // the children, so a keystroke renders the Select and the input once, where
-  // the effect committed every keystroke twice.
+  // the children, so a keystroke whose emitted value comes back re-split (a
+  // digit typed after a space) commits once, where the effect committed it
+  // twice.
   if (value !== splitValue) {
     setSplitValue(value)
     if (!value) {

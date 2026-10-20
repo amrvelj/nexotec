@@ -41,9 +41,10 @@ describe('PhoneInput width (KAN-267)', () => {
   })
 })
 
-// KAN-167 — the re-split of the external value ran in an effect, so each
-// keystroke committed twice: once for the typed text, once more when the
-// emitted value came back and the effect set the split state. It is now
+// KAN-167 — the re-split of the external value ran in an effect, so a
+// keystroke whose emitted value came back re-split (a digit typed after a
+// space) committed twice: once for the typed text, once more when the effect
+// set the split state. It is now
 // adjusted during render, before the children render. What the input shows
 // is unchanged: the national form with its trunk 0.
 

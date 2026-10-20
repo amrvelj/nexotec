@@ -11,21 +11,28 @@ What is pinned here:
 - the sync-age alarm reads the stalest stamp, and the worker heartbeat
   records it as `customer.advisor`;
 - the worker registers the job after the vehicle-party labels and before
-  reconciliation.
+  reconciliation;
+- it skips a customer another writer holds and waits for nobody, so it
+  cannot deadlock against a merge re-pointing earlier merges (KAN-383).
 """
 
 import datetime as dt
+import threading
 import uuid
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, text
+from sqlalchemy.orm import sessionmaker
 
 from app import worker
 from app.core.daily_scheduler import _REGISTRY, registered_job_names
 from app.customer.models.customer import Customer
+from app.customer.services import customer as customer_service
 from app.customer.services.advisor_label import oldest_advisor_label_age_seconds, refresh_advisor_labels
 from tests.membership_support import platform_admin
 from tests.test_customer_fr17_fields import _bearer, _create_dealer, _create_user, _token
+from tests.test_customer_vehicle_party_close_rule import _customer as _vp_customer
+from tests.test_customer_vehicle_party_close_rule import _merge, _postgres_only, _run
 
 
 def _customer_with_advisor(client, dealer_id: str, advisor: dict) -> dict:
@@ -199,3 +206,94 @@ def test_the_worker_registers_the_advisor_label_refresh_before_reconciliation(_c
     names = registered_job_names()
     assert names.index("customer.vehicle_party_labels") < names.index("customer.advisor_labels")
     assert names.index("customer.advisor_labels") < names.index("reconciliation.run_all")
+
+
+# --- locking: the job waits for nobody --------------------------------------------------
+
+
+def test_a_customer_another_writer_holds_is_skipped_until_the_next_night(engine, client, db_session):
+    """FOR NO KEY UPDATE SKIP LOCKED: the job relabels what it can lock and
+    leaves a held row (label and stamp) for the next run, never waits for it."""
+
+    _postgres_only(engine)
+    dealer_id = _create_dealer(client)
+    advisor = _create_user(client, dealer_id, firstName="Eva", lastName="Lang")
+    held_customer = _customer_with_advisor(client, dealer_id, advisor)
+    free_customer = _customer_with_advisor(client, dealer_id, advisor)
+    then = _backdate(db_session, held_customer["id"], hours=30)
+    _patch_user(client, dealer_id, advisor, {"lastName": "Berg"})
+
+    holder = sessionmaker(bind=engine)()
+    try:
+        holder.execute(
+            text("SELECT id FROM customer WHERE id = :id FOR NO KEY UPDATE"), {"id": uuid.UUID(held_customer["id"])}
+        )
+        job_db = sessionmaker(bind=engine)()
+        try:
+            # A job that waited would fail here instead of hanging the test.
+            job_db.execute(text("SET lock_timeout = '3s'"))
+            assert refresh_advisor_labels(job_db) == 1
+        finally:
+            job_db.close()
+    finally:
+        holder.rollback()
+        holder.close()
+
+    assert _row(db_session, free_customer["id"]).advisor_label == "Eva Berg"
+    held = _row(db_session, held_customer["id"])
+    assert held.advisor_label == "Eva Lang"
+    assert abs((held.advisor_label_refreshed_at.replace(tzinfo=dt.UTC) - then).total_seconds()) < 1
+
+    assert refresh_advisor_labels(db_session) == 1  # the next night
+    assert _row(db_session, held_customer["id"]).advisor_label == "Eva Berg"
+
+
+def test_the_job_racing_a_merge_that_repoints_earlier_merges_is_no_deadlock(engine, db_session, monkeypatch):
+    """A merge D→T holds D and T, then locks X, merged into D earlier
+    (KAN-383). A job that held X and waited for D deadlocked with it — and
+    after deadlock_timeout Postgres aborted the merge, a 500. The job now
+    skips D and T, finishes while the merge is paused, and the merge then
+    commits."""
+
+    _postgres_only(engine)
+    group_id = uuid.uuid4()
+    x, d, t = (_vp_customer(db_session, group_id, name) for name in ("Xaver", "Dora", "Tina"))
+    for c in (x, d, t):
+        c.advisor_id = uuid.uuid4()
+        c.advisor_label = "Old Name"
+    db_session.commit()
+    x_id, d_id, t_id = x.id, d.id, t.id
+    assert x_id < d_id < t_id
+    _merge(db_session, x_id, d_id, group_id)
+    db_session.close()
+
+    reached, release = threading.Event(), threading.Event()
+    real_repoint = customer_service._repoint_earlier_merges
+
+    def _paused(db, **kwargs):
+        reached.set()
+        release.wait(timeout=20)
+        return real_repoint(db, **kwargs)
+
+    monkeypatch.setattr(customer_service, "_repoint_earlier_merges", _paused)
+    factory = sessionmaker(bind=engine, expire_on_commit=False)
+    merge_db, job_db = factory(), factory()
+    errors: list[Exception] = []
+    try:
+        merge = _run("merge", errors, lambda: (_merge(merge_db, d_id, t_id, group_id), merge_db.commit()))
+        assert reached.wait(timeout=10), "the merge never reached its re-point of earlier merges"
+        job = _run("job", errors, lambda: refresh_advisor_labels(job_db))
+        job.join(timeout=10)
+        assert not job.is_alive(), "the job waited on the merge's rows"
+        release.set()
+        merge.join(timeout=20)
+        assert not merge.is_alive()
+    finally:
+        release.set()
+        merge_db.rollback()
+        merge_db.close()
+        job_db.rollback()
+        job_db.close()
+    assert errors == []
+    assert db_session.get(Customer, d_id).duplicate_of_customer_id == t_id
+    assert db_session.get(Customer, x_id).duplicate_of_customer_id == t_id

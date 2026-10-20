@@ -189,7 +189,7 @@ def _refresh_advisor_labels(db: Session) -> None:
 
 
 def register_daily_jobs() -> None:
-    """Six daily jobs, run in registration order once per day on this
+    """Seven daily jobs, run in registration order once per day on this
     process (app.core.daily_scheduler):
 
     1. ``integration.daily_jobs`` — WP-6's per-tenant catalogue delta sync
