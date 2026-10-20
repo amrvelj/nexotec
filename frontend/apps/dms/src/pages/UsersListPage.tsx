@@ -36,6 +36,7 @@ import {
   displayUserStatus,
   employmentStatusLabel,
   ownedGroupLabel,
+  refusalText,
   userDisplayName,
   userRoleLabel,
   userStatusLabel,
@@ -185,7 +186,8 @@ export function UsersListPage() {
   const invalidate = () => queryClient.invalidateQueries({ queryKey: usersKey })
 
   const say = (err: unknown, fallback: string) => {
-    setActionError(err instanceof ApiError ? err.message : fallback)
+    // A refusal with a reason code (the last-manager rule) in the UI language.
+    setActionError(err instanceof ApiError ? refusalText(t, err) : fallback)
     if (err instanceof ApiError && err.status === 409) void invalidate()
   }
 
@@ -453,7 +455,11 @@ export function UsersListPage() {
           sort={sort}
           onSortChange={setSort}
           density={density}
-          onRowActivate={(row) => setFormUser(row)}
+          // ADR-061: the row menu is the one definition — a deactivated user is
+          // not edited (the API refuses; the menu says why), so a click does nothing.
+          onRowActivate={(row) => {
+            if (row.status !== 'deactivated') setFormUser(row)
+          }}
           loading={isLoading}
           refetching={isRefetching && !isLoading}
           fetchingNextPage={isFetchingNextPage}

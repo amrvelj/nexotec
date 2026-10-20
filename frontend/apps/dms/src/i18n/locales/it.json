@@ -2167,7 +2167,7 @@
       "title": "Disattiva {{name}}",
       "intro": "L'accesso termina ora. Tutto ciò che questa persona segue ancora viene passato qui sotto: a un collega o nella coda del modulo. Nulla viene cancellato; la cronologia conserva l'autore originale.",
       "reassignTitle": "Passare le pratiche aperte",
-      "nothingOpen": "Niente di aperto in nessuno dei {{modules}} moduli.",
+      "nothingOpen": "Niente di aperto in nessuno dei {{modules, number}} moduli.",
       "ownershipLoadError": "Impossibile caricare ciò che segue questo utente.",
       "columns": {
         "what": "Cosa",
@@ -2197,7 +2197,7 @@
     },
     "errors": {
       "lastManager": "Un'azienda ha sempre bisogno di almeno un manager attivo: l'ultimo non può essere né disattivato né retrocesso.",
-      "lastManagerElsewhere": "Questa persona è l'ultimo manager attivo di un'altra azienda di cui è membro — potrà essere disattivata quando quell'azienda avrà un altro manager."
+      "lastManagerElsewhere": "Questa persona è l'ultimo manager attivo di un'altra azienda di cui è membro — potrà essere sospesa o disattivata quando quell'azienda avrà un altro manager."
     },
     "failureReason": {
       "module_failed": "il modulo non ha potuto completare il trasferimento; dettagli nel registro",

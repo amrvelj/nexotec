@@ -282,3 +282,24 @@ def test_the_local_object_store_is_refused_in_production(monkeypatch):
     monkeypatch.setattr(object_store, "_store", None)
     with pytest.raises(RuntimeError, match="not a production store"):
         object_store.get_object_store()
+
+
+def test_the_locations_audit_row_records_the_resulting_set_not_the_sent_fields(client, db_session):
+    """A PATCH of the additional sites alone keeps the primary: the append-only
+    audit row says so, never a null primary the request did not send."""
+
+    dealership = create_dealership(client)
+    nord = _location(db_session, dealership, "Zürich Nord")
+    sued = _location(db_session, dealership, "Zürich Süd")
+    west = _location(db_session, dealership, "Zürich West")
+    user = create_user(client, dealership, isDealerManager=False, primaryLocationId=nord, additionalLocationIds=[sued])
+    changed = client.patch(
+        f"/v1/dealerships/{dealership}/users/{user['id']}",
+        json={"additionalLocationIds": [sued, west]},
+        headers={**platform_admin_headers(), "If-Match": str(user["version"])},
+    )
+    assert changed.status_code == 200, changed.text
+    audit = client.get(f"/v1/dealerships/{dealership}/audit-log", headers=platform_admin_headers()).json()["items"]
+    rows = [row for row in audit if row["entityId"] == user["id"] and row["action"] == "locations_set"]
+    latest = max(rows, key=lambda row: row["createdAt"])
+    assert latest["after"] == {"primary_location_id": nord, "additional_location_ids": sorted([sued, west])}

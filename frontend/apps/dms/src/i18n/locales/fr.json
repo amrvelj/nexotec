@@ -2167,7 +2167,7 @@
       "title": "Désactiver {{name}}",
       "intro": "L'accès prend fin maintenant. Tout ce que cette personne suit encore est transmis ci-dessous — à un collègue ou dans la file d'attente du module. Rien n'est supprimé ; l'historique garde l'auteur d'origine.",
       "reassignTitle": "Transmettre les dossiers ouverts",
-      "nothingOpen": "Rien d'ouvert dans aucun des {{modules}} modules.",
+      "nothingOpen": "Rien d'ouvert dans aucun des {{modules, number}} modules.",
       "ownershipLoadError": "Ce que cet utilisateur suit n'a pas pu être chargé.",
       "columns": {
         "what": "Quoi",
@@ -2197,7 +2197,7 @@
     },
     "errors": {
       "lastManager": "Une entreprise a toujours besoin d'au moins un manager actif — le dernier ne peut être ni désactivé ni rétrogradé.",
-      "lastManagerElsewhere": "Cette personne est le dernier manager actif d'une autre entreprise dont elle est membre — elle pourra être désactivée dès que cette entreprise aura un autre manager."
+      "lastManagerElsewhere": "Cette personne est le dernier manager actif d'une autre entreprise dont elle est membre — elle pourra être suspendue ou désactivée dès que cette entreprise aura un autre manager."
     },
     "failureReason": {
       "module_failed": "le module n'a pas pu terminer la transmission ; détails dans le journal",

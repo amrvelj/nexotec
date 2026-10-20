@@ -209,8 +209,38 @@ describe('UsersListPage (KAN-200)', () => {
     await screen.findByText('Carla Gross')
     await user.click(screen.getAllByRole('button', { name: 'Zeilenaktionen' })[2])
     const menu = await screen.findByRole('menu')
-    expect(within(menu).getByText('Bearbeiten')).toBeInTheDocument()
+    expect(within(menu).getByText('Bearbeiten').closest('button')).toBeDisabled()
     expect(within(menu).getByText('Deaktivierte Benutzer werden nicht bearbeitet — zuerst reaktivieren')).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    // ADR-061: the row click follows the menu — no editor for a deactivated user.
+    await user.click(screen.getByText('Carla Gross'))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('says a refused suspension in the UI language', async () => {
+    const user = userEvent.setup()
+    installFakeBackend([
+      ...routes(),
+      {
+        method: 'PATCH',
+        match: /\/users\/u-1$/,
+        handler: () =>
+          status(400, {
+            error: {
+              code: 'bad_request',
+              message: 'This user is the last active manager of another dealership they are a member of — cannot deactivate them until that dealership has another manager.',
+              details: { reason: 'last_manager_elsewhere' },
+            },
+          }),
+      },
+    ])
+    renderWithProviders(<UsersListPage />, { route: '/administration/users' })
+    await screen.findByText('Anna Keller')
+    await user.click(screen.getAllByRole('button', { name: 'Zeilenaktionen' })[0])
+    await user.click(await screen.findByText('Sperren'))
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('letzte aktive Manager eines anderen Betriebs')
+    expect(alert).not.toHaveTextContent('last active manager')
   })
 
   it('says that reactivating an expired user removed the end date, never silently', async () => {

@@ -210,9 +210,7 @@ def _assert_may_create_with_roles(*, roles: list[AccessRole], actor_roles: froze
         raise ForbiddenError("Only platform staff can grant the platform_admin role.")
 
 
-def _assert_credential_channel_rules(
-    *, user: User, changes: dict[str, Any], actor_roles: frozenset[AccessRole]
-) -> None:
+def _assert_credential_channel_rules(*, user: User, changes: dict[str, Any], actor_roles: frozenset[AccessRole]) -> None:
     """KAN-196 (D-A-16): the status `invited` is where an account starts,
     never where it returns to — otherwise a manager could re-open the
     onboarding path (re-invite) on an active colleague. And the e-mail
@@ -674,6 +672,9 @@ def update_user(
             reason=reason,
         )
     if locations_changed:
+        # The resulting set, read back — never the fields the PATCH happened to
+        # send (a PATCH of the additional sites alone keeps the primary).
+        resulting_primary, resulting_additional = user_location.locations_of(db, user_ids=[user.id])[user.id]
         record_audit_event(
             db,
             entity_type="user",
@@ -682,12 +683,8 @@ def update_user(
             action="locations_set",
             actor_id=actor_id,
             after={
-                "primary_location_id": str(primary_location_id)
-                if primary_location_id not in (None, user_location.UNSET)
-                else None,
-                "additional_location_ids": [str(lid) for lid in additional_location_ids]
-                if additional_location_ids is not user_location.UNSET
-                else None,
+                "primary_location_id": str(resulting_primary) if resulting_primary is not None else None,
+                "additional_location_ids": [str(lid) for lid in resulting_additional],
             },
         )
     if "is_dealer_manager" in after:

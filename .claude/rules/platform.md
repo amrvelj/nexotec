@@ -175,8 +175,9 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   **active** colleague, or null = the module's own unassigned queue: `GET /sales/deals?unassigned=true`,
   `GET /customers?unassigned=true`, both filterable on screen), cuts
   access first in platform's own commit, then each module hands over on a session of its own
-  (ADR-047) with one `ownership_transferred` audit row per group, the manager's reason on the
-  module's own audit rows too; `POST …/ownership/transfers` (`reason` optional)
+  (ADR-047) with one `ownership_transferred` audit row per group carrying the manager's reason
+  (Customers also writes one per customer with it; Sales bumps each offer's and contract's
+  version and writes no audit row of its own — platform's row is the record); `POST …/ownership/transfers` (`reason` optional)
   is the retry and the plain hand-over — the row menu's "hand over" entry. A PATCH `status: deactivated` (or an employment
   `terminated` on a user who is not deactivated, whatever status the body carries beside it)
   is 409 `use_deactivate_endpoint`; the last-manager refusal is 400 with `reason: last_manager` (`last_manager_elsewhere` when the person is the last manager of a sister Betrieb — still no id). **The lifecycle is
@@ -345,7 +346,9 @@ One shared template layer (`app/platform/models/document_template.py`). WeasyPri
   (`update_user(on_email_change=…)`; a taken address is a 409 first); a staff session does it
   only with a factor in it. An account never returns to `invited` through a PATCH (409), so the
   onboarding path cannot be re-opened on an active user — the one way back is KAN-200's
-  reactivation of a deactivated user who holds no credential, which lands on `invited`. **Open with Anto:** the new address is
+  reactivation of a deactivated user who holds no credential, which lands on `invited` — also
+  for an account that was active before KAN-196 and never set a password: the manager may then
+  correct its e-mail and resend the invitation (Anto, 2026-10-20: kept as built, knowingly). **Open with Anto:** the new address is
   not confirmed before it takes over the channel. **Not built:** FR-AU-25's mandatory stated reason on a recovery action, FR-AU-26's `security`
   notification family (the e-mail-change notice is the one notice sent). No step-up
   re-authentication (A-12: no).

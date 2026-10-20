@@ -2167,7 +2167,7 @@
       "title": "{{name}} deaktivieren",
       "intro": "Der Zugang endet jetzt. Alles, was diese Person noch betreut, wird unten übergeben — an einen Kollegen oder in die Warteschlange des Moduls. Nichts wird gelöscht; die Historie behält den ursprünglichen Verfasser.",
       "reassignTitle": "Offene Vorgänge übergeben",
-      "nothingOpen": "In keinem der {{modules}} Module ist etwas offen.",
+      "nothingOpen": "In keinem der {{modules, number}} Module ist etwas offen.",
       "ownershipLoadError": "Was dieser Benutzer betreut, konnte nicht geladen werden.",
       "columns": {
         "what": "Was",
@@ -2197,7 +2197,7 @@
     },
     "errors": {
       "lastManager": "Ein Betrieb braucht immer mindestens einen aktiven Manager — der letzte kann weder deaktiviert noch zurückgestuft werden.",
-      "lastManagerElsewhere": "Diese Person ist der letzte aktive Manager eines anderen Betriebs, in dem sie Mitglied ist — erst wenn dieser Betrieb einen weiteren Manager hat, kann sie deaktiviert werden."
+      "lastManagerElsewhere": "Diese Person ist der letzte aktive Manager eines anderen Betriebs, in dem sie Mitglied ist — erst wenn dieser Betrieb einen weiteren Manager hat, kann sie gesperrt oder deaktiviert werden."
     },
     "failureReason": {
       "module_failed": "Modul konnte die Übergabe nicht abschliessen; Details im Protokoll",

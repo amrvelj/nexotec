@@ -493,6 +493,7 @@ def delete_user_signature(
     user = user_service.get_user_for_update_or_404(db, dealership_id, user_id)  # KAN-380
     check_version(user.version, if_match, entity_name="User")
     user_service.assert_may_touch(user=user, actor_roles=principal.roles)
+    user_service.assert_user_is_not_deactivated(user)
     signature.remove_signature(db, store, user=user, actor_id=principal.user_id)
     return user_service.user_read(db, user)
 
