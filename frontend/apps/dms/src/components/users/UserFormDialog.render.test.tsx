@@ -169,6 +169,8 @@ describe('UserFormDialog (KAN-200)', () => {
     expect(puts).toHaveLength(1)
     expect(puts[0].headers.get('If-Match')).toBe('3')
     expect(puts[0].headers.get('Content-Type')).toBe('image/png')
+    expect(puts[0].body).toBe(file) // the image itself, never base64 or multipart
+    expect(backend.callsTo(/\/users\/u-1$/, 'PATCH')).toHaveLength(0) // nothing else changed
     expect(saved!.hasSignatureImage).toBe(true)
   })
 })

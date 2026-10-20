@@ -107,7 +107,9 @@ ADR-057, ADR-063, ADR-065, ADR-083 and KAN-66/68/71. Verified against main@7a90a
   `created_by` stays who typed it (A-RULE-5). The workspace PATCH takes `ownerUserId` (422 for
   someone who does not act there or is suspended/deactivated; null clears); a contract takes
   its offer's seller; `GET /sales/deals` filters `ownerUserId` and `unassigned=true` (the Sales
-  list's "Nicht zugewiesen" chip and its "Verantwortlich" column). `app/sales/services/ownership.py`
+  list's "Nicht zugewiesen" chip — open offers and pending contracts; drafts stay hidden — and its
+  "Verantwortlich" column). The deal row's seller is its live entity's: an offer-side write after
+  a contract exists never changes the contract-shaped row's owner. `app/sales/services/ownership.py`
   is Sales' ownership provider for the deactivation step (`.claude/rules/platform.md`, D-A-35):
   it counts the user's open offers and pending contracts in every Betrieb and refuses a colleague
   who cannot act in one of them. Nightly reconciliation reports an open deal whose owner is a

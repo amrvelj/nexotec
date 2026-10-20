@@ -2165,7 +2165,7 @@
     },
     "deactivate": {
       "title": "Disattiva {{name}}",
-      "intro": "L'accesso termina ora. Tutto ciò che questa persona segue ancora viene passato qui sotto: a un collega o nella coda del modulo. Nulla viene cancellato; la cronologia conserva l'autore originale.",
+      "intro": "L'accesso termina ora. Tutto ciò che questa persona segue ancora viene trasferito qui sotto — a un collega o nella coda del modulo (le bozze senza responsabile si trovano presso il cliente). Nulla viene eliminato; lo storico conserva l'autore originale.",
       "reassignTitle": "Passare le pratiche aperte",
       "nothingOpen": "Niente di aperto in nessuno dei {{modules, number}} moduli.",
       "ownershipLoadError": "Impossibile caricare ciò che segue questo utente.",

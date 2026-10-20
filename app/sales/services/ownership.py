@@ -27,7 +27,6 @@ from app.core.errors import UnprocessableEntityError
 from app.core.ownership import OwnedGroup, OwnershipRefusal, OwnershipTransfer
 from app.platform.public import get_user_acting_in, list_user_dealership_ids
 from app.sales.models.contract import ContractStatus, SalesContract
-from app.sales.models.deal import SalesDeal
 from app.sales.models.offer import OfferStatus, SalesOffer
 from app.sales.services.deal_projection import upsert_deal_projection
 
@@ -285,9 +284,3 @@ def _transfer_group(
         moved += 1
         upsert_deal_projection(db, contract=contract)
     return moved
-
-
-def deal_owner_columns(deal: SalesDeal, source: SalesOffer | SalesContract) -> None:
-    deal.owner_user_id = source.owner_user_id
-    deal.owner_label = source.owner_label
-    deal.owner_label_refreshed_at = source.owner_label_refreshed_at

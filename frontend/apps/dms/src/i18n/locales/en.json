@@ -2165,7 +2165,7 @@
     },
     "deactivate": {
       "title": "Deactivate {{name}}",
-      "intro": "The access ends now. Everything this person still owns is handed over below — to a colleague, or to the module's own queue. Nothing is deleted; history keeps the original author.",
+      "intro": "Access ends now. Everything this person still looks after is handed over below — to a colleague or to the module's queue (drafts without a seller are found on the customer). Nothing is deleted; history keeps the original author.",
       "reassignTitle": "Hand over open records",
       "nothingOpen": "Nothing open in any of the {{modules, number}} modules.",
       "ownershipLoadError": "What this user owns could not be loaded.",

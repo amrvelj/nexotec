@@ -1086,3 +1086,67 @@ def test_the_sales_queue_lists_open_deals_only(client, login):
     assert gone.status_code == 200, gone.text
     queue = client.get("/v1/sales/deals?unassigned=true", headers=_as(seller)).json()
     assert [d["contractId"] for d in queue["items"]] == [pending["id"]]
+
+
+def test_an_offer_side_write_after_its_contract_exists_never_changes_the_contract_deals_seller(client, login):
+    """The deal row's seller is its LIVE entity's. A draft offer stays
+    editable after a contract is made from it: clearing its seller (a) or
+    saving a price on it after the contract went to the heir (b) must not
+    move the contract's row into the queue or back to the leaver."""
+
+    dealership = create_dealership(client)
+    leaver = create_user(client, dealership, isDealerManager=False, firstName="Lea", lastName="Ver")
+    heir = create_user(client, dealership, isDealerManager=False, firstName="Hans", lastName="Erbe")
+    login.accept_invitation(heir)
+    create_user(client, dealership)
+    buyer = _customer_for(client, leaver)
+    offer = _offer_for(client, leaver)
+    offer = client.patch(
+        f"/v1/sales/offers/{offer['id']}",
+        json={"customerId": buyer["id"]},
+        headers={**_as(leaver), "If-Match": str(offer["version"])},
+    ).json()
+    contract = client.post("/v1/sales/contracts", json={"offerId": offer["id"]}, headers=_as(leaver)).json()
+
+    def contract_deal() -> dict:
+        return next(
+            d
+            for d in client.get("/v1/sales/deals", headers=_as(heir)).json()["items"]
+            if d["contractId"] == contract["id"]
+        )
+
+    # (a) the superseded offer's seller cleared: the contract's row keeps its seller, the queue stays empty
+    cleared = client.patch(
+        f"/v1/sales/offers/{offer['id']}",
+        json={"ownerUserId": None},
+        headers={**_as(leaver), "If-Match": str(offer["version"])},
+    )
+    assert cleared.status_code == 200, cleared.text
+    assert contract_deal()["ownerUserId"] == leaver["id"]
+    assert client.get("/v1/sales/deals?unassigned=true", headers=_as(heir)).json()["total"] == 0
+
+    # (b) the contract goes to the heir; a later write on the offer does not bring the leaver back
+    response = deactivate(
+        client,
+        dealership,
+        leaver,
+        transfers=[
+            {"module": "customer", "group": "customers", "toUserId": heir["id"]},
+            {"module": "sales", "group": "contracts", "toUserId": heir["id"]},
+        ],
+    )
+    assert response.status_code == 200, response.text
+    assert contract_deal()["ownerUserId"] == heir["id"]
+    current = client.get(f"/v1/sales/offers/{offer['id']}", headers=_as(heir)).json()
+    priced = client.patch(
+        f"/v1/sales/offers/{offer['id']}",
+        json={"manualBasePrice": "41000.00"},
+        headers={**_as(heir), "If-Match": str(current["version"])},
+    )
+    assert priced.status_code == 200, priced.text
+    deal = contract_deal()
+    assert deal["ownerUserId"] == heir["id"] and deal["ownerLabel"] == "Hans Erbe"
+    assert [
+        d["contractId"]
+        for d in client.get(f"/v1/sales/deals?ownerUserId={heir['id']}", headers=_as(heir)).json()["items"]
+    ] == [contract["id"]]

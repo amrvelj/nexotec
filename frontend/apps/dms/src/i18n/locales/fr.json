@@ -2165,7 +2165,7 @@
     },
     "deactivate": {
       "title": "Désactiver {{name}}",
-      "intro": "L'accès prend fin maintenant. Tout ce que cette personne suit encore est transmis ci-dessous — à un collègue ou dans la file d'attente du module. Rien n'est supprimé ; l'historique garde l'auteur d'origine.",
+      "intro": "L'accès prend fin maintenant. Tout ce que cette personne suit encore est transmis ci-dessous — à un collègue ou dans la file d'attente du module (les brouillons sans responsable se trouvent chez le client). Rien n'est supprimé ; l'historique conserve l'auteur d'origine.",
       "reassignTitle": "Transmettre les dossiers ouverts",
       "nothingOpen": "Rien d'ouvert dans aucun des {{modules, number}} modules.",
       "ownershipLoadError": "Ce que cet utilisateur suit n'a pas pu être chargé.",

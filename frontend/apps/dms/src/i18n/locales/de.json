@@ -2165,7 +2165,7 @@
     },
     "deactivate": {
       "title": "{{name}} deaktivieren",
-      "intro": "Der Zugang endet jetzt. Alles, was diese Person noch betreut, wird unten übergeben — an einen Kollegen oder in die Warteschlange des Moduls. Nichts wird gelöscht; die Historie behält den ursprünglichen Verfasser.",
+      "intro": "Der Zugang endet jetzt. Alles, was diese Person noch betreut, wird unten übergeben — an einen Kollegen oder in die Warteschlange des Moduls (Entwürfe ohne Verantwortlichen findet man beim Kunden). Nichts wird gelöscht; die Historie behält den ursprünglichen Verfasser.",
       "reassignTitle": "Offene Vorgänge übergeben",
       "nothingOpen": "In keinem der {{modules, number}} Module ist etwas offen.",
       "ownershipLoadError": "Was dieser Benutzer betreut, konnte nicht geladen werden.",

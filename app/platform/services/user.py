@@ -68,7 +68,7 @@ def assert_user_is_not_deactivated(user: User) -> None:
 
     if user.status in _TERMINAL_USER_STATUSES:
         raise ConflictError(
-            f"User status '{user.status.value}' is terminal — this user's access can no longer be changed.",
+            f"User status '{user.status.value}' — reactivate the user first (status: active) to change their access.",
             details={"currentStatus": user.status.value},
         )
 
@@ -532,7 +532,7 @@ def update_user(
         reactivating = changes.get("status") == UserStatus.ACTIVE
         if not reactivating or set(changes) - _REACTIVATION_FIELDS:
             raise ConflictError(
-                f"User status '{user.status.value}' is terminal — reactivate the user first (status: active).",
+                f"User status '{user.status.value}' — reactivate the user first (status: active).",
                 details={"currentStatus": user.status.value},
             )
         if (
@@ -589,7 +589,7 @@ def update_user(
         # it will be after this write, like the last-manager check below —
         # same answer as the dedicated manager-flag endpoints.
         raise ConflictError(
-            f"User status '{resulting_status.value}' is terminal — this user's access can no longer be changed.",
+            f"User status '{resulting_status.value}' — the manager flag of a deactivated user does not change; reactivate first.",
             details={"currentStatus": user.status.value},
         )
     was_active_manager = user.is_dealer_manager and user.status in _ACTIVE_USER_STATUSES

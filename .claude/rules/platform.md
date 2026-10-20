@@ -172,8 +172,10 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   home manager decides for every Betrieb the leaver worked in** (Anto, 2026-10-20, ADR-094) —
   not the sister's queue only, not a refusal until the sister handed over. `GET …/users/{id}/ownership`
   lists the groups; `POST …/users/{id}/deactivate` needs a decision for every group (an
-  **active** colleague, or null = the module's own unassigned queue: `GET /sales/deals?unassigned=true`,
-  `GET /customers?unassigned=true`, both filterable on screen), cuts
+  **active** colleague, or null = the module's own unassigned queue: `GET /sales/deals?unassigned=true`
+  (open offers and pending contracts; an unassigned **draft** stays hidden like every draft on the
+  Sales grid and is reached from its customer's tab — Anto, 2026-10-20), `GET /customers?unassigned=true`,
+  both filterable on screen), cuts
   access first in platform's own commit, then each module hands over on a session of its own
   (ADR-047) with one `ownership_transferred` audit row per group carrying the manager's reason
   (Customers also writes one per customer with it; Sales bumps each offer's and contract's

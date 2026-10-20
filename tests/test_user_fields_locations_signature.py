@@ -337,5 +337,8 @@ def test_the_signature_of_a_deactivated_user_is_neither_set_nor_removed(client, 
         url, content=_PNG, headers={**platform_admin_headers(), "If-Match": version, "Content-Type": "image/png"}
     )
     assert refused_put.status_code == 409, refused_put.text
+    # Refused for being deactivated, not for a stale version.
+    assert refused_put.json()["error"]["details"]["currentStatus"] == "deactivated"
     refused_delete = client.delete(url, headers={**platform_admin_headers(), "If-Match": version})
     assert refused_delete.status_code == 409, refused_delete.text
+    assert refused_delete.json()["error"]["details"]["currentStatus"] == "deactivated"

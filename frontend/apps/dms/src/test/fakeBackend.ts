@@ -170,6 +170,8 @@ export function installFakeBackend(routes: FakeRoute[]): FakeBackend {
       } catch {
         body = init.body
       }
+    } else if (init?.body !== undefined && init.body !== null) {
+      body = init.body // a binary upload (a Blob or File), recorded as sent
     }
     // The client's base URL carries the `/v1` prefix; routes are written
     // against the bare resource path (`/customers`, `/me/preferences/ui`).

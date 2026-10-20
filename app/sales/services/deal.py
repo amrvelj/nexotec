@@ -38,8 +38,10 @@ def list_deals(
 ) -> tuple[list[SalesDeal], str | None, int, bool]:
     """`owner_user_id` narrows to one seller's deals; `unassigned` to the
     queue FR-A-37 names — OPEN deals (an open offer, a pending contract) with
-    no responsible seller, e.g. a leaver's handed to nobody (KAN-200). Both
-    together is an empty page, not an error."""
+    no responsible seller, e.g. a leaver's handed to nobody (KAN-200). Drafts
+    stay hidden here as everywhere on this grid (Anto, 2026-10-20): an
+    unassigned draft is reached from its customer's tab. Both together is an
+    empty page, not an error."""
 
     stmt = select(SalesDeal).where(
         SalesDeal.tenant_id == tenant_id,
@@ -65,7 +67,7 @@ def list_deals(
         stmt = stmt.where(
             SalesDeal.owner_user_id.is_(None),
             or_(
-                and_(SalesDeal.entity_type == "offer", SalesDeal.status.in_(("draft", "open"))),
+                and_(SalesDeal.entity_type == "offer", SalesDeal.status == "open"),
                 and_(SalesDeal.entity_type == "contract", SalesDeal.status == "pending"),
             ),
         )
