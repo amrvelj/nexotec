@@ -57,6 +57,9 @@ export function buildUserRowMenu(
       label: t('usersAdmin.rowMenu.edit'),
       icon: <Pencil size={16} />,
       onClick: handlers.onEdit,
+      // The API refuses every edit of a deactivated user but the reactivation (409).
+      disabled: deactivated,
+      disabledReason: deactivated ? t('usersAdmin.rowMenu.editDisabledDeactivated') : undefined,
     },
     {
       label: t('usersAdmin.rowMenu.resendInvitation'),

@@ -45,7 +45,18 @@ describe("FormDialog", () => {
     const button = screen.getByRole("button", { name: "Deactivate" });
     await user.click(button);
     expect(onSubmit).toHaveBeenCalledTimes(1);
-    expect(button.getAttribute("data-variant") ?? button.className).toBeTruthy();
+    // Mantine puts the colour on the root as a CSS variable; a non-destructive
+    // dialog's button carries no red one.
+    expect(button.style.getPropertyValue("--button-bg")).toContain("red");
     expect(button).toHaveAttribute("type", "button");
+  });
+
+  it("renders an ordinary submit without the destructive colour", () => {
+    wrap(
+      <FormDialog opened onClose={() => {}} title="Save" onSubmit={() => {}} submitLabel="Save" cancelLabel="Cancel">
+        <p>Fields</p>
+      </FormDialog>,
+    );
+    expect(screen.getByRole("button", { name: "Save" }).style.getPropertyValue("--button-bg")).not.toContain("red");
   });
 });

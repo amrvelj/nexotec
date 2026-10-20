@@ -224,7 +224,7 @@ describe('UserDeactivateDialog (KAN-200)', () => {
       {
         method: 'POST',
         match: /\/users\/u-1\/deactivate$/,
-        handler: () => status(400, { error: { code: 'bad_request', message: 'This dealership must always have at least one active manager — cannot remove or deactivate its last one.', details: { reason: 'last_manager' } } }),
+        handler: () => status(400, { error: { code: 'bad_request', message: 'This user is the last active manager of another dealership they are a member of — cannot deactivate them until that dealership has another manager.', details: { reason: 'last_manager_elsewhere' } } }),
       },
     ])
     renderWithProviders(<UserDeactivateDialog opened onClose={() => {}} dealershipId="dealership-1" user={LEAVER} colleagues={[LEAVER]} onDone={() => {}} />)
@@ -232,7 +232,8 @@ describe('UserDeactivateDialog (KAN-200)', () => {
     expect(await dialog.findByText('In keinem der 2 Module ist etwas offen.')).toBeInTheDocument()
     await user.type(dialog.getByLabelText(/^Grund/), 'weg')
     await user.click(dialog.getByRole('button', { name: 'Deaktivieren' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent('mindestens einen aktiven Manager')
+    // The sister-Betrieb case reads differently from the home one — and names no Betrieb.
+    expect(await screen.findByRole('alert')).toHaveTextContent('letzte aktive Manager eines anderen Betriebs')
     expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
 })

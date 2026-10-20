@@ -490,7 +490,7 @@ def test_deactivating_a_sister_dealerships_last_manager_by_membership_is_rejecte
 
     response = _deactivate(client, dealer_a, sister_manager, platform_admin_token)
     assert response.status_code == 400
-    assert response.json()["error"]["details"] == {"reason": "last_manager"}  # never names the sister dealership
+    assert response.json()["error"]["details"] == {"reason": "last_manager_elsewhere"}  # never names the sister dealership
 
 
 # --- KAN-97: platform_admin is Nexotec staff only --------------------------

@@ -82,6 +82,7 @@ export function userDisplayName(user: { firstName: string; lastName: string }): 
 export function refusalText(t: T, err: { message: string; details: Record<string, unknown> | null }): string {
   const reason = err.details?.reason
   if (reason === 'last_manager') return t('usersAdmin.errors.lastManager')
+  if (reason === 'last_manager_elsewhere') return t('usersAdmin.errors.lastManagerElsewhere')
   return err.message
 }
 

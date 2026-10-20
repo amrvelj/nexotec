@@ -174,13 +174,18 @@ def apply_transfers(
             # The module's own refusal travels (its message is for the caller);
             # anything else is a fixed code — an exception's text can carry a
             # statement, its parameters and another Betrieb's ids. The log has it.
+            # Own locals: `reason` is the manager's text and stays what it was for
+            # every group handed over after this one (the audit log is append-only).
             if isinstance(exc, AppError):
-                reason = str((exc.details or {}).get("reason") or exc.code)
-                message = exc.message
+                failure_reason = str((exc.details or {}).get("reason") or exc.code)
+                failure_message = exc.message
             else:
-                reason, message = MODULE_FAILED, "The module could not complete the hand-over; the error is in the log."
+                failure_reason = MODULE_FAILED
+                failure_message = "The module could not complete the hand-over; the error is in the log."
             failed.append(
-                OwnershipTransferFailure(module=transfer.module, group=transfer.group, reason=reason, message=message)
+                OwnershipTransferFailure(
+                    module=transfer.module, group=transfer.group, reason=failure_reason, message=failure_message
+                )
             )
             continue
         record_audit_event(

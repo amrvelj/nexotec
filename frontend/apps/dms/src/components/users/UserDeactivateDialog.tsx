@@ -15,6 +15,7 @@ import type {
 } from '../../api/types'
 import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
 import { ownedGroupLabel, reassignmentProblemText, refusalText, userDisplayName } from '../../userOptions'
+import { formatNumber } from '../../utils/format'
 
 export interface UserDeactivateDialogProps {
   opened: boolean
@@ -192,7 +193,7 @@ export function UserDeactivateDialog({ opened, onClose, dealershipId, user, coll
               {groups.map((g) => (
                 <Table.Tr key={key(g.module, g.group)}>
                   <Table.Td>{ownedGroupLabel(t, g.module, g.group)}</Table.Td>
-                  <Table.Td>{g.count}</Table.Td>
+                  <Table.Td>{formatNumber(g.count)}</Table.Td>
                   <Table.Td>
                     <Select
                       aria-label={t('usersAdmin.deactivate.transferLabel', { what: ownedGroupLabel(t, g.module, g.group) })}

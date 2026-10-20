@@ -156,6 +156,15 @@ def test_deactivation_needs_a_decision_for_every_open_group(client):
     assert still["status"] == "invited" and still["version"] == 1
 
 
+_REFUSAL_REASONS = {
+    "self": "self",
+    "other_dealership": "colleague_not_active",
+    "deactivated_colleague": "colleague_not_active",
+    "unknown_group": "not_owned",
+    "twice": "decided_twice",
+}
+
+
 @pytest.mark.parametrize("bad", ["self", "other_dealership", "deactivated_colleague", "unknown_group", "twice"])
 def test_a_transfer_to_the_wrong_person_or_group_is_refused(client, bad):
     dealership = create_dealership(client)
@@ -179,6 +188,9 @@ def test_a_transfer_to_the_wrong_person_or_group_is_refused(client, bad):
         transfers.append({"module": "customer", "group": "customers", "toUserId": None})
     response = deactivate(client, dealership, leaver, transfers=transfers)
     assert response.status_code == 422, response.text
+    # The SPA keys its texts on these codes: a renamed one would fall back to English.
+    reasons = [p["reason"] for p in response.json()["error"]["details"]["problems"]]
+    assert _REFUSAL_REASONS[bad] in reasons, reasons
 
 
 def test_deactivation_hands_each_group_over_and_audits_every_step(client, db_session, login):
@@ -945,3 +957,47 @@ def test_a_termination_cannot_keep_the_user_active_and_a_reactivation_may_set_a_
     assert back.status_code == 200, back.text
     assert back.json()["status"] == "active" and back.json()["validTo"] == str(yesterday + dt.timedelta(days=90))
     assert login.login(user).status_code == 200
+
+
+def test_a_failed_module_does_not_change_the_reason_the_later_groups_are_audited_with(
+    client, db_session, monkeypatch, login
+):
+    """The failure branch keeps its own locals: a group handed over after a
+    module failed is audited with the manager's reason, on platform's row and
+    on the module's own (the audit log is append-only)."""
+
+    dealership = create_dealership(client)
+    leaver = create_user(client, dealership, isDealerManager=False)
+    heir = create_user(client, dealership, isDealerManager=False)
+    login.accept_invitation(heir)
+    create_user(client, dealership)
+    customer = _customer_for(client, leaver)
+    _offer_for(client, leaver)
+    sales = ownership_provider("sales")
+    assert sales is not None
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("sales is down")
+
+    monkeypatch.setattr(sales, "transfer", boom)
+    response = deactivate(
+        client,
+        dealership,
+        leaver,
+        reason="left on 30 September",
+        transfers=[
+            {"module": "sales", "group": "offers", "toUserId": heir["id"]},  # fails first …
+            {"module": "customer", "group": "customers", "toUserId": heir["id"]},  # … this one still moves
+        ],
+    )
+    monkeypatch.undo()
+    assert response.status_code == 200, response.text
+    assert [f["module"] for f in response.json()["failed"]] == ["sales"]
+    [platform_row] = _audit(db_session, leaver["id"], "ownership_transferred")
+    assert platform_row.after["module"] == "customer" and platform_row.reason == "left on 30 September"
+    customer_rows = list(
+        db_session.scalars(
+            select(AuditEvent).where(AuditEvent.entity_id == uuid.UUID(customer["id"]), AuditEvent.action == "update")
+        ).all()
+    )
+    assert any(r.after == {"advisor_id": heir["id"]} and r.reason == "left on 30 September" for r in customer_rows)

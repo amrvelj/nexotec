@@ -2106,7 +2106,8 @@
       "deactivateDisabledAlready": "Bereits deaktiviert",
       "selfDisabled": "Nicht für das eigene Konto",
       "handOver": "Offene Vorgänge übergeben",
-      "suspendDisabledNotActive": "Nur ein aktiver Benutzer kann gesperrt werden"
+      "suspendDisabledNotActive": "Nur ein aktiver Benutzer kann gesperrt werden",
+      "editDisabledDeactivated": "Deaktivierte Benutzer werden nicht bearbeitet — zuerst reaktivieren"
     },
     "actions": {
       "resendFailed": "Die Einladung konnte nicht gesendet werden.",
@@ -2186,7 +2187,7 @@
         "not_owned": "{{what}}: betreut diese Person nicht (mehr).",
         "self": "{{what}}: die Person kann ihre eigenen Vorgänge nicht übernehmen.",
         "colleague_not_active": "{{what}}: der gewählte Kollege ist kein aktiver Benutzer dieses Betriebs.",
-        "colleague_cannot_act_there": "{{what}}: {{count}} davon gehören zu einem anderen Betrieb, in dem der gewählte Kollege nicht arbeitet — «Nicht zuweisen» wählen (dieser Betrieb übergibt sie aus seiner Warteschlange) oder einen Kollegen, der dort Mitglied ist."
+        "colleague_cannot_act_there": "{{what}}: {{count, number}} davon gehören zu einem anderen Betrieb, in dem der gewählte Kollege nicht arbeitet — «Nicht zuweisen» wählen (dieser Betrieb übergibt sie aus seiner Warteschlange) oder einen Kollegen, der dort Mitglied ist."
       }
     },
     "handOver": {
@@ -2195,7 +2196,8 @@
       "confirm": "Übergeben"
     },
     "errors": {
-      "lastManager": "Ein Betrieb braucht immer mindestens einen aktiven Manager — der letzte kann weder deaktiviert noch zurückgestuft werden."
+      "lastManager": "Ein Betrieb braucht immer mindestens einen aktiven Manager — der letzte kann weder deaktiviert noch zurückgestuft werden.",
+      "lastManagerElsewhere": "Diese Person ist der letzte aktive Manager eines anderen Betriebs, in dem sie Mitglied ist — erst wenn dieser Betrieb einen weiteren Manager hat, kann sie deaktiviert werden."
     },
     "failureReason": {
       "module_failed": "Modul konnte die Übergabe nicht abschliessen; Details im Protokoll",

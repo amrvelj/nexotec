@@ -2106,7 +2106,8 @@
       "deactivateDisabledAlready": "Già disattivato",
       "selfDisabled": "Non per il proprio account",
       "handOver": "Trasferire le pratiche aperte",
-      "suspendDisabledNotActive": "Solo un utente attivo può essere sospeso"
+      "suspendDisabledNotActive": "Solo un utente attivo può essere sospeso",
+      "editDisabledDeactivated": "Un utente disattivato non si modifica — prima riattivarlo"
     },
     "actions": {
       "resendFailed": "Impossibile inviare l'invito.",
@@ -2186,7 +2187,7 @@
         "not_owned": "{{what}}: questa persona non li segue (più).",
         "self": "{{what}}: la persona non può rilevare le proprie pratiche.",
         "colleague_not_active": "{{what}}: il collega scelto non è un utente attivo di questa azienda.",
-        "colleague_cannot_act_there": "{{what}}: {{count}} di queste appartengono a un'altra azienda in cui il collega scelto non lavora — scegliere «Non assegnare» (quell'azienda le trasferisce dalla propria coda) oppure un collega che vi è membro."
+        "colleague_cannot_act_there": "{{what}}: {{count, number}} di queste appartengono a un'altra azienda in cui il collega scelto non lavora — scegliere «Non assegnare» (quell'azienda le trasferisce dalla propria coda) oppure un collega che vi è membro."
       }
     },
     "handOver": {
@@ -2195,7 +2196,8 @@
       "confirm": "Trasferire"
     },
     "errors": {
-      "lastManager": "Un'azienda ha sempre bisogno di almeno un manager attivo: l'ultimo non può essere né disattivato né retrocesso."
+      "lastManager": "Un'azienda ha sempre bisogno di almeno un manager attivo: l'ultimo non può essere né disattivato né retrocesso.",
+      "lastManagerElsewhere": "Questa persona è l'ultimo manager attivo di un'altra azienda di cui è membro — potrà essere disattivata quando quell'azienda avrà un altro manager."
     },
     "failureReason": {
       "module_failed": "il modulo non ha potuto completare il trasferimento; dettagli nel registro",

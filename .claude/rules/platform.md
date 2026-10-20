@@ -179,7 +179,7 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   module's own audit rows too; `POST …/ownership/transfers` (`reason` optional)
   is the retry and the plain hand-over — the row menu's "hand over" entry. A PATCH `status: deactivated` (or an employment
   `terminated` on a user who is not deactivated, whatever status the body carries beside it)
-  is 409 `use_deactivate_endpoint`; the last-manager refusal is 400 with `reason: last_manager`. **The lifecycle is
+  is 409 `use_deactivate_endpoint`; the last-manager refusal is 400 with `reason: last_manager` (`last_manager_elsewhere` when the person is the last manager of a sister Betrieb — still no id). **The lifecycle is
   enforced** (Users → Lifecycle): `invited → active` happens only by accepting the invitation
   (PATCH `status: active` on an invited user is 409 `accept_invitation_required`), only an
   active user can be suspended (409 `not_active`), and **reactivation is allowed**: PATCH
@@ -343,8 +343,9 @@ One shared template layer (`app/platform/models/document_template.py`). WeasyPri
   change ends every open invitation and reset token and every session, records `email_changed`
   with the actor and mails the old address — in the PATCH's own transaction
   (`update_user(on_email_change=…)`; a taken address is a 409 first); a staff session does it
-  only with a factor in it. An account never returns to `invited` (409), so the
-  onboarding path cannot be re-opened on an active user. **Open with Anto:** the new address is
+  only with a factor in it. An account never returns to `invited` through a PATCH (409), so the
+  onboarding path cannot be re-opened on an active user — the one way back is KAN-200's
+  reactivation of a deactivated user who holds no credential, which lands on `invited`. **Open with Anto:** the new address is
   not confirmed before it takes over the channel. **Not built:** FR-AU-25's mandatory stated reason on a recovery action, FR-AU-26's `security`
   notification family (the e-mail-change notice is the one notice sent). No step-up
   re-authentication (A-12: no).

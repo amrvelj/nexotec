@@ -85,9 +85,16 @@ def assert_may_touch(*, user: User, actor_roles: frozenset[AccessRole]) -> None:
 
 
 def assert_not_last_manager(
-    db: Session, *, dealership_id: uuid.UUID, excluding_user_id: uuid.UUID, message: str | None = None
+    db: Session,
+    *,
+    dealership_id: uuid.UUID,
+    excluding_user_id: uuid.UUID,
+    message: str | None = None,
+    reason: str = "last_manager",
 ) -> None:
-    _assert_not_last_manager(db, dealership_id=dealership_id, excluding_user_id=excluding_user_id, message=message)
+    _assert_not_last_manager(
+        db, dealership_id=dealership_id, excluding_user_id=excluding_user_id, message=message, reason=reason
+    )
 
 
 def membership_is_active():
@@ -123,7 +130,12 @@ def _role_values(roles) -> list[str]:
 
 
 def _assert_not_last_manager(
-    db: Session, *, dealership_id: uuid.UUID, excluding_user_id: uuid.UUID, message: str | None = None
+    db: Session,
+    *,
+    dealership_id: uuid.UUID,
+    excluding_user_id: uuid.UUID,
+    message: str | None = None,
+    reason: str = "last_manager",
 ) -> None:
     """Roles & Permissions enforcement rule 7 / RP-1 (Dealer Administration
     FR-A-13): a dealership must always have at least one active manager.
@@ -161,7 +173,7 @@ def _assert_not_last_manager(
             message
             or "This dealership must always have at least one active manager — "
             "cannot remove or deactivate its last one.",
-            details={"reason": "last_manager"},  # the SPA's key; never the sister Betrieb (KAN-98)
+            details={"reason": reason},  # the SPA's key; never the sister Betrieb's id (KAN-98)
         )
 
 
@@ -198,7 +210,9 @@ def _assert_may_create_with_roles(*, roles: list[AccessRole], actor_roles: froze
         raise ForbiddenError("Only platform staff can grant the platform_admin role.")
 
 
-def _assert_credential_channel_rules(*, user: User, changes: dict[str, Any], actor_roles: frozenset[AccessRole]) -> None:
+def _assert_credential_channel_rules(
+    *, user: User, changes: dict[str, Any], actor_roles: frozenset[AccessRole]
+) -> None:
     """KAN-196 (D-A-16): the status `invited` is where an account starts,
     never where it returns to — otherwise a manager could re-open the
     onboarding path (re-invite) on an active colleague. And the e-mail
@@ -602,6 +616,7 @@ def update_user(
                 excluding_user_id=user.id,
                 message="This user is the last active manager of another dealership they are a member of — "
                 "cannot deactivate them until that dealership has another manager.",
+                reason="last_manager_elsewhere",
             )
 
     before: dict[str, Any] = {}

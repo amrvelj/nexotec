@@ -133,7 +133,7 @@ class UserAdminRead(CamelModel):
     updated_by: uuid.UUID | None
     # KAN-200 (Users → Fields). The administration read, filled through
     # `user_service.user_read` (the derived fields below); the session's
-    # `UserRead` above never carries these.
+    # `UserRead` (defined further down) never carries these.
     direct_dial: str | None = None
     employee_number: str | None = None
     department: str | None = None

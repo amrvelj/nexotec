@@ -2106,7 +2106,8 @@
       "deactivateDisabledAlready": "Déjà désactivé",
       "selfDisabled": "Pas pour votre propre compte",
       "handOver": "Transmettre les dossiers ouverts",
-      "suspendDisabledNotActive": "Seul un utilisateur actif peut être suspendu"
+      "suspendDisabledNotActive": "Seul un utilisateur actif peut être suspendu",
+      "editDisabledDeactivated": "Un utilisateur désactivé ne se modifie pas — le réactiver d'abord"
     },
     "actions": {
       "resendFailed": "L'invitation n'a pas pu être envoyée.",
@@ -2186,7 +2187,7 @@
         "not_owned": "{{what}} : cette personne ne les suit pas (plus).",
         "self": "{{what}} : la personne ne peut pas reprendre ses propres dossiers.",
         "colleague_not_active": "{{what}} : le collègue choisi n'est pas un utilisateur actif de cette entreprise.",
-        "colleague_cannot_act_there": "{{what}} : {{count}} d'entre eux appartiennent à une autre entreprise où le collègue choisi ne travaille pas — choisissez « Ne pas attribuer » (cette entreprise les transmet depuis sa file d'attente) ou un collègue qui y est membre."
+        "colleague_cannot_act_there": "{{what}} : {{count, number}} d'entre eux appartiennent à une autre entreprise où le collègue choisi ne travaille pas — choisissez « Ne pas attribuer » (cette entreprise les transmet depuis sa file d'attente) ou un collègue qui y est membre."
       }
     },
     "handOver": {
@@ -2195,7 +2196,8 @@
       "confirm": "Transmettre"
     },
     "errors": {
-      "lastManager": "Une entreprise a toujours besoin d'au moins un manager actif — le dernier ne peut être ni désactivé ni rétrogradé."
+      "lastManager": "Une entreprise a toujours besoin d'au moins un manager actif — le dernier ne peut être ni désactivé ni rétrogradé.",
+      "lastManagerElsewhere": "Cette personne est le dernier manager actif d'une autre entreprise dont elle est membre — elle pourra être désactivée dès que cette entreprise aura un autre manager."
     },
     "failureReason": {
       "module_failed": "le module n'a pas pu terminer la transmission ; détails dans le journal",

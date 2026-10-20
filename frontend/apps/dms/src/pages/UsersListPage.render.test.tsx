@@ -177,6 +177,42 @@ describe('UsersListPage (KAN-200)', () => {
     expect(alert).toHaveTextContent('Offene Vorgänge übergeben')
   })
 
+  it('says which hand-over failed for a user who stays, without "deactivated"', async () => {
+    const user = userEvent.setup()
+    installFakeBackend([
+      ...routes(),
+      { method: 'GET', match: /\/users\/u-1\/ownership$/, handler: () => ({ groups: [{ module: 'customer', group: 'customers', count: 1200 }], modules: ['customer'] }) },
+      {
+        method: 'POST',
+        match: /\/users\/u-1\/ownership\/transfers$/,
+        handler: () => ({ transfers: [], failed: [{ module: 'customer', group: 'customers', reason: 'module_failed', message: 'The module could not complete the hand-over; the error is in the log.' }] }),
+      },
+    ])
+    renderWithProviders(<UsersListPage />, { route: '/administration/users' })
+    await screen.findByText('Anna Keller')
+    await user.click(screen.getAllByRole('button', { name: 'Zeilenaktionen' })[0])
+    await user.click(await screen.findByText('Offene Vorgänge übergeben'))
+    const dialog = within(await screen.findByRole('dialog'))
+    expect(await dialog.findByText("1'200")).toBeInTheDocument() // KAN-160: a count is formatted
+    await user.click(await dialog.findByRole('textbox', { name: 'Übergeben: Betreute Kunden' }))
+    await user.click(await screen.findByRole('option', { name: 'Nicht zuweisen (Warteschlange des Moduls)' }))
+    await user.click(dialog.getByRole('button', { name: 'Übergeben' }))
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Nicht alles konnte übergeben werden')
+    expect(alert).not.toHaveTextContent('Deaktiviert')
+  })
+
+  it('does not offer Edit on a deactivated user, and says why', async () => {
+    const user = userEvent.setup()
+    installFakeBackend(routes())
+    renderWithProviders(<UsersListPage />, { route: '/administration/users' })
+    await screen.findByText('Carla Gross')
+    await user.click(screen.getAllByRole('button', { name: 'Zeilenaktionen' })[2])
+    const menu = await screen.findByRole('menu')
+    expect(within(menu).getByText('Bearbeiten')).toBeInTheDocument()
+    expect(within(menu).getByText('Deaktivierte Benutzer werden nicht bearbeitet — zuerst reaktivieren')).toBeInTheDocument()
+  })
+
   it('says that reactivating an expired user removed the end date, never silently', async () => {
     const user = userEvent.setup()
     // Carla's window ended last year.

@@ -2106,7 +2106,8 @@
       "deactivateDisabledAlready": "Already deactivated",
       "selfDisabled": "Not for your own account",
       "handOver": "Hand over open records",
-      "suspendDisabledNotActive": "Only an active user can be suspended"
+      "suspendDisabledNotActive": "Only an active user can be suspended",
+      "editDisabledDeactivated": "A deactivated user is not edited — reactivate first"
     },
     "actions": {
       "resendFailed": "The invitation could not be sent.",
@@ -2186,7 +2187,7 @@
         "not_owned": "{{what}}: this person does not (or no longer) look after these.",
         "self": "{{what}}: the person cannot take over their own records.",
         "colleague_not_active": "{{what}}: the chosen colleague is not an active user of this business.",
-        "colleague_cannot_act_there": "{{what}}: {{count}} of these belong to another business the chosen colleague does not work in — choose \"Leave unassigned\" (that business hands them over from its queue) or a colleague who is a member there."
+        "colleague_cannot_act_there": "{{what}}: {{count, number}} of these belong to another business the chosen colleague does not work in — choose \"Leave unassigned\" (that business hands them over from its queue) or a colleague who is a member there."
       }
     },
     "handOver": {
@@ -2195,7 +2196,8 @@
       "confirm": "Hand over"
     },
     "errors": {
-      "lastManager": "A business always needs at least one active manager — the last one can be neither deactivated nor demoted."
+      "lastManager": "A business always needs at least one active manager — the last one can be neither deactivated nor demoted.",
+      "lastManagerElsewhere": "This person is the last active manager of another business they are a member of — they can be deactivated once that business has another manager."
     },
     "failureReason": {
       "module_failed": "the module could not complete the hand-over; details are in the log",
