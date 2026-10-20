@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Group, Select, TextInput } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 
@@ -57,22 +57,32 @@ interface PhoneInputProps {
 
 export function PhoneInput({ label, value, onChange }: PhoneInputProps) {
   const { t } = useTranslation()
-  const [countryCode, setCountryCode] = useState(DEFAULT_COUNTRY_CODE)
-  const [localNumber, setLocalNumber] = useState('')
+  const [countryCode, setCountryCode] = useState(() => (value ? splitE164(value).countryCode : DEFAULT_COUNTRY_CODE))
+  const [localNumber, setLocalNumber] = useState(() => (value ? splitE164(value).localNumber : ''))
+  const [splitValue, setSplitValue] = useState(value)
+  // A stable list: Mantine's Select re-parses `data` and re-runs its
+  // selection-sync effect whenever it gets a new array (every keystroke).
+  const countryOptions = useMemo(
+    () => COUNTRY_CODES.map((c) => ({ value: c.code, label: `${c.flag} ${t(c.nameKey)} (${c.code})` })),
+    [t],
+  )
 
-  // Re-split whenever the external value changes to something this
-  // component didn't itself just produce (e.g. loading an existing
-  // customer for edit) — value is the source of truth, not local state.
-  useEffect(() => {
+  // Re-split whenever the external value changes (e.g. loading an existing
+  // customer for edit, or the value a keystroke just emitted coming back) —
+  // value is the source of truth, not local state. Adjusted during render,
+  // not in an effect (KAN-167): React re-runs this function before it renders
+  // the children, so a keystroke renders the Select and the input once, where
+  // the effect committed every keystroke twice.
+  if (value !== splitValue) {
+    setSplitValue(value)
     if (!value) {
       setLocalNumber('')
-      return
+    } else {
+      const split = splitE164(value)
+      setCountryCode(split.countryCode)
+      setLocalNumber(split.localNumber)
     }
-    const split = splitE164(value)
-    setCountryCode(split.countryCode)
-    setLocalNumber(split.localNumber)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value])
+  }
 
   const emit = (nextCountryCode: string, nextLocalNumber: string) => {
     // National/trunk format (how people actually type a local number, e.g.
@@ -92,7 +102,7 @@ export function PhoneInput({ label, value, onChange }: PhoneInputProps) {
     <Group grow preventGrowOverflow={false} gap="xs" align="flex-end" wrap="wrap">
       <Select
         label={label}
-        data={COUNTRY_CODES.map((c) => ({ value: c.code, label: `${c.flag} ${t(c.nameKey)} (${c.code})` }))}
+        data={countryOptions}
         value={countryCode}
         onChange={(next) => {
           const nextCode = next ?? DEFAULT_COUNTRY_CODE

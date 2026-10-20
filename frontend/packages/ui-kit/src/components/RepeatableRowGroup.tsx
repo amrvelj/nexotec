@@ -166,10 +166,6 @@ export function RepeatableRowGroup({
 
   const [showFormer, setShowFormer] = useState(false);
   const [adding, setAdding] = useState(false);
-  const [draftType, setDraftType] = useState(defaultType);
-  const [draftValue, setDraftValue] = useState("");
-  const [addError, setAddError] = useState<string | null>(null);
-  const [addSaving, setAddSaving] = useState(false);
   const [markingDoesNotWorkId, setMarkingDoesNotWorkId] = useState<string | null>(null);
   const [doesNotWorkReason, setDoesNotWorkReason] = useState("");
   const [doesNotWorkError, setDoesNotWorkError] = useState<string | null>(null);
@@ -194,27 +190,6 @@ export function RepeatableRowGroup({
     }
     return groups;
   }, [current]);
-
-  const startAdd = () => {
-    setDraftType(defaultType);
-    setDraftValue("");
-    setAddError(null);
-    setAdding(true);
-  };
-
-  const commitAdd = async () => {
-    setAddSaving(true);
-    setAddError(null);
-    try {
-      await onCreate({ type: draftType, value: draftValue });
-      setAdding(false);
-      setDraftValue("");
-    } catch (err) {
-      setAddError(errorText(err));
-    } finally {
-      setAddSaving(false);
-    }
-  };
 
   const setPrimary = async (row: RepeatableRowValue) => {
     if (row.isPrimary) return;
@@ -443,33 +418,19 @@ export function RepeatableRowGroup({
       {current.map(renderRow)}
 
       {adding ? (
-        <div style={rowContainerStyle}>
-          <select
-            value={draftType}
-            onChange={(e) => setDraftType(e.target.value)}
-            style={{ flex: "0 0 130px", border: `1px solid ${slate[2]}`, borderRadius: radius.sm, padding: "4px 6px", fontSize: 13, background: white }}
-          >
-            {typeOptions.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-          <div data-row-part="value" style={valueEditorStyle(valueEditorMinWidth)}>
-            {renderValueEditor(draftValue, setDraftValue, true)}
-          </div>
-          <div data-row-part="trailing" style={trailingClusterStyle}>
-            <button type="button" onClick={() => void commitAdd()} disabled={!draftValue || addSaving} style={confirmButtonStyle}>
-              {L.save}
-            </button>
-            <button type="button" onClick={() => setAdding(false)} disabled={addSaving} style={cancelButtonStyle}>
-              {L.cancel}
-            </button>
-          </div>
-          {addError && <span style={{ fontSize: 11, color: semantic.destructive.text }}>{addError}</span>}
-        </div>
+        <AddRow
+          typeOptions={typeOptions}
+          defaultType={defaultType}
+          renderValueEditor={renderValueEditor}
+          valueEditorMinWidth={valueEditorMinWidth}
+          saveLabel={L.save}
+          cancelLabel={L.cancel}
+          errorText={errorText}
+          onCreate={onCreate}
+          onClose={() => setAdding(false)}
+        />
       ) : (
-        <button type="button" onClick={startAdd} style={addButtonStyle}>
+        <button type="button" onClick={() => setAdding(true)} style={addButtonStyle}>
           + {addLabel}
         </button>
       )}
@@ -484,6 +445,82 @@ export function RepeatableRowGroup({
           {showFormer && <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 4 }}>{former.map(renderFormerRow)}</div>}
         </div>
       )}
+    </div>
+  );
+}
+
+interface AddRowProps {
+  typeOptions: RepeatableRowTypeOption[];
+  defaultType: string;
+  renderValueEditor: RepeatableRowGroupProps["renderValueEditor"];
+  valueEditorMinWidth: number;
+  saveLabel: string;
+  cancelLabel: string;
+  errorText: (err: unknown) => string;
+  onCreate: RepeatableRowGroupProps["onCreate"];
+  onClose: () => void;
+}
+
+/**
+ * The add row, with the draft as its own state (KAN-167): a keystroke in it
+ * re-renders this row only, never the group's existing rows — each of which
+ * may carry a heavy value editor (a phone's Mantine Select). Mounted fresh
+ * for every "+ Add", so a new draft starts at the default type, empty.
+ */
+function AddRow({
+  typeOptions,
+  defaultType,
+  renderValueEditor,
+  valueEditorMinWidth,
+  saveLabel,
+  cancelLabel,
+  errorText,
+  onCreate,
+  onClose,
+}: AddRowProps) {
+  const [draftType, setDraftType] = useState(defaultType);
+  const [draftValue, setDraftValue] = useState("");
+  const [addError, setAddError] = useState<string | null>(null);
+  const [addSaving, setAddSaving] = useState(false);
+
+  const commitAdd = async () => {
+    setAddSaving(true);
+    setAddError(null);
+    try {
+      await onCreate({ type: draftType, value: draftValue });
+    } catch (err) {
+      setAddError(errorText(err));
+      setAddSaving(false);
+      return;
+    }
+    onClose();
+  };
+
+  return (
+    <div style={rowContainerStyle}>
+      <select
+        value={draftType}
+        onChange={(e) => setDraftType(e.target.value)}
+        style={{ flex: "0 0 130px", border: `1px solid ${slate[2]}`, borderRadius: radius.sm, padding: "4px 6px", fontSize: 13, background: white }}
+      >
+        {typeOptions.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      <div data-row-part="value" style={valueEditorStyle(valueEditorMinWidth)}>
+        {renderValueEditor(draftValue, setDraftValue, true)}
+      </div>
+      <div data-row-part="trailing" style={trailingClusterStyle}>
+        <button type="button" onClick={() => void commitAdd()} disabled={!draftValue || addSaving} style={confirmButtonStyle}>
+          {saveLabel}
+        </button>
+        <button type="button" onClick={onClose} disabled={addSaving} style={cancelButtonStyle}>
+          {cancelLabel}
+        </button>
+      </div>
+      {addError && <span style={{ fontSize: 11, color: semantic.destructive.text }}>{addError}</span>}
     </div>
   );
 }
