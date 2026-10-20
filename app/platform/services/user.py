@@ -5,7 +5,8 @@ accountability).
 """
 
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Collection
+from dataclasses import dataclass
 from typing import Any
 
 from sqlalchemy import select, union
@@ -324,6 +325,33 @@ def list_active_users(db: Session, *, dealership_id: uuid.UUID) -> list[User]:
         .order_by(User.last_name, User.first_name)
     )
     return list(db.scalars(stmt).all())
+
+
+@dataclass(frozen=True)
+class UserDisplayLabel:
+    label: str
+    deactivated: bool
+
+
+def get_user_display_labels(db: Session, user_ids: Collection[uuid.UUID]) -> dict[uuid.UUID, UserDisplayLabel]:
+    """KAN-403 — each user's `First Last` (the label another context copies
+    beside a user id, CLAUDE.md rule 2) and whether the account is
+    deactivated, for the nightly label refreshes. Not scoped to a tenant: it
+    serves a daily job, never a request — a route resolves a label through
+    get_user_or_404 in the caller's dealership. An id that names no user is
+    absent from the result."""
+
+    if not user_ids:
+        return {}
+    rows = db.execute(
+        select(User.id, User.first_name, User.last_name, User.status).where(User.id.in_(set(user_ids)))
+    )
+    return {
+        user_id: UserDisplayLabel(
+            label=f"{first_name} {last_name}".strip(), deactivated=status in _TERMINAL_USER_STATUSES
+        )
+        for user_id, first_name, last_name, status in rows
+    }
 
 
 def create_user(

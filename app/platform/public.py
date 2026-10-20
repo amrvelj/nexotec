@@ -25,7 +25,13 @@ from app.platform.services.dealership import (
 from app.platform.services.document_render import render_document
 from app.platform.services.group_labels import get_group_display_labels
 from app.platform.services.reference_data import get_active_reference_value_codes
-from app.platform.services.user import get_user_or_404, list_active_users, list_dealer_manager_emails
+from app.platform.services.user import (
+    UserDisplayLabel,
+    get_user_display_labels,
+    get_user_or_404,
+    list_active_users,
+    list_dealer_manager_emails,
+)
 
 # WP-6b: Addressee/ContentDefinition/.../render_document are the shared
 # document-render layer's public contract — every future module that
@@ -47,12 +53,14 @@ __all__ = [
     "ParagraphBlock",
     "SignatureBlock",
     "User",
+    "UserDisplayLabel",
     "actor_reference_checks",
     "get_active_reference_value_codes",
     "get_dealership_default_correspondence_language",
     "get_dealership_or_404",
     "get_group_display_labels",
     "get_location_or_404",
+    "get_user_display_labels",
     "get_user_or_404",
     "list_active_users",
     "list_dealer_manager_emails",

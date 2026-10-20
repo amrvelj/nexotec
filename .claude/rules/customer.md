@@ -210,6 +210,16 @@ weekly. -->
   always; a sister Betrieb and its users only while the group's read is enabled, ADR-030). An
   id nothing names renders as a translated marker, never a bare UUID.
 
+- **The advisor label follows a rename within a day** (KAN-403, rule 2): `advisor_label` and
+  `advisor_label_refreshed_at` are written when the advisor is set and re-read nightly by
+  `refresh_advisor_labels` (`customer.advisor_labels`, after the vehicle-party labels) through
+  `platform.public.get_user_display_labels` — never a join. A changed label moves `updated_at`, not
+  `version`; a deactivated user's label is kept as it was (only restamped); an advisor id that names
+  no user is left alone, and its stale stamp shows in `dms.label.age_seconds{label="customer.advisor"}`.
+  The job reads each batch `FOR NO KEY UPDATE` in id order, the order a merge locks customers in.
+  **Not built:** the same refresh for Sales' responsible-seller label (`owner_label`) — the
+  columns arrive with KAN-200, which is not on `main`.
+
 ## Screens
 
 List and detail render their actions from the one shared `customerRowMenu` (ADR-061). A

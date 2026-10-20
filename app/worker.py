@@ -36,7 +36,12 @@ from app.core.outbox import consumer_lag_seconds, dead_letter_count, oldest_pend
 from app.core.outbox_transport import InProcessTransport
 from app.core.outbox_worker import poll_once
 from app.core.reconciliation import seconds_since_last_reconciliation
-from app.customer.public import oldest_vehicle_party_label_age_seconds, refresh_vehicle_party_labels
+from app.customer.public import (
+    oldest_advisor_label_age_seconds,
+    oldest_vehicle_party_label_age_seconds,
+    refresh_advisor_labels,
+    refresh_vehicle_party_labels,
+)
 from app.db import SessionLocal
 from app.integration.daily_jobs import run_daily_integration_jobs
 from app.inventory.consumers import (
@@ -157,6 +162,8 @@ def _heartbeat(db, transport: InProcessTransport) -> None:
 
     vehicle_party_label_age = oldest_vehicle_party_label_age_seconds(db)
     record_label_age_seconds("vehicle_party.vehicle", vehicle_party_label_age)
+    advisor_label_age = oldest_advisor_label_age_seconds(db)
+    record_label_age_seconds("customer.advisor", advisor_label_age)
 
     logger.info(
         "outbox heartbeat",
@@ -166,6 +173,7 @@ def _heartbeat(db, transport: InProcessTransport) -> None:
             "consumerLagSeconds": consumer_lags,
             "reconciliationAgeSeconds": reconciliation_age,
             "vehiclePartyLabelAgeSeconds": vehicle_party_label_age,
+            "advisorLabelAgeSeconds": advisor_label_age,
         },
     )
 
@@ -173,6 +181,11 @@ def _heartbeat(db, transport: InProcessTransport) -> None:
 def _refresh_vehicle_party_labels(db: Session) -> None:
     changed = refresh_vehicle_party_labels(db)
     logger.info("customer.vehicle_party_labels: %d party row(s) relabelled", changed)
+
+
+def _refresh_advisor_labels(db: Session) -> None:
+    changed = refresh_advisor_labels(db)
+    logger.info("customer.advisor_labels: %d customer(s) relabelled", changed)
 
 
 def register_daily_jobs() -> None:
@@ -188,7 +201,11 @@ def register_daily_jobs() -> None:
        year, trim) through app.vehicle.public, so a catalogue match or VIN
        correction made after the link shows within a day. After the sync,
        so a catalogue change it brought in reaches the labels the same night.
-    3. ``reconciliation.run_all`` — the nightly cross-context reconciliation
+    3. ``customer.advisor_labels`` — KAN-403: re-reads the name of every
+       customer's advisor through app.platform.public, so a renamed user's
+       new name reaches the customer cards within a day. A deactivated
+       user's label is kept as it was.
+    4. ``reconciliation.run_all`` — the nightly cross-context reconciliation
        (P-10, CLAUDE.md rule 10). There are no cross-context foreign keys
        anywhere in this codebase, so the database cannot detect a dangling
        reference; this job walking every context's ReferenceCheck list is
@@ -196,15 +213,15 @@ def register_daily_jobs() -> None:
        reconciles the state the catalogue delta just refreshed, not a
        half-synced one; a finding is logged and swallowed (see
        app.reconciliation_runner.run_all_daily), never re-run the same day.
-    4. ``inventory.orphaned_reservations.release`` — KAN-122: Stock frees a
+    5. ``inventory.orphaned_reservations.release`` — KAN-122: Stock frees a
        car whose reservation no longer has a signed contract behind it
        (app.inventory.daily_jobs). A repair, so not part of the read-only
        reconciliation; after it, so that, when reconciliation ran first that
        day, a reservation naming a missing contract is recorded as a
        dangling reference before it is released.
-    5. ``vehicle.plate_lookup_cache.purge`` — deletes plate-lookup cache rows
+    6. ``vehicle.plate_lookup_cache.purge`` — deletes plate-lookup cache rows
        past their 30-day TTL (KAN-42, FR-C-02; revDSG data minimisation).
-    6. ``core.idempotency_records.purge`` — deletes the Idempotency-Key
+    7. ``core.idempotency_records.purge`` — deletes the Idempotency-Key
        records of HTTP requests older than 24 hours (KAN-119): a retry comes
        within minutes, and a stored response can carry personal data. The
        records a context keeps under its own path (inventory's
@@ -213,6 +230,7 @@ def register_daily_jobs() -> None:
 
     register_daily_job("integration.daily_jobs", run_daily_integration_jobs)
     register_daily_job("customer.vehicle_party_labels", _refresh_vehicle_party_labels)
+    register_daily_job("customer.advisor_labels", _refresh_advisor_labels)
     register_daily_job("reconciliation.run_all", run_all_daily)
     register_daily_job("inventory.orphaned_reservations.release", run_daily_reservation_sweep)
     register_daily_job("vehicle.plate_lookup_cache.purge", run_daily_plate_lookup_purge)
