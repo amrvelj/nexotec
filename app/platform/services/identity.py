@@ -30,6 +30,7 @@ import uuid
 from typing import Protocol
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.base import utcnow
@@ -205,15 +206,35 @@ def read_auth_config(db: Session, dealership_id: uuid.UUID) -> DealershipAuthCon
 
 
 def auth_config_for(db: Session, dealership_id: uuid.UUID) -> DealershipAuthConfig:
-    """The row to WRITE: created with the defaults (local sign-in, MFA
-    enforced, FR-AU-11) by the first PUT. Every read path uses
-    `read_auth_config`, which never inserts."""
+    """The row to WRITE, locked for the rest of the transaction: created with
+    the defaults (local sign-in, MFA enforced, FR-AU-11) by the first PUT.
+    Every read path uses `read_auth_config`, which never inserts.
 
-    row = db.scalar(select(DealershipAuthConfig).where(DealershipAuthConfig.dealership_id == dealership_id))
-    if row is None:
-        row = DealershipAuthConfig(dealership_id=dealership_id)
-        db.add(row)
-        db.flush()
+    KAN-393: two first PUTs at once both found no row; the second insert hit
+    the unique constraint at an unguarded flush, a 500. The insert now runs
+    in a savepoint: the loser waits for the winner's commit, its insert
+    fails, and it reads and locks the winner's row — whose version its
+    If-Match is then checked against (409 when the winner changed it). The
+    lock also keeps two PUTs on an existing row from both passing the
+    version check."""
+
+    stmt = (
+        select(DealershipAuthConfig)
+        .where(DealershipAuthConfig.dealership_id == dealership_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    row = db.scalar(stmt)
+    if row is not None:
+        return row
+    db.flush()  # so the except below can only see this row's INSERT
+    try:
+        with db.begin_nested():
+            db.add(DealershipAuthConfig(dealership_id=dealership_id))
+    except IntegrityError:
+        pass  # a concurrent first PUT inserted it; its committed row is read below
+    row = db.scalar(stmt)
+    assert row is not None, "DealershipAuthConfig row missing after its first INSERT or the concurrent winner's"
     return row
 
 
@@ -428,11 +449,9 @@ def confirm_password_reset(db: Session, *, raw_token: str, password: str, ip_add
     """FR-AU-14: consumes the token atomically, sets the password, clears the
     lockout and ends every session of the user."""
 
-    token = auth_tokens.consume(db, raw=raw_token, kind=AuthTokenKind.PASSWORD_RESET)
-    if token is None:
-        raise BadRequestError("This link is no longer valid — request a new one.", details={"rule": "link"})
-    user = db.get(User, token.user_id)
-    if user is None or user.status in _INACTIVE:
+    user = _token_user_locked(db, raw_token=raw_token, kind=AuthTokenKind.PASSWORD_RESET)
+    token = auth_tokens.consume(db, raw=raw_token, kind=AuthTokenKind.PASSWORD_RESET) if user is not None else None
+    if token is None or user is None or user.status in _INACTIVE:
         raise BadRequestError("This link is no longer valid — request a new one.", details={"rule": "link"})
     set_password(
         db, user=user, password=password, actor_id=user.id, ip_address=ip_address, event=AuthEventKind.PASSWORD_RESET
@@ -448,13 +467,12 @@ def confirm_password_reset(db: Session, *, raw_token: str, password: str, ip_add
 
 def accept_invitation(db: Session, *, raw_token: str, password: str, ip_address: str) -> User:
     """FR-AU-13: consumes the token atomically, sets the first password and
-    activates the invited user."""
+    activates the invited user. The user row is locked before the token is
+    consumed (`_token_user_locked`)."""
 
-    token = auth_tokens.consume(db, raw=raw_token, kind=AuthTokenKind.INVITATION)
-    if token is None:
-        raise BadRequestError("This invitation is no longer valid — ask your business for a new one.", details={"rule": "link"})
-    user = db.get(User, token.user_id)
-    if user is None or user.status in _INACTIVE:
+    user = _token_user_locked(db, raw_token=raw_token, kind=AuthTokenKind.INVITATION)
+    token = auth_tokens.consume(db, raw=raw_token, kind=AuthTokenKind.INVITATION) if user is not None else None
+    if token is None or user is None or user.status in _INACTIVE:
         raise BadRequestError("This invitation is no longer valid — ask your business for a new one.", details={"rule": "link"})
     set_password(
         db, user=user, password=password, actor_id=user.id, ip_address=ip_address, event=AuthEventKind.PASSWORD_SET
@@ -544,6 +562,31 @@ def email_changed(
         mail=Mail(to=old_email, subject=text.subject, text=text.body),
         actor_id=actor_id,
         ip_address=ip_address,
+    )
+
+
+def _token_user_locked(db: Session, *, raw_token: str, kind: AuthTokenKind) -> User | None:
+    """The user a live token names, its row locked FOR NO KEY UPDATE (and
+    re-read) before the front door consumes the token — None when the token
+    is not live or names no user.
+
+    KAN-400 / KAN-393: the front door used to consume the token (locking its
+    row) and then write the user row unlocked, while a manager's e-mail
+    change holds the user row (KAN-380) and then ends the user's tokens:
+    opposite orders, a deadlock and a 500. Unlocked, the acceptance also
+    wrote `version = <read> + 1` over a PATCH that committed meanwhile, and
+    two front-door writes of one user (an invitation and a reset at once)
+    both inserted the first `credential`. One order now — user row, then
+    token, then credential — like every user-administration route."""
+
+    token = auth_tokens.peek(db, raw=raw_token, kind=kind)
+    if token is None:
+        return None
+    return db.scalar(
+        select(User)
+        .where(User.id == token.user_id)
+        .with_for_update(key_share=True)
+        .execution_options(populate_existing=True)
     )
 
 

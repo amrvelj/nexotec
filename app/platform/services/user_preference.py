@@ -9,6 +9,7 @@ import json
 import uuid
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.errors import UnprocessableEntityError
@@ -40,8 +41,20 @@ def put_preference(
 
     pref = db.get(UserPreference, (user_id, scope))
     if pref is None:
-        pref = UserPreference(user_id=user_id, scope=scope, payload=payload, schema_version=schema_version)
-        db.add(pref)
+        # KAN-393: a grid that saves its layout twice in quick succession can
+        # send two first saves of one scope; the second insert hit the
+        # primary key at an unguarded commit, a 500. In a savepoint the loser
+        # waits for the winner's commit, its insert fails, and it overwrites
+        # the winner's row like any later save.
+        try:
+            with db.begin_nested():
+                pref = UserPreference(user_id=user_id, scope=scope, payload=payload, schema_version=schema_version)
+                db.add(pref)
+        except IntegrityError:
+            pref = db.get(UserPreference, (user_id, scope), populate_existing=True)
+            assert pref is not None, "UserPreference row missing after the concurrent winner's INSERT"
+            pref.payload = payload
+            pref.schema_version = schema_version
     else:
         # Last-write-wins, no version check — see model docstring.
         pref.payload = payload

@@ -70,8 +70,11 @@ main@046634d on 2026-10-17 (KAN-195: every present-tense claim checked against t
   `user_service.get_user_for_update_or_404` (FOR NO KEY UPDATE) **before** it touches a child row
   (KAN-380): two first grants are then a 201 and a 409, and a route that locked child rows first
   would deadlock against one that locked the user first (a source test pins the seven). The
-  front door (invitation acceptance, password-reset confirm) writes the user row under its
-  single-use token's lock instead and touches no membership or delegation.
+  front door (invitation acceptance, password-reset confirm) locks the user row **before** it
+  consumes its single-use token (KAN-400: an e-mail change holds the user row, then ends the
+  tokens), so every path that writes a user row takes user row → token → credential in that
+  order; it touches no membership or delegation. The first auth-config PUT, the first TOTP enrolment and the first preference save
+  insert in a savepoint and carry on with a concurrent winner's committed row (KAN-393).
   `LoginResponse.user.isDealerManager` is the home flag, not the active dealership's — never
   gate a screen on it; the session's own flag is the token claim.
 

@@ -18,8 +18,10 @@ the customer, so a create either fully succeeds or leaves nothing behind.
 import datetime as dt
 import uuid
 from decimal import Decimal
+from typing import Any
 
-from pydantic import EmailStr, Field, field_validator, model_validator
+from pydantic import EmailStr, Field, ValidationInfo, field_validator, model_validator
+from pydantic.alias_generators import to_camel
 
 from app.core.audit_schemas import AuditEventPage
 from app.core.schemas import CamelModel
@@ -510,19 +512,36 @@ class CustomerUpdate(CamelModel):
     def _clean_tags(cls, value: list[str] | None) -> list[str] | None:
         return None if value is None else _normalise_tags(value)
 
+    @field_validator(
+        "language",
+        "lifecycle_status",
+        "marketing_consent",
+        "gender",
+        "newsletter",
+        "vat_registered",
+        "vat_status_confirmed",
+    )
+    @classmethod
+    def _not_null_column_not_cleared(cls, value: Any, info: ValidationInfo) -> Any:
+        # KAN-394: these columns are NOT NULL on the model. A field
+        # validator runs only for a key the body sends, so `None` here is an
+        # explicit null — a malformed request (422 naming the field), not a
+        # conflict the database would report after the write. Leaving the
+        # key out keeps the value.
+        if value is not None:
+            return value
+        if info.field_name == "gender":
+            # gender defaults to `unspecified`; to "reset" it a caller sends
+            # that value, never null.
+            raise ValueError("gender cannot be cleared — set it to 'unspecified' instead.")
+        raise ValueError(f"{to_camel(info.field_name or '')} cannot be cleared — send a value or leave the field out.")
+
     @model_validator(mode="after")
     def _reject_merged_via_patch(self) -> "CustomerUpdate":
         if self.lifecycle_status == CustomerLifecycleStatus.MERGED:
             raise ValueError("lifecycle_status 'merged' can only be set via POST /v1/customers/{id}/merge.")
         return self
 
-    @model_validator(mode="after")
-    def _gender_not_cleared(self) -> "CustomerUpdate":
-        # gender is NOT NULL on the model (defaults to `unspecified`); to
-        # "reset" it a caller sends 'unspecified', never null.
-        if "gender" in self.model_fields_set and self.gender is None:
-            raise ValueError("gender cannot be cleared — set it to 'unspecified' instead.")
-        return self
 
 
 class CustomerRead(CamelModel):

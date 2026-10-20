@@ -1184,8 +1184,10 @@ def _repoint_earlier_merges(
     row waits on this merge: allocation, a reopen and a merge into or of X
     refuse a merged customer (a reopen of a kept copy locks that copy first,
     but after its advisory lock, and waits for nothing after it); a
-    credit-block change on X takes only X's row. The copies are only tried,
-    never waited for: the nightly label refresh locks party rows in id order
+    credit-block change on X takes only X's row; the nightly advisor-label
+    refresh skips a customer it cannot lock and waits for nothing (KAN-403).
+    The copies are only tried, never waited for: the nightly vehicle-party
+    label refresh locks party rows in id order
     and could hold a copy while it waits for one of D's rows, so a copy held
     by another writer refuses the merge (409 `merge_vehicle_party_busy`,
     nothing written), which can simply be sent again."""
