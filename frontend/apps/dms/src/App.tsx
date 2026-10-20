@@ -14,6 +14,7 @@ import { CustomerCreatePage } from './pages/CustomerCreatePage'
 import { CustomerDetailPage } from './pages/CustomerDetailPage'
 import { CatalogueBrowsePage } from './pages/CatalogueBrowsePage'
 import { ReferenceDataPage } from './pages/ReferenceDataPage'
+import { UsersListPage } from './pages/UsersListPage'
 import { IntegrationsPage } from './pages/IntegrationsPage'
 import { VehiclesListPage } from './pages/VehiclesListPage'
 import { VehicleDetailPage } from './pages/VehicleDetailPage'
@@ -61,6 +62,8 @@ export default function App() {
               element={<Navigate to="/catalogue?tab=mapping-gaps" replace />}
             />
             <Route path="/settings/reference" element={<ReferenceDataPage />} />
+            {/* KAN-200 — Dealer Administration › Users (manager-only at the API). */}
+            <Route path="/administration/users" element={<UsersListPage />} />
             <Route path="/integrations" element={<IntegrationsPage />} />
             <Route path="/vehicles" element={<VehiclesListPage />} />
             <Route path="/vehicles/:id" element={<VehicleDetailPage />} />

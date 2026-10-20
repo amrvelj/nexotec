@@ -66,14 +66,27 @@ main@046634d on 2026-10-17 (KAN-195: every present-tense claim checked against t
   listing shows a dealer manager only the sister dealerships they manage themselves.
   Every user-administration route in `app/platform/api/dealerships.py` that writes a user's
   memberships, text delegations or the user row (PATCH user, membership grant/end, both
-  manager-flag PUTs, delegation PUT/DELETE) loads the user with
+  manager-flag PUTs, delegation PUT/DELETE, and since KAN-200 the deactivation step, the
+  hand-over, the signature PUT/DELETE and the invitation re-send) loads the user with
   `user_service.get_user_for_update_or_404` (FOR NO KEY UPDATE) **before** it touches a child row
   (KAN-380): two first grants are then a 201 and a 409, and a route that locked child rows first
-  would deadlock against one that locked the user first (a source test pins the seven). The
+  would deadlock against one that locked the user first (a source test pins the twelve). The
   front door (invitation acceptance, password-reset confirm) locks the user row **before** it
   consumes its single-use token (KAN-400: an e-mail change holds the user row, then ends the
   tokens), so every path that writes a user row takes user row → token → credential in that
-  order; it touches no membership or delegation. The first auth-config PUT, the first TOTP enrolment and the first preference save
+  order; it touches no membership or delegation. **Every login path takes the user row first too**
+  (`identity.lock_user_for_login`; since KAN-200 a login stamps `last_login_at`): the password step
+  before it checks the password and issues a challenge (the credential re-read under the lock, so a
+  reset that committed meanwhile is the one it meets; the throttle judged again), the MFA and
+  passkey steps before they claim the challenge or touch a factor, and the mint (`_finish_login`)
+  re-locks — so every login path and every path that writes the user row or the credential takes
+  user row → token → factor → credential, and a login's status is judged under the lock: a login
+  racing a deactivation is refused. **Not yet one order (KAN-411):** the paths that take no
+  user-row lock — the reset request, the account's own MFA routes (`/auth/mfa/totp*`,
+  `/auth/mfa/recovery-codes*`, `/auth/mfa/passkeys*`; the login's verify steps do lock), staff's
+  MFA and session resets — still deadlock against each other or a revoke-all in three known pairs. The nightly
+  `platform.user_expiry` re-reads each due user under the lock and judges it again, and its retry
+  re-reads each listed user and hands over only one still deactivated by the job. The first auth-config PUT, the first TOTP enrolment and the first preference save
   insert in a savepoint and carry on with a concurrent winner's committed row (KAN-393).
   `LoginResponse.user.isDealerManager` is the home flag, not the active dealership's — never
   gate a screen on it; the session's own flag is the token claim.
@@ -160,8 +173,61 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   shows both, never the dealer as actor; 60-minute box, mandatory reason, persistent banner;
   **the user ends it from the banner; no manager notification, no manager "View as."** It can
   never touch credentials, MFA, the manager flag or integration secrets (FR-A-17).
-- **Deactivation includes a reassignment step** (D-A-35): each module registers an ownership
-  provider; open records are transferred or listed, never left silently with the user.
+- **Deactivation includes a reassignment step** (D-A-35) — built (KAN-200): `OwnershipProvider`
+  in `app/core/ownership.py`, one implementation per context registered by the composition root
+  `app/ownership_registry.py` (customer: the customers a user advises; sales: open offers and
+  pending contracts, which carry a responsible seller `owner_user_id` since KAN-200, Anto
+  2026-10-19; inventory, aftersales, parts: nothing per user). A user id names one person
+  platform-wide, so a provider counts what the user owns **everywhere** — a sister-Betrieb
+  member's offers there included (`platform.public.get_user_acting_in` is how Sales admits a
+  seller: homed or an active member, status active or invited) — and a hand-over to a colleague
+  who cannot act in one of those Betriebe is refused as a whole (422 saying how many records
+  are elsewhere, never which Betrieb — an id is a fact the caller may not hold): the manager
+  picks the queue for that group, and that Betrieb hands them over from its own queue. **The
+  home manager decides for every Betrieb the leaver worked in** (Anto, 2026-10-20, ADR-094) —
+  not the sister's queue only, not a refusal until the sister handed over. `GET …/users/{id}/ownership`
+  lists the groups; `POST …/users/{id}/deactivate` needs a decision for every group (an
+  **active** colleague, or null = the module's own unassigned queue: `GET /sales/deals?unassigned=true`
+  (open offers and pending contracts; an unassigned **draft** stays hidden like every draft on the
+  Sales grid and is reached from its customer's tab — Anto, 2026-10-20; so does an offer freed by a
+  cancelled contract, which the grid still shows as that cancelled contract — KAN-409), `GET /customers?unassigned=true`,
+  both filterable on screen), cuts
+  access first in platform's own commit, then each module hands over on a session of its own
+  (ADR-047) with one `ownership_transferred` audit row per group carrying the manager's reason
+  (Customers also writes one per customer with it; Sales bumps each offer's and contract's
+  version and writes no audit row of its own — platform's row is the record); `POST …/ownership/transfers` (`reason` optional)
+  is the retry and the plain hand-over — the row menu's "hand over" entry. A PATCH `status: deactivated` (or an employment
+  `terminated` on a user who is not deactivated, whatever status the body carries beside it)
+  is 409 `use_deactivate_endpoint`; the last-manager refusal is 400 with `reason: last_manager` (`last_manager_elsewhere` when the person is the last manager of a sister Betrieb — still no id). **The lifecycle is
+  enforced** (Users → Lifecycle): `invited → active` happens only by accepting the invitation
+  (PATCH `status: active` on an invited user is 409 `accept_invitation_required`), only an
+  active user can be suspended (409 `not_active`), and **reactivation is allowed**: PATCH
+  `status: active`, with `employmentStatus` when the employment ended with the user and a new
+  `validFrom`/`validTo` when the old window expired — a
+  deactivated user who holds no credential (deactivated while invited, or after a staff MFA/
+  credential reset) comes back as `invited`, not `active`, and the manager resends the
+  invitation; any other edit of a deactivated user stays 409. The one exception to "only by
+  accepting" is `scripts/seed_staging_demo.py`, which activates its demo user on the row (nobody
+  to mail), audited with reason `seed_staging_demo` — the same bootstrap exception as its
+  password. A module that fails during a hand-over is answered, not raised: `failed` on the
+  deactivation's and the transfer's response names the group with a stable `reason` (the
+  module's own refusal code, or `module_failed`) and a message that is never an exception's
+  text; the records stay with the user for the retry. The 422 of an incomplete step carries
+  `details.problems[]` with the same shape (`reason`: `undecided`, `decided_twice`, `not_owned`,
+  `self`, `colleague_not_active`, or a module's code such as Sales'
+  `colleague_cannot_act_there`), which the SPA translates. The nightly
+  `platform.user_expiry` job (FR-A-12, worker only — not on staging) deactivates a user whose
+  `valid_to` has passed with platform's own authority (a staff account expires too), one user
+  at a time (a failure on one is logged, the rest go on), releases their records to the queues,
+  and retries a failed release for 30 days; each module's nightly reconciliation reports an open
+  record whose owner is deactivated (rule 10). `valid_from`/`valid_to` refuse a sign-in outside
+  the window (the validity is checked as it will be after a PATCH); an invitation can be
+  accepted before `valid_from` (password set, account active), the acceptance answering 403
+  `access_window_closed` with the dates instead of a session. `user_location` (primary +
+  additional, FR-A-02) and `GET …/locations` (read-only: no Locations screen yet). The Users
+  screen is `/administration/users` (one shared invite/edit dialog, the deactivation dialog;
+  server-side sort; no delete). `LoginResponse.user` and `GET /auth/me` keep their pre-KAN-200
+  shape and schema name (`UserRead`); the administration fields are `UserAdminRead`'s alone.
 - **Mail (D-A-28):** platform mail (invites, resets, alerts) is always Nexotec's own sender;
   customer-facing mail resolves per document type through `sending_policy` to
   `user_mailbox` · `business_mailbox` · `verified_domain` · `nexotec_on_behalf`.
@@ -172,6 +238,15 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
 - **Not in v1, by ruling:** policy limits (D-A-18), external users (D-A-20), custom fields and
   tags (D-A-29), Saldosteuersatz (D-A-27), customer logins (D-A-13), API clients (D-A-14),
   Zefix auto-fill, AI translations, training mode.
+
+- **Signature image (KAN-200; Anto, 2026-10-19: the manager sets it too):** `PUT/GET/DELETE
+  …/users/{id}/signature`, the image as the raw body (PNG or JPEG ≤ 1 MiB, judged by its
+  bytes), stored under `dealerships/<id>/users/<id>/signature` in the object store
+  (`app/core/object_store.py`; `DMS_OBJECT_STORE_BACKEND=local` under
+  `DMS_OBJECT_STORE_LOCAL_DIR`, the only store built; a bucket is a follow-up); the row holds
+  the key (`signature_image_ref`), never bytes or base64. The local store is dev, test and
+  staging only: `get_object_store` refuses it in production at startup (KAN-402 brings the
+  bucket), as the mailer refuses its `logging` sender.
 
 ## Document templates (ADR-051)
 
@@ -287,8 +362,11 @@ One shared template layer (`app/platform/models/document_template.py`). WeasyPri
   change ends every open invitation and reset token and every session, records `email_changed`
   with the actor and mails the old address — in the PATCH's own transaction
   (`update_user(on_email_change=…)`; a taken address is a 409 first); a staff session does it
-  only with a factor in it. An account never returns to `invited` (409), so the
-  onboarding path cannot be re-opened on an active user. **Open with Anto:** the new address is
+  only with a factor in it. An account never returns to `invited` through a PATCH (409), so the
+  onboarding path cannot be re-opened on an active user — the one way back is KAN-200's
+  reactivation of a deactivated user who holds no credential, which lands on `invited` — also
+  for an account that was active before KAN-196 and never set a password: the manager may then
+  correct its e-mail and resend the invitation (Anto, 2026-10-20: kept as built, knowingly). **Open with Anto:** the new address is
   not confirmed before it takes over the channel. **Not built:** FR-AU-25's mandatory stated reason on a recovery action, FR-AU-26's `security`
   notification family (the e-mail-change notice is the one notice sent). No step-up
   re-authentication (A-12: no).

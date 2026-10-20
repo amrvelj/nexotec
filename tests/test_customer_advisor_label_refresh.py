@@ -29,6 +29,7 @@ from app.core.daily_scheduler import _REGISTRY, registered_job_names
 from app.customer.models.customer import Customer
 from app.customer.services import customer as customer_service
 from app.customer.services.advisor_label import oldest_advisor_label_age_seconds, refresh_advisor_labels
+from app.platform.models.user import User, UserStatus
 from tests.membership_support import platform_admin
 from tests.test_customer_fr17_fields import _bearer, _create_dealer, _create_user, _token
 from tests.test_customer_vehicle_party_close_rule import _customer as _vp_customer
@@ -120,8 +121,14 @@ def test_a_deactivated_advisor_keeps_the_label_they_had(client, db_session):
     customer = _customer_with_advisor(client, dealer_id, advisor)
     then = _backdate(db_session, customer["id"], hours=30)
 
-    renamed = _patch_user(client, dealer_id, advisor, {"lastName": "Graf"})
-    _patch_user(client, dealer_id, renamed, {"status": "deactivated"})
+    _patch_user(client, dealer_id, advisor, {"lastName": "Graf"})
+    # Since KAN-200 the deactivation step hands the customers over; a
+    # deactivated user still advises one after a hand-over that failed once
+    # access was cut (`module_failed`, retried by the expiry job), after a
+    # deactivation before KAN-200, or when a customer PATCH names them
+    # (KAN-410). The status is set on the row, as those paths leave it.
+    db_session.get(User, uuid.UUID(advisor["id"])).status = UserStatus.DEACTIVATED
+    db_session.commit()
 
     assert refresh_advisor_labels(db_session) == 0
 

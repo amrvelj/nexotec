@@ -46,6 +46,10 @@ def upsert_deal_projection(
         deal.customer_locality = contract.customer_locality
         deal.customer_denorm_refreshed_at = contract.customer_denorm_refreshed_at
         deal.vehicle_label = contract.vehicle_label
+        # KAN-200: the responsible seller of the live entity.
+        deal.owner_user_id = contract.owner_user_id
+        deal.owner_label = contract.owner_label
+        deal.owner_label_refreshed_at = contract.owner_label_refreshed_at
         deal.gross_price = contract.gross_price
         deal.margin = contract.margin
         offer_docs = (
@@ -66,15 +70,19 @@ def upsert_deal_projection(
         deal = SalesDeal(id=offer.id, tenant_id=offer.tenant_id)
         db.add(deal)
     # Once a contract exists for this deal, the offer's own row is never
-    # upserted back into "offer" shape again — an offer-side call arriving
-    # here after its contract exists would only happen from a caller bug
-    # (the offer itself is not editable once superseded), so this is a
-    # defensive guard, not a real code path.
+    # upserted back into "offer" shape again. An offer-side write does arrive
+    # here after its contract exists — a draft offer stays editable (PATCH,
+    # line items, trade-in, finalize, cancel) — so this guard is a real path.
+    # KAN-200: the responsible seller is the LIVE entity's; a contract-shaped
+    # row keeps its contract's seller whatever the offer is told.
     if deal.contract_id is None:
         deal.entity_type = "offer"
         deal.number = offer.offer_number
         deal.status = offer.status.value
         deal.gross_price = offer.gross_price
+        deal.owner_user_id = offer.owner_user_id
+        deal.owner_label = offer.owner_label
+        deal.owner_label_refreshed_at = offer.owner_label_refreshed_at
     deal.offer_id = offer.id
     deal.offer_number = offer.offer_number
     deal.customer_id = offer.customer_id

@@ -62,8 +62,10 @@ claim checked against the code). Fix this file in the same PR as any change to w
 - **A repair the nightly run makes (ADR-047: "a failure after commit is repaired by the nightly
   reconciliation job") is a daily job of the owning context with its own record, never part of
   reconciliation** — finding and fixing stay apart (Anto, 2026-10-08, KAN-122; ADR-047
-  addendum). It is registered after `reconciliation.run_all`. The one today: Stock's
+  addendum). It is registered after `reconciliation.run_all`. Two today: Stock's
   orphan-reservation sweep (`inventory.orphaned_reservations.release`; see
-  `.claude/rules/inventory.md`).
+  `.claude/rules/inventory.md`) and the expiry job's retry of a hand-over a module refused
+  (`platform.user_expiry`, KAN-200, 30 days; the Sales and Customers StateChecks name the record
+  meanwhile).
 - **Outbox now, broker later** (ADR-006): the Postgres-backed transport stays until the third
   independently deployed service exists.

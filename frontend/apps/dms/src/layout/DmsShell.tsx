@@ -15,6 +15,7 @@ import {
   Receipt,
   ShieldCheck,
   Store,
+  UserCog,
   Users,
   Warehouse,
   Wrench,
@@ -85,6 +86,9 @@ function buildNavGroups(t: (key: string) => string): NavGroupConfig[] {
       // have its own entry is now a section of this screen.
       label: t('shell.nav.administration'),
       items: [
+        // KAN-200 — Dealer Administration › Users. Manager-only at the API
+        // (`dealership_users`); the entry is never role-hidden (A-RULE-7).
+        { label: t('shell.nav.users'), href: '/administration/users', icon: UserCog, status: 'active' },
         { label: t('shell.nav.referenceData'), href: '/settings/reference', icon: Languages, status: 'active' },
       ],
     },

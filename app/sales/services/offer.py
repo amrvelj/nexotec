@@ -16,6 +16,7 @@ from app.core.pagination import SortPageParams, build_sorted_page, count_capped,
 from app.customer.public import Customer, CustomerLifecycleStatus, get_customer_or_404
 from app.sales.models.offer import OfferStatus, SalesOffer
 from app.sales.schemas.offer import OfferUpdate
+from app.sales.services import ownership
 from app.sales.services.deal_editing import apply_vehicle_and_pricing_changes
 from app.sales.services.deal_projection import upsert_deal_projection
 from app.sales.services.numbering import allocate_offer_number
@@ -102,6 +103,9 @@ def create_offer(db: Session, *, tenant_id: uuid.UUID, actor_id: uuid.UUID | Non
         offer_number=allocate_offer_number(db, tenant_id),
         created_by=actor_id,
         updated_by=actor_id,
+        # KAN-200: the creator is the responsible seller (when they are a
+        # user of this dealership); a manager can hand the offer on later.
+        **ownership.default_owner(db, tenant_id=tenant_id, actor_id=actor_id),
     )
     db.add(offer)
     db.flush()
@@ -138,6 +142,11 @@ def update_offer(
 
     if "customer_id" in changes:
         apply_customer_change(db, deal=offer, group_id=group_id, customer_id=changes.pop("customer_id"), host="an offer")
+    if "owner_user_id" in changes:
+        # KAN-200: the responsible seller, re-assignable from the workspace.
+        ownership.apply_owner(
+            offer, ownership.resolve_owner_change(db, tenant_id=offer.tenant_id, owner_user_id=changes.pop("owner_user_id"))
+        )
 
     apply_vehicle_and_pricing_changes(db, deal=offer, changes=changes, actor_id=actor_id, host="offer workspace")
 
@@ -198,6 +207,8 @@ def copy_offer(db: Session, *, source: SalesOffer, actor_id: uuid.UUID | None) -
         leasing_down_payment=source.leasing_down_payment,
         leasing_term_months=source.leasing_term_months,
         leasing_km_per_year=source.leasing_km_per_year,
+        # KAN-200: a copy is the copier's own offer, not the source seller's.
+        **ownership.default_owner(db, tenant_id=source.tenant_id, actor_id=actor_id),
         created_by=actor_id,
         updated_by=actor_id,
     )

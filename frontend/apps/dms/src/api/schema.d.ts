@@ -1070,6 +1070,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/dealerships/{dealership_id}/locations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Locations
+         * @description The Betrieb's sites, for the Users screen's location picker (FR-A-02).
+         *     Read-only here: the Locations screen (Phase 2) is where they are made.
+         */
+        get: operations["list_locations_v1_dealerships__dealership_id__locations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/dealerships/{dealership_id}/users": {
         parameters: {
             query?: never;
@@ -1104,6 +1125,30 @@ export interface paths {
         head?: never;
         /** Update User */
         patch: operations["update_user_v1_dealerships__dealership_id__users__user_id__patch"];
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/users/{user_id}/deactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Deactivate User
+         * @description FR-A-37 / D-A-35: deactivation with the reassignment step. Every
+         *     open group needs a decision (422 names the missing ones); the last
+         *     active manager cannot be deactivated (FR-A-13); access is cut first
+         *     (sessions, delegations, the stamps), then each module hands its records
+         *     over in its own transaction. There is no delete (A-RULE-5).
+         */
+        post: operations["deactivate_user_v1_dealerships__dealership_id__users__user_id__deactivate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/dealerships/{dealership_id}/users/{user_id}/invitations": {
@@ -1243,6 +1288,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/dealerships/{dealership_id}/users/{user_id}/ownership": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get User Ownership
+         * @description FR-A-37: what this user still owns that is open, grouped by module —
+         *     the deactivation dialog's list, and the retry's.
+         */
+        get: operations["get_user_ownership_v1_dealerships__dealership_id__users__user_id__ownership_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/users/{user_id}/ownership/transfers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Transfer User Ownership
+         * @description Hands the named groups to a colleague or to nobody — the retry after
+         *     a deactivation whose hand-over failed part-way, and a plain hand-over
+         *     for a user who stays. Each group is the owning module's own commit
+         *     (ADR-047), audited here per group.
+         */
+        post: operations["transfer_user_ownership_v1_dealerships__dealership_id__users__user_id__ownership_transfers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/dealerships/{dealership_id}/users/{user_id}/sessions": {
         parameters: {
             query?: never;
@@ -1260,6 +1349,33 @@ export interface paths {
          *     suspends the user instead, which ends the sessions the same way.
          */
         delete: operations["revoke_user_sessions_v1_dealerships__dealership_id__users__user_id__sessions_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/users/{user_id}/signature": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get User Signature */
+        get: operations["get_user_signature_v1_dealerships__dealership_id__users__user_id__signature_get"];
+        /**
+         * Put User Signature
+         * @description The user's signature image (Users → Personal settings; Anto,
+         *     2026-10-19: the manager sets it here too). The body is the image itself
+         *     (PNG or JPEG, up to 1 MiB) with its Content-Type — never base64, never
+         *     multipart; the row keeps the object-store key only. A plain `def` like
+         *     every other route: the bytes arrive as a Body parameter, so the store
+         *     write and the row lock run in the threadpool, not on the event loop.
+         */
+        put: operations["put_user_signature_v1_dealerships__dealership_id__users__user_id__signature_put"];
+        post?: never;
+        /** Delete User Signature */
+        delete: operations["delete_user_signature_v1_dealerships__dealership_id__users__user_id__signature_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -4045,6 +4161,10 @@ export interface components {
             offerNumber: string | null;
             /** Optionstotal */
             optionsTotal?: string | null;
+            /** Ownerlabel */
+            ownerLabel?: string | null;
+            /** Owneruserid */
+            ownerUserId?: string | null;
             /** Payable */
             payable: string | null;
             /** Reservationid */
@@ -4120,6 +4240,8 @@ export interface components {
             manualBasePrice?: number | string | null;
             /** Manualvehiclecondition */
             manualVehicleCondition?: string | null;
+            /** Owneruserid */
+            ownerUserId?: string | null;
             /** Stockitemid */
             stockItemId?: string | null;
             /** Vehiclelabel */
@@ -5041,6 +5163,10 @@ export interface components {
             offerId: string | null;
             /** Offernumber */
             offerNumber: string | null;
+            /** Ownerlabel */
+            ownerLabel?: string | null;
+            /** Owneruserid */
+            ownerUserId?: string | null;
             /** Status */
             status: string;
             /**
@@ -5774,6 +5900,27 @@ export interface components {
             /** Zustandsbeschreibung */
             zustandsbeschreibung?: string | null;
         };
+        /** LocationList */
+        LocationList: {
+            /** Items */
+            items: components["schemas"]["LocationRead"][];
+        };
+        /**
+         * LocationRead
+         * @description A site of the Betrieb, for the Users screen's location picker
+         *     (KAN-200). The Locations screen itself is Phase 2.
+         */
+        LocationRead: {
+            /** Addresslocality */
+            addressLocality: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+        };
         /** LoginRequest */
         LoginRequest: {
             /** Email */
@@ -6131,6 +6278,10 @@ export interface components {
             offerNumber: string;
             /** Optionstotal */
             optionsTotal: string | null;
+            /** Ownerlabel */
+            ownerLabel?: string | null;
+            /** Owneruserid */
+            ownerUserId?: string | null;
             /** Payable */
             payable: string | null;
             status: components["schemas"]["OfferStatus"];
@@ -6199,6 +6350,8 @@ export interface components {
             manualBasePrice?: number | string | null;
             /** Manualvehiclecondition */
             manualVehicleCondition?: string | null;
+            /** Owneruserid */
+            ownerUserId?: string | null;
             /** Stockitemid */
             stockItemId?: string | null;
             /** Vehiclelabel */
@@ -6252,6 +6405,93 @@ export interface components {
             /** Displayname */
             displayName: string;
             role: components["schemas"]["VehiclePartyRole"];
+        };
+        /**
+         * OwnedGroupRead
+         * @description One group of open records the user owns: the module, the group in
+         *     it and the count. Labels are the SPA's (i18n by module + group).
+         */
+        OwnedGroupRead: {
+            /** Count */
+            count: number;
+            /** Group */
+            group: string;
+            /** Module */
+            module: string;
+        };
+        /**
+         * OwnershipRead
+         * @description What the user still owns, across every registered module — the
+         *     deactivation dialog's list. `modules` names every module that answered,
+         *     so "nothing to reassign" is a statement, not an omission.
+         */
+        OwnershipRead: {
+            /** Groups */
+            groups: components["schemas"]["OwnedGroupRead"][];
+            /** Modules */
+            modules: string[];
+        };
+        /**
+         * OwnershipTransferFailure
+         * @description A group whose module refused or failed the hand-over: its records
+         *     are still the user's, listed by `GET …/ownership` for the retry
+         *     (`POST …/ownership/transfers`). `reason` is a stable code the SPA
+         *     translates — the module's own refusal code, or `module_failed`; `message`
+         *     is the refusal's English text, or a fixed sentence: an exception's text
+         *     never reaches a client.
+         */
+        OwnershipTransferFailure: {
+            /** Group */
+            group: string;
+            /** Message */
+            message: string;
+            /** Module */
+            module: string;
+            /** Reason */
+            reason: string;
+        };
+        /**
+         * OwnershipTransferRequest
+         * @description The manager's decision for one group: a colleague (`to_user_id`), or
+         *     null — the records go to the module's own unassigned queue.
+         */
+        OwnershipTransferRequest: {
+            /** Group */
+            group: string;
+            /** Module */
+            module: string;
+            /** Touserid */
+            toUserId?: string | null;
+        };
+        /** OwnershipTransferResult */
+        OwnershipTransferResult: {
+            /** Count */
+            count: number;
+            /** Group */
+            group: string;
+            /** Module */
+            module: string;
+            /** Touserid */
+            toUserId: string | null;
+        };
+        /** OwnershipTransfersRead */
+        OwnershipTransfersRead: {
+            /** Failed */
+            failed?: components["schemas"]["OwnershipTransferFailure"][];
+            /** Transfers */
+            transfers: components["schemas"]["OwnershipTransferResult"][];
+        };
+        /**
+         * OwnershipTransfersRequest
+         * @description A hand-over outside the deactivation: the retry after a module failed,
+         *     or a plain hand-over for a user who stays. `reason` lands on platform's
+         *     audit row and on the modules' own (a customer's advisor change, say).
+         */
+        OwnershipTransfersRequest: {
+            /** Reason */
+            reason?: string | null;
+            /** Transfers */
+            transfers: components["schemas"]["OwnershipTransferRequest"][];
         };
         /** PasskeyAssertionRequest */
         PasskeyAssertionRequest: {
@@ -7228,6 +7468,90 @@ export interface components {
              */
             indicative?: boolean;
         };
+        /** UserAdminRead */
+        UserAdminRead: {
+            /** Accessroles */
+            accessRoles: components["schemas"]["AccessRole"][];
+            /** Additionallocationids */
+            additionalLocationIds?: string[];
+            /** Authidentityid */
+            authIdentityId: string;
+            /**
+             * Commissionrelevant
+             * @default false
+             */
+            commissionRelevant?: boolean;
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            /** Createdby */
+            createdBy: string | null;
+            /** Deactivatedat */
+            deactivatedAt?: string | null;
+            /** Deactivationreason */
+            deactivationReason?: string | null;
+            /**
+             * Dealershipid
+             * Format: uuid
+             */
+            dealershipId: string;
+            /** Department */
+            department?: string | null;
+            /** Directdial */
+            directDial?: string | null;
+            /** Email */
+            email: string;
+            /** Employeenumber */
+            employeeNumber?: string | null;
+            employmentStatus: components["schemas"]["EmploymentStatus"];
+            /** Firstname */
+            firstName: string;
+            /**
+             * Hassignatureimage
+             * @default false
+             */
+            hasSignatureImage?: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Invitationexpiresat */
+            invitationExpiresAt?: string | null;
+            /** Invitedat */
+            invitedAt?: string | null;
+            /** Isdealermanager */
+            isDealerManager: boolean;
+            /** Lastloginat */
+            lastLoginAt?: string | null;
+            /** Lastname */
+            lastName: string;
+            /** Linemanageruserid */
+            lineManagerUserId?: string | null;
+            /** Phone */
+            phone: string | null;
+            /** Primarylocationid */
+            primaryLocationId?: string | null;
+            role: components["schemas"]["UserRole"];
+            /** Salesadvisorcode */
+            salesAdvisorCode?: string | null;
+            status: components["schemas"]["UserStatus"];
+            /**
+             * Updatedat
+             * Format: date-time
+             */
+            updatedAt: string;
+            /** Updatedby */
+            updatedBy: string | null;
+            /** Validfrom */
+            validFrom?: string | null;
+            /** Validto */
+            validTo?: string | null;
+            /** Version */
+            version: number;
+        };
         /**
          * UserCreate
          * @description dealership_id is not part of the body — it comes from the
@@ -7237,17 +7561,35 @@ export interface components {
          *     access_role — at least one functional role is required even for a
          *     manager, same as every other user (RP-3: "primary role grants a preset;
          *     the dealer manager additively enables further modules").
+         *
+         *     KAN-200 (Users → Fields): the organisation, commercial and lifecycle
+         *     fields the Users screen edits, every one optional — nothing newly
+         *     required (a required field would be a breaking contract change).
+         *     `phone` is the mobile number; `direct_dial` the desk extension.
          */
         UserCreate: {
             /** Accessroles */
             accessRoles: components["schemas"]["AccessRole"][];
+            /** Additionallocationids */
+            additionalLocationIds?: string[];
             /** Authidentityid */
             authIdentityId?: string | null;
+            /**
+             * Commissionrelevant
+             * @default false
+             */
+            commissionRelevant?: boolean;
+            /** Department */
+            department?: string | null;
+            /** Directdial */
+            directDial?: string | null;
             /**
              * Email
              * Format: email
              */
             email: string;
+            /** Employeenumber */
+            employeeNumber?: string | null;
             /** @default active */
             employmentStatus?: components["schemas"]["EmploymentStatus"];
             /** Firstname */
@@ -7259,14 +7601,45 @@ export interface components {
             isDealerManager?: boolean;
             /** Lastname */
             lastName: string;
+            /** Linemanageruserid */
+            lineManagerUserId?: string | null;
             /** Phone */
             phone?: string | null;
+            /** Primarylocationid */
+            primaryLocationId?: string | null;
             role: components["schemas"]["UserRole"];
+            /** Salesadvisorcode */
+            salesAdvisorCode?: string | null;
+            /** Validfrom */
+            validFrom?: string | null;
+            /** Validto */
+            validTo?: string | null;
+        };
+        /**
+         * UserDeactivateRequest
+         * @description `reason` is stored on the user and on the audit row; `transfers`
+         *     must decide every group the user still owns (422 names the missing
+         *     ones) — never silently with the leaver.
+         */
+        UserDeactivateRequest: {
+            employmentStatus?: components["schemas"]["EmploymentStatus"] | null;
+            /** Reason */
+            reason: string;
+            /** Transfers */
+            transfers?: components["schemas"]["OwnershipTransferRequest"][];
+        };
+        /** UserDeactivatedRead */
+        UserDeactivatedRead: {
+            /** Failed */
+            failed?: components["schemas"]["OwnershipTransferFailure"][];
+            /** Transfers */
+            transfers: components["schemas"]["OwnershipTransferResult"][];
+            user: components["schemas"]["UserAdminRead"];
         };
         /** UserPage */
         UserPage: {
             /** Items */
-            items: components["schemas"]["UserRead"][];
+            items: components["schemas"]["UserAdminRead"][];
             /** Nextcursor */
             nextCursor: string | null;
         };
@@ -7302,7 +7675,16 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
-        /** UserRead */
+        /**
+         * UserRead
+         * @description The session's user: `LoginResponse.user` and `GET /auth/me` — exactly
+         *     the fields and the schema name they carried before KAN-200 (the
+         *     ticket's do-not-touch: the OpenAPI component and the SPA's `AuthContext`
+         *     stay as they were). The administration fields and the derived ones
+         *     (`hasSignatureImage`, the sites, the invitation expiry) are
+         *     `UserAdminRead`'s, read through `user_read`; a plain `model_validate` of
+         *     the row cannot fill them, so the session never pretends to.
+         */
         UserRead: {
             /** Accessroles */
             accessRoles: components["schemas"]["AccessRole"][];
@@ -7363,17 +7745,32 @@ export interface components {
         /**
          * UserUpdate
          * @description PATCH semantics: a field left out is left unchanged. `None` on every
-         *     field means "not sent"; only `phone` may be sent as null (to clear it) —
-         *     every other field is a NOT NULL column, so an explicit null is refused
-         *     here as a 422 rather than reaching the service (KAN-136).
+         *     field means "not sent"; only the nullable fields in `_CLEARABLE` may be
+         *     sent as null (to clear them) — every other field is a NOT NULL column,
+         *     so an explicit null is refused here as a 422 rather than reaching the
+         *     service (KAN-136).
+         *
+         *     `status` carries the lifecycle (Dealer Administration, Users →
+         *     Lifecycle): suspend and reactivate here; deactivation has its own
+         *     endpoint with the reassignment step (FR-A-37) and is refused here.
          */
         UserUpdate: {
             /** Accessroles */
             accessRoles?: components["schemas"]["AccessRole"][] | null;
+            /** Additionallocationids */
+            additionalLocationIds?: string[] | null;
             /** Authidentityid */
             authIdentityId?: string | null;
+            /** Commissionrelevant */
+            commissionRelevant?: boolean | null;
+            /** Department */
+            department?: string | null;
+            /** Directdial */
+            directDial?: string | null;
             /** Email */
             email?: string | null;
+            /** Employeenumber */
+            employeeNumber?: string | null;
             employmentStatus?: components["schemas"]["EmploymentStatus"] | null;
             /** Firstname */
             firstName?: string | null;
@@ -7381,10 +7778,20 @@ export interface components {
             isDealerManager?: boolean | null;
             /** Lastname */
             lastName?: string | null;
+            /** Linemanageruserid */
+            lineManagerUserId?: string | null;
             /** Phone */
             phone?: string | null;
+            /** Primarylocationid */
+            primaryLocationId?: string | null;
             role?: components["schemas"]["UserRole"] | null;
+            /** Salesadvisorcode */
+            salesAdvisorCode?: string | null;
             status?: components["schemas"]["UserStatus"] | null;
+            /** Validfrom */
+            validFrom?: string | null;
+            /** Validto */
+            validTo?: string | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -9461,6 +9868,9 @@ export interface operations {
                 canton?: string | null;
                 updated_since?: string | null;
                 include_merged?: boolean;
+                advisorUserId?: string | null;
+                /** @description KAN-200: customers with no advisor — the queue a leaver's hand-over fills. */
+                unassigned?: boolean;
                 /** @description e.g. 'lastName:asc,updatedAt:desc' */
                 sort?: string | null;
                 limit?: number;
@@ -11077,11 +11487,49 @@ export interface operations {
             };
         };
     };
+    list_locations_v1_dealerships__dealership_id__locations_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocationList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_users_v1_dealerships__dealership_id__users_get: {
         parameters: {
             query?: {
                 role?: string | null;
                 status?: components["schemas"]["UserStatus"] | null;
+                q?: string | null;
+                /** @description e.g. 'lastName:asc,lastLoginAt:desc' */
+                sort?: string | null;
                 limit?: number;
                 cursor?: string | null;
             };
@@ -11144,7 +11592,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["UserRead"];
+                    "application/json": components["schemas"]["UserAdminRead"];
                 };
             };
             /** @description Validation Error */
@@ -11180,7 +11628,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["UserRead"];
+                    "application/json": components["schemas"]["UserAdminRead"];
                 };
             };
             /** @description Validation Error */
@@ -11221,7 +11669,50 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["UserRead"];
+                    "application/json": components["schemas"]["UserAdminRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    deactivate_user_v1_dealerships__dealership_id__users__user_id__deactivate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                user_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserDeactivateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserDeactivatedRead"];
                 };
             };
             /** @description Validation Error */
@@ -11336,7 +11827,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["UserRead"];
+                    "application/json": components["schemas"]["UserAdminRead"];
                 };
             };
             /** @description Validation Error */
@@ -11540,6 +12031,84 @@ export interface operations {
             };
         };
     };
+    get_user_ownership_v1_dealerships__dealership_id__users__user_id__ownership_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                user_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnershipRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    transfer_user_ownership_v1_dealerships__dealership_id__users__user_id__ownership_transfers_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                user_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OwnershipTransfersRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnershipTransfersRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     revoke_user_sessions_v1_dealerships__dealership_id__users__user_id__sessions_delete: {
         parameters: {
             query?: never;
@@ -11562,6 +12131,120 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_user_signature_v1_dealerships__dealership_id__users__user_id__signature_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                user_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_user_signature_v1_dealerships__dealership_id__users__user_id__signature_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                user_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "image/png": string;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserAdminRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_user_signature_v1_dealerships__dealership_id__users__user_id__signature_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                user_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserAdminRead"];
+                };
             };
             /** @description Validation Error */
             422: {
@@ -14057,6 +14740,9 @@ export interface operations {
             query?: {
                 q?: string | null;
                 entityType?: string | null;
+                ownerUserId?: string | null;
+                /** @description KAN-200: deals handed to nobody when their seller left. */
+                unassigned?: boolean;
                 /** @description e.g. 'updatedAt:desc' */
                 sort?: string | null;
                 limit?: number;

@@ -20,7 +20,8 @@
       "integrations": "Integrationen",
       "administration": "Verwaltung",
       "referenceData": "Referenzdaten",
-      "catalogue": "Katalog"
+      "catalogue": "Katalog",
+      "users": "Benutzer"
     },
     "signOut": "Abmelden",
     "environmentNotice": {
@@ -335,7 +336,10 @@
     },
     "createOfferError": "Die Offerte konnte nicht angelegt werden. Bitte erneut versuchen.",
     "createContractError": "Der Vertrag konnte nicht angelegt werden. Bitte erneut versuchen.",
-    "doNotContactError": "„Nicht kontaktieren“ konnte nicht gespeichert werden. Bitte erneut versuchen."
+    "doNotContactError": "„Nicht kontaktieren“ konnte nicht gespeichert werden. Bitte erneut versuchen.",
+    "advisorFilter": {
+      "unassigned": "Nicht zugewiesen"
+    }
   },
   "customerDetail": {
     "tabs": {
@@ -1046,12 +1050,14 @@
       "grossPrice": "Verkaufspreis",
       "status": "Status",
       "margin": "Marge",
-      "changed": "Geändert"
+      "changed": "Geändert",
+      "owner": "Verantwortlich"
     },
     "chips": {
       "all": "Alle",
       "offers": "Offerten",
-      "contracts": "Verträge"
+      "contracts": "Verträge",
+      "unassigned": "Nicht zugewiesen"
     },
     "emptyState": {
       "title": "Keine Offerten oder Verträge",
@@ -2000,6 +2006,202 @@
         "current": "Diese Sitzung",
         "end": "Beenden"
       }
+    }
+  },
+  "usersAdmin": {
+    "title": "Benutzer",
+    "invite": "Benutzer einladen",
+    "allView": "Alle Benutzer",
+    "searchPlaceholder": "Name oder E-Mail …",
+    "loadError": "Benutzer konnten nicht geladen werden.",
+    "managerBadge": "Manager",
+    "chips": {
+      "all": "Alle"
+    },
+    "forbidden": {
+      "title": "Nur für Manager",
+      "body": "Nur ein Manager dieses Betriebs verwaltet dessen Benutzer. Wenden Sie sich an Ihren Manager, wenn Sie eine Änderung brauchen."
+    },
+    "status": {
+      "invited": "Eingeladen",
+      "invitation_expired": "Einladung abgelaufen",
+      "active": "Aktiv",
+      "suspended": "Gesperrt",
+      "deactivated": "Deaktiviert"
+    },
+    "accessRole": {
+      "sales": "Verkauf",
+      "aftersales": "Aftersales",
+      "parts": "Teile",
+      "inventory": "Lager",
+      "finance": "Finanzen",
+      "technician": "Werkstatt",
+      "auditor": "Revisor (nur lesen)",
+      "platform_admin": "Nexotec-Mitarbeiter"
+    },
+    "employmentStatus": {
+      "active": "Angestellt",
+      "on_leave": "Abwesend",
+      "terminated": "Ausgetreten"
+    },
+    "textCategory": {
+      "document": "Dokumente",
+      "email": "E-Mail",
+      "sms": "SMS",
+      "internal_note": "Interne Notizen",
+      "workshop": "Werkstatt"
+    },
+    "ownedGroup": {
+      "customer": {
+        "customers": "Betreute Kunden"
+      },
+      "sales": {
+        "offers": "Offene Offerten",
+        "contracts": "Pendente Verträge"
+      }
+    },
+    "columns": {
+      "name": "Name",
+      "status": "Status",
+      "jobTitle": "Funktion",
+      "access": "Zugriff",
+      "manager": "Manager",
+      "primaryLocation": "Standort",
+      "lastLogin": "Letzte Anmeldung",
+      "validTo": "Zugang bis",
+      "validFrom": "Zugang ab",
+      "email": "E-Mail",
+      "mobile": "Mobile",
+      "directDial": "Direktwahl",
+      "department": "Abteilung",
+      "employeeNumber": "Personalnummer",
+      "lineManager": "Vorgesetzter",
+      "additionalLocations": "Weitere Standorte",
+      "employmentStatus": "Anstellung",
+      "salesAdvisorCode": "Beraterkürzel",
+      "commissionRelevant": "Provision",
+      "invitedAt": "Eingeladen am",
+      "deactivatedAt": "Deaktiviert am",
+      "deactivationReason": "Grund der Deaktivierung",
+      "signature": "Unterschriftsbild",
+      "createdAt": "Erstellt",
+      "updatedAt": "Geändert"
+    },
+    "emptyState": {
+      "title": "Noch keine Benutzer",
+      "description": "Laden Sie den ersten Kollegen ein — das Passwort wählt er selbst über die Einladung."
+    },
+    "emptyFilteredState": {
+      "title": "Keine Treffer",
+      "description": "Kein Benutzer entspricht der aktuellen Suche oder dem Status.",
+      "action": "Zurücksetzen"
+    },
+    "rowMenu": {
+      "edit": "Bearbeiten",
+      "resendInvitation": "Einladung erneut senden",
+      "resendInvitationDisabled": "Nur für Benutzer, die ihre Einladung noch nicht angenommen haben",
+      "suspend": "Sperren",
+      "reactivate": "Reaktivieren",
+      "deactivate": "Deaktivieren",
+      "deactivateDisabledAlready": "Bereits deaktiviert",
+      "selfDisabled": "Nicht für das eigene Konto",
+      "handOver": "Offene Vorgänge übergeben",
+      "suspendDisabledNotActive": "Nur ein aktiver Benutzer kann gesperrt werden",
+      "editDisabledDeactivated": "Deaktivierte Benutzer werden nicht bearbeitet — zuerst reaktivieren"
+    },
+    "actions": {
+      "resendFailed": "Die Einladung konnte nicht gesendet werden.",
+      "statusFailed": "Der Status konnte nicht geändert werden.",
+      "handOverFailed": "Nicht alles konnte übergeben werden — {{groups}}. Die Vorgänge bleiben vorerst bei dieser Person; «Offene Vorgänge übergeben» versucht es erneut.",
+      "handOverFailedAfterDeactivation": "Deaktiviert, aber nicht alles konnte übergeben werden — {{groups}}. Die Vorgänge bleiben vorerst bei dieser Person; «Offene Vorgänge übergeben» im Zeilenmenü versucht es erneut.",
+      "validToCleared": "{{name}} ist wieder aktiv. Das abgelaufene Zugangsende ({{date}}) wurde entfernt — setzen Sie bei Bedarf ein neues unter «Bearbeiten»."
+    },
+    "form": {
+      "inviteTitle": "Benutzer einladen",
+      "editTitle": "{{name}} bearbeiten",
+      "invite": "Einladung senden",
+      "conflict": "Dieser Benutzer wurde inzwischen geändert. Schliessen Sie den Dialog und öffnen Sie ihn erneut.",
+      "sections": {
+        "identity": "Identität",
+        "organisation": "Organisation",
+        "access": "Zugriff",
+        "validity": "Gültigkeit",
+        "commercial": "Kommerziell",
+        "signature": "Unterschrift"
+      }
+    },
+    "fields": {
+      "firstName": "Vorname",
+      "lastName": "Nachname",
+      "email": "E-Mail (Anmeldung)",
+      "emailLocked": "Die Adresse eines aktiven Benutzers ändert der Nexotec-Support (Kontowiederherstellung).",
+      "mobile": "Mobile",
+      "directDial": "Direktwahl",
+      "employeeNumber": "Personalnummer",
+      "jobTitle": "Funktion",
+      "department": "Abteilung",
+      "lineManager": "Vorgesetzter",
+      "none": "Keiner",
+      "primaryLocation": "Hauptstandort",
+      "additionalLocations": "Weitere Standorte",
+      "noLocationsYet": "Noch keine Standorte erfasst",
+      "primaryRole": "Hauptrolle",
+      "primaryRoleHint": "Gibt den Standardzugriff des Moduls.",
+      "alsoHasAccessTo": "Hat zusätzlich Zugriff auf",
+      "isDealerManager": "Manager dieses Betriebs",
+      "managerHint": "Verwaltet Benutzer, Einstellungen und Integrationen. Der Betrieb behält immer mindestens einen aktiven Manager.",
+      "managerSelfHint": "Ihr eigenes Manager-Kennzeichen ändert ein anderer Manager.",
+      "delegations": "Darf Textbausteine bearbeiten für",
+      "delegationsHint": "Delegation pro Kategorie; der Manager darf sie immer bearbeiten.",
+      "validFrom": "Zugang ab",
+      "validTo": "Zugang bis",
+      "validToHint": "Nach diesem Tag endet der Zugang automatisch, offene Vorgänge gehen in die Warteschlange.",
+      "salesAdvisorCode": "Beraterkürzel (Marktplätze)",
+      "commissionRelevant": "Nimmt an der Provision teil",
+      "signatureImage": "Unterschriftsbild",
+      "signatureHint": "PNG oder JPEG, bis 1 MB — wird auf Dokumenten gedruckt, die der Benutzer unterzeichnet.",
+      "signatureCurrent": "Aktuelle Unterschrift",
+      "signatureRemove": "Entfernen"
+    },
+    "deactivate": {
+      "title": "{{name}} deaktivieren",
+      "intro": "Der Zugang endet jetzt. Alles, was diese Person noch betreut, wird unten übergeben — an einen Kollegen oder in die Warteschlange des Moduls (Entwürfe ohne Verantwortlichen findet man beim Kunden). Nichts wird gelöscht; die Historie behält den ursprünglichen Verfasser.",
+      "reassignTitle": "Offene Vorgänge übergeben",
+      "nothingOpen": "In keinem der {{modules, number}} Module ist etwas offen.",
+      "ownershipLoadError": "Was dieser Benutzer betreut, konnte nicht geladen werden.",
+      "columns": {
+        "what": "Was",
+        "count": "Anzahl",
+        "transferTo": "Übergeben an"
+      },
+      "leaveUnassigned": "Nicht zuweisen (Warteschlange des Moduls)",
+      "choose": "Wählen …",
+      "transferLabel": "Übergeben: {{what}}",
+      "reason": "Grund",
+      "endEmployment": "Anstellung ist beendet",
+      "confirm": "Deaktivieren",
+      "incomplete": "Die Übergabe ist noch nicht vollständig:",
+      "problems": {
+        "undecided": "{{what}}: braucht eine Entscheidung — ein Kollege oder «Nicht zuweisen».",
+        "decided_twice": "{{what}}: zweimal entschieden.",
+        "not_owned": "{{what}}: betreut diese Person nicht (mehr).",
+        "self": "{{what}}: die Person kann ihre eigenen Vorgänge nicht übernehmen.",
+        "colleague_not_active": "{{what}}: der gewählte Kollege ist kein aktiver Benutzer dieses Betriebs.",
+        "colleague_cannot_act_there": "{{what}}: {{count, number}} davon gehören zu einem anderen Betrieb, in dem der gewählte Kollege nicht arbeitet — «Nicht zuweisen» wählen (dieser Betrieb übergibt sie aus seiner Warteschlange) oder einen Kollegen, der dort Mitglied ist."
+      }
+    },
+    "handOver": {
+      "title": "Offene Vorgänge von {{name}} übergeben",
+      "intro": "Was diese Person noch betreut, wird an einen Kollegen oder in die Warteschlange des Moduls übergeben — auch nach einer Deaktivierung, bei der ein Modul die Übergabe nicht abschliessen konnte.",
+      "confirm": "Übergeben"
+    },
+    "errors": {
+      "lastManager": "Ein Betrieb braucht immer mindestens einen aktiven Manager — der letzte kann weder deaktiviert noch zurückgestuft werden.",
+      "lastManagerElsewhere": "Diese Person ist der letzte aktive Manager eines anderen Betriebs, in dem sie Mitglied ist — erst wenn dieser Betrieb einen weiteren Manager hat, kann sie gesperrt oder deaktiviert werden."
+    },
+    "failureReason": {
+      "module_failed": "Modul konnte die Übergabe nicht abschliessen; Details im Protokoll",
+      "colleague_cannot_act_there": "Kollege arbeitet nicht in jedem betroffenen Betrieb"
     }
   }
 }

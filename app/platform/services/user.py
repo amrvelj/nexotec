@@ -4,12 +4,13 @@ especially `terminated`, are audit-logged for access-deprovisioning
 accountability).
 """
 
+import datetime as dt
 import uuid
-from collections.abc import Callable, Collection
+from collections.abc import Callable, Collection, Iterable
 from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import select, union
+from sqlalchemy import or_, select, union
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -17,36 +18,58 @@ from app.core.audit import record_audit_event
 from app.core.auth import AccessRole
 from app.core.base import utcnow
 from app.core.errors import BadRequestError, ConflictError, ForbiddenError, NotFoundError, UnprocessableEntityError
-from app.core.pagination import PageParams, build_page, paginate_query
+from app.core.pagination import SortPageParams, build_sorted_page, paginate_query_sorted
 from app.core.tenancy import get_or_404
 from app.core.uuid7 import uuid7
 from app.platform.models.auth_event import AuthEventKind
+from app.platform.models.auth_token import AuthToken, AuthTokenKind
+from app.platform.models.credential import Credential
 from app.platform.models.dealership_membership import DealershipMembership
 from app.platform.models.user import EmploymentStatus, User, UserStatus
-from app.platform.schemas.user import UserCreate, UserUpdate
-from app.platform.services import auth_events, auth_sessions, text_delegation
+from app.platform.schemas.user import UserAdminRead, UserCreate, UserUpdate
+from app.platform.services import auth_events, auth_sessions, text_delegation, user_location
 
 # access_roles/is_dealer_manager are audited alongside role/status even
 # though the spec text only says "role and status" — they gate
 # authorization, which is exactly the "auth deprovisioning" concern the
 # spec cites as the reason to audit in the first place. Flagged as an
 # added-safety interpretation in the PR.
-_AUDITED_FIELDS = {"role", "access_roles", "is_dealer_manager", "status", "employment_status"}
-_TERMINAL_EMPLOYMENT_STATUSES = {EmploymentStatus.TERMINATED}
+_AUDITED_FIELDS = {
+    "role",
+    "access_roles",
+    "is_dealer_manager",
+    "status",
+    "employment_status",
+    # KAN-200: who the user reports to and when their access starts and
+    # ends are administrative facts a manager will ask about afterwards.
+    "line_manager_user_id",
+    "valid_from",
+    "valid_to",
+}
+# KAN-200 (Users → Lifecycle: `Deactivated → Active`, reactivation allowed):
+# a deactivated user grants nothing and changes no flag while deactivated,
+# but the status itself is not terminal any more — PATCH `status: active`
+# brings them back (audited; the lifecycle stamps clear). Nor is a
+# terminated employment: it ends with the user and returns with them.
 _TERMINAL_USER_STATUSES = {UserStatus.DEACTIVATED}
 _ACTIVE_USER_STATUSES = {UserStatus.INVITED, UserStatus.ACTIVE}
+# The one PATCH a deactivated user accepts: reactivation (with, when the
+# employment ended with them, its return in the same request).
+# KAN-200: a reactivation may bring the employment back and set a new validity
+# window — an expired user would otherwise be deactivated again that night.
+_REACTIVATION_FIELDS = {"status", "employment_status", "valid_from", "valid_to"}
 
 
 def assert_user_is_not_deactivated(user: User) -> None:
     """Nothing is granted to a deactivated user and no flag of theirs changes
-    (its status is terminal): a membership or delegation grant and every
+    (until a reactivation): a membership or delegation grant and every
     manager-flag change — the dedicated endpoints and PATCH alike — refuse
     with 409, like a status change on such a row. Ending a deactivated
     user's membership stays possible: cutting access is the safe direction."""
 
     if user.status in _TERMINAL_USER_STATUSES:
         raise ConflictError(
-            f"User status '{user.status.value}' is terminal — this user's access can no longer be changed.",
+            f"User status '{user.status.value}' — reactivate the user first (status: active) to change their access.",
             details={"currentStatus": user.status.value},
         )
 
@@ -63,9 +86,16 @@ def assert_may_touch(*, user: User, actor_roles: frozenset[AccessRole]) -> None:
 
 
 def assert_not_last_manager(
-    db: Session, *, dealership_id: uuid.UUID, excluding_user_id: uuid.UUID, message: str | None = None
+    db: Session,
+    *,
+    dealership_id: uuid.UUID,
+    excluding_user_id: uuid.UUID,
+    message: str | None = None,
+    reason: str = "last_manager",
 ) -> None:
-    _assert_not_last_manager(db, dealership_id=dealership_id, excluding_user_id=excluding_user_id, message=message)
+    _assert_not_last_manager(
+        db, dealership_id=dealership_id, excluding_user_id=excluding_user_id, message=message, reason=reason
+    )
 
 
 def membership_is_active():
@@ -77,7 +107,16 @@ def membership_is_active():
 
 
 def _plain(value: Any) -> Any:
-    return value.value if hasattr(value, "value") else value
+    """A value as the audit row stores it: an enum's value, an id or a day as
+    text (JSON), anything else as it is."""
+
+    if hasattr(value, "value"):
+        return value.value
+    if isinstance(value, uuid.UUID):
+        return str(value)
+    if isinstance(value, dt.date):
+        return value.isoformat()
+    return value
 
 
 def _role_values(roles) -> list[str]:
@@ -92,7 +131,12 @@ def _role_values(roles) -> list[str]:
 
 
 def _assert_not_last_manager(
-    db: Session, *, dealership_id: uuid.UUID, excluding_user_id: uuid.UUID, message: str | None = None
+    db: Session,
+    *,
+    dealership_id: uuid.UUID,
+    excluding_user_id: uuid.UUID,
+    message: str | None = None,
+    reason: str = "last_manager",
 ) -> None:
     """Roles & Permissions enforcement rule 7 / RP-1 (Dealer Administration
     FR-A-13): a dealership must always have at least one active manager.
@@ -129,7 +173,8 @@ def _assert_not_last_manager(
         raise BadRequestError(
             message
             or "This dealership must always have at least one active manager — "
-            "cannot remove or deactivate its last one."
+            "cannot remove or deactivate its last one.",
+            details={"reason": reason},  # the SPA's key; never the sister Betrieb's id (KAN-98)
         )
 
 
@@ -237,8 +282,11 @@ def get_user_for_update_or_404(db: Session, dealership_id: uuid.UUID, user_id: u
     grant (409). Every such route takes this lock before it touches a child
     row: one that locked child rows first and the user row last (at its
     version bump) would deadlock against one that did the opposite. NO KEY:
-    a row that only references the user (a login's session, a token) is not
-    held up. The same pattern as `get_dealership_for_update_or_404`."""
+    a row that only references the user (a session, a token) is not held up —
+    except while an e-mail change holds it (an update of a unique column takes
+    the full lock; KAN-411);
+    a login itself takes this lock before it writes the credential and
+    `last_login_at` (`identity.lock_user_for_login`, KAN-200). The same pattern as `get_dealership_for_update_or_404`."""
 
     user = db.scalar(
         select(User)
@@ -272,16 +320,25 @@ def list_users(
     dealership_id: uuid.UUID,
     role: str | None,
     status: UserStatus | None,
-    params: PageParams,
+    params: SortPageParams,
+    q: str | None = None,
 ) -> tuple[list[User], str | None]:
+    """The Users screen's list (KAN-200): filtered by role, status and the
+    search box, sorted server-side by the route's allow-list (UI/UX Core
+    Principles: every column sortable), cursor-paginated."""
+
     stmt = select(User).where(User.tenant_id == dealership_id)
     if role is not None:
         stmt = stmt.where(User.role == role)
     if status is not None:
         stmt = stmt.where(User.status == status)
-    stmt = paginate_query(stmt, model=User, params=params)
+    if q:
+        # KAN-200: the Users screen's search box — name or address.
+        like = f"%{q.strip()}%"
+        stmt = stmt.where(or_(User.first_name.ilike(like), User.last_name.ilike(like), User.email.ilike(like)))
+    stmt = paginate_query_sorted(stmt, model=User, params=params)
     rows = list(db.scalars(stmt).all())
-    return build_page(rows, params)
+    return build_sorted_page(rows, params)
 
 
 def list_dealer_manager_emails(db: Session, *, dealership_id: uuid.UUID) -> list[str]:
@@ -361,7 +418,12 @@ def create_user(
     data: UserCreate,
     actor_id: uuid.UUID,
     actor_roles: frozenset[AccessRole],
+    commit: bool = True,
 ) -> User:
+    """With `commit=False` the user is flushed, not committed: the create
+    route issues the invitation on the same session and commits once, so
+    the user and the invitation exist together or not at all (FR-A-09)."""
+
     _assert_may_create_with_roles(roles=data.access_roles, actor_roles=actor_roles)
     user_id = uuid7()
     user = User(
@@ -381,15 +443,31 @@ def create_user(
         # KAN-196: a local-password user is resolved by e-mail; the subject
         # column stays unique and non-null for the federation seam (D-A-11).
         auth_identity_id=data.auth_identity_id or f"local:{user_id}",
+        # KAN-200 (Users → Fields): every one optional.
+        direct_dial=data.direct_dial,
+        employee_number=data.employee_number,
+        department=data.department,
+        line_manager_user_id=data.line_manager_user_id,
+        sales_advisor_code=data.sales_advisor_code,
+        commission_relevant=data.commission_relevant,
+        valid_from=data.valid_from,
+        valid_to=data.valid_to,
         created_by=actor_id,
         updated_by=actor_id,
     )
+    _assert_line_manager(db, user=user, changes={"line_manager_user_id": data.line_manager_user_id})
     db.add(user)
     try:
         db.flush()
     except IntegrityError as exc:
         db.rollback()
         raise ConflictError("A user with this email address already exists.", details={"email": data.email}) from exc
+    user_location.set_locations(
+        db,
+        user=user,
+        primary_location_id=data.primary_location_id,
+        additional_location_ids=data.additional_location_ids,
+    )
 
     record_audit_event(
         db,
@@ -406,12 +484,15 @@ def create_user(
             "employment_status": _plain(user.employment_status),
         },
     )
+    if not commit:
+        db.flush()
+        return user
     db.commit()
     db.refresh(user)
     return user
 
 
-def end_sessions(db: Session, *, user: User, reason: str, actor_id: uuid.UUID) -> int:
+def end_sessions(db: Session, *, user: User, reason: str, actor_id: uuid.UUID | None) -> int:
     """KAN-196: ends every live session of the user and records it — a
     status change, a change of roles, flag or membership, platform staff's
     MFA reset. Returns how many ended."""
@@ -434,14 +515,23 @@ def update_user(
     *,
     user: User,
     data: UserUpdate,
-    actor_id: uuid.UUID,
+    actor_id: uuid.UUID | None,
     actor_roles: frozenset[AccessRole],
     on_email_change: Callable[[User, str], None] | None = None,
+    reason: str | None = None,
+    allow_deactivation: bool = False,
 ) -> User:
     """`on_email_change(user, old_email)` runs inside this transaction when
     the address changes (KAN-196: the route hands in `identity.email_changed`,
     so the new address, the ended tokens and sessions and the notice to the
-    old address commit together, or not at all)."""
+    old address commit together, or not at all).
+
+    KAN-200: `status: deactivated` is refused here (409) unless
+    `allow_deactivation` — deactivation goes through `deactivate_user`,
+    which carries the reassignment step (FR-A-37); `reason` lands on the
+    audit row and, for a deactivation, on the user. A deactivated user
+    accepts one PATCH: reactivation (`status: active`), alone or with the
+    employment status that returns with them."""
 
     changes = data.model_dump(exclude_unset=True)
     if isinstance(changes.get("email"), str):
@@ -449,30 +539,74 @@ def update_user(
     _assert_may_update(user=user, changes=changes, actor_roles=actor_roles)
     _assert_platform_admin_holds_no_membership(db, user=user, changes=changes)
     _assert_credential_channel_rules(user=user, changes=changes, actor_roles=actor_roles)
+    _assert_line_manager(db, user=user, changes=changes)
     old_email = user.email
 
-    if "employment_status" in changes and changes["employment_status"] is not None:
-        new_employment_status = changes["employment_status"]
-        if user.employment_status in _TERMINAL_EMPLOYMENT_STATUSES and new_employment_status != user.employment_status:
+    # Terminating employment revokes access — spec: "access is revoked, not
+    # the record deleted" — and since KAN-200 revoking access is the
+    # deactivation step (FR-A-37), so a PATCH that would deactivate, by
+    # status or by a termination, is sent there instead (409).
+    if changes.get("employment_status") == EmploymentStatus.TERMINATED and user.status != UserStatus.DEACTIVATED:
+        # Whatever status the body carries beside it: a termination that keeps
+        # the user active or suspended would skip the reassignment step.
+        changes["status"] = UserStatus.DEACTIVATED
+    if (
+        changes.get("status") == UserStatus.DEACTIVATED
+        and user.status != UserStatus.DEACTIVATED
+        and not allow_deactivation
+    ):
+        raise ConflictError(
+            "Deactivating a user goes through the deactivation step, which reassigns what they still own.",
+            details={"reason": "use_deactivate_endpoint"},
+        )
+    if user.status in _TERMINAL_USER_STATUSES:
+        reactivating = changes.get("status") == UserStatus.ACTIVE
+        if not reactivating or set(changes) - _REACTIVATION_FIELDS:
             raise ConflictError(
-                f"Employment status '{user.employment_status.value}' is terminal and cannot be changed.",
+                f"User status '{user.status.value}' — reactivate the user first (status: active).",
+                details={"currentStatus": user.status.value},
+            )
+        if (
+            user.employment_status == EmploymentStatus.TERMINATED
+            and changes.get("employment_status", user.employment_status) == EmploymentStatus.TERMINATED
+        ):
+            raise UnprocessableEntityError(
+                "A terminated employment cannot be reactivated as terminated — send employmentStatus with the status.",
                 details={"currentEmploymentStatus": user.employment_status.value},
             )
 
-    if "status" in changes and changes["status"] is not None:
-        new_status = changes["status"]
-        if user.status in _TERMINAL_USER_STATUSES and new_status != user.status:
-            raise ConflictError(
-                f"User status '{user.status.value}' is terminal and cannot be changed.",
-                details={"currentStatus": user.status.value},
-            )
-
-    # Terminating employment revokes access — spec: "access is revoked, not
-    # the record deleted." Assumption, flagged for PM/CTO sign-off: this
-    # auto-transition isn't spelled out explicitly in the spec text, only
-    # implied by that sentence plus the audit requirement.
-    if changes.get("employment_status") == EmploymentStatus.TERMINATED:
-        changes.setdefault("status", UserStatus.DEACTIVATED)
+    # The lifecycle (Users → Lifecycle): `Invited → Active` happens only by
+    # accepting the invitation (the person sets their own password, FR-AU-10)
+    # and only an active user can be suspended — a PATCH cannot skip a step.
+    if changes.get("status") == UserStatus.ACTIVE and user.status == UserStatus.INVITED:
+        raise ConflictError(
+            "An invited user becomes active by accepting the invitation — resend it instead.",
+            details={"reason": "accept_invitation_required", "currentStatus": user.status.value},
+        )
+    if changes.get("status") == UserStatus.SUSPENDED and user.status != UserStatus.ACTIVE:
+        raise ConflictError(
+            "Only an active user can be suspended.",
+            details={"reason": "not_active", "currentStatus": user.status.value},
+        )
+    # Reactivating a user who never accepted their invitation (deactivated
+    # while `invited`, or whose credential a staff reset removed) makes them
+    # `invited` again, not `active`: nobody holds a password for them, and
+    # the manager re-sends the invitation from the row menu.
+    if (
+        changes.get("status") == UserStatus.ACTIVE
+        and user.status == UserStatus.DEACTIVATED
+        and not _has_credential(db, user)
+    ):
+        changes["status"] = UserStatus.INVITED
+    # The validity window as it will be after this write (the schema checks
+    # a body that carries both dates; a PATCH may carry one).
+    resulting_from = changes.get("valid_from", user.valid_from)
+    resulting_to = changes.get("valid_to", user.valid_to)
+    if resulting_from is not None and resulting_to is not None and resulting_from > resulting_to:
+        raise UnprocessableEntityError(
+            "validTo must not be before validFrom.",
+            details={"validFrom": resulting_from.isoformat(), "validTo": resulting_to.isoformat()},
+        )
 
     # Roles & Permissions rule 7 / RP-1: a dealership must always have at
     # least one active manager. Checked against the FINAL resulting state
@@ -486,7 +620,7 @@ def update_user(
         # it will be after this write, like the last-manager check below —
         # same answer as the dedicated manager-flag endpoints.
         raise ConflictError(
-            f"User status '{resulting_status.value}' is terminal — this user's access can no longer be changed.",
+            f"User status '{resulting_status.value}' — the manager flag of a deactivated user does not change; reactivate first.",
             details={"currentStatus": user.status.value},
         )
     was_active_manager = user.is_dealer_manager and user.status in _ACTIVE_USER_STATUSES
@@ -510,11 +644,16 @@ def update_user(
                 dealership_id=managed_dealership_id,
                 excluding_user_id=user.id,
                 message="This user is the last active manager of another dealership they are a member of — "
-                "cannot deactivate them until that dealership has another manager.",
+                "cannot suspend or deactivate them until that dealership has another manager.",
+                reason="last_manager_elsewhere",
             )
 
     before: dict[str, Any] = {}
     after: dict[str, Any] = {}
+
+    # KAN-200: the sites are child rows, replaced as a set in this transaction.
+    primary_location_id = changes.pop("primary_location_id", user_location.UNSET)
+    additional_location_ids = changes.pop("additional_location_ids", user_location.UNSET)
 
     for field, value in changes.items():
         if field == "access_roles":
@@ -526,6 +665,27 @@ def update_user(
             before[field] = _plain(current)
             after[field] = _plain(value)
         setattr(user, field, value)
+
+    if after.get("status") == UserStatus.DEACTIVATED.value:
+        user.deactivated_at = utcnow()
+        user.deactivation_reason = reason
+    elif before.get("status") == UserStatus.DEACTIVATED.value:
+        user.deactivated_at = None
+        user.deactivation_reason = None
+
+    locations_changed = False
+    if primary_location_id is not user_location.UNSET or additional_location_ids is not user_location.UNSET:
+        current_primary, current_additional = user_location.locations_of(db, user_ids=[user.id])[user.id]
+        locations_changed = user_location.set_locations(
+            db,
+            user=user,
+            primary_location_id=(
+                current_primary if primary_location_id is user_location.UNSET else primary_location_id
+            ),
+            additional_location_ids=(
+                current_additional if additional_location_ids is user_location.UNSET else additional_location_ids
+            ),
+        )
 
     user.updated_by = actor_id
     user.version += 1
@@ -540,6 +700,23 @@ def update_user(
             actor_id=actor_id,
             before=before or None,
             after=after or None,
+            reason=reason,
+        )
+    if locations_changed:
+        # The resulting set, read back — never the fields the PATCH happened to
+        # send (a PATCH of the additional sites alone keeps the primary).
+        resulting_primary, resulting_additional = user_location.locations_of(db, user_ids=[user.id])[user.id]
+        record_audit_event(
+            db,
+            entity_type="user",
+            entity_id=user.id,
+            tenant_id=user.tenant_id,
+            action="locations_set",
+            actor_id=actor_id,
+            after={
+                "primary_location_id": str(resulting_primary) if resulting_primary is not None else None,
+                "additional_location_ids": [str(lid) for lid in resulting_additional],
+            },
         )
     if "is_dealer_manager" in after:
         # KAN-199: the manager flag is the privilege-escalation path of the
@@ -595,7 +772,7 @@ def record_manager_flag_event(
     dealership_id: uuid.UUID,
     before: bool,
     after: bool,
-    actor_id: uuid.UUID,
+    actor_id: uuid.UUID | None,
 ) -> None:
     """One `manager_flag_set` audit row per flag change (KAN-199, matrix row
     "Granting is_dealer_manager"): the user entity, the dealership the flag
@@ -625,3 +802,147 @@ def list_membership_dealership_ids(db: Session, *, user_id: uuid.UUID) -> frozen
         )
     ).all()
     return frozenset(rows)
+
+
+def list_user_dealership_ids(db: Session, *, user_id: uuid.UUID) -> frozenset[uuid.UUID]:
+    """Every dealership this user may act in: the home plus the active
+    memberships (what `_mint_session` authorises a switch to). Empty for an
+    id that names no user."""
+
+    home = db.scalar(select(User.tenant_id).where(User.id == user_id))
+    if home is None:
+        return frozenset()
+    return frozenset({home}) | list_membership_dealership_ids(db, user_id=user_id)
+
+
+def get_user_acting_in(db: Session, *, dealership_id: uuid.UUID, user_id: uuid.UUID) -> User | None:
+    """The user when they may act in this dealership — homed there, or
+    holding an active membership — else None, whatever their status (the
+    caller judges the status: a seller must be active, a label may name a
+    suspended one). KAN-200: how Sales resolves a responsible seller, so a
+    sister-Betrieb member owns the offers they create there."""
+
+    user = db.get(User, user_id)
+    if user is None:
+        return None
+    if user.tenant_id == dealership_id or dealership_id in list_membership_dealership_ids(db, user_id=user_id):
+        return user
+    return None
+
+
+def _assert_line_manager(db: Session, *, user: User, changes: dict[str, Any]) -> None:
+    """KAN-200: the line manager is another user of the same dealership —
+    never the user themselves, never another Betrieb's (422; a 404 would
+    confirm the id exists elsewhere)."""
+
+    line_manager_id = changes.get("line_manager_user_id")
+    if line_manager_id is None:
+        return
+    if line_manager_id == user.id:
+        raise UnprocessableEntityError("A user cannot be their own line manager.")
+    exists = db.scalar(select(User.id).where(User.id == line_manager_id, User.tenant_id == user.tenant_id))
+    if exists is None:
+        raise UnprocessableEntityError(
+            "lineManagerUserId is not a user of this dealership.", details={"lineManagerUserId": str(line_manager_id)}
+        )
+
+
+def invitation_expiries(db: Session, *, user_ids: Iterable[uuid.UUID]) -> dict[uuid.UUID, dt.datetime]:
+    """The live (unconsumed) invitation's expiry per user, for the Users
+    list's "invitation expired" state (FR-A-11). One active token per
+    (user, kind): the newest unconsumed row is it."""
+
+    ids = list(user_ids)
+    if not ids:
+        return {}
+    rows = db.execute(
+        select(AuthToken.user_id, AuthToken.expires_at)
+        .where(
+            AuthToken.user_id.in_(ids),
+            AuthToken.kind == AuthTokenKind.INVITATION,
+            AuthToken.consumed_at.is_(None),
+        )
+        .order_by(AuthToken.user_id, AuthToken.created_at.desc())
+    ).all()
+    result: dict[uuid.UUID, dt.datetime] = {}
+    for user_id, expires_at in rows:
+        result.setdefault(user_id, expires_at)
+    return result
+
+
+def user_reads(db: Session, users: list[User]) -> list[UserAdminRead]:
+    """The Users screen's read shape: the row plus its sites and, for an
+    invited user, when the invitation runs out — read in two queries for the
+    whole page, never one per row."""
+
+    ids = [user.id for user in users]
+    locations = user_location.locations_of(db, user_ids=ids)
+    expiries = invitation_expiries(db, user_ids=[user.id for user in users if user.status == UserStatus.INVITED])
+    reads: list[UserAdminRead] = []
+    for user in users:
+        primary, additional = locations[user.id]
+        reads.append(
+            UserAdminRead.model_validate(user, from_attributes=True).model_copy(
+                update={
+                    "has_signature_image": user.signature_image_ref is not None,
+                    "invitation_expires_at": expiries.get(user.id),
+                    "primary_location_id": primary,
+                    "additional_location_ids": additional,
+                }
+            )
+        )
+    return reads
+
+
+def user_read(db: Session, user: User) -> UserAdminRead:
+    return user_reads(db, [user])[0]
+
+
+def _has_credential(db: Session, user: User) -> bool:
+    return db.scalar(select(Credential.id).where(Credential.user_id == user.id)) is not None
+
+
+def list_users_deactivated_for(db: Session, *, reason: str, since: dt.datetime) -> list[User]:
+    """Users the automatic expiry (FR-A-12) deactivated since `since` — the
+    nightly job's retry window for a hand-over that failed after the status
+    change; reconciliation reports the long tail (rule 10)."""
+
+    return list(
+        db.scalars(
+            select(User)
+            .where(
+                User.status == UserStatus.DEACTIVATED,
+                User.deactivation_reason == reason,
+                User.deactivated_at.is_not(None),
+                User.deactivated_at >= since,
+            )
+            .order_by(User.id)
+        ).all()
+    )
+
+
+_EXPIRY_STATUSES = (UserStatus.INVITED, UserStatus.ACTIVE, UserStatus.SUSPENDED)
+
+
+def is_due_for_expiry(user: User, *, today: dt.date) -> bool:
+    """`list_users_due_for_expiry`'s predicate for one row, as the nightly
+    job re-judges it under the user-row lock."""
+
+    return user.valid_to is not None and user.valid_to < today and user.status in _EXPIRY_STATUSES
+
+
+def list_users_due_for_expiry(db: Session, *, today: dt.date) -> list[User]:
+    """FR-A-12: users whose `valid_to` has passed and who still hold access
+    (invited, active or suspended) — the nightly job deactivates them."""
+
+    return list(
+        db.scalars(
+            select(User)
+            .where(
+                User.valid_to.is_not(None),
+                User.valid_to < today,
+                User.status.in_(_EXPIRY_STATUSES),
+            )
+            .order_by(User.tenant_id, User.id)
+        ).all()
+    )

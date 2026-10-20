@@ -37,6 +37,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.audit import record_audit_event
 from app.core.auth import AccessRole
 from app.core.errors import BadRequestError, UnprocessableEntityError
 from app.core.permissions import ModuleCode
@@ -47,7 +48,7 @@ from app.platform.models.dealership import DealerGroup, Dealership, FranchiseTyp
 from app.platform.models.dealership_auth_config import DealershipAuthConfig
 from app.platform.models.user import User, UserRole, UserStatus
 from app.platform.schemas.dealership import DealershipAddress, DealershipCreate
-from app.platform.schemas.user import UserCreate, UserUpdate
+from app.platform.schemas.user import UserCreate
 from app.platform.services import dealership as dealership_service
 from app.platform.services import entitlement as entitlement_service
 from app.platform.services import identity, password_hashing
@@ -179,14 +180,27 @@ def main() -> None:
                 actor_roles=seed_actor_roles,
             )
             # No invitation is mailed for the demo account (there is nobody to
-            # mail); the seed activates it in the invitation's place.
-            user = user_service.update_user(
+            # mail); the seed activates it in the invitation's place — on the
+            # row, as the one bootstrap exception: `update_user` refuses
+            # `invited → active` for everyone else (KAN-200, Users → Lifecycle),
+            # since accepting the invitation is the only way in. Audited like
+            # the status change the acceptance would have made.
+            record_audit_event(
                 db,
-                user=user,
-                data=UserUpdate(status=UserStatus.ACTIVE),
+                entity_type="user",
+                entity_id=user.id,
+                tenant_id=user.tenant_id,
+                action="update",
                 actor_id=seed_actor_id,
-                actor_roles=seed_actor_roles,
+                before={"status": user.status.value},
+                after={"status": UserStatus.ACTIVE.value},
+                reason="seed_staging_demo",
             )
+            user.status = UserStatus.ACTIVE
+            user.updated_by = seed_actor_id
+            user.version += 1
+            db.commit()
+            db.refresh(user)
             print(f"Created demo user {DEMO_EMAIL}.")
         else:
             print(f"Demo user {DEMO_EMAIL} already exists.")

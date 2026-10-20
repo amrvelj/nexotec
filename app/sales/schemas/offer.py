@@ -72,6 +72,9 @@ class OfferUpdate(CamelModel):
     # other pricing field is derived and not client-settable.
     discount_type: str | None = None  # "percent" | "amount"
     discount_value: Decimal | None = None
+    # KAN-200 (FR-A-37): the responsible seller — a user of the dealership,
+    # or null for "unassigned" (the sales list's own queue).
+    owner_user_id: uuid.UUID | None = None
 
 
 class OfferRead(CamelModel):
@@ -81,6 +84,9 @@ class OfferRead(CamelModel):
     customer_id: uuid.UUID | None
     customer_label: str | None
     customer_locality: str | None
+    # KAN-200: the responsible seller (three-column pattern, label denormalised).
+    owner_user_id: uuid.UUID | None = None
+    owner_label: str | None = None
     vehicle_source: str | None
     stock_item_id: uuid.UUID | None
     vehicle_label: str | None

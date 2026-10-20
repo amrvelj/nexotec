@@ -24,6 +24,9 @@ class DealRead(CamelModel):
     customer_label: str | None
     customer_locality: str | None
     vehicle_label: str | None
+    # KAN-200: the responsible seller of the live entity; null = unassigned.
+    owner_user_id: uuid.UUID | None = None
+    owner_label: str | None = None
     gross_price: Decimal | None
     margin: Decimal | None
     documents_count: int

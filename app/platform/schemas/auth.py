@@ -28,6 +28,8 @@ class LoginResponse(CamelModel):
     itself.
     """
 
+    # KAN-200: the session's user keeps the shape and the name it had — the
+    # administration screen's fields are UserAdminRead's, never minted here.
     user: UserRead
     active_dealership: DealershipMembershipSummary
     memberships: list[DealershipMembershipSummary]

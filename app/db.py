@@ -1,4 +1,4 @@
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
@@ -27,6 +27,15 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, expi
 
 class Base(DeclarativeBase):
     pass
+
+
+def get_session_factory() -> Callable[[], Session]:
+    """FastAPI dependency for a route whose work includes a cross-context
+    write that must commit on a session of its own (ADR-047, Pattern B) —
+    the deactivation step's ownership transfers (KAN-200). The tests
+    override it with their engine's factory, as they override get_db."""
+
+    return SessionLocal
 
 
 def get_db() -> Generator[Session]:

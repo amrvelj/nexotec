@@ -3,6 +3,8 @@ directly, ever; every mutation flows through offers.py/contracts.py and
 lands here via upsert_deal_projection.
 """
 
+import uuid
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
@@ -27,6 +29,7 @@ DEAL_SORT_FIELDS: dict[str, object] = {
     "number": SalesDeal.number,
     "customerLabel": SalesDeal.customer_label,
     "vehicleLabel": SalesDeal.vehicle_label,
+    "ownerLabel": SalesDeal.owner_label,  # KAN-200; ix_sales_deal_owner_label
     "grossPrice": SalesDeal.gross_price,
     "updatedAt": SalesDeal.updated_at,
     "createdAt": SalesDeal.created_at,
@@ -38,6 +41,8 @@ _DEFAULT_DEAL_SORT = [SortField(api_name="updatedAt", column=SalesDeal.updated_a
 def list_deals(
     q: str | None = None,
     entity_type: str | None = Query(default=None, alias="entityType"),
+    owner_user_id: uuid.UUID | None = Query(default=None, alias="ownerUserId"),
+    unassigned: bool = Query(default=False, description="KAN-200: deals handed to nobody when their seller left."),
     sort: str | None = Query(default=None, description="e.g. 'updatedAt:desc'"),
     limit: int = Query(default=settings.pagination_default_limit, ge=1, le=settings.pagination_max_limit),
     cursor: str | None = Query(default=None),
@@ -49,7 +54,13 @@ def list_deals(
         limit=limit, cursor=decode_sort_cursor(cursor) if cursor else None, sort_fields=sort_fields
     )
     rows, next_cursor, total, total_is_estimate = deal_service.list_deals(
-        db, tenant_id=principal.tenant_id, q=q, entity_type=entity_type, params=params
+        db,
+        tenant_id=principal.tenant_id,
+        q=q,
+        entity_type=entity_type,
+        params=params,
+        owner_user_id=owner_user_id,
+        unassigned=unassigned,
     )
     return DealPage(
         items=[DealRead.model_validate(r, from_attributes=True) for r in rows],

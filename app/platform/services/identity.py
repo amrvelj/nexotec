@@ -28,6 +28,7 @@ import datetime as dt
 import logging
 import uuid
 from typing import Protocol
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -144,6 +145,23 @@ class LocalPasswordProvider:
             password_hashing.burn_verify()
             raise refuse(AuthEventKind.LOGIN_FAILED, {"reason": "no_credential"})
 
+        # User row, then credential — the order of every path that writes
+        # both (`lock_user_for_login`); the password is checked against the
+        # credential as it stands under that lock, so a reset that committed
+        # meanwhile is the one the attempt meets.
+        user = lock_user_for_login(db, user)
+        credential = db.scalar(
+            select(Credential).where(Credential.user_id == user.id).execution_options(populate_existing=True)
+        )
+        if credential is None:
+            password_hashing.burn_verify()
+            raise refuse(AuthEventKind.LOGIN_FAILED, {"reason": "no_credential"})
+        if _account_throttled(credential, utcnow()):
+            # Judged again under the lock: a burst of attempts queued behind
+            # the first sees the failures and the lock the earlier ones wrote.
+            password_hashing.burn_verify()
+            raise refuse(AuthEventKind.LOGIN_THROTTLED)
+
         if not password_hashing.verify_password(credential.password_hash, presented.password):
             credential.failed_login_attempts += 1
             credential.last_failed_at = now
@@ -160,7 +178,7 @@ class LocalPasswordProvider:
                 )
             raise refuse(AuthEventKind.LOGIN_FAILED, {"reason": "password"})
 
-        if user.status in _INACTIVE:
+        if user.status in _INACTIVE or not access_window_open(user):
             raise refuse(AuthEventKind.LOGIN_FAILED, {"reason": "inactive"})
 
         if password_hashing.needs_rehash(credential.password_hash):
@@ -348,6 +366,7 @@ def issue_invitation(
     The raw token lives in the mail only."""
 
     raw = auth_tokens.issue(db, user_id=user.id, kind=AuthTokenKind.INVITATION, actor_id=actor_id)
+    user.invited_at = utcnow()  # KAN-200: when the (latest) invitation went out
     dealership = db.get(Dealership, user.tenant_id)
     link = f"{_settings.app_base_url}/invitations/accept?token={raw}"
     text = mail_texts.invitation(
@@ -488,15 +507,49 @@ def accept_invitation(db: Session, *, raw_token: str, password: str, ip_address:
     return user
 
 
-def login_completed(db: Session, *, user: User) -> None:
-    """A session was minted: the account's failure counter and lock clear."""
+def lock_user_for_login(db: Session, user: User) -> User:
+    """The user row locked FOR NO KEY UPDATE and re-read, before a login
+    writes the credential or the user row. KAN-200 made a completed login
+    write the user row (`last_login_at`) beside the credential's counters;
+    the front door (KAN-400) and every user-administration route (KAN-380)
+    lock the user row first and write the credential after, so a login that
+    wrote the credential first deadlocked against a reset confirm of the
+    same user (a 500). Re-read under the lock, the status and the validity
+    window a deactivation or a PATCH committed meanwhile are the ones the
+    login is judged by. Pending changes are flushed first, so the re-read
+    discards none."""
 
+    db.flush()
+    locked = db.scalar(
+        select(User).where(User.id == user.id).with_for_update(key_share=True).execution_options(populate_existing=True)
+    )
+    assert locked is not None  # the row is never deleted (A-RULE-5)
+    return locked
+
+
+def login_completed(db: Session, *, user: User) -> None:
+    """A session was minted: the account's failure counter and lock clear,
+    and the user's last login is stamped (KAN-200, Users → Lifecycle)."""
+
+    user.last_login_at = utcnow()
     credential = _credential_of(db, user.id)
     if credential is None:
         return
     credential.failed_login_attempts = 0
     credential.last_failed_at = None
     credential.locked_until = None
+
+
+def access_window_open(user: User, *, today: dt.date | None = None) -> bool:
+    """KAN-200 (FR-A-12): a user whose `valid_from` is still to come, or
+    whose `valid_to` has passed (the nightly job deactivates them; until it
+    runs, the window itself refuses), cannot sign in. Calendar days in the
+    platform zone, like the session's absolute end."""
+
+    day = today if today is not None else dt.datetime.now(ZoneInfo(_settings.session_timezone)).date()
+    if user.valid_from is not None and day < user.valid_from:
+        return False
+    return not (user.valid_to is not None and day > user.valid_to)
 
 
 def second_step_failed(db: Session, *, user: User, ip_address: str = "") -> None:

@@ -24,6 +24,19 @@ export interface FormDialogProps {
   submitting?: boolean;
   submitDisabled?: boolean;
   existingRecordNotice?: FormDialogExistingRecordNotice | null;
+  /** `md` (the default) for a short form; `lg` for a sectioned one, such
+   * as the user form's six sections (KAN-200). Never wider: a form that
+   * needs more is a detail screen. */
+  size?: "md" | "lg";
+  /** A dialog whose submit is irreversible (a deactivation, KAN-200)
+   * renders its primary action in the destructive tone — the same chrome,
+   * the same footer, the colour saying what the label says. */
+  destructive?: boolean;
+  /** An element id a `<form>` among the children carries: the submit button
+   * becomes that form's submit control (Enter in a field submits too) and
+   * the form's own `onSubmit` is the one path to `onSubmit` — the dialog
+   * does not call it itself then. */
+  formId?: string;
 }
 
 /**
@@ -47,9 +60,12 @@ export function FormDialog({
   submitting,
   submitDisabled,
   existingRecordNotice,
+  size = "md",
+  destructive = false,
+  formId,
 }: FormDialogProps) {
   return (
-    <Modal opened={opened} onClose={onClose} title={title} size="md">
+    <Modal opened={opened} onClose={onClose} title={title} size={size}>
       <Stack gap="md">
         {children}
 
@@ -74,7 +90,16 @@ export function FormDialog({
           <Button variant="default" onClick={onClose} disabled={submitting}>
             {cancelLabel}
           </Button>
-          <Button onClick={() => void onSubmit()} loading={submitting} disabled={submitDisabled}>
+          <Button
+            // With a form, the button is that form's submit control and the
+            // form's own onSubmit runs — never both paths (one click, one save).
+            onClick={formId ? undefined : () => void onSubmit()}
+            loading={submitting}
+            disabled={submitDisabled}
+            color={destructive ? "red" : undefined}
+            type={formId ? "submit" : "button"}
+            form={formId}
+          >
             {submitLabel}
           </Button>
         </Group>

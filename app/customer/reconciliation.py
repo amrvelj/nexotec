@@ -15,19 +15,20 @@ from sqlalchemy.orm import Session
 
 from app.core.audit_model import AuditEvent
 from app.core.outbox_model import OutboxMessage
-from app.core.reconciliation import ReconciliationRun, ReferenceCheck, run_reconciliation
+from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
 from app.customer.models.customer import (
     Customer,
     CustomerAddress,
     CustomerEmail,
     CustomerExternalId,
+    CustomerLifecycleStatus,
     CustomerNumberSequence,
     CustomerPhone,
     CustomerTag,
 )
 from app.customer.models.legal_basis import LegalBasis
 from app.customer.models.vehicle_party import VehicleParty
-from app.platform.public import DealerGroup, Dealership, actor_reference_checks
+from app.platform.public import DealerGroup, Dealership, User, actor_reference_checks
 from app.vehicle.public import VehicleMdm
 
 CONTEXT = "customer"
@@ -38,7 +39,7 @@ ACTOR_TABLES = (
     Customer, CustomerPhone, CustomerEmail, CustomerAddress, CustomerExternalId, CustomerTag, LegalBasis, VehicleParty,
 )
 
-CHECKS = [
+CHECKS: list[ReferenceCheck | StateCheck] = [
     ReferenceCheck(
         # WP-5 PR-2 (ADR-021): a VehicleParty links a customer to the
         # physical vehicle, which in the three-layer model is VehicleMdm,
@@ -96,6 +97,21 @@ CHECKS = [
         target_id_column=DealerGroup.id,
     ),
     *actor_reference_checks(*ACTOR_TABLES),
+    StateCheck(
+        # KAN-200 (FR-A-37, rule 10): a customer whose advisor is deactivated —
+        # the deactivation step hands every advised customer over; this says
+        # when it did not (a hand-over that failed after the status change).
+        label="customer.advisor_id names a deactivated user",
+        source_model=Customer,
+        source_row_id_column=Customer.id,
+        where=lambda: (
+            (Customer.lifecycle_status != CustomerLifecycleStatus.MERGED)
+            & select(User.id)
+            .where(User.id == Customer.advisor_id, User.status == "deactivated")
+            .correlate(Customer)
+            .exists()
+        ),
+    ),
 ]
 
 

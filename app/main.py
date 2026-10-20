@@ -9,17 +9,22 @@ from app.api.v1 import api_v1_router
 from app.core.auth import get_jwks
 from app.core.config import get_settings
 from app.core.errors import NotFoundError, register_error_handlers
+from app.core.object_store import get_object_store
 from app.core.observability import (
     ObservabilityMiddleware,
     configure_logging,
     configure_sentry,
     configure_tracing,
 )
+from app.ownership_registry import register_ownership_providers
 from app.platform.services.mailer import get_mailer
 from app.platform.session_guard import enforce_live_session
 
 configure_logging()
 configure_sentry()
+# KAN-200: every context's ownership provider, so the deactivation step can
+# ask the registry (app.core.ownership) and import no context itself.
+register_ownership_providers()
 
 # KAN-196 (FR-AU-17/18): every request carrying a session token is checked
 # against its `session` row — revoked, idle or past its absolute end is 401
@@ -33,6 +38,9 @@ register_error_handlers(app)
 # KAN-196: resolved here, not on the first invitation — a production deploy
 # with the `logging` mail sender must fail its start, not its first reset.
 get_mailer()
+# KAN-200: the same for the object store — the local directory store is not
+# a production store (KAN-402); the start fails, not the first signature.
+get_object_store()
 app.add_middleware(ObservabilityMiddleware)
 app.include_router(api_v1_router)
 

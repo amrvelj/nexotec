@@ -97,14 +97,32 @@ async function getBlobUrl(path: string): Promise<string> {
   return URL.createObjectURL(blob)
 }
 
+/** KAN-200 — the one upload today (a user's signature image): the body is
+ * the file itself with its own Content-Type, never JSON, never base64. */
+async function putBinary<T>(path: string, body: Blob, contentType: string, extraHeaders?: HeadersInit): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'PUT',
+    body,
+    credentials: 'include',
+    headers: { 'Content-Type': contentType, ...extraHeaders },
+  })
+  const json = await response.json().catch(() => null)
+  if (!response.ok) {
+    reportUnauthorized(response.status)
+    throw toApiError(response.status, json as ApiErrorBody | null)
+  }
+  return json as T
+}
+
 export const api = {
   get: <T>(path: string) => request<T>(path),
   getBlobUrl,
+  putBinary,
   post: <T>(path: string, body?: unknown, extraHeaders?: HeadersInit) =>
     request<T>(path, { method: 'POST', body: body ? JSON.stringify(body) : undefined, headers: extraHeaders }),
   patch: <T>(path: string, body: unknown, extraHeaders?: HeadersInit) =>
     request<T>(path, { method: 'PATCH', body: JSON.stringify(body), headers: extraHeaders }),
   put: <T>(path: string, body: unknown, extraHeaders?: HeadersInit) =>
     request<T>(path, { method: 'PUT', body: JSON.stringify(body), headers: extraHeaders }),
-  delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+  delete: <T>(path: string, extraHeaders?: HeadersInit) => request<T>(path, { method: 'DELETE', headers: extraHeaders }),
 }

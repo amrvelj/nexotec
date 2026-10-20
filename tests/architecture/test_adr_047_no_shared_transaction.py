@@ -122,7 +122,8 @@ _CONTEXTS = frozenset(
 # app/core is cross-cutting code importing no context (CLAUDE.md rule 8);
 # app/api is the router wiring that mounts every context's endpoints.
 # Modules directly under app/ (main, worker, model_registry,
-# reconciliation_runner, db) are composition roots, not contexts.
+# reconciliation_runner, ownership_registry, db) are composition roots, not
+# contexts.
 _NOT_A_CONTEXT = frozenset({"core", "api"})
 
 # A function whose job is to commit must not be able to switch that off.
@@ -257,11 +258,13 @@ _READS = {
     "app.platform.public.get_dealership_or_404",
     # KAN-371: the History tab's Betrieb and user names, group-scoped; a SELECT only.
     "app.platform.public.get_group_display_labels",
+    "app.platform.public.get_user_acting_in",
     # KAN-403: users' names for the nightly advisor-label refresh; a SELECT only.
     "app.platform.public.get_user_display_labels",
     "app.platform.public.get_user_or_404",
     "app.platform.public.list_active_users",
     "app.platform.public.list_dealer_manager_emails",
+    "app.platform.public.list_user_dealership_ids",
     # Builds a PDF from content Sales supplies; persists nothing.
     "app.platform.public.render_document",
     # KAN-122: Stock's reservation sweep reads its contracts' statuses, on a

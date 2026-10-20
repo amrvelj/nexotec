@@ -29,6 +29,7 @@ from tests.identity_support import (
     cookie_headers,
     create_dealership,
     create_user,
+    deactivate,
     last_mail_to,
     platform_admin_headers,
     token_in,
@@ -118,11 +119,7 @@ def test_no_invitation_goes_to_a_deactivated_user(client, mailbox, login):
     dealership = create_dealership(client)
     beat = create_user(client, dealership, isDealerManager=False)
     login.accept_invitation(beat)
-    response = client.patch(
-        f"/v1/dealerships/{dealership}/users/{beat['id']}",
-        json={"status": "deactivated"},
-        headers={**platform_admin_headers(), "If-Match": "2"},
-    )
+    response = deactivate(client, dealership, beat, if_match=2)
     assert response.status_code == 200, response.text
     sent_before = len(mailbox)
 

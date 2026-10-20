@@ -20,7 +20,8 @@
       "integrations": "Integrazioni",
       "administration": "Amministrazione",
       "referenceData": "Dati di riferimento",
-      "catalogue": "Catalogo"
+      "catalogue": "Catalogo",
+      "users": "Utenti"
     },
     "signOut": "Disconnetti",
     "environmentNotice": {
@@ -335,7 +336,10 @@
     },
     "createOfferError": "Non è stato possibile creare l’offerta. Riprovare.",
     "createContractError": "Non è stato possibile creare il contratto. Riprovare.",
-    "doNotContactError": "Non è stato possibile salvare «non contattare». Riprovare."
+    "doNotContactError": "Non è stato possibile salvare «non contattare». Riprovare.",
+    "advisorFilter": {
+      "unassigned": "Non assegnato"
+    }
   },
   "customerDetail": {
     "tabs": {
@@ -1046,12 +1050,14 @@
       "grossPrice": "Prezzo di vendita",
       "status": "Stato",
       "margin": "Margine",
-      "changed": "Modificato"
+      "changed": "Modificato",
+      "owner": "Responsabile"
     },
     "chips": {
       "all": "Tutti",
       "offers": "Offerte",
-      "contracts": "Contratti"
+      "contracts": "Contratti",
+      "unassigned": "Non assegnato"
     },
     "emptyState": {
       "title": "Nessuna offerta o contratto",
@@ -2000,6 +2006,202 @@
         "current": "Questa sessione",
         "end": "Termina"
       }
+    }
+  },
+  "usersAdmin": {
+    "title": "Utenti",
+    "invite": "Invita utente",
+    "allView": "Tutti gli utenti",
+    "searchPlaceholder": "Nome o e-mail …",
+    "loadError": "Impossibile caricare gli utenti.",
+    "managerBadge": "Manager",
+    "chips": {
+      "all": "Tutti"
+    },
+    "forbidden": {
+      "title": "Solo per manager",
+      "body": "Solo un manager di questa azienda amministra i suoi utenti. Rivolgiti al tuo manager se ti serve una modifica."
+    },
+    "status": {
+      "invited": "Invitato",
+      "invitation_expired": "Invito scaduto",
+      "active": "Attivo",
+      "suspended": "Sospeso",
+      "deactivated": "Disattivato"
+    },
+    "accessRole": {
+      "sales": "Vendita",
+      "aftersales": "Post-vendita",
+      "parts": "Ricambi",
+      "inventory": "Magazzino",
+      "finance": "Finanze",
+      "technician": "Officina",
+      "auditor": "Revisore (sola lettura)",
+      "platform_admin": "Collaboratore Nexotec"
+    },
+    "employmentStatus": {
+      "active": "Impiegato",
+      "on_leave": "Assente",
+      "terminated": "Uscito"
+    },
+    "textCategory": {
+      "document": "Documenti",
+      "email": "E-mail",
+      "sms": "SMS",
+      "internal_note": "Note interne",
+      "workshop": "Officina"
+    },
+    "ownedGroup": {
+      "customer": {
+        "customers": "Clienti seguiti"
+      },
+      "sales": {
+        "offers": "Offerte aperte",
+        "contracts": "Contratti in sospeso"
+      }
+    },
+    "columns": {
+      "name": "Nome",
+      "status": "Stato",
+      "jobTitle": "Funzione",
+      "access": "Accesso",
+      "manager": "Manager",
+      "primaryLocation": "Sede",
+      "lastLogin": "Ultimo accesso",
+      "validTo": "Accesso fino al",
+      "validFrom": "Accesso dal",
+      "email": "E-mail",
+      "mobile": "Cellulare",
+      "directDial": "Linea diretta",
+      "department": "Reparto",
+      "employeeNumber": "N. collaboratore",
+      "lineManager": "Superiore",
+      "additionalLocations": "Altre sedi",
+      "employmentStatus": "Impiego",
+      "salesAdvisorCode": "Codice consulente",
+      "commissionRelevant": "Provvigione",
+      "invitedAt": "Invitato il",
+      "deactivatedAt": "Disattivato il",
+      "deactivationReason": "Motivo della disattivazione",
+      "signature": "Immagine della firma",
+      "createdAt": "Creato",
+      "updatedAt": "Modificato"
+    },
+    "emptyState": {
+      "title": "Ancora nessun utente",
+      "description": "Invita il primo collega: sceglie da sé la password tramite l'invito."
+    },
+    "emptyFilteredState": {
+      "title": "Nessun risultato",
+      "description": "Nessun utente corrisponde alla ricerca o allo stato attuali.",
+      "action": "Reimposta"
+    },
+    "rowMenu": {
+      "edit": "Modifica",
+      "resendInvitation": "Reinvia l'invito",
+      "resendInvitationDisabled": "Solo per un utente che non ha ancora accettato l'invito",
+      "suspend": "Sospendi",
+      "reactivate": "Riattiva",
+      "deactivate": "Disattiva",
+      "deactivateDisabledAlready": "Già disattivato",
+      "selfDisabled": "Non per il proprio account",
+      "handOver": "Trasferire le pratiche aperte",
+      "suspendDisabledNotActive": "Solo un utente attivo può essere sospeso",
+      "editDisabledDeactivated": "Un utente disattivato non si modifica — prima riattivarlo"
+    },
+    "actions": {
+      "resendFailed": "Impossibile inviare l'invito.",
+      "statusFailed": "Impossibile modificare lo stato.",
+      "handOverFailed": "Non tutto è stato trasferito — {{groups}}. Queste pratiche restano per ora a questa persona; «Trasferire le pratiche aperte» riprova.",
+      "handOverFailedAfterDeactivation": "Disattivato, ma non tutto è stato trasferito — {{groups}}. Queste pratiche restano per ora a questa persona; «Trasferire le pratiche aperte» nel menu di riga riprova.",
+      "validToCleared": "{{name}} è di nuovo attivo. La fine dell'accesso scaduta ({{date}}) è stata rimossa — se necessario, impostarne una nuova in «Modifica»."
+    },
+    "form": {
+      "inviteTitle": "Invita utente",
+      "editTitle": "Modifica {{name}}",
+      "invite": "Invia l'invito",
+      "conflict": "Questo utente è stato modificato nel frattempo. Chiudi la finestra e riaprila.",
+      "sections": {
+        "identity": "Identità",
+        "organisation": "Organizzazione",
+        "access": "Accesso",
+        "validity": "Validità",
+        "commercial": "Commerciale",
+        "signature": "Firma"
+      }
+    },
+    "fields": {
+      "firstName": "Nome",
+      "lastName": "Cognome",
+      "email": "E-mail (accesso)",
+      "emailLocked": "L'indirizzo di un utente attivo viene modificato dal supporto Nexotec (ripristino dell'account).",
+      "mobile": "Cellulare",
+      "directDial": "Linea diretta",
+      "employeeNumber": "Numero collaboratore",
+      "jobTitle": "Funzione",
+      "department": "Reparto",
+      "lineManager": "Superiore",
+      "none": "Nessuno",
+      "primaryLocation": "Sede principale",
+      "additionalLocations": "Altre sedi",
+      "noLocationsYet": "Nessuna sede configurata finora",
+      "primaryRole": "Ruolo principale",
+      "primaryRoleHint": "Concede l'accesso standard del modulo.",
+      "alsoHasAccessTo": "Ha accesso anche a",
+      "isDealerManager": "Manager di questa azienda",
+      "managerHint": "Amministra utenti, impostazioni e integrazioni. L'azienda mantiene sempre almeno un manager attivo.",
+      "managerSelfHint": "Il tuo contrassegno di manager viene modificato da un altro manager.",
+      "delegations": "Può modificare i testi standard per",
+      "delegationsHint": "Delega per categoria; il manager può sempre modificarli.",
+      "validFrom": "Accesso dal",
+      "validTo": "Accesso fino al",
+      "validToHint": "Dopo questo giorno l'accesso termina automaticamente e le pratiche aperte vanno in coda.",
+      "salesAdvisorCode": "Codice consulente (marketplace)",
+      "commissionRelevant": "Partecipa alla provvigione",
+      "signatureImage": "Immagine della firma",
+      "signatureHint": "PNG o JPEG, fino a 1 MB: viene stampata sui documenti firmati dall'utente.",
+      "signatureCurrent": "Firma attuale",
+      "signatureRemove": "Rimuovi"
+    },
+    "deactivate": {
+      "title": "Disattiva {{name}}",
+      "intro": "L'accesso termina ora. Tutto ciò che questa persona segue ancora viene trasferito qui sotto — a un collega o nella coda del modulo (le bozze senza responsabile si trovano presso il cliente). Nulla viene eliminato; lo storico conserva l'autore originale.",
+      "reassignTitle": "Passare le pratiche aperte",
+      "nothingOpen": "Niente di aperto in nessuno dei {{modules, number}} moduli.",
+      "ownershipLoadError": "Impossibile caricare ciò che segue questo utente.",
+      "columns": {
+        "what": "Cosa",
+        "count": "Numero",
+        "transferTo": "Passare a"
+      },
+      "leaveUnassigned": "Non assegnare (coda del modulo)",
+      "choose": "Scegli …",
+      "transferLabel": "Passare: {{what}}",
+      "reason": "Motivo",
+      "endEmployment": "L'impiego è terminato",
+      "confirm": "Disattiva",
+      "incomplete": "Il trasferimento non è ancora completo:",
+      "problems": {
+        "undecided": "{{what}}: serve una decisione — un collega oppure «Non assegnare».",
+        "decided_twice": "{{what}}: deciso due volte.",
+        "not_owned": "{{what}}: questa persona non li segue (più).",
+        "self": "{{what}}: la persona non può rilevare le proprie pratiche.",
+        "colleague_not_active": "{{what}}: il collega scelto non è un utente attivo di questa azienda.",
+        "colleague_cannot_act_there": "{{what}}: {{count, number}} di queste appartengono a un'altra azienda in cui il collega scelto non lavora — scegliere «Non assegnare» (quell'azienda le trasferisce dalla propria coda) oppure un collega che vi è membro."
+      }
+    },
+    "handOver": {
+      "title": "Trasferire le pratiche aperte di {{name}}",
+      "intro": "Ciò che questa persona segue ancora viene trasferito a un collega o nella coda del modulo — anche dopo una disattivazione in cui un modulo non ha potuto completare il trasferimento.",
+      "confirm": "Trasferire"
+    },
+    "errors": {
+      "lastManager": "Un'azienda ha sempre bisogno di almeno un manager attivo: l'ultimo non può essere né disattivato né retrocesso.",
+      "lastManagerElsewhere": "Questa persona è l'ultimo manager attivo di un'altra azienda di cui è membro — potrà essere sospesa o disattivata quando quell'azienda avrà un altro manager."
+    },
+    "failureReason": {
+      "module_failed": "il modulo non ha potuto completare il trasferimento; dettagli nel registro",
+      "colleague_cannot_act_there": "il collega non lavora in ogni azienda coinvolta"
     }
   }
 }

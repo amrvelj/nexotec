@@ -27,10 +27,12 @@ from app.platform.services.group_labels import get_group_display_labels
 from app.platform.services.reference_data import get_active_reference_value_codes
 from app.platform.services.user import (
     UserDisplayLabel,
+    get_user_acting_in,
     get_user_display_labels,
     get_user_or_404,
     list_active_users,
     list_dealer_manager_emails,
+    list_user_dealership_ids,
 )
 
 # WP-6b: Addressee/ContentDefinition/.../render_document are the shared
@@ -60,9 +62,11 @@ __all__ = [
     "get_dealership_or_404",
     "get_group_display_labels",
     "get_location_or_404",
+    "get_user_acting_in",
     "get_user_display_labels",
     "get_user_or_404",
     "list_active_users",
     "list_dealer_manager_emails",
+    "list_user_dealership_ids",
     "render_document",
 ]

@@ -98,6 +98,28 @@ ADR-057, ADR-063, ADR-065, ADR-083 and KAN-66/68/71. Verified against main@7a90a
   factory-option lines, and `replace_line_items` locks it (`priced_deal.lock_editable`) before
   touching a line (KAN-287).
 
+## The responsible seller (KAN-200, Anto 2026-10-19)
+
+- `sales_offer`, `sales_contract` and `sales_deal` carry `owner_user_id` + `owner_label` +
+  `owner_label_refreshed_at` (rule 2): who the open deal belongs to — the creator by default
+  when they act in the Betrieb (homed or an active member, `platform.public.get_user_acting_in`),
+  a colleague after a hand-over, nobody once a leaver's deals went to the unassigned queue.
+  `created_by` stays who typed it (A-RULE-5). The workspace PATCH takes `ownerUserId` (422 for
+  someone who does not act there or is suspended/deactivated; null clears); a contract takes
+  its offer's seller; `GET /sales/deals` filters `ownerUserId` and `unassigned=true` (the Sales
+  list's "Nicht zugewiesen" chip — open offers and pending contracts; drafts stay hidden — and its
+  "Verantwortlich" column). The deal row's seller is the contract's once a contract exists, the
+  offer's before: an offer-side write after a contract exists never changes the contract-shaped
+  row's owner. A contract made from an offer takes the offer's seller only while that seller
+  is active or invited (`inherited_owner`), else its creator's. **Not handled (KAN-409):** an
+  offer freed by a cancelled contract stays on the grid as that cancelled contract (pre-existing
+  shape), so its seller — and a hand-over of it — is not visible there. `app/sales/services/ownership.py`
+  is Sales' ownership provider for the deactivation step (`.claude/rules/platform.md`, D-A-35):
+  it counts the user's open offers and pending contracts in every Betrieb and refuses a colleague
+  who cannot act in one of them. Nightly reconciliation reports an open deal whose owner is a
+  deactivated user and an owner id naming no user. The label is written once and not refreshed
+  on a rename yet (KAN-404; KAN-403 refreshes the customer's advisor label only).
+
 ## Price and VAT (ADR-057)
 
 - An offer, a contract and an invoice carry **one price: gross, CHF incl. MwSt**, after all

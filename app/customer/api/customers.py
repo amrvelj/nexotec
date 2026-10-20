@@ -228,6 +228,10 @@ def list_customers(
     canton: str | None = None,
     updated_since: dt.datetime | None = None,
     include_merged: bool = False,
+    advisor_user_id: uuid.UUID | None = Query(default=None, alias="advisorUserId"),
+    unassigned: bool = Query(
+        default=False, description="KAN-200: customers with no advisor — the queue a leaver's hand-over fills."
+    ),
     sort: str | None = Query(default=None, description="e.g. 'lastName:asc,updatedAt:desc'"),
     limit: int = Query(default=settings.pagination_default_limit, ge=1, le=settings.pagination_max_limit),
     cursor: str | None = Query(default=None),
@@ -249,6 +253,8 @@ def list_customers(
         updated_since=updated_since,
         params=params,
         include_merged=include_merged,
+        advisor_user_id=advisor_user_id,
+        unassigned=unassigned,
     )
     projections_by_id = customer_service.compute_customer_projections_batch(db, [c.id for c in rows])
     items = [

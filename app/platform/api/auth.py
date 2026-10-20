@@ -137,7 +137,7 @@ def _mint_session(
     caller's row and the token keeps its `sid`.
     """
 
-    if user.status in identity._INACTIVE:
+    if user.status in identity._INACTIVE or not identity.access_window_open(user):
         raise UnauthorizedError("This user account is not active.")
     membership_ids = _membership_ids(db, user_id=user.id, home_dealership_id=user.tenant_id)
     if dealership_id not in membership_ids:
@@ -228,6 +228,9 @@ def _login_response(
 def _finish_login(
     db: Session, request: Request, response: Response, *, user: User, amr: tuple[str, ...], mfa_used: bool
 ) -> LoginResponse:
+    # User row first, then the credential and the session (KAN-400's order):
+    # `_mint_session` judges the status as it stands under the lock.
+    user = identity.lock_user_for_login(db, user)
     minted = _mint_session(
         db, user=user, dealership_id=user.tenant_id, session=None, request=request, amr=amr, mfa_used=mfa_used
     )
@@ -307,6 +310,14 @@ def _challenged_user(db: Session, challenge_id: str, *, ip_address: str = "", an
     user = db.get(User, token.user_id) if token is not None else None
     if token is None or user is None:
         raise _step_expired()
+    if answer:
+        # User row first (`identity.lock_user_for_login`), before the
+        # challenge, the factor and the credential: the password step and an
+        # invitation acceptance hold the user row while they issue a
+        # challenge, so a step that locked its challenge first and the user
+        # row at the mint deadlocked against them. The throttle below is
+        # judged under the lock.
+        user = identity.lock_user_for_login(db, user)
     if answer and (
         identity.account_throttled(db, user=user)
         or not auth_tokens.claim_attempt(db, token, limit=MFA_MAX_ATTEMPTS)
@@ -419,6 +430,20 @@ def invitation_accept(body: InvitationAccept, request: Request, response: Respon
     re-issued invitation — gets the MFA step, like a login."""
 
     user = identity.accept_invitation(db, raw_token=body.token, password=body.password, ip_address=client_ip(request))
+    if not identity.access_window_open(user):
+        # KAN-200 (FR-A-12): the invitation can be accepted before `valid_from`
+        # — the password is set and the account is active — but no session
+        # is minted until the day comes; the answer says when, so the link
+        # is not taken for a broken one (the login keeps its uniform 401).
+        db.commit()
+        raise ForbiddenError(
+            "Your access to this business has not started yet.",
+            details={
+                "reason": "access_window_closed",
+                "validFrom": user.valid_from.isoformat() if user.valid_from is not None else None,
+                "validTo": user.valid_to.isoformat() if user.valid_to is not None else None,
+            },
+        )
     if mfa.has_factor(db, user.id):
         return _begin_mfa_step(db, user)
     session = _finish_login(db, request, response, user=user, amr=("pwd",), mfa_used=False)

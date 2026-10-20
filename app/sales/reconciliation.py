@@ -61,6 +61,7 @@ from app.sales.models.line_item import SalesLineItem
 from app.sales.models.offer import SalesOffer
 from app.sales.models.stock_item_purchase import SalesStockItemPurchase
 from app.sales.models.transaction import Transaction
+from app.sales.services.ownership import offer_is_open
 from app.valuation.public import Valuation
 from app.vehicle.public import Vehicle, VehicleConfiguration, VehicleMdm
 
@@ -118,6 +119,29 @@ def _customer_outside_the_group(label: str, deal: _Deal) -> StateCheck:
         return customer_exists & dealership_exists & ~in_group
 
     return StateCheck(label=label, source_model=deal, source_row_id_column=deal.id, where=where)
+
+
+def _owned_by_a_deactivated_user(deal: _Deal, is_open: Callable[[], ColumnElement[bool]]) -> StateCheck:
+    """KAN-200 (FR-A-37, rule 10): an open deal whose responsible seller is
+    deactivated — a hand-over that failed after the status change (the
+    expiry job's retry window may have passed), or an owner set after they
+    left. The deactivation step moves every open record; this says when it
+    did not. A seller who no longer exists is the owner ReferenceCheck's."""
+
+    table = deal.__tablename__
+
+    def where() -> ColumnElement[bool]:
+        deactivated = (
+            select(User.id).where(User.id == deal.owner_user_id, User.status == "deactivated").correlate(deal).exists()
+        )
+        return is_open() & deactivated
+
+    return StateCheck(
+        label=f"{table}.owner_user_id names a deactivated user while the {table.removeprefix('sales_')} is open",
+        source_model=deal,
+        source_row_id_column=deal.id,
+        where=where,
+    )
 
 
 def _same_dealership_checks(deal: _Deal) -> list[StateCheck]:
@@ -477,6 +501,21 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
     *_same_dealership_checks(SalesContract),
     # --- who wrote each row (KAN-243) ---
     *actor_reference_checks(*ACTOR_TABLES),
+    # --- the responsible seller (KAN-200): a platform User id on three tables ---
+    *(
+        ReferenceCheck(
+            label=f"{model.__tablename__}.owner_user_id -> user.id",
+            source_model=model,
+            source_row_id_column=model.id,
+            source_fk_column=model.owner_user_id,
+            target_model=User,
+            target_id_column=User.id,
+            nullable=True,  # unassigned is a state, not a dangling reference
+        )
+        for model in (SalesOffer, SalesContract, SalesDeal)
+    ),
+    _owned_by_a_deactivated_user(SalesOffer, offer_is_open),
+    _owned_by_a_deactivated_user(SalesContract, lambda: SalesContract.status == ContractStatus.PENDING),
 ]
 
 

@@ -70,6 +70,16 @@ class SalesContract(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, Timestam
     customer_denorm_refreshed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     customer_language: Mapped[str | None] = mapped_column(String(2), nullable=True)
 
+    # KAN-200 (FR-A-37): the responsible seller, copied from the offer at
+    # creation (the creator for a contract started directly), handed over
+    # or cleared by the deactivation step while the contract is pending —
+    # see SalesOffer.owner_user_id. Three-column pattern, no FK.
+    owner_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(), nullable=True, index=True, comment="Owned by the platform context (User). No DB-level FK."
+    )
+    owner_label: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    owner_label_refreshed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+
     # WP-8 PR-6 — copied from the offer at creation (S-D09/ADR-045's
     # own vocabulary): "existing" once confirmed means the reservation targets a
     # real stock_item_id; "manual" means handle_sales_contract_confirmed

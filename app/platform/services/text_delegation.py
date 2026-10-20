@@ -39,7 +39,7 @@ def list_active_categories(db: Session, *, user_id: uuid.UUID) -> list[StandardT
 
 
 def set_delegations(
-    db: Session, *, user: User, categories: set[StandardTextCategory], actor_id: uuid.UUID, reason: str | None = None
+    db: Session, *, user: User, categories: set[StandardTextCategory], actor_id: uuid.UUID | None, reason: str | None = None
 ) -> tuple[list[StandardTextCategory], bool]:
     """Replace the set. Returns (active categories, whether anything
     changed). Flushes, never commits — the caller owns the transaction."""
@@ -85,7 +85,7 @@ def set_delegations(
     return [StandardTextCategory(code) for code in after], changed
 
 
-def end_all(db: Session, *, user: User, actor_id: uuid.UUID, reason: str) -> None:
+def end_all(db: Session, *, user: User, actor_id: uuid.UUID | None, reason: str) -> None:
     """Deactivation ends every delegation (FR-A-28). Flushes, never commits —
     the caller's transaction (update_user) owns the commit."""
 

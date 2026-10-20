@@ -61,6 +61,19 @@ class SalesOffer(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMi
     # generating seller's own UI locale.
     customer_language: Mapped[str | None] = mapped_column(String(2), nullable=True)
 
+    # KAN-200 (FR-A-37, D-A-35; Anto, 2026-10-19): the responsible seller —
+    # the person whose open offer this is, as distinct from `created_by`
+    # (who typed it, kept for the record, A-RULE-5). Defaults to the creator,
+    # changes when a manager hands the offer to a colleague, and is cleared
+    # ("unassigned", the sales list's own queue) when a leaver's open offers
+    # go to nobody. Rule 2's three-column pattern: a platform User id, its
+    # display label and when the label was read — never a FK.
+    owner_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(), nullable=True, index=True, comment="Owned by the platform context (User). No DB-level FK."
+    )
+    owner_label: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    owner_label_refreshed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+
     # WP-8 PR-2 (FR-S-08's two-path vehicle container): "stock" means
     # stock_item_id is the source of truth; "manual" means vehicle_label +
     # manual_vehicle_condition are hand-typed (ADR-045 — this never creates

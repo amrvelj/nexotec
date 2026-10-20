@@ -14,7 +14,7 @@ import pytest
 from app.core.auth import AccessRole, create_access_token, get_current_principal
 from app.platform.services.identity import INVALID_CREDENTIALS
 from tests.dealership_support import valid_uid
-from tests.identity_support import PasswordLogin, new_email, set_mfa_enforced
+from tests.identity_support import PasswordLogin, deactivate, new_email, set_mfa_enforced
 
 VALID_ADDRESS = {
     "street": "Bahnhofstrasse",
@@ -62,6 +62,19 @@ def _create_dealer(client, **overrides) -> str:
     # enforces a second factor confines such a session to enrolment.
     set_mfa_enforced(client, response.json()["id"], False)
     return response.json()["id"]
+
+
+def _set_status(client, dealer_id: str, user: dict, status: str, *, if_match: int):
+    """A suspension is a PATCH; a deactivation goes through the step with
+    the reassignment (KAN-200, FR-A-37)."""
+
+    if status == "deactivated":
+        return deactivate(client, dealer_id, user, if_match=if_match)
+    return client.patch(
+        f"/v1/dealerships/{dealer_id}/users/{user['id']}",
+        json={"status": status},
+        headers={**_bearer(_token(AccessRole.PLATFORM_ADMIN)), "If-Match": str(if_match)},
+    )
 
 
 def _create_user(client, dealer_id: str, **overrides) -> dict:
@@ -175,12 +188,7 @@ def test_login_blocked_for_suspended_or_deactivated_user(client, login, status):
     user = _create_user(client, dealer_id, isDealerManager=False)
     login.accept_invitation(user)
 
-    admin_token = _token(AccessRole.PLATFORM_ADMIN)
-    response = client.patch(
-        f"/v1/dealerships/{dealer_id}/users/{user['id']}",
-        json={"status": status},
-        headers={**_bearer(admin_token), "If-Match": "2"},
-    )
+    response = _set_status(client, dealer_id, user, status, if_match=2)
     assert response.status_code == 200, response.text
 
     response = login.login(user)
@@ -328,11 +336,7 @@ def test_switch_dealership_refuses_a_user_made_inactive_after_login(client, logi
     token = login.session_cookie(user)
     assert token
 
-    response = client.patch(
-        f"/v1/dealerships/{dealer_a}/users/{user['id']}",
-        json={"status": status},
-        headers={**_bearer(_token(AccessRole.PLATFORM_ADMIN)), "If-Match": "2"},
-    )
+    response = _set_status(client, dealer_a, user, status, if_match=2)
     assert response.status_code == 200, response.text
 
     response = _switch_with(client, token, dealer_a if target == "home" else dealer_b)

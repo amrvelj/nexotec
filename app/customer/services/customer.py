@@ -453,8 +453,18 @@ def list_customers(
     updated_since,
     params: SortPageParams,
     include_merged: bool = False,
+    advisor_user_id: uuid.UUID | None = None,
+    unassigned: bool = False,
 ) -> tuple[list[Customer], str | None, int, bool]:
+    """`advisor_user_id` narrows to one advisor's customers; `unassigned` to
+    those with none — the queue FR-A-37 names, which a leaver's hand-over
+    to nobody fills (KAN-200). Both together is an empty page."""
+
     stmt = select(Customer).where(Customer.group_id == group_id)
+    if advisor_user_id is not None:
+        stmt = stmt.where(Customer.advisor_id == advisor_user_id)
+    if unassigned:
+        stmt = stmt.where(Customer.advisor_id.is_(None))
     if q:
         stmt = stmt.where(_search_predicate(group_id, q))
     if lifecycle_status is not None:
