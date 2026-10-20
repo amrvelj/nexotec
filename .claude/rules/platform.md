@@ -168,9 +168,9 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   seller: homed or an active member, status active or invited) — and a hand-over to a colleague
   who cannot act in one of those Betriebe is refused as a whole (422 saying how many records
   are elsewhere, never which Betrieb — an id is a fact the caller may not hold): the manager
-  picks the queue for that group, and that Betrieb hands them over from its own queue. **Open
-  with Anto:** whether the home manager may hand a sister Betrieb's records to a colleague at
-  all (KAN-199's rule is "a manager of the home who also manages the target"). `GET …/users/{id}/ownership`
+  picks the queue for that group, and that Betrieb hands them over from its own queue. **The
+  home manager decides for every Betrieb the leaver worked in** (Anto, 2026-10-20, ADR-094) —
+  not the sister's queue only, not a refusal until the sister handed over. `GET …/users/{id}/ownership`
   lists the groups; `POST …/users/{id}/deactivate` needs a decision for every group (an
   **active** colleague, or null = the module's own unassigned queue: `GET /sales/deals?unassigned=true`,
   `GET /customers?unassigned=true`, both filterable on screen), cuts
