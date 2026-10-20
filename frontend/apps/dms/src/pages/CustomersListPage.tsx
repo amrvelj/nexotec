@@ -137,7 +137,6 @@ function applyPredicatesToParams(
 
 const UNASSIGNED_ADVISOR = '__unassigned__'
 
-
 export function CustomersListPage() {
   const { t, i18n } = useTranslation()
   const locale = toSwissLocale(i18n.language as SupportedLanguage)

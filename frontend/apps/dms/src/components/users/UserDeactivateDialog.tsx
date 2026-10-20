@@ -85,7 +85,7 @@ export function UserDeactivateDialog({ opened, onClose, dealershipId, user, coll
 
   const groups = ownership.data?.groups ?? []
   const key = (module: string, group: string) => `${module}/${group}`
-  const undecided = groups.filter((g) => choices[key(g.module, g.group)] === undefined)
+  const undecided = groups.filter((g) => !choices[key(g.module, g.group)])
   const canSubmit =
     (deactivating ? reason.trim().length > 0 : groups.length > 0) && undecided.length === 0 && ownership.isSuccess && !submitting
 
@@ -201,6 +201,9 @@ export function UserDeactivateDialog({ opened, onClose, dealershipId, user, coll
                       value={choices[key(g.module, g.group)] ?? null}
                       onChange={(value) => setChoices((c) => ({ ...c, [key(g.module, g.group)]: value }))}
                       placeholder={t('usersAdmin.deactivate.choose')}
+                      // A decision is never taken back to "undecided" by clicking it
+                      // again: the screen would show none while the request sent null.
+                      allowDeselect={false}
                       searchable
                     />
                   </Table.Td>

@@ -19,7 +19,7 @@ import uuid
 from collections.abc import Callable
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import ColumnElement, func, select
 from sqlalchemy.orm import Session
 
 from app.core.base import utcnow
@@ -38,6 +38,23 @@ GROUP_OFFERS = "offers"
 GROUP_CONTRACTS = "contracts"
 _OPEN_OFFER_STATUSES = (OfferStatus.DRAFT, OfferStatus.OPEN)
 _OPEN_CONTRACT_STATUSES = (ContractStatus.PENDING,)
+
+
+def offer_is_open() -> ColumnElement[bool]:
+    """An offer still being worked on: draft or open AND no live contract made
+    from it. An offer keeps its status when a contract is created from it
+    (`OfferStatus` has no "contracted"), so the status alone counts a signed
+    deal's offer as open — the contract is the live record then, and its own
+    group carries the hand-over. One definition for the ownership count, the
+    transfer and the nightly reconciliation."""
+
+    live_contract = (
+        select(SalesContract.id)
+        .where(SalesContract.offer_id == SalesOffer.id, SalesContract.status != ContractStatus.CANCELLED)
+        .correlate(SalesOffer)
+        .exists()
+    )
+    return SalesOffer.status.in_(_OPEN_OFFER_STATUSES) & ~live_contract
 
 
 _NO_OWNER: dict[str, Any] = {"owner_user_id": None, "owner_label": None, "owner_label_refreshed_at": None}
@@ -99,11 +116,7 @@ class SalesOwnershipProvider:
     def list_open(self, db: Session, *, dealership_id: uuid.UUID, user_id: uuid.UUID) -> list[OwnedGroup]:
         # Everywhere the user owns them, not only their home: a member of a
         # sister Betrieb sells there and those deals are theirs too.
-        offers = db.scalar(
-            select(func.count(SalesOffer.id)).where(
-                SalesOffer.owner_user_id == user_id, SalesOffer.status.in_(_OPEN_OFFER_STATUSES)
-            )
-        )
+        offers = db.scalar(select(func.count(SalesOffer.id)).where(SalesOffer.owner_user_id == user_id, offer_is_open()))
         contracts = db.scalar(
             select(func.count(SalesContract.id)).where(
                 SalesContract.owner_user_id == user_id, SalesContract.status.in_(_OPEN_CONTRACT_STATUSES)
@@ -170,7 +183,7 @@ def _open_rows(db: Session, *, from_user_id: uuid.UUID, group: str, lock: bool) 
     if group == GROUP_OFFERS:
         stmt = (
             select(SalesOffer)
-            .where(SalesOffer.owner_user_id == from_user_id, SalesOffer.status.in_(_OPEN_OFFER_STATUSES))
+            .where(SalesOffer.owner_user_id == from_user_id, offer_is_open())
             .order_by(SalesOffer.id)
         )
     else:
@@ -258,8 +271,9 @@ def _transfer_group(
             offer.updated_by = actor_id
             offer.version += 1
             moved += 1
-            # The deal row follows its live entity: an offer that already has
-            # a contract is not open, so it is not in `rows`.
+            # The deal row follows its live entity: an offer with a live
+            # contract is not open (`offer_is_open`), so it is not in `rows`
+            # and never re-projects a contract's deal row from the offer.
             upsert_deal_projection(db, offer=offer)
         return moved
     rows_c = _open_rows(db, from_user_id=from_user_id, group=group, lock=True)

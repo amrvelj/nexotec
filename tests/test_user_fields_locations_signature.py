@@ -106,8 +106,12 @@ def test_the_line_manager_is_another_user_of_the_same_dealership(client, who):
 
 def test_the_list_searches_by_name_and_address(client):
     dealership = create_dealership(client)
-    create_user(client, dealership, firstName="Marco", lastName="Bianchi", email=f"marco-{uuid.uuid4().hex[:4]}@example.ch")
-    create_user(client, dealership, firstName="Anna", lastName="Keller", email=f"anna-{uuid.uuid4().hex[:4]}@example.ch")
+    create_user(
+        client, dealership, firstName="Marco", lastName="Bianchi", email=f"marco-{uuid.uuid4().hex[:4]}@example.ch"
+    )
+    create_user(
+        client, dealership, firstName="Anna", lastName="Keller", email=f"anna-{uuid.uuid4().hex[:4]}@example.ch"
+    )
 
     by_name = client.get(f"/v1/dealerships/{dealership}/users?q=bian", headers=platform_admin_headers()).json()
     assert [u["lastName"] for u in by_name["items"]] == ["Bianchi"]
@@ -196,9 +200,12 @@ def test_the_signature_image_is_stored_served_and_removed(client, object_store, 
         headers={**headers, "If-Match": "2", "Content-Type": "image/jpeg"},
     )
     assert replaced.status_code == 200, replaced.text
-    assert client.get(f"/v1/dealerships/{dealership}/users/{user['id']}/signature", headers=headers).headers[
-        "content-type"
-    ] == "image/jpeg"
+    assert (
+        client.get(f"/v1/dealerships/{dealership}/users/{user['id']}/signature", headers=headers).headers[
+            "content-type"
+        ]
+        == "image/jpeg"
+    )
 
     removed = client.delete(
         f"/v1/dealerships/{dealership}/users/{user['id']}/signature", headers={**headers, "If-Match": "3"}
@@ -231,9 +238,12 @@ def test_a_signature_that_is_not_a_small_png_or_jpeg_is_refused(client, object_s
         headers={**_manager(dealership, manager), "If-Match": "1", "Content-Type": content_type},
     )
     assert response.status_code == 422, response.text
-    assert client.get(f"/v1/dealerships/{dealership}/users/{user['id']}", headers=platform_admin_headers()).json()[
-        "hasSignatureImage"
-    ] is False
+    assert (
+        client.get(f"/v1/dealerships/{dealership}/users/{user['id']}", headers=platform_admin_headers()).json()[
+            "hasSignatureImage"
+        ]
+        is False
+    )
 
 
 def test_the_local_store_refuses_a_key_that_escapes_its_root(tmp_path):
@@ -264,7 +274,9 @@ def test_the_list_sorts_server_side_and_refuses_an_unknown_field(client):
     assert [u["lastName"] for u in desc["items"]] == ["Zimmer", "Meier", "Abt"]
     paged = client.get(f"{url}?sort=firstName:asc&limit=2", headers=platform_admin_headers()).json()
     assert [u["firstName"] for u in paged["items"]] == ["Adam", "Mia"] and paged["nextCursor"]
-    rest = client.get(f"{url}?sort=firstName:asc&limit=2&cursor={paged['nextCursor']}", headers=platform_admin_headers())
+    rest = client.get(
+        f"{url}?sort=firstName:asc&limit=2&cursor={paged['nextCursor']}", headers=platform_admin_headers()
+    )
     assert [u["firstName"] for u in rest.json()["items"]] == ["Zoe"]
     assert client.get(f"{url}?sort=hairColour:asc", headers=platform_admin_headers()).status_code == 422
 
@@ -303,3 +315,27 @@ def test_the_locations_audit_row_records_the_resulting_set_not_the_sent_fields(c
     rows = [row for row in audit if row["entityId"] == user["id"] and row["action"] == "locations_set"]
     latest = max(rows, key=lambda row: row["createdAt"])
     assert latest["after"] == {"primary_location_id": nord, "additional_location_ids": sorted([sued, west])}
+
+
+def test_the_signature_of_a_deactivated_user_is_neither_set_nor_removed(client, object_store):
+    """A deactivated user's row takes no edit but the reactivation: the
+    signature PUT and DELETE are refused like a PATCH (409)."""
+
+    from tests.identity_support import deactivate
+
+    dealership = create_dealership(client)
+    create_user(client, dealership)
+    user = create_user(client, dealership, isDealerManager=False)
+    url = f"/v1/dealerships/{dealership}/users/{user['id']}/signature"
+    put = client.put(
+        url, content=_PNG, headers={**platform_admin_headers(), "If-Match": "1", "Content-Type": "image/png"}
+    )
+    assert put.status_code == 200, put.text
+    assert deactivate(client, dealership, user, if_match=put.json()["version"]).status_code == 200
+    version = str(put.json()["version"] + 1)
+    refused_put = client.put(
+        url, content=_PNG, headers={**platform_admin_headers(), "If-Match": version, "Content-Type": "image/png"}
+    )
+    assert refused_put.status_code == 409, refused_put.text
+    refused_delete = client.delete(url, headers={**platform_admin_headers(), "If-Match": version})
+    assert refused_delete.status_code == 409, refused_delete.text

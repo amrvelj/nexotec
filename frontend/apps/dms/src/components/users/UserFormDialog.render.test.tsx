@@ -147,4 +147,28 @@ describe('UserFormDialog (KAN-200)', () => {
     expect(patch.headers.get('If-Match')).toBe('3')
     expect(patch.body).toEqual({ department: 'Verkauf', isDealerManager: false })
   })
+
+  it('uploads a new signature image as the raw body with If-Match', async () => {
+    const user = userEvent.setup()
+    const backend = installFakeBackend([
+      { method: 'GET', match: /\/users\/u-1\/text-delegations$/, handler: () => ({ categories: [], userVersion: 3 }) },
+      { method: 'PUT', match: /\/users\/u-1\/signature$/, handler: () => existing({ version: 4, hasSignatureImage: true }) },
+    ])
+    let saved: UserAdminRead | null = null
+    renderWithProviders(
+      <UserFormDialog opened onClose={() => {}} dealershipId={DEALERSHIP} user={existing()} locations={LOCATIONS} colleagues={[COLLEAGUE]} selfId="u-9" onSaved={(u) => { saved = u }} />,
+    )
+    const dialog = within(await screen.findByRole('dialog'))
+    const file = new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], 'unterschrift.png', { type: 'image/png' })
+    // Mantine's FileInput is a button over a hidden <input type="file">.
+    const input = screen.getByRole('dialog').querySelector('input[type="file"]') as HTMLInputElement
+    await user.upload(input, file)
+    await user.click(dialog.getByRole('button', { name: 'Speichern' }))
+    await waitFor(() => expect(saved).not.toBeNull())
+    const puts = backend.callsTo(/\/users\/u-1\/signature$/, 'PUT')
+    expect(puts).toHaveLength(1)
+    expect(puts[0].headers.get('If-Match')).toBe('3')
+    expect(puts[0].headers.get('Content-Type')).toBe('image/png')
+    expect(saved!.hasSignatureImage).toBe(true)
+  })
 })

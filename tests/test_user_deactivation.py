@@ -1001,3 +1001,88 @@ def test_a_failed_module_does_not_change_the_reason_the_later_groups_are_audited
         ).all()
     )
     assert any(r.after == {"advisor_id": heir["id"]} and r.reason == "left on 30 September" for r in customer_rows)
+
+
+def test_an_offer_with_a_live_contract_is_not_open_and_its_contract_deal_is_never_rebuilt_from_it(client, login):
+    """An offer keeps its status when a contract is made from it: counting it
+    as an open offer handed it over and rebuilt the CONTRACT's deal row from
+    the offer (buyer blanked, owner changed, the signed deal in the queue).
+    The contract is the live record; its own group carries the hand-over."""
+
+    dealership = create_dealership(client)
+    leaver = create_user(client, dealership, isDealerManager=False, firstName="Lea", lastName="Ver")
+    heir = create_user(client, dealership, isDealerManager=False, firstName="Hans", lastName="Erbe")
+    login.accept_invitation(heir)
+    create_user(client, dealership)
+    buyer = _customer_for(client, leaver, firstName="Ursula", lastName="Vogt")
+    offer = _offer_for(client, leaver)
+    with_buyer = client.patch(
+        f"/v1/sales/offers/{offer['id']}",
+        json={"customerId": buyer["id"]},
+        headers={**_as(leaver), "If-Match": str(offer["version"])},
+    )
+    assert with_buyer.status_code == 200, with_buyer.text
+    contract = client.post("/v1/sales/contracts", json={"offerId": offer["id"]}, headers=_as(leaver))
+    assert contract.status_code == 201, contract.text
+
+    # The offer is not open: of Sales, only the pending contract is the leaver's
+    # (the buyer they created is theirs to advise, Customers' group).
+    assert _ownership(client, dealership, leaver)["groups"] == [
+        {"module": "customer", "group": "customers", "count": 1},
+        {"module": "sales", "group": "contracts", "count": 1},
+    ]
+
+    response = deactivate(
+        client,
+        dealership,
+        leaver,
+        transfers=[
+            {"module": "customer", "group": "customers", "toUserId": heir["id"]},
+            {"module": "sales", "group": "contracts", "toUserId": heir["id"]},
+        ],
+    )
+    assert response.status_code == 200, response.text
+    [deal] = [
+        d
+        for d in client.get("/v1/sales/deals", headers=_as(heir)).json()["items"]
+        if d["contractId"] == contract.json()["id"]
+    ]
+    assert deal["entityType"] == "contract"
+    assert deal["customerLabel"] == contract.json()["customerLabel"] and deal["customerLabel"]
+    assert deal["ownerUserId"] == heir["id"] and deal["ownerLabel"] == "Hans Erbe"
+    # A plain hand-over of "offers" finds nothing to move — the contract's row stays as it is.
+    nothing = client.post(
+        f"/v1/dealerships/{dealership}/users/{heir['id']}/ownership/transfers",
+        json={"transfers": [{"module": "sales", "group": "offers", "toUserId": None}]},
+        headers={**platform_admin_headers(), "Idempotency-Key": str(uuid.uuid4())},
+    )
+    assert nothing.status_code == 422, nothing.text  # not a group the heir owns
+
+
+def test_the_sales_queue_lists_open_deals_only(client, login):
+    """FR-A-37's queue is open records nobody is responsible for — an open
+    offer or a pending contract — never a signed or cancelled deal without
+    an owner (a legacy sale, a long-gone creator)."""
+
+    dealership = create_dealership(client)
+    seller = create_user(client, dealership)
+    login.accept_invitation(seller)
+    buyer = _customer_for(client, seller)
+    pending = _contract_for(client, seller, buyer)
+    cancelled = _contract_for(client, seller, buyer)
+    for row in (pending, cancelled):
+        cleared = client.patch(
+            f"/v1/sales/contracts/{row['id']}",
+            json={"ownerUserId": None},
+            headers={**_as(seller), "If-Match": str(row["version"])},
+        )
+        assert cleared.status_code == 200, cleared.text
+        row["version"] = cleared.json()["version"]
+    gone = client.post(
+        f"/v1/sales/contracts/{cancelled['id']}/cancel",
+        json={"reason": "customer withdrew"},
+        headers={**_as(seller), "If-Match": str(cancelled["version"])},
+    )
+    assert gone.status_code == 200, gone.text
+    queue = client.get("/v1/sales/deals?unassigned=true", headers=_as(seller)).json()
+    assert [d["contractId"] for d in queue["items"]] == [pending["id"]]

@@ -107,6 +107,13 @@ describe('DmsShell sidebar — every chrome string is translated (KAN-152)', () 
     expect(screen.getByText(tr('shell.sidebar.notificationsSoon'))).toBeInTheDocument()
   })
 
+  it('shows the Users entry to a non-manager too — hidden nav is not a permission (A-RULE-7, KAN-200)', async () => {
+    renderShell('de')
+    const nav = await screen.findByRole('navigation', { name: i18n.getFixedT('de')('shell.sidebar.mainNavigation') })
+    // The fixture's user is not a manager; the API's 403 is what the screen says.
+    expect(await within(nav).findByText('Benutzer')).toBeInTheDocument()
+  })
+
   it('shows no English chrome to a French user', async () => {
     renderShell('fr')
 

@@ -37,8 +37,9 @@ def list_deals(
     unassigned: bool = False,
 ) -> tuple[list[SalesDeal], str | None, int, bool]:
     """`owner_user_id` narrows to one seller's deals; `unassigned` to the
-    queue FR-A-37 names — deals whose seller left and were handed to nobody
-    (KAN-200). Both together is an empty page, not an error."""
+    queue FR-A-37 names — OPEN deals (an open offer, a pending contract) with
+    no responsible seller, e.g. a leaver's handed to nobody (KAN-200). Both
+    together is an empty page, not an error."""
 
     stmt = select(SalesDeal).where(
         SalesDeal.tenant_id == tenant_id,
@@ -58,7 +59,16 @@ def list_deals(
     if owner_user_id is not None:
         stmt = stmt.where(SalesDeal.owner_user_id == owner_user_id)
     if unassigned:
-        stmt = stmt.where(SalesDeal.owner_user_id.is_(None))
+        # FR-A-37's queue: OPEN records nobody is responsible for — an open
+        # offer or a pending contract. A signed, invoiced or cancelled deal
+        # without an owner (a legacy sale, a long-gone creator) is history.
+        stmt = stmt.where(
+            SalesDeal.owner_user_id.is_(None),
+            or_(
+                and_(SalesDeal.entity_type == "offer", SalesDeal.status.in_(("draft", "open"))),
+                and_(SalesDeal.entity_type == "contract", SalesDeal.status == "pending"),
+            ),
+        )
 
     total, total_is_estimate = count_capped(db, stmt, threshold=get_settings().count_exact_threshold)
     stmt = paginate_query_sorted(stmt, model=SalesDeal, params=params)

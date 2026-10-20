@@ -58,9 +58,10 @@ from app.sales.models.contract import ContractStatus, SalesContract
 from app.sales.models.deal import SalesDeal, SalesNumberSequence
 from app.sales.models.document import SalesDocument
 from app.sales.models.line_item import SalesLineItem
-from app.sales.models.offer import OfferStatus, SalesOffer
+from app.sales.models.offer import SalesOffer
 from app.sales.models.stock_item_purchase import SalesStockItemPurchase
 from app.sales.models.transaction import Transaction
+from app.sales.services.ownership import offer_is_open
 from app.valuation.public import Valuation
 from app.vehicle.public import Vehicle, VehicleConfiguration, VehicleMdm
 
@@ -120,7 +121,7 @@ def _customer_outside_the_group(label: str, deal: _Deal) -> StateCheck:
     return StateCheck(label=label, source_model=deal, source_row_id_column=deal.id, where=where)
 
 
-def _owned_by_a_deactivated_user(deal: _Deal, open_statuses: tuple[Any, ...]) -> StateCheck:
+def _owned_by_a_deactivated_user(deal: _Deal, is_open: Callable[[], ColumnElement[bool]]) -> StateCheck:
     """KAN-200 (FR-A-37, rule 10): an open deal whose responsible seller is
     deactivated — a hand-over that failed after the status change (the
     expiry job's retry window may have passed), or an owner set after they
@@ -133,7 +134,7 @@ def _owned_by_a_deactivated_user(deal: _Deal, open_statuses: tuple[Any, ...]) ->
         deactivated = (
             select(User.id).where(User.id == deal.owner_user_id, User.status == "deactivated").correlate(deal).exists()
         )
-        return deal.status.in_(open_statuses) & deactivated
+        return is_open() & deactivated
 
     return StateCheck(
         label=f"{table}.owner_user_id names a deactivated user while the {table.removeprefix('sales_')} is open",
@@ -513,8 +514,8 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         )
         for model in (SalesOffer, SalesContract, SalesDeal)
     ),
-    _owned_by_a_deactivated_user(SalesOffer, (OfferStatus.DRAFT, OfferStatus.OPEN)),
-    _owned_by_a_deactivated_user(SalesContract, (ContractStatus.PENDING,)),
+    _owned_by_a_deactivated_user(SalesOffer, offer_is_open),
+    _owned_by_a_deactivated_user(SalesContract, lambda: SalesContract.status == ContractStatus.PENDING),
 ]
 
 

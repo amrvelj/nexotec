@@ -613,7 +613,7 @@ def update_user(
                 dealership_id=managed_dealership_id,
                 excluding_user_id=user.id,
                 message="This user is the last active manager of another dealership they are a member of — "
-                "cannot deactivate them until that dealership has another manager.",
+                "cannot suspend or deactivate them until that dealership has another manager.",
                 reason="last_manager_elsewhere",
             )
 
