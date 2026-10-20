@@ -26,8 +26,13 @@ export function UserConnectedAccountsSection({ dealershipId, userId }: { dealers
       setError(null)
       await queryClient.invalidateQueries({ queryKey: key })
     },
-    onError: (err) =>
-      setError(err instanceof ApiError && err.status === 409 ? t('account.connected.conflict') : t('common.requestFailed')),
+    onError: (err) => {
+      if (err instanceof ApiError && err.status === 409) {
+        setError(t('account.connected.conflict'))
+        // The row as it stands now, so its button matches it.
+        void queryClient.invalidateQueries({ queryKey: key })
+      } else setError(t('common.requestFailed'))
+    },
   })
 
   if (accounts.isError) return <Text c="dimmed" fz="sm">{t('common.requestFailed')}</Text>

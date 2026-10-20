@@ -734,8 +734,8 @@ def revoke_user_connected_account(
     db: Session = Depends(get_db),
 ):
     """The manager may revoke a user's grant (D-A-15: "may revoke only");
-    the row stays, revoked, and the user sees who did it in their auth
-    events."""
+    the row stays, revoked — the user sees it was a manager
+    (`revokedReason`), the Betrieb's auth events name who."""
 
     require_tenant_match(dealership_id, principal)
     user = user_service.get_user_for_update_or_404(db, dealership_id, user_id)  # KAN-380

@@ -2274,7 +2274,7 @@
       "remove": "Remove",
       "saved": "Saved.",
       "invalid": "The image must be a PNG or JPEG of at most 1 MB.",
-      "conflict": "Your signature was changed elsewhere in the meantime. Load the new version – what you entered here is lost.",
+      "conflict": "Your account was changed elsewhere in the meantime. Load the new version – what you entered here is lost.",
       "loadLatest": "Load the new version"
     }
   }

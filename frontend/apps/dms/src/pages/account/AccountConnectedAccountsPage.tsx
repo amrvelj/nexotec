@@ -32,8 +32,13 @@ export function AccountConnectedAccountsPage() {
       setError(null)
       await queryClient.invalidateQueries({ queryKey: CONNECTED_KEY })
     },
-    onError: (err) =>
-      setError(err instanceof ApiError && err.status === 409 ? t('account.connected.conflict') : t('common.requestFailed')),
+    onError: (err) => {
+      if (err instanceof ApiError && err.status === 409) {
+        setError(t('account.connected.conflict'))
+        // The row as it stands now, so its button matches it.
+        void queryClient.invalidateQueries({ queryKey: CONNECTED_KEY })
+      } else setError(t('common.requestFailed'))
+    },
   })
 
   if (accounts.isError) return <Alert color="red" role="alert">{t('common.requestFailed')}</Alert>

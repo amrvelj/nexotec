@@ -258,10 +258,10 @@ describe('My account (KAN-201)', () => {
     expect(call.body).toEqual({ signatureBlock: 'Alte Zeile – neu' })
 
     // The 409 says what happened and offers the way out: the newer version replaces the edit.
-    expect(await screen.findByText(/inzwischen anderswo geändert/)).toBeInTheDocument()
+    expect(await screen.findByText(/Ihr Konto wurde inzwischen anderswo geändert. Laden Sie/)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Neuen Stand laden' }))
     expect(screen.getByLabelText(/^Unterschriftsblock/)).toHaveValue('Von anderswo')
     expect(screen.getByRole('button', { name: 'Speichern' })).toBeDisabled()
-    expect(screen.queryByText(/inzwischen anderswo geändert/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Ihr Konto wurde inzwischen anderswo geändert. Laden Sie/)).not.toBeInTheDocument()
   })
 })

@@ -2274,7 +2274,7 @@
       "remove": "Rimuovi",
       "saved": "Salvato.",
       "invalid": "L'immagine deve essere un PNG o un JPEG di al massimo 1 MB.",
-      "conflict": "La sua firma è stata modificata altrove nel frattempo. Carichi la nuova versione – quanto inserito qui va perso.",
+      "conflict": "Il suo account è stato modificato altrove nel frattempo. Carichi la nuova versione – quanto inserito qui va perso.",
       "loadLatest": "Carica la nuova versione"
     }
   }

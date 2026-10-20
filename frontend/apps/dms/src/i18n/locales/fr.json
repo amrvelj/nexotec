@@ -2274,7 +2274,7 @@
       "remove": "Supprimer",
       "saved": "Enregistré.",
       "invalid": "L'image doit être un PNG ou un JPEG d'au plus 1 Mo.",
-      "conflict": "Votre signature a été modifiée ailleurs entre-temps. Chargez la nouvelle version – votre saisie ici est alors perdue.",
+      "conflict": "Votre compte a été modifié ailleurs entre-temps. Chargez la nouvelle version – votre saisie ici est alors perdue.",
       "loadLatest": "Charger la nouvelle version"
     }
   }

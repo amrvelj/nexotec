@@ -245,8 +245,9 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   every user. Sessions and MFA stay under `/v1/auth/sessions` and `/v1/auth/mfa/*` (KAN-196) —
   Anto, 2026-10-20: one MFA surface, no moved route; `/v1/me` holds the rest: `GET/PATCH /v1/me`
   (names — Anto, 2026-10-20: the user may change their own — mobile, direct dial,
-  `correspondence_language` (null = the Betrieb's default; never the UI language, which stays the
-  `ui` preference) and `signature_block`; If-Match; the own row locked first; one
+  `correspondence_language` (null = the Betrieb's default — the **home** Betrieb's, as `GET /v1/me`
+  names it; which Betrieb's default a sister-Betrieb document uses is open until a document reads
+  the field; never the UI language, which stays the `ui` preference) and `signature_block`; If-Match; the own row locked first; one
   `profile_updated` audit row; any other field, the e-mail address included, is a 422) and
   `PUT/GET/DELETE /v1/me/signature` (the manager's rules and key). A session that owes a factor
   reaches none of them (the guard's enrolment paths), and the SPA shows it the Security tab alone.

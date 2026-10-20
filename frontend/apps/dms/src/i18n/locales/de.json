@@ -2274,7 +2274,7 @@
       "remove": "Entfernen",
       "saved": "Gespeichert.",
       "invalid": "Das Bild muss ein PNG oder JPEG von höchstens 1 MB sein.",
-      "conflict": "Ihre Unterschrift wurde inzwischen anderswo geändert. Laden Sie den neuen Stand – Ihre Eingabe hier geht dabei verloren.",
+      "conflict": "Ihr Konto wurde inzwischen anderswo geändert. Laden Sie den neuen Stand – Ihre Eingabe hier geht dabei verloren.",
       "loadLatest": "Neuen Stand laden"
     }
   }
