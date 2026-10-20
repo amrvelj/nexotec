@@ -85,9 +85,11 @@ def refresh_advisor_labels(db: Session) -> int:
 def oldest_advisor_label_age_seconds(db: Session) -> float | None:
     """Age of the stalest advisor label — what the worker heartbeat records as
     `dms.label.age_seconds{label="customer.advisor"}` (CLAUDE.md rule 10). The
-    nightly job restamps every customer whose advisor it can resolve, so a value
-    well past a day means the job has stopped or an advisor id names no user.
-    None when no customer has an advisor."""
+    nightly job restamps every customer whose advisor it can resolve and whose
+    row it can lock, so a value well past a day means the job has stopped, an
+    advisor id names no user, or a customer was held by a writer when the job
+    passed (that one clears itself the next night). None when no customer has
+    an advisor."""
 
     oldest = db.scalar(
         select(func.min(Customer.advisor_label_refreshed_at)).where(
