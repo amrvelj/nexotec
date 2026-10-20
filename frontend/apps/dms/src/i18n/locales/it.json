@@ -2259,7 +2259,8 @@
       },
       "neverUsed": "Mai",
       "revoke": "Scollega",
-      "conflict": "Questo collegamento è stato modificato nel frattempo o è già scollegato."
+      "conflict": "Questo collegamento è stato modificato nel frattempo o è già scollegato.",
+      "confirmRevoke": "Sì, scollega"
     },
     "signature": {
       "block": "Blocco firma",
@@ -2272,7 +2273,9 @@
       "uploadButton": "Carica",
       "remove": "Rimuovi",
       "saved": "Salvato.",
-      "invalid": "L'immagine deve essere un PNG o un JPEG di al massimo 1 MB."
+      "invalid": "L'immagine deve essere un PNG o un JPEG di al massimo 1 MB.",
+      "conflict": "La sua firma è stata modificata altrove nel frattempo. Carichi la nuova versione – quanto inserito qui va perso.",
+      "loadLatest": "Carica la nuova versione"
     }
   }
 }

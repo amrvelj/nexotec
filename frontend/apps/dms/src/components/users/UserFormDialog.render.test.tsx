@@ -204,6 +204,7 @@ describe('UserFormDialog (KAN-200)', () => {
     expect(dialog.queryByText('Konto')).not.toBeInTheDocument() // no address column for the manager
     expect(dialog.queryByText('Zuletzt verwendet')).not.toBeInTheDocument()
     await user.click(within(row).getByRole('button', { name: 'Trennen' }))
+    await user.click(within(row).getByRole('button', { name: 'Ja, trennen' }))
 
     await waitFor(() => expect(backend.callsTo(/\/connected-accounts\/grant-1$/, 'DELETE')).toHaveLength(1))
     const [call] = backend.callsTo(/\/connected-accounts\/grant-1$/, 'DELETE')

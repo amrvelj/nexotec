@@ -16,7 +16,8 @@ So two checks, by source (grep-based, like test_no_ambient_group_read):
    session, token and MFA services, and the sign-in routes — never names
    the model, its table or its service.
 2. The model and its table are named only in an exact allowlist: the model,
-   the one service that reads and writes it, and the registry. Everything
+   the one service that reads and writes it, the registry, and platform's
+   reconciliation (it checks the actor ids). Everything
    else — the `/v1/me` routes, the manager's routes, the deactivation —
    goes through the service's functions, so a new reader is a deliberate
    entry here, never an accident.

@@ -32,6 +32,7 @@ export function AccountSignaturePage() {
   const [block, setBlock] = useState<string | null>(null)
   const [file, setFile] = useState<File | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [conflict, setConflict] = useState(false)
   const [saved, setSaved] = useState(false)
   const blockChanged = (base: MeRead, text: string) => (text.trim() || null) !== (base.signatureBlock ?? null)
 
@@ -46,7 +47,8 @@ export function AccountSignaturePage() {
   const say = (err: unknown) => {
     setSaved(false)
     if (err instanceof ApiError && err.status === 409) {
-      setError(t('account.profile.conflict'))
+      setError(null)
+      setConflict(true)
       void queryClient.invalidateQueries({ queryKey: ME_KEY })
     }
     else if (err instanceof ApiError && err.status === 422) setError(t('account.signature.invalid'))
@@ -58,6 +60,7 @@ export function AccountSignaturePage() {
     queryClient.setQueryData(ME_KEY, data)
     setLoaded((base) => (blockSaved || base === null ? data : { ...base, version: data.version, hasSignatureImage: data.hasSignatureImage }))
     setError(null)
+    setConflict(false)
     setSaved(true)
   }
   const saveBlock = useMutation({
@@ -94,6 +97,28 @@ export function AccountSignaturePage() {
       {error && (
         <Alert color="red" role="alert" withCloseButton closeButtonLabel={t('common.dismiss')} onClose={() => setError(null)}>
           {error}
+        </Alert>
+      )}
+      {conflict && (
+        <Alert color="yellow" role="alert">
+          <Stack gap="xs" align="flex-start">
+            <Text fz="sm">{t('account.signature.conflict')}</Text>
+            <Button
+              type="button"
+              size="xs"
+              variant="light"
+              onClick={() => {
+                // Take in the latest record; the edit made here is discarded.
+                const latest = me.data ?? loaded
+                setLoaded(latest)
+                setBlock(latest.signatureBlock ?? '')
+                setFile(null)
+                setConflict(false)
+              }}
+            >
+              {t('account.signature.loadLatest')}
+            </Button>
+          </Stack>
         </Alert>
       )}
       {saved && (

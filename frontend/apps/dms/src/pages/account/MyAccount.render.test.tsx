@@ -131,6 +131,8 @@ describe('My account (KAN-201)', () => {
     expect(within(row).getByText('Mail.Send, Calendars.ReadWrite')).toBeInTheDocument()
     expect(within(row).getByText('Aktiv')).toBeInTheDocument()
     await user.click(within(row).getByRole('button', { name: 'Trennen' }))
+    expect(backend.callsTo(/\/me\/connected-accounts\/grant-1$/, 'DELETE')).toHaveLength(0) // asks once more
+    await user.click(within(row).getByRole('button', { name: 'Ja, trennen' }))
 
     await waitFor(() => expect(backend.callsTo(/\/me\/connected-accounts\/grant-1$/, 'DELETE')).toHaveLength(1))
     expect(backend.callsTo(/\/me\/connected-accounts\/grant-1$/, 'DELETE')[0].headers.get('If-Match')).toBe('1')
@@ -254,5 +256,12 @@ describe('My account (KAN-201)', () => {
     const [call] = backend.callsTo(/\/me$/, 'PATCH')
     expect(call.headers.get('If-Match')).toBe('4')
     expect(call.body).toEqual({ signatureBlock: 'Alte Zeile – neu' })
+
+    // The 409 says what happened and offers the way out: the newer version replaces the edit.
+    expect(await screen.findByText(/inzwischen anderswo geändert/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Neuen Stand laden' }))
+    expect(screen.getByLabelText(/^Unterschriftsblock/)).toHaveValue('Von anderswo')
+    expect(screen.getByRole('button', { name: 'Speichern' })).toBeDisabled()
+    expect(screen.queryByText(/inzwischen anderswo geändert/)).not.toBeInTheDocument()
   })
 })

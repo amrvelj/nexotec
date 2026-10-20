@@ -66,8 +66,10 @@ main@046634d on 2026-10-17 (KAN-195: every present-tense claim checked against t
   listing shows a dealer manager only the sister dealerships they manage themselves.
   Every user-administration route in `app/platform/api/dealerships.py` that writes a user's
   memberships, text delegations or the user row (PATCH user, membership grant/end, both
-  manager-flag PUTs, delegation PUT/DELETE, and since KAN-200 the deactivation step, the
-  hand-over, the signature PUT/DELETE and the invitation re-send) loads the user with
+  manager-flag PUTs, delegation PUT/DELETE, since KAN-200 the deactivation step, the
+  hand-over, the signature PUT/DELETE and the invitation re-send, since KAN-201 the manager's
+  revoke of a connected account; My account's own writes take the caller's row the same way,
+  pinned by their own source test) loads the user with
   `user_service.get_user_for_update_or_404` (FOR NO KEY UPDATE) **before** it touches a child row
   (KAN-380): two first grants are then a 201 and a 409, and a route that locked child rows first
   would deadlock against one that locked the user first (a source test pins the thirteen, the connected-account revoke included). The
@@ -372,7 +374,9 @@ One shared template layer (`app/platform/models/document_template.py`). WeasyPri
   runs the provider's registered revoker (`end_at_providers`; a provider failure is logged, never
   undoes the revoke or the deactivation) — **none is registered**: linking ships with the Outlook
   integration, so no row exists yet and a revoke ends the grant in Nexotec only, keeping the
-  reference so the secret can still be removed.
+  reference so the secret can still be removed. **Open (KAN-412):** the seam is not in
+  `platform.public` (the revoker gets the ORM row) and a provider's refusal is not retried or
+  reconciled — both before the Outlook integration registers the first revoker.
 - **D-A-16** — a `platform_admin` recovers accounts alone (re-issue invitation, reset MFA,
   clear lockout, revoke sessions, grant manager flag). **Built as Notion says (KAN-196):**
   `DELETE …/users/{id}/mfa` and `DELETE …/users/{id}/sessions` are `platform_admin`-only;

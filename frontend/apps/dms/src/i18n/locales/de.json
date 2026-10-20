@@ -2259,7 +2259,8 @@
       },
       "neverUsed": "Noch nie",
       "revoke": "Trennen",
-      "conflict": "Diese Verbindung wurde inzwischen geändert oder ist bereits getrennt."
+      "conflict": "Diese Verbindung wurde inzwischen geändert oder ist bereits getrennt.",
+      "confirmRevoke": "Ja, trennen"
     },
     "signature": {
       "block": "Unterschriftsblock",
@@ -2272,7 +2273,9 @@
       "uploadButton": "Hochladen",
       "remove": "Entfernen",
       "saved": "Gespeichert.",
-      "invalid": "Das Bild muss ein PNG oder JPEG von höchstens 1 MB sein."
+      "invalid": "Das Bild muss ein PNG oder JPEG von höchstens 1 MB sein.",
+      "conflict": "Ihre Unterschrift wurde inzwischen anderswo geändert. Laden Sie den neuen Stand – Ihre Eingabe hier geht dabei verloren.",
+      "loadLatest": "Neuen Stand laden"
     }
   }
 }

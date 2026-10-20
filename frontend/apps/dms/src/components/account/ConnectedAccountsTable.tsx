@@ -1,4 +1,5 @@
-import { Button, Table, Text } from '@mantine/core'
+import { useState } from 'react'
+import { Button, Group, Table, Text } from '@mantine/core'
 import { Badge, type BadgeTone } from '@nexotec/ui-kit'
 import { useTranslation } from 'react-i18next'
 import type { ConnectedAccountManagerRead, ConnectedAccountRead } from '../../api/types'
@@ -35,6 +36,9 @@ type Props =
 export function ConnectedAccountsTable(props: Props) {
   const { t } = useTranslation()
   const self = props.view === 'self'
+  // Disconnecting takes effect at once — outside any form's Save — so it
+  // asks once more in the row.
+  const [confirming, setConfirming] = useState<string | null>(null)
   return (
     <Table verticalSpacing="sm">
       <Table.Thead>
@@ -74,17 +78,30 @@ export function ConnectedAccountsTable(props: Props) {
               </>
             )}
             <Table.Td>
-              {account.status !== 'revoked' && (
-                <Button
-                  type="button"
-                  size="xs"
-                  variant="subtle"
-                  color="red"
-                  loading={props.revoking === account.id}
-                  onClick={() => (props.view === 'self' ? props.onRevoke(account as ConnectedAccountRead) : props.onRevoke(account))}
-                >
+              {account.status !== 'revoked' && confirming !== account.id && (
+                <Button type="button" size="xs" variant="subtle" color="red" onClick={() => setConfirming(account.id)}>
                   {t('account.connected.revoke')}
                 </Button>
+              )}
+              {account.status !== 'revoked' && confirming === account.id && (
+                <Group gap="xs" wrap="nowrap">
+                  <Button
+                    type="button"
+                    size="xs"
+                    color="red"
+                    loading={props.revoking === account.id}
+                    onClick={() => {
+                      setConfirming(null)
+                      if (props.view === 'self') props.onRevoke(account as ConnectedAccountRead)
+                      else props.onRevoke(account)
+                    }}
+                  >
+                    {t('account.connected.confirmRevoke')}
+                  </Button>
+                  <Button type="button" size="xs" variant="default" onClick={() => setConfirming(null)}>
+                    {t('common.cancel')}
+                  </Button>
+                </Group>
               )}
             </Table.Td>
           </Table.Tr>

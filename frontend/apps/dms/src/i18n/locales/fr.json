@@ -2259,7 +2259,8 @@
       },
       "neverUsed": "Jamais",
       "revoke": "Déconnecter",
-      "conflict": "Cette connexion a été modifiée entre-temps ou est déjà déconnectée."
+      "conflict": "Cette connexion a été modifiée entre-temps ou est déjà déconnectée.",
+      "confirmRevoke": "Oui, déconnecter"
     },
     "signature": {
       "block": "Bloc de signature",
@@ -2272,7 +2273,9 @@
       "uploadButton": "Téléverser",
       "remove": "Supprimer",
       "saved": "Enregistré.",
-      "invalid": "L'image doit être un PNG ou un JPEG d'au plus 1 Mo."
+      "invalid": "L'image doit être un PNG ou un JPEG d'au plus 1 Mo.",
+      "conflict": "Votre signature a été modifiée ailleurs entre-temps. Chargez la nouvelle version – votre saisie ici est alors perdue.",
+      "loadLatest": "Charger la nouvelle version"
     }
   }
 }

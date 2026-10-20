@@ -65,7 +65,7 @@ class UserConnectedAccount(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base
     # de-duplication — not a credential.
     external_account_id: Mapped[str] = mapped_column(String(255), nullable=False)
     # A display label the provider gave (the mailbox address), shown to the
-    # user and the manager.
+    # user only — the manager's read is provider, scopes and status.
     external_account_label: Mapped[str | None] = mapped_column(String(255), nullable=True)
     scopes: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     # Where the grant's tokens live in the secrets manager — a reference,

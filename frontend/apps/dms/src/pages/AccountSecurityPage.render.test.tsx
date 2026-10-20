@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Route, Routes } from 'react-router-dom'
 import { renderWithProviders } from '../test/renderWithProviders'
@@ -75,6 +75,10 @@ describe('AccountSecurityPage (KAN-196)', () => {
 
     expect(await screen.findByText('Safari iPhone')).toBeInTheDocument()
     expect(screen.getByText('Diese Sitzung')).toBeInTheDocument()
+    // FR-AU-17: device, IP address and last seen, each in its own column (KAN-201).
+    expect(screen.getByRole('columnheader', { name: 'IP-Adresse' })).toBeInTheDocument()
+    const other = screen.getByText('Safari iPhone').closest('tr') as HTMLElement
+    expect(within(other).getByText('10.0.0.2')).toBeInTheDocument()
     const endButtons = screen.getAllByRole('button', { name: 'Beenden' })
     expect(endButtons).toHaveLength(1)
     await user.click(endButtons[0])
