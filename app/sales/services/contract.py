@@ -206,14 +206,11 @@ def create_contract(
         ),
         created_by=actor_id,
         updated_by=actor_id,
-        # KAN-200: the responsible seller travels from the offer; a contract
-        # started directly belongs to whoever started it.
+        # KAN-200: the responsible seller travels from the offer while they
+        # may still hold an open deal; a contract started directly — or from
+        # an offer whose seller has left — belongs to whoever started it.
         **(
-            {
-                "owner_user_id": offer.owner_user_id,
-                "owner_label": offer.owner_label,
-                "owner_label_refreshed_at": offer.owner_label_refreshed_at,
-            }
+            ownership.inherited_owner(db, tenant_id=tenant_id, offer=offer, actor_id=actor_id)
             if offer is not None
             else ownership.default_owner(db, tenant_id=tenant_id, actor_id=actor_id)
         ),

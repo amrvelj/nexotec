@@ -1150,3 +1150,72 @@ def test_an_offer_side_write_after_its_contract_exists_never_changes_the_contrac
         d["contractId"]
         for d in client.get(f"/v1/sales/deals?ownerUserId={heir['id']}", headers=_as(heir)).json()["items"]
     ] == [contract["id"]]
+
+
+def test_a_contract_made_from_a_revived_offer_never_belongs_to_a_deactivated_seller(client, login):
+    """The hand-over moves the leaver's pending contract, not its superseded
+    offer; when that contract is cancelled the offer revives still naming the
+    leaver. A new contract made from it takes its creator as seller, never
+    the deactivated user (a PATCH to that owner is refused as well)."""
+
+    dealership = create_dealership(client)
+    leaver = create_user(client, dealership, isDealerManager=False, firstName="Lea", lastName="Ver")
+    heir = create_user(client, dealership, isDealerManager=False, firstName="Hans", lastName="Erbe")
+    login.accept_invitation(heir)
+    create_user(client, dealership)
+    buyer = _customer_for(client, leaver)
+    offer = _offer_for(client, leaver)
+    offer = client.patch(
+        f"/v1/sales/offers/{offer['id']}",
+        json={"customerId": buyer["id"]},
+        headers={**_as(leaver), "If-Match": str(offer["version"])},
+    ).json()
+    first = client.post("/v1/sales/contracts", json={"offerId": offer["id"]}, headers=_as(leaver)).json()
+    handed = deactivate(
+        client,
+        dealership,
+        leaver,
+        transfers=[
+            {"module": "customer", "group": "customers", "toUserId": heir["id"]},
+            {"module": "sales", "group": "contracts", "toUserId": heir["id"]},
+        ],
+    )
+    assert handed.status_code == 200, handed.text
+    current = client.get(f"/v1/sales/contracts/{first['id']}", headers=_as(heir)).json()
+    cancelled = client.post(
+        f"/v1/sales/contracts/{first['id']}/cancel",
+        json={"reason": "financing fell through"},
+        headers={**_as(heir), "If-Match": str(current["version"])},
+    )
+    assert cancelled.status_code == 200, cancelled.text
+
+    second = client.post("/v1/sales/contracts", json={"offerId": offer["id"]}, headers=_as(heir))
+    assert second.status_code == 201, second.text
+    assert second.json()["ownerUserId"] == heir["id"] and second.json()["ownerLabel"] == "Hans Erbe"
+
+
+def test_the_sales_queue_lists_an_open_offer_without_a_seller(client, db_session, login):
+    """The offer half of the queue: an OPEN offer with no seller is listed
+    (a draft is not — drafts stay hidden on the grid, Anto 2026-10-20)."""
+
+    from app.sales.models.deal import SalesDeal
+    from app.sales.models.offer import OfferStatus, SalesOffer
+
+    dealership = create_dealership(client)
+    seller = create_user(client, dealership)
+    login.accept_invitation(seller)
+    draft = _offer_for(client, seller)
+    opened = _offer_for(client, seller)
+    for row in (draft, opened):
+        cleared = client.patch(
+            f"/v1/sales/offers/{row['id']}",
+            json={"ownerUserId": None},
+            headers={**_as(seller), "If-Match": str(row["version"])},
+        )
+        assert cleared.status_code == 200, cleared.text
+    # Finalize needs a priced vehicle; the queue only reads the status, so set it as finalize would.
+    db_session.get(SalesOffer, uuid.UUID(opened["id"])).status = OfferStatus.OPEN
+    db_session.get(SalesDeal, uuid.UUID(opened["id"])).status = OfferStatus.OPEN.value
+    db_session.commit()
+    queue = client.get("/v1/sales/deals?unassigned=true", headers=_as(seller)).json()
+    assert [d["offerId"] for d in queue["items"]] == [opened["id"]]

@@ -61,7 +61,7 @@ _REACTIVATION_FIELDS = {"status", "employment_status", "valid_from", "valid_to"}
 
 def assert_user_is_not_deactivated(user: User) -> None:
     """Nothing is granted to a deactivated user and no flag of theirs changes
-    (its status is terminal): a membership or delegation grant and every
+    (until a reactivation): a membership or delegation grant and every
     manager-flag change — the dedicated endpoints and PATCH alike — refuse
     with 409, like a status change on such a row. Ending a deactivated
     user's membership stays possible: cutting access is the safe direction."""

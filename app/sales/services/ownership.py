@@ -89,6 +89,23 @@ def default_owner(db: Session, *, tenant_id: uuid.UUID, actor_id: uuid.UUID | No
     return {"owner_user_id": actor_id, "owner_label": _label(user), "owner_label_refreshed_at": utcnow()}
 
 
+def inherited_owner(db: Session, *, tenant_id: uuid.UUID, offer: SalesOffer, actor_id: uuid.UUID | None) -> dict[str, Any]:
+    """A contract made from an offer takes the offer's seller — when that
+    seller may still be responsible for an open deal (`_seller_in`: acts in
+    the Betrieb, active or invited). An offer revived by a cancelled contract
+    can still name a seller who has since left (the hand-over moved the
+    contract, not the superseded offer); the new contract then belongs to
+    whoever creates it, never to a deactivated user."""
+
+    if _seller_in(db, tenant_id=tenant_id, user_id=offer.owner_user_id) is not None:
+        return {
+            "owner_user_id": offer.owner_user_id,
+            "owner_label": offer.owner_label,
+            "owner_label_refreshed_at": offer.owner_label_refreshed_at,
+        }
+    return default_owner(db, tenant_id=tenant_id, actor_id=actor_id)
+
+
 def resolve_owner_change(db: Session, *, tenant_id: uuid.UUID, owner_user_id: uuid.UUID | None) -> dict[str, Any]:
     """A seller set through the workspace: must act in this dealership and
     hold or await access (422 otherwise); null clears the seller."""

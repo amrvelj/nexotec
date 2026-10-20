@@ -174,7 +174,8 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   lists the groups; `POST …/users/{id}/deactivate` needs a decision for every group (an
   **active** colleague, or null = the module's own unassigned queue: `GET /sales/deals?unassigned=true`
   (open offers and pending contracts; an unassigned **draft** stays hidden like every draft on the
-  Sales grid and is reached from its customer's tab — Anto, 2026-10-20), `GET /customers?unassigned=true`,
+  Sales grid and is reached from its customer's tab — Anto, 2026-10-20; so does an offer freed by a
+  cancelled contract, which the grid still shows as that cancelled contract — KAN-409), `GET /customers?unassigned=true`,
   both filterable on screen), cuts
   access first in platform's own commit, then each module hands over on a session of its own
   (ADR-047) with one `ownership_transferred` audit row per group carrying the manager's reason
