@@ -2083,7 +2083,9 @@
       "invitedAt": "Invited",
       "deactivatedAt": "Deactivated",
       "deactivationReason": "Deactivation reason",
-      "signature": "Signature image"
+      "signature": "Signature image",
+      "createdAt": "Created",
+      "updatedAt": "Changed"
     },
     "emptyState": {
       "title": "No users yet",
@@ -2109,7 +2111,9 @@
     "actions": {
       "resendFailed": "The invitation could not be sent.",
       "statusFailed": "The status could not be changed.",
-      "handOverFailed": "Deactivated, but not everything could be handed over — {{groups}}. Those records stay with this person for now; \"Hand over open records\" in the row menu tries again."
+      "handOverFailed": "Not everything could be handed over — {{groups}}. Those records stay with this person for now; \"Hand over open records\" tries again.",
+      "handOverFailedAfterDeactivation": "Deactivated, but not everything could be handed over — {{groups}}. Those records stay with this person for now; \"Hand over open records\" in the row menu tries again.",
+      "validToCleared": "{{name}} is active again. The expired access end ({{date}}) was removed — set a new one under \"Edit\" if needed."
     },
     "form": {
       "inviteTitle": "Invite user",
@@ -2174,12 +2178,28 @@
       "transferLabel": "Hand over: {{what}}",
       "reason": "Reason",
       "endEmployment": "Employment has ended",
-      "confirm": "Deactivate"
+      "confirm": "Deactivate",
+      "incomplete": "The hand-over is not complete yet:",
+      "problems": {
+        "undecided": "{{what}}: needs a decision — a colleague, or \"Leave unassigned\".",
+        "decided_twice": "{{what}}: decided twice.",
+        "not_owned": "{{what}}: this person does not (or no longer) look after these.",
+        "self": "{{what}}: the person cannot take over their own records.",
+        "colleague_not_active": "{{what}}: the chosen colleague is not an active user of this business.",
+        "colleague_cannot_act_there": "{{what}}: {{count}} of these belong to another business the chosen colleague does not work in — choose \"Leave unassigned\" (that business hands them over from its queue) or a colleague who is a member there."
+      }
     },
     "handOver": {
       "title": "Hand over {{name}}'s open records",
       "intro": "What this person still looks after is handed to a colleague or to the module's queue — also after a deactivation in which a module could not complete the hand-over.",
       "confirm": "Hand over"
+    },
+    "errors": {
+      "lastManager": "A business always needs at least one active manager — the last one can be neither deactivated nor demoted."
+    },
+    "failureReason": {
+      "module_failed": "the module could not complete the hand-over; details are in the log",
+      "colleague_cannot_act_there": "the colleague does not work in every business involved"
     }
   }
 }

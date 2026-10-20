@@ -2083,7 +2083,9 @@
       "invitedAt": "Invité le",
       "deactivatedAt": "Désactivé le",
       "deactivationReason": "Motif de la désactivation",
-      "signature": "Image de signature"
+      "signature": "Image de signature",
+      "createdAt": "Créé",
+      "updatedAt": "Modifié"
     },
     "emptyState": {
       "title": "Pas encore d'utilisateurs",
@@ -2109,7 +2111,9 @@
     "actions": {
       "resendFailed": "L'invitation n'a pas pu être envoyée.",
       "statusFailed": "Le statut n'a pas pu être modifié.",
-      "handOverFailed": "Désactivé, mais tout n'a pas pu être transmis — {{groups}}. Ces dossiers restent pour l'instant chez cette personne ; « Transmettre les dossiers ouverts » dans le menu de ligne réessaie."
+      "handOverFailed": "Tout n'a pas pu être transmis — {{groups}}. Ces dossiers restent pour l'instant chez cette personne ; « Transmettre les dossiers ouverts » réessaie.",
+      "handOverFailedAfterDeactivation": "Désactivé, mais tout n'a pas pu être transmis — {{groups}}. Ces dossiers restent pour l'instant chez cette personne ; « Transmettre les dossiers ouverts » dans le menu de ligne réessaie.",
+      "validToCleared": "{{name}} est de nouveau actif. La fin d'accès échue ({{date}}) a été supprimée — définissez-en une nouvelle sous « Modifier » si nécessaire."
     },
     "form": {
       "inviteTitle": "Inviter un utilisateur",
@@ -2174,12 +2178,28 @@
       "transferLabel": "Transmettre : {{what}}",
       "reason": "Motif",
       "endEmployment": "L'emploi a pris fin",
-      "confirm": "Désactiver"
+      "confirm": "Désactiver",
+      "incomplete": "La transmission n'est pas encore complète :",
+      "problems": {
+        "undecided": "{{what}} : une décision est nécessaire — un collègue ou « Ne pas attribuer ».",
+        "decided_twice": "{{what}} : décidé deux fois.",
+        "not_owned": "{{what}} : cette personne ne les suit pas (plus).",
+        "self": "{{what}} : la personne ne peut pas reprendre ses propres dossiers.",
+        "colleague_not_active": "{{what}} : le collègue choisi n'est pas un utilisateur actif de cette entreprise.",
+        "colleague_cannot_act_there": "{{what}} : {{count}} d'entre eux appartiennent à une autre entreprise où le collègue choisi ne travaille pas — choisissez « Ne pas attribuer » (cette entreprise les transmet depuis sa file d'attente) ou un collègue qui y est membre."
+      }
     },
     "handOver": {
       "title": "Transmettre les dossiers ouverts de {{name}}",
       "intro": "Ce que cette personne suit encore est transmis à un collègue ou dans la file d'attente du module — aussi après une désactivation lors de laquelle un module n'a pas pu terminer la transmission.",
       "confirm": "Transmettre"
+    },
+    "errors": {
+      "lastManager": "Une entreprise a toujours besoin d'au moins un manager actif — le dernier ne peut être ni désactivé ni rétrogradé."
+    },
+    "failureReason": {
+      "module_failed": "le module n'a pas pu terminer la transmission ; détails dans le journal",
+      "colleague_cannot_act_there": "le collègue ne travaille pas dans chaque entreprise concernée"
     }
   }
 }

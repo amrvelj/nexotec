@@ -45,8 +45,8 @@ from alembic import context, op
 revision: str = "a4c9e2d7f1b3"
 down_revision: str | Sequence[str] | None = "1fe7be00026d"
 branch_labels: str | Sequence[str] | None = None
-# The backfill reads platform's `user` and `dealership_membership` (e7c3a48f1d92).
-depends_on: str | Sequence[str] | None = ("e7c3a48f1d92",)
+# The backfill reads platform's `user` and `dealership_membership.valid_to` (b7e4d2a9c153, KAN-199).
+depends_on: str | Sequence[str] | None = ("b7e4d2a9c153",)
 
 _OWNER_COMMENT = "Owned by the platform context (User). No DB-level FK."
 

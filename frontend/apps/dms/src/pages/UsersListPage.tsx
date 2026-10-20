@@ -120,6 +120,7 @@ export function UsersListPage() {
 
   const [appliedViewId, setAppliedViewId] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [actionNotice, setActionNotice] = useState<string | null>(null)
   const [formUser, setFormUser] = useState<UserAdminRead | null | undefined>(undefined) // undefined = closed, null = invite
   // The reassignment dialog: deactivating a user, or handing over what a
   // (deactivated) user still owns — the retry after a module failed.
@@ -216,6 +217,9 @@ export function UsersListPage() {
             }
           : { status }
       await api.patch<UserAdminRead>(`/dealerships/${dealershipId}/users/${user.id}`, body, { 'If-Match': String(user.version) })
+      // FR-A-12: an end date is never dropped silently — the manager is told,
+      // and sets the new one in the edit dialog.
+      if (status === 'active' && expired) setActionNotice(t('usersAdmin.actions.validToCleared', { name: userDisplayName(user), date: formatDateOnly(user.validTo!, locale) }))
       await invalidate()
     } catch (err) {
       say(err, t('usersAdmin.actions.statusFailed'))
@@ -294,8 +298,8 @@ export function UsersListPage() {
         meta: { align: 'right', defaultVisible: false, sortField: 'validFrom', exportValue: (row) => (row.validFrom ? formatDateOnly(row.validFrom, locale) : '') },
       },
       text('email', t('usersAdmin.columns.email'), (row) => row.email, false, 'email'),
-      text('mobile', t('usersAdmin.columns.mobile'), (row) => row.phone),
-      text('directDial', t('usersAdmin.columns.directDial'), (row) => row.directDial),
+      text('mobile', t('usersAdmin.columns.mobile'), (row) => row.phone, false, 'phone'),
+      text('directDial', t('usersAdmin.columns.directDial'), (row) => row.directDial, false, 'directDial'),
       text('department', t('usersAdmin.columns.department'), (row) => row.department, false, 'department'),
       text('employeeNumber', t('usersAdmin.columns.employeeNumber'), (row) => row.employeeNumber, false, 'employeeNumber'),
       text('lineManager', t('usersAdmin.columns.lineManager'), (row) => (row.lineManagerUserId ? colleagueName(row.lineManagerUserId) : null)),
@@ -317,8 +321,20 @@ export function UsersListPage() {
         cell: ({ row }) => (row.original.deactivatedAt ? formatDateTime(row.original.deactivatedAt, locale) : '—'),
         meta: { align: 'right', defaultVisible: false, sortField: 'deactivatedAt', exportValue: (row) => (row.deactivatedAt ? formatDateTime(row.deactivatedAt, locale) : '') },
       },
-      text('deactivationReason', t('usersAdmin.columns.deactivationReason'), (row) => row.deactivationReason),
+      text('deactivationReason', t('usersAdmin.columns.deactivationReason'), (row) => row.deactivationReason, false, 'deactivationReason'),
       text('signature', t('usersAdmin.columns.signature'), (row) => (row.hasSignatureImage ? t('common.yes') : t('common.no'))),
+      {
+        id: 'createdAt',
+        header: t('usersAdmin.columns.createdAt'),
+        cell: ({ row }) => formatDateTime(row.original.createdAt, locale),
+        meta: { align: 'right', defaultVisible: false, sortField: 'createdAt', exportValue: (row) => formatDateTime(row.createdAt, locale) },
+      },
+      {
+        id: 'updatedAt',
+        header: t('usersAdmin.columns.updatedAt'),
+        cell: ({ row }) => formatDateTime(row.original.updatedAt, locale),
+        meta: { align: 'right', defaultVisible: false, sortField: 'updatedAt', exportValue: (row) => formatDateTime(row.updatedAt, locale) },
+      },
     ]
   }, [t, locale, locationName, colleagueName])
 
@@ -341,16 +357,16 @@ export function UsersListPage() {
     setFormUser(undefined)
     await invalidate()
   }
-  const onReassigned = async (result: UserDeactivatedRead | OwnershipTransfersRead) => {
+  const onReassigned = async (result: UserDeactivatedRead | OwnershipTransfersRead, mode: 'deactivate' | 'transfer') => {
     setReassigning(null)
     // A module that failed leaves its records with the person: said here, with
-    // the retry at hand (the row menu's hand-over).
+    // the retry at hand (the row menu's hand-over). The reason is a stable
+    // code (`module_failed`, or the module's own refusal), never an exception.
     if (result.failed && result.failed.length > 0) {
-      setActionError(
-        t('usersAdmin.actions.handOverFailed', {
-          groups: result.failed.map((f) => `${ownedGroupLabel(t, f.module, f.group)} (${f.error})`).join('; '),
-        }),
-      )
+      const groups = result.failed
+        .map((f) => `${ownedGroupLabel(t, f.module, f.group)} (${t([`usersAdmin.failureReason.${f.reason}`, 'usersAdmin.failureReason.module_failed'])})`)
+        .join('; ')
+      setActionError(t(mode === 'deactivate' ? 'usersAdmin.actions.handOverFailedAfterDeactivation' : 'usersAdmin.actions.handOverFailed', { groups }))
     }
     await invalidate()
   }
@@ -372,6 +388,11 @@ export function UsersListPage() {
       {actionError && (
         <Alert color="red" role="alert" withCloseButton closeButtonLabel={t('common.dismiss')} onClose={() => setActionError(null)}>
           {actionError}
+        </Alert>
+      )}
+      {actionNotice && (
+        <Alert color="yellow" withCloseButton closeButtonLabel={t('common.dismiss')} onClose={() => setActionNotice(null)}>
+          {actionNotice}
         </Alert>
       )}
 
@@ -513,7 +534,7 @@ export function UsersListPage() {
         user={reassigning?.user ?? null}
         mode={reassigning?.mode ?? 'deactivate'}
         colleagues={colleagues.data?.items ?? []}
-        onDone={(result) => void onReassigned(result)}
+        onDone={(result) => void onReassigned(result, reassigning?.mode ?? 'deactivate')}
       />
     </Stack>
   )

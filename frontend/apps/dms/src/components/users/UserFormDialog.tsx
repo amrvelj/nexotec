@@ -34,6 +34,7 @@ import {
   TEXT_CATEGORY_VALUES,
   USER_ROLE_VALUES,
   accessRoleLabel,
+  refusalText,
   textCategoryLabel,
   userDisplayName,
   userRoleLabel,
@@ -181,7 +182,7 @@ export function UserFormDialog({ opened, onClose, dealershipId, user, locations,
 
   const say = (err: unknown) => {
     if (err instanceof ApiError && err.status === 409) setError(t('usersAdmin.form.conflict'))
-    else if (err instanceof ApiError) setError(err.message)
+    else if (err instanceof ApiError) setError(refusalText(t, err)) // the last-manager rule in the UI language; else the API's text
     else setError(t('common.requestFailed'))
   }
 

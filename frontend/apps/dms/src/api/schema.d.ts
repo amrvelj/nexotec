@@ -6435,15 +6435,20 @@ export interface components {
          * OwnershipTransferFailure
          * @description A group whose module refused or failed the hand-over: its records
          *     are still the user's, listed by `GET …/ownership` for the retry
-         *     (`POST …/ownership/transfers`). `error` is the module's message.
+         *     (`POST …/ownership/transfers`). `reason` is a stable code the SPA
+         *     translates — the module's own refusal code, or `module_failed`; `message`
+         *     is the refusal's English text, or a fixed sentence: an exception's text
+         *     never reaches a client.
          */
         OwnershipTransferFailure: {
-            /** Error */
-            error: string;
             /** Group */
             group: string;
+            /** Message */
+            message: string;
             /** Module */
             module: string;
+            /** Reason */
+            reason: string;
         };
         /**
          * OwnershipTransferRequest

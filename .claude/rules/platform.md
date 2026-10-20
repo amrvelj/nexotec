@@ -178,7 +178,8 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   (ADR-047) with one `ownership_transferred` audit row per group, the manager's reason on the
   module's own audit rows too; `POST …/ownership/transfers` (`reason` optional)
   is the retry and the plain hand-over — the row menu's "hand over" entry. A PATCH `status: deactivated` (or an employment
-  `terminated` on an active user) is 409 `use_deactivate_endpoint`. **The lifecycle is
+  `terminated` on a user who is not deactivated, whatever status the body carries beside it)
+  is 409 `use_deactivate_endpoint`; the last-manager refusal is 400 with `reason: last_manager`. **The lifecycle is
   enforced** (Users → Lifecycle): `invited → active` happens only by accepting the invitation
   (PATCH `status: active` on an invited user is 409 `accept_invitation_required`), only an
   active user can be suspended (409 `not_active`), and **reactivation is allowed**: PATCH
@@ -190,8 +191,12 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   accepting" is `scripts/seed_staging_demo.py`, which activates its demo user on the row (nobody
   to mail), audited with reason `seed_staging_demo` — the same bootstrap exception as its
   password. A module that fails during a hand-over is answered, not raised: `failed` on the
-  deactivation's and the transfer's response names the group and the module's error; the
-  records stay with the user for the retry. The nightly
+  deactivation's and the transfer's response names the group with a stable `reason` (the
+  module's own refusal code, or `module_failed`) and a message that is never an exception's
+  text; the records stay with the user for the retry. The 422 of an incomplete step carries
+  `details.problems[]` with the same shape (`reason`: `undecided`, `decided_twice`, `not_owned`,
+  `self`, `colleague_not_active`, or a module's code such as Sales'
+  `colleague_cannot_act_there`), which the SPA translates. The nightly
   `platform.user_expiry` job (FR-A-12, worker only — not on staging) deactivates a user whose
   `valid_to` has passed with platform's own authority (a staff account expires too), one user
   at a time (a failure on one is logged, the rest go on), releases their records to the queues,
@@ -203,7 +208,7 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   additional, FR-A-02) and `GET …/locations` (read-only: no Locations screen yet). The Users
   screen is `/administration/users` (one shared invite/edit dialog, the deactivation dialog;
   server-side sort; no delete). `LoginResponse.user` and `GET /auth/me` keep their pre-KAN-200
-  shape (`SessionUserRead`); the administration fields are `UserRead`'s alone.
+  shape and schema name (`UserRead`); the administration fields are `UserAdminRead`'s alone.
 - **Mail (D-A-28):** platform mail (invites, resets, alerts) is always Nexotec's own sender;
   customer-facing mail resolves per document type through `sending_policy` to
   `user_mailbox` · `business_mailbox` · `verified_domain` · `nexotec_on_behalf`.

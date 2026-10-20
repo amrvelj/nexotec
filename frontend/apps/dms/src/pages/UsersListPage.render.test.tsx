@@ -158,7 +158,7 @@ describe('UsersListPage (KAN-200)', () => {
         handler: () => ({
           user: { ...USERS[1], status: 'deactivated', version: 2 },
           transfers: [],
-          failed: [{ module: 'sales', group: 'offers', error: 'sales is down' }],
+          failed: [{ module: 'sales', group: 'offers', reason: 'module_failed', message: 'The module could not complete the hand-over; the error is in the log.' }],
         }),
       },
     ])
@@ -172,9 +172,27 @@ describe('UsersListPage (KAN-200)', () => {
     await user.click(await screen.findByRole('option', { name: 'Nicht zuweisen (Warteschlange des Moduls)' }))
     await user.click(dialog.getByRole('button', { name: 'Deaktivieren' }))
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('nicht alles konnte übergeben werden')
-    expect(alert).toHaveTextContent('Offene Offerten (sales is down)')
+    expect(alert).toHaveTextContent('Deaktiviert, aber nicht alles konnte übergeben werden')
+    expect(alert).toHaveTextContent('Offene Offerten (Modul konnte die Übergabe nicht abschliessen')
     expect(alert).toHaveTextContent('Offene Vorgänge übergeben')
+  })
+
+  it('says that reactivating an expired user removed the end date, never silently', async () => {
+    const user = userEvent.setup()
+    // Carla's window ended last year.
+    installFakeBackend([
+      { method: 'GET', match: /\/dealerships\/dealership-1\/users$/, handler: () => ({ items: [USERS[0], USERS[1], user3({ validTo: '2025-12-31' })], nextCursor: null }) },
+      { method: 'GET', match: /\/dealerships\/dealership-1\/locations$/, handler: () => ({ items: [] }) },
+      { method: 'PATCH', match: /\/users\/u-3$/, handler: () => user3({ status: 'active', validTo: null }) },
+    ])
+    renderWithProviders(<UsersListPage />, { route: '/administration/users' })
+    await screen.findByText('Carla Gross')
+    await user.click(screen.getAllByRole('button', { name: 'Zeilenaktionen' })[2])
+    await user.click(await screen.findByText('Reaktivieren'))
+    // Mantine's Alert is always role="alert": find the notice by its text.
+    const notice = await screen.findByText(/Carla Gross ist wieder aktiv/)
+    expect(notice).toHaveTextContent('31.12.2025')
+    expect(notice).toHaveTextContent('Bearbeiten')
   })
 
   it('loads every colleague, page by page, for the pickers', async () => {

@@ -8,7 +8,7 @@ from collections.abc import Callable
 
 from sqlalchemy.orm import Session
 
-from app.core.ownership import OwnedGroup, OwnershipTransfer
+from app.core.ownership import OwnedGroup, OwnershipRefusal, OwnershipTransfer
 
 MODULE = "parts"
 
@@ -19,7 +19,7 @@ class PartsOwnershipProvider:
     def list_open(self, db: Session, *, dealership_id: uuid.UUID, user_id: uuid.UUID) -> list[OwnedGroup]:
         return []
 
-    def refuses(self, db: Session, *, from_user_id: uuid.UUID, transfer: OwnershipTransfer) -> str | None:
+    def refuses(self, db: Session, *, from_user_id: uuid.UUID, transfer: OwnershipTransfer) -> OwnershipRefusal | None:
         return None
 
     def transfer(

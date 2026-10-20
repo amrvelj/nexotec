@@ -2083,7 +2083,9 @@
       "invitedAt": "Invitato il",
       "deactivatedAt": "Disattivato il",
       "deactivationReason": "Motivo della disattivazione",
-      "signature": "Immagine della firma"
+      "signature": "Immagine della firma",
+      "createdAt": "Creato",
+      "updatedAt": "Modificato"
     },
     "emptyState": {
       "title": "Ancora nessun utente",
@@ -2109,7 +2111,9 @@
     "actions": {
       "resendFailed": "Impossibile inviare l'invito.",
       "statusFailed": "Impossibile modificare lo stato.",
-      "handOverFailed": "Disattivato, ma non tutto è stato trasferito — {{groups}}. Queste pratiche restano per ora a questa persona; «Trasferire le pratiche aperte» nel menu di riga riprova."
+      "handOverFailed": "Non tutto è stato trasferito — {{groups}}. Queste pratiche restano per ora a questa persona; «Trasferire le pratiche aperte» riprova.",
+      "handOverFailedAfterDeactivation": "Disattivato, ma non tutto è stato trasferito — {{groups}}. Queste pratiche restano per ora a questa persona; «Trasferire le pratiche aperte» nel menu di riga riprova.",
+      "validToCleared": "{{name}} è di nuovo attivo. La fine dell'accesso scaduta ({{date}}) è stata rimossa — se necessario, impostarne una nuova in «Modifica»."
     },
     "form": {
       "inviteTitle": "Invita utente",
@@ -2174,12 +2178,28 @@
       "transferLabel": "Passare: {{what}}",
       "reason": "Motivo",
       "endEmployment": "L'impiego è terminato",
-      "confirm": "Disattiva"
+      "confirm": "Disattiva",
+      "incomplete": "Il trasferimento non è ancora completo:",
+      "problems": {
+        "undecided": "{{what}}: serve una decisione — un collega oppure «Non assegnare».",
+        "decided_twice": "{{what}}: deciso due volte.",
+        "not_owned": "{{what}}: questa persona non li segue (più).",
+        "self": "{{what}}: la persona non può rilevare le proprie pratiche.",
+        "colleague_not_active": "{{what}}: il collega scelto non è un utente attivo di questa azienda.",
+        "colleague_cannot_act_there": "{{what}}: {{count}} di queste appartengono a un'altra azienda in cui il collega scelto non lavora — scegliere «Non assegnare» (quell'azienda le trasferisce dalla propria coda) oppure un collega che vi è membro."
+      }
     },
     "handOver": {
       "title": "Trasferire le pratiche aperte di {{name}}",
       "intro": "Ciò che questa persona segue ancora viene trasferito a un collega o nella coda del modulo — anche dopo una disattivazione in cui un modulo non ha potuto completare il trasferimento.",
       "confirm": "Trasferire"
+    },
+    "errors": {
+      "lastManager": "Un'azienda ha sempre bisogno di almeno un manager attivo: l'ultimo non può essere né disattivato né retrocesso."
+    },
+    "failureReason": {
+      "module_failed": "il modulo non ha potuto completare il trasferimento; dettagli nel registro",
+      "colleague_cannot_act_there": "il collega non lavora in ogni azienda coinvolta"
     }
   }
 }

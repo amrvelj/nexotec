@@ -7,7 +7,7 @@ which the composition root filled (`app.ownership_registry`). Each transfer
 is the owning module's own write on a session of its own, committed there
 (ADR-047); platform records one `ownership_transferred` audit row per group
 with the actor, on its own session, after the module's commit. A module
-that fails leaves its records with the user: the step raises after the
+that fails leaves its records with the user: the step answers after the
 rows already moved are recorded, the user stays deactivated (access is cut
 first — the safe direction), the answer names the failed group, and
 `GET …/ownership` lists what is still theirs for
@@ -18,17 +18,20 @@ seam, which is the point.
 import logging
 import uuid
 from collections.abc import Callable
+from typing import Any
 
 from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
-from app.core.errors import UnprocessableEntityError
+from app.core.errors import AppError, UnprocessableEntityError
 from app.core.ownership import OwnedGroup, OwnershipTransfer, ownership_provider, ownership_providers
 from app.platform.models.user import EmploymentStatus, User, UserStatus
 from app.platform.schemas.user import OwnershipTransferFailure, OwnershipTransferRequest, OwnershipTransferResult
 from app.platform.services import user as user_service
 
 logger = logging.getLogger(__name__)
+
+MODULE_FAILED = "module_failed"
 
 
 def list_open(db: Session, *, user: User) -> list[OwnedGroup]:
@@ -53,31 +56,46 @@ def resolve_transfers(
     to). All of it before anything changes, so a wrong choice is a 422 with
     the user still active. With `require_every_group`, every open group
     needs a decision — the deactivation's rule: never silently with the
-    leaver."""
+    leaver. The 422's `details.problems[]` carry a stable `reason` per group
+    (the SPA translates it) beside the English `message`."""
 
     open_groups = {(g.module, g.group): g for g in list_open(db, user=user)}
     seen: set[tuple[str, str]] = set()
     resolved: list[OwnershipTransfer] = []
-    problems: list[str] = []
+    problems: list[dict[str, Any]] = []
+
+    def problem(module: str, group: str, reason: str, message: str, count: int | None = None) -> None:
+        entry: dict[str, Any] = {
+            "module": module,
+            "group": group,
+            "reason": reason,
+            "message": f"{module}/{group}: {message}",
+        }
+        if count is not None:
+            entry["count"] = count
+        problems.append(entry)
+
     for item in requested:
         key = (item.module, item.group)
         if key in seen:
-            problems.append(f"{item.module}/{item.group} is decided twice")
+            problem(item.module, item.group, "decided_twice", "decided twice")
             continue
         seen.add(key)
         if key not in open_groups:
-            problems.append(f"{item.module}/{item.group} is not a group this user owns")
+            problem(item.module, item.group, "not_owned", "not a group this user owns")
             continue
         to_label: str | None = None
         if item.to_user_id is not None:
             if item.to_user_id == user.id:
-                problems.append(f"{item.module}/{item.group}: the user cannot receive their own records")
+                problem(item.module, item.group, "self", "the user cannot receive their own records")
                 continue
             colleague = db.get(User, item.to_user_id)
             # FR-A-37: "another active user" — an invited colleague has no
             # password yet and a suspended one cannot sign in.
             if colleague is None or colleague.tenant_id != user.tenant_id or colleague.status != UserStatus.ACTIVE:
-                problems.append(f"{item.module}/{item.group}: toUserId is not an active user of this dealership")
+                problem(
+                    item.module, item.group, "colleague_not_active", "toUserId is not an active user of this dealership"
+                )
                 continue
             to_label = f"{colleague.first_name} {colleague.last_name}".strip()
         candidate = OwnershipTransfer(
@@ -86,15 +104,21 @@ def resolve_transfers(
         provider = ownership_provider(item.module)
         refusal = provider.refuses(db, from_user_id=user.id, transfer=candidate) if provider is not None else None
         if refusal is not None:
-            problems.append(refusal)
+            problems.append(
+                {
+                    "module": item.module,
+                    "group": item.group,
+                    "reason": refusal.code,
+                    "message": refusal.message,
+                    "count": refusal.count,
+                }
+            )
             continue
-        resolved.append(
-            OwnershipTransfer(module=item.module, group=item.group, to_user_id=item.to_user_id, to_label=to_label)
-        )
+        resolved.append(candidate)
     if require_every_group:
         for key in open_groups:
             if key not in seen:
-                problems.append(f"{key[0]}/{key[1]} needs a decision: a colleague, or null to leave it unassigned")
+                problem(key[0], key[1], "undecided", "needs a decision: a colleague, or null to leave it unassigned")
     if problems:
         raise UnprocessableEntityError(
             "The reassignment step is incomplete.",
@@ -147,7 +171,17 @@ def apply_transfers(
                 extra={"ownershipModule": transfer.module, "group": transfer.group, "userId": str(user.id)},
             )
             db.rollback()
-            failed.append(OwnershipTransferFailure(module=transfer.module, group=transfer.group, error=str(exc)))
+            # The module's own refusal travels (its message is for the caller);
+            # anything else is a fixed code — an exception's text can carry a
+            # statement, its parameters and another Betrieb's ids. The log has it.
+            if isinstance(exc, AppError):
+                reason = str((exc.details or {}).get("reason") or exc.code)
+                message = exc.message
+            else:
+                reason, message = MODULE_FAILED, "The module could not complete the hand-over; the error is in the log."
+            failed.append(
+                OwnershipTransferFailure(module=transfer.module, group=transfer.group, reason=reason, message=message)
+            )
             continue
         record_audit_event(
             db,
@@ -220,5 +254,7 @@ def deactivate_user(
         reason=reason,
         allow_deactivation=True,
     )
-    results, failed = apply_transfers(db, session_factory, user=updated, transfers=transfers, actor_id=actor_id, reason=reason)
+    results, failed = apply_transfers(
+        db, session_factory, user=updated, transfers=transfers, actor_id=actor_id, reason=reason
+    )
     return updated, results, failed

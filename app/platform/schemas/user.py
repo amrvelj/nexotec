@@ -131,9 +131,9 @@ class UserAdminRead(CamelModel):
     updated_at: dt.datetime
     created_by: uuid.UUID | None
     updated_by: uuid.UUID | None
-    # KAN-200 (Users → Fields). Defaults keep every existing reader (the
-    # login response, the membership routes) valid; the users routes fill
-    # the derived fields below through `user_service.user_read`.
+    # KAN-200 (Users → Fields). The administration read, filled through
+    # `user_service.user_read` (the derived fields below); the session's
+    # `UserRead` above never carries these.
     direct_dial: str | None = None
     employee_number: str | None = None
     department: str | None = None
@@ -250,11 +250,15 @@ class OwnershipTransferResult(CamelModel):
 class OwnershipTransferFailure(CamelModel):
     """A group whose module refused or failed the hand-over: its records
     are still the user's, listed by `GET …/ownership` for the retry
-    (`POST …/ownership/transfers`). `error` is the module's message."""
+    (`POST …/ownership/transfers`). `reason` is a stable code the SPA
+    translates — the module's own refusal code, or `module_failed`; `message`
+    is the refusal's English text, or a fixed sentence: an exception's text
+    never reaches a client."""
 
     module: str
     group: str
-    error: str
+    reason: str
+    message: str
 
 
 class OwnershipTransfersRead(CamelModel):

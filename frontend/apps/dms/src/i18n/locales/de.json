@@ -2083,7 +2083,9 @@
       "invitedAt": "Eingeladen am",
       "deactivatedAt": "Deaktiviert am",
       "deactivationReason": "Grund der Deaktivierung",
-      "signature": "Unterschriftsbild"
+      "signature": "Unterschriftsbild",
+      "createdAt": "Erstellt",
+      "updatedAt": "Geändert"
     },
     "emptyState": {
       "title": "Noch keine Benutzer",
@@ -2109,7 +2111,9 @@
     "actions": {
       "resendFailed": "Die Einladung konnte nicht gesendet werden.",
       "statusFailed": "Der Status konnte nicht geändert werden.",
-      "handOverFailed": "Deaktiviert, aber nicht alles konnte übergeben werden — {{groups}}. Die Vorgänge bleiben vorerst bei dieser Person; «Offene Vorgänge übergeben» im Zeilenmenü versucht es erneut."
+      "handOverFailed": "Nicht alles konnte übergeben werden — {{groups}}. Die Vorgänge bleiben vorerst bei dieser Person; «Offene Vorgänge übergeben» versucht es erneut.",
+      "handOverFailedAfterDeactivation": "Deaktiviert, aber nicht alles konnte übergeben werden — {{groups}}. Die Vorgänge bleiben vorerst bei dieser Person; «Offene Vorgänge übergeben» im Zeilenmenü versucht es erneut.",
+      "validToCleared": "{{name}} ist wieder aktiv. Das abgelaufene Zugangsende ({{date}}) wurde entfernt — setzen Sie bei Bedarf ein neues unter «Bearbeiten»."
     },
     "form": {
       "inviteTitle": "Benutzer einladen",
@@ -2174,12 +2178,28 @@
       "transferLabel": "Übergeben: {{what}}",
       "reason": "Grund",
       "endEmployment": "Anstellung ist beendet",
-      "confirm": "Deaktivieren"
+      "confirm": "Deaktivieren",
+      "incomplete": "Die Übergabe ist noch nicht vollständig:",
+      "problems": {
+        "undecided": "{{what}}: braucht eine Entscheidung — ein Kollege oder «Nicht zuweisen».",
+        "decided_twice": "{{what}}: zweimal entschieden.",
+        "not_owned": "{{what}}: betreut diese Person nicht (mehr).",
+        "self": "{{what}}: die Person kann ihre eigenen Vorgänge nicht übernehmen.",
+        "colleague_not_active": "{{what}}: der gewählte Kollege ist kein aktiver Benutzer dieses Betriebs.",
+        "colleague_cannot_act_there": "{{what}}: {{count}} davon gehören zu einem anderen Betrieb, in dem der gewählte Kollege nicht arbeitet — «Nicht zuweisen» wählen (dieser Betrieb übergibt sie aus seiner Warteschlange) oder einen Kollegen, der dort Mitglied ist."
+      }
     },
     "handOver": {
       "title": "Offene Vorgänge von {{name}} übergeben",
       "intro": "Was diese Person noch betreut, wird an einen Kollegen oder in die Warteschlange des Moduls übergeben — auch nach einer Deaktivierung, bei der ein Modul die Übergabe nicht abschliessen konnte.",
       "confirm": "Übergeben"
+    },
+    "errors": {
+      "lastManager": "Ein Betrieb braucht immer mindestens einen aktiven Manager — der letzte kann weder deaktiviert noch zurückgestuft werden."
+    },
+    "failureReason": {
+      "module_failed": "Modul konnte die Übergabe nicht abschliessen; Details im Protokoll",
+      "colleague_cannot_act_there": "Kollege arbeitet nicht in jedem betroffenen Betrieb"
     }
   }
 }

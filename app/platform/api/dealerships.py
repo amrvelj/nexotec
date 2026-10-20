@@ -278,12 +278,16 @@ def update_user(
 
 
 # U-03: only indexed or small-table columns are sortable; `user` is a few
-# hundred rows per Betrieb at most, so every grid column with a stored value
-# is on the list (ADR-060 + "every column sortable").
+# hundred rows per Betrieb at most, so every stored, scalar column the grid
+# shows is on the list (ADR-060 + "every column sortable"); the derived
+# columns (access, the sites, the line manager's name) are not.
 USER_SORT_FIELDS: dict[str, object] = {
     "lastName": User.last_name,
     "firstName": User.first_name,
     "email": User.email,
+    "phone": User.phone,
+    "directDial": User.direct_dial,
+    "deactivationReason": User.deactivation_reason,
     "status": User.status,
     "role": User.role,
     "isDealerManager": User.is_dealer_manager,

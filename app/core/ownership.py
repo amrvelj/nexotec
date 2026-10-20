@@ -60,6 +60,18 @@ class OwnershipTransfer:
     to_label: str | None
 
 
+@dataclasses.dataclass(frozen=True)
+class OwnershipRefusal:
+    """Why a module will not hand a group to the chosen colleague: a stable
+    `code` the SPA translates (the module's own vocabulary, e.g. Sales'
+    `colleague_cannot_act_there`), the English `message` for the API body,
+    and how many records the refusal is about."""
+
+    code: str
+    message: str
+    count: int
+
+
 class OwnershipProvider(Protocol):
     module: str
 
@@ -72,9 +84,8 @@ class OwnershipProvider(Protocol):
         records are per Betrieb and whose colleague check needs it."""
         ...
 
-    def refuses(self, db: Session, *, from_user_id: uuid.UUID, transfer: OwnershipTransfer) -> str | None:
-        """Why this module would refuse the colleague for this group — the
-        text of the problem — or None. A read on the caller's session, asked
+    def refuses(self, db: Session, *, from_user_id: uuid.UUID, transfer: OwnershipTransfer) -> OwnershipRefusal | None:
+        """Why this module would refuse the colleague for this group, or None. A read on the caller's session, asked
         before the deactivation changes anything, so a wrong choice is a 422
         with the user still active; `transfer` checks the same thing again
         under its locks (the records may have moved meanwhile)."""
@@ -95,8 +106,8 @@ class OwnershipProvider(Protocol):
         commits (ADR-047). Returns how many records moved. An unknown group
         for this module is a `ValueError`. A colleague who cannot act in a
         Betrieb some of the records belong to is refused as a whole — a 422
-        naming it, nothing moved — so the manager chooses the queue for that
-        group instead. `reason` is the manager's text (or the job's code)
+        saying how many records are elsewhere, never which Betrieb, nothing
+        moved — so the manager chooses the queue for that group instead. `reason` is the manager's text (or the job's code)
         for the module's own audit rows."""
         ...
 

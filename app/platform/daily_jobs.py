@@ -60,7 +60,7 @@ def _release(db: Session, session_factory: Callable[[], Session], user: User, *,
             "platform.user_expiry: hand-over failed for user %s (%s); retried by the next runs for %d days, "
             "reported by reconciliation meanwhile",
             user.id,
-            ", ".join(f"{f.module}/{f.group}: {f.error}" for f in failed or []) or "not run",
+            ", ".join(f"{f.module}/{f.group}: {f.reason} — {f.message}" for f in failed or []) or "not run",
             RETRY_WINDOW.days,
             extra={"userId": str(user.id)},
         )

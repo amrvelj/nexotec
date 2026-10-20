@@ -191,7 +191,13 @@ describe('UserDeactivateDialog (KAN-200)', () => {
             error: {
               code: 'unprocessable_entity',
               message: 'The reassignment step is incomplete.',
-              details: { problems: ['sales/offers: 1 of these records belong to another business the colleague cannot act in'], openGroups: [] },
+              details: {
+                problems: [
+                  { module: 'sales', group: 'offers', reason: 'colleague_cannot_act_there', count: 1, message: 'sales/offers: 1 of these records belong to another business the colleague cannot act in — …' },
+                  { module: 'customer', group: 'customers', reason: 'undecided', message: 'customer/customers: needs a decision: a colleague, or null to leave it unassigned' },
+                ],
+                openGroups: [],
+              },
             },
           }),
       },
@@ -202,9 +208,12 @@ describe('UserDeactivateDialog (KAN-200)', () => {
     await user.click(await dialog.findByRole('textbox', { name: 'Übergeben: Offene Offerten' }))
     await user.click(await screen.findByRole('option', { name: 'Hans Erbe' }))
     await user.click(dialog.getByRole('button', { name: 'Deaktivieren' }))
+    // Each problem in the UI language, from its reason code — never the API's English.
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('The reassignment step is incomplete.')
-    expect(alert).toHaveTextContent('sales/offers: 1 of these records belong to another business')
+    expect(alert).toHaveTextContent('Die Übergabe ist noch nicht vollständig:')
+    expect(alert).toHaveTextContent('Offene Offerten: 1 davon gehören zu einem anderen Betrieb')
+    expect(alert).toHaveTextContent('Betreute Kunden: braucht eine Entscheidung')
+    expect(alert).not.toHaveTextContent('belong to another business')
     expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
 
@@ -215,7 +224,7 @@ describe('UserDeactivateDialog (KAN-200)', () => {
       {
         method: 'POST',
         match: /\/users\/u-1\/deactivate$/,
-        handler: () => status(400, { error: { code: 'bad_request', message: 'This dealership must always have at least one active manager — cannot remove or deactivate its last one.', details: null } }),
+        handler: () => status(400, { error: { code: 'bad_request', message: 'This dealership must always have at least one active manager — cannot remove or deactivate its last one.', details: { reason: 'last_manager' } } }),
       },
     ])
     renderWithProviders(<UserDeactivateDialog opened onClose={() => {}} dealershipId="dealership-1" user={LEAVER} colleagues={[LEAVER]} onDone={() => {}} />)
@@ -223,7 +232,7 @@ describe('UserDeactivateDialog (KAN-200)', () => {
     expect(await dialog.findByText('In keinem der 2 Module ist etwas offen.')).toBeInTheDocument()
     await user.type(dialog.getByLabelText(/^Grund/), 'weg')
     await user.click(dialog.getByRole('button', { name: 'Deaktivieren' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent('at least one active manager')
+    expect(await screen.findByRole('alert')).toHaveTextContent('mindestens einen aktiven Manager')
     expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
 })

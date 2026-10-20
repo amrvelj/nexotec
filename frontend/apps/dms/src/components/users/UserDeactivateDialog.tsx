@@ -14,7 +14,7 @@ import type {
   UserAdminRead,
 } from '../../api/types'
 import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
-import { ownedGroupLabel, userDisplayName } from '../../userOptions'
+import { ownedGroupLabel, reassignmentProblemText, refusalText, userDisplayName } from '../../userOptions'
 
 export interface UserDeactivateDialogProps {
   opened: boolean
@@ -51,8 +51,9 @@ export function UserDeactivateDialog({ opened, onClose, dealershipId, user, coll
   const [choices, setChoices] = useState<Record<string, string | null>>({})
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  // The 422's `details.problems`: which group, and why — the API's own words
-  // (the rule for refusal texts is KAN-398's), never only the generic line.
+  // The 422's `details.problems`: which group, and why — each a stable
+  // `reason` the bundles translate (an unknown one falls back to the API's
+  // English `message`, KAN-398's open rule), never only the generic line.
   const [problems, setProblems] = useState<string[]>([])
   const idempotency = useIdempotencyKey()
 
@@ -120,13 +121,13 @@ export function UserDeactivateDialog({ opened, onClose, dealershipId, user, coll
         onDone(result)
       }
     } catch (err) {
-      if (err instanceof ApiError && err.status === 400) setError(err.message) // the last-manager rule, said as the API says it
+      if (err instanceof ApiError && err.status === 400) setError(refusalText(t, err)) // the last-manager rule, in the UI language
       else if (err instanceof ApiError && err.status === 409) setError(t('usersAdmin.form.conflict'))
-      else if (err instanceof ApiError) {
-        setError(err.message)
-        const details = err.details as { problems?: unknown } | null | undefined
-        if (Array.isArray(details?.problems)) setProblems(details.problems.filter((p): p is string => typeof p === 'string'))
-      } else setError(t('common.requestFailed'))
+      else if (err instanceof ApiError && err.status === 422 && Array.isArray(err.details?.problems)) {
+        setError(t('usersAdmin.deactivate.incomplete'))
+        setProblems((err.details.problems as unknown[]).map((entry) => reassignmentProblemText(t, entry)))
+      } else if (err instanceof ApiError) setError(err.message)
+      else setError(t('common.requestFailed'))
       void ownership.refetch()
     } finally {
       setSubmitting(false)

@@ -132,7 +132,9 @@ def test_non_admin_roles_cannot_create_users(client, role):
 
 def test_creating_user_under_nonexistent_dealer_is_404(client):
     token = _token(AccessRole.PLATFORM_ADMIN)
-    response = client.post(f"/v1/dealerships/{uuid.uuid4()}/users", json=_user_payload(), headers=_bearer(token))
+    response = client.post(
+        f"/v1/dealerships/{uuid.uuid4()}/users", json=_user_payload(), headers=_bearer(token)
+    )
     assert response.status_code == 404
 
 
@@ -290,7 +292,9 @@ def test_role_and_status_changes_are_audit_logged(client):
 def test_list_users_filters_by_role_and_status(client):
     platform_admin_token = _token(AccessRole.PLATFORM_ADMIN)
     dealer_id = _create_dealer(client)
-    _create_user(client, dealer_id, platform_admin_token, email="a@example.ch", role="sales", accessRoles=["sales"])
+    _create_user(
+        client, dealer_id, platform_admin_token, email="a@example.ch", role="sales", accessRoles=["sales"]
+    )
     _create_user(
         client,
         dealer_id,
@@ -314,9 +318,13 @@ def test_list_users_with_an_unknown_role_is_an_empty_page_not_a_500(client):
 
     platform_admin_token = _token(AccessRole.PLATFORM_ADMIN)
     dealer_id = _create_dealer(client)
-    _create_user(client, dealer_id, platform_admin_token, email="a@example.ch", role="sales", accessRoles=["sales"])
+    _create_user(
+        client, dealer_id, platform_admin_token, email="a@example.ch", role="sales", accessRoles=["sales"]
+    )
 
-    response = client.get(f"/v1/dealerships/{dealer_id}/users?role=no-such-role", headers=_bearer(platform_admin_token))
+    response = client.get(
+        f"/v1/dealerships/{dealer_id}/users?role=no-such-role", headers=_bearer(platform_admin_token)
+    )
 
     assert response.status_code == 200, response.text
     assert response.json()["items"] == []
@@ -425,7 +433,9 @@ def test_a_plain_or_inactive_membership_does_not_count_as_another_manager(
             headers={**_bearer(platform_admin_token), "If-Match": "1"},
         )
         assert response.status_code == 200, response.text
-    _grant_membership(db_session, user_id=member["id"], dealership_id=dealer_b, is_dealer_manager=membership_is_manager)
+    _grant_membership(
+        db_session, user_id=member["id"], dealership_id=dealer_b, is_dealer_manager=membership_is_manager
+    )
 
     response = client.patch(
         f"/v1/dealerships/{dealer_b}/users/{home_manager_of_b['id']}",
@@ -480,7 +490,7 @@ def test_deactivating_a_sister_dealerships_last_manager_by_membership_is_rejecte
 
     response = _deactivate(client, dealer_a, sister_manager, platform_admin_token)
     assert response.status_code == 400
-    assert response.json()["error"]["details"] is None  # never names the sister dealership
+    assert response.json()["error"]["details"] == {"reason": "last_manager"}  # never names the sister dealership
 
 
 # --- KAN-97: platform_admin is Nexotec staff only --------------------------
@@ -494,7 +504,9 @@ def _manager_token(dealer_id: str) -> str:
 
 
 def _list_user_emails(client, dealer_id: str) -> list[str]:
-    response = client.get(f"/v1/dealerships/{dealer_id}/users", headers=_bearer(_token(AccessRole.PLATFORM_ADMIN)))
+    response = client.get(
+        f"/v1/dealerships/{dealer_id}/users", headers=_bearer(_token(AccessRole.PLATFORM_ADMIN))
+    )
     assert response.status_code == 200, response.text
     return [u["email"] for u in response.json()["items"]]
 
@@ -647,15 +659,8 @@ def test_manager_can_still_edit_roles_of_ordinary_users(client):
 @pytest.mark.parametrize(
     "field",
     [
-        "accessRoles",
-        "firstName",
-        "lastName",
-        "email",
-        "role",
-        "isDealerManager",
-        "employmentStatus",
-        "authIdentityId",
-        "status",
+        "accessRoles", "firstName", "lastName", "email", "role", "isDealerManager",
+        "employmentStatus", "authIdentityId", "status",
     ],
 )
 def test_patching_a_not_null_field_to_null_is_a_422_and_changes_nothing(client, field):

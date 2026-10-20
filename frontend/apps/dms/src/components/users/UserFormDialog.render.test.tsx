@@ -10,7 +10,7 @@ import { UserFormDialog } from './UserFormDialog'
 // KAN-200 — the one user form: an invitation sends every field the PRD
 // names with an Idempotency-Key; an edit PATCHes only what changed with
 // If-Match, replaces the delegations through their own PUT, and shows the
-// last-manager refusal as the API says it.
+// last-manager refusal in the UI language (from its reason code).
 
 const DEALERSHIP = 'dealership-1'
 const LOCATIONS: LocationRead[] = [
@@ -126,7 +126,7 @@ describe('UserFormDialog (KAN-200)', () => {
         method: 'PATCH',
         match: /\/users\/u-1$/,
         handler: () =>
-          status(400, { error: { code: 'bad_request', message: 'This dealership must always have at least one active manager — cannot remove or deactivate its last one.', details: null } }),
+          status(400, { error: { code: 'bad_request', message: 'This dealership must always have at least one active manager — cannot remove or deactivate its last one.', details: { reason: 'last_manager' } } }),
       },
     ])
     renderWithProviders(
@@ -139,7 +139,9 @@ describe('UserFormDialog (KAN-200)', () => {
     await user.click(dialog.getByRole('switch', { name: /Manager dieses Betriebs/ }))
     await user.click(dialog.getByRole('button', { name: 'Speichern' }))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('at least one active manager')
+    // FR-A-13's refusal in the UI language, from its reason code — never the API's English.
+    expect(await screen.findByRole('alert')).toHaveTextContent('mindestens einen aktiven Manager')
+    expect(screen.getByRole('alert')).not.toHaveTextContent('at least one active manager')
     expect(backend.callsTo(/\/users\/u-1$/, 'PATCH')).toHaveLength(1)
     const [patch] = backend.callsTo(/\/users\/u-1$/, 'PATCH')
     expect(patch.headers.get('If-Match')).toBe('3')

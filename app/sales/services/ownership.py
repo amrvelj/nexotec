@@ -24,7 +24,7 @@ from sqlalchemy.orm import Session
 
 from app.core.base import utcnow
 from app.core.errors import UnprocessableEntityError
-from app.core.ownership import OwnedGroup, OwnershipTransfer
+from app.core.ownership import OwnedGroup, OwnershipRefusal, OwnershipTransfer
 from app.platform.public import get_user_acting_in, list_user_dealership_ids
 from app.sales.models.contract import ContractStatus, SalesContract
 from app.sales.models.deal import SalesDeal
@@ -116,15 +116,11 @@ class SalesOwnershipProvider:
             groups.append(OwnedGroup(module=MODULE, group=GROUP_CONTRACTS, count=int(contracts)))
         return groups
 
-    def refuses(self, db: Session, *, from_user_id: uuid.UUID, transfer: OwnershipTransfer) -> str | None:
+    def refuses(self, db: Session, *, from_user_id: uuid.UUID, transfer: OwnershipTransfer) -> OwnershipRefusal | None:
         if transfer.to_user_id is None or transfer.group not in (GROUP_OFFERS, GROUP_CONTRACTS):
             return None
         rows = _open_rows(db, from_user_id=from_user_id, group=transfer.group, lock=False)
-        try:
-            _assert_colleague_acts_everywhere(db, to_user_id=transfer.to_user_id, rows=rows, group=transfer.group)
-        except UnprocessableEntityError as exc:
-            return exc.message
-        return None
+        return _colleague_refusal(db, to_user_id=transfer.to_user_id, rows=rows, group=transfer.group)
 
     def transfer(
         self,
@@ -196,19 +192,44 @@ def _assert_colleague_acts_everywhere(
     active membership), or a sister Betrieb's deals would be owned by
     someone who cannot open them. Refused as a whole, before any write."""
 
-    if to_user_id is None:
-        return
-    allowed = list_user_dealership_ids(db, user_id=to_user_id)
-    outside = sorted({str(row.tenant_id) for row in rows if row.tenant_id not in allowed})
-    if outside:
-        # Never the other Betrieb's id (a 404-not-403 world: an id is a fact
-        # the caller may not hold); the count says how much is elsewhere.
+    refusal = _colleague_refusal(db, to_user_id=to_user_id, rows=rows, group=group)
+    if refusal is not None:
         raise UnprocessableEntityError(
-            f"sales/{group}: {sum(1 for row in rows if row.tenant_id not in allowed)} of these records belong to "
-            "another business the colleague cannot act in — leave the group unassigned (null), and that business "
-            "hands them over from its own queue, or choose a colleague who is a member there.",
-            details={"module": MODULE, "group": group, "toUserId": str(to_user_id)},
+            refusal.message,
+            details={
+                "module": MODULE,
+                "group": group,
+                "toUserId": str(to_user_id),
+                "reason": refusal.code,
+                "count": refusal.count,
+            },
         )
+
+
+COLLEAGUE_CANNOT_ACT_THERE = "colleague_cannot_act_there"
+
+
+def _colleague_refusal(
+    db: Session, *, to_user_id: uuid.UUID | None, rows: list[Any], group: str
+) -> OwnershipRefusal | None:
+    """Never the other Betrieb's id (a 404-not-403 world: an id is a fact the
+    caller may not hold); the count says how much is elsewhere."""
+
+    if to_user_id is None:
+        return None
+    allowed = list_user_dealership_ids(db, user_id=to_user_id)
+    elsewhere = sum(1 for row in rows if row.tenant_id not in allowed)
+    if not elsewhere:
+        return None
+    return OwnershipRefusal(
+        code=COLLEAGUE_CANNOT_ACT_THERE,
+        message=(
+            f"sales/{group}: {elsewhere} of these records belong to another business the colleague cannot act in — "
+            "leave the group unassigned (null), and that business hands them over from its own queue, or choose a "
+            "colleague who is a member there."
+        ),
+        count=elsewhere,
+    )
 
 
 def _transfer_group(

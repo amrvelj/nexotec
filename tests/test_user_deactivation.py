@@ -139,7 +139,14 @@ def test_deactivation_needs_a_decision_for_every_open_group(client):
     )
     assert response.status_code == 422, response.text
     details = response.json()["error"]["details"]
-    assert details["problems"] == ["customer/customers needs a decision: a colleague, or null to leave it unassigned"]
+    assert details["problems"] == [
+        {
+            "module": "customer",
+            "group": "customers",
+            "reason": "undecided",
+            "message": "customer/customers: needs a decision: a colleague, or null to leave it unassigned",
+        }
+    ]
     assert {(g["module"], g["group"]) for g in details["openGroups"]} == {
         ("customer", "customers"),
         ("sales", "offers"),
@@ -286,7 +293,16 @@ def test_a_failed_module_leaves_its_records_for_the_retry_and_the_user_deactivat
     assert response.json()["transfers"] == [
         {"module": "customer", "group": "customers", "toUserId": heir["id"], "count": 1}
     ]
-    assert response.json()["failed"] == [{"module": "sales", "group": "offers", "error": "sales is down"}]
+    # … and never the exception's text (a statement and its parameters could be in it).
+    assert response.json()["failed"] == [
+        {
+            "module": "sales",
+            "group": "offers",
+            "reason": "module_failed",
+            "message": "The module could not complete the hand-over; the error is in the log.",
+        }
+    ]
+    assert "sales is down" not in response.text
 
     user = client.get(f"/v1/dealerships/{dealership}/users/{leaver['id']}", headers=platform_admin_headers()).json()
     assert user["status"] == "deactivated"
@@ -583,8 +599,9 @@ def test_an_invitation_can_be_accepted_before_the_window_opens_but_no_session_is
 
 def test_the_session_user_keeps_its_pre_kan_200_shape(client, login):
     """The ticket's do-not-touch: `LoginResponse.user` (and `GET /auth/me`)
-    carries the fields it did before — the administration fields, the sites
-    and the derived `hasSignatureImage` are `UserRead`'s alone."""
+    carries the fields and the schema name it did before — the administration
+    fields, the sites and the derived `hasSignatureImage` are `UserAdminRead`'s
+    alone."""
 
     dealership = create_dealership(client)
     user = create_user(client, dealership)
@@ -696,7 +713,13 @@ def test_a_sister_betrieb_members_deals_are_theirs_and_go_to_a_colleague_who_act
     )
     assert refused.status_code == 422, refused.text
     [problem] = refused.json()["error"]["details"]["problems"]
-    assert problem.startswith("sales/offers: 1 of these records belong to another business")
+    assert (problem["module"], problem["group"], problem["reason"], problem["count"]) == (
+        "sales",
+        "offers",
+        "colleague_cannot_act_there",
+        1,
+    )
+    assert problem["message"].startswith("sales/offers: 1 of these records belong to another business")
     assert sister not in refused.text  # never names the other Betrieb (tests/test_user.py's rule)
     still = client.get(f"/v1/dealerships/{home}/users/{leaver['id']}", headers=platform_admin_headers()).json()
     assert still["status"] == "active"  # nothing changed: the manager chooses again
@@ -890,3 +913,35 @@ def test_the_expiry_job_retries_a_failed_hand_over_and_reconciliation_reports_it
     second = [r for r in caplog.records if r.name == daily_jobs.__name__ and "due=" in r.getMessage()][-1]
     assert second.levelno == logging.INFO and "retried=1" in second.getMessage()
     assert sales_reconciliation.run(db_session).orphans_found == 0
+
+
+def test_a_termination_cannot_keep_the_user_active_and_a_reactivation_may_set_a_new_window(client, login):
+    """A PATCH that ends the employment is the deactivation step whatever
+    status it carries beside it (409); an expired user comes back with a new
+    `validTo`, not with the old one that would expire them again that night."""
+
+    dealership = create_dealership(client)
+    create_user(client, dealership)
+    user = create_user(client, dealership, isDealerManager=False)
+    login.accept_invitation(user)
+    url = f"/v1/dealerships/{dealership}/users/{user['id']}"
+    for body in (
+        {"employmentStatus": "terminated", "status": "active"},
+        {"employmentStatus": "terminated", "status": "suspended"},
+    ):
+        refused = client.patch(url, json=body, headers={**platform_admin_headers(), "If-Match": "2"})
+        assert refused.status_code == 409, (body, refused.text)
+        assert refused.json()["error"]["details"]["reason"] == "use_deactivate_endpoint"
+
+    yesterday = dt.datetime.now(ZoneInfo("Europe/Zurich")).date() - dt.timedelta(days=1)
+    expired = client.patch(url, json={"validTo": str(yesterday)}, headers={**platform_admin_headers(), "If-Match": "2"})
+    assert expired.status_code == 200, expired.text
+    assert deactivate(client, dealership, user, if_match=3).status_code == 200
+    back = client.patch(
+        url,
+        json={"status": "active", "validTo": str(yesterday + dt.timedelta(days=90))},
+        headers={**platform_admin_headers(), "If-Match": "4"},
+    )
+    assert back.status_code == 200, back.text
+    assert back.json()["status"] == "active" and back.json()["validTo"] == str(yesterday + dt.timedelta(days=90))
+    assert login.login(user).status_code == 200

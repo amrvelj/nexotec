@@ -73,3 +73,27 @@ export function ownedGroupLabel(t: T, module: string, group: string): string {
 export function userDisplayName(user: { firstName: string; lastName: string }): string {
   return `${user.firstName} ${user.lastName}`.trim()
 }
+
+/**
+ * KAN-200 — an API refusal with a stable `details.reason` reads in the UI
+ * language; one without keeps the API's text (KAN-398 decides the rule for
+ * those). `last_manager` is FR-A-13's refusal.
+ */
+export function refusalText(t: T, err: { message: string; details: Record<string, unknown> | null }): string {
+  const reason = err.details?.reason
+  if (reason === 'last_manager') return t('usersAdmin.errors.lastManager')
+  return err.message
+}
+
+const PROBLEM_REASONS = new Set(['undecided', 'decided_twice', 'not_owned', 'self', 'colleague_not_active', 'colleague_cannot_act_there'])
+
+/** One entry of a reassignment 422's `details.problems[]`, in the UI language. */
+export function reassignmentProblemText(t: T, entry: unknown): string {
+  if (typeof entry === 'string') return entry
+  const problem = entry as { module?: string; group?: string; reason?: string; message?: string; count?: number }
+  const what = problem.module && problem.group ? ownedGroupLabel(t, problem.module, problem.group) : ''
+  if (problem.reason && PROBLEM_REASONS.has(problem.reason)) {
+    return t(`usersAdmin.deactivate.problems.${problem.reason}`, { what, count: problem.count ?? 0 })
+  }
+  return problem.message ?? t('common.requestFailed')
+}

@@ -160,7 +160,8 @@ def _assert_not_last_manager(
         raise BadRequestError(
             message
             or "This dealership must always have at least one active manager — "
-            "cannot remove or deactivate its last one."
+            "cannot remove or deactivate its last one.",
+            details={"reason": "last_manager"},  # the SPA's key; never the sister Betrieb (KAN-98)
         )
 
 
@@ -503,7 +504,9 @@ def update_user(
     # deactivation step (FR-A-37), so a PATCH that would deactivate, by
     # status or by a termination, is sent there instead (409).
     if changes.get("employment_status") == EmploymentStatus.TERMINATED and user.status != UserStatus.DEACTIVATED:
-        changes.setdefault("status", UserStatus.DEACTIVATED)
+        # Whatever status the body carries beside it: a termination that keeps
+        # the user active or suspended would skip the reassignment step.
+        changes["status"] = UserStatus.DEACTIVATED
     if (
         changes.get("status") == UserStatus.DEACTIVATED
         and user.status != UserStatus.DEACTIVATED

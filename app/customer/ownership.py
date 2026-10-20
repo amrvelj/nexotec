@@ -27,7 +27,7 @@ from sqlalchemy.orm import Session
 from app.core.audit import record_audit_event
 from app.core.base import utcnow
 from app.core.outbox import OutboxEvent, publish
-from app.core.ownership import OwnedGroup, OwnershipTransfer
+from app.core.ownership import OwnedGroup, OwnershipRefusal, OwnershipTransfer
 from app.customer.models.customer import Customer, CustomerLifecycleStatus
 from app.customer.services.customer import _customer_label_payload
 
@@ -51,7 +51,7 @@ class CustomerOwnershipProvider:
             return []
         return [OwnedGroup(module=MODULE, group=GROUP_CUSTOMERS, count=int(count))]
 
-    def refuses(self, db: Session, *, from_user_id: uuid.UUID, transfer: OwnershipTransfer) -> str | None:
+    def refuses(self, db: Session, *, from_user_id: uuid.UUID, transfer: OwnershipTransfer) -> OwnershipRefusal | None:
         return None
 
     def transfer(
