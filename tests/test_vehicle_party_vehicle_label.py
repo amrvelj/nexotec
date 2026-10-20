@@ -328,7 +328,8 @@ def test_the_worker_heartbeat_records_the_label_age(client, db_session, monkeypa
 
     worker._heartbeat(db_session, worker.InProcessTransport(lambda: db_session))
 
-    assert len(recorded) == 1 and recorded[0][0] == "vehicle_party.vehicle" and recorded[0][1] is not None
+    vehicle_party = [age for label, age in recorded if label == "vehicle_party.vehicle"]
+    assert len(vehicle_party) == 1 and vehicle_party[0] is not None
 
 
 # --- scheduling --------------------------------------------------------------------------

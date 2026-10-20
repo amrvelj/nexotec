@@ -118,7 +118,7 @@ additionally emits five alarm gauges every 30s once metrics are configured:
 | `dms.outbox.lag_seconds` | Age of the oldest still-pending outbox message | fires if > 300s |
 | `dms.outbox.dead_letter_count` | Messages that exhausted all retry attempts | fires if > 0 |
 | `dms.consumer.lag_seconds{consumer_name=...}` | Time since a consumer last processed anything | fires if > 300s, per consumer |
-| `dms.label.age_seconds{label=...}` | Age of the stalest denormalised cross-context label, per label (KAN-84: `vehicle_party.vehicle`, refreshed by the nightly `customer.vehicle_party_labels` job) | fires if > 93600s (26h), per label |
+| `dms.label.age_seconds{label=...}` | Age of the stalest denormalised cross-context label, per label (KAN-84: `vehicle_party.vehicle`, refreshed by the nightly `customer.vehicle_party_labels` job; KAN-403: `customer.advisor`, refreshed by `customer.advisor_labels` — an advisor id that names no user is never restamped and keeps this one firing: look for it in `customer.advisor_id` before suspecting the job; a customer a writer held when the job passed keeps it firing until the next night) | fires if > 93600s (26h), per label |
 | `dms.reconciliation.age_seconds` | Seconds since the nightly reconciliation (`reconciliation.run_all`) last completed a run; unset until it has run once | fires if > 93600s (26h), or if absent once the worker has run a day |
 
 Consumers are registered in `app/worker.py::register_handlers` — that

@@ -149,7 +149,9 @@ def test_a_tag_patch_without_a_race_still_replaces_the_tags(db_session):
 def test_an_integrity_failure_that_is_not_the_tag_constraint_is_not_called_a_tag_collision(engine, db_session):
     """The KAN-390 guard names `customer_tag_exists` only for
     uq_customer_tag_customer_id_tag; any other constraint the flush trips
-    (here a NOT NULL column the PATCH clears) keeps the generic 409."""
+    (here a NOT NULL column the PATCH clears) keeps the generic 409. Since
+    KAN-394 the schema refuses that null before the service, so the body is
+    built with model_construct to reach the guard all the same."""
 
     _postgres_only(engine)
     group_id = uuid.uuid4()
@@ -159,7 +161,7 @@ def test_an_integrity_failure_that_is_not_the_tag_constraint_is_not_called_a_tag
     with pytest.raises(ConflictError) as refused:
         loaded = customer_service.get_customer_or_404(db_session, group_id, t.id)
         customer_service.update_customer(
-            db_session, customer=loaded, data=CustomerUpdate(newsletter=None), actor_id=uuid.uuid4(),
+            db_session, customer=loaded, data=CustomerUpdate.model_construct(newsletter=None), actor_id=uuid.uuid4(),
             dealership_id=uuid.uuid4(),
         )
 
