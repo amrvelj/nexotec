@@ -71,6 +71,7 @@ from app.platform.public import (
     get_group_display_labels,
     get_user_or_404,
     list_active_users,
+    may_own_open_records,
 )
 from app.vehicle.public import VehicleSummary, get_vehicle_mdm_or_404, get_vehicle_summaries
 
@@ -268,7 +269,11 @@ def _resolve_advisor_label(db: Session, *, dealership_id: uuid.UUID, user_id: uu
     """Resolve a User id to its `First Last` label for the P-2 denormalised
     `advisor_label` column. Scoped to the acting dealership: users are
     dealership-owned and there is no group-wide user directory, so "the
-    advisor" is a user of the dealership doing the assignment.
+    advisor" is a user of the dealership doing the assignment. And one who
+    may own an open record (`may_own_open_records`, the status rule Sales'
+    responsible seller uses — KAN-410): a suspended or deactivated user
+    advises no customer, since the deactivation step hands a leaver's
+    customers over (FR-A-37, D-A-35) and a write must not put them back.
     """
 
     try:
@@ -277,6 +282,10 @@ def _resolve_advisor_label(db: Session, *, dealership_id: uuid.UUID, user_id: uu
         raise UnprocessableEntityError(
             "advisorId is not a user of your dealership.", details={"advisorId": str(user_id)}
         ) from exc
+    if not may_own_open_records(user):
+        raise UnprocessableEntityError(
+            "advisorId is not an active user of your dealership.", details={"advisorId": str(user_id)}
+        )
     return f"{user.first_name} {user.last_name}".strip()
 
 

@@ -784,7 +784,7 @@ def revoke_user_sessions(
     suspends the user instead, which ends the sessions the same way."""
 
     require_tenant_match(dealership_id, principal)
-    user = user_service.get_user_or_404(db, dealership_id, user_id)
+    user = user_service.get_user_for_update_or_404(db, dealership_id, user_id)
     user_service.assert_may_touch(user=user, actor_roles=principal.roles)
     ended = auth_sessions.revoke_all_for_user(db, user_id=user.id, reason="platform_staff")
     auth_events.record(
@@ -816,7 +816,7 @@ def remove_user_mfa(
     notification hangs off it; it is otherwise an account-takeover path."""
 
     require_tenant_match(dealership_id, principal)
-    user = user_service.get_user_or_404(db, dealership_id, user_id)
+    user = user_service.get_user_for_update_or_404(db, dealership_id, user_id)
     user_service.assert_may_touch(user=user, actor_roles=principal.roles)
     mfa.remove_all_factors(db, user=user, actor_id=principal.user_id, ip_address=client_ip(request))
     # The user's sessions proved a factor that no longer exists; they end,
