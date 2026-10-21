@@ -224,8 +224,8 @@ weekly. -->
   no user is left alone, and its stale stamp shows in `dms.label.age_seconds{label="customer.advisor"}`.
   The job reads each batch `FOR NO KEY UPDATE SKIP LOCKED`: a customer another writer holds waits for
   the next night, never for the writer — waiting could deadlock against a merge re-pointing earlier
-  merges (KAN-383), which locks X after D. **Not built:** the same refresh for Sales'
-  responsible-seller label (`owner_label`, KAN-200's columns) — KAN-404.
+  merges (KAN-383), which locks X after D. Sales' responsible-seller label (`owner_label`) has the
+  same refresh, `sales.owner_labels` (KAN-404).
 
 ## Screens
 

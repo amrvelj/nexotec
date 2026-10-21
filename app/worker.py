@@ -55,6 +55,7 @@ from app.ownership_registry import register_ownership_providers
 from app.platform.daily_jobs import run_daily_user_expiry
 from app.reconciliation_runner import run_all_daily
 from app.sales.consumers import handle_stock_item_added_message, handle_stock_item_purchased_message
+from app.sales.public import oldest_owner_label_age_seconds, refresh_owner_labels
 from app.vehicle.public import run_daily_plate_lookup_purge
 
 logger = logging.getLogger("app.worker")
@@ -166,6 +167,8 @@ def _heartbeat(db, transport: InProcessTransport) -> None:
     record_label_age_seconds("vehicle_party.vehicle", vehicle_party_label_age)
     advisor_label_age = oldest_advisor_label_age_seconds(db)
     record_label_age_seconds("customer.advisor", advisor_label_age)
+    owner_label_age = oldest_owner_label_age_seconds(db)
+    record_label_age_seconds("sales.owner", owner_label_age)
 
     logger.info(
         "outbox heartbeat",
@@ -176,6 +179,7 @@ def _heartbeat(db, transport: InProcessTransport) -> None:
             "reconciliationAgeSeconds": reconciliation_age,
             "vehiclePartyLabelAgeSeconds": vehicle_party_label_age,
             "advisorLabelAgeSeconds": advisor_label_age,
+            "ownerLabelAgeSeconds": owner_label_age,
         },
     )
 
@@ -190,6 +194,11 @@ def _refresh_advisor_labels(db: Session) -> None:
     logger.info("customer.advisor_labels: %d customer(s) relabelled", changed)
 
 
+def _refresh_owner_labels(db: Session) -> None:
+    changed = refresh_owner_labels(db)
+    logger.info("sales.owner_labels: %d offer, contract or deal row(s) relabelled", changed)
+
+
 def register_ownership() -> None:
     """KAN-200: the expiry job hands a leaver's records over through the
     ownership registry, which the composition root fills."""
@@ -198,7 +207,7 @@ def register_ownership() -> None:
 
 
 def register_daily_jobs() -> None:
-    """Eight daily jobs, run in registration order once per day on this
+    """Nine daily jobs, run in registration order once per day on this
     process (app.core.daily_scheduler):
 
     1. ``integration.daily_jobs`` — WP-6's per-tenant catalogue delta sync
@@ -214,7 +223,11 @@ def register_daily_jobs() -> None:
        customer's advisor through app.platform.public, so a renamed user's
        new name reaches the customer cards within a day. A deactivated
        user's label is kept as it was.
-    4. ``reconciliation.run_all`` — the nightly cross-context reconciliation
+    4. ``sales.owner_labels`` — KAN-404: the same for the responsible
+       seller's name on every offer, contract and deal row (KAN-200's
+       ``owner_label``), so a renamed seller's new name reaches the Sales grid
+       and the documents within a day.
+    5. ``reconciliation.run_all`` — the nightly cross-context reconciliation
        (P-10, CLAUDE.md rule 10). There are no cross-context foreign keys
        anywhere in this codebase, so the database cannot detect a dangling
        reference; this job walking every context's ReferenceCheck list is
@@ -222,20 +235,20 @@ def register_daily_jobs() -> None:
        reconciles the state the catalogue delta just refreshed, not a
        half-synced one; a finding is logged and swallowed (see
        app.reconciliation_runner.run_all_daily), never re-run the same day.
-    5. ``inventory.orphaned_reservations.release`` — KAN-122: Stock frees a
+    6. ``inventory.orphaned_reservations.release`` — KAN-122: Stock frees a
        car whose reservation no longer has a signed contract behind it
        (app.inventory.daily_jobs). A repair, so not part of the read-only
        reconciliation; after it, so that, when reconciliation ran first that
        day, a reservation naming a missing contract is recorded as a
        dangling reference before it is released.
-    6. ``vehicle.plate_lookup_cache.purge`` — deletes plate-lookup cache rows
+    7. ``vehicle.plate_lookup_cache.purge`` — deletes plate-lookup cache rows
        past their 30-day TTL (KAN-42, FR-C-02; revDSG data minimisation).
-    7. ``core.idempotency_records.purge`` — deletes the Idempotency-Key
+    8. ``core.idempotency_records.purge`` — deletes the Idempotency-Key
        records of HTTP requests older than 24 hours (KAN-119): a retry comes
        within minutes, and a stored response can carry personal data. The
        records a context keeps under its own path (inventory's
        ``inventory.reserve:<item>``) are left alone.
-    8. ``platform.user_expiry`` — KAN-200 (FR-A-12): a user whose
+    9. ``platform.user_expiry`` — KAN-200 (FR-A-12): a user whose
        ``valid_to`` has passed is deactivated and their open records released
        to the modules' queues; a release a module refused is retried for 30
        days (a repair of the owning step, after reconciliation like Stock's
@@ -245,11 +258,12 @@ def register_daily_jobs() -> None:
     register_daily_job("integration.daily_jobs", run_daily_integration_jobs)
     register_daily_job("customer.vehicle_party_labels", _refresh_vehicle_party_labels)
     register_daily_job("customer.advisor_labels", _refresh_advisor_labels)
+    register_daily_job("sales.owner_labels", _refresh_owner_labels)
     register_daily_job("reconciliation.run_all", run_all_daily)
     register_daily_job("inventory.orphaned_reservations.release", run_daily_reservation_sweep)
     register_daily_job("vehicle.plate_lookup_cache.purge", run_daily_plate_lookup_purge)
     register_daily_job("core.idempotency_records.purge", run_daily_idempotency_record_purge)
-    # 8. KAN-200 (FR-A-12): a user whose `valid_to` has passed is deactivated
+    # 9. KAN-200 (FR-A-12): a user whose `valid_to` has passed is deactivated
     #    and their open records released to the modules' queues.
     register_daily_job("platform.user_expiry", run_daily_user_expiry)
 

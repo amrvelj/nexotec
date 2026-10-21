@@ -117,8 +117,13 @@ ADR-057, ADR-063, ADR-065, ADR-083 and KAN-66/68/71. Verified against main@7a90a
   is Sales' ownership provider for the deactivation step (`.claude/rules/platform.md`, D-A-35):
   it counts the user's open offers and pending contracts in every Betrieb and refuses a colleague
   who cannot act in one of them. Nightly reconciliation reports an open deal whose owner is a
-  deactivated user and an owner id naming no user. The label is written once and not refreshed
-  on a rename yet (KAN-404; KAN-403 refreshes the customer's advisor label only).
+  deactivated user and an owner id naming no user. The label follows a rename within a day
+  (KAN-404): the nightly `sales.owner_labels` job (`app/sales/services/owner_label.py`, after
+  `customer.advisor_labels`) re-reads every seller's name on offers, contracts and deal rows
+  through `platform.public.get_user_display_labels`, with the advisor job's rules — `version` not
+  bumped, a deactivated user's label kept, an id naming no user left alone, each batch
+  `FOR NO KEY UPDATE SKIP LOCKED` one table at a time (offer → contract → deal); gauge
+  `dms.label.age_seconds{label="sales.owner"}`.
 
 ## Price and VAT (ADR-057)
 
