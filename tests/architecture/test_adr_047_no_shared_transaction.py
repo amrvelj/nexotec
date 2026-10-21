@@ -265,6 +265,8 @@ _READS = {
     "app.platform.public.list_active_users",
     "app.platform.public.list_dealer_manager_emails",
     "app.platform.public.list_user_dealership_ids",
+    # KAN-410: the status rule for who may own an open record; reads an attribute only.
+    "app.platform.public.may_own_open_records",
     # Builds a PDF from content Sales supplies; persists nothing.
     "app.platform.public.render_document",
     # KAN-122: Stock's reservation sweep reads its contracts' statuses, on a
