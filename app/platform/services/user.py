@@ -284,7 +284,8 @@ def get_user_for_update_or_404(db: Session, dealership_id: uuid.UUID, user_id: u
     version bump) would deadlock against one that did the opposite. NO KEY:
     a row that only references the user (a session, a token) is not held up —
     except while an e-mail change holds it (an update of a unique column takes
-    the full lock; KAN-411);
+    the full lock), which is why every writer of such a row takes this user
+    row first (KAN-411) and waits there instead;
     a login itself takes this lock before it writes the credential and
     `last_login_at` (`identity.lock_user_for_login`, KAN-200). The same pattern as `get_dealership_for_update_or_404`."""
 
@@ -309,6 +310,25 @@ def get_own_user_or_404(db: Session, user_id: uuid.UUID) -> User:
     """
 
     user = db.get(User, user_id)
+    if user is None:
+        raise NotFoundError(f"User {user_id} was not found.")
+    return user
+
+
+def get_own_user_for_update_or_404(db: Session, user_id: uuid.UUID) -> User:
+    """The caller's own row (`get_own_user_or_404`) locked FOR NO KEY UPDATE
+    and re-read — for every account route that writes a row the user owns:
+    a second factor, a recovery code, a passkey, a passkey-registration
+    token or the user's sessions (KAN-411). The user row comes first on every
+    such path, as on the login (`identity.lock_user_for_login`) and on every
+    user-administration route (`get_user_for_update_or_404`), so the one
+    order user row → token → factor → session → credential holds and two
+    requests for one user run one after the other instead of deadlocking."""
+
+    db.flush()
+    user = db.scalar(
+        select(User).where(User.id == user_id).with_for_update(key_share=True).execution_options(populate_existing=True)
+    )
     if user is None:
         raise NotFoundError(f"User {user_id} was not found.")
     return user

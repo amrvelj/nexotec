@@ -411,6 +411,18 @@ def request_password_reset(db: Session, *, email: str, ip_address: str) -> Pendi
     mail itself leaves after the response through `send_pending_mail`."""
 
     user = find_user_by_email(db, email)
+    if user is not None:
+        # The user row first (KAN-411), before `issue` ends the live reset
+        # token and inserts the new one: an e-mail change holds the user row
+        # and then ends the user's tokens (KAN-400), so a request that held
+        # the token first deadlocked against it. Re-read under the lock, the
+        # address and the status are the committed ones — an address changed
+        # meanwhile no longer names this user, and is answered like any
+        # other unknown one. Only a found user is locked: the lock waits only
+        # behind a write of that same user, never on the uncontended path.
+        user = lock_user_for_login(db, user)
+        if user.email.lower() != email.strip().lower():
+            user = None
     if user is None or user.status in _INACTIVE:
         # Same work, nowhere to send: the hash and the text a real request
         # builds, and the same single event.
@@ -509,7 +521,8 @@ def accept_invitation(db: Session, *, raw_token: str, password: str, ip_address:
 
 def lock_user_for_login(db: Session, user: User) -> User:
     """The user row locked FOR NO KEY UPDATE and re-read, before a login
-    writes the credential or the user row. KAN-200 made a completed login
+    writes the credential or the user row — and before a reset request
+    issues its token (KAN-411). KAN-200 made a completed login
     write the user row (`last_login_at`) beside the credential's counters;
     the front door (KAN-400) and every user-administration route (KAN-380)
     lock the user row first and write the credential after, so a login that
