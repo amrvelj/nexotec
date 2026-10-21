@@ -84,8 +84,9 @@ weekly. -->
   Betrieb who is active or invited (`platform.public.may_own_open_records`, the status rule of
   Sales' responsible seller): a suspended or deactivated one is 422 `advisorId` (KAN-410). The
   check runs only when the advisor changes, so a customer still advised by a leaver stays
-  editable. A sister-Betrieb member is not an advisor there (Sales' seller may be) — Anto's call
-  on KAN-410. **D-25** — the list offers Export and Print; there
+  editable. **Open with Anto (KAN-410):** the advisor must still be homed in the acting Betrieb
+  (`get_user_or_404`), while Sales' seller may also be an active member from a sister Betrieb
+  (`get_user_acting_in`) — whether the advisor should be too is undecided; do not widen it. **D-25** — the list offers Export and Print; there
   is **no bulk anonymise**. **D-26** — the field is `creditBlock`, with `creditBlockedAt`.
 - **Legal form** is one of six codes (`ag`, `gmbh`, `einzelfirma`, `verein`, `genossenschaft`,
   `weitere`). Labels are meant to be localised; today they are hardcoded German in

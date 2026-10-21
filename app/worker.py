@@ -226,7 +226,7 @@ def register_daily_jobs() -> None:
     4. ``sales.owner_labels`` — KAN-404: the same for the responsible
        seller's name on every offer, contract and deal row (KAN-200's
        ``owner_label``), so a renamed seller's new name reaches the Sales grid
-       and the documents within a day.
+       within a day.
     5. ``reconciliation.run_all`` — the nightly cross-context reconciliation
        (P-10, CLAUDE.md rule 10). There are no cross-context foreign keys
        anywhere in this codebase, so the database cannot detect a dangling

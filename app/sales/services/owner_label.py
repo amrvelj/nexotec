@@ -3,9 +3,8 @@
 `owner_label` on `sales_offer`, `sales_contract` and `sales_deal` is rule 2's
 copy of a platform user's `First Last` beside `owner_user_id` (KAN-200),
 written when the seller is set or handed over. A user renamed later would
-otherwise keep the old name on every open deal, on the Sales grid's
-"Verantwortlich" column and on the documents, for as long as the record
-lives. This job re-reads the names through `app.platform.public` (no join
+otherwise keep the old name on every open deal and on the Sales grid's
+"Verantwortlich" column, for as long as the record lives. This job re-reads the names through `app.platform.public` (no join
 into platform's tables) and commits per batch in this context alone
 (ADR-047) — the same rules as the customer's advisor label (KAN-403,
 `app/customer/services/advisor_label.py`).

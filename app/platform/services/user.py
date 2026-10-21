@@ -321,9 +321,10 @@ def get_own_user_for_update_or_404(db: Session, user_id: uuid.UUID) -> User:
     a second factor, a recovery code, a passkey, a passkey-registration
     token or the user's sessions (KAN-411). The user row comes first on every
     such path, as on the login (`identity.lock_user_for_login`) and on every
-    user-administration route (`get_user_for_update_or_404`), so the one
-    order user row → token → factor → session → credential holds and two
-    requests for one user run one after the other instead of deadlocking."""
+    user-administration route (`get_user_for_update_or_404`): every writer of
+    the user's auth rows takes the user row first, so two requests for one
+    user run one after the other instead of deadlocking, whatever order each
+    then writes its child rows in."""
 
     db.flush()
     user = db.scalar(
@@ -858,7 +859,7 @@ def may_own_open_records(user: User) -> bool:
     silently with the deactivated user"), and no write may put them back.
     The caller judges the dealership scope."""
 
-    return user.status in _ACTIVE_USER_STATUSES
+    return is_active_user(user)
 
 
 def _assert_line_manager(db: Session, *, user: User, changes: dict[str, Any]) -> None:
