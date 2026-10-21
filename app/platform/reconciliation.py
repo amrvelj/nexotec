@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.core.reconciliation import ReconciliationRun, ReferenceCheck, StateCheck, run_reconciliation
 from app.platform.models.auth_event import AuthEvent
 from app.platform.models.auth_token import AuthToken
+from app.platform.models.connected_account import UserConnectedAccount
 from app.platform.models.credential import Credential
 from app.platform.models.dealership import DealerGroup, Dealership, Location
 from app.platform.models.dealership_auth_config import DealershipAuthConfig
@@ -46,6 +47,7 @@ ACTOR_TABLES = (
     DealershipAuthConfig,
     AuthToken,  # created_by: the issuer (KAN-196)
     AuthEvent,  # actor_id (KAN-196)
+    UserConnectedAccount,  # created_by / updated_by / revoked_by (KAN-201)
 )
 
 CHECKS: list[ReferenceCheck | StateCheck] = [*actor_reference_checks(*ACTOR_TABLES)]

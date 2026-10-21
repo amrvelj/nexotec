@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Alert, Badge, Button, Card, Code, Group, Stack, Table, Text, TextInput, Title } from '@mantine/core'
+import { Alert, Badge, Button, Card, Code, Group, Stack, Table, Text, TextInput } from '@mantine/core'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { KeyRound, ShieldCheck, Smartphone, Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -21,14 +21,15 @@ const MFA_KEY = ['auth', 'mfa'] as const
 const SESSIONS_KEY = ['auth', 'sessions'] as const
 
 /**
- * My account › Security (KAN-196; D-A-09, D-A-36, A-13, FR-AU-17): the
+ * My account › Security (KAN-196; D-A-09, D-A-36, A-13, FR-AU-17; a tab of
+ * My account since KAN-201): the
  * user's own second factors — an authenticator app with its recovery codes,
  * passkeys — and the sessions open on their account. The one screen a user
  * with `mfaEnrolmentRequired` can reach until a factor is enrolled.
  */
 export function AccountSecurityPage() {
   const { t } = useTranslation()
-  useSetBreadcrumb([t('auth.security.breadcrumb'), t('auth.security.title')])
+  useSetBreadcrumb([t('account.title'), t('account.tabs.security')])
   const { mfaEnrolmentRequired, refresh } = useAuth()
   const queryClient = useQueryClient()
   const status = useQuery({ queryKey: MFA_KEY, queryFn: () => api.get<MfaStatusRead>('/auth/mfa') })
@@ -112,9 +113,7 @@ export function AccountSecurityPage() {
   const data = status.data
 
   return (
-    <Stack gap="lg" p="md" maw={880}>
-      <Title order={2}>{t('auth.security.title')}</Title>
-
+    <Stack gap="lg">
       {mfaEnrolmentRequired && (
         <Alert color="yellow" icon={<ShieldCheck size={18} />}>
           {t('auth.security.enrolmentRequired')}
@@ -287,6 +286,7 @@ export function AccountSecurityPage() {
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>{t('auth.security.sessions.device')}</Table.Th>
+                <Table.Th>{t('auth.security.sessions.ip')}</Table.Th>
                 <Table.Th>{t('auth.security.sessions.lastSeen')}</Table.Th>
                 <Table.Th>{t('auth.security.sessions.expires')}</Table.Th>
                 <Table.Th />
@@ -298,11 +298,12 @@ export function AccountSecurityPage() {
                   <Table.Td>
                     <Group gap="xs">
                       <Text fz="sm" lineClamp={1} style={{ maxWidth: 320 }}>
-                        {session.deviceSummary || session.ipAddress}
+                        {session.deviceSummary || '—'}
                       </Text>
                       {session.current && <Badge size="sm">{t('auth.security.sessions.current')}</Badge>}
                     </Group>
                   </Table.Td>
+                  <Table.Td>{session.ipAddress || '—'}</Table.Td>
                   <Table.Td>{formatDateTime(session.lastSeenAt)}</Table.Td>
                   <Table.Td>{formatDateTime(session.absoluteExpiresAt)}</Table.Td>
                   <Table.Td align="right">

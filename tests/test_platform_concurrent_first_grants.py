@@ -203,6 +203,9 @@ def test_a_membership_grant_racing_a_membership_end_is_a_201_and_a_204_never_a_d
         "delete_user_signature",
         # KAN-200: the re-sent invitation stamps `invited_at` on the user row.
         "reissue_invitation",
+        # KAN-201: a manager's revoke of a user's connected account takes the
+        # user row first like the deactivation, which revokes them all.
+        "revoke_user_connected_account",
     ],
 )
 def test_every_user_administration_write_takes_the_user_row_lock_first(route):
@@ -215,3 +218,16 @@ def test_every_user_administration_write_takes_the_user_row_lock_first(route):
     assert "get_user_for_update_or_404(" in source
     assert "get_user_or_404(" not in source
 
+
+
+@pytest.mark.parametrize("route", ["update_me", "put_my_signature", "delete_my_signature", "revoke_my_connected_account"])
+def test_every_my_account_write_takes_the_callers_own_row_first(route):
+    """KAN-201: My account's writes lock the caller's row first (KAN-380's
+    order) — the profile and the signature write it, a revoke stands with
+    the deactivation that holds it."""
+
+    from app.platform.api import me as me_api
+
+    source = inspect.getsource(getattr(me_api, route))
+    assert "get_own_user_for_update_or_404(" in source
+    assert "get_own_user_or_404(" not in source

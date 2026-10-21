@@ -48,7 +48,9 @@ as any change to what it states. -->
   and that gate only on a route whose path carries `{category}` (KAN-199),
   every internal idempotency key in the reserved `<context>.<action>:` grammar clients are
   refused (KAN-264), every `created_by`/`updated_by` column reconciled against `user.id`
-  (KAN-243), and the customer-group predicate used only by reconciliation (KAN-259).
+  (KAN-243), the customer-group predicate used only by reconciliation (KAN-259), and a
+  connected account never read by the identity and session layer, its model named only by its
+  service (KAN-201, FR-AU-23).
 - **A test that gates an exit criterion must never skip silently.** The one accepted skip is a
   Postgres-only test on the SQLite fast lane (`skipif(not os.environ.get("DMS_TEST_DATABASE_URL"))`,
   as in `test_customer_outbox_idempotency.py`), because CI's gating lane always runs Postgres.

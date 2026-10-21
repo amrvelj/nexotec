@@ -29,6 +29,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TenantScopedMixin, TimestampMixin, VersionedMixin
 from app.core.enum_type import StoredEnum
+from app.core.i18n import SwissLanguage
 from app.core.types import GUID, UTCDateTime
 from app.db import Base
 
@@ -137,6 +138,19 @@ class User(PrimaryKeyMixin, TenantScopedMixin, VersionedMixin, TimestampMixin, B
     # The signature image's key in the object store (app.core.object_store),
     # never the image: `dealerships/<dealership>/users/<user>/signature`.
     signature_image_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    # --- KAN-201 (My account; Users → Personal settings) --------------------
+    # The language of the documents this user authors, where a document has
+    # no customer language of its own; NULL = the Betrieb's
+    # `default_correspondence_language`. Not the UI language (a preference,
+    # scope `ui`), and never the customer's correspondence language.
+    correspondence_language: Mapped[SwissLanguage | None] = mapped_column(
+        StoredEnum(SwissLanguage, length=8), nullable=True
+    )
+    # The signature block: the plain-text lines under the user's name on a
+    # document or a mail they author (title, department, phone) — the image
+    # is `signature_image_ref` above.
+    signature_block: Mapped[str | None] = mapped_column(String(1000), nullable=True)
 
     @property
     def dealership_id(self) -> uuid.UUID:

@@ -20,6 +20,14 @@ export type UserStatus = Schemas['UserStatus']
 export type UserRead = Schemas['UserRead']
 // KAN-200: the Users screen's read — the session's `UserRead` keeps its pre-KAN-200 shape.
 export type UserAdminRead = Schemas['UserAdminRead']
+// KAN-201: My account — the caller's own record and connected accounts.
+export type MeRead = Schemas['MeRead']
+export type MeUpdate = Schemas['MeUpdate']
+export type ConnectedAccountRead = Schemas['ConnectedAccountRead']
+export type ConnectedAccountListRead = Schemas['ConnectedAccountListRead']
+// The manager's narrower read: provider, scopes, status (D-A-15).
+export type ConnectedAccountManagerRead = Schemas['ConnectedAccountManagerRead']
+export type ConnectedAccountManagerListRead = Schemas['ConnectedAccountManagerListRead']
 export type DealershipMembershipSummary = Schemas['DealershipMembershipSummary']
 export type LoginResponse = Schemas['LoginResponse']
 // KAN-196 — the identity front door and My account › Security

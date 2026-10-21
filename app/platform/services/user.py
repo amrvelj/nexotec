@@ -27,7 +27,7 @@ from app.platform.models.credential import Credential
 from app.platform.models.dealership_membership import DealershipMembership
 from app.platform.models.user import EmploymentStatus, User, UserStatus
 from app.platform.schemas.user import UserAdminRead, UserCreate, UserUpdate
-from app.platform.services import auth_events, auth_sessions, text_delegation, user_location
+from app.platform.services import auth_events, auth_sessions, connected_account, text_delegation, user_location
 
 # access_roles/is_dealer_manager are audited alongside role/status even
 # though the spec text only says "role and status" — they gate
@@ -293,6 +293,20 @@ def get_user_for_update_or_404(db: Session, dealership_id: uuid.UUID, user_id: u
         .where(User.id == user_id, User.tenant_id == dealership_id)
         .with_for_update(key_share=True)
         .execution_options(populate_existing=True)
+    )
+    if user is None:
+        raise NotFoundError(f"User {user_id} was not found.")
+    return user
+
+
+def get_own_user_for_update_or_404(db: Session, user_id: uuid.UUID) -> User:
+    """The caller's own row, locked FOR NO KEY UPDATE and re-read — My
+    account's writes (KAN-201) take the user row first like every other
+    writer of it (KAN-380). Dealership-agnostic for the reason
+    `get_own_user_or_404` gives."""
+
+    user = db.scalar(
+        select(User).where(User.id == user_id).with_for_update(key_share=True).execution_options(populate_existing=True)
     )
     if user is None:
         raise NotFoundError(f"User {user_id} was not found.")
@@ -739,10 +753,16 @@ def update_user(
                 "A user with this email address already exists.", details={"email": changes.get("email")}
             ) from exc
         on_email_change(user, old_email)
+    revoked_grants: connected_account.RevokedGrants = []
     if "status" in after and user.status == UserStatus.DEACTIVATED:
         # FR-A-28: delegations end with deactivation — the terminal status,
         # not a suspension, which keeps them for the user's return.
         text_delegation.end_all(db, user=user, actor_id=actor_id, reason="deactivated")
+        # FR-AU-24 (KAN-201): deactivating a user revokes every connected
+        # account — a leaver's mailbox grant must not outlive the access.
+        revoked_grants = connected_account.revoke_all(
+            db, user=user, actor_id=actor_id, reason=connected_account.REASON_DEACTIVATED
+        )
     if "status" in after and user.status in (UserStatus.DEACTIVATED, UserStatus.SUSPENDED):
         # FR-AU-17 (KAN-196): a user who may no longer hold a session loses
         # every live one now, not when the cookie expires.
@@ -761,6 +781,9 @@ def update_user(
         raise ConflictError(
             "A user with this email address already exists.", details={"email": changes.get("email")}
         ) from exc
+    # FR-AU-24: the grants are ended in Nexotec with the status; the
+    # providers end them after the commit, never undoing it.
+    connected_account.end_at_providers(revoked_grants)
     db.refresh(user)
     return user
 

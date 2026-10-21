@@ -29,6 +29,7 @@ import type {
   UserUpdate,
 } from '../../api/types'
 import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
+import { UserConnectedAccountsSection } from './UserConnectedAccountsSection'
 import {
   GRANTABLE_ACCESS_ROLES,
   TEXT_CATEGORY_VALUES,
@@ -440,6 +441,15 @@ export function UserFormDialog({ opened, onClose, dealershipId, user, locations,
             }}
             clearable
           />
+
+          {editing && (
+            <>
+              <Text fw={600} size="sm">
+                {t('usersAdmin.form.sections.connectedAccounts')}
+              </Text>
+              <UserConnectedAccountsSection dealershipId={dealershipId} userId={user.id} />
+            </>
+          )}
         </Stack>
       </form>
     </FormDialog>
