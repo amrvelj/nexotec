@@ -304,8 +304,15 @@ def get_own_user_for_update_or_404(db: Session, user_id: uuid.UUID) -> User:
     """The caller's own row, locked FOR NO KEY UPDATE and re-read — My
     account's writes (KAN-201) take the user row first like every other
     writer of it (KAN-380). Dealership-agnostic for the reason
-    `get_own_user_or_404` gives."""
+    `get_own_user_or_404` gives. The account's security routes take it too,
+    before they write a row the user owns — a second factor, a recovery
+    code, a passkey, a passkey-registration token or the user's sessions
+    (KAN-411) — as the login (`identity.lock_user_for_login`) and every
+    user-administration route (`get_user_for_update_or_404`) do: two
+    requests for one user run one after the other instead of deadlocking,
+    whatever order each then writes its child rows in."""
 
+    db.flush()
     user = db.scalar(
         select(User).where(User.id == user_id).with_for_update(key_share=True).execution_options(populate_existing=True)
     )
@@ -324,26 +331,6 @@ def get_own_user_or_404(db: Session, user_id: uuid.UUID) -> User:
     """
 
     user = db.get(User, user_id)
-    if user is None:
-        raise NotFoundError(f"User {user_id} was not found.")
-    return user
-
-
-def get_own_user_for_update_or_404(db: Session, user_id: uuid.UUID) -> User:
-    """The caller's own row (`get_own_user_or_404`) locked FOR NO KEY UPDATE
-    and re-read — for every account route that writes a row the user owns:
-    a second factor, a recovery code, a passkey, a passkey-registration
-    token or the user's sessions (KAN-411). The user row comes first on every
-    such path, as on the login (`identity.lock_user_for_login`) and on every
-    user-administration route (`get_user_for_update_or_404`): every writer of
-    the user's auth rows takes the user row first, so two requests for one
-    user run one after the other instead of deadlocking, whatever order each
-    then writes its child rows in."""
-
-    db.flush()
-    user = db.scalar(
-        select(User).where(User.id == user_id).with_for_update(key_share=True).execution_options(populate_existing=True)
-    )
     if user is None:
         raise NotFoundError(f"User {user_id} was not found.")
     return user
