@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { useLocation } from 'react-router-dom'
 import i18n from '../i18n'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { ALL_ENTITLEMENTS, installFakeBackend } from '../test/fakeBackend'
@@ -69,9 +70,13 @@ function renderShell(
   ])
   return renderWithProviders(
     <DmsShell>
-      <div />
+      <Location />
     </DmsShell>,
   )
+}
+
+function Location() {
+  return <div data-testid="location">{useLocation().pathname}</div>
 }
 
 afterEach(async () => {
@@ -105,6 +110,15 @@ describe('DmsShell sidebar — every chrome string is translated (KAN-152)', () 
     await userEvent.click(within(nav).getByRole('button', { name: tr('shell.sidebar.accountMenu') }))
     expect(await screen.findByText(tr('shell.sidebar.language'))).toBeInTheDocument()
     expect(screen.getByText(tr('shell.sidebar.notificationsSoon'))).toBeInTheDocument()
+  })
+
+  it("the account menu's My account entry opens the profile tab (KAN-201)", async () => {
+    renderShell('de')
+    const nav = await screen.findByRole('navigation', { name: 'Hauptnavigation' })
+    await userEvent.click(within(nav).getByRole('button', { name: 'Kontomenü' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Mein Konto' }))
+
+    expect(await screen.findByTestId('location')).toHaveTextContent('/account/profile')
   })
 
   it('shows the Users entry to a non-manager too — hidden nav is not a permission (A-RULE-7, KAN-200)', async () => {

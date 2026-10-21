@@ -8,6 +8,10 @@ import { PasswordResetRequestPage } from './pages/PasswordResetRequestPage'
 import { PasswordResetConfirmPage } from './pages/PasswordResetConfirmPage'
 import { InvitationAcceptPage } from './pages/InvitationAcceptPage'
 import { AccountSecurityPage } from './pages/AccountSecurityPage'
+import { AccountConnectedAccountsPage } from './pages/account/AccountConnectedAccountsPage'
+import { AccountLayout } from './pages/account/AccountLayout'
+import { AccountProfilePage } from './pages/account/AccountProfilePage'
+import { AccountSignaturePage } from './pages/account/AccountSignaturePage'
 import { DashboardPage } from './pages/DashboardPage'
 import { CustomersListPage } from './pages/CustomersListPage'
 import { CustomerCreatePage } from './pages/CustomerCreatePage'
@@ -50,7 +54,14 @@ export default function App() {
           <Route path="/invitations/accept" element={<InvitationAcceptPage />} />
           <Route element={<ProtectedLayout />}>
             <Route path="/" element={<DashboardPage />} />
-            <Route path="/account/security" element={<AccountSecurityPage />} />
+            {/* KAN-201: My account — one route per tab. */}
+            <Route path="/account" element={<AccountLayout />}>
+              <Route index element={<Navigate to="/account/profile" replace />} />
+              <Route path="profile" element={<AccountProfilePage />} />
+              <Route path="security" element={<AccountSecurityPage />} />
+              <Route path="connected-accounts" element={<AccountConnectedAccountsPage />} />
+              <Route path="signature" element={<AccountSignaturePage />} />
+            </Route>
             <Route path="/customers" element={<CustomersListPage />} />
             <Route path="/customers/new" element={<CustomerCreatePage />} />
             <Route path="/customers/:id" element={<CustomerDetailPage />} />

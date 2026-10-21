@@ -173,4 +173,45 @@ describe('UserFormDialog (KAN-200)', () => {
     expect(backend.callsTo(/\/users\/u-1$/, 'PATCH')).toHaveLength(0) // nothing else changed
     expect(saved!.hasSignatureImage).toBe(true)
   })
+
+  it("shows a user's connected accounts to the manager and revokes one (KAN-201)", async () => {
+    const user = userEvent.setup()
+    // The manager's read: provider, scopes and status only (D-A-15).
+    const grant = { id: 'grant-1', provider: 'microsoft_365', scopes: ['Mail.Send'], status: 'active', version: 1 }
+    let revoked = false
+    const backend = installFakeBackend([
+      { method: 'GET', match: /\/users\/u-1\/text-delegations$/, handler: () => ({ categories: [], userVersion: 3 }) },
+      {
+        method: 'GET',
+        match: /\/users\/u-1\/connected-accounts$/,
+        handler: () => ({ items: [revoked ? { ...grant, status: 'revoked', version: 2 } : grant] }),
+      },
+      {
+        method: 'DELETE',
+        match: /\/users\/u-1\/connected-accounts\/grant-1$/,
+        handler: () => {
+          revoked = true
+          return { ...grant, status: 'revoked', version: 2 }
+        },
+      },
+    ])
+    renderWithProviders(
+      <UserFormDialog opened onClose={() => {}} dealershipId={DEALERSHIP} user={existing()} locations={LOCATIONS} colleagues={[COLLEAGUE]} selfId="u-9" onSaved={() => {}} />,
+    )
+    const dialog = within(await screen.findByRole('dialog'))
+    expect(dialog.getByText('Verbundene Konten')).toBeInTheDocument()
+    const row = (await dialog.findByText('Microsoft 365')).closest('tr') as HTMLElement
+    expect(dialog.queryByText('Konto')).not.toBeInTheDocument() // no address column for the manager
+    expect(dialog.queryByText('Zuletzt verwendet')).not.toBeInTheDocument()
+    await user.click(within(row).getByRole('button', { name: 'Trennen' }))
+    await user.click(within(row).getByRole('button', { name: 'Ja, trennen' }))
+
+    await waitFor(() => expect(backend.callsTo(/\/connected-accounts\/grant-1$/, 'DELETE')).toHaveLength(1))
+    const [call] = backend.callsTo(/\/connected-accounts\/grant-1$/, 'DELETE')
+    expect(call.pathname).toBe('/dealerships/dealership-1/users/u-1/connected-accounts/grant-1')
+    expect(call.headers.get('If-Match')).toBe('1')
+    expect(await dialog.findByText('Getrennt')).toBeInTheDocument()
+    // A revoke is not a save of the user being edited.
+    expect(backend.callsTo(/\/users\/u-1$/, 'PATCH')).toHaveLength(0)
+  })
 })

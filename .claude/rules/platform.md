@@ -66,11 +66,13 @@ main@046634d on 2026-10-17 (KAN-195: every present-tense claim checked against t
   listing shows a dealer manager only the sister dealerships they manage themselves.
   Every user-administration route in `app/platform/api/dealerships.py` that writes a user's
   memberships, text delegations or the user row (PATCH user, membership grant/end, both
-  manager-flag PUTs, delegation PUT/DELETE, and since KAN-200 the deactivation step, the
-  hand-over, the signature PUT/DELETE and the invitation re-send) loads the user with
+  manager-flag PUTs, delegation PUT/DELETE, since KAN-200 the deactivation step, the
+  hand-over, the signature PUT/DELETE and the invitation re-send, since KAN-201 the manager's
+  revoke of a connected account; My account's own writes take the caller's row the same way,
+  pinned by their own source test) loads the user with
   `user_service.get_user_for_update_or_404` (FOR NO KEY UPDATE) **before** it touches a child row
   (KAN-380): two first grants are then a 201 and a 409, and a route that locked child rows first
-  would deadlock against one that locked the user first (a source test pins the twelve). The
+  would deadlock against one that locked the user first (a source test pins the thirteen, the connected-account revoke included). The
   front door (invitation acceptance, password-reset confirm) locks the user row **before** it
   consumes its single-use token (KAN-400: an e-mail change holds the user row, then ends the
   tokens), so every path that writes a user row takes user row → token → credential in that
@@ -244,6 +246,17 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   tags (D-A-29), Saldosteuersatz (D-A-27), customer logins (D-A-13), API clients (D-A-14),
   Zefix auto-fill, AI translations, training mode.
 
+- **My account (KAN-201)** is `/account/{profile,security,connected-accounts,signature}` for
+  every user. Sessions and MFA stay under `/v1/auth/sessions` and `/v1/auth/mfa/*` (KAN-196) —
+  Anto, 2026-10-20: one MFA surface, no moved route; `/v1/me` holds the rest: `GET/PATCH /v1/me`
+  (names — Anto, 2026-10-20: the user may change their own — mobile, direct dial,
+  `correspondence_language` (null = the Betrieb's default — the **home** Betrieb's, as `GET /v1/me`
+  names it; which Betrieb's default a sister-Betrieb document uses is open until a document reads
+  the field; never the UI language, which stays the `ui` preference) and `signature_block`; If-Match; the own row locked first; one
+  `profile_updated` audit row; any other field, the e-mail address included, is a 422) and
+  `PUT/GET/DELETE /v1/me/signature` (the manager's rules and key). A session that owes a factor
+  reaches none of them (the guard's enrolment paths), and the SPA shows it the Security tab alone.
+  Notification preferences are a placeholder until KAN-216.
 - **Signature image (KAN-200; Anto, 2026-10-19: the manager sets it too):** `PUT/GET/DELETE
   …/users/{id}/signature`, the image as the raw body (PNG or JPEG ≤ 1 MiB, judged by its
   bytes), stored under `dealerships/<id>/users/<id>/signature` in the object store
@@ -354,7 +367,22 @@ One shared template layer (`app/platform/models/document_template.py`). WeasyPri
   `user`), machine (not in v1). Never share a credential store — `_CREDENTIAL_TABLES` in the
   architecture test names the two allowed (`credential`, `terminal_device`).
 - **Connected accounts are grants, not identities (FR-AU-23):** `user_connected_account` is
-  never used to sign in and never appears in the token.
+  never used to sign in and never appears in the token. **Built (KAN-201):** the table
+  (provider, external account id and label, scopes, `secret_ref` — a secrets-manager reference,
+  never a token, never returned — status, linked/last-used/revoked stamps, a closed revoke reason),
+  written and read only by `app/platform/services/connected_account.py` (nightly reconciliation
+  reads its actor ids); `tests/architecture/test_connected_account_is_never_an_identity.py`
+  keeps the identity and session layer from naming it. The user lists and revokes their own
+  (`GET/DELETE /v1/me/connected-accounts`), the manager a user's (`GET/DELETE /v1/dealerships/{id}/users/{user_id}/connected-accounts`,
+  capability `connected_accounts`; the manager's read is provider, scopes and status only —
+  never the address or the usage stamps), deactivation revokes every one (FR-AU-24). A revoke keeps
+  the row, records `connected_account_revoked` and an audit row; **after the commit** the caller
+  runs the provider's registered revoker (`end_at_providers`; a provider failure is logged, never
+  undoes the revoke or the deactivation) — **none is registered**: linking ships with the Outlook
+  integration, so no row exists yet and a revoke ends the grant in Nexotec only, keeping the
+  reference so the secret can still be removed. **Open (KAN-412):** the seam is not in
+  `platform.public` (the revoker gets the ORM row) and a provider's refusal is not retried or
+  reconciled — both before the Outlook integration registers the first revoker.
 - **D-A-16** — a `platform_admin` recovers accounts alone (re-issue invitation, reset MFA,
   clear lockout, revoke sessions, grant manager flag). **Built as Notion says (KAN-196):**
   `DELETE …/users/{id}/mfa` and `DELETE …/users/{id}/sessions` are `platform_admin`-only;

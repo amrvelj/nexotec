@@ -1029,6 +1029,12 @@ def test_no_hard_delete_endpoint_exists_for_fk_target_entities(client):
         # KAN-200: the signature image is a file in the object store, a child
         # of the user row (which keeps its key column and is never deleted).
         "/v1/dealerships/{dealership_id}/users/{user_id}/signature",
+        # KAN-201: the user's own signature image (the same object-store
+        # child as above), and a connected account's revoke — the row stays,
+        # marked revoked (FR-AU-24); nothing is deleted.
+        "/v1/me/signature",
+        "/v1/me/connected-accounts/{account_id}",
+        "/v1/dealerships/{dealership_id}/users/{user_id}/connected-accounts/{account_id}",
         "/v1/customers/{customer_id}/phones/{phone_id}",
         "/v1/customers/{customer_id}/emails/{email_id}",
         "/v1/customers/{customer_id}/addresses/{address_id}",

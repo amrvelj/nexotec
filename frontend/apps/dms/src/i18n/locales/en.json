@@ -37,7 +37,7 @@
       "accountMenu": "Account menu",
       "language": "Language",
       "switchDealership": "Switch business",
-      "accountSecurity": "My account – Security"
+      "accountSecurity": "My account"
     },
     "globalSearch": {
       "placeholder": "Search…",
@@ -1965,8 +1965,6 @@
       "reused": "This password was used recently — choose a new one."
     },
     "security": {
-      "breadcrumb": "My account",
-      "title": "Security",
       "enrolmentRequired": "Your business requires a second factor. Set up an authenticator app or a passkey before you continue.",
       "totp": {
         "title": "Authenticator app",
@@ -2004,7 +2002,8 @@
         "lastSeen": "Last active",
         "expires": "Ends",
         "current": "This session",
-        "end": "End"
+        "end": "End",
+        "ip": "IP address"
       }
     }
   },
@@ -2127,7 +2126,8 @@
         "access": "Access",
         "validity": "Validity",
         "commercial": "Commercial",
-        "signature": "Signature"
+        "signature": "Signature",
+        "connectedAccounts": "Connected accounts"
       }
     },
     "fields": {
@@ -2161,7 +2161,8 @@
       "signatureImage": "Signature image",
       "signatureHint": "PNG or JPEG, up to 1 MB — printed on documents the user signs.",
       "signatureCurrent": "Current signature",
-      "signatureRemove": "Remove"
+      "signatureRemove": "Remove",
+      "connectedAccountsNone": "No connected accounts."
     },
     "deactivate": {
       "title": "Deactivate {{name}}",
@@ -2202,6 +2203,85 @@
     "failureReason": {
       "module_failed": "the module could not complete the hand-over; details are in the log",
       "colleague_cannot_act_there": "the colleague does not work in every business involved"
+    }
+  },
+  "account": {
+    "title": "My account",
+    "tabs": {
+      "profile": "Profile",
+      "security": "Security",
+      "connectedAccounts": "Connected accounts",
+      "signature": "Signature"
+    },
+    "languages": {
+      "de": "German",
+      "fr": "French",
+      "it": "Italian",
+      "en": "English"
+    },
+    "profile": {
+      "firstName": "First name",
+      "lastName": "Last name",
+      "email": "E-mail address",
+      "emailHint": "Your sign-in and your way back into the account. Nexotec support changes it.",
+      "phone": "Mobile",
+      "directDial": "Direct dial",
+      "uiLanguage": "Application language",
+      "uiLanguageHint": "Applies at once, on all your devices.",
+      "correspondenceLanguage": "Language of my documents",
+      "correspondenceLanguageHint": "For documents you create that have no customer language.",
+      "betriebDefault": "Same as the business ({{language}})",
+      "saved": "Saved.",
+      "conflict": "Your account was changed elsewhere in the meantime. Cancel shows the new version; your entries are lost.",
+      "invalid": "Please check your entries: phone numbers with the country code, e.g. +41 79 123 45 67.",
+      "notificationsTitle": "Notifications",
+      "notificationsSoon": "Soon you will choose here which notifications you receive in the app and as push."
+    },
+    "connected": {
+      "emptyTitle": "No connected accounts yet",
+      "emptyBody": "Your Microsoft 365 mailbox and calendar appear here once you connect them: offers go out from your own mailbox and appointments land in your calendar. Connecting becomes available with the Outlook integration.",
+      "privacy": "A connected account is only used to send and schedule on your behalf – never to sign in. Your manager sees that a connection exists, never its content.",
+      "columns": {
+        "provider": "Provider",
+        "account": "Account",
+        "scopes": "Permissions",
+        "status": "Status",
+        "linkedAt": "Connected on",
+        "lastUsed": "Last used"
+      },
+      "provider": {
+        "microsoft_365": "Microsoft 365"
+      },
+      "status": {
+        "active": "Active",
+        "error": "Error",
+        "revoked": "Disconnected"
+      },
+      "neverUsed": "Never",
+      "revoke": "Disconnect",
+      "conflict": "This connection was changed in the meantime or is already disconnected.",
+      "confirmRevoke": "Yes, disconnect",
+      "revokedBy": "{{when}} · {{who}}",
+      "revokedReason": {
+        "user": "by you",
+        "manager": "by a manager",
+        "deactivated": "on deactivation"
+      }
+    },
+    "signature": {
+      "block": "Signature block",
+      "blockHint": "The lines under your name, e.g. title, department, phone.",
+      "image": "Signature image",
+      "current": "Current signature",
+      "noImage": "No image yet.",
+      "upload": "Choose image",
+      "imageHint": "PNG or JPEG, at most 1 MB.",
+      "uploadButton": "Upload",
+      "remove": "Remove",
+      "saved": "Saved.",
+      "invalid": "The image must be a PNG or JPEG of at most 1 MB.",
+      "conflict": "Your account was changed elsewhere in the meantime. Load the new version – what you entered here is lost.",
+      "loadLatest": "Load the new version"
     }
   }
 }

@@ -37,7 +37,7 @@
       "accountMenu": "Menu account",
       "language": "Lingua",
       "switchDealership": "Cambia azienda",
-      "accountSecurity": "Il mio account – Sicurezza"
+      "accountSecurity": "Il mio account"
     },
     "globalSearch": {
       "placeholder": "Cerca…",
@@ -1965,8 +1965,6 @@
       "reused": "Questa password è stata usata di recente: scegline una nuova."
     },
     "security": {
-      "breadcrumb": "Il mio account",
-      "title": "Sicurezza",
       "enrolmentRequired": "La tua azienda richiede un secondo fattore. Configura un’app di autenticazione o una passkey prima di continuare.",
       "totp": {
         "title": "App di autenticazione",
@@ -2004,7 +2002,8 @@
         "lastSeen": "Ultima attività",
         "expires": "Termina",
         "current": "Questa sessione",
-        "end": "Termina"
+        "end": "Termina",
+        "ip": "Indirizzo IP"
       }
     }
   },
@@ -2127,7 +2126,8 @@
         "access": "Accesso",
         "validity": "Validità",
         "commercial": "Commerciale",
-        "signature": "Firma"
+        "signature": "Firma",
+        "connectedAccounts": "Account collegati"
       }
     },
     "fields": {
@@ -2161,7 +2161,8 @@
       "signatureImage": "Immagine della firma",
       "signatureHint": "PNG o JPEG, fino a 1 MB: viene stampata sui documenti firmati dall'utente.",
       "signatureCurrent": "Firma attuale",
-      "signatureRemove": "Rimuovi"
+      "signatureRemove": "Rimuovi",
+      "connectedAccountsNone": "Nessun account collegato."
     },
     "deactivate": {
       "title": "Disattiva {{name}}",
@@ -2202,6 +2203,85 @@
     "failureReason": {
       "module_failed": "il modulo non ha potuto completare il trasferimento; dettagli nel registro",
       "colleague_cannot_act_there": "il collega non lavora in ogni azienda coinvolta"
+    }
+  },
+  "account": {
+    "title": "Il mio account",
+    "tabs": {
+      "profile": "Profilo",
+      "security": "Sicurezza",
+      "connectedAccounts": "Account collegati",
+      "signature": "Firma"
+    },
+    "languages": {
+      "de": "Tedesco",
+      "fr": "Francese",
+      "it": "Italiano",
+      "en": "Inglese"
+    },
+    "profile": {
+      "firstName": "Nome",
+      "lastName": "Cognome",
+      "email": "Indirizzo e-mail",
+      "emailHint": "Il suo accesso e la via per recuperare l'account. La modifica la esegue il supporto Nexotec.",
+      "phone": "Cellulare",
+      "directDial": "Linea diretta",
+      "uiLanguage": "Lingua dell'applicazione",
+      "uiLanguageHint": "Vale subito, su tutti i suoi dispositivi.",
+      "correspondenceLanguage": "Lingua dei miei documenti",
+      "correspondenceLanguageHint": "Per i documenti che crea e che non hanno una lingua del cliente.",
+      "betriebDefault": "Come l'azienda ({{language}})",
+      "saved": "Salvato.",
+      "conflict": "Il suo account è stato modificato altrove nel frattempo. Con «Annulla» vede la nuova versione; i dati inseriti vanno persi.",
+      "invalid": "Controlli i dati: numeri con prefisso internazionale, p. es. +41 79 123 45 67.",
+      "notificationsTitle": "Notifiche",
+      "notificationsSoon": "Presto potrà scegliere qui quali notifiche ricevere nell'app e come push."
+    },
+    "connected": {
+      "emptyTitle": "Nessun account collegato",
+      "emptyBody": "Qui compariranno la sua casella Microsoft 365 e il suo calendario non appena li collegherà: invierà le offerte dalla sua casella e gli appuntamenti finiranno nel suo calendario. Il collegamento sarà disponibile con l'integrazione Outlook.",
+      "privacy": "Un account collegato serve solo a inviare e pianificare a suo nome – mai ad accedere. Il suo manager vede che esiste un collegamento, mai il contenuto.",
+      "columns": {
+        "provider": "Fornitore",
+        "account": "Account",
+        "scopes": "Autorizzazioni",
+        "status": "Stato",
+        "linkedAt": "Collegato il",
+        "lastUsed": "Ultimo utilizzo"
+      },
+      "provider": {
+        "microsoft_365": "Microsoft 365"
+      },
+      "status": {
+        "active": "Attivo",
+        "error": "Errore",
+        "revoked": "Scollegato"
+      },
+      "neverUsed": "Mai",
+      "revoke": "Scollega",
+      "conflict": "Questo collegamento è stato modificato nel frattempo o è già scollegato.",
+      "confirmRevoke": "Sì, scollega",
+      "revokedBy": "{{when}} · {{who}}",
+      "revokedReason": {
+        "user": "da lei",
+        "manager": "da un manager",
+        "deactivated": "alla disattivazione"
+      }
+    },
+    "signature": {
+      "block": "Blocco firma",
+      "blockHint": "Le righe sotto il suo nome, p. es. funzione, reparto, telefono.",
+      "image": "Firma come immagine",
+      "current": "Firma attuale",
+      "noImage": "Nessuna immagine salvata.",
+      "upload": "Scegli immagine",
+      "imageHint": "PNG o JPEG, al massimo 1 MB.",
+      "uploadButton": "Carica",
+      "remove": "Rimuovi",
+      "saved": "Salvato.",
+      "invalid": "L'immagine deve essere un PNG o un JPEG di al massimo 1 MB.",
+      "conflict": "Il suo account è stato modificato altrove nel frattempo. Carichi la nuova versione – quanto inserito qui va perso.",
+      "loadLatest": "Carica la nuova versione"
     }
   }
 }

@@ -40,7 +40,7 @@ export interface SidebarLabels {
   language: string;
   switchDealership: string;
   signOut: string;
-  /** The My account › Security entry (KAN-196); shown when `onAccountSecurity` is given. */
+  /** The My account entry (KAN-196; since KAN-201 it opens the Profile tab — the prop keeps its name); shown when `onAccountSecurity` is given. */
   accountSecurity?: string;
 }
 

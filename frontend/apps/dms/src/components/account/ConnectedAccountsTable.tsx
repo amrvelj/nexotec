@@ -1,0 +1,120 @@
+import { useState } from 'react'
+import { Button, Group, Table, Text } from '@mantine/core'
+import { Badge, type BadgeTone } from '@nexotec/ui-kit'
+import { useTranslation } from 'react-i18next'
+import type { ConnectedAccountManagerRead, ConnectedAccountRead } from '../../api/types'
+import { formatDateTime } from '../../utils/format'
+
+const STATUS_TONE: Record<ConnectedAccountRead['status'], BadgeTone> = {
+  active: 'success',
+  error: 'warning',
+  revoked: 'slate',
+}
+
+type Props =
+  | {
+      /** The user's own grants (My account): account, permissions, status and stamps. */
+      view: 'self'
+      accounts: ConnectedAccountRead[]
+      revoking?: string
+      onRevoke: (account: ConnectedAccountRead) => void
+    }
+  | {
+      /** A manager's read of a user's grants (D-A-15): provider, permissions and status only. */
+      view: 'manager'
+      accounts: ConnectedAccountManagerRead[]
+      revoking?: string
+      onRevoke: (account: ConnectedAccountManagerRead) => void
+    }
+
+/**
+ * A user's connected accounts (KAN-201; FR-AU-24). The user sees their own
+ * account's address and when it was linked and last used; the manager sees
+ * provider, permissions and status only — never what an employee does with
+ * their mailbox, never content.
+ */
+export function ConnectedAccountsTable(props: Props) {
+  const { t } = useTranslation()
+  const self = props.view === 'self'
+  // Disconnecting takes effect at once — outside any form's Save — so it
+  // asks once more in the row.
+  const [confirming, setConfirming] = useState<string | null>(null)
+  return (
+    <Table verticalSpacing="sm">
+      <Table.Thead>
+        <Table.Tr>
+          <Table.Th>{t('account.connected.columns.provider')}</Table.Th>
+          {self && <Table.Th>{t('account.connected.columns.account')}</Table.Th>}
+          <Table.Th>{t('account.connected.columns.scopes')}</Table.Th>
+          <Table.Th>{t('account.connected.columns.status')}</Table.Th>
+          {self && <Table.Th>{t('account.connected.columns.linkedAt')}</Table.Th>}
+          {self && <Table.Th>{t('account.connected.columns.lastUsed')}</Table.Th>}
+          <Table.Th />
+        </Table.Tr>
+      </Table.Thead>
+      <Table.Tbody>
+        {props.accounts.map((account) => (
+          <Table.Tr key={account.id}>
+            <Table.Td>{t(`account.connected.provider.${account.provider}`)}</Table.Td>
+            {props.view === 'self' && 'linkedAt' in account && (
+              <Table.Td>{account.externalAccountLabel ?? '—'}</Table.Td>
+            )}
+            <Table.Td>
+              <Text fz="xs" c="dimmed">
+                {account.scopes.join(', ')}
+              </Text>
+            </Table.Td>
+            <Table.Td>
+              <Badge tone={STATUS_TONE[account.status]} dot>
+                {t(`account.connected.status.${account.status}`)}
+              </Badge>
+              {props.view === 'self' && 'revokedAt' in account && account.revokedAt && account.revokedReason && (
+                <Text fz="xs" c="dimmed" mt={4}>
+                  {t('account.connected.revokedBy', {
+                    when: formatDateTime(account.revokedAt),
+                    who: t(`account.connected.revokedReason.${account.revokedReason}`),
+                  })}
+                </Text>
+              )}
+            </Table.Td>
+            {props.view === 'self' && 'linkedAt' in account && (
+              <>
+                <Table.Td>{formatDateTime(account.linkedAt)}</Table.Td>
+                <Table.Td>
+                  {account.lastUsedAt ? formatDateTime(account.lastUsedAt) : t('account.connected.neverUsed')}
+                </Table.Td>
+              </>
+            )}
+            <Table.Td>
+              {account.status !== 'revoked' && confirming !== account.id && (
+                <Button type="button" size="xs" variant="subtle" color="red" onClick={() => setConfirming(account.id)}>
+                  {t('account.connected.revoke')}
+                </Button>
+              )}
+              {account.status !== 'revoked' && confirming === account.id && (
+                <Group gap="xs" wrap="nowrap">
+                  <Button
+                    type="button"
+                    size="xs"
+                    color="red"
+                    loading={props.revoking === account.id}
+                    onClick={() => {
+                      setConfirming(null)
+                      if (props.view === 'self') props.onRevoke(account as ConnectedAccountRead)
+                      else props.onRevoke(account)
+                    }}
+                  >
+                    {t('account.connected.confirmRevoke')}
+                  </Button>
+                  <Button type="button" size="xs" variant="default" onClick={() => setConfirming(null)}>
+                    {t('common.cancel')}
+                  </Button>
+                </Group>
+              )}
+            </Table.Td>
+          </Table.Tr>
+        ))}
+      </Table.Tbody>
+    </Table>
+  )
+}
