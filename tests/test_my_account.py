@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.audit_model import AuditEvent
@@ -437,3 +438,37 @@ def test_a_failing_provider_never_undoes_a_revoke_or_a_deactivation(client, db_s
         row = db_session.get(UserConnectedAccount, grant.id)
         assert row.status == ConnectedAccountStatus.REVOKED and row.secret_ref is not None
     assert sum("did not end grant" in r.getMessage() for r in caplog.records) == 2
+
+
+def test_the_same_mailbox_can_be_linked_again_after_a_revoke(client, db_session):
+    """A revoked grant keeps its row; only live grants are unique per user,
+    provider and account — re-linking is a new row, the old stamps stay."""
+
+    dealership = create_dealership(client)
+    anna = create_user(client, dealership)
+    first = _grant(db_session, anna)
+    assert client.delete(f"/v1/me/connected-accounts/{first.id}", headers={**_as(anna), "If-Match": "1"}).status_code == 200
+
+    again = UserConnectedAccount(
+        user_id=first.user_id,
+        provider=first.provider,
+        external_account_id=first.external_account_id,
+        scopes=["Mail.Send"],
+        status=ConnectedAccountStatus.ACTIVE,
+        linked_at=dt.datetime.now(dt.UTC),
+    )
+    db_session.add(again)
+    db_session.commit()
+
+    twice = UserConnectedAccount(
+        user_id=first.user_id,
+        provider=first.provider,
+        external_account_id=first.external_account_id,
+        scopes=["Mail.Send"],
+        status=ConnectedAccountStatus.ACTIVE,
+        linked_at=dt.datetime.now(dt.UTC),
+    )
+    db_session.add(twice)
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+    db_session.rollback()

@@ -2260,7 +2260,13 @@
       "neverUsed": "Noch nie",
       "revoke": "Trennen",
       "conflict": "Diese Verbindung wurde inzwischen geändert oder ist bereits getrennt.",
-      "confirmRevoke": "Ja, trennen"
+      "confirmRevoke": "Ja, trennen",
+      "revokedBy": "{{when}} · {{who}}",
+      "revokedReason": {
+        "user": "durch Sie",
+        "manager": "durch einen Manager",
+        "deactivated": "bei der Deaktivierung"
+      }
     },
     "signature": {
       "block": "Unterschriftsblock",

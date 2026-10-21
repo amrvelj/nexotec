@@ -1163,8 +1163,8 @@ export interface paths {
         /**
          * Revoke User Connected Account
          * @description The manager may revoke a user's grant (D-A-15: "may revoke only");
-         *     the row stays, revoked, and the user sees who did it in their auth
-         *     events.
+         *     the row stays, revoked — the user sees it was a manager
+         *     (`revokedReason`), the Betrieb's auth events name who.
          */
         delete: operations["revoke_user_connected_account_v1_dealerships__dealership_id__users__user_id__connected_accounts__account_id__delete"];
         options?: never;

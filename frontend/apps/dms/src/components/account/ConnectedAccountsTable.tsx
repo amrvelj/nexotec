@@ -68,6 +68,14 @@ export function ConnectedAccountsTable(props: Props) {
               <Badge tone={STATUS_TONE[account.status]} dot>
                 {t(`account.connected.status.${account.status}`)}
               </Badge>
+              {props.view === 'self' && 'revokedAt' in account && account.revokedAt && account.revokedReason && (
+                <Text fz="xs" c="dimmed" mt={4}>
+                  {t('account.connected.revokedBy', {
+                    when: formatDateTime(account.revokedAt),
+                    who: t(`account.connected.revokedReason.${account.revokedReason}`),
+                  })}
+                </Text>
+              )}
             </Table.Td>
             {props.view === 'self' && 'linkedAt' in account && (
               <>

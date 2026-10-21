@@ -2260,7 +2260,13 @@
       "neverUsed": "Never",
       "revoke": "Disconnect",
       "conflict": "This connection was changed in the meantime or is already disconnected.",
-      "confirmRevoke": "Yes, disconnect"
+      "confirmRevoke": "Yes, disconnect",
+      "revokedBy": "{{when}} · {{who}}",
+      "revokedReason": {
+        "user": "by you",
+        "manager": "by a manager",
+        "deactivated": "on deactivation"
+      }
     },
     "signature": {
       "block": "Signature block",

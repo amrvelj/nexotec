@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { renderWithProviders } from '../../test/renderWithProviders'
 import { installFakeBackend, type FakeRoute } from '../../test/fakeBackend'
+import type { ConnectedAccountRead } from '../../api/types'
 import { AccountConnectedAccountsPage } from './AccountConnectedAccountsPage'
 import { AccountLayout } from './AccountLayout'
 import { AccountProfilePage } from './AccountProfilePage'
@@ -29,7 +30,7 @@ const ME = {
   version: 4,
 }
 
-const GRANT = {
+const GRANT: ConnectedAccountRead = {
   id: 'grant-1',
   provider: 'microsoft_365',
   externalAccountLabel: 'anna@garage.ch',
@@ -138,6 +139,45 @@ describe('My account (KAN-201)', () => {
     expect(backend.callsTo(/\/me\/connected-accounts\/grant-1$/, 'DELETE')[0].headers.get('If-Match')).toBe('1')
     expect(await screen.findByText('Getrennt')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Trennen' })).not.toBeInTheDocument()
+  })
+
+  it('says when and by whom a grant was ended', async () => {
+    renderAccount('/account/connected-accounts', [
+      {
+        method: 'GET',
+        match: /\/me\/connected-accounts$/,
+        handler: () => ({
+          items: [{ ...GRANT, status: 'revoked', revokedAt: '2026-10-20T08:00:00Z', revokedReason: 'manager', version: 2 }],
+        }),
+      },
+    ])
+
+    expect(await screen.findByText(/durch einen Manager/)).toBeInTheDocument()
+  })
+
+  it('a Disconnect refused as stale (409) shows the grant as it stands now', async () => {
+    const user = userEvent.setup()
+    let server = GRANT
+    renderAccount('/account/connected-accounts', [
+      { method: 'GET', match: /\/me\/connected-accounts$/, handler: () => ({ items: [server] }) },
+      {
+        method: 'DELETE',
+        match: /\/me\/connected-accounts\/grant-1$/,
+        handler: () => {
+          // Revoked elsewhere meanwhile (the user's other device, a manager).
+          server = { ...GRANT, status: 'revoked', revokedAt: '2026-10-20T08:00:00Z', revokedReason: 'manager', version: 2 }
+          return { __status: 409, body: { error: { code: 'conflict', message: 'already revoked', details: {} } } }
+        },
+      },
+    ])
+
+    const row = (await screen.findByText('Microsoft 365')).closest('tr') as HTMLElement
+    await user.click(within(row).getByRole('button', { name: 'Trennen' }))
+    await user.click(within(row).getByRole('button', { name: 'Ja, trennen' }))
+
+    expect(await screen.findByText('Getrennt')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Trennen' })).not.toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent(/inzwischen geändert|bereits getrennt/)
   })
 
   it('saves the signature block and uploads the signature image as the raw body', async () => {

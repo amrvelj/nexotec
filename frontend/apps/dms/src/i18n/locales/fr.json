@@ -2260,7 +2260,13 @@
       "neverUsed": "Jamais",
       "revoke": "Déconnecter",
       "conflict": "Cette connexion a été modifiée entre-temps ou est déjà déconnectée.",
-      "confirmRevoke": "Oui, déconnecter"
+      "confirmRevoke": "Oui, déconnecter",
+      "revokedBy": "{{when}} · {{who}}",
+      "revokedReason": {
+        "user": "par vous",
+        "manager": "par un manager",
+        "deactivated": "lors de la désactivation"
+      }
     },
     "signature": {
       "block": "Bloc de signature",

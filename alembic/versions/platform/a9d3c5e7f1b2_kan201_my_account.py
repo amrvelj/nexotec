@@ -100,9 +100,6 @@ def upgrade() -> None:
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("created_by", postgresql.UUID(as_uuid=True), nullable=True),
         sa.Column("updated_by", postgresql.UUID(as_uuid=True), nullable=True),
-        sa.UniqueConstraint(
-            "user_id", "provider", "external_account_id", name="uq_user_connected_account_user_provider_external"
-        ),
         sa.CheckConstraint(_check("provider", _PROVIDERS), name="ck_user_connected_account_provider_enum"),
         sa.CheckConstraint(_check("status", _STATUSES), name="ck_user_connected_account_status_enum"),
         sa.CheckConstraint(
@@ -110,6 +107,14 @@ def upgrade() -> None:
         ),
     )
     op.create_index("ix_user_connected_account_user_id", "user_connected_account", ["user_id"])
+    # One live grant per user, provider and account; a revoked row stays.
+    op.create_index(
+        "uq_user_connected_account_live",
+        "user_connected_account",
+        ["user_id", "provider", "external_account_id"],
+        unique=True,
+        postgresql_where=sa.text("status <> 'revoked'"),
+    )
 
     op.drop_constraint("ck_auth_event_kind_enum", "auth_event", type_="check")
     op.create_check_constraint("ck_auth_event_kind_enum", "auth_event", _check("kind", _EVENT_KINDS))
@@ -120,6 +125,7 @@ def downgrade() -> None:
     op.drop_constraint("ck_auth_event_kind_enum", "auth_event", type_="check")
     op.create_check_constraint("ck_auth_event_kind_enum", "auth_event", _check("kind", _EVENT_KINDS_BEFORE))
 
+    op.drop_index("uq_user_connected_account_live", table_name="user_connected_account")
     op.drop_index("ix_user_connected_account_user_id", table_name="user_connected_account")
     op.drop_table("user_connected_account")
     op.drop_column("user", "signature_block")

@@ -2260,7 +2260,13 @@
       "neverUsed": "Mai",
       "revoke": "Scollega",
       "conflict": "Questo collegamento è stato modificato nel frattempo o è già scollegato.",
-      "confirmRevoke": "Sì, scollega"
+      "confirmRevoke": "Sì, scollega",
+      "revokedBy": "{{when}} · {{who}}",
+      "revokedReason": {
+        "user": "da lei",
+        "manager": "da un manager",
+        "deactivated": "alla disattivazione"
+      }
     },
     "signature": {
       "block": "Blocco firma",

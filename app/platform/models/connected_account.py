@@ -21,7 +21,7 @@ import datetime as dt
 import enum
 import uuid
 
-from sqlalchemy import JSON, ForeignKey, String, UniqueConstraint
+from sqlalchemy import JSON, ForeignKey, Index, String, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TimestampMixin, VersionedMixin
@@ -50,9 +50,18 @@ class ConnectedAccountRevokedReason(str, enum.Enum):
 
 class UserConnectedAccount(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     __tablename__ = "user_connected_account"
+    # One LIVE grant per user, provider and account: a revoked row keeps its
+    # stamps (it is never deleted), so linking the same mailbox again after a
+    # revoke is a new row, never a collision with the old one.
     __table_args__ = (
-        UniqueConstraint(
-            "user_id", "provider", "external_account_id", name="uq_user_connected_account_user_provider_external"
+        Index(
+            "uq_user_connected_account_live",
+            "user_id",
+            "provider",
+            "external_account_id",
+            unique=True,
+            postgresql_where=text("status <> 'revoked'"),
+            sqlite_where=text("status <> 'revoked'"),
         ),
     )
 
