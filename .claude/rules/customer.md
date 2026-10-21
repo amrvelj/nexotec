@@ -80,7 +80,12 @@ weekly. -->
   Gender is independent (`female` / `male` / `other` / `unspecified`) — **never inferred from
   the salutation**.
 - **D-23** — `website` is not business-only. **D-24** — `advisorId` defaults to the acting user
-  on create only; nullable and clearable. **D-25** — the list offers Export and Print; there
+  on create only; nullable and clearable. An advisor set by create or PATCH must be a user of the acting
+  Betrieb who is active or invited (`platform.public.may_own_open_records`, the status rule of
+  Sales' responsible seller): a suspended or deactivated one is 422 `advisorId` (KAN-410). The
+  check runs only when the advisor changes, so a customer still advised by a leaver stays
+  editable. A sister-Betrieb member is not an advisor there (Sales' seller may be) — Anto's call
+  on KAN-410. **D-25** — the list offers Export and Print; there
   is **no bulk anonymise**. **D-26** — the field is `creditBlock`, with `creditBlockedAt`.
 - **Legal form** is one of six codes (`ag`, `gmbh`, `einzelfirma`, `verein`, `genossenschaft`,
   `weitere`). Labels are meant to be localised; today they are hardcoded German in

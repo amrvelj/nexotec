@@ -830,6 +830,17 @@ def get_user_acting_in(db: Session, *, dealership_id: uuid.UUID, user_id: uuid.U
     return None
 
 
+def may_own_open_records(user: User) -> bool:
+    """Whether the user may be responsible for an open record — an open deal
+    (Sales' responsible seller, KAN-200) or a customer (the advisor,
+    KAN-410): active or invited. A suspended or deactivated user owns
+    nothing open (FR-A-37, D-A-35: a leaver's records are handed over, "never
+    silently with the deactivated user"), and no write may put them back.
+    The caller judges the dealership scope."""
+
+    return user.status in _ACTIVE_USER_STATUSES
+
+
 def _assert_line_manager(db: Session, *, user: User, changes: dict[str, Any]) -> None:
     """KAN-200: the line manager is another user of the same dealership —
     never the user themselves, never another Betrieb's (422; a 404 would

@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session
 from app.core.base import utcnow
 from app.core.errors import UnprocessableEntityError
 from app.core.ownership import OwnedGroup, OwnershipRefusal, OwnershipTransfer
-from app.platform.public import get_user_acting_in, list_user_dealership_ids
+from app.platform.public import get_user_acting_in, list_user_dealership_ids, may_own_open_records
 from app.sales.models.contract import ContractStatus, SalesContract
 from app.sales.models.offer import OfferStatus, SalesOffer
 from app.sales.services.deal_projection import upsert_deal_projection
@@ -57,7 +57,6 @@ def offer_is_open() -> ColumnElement[bool]:
 
 
 _NO_OWNER: dict[str, Any] = {"owner_user_id": None, "owner_label": None, "owner_label_refreshed_at": None}
-_SELLER_STATUSES = ("active", "invited")
 
 
 def _seller_in(db: Session, *, tenant_id: uuid.UUID, user_id: uuid.UUID | None) -> Any | None:
@@ -65,12 +64,13 @@ def _seller_in(db: Session, *, tenant_id: uuid.UUID, user_id: uuid.UUID | None) 
     member (a sister-Betrieb member sells there too) — and still hold or
     await access: a suspended or deactivated user cannot be responsible for
     an open deal. None otherwise, a platform staff member creating an offer
-    in a Betrieb they are not a member of included."""
+    in a Betrieb they are not a member of included. The status rule is
+    platform's one predicate, shared with the customer's advisor (KAN-410)."""
 
     if user_id is None:
         return None
     user = get_user_acting_in(db, dealership_id=tenant_id, user_id=user_id)
-    if user is None or user.status.value not in _SELLER_STATUSES:
+    if user is None or not may_own_open_records(user):
         return None
     return user
 
