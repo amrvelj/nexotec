@@ -6,6 +6,9 @@ contract allows `app.<other-context>` to import `app.sales.public`, never
 root `app.ownership_registry` registers with `app.core.ownership`; platform
 reaches it only through that registry.
 
+`refresh_owner_labels` / `oldest_owner_label_age_seconds` (KAN-404) are the
+worker's nightly responsible-seller label refresh and its sync-age gauge.
+
 `get_contract_statuses` (KAN-122) is Stock's read for its nightly
 reservation sweep: plain statuses, never an ORM row, and the caller runs it
 on a session of its own (ADR-047).
@@ -16,6 +19,7 @@ from app.sales.models.offer import SalesOffer
 from app.sales.models.transaction import Transaction
 from app.sales.services.contract_status import get_contract_statuses
 from app.sales.services.customer_merge import repoint_customer_sales_records
+from app.sales.services.owner_label import oldest_owner_label_age_seconds, refresh_owner_labels
 from app.sales.services.ownership import SalesOwnershipProvider
 from app.sales.services.signed_trade_ins import valuations_carried_by_signed_contracts
 from app.sales.services.transaction import repoint_customer_transactions
@@ -27,6 +31,8 @@ __all__ = [
     "SalesOwnershipProvider",
     "Transaction",
     "get_contract_statuses",
+    "oldest_owner_label_age_seconds",
+    "refresh_owner_labels",
     "repoint_customer_sales_records",
     "repoint_customer_transactions",
     "valuations_carried_by_signed_contracts",

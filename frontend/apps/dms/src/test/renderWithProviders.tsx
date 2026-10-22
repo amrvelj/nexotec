@@ -3,10 +3,11 @@ import { render, type RenderResult } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
-import { OverlayProvider, theme } from '@nexotec/ui-kit'
+import { theme } from '@nexotec/ui-kit'
 import { AuthProvider } from '../auth/AuthContext'
 import { UiPreferencesProvider } from '../hooks/UiPreferencesContext'
 import '../i18n'
+import { TranslatedOverlayProvider } from './TranslatedOverlayProvider'
 
 export interface RenderOptions {
   /** Initial entry for the MemoryRouter — this IS the "pasted URL". */
@@ -52,7 +53,7 @@ export function renderWithProviders(ui: ReactElement, options: RenderOptions = {
         <MemoryRouter initialEntries={[options.route ?? '/']}>
           <AuthProvider>
             <UiPreferencesProvider>
-              <OverlayProvider>{ui}</OverlayProvider>
+              <TranslatedOverlayProvider>{ui}</TranslatedOverlayProvider>
             </UiPreferencesProvider>
           </AuthProvider>
         </MemoryRouter>

@@ -245,7 +245,7 @@ describe('CustomersListPage — filters track the column registry (ADR-058)', ()
 
     await screen.findByRole('columnheader', { name: new RegExp(columnHeader('name'), 'i') })
     await user.click(screen.getByRole('button', { name: i18n.t('customersList.allCustomersView') }))
-    await user.click(await screen.findByRole('button', { name: /new filter/i }))
+    await user.click(await screen.findByRole('button', { name: i18n.t('common.filterBuilder.addFilter') }))
 
     const combos = screen.getAllByRole('combobox')
     const fieldSelect = combos[0]

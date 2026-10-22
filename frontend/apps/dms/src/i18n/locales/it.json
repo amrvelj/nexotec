@@ -103,6 +103,27 @@
       "unpin": "Rimuovi il fissaggio",
       "moveUp": "Sposta {{label}} in alto",
       "moveDown": "Sposta {{label}} in basso"
+    },
+    "viewsAndFilters": {
+      "viewsHeading": "Viste",
+      "saveCurrentView": "Salva la vista attuale come…",
+      "savePlaceholder": "Nome della vista",
+      "manageFiltersHeading": "Gestisci filtri",
+      "reset": "Reimposta",
+      "setDefault": "Imposta come predefinita",
+      "unsetDefault": "Rimuovi come predefinita",
+      "deleteView": "Elimina vista"
+    },
+    "filterBuilder": {
+      "addFilter": "Nuovo filtro…",
+      "matchCount_one": "{{count, number}} risultato",
+      "matchCount_other": "{{count, number}} risultati",
+      "editFilter": "Modifica filtro",
+      "duplicateFilter": "Duplica filtro",
+      "deleteFilter": "Elimina filtro"
+    },
+    "overlay": {
+      "close": "Chiudi"
     }
   },
   "customerCreate": {

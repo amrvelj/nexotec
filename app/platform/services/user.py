@@ -288,7 +288,8 @@ def get_user_for_update_or_404(db: Session, dealership_id: uuid.UUID, user_id: u
     version bump) would deadlock against one that did the opposite. NO KEY:
     a row that only references the user (a session, a token) is not held up —
     except while an e-mail change holds it (an update of a unique column takes
-    the full lock; KAN-411);
+    the full lock), which is why every writer of such a row takes this user
+    row first (KAN-411) and waits there instead;
     a login itself takes this lock before it writes the credential and
     `last_login_at` (`identity.lock_user_for_login`, KAN-200). The same pattern as `get_dealership_for_update_or_404`."""
 
@@ -307,8 +308,15 @@ def get_own_user_for_update_or_404(db: Session, user_id: uuid.UUID) -> User:
     """The caller's own row, locked FOR NO KEY UPDATE and re-read — My
     account's writes (KAN-201) take the user row first like every other
     writer of it (KAN-380). Dealership-agnostic for the reason
-    `get_own_user_or_404` gives."""
+    `get_own_user_or_404` gives. The account's security routes take it too,
+    before they write a row the user owns — a second factor, a recovery
+    code, a passkey, a passkey-registration token or the user's sessions
+    (KAN-411) — as the login (`identity.lock_user_for_login`) and every
+    user-administration route (`get_user_for_update_or_404`) do: two
+    requests for one user run one after the other instead of deadlocking,
+    whatever order each then writes its child rows in."""
 
+    db.flush()
     user = db.scalar(
         select(User).where(User.id == user_id).with_for_update(key_share=True).execution_options(populate_existing=True)
     )
@@ -855,6 +863,17 @@ def get_user_acting_in(db: Session, *, dealership_id: uuid.UUID, user_id: uuid.U
     if user.tenant_id == dealership_id or dealership_id in list_membership_dealership_ids(db, user_id=user_id):
         return user
     return None
+
+
+def may_own_open_records(user: User) -> bool:
+    """Whether the user may be responsible for an open record — an open deal
+    (Sales' responsible seller, KAN-200) or a customer (the advisor,
+    KAN-410): active or invited. A suspended or deactivated user owns
+    nothing open (FR-A-37, D-A-35: a leaver's records are handed over, "never
+    silently with the deactivated user"), and no write may put them back.
+    The caller judges the dealership scope."""
+
+    return is_active_user(user)
 
 
 def _assert_line_manager(db: Session, *, user: User, changes: dict[str, Any]) -> None:

@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { Copy, Pencil, Plus, Trash2 } from "lucide-react";
 import { purple, radius, slate, spacing, white } from "../tokens";
 import { conditionsForField, describePredicate, type FilterFieldDef, type FilterPredicate } from "./filterPredicate";
-import { formatNumber } from "../format/swissNumber";
 
 export interface FilterBuilderProps {
   /** Derived from the grid's own column defs (§ Action Bar: "the field
@@ -17,20 +16,24 @@ export interface FilterBuilderProps {
    * parameters (e.g. `/customers?lifecycleStatus=...`); this stays an
    * open backend gap, not something faked on the frontend. */
   onPreviewCount?: (predicates: FilterPredicate[]) => Promise<number>;
-  labels?: {
-    addFilter?: string;
-    save?: string;
-    cancel?: string;
-    matchCount?: (count: number) => string;
-  };
+  labels: FilterBuilderLabels;
 }
 
-const DEFAULT_LABELS = {
-  addFilter: "+ New filter…",
-  save: "Save",
-  cancel: "Cancel",
-  matchCount: (count: number) => `${formatNumber(count)} matching`,
-};
+/** Every string the Filter Builder shows or announces, translated by the
+ * caller — the kit ships no English of its own (KAN-364), so `tsc` refuses
+ * a caller that passes none. */
+export interface FilterBuilderLabels {
+  /** The add button's text; the button draws its own "+" icon. */
+  addFilter: string;
+  save: string;
+  cancel: string;
+  /** The live count beside the editor row, number formatting included. */
+  matchCount: (count: number) => string;
+  /** Accessible names of a saved filter's row actions. */
+  editFilter: string;
+  duplicateFilter: string;
+  deleteFilter: string;
+}
 
 function defaultPredicateFor(field: FilterFieldDef): FilterPredicate {
   const condition = conditionsForField(field)[0].value;
@@ -51,7 +54,7 @@ function defaultPredicateFor(field: FilterFieldDef): FilterPredicate {
  * predicate at a time — never a free-text expression box.
  */
 export function FilterBuilder({ fields, predicates, onChange, onPreviewCount, labels }: FilterBuilderProps) {
-  const L = { ...DEFAULT_LABELS, ...labels };
+  const L = labels;
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<FilterPredicate | null>(null);
 
@@ -128,13 +131,13 @@ export function FilterBuilder({ fields, predicates, onChange, onPreviewCount, la
             <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {describePredicate(predicate, field)}
             </span>
-            <IconButton ariaLabel="Edit filter" onClick={() => startEdit(predicate)}>
+            <IconButton ariaLabel={L.editFilter} onClick={() => startEdit(predicate)}>
               <Pencil size={14} />
             </IconButton>
-            <IconButton ariaLabel="Duplicate filter" onClick={() => duplicate(predicate)}>
+            <IconButton ariaLabel={L.duplicateFilter} onClick={() => duplicate(predicate)}>
               <Copy size={14} />
             </IconButton>
-            <IconButton ariaLabel="Delete filter" onClick={() => remove(predicate.id)}>
+            <IconButton ariaLabel={L.deleteFilter} onClick={() => remove(predicate.id)}>
               <Trash2 size={14} />
             </IconButton>
           </div>
@@ -197,7 +200,7 @@ function PredicateEditorRow({
   onCancel: () => void;
   onPreviewCount?: (predicates: FilterPredicate[]) => Promise<number>;
   otherPredicates: FilterPredicate[];
-  labels: Required<Pick<NonNullable<FilterBuilderProps["labels"]>, "save" | "cancel" | "matchCount">>;
+  labels: Pick<FilterBuilderLabels, "save" | "cancel" | "matchCount">;
 }) {
   const [count, setCount] = useState<number | null>(null);
   const field = fields.find((f) => f.id === draft.fieldId);

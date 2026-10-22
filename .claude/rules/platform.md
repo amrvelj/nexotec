@@ -83,12 +83,15 @@ main@046634d on 2026-10-17 (KAN-195: every present-tense claim checked against t
   passkey steps before they claim the challenge or touch a factor, and the mint (`_finish_login`)
   re-locks — so every login path and every path that writes the user row or the credential takes
   user row → token → factor → credential, and a login's status is judged under the lock: a login
-  racing a deactivation is refused. **Not yet one order (KAN-411):** the paths that take no
-  user-row lock — the reset request, the account's own MFA routes (`/auth/mfa/totp*`,
-  `/auth/mfa/recovery-codes*`, `/auth/mfa/passkeys*`; the login's verify steps do lock) — still
-  deadlock against each other or a revoke-all in known pairs. Staff's MFA and session resets
-  lock the user row first since KAN-202; whether that closes the pairs KAN-411 names for them
-  is not verified. The nightly
+  racing a deactivation is refused. **The same order on every path (KAN-411):** the account's own
+  MFA routes (`/auth/mfa/totp*`, `/auth/mfa/recovery-codes*`, `/auth/mfa/passkeys*`) take the
+  user row first through `user_service.get_own_user_for_update_or_404`, staff's recovery
+  actions through `recovery.get_user_for_recovery_or_404` (KAN-202), and the reset request through
+  `identity.lock_user_for_login` once it found a user — re-reading the address under the lock, so
+  an address changed meanwhile is answered like an unknown one (202, no mail). Source tests pin
+  the account and staff routes (`tests/test_platform_account_lock_order.py`). A single-row write
+  (logout, revoking one's own session, the guard's touch) takes no user lock: one row cannot
+  close a cycle. The nightly
   `platform.user_expiry` re-reads each due user under the lock and judges it again, and its retry
   re-reads each listed user and hands over only one still deactivated by the job. The first auth-config PUT, the first TOTP enrolment and the first preference save
   insert in a savepoint and carry on with a concurrent winner's committed row (KAN-393).

@@ -165,7 +165,7 @@ services:
   #   - daily: integration.daily_jobs (auto-i-dat catalogue delta sync,
   #     sync-age alarm, retention purge, expiry warnings / support digest),
   #     customer.vehicle_party_labels (KAN-84), customer.advisor_labels
-  #     (KAN-403), reconciliation.run_all
+  #     (KAN-403), sales.owner_labels (KAN-404), reconciliation.run_all
   #     (CLAUDE.md rule 10), inventory.orphaned_reservations.release (KAN-122,
   #     the nightly orphaned-reservation sweep),
   #     vehicle.plate_lookup_cache.purge (KAN-42),

@@ -80,7 +80,13 @@ weekly. -->
   Gender is independent (`female` / `male` / `other` / `unspecified`) — **never inferred from
   the salutation**.
 - **D-23** — `website` is not business-only. **D-24** — `advisorId` defaults to the acting user
-  on create only; nullable and clearable. **D-25** — the list offers Export and Print; there
+  on create only; nullable and clearable. An advisor set by create or PATCH must be a user of the acting
+  Betrieb who is active or invited (`platform.public.may_own_open_records`, the status rule of
+  Sales' responsible seller): a suspended or deactivated one is 422 `advisorId` (KAN-410). The
+  check runs only when the advisor changes, so a customer still advised by a leaver stays
+  editable. **Open with Anto (KAN-410):** the advisor must still be homed in the acting Betrieb
+  (`get_user_or_404`), while Sales' seller may also be an active member from a sister Betrieb
+  (`get_user_acting_in`) — whether the advisor should be too is undecided; do not widen it. **D-25** — the list offers Export and Print; there
   is **no bulk anonymise**. **D-26** — the field is `creditBlock`, with `creditBlockedAt`.
 - **Legal form** is one of six codes (`ag`, `gmbh`, `einzelfirma`, `verein`, `genossenschaft`,
   `weitere`). Labels are meant to be localised; today they are hardcoded German in
@@ -219,8 +225,8 @@ weekly. -->
   no user is left alone, and its stale stamp shows in `dms.label.age_seconds{label="customer.advisor"}`.
   The job reads each batch `FOR NO KEY UPDATE SKIP LOCKED`: a customer another writer holds waits for
   the next night, never for the writer — waiting could deadlock against a merge re-pointing earlier
-  merges (KAN-383), which locks X after D. **Not built:** the same refresh for Sales'
-  responsible-seller label (`owner_label`, KAN-200's columns) — KAN-404.
+  merges (KAN-383), which locks X after D. Sales' responsible-seller label (`owner_label`) has the
+  same refresh, `sales.owner_labels` (KAN-404).
 
 ## Screens
 

@@ -19,6 +19,7 @@ import { buildConnectionRowMenu } from '../components/connectionRowMenu'
 import { translatedConnectionStatusLabel } from '../integrationOptions'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { useSavedViews } from '../hooks/useSavedViews'
+import { useViewsAndFiltersLabels } from '../hooks/useViewsAndFiltersLabels'
 import { useUiPreferencesContext } from '../hooks/UiPreferencesContext'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
 import { formatDate, formatDateOnly, formatDateTime } from '../utils/format'
@@ -43,6 +44,7 @@ const CONNECTIONS_GRID_KEY = 'integrations.platform.connections'
  */
 export function IntegrationPlatformView() {
   const { t, i18n } = useTranslation()
+  const viewsAndFiltersLabels = useViewsAndFiltersLabels()
   const locale = toSwissLocale(i18n.language as SupportedLanguage)
   const { density, setDensity } = useUiPreferencesContext()
   const queryClient = useQueryClient()
@@ -160,6 +162,7 @@ export function IntegrationPlatformView() {
               refreshing={connectionsQuery.isRefetching}
               filterSlot={
                 <ViewsAndFilters
+                  labels={viewsAndFiltersLabels}
                   currentViewName={currentViewName}
                   views={savedViews.views}
                   onApplyView={() => {}}

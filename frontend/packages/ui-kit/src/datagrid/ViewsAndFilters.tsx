@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Popover } from "@mantine/core";
 import { Check, ChevronDown, Plus, Star, Trash2 } from "lucide-react";
 import { purple, radius, slate, spacing, typography, white } from "../tokens";
-import { FilterBuilder, type FilterBuilderProps } from "./FilterBuilder";
+import { FilterBuilder, type FilterBuilderLabels, type FilterBuilderProps } from "./FilterBuilder";
 import type { FilterFieldDef, FilterPredicate } from "./filterPredicate";
 import type { SavedView } from "./savedView";
 
@@ -22,26 +22,24 @@ export interface ViewsAndFiltersProps {
   onPreviewCount?: FilterBuilderProps["onPreviewCount"];
   onResetFilters: () => void;
 
-  labels?: {
-    viewsHeading?: string;
-    saveCurrentView?: string;
-    savePlaceholder?: string;
-    manageFiltersHeading?: string;
-    reset?: string;
-    setDefault?: string;
-    unsetDefault?: string;
-  };
+  labels: ViewsAndFiltersLabels;
 }
 
-const DEFAULT_LABELS = {
-  viewsHeading: "Views",
-  saveCurrentView: "Save current view as…",
-  savePlaceholder: "View name",
-  manageFiltersHeading: "Manage filters",
-  reset: "Reset",
-  setDefault: "Set as default",
-  unsetDefault: "Remove as default",
-};
+/** Every string the panel shows or announces, its Filter Builder's
+ * included, translated by the caller — the kit ships no English of its own
+ * (KAN-364), so `tsc` refuses a caller that passes none. */
+export interface ViewsAndFiltersLabels {
+  viewsHeading: string;
+  saveCurrentView: string;
+  savePlaceholder: string;
+  manageFiltersHeading: string;
+  reset: string;
+  /** Accessible names of a saved view's row actions. */
+  setDefault: string;
+  unsetDefault: string;
+  deleteView: string;
+  filters: FilterBuilderLabels;
+}
 
 /**
  * § ADR-058 — "One button, one panel, two sections." Replaces the old
@@ -63,7 +61,7 @@ export function ViewsAndFilters({
   onResetFilters,
   labels,
 }: ViewsAndFiltersProps) {
-  const L = { ...DEFAULT_LABELS, ...labels };
+  const L = labels;
   const [opened, setOpened] = useState(false);
   const [savingAs, setSavingAs] = useState(false);
   const [newViewName, setNewViewName] = useState("");
@@ -169,7 +167,7 @@ export function ViewsAndFilters({
                   <Star size={14} fill={view.isDefault ? purple[6] : "none"} color={view.isDefault ? purple[6] : slate[4]} />
                 </IconButton>
                 <IconButton
-                  ariaLabel="Delete view"
+                  ariaLabel={L.deleteView}
                   onClick={(e) => {
                     e.stopPropagation();
                     onDeleteView(view.id);
@@ -220,7 +218,13 @@ export function ViewsAndFilters({
 
         <div style={{ padding: spacing.sm }}>
           <SectionHeading>{L.manageFiltersHeading}</SectionHeading>
-          <FilterBuilder fields={fields} predicates={predicates} onChange={onPredicatesChange} onPreviewCount={onPreviewCount} />
+          <FilterBuilder
+            fields={fields}
+            predicates={predicates}
+            onChange={onPredicatesChange}
+            onPreviewCount={onPreviewCount}
+            labels={L.filters}
+          />
           {predicates.length > 0 && (
             <button
               type="button"

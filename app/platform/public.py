@@ -33,6 +33,7 @@ from app.platform.services.user import (
     list_active_users,
     list_dealer_manager_emails,
     list_user_dealership_ids,
+    may_own_open_records,
 )
 
 # WP-6b: Addressee/ContentDefinition/.../render_document are the shared
@@ -68,5 +69,6 @@ __all__ = [
     "list_active_users",
     "list_dealer_manager_emails",
     "list_user_dealership_ids",
+    "may_own_open_records",
     "render_document",
 ]

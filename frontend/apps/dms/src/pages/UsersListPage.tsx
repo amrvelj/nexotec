@@ -25,6 +25,7 @@ import { UserDeactivateDialog } from '../components/users/UserDeactivateDialog'
 import { UserFormDialog } from '../components/users/UserFormDialog'
 import { buildUserRowMenu } from '../components/users/userRowMenu'
 import { useColumnPanelLabels } from '../hooks/useColumnPanelLabels'
+import { useViewsAndFiltersLabels } from '../hooks/useViewsAndFiltersLabels'
 import { useGridPreferences } from '../hooks/useGridPreferences'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { useSavedViews } from '../hooks/useSavedViews'
@@ -85,6 +86,7 @@ export function UsersListPage() {
   const gridPrefs = useGridPreferences(GRID_KEY, { sort: DEFAULT_SORT })
   const savedViews = useSavedViews(GRID_KEY)
   const columnPanelLabels = useColumnPanelLabels()
+  const viewsAndFiltersLabels = useViewsAndFiltersLabels()
   const queryClient = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
   const chip = (searchParams.get('status') as Chip | null) ?? 'all'
@@ -419,6 +421,7 @@ export function UsersListPage() {
             refreshing={isRefetching}
             filterSlot={
               <ViewsAndFilters
+                labels={viewsAndFiltersLabels}
                 currentViewName={currentViewName}
                 views={savedViews.views}
                 onApplyView={(view) => {

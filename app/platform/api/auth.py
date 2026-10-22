@@ -616,7 +616,7 @@ def mfa_status(principal: Principal = Depends(get_current_principal), db: Sessio
 
 @account_router.post("/auth/mfa/totp/enrol", response_model=TotpEnrolmentRead)
 def totp_enrol(principal: Principal = Depends(get_current_principal), db: Session = Depends(get_db)):
-    user = user_service.get_own_user_or_404(db, principal.user_id)
+    user = user_service.get_own_user_for_update_or_404(db, principal.user_id)
     enrolment = mfa.begin_totp(db, user=user)
     db.commit()
     return TotpEnrolmentRead(secret=enrolment.secret, provisioning_uri=enrolment.provisioning_uri)
@@ -634,7 +634,7 @@ def totp_confirm(
     longer one that owes a factor (the guard would otherwise confine the
     user until they signed out)."""
 
-    user = user_service.get_own_user_or_404(db, principal.user_id)
+    user = user_service.get_own_user_for_update_or_404(db, principal.user_id)
     codes = mfa.confirm_totp(db, user=user, code=body.code, ip_address=client_ip(request))
     _record_factor_on_session(db, principal=principal, method="otp")
     db.commit()
@@ -659,7 +659,7 @@ def _record_factor_on_session(db: Session, *, principal: Principal, method: str)
 
 @account_router.delete("/auth/mfa/totp", status_code=204)
 def totp_remove(request: Request, principal: Principal = Depends(get_current_principal), db: Session = Depends(get_db)):
-    user = user_service.get_own_user_or_404(db, principal.user_id)
+    user = user_service.get_own_user_for_update_or_404(db, principal.user_id)
     if mfa.remove_totp(db, user=user, actor_id=principal.user_id, ip_address=client_ip(request)):
         _drop_factor_from_session_if_none_left(db, principal=principal, user=user)
     db.commit()
@@ -699,7 +699,7 @@ def _drop_factor_from_session_if_none_left(db: Session, *, principal: Principal,
 def recovery_codes_regenerate(
     request: Request, principal: Principal = Depends(get_current_principal), db: Session = Depends(get_db)
 ):
-    user = user_service.get_own_user_or_404(db, principal.user_id)
+    user = user_service.get_own_user_for_update_or_404(db, principal.user_id)
     codes = mfa.regenerate_recovery_codes(db, user=user, ip_address=client_ip(request))
     db.commit()
     return RecoveryCodesRead(codes=codes)
@@ -707,7 +707,7 @@ def recovery_codes_regenerate(
 
 @account_router.post("/auth/mfa/passkeys/options", response_model=PasskeyOptionsResponse)
 def passkey_register_options(principal: Principal = Depends(get_current_principal), db: Session = Depends(get_db)):
-    user = user_service.get_own_user_or_404(db, principal.user_id)
+    user = user_service.get_own_user_for_update_or_404(db, principal.user_id)
     challenge_id = auth_tokens.issue(db, user_id=user.id, kind=AuthTokenKind.PASSKEY_REGISTRATION, actor_id=user.id)
     options = mfa.passkey_registration_options(db, user=user, challenge=mfa.challenge_for(challenge_id, "register"))
     db.commit()
@@ -721,7 +721,7 @@ def passkey_register(
     principal: Principal = Depends(get_current_principal),
     db: Session = Depends(get_db),
 ):
-    user = user_service.get_own_user_or_404(db, principal.user_id)
+    user = user_service.get_own_user_for_update_or_404(db, principal.user_id)
     token = auth_tokens.peek(db, raw=body.challenge_id, kind=AuthTokenKind.PASSKEY_REGISTRATION)
     if token is None or token.user_id != user.id:
         raise UnauthorizedError("The passkey step has expired — start again.")
@@ -749,7 +749,7 @@ def passkey_remove(
     principal: Principal = Depends(get_current_principal),
     db: Session = Depends(get_db),
 ):
-    user = user_service.get_own_user_or_404(db, principal.user_id)
+    user = user_service.get_own_user_for_update_or_404(db, principal.user_id)
     if not mfa.remove_passkey(
         db, user=user, passkey_id=passkey_id, actor_id=principal.user_id, ip_address=client_ip(request)
     ):

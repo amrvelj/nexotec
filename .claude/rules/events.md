@@ -56,7 +56,7 @@ claim checked against the code). Fix this file in the same PR as any change to w
 - **Reconciliation monitors; it does not repair.** Derived state (such as a valuation's status)
   is derived on read, never "fixed" by a nightly job. Dead letters alert. A job that re-reads a
   three-column-pattern **label** from its owner (`customer.vehicle_party_labels`, KAN-84;
-  `customer.advisor_labels`, KAN-403) is not
+  `customer.advisor_labels`, KAN-403; `sales.owner_labels`, KAN-404) is not
   a repair: the label is a copy, refreshed on purpose, and its age is a gauge
   (`dms.label.age_seconds`, alert threshold in README's alarm table).
 - **A repair the nightly run makes (ADR-047: "a failure after commit is repaired by the nightly

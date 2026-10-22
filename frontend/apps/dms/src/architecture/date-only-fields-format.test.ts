@@ -13,8 +13,16 @@ import { fileURLToPath } from 'node:url'
 // timestamps. This scan refuses either of them on a date-only field.
 //
 // A date-only field: the backend's `dt.date` response fields as the frontend
-// names them. Every one ending in Date, Since or FollowUp is caught by name;
-// the two that do not end that way are listed.
+// names them. Every one ending in Date, Since or FollowUp is caught by name,
+// and two that do not end that way are listed. Not every date-only field can
+// be judged by its name (KAN-363): `validFrom` and `validTo` are a date on a
+// plate, an accessory, a user's access window and a valuation (which no screen
+// renders yet) but a timestamp on a contact channel, and `lastDeltaCursor`
+// (the catalogue sync's watermark) has no date-like name at all. No name rule
+// covers those three; the render tests of the screens that show them do,
+// under TZ=Pacific/Honolulu: dateOnlyTabs (a plate's and an accessory's
+// validity), UsersListPage.dateOnly (a user's access window) and
+// IntegrationPlatformView.pending (the watermark).
 const DATE_ONLY_SUFFIX = /(?:Date|Since|FollowUp)$/
 const DATE_ONLY_NAMES = new Set(['expectedDelivery', 'vehicleFirstRegistration'])
 
@@ -50,8 +58,14 @@ const CUSTOMER_DATE_COLUMN = /\bdate\('(\w+)',[^\n]*\)\s*,?\s*$/
 // a field passed as a value to a row or card helper
 // (`value: c.firstRegistrationDate ?? '—'`, ConfigurationSummaryCard's
 // shape), and an `InlineEditField` whose `value=` is both the editor's ISO
-// value and its display (the Identity-tab shape). Those screens' render
-// tests cover them.
+// value and its display (the Identity-tab shape). Not caught either, because
+// the patterns stop short of them (KAN-363): a JSX child that shares its
+// element with text or another expression
+// (`<Text>{t('x')}: {r.purchaseDate}</Text>`), and a fallback that is not a
+// string literal or a `t(…)` call (`r.purchaseDate ?? null`,
+// `r.purchaseDate ?? EMPTY`). This list is the misses known so far, not a
+// proof that there are no others; a screen that renders a date-only field
+// needs its own render test either way.
 const FALLBACK = String.raw`(?:\s*(?:\?\?|\|\|)\s*(?:'[^']*'|"[^"]*"|t\([^)]*\)))?`
 const RAW_JSX_CHILD = new RegExp(String.raw`(?:>\s*|^\s*)\{\s*([\w.?!]+)` + FALLBACK + String.raw`\s*\}(?=\s*(?:<|$))`, 'g')
 const RAW_CELL_RETURN = new RegExp(String.raw`\bcell:\s*\([^)]*\)\s*=>\s*([\w.?!]+)` + FALLBACK + String.raw`\s*,?\s*$`)
