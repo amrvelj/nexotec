@@ -102,6 +102,27 @@
       "unpin": "Désépingler la colonne",
       "moveUp": "Monter {{label}}",
       "moveDown": "Descendre {{label}}"
+    },
+    "viewsAndFilters": {
+      "viewsHeading": "Vues",
+      "saveCurrentView": "Enregistrer la vue actuelle sous…",
+      "savePlaceholder": "Nom de la vue",
+      "manageFiltersHeading": "Gérer les filtres",
+      "reset": "Réinitialiser",
+      "setDefault": "Définir par défaut",
+      "unsetDefault": "Ne plus utiliser par défaut",
+      "deleteView": "Supprimer la vue"
+    },
+    "filterBuilder": {
+      "addFilter": "Nouveau filtre…",
+      "matchCount_one": "{{count, number}} résultat",
+      "matchCount_other": "{{count, number}} résultats",
+      "editFilter": "Modifier le filtre",
+      "duplicateFilter": "Dupliquer le filtre",
+      "deleteFilter": "Supprimer le filtre"
+    },
+    "overlay": {
+      "close": "Fermer"
     }
   },
   "customerCreate": {

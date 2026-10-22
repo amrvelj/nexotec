@@ -24,6 +24,7 @@ import { ValuationSourceMarker } from '../components/ValuationSourceMarker'
 import { NewValuationButton } from '../components/NewValuationButton'
 import { useGridPreferences } from '../hooks/useGridPreferences'
 import { useColumnPanelLabels } from '../hooks/useColumnPanelLabels'
+import { useViewsAndFiltersLabels } from '../hooks/useViewsAndFiltersLabels'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { useSavedViews } from '../hooks/useSavedViews'
 import { useUiPreferencesContext } from '../hooks/UiPreferencesContext'
@@ -191,6 +192,7 @@ export function ValuationsListPage() {
     [gridPrefs.columnLayout, columnRegistry]
   )
   const columnPanelLabels = useColumnPanelLabels()
+  const viewsAndFiltersLabels = useViewsAndFiltersLabels()
 
   const isFiltered = debouncedQuery.length > 0
   const currentViewName =
@@ -252,6 +254,7 @@ export function ValuationsListPage() {
             refreshing={isRefetching}
             filterSlot={
               <ViewsAndFilters
+                labels={viewsAndFiltersLabels}
                 currentViewName={currentViewName}
                 views={savedViews.views}
                 onApplyView={(view) => {

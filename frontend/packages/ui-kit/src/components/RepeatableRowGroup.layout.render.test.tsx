@@ -4,6 +4,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MantineProvider } from "@mantine/core";
 import { RepeatableRowGroup, type RepeatableRowGroupProps } from "./RepeatableRowGroup";
+import { FR_REPEATABLE_ROW_LABELS as LABELS } from "../test/frenchLabels";
 
 // KAN-267 — in a narrow card the row's other controls took the width and the
 // value editor (`flex: 1; min-width: 0`) collapsed to a few pixels: a phone's
@@ -29,6 +30,7 @@ function renderGroup(overrides: Partial<RepeatableRowGroupProps> = {}) {
         onCreate={async () => {}}
         onUpdate={async () => {}}
         onDelete={async () => {}}
+        labels={LABELS}
         {...overrides}
       />
     </MantineProvider>,
@@ -56,12 +58,12 @@ describe("RepeatableRowGroup row layout (KAN-267)", () => {
 
   it("keeps the label, consent and menu in one cluster that wraps as a unit, the label at its 90px", () => {
     renderGroup();
-    const label = screen.getByPlaceholderText("Label");
+    const label = screen.getByPlaceholderText(LABELS.labelFieldPlaceholder);
     const trailing = part(label, "trailing");
 
     expect(trailing.style.marginLeft).toBe("auto");
     expect(trailing).toContainElement(screen.getByRole("checkbox"));
-    expect(trailing).toContainElement(screen.getByRole("button", { name: "Phones row actions" }));
+    expect(trailing).toContainElement(screen.getByRole("button", { name: LABELS.rowActions("Phones") }));
     // A native input's min-content width (~20 characters) used to override
     // its 90px basis, taking the value editor's room.
     expect(label.style.width).toBe("90px");
@@ -74,9 +76,9 @@ describe("RepeatableRowGroup row layout (KAN-267)", () => {
     await user.click(screen.getByRole("button", { name: /Add phone/ }));
 
     const value = part(screen.getByRole("textbox", { name: "Value" }), "value");
-    const trailing = part(screen.getByRole("button", { name: "Save" }), "trailing");
+    const trailing = part(screen.getByRole("button", { name: LABELS.save }), "trailing");
 
     expect(value.style.flex).toBe("1 1 360px");
-    expect(trailing).toContainElement(screen.getByRole("button", { name: "Cancel" }));
+    expect(trailing).toContainElement(screen.getByRole("button", { name: LABELS.cancel }));
   });
 });

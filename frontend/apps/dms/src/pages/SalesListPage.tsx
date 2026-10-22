@@ -23,6 +23,7 @@ import {
 import { useUiPreferencesContext } from '../hooks/UiPreferencesContext'
 import { useGridPreferences } from '../hooks/useGridPreferences'
 import { useColumnPanelLabels } from '../hooks/useColumnPanelLabels'
+import { useViewsAndFiltersLabels } from '../hooks/useViewsAndFiltersLabels'
 import { useSavedViews } from '../hooks/useSavedViews'
 import { api } from '../api/client'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
@@ -222,6 +223,7 @@ export function SalesListPage() {
     [gridPrefs.columnLayout, columnRegistry]
   )
   const columnPanelLabels = useColumnPanelLabels()
+  const viewsAndFiltersLabels = useViewsAndFiltersLabels()
 
   const isFiltered = debouncedQuery.length > 0
   const currentViewName = (appliedViewId && savedViews.views.find((v) => v.id === appliedViewId)?.name) || t('salesList.allDealsView')
@@ -279,6 +281,7 @@ export function SalesListPage() {
               refreshing={isRefetching}
               filterSlot={
                 <ViewsAndFilters
+                  labels={viewsAndFiltersLabels}
                   currentViewName={currentViewName}
                   views={savedViews.views}
                   onApplyView={(view) => {

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { RepeatableRowGroup } from '@nexotec/ui-kit'
 import { ApiError } from '../../api/client'
 import { translatedConsentScopeOptions, translatedConsentSourceOptions } from '../../customerOptions'
+import { contactPointRowLabels } from './contactPointRowLabels'
 
 export interface ContactPointRow<TType extends string> {
   id: string
@@ -94,22 +95,7 @@ export function ContactPointsEditor<TType extends string>({
         consentScopeOptions={translatedConsentScopeOptions(t)}
         consentSourceOptions={translatedConsentSourceOptions(t)}
         describeError={(err) => (err instanceof ApiError ? err.message : t('customerDetail.errors.somethingWentWrong'))}
-        labels={{
-          primary: t('customerDetail.contactPoints.primary'),
-          noLongerValid: t('customerDetail.contactPoints.noLongerValid'),
-          doesNotWork: t('customerDetail.contactPoints.doesNotWork'),
-          doesNotWorkReasonPlaceholder: t('customerDetail.contactPoints.doesNotWorkReasonPlaceholder'),
-          delete: t('customerDetail.contactPoints.delete'),
-          consent: t('customerDetail.contactPoints.consent'),
-          consentScope: t('customerDetail.contactPoints.consentScope'),
-          consentSource: t('customerDetail.contactPoints.consentSource'),
-          save: t('customerDetail.contactPoints.save'),
-          cancel: t('customerDetail.contactPoints.cancel'),
-          confirm: t('customerDetail.contactPoints.confirm'),
-          none: t('customerDetail.contactPoints.none'),
-          labelFieldPlaceholder: t('customerDetail.contactPoints.labelPlaceholder'),
-          rowActions: (label) => t('customerDetail.contactPoints.rowActions', { label }),
-        }}
+        labels={contactPointRowLabels(t)}
       />
     </Stack>
   )

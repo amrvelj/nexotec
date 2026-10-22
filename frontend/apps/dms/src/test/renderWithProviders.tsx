@@ -1,8 +1,9 @@
-import { StrictMode, type ReactElement } from 'react'
+import { StrictMode, type ReactElement, type ReactNode } from 'react'
 import { render, type RenderResult } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { OverlayProvider, theme } from '@nexotec/ui-kit'
 import { AuthProvider } from '../auth/AuthContext'
 import { UiPreferencesProvider } from '../hooks/UiPreferencesContext'
@@ -16,6 +17,13 @@ export interface RenderOptions {
    * mounting component's effects twice, as in development. A `<StrictMode>`
    * passed inside `ui` did not double-run them here. */
   strictMode?: boolean
+}
+
+/** The ADR-059 overlay stack as DmsShell mounts it, its close button named
+ * in the UI language (KAN-364). */
+function TranslatedOverlayProvider({ children }: { children: ReactNode }) {
+  const { t } = useTranslation()
+  return <OverlayProvider closeLabel={t('common.overlay.close')}>{children}</OverlayProvider>
 }
 
 export interface RenderWithProvidersResult extends RenderResult {
@@ -52,7 +60,7 @@ export function renderWithProviders(ui: ReactElement, options: RenderOptions = {
         <MemoryRouter initialEntries={[options.route ?? '/']}>
           <AuthProvider>
             <UiPreferencesProvider>
-              <OverlayProvider>{ui}</OverlayProvider>
+              <TranslatedOverlayProvider>{ui}</TranslatedOverlayProvider>
             </UiPreferencesProvider>
           </AuthProvider>
         </MemoryRouter>

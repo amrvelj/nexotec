@@ -23,6 +23,7 @@ import {
 import { useUiPreferencesContext } from '../../hooks/UiPreferencesContext'
 import { useGridPreferences } from '../../hooks/useGridPreferences'
 import { useColumnPanelLabels } from '../../hooks/useColumnPanelLabels'
+import { useViewsAndFiltersLabels } from '../../hooks/useViewsAndFiltersLabels'
 import { useSavedViews } from '../../hooks/useSavedViews'
 import { api } from '../../api/client'
 import { applyCatalogueFilters, buildCatalogueFilterFields, FACET_LIST_CODE } from '../../catalogueOptions'
@@ -361,6 +362,7 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
     [gridPrefs.columnLayout, columnRegistry],
   )
   const columnPanelLabels = useColumnPanelLabels()
+  const viewsAndFiltersLabels = useViewsAndFiltersLabels()
 
   const isFiltered = debouncedQuery.length > 0 || predicates.length > 0 || brandId !== null
   const currentViewName =
@@ -434,6 +436,7 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
               refreshing={variantsQuery.isRefetching}
               filterSlot={
                 <ViewsAndFilters
+                  labels={viewsAndFiltersLabels}
                   currentViewName={currentViewName}
                   views={savedViews.views}
                   onApplyView={applyView}

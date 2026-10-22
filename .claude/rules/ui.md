@@ -43,14 +43,15 @@ come from WP-6c, `frontend/packages/ui-kit` (`datagrid/`, `detail/`, `shell/`, `
 `components/`, tokens in `tokens.css`/`tokens.ts`). If you are writing one inside a module
 package you are in the wrong package. If the kit cannot do what you need, that is a ui-kit
 change plus an ADR — never a local component. No colour outside the tokens.
-A kit badge maps a value to a tone and takes a required `label`, and `ColumnConfigPanel` takes
-required `labels` (the app passes `useColumnPanelLabels()`), so `tsc` refuses a caller without
-translations (KAN-110, KAN-181, KAN-334, KAN-362). **Not yet true for the rest of the kit
-(KAN-364):** most other components with text (`DataGrid`, `FilterBuilder`, `ViewsAndFilters`,
-`RepeatableRowGroup`, `Wizard`, `GlobalSearch`, `ActionBar`, `FilterChips`, `SelectionBar`,
-`Picker`, `InlineEditField`, `DocumentPreview`, `PresentMode`) still merge English defaults, and
-some aria-labels cannot be overridden at all (`Overlay`'s "Close", `FilterBuilder`'s and
-`ViewsAndFilters`' row actions) — pass every label a component takes.
+A kit component never ships a user-visible string of its own, accessible names included: it
+takes required labels, so `tsc` refuses a caller without translations. True today for the
+badges (a required `label`), `ColumnConfigPanel` (the app passes `useColumnPanelLabels()`),
+`ViewsAndFilters` with its `FilterBuilder` (`useViewsAndFiltersLabels()`), `RepeatableRowGroup`
+(a customer's contact rows pass `contactPointRowLabels(t)`) and `OverlayProvider`'s
+`closeLabel` (KAN-110, KAN-181, KAN-334, KAN-362, KAN-364). **Not yet true for the rest of the
+kit (KAN-364's remaining PRs):** `DataGrid`, `Wizard`, `GlobalSearch`, `ActionBar`,
+`FilterChips`, `SelectionBar`, `Picker`, `InlineEditField`, `DocumentPreview` and `PresentMode`
+still merge English defaults — pass every label a component takes.
 
 ## The rulings that bite most often
 

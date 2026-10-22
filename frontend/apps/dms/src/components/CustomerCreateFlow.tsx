@@ -26,6 +26,7 @@ import {
 } from '../customerOptions'
 import { SUPPORTED_LANGUAGES } from '../i18n'
 import { DuplicateWarningPanel } from './DuplicateWarningPanel'
+import { contactPointRowLabels } from './customer-detail/contactPointRowLabels'
 import { PHONE_INPUT_MIN_WIDTH, PhoneInput } from './PhoneInput'
 import { useCountryOptions } from '../hooks/useCountryOptions'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
@@ -483,20 +484,7 @@ function ContactRowGroup({
         onCreate={handlers.onCreate}
         onUpdate={handlers.onUpdate}
         onDelete={handlers.onDelete}
-        labels={{
-          primary: t('customerDetail.contactPoints.primary'),
-          noLongerValid: t('customerDetail.contactPoints.noLongerValid'),
-          doesNotWork: t('customerDetail.contactPoints.doesNotWork'),
-          doesNotWorkReasonPlaceholder: t('customerDetail.contactPoints.doesNotWorkReasonPlaceholder'),
-          delete: t('customerDetail.contactPoints.delete'),
-          consent: t('customerDetail.contactPoints.consent'),
-          save: t('customerDetail.contactPoints.save'),
-          cancel: t('customerDetail.contactPoints.cancel'),
-          confirm: t('customerDetail.contactPoints.confirm'),
-          none: t('customerDetail.contactPoints.none'),
-          labelFieldPlaceholder: t('customerDetail.contactPoints.labelPlaceholder'),
-          rowActions: (label) => t('customerDetail.contactPoints.rowActions', { label }),
-        }}
+        labels={contactPointRowLabels(t)}
       />
     </Stack>
   )

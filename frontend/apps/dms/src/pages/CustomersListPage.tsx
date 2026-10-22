@@ -31,6 +31,7 @@ import {
 import { useUiPreferencesContext } from '../hooks/UiPreferencesContext'
 import { useGridPreferences } from '../hooks/useGridPreferences'
 import { useColumnPanelLabels } from '../hooks/useColumnPanelLabels'
+import { useViewsAndFiltersLabels } from '../hooks/useViewsAndFiltersLabels'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { useSavedViews } from '../hooks/useSavedViews'
 import { useCountryOptions } from '../hooks/useCountryOptions'
@@ -550,6 +551,7 @@ export function CustomersListPage() {
     [gridPrefs.columnLayout, columnRegistry]
   )
   const columnPanelLabels = useColumnPanelLabels()
+  const viewsAndFiltersLabels = useViewsAndFiltersLabels()
 
   const sortParam = sort.length > 0 ? sort.map((s) => `${s.field}:${s.direction}`).join(',') : undefined
 
@@ -706,6 +708,7 @@ export function CustomersListPage() {
               refreshing={isRefetching}
               filterSlot={
                 <ViewsAndFilters
+                  labels={viewsAndFiltersLabels}
                   currentViewName={currentViewName}
                   views={savedViews.views}
                   onApplyView={applyView}
