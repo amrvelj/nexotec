@@ -216,3 +216,41 @@ def _drop_if_already_there(check: CheckConstraint, table: Any) -> None:
         other is not check and getattr(other, "name", None) == check.name for other in table.constraints
     ):
         table.constraints.discard(check)
+
+
+def render_autogenerate_item(type_: str, obj: Any, autogen_context: Any) -> str | bool:
+    """alembic/env.py's `render_item`, kept here so that tests/test_stored_enum.py
+    runs the hook env.py runs (env.py itself cannot be imported: it runs
+    migrations). A generated migration never imports app types — the code moves
+    on, the migration must not — so:
+
+    - a StoredEnum column renders as the plain VARCHAR it is (KAN-86; its repr
+      would not even carry its enum class);
+    - its CHECK renders as a named `sa.CheckConstraint`. The CHECK is type-bound
+      (KAN-297), and since alembic 1.20.1 autogenerate skips a type-bound CHECK,
+      expecting the rendered type to create it. A VARCHAR creates none, so
+      without this a generated migration loses the CHECK (KAN-417).
+    """
+
+    if type_ == "type" and isinstance(obj, StoredEnum):
+        autogen_context.imports.add("import sqlalchemy as sa")
+        return f"sa.String(length={obj.length})"
+    if type_ == "check" and _is_stored_enum_check(obj):
+        autogen_context.imports.add("import sqlalchemy as sa")
+        # The same rendering alembic gives any other CHECK: literal values, no table prefix.
+        sql = autogen_context.migration_context.impl.render_ddl_sql_expr(obj.sqltext)
+        return f"sa.CheckConstraint({sql!r}, name={str(obj.name)!r})"
+    return False
+
+
+def _is_stored_enum_check(constraint: Any) -> bool:
+    """The CHECK a StoredEnum column attached to its table (named by
+    `enum_check_name`), as opposed to any other CHECK on that table."""
+
+    table = getattr(constraint, "parent", None)
+    if not isinstance(constraint, CheckConstraint) or not isinstance(table, Table):
+        return False
+    return any(
+        isinstance(column.type, StoredEnum) and enum_check_name(table.name, column.name) == constraint.name
+        for column in table.columns
+    )
