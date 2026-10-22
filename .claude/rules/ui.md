@@ -66,10 +66,11 @@ some aria-labels cannot be overridden at all (`Overlay`'s "Close", `FilterBuilde
   visible by default. A stored field that cannot be put on screen is a defect. A grid with a
   Columns panel passes `gridPrefs.columnLayout ?? defaultColumnLayout(columnRegistry)` to both
   `DataGrid` and the panel: without a layout `DataGrid` renders every column (KAN-361).
-  `src/architecture/grid-default-column-layout.test.ts` requires, in every file that renders the
-  panel, that the panel's `layout` and each `DataGrid`'s `columnLayout` be a variable whose
-  nearest `const` declaration before the prop has a `?? defaultColumnLayout(...)` fallback in its
-  own statement (a source scan, not a type check). `DataGrid` itself stays layout-agnostic: a
+  `src/architecture/grid-default-column-layout.test.ts` parses every file that renders the panel
+  with the TypeScript compiler and requires the panel's `layout` and each `DataGrid`'s
+  `columnLayout` to be an identifier bound (by scope) to a `const` whose value is
+  `… ?? defaultColumnLayout(…)`, directly or as `useMemo(() => …)`'s body — comments are not
+  code, and a `let`, destructured or parameter binding never passes (KAN-367). `DataGrid` itself stays layout-agnostic: a
   grid without a panel shows every column (ADR-092).
 - **ADR-061** — every detail screen: **one primary action, one alternative, and an overflow
   carrying the entity's full row menu** — same items, same order, same

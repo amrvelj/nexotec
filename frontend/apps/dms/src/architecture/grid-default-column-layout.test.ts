@@ -5,15 +5,19 @@ import { describe, expect, it } from 'vitest'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import ts from 'typescript'
 
 // KAN-361: DataGrid without a `columnLayout` renders every column and
 // ignores `defaultVisible`, so a grid that passed
 // `gridPrefs.columnLayout ?? undefined` showed a user with no saved layout
 // every column (ADR-060: a documented subset is visible by default; ADR-092:
 // DataGrid itself stays layout-agnostic). In a file that renders the Columns
-// panel, the panel's `layout` and DataGrid's `columnLayout` must each be a
-// plain variable whose nearest `const` declaration before the prop, read to
-// the end of its own statement, falls back to `defaultColumnLayout(...)`.
+// panel, the panel's `layout` and every DataGrid's `columnLayout` must each be
+// an identifier that the TypeScript checker resolves to a `const` whose value
+// is `… ?? defaultColumnLayout(…)`, directly or as the body of
+// `useMemo(() => …)`. The compiler parses the file, so comments, scopes and
+// other kinds of binding (`let`, destructuring, parameters) are seen as they
+// are.
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const SKIP_DIR_NAMES = new Set(['node_modules', 'dist', 'build', '.git'])
@@ -28,88 +32,76 @@ function collectFiles(dir: string, out: string[] = []): string[] {
   return out
 }
 
-/** The text and position of a prop's `{…}` value on each `<Tag …>` in `source`. */
-function propValues(source: string, tag: string, prop: string): ({ value: string; at: number } | null)[] {
-  const values: ({ value: string; at: number } | null)[] = []
-  const opening = new RegExp(`<${tag}\\b`, 'g')
-  for (let match = opening.exec(source); match; match = opening.exec(source)) {
-    // The tag's attributes run to its first `/>` or `>` at brace depth 0,
-    // after a type argument (`<DataGrid<StockItemRead>`) if there is one.
-    let depth = 0
-    let end = match.index + match[0].length
-    if (source[end] === '<') end = source.indexOf('>', end) + 1
-    for (; end < source.length; end += 1) {
-      const ch = source[end]
-      if (ch === '{') depth += 1
-      else if (ch === '}') depth -= 1
-      else if (depth === 0 && ch === '>') break
-    }
-    const attributes = source.slice(match.index, end)
-    const prop_ = new RegExp(`\\b${prop}=\\{`).exec(attributes)
-    if (!prop_) {
-      values.push(null)
-      continue
-    }
-    let valueDepth = 1
-    let i = prop_.index + prop_[0].length
-    const start = i
-    for (; i < attributes.length && valueDepth > 0; i += 1) {
-      if (attributes[i] === '{') valueDepth += 1
-      else if (attributes[i] === '}') valueDepth -= 1
-    }
-    values.push({ value: attributes.slice(start, i - 1).trim(), at: match.index + start })
-  }
-  return values
+/** A one-file program: enough for the checker to resolve local bindings. */
+function checkerFor(fileName: string, text: string): { file: ts.SourceFile; checker: ts.TypeChecker } {
+  const file = ts.createSourceFile(fileName, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+  const options: ts.CompilerOptions = { noLib: true, noResolve: true, jsx: ts.JsxEmit.Preserve }
+  const host = ts.createCompilerHost(options)
+  host.getSourceFile = (name) => (name === fileName ? file : undefined)
+  host.fileExists = (name) => name === fileName
+  host.readFile = (name) => (name === fileName ? text : undefined)
+  const program = ts.createProgram({ rootNames: [fileName], options, host })
+  return { file, checker: program.getTypeChecker() }
 }
 
-/** The initializer of a `const` declaration starting at `from`: up to a `;`
- * or a line break at bracket depth 0 that does not continue the expression. */
-function initializerAt(source: string, from: number): string {
-  let begin = from
-  while (begin < source.length && /\s/.test(source[begin])) begin += 1
-  let depth = 0
-  let i = begin
-  for (; i < source.length; i += 1) {
-    const ch = source[i]
-    if ('([{'.includes(ch)) depth += 1
-    else if (')]}'.includes(ch)) depth -= 1
-    else if (depth === 0 && ch === ';') break
-    else if (depth === 0 && ch === '\n') {
-      const before = source.slice(begin, i).trimEnd()
-      const after = source.slice(i + 1).trimStart()
-      const continues = /(\?\?|\|\||&&|[=(,?:+.])$/.test(before) || /^(\?\?|\|\||&&|[?:.)\]}])/.test(after)
-      if (!continues) break
-    }
+function unwrap(node: ts.Expression): ts.Expression {
+  let current = node
+  while (ts.isParenthesizedExpression(current) || ts.isAsExpression(current) || ts.isSatisfiesExpression(current)) {
+    current = current.expression
   }
-  return source.slice(begin, i)
+  return current
 }
 
-/** True when the nearest `const name = …` before `at` falls back to `defaultColumnLayout(...)`. */
-function fallsBackToDefault(source: string, name: string, at: number): boolean {
-  const declaration = new RegExp(`\\bconst\\s+${name}\\b[^=\\n]*=`, 'g')
-  let nearest: number | null = null
-  for (let match = declaration.exec(source); match && match.index < at; match = declaration.exec(source)) {
-    nearest = match.index + match[0].length
+/** `x ?? defaultColumnLayout(…)`, directly or as the body of `useMemo(() => …)`. */
+function isDefaultFallback(initializer: ts.Expression): boolean {
+  let value = unwrap(initializer)
+  if (ts.isCallExpression(value) && value.expression.getText() === 'useMemo') {
+    const factory = value.arguments[0]
+    if (!factory || !ts.isArrowFunction(factory) || ts.isBlock(factory.body)) return false
+    value = unwrap(factory.body)
   }
-  return nearest !== null && /\?\?\s*defaultColumnLayout\(/.test(initializerAt(source, nearest))
+  if (!ts.isBinaryExpression(value) || value.operatorToken.kind !== ts.SyntaxKind.QuestionQuestionToken) return false
+  const right = unwrap(value.right)
+  return ts.isCallExpression(right) && right.expression.getText() === 'defaultColumnLayout'
 }
 
-function problems(source: string): string[] {
-  if (!/<ColumnConfigPanel\b/.test(source)) return []
-  const checks: [string, string, string][] = [
-    ['ColumnConfigPanel', 'layout', 'the Columns panel'],
-    ['DataGrid', 'columnLayout', 'DataGrid'],
-  ]
+function fallsBackToDefault(expression: ts.Expression, checker: ts.TypeChecker): boolean {
+  const value = unwrap(expression)
+  if (!ts.isIdentifier(value)) return false
+  const declaration = checker.getSymbolAtLocation(value)?.valueDeclaration
+  if (!declaration || !ts.isVariableDeclaration(declaration) || !ts.isIdentifier(declaration.name)) return false
+  const isConst = (ts.getCombinedNodeFlags(declaration) & ts.NodeFlags.Const) !== 0
+  return isConst && declaration.initializer !== undefined && isDefaultFallback(declaration.initializer)
+}
+
+function problems(text: string, fileName = 'probe.tsx'): string[] {
+  if (!/<ColumnConfigPanel\b/.test(text)) return []
+  const { file, checker } = checkerFor(fileName, text)
+  const wanted: Record<string, string> = { ColumnConfigPanel: 'layout', DataGrid: 'columnLayout' }
+  const seen: Record<string, number> = { ColumnConfigPanel: 0, DataGrid: 0 }
   const out: string[] = []
-  for (const [tag, prop, what] of checks) {
-    const values = propValues(source, tag, prop)
-    if (values.length === 0) out.push(`renders ColumnConfigPanel but no ${tag}`)
-    for (const found of values) {
-      if (found === null) out.push(`${what} gets no ${prop}`)
-      else if (!/^[A-Za-z_$][\w$]*$/.test(found.value) || !fallsBackToDefault(source, found.value, found.at))
-        out.push(`${what}'s ${prop}={${found.value}} does not fall back to defaultColumnLayout(...)`)
+
+  const visit = (node: ts.Node) => {
+    if (ts.isJsxSelfClosingElement(node) || ts.isJsxOpeningElement(node)) {
+      const tag = node.tagName.getText()
+      const prop = wanted[tag]
+      if (prop) {
+        seen[tag] += 1
+        const line = file.getLineAndCharacterOfPosition(node.getStart()).line + 1
+        const attribute = node.attributes.properties.find(
+          (p): p is ts.JsxAttribute => ts.isJsxAttribute(p) && p.name.getText() === prop
+        )
+        const expression =
+          attribute?.initializer && ts.isJsxExpression(attribute.initializer) ? attribute.initializer.expression : undefined
+        if (!attribute) out.push(`${line}: <${tag}> gets no ${prop}`)
+        else if (!expression || !fallsBackToDefault(expression, checker))
+          out.push(`${line}: <${tag}> ${prop}={${expression?.getText() ?? ''}} does not resolve to a const … ?? defaultColumnLayout(…)`)
+      }
     }
+    ts.forEachChild(node, visit)
   }
+  visit(file)
+  if (seen.DataGrid === 0) out.push('renders ColumnConfigPanel but no DataGrid')
   return out
 }
 
@@ -121,40 +113,48 @@ describe('a grid with a Columns panel shows its default subset to a user with no
     expect(withPanel.length).toBeGreaterThanOrEqual(6)
 
     const offenders = withPanel.flatMap((file) =>
-      problems(readFileSync(file, 'utf-8')).map((problem) => `${file.slice(SRC_ROOT.length + 1)}: ${problem}`)
+      problems(readFileSync(file, 'utf-8'), file).map((problem) => `${file.slice(SRC_ROOT.length + 1)}:${problem}`)
     )
     expect(offenders).toEqual([])
   })
 
   it('matches the shapes it exists to stop', () => {
-    const decl = 'const columnLayout = useMemo(\n  () => gridPrefs.columnLayout ?? defaultColumnLayout(columnRegistry),\n  [x]\n)\n'
-    const panel = (layout: string) => `<ColumnConfigPanel registry={r} layout={${layout}} labels={l} />\n`
-    const grid = (layout: string) => `<DataGrid<Row>\n  rows={rows}\n  columnLayout={${layout}}\n  labels={{ a: t('x') }}\n/>\n`
-    const good = `${decl}${panel('columnLayout')}${grid('columnLayout')}`
+    const memo = 'const columnLayout = useMemo(\n  () => gridPrefs.columnLayout ?? defaultColumnLayout(columnRegistry),\n  [x]\n)\n'
+    const panel = (layout: string) => `<ColumnConfigPanel registry={r} layout={${layout}} labels={l} />`
+    const grid = (layout: string) => `<DataGrid<Row>\n  rows={rows}\n  columnLayout={${layout}}\n  labels={{ a: t('x') }}\n/>`
+    const component = (body: string, panelLayout: string, gridLayout: string, name = 'Grid') =>
+      `export function ${name}() {\n${body}  return (<>${panel(panelLayout)}${grid(gridLayout)}</>)\n}\n`
+    const good = component(memo, 'columnLayout', 'columnLayout')
     expect(problems(good)).toEqual([])
+    // Spread over lines, or without useMemo, is still the fallback.
+    expect(problems(component('const columnLayout =\n  gridPrefs.columnLayout\n  ?? defaultColumnLayout(r)\n', 'columnLayout', 'columnLayout'))).toEqual([])
 
     // The KAN-361 defect, inline or split over lines.
-    expect(problems(`${decl}${panel('columnLayout')}${grid('gridPrefs.columnLayout ?? undefined')}`)).toHaveLength(1)
-    expect(problems(`${decl}${panel('columnLayout')}${grid('gridPrefs.columnLayout\n    ?? undefined')}`)).toHaveLength(1)
+    expect(problems(component(memo, 'columnLayout', 'gridPrefs.columnLayout ?? undefined'))).toHaveLength(1)
+    expect(problems(component(memo, 'columnLayout', 'gridPrefs.columnLayout\n    ?? undefined'))).toHaveLength(1)
     // A bare saved layout to either side.
-    expect(problems(`${decl}${panel('gridPrefs.columnLayout')}${grid('columnLayout')}`)).toHaveLength(1)
-    expect(problems(`${decl}${panel('columnLayout')}${grid('gridPrefs.columnLayout')}`)).toHaveLength(1)
-    // The same behind a variable.
-    const hidden = 'const savedLayout = gridPrefs.columnLayout ?? undefined\n'
-    expect(problems(`${hidden}${panel('savedLayout')}${grid('savedLayout')}`)).toHaveLength(2)
-    // A value declared just above a correct fallback does not borrow it.
-    expect(problems(`${hidden}${decl}${panel('columnLayout')}${grid('savedLayout')}`)).toHaveLength(1)
+    expect(problems(component(memo, 'gridPrefs.columnLayout', 'columnLayout'))).toHaveLength(1)
+    expect(problems(component(memo, 'columnLayout', 'gridPrefs.columnLayout'))).toHaveLength(1)
+    // A value declared just above a correct fallback, with or without a comment that reads like a continuation.
+    const saved = 'const savedLayout = gridPrefs.columnLayout ?? undefined\n'
+    expect(problems(component(`${saved}${memo}`, 'columnLayout', 'savedLayout'))).toHaveLength(1)
+    expect(problems(component(`${saved.trimEnd()} // the saved layout, if any.\n${memo}`, 'columnLayout', 'savedLayout'))).toHaveLength(1)
     // A saved layout renamed, then given to the fallback and to the grid.
-    const renamed = `${hidden}const columnLayout = useMemo(() => savedLayout ?? defaultColumnLayout(r), [x])\n`
-    expect(problems(`${renamed}${panel('columnLayout')}${grid('savedLayout')}`)).toHaveLength(1)
-    // A second component in the file reusing the name with the KAN-361 value.
-    const second = `const columnLayout = gridPrefs.columnLayout ?? undefined\n${panel('columnLayout')}${grid('columnLayout')}`
-    expect(problems(`${good}${second}`)).toHaveLength(2)
-    // A fallback spread over lines is still one statement.
-    expect(problems(`const columnLayout =\n  gridPrefs.columnLayout\n  ?? defaultColumnLayout(columnRegistry)\n${panel('columnLayout')}${grid('columnLayout')}`)).toEqual([])
-    // No layout on the grid at all.
-    expect(problems(`${decl}${panel('columnLayout')}<DataGrid rows={rows} />\n`)).toHaveLength(1)
+    const renamed = `${saved}const columnLayout = useMemo(() => savedLayout ?? defaultColumnLayout(r), [x])\n`
+    expect(problems(component(renamed, 'columnLayout', 'savedLayout'))).toHaveLength(1)
+    // A second component reusing the name through other kinds of binding.
+    expect(problems(`${good}${component('const columnLayout = gridPrefs.columnLayout ?? undefined\n', 'columnLayout', 'columnLayout', 'Other')}`)).toHaveLength(2)
+    expect(problems(`${good}${component('let columnLayout = gridPrefs.columnLayout ?? defaultColumnLayout(r)\n', 'columnLayout', 'columnLayout', 'Other')}`)).toHaveLength(2)
+    expect(problems(`${good}${component('const { columnLayout } = gridPrefs\n', 'columnLayout', 'columnLayout', 'Other')}`)).toHaveLength(2)
+    expect(problems(`${good}export function Other({ columnLayout }: P) {\n  return (<>${panel('columnLayout')}${grid('columnLayout')}</>)\n}\n`)).toHaveLength(2)
+    // An old fallback left in a comment is not a declaration.
+    expect(problems(component(`// ${memo.replace(/\n/g, ' ')}\nconst { columnLayout } = gridPrefs\n`, 'columnLayout', 'columnLayout'))).toHaveLength(2)
+    // A conditional is not the fallback.
+    expect(problems(component('const columnLayout = useMemo(() => (compact ? saved : saved ?? defaultColumnLayout(r)), [x])\n', 'columnLayout', 'columnLayout'))).toHaveLength(2)
+    // No layout on the grid at all, or no grid.
+    expect(problems(`export function G() {\n${memo}  return (<>${panel('columnLayout')}<DataGrid rows={rows} /></>)\n}\n`)).toHaveLength(1)
+    expect(problems(`export function G() {\n${memo}  return ${panel('columnLayout')}\n}\n`)).toHaveLength(1)
     // A file without a Columns panel is not this rule's business.
-    expect(problems('<DataGrid columnLayout={gridPrefs.columnLayout ?? undefined} />')).toEqual([])
+    expect(problems('export const G = () => <DataGrid columnLayout={gridPrefs.columnLayout ?? undefined} />')).toEqual([])
   })
 })
