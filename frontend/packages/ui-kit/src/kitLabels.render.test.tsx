@@ -19,7 +19,10 @@ import {
 // Overlay merged English defaults under optional labels, and hardcoded some
 // accessible names no caller could override ("Edit filter", "Delete view",
 // "Close"). Their labels are required now; given French ones, nothing they
-// render or announce may be one of the former English defaults.
+// render or announce may be one of the former English defaults. Not checked
+// here, because it is not a label yet: FilterBuilder's condition names and a
+// saved filter's text, which `filterPredicate.ts` still writes in English
+// (KAN-415).
 
 const FIELD = { id: "canton", label: "Canton", type: "text" as const };
 const PREDICATE: FilterPredicate = { id: "p1", fieldId: "canton", type: "text", condition: "contains", value: "ZH" };
@@ -40,7 +43,7 @@ function renderedStrings(): string[] {
 
 const englishLeft = () => renderedStrings().filter((text) => FORMER_ENGLISH_DEFAULTS.test(text));
 
-describe("kit components speak only the labels their caller passes (KAN-364)", () => {
+describe("kit components show none of their former English defaults (KAN-364)", () => {
   it("ViewsAndFilters and its FilterBuilder: headings, actions and row actions are the caller's", async () => {
     const user = userEvent.setup();
     render(

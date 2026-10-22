@@ -110,7 +110,7 @@
       "manageFiltersHeading": "Filter verwalten",
       "reset": "Zurücksetzen",
       "setDefault": "Als Standard festlegen",
-      "unsetDefault": "Nicht mehr als Standard",
+      "unsetDefault": "Als Standard entfernen",
       "deleteView": "Ansicht löschen"
     },
     "filterBuilder": {

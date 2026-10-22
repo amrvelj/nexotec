@@ -16,7 +16,9 @@ import { StockListPage } from '../pages/StockListPage'
 // showed "Views", "Manage filters", "+ New filter…", "Save" and "Cancel" in
 // every UI language, and the filter and view row actions and the overlay's
 // close button were English names no caller could change. The labels are
-// required now and every caller passes translated keys.
+// required now and every caller passes translated keys. Still English, and
+// not checked here: the Filter Builder's condition names and a saved filter's
+// text, written by the kit's `filterPredicate.ts` (KAN-415).
 //
 // Hardcoded French expectations, not i18n.t(): a key missing from both sides
 // must fail here.
@@ -71,7 +73,7 @@ const STOCK_PAGE = {
 } as unknown as StockItemPage
 
 describe('kit components speak the UI language on the app\'s screens (KAN-364)', () => {
-  it('French UI: the Stock list\'s views-and-filters panel and its filter editor are French', async () => {
+  it('French UI: the Stock list\'s views-and-filters panel and its filter editor show their labels in French', async () => {
     await i18n.changeLanguage('fr')
     const user = userEvent.setup()
     installFakeBackend([{ match: /^\/inventory\/stock-items$/, handler: () => STOCK_PAGE }])

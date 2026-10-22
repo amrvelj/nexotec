@@ -1,13 +1,13 @@
-import { StrictMode, type ReactElement, type ReactNode } from 'react'
+import { StrictMode, type ReactElement } from 'react'
 import { render, type RenderResult } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
-import { useTranslation } from 'react-i18next'
-import { OverlayProvider, theme } from '@nexotec/ui-kit'
+import { theme } from '@nexotec/ui-kit'
 import { AuthProvider } from '../auth/AuthContext'
 import { UiPreferencesProvider } from '../hooks/UiPreferencesContext'
 import '../i18n'
+import { TranslatedOverlayProvider } from './TranslatedOverlayProvider'
 
 export interface RenderOptions {
   /** Initial entry for the MemoryRouter — this IS the "pasted URL". */
@@ -17,13 +17,6 @@ export interface RenderOptions {
    * mounting component's effects twice, as in development. A `<StrictMode>`
    * passed inside `ui` did not double-run them here. */
   strictMode?: boolean
-}
-
-/** The ADR-059 overlay stack as DmsShell mounts it, its close button named
- * in the UI language (KAN-364). */
-function TranslatedOverlayProvider({ children }: { children: ReactNode }) {
-  const { t } = useTranslation()
-  return <OverlayProvider closeLabel={t('common.overlay.close')}>{children}</OverlayProvider>
 }
 
 export interface RenderWithProvidersResult extends RenderResult {

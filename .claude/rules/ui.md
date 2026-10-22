@@ -46,7 +46,9 @@ change plus an ADR — never a local component. No colour outside the tokens.
 A kit component never ships a user-visible string of its own, accessible names included: it
 takes required labels, so `tsc` refuses a caller without translations. True today for the
 badges (a required `label`), `ColumnConfigPanel` (the app passes `useColumnPanelLabels()`),
-`ViewsAndFilters` with its `FilterBuilder` (`useViewsAndFiltersLabels()`), `RepeatableRowGroup`
+`ViewsAndFilters` with its `FilterBuilder` (`useViewsAndFiltersLabels()`) — except the Filter
+Builder's condition names and saved-filter text, still English in `filterPredicate.ts`
+(KAN-415) — `RepeatableRowGroup`
 (a customer's contact rows pass `contactPointRowLabels(t)`) and `OverlayProvider`'s
 `closeLabel` (KAN-110, KAN-181, KAN-334, KAN-362, KAN-364). **Not yet true for the rest of the
 kit (KAN-364's remaining PRs):** `DataGrid`, `Wizard`, `GlobalSearch`, `ActionBar`,
@@ -136,13 +138,14 @@ plate's validity, …) names a calendar day and renders through `formatDateOnly`
 and `formatDateTime` are for timestamps, which they render in the browser's zone (KAN-180,
 KAN-333). `src/architecture/date-only-fields-format.test.ts` judges a field by its name
 (`…Date`, `…Since`, `…FollowUp`, `expectedDelivery`, `vehicleFirstRegistration`) and refuses
-it in three places: inside `formatDate`/`formatDateTime`, as a raw JSX child (`>{r.purchaseDate}`,
-with or without a `?? '—'` / `?? t(…)` fallback), and as a grid column's `cell:` renderer that
-returns the bare field (KAN-358). It is a source scan with known misses (its KAN-358 comment
+it in four places: inside `formatDate`/`formatDateTime`, in CustomersListPage's `date('…', …)`
+column helper without `formatDateOnly`, as a raw JSX child (`>{r.purchaseDate}`, with or
+without a `?? '—'` / `?? t(…)` fallback), and as a grid column's `cell:` renderer that returns
+the bare field (KAN-358). It is a source scan with known misses (its KAN-358 comment
 lists them: a field joined into a string or passed to a row helper, a JSX child sharing its
 element with text, a `?? null` or `?? CONST` fallback), and it cannot judge a name at all for
-`validFrom`/`validTo` (a date on a plate, an accessory and a valuation, a timestamp on a contact
-channel) or `lastDeltaCursor` (KAN-363) — those, and every screen that renders a date-only
+`validFrom`/`validTo` (a date on a plate, an accessory, a user's access window and a valuation,
+a timestamp on a contact channel) or `lastDeltaCursor` (KAN-363) — those, and every screen that renders a date-only
 field, are checked by the screen's render test under `TZ=Pacific/Honolulu`. Today's date as a pre-fill is
 `todayLocalIsoDate()` (`utils/format.ts`), the user's calendar day — never
 `toISOString().slice(0, 10)`, the UTC day, which is yesterday between midnight and 01:00/02:00

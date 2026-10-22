@@ -109,8 +109,8 @@ describe('a grid with a Columns panel shows its default subset to a user with no
   it('every file in apps/dms/src that renders ColumnConfigPanel gives it and DataGrid the defaultColumnLayout fallback', () => {
     const files = collectFiles(SRC_ROOT)
     const withPanel = files.filter((file) => /<ColumnConfigPanel\b/.test(readFileSync(file, 'utf-8')))
-    // An empty walk would pass vacuously: the six grids with a panel today.
-    expect(withPanel.length).toBeGreaterThanOrEqual(6)
+    // An empty walk would pass vacuously: the seven grids with a panel today.
+    expect(withPanel.length).toBeGreaterThanOrEqual(7)
 
     const offenders = withPanel.flatMap((file) =>
       problems(readFileSync(file, 'utf-8'), file).map((problem) => `${file.slice(SRC_ROOT.length + 1)}:${problem}`)
