@@ -51,7 +51,7 @@ def require_staff_recovery_session(principal: Principal = Depends(get_current_pr
         raise ForbiddenError("Account recovery is for platform staff.")
     if not principal.mfa:
         raise ForbiddenError("This action needs a staff session signed in with a second factor.")
-    if principal.impersonator_id is not None:
+    if principal.acting_for is not None:
         raise ForbiddenError("Account recovery is never available through an impersonation.")
     return principal
 

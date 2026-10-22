@@ -181,12 +181,11 @@ class Principal:
     session_id: uuid.UUID | None = None
     amr: frozenset[str] = frozenset()
     mfa: bool = False
-    # FR-A-17 / FR-AU-27 (KAN-202): the staff member acting through this
-    # principal when it is an impersonation. Impersonation is not built yet:
-    # nothing sets it, and `require_staff_recovery_session` refuses any
-    # principal that carries it, so the recovery routes are closed to it
-    # from the day impersonation arrives.
-    impersonator_id: uuid.UUID | None = None
+    # D-A-24 / FR-AU-27 (KAN-202; Anto, 2026-10-22): under impersonation the
+    # principal is the staff member (`user_id`) acting for this user. Not
+    # built yet — nothing sets it; the recovery door refuses any principal
+    # that carries it.
+    acting_for: uuid.UUID | None = None
 
 
 def create_access_token(
@@ -315,31 +314,12 @@ def require_mfa_session():
     """Dependency factory (D-A-36, KAN-196): a platform staff principal may
     call this route only from a session minted with a second factor. Dealer
     users pass — MFA is their Betrieb's policy (D-A-09), not a gate on a
-    route. The recovery endpoints use `require_staff_recovery_session`,
-    which adds the impersonation refusal; the impersonation endpoints, when
-    they come, carry this one."""
+    route. Ready for the impersonation and recovery endpoints, which come
+    later; proven on a probe route until then."""
 
     def _check(principal: Principal = Depends(get_current_principal)) -> Principal:
         if AccessRole.PLATFORM_ADMIN in principal.roles and not principal.mfa:
             raise ForbiddenError("This action needs a staff session signed in with a second factor.")
-        return principal
-
-    return _check
-
-
-def require_staff_recovery_session():
-    """Dependency factory (FR-AU-25…27, D-A-16, D-A-36; KAN-202): account
-    recovery is platform staff's alone, from a session signed in with a
-    second factor, and never through an impersonation. Anyone else is 403 —
-    the route names no tenant's record, so the refusal confirms nothing."""
-
-    def _check(principal: Principal = Depends(get_current_principal)) -> Principal:
-        if AccessRole.PLATFORM_ADMIN not in principal.roles:
-            raise ForbiddenError("Account recovery is for platform staff.")
-        if not principal.mfa:
-            raise ForbiddenError("This action needs a staff session signed in with a second factor.")
-        if principal.impersonator_id is not None:
-            raise ForbiddenError("Account recovery is never available through an impersonation.")
         return principal
 
     return _check

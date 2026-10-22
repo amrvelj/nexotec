@@ -282,7 +282,7 @@ def test_recovery_is_never_available_through_an_impersonation(client, login, db_
         is_dealer_manager=False,
         amr=frozenset({"pwd", "otp", "mfa"}),
         mfa=True,
-        impersonator_id=uuid.uuid4(),
+        acting_for=uuid.uuid4(),
     )
     app.dependency_overrides[get_current_principal] = lambda: impersonating
     try:
