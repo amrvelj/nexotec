@@ -2287,7 +2287,7 @@
   },
   "recovery": {
     "title": "Recupero account",
-    "intro": "Riservato ai collaboratori di Nexotec. Cercate l'account richiesto tramite l'indirizzo e-mail esatto o l'azienda, poi scegliete l'azione nel menu della riga. Ogni azione richiede un motivo: il manager dell'azienda lo legge nella cronologia degli accessi. Qui nessuno imposta né vede una password.",
+    "intro": "Riservato ai collaboratori di Nexotec. Cercate l'account richiesto tramite l'indirizzo e-mail esatto o l'azienda, poi scegliete l'azione nel menu della riga. Ogni azione richiede un motivo: viene registrato con il vostro nome nel registro degli accessi dell'azienda, a cui il suo manager ha accesso. Qui nessuno imposta né vede una password.",
     "forbidden": {
       "title": "Non disponibile",
       "body": "Il recupero account è riservato ai collaboratori di Nexotec connessi con un secondo fattore."
@@ -2304,7 +2304,7 @@
       "sessions": "Sessioni aperte"
     },
     "lockedUntil": "Bloccato fino al {{when}}",
-    "failedAttempts": "Tentativi falliti: {{count}}",
+    "failedAttempts": "Tentativi falliti: {{count, number}}",
     "passwordSet": "Impostata",
     "passwordNone": "Non ancora impostata",
     "mfaEnrolled": "Configurato",
@@ -2330,10 +2330,12 @@
       "managerNeedsActive": "Solo un utente attivo può diventare manager."
     },
     "dialog": {
-      "notice": "L'utente riceve un avviso di sicurezza, e il manager dell'azienda vede l'azione, il vostro nome e il motivo nella cronologia degli accessi.",
-      "noticeByMail": "L'invito arriva all'utente per e-mail. Il manager dell'azienda vede l'azione, il vostro nome e il motivo nella cronologia degli accessi.",
+      "notice": "La notifica all'utente non è ancora disponibile — informatelo voi. L'azione, il vostro nome e il motivo sono registrati nel registro degli accessi dell'azienda, a cui il suo manager ha accesso.",
+      "noticeByMail": "L'invito arriva all'utente per e-mail. L'azione, il vostro nome e il motivo sono registrati nel registro degli accessi dell'azienda, a cui il suo manager ha accesso.",
       "reason": "Motivo",
-      "reasonHint": "Chi l'ha chiesto e perché — per esempio chi ha chiamato e il numero del ticket."
+      "reasonHint": "Chi l'ha chiesto e perché — per esempio chi ha chiamato e il numero del ticket.",
+      "noticeChangeEmail": "Il vecchio indirizzo viene informato per e-mail. L'azione, il vostro nome e il motivo sono registrati nel registro degli accessi dell'azienda, a cui il suo manager ha accesso.",
+      "newEmail": "Nuovo indirizzo e-mail"
     },
     "errors": {
       "not_locked": "L'account non è bloccato — non c'è nulla da sbloccare.",
@@ -2341,7 +2343,14 @@
       "reason_required": "Un'azione di recupero richiede un motivo.",
       "search_criteria": "Cercate tramite indirizzo e-mail o azienda.",
       "generic": "L'azione è stata rifiutata: {{message}}",
-      "forbidden": "Questa azione richiede una sessione Nexotec con un secondo fattore."
+      "forbidden": "Questa azione richiede una sessione Nexotec con un secondo fattore.",
+      "self": "Il vostro account si gestisce in Il mio account, non qui.",
+      "deactivated": "L'utente è disattivato — l'azienda lo riattiva prima.",
+      "not_active": "Solo un utente attivo può diventare manager.",
+      "same_email": "Questo è già l'indirizzo e-mail dell'utente.",
+      "email_taken": "Un altro utente accede già con questo indirizzo.",
+      "notFound": "L'account non esiste più — cercate di nuovo.",
+      "conflict": "L'account è stato modificato nel frattempo — cercate di nuovo e ripetete l'azione."
     },
     "actions": {
       "reissue-invitation": {
@@ -2355,7 +2364,7 @@
         "menu": "Reimposta secondo fattore",
         "title": "Reimpostare il secondo fattore di {{name}}",
         "confirm": "Reimposta secondo fattore",
-        "effect": "Tutte le app di autenticazione, le passkey e i codici di recupero di {{name}} vengono rimossi e tutte le sessioni terminano. Al prossimo accesso {{name}} configura di nuovo un secondo fattore.",
+        "effect": "Tutte le app di autenticazione, le passkey e i codici di recupero di {{name}} vengono rimossi e tutte le sessioni terminano. Dove è richiesto un secondo fattore, {{name}} lo configura di nuovo al prossimo accesso.",
         "done": "Il secondo fattore di {{name}} è stato reimpostato."
       },
       "clear-lockout": {
@@ -2378,7 +2387,15 @@
         "confirm": "Nomina manager",
         "effect": "{{name}} diventa manager di {{betrieb}} e accede di nuovo.",
         "done": "{{name}} è ora manager dell'azienda."
+      },
+      "change-email": {
+        "menu": "Cambia indirizzo e-mail",
+        "title": "Cambiare l'indirizzo e-mail di {{name}}",
+        "confirm": "Cambia indirizzo",
+        "effect": "Da ora {{name}} accede con il nuovo indirizzo. I link di invito e di reimpostazione aperti non funzionano più, {{name}} viene disconnesso ovunque e {{email}} viene informato del cambio. La password non cambia.",
+        "done": "L'indirizzo e-mail di {{name}} è stato cambiato."
       }
-    }
+    },
+    "truncated": "Più di {{count, number}} account corrispondono — sono mostrati solo i primi. Cercate tramite l'indirizzo e-mail."
   }
 }

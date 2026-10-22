@@ -24,6 +24,7 @@ from app.platform.services import security_notifications
 from tests.identity_support import (
     STRONG_PASSWORD,
     PasswordLogin,
+    change_email,
     cookie_headers,
     create_dealership,
     create_user,
@@ -35,6 +36,7 @@ from tests.identity_support import (
 )
 
 REASON = "Asked by the Betrieb's owner on the phone, ticket 4711."
+REASON_EMAIL = "The user's address moved to the new domain, ticket 4712."
 ACTIONS = ("reissue-invitation", "reset-mfa", "clear-lockout", "revoke-sessions")
 
 
@@ -51,11 +53,20 @@ def notices():
     security_notifications.reset_sink()
 
 
-def _grant_manager(client, dealership, user_id, *, headers=None, reason=REASON):
+def _version(client, dealership, user_id) -> int:
+    """The user row's version as its Betrieb reads it; 1 for a user the
+    Betrieb does not have (the request is refused before If-Match matters)."""
+
+    row = client.get(f"/v1/dealerships/{dealership}/users/{user_id}", headers=platform_admin_headers())
+    return row.json()["version"] if row.status_code == 200 else 1
+
+
+def _grant_manager(client, dealership, user_id, *, headers=None, reason=REASON, if_match=None):
+    version = if_match if if_match is not None else _version(client, dealership, user_id)
     return client.post(
         f"/v1/platform/dealerships/{dealership}/recovery/grant-manager",
         json={"userId": str(user_id), "reason": reason},
-        headers=headers if headers is not None else platform_admin_headers(),
+        headers={**(headers if headers is not None else platform_admin_headers()), "If-Match": str(version)},
     )
 
 
@@ -217,7 +228,11 @@ def test_grant_manager_refuses_what_it_cannot_grant(client, login, db_session):
     assert already.status_code == 409
     assert already.json()["error"]["details"] == {"rule": "already_manager"}
     # "An existing active user": not one who never accepted the invitation.
-    assert _grant_manager(client, dealership, invited["id"]).status_code == 409
+    not_active = _grant_manager(client, dealership, invited["id"])
+    assert not_active.status_code == 409
+    assert not_active.json()["error"]["details"]["rule"] == "not_active"
+    # A stale version is a 409 like any other write of the user row.
+    assert _grant_manager(client, dealership, invited["id"], if_match=99).status_code == 409
     # Another Betrieb's user is not this Betrieb's: 404.
     assert _grant_manager(client, other, manager["id"]).status_code == 404
     assert _grant_manager(client, uuid.uuid4(), manager["id"]).status_code == 404
@@ -240,7 +255,9 @@ def test_only_platform_staff_with_a_second_factor_reach_the_recovery_door(client
             refused = recover(client, beat["id"], action, headers=headers)
             assert refused.status_code == 403, (action, refused.text)
             assert message in refused.json()["error"]["message"]
-        refused = _grant_manager(client, dealership, beat["id"], headers=headers)
+        refused = _grant_manager(client, dealership, beat["id"], headers=headers, if_match=2)
+        assert refused.status_code == 403 and message in refused.json()["error"]["message"]
+        refused = change_email(client, beat["id"], "beat.neu@example.ch", if_match=2, headers=headers)
         assert refused.status_code == 403 and message in refused.json()["error"]["message"]
         refused = client.get("/v1/platform/users", params={"email": beat["email"]}, headers=headers)
         assert refused.status_code == 403 and message in refused.json()["error"]["message"]
@@ -276,6 +293,13 @@ def test_recovery_is_never_available_through_an_impersonation(client, login, db_
         refused = client.post(
             f"/v1/platform/dealerships/{dealership}/recovery/grant-manager",
             json={"userId": beat["id"], "reason": REASON},
+            headers={"If-Match": "2"},
+        )
+        assert refused.status_code == 403 and "impersonation" in refused.json()["error"]["message"]
+        refused = client.post(
+            f"/v1/platform/users/{beat['id']}/recovery/change-email",
+            json={"email": "beat.neu@example.ch", "reason": REASON},
+            headers={"If-Match": "2"},
         )
         assert refused.status_code == 403 and "impersonation" in refused.json()["error"]["message"]
     finally:
@@ -297,9 +321,15 @@ def test_a_recovery_action_needs_a_stated_reason(client, login, db_session, body
     grant = client.post(
         f"/v1/platform/dealerships/{dealership}/recovery/grant-manager",
         json={"userId": beat["id"], **body},
-        headers=platform_admin_headers(),
+        headers={**platform_admin_headers(), "If-Match": "2"},
     )
     assert grant.status_code == 422, grant.text
+    moved = client.post(
+        f"/v1/platform/users/{beat['id']}/recovery/change-email",
+        json={"email": "beat.neu@example.ch", **body},
+        headers={**platform_admin_headers(), "If-Match": "2"},
+    )
+    assert moved.status_code == 422, moved.text
     assert _recovery_events(db_session) == []
 
 
@@ -314,8 +344,11 @@ def test_staff_do_not_recover_their_own_account_nor_a_deactivated_one(client, lo
 
     own = platform_admin_headers(user_id=uuid.UUID(staff["id"]))
     for action in ACTIONS:
-        assert recover(client, staff["id"], action, headers=own).status_code == 403
-        assert recover(client, beat["id"], action).status_code == 409
+        mine = recover(client, staff["id"], action, headers=own)
+        assert mine.status_code == 403 and mine.json()["error"]["details"] == {"rule": "self"}
+        gone = recover(client, beat["id"], action)
+        assert gone.status_code == 409 and gone.json()["error"]["details"]["rule"] == "deactivated"
+    assert change_email(client, staff["id"], "nora.neu@example.ch", if_match=2, headers=own).status_code == 403
     assert recover(client, uuid.uuid4(), "reset-mfa").status_code == 404
     assert client.post(f"/v1/platform/users/{beat['id']}/recovery/set-password", json={"reason": REASON}, headers=platform_admin_headers()).status_code == 422
     assert _recovery_events(db_session) == []
@@ -341,6 +374,8 @@ def test_every_recovery_action_is_listed_in_the_betriebs_auth_stream_with_its_re
         assert recover(client, beat["id"], action, headers=staff, reason=f"{action} for the owner").status_code == 200
     login.accept_invitation(beat, password="a-brand-new-password-2026")
     assert _grant_manager(client, dealership, beat["id"], headers=staff, reason="the owner asked").status_code == 200
+    moved = change_email(client, beat["id"], "beat.neu@example.ch", if_match=_version(client, dealership, beat["id"]), headers=staff, reason="new domain")
+    assert moved.status_code == 200, moved.text
 
     stream = client.get(f"/v1/dealerships/{dealership}/auth-events", headers=managers)
     assert stream.status_code == 200, stream.text
@@ -351,12 +386,14 @@ def test_every_recovery_action_is_listed_in_the_betriebs_auth_stream_with_its_re
         "recovery_sessions_revoked",
         "recovery_invitation_reissued",
         "recovery_manager_granted",
+        "recovery_email_changed",
     }
     for event in listed.values():
         assert event["actorId"] == str(staff_id)
         assert event["userId"] == beat["id"]
     assert listed["recovery_lockout_cleared"]["details"]["reason"] == "clear-lockout for the owner"
     assert listed["recovery_manager_granted"]["details"]["reason"] == "the owner asked"
+    assert listed["recovery_email_changed"]["details"] == {"reason": "new domain", "from": beat["email"], "to": "beat.neu@example.ch"}
 
 
 # --- finding the account ---------------------------------------------------------------
@@ -390,3 +427,56 @@ def test_staff_find_an_account_by_exact_address_or_by_betrieb(client, login, db_
         client.get("/v1/platform/users", params={"dealershipId": str(uuid.uuid4())}, headers=platform_admin_headers()).status_code
         == 404
     )
+
+
+def test_change_email_moves_the_sign_in_address_with_its_consequences(client, login, mailbox, db_session, notices):
+    """Anto, 2026-10-22: the staff change of an accepted account's address is
+    recovery — a reason, its own event, the KAN-196 consequences."""
+
+    dealership = create_dealership(client)
+    anna = create_user(client, dealership)
+    annas = login.session_cookie(anna)
+    staff_id = uuid.uuid4()
+
+    response = change_email(client, anna["id"], "Anna.Neu@example.ch", if_match=2, headers=platform_admin_headers(user_id=staff_id))
+    assert response.status_code == 200, response.text
+    assert response.json()["action"] == "change-email" and response.json()["userVersion"] == 3
+
+    assert client.get("/v1/auth/me", headers=cookie_headers(annas)).status_code == 401
+    assert "anna.neu@example.ch" in last_mail_to(mailbox, anna["email"]).text  # the old address is told
+    assert client.post("/v1/auth/login", json={"email": "anna.neu@example.ch", "password": STRONG_PASSWORD}).status_code == 200
+    (event,) = _recovery_events(db_session)
+    assert event.kind == AuthEventKind.RECOVERY_EMAIL_CHANGED and event.actor_id == staff_id
+    assert event.details == {"reason": REASON_EMAIL, "from": anna["email"], "to": "anna.neu@example.ch"}
+    assert db_session.scalars(select(AuthEvent).where(AuthEvent.kind == AuthEventKind.EMAIL_CHANGED)).one()
+    assert [n.kind for n in notices] == ["recovery_email_changed"]
+
+    same = change_email(client, anna["id"], "anna.neu@example.ch", if_match=3)
+    assert same.status_code == 409 and same.json()["error"]["details"] == {"rule": "same_email"}
+    assert change_email(client, anna["id"], "anna.wieder@example.ch", if_match=2).status_code == 409  # stale version
+
+
+def test_the_invitation_re_send_still_wants_a_factor_from_staff(client):
+    """The onboarding re-send keeps `require_mfa_session` for a staff caller
+    (the reviewer's gap: the moved test no longer covered it)."""
+
+    dealership = create_dealership(client)
+    beat = create_user(client, dealership, isDealerManager=False)
+    path = f"/v1/dealerships/{dealership}/users/{beat['id']}/invitations"
+
+    refused = client.post(path, headers=platform_admin_headers(mfa=False))
+    assert refused.status_code == 403 and "second factor" in refused.json()["error"]["message"]
+    assert client.post(path, headers=platform_admin_headers()).status_code == 202
+
+
+def test_a_search_says_when_it_shows_only_part_of_the_matches(client, monkeypatch):
+    from app.platform.services import recovery as recovery_service
+
+    dealership = create_dealership(client)
+    create_user(client, dealership)
+    create_user(client, dealership, isDealerManager=False)
+    monkeypatch.setattr(recovery_service, "SEARCH_LIMIT", 1)
+
+    found = client.get("/v1/platform/users", params={"dealershipId": dealership}, headers=platform_admin_headers())
+    assert found.status_code == 200, found.text
+    assert len(found.json()["items"]) == 1 and found.json()["truncated"] is True

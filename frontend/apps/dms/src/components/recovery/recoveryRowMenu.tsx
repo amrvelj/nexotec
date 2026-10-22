@@ -1,12 +1,13 @@
 import type { ReactNode } from 'react'
-import { KeyRound, LogOut, MailPlus, ShieldOff, UserCog } from 'lucide-react'
+import { AtSign, KeyRound, LogOut, MailPlus, ShieldOff, UserCog } from 'lucide-react'
 import type { RowMenuGroups } from '@nexotec/ui-kit'
 import type { RecoveryAction, RecoveryUserRead } from '../../api/types'
 
 type T = (key: string, options?: Record<string, unknown>) => string
 
-/** The four per-user actions plus the Betrieb's grant-manager (FR-AU-25). */
-export type RecoveryChoice = RecoveryAction | 'grant-manager'
+/** The four per-user actions, the Betrieb's grant-manager (FR-AU-25) and
+ * the sign-in address (Anto, 2026-10-22). */
+export type RecoveryChoice = RecoveryAction | 'grant-manager' | 'change-email'
 
 /**
  * KAN-202 — the ONE definition of what platform staff can do to an account
@@ -42,6 +43,7 @@ export function buildRecoveryRowMenu(
       entry('clear-lockout', <KeyRound size={16} />, notLocked),
       entry('revoke-sessions', <LogOut size={16} />),
       entry('grant-manager', <UserCog size={16} />, notManageable),
+      entry('change-email', <AtSign size={16} />),
     ],
     destructive: [entry('reset-mfa', <ShieldOff size={16} />)],
   }

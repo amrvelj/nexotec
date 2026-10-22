@@ -220,7 +220,7 @@ def test_every_user_administration_write_takes_the_user_row_lock_first(route):
 
 
 
-@pytest.mark.parametrize("route", ["recover_user", "grant_manager"])
+@pytest.mark.parametrize("route", ["recover_user", "grant_manager", "change_user_email"])
 def test_every_recovery_action_takes_the_user_row_first(route):
     """KAN-202: platform staff's recovery locks the user row before the
     credential, the tokens, the factors or the sessions (KAN-380's order) —

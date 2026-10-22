@@ -61,6 +61,9 @@ class AuthEventKind(str, enum.Enum):
     RECOVERY_LOCKOUT_CLEARED = "recovery_lockout_cleared"
     RECOVERY_SESSIONS_REVOKED = "recovery_sessions_revoked"
     RECOVERY_MANAGER_GRANTED = "recovery_manager_granted"
+    # Moving an active user's sign-in address (Anto, 2026-10-22: recovery
+    # too); `email_changed` is recorded beside it, as before.
+    RECOVERY_EMAIL_CHANGED = "recovery_email_changed"
 
 
 class AuthEvent(PrimaryKeyMixin, Base):

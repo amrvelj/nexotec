@@ -374,8 +374,8 @@ def test_the_betrieb_decides_enforcement_and_platform_staff_are_always_enforced(
 
 @pytest.fixture()
 def probe_client(engine):
-    """A route behind `require_mfa_session` (the impersonation and recovery
-    endpoints will carry it; none exists yet)."""
+    """A route behind `require_mfa_session` (the impersonation endpoints
+    will carry it; the recovery door has its own gate since KAN-202)."""
 
     probe = FastAPI()
     register_error_handlers(probe)

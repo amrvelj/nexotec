@@ -4,7 +4,8 @@ Authentication & Identity FR-AU-25/26, D-A-16: each recovery action is its
 own auth event kind, so the Betrieb's own stream (FR-AU-21) names it —
 `recovery_invitation_reissued`, `recovery_mfa_reset`,
 `recovery_lockout_cleared`, `recovery_sessions_revoked`,
-`recovery_manager_granted`. The CHECK is replaced with the full list
+`recovery_manager_granted` — and `recovery_email_changed` (platform staff
+moving an active user's sign-in address; Anto, 2026-10-22). The CHECK is replaced with the full list
 (tests/test_migrated_enum_checks.py). No column, no table.
 
 Downgrade restores the CHECK; a recovery row would violate it, so those rows
@@ -56,6 +57,7 @@ _RECOVERY_KINDS = (
     "recovery_lockout_cleared",
     "recovery_sessions_revoked",
     "recovery_manager_granted",
+    "recovery_email_changed",
 )
 _EVENT_KINDS = (*_EVENT_KINDS_BEFORE, *_RECOVERY_KINDS)
 

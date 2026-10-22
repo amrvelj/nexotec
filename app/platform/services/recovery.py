@@ -1,10 +1,11 @@
 """Platform staff's account recovery (Authentication & Identity FR-AU-25…27,
 D-A-16; KAN-202).
 
-Five actions, each a platform_admin's alone (D-A-16: no second approver),
+Six actions (FR-AU-25's five and the e-mail change, Anto 2026-10-22), each a platform_admin's alone (D-A-16: no second approver),
 from a session with a second factor and never through an impersonation
 (`require_staff_recovery_session`): re-issue an invitation, reset MFA,
-clear a lockout, revoke every session, grant the manager flag. Each one, in
+clear a lockout, revoke every session, grant the manager flag, change the
+sign-in address. Each one, in
 one transaction with the change it makes:
 
 - requires a stated reason (FR-AU-25), recorded in the auth event's
@@ -12,7 +13,8 @@ one transaction with the change it makes:
   (FR-AU-21; Anto, 2026-10-22) — and in the audit row;
 - records its own auth event kind (`recovery_*`) with the staff member as
   the actor (FR-AU-26), beside the mechanism's own events;
-- writes an audit row (`recovery_<action>`) naming the staff member;
+- writes an audit row (`recovery_<action>`) naming the staff member, the
+  reason in the audit row's `reason`;
 - owes the user a `security` notice (`security_notifications`, filled by
   KAN-216); a re-issued invitation also goes by e-mail, as the flow it is.
 
@@ -27,7 +29,8 @@ the factors and the sessions.
 import enum
 import uuid
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
@@ -59,6 +62,23 @@ class RecoveryAction(str, enum.Enum):
     REVOKE_SESSIONS = "revoke-sessions"
 
 
+class RecordedAction(str, enum.Enum):
+    """Every recovery action, as a result and an audit row name it. The last
+    two write the user row itself, so they take If-Match (API conventions)
+    and are routes of their own."""
+
+    REISSUE_INVITATION = "reissue-invitation"
+    RESET_MFA = "reset-mfa"
+    CLEAR_LOCKOUT = "clear-lockout"
+    REVOKE_SESSIONS = "revoke-sessions"
+    GRANT_MANAGER = "grant-manager"
+    CHANGE_EMAIL = "change-email"
+
+
+GRANT_MANAGER = RecordedAction.GRANT_MANAGER.value
+CHANGE_EMAIL = RecordedAction.CHANGE_EMAIL.value
+
+
 _EVENT_KIND = {
     RecoveryAction.REISSUE_INVITATION: AuthEventKind.RECOVERY_INVITATION_REISSUED,
     RecoveryAction.RESET_MFA: AuthEventKind.RECOVERY_MFA_RESET,
@@ -83,17 +103,19 @@ def get_user_for_recovery_or_404(db: Session, user_id: uuid.UUID) -> User:
     return user
 
 
-def search_users(db: Session, *, email: str | None, dealership_id: uuid.UUID | None) -> list[User]:
+def search_users(db: Session, *, email: str | None, dealership_id: uuid.UUID | None) -> tuple[list[User], bool]:
     """By exact address (case-insensitive), by Betrieb, or both — never a
     partial match across every Betrieb: staff look up the account they were
-    asked about, not browse."""
+    asked about, not browse. At most `SEARCH_LIMIT` rows; the flag says
+    whether there were more (the page asks for the address then)."""
 
     stmt = select(User)
     if email is not None:
         stmt = stmt.where(func.lower(User.email) == email.strip().lower())
     if dealership_id is not None:
         stmt = stmt.where(User.tenant_id == dealership_id)
-    return list(db.scalars(stmt.order_by(User.last_name, User.first_name, User.id).limit(SEARCH_LIMIT)).all())
+    rows = list(db.scalars(stmt.order_by(User.last_name, User.first_name, User.id).limit(SEARCH_LIMIT + 1)).all())
+    return rows[:SEARCH_LIMIT], len(rows) > SEARCH_LIMIT
 
 
 def account_state(db: Session, user: User) -> dict:
@@ -102,7 +124,12 @@ def account_state(db: Session, user: User) -> dict:
     token."""
 
     now = utcnow()
-    credential = db.scalar(select(Credential).where(Credential.user_id == user.id))
+    # The three columns, never the row: the hash stays in the database.
+    credential = db.execute(
+        select(Credential.id, Credential.failed_login_attempts, Credential.locked_until).where(
+            Credential.user_id == user.id
+        )
+    ).one_or_none()
     locked = credential is not None and credential.locked_until is not None and credential.locked_until > now
     open_sessions = db.scalar(
         select(func.count())
@@ -140,11 +167,11 @@ def _assert_recoverable(user: User, *, actor_id: uuid.UUID) -> None:
         # Staff recover someone else's account; their own factors and
         # sessions are theirs to manage in My account (and a staff member
         # who could reset their own factor here would need no second one).
-        raise ForbiddenError("Account recovery is for someone else's account.")
+        raise ForbiddenError("Account recovery is for someone else's account.", details={"rule": "self"})
     if user.status == UserStatus.DEACTIVATED:
         raise ConflictError(
             "This user is deactivated — the Betrieb reactivates them first.",
-            details={"currentStatus": user.status.value},
+            details={"rule": "deactivated", "currentStatus": user.status.value},
         )
 
 
@@ -217,14 +244,20 @@ def recover(
         # sign-in enrols anew where the Betrieb (or D-A-36) enforces it.
         details["sessionsEnded"] = user_service.end_sessions(db, user=user, reason="mfa_removed", actor_id=actor_id)
     elif action is RecoveryAction.CLEAR_LOCKOUT:
-        credential = db.scalar(select(Credential).where(Credential.user_id == user.id).with_for_update())
-        if credential is None or (credential.failed_login_attempts == 0 and credential.locked_until is None):
+        # The counter and the lock, never the row: the hash is not read.
+        state = db.execute(
+            select(Credential.id, Credential.failed_login_attempts, Credential.locked_until)
+            .where(Credential.user_id == user.id)
+            .with_for_update()
+        ).one_or_none()
+        if state is None or (state.failed_login_attempts == 0 and state.locked_until is None):
             raise ConflictError("This account is not locked out.", details={"rule": "not_locked"})
-        details["failedLoginAttempts"] = credential.failed_login_attempts
-        credential.failed_login_attempts = 0
-        credential.last_failed_at = None
-        credential.locked_until = None
-        credential.updated_by = actor_id
+        details["failedLoginAttempts"] = state.failed_login_attempts
+        db.execute(
+            update(Credential)
+            .where(Credential.id == state.id)
+            .values(failed_login_attempts=0, last_failed_at=None, locked_until=None, updated_by=actor_id)
+        )
     elif action is RecoveryAction.REVOKE_SESSIONS:
         details["sessionsEnded"] = user_service.end_sessions(db, user=user, reason="platform_staff", actor_id=actor_id)
     return _record(
@@ -261,7 +294,8 @@ def grant_manager(
     _assert_recoverable(user, actor_id=actor_id)
     if user.status != UserStatus.ACTIVE:
         raise ConflictError(
-            "Only an active user can be made the Betrieb's manager.", details={"currentStatus": user.status.value}
+            "Only an active user can be made the Betrieb's manager.",
+            details={"rule": "not_active", "currentStatus": user.status.value},
         )
     if user.is_dealer_manager:
         raise ConflictError("This user is already a manager of the Betrieb.", details={"rule": "already_manager"})
@@ -269,7 +303,7 @@ def grant_manager(
         db,
         user=user,
         kind=AuthEventKind.RECOVERY_MANAGER_GRANTED,
-        action="grant-manager",
+        action=GRANT_MANAGER,
         reason=reason,
         actor_id=actor_id,
         ip_address=ip_address,
@@ -278,3 +312,52 @@ def grant_manager(
         db, user=user, is_dealer_manager=True, actor_id=actor_id, actor_roles=actor_roles
     )
     return event
+
+
+def change_email(
+    db: Session,
+    mailer: PlatformMailer,
+    *,
+    user: User,
+    email: str,
+    reason: str,
+    actor_id: uuid.UUID,
+    ip_address: str,
+) -> AuthEvent:
+    """The address is the sign-in and recovery channel (KAN-196): moving it
+    on an account that is no longer `invited` is recovery — at this door,
+    with a reason (Anto, 2026-10-22). The KAN-196 consequences follow, in
+    this transaction: every open invitation and reset token ends, every
+    session ends, `email_changed` is recorded and the OLD address is told.
+    A taken address is a 409 before any of it. Does not commit."""
+
+    reason = _clean_reason(reason)
+    _assert_recoverable(user, actor_id=actor_id)
+    new_email = email.strip().lower()
+    old_email = user.email
+    if new_email == old_email.lower():
+        raise ConflictError("This is already the user's e-mail address.", details={"rule": "same_email"})
+    if db.scalar(select(User.id).where(func.lower(User.email) == new_email, User.id != user.id)) is not None:
+        raise ConflictError("A user with this email address already exists.", details={"rule": "email_taken"})
+    before = old_email
+    user.email = new_email
+    user.updated_by = actor_id
+    user.version += 1
+    try:
+        db.flush()  # a concurrent taker of the address fails here, as a 409
+    except IntegrityError as exc:
+        db.rollback()
+        raise ConflictError(
+            "A user with this email address already exists.", details={"rule": "email_taken"}
+        ) from exc
+    identity.email_changed(db, mailer, user=user, old_email=before, actor_id=actor_id, ip_address=ip_address)
+    return _record(
+        db,
+        user=user,
+        kind=AuthEventKind.RECOVERY_EMAIL_CHANGED,
+        action=CHANGE_EMAIL,
+        reason=reason,
+        actor_id=actor_id,
+        ip_address=ip_address,
+        details={"from": before, "to": new_email},
+    )

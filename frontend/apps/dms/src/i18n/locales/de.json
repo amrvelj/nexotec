@@ -2287,7 +2287,7 @@
   },
   "recovery": {
     "title": "Kontowiederherstellung",
-    "intro": "Nur für Mitarbeiter von Nexotec. Suchen Sie das Konto, um das Sie gebeten wurden, über die genaue E-Mail-Adresse oder den Betrieb, und wählen Sie die Aktion im Zeilenmenü. Jede Aktion braucht eine Begründung: Der Manager des Betriebs liest sie im Anmeldeverlauf. Niemand setzt oder sieht hier ein Passwort.",
+    "intro": "Nur für Mitarbeiter von Nexotec. Suchen Sie das Konto, um das Sie gebeten wurden, über die genaue E-Mail-Adresse oder den Betrieb, und wählen Sie die Aktion im Zeilenmenü. Jede Aktion braucht eine Begründung: Sie wird mit Ihrem Namen im Anmeldeprotokoll des Betriebs festgehalten, auf das sein Manager Zugriff hat. Niemand setzt oder sieht hier ein Passwort.",
     "forbidden": {
       "title": "Nicht verfügbar",
       "body": "Die Kontowiederherstellung ist Mitarbeitern von Nexotec vorbehalten, die mit einem zweiten Faktor angemeldet sind."
@@ -2304,7 +2304,7 @@
       "sessions": "Offene Sitzungen"
     },
     "lockedUntil": "Gesperrt bis {{when}}",
-    "failedAttempts": "Fehlversuche: {{count}}",
+    "failedAttempts": "Fehlversuche: {{count, number}}",
     "passwordSet": "Gesetzt",
     "passwordNone": "Noch nicht gesetzt",
     "mfaEnrolled": "Eingerichtet",
@@ -2330,10 +2330,12 @@
       "managerNeedsActive": "Nur ein aktiver Benutzer kann Manager werden."
     },
     "dialog": {
-      "notice": "Der Benutzer erhält eine Sicherheitsmitteilung, und der Manager des Betriebs sieht die Aktion, Ihren Namen und die Begründung im Anmeldeverlauf.",
-      "noticeByMail": "Die Einladung geht per E-Mail an den Benutzer. Der Manager des Betriebs sieht die Aktion, Ihren Namen und die Begründung im Anmeldeverlauf.",
+      "notice": "Eine Benachrichtigung des Benutzers ist noch nicht gebaut — informieren Sie ihn selbst. Aktion, Ihr Name und die Begründung werden im Anmeldeprotokoll des Betriebs festgehalten, auf das sein Manager Zugriff hat.",
+      "noticeByMail": "Die Einladung geht per E-Mail an den Benutzer. Aktion, Ihr Name und die Begründung werden im Anmeldeprotokoll des Betriebs festgehalten, auf das sein Manager Zugriff hat.",
       "reason": "Begründung",
-      "reasonHint": "Wer hat gefragt und warum — zum Beispiel der Anrufer und die Ticketnummer."
+      "reasonHint": "Wer hat gefragt und warum — zum Beispiel der Anrufer und die Ticketnummer.",
+      "noticeChangeEmail": "Die bisherige Adresse wird per E-Mail informiert. Aktion, Ihr Name und die Begründung werden im Anmeldeprotokoll des Betriebs festgehalten, auf das sein Manager Zugriff hat.",
+      "newEmail": "Neue E-Mail-Adresse"
     },
     "errors": {
       "not_locked": "Das Konto ist nicht gesperrt — es gibt nichts aufzuheben.",
@@ -2341,7 +2343,14 @@
       "reason_required": "Eine Wiederherstellung braucht eine Begründung.",
       "search_criteria": "Suchen Sie über die E-Mail-Adresse oder den Betrieb.",
       "generic": "Die Aktion wurde abgelehnt: {{message}}",
-      "forbidden": "Diese Aktion braucht eine Nexotec-Sitzung mit zweitem Faktor."
+      "forbidden": "Diese Aktion braucht eine Nexotec-Sitzung mit zweitem Faktor.",
+      "self": "Ihr eigenes Konto verwalten Sie unter Mein Konto, nicht hier.",
+      "deactivated": "Der Benutzer ist deaktiviert — der Betrieb reaktiviert ihn zuerst.",
+      "not_active": "Nur ein aktiver Benutzer kann Manager werden.",
+      "same_email": "Das ist bereits die E-Mail-Adresse des Benutzers.",
+      "email_taken": "Mit dieser Adresse meldet sich bereits ein anderer Benutzer an.",
+      "notFound": "Das Konto gibt es nicht mehr — suchen Sie erneut.",
+      "conflict": "Das Konto wurde inzwischen geändert — suchen Sie erneut und wiederholen Sie die Aktion."
     },
     "actions": {
       "reissue-invitation": {
@@ -2355,7 +2364,7 @@
         "menu": "Zweiten Faktor zurücksetzen",
         "title": "Zweiten Faktor von {{name}} zurücksetzen",
         "confirm": "Zweiten Faktor zurücksetzen",
-        "effect": "Alle Authenticator-Apps, Passkeys und Wiederherstellungscodes von {{name}} werden entfernt und alle Sitzungen beendet. Bei der nächsten Anmeldung richtet {{name}} einen zweiten Faktor neu ein.",
+        "effect": "Alle Authenticator-Apps, Passkeys und Wiederherstellungscodes von {{name}} werden entfernt und alle Sitzungen beendet. Wo ein zweiter Faktor verlangt ist, richtet {{name}} ihn bei der nächsten Anmeldung neu ein.",
         "done": "Der zweite Faktor von {{name}} wurde zurückgesetzt."
       },
       "clear-lockout": {
@@ -2378,7 +2387,15 @@
         "confirm": "Zum Manager machen",
         "effect": "{{name}} wird Manager von {{betrieb}} und meldet sich neu an.",
         "done": "{{name}} ist jetzt Manager des Betriebs."
+      },
+      "change-email": {
+        "menu": "E-Mail-Adresse ändern",
+        "title": "E-Mail-Adresse von {{name}} ändern",
+        "confirm": "Adresse ändern",
+        "effect": "{{name}} meldet sich ab jetzt mit der neuen Adresse an. Offene Einladungs- und Rücksetzlinks werden ungültig, {{name}} wird überall abgemeldet, und {{email}} wird über die Änderung informiert. Das Passwort ändert sich nicht.",
+        "done": "Die E-Mail-Adresse von {{name}} wurde geändert."
       }
-    }
+    },
+    "truncated": "Mehr als {{count, number}} Konten passen — nur die ersten werden gezeigt. Suchen Sie über die E-Mail-Adresse."
   }
 }

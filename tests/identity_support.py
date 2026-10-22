@@ -196,3 +196,22 @@ def recover(
         json={"reason": reason},
         headers=headers if headers is not None else platform_admin_headers(),
     )
+
+
+def change_email(
+    client: TestClient,
+    user_id: str | uuid.UUID,
+    email: str,
+    *,
+    if_match: int,
+    headers: dict[str, str] | None = None,
+    reason: str = "The user's address moved to the new domain, ticket 4712.",
+):
+    """KAN-202: an accepted account's sign-in address moves only at the
+    recovery door (Anto, 2026-10-22), with If-Match on the user's version."""
+
+    return client.post(
+        f"/v1/platform/users/{user_id}/recovery/change-email",
+        json={"email": email, "reason": reason},
+        headers={**(headers if headers is not None else platform_admin_headers()), "If-Match": str(if_match)},
+    )

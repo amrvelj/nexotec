@@ -8,7 +8,7 @@ the action's own transaction, with the session, so the catalogue can write
 its in-app row (and its outbox row for push) in that same commit.
 
 Until KAN-216 registers a sink, `notify` hands the notice to the unbuilt
-sink, which logs that a notice is owed — the user id and the kind, never
+sink, which logs that a notice is owed once the transaction commits — the user id and the kind, never
 the stated reason or any other free text. Nothing is sent, and nothing
 reaches the user: the PRD's status line says so.
 """
@@ -18,6 +18,7 @@ import logging
 import uuid
 from typing import Protocol
 
+from sqlalchemy import event
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
@@ -40,10 +41,15 @@ class SecurityNotificationSink(Protocol):
 
 
 def _unbuilt_sink(db: Session, notice: SecurityNotice) -> None:
-    logger.info(
-        "security_notification_owed",
-        extra={"user_id": str(notice.user_id), "kind": notice.kind, "auth_event_id": str(notice.auth_event_id)},
-    )
+    # Logged once the action's transaction commits — a rolled-back action
+    # owes nobody a notice.
+    def _owed(_session: Session) -> None:
+        logger.info(
+            "security_notification_owed",
+            extra={"user_id": str(notice.user_id), "kind": notice.kind, "auth_event_id": str(notice.auth_event_id)},
+        )
+
+    event.listen(db, "after_commit", _owed, once=True)
 
 
 _sink: SecurityNotificationSink = _unbuilt_sink

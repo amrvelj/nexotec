@@ -128,6 +128,14 @@ describe('DmsShell sidebar — every chrome string is translated (KAN-152)', () 
     expect(await within(nav).findByText('Benutzer')).toBeInTheDocument()
   })
 
+  it('shows Account recovery under Administration to everyone — the API is the control (KAN-202)', async () => {
+    renderShell('de')
+    const nav = await screen.findByRole('navigation', { name: i18n.getFixedT('de')('shell.sidebar.mainNavigation') })
+    // Not platform staff, and still listed (Anto, 2026-10-22: never role-hidden).
+    const entry = await within(nav).findByText('Kontowiederherstellung')
+    expect(entry.closest('a')).toHaveAttribute('href', '/administration/account-recovery')
+  })
+
   it('shows no English chrome to a French user', async () => {
     renderShell('fr')
 

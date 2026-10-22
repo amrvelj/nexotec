@@ -26,6 +26,7 @@ from tests.conftest import fastapi_app
 from tests.identity_support import (
     STRONG_PASSWORD,
     PasswordLogin,
+    change_email,
     cookie_headers,
     create_dealership,
     create_user,
@@ -394,21 +395,21 @@ def test_changing_the_address_ends_tokens_and_sessions_and_tells_the_old_address
     old_email = beat["email"]
 
     # D-A-16: once the account is active, changing its address is recovery —
-    # platform staff's (with a factor in the session), never the manager's.
-    refused = client.patch(
-        f"/v1/dealerships/{dealership}/users/{beat['id']}",
-        json={"email": "Beat.Neu@example.ch"},
-        headers={**cookie_headers(managers), "If-Match": "2"},
-    )
-    assert refused.status_code == 403, refused.text
+    # platform staff's (with a factor in the session), never the manager's;
+    # since KAN-202 at the recovery door with a reason, never the PATCH.
+    for headers in (cookie_headers(managers), platform_admin_headers()):
+        refused = client.patch(
+            f"/v1/dealerships/{dealership}/users/{beat['id']}",
+            json={"email": "Beat.Neu@example.ch"},
+            headers={**headers, "If-Match": "2"},
+        )
+        assert refused.status_code == 403, refused.text
+        assert refused.json()["error"]["details"] == {"recovery": "change-email"}
     staff_id = uuid.uuid4()
-    response = client.patch(
-        f"/v1/dealerships/{dealership}/users/{beat['id']}",
-        json={"email": "Beat.Neu@example.ch"},
-        headers={**platform_admin_headers(user_id=staff_id), "If-Match": "2"},
-    )
+    response = change_email(client, beat["id"], "Beat.Neu@example.ch", if_match=2, headers=platform_admin_headers(user_id=staff_id))
     assert response.status_code == 200, response.text
-    assert response.json()["email"] == "beat.neu@example.ch"
+    assert response.json()["userVersion"] == 3
+    assert client.get(f"/v1/dealerships/{dealership}/users/{beat['id']}", headers=platform_admin_headers()).json()["email"] == "beat.neu@example.ch"
 
     assert client.get("/v1/auth/me", headers=cookie_headers(beats)).status_code == 401
     dead = client.post("/v1/auth/password-reset/confirm", json={"token": reset_raw, "password": "a-brand-new-password-2026"})
@@ -449,12 +450,9 @@ def test_an_address_already_in_use_is_a_409_not_a_500(client, login, mailbox):
         headers={**cookie_headers(managers), "If-Match": "1"},
     )
     assert taken.status_code == 409, taken.text
-    taken = client.patch(
-        f"/v1/dealerships/{dealership}/users/{anna['id']}",
-        json={"email": beat["email"]},
-        headers={**platform_admin_headers(), "If-Match": "2"},
-    )
+    taken = change_email(client, anna["id"], beat["email"], if_match=2)
     assert taken.status_code == 409, taken.text
+    assert taken.json()["error"]["details"] == {"rule": "email_taken"}
 
 
 def test_staff_move_an_active_users_address_only_with_a_factor_in_the_session(client, login):
@@ -463,12 +461,12 @@ def test_staff_move_an_active_users_address_only_with_a_factor_in_the_session(cl
     login.accept_invitation(anna)
     path = f"/v1/dealerships/{dealership}/users/{anna['id']}"
 
-    refused = client.patch(path, json={"email": "anna.neu@example.ch"}, headers={**platform_admin_headers(mfa=False), "If-Match": "2"})
+    refused = change_email(client, anna["id"], "anna.neu@example.ch", if_match=2, headers=platform_admin_headers(mfa=False))
     assert refused.status_code == 403, refused.text
     assert "second factor" in refused.json()["error"]["message"]
     # Other fields are not recovery: the same session edits them.
     assert client.patch(path, json={"phone": "+41791234567"}, headers={**platform_admin_headers(mfa=False), "If-Match": "2"}).status_code == 200
-    assert client.patch(path, json={"email": "anna.neu@example.ch"}, headers={**platform_admin_headers(), "If-Match": "3"}).status_code == 200
+    assert change_email(client, anna["id"], "anna.neu@example.ch", if_match=3).status_code == 200
 
 
 def test_one_recovery_path_succeeding_closes_the_other(client, login, mailbox):

@@ -39,6 +39,7 @@ function account(overrides: Record<string, unknown>) {
     failedLoginAttempts: 5,
     mfaEnrolled: true,
     openSessions: 2,
+    version: 4,
     ...overrides,
   }
 }
@@ -48,7 +49,7 @@ const BEAT = account({ id: 'u-2', firstName: 'Beat', lastName: 'Frei', email: 'b
 function routes(items = [account({}), BEAT]) {
   return [
     { method: 'GET', match: /\/dealerships$/, handler: () => ({ items: [{ id: 'd-1', legalName: 'Garage Nord AG', tradeName: null }], nextCursor: null }) },
-    { method: 'GET', match: /\/platform\/users$/, handler: () => ({ items }) },
+    { method: 'GET', match: /\/platform\/users$/, handler: () => ({ items, truncated: false }) },
   ]
 }
 
@@ -94,7 +95,7 @@ describe('AccountRecoveryPage (KAN-202)', () => {
       {
         method: 'POST',
         match: /\/platform\/users\/u-1\/recovery\/clear-lockout$/,
-        handler: () => ({ action: 'clear-lockout', userId: 'u-1', dealershipId: 'd-1', authEventId: 'e-1', occurredAt: '2026-10-22T09:00:00Z' }),
+        handler: () => ({ action: 'clear-lockout', userId: 'u-1', dealershipId: 'd-1', userVersion: 4, authEventId: 'e-1', occurredAt: '2026-10-22T09:00:00Z' }),
       },
     ])
     renderWithProviders(<AccountRecoveryPage />, { route: '/administration/account-recovery?email=anna%40garage-nord.ch' })
@@ -104,7 +105,8 @@ describe('AccountRecoveryPage (KAN-202)', () => {
     await user.click(menu.getByText('Sperre aufheben'))
     const dialog = within(await screen.findByRole('dialog'))
     expect(dialog.getByText('Sperre von Anna Keller aufheben')).toBeInTheDocument()
-    expect(dialog.getByText(/der Manager des Betriebs sieht die Aktion, Ihren Namen und die Begründung/)).toBeInTheDocument()
+    // KAN-216 is not built: the dialog says the user is not notified, never that they are.
+    expect(dialog.getByText(/Eine Benachrichtigung des Benutzers ist noch nicht gebaut/)).toBeInTheDocument()
     const submit = dialog.getByRole('button', { name: 'Sperre aufheben' })
     expect(submit).toBeDisabled()
     expect(backend.callsTo(/\/recovery\//, 'POST')).toHaveLength(0)
@@ -125,7 +127,7 @@ describe('AccountRecoveryPage (KAN-202)', () => {
       {
         method: 'POST',
         match: /\/platform\/dealerships\/d-1\/recovery\/grant-manager$/,
-        handler: () => ({ action: 'grant-manager', userId: 'u-2', dealershipId: 'd-1', authEventId: 'e-2', occurredAt: '2026-10-22T09:00:00Z' }),
+        handler: () => ({ action: 'grant-manager', userId: 'u-2', dealershipId: 'd-1', userVersion: 5, authEventId: 'e-2', occurredAt: '2026-10-22T09:00:00Z' }),
       },
     ])
     renderWithProviders(<AccountRecoveryPage />, { route: '/administration/account-recovery?dealershipId=d-1' })
@@ -138,7 +140,9 @@ describe('AccountRecoveryPage (KAN-202)', () => {
     await user.type(dialog.getByLabelText(/Begründung/), 'Der bisherige Manager hat den Betrieb verlassen')
     await user.click(dialog.getByRole('button', { name: 'Zum Manager machen' }))
     await waitFor(() => expect(backend.callsTo(/\/grant-manager$/, 'POST')).toHaveLength(1))
-    expect(backend.callsTo(/\/grant-manager$/, 'POST')[0].body).toEqual({ userId: 'u-2', reason: 'Der bisherige Manager hat den Betrieb verlassen' })
+    const [call] = backend.callsTo(/\/grant-manager$/, 'POST')
+    expect(call.body).toEqual({ userId: 'u-2', reason: 'Der bisherige Manager hat den Betrieb verlassen' })
+    expect(call.headers.get('If-Match')).toBe('4') // the version the search read
   })
 
   it("says the API's refusal in the UI language", async () => {
@@ -160,6 +164,65 @@ describe('AccountRecoveryPage (KAN-202)', () => {
     await user.type(dialog.getByLabelText(/Begründung/), 'Gerät verloren')
     await user.click(dialog.getByRole('button', { name: 'Sitzungen beenden' }))
     expect(await dialog.findByText('Das Konto ist nicht gesperrt — es gibt nichts aufzuheben.')).toBeInTheDocument()
+  })
+
+  it('moves the sign-in address with a reason and the version the search read', async () => {
+    const user = userEvent.setup()
+    const backend = installFakeBackend([
+      ...routes([BEAT]),
+      {
+        method: 'POST',
+        match: /\/platform\/users\/u-2\/recovery\/change-email$/,
+        handler: () => ({ action: 'change-email', userId: 'u-2', dealershipId: 'd-1', userVersion: 5, authEventId: 'e-3', occurredAt: '2026-10-22T09:00:00Z' }),
+      },
+    ])
+    renderWithProviders(<AccountRecoveryPage />, { route: '/administration/account-recovery?email=beat%40garage-nord.ch' })
+    await screen.findByText('Beat Frei')
+
+    const menu = await openMenu(user, 0)
+    await user.click(menu.getByText('E-Mail-Adresse ändern'))
+    const dialog = within(await screen.findByRole('dialog'))
+    expect(dialog.getByText(/beat@garage-nord.ch wird über die Änderung informiert/)).toBeInTheDocument()
+    const submit = dialog.getByRole('button', { name: 'Adresse ändern' })
+    await user.type(dialog.getByLabelText(/Begründung/), 'Neue Domain des Betriebs')
+    expect(submit).toBeDisabled() // no address yet
+    await user.type(dialog.getByLabelText(/Neue E-Mail-Adresse/), 'beat@neu.ch')
+    await user.click(submit)
+    await waitFor(() => expect(backend.callsTo(/\/change-email$/, 'POST')).toHaveLength(1))
+    const [call] = backend.callsTo(/\/change-email$/, 'POST')
+    expect(call.body).toEqual({ email: 'beat@neu.ch', reason: 'Neue Domain des Betriebs' })
+    expect(call.headers.get('If-Match')).toBe('4')
+    expect(await screen.findByText('Die E-Mail-Adresse von Beat Frei wurde geändert.')).toBeInTheDocument()
+  })
+
+  it('says when the search shows only part of the matches, and keeps the sort in the URL', async () => {
+    installFakeBackend([
+      { method: 'GET', match: /\/dealerships$/, handler: () => ({ items: [], nextCursor: null }) },
+      { method: 'GET', match: /\/platform\/users$/, handler: () => ({ items: [account({}), BEAT], truncated: true }) },
+    ])
+    renderWithProviders(<AccountRecoveryPage />, { route: '/administration/account-recovery?dealershipId=d-1&sort=name:desc' })
+    await screen.findByText('Anna Keller')
+
+    expect(screen.getByText(/Mehr als 2 Konten passen/)).toBeInTheDocument()
+    // name:desc from the URL: Keller before Frei.
+    const rows = screen.getAllByText(/^(Anna Keller|Beat Frei)$/).map((el) => el.textContent)
+    expect(rows).toEqual(['Anna Keller', 'Beat Frei'])
+  })
+
+  it('offers every Betrieb, page after page', async () => {
+    const backend = installFakeBackend([
+      {
+        method: 'GET',
+        match: /\/dealerships$/,
+        handler: (req) =>
+          req.params.get('cursor')
+            ? { items: [{ id: 'd-2', legalName: 'Garage Süd AG', tradeName: null }], nextCursor: null }
+            : { items: [{ id: 'd-1', legalName: 'Garage Nord AG', tradeName: null }], nextCursor: 'c-2' },
+      },
+    ])
+    renderWithProviders(<AccountRecoveryPage />, { route: '/administration/account-recovery' })
+    await waitFor(() => expect(backend.callsTo(/\/dealerships$/, 'GET')).toHaveLength(2))
+    expect(backend.callsTo(/\/dealerships$/, 'GET')[1].params.get('cursor')).toBe('c-2')
   })
 
   it("tells anyone but staff that the page is staff's", async () => {

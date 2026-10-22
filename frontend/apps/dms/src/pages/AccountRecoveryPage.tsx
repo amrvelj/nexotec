@@ -16,8 +16,26 @@ import { displayUserStatus, userDisplayName, userStatusLabel, userStatusTone } f
 import { formatDateTime, formatNumber } from '../utils/format'
 
 const RECOVERY_KEY = ['platform', 'recovery', 'users'] as const
+const DEFAULT_SORT = 'name:asc'
 
 type SortableField = 'name' | 'betrieb' | 'status'
+
+function parseSort(raw: string): SortSpec[] {
+  const [field, direction] = raw.split(':')
+  return field ? [{ field, direction: direction === 'desc' ? 'desc' : 'asc' }] : []
+}
+
+/** Every Betrieb, page by page (the cursor list caps a page at 100). */
+async function allDealerships(): Promise<DealershipPage['items']> {
+  const items: DealershipPage['items'] = []
+  let cursor: string | null = null
+  do {
+    const page: DealershipPage = await api.get<DealershipPage>(`/dealerships?limit=100${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`)
+    items.push(...page.items)
+    cursor = page.nextCursor ?? null
+  } while (cursor)
+  return items
+}
 
 function sortRows(rows: RecoveryUserRead[], sort: SortSpec[]): RecoveryUserRead[] {
   const [first] = sort
@@ -43,8 +61,9 @@ function sortRows(rows: RecoveryUserRead[], sort: SortSpec[]): RecoveryUserRead[
  * row menu, each action with a stated reason the Betrieb's manager will read.
  * The API is the control: anyone but staff with a second factor in the
  * session gets a 403, said on screen; the nav entry is never hidden
- * (A-RULE-7). The search lives in the URL (ADR-056). The whole result is
- * loaded (at most 200 accounts), so sorting it here sorts all of it.
+ * (A-RULE-7). The search and the sort live in the URL (ADR-056). The whole
+ * result is loaded (at most 200 accounts, said when there are more), so
+ * sorting it here sorts all of it.
  */
 export function AccountRecoveryPage() {
   const { t, i18n } = useTranslation()
@@ -57,7 +76,14 @@ export function AccountRecoveryPage() {
   const dealershipId = searchParams.get('dealershipId') ?? ''
   const [emailDraft, setEmailDraft] = useState(email)
   const [dealershipDraft, setDealershipDraft] = useState<string | null>(dealershipId || null)
-  const [sort, setSort] = useState<SortSpec[]>([{ field: 'name', direction: 'asc' }])
+  const sort = parseSort(searchParams.get('sort') ?? DEFAULT_SORT)
+  const setSort = (next: SortSpec[]) => {
+    const updated = new URLSearchParams(searchParams)
+    const [first] = next
+    if (first) updated.set('sort', `${first.field}:${first.direction}`)
+    else updated.delete('sort')
+    setSearchParams(updated, { replace: true })
+  }
   const [acting, setActing] = useState<{ user: RecoveryUserRead; choice: RecoveryChoice } | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
@@ -75,7 +101,7 @@ export function AccountRecoveryPage() {
   })
   const dealerships = useQuery({
     queryKey: ['platform', 'recovery', 'dealerships'],
-    queryFn: () => api.get<DealershipPage>('/dealerships?limit=100'),
+    queryFn: allDealerships,
     retry: false,
   })
   const forbidden =
@@ -86,12 +112,13 @@ export function AccountRecoveryPage() {
     const next = new URLSearchParams()
     if (emailDraft.trim()) next.set('email', emailDraft.trim())
     if (dealershipDraft) next.set('dealershipId', dealershipDraft)
+    if (searchParams.get('sort')) next.set('sort', searchParams.get('sort')!)
     setNotice(null)
     setSearchParams(next, { replace: true })
   }
 
   const dealershipOptions = useMemo(
-    () => (dealerships.data?.items ?? []).map((d) => ({ value: d.id, label: d.tradeName || d.legalName })),
+    () => (dealerships.data ?? []).map((d) => ({ value: d.id, label: d.tradeName || d.legalName })),
     [dealerships.data],
   )
   const rows = useMemo(() => sortRows(results.data?.items ?? [], sort), [results.data, sort])
@@ -221,6 +248,11 @@ export function AccountRecoveryPage() {
         </Group>
       </form>
 
+      {results.data?.truncated && (
+        <Alert color="yellow" role="status">
+          {t('recovery.truncated', { count: results.data.items.length })}
+        </Alert>
+      )}
       {searching && (
         <DataGrid<RecoveryUserRead>
           columns={columns}

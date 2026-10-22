@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import list_tenant_audit_events, record_audit_event
 from app.core.audit_schemas import AuditEventPage, AuditEventRead
-from app.core.auth import AccessRole, Principal, get_current_principal, require_access_role, require_mfa_session
+from app.core.auth import Principal, get_current_principal, require_access_role, require_mfa_session
 from app.core.concurrency import check_version, require_if_match
 from app.core.config import get_settings
 from app.core.errors import ForbiddenError
@@ -254,17 +254,6 @@ def update_user(
     require_tenant_match(dealership_id, principal)
     user = user_service.get_user_for_update_or_404(db, dealership_id, user_id)  # KAN-380
     check_version(user.version, if_match, entity_name="User")
-    if (
-        body.email is not None
-        and body.email.lower() != user.email
-        and user.status != UserStatus.INVITED
-        and AccessRole.PLATFORM_ADMIN in principal.roles
-        and not principal.mfa
-    ):
-        # D-A-16 / D-A-36: moving an active user's address is account
-        # recovery, and a staff session does it only with a factor in it —
-        # the same rule the dedicated recovery routes carry.
-        raise ForbiddenError("This action needs a staff session signed in with a second factor.")
     ip = client_ip(request)
 
     def on_email_change(changed: User, old_email: str) -> None:

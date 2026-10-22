@@ -2102,7 +2102,8 @@ export interface paths {
         /**
          * Grant Manager
          * @description FR-AU-25: make an existing active user of this Betrieb its manager —
-         *     at any time, with a reason (Anto, 2026-10-22).
+         *     at any time, with a reason (Anto, 2026-10-22). If-Match on the user's
+         *     version, like the manager's own `PUT …/manager-flag`.
          */
         post: operations["grant_manager_v1_platform_dealerships__dealership_id__recovery_grant_manager_post"];
         delete?: never;
@@ -2121,11 +2122,33 @@ export interface paths {
         /**
          * Search Users
          * @description Find the account staff were asked about: by its exact e-mail address,
-         *     by Betrieb, or both. One of the two is required.
+         *     by Betrieb, or both. One of the two is required. At most 200 accounts;
+         *     `truncated` says there were more (narrow by the address).
          */
         get: operations["search_users_v1_platform_users_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/users/{user_id}/recovery/change-email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change User Email
+         * @description Move an account's sign-in address (Anto, 2026-10-22: recovery, with
+         *     a reason): open links and sessions end, the old address is told.
+         */
+        post: operations["change_user_email_v1_platform_users__user_id__recovery_change_email_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3767,6 +3790,19 @@ export interface components {
             variantName: string;
             /** Vehiclekind */
             vehicleKind: string | null;
+        };
+        /**
+         * ChangeEmailRequest
+         * @description The new sign-in address (Anto, 2026-10-22: the change is recovery).
+         */
+        ChangeEmailRequest: {
+            /**
+             * Email
+             * Format: email
+             */
+            email: string;
+            /** Reason */
+            reason: string;
         };
         /** ConfigurationCreate */
         ConfigurationCreate: {
@@ -7076,6 +7112,14 @@ export interface components {
             supplierName: string;
         };
         /**
+         * RecordedAction
+         * @description Every recovery action, as a result and an audit row name it. The last
+         *     two write the user row itself, so they take If-Match (API conventions)
+         *     and are routes of their own.
+         * @enum {string}
+         */
+        RecordedAction: "reissue-invitation" | "reset-mfa" | "clear-lockout" | "revoke-sessions" | "grant-manager" | "change-email";
+        /**
          * RecoveryAction
          * @description The path segment of `POST /v1/platform/users/{id}/recovery/{action}`.
          *     Grant-manager is the Betrieb's (`…/dealerships/{id}/recovery/grant-manager`).
@@ -7101,8 +7145,7 @@ export interface components {
          * @description What was recorded: the auth event the Betrieb's stream lists.
          */
         RecoveryResult: {
-            /** Action */
-            action: string;
+            action: components["schemas"]["RecordedAction"];
             /**
              * Autheventid
              * Format: uuid
@@ -7123,11 +7166,15 @@ export interface components {
              * Format: uuid
              */
             userId: string;
+            /** Userversion */
+            userVersion: number;
         };
         /** RecoveryUserList */
         RecoveryUserList: {
             /** Items */
             items: components["schemas"]["RecoveryUserRead"][];
+            /** Truncated */
+            truncated: boolean;
         };
         /**
          * RecoveryUserRead
@@ -7168,6 +7215,8 @@ export interface components {
             /** Opensessions */
             openSessions: number;
             status: components["schemas"]["UserStatus"];
+            /** Version */
+            version: number;
         };
         /**
          * ReferenceValueCreate
@@ -14739,6 +14788,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
+                "If-Match"?: string | null;
                 /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
                 "Idempotency-Key"?: string | null;
             };
@@ -14798,6 +14848,48 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecoveryUserList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_user_email_v1_platform_users__user_id__recovery_change_email_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                user_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeEmailRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecoveryResult"];
                 };
             };
             /** @description Validation Error */

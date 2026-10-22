@@ -32,6 +32,7 @@ export type ConnectedAccountManagerListRead = Schemas['ConnectedAccountManagerLi
 export type RecoveryAction = Schemas['RecoveryAction']
 export type RecoveryRequest = Schemas['RecoveryRequest']
 export type GrantManagerRequest = Schemas['GrantManagerRequest']
+export type ChangeEmailRequest = Schemas['ChangeEmailRequest']
 export type RecoveryResult = Schemas['RecoveryResult']
 export type RecoveryUserRead = Schemas['RecoveryUserRead']
 export type RecoveryUserList = Schemas['RecoveryUserList']

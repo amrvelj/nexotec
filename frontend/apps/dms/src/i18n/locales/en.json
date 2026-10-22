@@ -2287,7 +2287,7 @@
   },
   "recovery": {
     "title": "Account recovery",
-    "intro": "For Nexotec staff only. Find the account you were asked about by its exact e-mail address or by business, then choose the action from the row menu. Every action needs a reason: the business's manager reads it in the sign-in history. Nobody sets or sees a password here.",
+    "intro": "For Nexotec staff only. Find the account you were asked about by its exact e-mail address or by business, then choose the action from the row menu. Every action needs a reason: it is recorded with your name in the business's sign-in log, which its manager has access to. Nobody sets or sees a password here.",
     "forbidden": {
       "title": "Not available",
       "body": "Account recovery is for Nexotec staff signed in with a second factor."
@@ -2304,7 +2304,7 @@
       "sessions": "Open sessions"
     },
     "lockedUntil": "Locked until {{when}}",
-    "failedAttempts": "Failed attempts: {{count}}",
+    "failedAttempts": "Failed attempts: {{count, number}}",
     "passwordSet": "Set",
     "passwordNone": "Not set yet",
     "mfaEnrolled": "Enrolled",
@@ -2330,10 +2330,12 @@
       "managerNeedsActive": "Only an active user can become manager."
     },
     "dialog": {
-      "notice": "The user will be told by a security notice, and the business's manager sees the action, your name and the reason in the sign-in history.",
-      "noticeByMail": "The invitation goes to the user by e-mail. The business's manager sees the action, your name and the reason in the sign-in history.",
+      "notice": "Notifying the user is not built yet — tell them yourself. The action, your name and the reason are recorded in the business's sign-in log, which its manager has access to.",
+      "noticeByMail": "The invitation goes to the user by e-mail. The action, your name and the reason are recorded in the business's sign-in log, which its manager has access to.",
       "reason": "Reason",
-      "reasonHint": "Who asked, and why — for example the caller and the ticket number."
+      "reasonHint": "Who asked, and why — for example the caller and the ticket number.",
+      "noticeChangeEmail": "The old address is told by e-mail. The action, your name and the reason are recorded in the business's sign-in log, which its manager has access to.",
+      "newEmail": "New e-mail address"
     },
     "errors": {
       "not_locked": "The account is not locked out — there is nothing to clear.",
@@ -2341,7 +2343,14 @@
       "reason_required": "A recovery action needs a stated reason.",
       "search_criteria": "Search by e-mail address or business.",
       "generic": "The action was refused: {{message}}",
-      "forbidden": "This action needs a Nexotec staff session signed in with a second factor."
+      "forbidden": "This action needs a Nexotec staff session signed in with a second factor.",
+      "self": "Your own account is managed in My account, not here.",
+      "deactivated": "The user is deactivated — the business reactivates them first.",
+      "not_active": "Only an active user can become manager.",
+      "same_email": "This is already the user's e-mail address.",
+      "email_taken": "Another user already signs in with this address.",
+      "notFound": "The account no longer exists — search again.",
+      "conflict": "The account changed meanwhile — search again and repeat the action."
     },
     "actions": {
       "reissue-invitation": {
@@ -2355,7 +2364,7 @@
         "menu": "Reset second factor",
         "title": "Reset {{name}}'s second factor",
         "confirm": "Reset second factor",
-        "effect": "Every authenticator app, passkey and recovery code of {{name}} is removed and all their sessions end. They set up a second factor again at their next sign-in.",
+        "effect": "Every authenticator app, passkey and recovery code of {{name}} is removed and all their sessions end. Where a second factor is required, they set one up again at their next sign-in.",
         "done": "{{name}}'s second factor was reset."
       },
       "clear-lockout": {
@@ -2378,7 +2387,15 @@
         "confirm": "Make manager",
         "effect": "{{name}} becomes a manager of {{betrieb}} and signs in again.",
         "done": "{{name}} is now a manager of the business."
+      },
+      "change-email": {
+        "menu": "Change e-mail address",
+        "title": "Change {{name}}'s e-mail address",
+        "confirm": "Change address",
+        "effect": "{{name}} signs in with the new address from now on. Open invitation and reset links end, {{name}} is signed out everywhere, and {{email}} is told of the change. The password does not change.",
+        "done": "{{name}}'s e-mail address was changed."
       }
-    }
+    },
+    "truncated": "More than {{count, number}} accounts match — only the first are shown. Search by the e-mail address to find one."
   }
 }
