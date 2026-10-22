@@ -28,6 +28,13 @@ export type ConnectedAccountListRead = Schemas['ConnectedAccountListRead']
 // The manager's narrower read: provider, scopes, status (D-A-15).
 export type ConnectedAccountManagerRead = Schemas['ConnectedAccountManagerRead']
 export type ConnectedAccountManagerListRead = Schemas['ConnectedAccountManagerListRead']
+// KAN-202: platform staff's account recovery (FR-AU-25…27).
+export type RecoveryAction = Schemas['RecoveryAction']
+export type RecoveryRequest = Schemas['RecoveryRequest']
+export type GrantManagerRequest = Schemas['GrantManagerRequest']
+export type RecoveryResult = Schemas['RecoveryResult']
+export type RecoveryUserRead = Schemas['RecoveryUserRead']
+export type RecoveryUserList = Schemas['RecoveryUserList']
 export type DealershipMembershipSummary = Schemas['DealershipMembershipSummary']
 export type LoginResponse = Schemas['LoginResponse']
 // KAN-196 — the identity front door and My account › Security

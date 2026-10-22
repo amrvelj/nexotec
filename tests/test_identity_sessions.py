@@ -22,6 +22,7 @@ from tests.identity_support import (
     create_dealership,
     create_user,
     platform_admin_headers,
+    recover,
 )
 
 SESSION_ENDED = "Your session has ended — sign in again."
@@ -197,10 +198,9 @@ def test_platform_staff_end_every_session_of_a_user(client, login, db_session):
     two = login.session_cookie(beat)
     staff_id = uuid.uuid4()
 
-    path = f"/v1/dealerships/{dealership}/users/{beat['id']}/sessions"
-    assert client.delete(path, headers=cookie_headers(managers)).status_code == 403
-    response = client.delete(path, headers=platform_admin_headers(user_id=staff_id))
-    assert response.status_code == 204, response.text
+    assert recover(client, beat["id"], "revoke-sessions", headers=cookie_headers(managers)).status_code == 403
+    response = recover(client, beat["id"], "revoke-sessions", headers=platform_admin_headers(user_id=staff_id))
+    assert response.status_code == 200, response.text
 
     assert client.get("/v1/auth/me", headers=cookie_headers(one)).status_code == 401
     assert client.get("/v1/auth/me", headers=cookie_headers(two)).status_code == 401
@@ -210,9 +210,8 @@ def test_platform_staff_end_every_session_of_a_user(client, login, db_session):
     assert str(event.user_id) == beat["id"]
     assert event.actor_id == staff_id
     assert event.details == {"count": 2, "reason": "platform_staff"}
-    # Another tenant's user: 404, never 403.
-    other = create_dealership(client)
-    assert client.delete(f"/v1/dealerships/{other}/users/{beat['id']}/sessions", headers=platform_admin_headers()).status_code == 404
+    # An unknown user: 404.
+    assert recover(client, uuid.uuid4(), "revoke-sessions").status_code == 404
 
 
 def test_a_status_change_ends_the_sessions_and_records_it(client, login, db_session):
@@ -278,7 +277,7 @@ def test_a_session_owing_a_second_factor_is_confined_to_enrolment(client, login,
     row = _row(db_session, annas)
     assert "mfa" in row.amr and "otp" in row.amr
     # Platform staff removing the factors ends the sessions that proved them.
-    assert client.delete(f"/v1/dealerships/{dealership}/users/{anna['id']}/mfa", headers=platform_admin_headers()).status_code == 204
+    assert recover(client, anna["id"], "reset-mfa").status_code == 200
     assert client.get("/v1/auth/me", headers=cookie_headers(annas)).status_code == 401
     annas = login.session_cookie(anna)
     begun = client.post("/v1/auth/mfa/totp/enrol", headers=cookie_headers(annas)).json()

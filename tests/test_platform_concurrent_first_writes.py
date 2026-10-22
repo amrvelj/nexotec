@@ -44,6 +44,7 @@ from tests.identity_support import (
     create_user,
     last_mail_to,
     platform_admin_headers,
+    recover,
     token_in,
 )
 from tests.test_customer_vehicle import _create_dealer
@@ -413,10 +414,8 @@ def test_the_mfa_step_takes_the_user_row_before_its_challenge(engine, client, ma
     _secret, recovery_codes = _enrol_totp(client, cookie)
     raw_invitation = None
     if competitor == "invitation_accept":
-        reissued = client.post(
-            f"/v1/dealerships/{dealership}/users/{anna['id']}/invitations", headers=platform_admin_headers()
-        )
-        assert reissued.status_code == 202, reissued.text
+        reissued = recover(client, anna["id"], "reissue-invitation")
+        assert reissued.status_code == 200, reissued.text
         raw_invitation = token_in(last_mail_to(mailbox, anna["email"]))
     first = _password_login(client, anna)
     assert first.status_code == 200 and first.json()["mfaRequired"] is True, first.text

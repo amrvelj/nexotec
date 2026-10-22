@@ -51,6 +51,16 @@ class AuthEventKind(str, enum.Enum):
     # A connected account (FR-AU-23/24, KAN-201) was revoked — by the user,
     # a manager or the deactivation; `details` names provider and reason.
     CONNECTED_ACCOUNT_REVOKED = "connected_account_revoked"
+    # Platform staff's recovery actions (FR-AU-25/26, D-A-16, KAN-202): each
+    # its own kind, the staff member the actor, the stated reason in
+    # `details` — the Betrieb's manager reads it (Anto, 2026-10-22). The
+    # mechanism's own events (`mfa_removed`, `session_revoked`,
+    # `invitation_issued`) are recorded beside it, as for any other cause.
+    RECOVERY_INVITATION_REISSUED = "recovery_invitation_reissued"
+    RECOVERY_MFA_RESET = "recovery_mfa_reset"
+    RECOVERY_LOCKOUT_CLEARED = "recovery_lockout_cleared"
+    RECOVERY_SESSIONS_REVOKED = "recovery_sessions_revoked"
+    RECOVERY_MANAGER_GRANTED = "recovery_manager_granted"
 
 
 class AuthEvent(PrimaryKeyMixin, Base):

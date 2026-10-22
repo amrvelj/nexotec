@@ -18,6 +18,7 @@ import { CustomerCreatePage } from './pages/CustomerCreatePage'
 import { CustomerDetailPage } from './pages/CustomerDetailPage'
 import { CatalogueBrowsePage } from './pages/CatalogueBrowsePage'
 import { ReferenceDataPage } from './pages/ReferenceDataPage'
+import { AccountRecoveryPage } from './pages/AccountRecoveryPage'
 import { UsersListPage } from './pages/UsersListPage'
 import { IntegrationsPage } from './pages/IntegrationsPage'
 import { VehiclesListPage } from './pages/VehiclesListPage'
@@ -75,6 +76,7 @@ export default function App() {
             <Route path="/settings/reference" element={<ReferenceDataPage />} />
             {/* KAN-200 — Dealer Administration › Users (manager-only at the API). */}
             <Route path="/administration/users" element={<UsersListPage />} />
+            <Route path="/administration/account-recovery" element={<AccountRecoveryPage />} />
             <Route path="/integrations" element={<IntegrationsPage />} />
             <Route path="/vehicles" element={<VehiclesListPage />} />
             <Route path="/vehicles/:id" element={<VehicleDetailPage />} />

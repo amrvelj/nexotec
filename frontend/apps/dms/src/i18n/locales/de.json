@@ -21,7 +21,8 @@
       "administration": "Verwaltung",
       "referenceData": "Referenzdaten",
       "catalogue": "Katalog",
-      "users": "Benutzer"
+      "users": "Benutzer",
+      "accountRecovery": "Kontowiederherstellung"
     },
     "signOut": "Abmelden",
     "environmentNotice": {
@@ -2282,6 +2283,102 @@
       "invalid": "Das Bild muss ein PNG oder JPEG von höchstens 1 MB sein.",
       "conflict": "Ihr Konto wurde inzwischen anderswo geändert. Laden Sie den neuen Stand – Ihre Eingabe hier geht dabei verloren.",
       "loadLatest": "Neuen Stand laden"
+    }
+  },
+  "recovery": {
+    "title": "Kontowiederherstellung",
+    "intro": "Nur für Mitarbeiter von Nexotec. Suchen Sie das Konto, um das Sie gebeten wurden, über die genaue E-Mail-Adresse oder den Betrieb, und wählen Sie die Aktion im Zeilenmenü. Jede Aktion braucht eine Begründung: Der Manager des Betriebs liest sie im Anmeldeverlauf. Niemand setzt oder sieht hier ein Passwort.",
+    "forbidden": {
+      "title": "Nicht verfügbar",
+      "body": "Die Kontowiederherstellung ist Mitarbeitern von Nexotec vorbehalten, die mit einem zweiten Faktor angemeldet sind."
+    },
+    "staffBadge": "Nexotec-Mitarbeiter",
+    "columns": {
+      "name": "Name",
+      "betrieb": "Betrieb",
+      "status": "Status",
+      "roles": "Rollen",
+      "lockout": "Sperre",
+      "password": "Passwort",
+      "mfa": "Zweiter Faktor",
+      "sessions": "Offene Sitzungen"
+    },
+    "lockedUntil": "Gesperrt bis {{when}}",
+    "failedAttempts": "Fehlversuche: {{count}}",
+    "passwordSet": "Gesetzt",
+    "passwordNone": "Noch nicht gesetzt",
+    "mfaEnrolled": "Eingerichtet",
+    "mfaNone": "Keiner",
+    "loadError": "Die Konten konnten nicht geladen werden.",
+    "empty": {
+      "title": "Kein Konto gefunden",
+      "description": "Die E-Mail-Adresse muss genau übereinstimmen. Versuchen Sie es stattdessen über den Betrieb."
+    },
+    "search": {
+      "email": "E-Mail-Adresse",
+      "emailPlaceholder": "name@betrieb.ch",
+      "betrieb": "Betrieb",
+      "betriebPlaceholder": "Betrieb wählen",
+      "noBetrieb": "Kein Betrieb gefunden",
+      "submit": "Suchen"
+    },
+    "rowMenu": {
+      "selfDisabled": "Ihr eigenes Konto verwalten Sie unter Mein Konto.",
+      "deactivatedDisabled": "Der Benutzer ist deaktiviert — der Betrieb reaktiviert ihn zuerst.",
+      "notLocked": "Das Konto ist nicht gesperrt.",
+      "alreadyManager": "Bereits Manager des Betriebs.",
+      "managerNeedsActive": "Nur ein aktiver Benutzer kann Manager werden."
+    },
+    "dialog": {
+      "notice": "Der Benutzer erhält eine Sicherheitsmitteilung, und der Manager des Betriebs sieht die Aktion, Ihren Namen und die Begründung im Anmeldeverlauf.",
+      "noticeByMail": "Die Einladung geht per E-Mail an den Benutzer. Der Manager des Betriebs sieht die Aktion, Ihren Namen und die Begründung im Anmeldeverlauf.",
+      "reason": "Begründung",
+      "reasonHint": "Wer hat gefragt und warum — zum Beispiel der Anrufer und die Ticketnummer."
+    },
+    "errors": {
+      "not_locked": "Das Konto ist nicht gesperrt — es gibt nichts aufzuheben.",
+      "already_manager": "Dieser Benutzer ist bereits Manager des Betriebs.",
+      "reason_required": "Eine Wiederherstellung braucht eine Begründung.",
+      "search_criteria": "Suchen Sie über die E-Mail-Adresse oder den Betrieb.",
+      "generic": "Die Aktion wurde abgelehnt: {{message}}",
+      "forbidden": "Diese Aktion braucht eine Nexotec-Sitzung mit zweitem Faktor."
+    },
+    "actions": {
+      "reissue-invitation": {
+        "menu": "Einladung erneut senden",
+        "title": "Einladung erneut an {{name}} senden",
+        "confirm": "Einladung senden",
+        "effect": "Eine neue Einladung geht an {{email}}; der bisherige Link wird ungültig. {{name}} setzt das neue Passwort selbst.",
+        "done": "Eine neue Einladung wurde an {{name}} gesendet."
+      },
+      "reset-mfa": {
+        "menu": "Zweiten Faktor zurücksetzen",
+        "title": "Zweiten Faktor von {{name}} zurücksetzen",
+        "confirm": "Zweiten Faktor zurücksetzen",
+        "effect": "Alle Authenticator-Apps, Passkeys und Wiederherstellungscodes von {{name}} werden entfernt und alle Sitzungen beendet. Bei der nächsten Anmeldung richtet {{name}} einen zweiten Faktor neu ein.",
+        "done": "Der zweite Faktor von {{name}} wurde zurückgesetzt."
+      },
+      "clear-lockout": {
+        "menu": "Sperre aufheben",
+        "title": "Sperre von {{name}} aufheben",
+        "confirm": "Sperre aufheben",
+        "effect": "Die fehlgeschlagenen Anmeldeversuche von {{name}} werden gelöscht und die Sperre aufgehoben. Das Passwort ändert sich nicht.",
+        "done": "Die Sperre von {{name}} wurde aufgehoben."
+      },
+      "revoke-sessions": {
+        "menu": "Alle Sitzungen beenden",
+        "title": "Alle Sitzungen von {{name}} beenden",
+        "confirm": "Sitzungen beenden",
+        "effect": "{{name}} wird auf allen Geräten abgemeldet und meldet sich neu an.",
+        "done": "Alle Sitzungen von {{name}} wurden beendet."
+      },
+      "grant-manager": {
+        "menu": "Zum Manager machen",
+        "title": "{{name}} zum Manager von {{betrieb}} machen",
+        "confirm": "Zum Manager machen",
+        "effect": "{{name}} wird Manager von {{betrieb}} und meldet sich neu an.",
+        "done": "{{name}} ist jetzt Manager des Betriebs."
+      }
     }
   }
 }

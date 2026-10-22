@@ -177,3 +177,22 @@ def deactivate(client: TestClient, dealership_id: str, user: dict, *, headers: d
         json=payload,
         headers={**(headers or platform_admin_headers()), "If-Match": str(if_match), "Idempotency-Key": str(uuid.uuid4())},
     )
+
+
+def recover(
+    client: TestClient,
+    user_id: str | uuid.UUID,
+    action: str,
+    *,
+    headers: dict[str, str] | None = None,
+    reason: str = "Asked by the Betrieb's owner on the phone, ticket 4711.",
+):
+    """KAN-202: platform staff's recovery door — `reissue-invitation`,
+    `reset-mfa`, `clear-lockout` or `revoke-sessions`, with a stated reason.
+    A staff token with a second factor unless `headers` says otherwise."""
+
+    return client.post(
+        f"/v1/platform/users/{user_id}/recovery/{action}",
+        json={"reason": reason},
+        headers=headers if headers is not None else platform_admin_headers(),
+    )

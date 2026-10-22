@@ -11,6 +11,7 @@ import {
   Handshake,
   Languages,
   LayoutDashboard,
+  LifeBuoy,
   Plug,
   Receipt,
   ShieldCheck,
@@ -89,6 +90,10 @@ function buildNavGroups(t: (key: string) => string): NavGroupConfig[] {
         // KAN-200 — Dealer Administration › Users. Manager-only at the API
         // (`dealership_users`); the entry is never role-hidden (A-RULE-7).
         { label: t('shell.nav.users'), href: '/administration/users', icon: UserCog, status: 'active' },
+        // KAN-202 — platform staff's account recovery (FR-AU-25…27). Staff-only
+        // at the API; the entry is never role-hidden (Anto, 2026-10-22: under
+        // Administration, like every other admin entry — A-RULE-7).
+        { label: t('shell.nav.accountRecovery'), href: '/administration/account-recovery', icon: LifeBuoy, status: 'active' },
         { label: t('shell.nav.referenceData'), href: '/settings/reference', icon: Languages, status: 'active' },
       ],
     },

@@ -220,6 +220,19 @@ def test_every_user_administration_write_takes_the_user_row_lock_first(route):
 
 
 
+@pytest.mark.parametrize("route", ["recover_user", "grant_manager"])
+def test_every_recovery_action_takes_the_user_row_first(route):
+    """KAN-202: platform staff's recovery locks the user row before the
+    credential, the tokens, the factors or the sessions (KAN-380's order) —
+    the routes it replaced read the row unlocked."""
+
+    from app.platform.api import recovery as recovery_api
+
+    source = inspect.getsource(getattr(recovery_api, route))
+    assert "get_user_for_recovery_or_404(" in source
+    assert "get_user_or_404(" not in source
+
+
 @pytest.mark.parametrize("route", ["update_me", "put_my_signature", "delete_my_signature", "revoke_my_connected_account"])
 def test_every_my_account_write_takes_the_callers_own_row_first(route):
     """KAN-201: My account's writes lock the caller's row first (KAN-380's

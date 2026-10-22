@@ -21,7 +21,8 @@
       "administration": "Amministrazione",
       "referenceData": "Dati di riferimento",
       "catalogue": "Catalogo",
-      "users": "Utenti"
+      "users": "Utenti",
+      "accountRecovery": "Recupero account"
     },
     "signOut": "Disconnetti",
     "environmentNotice": {
@@ -2282,6 +2283,102 @@
       "invalid": "L'immagine deve essere un PNG o un JPEG di al massimo 1 MB.",
       "conflict": "Il suo account è stato modificato altrove nel frattempo. Carichi la nuova versione – quanto inserito qui va perso.",
       "loadLatest": "Carica la nuova versione"
+    }
+  },
+  "recovery": {
+    "title": "Recupero account",
+    "intro": "Riservato ai collaboratori di Nexotec. Cercate l'account richiesto tramite l'indirizzo e-mail esatto o l'azienda, poi scegliete l'azione nel menu della riga. Ogni azione richiede un motivo: il manager dell'azienda lo legge nella cronologia degli accessi. Qui nessuno imposta né vede una password.",
+    "forbidden": {
+      "title": "Non disponibile",
+      "body": "Il recupero account è riservato ai collaboratori di Nexotec connessi con un secondo fattore."
+    },
+    "staffBadge": "Collaboratore Nexotec",
+    "columns": {
+      "name": "Nome",
+      "betrieb": "Azienda",
+      "status": "Stato",
+      "roles": "Ruoli",
+      "lockout": "Blocco",
+      "password": "Password",
+      "mfa": "Secondo fattore",
+      "sessions": "Sessioni aperte"
+    },
+    "lockedUntil": "Bloccato fino al {{when}}",
+    "failedAttempts": "Tentativi falliti: {{count}}",
+    "passwordSet": "Impostata",
+    "passwordNone": "Non ancora impostata",
+    "mfaEnrolled": "Configurato",
+    "mfaNone": "Nessuno",
+    "loadError": "Non è stato possibile caricare gli account.",
+    "empty": {
+      "title": "Nessun account trovato",
+      "description": "L'indirizzo e-mail deve corrispondere esattamente. Provate invece tramite l'azienda."
+    },
+    "search": {
+      "email": "Indirizzo e-mail",
+      "emailPlaceholder": "nome@azienda.ch",
+      "betrieb": "Azienda",
+      "betriebPlaceholder": "Scegliere un'azienda",
+      "noBetrieb": "Nessuna azienda trovata",
+      "submit": "Cerca"
+    },
+    "rowMenu": {
+      "selfDisabled": "Il vostro account si gestisce in Il mio account.",
+      "deactivatedDisabled": "L'utente è disattivato — l'azienda lo riattiva prima.",
+      "notLocked": "L'account non è bloccato.",
+      "alreadyManager": "Già manager dell'azienda.",
+      "managerNeedsActive": "Solo un utente attivo può diventare manager."
+    },
+    "dialog": {
+      "notice": "L'utente riceve un avviso di sicurezza, e il manager dell'azienda vede l'azione, il vostro nome e il motivo nella cronologia degli accessi.",
+      "noticeByMail": "L'invito arriva all'utente per e-mail. Il manager dell'azienda vede l'azione, il vostro nome e il motivo nella cronologia degli accessi.",
+      "reason": "Motivo",
+      "reasonHint": "Chi l'ha chiesto e perché — per esempio chi ha chiamato e il numero del ticket."
+    },
+    "errors": {
+      "not_locked": "L'account non è bloccato — non c'è nulla da sbloccare.",
+      "already_manager": "Questo utente è già manager dell'azienda.",
+      "reason_required": "Un'azione di recupero richiede un motivo.",
+      "search_criteria": "Cercate tramite indirizzo e-mail o azienda.",
+      "generic": "L'azione è stata rifiutata: {{message}}",
+      "forbidden": "Questa azione richiede una sessione Nexotec con un secondo fattore."
+    },
+    "actions": {
+      "reissue-invitation": {
+        "menu": "Rinvia invito",
+        "title": "Rinviare l'invito a {{name}}",
+        "confirm": "Invia invito",
+        "effect": "Un nuovo invito va a {{email}}; il link precedente non funziona più. {{name}} imposta da sé la nuova password.",
+        "done": "È stato inviato un nuovo invito a {{name}}."
+      },
+      "reset-mfa": {
+        "menu": "Reimposta secondo fattore",
+        "title": "Reimpostare il secondo fattore di {{name}}",
+        "confirm": "Reimposta secondo fattore",
+        "effect": "Tutte le app di autenticazione, le passkey e i codici di recupero di {{name}} vengono rimossi e tutte le sessioni terminano. Al prossimo accesso {{name}} configura di nuovo un secondo fattore.",
+        "done": "Il secondo fattore di {{name}} è stato reimpostato."
+      },
+      "clear-lockout": {
+        "menu": "Sblocca account",
+        "title": "Sbloccare l'account di {{name}}",
+        "confirm": "Sblocca",
+        "effect": "I tentativi di accesso falliti di {{name}} vengono cancellati e il blocco tolto. La password non cambia.",
+        "done": "L'account di {{name}} è stato sbloccato."
+      },
+      "revoke-sessions": {
+        "menu": "Termina tutte le sessioni",
+        "title": "Terminare tutte le sessioni di {{name}}",
+        "confirm": "Termina sessioni",
+        "effect": "{{name}} viene disconnesso su tutti i dispositivi e accede di nuovo.",
+        "done": "Tutte le sessioni di {{name}} sono state terminate."
+      },
+      "grant-manager": {
+        "menu": "Nomina manager",
+        "title": "Nominare {{name}} manager di {{betrieb}}",
+        "confirm": "Nomina manager",
+        "effect": "{{name}} diventa manager di {{betrieb}} e accede di nuovo.",
+        "done": "{{name}} è ora manager dell'azienda."
+      }
     }
   }
 }

@@ -21,7 +21,8 @@
       "administration": "Administration",
       "referenceData": "Données de référence",
       "catalogue": "Catalogue",
-      "users": "Utilisateurs"
+      "users": "Utilisateurs",
+      "accountRecovery": "Récupération de compte"
     },
     "signOut": "Se déconnecter",
     "environmentNotice": {
@@ -2282,6 +2283,102 @@
       "invalid": "L'image doit être un PNG ou un JPEG d'au plus 1 Mo.",
       "conflict": "Votre compte a été modifié ailleurs entre-temps. Chargez la nouvelle version – votre saisie ici est alors perdue.",
       "loadLatest": "Charger la nouvelle version"
+    }
+  },
+  "recovery": {
+    "title": "Récupération de compte",
+    "intro": "Réservé aux collaborateurs de Nexotec. Trouvez le compte concerné par son adresse e-mail exacte ou par entreprise, puis choisissez l'action dans le menu de la ligne. Chaque action exige un motif : le manager de l'entreprise le lit dans l'historique des connexions. Personne ne définit ni ne voit de mot de passe ici.",
+    "forbidden": {
+      "title": "Non disponible",
+      "body": "La récupération de compte est réservée aux collaborateurs de Nexotec connectés avec un second facteur."
+    },
+    "staffBadge": "Collaborateur Nexotec",
+    "columns": {
+      "name": "Nom",
+      "betrieb": "Entreprise",
+      "status": "Statut",
+      "roles": "Rôles",
+      "lockout": "Verrouillage",
+      "password": "Mot de passe",
+      "mfa": "Second facteur",
+      "sessions": "Sessions ouvertes"
+    },
+    "lockedUntil": "Verrouillé jusqu'au {{when}}",
+    "failedAttempts": "Tentatives échouées : {{count}}",
+    "passwordSet": "Défini",
+    "passwordNone": "Pas encore défini",
+    "mfaEnrolled": "Configuré",
+    "mfaNone": "Aucun",
+    "loadError": "Les comptes n'ont pas pu être chargés.",
+    "empty": {
+      "title": "Aucun compte trouvé",
+      "description": "L'adresse e-mail doit correspondre exactement. Essayez plutôt par entreprise."
+    },
+    "search": {
+      "email": "Adresse e-mail",
+      "emailPlaceholder": "nom@entreprise.ch",
+      "betrieb": "Entreprise",
+      "betriebPlaceholder": "Choisir une entreprise",
+      "noBetrieb": "Aucune entreprise trouvée",
+      "submit": "Rechercher"
+    },
+    "rowMenu": {
+      "selfDisabled": "Votre propre compte se gère dans Mon compte.",
+      "deactivatedDisabled": "L'utilisateur est désactivé — l'entreprise le réactive d'abord.",
+      "notLocked": "Le compte n'est pas verrouillé.",
+      "alreadyManager": "Déjà manager de l'entreprise.",
+      "managerNeedsActive": "Seul un utilisateur actif peut devenir manager."
+    },
+    "dialog": {
+      "notice": "L'utilisateur est informé par une notification de sécurité, et le manager de l'entreprise voit l'action, votre nom et le motif dans l'historique des connexions.",
+      "noticeByMail": "L'invitation est envoyée à l'utilisateur par e-mail. Le manager de l'entreprise voit l'action, votre nom et le motif dans l'historique des connexions.",
+      "reason": "Motif",
+      "reasonHint": "Qui a demandé, et pourquoi — par exemple l'appelant et le numéro de ticket."
+    },
+    "errors": {
+      "not_locked": "Le compte n'est pas verrouillé — il n'y a rien à lever.",
+      "already_manager": "Cet utilisateur est déjà manager de l'entreprise.",
+      "reason_required": "Une action de récupération exige un motif.",
+      "search_criteria": "Recherchez par adresse e-mail ou par entreprise.",
+      "generic": "L'action a été refusée : {{message}}",
+      "forbidden": "Cette action exige une session Nexotec avec un second facteur."
+    },
+    "actions": {
+      "reissue-invitation": {
+        "menu": "Renvoyer l'invitation",
+        "title": "Renvoyer l'invitation à {{name}}",
+        "confirm": "Envoyer l'invitation",
+        "effect": "Une nouvelle invitation est envoyée à {{email}} ; le lien précédent ne fonctionne plus. {{name}} définit lui-même le nouveau mot de passe.",
+        "done": "Une nouvelle invitation a été envoyée à {{name}}."
+      },
+      "reset-mfa": {
+        "menu": "Réinitialiser le second facteur",
+        "title": "Réinitialiser le second facteur de {{name}}",
+        "confirm": "Réinitialiser le second facteur",
+        "effect": "Toutes les applications d'authentification, clés d'accès et codes de récupération de {{name}} sont supprimés et toutes ses sessions prennent fin. À sa prochaine connexion, {{name}} configure à nouveau un second facteur.",
+        "done": "Le second facteur de {{name}} a été réinitialisé."
+      },
+      "clear-lockout": {
+        "menu": "Lever le verrouillage",
+        "title": "Lever le verrouillage de {{name}}",
+        "confirm": "Lever le verrouillage",
+        "effect": "Les tentatives de connexion échouées de {{name}} sont effacées et le verrouillage est levé. Le mot de passe ne change pas.",
+        "done": "Le verrouillage de {{name}} a été levé."
+      },
+      "revoke-sessions": {
+        "menu": "Terminer toutes les sessions",
+        "title": "Terminer toutes les sessions de {{name}}",
+        "confirm": "Terminer les sessions",
+        "effect": "{{name}} est déconnecté sur tous les appareils et se reconnecte.",
+        "done": "Toutes les sessions de {{name}} ont été terminées."
+      },
+      "grant-manager": {
+        "menu": "Nommer manager",
+        "title": "Nommer {{name}} manager de {{betrieb}}",
+        "confirm": "Nommer manager",
+        "effect": "{{name}} devient manager de {{betrieb}} et se reconnecte.",
+        "done": "{{name}} est désormais manager de l'entreprise."
+      }
     }
   }
 }
