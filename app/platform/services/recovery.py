@@ -37,10 +37,12 @@ from app.core.audit import record_audit_event
 from app.core.auth import AccessRole
 from app.core.base import utcnow
 from app.core.errors import BadRequestError, ConflictError, ForbiddenError, NotFoundError
+from app.core.pagination import SortPageParams, build_sorted_page, paginate_query_sorted
 from app.platform.models.auth_event import AuthEvent, AuthEventKind
 from app.platform.models.auth_session import AuthSession
 from app.platform.models.credential import Credential
 from app.platform.models.dealership import Dealership
+from app.platform.models.mfa import MfaPasskey, MfaTotp
 from app.platform.models.user import User, UserStatus
 from app.platform.services import auth_events, identity, mfa, security_notifications
 from app.platform.services import membership as membership_service
@@ -49,7 +51,6 @@ from app.platform.services.mailer import PlatformMailer
 
 # The audit trail and the auth stream show at most this much of a reason.
 REASON_MAX_LENGTH = 500
-SEARCH_LIMIT = 200
 
 
 class RecoveryAction(str, enum.Enum):
@@ -103,53 +104,79 @@ def get_user_for_recovery_or_404(db: Session, user_id: uuid.UUID) -> User:
     return user
 
 
-def search_users(db: Session, *, email: str | None, dealership_id: uuid.UUID | None) -> tuple[list[User], bool]:
+def search_users(
+    db: Session, *, email: str | None, dealership_id: uuid.UUID | None, params: SortPageParams
+) -> tuple[list[User], str | None]:
     """By exact address (case-insensitive), by Betrieb, or both — never a
     partial match across every Betrieb: staff look up the account they were
-    asked about, not browse. At most `SEARCH_LIMIT` rows; the flag says
-    whether there were more (the page asks for the address then)."""
+    asked about, not browse. Sorted server-side, cursor-paginated (API
+    conventions; the same helpers as the Users list)."""
 
     stmt = select(User)
     if email is not None:
         stmt = stmt.where(func.lower(User.email) == email.strip().lower())
     if dealership_id is not None:
         stmt = stmt.where(User.tenant_id == dealership_id)
-    rows = list(db.scalars(stmt.order_by(User.last_name, User.first_name, User.id).limit(SEARCH_LIMIT + 1)).all())
-    return rows[:SEARCH_LIMIT], len(rows) > SEARCH_LIMIT
+    rows = list(db.scalars(paginate_query_sorted(stmt, model=User, params=params)).all())
+    return build_sorted_page(rows, params)
 
 
-def account_state(db: Session, user: User) -> dict:
-    """What staff need to choose an action — whether a password exists and
-    the lock, the factors, the open sessions. Never a hash, a secret or a
-    token."""
+def account_states(db: Session, users: list[User]) -> dict[uuid.UUID, dict]:
+    """What staff need to choose an action, for a page of accounts in a
+    fixed number of queries — whether a password exists and the lock, the
+    factors, the open sessions, the Betrieb's name. The credential is read
+    by its counter and lock only: never a hash, a secret or a token."""
 
+    ids = [u.id for u in users]
+    if not ids:
+        return {}
     now = utcnow()
-    # The three columns, never the row: the hash stays in the database.
-    credential = db.execute(
-        select(Credential.id, Credential.failed_login_attempts, Credential.locked_until).where(
-            Credential.user_id == user.id
-        )
-    ).one_or_none()
-    locked = credential is not None and credential.locked_until is not None and credential.locked_until > now
-    open_sessions = db.scalar(
-        select(func.count())
-        .select_from(AuthSession)
-        .where(
-            AuthSession.user_id == user.id,
-            AuthSession.revoked_at.is_(None),
-            AuthSession.idle_expires_at > now,
-            AuthSession.absolute_expires_at > now,
-        )
-    )
-    dealership = db.get(Dealership, user.tenant_id)
-    return {
-        "dealership_name": (dealership.trade_name or dealership.legal_name) if dealership is not None else "",
-        "has_password": credential is not None,
-        "locked_until": credential.locked_until if locked and credential is not None else None,
-        "failed_login_attempts": credential.failed_login_attempts if credential is not None else 0,
-        "mfa_enrolled": mfa.has_factor(db, user.id),
-        "open_sessions": int(open_sessions or 0),
+    credentials = {
+        row.user_id: row
+        for row in db.execute(
+            select(Credential.user_id, Credential.failed_login_attempts, Credential.locked_until).where(
+                Credential.user_id.in_(ids)
+            )
+        ).all()
     }
+    with_totp = set(
+        db.scalars(select(MfaTotp.user_id).where(MfaTotp.user_id.in_(ids), MfaTotp.confirmed_at.is_not(None))).all()
+    )
+    with_passkey = set(db.scalars(select(MfaPasskey.user_id).where(MfaPasskey.user_id.in_(ids))).all())
+    sessions: dict[uuid.UUID, int] = {
+        row[0]: row[1]
+        for row in db.execute(
+            select(AuthSession.user_id, func.count())
+            .where(
+                AuthSession.user_id.in_(ids),
+                AuthSession.revoked_at.is_(None),
+                AuthSession.idle_expires_at > now,
+                AuthSession.absolute_expires_at > now,
+            )
+            .group_by(AuthSession.user_id)
+        ).all()
+    }
+    names = {
+        row.id: row.trade_name or row.legal_name
+        for row in db.execute(
+            select(Dealership.id, Dealership.trade_name, Dealership.legal_name).where(
+                Dealership.id.in_({u.tenant_id for u in users})
+            )
+        ).all()
+    }
+    states = {}
+    for user in users:
+        credential = credentials.get(user.id)
+        locked = credential is not None and credential.locked_until is not None and credential.locked_until > now
+        states[user.id] = {
+            "dealership_name": names.get(user.tenant_id, ""),
+            "has_password": credential is not None,
+            "locked_until": credential.locked_until if locked and credential is not None else None,
+            "failed_login_attempts": credential.failed_login_attempts if credential is not None else 0,
+            "mfa_enrolled": user.id in with_totp or user.id in with_passkey,
+            "open_sessions": int(sessions.get(user.id, 0)),
+        }
+    return states
 
 
 # --- the actions -----------------------------------------------------------------------

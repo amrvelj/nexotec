@@ -2371,7 +2371,9 @@
       "same_email": "This is already the user's e-mail address.",
       "email_taken": "Another user already signs in with this address.",
       "notFound": "The account no longer exists — search again.",
-      "conflict": "The account changed meanwhile — search again and repeat the action."
+      "conflict": "The account changed meanwhile — search again and repeat the action.",
+      "invalid_email": "This e-mail address is not valid.",
+      "invalid": "The input is not valid — check the fields."
     },
     "actions": {
       "reissue-invitation": {
@@ -2416,7 +2418,6 @@
         "effect": "{{name}} signs in with the new address from now on. Open invitation and reset links end, {{name}} is signed out everywhere, and {{email}} is told of the change. The password does not change.",
         "done": "{{name}}'s e-mail address was changed."
       }
-    },
-    "truncated": "More than {{count, number}} accounts match — only the first are shown. Search by the e-mail address to find one."
+    }
   }
 }

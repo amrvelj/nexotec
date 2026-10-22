@@ -2122,8 +2122,8 @@ export interface paths {
         /**
          * Search Users
          * @description Find the account staff were asked about: by its exact e-mail address,
-         *     by Betrieb, or both. One of the two is required. At most 200 accounts;
-         *     `truncated` says there were more (narrow by the address).
+         *     by Betrieb, or both. One of the two is required. Sorted on the server,
+         *     cursor-paginated (API conventions).
          */
         get: operations["search_users_v1_platform_users_get"];
         put?: never;
@@ -7173,8 +7173,8 @@ export interface components {
         RecoveryUserList: {
             /** Items */
             items: components["schemas"]["RecoveryUserRead"][];
-            /** Truncated */
-            truncated: boolean;
+            /** Nextcursor */
+            nextCursor: string | null;
         };
         /**
          * RecoveryUserRead
@@ -14830,6 +14830,10 @@ export interface operations {
             query?: {
                 email?: string | null;
                 dealershipId?: string | null;
+                /** @description e.g. 'lastName:asc' — lastName, firstName, email, status */
+                sort?: string | null;
+                limit?: number;
+                cursor?: string | null;
             };
             header?: {
                 authorization?: string | null;

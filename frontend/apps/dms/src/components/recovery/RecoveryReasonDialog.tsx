@@ -10,6 +10,9 @@ import type { RecoveryChoice } from './recoveryRowMenu'
 
 // The API's own limit (`REASON_MAX_LENGTH`).
 const REASON_MAX = 500
+// A plausible address before the request goes out (the API's EmailStr is
+// the judge); without it a typo came back as an untranslated 422.
+const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export interface RecoveryReasonDialogProps {
   opened: boolean
@@ -50,6 +53,10 @@ export function RecoveryReasonDialog({ opened, onClose, user, choice, onDone }: 
 
   const submit = async () => {
     if (!user || !choice) return
+    if (choice === 'change-email' && !EMAIL_SHAPE.test(email.trim())) {
+      setError(t('recovery.errors.invalid_email'))
+      return
+    }
     setSubmitting(true)
     setError(null)
     try {
@@ -145,6 +152,7 @@ function recoveryErrorText(t: T, err: unknown): string {
     if (err.status === 403) return t('recovery.errors.forbidden')
     if (err.status === 404) return t('recovery.errors.notFound')
     if (err.status === 409 && err.details && 'currentVersion' in err.details) return t('recovery.errors.conflict')
+    if (err.status === 422) return t('recovery.errors.invalid')
     return t('recovery.errors.generic', { message: err.message })
   }
   return t('common.requestFailed')

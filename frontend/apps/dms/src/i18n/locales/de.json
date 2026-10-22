@@ -2371,7 +2371,9 @@
       "same_email": "Das ist bereits die E-Mail-Adresse des Benutzers.",
       "email_taken": "Mit dieser Adresse meldet sich bereits ein anderer Benutzer an.",
       "notFound": "Das Konto gibt es nicht mehr — suchen Sie erneut.",
-      "conflict": "Das Konto wurde inzwischen geändert — suchen Sie erneut und wiederholen Sie die Aktion."
+      "conflict": "Das Konto wurde inzwischen geändert — suchen Sie erneut und wiederholen Sie die Aktion.",
+      "invalid_email": "Diese E-Mail-Adresse ist nicht gültig.",
+      "invalid": "Die Angaben sind nicht gültig — prüfen Sie die Felder."
     },
     "actions": {
       "reissue-invitation": {
@@ -2416,7 +2418,6 @@
         "effect": "{{name}} meldet sich ab jetzt mit der neuen Adresse an. Offene Einladungs- und Rücksetzlinks werden ungültig, {{name}} wird überall abgemeldet, und {{email}} wird über die Änderung informiert. Das Passwort ändert sich nicht.",
         "done": "Die E-Mail-Adresse von {{name}} wurde geändert."
       }
-    },
-    "truncated": "Mehr als {{count, number}} Konten passen — nur die ersten werden gezeigt. Suchen Sie über die E-Mail-Adresse."
+    }
   }
 }

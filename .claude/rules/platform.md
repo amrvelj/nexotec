@@ -400,7 +400,9 @@ One shared template layer (`app/platform/models/document_template.py`). WeasyPri
   until then it logs that a notice is owed and **nothing reaches the user** (a re-issued
   invitation still goes by e-mail, as the flow it is). Staff never recover their own account
   (403) nor a deactivated one (409); clear-lockout on an account with no failures is a 409
-  (`not_locked`); every refusal carries a stable `details.rule`. Grant-manager and change-email
+  (`not_locked`); every refusal the recovery service makes carries a stable `details.rule` (the
+gate's 403s, a missing user's 404, the If-Match 400/409 and a validation 422 do not — the
+dialog says those by status). Grant-manager and change-email
   write the user row, so they take **If-Match** on its version (the search returns it).
   Grant-manager takes an `active` home user of that Betrieb at **any time** (Anto, 2026-10-22 —
   not only when the last manager has left; FR-AU-25 updated), 409 `already_manager` /
@@ -408,8 +410,9 @@ One shared template layer (`app/platform/models/document_template.py`). WeasyPri
   Change-email runs KAN-196's consequences (open invitation and reset tokens end, every session
   ends, `email_changed`, the old address is mailed) beside `recovery_email_changed`; 409
   `same_email` / `email_taken`. `GET /v1/platform/users?email=&dealershipId=` finds the account
-  (exact address, or by Betrieb; ≤200, `truncated` when more matched) with its lock, factor and
-  open sessions — never a hash (the credential's counter and lock are read by column). The staff-only
+  (exact address, or by Betrieb; sorted on the server by `lastName`/`firstName`/`email`/`status`,
+  cursor-paginated) with its lock, factor and open sessions, a page's state read in a fixed
+  number of queries — never a hash (the credential's counter and lock are read by column). The staff-only
   `DELETE …/users/{id}/mfa` and `…/sessions` are **gone**; `POST …/users/{id}/invitations` is
   the onboarding re-send to a still-`invited` user only — anyone, staff included, re-inviting
   an accepted account gets 403 with `details.recovery`. Nothing in recovery sets or reads a

@@ -2371,7 +2371,9 @@
       "same_email": "C'est déjà l'adresse e-mail de l'utilisateur.",
       "email_taken": "Un autre utilisateur se connecte déjà avec cette adresse.",
       "notFound": "Le compte n'existe plus — recherchez à nouveau.",
-      "conflict": "Le compte a changé entre-temps — recherchez à nouveau et répétez l'action."
+      "conflict": "Le compte a changé entre-temps — recherchez à nouveau et répétez l'action.",
+      "invalid_email": "Cette adresse e-mail n'est pas valide.",
+      "invalid": "Les données ne sont pas valides — vérifiez les champs."
     },
     "actions": {
       "reissue-invitation": {
@@ -2416,7 +2418,6 @@
         "effect": "{{name}} se connecte désormais avec la nouvelle adresse. Les liens d'invitation et de réinitialisation ouverts ne fonctionnent plus, {{name}} est déconnecté partout et {{email}} est informée du changement. Le mot de passe ne change pas.",
         "done": "L'adresse e-mail de {{name}} a été modifiée."
       }
-    },
-    "truncated": "Plus de {{count, number}} comptes correspondent — seuls les premiers sont affichés. Recherchez par adresse e-mail."
+    }
   }
 }

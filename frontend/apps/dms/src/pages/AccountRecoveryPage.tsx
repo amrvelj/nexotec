@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Alert, Button, Group, Select, Stack, Text, TextInput, Title } from '@mantine/core'
-import { useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { LifeBuoy, Search, ShieldCheck } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Badge, DataGrid, useSetBreadcrumb, type GridColumnDef, type SortSpec } from '@nexotec/ui-kit'
@@ -16,9 +16,9 @@ import { displayUserStatus, userDisplayName, userStatusLabel, userStatusTone } f
 import { formatDateTime, formatNumber } from '../utils/format'
 
 const RECOVERY_KEY = ['platform', 'recovery', 'users'] as const
-const DEFAULT_SORT = 'name:asc'
-
-type SortableField = 'name' | 'betrieb' | 'status'
+// The grid's sort fields are the API's (`RECOVERY_SORT_FIELDS`): sorted on
+// the server, loaded by cursor (UI/UX Core Principles).
+const DEFAULT_SORT = 'lastName:asc'
 
 function parseSort(raw: string): SortSpec[] {
   const [field, direction] = raw.split(':')
@@ -37,23 +37,6 @@ async function allDealerships(): Promise<DealershipPage['items']> {
   return items
 }
 
-function sortRows(rows: RecoveryUserRead[], sort: SortSpec[]): RecoveryUserRead[] {
-  const [first] = sort
-  if (!first) return rows
-  const value = (row: RecoveryUserRead): string => {
-    switch (first.field as SortableField) {
-      case 'betrieb':
-        return row.dealershipName
-      case 'status':
-        return row.status
-      default:
-        return `${row.lastName} ${row.firstName}`
-    }
-  }
-  const sorted = [...rows].sort((a, b) => value(a).localeCompare(value(b)))
-  return first.direction === 'desc' ? sorted.reverse() : sorted
-}
-
 /**
  * KAN-202 — Administration › Account recovery (Authentication & Identity
  * FR-AU-25…27, D-A-16). Platform staff find the account they were asked
@@ -61,9 +44,8 @@ function sortRows(rows: RecoveryUserRead[], sort: SortSpec[]): RecoveryUserRead[
  * row menu, each action with a stated reason the Betrieb's manager will read.
  * The API is the control: anyone but staff with a second factor in the
  * session gets a 403, said on screen; the nav entry is never hidden
- * (A-RULE-7). The search and the sort live in the URL (ADR-056). The whole
- * result is loaded (at most 200 accounts, said when there are more), so
- * sorting it here sorts all of it.
+ * (A-RULE-7). The search and the sort live in the URL (ADR-056); the
+ * server sorts and the grid loads page after page by cursor.
  */
 export function AccountRecoveryPage() {
   const { t, i18n } = useTranslation()
@@ -88,14 +70,19 @@ export function AccountRecoveryPage() {
   const [notice, setNotice] = useState<string | null>(null)
 
   const searching = email.length > 0 || dealershipId.length > 0
-  const results = useQuery({
-    queryKey: [...RECOVERY_KEY, email, dealershipId],
-    queryFn: () => {
+  const sortParam = sort.map((s) => `${s.field}:${s.direction}`).join(',')
+  const results = useInfiniteQuery({
+    queryKey: [...RECOVERY_KEY, email, dealershipId, sortParam],
+    queryFn: ({ pageParam }) => {
       const params = new URLSearchParams()
       if (email) params.set('email', email)
       if (dealershipId) params.set('dealershipId', dealershipId)
+      if (sortParam) params.set('sort', sortParam)
+      if (pageParam) params.set('cursor', pageParam)
       return api.get<RecoveryUserList>(`/platform/users?${params.toString()}`)
     },
+    initialPageParam: null as string | null,
+    getNextPageParam: (last) => last.nextCursor ?? null,
     enabled: searching,
     retry: false,
   })
@@ -121,7 +108,7 @@ export function AccountRecoveryPage() {
     () => (dealerships.data ?? []).map((d) => ({ value: d.id, label: d.tradeName || d.legalName })),
     [dealerships.data],
   )
-  const rows = useMemo(() => sortRows(results.data?.items ?? [], sort), [results.data, sort])
+  const rows = useMemo(() => (results.data?.pages ?? []).flatMap((page) => page.items), [results.data])
 
   const columns: GridColumnDef<RecoveryUserRead>[] = useMemo(
     () => [
@@ -129,13 +116,13 @@ export function AccountRecoveryPage() {
         id: 'name',
         header: t('recovery.columns.name'),
         cell: ({ row }) => userDisplayName(row.original),
-        meta: { pinned: 'left', locked: true, width: 300, sortField: 'name', secondary: (row) => row.email },
+        meta: { pinned: 'left', locked: true, width: 300, sortField: 'lastName', secondary: (row) => row.email },
       },
       {
+        // Another table's name: shown, not sortable (like the Users list's derived columns).
         id: 'betrieb',
         header: t('recovery.columns.betrieb'),
         cell: ({ row }) => row.original.dealershipName || '—',
-        meta: { sortField: 'betrieb' },
       },
       {
         id: 'status',
@@ -248,11 +235,6 @@ export function AccountRecoveryPage() {
         </Group>
       </form>
 
-      {results.data?.truncated && (
-        <Alert color="yellow" role="status">
-          {t('recovery.truncated', { count: results.data.items.length })}
-        </Alert>
-      )}
       {searching && (
         <DataGrid<RecoveryUserRead>
           columns={columns}
@@ -263,12 +245,12 @@ export function AccountRecoveryPage() {
           density={density}
           loading={results.isLoading}
           refetching={results.isRefetching && !results.isLoading}
-          fetchingNextPage={false}
-          hasNextPage={false}
-          onLoadMore={() => {}}
+          fetchingNextPage={results.isFetchingNextPage}
+          hasNextPage={Boolean(results.hasNextPage)}
+          onLoadMore={() => void results.fetchNextPage()}
           error={results.isError && !forbidden ? t('recovery.loadError') : null}
           onRetry={() => void results.refetch()}
-          total={rows.length}
+          total={null}
           totalIsEstimate={false}
           isFiltered
           rowActions={(row) =>

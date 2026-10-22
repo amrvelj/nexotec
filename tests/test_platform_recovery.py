@@ -1,5 +1,6 @@
 """KAN-202 — platform staff's account recovery (Authentication & Identity
-FR-AU-25…27, D-A-16, D-A-36): five actions at one door, each platform
+FR-AU-25…27, D-A-16, D-A-36): six actions at one door (FR-AU-25's five and
+the e-mail change, Anto 2026-10-22), each platform
 staff's alone, from a session with a second factor, never under an
 impersonation, with a mandatory stated reason, its own auth event in the
 Betrieb's stream (reason included — Anto, 2026-10-22), an audit row naming
@@ -469,14 +470,29 @@ def test_the_invitation_re_send_still_wants_a_factor_from_staff(client):
     assert client.post(path, headers=platform_admin_headers()).status_code == 202
 
 
-def test_a_search_says_when_it_shows_only_part_of_the_matches(client, monkeypatch):
-    from app.platform.services import recovery as recovery_service
+def test_the_search_pages_by_cursor_and_sorts_on_the_server(client):
+    """API conventions: cursor pagination, server-side sort (the reviewer's
+    finding against the first cap of 200 rows)."""
 
     dealership = create_dealership(client)
-    create_user(client, dealership)
-    create_user(client, dealership, isDealerManager=False)
-    monkeypatch.setattr(recovery_service, "SEARCH_LIMIT", 1)
+    names = ["Zeller", "Amrein", "Meier"]
+    for last in names:
+        create_user(client, dealership, isDealerManager=last == "Zeller", lastName=last)
+    staff = platform_admin_headers()
 
-    found = client.get("/v1/platform/users", params={"dealershipId": dealership}, headers=platform_admin_headers())
-    assert found.status_code == 200, found.text
-    assert len(found.json()["items"]) == 1 and found.json()["truncated"] is True
+    first = client.get("/v1/platform/users", params={"dealershipId": dealership, "limit": 2}, headers=staff)
+    assert first.status_code == 200, first.text
+    assert [u["lastName"] for u in first.json()["items"]] == ["Amrein", "Meier"]
+    assert first.json()["nextCursor"]
+    second = client.get(
+        "/v1/platform/users",
+        params={"dealershipId": dealership, "limit": 2, "cursor": first.json()["nextCursor"]},
+        headers=staff,
+    )
+    assert [u["lastName"] for u in second.json()["items"]] == ["Zeller"]
+    assert second.json()["nextCursor"] is None
+
+    desc = client.get("/v1/platform/users", params={"dealershipId": dealership, "sort": "lastName:desc"}, headers=staff)
+    assert [u["lastName"] for u in desc.json()["items"]] == ["Zeller", "Meier", "Amrein"]
+    unknown = client.get("/v1/platform/users", params={"dealershipId": dealership, "sort": "betrieb:asc"}, headers=staff)
+    assert unknown.status_code == 422

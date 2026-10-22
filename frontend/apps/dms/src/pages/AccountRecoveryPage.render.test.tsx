@@ -49,7 +49,7 @@ const BEAT = account({ id: 'u-2', firstName: 'Beat', lastName: 'Frei', email: 'b
 function routes(items = [account({}), BEAT]) {
   return [
     { method: 'GET', match: /\/dealerships$/, handler: () => ({ items: [{ id: 'd-1', legalName: 'Garage Nord AG', tradeName: null }], nextCursor: null }) },
-    { method: 'GET', match: /\/platform\/users$/, handler: () => ({ items, truncated: false }) },
+    { method: 'GET', match: /\/platform\/users$/, handler: () => ({ items, nextCursor: null }) },
   ]
 }
 
@@ -77,13 +77,13 @@ describe('AccountRecoveryPage (KAN-202)', () => {
     renderWithProviders(<AccountRecoveryPage />, { route: '/administration/account-recovery?dealershipId=d-1' })
     await screen.findByText('Beat Frei')
 
-    // Sorted by name: Beat Frei, then Anna Keller.
-    const annas = await openMenu(user, 1) // a manager, locked
+    // Rows in the server's order: Anna Keller, then Beat Frei.
+    const annas = await openMenu(user, 0) // a manager, locked
     expect(annas.getByText('Bereits Manager des Betriebs.')).toBeInTheDocument()
     expect(annas.getByText('Sperre aufheben').closest('button')).not.toBeDisabled()
     await user.keyboard('{Escape}')
 
-    const beats = await openMenu(user, 0) // not locked, not a manager
+    const beats = await openMenu(user, 1) // not locked, not a manager
     expect(beats.getByText('Das Konto ist nicht gesperrt.')).toBeInTheDocument()
     expect(beats.getByText('Zum Manager machen').closest('button')).not.toBeDisabled()
   })
@@ -101,7 +101,7 @@ describe('AccountRecoveryPage (KAN-202)', () => {
     renderWithProviders(<AccountRecoveryPage />, { route: '/administration/account-recovery?email=anna%40garage-nord.ch' })
     await screen.findByText('Anna Keller')
 
-    const menu = await openMenu(user, 1)
+    const menu = await openMenu(user, 0)
     await user.click(menu.getByText('Sperre aufheben'))
     const dialog = within(await screen.findByRole('dialog'))
     expect(dialog.getByText('Sperre von Anna Keller aufheben')).toBeInTheDocument()
@@ -133,7 +133,7 @@ describe('AccountRecoveryPage (KAN-202)', () => {
     renderWithProviders(<AccountRecoveryPage />, { route: '/administration/account-recovery?dealershipId=d-1' })
     await screen.findByText('Beat Frei')
 
-    const menu = await openMenu(user, 0)
+    const menu = await openMenu(user, 1)
     await user.click(menu.getByText('Zum Manager machen'))
     const dialog = within(await screen.findByRole('dialog'))
     expect(dialog.getByText('Beat Frei zum Manager von Garage Nord AG machen')).toBeInTheDocument()
@@ -195,18 +195,37 @@ describe('AccountRecoveryPage (KAN-202)', () => {
     expect(await screen.findByText('Die E-Mail-Adresse von Beat Frei wurde geändert.')).toBeInTheDocument()
   })
 
-  it('says when the search shows only part of the matches, and keeps the sort in the URL', async () => {
-    installFakeBackend([
+  it('asks the server for the sort in the URL and loads the next page by cursor', async () => {
+    const backend = installFakeBackend([
       { method: 'GET', match: /\/dealerships$/, handler: () => ({ items: [], nextCursor: null }) },
-      { method: 'GET', match: /\/platform\/users$/, handler: () => ({ items: [account({}), BEAT], truncated: true }) },
+      {
+        method: 'GET',
+        match: /\/platform\/users$/,
+        handler: (req) => (req.params.get('cursor') ? { items: [BEAT], nextCursor: null } : { items: [account({})], nextCursor: 'c-2' }),
+      },
     ])
-    renderWithProviders(<AccountRecoveryPage />, { route: '/administration/account-recovery?dealershipId=d-1&sort=name:desc' })
+    renderWithProviders(<AccountRecoveryPage />, { route: '/administration/account-recovery?dealershipId=d-1&sort=lastName:desc' })
     await screen.findByText('Anna Keller')
 
-    expect(screen.getByText(/Mehr als 2 Konten passen/)).toBeInTheDocument()
-    // name:desc from the URL: Keller before Frei.
-    const rows = screen.getAllByText(/^(Anna Keller|Beat Frei)$/).map((el) => el.textContent)
-    expect(rows).toEqual(['Anna Keller', 'Beat Frei'])
+    const [first] = backend.callsTo(/\/platform\/users$/, 'GET')
+    expect(first.params.get('sort')).toBe('lastName:desc') // sorted by the server, never re-sorted here
+    expect(first.params.get('cursor')).toBeNull()
+  })
+
+  it('refuses an address that is not one before asking the server, in the UI language', async () => {
+    const user = userEvent.setup()
+    const backend = installFakeBackend(routes([BEAT]))
+    renderWithProviders(<AccountRecoveryPage />, { route: '/administration/account-recovery?email=beat%40garage-nord.ch' })
+    await screen.findByText('Beat Frei')
+
+    const menu = await openMenu(user, 0)
+    await user.click(menu.getByText('E-Mail-Adresse ändern'))
+    const dialog = within(await screen.findByRole('dialog'))
+    await user.type(dialog.getByLabelText(/Neue E-Mail-Adresse/), 'beat@neu')
+    await user.type(dialog.getByLabelText(/Begründung/), 'Tippfehler-Probe')
+    await user.click(dialog.getByRole('button', { name: 'Adresse ändern' }))
+    expect(await dialog.findByText('Diese E-Mail-Adresse ist nicht gültig.')).toBeInTheDocument()
+    expect(backend.callsTo(/\/change-email$/, 'POST')).toHaveLength(0)
   })
 
   it('offers every Betrieb, page after page', async () => {

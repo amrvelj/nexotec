@@ -20,8 +20,11 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import AccessRole, Principal, get_current_principal
 from app.core.concurrency import check_version, require_if_match
+from app.core.config import get_settings
 from app.core.errors import BadRequestError, ForbiddenError, NotFoundError
 from app.core.idempotent_route import IdempotentRoute
+from app.core.pagination import SortPageParams, decode_sort_cursor
+from app.core.sorting import SortField, parse_sort
 from app.db import get_db
 from app.platform.api.auth import client_ip
 from app.platform.models.auth_event import AuthEvent
@@ -38,6 +41,7 @@ from app.platform.services import dealership as dealership_service
 from app.platform.services import recovery
 from app.platform.services.mailer import PlatformMailer, get_mailer
 
+settings = get_settings()
 router = APIRouter(tags=["platform-recovery"], route_class=IdempotentRoute)
 
 
@@ -56,7 +60,21 @@ def require_staff_recovery_session(principal: Principal = Depends(get_current_pr
     return principal
 
 
-def _user_read(db: Session, user: User) -> RecoveryUserRead:
+# Sortable on the server, like the Users list (U-03: indexed or a
+# Betrieb-sized set); the Betrieb's name is another table and is not.
+RECOVERY_SORT_FIELDS: dict[str, object] = {
+    "lastName": User.last_name,
+    "firstName": User.first_name,
+    "email": User.email,
+    "status": User.status,
+}
+_DEFAULT_SORT = [
+    SortField(api_name="lastName", column=User.last_name, direction="asc", nullable=False),
+    SortField(api_name="firstName", column=User.first_name, direction="asc", nullable=False),
+]
+
+
+def _user_read(user: User, state: dict) -> RecoveryUserRead:
     return RecoveryUserRead(
         id=user.id,
         dealership_id=user.tenant_id,
@@ -67,7 +85,7 @@ def _user_read(db: Session, user: User) -> RecoveryUserRead:
         is_dealer_manager=user.is_dealer_manager,
         is_platform_staff=AccessRole.PLATFORM_ADMIN.value in (user.access_roles or []),
         version=user.version,
-        **recovery.account_state(db, user),
+        **state,
     )
 
 
@@ -86,21 +104,27 @@ def _result(action: str, user: User, event: AuthEvent) -> RecoveryResult:
 def search_users(
     email: str | None = Query(default=None, max_length=320),
     dealership_id: uuid.UUID | None = Query(default=None, alias="dealershipId"),
+    sort: str | None = Query(default=None, description="e.g. 'lastName:asc' — lastName, firstName, email, status"),
+    limit: int = Query(default=settings.pagination_default_limit, ge=1, le=settings.pagination_max_limit),
+    cursor: str | None = Query(default=None),
     principal: Principal = Depends(require_staff_recovery_session),
     db: Session = Depends(get_db),
 ):
     """Find the account staff were asked about: by its exact e-mail address,
-    by Betrieb, or both. One of the two is required. At most 200 accounts;
-    `truncated` says there were more (narrow by the address)."""
+    by Betrieb, or both. One of the two is required. Sorted on the server,
+    cursor-paginated (API conventions)."""
 
     if not (email and email.strip()) and dealership_id is None:
         raise BadRequestError("Search by e-mail address or Betrieb.", details={"rule": "search_criteria"})
     if dealership_id is not None:
         dealership_service.get_dealership_or_404(db, dealership_id)
-    users, truncated = recovery.search_users(
-        db, email=email if email and email.strip() else None, dealership_id=dealership_id
+    sort_fields = parse_sort(sort, allowed=RECOVERY_SORT_FIELDS) or _DEFAULT_SORT
+    params = SortPageParams(limit=limit, cursor=decode_sort_cursor(cursor) if cursor else None, sort_fields=sort_fields)
+    users, next_cursor = recovery.search_users(
+        db, email=email if email and email.strip() else None, dealership_id=dealership_id, params=params
     )
-    return RecoveryUserList(items=[_user_read(db, u) for u in users], truncated=truncated)
+    states = recovery.account_states(db, users)
+    return RecoveryUserList(items=[_user_read(u, states[u.id]) for u in users], next_cursor=next_cursor)
 
 
 # Declared before the `{action}` route: its own body and If-Match.

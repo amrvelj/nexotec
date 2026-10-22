@@ -73,5 +73,4 @@ class RecoveryUserRead(CamelModel):
 
 class RecoveryUserList(CamelModel):
     items: list[RecoveryUserRead]
-    # More than the 200 shown matched: narrow the search by the address.
-    truncated: bool
+    next_cursor: str | None
