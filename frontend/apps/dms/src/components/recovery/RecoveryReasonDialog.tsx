@@ -152,7 +152,7 @@ function recoveryErrorText(t: T, err: unknown): string {
     if (err.status === 403) return t('recovery.errors.forbidden')
     if (err.status === 404) return t('recovery.errors.notFound')
     if (err.status === 409 && err.details && 'currentVersion' in err.details) return t('recovery.errors.conflict')
-    if (err.status === 422) return t('recovery.errors.invalid')
+    if (err.status === 400 || err.status === 422) return t('recovery.errors.invalid')
     return t('recovery.errors.generic', { message: err.message })
   }
   return t('common.requestFailed')

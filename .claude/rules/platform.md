@@ -401,8 +401,8 @@ One shared template layer (`app/platform/models/document_template.py`). WeasyPri
   invitation still goes by e-mail, as the flow it is). Staff never recover their own account
   (403) nor a deactivated one (409); clear-lockout on an account with no failures is a 409
   (`not_locked`); every refusal the recovery service makes carries a stable `details.rule` (the
-gate's 403s, a missing user's 404, the If-Match 400/409 and a validation 422 do not — the
-dialog says those by status). Grant-manager and change-email
+  gate's 403s, a missing user's 404, the If-Match 400/409 and a validation 422 do not; the
+  dialog says each of those in the UI language by its status). Grant-manager and change-email
   write the user row, so they take **If-Match** on its version (the search returns it).
   Grant-manager takes an `active` home user of that Betrieb at **any time** (Anto, 2026-10-22 —
   not only when the last manager has left; FR-AU-25 updated), 409 `already_manager` /

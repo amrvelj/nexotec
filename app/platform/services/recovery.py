@@ -42,7 +42,6 @@ from app.platform.models.auth_event import AuthEvent, AuthEventKind
 from app.platform.models.auth_session import AuthSession
 from app.platform.models.credential import Credential
 from app.platform.models.dealership import Dealership
-from app.platform.models.mfa import MfaPasskey, MfaTotp
 from app.platform.models.user import User, UserStatus
 from app.platform.services import auth_events, identity, mfa, security_notifications
 from app.platform.services import membership as membership_service
@@ -139,10 +138,7 @@ def account_states(db: Session, users: list[User]) -> dict[uuid.UUID, dict]:
             )
         ).all()
     }
-    with_totp = set(
-        db.scalars(select(MfaTotp.user_id).where(MfaTotp.user_id.in_(ids), MfaTotp.confirmed_at.is_not(None))).all()
-    )
-    with_passkey = set(db.scalars(select(MfaPasskey.user_id).where(MfaPasskey.user_id.in_(ids))).all())
+    with_factor = mfa.users_with_factor(db, ids)
     sessions: dict[uuid.UUID, int] = {
         row[0]: row[1]
         for row in db.execute(
@@ -173,7 +169,7 @@ def account_states(db: Session, users: list[User]) -> dict[uuid.UUID, dict]:
             "has_password": credential is not None,
             "locked_until": credential.locked_until if locked and credential is not None else None,
             "failed_login_attempts": credential.failed_login_attempts if credential is not None else 0,
-            "mfa_enrolled": user.id in with_totp or user.id in with_passkey,
+            "mfa_enrolled": user.id in with_factor,
             "open_sessions": int(sessions.get(user.id, 0)),
         }
     return states

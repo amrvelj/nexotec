@@ -207,9 +207,41 @@ describe('AccountRecoveryPage (KAN-202)', () => {
     renderWithProviders(<AccountRecoveryPage />, { route: '/administration/account-recovery?dealershipId=d-1&sort=lastName:desc' })
     await screen.findByText('Anna Keller')
 
-    const [first] = backend.callsTo(/\/platform\/users$/, 'GET')
-    expect(first.params.get('sort')).toBe('lastName:desc') // sorted by the server, never re-sorted here
-    expect(first.params.get('cursor')).toBeNull()
+    // The grid asks for the next page when it reaches the end: Beat arrives
+    // from the second request, with the first page's cursor.
+    expect(await screen.findByText('Beat Frei')).toBeInTheDocument()
+    const calls = backend.callsTo(/\/platform\/users$/, 'GET')
+    expect(calls.map((c) => c.params.get('cursor'))).toEqual([null, 'c-2'])
+    expect(calls.every((c) => c.params.get('sort') === 'lastName:desc')).toBe(true) // sorted by the server
+  })
+
+  it('sends the surname-then-first-name order when the URL names none', async () => {
+    const backend = installFakeBackend(routes([BEAT]))
+    renderWithProviders(<AccountRecoveryPage />, { route: '/administration/account-recovery?dealershipId=d-1' })
+    await screen.findByText('Beat Frei')
+    expect(backend.callsTo(/\/platform\/users$/, 'GET')[0].params.get('sort')).toBe('lastName:asc,firstName:asc')
+  })
+
+  it('says a validation refusal without a rule in the UI language, never the API\'s English', async () => {
+    const user = userEvent.setup()
+    installFakeBackend([
+      ...routes([BEAT]),
+      {
+        method: 'POST',
+        match: /\/recovery\/revoke-sessions$/,
+        handler: () => status(422, { error: { code: 'validation_error', message: 'Request validation failed.', details: null } }),
+      },
+    ])
+    renderWithProviders(<AccountRecoveryPage />, { route: '/administration/account-recovery?email=beat%40garage-nord.ch' })
+    await screen.findByText('Beat Frei')
+
+    const menu = await openMenu(user, 0)
+    await user.click(menu.getByText('Alle Sitzungen beenden'))
+    const dialog = within(await screen.findByRole('dialog'))
+    await user.type(dialog.getByLabelText(/Begründung/), 'Gerät verloren')
+    await user.click(dialog.getByRole('button', { name: 'Sitzungen beenden' }))
+    expect(await dialog.findByText('Die Angaben sind nicht gültig — prüfen Sie die Felder.')).toBeInTheDocument()
+    expect(dialog.queryByText(/Request validation failed/)).not.toBeInTheDocument()
   })
 
   it('refuses an address that is not one before asking the server, in the UI language', async () => {

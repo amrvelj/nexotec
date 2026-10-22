@@ -18,11 +18,16 @@ import { formatDateTime, formatNumber } from '../utils/format'
 const RECOVERY_KEY = ['platform', 'recovery', 'users'] as const
 // The grid's sort fields are the API's (`RECOVERY_SORT_FIELDS`): sorted on
 // the server, loaded by cursor (UI/UX Core Principles).
-const DEFAULT_SORT = 'lastName:asc'
+const DEFAULT_SORT = 'lastName:asc,firstName:asc'
 
 function parseSort(raw: string): SortSpec[] {
-  const [field, direction] = raw.split(':')
-  return field ? [{ field, direction: direction === 'desc' ? 'desc' : 'asc' }] : []
+  return raw
+    .split(',')
+    .filter(Boolean)
+    .map((part) => {
+      const [field, direction] = part.split(':')
+      return { field, direction: direction === 'desc' ? 'desc' : 'asc' } as SortSpec
+    })
 }
 
 /** Every Betrieb, page by page (the cursor list caps a page at 100). */
@@ -61,8 +66,7 @@ export function AccountRecoveryPage() {
   const sort = parseSort(searchParams.get('sort') ?? DEFAULT_SORT)
   const setSort = (next: SortSpec[]) => {
     const updated = new URLSearchParams(searchParams)
-    const [first] = next
-    if (first) updated.set('sort', `${first.field}:${first.direction}`)
+    if (next.length > 0) updated.set('sort', next.map((n) => `${n.field}:${n.direction}`).join(','))
     else updated.delete('sort')
     setSearchParams(updated, { replace: true })
   }
