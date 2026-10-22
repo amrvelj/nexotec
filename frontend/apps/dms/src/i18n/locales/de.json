@@ -102,6 +102,27 @@
       "unpin": "Fixierung aufheben",
       "moveUp": "{{label}} nach oben verschieben",
       "moveDown": "{{label}} nach unten verschieben"
+    },
+    "viewsAndFilters": {
+      "viewsHeading": "Ansichten",
+      "saveCurrentView": "Aktuelle Ansicht speichern als…",
+      "savePlaceholder": "Name der Ansicht",
+      "manageFiltersHeading": "Filter verwalten",
+      "reset": "Zurücksetzen",
+      "setDefault": "Als Standard festlegen",
+      "unsetDefault": "Als Standard entfernen",
+      "deleteView": "Ansicht löschen"
+    },
+    "filterBuilder": {
+      "addFilter": "Neuer Filter…",
+      "matchCount_one": "{{count, number}} Treffer",
+      "matchCount_other": "{{count, number}} Treffer",
+      "editFilter": "Filter bearbeiten",
+      "duplicateFilter": "Filter duplizieren",
+      "deleteFilter": "Filter löschen"
+    },
+    "overlay": {
+      "close": "Schliessen"
     }
   },
   "customerCreate": {

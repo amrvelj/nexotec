@@ -70,25 +70,7 @@ export interface RepeatableRowGroupProps {
    * before now). Every other row's menu offers "no longer valid"/"does
    * not work" instead, both implemented as `onUpdate` calls. */
   onDelete: (id: string) => Promise<void>;
-  labels?: {
-    primary?: string;
-    noLongerValid?: string;
-    doesNotWork?: string;
-    doesNotWorkReasonPlaceholder?: string;
-    delete?: string;
-    consent?: string;
-    consentScope?: string;
-    consentSource?: string;
-    save?: string;
-    cancel?: string;
-    confirm?: string;
-    none?: string;
-    genericError?: string;
-    labelFieldPlaceholder?: string;
-    /** KAN-291 — the row menu trigger's accessible name, given the group's
-     * `label` ("Phone" → "Phone row actions"); translated by the caller. */
-    rowActions?: (label: string) => string;
-  };
+  labels: RepeatableRowGroupLabels;
   /** FR-23 §1 — when consent is granted the advisor picks WHAT it covers
    * (scope) and HOW it was given (source). Pass translated option lists to
    * turn the consent checkbox into scope + source selectors; omit them and
@@ -104,23 +86,31 @@ export interface RepeatableRowGroupProps {
   describeError?: (err: unknown) => string;
 }
 
-const DEFAULT_LABELS = {
-  primary: "Primary",
-  noLongerValid: "No longer valid",
-  doesNotWork: "Does not work",
-  doesNotWorkReasonPlaceholder: "Reason (e.g. bounced, disconnected)",
-  delete: "Delete",
-  consent: "Consent",
-  consentScope: "Scope",
-  consentSource: "Source",
-  save: "Save",
-  cancel: "Cancel",
-  confirm: "Confirm",
-  none: "None recorded",
-  genericError: "Something went wrong.",
-  labelFieldPlaceholder: "Label",
-  rowActions: (label: string) => `${label} row actions`,
-};
+/** Every string the group shows or announces, translated by the caller —
+ * the kit ships no English of its own (KAN-364), so `tsc` refuses a caller
+ * that passes none. */
+export interface RepeatableRowGroupLabels {
+  primary: string;
+  noLongerValid: string;
+  doesNotWork: string;
+  doesNotWorkReasonPlaceholder: string;
+  delete: string;
+  consent: string;
+  /** The consent selectors' captions, shown only with `consentScopeOptions`. */
+  consentScope: string;
+  consentSource: string;
+  save: string;
+  cancel: string;
+  confirm: string;
+  none: string;
+  /** Shown for a failed write when no `describeError` is given, or the
+   * error carries no message. */
+  genericError: string;
+  labelFieldPlaceholder: string;
+  /** KAN-291 — the row menu trigger's accessible name, given the group's
+   * `label` ("Phone" → "Phone row actions"). */
+  rowActions: (label: string) => string;
+}
 
 // Wide enough for an e-mail address or a name in the kit's 13px type.
 const DEFAULT_VALUE_EDITOR_MIN_WIDTH = 200;
@@ -155,7 +145,7 @@ export function RepeatableRowGroup({
   defaultConsentScope = "marketing",
   describeError,
 }: RepeatableRowGroupProps) {
-  const L = { ...DEFAULT_LABELS, ...labels };
+  const L = labels;
   const errorText = (err: unknown): string => describeError?.(err) ?? (err instanceof Error ? err.message : L.genericError);
 
   // "Real deletion only for same-session mistakes" — a row present when

@@ -49,7 +49,15 @@ const OverlayContext = createContext<OverlayContextValue | null>(null);
  * half-filled form two layers down) survives however many screens get
  * opened on top of it.
  */
-export function OverlayProvider({ children }: { children: ReactNode }) {
+export function OverlayProvider({
+  children,
+  closeLabel,
+}: {
+  children: ReactNode;
+  /** The fixed close button's accessible name, translated by the caller —
+   * the kit ships no English of its own (KAN-364). */
+  closeLabel: string;
+}) {
   const [stack, setStack] = useState<OverlayEntry[]>([]);
 
   const push = useCallback((entry: OverlayEntry) => {
@@ -112,7 +120,7 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
           <button
             type="button"
             onClick={pop}
-            aria-label="Close"
+            aria-label={closeLabel}
             style={{
               position: "fixed",
               top: 16,

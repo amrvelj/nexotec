@@ -129,7 +129,7 @@ describe('OfferWorkspace — a customer overlay never disturbs the offer underne
     await waitFor(() => expect(vehiclesTab).toHaveAttribute('aria-selected', 'true'))
 
     // Close it.
-    await user.click(within(dialog).getByRole('button', { name: 'Close' }))
+    await user.click(within(dialog).getByRole('button', { name: i18n.t('common.overlay.close') }))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
 
     // The offer workspace still holds exactly what was typed.

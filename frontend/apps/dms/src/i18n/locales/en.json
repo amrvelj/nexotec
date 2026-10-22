@@ -102,6 +102,27 @@
       "unpin": "Unpin column",
       "moveUp": "Move {{label}} up",
       "moveDown": "Move {{label}} down"
+    },
+    "viewsAndFilters": {
+      "viewsHeading": "Views",
+      "saveCurrentView": "Save current view as…",
+      "savePlaceholder": "View name",
+      "manageFiltersHeading": "Manage filters",
+      "reset": "Reset",
+      "setDefault": "Set as default",
+      "unsetDefault": "Remove as default",
+      "deleteView": "Delete view"
+    },
+    "filterBuilder": {
+      "addFilter": "New filter…",
+      "matchCount_one": "{{count, number}} match",
+      "matchCount_other": "{{count, number}} matches",
+      "editFilter": "Edit filter",
+      "duplicateFilter": "Duplicate filter",
+      "deleteFilter": "Delete filter"
+    },
+    "overlay": {
+      "close": "Close"
     }
   },
   "customerCreate": {

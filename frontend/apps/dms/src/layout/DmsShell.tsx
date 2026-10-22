@@ -342,7 +342,7 @@ function DmsShellInner({ children }: { children: ReactNode }) {
           content still renders within the same BreadcrumbProvider —
           useSetBreadcrumb(null) on the embedded side is what stops that
           from being a problem, not moving the provider around it. */}
-      <OverlayProvider>
+      <OverlayProvider closeLabel={t('common.overlay.close')}>
         {/* KAN-237 — the DMS's refused-action pattern: an inline red
             alert above the content, dismissable, never the ADR-084
             notice strip (that slot is for deployment-level notices). */}

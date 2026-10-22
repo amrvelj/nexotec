@@ -4,6 +4,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MantineProvider } from "@mantine/core";
 import { RepeatableRowGroup } from "./RepeatableRowGroup";
+import { FR_REPEATABLE_ROW_LABELS as LABELS } from "../test/frenchLabels";
 
 // KAN-167 — the add-row draft was the group's own state, so every keystroke
 // in the add row re-rendered every existing row's value editor (on the
@@ -37,6 +38,7 @@ function renderGroup(onCreate: (draft: { type: string; value: string }) => Promi
         onCreate={onCreate}
         onUpdate={async () => {}}
         onDelete={async () => {}}
+        labels={LABELS}
       />
     </MantineProvider>,
   );
@@ -65,7 +67,7 @@ describe("RepeatableRowGroup add row (KAN-167)", () => {
     await user.click(screen.getByRole("button", { name: "+ Add phone" }));
     await user.selectOptions(screen.getAllByRole("combobox").at(-1)!, "work");
     await user.type(screen.getByRole("textbox", { name: "New value" }), "0441234567");
-    await user.click(screen.getByRole("button", { name: "Save" }));
+    await user.click(screen.getByRole("button", { name: LABELS.save }));
 
     expect(onCreate).toHaveBeenCalledWith({ type: "work", value: "0441234567" });
     expect(screen.queryByRole("textbox", { name: "New value" })).toBeNull();
@@ -82,10 +84,10 @@ describe("RepeatableRowGroup add row (KAN-167)", () => {
     });
     await user.click(screen.getByRole("button", { name: "+ Add phone" }));
     await user.type(screen.getByRole("textbox", { name: "New value" }), "12");
-    await user.click(screen.getByRole("button", { name: "Save" }));
+    await user.click(screen.getByRole("button", { name: LABELS.save }));
 
     expect(await screen.findByText("Not a valid number.")).toBeTruthy();
     expect(screen.getByRole("textbox", { name: "New value" })).toHaveProperty("value", "12");
-    expect(screen.getByRole("button", { name: "Save" })).toHaveProperty("disabled", false);
+    expect(screen.getByRole("button", { name: LABELS.save })).toHaveProperty("disabled", false);
   });
 });

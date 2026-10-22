@@ -48,7 +48,7 @@ describe('OverlayProvider keeps covered layers mounted (ADR-059)', () => {
   it('a layer that gets covered keeps its DOM node and its unsaved input value', async () => {
     const user = userEvent.setup()
     render(
-      <OverlayProvider>
+      <OverlayProvider closeLabel="Fermer">
         <Base />
       </OverlayProvider>,
     )

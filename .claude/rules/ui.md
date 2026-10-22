@@ -43,14 +43,17 @@ come from WP-6c, `frontend/packages/ui-kit` (`datagrid/`, `detail/`, `shell/`, `
 `components/`, tokens in `tokens.css`/`tokens.ts`). If you are writing one inside a module
 package you are in the wrong package. If the kit cannot do what you need, that is a ui-kit
 change plus an ADR — never a local component. No colour outside the tokens.
-A kit badge maps a value to a tone and takes a required `label`, and `ColumnConfigPanel` takes
-required `labels` (the app passes `useColumnPanelLabels()`), so `tsc` refuses a caller without
-translations (KAN-110, KAN-181, KAN-334, KAN-362). **Not yet true for the rest of the kit
-(KAN-364):** most other components with text (`DataGrid`, `FilterBuilder`, `ViewsAndFilters`,
-`RepeatableRowGroup`, `Wizard`, `GlobalSearch`, `ActionBar`, `FilterChips`, `SelectionBar`,
-`Picker`, `InlineEditField`, `DocumentPreview`, `PresentMode`) still merge English defaults, and
-some aria-labels cannot be overridden at all (`Overlay`'s "Close", `FilterBuilder`'s and
-`ViewsAndFilters`' row actions) — pass every label a component takes.
+A kit component never ships a user-visible string of its own, accessible names included: it
+takes required labels, so `tsc` refuses a caller without translations. True today for the
+badges (a required `label`), `ColumnConfigPanel` (the app passes `useColumnPanelLabels()`),
+`ViewsAndFilters` with its `FilterBuilder` (`useViewsAndFiltersLabels()`) — except the Filter
+Builder's condition names and saved-filter text, still English in `filterPredicate.ts`
+(KAN-415) — `RepeatableRowGroup`
+(a customer's contact rows pass `contactPointRowLabels(t)`) and `OverlayProvider`'s
+`closeLabel` (KAN-110, KAN-181, KAN-334, KAN-362, KAN-364). **Not yet true for the rest of the
+kit (KAN-364's remaining PRs):** `DataGrid`, `Wizard`, `GlobalSearch`, `ActionBar`,
+`FilterChips`, `SelectionBar`, `Picker`, `InlineEditField`, `DocumentPreview` and `PresentMode`
+still merge English defaults — pass every label a component takes.
 
 ## The rulings that bite most often
 
@@ -66,10 +69,11 @@ some aria-labels cannot be overridden at all (`Overlay`'s "Close", `FilterBuilde
   visible by default. A stored field that cannot be put on screen is a defect. A grid with a
   Columns panel passes `gridPrefs.columnLayout ?? defaultColumnLayout(columnRegistry)` to both
   `DataGrid` and the panel: without a layout `DataGrid` renders every column (KAN-361).
-  `src/architecture/grid-default-column-layout.test.ts` requires, in every file that renders the
-  panel, that the panel's `layout` and each `DataGrid`'s `columnLayout` be a variable whose
-  nearest `const` declaration before the prop has a `?? defaultColumnLayout(...)` fallback in its
-  own statement (a source scan, not a type check). `DataGrid` itself stays layout-agnostic: a
+  `src/architecture/grid-default-column-layout.test.ts` parses every file that renders the panel
+  with the TypeScript compiler and requires the panel's `layout` and each `DataGrid`'s
+  `columnLayout` to be an identifier bound (by scope) to a `const` whose value is
+  `… ?? defaultColumnLayout(…)`, directly or as `useMemo(() => …)`'s body — comments are not
+  code, and a `let`, destructured or parameter binding never passes (KAN-367). `DataGrid` itself stays layout-agnostic: a
   grid without a panel shows every column (ADR-092).
 - **ADR-061** — every detail screen: **one primary action, one alternative, and an overflow
   carrying the entity's full row menu** — same items, same order, same
@@ -132,10 +136,17 @@ some aria-labels cannot be overridden at all (`Overlay`'s "Close", `FilterBuilde
 A date-only value (a backend `dt.date`: birth date, purchase date, first registration, a
 plate's validity, …) names a calendar day and renders through `formatDateOnly`; `formatDate`
 and `formatDateTime` are for timestamps, which they render in the browser's zone (KAN-180,
-KAN-333). `src/architecture/date-only-fields-format.test.ts` refuses `formatDate` on a field
-named `…Date`, `…Since`, `…FollowUp`, `expectedDelivery` or `vehicleFirstRegistration`; a
-field whose name it cannot judge (`validFrom` is a date on a plate, a timestamp on a contact
-channel) is checked by the screen's render test under `TZ=Pacific/Honolulu`. Today's date as a pre-fill is
+KAN-333). `src/architecture/date-only-fields-format.test.ts` judges a field by its name
+(`…Date`, `…Since`, `…FollowUp`, `expectedDelivery`, `vehicleFirstRegistration`) and refuses
+it in four places: inside `formatDate`/`formatDateTime`, in CustomersListPage's `date('…', …)`
+column helper without `formatDateOnly`, as a raw JSX child (`>{r.purchaseDate}`, with or
+without a `?? '—'` / `?? t(…)` fallback), and as a grid column's `cell:` renderer that returns
+the bare field (KAN-358). It is a source scan with known misses (its KAN-358 comment
+lists them: a field joined into a string or passed to a row helper, a JSX child sharing its
+element with text, a `?? null` or `?? CONST` fallback), and it cannot judge a name at all for
+`validFrom`/`validTo` (a date on a plate, an accessory, a user's access window and a valuation,
+a timestamp on a contact channel) or `lastDeltaCursor` (KAN-363) — those, and every screen that renders a date-only
+field, are checked by the screen's render test under `TZ=Pacific/Honolulu`. Today's date as a pre-fill is
 `todayLocalIsoDate()` (`utils/format.ts`), the user's calendar day — never
 `toISOString().slice(0, 10)`, the UTC day, which is yesterday between midnight and 01:00/02:00
 Swiss time (KAN-358; `src/architecture/no-utc-calendar-day.test.ts` refuses it).
