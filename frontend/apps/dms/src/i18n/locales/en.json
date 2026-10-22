@@ -21,7 +21,8 @@
       "administration": "Administration",
       "referenceData": "Reference data",
       "catalogue": "Catalogue",
-      "users": "Users"
+      "users": "Users",
+      "accountRecovery": "Account recovery"
     },
     "signOut": "Sign out",
     "environmentNotice": {
@@ -2303,6 +2304,120 @@
       "invalid": "The image must be a PNG or JPEG of at most 1 MB.",
       "conflict": "Your account was changed elsewhere in the meantime. Load the new version – what you entered here is lost.",
       "loadLatest": "Load the new version"
+    }
+  },
+  "recovery": {
+    "title": "Account recovery",
+    "intro": "For Nexotec staff only. Find the account you were asked about by its exact e-mail address or by business, then choose the action from the row menu. Every action needs a reason: it is recorded with your name in the business's sign-in log, which its manager has access to. Nobody sets or sees a password here.",
+    "forbidden": {
+      "title": "Not available",
+      "body": "Account recovery is for Nexotec staff signed in with a second factor."
+    },
+    "staffBadge": "Nexotec staff",
+    "columns": {
+      "name": "Name",
+      "betrieb": "Business",
+      "status": "Status",
+      "roles": "Roles",
+      "lockout": "Lockout",
+      "password": "Password",
+      "mfa": "Second factor",
+      "sessions": "Open sessions"
+    },
+    "lockedUntil": "Locked until {{when}}",
+    "failedAttempts": "Failed attempts: {{count, number}}",
+    "passwordSet": "Set",
+    "passwordNone": "Not set yet",
+    "mfaEnrolled": "Enrolled",
+    "mfaNone": "None",
+    "loadError": "The accounts could not be loaded.",
+    "empty": {
+      "title": "No account found",
+      "description": "The e-mail address must match exactly. Try the business instead."
+    },
+    "search": {
+      "email": "E-mail address",
+      "emailPlaceholder": "name@business.ch",
+      "betrieb": "Business",
+      "betriebPlaceholder": "Choose a business",
+      "noBetrieb": "No business found",
+      "submit": "Search"
+    },
+    "rowMenu": {
+      "selfDisabled": "Your own account is managed in My account.",
+      "deactivatedDisabled": "The user is deactivated — the business reactivates them first.",
+      "notLocked": "The account is not locked out.",
+      "alreadyManager": "Already a manager of the business.",
+      "managerNeedsActive": "Only an active user can become manager."
+    },
+    "dialog": {
+      "notice": "Notifying the user is not built yet — tell them yourself. The action, your name and the reason are recorded in the business's sign-in log, which its manager has access to.",
+      "noticeByMail": "The invitation goes to the user by e-mail. The action, your name and the reason are recorded in the business's sign-in log, which its manager has access to.",
+      "reason": "Reason",
+      "reasonHint": "Who asked, and why — for example the caller and the ticket number.",
+      "noticeChangeEmail": "The old address is told by e-mail. The action, your name and the reason are recorded in the business's sign-in log, which its manager has access to.",
+      "newEmail": "New e-mail address"
+    },
+    "errors": {
+      "not_locked": "The account is not locked out — there is nothing to clear.",
+      "already_manager": "This user is already a manager of the business.",
+      "reason_required": "A recovery action needs a stated reason.",
+      "search_criteria": "Search by e-mail address or business.",
+      "generic": "The action was refused: {{message}}",
+      "forbidden": "This action needs a Nexotec staff session signed in with a second factor.",
+      "self": "Your own account is managed in My account, not here.",
+      "deactivated": "The user is deactivated — the business reactivates them first.",
+      "not_active": "Only an active user can become manager.",
+      "same_email": "This is already the user's e-mail address.",
+      "email_taken": "Another user already signs in with this address.",
+      "notFound": "The account no longer exists — search again.",
+      "conflict": "The account changed meanwhile — search again and repeat the action.",
+      "invalid_email": "This e-mail address is not valid.",
+      "invalid": "The input is not valid — check the fields."
+    },
+    "actions": {
+      "reissue-invitation": {
+        "menu": "Re-send invitation",
+        "title": "Re-send the invitation to {{name}}",
+        "confirm": "Send invitation",
+        "effect": "A new invitation goes to {{email}}; the previous link stops working. {{name}} sets a new password themselves.",
+        "done": "A new invitation was sent to {{name}}."
+      },
+      "reset-mfa": {
+        "menu": "Reset second factor",
+        "title": "Reset {{name}}'s second factor",
+        "confirm": "Reset second factor",
+        "effect": "Every authenticator app, passkey and recovery code of {{name}} is removed and all their sessions end. Where a second factor is required, they set one up again at their next sign-in.",
+        "done": "{{name}}'s second factor was reset."
+      },
+      "clear-lockout": {
+        "menu": "Clear lockout",
+        "title": "Clear {{name}}'s lockout",
+        "confirm": "Clear lockout",
+        "effect": "The failed sign-in attempts of {{name}} are cleared and the lock is lifted. Their password does not change.",
+        "done": "{{name}}'s lockout was cleared."
+      },
+      "revoke-sessions": {
+        "menu": "End all sessions",
+        "title": "End all of {{name}}'s sessions",
+        "confirm": "End sessions",
+        "effect": "{{name}} is signed out on every device and signs in again.",
+        "done": "All of {{name}}'s sessions were ended."
+      },
+      "grant-manager": {
+        "menu": "Make manager",
+        "title": "Make {{name}} manager of {{betrieb}}",
+        "confirm": "Make manager",
+        "effect": "{{name}} becomes a manager of {{betrieb}} and signs in again.",
+        "done": "{{name}} is now a manager of the business."
+      },
+      "change-email": {
+        "menu": "Change e-mail address",
+        "title": "Change {{name}}'s e-mail address",
+        "confirm": "Change address",
+        "effect": "{{name}} signs in with the new address from now on. Open invitation and reset links end, {{name}} is signed out everywhere, and {{email}} is told of the change. The password does not change.",
+        "done": "{{name}}'s e-mail address was changed."
+      }
     }
   }
 }

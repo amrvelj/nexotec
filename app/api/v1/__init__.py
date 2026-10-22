@@ -23,6 +23,7 @@ from app.platform.api.dealerships import router as dealerships_router
 from app.platform.api.document_template import router as document_template_router
 from app.platform.api.health import router as health_router
 from app.platform.api.me import router as me_router
+from app.platform.api.recovery import router as platform_recovery_router
 from app.platform.api.reference_data import router as reference_data_router
 from app.platform.api.user_preferences import router as user_preferences_router
 from app.sales.api.contracts import router as sales_contracts_router
@@ -46,6 +47,7 @@ api_v1_router.include_router(health_router)
 api_v1_router.include_router(dealerships_router)
 api_v1_router.include_router(document_template_router)
 api_v1_router.include_router(dealer_groups_router)
+api_v1_router.include_router(platform_recovery_router)
 api_v1_router.include_router(reference_data_router)
 api_v1_router.include_router(vehicles_router)
 api_v1_router.include_router(vehicle_lookup_router)

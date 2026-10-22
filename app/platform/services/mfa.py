@@ -69,8 +69,21 @@ def passkeys_of(db: Session, user_id: uuid.UUID) -> list[MfaPasskey]:
 
 
 def has_factor(db: Session, user_id: uuid.UUID) -> bool:
-    totp = totp_of(db, user_id)
-    return (totp is not None and totp.confirmed_at is not None) or bool(passkeys_of(db, user_id))
+    return user_id in users_with_factor(db, [user_id])
+
+
+def users_with_factor(db: Session, user_ids: list[uuid.UUID]) -> set[uuid.UUID]:
+    """Which of these users hold a second factor — a confirmed TOTP or a
+    passkey; the one definition, for one user or a page of them (KAN-202's
+    recovery search reads a page in a fixed number of queries)."""
+
+    if not user_ids:
+        return set()
+    with_totp = db.scalars(
+        select(MfaTotp.user_id).where(MfaTotp.user_id.in_(user_ids), MfaTotp.confirmed_at.is_not(None))
+    ).all()
+    with_passkey = db.scalars(select(MfaPasskey.user_id).where(MfaPasskey.user_id.in_(user_ids))).all()
+    return set(with_totp) | set(with_passkey)
 
 
 def unused_recovery_codes(db: Session, user_id: uuid.UUID) -> int:

@@ -1014,7 +1014,8 @@ def test_no_hard_delete_endpoint_exists_for_fk_target_entities(client):
         "/v1/dealerships/{dealership_id}/users/{user_id}/memberships/{member_dealership_id}",
         "/v1/dealerships/{dealership_id}/users/{user_id}/text-delegations",
         # KAN-196: sessions are revoked (`revoked_at`), never deleted — the
-        # user's own and platform staff's revoke-all (D-A-16). The second
+        # user's own revoke (platform staff's revoke-all and MFA reset are
+        # POSTs at the recovery door since KAN-202). The second
         # factors are real deletes of the user's own secret material (a TOTP
         # secret, a passkey public key, the recovery-code hashes); removing a
         # confirmed factor leaves an `mfa_removed` auth event naming the actor
@@ -1024,8 +1025,6 @@ def test_no_hard_delete_endpoint_exists_for_fk_target_entities(client):
         "/v1/auth/sessions/{session_id}",
         "/v1/auth/mfa/totp",
         "/v1/auth/mfa/passkeys/{passkey_id}",
-        "/v1/dealerships/{dealership_id}/users/{user_id}/sessions",
-        "/v1/dealerships/{dealership_id}/users/{user_id}/mfa",
         # KAN-200: the signature image is a file in the object store, a child
         # of the user row (which keeps its key column and is never deleted).
         "/v1/dealerships/{dealership_id}/users/{user_id}/signature",

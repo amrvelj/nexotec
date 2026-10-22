@@ -217,7 +217,8 @@ def _assert_credential_channel_rules(*, user: User, changes: dict[str, Any], act
     onboarding path (re-invite) on an active colleague. And the e-mail
     address is the sign-in and recovery channel: while the user is
     `invited` the manager corrects it (onboarding); once the account is
-    active, changing it is account recovery — a platform_admin's alone."""
+    active, changing it is account recovery — a platform_admin's alone, at
+    the recovery door (KAN-202), never through this PATCH."""
 
     if changes.get("status") == UserStatus.INVITED and user.status != UserStatus.INVITED:
         raise ConflictError(
@@ -228,10 +229,13 @@ def _assert_credential_channel_rules(*, user: User, changes: dict[str, Any], act
         isinstance(changes.get("email"), str)
         and changes["email"] != user.email
         and user.status != UserStatus.INVITED
-        and AccessRole.PLATFORM_ADMIN not in actor_roles
     ):
+        # KAN-202 (Anto, 2026-10-22): platform staff too — the change is
+        # recovery, with a stated reason, at
+        # `POST /v1/platform/users/{id}/recovery/change-email`.
         raise ForbiddenError(
-            "Changing an active user's e-mail address is account recovery, which platform staff handle."
+            "Changing an active user's e-mail address is account recovery, which platform staff handle.",
+            details={"recovery": "change-email"},
         )
 
 

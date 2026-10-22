@@ -177,3 +177,41 @@ def deactivate(client: TestClient, dealership_id: str, user: dict, *, headers: d
         json=payload,
         headers={**(headers or platform_admin_headers()), "If-Match": str(if_match), "Idempotency-Key": str(uuid.uuid4())},
     )
+
+
+def recover(
+    client: TestClient,
+    user_id: str | uuid.UUID,
+    action: str,
+    *,
+    headers: dict[str, str] | None = None,
+    reason: str = "Asked by the Betrieb's owner on the phone, ticket 4711.",
+):
+    """KAN-202: platform staff's recovery door — `reissue-invitation`,
+    `reset-mfa`, `clear-lockout` or `revoke-sessions`, with a stated reason.
+    A staff token with a second factor unless `headers` says otherwise."""
+
+    return client.post(
+        f"/v1/platform/users/{user_id}/recovery/{action}",
+        json={"reason": reason},
+        headers=headers if headers is not None else platform_admin_headers(),
+    )
+
+
+def change_email(
+    client: TestClient,
+    user_id: str | uuid.UUID,
+    email: str,
+    *,
+    if_match: int,
+    headers: dict[str, str] | None = None,
+    reason: str = "The user's address moved to the new domain, ticket 4712.",
+):
+    """KAN-202: an accepted account's sign-in address moves only at the
+    recovery door (Anto, 2026-10-22), with If-Match on the user's version."""
+
+    return client.post(
+        f"/v1/platform/users/{user_id}/recovery/change-email",
+        json={"email": email, "reason": reason},
+        headers={**(headers if headers is not None else platform_admin_headers()), "If-Match": str(if_match)},
+    )

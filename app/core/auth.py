@@ -181,6 +181,11 @@ class Principal:
     session_id: uuid.UUID | None = None
     amr: frozenset[str] = frozenset()
     mfa: bool = False
+    # D-A-24 / FR-AU-27 (KAN-202; Anto, 2026-10-22): under impersonation the
+    # principal is the staff member (`user_id`) acting for this user. Not
+    # built yet — nothing sets it; the recovery door refuses any principal
+    # that carries it.
+    acting_for: uuid.UUID | None = None
 
 
 def create_access_token(

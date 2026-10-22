@@ -72,7 +72,7 @@ main@046634d on 2026-10-17 (KAN-195: every present-tense claim checked against t
   pinned by their own source test) loads the user with
   `user_service.get_user_for_update_or_404` (FOR NO KEY UPDATE) **before** it touches a child row
   (KAN-380): two first grants are then a 201 and a 409, and a route that locked child rows first
-  would deadlock against one that locked the user first (a source test pins the thirteen, the connected-account revoke included). The
+  would deadlock against one that locked the user first (a source test pins the thirteen, the connected-account revoke included; platform staff's recovery routes take it the same way through `recovery.get_user_for_recovery_or_404`, pinned by their own source test — KAN-202). The
   front door (invitation acceptance, password-reset confirm) locks the user row **before** it
   consumes its single-use token (KAN-400: an e-mail change holds the user row, then ends the
   tokens), so every path that writes a user row takes user row → token → credential in that
@@ -85,8 +85,8 @@ main@046634d on 2026-10-17 (KAN-195: every present-tense claim checked against t
   user row → token → factor → credential, and a login's status is judged under the lock: a login
   racing a deactivation is refused. **The same order on every path (KAN-411):** the account's own
   MFA routes (`/auth/mfa/totp*`, `/auth/mfa/recovery-codes*`, `/auth/mfa/passkeys*`) take the
-  user row first through `user_service.get_own_user_for_update_or_404`, staff's MFA and session
-  resets through `get_user_for_update_or_404`, and the reset request through
+  user row first through `user_service.get_own_user_for_update_or_404`, staff's recovery
+  actions through `recovery.get_user_for_recovery_or_404` (KAN-202), and the reset request through
   `identity.lock_user_for_login` once it found a user — re-reading the address under the lock, so
   an address changed meanwhile is answered like an unknown one (202, no mail). Source tests pin
   the account and staff routes (`tests/test_platform_account_lock_order.py`). A single-row write
@@ -307,7 +307,7 @@ One shared template layer (`app/platform/models/document_template.py`). WeasyPri
   row and is the one route the guard lets a dead session reach. A status change to suspended
   or deactivated, a change of roles, manager flag or membership (the claims live for the
   session's day), a password reset, an accepted invitation and platform staff's
-  `DELETE …/users/{id}/sessions` (D-A-16; a manager's lever is to suspend or deactivate the
+  `revoke-sessions` recovery (D-A-16, KAN-202; a manager's lever is to suspend or deactivate the
   user) revoke every row of the user — each revocation is a
   `session_revoked` event; the reset request's mail is sent after the response (a background
   task) so its timing says nothing; the `logging` mail sender is refused at startup in production. Per-Betrieb idle/absolute policy (D-A-37) is **not built**: one
@@ -319,7 +319,7 @@ One shared template layer (`app/platform/models/document_template.py`). WeasyPri
   decides for a Betrieb; **platform staff are always enforced** (D-A-36): `LoginResponse.
   mfaEnrolmentRequired` sends the SPA to `/account/security` before any other screen, and
   `require_mfa_session()` in `app/core/auth.py` refuses a staff principal whose session carries
-  no factor — on the four recovery routes below and proven on a probe route; the impersonation
+  no factor — on `GET …/login-status`, `POST …/users/{id}/invitations`, the auth-config PUT and a probe route; the recovery door has its own gate (below); the impersonation
   endpoints will carry it. **And at the API as a whole:** the session guard confines a session
   that still owes a factor (every staff session without one; a dealer session in an enforcing
   Betrieb) to `/v1/auth/*`, `/v1/me/preferences` and the Betrieb's **own** `auth-config` switch
@@ -339,7 +339,7 @@ One shared template layer (`app/platform/models/document_template.py`). WeasyPri
   once its user holds one (enrolled elsewhere; recorded as `session_revoked`); removing the last
   factor strips the session that removed it and ends the user's other sessions; platform staff's
   MFA reset ends the user's sessions. A lock reached through wrong MFA answers is a `locked_out`
-  event like one reached through wrong passwords. Platform staff's `DELETE …/users/{id}/mfa` removes every factor and always
+  event like one reached through wrong passwords. Platform staff's `reset-mfa` recovery (KAN-202) removes every factor and always
   writes `mfa_removed` naming the actor (FR-AU-12). **Passkey registration and assertion are verified by the library** (`webauthn` 2.7.1, the
   version the `cryptography<46` pin installs; the shape checks it lacks sit in `mfa.py`, and the **key policy** refuses at registration a key
   whose type does not match its algorithm family, an RSA key under 2048 bits (SP 800-131A), with an
@@ -384,24 +384,54 @@ One shared template layer (`app/platform/models/document_template.py`). WeasyPri
   `platform.public` (the revoker gets the ORM row) and a provider's refusal is not retried or
   reconciled — both before the Outlook integration registers the first revoker.
 - **D-A-16** — a `platform_admin` recovers accounts alone (re-issue invitation, reset MFA,
-  clear lockout, revoke sessions, grant manager flag). **Built as Notion says (KAN-196):**
-  `DELETE …/users/{id}/mfa` and `DELETE …/users/{id}/sessions` are `platform_admin`-only;
-  `POST …/users/{id}/invitations` is the manager's only while the user is still `invited`
-  (onboarding, FR-AU-13) and `platform_admin`'s once the account is active; a manager reads
-  `GET …/login-status` (FR-AU-10) and never touches a staff account (KAN-97); clearing a lock is
-  the user's own reset; the manager flag is KAN-199's. **The e-mail address is the sign-in and
-  recovery channel:** a manager corrects it only while the user is still `invited`; for an
-  active user the change is recovery (platform staff, with a factor in the session), and a
-  change ends every open invitation and reset token and every session, records `email_changed`
-  with the actor and mails the old address — in the PATCH's own transaction
-  (`update_user(on_email_change=…)`; a taken address is a 409 first); a staff session does it
-  only with a factor in it. An account never returns to `invited` through a PATCH (409), so the
+  clear lockout, revoke sessions, grant manager flag). **Built by KAN-202, one door (Anto,
+  2026-10-22):** `POST /v1/platform/users/{id}/recovery/{reissue-invitation|reset-mfa|clear-lockout|
+  revoke-sessions}`, `POST /v1/platform/dealerships/{id}/recovery/grant-manager` (`userId`) and
+  `POST /v1/platform/users/{id}/recovery/change-email` (`email`; Anto, 2026-10-22: the staff
+  change of an accepted account's sign-in address is recovery too), each behind
+  `require_staff_recovery_session` in `app/platform/api/recovery.py` — `platform_admin`, a
+  second factor in the session, never an impersonation (`Principal.acting_for`, D-A-24's
+  support-token shape, the one field Anto let into `app/core/auth.py` on 2026-10-22; nothing
+  sets it until impersonation is built; FR-AU-27) — with a **mandatory reason** (422
+  without; ≤500 characters), its own auth event kind (`recovery_*`, the staff member the actor,
+  the reason in `details` — **the Betrieb's manager reads it** in `GET …/auth-events`, Anto
+  2026-10-22), an audit row `recovery_<action>` (the reason in the audit row's `reason`), and
+  a `security` notice through `services/security_notifications.py` — a seam KAN-216 fills;
+  until then it logs that a notice is owed and **nothing reaches the user** (a re-issued
+  invitation still goes by e-mail, as the flow it is). Staff never recover their own account
+  (403) nor a deactivated one (409); clear-lockout on an account with no failures is a 409
+  (`not_locked`); every refusal the recovery service makes carries a stable `details.rule` (the
+  gate's 403s, a missing user's 404, the If-Match 400/409 and a validation 422 do not; the
+  dialog says each of those in the UI language by its status). Grant-manager and change-email
+  write the user row, so they take **If-Match** on its version (the search returns it).
+  Grant-manager takes an `active` home user of that Betrieb at **any time** (Anto, 2026-10-22 —
+  not only when the last manager has left; FR-AU-25 updated), 409 `already_manager` /
+  `not_active`, and goes through the membership service (same audit rows, sessions end).
+  Change-email runs KAN-196's consequences (open invitation and reset tokens end, every session
+  ends, `email_changed`, the old address is mailed) beside `recovery_email_changed`; 409
+  `same_email` / `email_taken`. `GET /v1/platform/users?email=&dealershipId=` finds the account
+  (exact address, or by Betrieb; sorted on the server by `lastName`/`firstName`/`email`/`status`,
+  cursor-paginated) with its lock, factor and open sessions, a page's state read in a fixed
+  number of queries — never a hash (the credential's counter and lock are read by column). The staff-only
+  `DELETE …/users/{id}/mfa` and `…/sessions` are **gone**; `POST …/users/{id}/invitations` is
+  the onboarding re-send to a still-`invited` user only — anyone, staff included, re-inviting
+  an accepted account gets 403 with `details.recovery`. Nothing in recovery sets or reads a
+  password (`tests/architecture/test_recovery_never_touches_a_password.py`). The page is
+  Administration › Account recovery (`/administration/account-recovery`), never role-hidden.
+  A manager reads `GET …/login-status` (FR-AU-10) and never touches a staff account (KAN-97);
+  the manager flag is otherwise KAN-199's. **The e-mail address is the sign-in and
+  recovery channel:** a manager corrects it through the PATCH only while the user is still
+  `invited` (the change ends every open invitation and reset token and every session, records
+  `email_changed` and mails the old address — in the PATCH's own transaction,
+  `update_user(on_email_change=…)`; a taken address is a 409 first); for an accepted account the
+  PATCH refuses everyone, staff included (403, `details.recovery: change-email`) — the change is
+  the recovery door's `change-email` above. An account never returns to `invited` through a PATCH (409), so the
   onboarding path cannot be re-opened on an active user — the one way back is KAN-200's
   reactivation of a deactivated user who holds no credential, which lands on `invited` — also
   for an account that was active before KAN-196 and never set a password: the manager may then
   correct its e-mail and resend the invitation (Anto, 2026-10-20: kept as built, knowingly). **Open with Anto:** the new address is
-  not confirmed before it takes over the channel. **Not built:** FR-AU-25's mandatory stated reason on a recovery action, FR-AU-26's `security`
-  notification family (the e-mail-change notice is the one notice sent). No step-up
+  not confirmed before it takes over the channel. **Not built:** FR-AU-26's `security`
+  notification family itself (KAN-216; the e-mail-change notice is the one notice sent). No step-up
   re-authentication (A-12: no).
 - argon2id parameters are settings (`DMS_ARGON2_*`, default t=3 / 64 MiB / p=4, 48–80 ms a
   verify on the build machine, `scripts/benchmark_argon2.py`); a stored hash below them is rehashed on

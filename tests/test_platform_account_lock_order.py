@@ -27,16 +27,17 @@ import pytest
 from sqlalchemy import select
 
 from app.platform.api import auth as auth_api
-from app.platform.api import dealerships as dealerships_api
 from app.platform.models.auth_session import AuthSession
 from app.platform.models.mfa import MfaRecoveryCode, MfaTotp
 from app.platform.services import auth_sessions, auth_tokens, mfa
 from tests.identity_support import (
     PasswordLogin,
+    change_email,
     cookie_headers,
     create_dealership,
     create_user,
     platform_admin_headers,
+    recover,
 )
 from tests.test_customer_vehicle_party_close_rule import _postgres_only, _run, _wait_until_a_backend_waits_on_a_lock
 from tests.test_identity_mfa import _enrol_totp
@@ -82,12 +83,14 @@ def _race(engine, monkeypatch, *, owner, attribute: str, first, second, after: b
     return codes
 
 
+# Staff's MFA reset and revoke-all are recovery actions at the one door
+# since KAN-202 (Anto, 2026-10-22); they answer 200 with the recorded event.
 def _staff_mfa_reset(client, dealership: str, user: dict):
-    return client.delete(f"/v1/dealerships/{dealership}/users/{user['id']}/mfa", headers=platform_admin_headers())
+    return recover(client, user["id"], "reset-mfa")
 
 
 def _staff_session_revoke(client, dealership: str, user: dict):
-    return client.delete(f"/v1/dealerships/{dealership}/users/{user['id']}/sessions", headers=platform_admin_headers())
+    return recover(client, user["id"], "revoke-sessions")
 
 
 # --- P4: self-service TOTP removal vs staff's MFA reset -------------------------------------
@@ -113,7 +116,7 @@ def test_removing_ones_own_authenticator_racing_staffs_mfa_reset_is_no_deadlock(
         second=lambda: _staff_mfa_reset(client, dealership, anna),
     )
 
-    assert codes == {"first": 204, "second": 204}
+    assert codes == {"first": 204, "second": 200}
     db_session.expire_all()
     user_id = uuid.UUID(anna["id"])
     assert db_session.scalars(select(MfaTotp).where(MfaTotp.user_id == user_id)).all() == []
@@ -150,7 +153,7 @@ def test_removing_the_last_factor_racing_staffs_session_revoke_is_no_deadlock(en
         second=lambda: _staff_session_revoke(client, dealership, anna),
     )
 
-    assert codes == {"first": 204, "second": 204}
+    assert codes == {"first": 204, "second": 200}
     db_session.expire_all()
     live = [
         row
@@ -186,11 +189,8 @@ def test_a_reset_request_racing_an_email_change_is_no_deadlock_and_mails_nobody(
         monkeypatch,
         owner=auth_tokens,
         attribute="consume_all_for_user",
-        first=lambda: client.patch(
-            f"/v1/dealerships/{dealership}/users/{anna['id']}",
-            json={"email": "anna.neu@example.ch"},
-            headers={**platform_admin_headers(), "If-Match": str(version)},
-        ),
+        # Since KAN-202 an accepted account's address moves at the recovery door.
+        first=lambda: change_email(client, anna["id"], "anna.neu@example.ch", if_match=version),
         second=lambda: client.post("/v1/auth/password-reset/request", json={"email": anna["email"]}),
     )
 
@@ -229,7 +229,7 @@ def test_a_recovery_code_spent_while_staffs_reset_deletes_it_is_refused_never_a_
         ),
     )
 
-    assert codes["first"] == 204
+    assert codes["first"] == 200
     assert codes["second"] == 401
 
 
@@ -254,8 +254,13 @@ def test_every_account_mfa_write_takes_the_user_row_lock_first(route):
     assert "get_own_user_or_404(" not in source
 
 
-@pytest.mark.parametrize("route", ["revoke_user_sessions", "remove_user_mfa"])
-def test_staffs_session_and_mfa_resets_take_the_user_row_lock_first(route):
-    source = inspect.getsource(getattr(dealerships_api, route))
-    assert "get_user_for_update_or_404(" in source
+def test_staffs_session_and_mfa_resets_take_the_user_row_lock_first():
+    """Since KAN-202 both are the recovery door's `recover_user`, which locks
+    the user row first (`tests/test_platform_concurrent_first_grants.py`
+    pins every recovery route)."""
+
+    from app.platform.api import recovery as recovery_api
+
+    source = inspect.getsource(recovery_api.recover_user)
+    assert "get_user_for_recovery_or_404(" in source
     assert "get_user_or_404(" not in source

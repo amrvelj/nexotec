@@ -32,6 +32,7 @@ from tests.identity_support import (
     create_dealership,
     create_user,
     platform_admin_headers,
+    recover,
 )
 
 
@@ -288,7 +289,7 @@ def test_a_reissued_invitation_to_an_enrolled_user_still_needs_the_second_factor
     anna = create_user(client, dealership)
     cookie = login.session_cookie(anna)
     secret, _ = _enrol_totp(client, cookie)
-    assert client.post(f"/v1/dealerships/{dealership}/users/{anna['id']}/invitations", headers=platform_admin_headers()).status_code == 202
+    assert recover(client, anna["id"], "reissue-invitation").status_code == 200
     raw = token_in(last_mail_to(mailbox, anna["email"]))
 
     response = client.post("/v1/auth/invitations/accept", json={"token": raw, "password": "a-brand-new-password-2026"})
@@ -373,8 +374,8 @@ def test_the_betrieb_decides_enforcement_and_platform_staff_are_always_enforced(
 
 @pytest.fixture()
 def probe_client(engine):
-    """A route behind `require_mfa_session` (the impersonation and recovery
-    endpoints will carry it; none exists yet)."""
+    """A route behind `require_mfa_session` (the impersonation endpoints
+    will carry it; the recovery door has its own gate since KAN-202)."""
 
     probe = FastAPI()
     register_error_handlers(probe)
@@ -424,12 +425,18 @@ def test_platform_staff_reach_the_recovery_endpoints_only_with_a_second_factor_i
     password_only = platform_admin_headers(mfa=False)
     with_factor = platform_admin_headers(mfa=True)
 
-    for method, path in (("post", "/invitations"), ("get", "/login-status"), ("delete", "/sessions"), ("delete", "/mfa")):
-        refused = getattr(client, method)(base + path, headers=password_only)
-        assert refused.status_code == 403, (path, refused.text)
+    refused = client.get(base + "/login-status", headers=password_only)
+    assert refused.status_code == 403, refused.text
+    assert "second factor" in refused.json()["error"]["message"]
+    assert client.get(base + "/login-status", headers=with_factor).status_code == 200
+    # KAN-202: the recovery door itself (tests/test_platform_recovery.py has the rest).
+    for action in ("reissue-invitation", "reset-mfa", "clear-lockout", "revoke-sessions"):
+        refused = recover(client, anna["id"], action, headers=password_only)
+        assert refused.status_code == 403, (action, refused.text)
         assert "second factor" in refused.json()["error"]["message"]
-        allowed = getattr(client, method)(base + path, headers=with_factor)
-        assert allowed.status_code in (200, 202, 204), (path, allowed.text)
+    for action in ("reissue-invitation", "reset-mfa", "revoke-sessions"):
+        allowed = recover(client, anna["id"], action, headers=with_factor)
+        assert allowed.status_code == 200, (action, allowed.text)
 
     managers = login.session_cookie(manager)
     assert client.get(base + "/login-status", headers=cookie_headers(managers)).status_code == 200
@@ -449,11 +456,10 @@ def test_platform_staff_remove_a_users_factors_and_the_event_names_the_actor(cli
     _enrol_totp(client, login.session_cookie(anna))
     assert login.login(anna).json()["mfaRequired"] is True
     staff_id = uuid.uuid4()
-    path = f"/v1/dealerships/{dealership}/users/{anna['id']}/mfa"
 
-    assert client.delete(path, headers=cookie_headers(login.session_cookie(manager))).status_code == 403
-    response = client.delete(path, headers=platform_admin_headers(user_id=staff_id))
-    assert response.status_code == 204, response.text
+    assert recover(client, anna["id"], "reset-mfa", headers=cookie_headers(login.session_cookie(manager))).status_code == 403
+    response = recover(client, anna["id"], "reset-mfa", headers=platform_admin_headers(user_id=staff_id))
+    assert response.status_code == 200, response.text
 
     removed = _events(db_session, AuthEventKind.MFA_REMOVED)
     assert len(removed) == 1
@@ -490,7 +496,8 @@ def test_an_account_cannot_be_sent_back_to_invited(client, login):
 def test_a_manager_re_sends_an_invitation_only_while_the_user_never_accepted_it(client, login, mailbox):
     """D-A-16 drawn where onboarding ends: re-sending an invitation to a user
     who never accepted theirs is the manager's; a fresh invitation to an
-    active user is account recovery, platform staff's alone."""
+    active user is account recovery, platform staff's alone — at the
+    recovery door, with a reason (KAN-202), never through this route."""
 
     dealership = create_dealership(client)
     manager = create_user(client, dealership)
@@ -500,8 +507,11 @@ def test_a_manager_re_sends_an_invitation_only_while_the_user_never_accepted_it(
 
     assert client.post(base + "/invitations", headers=cookie_headers(managers)).status_code == 202
     login.accept_invitation(beat)
-    assert client.post(base + "/invitations", headers=cookie_headers(managers)).status_code == 403
-    assert client.post(base + "/invitations", headers=platform_admin_headers()).status_code == 202
+    refused = client.post(base + "/invitations", headers=cookie_headers(managers))
+    assert refused.status_code == 403
+    assert refused.json()["error"]["details"] == {"recovery": "reissue-invitation"}
+    assert client.post(base + "/invitations", headers=platform_admin_headers()).status_code == 403
+    assert recover(client, beat["id"], "reissue-invitation").status_code == 200
 
 
 def test_the_expired_step_is_told_apart_from_a_wrong_code(client, login, db_session):

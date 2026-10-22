@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import list_tenant_audit_events, record_audit_event
 from app.core.audit_schemas import AuditEventPage, AuditEventRead
-from app.core.auth import AccessRole, Principal, get_current_principal, require_access_role, require_mfa_session
+from app.core.auth import Principal, get_current_principal, require_access_role, require_mfa_session
 from app.core.concurrency import check_version, require_if_match
 from app.core.config import get_settings
 from app.core.errors import ForbiddenError
@@ -69,10 +69,8 @@ from app.platform.schemas.user import (
 )
 from app.platform.services import (
     auth_events,
-    auth_sessions,
     connected_account,
     identity,
-    mfa,
     signature,
     user_location,
 )
@@ -256,17 +254,6 @@ def update_user(
     require_tenant_match(dealership_id, principal)
     user = user_service.get_user_for_update_or_404(db, dealership_id, user_id)  # KAN-380
     check_version(user.version, if_match, entity_name="User")
-    if (
-        body.email is not None
-        and body.email.lower() != user.email
-        and user.status != UserStatus.INVITED
-        and AccessRole.PLATFORM_ADMIN in principal.roles
-        and not principal.mfa
-    ):
-        # D-A-16 / D-A-36: moving an active user's address is account
-        # recovery, and a staff session does it only with a factor in it —
-        # the same rule the dedicated recovery routes carry.
-        raise ForbiddenError("This action needs a staff session signed in with a second factor.")
     ip = client_ip(request)
 
     def on_email_change(changed: User, old_email: str) -> None:
@@ -675,12 +662,12 @@ def reissue_invitation(
     db: Session = Depends(get_db),
     mailer: PlatformMailer = Depends(get_mailer),
 ):
-    """FR-AU-13 / FR-AU-25: a fresh single-use invitation (the previous one
-    is consumed) — never a password. For a user still `invited` the manager
-    may re-send it (onboarding); for an active user it is account recovery,
-    a platform_admin's alone (D-A-16), like the session and MFA resets
-    below. Platform staff reach every recovery route only from a session
-    with a second factor (D-A-36, `require_mfa_session`)."""
+    """FR-AU-13: a fresh single-use invitation (the previous one is
+    consumed) — never a password — for a user still `invited` (onboarding,
+    the manager's own business). For an account that is no longer `invited`
+    a new invitation is account recovery: platform staff's, with a stated
+    reason, at `POST /v1/platform/users/{id}/recovery/reissue-invitation`
+    (KAN-202; Anto, 2026-10-22: one door for recovery)."""
 
     require_tenant_match(dealership_id, principal)
     # The user row before the tokens (KAN-380/KAN-400): the invitation stamps
@@ -689,11 +676,14 @@ def reissue_invitation(
     user = user_service.get_user_for_update_or_404(db, dealership_id, user_id)
     user_service.assert_may_touch(user=user, actor_roles=principal.roles)
     user_service.assert_user_is_not_deactivated(user)
-    if user.status != UserStatus.INVITED and AccessRole.PLATFORM_ADMIN not in principal.roles:
-        # D-A-16: once the account is active, a new invitation is a recovery
-        # — a platform_admin's alone. Re-sending one to a user who never
-        # accepted theirs is onboarding, the manager's own business.
-        raise ForbiddenError("Re-inviting an active user is account recovery, which platform staff handle.")
+    if user.status != UserStatus.INVITED:
+        # D-A-16 / FR-AU-25: once the account is no longer `invited`, a new
+        # invitation is a recovery — platform staff's, with a reason, at the
+        # recovery door; staff too go there (KAN-202).
+        raise ForbiddenError(
+            "Re-inviting a user who already accepted is account recovery, which platform staff handle.",
+            details={"recovery": "reissue-invitation"},
+        )
     identity.issue_invitation(db, mailer, user=user, actor_id=principal.user_id, ip_address=client_ip(request))
     db.commit()
 
@@ -765,64 +755,6 @@ def get_login_status(
     user = user_service.get_user_or_404(db, dealership_id, user_id)
     user_service.assert_may_touch(user=user, actor_roles=principal.roles)
     return LoginStatusRead(**identity.login_status(db, user))
-
-
-@router.delete(
-    "/dealerships/{dealership_id}/users/{user_id}/sessions",
-    status_code=204,
-    dependencies=[Depends(require_access_role(AccessRole.PLATFORM_ADMIN)), Depends(require_mfa_session())],
-)
-def revoke_user_sessions(
-    dealership_id: uuid.UUID,
-    user_id: uuid.UUID,
-    request: Request,
-    principal: Principal = Depends(require_write("dealership_users")),
-    db: Session = Depends(get_db),
-):
-    """FR-AU-17 / D-A-16: platform staff end every session of a user —
-    account recovery is theirs alone; a Betrieb's manager deactivates or
-    suspends the user instead, which ends the sessions the same way."""
-
-    require_tenant_match(dealership_id, principal)
-    user = user_service.get_user_for_update_or_404(db, dealership_id, user_id)
-    user_service.assert_may_touch(user=user, actor_roles=principal.roles)
-    ended = auth_sessions.revoke_all_for_user(db, user_id=user.id, reason="platform_staff")
-    auth_events.record(
-        db,
-        auth_events.AuthEventKind.SESSION_REVOKED,
-        user_id=user.id,
-        dealership_id=user.tenant_id,
-        actor_id=principal.user_id,
-        ip_address=client_ip(request),
-        details={"count": ended, "reason": "platform_staff"},
-    )
-    db.commit()
-
-
-@router.delete(
-    "/dealerships/{dealership_id}/users/{user_id}/mfa",
-    status_code=204,
-    dependencies=[Depends(require_access_role(AccessRole.PLATFORM_ADMIN)), Depends(require_mfa_session())],
-)
-def remove_user_mfa(
-    dealership_id: uuid.UUID,
-    user_id: uuid.UUID,
-    request: Request,
-    principal: Principal = Depends(require_write("dealership_users")),
-    db: Session = Depends(get_db),
-):
-    """FR-AU-12 / FR-AU-25: removes every factor and recovery code. Always a
-    `mfa_removed` auth event naming the actor — the user's `security`
-    notification hangs off it; it is otherwise an account-takeover path."""
-
-    require_tenant_match(dealership_id, principal)
-    user = user_service.get_user_for_update_or_404(db, dealership_id, user_id)
-    user_service.assert_may_touch(user=user, actor_roles=principal.roles)
-    mfa.remove_all_factors(db, user=user, actor_id=principal.user_id, ip_address=client_ip(request))
-    # The user's sessions proved a factor that no longer exists; they end,
-    # and the next sign-in enrols anew.
-    user_service.end_sessions(db, user=user, reason="mfa_removed", actor_id=principal.user_id)
-    db.commit()
 
 
 @router.get("/dealerships/{dealership_id}/auth-events", response_model=AuthEventList)

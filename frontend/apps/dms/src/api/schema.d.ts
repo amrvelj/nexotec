@@ -1207,12 +1207,12 @@ export interface paths {
         put?: never;
         /**
          * Reissue Invitation
-         * @description FR-AU-13 / FR-AU-25: a fresh single-use invitation (the previous one
-         *     is consumed) — never a password. For a user still `invited` the manager
-         *     may re-send it (onboarding); for an active user it is account recovery,
-         *     a platform_admin's alone (D-A-16), like the session and MFA resets
-         *     below. Platform staff reach every recovery route only from a session
-         *     with a second factor (D-A-36, `require_mfa_session`).
+         * @description FR-AU-13: a fresh single-use invitation (the previous one is
+         *     consumed) — never a password — for a user still `invited` (onboarding,
+         *     the manager's own business). For an account that is no longer `invited`
+         *     a new invitation is account recovery: platform staff's, with a stated
+         *     reason, at `POST /v1/platform/users/{id}/recovery/reissue-invitation`
+         *     (KAN-202; Anto, 2026-10-22: one door for recovery).
          */
         post: operations["reissue_invitation_v1_dealerships__dealership_id__users__user_id__invitations_post"];
         delete?: never;
@@ -1311,28 +1311,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/dealerships/{dealership_id}/users/{user_id}/mfa": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Remove User Mfa
-         * @description FR-AU-12 / FR-AU-25: removes every factor and recovery code. Always a
-         *     `mfa_removed` auth event naming the actor — the user's `security`
-         *     notification hangs off it; it is otherwise an account-takeover path.
-         */
-        delete: operations["remove_user_mfa_v1_dealerships__dealership_id__users__user_id__mfa_delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/dealerships/{dealership_id}/users/{user_id}/ownership": {
         parameters: {
             query?: never;
@@ -1372,28 +1350,6 @@ export interface paths {
          */
         post: operations["transfer_user_ownership_v1_dealerships__dealership_id__users__user_id__ownership_transfers_post"];
         delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/dealerships/{dealership_id}/users/{user_id}/sessions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Revoke User Sessions
-         * @description FR-AU-17 / D-A-16: platform staff end every session of a user —
-         *     account recovery is theirs alone; a Betrieb's manager deactivates or
-         *     suspends the user instead, which ends the sessions the same way.
-         */
-        delete: operations["revoke_user_sessions_v1_dealerships__dealership_id__users__user_id__sessions_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2129,6 +2085,93 @@ export interface paths {
         post?: never;
         /** Delete My Signature */
         delete: operations["delete_my_signature_v1_me_signature_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/dealerships/{dealership_id}/recovery/grant-manager": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Grant Manager
+         * @description FR-AU-25: make an existing active user of this Betrieb its manager —
+         *     at any time, with a reason (Anto, 2026-10-22). If-Match on the user's
+         *     version, like the manager's own `PUT …/manager-flag`.
+         */
+        post: operations["grant_manager_v1_platform_dealerships__dealership_id__recovery_grant_manager_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search Users
+         * @description Find the account staff were asked about: by its exact e-mail address,
+         *     by Betrieb, or both. One of the two is required. Sorted on the server,
+         *     cursor-paginated (API conventions).
+         */
+        get: operations["search_users_v1_platform_users_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/users/{user_id}/recovery/change-email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change User Email
+         * @description Move an account's sign-in address (Anto, 2026-10-22: recovery, with
+         *     a reason): open links and sessions end, the old address is told.
+         */
+        post: operations["change_user_email_v1_platform_users__user_id__recovery_change_email_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/platform/users/{user_id}/recovery/{action}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Recover User
+         * @description FR-AU-25: re-issue the invitation, reset MFA, clear the lockout or
+         *     revoke every session — with the reason, its own auth event in the
+         *     Betrieb's stream, an audit row and the user's `security` notice.
+         */
+        post: operations["recover_user_v1_platform_users__user_id__recovery__action__post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -3747,6 +3790,19 @@ export interface components {
             variantName: string;
             /** Vehiclekind */
             vehicleKind: string | null;
+        };
+        /**
+         * ChangeEmailRequest
+         * @description The new sign-in address (Anto, 2026-10-22: the change is recovery).
+         */
+        ChangeEmailRequest: {
+            /**
+             * Email
+             * Format: email
+             */
+            email: string;
+            /** Reason */
+            reason: string;
         };
         /** ConfigurationCreate */
         ConfigurationCreate: {
@@ -5839,6 +5895,16 @@ export interface components {
          * @enum {string}
          */
         Gender: "female" | "male" | "other" | "unspecified";
+        /** GrantManagerRequest */
+        GrantManagerRequest: {
+            /** Reason */
+            reason: string;
+            /**
+             * Userid
+             * Format: uuid
+             */
+            userId: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -7045,10 +7111,112 @@ export interface components {
             /** Suppliername */
             supplierName: string;
         };
+        /**
+         * RecordedAction
+         * @description Every recovery action, as a result and an audit row name it. The last
+         *     two write the user row itself, so they take If-Match (API conventions)
+         *     and are routes of their own.
+         * @enum {string}
+         */
+        RecordedAction: "reissue-invitation" | "reset-mfa" | "clear-lockout" | "revoke-sessions" | "grant-manager" | "change-email";
+        /**
+         * RecoveryAction
+         * @description The path segment of `POST /v1/platform/users/{id}/recovery/{action}`.
+         *     Grant-manager is the Betrieb's (`…/dealerships/{id}/recovery/grant-manager`).
+         * @enum {string}
+         */
+        RecoveryAction: "reissue-invitation" | "reset-mfa" | "clear-lockout" | "revoke-sessions";
         /** RecoveryCodesRead */
         RecoveryCodesRead: {
             /** Codes */
             codes: string[];
+        };
+        /**
+         * RecoveryRequest
+         * @description FR-AU-25: every recovery action carries a stated reason — the user's
+         *     Betrieb reads it in its auth stream (Anto, 2026-10-22).
+         */
+        RecoveryRequest: {
+            /** Reason */
+            reason: string;
+        };
+        /**
+         * RecoveryResult
+         * @description What was recorded: the auth event the Betrieb's stream lists.
+         */
+        RecoveryResult: {
+            action: components["schemas"]["RecordedAction"];
+            /**
+             * Autheventid
+             * Format: uuid
+             */
+            authEventId: string;
+            /**
+             * Dealershipid
+             * Format: uuid
+             */
+            dealershipId: string;
+            /**
+             * Occurredat
+             * Format: date-time
+             */
+            occurredAt: string;
+            /**
+             * Userid
+             * Format: uuid
+             */
+            userId: string;
+            /** Userversion */
+            userVersion: number;
+        };
+        /** RecoveryUserList */
+        RecoveryUserList: {
+            /** Items */
+            items: components["schemas"]["RecoveryUserRead"][];
+            /** Nextcursor */
+            nextCursor: string | null;
+        };
+        /**
+         * RecoveryUserRead
+         * @description An account as the recovery page shows it — enough to choose an
+         *     action, never a hash, a secret or a token.
+         */
+        RecoveryUserRead: {
+            /**
+             * Dealershipid
+             * Format: uuid
+             */
+            dealershipId: string;
+            /** Dealershipname */
+            dealershipName: string;
+            /** Email */
+            email: string;
+            /** Failedloginattempts */
+            failedLoginAttempts: number;
+            /** Firstname */
+            firstName: string;
+            /** Haspassword */
+            hasPassword: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Isdealermanager */
+            isDealerManager: boolean;
+            /** Isplatformstaff */
+            isPlatformStaff: boolean;
+            /** Lastname */
+            lastName: string;
+            /** Lockeduntil */
+            lockedUntil: string | null;
+            /** Mfaenrolled */
+            mfaEnrolled: boolean;
+            /** Opensessions */
+            openSessions: number;
+            status: components["schemas"]["UserStatus"];
+            /** Version */
+            version: number;
         };
         /**
          * ReferenceValueCreate
@@ -12342,40 +12510,6 @@ export interface operations {
             };
         };
     };
-    remove_user_mfa_v1_dealerships__dealership_id__users__user_id__mfa_delete: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                dealership_id: string;
-                user_id: string;
-            };
-            cookie?: {
-                dms_session?: string | null;
-            };
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     get_user_ownership_v1_dealerships__dealership_id__users__user_id__ownership_get: {
         parameters: {
             query?: never;
@@ -12442,40 +12576,6 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["OwnershipTransfersRead"];
                 };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    revoke_user_sessions_v1_dealerships__dealership_id__users__user_id__sessions_delete: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path: {
-                dealership_id: string;
-                user_id: string;
-            };
-            cookie?: {
-                dms_session?: string | null;
-            };
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -14670,6 +14770,172 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MeRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    grant_manager_v1_platform_dealerships__dealership_id__recovery_grant_manager_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GrantManagerRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecoveryResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_users_v1_platform_users_get: {
+        parameters: {
+            query?: {
+                email?: string | null;
+                dealershipId?: string | null;
+                /** @description e.g. 'lastName:asc' — lastName, firstName, email, status */
+                sort?: string | null;
+                limit?: number;
+                cursor?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecoveryUserList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_user_email_v1_platform_users__user_id__recovery_change_email_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                "If-Match"?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                user_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeEmailRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecoveryResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recover_user_v1_platform_users__user_id__recovery__action__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                user_id: string;
+                action: components["schemas"]["RecoveryAction"];
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecoveryRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecoveryResult"];
                 };
             };
             /** @description Validation Error */
