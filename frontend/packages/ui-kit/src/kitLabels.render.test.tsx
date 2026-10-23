@@ -8,8 +8,12 @@ import { FilterBuilder } from "./datagrid/FilterBuilder";
 import type { FilterPredicate } from "./datagrid/filterPredicate";
 import { RepeatableRowGroup } from "./components/RepeatableRowGroup";
 import { OverlayProvider, useOverlay } from "./shell/Overlay";
+import { ActionBar } from "./datagrid/ActionBar";
+import { SelectionBar } from "./datagrid/SelectionBar";
+import { FilterChips } from "./datagrid/FilterChips";
 import {
   FORMER_ENGLISH_DEFAULTS,
+  FR_ACTION_BAR_LABELS,
   FR_FILTER_BUILDER_LABELS,
   FR_REPEATABLE_ROW_LABELS,
   FR_VIEWS_AND_FILTERS_LABELS,
@@ -19,10 +23,10 @@ import {
 // Overlay merged English defaults under optional labels, and hardcoded some
 // accessible names no caller could override ("Edit filter", "Delete view",
 // "Close"). Their labels are required now; given French ones, nothing they
-// render or announce may be one of the former English defaults. Not checked
-// here, because it is not a label yet: FilterBuilder's condition names and a
-// saved filter's text, which `filterPredicate.ts` still writes in English
-// (KAN-415).
+// render or announce may be one of the former English defaults. The Filter
+// Builder's condition names and a saved filter's text are labels too since
+// KAN-415, and the Action Bar, Selection Bar and Filter Chips since KAN-364's
+// second part.
 
 const FIELD = { id: "canton", label: "Canton", type: "text" as const };
 const PREDICATE: FilterPredicate = { id: "p1", fieldId: "canton", type: "text", condition: "contains", value: "ZH" };
@@ -73,13 +77,39 @@ describe("kit components show none of their former English defaults (KAN-364)", 
     expect(screen.getByRole("button", { name: "Modifier le filtre" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Dupliquer le filtre" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Supprimer le filtre" })).toBeInTheDocument();
+    // KAN-415: the saved filter's text is the caller's template, in French.
+    expect(screen.getByText("Canton : contient ZH")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Enregistrer la vue actuelle sous…" }));
     expect(screen.getByPlaceholderText("Nom de la vue")).toBeInTheDocument();
+    // KAN-416: the icon-only confirm button has an accessible name.
+    expect(screen.getByRole("button", { name: "Enregistrer la vue" })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Nouveau filtre…" }));
     expect(screen.getByRole("button", { name: "Enregistrer" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Annuler" })).toBeInTheDocument();
+    // KAN-415: the condition dropdown names its options in French.
+    expect(screen.getByRole("option", { name: "contient" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "est exactement" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "n'est pas" })).toBeInTheDocument();
 
+    expect(englishLeft()).toEqual([]);
+  });
+
+  it("FilterBuilder: a date field's conditions and saved text are the caller's", async () => {
+    const user = userEvent.setup();
+    const changed = { id: "updatedAt", label: "Modifié", type: "date" as const };
+    render(
+      <FilterBuilder
+        fields={[changed]}
+        predicates={[{ id: "d1", fieldId: "updatedAt", type: "date", condition: "inTheLastDays", days: 30 }]}
+        onChange={() => {}}
+        labels={FR_FILTER_BUILDER_LABELS}
+      />,
+    );
+    expect(screen.getByText("Modifié : au cours des 30 derniers jours")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Nouveau filtre…" }));
+    expect(screen.getByRole("option", { name: "aujourd'hui" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "il y a plus de N jours" })).toBeInTheDocument();
     expect(englishLeft()).toEqual([]);
   });
 
@@ -128,6 +158,55 @@ describe("kit components show none of their former English defaults (KAN-364)", 
     await user.click(screen.getByRole("button", { name: /Ajouter un téléphone/ }));
     expect(screen.getByRole("button", { name: "Enregistrer" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Annuler" })).toBeInTheDocument();
+    expect(englishLeft()).toEqual([]);
+  });
+
+  it("ActionBar: the density and refresh controls and the search hint are the caller's", () => {
+    render(
+      <MantineProvider>
+        <ActionBar
+          searchValue=""
+          onSearchChange={() => {}}
+          searchPlaceholder="Rechercher des véhicules…"
+          density="default"
+          onDensityChange={() => {}}
+          onRefresh={() => {}}
+          labels={FR_ACTION_BAR_LABELS}
+        />
+      </MantineProvider>,
+    );
+    expect(screen.getByPlaceholderText("Rechercher des véhicules…")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Actualiser" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Changer la densité des lignes" })).toBeInTheDocument();
+    expect(englishLeft()).toEqual([]);
+  });
+
+  it("SelectionBar: the count and the clear button are the caller's", () => {
+    render(
+      <SelectionBar
+        count={3}
+        onClear={() => {}}
+        actions={[{ label: "Copier les ID", onClick: () => {} }]}
+        clearLabel="Effacer la sélection"
+        countLabel={(n) => `${n} sélectionnés`}
+      />,
+    );
+    expect(screen.getByText("3 sélectionnés")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Effacer la sélection" })).toBeInTheDocument();
+    expect(englishLeft()).toEqual([]);
+  });
+
+  it("FilterChips: clear-all and each chip's remove button are the caller's", () => {
+    render(
+      <FilterChips
+        chips={[{ key: "c", label: "Canton contient ZH", onRemove: () => {} }]}
+        onClearAll={() => {}}
+        clearLabel="Effacer"
+        removeLabel={(chip) => `Retirer le filtre : ${chip}`}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Effacer" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Retirer le filtre : Canton contient ZH" })).toBeInTheDocument();
     expect(englishLeft()).toEqual([]);
   });
 

@@ -108,6 +108,7 @@
       "viewsHeading": "Vues",
       "saveCurrentView": "Enregistrer la vue actuelle sous…",
       "savePlaceholder": "Nom de la vue",
+      "confirmSaveView": "Enregistrer la vue",
       "manageFiltersHeading": "Gérer les filtres",
       "reset": "Réinitialiser",
       "setDefault": "Définir par défaut",
@@ -120,7 +121,41 @@
       "matchCount_other": "{{count, number}} résultats",
       "editFilter": "Modifier le filtre",
       "duplicateFilter": "Dupliquer le filtre",
-      "deleteFilter": "Supprimer le filtre"
+      "deleteFilter": "Supprimer le filtre",
+      "conditions": {
+        "contains": "contient",
+        "equals": "est exactement",
+        "notEquals": "n'est pas",
+        "is": "est",
+        "isNot": "n'est pas",
+        "greaterThan": "supérieur à",
+        "lessThan": "inférieur à",
+        "today": "aujourd'hui",
+        "thisWeek": "cette semaine",
+        "thisMonth": "ce mois-ci",
+        "thisYear": "cette année",
+        "inTheLastDays": "au cours des N derniers jours",
+        "moreThanDaysAgo": "il y a plus de N jours"
+      },
+      "predicateText": {
+        "contains": "{{field}} : contient {{value}}",
+        "equals": "{{field}} : exactement {{value}}",
+        "notEquals": "{{field}} : sauf {{value}}",
+        "is": "{{field}} : {{value}}",
+        "isNot": "{{field}} : sauf {{value}}",
+        "greaterThan": "{{field}} : plus de {{value}}",
+        "lessThan": "{{field}} : moins de {{value}}",
+        "today": "{{field}} : aujourd'hui",
+        "thisWeek": "{{field}} : cette semaine",
+        "thisMonth": "{{field}} : ce mois-ci",
+        "thisYear": "{{field}} : cette année",
+        "inTheLastDays_one": "{{field}} : au cours du dernier jour",
+        "inTheLastDays_other": "{{field}} : au cours des {{days, number}} derniers jours",
+        "moreThanDaysAgo_one": "{{field}} : il y a plus d'un jour",
+        "moreThanDaysAgo_other": "{{field}} : il y a plus de {{days, number}} jours"
+      },
+      "booleanTrue": "{{field}} : oui",
+      "booleanFalse": "{{field}} : non"
     },
     "overlay": {
       "close": "Fermer"

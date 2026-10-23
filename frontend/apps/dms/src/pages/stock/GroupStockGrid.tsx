@@ -19,6 +19,7 @@ import { toSwissLocale, type SupportedLanguage } from '../../i18n'
 import { buildStockGroupColumns } from './columns/stockGroupColumns'
 import { serializeSort } from '../../utils/sortParam'
 import type { StockItemGroupPage } from '../../api/types'
+import { useActionBarLabels } from '../../hooks/useActionBarLabels'
 
 interface GroupStockGridProps {
   /** Search and sort are owned by StockListPage, which keeps them in the
@@ -95,12 +96,14 @@ export function GroupStockGrid({ query, debouncedQuery, onQueryChange, sort, onS
     [gridPrefs.columnLayout, columnRegistry]
   )
   const columnPanelLabels = useColumnPanelLabels()
+  const actionBarLabels = useActionBarLabels()
 
   return (
     <OverviewShellRegion
       header={<div />}
       actionBar={
         <ActionBar
+          labels={actionBarLabels}
           searchValue={query}
           onSearchChange={onQueryChange}
           searchPlaceholder={t('stockList.searchPlaceholder')}
@@ -116,16 +119,6 @@ export function GroupStockGrid({ query, debouncedQuery, onQueryChange, sort, onS
               labels={columnPanelLabels}
             />
           }
-          labels={{
-            density: {
-              compact: t('common.density.compact'),
-              default: t('common.density.default'),
-              comfortable: t('common.density.comfortable'),
-            },
-            densityTooltip: (label) => t('common.density.tooltip', { label }),
-            densityAriaLabel: t('common.density.ariaLabel'),
-            refresh: t('common.refresh'),
-          }}
         />
       }
     >

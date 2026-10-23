@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { describePredicate, resolveRelativeDateRange, type FilterFieldDef, type FilterPredicate } from './filterPredicate'
+import {
+  describePredicate,
+  resolveRelativeDateRange,
+  type FilterFieldDef,
+  type FilterPredicate,
+  type PredicateTextParts,
+} from './filterPredicate'
+import { FR_CONDITION_LABELS } from '../test/frenchLabels'
 
 // Constructed in LOCAL time (month is 0-indexed: 2 = March), matching
 // resolveRelativeDateRange's own local-calendar semantics
@@ -50,29 +57,56 @@ describe('resolveRelativeDateRange', () => {
 })
 
 describe('describePredicate', () => {
+  // KAN-415 — the text is the caller's translated template for the
+  // condition, never field + English condition + value glued together.
   const cantonField: FilterFieldDef = {
     id: 'canton',
     label: 'Canton',
     type: 'select',
-    options: [{ value: 'ZH', label: 'Zürich' }, { value: 'GE', label: 'Geneva' }],
+    options: [{ value: 'ZH', label: 'Zurich' }, { value: 'GE', label: 'Genève' }],
   }
-  const changedField: FilterFieldDef = { id: 'updatedAt', label: 'Changed', type: 'date' }
-  const consentField: FilterFieldDef = { id: 'marketingConsent', label: 'Marketing consent', type: 'boolean' }
+  const nameField: FilterFieldDef = { id: 'name', label: 'Nom', type: 'text' }
+  const priceField: FilterFieldDef = { id: 'price', label: 'Prix', type: 'number' }
+  const changedField: FilterFieldDef = { id: 'updatedAt', label: 'Modifié', type: 'date' }
+  const consentField: FilterFieldDef = { id: 'marketingConsent', label: 'Consentement marketing', type: 'boolean' }
 
   it('describes a select predicate using the option label, not the raw value', () => {
     const predicate: FilterPredicate = { id: '1', fieldId: 'canton', type: 'select', condition: 'is', value: 'ZH' }
-    expect(describePredicate(predicate, cantonField)).toBe('Canton is Zürich')
+    expect(describePredicate(predicate, cantonField, FR_CONDITION_LABELS)).toBe('Canton : Zurich')
   })
 
-  it('describes a relative date predicate with its day count substituted in', () => {
-    const predicate: FilterPredicate = { id: '2', fieldId: 'updatedAt', type: 'date', condition: 'inTheLastDays', days: 30 }
-    expect(describePredicate(predicate, changedField)).toBe('Changed is in the last 30 days')
+  it('describes text and number predicates through their own condition template', () => {
+    const contains: FilterPredicate = { id: '2', fieldId: 'name', type: 'text', condition: 'contains', value: 'Muller' }
+    const greater: FilterPredicate = { id: '3', fieldId: 'price', type: 'number', condition: 'greaterThan', value: 40000 }
+    expect(describePredicate(contains, nameField, FR_CONDITION_LABELS)).toBe('Nom : contient Muller')
+    expect(describePredicate(greater, priceField, FR_CONDITION_LABELS)).toBe('Prix : plus de 40000')
   })
 
-  it('describes a boolean predicate without repeating the field label awkwardly', () => {
-    const truePredicate: FilterPredicate = { id: '3', fieldId: 'marketingConsent', type: 'boolean', condition: 'is', value: true }
-    const falsePredicate: FilterPredicate = { id: '4', fieldId: 'marketingConsent', type: 'boolean', condition: 'is', value: false }
-    expect(describePredicate(truePredicate, consentField)).toBe('Marketing consent')
-    expect(describePredicate(falsePredicate, consentField)).toBe('Not Marketing consent')
+  it('hands the day count to the N-days template', () => {
+    const last: FilterPredicate = { id: '4', fieldId: 'updatedAt', type: 'date', condition: 'inTheLastDays', days: 30 }
+    const older: FilterPredicate = { id: '5', fieldId: 'updatedAt', type: 'date', condition: 'moreThanDaysAgo', days: 7 }
+    expect(describePredicate(last, changedField, FR_CONDITION_LABELS)).toBe('Modifié : au cours des 30 derniers jours')
+    expect(describePredicate(older, changedField, FR_CONDITION_LABELS)).toBe('Modifié : il y a plus de 7 jours')
+  })
+
+  it('lets the template set the word order', () => {
+    const labels = {
+      ...FR_CONDITION_LABELS,
+      predicateText: { ...FR_CONDITION_LABELS.predicateText, contains: ({ field, value }: PredicateTextParts) => `«${value}» in ${field}` },
+    }
+    const predicate: FilterPredicate = { id: '6', fieldId: 'name', type: 'text', condition: 'contains', value: 'ZH' }
+    expect(describePredicate(predicate, nameField, labels)).toBe('«ZH» in Nom')
+  })
+
+  it('describes a boolean predicate with the true and false templates', () => {
+    const truePredicate: FilterPredicate = { id: '7', fieldId: 'marketingConsent', type: 'boolean', condition: 'is', value: true }
+    const falsePredicate: FilterPredicate = { id: '8', fieldId: 'marketingConsent', type: 'boolean', condition: 'is', value: false }
+    expect(describePredicate(truePredicate, consentField, FR_CONDITION_LABELS)).toBe('Consentement marketing : oui')
+    expect(describePredicate(falsePredicate, consentField, FR_CONDITION_LABELS)).toBe('Consentement marketing : non')
+  })
+
+  it('reads a condition its type does not know (a stale saved view) as the field label, not a raw value', () => {
+    const stale: FilterPredicate = { id: '9', fieldId: 'name', type: 'text', condition: 'startsWith', value: 'A' }
+    expect(describePredicate(stale, nameField, FR_CONDITION_LABELS)).toBe('Nom')
   })
 })

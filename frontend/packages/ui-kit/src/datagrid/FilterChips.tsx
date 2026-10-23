@@ -10,10 +10,11 @@ export interface FilterChip {
 export interface FilterChipsProps {
   chips: FilterChip[];
   onClearAll: () => void;
-  /** Translated "Clear" label and remove-chip aria-label template —
-   * default to English. */
-  clearLabel?: string;
-  removeLabel?: (chipLabel: string) => string;
+  /** The clear-all button's text and each chip's remove button's
+   * accessible name, translated by the caller — the kit ships no English of
+   * its own (KAN-364). */
+  clearLabel: string;
+  removeLabel: (chipLabel: string) => string;
 }
 
 /**
@@ -27,12 +28,7 @@ export interface FilterChipsProps {
  * with both selection and filters shows whichever one currently applies,
  * never both.
  */
-export function FilterChips({
-  chips,
-  onClearAll,
-  clearLabel = "Clear",
-  removeLabel = (chipLabel) => `Remove filter: ${chipLabel}`,
-}: FilterChipsProps) {
+export function FilterChips({ chips, onClearAll, clearLabel, removeLabel }: FilterChipsProps) {
   if (chips.length === 0) return null;
 
   return (

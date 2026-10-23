@@ -38,6 +38,7 @@ import type {
   CatalogueVariantRead,
   ReferenceValueRead,
 } from '../../api/types'
+import { useActionBarLabels } from '../../hooks/useActionBarLabels'
 
 const GRID_KEY = 'mdm.catalogue.variants'
 const DEFAULT_SORT: SortSpec[] = [{ field: 'variantName', direction: 'asc' }]
@@ -363,6 +364,7 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
   )
   const columnPanelLabels = useColumnPanelLabels()
   const viewsAndFiltersLabels = useViewsAndFiltersLabels()
+  const actionBarLabels = useActionBarLabels()
 
   const isFiltered = debouncedQuery.length > 0 || predicates.length > 0 || brandId !== null
   const currentViewName =
@@ -427,6 +429,7 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
         actionBar={
           <>
             <ActionBar
+              labels={actionBarLabels}
               searchValue={query}
               onSearchChange={setQuery}
               searchPlaceholder={t('catalogueBrowse.searchPlaceholder')}
@@ -469,16 +472,6 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
                   labels={columnPanelLabels}
                 />
               }
-              labels={{
-                density: {
-                  compact: t('common.density.compact'),
-                  default: t('common.density.default'),
-                  comfortable: t('common.density.comfortable'),
-                },
-                densityTooltip: (label) => t('common.density.tooltip', { label }),
-                densityAriaLabel: t('common.density.ariaLabel'),
-                refresh: t('common.refresh'),
-              }}
             />
 
             {selectedIds.size > 0 && (

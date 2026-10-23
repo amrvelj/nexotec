@@ -44,6 +44,7 @@ import { GroupStockGrid } from './stock/GroupStockGrid'
 import { AddToPipelineButton } from './stock/AddToPipelineButton'
 import { ScopeSwitchMenu, type StockScope } from './stock/components/ScopeSwitchMenu'
 import type { StockItemPage, StockItemRead } from '../api/types'
+import { useActionBarLabels } from '../hooks/useActionBarLabels'
 
 const GRID_KEY = 'inventory.stock.list'
 const DEFAULT_SORT: SortSpec[] = [{ field: 'updatedAt', direction: 'desc' }]
@@ -354,6 +355,7 @@ export function StockListPage() {
   )
   const columnPanelLabels = useColumnPanelLabels()
   const viewsAndFiltersLabels = useViewsAndFiltersLabels()
+  const actionBarLabels = useActionBarLabels()
 
   const isFiltered = debouncedQuery.length > 0 || predicates.length > 0
   const currentViewName = (appliedViewId && savedViews.views.find((v) => v.id === appliedViewId)?.name) || t('stockList.allStockView')
@@ -391,6 +393,7 @@ export function StockListPage() {
         header={<div />}
         actionBar={
           <ActionBar
+            labels={actionBarLabels}
             searchValue={query}
             onSearchChange={setQuery}
             searchPlaceholder={t('stockList.searchPlaceholder')}
@@ -429,16 +432,6 @@ export function StockListPage() {
                 labels={columnPanelLabels}
               />
             }
-            labels={{
-              density: {
-                compact: t('common.density.compact'),
-                default: t('common.density.default'),
-                comfortable: t('common.density.comfortable'),
-              },
-              densityTooltip: (label) => t('common.density.tooltip', { label }),
-              densityAriaLabel: t('common.density.ariaLabel'),
-              refresh: t('common.refresh'),
-            }}
           />
         }
       >

@@ -30,6 +30,7 @@ import { toSwissLocale, type SupportedLanguage } from '../i18n'
 import { translatedSalesDealStatusLabel, translatedSalesEntityTypeLabel } from '../salesOptions'
 import { formatDate, formatCurrencyChf } from '../utils/format'
 import type { SalesDealPage, SalesDealRead } from '../api/types'
+import { useActionBarLabels } from '../hooks/useActionBarLabels'
 
 const GRID_KEY = 'sales.deals.list'
 const DEFAULT_SORT: SortSpec[] = [{ field: 'updatedAt', direction: 'desc' }]
@@ -224,6 +225,7 @@ export function SalesListPage() {
   )
   const columnPanelLabels = useColumnPanelLabels()
   const viewsAndFiltersLabels = useViewsAndFiltersLabels()
+  const actionBarLabels = useActionBarLabels()
 
   const isFiltered = debouncedQuery.length > 0
   const currentViewName = (appliedViewId && savedViews.views.find((v) => v.id === appliedViewId)?.name) || t('salesList.allDealsView')
@@ -272,6 +274,7 @@ export function SalesListPage() {
         actionBar={
           <>
             <ActionBar
+              labels={actionBarLabels}
               searchValue={query}
               onSearchChange={setQuery}
               searchPlaceholder={t('salesList.searchPlaceholder')}
@@ -308,16 +311,6 @@ export function SalesListPage() {
                   labels={columnPanelLabels}
                 />
               }
-              labels={{
-                density: {
-                  compact: t('common.density.compact'),
-                  default: t('common.density.default'),
-                  comfortable: t('common.density.comfortable'),
-                },
-                densityTooltip: (label) => t('common.density.tooltip', { label }),
-                densityAriaLabel: t('common.density.ariaLabel'),
-                refresh: t('common.refresh'),
-              }}
             />
             {selectedIds.size > 0 && (
               <SelectionBar

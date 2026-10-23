@@ -32,6 +32,9 @@ export interface ViewsAndFiltersLabels {
   viewsHeading: string;
   saveCurrentView: string;
   savePlaceholder: string;
+  /** Accessible name of the icon-only button that saves the typed name
+   * (KAN-416). */
+  confirmSaveView: string;
   manageFiltersHeading: string;
   reset: string;
   /** Accessible names of a saved view's row actions. */
@@ -189,7 +192,12 @@ export function ViewsAndFilters({
                 placeholder={L.savePlaceholder}
                 style={{ flex: 1, border: `1px solid ${slate[2]}`, borderRadius: radius.sm, padding: "4px 6px", fontSize: 13 }}
               />
-              <button type="button" onClick={commitSave} style={{ border: "none", background: "none", color: purple[6], fontWeight: 700, cursor: "pointer" }}>
+              <button
+                type="button"
+                onClick={commitSave}
+                aria-label={L.confirmSaveView}
+                style={{ border: "none", background: "none", color: purple[6], fontWeight: 700, cursor: "pointer" }}
+              >
                 <Check size={16} />
               </button>
             </div>

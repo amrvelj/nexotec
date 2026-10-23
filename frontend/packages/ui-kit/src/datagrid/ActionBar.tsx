@@ -7,7 +7,8 @@ import type { Density } from "./types";
 export interface ActionBarProps {
   searchValue: string;
   onSearchChange: (value: string) => void;
-  searchPlaceholder?: string;
+  /** The screen's own search hint, translated — "Search customers…". */
+  searchPlaceholder: string;
   density: Density;
   onDensityChange: (density: Density) => void;
   onRefresh: () => void;
@@ -23,29 +24,22 @@ export interface ActionBarProps {
   columnsSlot?: ReactNode;
   exportSlot?: ReactNode;
   extraActions?: ReactNode;
-  /** Translated overrides for this bar's own strings (density cycle,
-   * refresh). Defaults to English — optional so untranslated screens are
-   * unaffected. */
-  labels?: {
-    density?: Record<Density, string>;
-    densityTooltip?: (label: string) => string;
-    densityAriaLabel?: string;
-    refresh?: string;
-  };
+  labels: ActionBarLabels;
+}
+
+/** The bar's own strings (density cycle, refresh), translated by the
+ * caller — the kit ships no English of its own (KAN-364), so `tsc` refuses
+ * a caller that passes none. */
+export interface ActionBarLabels {
+  density: Record<Density, string>;
+  /** The density button's tooltip, given the current density's name. */
+  densityTooltip: (label: string) => string;
+  densityAriaLabel: string;
+  /** The refresh button's tooltip and accessible name. */
+  refresh: string;
 }
 
 const DENSITY_ORDER: Density[] = ["compact", "default", "comfortable"];
-const DEFAULT_DENSITY_LABEL: Record<Density, string> = {
-  compact: "Compact",
-  default: "Default",
-  comfortable: "Comfortable",
-};
-const DEFAULT_ACTION_BAR_LABELS = {
-  density: DEFAULT_DENSITY_LABEL,
-  densityTooltip: (label: string) => `Density: ${label}`,
-  densityAriaLabel: "Change row density",
-  refresh: "Refresh",
-};
 
 /**
  * § The Action Bar. "Every overview screen in every module has exactly
@@ -57,7 +51,7 @@ const DEFAULT_ACTION_BAR_LABELS = {
 export function ActionBar({
   searchValue,
   onSearchChange,
-  searchPlaceholder = "Search…",
+  searchPlaceholder,
   density,
   onDensityChange,
   onRefresh,
@@ -68,7 +62,7 @@ export function ActionBar({
   extraActions,
   labels,
 }: ActionBarProps) {
-  const L = { ...DEFAULT_ACTION_BAR_LABELS, ...labels, density: { ...DEFAULT_DENSITY_LABEL, ...labels?.density } };
+  const L = labels;
   const searchRef = useRef<HTMLInputElement>(null);
 
   // "Auto-focused on page load" (§ Action Bar, Zone 1).

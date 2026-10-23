@@ -44,6 +44,7 @@ import {
   userStatusTone,
 } from '../userOptions'
 import { formatDateOnly, formatDateTime, todayLocalIsoDate } from '../utils/format'
+import { useActionBarLabels } from '../hooks/useActionBarLabels'
 
 const GRID_KEY = 'administration.users.list'
 const DEFAULT_SORT: SortSpec[] = [
@@ -87,6 +88,7 @@ export function UsersListPage() {
   const savedViews = useSavedViews(GRID_KEY)
   const columnPanelLabels = useColumnPanelLabels()
   const viewsAndFiltersLabels = useViewsAndFiltersLabels()
+  const actionBarLabels = useActionBarLabels()
   const queryClient = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
   const chip = (searchParams.get('status') as Chip | null) ?? 'all'
@@ -412,6 +414,7 @@ export function UsersListPage() {
         header={<div />}
         actionBar={
           <ActionBar
+            labels={actionBarLabels}
             searchValue={query}
             onSearchChange={setQuery}
             searchPlaceholder={t('usersAdmin.searchPlaceholder')}
@@ -438,16 +441,6 @@ export function UsersListPage() {
               />
             }
             columnsSlot={<ColumnConfigPanel registry={columnRegistry} layout={columnLayout} onLayoutChange={gridPrefs.setColumnLayout} labels={columnPanelLabels} />}
-            labels={{
-              density: {
-                compact: t('common.density.compact'),
-                default: t('common.density.default'),
-                comfortable: t('common.density.comfortable'),
-              },
-              densityTooltip: (label) => t('common.density.tooltip', { label }),
-              densityAriaLabel: t('common.density.ariaLabel'),
-              refresh: t('common.refresh'),
-            }}
           />
         }
       >

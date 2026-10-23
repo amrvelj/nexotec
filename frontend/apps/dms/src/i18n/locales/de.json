@@ -108,6 +108,7 @@
       "viewsHeading": "Ansichten",
       "saveCurrentView": "Aktuelle Ansicht speichern als…",
       "savePlaceholder": "Name der Ansicht",
+      "confirmSaveView": "Ansicht speichern",
       "manageFiltersHeading": "Filter verwalten",
       "reset": "Zurücksetzen",
       "setDefault": "Als Standard festlegen",
@@ -120,7 +121,41 @@
       "matchCount_other": "{{count, number}} Treffer",
       "editFilter": "Filter bearbeiten",
       "duplicateFilter": "Filter duplizieren",
-      "deleteFilter": "Filter löschen"
+      "deleteFilter": "Filter löschen",
+      "conditions": {
+        "contains": "enthält",
+        "equals": "ist genau",
+        "notEquals": "ist nicht",
+        "is": "ist",
+        "isNot": "ist nicht",
+        "greaterThan": "grösser als",
+        "lessThan": "kleiner als",
+        "today": "heute",
+        "thisWeek": "diese Woche",
+        "thisMonth": "dieser Monat",
+        "thisYear": "dieses Jahr",
+        "inTheLastDays": "in den letzten N Tagen",
+        "moreThanDaysAgo": "vor mehr als N Tagen"
+      },
+      "predicateText": {
+        "contains": "{{field}}: enthält {{value}}",
+        "equals": "{{field}}: genau {{value}}",
+        "notEquals": "{{field}}: nicht {{value}}",
+        "is": "{{field}}: {{value}}",
+        "isNot": "{{field}}: nicht {{value}}",
+        "greaterThan": "{{field}}: mehr als {{value}}",
+        "lessThan": "{{field}}: weniger als {{value}}",
+        "today": "{{field}}: heute",
+        "thisWeek": "{{field}}: diese Woche",
+        "thisMonth": "{{field}}: dieser Monat",
+        "thisYear": "{{field}}: dieses Jahr",
+        "inTheLastDays_one": "{{field}}: innerhalb des letzten Tages",
+        "inTheLastDays_other": "{{field}}: in den letzten {{days, number}} Tagen",
+        "moreThanDaysAgo_one": "{{field}}: vor mehr als einem Tag",
+        "moreThanDaysAgo_other": "{{field}}: vor mehr als {{days, number}} Tagen"
+      },
+      "booleanTrue": "{{field}}: ja",
+      "booleanFalse": "{{field}}: nein"
     },
     "overlay": {
       "close": "Schliessen"

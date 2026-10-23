@@ -16,9 +16,10 @@ import { StockListPage } from '../pages/StockListPage'
 // showed "Views", "Manage filters", "+ New filter…", "Save" and "Cancel" in
 // every UI language, and the filter and view row actions and the overlay's
 // close button were English names no caller could change. The labels are
-// required now and every caller passes translated keys. Still English, and
-// not checked here: the Filter Builder's condition names and a saved filter's
-// text, written by the kit's `filterPredicate.ts` (KAN-415).
+// required now and every caller passes translated keys. The Filter Builder's
+// condition names and a saved filter's text (KAN-415), the save-view confirm
+// button's name (KAN-416) and the Action Bar's controls (KAN-364 part 2) are
+// keys too.
 //
 // Hardcoded French expectations, not i18n.t(): a key missing from both sides
 // must fail here.
@@ -40,7 +41,7 @@ afterEach(async () => {
   await i18n.changeLanguage('de')
 })
 
-const ENGLISH = /^(\+ New filter…|New filter…|Views|Manage filters|Save current view as…|Reset|Delete view|Edit filter|Duplicate filter|Delete filter|Save|Cancel|Close|Primary|No longer valid|Does not work|Consent)$/
+const ENGLISH = /^(\+ New filter…|New filter…|Views|Manage filters|Save current view as…|Reset|Delete view|Edit filter|Duplicate filter|Delete filter|Save|Cancel|Close|Primary|No longer valid|Does not work|Consent|Save view|contains|is exactly|is not|is|equals|greater than|less than|is today|is this week|is this month|is this year|is in the last N days|is more than N days ago|.* (contains|is exactly|is not|is|equals) .*|Not .*|Refresh|Change row density)$/
 function englishOnScreen(): string[] {
   const found: string[] = []
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
@@ -85,11 +86,20 @@ describe('kit components speak the UI language on the app\'s screens (KAN-364)',
     expect(screen.getByText('Gérer les filtres')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Enregistrer la vue actuelle sous…' })).toBeInTheDocument()
 
+    expect(screen.getByRole('button', { name: 'Actualiser' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Modifier la densité des lignes' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Enregistrer la vue actuelle sous…' }))
+    expect(screen.getByRole('button', { name: 'Enregistrer la vue' })).toBeInTheDocument()
+
     await user.click(screen.getByRole('button', { name: 'Nouveau filtre…' }))
     expect(screen.getByRole('button', { name: 'Enregistrer' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Annuler' })).toBeInTheDocument()
+    expect(screen.getAllByRole('option', { name: 'est' }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('option', { name: "n'est pas" }).length).toBeGreaterThan(0)
     await user.click(screen.getByRole('button', { name: 'Enregistrer' }))
     expect(await screen.findByRole('button', { name: 'Modifier le filtre' })).toBeInTheDocument()
+    // KAN-415: the saved filter is French text, not "… is Pipeline".
+    expect(screen.getByText('Statut de stock : Pipeline')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Dupliquer le filtre' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Supprimer le filtre' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Réinitialiser' })).toBeInTheDocument()
