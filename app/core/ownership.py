@@ -104,10 +104,11 @@ class OwnershipProvider(Protocol):
         """Moves every open record of `transfer.group` from the user to the
         colleague (or to nobody), on a session of its own that this method
         commits (ADR-047). Returns how many records moved. An unknown group
-        for this module is a `ValueError`. A colleague who cannot act in a
-        Betrieb some of the records belong to is refused as a whole — a 422
-        saying how many records are elsewhere, never which Betrieb, nothing
-        moved — so the manager chooses the queue for that group instead. `reason` is the manager's text (or the job's code)
+        for this module is a `ValueError`. A colleague who cannot act where
+        some of the records belong — a Betrieb for Sales' deals, a Betrieb of
+        the dealer group for Customers' customers (KAN-423) — is refused as a
+        whole: a 422 saying how many records are elsewhere, never where,
+        nothing moved — so the manager chooses the queue for that group instead. `reason` is the manager's text (or the job's code)
         for the module's own audit rows."""
         ...
 

@@ -49,6 +49,7 @@ def _real_dealer_groups(client):
 
 
 def _dealer_group(dealership: str) -> uuid.UUID:
+    assert _CLIENT, "import the _real_dealer_groups fixture into the test module that mints tokens with _as"
     if dealership not in _DEALER_GROUPS:
         body = _CLIENT[0].get(f"/v1/dealerships/{dealership}", headers=platform_admin_headers()).json()
         _DEALER_GROUPS[dealership] = uuid.UUID(body["dealerGroupId"])

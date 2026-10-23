@@ -12,6 +12,7 @@ import uuid
 import pytest
 
 from app.core.auth import AccessRole, create_access_token
+from app.core.ownership import ownership_provider
 from tests.identity_support import PasswordLogin, create_dealership, create_user, deactivate, platform_admin_headers
 from tests.membership_support import create_dealership as create_sister
 from tests.membership_support import grant
@@ -93,7 +94,10 @@ def test_a_hand_over_of_customers_from_another_dealer_group_is_refused_and_the_q
         "colleague_cannot_act_there",
         1,
     )
-    assert other_group not in refused.text  # never names the other Betrieb or its group
+    other_dealer_group = client.get(f"/v1/dealerships/{other_group}", headers=platform_admin_headers()).json()[
+        "dealerGroupId"
+    ]
+    assert other_group not in refused.text and other_dealer_group not in refused.text  # never names either
     assert _version(client, home, leaver) == version  # nothing written: the step refused before access was cut
     still = client.get(f"/v1/customers/{customer['id']}", headers=_acting_in(client, leaver, other_group))
     assert still.json()["advisorId"] == leaver["id"]
@@ -107,9 +111,10 @@ def test_a_hand_over_of_customers_from_another_dealer_group_is_refused_and_the_q
     )
 
     assert released.status_code == 200, released.text
-    queued = client.get("/v1/customers?unassigned=true", headers=_acting_in(client, colleague, home))
-    assert queued.status_code == 200, queued.text
     reader = create_user(client, other_group, firstName="Rita", lastName="Reader")
+    queued = client.get("/v1/customers?unassigned=true", headers=_acting_in(client, reader, other_group))
+    assert queued.status_code == 200, queued.text
+    assert customer["id"] in {row["id"] for row in queued.json()["items"]}  # the customers' own group's queue
     after = client.get(f"/v1/customers/{customer['id']}", headers=_acting_in(client, reader, other_group))
     assert after.json()["advisorId"] is None
 
@@ -154,3 +159,37 @@ def test_a_colleague_who_is_a_member_in_the_other_group_may_take_them(client, lo
     assert handed.status_code == 200, handed.text
     after = client.get(f"/v1/customers/{customer['id']}", headers=_acting_in(client, colleague, other_group))
     assert after.json()["advisorId"] == colleague["id"]
+
+
+def test_the_hand_over_judges_the_colleague_again_under_the_rows_locks(client, login, monkeypatch):
+    """`refuses` reads the customers unlocked, before access is cut; the
+    transfer locks them and judges again before it writes (a membership could
+    end, or a customer be created, in between). Standing in for that race,
+    `refuses` lets everything through: the transfer still refuses — answered
+    as the group's `failed` entry with the same reason, the customer left
+    with the leaver for the retry."""
+
+    home = create_dealership(client)
+    create_user(client, home)
+    other_group = create_dealership(client)
+    leaver, colleague = _member_of(client, login, home, other_group)
+    customer = _customer_created_by(client, leaver, other_group)
+    customers = ownership_provider("customer")
+    assert customers is not None
+    monkeypatch.setattr(customers, "refuses", lambda *args, **kwargs: None)
+
+    response = deactivate(
+        client,
+        home,
+        leaver,
+        if_match=_version(client, home, leaver),
+        transfers=[{"module": "customer", "group": "customers", "toUserId": colleague["id"]}],
+    )
+
+    assert response.status_code == 200, response.text
+    [failed] = response.json()["failed"]
+    assert (failed["module"], failed["group"], failed["reason"]) == ("customer", "customers", "colleague_cannot_act_there")
+    still = client.get(f"/v1/customers/{customer['id']}", headers=_acting_in(client, leaver, other_group))
+    assert still.json()["advisorId"] == leaver["id"]
+    owned = client.get(f"/v1/dealerships/{home}/users/{leaver['id']}/ownership", headers=platform_admin_headers())
+    assert {"module": "customer", "group": "customers", "count": 1} in owned.json()["groups"]
