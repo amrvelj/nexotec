@@ -928,6 +928,9 @@ def test_a_sister_betrieb_members_deals_are_theirs_and_go_to_a_colleague_who_act
         },
         headers=_acting_in(second, sister),
     ).json()
+    # KAN-410 (Anto, 2026-10-23, option B): the member advises the customer
+    # they created there, as they own the contract — the step decides both.
+    assert buyer["advisorId"] == second["id"]
     theirs = client.post("/v1/sales/contracts", json={"customerId": buyer["id"]}, headers=_acting_in(second, sister))
     assert theirs.status_code == 201, theirs.text
     assert theirs.json()["ownerUserId"] == second["id"]
@@ -940,7 +943,10 @@ def test_a_sister_betrieb_members_deals_are_theirs_and_go_to_a_colleague_who_act
         second,
         headers=_as(manager, manager=True),
         if_match=version,
-        transfers=[{"module": "sales", "group": "contracts", "toUserId": None}],
+        transfers=[
+            {"module": "sales", "group": "contracts", "toUserId": None},
+            {"module": "customer", "group": "customers", "toUserId": None},
+        ],
     )
     assert released.status_code == 200, released.text
     queue_there = client.get("/v1/sales/deals?unassigned=true", headers=_acting_in(member_too, sister)).json()

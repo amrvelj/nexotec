@@ -68,10 +68,9 @@ from app.customer.schemas.customer import (
 )
 from app.platform.public import (
     get_active_reference_value_codes,
+    get_active_user_acting_in,
     get_group_display_labels,
-    get_user_or_404,
-    list_active_users,
-    may_own_open_records,
+    list_active_users_acting_in,
 )
 from app.vehicle.public import VehicleSummary, get_vehicle_mdm_or_404, get_vehicle_summaries
 
@@ -267,22 +266,18 @@ def _validate_country_codes(db: Session, values: dict[str, str | None]) -> None:
 
 def _resolve_advisor_label(db: Session, *, dealership_id: uuid.UUID, user_id: uuid.UUID) -> str:
     """Resolve a User id to its `First Last` label for the P-2 denormalised
-    `advisor_label` column. Scoped to the acting dealership: users are
-    dealership-owned and there is no group-wide user directory, so "the
-    advisor" is a user of the dealership doing the assignment. And one who
-    may own an open record (`may_own_open_records`, the status rule Sales'
-    responsible seller uses — KAN-410): a suspended or deactivated user
-    advises no customer, since the deactivation step hands a leaver's
-    customers over (FR-A-37, D-A-35) and a write must not put them back.
+    `advisor_label` column. Scoped to the acting dealership: "the advisor" is
+    someone who may own an open record there — Sales' rule for a responsible
+    seller, platform's one predicate (`get_active_user_acting_in`; KAN-410,
+    Anto 2026-10-23): homed in the Betrieb or an active member of it (a
+    sister-Betrieb colleague who works here advises the customers they take
+    on here), and active or invited. A suspended or deactivated user advises
+    no customer, since the deactivation step hands a leaver's customers over
+    (FR-A-37, D-A-35) and a write must not put them back.
     """
 
-    try:
-        user = get_user_or_404(db, dealership_id, user_id)
-    except NotFoundError as exc:
-        raise UnprocessableEntityError(
-            "advisorId is not a user of your dealership.", details={"advisorId": str(user_id)}
-        ) from exc
-    if not may_own_open_records(user):
+    user = get_active_user_acting_in(db, dealership_id=dealership_id, user_id=user_id)
+    if user is None:
         raise UnprocessableEntityError(
             "advisorId is not an active user of your dealership.", details={"advisorId": str(user_id)}
         )
@@ -290,12 +285,14 @@ def _resolve_advisor_label(db: Session, *, dealership_id: uuid.UUID, user_id: uu
 
 
 def list_advisor_options(db: Session, *, dealership_id: uuid.UUID) -> list[dict[str, Any]]:
-    """Active users of the acting dealership, as advisor-picker options
-    (KAN-50). Same `First Last` label that lands in Customer.advisor_label."""
+    """Everyone `_resolve_advisor_label` admits for the acting dealership —
+    its active and invited users and its active members (KAN-410) — as
+    advisor-picker options (KAN-50). Same `First Last` label that lands in
+    Customer.advisor_label."""
 
     return [
         {"id": user.id, "label": f"{user.first_name} {user.last_name}".strip()}
-        for user in list_active_users(db, dealership_id=dealership_id)
+        for user in list_active_users_acting_in(db, dealership_id=dealership_id)
     ]
 
 

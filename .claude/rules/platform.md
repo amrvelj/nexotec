@@ -186,11 +186,13 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   pending contracts, which carry a responsible seller `owner_user_id` since KAN-200, Anto
   2026-10-19; inventory, aftersales, parts: nothing per user). A user id names one person
   platform-wide, so a provider counts what the user owns **everywhere** — a sister-Betrieb
-  member's offers there included (`platform.public.get_user_acting_in` is how Sales admits a
-  seller: homed or an active member, status active or invited) — and a hand-over to a colleague
+  member's offers and customers there included (`platform.public.get_active_user_acting_in` is
+  how Sales admits a seller and Customers an advisor: homed or an active member, status active
+  or invited — KAN-410, Anto 2026-10-23) — and a Sales hand-over to a colleague
   who cannot act in one of those Betriebe is refused as a whole (422 saying how many records
   are elsewhere, never which Betrieb — an id is a fact the caller may not hold): the manager
-  picks the queue for that group, and that Betrieb hands them over from its own queue. **The
+  picks the queue for that group, and that Betrieb hands them over from its own queue. Customers
+  refuse no colleague: a customer belongs to the group. **The
   home manager decides for every Betrieb the leaver worked in** (Anto, 2026-10-20, ADR-094) —
   not the sister's queue only, not a refusal until the sister handed over. `GET …/users/{id}/ownership`
   lists the groups; `POST …/users/{id}/deactivate` needs a decision for every group (an

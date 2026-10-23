@@ -102,7 +102,7 @@ ADR-057, ADR-063, ADR-065, ADR-083 and KAN-66/68/71. Verified against main@7a90a
 
 - `sales_offer`, `sales_contract` and `sales_deal` carry `owner_user_id` + `owner_label` +
   `owner_label_refreshed_at` (rule 2): who the open deal belongs to — the creator by default
-  when they act in the Betrieb (homed or an active member, `platform.public.get_user_acting_in`),
+  when they act in the Betrieb (homed or an active member, active or invited — `platform.public.get_active_user_acting_in`, the customer's advisor's rule too, KAN-410),
   a colleague after a hand-over, nobody once a leaver's deals went to the unassigned queue.
   `created_by` stays who typed it (A-RULE-5). The workspace PATCH takes `ownerUserId` (422 for
   someone who does not act there or is suspended/deactivated; null clears); a contract takes
