@@ -61,18 +61,18 @@ describe('deriveFilterFields', () => {
 describe('conditionsForField', () => {
   it('narrows the type’s full condition set to the declared subset', () => {
     const [typeField, changedField] = deriveFilterFields(columns)
-    expect(conditionsForField(typeField).map((c) => c.value)).toEqual(['is'])
-    expect(conditionsForField(changedField).map((c) => c.value)).toEqual(['today', 'inTheLastDays'])
+    expect(conditionsForField(typeField)).toEqual(['is'])
+    expect(conditionsForField(changedField)).toEqual(['today', 'inTheLastDays'])
     // "is not" (select) and "more than N days ago" (date) are deliberately
     // absent — the customer list endpoint cannot express either.
-    expect(conditionsForField(changedField).map((c) => c.value)).not.toContain('moreThanDaysAgo')
+    expect(conditionsForField(changedField)).not.toContain('moreThanDaysAgo')
   })
 
   it('offers every condition for the type when no subset is declared', () => {
     const [field] = deriveFilterFields([
       { id: 'x', header: 'X', cell: () => null, meta: { filter: { type: 'select' } } },
     ])
-    expect(conditionsForField(field).map((c) => c.value)).toEqual(['is', 'isNot'])
+    expect(conditionsForField(field)).toEqual(['is', 'isNot'])
   })
 
   it('falls back to the full set rather than an empty menu if the subset matches nothing', () => {

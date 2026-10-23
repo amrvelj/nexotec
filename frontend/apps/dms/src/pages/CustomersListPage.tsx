@@ -60,6 +60,7 @@ import { formatCurrencyChf, formatDate, formatDateOnly, todayLocalIsoDate } from
 import { customerName } from '../utils/customer'
 import { exportRowsToCsv, printRows, type ExportColumn } from '../utils/gridExport'
 import type { CustomerPage, CustomerRead, SalesContractRead, SalesOfferRead } from '../api/types'
+import { useActionBarLabels } from '../hooks/useActionBarLabels'
 
 const GRID_KEY = 'mdm.customers.list'
 const DEFAULT_SORT: SortSpec[] = [{ field: 'updatedAt', direction: 'desc' }]
@@ -552,6 +553,7 @@ export function CustomersListPage() {
   )
   const columnPanelLabels = useColumnPanelLabels()
   const viewsAndFiltersLabels = useViewsAndFiltersLabels()
+  const actionBarLabels = useActionBarLabels()
 
   const sortParam = sort.length > 0 ? sort.map((s) => `${s.field}:${s.direction}`).join(',') : undefined
 
@@ -699,6 +701,7 @@ export function CustomersListPage() {
         actionBar={
           <>
             <ActionBar
+              labels={actionBarLabels}
               searchValue={query}
               onSearchChange={setQuery}
               searchPlaceholder={t('customersList.searchPlaceholder')}
@@ -737,16 +740,6 @@ export function CustomersListPage() {
                   labels={columnPanelLabels}
                 />
               }
-              labels={{
-                density: {
-                  compact: t('common.density.compact'),
-                  default: t('common.density.default'),
-                  comfortable: t('common.density.comfortable'),
-                },
-                densityTooltip: (label) => t('common.density.tooltip', { label }),
-                densityAriaLabel: t('common.density.ariaLabel'),
-                refresh: t('common.refresh'),
-              }}
             />
 
             {selectedIds.size > 0 ? (

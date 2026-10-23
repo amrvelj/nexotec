@@ -1,7 +1,13 @@
 import { useEffect, useState } from "react";
 import { Copy, Pencil, Plus, Trash2 } from "lucide-react";
 import { purple, radius, slate, spacing, white } from "../tokens";
-import { conditionsForField, describePredicate, type FilterFieldDef, type FilterPredicate } from "./filterPredicate";
+import {
+  conditionsForField,
+  describePredicate,
+  type FilterConditionLabels,
+  type FilterFieldDef,
+  type FilterPredicate,
+} from "./filterPredicate";
 
 export interface FilterBuilderProps {
   /** Derived from the grid's own column defs (§ Action Bar: "the field
@@ -21,8 +27,9 @@ export interface FilterBuilderProps {
 
 /** Every string the Filter Builder shows or announces, translated by the
  * caller — the kit ships no English of its own (KAN-364), so `tsc` refuses
- * a caller that passes none. */
-export interface FilterBuilderLabels {
+ * a caller that passes none. The condition names and a saved filter's text
+ * come from `FilterConditionLabels` (KAN-415). */
+export interface FilterBuilderLabels extends FilterConditionLabels {
   /** The add button's text; the button draws its own "+" icon. */
   addFilter: string;
   save: string;
@@ -36,7 +43,7 @@ export interface FilterBuilderLabels {
 }
 
 function defaultPredicateFor(field: FilterFieldDef): FilterPredicate {
-  const condition = conditionsForField(field)[0].value;
+  const condition = conditionsForField(field)[0];
   return {
     id: crypto.randomUUID(),
     fieldId: field.id,
@@ -129,7 +136,7 @@ export function FilterBuilder({ fields, predicates, onChange, onPreviewCount, la
             }}
           >
             <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {describePredicate(predicate, field)}
+              {describePredicate(predicate, field, L)}
             </span>
             <IconButton ariaLabel={L.editFilter} onClick={() => startEdit(predicate)}>
               <Pencil size={14} />
@@ -200,7 +207,7 @@ function PredicateEditorRow({
   onCancel: () => void;
   onPreviewCount?: (predicates: FilterPredicate[]) => Promise<number>;
   otherPredicates: FilterPredicate[];
-  labels: Pick<FilterBuilderLabels, "save" | "cancel" | "matchCount">;
+  labels: Pick<FilterBuilderLabels, "save" | "cancel" | "matchCount" | "conditions">;
 }) {
   const [count, setCount] = useState<number | null>(null);
   const field = fields.find((f) => f.id === draft.fieldId);
@@ -223,7 +230,7 @@ function PredicateEditorRow({
   const changeField = (fieldId: string) => {
     const newField = fields.find((f) => f.id === fieldId);
     if (!newField) return;
-    const condition = conditionsForField(newField)[0].value;
+    const condition = conditionsForField(newField)[0];
     onDraftChange({
       ...draft,
       fieldId,
@@ -263,8 +270,8 @@ function PredicateEditorRow({
         style={selectStyle}
       >
         {conditionsForField(field).map((c) => (
-          <option key={c.value} value={c.value}>
-            {c.label}
+          <option key={c} value={c}>
+            {labels.conditions[c]}
           </option>
         ))}
       </select>

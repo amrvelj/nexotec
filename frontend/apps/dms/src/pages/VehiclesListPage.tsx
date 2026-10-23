@@ -11,6 +11,7 @@ import { api } from '../api/client'
 import { VehicleCreateDialog } from '../components/vehicle/VehicleCreateDialog'
 import type { VehicleMdmRead, VehicleSearchResult } from '../api/types'
 import { parseSortParam, serializeSort } from '../utils/sortParam'
+import { useActionBarLabels } from '../hooks/useActionBarLabels'
 
 const GRID_KEY = 'mdm.vehicles.list'
 
@@ -25,6 +26,7 @@ const GRID_KEY = 'mdm.vehicles.list'
  */
 export function VehiclesListPage() {
   const { t } = useTranslation()
+  const actionBarLabels = useActionBarLabels()
   useSetBreadcrumb([t('shell.nav.masterData'), t('shell.nav.vehicles')])
   const navigate = useNavigate()
   const { density, setDensity } = useUiPreferencesContext()
@@ -163,16 +165,7 @@ export function VehiclesListPage() {
           if (showsHit) void unfilteredQuery.refetch()
         }}
         refreshing={searchQuery.isRefetching || (showsHit && unfilteredQuery.isRefetching)}
-        labels={{
-          density: {
-            compact: t('common.density.compact'),
-            default: t('common.density.default'),
-            comfortable: t('common.density.comfortable'),
-          },
-          densityTooltip: (label) => t('common.density.tooltip', { label }),
-          densityAriaLabel: t('common.density.ariaLabel'),
-          refresh: t('common.refresh'),
-        }}
+        labels={actionBarLabels}
       />
 
       {selectedIds.size > 0 && (

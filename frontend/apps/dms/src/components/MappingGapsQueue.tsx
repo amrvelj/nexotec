@@ -13,6 +13,7 @@ import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import type { MappingGapPage, MappingGapRead } from '../api/types'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
 import { formatDate, formatNumber } from '../utils/format'
+import { useActionBarLabels } from '../hooks/useActionBarLabels'
 
 const GRID_KEY = 'vehicleMdm.mappingGaps'
 
@@ -46,6 +47,7 @@ interface MappingGapsQueueProps {
  */
 export function MappingGapsQueue({ paramPrefix = '' }: MappingGapsQueueProps) {
   const { t, i18n } = useTranslation()
+  const actionBarLabels = useActionBarLabels()
   const locale = toSwissLocale(i18n.language as SupportedLanguage)
   const { density, setDensity } = useUiPreferencesContext()
   const queryClient = useQueryClient()
@@ -181,16 +183,7 @@ export function MappingGapsQueue({ paramPrefix = '' }: MappingGapsQueueProps) {
         onDensityChange={setDensity}
         onRefresh={() => refetch()}
         refreshing={isRefetching}
-        labels={{
-          density: {
-            compact: t('common.density.compact'),
-            default: t('common.density.default'),
-            comfortable: t('common.density.comfortable'),
-          },
-          densityTooltip: (label) => t('common.density.tooltip', { label }),
-          densityAriaLabel: t('common.density.ariaLabel'),
-          refresh: t('common.refresh'),
-        }}
+        labels={actionBarLabels}
       />
 
       <DataGrid<MappingGapRead>

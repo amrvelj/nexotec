@@ -252,7 +252,10 @@ describe('CustomersListPage — filters track the column registry (ADR-058)', ()
     const conditionSelect = combos[1]
 
     // Default field is a select field -> only "is", never "is not".
-    expect(within(conditionSelect).getAllByRole('option').map((o) => o.textContent)).toEqual(['is'])
+    // The option names are translated keys (KAN-415), not the condition values.
+    expect(within(conditionSelect).getAllByRole('option').map((o) => o.textContent)).toEqual([
+      i18n.t('common.filterBuilder.conditions.is'),
+    ])
 
     // Switch to the date field -> every relative condition except
     // "more than N days ago" (there is no "changed before" parameter).
@@ -260,7 +263,7 @@ describe('CustomersListPage — filters track the column registry (ADR-058)', ()
     const dateConditions = within(screen.getAllByRole('combobox')[1])
       .getAllByRole('option')
       .map((o) => o.textContent ?? '')
-    expect(dateConditions.some((c) => /more than/i.test(c))).toBe(false)
+    expect(dateConditions).not.toContain(i18n.t('common.filterBuilder.conditions.moreThanDaysAgo'))
     expect(dateConditions.length).toBeGreaterThan(0)
   })
 })

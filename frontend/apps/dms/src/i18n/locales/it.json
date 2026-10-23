@@ -108,6 +108,7 @@
       "viewsHeading": "Viste",
       "saveCurrentView": "Salva la vista attuale come…",
       "savePlaceholder": "Nome della vista",
+      "confirmSaveView": "Salva vista",
       "manageFiltersHeading": "Gestisci filtri",
       "reset": "Reimposta",
       "setDefault": "Imposta come predefinita",
@@ -120,7 +121,41 @@
       "matchCount_other": "{{count, number}} risultati",
       "editFilter": "Modifica filtro",
       "duplicateFilter": "Duplica filtro",
-      "deleteFilter": "Elimina filtro"
+      "deleteFilter": "Elimina filtro",
+      "conditions": {
+        "contains": "contiene",
+        "equals": "è esattamente",
+        "notEquals": "non è",
+        "is": "è",
+        "isNot": "non è",
+        "greaterThan": "maggiore di",
+        "lessThan": "minore di",
+        "today": "oggi",
+        "thisWeek": "questa settimana",
+        "thisMonth": "questo mese",
+        "thisYear": "quest'anno",
+        "inTheLastDays": "negli ultimi N giorni",
+        "moreThanDaysAgo": "più di N giorni fa"
+      },
+      "predicateText": {
+        "contains": "{{field}} contiene {{value}}",
+        "equals": "{{field}} è esattamente {{value}}",
+        "notEquals": "{{field}} non è {{value}}",
+        "is": "{{field}} è {{value}}",
+        "isNot": "{{field}} non è {{value}}",
+        "greaterThan": "{{field}} maggiore di {{value}}",
+        "lessThan": "{{field}} minore di {{value}}",
+        "today": "{{field}}: oggi",
+        "thisWeek": "{{field}}: questa settimana",
+        "thisMonth": "{{field}}: questo mese",
+        "thisYear": "{{field}}: quest'anno",
+        "inTheLastDays_one": "{{field}}: nell'ultimo giorno",
+        "inTheLastDays_other": "{{field}}: negli ultimi {{days}} giorni",
+        "moreThanDaysAgo_one": "{{field}}: più di un giorno fa",
+        "moreThanDaysAgo_other": "{{field}}: più di {{days}} giorni fa"
+      },
+      "booleanTrue": "{{field}}: sì",
+      "booleanFalse": "{{field}}: no"
     },
     "overlay": {
       "close": "Chiudi"

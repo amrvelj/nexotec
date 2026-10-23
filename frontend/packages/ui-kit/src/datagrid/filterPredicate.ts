@@ -68,31 +68,42 @@ export interface FilterPredicate {
   days?: number;
 }
 
-export const CONDITIONS_BY_TYPE: Record<FilterFieldType, { value: string; label: string }[]> = {
-  text: [
-    { value: "contains", label: "contains" },
-    { value: "equals", label: "is exactly" },
-    { value: "notEquals", label: "is not" },
-  ],
-  select: [
-    { value: "is", label: "is" },
-    { value: "isNot", label: "is not" },
-  ],
-  number: [
-    { value: "equals", label: "equals" },
-    { value: "greaterThan", label: "greater than" },
-    { value: "lessThan", label: "less than" },
-  ],
-  boolean: [{ value: "is", label: "is" }],
-  date: [
-    { value: "today", label: "is today" },
-    { value: "thisWeek", label: "is this week" },
-    { value: "thisMonth", label: "is this month" },
-    { value: "thisYear", label: "is this year" },
-    { value: "inTheLastDays", label: "is in the last N days" },
-    { value: "moreThanDaysAgo", label: "is more than N days ago" },
-  ],
+/** Every condition value a predicate can store. The values are stable —
+ * saved views keep them and grids send them as query parameters — so a
+ * label never changes one. */
+export type FilterCondition = TextCondition | SelectCondition | NumberCondition | BooleanCondition | DateCondition;
+
+export const CONDITIONS_BY_TYPE: Record<FilterFieldType, FilterCondition[]> = {
+  text: ["contains", "equals", "notEquals"],
+  select: ["is", "isNot"],
+  number: ["equals", "greaterThan", "lessThan"],
+  boolean: ["is"],
+  date: ["today", "thisWeek", "thisMonth", "thisYear", "inTheLastDays", "moreThanDaysAgo"],
 };
+
+/** What a saved filter's text is built from: the field's label, the
+ * value as shown (a select option's label, not its stored value), and the
+ * day count of the two N-days conditions. */
+export interface PredicateTextParts {
+  field: string;
+  value: string;
+  days: number;
+}
+
+/** Every string the kit needs to name a condition or write a predicate
+ * out, translated by the caller (KAN-415). A saved filter's text is one
+ * template per condition rather than field + condition + value glued
+ * together, so each language keeps its own word order. */
+export interface FilterConditionLabels {
+  /** The condition dropdown's options, keyed by condition value. */
+  conditions: Record<FilterCondition, string>;
+  /** A saved filter's text, keyed by condition value — "Canton contient
+   * « ZH »", "Modifié au cours des 30 derniers jours". A boolean field uses
+   * `booleanTrue`/`booleanFalse` instead. */
+  predicateText: Record<FilterCondition, (parts: PredicateTextParts) => string>;
+  booleanTrue: (field: string) => string;
+  booleanFalse: (field: string) => string;
+}
 
 /**
  * The conditions a field actually offers — the type's full set
@@ -101,11 +112,11 @@ export const CONDITIONS_BY_TYPE: Record<FilterFieldType, { value: string; label:
  * backing endpoint cannot honour (which would otherwise be accepted and
  * then silently dropped).
  */
-export function conditionsForField(field: FilterFieldDef): { value: string; label: string }[] {
+export function conditionsForField(field: FilterFieldDef): FilterCondition[] {
   const all = CONDITIONS_BY_TYPE[field.type];
   if (!field.conditions) return all;
   const allowed = new Set(field.conditions);
-  const narrowed = all.filter((c) => allowed.has(c.value));
+  const narrowed = all.filter((c) => allowed.has(c));
   return narrowed.length > 0 ? narrowed : all;
 }
 
@@ -177,24 +188,19 @@ export function resolveRelativeDateRange(condition: DateCondition, days: number 
   }
 }
 
-/** A human-readable chip label — "Canton is ZH", "Changed in the last 30
- * days" — for `FilterChips`/the "Manage filters" list. */
-export function describePredicate(predicate: FilterPredicate, field: FilterFieldDef): string {
-  const conditionLabel =
-    CONDITIONS_BY_TYPE[predicate.type].find((c) => c.value === predicate.condition)?.label ?? predicate.condition;
-
-  if (predicate.type === "select" && field.options) {
-    const optionLabel = field.options.find((o) => o.value === predicate.value)?.label ?? String(predicate.value);
-    return `${field.label} ${conditionLabel} ${optionLabel}`;
-  }
-  if (predicate.type === "date" && (predicate.condition === "inTheLastDays" || predicate.condition === "moreThanDaysAgo")) {
-    return `${field.label} ${conditionLabel.replace("N", String(predicate.days ?? 0))}`;
-  }
-  if (predicate.type === "date") {
-    return `${field.label} ${conditionLabel}`;
-  }
+/** A saved filter's text for the "Manage filters" list — "Canton is ZH",
+ * "Changed in the last 30 days" — in the caller's language. A condition
+ * the field's type does not know (a stale saved view) reads as the field's
+ * label alone rather than as a raw condition value. */
+export function describePredicate(predicate: FilterPredicate, field: FilterFieldDef, labels: FilterConditionLabels): string {
   if (predicate.type === "boolean") {
-    return predicate.value ? field.label : `Not ${field.label}`;
+    return predicate.value ? labels.booleanTrue(field.label) : labels.booleanFalse(field.label);
   }
-  return `${field.label} ${conditionLabel} ${predicate.value ?? ""}`.trim();
+  const condition = CONDITIONS_BY_TYPE[predicate.type].find((c) => c === predicate.condition);
+  if (!condition) return field.label;
+  const value =
+    predicate.type === "select"
+      ? (field.options?.find((o) => o.value === predicate.value)?.label ?? String(predicate.value ?? ""))
+      : String(predicate.value ?? "");
+  return labels.predicateText[condition]({ field: field.label, value, days: predicate.days ?? 0 });
 }

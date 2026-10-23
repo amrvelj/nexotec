@@ -46,14 +46,15 @@ change plus an ADR — never a local component. No colour outside the tokens.
 A kit component never ships a user-visible string of its own, accessible names included: it
 takes required labels, so `tsc` refuses a caller without translations. True today for the
 badges (a required `label`), `ColumnConfigPanel` (the app passes `useColumnPanelLabels()`),
-`ViewsAndFilters` with its `FilterBuilder` (`useViewsAndFiltersLabels()`) — except the Filter
-Builder's condition names and saved-filter text, still English in `filterPredicate.ts`
-(KAN-415) — `RepeatableRowGroup`
-(a customer's contact rows pass `contactPointRowLabels(t)`) and `OverlayProvider`'s
-`closeLabel` (KAN-110, KAN-181, KAN-334, KAN-362, KAN-364). **Not yet true for the rest of the
-kit (KAN-364's remaining PRs):** `DataGrid`, `Wizard`, `GlobalSearch`, `ActionBar`,
-`FilterChips`, `SelectionBar`, `Picker`, `InlineEditField`, `DocumentPreview` and `PresentMode`
-still merge English defaults — pass every label a component takes.
+`ViewsAndFilters` with its `FilterBuilder` (`useViewsAndFiltersLabels()`), the condition names
+and a saved filter's text included — one translated template per condition, never field +
+condition + value glued together in the kit (KAN-415) — `RepeatableRowGroup`
+(a customer's contact rows pass `contactPointRowLabels(t)`), `OverlayProvider`'s
+`closeLabel`, `ActionBar` (`useActionBarLabels()`), `SelectionBar` and `FilterChips` (KAN-110,
+KAN-181, KAN-334, KAN-362, KAN-364, KAN-416). **Not yet true for the rest of the kit (KAN-364's
+remaining PRs):** `DataGrid`, `Wizard`, `GlobalSearch`, `Picker`, `InlineEditField`,
+`DocumentPreview` and `PresentMode` still merge English defaults — pass every label a component
+takes.
 
 ## The rulings that bite most often
 

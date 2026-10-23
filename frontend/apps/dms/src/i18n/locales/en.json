@@ -108,6 +108,7 @@
       "viewsHeading": "Views",
       "saveCurrentView": "Save current view as…",
       "savePlaceholder": "View name",
+      "confirmSaveView": "Save view",
       "manageFiltersHeading": "Manage filters",
       "reset": "Reset",
       "setDefault": "Set as default",
@@ -120,7 +121,41 @@
       "matchCount_other": "{{count, number}} matches",
       "editFilter": "Edit filter",
       "duplicateFilter": "Duplicate filter",
-      "deleteFilter": "Delete filter"
+      "deleteFilter": "Delete filter",
+      "conditions": {
+        "contains": "contains",
+        "equals": "is exactly",
+        "notEquals": "is not",
+        "is": "is",
+        "isNot": "is not",
+        "greaterThan": "greater than",
+        "lessThan": "less than",
+        "today": "is today",
+        "thisWeek": "is this week",
+        "thisMonth": "is this month",
+        "thisYear": "is this year",
+        "inTheLastDays": "is in the last N days",
+        "moreThanDaysAgo": "is more than N days ago"
+      },
+      "predicateText": {
+        "contains": "{{field}} contains {{value}}",
+        "equals": "{{field}} is exactly {{value}}",
+        "notEquals": "{{field}} is not {{value}}",
+        "is": "{{field}} is {{value}}",
+        "isNot": "{{field}} is not {{value}}",
+        "greaterThan": "{{field}} is greater than {{value}}",
+        "lessThan": "{{field}} is less than {{value}}",
+        "today": "{{field}} is today",
+        "thisWeek": "{{field}} is this week",
+        "thisMonth": "{{field}} is this month",
+        "thisYear": "{{field}} is this year",
+        "inTheLastDays_one": "{{field}} is in the last day",
+        "inTheLastDays_other": "{{field}} is in the last {{days}} days",
+        "moreThanDaysAgo_one": "{{field}} is more than a day ago",
+        "moreThanDaysAgo_other": "{{field}} is more than {{days}} days ago"
+      },
+      "booleanTrue": "{{field}}: yes",
+      "booleanFalse": "{{field}}: no"
     },
     "overlay": {
       "close": "Close"

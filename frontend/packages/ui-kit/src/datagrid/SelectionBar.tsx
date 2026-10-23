@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { X } from "lucide-react";
 import { purple, radius, semantic, spacing, typography } from "../tokens";
-import { formatNumber } from "../format/swissNumber";
 
 export interface SelectionBarAction {
   label: string;
@@ -14,10 +13,11 @@ export interface SelectionBarProps {
   count: number;
   onClear: () => void;
   actions: SelectionBarAction[];
-  clearLabel?: string;
-  /** Defaults to "N selected" — pass a translated pluralizer for anything
-   * else. */
-  countLabel?: (count: number) => string;
+  /** Accessible name of the icon-only clear button. */
+  clearLabel: string;
+  /** "3 selected", translated and pluralised by the caller — the kit ships
+   * no English of its own (KAN-364). */
+  countLabel: (count: number) => string;
 }
 
 /**
@@ -27,9 +27,9 @@ export interface SelectionBarProps {
  * renders EXACTLY ONE of the two, switching on whether anything is
  * selected, never both at once and never one above the other.
  */
-export function SelectionBar({ count, onClear, actions, clearLabel = "Clear selection", countLabel }: SelectionBarProps) {
+export function SelectionBar({ count, onClear, actions, clearLabel, countLabel }: SelectionBarProps) {
   if (count === 0) return null;
-  const label = (countLabel ?? ((n: number) => `${formatNumber(n)} selected`))(count);
+  const label = countLabel(count);
 
   return (
     <div

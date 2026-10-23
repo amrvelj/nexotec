@@ -29,6 +29,7 @@ import type {
   IntegrationConnectionPage,
   IntegrationConnectionRead,
 } from '../api/types'
+import { useActionBarLabels } from '../hooks/useActionBarLabels'
 
 const CONNECTIONS_GRID_KEY = 'integrations.platform.connections'
 
@@ -45,6 +46,7 @@ const CONNECTIONS_GRID_KEY = 'integrations.platform.connections'
 export function IntegrationPlatformView() {
   const { t, i18n } = useTranslation()
   const viewsAndFiltersLabels = useViewsAndFiltersLabels()
+  const actionBarLabels = useActionBarLabels()
   const locale = toSwissLocale(i18n.language as SupportedLanguage)
   const { density, setDensity } = useUiPreferencesContext()
   const queryClient = useQueryClient()
@@ -153,6 +155,7 @@ export function IntegrationPlatformView() {
           header={<div />}
           actionBar={
             <ActionBar
+              labels={actionBarLabels}
               searchValue={query}
               onSearchChange={setQuery}
               searchPlaceholder={t('integrationsList.searchPlaceholder')}
@@ -175,16 +178,6 @@ export function IntegrationPlatformView() {
                   onResetFilters={() => {}}
                 />
               }
-              labels={{
-                density: {
-                  compact: t('common.density.compact'),
-                  default: t('common.density.default'),
-                  comfortable: t('common.density.comfortable'),
-                },
-                densityTooltip: (label) => t('common.density.tooltip', { label }),
-                densityAriaLabel: t('common.density.ariaLabel'),
-                refresh: t('common.refresh'),
-              }}
             />
           }
         >
