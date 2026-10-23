@@ -191,10 +191,11 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   or invited — KAN-410, Anto 2026-10-23) — and a hand-over to a colleague
   who cannot act in one of those Betriebe is refused as a whole (422 saying how many records
   are elsewhere, never which Betrieb — an id is a fact the caller may not hold): the manager
-  picks the queue for that group, and that Betrieb hands them over from its own queue. **Not yet
-  for Customers (KAN-423):** their provider refuses no colleague, so — a membership may span
-  dealer groups — a member's customers can go to a colleague outside the customers' group;
-  Anto's decision on the ticket. **The
+  picks the queue for that group, and that Betrieb hands them over from its own queue. Customers
+  judge it by the customer's dealer group (a customer belongs to the group, ADR-014): the colleague
+  must work in a Betrieb of each customer's group (`platform.public.list_user_dealer_group_ids`;
+  KAN-423, Anto 2026-10-23, option A — a membership may span dealer groups), Sales' reason
+  `colleague_cannot_act_there`, judged again under the rows' locks. **The
   home manager decides for every Betrieb the leaver worked in** (Anto, 2026-10-20, ADR-094) —
   not the sister's queue only, not a refusal until the sister handed over. `GET …/users/{id}/ownership`
   lists the groups; `POST …/users/{id}/deactivate` needs a decision for every group (an

@@ -31,12 +31,37 @@ def login(client, mailbox) -> PasswordLogin:
     return PasswordLogin(client, mailbox)
 
 
+_CLIENT: list = []
+_DEALER_GROUPS: dict[str, uuid.UUID] = {}
+
+
+@pytest.fixture(autouse=True)
+def _real_dealer_groups(client):
+    """The tokens below carry the Betrieb's REAL dealer group, as a minted
+    session does (`_mint_session`): a customer's `group_id` comes from it,
+    and since KAN-423 the customer hand-over compares it with the groups the
+    colleague works in — a made-up group would refuse every hand-over."""
+
+    _CLIENT[:] = [client]
+    _DEALER_GROUPS.clear()
+    yield
+    _CLIENT.clear()
+
+
+def _dealer_group(dealership: str) -> uuid.UUID:
+    assert _CLIENT, "import the _real_dealer_groups fixture into the test module that mints tokens with _as"
+    if dealership not in _DEALER_GROUPS:
+        body = _CLIENT[0].get(f"/v1/dealerships/{dealership}", headers=platform_admin_headers()).json()
+        _DEALER_GROUPS[dealership] = uuid.UUID(body["dealerGroupId"])
+    return _DEALER_GROUPS[dealership]
+
+
 def _as(user: dict, *, role: AccessRole = AccessRole.SALES, manager: bool = False) -> dict[str, str]:
     tid = uuid.UUID(user["dealershipId"])
     token = create_access_token(
         user_id=uuid.UUID(user["id"]),
         tenant_id=tid,
-        group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tid)),
+        group_id=_dealer_group(user["dealershipId"]),
         roles=frozenset({role}),
         is_dealer_manager=manager,
     )
@@ -832,7 +857,7 @@ def _acting_in(user: dict, dealership: str) -> dict[str, str]:
     token = create_access_token(
         user_id=uuid.UUID(user["id"]),
         tenant_id=tid,
-        group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tid)),
+        group_id=_dealer_group(dealership),
         roles=frozenset({AccessRole.SALES}),
     )
     return {"Authorization": f"Bearer {token}"}

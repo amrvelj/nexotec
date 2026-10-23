@@ -267,6 +267,8 @@ _READS = {
     # KAN-410: the advisor picker — users homed in the Betrieb or members of it; a SELECT only.
     "app.platform.public.list_active_users_acting_in",
     "app.platform.public.list_dealer_manager_emails",
+    # KAN-423: the dealer groups a colleague works in, for Customers' hand-over refusal; a SELECT only.
+    "app.platform.public.list_user_dealer_group_ids",
     "app.platform.public.list_user_dealership_ids",
     # Builds a PDF from content Sales supplies; persists nothing.
     "app.platform.public.render_document",

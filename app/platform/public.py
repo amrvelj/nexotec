@@ -32,6 +32,7 @@ from app.platform.services.user import (
     get_user_or_404,
     list_active_users_acting_in,
     list_dealer_manager_emails,
+    list_user_dealer_group_ids,
     list_user_dealership_ids,
 )
 
@@ -67,6 +68,7 @@ __all__ = [
     "get_user_or_404",
     "list_active_users_acting_in",
     "list_dealer_manager_emails",
+    "list_user_dealer_group_ids",
     "list_user_dealership_ids",
     "render_document",
 ]

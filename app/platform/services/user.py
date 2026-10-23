@@ -24,6 +24,7 @@ from app.core.uuid7 import uuid7
 from app.platform.models.auth_event import AuthEventKind
 from app.platform.models.auth_token import AuthToken, AuthTokenKind
 from app.platform.models.credential import Credential
+from app.platform.models.dealership import Dealership
 from app.platform.models.dealership_membership import DealershipMembership
 from app.platform.models.user import EmploymentStatus, User, UserStatus
 from app.platform.schemas.user import UserAdminRead, UserCreate, UserUpdate
@@ -855,6 +856,18 @@ def list_user_dealership_ids(db: Session, *, user_id: uuid.UUID) -> frozenset[uu
     if home is None:
         return frozenset()
     return frozenset({home}) | list_membership_dealership_ids(db, user_id=user_id)
+
+
+def list_user_dealer_group_ids(db: Session, *, user_id: uuid.UUID) -> frozenset[uuid.UUID]:
+    """The dealer group of every dealership this user may act in
+    (`list_user_dealership_ids`) — what a group-scoped record (a customer,
+    ADR-014) asks of a colleague it is handed to: they must work in a
+    Betrieb of its group (KAN-423). Empty for an id that names no user."""
+
+    dealership_ids = list_user_dealership_ids(db, user_id=user_id)
+    if not dealership_ids:
+        return frozenset()
+    return frozenset(db.scalars(select(Dealership.dealer_group_id).where(Dealership.id.in_(dealership_ids))).all())
 
 
 def get_user_acting_in(db: Session, *, dealership_id: uuid.UUID, user_id: uuid.UUID) -> User | None:
