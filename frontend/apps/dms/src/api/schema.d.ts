@@ -619,8 +619,9 @@ export interface paths {
         };
         /**
          * List Customer Advisor Options
-         * @description The advisor picker's options (KAN-50 / D-24) — active users of the
-         *     ACTING dealership. Declared before `/customers/{customer_id}` so the
+         * @description The advisor picker's options (KAN-50 / D-24) — everyone who may
+         *     advise in the ACTING dealership: its active and invited users and its
+         *     active members (KAN-410). Declared before `/customers/{customer_id}` so the
          *     literal path is matched first. Gated on the `customers` read
          *     capability, not the manager-only `dealership_users` one: a plain
          *     advisor must be able to (re)assign a customer's advisor.
@@ -4698,8 +4699,10 @@ export interface components {
         /**
          * CustomerAdvisorOption
          * @description One option for the customer record's advisor picker (KAN-50 / D-24)
-         *     — an active user of the ACTING dealership. `label` is the same
-         *     `First Last` denormalised into `Customer.advisor_label` on assignment.
+         *     — someone who may advise in the ACTING dealership: an active or invited
+         *     user homed there or an active member of it (KAN-410). `label` is the
+         *     same `First Last` denormalised into `Customer.advisor_label` on
+         *     assignment.
          */
         CustomerAdvisorOption: {
             /**

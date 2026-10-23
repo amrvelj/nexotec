@@ -427,9 +427,9 @@ def get_user_display_labels(db: Session, user_ids: Collection[uuid.UUID]) -> dic
     """KAN-403 — each user's `First Last` (the label another context copies
     beside a user id, CLAUDE.md rule 2) and whether the account is
     deactivated, for the nightly label refreshes. Not scoped to a tenant: it
-    serves a daily job, never a request — a route resolves a label through
-    get_user_or_404 in the caller's dealership. An id that names no user is
-    absent from the result."""
+    serves a daily job, never a request — a route resolves a seller's or an
+    advisor's label through `get_active_user_acting_in` in the caller's
+    dealership. An id that names no user is absent from the result."""
 
     if not user_ids:
         return {}

@@ -161,7 +161,36 @@ def test_a_sister_betrieb_member_creating_a_customer_there_becomes_its_advisor(c
     created = client.post("/v1/customers", json=_create_body(), headers=_acting_in(member["id"], sister))
 
     assert created.status_code == 201, created.text
-    assert created.json()["advisorId"] == member["id"]
+    assert (created.json()["advisorId"], created.json()["advisorLabel"]) == (member["id"], "Mia Member")
+
+
+def test_a_patch_there_may_hand_a_customer_to_a_member_and_not_to_an_ended_one(client):
+    home, sister, member = _sister_with_member(client)
+    colleague = _create_user(client, sister, firstName="Sven", lastName="Sister")
+    headers = _acting_in(colleague["id"], sister)
+    customer = client.post("/v1/customers", json=_create_body(), headers=headers).json()
+
+    patched = client.patch(
+        f"/v1/customers/{customer['id']}",
+        json={"advisorId": member["id"]},
+        headers={**headers, "If-Match": str(customer["version"])},
+    )
+    assert patched.status_code == 200, patched.text
+    assert patched.json()["advisorLabel"] == "Mia Member"
+
+    later = _create_user(client, home, firstName="Lena", lastName="Later")
+    assert grant(client, home, later, sister).status_code == 201
+    ended = client.delete(
+        f"/v1/dealerships/{home}/users/{later['id']}/memberships/{sister}", headers=if_match(client, home, later)
+    )
+    assert ended.status_code in (200, 204), ended.text
+    refused = client.patch(
+        f"/v1/customers/{customer['id']}",
+        json={"advisorId": later["id"]},
+        headers={**headers, "If-Match": str(patched.json()["version"])},
+    )
+    assert refused.status_code == 422, refused.text
+    assert refused.json()["error"]["details"]["advisorId"] == later["id"]
 
 
 def test_a_member_whose_membership_ended_or_a_user_of_another_betrieb_is_refused(client):
@@ -190,6 +219,13 @@ def test_the_advisor_picker_lists_the_betriebs_active_members_and_no_one_else(cl
     suspended_member = _create_user(client, home, firstName="Sara", lastName="Suspended")
     assert grant(client, home, suspended_member, sister).status_code == 201
     _set_status(db_session, suspended_member, UserStatus.SUSPENDED)
+    ended_member = _create_user(client, home, firstName="Elsa", lastName="Ended")
+    assert grant(client, home, ended_member, sister).status_code == 201
+    ended = client.delete(
+        f"/v1/dealerships/{home}/users/{ended_member['id']}/memberships/{sister}",
+        headers=if_match(client, home, ended_member),
+    )
+    assert ended.status_code in (200, 204), ended.text
     own = _create_user(client, sister, firstName="Sven", lastName="Sister")
     home_only = _create_user(client, home, firstName="Hugo", lastName="Home")
 
@@ -199,4 +235,5 @@ def test_the_advisor_picker_lists_the_betriebs_active_members_and_no_one_else(cl
     ids = {row["id"] for row in response.json()["items"]}
     assert {member["id"], own["id"]} <= ids
     assert suspended_member["id"] not in ids
+    assert ended_member["id"] not in ids
     assert home_only["id"] not in ids

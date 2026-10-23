@@ -188,11 +188,13 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   platform-wide, so a provider counts what the user owns **everywhere** — a sister-Betrieb
   member's offers and customers there included (`platform.public.get_active_user_acting_in` is
   how Sales admits a seller and Customers an advisor: homed or an active member, status active
-  or invited — KAN-410, Anto 2026-10-23) — and a Sales hand-over to a colleague
+  or invited — KAN-410, Anto 2026-10-23) — and a hand-over to a colleague
   who cannot act in one of those Betriebe is refused as a whole (422 saying how many records
   are elsewhere, never which Betrieb — an id is a fact the caller may not hold): the manager
-  picks the queue for that group, and that Betrieb hands them over from its own queue. Customers
-  refuse no colleague: a customer belongs to the group. **The
+  picks the queue for that group, and that Betrieb hands them over from its own queue. **Not yet
+  for Customers (KAN-423):** their provider refuses no colleague, so — a membership may span
+  dealer groups — a member's customers can go to a colleague outside the customers' group;
+  Anto's decision on the ticket. **The
   home manager decides for every Betrieb the leaver worked in** (Anto, 2026-10-20, ADR-094) —
   not the sister's queue only, not a refusal until the sister handed over. `GET …/users/{id}/ownership`
   lists the groups; `POST …/users/{id}/deactivate` needs a decision for every group (an
