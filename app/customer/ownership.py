@@ -15,6 +15,14 @@ Customers are group-scoped (ADR-014) while the advisor is a user of one
 dealership: the predicate is the advisor id alone — a user id names one
 person platform-wide — never a group filter (the no-ambient-group-read test
 keeps that out of this file on purpose).
+
+A hand-over to a colleague is refused as a whole when the colleague works in
+no Betrieb of a customer's dealer group (KAN-423, Anto 2026-10-23, option A —
+Sales' rule for deals): since KAN-410 a sister-Betrieb member advises the
+customers they create there, and a membership may span dealer groups, so a
+home colleague could otherwise be handed customers they cannot even read.
+The refusal uses Sales' code, `colleague_cannot_act_there`, and names a
+count, never the other group.
 """
 
 import logging
@@ -26,10 +34,12 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
 from app.core.base import utcnow
+from app.core.errors import UnprocessableEntityError
 from app.core.outbox import OutboxEvent, publish
 from app.core.ownership import OwnedGroup, OwnershipRefusal, OwnershipTransfer
 from app.customer.models.customer import Customer, CustomerLifecycleStatus
 from app.customer.services.customer import _customer_label_payload
+from app.platform.public import list_user_dealer_group_ids
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +62,10 @@ class CustomerOwnershipProvider:
         return [OwnedGroup(module=MODULE, group=GROUP_CUSTOMERS, count=int(count))]
 
     def refuses(self, db: Session, *, from_user_id: uuid.UUID, transfer: OwnershipTransfer) -> OwnershipRefusal | None:
-        return None
+        if transfer.to_user_id is None or transfer.group != GROUP_CUSTOMERS:
+            return None
+        group_ids = list(db.scalars(select(Customer.group_id).where(*_open_customers(from_user_id))).all())
+        return _colleague_refusal(db, to_user_id=transfer.to_user_id, group_ids=group_ids)
 
     def transfer(
         self,
@@ -92,6 +105,33 @@ class CustomerOwnershipProvider:
         return moved
 
 
+COLLEAGUE_CANNOT_ACT_THERE = "colleague_cannot_act_there"
+
+
+def _colleague_refusal(
+    db: Session, *, to_user_id: uuid.UUID | None, group_ids: list[uuid.UUID]
+) -> OwnershipRefusal | None:
+    """How many of the customers belong to a dealer group the colleague works
+    in no Betrieb of — never which group (an id is a fact the caller may not
+    hold)."""
+
+    if to_user_id is None:
+        return None
+    allowed = list_user_dealer_group_ids(db, user_id=to_user_id)
+    elsewhere = sum(1 for group in group_ids if group not in allowed)
+    if not elsewhere:
+        return None
+    return OwnershipRefusal(
+        code=COLLEAGUE_CANNOT_ACT_THERE,
+        message=(
+            f"customer/{GROUP_CUSTOMERS}: {elsewhere} of these records belong to another business the colleague "
+            "cannot act in — leave the group unassigned (null), and that business hands them over from its own "
+            "queue, or choose a colleague who is a member there."
+        ),
+        count=elsewhere,
+    )
+
+
 def _transfer_customers(
     db: Session,
     *,
@@ -104,6 +144,20 @@ def _transfer_customers(
     rows = list(
         db.scalars(select(Customer).where(*_open_customers(from_user_id)).order_by(Customer.id).with_for_update()).all()
     )
+    # Judged again under the row locks, before any write (as Sales does): the
+    # step's `refuses` read the rows unlocked.
+    refusal = _colleague_refusal(db, to_user_id=to_user_id, group_ids=[customer.group_id for customer in rows])
+    if refusal is not None:
+        raise UnprocessableEntityError(
+            refusal.message,
+            details={
+                "module": MODULE,
+                "group": GROUP_CUSTOMERS,
+                "toUserId": str(to_user_id),
+                "reason": refusal.code,
+                "count": refusal.count,
+            },
+        )
     now = utcnow()
     for customer in rows:
         before = {"advisor_id": str(customer.advisor_id)}
