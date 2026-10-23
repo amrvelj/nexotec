@@ -80,13 +80,14 @@ weekly. -->
   Gender is independent (`female` / `male` / `other` / `unspecified`) — **never inferred from
   the salutation**.
 - **D-23** — `website` is not business-only. **D-24** — `advisorId` defaults to the acting user
-  on create only; nullable and clearable. An advisor set by create or PATCH must be a user of the acting
-  Betrieb who is active or invited (`platform.public.may_own_open_records`, the status rule of
-  Sales' responsible seller): a suspended or deactivated one is 422 `advisorId` (KAN-410). The
-  check runs only when the advisor changes, so a customer still advised by a leaver stays
-  editable. **Open with Anto (KAN-410):** the advisor must still be homed in the acting Betrieb
-  (`get_user_or_404`), while Sales' seller may also be an active member from a sister Betrieb
-  (`get_user_acting_in`) — whether the advisor should be too is undecided; do not widen it. **D-25** — the list offers Export and Print; there
+  on create only; nullable and clearable. **The advisor follows Sales' rule for a responsible
+  seller** (KAN-410; Anto, 2026-10-23, option B): someone who acts in the acting Betrieb — homed
+  there or an active member of it — and is active or invited (`platform.public.get_active_user_acting_in`,
+  one predicate for both); anyone else is 422 `advisorId`. So a sister-Betrieb member who works
+  here advises the customers they create here by default, may be picked, and is listed by the
+  advisor picker (`list_active_users_acting_in`); their deactivation then decides those customers
+  too. The check runs only when the advisor changes, so a customer still advised by a leaver
+  stays editable. **D-25** — the list offers Export and Print; there
   is **no bulk anonymise**. **D-26** — the field is `creditBlock`, with `creditBlockedAt`.
 - **Legal form** is one of six codes (`ag`, `gmbh`, `einzelfirma`, `verein`, `genossenschaft`,
   `weitere`). Labels are meant to be localised; today they are hardcoded German in

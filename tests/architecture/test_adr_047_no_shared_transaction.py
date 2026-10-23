@@ -255,18 +255,19 @@ _READS = {
     # reconciliation runs; reads nothing itself.
     "app.platform.public.actor_reference_checks",
     "app.platform.public.get_active_reference_value_codes",
+    # KAN-200/KAN-410: who may own an open record in a Betrieb (a seller, an
+    # advisor) — the user row and their memberships, a SELECT only.
+    "app.platform.public.get_active_user_acting_in",
     "app.platform.public.get_dealership_or_404",
     # KAN-371: the History tab's Betrieb and user names, group-scoped; a SELECT only.
     "app.platform.public.get_group_display_labels",
-    "app.platform.public.get_user_acting_in",
     # KAN-403: users' names for the nightly advisor-label refresh; a SELECT only.
     "app.platform.public.get_user_display_labels",
     "app.platform.public.get_user_or_404",
-    "app.platform.public.list_active_users",
+    # KAN-410: the advisor picker — users homed in the Betrieb or members of it; a SELECT only.
+    "app.platform.public.list_active_users_acting_in",
     "app.platform.public.list_dealer_manager_emails",
     "app.platform.public.list_user_dealership_ids",
-    # KAN-410: the status rule for who may own an open record; reads an attribute only.
-    "app.platform.public.may_own_open_records",
     # Builds a PDF from content Sales supplies; persists nothing.
     "app.platform.public.render_document",
     # KAN-122: Stock's reservation sweep reads its contracts' statuses, on a

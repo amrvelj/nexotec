@@ -3,9 +3,9 @@ import { api } from '../api/client'
 import type { CustomerAdvisorOptionList } from '../api/types'
 
 /** `{ value, label }` for the customer record's advisor `Select` (KAN-50 /
- * D-24). Backed by `GET /v1/customers/advisor-options` — active users of
- * the ACTING dealership, the same list the server validates an assignment
- * against. Cached for the session; the roster changes rarely. */
+ * D-24). Backed by `GET /v1/customers/advisor-options` — the ACTING
+ * dealership's active users and active members (KAN-410), the same rule the
+ * server validates an assignment against. Cached for the session; the roster changes rarely. */
 export function useAdvisorOptions(): {
   options: { value: string; label: string }[]
   isLoading: boolean

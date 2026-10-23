@@ -393,19 +393,26 @@ def list_dealer_manager_emails(db: Session, *, dealership_id: uuid.UUID) -> list
     return list(db.scalars(union(home_managers, managers_by_membership)).all())
 
 
-def list_active_users(db: Session, *, dealership_id: uuid.UUID) -> list[User]:
-    """Active users of a dealership, ordered by name — for a picker such as
-    the customer record's advisor field (KAN-50). Deliberately narrower
-    than list_users (no pagination, no role filter, active only): a picker
-    wants the short, current list, and it is reachable through
-    platform.public without the manager-only `dealership_users` read
+def list_active_users_acting_in(db: Session, *, dealership_id: uuid.UUID) -> list[User]:
+    """The users `get_active_user_acting_in` admits for a dealership — homed
+    there or an active member, active or invited — ordered by name, for a
+    picker such as the customer record's advisor field (KAN-50; members
+    since KAN-410). Deliberately narrower than list_users (no pagination, no
+    role filter): a picker wants the short, current list, and it is reachable
+    through platform.public without the manager-only `dealership_users` read
     capability list_users sits behind.
     """
 
+    members = select(DealershipMembership.user_id).where(
+        DealershipMembership.dealership_id == dealership_id, membership_is_active()
+    )
     stmt = (
         select(User)
-        .where(User.tenant_id == dealership_id, User.status.in_(tuple(_ACTIVE_USER_STATUSES)))
-        .order_by(User.last_name, User.first_name)
+        .where(
+            (User.tenant_id == dealership_id) | User.id.in_(members),
+            User.status.in_(tuple(_ACTIVE_USER_STATUSES)),
+        )
+        .order_by(User.last_name, User.first_name, User.id)
     )
     return list(db.scalars(stmt).all())
 
@@ -420,9 +427,9 @@ def get_user_display_labels(db: Session, user_ids: Collection[uuid.UUID]) -> dic
     """KAN-403 — each user's `First Last` (the label another context copies
     beside a user id, CLAUDE.md rule 2) and whether the account is
     deactivated, for the nightly label refreshes. Not scoped to a tenant: it
-    serves a daily job, never a request — a route resolves a label through
-    get_user_or_404 in the caller's dealership. An id that names no user is
-    absent from the result."""
+    serves a daily job, never a request — a route resolves a seller's or an
+    advisor's label through `get_active_user_acting_in` in the caller's
+    dealership. An id that names no user is absent from the result."""
 
     if not user_ids:
         return {}
@@ -865,15 +872,20 @@ def get_user_acting_in(db: Session, *, dealership_id: uuid.UUID, user_id: uuid.U
     return None
 
 
-def may_own_open_records(user: User) -> bool:
-    """Whether the user may be responsible for an open record — an open deal
-    (Sales' responsible seller, KAN-200) or a customer (the advisor,
-    KAN-410): active or invited. A suspended or deactivated user owns
-    nothing open (FR-A-37, D-A-35: a leaver's records are handed over, "never
-    silently with the deactivated user"), and no write may put them back.
-    The caller judges the dealership scope."""
+def get_active_user_acting_in(db: Session, *, dealership_id: uuid.UUID, user_id: uuid.UUID) -> User | None:
+    """The user when they may be responsible for an open record in this
+    dealership — Sales' responsible seller (KAN-200) or a customer's advisor
+    (KAN-410; Anto, 2026-10-23: the same rule for both) — else None: they act
+    in it (`get_user_acting_in`: homed there or an active member, so a
+    sister-Betrieb member owns what they take on there) and are active or
+    invited. A suspended or deactivated user owns nothing open (FR-A-37,
+    D-A-35: a leaver's records are handed over, "never silently with the
+    deactivated user"), and no write may put them back."""
 
-    return is_active_user(user)
+    user = get_user_acting_in(db, dealership_id=dealership_id, user_id=user_id)
+    if user is None or not is_active_user(user):
+        return None
+    return user
 
 
 def _assert_line_manager(db: Session, *, user: User, changes: dict[str, Any]) -> None:

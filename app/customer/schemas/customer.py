@@ -622,8 +622,10 @@ class CustomerPage(CamelModel):
 
 class CustomerAdvisorOption(CamelModel):
     """One option for the customer record's advisor picker (KAN-50 / D-24)
-    — an active user of the ACTING dealership. `label` is the same
-    `First Last` denormalised into `Customer.advisor_label` on assignment.
+    — someone who may advise in the ACTING dealership: an active or invited
+    user homed there or an active member of it (KAN-410). `label` is the
+    same `First Last` denormalised into `Customer.advisor_label` on
+    assignment.
     """
 
     id: uuid.UUID
