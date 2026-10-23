@@ -72,14 +72,14 @@ describe('describePredicate', () => {
 
   it('describes a select predicate using the option label, not the raw value', () => {
     const predicate: FilterPredicate = { id: '1', fieldId: 'canton', type: 'select', condition: 'is', value: 'ZH' }
-    expect(describePredicate(predicate, cantonField, FR_CONDITION_LABELS)).toBe('Canton est Zurich')
+    expect(describePredicate(predicate, cantonField, FR_CONDITION_LABELS)).toBe('Canton : Zurich')
   })
 
   it('describes text and number predicates through their own condition template', () => {
     const contains: FilterPredicate = { id: '2', fieldId: 'name', type: 'text', condition: 'contains', value: 'Muller' }
     const greater: FilterPredicate = { id: '3', fieldId: 'price', type: 'number', condition: 'greaterThan', value: 40000 }
-    expect(describePredicate(contains, nameField, FR_CONDITION_LABELS)).toBe('Nom contient Muller')
-    expect(describePredicate(greater, priceField, FR_CONDITION_LABELS)).toBe('Prix supérieur à 40000')
+    expect(describePredicate(contains, nameField, FR_CONDITION_LABELS)).toBe('Nom : contient Muller')
+    expect(describePredicate(greater, priceField, FR_CONDITION_LABELS)).toBe('Prix : plus de 40000')
   })
 
   it('hands the day count to the N-days template', () => {

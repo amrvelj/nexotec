@@ -138,21 +138,21 @@
         "moreThanDaysAgo": "il y a plus de N jours"
       },
       "predicateText": {
-        "contains": "{{field}} contient {{value}}",
-        "equals": "{{field}} est exactement {{value}}",
-        "notEquals": "{{field}} n'est pas {{value}}",
-        "is": "{{field}} est {{value}}",
-        "isNot": "{{field}} n'est pas {{value}}",
-        "greaterThan": "{{field}} supérieur à {{value}}",
-        "lessThan": "{{field}} inférieur à {{value}}",
+        "contains": "{{field}} : contient {{value}}",
+        "equals": "{{field}} : exactement {{value}}",
+        "notEquals": "{{field}} : sauf {{value}}",
+        "is": "{{field}} : {{value}}",
+        "isNot": "{{field}} : sauf {{value}}",
+        "greaterThan": "{{field}} : plus de {{value}}",
+        "lessThan": "{{field}} : moins de {{value}}",
         "today": "{{field}} : aujourd'hui",
         "thisWeek": "{{field}} : cette semaine",
         "thisMonth": "{{field}} : ce mois-ci",
         "thisYear": "{{field}} : cette année",
         "inTheLastDays_one": "{{field}} : au cours du dernier jour",
-        "inTheLastDays_other": "{{field}} : au cours des {{days}} derniers jours",
+        "inTheLastDays_other": "{{field}} : au cours des {{days, number}} derniers jours",
         "moreThanDaysAgo_one": "{{field}} : il y a plus d'un jour",
-        "moreThanDaysAgo_other": "{{field}} : il y a plus de {{days}} jours"
+        "moreThanDaysAgo_other": "{{field}} : il y a plus de {{days, number}} jours"
       },
       "booleanTrue": "{{field}} : oui",
       "booleanFalse": "{{field}} : non"

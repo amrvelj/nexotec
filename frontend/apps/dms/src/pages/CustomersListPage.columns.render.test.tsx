@@ -263,8 +263,9 @@ describe('CustomersListPage — filters track the column registry (ADR-058)', ()
     const dateConditions = within(screen.getAllByRole('combobox')[1])
       .getAllByRole('option')
       .map((o) => o.textContent ?? '')
-    expect(dateConditions).not.toContain(i18n.t('common.filterBuilder.conditions.moreThanDaysAgo'))
-    expect(dateConditions.length).toBeGreaterThan(0)
+    expect(dateConditions).toEqual(
+      ['today', 'thisWeek', 'thisMonth', 'thisYear', 'inTheLastDays'].map((c) => i18n.t(`common.filterBuilder.conditions.${c}`))
+    )
   })
 })
 

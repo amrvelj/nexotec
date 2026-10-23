@@ -97,8 +97,8 @@ export interface PredicateTextParts {
 export interface FilterConditionLabels {
   /** The condition dropdown's options, keyed by condition value. */
   conditions: Record<FilterCondition, string>;
-  /** A saved filter's text, keyed by condition value — "Canton contient
-   * « ZH »", "Modifié au cours des 30 derniers jours". A boolean field uses
+  /** A saved filter's text, keyed by condition value — "Canton : contient
+   * ZH", "Modifié : au cours des 30 derniers jours". A boolean field uses
    * `booleanTrue`/`booleanFalse` instead. */
   predicateText: Record<FilterCondition, (parts: PredicateTextParts) => string>;
   booleanTrue: (field: string) => string;
@@ -188,8 +188,8 @@ export function resolveRelativeDateRange(condition: DateCondition, days: number 
   }
 }
 
-/** A saved filter's text for the "Manage filters" list — "Canton is ZH",
- * "Changed in the last 30 days" — in the caller's language. A condition
+/** A saved filter's text for the "Manage filters" list — "Canton: ZH",
+ * "Changed: in the last 30 days" — in the caller's language. A condition
  * the field's type does not know (a stale saved view) reads as the field's
  * label alone rather than as a raw condition value. */
 export function describePredicate(predicate: FilterPredicate, field: FilterFieldDef, labels: FilterConditionLabels): string {

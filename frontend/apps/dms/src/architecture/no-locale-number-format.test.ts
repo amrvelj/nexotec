@@ -45,7 +45,7 @@ const FORBIDDEN_DATE: { name: string; pattern: RegExp }[] = [
   { name: 'Intl.DateTimeFormat', pattern: /\bIntl\s*\.\s*DateTimeFormat\b/ },
 ]
 
-const BARE_NUMERIC_PLACEHOLDER = /\{\{\s*(count|max)\s*\}\}/
+const BARE_NUMERIC_PLACEHOLDER = /\{\{\s*(count|max|days)\s*\}\}/
 
 function collectFiles(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
@@ -110,8 +110,9 @@ describe('numbers and dates are formatted only through the shared formatters', (
 
   // Counts in translated strings: `{{count}}` alone is interpolated raw
   // (`12500`); `{{count, number}}` goes through i18n/index.ts's Swiss
-  // formatter. `count` and `max` are the numeric variables the bundles use.
-  it('every count and max in the locale bundles is formatted with `, number`', () => {
+  // formatter. `count`, `max` and `days` (a saved filter's N-days text,
+  // KAN-415) are the numeric variables the bundles use.
+  it('every count, max and days in the locale bundles is formatted with `, number`', () => {
     const localesDir = join(FRONTEND_ROOT, 'apps/dms/src/i18n/locales')
     const offenders: string[] = []
     for (const file of readdirSync(localesDir).filter((f) => f.endsWith('.json'))) {
@@ -124,6 +125,7 @@ describe('numbers and dates are formatted only through the shared formatters', (
     expect(offenders).toEqual([])
     expect(BARE_NUMERIC_PLACEHOLDER.test('"x": "{{count}} selected"')).toBe(true)
     expect(BARE_NUMERIC_PLACEHOLDER.test('"x": "{{count, number}} selected"')).toBe(false)
+    expect(BARE_NUMERIC_PLACEHOLDER.test('"x": "in the last {{days}} days"')).toBe(true)
   })
 
   // The scan above passes on an empty result as easily as on a clean tree —

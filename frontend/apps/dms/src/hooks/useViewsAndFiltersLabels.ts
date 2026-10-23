@@ -1,8 +1,26 @@
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { CONDITIONS_BY_TYPE, type FilterCondition, type PredicateTextParts, type ViewsAndFiltersLabels } from '@nexotec/ui-kit'
+import type { FilterCondition, PredicateTextParts, ViewsAndFiltersLabels } from '@nexotec/ui-kit'
 
-const ALL_CONDITIONS: FilterCondition[] = [...new Set(Object.values(CONDITIONS_BY_TYPE).flat())]
+/** One entry per condition, spelled out so `tsc` refuses a map that misses
+ * one (a condition added to the kit fails here, not at runtime). */
+function perCondition<T>(make: (condition: FilterCondition) => T): Record<FilterCondition, T> {
+  return {
+    contains: make('contains'),
+    equals: make('equals'),
+    notEquals: make('notEquals'),
+    is: make('is'),
+    isNot: make('isNot'),
+    greaterThan: make('greaterThan'),
+    lessThan: make('lessThan'),
+    today: make('today'),
+    thisWeek: make('thisWeek'),
+    thisMonth: make('thisMonth'),
+    thisYear: make('thisYear'),
+    inTheLastDays: make('inTheLastDays'),
+    moreThanDaysAgo: make('moreThanDaysAgo'),
+  }
+}
 
 /**
  * The views-and-filters panel's strings in the user's UI language, its
@@ -32,18 +50,14 @@ export function useViewsAndFiltersLabels(): ViewsAndFiltersLabels {
         editFilter: t('common.filterBuilder.editFilter'),
         duplicateFilter: t('common.filterBuilder.duplicateFilter'),
         deleteFilter: t('common.filterBuilder.deleteFilter'),
-        conditions: Object.fromEntries(
-          ALL_CONDITIONS.map((c) => [c, t(`common.filterBuilder.conditions.${c}`)])
-        ) as Record<FilterCondition, string>,
-        predicateText: Object.fromEntries(
-          ALL_CONDITIONS.map((c) => [
-            c,
-            // `count` picks the plural form of the two N-days texts; the
-            // other conditions have none and ignore it.
+        conditions: perCondition((c) => t(`common.filterBuilder.conditions.${c}`)),
+        // `count` picks the plural form of the two N-days texts; the other
+        // conditions have none and ignore it.
+        predicateText: perCondition(
+          (c) =>
             ({ field, value, days }: PredicateTextParts) =>
-              t(`common.filterBuilder.predicateText.${c}`, { field, value, days, count: days }),
-          ])
-        ) as Record<FilterCondition, (parts: PredicateTextParts) => string>,
+              t(`common.filterBuilder.predicateText.${c}`, { field, value, days, count: days })
+        ),
         booleanTrue: (field: string) => t('common.filterBuilder.booleanTrue', { field }),
         booleanFalse: (field: string) => t('common.filterBuilder.booleanFalse', { field }),
       },

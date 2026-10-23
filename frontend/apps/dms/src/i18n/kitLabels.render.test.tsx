@@ -98,8 +98,8 @@ describe('kit components speak the UI language on the app\'s screens (KAN-364)',
     expect(screen.getAllByRole('option', { name: "n'est pas" }).length).toBeGreaterThan(0)
     await user.click(screen.getByRole('button', { name: 'Enregistrer' }))
     expect(await screen.findByRole('button', { name: 'Modifier le filtre' })).toBeInTheDocument()
-    // KAN-415: the saved filter reads as a French sentence, not "… is Pipeline".
-    expect(screen.getByText('Statut de stock est Pipeline')).toBeInTheDocument()
+    // KAN-415: the saved filter is French text, not "… is Pipeline".
+    expect(screen.getByText('Statut de stock : Pipeline')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Dupliquer le filtre' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Supprimer le filtre' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Réinitialiser' })).toBeInTheDocument()
