@@ -459,9 +459,10 @@ export function OverviewTab({
   const { t } = useTranslation()
   const fieldProps: FieldProps = { onSaveField, isConflict, onReload, locale, emptyLabel: t('customerDetail.overview.notSet') }
   const f = t('customerDetail.overview.fields', { returnObjects: true }) as Record<string, string>
-  // KAN-50 / D-24 — active users of the acting dealership, for the advisor
-  // picker. The current advisor's stored label still renders when they are
-  // not in this list (e.g. resolved by another dealership).
+  // KAN-50 / D-24 — everyone who may advise in the acting Betrieb (its
+  // active users and its active members, KAN-410), for the advisor picker.
+  // The current advisor's stored label still renders when they are not in
+  // this list (e.g. assigned in another Betrieb, or since deactivated).
   const { options: advisorOptions } = useAdvisorOptions()
   const advisorSelectOptions =
     customer.advisorId && !advisorOptions.some((o) => o.value === customer.advisorId)
