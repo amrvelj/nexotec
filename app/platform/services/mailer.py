@@ -1,8 +1,8 @@
 """The platform sender seam (FR-AU-15, D-A-28, KAN-196; Anto, 2026-10-17):
 invitations and resets leave through a Nexotec-owned mailbox, never a
 dealer's messaging connection. Two senders: `LoggingMailer` writes the
-message to the application log (dev, test, every environment without a
-mailbox yet) and `SmtpMailer` sends it through the configured mailbox with
+message to the application log (local runs, CI and tests only — refused in
+every deployed environment, KAN-397) and `SmtpMailer` sends it through the configured mailbox with
 the standard library. Delivery is not fire-and-forget: a failure is raised
 to the caller, which records a `mail_delivery_failed` auth event for
 platform staff and logs it at ERROR — a dealer whose invitations never
@@ -37,8 +37,8 @@ class PlatformMailer(Protocol):
 
 class LoggingMailer:
     """Writes the whole message to the log — the link included, which is
-    how a developer or a test gets at it. Never used where a real mailbox is
-    configured."""
+    how a developer or a test gets at it. Only in `development`; `get_mailer`
+    refuses it anywhere else."""
 
     def send(self, mail: Mail) -> None:
         logger.info("platform_mail", extra={"to": mail.to, "subject": mail.subject, "text": mail.text})
@@ -70,10 +70,15 @@ def get_mailer() -> PlatformMailer:
 
     global _mailer
     if _mailer is None:
-        if _settings.platform_mail_sender != "smtp" and _settings.environment == "production":
+        if _settings.platform_mail_sender != "smtp" and _settings.environment != "development":
             # The logging sender writes live reset and invitation links to
-            # the application log — a dev and staging convenience, never
-            # production's sender (CLAUDE.md: secrets are never logged).
-            raise RuntimeError("DMS_PLATFORM_MAIL_SENDER must be 'smtp' in production.")
+            # the application log, so anyone who reads the log can take over
+            # an account (CLAUDE.md: secrets are never logged). Local runs,
+            # CI and the tests keep it — `development` is their default —
+            # and every deployed environment, staging included, sends mail
+            # (Anto, 2026-10-24, KAN-397).
+            raise RuntimeError(
+                f"DMS_PLATFORM_MAIL_SENDER must be 'smtp' outside development (DMS_ENVIRONMENT={_settings.environment})."
+            )
         _mailer = SmtpMailer() if _settings.platform_mail_sender == "smtp" else LoggingMailer()
     return _mailer

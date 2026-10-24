@@ -35,12 +35,14 @@
 #      (demo@nexotec-staging.example) and every deploy after that just
 #      no-ops. The demo Betrieb is seeded with MFA enforcement off so a
 #      stakeholder can sign in with the password alone.
-#   4. DMS_PLATFORM_MAIL_SMTP_PASSWORD — only once DMS_PLATFORM_MAIL_SENDER is
-#      switched from "logging" to "smtp" (FR-AU-15: invitations and resets
-#      leave through Nexotec's own mailbox; set DMS_PLATFORM_MAIL_FROM, _SMTP_HOST,
-#      _SMTP_PORT and _SMTP_USERNAME as plain values with it — none is set yet,
-#      staging runs the logging sender and reset/invitation links are read
-#      out of the Render log).
+#   4. DMS_PLATFORM_MAIL_SMTP_PASSWORD — the staging mailbox's password (for
+#      Gmail an app password: Google Account → Security → App passwords, 16
+#      letters, pasted without spaces). Set 2026-10-24. Invitations and resets
+#      leave through that mailbox (FR-AU-15); the sender, host, port and user
+#      are plain values below. The `logging` sender, which wrote the links to
+#      the Render log, is refused in every deployed environment (KAN-397), so
+#      without this password no invitation or reset reaches anyone — the
+#      failure is a `mail_delivery_failed` auth event and an ERROR line.
 
 databases:
   - name: dms-staging-db
@@ -128,8 +130,18 @@ services:
         value: dms-staging-tb9w.onrender.com
       - key: DMS_WEBAUTHN_ORIGIN
         value: https://dms-staging-tb9w.onrender.com
+      # KAN-397 (Anto, 2026-10-24): staging sends real mail; the logging
+      # sender is refused outside development (mailer.get_mailer).
       - key: DMS_PLATFORM_MAIL_SENDER
-        value: logging
+        value: smtp
+      - key: DMS_PLATFORM_MAIL_FROM
+        value: mrvelj.anto@gmail.com
+      - key: DMS_PLATFORM_MAIL_SMTP_HOST
+        value: smtp.gmail.com
+      - key: DMS_PLATFORM_MAIL_SMTP_PORT
+        value: "587"
+      - key: DMS_PLATFORM_MAIL_SMTP_USERNAME
+        value: mrvelj.anto@gmail.com
       - key: DMS_PLATFORM_MAIL_SMTP_PASSWORD
         sync: false
 

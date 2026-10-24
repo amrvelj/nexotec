@@ -366,17 +366,52 @@ def test_the_reset_mail_leaves_after_the_response_and_a_failure_is_still_recorde
     identity.send_pending_mail(_Broken(), None, bind=db_session.get_bind(), ip_address="")  # nothing to send
 
 
-def test_the_logging_sender_is_refused_in_production(monkeypatch):
+@pytest.mark.parametrize("environment", ["production", "staging", "preview"])
+def test_the_logging_sender_is_refused_in_every_deployed_environment(monkeypatch, environment):
+    """KAN-397 (Anto, 2026-10-24): the logging sender puts live reset and
+    invitation links in the log, so staging is refused like production — and
+    so is any environment name not yet thought of."""
+
     from app.platform.services import mailer
 
     settings = get_settings()
-    monkeypatch.setattr(settings, "environment", "production")
+    monkeypatch.setattr(settings, "environment", environment)
     monkeypatch.setattr(settings, "platform_mail_sender", "logging")
     monkeypatch.setattr(mailer, "_mailer", None)
-    with pytest.raises(RuntimeError, match="smtp"):
+    with pytest.raises(RuntimeError, match=f"smtp.*DMS_ENVIRONMENT={environment}"):
         mailer.get_mailer()
     monkeypatch.setattr(settings, "platform_mail_sender", "smtp")
     assert isinstance(mailer.get_mailer(), mailer.SmtpMailer)
+
+
+def test_every_deployed_service_in_render_yaml_sends_mail_by_smtp():
+    """KAN-397: a deployed service left on the logging sender would refuse to
+    start (get_mailer runs at import), and its password must stay a Render
+    secret, never a value in the repository."""
+
+    from pathlib import Path
+
+    import yaml
+
+    blueprint = yaml.safe_load((Path(__file__).resolve().parents[1] / "render.yaml").read_text())
+    web = [service for service in blueprint["services"] if service.get("type") == "web"]
+    assert web
+    for service in web:
+        env = {var["key"]: var for var in service["envVars"]}
+        assert env["DMS_PLATFORM_MAIL_SENDER"]["value"] == "smtp"
+        for key in ("DMS_PLATFORM_MAIL_FROM", "DMS_PLATFORM_MAIL_SMTP_HOST", "DMS_PLATFORM_MAIL_SMTP_USERNAME"):
+            assert env[key]["value"], key
+        assert env["DMS_PLATFORM_MAIL_SMTP_PASSWORD"] == {"key": "DMS_PLATFORM_MAIL_SMTP_PASSWORD", "sync": False}
+
+
+def test_the_logging_sender_stays_for_local_runs_ci_and_tests(monkeypatch):
+    from app.platform.services import mailer
+
+    settings = get_settings()
+    monkeypatch.setattr(settings, "environment", "development")
+    monkeypatch.setattr(settings, "platform_mail_sender", "logging")
+    monkeypatch.setattr(mailer, "_mailer", None)
+    assert isinstance(mailer.get_mailer(), mailer.LoggingMailer)
 
 
 def test_changing_the_address_ends_tokens_and_sessions_and_tells_the_old_address(client, login, mailbox, db_session):

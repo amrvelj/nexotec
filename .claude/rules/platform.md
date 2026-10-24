@@ -270,7 +270,7 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   `DMS_OBJECT_STORE_LOCAL_DIR`, the only store built; a bucket is a follow-up); the row holds
   the key (`signature_image_ref`), never bytes or base64. The local store is dev, test and
   staging only: `get_object_store` refuses it in production at startup (KAN-402 brings the
-  bucket), as the mailer refuses its `logging` sender.
+  bucket), as the mailer refuses its `logging` sender (outside `development`, KAN-397).
 
 ## Document templates (ADR-051)
 
@@ -318,7 +318,7 @@ One shared template layer (`app/platform/models/document_template.py`). WeasyPri
   `revoke-sessions` recovery (D-A-16, KAN-202; a manager's lever is to suspend or deactivate the
   user) revoke every row of the user — each revocation is a
   `session_revoked` event; the reset request's mail is sent after the response (a background
-  task) so its timing says nothing; the `logging` mail sender is refused at startup in production. Per-Betrieb idle/absolute policy (D-A-37) is **not built**: one
+  task) so its timing says nothing; the `logging` mail sender is refused at startup outside `development` (KAN-397). Per-Betrieb idle/absolute policy (D-A-37) is **not built**: one
   platform setting.
 - **MFA** (`mfa.py`): TOTP (`pyotp`, a code is good once, ±1 step) with ten hashed single-use
   recovery codes, passkeys (`webauthn`, resident keys; the challenge is derived from a
@@ -358,8 +358,10 @@ One shared template layer (`app/platform/models/document_template.py`). WeasyPri
   the suite completes a **software** ceremony — real keys and signatures through the library —
   and none against a hardware authenticator or a browser.
 - **Platform mail** (`mailer.py`, D-A-28; Anto, 2026-10-17): invitations and resets leave
-  through the Nexotec mailbox behind `PlatformMailer` — `logging` (default: the link goes to the
-  application log; **staging runs this today**) or `smtp` (`DMS_PLATFORM_MAIL_*`). Delivery is
+  through the Nexotec mailbox behind `PlatformMailer` — `logging` (the default: the link goes to
+  the application log, so it is allowed only where `DMS_ENVIRONMENT` is `development` — local, CI,
+  tests; Anto, 2026-10-24, KAN-397) or `smtp` (`DMS_PLATFORM_MAIL_*`; staging sends through a
+  Gmail mailbox, its app password a Render secret). Delivery is
   not fire-and-forget: a failure is a `mail_delivery_failed` auth event and an ERROR line. Texts
   in DE/FR/IT/EN from the user's `uiLanguage` preference (`mail_texts.py`). Tests override
   `get_mailer` with the `mailbox` fixture.
