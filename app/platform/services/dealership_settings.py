@@ -1,8 +1,8 @@
 """Commercial and fiscal defaults (KAN-203, FR-A-25). The row exists for
 every Betrieb — written by `create_dealership`, backfilled by the KAN-203
 migration — but a dealership row inserted any other way (fixtures, the
-smoke seed) has none, so the read creates it with the shipped values rather
-than 404 a configuration every document inherits. The write locks it.
+smoke seed) has none, so the read answers the shipped values without
+writing, and the first write creates the row (locked, the KAN-393 pattern).
 """
 
 import uuid
@@ -13,7 +13,16 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
-from app.platform.models.dealership_settings import DealershipSettings
+from app.core.base import utcnow
+from app.platform.models.dealership_settings import (
+    SHIPPED_CASH_ROUNDING,
+    SHIPPED_CURRENCY,
+    SHIPPED_FISCAL_YEAR_START,
+    SHIPPED_PAYMENT_TERMS_DAYS,
+    ChartOfAccountsVariant,
+    DealershipSettings,
+    PeriodLockPolicy,
+)
 from app.platform.schemas.dealership_settings import DealershipSettingsUpdate
 
 _FIELDS = (
@@ -39,7 +48,34 @@ def _snapshot(settings: DealershipSettings) -> dict[str, Any]:
 def new_settings(dealership_id: uuid.UUID, actor_id: uuid.UUID | None) -> DealershipSettings:
     """A settings row with the shipped defaults (the model's column defaults)."""
 
-    return DealershipSettings(dealership_id=dealership_id, created_by=actor_id, updated_by=actor_id)
+    # Set explicitly, not left to the column defaults (those apply at flush;
+    # the transient row `read_settings` answers with is never flushed).
+    return DealershipSettings(
+        dealership_id=dealership_id,
+        currency=SHIPPED_CURRENCY,
+        cash_rounding=SHIPPED_CASH_ROUNDING,
+        default_payment_terms_days=SHIPPED_PAYMENT_TERMS_DAYS,
+        fiscal_year_start=SHIPPED_FISCAL_YEAR_START,
+        chart_of_accounts_variant=ChartOfAccountsVariant.KMU,
+        period_lock_policy=PeriodLockPolicy.MONTH_END_CLOSE,
+        created_by=actor_id,
+        updated_by=actor_id,
+    )
+
+
+def read_settings(db: Session, dealership_id: uuid.UUID) -> DealershipSettings:
+    """The row to READ: the stored one, or — for a dealership row inserted
+    around the service, which has none — a transient row with the shipped
+    values (version 1, the version the first PATCH will create it with).
+    A read never inserts, the auditor's included."""
+
+    row = db.scalar(select(DealershipSettings).where(DealershipSettings.dealership_id == dealership_id))
+    if row is not None:
+        return row
+    transient = new_settings(dealership_id, None)
+    transient.version = 1
+    transient.created_at = transient.updated_at = utcnow()
+    return transient
 
 
 def settings_for(db: Session, dealership_id: uuid.UUID, *, for_update: bool = False) -> DealershipSettings:

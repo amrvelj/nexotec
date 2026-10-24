@@ -2479,7 +2479,9 @@
       "qrReferenceNeedsQrIban": "The QR reference needs a QR-IBAN. Enter the QR-IBAN or choose another reference type.",
       "qrIbanNeedsQrReference": "A QR-IBAN is only used with the QR reference. Remove the QR-IBAN or choose the QR reference.",
       "creditorPrefixNeedsScor": "A reference prefix applies to the structured creditor reference (SCOR) only.",
-      "defaultConflict": "Another account became the invoice account in the meantime. Reload the page and try again."
+      "defaultConflict": "Another account became the invoice account in the meantime. Reload the page and try again.",
+      "invalidField": "Please check the field \"{{field}}\".",
+      "bankingManagerOnly": "Only a manager of this business changes the bank accounts."
     },
     "legal": {
       "title": "Legal identity",
@@ -2516,7 +2518,7 @@
       "locality": "Locality",
       "canton": "Canton",
       "country": "Country",
-      "countryHint": "Country code, e.g. CH, DE, FL.",
+      "countryHint": "Country code, e.g. CH, DE, LI.",
       "phone": "Phone",
       "overrides": "Different correspondence or billing address",
       "correspondenceDiffers": "Post goes to an address other than the registered seat",
@@ -2555,7 +2557,7 @@
         "label": "Label",
         "labelPlaceholder": "e.g. Workshop, Vehicle purchasing",
         "isDefault": "Invoice account",
-        "isDefaultHint": "Appears on invoices and the QR-bill. There is exactly one."
+        "isDefaultHint": "Appears on invoices and the QR-bill. At most one – you choose it explicitly."
       },
       "qrTypes": {
         "non": "No reference",

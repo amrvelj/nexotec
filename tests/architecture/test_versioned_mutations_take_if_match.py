@@ -53,6 +53,9 @@ POST_WITHOUT_IF_MATCH = {
     "/v1/platform/users/{user_id}/recovery/{action}": "tokens, factors, the lockout counter, sessions or the "
     "invited_at stamp — never a field a manager edits; change-email and grant-manager, which do, take If-Match",
     "/v1/reference-data/{list_code}": _NEW_ROW,
+    "/v1/dealerships/{dealership_id}/bank-accounts": "a new bank-account row (KAN-203); with isDefault the previous "
+    "default is demoted under the dealership row lock — a row the caller did not name, audited as its own update, "
+    "so no If-Match applies to it (ADR-100's section of the PRD; Anto's ruling 2026-10-24: the default moves)",
     "/v1/vehicles/{vehicle_id}/custody-events": _KAN_428,
     "/v1/configurations/{configuration_id}/copy": _NEW_ROW,
     "/v1/vehicle-mdm/mapping-gaps/{gap_id}/resolve": "the system's catalogue fill (KAN-240) bumps the filled "

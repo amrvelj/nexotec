@@ -25,6 +25,50 @@ const REASON_KEYS: Record<string, string> = {
   default_conflict: 'business.errors.defaultConflict',
 }
 
+// The label key of each field the API may refuse at the schema level, so a
+// 422 names the field in the dealer's words (`details.errors[].loc`).
+const FIELD_LABEL_KEYS: Record<string, string> = {
+  legalName: 'business.legal.legalName',
+  tradeName: 'business.legal.tradeName',
+  uid: 'business.legal.uid',
+  vatNumber: 'business.legal.vatNumber',
+  hrNumber: 'business.legal.hrNumber',
+  commercialRegisterOffice: 'business.legal.commercialRegisterOffice',
+  street: 'business.addresses.street',
+  houseNumber: 'business.addresses.houseNumber',
+  postalCode: 'business.addresses.postalCode',
+  locality: 'business.addresses.locality',
+  canton: 'business.addresses.canton',
+  country: 'business.addresses.country',
+  phone: 'business.addresses.phone',
+  accountHolder: 'business.banking.fields.accountHolder',
+  bankName: 'business.banking.fields.bankName',
+  iban: 'business.banking.fields.iban',
+  bic: 'business.banking.fields.bic',
+  qrIban: 'business.banking.fields.qrIban',
+  creditorReferencePrefix: 'business.banking.fields.creditorReferencePrefix',
+  currency: 'business.fiscal.currency',
+  cashRounding: 'business.fiscal.cashRounding',
+  defaultPaymentTermsDays: 'business.fiscal.paymentTerms',
+  fiscalYearStart: 'business.fiscal.fiscalMonth',
+  accountingSystem: 'business.fiscal.accountingSystem',
+  mandant: 'business.fiscal.mandant',
+  plateNumber: 'business.licences.plate',
+  expiresOn: 'business.licences.expiresOn',
+  astraOperatorNumber: 'business.licences.astra',
+}
+
+/** The field a schema-level 422 names (the last body location), or null. */
+export function refusedField(err: ApiError): string | null {
+  const errors = err.details?.errors
+  if (!Array.isArray(errors)) return null
+  for (const entry of errors) {
+    const loc = (entry as { loc?: unknown } | null)?.loc
+    if (Array.isArray(loc) && loc[0] === 'body' && typeof loc[loc.length - 1] === 'string') return loc[loc.length - 1] as string
+  }
+  return null
+}
+
 /** The one text a Business-screen refusal renders, in the UI language. */
 export function businessRefusalText(t: TFunction, err: unknown): string {
   if (!(err instanceof ApiError)) return t('common.requestFailed')
@@ -33,8 +77,19 @@ export function businessRefusalText(t: TFunction, err: unknown): string {
   if (err.status === 403) return t('business.errors.managerOnly')
   if (err.status === 409 && err.details && 'uid' in err.details) return t('business.errors.uidTaken')
   if (err.status === 409) return t('business.errors.conflict')
-  if (err.status === 422 || err.status === 400) return t('business.errors.invalid')
+  if (err.status === 422) {
+    const field = refusedField(err)
+    const key = field ? FIELD_LABEL_KEYS[field] : undefined
+    return key ? t('business.errors.invalidField', { field: t(key) }) : t('business.errors.invalid')
+  }
+  if (err.status === 400) return t('business.errors.invalid')
   return t('common.requestFailed')
+}
+
+/** A banking write's refusal: the 404 a non-manager gets (ADR-100) is said as "the manager's", not as a failed request. */
+export function bankingWriteRefusalText(t: TFunction, err: unknown): string {
+  if (err instanceof ApiError && err.status === 404) return t('business.errors.bankingManagerOnly')
+  return businessRefusalText(t, err)
 }
 
 /** `CH9300762011623852957` → `CH93 0076 2011 6238 5295 7`, as a bank prints it. */

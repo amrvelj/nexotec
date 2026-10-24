@@ -5,7 +5,7 @@ import { FormDialog } from '@nexotec/ui-kit'
 import { useTranslation } from 'react-i18next'
 import { api } from '../../api/client'
 import type { BankAccountCreate, BankAccountRead, BankAccountUpdate, QrReferenceType } from '../../api/types'
-import { QR_REFERENCE_TYPES, businessRefusalText, orNull } from '../../businessOptions'
+import { QR_REFERENCE_TYPES, bankingWriteRefusalText, orNull } from '../../businessOptions'
 import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
 import { bankAccountsKey } from './queryKeys'
 
@@ -105,7 +105,7 @@ export function BankAccountDialog({ opened, onClose, dealershipId, account }: Ba
       await queryClient.invalidateQueries({ queryKey: bankAccountsKey(dealershipId) })
       onClose()
     },
-    onError: (err) => setError(businessRefusalText(t, err)),
+    onError: (err) => setError(bankingWriteRefusalText(t, err)),
   })
 
   const qrr = form.qrReferenceType === 'qrr'
@@ -145,7 +145,13 @@ export function BankAccountDialog({ opened, onClose, dealershipId, account }: Ba
               label={t('business.banking.fields.qrReferenceType')}
               data={QR_REFERENCE_TYPES.map((v) => ({ value: v, label: t(`business.banking.qrTypes.${v}`) }))}
               value={form.qrReferenceType}
-              onChange={(v) => v && set('qrReferenceType', v as QrReferenceType)}
+              onChange={(v) => {
+                if (!v) return
+                const type = v as QrReferenceType
+                // What the new type does not take is cleared, so a hidden
+                // field never holds a value the API would then refuse.
+                setForm((f) => ({ ...f, qrReferenceType: type, qrIban: type === 'qrr' ? f.qrIban : '', creditorReferencePrefix: type === 'scor' ? f.creditorReferencePrefix : '' }))
+              }}
               allowDeselect={false}
               description={t('business.banking.fields.qrReferenceTypeHint')}
             />

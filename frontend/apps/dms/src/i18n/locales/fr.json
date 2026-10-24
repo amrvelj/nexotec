@@ -2479,7 +2479,9 @@
       "qrReferenceNeedsQrIban": "La référence QR requiert un QR-IBAN. Saisissez le QR-IBAN ou choisissez un autre type de référence.",
       "qrIbanNeedsQrReference": "Un QR-IBAN ne s'utilise qu'avec la référence QR. Retirez le QR-IBAN ou choisissez la référence QR.",
       "creditorPrefixNeedsScor": "Un préfixe de référence ne s'applique qu'à la référence créancier structurée (SCOR).",
-      "defaultConflict": "Un autre compte est devenu le compte de facturation entre-temps. Rechargez la page et réessayez."
+      "defaultConflict": "Un autre compte est devenu le compte de facturation entre-temps. Rechargez la page et réessayez.",
+      "invalidField": "Veuillez vérifier le champ « {{field}} ».",
+      "bankingManagerOnly": "Seul un manager de cette entreprise modifie les relations bancaires."
     },
     "legal": {
       "title": "Identité juridique",
@@ -2516,7 +2518,7 @@
       "locality": "Localité",
       "canton": "Canton",
       "country": "Pays",
-      "countryHint": "Code pays, p. ex. CH, DE, FL.",
+      "countryHint": "Code pays, p. ex. CH, DE, LI.",
       "phone": "Téléphone",
       "overrides": "Adresse de correspondance ou de facturation différente",
       "correspondenceDiffers": "Le courrier va à une autre adresse que le siège",
@@ -2555,7 +2557,7 @@
         "label": "Désignation",
         "labelPlaceholder": "p. ex. Atelier, Achat de véhicules",
         "isDefault": "Compte de facturation",
-        "isDefaultHint": "Figure sur les factures et la QR-facture. Il n'y en a qu'un."
+        "isDefaultHint": "Figure sur les factures et la QR-facture. Un au plus – vous le choisissez explicitement."
       },
       "qrTypes": {
         "non": "Sans référence",

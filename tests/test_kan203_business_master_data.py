@@ -19,6 +19,7 @@ What is pinned here:
 """
 
 import importlib.util
+import os
 import uuid
 from pathlib import Path
 
@@ -346,6 +347,19 @@ def test_outside_the_banking_readers_every_bank_account_route_is_a_404(client, r
     assert [a["bankName"] for a in listing] == ["Zürcher Kantonalbank"]
 
 
+def test_the_404_comes_before_the_if_match_check(client):
+    """ADR-100 holds without the header too: a sales token's PATCH or DELETE
+    sent without If-Match is a 404, never the 400 a manager would get."""
+
+    dealership = _create_dealership(client)
+    account = _create_account(client, dealership["id"])
+    sales = _role(dealership["id"], AccessRole.SALES)
+    url = f"/v1/dealerships/{dealership['id']}/bank-accounts/{account['id']}"
+    assert client.patch(url, json={"bankName": "X"}, headers=sales).status_code == 404
+    assert client.delete(url, headers=sales).status_code == 404
+    assert client.patch(url, json={"bankName": "X"}, headers=_manager(dealership["id"])).status_code == 400
+
+
 @pytest.mark.parametrize("role", [AccessRole.FINANCE, AccessRole.AUDITOR])
 def test_finance_and_the_auditor_read_but_do_not_write(client, role):
     dealership = _create_dealership(client)
@@ -360,6 +374,42 @@ def test_finance_and_the_auditor_read_but_do_not_write(client, role):
         client.patch(f"{base}/{account['id']}", json={"bankName": "X"}, headers={**headers, "If-Match": "1"}).status_code
         == 404
     )
+    assert client.delete(f"{base}/{account['id']}", headers={**headers, "If-Match": "1"}).status_code == 404
+    assert len(client.get(base, headers=headers).json()["items"]) == 1
+
+
+@pytest.mark.parametrize(
+    ("iban", "qr"),
+    [
+        ("CH9300762011623852957", False),  # IID 00762
+        ("CH4431999123000889012", True),  # IID 31999, the top of the range
+        ("DE89370400440532013000", False),  # foreign: never a QR-IBAN
+    ],
+)
+def test_qr_iban_detection_by_iid(iban, qr):
+    from app.core.validators import is_qr_iban
+
+    assert is_qr_iban(iban) is qr
+
+
+def test_qr_iid_boundaries_are_exact():
+    """29999 and 32000 are plain, 30000 and 31999 are QR — on a CH and an LI
+    IBAN, with the check digits recomputed for each IID."""
+
+    from app.core.validators import iban_is_valid, is_qr_iban
+
+    def with_iid(country: str, iid: int) -> str:
+        bban = f"{iid:05d}123000889012"
+        rearranged = bban + country + "00"
+        digits = "".join(str(ord(ch) - 55) if ch.isalpha() else ch for ch in rearranged)
+        check = 98 - int(digits) % 97
+        return f"{country}{check:02d}{bban}"
+
+    for country in ("CH", "LI"):
+        for iid, qr in ((29999, False), (30000, True), (31999, True), (32000, False)):
+            iban = with_iid(country, iid)
+            assert iban_is_valid(iban)
+            assert is_qr_iban(iban) is qr, (country, iid)
 
 
 def test_another_betriebs_manager_gets_404_on_the_accounts(client):
@@ -410,9 +460,9 @@ def test_create_dealership_writes_the_settings_row_in_the_same_transaction(clien
     assert row is not None and row.currency == "CHF"
 
 
-def test_a_dealership_row_without_settings_reads_them_created_on_demand(client, db_session):
+def test_a_dealership_row_without_settings_reads_the_shipped_values_and_the_first_write_creates_the_row(client, db_session):
     """Rows inserted around the service (fixtures, the smoke seed) have no
-    settings row; the first read creates it with the shipped values."""
+    settings row; a read answers the shipped values without writing."""
 
     group = DealerGroup(name="G")
     db_session.add(group)
@@ -433,7 +483,16 @@ def test_a_dealership_row_without_settings_reads_them_created_on_demand(client, 
     db_session.commit()
     response = client.get(f"/v1/dealerships/{dealership.id}/settings", headers=_manager(str(dealership.id)))
     assert response.status_code == 200, response.text
-    assert response.json()["cashRounding"] == "0.05"
+    assert response.json()["cashRounding"] == "0.05" and response.json()["version"] == 1
+    # A read never writes (the auditor reads too); the first PATCH creates the row.
+    assert db_session.scalar(sa.select(sa.func.count()).select_from(DealershipSettings)) == 0
+    patched = client.patch(
+        f"/v1/dealerships/{dealership.id}/settings",
+        json={"mandant": "4711"},
+        headers={**_manager(str(dealership.id)), "If-Match": "1"},
+    )
+    assert patched.status_code == 200, patched.text
+    assert patched.json()["version"] == 2
     assert db_session.scalar(sa.select(sa.func.count()).select_from(DealershipSettings)) == 1
 
 
@@ -667,6 +726,7 @@ def test_migration_chains_from_kan202_and_seeds_the_business_lists(migration):
     assert "agvs_upsa" in {r[0] for r in BUSINESS_LISTS["association_membership"]}
 
 
+@pytest.mark.skipif(not os.environ.get("DMS_TEST_DATABASE_URL"), reason="Postgres-only SQL (gen_random_uuid, now)")
 def test_backfill_gives_every_existing_dealership_the_shipped_defaults_once(client, db_session, migration):
     """The INSERT … SELECT the migration runs, on a Betrieb that has no
     settings row: one row with the shipped values; a second run adds none."""

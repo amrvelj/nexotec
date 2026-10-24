@@ -91,15 +91,15 @@ function AddressFields({ value, onChange, idPrefix, seat }: { value: AddressForm
  */
 export function AddressesSection({ dealership }: { dealership: DealershipRead }) {
   const { t } = useTranslation()
-  const { form, set, dirty, markSaved } = useRecordForm(dealership, useCallback(toForm, []))
-  const patch = useDealershipPatch(dealership)
-  const changes = changesOf(dealership, form)
+  const { form, set, dirty, markSaved, loaded } = useRecordForm(dealership, useCallback(toForm, []))
+  const patch = useDealershipPatch(dealership.id)
+  const changes = changesOf(loaded, form)
 
   return (
     <SectionCard
       title={t('business.addresses.title')}
       icon={<MapPin size={20} />}
-      onSave={() => patch.save(changes, { onSuccess: markSaved })}
+      onSave={() => patch.save({ changes, version: loaded.version }, { onSuccess: markSaved })}
       dirty={dirty && Object.keys(changes).length > 0}
       saving={patch.saving}
       error={patch.error}

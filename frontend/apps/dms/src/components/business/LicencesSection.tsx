@@ -52,10 +52,10 @@ function changesOf(d: DealershipRead, f: Form): DealershipUpdate {
  */
 export function LicencesSection({ dealership }: { dealership: DealershipRead }) {
   const { t } = useTranslation()
-  const { form, set, dirty, markSaved } = useRecordForm(dealership, useCallback(toForm, []))
-  const patch = useDealershipPatch(dealership)
+  const { form, set, dirty, markSaved, loaded } = useRecordForm(dealership, useCallback(toForm, []))
+  const patch = useDealershipPatch(dealership.id)
   const associations = useListOptions('association_membership')
-  const changes = changesOf(dealership, form)
+  const changes = changesOf(loaded, form)
   const incomplete = form.licences.some((r) => r.plateNumber.trim() !== '' && !r.canton)
 
   const setRow = (index: number, row: LicenceRow) => set('licences', form.licences.map((r, i) => (i === index ? row : r)))
@@ -64,7 +64,7 @@ export function LicencesSection({ dealership }: { dealership: DealershipRead }) 
     <SectionCard
       title={t('business.licences.title')}
       icon={<Award size={20} />}
-      onSave={() => patch.save(changes, { onSuccess: markSaved })}
+      onSave={() => patch.save({ changes, version: loaded.version }, { onSuccess: markSaved })}
       dirty={dirty && Object.keys(changes).length > 0}
       saving={patch.saving}
       saveDisabled={incomplete}

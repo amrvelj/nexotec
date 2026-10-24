@@ -63,14 +63,14 @@ const LEGAL_IDENTITY_KEYS: (keyof DealershipUpdate)[] = ['legalName', 'uid', 'va
  */
 export function LegalIdentitySection({ dealership }: { dealership: DealershipRead }) {
   const { t } = useTranslation()
-  const { form, set, dirty, markSaved } = useRecordForm(dealership, useCallback(toForm, []))
+  const { form, set, dirty, markSaved, loaded } = useRecordForm(dealership, useCallback(toForm, []))
   const [confirmed, setConfirmed] = useState(false)
   const [auditNote, setAuditNote] = useState('')
-  const patch = useDealershipPatch(dealership)
+  const patch = useDealershipPatch(dealership.id)
   const legalForms = useListOptions('legal_form')
   const oems = useListOptions('oem_affiliations')
 
-  const changes = changesOf(dealership, form)
+  const changes = changesOf(loaded, form)
   const touchesIdentity = LEGAL_IDENTITY_KEYS.some((key) => key in changes)
   const hasChanges = Object.keys(changes).length > 0
 
@@ -80,7 +80,7 @@ export function LegalIdentitySection({ dealership }: { dealership: DealershipRea
       body.confirmation = true
       if (auditNote.trim()) body.auditNote = auditNote.trim()
     }
-    patch.save(body, {
+    patch.save({ changes: body, version: loaded.version }, {
       onSuccess: () => {
         markSaved()
         setConfirmed(false)

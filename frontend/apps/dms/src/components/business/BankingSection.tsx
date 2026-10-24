@@ -6,7 +6,7 @@ import { Badge, FormDialog, RowMenu } from '@nexotec/ui-kit'
 import { useTranslation } from 'react-i18next'
 import { ApiError, api } from '../../api/client'
 import type { BankAccountList, BankAccountRead } from '../../api/types'
-import { businessRefusalText, formatIban } from '../../businessOptions'
+import { bankingWriteRefusalText, formatIban } from '../../businessOptions'
 import { BankAccountDialog } from './BankAccountDialog'
 import { SectionCard } from './SectionCard'
 import { bankAccountsKey } from './queryKeys'
@@ -34,7 +34,7 @@ export function BankingSection({ dealershipId }: { dealershipId: string }) {
   const makeDefault = useMutation({
     mutationFn: (a: BankAccountRead) => api.patch<BankAccountRead>(`/dealerships/${dealershipId}/bank-accounts/${a.id}`, { isDefault: true }, { 'If-Match': String(a.version) }),
     onSuccess: refresh,
-    onError: (err) => setError(businessRefusalText(t, err)),
+    onError: (err) => setError(bankingWriteRefusalText(t, err)),
   })
   const remove = useMutation({
     mutationFn: (a: BankAccountRead) => api.delete(`/dealerships/${dealershipId}/bank-accounts/${a.id}`, { 'If-Match': String(a.version) }),
@@ -42,7 +42,7 @@ export function BankingSection({ dealershipId }: { dealershipId: string }) {
       setDeleting(null)
       await refresh()
     },
-    onError: (err) => setError(businessRefusalText(t, err)),
+    onError: (err) => setError(bankingWriteRefusalText(t, err)),
   })
 
   // ADR-100: a 404 means "not for this role" — nothing to show, not an error.

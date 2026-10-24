@@ -21,15 +21,15 @@ interface Form {
   mandant: string
   chartOfAccountsVariant: ChartOfAccountsVariant
   periodLockPolicy: PeriodLockPolicy
-  vatRate: number | string
 }
 
 /**
  * Business › Commercial and fiscal defaults (KAN-203, FR-A-25): what every
  * document and module inherits. Every value ships with a neutral default,
  * so the form is never empty. The VAT rate is the dealership's own column
- * (ADR-057's one figure) and is edited here because this is the one
- * administration surface (A-RULE-0) — its meaning is untouched.
+ * (ADR-057's one figure), edited here because this is the one
+ * administration surface (A-RULE-0) — its meaning is untouched; it has its
+ * own loaded record and If-Match.
  */
 export function FiscalDefaultsSection({ dealership, settings }: { dealership: DealershipRead; settings: DealershipSettingsRead }) {
   const { t } = useTranslation()
@@ -47,41 +47,45 @@ export function FiscalDefaultsSection({ dealership, settings }: { dealership: De
         mandant: s.mandant ?? '',
         chartOfAccountsVariant: s.chartOfAccountsVariant,
         periodLockPolicy: s.periodLockPolicy,
-        vatRate: dealership.vatRate ?? '',
       }
     },
-    [dealership.vatRate],
+    [],
   )
-  const { form, set, dirty, markSaved } = useRecordForm(settings, toForm)
+  const { form, set, dirty, markSaved, loaded } = useRecordForm(settings, toForm)
+  // The dealership record the VAT rate was loaded from (its version is that PATCH's If-Match).
+  const vat = useRecordForm(dealership, useCallback((d: DealershipRead): { vatRate: number | string } => ({ vatRate: d.vatRate ?? '' }), []))
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
-  const dealershipPatch = useDealershipPatch(dealership)
+  const dealershipPatch = useDealershipPatch(dealership.id)
 
   const settingsChanges = (): DealershipSettingsUpdate => {
     const c: DealershipSettingsUpdate = {}
-    if (form.currency.trim().toUpperCase() !== settings.currency) c.currency = form.currency.trim().toUpperCase()
-    if (form.cashRounding !== String(settings.cashRounding)) c.cashRounding = form.cashRounding
-    if (Number(form.defaultPaymentTermsDays) !== settings.defaultPaymentTermsDays) c.defaultPaymentTermsDays = Number(form.defaultPaymentTermsDays)
+    if (form.currency.trim().toUpperCase() !== loaded.currency) c.currency = form.currency.trim().toUpperCase()
+    if (form.cashRounding !== String(loaded.cashRounding)) c.cashRounding = form.cashRounding
+    if (Number(form.defaultPaymentTermsDays) !== loaded.defaultPaymentTermsDays) c.defaultPaymentTermsDays = Number(form.defaultPaymentTermsDays)
     const fiscal = joinFiscalYearStart(form.fiscalMonth, form.fiscalDay)
-    if (fiscal !== settings.fiscalYearStart) c.fiscalYearStart = fiscal
-    if (orNull(form.accountingSystem) !== (settings.accountingSystem ?? null)) c.accountingSystem = orNull(form.accountingSystem)
-    if (orNull(form.mandant) !== (settings.mandant ?? null)) c.mandant = orNull(form.mandant)
-    if (form.chartOfAccountsVariant !== settings.chartOfAccountsVariant) c.chartOfAccountsVariant = form.chartOfAccountsVariant
-    if (form.periodLockPolicy !== settings.periodLockPolicy) c.periodLockPolicy = form.periodLockPolicy
+    if (fiscal !== loaded.fiscalYearStart) c.fiscalYearStart = fiscal
+    if (orNull(form.accountingSystem) !== (loaded.accountingSystem ?? null)) c.accountingSystem = orNull(form.accountingSystem)
+    if (orNull(form.mandant) !== (loaded.mandant ?? null)) c.mandant = orNull(form.mandant)
+    if (form.chartOfAccountsVariant !== loaded.chartOfAccountsVariant) c.chartOfAccountsVariant = form.chartOfAccountsVariant
+    if (form.periodLockPolicy !== loaded.periodLockPolicy) c.periodLockPolicy = form.periodLockPolicy
     return c
   }
-  const vatRateChanged = String(form.vatRate) !== String(dealership.vatRate ?? '')
+  const vatRateChanged = String(vat.form.vatRate) !== String(vat.loaded.vatRate ?? '')
 
   const save = useMutation({
     mutationFn: async () => {
       const changes = settingsChanges()
       if (Object.keys(changes).length > 0) {
-        const updated = await api.patch<DealershipSettingsRead>(`/dealerships/${dealership.id}/settings`, changes, { 'If-Match': String(settings.version) })
+        const updated = await api.patch<DealershipSettingsRead>(`/dealerships/${dealership.id}/settings`, changes, { 'If-Match': String(loaded.version) })
         queryClient.setQueryData(settingsKey(dealership.id), updated)
       }
       if (vatRateChanged) {
         await new Promise<void>((resolve, reject) =>
-          dealershipPatch.save({ vatRate: form.vatRate === '' ? null : String(form.vatRate) }, { onSuccess: () => resolve(), onError: reject }),
+          dealershipPatch.save(
+            { changes: { vatRate: vat.form.vatRate === '' ? null : String(vat.form.vatRate) }, version: vat.loaded.version },
+            { onSuccess: () => resolve(), onError: reject },
+          ),
         )
       }
     },
@@ -89,6 +93,7 @@ export function FiscalDefaultsSection({ dealership, settings }: { dealership: De
       setError(null)
       setSaved(true)
       markSaved()
+      vat.markSaved()
     },
     onError: (err) => {
       setSaved(false)
@@ -101,7 +106,7 @@ export function FiscalDefaultsSection({ dealership, settings }: { dealership: De
       title={t('business.fiscal.title')}
       icon={<Calculator size={20} />}
       onSave={() => save.mutate()}
-      dirty={dirty && (Object.keys(settingsChanges()).length > 0 || vatRateChanged)}
+      dirty={(dirty || vat.dirty) && (Object.keys(settingsChanges()).length > 0 || vatRateChanged)}
       saving={save.isPending}
       error={error}
       onDismissError={() => setError(null)}
@@ -117,7 +122,7 @@ export function FiscalDefaultsSection({ dealership, settings }: { dealership: De
           <NumberInput label={t('business.fiscal.paymentTerms')} value={form.defaultPaymentTermsDays} onChange={(v) => set('defaultPaymentTermsDays', v)} min={0} max={365} suffix={` ${t('business.fiscal.days')}`} allowDecimal={false} />
           <Select label={t('business.fiscal.fiscalMonth')} data={MONTHS.map((m) => ({ value: m, label: t(`business.fiscal.months.${m}`) }))} value={form.fiscalMonth} onChange={(v) => v && set('fiscalMonth', v)} allowDeselect={false} />
           <Select label={t('business.fiscal.fiscalDay')} data={DAY_OPTIONS} value={form.fiscalDay} onChange={(v) => v && set('fiscalDay', v)} allowDeselect={false} />
-          <NumberInput label={t('business.fiscal.vatRate')} value={form.vatRate} onChange={(v) => set('vatRate', v)} min={0} max={100} decimalScale={2} suffix=" %" description={t('business.fiscal.vatRateHint')} />
+          <NumberInput label={t('business.fiscal.vatRate')} value={vat.form.vatRate} onChange={(v) => vat.set('vatRate', v)} min={0} max={100} decimalScale={2} suffix=" %" description={t('business.fiscal.vatRateHint')} />
         </SimpleGrid>
         <SimpleGrid cols={{ base: 1, sm: 2 }}>
           <TextInput label={t('business.fiscal.accountingSystem')} value={form.accountingSystem} onChange={(e) => set('accountingSystem', e.currentTarget.value)} placeholder="Abacus, bexio, Sage …" description={t('business.fiscal.accountingSystemHint')} />

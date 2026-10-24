@@ -192,8 +192,11 @@ def update_bank_account(
     dealership_id: uuid.UUID,
     account_id: uuid.UUID,
     body: BankAccountUpdate,
-    if_match: int = Depends(require_if_match),
+    # The banking guard runs before the If-Match check (dependencies run in
+    # declaration order): a role outside banking gets the 404 even without
+    # the header, never a 400 that reads differently (ADR-100).
     principal: Principal = Depends(require_banking_write()),
+    if_match: int = Depends(require_if_match),
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealership_id, principal)
@@ -209,8 +212,8 @@ def update_bank_account(
 def delete_bank_account(
     dealership_id: uuid.UUID,
     account_id: uuid.UUID,
+    principal: Principal = Depends(require_banking_write()),  # before If-Match, as on the PATCH (ADR-100)
     if_match: int = Depends(require_if_match),
-    principal: Principal = Depends(require_banking_write()),
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealership_id, principal)
@@ -237,9 +240,7 @@ def get_dealership_settings(
 
     require_tenant_match(dealership_id, principal)
     dealership_service.get_dealership_or_404(db, dealership_id)
-    settings_row = settings_service.settings_for(db, dealership_id)
-    db.commit()  # a first read may have created the row with the shipped values
-    return _settings_read(settings_row)
+    return _settings_read(settings_service.read_settings(db, dealership_id))  # a read never writes
 
 
 @router.patch("/dealerships/{dealership_id}/settings", response_model=DealershipSettingsRead)
