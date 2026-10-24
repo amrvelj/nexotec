@@ -18,35 +18,44 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 export function useRecordForm<R extends { version: number }, F>(record: R, toForm: (record: R) => F) {
   const [form, setFormState] = useState<F>(() => toForm(record))
   const [loaded, setLoadedState] = useState<R>(record)
-  const [dirty, setDirty] = useState(false)
+  const [dirty, setDirtyState] = useState(false)
   const seen = useRef(record.version)
-  // `loaded` read through a ref: the effect must not re-run because a save
-  // moved it (it would see the old prop and step back for a frame).
+  // `loaded` and `dirty` are read through refs: the effect runs only when
+  // the record prop itself moves, never because a save moved them (it would
+  // then see the old prop and step back for a frame).
   const loadedRef = useRef(record)
+  const dirtyRef = useRef(false)
   const setLoaded = useCallback((next: R) => {
     loadedRef.current = next
     setLoadedState(next)
   }, [])
+  const setDirty = useCallback((next: boolean) => {
+    dirtyRef.current = next
+    setDirtyState(next)
+  }, [])
   useEffect(() => {
     if (record.version === seen.current) return
     seen.current = record.version
-    if (!dirty) {
+    if (!dirtyRef.current) {
       setFormState(toForm(record))
       setLoaded(record)
       return
     }
     if (JSON.stringify(toForm(loadedRef.current)) === JSON.stringify(toForm(record))) setLoaded(record)
-  }, [record, dirty, toForm, setLoaded])
-  const set = useCallback(<K extends keyof F>(key: K, value: F[K]) => {
-    setFormState((current) => ({ ...current, [key]: value }))
-    setDirty(true)
-  }, [])
+  }, [record, toForm, setLoaded])
+  const set = useCallback(
+    <K extends keyof F>(key: K, value: F[K]) => {
+      setFormState((current) => ({ ...current, [key]: value }))
+      setDirty(true)
+    },
+    [setDirty],
+  )
   const reset = useCallback(() => {
     setFormState(toForm(record))
     setLoaded(record)
     seen.current = record.version
     setDirty(false)
-  }, [record, toForm, setLoaded])
+  }, [record, toForm, setLoaded, setDirty])
   /** After a successful save: the saved record is what the form now holds. */
   const markSaved = useCallback(
     (saved: R) => {
@@ -55,7 +64,7 @@ export function useRecordForm<R extends { version: number }, F>(record: R, toFor
       setFormState(toForm(saved))
       setDirty(false)
     },
-    [toForm, setLoaded],
+    [toForm, setLoaded, setDirty],
   )
   return { form, set, dirty, reset, markSaved, loaded }
 }

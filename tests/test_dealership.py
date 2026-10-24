@@ -273,10 +273,11 @@ def test_vat_number_must_carry_the_dealerships_own_uid(client):
     body = _create_dealership(client, uid=VALID_UID)
     response = client.patch(
         f"/v1/dealerships/{body['id']}",
-        json={"vatNumber": "CHE-987.654.326 MWST"},
+        json={"vatNumber": "CHE-987.654.326 MWST", "confirmation": True},  # KAN-203: past the confirmation gate
         headers={**_bearer(token), "If-Match": "1"},
     )
     assert response.status_code == 422, response.text
+    assert response.json()["error"]["details"] == {"uid": VALID_UID, "vatNumber": "CHE-987.654.326 MWST"}
 
 
 def test_a_row_the_old_api_accepted_with_an_empty_house_number_still_reads(client, db_session):
