@@ -88,6 +88,8 @@ def test_every_refusal_answers_the_same_body(client, login, db_session):
 
     bodies = {
         "unknown": _refused(_attempt(client, "nobody@example.ch", STRONG_PASSWORD)),
+        # KAN-387: a NUL names no account — the same 401, never a 500.
+        "nul_in_address": _refused(_attempt(client, anna["email"] + "\u0000", STRONG_PASSWORD)),
         "wrong_password": _refused(_attempt(client, anna["email"], "not-the-password-at-all")),
         "inactive": _refused(_attempt(client, beat["email"], STRONG_PASSWORD)),
         "locked": _refused(_attempt(client, carla["email"], STRONG_PASSWORD)),

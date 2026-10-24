@@ -289,7 +289,9 @@ One shared template layer (`app/platform/models/document_template.py`). WeasyPri
   claims `sid`, `amr`, `mfa`; `exp` is the session's absolute end. **Every refusal is the same
   401 body with the same argon2 work behind it** (a dummy verify when the address names no
   account) — `tests/test_identity_login_policy.py` asserts body and timing; never add a
-  reason-specific message. Per-account backoff from the third failure and soft lockout after
+  reason-specific message. A NUL character anywhere in a request is a 422 before any route runs
+  (`app/core/nul_guard.py`, KAN-387, Anto: refuse, never strip) — except at the login door, which
+  the guard leaves alone: an address with a NUL names no account, so it is the same 401. Per-account backoff from the third failure and soft lockout after
   `auth_lockout_failures` (cleared by a reset); per-IP backoff on the **last** X-Forwarded-For
   entry (the proxy's), never the first — wrong second-factor answers count on the account axis
   and per challenge, not on the IP axis. The address is resolved case-insensitively and stored

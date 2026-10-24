@@ -9,6 +9,7 @@ from app.api.v1 import api_v1_router
 from app.core.auth import get_jwks
 from app.core.config import get_settings
 from app.core.errors import NotFoundError, register_error_handlers
+from app.core.nul_guard import NulCharacterGuard
 from app.core.object_store import get_object_store
 from app.core.observability import (
     ObservabilityMiddleware,
@@ -41,6 +42,12 @@ get_mailer()
 # KAN-200: the same for the object store — the local directory store is not
 # a production store (KAN-402); the start fails, not the first signature.
 get_object_store()
+# KAN-387: a NUL in the path, query or body is a 422 before any route runs
+# (Postgres text cannot hold one). Added before the observability middleware,
+# so the refusal is logged and carries the correlation id. The login front
+# door is exempt: its refusal must be the uniform 401 (FR-AU-07/16), and an
+# address with a NUL names no account (identity.find_user_by_email).
+app.add_middleware(NulCharacterGuard, exempt_paths=("/v1/auth/login",))
 app.add_middleware(ObservabilityMiddleware)
 app.include_router(api_v1_router)
 
