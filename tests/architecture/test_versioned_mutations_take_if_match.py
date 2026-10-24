@@ -14,8 +14,10 @@ a child row, a copy, …) must take `require_if_match` too, unless it is listed
 in POST_WITHOUT_IF_MATCH with why. A POST that creates a top-level record has
 no version to match and is not walked. The POST list is declared by hand —
 which rows a route writes cannot be read off the route — so each entry says
-what it writes; the six that change a versioned row without If-Match are
-KAN-428's, an open question for Anto, not a ruling.
+what it writes. Nine change a versioned row without If-Match: three by design
+(the hand-over, the system's catalogue fill, a connection test's health
+stamp — each says why) and six that are KAN-428's, an open question for
+Anto, not a ruling.
 """
 
 from app.core.base import VersionedMixin
@@ -40,8 +42,9 @@ _KAN_428 = "KAN-428: changes a versioned row without If-Match — Anto's decisio
 # path -> why the POST on an existing entity takes no If-Match.
 POST_WITHOUT_IF_MATCH = {
     "/v1/dealerships/{dealership_id}/users": _NEW_ROW,
-    "/v1/dealerships/{dealership_id}/users/{user_id}/ownership/transfers": "the hand-over (D-A-35): every record "
-    "of the leaver, judged again under each row's lock — no single version to match",
+    "/v1/dealerships/{dealership_id}/users/{user_id}/ownership/transfers": "the hand-over (D-A-35) bumps every "
+    "moved offer's, contract's and customer's version, judged again under each row's lock — no single version "
+    "to match",
     "/v1/dealerships/{dealership_id}/users/{user_id}/memberships": "a membership row; the user row is locked first "
     "and a second first grant is a 409 (KAN-380)",
     "/v1/dealerships/{dealership_id}/users/{user_id}/invitations": "a single-use token and the user's invited_at "
@@ -52,8 +55,8 @@ POST_WITHOUT_IF_MATCH = {
     "/v1/reference-data/{list_code}": _NEW_ROW,
     "/v1/vehicles/{vehicle_id}/custody-events": _KAN_428,
     "/v1/configurations/{configuration_id}/copy": _NEW_ROW,
-    "/v1/vehicle-mdm/mapping-gaps/{gap_id}/resolve": "the system's catalogue fill (KAN-240): only NULL fields, "
-    "never a value a user set",
+    "/v1/vehicle-mdm/mapping-gaps/{gap_id}/resolve": "the system's catalogue fill (KAN-240) bumps the filled "
+    "configurations' versions — only NULL fields, never a value a user set",
     "/v1/vehicle-mdm/{vehicle_id}/allocate": _CHILD_ROW,
     "/v1/vehicle-mdm/{vehicle_id}/odometer-readings": _CHILD_ROW,
     "/v1/vehicle-mdm/{vehicle_id}/accessories": _CHILD_ROW,
@@ -73,7 +76,9 @@ POST_WITHOUT_IF_MATCH = {
     "/v1/sales/offers/{offer_id}/copy": _NEW_ROW,
     "/v1/sales/offers/{offer_id}/documents": "a new document and the grid's deal row (unversioned)",
     "/v1/sales/contracts/{contract_id}/documents": "a new document and the grid's deal row (unversioned)",
-    "/v1/integrations/connections/{connection_id}/test": "a provider call and its call-log row",
+    "/v1/integrations/connections/{connection_id}/test": "a provider call, its call-log row and the connection's "
+    "health stamp (status, last error, last verified) — the gateway's own observation, not an edit; the version "
+    "does not move",
 }
 
 # (method, path) -> (the model the route writes, why it takes no If-Match).

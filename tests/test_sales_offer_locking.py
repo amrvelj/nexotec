@@ -11,11 +11,14 @@ import uuid
 from decimal import Decimal
 
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from app.core.outbox_model import OutboxMessage
+from app.sales.models.deal import SalesDeal
 from app.sales.models.offer import OfferStatus, SalesOffer
+from app.sales.services.contract import cancel_contract, create_contract, get_contract_or_404
+from app.sales.services.deal_projection import upsert_deal_projection
 from app.sales.services.offer import cancel_offer, get_offer_or_404
 from tests.test_sales_contract_edit import (  # noqa: F401 - the fixture is used by name
     _postgres_only_row_locks,
@@ -91,3 +94,86 @@ def test_a_changing_offer_route_waits_for_a_change_in_progress_and_is_refused(cl
     assert db_session.scalar(
         select(func.count()).select_from(OutboxMessage).where(OutboxMessage.aggregate_id == offer.id)
     ) == events_before + 1
+
+
+@_postgres_only_row_locks
+@pytest.mark.usefixtures("app_sessions_on_the_test_engine")
+def test_a_document_generated_during_an_offer_save_projects_the_saved_offer(client, db_session, engine):
+    """KAN-408 review: generating a document re-projects the grid row, so the
+    route loads the offer for update. A session holds the offer while it
+    saves a new car onto it (as the PATCH does); the generation waits, then
+    projects the saved car. Read unlocked, the route reads the old car, and
+    the holder's share lock on `sales_document` stops its insert until the
+    save has committed — so it then reads the saved grid row and writes the
+    old car back onto it (the reviewer's reproduction, made deterministic)."""
+
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    offer = _offer_with_vehicle(db_session, dealership.id, _stock_item(db_session, dealership.id), group_id=group_id)
+    result = {}
+
+    def send() -> None:
+        result["response"] = client.post(f"/v1/sales/offers/{offer.id}/documents", headers=_token(dealership.id, group_id))
+
+    holding = Session(bind=engine)
+    try:
+        held = get_offer_or_404(holding, dealership.id, offer.id, for_update=True)
+        holding.execute(text("LOCK TABLE sales_document IN SHARE MODE"))
+        held.vehicle_label = "Cupra Born 58 kWh"
+        upsert_deal_projection(holding, offer=held)
+        sender = threading.Thread(target=send)
+        sender.start()
+        time.sleep(0.8)
+        blocked_while_held = sender.is_alive()
+        holding.commit()
+        sender.join(10)
+    finally:
+        holding.close()
+
+    assert blocked_while_held
+    assert result["response"].status_code == 201, result["response"].text
+    db_session.expire_all()
+    deal = db_session.get(SalesDeal, offer.id)
+    assert (deal.vehicle_label, deal.documents_count) == ("Cupra Born 58 kWh", 1)
+
+
+@_postgres_only_row_locks
+@pytest.mark.usefixtures("app_sessions_on_the_test_engine")
+def test_a_document_generated_during_a_contract_cancellation_leaves_the_row_to_the_freed_offer(
+    client, db_session, engine
+):
+    """The contract side: a session holds the pending contract and cancels it
+    (KAN-409 hands the row back to the offer); a contract document generated
+    meanwhile waits, then sees the cancellation — it is refused (a cancelled
+    contract is not complete for printing) or projects the cancelled contract,
+    which leaves the row to the offer either way. Read unlocked, it would put
+    the pending contract back on the row."""
+
+    dealership = _dealership(db_session)
+    group_id = uuid.uuid4()
+    offer = _offer_with_vehicle(db_session, dealership.id, _stock_item(db_session, dealership.id), group_id=group_id)
+    contract = create_contract(db_session, tenant_id=dealership.id, offer=offer, actor_id=uuid.uuid4())
+    result = {}
+
+    def send() -> None:
+        result["response"] = client.post(
+            f"/v1/sales/contracts/{contract.id}/documents", headers=_token(dealership.id, group_id)
+        )
+
+    holding = Session(bind=engine)
+    try:
+        held = get_contract_or_404(holding, dealership.id, contract.id, for_update=True)
+        sender = threading.Thread(target=send)
+        sender.start()
+        time.sleep(0.8)
+        blocked_while_held = sender.is_alive()
+        cancel_contract(holding, contract=held, reason="Kunde tritt zurück", actor_id=uuid.uuid4())
+        sender.join(10)
+    finally:
+        holding.close()
+
+    assert blocked_while_held
+    assert result["response"].status_code in (201, 409), result["response"].text
+    db_session.expire_all()
+    deal = db_session.get(SalesDeal, offer.id)
+    assert (deal.entity_type, deal.contract_id) == ("offer", None)
