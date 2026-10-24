@@ -61,11 +61,21 @@ databases:
     # 2026-10-10): staging stayed on Render, on this paid database plan.
     # Only an amendment of ADR-081 reopens it.
     plan: 0.1c-256mb
-    # Pinned to what the live database is in (Render dashboard, read by
-    # Anto 2026-10-11): ADR-016's "Render, EU (Frankfurt)" — Swiss/EU data
-    # residency. Without this key Render defaults a NEW resource to Oregon
-    # (USA), and a region cannot be changed after creation (KAN-238).
-    region: frankfurt
+    # Oregon (USA), NOT ADR-016's "Render, EU (Frankfurt)". KAN-238 pinned
+    # frankfurt here and on the web service on a 2026-10-11 reading; Render
+    # then refused every sync ("services[0].region: changing region not
+    # supported" — a region cannot be changed after creation), because the
+    # web service is in Oregon (dashboard, Anto 2026-10-24). This database's
+    # region is inferred, not read off the dashboard: the web service
+    # reaches it through `fromDatabase` `connectionString`, the private-
+    # network URL, which works only within one region; and the Blueprint
+    # that created both (62d9473) named no region, so Render defaulted to
+    # Oregon. Should that be wrong, the next sync fails on
+    # databases[0].region and changes nothing. Pinning Oregon is an accepted
+    # exception to ADR-016, recorded as an amendment of ADR-081 (KAN-440,
+    # Anto 2026-10-24); moving staging to Frankfurt means recreating both
+    # resources, never editing this line.
+    region: oregon
     databaseName: dms_staging
     user: dms_staging
 
@@ -74,10 +84,10 @@ services:
     type: web
     runtime: python
     plan: free
-    # Same pin as the database, for the same reason (KAN-238): Frankfurt
-    # is where the live service is, and only services in one region can
-    # share Render's private network the day the worker is provisioned.
-    region: frankfurt
+    # Same pin as the database (KAN-440): Oregon is where the live service
+    # is, and only services in one region share Render's private network —
+    # the internal database URL above and, one day, the worker.
+    region: oregon
     # VITE_OUTBOX_WORKER_ABSENT=true: the SPA tells every signed-in user that
     # this environment runs no outbox worker — no event consumer, no daily
     # job (app/worker.py::register_handlers and register_daily_jobs are the
@@ -195,7 +205,7 @@ services:
   #
   # The original service definition and its design notes follow, unchanged
   # apart from being commented out, KAN-258's DMS_ENVIRONMENT line and
-  # KAN-238's region pin. Where
+  # the region pin (KAN-238, corrected by KAN-440). Where
   # they say "Starter tier, not free", read: a worker has no free plan at
   # all; their point stands — a worker that spins down defeats its purpose.
   # ---------------------------------------------------------------------
@@ -220,8 +230,8 @@ services:
   #   type: worker
   #   runtime: python
   #   plan: starter
-  #   # Same pin as the web service and the database (KAN-238).
-  #   region: frankfurt
+  #   # Same pin as the web service and the database (KAN-440).
+  #   region: oregon
   #   buildCommand: pip install -e .
   #   startCommand: alembic upgrade heads && python -m app.worker
   #   envVars:
