@@ -9,14 +9,23 @@ nothing else, exactly as alembic/env.py does, whatever the pytest process has
 imported. Since KAN-332 the test-only demo_widget sits on tests/demo_models.py's
 own base, and in-process Base.metadata holds the same tables; the fresh
 interpreter is kept as a guard, not because anything differs today.
+
+`compare_metadata` does not compare an index's predicate: a partial index
+recreated without its `WHERE`, or with another one, passes it (KAN-414).
+`index_definition_differences` closes that gap by comparing every index as
+Postgres stores it (`pg_get_indexdef`: columns, uniqueness, method, WHERE)
+against the same index built by the models' `create_all` into a scratch
+schema, inside a transaction that is rolled back — the inspected database is
+left exactly as it was.
 """
 
 import json
+import re
 import sys
 
 from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext
-from sqlalchemy import Index, create_engine
+from sqlalchemy import Index, create_engine, text
 
 import app.model_registry  # noqa: F401  registers every model on Base.metadata
 from app.db import Base
@@ -65,9 +74,48 @@ def flatten(diffs: list) -> list[tuple]:
     return flat
 
 
+# Where the models' own indexes are built for the comparison; never committed.
+_MODELS_SCHEMA = "kan414_models_reference"
+
+
+def _index_definitions(connection, schema: str) -> dict[tuple[str, str], str]:
+    """(table, index) -> `pg_get_indexdef` for every index in `schema`, with
+    that schema's qualifier (and `public.`, where extension operator classes
+    live) taken out so the same index reads the same from either schema."""
+
+    qualifier = re.compile(rf'(?<![\w"])(?:"?{re.escape(schema)}"?|public)\.')
+    rows = connection.execute(
+        text("SELECT tablename, indexname, indexdef FROM pg_indexes WHERE schemaname = :schema"), {"schema": schema}
+    )
+    return {(table, index): qualifier.sub("", definition) for table, index, definition in rows}
+
+
+def index_definition_differences(connection) -> list[str]:
+    """Every index both sides have whose stored definition differs. An index
+    only one side has is `compare_metadata`'s add_index/remove_index (or a
+    table only the migrations create, alembic_version), not repeated here."""
+
+    if connection.in_transaction():
+        connection.rollback()  # compare_metadata's reads; the scratch schema needs its own transaction
+    transaction = connection.begin()
+    try:
+        migrated = _index_definitions(connection, connection.execute(text("SELECT current_schema()")).scalar_one())
+        connection.execute(text(f'CREATE SCHEMA "{_MODELS_SCHEMA}"'))
+        Base.metadata.create_all(connection.execution_options(schema_translate_map={None: _MODELS_SCHEMA}))
+        models = _index_definitions(connection, _MODELS_SCHEMA)
+    finally:
+        transaction.rollback()
+    return [
+        f"modify_index: {table}.{index}: migrated {migrated[(table, index)]!r}, model {models[(table, index)]!r}"
+        for table, index in sorted(migrated.keys() & models.keys())
+        if migrated[(table, index)] != models[(table, index)]
+    ]
+
+
 def schema_differences(connection) -> list[str]:
     context = MigrationContext.configure(connection, opts=dict(COMPARE_OPTS))
-    return sorted(describe(diff) for diff in flatten(compare_metadata(context, Base.metadata)))
+    found = [describe(diff) for diff in flatten(compare_metadata(context, Base.metadata))]
+    return sorted(found + index_definition_differences(connection))
 
 
 def main(url: str, *, fail: bool = False) -> int:

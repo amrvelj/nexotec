@@ -1,6 +1,7 @@
 """KAN-170 / KAN-251: a database built by the migrations is exactly the schema
-the models declare — tables, columns, types, nullability, indexes, unique
-constraints, foreign keys and comments.
+the models declare — tables, columns, types, nullability, indexes (their
+full stored definition, a partial index's WHERE included, since KAN-414),
+unique constraints, foreign keys and comments.
 
 Every other test runs against `create_all` of the models, so the migrations
 can drift from the models (a migration-only index, a constraint the model
@@ -150,3 +151,46 @@ def test_a_drifted_database_is_reported(migrated_url):
         ),
         "remove_constraint: UniqueConstraint uq_user_phone_drift on user (phone)",
     ], found
+
+
+def test_a_partial_index_predicate_that_differs_is_reported(migrated_url):
+    """KAN-414: the KAN-201 review's probe. `compare_metadata` does not compare
+    `postgresql_where`, so `uq_user_connected_account_live` recreated without
+    its predicate, or with another one, printed no difference; the index
+    comparison (`pg_get_indexdef` against the models' own `create_all`) does.
+    Restored afterwards from its own stored definition."""
+
+    engine = create_engine(migrated_url)
+    index = "uq_user_connected_account_live"
+    try:
+        with engine.connect() as conn:
+            original = conn.execute(text(f"SELECT pg_get_indexdef('{index}'::regclass)")).scalar_one()
+        assert "WHERE" in original, original
+        unpredicated = original.split(" WHERE ")[0]
+        found: dict[str, list[str]] = {}
+        try:
+            for probe, definition in (
+                ("dropped", unpredicated),
+                ("changed", f"{unpredicated} WHERE (status = 'active'::text)"),
+            ):
+                with engine.begin() as conn:
+                    conn.execute(text(f"DROP INDEX {index}"))
+                    conn.execute(text(definition))
+                found[probe] = schema_differences(migrated_url)
+            failing = _compare_cli(migrated_url, "--fail")
+            assert failing.returncode == 1, failing.stderr[-3000:]
+        finally:
+            with engine.begin() as conn:
+                conn.execute(text(f"DROP INDEX IF EXISTS {index}"))
+                conn.execute(text(original))
+    finally:
+        engine.dispose()
+
+    migrated, model = unpredicated.replace("public.", ""), original.replace("public.", "")
+    assert found["dropped"] == [
+        f"modify_index: user_connected_account.{index}: migrated {migrated!r}, model {model!r}"
+    ], found["dropped"]
+    # Postgres stores the probe's predicate in its own normal form.
+    assert len(found["changed"]) == 1, found["changed"]
+    assert "WHERE ((status)::text = 'active'::text)" in found["changed"][0], found["changed"]
+    assert schema_differences(migrated_url) == []
