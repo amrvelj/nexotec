@@ -2,6 +2,7 @@ import { Component, Suspense, type ErrorInfo, type ReactNode } from 'react'
 import { useLocation } from 'react-router-dom'
 import { Button, Center, Loader, Stack, Text } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
+import { useSetBreadcrumb } from '@nexotec/ui-kit'
 import { ChunkLoadError } from './lazyPage'
 
 // KAN-233: the boundary the on-demand screens (lazyPage.ts) render under.
@@ -19,6 +20,9 @@ function RouteLoading({ fill }: { fill: boolean }) {
 
 function ChunkLoadFailed({ fill }: { fill: boolean }) {
   const { t } = useTranslation()
+  // The screen that failed never set its breadcrumb, so the previous
+  // screen's would still be showing above this message.
+  useSetBreadcrumb([t('common.chunkLoadError.title')])
   return (
     <Center h={fill ? '100vh' : 240} px="md">
       <Stack align="center" gap="sm" maw={420} role="alert">

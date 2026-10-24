@@ -101,6 +101,11 @@ takes.
   `src/config/deployment.ts`), never the environment's name; its text is an i18n key in all
   four bundles. The top bar stays breadcrumb + search only. The UI/UX Specification's
   Application Shell section does not show the strip yet (ADR-084's consequence; KAN-316).
+- **Every screen but the sign-in loads on demand** (KAN-233): a new route's page goes into
+  `App.tsx` through `lazyPage(() => import('./pages/X'), 'X')`, never a static import —
+  `LoginPage`, `ProtectedRoute`, `AuthProvider` and `DmsShell` alone stay in the entry chunk.
+  `RouteSuspense` (`src/layout/`) gives it the loading state and, if its chunk cannot be fetched
+  (a tab older than the last deploy), a translated reload screen.
 
 ## i18n
 

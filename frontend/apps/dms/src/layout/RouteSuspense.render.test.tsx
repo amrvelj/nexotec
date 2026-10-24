@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
 import { Link, MemoryRouter, Route, Routes } from 'react-router-dom'
-import { theme } from '@nexotec/ui-kit'
+import { BreadcrumbProvider, theme } from '@nexotec/ui-kit'
 import i18n from '../i18n'
 import { ChunkLoadError, lazyPage } from './lazyPage'
 import { RouteSuspense } from './RouteSuspense'
@@ -40,22 +40,24 @@ class OuterBoundary extends Component<{ children: ReactNode }, { caught: string 
   }
 }
 
-function renderRoutes(page: ReturnType<typeof lazyPage>) {
+function renderRoutes(page: ReturnType<typeof lazyPage>, setBreadcrumb: (segments: string[]) => void = () => {}) {
   const Page = page
   return render(
     <MantineProvider theme={theme} env="test" withCssVariables={false} withGlobalClasses={false}>
-      <MemoryRouter initialEntries={['/lazy']}>
-        {/* The shell's navigation, outside the boundary as in DmsShell. */}
-        <Link to="/other">go elsewhere</Link>
-        <OuterBoundary>
-          <RouteSuspense fill={false}>
-            <Routes>
-              <Route path="/lazy" element={<Page />} />
-              <Route path="/other" element={<OtherPage />} />
-            </Routes>
-          </RouteSuspense>
-        </OuterBoundary>
-      </MemoryRouter>
+      <BreadcrumbProvider value={setBreadcrumb}>
+        <MemoryRouter initialEntries={['/lazy']}>
+          {/* The shell's navigation, outside the boundary as in DmsShell. */}
+          <Link to="/other">go elsewhere</Link>
+          <OuterBoundary>
+            <RouteSuspense fill={false}>
+              <Routes>
+                <Route path="/lazy" element={<Page />} />
+                <Route path="/other" element={<OtherPage />} />
+              </Routes>
+            </RouteSuspense>
+          </OuterBoundary>
+        </MemoryRouter>
+      </BreadcrumbProvider>
     </MantineProvider>,
   )
 }
@@ -91,6 +93,15 @@ describe('lazy route screens', () => {
       expect(screen.queryByText(/MISSING I18N KEY/)).toBeNull()
     })
   }
+
+  it("replaces the previous screen's breadcrumb with the failure", async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const setBreadcrumb = vi.fn()
+    renderRoutes(lazyPage(() => Promise.reject(new Error('chunk gone')), 'X'), setBreadcrumb)
+
+    await screen.findByText(TITLE.de)
+    expect(setBreadcrumb).toHaveBeenLastCalledWith([TITLE.de])
+  })
 
   it('the reload action reloads the page', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
