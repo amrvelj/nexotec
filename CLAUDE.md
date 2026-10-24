@@ -86,8 +86,8 @@ CI (`.github/workflows/test.yml`) runs eleven jobs; whether they block a merge i
   nearest visible artefact. "None exists" is said in one line, never assumed. The hand-over
   gate enforces both.
 - Code work happens in a worktree or a cloud session, each on its own copy. The main checkout stays on `main`, clean.
-- No secrets in the application database, only references into the secrets manager. Secrets
-  are never logged and never returned by any endpoint, to anyone.
+- No secrets in the application database, only references into the secrets manager — except a user's
+  own TOTP seed (`EncryptedString`, returned to that user once, at enrolment; ADR-099). Secrets are never logged (dev's mail log aside) and never returned otherwise.
 
 ## Where we are
 

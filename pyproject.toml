@@ -72,8 +72,8 @@ dev = [
     "mypy>=1.19,<2.0",
     # KAN-236: scripts/check_render_yaml.py validates render.yaml against Render's
     # Blueprint schema (the `deploy` lane of scripts/dev/check and a step in CI's
-    # mypy job). PyYAML is declared because that script is the only `import yaml`
-    # in the repo (until now it arrived only through uvicorn[standard]); the stub
+    # mypy job). PyYAML is declared because that script imports it (so does the
+    # render.yaml mail test, KAN-397; it used to arrive only through uvicorn[standard]); the stub
     # packages keep `mypy app scripts` honest about both libraries.
     "jsonschema>=4.23,<5.0",
     "PyYAML>=6.0,<7.0",
