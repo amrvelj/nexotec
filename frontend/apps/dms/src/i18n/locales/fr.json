@@ -90,6 +90,11 @@
     "remove": "Supprimer",
     "loading": "Chargement…",
     "requestFailed": "La requête a échoué. Veuillez réessayer.",
+    "chunkLoadError": {
+      "title": "Cet écran n'a pas pu être chargé",
+      "body": "Nexotec a été mis à jour entre-temps, ou la connexion est interrompue. Rechargez la page pour continuer.",
+      "reload": "Recharger la page"
+    },
     "dismiss": "Fermer le message",
     "invalidVin": "VIN non valide : 17 caractères, uniquement des lettres et des chiffres, sans I, O ni Q.",
     "chassisNumberNeedsPre1981": "Pas un VIN valide. Un numéro de châssis qui n’est pas un VIN à 17 caractères n’est accepté que pour un véhicule mis en circulation avant 1981 – saisissez cette première mise en circulation.",

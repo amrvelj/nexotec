@@ -90,6 +90,11 @@
     "remove": "Rimuovi",
     "loading": "Caricamento…",
     "requestFailed": "La richiesta non è riuscita. Riprova.",
+    "chunkLoadError": {
+      "title": "Questa schermata non è stata caricata",
+      "body": "Nel frattempo Nexotec è stato aggiornato, oppure la connessione si è interrotta. Ricarica la pagina per continuare.",
+      "reload": "Ricarica la pagina"
+    },
     "dismiss": "Chiudi messaggio",
     "invalidVin": "VIN non valido: 17 caratteri, solo lettere e cifre, senza I, O e Q.",
     "chassisNumberNeedsPre1981": "Non è un VIN valido. Un numero di telaio che non è un VIN di 17 caratteri è accettato solo per un veicolo immatricolato per la prima volta prima del 1981 – inserisci questa prima immatricolazione.",
