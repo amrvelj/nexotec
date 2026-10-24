@@ -117,7 +117,7 @@ additionally emits five alarm gauges every 30s once metrics are configured:
 | --- | --- | --- |
 | `dms.outbox.lag_seconds` | Age of the oldest still-pending outbox message | fires if > 300s |
 | `dms.outbox.dead_letter_count` | Messages that exhausted all retry attempts | fires if > 0 |
-| `dms.consumer.lag_seconds{consumer_name=...}` | Time since a consumer last processed anything | fires if > 300s, per consumer |
+| `dms.consumer.lag_seconds{consumer_name=...}` | Time since a consumer last processed anything | dashboard only, no alert — see the outbox rows (KAN-286) |
 | `dms.label.age_seconds{label=...}` | Age of the stalest denormalised cross-context label, per label (KAN-84: `vehicle_party.vehicle`, refreshed by the nightly `customer.vehicle_party_labels` job; KAN-403: `customer.advisor`, refreshed by `customer.advisor_labels` — an advisor id that names no user is never restamped and keeps this one firing: look for it in `customer.advisor_id` before suspecting the job; a customer a writer held when the job passed keeps it firing until the next night; KAN-404: `sales.owner`, the responsible seller on offers, contracts and deal rows, refreshed by `sales.owner_labels` — the same reading: look for an `owner_user_id` that names no user first) | fires if > 93600s (26h), per label |
 | `dms.reconciliation.age_seconds` | Seconds since the nightly reconciliation (`reconciliation.run_all`) last completed a run; unset until it has run once | fires if > 93600s (26h), or if absent once the worker has run a day |
 
@@ -125,9 +125,15 @@ Consumers are registered in `app/worker.py::register_handlers` — that
 function is the current list, one `transport.register(...)` per consumer.
 On every heartbeat the worker reports `dms.consumer.lag_seconds` for each
 registered consumer that has processed at least one event (one that never
-has leaves its gauge unset rather than reporting a sentinel), so its alert
-in the table above fires per consumer once it has gone quiet for longer
-than the threshold. Configure the
+has leaves its gauge unset rather than reporting a sentinel). It is a
+staleness proxy, not a queue depth: a consumer of a rare event
+(`sales.contract.cancelled`, say) at a quiet dealership legitimately
+processes nothing for days, so a fixed threshold on it would fire almost
+permanently. A stuck consumer is caught instead by the two outbox rows, which
+do not depend on how often an event occurs: its messages stay pending
+(`dms.outbox.lag_seconds`) or end in the dead-letter queue
+(`dms.outbox.dead_letter_count`) — Anto's decision, 2026-10-11 (KAN-286).
+Configure the
 actual Grafana alert rules in your Grafana Cloud instance against these
 metric names — that's account-specific and isn't something a config file
 in this repo can provision for you.
