@@ -222,11 +222,14 @@ def enable_connection(
 def delete_connection(
     connection_id: uuid.UUID,
     body: DeleteConnectionRequest,
+    if_match: int = Depends(require_if_match),
     principal: Principal = Depends(require_write("integration_connections")),
     db: Session = Depends(get_db),
 ):
     tenant_id = None if _is_platform_admin(principal) else principal.tenant_id
     connection = connection_service.get_connection_or_404(db, tenant_id=tenant_id, connection_id=connection_id)
+    # KAN-396: a stale screen never deletes a connection someone just changed.
+    check_version(connection.version, if_match, entity_name="IntegrationConnection")
     connection_service.delete_connection(db, connection=connection, confirm=body.confirm, actor_id=principal.user_id)
 
 

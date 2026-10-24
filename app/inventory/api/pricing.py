@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.core.auth import Principal, get_current_principal
+from app.core.concurrency import check_version, require_if_match
 from app.core.permissions import ModuleCode, require_entitlement, require_write
 from app.db import get_db
 from app.inventory.schemas.pricing import OptionRead, SetOptionsRequest
@@ -35,10 +36,14 @@ def list_options(
 def set_options(
     stock_item_id: uuid.UUID,
     body: SetOptionsRequest,
+    if_match: int = Depends(require_if_match),
     principal: Principal = Depends(require_write("stock_items")),
     db: Session = Depends(get_db),
 ):
     item = stock_item_service.get_stock_item_or_404(db, principal.tenant_id, stock_item_id)
+    # KAN-396: the PUT replaces the options and bumps the stock item's
+    # version, so a save built on a stale read is a 409, never a lost update.
+    check_version(item.version, if_match, entity_name="StockItem")
     item = pricing_service.set_options(
         db, item=item, base_price=body.base_price, options=body.options, actor_id=principal.user_id
     )

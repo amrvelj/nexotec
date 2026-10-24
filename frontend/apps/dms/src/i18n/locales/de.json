@@ -1035,6 +1035,8 @@
       "unpublishConfirmSubmit": "Depublizieren",
       "unpublishConfirmBody": "Das Inserat auf {{channel}} wird zusammen mit seiner Statistik und der Inserate-URL gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.",
       "listingTextTitle": "Inseratetexte",
+      "listingTextConflict": "Der Inseratetext wurde inzwischen geändert. Die aktuelle Fassung ist geladen – bitte die Änderung erneut vornehmen.",
+      "listingTextError": "Der Inseratetext konnte nicht gespeichert werden. Bitte erneut versuchen.",
       "titleDisplayLimit": "Auf der Ergebnisliste werden {{count, number}} Zeichen angezeigt.",
       "haendlerbemerkungenHint": "Nur für den Betrieb sichtbar — erscheint nicht im Inserat.",
       "fields": {

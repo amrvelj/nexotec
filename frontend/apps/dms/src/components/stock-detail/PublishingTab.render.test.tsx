@@ -369,3 +369,60 @@ describe('PublishingTab — a failed save says so and keeps its key (KAN-272)', 
     expect(retryKey).toBe(failedKey)
   })
 })
+
+describe('PublishingTab — listing text sends If-Match (KAN-396)', () => {
+  const row = (version: number, zusatztitel: string | null) => ({
+    id: 'pub-1', stockItemId: 'st-1', channel: 'autoscout24', state: 'not_published', transmissionStatus: 'not_sent',
+    lastPublishedAt: null, lastAttemptedAt: null, lastTransmissionError: null, zusatztitel,
+    bemerkungen: null, zustandsbeschreibung: null, haendlerbemerkungen: null, youtubeUrl: null,
+    pdfDocumentRef: null, version, blockingConditions: [],
+  })
+
+  it('each save carries the version the previous save returned', async () => {
+    const user = userEvent.setup()
+    let current = row(4, null)
+    const backend = installFakeBackend([
+      { match: /^\/inventory\/stock-items\/st-1\/equipment$/, handler: () => EQUIPMENT },
+      { match: /^\/inventory\/stock-items\/st-1\/media$/, handler: () => [] },
+      { method: 'GET', match: /^\/inventory\/stock-items\/st-1\/publishing\/autoscout24$/, handler: () => current },
+      {
+        method: 'PATCH',
+        match: /^\/inventory\/stock-items\/st-1\/publishing\/autoscout24$/,
+        handler: (req) => {
+          const sent = Number(req.headers.get('If-Match'))
+          if (sent !== current.version) return status(409, { error: { code: 'conflict', message: 'stale', details: null } })
+          current = row(current.version + 1, (req.body as { zusatztitel?: string }).zusatztitel ?? current.zusatztitel)
+          return current
+        },
+      },
+    ])
+    renderWithProviders(<PublishingTab stockItemId="st-1" locale="de-CH" />)
+    // The kit's CounterTextarea gives its field no accessible name; the
+    // Zusatztitel is the first of the four listing-text fields.
+    const field = (await screen.findAllByRole('textbox'))[0]
+    await waitFor(() => expect(backend.callsTo(/\/publishing\/autoscout24$/, 'GET').length).toBeGreaterThan(0))
+
+    await user.type(field, 'AB')
+    await waitFor(() => expect(backend.callsTo(/\/publishing\/autoscout24$/, 'PATCH')).toHaveLength(2))
+    const sent = backend.callsTo(/\/publishing\/autoscout24$/, 'PATCH').map((call) => call.headers.get('If-Match'))
+    expect(sent).toEqual(['4', '5'])
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('a stale version says someone else changed the text', async () => {
+    const user = userEvent.setup()
+    installFakeBackend([
+      { match: /^\/inventory\/stock-items\/st-1\/equipment$/, handler: () => EQUIPMENT },
+      { match: /^\/inventory\/stock-items\/st-1\/media$/, handler: () => [] },
+      { method: 'GET', match: /^\/inventory\/stock-items\/st-1\/publishing\/autoscout24$/, handler: () => row(1, null) },
+      {
+        method: 'PATCH',
+        match: /^\/inventory\/stock-items\/st-1\/publishing\/autoscout24$/,
+        handler: () => status(409, { error: { code: 'conflict', message: 'stale', details: null } }),
+      },
+    ])
+    renderWithProviders(<PublishingTab stockItemId="st-1" locale="de-CH" />)
+    await user.type((await screen.findAllByRole('textbox'))[0], 'A')
+    expect(await screen.findByRole('alert')).toHaveTextContent(i18n.t('stockDetail.publishing.listingTextConflict'))
+  })
+})

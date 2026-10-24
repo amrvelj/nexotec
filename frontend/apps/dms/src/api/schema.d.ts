@@ -13031,6 +13031,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                "If-Match"?: string | null;
                 authorization?: string | null;
             };
             path: {
@@ -14053,6 +14054,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
+                "If-Match"?: string | null;
             };
             path: {
                 stock_item_id: string;
@@ -14128,6 +14130,7 @@ export interface operations {
             query?: never;
             header?: {
                 authorization?: string | null;
+                "If-Match"?: string | null;
             };
             path: {
                 stock_item_id: string;

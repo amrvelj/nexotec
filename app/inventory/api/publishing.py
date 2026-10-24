@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.core.auth import Principal, get_current_principal
+from app.core.concurrency import check_version, require_if_match
 from app.core.idempotent_route import IdempotentRoute
 from app.core.permissions import ModuleCode, require_entitlement, require_write
 from app.db import get_db
@@ -52,10 +53,15 @@ def update_listing_text(
     stock_item_id: uuid.UUID,
     channel: MarketplaceChannel,
     body: ListingTextUpdate,
+    if_match: int = Depends(require_if_match),
     principal: Principal = Depends(require_write("stock_items")),
     db: Session = Depends(get_db),
 ):
     item = stock_item_service.get_stock_item_or_404(db, principal.tenant_id, stock_item_id)
+    # KAN-396: If-Match names the channel's publishing row (the GET above
+    # creates it on first read), the row this PATCH writes and versions.
+    row = publishing_service.get_or_create_publishing(db, item, channel)
+    check_version(row.version, if_match, entity_name="StockItemPublishing")
     row = publishing_service.update_listing_text(db, item=item, channel=channel, data=body, actor_id=principal.user_id)
     return _publishing_read(db, item, row)
 
