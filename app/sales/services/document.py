@@ -52,6 +52,7 @@ from app.sales.models.document import DocumentOwnerType, SalesDocument
 from app.sales.models.line_item import LineItemKind, SalesLineItem
 from app.sales.models.offer import SalesOffer
 from app.sales.services.contract_completeness import require_complete
+from app.sales.services.deal_projection import upsert_deal_projection
 
 _DEFAULT_LANGUAGE = SwissLanguage.DE
 
@@ -275,6 +276,9 @@ def generate_offer_document(db: Session, *, offer: SalesOffer, actor_id: uuid.UU
         rendered_by=actor_id,
     )
     db.add(document)
+    # The grid's document count is the deal row's (ADR-060): a new document
+    # moves it, in the same transaction (KAN-408).
+    upsert_deal_projection(db, offer=offer)
     db.commit()
     db.refresh(document)
     return document
@@ -300,6 +304,7 @@ def generate_contract_document(db: Session, *, contract: SalesContract, actor_id
         rendered_by=actor_id,
     )
     db.add(document)
+    upsert_deal_projection(db, contract=contract)  # the grid's document count (KAN-408)
     db.commit()
     db.refresh(document)
     return document
@@ -318,21 +323,6 @@ def list_documents(
             )
             .order_by(SalesDocument.version.desc())
         ).all()
-    )
-
-
-def count_documents(db: Session, *, tenant_id: uuid.UUID, owner_type: DocumentOwnerType, owner_id: uuid.UUID) -> int:
-    """ADR-060: the grid's own `documents` column is a COUNT, not a list."""
-
-    return (
-        db.scalar(
-            select(func.count()).where(
-                SalesDocument.tenant_id == tenant_id,
-                SalesDocument.owner_type == owner_type,
-                SalesDocument.owner_id == owner_id,
-            )
-        )
-        or 0
     )
 
 

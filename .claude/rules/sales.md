@@ -100,9 +100,11 @@ ADR-057, ADR-063, ADR-065, ADR-083 and KAN-66/68/71. Verified against main@7a90a
   A cancelled contract hands the row back to its offer (its number, status, buyer, car, seller;
   no margin), so the grid, the seller filter and the unassigned queue find a freed offer; the
   cancelled contract stays on the customer's contracts and the offer's history. A contract
-  without an offer keeps its own row, cancelled or not. Nightly reconciliation reports a row
-  whose number, status, buyer, car or seller differs from its live entity, or whose shape is
-  wrong (two StateChecks, rule 10).
+  without an offer keeps its own row, cancelled or not. Generating a document re-projects the
+  row, so its document count moves with it. Nightly reconciliation reports a row whose number,
+  status, buyer, locality, car, seller or document count differs from its live entity, or whose
+  shape is wrong (two StateChecks, rule 10); `scripts/backfill_sales_deal_projection.py` (dry run
+  unless `--commit`) re-projects the rows written before KAN-408/KAN-409.
 - **Sales writers take row locks offer → contract → deal** (KAN-147): `upsert_deal_projection`
   flushes its caller's offer/contract changes before it writes the deal, and the customer
   merge's repointing flushes offers, then contracts, then deals — so neither can deadlock a

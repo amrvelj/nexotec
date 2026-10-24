@@ -17,14 +17,30 @@ started without an offer is its own deal and keeps its row, cancelled or
 not.
 """
 
-from sqlalchemy import select
+import uuid
+
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.sales.models.contract import ContractStatus, SalesContract
 from app.sales.models.deal import SalesDeal
-from app.sales.models.document import DocumentOwnerType
+from app.sales.models.document import DocumentOwnerType, SalesDocument
 from app.sales.models.offer import SalesOffer
-from app.sales.services.document import count_documents
+
+
+def count_documents(db: Session, *, tenant_id: uuid.UUID, owner_type: DocumentOwnerType, owner_id: uuid.UUID) -> int:
+    """ADR-060: the grid's own `documents` column is a COUNT, not a list."""
+
+    return (
+        db.scalar(
+            select(func.count()).where(
+                SalesDocument.tenant_id == tenant_id,
+                SalesDocument.owner_type == owner_type,
+                SalesDocument.owner_id == owner_id,
+            )
+        )
+        or 0
+    )
 
 
 def live_contract_of(db: Session, offer: SalesOffer) -> SalesContract | None:
@@ -97,7 +113,9 @@ def _project_contract(db: Session, contract: SalesContract) -> SalesDeal:
     deal.gross_price = contract.gross_price
     deal.margin = contract.margin
     offer_docs = (
-        count_documents(db, tenant_id=contract.tenant_id, owner_type=DocumentOwnerType.OFFER, owner_id=contract.offer_id)
+        count_documents(
+            db, tenant_id=contract.tenant_id, owner_type=DocumentOwnerType.OFFER, owner_id=contract.offer_id
+        )
         if contract.offer_id is not None
         else 0
     )

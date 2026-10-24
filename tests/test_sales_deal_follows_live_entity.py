@@ -77,10 +77,21 @@ def _offer_with_buyer_and_contract(client):
     seller = create_user(client, dealership, firstName="Sara", lastName="Seller")
     anna = _customer_for(client, seller, firstName="Anna")
     patched = _patch_offer(
-        client, seller, _offer_for(client, seller)["id"], {"customerId": anna["id"], "vehicleLabel": "Škoda Octavia"}
+        client,
+        seller,
+        _offer_for(client, seller)["id"],
+        {
+            "customerId": anna["id"],
+            "vehicleSource": "manual",
+            "vehicleLabel": "Škoda Octavia",
+            "manualBasePrice": "30000.00",
+        },
     )
     assert patched.status_code == 200, patched.text
     offer = patched.json()
+    # One document on the offer before the contract: the contract's row counts it with its own.
+    document = client.post(f"/v1/sales/offers/{offer['id']}/documents", headers=_as(seller))
+    assert document.status_code == 201, document.text
     contract = client.post("/v1/sales/contracts", json={"offerId": offer["id"]}, headers=_as(seller))
     assert contract.status_code == 201, contract.text
     return dealership, seller, offer, contract.json()
@@ -96,6 +107,9 @@ def test_an_offer_with_a_live_contract_refuses_every_edit_and_its_deal_row_stays
     # The contract is edited itself while pending (ADR-083): its own buyer and car.
     edited = _patch_contract(client, seller, contract["id"], {"customerId": beat["id"], "vehicleLabel": "Cupra Born"})
     assert edited.status_code == 200, edited.text
+    printed = client.post(f"/v1/sales/contracts/{contract['id']}/documents", headers=_as(seller))
+    assert printed.status_code == 201, printed.text
+    assert _deal(client, seller, offer["id"])["documentsCount"] == 2  # generating a document re-projects
 
     _refused_as_contracted(_patch_offer(client, seller, offer["id"], {"customerId": carla["id"]}), contract)
     current = client.get(f"/v1/sales/offers/{offer['id']}", headers=_as(seller)).json()
@@ -120,6 +134,7 @@ def test_an_offer_with_a_live_contract_refuses_every_edit_and_its_deal_row_stays
     assert deal["entityType"] == "contract" and deal["contractId"] == contract["id"]
     assert deal["customerId"] == beat["id"]
     assert deal["vehicleLabel"] == "Cupra Born"
+    assert deal["documentsCount"] == 2  # the offer's and the contract's
     offer_now = client.get(f"/v1/sales/offers/{offer['id']}", headers=_as(seller)).json()
     assert offer_now["customerId"] != carla["id"] and offer_now["version"] == current["version"]
 
@@ -128,11 +143,14 @@ def test_the_offer_side_of_the_projection_reprojects_the_live_contract(client, d
     """A write on the offer's side that is not a user's edit (a document
     rendered for it, a customer merge repointing it) still reaches the
     projection with the offer: the contract's row is projected from the
-    contract, with the offer's and the contract's documents counted."""
+    contract, never from the offer's labels."""
 
     _dealership, seller, offer, contract = _offer_with_buyer_and_contract(client)
     beat = _customer_for(client, seller, firstName="Beat")
     assert _patch_contract(client, seller, contract["id"], {"customerId": beat["id"]}).status_code == 200
+    # A second offer document after the contract exists (rendering is not an edit): counted on the contract's row.
+    assert client.post(f"/v1/sales/offers/{offer['id']}/documents", headers=_as(seller)).status_code == 201
+    assert _deal(client, seller, offer["id"])["documentsCount"] == 2
 
     row = db_session.get(SalesOffer, uuid.UUID(offer["id"]))
     row.customer_label = "Somebody Else"
@@ -145,6 +163,7 @@ def test_the_offer_side_of_the_projection_reprojects_the_live_contract(client, d
     assert deal.customer_id == uuid.UUID(beat["id"])
     assert deal.customer_label != "Somebody Else"
     assert deal.vehicle_label == "Škoda Octavia"
+    assert deal.documents_count == 2
 
 
 def test_a_cancelled_contract_makes_its_offer_editable_again(client):
@@ -264,6 +283,12 @@ def test_the_nightly_check_reports_a_deal_row_that_differs_from_its_live_entity(
     wrong_label.customer_label = "Somebody Else"  # as the pre-KAN-408 offer branch wrote it
     db_session.commit()
 
+    # Only the count wrong: an offer-side save after the contract existed wrote
+    # the offer's own count onto the contract's row (before KAN-408).
+    counted_wrong = _offer_with_buyer_and_contract(client)[2]
+    db_session.get(SalesDeal, uuid.UUID(counted_wrong["id"])).documents_count = 0
+    db_session.commit()
+
     # A row left in a cancelled contract's shape (written before KAN-409).
     freed = _offer_for(client, seller)
     freed_contract = client.post("/v1/sales/contracts", json={"offerId": freed["id"]}, headers=_as(seller)).json()
@@ -286,19 +311,22 @@ def test_the_nightly_check_reports_a_deal_row_that_differs_from_its_live_entity(
     db_session.commit()
 
     assert _deal_row_findings(db_session) == {
-        "contract": {uuid.UUID(offer["id"]), uuid.UUID(freed["id"])},
+        "contract": {uuid.UUID(offer["id"]), uuid.UUID(freed["id"]), uuid.UUID(counted_wrong["id"])},
         "offer": {uuid.UUID(shown_as_offer["id"])},
     }
 
 
 def test_the_backfill_reprojects_a_row_left_in_a_cancelled_contracts_shape(client, db_session):
     """scripts/backfill_sales_deal_projection.py: the dry run changes nothing
-    and names the row; --commit hands it back to its offer; a second run
-    finds nothing."""
+    and names the rows; --commit hands the cancelled contract's row back to
+    its offer and recounts a contract row's documents; a second run finds
+    nothing."""
 
     from scripts.backfill_sales_deal_projection import reproject
 
-    _dealership, seller, offer, _contract = _offer_with_buyer_and_contract(client)
+    _dealership, seller, counted_wrong, _contract = _offer_with_buyer_and_contract(client)
+    db_session.get(SalesDeal, uuid.UUID(counted_wrong["id"])).documents_count = 0
+    db_session.commit()
     freed = _offer_for(client, seller)
     freed_contract = client.post("/v1/sales/contracts", json={"offerId": freed["id"]}, headers=_as(seller)).json()
     _cancel(client, seller, freed_contract["id"])
@@ -309,14 +337,19 @@ def test_the_backfill_reprojects_a_row_left_in_a_cancelled_contracts_shape(clien
     db_session.commit()
 
     done, remaining = reproject(db_session, commit=False)
-    assert [(r.deal_id, r.after) for r in done] == [(uuid.UUID(freed["id"]), f"offer {freed['offerNumber']} (draft)")]
+    assert {(r.deal_id, r.after.split(" ")[0]) for r in done} == {
+        (uuid.UUID(freed["id"]), "offer"),
+        (uuid.UUID(counted_wrong["id"]), "contract"),
+    }
     assert remaining == []
     db_session.expire_all()
     assert db_session.get(SalesDeal, uuid.UUID(freed["id"])).entity_type == "contract"
+    assert db_session.get(SalesDeal, uuid.UUID(counted_wrong["id"])).documents_count == 0
 
     done, remaining = reproject(db_session, commit=True)
-    assert len(done) == 1 and remaining == []
+    assert len(done) == 2 and remaining == []
     db_session.expire_all()
     row = db_session.get(SalesDeal, uuid.UUID(freed["id"]))
     assert (row.entity_type, row.number, row.contract_id) == ("offer", freed["offerNumber"], None)
+    assert db_session.get(SalesDeal, uuid.UUID(counted_wrong["id"])).documents_count == 1
     assert reproject(db_session, commit=True) == ([], [])

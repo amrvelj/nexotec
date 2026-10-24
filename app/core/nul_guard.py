@@ -9,9 +9,10 @@ form-urlencoded body (keys and values, at any depth). Anto's ruling
 always what was sent — and build it beside `CamelModel`, not in it.
 
 Headers and cookies need no check: HTTP does not allow NUL in them, and the
-server refuses such a request before it reaches the application. A body that
-is neither JSON nor form-urlencoded (an uploaded image) is bytes, never a
-string, and passes untouched.
+server refuses such a request before it reaches the application. Any other
+body passes untouched: an uploaded image is bytes the route stores whole. A
+`multipart/form-data` body is not read either — no route takes one today; the
+first that does extends this guard to its text fields.
 
 `exempt_paths` names the routes whose refusal must look like every other
 refusal (the login front door's uniform 401, FR-AU-07/16); such a route

@@ -165,3 +165,19 @@ def test_login_with_a_nul_takes_the_time_of_any_other_refusal(client, mailbox):
     nul = [measure(f"nobody-{i}\u0000@example.ch", 100 + i) for i in range(20)]
     ratio = statistics.median(nul) / statistics.median(unknown)
     assert 1 / 1.5 < ratio < 1.5, (statistics.median(nul), statistics.median(unknown))
+
+
+def test_the_login_door_is_the_one_exemption_and_reads_no_other_string():
+    """The guard leaves the login door alone because its refusal must be the
+    uniform 401; the door then handles a NUL itself. That holds only while its
+    body is the address (looked up, `find_user_by_email`) and the password
+    (hashed, never bound into SQL): a new field on it, or a second exempt
+    route, is a decision to revisit here."""
+
+    from app.core.nul_guard import NulCharacterGuard
+    from app.main import app
+    from app.platform.schemas.auth import LoginRequest
+
+    exempt = {path for m in app.user_middleware if m.cls is NulCharacterGuard for path in m.kwargs["exempt_paths"]}
+    assert exempt == {"/v1/auth/login"}
+    assert set(LoginRequest.model_fields) == {"email", "password"}
