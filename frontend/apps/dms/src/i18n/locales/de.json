@@ -90,6 +90,11 @@
     "remove": "Entfernen",
     "loading": "Lädt…",
     "requestFailed": "Die Anfrage ist fehlgeschlagen. Bitte versuchen Sie es erneut.",
+    "chunkLoadError": {
+      "title": "Diese Ansicht konnte nicht geladen werden",
+      "body": "Nexotec wurde inzwischen aktualisiert, oder die Verbindung ist unterbrochen. Laden Sie die Seite neu, um weiterzuarbeiten.",
+      "reload": "Seite neu laden"
+    },
     "dismiss": "Meldung schliessen",
     "invalidVin": "Keine gültige VIN: 17 Zeichen, nur Buchstaben und Ziffern, ohne I, O und Q.",
     "chassisNumberNeedsPre1981": "Keine gültige VIN. Eine Fahrgestellnummer, die keine 17-stellige VIN ist, wird nur für ein Fahrzeug mit erster Inverkehrsetzung vor 1981 akzeptiert – erfassen Sie diese erste Inverkehrsetzung.",

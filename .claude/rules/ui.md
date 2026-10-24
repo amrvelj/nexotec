@@ -101,6 +101,13 @@ takes.
   `src/config/deployment.ts`), never the environment's name; its text is an i18n key in all
   four bundles. The top bar stays breadcrumb + search only. The UI/UX Specification's
   Application Shell section does not show the strip yet (ADR-084's consequence; KAN-316).
+- **Every screen but the sign-in loads on demand** (KAN-233): a new route's page goes into
+  `App.tsx` through `lazyPage(() => import('./pages/X'), 'X')`, never a static import —
+  `LoginPage`, `ProtectedRoute`, `RequireEntitlement`, `AuthProvider` and `DmsShell` alone stay
+  eager (`src/architecture/lazy-routes.test.ts`). `RouteSuspense` (`src/layout/`) shows the
+  loading state on a hard load and, if a chunk cannot be fetched (a tab older than the last
+  deploy), a translated reload screen. On in-app navigation the router's transition keeps the
+  previous screen up until the next chunk arrives — never blank, but no loader either.
 
 ## i18n
 
@@ -110,6 +117,12 @@ takes.
   the active locale falls back to English (`fallbackLng: 'en'`), never German —
   `localeKeyParity.test.ts` keeps that from shipping. No hardcoded user-visible string,
   including labels in dialogs and wizards.
+- **An API refusal is shown in the UI language** (Anto, 2026-10-23, KAN-398): map
+  `details.reason` (and a stale `If-Match` 409) to a key in all four bundles, anything else to
+  a translated generic message — never `err.message`, which is the API's English text, for logs
+  only (the pattern: `MergeCustomerModal`, `LinkVehicleModal`; KAN-366, KAN-369).
+  `src/architecture/no-api-error-message-render.test.ts` refuses a new `.message` render; older
+  screens are allow-listed there with a count that may only fall (KAN-437 converts them).
 - The customer's **correspondence language** is not the user's **UI language** — never the
   same control, never the same stored field.
 - **DE, FR and IT person nouns use the generic masculine** (Anto, 2026-10-12, KAN-171; the

@@ -76,8 +76,8 @@ export function userDisplayName(user: { firstName: string; lastName: string }): 
 
 /**
  * KAN-200 — an API refusal with a stable `details.reason` reads in the UI
- * language; one without keeps the API's text (KAN-398 decides the rule for
- * those). `last_manager` is FR-A-13's refusal.
+ * language; one without still keeps the API's text, which KAN-398's rule
+ * forbids (KAN-437 converts it). `last_manager` is FR-A-13's refusal.
  */
 export function refusalText(t: T, err: { message: string; details: Record<string, unknown> | null }): string {
   const reason = err.details?.reason
