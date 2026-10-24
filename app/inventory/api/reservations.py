@@ -2,7 +2,11 @@
 Idempotency-Key through IdempotentRoute (KAN-266): a caller retrying after a
 timeout resends under the same key and gets the first answer back. The key
 used to be required and stored by the reservation service itself; the route
-holds it now, so these call the service's *_without_key entries."""
+holds it now, so these call the service's *_without_key entries.
+
+Both are guarded by the matrix's "Stock reservation" row, whose write cell is
+"Nobody" (KAN-376): a car is reserved and released by the sales contract
+lifecycle in-process (ADR-047), so over HTTP only platform staff pass."""
 
 import uuid
 
@@ -25,7 +29,7 @@ router = APIRouter(tags=["inventory"], route_class=IdempotentRoute, dependencies
 def create_reservation(
     stock_item_id: uuid.UUID,
     body: ReserveRequest,
-    principal: Principal = Depends(require_write("stock_items")),
+    principal: Principal = Depends(require_write("stock_reservation")),
     db: Session = Depends(get_db),
 ):
     result = reservation_service.reserve_without_key(
@@ -40,7 +44,7 @@ def create_reservation(
 @router.post("/inventory/reservations/{reservation_id}/release", status_code=200)
 def release_reservation(
     reservation_id: uuid.UUID,
-    principal: Principal = Depends(require_write("stock_items")),
+    principal: Principal = Depends(require_write("stock_reservation")),
     db: Session = Depends(get_db),
 ):
     return reservation_service.release_without_key(db, tenant_id=principal.tenant_id, reservation_id=reservation_id)

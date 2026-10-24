@@ -20,13 +20,13 @@ from app.inventory.models.stock_item_publishing import StockItemMedia
 from tests.dealership_support import valid_uid
 
 
-def _token(tenant_id: uuid.UUID | None = None) -> str:
+def _token(tenant_id: uuid.UUID | None = None, role: AccessRole = AccessRole.INVENTORY) -> str:
     tenant_id = tenant_id or uuid.uuid4()
     return create_access_token(
         user_id=uuid.uuid4(),
         tenant_id=tenant_id,
         group_id=uuid.uuid5(uuid.NAMESPACE_OID, str(tenant_id)),
-        roles=frozenset({AccessRole.INVENTORY}),
+        roles=frozenset({role}),
     )
 
 
@@ -342,6 +342,14 @@ def test_unpublish_with_a_reused_key_and_another_body_is_a_409(client, db_sessio
 # --- reserve and release ---------------------------------------------------------------
 
 
+def _reserver_token() -> str:
+    """The matrix's stock-reservation write is "Nobody" (KAN-376): the sales
+    contract lifecycle reserves in-process, so only platform staff reach
+    these two routes over HTTP."""
+
+    return _token(role=AccessRole.PLATFORM_ADMIN)
+
+
 def _reserve(client, token: str, item_id: str, contract_id: str, key: str | None = None):
     return client.post(
         f"/v1/inventory/stock-items/{item_id}/reservations",
@@ -353,7 +361,7 @@ def _reserve(client, token: str, item_id: str, contract_id: str, key: str | None
 def test_reserve_twice_under_one_key_reserves_once_and_answers_the_same(client, db_session):
     """Run again, the second reserve would find the car reserved and 409."""
 
-    token = _token()
+    token = _reserver_token()
     item = _item(client, token)
 
     _, body = _twice(
@@ -367,7 +375,7 @@ def test_reserve_twice_under_one_key_reserves_once_and_answers_the_same(client, 
 
 
 def test_reserve_with_a_reused_key_and_another_contract_is_a_409_for_the_key(client, db_session):
-    token = _token()
+    token = _reserver_token()
     item = _item(client, token)
     contract_id = str(uuid.uuid4())
     key = str(uuid.uuid4())
@@ -385,7 +393,7 @@ def test_a_late_retry_of_a_reserve_never_re_reserves_a_released_car(client, db_s
     lives (at least 24 h): a replay returns the first answer and reserves
     nothing, even after the reservation was released."""
 
-    token = _token()
+    token = _reserver_token()
     item = _item(client, token)
     key = str(uuid.uuid4())
     contract_id = str(uuid.uuid4())
@@ -407,7 +415,7 @@ def test_a_late_retry_of_a_reserve_never_re_reserves_a_released_car(client, db_s
 def test_release_twice_under_one_key_answers_the_same(client, db_session):
     """Run again, the second release would find no active reservation and 404."""
 
-    token = _token()
+    token = _reserver_token()
     item = _item(client, token)
     reserved = _reserve(client, token, item["id"], str(uuid.uuid4()))
     assert reserved.status_code == 201, reserved.text
@@ -421,7 +429,7 @@ def test_release_twice_under_one_key_answers_the_same(client, db_session):
 def test_release_with_a_reused_key_on_another_reservation_is_a_409(client, db_session):
     """Release has no body: what makes it another request is its target."""
 
-    token = _token()
+    token = _reserver_token()
     first_item = _item(client, token)
     other_item = _item(client, token)
     first = _reserve(client, token, first_item["id"], str(uuid.uuid4()))

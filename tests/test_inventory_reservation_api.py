@@ -2,7 +2,12 @@
 
 The Idempotency-Key was required here until KAN-266 moved both endpoints onto
 IdempotentRoute (Anto's ruling, 2026-10-08): it is optional now, as on every
-POST. Replay under a key is pinned in tests/test_inventory_idempotency.py."""
+POST. Replay under a key is pinned in tests/test_inventory_idempotency.py.
+
+The matrix's stock-reservation write is "Nobody" (KAN-376): the sales
+contract lifecycle reserves in-process (ADR-047), so these tests call the
+routes as platform staff. Who is refused is pinned in
+tests/test_inventory_write_capabilities.py."""
 
 import uuid
 
@@ -25,7 +30,7 @@ def test_reserve_without_a_key_is_accepted_and_a_second_reserve_is_still_a_confl
     """Without a key nothing is replayed, but a car is never reserved twice:
     the second reserve finds it reserved."""
 
-    token = _token(AccessRole.INVENTORY)
+    token = _token(AccessRole.PLATFORM_ADMIN)
     created = client.post(
         "/v1/inventory/stock-items", json={"vehicleLabel": "Škoda Octavia", "condition": "new"}, headers=_bearer(token)
     ).json()
@@ -40,7 +45,7 @@ def test_reserve_without_a_key_is_accepted_and_a_second_reserve_is_still_a_confl
 
 
 def test_reserve_then_release_via_api(client):
-    token = _token(AccessRole.INVENTORY)
+    token = _token(AccessRole.PLATFORM_ADMIN)
     created = client.post(
         "/v1/inventory/stock-items", json={"vehicleLabel": "Škoda Octavia", "condition": "new"}, headers=_bearer(token)
     ).json()

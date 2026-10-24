@@ -145,8 +145,9 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   bumps `dealership.entitlements_version`; a token with another `ent_v` gets 401 on its next
   gated request and signs in again. `CAPABILITY_MATRIX` carries every PRD matrix row; `tests/fixtures/permission_matrix.json`
   mirrors the Notion table and `test_permission_matrix_mirrors_prd.py` fails on any difference —
-  except a row that declares `enforced_write` + a `deviation` ticket (today only `stock_items`,
-  KAN-376), where the code deliberately enforces less than the matrix grants.
+  except a row that declares `enforced_write` + a `deviation` ticket, where the code deliberately
+  enforces less than the matrix grants (none today: KAN-376 closed the `stock_items` one by giving
+  every inventory write endpoint its own row — `tests/test_inventory_write_capabilities.py`).
   `Capability.manager_can_read=False` marks the platform-only and self-only rows.
 - **Permissions are platform-defined (D-A-03). Policy limits are NOT in v1 (D-A-18)** — no
   `dealer_policy_limit`, no screen, no matrix row.

@@ -89,7 +89,9 @@ in the same PR as any change to what it states. -->
 - **The migrated schema is the models' schema, exactly** (KAN-170/KAN-251, no allowlist):
   `tests/test_migrated_schema_matches_models.py` runs `alembic upgrade heads` on a throwaway
   database and fails on anything `alembic check` would report — a migration-only index, a
-  constraint the model names differently, a comment one side lacks. Declare every index and
+  constraint the model names differently, a comment one side lacks — and, since KAN-414, on an
+  index both sides have whose stored definition (`pg_get_indexdef`: a partial index's `WHERE`
+  included) differs, which `alembic check` does not see. Declare every index and
   constraint on the model with the migration's exact name and shape; a column comment the
   model declares and the migration omitted is fixed by a comment-only migration in that
   context's chain (`*_column_comments_match_the_models_kan_170.py` is the pattern).

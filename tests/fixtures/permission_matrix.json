@@ -1,5 +1,5 @@
 {
-  "_source": "Dealer Administration PRD v1.2, section 'Roles, permissions and limits' > 'Permission matrix', transcribed 2026-10-17 (KAN-198). Each row: the matrix label -> registry key(s), read roles (null = 'Any role'; [] = manager only unless manager_can_read is false), write roles ([] = manager / platform staff only), flags. Anto's rulings of 2026-10-17: 'Stock and pipeline vehicles' write = inventory + sales (the matrix; enforced as inventory-only until KAN-376 — see that row's enforced_write/deviation, which the test asserts), 'Valuation' read = any role (the code; the matrix row is corrected in Notion). A new Notion row without an entry here, or a registry key without a row, fails tests/test_permission_matrix_mirrors_prd.py.",
+  "_source": "Dealer Administration PRD v1.2, section 'Roles, permissions and limits' > 'Permission matrix', transcribed 2026-10-17 (KAN-198). Each row: the matrix label -> registry key(s), read roles (null = 'Any role'; [] = manager only unless manager_can_read is false), write roles ([] = manager / platform staff only), flags. Anto's rulings of 2026-10-17: 'Stock and pipeline vehicles' write = inventory + sales (the matrix; enforced since KAN-376 rewired the purchase, landed-cost, condition, publishing and reservation endpoints to their own rows), 'Valuation' read = any role (the code; the matrix row is corrected in Notion). A new Notion row without an entry here, or a registry key without a row, fails tests/test_permission_matrix_mirrors_prd.py.",
   "rows": [
     {
       "label": "Customers",
@@ -36,11 +36,7 @@
       "write": [
         "inventory",
         "sales"
-      ],
-      "enforced_write": [
-        "inventory"
-      ],
-      "deviation": "KAN-376: the stock_items key guards every inventory write endpoint (purchase, Wagenbuch cost, publishing, reservation), so the matrix's sales write is enforced only once those endpoints are rewired to their own rows"
+      ]
     },
     {
       "label": "Stock acquisition, landed cost, storno",

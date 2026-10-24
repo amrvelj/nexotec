@@ -54,7 +54,7 @@ def update_listing_text(
     channel: MarketplaceChannel,
     body: ListingTextUpdate,
     if_match: int = Depends(require_if_match),
-    principal: Principal = Depends(require_write("stock_items")),
+    principal: Principal = Depends(require_write("marketplace_publishing")),
     db: Session = Depends(get_db),
 ):
     item = stock_item_service.get_stock_item_or_404(db, principal.tenant_id, stock_item_id)
@@ -70,7 +70,7 @@ def update_listing_text(
 def publish_to_channel(
     stock_item_id: uuid.UUID,
     channel: MarketplaceChannel,
-    principal: Principal = Depends(require_write("stock_items")),
+    principal: Principal = Depends(require_write("marketplace_publishing")),
     db: Session = Depends(get_db),
 ):
     item = stock_item_service.get_stock_item_or_404(db, principal.tenant_id, stock_item_id)
@@ -83,7 +83,7 @@ def unpublish_from_channel(
     stock_item_id: uuid.UUID,
     channel: MarketplaceChannel,
     body: UnpublishRequest,
-    principal: Principal = Depends(require_write("stock_items")),
+    principal: Principal = Depends(require_write("marketplace_publishing")),
     db: Session = Depends(get_db),
 ):
     item = stock_item_service.get_stock_item_or_404(db, principal.tenant_id, stock_item_id)
@@ -124,7 +124,7 @@ def list_media(
 def add_media(
     stock_item_id: uuid.UUID,
     body: AddMediaRequest,
-    principal: Principal = Depends(require_write("stock_items")),
+    principal: Principal = Depends(require_write("marketplace_publishing")),
     db: Session = Depends(get_db),
 ):
     item = stock_item_service.get_stock_item_or_404(db, principal.tenant_id, stock_item_id)
@@ -136,7 +136,7 @@ def add_media(
 def reorder_media(
     stock_item_id: uuid.UUID,
     body: ReorderMediaRequest,
-    principal: Principal = Depends(require_write("stock_items")),
+    principal: Principal = Depends(require_write("marketplace_publishing")),
     db: Session = Depends(get_db),
 ):
     item = stock_item_service.get_stock_item_or_404(db, principal.tenant_id, stock_item_id)
@@ -148,7 +148,7 @@ def reorder_media(
 def remove_media(
     stock_item_id: uuid.UUID,
     media_id: uuid.UUID,
-    principal: Principal = Depends(require_write("stock_items")),
+    principal: Principal = Depends(require_write("marketplace_publishing")),
     db: Session = Depends(get_db),
 ):
     item = stock_item_service.get_stock_item_or_404(db, principal.tenant_id, stock_item_id)

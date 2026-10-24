@@ -14,8 +14,9 @@ Every row of the Dealer Administration PRD's permission matrix is listed
 registry are held equal by tests/test_permission_matrix_mirrors_prd.py from
 a fixture that mirrors the Notion table; a row where the code deliberately
 enforces less than the matrix grants declares that in the fixture with a
-ticket (today only stock_items, KAN-376). Module entitlements (D-A-04) are
-the other half of "access = entitlement × role": require_entitlement below.
+ticket (none since KAN-376 closed the stock_items one). Module entitlements
+(D-A-04) are the other half of "access = entitlement × role":
+require_entitlement below.
 
 Rule 9 on that page: "A capability that appears in a module PRD but not in
 this matrix is not shippable." The inverse holds here — CAPABILITY_MATRIX
@@ -101,15 +102,12 @@ CAPABILITY_MATRIX: dict[str, Capability] = {
     "vehicle_mdm": Capability(read_roles=_ANY, write_roles=frozenset({_S, _AS, _I})),
     "customer_vehicle_links": Capability(read_roles=_ANY, write_roles=frozenset({_S, _AS})),
     # "Stock and pipeline vehicles": inventory AND sales write (Anto,
-    # 2026-10-17, following the matrix; WP-7 PR-1 had inventory only).
-    # The matrix row lets `sales` write stock items too, but this one key
-    # guards every inventory write endpoint today — purchase booking, the
-    # notional-input-tax override, Wagenbuch costs, publishing, reserve and
-    # release — whose own rows (stock_acquisition, wagenbuch,
-    # marketplace_publishing, stock_reservation) forbid it. The widening
-    # lands only when those endpoints are rewired to their own rows (KAN-376,
-    # KAN-198 review); until then the enforced set stays inventory-only.
-    "stock_items": Capability(read_roles=_ANY, write_roles=frozenset({_I})),
+    # 2026-10-17, following the matrix; WP-7 PR-1 had inventory only). The
+    # key guards only the stock item's own record (create, patch, options);
+    # purchase booking, Wagenbuch entries, condition, publishing and
+    # reservation depend on their own rows below (KAN-376), so the widening
+    # opens none of the writes the matrix keeps from sales.
+    "stock_items": Capability(read_roles=_ANY, write_roles=frozenset({_I, _S})),
     "stock_acquisition": Capability(read_roles=_ANY, write_roles=frozenset({_I})),
     "stock_condition": Capability(read_roles=_ANY, write_roles=frozenset({_I, _S})),
     # Wagenbuch: append-only via recordCost, never a user write (ADR-029 read scope).

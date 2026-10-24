@@ -32,9 +32,10 @@ claim checked against the code). Fix this file in the same PR as any change to w
   `app/worker.py`) and pending `outbox_message` rows carry it in `event_type`, so a rename is a
   contract change for Anto to decide.
 - **Consumers are idempotent** by `eventId` against the processed-events table; delivery is
-  at-least-once. Every new consumer gets a redelivery-idempotency test on the Postgres lane
-  (today the two marketplace-transmission consumers have none, and nothing makes a new consumer
-  get one — KAN-124).
+  at-least-once. Every consumer has a redelivery-idempotency test on the Postgres lane:
+  `tests/test_consumer_redelivery_idempotency.py` takes the list from `register_handlers`,
+  delivers each consumer's real message twice through the transport, and fails for a
+  registered consumer without a fixture there — a new consumer adds one.
 - **Payload shapes are consistent** across the event types of one entity, and every envelope
   field carries meaning — a `correlationId` generated fresh per event correlates nothing
   (`app/core/outbox.py` still defaults it to a fresh `uuid7()` and no producer passes one —
