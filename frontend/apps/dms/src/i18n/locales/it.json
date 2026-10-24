@@ -1326,6 +1326,7 @@
     },
     "errors": {
       "saveRefused": {
+        "offerHasContract": "Questa offerta ha il contratto {{contractNumber}} – apportare le modifiche nel contratto.",
         "staleVersion": "L'offerta è stata modificata nel frattempo. È stata caricata la versione attuale – ripetere la modifica.",
         "generic": "Non è stato possibile salvare la modifica.",
         "dismiss": "Chiudi messaggio"

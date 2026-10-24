@@ -230,4 +230,30 @@ describe('OfferWorkspace — overlapping autosaves are sent one after the other 
     // The offer is reloaded so the screen shows what it now is.
     await waitFor(() => expect(backend.callsTo(/^\/sales\/offers\/o1$/, 'GET').length).toBeGreaterThanOrEqual(2))
   })
+
+  it('a save refused because the offer has a contract says to edit the contract (KAN-408)', async () => {
+    const user = userEvent.setup()
+    installBackend([
+      {
+        method: 'PATCH',
+        match: /^\/sales\/offers\/o1$/,
+        handler: () =>
+          status(409, {
+            error: {
+              code: 'conflict',
+              message: 'Offer O-000001 has contract C-000007 — edit the contract.',
+              details: { reason: 'offer_has_contract', contractId: 'c7', contractNumber: 'C-000007' },
+            },
+          }),
+      },
+    ])
+    renderWorkspace()
+
+    await user.type(await screen.findByLabelText(i18n.t('offerWorkspace.leasing.termMonths')), '48')
+
+    const alert = await screen.findByRole('alert', {}, { timeout: 3000 })
+    expect(alert).toHaveTextContent(
+      i18n.t('offerWorkspace.errors.saveRefused.offerHasContract', { contractNumber: 'C-000007' })
+    )
+  })
 })

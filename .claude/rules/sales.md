@@ -90,6 +90,19 @@ ADR-057, ADR-063, ADR-065, ADR-083 and KAN-66/68/71. Verified against main@7a90a
   has a non-cancelled contract (409 `offer_already_contracted`, with its `contractNumber`),
   under the offer's row lock; a cancelled contract frees the offer. That refusal is what keeps
   a legacy sale's synthesised offer from taking a second contract.
+- **An offer with a live contract is read-only** (Anto, 2026-10-21, KAN-408 option A): its
+  PATCH, line items, trade-in and trade-in valuation (`priced_deal.require_editable`), finalize
+  and cancel are 409 `offer_has_contract` with the `contractNumber` — the contract is edited
+  itself while pending (ADR-083), so the two never disagree. A cancelled contract frees the
+  offer, editable again while it is a draft.
+- **The deal row follows its deal's live entity** (`deal_projection.py`; KAN-408, KAN-409):
+  the offer's live contract while it has one, else the offer — whichever side the caller wrote.
+  A cancelled contract hands the row back to its offer (its number, status, buyer, car, seller;
+  no margin), so the grid, the seller filter and the unassigned queue find a freed offer; the
+  cancelled contract stays on the customer's contracts and the offer's history. A contract
+  without an offer keeps its own row, cancelled or not. Nightly reconciliation reports a row
+  whose number, status, buyer, car or seller differs from its live entity, or whose shape is
+  wrong (two StateChecks, rule 10).
 - **Sales writers take row locks offer → contract → deal** (KAN-147): `upsert_deal_projection`
   flushes its caller's offer/contract changes before it writes the deal, and the customer
   merge's repointing flushes offers, then contracts, then deals — so neither can deadlock a
@@ -108,12 +121,10 @@ ADR-057, ADR-063, ADR-065, ADR-083 and KAN-66/68/71. Verified against main@7a90a
   someone who does not act there or is suspended/deactivated; null clears); a contract takes
   its offer's seller; `GET /sales/deals` filters `ownerUserId` and `unassigned=true` (the Sales
   list's "Nicht zugewiesen" chip — open offers and pending contracts; drafts stay hidden — and its
-  "Verantwortlich" column). The deal row's seller is the contract's once a contract exists, the
-  offer's before: an offer-side write after a contract exists never changes the contract-shaped
-  row's owner. A contract made from an offer takes the offer's seller only while that seller
-  is active or invited (`inherited_owner`), else its creator's. **Not handled (KAN-409):** an
-  offer freed by a cancelled contract stays on the grid as that cancelled contract (pre-existing
-  shape), so its seller — and a hand-over of it — is not visible there. `app/sales/services/ownership.py`
+  "Verantwortlich" column). The deal row's seller is its live entity's: the live contract's
+  while there is one, the offer's before and again after that contract is cancelled (KAN-409).
+  A contract made from an offer takes the offer's seller only while that seller
+  is active or invited (`inherited_owner`), else its creator's. `app/sales/services/ownership.py`
   is Sales' ownership provider for the deactivation step (`.claude/rules/platform.md`, D-A-35):
   it counts the user's open offers and pending contracts in every Betrieb and refuses a colleague
   who cannot act in one of them. Nightly reconciliation reports an open deal whose owner is a

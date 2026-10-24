@@ -1273,10 +1273,11 @@ def test_the_sales_queue_lists_open_deals_only(client, login):
 
 
 def test_an_offer_side_write_after_its_contract_exists_never_changes_the_contract_deals_seller(client, login):
-    """The deal row's seller is its LIVE entity's. A draft offer stays
-    editable after a contract is made from it: clearing its seller (a) or
-    saving a price on it after the contract went to the heir (b) must not
-    move the contract's row into the queue or back to the leaver."""
+    """The deal row's seller is its LIVE entity's. Since KAN-408 (Anto,
+    2026-10-21) an offer with a live contract is read-only: clearing its
+    seller (a) or saving a price on it after the contract went to the heir
+    (b) is refused by reason, and the contract's row moves neither into the
+    queue nor back to the leaver."""
 
     dealership = create_dealership(client)
     leaver = create_user(client, dealership, isDealerManager=False, firstName="Lea", lastName="Ver")
@@ -1305,7 +1306,8 @@ def test_an_offer_side_write_after_its_contract_exists_never_changes_the_contrac
         json={"ownerUserId": None},
         headers={**_as(leaver), "If-Match": str(offer["version"])},
     )
-    assert cleared.status_code == 200, cleared.text
+    assert cleared.status_code == 409, cleared.text
+    assert cleared.json()["error"]["details"]["reason"] == "offer_has_contract"
     assert contract_deal()["ownerUserId"] == leaver["id"]
     assert client.get("/v1/sales/deals?unassigned=true", headers=_as(heir)).json()["total"] == 0
 
@@ -1327,7 +1329,8 @@ def test_an_offer_side_write_after_its_contract_exists_never_changes_the_contrac
         json={"manualBasePrice": "41000.00"},
         headers={**_as(heir), "If-Match": str(current["version"])},
     )
-    assert priced.status_code == 200, priced.text
+    assert priced.status_code == 409, priced.text
+    assert priced.json()["error"]["details"]["reason"] == "offer_has_contract"
     deal = contract_deal()
     assert deal["ownerUserId"] == heir["id"] and deal["ownerLabel"] == "Hans Erbe"
     assert [

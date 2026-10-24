@@ -29,7 +29,7 @@ from app.sales.services.contract_completeness import (
     has_vehicle,
     is_priced_without_inputs,
 )
-from app.sales.services.deal_projection import upsert_deal_projection
+from app.sales.services.deal_projection import live_contract_of, upsert_deal_projection
 
 PricedDeal = SalesOffer | SalesContract
 # For functions that hand back the same kind of deal they were given.
@@ -54,16 +54,18 @@ def lock_editable(db: Session, deal: PricedDeal, *, version_seen: int) -> None:
     """
 
     db.refresh(deal, with_for_update=True)
-    require_editable(deal)
+    require_editable(db, deal)
     check_version(deal.version, version_seen, entity_name=type(deal).__name__)
 
 
-def require_editable(deal: PricedDeal) -> None:
-    """An offer is edited while it is a draft; a contract while it is
-    pending. A contract's refusal names `contract_not_pending` so the UI can
-    say why (confirmed = signed and frozen; cancelled = closed), or
-    `contract_priced_without_inputs` for one whose price predates its inputs
-    (contract_completeness.is_priced_without_inputs)."""
+def require_editable(db: Session, deal: PricedDeal) -> None:
+    """An offer is edited while it is a draft and has no live contract; a
+    contract while it is pending. A contract's refusal names
+    `contract_not_pending` so the UI can say why (confirmed = signed and
+    frozen; cancelled = closed), or `contract_priced_without_inputs` for one
+    whose price predates its inputs
+    (contract_completeness.is_priced_without_inputs); an offer's names
+    `offer_has_contract` (require_no_live_contract)."""
 
     if isinstance(deal, SalesContract):
         require_pending(deal)
@@ -79,6 +81,23 @@ def require_editable(deal: PricedDeal) -> None:
         return
     if deal.status != OfferStatus.DRAFT:
         raise ConflictError(f"Offer {deal.offer_number} can no longer be edited (status '{deal.status.value}').")
+    require_no_live_contract(db, deal)
+
+
+def require_no_live_contract(db: Session, offer: SalesOffer) -> None:
+    """KAN-408 (Anto, 2026-10-21, option A): once a contract is made from an
+    offer, the offer is read-only — the contract is the live record and is
+    edited itself while pending (ADR-083), so the two can never disagree. A
+    cancelled contract frees the offer again (KAN-147). Every offer write a
+    user makes asks this: the PATCH, line items, trade-in and its valuation
+    (through require_editable), finalize and cancel."""
+
+    live = live_contract_of(db, offer)
+    if live is not None:
+        raise ConflictError(
+            f"Offer {offer.offer_number} has contract {live.contract_number} — edit the contract.",
+            details={"reason": "offer_has_contract", "contractId": str(live.id), "contractNumber": live.contract_number},
+        )
 
 
 def require_pending(contract: SalesContract) -> None:

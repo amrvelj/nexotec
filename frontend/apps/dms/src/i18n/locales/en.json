@@ -1326,6 +1326,7 @@
     },
     "errors": {
       "saveRefused": {
+        "offerHasContract": "This offer has contract {{contractNumber}} – please make changes in the contract.",
         "staleVersion": "The offer was changed in the meantime. The current version is loaded – please make your change again.",
         "generic": "The change could not be saved.",
         "dismiss": "Dismiss message"

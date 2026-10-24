@@ -584,10 +584,11 @@ def test_the_migration_skips_a_contract_whose_offer_changed_and_every_signed_one
     drifted_offer = _offer_with_vehicle(db_session, dealership.id, drifted_item, group_id=group_id)
     drifted = create_contract(db_session, tenant_id=dealership.id, offer=drifted_offer, actor_id=uuid.uuid4())
     _as_before_the_migration(db_session, drifted)
-    update_offer(  # the offer was edited after its contract was created
-        db_session, offer=drifted_offer, group_id=group_id,
-        data=OfferUpdate(discount_type="amount", discount_value=Decimal("100.00")), actor_id=uuid.uuid4(),
-    )
+    # The offer was edited after its contract was created — possible before
+    # KAN-408 made an offer with a live contract read-only, so data the
+    # migration met can hold it. Written on the row, as that edit left it.
+    drifted_offer.discount_amount = (drifted_offer.discount_amount or Decimal(0)) + Decimal("100.00")
+    db_session.commit()
 
     signed_item = _stock_item(db_session, dealership.id, condition=StockItemCondition.NEW)
     signed_offer = _offer_with_vehicle(db_session, dealership.id, signed_item)

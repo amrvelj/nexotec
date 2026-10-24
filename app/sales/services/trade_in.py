@@ -98,7 +98,7 @@ def set_trade_in(
     customer_id: uuid.UUID | None,
     actor_id: uuid.UUID,
 ) -> DealT:
-    require_editable(deal)
+    require_editable(db, deal)
     version_seen = deal.version
 
     # KAN-99: resolve the party customer in the caller's group BEFORE any
@@ -171,7 +171,7 @@ def attach_trade_in_valuation(
 
     from app.valuation.public import get_valuation_or_404
 
-    require_editable(deal)
+    require_editable(db, deal)
 
     valuation = get_valuation_or_404(db, deal.tenant_id, valuation_id)
     _attach(deal, valuation)

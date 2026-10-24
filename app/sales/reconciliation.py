@@ -40,13 +40,20 @@ well as item because SalesContract.is_invoiceable does. A confirmed manual
 configuration still not linked to its pipeline stock item (KAN-144) is
 reported too, and so is a signed contract whose trade-in valuation is not
 stamped «Verwendet» (KAN-115).
+
+The deal grid's row is projected from its deal's live entity in the same
+transaction as every write (deal_projection, KAN-408/KAN-409), so a row that
+names another buyer, car, seller, number or status than that entity — or has
+the wrong shape: an offer's row while the offer has a live contract, a
+cancelled contract's row while its offer is free again — is a defect the
+projection missed, reported here (rule 10), never repaired.
 """
 
 import datetime as dt
 from collections.abc import Callable
 from typing import Any
 
-from sqlalchemy import ColumnElement, select
+from sqlalchemy import ColumnElement, or_, select
 from sqlalchemy.orm import InstrumentedAttribute, Session
 
 from app.core.base import utcnow
@@ -119,6 +126,66 @@ def _customer_outside_the_group(label: str, deal: _Deal) -> StateCheck:
         return customer_exists & dealership_exists & ~in_group
 
     return StateCheck(label=label, source_model=deal, source_row_id_column=deal.id, where=where)
+
+
+def _row_differs_from(entity: _Deal) -> ColumnElement[bool]:
+    """The grid's columns a user reads a deal by, against the entity's own."""
+
+    number = SalesContract.contract_number if entity is SalesContract else SalesOffer.offer_number
+    return or_(
+        SalesDeal.number.is_distinct_from(number),
+        SalesDeal.status.is_distinct_from(entity.status),
+        SalesDeal.customer_id.is_distinct_from(entity.customer_id),
+        SalesDeal.customer_label.is_distinct_from(entity.customer_label),
+        SalesDeal.vehicle_label.is_distinct_from(entity.vehicle_label),
+        SalesDeal.owner_user_id.is_distinct_from(entity.owner_user_id),
+    )
+
+
+def _live_contract_of_the_offer() -> ColumnElement[bool]:
+    return (
+        select(SalesContract.id)
+        .where(SalesContract.offer_id == SalesOffer.id, SalesContract.status != ContractStatus.CANCELLED)
+        .correlate(SalesOffer)
+        .exists()
+    )
+
+
+def deal_row_checks() -> list[StateCheck]:
+    """KAN-408 (rule 10): a deal row that disagrees with its live entity."""
+
+    contract_row = StateCheck(
+        label="sales_deal row differs from its contract (buyer, car, seller, number or status), "
+        "or names a cancelled contract whose offer is free again",
+        source_model=SalesDeal,
+        source_row_id_column=SalesDeal.id,
+        where=lambda: SalesDeal.contract_id.is_not(None)
+        & select(SalesContract.id)
+        .where(
+            SalesContract.id == SalesDeal.contract_id,
+            or_(
+                (SalesContract.status == ContractStatus.CANCELLED) & SalesContract.offer_id.is_not(None),
+                _row_differs_from(SalesContract),
+            ),
+        )
+        .correlate(SalesDeal)
+        .exists(),
+    )
+    offer_row = StateCheck(
+        label="sales_deal row differs from its offer (buyer, car, seller, number or status), "
+        "or shows the offer while it has a live contract",
+        source_model=SalesDeal,
+        source_row_id_column=SalesDeal.id,
+        where=lambda: SalesDeal.contract_id.is_(None)
+        & select(SalesOffer.id)
+        .where(
+            SalesOffer.id == SalesDeal.id,
+            or_(_live_contract_of_the_offer(), _row_differs_from(SalesOffer)),
+        )
+        .correlate(SalesDeal)
+        .exists(),
+    )
+    return [contract_row, offer_row]
 
 
 def _owned_by_a_deactivated_user(deal: _Deal, is_open: Callable[[], ColumnElement[bool]]) -> StateCheck:
@@ -516,6 +583,8 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
     ),
     _owned_by_a_deactivated_user(SalesOffer, offer_is_open),
     _owned_by_a_deactivated_user(SalesContract, lambda: SalesContract.status == ContractStatus.PENDING),
+    # --- the deal grid against its live entity (KAN-408, KAN-409) ---
+    *deal_row_checks(),
 ]
 
 

@@ -1326,6 +1326,7 @@
     },
     "errors": {
       "saveRefused": {
+        "offerHasContract": "Zu dieser Offerte gibt es den Vertrag {{contractNumber}} – Änderungen bitte im Vertrag vornehmen.",
         "staleVersion": "Die Offerte wurde inzwischen geändert. Die aktuelle Fassung ist geladen – bitte die Änderung erneut vornehmen.",
         "generic": "Die Änderung konnte nicht gespeichert werden.",
         "dismiss": "Meldung schliessen"
