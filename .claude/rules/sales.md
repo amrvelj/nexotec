@@ -16,7 +16,8 @@ paths:
 <!-- Maintainer note (stripped before Claude sees it). Summarises PRD-Sales v2 (S-D10),
 ADR-041, ADR-046, ADR-047, ADR-049, ADR-050 (addendum 2026-10-11), ADR-051, ADR-052,
 ADR-057, ADR-063, ADR-065, ADR-083, ADR-098 and KAN-66/68/71. Verified against main@7a90ae4 on
-2026-10-12 (every present-tense claim checked against the code). "Open" lines cite a ticket;
+2026-10-12 (every present-tense claim checked against the code); the ADR-098 line on 2026-10-24
+against KAN-68's branch. "Open" lines cite a ticket;
 /drift-audit re-checks them weekly. -->
 
 # Sales: offers, contracts, pricing, documents
@@ -150,9 +151,9 @@ ADR-057, ADR-063, ADR-065, ADR-083, ADR-098 and KAN-66/68/71. Verified against m
 - **The VAT line is always computed on the full gross price, never on `payable`** (ADR-098,
   Anto's ruling 2026-10-24, KAN-68). The sale and the trade-in are two supplies (Art. 24 Abs. 3
   MWSTG): the trade-in pays part of the price, it does not reduce it. Gross CHF 36,000 with a
-  CHF 10,000 trade-in at 8.1 % prints CHF 2,697.50, not CHF 1,948.20. No tax advisor has
-  confirmed it yet; if one reads the trade-in as a price reduction, ADR-098 is reopened, never
-  overridden in code. Documents generated earlier keep their frozen figure.
+  CHF 10,000 trade-in at 8.1 % prints CHF 2,697.50, not CHF 1,948.20. Open: no tax advisor
+  has confirmed it yet (KAN-436); if one reads the trade-in as a price reduction, ADR-098 is
+  reopened, never overridden in code. Documents generated earlier keep their frozen figure.
 - *Why:* Margenbesteuerung for used cars was abolished on 1 January 2010 and replaced by the
   **fiktiver Vorsteuerabzug** (Art. 28a MWSTG). Margin taxation survives only as Art. 24a MWSTG
   for Sammlerstücke (first registration more than 30 years before purchase) — out of scope for
