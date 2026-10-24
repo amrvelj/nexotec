@@ -232,6 +232,58 @@ def require_write(capability: str):
     return _check
 
 
+# --- Banking details (KAN-203, ADR-100) ------------------------------------------------------
+
+# The "Banking details" row is the one in-tenant capability whose refusal is a
+# 404, not a 403 (Anto, 2026-10-24): for a salesperson or a technician the
+# Betrieb's bank accounts do not exist — not the IBAN, not the holder, not
+# the fact that any are on file (an IBAN in a screenshot is a fraud vector;
+# so is "there is a second account for vehicle purchasing"). Reads and writes
+# alike, so a write probe cannot tell more than a read does. Platform staff
+# pass as everywhere.
+_BANKING = "banking_details"
+
+
+def _banking_denied() -> NotFoundError:
+    return NotFoundError("Not found.")
+
+
+def require_banking_read():
+    """Dependency: a banking read — manager, finance, auditor, platform staff; 404 for anyone else."""
+
+    cap = CAPABILITY_MATRIX[_BANKING]
+
+    def _check(principal: Principal = Depends(get_current_principal)) -> Principal:
+        if AccessRole.PLATFORM_ADMIN in principal.roles:
+            return principal
+        if principal.roles & (cap.read_roles or frozenset()):
+            return principal
+        if cap.manager_can_read and principal.is_dealer_manager:
+            return principal
+        raise _banking_denied()
+
+    return _check
+
+
+def require_banking_write():
+    """Dependency: a banking write — the manager or platform staff; 404 for anyone else, the
+    banking readers (finance, auditor) included: they know the accounts exist, and the
+    refusal of a write says nothing more than that."""
+
+    cap = CAPABILITY_MATRIX[_BANKING]
+
+    def _check(principal: Principal = Depends(get_current_principal)) -> Principal:
+        if AccessRole.PLATFORM_ADMIN in principal.roles:
+            return principal
+        if principal.roles & cap.write_roles:
+            return principal
+        if cap.manager_can_write and principal.is_dealer_manager:
+            return principal
+        raise _banking_denied()
+
+    return _check
+
+
 # --- Module entitlements (D-A-04, KAN-198) -------------------------------------------------
 
 # Reads a dealership's current `entitlements_version`, or None when no such

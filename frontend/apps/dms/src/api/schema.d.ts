@@ -1035,6 +1035,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/dealerships/{dealership_id}/bank-accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Bank Accounts */
+        get: operations["list_bank_accounts_v1_dealerships__dealership_id__bank_accounts_get"];
+        put?: never;
+        /** Create Bank Account */
+        post: operations["create_bank_account_v1_dealerships__dealership_id__bank_accounts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/bank-accounts/{account_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Bank Account */
+        get: operations["get_bank_account_v1_dealerships__dealership_id__bank_accounts__account_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Bank Account */
+        delete: operations["delete_bank_account_v1_dealerships__dealership_id__bank_accounts__account_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Bank Account */
+        patch: operations["update_bank_account_v1_dealerships__dealership_id__bank_accounts__account_id__patch"];
+        trace?: never;
+    };
     "/v1/dealerships/{dealership_id}/document-template": {
         parameters: {
             query?: never;
@@ -1090,6 +1127,28 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/v1/dealerships/{dealership_id}/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Dealership Settings
+         * @description The commercial and fiscal defaults every document inherits (FR-A-25) —
+         *     readable by any role of the Betrieb, like the rest of the master data.
+         */
+        get: operations["get_dealership_settings_v1_dealerships__dealership_id__settings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Dealership Settings */
+        patch: operations["update_dealership_settings_v1_dealerships__dealership_id__settings_patch"];
         trace?: never;
     };
     "/v1/dealerships/{dealership_id}/users": {
@@ -3403,6 +3462,106 @@ export interface components {
             /** Userid */
             userId: string | null;
         };
+        /** BankAccountCreate */
+        BankAccountCreate: {
+            /** Accountholder */
+            accountHolder: string;
+            /** Bankname */
+            bankName: string;
+            /** Bic */
+            bic?: string | null;
+            /** Creditorreferenceprefix */
+            creditorReferencePrefix?: string | null;
+            /** Iban */
+            iban: string;
+            /**
+             * Isdefault
+             * @default false
+             */
+            isDefault?: boolean;
+            /** Label */
+            label?: string | null;
+            /** Qriban */
+            qrIban?: string | null;
+            /** @default non */
+            qrReferenceType?: components["schemas"]["QrReferenceType"];
+        };
+        /** BankAccountList */
+        BankAccountList: {
+            /** Items */
+            items: components["schemas"]["BankAccountRead"][];
+        };
+        /** BankAccountRead */
+        BankAccountRead: {
+            /** Accountholder */
+            accountHolder: string;
+            /** Bankname */
+            bankName: string;
+            /** Bic */
+            bic: string | null;
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            /** Createdby */
+            createdBy: string | null;
+            /** Creditorreferenceprefix */
+            creditorReferencePrefix: string | null;
+            /**
+             * Dealershipid
+             * Format: uuid
+             */
+            dealershipId: string;
+            /** Iban */
+            iban: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Isdefault */
+            isDefault: boolean;
+            /** Label */
+            label: string | null;
+            /** Qriban */
+            qrIban: string | null;
+            qrReferenceType: components["schemas"]["QrReferenceType"];
+            /**
+             * Updatedat
+             * Format: date-time
+             */
+            updatedAt: string;
+            /** Updatedby */
+            updatedBy: string | null;
+            /** Version */
+            version: number;
+        };
+        /**
+         * BankAccountUpdate
+         * @description PATCH semantics: a field not sent keeps its value; null clears a
+         *     nullable one. `isDefault: true` makes this the invoice account and takes
+         *     the flag off the previous default in the same transaction.
+         */
+        BankAccountUpdate: {
+            /** Accountholder */
+            accountHolder?: string | null;
+            /** Bankname */
+            bankName?: string | null;
+            /** Bic */
+            bic?: string | null;
+            /** Creditorreferenceprefix */
+            creditorReferencePrefix?: string | null;
+            /** Iban */
+            iban?: string | null;
+            /** Isdefault */
+            isDefault?: boolean | null;
+            /** Label */
+            label?: string | null;
+            /** Qriban */
+            qrIban?: string | null;
+            qrReferenceType?: components["schemas"]["QrReferenceType"] | null;
+        };
         /** BestMatchFieldRead */
         BestMatchFieldRead: {
             /** Agrees */
@@ -3805,6 +3964,11 @@ export interface components {
             /** Reason */
             reason: string;
         };
+        /**
+         * ChartOfAccountsVariant
+         * @enum {string}
+         */
+        ChartOfAccountsVariant: "kmu" | "kaefer";
         /** ConfigurationCreate */
         ConfigurationCreate: {
             /**
@@ -5495,6 +5659,20 @@ export interface components {
             street: string;
         };
         /**
+         * DealershipCollectiveVehicleLicence
+         * @description One Händlerschild / Kollektiv-Fahrzeugausweis (D-A-27, KAN-203): the
+         *     Z-plate number as the canton prints it, the issuing canton and the expiry
+         *     of the Fahrzeugausweis. A list of these is `collectiveVehicleLicences`.
+         */
+        DealershipCollectiveVehicleLicence: {
+            /** Canton */
+            canton: string;
+            /** Expireson */
+            expiresOn?: string | null;
+            /** Platenumber */
+            plateNumber: string;
+        };
+        /**
          * DealershipCreate
          * @description dealer_group_id is optional: omitting it creates a new group of one
          *     for this dealership (the common case — onboarding a standalone dealer).
@@ -5586,7 +5764,15 @@ export interface components {
             address: components["schemas"]["DealershipAddress"];
             /** Ageingalertthresholds */
             ageingAlertThresholds: number[] | null;
+            /** Associationmemberships */
+            associationMemberships: string[] | null;
+            /** Astraoperatornumber */
+            astraOperatorNumber: string | null;
             billingAddress: components["schemas"]["DealershipOverrideAddress"] | null;
+            /** Collectivevehiclelicences */
+            collectiveVehicleLicences: components["schemas"]["DealershipCollectiveVehicleLicence"][] | null;
+            /** Commercialregisteroffice */
+            commercialRegisterOffice: string | null;
             correspondenceAddress: components["schemas"]["DealershipOverrideAddress"] | null;
             /**
              * Createdat
@@ -5601,11 +5787,15 @@ export interface components {
              */
             dealerGroupId: string;
             franchiseType: components["schemas"]["FranchiseType"];
+            /** Hrnumber */
+            hrNumber: string | null;
             /**
              * Id
              * Format: uuid
              */
             id: string;
+            /** Legalform */
+            legalForm: string | null;
             /** Legalname */
             legalName: string;
             /** Oemaffiliations */
@@ -5633,6 +5823,59 @@ export interface components {
             /** Version */
             version: number;
         };
+        /** DealershipSettingsRead */
+        DealershipSettingsRead: {
+            /** Accountingsystem */
+            accountingSystem: string | null;
+            /** Cashrounding */
+            cashRounding: string;
+            chartOfAccountsVariant: components["schemas"]["ChartOfAccountsVariant"];
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            /** Currency */
+            currency: string;
+            /**
+             * Dealershipid
+             * Format: uuid
+             */
+            dealershipId: string;
+            /** Defaultpaymenttermsdays */
+            defaultPaymentTermsDays: number;
+            /** Fiscalyearstart */
+            fiscalYearStart: string;
+            /** Mandant */
+            mandant: string | null;
+            periodLockPolicy: components["schemas"]["PeriodLockPolicy"];
+            /**
+             * Updatedat
+             * Format: date-time
+             */
+            updatedAt: string;
+            /** Updatedby */
+            updatedBy: string | null;
+            /** Version */
+            version: number;
+        };
+        /** DealershipSettingsUpdate */
+        DealershipSettingsUpdate: {
+            /** Accountingsystem */
+            accountingSystem?: string | null;
+            /** Cashrounding */
+            cashRounding?: number | string | null;
+            chartOfAccountsVariant?: components["schemas"]["ChartOfAccountsVariant"] | null;
+            /** Currency */
+            currency?: string | null;
+            /** Defaultpaymenttermsdays */
+            defaultPaymentTermsDays?: number | null;
+            /** Fiscalyearstart */
+            fiscalYearStart?: string | null;
+            /** Mandant */
+            mandant?: string | null;
+            periodLockPolicy?: components["schemas"]["PeriodLockPolicy"] | null;
+        };
         /**
          * DealershipStatus
          * @enum {string}
@@ -5648,9 +5891,25 @@ export interface components {
             address?: components["schemas"]["DealershipAddress"] | null;
             /** Ageingalertthresholds */
             ageingAlertThresholds?: number[] | null;
+            /** Associationmemberships */
+            associationMemberships?: string[] | null;
+            /** Astraoperatornumber */
+            astraOperatorNumber?: string | null;
+            /** Auditnote */
+            auditNote?: string | null;
             billingAddress?: components["schemas"]["DealershipOverrideAddress"] | null;
+            /** Collectivevehiclelicences */
+            collectiveVehicleLicences?: components["schemas"]["DealershipCollectiveVehicleLicence"][] | null;
+            /** Commercialregisteroffice */
+            commercialRegisterOffice?: string | null;
+            /** Confirmation */
+            confirmation?: boolean | null;
             correspondenceAddress?: components["schemas"]["DealershipOverrideAddress"] | null;
             franchiseType?: components["schemas"]["FranchiseType"] | null;
+            /** Hrnumber */
+            hrNumber?: string | null;
+            /** Legalform */
+            legalForm?: string | null;
             /** Legalname */
             legalName?: string | null;
             /** Oemaffiliations */
@@ -6925,6 +7184,11 @@ export interface components {
             fzKey: string;
         };
         /**
+         * PeriodLockPolicy
+         * @enum {string}
+         */
+        PeriodLockPolicy: "month_end_close" | "quarter_end_close" | "year_end_close";
+        /**
          * PhoneType
          * @description Remapped in WP-3 PR-5 (ADR-067): MOBILE unchanged, PRIVATE->LANDLINE,
          *     OFFICE->WORK — see that migration's own docstring for the reasoning.
@@ -7083,6 +7347,11 @@ export interface components {
          * @enum {string}
          */
         PublishingState: "not_published" | "published";
+        /**
+         * QrReferenceType
+         * @enum {string}
+         */
+        QrReferenceType: "qrr" | "scor" | "non";
         /** RecordCostRequest */
         RecordCostRequest: {
             /** Amount */
@@ -11779,6 +12048,194 @@ export interface operations {
             };
         };
     };
+    list_bank_accounts_v1_dealerships__dealership_id__bank_accounts_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BankAccountList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_bank_account_v1_dealerships__dealership_id__bank_accounts_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+                /** @description Optional. A fresh value (a UUID) per form submission, reused only when retrying that same submission. A retry gets the original response. The same key with a different request, or while the first request is still being processed, is a 409. Keys are kept for at least 24 hours. A key shaped like the server's own (`<context>.<action>:…`, e.g. `sales.contract.confirm:…`) is a 422. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BankAccountCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BankAccountRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_bank_account_v1_dealerships__dealership_id__bank_accounts__account_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                account_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BankAccountRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_bank_account_v1_dealerships__dealership_id__bank_accounts__account_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                account_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_bank_account_v1_dealerships__dealership_id__bank_accounts__account_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+                account_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BankAccountUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BankAccountRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_document_template_v1_dealerships__dealership_id__document_template_get: {
         parameters: {
             query?: never;
@@ -11951,6 +12408,81 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LocationList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_dealership_settings_v1_dealerships__dealership_id__settings_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DealershipSettingsRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_dealership_settings_v1_dealerships__dealership_id__settings_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DealershipSettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DealershipSettingsRead"];
                 };
             };
             /** @description Validation Error */

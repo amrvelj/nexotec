@@ -29,3 +29,31 @@ def valid_uid(seed: int | None = None) -> str:
         if check is not None:
             digits = f"{first_eight}{check}"
             return f"CHE-{digits[:3]}.{digits[3:6]}.{digits[6:]}"
+
+
+def seed_business_reference_lists(db_session) -> None:
+    """Stand up the `legal_form` and `association_membership` lists (KAN-203)
+    from the same rows the migration seeds — per test, not autouse: only the
+    Business screen's writes need them."""
+
+    from app.platform.models.reference_data import ReferenceList, ReferenceValue
+    from app.platform.reference_data_seed import BUSINESS_LISTS
+
+    for list_code, rows in BUSINESS_LISTS.items():
+        ref_list = ReferenceList(list_code=list_code)
+        db_session.add(ref_list)
+        db_session.flush()
+        for order, (code, de, fr, it, en) in enumerate(rows):
+            db_session.add(
+                ReferenceValue(
+                    list_id=ref_list.id,
+                    value_code=code,
+                    label_de=de,
+                    label_fr=fr,
+                    label_it=it,
+                    label_en=en,
+                    sort_order=order,
+                    active=True,
+                )
+            )
+    db_session.commit()

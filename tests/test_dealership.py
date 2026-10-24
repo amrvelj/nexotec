@@ -166,7 +166,9 @@ def test_patching_uid_to_another_dealerships_uid_is_a_409(client):
     body = _create_dealership(client)
     token = _token(AccessRole.PLATFORM_ADMIN)
     response = client.patch(
-        f"/v1/dealerships/{body['id']}", json={"uid": VALID_UID}, headers={**_bearer(token), "If-Match": "1"}
+        f"/v1/dealerships/{body['id']}",
+        json={"uid": VALID_UID, "confirmation": True},
+        headers={**_bearer(token), "If-Match": "1"},
     )
     assert response.status_code == 409, response.text
 
@@ -357,7 +359,7 @@ def test_patch_updates_dealership_and_bumps_version(client):
     token = _token(AccessRole.PLATFORM_ADMIN)
     response = client.patch(
         f"/v1/dealerships/{body['id']}",
-        json={"legalName": "New Legal Name"},
+        json={"legalName": "New Legal Name", "confirmation": True},  # KAN-203: legal identity needs a confirmation
         headers={**_bearer(token), "If-Match": "1"},
     )
     assert response.status_code == 200
@@ -392,7 +394,11 @@ def test_legal_identity_and_status_changes_are_audit_logged(client):
     body = _create_dealership(client)
     token = _token(AccessRole.PLATFORM_ADMIN)
     headers = {**_bearer(token), "If-Match": "1"}
-    client.patch(f"/v1/dealerships/{body['id']}", json={"uid": VALID_UID, "vatLiable": True}, headers=headers)
+    client.patch(
+        f"/v1/dealerships/{body['id']}",
+        json={"uid": VALID_UID, "vatLiable": True, "confirmation": True},
+        headers=headers,
+    )
 
     log = client.get(f"/v1/dealerships/{body['id']}/audit-log", headers=_bearer(token))
     assert log.status_code == 200
@@ -599,14 +605,16 @@ def test_patching_a_not_null_field_to_null_is_a_422_and_changes_nothing(client, 
 def test_patching_a_nullable_field_to_null_still_clears_it(client, field, value):
     body = _create_dealership(client, uid=VALID_UID)
     token = _token(AccessRole.PLATFORM_ADMIN)
+    # KAN-203: the VAT number is legal identity — its change (and its clearing) needs the confirmation.
+    confirm = {"confirmation": True} if field == "vatNumber" else {}
     set_response = client.patch(
-        f"/v1/dealerships/{body['id']}", json={field: value}, headers={**_bearer(token), "If-Match": "1"}
+        f"/v1/dealerships/{body['id']}", json={field: value, **confirm}, headers={**_bearer(token), "If-Match": "1"}
     )
     assert set_response.status_code == 200, set_response.text
     assert set_response.json()[field] is not None
 
     response = client.patch(
-        f"/v1/dealerships/{body['id']}", json={field: None}, headers={**_bearer(token), "If-Match": "2"}
+        f"/v1/dealerships/{body['id']}", json={field: None, **confirm}, headers={**_bearer(token), "If-Match": "2"}
     )
 
     assert response.status_code == 200, response.text

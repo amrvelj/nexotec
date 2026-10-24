@@ -22,7 +22,8 @@
       "referenceData": "Dati di riferimento",
       "catalogue": "Catalogo",
       "users": "Utenti",
-      "accountRecovery": "Recupero account"
+      "accountRecovery": "Recupero account",
+      "business": "Azienda"
     },
     "signOut": "Disconnetti",
     "environmentNotice": {
@@ -2461,6 +2462,163 @@
         "effect": "Da ora {{name}} accede con il nuovo indirizzo. I link di invito e di reimpostazione aperti non funzionano più, {{name}} viene disconnesso ovunque e {{email}} viene informato del cambio. La password non cambia.",
         "done": "L'indirizzo e-mail di {{name}} è stato cambiato."
       }
+    }
+  },
+  "business": {
+    "title": "Azienda",
+    "subtitle": "I dati anagrafici della vostra azienda: identità giuridica, indirizzi, coordinate bancarie, impostazioni commerciali, autorizzazioni e affiliazioni. Compaiono su contratti, fatture e QR-fattura.",
+    "loadError": "I dati dell'azienda non sono stati caricati.",
+    "saved": "Salvato.",
+    "errors": {
+      "managerOnly": "Solo un manager di questa azienda modifica i suoi dati anagrafici.",
+      "conflict": "I dati sono stati modificati altrove nel frattempo. Ricaricate la pagina e inserite di nuovo la modifica.",
+      "invalid": "Verificate i dati inseriti.",
+      "uidTaken": "Questo IDI appartiene già a un'altra azienda.",
+      "confirmationRequired": "La modifica di ragione sociale, IDI o IVA richiede la vostra conferma.",
+      "unknownReferenceCode": "Questo valore non è nell'elenco.",
+      "qrReferenceNeedsQrIban": "Il riferimento QR richiede un QR-IBAN. Inserite il QR-IBAN o scegliete un altro tipo di riferimento.",
+      "qrIbanNeedsQrReference": "Un QR-IBAN si usa solo con il riferimento QR. Rimuovete il QR-IBAN o scegliete il riferimento QR.",
+      "creditorPrefixNeedsScor": "Un prefisso di riferimento vale solo per il riferimento creditore strutturato (SCOR).",
+      "defaultConflict": "Nel frattempo un altro conto è diventato il conto di fatturazione. Ricaricate la pagina e riprovate."
+    },
+    "legal": {
+      "title": "Identità giuridica",
+      "legalName": "Ragione sociale (secondo il registro di commercio)",
+      "legalNameHint": "Compare su contratti e fatture.",
+      "tradeName": "Insegna",
+      "tradeNameHint": "Ciò che è scritto sull'insegna – per pubblicità e cartellini dei prezzi.",
+      "legalForm": "Forma giuridica",
+      "franchiseType": "Legame di marca",
+      "franchiseTypes": {
+        "franchise": "Rappresentanza di marca",
+        "independent": "Garage indipendente"
+      },
+      "oemAffiliations": "Marche rappresentate",
+      "uid": "IDI",
+      "uidHint": "Numero d'identificazione delle imprese, p. es. CHE-123.456.789.",
+      "vatNumber": "Numero IVA",
+      "vatLiable": "Assoggettato all'IVA",
+      "commercialRegisterOffice": "Ufficio del registro di commercio (cantone)",
+      "hrNumber": "Numero del registro di commercio",
+      "hrNumberHint": "Compare nel piè di pagina dei documenti.",
+      "confirmTitle": "Modifica dell'identità giuridica",
+      "confirmHint": "Ragione sociale, IDI e IVA compaiono su ogni contratto e ogni fattura. La modifica viene registrata a vostro nome.",
+      "confirmLabel": "Confermo che questi dati corrispondono al registro di commercio.",
+      "confirmFirst": "Confermate la modifica dell'identità giuridica.",
+      "auditNote": "Motivo (facoltativo)",
+      "auditNotePlaceholder": "p. es. cambio di ragione sociale iscritto al RC il 1° ottobre"
+    },
+    "addresses": {
+      "title": "Indirizzi",
+      "street": "Via",
+      "houseNumber": "N.",
+      "postalCode": "NPA",
+      "locality": "Località",
+      "canton": "Cantone",
+      "country": "Paese",
+      "countryHint": "Codice paese, p. es. CH, DE, FL.",
+      "phone": "Telefono",
+      "overrides": "Indirizzo di corrispondenza o di fatturazione diverso",
+      "correspondenceDiffers": "La posta va a un indirizzo diverso dalla sede",
+      "billingDiffers": "Le fatture di Nexotec vanno a un altro indirizzo (p. es. la contabilità del gruppo)"
+    },
+    "banking": {
+      "title": "Coordinate bancarie",
+      "add": "Aggiungi conto",
+      "edit": "Modifica",
+      "delete": "Rimuovi conto",
+      "deleteConfirm": "Il conto {{iban}} verrà rimosso. Le fatture che già lo indicano restano invariate.",
+      "makeDefault": "Imposta come conto di fatturazione",
+      "isAlreadyDefault": "È già il conto di fatturazione",
+      "default": "Conto di fatturazione",
+      "noneYet": "Nessuna coordinata bancaria. Senza conto di fatturazione non si può emettere alcuna fattura.",
+      "noDefault": "Nessun conto è impostato come conto di fatturazione. Scegliete quello che comparirà su fatture e QR-fattura.",
+      "columns": {
+        "label": "Denominazione",
+        "holder": "Titolare",
+        "bank": "Banca",
+        "iban": "IBAN",
+        "qr": "QR-fattura"
+      },
+      "fields": {
+        "accountHolder": "Titolare del conto",
+        "bankName": "Banca",
+        "iban": "IBAN",
+        "ibanHint": "Verificato al salvataggio. Un QR-IBAN va nel campo QR-IBAN.",
+        "bic": "BIC",
+        "qrReferenceType": "Riferimento sulla QR-fattura",
+        "qrReferenceTypeHint": "Il riferimento QR richiede un QR-IBAN; riferimento creditore e «senza» usano l'IBAN ordinario.",
+        "qrIban": "QR-IBAN",
+        "qrIbanHint": "Il QR-IBAN della vostra banca (numero d'istituto 30000–31999).",
+        "creditorReferencePrefix": "Prefisso del riferimento creditore",
+        "creditorReferencePrefixHint": "Per abbinare automaticamente i pagamenti in entrata (camt.054).",
+        "label": "Denominazione",
+        "labelPlaceholder": "p. es. Officina, Acquisto veicoli",
+        "isDefault": "Conto di fatturazione",
+        "isDefaultHint": "Compare su fatture e QR-fattura. Ce n'è uno solo."
+      },
+      "qrTypes": {
+        "non": "Senza riferimento",
+        "scor": "Riferimento creditore (SCOR)",
+        "qrr": "Riferimento QR (QRR)"
+      }
+    },
+    "fiscal": {
+      "title": "Impostazioni commerciali",
+      "hint": "Queste impostazioni sono riprese da offerte, contratti, fatture e contabilità. Ognuna ha un valore iniziale neutro.",
+      "currency": "Valuta",
+      "currencyHint": "Per ora solo CHF.",
+      "cashRounding": "Arrotondamento ai centesimi",
+      "paymentTerms": "Termine di pagamento",
+      "days": "giorni",
+      "fiscalMonth": "L'esercizio inizia a",
+      "fiscalDay": "il giorno",
+      "vatRate": "Aliquota IVA",
+      "vatRateHint": "L'unica aliquota con cui si calcola la riga IVA sui documenti.",
+      "accountingSystem": "Software contabile",
+      "accountingSystemHint": "Solo il nome – l'accesso si configura sotto Integrazioni.",
+      "mandant": "Mandante",
+      "chartOfAccounts": "Piano dei conti",
+      "charts": {
+        "kmu": "Piano dei conti PMI",
+        "kaefer": "Piano dei conti Käfer"
+      },
+      "periodLock": "Blocco dei periodi",
+      "periodLockHint": "In un periodo bloccato nessuno scrive – neanche un manager.",
+      "locks": {
+        "month_end_close": "Bloccato dopo la chiusura mensile",
+        "quarter_end_close": "Bloccato dopo la chiusura trimestrale",
+        "year_end_close": "Bloccato dopo la chiusura annuale"
+      },
+      "months": {
+        "1": "gennaio",
+        "2": "febbraio",
+        "3": "marzo",
+        "4": "aprile",
+        "5": "maggio",
+        "6": "giugno",
+        "7": "luglio",
+        "8": "agosto",
+        "9": "settembre",
+        "10": "ottobre",
+        "11": "novembre",
+        "12": "dicembre"
+      }
+    },
+    "licences": {
+      "title": "Autorizzazioni e affiliazioni",
+      "haendlerschild": "Targhe professionali (licenza di circolazione collettiva)",
+      "haendlerschildHint": "Le targhe U della vostra azienda con cantone emittente e scadenza della licenza – per prove e trasferimenti.",
+      "plate": "Targa",
+      "canton": "Cantone",
+      "expiresOn": "Valida fino al",
+      "add": "Aggiungi targa",
+      "remove": "Rimuovi targa",
+      "cantonRequired": "Ogni targa ha bisogno del suo cantone.",
+      "astra": "Numero d'esercizio USTRA/MOFIS",
+      "astraHint": "Requisito per il collegamento al registro dei veicoli.",
+      "associations": "Affiliazioni ad associazioni",
+      "associationsHint": "Compaiono nel piè di pagina dei documenti."
     }
   }
 }

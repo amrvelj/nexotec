@@ -22,7 +22,8 @@
       "referenceData": "Reference data",
       "catalogue": "Catalogue",
       "users": "Users",
-      "accountRecovery": "Account recovery"
+      "accountRecovery": "Account recovery",
+      "business": "Business"
     },
     "signOut": "Sign out",
     "environmentNotice": {
@@ -2461,6 +2462,163 @@
         "effect": "{{name}} signs in with the new address from now on. Open invitation and reset links end, {{name}} is signed out everywhere, and {{email}} is told of the change. The password does not change.",
         "done": "{{name}}'s e-mail address was changed."
       }
+    }
+  },
+  "business": {
+    "title": "Business",
+    "subtitle": "Your business's master data: legal identity, addresses, bank accounts, commercial defaults, licences and memberships. They appear on contracts, invoices and the QR-bill.",
+    "loadError": "The business data could not be loaded.",
+    "saved": "Saved.",
+    "errors": {
+      "managerOnly": "Only a manager of this business changes its master data.",
+      "conflict": "The data was changed elsewhere in the meantime. Reload the page and enter your change again.",
+      "invalid": "Please check your entries.",
+      "uidTaken": "This UID already belongs to another business.",
+      "confirmationRequired": "A change of the legal name, UID or VAT needs your confirmation.",
+      "unknownReferenceCode": "This value is not in the list.",
+      "qrReferenceNeedsQrIban": "The QR reference needs a QR-IBAN. Enter the QR-IBAN or choose another reference type.",
+      "qrIbanNeedsQrReference": "A QR-IBAN is only used with the QR reference. Remove the QR-IBAN or choose the QR reference.",
+      "creditorPrefixNeedsScor": "A reference prefix applies to the structured creditor reference (SCOR) only.",
+      "defaultConflict": "Another account became the invoice account in the meantime. Reload the page and try again."
+    },
+    "legal": {
+      "title": "Legal identity",
+      "legalName": "Legal name (as in the commercial register)",
+      "legalNameHint": "Appears on contracts and invoices.",
+      "tradeName": "Trade name",
+      "tradeNameHint": "What the sign says – for marketing and price tags.",
+      "legalForm": "Legal form",
+      "franchiseType": "Brand affiliation",
+      "franchiseTypes": {
+        "franchise": "Authorised dealer",
+        "independent": "Independent dealer"
+      },
+      "oemAffiliations": "Brands represented",
+      "uid": "UID",
+      "uidHint": "Swiss enterprise identification number, e.g. CHE-123.456.789.",
+      "vatNumber": "VAT number",
+      "vatLiable": "Liable for VAT",
+      "commercialRegisterOffice": "Commercial register office (canton)",
+      "hrNumber": "Commercial register number",
+      "hrNumberHint": "Appears in the document footer.",
+      "confirmTitle": "Change of legal identity",
+      "confirmHint": "The legal name, UID and VAT details appear on every contract and invoice. The change is recorded under your name.",
+      "confirmLabel": "I confirm these details match the commercial register.",
+      "confirmFirst": "Confirm the change of legal identity.",
+      "auditNote": "Reason (optional)",
+      "auditNotePlaceholder": "e.g. renamed per commercial register entry of 1 October"
+    },
+    "addresses": {
+      "title": "Addresses",
+      "street": "Street",
+      "houseNumber": "No.",
+      "postalCode": "Postal code",
+      "locality": "Locality",
+      "canton": "Canton",
+      "country": "Country",
+      "countryHint": "Country code, e.g. CH, DE, FL.",
+      "phone": "Phone",
+      "overrides": "Different correspondence or billing address",
+      "correspondenceDiffers": "Post goes to an address other than the registered seat",
+      "billingDiffers": "Nexotec's invoices go to another address (e.g. the group's accounting office)"
+    },
+    "banking": {
+      "title": "Bank accounts",
+      "add": "Add account",
+      "edit": "Edit",
+      "delete": "Remove account",
+      "deleteConfirm": "The account {{iban}} will be removed. Invoices that already name it stay as they are.",
+      "makeDefault": "Make invoice account",
+      "isAlreadyDefault": "Is already the invoice account",
+      "default": "Invoice account",
+      "noneYet": "No bank account yet. Without an invoice account no invoice can be issued.",
+      "noDefault": "No account is set as the invoice account. Choose the one that appears on invoices and the QR-bill.",
+      "columns": {
+        "label": "Label",
+        "holder": "Account holder",
+        "bank": "Bank",
+        "iban": "IBAN",
+        "qr": "QR-bill"
+      },
+      "fields": {
+        "accountHolder": "Account holder",
+        "bankName": "Bank",
+        "iban": "IBAN",
+        "ibanHint": "Checked on save. A QR-IBAN goes into the QR-IBAN field.",
+        "bic": "BIC",
+        "qrReferenceType": "Reference on the QR-bill",
+        "qrReferenceTypeHint": "The QR reference needs a QR-IBAN; the creditor reference and \"none\" use the ordinary IBAN.",
+        "qrIban": "QR-IBAN",
+        "qrIbanHint": "Your bank's QR-IBAN (institution number 30000–31999).",
+        "creditorReferencePrefix": "Creditor reference prefix",
+        "creditorReferencePrefixHint": "So incoming payments (camt.054) are matched automatically.",
+        "label": "Label",
+        "labelPlaceholder": "e.g. Workshop, Vehicle purchasing",
+        "isDefault": "Invoice account",
+        "isDefaultHint": "Appears on invoices and the QR-bill. There is exactly one."
+      },
+      "qrTypes": {
+        "non": "No reference",
+        "scor": "Creditor reference (SCOR)",
+        "qrr": "QR reference (QRR)"
+      }
+    },
+    "fiscal": {
+      "title": "Commercial and fiscal defaults",
+      "hint": "Offers, contracts, invoices and the accounting export inherit these. Each has a neutral starting value.",
+      "currency": "Currency",
+      "currencyHint": "CHF only for now.",
+      "cashRounding": "Cash rounding",
+      "paymentTerms": "Payment terms",
+      "days": "days",
+      "fiscalMonth": "Fiscal year starts in",
+      "fiscalDay": "on day",
+      "vatRate": "VAT rate",
+      "vatRateHint": "The one rate the VAT line on documents is computed with.",
+      "accountingSystem": "Accounting system",
+      "accountingSystemHint": "The name only – access is set up under Integrations.",
+      "mandant": "Client (Mandant)",
+      "chartOfAccounts": "Chart of accounts",
+      "charts": {
+        "kmu": "Swiss SME chart of accounts (KMU)",
+        "kaefer": "Käfer chart of accounts"
+      },
+      "periodLock": "Period lock",
+      "periodLockHint": "Nobody writes inside a locked period – no manager either.",
+      "locks": {
+        "month_end_close": "Locked after month-end close",
+        "quarter_end_close": "Locked after quarter-end close",
+        "year_end_close": "Locked after year-end close"
+      },
+      "months": {
+        "1": "January",
+        "2": "February",
+        "3": "March",
+        "4": "April",
+        "5": "May",
+        "6": "June",
+        "7": "July",
+        "8": "August",
+        "9": "September",
+        "10": "October",
+        "11": "November",
+        "12": "December"
+      }
+    },
+    "licences": {
+      "title": "Licences and memberships",
+      "haendlerschild": "Dealer plates (collective vehicle licence)",
+      "haendlerschildHint": "Your business's U plates with issuing canton and expiry of the licence – for test drives and transfers.",
+      "plate": "Plate",
+      "canton": "Canton",
+      "expiresOn": "Valid until",
+      "add": "Add plate",
+      "remove": "Remove plate",
+      "cantonRequired": "Every plate needs its canton.",
+      "astra": "ASTRA/MOFIS operator number",
+      "astraHint": "Prerequisite for the vehicle registry connection.",
+      "associations": "Association memberships",
+      "associationsHint": "Appear in the document footer."
     }
   }
 }
