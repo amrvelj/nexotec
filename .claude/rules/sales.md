@@ -147,9 +147,10 @@ ADR-057, ADR-063, ADR-065, ADR-083 and KAN-66/68/71. Verified against main@7a90a
   `Dealership.vat_rate` (Notion calls it `dealer_settings.vat_rate` — no such table exists) in
   `app/sales/services/document.py::_price_build_up_lines` (label key `priceBuildUp.includedVat`);
   a dealership with no `vat_rate` gets no VAT line, never a guessed rate.
-- **The VAT base when a trade-in is involved is undecided (KAN-68).** Today the line is
-  computed on `payable` (after the trade-in), else the gross price (`document.py`). Leave that
-  as it is; any change to the base needs Anto's ruling.
+- **The VAT line is always computed on the full gross price, never on `payable`** (ADR-098,
+  Anto's ruling 2026-10-24, KAN-68). The sale and the trade-in are two supplies (Art. 24 Abs. 3
+  MWSTG): the trade-in pays part of the price, it does not reduce it. Gross CHF 36,000 with a
+  CHF 10,000 trade-in at 8.1 % prints CHF 2,697.50, not CHF 1,948.20.
 - *Why:* Margenbesteuerung for used cars was abolished on 1 January 2010 and replaced by the
   **fiktiver Vorsteuerabzug** (Art. 28a MWSTG). Margin taxation survives only as Art. 24a MWSTG
   for Sammlerstücke (first registration more than 30 years before purchase) — out of scope for

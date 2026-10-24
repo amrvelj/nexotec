@@ -194,11 +194,12 @@ def test_exactly_one_vat_line_on_the_contract():
 
 def test_vat_line_is_the_reverse_inclusive_component_of_the_gross_price_not_an_addition():
     """The gross price already INCLUDES VAT (ADR-057) — the VAT line is a
-    component OF payable, computed with the same reverse-inclusive
+    component OF the gross price, computed with the same reverse-inclusive
     formula the fiktiver Vorsteuerabzug uses
     (app.inventory.services.purchase::_compute_notional_input_tax), never
     a separate charge added on top. Sign/magnitude asserted explicitly,
-    not just "a line exists."
+    not just "a line exists." No trade-in here; the trade-in case is
+    test_vat_line_is_computed_on_the_full_gross_price_when_a_trade_in_reduces_payable.
     """
 
     offer = _bare_offer(payable=Decimal("36000.00"))
@@ -215,8 +216,60 @@ def test_vat_line_is_the_reverse_inclusive_component_of_the_gross_price_not_an_a
     )
     assert vat_line.amount == expected
     assert vat_line.amount > 0
-    assert vat_line.amount < offer.payable  # the VAT component is smaller than the price it's a component of
+    assert vat_line.amount < offer.gross_price  # the VAT component is smaller than the price it's a component of
     assert "8.1" in vat_line.label  # the rate itself is stated on the one line
+
+
+_TRADE_IN_GROSS = Decimal("36000.00")
+_TRADE_IN_VALUE = Decimal("10000.00")
+_TRADE_IN_PAYABLE = Decimal("26000.00")
+# KAN-68 worked example at 8.10 %: rate / (100 + rate) x base, ROUND_HALF_UP.
+_VAT_ON_FULL_GROSS = Decimal("2697.50")  # base 36'000 — the ruled figure
+_VAT_ON_PAYABLE = Decimal("1948.20")  # base 26'000 — what the document printed before the ruling
+
+
+def test_the_worked_example_figures_are_what_the_formula_gives():
+    """Pins the two constants above to the module's own formula, so the
+    trade-in tests below cannot drift from it."""
+
+    def vat(base: Decimal) -> Decimal:
+        return (base * Decimal("8.10") / Decimal("108.10")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+    assert vat(_TRADE_IN_GROSS) == _VAT_ON_FULL_GROSS
+    assert vat(_TRADE_IN_PAYABLE) == _VAT_ON_PAYABLE
+
+
+@pytest.mark.parametrize("kind", ["offer", "contract"])
+def test_vat_line_is_computed_on_the_full_gross_price_when_a_trade_in_reduces_payable(kind):
+    """KAN-68, Anto's ruling 2026-10-24 (option A, ADR-098): the sale and the
+    trade-in are two separate supplies (MWSTG Art. 24 Abs. 3), so the one
+    VAT line is the VAT contained in the full gross price. The trade-in is
+    how the customer pays part of that price, not a reduction of it; its own
+    VAT is the purchase side's fiktiver Vorsteuerabzug, owned by Stock.
+    payable != gross_price here, so the two possible bases are told apart.
+    """
+
+    deal_fields = {
+        "gross_price": _TRADE_IN_GROSS,
+        "trade_in_value": _TRADE_IN_VALUE,
+        "payable": _TRADE_IN_PAYABLE,
+    }
+    if kind == "offer":
+        content = build_offer_content(_bare_offer(**deal_fields), language=SwissLanguage.DE, vat_rate=Decimal("8.10"))
+    else:
+        content = build_contract_content(
+            _bare_contract(**deal_fields), language=SwissLanguage.DE, vat_rate=Decimal("8.10")
+        )
+    lines = _line_items_lines(content)
+
+    vat_lines = [line for line in lines if "MWST" in line.label]
+    assert len(vat_lines) == 1  # still exactly one VAT line (ADR-057)
+    assert vat_lines[0].amount == _VAT_ON_FULL_GROSS
+    assert vat_lines[0].amount != _VAT_ON_PAYABLE
+    # The trade-in and payable lines themselves are unchanged by the ruling.
+    amounts = [line.amount for line in lines]
+    assert -_TRADE_IN_VALUE in amounts
+    assert _TRADE_IN_PAYABLE in amounts
 
 
 def test_vat_amount_rounds_a_genuine_tie_half_up_not_half_even():
@@ -231,7 +284,7 @@ def test_vat_amount_rounds_a_genuine_tie_half_up_not_half_even():
     ROUND_HALF_UP gives 12.35.
     """
 
-    offer = _bare_offer(payable=Decimal("24.69"))
+    offer = _bare_offer(gross_price=Decimal("24.69"), discount_amount=None, payable=Decimal("24.69"))
     content = build_offer_content(offer, language=SwissLanguage.DE, vat_rate=Decimal(100))
     lines = _line_items_lines(content)
     vat_line = next(line for line in lines if "MWST" in line.label)

@@ -137,9 +137,13 @@ def _price_build_up_lines(
     # never added to or subtracted from the totals above. Needs BOTH a
     # price to compute against and a configured rate; either missing
     # means no line at all, never a guessed rate.
-    vat_base = payable if payable is not None else gross_price
-    if vat_base is not None and vat_rate is not None:
-        vat_amount = _compute_vat_amount(gross_price=vat_base, vat_rate=vat_rate)
+    # KAN-68 / ADR-098 (Anto's ruling 2026-10-24): the base is ALWAYS the
+    # full gross price, never payable. The sale and the trade-in are two
+    # supplies (MWSTG Art. 24 Abs. 3); the trade-in pays part of the price,
+    # it does not reduce it, and its own VAT is Stock's fiktiver
+    # Vorsteuerabzug on the purchase side.
+    if gross_price is not None and vat_rate is not None:
+        vat_amount = _compute_vat_amount(gross_price=gross_price, vat_rate=vat_rate)
         # KAN-68: .normalize() alone renders a whole-number rate (10, 20.00)
         # in scientific notation (1E+1, 2E+1) — Dealership.vat_rate has no
         # format constraint stopping a dealer entering one. format(..., "f")
