@@ -104,9 +104,9 @@ CAPABILITY_MATRIX: dict[str, Capability] = {
     # "Stock and pipeline vehicles": inventory AND sales write (Anto,
     # 2026-10-17, following the matrix; WP-7 PR-1 had inventory only). The
     # key guards only the stock item's own record (create, patch, options);
-    # purchase booking, landed costs, condition, publishing and reservation
-    # depend on their own rows below (KAN-376), so the widening reaches none
-    # of them.
+    # purchase booking, Wagenbuch entries, condition, publishing and
+    # reservation depend on their own rows below (KAN-376), so the widening
+    # opens none of the writes the matrix keeps from sales.
     "stock_items": Capability(read_roles=_ANY, write_roles=frozenset({_I, _S})),
     "stock_acquisition": Capability(read_roles=_ANY, write_roles=frozenset({_I})),
     "stock_condition": Capability(read_roles=_ANY, write_roles=frozenset({_I, _S})),

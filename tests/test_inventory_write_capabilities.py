@@ -9,10 +9,12 @@ marketplace (ADR-062) or reserve a car directly (ADR-047). Each endpoint now
 names its own row; `stock_items` covers only the stock item's own record.
 
 Two readings the matrix leaves to the code, stated here so a change to either
-is a visible edit: a hand-booked Wagenbuch cost (FR-I-15a) is a landed cost,
-so `record_cost` is guarded by `stock_acquisition` ("Stock acquisition,
-landed cost, storno") — the `wagenbuch` row is the derived balance sheet,
-which nobody writes; and the direct reserve/release endpoints are guarded by
+is a visible edit (both asked on KAN-376): a hand-booked Wagenbuch entry
+(FR-I-15a, `record_cost`) is guarded by `stock_acquisition` ("Stock
+acquisition, landed cost, storno"), because the `wagenbuch` row reads
+"Nobody — append-only via recordCost": no user edits the balance sheet, and
+recordCost is its only way in, open to the same people as before (inventory
+and the manager); and the direct reserve/release endpoints are guarded by
 `stock_reservation`, whose matrix cell is "Nobody" (the sales contract
 lifecycle reserves in-process), so only platform staff can call them.
 """
@@ -66,7 +68,9 @@ def _write_capabilities(dependant) -> list[str]:
 def test_every_inventory_write_endpoint_names_its_matrix_row():
     actual: dict[tuple[str, str], list[str]] = {}
     for path, route in api_routes(app.routes):
-        if not path.startswith("/v1/inventory/"):
+        # By the module that serves it, not the path: an inventory write
+        # mounted under another prefix is caught too.
+        if not route.endpoint.__module__.startswith("app.inventory."):
             continue
         for method in route.methods - {"GET", "HEAD"}:
             actual[(method, path)] = _write_capabilities(route.dependant)
@@ -176,10 +180,9 @@ def test_a_sales_user_may_create_and_edit_a_stock_item(client):
     assert condition.json()["condition"] == "demo"
 
 
-def test_an_inventory_user_still_books_a_landed_cost(client, stock_item):
-    """The hand-booked Wagenbuch cost (FR-I-15a, the stock detail page's cost
-    dialog) stays open to inventory: it is a landed cost, not a write to the
-    derived Wagenbuch, which nobody writes."""
+def test_an_inventory_user_still_books_a_wagenbuch_entry(client, stock_item):
+    """The hand-booked Wagenbuch entry (FR-I-15a, the stock detail page's cost
+    dialog) stays open to inventory, as before KAN-376."""
 
     tenant_id, item = stock_item
     response = client.post(

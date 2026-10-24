@@ -91,9 +91,13 @@ def _index_definitions(connection, schema: str) -> dict[tuple[str, str], str]:
 
 
 def index_definition_differences(connection) -> list[str]:
-    """Every index both sides have whose stored definition differs. An index
-    only one side has is `compare_metadata`'s add_index/remove_index (or a
-    table only the migrations create, alembic_version), not repeated here."""
+    """Every index both sides have, by name, whose stored definition differs.
+    An index only one side has is not reported here: a plain index is
+    `compare_metadata`'s add_index/remove_index, alembic_version exists only
+    on the migrated side, and an index backing a primary key or unique
+    constraint that the two sides name differently is matched by
+    `compare_metadata` on its columns — its definition is not compared
+    (KAN-431 tracks that name drift)."""
 
     if connection.in_transaction():
         connection.rollback()  # compare_metadata's reads; the scratch schema needs its own transaction

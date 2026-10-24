@@ -18,9 +18,12 @@ from app.inventory.services import stock_item as stock_item_service
 router = APIRouter(tags=["inventory"], route_class=IdempotentRoute, dependencies=[Depends(require_entitlement(ModuleCode.SALES))])
 
 
-# A hand-booked cost (FR-I-15a) is a landed cost, so it is the matrix's
-# "Stock acquisition, landed cost, storno" row; the "Wagenbuch" row is the
-# derived per-vehicle balance sheet, which nobody writes (KAN-376).
+# A hand-booked Wagenbuch entry (FR-I-15a, the stock page's cost dialog) is
+# guarded by the matrix's "Stock acquisition, landed cost, storno" row: the
+# "Wagenbuch" row is "Nobody — append-only via recordCost", i.e. no user
+# edits the balance sheet and recordCost is its only way in. Who may call it
+# is unchanged by KAN-376 (inventory and the manager); a ruling on the
+# reading is asked on KAN-376.
 @router.post("/inventory/stock-items/{stock_item_id}/ledger-entries", response_model=LedgerEntryRead, status_code=201)
 def record_cost(
     stock_item_id: uuid.UUID,

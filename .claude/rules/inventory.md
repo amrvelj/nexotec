@@ -63,7 +63,8 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   409 `vehicle_left_stock` (KAN-147), after the same-contract replay; the KAN-166 backfill below
   still reserves an invoiced contract's own item through `reserve_and_flush`; each
   compensating release is keyed per reservation (KAN-114). The HTTP reserve and release
-  endpoints are `IdempotentRoute`s (KAN-266, Anto 2026-10-08): the route holds the client's
+  endpoints sit on the matrix's "Stock reservation" row — no user write, so only platform staff
+  pass (KAN-376) — and are `IdempotentRoute`s (KAN-266, Anto 2026-10-08): the route holds the client's
   optional key and calls `reserve_without_key()`/`release_without_key()`, so a replay returns
   the stored response with no side effect for as long as the HTTP record lives (at least
   24 h). `reserve_for_contract()` and `release()` still require their caller's key and keep

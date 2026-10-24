@@ -15,7 +15,9 @@ The comparison is Alembic's own (`compare_metadata`, what `alembic check`
 and `--autogenerate` run), configured as alembic/env.py configures it
 (tests/schema_diff_support.py), in a fresh interpreter that imports
 app.model_registry and nothing else; the real `alembic check` command runs
-too, so the gate and the CLI cannot disagree. Like
+too, so the gate never passes what the CLI reports (the gate is the stricter of
+the two since KAN-414: it also compares every index's stored definition,
+which `alembic check` does not). Like
 tests/test_migrated_enum_checks.py (KAN-296, which this test does not
 replace: autogenerate does not compare CHECK constraints), it runs
 `alembic upgrade heads` on a throwaway database next to the test database.
@@ -103,7 +105,8 @@ def test_a_migrated_database_is_exactly_the_schema_the_models_declare(migrated_u
 def test_alembic_check_passes_on_a_migrated_database(migrated_url):
     """The CLI's own verdict, through alembic/env.py's configuration — what a
     developer runs by hand and what `alembic revision --autogenerate` is
-    based on. Must agree with the comparison above."""
+    based on. Everything it reports the comparison above reports too; the
+    comparison also sees index definitions (KAN-414)."""
 
     check = _alembic(["check"], migrated_url)
     assert check.returncode == 0, check.stdout[-3000:] + check.stderr[-3000:]
