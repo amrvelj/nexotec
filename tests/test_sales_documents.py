@@ -16,6 +16,7 @@ from app.sales.models.document import DocumentOwnerType
 from app.sales.models.offer import OfferStatus, SalesOffer
 from app.sales.services.deal_projection import count_documents
 from app.sales.services.document import (
+    _compute_vat_amount,
     build_contract_content,
     build_offer_content,
     generate_contract_document,
@@ -229,14 +230,12 @@ _VAT_ON_PAYABLE = Decimal("1948.20")  # base 26'000 — what the document printe
 
 
 def test_the_worked_example_figures_are_what_the_formula_gives():
-    """Pins the two constants above to the module's own formula, so the
-    trade-in tests below cannot drift from it."""
+    """Pins the two constants above to the module's own _compute_vat_amount,
+    so the trade-in tests below cannot drift from it."""
 
-    def vat(base: Decimal) -> Decimal:
-        return (base * Decimal("8.10") / Decimal("108.10")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-
-    assert vat(_TRADE_IN_GROSS) == _VAT_ON_FULL_GROSS
-    assert vat(_TRADE_IN_PAYABLE) == _VAT_ON_PAYABLE
+    rate = Decimal("8.10")
+    assert _compute_vat_amount(gross_price=_TRADE_IN_GROSS, vat_rate=rate) == _VAT_ON_FULL_GROSS
+    assert _compute_vat_amount(gross_price=_TRADE_IN_PAYABLE, vat_rate=rate) == _VAT_ON_PAYABLE
 
 
 @pytest.mark.parametrize("kind", ["offer", "contract"])
