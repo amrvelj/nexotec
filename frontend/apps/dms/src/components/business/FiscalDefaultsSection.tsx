@@ -75,25 +75,34 @@ export function FiscalDefaultsSection({ dealership, settings }: { dealership: De
 
   const save = useMutation({
     mutationFn: async () => {
+      const result: { settings: DealershipSettingsRead | null; dealership: DealershipRead | null } = { settings: null, dealership: null }
       const changes = settingsChanges()
       if (Object.keys(changes).length > 0) {
-        const updated = await api.patch<DealershipSettingsRead>(`/dealerships/${dealership.id}/settings`, changes, { 'If-Match': String(loaded.version) })
-        queryClient.setQueryData(settingsKey(dealership.id), updated)
+        result.settings = await api.patch<DealershipSettingsRead>(`/dealerships/${dealership.id}/settings`, changes, { 'If-Match': String(loaded.version) })
       }
       if (vatRateChanged) {
-        await new Promise<void>((resolve, reject) =>
+        result.dealership = await new Promise<DealershipRead>((resolve, reject) =>
           dealershipPatch.save(
             { changes: { vatRate: vat.form.vatRate === '' ? null : String(vat.form.vatRate) }, version: vat.loaded.version },
-            { onSuccess: () => resolve(), onError: reject },
+            { onSuccess: resolve, onError: reject },
           ),
         )
       }
+      return result
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       setError(null)
       setSaved(true)
-      markSaved()
-      vat.markSaved()
+      // The saved records become `loaded` before the cache delivers them, so
+      // a second save in a row carries the right version.
+      if (result.settings) {
+        markSaved(result.settings)
+        queryClient.setQueryData(settingsKey(dealership.id), result.settings)
+      } else {
+        markSaved(loaded)
+      }
+      if (result.dealership) vat.markSaved(result.dealership)
+      else vat.markSaved(vat.loaded)
     },
     onError: (err) => {
       setSaved(false)

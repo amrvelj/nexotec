@@ -200,4 +200,116 @@ describe('BusinessPage (KAN-203)', () => {
     expect(call.headers.get('If-Match')).toBe('1')
     expect(backend.callsTo(/\/dealerships\/dealership-1$/, 'PATCH')).toHaveLength(0)
   })
+
+  it('a section saved after another section carries the new version, and a double fiscal save too', async () => {
+    // A fake server that enforces If-Match: a stale version is a 409.
+    let dealershipVersion = 3
+    let settingsVersion = 1
+    const backend = installFakeBackend(
+      routes([
+        {
+          method: 'PATCH',
+          match: /\/dealerships\/dealership-1$/,
+          handler: (req) => {
+            if (req.headers.get('If-Match') !== String(dealershipVersion)) return status(409, { error: { code: 'conflict', message: 'stale', details: null } })
+            dealershipVersion += 1
+            return { ...DEALERSHIP, ...(req.body as object), version: dealershipVersion }
+          },
+        },
+        {
+          method: 'PATCH',
+          match: /\/dealerships\/dealership-1\/settings$/,
+          handler: (req) => {
+            if (req.headers.get('If-Match') !== String(settingsVersion)) return status(409, { error: { code: 'conflict', message: 'stale', details: null } })
+            settingsVersion += 1
+            return { ...SETTINGS, ...(req.body as object), version: settingsVersion }
+          },
+        },
+      ]),
+    )
+    const user = userEvent.setup()
+    renderWithProviders(<BusinessPage />, { route: '/administration/business' })
+    const legal = within(await screen.findByRole('region', { name: 'Rechtliche Identität' }))
+    const addresses = within(await screen.findByRole('region', { name: 'Adressen' }))
+    const fiscal = within(await screen.findByRole('region', { name: 'Kaufmännische Vorgaben' }))
+
+    // Legal is dirty (a trade name) while Addresses saves first.
+    await user.clear(legal.getByLabelText(/Geschäftsbezeichnung/))
+    await user.type(legal.getByLabelText(/Geschäftsbezeichnung/), 'Garage Test 2')
+    await user.clear(addresses.getByLabelText(/Telefon/))
+    await user.type(addresses.getByLabelText(/Telefon/), '+41447654321')
+    await user.click(addresses.getByRole('button', { name: 'Speichern' }))
+    await waitFor(() => expect(backend.callsTo(/\/dealerships\/dealership-1$/, 'PATCH')).toHaveLength(1))
+    await user.click(legal.getByRole('button', { name: 'Speichern' }))
+    await waitFor(() => expect(backend.callsTo(/\/dealerships\/dealership-1$/, 'PATCH')).toHaveLength(2))
+    const second = backend.callsTo(/\/dealerships\/dealership-1$/, 'PATCH')[1]
+    expect(second.headers.get('If-Match')).toBe('4')
+    expect(second.body).toEqual({ tradeName: 'Garage Test 2' })
+    expect(await legal.findByRole('status')).toHaveTextContent('Gespeichert.')
+    expect(legal.queryByRole('alert')).toBeNull()
+
+    // Fiscal: a setting and the VAT rate together, then another setting.
+    await user.click(fiscal.getByDisplayValue('0.05 CHF'))
+    await user.click(await screen.findByRole('option', { name: '0.10 CHF' }))
+    await user.type(fiscal.getByLabelText(/MWST-Satz/), '8.2')
+    await user.click(fiscal.getByRole('button', { name: 'Speichern' }))
+    await waitFor(() => expect(backend.callsTo(/\/settings$/, 'PATCH')).toHaveLength(1))
+    await waitFor(() => expect(backend.callsTo(/\/dealerships\/dealership-1$/, 'PATCH')).toHaveLength(3))
+    await user.click(fiscal.getByDisplayValue('0.10 CHF'))
+    await user.click(await screen.findByRole('option', { name: '1.00 CHF' }))
+    await user.click(fiscal.getByRole('button', { name: 'Speichern' }))
+    await waitFor(() => expect(backend.callsTo(/\/settings$/, 'PATCH')).toHaveLength(2))
+    const settingsCalls = backend.callsTo(/\/settings$/, 'PATCH')
+    expect(settingsCalls[0].headers.get('If-Match')).toBe('1')
+    expect(settingsCalls[1].headers.get('If-Match')).toBe('2')
+    expect(settingsCalls[1].body).toEqual({ cashRounding: '1.00' })
+    expect(fiscal.queryByRole('alert')).toBeNull()
+  })
+
+  it('the bank-account dialog drops a QR-IBAN once the reference type no longer takes it, and a 422 names the field', async () => {
+    const backend = installFakeBackend(
+      routes([
+        {
+          method: 'POST',
+          match: /\/bank-accounts$/,
+          handler: () =>
+            status(422, {
+              error: { code: 'unprocessable_entity', message: 'Validation failed', details: { errors: [{ loc: ['body', 'iban'], msg: 'IBAN is not valid', type: 'value_error' }] } },
+            }),
+        },
+      ]),
+    )
+    const user = userEvent.setup()
+    renderWithProviders(<BusinessPage />, { route: '/administration/business' })
+    await screen.findByRole('region', { name: 'Bankverbindungen' })
+    await user.click(screen.getByRole('button', { name: 'Konto hinzufügen' }))
+    const dialog = within(await screen.findByRole('dialog'))
+    await user.type(dialog.getByLabelText(/^Kontoinhaber/), 'Garage Test AG')
+    await user.type(dialog.getByLabelText(/^Bank/), 'ZKB')
+    await user.type(dialog.getByLabelText(/^IBAN/), 'CH93 0076 2011 6238 5295 8')
+    await user.click(dialog.getByRole('textbox', { name: /Referenz auf der QR-Rechnung/ }))
+    await user.click(await screen.findByRole('option', { name: 'QR-Referenz (QRR)' }))
+    await user.type(dialog.getByLabelText(/^QR-IBAN/), 'CH44 3199 9123 0008 8901 2')
+    await user.click(dialog.getByRole('textbox', { name: /Referenz auf der QR-Rechnung/ }))
+    await user.click(await screen.findByRole('option', { name: 'Ohne Referenz' }))
+    expect(dialog.queryByLabelText(/^QR-IBAN/)).toBeNull()
+    await user.click(dialog.getByRole('button', { name: 'Speichern' }))
+
+    await waitFor(() => expect(backend.callsTo(/\/bank-accounts$/, 'POST')).toHaveLength(1))
+    const body = backend.callsTo(/\/bank-accounts$/, 'POST')[0].body as Record<string, unknown>
+    expect(body.qrIban).toBeNull()
+    expect(body.qrReferenceType).toBe('non')
+    expect(await dialog.findByRole('alert')).toHaveTextContent('Bitte prüfen Sie das Feld «IBAN».')
+  })
+
+  it("a banking write refused with 404 is said as the manager's, not as a failed request", async () => {
+    installFakeBackend(routes([{ method: 'PATCH', match: /\/bank-accounts\/acc-2$/, handler: () => status(404, { error: { code: 'not_found', message: 'Not found.', details: null } }) }]))
+    const user = userEvent.setup()
+    renderWithProviders(<BusinessPage />, { route: '/administration/business' })
+    const banking = within(await screen.findByRole('region', { name: 'Bankverbindungen' }))
+    const menus = banking.getAllByRole('button', { name: 'Zeilenaktionen' })
+    await user.click(menus[1])
+    await user.click(await screen.findByRole('menuitem', { name: 'Als Rechnungskonto festlegen' }))
+    expect(await banking.findByRole('alert')).toHaveTextContent('Nur ein Manager dieses Betriebs ändert die Bankverbindungen.')
+  })
 })

@@ -12164,8 +12164,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "If-Match"?: string | null;
                 authorization?: string | null;
+                "If-Match"?: string | null;
             };
             path: {
                 dealership_id: string;
@@ -12199,8 +12199,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "If-Match"?: string | null;
                 authorization?: string | null;
+                "If-Match"?: string | null;
             };
             path: {
                 dealership_id: string;

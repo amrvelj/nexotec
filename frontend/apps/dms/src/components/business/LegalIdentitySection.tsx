@@ -81,8 +81,8 @@ export function LegalIdentitySection({ dealership }: { dealership: DealershipRea
       if (auditNote.trim()) body.auditNote = auditNote.trim()
     }
     patch.save({ changes: body, version: loaded.version }, {
-      onSuccess: () => {
-        markSaved()
+      onSuccess: (updated) => {
+        markSaved(updated)
         setConfirmed(false)
         setAuditNote('')
       },

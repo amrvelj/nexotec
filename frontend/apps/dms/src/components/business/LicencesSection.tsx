@@ -64,7 +64,7 @@ export function LicencesSection({ dealership }: { dealership: DealershipRead }) 
     <SectionCard
       title={t('business.licences.title')}
       icon={<Award size={20} />}
-      onSave={() => patch.save({ changes, version: loaded.version }, { onSuccess: markSaved })}
+      onSave={() => patch.save({ changes, version: loaded.version }, { onSuccess: (updated) => markSaved(updated) })}
       dirty={dirty && Object.keys(changes).length > 0}
       saving={patch.saving}
       saveDisabled={incomplete}
