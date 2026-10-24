@@ -117,7 +117,7 @@ def change_condition(
     stock_item_id: uuid.UUID,
     body: StockItemConditionChange,
     if_match: int = Depends(require_if_match),
-    principal: Principal = Depends(require_write("stock_items")),
+    principal: Principal = Depends(require_write("stock_condition")),
     db: Session = Depends(get_db),
 ):
     item = stock_item_service.get_stock_item_or_404(db, principal.tenant_id, stock_item_id)
@@ -131,7 +131,7 @@ def record_purchase(
     stock_item_id: uuid.UUID,
     body: RecordPurchaseRequest,
     if_match: int = Depends(require_if_match),
-    principal: Principal = Depends(require_write("stock_items")),
+    principal: Principal = Depends(require_write("stock_acquisition")),
     db: Session = Depends(get_db),
 ):
     item = stock_item_service.get_stock_item_or_404(db, principal.tenant_id, stock_item_id)
@@ -145,7 +145,7 @@ def override_notional_input_tax(
     stock_item_id: uuid.UUID,
     body: NotionalInputTaxOverrideRequest,
     if_match: int = Depends(require_if_match),
-    principal: Principal = Depends(require_write("stock_items")),
+    principal: Principal = Depends(require_write("stock_acquisition")),
     db: Session = Depends(get_db),
 ):
     item = stock_item_service.get_stock_item_or_404(db, principal.tenant_id, stock_item_id)

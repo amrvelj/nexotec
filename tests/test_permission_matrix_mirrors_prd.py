@@ -63,7 +63,9 @@ def test_every_deviation_from_the_matrix_names_a_ticket_and_still_differs():
         assert "enforced_write" in row and "deviation" in row, row["label"]
         assert row["deviation"].startswith("KAN-"), row["label"]
         assert set(row["enforced_write"]) < set(row["write"]), f"{row['label']}: deviation is stale or widens"
-    assert [row["key"] for row in deviating] == ["stock_items"]
+    # KAN-376 closed the last one (stock_items: the inventory write endpoints
+    # now depend on their own rows, so the matrix's sales write is enforced).
+    assert [row["key"] for row in deviating] == []
 
 
 def test_every_registry_key_is_a_matrix_row():
