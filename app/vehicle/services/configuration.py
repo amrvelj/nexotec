@@ -26,6 +26,7 @@ before KAN-346 keep their snake_case keys (the log is append-only).
 
 import datetime as dt
 import uuid
+from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
 
@@ -37,7 +38,13 @@ from app.core.audit import record_audit_event
 from app.core.base import utcnow
 from app.core.errors import NotFoundError, UnprocessableEntityError
 from app.core.outbox import OutboxEvent, publish
-from app.core.validators import is_chassis_number, require_vin_or_pre_1981_chassis_number
+from app.core.validators import (
+    PRE_ISO_VIN_CUTOFF,
+    is_chassis_number,
+    is_valid_vin,
+    normalise_vin,
+    require_vin_or_pre_1981_chassis_number,
+)
 from app.vehicle.models.catalogue import ModelVariant
 from app.vehicle.models.configuration import (
     ConfigurationMatchStatus,
@@ -703,3 +710,86 @@ def fill_null_spec_fields_from_variants(db: Session, *, variant_ids: list[uuid.U
         _publish(db, configuration, "configuration.updated")
         changed += 1
     return changed
+
+
+VIN_REPAIR_REASON = "KAN-395: a VIN stored before KAN-338 that no save could pass"
+
+
+@dataclass(frozen=True)
+class VinRepair:
+    configuration_id: uuid.UUID
+    tenant_id: uuid.UUID
+    before: str
+    after: str | None  # None: cleared
+
+
+def repair_stored_vins(db: Session) -> list[VinRepair]:
+    """KAN-395 (Anto, 2026-10-20, option B: clean the data once). Before
+    KAN-338 a configuration's `vin` was stored as typed, with no
+    normalisation and no ISO check, and since KAN-353 every PATCH judges the
+    stored value: one that is no VIN counts as a chassis number and is
+    refused unless the car was first registered before 1981 — so such a
+    configuration could no longer be saved, and the user cannot correct the
+    VIN on screen (KAN-340).
+
+    - **Which rows:** every configuration whose stored `vin` would be refused
+      by `require_vin_or_pre_1981_chassis_number` against its stored first
+      registration — not a valid VIN, and no first registration before 1981.
+      A configuration first registered before 1981 saves as it stands and is
+      never touched: how a chassis number is stored is KAN-391's question.
+    - **What it writes:** the VIN normalised as every typed VIN is (upper
+      case, no whitespace) when that makes it a valid VIN; otherwise the VIN
+      is cleared — it names no car, and cannot be kept. The vehicle link is
+      re-derived from the new value, as on every VIN write (KAN-326).
+    - Each changed configuration's `version` moves once, an audit record with
+      no actor (the system) and `VIN_REPAIR_REASON` keeps the old value —
+      `updated_by` is cleared to match — and `configuration.updated` is
+      published, as `fill_null_spec_fields_from_variants` does. Nothing is
+      committed here (the caller's transaction, which a dry run rolls back);
+      vehicle-mdm is never written (ADR-070). A valuation is never edited
+      (valuation.md), so its stored VIN is not this function's.
+    """
+
+    configurations = db.scalars(
+        select(VehicleConfiguration)
+        .where(VehicleConfiguration.vin.is_not(None))
+        .order_by(VehicleConfiguration.id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    ).all()
+
+    repairs: list[VinRepair] = []
+    for configuration in configurations:
+        before = configuration.vin
+        if before is None or not is_chassis_number(before):
+            continue  # empty, or a valid VIN: every save passes it
+        registered = configuration.first_registration_date
+        if registered is not None and registered < PRE_ISO_VIN_CUTOFF:
+            continue
+        normalised = normalise_vin(before)
+        after = normalised if is_valid_vin(normalised) else None
+        vehicle_before = configuration.vehicle_id
+        configuration.vin = after
+        _link_vehicle_if_vin_resolves(db, configuration)
+        configuration.version += 1
+        configuration.updated_by = None  # a system write (KAN-243: null actor), like its audit record
+        db.flush()
+        record_audit_event(
+            db,
+            entity_type=_ENTITY_TYPE,
+            entity_id=configuration.id,
+            tenant_id=configuration.tenant_id,
+            action="vin_repair",
+            actor_id=None,
+            before={"vin": before, "vehicleId": str(vehicle_before) if vehicle_before else None},
+            after={
+                "vin": after,
+                "vehicleId": str(configuration.vehicle_id) if configuration.vehicle_id else None,
+            },
+            reason=VIN_REPAIR_REASON,
+        )
+        _publish(db, configuration, "configuration.updated")
+        repairs.append(
+            VinRepair(configuration_id=configuration.id, tenant_id=configuration.tenant_id, before=before, after=after)
+        )
+    return repairs
