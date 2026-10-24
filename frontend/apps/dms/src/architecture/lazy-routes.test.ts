@@ -7,9 +7,12 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 // KAN-233: every screen but the sign-in is fetched when its route is first
-// opened. One static page import in App.tsx — or in a module the entry chunk
-// always loads — silently puts that screen, and every library only it uses,
+// opened. One static page import in App.tsx — or in one of the eager modules
+// listed below — silently puts that screen, and every library only it uses,
 // back into the first download. The build would still pass; this does not.
+// It reads those files' own import lines only: a page reached through a
+// further module, or re-exported with `export … from`, is not seen — the
+// build output's chunk list remains the full check.
 
 const SRC = join(dirname(fileURLToPath(import.meta.url)), '..')
 const read = (path: string) => readFileSync(join(SRC, path), 'utf-8')

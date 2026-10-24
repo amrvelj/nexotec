@@ -10,7 +10,8 @@ import { lazy, type ComponentType, type LazyExoticComponent } from 'react'
  * while rendering goes on to whatever handles it today. */
 export class ChunkLoadError extends Error {
   constructor(cause: unknown) {
-    super(cause instanceof Error ? cause.message : String(cause))
+    // `cause` keeps the original error's type and stack for the console.
+    super(cause instanceof Error ? cause.message : String(cause), { cause })
     this.name = 'ChunkLoadError'
   }
 }

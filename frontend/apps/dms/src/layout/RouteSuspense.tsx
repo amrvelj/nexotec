@@ -57,7 +57,7 @@ class ChunkLoadBoundary extends Component<BoundaryProps & { resetKey: string }, 
   }
 
   componentDidCatch(error: unknown, info: ErrorInfo) {
-    if (error instanceof ChunkLoadError) console.error('A screen failed to load:', error, info.componentStack)
+    if (error instanceof ChunkLoadError) console.error('A screen failed to load:', error.cause, info.componentStack)
   }
 
   render() {

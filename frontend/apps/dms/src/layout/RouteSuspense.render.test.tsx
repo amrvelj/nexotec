@@ -139,5 +139,6 @@ describe('lazy route screens', () => {
     expect(error).toBeInstanceOf(Error)
     expect(error.name).toBe('ChunkLoadError')
     expect(error.message).toBe('Importing a module script failed.')
+    expect(error.cause).toBeInstanceOf(TypeError)
   })
 })
