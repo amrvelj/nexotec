@@ -11,6 +11,7 @@ arrive is a tenant that silently never starts."""
 import dataclasses
 import logging
 import smtplib
+import ssl
 from email.message import EmailMessage
 from typing import Protocol
 
@@ -54,7 +55,10 @@ class SmtpMailer:
         try:
             with smtplib.SMTP(_settings.platform_mail_smtp_host, _settings.platform_mail_smtp_port, timeout=10) as smtp:
                 if _settings.platform_mail_smtp_starttls:
-                    smtp.starttls()
+                    # A verifying context: without one, smtplib upgrades with
+                    # no certificate or hostname check, and whoever sits on
+                    # the path reads the login that follows (KAN-397).
+                    smtp.starttls(context=ssl.create_default_context())
                 if _settings.platform_mail_smtp_username:
                     smtp.login(_settings.platform_mail_smtp_username, _settings.platform_mail_smtp_password)
                 smtp.send_message(message)
@@ -76,7 +80,7 @@ def get_mailer() -> PlatformMailer:
             # an account (CLAUDE.md: secrets are never logged). Local runs,
             # CI and the tests keep it — `development` is their default —
             # and every deployed environment, staging included, sends mail
-            # (Anto, 2026-10-24, KAN-397).
+            # (Anto, 2026-10-24, KAN-397, ADR-099).
             raise RuntimeError(
                 f"DMS_PLATFORM_MAIL_SENDER must be 'smtp' outside development (DMS_ENVIRONMENT={_settings.environment})."
             )

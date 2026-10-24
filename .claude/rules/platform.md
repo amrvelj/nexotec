@@ -360,8 +360,9 @@ One shared template layer (`app/platform/models/document_template.py`). WeasyPri
 - **Platform mail** (`mailer.py`, D-A-28; Anto, 2026-10-17): invitations and resets leave
   through the Nexotec mailbox behind `PlatformMailer` — `logging` (the default: the link goes to
   the application log, so it is allowed only where `DMS_ENVIRONMENT` is `development` — local, CI,
-  tests; Anto, 2026-10-24, KAN-397) or `smtp` (`DMS_PLATFORM_MAIL_*`; staging sends through a
-  Gmail mailbox, its app password a Render secret). Delivery is
+  tests; Anto, 2026-10-24, KAN-397, ADR-099) or `smtp` (`DMS_PLATFORM_MAIL_*`; staging sends through a
+  Gmail mailbox — Anto's own account today, an app password kept as a Render secret; STARTTLS
+  with a verifying context). Delivery is
   not fire-and-forget: a failure is a `mail_delivery_failed` auth event and an ERROR line. Texts
   in DE/FR/IT/EN from the user's `uiLanguage` preference (`mail_texts.py`). Tests override
   `get_mailer` with the `mailbox` fixture.

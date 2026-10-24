@@ -402,6 +402,56 @@ def test_every_deployed_service_in_render_yaml_sends_mail_by_smtp():
         for key in ("DMS_PLATFORM_MAIL_FROM", "DMS_PLATFORM_MAIL_SMTP_HOST", "DMS_PLATFORM_MAIL_SMTP_USERNAME"):
             assert env[key]["value"], key
         assert env["DMS_PLATFORM_MAIL_SMTP_PASSWORD"] == {"key": "DMS_PLATFORM_MAIL_SMTP_PASSWORD", "sync": False}
+        # 587 is the STARTTLS port; a disabled STARTTLS would send the login in clear.
+        assert env["DMS_PLATFORM_MAIL_SMTP_PORT"]["value"] == "587"
+        assert "DMS_PLATFORM_MAIL_SMTP_STARTTLS" not in env
+
+
+def test_the_smtp_sender_verifies_the_server_before_it_logs_in(monkeypatch):
+    """KAN-397: staging logs in with a mailbox password. STARTTLS without a
+    context checks no certificate, so the upgrade must carry a verifying one,
+    and the login must come after it."""
+
+    import ssl
+
+    from app.platform.services import mailer
+
+    calls: list[tuple] = []
+
+    class _FakeSmtp:
+        def __init__(self, host, port, timeout):
+            calls.append(("connect", host, port))
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def starttls(self, context=None):
+            calls.append(("starttls", context))
+
+        def login(self, username, password):
+            calls.append(("login", username))
+
+        def send_message(self, message):
+            calls.append(("send", message["To"]))
+
+    settings = get_settings()
+    monkeypatch.setattr(mailer.smtplib, "SMTP", _FakeSmtp)
+    monkeypatch.setattr(settings, "platform_mail_smtp_host", "smtp.example.ch")
+    monkeypatch.setattr(settings, "platform_mail_smtp_port", 587)
+    monkeypatch.setattr(settings, "platform_mail_smtp_starttls", True)
+    monkeypatch.setattr(settings, "platform_mail_smtp_username", "sender@example.ch")
+    monkeypatch.setattr(settings, "platform_mail_smtp_password", "app-password")
+
+    mailer.SmtpMailer().send(mailer.Mail(to="anna@example.ch", subject="Einladung", text="Hallo"))
+
+    assert [call[0] for call in calls] == ["connect", "starttls", "login", "send"]
+    context = calls[1][1]
+    assert isinstance(context, ssl.SSLContext)
+    assert context.verify_mode == ssl.CERT_REQUIRED
+    assert context.check_hostname is True
 
 
 def test_the_logging_sender_stays_for_local_runs_ci_and_tests(monkeypatch):

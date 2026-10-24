@@ -36,8 +36,9 @@ app = FastAPI(title="DMS Platform", version="0.1.0", dependencies=[Depends(enfor
 
 configure_tracing(app)
 register_error_handlers(app)
-# KAN-196: resolved here, not on the first invitation — a production deploy
-# with the `logging` mail sender must fail its start, not its first reset.
+# KAN-196: resolved here, not on the first invitation — a deployed service
+# (anything but `development`, KAN-397) with the `logging` mail sender must
+# fail its start, not its first reset.
 get_mailer()
 # KAN-200: the same for the object store — the local directory store is not
 # a production store (KAN-402); the start fails, not the first signature.
