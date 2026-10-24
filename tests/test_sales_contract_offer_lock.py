@@ -227,7 +227,11 @@ def test_an_offer_line_item_save_during_a_contract_creation_does_not_deadlock(db
 
     assert blocked == [True]
     assert not other.is_alive()
-    assert errors == []
+    # No deadlock: the save waited for the offer and then met the contract
+    # the creation committed — since KAN-408 an offer with a live contract
+    # is read-only, so it is refused by reason, never by Postgres.
+    assert [type(e) for e in errors] == [ConflictError], errors
+    assert errors[0].details["reason"] == "offer_has_contract"
 
 
 def test_create_contract_keeps_its_callers_pending_change_to_the_offer(db_session):

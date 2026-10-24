@@ -29,7 +29,10 @@ def generate_offer_document(
     principal: Principal = Depends(require_write("sales_offers")),
     db: Session = Depends(get_db),
 ):
-    offer = offer_service.get_offer_or_404(db, principal.tenant_id, offer_id)
+    # Locked like every route that writes the deal row (KAN-147 order offer ->
+    # contract -> deal): generating re-projects the row (KAN-408), which a
+    # stale read would write back over a concurrent save.
+    offer = offer_service.get_offer_or_404(db, principal.tenant_id, offer_id, for_update=True)
     document = document_service.generate_offer_document(db, offer=offer, actor_id=principal.user_id)
     return DocumentRead.model_validate(document, from_attributes=True)
 
@@ -52,7 +55,7 @@ def generate_contract_document(
     principal: Principal = Depends(require_write("sales_contracts")),
     db: Session = Depends(get_db),
 ):
-    contract = contract_service.get_contract_or_404(db, principal.tenant_id, contract_id)
+    contract = contract_service.get_contract_or_404(db, principal.tenant_id, contract_id, for_update=True)  # as above
     document = document_service.generate_contract_document(db, contract=contract, actor_id=principal.user_id)
     return DocumentRead.model_validate(document, from_attributes=True)
 

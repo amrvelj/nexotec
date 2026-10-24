@@ -96,6 +96,11 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
     if (err instanceof ApiError && err.status === 409 && (err.details ?? {}).currentVersion != null) {
       return t('offerWorkspace.errors.saveRefused.staleVersion')
     }
+    // KAN-408: a contract was made from this offer, which is read-only now —
+    // the contract is the record to edit.
+    if (err instanceof ApiError && err.status === 409 && err.details?.reason === 'offer_has_contract') {
+      return t('offerWorkspace.errors.saveRefused.offerHasContract', { contractNumber: err.details.contractNumber })
+    }
     return t('offerWorkspace.errors.saveRefused.generic')
   }
 

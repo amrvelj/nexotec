@@ -20,7 +20,7 @@ from app.sales.services import ownership
 from app.sales.services.deal_editing import apply_vehicle_and_pricing_changes
 from app.sales.services.deal_projection import upsert_deal_projection
 from app.sales.services.numbering import allocate_offer_number
-from app.sales.services.priced_deal import PricedDeal, compute_containers, require_editable
+from app.sales.services.priced_deal import PricedDeal, compute_containers, require_editable, require_no_live_contract
 from app.sales.services.pricing import apply_build_up
 from app.sales.services.snapshot import freeze_vehicle_snapshot
 
@@ -136,7 +136,7 @@ def update_offer(
     client) — see the module's "split by staleness class" rule.
     """
 
-    require_editable(offer)
+    require_editable(db, offer)
 
     changes = data.model_dump(exclude_unset=True)
 
@@ -252,6 +252,7 @@ def finalize_offer(db: Session, *, offer: SalesOffer, actor_id: uuid.UUID | None
 
     if offer.status != OfferStatus.DRAFT:
         raise ConflictError(f"Offer {offer.offer_number} is not a draft (status '{offer.status.value}').")
+    require_no_live_contract(db, offer)  # KAN-408
 
     missing = [c.id for c in compute_containers(offer) if c.requirement == "required" and c.status != "complete"]
     if missing:
@@ -274,6 +275,9 @@ def finalize_offer(db: Session, *, offer: SalesOffer, actor_id: uuid.UUID | None
 def cancel_offer(db: Session, *, offer: SalesOffer, reason: str, actor_id: uuid.UUID | None) -> SalesOffer:
     if offer.status == OfferStatus.CANCELLED:
         raise ConflictError(f"Offer {offer.offer_number} is already cancelled.")
+    # KAN-408: an offer with a live contract is closed by cancelling the
+    # contract, which frees it; cancelling the offer under it is refused.
+    require_no_live_contract(db, offer)
 
     offer.status = OfferStatus.CANCELLED
     offer.cancelled_reason = reason

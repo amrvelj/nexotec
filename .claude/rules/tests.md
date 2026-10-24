@@ -51,7 +51,8 @@ as any change to what it states. -->
   (KAN-243), the customer-group predicate used only by reconciliation (KAN-259), and a
   connected account never read by the identity and session layer, its model named only by its
   service (KAN-201, FR-AU-23), and platform staff's recovery never naming a password write or
-  read, no `/v1/platform/` route carrying a password-shaped field (KAN-202, FR-AU-10).
+  read, no `/v1/platform/` route carrying a password-shaped field (KAN-202, FR-AU-10), and every PATCH/PUT/DELETE and every POST on an existing entity taking If-Match unless listed
+  with why (a PATCH/PUT/DELETE exemption must name an unversioned model; KAN-396, KAN-428).
 - **A test that gates an exit criterion must never skip silently.** The one accepted skip is a
   Postgres-only test on the SQLite fast lane (`skipif(not os.environ.get("DMS_TEST_DATABASE_URL"))`,
   as in `test_customer_outbox_idempotency.py`), because CI's gating lane always runs Postgres.

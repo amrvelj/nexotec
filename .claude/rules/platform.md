@@ -201,8 +201,8 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   lists the groups; `POST …/users/{id}/deactivate` needs a decision for every group (an
   **active** colleague, or null = the module's own unassigned queue: `GET /sales/deals?unassigned=true`
   (open offers and pending contracts; an unassigned **draft** stays hidden like every draft on the
-  Sales grid and is reached from its customer's tab — Anto, 2026-10-20; so does an offer freed by a
-  cancelled contract, which the grid still shows as that cancelled contract — KAN-409), `GET /customers?unassigned=true`,
+  Sales grid and is reached from its customer's tab — Anto, 2026-10-20; an offer freed by a cancelled
+  contract is its own row again, KAN-409), `GET /customers?unassigned=true`,
   both filterable on screen), cuts
   access first in platform's own commit, then each module hands over on a session of its own
   (ADR-047) with one `ownership_transferred` audit row per group carrying the manager's reason
@@ -289,7 +289,9 @@ One shared template layer (`app/platform/models/document_template.py`). WeasyPri
   claims `sid`, `amr`, `mfa`; `exp` is the session's absolute end. **Every refusal is the same
   401 body with the same argon2 work behind it** (a dummy verify when the address names no
   account) — `tests/test_identity_login_policy.py` asserts body and timing; never add a
-  reason-specific message. Per-account backoff from the third failure and soft lockout after
+  reason-specific message. A NUL character anywhere in a request is a 422 before any route runs
+  (`app/core/nul_guard.py`, KAN-387, Anto: refuse, never strip) — except at the login door, which
+  the guard leaves alone: an address with a NUL names no account, so it is the same 401. Per-account backoff from the third failure and soft lockout after
   `auth_lockout_failures` (cleared by a reset); per-IP backoff on the **last** X-Forwarded-For
   entry (the proxy's), never the first — wrong second-factor answers count on the account axis
   and per challenge, not on the IP axis. The address is resolved case-insensitively and stored

@@ -7,6 +7,7 @@ import { api, ApiError } from '../../api/client'
 import { BlockingConditionBanner } from './BlockingConditionBanner'
 import { ChannelPublishCard } from './ChannelPublishCard'
 import type { EquipmentRead, MarketplaceChannel, MediaRead, PublishingRead } from '../../api/types'
+import { useDealSaveQueue, type DealSaveQueue } from '../../hooks/useDealSaveQueue'
 import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
 
 const CHANNELS: MarketplaceChannel[] = ['autoscout24', 'carmarket', 'autolina']
@@ -104,9 +105,40 @@ export function PublishingTab({ stockItemId, locale }: PublishingTabProps) {
   // enough to skip memoizing.
   const blockingConditions = Object.values(publishingByChannel)[0]?.blockingConditions ?? []
 
+  // KAN-396: the listing-text PATCH takes If-Match on the channel's
+  // publishing row. Each field saves on its own, so saves overlap; one queue
+  // per channel (a fixed count of hooks, as above) sends them one after the
+  // other, each with the version the previous save returned (the same queue
+  // as the deal workspaces, KAN-314). A refused save is never resent: someone
+  // else changed the text, so the tab says so and shows their version.
+  const publishingKey = (channel: MarketplaceChannel) => ['stock-item', stockItemId, 'publishing', channel]
+  const cachedPublishing = (channel: MarketplaceChannel) => () =>
+    queryClient.getQueryData<PublishingRead>(publishingKey(channel))
+  const storePublishing = (row: PublishingRead) => queryClient.setQueryData(publishingKey(row.channel), row)
+  const listingTextQueues: Record<MarketplaceChannel, DealSaveQueue<PublishingRead>> = {
+    autoscout24: useDealSaveQueue(cachedPublishing('autoscout24'), storePublishing),
+    carmarket: useDealSaveQueue(cachedPublishing('carmarket'), storePublishing),
+    autolina: useDealSaveQueue(cachedPublishing('autolina'), storePublishing),
+  }
+  const [listingTextError, setListingTextError] = useState<string | null>(null)
+
   const saveListingText = async (patch: Record<string, unknown>) => {
-    await api.patch(`/inventory/stock-items/${stockItemId}/publishing/${activeChannel}`, patch)
-    void invalidatePublishing(activeChannel)
+    const channel = activeChannel
+    setListingTextError(null)
+    try {
+      await listingTextQueues[channel].save((current) =>
+        api.patch<PublishingRead>(`/inventory/stock-items/${stockItemId}/publishing/${channel}`, patch, {
+          'If-Match': String(current.version),
+        })
+      )
+    } catch (err) {
+      setListingTextError(
+        err instanceof ApiError && err.status === 409
+          ? t('stockDetail.publishing.listingTextConflict')
+          : t('stockDetail.publishing.listingTextError')
+      )
+      void invalidatePublishing(channel)
+    }
   }
 
   const publishChannel = async (channel: MarketplaceChannel) => {
@@ -197,6 +229,11 @@ export function PublishingTab({ stockItemId, locale }: PublishingTabProps) {
             onChange={(v) => setActiveChannel(v as MarketplaceChannel)}
             data={CHANNELS.map((c) => ({ value: c, label: CHANNEL_LABELS[c] }))}
           />
+          {listingTextError && (
+            <Alert color="red" role="alert">
+              {listingTextError}
+            </Alert>
+          )}
           <CounterTextarea
             label={t('stockDetail.publishing.fields.zusatztitel')}
             value={activePublishing?.zusatztitel ?? ''}

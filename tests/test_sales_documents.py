@@ -14,10 +14,10 @@ from app.platform.models.dealership import DealerGroup, Dealership, FranchiseTyp
 from app.sales.models.contract import ContractStatus, SalesContract
 from app.sales.models.document import DocumentOwnerType
 from app.sales.models.offer import OfferStatus, SalesOffer
+from app.sales.services.deal_projection import count_documents
 from app.sales.services.document import (
     build_contract_content,
     build_offer_content,
-    count_documents,
     generate_contract_document,
     generate_offer_document,
     list_documents,

@@ -320,7 +320,7 @@ def update_contract(
         db.refresh(contract)
         return contract
 
-    require_editable(contract)
+    require_editable(db, contract)
     if "customer_id" in changes:
         # KAN-307 (ADR-083 amended): the buyer, as on the offer.
         apply_customer_change(

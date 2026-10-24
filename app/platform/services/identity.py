@@ -37,6 +37,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.core.base import utcnow
 from app.core.config import get_settings
 from app.core.errors import BadRequestError, UnauthorizedError
+from app.core.nul_guard import NUL
 from app.platform.models.auth_event import AuthEventKind
 from app.platform.models.auth_token import AuthTokenKind
 from app.platform.models.credential import Credential
@@ -110,6 +111,11 @@ def find_user_by_email(db: Session, email: str) -> User | None:
     before KAN-196 may keep the local part's case (new rows are stored
     lower-cased by the user service)."""
 
+    if NUL in email:
+        # No stored address holds a NUL (Postgres text cannot), and binding
+        # one would be a 500: the login door, which the NUL guard leaves to
+        # answer its uniform 401 (KAN-387), finds no account.
+        return None
     normalised = email.strip().lower()
     return db.scalar(select(User).where(func.lower(User.email) == normalised).order_by(User.created_at).limit(1))
 

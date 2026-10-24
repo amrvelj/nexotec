@@ -1035,6 +1035,8 @@
       "unpublishConfirmSubmit": "Dépublier",
       "unpublishConfirmBody": "L'annonce sur {{channel}} sera supprimée avec ses statistiques et son URL. Cette action est irréversible.",
       "listingTextTitle": "Textes de l'annonce",
+      "listingTextConflict": "Le texte de l'annonce a été modifié entre-temps. La version actuelle est chargée – veuillez refaire la modification.",
+      "listingTextError": "Le texte de l'annonce n'a pas pu être enregistré. Veuillez réessayer.",
       "titleDisplayLimit": "{{count, number}} caractères s'affichent sur la liste de résultats.",
       "haendlerbemerkungenHint": "Visible uniquement en interne — n'apparaît pas dans l'annonce.",
       "fields": {
@@ -1324,6 +1326,7 @@
     },
     "errors": {
       "saveRefused": {
+        "offerHasContract": "Cette offre a le contrat {{contractNumber}} – veuillez faire les modifications dans le contrat.",
         "staleVersion": "L'offre a été modifiée entre-temps. La version actuelle est chargée – veuillez refaire votre modification.",
         "generic": "La modification n'a pas pu être enregistrée.",
         "dismiss": "Fermer le message"

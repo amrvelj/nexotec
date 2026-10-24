@@ -1035,6 +1035,8 @@
       "unpublishConfirmSubmit": "Unpublish",
       "unpublishConfirmBody": "The listing on {{channel}} will be deleted along with its statistics and URL. This cannot be undone.",
       "listingTextTitle": "Listing text",
+      "listingTextConflict": "The listing text was changed in the meantime. The current version is loaded – please make your change again.",
+      "listingTextError": "The listing text could not be saved. Please try again.",
       "titleDisplayLimit": "{{count, number}} characters shown on the results list.",
       "haendlerbemerkungenHint": "Internal only — never appears in the listing.",
       "fields": {
@@ -1324,6 +1326,7 @@
     },
     "errors": {
       "saveRefused": {
+        "offerHasContract": "This offer has contract {{contractNumber}} – please make changes in the contract.",
         "staleVersion": "The offer was changed in the meantime. The current version is loaded – please make your change again.",
         "generic": "The change could not be saved.",
         "dismiss": "Dismiss message"
