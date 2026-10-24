@@ -210,7 +210,10 @@ describe('BusinessPage (KAN-203)', () => {
         {
           method: 'PATCH',
           match: /\/dealerships\/dealership-1$/,
-          handler: (req) => {
+          // Held in flight (KAN-288's pattern): the network takes time, so the
+          // cache delivers the saved settings while the VAT PATCH is still out.
+          handler: async (req) => {
+            await new Promise((resolve) => setTimeout(resolve, 30))
             if (req.headers.get('If-Match') !== String(dealershipVersion)) return status(409, { error: { code: 'conflict', message: 'stale', details: null } })
             dealershipVersion += 1
             return { ...DEALERSHIP, ...(req.body as object), version: dealershipVersion }
@@ -239,7 +242,7 @@ describe('BusinessPage (KAN-203)', () => {
     await user.clear(addresses.getByLabelText(/Telefon/))
     await user.type(addresses.getByLabelText(/Telefon/), '+41447654321')
     await user.click(addresses.getByRole('button', { name: 'Speichern' }))
-    await waitFor(() => expect(backend.callsTo(/\/dealerships\/dealership-1$/, 'PATCH')).toHaveLength(1))
+    expect(await addresses.findByRole('status')).toHaveTextContent('Gespeichert.')  // the held response arrived
     await user.click(legal.getByRole('button', { name: 'Speichern' }))
     await waitFor(() => expect(backend.callsTo(/\/dealerships\/dealership-1$/, 'PATCH')).toHaveLength(2))
     const second = backend.callsTo(/\/dealerships\/dealership-1$/, 'PATCH')[1]

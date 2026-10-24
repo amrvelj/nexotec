@@ -17,9 +17,16 @@ import { useCallback, useEffect, useRef, useState } from 'react'
  */
 export function useRecordForm<R extends { version: number }, F>(record: R, toForm: (record: R) => F) {
   const [form, setFormState] = useState<F>(() => toForm(record))
-  const [loaded, setLoaded] = useState<R>(record)
+  const [loaded, setLoadedState] = useState<R>(record)
   const [dirty, setDirty] = useState(false)
   const seen = useRef(record.version)
+  // `loaded` read through a ref: the effect must not re-run because a save
+  // moved it (it would see the old prop and step back for a frame).
+  const loadedRef = useRef(record)
+  const setLoaded = useCallback((next: R) => {
+    loadedRef.current = next
+    setLoadedState(next)
+  }, [])
   useEffect(() => {
     if (record.version === seen.current) return
     seen.current = record.version
@@ -28,8 +35,8 @@ export function useRecordForm<R extends { version: number }, F>(record: R, toFor
       setLoaded(record)
       return
     }
-    if (JSON.stringify(toForm(loaded)) === JSON.stringify(toForm(record))) setLoaded(record)
-  }, [record, dirty, loaded, toForm])
+    if (JSON.stringify(toForm(loadedRef.current)) === JSON.stringify(toForm(record))) setLoaded(record)
+  }, [record, dirty, toForm, setLoaded])
   const set = useCallback(<K extends keyof F>(key: K, value: F[K]) => {
     setFormState((current) => ({ ...current, [key]: value }))
     setDirty(true)
@@ -39,7 +46,7 @@ export function useRecordForm<R extends { version: number }, F>(record: R, toFor
     setLoaded(record)
     seen.current = record.version
     setDirty(false)
-  }, [record, toForm])
+  }, [record, toForm, setLoaded])
   /** After a successful save: the saved record is what the form now holds. */
   const markSaved = useCallback(
     (saved: R) => {
@@ -48,7 +55,7 @@ export function useRecordForm<R extends { version: number }, F>(record: R, toFor
       setFormState(toForm(saved))
       setDirty(false)
     },
-    [toForm],
+    [toForm, setLoaded],
   )
   return { form, set, dirty, reset, markSaved, loaded }
 }

@@ -75,34 +75,32 @@ export function FiscalDefaultsSection({ dealership, settings }: { dealership: De
 
   const save = useMutation({
     mutationFn: async () => {
-      const result: { settings: DealershipSettingsRead | null; dealership: DealershipRead | null } = { settings: null, dealership: null }
+      // Each record is marked saved the moment its own PATCH returns (and
+      // becomes `loaded` before the cache delivers it), so a second save in
+      // a row carries the right version — also when the other PATCH fails.
       const changes = settingsChanges()
       if (Object.keys(changes).length > 0) {
-        result.settings = await api.patch<DealershipSettingsRead>(`/dealerships/${dealership.id}/settings`, changes, { 'If-Match': String(loaded.version) })
+        const updated = await api.patch<DealershipSettingsRead>(`/dealerships/${dealership.id}/settings`, changes, { 'If-Match': String(loaded.version) })
+        markSaved(updated)
+        queryClient.setQueryData(settingsKey(dealership.id), updated)
+      } else {
+        markSaved(loaded)
       }
       if (vatRateChanged) {
-        result.dealership = await new Promise<DealershipRead>((resolve, reject) =>
+        const updated = await new Promise<DealershipRead>((resolve, reject) =>
           dealershipPatch.save(
             { changes: { vatRate: vat.form.vatRate === '' ? null : String(vat.form.vatRate) }, version: vat.loaded.version },
             { onSuccess: resolve, onError: reject },
           ),
         )
+        vat.markSaved(updated)
+      } else {
+        vat.markSaved(vat.loaded)
       }
-      return result
     },
-    onSuccess: (result) => {
+    onSuccess: () => {
       setError(null)
       setSaved(true)
-      // The saved records become `loaded` before the cache delivers them, so
-      // a second save in a row carries the right version.
-      if (result.settings) {
-        markSaved(result.settings)
-        queryClient.setQueryData(settingsKey(dealership.id), result.settings)
-      } else {
-        markSaved(loaded)
-      }
-      if (result.dealership) vat.markSaved(result.dealership)
-      else vat.markSaved(vat.loaded)
     },
     onError: (err) => {
       setSaved(false)
