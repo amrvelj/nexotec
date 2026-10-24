@@ -17,7 +17,11 @@ export class ChunkLoadError extends Error {
 
 /** `React.lazy` for a module's named page export (a route screen takes no
  * props). A failed import rejects with `ChunkLoadError`; React's lazy caches
- * the rejection, which is right: the cure is a reload, never a silent retry. */
+ * the rejection, which is right: the cure is a reload, never a silent retry.
+ * Every rejection counts, not only a failed fetch: a chunk that throws while
+ * it is evaluated (a top-level error) also shows the reload screen, which a
+ * reload will not cure — it is logged with its cause. Browsers word a failed
+ * fetch differently, so the message is not a reliable way to tell them apart. */
 export function lazyPage<K extends string, M extends Record<K, ComponentType<object>>>(
   load: () => Promise<M>,
   name: K,

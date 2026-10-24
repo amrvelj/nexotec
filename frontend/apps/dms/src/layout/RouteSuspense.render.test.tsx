@@ -16,7 +16,7 @@ import { RouteSuspense } from './RouteSuspense'
 const TITLE: Record<'de' | 'fr' | 'it' | 'en', string> = {
   de: 'Diese Ansicht konnte nicht geladen werden',
   fr: "Cet écran n'a pas pu être chargé",
-  it: 'Questa schermata non è stata caricata',
+  it: 'Impossibile caricare questa schermata',
   en: 'This screen could not be loaded',
 }
 const RELOAD: Record<keyof typeof TITLE, string> = {

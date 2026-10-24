@@ -60,54 +60,54 @@ export default function App() {
             it, ProtectedLayout's own boundary keeps the shell on screen. */}
         <RouteSuspense fill>
           <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          {/* KAN-196: the e-mail links (reset, invitation) land here, outside the shell. */}
-          <Route path="/password-reset" element={<PasswordResetRequestPage />} />
-          <Route path="/password-reset/confirm" element={<PasswordResetConfirmPage />} />
-          <Route path="/invitations/accept" element={<InvitationAcceptPage />} />
-          <Route element={<ProtectedLayout />}>
-            <Route path="/" element={<DashboardPage />} />
-            {/* KAN-201: My account — one route per tab. */}
-            <Route path="/account" element={<AccountLayout />}>
-              <Route index element={<Navigate to="/account/profile" replace />} />
-              <Route path="profile" element={<AccountProfilePage />} />
-              <Route path="security" element={<AccountSecurityPage />} />
-              <Route path="connected-accounts" element={<AccountConnectedAccountsPage />} />
-              <Route path="signature" element={<AccountSignaturePage />} />
+            <Route path="/login" element={<LoginPage />} />
+            {/* KAN-196: the e-mail links (reset, invitation) land here, outside the shell. */}
+            <Route path="/password-reset" element={<PasswordResetRequestPage />} />
+            <Route path="/password-reset/confirm" element={<PasswordResetConfirmPage />} />
+            <Route path="/invitations/accept" element={<InvitationAcceptPage />} />
+            <Route element={<ProtectedLayout />}>
+              <Route path="/" element={<DashboardPage />} />
+              {/* KAN-201: My account — one route per tab. */}
+              <Route path="/account" element={<AccountLayout />}>
+                <Route index element={<Navigate to="/account/profile" replace />} />
+                <Route path="profile" element={<AccountProfilePage />} />
+                <Route path="security" element={<AccountSecurityPage />} />
+                <Route path="connected-accounts" element={<AccountConnectedAccountsPage />} />
+                <Route path="signature" element={<AccountSignaturePage />} />
+              </Route>
+              <Route path="/customers" element={<CustomersListPage />} />
+              <Route path="/customers/new" element={<CustomerCreatePage />} />
+              <Route path="/customers/:id" element={<CustomerDetailPage />} />
+              <Route path="/catalogue" element={<CatalogueBrowsePage />} />
+              {/* C-B (KAN-40): the mapping-gap queue moved into /catalogue as a tab.
+                  Kept as a redirect so existing deep links don't 404. */}
+              <Route
+                path="/vehicle-mdm/mapping-gaps"
+                element={<Navigate to="/catalogue?tab=mapping-gaps" replace />}
+              />
+              <Route path="/settings/reference" element={<ReferenceDataPage />} />
+              {/* KAN-200 — Dealer Administration › Users (manager-only at the API). */}
+              <Route path="/administration/users" element={<UsersListPage />} />
+              <Route path="/administration/account-recovery" element={<AccountRecoveryPage />} />
+              <Route path="/integrations" element={<IntegrationsPage />} />
+              <Route path="/vehicles" element={<VehiclesListPage />} />
+              <Route path="/vehicles/:id" element={<VehicleDetailPage />} />
+              {/* KAN-198 (D-A-04, D-A-10): stock, sales and valuations belong to the
+                  `sales` entitlement — a workshop without it never reaches them. */}
+              <Route element={<RequireEntitlement module="sales" />}>
+                <Route path="/stock" element={<StockListPage />} />
+                <Route path="/stock/new" element={<StockCreatePage />} />
+                <Route path="/stock/:id" element={<StockDetailPage />} />
+                <Route path="/sales" element={<SalesListPage />} />
+                <Route path="/sales/offers/new" element={<OfferCreateRedirectPage />} />
+                <Route path="/sales/offers/:id" element={<OfferDetailPage />} />
+                <Route path="/sales/contracts/:id" element={<ContractDetailPage />} />
+                <Route path="/valuations" element={<ValuationsListPage />} />
+                <Route path="/valuations/new" element={<ValuationCreatePage />} />
+                <Route path="/valuations/:id" element={<ValuationDetailPage />} />
+              </Route>
             </Route>
-            <Route path="/customers" element={<CustomersListPage />} />
-            <Route path="/customers/new" element={<CustomerCreatePage />} />
-            <Route path="/customers/:id" element={<CustomerDetailPage />} />
-            <Route path="/catalogue" element={<CatalogueBrowsePage />} />
-            {/* C-B (KAN-40): the mapping-gap queue moved into /catalogue as a tab.
-                Kept as a redirect so existing deep links don't 404. */}
-            <Route
-              path="/vehicle-mdm/mapping-gaps"
-              element={<Navigate to="/catalogue?tab=mapping-gaps" replace />}
-            />
-            <Route path="/settings/reference" element={<ReferenceDataPage />} />
-            {/* KAN-200 — Dealer Administration › Users (manager-only at the API). */}
-            <Route path="/administration/users" element={<UsersListPage />} />
-            <Route path="/administration/account-recovery" element={<AccountRecoveryPage />} />
-            <Route path="/integrations" element={<IntegrationsPage />} />
-            <Route path="/vehicles" element={<VehiclesListPage />} />
-            <Route path="/vehicles/:id" element={<VehicleDetailPage />} />
-            {/* KAN-198 (D-A-04, D-A-10): stock, sales and valuations belong to the
-                `sales` entitlement — a workshop without it never reaches them. */}
-            <Route element={<RequireEntitlement module="sales" />}>
-              <Route path="/stock" element={<StockListPage />} />
-              <Route path="/stock/new" element={<StockCreatePage />} />
-              <Route path="/stock/:id" element={<StockDetailPage />} />
-              <Route path="/sales" element={<SalesListPage />} />
-              <Route path="/sales/offers/new" element={<OfferCreateRedirectPage />} />
-              <Route path="/sales/offers/:id" element={<OfferDetailPage />} />
-              <Route path="/sales/contracts/:id" element={<ContractDetailPage />} />
-              <Route path="/valuations" element={<ValuationsListPage />} />
-              <Route path="/valuations/new" element={<ValuationCreatePage />} />
-              <Route path="/valuations/:id" element={<ValuationDetailPage />} />
-            </Route>
-          </Route>
-          <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </RouteSuspense>
       </AuthProvider>

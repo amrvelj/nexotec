@@ -111,7 +111,8 @@ genuinely inert until configured — see `.env.example`'s commented-out
 at Grafana Cloud's OTLP gateway to get distributed traces (via
 `opentelemetry-instrumentation-fastapi`, auto-instrumented) and RED metrics
 per endpoint for free; `app.worker`'s heartbeat (`app/worker.py::_heartbeat`)
-additionally emits five alarm gauges every 30s once metrics are configured:
+additionally emits five gauges every 30s once metrics are configured (four
+with a suggested alert; consumer lag is a dashboard signal, KAN-286):
 
 | Metric | What it means | Suggested alert |
 | --- | --- | --- |

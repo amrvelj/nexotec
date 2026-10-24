@@ -91,7 +91,7 @@
     "loading": "Caricamento…",
     "requestFailed": "La richiesta non è riuscita. Riprova.",
     "chunkLoadError": {
-      "title": "Questa schermata non è stata caricata",
+      "title": "Impossibile caricare questa schermata",
       "body": "Nel frattempo Nexotec è stato aggiornato, oppure la connessione si è interrotta. Ricarica la pagina per continuare.",
       "reload": "Ricarica la pagina"
     },

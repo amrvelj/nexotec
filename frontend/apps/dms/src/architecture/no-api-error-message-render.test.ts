@@ -14,12 +14,15 @@ import { fileURLToPath } from 'node:url'
 // the pattern). oxlint has no custom-rule mechanism, so this is a
 // build-failing scan, like the colour and number ones.
 //
-// The scan reads an error's `.message` wherever it is taken from a value
-// named like an error (`err`, `error`, `query.error`, `(err as Error)`),
-// outside comments, tests and console logging. Today's sites are allow-listed
-// by file with their count — a ratchet: a new render in any file fails, and a
-// file that is converted must lower or drop its entry, so the list only
-// shrinks. The conversion of the listed sites is KAN-437.
+// The scan flags every `.message` read outside comments, tests and console
+// logging — whatever the value is called (`err`, `e`, `query.error`,
+// `failureReason?.message`, a refusal's `problem.message`), because a
+// narrower pattern is one rename away from blind. Today's sites are
+// allow-listed by file with their count — a ratchet: a new read in any file
+// fails, and a file that is converted must lower or drop its entry, so the
+// list only shrinks. The count is per file, so one conversion and one new
+// read in the same file pass together; a reviewer still sees the diff. The
+// conversion of the listed sites is KAN-437.
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -29,12 +32,16 @@ const ALLOWED: Record<string, number> = {
   'components/OfferAccessoriesAndOptions.tsx': 1,
   'components/OfferGenerateReviewModal.tsx': 2,
   'components/ValuationCreateDialog.tsx': 1,
+  // HostCommitError, always built from t(...) by its hosts — translated, so it
+  // stays; KAN-437 leaves this entry as it is.
   'components/configurator/ConfiguratorOverlay.tsx': 2,
   'components/customer-detail/ContactPointsEditor.tsx': 1,
   'components/customer-detail/CreditBlockDialog.tsx': 1,
   'components/customer-detail/ExternalIdsTab.tsx': 1,
   'components/customer-detail/OverviewTab.tsx': 1,
   'components/recovery/RecoveryReasonDialog.tsx': 2,
+  // A blocking condition's server text (c.message).
+  'components/stock-detail/BlockingConditionBanner.tsx': 1,
   'components/stock-detail/ChannelPublishCard.tsx': 2,
   'components/stock-detail/PublishingTab.tsx': 1,
   'components/stock-detail/RecordCostDialog.tsx': 1,
@@ -58,17 +65,18 @@ const ALLOWED: Record<string, number> = {
   'pages/ValuationsListPage.tsx': 1,
   'pages/VehicleDetailPage.tsx': 1,
   'pages/auth/passwordErrors.ts': 1,
-  'userOptions.ts': 1,
+  // refusalText's fallthrough and a reassignment problem's problem.message.
+  'userOptions.ts': 2,
 }
 
-// Where an ApiError is built from the response body: it reads the body's
-// message to carry it, it renders nothing.
-const EXEMPT = new Set(['api/client.ts'])
+// Where an error is built, not shown: ApiError from the response body, and
+// ChunkLoadError from the failed import it wraps.
+const EXEMPT = new Set(['api/client.ts', 'layout/lazyPage.ts'])
 
 const SCAN_EXTENSIONS = ['.ts', '.tsx']
 const SKIP_DIR_NAMES = new Set(['node_modules', 'dist', 'build', '.git'])
 
-const ERROR_MESSAGE_READ = /\b\w*[eE]rr(?:or)?\)?\??\.message\b/
+const MESSAGE_READ = /\.message\b/
 
 function collectFiles(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
@@ -89,7 +97,7 @@ function offendingLines(source: string): string[] {
     const trimmed = line.trim()
     if (trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*')) return
     if (/\bconsole\s*\./.test(line)) return
-    if (ERROR_MESSAGE_READ.test(line)) out.push(`${index + 1}: ${trimmed}`)
+    if (MESSAGE_READ.test(line)) out.push(`${index + 1}: ${trimmed}`)
   })
   return out
 }
@@ -137,6 +145,9 @@ describe("an API refusal is never rendered from the API's English message", () =
     expect(offendingLines('{query.error instanceof ApiError ? query.error.message : t(key)}')).toHaveLength(1)
     expect(offendingLines('onError: (err) => setError((err as Error).message),')).toHaveLength(1)
     expect(offendingLines('return mutationError?.message')).toHaveLength(1)
+    expect(offendingLines('} catch (e) { setError(e.message) }')).toHaveLength(1)
+    expect(offendingLines('{mutation.failureReason?.message}')).toHaveLength(1)
+    expect(offendingLines('return problem.message ?? t(key)')).toHaveLength(1)
     expect(offendingLines("setError(mergeRefusalMessage(err))")).toEqual([])
     expect(offendingLines("console.error('failed', err instanceof ApiError ? err.message : err)")).toEqual([])
     expect(offendingLines('// most screens show `err.message` as it is')).toEqual([])

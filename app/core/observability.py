@@ -41,7 +41,8 @@ from app.core.redact import REDACTED_PLACEHOLDER, SECRET_FIELDS, is_secret_field
 
 CORRELATION_ID_HEADER = "X-Correlation-Id"
 
-# Alarms (WP-2 PR-3): outbox lag, dead-letter depth, consumer lag. Created
+# Gauges (WP-2 PR-3): outbox lag, dead-letter depth (the alarms) and consumer
+# lag (a dashboard signal, never an alarm — KAN-286). Created
 # once against the API-level meter — a genuine no-op (every .set() call
 # below a cheap discard) until configure_tracing() registers a real
 # MeterProvider, exactly like the tracer. app.worker's heartbeat is what
