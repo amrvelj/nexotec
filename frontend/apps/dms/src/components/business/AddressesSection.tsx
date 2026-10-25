@@ -76,7 +76,9 @@ function AddressFields({ value, onChange, idPrefix, seat, extra }: { value: Addr
   const swiss = (value.country || 'CH').toUpperCase() === 'CH'
   return (
     <Stack gap="sm">
-      {/* KAN-37: a Google Places pick fills street, number, postal code, locality and country; the canton stays the manager's pick (D-13's spirit: never Google's). */}
+      {/* KAN-37: a Google Places pick fills street, number, postal code, locality and country. The canton
+          is never Google's (D-13's rule): a pick that moves the postal code clears it, and the required
+          Select makes the manager pick it again. */}
       <AddressSearchField
         id={`${idPrefix}-search`}
         country={value.country || 'CH'}
@@ -88,6 +90,7 @@ function AddressFields({ value, onChange, idPrefix, seat, extra }: { value: Addr
             postalCode: address.postalCode,
             locality: address.locality,
             country: seat ? value.country : address.country || value.country,
+            canton: address.postalCode === value.postalCode ? value.canton : null,
           })
         }
       />

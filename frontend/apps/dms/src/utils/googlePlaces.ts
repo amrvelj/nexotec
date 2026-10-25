@@ -17,9 +17,10 @@
 //   they would have typed; canton is never taken from Google (D-13: the
 //   server derives it; the Business forms keep their own picker).
 //
-// Any failure — a blocked request, an exhausted quota, no network — is an
-// empty result, never an error on screen: the fields are plain inputs and
-// the advisor types on.
+// Any failure — a blocked request, an exhausted quota, no network — is
+// `null`, never an error on screen: the caller shows no dropdown at all (a
+// refusal is not "no match"), the fields are plain inputs and the advisor
+// types on.
 
 const PLACES_ORIGIN = 'https://places.googleapis.com'
 
@@ -69,15 +70,18 @@ interface AutocompleteResponse {
 }
 
 /**
- * The suggestions for `input`, restricted to `country` (alpha-2). An empty
- * array on any failure; an aborted request rejects with the AbortError so
- * the caller can tell a superseded keystroke from a real answer.
+ * The suggestions for `input`, restricted to `country` (ISO 3166-1 alpha-2;
+ * a value that is not two letters — a half-typed country on the Business
+ * forms — restricts nothing). `null` when Google refused or failed, so the
+ * caller can tell a refusal from a genuine "no match"; an aborted request
+ * rejects with the AbortError so a superseded keystroke is told apart too.
  */
 export async function fetchAddressSuggestions(
   input: string,
   country: string,
   { browserKey, sessionToken, language, signal }: PlacesRequest,
-): Promise<AddressSuggestion[]> {
+): Promise<AddressSuggestion[] | null> {
+  const region = /^[A-Za-z]{2}$/.test(country) ? country.toLowerCase() : null
   const response = await fetch(`${PLACES_ORIGIN}/v1/places:autocomplete`, {
     method: 'POST',
     signal,
@@ -86,11 +90,11 @@ export async function fetchAddressSuggestions(
       input,
       sessionToken,
       languageCode: language,
-      includedRegionCodes: [country.toLowerCase()],
+      ...(region ? { includedRegionCodes: [region] } : {}),
       includedPrimaryTypes: PRIMARY_TYPES,
     }),
   })
-  if (!response.ok) return []
+  if (!response.ok) return null
   const body = (await response.json().catch(() => null)) as AutocompleteResponse | null
   const suggestions: AddressSuggestion[] = []
   for (const entry of body?.suggestions ?? []) {

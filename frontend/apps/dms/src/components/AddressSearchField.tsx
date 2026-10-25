@@ -55,6 +55,10 @@ function SearchField({ browserKey, country, onSelect, id, size }: AddressSearchF
   const [query, setQuery] = useState('')
   const [debouncedQuery] = useDebouncedValue(query, DEBOUNCE_MS)
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([])
+  // What the last request came to: the dropdown exists only for an answer
+  // from Google — a list, or a genuine "no match". A refusal or a failure is
+  // neither, and shows nothing.
+  const [outcome, setOutcome] = useState<'idle' | 'found' | 'empty' | 'failed'>('idle')
   const [searching, setSearching] = useState(false)
   // `null` until the first keystroke of a session; a pick ends the session.
   const sessionToken = useRef<string | null>(null)
@@ -67,8 +71,13 @@ function SearchField({ browserKey, country, onSelect, id, size }: AddressSearchF
     inFlight.current?.abort()
     const input = debouncedQuery.trim()
     if (input.length < MIN_INPUT_LENGTH || input === picked.current) {
+      // A cleared field abandons the run: the next keystrokes are a new
+      // session (a token that ended, or never asked for details, is spent).
+      if (input.length === 0) sessionToken.current = null
       setSuggestions([])
+      setOutcome('idle')
       setSearching(false)
+      combobox.closeDropdown()
       return
     }
     const controller = new AbortController()
@@ -83,13 +92,27 @@ function SearchField({ browserKey, country, onSelect, id, size }: AddressSearchF
     })
       .then((found) => {
         if (controller.signal.aborted) return
+        if (found === null) {
+          // Google refused or failed: no dropdown at all — a refusal is not
+          // "no match", and nothing tells the advisor off. The fields are
+          // plain inputs.
+          setSuggestions([])
+          setOutcome('failed')
+          combobox.closeDropdown()
+          return
+        }
         setSuggestions(found)
+        setOutcome(found.length > 0 ? 'found' : 'empty')
         combobox.openDropdown()
       })
       .catch(() => {
-        // A blocked or failed request: no suggestions, nothing said — the
-        // fields are plain inputs. An abort lands here too, by design.
-        if (!controller.signal.aborted) setSuggestions([])
+        // No network, or the request was superseded (an abort lands here by
+        // design): nothing shown, nothing said.
+        if (!controller.signal.aborted) {
+          setSuggestions([])
+          setOutcome('failed')
+          combobox.closeDropdown()
+        }
       })
       .finally(() => {
         if (!controller.signal.aborted) setSearching(false)
@@ -113,6 +136,7 @@ function SearchField({ browserKey, country, onSelect, id, size }: AddressSearchF
         picked.current = suggestion.text
         setQuery(suggestion.text)
         setSuggestions([])
+        setOutcome('idle')
         onSelect(address)
       }
     } catch {
@@ -138,11 +162,12 @@ function SearchField({ browserKey, country, onSelect, id, size }: AddressSearchF
             combobox.updateSelectedOptionIndex()
           }}
           onFocus={() => suggestions.length > 0 && combobox.openDropdown()}
+          onClick={() => suggestions.length > 0 && combobox.openDropdown()}
           onBlur={() => combobox.closeDropdown()}
           rightSection={searching ? <Loader size="xs" /> : <Search size={16} aria-hidden="true" />}
         />
       </Combobox.Target>
-      <Combobox.Dropdown hidden={suggestions.length === 0 && !combobox.dropdownOpened}>
+      <Combobox.Dropdown hidden={outcome !== 'found' && outcome !== 'empty'}>
         <Combobox.Options>
           {suggestions.map((suggestion) => (
             <Combobox.Option value={suggestion.placeId} key={suggestion.placeId}>
@@ -154,11 +179,14 @@ function SearchField({ browserKey, country, onSelect, id, size }: AddressSearchF
               )}
             </Combobox.Option>
           ))}
-          {suggestions.length === 0 && <Combobox.Empty>{t('addressSearch.noResults')}</Combobox.Empty>}
+          {outcome === 'empty' && <Combobox.Empty>{t('addressSearch.noResults')}</Combobox.Empty>}
         </Combobox.Options>
         <Combobox.Footer>
-          <Group justify="flex-end">
-            <img src={googleMapsLogo} alt={t('addressSearch.attribution')} height={12} />
+          {/* Google's attribution rules for results shown without a map: the
+              official logo, at least 16 px high, with 10 px clear space at
+              the sides and top and 5 px below. */}
+          <Group justify="flex-end" style={{ padding: '10px 10px 5px' }}>
+            <img src={googleMapsLogo} alt={t('addressSearch.attribution')} height={16} />
           </Group>
         </Combobox.Footer>
       </Combobox.Dropdown>

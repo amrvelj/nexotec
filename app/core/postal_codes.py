@@ -4,9 +4,10 @@ Used to derive Customer.address_canton server-side (D-13) — needed for
 marketing segmentation and reporting, never asked from the client (the PRD
 is explicit: canton is "derived automatically from the Swiss postal code,
 read-only in the UI"). This is a *derivation* aid, not the full address
-autofill dataset D-09 asks for (street/locality lookup) — that one is
-deliberately Phase D, pending a vendor decision. A postal-code-to-canton
-table is self-contained and far smaller, so there's no reason to wait.
+autofill D-09 asked for (street/locality lookup) — that one is Google Places
+Autocomplete in the SPA since KAN-37 (ADR-101), which fills the fields and
+leaves the canton to this table. A postal-code-to-canton table is
+self-contained and far smaller, so there was no reason to wait for it.
 
 Source: Swiss Post's public postal-code list as published via
 github.com/gamba/swiss-geolocation (post-codes.csv), snapshot 2015-10-13.

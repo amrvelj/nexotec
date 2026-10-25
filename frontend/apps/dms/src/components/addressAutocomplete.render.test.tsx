@@ -19,7 +19,7 @@ import { BusinessPage } from '../pages/BusinessPage'
 // token, the suggestions are restricted to the form's country and the
 // dropdown carries the Google logo; a Google failure leaves the fields as
 // plain inputs and says nothing. The fake backend answers Google's two
-// routes by pathname (the host is asserted on the recorded call).
+// routes by pathname; their handlers record the host they were called on.
 
 const KEY = 'AIza-test-browser-key'
 
@@ -54,9 +54,24 @@ const DETAILS = {
 }
 
 const configOn: FakeRoute = { method: 'GET', match: /\/address-autocomplete$/, handler: () => ({ enabled: true, browserKey: KEY }) }
+const googleHosts: string[] = []
 const googleRoutes = (): FakeRoute[] => [
-  { method: 'POST', match: /^\/places:autocomplete$/, handler: () => SUGGESTIONS },
-  { method: 'GET', match: /^\/places\/[^/]+$/, handler: () => DETAILS },
+  {
+    method: 'POST',
+    match: /^\/places:autocomplete$/,
+    handler: (req) => {
+      googleHosts.push(req.url.host)
+      return SUGGESTIONS
+    },
+  },
+  {
+    method: 'GET',
+    match: /^\/places\/[^/]+$/,
+    handler: (req) => {
+      googleHosts.push(req.url.host)
+      return DETAILS
+    },
+  },
 ]
 const createRoutes = (): FakeRoute[] => [
   { match: /^\/customers\/duplicate-check$/, handler: () => ({ items: [], nextCursor: null }) },
@@ -75,6 +90,7 @@ async function openAddressBlock(user: ReturnType<typeof userEvent.setup>) {
 
 afterEach(async () => {
   await i18n.changeLanguage('de')
+  googleHosts.length = 0
 })
 
 describe('address autocomplete — the create wizard (KAN-37)', () => {
@@ -111,13 +127,24 @@ describe('address autocomplete — the create wizard (KAN-37)', () => {
     expect(body.languageCode).toBe('de')
     expect(details[0].params.get('sessionToken')).toBe(body.sessionToken)
     expect(body.sessionToken).toMatch(/^[0-9a-f-]{36}$/)
-    // Every call of the run used the one token.
+    // Every call of the run used the one token, and every call went to Google's origin.
     for (const call of autocomplete) expect((call.body as { sessionToken: string }).sessionToken).toBe(body.sessionToken)
+    expect(new Set(googleHosts)).toEqual(new Set(['places.googleapis.com']))
 
     // Every field stays editable after the pick.
     await user.clear(field('houseNumber'))
     await user.type(field('houseNumber'), '12a')
     expect(field('houseNumber').value).toBe('12a')
+
+    // The pick ended the session: a new run carries a new token.
+    const search = screen.getByRole('textbox', { name: (n) => n.startsWith(searchLabel()) })
+    await user.clear(search)
+    await user.type(search, 'Seestrasse 5')
+    await screen.findByRole('option', { name: /Bahnhofstrasse 120/ })
+    const later = backend.callsTo(/^\/places:autocomplete$/, 'POST')
+    const nextToken = (later[later.length - 1].body as { sessionToken: string }).sessionToken
+    expect(nextToken).toMatch(/^[0-9a-f-]{36}$/)
+    expect(nextToken).not.toBe(body.sessionToken)
 
     // The suggestion list never went to our API: our backend saw only the config read and the duplicate check.
     const ours = backend.calls.filter((c) => !c.pathname.startsWith('/places'))
@@ -133,7 +160,7 @@ describe('address autocomplete — the create wizard (KAN-37)', () => {
     expect(screen.queryByRole('textbox', { name: (n) => n.startsWith(searchLabel()) })).toBeNull()
   })
 
-  it('a Google refusal leaves the fields as plain inputs and says nothing', async () => {
+  it('a Google refusal leaves the fields as plain inputs, shows no dropdown and says nothing', async () => {
     const backend = installFakeBackend([
       configOn,
       { method: 'POST', match: /^\/places:autocomplete$/, handler: () => status(403, { error: { code: 403, message: 'blocked' } }) },
@@ -146,6 +173,9 @@ describe('address autocomplete — the create wizard (KAN-37)', () => {
     await waitFor(() => expect(backend.callsTo(/^\/places:autocomplete$/, 'POST').length).toBeGreaterThanOrEqual(1))
     expect(screen.queryByRole('option')).toBeNull()
     expect(screen.queryByRole('alert')).toBeNull()
+    // A refusal is not "no match": no dropdown, no empty state, no logo.
+    expect(screen.queryByText(i18n.t('addressSearch.noResults'))).toBeNull()
+    expect(screen.queryByRole('img', { name: i18n.t('addressSearch.attribution') })).toBeNull()
     await user.type(field('street'), 'Bahnhofstrasse')
     expect(field('street').value).toBe('Bahnhofstrasse')
   })
@@ -193,7 +223,7 @@ describe('address autocomplete — the detail screen and the Business screen (KA
     expect((screen.getByLabelText(i18n.t('customerDetail.overview.addressForm.line2')) as HTMLInputElement).value).toBe('')
   })
 
-  it("the Business screen's seat address offers the search field and a pick leaves the canton to the manager", async () => {
+  it("the Business screen's seat address offers the search field; a pick that moves the postal code clears the canton for the manager to re-pick", async () => {
     installFakeBackend([
       configOn,
       ...googleRoutes(),
@@ -243,7 +273,9 @@ describe('address autocomplete — the detail screen and the Business screen (KA
     await waitFor(() => expect((document.getElementById('seat-street') as HTMLInputElement).value).toBe('Bahnhofstrasse'))
     expect((document.getElementById('seat-postal') as HTMLInputElement).value).toBe('8001')
     expect((document.getElementById('seat-locality') as HTMLInputElement).value).toBe('Zürich')
-    // Google's administrative_area_level_1 (ZH) is discarded: the canton stays what the manager picked (the Select shows its label).
-    expect((document.getElementById('seat-canton') as HTMLInputElement).value).toBe('Bern')
+    // Google's administrative_area_level_1 (ZH) is discarded and the old canton (BE) no longer fits 8001:
+    // the required Select is cleared, the manager picks the canton — never Google.
+    expect((document.getElementById('seat-canton') as HTMLInputElement).value).toBe('')
+    expect(addresses.getByRole('button', { name: 'Speichern' })).toBeInTheDocument()
   })
 })

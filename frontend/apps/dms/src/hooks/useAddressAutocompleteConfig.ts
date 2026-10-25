@@ -9,11 +9,12 @@ export const addressAutocompleteConfigKey = (dealershipId: string) => ['dealersh
 /**
  * KAN-37 (ADR-101): whether the active Betrieb's address forms offer Google
  * Places Autocomplete, and the browser key when they do. Off until the
- * answer arrives and off on any failure — a form never waits for it, the
+ * answer arrives and off on any failure (no key is a silent off, as ADR-101
+ * asks) — a form never waits for it, the
  * search field simply appears once the read lands. One cache entry per
  * Betrieb, shared by every address form on screen.
  */
-export function useAddressAutocompleteConfig(): { enabled: boolean; browserKey: string | null } {
+export function useAddressAutocompleteConfig(): { enabled: boolean; browserKey: string | null; loaded: boolean } {
   const { activeDealership } = useAuth()
   const dealershipId = activeDealership?.id ?? ''
   const query = useQuery({
@@ -24,6 +25,9 @@ export function useAddressAutocompleteConfig(): { enabled: boolean; browserKey: 
     retry: false,
   })
   const data = query.data
-  if (data?.enabled && data.browserKey) return { enabled: true, browserKey: data.browserKey }
-  return { enabled: false, browserKey: null }
+  // `loaded`: the server answered — what it said is then a fact, not a
+  // default (the Business screen's "no key" note reads it; a failed read
+  // says nothing).
+  if (data?.enabled && data.browserKey) return { enabled: true, browserKey: data.browserKey, loaded: true }
+  return { enabled: false, browserKey: null, loaded: query.isSuccess }
 }

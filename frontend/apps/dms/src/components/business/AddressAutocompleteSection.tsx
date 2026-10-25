@@ -74,7 +74,7 @@ export function AddressAutocompleteSection({ settings }: { settings: DealershipS
           checked={form.addressAutocompleteEnabled}
           onChange={(e) => set('addressAutocompleteEnabled', e.currentTarget.checked)}
         />
-        {loaded.addressAutocompleteEnabled && !config.enabled && (
+        {loaded.addressAutocompleteEnabled && config.loaded && !config.enabled && (
           <Text c="dimmed" fz="sm" role="note">
             {t('business.addressEntry.unavailable')}
           </Text>

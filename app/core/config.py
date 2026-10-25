@@ -84,14 +84,17 @@ class Settings(BaseSettings):
     object_store_local_dir: str = "var/objects"
 
     # KAN-37 (ADR-101): Google Places Autocomplete on every address form.
-    # Nexotec's own key — browser-restricted by HTTP referrer and scoped to
-    # Places API (New) in Google Cloud — handed to the SPA by
+    # Nexotec's own browser key, handed to the SPA by
     # GET /v1/dealerships/{id}/address-autocomplete only while that Betrieb's
-    # `dealership_settings.address_autocomplete_enabled` holds. Unset means
-    # the feature is unavailable everywhere, whatever the switch says: the
-    # forms stay plain inputs and nothing is sent to Google. Optional on
-    # purpose, like the observability settings below — dev and test run
-    # without a Google project.
+    # `dealership_settings.address_autocomplete_enabled` holds. It is public
+    # configuration, not a secret: its purpose is to reach browsers, and what
+    # protects it is Google Cloud's restriction to our origins and to Places
+    # API (New) — so it is a plain env var, never resolved from the secrets
+    # manager (an optional value must never fail startup; KAN-451 configures
+    # and verifies the restriction at go-live). Unset means the feature is
+    # unavailable everywhere, whatever the switch says: the forms stay plain
+    # inputs and nothing is sent to Google. Optional like the observability
+    # settings below — dev and test run without a Google project.
     google_places_browser_key: str | None = None
 
     pagination_default_limit: int = 50
@@ -170,7 +173,6 @@ def get_settings() -> Settings:
     resolve_secret_env("DMS_TAX_ID_ENCRYPTION_KEY", infisical_secret_name="TAX_ID_ENCRYPTION_KEY")
     resolve_secret_env("DMS_JWT_PRIVATE_KEY", infisical_secret_name="JWT_PRIVATE_KEY")
     resolve_secret_env("DMS_PLATFORM_MAIL_SMTP_PASSWORD", infisical_secret_name="PLATFORM_MAIL_SMTP_PASSWORD")
-    resolve_secret_env("DMS_GOOGLE_PLACES_BROWSER_KEY", infisical_secret_name="GOOGLE_PLACES_BROWSER_KEY")
 
     # tax_id_encryption_key and jwt_private_key have no default (see their own
     # comments above) but aren't actually missing here — pydantic-settings
