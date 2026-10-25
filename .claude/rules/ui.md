@@ -55,12 +55,13 @@ KAN-181, KAN-334, KAN-362, KAN-364, KAN-416). **Not yet true for the rest of the
 remaining PRs):** `DataGrid`, `Wizard`, `GlobalSearch`, `Picker`, `InlineEditField`,
 `DocumentPreview` and `PresentMode` still merge English defaults — pass every label a component
 takes.
+
 **The kit's `Picker` is the entity-selection gesture** ("which customer?", "which vehicle?": a ranked
 list in a panel, a create path, autofocus). A type-ahead that fills a form's own fields from an
 external service and selects no record — the address search field, `components/AddressSearchField.tsx`
 (KAN-37, ADR-101), on Mantine's `Combobox` — is a form input like `PhoneInput` and lives in the app;
 it takes every string from the bundles like any input. A second such field reuses that one, never a
-third local combobox.
+second local combobox.
 
 ## The rulings that bite most often
 

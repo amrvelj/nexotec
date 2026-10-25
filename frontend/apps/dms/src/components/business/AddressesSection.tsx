@@ -77,8 +77,8 @@ function AddressFields({ value, onChange, idPrefix, seat, extra }: { value: Addr
   return (
     <Stack gap="sm">
       {/* KAN-37: a Google Places pick fills street, number, postal code, locality and country. The canton
-          is never Google's (D-13's rule): a pick that moves the postal code clears it, and the required
-          Select makes the manager pick it again. */}
+          is never Google's (D-13's rule): a pick that moves the postal code clears it, and the manager
+          picks it again — the server refuses a Swiss address without one (CantonCode, 422). */}
       <AddressSearchField
         id={`${idPrefix}-search`}
         country={value.country || 'CH'}
