@@ -39,10 +39,10 @@ as any change to what it states. -->
   as `StoredEnum` (KAN-86), no foreign key or `relationship()` crossing a context (KAN-84),
   an import-linter contract that forbids every module of a context but `public`,
   no shared cross-context transaction: every cross-context call classified, every cross-context
-  write committing its own transaction except the two allow-listed entries, the KAN-185 debt
-  (tracked, not ruled) and `scripts/migrate_transaction_rows.py` under ADR-091, the one
-  exception ruled by ADR (KAN-106; the test scans `scripts/` for that and records every other
-  multi-context script by name) (ADR-047, KAN-90), every POST an `IdempotentRoute` declaring an optional
+  write committing its own transaction except the one allow-listed entry, the KAN-185 debt
+  (tracked, not ruled); `scripts/` is scanned separately — `scripts/migrate_transaction_rows.py`
+  is the one exception ruled by ADR (ADR-091, KAN-106) and the three other scripts that reach two
+  contexts' internals are recorded by name (ADR-047, KAN-90), every POST an `IdempotentRoute` declaring an optional
   `Idempotency-Key`, the nine ratified exemptions aside — logout, switch-dealership and the seven
   unauthenticated front-door POSTs (KAN-196); a new one is Anto's ruling by name —
   every route of a sales, inventory, valuation or configurator router behind the `sales`
