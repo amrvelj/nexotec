@@ -102,7 +102,7 @@ second database, service template, broker or top-level `services/` directory. A 
 
 | Context | Owns |
 |---|---|
-| `platform` | tenants/dealers, users, auth, roles, feature flags, reference data, locations, document templates |
+| `platform` | tenants/dealers, users, auth, roles, module entitlements, feature flags, reference data, locations, document templates |
 | `customer` | customers (**group-scoped**, ADR-014), contact channels as child collections (ADR-067), external IDs, duplicates/merges, `VehicleParty` |
 | `vehicle` | physical vehicles, catalogue (canonical taxonomy + per-tenant provider mirror), plates, odometer, custody, provenance, the configurator |
 | `sales` | offers and contracts, pricing build-up, trade-ins, the offer workspace, documents |
@@ -151,7 +151,7 @@ delete them, and do not treat a stub as a licence to put its concerns somewhere 
     transaction** (ADR-047) — each side commits its own work. It would work today because
     everything shares one database; that is why it is forbidden. The import-linter cannot
     catch it, so it needs its own test. The one exception ruled by ADR is ADR-091 (the legacy
-    transaction backfill, expiring after its production run); the KAN-185 debt is a debt.
+    transaction backfill, expiring after its production run); the one tracked debt (`.claude/rules/tests.md`) is a debt.
 
 ## Preserve verbatim — already correct, do not "improve"
 
@@ -166,19 +166,19 @@ Edits to these files (all in `app/core/`) ask Anto first, whichever tool makes t
   camelCase JSON over snake_case Python (`schemas.py`) · the append-only audit log (`audit.py`)
 - The outbox and consumer harness (`outbox*.py`, `consumer.py`, `processed_event_model.py`)
 - `EncryptedString` (`types.py`) + config that refuses to start without the key (`config.py`). Used by
-  `customer.tax_id`, the integration call payload and `mfa_totp.secret` (KAN-196); D-A-22 (KAN-197) moved `dealership.tax_id` off it to a plain `uid`
+  `customer.tax_id`, the integration call payload and `mfa_totp.secret` (ADR-099); D-A-22 moved `dealership.tax_id` off it to a plain `uid`
 
 ## API conventions
 
 Path-versioned `/v1` · camelCase JSON · cursor pagination · `updatedSince` for incremental
-sync · `If-Match` on every mutation of a versioned entity · `Idempotency-Key` on every POST ·
-OpenAPI published per service (one today). A newly required request field is a breaking
-contract change: it needs an explicit decision, never a side effect of a fix.
+sync · `If-Match` on every mutation of a versioned entity · `Idempotency-Key` honoured (never
+required) on every POST but the exempt `/v1/auth/*` front door · OpenAPI published per service (one today).
+A newly required request field is a breaking contract change: it needs an explicit decision, never a side effect of a fix.
 
 ## Domain rules that apply everywhere
 
 - **Organisation** (ADR-014): group → dealership → location. The **dealership** is the tenant.
-  The tenant is **Betrieb** in the UI (FR *entreprise*, IT *azienda*, EN *business*; KAN-381); `dealership` stays the table and code name (D-A-10).
+  The tenant is **Betrieb** in the UI (FR *entreprise*, IT *azienda*, EN *business*); `dealership` stays the table and code name (D-A-10).
   Customers are group-scoped (`group_id`); stock and customer history are dealership-owned but
   readable group-wide. Cost, margin, commission, discount, trade-in purchase price and valuations
   stay private to the legal entity. All writes require switching the active dealership.
@@ -191,8 +191,8 @@ contract change: it needs an explicit decision, never a side effect of a fix.
   field, enum, column, badge or switch, anywhere; `test_no_vat_treatment_field.py` enforces it
   in `app/` and frontend sources (not `alembic/` or locale JSON). See the sales and inventory rules.
 - **i18n:** DE, FR, IT, EN are all first class, reference data included. No user-visible
-  string is hardcoded; a missing key renders a loud marker, never a German fallback; the
-  customer's correspondence language is not the user's UI language.
+  string is hardcoded; every key is in all four bundles (`localeKeyParity.test.ts`), and a key in
+  none renders a loud marker, never a German fallback; the customer's correspondence language is not the user's UI language.
 
 ## Reference material outside the repository
 

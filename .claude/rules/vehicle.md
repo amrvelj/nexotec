@@ -23,11 +23,13 @@ paths:
   - "tests/architecture/test_shared_identity_lookup_response_shape.py"
   - "tests/test_provider_code_map_seed.py"
   - "frontend/apps/dms/src/pages/stock/AddToPipelineButton.tsx"
+  - "app/core/validators.py"
+  - "frontend/apps/dms/src/utils/vin.ts"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises PRD-Vehicles, PRD-Configurator
 v1.4 (ADR-068…ADR-072, host/mode matrix), Integrations & API Credentials, ADR-013 as amended
-by ADR-075, ADR-041, ADR-044, ADR-045, ADR-083, ADR-085, KAN-36/38/43.
-Verified against main@7a90ae4 on 2026-10-12 (every present-tense claim checked against the
+by ADR-075, ADR-041, ADR-044, ADR-045, ADR-083, ADR-085, ADR-090, KAN-36/38/43.
+Verified against main@73baf3f on 2026-10-25 (every present-tense claim checked against the
 code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. -->
 
 # Vehicles, catalogue, configurator and the provider gateway
@@ -37,11 +39,11 @@ code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. -->
 - **VIN is mandatory in vehicle-mdm.** A pre-VIN vehicle is a pipeline stock item in
   `inventory` (ADR-045), to be promoted on VIN arrival by
   `inventory/services/pipeline.py::promote_to_vehicle_mdm`, idempotent per stock item (FR-V-04)
-  — no production caller yet.
+  — no production caller yet (KAN-446).
 - **A typed VIN is one spelling in every write** (FR-V-15): every request-body field carrying a
   VIN a person typed is normalised (upper-cased, whitespace removed): stock create and the
   trade-in through `app.core.validators.NormalisedVin` (then ISO 3779; 422 otherwise; KAN-244,
-  KAN-331), the valuation and configuration create/PATCH through `NormalisedVinOrChassisNumber`
+  KAN-331), the valuation create and the configuration create/PATCH through `NormalisedVinOrChassisNumber`
   (a VIN, or a pre-1981 chassis number — next bullet; KAN-338, KAN-353); the configurator mirrors it (`utils/vin.ts`). vehicle-mdm's
   own fields keep `Vin`, which refuses an unnormalised value rather than fixing it. The shared
   identity lookup (`GET /v1/vehicle-mdm/lookup?vin=`) normalises its query parameter with the
@@ -53,7 +55,8 @@ code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. -->
 - **A pre-1981 chassis number** (KAN-353, Anto 2026-10-18, option C): the valuation's and the
   configuration's `vin` are `NormalisedVinOrChassisNumber` — a VIN, or 1-17 letters and digits
   (I, O, Q allowed) — and `require_vin_or_pre_1981_chassis_number` accepts the latter only with
-  a first registration before 1981-01-01 (on a configuration PATCH, the stored date counts);
+  a first registration before 1981-01-01 (on a configuration PATCH, the stored VIN and date count
+  for whichever the PATCH leaves out — how a VIN stored before KAN-338 is judged, below);
   otherwise 422 `chassis_number_requires_pre_1981_registration` (`common.chassisNumberNeedsPre1981`).
   Such a number is stored normalised, as a VIN is (upper case, no spaces; punctuation refused) —
   the ruling said "stored and printed as entered", which is open for Anto (KAN-391) — and **never** finds, creates or links a
@@ -145,6 +148,10 @@ code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. -->
   offer overlay. Each host enforces it at its API (`configuration_mode_not_allowed`, 422) and
   the overlay takes `allowedModes`; hosts read a configuration only through
   `vehicle.public.get_configuration_for_host` (KAN-10).
+- **The configurator is a Sales-module surface** (KAN-198, D-A-04): every route of
+  `api/configuration.py` and `api/identification.py` sits behind
+  `require_entitlement(ModuleCode.SALES)` at router level — 404 for a Betrieb without Sales,
+  before any role check (`tests/architecture/test_sales_routers_carry_entitlement_gate.py`).
 - **Identification (FR-C-02, KAN-42)** is `services/identification.py`, one input
   (`GET /v1/vehicle-identification`): VIN → vehicle-mdm, then the entitled provider decode
   (not called: no specification, KAN-81 — calling the stub would trip the connection's
@@ -182,7 +189,7 @@ code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. -->
 - **`Antrieb` CodeGrpNr 112 is 2-Takt / 4-Takt / Kein Takt** — a stroke count, not a
   drivetrain (groups 012 and 022 are Hinten/Vorne/Allrad). The seeded code map (migration
   `7c4e9a2b6d13`, asserted in `tests/test_provider_code_map_seed.py`) maps 112 →
-  `engine_cycle`. **The sync does not read that row yet:** `catalogue_sync.py` resolves
+  `engine_cycle`. **The sync does not read that row yet (KAN-447):** `catalogue_sync.py` resolves
   `Antrieb` under `drivetrain` for every vehicle kind and never writes `engine_cycle`. Routing
   by vehicle kind waits for a staging account — whether the provider selects the code group by
   `FzArt` or `FzArtExtern` is unknown (`scripts/verify_auto_i_dat.py` prints it as a manual
@@ -206,6 +213,6 @@ code). "Not built" lines cite a ticket; /drift-audit re-checks them weekly. -->
 
 The mapping-gap queue has a screen (`components/MappingGapsQueue.tsx`, on
 `/catalogue?tab=mapping-gaps`); reference data has `/settings/reference`; **brand create and
-edit have no screen** (the API exists).
+edit have no screen** (the API exists; KAN-448).
 
 `valuation` is its own context — see `.claude/rules/valuation.md`, not this file.

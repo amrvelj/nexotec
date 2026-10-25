@@ -12,12 +12,14 @@ paths:
   - "tests/architecture/test_no_vat_treatment_field.py"
   - "frontend/apps/dms/src/components/deal-workspace/**"
   - "frontend/apps/dms/src/hooks/useDebouncedNumberField.ts"
+  - "frontend/apps/dms/src/hooks/useDealSaveQueue.ts"
+  - "tests/architecture/test_adr_047_no_shared_transaction.py"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises PRD-Sales v2 (S-D10),
 ADR-041, ADR-046, ADR-047, ADR-049, ADR-050 (addendum 2026-10-11), ADR-051, ADR-052,
-ADR-057, ADR-063, ADR-065, ADR-083, ADR-098 and KAN-66/68/71. Verified against main@7a90ae4 on
-2026-10-12 (every present-tense claim checked against the code); the ADR-098 line on 2026-10-24
-against KAN-68's branch. "Open" lines cite a ticket;
+ADR-057, ADR-063, ADR-065, ADR-083 (as amended 2026-10-12), ADR-086, ADR-098 and KAN-66/68/71.
+Verified against main@73baf3f on 2026-10-25 (every present-tense claim checked against the
+code). "Open" lines cite a ticket;
 /drift-audit re-checks them weekly. -->
 
 # Sales: offers, contracts, pricing, documents
@@ -195,8 +197,9 @@ against KAN-68's branch. "Open" lines cite a ticket;
   route that changes the row loads it `for_update` (`get_contract_or_404`), so an edit and a
   confirmation of the same contract run one after the other — If-Match alone compares the
   version as read and would let an edit land after signing. A trade-in save commits part-way
-  (vehicle-mdm and the vehicle parties are their own transactions, ADR-047), which releases
-  that lock, so `set_trade_in` locks the deal again after its last foreign write and re-checks
+  (the vehicle-party allocations commit the request session, ADR-047; vehicle-mdm resolves the
+  VIN on a session of its own and, losing an insert race, takes the winner's record — KAN-328),
+  which releases that lock, so `set_trade_in` locks the deal again after its last foreign write and re-checks
   that it is editable and still at the version the caller sent (KAN-309; the offer's trade-in
   and line-item saves do the same). **Offers lock like contracts** (KAN-311): every offer route
   that changes the row (PATCH, line items, trade-in, trade-in valuation, finalize, cancel) loads
@@ -223,7 +226,9 @@ against KAN-68's branch. "Open" lines cite a ticket;
   (409 `vehicle_left_stock`), and the compensation reverts the trade-in valuation's "used"
   stamp as for any refused reservation. The contract page keeps «Vertrag bestätigen» disabled
   while a price edit is unsaved or any deal save is in flight (`useDebouncedNumberField`;
-  KAN-288). Both deal workspaces send their saves through `hooks/useDealSaveQueue.ts`: one
+  KAN-288); the offer workspace's «Offerte generieren» likewise waits for an unsaved price or
+  leasing value and for queued saves (KAN-327, KAN-344) and says why it is disabled (KAN-368),
+  so the reviewed document is what was entered (ADR-063). Both deal workspaces send their saves through `hooks/useDealSaveQueue.ts`: one
   after the other, each with the version the previous one returned, a refused save said and
   never retried (KAN-314) — the server's offer/contract row lock refuses the second of two
   saves sent with the same version (KAN-311).

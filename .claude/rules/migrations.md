@@ -11,10 +11,12 @@ paths:
   - "app/core/enum_type.py"
   - "scripts/*migration_smoke_test*.py"
   - "app/db.py"
+  - "tests/test_migrated_*.py"
+  - "scripts/check_concurrent_alembic_upgrade.py"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises ADR-015 (PR-3 chains),
-ADR-011, ADR-021, rule 2 and the verification lessons from the WP audits. Verified against
-main@7a90ae4 on 2026-10-12 (every present-tense claim checked against the code). Fix this file
+ADR-011, ADR-021, ADR-088, rule 2 and the verification lessons from the WP audits. Verified
+against main@73baf3f on 2026-10-25 (every present-tense claim checked against the code). Fix this file
 in the same PR as any change to what it states. -->
 
 # Schema, migrations and data migrations
@@ -43,6 +45,9 @@ in the same PR as any change to what it states. -->
 - **No cross-context foreign keys** (rule 2). A reference to another context is the
   three-column pattern (GUID + owner comment, display label, `labelRefreshedAt`) — never a
   `ForeignKey` into another context's table.
+- **A new model module is imported in `app/model_registry.py`.** Autogenerate
+  (`alembic/env.py`), the test schema and every script see only the tables it registers;
+  `tests/architecture/test_model_registry_imports_every_model.py` fails on one it misses (KAN-187).
 - **A newly required column or request field is a breaking API contract change**: it needs an
   explicit decision (the D-03/D-04 precedent: one migration, breaking, decided up front), never
   a side effect of a fix.

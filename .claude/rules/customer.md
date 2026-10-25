@@ -15,9 +15,9 @@ paths:
   - "alembic/versions/customer/**"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises PRD-Customers v2.2 (incl. its
-§Conformance review, rulings D-03…D-26), ADR-014, ADR-030, ADR-064, ADR-065, ADR-067.
-Verified against main@7a90ae4 on 2026-10-12 (every present-tense claim checked against the
-code). Fix this file in the same PR as any change to what it states; /drift-audit re-checks it
+§Conformance review, rulings D-03…D-26), ADR-014, ADR-030, ADR-064 (as amended 2026-10-13),
+ADR-065, ADR-067, ADR-093. Verified against main@73baf3f on 2026-10-25 (every present-tense
+claim checked against the code). Fix this file in the same PR as any change to what it states; /drift-audit re-checks it
 weekly. -->
 
 # Customers
@@ -150,9 +150,9 @@ weekly. -->
   then row. The copy a customer merge kept (KAN-177) is never reopened (409 `merged_party_row`).
 - **A customer merge takes the same lock** (KAN-356): before it reads or re-points a party row,
   `_repoint_vehicle_parties` takes the (vehicle, role, group) advisory lock for every pair the
-  duplicate has a row in, in sorted order, then locks the rows — so it never interleaves with an
-  allocation or a reopen of a pair it has seen. Then it locks the duplicate's customer row
-  (`FOR NO KEY UPDATE`) and reads the pairs again. **Allocation and a reopen refuse a merged
+  duplicate has a row in, in sorted order — so it never interleaves with an allocation or a
+  reopen of a pair it has seen. Then it locks the duplicate's customer row (`FOR NO KEY UPDATE`),
+  reads the pairs again, and only then locks the party rows it writes. **Allocation and a reopen refuse a merged
   customer** (KAN-365): they read the customer row `FOR SHARE` under their advisory lock and answer
   409 `customer_merged` (with `mergedIntoCustomerId`) — after KAN-177's row-level
   `merged_party_row` check, which the kept copy still answers — so an allocation to the duplicate
@@ -164,8 +164,10 @@ weekly. -->
   it locks both customer rows **in id order** — the duplicate `FOR NO KEY UPDATE`, the survivor
   `FOR SHARE` — and re-reads both statuses under them: a survivor that is merged (or whose own
   merge was in flight and committed) is refused, 409 `merge_target_merged`; a duplicate a
-  concurrent merge already merged, 409 `customer_already_merged`. Lock order everywhere: advisory
-  (sorted) → customer rows (id order) → party rows — with one exception, KAN-383's re-point of
+  concurrent merge already merged, 409 `customer_already_merged`. Lock order for a merge and an allocation: advisory
+  (sorted) → customer rows (id order) → party rows. Two exceptions: a reopen
+  (`update_customer_vehicle`) locks its party row before it reads its customer row `FOR SHARE`
+  (still after its advisory lock, which keeps a merge of that pair out), and KAN-383's re-point of
   earlier merges (next bullet), which locks merged customers' rows and their kept copies after. Two merges in opposite directions ask for the
   two rows in the same order, so the second waits and is refused; allocation and a reopen take
   one customer row `FOR SHARE` after their advisory lock, which a merge's survivor lock never
@@ -199,6 +201,12 @@ weekly. -->
   `tests/architecture/test_no_cross_context_mapping.py` forbids a relationship or FK back.
   A row whose `vehicle_id` names no vehicle-mdm record still renders — `vehicle.vin` and
   `vehicleNumber` are nullable in the read — and reconciliation reports it (KAN-339).
+- **Stock on the Vehicles tab is licensed with `sales`** (KAN-378, D-A-04):
+  `GET /v1/customers/{id}/vehicles` fills `stockItem` from
+  `app.inventory.public.get_stock_items_for_vehicles` only when
+  `holds_entitlement(db, principal, ModuleCode.SALES)` holds; a Betrieb without the module, or a
+  token minted before it was taken away, gets `stockItem: null`. The customer router carries no
+  entitlement gate, so any other inventory or sales data a customer route embeds needs the same check.
 - **Cross-group closes and links written before KAN-99 are detected, not repaired** (KAN-139,
   KAN-176): `app.customer.reconciliation.find_cross_group_vehicle_party_closes` classifies every
   `vehicle_party_remove` audit row and `unlinked` outbox event, and
@@ -234,3 +242,11 @@ weekly. -->
 
 List and detail render their actions from the one shared `customerRowMenu` (ADR-061). A
 contact card offers `tel:` / `mailto:` links and marks the preferred channel.
+
+- **Merge and link refusals are said in the user's language** (KAN-366, KAN-369; the rule is
+  `.claude/rules/ui.md`'s, KAN-398): every refusal carries `details.reason` — a merge's
+  `merge_into_self`, `merge_target_merged`, `customer_already_merged`,
+  `merge_conflict_on_survivor`, `merge_vehicle_party_busy`, mapped in `MergeCustomerModal`; an
+  allocation's `customer_merged` and `vehicle_party_exists`, mapped in
+  `utils/vehiclePartyRefusal.ts` for `LinkVehicleModal` and the vehicle's Identity tab alike — to
+  DE/FR/IT/EN text; the API's English `message` is never shown. A new refusal adds its reason and its translations.

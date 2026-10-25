@@ -3,8 +3,8 @@ paths:
   - "frontend/**"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises Notion "UI/UX Specification —
-the one UI page", UI/UX Core Principles, ADR-044, ADR-056…ADR-063, ADR-084 and KAN-35.
-Verified against main@7a90ae4 on 2026-10-12. Fix this file in the same PR as any change to what
+the one UI page", UI/UX Core Principles, ADR-044, ADR-056…ADR-063, ADR-076, ADR-084, ADR-092 and
+KAN-35. Verified against main@73baf3f on 2026-10-25. Fix this file in the same PR as any change to what
 it states; /drift-audit re-checks it weekly. -->
 
 # Anything a user can see
@@ -40,7 +40,7 @@ on presentation), that is a conflict to surface, not a preference to pick.
 
 Grids, filter controls, detail-screen headers, pickers, form dialogs and document renderers
 come from WP-6c, `frontend/packages/ui-kit` (`datagrid/`, `detail/`, `shell/`, `wizard/`,
-`components/`, tokens in `tokens.css`/`tokens.ts`). If you are writing one inside a module
+`components/`, `format/` — `ChfInput`, the Swiss number format —, tokens in `tokens.css`/`tokens.ts`). If you are writing one inside a module
 package you are in the wrong package. If the kit cannot do what you need, that is a ui-kit
 change plus an ADR — never a local component. No colour outside the tokens.
 A kit component never ships a user-visible string of its own, accessible names included: it

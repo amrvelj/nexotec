@@ -16,7 +16,7 @@ paths:
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises PRD-Vehicles (FR-V-09,
 FR-V-17), ADR-029, ADR-048 as amended, ADR-066, ADR-070, ADR-074. Verified against
-main@7a90ae4 on 2026-10-12 (every present-tense claim checked against the code). Fix this
+main@73baf3f on 2026-10-25 (every present-tense claim checked against the code). Fix this
 file in the same PR as any change to what it states. -->
 
 # Valuations
@@ -36,7 +36,8 @@ file in the same PR as any change to what it states. -->
   no read marks the old row superseded yet. A manual
   figure is **marked manual everywhere it renders**.
 - **A valuation is a standalone application**: creatable with no customer, no offer and no
-  vehicle in the register. It carries a **validity period**.
+  vehicle in the register. It carries a **validity period**. Its routes are licensed with the
+  `sales` module (`require_entitlement(ModuleCode.SALES)` on the router, KAN-198): 404 without it.
 - **Status `draft → valid → expired`** (plus `used` once a contract consumes it, or once the
   manual `POST /v1/valuations/{id}/mark-used` correction sets it) is **derived on read** from
   `is_draft`, `valid_until` and `used_at` — never stored, never repaired by a nightly job.
@@ -80,9 +81,12 @@ file in the same PR as any change to what it states. -->
   credit, which Stock's consumer ignores).
 - **ADR-070** (amending FR-V-17): a *configuration* never writes vehicle-mdm; it attaches to a
   valuation. A valuation created **with** a `configurationId` (`record` mode only, KAN-10)
-  takes its vehicle fields from it and creates no vehicle-mdm record; created **without** one,
+  defaults its vehicle fields from it (a field sent wins), references only the vehicle-mdm
+  record the configuration already links, and creates none; created **without** one,
   `create_valuation` still creates or gets the vehicle-mdm record when a VIN is given
-  (`services/valuation.py`), and the VIN trade-in of an offer or a pending contract
+  (`services/valuation.py`, on a session of its own, KAN-328). A pre-1981 chassis number in
+  `vin` (KAN-353, `.claude/rules/vehicle.md`) never finds, creates or links a vehicle-mdm record,
+  not even the configuration's. And the VIN trade-in of an offer or a pending contract
   (`sales/services/trade_in.py::set_trade_in`, KAN-67) still creates the vehicle. Ending those
   two is Anto's call — read ADR-070 and ask; never change it in passing. The record-mode
   trade-in path (configurator → valuation → the offer or pending contract references it,

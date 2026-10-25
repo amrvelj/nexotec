@@ -17,7 +17,7 @@ paths:
   - "app/core/idempotent_route.py"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises rules 4–6, 10 and 12, ADR-006,
-ADR-046, ADR-047, ADR-081. Verified against main@7a90ae4 on 2026-10-12 (every present-tense
+ADR-046, ADR-047, ADR-081. Verified against main@73baf3f on 2026-10-25 (every present-tense
 claim checked against the code). Fix this file in the same PR as any change to what it states. -->
 
 # Events, outbox, consumers and reconciliation
