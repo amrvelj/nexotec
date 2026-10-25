@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Alert, Loader, SegmentedControl } from '@mantine/core'
+import { Alert, Loader, SegmentedControl, Text } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 import { CounterTextarea, MediaGallery, OverviewCard, semantic, slate, spacing } from '@nexotec/ui-kit'
 import { api, ApiError } from '../../api/client'
@@ -100,6 +100,9 @@ export function PublishingTab({ stockItemId, locale }: PublishingTabProps) {
   const invalidateMedia = () => queryClient.invalidateQueries({ queryKey: ['stock-item', stockItemId, 'media'] })
 
   const activePublishing = publishingByChannel[activeChannel]
+  const activePublishingQuery = { autoscout24: autoscout24Query, carmarket: carmarketQuery, autolina: autolinaQuery }[
+    activeChannel
+  ]
   // Blocking conditions are item-level, not per-channel (compute_blocking_
   // conditions ignores channel entirely) — any loaded channel's own copy
   // is the same list, so the first one that's arrived is fine. Cheap
@@ -258,6 +261,10 @@ export function PublishingTab({ stockItemId, locale }: PublishingTabProps) {
                 count: TITLE_DISPLAY_LIMITS[activeChannel],
               })}
             />
+          ) : activePublishingQuery.isError ? (
+            <Text c="red" size="sm">
+              {t('stockDetail.publishing.listingTextLoadError')}
+            </Text>
           ) : (
             <Loader size="sm" />
           )}
@@ -314,7 +321,7 @@ function ListingTextFields({
 }: {
   publishing: PublishingRead
   resetKey: string
-  onSave: (patch: ListingTextPatch) => void
+  onSave: (patch: ListingTextPatch) => Promise<void>
   titleDisplayLimitCaption: string
 }) {
   const { t } = useTranslation()
@@ -347,7 +354,7 @@ function ListingTextInput({
   label: string
   serverValue: string
   resetKey: string
-  onCommit: (value: string) => void
+  onCommit: (value: string) => Promise<void>
   maxLength: number
   displayLimitCaption?: string
   description?: string

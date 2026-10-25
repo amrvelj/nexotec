@@ -10,24 +10,27 @@ import { useCallback, useEffect, useRef, useState } from 'react'
  * a draft still waiting — never once per keystroke.
  *
  * A newer `serverValue` (a refetch carrying someone else's save) is shown
- * while no draft is waiting — otherwise the next edit would be sent on top
- * of a text the user never saw, with the refreshed version as its If-Match,
- * and overwrite it without a conflict. A draft being typed is never
- * overwritten by it. `resetKey` discards a waiting draft too (a different
- * row arriving, or the host dropping drafts after a refused save).
+ * while nothing of this field's is pending — no draft waiting and no save
+ * still at the server (`onCommit`'s promise not yet settled) — otherwise
+ * the next edit would be sent on top of a text the user never saw, with the
+ * refreshed version as its If-Match, and overwrite it without a conflict.
+ * While a save is out, an earlier save's echo landing must not put older
+ * text back into the field. `resetKey` discards a waiting draft too (a
+ * different row arriving, or the host dropping drafts after a refused save).
  *
  * Returns `[value, setValue, flush]`.
  */
 export function useDebouncedTextField(
   serverValue: string,
   resetKey: unknown,
-  onCommit: (value: string) => void,
+  onCommit: (value: string) => void | Promise<unknown>,
   delay = 500
 ): [string, (value: string) => void, () => void] {
   const [local, setLocal] = useState(serverValue)
   const localRef = useRef(serverValue)
   const committedRef = useRef(serverValue)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const savesOutRef = useRef(0)
   const resetKeyRef = useRef(resetKey)
   const onCommitRef = useRef(onCommit)
   onCommitRef.current = onCommit
@@ -43,7 +46,13 @@ export function useDebouncedTextField(
     const value = localRef.current
     if (value === committedRef.current) return
     committedRef.current = value
-    onCommitRef.current(value)
+    const saving = onCommitRef.current(value)
+    if (saving) {
+      savesOutRef.current += 1
+      void saving.finally(() => {
+        savesOutRef.current -= 1
+      })
+    }
   }, [])
 
   const setValue = useCallback(
@@ -69,7 +78,7 @@ export function useDebouncedTextField(
   }, [resetKey])
 
   useEffect(() => {
-    if (timerRef.current !== null || localRef.current !== committedRef.current) return
+    if (timerRef.current !== null || savesOutRef.current > 0 || localRef.current !== committedRef.current) return
     if (serverValue === committedRef.current) return
     localRef.current = serverValue
     committedRef.current = serverValue

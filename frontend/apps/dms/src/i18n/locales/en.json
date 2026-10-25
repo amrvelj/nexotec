@@ -1042,6 +1042,7 @@
       "listingTextTitle": "Listing text",
       "listingTextConflict": "The listing text was changed in the meantime. The current version is loaded – please make your change again.",
       "listingTextError": "The listing text could not be saved. Please try again.",
+      "listingTextLoadError": "The listing texts could not be loaded.",
       "titleDisplayLimit": "{{count, number}} characters shown on the results list.",
       "haendlerbemerkungenHint": "Internal only — never appears in the listing.",
       "fields": {

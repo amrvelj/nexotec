@@ -585,6 +585,78 @@ describe('PublishingTab — listing text keeps a local draft (KAN-425)', () => {
     expect(save.headers.get('If-Match')).toBe('2')
   })
 
+  it("an earlier save landing while a newer one is out never puts older text back", async () => {
+    // A slow server: "Sport" is saved, then "Sportwagen" while the first is
+    // still out. The first save's answer must not turn the field back into
+    // "Sport", or the next edit would build on it and lose "wagen".
+    const user = userEvent.setup()
+    let current = row(1)
+    let releaseFirst: () => void = () => {}
+    const firstHeld = new Promise<void>((resolve) => {
+      releaseFirst = resolve
+    })
+    let patches = 0
+    const backend = installFakeBackend([
+      { match: /^\/inventory\/stock-items\/st-1\/equipment$/, handler: () => EQUIPMENT },
+      { match: /^\/inventory\/stock-items\/st-1\/media$/, handler: () => [] },
+      { method: 'GET', match: /^\/inventory\/stock-items\/st-1\/publishing\/autoscout24$/, handler: () => current },
+      {
+        method: 'PATCH',
+        match: /^\/inventory\/stock-items\/st-1\/publishing\/autoscout24$/,
+        handler: async (req) => {
+          patches += 1
+          // The first is held until released; every later one takes a while
+          // too, so the first one's answer shows before the second lands.
+          if (patches === 1) await firstHeld
+          else await new Promise((resolve) => setTimeout(resolve, 200))
+          current = { ...current, ...(req.body as object), version: current.version + 1 }
+          return current
+        },
+      },
+    ])
+    renderWithProviders(<PublishingTab stockItemId="st-1" locale="de-CH" />)
+    const field = await screen.findByLabelText(label('zusatztitel'))
+
+    await user.type(field, 'Sport')
+    await user.tab()
+    await user.type(field, 'wagen')
+    await user.tab()
+    await waitFor(() => expect(backend.callsTo(/\/publishing\/autoscout24$/, 'PATCH')).toHaveLength(1))
+    releaseFirst()
+    await waitFor(() => expect(backend.callsTo(/\/publishing\/autoscout24$/, 'PATCH')).toHaveLength(2))
+    // While "Sportwagen" is at the server, the field keeps it.
+    expect(field).toHaveValue('Sportwagen')
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(field).toHaveValue('Sportwagen')
+    await waitFor(() => expect(current.zusatztitel).toBe('Sportwagen'))
+    expect(field).toHaveValue('Sportwagen')
+
+    await user.type(field, 'X')
+    await user.tab()
+    await waitFor(() => expect(backend.callsTo(/\/publishing\/autoscout24$/, 'PATCH')).toHaveLength(3))
+    expect(backend.callsTo(/\/publishing\/autoscout24$/, 'PATCH').map((call) => call.body)).toEqual([
+      { zusatztitel: 'Sport' },
+      { zusatztitel: 'Sportwagen' },
+      { zusatztitel: 'SportwagenX' },
+    ])
+  })
+
+  it("a channel whose texts cannot be loaded says so instead of waiting forever", async () => {
+    installFakeBackend([
+      { match: /^\/inventory\/stock-items\/st-1\/equipment$/, handler: () => EQUIPMENT },
+      { match: /^\/inventory\/stock-items\/st-1\/media$/, handler: () => [] },
+      {
+        method: 'GET',
+        match: /^\/inventory\/stock-items\/st-1\/publishing\/autoscout24$/,
+        handler: () => status(503, { error: { code: 'unavailable', message: 'down', details: null } }),
+      },
+    ])
+    renderWithProviders(<PublishingTab stockItemId="st-1" locale="de-CH" />)
+
+    expect(await screen.findByText(i18n.t('stockDetail.publishing.listingTextLoadError'))).toBeInTheDocument()
+    expect(screen.queryByLabelText(label('zusatztitel'))).not.toBeInTheDocument()
+  })
+
   it("a refused save on one channel keeps the draft being typed on another", async () => {
     const user = userEvent.setup()
     const backend = installFakeBackend([
