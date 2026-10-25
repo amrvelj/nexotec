@@ -61,7 +61,7 @@ paths:
   - "WORKSHOP_TERMINAL_AUTH_DESIGN.md"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises ADR-014, ADR-051, ADR-093,
-ADR-094, ADR-099, ADR-100, the Dealer Administration PRD v1.2 and Authentication & Identity v1.1
+ADR-094, ADR-096, ADR-097, ADR-099, ADR-100, the Dealer Administration PRD v1.2 and Authentication & Identity v1.1
 (rulings D-A-01…D-A-41, 2026-09-20 and 2026-10-07; they absorb Roles & Permissions v0.2 and
 supersede ADR-027); also cites ADR-028, ADR-047, ADR-057. Verified against main@73baf3f on 2026-10-25 (/drift-audit: every
 present-tense claim checked against the code, every "not built" claim grepped for). "Not built" lines are re-checked weekly by /drift-audit. -->

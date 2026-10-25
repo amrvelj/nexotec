@@ -17,7 +17,7 @@ paths:
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises PRD-Sales v2 (S-D10),
 ADR-041, ADR-046, ADR-047, ADR-049, ADR-050 (addendum 2026-10-11), ADR-051, ADR-052,
-ADR-057, ADR-063, ADR-065, ADR-083 (as amended 2026-10-12), ADR-086, ADR-098 and KAN-66/68/71;
+ADR-057, ADR-063, ADR-065, ADR-083 (as amended 2026-10-12), ADR-086, ADR-088, ADR-098 and KAN-66/68/71;
 also cites ADR-029, ADR-032, ADR-033, ADR-053, ADR-091. Verified against main@73baf3f on
 2026-10-25 (every present-tense claim checked against the code). "Open" lines cite a ticket;
 /drift-audit re-checks them weekly. -->

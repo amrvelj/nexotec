@@ -4,7 +4,7 @@ paths:
   - "frontend/**/*.test.ts"
   - "frontend/**/*.test.tsx"
 ---
-<!-- Maintainer note (stripped before Claude sees it). Summarises ADR-011, ADR-089 and the
+<!-- Maintainer note (stripped before Claude sees it). Summarises ADR-011, ADR-086, ADR-089 and the
 recurring failure modes from the WP audits (wp-verification); also cites ADR-047, ADR-091. Verified
 against main@73baf3f on 2026-10-25 (every present-tense claim checked against the code). Fix this file in the same PR
 as any change to what it states. -->
