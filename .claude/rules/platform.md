@@ -237,7 +237,17 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   apart by IID 30000–31999 and only with `qrr`, at most one `is_default` per Betrieb (partial unique
   index), chosen explicitly — never promoted (Anto, 2026-10-24). `dealership_settings` holds the fiscal
   defaults with shipped values (CHF, 0.05, 30 days, 01-01, KMU, month-end lock), no `vat_method`;
-  `vat_rate` stays on `dealership` (ADR-057). A PATCH that changes legal name, UID or VAT needs
+  `vat_rate` stays on `dealership` (ADR-057). **A sixth section, Address entry (KAN-37, ADR-101):**
+  `dealership_settings.address_autocomplete_enabled`, the Betrieb's switch for Google Places
+  Autocomplete on every address form — **on by default** (Anto, 2026-10-25), the manager switches it
+  off; saved through the settings PATCH like the fiscal defaults, audited. The key is the platform's
+  (`DMS_GOOGLE_PLACES_BROWSER_KEY`, browser-restricted by HTTP referrer in Google Cloud), never a
+  column: `GET /v1/dealerships/{id}/address-autocomplete` hands it to the SPA (any role) only while the
+  switch is on and the key is set; unset, the feature is off everywhere and the section says so. The
+  SPA calls Places API (New) directly (`utils/googlePlaces.ts`, one session token per keystroke run);
+  the suggestion list is never persisted or logged and never reaches our API (an architecture scan
+  pins it); only the picked address is written, into the same fields the advisor would have typed;
+  canton is never taken from Google (D-13). A PATCH that changes legal name, UID or VAT needs
   `confirmation: true` (422 `confirmation_required` otherwise; the optional `auditNote` is the audit
   reason) and the `dealership_legal_identity` write; every dealership, bank-account and settings
   write is audited with before/after. **Banking is the one capability refused with 404, not 403
