@@ -4,9 +4,9 @@ paths:
   - "frontend/**/*.test.ts"
   - "frontend/**/*.test.tsx"
 ---
-<!-- Maintainer note (stripped before Claude sees it). Summarises ADR-011 and the recurring
-failure modes from the WP audits (wp-verification). Verified against main@7a90ae4 on
-2026-10-12 (every present-tense claim checked against the code). Fix this file in the same PR
+<!-- Maintainer note (stripped before Claude sees it). Summarises ADR-011, ADR-086, ADR-089 and the
+recurring failure modes from the WP audits (wp-verification); also cites ADR-047, ADR-091. Verified
+against main@73baf3f on 2026-10-25 (every present-tense claim checked against the code). Fix this file in the same PR
 as any change to what it states. -->
 
 # Tests
@@ -24,6 +24,9 @@ as any change to what it states. -->
   the next test until `lock timeout`. Close every session a test opens. The test role must be a
   superuser, as CI, docker compose and `scripts/dev/cloud-postgres` make it.
   `tests/test_postgres_test_isolation.py` pins the reset, the rebuild and the session check.
+  A test-only model sits on `DemoBase` (`tests/demo_models.py`), never on `app.db.Base`, so
+  `Base.metadata` holds production tables only; conftest builds and resets both
+  (`TEST_METADATA`; KAN-332, pinned by `tests/test_demo_models_off_production_base.py`).
 - **Architecture tests (`tests/architecture/`) are rulings in executable form.** Never weaken,
   skip or loosen one to make a change pass. If one blocks you, either the change or the ruling
   is wrong — raise it. They guard: gateway-only auto-i-dat calls, the capability vocabulary,
@@ -36,10 +39,10 @@ as any change to what it states. -->
   as `StoredEnum` (KAN-86), no foreign key or `relationship()` crossing a context (KAN-84),
   an import-linter contract that forbids every module of a context but `public`,
   no shared cross-context transaction: every cross-context call classified, every cross-context
-  write committing its own transaction except the two allow-listed entries, the KAN-185 debt
-  (tracked, not ruled) and `scripts/migrate_transaction_rows.py` under ADR-091, the one
-  exception ruled by ADR (KAN-106; the test scans `scripts/` for that and records every other
-  multi-context script by name) (ADR-047, KAN-90), every POST an `IdempotentRoute` declaring an optional
+  write committing its own transaction except the one allow-listed entry, the KAN-185 debt
+  (tracked, not ruled); `scripts/` is scanned separately — `scripts/migrate_transaction_rows.py`
+  is the one exception ruled by ADR (ADR-091, KAN-106) and the three other scripts that reach two
+  contexts' internals are recorded by name (ADR-047, KAN-90), every POST an `IdempotentRoute` declaring an optional
   `Idempotency-Key`, the nine ratified exemptions aside — logout, switch-dealership and the seven
   unauthenticated front-door POSTs (KAN-196); a new one is Anto's ruling by name —
   every route of a sales, inventory, valuation or configurator router behind the `sales`
@@ -53,7 +56,8 @@ as any change to what it states. -->
   connected account never read by the identity and session layer, its model named only by its
   service (KAN-201, FR-AU-23), and platform staff's recovery never naming a password write or
   read, no `/v1/platform/` route carrying a password-shaped field (KAN-202, FR-AU-10), and every PATCH/PUT/DELETE and every POST on an existing entity taking If-Match unless listed
-  with why (a PATCH/PUT/DELETE exemption must name an unversioned model; KAN-396, KAN-428).
+  with why (a PATCH/PUT/DELETE exemption must name an unversioned model; KAN-396, KAN-428), and
+  every mapped model registered by `app/model_registry.py` alone (KAN-187).
 - **A test that gates an exit criterion must never skip silently.** The one accepted skip is a
   Postgres-only test on the SQLite fast lane (`skipif(not os.environ.get("DMS_TEST_DATABASE_URL"))`,
   as in `test_customer_outbox_idempotency.py`), because CI's gating lane always runs Postgres.

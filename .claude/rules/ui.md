@@ -3,8 +3,8 @@ paths:
   - "frontend/**"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises Notion "UI/UX Specification —
-the one UI page", UI/UX Core Principles, ADR-044, ADR-056…ADR-063, ADR-084 and KAN-35.
-Verified against main@7a90ae4 on 2026-10-12. Fix this file in the same PR as any change to what
+the one UI page", UI/UX Core Principles, ADR-044, ADR-056…ADR-063, ADR-076, ADR-084, ADR-092 and
+KAN-35. Verified against main@73baf3f on 2026-10-25. Fix this file in the same PR as any change to what
 it states; /drift-audit re-checks it weekly. -->
 
 # Anything a user can see
@@ -40,7 +40,7 @@ on presentation), that is a conflict to surface, not a preference to pick.
 
 Grids, filter controls, detail-screen headers, pickers, form dialogs and document renderers
 come from WP-6c, `frontend/packages/ui-kit` (`datagrid/`, `detail/`, `shell/`, `wizard/`,
-`components/`, tokens in `tokens.css`/`tokens.ts`). If you are writing one inside a module
+`components/`, `format/` — `ChfInput`, the Swiss number format —, tokens in `tokens.css`/`tokens.ts`). If you are writing one inside a module
 package you are in the wrong package. If the kit cannot do what you need, that is a ui-kit
 change plus an ADR — never a local component. No colour outside the tokens.
 A kit component never ships a user-visible string of its own, accessible names included: it
@@ -114,11 +114,14 @@ takes.
   Application Shell section does not show the strip yet (ADR-084's consequence; KAN-316).
 - **Every screen but the sign-in loads on demand** (KAN-233): a new route's page goes into
   `App.tsx` through `lazyPage(() => import('./pages/X'), 'X')`, never a static import —
-  `LoginPage`, `ProtectedRoute`, `RequireEntitlement`, `AuthProvider` and `DmsShell` alone stay
-  eager (`src/architecture/lazy-routes.test.ts`). `RouteSuspense` (`src/layout/`) shows the
-  loading state on a hard load and, if a chunk cannot be fetched (a tab older than the last
-  deploy), a translated reload screen. On in-app navigation the router's transition keeps the
-  previous screen up until the next chunk arrives — never blank, but no loader either.
+  `LoginPage`, `ProtectedRoute`, `RequireEntitlement`, `AuthProvider`, `DmsShell` and `RouteSuspense`
+  stay eager (beside `App.tsx` and `lazyPage` itself), and `src/architecture/lazy-routes.test.ts`
+  checks that none of those six, nor `App.tsx` beyond `LoginPage`, imports a page statically (it
+  reads import lines only; `lazyPage.ts` is not in its list). `RouteSuspense`
+  (`src/layout/`) shows the loading state on a hard load and, if a chunk cannot be fetched (a tab
+  older than the last deploy), a translated reload screen. On in-app navigation the router's
+  transition keeps the previous screen up until the next chunk arrives — never blank, but no
+  loader either (React Router 7's default `startTransition` navigation; no render test pins it).
 
 ## i18n
 
@@ -167,11 +170,13 @@ it in four places: inside `formatDate`/`formatDateTime`, in CustomersListPage's 
 column helper without `formatDateOnly`, as a raw JSX child (`>{r.purchaseDate}`, with or
 without a `?? '—'` / `?? t(…)` fallback), and as a grid column's `cell:` renderer that returns
 the bare field (KAN-358). It is a source scan with known misses (its KAN-358 comment
-lists them: a field joined into a string or passed to a row helper, a JSX child sharing its
-element with text, a `?? null` or `?? CONST` fallback), and it cannot judge a name at all for
-`validFrom`/`validTo` (a date on a plate, an accessory, a user's access window and a valuation,
-a timestamp on a contact channel) or `lastDeltaCursor` (KAN-363) — those, and every screen that renders a date-only
-field, are checked by the screen's render test under `TZ=Pacific/Honolulu`. Today's date as a pre-fill is
+lists them: a field joined into a string or passed to a row helper, an `InlineEditField` whose
+`value=` is also its display, a JSX child sharing its element with text, a `?? null` or
+`?? CONST` fallback), and it cannot judge a name at all for `validFrom`/`validTo` (a date on a
+plate, an accessory, a user's access window and a valuation — the last rendered by no screen yet;
+a timestamp on a contact channel) or `lastDeltaCursor` (KAN-363) — the ones a screen renders,
+and every screen that renders a date-only field, are checked by that screen's render test under
+`TZ=Pacific/Honolulu` (`dateOnlyTabs`, `UsersListPage.dateOnly`, `IntegrationPlatformView.pending`). Today's date as a pre-fill is
 `todayLocalIsoDate()` (`utils/format.ts`), the user's calendar day — never
 `toISOString().slice(0, 10)`, the UTC day, which is yesterday between midnight and 01:00/02:00
 Swiss time (KAN-358; `src/architecture/no-utc-calendar-day.test.ts` refuses it).

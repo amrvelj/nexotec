@@ -9,7 +9,20 @@ paths:
   - "tests/architecture/test_no_password_credential_storage.py"
   - "tests/architecture/test_no_layout_code_outside_document_render.py"
   - "frontend/apps/dms/src/auth/**"
-  - "frontend/apps/dms/src/**/*ignIn*"
+  - "frontend/apps/dms/src/pages/Auth*"
+  - "frontend/apps/dms/src/pages/auth/**"
+  - "frontend/apps/dms/src/pages/Account*"
+  - "frontend/apps/dms/src/pages/account/**"
+  - "frontend/apps/dms/src/pages/InvitationAcceptPage*"
+  - "frontend/apps/dms/src/pages/PasswordReset*"
+  - "frontend/apps/dms/src/pages/UsersListPage*"
+  - "frontend/apps/dms/src/pages/BusinessPage*"
+  - "frontend/apps/dms/src/components/account/**"
+  - "frontend/apps/dms/src/components/business/**"
+  - "frontend/apps/dms/src/components/recovery/**"
+  - "frontend/apps/dms/src/components/users/**"
+  - "frontend/apps/dms/src/**/RequireEntitlement*"
+  - "frontend/apps/dms/src/layout/navEntitlements.ts"
   - "frontend/apps/dms/src/**/ProtectedRoute*"
   - "frontend/apps/dms/src/**/ReferenceDataPage*"
   - "frontend/apps/dms/src/**/*ogin*"
@@ -18,16 +31,40 @@ paths:
   - "frontend/packages/ui-kit/src/components/DocumentPreview.tsx"
   - "tests/test_auth.py"
   - "tests/test_user.py"
+  - "tests/test_user_*.py"
   - "tests/test_tenancy.py"
   - "tests/test_login.py"
+  - "tests/test_identity_*.py"
+  - "tests/identity_support.py"
+  - "tests/test_memberships.py"
+  - "tests/membership_support.py"
+  - "tests/test_dealership.py"
+  - "tests/dealership_support.py"
+  - "tests/test_entitlements.py"
+  - "tests/test_text_delegations.py"
+  - "tests/test_permission_matrix_mirrors_prd.py"
+  - "tests/test_permissions_manager_can_read.py"
+  - "tests/fixtures/permission_matrix.json"
+  - "tests/test_platform_*.py"
+  - "tests/test_my_account.py"
+  - "tests/test_kan197_dealership_migration.py"
+  - "tests/test_kan203_business_master_data.py"
+  - "tests/test_report_platform_admins_homed_in_dealerships.py"
+  - "tests/architecture/test_sales_routers_carry_entitlement_gate.py"
+  - "tests/architecture/test_token_minting_passes_entitlements.py"
+  - "tests/architecture/test_standard_texts_write_honours_delegations.py"
+  - "tests/architecture/test_connected_account_is_never_an_identity.py"
+  - "tests/architecture/test_recovery_never_touches_a_password.py"
+  - "scripts/report_platform_admins_homed_in_dealerships.py"
+  - "scripts/benchmark_argon2.py"
   - "alembic/versions/platform/**"
   - "WORKSHOP_TERMINAL_AUTH_DESIGN.md"
 ---
-<!-- Maintainer note (stripped before Claude sees it). Summarises ADR-014, ADR-051, the Dealer
-Administration PRD v1.2 and Authentication & Identity v1.1 (rulings D-A-01…D-A-41, 2026-09-20 and
-2026-10-07; they absorb Roles & Permissions v0.2 and supersede ADR-027). Verified against
-main@046634d on 2026-10-17 (KAN-195: every present-tense claim checked against the code, every
-"not built" claim grepped for). "Not built" lines are re-checked weekly by /drift-audit. -->
+<!-- Maintainer note (stripped before Claude sees it). Summarises ADR-014, ADR-051, ADR-093,
+ADR-094, ADR-096, ADR-097, ADR-099, ADR-100, the Dealer Administration PRD v1.2 and Authentication & Identity v1.1
+(rulings D-A-01…D-A-41, 2026-09-20 and 2026-10-07; they absorb Roles & Permissions v0.2 and
+supersede ADR-027); also cites ADR-028, ADR-047, ADR-057. Verified against main@73baf3f on 2026-10-25 (/drift-audit: every
+present-tense claim checked against the code, every "not built" claim grepped for). "Not built" lines are re-checked weekly by /drift-audit. -->
 
 # Platform: organisation, access, administration, authentication
 
@@ -38,7 +75,13 @@ main@046634d on 2026-10-17 (KAN-195: every present-tense claim checked against t
   attribute, **never a scoping boundary** (owned by platform, not inventory).
 - **The UI word for the tenant is "Betrieb"** in German (D-A-10) — *entreprise* in French, *azienda*
   in Italian, *business* in English (KAN-381, Anto 2026-10-18), in the bundles and in the backend's
-  sign-in and mail texts (API error `message`s still say "dealership"): service-only garages are customers from
+  sign-in and mail texts (the invitation-acceptance, password-policy and MFA-enrolment error
+  `message`s say *business*, and so do the Customers and Sales hand-over refusals
+  (`colleague_cannot_act_there`, carried in `details.problems[].message` / `failed[].message`);
+  the recovery service's four own refusals say *Betrieb* (KAN-450 asks whether that is a defect
+  against this ruling); the rest still say "dealership" — `_mint_session`'s 403 and the shared
+  `Dealership … was not found` 404 included — or, in a few older ones, "dealer" or "tenant"; the
+  login door's 401 names neither): service-only garages are customers from
   day one, so `sales` is a module entitlement like `aftersales` (`module_entitlement`, KAN-198),
   and a Betrieb without it is a normal configuration. `dealership` stays the table and code name.
 - Tenant scope comes from the token. Group-scoped reads exist only in the files that
@@ -93,8 +136,9 @@ main@046634d on 2026-10-17 (KAN-195: every present-tense claim checked against t
   (logout, revoking one's own session, the guard's touch) takes no user lock: one row cannot
   close a cycle. The nightly
   `platform.user_expiry` re-reads each due user under the lock and judges it again, and its retry
-  re-reads each listed user and hands over only one still deactivated by the job. The first auth-config PUT, the first TOTP enrolment and the first preference save
-  insert in a savepoint and carry on with a concurrent winner's committed row (KAN-393).
+  re-reads each listed user and hands over only one still deactivated by the job. The first auth-config PUT, the first TOTP enrolment, the first preference save
+  and the first `dealership_settings` save insert in a savepoint and carry on with a concurrent
+  winner's committed row (KAN-393).
   `LoginResponse.user.isDealerManager` is the home flag, not the active dealership's — never
   gate a screen on it; the session's own flag is the token claim.
 
@@ -114,8 +158,11 @@ Permissions are capability-based: `Capability(read_roles, write_roles, manager_c
 manager_can_read=True)` in `app/core/permissions.py`; `require_read` / `require_write` check
 platform_admin, then the roles, then the manager flag (if `manager_can_read` / `manager_can_write`).
 `read_roles=None` = any role; an empty set = manager only. An empty `write_roles` = platform staff
-or the manager — except the "Nobody" rows (`audit_logs`, `wagenbuch`, `stock_reservation`, the
-derived views, `module_entitlements`, `ui_translations`), which the manager cannot write.
+or the manager — except every row with `manager_can_write=False`: the "Nobody" rows (`audit_logs`,
+`wagenbuch`, `stock_reservation`, `ui_translations`, `status_page`, `integration_usage`,
+`module_entitlements`, `setup_checklist`, `support_session_log`) and the platform-only and self-only
+rows (`recovery_actions`, `notification_preferences`, `dealer_groups`, `canonical_taxonomy`), which
+the manager cannot write.
 
 **Session minting (KAN-141, KAN-196).** Every session token is minted through `_mint_session` in
 `app/platform/api/auth.py` — login, the MFA step, invitation acceptance and switch-dealership.
@@ -149,6 +196,10 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   enforces less than the matrix grants (none today: KAN-376 closed the `stock_items` one by giving
   every inventory write endpoint its own row — `tests/test_inventory_write_capabilities.py`).
   `Capability.manager_can_read=False` marks the platform-only and self-only rows.
+  Sales-licensed data embedded in another module's response is gated per field, not per route:
+  `holds_entitlement(db, principal, ModuleCode.X)` (the same claim + `ent_v` test, answered
+  yes/no) — today only the stock summary in `GET /v1/customers/{id}/vehicles`, null without
+  `sales` (KAN-378).
 - **Permissions are platform-defined (D-A-03). Policy limits are NOT in v1 (D-A-18)** — no
   `dealer_policy_limit`, no screen, no matrix row.
 - **Copy configuration from a sister dealership** (D-A-01, FR-A-01): a one-shot, audit-logged
@@ -190,9 +241,10 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   `confirmation: true` (422 `confirmation_required` otherwise; the optional `auditNote` is the audit
   reason) and the `dealership_legal_identity` write; every dealership, bank-account and settings
   write is audited with before/after. **Banking is the one capability refused with 404, not 403
-  (ADR-100):** outside manager, finance, auditor and platform staff every `…/bank-accounts` route,
-  reads and writes alike, answers 404 (`require_banking_read` / `require_banking_write` in
-  `app/core/permissions.py`); the SPA then shows no Banking section at all.
+  (ADR-100):** a `…/bank-accounts` read answers 404 to everyone but manager, finance, auditor and
+  platform staff; a write answers 404 to everyone but the manager and platform staff — finance and
+  auditor included, so a write probe tells no more than a read (`require_banking_read` /
+  `require_banking_write` in `app/core/permissions.py`); the SPA then shows no Banking section at all.
 - **Support access (D-A-05, D-A-24):** a Nexotec employee steps into the user's session with
   **full write from the start**; token carries `sub` = staff and `actingFor` = the user; audit
   shows both, never the dealer as actor; 60-minute box, mandatory reason, persistent banner;
@@ -248,7 +300,10 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   `colleague_cannot_act_there`), which the SPA translates. The nightly
   `platform.user_expiry` job (FR-A-12, worker only — not on staging) deactivates a user whose
   `valid_to` has passed with platform's own authority (a staff account expires too), one user
-  at a time (a failure on one is logged, the rest go on), releases their records to the queues,
+  at a time (a failure on one is logged, the rest go on) — except a last active manager, of their
+  own Betrieb or of a sister Betrieb (`last_manager` / `last_manager_elsewhere`; FR-A-13 outranks
+  the expiry: skipped, logged at ERROR, tried again the next night) —,
+  releases their records to the queues,
   and retries a failed release for 30 days; each module's nightly reconciliation reports an open
   record whose owner is deactivated (rule 10). `valid_from`/`valid_to` refuse a sign-in outside
   the window (the validity is checked as it will be after a PATCH); an invitation can be
@@ -307,8 +362,9 @@ One shared template layer (`app/platform/models/document_template.py`). WeasyPri
   claims `sid`, `amr`, `mfa`; `exp` is the session's absolute end. **Every refusal is the same
   401 body with the same argon2 work behind it** (a dummy verify when the address names no
   account) — `tests/test_identity_login_policy.py` asserts body and timing; never add a
-  reason-specific message. A NUL character anywhere in a request is a 422 before any route runs
-  (`app/core/nul_guard.py`, KAN-387, Anto: refuse, never strip) — except at the login door, which
+  reason-specific message. A NUL character in the path, the query string or a JSON or form body is
+  a 422 (`details.reason: nul_character`, `details.location`) before any route runs; other bodies
+  are not read (`app/core/nul_guard.py`, KAN-387, Anto: refuse, never strip) — except at the login door, which
   the guard leaves alone: an address with a NUL names no account, so it is the same 401. Per-account backoff from the third failure and soft lockout after
   `auth_lockout_failures` (cleared by a reset); per-IP backoff on the **last** X-Forwarded-For
   entry (the proxy's), never the first — wrong second-factor answers count on the account axis
@@ -343,8 +399,9 @@ One shared template layer (`app/platform/models/document_template.py`). WeasyPri
   (default **on**, the manager's `PUT /v1/dealerships/{id}/auth-config`, audit `auth_config_set`)
   decides for a Betrieb; **platform staff are always enforced** (D-A-36): `LoginResponse.
   mfaEnrolmentRequired` sends the SPA to `/account/security` before any other screen, and
-  `require_mfa_session()` in `app/core/auth.py` refuses a staff principal whose session carries
-  no factor — on `GET …/login-status`, `POST …/users/{id}/invitations`, the auth-config PUT and a probe route; the recovery door has its own gate (below); the impersonation
+  `require_mfa_session()` in `app/core/auth.py` refuses a staff principal whose token's `mfa` claim
+  is false (the claim as minted: a factor enrolled in this session counts there only after the
+  next sign-in or switch) — on `GET …/login-status`, `POST …/users/{id}/invitations`, the auth-config PUT and a probe route; the recovery door has its own gate (below); the impersonation
   endpoints will carry it. **And at the API as a whole:** the session guard confines a session
   that still owes a factor (every staff session without one; a dealer session in an enforcing
   Betrieb) to `/v1/auth/*`, `/v1/me/preferences` and the Betrieb's **own** `auth-config` switch
@@ -401,8 +458,9 @@ One shared template layer (`app/platform/models/document_template.py`). WeasyPri
   written and read only by `app/platform/services/connected_account.py` (nightly reconciliation
   reads its actor ids); `tests/architecture/test_connected_account_is_never_an_identity.py`
   keeps the identity and session layer from naming it. The user lists and revokes their own
-  (`GET/DELETE /v1/me/connected-accounts`), the manager a user's (`GET/DELETE /v1/dealerships/{id}/users/{user_id}/connected-accounts`,
-  capability `connected_accounts`; the manager's read is provider, scopes and status only —
+  (`GET /v1/me/connected-accounts`, `DELETE …/connected-accounts/{account_id}` with If-Match on the
+  grant's version), the manager a user's (`GET /v1/dealerships/{id}/users/{user_id}/connected-accounts`,
+  `DELETE …/connected-accounts/{account_id}`, If-Match likewise, capability `connected_accounts`; the manager's read is provider, scopes and status only —
   never the address or the usage stamps), deactivation revokes every one (FR-AU-24). A revoke keeps
   the row, records `connected_account_revoked` and an audit row; **after the commit** the caller
   runs the provider's registered revoker (`end_at_providers`; a provider failure is logged, never
@@ -461,9 +519,10 @@ One shared template layer (`app/platform/models/document_template.py`). WeasyPri
   not confirmed before it takes over the channel. **Not built:** FR-AU-26's `security`
   notification family itself (KAN-216; the e-mail-change notice is the one notice sent). No step-up
   re-authentication (A-12: no).
-- argon2id parameters are settings (`DMS_ARGON2_*`, default t=3 / 64 MiB / p=4, 48–80 ms a
-  verify on the build machine, `scripts/benchmark_argon2.py`); a stored hash below them is rehashed on
-  the next login. The Render instance is re-tuned in a follow-up ticket.
+- argon2id parameters are settings (`DMS_ARGON2_*`, default t=3 / 64 MiB / p=4; the target is ~250 ms
+  a verify on the instance that serves logins, measured with `scripts/benchmark_argon2.py` — the
+  defaults measure 50–80 ms on the build machine, short of it); a stored hash below them is rehashed
+  on the next login. The Render instance is re-tuned in KAN-384.
 
 ## Open questions — ask Anto, never decide in code
 

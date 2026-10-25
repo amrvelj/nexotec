@@ -9,21 +9,28 @@ paths:
   - "app/integration/adapters/marketplace_base.py"
   - "scripts/backfill_manual_configuration_reservations.py"
   - "scripts/migrate_transaction_rows.py"
+  - "alembic/versions/inventory/**"
+  - "tests/test_inventory_*.py"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises PRD-Stock, ADR-045, ADR-049,
-ADR-052, ADR-054, ADR-055, ADR-062, ADR-074 and the VAT reasoning of ADR-057. Verified against
-main@7a90ae4 on 2026-10-12 (every present-tense claim checked against the code). "Not built"
+ADR-052, ADR-054, ADR-055, ADR-062, ADR-074, ADR-087 and the VAT reasoning of ADR-057; also cites
+ADR-029, ADR-047, ADR-070. Verified against main@73baf3f on 2026-10-25 (every present-tense claim
+checked against the code). "Not built"
 lines cite a ticket; /drift-audit re-checks them weekly. -->
 
 # Stock and inventory
 
 - **ADR-045 — pre-VIN vehicles are pipeline stock items here, never vehicle-mdm records.** A
   Sales manual configuration and a trade-in on a confirmed contract both land here as pipeline
-  items; promotion on VIN arrival is FR-V-04.
+  items; promotion on VIN arrival is FR-V-04 (`services/pipeline.py::promote_to_vehicle_mdm`),
+  which nothing calls yet — no endpoint or consumer reaches it (KAN-446).
 - **ADR-054 — lifecycle and reservation are two independent axes**, never one merged status:
   `lifecycleStatus` (`pipeline` | `in_stock` | `storno_pending`) and `reservationState`
   (`none` | `reserved`). `sold` is not a lifecycle value — an invoiced vehicle has left stock
-  (`left_stock_at` set, FR-I-12). A single enum cannot express "in stock **and** reserved",
+  (`left_stock_at` set, FR-I-12). Today only the legacy transaction import sets it:
+  `services/invoicing_gate.py::apply_finance_invoice_issued` has no production caller until
+  Finance issues invoices (WP-9, `.claude/rules/finance.md`), so `request_invoice` leaves the car
+  in stock. A single enum cannot express "in stock **and** reserved",
   which is the ordinary case.
 - **ADR-055 — group-readable stock is its own enumerated projection** (`StockItemGroupRead`),
   not the tenant grid with columns removed. `tests/test_inventory_group_listing.py` asserts by
@@ -33,6 +40,14 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   sortable (it lives on platform's table). A dealership filter is not built (KAN-104).
 - **ADR-049** — full commercial visibility inside the dealership (margin, discounts,
   Wagenbuch); **ADR-029** unchanged at the group boundary.
+- **Stock is licensed with the `sales` module** (D-A-04, KAN-198): every inventory router
+  carries `require_entitlement(ModuleCode.SALES)` at router level (404 without it, before any
+  role check; `tests/architecture/test_sales_routers_carry_entitlement_gate.py`), and customer's
+  `GET /v1/customers/{id}/vehicles` embeds no stock summary without it (`holds_entitlement`,
+  KAN-378). Every inventory write checks `require_write` on its own matrix row — `stock_items`
+  for the item's own record, `stock_acquisition`, `stock_condition`, `marketplace_publishing`,
+  `stock_reservation` (KAN-376; `tests/test_inventory_write_capabilities.py`), so widening one
+  row opens no other write. Details in `.claude/rules/platform.md`.
 - **ADR-052 — `is_invoiceable` is Stock's fact**, replicated to Sales through
   `inventory.stock_item.purchased` (published once, by `mark_purchased_if_ready`; the legacy
   transaction migration publishes nothing and writes Sales' replica row itself); Sales keeps it
@@ -90,6 +105,10 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   (`app/inventory/services/purchase.py::record_purchase`), computed from the purchase price and
   the dealership's `vat_rate`, independent of `landed_cost`; it can be overridden afterwards
   (`override_notional_input_tax`, audited). Stock owns it; Sales only reads it.
+  **There is no `vatTreatment`** on a stock item (ADR-057; enforced by
+  `tests/architecture/test_no_vat_treatment_field.py` over `app/` and the frontend, and by name on
+  the stock-item schemas in `tests/test_inventory_purchase.py`): the notional
+  credit is a purchase-side fact, never a per-vehicle VAT treatment, never on a customer document.
 - **Marketplaces are three, not one** (ADR-062): AutoScout24 (AS24i v34.0, which drives the
   canonical field mapping), Carmarket and Autolina. **Full-delivery semantics:** an object no
   longer transmitted is **deleted** at the marketplace, with its statistics and its URL, so
@@ -110,8 +129,9 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   VIN through `services/vehicle_resolution.py` on a session of their own, so vehicle-mdm's commit
   or rollback never touches the caller's work; the loser of an insert race on a VIN vehicle-mdm
   has never seen takes the winner's record and carries on — then is stocked or refused
-  `vin_already_in_stock` (KAN-257; promotion has no caller yet). A car that left stock (invoiced) comes back as a new item, its sold row kept as
-  history; a storno'd car still blocks its VIN. The same car may be in pipeline twice (pipeline
+  `vin_already_in_stock` (KAN-257; promotion has no caller yet, KAN-446). A car that left stock (invoiced) comes back as a new item, its sold row kept as
+  history; a storno'd car (`storno_pending`, which nothing sets yet — no storno flow exists,
+  KAN-146) would still block its VIN. The same car may be in pipeline twice (pipeline
   items carry no VIN until promotion). The legacy transaction import follows the same rule: a car
   the old system shows sold and later traded back in gets a second item, the sold one is never
   reopened, and a row for a car live Stock holds or has sold is reported

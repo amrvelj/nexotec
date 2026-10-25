@@ -8,7 +8,7 @@ paths:
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises ADR-032, ADR-037, ADR-052,
 ADR-064, the ADR-050 addendum (2026-10-11) and the WP-9 page of the Build Sequence; KAN-74
-tracks WP-9. Verified against main@1dce27f on 2026-10-25 (every present-tense claim checked
+tracks WP-9. Verified against main@73baf3f on 2026-10-25 (every present-tense claim checked
 against the code; D-A-17 and D-A-27 against the Dealer Administration PRD's Revision 1.1 index,
 nothing in its Revision 1.2 index touches finance; KAN-373). /drift-audit re-checks the "not built" line weekly. -->
 
