@@ -76,8 +76,8 @@ present-tense claim checked against the code, every "not built" claim grepped fo
 - **The UI word for the tenant is "Betrieb"** in German (D-A-10) — *entreprise* in French, *azienda*
   in Italian, *business* in English (KAN-381, Anto 2026-10-18), in the bundles and in the backend's
   sign-in and mail texts (the invitation-acceptance, password-policy and MFA-enrolment error
-  `message`s say *business*; every other API error `message`, the login door's and
-  `_mint_session`'s included, still says "dealership"): service-only garages are customers from
+  `message`s say *business*; every other API error `message`, `_mint_session`'s 403 included,
+  still says "dealership"; the login door's 401 names neither): service-only garages are customers from
   day one, so `sales` is a module entitlement like `aftersales` (`module_entitlement`, KAN-198),
   and a Betrieb without it is a normal configuration. `dealership` stays the table and code name.
 - Tenant scope comes from the token. Group-scoped reads exist only in the files that
@@ -132,8 +132,9 @@ present-tense claim checked against the code, every "not built" claim grepped fo
   (logout, revoking one's own session, the guard's touch) takes no user lock: one row cannot
   close a cycle. The nightly
   `platform.user_expiry` re-reads each due user under the lock and judges it again, and its retry
-  re-reads each listed user and hands over only one still deactivated by the job. The first auth-config PUT, the first TOTP enrolment and the first preference save
-  insert in a savepoint and carry on with a concurrent winner's committed row (KAN-393).
+  re-reads each listed user and hands over only one still deactivated by the job. The first auth-config PUT, the first TOTP enrolment, the first preference save
+  and the first `dealership_settings` save insert in a savepoint and carry on with a concurrent
+  winner's committed row (KAN-393).
   `LoginResponse.user.isDealerManager` is the home flag, not the active dealership's — never
   gate a screen on it; the session's own flag is the token claim.
 
@@ -236,9 +237,10 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   `confirmation: true` (422 `confirmation_required` otherwise; the optional `auditNote` is the audit
   reason) and the `dealership_legal_identity` write; every dealership, bank-account and settings
   write is audited with before/after. **Banking is the one capability refused with 404, not 403
-  (ADR-100):** outside manager, finance, auditor and platform staff every `…/bank-accounts` route,
-  reads and writes alike, answers 404 (`require_banking_read` / `require_banking_write` in
-  `app/core/permissions.py`); the SPA then shows no Banking section at all.
+  (ADR-100):** a `…/bank-accounts` read answers 404 to everyone but manager, finance, auditor and
+  platform staff; a write answers 404 to everyone but the manager and platform staff — finance and
+  auditor included, so a write probe tells no more than a read (`require_banking_read` /
+  `require_banking_write` in `app/core/permissions.py`); the SPA then shows no Banking section at all.
 - **Support access (D-A-05, D-A-24):** a Nexotec employee steps into the user's session with
   **full write from the start**; token carries `sub` = staff and `actingFor` = the user; audit
   shows both, never the dealer as actor; 60-minute box, mandatory reason, persistent banner;
@@ -294,7 +296,9 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   `colleague_cannot_act_there`), which the SPA translates. The nightly
   `platform.user_expiry` job (FR-A-12, worker only — not on staging) deactivates a user whose
   `valid_to` has passed with platform's own authority (a staff account expires too), one user
-  at a time (a failure on one is logged, the rest go on), releases their records to the queues,
+  at a time (a failure on one is logged, the rest go on) — except their Betrieb's last active
+  manager (FR-A-13 outranks the expiry: skipped, logged at ERROR, tried again the next night) —,
+  releases their records to the queues,
   and retries a failed release for 30 days; each module's nightly reconciliation reports an open
   record whose owner is deactivated (rule 10). `valid_from`/`valid_to` refuse a sign-in outside
   the window (the validity is checked as it will be after a PATCH); an invitation can be
@@ -353,8 +357,9 @@ One shared template layer (`app/platform/models/document_template.py`). WeasyPri
   claims `sid`, `amr`, `mfa`; `exp` is the session's absolute end. **Every refusal is the same
   401 body with the same argon2 work behind it** (a dummy verify when the address names no
   account) — `tests/test_identity_login_policy.py` asserts body and timing; never add a
-  reason-specific message. A NUL character anywhere in a request is a 422 before any route runs
-  (`app/core/nul_guard.py`, KAN-387, Anto: refuse, never strip) — except at the login door, which
+  reason-specific message. A NUL character in the path, the query string or a JSON or form body is
+  a 422 (`details.reason: nul_character`, `details.location`) before any route runs; other bodies
+  are not read (`app/core/nul_guard.py`, KAN-387, Anto: refuse, never strip) — except at the login door, which
   the guard leaves alone: an address with a NUL names no account, so it is the same 401. Per-account backoff from the third failure and soft lockout after
   `auth_lockout_failures` (cleared by a reset); per-IP backoff on the **last** X-Forwarded-For
   entry (the proxy's), never the first — wrong second-factor answers count on the account axis
@@ -448,8 +453,9 @@ One shared template layer (`app/platform/models/document_template.py`). WeasyPri
   written and read only by `app/platform/services/connected_account.py` (nightly reconciliation
   reads its actor ids); `tests/architecture/test_connected_account_is_never_an_identity.py`
   keeps the identity and session layer from naming it. The user lists and revokes their own
-  (`GET/DELETE /v1/me/connected-accounts`), the manager a user's (`GET/DELETE /v1/dealerships/{id}/users/{user_id}/connected-accounts`,
-  capability `connected_accounts`; the manager's read is provider, scopes and status only —
+  (`GET /v1/me/connected-accounts`, `DELETE …/connected-accounts/{account_id}` with If-Match on the
+  grant's version), the manager a user's (`GET /v1/dealerships/{id}/users/{user_id}/connected-accounts`,
+  `DELETE …/connected-accounts/{account_id}`, If-Match likewise, capability `connected_accounts`; the manager's read is provider, scopes and status only —
   never the address or the usage stamps), deactivation revokes every one (FR-AU-24). A revoke keeps
   the row, records `connected_account_revoked` and an audit row; **after the commit** the caller
   runs the provider's registered revoker (`end_at_providers`; a provider failure is logged, never
