@@ -154,6 +154,17 @@ services:
         value: mrvelj.anto@gmail.com
       - key: DMS_PLATFORM_MAIL_SMTP_PASSWORD
         sync: false
+      # KAN-451 (ADR-101, KAN-37): Google Places Autocomplete on the address
+      # forms. Nexotec's browser key — public configuration, not a secret
+      # (its purpose is to reach the browser; Google Cloud's restriction to
+      # this origin and to Places API (New) is what protects it), but kept
+      # out of the repository like every credential. Pasted once in this
+      # service's Environment tab (Render ignores sync: false variables on
+      # a Blueprint update, so adding it here holds up no sync); unset, the
+      # feature is off everywhere and the Business screen says so. The
+      # step-by-step: Notion › Nexotec › Runbooks › Google Places go-live.
+      - key: DMS_GOOGLE_PLACES_BROWSER_KEY
+        sync: false
 
   # ---------------------------------------------------------------------
   # Outbox worker — NOT PROVISIONED ON STAGING (KAN-234).
