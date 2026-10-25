@@ -232,8 +232,8 @@ def test_a_vin_lookup_writes_nothing_into_integration(db_session):
     """ADR-047: the VIN rung asks integration whether decode is entitled,
     and that question must not write integration's cached `vin_decode`
     entitlement row inside this request's transaction. A tenant with an
-    enabled `auto_i_dat` connection is the case where
-    `tenant_has_capability("vin_decode")` would upsert it."""
+    enabled `auto_i_dat` connection is where that row lives (written only
+    by testing the `dat` connection since KAN-80)."""
 
     tenant_id = _connected_tenant(db_session, seed=False)
     provider = IntegrationProvider(

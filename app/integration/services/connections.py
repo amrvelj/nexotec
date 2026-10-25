@@ -71,9 +71,9 @@ FEATURE_SHEET_LINES: dict[str, str] = {"valuation": "bewertung"}
 _VIN_DECODE_CAPABILITY = "vin_decode"
 _DAT_PROVIDER_CODE = "dat"
 _AUTO_I_DAT_PROVIDER_CODE = "auto_i_dat"
-# KAN-80: testing a connection of either provider refreshes the cached
-# `vin_decode` row (`gateway.test_connection`) — the inputs of the derivation.
-VIN_DECODE_PROVIDER_CODES = frozenset({_DAT_PROVIDER_CODE, _AUTO_I_DAT_PROVIDER_CODE})
+# KAN-80 (Anto, option A): testing the `dat` connection refreshes the cached
+# `vin_decode` row (`gateway.test_connection`) — the connection it derives from.
+VIN_DECODE_PROVIDER_CODE = _DAT_PROVIDER_CODE
 
 
 def _validate_required_config(provider: IntegrationProvider, config: dict) -> None:
@@ -514,9 +514,15 @@ def compute_vin_decode_entitlement(db: Session, *, tenant_id: uuid.UUID) -> bool
     truth; the return value here always is.
 
     KAN-80 (Anto, option A): called only from `gateway.test_connection`,
-    when an admin tests the `dat` or `auto_i_dat` connection — never from
-    a read. `tenant_has_capability` answers from `vin_decode_granted`,
-    which writes nothing.
+    when an admin tests the `dat` connection — never from a read.
+    `tenant_has_capability` answers from `vin_decode_granted`, which writes
+    nothing.
+
+    Not grantable in shipped code today: no adapter factory is registered
+    for provider `dat` (`gateway._ADAPTER_FACTORIES`), so testing a `dat`
+    connection always ends in `UnknownProviderError` → `ERROR`, never
+    `CONNECTED`. Building one waits for the DAT/auto-i-dat specification
+    (KAN-81, G-46) — never an adapter built on a guess.
     """
 
     granted = vin_decode_granted(db, tenant_id=tenant_id)

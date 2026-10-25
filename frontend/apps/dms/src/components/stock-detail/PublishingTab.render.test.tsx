@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
-import { screen, waitFor, within } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from '../../i18n'
 import { renderWithProviders } from '../../test/renderWithProviders'
@@ -381,6 +381,13 @@ describe('PublishingTab — listing text sends If-Match (KAN-396)', () => {
   it('each save carries the version the previous save returned', async () => {
     const user = userEvent.setup()
     let current = row(4, null)
+    // The first save is held at the server until the test releases it, so
+    // the second is queued behind it (KAN-396) — never sent with version 4.
+    let releaseFirst: () => void = () => {}
+    const firstHeld = new Promise<void>((resolve) => {
+      releaseFirst = resolve
+    })
+    let patches = 0
     const backend = installFakeBackend([
       { match: /^\/inventory\/stock-items\/st-1\/equipment$/, handler: () => EQUIPMENT },
       { match: /^\/inventory\/stock-items\/st-1\/media$/, handler: () => [] },
@@ -388,26 +395,33 @@ describe('PublishingTab — listing text sends If-Match (KAN-396)', () => {
       {
         method: 'PATCH',
         match: /^\/inventory\/stock-items\/st-1\/publishing\/autoscout24$/,
-        handler: (req) => {
+        handler: async (req) => {
+          patches += 1
+          if (patches === 1) await firstHeld
           const sent = Number(req.headers.get('If-Match'))
           if (sent !== current.version) return status(409, { error: { code: 'conflict', message: 'stale', details: null } })
-          current = row(current.version + 1, (req.body as { zusatztitel?: string }).zusatztitel ?? current.zusatztitel)
+          current = { ...current, ...(req.body as object), version: current.version + 1 }
           return current
         },
       },
     ])
     renderWithProviders(<PublishingTab stockItemId="st-1" locale="de-CH" />)
-    const field = await screen.findByLabelText(i18n.t('stockDetail.publishing.fields.zusatztitel'))
+    const title = await screen.findByLabelText(i18n.t('stockDetail.publishing.fields.zusatztitel'))
+    const remarks = screen.getByLabelText(i18n.t('stockDetail.publishing.fields.bemerkungen'))
     await waitFor(() => expect(backend.callsTo(/\/publishing\/autoscout24$/, 'GET').length).toBeGreaterThan(0))
 
-    // Two saves (KAN-425: a field saves when it is left, or on a pause).
-    await user.type(field, 'A')
+    // Two fields, each left (KAN-425 saves on leaving a field): two saves.
+    await user.type(title, 'A')
+    await user.type(remarks, 'B')
     await user.tab()
-    await user.type(field, 'B')
-    await user.tab()
+    // The second waits in the queue while the first is at the server.
+    await waitFor(() => expect(backend.callsTo(/\/publishing\/autoscout24$/, 'PATCH')).toHaveLength(1))
+    releaseFirst()
+
     await waitFor(() => expect(backend.callsTo(/\/publishing\/autoscout24$/, 'PATCH')).toHaveLength(2))
     const sent = backend.callsTo(/\/publishing\/autoscout24$/, 'PATCH').map((call) => call.headers.get('If-Match'))
     expect(sent).toEqual(['4', '5'])
+    await waitFor(() => expect(current.version).toBe(6))
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
@@ -492,6 +506,80 @@ describe('PublishingTab — listing text keeps a local draft (KAN-425)', () => {
       expect(await screen.findByLabelText(label(name))).toBeInTheDocument()
     }
     await waitFor(() => expect(screen.getByLabelText(label('bemerkungen'))).toHaveValue('Scheckheftgepflegt'))
+  })
+
+  it("a newer server copy shows while nothing is being typed, and the next edit builds on it", async () => {
+    // Someone else saved; a refetch brings their text. The field must show
+    // it — an edit on top of the old text, sent with the refreshed version,
+    // would overwrite theirs without a conflict.
+    const user = userEvent.setup()
+    let current = row(1, { zusatztitel: 'Alt' })
+    const backend = installFakeBackend([
+      { match: /^\/inventory\/stock-items\/st-1\/equipment$/, handler: () => EQUIPMENT },
+      { match: /^\/inventory\/stock-items\/st-1\/media$/, handler: () => [] },
+      { method: 'GET', match: /^\/inventory\/stock-items\/st-1\/publishing\/autoscout24$/, handler: () => current },
+      {
+        method: 'PATCH',
+        match: /^\/inventory\/stock-items\/st-1\/publishing\/autoscout24$/,
+        handler: (req) => {
+          current = { ...current, ...(req.body as object), version: current.version + 1 }
+          return current
+        },
+      },
+    ])
+    const { queryClient } = renderWithProviders(<PublishingTab stockItemId="st-1" locale="de-CH" />)
+    const field = await screen.findByLabelText(label('zusatztitel'))
+    await waitFor(() => expect(field).toHaveValue('Alt'))
+
+    current = row(2, { zusatztitel: 'Von B' })
+    await act(() => queryClient.invalidateQueries({ queryKey: ['stock-item', 'st-1', 'publishing', 'autoscout24'] }))
+    await waitFor(() => expect(field).toHaveValue('Von B'))
+
+    await user.type(field, '!')
+    await user.tab()
+    await waitFor(() => expect(backend.callsTo(/\/publishing\/autoscout24$/, 'PATCH')).toHaveLength(1))
+    const [save] = backend.callsTo(/\/publishing\/autoscout24$/, 'PATCH')
+    expect(save.body).toEqual({ zusatztitel: 'Von B!' })
+    expect(save.headers.get('If-Match')).toBe('2')
+  })
+
+  it("a refused save on one channel keeps the draft being typed on another", async () => {
+    const user = userEvent.setup()
+    const backend = installFakeBackend([
+      { match: /^\/inventory\/stock-items\/st-1\/equipment$/, handler: () => EQUIPMENT },
+      { match: /^\/inventory\/stock-items\/st-1\/media$/, handler: () => [] },
+      { method: 'GET', match: /^\/inventory\/stock-items\/st-1\/publishing\/autoscout24$/, handler: () => row(1) },
+      {
+        method: 'GET',
+        match: /^\/inventory\/stock-items\/st-1\/publishing\/carmarket$/,
+        handler: () => ({ ...row(1), id: 'pub-2', channel: 'carmarket' }),
+      },
+      {
+        method: 'PATCH',
+        match: /^\/inventory\/stock-items\/st-1\/publishing\/autoscout24$/,
+        handler: async () => {
+          await new Promise((resolve) => setTimeout(resolve, 100))
+          return status(409, { error: { code: 'conflict', message: 'stale', details: null } })
+        },
+      },
+      {
+        method: 'PATCH',
+        match: /^\/inventory\/stock-items\/st-1\/publishing\/carmarket$/,
+        handler: (req) => ({ ...row(2), id: 'pub-2', channel: 'carmarket', ...(req.body as object) }),
+      },
+    ])
+    renderWithProviders(<PublishingTab stockItemId="st-1" locale="de-CH" />)
+    await user.type(await screen.findByLabelText(label('zusatztitel')), 'X')
+    await user.click(screen.getByRole('radio', { name: 'Carmarket' }))
+    const carmarketTitle = await screen.findByLabelText(label('zusatztitel'))
+    await waitFor(() => expect(backend.callsTo(/\/publishing\/carmarket$/, 'GET').length).toBeGreaterThan(0))
+    await user.type(carmarketTitle, 'Neu')
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(i18n.t('stockDetail.publishing.listingTextConflict'))
+    expect(screen.getByLabelText(label('zusatztitel'))).toHaveValue('Neu')
+    await user.tab()
+    await waitFor(() => expect(backend.callsTo(/\/publishing\/carmarket$/, 'PATCH')).toHaveLength(1))
+    expect(backend.callsTo(/\/publishing\/carmarket$/, 'PATCH')[0].body).toEqual({ zusatztitel: 'Neu' })
   })
 
   it('a draft still waiting when the channel changes is saved to the channel it was typed for', async () => {

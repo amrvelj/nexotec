@@ -123,10 +123,14 @@ export function PublishingTab({ stockItemId, locale }: PublishingTabProps) {
   }
   const [listingTextError, setListingTextError] = useState<string | null>(null)
   // KAN-425: each field keeps a local draft and saves on a pause or when
-  // left (useDebouncedTextField). After a refused save this count discards
-  // the drafts, once the channel's current row has been fetched again, so
-  // the tab shows the other person's version.
-  const [listingTextResync, setListingTextResync] = useState(0)
+  // left (useDebouncedTextField). After a refused save the channel's count
+  // discards its drafts, once its current row has been fetched again, so
+  // the tab shows the other person's version — never another channel's.
+  const [listingTextResync, setListingTextResync] = useState<Record<MarketplaceChannel, number>>({
+    autoscout24: 0,
+    carmarket: 0,
+    autolina: 0,
+  })
 
   const saveListingText = async (channel: MarketplaceChannel, patch: ListingTextPatch) => {
     setListingTextError(null)
@@ -143,7 +147,7 @@ export function PublishingTab({ stockItemId, locale }: PublishingTabProps) {
           : t('stockDetail.publishing.listingTextError')
       )
       await invalidatePublishing(channel)
-      setListingTextResync((n) => n + 1)
+      setListingTextResync((counts) => ({ ...counts, [channel]: counts[channel] + 1 }))
     }
   }
 
@@ -245,7 +249,7 @@ export function PublishingTab({ stockItemId, locale }: PublishingTabProps) {
           <ListingTextFields
             key={activeChannel}
             publishing={activePublishing}
-            resetKey={`${activePublishing ? 'loaded' : 'loading'}:${listingTextResync}`}
+            resetKey={`${activePublishing ? 'loaded' : 'loading'}:${listingTextResync[activeChannel]}`}
             onSave={(patch) => saveListingText(activeChannel, patch)}
             titleDisplayLimitCaption={t('stockDetail.publishing.titleDisplayLimit', {
               count: TITLE_DISPLAY_LIMITS[activeChannel],

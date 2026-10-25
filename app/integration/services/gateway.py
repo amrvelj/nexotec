@@ -327,9 +327,11 @@ def test_connection(db: Session, *, connection: IntegrationConnection) -> Integr
     logged, potentially billed provider call: one click is now two calls
     for `auto_i_dat`, not one.
 
-    KAN-80: testing the `dat` or the `auto_i_dat` connection also refreshes
-    the tenant's cached `vin_decode` entitlement row, healthy or not — the
-    one write path for that row; a capability read never writes it.
+    KAN-80 (Anto, option A): testing the `dat` connection also refreshes the
+    tenant's cached `vin_decode` entitlement row, healthy or not — the one
+    write path for that row; a capability read never writes it. (No `dat`
+    adapter exists yet, so that test ends in `ERROR`: see
+    `connections.compute_vin_decode_entitlement`.)
     """
 
     provider = provider_service.get_provider_or_404(db, connection.provider_id)
@@ -357,7 +359,7 @@ def test_connection(db: Session, *, connection: IntegrationConnection) -> Integr
     if healthy:
         _probe_entitlements(db, connection=connection)
     # A platform-scoped connection (no tenant) entitles no one's VIN decode.
-    if provider.provider_code in connection_service.VIN_DECODE_PROVIDER_CODES and connection.tenant_id is not None:
+    if provider.provider_code == connection_service.VIN_DECODE_PROVIDER_CODE and connection.tenant_id is not None:
         connection_service.compute_vin_decode_entitlement(db, tenant_id=connection.tenant_id)
     db.refresh(connection)
     return connection

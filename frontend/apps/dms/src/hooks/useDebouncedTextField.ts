@@ -9,9 +9,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
  * `flush` is called (the field is left), or when the field unmounts with
  * a draft still waiting — never once per keystroke.
  *
- * `resetKey` re-syncs the draft from `serverValue` only when it changes (a
- * different row arriving, or the host discarding the draft after a refused
- * save), never on this field's own saves coming back.
+ * A newer `serverValue` (a refetch carrying someone else's save) is shown
+ * while no draft is waiting — otherwise the next edit would be sent on top
+ * of a text the user never saw, with the refreshed version as its If-Match,
+ * and overwrite it without a conflict. A draft being typed is never
+ * overwritten by it. `resetKey` discards a waiting draft too (a different
+ * row arriving, or the host dropping drafts after a refused save).
  *
  * Returns `[value, setValue, flush]`.
  */
@@ -64,6 +67,14 @@ export function useDebouncedTextField(
     // why `serverValue` is deliberately not a dependency.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resetKey])
+
+  useEffect(() => {
+    if (timerRef.current !== null || localRef.current !== committedRef.current) return
+    if (serverValue === committedRef.current) return
+    localRef.current = serverValue
+    committedRef.current = serverValue
+    setLocal(serverValue)
+  }, [serverValue])
 
   // A draft still waiting when the field goes away is saved, not dropped.
   useEffect(() => flush, [flush])
