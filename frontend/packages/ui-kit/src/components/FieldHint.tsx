@@ -65,6 +65,14 @@ export function FieldLabel({ label, hint, labels }: FieldLabelProps) {
 export interface FieldHintProps {
   label: NonNullable<ReactNode>;
   description?: ReactNode;
+  "aria-describedby"?: string;
+}
+
+export interface FieldHintOptions {
+  /** For an inline input (Checkbox, Switch), which Mantine does not link to
+   * its `description`: the hidden hint gets this id and the input
+   * `aria-describedby`. A wrapper input is linked by Mantine itself. */
+  descriptionId?: string;
 }
 
 /**
@@ -73,12 +81,24 @@ export interface FieldHintProps {
  * (undefined, null, false or an empty string) the label is returned as is.
  * Not a hook: safe inside a condition. The description is the hint text in
  * a visually hidden span — Mantine's inline inputs (Switch, Checkbox)
- * render `description` but forward any other prop to the DOM.
+ * render `description` but forward any other prop to the DOM and set no
+ * `aria-describedby`; they pass `descriptionId` (from `useId`) to be linked.
  */
-export function fieldHint(label: NonNullable<ReactNode>, hint: ReactNode, labels: FieldHintLabels): FieldHintProps {
+export function fieldHint(
+  label: NonNullable<ReactNode>,
+  hint: ReactNode,
+  labels: FieldHintLabels,
+  options: FieldHintOptions = {},
+): FieldHintProps {
   if (hint === undefined || hint === null || hint === false || hint === "") return { label };
+  const { descriptionId } = options;
   return {
     label: <FieldLabel label={label} hint={hint} labels={labels} />,
-    description: <span style={VISUALLY_HIDDEN}>{hint}</span>,
+    description: (
+      <span id={descriptionId} style={VISUALLY_HIDDEN}>
+        {hint}
+      </span>
+    ),
+    ...(descriptionId ? { "aria-describedby": descriptionId } : {}),
   };
 }

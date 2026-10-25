@@ -255,7 +255,8 @@ export function OfferAccessoriesAndOptions<D extends SalesPricedDealRead>({
         </Group>
         {isUsed && newDiscount !== '' && Number(newDiscount) > 0 && (
           <TextInput
-            size="xs"{...hint(t('offerWorkspace.lineItems.suppressedReason'), t('offerWorkspace.lineItems.suppressedReasonHint'))}
+            size="xs"
+            {...hint(t('offerWorkspace.lineItems.suppressedReason'), t('offerWorkspace.lineItems.suppressedReasonHint'))}
             value={newReason}
             onChange={(e) => setNewReason(e.currentTarget.value)}
           />

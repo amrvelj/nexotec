@@ -179,7 +179,8 @@ export function AccountSignaturePage() {
           )}
           <Group align="flex-end">
             <FileInput
-              style={{ flex: 1 }}{...hint(t('account.signature.upload'), t('account.signature.imageHint'))}
+              style={{ flex: 1 }}
+              {...hint(t('account.signature.upload'), t('account.signature.imageHint'))}
               accept="image/png,image/jpeg"
               value={file}
               onChange={(chosen) => {

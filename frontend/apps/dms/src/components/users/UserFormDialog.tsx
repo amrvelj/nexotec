@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useState } from 'react'
 import {
   Alert,
   Button,
@@ -140,6 +140,7 @@ const FORM_ID = 'user-form'
 export function UserFormDialog({ opened, onClose, dealershipId, user, locations, colleagues, selfId, onSaved }: UserFormDialogProps) {
   const { t } = useTranslation()
   const hint = useFieldHint()
+  const managerHintId = useId()
   const [form, setForm] = useState<FormValues>(EMPTY)
   const [signatureFile, setSignatureFile] = useState<File | null>(null)
   const [removeSignature, setRemoveSignature] = useState(false)
@@ -383,7 +384,8 @@ export function UserFormDialog({ opened, onClose, dealershipId, user, locations,
               </Stack>
             </Checkbox.Group>
           </SimpleGrid>
-          <Switch {...hint(t('usersAdmin.fields.isDealerManager'), editing && user.id === selfId ? t('usersAdmin.fields.managerSelfHint') : t('usersAdmin.fields.managerHint'))}
+          <Switch
+            {...hint(t('usersAdmin.fields.isDealerManager'), editing && user.id === selfId ? t('usersAdmin.fields.managerSelfHint') : t('usersAdmin.fields.managerHint'), { descriptionId: managerHintId })}
             checked={form.isDealerManager}
             onChange={(e) => set('isDealerManager', e.currentTarget.checked)}
             disabled={editing && user.id === selfId}

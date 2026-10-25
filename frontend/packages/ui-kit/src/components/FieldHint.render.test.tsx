@@ -2,15 +2,17 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MantineProvider, Switch, TextInput } from "@mantine/core";
+import { Checkbox, MantineProvider, Switch, TextInput } from "@mantine/core";
 import { theme } from "../theme";
 import { fieldHint } from "./FieldHint";
 
 // KAN-443 — a field's hint is an info icon beside the label: the tooltip
 // shows the hint on hover and on keyboard focus, the input is still
 // described by the hint for assistive technology, the hint is not a visible
-// line of text, the label's accessible name is the label alone, and the
-// icon never activates the control whose label it sits in.
+// line of text, and the icon never activates the control whose label it
+// sits in. The named icon sits inside the <label>, so it joins the input's
+// accessible name ("Rue Indication"); `getByLabelText("Rue")` matches the
+// label's text, not that name.
 
 const LABELS = { icon: "Indication" };
 
@@ -41,7 +43,9 @@ describe("fieldHint", () => {
     const description = document.getElementById(input.getAttribute("aria-describedby")!)!;
     expect(description.firstElementChild).toHaveStyle({ position: "absolute", width: "1px" });
     expect(input.compareDocumentPosition(description) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(container.querySelector("input")).not.toHaveStyle({ "--input-margin-top": "calc(var(--mantine-spacing-xs) / 2)" });
+    // Mantine sets the margin variable on the wrapper when a description
+    // precedes the input; the theme's order leaves no element carrying it.
+    expect(container.querySelector('[style*="--input-margin-top"]')).toBeNull();
     expect(screen.queryByRole("tooltip")).toBeNull();
     await user.hover(icon);
     expect(await screen.findByRole("tooltip")).toHaveTextContent("Comme au registre du commerce.");
@@ -82,5 +86,16 @@ describe("fieldHint", () => {
     expect(toggle).not.toBeChecked();
     // The hint is on screen only in the tooltip: the description span is hidden.
     expect(screen.getByText("Administre les utilisateurs.", { selector: "span" })).toHaveStyle({ position: "absolute", width: "1px" });
+  });
+  it("links the hint to a Checkbox through descriptionId, which Mantine does not do itself", () => {
+    render(
+      <MantineProvider theme={theme}>
+        <Checkbox {...fieldHint("Compte par défaut", "Proposé sur chaque facture.", LABELS, { descriptionId: "default-hint" })} />
+      </MantineProvider>,
+    );
+    const checkbox = screen.getByRole("checkbox");
+    expect(checkbox).toHaveAttribute("aria-describedby", "default-hint");
+    expect(checkbox).toHaveAccessibleDescription("Proposé sur chaque facture.");
+    expect(document.getElementById("default-hint")).toHaveStyle({ position: "absolute", width: "1px" });
   });
 });

@@ -81,7 +81,7 @@ function AddressFields({ value, onChange, idPrefix, seat, extra }: { value: Addr
       <TextInput id={`${idPrefix}-locality`} label={t('business.addresses.locality')} value={value.locality} onChange={(e) => set('locality', e.currentTarget.value)} required />
       {swiss && <Select id={`${idPrefix}-canton`} label={t('business.addresses.canton')} data={CANTON_OPTIONS} value={value.canton} onChange={(v) => set('canton', v)} searchable required />}
       {extra}
-      {!seat && <TextInput id={`${idPrefix}-country`}{...hint(t('business.addresses.country'), t('business.addresses.countryHint'))} value={value.country} onChange={(e) => set('country', e.currentTarget.value.toUpperCase())} maxLength={2} />}
+      {!seat && <TextInput id={`${idPrefix}-country`} {...hint(t('business.addresses.country'), t('business.addresses.countryHint'))} value={value.country} onChange={(e) => set('country', e.currentTarget.value.toUpperCase())} maxLength={2} />}
     </SimpleGrid>
   )
 }

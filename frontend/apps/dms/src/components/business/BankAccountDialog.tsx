@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { Checkbox, Select, SimpleGrid, Stack, TextInput } from '@mantine/core'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { FormDialog } from '@nexotec/ui-kit'
@@ -84,6 +84,7 @@ export function BankAccountDialog({ opened, onClose, dealershipId, account }: Ba
   const hint = useFieldHint()
   const queryClient = useQueryClient()
   const idempotency = useIdempotencyKey()
+  const isDefaultHintId = useId()
   const [form, setForm] = useState<Form>(EMPTY)
   const [error, setError] = useState<string | null>(null)
   useEffect(() => {
@@ -159,7 +160,7 @@ export function BankAccountDialog({ opened, onClose, dealershipId, account }: Ba
             {scor && <TextInput {...hint(t('business.banking.fields.creditorReferencePrefix'), t('business.banking.fields.creditorReferencePrefixHint'))} value={form.creditorReferencePrefix} onChange={(e) => set('creditorReferencePrefix', e.currentTarget.value)} />}
             <TextInput label={t('business.banking.fields.label')} value={form.label} onChange={(e) => set('label', e.currentTarget.value)} placeholder={t('business.banking.fields.labelPlaceholder')} />
           </SimpleGrid>
-          <Checkbox {...hint(t('business.banking.fields.isDefault'), t('business.banking.fields.isDefaultHint'))} checked={form.isDefault} onChange={(e) => set('isDefault', e.currentTarget.checked)} />
+          <Checkbox {...hint(t('business.banking.fields.isDefault'), t('business.banking.fields.isDefaultHint'), { descriptionId: isDefaultHintId })} checked={form.isDefault} onChange={(e) => set('isDefault', e.currentTarget.checked)} />
         </Stack>
       </form>
     </FormDialog>
