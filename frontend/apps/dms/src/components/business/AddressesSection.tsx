@@ -1,7 +1,8 @@
 import { useCallback, type ReactNode } from 'react'
 import { Select, SimpleGrid, Stack, Switch, TextInput } from '@mantine/core'
 import { MapPin } from 'lucide-react'
-import { fieldHint, ProgressiveDisclosure } from '@nexotec/ui-kit'
+import { ProgressiveDisclosure } from '@nexotec/ui-kit'
+import { useFieldHint } from '../../hooks/useFieldHint'
 import { useTranslation } from 'react-i18next'
 import type { DealershipAddress, DealershipOverrideAddress, DealershipRead, DealershipUpdate } from '../../api/types'
 import { CANTON_OPTIONS } from '../../customerOptions'
@@ -69,6 +70,7 @@ function changesOf(d: DealershipRead, f: Form): DealershipUpdate {
 
 function AddressFields({ value, onChange, idPrefix, seat, extra }: { value: AddressForm; onChange: (v: AddressForm) => void; idPrefix: string; seat?: boolean; extra?: ReactNode }) {
   const { t } = useTranslation()
+  const hint = useFieldHint()
   const set = <K extends keyof AddressForm>(key: K, v: AddressForm[K]) => onChange({ ...value, [key]: v })
   const swiss = (value.country || 'CH').toUpperCase() === 'CH'
   return (
@@ -79,7 +81,7 @@ function AddressFields({ value, onChange, idPrefix, seat, extra }: { value: Addr
       <TextInput id={`${idPrefix}-locality`} label={t('business.addresses.locality')} value={value.locality} onChange={(e) => set('locality', e.currentTarget.value)} required />
       {swiss && <Select id={`${idPrefix}-canton`} label={t('business.addresses.canton')} data={CANTON_OPTIONS} value={value.canton} onChange={(v) => set('canton', v)} searchable required />}
       {extra}
-      {!seat && <TextInput id={`${idPrefix}-country`}{...fieldHint(t('business.addresses.country'), t('business.addresses.countryHint'))} value={value.country} onChange={(e) => set('country', e.currentTarget.value.toUpperCase())} maxLength={2} />}
+      {!seat && <TextInput id={`${idPrefix}-country`}{...hint(t('business.addresses.country'), t('business.addresses.countryHint'))} value={value.country} onChange={(e) => set('country', e.currentTarget.value.toUpperCase())} maxLength={2} />}
     </SimpleGrid>
   )
 }

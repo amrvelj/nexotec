@@ -59,11 +59,15 @@ takes.
 ## The rulings that bite most often
 
 - **A field's hint is an info icon beside the label** (KAN-443; Anto, 2026-10-25: "we want less
-  text"): `{...fieldHint(t('label'), t('labelHint'))}` from the kit on any Mantine input, never a
-  `description` line between label and input or under it. The hint shows in a tooltip on hover
-  and keyboard focus and still reaches assistive technology (the input's visually hidden
-  `description`, `aria-describedby`); the label's accessible name stays the label. Choice cards
-  (the customer-type tiles) are not fields and keep their text.
+  text"): in the app `const hint = useFieldHint()` then `{...hint(t('label'), t('labelHint'))}` on
+  any Mantine input (the kit's `fieldHint` underneath), never a `description` line between label
+  and input or under it. The hint shows in a tooltip on hover and keyboard focus and still
+  reaches assistive technology as a visually hidden span: on wrapper inputs it is the
+  `description` (`aria-describedby`); on Switch and Checkbox Mantine renders it inside the
+  control's label text and sets no `aria-describedby`. The icon is named `common.fieldHintIcon`
+  ("Hinweis") and joins the field's accessible name, so a role query matches the label as a
+  prefix (`new RegExp('^' + label)`), not as an exact string. Choice cards (the customer-type
+  tiles) are not fields and keep their text.
 - **ADR-056** — grid state (search, filter, sort, tab, scope) lives in the URL; the URL is the
   shareable unit. Layout and density stay out of it: they belong on the user preference record.
 - **ADR-058** — views and filters are **one control**, labelled with the current view. A

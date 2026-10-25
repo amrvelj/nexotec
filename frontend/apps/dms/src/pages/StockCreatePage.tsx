@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Button, Container, Group, Select, Stack, TextInput, Title } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
-import { fieldHint, semantic, useSetBreadcrumb } from '@nexotec/ui-kit'
+import { semantic, useSetBreadcrumb } from '@nexotec/ui-kit'
+import { useFieldHint } from '../hooks/useFieldHint'
 import { api, ApiError } from '../api/client'
 import { translatedStockConditionOptions } from '../stockOptions'
 import type { StockItemCondition, StockItemRead } from '../api/types'
@@ -39,6 +40,7 @@ function submitError(err: unknown): SubmitError {
  */
 export function StockCreatePage() {
   const { t } = useTranslation()
+  const hint = useFieldHint()
   useSetBreadcrumb([t('shell.nav.inventory'), t('stockCreate.title')])
   const navigate = useNavigate()
 
@@ -86,7 +88,7 @@ export function StockCreatePage() {
             onChange={(v) => setCondition((v as StockItemCondition) ?? 'used')}
             required
           />
-          <TextInput {...fieldHint(t('stockCreate.fields.vin'), t('stockCreate.fields.vinDescription'))}
+          <TextInput {...hint(t('stockCreate.fields.vin'), t('stockCreate.fields.vinDescription'))}
             value={vin}
             onChange={(e) => setVin(e.currentTarget.value.toUpperCase())}
           />

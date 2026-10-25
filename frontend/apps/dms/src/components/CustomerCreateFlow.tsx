@@ -4,7 +4,7 @@ import { useDebouncedValue } from '@mantine/hooks'
 import { useForm } from '@mantine/form'
 import { useTranslation } from 'react-i18next'
 import { Building2, User } from 'lucide-react'
-import { fieldHint,
+import {
   RepeatableRowGroup,
   Wizard,
   purple,
@@ -13,6 +13,7 @@ import { fieldHint,
   type RepeatableRowValue,
   type WizardStep,
 } from '@nexotec/ui-kit'
+import { useFieldHint } from '../hooks/useFieldHint'
 import { api, ApiError } from '../api/client'
 import {
   LANGUAGE_OPTIONS,
@@ -122,6 +123,7 @@ export interface CustomerCreateFlowProps {
  */
 export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType, onOpenExisting }: CustomerCreateFlowProps) {
   const { t, i18n } = useTranslation()
+  const hint = useFieldHint()
   const steps: WizardStep[] = [
     { id: 'type', label: t('customerCreate.steps.type') },
     { id: 'details', label: t('customerCreate.steps.details') },
@@ -299,7 +301,7 @@ export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType, o
         </SimpleGrid>
       ) : (
         <Stack gap="sm">
-          <Select {...fieldHint(t('customerCreate.fields.correspondenceLanguage'), t('customerCreate.descriptions.correspondenceLanguage'))}
+          <Select {...hint(t('customerCreate.fields.correspondenceLanguage'), t('customerCreate.descriptions.correspondenceLanguage'))}
             data={LANGUAGE_OPTIONS}
             allowDeselect={false}
             required

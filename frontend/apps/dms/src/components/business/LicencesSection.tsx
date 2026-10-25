@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import { fieldHint } from '@nexotec/ui-kit'
+import { useFieldHint } from '../../hooks/useFieldHint'
 import { ActionIcon, Button, Group, MultiSelect, Select, SimpleGrid, Stack, Text, TextInput } from '@mantine/core'
 import { Award, Plus, Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -53,6 +53,7 @@ function changesOf(d: DealershipRead, f: Form): DealershipUpdate {
  */
 export function LicencesSection({ dealership }: { dealership: DealershipRead }) {
   const { t } = useTranslation()
+  const hint = useFieldHint()
   const { form, set, dirty, markSaved, loaded } = useRecordForm(dealership, useCallback(toForm, []))
   const patch = useDealershipPatch(dealership.id)
   const associations = useListOptions('association_membership')
@@ -99,8 +100,8 @@ export function LicencesSection({ dealership }: { dealership: DealershipRead }) 
           </Button>
         </Group>
         <SimpleGrid cols={{ base: 1, sm: 2 }}>
-          <TextInput {...fieldHint(t('business.licences.astra'), t('business.licences.astraHint'))} value={form.astraOperatorNumber} onChange={(e) => set('astraOperatorNumber', e.currentTarget.value)} />
-          <MultiSelect {...fieldHint(t('business.licences.associations'), t('business.licences.associationsHint'))} data={associations.options} value={form.associationMemberships} onChange={(v) => set('associationMemberships', v)} searchable clearable />
+          <TextInput {...hint(t('business.licences.astra'), t('business.licences.astraHint'))} value={form.astraOperatorNumber} onChange={(e) => set('astraOperatorNumber', e.currentTarget.value)} />
+          <MultiSelect {...hint(t('business.licences.associations'), t('business.licences.associationsHint'))} data={associations.options} value={form.associationMemberships} onChange={(v) => set('associationMemberships', v)} searchable clearable />
         </SimpleGrid>
       </Stack>
     </SectionCard>

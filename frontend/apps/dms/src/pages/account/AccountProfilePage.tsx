@@ -3,7 +3,8 @@ import { Alert, Button, Card, Group, Select, SimpleGrid, Stack, Text, TextInput 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Bell } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { fieldHint, useSetBreadcrumb } from '@nexotec/ui-kit'
+import { useSetBreadcrumb } from '@nexotec/ui-kit'
+import { useFieldHint } from '../../hooks/useFieldHint'
 import { api, ApiError } from '../../api/client'
 import type { MeRead, MeUpdate } from '../../api/types'
 import { useAuth } from '../../auth/AuthContext'
@@ -54,6 +55,7 @@ function changesOf(me: MeRead, form: ProfileForm): MeUpdate {
  */
 export function AccountProfilePage() {
   const { t } = useTranslation()
+  const hint = useFieldHint()
   useSetBreadcrumb([t('account.title'), t('account.tabs.profile')])
   const { refresh } = useAuth()
   const { uiLanguage, setUiLanguage } = useUiPreferencesContext()
@@ -147,7 +149,7 @@ export function AccountProfilePage() {
                 value={form.lastName}
                 onChange={(e) => set('lastName', e.currentTarget.value)}
               />
-              <TextInput {...fieldHint(t('account.profile.email'), t('account.profile.emailHint'))}
+              <TextInput {...hint(t('account.profile.email'), t('account.profile.emailHint'))}
                 value={loaded.email}
                 readOnly
                 disabled
@@ -165,13 +167,13 @@ export function AccountProfilePage() {
                 value={form.directDial}
                 onChange={(e) => set('directDial', e.currentTarget.value)}
               />
-              <Select {...fieldHint(t('account.profile.uiLanguage'), t('account.profile.uiLanguageHint'))}
+              <Select {...hint(t('account.profile.uiLanguage'), t('account.profile.uiLanguageHint'))}
                 data={LANGUAGES.map((code) => ({ value: code, label: languageLabel(code) }))}
                 value={uiLanguage}
                 allowDeselect={false}
                 onChange={(value) => value && setUiLanguage(value as Language)}
               />
-              <Select {...fieldHint(t('account.profile.correspondenceLanguage'), t('account.profile.correspondenceLanguageHint'))}
+              <Select {...hint(t('account.profile.correspondenceLanguage'), t('account.profile.correspondenceLanguageHint'))}
                 data={[
                   {
                     value: BETRIEB_DEFAULT,

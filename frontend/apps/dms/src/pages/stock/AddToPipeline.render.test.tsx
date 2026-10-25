@@ -211,7 +211,7 @@ describe('Stock list — add to pipeline (FR-C-13)', () => {
 
     await user.click(await screen.findByRole('button', { name: i18n.t('stockList.addToPipeline') }))
     const overlay = await screen.findByRole('dialog')
-    await user.type(within(overlay).getByRole('textbox', { name: i18n.t('configurator.find.idLabel') }), 'WVWZZZ1KZAW000001')
+    await user.type(within(overlay).getByRole('textbox', { name: new RegExp('^' + i18n.t('configurator.find.idLabel')) }), 'WVWZZZ1KZAW000001')
     await user.click(within(overlay).getByRole('button', { name: i18n.t('configurator.find.manual') }))
     await user.click(await within(overlay).findByRole('button', { name: i18n.t('configurator.configure.back') }))
     await user.click(await within(overlay).findByRole('button', { name: i18n.t('configurator.find.manual') }))

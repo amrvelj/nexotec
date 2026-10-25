@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Alert, Stack, Text, Textarea, TextInput } from '@mantine/core'
-import { fieldHint, FormDialog } from '@nexotec/ui-kit'
+import { FormDialog } from '@nexotec/ui-kit'
+import { useFieldHint } from '../../hooks/useFieldHint'
 import { useTranslation } from 'react-i18next'
 import { api, ApiError } from '../../api/client'
 import type { ChangeEmailRequest, GrantManagerRequest, RecoveryRequest, RecoveryResult, RecoveryUserRead } from '../../api/types'
@@ -33,6 +34,7 @@ export interface RecoveryReasonDialogProps {
  */
 export function RecoveryReasonDialog({ opened, onClose, user, choice, onDone }: RecoveryReasonDialogProps) {
   const { t } = useTranslation()
+  const hint = useFieldHint()
   const [reason, setReason] = useState('')
   const [email, setEmail] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -124,7 +126,7 @@ export function RecoveryReasonDialog({ opened, onClose, user, choice, onDone }: 
             data-autofocus
           />
         )}
-        <Textarea {...fieldHint(t('recovery.dialog.reason'), t('recovery.dialog.reasonHint'))}
+        <Textarea {...hint(t('recovery.dialog.reason'), t('recovery.dialog.reasonHint'))}
           value={reason}
           onChange={(e) => setReason(e.currentTarget.value)}
           maxLength={REASON_MAX}

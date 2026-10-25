@@ -1,22 +1,33 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MantineProvider, TextInput } from "@mantine/core";
+import { MantineProvider, Switch, TextInput } from "@mantine/core";
+import { theme } from "../theme";
 import { fieldHint } from "./FieldHint";
 
 // KAN-443 — a field's hint is an info icon beside the label: the tooltip
-// shows the hint on keyboard focus, the input is still described by the
-// hint for assistive technology, the hint is not a visible line of text, and
-// the label's accessible name is the label alone.
+// shows the hint on hover and on keyboard focus, the input is still
+// described by the hint for assistive technology, the hint is not a visible
+// line of text, the label's accessible name is the label alone, and the
+// icon never activates the control whose label it sits in.
+
+const LABELS = { icon: "Indication" };
 
 function Field({ hint }: { hint?: string }) {
   return (
-    <MantineProvider>
-      <TextInput {...fieldHint("Rue", hint)} />
+    <MantineProvider theme={theme}>
+      <TextInput {...fieldHint("Rue", hint, LABELS)} />
     </MantineProvider>
   );
 }
+
+// Mantine opens a tooltip on focus only under `:focus-visible`, which jsdom
+// does not implement: a keyboard focus is made visible here.
+const nativeMatches = Element.prototype.matches;
+afterEach(() => {
+  Element.prototype.matches = nativeMatches;
+});
 
 describe("fieldHint", () => {
   it("puts the hint in a tooltip on the icon and keeps the input described by it", async () => {
@@ -24,29 +35,51 @@ describe("fieldHint", () => {
     const { container } = render(<Field hint="Comme au registre du commerce." />);
     const input = screen.getByLabelText("Rue");
     expect(input).toHaveAccessibleDescription("Comme au registre du commerce.");
-    const icon = container.querySelector("[data-field-hint]") as HTMLElement;
-    expect(icon).not.toBeNull();
-    // Not a visible line of text: the description is visually hidden.
-    const description = document.getElementById(icon.getAttribute("aria-describedby")!)!;
-    expect(description).toHaveStyle({ position: "absolute", width: "1px" });
+    const icon = screen.getByRole("img", { name: "Indication" });
+    // Not a visible line of text: the description is visually hidden, and it
+    // sits after the input (theme), so the input is not pushed down.
+    const description = document.getElementById(input.getAttribute("aria-describedby")!)!;
+    expect(description.firstElementChild).toHaveStyle({ position: "absolute", width: "1px" });
+    expect(input.compareDocumentPosition(description) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(container.querySelector("input")).not.toHaveStyle({ "--input-margin-top": "calc(var(--mantine-spacing-xs) / 2)" });
     expect(screen.queryByRole("tooltip")).toBeNull();
     await user.hover(icon);
     expect(await screen.findByRole("tooltip")).toHaveTextContent("Comme au registre du commerce.");
     await user.unhover(icon);
-    // The icon sits in the label, so it is the first tab stop; the input
-    // follows. The tooltip opens on keyboard focus too (`events.focus`), but
-    // Mantine gates that on `:focus-visible`, which jsdom does not implement —
-    // the focus path is checked in the browser, not here.
+  });
+
+  it("opens the tooltip on keyboard focus; the icon is the tab stop before the input", async () => {
+    Element.prototype.matches = function (selector: string) {
+      return selector === ":focus-visible" ? document.activeElement === this : nativeMatches.call(this, selector);
+    };
+    const user = userEvent.setup();
+    render(<Field hint="Comme au registre du commerce." />);
     await user.tab();
-    expect(icon).toHaveFocus();
+    expect(screen.getByRole("img", { name: "Indication" })).toHaveFocus();
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("Comme au registre du commerce.");
     await user.tab();
-    expect(input).toHaveFocus();
+    expect(screen.getByLabelText("Rue")).toHaveFocus();
   });
 
   it("renders a plain label when there is no hint", () => {
-    const { container } = render(<Field />);
+    render(<Field />);
     expect(screen.getByLabelText("Rue")).toBeInTheDocument();
-    expect(container.querySelector("[data-field-hint]")).toBeNull();
+    expect(screen.queryByRole("img")).toBeNull();
     expect(screen.getByLabelText("Rue")).not.toHaveAttribute("aria-describedby");
+  });
+
+  it("never activates the control whose label it sits in: a Switch stays as it was", async () => {
+    const user = userEvent.setup();
+    render(
+      <MantineProvider theme={theme}>
+        <Switch {...fieldHint("Gérant", "Administre les utilisateurs.", LABELS)} defaultChecked={false} />
+      </MantineProvider>,
+    );
+    const toggle = screen.getByRole("switch");
+    expect(toggle).not.toBeChecked();
+    await user.click(screen.getByRole("img", { name: "Indication" }));
+    expect(toggle).not.toBeChecked();
+    // The hint is on screen only in the tooltip: the description span is hidden.
+    expect(screen.getByText("Administre les utilisateurs.", { selector: "span" })).toHaveStyle({ position: "absolute", width: "1px" });
   });
 });

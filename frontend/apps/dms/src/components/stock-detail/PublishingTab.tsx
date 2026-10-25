@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, SegmentedControl } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
-import { fieldHint, CounterTextarea, MediaGallery, OverviewCard, semantic, slate, spacing } from '@nexotec/ui-kit'
+import { CounterTextarea, MediaGallery, OverviewCard, semantic, slate, spacing } from '@nexotec/ui-kit'
+import { useFieldHint } from '../../hooks/useFieldHint'
 import { api, ApiError } from '../../api/client'
 import { BlockingConditionBanner } from './BlockingConditionBanner'
 import { ChannelPublishCard } from './ChannelPublishCard'
@@ -40,6 +41,7 @@ interface PublishingTabProps {
  */
 export function PublishingTab({ stockItemId, locale }: PublishingTabProps) {
   const { t } = useTranslation()
+  const hint = useFieldHint()
   const queryClient = useQueryClient()
   const [activeChannel, setActiveChannel] = useState<MarketplaceChannel>('autoscout24')
 
@@ -256,7 +258,7 @@ export function PublishingTab({ stockItemId, locale }: PublishingTabProps) {
             onChange={(v) => saveListingText({ zustandsbeschreibung: v })}
             maxLength={2000}
           />
-          <CounterTextarea {...fieldHint(t('stockDetail.publishing.fields.haendlerbemerkungen'), t('stockDetail.publishing.haendlerbemerkungenHint'))}
+          <CounterTextarea {...hint(t('stockDetail.publishing.fields.haendlerbemerkungen'), t('stockDetail.publishing.haendlerbemerkungenHint'))}
             value={activePublishing?.haendlerbemerkungen ?? ''}
             onChange={(v) => saveListingText({ haendlerbemerkungen: v })}
             maxLength={2000}

@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { Alert, Button, Group, Select, Stack, Table, Text, TextInput } from '@mantine/core'
 import { AlertTriangle, Info, ScanSearch } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { fieldHint, ChfInput, Picker, type PickerRow } from '@nexotec/ui-kit'
+import { ChfInput, Picker, type PickerRow } from '@nexotec/ui-kit'
+import { useFieldHint } from '../../hooks/useFieldHint'
 import { api, ApiError } from '../../api/client'
 import { toSwissLocale, type SupportedLanguage } from '../../i18n'
 import { formatCurrencyChf, formatDateOnly } from '../../utils/format'
@@ -55,6 +56,7 @@ const SILENT_NOTES = new Set(['vin_decode_not_entitled'])
  */
 export function IdentificationPanel({ allowedModes, onStart, onReuse, onQueryChange }: IdentificationPanelProps) {
   const { t, i18n } = useTranslation()
+  const hint = useFieldHint()
   const locale = toSwissLocale(i18n.language as SupportedLanguage)
   const [query, setQuery] = useState('')
   const [result, setResult] = useState<IdentificationRead | null>(null)
@@ -136,7 +138,7 @@ export function IdentificationPanel({ allowedModes, onStart, onReuse, onQueryCha
   return (
     <Stack gap="sm">
       <Group align="flex-end" gap="xs">
-        <TextInput {...fieldHint(t('configurator.find.idLabel'), t('configurator.find.idHint'))}
+        <TextInput {...hint(t('configurator.find.idLabel'), t('configurator.find.idHint'))}
           // KAN-351 — a 17-character input that is no VIN by the API's rule
           // is not kept as the car's VIN (ConfiguratorOverlay, KAN-338); the
           // input names the VIN rule instead of the VIN vanishing in phase 2.
