@@ -3,6 +3,7 @@ import { Alert } from '@mantine/core'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
+  Building2,
   Car,
   CarFront,
   ChartColumn,
@@ -89,6 +90,10 @@ function buildNavGroups(t: (key: string) => string): NavGroupConfig[] {
       items: [
         // KAN-200 — Dealer Administration › Users. Manager-only at the API
         // (`dealership_users`); the entry is never role-hidden (A-RULE-7).
+        // KAN-203 — Dealer Administration › Business (A-RULE-0: the one place
+        // the Betrieb's master data is configured). Any role reads it; the
+        // writes are the manager's at the API, the entry is never role-hidden.
+        { label: t('shell.nav.business'), href: '/administration/business', icon: Building2, status: 'active' },
         { label: t('shell.nav.users'), href: '/administration/users', icon: UserCog, status: 'active' },
         // KAN-202 — platform staff's account recovery (FR-AU-25…27). Staff-only
         // at the API; the entry is never role-hidden (Anto, 2026-10-22: under

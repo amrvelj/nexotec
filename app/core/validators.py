@@ -155,6 +155,41 @@ def _validate_iban(value: str) -> str:
     return compact
 
 
+# QR-IBAN (SIX, Swiss QR-bill Implementation Guidelines §3.5.1): a Swiss or
+# Liechtenstein IBAN whose institution identification (IID, positions 5–9)
+# lies in 30000..31999. A QR-IBAN and a plain IBAN are not interchangeable
+# — the QR-IBAN takes the 27-digit QR reference, the plain IBAN a creditor
+# reference or none — so KAN-203 tells them apart on save, not on print.
+_QR_IID_RANGE = range(30000, 32000)
+
+
+def is_qr_iban(compact_iban: str) -> bool:
+    """True when a (compact, upper-cased, mod-97-valid) CH/LI IBAN carries a
+    QR-IID. A foreign IBAN is never a QR-IBAN."""
+
+    if compact_iban[:2] not in ("CH", "LI") or len(compact_iban) != 21:
+        return False
+    return int(compact_iban[4:9]) in _QR_IID_RANGE
+
+
+def _validate_plain_iban(value: str) -> str:
+    compact = _validate_iban(value)
+    if is_qr_iban(compact):
+        raise ValueError(
+            "This is a QR-IBAN (IID 30000–31999) — enter it as the QR-IBAN; the IBAN field takes the ordinary account IBAN."
+        )
+    return compact
+
+
+def _validate_qr_iban(value: str) -> str:
+    compact = _validate_iban(value)
+    if not is_qr_iban(compact):
+        raise ValueError(
+            "This is not a QR-IBAN — a QR-IBAN is a Swiss IBAN whose institution number (positions 5–9) lies in 30000–31999."
+        )
+    return compact
+
+
 def _validate_swiss_uid(value: str) -> str:
     normalised = value.strip().upper()
     if not _UID_RE.match(normalised):
@@ -194,6 +229,8 @@ def _validate_swiss_vat_number(value: str) -> str:
 CantonCode = Annotated[str, AfterValidator(_validate_canton)]
 E164Phone = Annotated[str, AfterValidator(_validate_e164_phone)]
 Iban = Annotated[str, AfterValidator(_validate_iban)]
+PlainIban = Annotated[str, AfterValidator(_validate_plain_iban)]
+QrIban = Annotated[str, AfterValidator(_validate_qr_iban)]
 HouseNumber = Annotated[str, AfterValidator(_validate_house_number)]
 SwissPostalCode = Annotated[str, AfterValidator(_validate_postal_code)]
 SwissUid = Annotated[str, AfterValidator(_validate_swiss_uid)]

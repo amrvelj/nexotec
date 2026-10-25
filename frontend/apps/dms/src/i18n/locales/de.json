@@ -22,7 +22,8 @@
       "referenceData": "Referenzdaten",
       "catalogue": "Katalog",
       "users": "Benutzer",
-      "accountRecovery": "Kontowiederherstellung"
+      "accountRecovery": "Kontowiederherstellung",
+      "business": "Betrieb"
     },
     "signOut": "Abmelden",
     "environmentNotice": {
@@ -2462,6 +2463,165 @@
         "effect": "{{name}} meldet sich ab jetzt mit der neuen Adresse an. Offene Einladungs- und Rücksetzlinks werden ungültig, {{name}} wird überall abgemeldet, und {{email}} wird über die Änderung informiert. Das Passwort ändert sich nicht.",
         "done": "Die E-Mail-Adresse von {{name}} wurde geändert."
       }
+    }
+  },
+  "business": {
+    "title": "Betrieb",
+    "subtitle": "Die Stammdaten Ihres Betriebs: rechtliche Identität, Adressen, Bankverbindungen, kaufmännische Vorgaben, Bewilligungen und Mitgliedschaften. Sie erscheinen auf Verträgen, Rechnungen und der QR-Rechnung.",
+    "loadError": "Die Betriebsdaten konnten nicht geladen werden.",
+    "saved": "Gespeichert.",
+    "errors": {
+      "managerOnly": "Nur ein Manager dieses Betriebs ändert dessen Stammdaten.",
+      "conflict": "Die Daten wurden inzwischen an anderer Stelle geändert. Laden Sie die Seite neu und erfassen Sie Ihre Änderung erneut.",
+      "invalid": "Bitte prüfen Sie Ihre Eingaben.",
+      "uidTaken": "Diese UID gehört bereits einem anderen Betrieb.",
+      "confirmationRequired": "Eine Änderung von Firma, UID oder MWST braucht Ihre Bestätigung.",
+      "unknownReferenceCode": "Dieser Wert steht nicht in der Auswahlliste.",
+      "qrReferenceNeedsQrIban": "Die QR-Referenz braucht eine QR-IBAN. Erfassen Sie die QR-IBAN oder wählen Sie einen anderen Referenztyp.",
+      "qrIbanNeedsQrReference": "Eine QR-IBAN wird nur mit der QR-Referenz verwendet. Entfernen Sie die QR-IBAN oder wählen Sie die QR-Referenz.",
+      "creditorPrefixNeedsScor": "Ein Referenz-Präfix gilt nur für die strukturierte Gläubigerreferenz (SCOR).",
+      "defaultConflict": "Inzwischen wurde ein anderes Konto zum Rechnungskonto. Laden Sie die Seite neu und versuchen Sie es erneut.",
+      "invalidField": "Bitte prüfen Sie das Feld «{{field}}».",
+      "bankingManagerOnly": "Nur ein Manager dieses Betriebs ändert die Bankverbindungen."
+    },
+    "legal": {
+      "title": "Rechtliche Identität",
+      "legalName": "Firma (gemäss Handelsregister)",
+      "legalNameHint": "Erscheint auf Verträgen und Rechnungen.",
+      "tradeName": "Geschäftsbezeichnung",
+      "tradeNameHint": "Was auf dem Schild steht – für Werbung und Preisschilder.",
+      "legalForm": "Rechtsform",
+      "franchiseType": "Markenbindung",
+      "franchiseTypes": {
+        "franchise": "Markenvertretung",
+        "independent": "Freier Händler"
+      },
+      "oemAffiliations": "Vertretene Marken",
+      "uid": "UID",
+      "uidHint": "Unternehmens-Identifikationsnummer, z. B. CHE-123.456.789.",
+      "vatNumber": "MWST-Nummer",
+      "vatLiable": "Mehrwertsteuerpflichtig",
+      "commercialRegisterOffice": "Handelsregisteramt (Kanton)",
+      "hrNumber": "Handelsregister-Nummer",
+      "hrNumberHint": "Erscheint in der Fusszeile der Dokumente.",
+      "confirmTitle": "Änderung der rechtlichen Identität",
+      "confirmHint": "Firma, UID und MWST-Angaben erscheinen auf jedem Vertrag und jeder Rechnung. Die Änderung wird mit Ihrem Namen protokolliert.",
+      "confirmLabel": "Ich bestätige, dass diese Angaben dem Handelsregister entsprechen.",
+      "confirmFirst": "Bestätigen Sie die Änderung der rechtlichen Identität.",
+      "auditNote": "Grund (optional)",
+      "auditNotePlaceholder": "z. B. Umfirmierung per HR-Eintrag vom 1. Oktober"
+    },
+    "addresses": {
+      "title": "Adressen",
+      "street": "Strasse",
+      "houseNumber": "Nr.",
+      "postalCode": "PLZ",
+      "locality": "Ort",
+      "canton": "Kanton",
+      "country": "Land",
+      "countryHint": "Ländercode, z. B. CH, DE, LI.",
+      "phone": "Telefon",
+      "overrides": "Abweichende Korrespondenz- oder Rechnungsadresse",
+      "correspondenceDiffers": "Die Post geht an eine andere Adresse als den Sitz",
+      "billingDiffers": "Rechnungen von Nexotec gehen an eine andere Adresse (z. B. die Buchhaltung der Gruppe)"
+    },
+    "banking": {
+      "title": "Bankverbindungen",
+      "add": "Konto hinzufügen",
+      "edit": "Bearbeiten",
+      "delete": "Konto entfernen",
+      "deleteConfirm": "Das Konto {{iban}} wird entfernt. Rechnungen, die es bereits nennen, bleiben unverändert.",
+      "makeDefault": "Als Rechnungskonto festlegen",
+      "isAlreadyDefault": "Ist bereits das Rechnungskonto",
+      "default": "Rechnungskonto",
+      "noneYet": "Noch keine Bankverbindung. Ohne Rechnungskonto kann keine Rechnung ausgestellt werden.",
+      "noDefault": "Kein Konto ist als Rechnungskonto festgelegt. Wählen Sie das Konto, das auf Rechnungen und der QR-Rechnung erscheint.",
+      "columns": {
+        "label": "Bezeichnung",
+        "holder": "Kontoinhaber",
+        "bank": "Bank",
+        "iban": "IBAN",
+        "qr": "QR-Rechnung"
+      },
+      "fields": {
+        "accountHolder": "Kontoinhaber",
+        "bankName": "Bank",
+        "iban": "IBAN",
+        "ibanHint": "Wird beim Speichern geprüft. Eine QR-IBAN gehört ins Feld QR-IBAN.",
+        "bic": "BIC",
+        "qrReferenceType": "Referenz auf der QR-Rechnung",
+        "qrReferenceTypeHint": "QR-Referenz braucht eine QR-IBAN; Gläubigerreferenz und «ohne» nutzen die normale IBAN.",
+        "qrIban": "QR-IBAN",
+        "qrIbanHint": "Die QR-IBAN Ihrer Bank (Institutsnummer 30000–31999).",
+        "creditorReferencePrefix": "Präfix der Gläubigerreferenz",
+        "creditorReferencePrefixHint": "Damit eingehende Zahlungen (camt.054) automatisch zugeordnet werden.",
+        "label": "Bezeichnung",
+        "labelPlaceholder": "z. B. Werkstatt, Fahrzeugeinkauf",
+        "isDefault": "Rechnungskonto",
+        "isDefaultHint": "Erscheint auf Rechnungen und der QR-Rechnung. Höchstens eines – Sie wählen es ausdrücklich."
+      },
+      "qrTypes": {
+        "non": "Ohne Referenz",
+        "scor": "Gläubigerreferenz (SCOR)",
+        "qrr": "QR-Referenz (QRR)"
+      }
+    },
+    "fiscal": {
+      "title": "Kaufmännische Vorgaben",
+      "hint": "Diese Vorgaben übernehmen Offerten, Verträge, Rechnungen und die Finanzbuchhaltung. Jede hat einen neutralen Startwert.",
+      "currency": "Währung",
+      "currencyHint": "Vorerst nur CHF.",
+      "cashRounding": "Rappenrundung",
+      "paymentTerms": "Zahlungsfrist",
+      "days": "Tage",
+      "fiscalMonth": "Geschäftsjahr beginnt im",
+      "fiscalDay": "am Tag",
+      "vatRate": "MWST-Satz",
+      "vatRateHint": "Der eine Satz, mit dem die MWST-Zeile auf Dokumenten berechnet wird.",
+      "accountingSystem": "Buchhaltungssystem",
+      "accountingSystemHint": "Nur die Bezeichnung – der Zugang wird unter Integrationen eingerichtet.",
+      "mandant": "Mandant",
+      "chartOfAccounts": "Kontenrahmen",
+      "charts": {
+        "kmu": "Kontenrahmen KMU",
+        "kaefer": "Kontenrahmen Käfer"
+      },
+      "periodLock": "Periodensperre",
+      "periodLockHint": "In einer gesperrten Periode schreibt niemand – auch kein Manager.",
+      "locks": {
+        "month_end_close": "Nach Monatsabschluss gesperrt",
+        "quarter_end_close": "Nach Quartalsabschluss gesperrt",
+        "year_end_close": "Nach Jahresabschluss gesperrt"
+      },
+      "months": {
+        "1": "Januar",
+        "2": "Februar",
+        "3": "März",
+        "4": "April",
+        "5": "Mai",
+        "6": "Juni",
+        "7": "Juli",
+        "8": "August",
+        "9": "September",
+        "10": "Oktober",
+        "11": "November",
+        "12": "Dezember"
+      }
+    },
+    "licences": {
+      "title": "Bewilligungen und Mitgliedschaften",
+      "haendlerschild": "Händlerschilder (Kollektiv-Fahrzeugausweis)",
+      "haendlerschildHint": "Die Z-Schilder Ihres Betriebs mit ausstellendem Kanton und Ablauf des Fahrzeugausweises – für Probefahrten und Überführungen.",
+      "plate": "Kontrollschild",
+      "canton": "Kanton",
+      "expiresOn": "Gültig bis",
+      "add": "Schild hinzufügen",
+      "remove": "Schild entfernen",
+      "cantonRequired": "Jedes Schild braucht seinen Kanton.",
+      "astra": "ASTRA/MOFIS-Betriebsnummer",
+      "astraHint": "Voraussetzung für die Anbindung an das Fahrzeugregister.",
+      "associations": "Verbandsmitgliedschaften",
+      "associationsHint": "Erscheinen in der Fusszeile der Dokumente."
     }
   }
 }

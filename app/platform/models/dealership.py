@@ -44,6 +44,12 @@ class DealershipStatus(str, enum.Enum):
     OFFBOARDED = "offboarded"
 
 
+# The permission matrix's "Dealership legal identity — UID, VAT, legal name"
+# row (KAN-203): a PATCH touching one of these needs `confirmation: true`
+# and the `dealership_legal_identity` write.
+LEGAL_IDENTITY_FIELDS = frozenset({"legal_name", "uid", "vat_number", "vat_liable"})
+
+
 class DealerGroup(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     __tablename__ = "dealer_group"
 
@@ -132,6 +138,24 @@ class Dealership(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     # VAT number: the UID with the MWST suffix ("CHE-123.456.789 MWST").
     vat_number: Mapped[str | None] = mapped_column(String(20), nullable=True)
     vat_liable: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    # KAN-203 (PRD "Dealership master data" › Legal identity). `legal_form`
+    # and `association_memberships` hold codes of the platform-seeded
+    # reference lists `legal_form` and `association_membership`; the service
+    # checks membership on write (schemas cannot reach the DB), as the
+    # customer's country does. The Handelsregister office is the canton whose
+    # register holds the entry; `hr_number` is the CH-number as printed in the
+    # document footer. `astra_operator_number` is the garage/operator number
+    # with ASTRA/MOFIS — the prerequisite for the `registry` integration
+    # category. `collective_vehicle_licences` is the Händlerschild list
+    # (D-A-27): plate number, issuing canton, expiry — a JSON list like
+    # `oem_affiliations`, shaped by DealershipCollectiveVehicleLicence.
+    legal_form: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    commercial_register_office: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    hr_number: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    astra_operator_number: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    collective_vehicle_licences: Mapped[list[dict[str, str]] | None] = mapped_column(JSON, nullable=True)
+    association_memberships: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
 
     status: Mapped[DealershipStatus] = mapped_column(
         StoredEnum(DealershipStatus, length=32),

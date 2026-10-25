@@ -28,7 +28,13 @@ from app.core.errors import ForbiddenError
 from app.core.idempotent_route import IdempotentRoute
 from app.core.object_store import ObjectStore, get_object_store
 from app.core.pagination import PageParams, SortPageParams, decode_sort_cursor, page_params
-from app.core.permissions import ModuleCode, require_read, require_write
+from app.core.permissions import (
+    ModuleCode,
+    require_banking_read,
+    require_banking_write,
+    require_read,
+    require_write,
+)
 from app.core.sorting import SortField, parse_sort
 from app.core.tenancy import require_tenant_match
 from app.db import get_db, get_session_factory
@@ -42,7 +48,9 @@ from app.platform.schemas.auth import (
     AuthEventRead,
     LoginStatusRead,
 )
+from app.platform.schemas.bank_account import BankAccountCreate, BankAccountList, BankAccountRead, BankAccountUpdate
 from app.platform.schemas.dealership import DealershipCreate, DealershipPage, DealershipRead, DealershipUpdate
+from app.platform.schemas.dealership_settings import DealershipSettingsRead, DealershipSettingsUpdate
 from app.platform.schemas.entitlement import EntitlementsRead, EntitlementsUpdate
 from app.platform.schemas.me import ConnectedAccountManagerListRead, ConnectedAccountManagerRead
 from app.platform.schemas.membership import (
@@ -74,7 +82,9 @@ from app.platform.services import (
     signature,
     user_location,
 )
+from app.platform.services import bank_account as bank_account_service
 from app.platform.services import dealership as dealership_service
+from app.platform.services import dealership_settings as settings_service
 from app.platform.services import entitlement as entitlement_service
 from app.platform.services import membership as membership_service
 from app.platform.services import ownership as ownership_service
@@ -119,10 +129,134 @@ def update_dealership(
     db: Session = Depends(get_db),
 ):
     require_tenant_match(dealership_id, principal)
+    if body.touches_legal_identity():
+        # KAN-203: the matrix's own row for legal name, UID and VAT — the same
+        # writers today (the manager), checked by name so the row stays real.
+        require_write("dealership_legal_identity")(principal)
     dealership = dealership_service.get_dealership_or_404(db, dealership_id)
     check_version(dealership.version, if_match, entity_name="Dealership")
     dealership = dealership_service.update_dealership(db, dealership=dealership, data=body, actor_id=principal.user_id)
     return DealershipRead.model_validate(dealership, from_attributes=True)
+
+
+# --- Business master data: bank accounts, fiscal defaults (KAN-203) ----------
+#
+# Banking is the one capability whose refusal is a 404 (ADR-100, Anto
+# 2026-10-24): outside manager, finance, auditor and platform staff the
+# accounts do not exist. Reads and writes alike.
+
+
+def _bank_account_read(account) -> BankAccountRead:
+    return BankAccountRead.model_validate(account, from_attributes=True)
+
+
+@router.get("/dealerships/{dealership_id}/bank-accounts", response_model=BankAccountList)
+def list_bank_accounts(
+    dealership_id: uuid.UUID,
+    principal: Principal = Depends(require_banking_read()),
+    db: Session = Depends(get_db),
+):
+    require_tenant_match(dealership_id, principal)
+    dealership_service.get_dealership_or_404(db, dealership_id)
+    rows = bank_account_service.list_accounts(db, dealership_id=dealership_id)
+    return BankAccountList(items=[_bank_account_read(row) for row in rows])
+
+
+@router.post("/dealerships/{dealership_id}/bank-accounts", response_model=BankAccountRead, status_code=201)
+def create_bank_account(
+    dealership_id: uuid.UUID,
+    body: BankAccountCreate,
+    principal: Principal = Depends(require_banking_write()),
+    db: Session = Depends(get_db),
+):
+    require_tenant_match(dealership_id, principal)
+    dealership_service.get_dealership_or_404(db, dealership_id)
+    account = bank_account_service.create_account(db, dealership_id=dealership_id, data=body, actor_id=principal.user_id)
+    return _bank_account_read(account)
+
+
+@router.get("/dealerships/{dealership_id}/bank-accounts/{account_id}", response_model=BankAccountRead)
+def get_bank_account(
+    dealership_id: uuid.UUID,
+    account_id: uuid.UUID,
+    principal: Principal = Depends(require_banking_read()),
+    db: Session = Depends(get_db),
+):
+    require_tenant_match(dealership_id, principal)
+    account = bank_account_service.get_account_or_404(db, dealership_id=dealership_id, account_id=account_id)
+    return _bank_account_read(account)
+
+
+@router.patch("/dealerships/{dealership_id}/bank-accounts/{account_id}", response_model=BankAccountRead)
+def update_bank_account(
+    dealership_id: uuid.UUID,
+    account_id: uuid.UUID,
+    body: BankAccountUpdate,
+    # The banking guard runs before the If-Match check (dependencies run in
+    # declaration order): a role outside banking gets the 404 even without
+    # the header, never a 400 that reads differently (ADR-100).
+    principal: Principal = Depends(require_banking_write()),
+    if_match: int = Depends(require_if_match),
+    db: Session = Depends(get_db),
+):
+    require_tenant_match(dealership_id, principal)
+    account = bank_account_service.get_account_or_404(
+        db, dealership_id=dealership_id, account_id=account_id, for_update=True
+    )
+    check_version(account.version, if_match, entity_name="DealershipBankAccount")
+    account = bank_account_service.update_account(db, account=account, data=body, actor_id=principal.user_id)
+    return _bank_account_read(account)
+
+
+@router.delete("/dealerships/{dealership_id}/bank-accounts/{account_id}", status_code=204)
+def delete_bank_account(
+    dealership_id: uuid.UUID,
+    account_id: uuid.UUID,
+    principal: Principal = Depends(require_banking_write()),  # before If-Match, as on the PATCH (ADR-100)
+    if_match: int = Depends(require_if_match),
+    db: Session = Depends(get_db),
+):
+    require_tenant_match(dealership_id, principal)
+    account = bank_account_service.get_account_or_404(
+        db, dealership_id=dealership_id, account_id=account_id, for_update=True
+    )
+    check_version(account.version, if_match, entity_name="DealershipBankAccount")
+    bank_account_service.delete_account(db, account=account, actor_id=principal.user_id)
+    return Response(status_code=204)
+
+
+def _settings_read(settings) -> DealershipSettingsRead:
+    return DealershipSettingsRead.model_validate(settings, from_attributes=True)
+
+
+@router.get("/dealerships/{dealership_id}/settings", response_model=DealershipSettingsRead)
+def get_dealership_settings(
+    dealership_id: uuid.UUID,
+    principal: Principal = Depends(require_read("dealership_settings")),
+    db: Session = Depends(get_db),
+):
+    """The commercial and fiscal defaults every document inherits (FR-A-25) —
+    readable by any role of the Betrieb, like the rest of the master data."""
+
+    require_tenant_match(dealership_id, principal)
+    dealership_service.get_dealership_or_404(db, dealership_id)
+    return _settings_read(settings_service.read_settings(db, dealership_id))  # a read never writes
+
+
+@router.patch("/dealerships/{dealership_id}/settings", response_model=DealershipSettingsRead)
+def update_dealership_settings(
+    dealership_id: uuid.UUID,
+    body: DealershipSettingsUpdate,
+    if_match: int = Depends(require_if_match),
+    principal: Principal = Depends(require_write("dealership_settings")),
+    db: Session = Depends(get_db),
+):
+    require_tenant_match(dealership_id, principal)
+    dealership_service.get_dealership_or_404(db, dealership_id)
+    settings_row = settings_service.settings_for(db, dealership_id, for_update=True)
+    check_version(settings_row.version, if_match, entity_name="DealershipSettings")
+    settings_row = settings_service.update_settings(db, settings=settings_row, data=body, actor_id=principal.user_id)
+    return _settings_read(settings_row)
 
 
 @router.get("/dealerships", response_model=DealershipPage)

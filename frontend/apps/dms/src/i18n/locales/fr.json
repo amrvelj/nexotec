@@ -22,7 +22,8 @@
       "referenceData": "Données de référence",
       "catalogue": "Catalogue",
       "users": "Utilisateurs",
-      "accountRecovery": "Récupération de compte"
+      "accountRecovery": "Récupération de compte",
+      "business": "Entreprise"
     },
     "signOut": "Se déconnecter",
     "environmentNotice": {
@@ -2462,6 +2463,165 @@
         "effect": "{{name}} se connecte désormais avec la nouvelle adresse. Les liens d'invitation et de réinitialisation ouverts ne fonctionnent plus, {{name}} est déconnecté partout et {{email}} est informée du changement. Le mot de passe ne change pas.",
         "done": "L'adresse e-mail de {{name}} a été modifiée."
       }
+    }
+  },
+  "business": {
+    "title": "Entreprise",
+    "subtitle": "Les données de base de votre entreprise : identité juridique, adresses, relations bancaires, paramètres commerciaux, autorisations et affiliations. Elles figurent sur les contrats, les factures et la QR-facture.",
+    "loadError": "Les données de l'entreprise n'ont pas pu être chargées.",
+    "saved": "Enregistré.",
+    "errors": {
+      "managerOnly": "Seul un manager de cette entreprise modifie ses données de base.",
+      "conflict": "Les données ont été modifiées ailleurs entre-temps. Rechargez la page et saisissez à nouveau votre modification.",
+      "invalid": "Veuillez vérifier vos saisies.",
+      "uidTaken": "Cet IDE appartient déjà à une autre entreprise.",
+      "confirmationRequired": "Une modification de la raison sociale, de l'IDE ou de la TVA requiert votre confirmation.",
+      "unknownReferenceCode": "Cette valeur ne figure pas dans la liste.",
+      "qrReferenceNeedsQrIban": "La référence QR requiert un QR-IBAN. Saisissez le QR-IBAN ou choisissez un autre type de référence.",
+      "qrIbanNeedsQrReference": "Un QR-IBAN ne s'utilise qu'avec la référence QR. Retirez le QR-IBAN ou choisissez la référence QR.",
+      "creditorPrefixNeedsScor": "Un préfixe de référence ne s'applique qu'à la référence créancier structurée (SCOR).",
+      "defaultConflict": "Un autre compte est devenu le compte de facturation entre-temps. Rechargez la page et réessayez.",
+      "invalidField": "Veuillez vérifier le champ « {{field}} ».",
+      "bankingManagerOnly": "Seul un manager de cette entreprise modifie les relations bancaires."
+    },
+    "legal": {
+      "title": "Identité juridique",
+      "legalName": "Raison sociale (selon le registre du commerce)",
+      "legalNameHint": "Figure sur les contrats et les factures.",
+      "tradeName": "Enseigne",
+      "tradeNameHint": "Ce qui est écrit sur l'enseigne – pour la publicité et les étiquettes de prix.",
+      "legalForm": "Forme juridique",
+      "franchiseType": "Lien de marque",
+      "franchiseTypes": {
+        "franchise": "Représentation de marque",
+        "independent": "Garagiste indépendant"
+      },
+      "oemAffiliations": "Marques représentées",
+      "uid": "IDE",
+      "uidHint": "Numéro d'identification des entreprises, p. ex. CHE-123.456.789.",
+      "vatNumber": "Numéro TVA",
+      "vatLiable": "Assujetti à la TVA",
+      "commercialRegisterOffice": "Office du registre du commerce (canton)",
+      "hrNumber": "Numéro du registre du commerce",
+      "hrNumberHint": "Figure dans le pied de page des documents.",
+      "confirmTitle": "Modification de l'identité juridique",
+      "confirmHint": "La raison sociale, l'IDE et la TVA figurent sur chaque contrat et chaque facture. La modification est journalisée à votre nom.",
+      "confirmLabel": "Je confirme que ces données correspondent au registre du commerce.",
+      "confirmFirst": "Confirmez la modification de l'identité juridique.",
+      "auditNote": "Motif (facultatif)",
+      "auditNotePlaceholder": "p. ex. changement de raison sociale inscrit au RC le 1er octobre"
+    },
+    "addresses": {
+      "title": "Adresses",
+      "street": "Rue",
+      "houseNumber": "N°",
+      "postalCode": "NPA",
+      "locality": "Localité",
+      "canton": "Canton",
+      "country": "Pays",
+      "countryHint": "Code pays, p. ex. CH, DE, LI.",
+      "phone": "Téléphone",
+      "overrides": "Adresse de correspondance ou de facturation différente",
+      "correspondenceDiffers": "Le courrier va à une autre adresse que le siège",
+      "billingDiffers": "Les factures de Nexotec vont à une autre adresse (p. ex. la comptabilité du groupe)"
+    },
+    "banking": {
+      "title": "Relations bancaires",
+      "add": "Ajouter un compte",
+      "edit": "Modifier",
+      "delete": "Supprimer le compte",
+      "deleteConfirm": "Le compte {{iban}} sera supprimé. Les factures qui le mentionnent déjà restent inchangées.",
+      "makeDefault": "Définir comme compte de facturation",
+      "isAlreadyDefault": "Est déjà le compte de facturation",
+      "default": "Compte de facturation",
+      "noneYet": "Aucune relation bancaire. Sans compte de facturation, aucune facture ne peut être émise.",
+      "noDefault": "Aucun compte n'est défini comme compte de facturation. Choisissez celui qui figurera sur les factures et la QR-facture.",
+      "columns": {
+        "label": "Désignation",
+        "holder": "Titulaire",
+        "bank": "Banque",
+        "iban": "IBAN",
+        "qr": "QR-facture"
+      },
+      "fields": {
+        "accountHolder": "Titulaire du compte",
+        "bankName": "Banque",
+        "iban": "IBAN",
+        "ibanHint": "Vérifié à l'enregistrement. Un QR-IBAN se saisit dans le champ QR-IBAN.",
+        "bic": "BIC",
+        "qrReferenceType": "Référence sur la QR-facture",
+        "qrReferenceTypeHint": "La référence QR requiert un QR-IBAN ; la référence créancier et « sans » utilisent l'IBAN ordinaire.",
+        "qrIban": "QR-IBAN",
+        "qrIbanHint": "Le QR-IBAN de votre banque (numéro d'établissement 30000–31999).",
+        "creditorReferencePrefix": "Préfixe de la référence créancier",
+        "creditorReferencePrefixHint": "Pour que les paiements entrants (camt.054) soient rapprochés automatiquement.",
+        "label": "Désignation",
+        "labelPlaceholder": "p. ex. Atelier, Achat de véhicules",
+        "isDefault": "Compte de facturation",
+        "isDefaultHint": "Figure sur les factures et la QR-facture. Un au plus – vous le choisissez explicitement."
+      },
+      "qrTypes": {
+        "non": "Sans référence",
+        "scor": "Référence créancier (SCOR)",
+        "qrr": "Référence QR (QRR)"
+      }
+    },
+    "fiscal": {
+      "title": "Paramètres commerciaux",
+      "hint": "Ces paramètres sont repris par les offres, les contrats, les factures et la comptabilité. Chacun a une valeur de départ neutre.",
+      "currency": "Monnaie",
+      "currencyHint": "CHF uniquement pour l'instant.",
+      "cashRounding": "Arrondi aux centimes",
+      "paymentTerms": "Délai de paiement",
+      "days": "jours",
+      "fiscalMonth": "L'exercice commence en",
+      "fiscalDay": "le",
+      "vatRate": "Taux de TVA",
+      "vatRateHint": "Le taux unique avec lequel la ligne TVA des documents est calculée.",
+      "accountingSystem": "Logiciel comptable",
+      "accountingSystemHint": "Le nom seulement – l'accès se configure sous Intégrations.",
+      "mandant": "Mandant",
+      "chartOfAccounts": "Plan comptable",
+      "charts": {
+        "kmu": "Plan comptable PME",
+        "kaefer": "Plan comptable Käfer"
+      },
+      "periodLock": "Verrouillage des périodes",
+      "periodLockHint": "Personne n'écrit dans une période verrouillée – pas même un manager.",
+      "locks": {
+        "month_end_close": "Verrouillé après la clôture mensuelle",
+        "quarter_end_close": "Verrouillé après la clôture trimestrielle",
+        "year_end_close": "Verrouillé après la clôture annuelle"
+      },
+      "months": {
+        "1": "janvier",
+        "2": "février",
+        "3": "mars",
+        "4": "avril",
+        "5": "mai",
+        "6": "juin",
+        "7": "juillet",
+        "8": "août",
+        "9": "septembre",
+        "10": "octobre",
+        "11": "novembre",
+        "12": "décembre"
+      }
+    },
+    "licences": {
+      "title": "Autorisations et affiliations",
+      "haendlerschild": "Plaques professionnelles (permis de circulation collectif)",
+      "haendlerschildHint": "Les plaques U de votre entreprise avec le canton émetteur et l'échéance du permis – pour les essais et les transferts.",
+      "plate": "Plaque",
+      "canton": "Canton",
+      "expiresOn": "Valable jusqu'au",
+      "add": "Ajouter une plaque",
+      "remove": "Retirer la plaque",
+      "cantonRequired": "Chaque plaque a besoin de son canton.",
+      "astra": "Numéro d'exploitant OFROU/MOFIS",
+      "astraHint": "Condition pour le raccordement au registre des véhicules.",
+      "associations": "Affiliations",
+      "associationsHint": "Figurent dans le pied de page des documents."
     }
   }
 }
