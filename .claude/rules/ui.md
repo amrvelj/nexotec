@@ -116,8 +116,8 @@ takes.
   `App.tsx` through `lazyPage(() => import('./pages/X'), 'X')`, never a static import —
   `LoginPage`, `ProtectedRoute`, `RequireEntitlement`, `AuthProvider`, `DmsShell` and `RouteSuspense`
   stay eager (beside `App.tsx` and `lazyPage` itself), and `src/architecture/lazy-routes.test.ts`
-  checks that none of those six, nor `App.tsx`, imports a page statically (it reads import lines
-  only; `lazyPage.ts` is not in its list). `RouteSuspense`
+  checks that none of those six, nor `App.tsx` beyond `LoginPage`, imports a page statically (it
+  reads import lines only; `lazyPage.ts` is not in its list). `RouteSuspense`
   (`src/layout/`) shows the loading state on a hard load and, if a chunk cannot be fetched (a tab
   older than the last deploy), a translated reload screen. On in-app navigation the router's
   transition keeps the previous screen up until the next chunk arrives — never blank, but no

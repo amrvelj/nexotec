@@ -78,8 +78,8 @@ present-tense claim checked against the code, every "not built" claim grepped fo
   sign-in and mail texts (the invitation-acceptance, password-policy and MFA-enrolment error
   `message`s say *business*, and so do the Customers and Sales hand-over refusals
   (`colleague_cannot_act_there`, carried in `details.problems[].message` / `failed[].message`);
-  every other API error `message`, `_mint_session`'s 403 included, still says "dealership"; the
-  login door's 401 names neither): service-only garages are customers from
+  the account-recovery door's say *Betrieb*; every other API error `message`, `_mint_session`'s
+  403 included, still says "dealership"; the login door's 401 names neither): service-only garages are customers from
   day one, so `sales` is a module entitlement like `aftersales` (`module_entitlement`, KAN-198),
   and a Betrieb without it is a normal configuration. `dealership` stays the table and code name.
 - Tenant scope comes from the token. Group-scoped reads exist only in the files that
