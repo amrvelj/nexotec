@@ -1,10 +1,11 @@
-import { useId } from "react";
+import { useId, type ReactNode } from "react";
 import { Textarea } from "@mantine/core";
 import { semantic, slate, typography } from "../tokens";
 import { formatNumber } from "../format/swissNumber";
 
 export interface CounterTextareaProps {
-  label: string;
+  /** The label, or `fieldHint(label, hint, labels)`'s label (KAN-443). */
+  label: NonNullable<ReactNode>;
   value: string;
   onChange: (value: string) => void;
   maxLength: number;
@@ -12,7 +13,8 @@ export interface CounterTextareaProps {
    * marketplace's own display limit is often shorter than the stored
    * field's own max length (AS24's zusatztitel stores 500, shows 125). */
   displayLimitCaption?: string;
-  description?: string;
+  /** What `fieldHint()` returns: the hint reaches the textarea's aria-describedby. */
+  description?: ReactNode;
   minRows?: number;
   /** Lets a host that saves on a pause also save when the field is left. */
   onBlur?: () => void;

@@ -23,6 +23,7 @@ export * from "./components/RepeatableRowGroup";
 export * from "./components/DocumentPreview";
 export * from "./components/PresentMode";
 export * from "./components/CounterTextarea";
+export * from "./components/FieldHint";
 export * from "./components/MediaGallery";
 export * from "./shell/types";
 export * from "./shell/BreadcrumbContext";

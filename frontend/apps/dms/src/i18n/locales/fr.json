@@ -165,7 +165,8 @@
     },
     "overlay": {
       "close": "Fermer"
-    }
+    },
+    "fieldHintIcon": "Indication"
   },
   "customerCreate": {
     "title": "Nouveau client",

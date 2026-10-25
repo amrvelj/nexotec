@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button, Checkbox, Group, NumberInput, Stack, Text, TextInput, UnstyledButton } from '@mantine/core'
 import { Trash2 } from 'lucide-react'
 import { ChfInput } from '@nexotec/ui-kit'
+import { useFieldHint } from '../hooks/useFieldHint'
 import { useTranslation } from 'react-i18next'
 import { api, ApiError } from '../api/client'
 import { formatCurrencyChf } from '../utils/format'
@@ -46,6 +47,7 @@ export function OfferAccessoriesAndOptions<D extends SalesPricedDealRead>({
   save,
 }: OfferAccessoriesAndOptionsProps<D>) {
   const { t } = useTranslation()
+  const hint = useFieldHint()
   const queryClient = useQueryClient()
   const [newCode, setNewCode] = useState('')
   const [newLabel, setNewLabel] = useState('')
@@ -254,8 +256,7 @@ export function OfferAccessoriesAndOptions<D extends SalesPricedDealRead>({
         {isUsed && newDiscount !== '' && Number(newDiscount) > 0 && (
           <TextInput
             size="xs"
-            label={t('offerWorkspace.lineItems.suppressedReason')}
-            description={t('offerWorkspace.lineItems.suppressedReasonHint')}
+            {...hint(t('offerWorkspace.lineItems.suppressedReason'), t('offerWorkspace.lineItems.suppressedReasonHint'))}
             value={newReason}
             onChange={(e) => setNewReason(e.currentTarget.value)}
           />

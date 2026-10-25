@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react'
+import { useFieldHint } from '../../hooks/useFieldHint'
 import { NumberInput, Select, SimpleGrid, Stack, Text, TextInput } from '@mantine/core'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Calculator } from 'lucide-react'
@@ -7,7 +8,6 @@ import { api } from '../../api/client'
 import type { ChartOfAccountsVariant, DealershipRead, DealershipSettingsRead, DealershipSettingsUpdate, PeriodLockPolicy } from '../../api/types'
 import { CASH_ROUNDINGS, CHART_VARIANTS, DAY_OPTIONS, MONTHS, PERIOD_LOCK_POLICIES, businessRefusalText, joinFiscalYearStart, orNull, splitFiscalYearStart } from '../../businessOptions'
 import { settingsKey } from './queryKeys'
-import { FIELD } from './fieldLayout'
 import { SectionCard } from './SectionCard'
 import { useDealershipPatch } from './useDealershipPatch'
 import { useRecordForm } from './useRecordForm'
@@ -34,6 +34,7 @@ interface Form {
  */
 export function FiscalDefaultsSection({ dealership, settings }: { dealership: DealershipRead; settings: DealershipSettingsRead }) {
   const { t } = useTranslation()
+  const hint = useFieldHint()
   const queryClient = useQueryClient()
   const toForm = useCallback(
     (s: DealershipSettingsRead): Form => {
@@ -125,18 +126,18 @@ export function FiscalDefaultsSection({ dealership, settings }: { dealership: De
           {t('business.fiscal.hint')}
         </Text>
         <SimpleGrid cols={{ base: 1, sm: 3 }}>
-          <TextInput {...FIELD} label={t('business.fiscal.currency')} value={form.currency} onChange={(e) => set('currency', e.currentTarget.value.toUpperCase())} maxLength={3} description={t('business.fiscal.currencyHint')} />
-          <Select {...FIELD} label={t('business.fiscal.cashRounding')} data={CASH_ROUNDINGS.map((v) => ({ value: v, label: `${v} CHF` }))} value={form.cashRounding} onChange={(v) => v && set('cashRounding', v)} allowDeselect={false} />
-          <NumberInput {...FIELD} label={t('business.fiscal.paymentTerms')} value={form.defaultPaymentTermsDays} onChange={(v) => set('defaultPaymentTermsDays', v)} min={0} max={365} suffix={` ${t('business.fiscal.days')}`} allowDecimal={false} />
-          <Select {...FIELD} label={t('business.fiscal.fiscalMonth')} data={MONTHS.map((m) => ({ value: m, label: t(`business.fiscal.months.${m}`) }))} value={form.fiscalMonth} onChange={(v) => v && set('fiscalMonth', v)} allowDeselect={false} />
-          <Select {...FIELD} label={t('business.fiscal.fiscalDay')} data={DAY_OPTIONS} value={form.fiscalDay} onChange={(v) => v && set('fiscalDay', v)} allowDeselect={false} />
-          <NumberInput {...FIELD} label={t('business.fiscal.vatRate')} value={vat.form.vatRate} onChange={(v) => vat.set('vatRate', v)} min={0} max={100} decimalScale={2} suffix=" %" description={t('business.fiscal.vatRateHint')} />
+          <TextInput {...hint(t('business.fiscal.currency'), t('business.fiscal.currencyHint'))} value={form.currency} onChange={(e) => set('currency', e.currentTarget.value.toUpperCase())} maxLength={3} />
+          <Select label={t('business.fiscal.cashRounding')} data={CASH_ROUNDINGS.map((v) => ({ value: v, label: `${v} CHF` }))} value={form.cashRounding} onChange={(v) => v && set('cashRounding', v)} allowDeselect={false} />
+          <NumberInput label={t('business.fiscal.paymentTerms')} value={form.defaultPaymentTermsDays} onChange={(v) => set('defaultPaymentTermsDays', v)} min={0} max={365} suffix={` ${t('business.fiscal.days')}`} allowDecimal={false} />
+          <Select label={t('business.fiscal.fiscalMonth')} data={MONTHS.map((m) => ({ value: m, label: t(`business.fiscal.months.${m}`) }))} value={form.fiscalMonth} onChange={(v) => v && set('fiscalMonth', v)} allowDeselect={false} />
+          <Select label={t('business.fiscal.fiscalDay')} data={DAY_OPTIONS} value={form.fiscalDay} onChange={(v) => v && set('fiscalDay', v)} allowDeselect={false} />
+          <NumberInput {...hint(t('business.fiscal.vatRate'), t('business.fiscal.vatRateHint'))} value={vat.form.vatRate} onChange={(v) => vat.set('vatRate', v)} min={0} max={100} decimalScale={2} suffix=" %" />
         </SimpleGrid>
         <SimpleGrid cols={{ base: 1, sm: 2 }}>
-          <TextInput {...FIELD} label={t('business.fiscal.accountingSystem')} value={form.accountingSystem} onChange={(e) => set('accountingSystem', e.currentTarget.value)} placeholder="Abacus, bexio, Sage …" description={t('business.fiscal.accountingSystemHint')} />
-          <TextInput {...FIELD} label={t('business.fiscal.mandant')} value={form.mandant} onChange={(e) => set('mandant', e.currentTarget.value)} />
-          <Select {...FIELD} label={t('business.fiscal.chartOfAccounts')} data={CHART_VARIANTS.map((v) => ({ value: v, label: t(`business.fiscal.charts.${v}`) }))} value={form.chartOfAccountsVariant} onChange={(v) => v && set('chartOfAccountsVariant', v as ChartOfAccountsVariant)} allowDeselect={false} />
-          <Select {...FIELD} label={t('business.fiscal.periodLock')} data={PERIOD_LOCK_POLICIES.map((v) => ({ value: v, label: t(`business.fiscal.locks.${v}`) }))} value={form.periodLockPolicy} onChange={(v) => v && set('periodLockPolicy', v as PeriodLockPolicy)} allowDeselect={false} description={t('business.fiscal.periodLockHint')} />
+          <TextInput {...hint(t('business.fiscal.accountingSystem'), t('business.fiscal.accountingSystemHint'))} value={form.accountingSystem} onChange={(e) => set('accountingSystem', e.currentTarget.value)} placeholder="Abacus, bexio, Sage …" />
+          <TextInput label={t('business.fiscal.mandant')} value={form.mandant} onChange={(e) => set('mandant', e.currentTarget.value)} />
+          <Select label={t('business.fiscal.chartOfAccounts')} data={CHART_VARIANTS.map((v) => ({ value: v, label: t(`business.fiscal.charts.${v}`) }))} value={form.chartOfAccountsVariant} onChange={(v) => v && set('chartOfAccountsVariant', v as ChartOfAccountsVariant)} allowDeselect={false} />
+          <Select {...hint(t('business.fiscal.periodLock'), t('business.fiscal.periodLockHint'))} data={PERIOD_LOCK_POLICIES.map((v) => ({ value: v, label: t(`business.fiscal.locks.${v}`) }))} value={form.periodLockPolicy} onChange={(v) => v && set('periodLockPolicy', v as PeriodLockPolicy)} allowDeselect={false} />
         </SimpleGrid>
       </Stack>
     </SectionCard>

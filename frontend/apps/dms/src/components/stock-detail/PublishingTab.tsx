@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, Loader, SegmentedControl, Text } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 import { CounterTextarea, MediaGallery, OverviewCard, semantic, slate, spacing } from '@nexotec/ui-kit'
+import { useFieldHint } from '../../hooks/useFieldHint'
 import { api, ApiError } from '../../api/client'
 import { BlockingConditionBanner } from './BlockingConditionBanner'
 import { ChannelPublishCard } from './ChannelPublishCard'
@@ -325,6 +326,7 @@ function ListingTextFields({
   titleDisplayLimitCaption: string
 }) {
   const { t } = useTranslation()
+  const hint = useFieldHint()
   const field = (name: ListingTextField) => ({
     label: t(`stockDetail.publishing.fields.${name}`),
     serverValue: publishing[name] ?? '',
@@ -338,8 +340,8 @@ function ListingTextFields({
       <ListingTextInput {...field('zustandsbeschreibung')} maxLength={2000} />
       <ListingTextInput
         {...field('haendlerbemerkungen')}
+        {...hint(t('stockDetail.publishing.fields.haendlerbemerkungen'), t('stockDetail.publishing.haendlerbemerkungenHint'))}
         maxLength={2000}
-        description={t('stockDetail.publishing.haendlerbemerkungenHint')}
       />
     </>
   )
@@ -351,13 +353,13 @@ function ListingTextInput({
   onCommit,
   ...counterProps
 }: {
-  label: string
+  label: NonNullable<ReactNode>
   serverValue: string
   resetKey: string
   onCommit: (value: string) => Promise<void>
   maxLength: number
   displayLimitCaption?: string
-  description?: string
+  description?: ReactNode
   minRows?: number
 }) {
   const [value, setValue, flush] = useDebouncedTextField(serverValue, resetKey, onCommit)

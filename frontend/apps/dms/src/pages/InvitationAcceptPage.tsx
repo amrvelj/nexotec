@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { useFieldHint } from '../hooks/useFieldHint'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Alert, Anchor, Button, PasswordInput, Stack, Text } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
@@ -14,6 +15,7 @@ import { passwordErrorMessage } from './auth/passwordErrors'
  * enrolment where the Betrieb requires it. */
 export function InvitationAcceptPage() {
   const { t } = useTranslation()
+  const hint = useFieldHint()
   const navigate = useNavigate()
   const { completeLogin } = useAuth()
   const [params] = useSearchParams()
@@ -77,9 +79,7 @@ export function InvitationAcceptPage() {
     <AuthScreen title={t('auth.invitation.title')} hint={t('auth.invitation.hint')}>
       <form onSubmit={submit} noValidate>
         <Stack gap="md">
-          <PasswordInput
-            label={t('auth.invitation.newPassword')}
-            description={t('auth.password.rules')}
+          <PasswordInput {...hint(t('auth.invitation.newPassword'), t('auth.password.rules'))}
             value={password}
             onChange={(e) => setPassword(e.currentTarget.value)}
             autoComplete="new-password"
