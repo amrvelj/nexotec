@@ -13,8 +13,9 @@ paths:
   - "tests/test_inventory_*.py"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises PRD-Stock, ADR-045, ADR-049,
-ADR-052, ADR-054, ADR-055, ADR-062, ADR-074, ADR-087 and the VAT reasoning of ADR-057. Verified
-against main@73baf3f on 2026-10-25 (every present-tense claim checked against the code). "Not built"
+ADR-052, ADR-054, ADR-055, ADR-062, ADR-074, ADR-087 and the VAT reasoning of ADR-057; also cites
+ADR-029, ADR-047, ADR-070. Verified against main@73baf3f on 2026-10-25 (every present-tense claim
+checked against the code). "Not built"
 lines cite a ticket; /drift-audit re-checks them weekly. -->
 
 # Stock and inventory
@@ -104,8 +105,9 @@ lines cite a ticket; /drift-audit re-checks them weekly. -->
   (`app/inventory/services/purchase.py::record_purchase`), computed from the purchase price and
   the dealership's `vat_rate`, independent of `landed_cost`; it can be overridden afterwards
   (`override_notional_input_tax`, audited). Stock owns it; Sales only reads it.
-  **There is no `vatTreatment`** on a stock item (ADR-057;
-  `tests/test_inventory_purchase.py::test_no_vat_treatment_field_exists_anywhere`): the notional
+  **There is no `vatTreatment`** on a stock item (ADR-057; enforced by
+  `tests/architecture/test_no_vat_treatment_field.py` over `app/` and the frontend, and by name on
+  the stock-item schemas in `tests/test_inventory_purchase.py`): the notional
   credit is a purchase-side fact, never a per-vehicle VAT treatment, never on a customer document.
 - **Marketplaces are three, not one** (ADR-062): AutoScout24 (AS24i v34.0, which drives the
   canonical field mapping), Carmarket and Autolina. **Full-delivery semantics:** an object no

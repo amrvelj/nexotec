@@ -63,7 +63,7 @@ paths:
 <!-- Maintainer note (stripped before Claude sees it). Summarises ADR-014, ADR-051, ADR-093,
 ADR-094, ADR-099, ADR-100, the Dealer Administration PRD v1.2 and Authentication & Identity v1.1
 (rulings D-A-01…D-A-41, 2026-09-20 and 2026-10-07; they absorb Roles & Permissions v0.2 and
-supersede ADR-027). Verified against main@73baf3f on 2026-10-25 (/drift-audit: every
+supersede ADR-027); also cites ADR-028, ADR-047, ADR-057. Verified against main@73baf3f on 2026-10-25 (/drift-audit: every
 present-tense claim checked against the code, every "not built" claim grepped for). "Not built" lines are re-checked weekly by /drift-audit. -->
 
 # Platform: organisation, access, administration, authentication
@@ -75,8 +75,9 @@ present-tense claim checked against the code, every "not built" claim grepped fo
   attribute, **never a scoping boundary** (owned by platform, not inventory).
 - **The UI word for the tenant is "Betrieb"** in German (D-A-10) — *entreprise* in French, *azienda*
   in Italian, *business* in English (KAN-381, Anto 2026-10-18), in the bundles and in the backend's
-  sign-in and mail texts (the sign-in, password and MFA-enrolment error `message`s say *business*;
-  every other API error `message` still says "dealership"): service-only garages are customers from
+  sign-in and mail texts (the invitation-acceptance, password-policy and MFA-enrolment error
+  `message`s say *business*; every other API error `message`, the login door's and
+  `_mint_session`'s included, still says "dealership"): service-only garages are customers from
   day one, so `sales` is a module entitlement like `aftersales` (`module_entitlement`, KAN-198),
   and a Betrieb without it is a normal configuration. `dealership` stays the table and code name.
 - Tenant scope comes from the token. Group-scoped reads exist only in the files that
@@ -508,8 +509,9 @@ One shared template layer (`app/platform/models/document_template.py`). WeasyPri
   notification family itself (KAN-216; the e-mail-change notice is the one notice sent). No step-up
   re-authentication (A-12: no).
 - argon2id parameters are settings (`DMS_ARGON2_*`, default t=3 / 64 MiB / p=4; the target is ~250 ms
-  a verify on the instance that serves logins, measured with `scripts/benchmark_argon2.py`); a stored
-  hash below them is rehashed on the next login. The Render instance is re-tuned in KAN-384.
+  a verify on the instance that serves logins, measured with `scripts/benchmark_argon2.py` — the
+  defaults measure 50–80 ms on the build machine, short of it); a stored hash below them is rehashed
+  on the next login. The Render instance is re-tuned in KAN-384.
 
 ## Open questions — ask Anto, never decide in code
 

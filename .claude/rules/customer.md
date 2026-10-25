@@ -7,6 +7,7 @@ paths:
   - "frontend/apps/dms/src/components/PhoneInput.tsx"
   - "app/core/postal_codes.py"
   - "frontend/apps/dms/src/hooks/useAdvisorOptions.ts"
+  - "frontend/apps/dms/src/utils/vehiclePartyRefusal.ts"
   - "tests/test_customer*.py"
   - "scripts/*vehicle_party*.py"
   - "tests/test_*vehicle_party*.py"
@@ -16,8 +17,8 @@ paths:
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises PRD-Customers v2.2 (incl. its
 §Conformance review, rulings D-03…D-26), ADR-014, ADR-030, ADR-064 (as amended 2026-10-13),
-ADR-065, ADR-067, ADR-093. Verified against main@73baf3f on 2026-10-25 (every present-tense
-claim checked against the code). Fix this file in the same PR as any change to what it states; /drift-audit re-checks it
+ADR-065, ADR-067, ADR-093; also cites ADR-022, ADR-061. Verified against main@73baf3f on
+2026-10-25 (every present-tense claim checked against the code). Fix this file in the same PR as any change to what it states; /drift-audit re-checks it
 weekly. -->
 
 # Customers

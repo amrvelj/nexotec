@@ -15,8 +15,8 @@ paths:
   - "frontend/apps/dms/src/components/deal-workspace/**"
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises PRD-Vehicles (FR-V-09,
-FR-V-17), ADR-029, ADR-048 as amended, ADR-066, ADR-070, ADR-074. Verified against
-main@73baf3f on 2026-10-25 (every present-tense claim checked against the code). Fix this
+FR-V-17), ADR-029, ADR-048 as amended, ADR-066, ADR-070, ADR-074; also cites ADR-047. Verified
+against main@73baf3f on 2026-10-25 (every present-tense claim checked against the code). Fix this
 file in the same PR as any change to what it states. -->
 
 # Valuations
@@ -82,7 +82,8 @@ file in the same PR as any change to what it states. -->
 - **ADR-070** (amending FR-V-17): a *configuration* never writes vehicle-mdm; it attaches to a
   valuation. A valuation created **with** a `configurationId` (`record` mode only, KAN-10)
   defaults its vehicle fields from it (a field sent wins), references only the vehicle-mdm
-  record the configuration already links, and creates none; created **without** one,
+  record the configuration already links, and creates none (a `vin` sent beside the configuration
+  is stored as sent while `vehicleId` stays the configuration's — a defect, KAN-449); created **without** one,
   `create_valuation` still creates or gets the vehicle-mdm record when a VIN is given
   (`services/valuation.py`, on a session of its own, KAN-328). A pre-1981 chassis number in
   `vin` (KAN-353, `.claude/rules/vehicle.md`) never finds, creates or links a vehicle-mdm record,

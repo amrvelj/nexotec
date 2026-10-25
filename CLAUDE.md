@@ -148,10 +148,10 @@ delete them, and do not treat a stub as a licence to put its concerns somewhere 
 11. **No user-facing request needs more than two synchronous hops.** A third hop means a
     projection is missing, not that a call should be added.
 12. **A write spanning two contexts is a call with a compensating action, never a shared
-    transaction** (ADR-047) — each side commits its own work. It would work today because
-    everything shares one database; that is why it is forbidden. The import-linter cannot
-    catch it, so it needs its own test. The one exception ruled by ADR is ADR-091 (the legacy
-    transaction backfill, expiring after its production run); the one tracked debt (`.claude/rules/tests.md`) is a debt.
+    transaction** (ADR-047) — each side commits its own work. It would work today because everything
+    shares one database; that is why it is forbidden. The import-linter cannot catch it, so it needs
+    its own test. The one exception ruled by ADR is ADR-091 (the legacy transaction backfill, expiring
+    after its production run); the one tracked debt — a customer merge re-pointing Sales' legacy `transaction` rows in its own transaction (`.claude/rules/tests.md`) — is a debt.
 
 ## Preserve verbatim — already correct, do not "improve"
 
@@ -171,9 +171,9 @@ Edits to these files (all in `app/core/`) ask Anto first, whichever tool makes t
 ## API conventions
 
 Path-versioned `/v1` · camelCase JSON · cursor pagination · `updatedSince` for incremental
-sync · `If-Match` on every mutation of a versioned entity · `Idempotency-Key` honoured (never
-required) on every POST but the exempt `/v1/auth/*` front door · OpenAPI published per service (one today).
-A newly required request field is a breaking contract change: it needs an explicit decision, never a side effect of a fix.
+sync · `If-Match` on every mutation of a versioned entity · `Idempotency-Key` honoured, never
+required, on every POST — nine ratified `/v1/auth/` exemptions aside (`test_every_post_accepts_idempotency_key.py`)
+· OpenAPI published per service (one today). A newly required request field is a breaking contract change: it needs an explicit decision, never a side effect of a fix.
 
 ## Domain rules that apply everywhere
 
