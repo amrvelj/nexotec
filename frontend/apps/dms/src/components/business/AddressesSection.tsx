@@ -1,10 +1,11 @@
-import { useCallback } from 'react'
+import { useCallback, type ReactNode } from 'react'
 import { Select, SimpleGrid, Stack, Switch, TextInput } from '@mantine/core'
 import { MapPin } from 'lucide-react'
 import { ProgressiveDisclosure } from '@nexotec/ui-kit'
 import { useTranslation } from 'react-i18next'
 import type { DealershipAddress, DealershipOverrideAddress, DealershipRead, DealershipUpdate } from '../../api/types'
 import { CANTON_OPTIONS } from '../../customerOptions'
+import { FIELD } from './fieldLayout'
 import { SectionCard } from './SectionCard'
 import { useDealershipPatch } from './useDealershipPatch'
 import { useRecordForm } from './useRecordForm'
@@ -67,18 +68,19 @@ function changesOf(d: DealershipRead, f: Form): DealershipUpdate {
   return c
 }
 
-function AddressFields({ value, onChange, idPrefix, seat }: { value: AddressForm; onChange: (v: AddressForm) => void; idPrefix: string; seat?: boolean }) {
+function AddressFields({ value, onChange, idPrefix, seat, extra }: { value: AddressForm; onChange: (v: AddressForm) => void; idPrefix: string; seat?: boolean; extra?: ReactNode }) {
   const { t } = useTranslation()
   const set = <K extends keyof AddressForm>(key: K, v: AddressForm[K]) => onChange({ ...value, [key]: v })
   const swiss = (value.country || 'CH').toUpperCase() === 'CH'
   return (
     <SimpleGrid cols={{ base: 1, sm: 3 }}>
-      <TextInput id={`${idPrefix}-street`} label={t('business.addresses.street')} value={value.street} onChange={(e) => set('street', e.currentTarget.value)} required />
-      <TextInput id={`${idPrefix}-house`} label={t('business.addresses.houseNumber')} value={value.houseNumber} onChange={(e) => set('houseNumber', e.currentTarget.value)} required />
-      <TextInput id={`${idPrefix}-postal`} label={t('business.addresses.postalCode')} value={value.postalCode} onChange={(e) => set('postalCode', e.currentTarget.value)} required />
-      <TextInput id={`${idPrefix}-locality`} label={t('business.addresses.locality')} value={value.locality} onChange={(e) => set('locality', e.currentTarget.value)} required />
-      {swiss && <Select id={`${idPrefix}-canton`} label={t('business.addresses.canton')} data={CANTON_OPTIONS} value={value.canton} onChange={(v) => set('canton', v)} searchable required />}
-      {!seat && <TextInput id={`${idPrefix}-country`} label={t('business.addresses.country')} value={value.country} onChange={(e) => set('country', e.currentTarget.value.toUpperCase())} maxLength={2} description={t('business.addresses.countryHint')} />}
+      <TextInput {...FIELD} id={`${idPrefix}-street`} label={t('business.addresses.street')} value={value.street} onChange={(e) => set('street', e.currentTarget.value)} required />
+      <TextInput {...FIELD} id={`${idPrefix}-house`} label={t('business.addresses.houseNumber')} value={value.houseNumber} onChange={(e) => set('houseNumber', e.currentTarget.value)} required />
+      <TextInput {...FIELD} id={`${idPrefix}-postal`} label={t('business.addresses.postalCode')} value={value.postalCode} onChange={(e) => set('postalCode', e.currentTarget.value)} required />
+      <TextInput {...FIELD} id={`${idPrefix}-locality`} label={t('business.addresses.locality')} value={value.locality} onChange={(e) => set('locality', e.currentTarget.value)} required />
+      {swiss && <Select {...FIELD} id={`${idPrefix}-canton`} label={t('business.addresses.canton')} data={CANTON_OPTIONS} value={value.canton} onChange={(v) => set('canton', v)} searchable required />}
+      {extra}
+      {!seat && <TextInput {...FIELD} id={`${idPrefix}-country`} label={t('business.addresses.country')} value={value.country} onChange={(e) => set('country', e.currentTarget.value.toUpperCase())} maxLength={2} description={t('business.addresses.countryHint')} />}
     </SimpleGrid>
   )
 }
@@ -107,10 +109,13 @@ export function AddressesSection({ dealership }: { dealership: DealershipRead })
       saved={patch.saved}
     >
       <Stack gap="md">
-        <AddressFields idPrefix="seat" value={form.seat} onChange={(v) => set('seat', v)} seat />
-        <SimpleGrid cols={{ base: 1, sm: 3 }}>
-          <TextInput label={t('business.addresses.phone')} value={form.phone} onChange={(e) => set('phone', e.currentTarget.value)} placeholder="+41 44 …" required />
-        </SimpleGrid>
+        <AddressFields
+          idPrefix="seat"
+          value={form.seat}
+          onChange={(v) => set('seat', v)}
+          seat
+          extra={<TextInput {...FIELD} label={t('business.addresses.phone')} value={form.phone} onChange={(e) => set('phone', e.currentTarget.value)} placeholder="+41 44 …" required />}
+        />
         <ProgressiveDisclosure label={t('business.addresses.overrides')}>
           <Stack gap="md">
             <Switch label={t('business.addresses.correspondenceDiffers')} checked={form.correspondenceDiffers} onChange={(e) => set('correspondenceDiffers', e.currentTarget.checked)} />

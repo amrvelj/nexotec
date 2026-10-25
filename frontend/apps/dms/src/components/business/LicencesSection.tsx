@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import type { DealershipCollectiveVehicleLicence, DealershipRead, DealershipUpdate } from '../../api/types'
 import { orNull } from '../../businessOptions'
 import { CANTON_OPTIONS } from '../../customerOptions'
+import { FIELD } from './fieldLayout'
 import { SectionCard } from './SectionCard'
 import { useDealershipPatch } from './useDealershipPatch'
 import { useListOptions } from './useListOptions'
@@ -84,9 +85,9 @@ export function LicencesSection({ dealership }: { dealership: DealershipRead }) 
         </div>
         {form.licences.map((row, index) => (
           <Group key={index} align="flex-end" gap="sm" wrap="nowrap">
-            <TextInput label={t('business.licences.plate')} value={row.plateNumber} onChange={(e) => setRow(index, { ...row, plateNumber: e.currentTarget.value.toUpperCase() })} placeholder="ZH 12345 U" style={{ flex: 1 }} />
-            <Select label={t('business.licences.canton')} data={CANTON_OPTIONS} value={row.canton} onChange={(v) => setRow(index, { ...row, canton: v })} searchable style={{ flex: 1 }} />
-            <TextInput label={t('business.licences.expiresOn')} type="date" value={row.expiresOn} onChange={(e) => setRow(index, { ...row, expiresOn: e.currentTarget.value })} style={{ flex: 1 }} />
+            <TextInput {...FIELD} label={t('business.licences.plate')} value={row.plateNumber} onChange={(e) => setRow(index, { ...row, plateNumber: e.currentTarget.value.toUpperCase() })} placeholder="ZH 12345 U" style={{ flex: 1 }} />
+            <Select {...FIELD} label={t('business.licences.canton')} data={CANTON_OPTIONS} value={row.canton} onChange={(v) => setRow(index, { ...row, canton: v })} searchable style={{ flex: 1 }} />
+            <TextInput {...FIELD} label={t('business.licences.expiresOn')} type="date" value={row.expiresOn} onChange={(e) => setRow(index, { ...row, expiresOn: e.currentTarget.value })} style={{ flex: 1 }} />
             <ActionIcon variant="subtle" color="red" aria-label={t('business.licences.remove')} onClick={() => set('licences', form.licences.filter((_, i) => i !== index))}>
               <Trash2 size={16} />
             </ActionIcon>
@@ -98,8 +99,8 @@ export function LicencesSection({ dealership }: { dealership: DealershipRead }) 
           </Button>
         </Group>
         <SimpleGrid cols={{ base: 1, sm: 2 }}>
-          <TextInput label={t('business.licences.astra')} value={form.astraOperatorNumber} onChange={(e) => set('astraOperatorNumber', e.currentTarget.value)} description={t('business.licences.astraHint')} />
-          <MultiSelect label={t('business.licences.associations')} data={associations.options} value={form.associationMemberships} onChange={(v) => set('associationMemberships', v)} searchable clearable description={t('business.licences.associationsHint')} />
+          <TextInput {...FIELD} label={t('business.licences.astra')} value={form.astraOperatorNumber} onChange={(e) => set('astraOperatorNumber', e.currentTarget.value)} description={t('business.licences.astraHint')} />
+          <MultiSelect {...FIELD} label={t('business.licences.associations')} data={associations.options} value={form.associationMemberships} onChange={(v) => set('associationMemberships', v)} searchable clearable description={t('business.licences.associationsHint')} />
         </SimpleGrid>
       </Stack>
     </SectionCard>
