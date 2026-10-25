@@ -36,10 +36,10 @@ call ever being attempted.
 `PlateInfoData` / `BestMatchResult` and `vin_decode_granted` (KAN-42,
 C-D) are what the identification waterfall in
 `app.vehicle.services.identification` needs: the `KontrollschildInfo` and
-`FahrzeugeMatch` return shapes, and a read-only `vin_decode` check (not
-`tenant_has_capability`, whose `vin_decode` branch upserts a cached
-entitlement row — ADR-047 keeps that write out of another context's
-transaction).
+`FahrzeugeMatch` return shapes, and a read-only `vin_decode` check. The
+cached entitlement row is written only by integration's own "Test
+connection" (`compute_vin_decode_entitlement`, KAN-80) — ADR-047 keeps
+that write out of another context's transaction.
 """
 
 from app.integration.adapters.base import (

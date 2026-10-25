@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Alert, SegmentedControl } from '@mantine/core'
+import { Alert, Loader, SegmentedControl, Text } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 import { CounterTextarea, MediaGallery, OverviewCard, semantic, slate, spacing } from '@nexotec/ui-kit'
 import { api, ApiError } from '../../api/client'
@@ -8,6 +8,7 @@ import { BlockingConditionBanner } from './BlockingConditionBanner'
 import { ChannelPublishCard } from './ChannelPublishCard'
 import type { EquipmentRead, MarketplaceChannel, MediaRead, PublishingRead } from '../../api/types'
 import { useDealSaveQueue, type DealSaveQueue } from '../../hooks/useDealSaveQueue'
+import { useDebouncedTextField } from '../../hooks/useDebouncedTextField'
 import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
 
 const CHANNELS: MarketplaceChannel[] = ['autoscout24', 'carmarket', 'autolina']
@@ -99,6 +100,9 @@ export function PublishingTab({ stockItemId, locale }: PublishingTabProps) {
   const invalidateMedia = () => queryClient.invalidateQueries({ queryKey: ['stock-item', stockItemId, 'media'] })
 
   const activePublishing = publishingByChannel[activeChannel]
+  const activePublishingQuery = { autoscout24: autoscout24Query, carmarket: carmarketQuery, autolina: autolinaQuery }[
+    activeChannel
+  ]
   // Blocking conditions are item-level, not per-channel (compute_blocking_
   // conditions ignores channel entirely) — any loaded channel's own copy
   // is the same list, so the first one that's arrived is fine. Cheap
@@ -121,9 +125,17 @@ export function PublishingTab({ stockItemId, locale }: PublishingTabProps) {
     autolina: useDealSaveQueue(cachedPublishing('autolina'), storePublishing),
   }
   const [listingTextError, setListingTextError] = useState<string | null>(null)
+  // KAN-425: each field keeps a local draft and saves on a pause or when
+  // left (useDebouncedTextField). After a refused save the channel's count
+  // discards its drafts, once its current row has been fetched again, so
+  // the tab shows the other person's version — never another channel's.
+  const [listingTextResync, setListingTextResync] = useState<Record<MarketplaceChannel, number>>({
+    autoscout24: 0,
+    carmarket: 0,
+    autolina: 0,
+  })
 
-  const saveListingText = async (patch: Record<string, unknown>) => {
-    const channel = activeChannel
+  const saveListingText = async (channel: MarketplaceChannel, patch: ListingTextPatch) => {
     setListingTextError(null)
     try {
       await listingTextQueues[channel].save((current) =>
@@ -137,7 +149,8 @@ export function PublishingTab({ stockItemId, locale }: PublishingTabProps) {
           ? t('stockDetail.publishing.listingTextConflict')
           : t('stockDetail.publishing.listingTextError')
       )
-      void invalidatePublishing(channel)
+      await invalidatePublishing(channel)
+      setListingTextResync((counts) => ({ ...counts, [channel]: counts[channel] + 1 }))
     }
   }
 
@@ -234,35 +247,27 @@ export function PublishingTab({ stockItemId, locale }: PublishingTabProps) {
               {listingTextError}
             </Alert>
           )}
-          <CounterTextarea
-            label={t('stockDetail.publishing.fields.zusatztitel')}
-            value={activePublishing?.zusatztitel ?? ''}
-            onChange={(v) => saveListingText({ zusatztitel: v })}
-            maxLength={500}
-            displayLimitCaption={t('stockDetail.publishing.titleDisplayLimit', {
-              count: TITLE_DISPLAY_LIMITS[activeChannel],
-            })}
-            minRows={1}
-          />
-          <CounterTextarea
-            label={t('stockDetail.publishing.fields.bemerkungen')}
-            value={activePublishing?.bemerkungen ?? ''}
-            onChange={(v) => saveListingText({ bemerkungen: v })}
-            maxLength={4000}
-          />
-          <CounterTextarea
-            label={t('stockDetail.publishing.fields.zustandsbeschreibung')}
-            value={activePublishing?.zustandsbeschreibung ?? ''}
-            onChange={(v) => saveListingText({ zustandsbeschreibung: v })}
-            maxLength={2000}
-          />
-          <CounterTextarea
-            label={t('stockDetail.publishing.fields.haendlerbemerkungen')}
-            value={activePublishing?.haendlerbemerkungen ?? ''}
-            onChange={(v) => saveListingText({ haendlerbemerkungen: v })}
-            maxLength={2000}
-            description={t('stockDetail.publishing.haendlerbemerkungenHint')}
-          />
+          {/* Keyed by channel: a draft still waiting when the channel changes
+              is saved to the channel it was typed for. Shown once the
+              channel's row is loaded: a keystroke typed before it would have
+              no version to save against and be lost. */}
+          {activePublishing ? (
+            <ListingTextFields
+              key={activeChannel}
+              publishing={activePublishing}
+              resetKey={String(listingTextResync[activeChannel])}
+              onSave={(patch) => saveListingText(activeChannel, patch)}
+              titleDisplayLimitCaption={t('stockDetail.publishing.titleDisplayLimit', {
+                count: TITLE_DISPLAY_LIMITS[activeChannel],
+              })}
+            />
+          ) : activePublishingQuery.isError ? (
+            <Text c="red" size="sm">
+              {t('stockDetail.publishing.listingTextLoadError')}
+            </Text>
+          ) : (
+            <Loader size="sm" />
+          )}
         </div>
       </OverviewCard>
 
@@ -303,6 +308,60 @@ export function PublishingTab({ stockItemId, locale }: PublishingTabProps) {
       )}
     </div>
   )
+}
+
+type ListingTextField = 'zusatztitel' | 'bemerkungen' | 'zustandsbeschreibung' | 'haendlerbemerkungen'
+type ListingTextPatch = Partial<Record<ListingTextField, string>>
+
+function ListingTextFields({
+  publishing,
+  resetKey,
+  onSave,
+  titleDisplayLimitCaption,
+}: {
+  publishing: PublishingRead
+  resetKey: string
+  onSave: (patch: ListingTextPatch) => Promise<void>
+  titleDisplayLimitCaption: string
+}) {
+  const { t } = useTranslation()
+  const field = (name: ListingTextField) => ({
+    label: t(`stockDetail.publishing.fields.${name}`),
+    serverValue: publishing[name] ?? '',
+    resetKey,
+    onCommit: (value: string) => onSave({ [name]: value }),
+  })
+  return (
+    <>
+      <ListingTextInput {...field('zusatztitel')} maxLength={500} displayLimitCaption={titleDisplayLimitCaption} minRows={1} />
+      <ListingTextInput {...field('bemerkungen')} maxLength={4000} />
+      <ListingTextInput {...field('zustandsbeschreibung')} maxLength={2000} />
+      <ListingTextInput
+        {...field('haendlerbemerkungen')}
+        maxLength={2000}
+        description={t('stockDetail.publishing.haendlerbemerkungenHint')}
+      />
+    </>
+  )
+}
+
+function ListingTextInput({
+  serverValue,
+  resetKey,
+  onCommit,
+  ...counterProps
+}: {
+  label: string
+  serverValue: string
+  resetKey: string
+  onCommit: (value: string) => Promise<void>
+  maxLength: number
+  displayLimitCaption?: string
+  description?: string
+  minRows?: number
+}) {
+  const [value, setValue, flush] = useDebouncedTextField(serverValue, resetKey, onCommit)
+  return <CounterTextarea {...counterProps} value={value} onChange={setValue} onBlur={flush} />
 }
 
 function EquipmentList({ label, items }: { label: string; items: string[] }) {

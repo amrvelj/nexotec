@@ -264,11 +264,16 @@ def update_stock_item(
     db: Session, *, item: StockItem, data: StockItemUpdate, actor_id: uuid.UUID | None
 ) -> StockItem:
     changes = data.model_dump(exclude_unset=True)
+    # KAN-432 (rule 4): a condition sent on the PATCH is the same fact as
+    # `change_condition`'s, so it publishes the same event, in this
+    # transaction — consumers never miss a change made by either route.
+    previous_condition = item.condition
     for field, value in changes.items():
         setattr(item, field, value)
     item.updated_by = actor_id
     item.version += 1
     db.flush()
+    _publish_condition_changed(db, item=item, previous=previous_condition)
     db.commit()
     db.refresh(item)
     return item
@@ -282,22 +287,29 @@ def change_condition(
     item.updated_by = actor_id
     item.version += 1
     db.flush()
-
-    if previous != condition:
-        publish(
-            db,
-            OutboxEvent(
-                event_type="inventory.stock_item.condition_changed",
-                tenant_id=item.tenant_id,
-                producer=_EVENT_PRODUCER,
-                aggregate_type="stock_item",
-                aggregate_id=item.id,
-                payload={"previousCondition": previous.value, "condition": condition.value},
-            ),
-        )
+    _publish_condition_changed(db, item=item, previous=previous)
     db.commit()
     db.refresh(item)
     return item
+
+
+def _publish_condition_changed(db: Session, *, item: StockItem, previous: StockItemCondition) -> None:
+    """The one writer of `inventory.stock_item.condition_changed`, for both
+    routes that change a condition; the same value again is no change."""
+
+    if previous == item.condition:
+        return
+    publish(
+        db,
+        OutboxEvent(
+            event_type="inventory.stock_item.condition_changed",
+            tenant_id=item.tenant_id,
+            producer=_EVENT_PRODUCER,
+            aggregate_type="stock_item",
+            aggregate_id=item.id,
+            payload={"previousCondition": previous.value, "condition": item.condition.value},
+        ),
+    )
 
 
 def list_stock_items(
