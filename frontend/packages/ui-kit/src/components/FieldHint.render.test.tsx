@@ -49,9 +49,10 @@ describe("fieldHint", () => {
   });
 
   it("opens the tooltip on keyboard focus; the icon is the tab stop before the input", async () => {
-    Element.prototype.matches = function (selector: string) {
+    // jsdom has no `:focus-visible`; Mantine opens the tooltip on focus only under it.
+    Element.prototype.matches = function (this: Element, selector: string) {
       return selector === ":focus-visible" ? document.activeElement === this : nativeMatches.call(this, selector);
-    };
+    } as typeof Element.prototype.matches;
     const user = userEvent.setup();
     render(<Field hint="Comme au registre du commerce." />);
     await user.tab();
