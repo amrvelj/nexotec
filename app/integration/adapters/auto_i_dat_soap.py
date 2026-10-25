@@ -33,15 +33,17 @@ inside this class) so the adapter is testable against a hand-written fake
 with a matching ``Suchen`` method, no live network call and no real WSDL
 file in this repository. ``build_zeep_client`` is the one place a real
 WSDL fetch would happen, lazily imported so tests and local dev never pay
-zeep's import cost.
+zeep's import cost — once per connection, not per call (KAN-213).
 """
 
 import base64
 import binascii
 import datetime as dt
+import threading
+import time
 import uuid
-from collections.abc import Mapping, Sequence
-from dataclasses import replace
+from collections.abc import Hashable, Mapping, Sequence
+from dataclasses import dataclass, replace
 from decimal import Decimal
 from typing import Any, Protocol
 from urllib.parse import urlsplit
@@ -139,21 +141,38 @@ class SoapClient(Protocol):
     ) -> str: ...
 
 
-def build_zeep_client(wsdl_url: str, *, timeout: float = DEFAULT_TIMEOUT_SECONDS) -> SoapClient:
-    """KAN-76 — zeep's default ``Transport`` allows 300 s for the WSDL load
-    and applies **no** timeout to an operation call, so a provider that
-    accepts the connection and never answers would hold the request thread
-    for good, once per ``call_with_retry`` attempt. The same bound covers
-    both here. It is ``requests``' timeout: it caps connecting and each wait
-    for the next byte, not the total length of a response that keeps
-    trickling in, nor a slow DNS lookup.
-    """
+# KAN-213 — the parsed WSDL of each connection, kept for this long. zeep
+# fetches and parses the WSDL in `Client.__init__`, and since KAN-78 the
+# catalogue sync resolves an adapter per FzKey: without this a full seed of N
+# variants loaded the same WSDL N+2 times. An hour bounds how long a WSDL the
+# provider changed in place keeps being used; a changed `wsdlUrl` or a rotated
+# credential rebuilds at once (`_build_real_adapter`'s cache key).
+_WSDL_CACHE_SECONDS = 3600.0
 
+
+@dataclass(frozen=True)
+class _CachedWsdl:
+    key: Hashable
+    document: Any  # zeep.wsdl.Document — zeep is imported lazily
+    loaded_at: float
+
+
+# connection id -> its one cached WSDL. Process memory, like the circuit
+# breaker's state: each web or worker process loads its own copy once.
+_wsdl_cache: dict[uuid.UUID, _CachedWsdl] = {}
+_wsdl_cache_lock = threading.Lock()
+
+
+def clear_wsdl_cache() -> None:
+    with _wsdl_cache_lock:
+        _wsdl_cache.clear()
+
+
+def _load_wsdl_document(wsdl_url: str, transport: Any) -> Any:
     import zeep
 
-    transport = zeep.Transport(timeout=timeout, operation_timeout=timeout)
     try:
-        return zeep.Client(wsdl_url, transport=transport).service  # type: ignore[return-value]
+        return zeep.Client(wsdl_url, transport=transport).wsdl
     except Exception as exc:
         # `zeep.Client` fetches and parses the WSDL over HTTP: this is the
         # first network call a real connection makes, and the one a mistyped
@@ -161,6 +180,60 @@ def build_zeep_client(wsdl_url: str, *, timeout: float = DEFAULT_TIMEOUT_SECONDS
         raise _transport_error(
             f"The provider's WSDL could not be loaded from the configured wsdlUrl ({type(exc).__name__}).", exc
         ) from exc
+
+
+def _cached_wsdl_document(wsdl_url: str, transport: Any, *, connection_id: uuid.UUID, key: Hashable) -> Any:
+    """The connection's parsed WSDL — loaded on a miss, an expired entry or a
+    changed `key`. A failed load raises and caches nothing, so the next call
+    tries again. Loaded outside the lock: a slow provider host must not hold
+    up the other connections; two threads missing together both load, and
+    the later one's copy is kept."""
+
+    now = time.monotonic()
+    with _wsdl_cache_lock:
+        entry = _wsdl_cache.get(connection_id)
+    if entry is not None and entry.key == key and now - entry.loaded_at < _WSDL_CACHE_SECONDS:
+        return entry.document
+    document = _load_wsdl_document(wsdl_url, transport)
+    with _wsdl_cache_lock:
+        for stale in [cid for cid, e in _wsdl_cache.items() if now - e.loaded_at >= _WSDL_CACHE_SECONDS]:
+            del _wsdl_cache[stale]
+        _wsdl_cache[connection_id] = _CachedWsdl(key=key, document=document, loaded_at=now)
+    return document
+
+
+def build_zeep_client(
+    wsdl_url: str,
+    *,
+    timeout: float = DEFAULT_TIMEOUT_SECONDS,
+    connection_id: uuid.UUID | None = None,
+    cache_key: Hashable = None,
+) -> SoapClient:
+    """KAN-76 — zeep's default ``Transport`` allows 300 s for the WSDL load
+    and applies **no** timeout to an operation call, so a provider that
+    accepts the connection and never answers would hold the request thread
+    for good, once per ``call_with_retry`` attempt. The same bound covers
+    both here. It is ``requests``' timeout: it caps connecting and each wait
+    for the next byte, not the total length of a response that keeps
+    trickling in, nor a slow DNS lookup.
+
+    KAN-213 — with a ``connection_id`` the parsed WSDL comes from that
+    connection's cache entry (``_cached_wsdl_document``) and only a miss
+    reaches the network. Only the parsed document is shared: every call gets
+    a client and transport of its own, so no HTTP session is shared between
+    threads, and none of it holds a credential — ``Benutzername`` and
+    ``Passwort`` are arguments of each ``Suchen`` call, resolved per call by
+    the adapter. Without a ``connection_id`` the WSDL is loaded fresh.
+    """
+
+    import zeep
+
+    transport = zeep.Transport(timeout=timeout, operation_timeout=timeout)
+    if connection_id is None:
+        document = _load_wsdl_document(wsdl_url, transport)
+    else:
+        document = _cached_wsdl_document(wsdl_url, transport, connection_id=connection_id, key=cache_key)
+    return zeep.Client(document, transport=transport).service  # type: ignore[no-any-return]
 
 
 def _transport_error(message: str, exc: BaseException) -> ProviderTransportError:
@@ -804,9 +877,13 @@ def _build_real_adapter(
         raise ProviderConfigurationError(
             f"Connection {connection.id} has a config.wsdlUrl that is not an http(s) URL."
         )
-    return AutoIDatSoapAdapter(
-        db=db, connection=connection, soap_client=build_zeep_client(wsdl_url), actor_id=actor_id, purpose=purpose
+    # KAN-213: the parsed WSDL is reused per connection until its URL or a
+    # credential changes (`set_secret` stamps `rotated_at`) or it expires.
+    # The client holds no credential; the key is cautious on purpose.
+    soap_client = build_zeep_client(
+        wsdl_url, connection_id=connection.id, cache_key=(str(wsdl_url), connection.rotated_at)
     )
+    return AutoIDatSoapAdapter(db=db, connection=connection, soap_client=soap_client, actor_id=actor_id, purpose=purpose)
 
 
 def _register() -> None:
