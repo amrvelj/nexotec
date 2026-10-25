@@ -76,8 +76,10 @@ present-tense claim checked against the code, every "not built" claim grepped fo
 - **The UI word for the tenant is "Betrieb"** in German (D-A-10) — *entreprise* in French, *azienda*
   in Italian, *business* in English (KAN-381, Anto 2026-10-18), in the bundles and in the backend's
   sign-in and mail texts (the invitation-acceptance, password-policy and MFA-enrolment error
-  `message`s say *business*; every other API error `message`, `_mint_session`'s 403 included,
-  still says "dealership"; the login door's 401 names neither): service-only garages are customers from
+  `message`s say *business*, and so do the Customers and Sales hand-over refusals
+  (`colleague_cannot_act_there`, carried in `details.problems[].message` / `failed[].message`);
+  every other API error `message`, `_mint_session`'s 403 included, still says "dealership"; the
+  login door's 401 names neither): service-only garages are customers from
   day one, so `sales` is a module entitlement like `aftersales` (`module_entitlement`, KAN-198),
   and a Betrieb without it is a normal configuration. `dealership` stays the table and code name.
 - Tenant scope comes from the token. Group-scoped reads exist only in the files that
@@ -296,8 +298,9 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   `colleague_cannot_act_there`), which the SPA translates. The nightly
   `platform.user_expiry` job (FR-A-12, worker only — not on staging) deactivates a user whose
   `valid_to` has passed with platform's own authority (a staff account expires too), one user
-  at a time (a failure on one is logged, the rest go on) — except their Betrieb's last active
-  manager (FR-A-13 outranks the expiry: skipped, logged at ERROR, tried again the next night) —,
+  at a time (a failure on one is logged, the rest go on) — except a last active manager, of their
+  own Betrieb or of a sister Betrieb (`last_manager` / `last_manager_elsewhere`; FR-A-13 outranks
+  the expiry: skipped, logged at ERROR, tried again the next night) —,
   releases their records to the queues,
   and retries a failed release for 30 days; each module's nightly reconciliation reports an open
   record whose owner is deactivated (rule 10). `valid_from`/`valid_to` refuse a sign-in outside

@@ -151,7 +151,7 @@ delete them, and do not treat a stub as a licence to put its concerns somewhere 
     transaction** (ADR-047) — each side commits its own work. It would work today because everything
     shares one database; that is why it is forbidden. The import-linter cannot catch it, so it needs
     its own test. The one exception ruled by ADR is ADR-091 (the legacy transaction backfill, expiring
-    after its production run); the one tracked debt — a customer merge re-pointing Sales' legacy `transaction` rows in its own transaction (`.claude/rules/tests.md`) — is a debt.
+    after its production run); the one tracked debt — a customer merge re-pointing Sales' legacy `transaction` rows in its own transaction (`tests/architecture/test_adr_047_no_shared_transaction.py`) — is a debt.
 
 ## Preserve verbatim — already correct, do not "improve"
 

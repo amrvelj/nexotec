@@ -114,9 +114,10 @@ takes.
   Application Shell section does not show the strip yet (ADR-084's consequence; KAN-316).
 - **Every screen but the sign-in loads on demand** (KAN-233): a new route's page goes into
   `App.tsx` through `lazyPage(() => import('./pages/X'), 'X')`, never a static import —
-  `LoginPage`, `ProtectedRoute`, `RequireEntitlement`, `AuthProvider`, `DmsShell`, `RouteSuspense`
-  and `lazyPage` are the entry chunk's modules, and `src/architecture/lazy-routes.test.ts` checks
-  that none of them imports a page statically (it reads import lines only). `RouteSuspense`
+  `LoginPage`, `ProtectedRoute`, `RequireEntitlement`, `AuthProvider`, `DmsShell` and `RouteSuspense`
+  stay eager (beside `App.tsx` and `lazyPage` itself), and `src/architecture/lazy-routes.test.ts`
+  checks that none of those six, nor `App.tsx`, imports a page statically (it reads import lines
+  only; `lazyPage.ts` is not in its list). `RouteSuspense`
   (`src/layout/`) shows the loading state on a hard load and, if a chunk cannot be fetched (a tab
   older than the last deploy), a translated reload screen. On in-app navigation the router's
   transition keeps the previous screen up until the next chunk arrives — never blank, but no
