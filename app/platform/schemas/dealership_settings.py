@@ -86,9 +86,11 @@ class AddressAutocompleteConfigRead(CamelModel):
     """What the SPA needs to offer Google Places Autocomplete on an address
     form (KAN-37, ADR-101): `enabled` holds only when the Betrieb's switch is
     on AND the platform holds a key; `browserKey` is that key, or null. The
-    key is Nexotec's, browser-restricted by HTTP referrer in Google Cloud —
-    shipping it to a signed-in browser is its purpose, not a leak — and it
-    is the one piece of configuration this read carries beyond the switch.
+    key is Nexotec's and public configuration: shipping it to a signed-in
+    browser is its purpose, not a leak — what protects it is Google Cloud's
+    restriction to our origins and to Places API (New), configured and
+    verified at go-live (KAN-451). It is the one piece of configuration this
+    read carries beyond the switch.
     """
 
     enabled: bool

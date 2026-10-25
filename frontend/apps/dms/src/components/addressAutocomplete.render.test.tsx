@@ -42,6 +42,9 @@ const SUGGESTIONS = {
   ],
 }
 
+// Place details per id: Bahnhofstrasse 12 is in 8001 Zürich; "120" is answered
+// as 3011 Bern, so a Business pick that keeps the seat's postal code (3011) can
+// be told from one that moves it.
 const DETAILS = {
   addressComponents: [
     { longText: '12', shortText: '12', types: ['street_number'] },
@@ -69,6 +72,17 @@ const googleRoutes = (): FakeRoute[] => [
     match: /^\/places\/[^/]+$/,
     handler: (req) => {
       googleHosts.push(req.url.host)
+      if (req.pathname.endsWith('/place-bahnhofstrasse-120')) {
+        return {
+          addressComponents: [
+            { longText: '120', shortText: '120', types: ['street_number'] },
+            { longText: 'Bahnhofstrasse', shortText: 'Bahnhofstrasse', types: ['route'] },
+            { longText: 'Bern', shortText: 'Bern', types: ['locality', 'political'] },
+            { longText: 'Schweiz', shortText: 'CH', types: ['country', 'political'] },
+            { longText: '3011', shortText: '3011', types: ['postal_code'] },
+          ],
+        }
+      }
       return DETAILS
     },
   },
@@ -102,8 +116,8 @@ describe('address autocomplete — the create wizard (KAN-37)', () => {
     await user.type(await screen.findByRole('textbox', { name: (n) => n.startsWith(searchLabel()) }), 'Bahnhofstrasse 12 Zür')
     const option = await screen.findByRole('option', { name: /Bahnhofstrasse 12\b/ })
     expect(screen.getByRole('option', { name: /Bahnhofstrasse 120/ })).toBeInTheDocument()
-    // The attribution the Places API policies require when results are shown without a map.
-    expect(screen.getByRole('img', { name: i18n.t('addressSearch.attribution') })).toBeInTheDocument()
+    // The attribution the Places API policies require when results are shown without a map: the logo, at least 16 px.
+    expect(screen.getByRole('img', { name: i18n.t('addressSearch.attribution') })).toHaveAttribute('height', '16')
 
     await user.click(option)
     await waitFor(() => expect(field('street').value).toBe('Bahnhofstrasse'))
@@ -145,6 +159,17 @@ describe('address autocomplete — the create wizard (KAN-37)', () => {
     const nextToken = (later[later.length - 1].body as { sessionToken: string }).sessionToken
     expect(nextToken).toMatch(/^[0-9a-f-]{36}$/)
     expect(nextToken).not.toBe(body.sessionToken)
+
+    // An abandoned run ends too: clearing the field (and letting the debounce
+    // see it empty) spends the token, so the next keystrokes are a new session.
+    await user.clear(search)
+    await new Promise((resolve) => setTimeout(resolve, 400))
+    await user.type(search, 'Seestrasse 7')
+    await waitFor(() => expect(backend.callsTo(/^\/places:autocomplete$/, 'POST').length).toBeGreaterThan(later.length))
+    const afterClear = backend.callsTo(/^\/places:autocomplete$/, 'POST')
+    const clearedToken = (afterClear[afterClear.length - 1].body as { sessionToken: string }).sessionToken
+    expect(clearedToken).toMatch(/^[0-9a-f-]{36}$/)
+    expect(clearedToken).not.toBe(nextToken)
 
     // The suggestion list never went to our API: our backend saw only the config read and the duplicate check.
     const ours = backend.calls.filter((c) => !c.pathname.startsWith('/places'))
@@ -224,7 +249,7 @@ describe('address autocomplete — the detail screen and the Business screen (KA
   })
 
   it("the Business screen's seat address offers the search field; a pick that moves the postal code clears the canton for the manager to re-pick", async () => {
-    installFakeBackend([
+    const backend = installFakeBackend([
       configOn,
       ...googleRoutes(),
       {
@@ -268,10 +293,23 @@ describe('address autocomplete — the detail screen and the Business screen (KA
     const user = userEvent.setup()
 
     const addresses = within(await screen.findByRole('region', { name: 'Adressen' }))
-    await user.type(await addresses.findByRole('textbox', { name: (n) => n.startsWith(searchLabel()) }), 'Bahnhofstrasse 12')
-    await user.click(await screen.findByRole('option', { name: /Bahnhofstrasse 12\b/ }))
+    const search = await addresses.findByRole('textbox', { name: (n) => n.startsWith(searchLabel()) })
+    // A pick that keeps the seat's postal code (3011) keeps the manager's canton.
+    await user.type(search, 'Bahnhofstrasse 12')
+    await user.click(await screen.findByRole('option', { name: /Bahnhofstrasse 120/ }))
     await waitFor(() => expect((document.getElementById('seat-street') as HTMLInputElement).value).toBe('Bahnhofstrasse'))
-    expect((document.getElementById('seat-postal') as HTMLInputElement).value).toBe('8001')
+    expect((document.getElementById('seat-house') as HTMLInputElement).value).toBe('120')
+    expect((document.getElementById('seat-postal') as HTMLInputElement).value).toBe('3011')
+    expect((document.getElementById('seat-canton') as HTMLInputElement).value).toBe('Bern')
+    // A pick that moves it (8001) clears the canton. (A different query than
+    // the first run: the same text retyped inside the debounce window is the
+    // same debounced value and starts no new search.)
+    const searched = backend.callsTo(/^\/places:autocomplete$/, 'POST').length
+    await user.clear(search)
+    await user.type(search, 'Bahnhofstrasse 12 Zürich')
+    await waitFor(() => expect(backend.callsTo(/^\/places:autocomplete$/, 'POST').length).toBeGreaterThan(searched))
+    await user.click(await screen.findByRole('option', { name: /Bahnhofstrasse 12\b/ }))
+    await waitFor(() => expect((document.getElementById('seat-postal') as HTMLInputElement).value).toBe('8001'))
     expect((document.getElementById('seat-locality') as HTMLInputElement).value).toBe('Zürich')
     // Google's administrative_area_level_1 (ZH) is discarded and the old canton (BE) no longer fits 8001:
     // the required Select is cleared, the manager picks the canton — never Google.

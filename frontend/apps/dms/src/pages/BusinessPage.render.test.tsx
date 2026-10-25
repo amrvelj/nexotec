@@ -6,7 +6,8 @@ import { renderWithProviders } from '../test/renderWithProviders'
 import { installFakeBackend, status, type FakeRoute } from '../test/fakeBackend'
 import { BusinessPage } from './BusinessPage'
 
-// KAN-203 — Dealer Administration › Business: the five sections render from
+// KAN-203 — Dealer Administration › Business: the sections (five, and since
+// KAN-37 the Address entry switch) render from
 // the dealership, its settings and its bank accounts; the Banking section is
 // absent for a role the API answers 404 to (ADR-100); a change of the legal
 // name shows the confirmation and the save carries `confirmation: true`
@@ -120,7 +121,7 @@ function routes(extra: FakeRoute[] = []): FakeRoute[] {
 }
 
 describe('BusinessPage (KAN-203)', () => {
-  it('renders the five sections from the dealership, its settings and its bank accounts', async () => {
+  it('renders the six sections from the dealership, its settings and its bank accounts', async () => {
     installFakeBackend(routes())
     renderWithProviders(<BusinessPage />, { route: '/administration/business' })
 
@@ -342,6 +343,15 @@ describe('BusinessPage (KAN-203)', () => {
     expect(call.body).toEqual({ addressAutocompleteEnabled: false })
     expect(call.headers.get('If-Match')).toBe('1')
     expect(await section.findByRole('status')).toHaveTextContent('Gespeichert.')
+    expect(section.queryByRole('note')).toBeNull()
+  })
+
+  it('a failed config read says nothing about a missing key', async () => {
+    installFakeBackend(routes([{ method: 'GET', match: /\/address-autocomplete$/, handler: () => status(500, { error: { code: 'internal', message: 'boom', details: null } }) }]))
+    renderWithProviders(<BusinessPage />, { route: '/administration/business' })
+    const section = within(await screen.findByRole('region', { name: 'Adresseingabe' }))
+    expect(section.getByRole('switch', { name: (n) => n.startsWith('Adressvorschläge von Google Places') })).toBeChecked()
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Bankverbindungen' })).toBeInTheDocument())
     expect(section.queryByRole('note')).toBeNull()
   })
 })

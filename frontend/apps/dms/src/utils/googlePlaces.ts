@@ -5,7 +5,8 @@
 // session — autocomplete, restricted to the form's country, then the place's
 // address components and nothing else (the field mask). The key is Nexotec's,
 // handed to the browser by GET /v1/dealerships/{id}/address-autocomplete while
-// the Betrieb's switch is on, and restricted to our origins in Google Cloud.
+// the Betrieb's switch is on; its protection is Google Cloud's restriction to
+// our origins and to Places API (New), set up and verified at go-live (KAN-451).
 //
 // Two rules this module keeps (the Places API policies' autocomplete
 // exception, which is what lets us store the picked address at all):
@@ -17,10 +18,10 @@
 //   they would have typed; canton is never taken from Google (D-13: the
 //   server derives it; the Business forms keep their own picker).
 //
-// Any failure — a blocked request, an exhausted quota, no network — is
-// `null`, never an error on screen: the caller shows no dropdown at all (a
-// refusal is not "no match"), the fields are plain inputs and the advisor
-// types on.
+// Any failure is never an error on screen: a refusal (a non-OK answer — a
+// blocked key, an exhausted quota) is `null`, and no network is `fetch`'s own
+// rejection; the caller shows no dropdown for either (a refusal is not "no
+// match"), the fields are plain inputs and the advisor types on.
 
 const PLACES_ORIGIN = 'https://places.googleapis.com'
 
