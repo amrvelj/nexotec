@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, SegmentedControl } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
-import { CounterTextarea, MediaGallery, OverviewCard, semantic, slate, spacing } from '@nexotec/ui-kit'
+import { fieldHint, CounterTextarea, MediaGallery, OverviewCard, semantic, slate, spacing } from '@nexotec/ui-kit'
 import { api, ApiError } from '../../api/client'
 import { BlockingConditionBanner } from './BlockingConditionBanner'
 import { ChannelPublishCard } from './ChannelPublishCard'
@@ -256,12 +256,10 @@ export function PublishingTab({ stockItemId, locale }: PublishingTabProps) {
             onChange={(v) => saveListingText({ zustandsbeschreibung: v })}
             maxLength={2000}
           />
-          <CounterTextarea
-            label={t('stockDetail.publishing.fields.haendlerbemerkungen')}
+          <CounterTextarea{...fieldHint(t('stockDetail.publishing.fields.haendlerbemerkungen'), t('stockDetail.publishing.haendlerbemerkungenHint'))}
             value={activePublishing?.haendlerbemerkungen ?? ''}
             onChange={(v) => saveListingText({ haendlerbemerkungen: v })}
             maxLength={2000}
-            description={t('stockDetail.publishing.haendlerbemerkungenHint')}
           />
         </div>
       </OverviewCard>

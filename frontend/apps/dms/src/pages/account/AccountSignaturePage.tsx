@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Alert, Button, Card, FileInput, Group, Image, Stack, Text, Textarea } from '@mantine/core'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { useSetBreadcrumb } from '@nexotec/ui-kit'
+import { fieldHint, useSetBreadcrumb } from '@nexotec/ui-kit'
 import { api, ApiError } from '../../api/client'
 import type { MeRead } from '../../api/types'
 import { ME_KEY } from './accountKeys'
@@ -135,9 +135,7 @@ export function AccountSignaturePage() {
           }}
         >
           <Stack gap="md">
-            <Textarea
-              label={t('account.signature.block')}
-              description={t('account.signature.blockHint')}
+            <Textarea{...fieldHint(t('account.signature.block'), t('account.signature.blockHint'))}
               autosize
               minRows={3}
               maxLength={MAX_BLOCK}
@@ -179,9 +177,7 @@ export function AccountSignaturePage() {
           )}
           <Group align="flex-end">
             <FileInput
-              style={{ flex: 1 }}
-              label={t('account.signature.upload')}
-              description={t('account.signature.imageHint')}
+              style={{ flex: 1 }}{...fieldHint(t('account.signature.upload'), t('account.signature.imageHint'))}
               accept="image/png,image/jpeg"
               value={file}
               onChange={(chosen) => {

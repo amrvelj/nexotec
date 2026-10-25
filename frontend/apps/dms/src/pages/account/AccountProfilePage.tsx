@@ -3,7 +3,7 @@ import { Alert, Button, Card, Group, Select, SimpleGrid, Stack, Text, TextInput 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Bell } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { useSetBreadcrumb } from '@nexotec/ui-kit'
+import { fieldHint, useSetBreadcrumb } from '@nexotec/ui-kit'
 import { api, ApiError } from '../../api/client'
 import type { MeRead, MeUpdate } from '../../api/types'
 import { useAuth } from '../../auth/AuthContext'
@@ -147,9 +147,7 @@ export function AccountProfilePage() {
                 value={form.lastName}
                 onChange={(e) => set('lastName', e.currentTarget.value)}
               />
-              <TextInput
-                label={t('account.profile.email')}
-                description={t('account.profile.emailHint')}
+              <TextInput{...fieldHint(t('account.profile.email'), t('account.profile.emailHint'))}
                 value={loaded.email}
                 readOnly
                 disabled
@@ -167,17 +165,13 @@ export function AccountProfilePage() {
                 value={form.directDial}
                 onChange={(e) => set('directDial', e.currentTarget.value)}
               />
-              <Select
-                label={t('account.profile.uiLanguage')}
-                description={t('account.profile.uiLanguageHint')}
+              <Select{...fieldHint(t('account.profile.uiLanguage'), t('account.profile.uiLanguageHint'))}
                 data={LANGUAGES.map((code) => ({ value: code, label: languageLabel(code) }))}
                 value={uiLanguage}
                 allowDeselect={false}
                 onChange={(value) => value && setUiLanguage(value as Language)}
               />
-              <Select
-                label={t('account.profile.correspondenceLanguage')}
-                description={t('account.profile.correspondenceLanguageHint')}
+              <Select{...fieldHint(t('account.profile.correspondenceLanguage'), t('account.profile.correspondenceLanguageHint'))}
                 data={[
                   {
                     value: BETRIEB_DEFAULT,

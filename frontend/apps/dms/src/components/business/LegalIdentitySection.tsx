@@ -1,11 +1,11 @@
 import { useCallback, useState } from 'react'
+import { fieldHint } from '@nexotec/ui-kit'
 import { Checkbox, MultiSelect, Select, SimpleGrid, Stack, Switch, Text, TextInput } from '@mantine/core'
 import { Landmark } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { DealershipRead, DealershipUpdate, FranchiseType } from '../../api/types'
 import { FRANCHISE_TYPES, orNull } from '../../businessOptions'
 import { CANTON_OPTIONS } from '../../customerOptions'
-import { FIELD } from './fieldLayout'
 import { SectionCard } from './SectionCard'
 import { useDealershipPatch } from './useDealershipPatch'
 import { useListOptions } from './useListOptions'
@@ -105,11 +105,10 @@ export function LegalIdentitySection({ dealership }: { dealership: DealershipRea
     >
       <Stack gap="md">
         <SimpleGrid cols={{ base: 1, sm: 2 }}>
-          <TextInput {...FIELD} label={t('business.legal.legalName')} value={form.legalName} onChange={(e) => set('legalName', e.currentTarget.value)} required description={t('business.legal.legalNameHint')} />
-          <TextInput {...FIELD} label={t('business.legal.tradeName')} value={form.tradeName} onChange={(e) => set('tradeName', e.currentTarget.value)} description={t('business.legal.tradeNameHint')} />
-          <Select {...FIELD} label={t('business.legal.legalForm')} data={legalForms.options} value={form.legalForm} onChange={(v) => set('legalForm', v)} clearable searchable placeholder={legalForms.isLoading ? t('common.loading') : undefined} />
+          <TextInput {...fieldHint(t('business.legal.legalName'), t('business.legal.legalNameHint'))} value={form.legalName} onChange={(e) => set('legalName', e.currentTarget.value)} required />
+          <TextInput {...fieldHint(t('business.legal.tradeName'), t('business.legal.tradeNameHint'))} value={form.tradeName} onChange={(e) => set('tradeName', e.currentTarget.value)} />
+          <Select label={t('business.legal.legalForm')} data={legalForms.options} value={form.legalForm} onChange={(v) => set('legalForm', v)} clearable searchable placeholder={legalForms.isLoading ? t('common.loading') : undefined} />
           <Select
-            {...FIELD}
             label={t('business.legal.franchiseType')}
             data={FRANCHISE_TYPES.map((v) => ({ value: v, label: t(`business.legal.franchiseTypes.${v}`) }))}
             value={form.franchiseType}
@@ -117,12 +116,12 @@ export function LegalIdentitySection({ dealership }: { dealership: DealershipRea
             allowDeselect={false}
           />
         </SimpleGrid>
-        <MultiSelect {...FIELD} label={t('business.legal.oemAffiliations')} data={oems.options} value={form.oemAffiliations} onChange={(v) => set('oemAffiliations', v)} searchable clearable />
+        <MultiSelect label={t('business.legal.oemAffiliations')} data={oems.options} value={form.oemAffiliations} onChange={(v) => set('oemAffiliations', v)} searchable clearable />
         <SimpleGrid cols={{ base: 1, sm: 2 }}>
-          <TextInput {...FIELD} label={t('business.legal.uid')} value={form.uid} onChange={(e) => set('uid', e.currentTarget.value)} placeholder="CHE-123.456.789" required description={t('business.legal.uidHint')} />
-          <TextInput {...FIELD} label={t('business.legal.vatNumber')} value={form.vatNumber} onChange={(e) => set('vatNumber', e.currentTarget.value)} placeholder="CHE-123.456.789 MWST" />
-          <Select {...FIELD} label={t('business.legal.commercialRegisterOffice')} data={CANTON_OPTIONS} value={form.commercialRegisterOffice} onChange={(v) => set('commercialRegisterOffice', v)} clearable searchable />
-          <TextInput {...FIELD} label={t('business.legal.hrNumber')} value={form.hrNumber} onChange={(e) => set('hrNumber', e.currentTarget.value)} placeholder="CH-020.3.012.345-6" description={t('business.legal.hrNumberHint')} />
+          <TextInput {...fieldHint(t('business.legal.uid'), t('business.legal.uidHint'))} value={form.uid} onChange={(e) => set('uid', e.currentTarget.value)} placeholder="CHE-123.456.789" required />
+          <TextInput label={t('business.legal.vatNumber')} value={form.vatNumber} onChange={(e) => set('vatNumber', e.currentTarget.value)} placeholder="CHE-123.456.789 MWST" />
+          <Select label={t('business.legal.commercialRegisterOffice')} data={CANTON_OPTIONS} value={form.commercialRegisterOffice} onChange={(v) => set('commercialRegisterOffice', v)} clearable searchable />
+          <TextInput {...fieldHint(t('business.legal.hrNumber'), t('business.legal.hrNumberHint'))} value={form.hrNumber} onChange={(e) => set('hrNumber', e.currentTarget.value)} placeholder="CH-020.3.012.345-6" />
         </SimpleGrid>
         <Switch label={t('business.legal.vatLiable')} checked={form.vatLiable} onChange={(e) => set('vatLiable', e.currentTarget.checked)} />
         {touchesIdentity && (
@@ -132,7 +131,7 @@ export function LegalIdentitySection({ dealership }: { dealership: DealershipRea
               {t('business.legal.confirmHint')}
             </Text>
             <Checkbox label={t('business.legal.confirmLabel')} checked={confirmed} onChange={(e) => setConfirmed(e.currentTarget.checked)} />
-            <TextInput {...FIELD} label={t('business.legal.auditNote')} value={auditNote} onChange={(e) => setAuditNote(e.currentTarget.value)} placeholder={t('business.legal.auditNotePlaceholder')} maxLength={500} />
+            <TextInput label={t('business.legal.auditNote')} value={auditNote} onChange={(e) => setAuditNote(e.currentTarget.value)} placeholder={t('business.legal.auditNotePlaceholder')} maxLength={500} />
           </Stack>
         )}
       </Stack>

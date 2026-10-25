@@ -62,7 +62,10 @@ function numberInputUses(file: string): NumberInputUse[] {
     const start = match.index ?? 0
     const end = source.indexOf('/>', start)
     const element = source.slice(start, end === -1 ? undefined : end)
-    const label = element.match(/\blabel=\{([^}]*\)?)\}/)?.[1]?.trim() ?? null
+    // The label is `label={…}`, or the first argument of the kit's
+    // `{...fieldHint(label, hint)}` spread (KAN-443: a hinted field).
+    const label =
+      element.match(/\blabel=\{([^}]*\)?)\}/)?.[1]?.trim() ?? element.match(/\{\.\.\.fieldHint\((t\('[^']*'\)),/)?.[1] ?? null
     const line = source.slice(0, start).split('\n').length
     uses.push({ where: `${relative(APP_ROOT, file)}:${line}`, label })
   }

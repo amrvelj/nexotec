@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Checkbox, Select, SimpleGrid, Stack, TextInput } from '@mantine/core'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { FormDialog } from '@nexotec/ui-kit'
+import { fieldHint, FormDialog } from '@nexotec/ui-kit'
 import { useTranslation } from 'react-i18next'
 import { api } from '../../api/client'
 import type { BankAccountCreate, BankAccountRead, BankAccountUpdate, QrReferenceType } from '../../api/types'
 import { QR_REFERENCE_TYPES, bankingWriteRefusalText, orNull } from '../../businessOptions'
 import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
-import { FIELD } from './fieldLayout'
 import { bankAccountsKey } from './queryKeys'
 
 export interface BankAccountDialogProps {
@@ -138,12 +137,11 @@ export function BankAccountDialog({ opened, onClose, dealershipId, account }: Ba
             </div>
           )}
           <SimpleGrid cols={{ base: 1, sm: 2 }}>
-            <TextInput {...FIELD} label={t('business.banking.fields.accountHolder')} value={form.accountHolder} onChange={(e) => set('accountHolder', e.currentTarget.value)} required />
-            <TextInput {...FIELD} label={t('business.banking.fields.bankName')} value={form.bankName} onChange={(e) => set('bankName', e.currentTarget.value)} required />
-            <TextInput {...FIELD} label={t('business.banking.fields.iban')} value={form.iban} onChange={(e) => set('iban', e.currentTarget.value)} placeholder="CH93 0076 2011 6238 5295 7" required description={t('business.banking.fields.ibanHint')} />
-            <TextInput {...FIELD} label={t('business.banking.fields.bic')} value={form.bic} onChange={(e) => set('bic', e.currentTarget.value.toUpperCase())} placeholder="ZKBKCHZZ80A" />
-            <Select {...FIELD}
-              label={t('business.banking.fields.qrReferenceType')}
+            <TextInput label={t('business.banking.fields.accountHolder')} value={form.accountHolder} onChange={(e) => set('accountHolder', e.currentTarget.value)} required />
+            <TextInput label={t('business.banking.fields.bankName')} value={form.bankName} onChange={(e) => set('bankName', e.currentTarget.value)} required />
+            <TextInput {...fieldHint(t('business.banking.fields.iban'), t('business.banking.fields.ibanHint'))} value={form.iban} onChange={(e) => set('iban', e.currentTarget.value)} placeholder="CH93 0076 2011 6238 5295 7" required />
+            <TextInput label={t('business.banking.fields.bic')} value={form.bic} onChange={(e) => set('bic', e.currentTarget.value.toUpperCase())} placeholder="ZKBKCHZZ80A" />
+            <Select {...fieldHint(t('business.banking.fields.qrReferenceType'), t('business.banking.fields.qrReferenceTypeHint'))}
               data={QR_REFERENCE_TYPES.map((v) => ({ value: v, label: t(`business.banking.qrTypes.${v}`) }))}
               value={form.qrReferenceType}
               onChange={(v) => {
@@ -154,13 +152,12 @@ export function BankAccountDialog({ opened, onClose, dealershipId, account }: Ba
                 setForm((f) => ({ ...f, qrReferenceType: type, qrIban: type === 'qrr' ? f.qrIban : '', creditorReferencePrefix: type === 'scor' ? f.creditorReferencePrefix : '' }))
               }}
               allowDeselect={false}
-              description={t('business.banking.fields.qrReferenceTypeHint')}
             />
-            {qrr && <TextInput {...FIELD} label={t('business.banking.fields.qrIban')} value={form.qrIban} onChange={(e) => set('qrIban', e.currentTarget.value)} placeholder="CH44 3199 9123 0008 8901 2" required description={t('business.banking.fields.qrIbanHint')} />}
-            {scor && <TextInput {...FIELD} label={t('business.banking.fields.creditorReferencePrefix')} value={form.creditorReferencePrefix} onChange={(e) => set('creditorReferencePrefix', e.currentTarget.value)} description={t('business.banking.fields.creditorReferencePrefixHint')} />}
-            <TextInput {...FIELD} label={t('business.banking.fields.label')} value={form.label} onChange={(e) => set('label', e.currentTarget.value)} placeholder={t('business.banking.fields.labelPlaceholder')} />
+            {qrr && <TextInput {...fieldHint(t('business.banking.fields.qrIban'), t('business.banking.fields.qrIbanHint'))} value={form.qrIban} onChange={(e) => set('qrIban', e.currentTarget.value)} placeholder="CH44 3199 9123 0008 8901 2" required />}
+            {scor && <TextInput {...fieldHint(t('business.banking.fields.creditorReferencePrefix'), t('business.banking.fields.creditorReferencePrefixHint'))} value={form.creditorReferencePrefix} onChange={(e) => set('creditorReferencePrefix', e.currentTarget.value)} />}
+            <TextInput label={t('business.banking.fields.label')} value={form.label} onChange={(e) => set('label', e.currentTarget.value)} placeholder={t('business.banking.fields.labelPlaceholder')} />
           </SimpleGrid>
-          <Checkbox label={t('business.banking.fields.isDefault')} description={t('business.banking.fields.isDefaultHint')} checked={form.isDefault} onChange={(e) => set('isDefault', e.currentTarget.checked)} />
+          <Checkbox{...fieldHint(t('business.banking.fields.isDefault'), t('business.banking.fields.isDefaultHint'))} checked={form.isDefault} onChange={(e) => set('isDefault', e.currentTarget.checked)} />
         </Stack>
       </form>
     </FormDialog>

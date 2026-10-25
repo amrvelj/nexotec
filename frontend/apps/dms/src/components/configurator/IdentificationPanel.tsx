@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Alert, Button, Group, Select, Stack, Table, Text, TextInput } from '@mantine/core'
 import { AlertTriangle, Info, ScanSearch } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { ChfInput, Picker, type PickerRow } from '@nexotec/ui-kit'
+import { fieldHint, ChfInput, Picker, type PickerRow } from '@nexotec/ui-kit'
 import { api, ApiError } from '../../api/client'
 import { toSwissLocale, type SupportedLanguage } from '../../i18n'
 import { formatCurrencyChf, formatDateOnly } from '../../utils/format'
@@ -136,9 +136,7 @@ export function IdentificationPanel({ allowedModes, onStart, onReuse, onQueryCha
   return (
     <Stack gap="sm">
       <Group align="flex-end" gap="xs">
-        <TextInput
-          label={t('configurator.find.idLabel')}
-          description={t('configurator.find.idHint')}
+        <TextInput{...fieldHint(t('configurator.find.idLabel'), t('configurator.find.idHint'))}
           // KAN-351 — a 17-character input that is no VIN by the API's rule
           // is not kept as the car's VIN (ConfiguratorOverlay, KAN-338); the
           // input names the VIN rule instead of the VIN vanishing in phase 2.

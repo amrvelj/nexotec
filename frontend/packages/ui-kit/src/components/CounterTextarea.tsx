@@ -1,9 +1,11 @@
+import type { CSSProperties, ReactNode } from "react";
 import { Textarea } from "@mantine/core";
 import { semantic, slate, typography } from "../tokens";
 import { formatNumber } from "../format/swissNumber";
 
 export interface CounterTextareaProps {
-  label: string;
+  /** The label, or `fieldHint(label, hint)`'s label (KAN-443). */
+  label: ReactNode;
   value: string;
   onChange: (value: string) => void;
   maxLength: number;
@@ -11,7 +13,9 @@ export interface CounterTextareaProps {
    * marketplace's own display limit is often shorter than the stored
    * field's own max length (AS24's zusatztitel stores 500, shows 125). */
   displayLimitCaption?: string;
-  description?: string;
+  /** With `descriptionProps`, what `fieldHint()` returns: the hint reaches the textarea's aria-describedby. */
+  description?: ReactNode;
+  descriptionProps?: { style?: CSSProperties; id?: string };
   minRows?: number;
 }
 
@@ -28,6 +32,7 @@ export function CounterTextarea({
   maxLength,
   displayLimitCaption,
   description,
+  descriptionProps,
   minRows = 2,
 }: CounterTextareaProps) {
   const overLimit = value.length > maxLength;
@@ -44,6 +49,7 @@ export function CounterTextarea({
         onChange={(e) => onChange(e.currentTarget.value)}
         minRows={minRows}
         description={description}
+        descriptionProps={descriptionProps}
         error={overLimit || undefined}
       />
       {displayLimitCaption && (

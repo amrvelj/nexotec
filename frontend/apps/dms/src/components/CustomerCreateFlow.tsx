@@ -4,7 +4,7 @@ import { useDebouncedValue } from '@mantine/hooks'
 import { useForm } from '@mantine/form'
 import { useTranslation } from 'react-i18next'
 import { Building2, User } from 'lucide-react'
-import {
+import { fieldHint,
   RepeatableRowGroup,
   Wizard,
   purple,
@@ -299,9 +299,7 @@ export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType, o
         </SimpleGrid>
       ) : (
         <Stack gap="sm">
-          <Select
-            label={t('customerCreate.fields.correspondenceLanguage')}
-            description={t('customerCreate.descriptions.correspondenceLanguage')}
+          <Select{...fieldHint(t('customerCreate.fields.correspondenceLanguage'), t('customerCreate.descriptions.correspondenceLanguage'))}
             data={LANGUAGE_OPTIONS}
             allowDeselect={false}
             required

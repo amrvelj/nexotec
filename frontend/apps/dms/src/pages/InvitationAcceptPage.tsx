@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { fieldHint } from '@nexotec/ui-kit'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Alert, Anchor, Button, PasswordInput, Stack, Text } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
@@ -77,9 +78,7 @@ export function InvitationAcceptPage() {
     <AuthScreen title={t('auth.invitation.title')} hint={t('auth.invitation.hint')}>
       <form onSubmit={submit} noValidate>
         <Stack gap="md">
-          <PasswordInput
-            label={t('auth.invitation.newPassword')}
-            description={t('auth.password.rules')}
+          <PasswordInput{...fieldHint(t('auth.invitation.newPassword'), t('auth.password.rules'))}
             value={password}
             onChange={(e) => setPassword(e.currentTarget.value)}
             autoComplete="new-password"
