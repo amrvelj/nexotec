@@ -26,6 +26,7 @@ import {
   translatedSourceOptions,
 } from '../customerOptions'
 import { SUPPORTED_LANGUAGES } from '../i18n'
+import { AddressSearchField } from './AddressSearchField'
 import { DuplicateWarningPanel } from './DuplicateWarningPanel'
 import { contactPointRowLabels } from './customer-detail/contactPointRowLabels'
 import { PHONE_INPUT_MIN_WIDTH, PhoneInput } from './PhoneInput'
@@ -375,6 +376,19 @@ export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType, o
           <Checkbox label={t('customerCreate.fields.hasAddress')} {...form.getInputProps('hasAddress', { type: 'checkbox' })} />
           {form.values.hasAddress && (
             <Stack gap="sm">
+              {/* KAN-37: fills the five fields below from a Google Places pick; every field stays editable, line 2 is never touched. */}
+              <AddressSearchField
+                country={form.values.country || 'CH'}
+                onSelect={(address) =>
+                  form.setValues({
+                    street: address.street,
+                    houseNumber: address.houseNumber,
+                    postalCode: address.postalCode,
+                    locality: address.locality,
+                    country: address.country || form.values.country || 'CH',
+                  })
+                }
+              />
               <Group grow>
                 <TextInput label={t('customerCreate.fields.street')} {...form.getInputProps('street')} />
                 <TextInput label={t('customerCreate.fields.houseNumber')} {...form.getInputProps('houseNumber')} />

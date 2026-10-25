@@ -21,7 +21,7 @@ import enum
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import DECIMAL, ForeignKey, Integer, String
+from sqlalchemy import DECIMAL, Boolean, ForeignKey, Integer, String, true
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import PrimaryKeyMixin, TimestampMixin, VersionedMixin
@@ -45,6 +45,10 @@ SHIPPED_CURRENCY = "CHF"
 SHIPPED_CASH_ROUNDING = Decimal("0.05")
 SHIPPED_PAYMENT_TERMS_DAYS = 30
 SHIPPED_FISCAL_YEAR_START = "01-01"  # MM-DD
+# KAN-37 (ADR-101; Anto, 2026-10-25): address autocomplete is on for every
+# Betrieb until its manager switches it off — the one non-fiscal setting
+# here, because this is the row the Business screen edits (A-RULE-0).
+SHIPPED_ADDRESS_AUTOCOMPLETE_ENABLED = True
 
 
 class DealershipSettings(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
@@ -67,4 +71,13 @@ class DealershipSettings(PrimaryKeyMixin, VersionedMixin, TimestampMixin, Base):
     )
     period_lock_policy: Mapped[PeriodLockPolicy] = mapped_column(
         StoredEnum(PeriodLockPolicy, length=24), nullable=False, default=PeriodLockPolicy.MONTH_END_CLOSE
+    )
+    # KAN-37: whether the Betrieb's address forms offer Google Places
+    # Autocomplete. The switch alone — the key is platform configuration
+    # (`Settings.google_places_browser_key`), never a column. The server
+    # default stays (as `user.commission_relevant`'s does): the KAN-203
+    # backfill's INSERT names its columns and is immutable, so a NOT NULL
+    # column added after it needs a default the database supplies.
+    address_autocomplete_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=SHIPPED_ADDRESS_AUTOCOMPLETE_ENABLED, server_default=true()
     )

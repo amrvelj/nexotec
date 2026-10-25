@@ -22,6 +22,7 @@ import type { CountryOption } from '../../hooks/useCountryOptions'
 import { useAdvisorOptions } from '../../hooks/useAdvisorOptions'
 import { ContactPointsEditor, type ContactPointUpdatePatch } from './ContactPointsEditor'
 import { ContactChannelsSummary, PreferredChannelBadge } from './ContactChannelsSummary'
+import { AddressSearchField } from '../AddressSearchField'
 import { PHONE_INPUT_MIN_WIDTH, PhoneInput } from '../PhoneInput'
 import type { CustomerEmailRead, CustomerPhoneRead, CustomerRead, CustomerUpdateInput, EmailType, PhoneType } from '../../api/types'
 
@@ -354,6 +355,21 @@ function AddressField({
     return (
       <div style={{ padding: `8px 0` }}>
         <Stack gap="xs">
+          {/* KAN-37: a Google Places pick fills the fields below; each stays editable, line 2 is never touched. */}
+          <AddressSearchField
+            size="xs"
+            country={draft.country || 'CH'}
+            onSelect={(address) =>
+              setDraft((current) => ({
+                ...current,
+                street: address.street,
+                houseNumber: address.houseNumber,
+                postalCode: address.postalCode,
+                locality: address.locality,
+                country: address.country || current.country || 'CH',
+              }))
+            }
+          />
           <Group grow gap="xs">
             <TextInput
               size="xs"

@@ -44,6 +44,8 @@ class DealershipSettingsUpdate(CamelModel):
     mandant: str | None = Field(default=None, max_length=50)
     chart_of_accounts_variant: ChartOfAccountsVariant | None = None
     period_lock_policy: PeriodLockPolicy | None = None
+    # KAN-37: the per-Betrieb switch for Google Places Autocomplete.
+    address_autocomplete_enabled: bool | None = None
 
     @field_validator("cash_rounding")
     @classmethod
@@ -73,7 +75,21 @@ class DealershipSettingsRead(CamelModel):
     mandant: str | None
     chart_of_accounts_variant: ChartOfAccountsVariant
     period_lock_policy: PeriodLockPolicy
+    address_autocomplete_enabled: bool
     version: int
     created_at: dt.datetime
     updated_at: dt.datetime
     updated_by: uuid.UUID | None
+
+
+class AddressAutocompleteConfigRead(CamelModel):
+    """What the SPA needs to offer Google Places Autocomplete on an address
+    form (KAN-37, ADR-101): `enabled` holds only when the Betrieb's switch is
+    on AND the platform holds a key; `browserKey` is that key, or null. The
+    key is Nexotec's, browser-restricted by HTTP referrer in Google Cloud —
+    shipping it to a signed-in browser is its purpose, not a leak — and it
+    is the one piece of configuration this read carries beyond the switch.
+    """
+
+    enabled: bool
+    browser_key: str | None

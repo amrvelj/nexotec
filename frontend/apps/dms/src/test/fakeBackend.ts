@@ -112,6 +112,12 @@ const INFRA_ROUTES: FakeRoute[] = [
     }),
   },
   { method: 'GET', match: /\/me\/preferences\//, handler: () => ({ payload: {} }) },
+  // KAN-37 — every address form asks whether Google Places Autocomplete is
+  // on for the Betrieb. Off here, so existing screen tests see the plain
+  // address fields; a test about the search field shadows this route and
+  // adds the two Google routes (`/places:autocomplete`, `/places/{id}` —
+  // matched on pathname like every other route, the host is in `req.url`).
+  { method: 'GET', match: /\/dealerships\/[^/]+\/address-autocomplete$/, handler: () => ({ enabled: false, browserKey: null }) },
   { method: 'PUT', match: /\/me\/preferences\//, handler: () => ({ ok: true }) },
   {
     method: 'GET',

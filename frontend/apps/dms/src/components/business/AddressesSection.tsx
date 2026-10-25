@@ -6,6 +6,7 @@ import { useFieldHint } from '../../hooks/useFieldHint'
 import { useTranslation } from 'react-i18next'
 import type { DealershipAddress, DealershipOverrideAddress, DealershipRead, DealershipUpdate } from '../../api/types'
 import { CANTON_OPTIONS } from '../../customerOptions'
+import { AddressSearchField } from '../AddressSearchField'
 import { SectionCard } from './SectionCard'
 import { useDealershipPatch } from './useDealershipPatch'
 import { useRecordForm } from './useRecordForm'
@@ -74,15 +75,32 @@ function AddressFields({ value, onChange, idPrefix, seat, extra }: { value: Addr
   const set = <K extends keyof AddressForm>(key: K, v: AddressForm[K]) => onChange({ ...value, [key]: v })
   const swiss = (value.country || 'CH').toUpperCase() === 'CH'
   return (
-    <SimpleGrid cols={{ base: 1, sm: 3 }}>
-      <TextInput id={`${idPrefix}-street`} label={t('business.addresses.street')} value={value.street} onChange={(e) => set('street', e.currentTarget.value)} required />
-      <TextInput id={`${idPrefix}-house`} label={t('business.addresses.houseNumber')} value={value.houseNumber} onChange={(e) => set('houseNumber', e.currentTarget.value)} required />
-      <TextInput id={`${idPrefix}-postal`} label={t('business.addresses.postalCode')} value={value.postalCode} onChange={(e) => set('postalCode', e.currentTarget.value)} required />
-      <TextInput id={`${idPrefix}-locality`} label={t('business.addresses.locality')} value={value.locality} onChange={(e) => set('locality', e.currentTarget.value)} required />
-      {swiss && <Select id={`${idPrefix}-canton`} label={t('business.addresses.canton')} data={CANTON_OPTIONS} value={value.canton} onChange={(v) => set('canton', v)} searchable required />}
-      {extra}
-      {!seat && <TextInput id={`${idPrefix}-country`} {...hint(t('business.addresses.country'), t('business.addresses.countryHint'))} value={value.country} onChange={(e) => set('country', e.currentTarget.value.toUpperCase())} maxLength={2} />}
-    </SimpleGrid>
+    <Stack gap="sm">
+      {/* KAN-37: a Google Places pick fills street, number, postal code, locality and country; the canton stays the manager's pick (D-13's spirit: never Google's). */}
+      <AddressSearchField
+        id={`${idPrefix}-search`}
+        country={value.country || 'CH'}
+        onSelect={(address) =>
+          onChange({
+            ...value,
+            street: address.street,
+            houseNumber: address.houseNumber,
+            postalCode: address.postalCode,
+            locality: address.locality,
+            country: seat ? value.country : address.country || value.country,
+          })
+        }
+      />
+      <SimpleGrid cols={{ base: 1, sm: 3 }}>
+        <TextInput id={`${idPrefix}-street`} label={t('business.addresses.street')} value={value.street} onChange={(e) => set('street', e.currentTarget.value)} required />
+        <TextInput id={`${idPrefix}-house`} label={t('business.addresses.houseNumber')} value={value.houseNumber} onChange={(e) => set('houseNumber', e.currentTarget.value)} required />
+        <TextInput id={`${idPrefix}-postal`} label={t('business.addresses.postalCode')} value={value.postalCode} onChange={(e) => set('postalCode', e.currentTarget.value)} required />
+        <TextInput id={`${idPrefix}-locality`} label={t('business.addresses.locality')} value={value.locality} onChange={(e) => set('locality', e.currentTarget.value)} required />
+        {swiss && <Select id={`${idPrefix}-canton`} label={t('business.addresses.canton')} data={CANTON_OPTIONS} value={value.canton} onChange={(v) => set('canton', v)} searchable required />}
+        {extra}
+        {!seat && <TextInput id={`${idPrefix}-country`} {...hint(t('business.addresses.country'), t('business.addresses.countryHint'))} value={value.country} onChange={(e) => set('country', e.currentTarget.value.toUpperCase())} maxLength={2} />}
+      </SimpleGrid>
+    </Stack>
   )
 }
 

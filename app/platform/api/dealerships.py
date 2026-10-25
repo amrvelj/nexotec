@@ -50,7 +50,11 @@ from app.platform.schemas.auth import (
 )
 from app.platform.schemas.bank_account import BankAccountCreate, BankAccountList, BankAccountRead, BankAccountUpdate
 from app.platform.schemas.dealership import DealershipCreate, DealershipPage, DealershipRead, DealershipUpdate
-from app.platform.schemas.dealership_settings import DealershipSettingsRead, DealershipSettingsUpdate
+from app.platform.schemas.dealership_settings import (
+    AddressAutocompleteConfigRead,
+    DealershipSettingsRead,
+    DealershipSettingsUpdate,
+)
 from app.platform.schemas.entitlement import EntitlementsRead, EntitlementsUpdate
 from app.platform.schemas.me import ConnectedAccountManagerListRead, ConnectedAccountManagerRead
 from app.platform.schemas.membership import (
@@ -257,6 +261,23 @@ def update_dealership_settings(
     check_version(settings_row.version, if_match, entity_name="DealershipSettings")
     settings_row = settings_service.update_settings(db, settings=settings_row, data=body, actor_id=principal.user_id)
     return _settings_read(settings_row)
+
+
+@router.get("/dealerships/{dealership_id}/address-autocomplete", response_model=AddressAutocompleteConfigRead)
+def get_address_autocomplete_config(
+    dealership_id: uuid.UUID,
+    principal: Principal = Depends(require_read("dealership_settings")),
+    db: Session = Depends(get_db),
+):
+    """KAN-37 (ADR-101): whether this Betrieb's address forms offer Google
+    Places Autocomplete, and the browser key when they do. Readable by any
+    role of the Betrieb (every role enters addresses); the switch itself is
+    `addressAutocompleteEnabled` on the settings PATCH, the manager's."""
+
+    require_tenant_match(dealership_id, principal)
+    dealership_service.get_dealership_or_404(db, dealership_id)
+    enabled, browser_key = settings_service.address_autocomplete_config(db, dealership_id)
+    return AddressAutocompleteConfigRead(enabled=enabled, browser_key=browser_key)
 
 
 @router.get("/dealerships", response_model=DealershipPage)

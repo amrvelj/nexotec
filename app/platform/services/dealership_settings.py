@@ -14,7 +14,9 @@ from sqlalchemy.orm import Session
 
 from app.core.audit import record_audit_event
 from app.core.base import utcnow
+from app.core.config import get_settings
 from app.platform.models.dealership_settings import (
+    SHIPPED_ADDRESS_AUTOCOMPLETE_ENABLED,
     SHIPPED_CASH_ROUNDING,
     SHIPPED_CURRENCY,
     SHIPPED_FISCAL_YEAR_START,
@@ -34,6 +36,7 @@ _FIELDS = (
     "mandant",
     "chart_of_accounts_variant",
     "period_lock_policy",
+    "address_autocomplete_enabled",
 )
 
 
@@ -58,6 +61,7 @@ def new_settings(dealership_id: uuid.UUID, actor_id: uuid.UUID | None) -> Dealer
         fiscal_year_start=SHIPPED_FISCAL_YEAR_START,
         chart_of_accounts_variant=ChartOfAccountsVariant.KMU,
         period_lock_policy=PeriodLockPolicy.MONTH_END_CLOSE,
+        address_autocomplete_enabled=SHIPPED_ADDRESS_AUTOCOMPLETE_ENABLED,
         created_by=actor_id,
         updated_by=actor_id,
     )
@@ -128,3 +132,15 @@ def update_settings(
     db.commit()
     db.refresh(settings)
     return settings
+
+
+def address_autocomplete_config(db: Session, dealership_id: uuid.UUID) -> tuple[bool, str | None]:
+    """KAN-37 (ADR-101): `(enabled, browser_key)` for the SPA's address
+    forms. Enabled only when the Betrieb's switch is on and the platform holds
+    a key (`DMS_GOOGLE_PLACES_BROWSER_KEY`); the key travels only then. A
+    read, through `read_settings`, so a Betrieb without a settings row
+    answers the shipped value (on) without a write."""
+
+    key = get_settings().google_places_browser_key or None
+    enabled = bool(key) and read_settings(db, dealership_id).address_autocomplete_enabled
+    return enabled, (key if enabled else None)

@@ -2526,6 +2526,12 @@
       "correspondenceDiffers": "Le courrier va à une autre adresse que le siège",
       "billingDiffers": "Les factures de Nexotec vont à une autre adresse (p. ex. la comptabilité du groupe)"
     },
+    "addressEntry": {
+      "title": "Saisie des adresses",
+      "enabled": "Propositions d'adresses de Google Places",
+      "enabledHint": "Lors de la saisie d'une adresse, le texte tapé est envoyé à Google – jamais le nom ni d'autres données du client. Seule l'adresse choisie est enregistrée ; chaque champ reste modifiable.",
+      "unavailable": "Aucune clé Google n'est configurée sur cette installation. Les propositions apparaîtront dès que Nexotec l'aura configurée."
+    },
     "banking": {
       "title": "Relations bancaires",
       "add": "Ajouter un compte",
@@ -2624,5 +2630,12 @@
       "associations": "Affiliations",
       "associationsHint": "Figurent dans le pied de page des documents."
     }
+  },
+  "addressSearch": {
+    "label": "Rechercher une adresse",
+    "placeholder": "Rue, numéro, localité…",
+    "hint": "Choisissez une proposition : rue, numéro, NPA et localité sont remplis et restent modifiables. Seule l'adresse choisie est enregistrée.",
+    "noResults": "Aucune proposition",
+    "attribution": "Google Maps"
   }
 }

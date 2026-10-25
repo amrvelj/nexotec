@@ -5,6 +5,7 @@ import { useSetBreadcrumb } from '@nexotec/ui-kit'
 import { api } from '../api/client'
 import type { DealershipRead, DealershipSettingsRead } from '../api/types'
 import { useAuth } from '../auth/AuthContext'
+import { AddressAutocompleteSection } from '../components/business/AddressAutocompleteSection'
 import { AddressesSection } from '../components/business/AddressesSection'
 import { BankingSection } from '../components/business/BankingSection'
 import { FiscalDefaultsSection } from '../components/business/FiscalDefaultsSection'
@@ -15,8 +16,9 @@ import { dealershipKey, settingsKey } from '../components/business/queryKeys'
 /**
  * Dealer Administration › Business (KAN-203; PRD "Dealership master data";
  * A-RULE-0: the one place the Betrieb's own master data is configured).
- * Five sections — Legal identity · Addresses · Banking · Commercial and
- * fiscal defaults · Licences and memberships — each saving on its own.
+ * Six sections — Legal identity · Addresses · Address entry (KAN-37) ·
+ * Banking · Commercial and fiscal defaults · Licences and memberships —
+ * each saving on its own.
  * Any role reads; the writes are the manager's at the API (a 403 is said
  * beneath the section, the screen is never role-hidden — A-RULE-7); the
  * Banking section exists only for manager, finance and the auditor
@@ -57,6 +59,7 @@ export function BusinessPage() {
         <>
           <LegalIdentitySection dealership={dealership.data} />
           <AddressesSection dealership={dealership.data} />
+          {settings.data && <AddressAutocompleteSection settings={settings.data} />}
           <BankingSection dealershipId={dealershipId} />
           {settings.data && <FiscalDefaultsSection dealership={dealership.data} settings={settings.data} />}
           <LicencesSection dealership={dealership.data} />

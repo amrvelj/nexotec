@@ -52,6 +52,7 @@ const SETTINGS = {
   mandant: null,
   chartOfAccountsVariant: 'kmu',
   periodLockPolicy: 'month_end_close',
+  addressAutocompleteEnabled: true,
   version: 1,
   createdAt: '2026-01-01T00:00:00Z',
   updatedAt: '2026-01-01T00:00:00Z',
@@ -125,6 +126,7 @@ describe('BusinessPage (KAN-203)', () => {
 
     expect(await screen.findByRole('heading', { name: 'Rechtliche Identität' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Adressen' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Adresseingabe' })).toBeInTheDocument()
     expect(await screen.findByRole('heading', { name: 'Bankverbindungen' })).toBeInTheDocument()
     expect(await screen.findByRole('heading', { name: 'Kaufmännische Vorgaben' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Bewilligungen und Mitgliedschaften' })).toBeInTheDocument()
@@ -314,5 +316,32 @@ describe('BusinessPage (KAN-203)', () => {
     await user.click(menus[1])
     await user.click(await screen.findByRole('menuitem', { name: 'Als Rechnungskonto festlegen' }))
     expect(await banking.findByRole('alert')).toHaveTextContent('Nur ein Manager dieses Betriebs ändert die Bankverbindungen.')
+  })
+
+  // KAN-37 (ADR-101): the Betrieb's switch for Google Places Autocomplete,
+  // on by default (Anto, 2026-10-25), saved with the settings version as
+  // If-Match; while the platform holds no key the section says so.
+  it('the address-entry section turns the autocomplete off with the settings If-Match, and names a missing platform key', async () => {
+    const backend = installFakeBackend(
+      routes([{ method: 'PATCH', match: /\/dealerships\/dealership-1\/settings$/, handler: (req) => ({ ...SETTINGS, ...(req.body as object), version: 2 }) }]),
+    )
+    renderWithProviders(<BusinessPage />, { route: '/administration/business' })
+    const user = userEvent.setup()
+
+    const section = within(await screen.findByRole('region', { name: 'Adresseingabe' }))
+    // The fake backend's config read answers "off" (no key): the switch is on, the note explains.
+    expect(await section.findByRole('note')).toHaveTextContent('kein Google-Schlüssel')
+    const toggle = section.getByRole('switch', { name: (n) => n.startsWith('Adressvorschläge von Google Places') })
+    expect(toggle).toBeChecked()
+    expect(section.getByRole('button', { name: 'Speichern' })).toBeDisabled()
+
+    await user.click(toggle)
+    await user.click(section.getByRole('button', { name: 'Speichern' }))
+    await waitFor(() => expect(backend.callsTo(/\/settings$/, 'PATCH')).toHaveLength(1))
+    const call = backend.callsTo(/\/settings$/, 'PATCH')[0]
+    expect(call.body).toEqual({ addressAutocompleteEnabled: false })
+    expect(call.headers.get('If-Match')).toBe('1')
+    expect(await section.findByRole('status')).toHaveTextContent('Gespeichert.')
+    expect(section.queryByRole('note')).toBeNull()
   })
 })
