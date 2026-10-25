@@ -877,11 +877,15 @@ def _build_real_adapter(
         raise ProviderConfigurationError(
             f"Connection {connection.id} has a config.wsdlUrl that is not an http(s) URL."
         )
-    # KAN-213: the parsed WSDL is reused per connection until its URL or a
-    # credential changes (`set_secret` stamps `rotated_at`) or it expires.
-    # The client holds no credential; the key is cautious on purpose.
+    # KAN-213: the parsed WSDL is reused per connection until it expires or
+    # the connection changes — any `update_connection` (the `wsdlUrl`, the
+    # `username`: it bumps `version`) or a secret set or rotated (`set_secret`
+    # stamps `rotated_at`). The client holds no credential; the key is
+    # cautious on purpose.
     soap_client = build_zeep_client(
-        wsdl_url, connection_id=connection.id, cache_key=(str(wsdl_url), connection.rotated_at)
+        wsdl_url,
+        connection_id=connection.id,
+        cache_key=(str(wsdl_url), connection.version, connection.rotated_at),
     )
     return AutoIDatSoapAdapter(db=db, connection=connection, soap_client=soap_client, actor_id=actor_id, purpose=purpose)
 

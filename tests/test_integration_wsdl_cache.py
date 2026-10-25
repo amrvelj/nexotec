@@ -12,7 +12,6 @@ SOAP POST with an encrypted `System` response, so each call goes the whole
 production path: gateway → `_build_real_adapter` → zeep → `Suchen` → decrypt.
 """
 
-import datetime as dt
 import http.server
 import os
 import threading
@@ -24,6 +23,9 @@ from app.core.audit import list_audit_events
 from app.integration.adapters import auto_i_dat_soap
 from app.integration.errors import ProviderTransportError
 from app.integration.models.provider import IntegrationProvider
+from app.integration.models.secret_ref import SecretSlot
+from app.integration.schemas.connection import ConnectionUpdate
+from app.integration.services import connections as connection_service
 from app.integration.services import gateway, resilience
 from tests.test_integration_soap_adapter import (
     _AES_KEY,
@@ -180,8 +182,12 @@ def test_a_changed_wsdl_url_loads_the_new_wsdl(db_session, secrets):
     with _ProviderServer() as old, _ProviderServer() as new:
         connection = _connection(db_session, secrets, old.url)
         _call(db_session, connection)
-        connection.config = {**connection.config, "wsdlUrl": new.url}
-        db_session.commit()
+        connection_service.update_connection(
+            db_session,
+            connection=connection,
+            data=ConnectionUpdate(config={**connection.config, "wsdlUrl": new.url}),
+            actor_id=None,
+        )
         _call(db_session, connection)
         _call(db_session, connection)
 
@@ -189,13 +195,48 @@ def test_a_changed_wsdl_url_loads_the_new_wsdl(db_session, secrets):
     assert (old.soap_calls, new.soap_calls) == (1, 2)
 
 
-def test_a_rotated_credential_reloads_the_wsdl(db_session, secrets):
+class _WritableSecretsBackend:
+    """`connections.set_secret`'s secrets manager, writing into the same dict
+    the adapter's `FakeSecretsBackend` reads."""
+
+    def __init__(self, values: dict) -> None:
+        self._values = values
+
+    def create_secret(self, *, connection_id, slot: str, value: str) -> str:
+        self._values[(connection_id, slot)] = value
+        return f"ref/{connection_id}/{slot}"
+
+    update_secret = create_secret
+
+
+def test_a_rotated_password_reloads_the_wsdl(db_session, secrets):
     with _ProviderServer() as server:
         connection = _connection(db_session, secrets, server.url)
         _call(db_session, connection)
-        # What `connections.set_secret` stamps on every create or rotation.
-        connection.rotated_at = dt.datetime.now(dt.UTC)
-        db_session.commit()
+        connection_service.set_secret(
+            db_session,
+            connection=connection,
+            slot=SecretSlot.PASSWORD,
+            value="n3w-s3cret",
+            actor_id=None,
+            secrets_backend_module=_WritableSecretsBackend(secrets),
+        )
+        _call(db_session, connection)
+        _call(db_session, connection)
+
+    assert server.wsdl_loads == 2
+
+
+def test_a_changed_username_reloads_the_wsdl(db_session, secrets):
+    with _ProviderServer() as server:
+        connection = _connection(db_session, secrets, server.url)
+        _call(db_session, connection)
+        connection_service.update_connection(
+            db_session,
+            connection=connection,
+            data=ConnectionUpdate(config={**connection.config, "username": "another-dealer"}),
+            actor_id=None,
+        )
         _call(db_session, connection)
 
     assert server.wsdl_loads == 2

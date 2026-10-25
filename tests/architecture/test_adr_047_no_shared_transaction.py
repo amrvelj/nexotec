@@ -40,7 +40,7 @@ What it proves:
    follow-up ticket be closed).
 4. One context reaches another only as `from app.<ctx>.public import
    <name>` — a whole public module, another context's non-public module
-   (import-linter forbids only models/services/api) or a public function
+   (import-linter forbids it too since KAN-120; this scan names it) or a public function
    exported by assignment (an alias, a lambda, a `partial(...)`) fails,
    since point 1 could not see the call.
    Every package under app/ is one of the twelve contexts or declared
@@ -530,8 +530,9 @@ def _package_problems(root: Path, contexts: frozenset[str]) -> list[str]:
 def _cross_context_imports(root: Path, contexts: frozenset[str]) -> tuple[dict[str, set[str]], list[str]]:
     """public symbol -> importing files; plus imports the scan cannot see:
     a public module imported whole, or another context's non-public module
-    (import-linter forbids only models/services/api, so a `consumers` or
-    `daily_jobs` import would otherwise slip past both guards)."""
+    (before KAN-120 import-linter forbade only models/services/api, so a
+    `consumers` or `daily_jobs` import slipped past it; it forbids every
+    module but public now, and this scan still names the import itself)."""
 
     imported: dict[str, set[str]] = {}
     unseeable: list[str] = []
@@ -953,8 +954,10 @@ _SCRIPTS_ROOT = _REPO_ROOT / "scripts"
 _ADR_091_SCRIPT = "migrate_transaction_rows.py"
 # Either marker in a script's module docstring is a citation of the exception.
 _ADR_091_CITATIONS = ("ADR-091", "ADR-047 EXCEPTION")
-# A context's internals in the import-linter's sense (models/services/api);
-# a script has no `api` to import, so these two are what the scan looks for.
+# The internals a script would reach for to write a context's rows: its
+# models and services (a script has no `api` to call). Narrower than the
+# import-linter's contracts, which forbid every module but public (KAN-120)
+# and cover app/ only.
 _CONTEXT_INTERNALS = frozenset({"models", "services"})
 
 

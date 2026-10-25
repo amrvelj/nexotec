@@ -126,8 +126,8 @@ delete them, and do not treat a stub as a licence to put its concerns somewhere 
    `labelRefreshedAt` timestamp — the three-column pattern.
 3. **No cross-context imports** — `<context>.public` is the only door (what makes ADR-015 safe).
    import-linter gates CI with **no suppression mechanism** and forbids every top-level module of a
-   context but `public` (KAN-120); `test_import_contracts_cover_every_module.py` fails when a new
-   module is not listed. Moving a boundary is an ADR, not an ignore entry.
+   context but `public`; `test_import_contracts_cover_every_module.py` fails when a new module is
+   not listed. Moving a boundary is an ADR, not an ignore entry.
 4. **Every state change others care about goes through the transactional outbox** — business
    row and outbox row in *one local transaction*. Never a dual write.
 5. **Events are facts in the past tense, never commands.** `vehicle.odometer.recorded`, not
