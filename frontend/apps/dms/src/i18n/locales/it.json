@@ -1044,6 +1044,7 @@
       "listingTextTitle": "Testi dell'annuncio",
       "listingTextConflict": "Il testo dell'annuncio è stato modificato nel frattempo. La versione attuale è caricata – ripetere la modifica.",
       "listingTextError": "Non è stato possibile salvare il testo dell'annuncio. Riprovare.",
+      "listingTextLoadError": "Non è stato possibile caricare i testi dell'annuncio.",
       "titleDisplayLimit": "Nella lista dei risultati vengono mostrati {{count, number}} caratteri.",
       "haendlerbemerkungenHint": "Visibile solo internamente — non appare nell'annuncio.",
       "fields": {

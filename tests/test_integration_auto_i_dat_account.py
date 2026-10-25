@@ -8,13 +8,16 @@ import uuid
 
 import pytest
 
+from app.core.auth import AccessRole, create_access_token
 from app.core.errors import UnprocessableEntityError
+from app.integration.adapters.auto_i_dat_mock import MockAutoIDatAdapter
 from app.integration.models.connection import ConnectionEnvironment, ConnectionStatus
-from app.integration.models.entitlement import EntitlementSource
+from app.integration.models.entitlement import EntitlementSource, IntegrationEntitlement
 from app.integration.models.provider import IntegrationProvider
 from app.integration.models.secret_ref import SecretSlot
 from app.integration.schemas.connection import ConnectionCreate, ConnectionUpdate, SecretSlotRead
 from app.integration.services import connections as connection_service
+from app.integration.services import gateway
 
 
 class FakeSecretsBackend:
@@ -250,13 +253,83 @@ def test_vin_decode_granted_with_a_healthy_dat_connection(db_session):
 
     granted = connection_service.tenant_has_capability(db_session, tenant_id=tenant_id, capability_code="vin_decode")
     assert granted is True
+    # KAN-80: the answer is derived, and asking writes nothing.
+    assert connection_service.get_entitlement(
+        db_session, connection_id=auto_i_dat_connection.id, capability_code="vin_decode"
+    ) is None
 
+
+def _dat_and_auto_i_dat(db_session, tenant_id):
+    dat_provider = _make_dat_provider(db_session)
+    auto_i_dat_provider = _make_auto_i_dat_provider(db_session)
+    dat_connection = connection_service.create_connection(
+        db_session, tenant_id=tenant_id,
+        data=ConnectionCreate(
+            provider_id=dat_provider.id, display_name="DAT", environment=ConnectionEnvironment.PRODUCTION,
+            config={"accountNumber": "1234567", "username": "efdealer"},
+        ),
+        actor_id=uuid.uuid4(),
+    )
+    auto_i_dat_connection = connection_service.create_connection(
+        db_session, tenant_id=tenant_id,
+        data=ConnectionCreate(
+            provider_id=auto_i_dat_provider.id, display_name="auto-i-dat", environment=ConnectionEnvironment.PRODUCTION,
+            config={"username": "efdealer", "benutzerNr": 4711, "benutzerInfo": "DCMi"},
+        ),
+        actor_id=uuid.uuid4(),
+    )
+    return dat_connection, auto_i_dat_connection
+
+
+def test_the_capability_get_never_writes_the_vin_decode_entitlement(client, db_session):
+    """KAN-80 (Anto, option A): `GET /v1/integrations/capabilities/vin_decode`
+    is a read any user of the tenant may send. Before, every call upserted
+    the cached `integration_entitlement` row on the auto-i-dat connection."""
+
+    tenant_id = uuid.uuid4()
+    dat_connection, _auto_i_dat_connection = _dat_and_auto_i_dat(db_session, tenant_id)
+    dat_connection.status = ConnectionStatus.CONNECTED
+    db_session.commit()
+    token = create_access_token(
+        user_id=uuid.uuid4(), tenant_id=tenant_id, group_id=uuid.uuid4(),
+        roles=frozenset({AccessRole.SALES}), is_dealer_manager=False,
+    )
+
+    for _ in range(2):
+        resp = client.get("/v1/integrations/capabilities/vin_decode", headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 200, resp.text
+        assert resp.json() == {"capabilityCode": "vin_decode", "granted": True}
+
+    db_session.expire_all()
+    assert db_session.query(IntegrationEntitlement).count() == 0
+
+
+def test_testing_the_dat_connection_refreshes_the_cached_vin_decode_entitlement(db_session, monkeypatch):
+    """KAN-80: the cached row is written where the entitlement is established
+    — an admin's "Test connection" on the `dat` (or `auto_i_dat`) connection.
+    No DAT adapter exists yet (KAN-81), so the test serves the mock."""
+
+    tenant_id = uuid.uuid4()
+    dat_connection, auto_i_dat_connection = _dat_and_auto_i_dat(db_session, tenant_id)
+    monkeypatch.setitem(gateway._ADAPTER_FACTORIES, "dat", lambda db, connection, actor_id, purpose: MockAutoIDatAdapter())
+
+    tested = gateway.test_connection(db_session, connection=dat_connection)
+
+    assert tested.status == ConnectionStatus.CONNECTED
     entitlement = connection_service.get_entitlement(
         db_session, connection_id=auto_i_dat_connection.id, capability_code="vin_decode"
     )
     assert entitlement is not None
     assert entitlement.granted is True
     assert entitlement.source == EntitlementSource.PROBED
+
+    # A failed test refreshes it too: the DAT account is no longer healthy.
+    monkeypatch.delitem(gateway._ADAPTER_FACTORIES, "dat")
+    tested = gateway.test_connection(db_session, connection=dat_connection)
+
+    assert tested.status == ConnectionStatus.ERROR
+    db_session.refresh(entitlement)
+    assert entitlement.granted is False
 
 
 def test_removing_the_dat_connection_revokes_vin_decode(db_session):
