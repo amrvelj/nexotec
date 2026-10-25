@@ -40,3 +40,20 @@ the specific additions and removals).
 Attribution, as required by CC BY 4.0: *"Country data from Google's Dataset
 Publishing Language canonical data, used under CC BY 4.0."* No modifications to
 Google's data are distributed in this repository.
+
+---
+
+## Google Maps logo — `frontend/apps/dms/src/assets/google-maps-logo-gray.svg` (KAN-37)
+
+The gray Google Maps logo shown beneath the address suggestions
+(`AddressSearchField`) is Google's own attribution asset, redistributed
+unchanged (`GoogleMaps_Logo_Gray.svg` from the attribution asset pack). It is
+displayed because the Google Maps Platform policies require the logo wherever
+Places API results are shown without a Google map, and only there: it is not a
+Nexotec brand element.
+
+- Source: <https://developers.google.com/static/maps/documentation/images/Google_Maps_Attribution_Assets.zip>
+  (linked from <https://developers.google.com/maps/documentation/places/web-service/policies>)
+- Copyright: © Google. The logo is a Google trademark, used under the Google
+  Maps Platform attribution requirements and brand guidelines (minimum height
+  16 px, clear space, never altered), not under an open licence.

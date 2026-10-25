@@ -974,6 +974,29 @@ export interface paths {
         patch: operations["update_dealership_v1_dealerships__dealership_id__patch"];
         trace?: never;
     };
+    "/v1/dealerships/{dealership_id}/address-autocomplete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Address Autocomplete Config
+         * @description KAN-37 (ADR-101): whether this Betrieb's address forms offer Google
+         *     Places Autocomplete, and the browser key when they do. Readable by any
+         *     role of the Betrieb (every role enters addresses); the switch itself is
+         *     `addressAutocompleteEnabled` on the settings PATCH, the manager's.
+         */
+        get: operations["get_address_autocomplete_config_v1_dealerships__dealership_id__address_autocomplete_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/dealerships/{dealership_id}/audit-log": {
         parameters: {
             query?: never;
@@ -3347,6 +3370,23 @@ export interface components {
         AddMediaRequest: {
             /** Url */
             url: string;
+        };
+        /**
+         * AddressAutocompleteConfigRead
+         * @description What the SPA needs to offer Google Places Autocomplete on an address
+         *     form (KAN-37, ADR-101): `enabled` holds only when the Betrieb's switch is
+         *     on AND the platform holds a key; `browserKey` is that key, or null. The
+         *     key is Nexotec's and public configuration: shipping it to a signed-in
+         *     browser is its purpose, not a leak — what protects it is Google Cloud's
+         *     restriction to our origins and to Places API (New), configured and
+         *     verified at go-live (KAN-451). It is the one piece of configuration this
+         *     read carries beyond the switch.
+         */
+        AddressAutocompleteConfigRead: {
+            /** Browserkey */
+            browserKey: string | null;
+            /** Enabled */
+            enabled: boolean;
         };
         /**
          * AddressType
@@ -5827,6 +5867,8 @@ export interface components {
         DealershipSettingsRead: {
             /** Accountingsystem */
             accountingSystem: string | null;
+            /** Addressautocompleteenabled */
+            addressAutocompleteEnabled: boolean;
             /** Cashrounding */
             cashRounding: string;
             chartOfAccountsVariant: components["schemas"]["ChartOfAccountsVariant"];
@@ -5863,6 +5905,8 @@ export interface components {
         DealershipSettingsUpdate: {
             /** Accountingsystem */
             accountingSystem?: string | null;
+            /** Addressautocompleteenabled */
+            addressAutocompleteEnabled?: boolean | null;
             /** Cashrounding */
             cashRounding?: number | string | null;
             chartOfAccountsVariant?: components["schemas"]["ChartOfAccountsVariant"] | null;
@@ -11887,6 +11931,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DealershipRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_address_autocomplete_config_v1_dealerships__dealership_id__address_autocomplete_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                dealership_id: string;
+            };
+            cookie?: {
+                dms_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AddressAutocompleteConfigRead"];
                 };
             };
             /** @description Validation Error */

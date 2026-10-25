@@ -56,6 +56,13 @@ remaining PRs):** `DataGrid`, `Wizard`, `GlobalSearch`, `Picker`, `InlineEditFie
 `DocumentPreview` and `PresentMode` still merge English defaults — pass every label a component
 takes.
 
+**The kit's `Picker` is the entity-selection gesture** ("which customer?", "which vehicle?": a ranked
+list in a panel, a create path, autofocus). A type-ahead that fills a form's own fields from an
+external service and selects no record — the address search field, `components/AddressSearchField.tsx`
+(KAN-37, ADR-101), on Mantine's `Combobox` — is a form input like `PhoneInput` and lives in the app;
+it takes every string from the bundles like any input. A second such field reuses that one, never a
+second local combobox.
+
 ## The rulings that bite most often
 
 - **A field's hint is an info icon beside the label** (KAN-443; Anto, 2026-10-25: "we want less

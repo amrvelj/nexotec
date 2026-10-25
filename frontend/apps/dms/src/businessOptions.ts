@@ -4,7 +4,7 @@ import type { ChartOfAccountsVariant, FranchiseType, PeriodLockPolicy, QrReferen
 
 /**
  * KAN-203 — Dealer Administration › Business: the option lists and the
- * refusal texts the five sections share. An API refusal is shown in the UI
+ * refusal texts the sections share. An API refusal is shown in the UI
  * language (KAN-398): `details.reason` and the status map to a key in all
  * four bundles, anything else to the generic message — never `err.message`.
  */

@@ -2526,6 +2526,12 @@
       "correspondenceDiffers": "Post goes to an address other than the registered seat",
       "billingDiffers": "Nexotec's invoices go to another address (e.g. the group's accounting office)"
     },
+    "addressEntry": {
+      "title": "Address entry",
+      "enabled": "Address suggestions from Google Places",
+      "enabledHint": "While an address is entered, the typed address text is sent to Google – never the name or any other customer data. Only the chosen address is stored; every field stays editable.",
+      "unavailable": "No Google key is configured on this installation. Suggestions appear once Nexotec has configured it."
+    },
     "banking": {
       "title": "Bank accounts",
       "add": "Add account",
@@ -2624,5 +2630,12 @@
       "associations": "Association memberships",
       "associationsHint": "Appear in the document footer."
     }
+  },
+  "addressSearch": {
+    "label": "Search address",
+    "placeholder": "Street, number, locality…",
+    "hint": "Pick a suggestion – street, house number, postal code and locality are filled in and stay editable. Only the address you pick is stored.",
+    "noResults": "No suggestions",
+    "attribution": "Google Maps"
   }
 }

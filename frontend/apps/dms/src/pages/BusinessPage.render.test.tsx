@@ -6,7 +6,8 @@ import { renderWithProviders } from '../test/renderWithProviders'
 import { installFakeBackend, status, type FakeRoute } from '../test/fakeBackend'
 import { BusinessPage } from './BusinessPage'
 
-// KAN-203 — Dealer Administration › Business: the five sections render from
+// KAN-203 — Dealer Administration › Business: the sections (five, and since
+// KAN-37 the Address entry switch) render from
 // the dealership, its settings and its bank accounts; the Banking section is
 // absent for a role the API answers 404 to (ADR-100); a change of the legal
 // name shows the confirmation and the save carries `confirmation: true`
@@ -52,6 +53,7 @@ const SETTINGS = {
   mandant: null,
   chartOfAccountsVariant: 'kmu',
   periodLockPolicy: 'month_end_close',
+  addressAutocompleteEnabled: true,
   version: 1,
   createdAt: '2026-01-01T00:00:00Z',
   updatedAt: '2026-01-01T00:00:00Z',
@@ -119,12 +121,13 @@ function routes(extra: FakeRoute[] = []): FakeRoute[] {
 }
 
 describe('BusinessPage (KAN-203)', () => {
-  it('renders the five sections from the dealership, its settings and its bank accounts', async () => {
+  it('renders the six sections from the dealership, its settings and its bank accounts', async () => {
     installFakeBackend(routes())
     renderWithProviders(<BusinessPage />, { route: '/administration/business' })
 
     expect(await screen.findByRole('heading', { name: 'Rechtliche Identität' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Adressen' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Adresseingabe' })).toBeInTheDocument()
     expect(await screen.findByRole('heading', { name: 'Bankverbindungen' })).toBeInTheDocument()
     expect(await screen.findByRole('heading', { name: 'Kaufmännische Vorgaben' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Bewilligungen und Mitgliedschaften' })).toBeInTheDocument()
@@ -314,5 +317,41 @@ describe('BusinessPage (KAN-203)', () => {
     await user.click(menus[1])
     await user.click(await screen.findByRole('menuitem', { name: 'Als Rechnungskonto festlegen' }))
     expect(await banking.findByRole('alert')).toHaveTextContent('Nur ein Manager dieses Betriebs ändert die Bankverbindungen.')
+  })
+
+  // KAN-37 (ADR-101): the Betrieb's switch for Google Places Autocomplete,
+  // on by default (Anto, 2026-10-25), saved with the settings version as
+  // If-Match; while the platform holds no key the section says so.
+  it('the address-entry section turns the autocomplete off with the settings If-Match, and names a missing platform key', async () => {
+    const backend = installFakeBackend(
+      routes([{ method: 'PATCH', match: /\/dealerships\/dealership-1\/settings$/, handler: (req) => ({ ...SETTINGS, ...(req.body as object), version: 2 }) }]),
+    )
+    renderWithProviders(<BusinessPage />, { route: '/administration/business' })
+    const user = userEvent.setup()
+
+    const section = within(await screen.findByRole('region', { name: 'Adresseingabe' }))
+    // The fake backend's config read answers "off" (no key): the switch is on, the note explains.
+    expect(await section.findByRole('note')).toHaveTextContent('kein Google-Schlüssel')
+    const toggle = section.getByRole('switch', { name: (n) => n.startsWith('Adressvorschläge von Google Places') })
+    expect(toggle).toBeChecked()
+    expect(section.getByRole('button', { name: 'Speichern' })).toBeDisabled()
+
+    await user.click(toggle)
+    await user.click(section.getByRole('button', { name: 'Speichern' }))
+    await waitFor(() => expect(backend.callsTo(/\/settings$/, 'PATCH')).toHaveLength(1))
+    const call = backend.callsTo(/\/settings$/, 'PATCH')[0]
+    expect(call.body).toEqual({ addressAutocompleteEnabled: false })
+    expect(call.headers.get('If-Match')).toBe('1')
+    expect(await section.findByRole('status')).toHaveTextContent('Gespeichert.')
+    expect(section.queryByRole('note')).toBeNull()
+  })
+
+  it('a failed config read says nothing about a missing key', async () => {
+    installFakeBackend(routes([{ method: 'GET', match: /\/address-autocomplete$/, handler: () => status(500, { error: { code: 'internal', message: 'boom', details: null } }) }]))
+    renderWithProviders(<BusinessPage />, { route: '/administration/business' })
+    const section = within(await screen.findByRole('region', { name: 'Adresseingabe' }))
+    expect(section.getByRole('switch', { name: (n) => n.startsWith('Adressvorschläge von Google Places') })).toBeChecked()
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Bankverbindungen' })).toBeInTheDocument())
+    expect(section.queryByRole('note')).toBeNull()
   })
 })

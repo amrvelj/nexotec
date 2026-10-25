@@ -245,6 +245,17 @@ weekly. -->
 List and detail render their actions from the one shared `customerRowMenu` (ADR-061). A
 contact card offers `tel:` / `mailto:` links and marks the preferred channel.
 
+- **Address autocomplete (KAN-37, ADR-101; Anto, 2026-10-25):** the create wizard's address block
+  and the detail screen's address editor carry one search field (`AddressSearchField`) above the
+  address fields while the Betrieb's switch is on (Dealer Administration › Business › Address
+  entry) and the platform holds a Google key. A Google Places pick fills street, house number,
+  postal code, locality and country; every field stays editable, line 2 is never touched, and the
+  canton stays derived server-side (D-13) — Google's `administrative_area_level_1` is discarded.
+  Suggestions are restricted to the form's country and never persisted or logged; only the picked
+  address is written, through the same POST/PATCH as a typed one. Off, the forms are exactly what
+  they were. The PRD's "external address-lookup APIs" out-of-scope line and D-09 are resolved by
+  this ruling (hand-over of KAN-37).
+
 - **Merge and link refusals are said in the user's language** (KAN-366, KAN-369; the rule is
   `.claude/rules/ui.md`'s, KAN-398): every refusal carries `details.reason` — a merge's
   `merge_into_self`, `merge_target_merged`, `customer_already_merged`,

@@ -83,6 +83,20 @@ class Settings(BaseSettings):
     object_store_backend: str = "local"
     object_store_local_dir: str = "var/objects"
 
+    # KAN-37 (ADR-101): Google Places Autocomplete on every address form.
+    # Nexotec's own browser key, handed to the SPA by
+    # GET /v1/dealerships/{id}/address-autocomplete only while that Betrieb's
+    # `dealership_settings.address_autocomplete_enabled` holds. It is public
+    # configuration, not a secret: its purpose is to reach browsers, and what
+    # protects it is Google Cloud's restriction to our origins and to Places
+    # API (New) — so it is a plain env var, never resolved from the secrets
+    # manager (an optional value must never fail startup; KAN-451 configures
+    # and verifies the restriction at go-live). Unset means the feature is
+    # unavailable everywhere, whatever the switch says: the forms stay plain
+    # inputs and nothing is sent to Google. Optional like the observability
+    # settings below — dev and test run without a Google project.
+    google_places_browser_key: str | None = None
+
     pagination_default_limit: int = 50
     pagination_max_limit: int = 100
 
