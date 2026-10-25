@@ -341,6 +341,44 @@ def test_tags_update_is_a_full_replace(db_session):
     assert sorted(r.tag for r in rows) == ["Beta", "Gamma"]
 
 
+def test_a_patch_with_tags_null_clears_the_tags_never_a_500(client, db_session):
+    """KAN-406 (Anto, option A): `"tags": null` means the same as `[]` — the
+    tags are cleared. Before, `update_customer` called `sorted(None)`: a 500."""
+
+    dealer_id = _create_dealer(client)
+    user = _create_user(client, dealer_id)
+    token = _token(tenant_id=uuid.UUID(dealer_id), user_id=uuid.UUID(user["id"]))
+    body = {
+        "firstName": "Ada", "lastName": "Byron", "language": "de", "tags": ["Alpha", "Beta"],
+        "emails": [{"emailType": "personal", "emailAddress": "tags-null@example.ch"}],
+    }
+    created = client.post("/v1/customers", json=body, headers=_bearer(token)).json()
+    assert sorted(created["tags"]) == ["Alpha", "Beta"]
+
+    resp = client.patch(
+        f"/v1/customers/{created['id']}",
+        json={"tags": None},
+        headers={**_bearer(token), "If-Match": str(created["version"])},
+    )
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["tags"] == []
+    assert db_session.query(CustomerTag).filter(CustomerTag.customer_id == uuid.UUID(created["id"])).count() == 0
+
+
+def test_a_patch_without_tags_leaves_them_alone(db_session):
+    customer = _make(db_session, uuid.uuid4(), tags=["Alpha"])
+    update_customer(
+        db_session,
+        customer=customer,
+        data=CustomerUpdate(notes="unrelated"),
+        actor_id=uuid.uuid4(),
+        dealership_id=uuid.uuid4(),
+    )
+    rows = db_session.query(CustomerTag).filter(CustomerTag.customer_id == customer.id).all()
+    assert [r.tag for r in rows] == ["Alpha"]
+
+
 # --- provenance / dealership_id ---------------------------------------
 
 

@@ -4,6 +4,7 @@ import uuid
 
 from sqlalchemy import select
 
+from app.core.auth import AccessRole, create_access_token
 from app.core.outbox_model import OutboxMessage
 from app.inventory.models.stock_item import LifecycleStatus, ReservationState, StockItem, StockItemCondition
 from app.inventory.schemas.stock_item import StockItemCreate, StockItemUpdate
@@ -112,6 +113,80 @@ def test_change_condition_publishes_condition_changed_event_only_on_real_change(
         )
     )
     assert len(messages) == 1
+
+
+def _condition_events(db_session) -> list[OutboxMessage]:
+    return list(
+        db_session.scalars(
+            select(OutboxMessage)
+            .where(OutboxMessage.event_type == "inventory.stock_item.condition_changed")
+            .order_by(OutboxMessage.id)
+        )
+    )
+
+
+def test_a_condition_changed_by_patch_publishes_condition_changed_once(client, db_session):
+    """KAN-432 (rule 4): `PATCH /v1/inventory/stock-items/{id}` accepts
+    `condition`; it publishes the same event as the condition endpoint, in
+    the same transaction. Before, the PATCH wrote it with a bare setattr."""
+
+    tenant_id = uuid.uuid4()
+    item = create_stock_item(
+        db_session,
+        tenant_id=tenant_id,
+        data=StockItemCreate(vehicle_label="Škoda Octavia", condition=StockItemCondition.USED),
+        actor_id=uuid.uuid4(),
+    )
+    token = create_access_token(
+        user_id=uuid.uuid4(), tenant_id=tenant_id, group_id=uuid.uuid4(),
+        roles=frozenset({AccessRole.INVENTORY}), is_dealer_manager=False,
+    )
+    headers = {"Authorization": f"Bearer {token}"}
+
+    resp = client.patch(
+        f"/v1/inventory/stock-items/{item.id}",
+        json={"condition": "demo", "vehicleLabel": "Škoda Octavia RS"},
+        headers={**headers, "If-Match": str(item.version)},
+    )
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["condition"] == "demo"
+    assert resp.json()["version"] == item.version + 1
+    events = _condition_events(db_session)
+    assert len(events) == 1
+    assert events[0].tenant_id == tenant_id
+    assert events[0].aggregate_id == item.id
+    assert events[0].payload["previousCondition"] == "used"
+    assert events[0].payload["condition"] == "demo"
+
+    # The same condition again, or a PATCH without one, is no change.
+    for body in ({"condition": "demo"}, {"vehicleLabel": "Škoda Octavia Combi"}):
+        version = client.get(f"/v1/inventory/stock-items/{item.id}", headers=headers).json()["version"]
+        resp = client.patch(
+            f"/v1/inventory/stock-items/{item.id}", json=body, headers={**headers, "If-Match": str(version)}
+        )
+        assert resp.status_code == 200, resp.text
+    assert len(_condition_events(db_session)) == 1
+
+
+def test_a_condition_change_by_either_route_publishes_exactly_one_event_each(db_session):
+    tenant_id = uuid.uuid4()
+    item = create_stock_item(
+        db_session,
+        tenant_id=tenant_id,
+        data=StockItemCreate(vehicle_label="Škoda Octavia", condition=StockItemCondition.USED),
+        actor_id=uuid.uuid4(),
+    )
+
+    update_stock_item(db_session, item=item, data=StockItemUpdate(condition=StockItemCondition.DEMO), actor_id=None)
+    assert len(_condition_events(db_session)) == 1
+    change_condition(db_session, item=item, condition=StockItemCondition.USED, actor_id=None)
+
+    events = _condition_events(db_session)
+    assert [(e.payload["previousCondition"], e.payload["condition"]) for e in events] == [
+        ("used", "demo"),
+        ("demo", "used"),
+    ]
 
 
 def test_vin_is_unique_per_tenant_only_when_set(db_session):

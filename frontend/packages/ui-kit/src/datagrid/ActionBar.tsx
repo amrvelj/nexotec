@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { forwardRef, useEffect, useRef, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { Rows3, RefreshCw, Search } from "lucide-react";
 import { Tooltip } from "@mantine/core";
 import { purple, radius, slate, spacing, white } from "../tokens";
@@ -40,6 +40,8 @@ export interface ActionBarLabels {
 }
 
 const DENSITY_ORDER: Density[] = ["compact", "default", "comfortable"];
+// KAN-420: the icon-only buttons name themselves on keyboard focus too.
+const TOOLTIP_EVENTS = { hover: true, focus: true, touch: false };
 
 /**
  * § The Action Bar. "Every overview screen in every module has exactly
@@ -114,7 +116,7 @@ export function ActionBar({
       {filterSlot}
 
       <div style={{ display: "flex", alignItems: "center", gap: spacing.xs }}>
-        <Tooltip label={L.densityTooltip(L.density[density])}>
+        <Tooltip label={L.densityTooltip(L.density[density])} events={TOOLTIP_EVENTS}>
           <IconButton onClick={cycleDensity} aria-label={L.densityAriaLabel}>
             <Rows3 size={18} />
           </IconButton>
@@ -122,7 +124,7 @@ export function ActionBar({
         {columnsSlot}
         {exportSlot}
         {extraActions}
-        <Tooltip label={L.refresh}>
+        <Tooltip label={L.refresh} events={TOOLTIP_EVENTS}>
           <IconButton onClick={onRefresh} aria-label={L.refresh}>
             <RefreshCw size={18} style={refreshing ? { opacity: 0.5 } : undefined} />
           </IconButton>
@@ -132,36 +134,43 @@ export function ActionBar({
   );
 }
 
-function IconButton({
-  children,
-  onClick,
-  "aria-label": ariaLabel,
-}: {
-  children: ReactNode;
-  onClick: () => void;
-  "aria-label": string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={ariaLabel}
-      style={{
-        width: 32,
-        height: 32,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        border: "none",
-        background: "none",
-        borderRadius: radius.sm,
-        color: slate[6],
-        cursor: "pointer",
-      }}
-      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = purple[0])}
-      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
-    >
-      {children}
-    </button>
-  );
-}
+/**
+ * KAN-420: Mantine's `Tooltip` clones its child with a `ref` and its own
+ * mouse and focus handlers, so the button forwards the ref and passes on
+ * every prop it is given — dropping them left the tooltips without an
+ * anchor, never shown. The hover colour composes with Tooltip's handlers.
+ */
+const IconButton = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonElement> & { "aria-label": string }>(
+  function IconButton({ children, style, onMouseEnter, onMouseLeave, ...rest }, ref) {
+    return (
+      <button
+        ref={ref}
+        type="button"
+        {...rest}
+        style={{
+          width: 32,
+          height: 32,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          border: "none",
+          background: "none",
+          borderRadius: radius.sm,
+          color: slate[6],
+          cursor: "pointer",
+          ...style,
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = purple[0];
+          onMouseEnter?.(e);
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = "transparent";
+          onMouseLeave?.(e);
+        }}
+      >
+        {children}
+      </button>
+    );
+  },
+);

@@ -71,6 +71,9 @@ FEATURE_SHEET_LINES: dict[str, str] = {"valuation": "bewertung"}
 _VIN_DECODE_CAPABILITY = "vin_decode"
 _DAT_PROVIDER_CODE = "dat"
 _AUTO_I_DAT_PROVIDER_CODE = "auto_i_dat"
+# KAN-80: testing a connection of either provider refreshes the cached
+# `vin_decode` row (`gateway.test_connection`) — the inputs of the derivation.
+VIN_DECODE_PROVIDER_CODES = frozenset({_DAT_PROVIDER_CODE, _AUTO_I_DAT_PROVIDER_CODE})
 
 
 def _validate_required_config(provider: IntegrationProvider, config: dict) -> None:
@@ -507,8 +510,13 @@ def compute_vin_decode_entitlement(db: Session, *, tenant_id: uuid.UUID) -> bool
     `auto_i_dat` connection, the freshly computed value is upserted onto
     it as a `source=probed` `integration_entitlement` row purely so it's
     visible on that connection's own entitlements list — that row is a
-    cache of the last time this was asked, never a second source of truth;
-    the return value here always is.
+    cache of the last time this was checked, never a second source of
+    truth; the return value here always is.
+
+    KAN-80 (Anto, option A): called only from `gateway.test_connection`,
+    when an admin tests the `dat` or `auto_i_dat` connection — never from
+    a read. `tenant_has_capability` answers from `vin_decode_granted`,
+    which writes nothing.
     """
 
     granted = vin_decode_granted(db, tenant_id=tenant_id)
@@ -538,14 +546,16 @@ def tenant_has_capability(db: Session, *, tenant_id: uuid.UUID, capability_code:
     generic scan: it isn't declared on any one connection, it's derived
     across two, and "no row anywhere" must mean "not granted" — the
     opposite of this function's own optimistic bias for every other
-    capability.
+    capability. It is derived without writing (KAN-80): this backs a GET
+    any user of the tenant may send, and a read never upserts the cached
+    entitlement row.
 
     A feature named in `FEATURE_SHEET_LINES` is answered from its sheet
     line: `valuation` reads `bewertung` rows.
     """
 
     if capability_code == _VIN_DECODE_CAPABILITY:
-        return compute_vin_decode_entitlement(db, tenant_id=tenant_id)
+        return vin_decode_granted(db, tenant_id=tenant_id)
 
     capability_code = FEATURE_SHEET_LINES.get(capability_code, capability_code)
 

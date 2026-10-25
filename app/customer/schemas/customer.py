@@ -509,8 +509,11 @@ class CustomerUpdate(CamelModel):
 
     @field_validator("tags")
     @classmethod
-    def _clean_tags(cls, value: list[str] | None) -> list[str] | None:
-        return None if value is None else _normalise_tags(value)
+    def _clean_tags(cls, value: list[str] | None) -> list[str]:
+        # KAN-406 (Anto, option A): `tags: null` clears the tags, like `[]`.
+        # A field validator runs only for a key the body sends, so `None`
+        # here is an explicit null; an absent key still leaves them alone.
+        return [] if value is None else _normalise_tags(value)
 
     @field_validator(
         "language",

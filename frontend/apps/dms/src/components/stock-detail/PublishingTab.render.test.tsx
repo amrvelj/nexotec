@@ -397,12 +397,14 @@ describe('PublishingTab — listing text sends If-Match (KAN-396)', () => {
       },
     ])
     renderWithProviders(<PublishingTab stockItemId="st-1" locale="de-CH" />)
-    // The kit's CounterTextarea gives its field no accessible name; the
-    // Zusatztitel is the first of the four listing-text fields.
-    const field = (await screen.findAllByRole('textbox'))[0]
+    const field = await screen.findByLabelText(i18n.t('stockDetail.publishing.fields.zusatztitel'))
     await waitFor(() => expect(backend.callsTo(/\/publishing\/autoscout24$/, 'GET').length).toBeGreaterThan(0))
 
-    await user.type(field, 'AB')
+    // Two saves (KAN-425: a field saves when it is left, or on a pause).
+    await user.type(field, 'A')
+    await user.tab()
+    await user.type(field, 'B')
+    await user.tab()
     await waitFor(() => expect(backend.callsTo(/\/publishing\/autoscout24$/, 'PATCH')).toHaveLength(2))
     const sent = backend.callsTo(/\/publishing\/autoscout24$/, 'PATCH').map((call) => call.headers.get('If-Match'))
     expect(sent).toEqual(['4', '5'])
@@ -422,7 +424,88 @@ describe('PublishingTab — listing text sends If-Match (KAN-396)', () => {
       },
     ])
     renderWithProviders(<PublishingTab stockItemId="st-1" locale="de-CH" />)
-    await user.type((await screen.findAllByRole('textbox'))[0], 'A')
+    await user.type(await screen.findByLabelText(i18n.t('stockDetail.publishing.fields.zusatztitel')), 'A')
+    await user.tab()
     expect(await screen.findByRole('alert')).toHaveTextContent(i18n.t('stockDetail.publishing.listingTextConflict'))
+  })
+})
+
+describe('PublishingTab — listing text keeps a local draft (KAN-425)', () => {
+  const row = (version: number, texts: Partial<Record<'zusatztitel' | 'bemerkungen', string | null>> = {}) => ({
+    id: 'pub-1', stockItemId: 'st-1', channel: 'autoscout24', state: 'not_published', transmissionStatus: 'not_sent',
+    lastPublishedAt: null, lastAttemptedAt: null, lastTransmissionError: null, zusatztitel: null,
+    bemerkungen: null, zustandsbeschreibung: null, haendlerbemerkungen: null, youtubeUrl: null,
+    pdfDocumentRef: null, version, blockingConditions: [], ...texts,
+  })
+  const label = (field: string) => i18n.t(`stockDetail.publishing.fields.${field}`)
+
+  const backendFor = (initial: ReturnType<typeof row>) => {
+    let current = initial
+    const backend = installFakeBackend([
+      { match: /^\/inventory\/stock-items\/st-1\/equipment$/, handler: () => EQUIPMENT },
+      { match: /^\/inventory\/stock-items\/st-1\/media$/, handler: () => [] },
+      { method: 'GET', match: /^\/inventory\/stock-items\/st-1\/publishing\/autoscout24$/, handler: () => current },
+      {
+        method: 'GET',
+        match: /^\/inventory\/stock-items\/st-1\/publishing\/carmarket$/,
+        handler: () => ({ ...row(1), id: 'pub-2', channel: 'carmarket' }),
+      },
+      {
+        method: 'PATCH',
+        match: /^\/inventory\/stock-items\/st-1\/publishing\/(autoscout24|carmarket)$/,
+        handler: async (req) => {
+          // A slow server: every keystroke lands before the first save returns.
+          await new Promise((resolve) => setTimeout(resolve, 50))
+          if (req.pathname.endsWith('carmarket')) return { ...row(2), id: 'pub-2', channel: 'carmarket', ...(req.body as object) }
+          current = { ...current, ...(req.body as object), version: current.version + 1 }
+          return current
+        },
+      },
+    ])
+    return backend
+  }
+
+  it('a word typed quickly is saved whole, in one save, and the field keeps every character', async () => {
+    const user = userEvent.setup()
+    const backend = backendFor(row(1))
+    renderWithProviders(<PublishingTab stockItemId="st-1" locale="de-CH" />)
+    const field = await screen.findByLabelText(label('zusatztitel'))
+    await waitFor(() => expect(backend.callsTo(/\/publishing\/autoscout24$/, 'GET').length).toBeGreaterThan(0))
+
+    await user.type(field, 'Sportwagen')
+
+    expect(field).toHaveValue('Sportwagen')
+    await waitFor(() => expect(backend.callsTo(/\/publishing\/autoscout24$/, 'PATCH')).toHaveLength(1))
+    const [save] = backend.callsTo(/\/publishing\/autoscout24$/, 'PATCH')
+    expect(save.body).toEqual({ zusatztitel: 'Sportwagen' })
+    await waitFor(() => expect(field).toHaveValue('Sportwagen'))
+    // Nothing else is queued behind it.
+    await new Promise((resolve) => setTimeout(resolve, 700))
+    expect(backend.callsTo(/\/publishing\/autoscout24$/, 'PATCH')).toHaveLength(1)
+  })
+
+  it('each of the four fields is named by its label', async () => {
+    backendFor(row(1, { bemerkungen: 'Scheckheftgepflegt' }))
+    renderWithProviders(<PublishingTab stockItemId="st-1" locale="de-CH" />)
+
+    for (const name of ['zusatztitel', 'bemerkungen', 'zustandsbeschreibung', 'haendlerbemerkungen']) {
+      expect(await screen.findByLabelText(label(name))).toBeInTheDocument()
+    }
+    await waitFor(() => expect(screen.getByLabelText(label('bemerkungen'))).toHaveValue('Scheckheftgepflegt'))
+  })
+
+  it('a draft still waiting when the channel changes is saved to the channel it was typed for', async () => {
+    const user = userEvent.setup()
+    const backend = backendFor(row(3))
+    renderWithProviders(<PublishingTab stockItemId="st-1" locale="de-CH" />)
+    const field = await screen.findByLabelText(label('zusatztitel'))
+    await waitFor(() => expect(backend.callsTo(/\/publishing\/autoscout24$/, 'GET').length).toBeGreaterThan(0))
+
+    await user.type(field, 'Cabrio')
+    await user.click(screen.getByRole('radio', { name: 'Carmarket' }))
+
+    await waitFor(() => expect(backend.callsTo(/\/publishing\/autoscout24$/, 'PATCH')).toHaveLength(1))
+    expect(backend.callsTo(/\/publishing\/autoscout24$/, 'PATCH')[0].body).toEqual({ zusatztitel: 'Cabrio' })
+    expect(backend.callsTo(/\/publishing\/carmarket$/, 'PATCH')).toHaveLength(0)
   })
 })
