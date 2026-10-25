@@ -12,7 +12,7 @@ from app.core.validators import (
     SwissVatNumber,
     validate_postal_code_for_country,
 )
-from app.platform.models.dealership import DealershipStatus, FranchiseType
+from app.platform.models.dealership import LEGAL_IDENTITY_FIELDS, DealershipStatus, FranchiseType
 from app.platform.schemas.patch import refuse_null_on_not_null_fields
 
 
@@ -57,6 +57,21 @@ class DealershipOverrideAddress(CamelModel):
         if self.country != "CH" and self.canton is not None:
             raise ValueError("canton applies to Swiss addresses only — leave it out for another country.")
         self.postal_code = validate_postal_code_for_country(self.postal_code, self.country)
+        return self
+
+
+class DealershipCollectiveVehicleLicence(CamelModel):
+    """One Händlerschild / Kollektiv-Fahrzeugausweis (D-A-27, KAN-203): the
+    Z-plate number as the canton prints it, the issuing canton and the expiry
+    of the Fahrzeugausweis. A list of these is `collectiveVehicleLicences`."""
+
+    plate_number: str = Field(max_length=12, min_length=1)
+    canton: CantonCode
+    expires_on: dt.date | None = None
+
+    @model_validator(mode="after")
+    def _plate_is_upper(self) -> "DealershipCollectiveVehicleLicence":
+        self.plate_number = " ".join(self.plate_number.upper().split())
         return self
 
 
@@ -109,6 +124,22 @@ class DealershipUpdate(CamelModel):
     # WP-7 PR-7 (FR-I-14) — a notification-only consumer, never the grid's
     # own fixed ageingBucket colour cue.
     ageing_alert_thresholds: list[int] | None = None
+    # KAN-203 — legal identity (PRD "Dealership master data"). `legalForm` and
+    # `associationMemberships` are codes of the platform-seeded reference
+    # lists; the service checks membership.
+    legal_form: str | None = Field(default=None, max_length=32)
+    commercial_register_office: CantonCode | None = None
+    hr_number: str | None = Field(default=None, max_length=30)
+    astra_operator_number: str | None = Field(default=None, max_length=30)
+    collective_vehicle_licences: list[DealershipCollectiveVehicleLicence] | None = None
+    association_memberships: list[str] | None = None
+    # KAN-203 — the matrix row "Dealership legal identity": a change of legal
+    # name, UID or VAT (number or liability) is saved only with
+    # `confirmation: true` (Anto, 2026-10-24: a confirmation, no mandatory
+    # note); `auditNote`, when given, is kept as the audit event's reason.
+    # Neither is a stored field.
+    confirmation: bool | None = None
+    audit_note: str | None = Field(default=None, max_length=500)
 
     @model_validator(mode="after")
     def _not_null_fields_are_not_cleared(self) -> "DealershipUpdate":
@@ -125,9 +156,23 @@ class DealershipUpdate(CamelModel):
                 "vat_number",
                 "vat_rate",
                 "ageing_alert_thresholds",
+                "legal_form",
+                "commercial_register_office",
+                "hr_number",
+                "astra_operator_number",
+                "collective_vehicle_licences",
+                "association_memberships",
+                "audit_note",
             },
         )
+        if self.association_memberships is not None and len(set(self.association_memberships)) != len(
+            self.association_memberships
+        ):
+            raise ValueError("associationMemberships lists the same association twice.")
         return self
+
+    def touches_legal_identity(self) -> bool:
+        return any(field in self.model_fields_set for field in LEGAL_IDENTITY_FIELDS)
 
 
 class DealershipRead(CamelModel):
@@ -148,6 +193,12 @@ class DealershipRead(CamelModel):
     status: DealershipStatus
     vat_rate: Decimal | None
     ageing_alert_thresholds: list[int] | None
+    legal_form: str | None
+    commercial_register_office: str | None
+    hr_number: str | None
+    astra_operator_number: str | None
+    collective_vehicle_licences: list[DealershipCollectiveVehicleLicence] | None
+    association_memberships: list[str] | None
     version: int
     created_at: dt.datetime
     updated_at: dt.datetime

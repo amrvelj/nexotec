@@ -223,6 +223,22 @@ export type CapabilityCheckRead = Schemas['CapabilityCheckRead']
 // `.legalName`, which are still there, so this is a strict widening.
 export type DealershipRead = Schemas['DealershipRead']
 export type DealershipPage = Schemas['DealershipPage']
+// KAN-203 — Dealer Administration › Business: the master data PATCH, the
+// bank-account collection (D-A-27) and the commercial and fiscal defaults.
+export type DealershipUpdate = Schemas['DealershipUpdate']
+export type DealershipAddress = Schemas['DealershipAddress']
+export type DealershipOverrideAddress = Schemas['DealershipOverrideAddress']
+export type DealershipCollectiveVehicleLicence = Schemas['DealershipCollectiveVehicleLicence']
+export type FranchiseType = Schemas['FranchiseType']
+export type BankAccountRead = Schemas['BankAccountRead']
+export type BankAccountList = Schemas['BankAccountList']
+export type BankAccountCreate = Schemas['BankAccountCreate']
+export type BankAccountUpdate = Schemas['BankAccountUpdate']
+export type QrReferenceType = Schemas['QrReferenceType']
+export type DealershipSettingsRead = Schemas['DealershipSettingsRead']
+export type DealershipSettingsUpdate = Schemas['DealershipSettingsUpdate']
+export type ChartOfAccountsVariant = Schemas['ChartOfAccountsVariant']
+export type PeriodLockPolicy = Schemas['PeriodLockPolicy']
 export type CatalogueSyncStatusRead = Schemas['CatalogueSyncStatusRead']
 
 // ============================================================================

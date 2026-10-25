@@ -40,3 +40,57 @@ def load_country_seed() -> list[CountrySeedRow]:
             raise ValueError(f"{_CSV_RESOURCE}: row for {code!r} is missing a label")
         rows.append((code.upper(), label_de, label_fr, label_it, label_en))
     return rows
+
+
+# --- Business master data lists (KAN-203) ---------------------------------------
+#
+# `legal_form` and `association_membership` are platform-seeded like `country`
+# and, like it, hard-coded here so the Alembic seed migration and the tests
+# share one source. The set is the Swiss one the Dealer Administration PRD
+# names (AG, GmbH, Einzelfirma, Kollektivgesellschaft) extended by the two
+# further forms a garage is commonly run as (Anto, 2026-10-24); a dealer
+# never creates a list, platform_admin adds values on /settings/reference.
+
+# (value_code, label_de, label_fr, label_it, label_en)
+BusinessSeedRow = tuple[str, str, str, str, str]
+
+LEGAL_FORM_LIST_CODE = "legal_form"
+ASSOCIATION_MEMBERSHIP_LIST_CODE = "association_membership"
+
+LEGAL_FORM_SEED: tuple[BusinessSeedRow, ...] = (
+    ("ag", "Aktiengesellschaft (AG)", "Société anonyme (SA)", "Società anonima (SA)", "Public limited company (AG)"),
+    (
+        "gmbh",
+        "Gesellschaft mit beschränkter Haftung (GmbH)",
+        "Société à responsabilité limitée (Sàrl)",
+        "Società a garanzia limitata (Sagl)",
+        "Limited liability company (GmbH)",
+    ),
+    ("einzelfirma", "Einzelunternehmen", "Entreprise individuelle", "Impresa individuale", "Sole proprietorship"),
+    (
+        "kollektivgesellschaft",
+        "Kollektivgesellschaft",
+        "Société en nom collectif",
+        "Società in nome collettivo",
+        "General partnership",
+    ),
+    (
+        "kommanditgesellschaft",
+        "Kommanditgesellschaft",
+        "Société en commandite",
+        "Società in accomandita",
+        "Limited partnership",
+    ),
+    ("genossenschaft", "Genossenschaft", "Société coopérative", "Società cooperativa", "Cooperative"),
+)
+
+ASSOCIATION_MEMBERSHIP_SEED: tuple[BusinessSeedRow, ...] = (
+    ("agvs_upsa", "AGVS – Auto Gewerbe Verband Schweiz", "UPSA – Union professionnelle suisse de l'automobile", "UPSA – Unione professionale svizzera dell'automobile", "AGVS/UPSA – Swiss Automotive Trade Association"),
+    ("auto_schweiz", "auto-schweiz", "auto-suisse", "auto-svizzera", "auto-schweiz"),
+    ("swiss_automotive_aftermarket", "Swiss Automotive Aftermarket (SAA)", "Swiss Automotive Aftermarket (SAA)", "Swiss Automotive Aftermarket (SAA)", "Swiss Automotive Aftermarket (SAA)"),
+)
+
+BUSINESS_LISTS: dict[str, tuple[BusinessSeedRow, ...]] = {
+    LEGAL_FORM_LIST_CODE: LEGAL_FORM_SEED,
+    ASSOCIATION_MEMBERSHIP_LIST_CODE: ASSOCIATION_MEMBERSHIP_SEED,
+}

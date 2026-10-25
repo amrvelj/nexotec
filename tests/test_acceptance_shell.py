@@ -441,10 +441,11 @@ def test_ac5_audit_trail_covers_all_four_entities(client):
     customer = _create_customer(client, dealer_token)
     vehicle = _create_vehicle(client, dealer_id, dealer_token)
 
-    # Dealer: legal-identity change (KAN-197: legal name, UID, VAT are the audited fields).
+    # Dealer: legal-identity change (KAN-197: legal name, UID, VAT are the audited
+    # fields; KAN-203: saved only with the confirmation).
     client.patch(
         f"/v1/dealerships/{dealer_id}",
-        json={"legalName": "Garage Umbenannt AG"},
+        json={"legalName": "Garage Umbenannt AG", "confirmation": True},
         headers={**admin_token, "If-Match": "1"},
     )
     dealer_log = client.get(f"/v1/dealerships/{dealer_id}/audit-log", headers=admin_token).json()["items"]

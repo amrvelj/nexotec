@@ -12,6 +12,7 @@
  *   - vehicle catalogue seed (alembic platform/6ba0a99ed5c4) — 16 lists
  *   - configurator C-A       (alembic platform/a3d9c1e58f27) — 3 lists (KAN-39)
  *   - country list           (alembic platform/d7b1f4e02a96) — 1 list (KAN-32)
+ *   - business master data   (alembic platform/e1f7a3c9b2d4) — 2 lists (KAN-203)
  * PRD-Vehicles §"Canonical lists to administer (v1)" and
  * PRD-Configurator §"The canonical code map" name them too; PRD-Customers
  * §"Reference lists" now names `country` (nationality + address country).
@@ -53,6 +54,9 @@ export const REFERENCE_LIST_CODES = [
   'option_relation_type',
   // country seed (platform/d7b1f4e02a96) — KAN-32
   'country',
+  // business master data (platform/e1f7a3c9b2d4) — KAN-203
+  'legal_form',
+  'association_membership',
 ] as const
 
 export type ReferenceListCode = (typeof REFERENCE_LIST_CODES)[number]

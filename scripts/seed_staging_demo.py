@@ -46,6 +46,7 @@ from app.platform.models.auth_event import AuthEventKind
 from app.platform.models.credential import Credential
 from app.platform.models.dealership import DealerGroup, Dealership, FranchiseType
 from app.platform.models.dealership_auth_config import DealershipAuthConfig
+from app.platform.models.dealership_settings import DealershipSettings
 from app.platform.models.user import User, UserRole, UserStatus
 from app.platform.schemas.dealership import DealershipAddress, DealershipCreate
 from app.platform.schemas.user import UserCreate
@@ -63,7 +64,7 @@ DEMO_LAST_NAME = "Admin"
 _ACTOR_COLUMNS = ("created_by", "updated_by")
 
 
-def _stamp_actor(db: Session, *, actor: User, rows: tuple[DealerGroup, Dealership, User]) -> list[str]:
+def _stamp_actor(db: Session, *, actor: User, rows: tuple[DealerGroup | Dealership | User | DealershipSettings, ...]) -> list[str]:
     """KAN-318: the demo manager is the actor of its own group, dealership
     and user row. The services stamp whatever actor_id they are given, and
     the only user this environment has cannot exist before its dealership
@@ -240,7 +241,11 @@ def main() -> None:
 
         group = db.get(DealerGroup, dealership.dealer_group_id)
         assert group is not None, "create_dealership always creates or names a dealer group"
-        stamped = _stamp_actor(db, actor=user, rows=(group, dealership, user))
+        # KAN-203: create_dealership writes the settings row with the same
+        # placeholder actor, so it is stamped with the rest.
+        settings_row = db.scalar(select(DealershipSettings).where(DealershipSettings.dealership_id == dealership.id))
+        rows = (group, dealership, user) + ((settings_row,) if settings_row is not None else ())
+        stamped = _stamp_actor(db, actor=user, rows=rows)
         if stamped:
             print(f"Stamped {DEMO_EMAIL} (id={user.id}) as the actor on {', '.join(stamped)}.")
 

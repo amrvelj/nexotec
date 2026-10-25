@@ -28,6 +28,8 @@ const NOT_MONEY_LABELS = new Set([
   "t('valuationCreate.validForDays')", // days
   "t('configurator.summary.mileage')", // kilometres
   "t('vehicleDetail.odometer.value')", // kilometres
+  "t('business.fiscal.paymentTerms')", // days (KAN-203)
+  "t('business.fiscal.vatRate')", // a percentage (KAN-203)
   // PriceBuildUp: the discount value as a percentage (or disabled with no
   // discount type); an amount discount renders a ChfInput instead — the label
   // is shared, so the last test below pins the ChfInput branch.

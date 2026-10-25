@@ -166,6 +166,17 @@ def _dealership_has_wp7_columns(db: Session) -> bool:
     return "vat_rate" in columns
 
 
+def _dealership_has_kan203_columns(db: Session) -> bool:
+    """KAN-203 added the legal-identity columns (legal_form, hr_number, …)
+    to dealership. Same trap again: the upgrade-from-previous CI job seeds
+    against main's schema before this PR's migration applies, and the ORM
+    class already carries the new columns, so the KAN-197 shape is written
+    by a raw insert until the migration has run."""
+
+    columns = {col["name"] for col in inspect(db.get_bind()).get_columns("dealership")}
+    return "legal_form" in columns
+
+
 def _dealership_has_kan197_columns(db: Session) -> bool:
     """KAN-197 (D-A-22) replaced the encrypted `tax_id` with a plain `uid`
     and dropped the US licence columns. Same trap, one PR later: the
@@ -196,6 +207,62 @@ def _seed_dealer_and_group_new_schema(db: Session) -> tuple[uuid.UUID, uuid.UUID
     group = DealerGroup(name="Migration Smoke Test Group")
     db.add(group)
     db.flush()
+
+    if _dealership_has_kan197_columns(db) and not _dealership_has_kan203_columns(db):
+        # main's current shape (KAN-197 applied, KAN-203 not yet): a raw
+        # insert naming every column through KAN-198, and no further.
+        kan197 = sa.table(
+            "dealership",
+            sa.column("id", GUID()),
+            sa.column("dealer_group_id", GUID()),
+            sa.column("legal_name", sa.String()),
+            sa.column("franchise_type", sa.String()),
+            sa.column("address_street", sa.String()),
+            sa.column("address_house_number", sa.String()),
+            sa.column("address_postal_code", sa.String()),
+            sa.column("address_locality", sa.String()),
+            sa.column("address_canton", sa.String()),
+            sa.column("address_country", sa.String()),
+            sa.column("phone", sa.String()),
+            sa.column("uid", sa.String()),
+            sa.column("vat_liable", sa.Boolean()),
+            sa.column("status", sa.String()),
+            sa.column("brand_primary_color", sa.String()),
+            sa.column("default_correspondence_language", sa.String()),
+            sa.column("entitlements_version", sa.Integer()),
+            sa.column("version", sa.Integer()),
+            sa.column("created_at", sa.DateTime(timezone=True)),
+            sa.column("updated_at", sa.DateTime(timezone=True)),
+        )
+        invalid_group = DealerGroup(name="Migration Smoke Test Invalid UID Group")
+        db.add(invalid_group)
+        db.flush()
+        dealership_id = uuid7()
+        for row_id, group_id, legal_name, uid in (
+            (dealership_id, group.id, "Migration Smoke Test AG", SMOKE_TEST_UID),
+            (uuid7(), invalid_group.id, SMOKE_TEST_INVALID_UID_LEGAL_NAME, None),
+        ):
+            db.execute(
+                kan197.insert().values(
+                    id=row_id,
+                    dealer_group_id=group_id,
+                    legal_name=legal_name,
+                    franchise_type="independent",
+                    **_DEALER_ADDRESS,
+                    phone="+41441234567",
+                    uid=uid,
+                    vat_liable=False,
+                    status="active",
+                    brand_primary_color="#7C3AED",
+                    default_correspondence_language="de",
+                    entitlements_version=0,
+                    version=1,
+                    created_at=utcnow(),
+                    updated_at=utcnow(),
+                )
+            )
+        db.flush()
+        return dealership_id, group.id
 
     if _dealership_has_kan197_columns(db):
         dealership = Dealership(

@@ -176,6 +176,23 @@ Rulings D-A-01…D-A-41 live in the PRD; the ones a session is most likely to ge
   12 and nullable `correspondence_address_*` / `billing_address_*` blocks. `tax_id`,
   `dealer_license_number` and `license_state` are gone; `uid` is required on create and a
   duplicate is 409.
+- **Business master data (PRD "Dealership master data"; D-A-22, D-A-25, D-A-27, FR-A-25) — built
+  (KAN-203):** `/administration/business` is the one screen for the Betrieb's own data (A-RULE-0):
+  Legal identity · Addresses · Banking · Commercial and fiscal defaults · Licences and memberships.
+  `dealership` gained `legal_form` and `association_memberships` (codes of the platform-seeded lists
+  `legal_form`, `association_membership`), `commercial_register_office`, `hr_number`,
+  `astra_operator_number` and the Händlerschild list `collective_vehicle_licences`.
+  `dealership_bank_account` (D-A-27) is the child collection: IBAN mod-97 on save, a QR-IBAN told
+  apart by IID 30000–31999 and only with `qrr`, at most one `is_default` per Betrieb (partial unique
+  index), chosen explicitly — never promoted (Anto, 2026-10-24). `dealership_settings` holds the fiscal
+  defaults with shipped values (CHF, 0.05, 30 days, 01-01, KMU, month-end lock), no `vat_method`;
+  `vat_rate` stays on `dealership` (ADR-057). A PATCH that changes legal name, UID or VAT needs
+  `confirmation: true` (422 `confirmation_required` otherwise; the optional `auditNote` is the audit
+  reason) and the `dealership_legal_identity` write; every dealership, bank-account and settings
+  write is audited with before/after. **Banking is the one capability refused with 404, not 403
+  (ADR-100):** outside manager, finance, auditor and platform staff every `…/bank-accounts` route,
+  reads and writes alike, answers 404 (`require_banking_read` / `require_banking_write` in
+  `app/core/permissions.py`); the SPA then shows no Banking section at all.
 - **Support access (D-A-05, D-A-24):** a Nexotec employee steps into the user's session with
   **full write from the start**; token carries `sub` = staff and `actingFor` = the user; audit
   shows both, never the dealer as actor; 60-minute box, mandatory reason, persistent banner;

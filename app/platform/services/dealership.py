@@ -4,7 +4,9 @@ number, VAT liability — and status changes are audit-logged, the permission
 matrix's "Dealership legal identity" row; `offboarded` is a terminal status).
 """
 
+import datetime as dt
 import uuid
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import select
@@ -15,23 +17,43 @@ from app.core.audit import record_audit_event
 from app.core.errors import BadRequestError, ConflictError, NotFoundError, UnprocessableEntityError
 from app.core.i18n import SwissLanguage
 from app.core.pagination import PageParams, build_page, paginate_query
-from app.platform.models.dealership import DealerGroup, Dealership, DealershipStatus, Location
+from app.platform.models.dealership import (
+    LEGAL_IDENTITY_FIELDS,
+    DealerGroup,
+    Dealership,
+    DealershipStatus,
+    Location,
+)
+from app.platform.reference_data_seed import ASSOCIATION_MEMBERSHIP_LIST_CODE, LEGAL_FORM_LIST_CODE
 from app.platform.schemas.dealership import (
     DealershipAddress,
     DealershipCreate,
     DealershipOverrideAddress,
     DealershipUpdate,
 )
+from app.platform.services.reference_data import get_active_reference_value_codes
 
-# The UID is public (D-A-22), so none of these is redacted.
-_AUDITED_FIELDS = {"legal_name", "uid", "vat_number", "vat_liable", "status"}
+# KAN-203 (enforcement rule 7: every administrative write with before and
+# after): every changed column is audited, the address blocks as a whole.
+# The UID is public (D-A-22), so nothing is redacted. Before KAN-203 only the
+# legal identity and the status were.
+_NOT_STORED = {"confirmation", "audit_note"}
 _TERMINAL_DEALERSHIP_STATUSES = {DealershipStatus.OFFBOARDED}
 _ADDRESS_FIELDS = ("street", "house_number", "postal_code", "locality", "canton", "country")
 _ADDRESS_BLOCKS = ("address", "correspondence_address", "billing_address")
 
 
 def _plain(value: Any) -> Any:
-    return value.value if hasattr(value, "value") else value
+    """A JSON-safe copy of a column value for the audit row: enum members as
+    their value, Decimals and dates as strings (KAN-203 audits every field)."""
+
+    if hasattr(value, "value"):
+        return value.value
+    if isinstance(value, Decimal):
+        return str(value)
+    if isinstance(value, dt.date | dt.datetime):
+        return value.isoformat()
+    return value
 
 
 def _apply_address(
@@ -43,6 +65,27 @@ def _apply_address(
 
     for field in _ADDRESS_FIELDS:
         setattr(dealership, f"{prefix}_{field}", getattr(address, field) if address is not None else None)
+
+
+def _assert_reference_codes(db: Session, *, list_code: str, label: str, codes: list[str]) -> None:
+    """KAN-203: `legalForm` and `associationMemberships` hold codes of the
+    platform-seeded lists; an unknown or retired code is a 422, a missing
+    list a deployment fault (the country rule, KAN-32)."""
+
+    if not codes:
+        return
+    valid = get_active_reference_value_codes(db, list_code)
+    if valid is None:
+        raise RuntimeError(
+            f"The '{list_code}' reference list is not seeded. Run `alembic upgrade heads` "
+            "(migration e1f7a3c9b2d4) on this deployment."
+        )
+    unknown = [code for code in codes if code not in valid]
+    if unknown:
+        raise UnprocessableEntityError(
+            f"{label}: {', '.join(repr(c) for c in unknown)} is not an active value of the '{list_code}' list.",
+            details={"reason": "unknown_reference_code", "field": label, "codes": unknown},
+        )
 
 
 def _uid_conflict(uid: str | None) -> ConflictError:
@@ -203,6 +246,11 @@ def create_dealership(db: Session, *, data: DealershipCreate, actor_id: uuid.UUI
         # uq_dealership_uid — the duplicate-tenant check D-A-06 asks for.
         db.rollback()
         raise _uid_conflict(data.uid) from exc
+    # KAN-203 (FR-A-25): the fiscal defaults exist before anyone opens the
+    # Business screen — the shipped values, nothing commercial.
+    from app.platform.services.dealership_settings import new_settings
+
+    db.add(new_settings(dealership.id, actor_id))
 
     record_audit_event(
         db,
@@ -227,7 +275,41 @@ def create_dealership(db: Session, *, data: DealershipCreate, actor_id: uuid.UUI
 def update_dealership(
     db: Session, *, dealership: Dealership, data: DealershipUpdate, actor_id: uuid.UUID
 ) -> Dealership:
-    changes = data.model_dump(exclude_unset=True, exclude=set(_ADDRESS_BLOCKS))
+    changes = data.model_dump(exclude_unset=True, exclude=set(_ADDRESS_BLOCKS) | _NOT_STORED)
+
+    # KAN-203, the matrix row "Dealership legal identity": a change of legal
+    # name, UID or VAT is saved only against an explicit confirmation (Anto,
+    # 2026-10-24). A field sent with its current value is not a change.
+    identity_changes = {
+        field: value
+        for field, value in changes.items()
+        if field in LEGAL_IDENTITY_FIELDS and getattr(dealership, field) != value
+    }
+    if identity_changes and data.confirmation is not True:
+        raise UnprocessableEntityError(
+            "Changing the legal name, UID or VAT details needs your confirmation — send confirmation: true.",
+            details={"reason": "confirmation_required", "fields": sorted(identity_changes)},
+        )
+
+    if "legal_form" in changes and changes["legal_form"] is not None:
+        _assert_reference_codes(db, list_code=LEGAL_FORM_LIST_CODE, label="legalForm", codes=[changes["legal_form"]])
+    if changes.get("association_memberships"):
+        _assert_reference_codes(
+            db,
+            list_code=ASSOCIATION_MEMBERSHIP_LIST_CODE,
+            label="associationMemberships",
+            codes=list(changes["association_memberships"]),
+        )
+    if data.collective_vehicle_licences is not None:
+        # Stored as JSON: every key present, the date as ISO text.
+        changes["collective_vehicle_licences"] = [
+            {
+                "plate_number": licence.plate_number,
+                "canton": licence.canton,
+                "expires_on": licence.expires_on.isoformat() if licence.expires_on else None,
+            }
+            for licence in data.collective_vehicle_licences
+        ]
 
     if "status" in changes and changes["status"] is not None:
         new_status = changes["status"]
@@ -249,18 +331,22 @@ def update_dealership(
         current = getattr(dealership, field)
         if current == value:
             continue
-        if field in _AUDITED_FIELDS:
-            before[field] = _plain(current)
-            after[field] = _plain(value)
+        before[field] = _plain(current)
+        after[field] = _plain(value)
         setattr(dealership, field, value)
 
-    if data.address is not None:
+    if data.address is not None and data.address.model_dump() != dealership.address:
+        before["address"], after["address"] = dealership.address, data.address.model_dump()
         _apply_address(dealership, "address", data.address)
     # An override sent as null clears the block (KAN-312 lists both as
     # nullable); one not sent at all is left alone.
     for block in ("correspondence_address", "billing_address"):
         if block in data.model_fields_set:
-            _apply_address(dealership, block, getattr(data, block))
+            new_block = getattr(data, block)
+            new_value = new_block.model_dump() if new_block is not None else None
+            if new_value != getattr(dealership, block):
+                before[block], after[block] = getattr(dealership, block), new_value
+            _apply_address(dealership, block, new_block)
 
     dealership.updated_by = actor_id
     dealership.version += 1
@@ -283,6 +369,7 @@ def update_dealership(
             actor_id=actor_id,
             before=before or None,
             after=after or None,
+            reason=data.audit_note if identity_changes else None,
         )
 
     db.commit()
