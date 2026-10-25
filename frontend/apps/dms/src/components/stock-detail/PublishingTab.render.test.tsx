@@ -498,6 +498,48 @@ describe('PublishingTab — listing text keeps a local draft (KAN-425)', () => {
     expect(backend.callsTo(/\/publishing\/autoscout24$/, 'PATCH')).toHaveLength(1)
   })
 
+  it("the fields appear only once the channel's row has loaded, so no first keystroke is lost", async () => {
+    // Seen in the running app: typed while the row was still loading, the
+    // first character was dropped when the row arrived.
+    const user = userEvent.setup()
+    let current = row(1)
+    let rowLoaded: () => void = () => {}
+    const rowArrives = new Promise<void>((resolve) => {
+      rowLoaded = resolve
+    })
+    const backend = installFakeBackend([
+      { match: /^\/inventory\/stock-items\/st-1\/equipment$/, handler: () => EQUIPMENT },
+      { match: /^\/inventory\/stock-items\/st-1\/media$/, handler: () => [] },
+      {
+        method: 'GET',
+        match: /^\/inventory\/stock-items\/st-1\/publishing\/autoscout24$/,
+        handler: async () => {
+          await rowArrives
+          return current
+        },
+      },
+      {
+        method: 'PATCH',
+        match: /^\/inventory\/stock-items\/st-1\/publishing\/autoscout24$/,
+        handler: (req) => {
+          current = { ...current, ...(req.body as object), version: current.version + 1 }
+          return current
+        },
+      },
+    ])
+    renderWithProviders(<PublishingTab stockItemId="st-1" locale="de-CH" />)
+    expect(await screen.findByText(i18n.t('stockDetail.publishing.equipment.title'))).toBeInTheDocument()
+    expect(screen.queryByLabelText(label('zusatztitel'))).not.toBeInTheDocument()
+
+    rowLoaded()
+    const field = await screen.findByLabelText(label('zusatztitel'))
+    await user.type(field, 'Scheckheftgepflegt')
+    await user.tab()
+
+    await waitFor(() => expect(backend.callsTo(/\/publishing\/autoscout24$/, 'PATCH')).toHaveLength(1))
+    expect(backend.callsTo(/\/publishing\/autoscout24$/, 'PATCH')[0].body).toEqual({ zusatztitel: 'Scheckheftgepflegt' })
+  })
+
   it('each of the four fields is named by its label', async () => {
     backendFor(row(1, { bemerkungen: 'Scheckheftgepflegt' }))
     renderWithProviders(<PublishingTab stockItemId="st-1" locale="de-CH" />)

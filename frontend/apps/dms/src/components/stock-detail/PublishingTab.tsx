@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Alert, SegmentedControl } from '@mantine/core'
+import { Alert, Loader, SegmentedControl } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 import { CounterTextarea, MediaGallery, OverviewCard, semantic, slate, spacing } from '@nexotec/ui-kit'
 import { api, ApiError } from '../../api/client'
@@ -245,16 +245,22 @@ export function PublishingTab({ stockItemId, locale }: PublishingTabProps) {
             </Alert>
           )}
           {/* Keyed by channel: a draft still waiting when the channel changes
-              is saved to the channel it was typed for. */}
-          <ListingTextFields
-            key={activeChannel}
-            publishing={activePublishing}
-            resetKey={`${activePublishing ? 'loaded' : 'loading'}:${listingTextResync[activeChannel]}`}
-            onSave={(patch) => saveListingText(activeChannel, patch)}
-            titleDisplayLimitCaption={t('stockDetail.publishing.titleDisplayLimit', {
-              count: TITLE_DISPLAY_LIMITS[activeChannel],
-            })}
-          />
+              is saved to the channel it was typed for. Shown once the
+              channel's row is loaded: a keystroke typed before it would have
+              no version to save against and be lost. */}
+          {activePublishing ? (
+            <ListingTextFields
+              key={activeChannel}
+              publishing={activePublishing}
+              resetKey={String(listingTextResync[activeChannel])}
+              onSave={(patch) => saveListingText(activeChannel, patch)}
+              titleDisplayLimitCaption={t('stockDetail.publishing.titleDisplayLimit', {
+                count: TITLE_DISPLAY_LIMITS[activeChannel],
+              })}
+            />
+          ) : (
+            <Loader size="sm" />
+          )}
         </div>
       </OverviewCard>
 
@@ -306,7 +312,7 @@ function ListingTextFields({
   onSave,
   titleDisplayLimitCaption,
 }: {
-  publishing: PublishingRead | undefined
+  publishing: PublishingRead
   resetKey: string
   onSave: (patch: ListingTextPatch) => void
   titleDisplayLimitCaption: string
@@ -314,7 +320,7 @@ function ListingTextFields({
   const { t } = useTranslation()
   const field = (name: ListingTextField) => ({
     label: t(`stockDetail.publishing.fields.${name}`),
-    serverValue: publishing?.[name] ?? '',
+    serverValue: publishing[name] ?? '',
     resetKey,
     onCommit: (value: string) => onSave({ [name]: value }),
   })
