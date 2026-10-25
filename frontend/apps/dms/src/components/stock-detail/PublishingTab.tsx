@@ -256,7 +256,7 @@ export function PublishingTab({ stockItemId, locale }: PublishingTabProps) {
             onChange={(v) => saveListingText({ zustandsbeschreibung: v })}
             maxLength={2000}
           />
-          <CounterTextarea{...fieldHint(t('stockDetail.publishing.fields.haendlerbemerkungen'), t('stockDetail.publishing.haendlerbemerkungenHint'))}
+          <CounterTextarea {...fieldHint(t('stockDetail.publishing.fields.haendlerbemerkungen'), t('stockDetail.publishing.haendlerbemerkungenHint'))}
             value={activePublishing?.haendlerbemerkungen ?? ''}
             onChange={(v) => saveListingText({ haendlerbemerkungen: v })}
             maxLength={2000}

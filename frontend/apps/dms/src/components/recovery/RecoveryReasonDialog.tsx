@@ -124,7 +124,7 @@ export function RecoveryReasonDialog({ opened, onClose, user, choice, onDone }: 
             data-autofocus
           />
         )}
-        <Textarea{...fieldHint(t('recovery.dialog.reason'), t('recovery.dialog.reasonHint'))}
+        <Textarea {...fieldHint(t('recovery.dialog.reason'), t('recovery.dialog.reasonHint'))}
           value={reason}
           onChange={(e) => setReason(e.currentTarget.value)}
           maxLength={REASON_MAX}

@@ -15,7 +15,7 @@ export interface CounterTextareaProps {
   displayLimitCaption?: string;
   /** With `descriptionProps`, what `fieldHint()` returns: the hint reaches the textarea's aria-describedby. */
   description?: ReactNode;
-  descriptionProps?: { style?: CSSProperties; id?: string };
+  descriptionProps?: { style?: CSSProperties };
   minRows?: number;
 }
 

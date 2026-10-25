@@ -299,7 +299,7 @@ export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType, o
         </SimpleGrid>
       ) : (
         <Stack gap="sm">
-          <Select{...fieldHint(t('customerCreate.fields.correspondenceLanguage'), t('customerCreate.descriptions.correspondenceLanguage'))}
+          <Select {...fieldHint(t('customerCreate.fields.correspondenceLanguage'), t('customerCreate.descriptions.correspondenceLanguage'))}
             data={LANGUAGE_OPTIONS}
             allowDeselect={false}
             required

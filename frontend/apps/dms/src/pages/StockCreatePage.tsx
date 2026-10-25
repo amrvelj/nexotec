@@ -86,7 +86,7 @@ export function StockCreatePage() {
             onChange={(v) => setCondition((v as StockItemCondition) ?? 'used')}
             required
           />
-          <TextInput{...fieldHint(t('stockCreate.fields.vin'), t('stockCreate.fields.vinDescription'))}
+          <TextInput {...fieldHint(t('stockCreate.fields.vin'), t('stockCreate.fields.vinDescription'))}
             value={vin}
             onChange={(e) => setVin(e.currentTarget.value.toUpperCase())}
           />

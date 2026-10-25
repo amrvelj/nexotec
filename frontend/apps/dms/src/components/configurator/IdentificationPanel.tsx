@@ -136,7 +136,7 @@ export function IdentificationPanel({ allowedModes, onStart, onReuse, onQueryCha
   return (
     <Stack gap="sm">
       <Group align="flex-end" gap="xs">
-        <TextInput{...fieldHint(t('configurator.find.idLabel'), t('configurator.find.idHint'))}
+        <TextInput {...fieldHint(t('configurator.find.idLabel'), t('configurator.find.idHint'))}
           // KAN-351 — a 17-character input that is no VIN by the API's rule
           // is not kept as the car's VIN (ConfiguratorOverlay, KAN-338); the
           // input names the VIN rule instead of the VIN vanishing in phase 2.

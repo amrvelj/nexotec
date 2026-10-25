@@ -55,7 +55,7 @@ export function FieldLabel({ label, hint, hintId }: FieldLabelProps) {
 export interface FieldHintProps {
   label: ReactNode;
   description?: ReactNode;
-  descriptionProps?: { style?: CSSProperties; id?: string };
+  descriptionProps?: { style?: CSSProperties };
 }
 
 /** A stable element id for a hint text: the same text gives the same id on
@@ -82,7 +82,13 @@ export function fieldHint(label: ReactNode, hint: ReactNode): FieldHintProps {
   const hintId = hintIdFor(hint);
   return {
     label: <FieldLabel label={label} hint={hint} hintId={hintId} />,
-    description: hint,
-    descriptionProps: { style: VISUALLY_HIDDEN, id: hintId },
+    // The hint text itself is the hidden element: Mantine's inline inputs
+    // (Switch, Checkbox) render `description` but ignore `descriptionProps`.
+    description: (
+      <span id={hintId} style={VISUALLY_HIDDEN}>
+        {hint}
+      </span>
+    ),
+    descriptionProps: { style: VISUALLY_HIDDEN },
   };
 }

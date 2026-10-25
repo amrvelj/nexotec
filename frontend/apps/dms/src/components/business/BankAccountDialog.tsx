@@ -157,7 +157,7 @@ export function BankAccountDialog({ opened, onClose, dealershipId, account }: Ba
             {scor && <TextInput {...fieldHint(t('business.banking.fields.creditorReferencePrefix'), t('business.banking.fields.creditorReferencePrefixHint'))} value={form.creditorReferencePrefix} onChange={(e) => set('creditorReferencePrefix', e.currentTarget.value)} />}
             <TextInput label={t('business.banking.fields.label')} value={form.label} onChange={(e) => set('label', e.currentTarget.value)} placeholder={t('business.banking.fields.labelPlaceholder')} />
           </SimpleGrid>
-          <Checkbox{...fieldHint(t('business.banking.fields.isDefault'), t('business.banking.fields.isDefaultHint'))} checked={form.isDefault} onChange={(e) => set('isDefault', e.currentTarget.checked)} />
+          <Checkbox {...fieldHint(t('business.banking.fields.isDefault'), t('business.banking.fields.isDefaultHint'))} checked={form.isDefault} onChange={(e) => set('isDefault', e.currentTarget.checked)} />
         </Stack>
       </form>
     </FormDialog>

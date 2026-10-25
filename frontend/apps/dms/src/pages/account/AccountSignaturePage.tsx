@@ -135,7 +135,7 @@ export function AccountSignaturePage() {
           }}
         >
           <Stack gap="md">
-            <Textarea{...fieldHint(t('account.signature.block'), t('account.signature.blockHint'))}
+            <Textarea {...fieldHint(t('account.signature.block'), t('account.signature.blockHint'))}
               autosize
               minRows={3}
               maxLength={MAX_BLOCK}

@@ -147,7 +147,7 @@ export function AccountProfilePage() {
                 value={form.lastName}
                 onChange={(e) => set('lastName', e.currentTarget.value)}
               />
-              <TextInput{...fieldHint(t('account.profile.email'), t('account.profile.emailHint'))}
+              <TextInput {...fieldHint(t('account.profile.email'), t('account.profile.emailHint'))}
                 value={loaded.email}
                 readOnly
                 disabled
@@ -165,13 +165,13 @@ export function AccountProfilePage() {
                 value={form.directDial}
                 onChange={(e) => set('directDial', e.currentTarget.value)}
               />
-              <Select{...fieldHint(t('account.profile.uiLanguage'), t('account.profile.uiLanguageHint'))}
+              <Select {...fieldHint(t('account.profile.uiLanguage'), t('account.profile.uiLanguageHint'))}
                 data={LANGUAGES.map((code) => ({ value: code, label: languageLabel(code) }))}
                 value={uiLanguage}
                 allowDeselect={false}
                 onChange={(value) => value && setUiLanguage(value as Language)}
               />
-              <Select{...fieldHint(t('account.profile.correspondenceLanguage'), t('account.profile.correspondenceLanguageHint'))}
+              <Select {...fieldHint(t('account.profile.correspondenceLanguage'), t('account.profile.correspondenceLanguageHint'))}
                 data={[
                   {
                     value: BETRIEB_DEFAULT,

@@ -306,7 +306,7 @@ export function UserFormDialog({ opened, onClose, dealershipId, user, locations,
           <SimpleGrid cols={2}>
             <TextInput label={t('usersAdmin.fields.firstName')} value={form.firstName} onChange={(e) => set('firstName', e.currentTarget.value)} required />
             <TextInput label={t('usersAdmin.fields.lastName')} value={form.lastName} onChange={(e) => set('lastName', e.currentTarget.value)} required />
-            <TextInput{...fieldHint(t('usersAdmin.fields.email'), editing && user.status !== 'invited' ? t('usersAdmin.fields.emailLocked') : undefined)} type="email" value={form.email} onChange={(e) => set('email', e.currentTarget.value)} required disabled={editing && user.status !== 'invited'} />
+            <TextInput {...fieldHint(t('usersAdmin.fields.email'), editing && user.status !== 'invited' ? t('usersAdmin.fields.emailLocked') : undefined)} type="email" value={form.email} onChange={(e) => set('email', e.currentTarget.value)} required disabled={editing && user.status !== 'invited'} />
             <TextInput label={t('usersAdmin.fields.mobile')} value={form.phone} onChange={(e) => set('phone', e.currentTarget.value)} placeholder="+41 79 …" />
             <TextInput label={t('usersAdmin.fields.directDial')} value={form.directDial} onChange={(e) => set('directDial', e.currentTarget.value)} placeholder="+41 44 …" />
             <TextInput label={t('usersAdmin.fields.employeeNumber')} value={form.employeeNumber} onChange={(e) => set('employeeNumber', e.currentTarget.value)} />
@@ -356,7 +356,7 @@ export function UserFormDialog({ opened, onClose, dealershipId, user, locations,
             {t('usersAdmin.form.sections.access')}
           </Text>
           <SimpleGrid cols={2}>
-            <Select{...fieldHint(t('usersAdmin.fields.primaryRole'), t('usersAdmin.fields.primaryRoleHint'))}
+            <Select {...fieldHint(t('usersAdmin.fields.primaryRole'), t('usersAdmin.fields.primaryRoleHint'))}
               data={GRANTABLE_ACCESS_ROLES.map((r) => ({ value: r, label: accessRoleLabel(t, r) }))}
               value={form.primaryAccessRole}
               onChange={(value) =>
@@ -381,12 +381,12 @@ export function UserFormDialog({ opened, onClose, dealershipId, user, locations,
               </Stack>
             </Checkbox.Group>
           </SimpleGrid>
-          <Switch{...fieldHint(t('usersAdmin.fields.isDealerManager'), editing && user.id === selfId ? t('usersAdmin.fields.managerSelfHint') : t('usersAdmin.fields.managerHint'))}
+          <Switch {...fieldHint(t('usersAdmin.fields.isDealerManager'), editing && user.id === selfId ? t('usersAdmin.fields.managerSelfHint') : t('usersAdmin.fields.managerHint'))}
             checked={form.isDealerManager}
             onChange={(e) => set('isDealerManager', e.currentTarget.checked)}
             disabled={editing && user.id === selfId}
           />
-          <Checkbox.Group{...fieldHint(t('usersAdmin.fields.delegations'), t('usersAdmin.fields.delegationsHint'))}
+          <Checkbox.Group {...fieldHint(t('usersAdmin.fields.delegations'), t('usersAdmin.fields.delegationsHint'))}
             value={form.delegations}
             onChange={(value) => set('delegations', value as StandardTextCategory[])}
           >
@@ -402,7 +402,7 @@ export function UserFormDialog({ opened, onClose, dealershipId, user, locations,
           </Text>
           <SimpleGrid cols={2}>
             <TextInput label={t('usersAdmin.fields.validFrom')} type="date" value={form.validFrom} onChange={(e) => set('validFrom', e.currentTarget.value)} />
-            <TextInput{...fieldHint(t('usersAdmin.fields.validTo'), t('usersAdmin.fields.validToHint'))} type="date" value={form.validTo} onChange={(e) => set('validTo', e.currentTarget.value)} />
+            <TextInput {...fieldHint(t('usersAdmin.fields.validTo'), t('usersAdmin.fields.validToHint'))} type="date" value={form.validTo} onChange={(e) => set('validTo', e.currentTarget.value)} />
           </SimpleGrid>
 
           <Text fw={600} size="sm">
@@ -424,7 +424,7 @@ export function UserFormDialog({ opened, onClose, dealershipId, user, locations,
               </Button>
             </Group>
           )}
-          <FileInput{...fieldHint(t('usersAdmin.fields.signatureImage'), t('usersAdmin.fields.signatureHint'))}
+          <FileInput {...fieldHint(t('usersAdmin.fields.signatureImage'), t('usersAdmin.fields.signatureHint'))}
             accept="image/png,image/jpeg"
             value={signatureFile}
             onChange={(file) => {

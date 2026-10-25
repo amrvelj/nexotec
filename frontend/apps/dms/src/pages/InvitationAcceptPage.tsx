@@ -78,7 +78,7 @@ export function InvitationAcceptPage() {
     <AuthScreen title={t('auth.invitation.title')} hint={t('auth.invitation.hint')}>
       <form onSubmit={submit} noValidate>
         <Stack gap="md">
-          <PasswordInput{...fieldHint(t('auth.invitation.newPassword'), t('auth.password.rules'))}
+          <PasswordInput {...fieldHint(t('auth.invitation.newPassword'), t('auth.password.rules'))}
             value={password}
             onChange={(e) => setPassword(e.currentTarget.value)}
             autoComplete="new-password"
