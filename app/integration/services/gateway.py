@@ -214,7 +214,8 @@ def call_capability(
         started_at = time.monotonic()
         try:
             # KAN-108: built INSIDE the accounted part of the call. For
-            # `auto_i_dat` this fetches the WSDL — the first thing to hang when
+            # `auto_i_dat` this fetches the WSDL when the connection has no
+            # cached copy (KAN-213) — the first thing to hang when
             # the provider's host does — and before KAN-108 a failure here
             # escaped both the breaker and the call log. Only a transport
             # failure is accounted: a `ProviderConfigurationError` (no

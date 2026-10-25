@@ -179,16 +179,19 @@ forbidden_modules = [
     "app.compliance",
 ]
 
-# One contract per built-out context: its models/services/api are forbidden
-# as import targets for every OTHER context, full stop — no ignore_imports,
-# no exception list. app.<ctx>.public is simply never named as forbidden, so
-# it's structurally the only way in; routing a new cross-context call through
-# it needs no config change here, and reaching past it fails CI with no line
-# anyone can add to make it pass.
+# One contract per context with modules: every top-level module of it except
+# `public` is forbidden as an import target for every OTHER context, full
+# stop — no ignore_imports, no exception list. app.<ctx>.public is simply
+# never named as forbidden, so it's structurally the only way in; routing a
+# new cross-context call through it needs no config change here, and
+# reaching past it fails CI with no line anyone can add to make it pass.
 #
-# inventory/aftersales/parts/finance/reporting/compliance have no
-# models/services/api yet (not built — CLAUDE.md). Whichever work package
-# builds one out first must add its own contract below, same shape.
+# import-linter has no "all except public" form, so each list names every
+# module (KAN-120). tests/architecture/test_import_contracts_cover_every_module.py
+# fails when a context gains a top-level module or package that is neither
+# `public` nor listed here, and when a context with modules has no contract.
+# finance, reporting and compliance hold only `__init__.py`; the first module
+# one of them gains needs its contract here, same shape.
 [[tool.importlinter.contracts]]
 name = "Only app.platform.public is reachable from outside platform"
 type = "forbidden"
@@ -205,7 +208,16 @@ source_modules = [
     "app.reporting",
     "app.compliance",
 ]
-forbidden_modules = ["app.platform.models", "app.platform.services", "app.platform.api"]
+forbidden_modules = [
+    "app.platform.api",
+    "app.platform.daily_jobs",
+    "app.platform.models",
+    "app.platform.reconciliation",
+    "app.platform.reference_data_seed",
+    "app.platform.schemas",
+    "app.platform.services",
+    "app.platform.session_guard",
+]
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
@@ -224,7 +236,14 @@ source_modules = [
     "app.reporting",
     "app.compliance",
 ]
-forbidden_modules = ["app.customer.models", "app.customer.services", "app.customer.api"]
+forbidden_modules = [
+    "app.customer.api",
+    "app.customer.models",
+    "app.customer.ownership",
+    "app.customer.reconciliation",
+    "app.customer.schemas",
+    "app.customer.services",
+]
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
@@ -243,7 +262,13 @@ source_modules = [
     "app.reporting",
     "app.compliance",
 ]
-forbidden_modules = ["app.vehicle.models", "app.vehicle.services", "app.vehicle.api"]
+forbidden_modules = [
+    "app.vehicle.api",
+    "app.vehicle.models",
+    "app.vehicle.reconciliation",
+    "app.vehicle.schemas",
+    "app.vehicle.services",
+]
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
@@ -262,13 +287,20 @@ source_modules = [
     "app.reporting",
     "app.compliance",
 ]
-forbidden_modules = ["app.sales.models", "app.sales.services", "app.sales.api"]
+forbidden_modules = [
+    "app.sales.api",
+    "app.sales.consumers",
+    "app.sales.i18n",
+    "app.sales.models",
+    "app.sales.reconciliation",
+    "app.sales.schemas",
+    "app.sales.services",
+]
 allow_indirect_imports = true
 
-# WP-7 PR-1: inventory is the first of the "not built yet" contexts to
-# actually ship models/services/api — per the note on the contract above,
-# it adds its own reciprocal block here, same shape as every other
-# built-out context.
+# WP-7 PR-1: inventory was the first of the then "not built yet" contexts to
+# ship models/services/api, and added its own reciprocal block here, same
+# shape as every other context.
 [[tool.importlinter.contracts]]
 name = "Only app.inventory.public is reachable from outside inventory"
 type = "forbidden"
@@ -285,7 +317,16 @@ source_modules = [
     "app.reporting",
     "app.compliance",
 ]
-forbidden_modules = ["app.inventory.models", "app.inventory.services", "app.inventory.api"]
+forbidden_modules = [
+    "app.inventory.api",
+    "app.inventory.consumers",
+    "app.inventory.daily_jobs",
+    "app.inventory.models",
+    "app.inventory.ownership",
+    "app.inventory.reconciliation",
+    "app.inventory.schemas",
+    "app.inventory.services",
+]
 allow_indirect_imports = true
 
 # WP-8 PR-5: valuation is the 11th bounded context, the first new
@@ -309,7 +350,13 @@ source_modules = [
     "app.reporting",
     "app.compliance",
 ]
-forbidden_modules = ["app.valuation.models", "app.valuation.services", "app.valuation.api"]
+forbidden_modules = [
+    "app.valuation.api",
+    "app.valuation.models",
+    "app.valuation.reconciliation",
+    "app.valuation.schemas",
+    "app.valuation.services",
+]
 allow_indirect_imports = true
 
 # WP-6 PR-1: integration is the 12th bounded context — the generic
@@ -338,5 +385,60 @@ source_modules = [
     "app.reporting",
     "app.compliance",
 ]
-forbidden_modules = ["app.integration.models", "app.integration.services", "app.integration.api", "app.integration.adapters"]
+forbidden_modules = [
+    "app.integration.adapters",
+    "app.integration.api",
+    "app.integration.daily_jobs",
+    "app.integration.errors",
+    "app.integration.models",
+    "app.integration.reconciliation",
+    "app.integration.schemas",
+    "app.integration.services",
+]
+allow_indirect_imports = true
+
+# KAN-120: the aftersales and parts stubs gained their first module — the
+# ownership provider each registers for the deactivation step (D-A-35),
+# wired by app/ownership_registry.py, a composition root. Neither has a
+# `public` yet; no other context has reason to import either.
+[[tool.importlinter.contracts]]
+name = "Only app.aftersales.public is reachable from outside aftersales"
+type = "forbidden"
+source_modules = [
+    "app.platform",
+    "app.customer",
+    "app.vehicle",
+    "app.sales",
+    "app.inventory",
+    "app.valuation",
+    "app.integration",
+    "app.parts",
+    "app.finance",
+    "app.reporting",
+    "app.compliance",
+]
+forbidden_modules = [
+    "app.aftersales.ownership",
+]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "Only app.parts.public is reachable from outside parts"
+type = "forbidden"
+source_modules = [
+    "app.platform",
+    "app.customer",
+    "app.vehicle",
+    "app.sales",
+    "app.inventory",
+    "app.valuation",
+    "app.integration",
+    "app.aftersales",
+    "app.finance",
+    "app.reporting",
+    "app.compliance",
+]
+forbidden_modules = [
+    "app.parts.ownership",
+]
 allow_indirect_imports = true

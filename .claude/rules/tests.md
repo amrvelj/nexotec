@@ -34,6 +34,7 @@ as any change to what it states. -->
   no `vatTreatment`, a non-enumerable plate lookup, the
   shared identity response shape, spec-block carriers that do not drift, enum columns only
   as `StoredEnum` (KAN-86), no foreign key or `relationship()` crossing a context (KAN-84),
+  an import-linter contract that forbids every module of a context but `public`,
   no shared cross-context transaction: every cross-context call classified, every cross-context
   write committing its own transaction except the two allow-listed entries, the KAN-185 debt
   (tracked, not ruled) and `scripts/migrate_transaction_rows.py` under ADR-091, the one

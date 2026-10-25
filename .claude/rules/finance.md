@@ -8,8 +8,9 @@ paths:
 ---
 <!-- Maintainer note (stripped before Claude sees it). Summarises ADR-032, ADR-037, ADR-052,
 ADR-064, the ADR-050 addendum (2026-10-11) and the WP-9 page of the Build Sequence; KAN-74
-tracks WP-9. Verified against main@7a90ae4 on 2026-10-12 (every present-tense claim checked
-against the code). /drift-audit re-checks the "not built" line weekly. -->
+tracks WP-9. Verified against main@1dce27f on 2026-10-25 (every present-tense claim checked
+against the code; D-A-17 and D-A-27 against the Dealer Administration PRD's Revision 1.1 index,
+nothing in its Revision 1.2 index touches finance; KAN-373). /drift-audit re-checks the "not built" line weekly. -->
 
 # Finance, numbering and invoicing
 
@@ -38,6 +39,7 @@ against the code). /drift-audit re-checks the "not built" line weekly. -->
 - When WP-9 issues invoices, the holder transfer on `finance.invoice.issued` must go through
   `app.customer.public.allocate_vehicle_party`, which closes the previous party row (ADR-064).
   Not wired today.
-- Open, and Anto's to decide: number ranges per site or continuous across the company (A-26 —
-  it decides the gapless design) · the Saldosteuersatz method (A-22 — a tax calculation, not a
-  label).
+- Decided 2026-10-07 (Dealer Administration PRD): number ranges are **gapless per legal entity**,
+  one sequence across all sites, `{location_code}` is a label only (D-A-17, ADR-032); the
+  **Saldosteuersatz** method is **not in v1** (D-A-27). Read the PRD's Number ranges and Master
+  data sections before building either.
