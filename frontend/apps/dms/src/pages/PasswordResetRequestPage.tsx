@@ -2,8 +2,9 @@ import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { Alert, Anchor, Button, Stack, Text, TextInput } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
-import { api, ApiError } from '../api/client'
+import { api } from '../api/client'
 import { AuthScreen } from './auth/AuthScreen'
+import { apiRefusalText } from '../utils/apiRefusal'
 
 /** KAN-196 (FR-AU-14/16): asks for the address and says the same thing
  * whether or not an account exists — the mail goes out only where there is
@@ -23,7 +24,7 @@ export function PasswordResetRequestPage() {
       await api.post('/auth/password-reset/request', { email })
       setSent(true)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t('common.requestFailed'))
+      setError(apiRefusalText(t, err, 'common.requestFailed'))
     } finally {
       setBusy(false)
     }

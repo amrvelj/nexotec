@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
 import { theme } from '@nexotec/ui-kit'
 import i18n from '../../i18n'
+import { ApiError } from '../../api/client'
 import { OdometerTab } from './OdometerTab'
 import type { VehicleOdometerReadingRead } from '../../api/types'
 
@@ -32,5 +33,27 @@ describe('OdometerTab', () => {
       </MantineProvider>,
     )
     expect(screen.getByText("12'500")).toBeInTheDocument()
+  })
+
+  // KAN-437: a refused reading is said in the UI language — here a NUL
+  // character the API refuses (KAN-387), in Italian — never in its English.
+  it('says a refused reading by its reason in Italian, never in the API\'s English text', async () => {
+    await i18n.changeLanguage('it')
+    const refused = new ApiError(422, 'unprocessable_entity', 'The request contains a character that is not allowed (NUL, U+0000).', {
+      reason: 'nul_character',
+      location: 'body',
+    })
+    render(
+      <MantineProvider theme={theme} env="test">
+        <OdometerTab readings={[]} loading={false} onAdd={() => Promise.reject(refused)} />
+      </MantineProvider>,
+    )
+
+    fireEvent.change(screen.getByRole('textbox', { name: i18n.t('vehicleDetail.odometer.value') }), { target: { value: '12500' } })
+    fireEvent.change(screen.getByLabelText(i18n.t('vehicleDetail.odometer.date')), { target: { value: '2026-10-26' } })
+    fireEvent.click(screen.getByRole('button', { name: i18n.t('vehicleDetail.odometer.record') }))
+
+    expect(await screen.findByText(i18n.t('apiRefusal.reasons.nul_character'))).toBeInTheDocument()
+    expect(screen.queryByText(/NUL, U\+0000/)).not.toBeInTheDocument()
   })
 })

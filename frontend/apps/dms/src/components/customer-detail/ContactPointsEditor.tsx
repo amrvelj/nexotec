@@ -2,9 +2,9 @@ import type { ReactNode } from 'react'
 import { Stack, Text } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 import { RepeatableRowGroup } from '@nexotec/ui-kit'
-import { ApiError } from '../../api/client'
 import { translatedConsentScopeOptions, translatedConsentSourceOptions } from '../../customerOptions'
 import { contactPointRowLabels } from './contactPointRowLabels'
+import { apiRefusalText } from '../../utils/apiRefusal'
 
 export interface ContactPointRow<TType extends string> {
   id: string
@@ -94,7 +94,7 @@ export function ContactPointsEditor<TType extends string>({
         onDelete={onDelete}
         consentScopeOptions={translatedConsentScopeOptions(t)}
         consentSourceOptions={translatedConsentSourceOptions(t)}
-        describeError={(err) => (err instanceof ApiError ? err.message : t('customerDetail.errors.somethingWentWrong'))}
+        describeError={(err) => apiRefusalText(t, err, 'customerDetail.errors.somethingWentWrong')}
         labels={contactPointRowLabels(t)}
       />
     </Stack>

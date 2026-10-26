@@ -21,6 +21,7 @@ import { useTranslation } from 'react-i18next'
 import { FormDialog, InlineEditField, semantic, useSetBreadcrumb } from '@nexotec/ui-kit'
 import { api, ApiError } from '../api/client'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
+import { apiRefusalText, refusedField } from '../utils/apiRefusal'
 import type { ReferenceValueRead } from '../api/types'
 import { REFERENCE_LIST_CODES, type ReferenceListCode } from '../referenceLists'
 import { fetchAllReferenceValues } from '../hooks/useReferenceValueOptions'
@@ -306,18 +307,13 @@ function CreateValueDialog({
       idempotency.renew()
       onCreated()
     } catch (err) {
-      if (err instanceof ApiError && err.status === 422 && err.details) {
-        const next: Record<string, string> = {}
-        for (const [key, value] of Object.entries(err.details)) {
-          if (typeof value === 'string') next[key] = value
-        }
-        setFieldErrors(next)
-        if (Object.keys(next).length === 0) setFormError(err.message)
-      } else if (err instanceof ApiError) {
-        setFormError(err.message)
-      } else {
-        setFormError(t('referenceData.create.error'))
-      }
+      // KAN-437: said in the UI language — a schema 422 marks the field it
+      // names, a value code the list already holds is a 409 naming it.
+      const field = err instanceof ApiError && err.status === 422 ? refusedField(err) : null
+      if (field && field in empty) setFieldErrors({ [field]: t('referenceData.create.invalidField') })
+      else if (err instanceof ApiError && err.status === 409 && typeof err.details?.valueCode === 'string') {
+        setFormError(t('referenceData.create.duplicate', { valueCode: err.details.valueCode }))
+      } else setFormError(apiRefusalText(t, err, 'referenceData.create.error'))
     } finally {
       setSubmitting(false)
     }

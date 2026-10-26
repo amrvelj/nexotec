@@ -270,7 +270,7 @@ describe('CustomerCreateFlow — one Idempotency-Key per submission (KAN-266)', 
     await user.type(container.querySelector<HTMLInputElement>('input[type="email"]')!, 'anna@example.ch')
     await user.click(screen.getByRole('button', { name: i18n.t('customerDetail.contactPoints.save') }))
     await user.click(screen.getByRole('button', { name: i18n.t('customerCreate.actions.submit') }))
-    expect(await screen.findByText('Try again.')).toBeInTheDocument()
+    expect(await screen.findByText(i18n.t('customerCreate.errors.createFailed'))).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: i18n.t('customerCreate.actions.submit') }))
 
     await waitFor(() => expect(created).toHaveBeenCalledTimes(1))

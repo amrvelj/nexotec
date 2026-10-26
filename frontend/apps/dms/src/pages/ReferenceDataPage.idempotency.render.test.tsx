@@ -47,7 +47,7 @@ describe('ReferenceDataPage — Idempotency-Key per submission', () => {
 
     await openDialog()
     await submit()
-    expect(await screen.findByText('Try again.')).toBeInTheDocument()
+    expect(await screen.findByText(i18n.t('referenceData.create.error'))).toBeInTheDocument()
     await submit()
     await waitFor(() => expect(postKeys()).toHaveLength(2))
 
@@ -81,7 +81,7 @@ describe('ReferenceDataPage — Idempotency-Key per submission', () => {
       const dialog = within(await screen.findByRole('dialog'))
       await user.type(dialog.getByLabelText(i18n.t('referenceData.columns.code'), { exact: false }), 'diesel')
       await user.click(dialog.getByRole('button', { name: i18n.t('referenceData.create.submit') }))
-      expect(await dialog.findByText('Try again.')).toBeInTheDocument()
+      expect(await dialog.findByText(i18n.t('referenceData.create.error'))).toBeInTheDocument()
       await user.click(dialog.getByRole('button', { name: i18n.t('common.cancel') }))
       await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     }
@@ -90,5 +90,58 @@ describe('ReferenceDataPage — Idempotency-Key per submission', () => {
     expect(first).toBeTruthy()
     expect(afterReopen).toBeTruthy()
     expect(afterReopen).not.toBe(first)
+  })
+
+  // KAN-437: a refused value is said in the UI language — a value code the
+  // list already holds names the code, a schema 422 marks the field it
+  // names — never the API's English text.
+  it('says a duplicate code and a refused field in Italian, never in the API\'s English text', async () => {
+    await i18n.changeLanguage('it')
+    try {
+      const user = userEvent.setup()
+      let posts = 0
+      installFakeBackend([
+        { method: 'GET', match: /\/reference-data\//, handler: () => ({ items: [], nextCursor: null }) },
+        {
+          method: 'POST',
+          match: /\/reference-data\/fuel_type$/,
+          handler: () => {
+            posts += 1
+            if (posts === 1) {
+              return status(409, {
+                error: { code: 'conflict', message: "Reference value 'diesel' already exists in list 'fuel_type'.", details: { listCode: 'fuel_type', valueCode: 'diesel' } },
+              })
+            }
+            return status(422, {
+              error: {
+                code: 'unprocessable_entity',
+                message: 'Request validation failed.',
+                details: { errors: [{ loc: ['body', 'labelIt'], msg: 'String should have at most 200 characters', type: 'string_too_long' }] },
+              },
+            })
+          },
+        },
+      ])
+      renderWithProviders(<ReferenceDataPage />, { route: '/settings/reference' })
+
+      await user.click(await screen.findByRole('button', { name: i18n.t('referenceData.create.trigger') }))
+      const dialog = within(await screen.findByRole('dialog'))
+      await user.type(dialog.getByLabelText(i18n.t('referenceData.columns.code'), { exact: false }), 'diesel')
+      for (const language of ['Deutsch', 'Français', 'Italiano', 'English']) {
+        await user.type(dialog.getByLabelText(language, { exact: false }), 'Diesel')
+      }
+      const submit = () => user.click(dialog.getByRole('button', { name: i18n.t('referenceData.create.submit') }))
+
+      await submit()
+      expect(await dialog.findByText(i18n.t('referenceData.create.duplicate', { valueCode: 'diesel' }))).toBeInTheDocument()
+      expect(dialog.queryByText(/already exists/)).not.toBeInTheDocument()
+
+      await submit()
+      expect(await dialog.findByText(i18n.t('referenceData.create.invalidField'))).toBeInTheDocument()
+      expect(dialog.getByLabelText('Italiano', { exact: false })).toHaveAttribute('aria-invalid', 'true')
+      expect(dialog.queryByText(/validation failed|at most 200/)).not.toBeInTheDocument()
+    } finally {
+      await i18n.changeLanguage('de')
+    }
   })
 })

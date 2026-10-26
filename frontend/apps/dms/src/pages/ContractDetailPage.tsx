@@ -30,6 +30,7 @@ import { ValuationSourceMarker } from '../components/ValuationSourceMarker'
 import { translatedSalesDealStatusLabel, translatedSalesEntityTypeLabel } from '../salesOptions'
 import { formatCurrencyChf } from '../utils/format'
 import type { SalesContractRead, ValuationRead } from '../api/types'
+import { apiRefusalText } from '../utils/apiRefusal'
 
 export function ContractDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -236,9 +237,7 @@ export function ContractDetailContent({ contractId: id, embedded = false }: Cont
   if (contractQuery.isError || !contractQuery.data) {
     return (
       <Alert color="red" title={t('contractDetail.errors.failedToLoad')}>
-        {contractQuery.error instanceof ApiError
-          ? contractQuery.error.message
-          : t('contractDetail.errors.somethingWentWrong')}
+        {apiRefusalText(t, contractQuery.error, 'contractDetail.errors.somethingWentWrong')}
       </Alert>
     )
   }

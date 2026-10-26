@@ -2,10 +2,10 @@ import { useState } from 'react'
 import { ActionIcon, Alert, Button, Group, Loader, Stack, Table, TextInput } from '@mantine/core'
 import { Plus, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { ApiError } from '../../api/client'
 import { toSwissLocale, type SupportedLanguage } from '../../i18n'
 import { formatDateOnly, todayLocalIsoDate } from '../../utils/format'
 import type { VehicleAccessoryRead } from '../../api/types'
+import { apiRefusalText } from '../../utils/apiRefusal'
 
 interface AccessoriesTabProps {
   accessories: VehicleAccessoryRead[]
@@ -37,7 +37,7 @@ export function AccessoriesTab({ accessories, loading, onAdd, onRemove }: Access
       setType('')
       setDescription('')
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t('vehicleDetail.accessories.saveError'))
+      setError(apiRefusalText(t, err, 'vehicleDetail.accessories.saveError'))
     } finally {
       setSubmitting(false)
     }
@@ -48,7 +48,7 @@ export function AccessoriesTab({ accessories, loading, onAdd, onRemove }: Access
     try {
       await onRemove(accessoryId)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t('vehicleDetail.accessories.removeError'))
+      setError(apiRefusalText(t, err, 'vehicleDetail.accessories.removeError'))
     }
   }
 

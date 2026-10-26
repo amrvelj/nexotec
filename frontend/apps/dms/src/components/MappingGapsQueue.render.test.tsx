@@ -122,7 +122,7 @@ describe('MappingGapsQueue — resolve dialog (KAN-77)', () => {
     expect(call.body).toEqual({ canonicalListCode: 'fuel_type', canonicalValueCode: 'diesel' })
   })
 
-  it('shows the server\'s message when the resolve is refused, and keeps the dialog open', async () => {
+  it('says a refused resolve in the UI language, never in the API\'s words, and keeps the dialog open', async () => {
     const user = userEvent.setup()
     installFakeBackend(
       resolveRoutes(() =>
@@ -137,7 +137,7 @@ describe('MappingGapsQueue — resolve dialog (KAN-77)', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Zuordnen' }))
 
     expect(await within(dialog).findByRole('alert')).toHaveTextContent(
-      "Provider code '17' is already mapped to fuel_type/petrol.",
+      i18n.t('mappingGaps.resolveModal.error'),
     )
     expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
@@ -184,7 +184,7 @@ describe('MappingGapsQueue — one Idempotency-Key per resolution (KAN-266)', ()
 
     const dialog = await chooseDiesel(user)
     await user.click(within(dialog).getByRole('button', { name: 'Zuordnen' }))
-    expect(await within(dialog).findByRole('alert')).toHaveTextContent('Try again.')
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(i18n.t('mappingGaps.resolveModal.error'))
     await user.click(within(dialog).getByRole('button', { name: 'Zuordnen' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
 
@@ -200,7 +200,7 @@ describe('MappingGapsQueue — one Idempotency-Key per resolution (KAN-266)', ()
 
     const dialog = await chooseDiesel(user)
     await user.click(within(dialog).getByRole('button', { name: 'Zuordnen' }))
-    expect(await within(dialog).findByRole('alert')).toHaveTextContent('Try again.')
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(i18n.t('mappingGaps.resolveModal.error'))
     await user.click(within(dialog).getByRole('textbox', { name: 'Kanonischer Wert' }))
     await user.click(await screen.findByRole('option', { name: 'Benzin (petrol)' }))
     await user.click(within(dialog).getByRole('button', { name: 'Zuordnen' }))

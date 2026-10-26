@@ -100,7 +100,7 @@ describe('OfferDetailPage — a failed create or copy says so and keeps its key 
       { route: '/sales/offers/new', strictMode: true },
     )
 
-    expect((await screen.findByRole('alert')).textContent).toContain('Number range unavailable')
+    expect((await screen.findByRole('alert')).textContent).toContain(i18n.t('common.requestFailed'))
     expect(backend.callsTo(/^\/sales\/offers$/, 'POST')).toHaveLength(1)
 
     await user.click(screen.getByRole('button', { name: i18n.t('common.retry') }))

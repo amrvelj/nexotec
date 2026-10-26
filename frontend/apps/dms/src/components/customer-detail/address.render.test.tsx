@@ -229,7 +229,7 @@ describe('customer address — detail screen (ADR-067, KAN-30)', () => {
     await user.type(screen.getByLabelText(i18n.t('customerDetail.overview.addressForm.postalCode')), '3011')
     await user.type(screen.getByLabelText(i18n.t('customerDetail.overview.addressForm.locality')), 'Bern')
     await user.click(screen.getByRole('button', { name: i18n.t('customerDetail.overview.addressForm.save') }))
-    expect(await screen.findByText('Response lost.')).toBeInTheDocument()
+    expect(await screen.findByText(i18n.t('customerDetail.errors.failedToSave'))).toBeInTheDocument()
 
     await user.clear(street)
     await user.type(street, 'Marktgasse')
@@ -290,7 +290,7 @@ describe('customer address — detail screen (ADR-067, KAN-30)', () => {
     await user.click(within(addressCard()).getAllByText(i18n.t('customerDetail.overview.notSet'))[0])
     await enter()
     await save()
-    expect(await screen.findByText('Response lost.')).toBeInTheDocument()
+    expect(await screen.findByText(i18n.t('customerDetail.errors.failedToSave'))).toBeInTheDocument()
     await save()
     await waitFor(() => expect(backend.callsTo(/^\/customers\/c1\/addresses\/addr-1$/, 'PATCH')).toHaveLength(1))
 

@@ -211,7 +211,7 @@ describe('customer 360 — a failed new offer or contract says so (KAN-273)', ()
   const keys = (backend: FakeBackend, pattern: RegExp) =>
     backend.callsTo(pattern, 'POST').map((call) => call.headers.get('Idempotency-Key'))
 
-  it('a refused new offer shows the server message, and the retry reuses the key', async () => {
+  it('a refused new offer is said in the UI language, and the retry reuses the key', async () => {
     const backend = install([], [], { failFirstOffer: true })
     renderDetail()
     const user = userEvent.setup()
@@ -219,7 +219,7 @@ describe('customer 360 — a failed new offer or contract says so (KAN-273)', ()
       user.click(within(await emptyState()).getByRole('button', { name: i18n.t('salesList.newOffer') }))
 
     await newOffer()
-    expect((await screen.findByRole('alert')).textContent).toBe('Number range unavailable')
+    expect((await screen.findByRole('alert')).textContent).toBe(i18n.t('customerDetail.errors.createOfferFailed'))
 
     await newOffer()
     await waitFor(() => expect(keys(backend, /^\/sales\/offers$/)).toHaveLength(2))

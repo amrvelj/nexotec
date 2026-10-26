@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import { Alert, Checkbox, Stack, TextInput } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 import { ChfInput, FormDialog } from '@nexotec/ui-kit'
-import { ApiError } from '../../api/client'
 import { todayLocalIsoDate } from '../../utils/format'
+import { apiRefusalText } from '../../utils/apiRefusal'
 
 interface RecordPurchaseDialogProps {
   opened: boolean
@@ -54,7 +54,7 @@ export function RecordPurchaseDialog({ opened, onClose, onSubmit }: RecordPurcha
       })
       onClose()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t('stockDetail.purchase.error'))
+      setError(apiRefusalText(t, err, 'stockDetail.purchase.error'))
     } finally {
       setSubmitting(false)
     }

@@ -113,7 +113,7 @@ describe('StockDetailPage — one Idempotency-Key per submission (KAN-266)', () 
     expect(call.headers.get('Idempotency-Key')).toBeTruthy()
   })
 
-  it('a failed purchase shows the server message, keeps the dialog filled, and the retry reuses the key (KAN-272)', async () => {
+  it('a failed purchase is said in the UI language, keeps the dialog filled, and the retry reuses the key (KAN-272)', async () => {
     const user = userEvent.setup()
     const backend = install({ failFirstPurchase: true })
     renderTab('details')
@@ -129,7 +129,7 @@ describe('StockDetailPage — one Idempotency-Key per submission (KAN-266)', () 
     const submit = within(dialog).getByRole('button', { name: i18n.t('stockDetail.purchase.submit') })
     await user.click(submit)
 
-    expect((await within(dialog).findByRole('alert')).textContent).toBe('Purchase ledger unavailable')
+    expect((await within(dialog).findByRole('alert')).textContent).toBe(i18n.t('stockDetail.purchase.error'))
     expect(field('supplierName').value).toBe('Garage Muster AG')
     await waitFor(() => expect(submit).not.toHaveAttribute('data-loading'))
 

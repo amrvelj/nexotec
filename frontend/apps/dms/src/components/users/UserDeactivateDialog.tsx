@@ -16,6 +16,7 @@ import type {
 import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
 import { ownedGroupLabel, reassignmentProblemText, refusalText, userDisplayName } from '../../userOptions'
 import { formatNumber } from '../../utils/format'
+import { apiRefusalText } from '../../utils/apiRefusal'
 
 export interface UserDeactivateDialogProps {
   opened: boolean
@@ -127,8 +128,7 @@ export function UserDeactivateDialog({ opened, onClose, dealershipId, user, coll
       else if (err instanceof ApiError && err.status === 422 && Array.isArray(err.details?.problems)) {
         setError(t('usersAdmin.deactivate.incomplete'))
         setProblems((err.details.problems as unknown[]).map((entry) => reassignmentProblemText(t, entry)))
-      } else if (err instanceof ApiError) setError(err.message)
-      else setError(t('common.requestFailed'))
+      } else setError(apiRefusalText(t, err, 'common.requestFailed'))
       void ownership.refetch()
     } finally {
       setSubmitting(false)

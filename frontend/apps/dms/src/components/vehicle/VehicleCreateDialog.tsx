@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react'
 import { Alert, TextInput } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 import { FormDialog } from '@nexotec/ui-kit'
-import { api, ApiError } from '../../api/client'
+import { api } from '../../api/client'
 import type { VehicleMdmCreateResult, VehicleMdmRead } from '../../api/types'
 import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
+import { apiRefusalText } from '../../utils/apiRefusal'
 
 interface VehicleCreateDialogProps {
   opened: boolean
@@ -56,7 +57,7 @@ export function VehicleCreateDialog({ opened, onClose, onCreated }: VehicleCreat
       }
     } catch (err) {
       // Shown, so the user can send it again: a retry carries the same key.
-      setError(err instanceof ApiError ? err.message : t('vehicleCreate.error'))
+      setError(apiRefusalText(t, err, 'vehicleCreate.error'))
     } finally {
       setSubmitting(false)
     }

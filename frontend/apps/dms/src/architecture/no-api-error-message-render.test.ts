@@ -21,52 +21,16 @@ import { fileURLToPath } from 'node:url'
 // allow-listed by file with their count — a ratchet: a new read in any file
 // fails, and a file that is converted must lower or drop its entry, so the
 // list only shrinks. The count is per file, so one conversion and one new
-// read in the same file pass together; a reviewer still sees the diff. The
-// conversion of the listed sites is KAN-437.
+// read in the same file pass together; a reviewer still sees the diff.
+// KAN-437 converted the listed sites (`utils/apiRefusal.ts`); what is left
+// is a message the screens themselves built from t(...).
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 
 const ALLOWED: Record<string, number> = {
-  'components/CustomerCreateFlow.tsx': 1,
-  'components/MappingGapsQueue.tsx': 1,
-  'components/OfferAccessoriesAndOptions.tsx': 1,
-  'components/OfferGenerateReviewModal.tsx': 2,
-  'components/ValuationCreateDialog.tsx': 1,
   // HostCommitError, always built from t(...) by its hosts — translated, so it
-  // stays; KAN-437 leaves this entry as it is.
+  // stays (KAN-437 converted every other site).
   'components/configurator/ConfiguratorOverlay.tsx': 2,
-  'components/customer-detail/ContactPointsEditor.tsx': 1,
-  'components/customer-detail/CreditBlockDialog.tsx': 1,
-  'components/customer-detail/ExternalIdsTab.tsx': 1,
-  'components/customer-detail/OverviewTab.tsx': 1,
-  'components/recovery/RecoveryReasonDialog.tsx': 2,
-  // A blocking condition's server text (c.message).
-  'components/stock-detail/BlockingConditionBanner.tsx': 1,
-  'components/stock-detail/ChannelPublishCard.tsx': 2,
-  'components/stock-detail/PublishingTab.tsx': 1,
-  'components/stock-detail/RecordCostDialog.tsx': 1,
-  'components/stock-detail/RecordPurchaseDialog.tsx': 1,
-  'components/users/UserDeactivateDialog.tsx': 1,
-  'components/vehicle-detail/AccessoriesTab.tsx': 2,
-  'components/vehicle-detail/OdometerTab.tsx': 1,
-  'components/vehicle/VehicleCreateDialog.tsx': 1,
-  'pages/AccountSecurityPage.tsx': 3,
-  'pages/ContractDetailPage.tsx': 1,
-  'pages/CustomerDetailPage.tsx': 4,
-  'pages/CustomersListPage.tsx': 3,
-  'pages/IntegrationDealerView.tsx': 1,
-  'pages/LoginPage.tsx': 1,
-  'pages/OfferDetailPage.tsx': 3,
-  'pages/OfferWorkspacePage.tsx': 1,
-  'pages/PasswordResetRequestPage.tsx': 1,
-  'pages/ReferenceDataPage.tsx': 2,
-  'pages/StockDetailPage.tsx': 3,
-  'pages/ValuationDetailPage.tsx': 2,
-  'pages/ValuationsListPage.tsx': 1,
-  'pages/VehicleDetailPage.tsx': 1,
-  'pages/auth/passwordErrors.ts': 1,
-  // refusalText's fallthrough and a reassignment problem's problem.message.
-  'userOptions.ts': 2,
 }
 
 // Where an error is built, not shown: ApiError from the response body, and

@@ -49,6 +49,7 @@ import type {
   SalesOfferPage,
   SalesOfferRead,
 } from '../api/types'
+import { apiRefusalText } from '../utils/apiRefusal'
 
 const DEFAULT_TAB = 'overview'
 
@@ -280,7 +281,7 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
       navigate(`/sales/offers/${updated.id}`)
     } catch (err) {
       // KAN-273 (ADR-035): said, not dropped; the retry carries the key.
-      setCreateError(err instanceof ApiError ? err.message : t('customerDetail.errors.createOfferFailed'))
+      setCreateError(apiRefusalText(t, err, 'customerDetail.errors.createOfferFailed'))
     } finally {
       setCreatingOffer(false)
     }
@@ -299,7 +300,7 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
       contractCreateKey.renew()
       navigate(`/sales/contracts/${created.id}`)
     } catch (err) {
-      setCreateError(err instanceof ApiError ? err.message : t('customerDetail.errors.createContractFailed'))
+      setCreateError(apiRefusalText(t, err, 'customerDetail.errors.createContractFailed'))
     } finally {
       setCreatingContract(false)
     }
@@ -463,7 +464,7 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
   if (customerQuery.isError || !customer) {
     return (
       <Alert color="red" title={t('customerDetail.header.failedToLoad')}>
-        {customerQuery.error instanceof ApiError ? customerQuery.error.message : t('customerDetail.errors.somethingWentWrong')}
+        {apiRefusalText(t, customerQuery.error, 'customerDetail.errors.somethingWentWrong')}
       </Alert>
     )
   }
@@ -603,9 +604,7 @@ export function CustomerDetailContent({ customerId: id, embedded = false }: Cust
           loading={historyQuery.isLoading}
           error={
             historyQuery.isError
-              ? historyQuery.error instanceof ApiError
-                ? historyQuery.error.message
-                : t('customerDetail.errors.failedToLoadHistory')
+              ? apiRefusalText(t, historyQuery.error, 'customerDetail.errors.failedToLoadHistory')
               : null
           }
           locale={locale}

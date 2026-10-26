@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import i18n from '../../i18n'
 import { renderWithProviders } from '../../test/renderWithProviders'
 import { installFakeBackend, status } from '../../test/fakeBackend'
 import type { UserAdminRead } from '../../api/types'
@@ -235,5 +236,48 @@ describe('UserDeactivateDialog (KAN-200)', () => {
     // The sister-Betrieb case reads differently from the home one — and names no Betrieb.
     expect(await screen.findByRole('alert')).toHaveTextContent('letzte aktive Manager eines anderen Betriebs')
     expect(screen.getByRole('dialog')).toBeInTheDocument()
+  })
+
+  // KAN-437: a refusal the bundles have no reason for is said generically in
+  // the UI language — a user who no longer exists, in French — and an unknown
+  // hand-over problem names its group, never the API's English text.
+  it('says a refusal without a known reason in French, never in the API\'s English text', async () => {
+    await i18n.changeLanguage('fr')
+    try {
+      const user = userEvent.setup()
+      let posts = 0
+      installFakeBackend([
+        { method: 'GET', match: /\/users\/u-1\/ownership$/, handler: () => ({ groups: [], modules: ['customer', 'sales'] }) },
+        {
+          method: 'POST',
+          match: /\/users\/u-1\/deactivate$/,
+          handler: () => {
+            posts += 1
+            if (posts === 1) return status(404, { error: { code: 'not_found', message: "User 'u-1' was not found.", details: null } })
+            return status(422, {
+              error: {
+                code: 'unprocessable_entity',
+                message: 'The reassignment step is incomplete.',
+                details: { problems: [{ module: 'sales', group: 'offers', reason: 'module_failed', message: 'The module could not complete the hand-over.' }] },
+              },
+            })
+          },
+        },
+      ])
+      renderWithProviders(<UserDeactivateDialog opened onClose={() => {}} dealershipId="dealership-1" user={LEAVER} colleagues={[LEAVER]} onDone={() => {}} />)
+      const dialog = within(await screen.findByRole('dialog'))
+      await dialog.findByText(i18n.t('usersAdmin.deactivate.nothingOpen', { modules: 2 }))
+      await user.type(dialog.getByRole('textbox', { name: (n) => n.startsWith(i18n.t('usersAdmin.deactivate.reason')) }), 'départ')
+      await user.click(dialog.getByRole('button', { name: i18n.t('usersAdmin.deactivate.confirm') }))
+      expect(await screen.findByRole('alert')).toHaveTextContent(i18n.t('apiRefusal.notFound'))
+      expect(screen.getByRole('alert')).not.toHaveTextContent('was not found')
+
+      await user.click(dialog.getByRole('button', { name: i18n.t('usersAdmin.deactivate.confirm') }))
+      const what = i18n.t('usersAdmin.ownedGroup.sales.offers')
+      expect(await screen.findByText(i18n.t('usersAdmin.deactivate.problems.other', { what }))).toBeInTheDocument()
+      expect(screen.queryByText(/could not complete/)).not.toBeInTheDocument()
+    } finally {
+      await i18n.changeLanguage('de')
+    }
   })
 })
