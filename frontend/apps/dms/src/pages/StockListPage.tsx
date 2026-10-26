@@ -122,7 +122,6 @@ export function StockListPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedQuery])
 
-
   const sortParam = sort.length > 0 ? serializeSort(sort) : undefined
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isError, refetch, isRefetching } =

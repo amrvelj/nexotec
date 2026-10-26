@@ -32,6 +32,7 @@ import {
   buildCatalogueFilterFields,
   CATALOGUE_FILTER_SCOPE,
   FACET_LIST_CODE,
+  readLegacyCataloguePredicates,
 } from '../../catalogueOptions'
 import { fetchAllReferenceValues, LABEL_FIELD, resolveLanguage } from '../../hooks/useReferenceValueOptions'
 import type {
@@ -161,7 +162,7 @@ export function CatalogueBrowseGrid({ mode, onSelectVariant }: CatalogueBrowseGr
   // KAN-458: a predicate from the URL or a saved view that this grid does
   // not offer is neither sent nor shown as an active filter.
   const predicates = offeredPredicates(
-    searchParams.get('filters') ? parseFiltersParam(searchParams.get('filters')!) : [],
+    readLegacyCataloguePredicates(searchParams.get('filters') ? parseFiltersParam(searchParams.get('filters')!) : []),
     CATALOGUE_FILTER_SCOPE,
   )
 

@@ -185,3 +185,62 @@ describe('CatalogueBrowseGrid reference labels (KAN-239)', () => {
     )
   })
 })
+
+// KAN-458: the catalogue offered «ist nicht» and «gleich» and never sent
+// them, and answered «grösser als» with an inclusive bound. It now offers
+// «gleich» / «mindestens» / «höchstens», sends each, and drops — neither
+// sends nor shows — a predicate it cannot send.
+describe('CatalogueBrowseGrid filters are sent as offered (KAN-458)', () => {
+  function backend() {
+    return installFakeBackend([
+      { method: 'GET', match: /\/vehicle-mdm\/brands$/, handler: () => ({ items: [], nextCursor: null }) },
+      { method: 'GET', match: /\/catalogue\/model-groups$/, handler: () => ({ items: [] }) },
+      { method: 'GET', match: /\/catalogue\/facets$/, handler: () => ({ browseAvailable: true, coded: {}, numeric: {} }) },
+      {
+        method: 'GET',
+        match: /\/catalogue\/variants$/,
+        handler: () => ({ items: [VARIANT], nextCursor: null, total: 1, totalIsEstimate: false, browseAvailable: true }),
+      },
+      { method: 'GET', match: /\/reference-data\//, handler: () => ({ items: [], nextCursor: null }) },
+    ])
+  }
+  const route = (predicates: object[]) => `/catalogue?filters=${encodeURIComponent(JSON.stringify(predicates))}`
+
+  it('«PS mindestens 150» and «Türen = 5» reach /catalogue/variants as psMin and doorsMin/doorsMax', async () => {
+    const fake = backend()
+    renderWithProviders(<CatalogueBrowseGrid mode="build" />, {
+      route: route([
+        { id: 'a', fieldId: 'ps', type: 'number', condition: 'atLeast', value: 150 },
+        { id: 'b', fieldId: 'doors', type: 'number', condition: 'equals', value: 5 },
+      ]),
+    })
+
+    await screen.findByText('Golf GTI')
+    const call = fake.callsTo(/\/catalogue\/variants$/, 'GET').at(-1)!
+    expect(call.params.get('psMin')).toBe('150')
+    expect(call.params.get('doorsMin')).toBe('5')
+    expect(call.params.get('doorsMax')).toBe('5')
+  })
+
+  it('a saved «grösser als» is read as the «mindestens» it was always sent as', async () => {
+    const fake = backend()
+    renderWithProviders(<CatalogueBrowseGrid mode="build" />, {
+      route: route([{ id: 'a', fieldId: 'ps', type: 'number', condition: 'greaterThan', value: 150 }]),
+    })
+
+    await screen.findByText('Golf GTI')
+    expect(fake.callsTo(/\/catalogue\/variants$/, 'GET').at(-1)!.params.get('psMin')).toBe('150')
+  })
+
+  it('a coded «ist nicht» is neither sent nor counted as an active filter', async () => {
+    const fake = backend()
+    renderWithProviders(<CatalogueBrowseGrid mode="build" />, {
+      route: route([{ id: 'a', fieldId: 'fuelType', type: 'select', condition: 'isNot', value: 'diesel' }]),
+    })
+
+    await screen.findByText('Golf GTI')
+    expect(fake.callsTo(/\/catalogue\/variants$/, 'GET').at(-1)!.params.get('fuelType')).toBeNull()
+    const viewControl = screen.getByRole('button', { name: new RegExp(i18n.t('catalogueBrowse.allVariantsView')) })
+    expect(viewControl.textContent).not.toMatch(/\d/)
+  })
+})

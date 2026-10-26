@@ -19,15 +19,20 @@ import type { CatalogueFacetsRead } from '../api/types'
 //
 // 1. Behaviour: for every grid, every offered field × condition is run
 //    through the grid's own predicate-to-params mapper with a sample value,
-//    and must set a query parameter. The mapper is executed, not read, so a
-//    comment cannot satisfy it. Customers' fields are its columns'
-//    `meta.filter` declarations, read from the page with the TypeScript
-//    compiler (they are built inside the component).
-// 2. Coverage: every file that renders `<ViewsAndFilters fields={…}>` with
-//    anything but an empty list must be one of the grids check 1 runs, and
-//    must call its mapper and `offeredPredicates` (so a predicate from the
-//    URL or a saved view that the grid does not offer is neither sent nor
-//    shown). A new filterable grid fails here until it is added.
+//    and must set a query parameter that its list endpoint declares (read
+//    from the generated `schema.d.ts` — FastAPI ignores an unknown one, which
+//    is how the original defect would hide one layer down). The mapper is
+//    executed, not read, so a comment cannot satisfy it. Customers' fields
+//    are its columns' `meta.filter` declarations, read from the page with the
+//    TypeScript compiler (they are built inside the component).
+// 2. Shape: no mapper contains a `continue` — the statement the original
+//    mappers dropped an offered predicate with.
+// 3. Coverage: every file that renders a filter control (`ViewsAndFilters`,
+//    `FilterBuilder`, `FilterChips`) with anything but an empty field list
+//    must be one of the grids check 1 runs, and must call its mapper and
+//    `offeredPredicates` (so a predicate from the URL or a saved view that
+//    the grid cannot send is neither sent nor shown). A new filterable grid
+//    fails here until it is added.
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const SKIP_DIR_NAMES = new Set(['node_modules', 'dist', 'build', '.git'])
@@ -39,6 +44,25 @@ const COVERED_GRIDS: Record<string, string> = {
   'pages/StockListPage.tsx': 'applyStockFilters',
   'pages/CustomersListPage.tsx': 'applyCustomerFilters',
   'components/catalogue/CatalogueBrowseGrid.tsx': 'applyCatalogueFilters',
+}
+
+/** Mapper → the module that defines it and the list endpoint it feeds. */
+const MAPPERS: Record<string, { module: string; endpoint: string }> = {
+  applyStockFilters: { module: 'stockOptions.ts', endpoint: '/v1/inventory/stock-items' },
+  applyCustomerFilters: { module: 'customerOptions.ts', endpoint: '/v1/customers' },
+  applyCatalogueFilters: { module: 'catalogueOptions.ts', endpoint: '/v1/catalogue/variants' },
+}
+
+const SCHEMA = readFileSync(join(SRC_ROOT, 'api/schema.d.ts'), 'utf8')
+
+/** The query parameter names `schema.d.ts` declares for `GET <path>`. */
+function queryParamsOf(path: string): Set<string> {
+  const pathAt = SCHEMA.indexOf(`    "${path}": {`)
+  const operation = /get: operations\["([^"]+)"\]/.exec(SCHEMA.slice(pathAt))?.[1]
+  const opAt = SCHEMA.indexOf(`\n    ${operation}: {`)
+  const queryAt = SCHEMA.indexOf('query?: {', opAt)
+  const block = SCHEMA.slice(queryAt, SCHEMA.indexOf('\n            };', queryAt))
+  return new Set([...block.matchAll(/^\s+"?([A-Za-z_][\w]*)"?\??:/gm)].map((m) => m[1]))
 }
 
 function samplePredicate(field: FilterFieldDef, condition: string): FilterPredicate {
@@ -57,17 +81,40 @@ function samplePredicate(field: FilterFieldDef, condition: string): FilterPredic
   }
 }
 
-/** Every offered `field:condition` the mapper sends nothing for. */
-function unmapped(fields: FilterFieldDef[], apply: Mapper): string[] {
+/** Every offered `field:condition` the mapper sends nothing for, or sends
+ * under a parameter the endpoint does not declare. */
+function unmapped(fields: FilterFieldDef[], apply: Mapper, declared?: Set<string>): string[] {
   const missing: string[] = []
   for (const field of fields) {
     for (const condition of conditionsForField(field)) {
       const params = new URLSearchParams()
       apply(params, [samplePredicate(field, condition)])
-      if ([...params.keys()].length === 0) missing.push(`${field.id}:${condition}`)
+      const sent = [...params.keys()]
+      if (sent.length === 0) missing.push(`${field.id}:${condition}`)
+      for (const name of sent) {
+        if (declared && !declared.has(name)) missing.push(`${field.id}:${condition} sends undeclared ${name}`)
+      }
     }
   }
   return missing
+}
+
+/** `continue` statements inside the named function of a module. */
+function continuesIn(fileName: string, text: string, functionName: string): string[] {
+  const file = parse(fileName, text)
+  const found: string[] = []
+  let seen = false
+  walk(file, (node) => {
+    if (!ts.isFunctionDeclaration(node) || node.name?.text !== functionName) return
+    seen = true
+    walk(node, (inner) => {
+      if (ts.isContinueStatement(inner)) {
+        const line = file.getLineAndCharacterOfPosition(inner.getStart()).line + 1
+        found.push(`${fileName}:${line} — ${functionName} drops a predicate with continue`)
+      }
+    })
+  })
+  return seen ? found : [`${fileName} defines no ${functionName}`]
 }
 
 const t = (key: string) => key
@@ -90,16 +137,27 @@ function stringProperty(literal: ts.ObjectLiteralExpression, name: string): stri
   return undefined
 }
 
-/** The `filter: { type, param, conditions }` literals of a page's columns, as
- * FilterFieldDefs (options are not needed to judge the mapping). A literal
- * without a literal `type`, `param` or `conditions` array is reported. */
+/** The columns' `meta: { filter: { type, param, conditions } }` literals of
+ * a page, as FilterFieldDefs keyed by the column's own `id` — the id a
+ * predicate stores (options are not needed to judge the mapping). A filter
+ * that is not such a literal, or a column without a literal `id`, is
+ * reported rather than skipped. */
 function columnFilterFields(fileName: string, text: string): { fields: FilterFieldDef[]; problems: string[] } {
   const fields: FilterFieldDef[] = []
   const problems: string[] = []
-  walk(parse(fileName, text), (node) => {
-    if (!ts.isPropertyAssignment(node) || node.name.getText() !== 'filter' || !ts.isObjectLiteralExpression(node.initializer)) return
+  const file = parse(fileName, text)
+  walk(file, (node) => {
+    if (!ts.isPropertyAssignment(node) || node.name.getText() !== 'filter') return
+    const meta = node.parent.parent
+    if (!ts.isPropertyAssignment(meta) || meta.name.getText() !== 'meta') return
+    const line = file.getLineAndCharacterOfPosition(node.getStart()).line + 1
+    const column = meta.parent
+    const id = ts.isObjectLiteralExpression(column) ? stringProperty(column, 'id') : undefined
     const literal = node.initializer
-    const line = literal.getSourceFile().getLineAndCharacterOfPosition(literal.getStart()).line + 1
+    if (!ts.isObjectLiteralExpression(literal) || !id) {
+      problems.push(`${fileName}:${line} — a column filter must be an object literal on a column with a literal id`)
+      return
+    }
     const type = stringProperty(literal, 'type') as FilterFieldDef['type'] | undefined
     const param = stringProperty(literal, 'param')
     const conditionsProp = literal.properties.find(
@@ -113,7 +171,7 @@ function columnFilterFields(fileName: string, text: string): { fields: FilterFie
       problems.push(`${fileName}:${line} — a column filter needs a literal type, param and conditions list`)
       return
     }
-    fields.push({ id: param, label: param, type, param, conditions: conditions as string[] })
+    fields.push({ id, label: id, type, param, conditions: conditions as string[] })
   })
   return { fields, problems }
 }
@@ -136,13 +194,16 @@ function calls(file: ts.SourceFile, name: string): boolean {
   return found
 }
 
+const FILTER_CONTROLS = new Set(['ViewsAndFilters', 'FilterBuilder', 'FilterChips'])
+
 /** Problems with one file's filter controls; `covered` names its mapper. */
 function coverageProblems(fileName: string, text: string, covered: Record<string, string>): string[] {
-  if (!/<ViewsAndFilters\b/.test(text)) return []
+  if (!/<(ViewsAndFilters|FilterBuilder|FilterChips)\b/.test(text)) return []
   const file = parse(fileName, text)
   let offersFields = false
   walk(file, (node) => {
-    if (!(ts.isJsxSelfClosingElement(node) || ts.isJsxOpeningElement(node)) || node.tagName.getText() !== 'ViewsAndFilters') return
+    if (!(ts.isJsxSelfClosingElement(node) || ts.isJsxOpeningElement(node))) return
+    if (!FILTER_CONTROLS.has(node.tagName.getText())) return
     for (const attr of node.attributes.properties) {
       if (!ts.isJsxAttribute(attr) || attr.name.getText() !== 'fields') continue
       const expr = attr.initializer && ts.isJsxExpression(attr.initializer) ? attr.initializer.expression : undefined
@@ -162,7 +223,7 @@ describe('every offered filter is applied server-side (KAN-458)', () => {
   it('Stock: every offered field and condition is sent', () => {
     const fields = buildStockFilterFields(t)
     expect(fields.map((f) => f.id)).toEqual(['lifecycleStatus', 'condition'])
-    expect(unmapped(fields, applyStockFilters)).toEqual([])
+    expect(unmapped(fields, applyStockFilters, queryParamsOf(MAPPERS.applyStockFilters.endpoint))).toEqual([])
   })
 
   it('Customers: every column filter declares its param and conditions, and every one is sent', () => {
@@ -172,7 +233,8 @@ describe('every offered filter is applied server-side (KAN-458)', () => {
     )
     expect(problems).toEqual([])
     expect(fields.length).toBeGreaterThan(0)
-    expect(unmapped(fields, (params, predicates) => applyCustomerFilters(params, predicates, fields, new Date()))).toEqual([])
+    const apply: Mapper = (params, predicates) => applyCustomerFilters(params, predicates, fields, new Date())
+    expect(unmapped(fields, apply, queryParamsOf(MAPPERS.applyCustomerFilters.endpoint))).toEqual([])
   })
 
   it('Catalogue: every offered field and condition is sent, and the URL scope matches what is offered', () => {
@@ -183,9 +245,24 @@ describe('every offered filter is applied server-side (KAN-458)', () => {
       ),
     } as unknown as CatalogueFacetsRead
     const fields = buildCatalogueFilterFields(t, facets, (_l, v) => v)
-    expect(unmapped(fields, applyCatalogueFilters)).toEqual([])
+    expect(unmapped(fields, applyCatalogueFilters, queryParamsOf(MAPPERS.applyCatalogueFilters.endpoint))).toEqual([])
     const scope = (list: FilterFieldDef[]) => list.map((f) => [f.id, f.type, conditionsForField(f)])
     expect(scope(fields)).toEqual(scope(CATALOGUE_FILTER_SCOPE))
+  })
+
+  it('reads the endpoints\' declared query parameters from schema.d.ts', () => {
+    expect(queryParamsOf('/v1/inventory/stock-items')).toEqual(
+      new Set(['q', 'lifecycle_status', 'condition', 'sort', 'limit', 'cursor']),
+    )
+    expect(queryParamsOf('/v1/customers')).toContain('updated_more_than_days_ago')
+    expect(queryParamsOf('/v1/catalogue/variants')).toContain('psMin')
+  })
+
+  it('no mapper drops a predicate with continue', () => {
+    const found = Object.entries(MAPPERS).flatMap(([name, { module }]) =>
+      continuesIn(module, readFileSync(join(SRC_ROOT, module), 'utf8'), name),
+    )
+    expect(found).toEqual([])
   })
 
   it('every grid that offers filter fields is covered, calls its mapper and narrows with offeredPredicates', () => {
@@ -218,12 +295,43 @@ describe('the guard itself', () => {
     ])
   })
 
+  it('flags a parameter the endpoint does not declare — the original defect one layer down', () => {
+    const fields: FilterFieldDef[] = [{ id: 'fuelType', label: 'Fuel', type: 'select', conditions: ['is'] }]
+    const sendsUnknown: Mapper = (params) => params.set('fuel_type', 'petrol')
+    expect(unmapped(fields, sendsUnknown, queryParamsOf('/v1/inventory/stock-items'))).toEqual([
+      'fuelType:is sends undeclared fuel_type',
+    ])
+  })
+
+  it('flags a mapper that drops a predicate with continue', () => {
+    const mapper = `export function applyX(params, predicates) {
+      for (const p of predicates) { if (p.condition === 'isNot') continue; params.set(p.fieldId, p.value) }
+    }`
+    expect(continuesIn('x.ts', mapper, 'applyX')).toEqual(['x.ts:2 — applyX drops a predicate with continue'])
+  })
+
+  it('finds a FilterBuilder rendered directly, not only ViewsAndFilters', () => {
+    expect(coverageProblems('pages/Y.tsx', 'const y = <FilterBuilder fields={fields} />', {})).toEqual([
+      'pages/Y.tsx offers filter fields but is not covered by grid-filters-are-applied.test.ts',
+    ])
+  })
+
   it('leaves a grid with an empty field list alone', () => {
     expect(coverageProblems('pages/X.tsx', 'const x = <ViewsAndFilters fields={[]} predicates={[]} />', {})).toEqual([])
   })
 
-  it('reports a column filter without a conditions list', () => {
-    const { problems } = columnFilterFields('p.tsx', "const c = { meta: { filter: { type: 'select', param: 'canton' } } }")
-    expect(problems).toEqual(['p.tsx:1 — a column filter needs a literal type, param and conditions list'])
+  it('reports a column filter without a conditions list, and one that is not a literal', () => {
+    const missing = columnFilterFields('p.tsx', "const c = { id: 'canton', meta: { filter: { type: 'select', param: 'canton' } } }")
+    expect(missing.problems).toEqual(['p.tsx:1 — a column filter needs a literal type, param and conditions list'])
+    const built = columnFilterFields('p.tsx', "const c = { id: 'canton', meta: { filter: cantonFilter } }")
+    expect(built.problems).toEqual(['p.tsx:1 — a column filter must be an object literal on a column with a literal id'])
+  })
+
+  it('keys a column filter by the column id a predicate stores, not by its param', () => {
+    const { fields } = columnFilterFields(
+      'p.tsx',
+      "const c = { id: 'updatedAt', meta: { filter: { type: 'date', param: 'updated_since', conditions: ['today'] } } }",
+    )
+    expect(fields.map((f) => [f.id, f.param])).toEqual([['updatedAt', 'updated_since']])
   })
 })

@@ -1,4 +1,5 @@
 import { resolveRelativeDateRange, type DateCondition, type FilterFieldDef, type FilterPredicate } from '@nexotec/ui-kit'
+import { setLowerBound } from './utils/filterParams'
 import type {
   ConsentScope,
   ConsentSource,
@@ -300,22 +301,18 @@ export function applyCustomerFilters(
   const fieldById = new Map(fields.map((f) => [f.id, f]))
   for (const predicate of predicates) {
     const field = fieldById.get(predicate.fieldId)
-    if (!field) continue
-    const paramName = field.param ?? field.id
-
-    if (predicate.type === 'date') {
-      if (predicate.condition === 'moreThanDaysAgo') {
-        const beforeParam = MORE_THAN_DAYS_AGO_PARAM[paramName]
-        // A missing day count reads as 0, as `resolveRelativeDateRange` does.
-        if (beforeParam) params.set(beforeParam, String(predicate.days ?? 0))
-        continue
-      }
+    const paramName = field ? (field.param ?? field.id) : undefined
+    if (paramName === undefined) {
+      // Not a field this grid offers — `offeredPredicates` never passes one.
+    } else if (predicate.type === 'date' && predicate.condition === 'moreThanDaysAgo') {
+      // A missing day count reads as 0, as `resolveRelativeDateRange` does;
+      // two such predicates AND to the older cut-off.
+      const beforeParam = MORE_THAN_DAYS_AGO_PARAM[paramName]
+      if (beforeParam) setLowerBound(params, beforeParam, predicate.days ?? 0)
+    } else if (predicate.type === 'date') {
       const range = resolveRelativeDateRange(predicate.condition as DateCondition, predicate.days, now)
-      if (range.from) params.set(paramName, range.from)
-      continue
-    }
-
-    if (predicate.condition === 'is' && typeof predicate.value === 'string') {
+      if (range.from) setLowerBound(params, paramName, range.from)
+    } else if (predicate.condition === 'is' && typeof predicate.value === 'string') {
       if (paramName === 'advisorUserId' && predicate.value === UNASSIGNED_ADVISOR) params.set('unassigned', 'true')
       else params.set(paramName, predicate.value)
     }

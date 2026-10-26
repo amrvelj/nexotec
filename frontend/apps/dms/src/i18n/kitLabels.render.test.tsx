@@ -41,7 +41,7 @@ afterEach(async () => {
   await i18n.changeLanguage('de')
 })
 
-const ENGLISH = /^(\+ New filter…|New filter…|Views|Manage filters|Save current view as…|Reset|Delete view|Edit filter|Duplicate filter|Delete filter|Save|Cancel|Close|Primary|No longer valid|Does not work|Consent|Save view|contains|is exactly|is not|is|equals|greater than|less than|is today|is this week|is this month|is this year|is in the last N days|is more than N days ago|.* (contains|is exactly|is not|is|equals) .*|Not .*|Refresh|Change row density)$/
+const ENGLISH = /^(\+ New filter…|New filter…|Views|Manage filters|Save current view as…|Reset|Delete view|Edit filter|Duplicate filter|Delete filter|Save|Cancel|Close|Primary|No longer valid|Does not work|Consent|Save view|contains|is exactly|is not|is|equals|greater than|less than|at least|at most|is today|is this week|is this month|is this year|is in the last N days|is more than N days ago|.* (contains|is exactly|is not|is|equals|at least|at most) .*|Not .*|Refresh|Change row density)$/
 function englishOnScreen(): string[] {
   const found: string[] = []
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { FilterPredicate } from '@nexotec/ui-kit'
-import { applyCatalogueFilters } from './catalogueOptions'
+import { applyCatalogueFilters, readLegacyCataloguePredicates } from './catalogueOptions'
 
 // KAN-458: `/catalogue/variants` bounds are inclusive (`psMin` is ≥), so the
 // grid offers «at least» / «at most» and sends «equals» as both bounds.
@@ -32,5 +32,27 @@ describe('applyCatalogueFilters', () => {
     expect(paramsFor({ fieldId: 'fuelType', type: 'select', condition: 'is', value: 'petrol' })).toEqual({
       fuelType: 'petrol',
     })
+  })
+
+  it('two bounds on one field are ANDed — «Türen = 5» and «mindestens 3» stay 5-door cars', () => {
+    const params = new URLSearchParams()
+    applyCatalogueFilters(params, [
+      { id: 'a', fieldId: 'doors', type: 'number', condition: 'equals', value: 5 },
+      { id: 'b', fieldId: 'doors', type: 'number', condition: 'atLeast', value: 3 },
+      { id: 'c', fieldId: 'ps', type: 'number', condition: 'atMost', value: 300 },
+      { id: 'd', fieldId: 'ps', type: 'number', condition: 'atMost', value: 200 },
+    ])
+    expect(Object.fromEntries(params)).toEqual({ doorsMin: '5', doorsMax: '5', psMax: '200' })
+  })
+})
+
+describe('readLegacyCataloguePredicates', () => {
+  it('reads a saved «grösser als» / «kleiner als» as the inclusive bound it was always sent as', () => {
+    const read = readLegacyCataloguePredicates([
+      { id: 'a', fieldId: 'ps', type: 'number', condition: 'greaterThan', value: 150 },
+      { id: 'b', fieldId: 'ps', type: 'number', condition: 'lessThan', value: 300 },
+      { id: 'c', fieldId: 'fuelType', type: 'select', condition: 'is', value: 'petrol' },
+    ])
+    expect(read.map((p) => p.condition)).toEqual(['atLeast', 'atMost', 'is'])
   })
 })
