@@ -97,7 +97,7 @@ describe('StockDetailPage — sales actions on a car in stock (KAN-307)', () => 
     const contract = await screen.findByRole('button', { name: i18n.t('stockDetail.actions.createContract') })
     await user.click(contract)
 
-    expect(await screen.findByText('Sales unavailable')).toBeInTheDocument()
+    expect(await screen.findByText(i18n.t('stockDetail.errors.createContractFailed'))).toBeInTheDocument()
     expect(screen.queryByText('contract workspace')).not.toBeInTheDocument()
     expect(contract).toBeEnabled()
   })

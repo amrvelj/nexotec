@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react'
 import { Alert, Button, Group, Loader, Modal, Stack, Text } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 import { DocumentPreview } from '@nexotec/ui-kit'
-import { api, ApiError } from '../api/client'
+import { api } from '../api/client'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { formatCurrencyChf } from '../utils/format'
 import type { SalesDocumentRead, SalesOfferRead } from '../api/types'
+import { apiRefusalText } from '../utils/apiRefusal'
 
 export interface OfferGenerateReviewModalProps {
   opened: boolean
@@ -88,7 +89,7 @@ export function OfferGenerateReviewModal({ opened, onClose, offer, onFinalized }
       setDocument(created)
       setStep('review')
     } catch (err) {
-      setBuildError(err instanceof ApiError ? err.message : t('offerWorkspace.generate.buildError'))
+      setBuildError(apiRefusalText(t, err, 'offerWorkspace.generate.buildError'))
     } finally {
       setBuilding(false)
     }
@@ -106,7 +107,7 @@ export function OfferGenerateReviewModal({ opened, onClose, offer, onFinalized }
       finalizeKey.renew()
       onFinalized(finalized)
     } catch (err) {
-      setFinalizeError(err instanceof ApiError ? err.message : t('offerWorkspace.generate.finalizeError'))
+      setFinalizeError(apiRefusalText(t, err, 'offerWorkspace.generate.finalizeError'))
     } finally {
       setFinalizing(false)
     }

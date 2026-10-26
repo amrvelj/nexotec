@@ -5,7 +5,7 @@ import { Alert, Loader } from '@mantine/core'
 import { FileSignature, Handshake, Warehouse } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Badge, DetailHeader, DetailTabs, StockConditionBadge, StockLifecycleBadge, StockReservationBadge, useSetBreadcrumb, type DetailTab } from '@nexotec/ui-kit'
-import { api, ApiError } from '../api/client'
+import { api } from '../api/client'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
 import { translatedStockConditionLabel, translatedStockLifecycleLabel, translatedStockReservationLabel } from '../stockOptions'
 import { DetailsTab } from '../components/stock-detail/DetailsTab'
@@ -15,6 +15,7 @@ import { WagenbuchTab } from '../components/stock-detail/WagenbuchTab'
 import type { LedgerCategory, LedgerEntryPage, SalesContractRead, SalesOfferRead, StockItemRead } from '../api/types'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import { formatDate } from '../utils/format'
+import { apiRefusalText } from '../utils/apiRefusal'
 
 const DEFAULT_TAB = 'details'
 
@@ -138,7 +139,7 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
       navigate(`/sales/offers/${updated.id}`)
     } catch (err) {
       // ADR-035: said, not dropped; the retry carries the key.
-      setCreateError(err instanceof ApiError ? err.message : t('stockDetail.errors.createOfferFailed'))
+      setCreateError(apiRefusalText(t, err, 'stockDetail.errors.createOfferFailed'))
     } finally {
       setCreating(null)
     }
@@ -156,7 +157,7 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
       contractCreateKey.renew()
       navigate(`/sales/contracts/${created.id}`)
     } catch (err) {
-      setCreateError(err instanceof ApiError ? err.message : t('stockDetail.errors.createContractFailed'))
+      setCreateError(apiRefusalText(t, err, 'stockDetail.errors.createContractFailed'))
     } finally {
       setCreating(null)
     }
@@ -199,7 +200,7 @@ export function StockDetailContent({ stockItemId: id, embedded = false }: StockD
   if (itemQuery.isError || !itemQuery.data) {
     return (
       <Alert color="red" title={t('stockDetail.errors.failedToLoad')}>
-        {itemQuery.error instanceof ApiError ? itemQuery.error.message : t('stockDetail.errors.somethingWentWrong')}
+        {apiRefusalText(t, itemQuery.error, 'stockDetail.errors.somethingWentWrong')}
       </Alert>
     )
   }

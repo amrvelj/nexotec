@@ -14,7 +14,7 @@ import {
   type WizardStep,
 } from '@nexotec/ui-kit'
 import { useFieldHint } from '../hooks/useFieldHint'
-import { api, ApiError } from '../api/client'
+import { api } from '../api/client'
 import {
   LANGUAGE_OPTIONS,
   LEGAL_FORM_OPTIONS,
@@ -47,6 +47,7 @@ import type {
   PreferredChannel,
   Salutation,
 } from '../api/types'
+import { apiRefusalText } from '../utils/apiRefusal'
 
 interface FormValues {
   language: Language
@@ -263,7 +264,7 @@ export function CustomerCreateFlow({ onSuccess, onCancel, initialCustomerType, o
       idempotencyKey.renew()
       onSuccess(created)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t('customerCreate.errors.createFailed'))
+      setError(apiRefusalText(t, err, 'customerCreate.errors.createFailed'))
     } finally {
       setSubmitting(false)
     }

@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react'
 import { Link2, Plus, Trash2 } from 'lucide-react'
-import { Group, TextInput } from '@mantine/core'
+import { Group, Text, TextInput } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 import { DataGrid, InlineEditField, purple, semantic, white, type GridColumnDef } from '@nexotec/ui-kit'
 import { useUiPreferencesContext } from '../../hooks/UiPreferencesContext'
 import { formatDate } from '../../utils/format'
-import { ApiError } from '../../api/client'
 import { dataGridLabels } from '../../utils/dataGridI18n'
 import type { CustomerExternalIdRead } from '../../api/types'
+import { apiRefusalText } from '../../utils/apiRefusal'
 
 interface ExternalIdsTabProps {
   externalIds: CustomerExternalIdRead[]
@@ -24,7 +24,7 @@ interface ExternalIdsTabProps {
 
 export function ExternalIdsTab({ externalIds, loading, error, canWrite, onCreate, onUpdate, onDelete, locale }: ExternalIdsTabProps) {
   const { t } = useTranslation()
-  const errorMessage = (err: unknown): string => (err instanceof ApiError ? err.message : t('customerDetail.errors.somethingWentWrong'))
+  const errorMessage = (err: unknown): string => apiRefusalText(t, err, 'customerDetail.errors.somethingWentWrong')
   const { density } = useUiPreferencesContext()
   const [adding, setAdding] = useState(false)
   const [draftSystem, setDraftSystem] = useState('')
@@ -97,6 +97,15 @@ export function ExternalIdsTab({ externalIds, loading, error, canWrite, onCreate
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* KAN-469: Nexotec and the connected OEM/CRM systems write these links
+          (PRD-Customers FR-08); a dealer reads them. Said on the tab, so a
+          missing add button reads as a rule, not as a missing feature —
+          to the reader only: platform staff hold the add button. */}
+      {!canWrite && (
+        <Text size="sm" c="dimmed">
+          {t('customerDetail.externalIds.maintainedBy')}
+        </Text>
+      )}
       <DataGrid<CustomerExternalIdRead>
         columns={columns}
         rows={externalIds}

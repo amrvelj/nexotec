@@ -51,7 +51,7 @@ describe('ValuationCreateDialog — one Idempotency-Key per submission (KAN-266)
     renderWithProviders(<ValuationCreateDialog opened onClose={() => {}} onCreated={() => {}} />)
 
     await submit(user, '12000')
-    expect(await screen.findByText('Service unavailable')).toBeInTheDocument()
+    expect(await screen.findByText(i18n.t('valuationCreate.error'))).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: i18n.t('valuationCreate.submit') }))
     await waitFor(() => expect(keys(backend)).toHaveLength(2))
 
@@ -66,7 +66,7 @@ describe('ValuationCreateDialog — one Idempotency-Key per submission (KAN-266)
     renderWithProviders(<ValuationCreateDialog opened onClose={() => {}} onCreated={() => {}} />)
 
     await submit(user, '12000')
-    await screen.findByText('Service unavailable')
+    await screen.findByText(i18n.t('valuationCreate.error'))
     await submit(user, '11500')
     await waitFor(() => expect(keys(backend)).toHaveLength(2))
 
@@ -108,7 +108,7 @@ describe('ValuationCreateDialog — one Idempotency-Key per submission (KAN-266)
     renderWithProviders(<Host />)
 
     await submit(user, '12000')
-    await screen.findByText('Service unavailable')
+    await screen.findByText(i18n.t('valuationCreate.error'))
     await user.click(screen.getByRole('button', { name: i18n.t('common.cancel') }))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     await user.click(screen.getByRole('button', { name: 'reopen' }))

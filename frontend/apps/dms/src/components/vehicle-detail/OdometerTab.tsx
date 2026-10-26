@@ -2,10 +2,10 @@ import { useState } from 'react'
 import { Alert, Badge, Button, Group, Loader, NumberInput, Select, Stack, Table, TextInput } from '@mantine/core'
 import { AlertTriangle, Plus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { ApiError } from '../../api/client'
 import { toSwissLocale, type SupportedLanguage } from '../../i18n'
 import { formatDateOnly, formatNumber } from '../../utils/format'
 import type { OdometerSource, VehicleOdometerReadingRead } from '../../api/types'
+import { apiRefusalText } from '../../utils/apiRefusal'
 
 interface OdometerTabProps {
   readings: VehicleOdometerReadingRead[]
@@ -42,7 +42,7 @@ export function OdometerTab({ readings, loading, onAdd }: OdometerTabProps) {
       setValue('')
       setDate('')
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t('vehicleDetail.odometer.saveError'))
+      setError(apiRefusalText(t, err, 'vehicleDetail.odometer.saveError'))
     } finally {
       setSubmitting(false)
     }

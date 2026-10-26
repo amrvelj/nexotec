@@ -14,7 +14,7 @@ import { CustomerDetailPage } from '../../pages/CustomerDetailPage'
 // Reason is mandatory when blocking (the API raises 409; the form checks it
 // first). Reached from the shared row menu, never a header button.
 
-function installBackend(over: Partial<CustomerRead> = {}, { failFirstPost = false } = {}) {
+function installBackend(over: Partial<CustomerRead> = {}, { failFirstPost = false, refusal = null as unknown } = {}) {
   const record = customer({ id: 'c1', customerNumber: 'K-1001', version: 3, ...over })
   let posts = 0
   return installFakeBackend([
@@ -30,6 +30,7 @@ function installBackend(over: Partial<CustomerRead> = {}, { failFirstPost = fals
       match: /^\/customers\/c1\/credit-block$/,
       handler: (req) => {
         posts += 1
+        if (refusal) return refusal
         if (failFirstPost && posts === 1) {
           return status(503, { error: { code: 'unavailable', message: 'Try again.', details: null } })
         }
@@ -115,7 +116,7 @@ describe('CreditBlockDialog (KAN-44)', () => {
     let dialog = await screen.findByRole('dialog')
     await user.type(within(dialog).getByRole('textbox'), 'Overdue invoice 4471')
     await user.click(within(dialog).getByRole('button', { name: i18n.t('creditBlockDialog.setSubmit') }))
-    expect(await within(dialog).findByText('Try again.')).toBeInTheDocument()
+    expect(await within(dialog).findByText(i18n.t('creditBlockDialog.failed'))).toBeInTheDocument()
     await user.click(within(dialog).getByRole('button', { name: i18n.t('creditBlockDialog.setSubmit') }))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
 
@@ -144,7 +145,7 @@ describe('CreditBlockDialog (KAN-44)', () => {
     let dialog = await screen.findByRole('dialog')
     await user.type(within(dialog).getByRole('textbox'), 'Overdue invoice 4471')
     await user.click(within(dialog).getByRole('button', { name: i18n.t('creditBlockDialog.setSubmit') }))
-    expect(await within(dialog).findByText('Try again.')).toBeInTheDocument()
+    expect(await within(dialog).findByText(i18n.t('creditBlockDialog.failed'))).toBeInTheDocument()
     await user.keyboard('{Escape}')
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
 
@@ -158,5 +159,25 @@ describe('CreditBlockDialog (KAN-44)', () => {
     expect(failed).toBeTruthy()
     expect(reopened).toBeTruthy()
     expect(reopened).not.toBe(failed)
+  })
+
+  // KAN-437: a refusal is said in the UI language — here a role that may
+  // not set a credit block, in French — never in the API's English words.
+  it('a refused block is said in the UI language, never in the API\'s English text', async () => {
+    await i18n.changeLanguage('fr')
+    try {
+      const user = userEvent.setup()
+      installBackend({}, { refusal: status(403, { error: { code: 'forbidden', message: "Not permitted to write 'credit_block'.", details: null } }) })
+      renderDetail()
+
+      await openCreditBlockItem(user, i18n.t('customerRowMenu.setCreditBlock'))
+      const dialog = await screen.findByRole('dialog')
+      await user.type(within(dialog).getByRole('textbox'), 'Facture 4471 impayée')
+      await user.click(within(dialog).getByRole('button', { name: i18n.t('creditBlockDialog.setSubmit') }))
+      expect(await within(dialog).findByText(i18n.t('apiRefusal.forbidden'))).toBeInTheDocument()
+      expect(within(dialog).queryByText(/Not permitted/)).not.toBeInTheDocument()
+    } finally {
+      await i18n.changeLanguage('de')
+    }
   })
 })

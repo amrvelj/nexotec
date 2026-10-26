@@ -60,7 +60,7 @@ describe('CustomersListPage — a failed create from the row menu says so (KAN-2
       ...(route.contracts ? [{ method: 'POST', match: /^\/sales\/contracts$/, handler: route.contracts }] : []),
     ])
 
-  it('a refused new offer shows the server message, and the retry reuses the key', async () => {
+  it('a refused new offer is said in the UI language, and the retry reuses the key', async () => {
     const user = userEvent.setup()
     const backend = install({ offers: failOnce(() => refused('Number range unavailable'), () => status(201, { id: 'o9', version: 1 })) })
     renderWithProviders(<CustomersListPage />, { route: '/customers' })
@@ -70,7 +70,7 @@ describe('CustomersListPage — a failed create from the row menu says so (KAN-2
     }
 
     await newOffer()
-    expect((await screen.findByRole('alert')).textContent).toBe('Number range unavailable')
+    expect((await screen.findByRole('alert')).textContent).toBe(i18n.t('customersList.createOfferError'))
 
     await newOffer()
     await waitFor(() => expect(keys(backend, /^\/sales\/offers$/)).toHaveLength(2))
@@ -125,7 +125,7 @@ describe('CustomersListPage — a failed do-not-contact toggle says so (KAN-308)
     await user.click(await screen.findByRole('menuitem', { name: new RegExp(i18n.t('customerRowMenu.setDoNotContact')) }))
   }
 
-  it('a version conflict shows the server message and refetches the grid', async () => {
+  it('a version conflict is said in the UI language and refetches the grid', async () => {
     const user = userEvent.setup()
     const backend = install(() =>
       status(409, { error: { code: 'conflict', message: 'Customer was changed by someone else.', details: { currentVersion: 2 } } }),
@@ -136,7 +136,7 @@ describe('CustomersListPage — a failed do-not-contact toggle says so (KAN-308)
 
     await toggle(user)
 
-    expect((await screen.findByRole('alert')).textContent).toBe('Customer was changed by someone else.')
+    expect((await screen.findByRole('alert')).textContent).toBe(i18n.t('apiRefusal.staleVersion'))
     await waitFor(() => expect(backend.callsTo(/^\/customers$/, 'GET').length).toBeGreaterThan(listCallsBefore))
   })
 

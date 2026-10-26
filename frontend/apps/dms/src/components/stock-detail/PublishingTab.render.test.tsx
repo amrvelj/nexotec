@@ -221,7 +221,7 @@ describe('PublishingTab — a failed save says so and keeps its key (KAN-272)', 
     await i18n.changeLanguage('de')
   })
 
-  it('a refused publish shows the server message on the card, and the retry reuses the key', async () => {
+  it('a refused publish is said on the card in the UI language, and the retry reuses the key', async () => {
     const user = userEvent.setup()
     let state: 'not_published' | 'published' = 'not_published'
     const backend = installFakeBackend([
@@ -242,7 +242,7 @@ describe('PublishingTab — a failed save says so and keeps its key (KAN-272)', 
       user.click(await screen.findByRole('button', { name: i18n.t('stockDetail.publishing.publishTo', { channel: 'AutoScout24' }) }))
 
     await publish()
-    expect((await screen.findByRole('alert')).textContent).toBe('Marketplace unavailable')
+    expect((await screen.findByRole('alert')).textContent).toBe(i18n.t('stockDetail.publishing.publishError'))
 
     await publish()
     await waitFor(() => expect(keys(backend, /\/publish$/)).toHaveLength(2))
@@ -316,7 +316,7 @@ describe('PublishingTab — a failed save says so and keeps its key (KAN-272)', 
       user.click(await screen.findByRole('button', { name: i18n.t('stockDetail.publishing.media.addPhoto') }))
 
     await addPhoto()
-    expect((await screen.findByRole('alert')).textContent).toBe('Photo store unavailable')
+    expect((await screen.findByRole('alert')).textContent).toBe(i18n.t('stockDetail.publishing.media.addError'))
 
     await addPhoto()
     await waitFor(() => expect(keys(backend, /\/media$/)).toHaveLength(2))

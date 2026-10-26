@@ -70,7 +70,7 @@ describe('ValuationDetailPage — mark-used carries a key (KAN-266)', () => {
     expect(stamp.headers.get('If-Match')).toBe('2')
   })
 
-  it('a refused stamp shows the server message, and the retry reuses the key (KAN-273)', async () => {
+  it('a refused stamp is said by its reason in the UI language, and the retry reuses the key (KAN-273)', async () => {
     const user = userEvent.setup()
     const backend = install({ failFirst: true })
     renderPage()
@@ -81,7 +81,7 @@ describe('ValuationDetailPage — mark-used carries a key (KAN-266)', () => {
 
     await screen.findByText('B-000001')
     await markUsed()
-    expect((await screen.findByRole('alert')).textContent).toBe('No signed contract carries this valuation.')
+    expect((await screen.findByRole('alert')).textContent).toBe(i18n.t('apiRefusal.reasons.no_signed_contract'))
 
     await markUsed()
     await waitFor(() => expect(backend.callsTo(/\/mark-used$/, 'POST')).toHaveLength(2))

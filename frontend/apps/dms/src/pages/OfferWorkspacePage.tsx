@@ -19,6 +19,7 @@ import { useDealSaveQueue } from '../hooks/useDealSaveQueue'
 import { CustomerDetailContent } from './CustomerDetailPage'
 import { StockDetailContent } from './StockDetailPage'
 import type { SalesOfferRead } from '../api/types'
+import { apiRefusalText } from '../utils/apiRefusal'
 
 /**
  * `/sales/offers/:id` while status=draft — the container-based generation
@@ -149,7 +150,7 @@ export function OfferWorkspaceContent({ offerId: id }: { offerId: string }) {
   if (offerQuery.isError || !offerQuery.data) {
     return (
       <Alert color="red" title={t('offerDetail.errors.failedToLoad')}>
-        {offerQuery.error instanceof ApiError ? offerQuery.error.message : t('offerDetail.errors.somethingWentWrong')}
+        {apiRefusalText(t, offerQuery.error, 'offerDetail.errors.somethingWentWrong')}
       </Alert>
     )
   }

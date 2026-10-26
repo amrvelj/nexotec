@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plug } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { ConnectionStatusBadge, KeyValueRow, OverviewCard, RowMenu } from '@nexotec/ui-kit'
-import { api, ApiError } from '../api/client'
+import { api } from '../api/client'
 import { buildConnectionRowMenu } from '../components/connectionRowMenu'
 import { translatedConnectionStatusLabel } from '../integrationOptions'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
@@ -17,6 +17,7 @@ import type {
   IntegrationProviderRead,
   IntegrationUsageRead,
 } from '../api/types'
+import { apiRefusalText } from '../utils/apiRefusal'
 
 /**
  * WP-6 PR-7 — the dealer self-service view: cards by category, one per
@@ -224,7 +225,7 @@ function ConnectDialog({
       createKey.renew()
       onConnected()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t('integrationsList.connectError'))
+      setError(apiRefusalText(t, err, 'integrationsList.connectError'))
     } finally {
       setSubmitting(false)
     }

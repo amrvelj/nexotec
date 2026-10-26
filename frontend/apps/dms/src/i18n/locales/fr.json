@@ -168,6 +168,46 @@
     },
     "fieldHintIcon": "Indication"
   },
+  "apiRefusal": {
+    "staleVersion": "Cet enregistrement a été modifié entre-temps. Rechargez-le et réessayez.",
+    "forbidden": "Votre rôle ne permet pas cette action.",
+    "notFound": "Cet enregistrement n’existe plus ou ne vous est pas accessible.",
+    "invalid": "Certaines saisies ne sont pas valides. Vérifiez-les et réessayez.",
+    "reasons": {
+      "accept_invitation_required": "Un utilisateur invité devient actif en acceptant l’invitation — renvoyez plutôt l’invitation.",
+      "access_window_closed": "Votre accès à cette entreprise n’est pas ouvert en ce moment.",
+      "already_revoked": "Ce compte connecté a déjà été déconnecté.",
+      "catalogue_variant_missing": "La variante de catalogue de cette configuration n’existe plus.",
+      "coded_field_locked": "Les champs codés d’une configuration de catalogue proviennent du catalogue et ne peuvent pas être modifiés.",
+      "coded_field_required": "Les champs codés d’une configuration manuelle ne peuvent pas être vidés.",
+      "coded_fields_required": "Une configuration manuelle nécessite les cinq champs codés.",
+      "colleague_cannot_act_there": "Le collègue choisi ne travaille pas dans l’entreprise à laquelle appartient cet enregistrement.",
+      "configuration_mode_fixed": "Le mode d’une configuration enregistrée ne peut pas être modifié — copiez-la plutôt dans une nouvelle configuration.",
+      "configuration_mode_not_allowed": "Une configuration de ce type ne peut pas être utilisée ici.",
+      "customer_tag_exists": "Une étiquette de cette modification figure déjà chez le client — il a été modifié entre-temps. Rechargez-le et réessayez.",
+      "duplicate_connection": "Une connexion à ce fournisseur dans cet environnement existe déjà.",
+      "invalid_new_price": "La meilleure correspondance nécessite le prix neuf.",
+      "invalid_type_approval_number": "La meilleure correspondance nécessite la réception par type.",
+      "legacy_sale": "Ce contrat a été repris de l’ancien système, qui l’a traité — il ne peut pas être modifié ici.",
+      "merged_party_row": "Cette ligne est la copie conservée par une fusion de clients ; elle ne peut pas reprendre son rôle.",
+      "missing_price": "Ce contrat n’a pas encore de prix. Complétez d’abord la composition du prix.",
+      "missing_vehicle": "Ce contrat n’a pas encore de véhicule. Ajoutez d’abord un véhicule.",
+      "no_catalogue_variant": "Une configuration sans variante de catalogue ne peut pas être resynchronisée.",
+      "no_fields": "Choisissez au moins un champ à resynchroniser.",
+      "no_provider_connection": "Aucun fournisseur de données véhicule n’est connecté.",
+      "no_signed_contract": "Aucun contrat signé ne porte cette évaluation comme reprise ; elle ne peut donc pas être marquée comme utilisée : seule une affaire signée utilise une évaluation.",
+      "not_active": "Seul un utilisateur actif peut être suspendu.",
+      "nul_character": "La saisie contient un caractère non autorisé. Supprimez-le et réessayez.",
+      "offer_already_contracted": "Cette offre a déjà un contrat ; seul un contrat annulé libère une offre.",
+      "unknown_fields": "Certains des champs de spécification choisis sont inconnus.",
+      "unrecognised_identifier": "La saisie n’est ni un VIN, ni une plaque, ni un numéro matricule, ni un Typenschein, ni un code usine.",
+      "use_deactivate_endpoint": "Un utilisateur est désactivé par l’étape de désactivation, qui transfère ce qu’il détient encore.",
+      "valuation_expired": "Cette évaluation a expiré.",
+      "vehicle_left_stock": "Ce véhicule a déjà quitté le stock et ne peut pas être réservé.",
+      "vehicle_not_purchased": "Le véhicule de ce contrat n’a pas encore été acheté — il pourra être facturé dès que le stock aura enregistré l’achat.",
+      "vin_already_in_stock": "Ce VIN est déjà en stock sous {{stockNumber}}."
+    }
+  },
   "customerCreate": {
     "title": "Nouveau client",
     "steps": {
@@ -537,9 +577,10 @@
         "externalId": "ID externe",
         "linked": "Lié"
       },
+      "maintainedBy": "Ces liaisons avec les systèmes OEM et CRM sont gérées par Nexotec et les systèmes connectés ; vous pouvez les consulter ici.",
       "emptyState": {
         "title": "Aucun ID externe",
-        "description": "Aucune liaison système CRM/OEM enregistrée pour ce client."
+        "description": "Aucun système OEM ou CRM n'est encore lié à ce client. Ces liaisons sont créées par Nexotec ou par un système connecté."
       },
       "add": "Ajouter un ID externe",
       "remove": "Supprimer",
@@ -1029,6 +1070,17 @@
     },
     "publishing": {
       "blockingBannerTitle": "{{count, number}} point(s) empêchent la publication",
+      "blockingCondition": {
+        "Lagerstatus": "Une commande d'usine n'est pas encore en stock.",
+        "Bilder": "Aucune photo propre disponible.",
+        "Preis": "Aucun prix effectif saisi.",
+        "Aussenfarbe": "Aucune couleur saisie.",
+        "Aufbau": "Aucune forme de carrosserie saisie.",
+        "Kilometer": "Aucun kilométrage saisi.",
+        "InvSetzJahr": "Aucune première immatriculation saisie.",
+        "Energieetikette": "L'étiquette énergie manque pour une voiture neuve de moins de 2'000 km.",
+        "other": "Cette donnée manque pour la place de marché."
+      },
       "channelsTitle": "Canaux",
       "published": "Publié",
       "notPublished": "Non publié",
@@ -1604,7 +1656,9 @@
       "title": "Nouvelle valeur dans {{code}}",
       "submit": "Créer",
       "allLanguagesHint": "Les quatre langues sont requises.",
-      "error": "Impossible de créer la valeur."
+      "error": "Impossible de créer la valeur.",
+      "invalidField": "Vérifiez cette saisie : elle est vide ou trop longue.",
+      "duplicate": "Le code de valeur {{valueCode}} existe déjà dans cette liste."
     }
   },
   "catalogueBrowse": {
@@ -2256,7 +2310,8 @@
         "not_owned": "{{what}} : cette personne ne les suit pas (plus).",
         "self": "{{what}} : la personne ne peut pas reprendre ses propres dossiers.",
         "colleague_not_active": "{{what}} : le collègue choisi n'est pas un utilisateur actif de cette entreprise.",
-        "colleague_cannot_act_there": "{{what}} : {{count, number}} d'entre eux appartiennent à une autre entreprise où le collègue choisi ne travaille pas — choisissez « Ne pas attribuer » (cette entreprise les transmet depuis sa file d'attente) ou un collègue qui y est membre."
+        "colleague_cannot_act_there": "{{what}} : {{count, number}} d'entre eux appartiennent à une autre entreprise où le collègue choisi ne travaille pas — choisissez « Ne pas attribuer » (cette entreprise les transmet depuis sa file d'attente) ou un collègue qui y est membre.",
+        "other": "{{what}} : ce groupe ne peut pas être transmis ainsi — choisissez à nouveau."
       }
     },
     "handOver": {
@@ -2409,7 +2464,7 @@
       "already_manager": "Cet utilisateur est déjà manager de l'entreprise.",
       "reason_required": "Une action de récupération exige un motif.",
       "search_criteria": "Recherchez par adresse e-mail ou par entreprise.",
-      "generic": "L'action a été refusée : {{message}}",
+      "generic": "L'action a été refusée.",
       "forbidden": "Cette action exige une session Nexotec avec un second facteur.",
       "self": "Votre propre compte se gère dans Mon compte, pas ici.",
       "deactivated": "L'utilisateur est désactivé — l'entreprise le réactive d'abord.",

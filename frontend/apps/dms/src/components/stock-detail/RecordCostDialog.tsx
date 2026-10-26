@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react'
 import { Alert, Select, Stack, TextInput } from '@mantine/core'
 import { useTranslation } from 'react-i18next'
 import { ChfInput, FormDialog } from '@nexotec/ui-kit'
-import { ApiError } from '../../api/client'
 import { translatedLedgerCategoryOptions } from '../../stockOptions'
 import type { LedgerCategory } from '../../api/types'
 import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
 import { todayLocalIsoDate } from '../../utils/format'
+import { apiRefusalText } from '../../utils/apiRefusal'
 
 interface RecordCostDialogProps {
   opened: boolean
@@ -55,7 +55,7 @@ export function RecordCostDialog({ opened, onClose, onSubmit }: RecordCostDialog
       setAmount('')
     } catch (err) {
       // Shown, so the user can send it again: a retry carries the same sourceRef.
-      setError(err instanceof ApiError ? err.message : t('stockDetail.wagenbuch.error'))
+      setError(apiRefusalText(t, err, 'stockDetail.wagenbuch.error'))
     } finally {
       setSubmitting(false)
     }

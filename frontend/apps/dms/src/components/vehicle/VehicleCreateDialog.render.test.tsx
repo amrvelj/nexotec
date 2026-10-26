@@ -64,7 +64,7 @@ describe('VehicleCreateDialog — one Idempotency-Key per submission (KAN-266)',
     await userEvent.type(vinField(), VIN)
 
     await submit()
-    expect(await screen.findByRole('alert')).toHaveTextContent('Try again.')
+    expect(await screen.findByRole('alert')).toHaveTextContent(i18n.t('vehicleCreate.error'))
     await submit()
     await waitFor(() => expect(onCreated).toHaveBeenCalled())
 

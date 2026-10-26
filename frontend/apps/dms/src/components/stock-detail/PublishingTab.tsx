@@ -11,6 +11,7 @@ import type { EquipmentRead, MarketplaceChannel, MediaRead, PublishingRead } fro
 import { useDealSaveQueue, type DealSaveQueue } from '../../hooks/useDealSaveQueue'
 import { useDebouncedTextField } from '../../hooks/useDebouncedTextField'
 import { useIdempotencyKey } from '../../hooks/useIdempotencyKey'
+import { apiRefusalText } from '../../utils/apiRefusal'
 
 const CHANNELS: MarketplaceChannel[] = ['autoscout24', 'carmarket', 'autolina']
 
@@ -184,7 +185,7 @@ export function PublishingTab({ stockItemId, locale }: PublishingTabProps) {
       mediaKey.renew()
       void invalidateMedia()
     } catch (err) {
-      setMediaError(err instanceof ApiError ? err.message : t(fallbackKey))
+      setMediaError(apiRefusalText(t, err, fallbackKey))
     }
   }
 

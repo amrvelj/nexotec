@@ -8,12 +8,13 @@ import { useTranslation } from 'react-i18next'
 import { ActionBar, DataGrid, FormDialog, type GridColumnDef, type SortSpec } from '@nexotec/ui-kit'
 import { useUiPreferencesContext } from '../hooks/UiPreferencesContext'
 import { useReferenceValueOptions } from '../hooks/useReferenceValueOptions'
-import { api, ApiError } from '../api/client'
+import { api } from '../api/client'
 import { useIdempotencyKey } from '../hooks/useIdempotencyKey'
 import type { MappingGapPage, MappingGapRead } from '../api/types'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
 import { formatDate, formatNumber } from '../utils/format'
 import { useActionBarLabels } from '../hooks/useActionBarLabels'
+import { apiRefusalText } from '../utils/apiRefusal'
 
 const GRID_KEY = 'vehicleMdm.mappingGaps'
 
@@ -123,7 +124,7 @@ export function MappingGapsQueue({ paramPrefix = '' }: MappingGapsQueueProps) {
       setResolvingGap(null)
       await queryClient.invalidateQueries({ queryKey: ['vehicle-mdm', GRID_KEY] })
     } catch (err) {
-      setResolveError(err instanceof ApiError ? err.message : t('mappingGaps.resolveModal.error'))
+      setResolveError(apiRefusalText(t, err, 'mappingGaps.resolveModal.error'))
     } finally {
       setResolving(false)
     }
