@@ -81,6 +81,15 @@ second local combobox.
 - **ADR-058** — views and filters are **one control**, labelled with the current view. A
   user-defined filter is **one predicate** (field, operator, value), never a typed expression.
   Every filter is a chip (FR-UI-06).
+- **ADR-102 (proposed, KAN-458) — a grid shows only the filters it applies.** Every filterable
+  grid narrows the predicates it reads (URL, saved view) with the kit's `offeredPredicates`: an
+  unoffered field or condition is neither sent nor shown; a select/text/boolean field keeps its
+  first predicate; number and date bounds on one field are ANDed (`utils/filterParams.ts`). A
+  field offers only the conditions its endpoint applies exactly — inclusive `…Min`/`…Max` are
+  «mindestens»/«höchstens» (`atLeast`/`atMost`), and no grid offers «ist nicht» yet (KAN-476).
+  `src/architecture/grid-filters-are-applied.test.ts` runs each grid's mapper over every offered
+  field × condition against the endpoint's parameters in `schema.d.ts`; a new filterable grid
+  adds its mapper there.
 - **ADR-059** — opening a record from inside a process renders it as an **overlay**, not a
   navigation. Losing a half-built offer is a defect. The naive version (set the hash, set it
   back) fires the router and destroys the screen underneath — the bug the component prevents.

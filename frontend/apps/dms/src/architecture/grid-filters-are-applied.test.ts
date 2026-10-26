@@ -147,14 +147,15 @@ function columnFilterFields(fileName: string, text: string): { fields: FilterFie
   const problems: string[] = []
   const file = parse(fileName, text)
   walk(file, (node) => {
-    if (!ts.isPropertyAssignment(node) || node.name.getText() !== 'filter') return
+    const isFilter = (ts.isPropertyAssignment(node) || ts.isShorthandPropertyAssignment(node)) && node.name.getText() === 'filter'
+    if (!isFilter) return
     const meta = node.parent.parent
     if (!ts.isPropertyAssignment(meta) || meta.name.getText() !== 'meta') return
     const line = file.getLineAndCharacterOfPosition(node.getStart()).line + 1
     const column = meta.parent
     const id = ts.isObjectLiteralExpression(column) ? stringProperty(column, 'id') : undefined
-    const literal = node.initializer
-    if (!ts.isObjectLiteralExpression(literal) || !id) {
+    const literal = ts.isPropertyAssignment(node) ? node.initializer : undefined
+    if (!literal || !ts.isObjectLiteralExpression(literal) || !id) {
       problems.push(`${fileName}:${line} — a column filter must be an object literal on a column with a literal id`)
       return
     }
@@ -205,6 +206,8 @@ function coverageProblems(fileName: string, text: string, covered: Record<string
     if (!(ts.isJsxSelfClosingElement(node) || ts.isJsxOpeningElement(node))) return
     if (!FILTER_CONTROLS.has(node.tagName.getText())) return
     for (const attr of node.attributes.properties) {
+      // A spread may carry `fields`; it is judged as offering them.
+      if (ts.isJsxSpreadAttribute(attr)) offersFields = true
       if (!ts.isJsxAttribute(attr) || attr.name.getText() !== 'fields') continue
       const expr = attr.initializer && ts.isJsxExpression(attr.initializer) ? attr.initializer.expression : undefined
       if (!(expr && ts.isArrayLiteralExpression(expr) && expr.elements.length === 0)) offersFields = true
@@ -265,6 +268,14 @@ describe('every offered filter is applied server-side (KAN-458)', () => {
     expect(found).toEqual([])
   })
 
+  it('every covered grid names a mapper whose behaviour this file runs above', () => {
+    // A new grid is covered by adding its mapper to MAPPERS and a behaviour
+    // case above — never by a COVERED_GRIDS entry alone.
+    const BEHAVIOUR_TESTED = ['applyStockFilters', 'applyCustomerFilters', 'applyCatalogueFilters']
+    expect(Object.keys(MAPPERS).sort()).toEqual([...BEHAVIOUR_TESTED].sort())
+    expect([...new Set(Object.values(COVERED_GRIDS))].sort()).toEqual([...BEHAVIOUR_TESTED].sort())
+  })
+
   it('every grid that offers filter fields is covered, calls its mapper and narrows with offeredPredicates', () => {
     const found = collectFiles(SRC_ROOT).flatMap((full) =>
       coverageProblems(relative(SRC_ROOT, full).split('\\').join('/'), readFileSync(full, 'utf8'), COVERED_GRIDS),
@@ -314,6 +325,17 @@ describe('the guard itself', () => {
     expect(coverageProblems('pages/Y.tsx', 'const y = <FilterBuilder fields={fields} />', {})).toEqual([
       'pages/Y.tsx offers filter fields but is not covered by grid-filters-are-applied.test.ts',
     ])
+  })
+
+  it('judges a filter control fed by a spread as offering fields', () => {
+    expect(coverageProblems('pages/Z.tsx', 'const z = <ViewsAndFilters {...filterProps} />', {})).toEqual([
+      'pages/Z.tsx offers filter fields but is not covered by grid-filters-are-applied.test.ts',
+    ])
+  })
+
+  it('reports a shorthand column filter rather than skipping it', () => {
+    const { problems } = columnFilterFields('p.tsx', "const c = { id: 'canton', meta: { filter } }")
+    expect(problems).toEqual(['p.tsx:1 — a column filter must be an object literal on a column with a literal id'])
   })
 
   it('leaves a grid with an empty field list alone', () => {

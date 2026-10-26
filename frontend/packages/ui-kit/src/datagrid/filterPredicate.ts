@@ -143,7 +143,7 @@ const SINGLE_VALUE_TYPES: ReadonlySet<FilterFieldType> = new Set(["select", "tex
  * or a saved view, not only from the builder (whose "Duplicate filter"
  * makes a second one on the same field) — one the grid cannot send must
  * neither be sent nor shown as an active filter, or the screen claims a
- * result it did not compute (KAN-458).
+ * result it did not compute (KAN-458, ADR-102).
  */
 export function offeredPredicates(predicates: FilterPredicate[], fields: FilterFieldDef[]): FilterPredicate[] {
   const byId = new Map(fields.map((f) => [f.id, f]));
