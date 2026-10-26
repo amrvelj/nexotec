@@ -44,7 +44,7 @@ describe('StockListPage — every filter it shows is sent (KAN-458)', () => {
     await waitFor(() => expect(backend.callsTo(/^\/inventory\/stock-items$/, 'GET').length).toBeGreaterThan(0))
     const call = backend.callsTo(/^\/inventory\/stock-items$/, 'GET').at(-1)!
     expect(call.params.get('condition')).toBe('new')
-    expect((await viewControl()).textContent).toContain('1')
+    expect((await viewControl()).textContent).toMatch(/(^|\D)1(\D|$)/)
   })
 
   it('combines with the lifecycle filter', async () => {

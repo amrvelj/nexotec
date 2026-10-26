@@ -55,9 +55,11 @@ function defaultPredicateFor(field: FilterFieldDef): FilterPredicate {
 
 /**
  * § Action Bar — Filter Builder. "One predicate: field + condition +
- * value." A list of the screen's own custom filters (editable, duplicable,
- * deletable) plus one inline editor row for adding or editing a single
- * predicate at a time — never a free-text expression box.
+ * value." A list of the screen's own custom filters (editable, deletable)
+ * plus one inline editor row for adding or editing a single predicate at a
+ * time — never a free-text expression box. A field holds one filter
+ * (ADR-102): saving one on a field replaces that field's filter, and there
+ * is no «duplicate».
  */
 export function FilterBuilder({ fields, predicates, onChange, onPreviewCount, labels }: FilterBuilderProps) {
   const L = labels;
@@ -213,7 +215,8 @@ function PredicateEditorRow({
     if (!onPreviewCount) return;
     let cancelled = false;
     const timer = setTimeout(() => {
-      onPreviewCount([...otherPredicates, draft]).then((n) => {
+      // The preview counts what saving will leave: the draft replaces its field's filter.
+      onPreviewCount([...otherPredicates.filter((p) => p.fieldId !== draft.fieldId), draft]).then((n) => {
         if (!cancelled) setCount(n);
       });
     }, 250);

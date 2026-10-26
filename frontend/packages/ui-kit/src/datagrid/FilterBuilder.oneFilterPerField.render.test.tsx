@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MantineProvider } from "@mantine/core";
 import { FilterBuilder } from "./FilterBuilder";
@@ -45,9 +45,32 @@ describe("FilterBuilder — one filter per field (ADR-102)", () => {
     ]);
   });
 
-  it("offers no «duplicate» action on a saved filter", () => {
+  it("offers only edit and delete on a saved filter — no «duplicate»", () => {
     renderBuilder([AT_LEAST_150]);
-    expect(screen.getByRole("button", { name: "Modifier le filtre" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Dupliquer/ })).not.toBeInTheDocument();
+    const row = screen.getByRole("button", { name: "Modifier le filtre" }).parentElement!;
+    expect(within(row).getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual([
+      "Modifier le filtre",
+      "Supprimer le filtre",
+    ]);
+  });
+
+  it("the live preview counts what saving leaves — the draft in place of its field's filter", async () => {
+    const onPreviewCount = vi.fn().mockResolvedValue(3);
+    render(
+      <MantineProvider>
+        <FilterBuilder
+          fields={[PS, DOORS]}
+          predicates={[AT_LEAST_150, DOORS_5]}
+          onChange={() => {}}
+          onPreviewCount={onPreviewCount}
+          labels={FR_FILTER_BUILDER_LABELS}
+        />
+      </MantineProvider>,
+    );
+    await userEvent.click(screen.getByRole("button", { name: /Nouveau filtre/ }));
+    await waitFor(() => expect(onPreviewCount).toHaveBeenCalled());
+    const counted = onPreviewCount.mock.calls.at(-1)![0] as FilterPredicate[];
+    expect(counted.filter((p) => p.fieldId === "ps")).toHaveLength(1);
+    expect(counted.map((p) => p.fieldId).sort()).toEqual(["doors", "ps"]);
   });
 });
