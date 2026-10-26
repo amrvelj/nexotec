@@ -153,7 +153,8 @@ def create_valuation(
         # configuration's vehicleId, naming one car by VIN and another by id.
         # A configuration with no VIN links no car (the link follows the VIN,
         # KAN-326), so a VIN typed beside it can disagree with nothing: it is
-        # stored and, as on every configuration path, links no car (ADR-070).
+        # stored and, as on every configuration path, links no car (ADR-070;
+        # Anto, 2026-10-26, option A).
         names_a_car = configuration.vin is not None or configuration.vehicle_id is not None
         if names_a_car and data.vin is not None and data.vin != _normalised_or_none(configuration.vin):
             raise UnprocessableEntityError(

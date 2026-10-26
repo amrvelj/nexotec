@@ -90,7 +90,7 @@ file in the same PR as any change to what it states. -->
   (`valuationCreate.vinDiffersFromConfiguration`), compared normalised on both sides, and the
   configuration's VIN is stored normalised; `ValuationCreateDialog` shows it read-only and sends
   none. A configuration with no VIN links no car (KAN-326), so a VIN typed beside it is stored
-  and links none — the reading built pending Anto's confirmation on KAN-449. Created **without** one,
+  and links none (Anto, 2026-10-26, KAN-449 option A). Created **without** one,
   `create_valuation` still creates or gets the vehicle-mdm record when a VIN is given
   (`services/valuation.py`, on a session of its own, KAN-328). A pre-1981 chassis number in
   `vin` (KAN-353, `.claude/rules/vehicle.md`) never finds, creates or links a vehicle-mdm record,
