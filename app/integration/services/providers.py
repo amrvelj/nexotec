@@ -23,9 +23,12 @@ def get_provider_or_404(db: Session, provider_id: uuid.UUID) -> IntegrationProvi
 def get_provider_for_update_or_404(db: Session, provider_id: uuid.UUID) -> IntegrationProvider:
     """KAN-429: the provider PATCH loads the row locked until it commits, so
     two saves sent with the same If-Match run one after the other and the
-    second is refused as stale."""
+    second is refused as stale (FOR NO KEY UPDATE: connections referencing
+    the provider are not blocked)."""
 
-    provider = db.scalar(select(IntegrationProvider).where(IntegrationProvider.id == provider_id).with_for_update())
+    provider = db.scalar(
+        select(IntegrationProvider).where(IntegrationProvider.id == provider_id).with_for_update(key_share=True)
+    )
     if provider is None:
         raise NotFoundError(f"Integration provider {provider_id} was not found.")
     return provider

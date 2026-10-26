@@ -262,6 +262,24 @@ describe("ValuationCreateDialog — the VIN of a configuration's valuation (KAN-
     expect(backend.callsTo(/^\/valuations$/, 'POST')[0].body).toMatchObject({ vin: null, configurationId: 'cfg-1' })
   })
 
+  it('a configuration with no VIN links no car, so the VIN stays free to type and is sent', async () => {
+    const user = userEvent.setup()
+    const backend = install()
+    const plateOnly = { ...configuration, vin: null, vehicleId: null } as ConfigurationRead
+    renderWithProviders(<ValuationCreateDialog opened onClose={() => {}} onCreated={() => {}} configuration={plateOnly} />)
+
+    const dialog = await screen.findByRole('dialog', { name: i18n.t('valuationCreate.title') })
+    expect(vinField(dialog)).not.toHaveAttribute('readonly')
+    await user.type(vinField(dialog), 'wvwzzz1kzaw449002')
+    await submit(user, '18000')
+
+    await waitFor(() => expect(backend.callsTo(/^\/valuations$/, 'POST')).toHaveLength(1))
+    expect(backend.callsTo(/^\/valuations$/, 'POST')[0].body).toMatchObject({
+      vin: 'WVWZZZ1KZAW449002',
+      configurationId: 'cfg-1',
+    })
+  })
+
   it('without a configuration the VIN stays free to type', async () => {
     install()
     renderWithProviders(<ValuationCreateDialog opened onClose={() => {}} onCreated={() => {}} />)

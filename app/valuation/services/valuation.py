@@ -151,7 +151,11 @@ def create_valuation(
         # KAN-449 (Anto, 2026-10-25): with a configuration the VIN *is* the
         # configuration's. A different one would be stored beside the
         # configuration's vehicleId, naming one car by VIN and another by id.
-        if data.vin is not None and data.vin != _normalised_or_none(configuration.vin):
+        # A configuration with no VIN links no car (the link follows the VIN,
+        # KAN-326), so a VIN typed beside it can disagree with nothing: it is
+        # stored and, as on every configuration path, links no car (ADR-070).
+        names_a_car = configuration.vin is not None or configuration.vehicle_id is not None
+        if names_a_car and data.vin is not None and data.vin != _normalised_or_none(configuration.vin):
             raise UnprocessableEntityError(
                 "The VIN differs from the configuration's. A valuation built from a configuration takes its VIN.",
                 details={"field": "vin", "reason": "vin_differs_from_configuration"},
@@ -162,7 +166,7 @@ def create_valuation(
     # accepted only with a first registration before 1981, and never resolves,
     # creates or links a vehicle-mdm record, not even the one a configuration
     # links.
-    stored_vin = data.vin if data.vin is not None or configuration is None else configuration.vin
+    stored_vin = data.vin if data.vin is not None or configuration is None else _normalised_or_none(configuration.vin)
     require_vin_or_pre_1981_chassis_number(
         stored_vin,
         data.vehicle_first_registration
@@ -197,7 +201,7 @@ def create_valuation(
         vehicle_model=_from_configuration(data.vehicle_model, "model_group_name"),
         vehicle_trim=_from_configuration(data.vehicle_trim, "variant_name"),
         vehicle_plate=_from_configuration(data.vehicle_plate, "licence_plate"),
-        vehicle_vin=_from_configuration(data.vin, "vin"),
+        vehicle_vin=stored_vin,
         vehicle_first_registration=_from_configuration(data.vehicle_first_registration, "first_registration_date"),
         mileage=_from_configuration(data.mileage, "mileage_km"),
         configuration_id=configuration.id if configuration is not None else None,

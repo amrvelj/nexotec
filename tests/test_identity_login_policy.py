@@ -12,6 +12,7 @@ import pytest
 from argon2 import PasswordHasher
 from sqlalchemy import select
 
+from app.core.base import utcnow
 from app.platform.models.auth_event import AuthEvent, AuthEventKind
 from app.platform.models.credential import Credential
 from app.platform.services import password_hashing
@@ -138,7 +139,7 @@ def test_every_refusal_does_the_same_argon2_work_whether_or_not_the_account_exis
 
     def backoff_waited_out() -> None:
         db_session.refresh(credential)
-        credential.last_failed_at -= dt.timedelta(hours=1)
+        credential.last_failed_at = utcnow() - dt.timedelta(hours=1)
         db_session.commit()
 
     expected = [argon2.extract_parameters(credential.password_hash)]
@@ -146,11 +147,16 @@ def test_every_refusal_does_the_same_argon2_work_whether_or_not_the_account_exis
     assert work_of(anna["email"]) == expected
     # No account at all: the dummy verify.
     assert work_of("nobody@example.ch") == expected
-    # From the third failure on the account backs off: an attempt straight
-    # after one is refused before its own verify, so the dummy one runs.
+    # From the third failure on the account backs off: an attempt inside the
+    # backoff is refused before its own verify, so the dummy one runs. The
+    # last failure is put in the future, so "inside" never depends on how
+    # fast this machine gets to the next request.
     backoff_waited_out()
     _fail_patiently(client, db_session, anna, times=1)
-    assert work_of(anna["email"]) == expected  # the third failure, fresh
+    assert work_of(anna["email"]) == expected  # the third failure
+    db_session.refresh(credential)
+    credential.last_failed_at = utcnow() + dt.timedelta(hours=1)
+    db_session.commit()
     throttled_before = throttled_refusals()
     assert work_of(anna["email"]) == expected
     assert throttled_refusals() == throttled_before + 1

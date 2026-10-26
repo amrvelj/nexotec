@@ -116,11 +116,16 @@ def get_connection_for_update_or_404(
     it this way, so two writes sent with the same version run one after the
     other and the second is refused as stale. The connection is the first
     row those routes lock (a delete then removes its secret refs and
-    entitlements); a secret upsert's flush also writes the connection row
-    before its secret ref. A function of its own so the read above stays a
-    read (tests/architecture/test_adr_047_no_shared_transaction.py)."""
+    entitlements), and the secret routes take it the same way before they
+    touch a secret ref, so the two never lock in opposite orders. FOR NO KEY
+    UPDATE: it serialises the writers without blocking the call-log rows a
+    provider call inserts against the connection meanwhile. A function of
+    its own so the read above stays a read
+    (tests/architecture/test_adr_047_no_shared_transaction.py)."""
 
-    connection = db.scalar(_connection_query(tenant_id=tenant_id, connection_id=connection_id).with_for_update())
+    connection = db.scalar(
+        _connection_query(tenant_id=tenant_id, connection_id=connection_id).with_for_update(key_share=True)
+    )
     if connection is None:
         raise NotFoundError(f"Connection {connection_id} was not found.")
     return connection

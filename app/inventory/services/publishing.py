@@ -101,7 +101,7 @@ def get_or_create_publishing_for_update(
     existing = db.scalar(
         select(StockItemPublishing)
         .where(StockItemPublishing.stock_item_id == item.id, StockItemPublishing.channel == channel)
-        .with_for_update()
+        .with_for_update(key_share=True)
     )
     if existing is not None:
         return existing

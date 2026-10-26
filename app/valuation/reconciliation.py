@@ -6,7 +6,7 @@ Everything here is read-only — see app.core.reconciliation for the mechanism.
 
 import datetime as dt
 
-from sqlalchemy import Exists, select
+from sqlalchemy import Exists, func, select
 from sqlalchemy.orm import Session
 
 from app.core.base import utcnow
@@ -109,7 +109,10 @@ CHECKS: list[ReferenceCheck | StateCheck] = [
         .where(
             VehicleMdm.id == Valuation.vehicle_id,
             Valuation.vehicle_vin.is_not(None),
-            VehicleMdm.vin != Valuation.vehicle_vin,
+            # vehicle-mdm stores a VIN upper-cased; an old valuation row may
+            # not (FR-V-15), and a spelling is not a different car. (17
+            # characters leave no room for a space in a VIN.)
+            VehicleMdm.vin != func.upper(Valuation.vehicle_vin),
         )
         .exists(),
     ),

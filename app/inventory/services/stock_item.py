@@ -87,13 +87,17 @@ def get_stock_item_for_update_or_404(db: Session, tenant_id: uuid.UUID, stock_it
     If-Match against the item loads it this way, so two saves sent with the
     same version run one after the other and the second is refused as
     stale; unlocked, both passed the check and the later one overwrote the
-    first. The item is the only row these routes lock — the same single-row
-    lock the reservation writers take — so no lock order can cross. A
+    first. The item is the only row these routes lock — the reservation
+    writers take the same single row — so no lock order can cross. FOR NO
+    KEY UPDATE: it conflicts with every other writer of the row but not with
+    the child rows (options, ledger, media) others insert against it. A
     function of its own, not a flag on the read above, so a read stays a
     read (tests/architecture/test_adr_047_no_shared_transaction.py)."""
 
     item = db.scalar(
-        select(StockItem).where(StockItem.id == stock_item_id, StockItem.tenant_id == tenant_id).with_for_update()
+        select(StockItem)
+        .where(StockItem.id == stock_item_id, StockItem.tenant_id == tenant_id)
+        .with_for_update(key_share=True)
     )
     if item is None:
         raise NotFoundError(f"Stock item {stock_item_id} was not found.")

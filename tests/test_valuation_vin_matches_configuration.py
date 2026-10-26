@@ -74,11 +74,15 @@ def test_a_vin_that_differs_from_the_configurations_is_422_and_stores_nothing(cl
     assert _valuation_count(db_session) == 0
 
 
-def test_a_vin_beside_a_configuration_without_one_is_422(client, db_session):
-    """The configuration's VIN is the valuation's — also when it has none:
-    the VIN goes on the configuration, never on the valuation alone."""
+def test_a_vin_beside_a_configuration_without_one_is_stored_and_links_no_car(client, db_session):
+    """A configuration with no VIN links no car (the link follows the VIN,
+    KAN-326), so a VIN typed beside it can disagree with nothing: it is
+    stored, and like every configuration path it finds or creates no
+    vehicle-mdm record (ADR-070) — even one that holds this VIN."""
 
     seed_manual_coded_lists(db_session)
+    create_or_get_vehicle_mdm(db_session, vin=OTHER_VIN, actor_id=uuid.uuid4())
+    db_session.commit()
     tenant_id = uuid.uuid4()
     created = client.post(
         "/v1/configurations",
@@ -86,12 +90,12 @@ def test_a_vin_beside_a_configuration_without_one_is_422(client, db_session):
         headers=_headers(tenant_id, **{"Idempotency-Key": str(uuid.uuid4())}),
     )
     assert created.status_code == 201, created.text
+    assert created.json()["vehicleId"] is None
 
-    response = _post_valuation(client, tenant_id, created.json()["id"], vin=OTHER_VIN)
+    response = _post_valuation(client, tenant_id, created.json()["id"], vin=OTHER_VIN.lower())
 
-    assert response.status_code == 422, response.text
-    assert response.json()["error"]["details"]["reason"] == "vin_differs_from_configuration"
-    assert _valuation_count(db_session) == 0
+    assert response.status_code == 201, response.text
+    assert (response.json()["vehicleVin"], response.json()["vehicleId"]) == (OTHER_VIN, None)
 
 
 def test_the_configurations_own_vin_in_any_spelling_is_accepted(client, db_session):
@@ -129,6 +133,26 @@ def test_a_configuration_vin_stored_unnormalised_still_matches_its_normalised_sp
     response = _post_valuation(client, tenant_id, configuration["id"], vin=CONFIGURATION_VIN)
 
     assert response.status_code == 201, response.text
+    assert response.json()["vehicleVin"] == CONFIGURATION_VIN
+
+
+def test_a_configuration_vin_stored_unnormalised_is_taken_normalised_when_none_is_sent(client, db_session):
+    """The reviewer's regression: the dialog sends no VIN beside a
+    configuration, so the configuration's own VIN is the one judged and
+    stored — normalised, one spelling (FR-V-15), never refused for the case
+    it was stored in before KAN-338."""
+
+    tenant_id = uuid.uuid4()
+    configuration = _configuration_of_a_known_car(client, db_session, tenant_id)
+    stored = db_session.get(VehicleConfiguration, uuid.UUID(configuration["id"]))
+    stored.vin = CONFIGURATION_VIN.lower()
+    db_session.commit()
+
+    response = _post_valuation(client, tenant_id, configuration["id"])
+
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert (body["vehicleVin"], body["vehicleId"]) == (CONFIGURATION_VIN, configuration["vehicleId"])
 
 
 # --- rule 10: a row left disagreeing is reported -------------------------------
@@ -158,6 +182,7 @@ def test_reconciliation_reports_a_valuation_whose_vin_is_not_its_vehicles(db_ses
     db_session.commit()
     disagreeing = _stored_valuation(db_session, vin=OTHER_VIN, vehicle_id=vehicle.id)
     _stored_valuation(db_session, vin=CONFIGURATION_VIN, vehicle_id=vehicle.id)
+    _stored_valuation(db_session, vin=CONFIGURATION_VIN.lower(), vehicle_id=vehicle.id)  # a spelling, not another car
     _stored_valuation(db_session, vin=None, vehicle_id=vehicle.id)
     _stored_valuation(db_session, vin=OTHER_VIN, vehicle_id=None)
 

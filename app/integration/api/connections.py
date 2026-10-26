@@ -254,7 +254,11 @@ def set_secret(
     """
 
     tenant_id = None if _is_platform_admin(principal) else principal.tenant_id
-    connection = connection_service.get_connection_or_404(db, tenant_id=tenant_id, connection_id=connection_id)
+    # KAN-429: the connection row first, as every other write to it, so
+    # a secret write and a connection delete always lock in one order.
+    connection = connection_service.get_connection_for_update_or_404(
+        db, tenant_id=tenant_id, connection_id=connection_id
+    )
     ref = connection_service.set_secret(
         db, connection=connection, slot=slot, value=body.secret_value, actor_id=principal.user_id
     )
@@ -269,7 +273,11 @@ def remove_secret(
     db: Session = Depends(get_db),
 ):
     tenant_id = None if _is_platform_admin(principal) else principal.tenant_id
-    connection = connection_service.get_connection_or_404(db, tenant_id=tenant_id, connection_id=connection_id)
+    # KAN-429: the connection row first, as every other write to it, so
+    # a secret write and a connection delete always lock in one order.
+    connection = connection_service.get_connection_for_update_or_404(
+        db, tenant_id=tenant_id, connection_id=connection_id
+    )
     connection_service.remove_secret(db, connection=connection, slot=slot, actor_id=principal.user_id)
 
 

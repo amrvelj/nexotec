@@ -380,7 +380,8 @@ One shared template layer (`app/platform/models/document_template.py`). WeasyPri
   `dms_session` cookie, `Principal`, `get_current_principal`, switch-dealership) and gained the
   claims `sid`, `amr`, `mfa`; `exp` is the session's absolute end. **Every refusal is the same
   401 body with the same argon2 work behind it** (a dummy verify when the address names no
-  account) — `tests/test_identity_login_policy.py` asserts body and timing; never add a
+  account) — `tests/test_identity_login_policy.py` asserts the body and the work (one argon2
+  verify at the stored hash's parameters on every refusal, counted, never timed: KAN-444); never add a
   reason-specific message. A NUL character in the path, the query string or a JSON or form body is
   a 422 (`details.reason: nul_character`, `details.location`) before any route runs; other bodies
   are not read (`app/core/nul_guard.py`, KAN-387, Anto: refuse, never strip) — except at the login door, which

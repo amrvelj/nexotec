@@ -57,6 +57,10 @@ export function ValuationCreateDialog({ opened, onClose, onCreated, supersedes, 
   }, [opened, idempotency])
 
   const c = configuration
+  // KAN-449 (Anto, 2026-10-25): a configuration that names a car (by VIN or
+  // linked record) gives the valuation its VIN — shown read-only, never sent
+  // beside it. One with no VIN links no car, so the VIN stays free to type.
+  const vinFromConfiguration = Boolean(c && (c.vin || c.vehicleId))
   const [vin, setVin] = useState(c?.vin ?? supersedes?.vehicleVin ?? '')
   const [make, setMake] = useState(c?.brandDisplayName ?? supersedes?.vehicleMake ?? '')
   const [model, setModel] = useState(c?.modelGroupName ?? supersedes?.vehicleModel ?? '')
@@ -121,10 +125,7 @@ export function ValuationCreateDialog({ opened, onClose, onCreated, supersedes, 
     setVinError(null)
     try {
       const body: ValuationCreate = {
-        // KAN-449 (Anto, 2026-10-25): with a configuration the VIN is the
-        // configuration's — shown read-only, and left to the API to take
-        // from the configuration, so no second VIN can travel beside it.
-        vin: configuration ? null : vin || null,
+        vin: vinFromConfiguration ? null : vin || null,
         vehicleMake: make || null,
         vehicleModel: model || null,
         vehicleTrim: trim || null,
@@ -175,11 +176,11 @@ export function ValuationCreateDialog({ opened, onClose, onCreated, supersedes, 
             {configuration && <ConfigurationSummaryCard configuration={configuration} />}
             <Group grow>
               <TextInput
-                {...(configuration
+                {...(vinFromConfiguration
                   ? hint(t('valuationCreate.vin'), t('valuationCreate.vinFromConfigurationHint'))
                   : { label: t('valuationCreate.vin') })}
                 value={vin}
-                readOnly={configuration !== null}
+                readOnly={vinFromConfiguration}
                 onChange={(e) => {
                   setVin(e.currentTarget.value.toUpperCase())
                   setVinError(null)

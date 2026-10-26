@@ -1443,7 +1443,7 @@
     "banner": "No customer, no offer, no registered vehicle required — any combination works.",
     "vehicleSection": "Vehicle",
     "vin": "VIN",
-    "vinFromConfigurationHint": "The VIN comes from the configuration. Change it there.",
+    "vinFromConfigurationHint": "The VIN comes from the configuration and cannot be changed here.",
     "vinDiffersFromConfiguration": "The VIN differs from the configuration's. A valuation built from a configuration takes its VIN.",
     "firstRegistration": "First registration",
     "mileage": "Mileage",

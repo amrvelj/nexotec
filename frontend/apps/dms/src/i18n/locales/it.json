@@ -1443,7 +1443,7 @@
     "banner": "Senza cliente, senza offerta, senza veicolo registrato richiesto — ogni combinazione funziona.",
     "vehicleSection": "Veicolo",
     "vin": "VIN",
-    "vinFromConfigurationHint": "Il VIN proviene dalla configurazione. Modificalo lì.",
+    "vinFromConfigurationHint": "Il VIN proviene dalla configurazione e non può essere modificato qui.",
     "vinDiffersFromConfiguration": "Il VIN differisce da quello della configurazione. Una valutazione creata da una configurazione ne riprende il VIN.",
     "firstRegistration": "Prima immatricolazione",
     "mileage": "Chilometraggio",
