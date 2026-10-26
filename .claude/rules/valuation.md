@@ -70,7 +70,9 @@ file in the same PR as any change to what it states. -->
   the same dealership is not stamped (`sales/reconciliation.py` — signed before KAN-101, or the
   compensation race; repaired by hand as above); a `stock_item.valuation_ref_id` naming no
   valuation, or a `valuation_ref_amount` that differs from its `final_offer`
-  (`inventory/reconciliation.py`). Nothing writes `used_at` from these checks.
+  (`inventory/reconciliation.py`); a valuation whose `vehicle_vin` differs from the VIN of the
+  vehicle its `vehicle_id` names (`valuation/reconciliation.py`, KAN-449 — rows written before
+  the refusal). Nothing writes `used_at` from these checks.
 - **Stock's `valuationRef`** on a trade-in (ADR-074) is set when inventory's
   `sales.contract.confirmed` consumer creates the pipeline item (`inventory/services/pipeline.py`,
   from `tradeIn.valuationId`, read through `valuation.public` in the same transaction) — the
@@ -82,8 +84,13 @@ file in the same PR as any change to what it states. -->
 - **ADR-070** (amending FR-V-17): a *configuration* never writes vehicle-mdm; it attaches to a
   valuation. A valuation created **with** a `configurationId` (`record` mode only, KAN-10)
   defaults its vehicle fields from it (a field sent wins), references only the vehicle-mdm
-  record the configuration already links, and creates none (a `vin` sent beside the configuration
-  is stored as sent while `vehicleId` stays the configuration's — a defect, KAN-449); created **without** one,
+  record the configuration already links, and creates none. **Its VIN is the configuration's**
+  (Anto, 2026-10-25, KAN-449): a `vin` sent beside one that names a car (a VIN or a linked
+  record) and differs is 422 `vin_differs_from_configuration`
+  (`valuationCreate.vinDiffersFromConfiguration`), compared normalised on both sides, and the
+  configuration's VIN is stored normalised; `ValuationCreateDialog` shows it read-only and sends
+  none. A configuration with no VIN links no car (KAN-326), so a VIN typed beside it is stored
+  and links none (Anto, 2026-10-26, KAN-449 option A). Created **without** one,
   `create_valuation` still creates or gets the vehicle-mdm record when a VIN is given
   (`services/valuation.py`, on a session of its own, KAN-328). A pre-1981 chassis number in
   `vin` (KAN-353, `.claude/rules/vehicle.md`) never finds, creates or links a vehicle-mdm record,

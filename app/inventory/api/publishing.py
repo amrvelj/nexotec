@@ -60,7 +60,7 @@ def update_listing_text(
     item = stock_item_service.get_stock_item_or_404(db, principal.tenant_id, stock_item_id)
     # KAN-396: If-Match names the channel's publishing row (the GET above
     # creates it on first read), the row this PATCH writes and versions.
-    row = publishing_service.get_or_create_publishing(db, item, channel)
+    row = publishing_service.get_or_create_publishing_for_update(db, item, channel)
     check_version(row.version, if_match, entity_name="StockItemPublishing")
     row = publishing_service.update_listing_text(db, item=item, channel=channel, data=body, actor_id=principal.user_id)
     return _publishing_read(db, item, row)

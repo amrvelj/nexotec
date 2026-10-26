@@ -110,7 +110,11 @@ second local combobox.
 - **ADR-076 — every CHF amount reads `CHF 12'500.00`, inputs included** (KAN-168): a CHF input
   is the kit's `ChfInput` (or `chfInlineEditor()` inside an `InlineEditField`), never a bare
   `NumberInput` or `<input type="number">`; `no-bare-money-number-input.test.ts` names every
-  NumberInput that is not money (quantity, months, km, days, a percentage, spec figures).
+  NumberInput that is not money (quantity, months, km, days, a percentage, spec figures). A
+  number filter's saved text formats its value too (KAN-421): a `FilterFieldDef` declares
+  `numberFormat` — `grouped` (the default, `formatNumber`), `chf`, or `ungrouped` for a year;
+  never guessed from the label. The FilterBuilder's own value input is still a bare
+  `<input type="number">`, money fields included (KAN-454).
 - **ADR-084 — one environment-notice slot in the shell.** `AppShell`'s optional `notice` strip
   (ui-kit `shell/EnvironmentNotice.tsx`, between the top bar and the content region,
   `role="status"`, no dismiss control) is the only place for a persistent deployment-level

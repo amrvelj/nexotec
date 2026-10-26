@@ -81,6 +81,29 @@ def get_stock_item_or_404(db: Session, tenant_id: uuid.UUID, stock_item_id: uuid
     return item
 
 
+def get_stock_item_for_update_or_404(db: Session, tenant_id: uuid.UUID, stock_item_id: uuid.UUID) -> StockItem:
+    """KAN-429: the item locked until the caller commits, as Sales' offer
+    and contract routes load theirs (KAN-311). Every route that checks
+    If-Match against the item loads it this way, so two saves sent with the
+    same version run one after the other and the second is refused as
+    stale; unlocked, both passed the check and the later one overwrote the
+    first. The item is the only row these routes lock — the reservation
+    writers take the same single row — so no lock order can cross. FOR NO
+    KEY UPDATE: it conflicts with every other writer of the row but not with
+    the child rows (options, ledger, media) others insert against it. A
+    function of its own, not a flag on the read above, so a read stays a
+    read (tests/architecture/test_adr_047_no_shared_transaction.py)."""
+
+    item = db.scalar(
+        select(StockItem)
+        .where(StockItem.id == stock_item_id, StockItem.tenant_id == tenant_id)
+        .with_for_update(key_share=True)
+    )
+    if item is None:
+        raise NotFoundError(f"Stock item {stock_item_id} was not found.")
+    return item
+
+
 def _item_in_stock_with_vin(db: Session, *, tenant_id: uuid.UUID, vin: str) -> StockItem | None:
     """KAN-111: the dealership's item holding this VIN that has not left
     stock — what `uq_stock_item_tenant_id_vin_in_stock` allows at most one

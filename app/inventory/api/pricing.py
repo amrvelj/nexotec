@@ -40,7 +40,7 @@ def set_options(
     principal: Principal = Depends(require_write("stock_items")),
     db: Session = Depends(get_db),
 ):
-    item = stock_item_service.get_stock_item_or_404(db, principal.tenant_id, stock_item_id)
+    item = stock_item_service.get_stock_item_for_update_or_404(db, principal.tenant_id, stock_item_id)
     # KAN-396: the PUT replaces the options and bumps the stock item's
     # version, so a save built on a stale read is a 409, never a lost update.
     check_version(item.version, if_match, entity_name="StockItem")
