@@ -43,7 +43,10 @@ export interface FilterFieldDef {
 
 export type TextCondition = "contains" | "equals" | "notEquals";
 export type SelectCondition = "is" | "isNot";
-export type NumberCondition = "equals" | "greaterThan" | "lessThan";
+/** `atLeast`/`atMost` are the inclusive bounds (≥ / ≤) an endpoint's
+ * `…Min`/`…Max` range parameters apply; `greaterThan`/`lessThan` are strict.
+ * A field offers only the ones its endpoint honours exactly (KAN-458). */
+export type NumberCondition = "equals" | "greaterThan" | "lessThan" | "atLeast" | "atMost";
 export type BooleanCondition = "is";
 /**
  * Every date condition is relative — "date conditions are RELATIVE never
@@ -84,7 +87,7 @@ export type FilterCondition = TextCondition | SelectCondition | NumberCondition 
 export const CONDITIONS_BY_TYPE: Record<FilterFieldType, FilterCondition[]> = {
   text: ["contains", "equals", "notEquals"],
   select: ["is", "isNot"],
-  number: ["equals", "greaterThan", "lessThan"],
+  number: ["equals", "greaterThan", "lessThan", "atLeast", "atMost"],
   boolean: ["is"],
   date: ["today", "thisWeek", "thisMonth", "thisYear", "inTheLastDays", "moreThanDaysAgo"],
 };
@@ -126,6 +129,22 @@ export function conditionsForField(field: FilterFieldDef): FilterCondition[] {
   const allowed = new Set(field.conditions);
   const narrowed = all.filter((c) => allowed.has(c));
   return narrowed.length > 0 ? narrowed : all;
+}
+
+/**
+ * The predicates a grid can honour: those whose field it offers, with the
+ * field's type, under a condition the field offers. A predicate reaches a
+ * grid from its URL or a saved view, not only from the builder — one the
+ * grid no longer offers (a hand-edited link, a field or condition removed
+ * since the view was saved) must neither be sent nor shown as an active
+ * filter, or the screen claims a result it did not compute (KAN-458).
+ */
+export function offeredPredicates(predicates: FilterPredicate[], fields: FilterFieldDef[]): FilterPredicate[] {
+  const byId = new Map(fields.map((f) => [f.id, f]));
+  return predicates.filter((p) => {
+    const field = byId.get(p.fieldId);
+    return field !== undefined && field.type === p.type && conditionsForField(field).includes(p.condition as FilterCondition);
+  });
 }
 
 function pad(n: number): string {

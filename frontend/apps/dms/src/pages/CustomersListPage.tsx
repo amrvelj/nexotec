@@ -18,11 +18,10 @@ import {
   ViewsAndFilters,
   defaultColumnLayout,
   deriveFilterFields,
+  offeredPredicates,
   resolveColumnLayout,
-  resolveRelativeDateRange,
   useSetBreadcrumb,
   type ColumnRegistryEntry,
-  type DateCondition,
   type FilterPredicate,
   type GridColumnDef,
   type SavedView,
@@ -44,6 +43,8 @@ import { CustomerCreateDialog } from '../components/CustomerCreateDialog'
 import { toSwissLocale, type SupportedLanguage } from '../i18n'
 import {
   CANTON_OPTIONS,
+  UNASSIGNED_ADVISOR,
+  applyCustomerFilters,
   legalFormLabel,
   translatedCustomerTypeLabel,
   translatedCustomerTypeOptions,
@@ -98,46 +99,6 @@ function parseFiltersParam(raw: string): FilterPredicate[] {
   }
 }
 
-/**
- * `/customers` accepts a handful of fixed, independent query parameters —
- * no generic predicate engine exists server-side. `paramByFieldId` is
- * derived from the same column defs the filter builder is (`meta.filter`),
- * so there is no second hand-maintained map to drift (§ ADR-058).
- *
- * The two conditions the API cannot honour — a `select` field's "is not"
- * (the API takes one equality value per field) and a date's "more than N
- * days ago" (`updated_since` is a lower bound only; there is no "changed
- * before" parameter) — are not applied here because the columns that back
- * these fields do not offer them (`meta.filter.conditions`). The guards
- * below stay defensive regardless: an unknown field or condition is left
- * unsent, never misfiltered.
- */
-function applyPredicatesToParams(
-  params: URLSearchParams,
-  predicates: FilterPredicate[],
-  paramByFieldId: Map<string, string>,
-) {
-  for (const predicate of predicates) {
-    const paramName = paramByFieldId.get(predicate.fieldId)
-    if (!paramName) continue
-
-    if (predicate.type === 'date') {
-      if (predicate.condition === 'moreThanDaysAgo') continue
-      const range = resolveRelativeDateRange(predicate.condition as DateCondition, predicate.days, new Date())
-      if (range.from) params.set(paramName, range.from)
-      continue
-    }
-
-    if (predicate.condition === 'is' && typeof predicate.value === 'string') {
-      // KAN-200 (FR-A-37): "advisor is unassigned" is the queue a leaver's
-      // hand-over to nobody fills — the API's own flag, not an id.
-      if (paramName === 'advisorUserId' && predicate.value === UNASSIGNED_ADVISOR) params.set('unassigned', 'true')
-      else params.set(paramName, predicate.value)
-    }
-  }
-}
-
-const UNASSIGNED_ADVISOR = '__unassigned__'
 
 export function CustomersListPage() {
   const { t, i18n } = useTranslation()
@@ -168,7 +129,7 @@ export function CustomersListPage() {
   // against a pasted/back-navigated URL); the preference is only the
   // fallback for "what to show when there's no URL state yet at all."
   const sort = searchParams.get('sort') ? parseSortParam(searchParams.get('sort')!) : gridPrefs.sort
-  const predicates = searchParams.get('filters') ? parseFiltersParam(searchParams.get('filters')!) : []
+  const urlPredicates = searchParams.get('filters') ? parseFiltersParam(searchParams.get('filters')!) : []
 
   const updateUrl = (patch: Record<string, string | null>) => {
     setSearchParams(
@@ -512,7 +473,7 @@ export function CustomersListPage() {
           filter: {
             type: 'date',
             param: 'updated_since',
-            conditions: ['today', 'thisWeek', 'thisMonth', 'thisYear', 'inTheLastDays'],
+            conditions: ['today', 'thisWeek', 'thisMonth', 'thisYear', 'inTheLastDays', 'moreThanDaysAgo'],
           },
           exportValue: (row) => formatDate(row.updatedAt, locale),
         },
@@ -537,10 +498,9 @@ export function CustomersListPage() {
   // Adding a filterable column is one edit (the column def), never a
   // second edit to a parallel list.
   const filterFields = useMemo(() => deriveFilterFields(columns), [columns])
-  const filterParamByFieldId = useMemo(
-    () => new Map(filterFields.map((f) => [f.id, f.param ?? f.id])),
-    [filterFields]
-  )
+  // KAN-458: a predicate from the URL or a saved view that this grid does
+  // not offer is neither sent nor shown as an active filter.
+  const predicates = offeredPredicates(urlPredicates, filterFields)
 
   // The effective layout: the user's saved one, or the module default
   // (which honours each column's `defaultVisible`). DataGrid,
@@ -564,7 +524,7 @@ export function CustomersListPage() {
         const params = new URLSearchParams()
         if (debouncedQuery) params.set('q', debouncedQuery)
         if (sortParam) params.set('sort', sortParam)
-        applyPredicatesToParams(params, predicates, filterParamByFieldId)
+        applyCustomerFilters(params, predicates, filterFields, new Date())
         params.set('limit', '50')
         if (pageParam) params.set('cursor', pageParam)
         return api.get<CustomerPage>(`/customers?${params.toString()}`)

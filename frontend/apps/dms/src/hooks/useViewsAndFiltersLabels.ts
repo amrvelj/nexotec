@@ -13,6 +13,8 @@ function perCondition<T>(make: (condition: FilterCondition) => T): Record<Filter
     isNot: make('isNot'),
     greaterThan: make('greaterThan'),
     lessThan: make('lessThan'),
+    atLeast: make('atLeast'),
+    atMost: make('atMost'),
     today: make('today'),
     thisWeek: make('thisWeek'),
     thisMonth: make('thisMonth'),

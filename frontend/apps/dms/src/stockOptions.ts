@@ -1,3 +1,4 @@
+import type { FilterFieldDef, FilterPredicate } from '@nexotec/ui-kit'
 import type { LedgerCategory, StockItemCondition, StockLifecycleStatus, StockReservationState } from './api/types'
 
 type Translate = (key: string) => string
@@ -46,4 +47,41 @@ export function translatedLedgerCategoryLabel(t: Translate, category: LedgerCate
 
 export function translatedLedgerCategoryOptions(t: Translate): { value: LedgerCategory; label: string }[] {
   return HAND_BOOKABLE_LEDGER_CATEGORIES.map((value) => ({ value, label: translatedLedgerCategoryLabel(t, value) }))
+}
+
+/** The Stock grid's filter fields. Each offers only the conditions
+ * `/inventory/stock-items` applies — one equality value per field, so no
+ * «is not» (KAN-458). */
+export function buildStockFilterFields(t: Translate): FilterFieldDef[] {
+  return [
+    {
+      id: 'lifecycleStatus',
+      label: t('stockList.columns.lifecycleStatus'),
+      type: 'select',
+      options: translatedStockLifecycleOptions(t),
+      conditions: ['is'],
+    },
+    {
+      id: 'condition',
+      label: t('stockList.columns.condition'),
+      type: 'select',
+      options: translatedStockConditionOptions(t),
+      conditions: ['is'],
+    },
+  ]
+}
+
+const STOCK_FILTER_PARAM: Record<string, string> = {
+  lifecycleStatus: 'lifecycle_status',
+  condition: 'condition',
+}
+
+/** FilterPredicate[] → `/inventory/stock-items` query params. Every field
+ * and condition `buildStockFilterFields` offers is sent;
+ * `architecture/grid-filters-are-applied.test.ts` fails if one is not. */
+export function applyStockFilters(params: URLSearchParams, predicates: FilterPredicate[]): void {
+  for (const predicate of predicates) {
+    const param = STOCK_FILTER_PARAM[predicate.fieldId]
+    if (param && predicate.condition === 'is' && typeof predicate.value === 'string') params.set(param, predicate.value)
+  }
 }

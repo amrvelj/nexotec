@@ -228,6 +228,15 @@ def list_customers(
     language: Language | None = None,
     canton: str | None = None,
     updated_since: dt.datetime | None = None,
+    updated_more_than_days_ago: int | None = Query(
+        default=None,
+        ge=0,
+        le=36500,
+        description=(
+            "KAN-458: customers last changed before the start of the day N days ago (Europe/Zurich) — the grid's "
+            "relative «more than N days ago» filter, resolved against the server's clock, never the client's."
+        ),
+    ),
     include_merged: bool = False,
     advisor_user_id: uuid.UUID | None = Query(default=None, alias="advisorUserId"),
     unassigned: bool = Query(
@@ -252,6 +261,7 @@ def list_customers(
         language=language,
         canton=canton,
         updated_since=updated_since,
+        updated_more_than_days_ago=updated_more_than_days_ago,
         params=params,
         include_merged=include_merged,
         advisor_user_id=advisor_user_id,

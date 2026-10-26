@@ -238,7 +238,7 @@ describe('CustomersListPage — the column set (KAN-51 half 1 + partial half 2)'
 })
 
 describe('CustomersListPage — filters track the column registry (ADR-058)', () => {
-  it('offers only a condition the customer list endpoint can honour: select "is", and no "more than N days ago" on the date field', async () => {
+  it('offers only a condition the customer list endpoint can honour: select "is", and every relative date condition (KAN-458)', async () => {
     route()
     const user = userEvent.setup()
     renderWithProviders(<CustomersListPage />, { route: '/customers' })
@@ -257,15 +257,44 @@ describe('CustomersListPage — filters track the column registry (ADR-058)', ()
       i18n.t('common.filterBuilder.conditions.is'),
     ])
 
-    // Switch to the date field -> every relative condition except
-    // "more than N days ago" (there is no "changed before" parameter).
+    // Switch to the date field -> every relative condition, "more than N
+    // days ago" included: the server resolves it (KAN-458).
     await user.selectOptions(fieldSelect, columnHeader('changed'))
     const dateConditions = within(screen.getAllByRole('combobox')[1])
       .getAllByRole('option')
       .map((o) => o.textContent ?? '')
     expect(dateConditions).toEqual(
-      ['today', 'thisWeek', 'thisMonth', 'thisYear', 'inTheLastDays'].map((c) => i18n.t(`common.filterBuilder.conditions.${c}`))
+      ['today', 'thisWeek', 'thisMonth', 'thisYear', 'inTheLastDays', 'moreThanDaysAgo'].map((c) =>
+        i18n.t(`common.filterBuilder.conditions.${c}`)
+      )
     )
+  })
+})
+
+describe('CustomersListPage — every filter it shows is sent (KAN-458)', () => {
+  const filtersRoute = (predicates: object[]) => `/customers?filters=${encodeURIComponent(JSON.stringify(predicates))}`
+
+  it('«Changed: more than 90 days ago» is sent for the server to resolve, never resolved in the browser', async () => {
+    const backend = route()
+    renderWithProviders(<CustomersListPage />, {
+      route: filtersRoute([{ id: 'p1', fieldId: 'updatedAt', type: 'date', condition: 'moreThanDaysAgo', days: 90 }]),
+    })
+
+    await waitFor(() => expect(backend.callsTo(/^\/customers$/, 'GET').length).toBeGreaterThan(0))
+    const call = backend.callsTo(/^\/customers$/, 'GET').at(-1)!
+    expect(call.params.get('updated_more_than_days_ago')).toBe('90')
+    expect(call.params.get('updated_since')).toBeNull()
+  })
+
+  it('a predicate the grid does not offer — a select «is not» — is neither sent nor shown as active', async () => {
+    const backend = route()
+    renderWithProviders(<CustomersListPage />, {
+      route: filtersRoute([{ id: 'p1', fieldId: 'language', type: 'select', condition: 'isNot', value: 'de' }]),
+    })
+
+    await waitFor(() => expect(backend.callsTo(/^\/customers$/, 'GET').length).toBeGreaterThan(0))
+    expect(backend.callsTo(/^\/customers$/, 'GET').at(-1)!.params.get('language')).toBeNull()
+    expect(screen.getByRole('button', { name: i18n.t('customersList.allCustomersView') }).textContent).not.toMatch(/\d/)
   })
 })
 

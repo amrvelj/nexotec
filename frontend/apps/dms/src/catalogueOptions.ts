@@ -36,6 +36,22 @@ const NUMERIC_FACET_FIELDS = [
   'basePrice',
 ] as const
 
+/** The conditions `/catalogue/variants` honours exactly (KAN-458): one
+ * coded value per field — no «is not» — and the inclusive `…Min`/`…Max`
+ * bounds, read as «at least» / «at most»; «equals» is both bounds at once.
+ * A strict «greater than» would be answered with ≥ — never offered. */
+const CODED_CONDITIONS = ['is']
+const NUMERIC_CONDITIONS = ['equals', 'atLeast', 'atMost']
+
+/** Every field the catalogue grid can filter on, whatever the current
+ * facets hold — what a predicate from the URL or a saved view is checked
+ * against (`offeredPredicates`), so one is not dropped while the facets
+ * are still loading. Labels are not shown from here. */
+export const CATALOGUE_FILTER_SCOPE: FilterFieldDef[] = [
+  ...Object.keys(FACET_LIST_CODE).map((id): FilterFieldDef => ({ id, label: id, type: 'select', conditions: CODED_CONDITIONS })),
+  ...NUMERIC_FACET_FIELDS.map((id): FilterFieldDef => ({ id, label: id, type: 'number', conditions: NUMERIC_CONDITIONS })),
+]
+
 /**
  * The FilterBuilder field list, derived from what the mirror actually
  * holds for the current drill-down scope — `facets` is `null` while it
@@ -61,6 +77,7 @@ export function buildCatalogueFilterFields(
         value: v.valueCode,
         label: `${labelFor(listCode, v.valueCode)} (${formatNumber(v.count)})`,
       })),
+      conditions: CODED_CONDITIONS,
     })
   }
 
@@ -76,6 +93,7 @@ export function buildCatalogueFilterFields(
       // list price in CHF (ADR-076), a model year ungrouped, every other
       // figure through the Swiss formatter.
       numberFormat: field === 'basePrice' ? 'chf' : field === 'modelYearFrom' ? 'ungrouped' : 'grouped',
+      conditions: NUMERIC_CONDITIONS,
     })
   }
 
@@ -85,9 +103,10 @@ export function buildCatalogueFilterFields(
 /**
  * FilterPredicate[] → catalogue `/variants` query params. `/catalogue`
  * accepts one equality per coded field and `<field>Min` / `<field>Max`
- * per numeric field; a `select` "is not" and a numeric "equals" have no
- * backend form and are left unsent rather than silently misfiltering
- * (same posture as `CustomersListPage.applyPredicatesToParams`).
+ * per numeric field, both inclusive. Every field and condition
+ * `buildCatalogueFilterFields` offers is sent;
+ * `architecture/grid-filters-are-applied.test.ts` fails if one is not
+ * (KAN-458).
  */
 export function applyCatalogueFilters(params: URLSearchParams, predicates: FilterPredicate[]): void {
   for (const p of predicates) {
@@ -96,8 +115,9 @@ export function applyCatalogueFilters(params: URLSearchParams, predicates: Filte
       continue
     }
     if ((NUMERIC_FACET_FIELDS as readonly string[]).includes(p.fieldId) && typeof p.value === 'number') {
-      if (p.condition === 'greaterThan') params.set(`${p.fieldId}Min`, String(p.value))
-      else if (p.condition === 'lessThan') params.set(`${p.fieldId}Max`, String(p.value))
+      const value = String(p.value)
+      if (p.condition === 'atLeast' || p.condition === 'equals') params.set(`${p.fieldId}Min`, value)
+      if (p.condition === 'atMost' || p.condition === 'equals') params.set(`${p.fieldId}Max`, value)
     }
   }
 }

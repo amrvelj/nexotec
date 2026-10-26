@@ -1,3 +1,4 @@
+import { resolveRelativeDateRange, type DateCondition, type FilterFieldDef, type FilterPredicate } from '@nexotec/ui-kit'
 import type {
   ConsentScope,
   ConsentSource,
@@ -266,4 +267,57 @@ export function translatedEmailTypeOptions(t: Translate): { value: EmailType; la
     { value: 'work', label: t('customerEnums.contactType.work') },
     { value: 'invoicing', label: t('customerEnums.contactType.invoicing') },
   ]
+}
+
+/** KAN-200 (FR-A-37): the advisor filter's "unassigned" option — the queue
+ * a leaver's hand-over to nobody fills. */
+export const UNASSIGNED_ADVISOR = '__unassigned__'
+
+/** A date field's «more than N days ago» goes to its own parameter: its
+ * `param` is a lower bound only. The server resolves N against its own
+ * clock (U-09, KAN-458). */
+const MORE_THAN_DAYS_AGO_PARAM: Record<string, string> = {
+  updated_since: 'updated_more_than_days_ago',
+}
+
+/**
+ * FilterPredicate[] → `/customers` query params. `/customers` accepts a
+ * handful of fixed, independent parameters — no generic predicate engine
+ * exists server-side — and each field's `param` comes from the same column
+ * defs the filter builder is derived from (`meta.filter`, § ADR-058), so
+ * there is no second hand-maintained map to drift.
+ *
+ * Every field and condition the columns offer is sent;
+ * `architecture/grid-filters-are-applied.test.ts` fails if one is not
+ * (KAN-458). The page passes only offered predicates (`offeredPredicates`).
+ */
+export function applyCustomerFilters(
+  params: URLSearchParams,
+  predicates: FilterPredicate[],
+  fields: FilterFieldDef[],
+  now: Date,
+): void {
+  const fieldById = new Map(fields.map((f) => [f.id, f]))
+  for (const predicate of predicates) {
+    const field = fieldById.get(predicate.fieldId)
+    if (!field) continue
+    const paramName = field.param ?? field.id
+
+    if (predicate.type === 'date') {
+      if (predicate.condition === 'moreThanDaysAgo') {
+        const beforeParam = MORE_THAN_DAYS_AGO_PARAM[paramName]
+        // A missing day count reads as 0, as `resolveRelativeDateRange` does.
+        if (beforeParam) params.set(beforeParam, String(predicate.days ?? 0))
+        continue
+      }
+      const range = resolveRelativeDateRange(predicate.condition as DateCondition, predicate.days, now)
+      if (range.from) params.set(paramName, range.from)
+      continue
+    }
+
+    if (predicate.condition === 'is' && typeof predicate.value === 'string') {
+      if (paramName === 'advisorUserId' && predicate.value === UNASSIGNED_ADVISOR) params.set('unassigned', 'true')
+      else params.set(paramName, predicate.value)
+    }
+  }
 }
