@@ -61,6 +61,11 @@ uvicorn app.main:app --reload
 
 The app reads config from environment variables prefixed `DMS_` (see
 `app/core/config.py` and `.env.example`), loaded via `pydantic-settings`.
+Google Places Autocomplete on the address forms (KAN-37, ADR-101) needs
+`DMS_GOOGLE_PLACES_BROWSER_KEY`, Nexotec's own browser key: optional, off
+everywhere while unset, pasted per environment (never committed) — the
+Google Cloud setup, the key's restrictions and the staging check are the
+runbook *Google Places go-live* (Notion › Nexotec › Runbooks, KAN-451).
 
 Verify it's up:
 
