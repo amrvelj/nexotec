@@ -12,8 +12,8 @@ What the local provider guarantees:
 - Uniform refusal (FR-AU-07, FR-AU-16): unknown address, wrong password,
   locked, inactive — the same 401 body, and the same argon2 work (a dummy
   verify when there is no credential), so neither the response nor its
-  timing says whether the account exists. tests/test_login_uniformity.py
-  asserts both.
+  timing says whether the account exists. tests/test_identity_login_policy.py
+  asserts both (the work by counting argon2 verifies, KAN-444).
 - Throttling on two axes (FR-AU-08): per account (failures on the
   credential) and per source IP (failures in the auth event stream),
   each with exponential backoff; soft lockout on the credential after

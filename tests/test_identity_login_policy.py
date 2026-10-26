@@ -6,15 +6,15 @@ backoff; rehash on login when the stored parameters fall below policy.
 
 import datetime as dt
 import itertools
-import statistics
-import time
 
+import argon2
 import pytest
 from argon2 import PasswordHasher
 from sqlalchemy import select
 
 from app.platform.models.auth_event import AuthEvent, AuthEventKind
 from app.platform.models.credential import Credential
+from app.platform.services import password_hashing
 from app.platform.services.identity import INVALID_CREDENTIALS
 from tests.identity_support import (
     STRONG_PASSWORD,
@@ -104,24 +104,62 @@ def test_every_refusal_answers_the_same_body(client, login, db_session):
     assert len(_events(db_session, AuthEventKind.LOCKED_OUT)) == 1
 
 
-def test_a_refusal_takes_the_same_time_whether_or_not_the_account_exists(client, login):
-    """FR-AU-07: a dummy argon2 verify runs when the address names no account,
-    so the timing does not enumerate accounts. Twenty samples each; the
-    medians must be within 50 % of each other."""
+def test_every_refusal_does_the_same_argon2_work_whether_or_not_the_account_exists(
+    client, login, db_session, monkeypatch
+):
+    """FR-AU-07: a dummy argon2 verify runs when the address names no
+    account (and when an account is locked), so the timing does not
+    enumerate accounts. Proved by the work itself, not by the wall clock
+    (KAN-444: a median-ratio timing test failed whenever the machine was
+    busy): every refusal runs exactly one argon2 verify, at the same cost
+    parameters as the account's own stored hash."""
 
     dealership = create_dealership(client)
     anna = create_user(client, dealership)
     login.accept_invitation(anna)
+    credential = db_session.scalar(select(Credential).where(Credential.user_id == anna["id"]))
 
-    def measure(email: str) -> float:
-        started = time.perf_counter()
+    verifies: list[argon2.Parameters] = []
+    real_verify = password_hashing.verify_password
+
+    def counting_verify(password_hash: str, password: str) -> bool:
+        verifies.append(argon2.extract_parameters(password_hash))
+        return real_verify(password_hash, password)
+
+    monkeypatch.setattr(password_hashing, "verify_password", counting_verify)
+
+    def work_of(email: str) -> list[argon2.Parameters]:
+        verifies.clear()
         _refused(_attempt(client, email, "not-the-password-at-all"))
-        return time.perf_counter() - started
+        return list(verifies)
 
-    known = [measure(anna["email"]) for _ in range(20)]
-    unknown = [measure(f"nobody-{i}@example.ch") for i in range(20)]
-    ratio = statistics.median(known) / statistics.median(unknown)
-    assert 1 / 1.5 < ratio < 1.5, (statistics.median(known), statistics.median(unknown))
+    def throttled_refusals() -> int:
+        return len(_events(db_session, AuthEventKind.LOGIN_THROTTLED))
+
+    def backoff_waited_out() -> None:
+        db_session.refresh(credential)
+        credential.last_failed_at -= dt.timedelta(hours=1)
+        db_session.commit()
+
+    expected = [argon2.extract_parameters(credential.password_hash)]
+    # The account exists and the password is wrong: its own hash is verified.
+    assert work_of(anna["email"]) == expected
+    # No account at all: the dummy verify.
+    assert work_of("nobody@example.ch") == expected
+    # From the third failure on the account backs off: an attempt straight
+    # after one is refused before its own verify, so the dummy one runs.
+    backoff_waited_out()
+    _fail_patiently(client, db_session, anna, times=1)
+    assert work_of(anna["email"]) == expected  # the third failure, fresh
+    throttled_before = throttled_refusals()
+    assert work_of(anna["email"]) == expected
+    assert throttled_refusals() == throttled_before + 1
+    # Locked: the same.
+    backoff_waited_out()
+    _fail_patiently(client, db_session, anna, times=2)
+    db_session.refresh(credential)
+    assert credential.locked_until is not None
+    assert work_of(anna["email"]) == expected
 
 
 def test_five_failures_lock_the_credential_and_a_reset_clears_the_lock(client, login, mailbox, db_session):
